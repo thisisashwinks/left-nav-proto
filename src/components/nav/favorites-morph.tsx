@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { ChevronRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
@@ -50,7 +49,6 @@ interface DockButtonProps {
   left: number;
   top: number;
   showLabel: boolean;
-  onHoverChange: (hovered: boolean) => void;
   onClick?: () => void;
 }
 
@@ -68,7 +66,6 @@ function DockButton({
   left,
   top,
   showLabel,
-  onHoverChange,
   onClick,
 }: DockButtonProps) {
   return (
@@ -78,18 +75,14 @@ function DockButton({
       title={showLabel ? undefined : label}
       aria-label={label}
       onClick={onClick}
-      onPointerEnter={() => onHoverChange(true)}
-      onPointerLeave={() => onHoverChange(false)}
-      onFocus={() => onHoverChange(true)}
-      onBlur={() => onHoverChange(false)}
       // ::before widens the hit target to 30px without moving the icon.
-      className="motion-move group pointer-events-auto absolute size-[16px] text-nav-fg-muted before:absolute before:top-[-7px] before:left-[-7px] before:size-[30px] before:content-[''] hover:text-nav-fg focus-visible:text-nav-fg"
+      className="motion-move group/dock absolute size-[16px] text-nav-fg-muted before:absolute before:top-[-7px] before:left-[-7px] before:size-[30px] before:content-[''] hover:text-nav-fg focus-visible:text-nav-fg"
       style={{ left, top }}
     >
-      <span className="motion-tap relative block origin-bottom group-hover:-translate-y-[4px] group-hover:scale-125 group-focus-visible:-translate-y-[4px] group-focus-visible:scale-125">
+      <span className="motion-tap relative block origin-bottom group-hover/dock:-translate-y-[4px] group-hover/dock:scale-125 group-focus-visible/dock:-translate-y-[4px] group-focus-visible/dock:scale-125">
         <span
           aria-hidden="true"
-          className="motion-tap absolute top-[-6px] left-[-6px] size-[28px] rounded-full bg-nav-rail-hi opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
+          className="motion-tap absolute top-[-6px] left-[-6px] size-[28px] rounded-full bg-nav-rail-hi opacity-0 group-hover/dock:opacity-100 group-focus-visible/dock:opacity-100"
         />
         <Icon size={16} aria-hidden="true" className="relative" />
       </span>
@@ -97,7 +90,7 @@ function DockButton({
       {showLabel ? (
         <span
           aria-hidden="true"
-          className="motion-tap pointer-events-none absolute top-[18px] left-1/2 -translate-x-1/2 -translate-y-[2px] text-[8px] leading-none font-semibold tracking-[0.2px] whitespace-nowrap text-nav-fg-muted opacity-0 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100"
+          className="motion-tap pointer-events-none absolute top-[18px] left-1/2 -translate-x-1/2 -translate-y-[2px] text-[8px] leading-none font-semibold tracking-[0.2px] whitespace-nowrap text-nav-fg-muted opacity-0 group-hover/dock:translate-y-0 group-hover/dock:opacity-100 group-focus-visible/dock:translate-y-0 group-focus-visible/dock:opacity-100"
         >
           {label}
         </span>
@@ -130,84 +123,95 @@ export function FavoritesMorph({
   onSelect,
   onOpenFavorites,
 }: FavoritesMorphProps) {
-  // Hover is tracked in state rather than with a CSS group because the wrapper
-  // spans the whole nav — a group-hover would fire anywhere in it.
-  const [dockHovered, setDockHovered] = React.useState(false);
-
   const g = collapsed ? COLLAPSED : EXPANDED;
   const visible = items.slice(0, PINNED_VISIBLE);
   const navWidth = collapsed ? COLLAPSED_NAV_WIDTH : EXPANDED_NAV_WIDTH;
 
   /**
-   * On hover the pill stretches edge to edge and drops its radius, becoming a
-   * band. That is what gives the captions room — at rest the first caption
-   * would otherwise hang off the pill's left end.
+   * At rest the capsule is the design's pill; while the pointer is anywhere in
+   * the row it stretches edge to edge and drops its radius, becoming a band.
+   * That is what gives the captions room — at rest the first caption would
+   * otherwise hang off the pill's left end.
+   *
+   * Driven by CSS `:hover` on the row rather than React state: `:hover` matches
+   * ancestors of whatever is hovered, so moving between the row's dead space and
+   * an icon can never flicker the band, and there is no state to get stuck.
    */
-  const container = dockHovered
-    ? { left: 0, top: g.container.top, width: navWidth, height: g.container.height, radius: 0 }
-    : g.container;
+  const capsuleClass = collapsed
+    ? "left-[10px] w-[44px] rounded-[22px] group-hover/row:left-0 group-hover/row:w-[64px] group-hover/row:rounded-none"
+    : "left-[12px] w-[248px] rounded-[34px] group-hover/row:left-0 group-hover/row:w-[272px] group-hover/row:rounded-none";
+
+  /** Slot positions are wrapper-absolute; the row is the offset parent. */
+  const slotTop = (i: number) => g.slots[i].top - g.container.top;
+  const lastSlot = g.slots.length - 1;
 
   return (
     <div
       data-nav-theme={theme}
       className="pointer-events-none absolute inset-0 z-30"
     >
+      {/*
+        The whole row is the hover target, not each icon — the band should open
+        as soon as the pointer enters the section. It has to be the icons'
+        ancestor: as a sibling, moving onto an icon would make the row lose the
+        pointer and fire pointerleave, flickering the band shut.
+      */}
       <div
-        aria-hidden="true"
-        className="motion-move pointer-events-none absolute bg-nav-rail shadow-[inset_0_0_0_1px_var(--nav-rail-border)]"
+        className="motion-move group/row pointer-events-auto absolute"
         style={{
-          left: container.left,
-          top: container.top,
-          width: container.width,
-          height: container.height,
-          borderRadius: container.radius,
-        }}
-      />
-
-      {visible.map(({ id, label, icon }, i) => (
-        <DockButton
-          key={id}
-          label={label}
-          icon={icon}
-          left={g.slots[i].left}
-          top={g.slots[i].top}
-          showLabel={g.showLabels}
-          onHoverChange={setDockHovered}
-          onClick={() => onSelect?.(id)}
-        />
-      ))}
-
-      <button
-        type="button"
-        title="Show all pinned"
-        aria-label="Show all pinned"
-        onClick={onOpenFavorites}
-        onPointerEnter={() => setDockHovered(true)}
-        onPointerLeave={() => setDockHovered(false)}
-        className={cn(
-          "motion-move group pointer-events-auto absolute size-[16px] text-nav-fg-muted",
-          "before:absolute before:top-[-7px] before:left-[-7px] before:size-[30px] before:content-['']",
-          "hover:text-nav-fg",
-        )}
-        style={{
-          left: g.slots[g.slots.length - 1].left,
-          top: g.slots[g.slots.length - 1].top,
+          left: 0,
+          top: g.container.top,
+          width: navWidth,
+          height: g.container.height,
         }}
       >
-        {/*
-          The disc is a child rather than a sibling so it can darken with the
-          chevron. That also makes it concentric, 1px off the design's 227px.
-        */}
-        <span
+        <div
           aria-hidden="true"
-          className="motion-tap absolute top-[-4px] left-[-4px] size-[24px] rounded-full bg-nav-rail-hi group-hover:bg-nav-rail-disc"
+          className={cn(
+            "motion-move absolute inset-y-0 bg-nav-rail shadow-[inset_0_0_0_1px_var(--nav-rail-border)]",
+            capsuleClass,
+          )}
         />
-        <ChevronRight
-          size={16}
-          aria-hidden="true"
-          className="motion-tap relative group-hover:translate-x-[2px]"
-        />
-      </button>
+
+        {visible.map(({ id, label, icon }, i) => (
+          <DockButton
+            key={id}
+            label={label}
+            icon={icon}
+            left={g.slots[i].left}
+            top={slotTop(i)}
+            showLabel={g.showLabels}
+            onClick={() => onSelect?.(id)}
+          />
+        ))}
+
+        <button
+          type="button"
+          title="Show all pinned"
+          aria-label="Show all pinned"
+          onClick={onOpenFavorites}
+          className={cn(
+            "motion-move group/dock absolute size-[16px] text-nav-fg-muted",
+            "before:absolute before:top-[-7px] before:left-[-7px] before:size-[30px] before:content-['']",
+            "hover:text-nav-fg",
+          )}
+          style={{ left: g.slots[lastSlot].left, top: slotTop(lastSlot) }}
+        >
+          {/*
+            The disc is a child rather than a sibling so it can darken with the
+            chevron. That also makes it concentric, 1px off the design's 227px.
+          */}
+          <span
+            aria-hidden="true"
+            className="motion-tap absolute top-[-4px] left-[-4px] size-[24px] rounded-full bg-nav-rail-hi group-hover/dock:bg-nav-rail-disc"
+          />
+          <ChevronRight
+            size={16}
+            aria-hidden="true"
+            className="motion-tap relative group-hover/dock:translate-x-[2px]"
+          />
+        </button>
+      </div>
     </div>
   );
 }
