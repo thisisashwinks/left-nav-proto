@@ -1,6 +1,6 @@
 "use client";
 
-import { History } from "lucide-react";
+import { History, Search } from "lucide-react";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
@@ -22,8 +22,8 @@ interface CollapsedRailProps {
  * The 64px icon rail from the CollapsedRail component in left-nav.pen.
  *
  * Geometry: 64px wide, padded 12px 8px with 4px between children, a 30px logo
- * mark, the Search and Favourites capsules (44px wide, 22px radius, 40x30
- * slots), then 40x35 icon buttons separated by inset dividers.
+ * mark, a 38px search button, the pinned favourites capsule (44px wide, 22px
+ * radius, 40x30 slots), then 40x35 icon buttons separated by inset dividers.
  */
 export function CollapsedRail({
   theme,
@@ -98,10 +98,18 @@ export function CollapsedRail({
         <span className="text-[13px] leading-none font-bold text-nav">A</span>
       </div>
 
+      <button
+        type="button"
+        title="Search"
+        aria-label="Search"
+        className="motion-tap flex size-[38px] shrink-0 items-center justify-center rounded-[9px] text-nav-fg-subtle hover:scale-105 hover:bg-nav-hover hover:text-nav-fg-muted active:scale-95"
+      >
+        <Search size={16} aria-hidden="true" />
+      </button>
+
       {/*
-        Reserved space for the Search and Favourites capsules, which
-        FavoritesMorph renders outside both nav faces so they can travel
-        between the two layouts.
+        Reserved space for the pinned capsule, which FavoritesMorph renders
+        outside both nav faces so it can travel between the two layouts.
       */}
       <div
         aria-hidden="true"
