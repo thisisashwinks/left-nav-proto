@@ -1,33 +1,42 @@
 "use client";
 
 import * as React from "react";
-import { ArrowDown, ArrowUp, GripVertical, Search, X } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  GripVertical,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
-import {
-  catalogue,
-  catalogueGroups,
-  productById,
-  productsInGroup,
-} from "./catalogue";
+import { productById } from "./catalogue";
+import { GROUPING_LABELS, type ResolvedGroup } from "./grouping";
+import { nameForIcon } from "./icon-catalogue";
+import { IconPicker, useIconPicker } from "./icon-picker";
+import { InlineRename } from "./inline-rename";
 import { useNavLayout } from "./nav-layout-provider";
 import { PinButton } from "./pin-button";
+import { ResolvedIcon } from "./resolved-icon";
 
 /**
- * The grid launcher — Option C from the spec board.
+ * The grid launcher — Option C from the spec board, grown into the full manage
+ * surface.
  *
  * "Pinned first, then everything the account owns, each row pinning in place."
- * It is the manage surface, which is why there is no modal anywhere in this
- * flow: it reuses the 360px flyout shell the nav already has, so there is no new
- * surface to learn.
+ * There is still no modal anywhere in this flow: it reuses the 360px flyout shell
+ * the nav already has, so there is no new surface to learn, and every edit
+ * happens on the row it affects.
  *
- * Because pin toggles apply immediately and reordering happens here — on
- * full-width rows rather than 40px chips — the chip row's edit mode only ever
- * has to handle the visible few.
- *
- * A and B are views of this: hide the second section and it is B, filter to the
- * overflow and it is A.
+ * Why the heavy editing lives here rather than in the nav: these are full-width
+ * rows with room for a grip, two nudge buttons and a star, where the nav's rows
+ * are 40px chips. The nav gets renaming and icons — the edits that are about one
+ * row — and the launcher gets structure.
  */
 export function PinnedLauncher({
   offsetLeft,
@@ -46,9 +55,12 @@ export function PinnedLauncher({
   onPointerLeave?: () => void;
   onClose: () => void;
 }) {
-  const { state, movePin } = useNavLayout();
+  const layout = useNavLayout();
+  const { state, groups, can } = layout;
   const [query, setQuery] = React.useState("");
-  const [dragIndex, setDragIndex] = React.useState<number | null>(null);
+  const [renamingId, setRenamingId] = React.useState<string | null>(null);
+  const [creating, setCreating] = React.useState(false);
+  const picker = useIconPicker();
 
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -61,19 +73,29 @@ export function PinnedLauncher({
   const q = query.trim().toLowerCase();
   const matches = (label: string) => !q || label.toLowerCase().includes(q);
 
-  const pinnedProducts = state.pinned
-    .map(productById)
-    .filter((p): p is NonNullable<typeof p> => p !== undefined)
-    .filter((p) => matches(p.label));
+  const pinnedIds = state.pinned.filter(
+    (id) => productById(id) !== undefined && matches(layout.productLabelFor(id)),
+  );
 
   // Resolved up front so the "All products" heading knows whether anything
   // survives the filter before it commits to rendering.
-  const visibleGroups = catalogueGroups
+  const visibleGroups = groups
     .map((group) => ({
       group,
-      products: productsInGroup(group.id).filter((p) => matches(p.label)),
+      productIds: group.productIds.filter((id) =>
+        matches(layout.productLabelFor(id)),
+      ),
     }))
-    .filter(({ products }) => products.length > 0);
+    .filter(({ productIds }) => productIds.length > 0);
+
+  /**
+   * Reordering is off while a filter is applied. The nudge buttons and drops work
+   * on positions in the group, and a filtered list's positions are not the
+   * group's — "move down" would move the row past something it cannot see.
+   */
+  const reorderable = state.grouping === "custom" && can.customise && !q;
+
+  const pickerTarget = picker.targetId;
 
   return (
     <>
@@ -103,14 +125,23 @@ export function PinnedLauncher({
           <h2 className="text-[15px] leading-[normal] font-semibold whitespace-nowrap text-nav-fg">
             All products
           </h2>
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-            className="motion-tap flex size-[22px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle hover:bg-nav-hover hover:rotate-90 hover:text-nav-fg-muted"
-          >
-            <X size={15} aria-hidden="true" />
-          </button>
+          <div className="flex items-center gap-[6px]">
+            {/*
+              States which grouping is showing. The panel lists the same groups
+              as the nav, so without this it is not obvious why they changed.
+            */}
+            <span className="rounded-[5px] bg-nav-hover px-[6px] py-[3px] text-[10px] leading-none text-nav-fg-subtle">
+              {GROUPING_LABELS[state.grouping]}
+            </span>
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={onClose}
+              className="motion-tap flex size-[22px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle hover:rotate-90 hover:bg-nav-hover hover:text-nav-fg-muted"
+            >
+              <X size={15} aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
         {/* Same index the spotlight uses, so typing here and there agree. */}
@@ -126,56 +157,29 @@ export function PinnedLauncher({
           />
         </div>
 
-        {pinnedProducts.length > 0 ? (
+        {pinnedIds.length > 0 ? (
           <>
-            <SectionHeading count={state.pinned.length}>
-              Favorites
-            </SectionHeading>
-            {pinnedProducts.map((p) => {
-              const index = state.pinned.indexOf(p.id);
+            <SectionHeading count={state.pinned.length}>Favorites</SectionHeading>
+            {pinnedIds.map((id) => {
+              const index = state.pinned.indexOf(id);
               return (
-                <div
-                  key={p.id}
-                  draggable
-                  onDragStart={() => setDragIndex(index)}
-                  onDragEnd={() => setDragIndex(null)}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => {
-                    if (dragIndex !== null && dragIndex !== index) {
-                      movePin(dragIndex, index);
-                    }
-                    setDragIndex(null);
+                <ProductRow
+                  key={`pin-${id}`}
+                  productId={id}
+                  reorder={{
+                    onUp: () => layout.movePin(index, index - 1),
+                    onDown: () => layout.movePin(index, index + 1),
+                    upDisabled: index === 0,
+                    downDisabled: index === state.pinned.length - 1,
                   }}
-                  className={cn(
-                    "group/row motion-tap flex w-full shrink-0 items-center gap-[10px] rounded-[9px] px-[8px] py-[8px]",
-                    dragIndex === index ? "opacity-40" : "hover:bg-nav-hover",
-                  )}
-                >
-                  <GripVertical
-                    size={14}
-                    aria-hidden="true"
-                    className="shrink-0 cursor-grab text-nav-fg-subtle opacity-0 group-hover/row:opacity-100 active:cursor-grabbing"
-                  />
-                  <p.icon size={18} aria-hidden="true" className="shrink-0 text-nav-fg-muted" />
-                  <span className="flex-1 truncate text-[14px] leading-[normal] text-nav-fg">
-                    {p.label}
-                  </span>
-
-                  {/* Every drag has a click equivalent — a settled decision. */}
-                  <span className="flex shrink-0 items-center opacity-0 group-hover/row:opacity-100 focus-within:opacity-100">
-                    <MoveButton
-                      dir="up"
-                      disabled={index === 0}
-                      onClick={() => movePin(index, index - 1)}
-                    />
-                    <MoveButton
-                      dir="down"
-                      disabled={index === state.pinned.length - 1}
-                      onClick={() => movePin(index, index + 1)}
-                    />
-                  </span>
-                  <PinButton productId={p.id} />
-                </div>
+                  drag={{
+                    key: `pin:${index}`,
+                    onDrop: (from) => {
+                      const fromIndex = Number(from.split(":")[1]);
+                      if (!Number.isNaN(fromIndex)) layout.movePin(fromIndex, index);
+                    },
+                  }}
+                />
               );
             })}
           </>
@@ -195,42 +199,453 @@ export function PinnedLauncher({
           <SectionHeading divider>All products</SectionHeading>
         ) : null}
 
-        {visibleGroups.map(({ group, products }) => {
-          return (
-            <React.Fragment key={group.id}>
-              <SectionLabel>{group.defaultLabel}</SectionLabel>
-              {products.map((p) => (
-                <div
-                  key={p.id}
-                  className="group/row motion-tap flex w-full shrink-0 items-center gap-[10px] rounded-[9px] px-[8px] py-[8px] hover:bg-nav-hover"
-                >
-                  <p.icon size={18} aria-hidden="true" className="shrink-0 text-nav-fg-muted" />
-                  <span className="flex-1 truncate text-[14px] leading-[normal] text-nav-fg">
-                    {p.label}
-                  </span>
-                  <PinButton productId={p.id} />
-                </div>
-              ))}
-            </React.Fragment>
-          );
-        })}
+        {visibleGroups.map(({ group, productIds }, groupIndex) => (
+          <React.Fragment key={group.id}>
+            <GroupHeader
+              group={group}
+              index={groupIndex}
+              groupCount={groups.length}
+              renaming={renamingId === group.id}
+              onStartRename={() => setRenamingId(group.id)}
+              onEndRename={() => setRenamingId(null)}
+              onPickIcon={(el) => picker.open(group.id, el)}
+            />
+            {productIds.map((id, i) => (
+              <ProductRow
+                key={`${group.id}-${id}`}
+                productId={id}
+                renaming={renamingId === `${group.id}:${id}`}
+                onStartRename={() => setRenamingId(`${group.id}:${id}`)}
+                onEndRename={() => setRenamingId(null)}
+                onPickIcon={(el) => picker.open(id, el)}
+                {...(reorderable
+                  ? {
+                      reorder: {
+                        onUp: () => nudge(layout, groups, group, i, -1),
+                        onDown: () => nudge(layout, groups, group, i, 1),
+                        // Never disabled in custom mode: at a boundary the nudge
+                        // crosses into the neighbouring group instead of
+                        // stopping, which is what makes the whole list one axis.
+                        upDisabled: groupIndex === 0 && i === 0,
+                        downDisabled:
+                          groupIndex === groups.length - 1 &&
+                          i === productIds.length - 1,
+                      },
+                      drag: {
+                        key: `${group.id}:${i}`,
+                        onDrop: (from) => dropInto(layout, from, group, i),
+                      },
+                    }
+                  : {})}
+              />
+            ))}
+          </React.Fragment>
+        ))}
 
-        {q && pinnedProducts.length === 0 && catalogue.every((p) => !matches(p.label)) ? (
+        {q && pinnedIds.length === 0 && visibleGroups.length === 0 ? (
           <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
             No products match “{query}”
           </p>
         ) : null}
+
+        {can.customise && !q ? (
+          <div className="mt-[6px] w-full shrink-0 pt-[12px] shadow-[inset_0_1px_0_0_var(--nav-divider)]">
+            {creating ? (
+              <div className="flex w-full items-center gap-[10px] rounded-[9px] px-[8px] py-[8px]">
+                <Plus size={16} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
+                <InlineRename
+                  value=""
+                  ariaLabel="Name the new group"
+                  onCommit={(label) => {
+                    layout.createGroup(label);
+                    setCreating(false);
+                  }}
+                  onCancel={() => setCreating(false)}
+                  className="text-[14px] leading-[normal]"
+                />
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setCreating(true)}
+                className="motion-tap flex w-full items-center gap-[10px] rounded-[9px] px-[8px] py-[8px] text-left hover:bg-nav-hover"
+              >
+                <Plus size={16} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
+                <span className="text-[14px] leading-[normal] text-nav-fg-muted">
+                  New group
+                </span>
+                {state.grouping !== "custom" ? (
+                  <span className="ml-auto text-[11px] leading-none text-nav-fg-subtle">
+                    switches to custom
+                  </span>
+                ) : null}
+              </button>
+            )}
+          </div>
+        ) : null}
       </div>
+
+      {pickerTarget && picker.anchor ? (
+        <IconPicker
+          anchor={picker.anchor}
+          selected={nameForIcon(
+            groups.some((g) => g.id === pickerTarget)
+              ? layout.iconFor(pickerTarget)
+              : layout.productIconFor(pickerTarget),
+          )}
+          onPick={(iconName) => layout.setIcon(pickerTarget, iconName)}
+          {...(layout.hasIconOverride(pickerTarget)
+            ? { onReset: () => layout.resetIcon(pickerTarget) }
+            : {})}
+          onClose={picker.close}
+        />
+      ) : null}
     </>
+  );
+}
+
+/**
+ * Moves a product one step along the whole list, crossing group boundaries.
+ *
+ * The click equivalent of dragging, and the reason there is one: dragging across
+ * a scrolling 360px panel is the least reliable interaction in the whole surface,
+ * so nothing may depend on it. Stepping off the end of a group lands you at the
+ * near edge of the next, which is what the same drag would have done.
+ */
+function nudge(
+  layout: ReturnType<typeof useNavLayout>,
+  groups: ResolvedGroup[],
+  group: ResolvedGroup,
+  index: number,
+  dir: -1 | 1,
+) {
+  const productId = group.productIds[index];
+  if (!productId) return;
+  const next = index + dir;
+  if (next >= 0 && next < group.productIds.length) {
+    layout.moveProductWithinGroup(group.id, index, next);
+    return;
+  }
+  const groupIndex = groups.findIndex((g) => g.id === group.id);
+  const neighbour = groups[groupIndex + dir];
+  if (!neighbour) return;
+  layout.moveProductToGroup(
+    productId,
+    neighbour.id,
+    // Moving down enters the next group at the top; moving up enters the
+    // previous one at the bottom. Either way it stays adjacent to where it was.
+    dir === 1 ? 0 : neighbour.productIds.length,
+  );
+}
+
+/** Resolves a drop onto a row, whether it came from this group or another. */
+function dropInto(
+  layout: ReturnType<typeof useNavLayout>,
+  from: string,
+  group: ResolvedGroup,
+  index: number,
+) {
+  const [fromGroupId, fromIndexRaw] = from.split(":");
+  const fromIndex = Number(fromIndexRaw);
+  if (!fromGroupId || Number.isNaN(fromIndex)) return;
+  if (fromGroupId === group.id) {
+    layout.moveProductWithinGroup(group.id, fromIndex, index);
+    return;
+  }
+  const productId = layout.groups.find((g) => g.id === fromGroupId)?.productIds[
+    fromIndex
+  ];
+  if (productId) layout.moveProductToGroup(productId, group.id, index);
+}
+
+interface ReorderControls {
+  onUp: () => void;
+  onDown: () => void;
+  upDisabled: boolean;
+  downDisabled: boolean;
+}
+
+interface DragControls {
+  /** `groupId:index`, so a drop knows where the row came from. */
+  key: string;
+  onDrop: (fromKey: string) => void;
+}
+
+/**
+ * A group's heading, and everything you can do to the group itself.
+ *
+ * The icon is the picker's trigger, matching the nav — the thing you want to
+ * change is the thing you click, and a separate button next to it would be a
+ * second control for one property.
+ */
+function GroupHeader({
+  group,
+  index,
+  groupCount,
+  renaming,
+  onStartRename,
+  onEndRename,
+  onPickIcon,
+}: {
+  group: ResolvedGroup;
+  index: number;
+  groupCount: number;
+  renaming: boolean;
+  onStartRename: () => void;
+  onEndRename: () => void;
+  onPickIcon: (trigger: HTMLElement) => void;
+}) {
+  const layout = useNavLayout();
+  const { can } = layout;
+  const Icon = group.icon;
+  const renamed = layout.isRenamed(group.id);
+
+  return (
+    <div className="group/row flex w-full shrink-0 items-center gap-[8px] pt-[10px] pr-[2px] pb-[2px] pl-[2px]">
+      {can.regroup ? (
+        <button
+          type="button"
+          aria-label={`Change the ${group.label} icon`}
+          title="Change icon"
+          onClick={(e) => onPickIcon(e.currentTarget)}
+          className="motion-tap flex size-[18px] shrink-0 items-center justify-center rounded-[5px] text-nav-fg-subtle outline-[1px] outline-offset-0 outline-transparent group-hover/row:outline-dashed group-hover/row:outline-[var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg"
+        >
+          <Icon size={13} aria-hidden="true" />
+        </button>
+      ) : (
+        <Icon size={13} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
+      )}
+
+      {renaming ? (
+        <InlineRename
+          value={group.label}
+          ariaLabel={`Rename ${group.label}`}
+          onCommit={(next) => {
+            layout.setLabel(group.id, next);
+            onEndRename();
+          }}
+          onCancel={onEndRename}
+          className="text-[11px] leading-[13px] font-semibold tracking-[0.5px] uppercase"
+        />
+      ) : (
+        <span className="min-w-0 flex-1 truncate text-[11px] leading-[13px] font-semibold tracking-[0.5px] whitespace-nowrap text-nav-fg-subtle uppercase">
+          {group.label}
+        </span>
+      )}
+
+      {!renaming ? (
+        <span className="flex shrink-0 items-center gap-[1px] opacity-0 group-hover/row:opacity-100 focus-within:opacity-100">
+          <TinyButton label={`Rename ${group.label}`} onClick={onStartRename}>
+            <Pencil size={10} aria-hidden="true" />
+          </TinyButton>
+          {renamed ? (
+            <TinyButton
+              label={`Reset ${group.label} to the shipped name`}
+              onClick={() => layout.resetLabel(group.id)}
+            >
+              <RotateCcw size={10} aria-hidden="true" />
+            </TinyButton>
+          ) : null}
+          {can.regroup ? (
+            <>
+              <TinyButton
+                label={`Move ${group.label} up`}
+                disabled={index === 0}
+                onClick={() => layout.moveGroup(index, index - 1)}
+              >
+                <ArrowUp size={10} aria-hidden="true" />
+              </TinyButton>
+              <TinyButton
+                label={`Move ${group.label} down`}
+                disabled={index === groupCount - 1}
+                onClick={() => layout.moveGroup(index, index + 1)}
+              >
+                <ArrowDown size={10} aria-hidden="true" />
+              </TinyButton>
+            </>
+          ) : null}
+          {group.custom && can.customise ? (
+            <TinyButton
+              label={`Delete ${group.label}`}
+              onClick={() => layout.deleteGroup(group.id)}
+            >
+              <Trash2 size={10} aria-hidden="true" />
+            </TinyButton>
+          ) : null}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * One product, in Favorites or under a group.
+ *
+ * The same row either way, so a product looks like itself wherever it appears —
+ * only the reorder controls differ, because reordering means different things in
+ * the two places (your dock order vs. the nav's structure).
+ */
+function ProductRow({
+  productId,
+  renaming = false,
+  onStartRename,
+  onEndRename,
+  onPickIcon,
+  reorder,
+  drag,
+}: {
+  productId: string;
+  renaming?: boolean;
+  onStartRename?: () => void;
+  onEndRename?: () => void;
+  onPickIcon?: (trigger: HTMLElement) => void;
+  reorder?: ReorderControls;
+  drag?: DragControls;
+}) {
+  const layout = useNavLayout();
+  const { can } = layout;
+  const [dragging, setDragging] = React.useState(false);
+  const icon = layout.productIconFor(productId);
+  const label = layout.productLabelFor(productId);
+  const renamed = layout.isProductRenamed(productId);
+
+  return (
+    <div
+      {...(drag
+        ? {
+            draggable: true,
+            onDragStart: (e: React.DragEvent) => {
+              e.dataTransfer.setData("text/plain", drag.key);
+              e.dataTransfer.effectAllowed = "move";
+              setDragging(true);
+            },
+            onDragEnd: () => setDragging(false),
+            onDragOver: (e: React.DragEvent) => e.preventDefault(),
+            onDrop: (e: React.DragEvent) => {
+              e.preventDefault();
+              const from = e.dataTransfer.getData("text/plain");
+              setDragging(false);
+              if (from && from !== drag.key) drag.onDrop(from);
+            },
+          }
+        : {})}
+      className={cn(
+        "group/row motion-tap flex w-full shrink-0 items-center gap-[10px] rounded-[9px] px-[8px] py-[8px]",
+        dragging ? "opacity-40" : "hover:bg-nav-hover",
+      )}
+    >
+      {drag ? (
+        <GripVertical
+          size={14}
+          aria-hidden="true"
+          className="shrink-0 cursor-grab text-nav-fg-subtle opacity-0 group-hover/row:opacity-100 active:cursor-grabbing"
+        />
+      ) : null}
+
+      {onPickIcon && can.regroup ? (
+        <button
+          type="button"
+          aria-label={`Change the ${label} icon`}
+          title="Change icon"
+          onClick={(e) => onPickIcon(e.currentTarget)}
+          className="motion-tap flex size-[22px] shrink-0 items-center justify-center rounded-[5px] text-nav-fg-muted outline-[1px] outline-offset-0 outline-transparent group-hover/row:outline-dashed group-hover/row:outline-[var(--nav-divider)] hover:bg-nav-hover"
+        >
+          <ResolvedIcon icon={icon} size={18} />
+        </button>
+      ) : (
+        <ResolvedIcon icon={icon} size={18} className="text-nav-fg-muted" />
+      )}
+
+      {renaming && onEndRename ? (
+        <InlineRename
+          value={label}
+          ariaLabel={`Rename ${label}`}
+          onCommit={(next) => {
+            layout.setProductLabel(productId, next);
+            onEndRename();
+          }}
+          onCancel={onEndRename}
+          className="text-[14px] leading-[normal]"
+        />
+      ) : (
+        <span className="min-w-0 flex-1 truncate text-[14px] leading-[normal] text-nav-fg">
+          {label}
+        </span>
+      )}
+
+      {!renaming ? (
+        <span className="flex shrink-0 items-center gap-[1px] opacity-0 group-hover/row:opacity-100 focus-within:opacity-100">
+          {onStartRename ? (
+            <TinyButton label={`Rename ${label}`} onClick={onStartRename}>
+              <Pencil size={10} aria-hidden="true" />
+            </TinyButton>
+          ) : null}
+          {renamed && onStartRename ? (
+            <TinyButton
+              label={`Reset ${label} to the shipped name`}
+              onClick={() => layout.resetProductLabel(productId)}
+            >
+              <RotateCcw size={10} aria-hidden="true" />
+            </TinyButton>
+          ) : null}
+          {/* Every drag has a click equivalent — a settled decision. */}
+          {reorder ? (
+            <>
+              <TinyButton
+                label="Move up"
+                disabled={reorder.upDisabled}
+                onClick={reorder.onUp}
+              >
+                <ArrowUp size={10} aria-hidden="true" />
+              </TinyButton>
+              <TinyButton
+                label="Move down"
+                disabled={reorder.downDisabled}
+                onClick={reorder.onDown}
+              >
+                <ArrowDown size={10} aria-hidden="true" />
+              </TinyButton>
+            </>
+          ) : null}
+        </span>
+      ) : null}
+
+      {!renaming ? <PinButton productId={productId} /> : null}
+    </div>
+  );
+}
+
+function TinyButton({
+  label,
+  disabled = false,
+  onClick,
+  children,
+}: {
+  label: string;
+  disabled?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="motion-tap flex size-[19px] items-center justify-center rounded-[5px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg disabled:opacity-25"
+    >
+      {children}
+    </button>
   );
 }
 
 /**
  * A top-level section of the panel — Favorites, then All products.
  *
- * Heavier than SectionLabel on purpose: the group labels inside All products
- * (Engage, Convert, …) are subordinate to it, and two headings at the same
- * weight would read as a flat list of eight peers rather than two sections.
+ * Heavier than a group heading on purpose: the group labels inside All products
+ * are subordinate to it, and two headings at the same weight would read as a flat
+ * list of peers rather than two sections.
  */
 function SectionHeading({
   children,
@@ -259,38 +674,5 @@ function SectionHeading({
         </span>
       ) : null}
     </div>
-  );
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex w-full shrink-0 items-start pt-[6px] pr-[2px] pb-[2px] pl-[2px]">
-      <span className="text-[11px] leading-[13px] font-semibold tracking-[0.5px] whitespace-nowrap text-nav-fg-subtle uppercase">
-        {children}
-      </span>
-    </div>
-  );
-}
-
-function MoveButton({
-  dir,
-  disabled,
-  onClick,
-}: {
-  dir: "up" | "down";
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  const Icon = dir === "up" ? ArrowUp : ArrowDown;
-  return (
-    <button
-      type="button"
-      aria-label={dir === "up" ? "Move up" : "Move down"}
-      disabled={disabled}
-      onClick={onClick}
-      className="motion-tap flex size-[20px] items-center justify-center rounded-[5px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg disabled:opacity-30"
-    >
-      <Icon size={12} aria-hidden="true" />
-    </button>
   );
 }

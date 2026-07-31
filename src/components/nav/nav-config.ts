@@ -1,21 +1,16 @@
 import {
   Calendar,
-  ChartLine,
   CheckCheck,
   CreditCard,
   Ellipsis,
   GamepadDirectional,
   History,
   Mail,
-  Megaphone,
   MessageCircle,
-  MessagesSquare,
   Send,
   Settings,
-  Smartphone,
   Target,
   Users,
-  Workflow,
 } from "lucide-react";
 import type { NavConfig, NavItem } from "./types";
 
@@ -96,48 +91,6 @@ export const navConfig: NavConfig = {
     { id: "recent", label: "Recent", icon: History, hasFlyout: true, flyoutId: "recent" },
     aiAgents,
     quickActions,
-  ],
-  entries: [
-    {
-      kind: "item",
-      item: {
-        id: "engage",
-        label: "Engage",
-        icon: MessagesSquare,
-        hasFlyout: true,
-      },
-    },
-    {
-      kind: "item",
-      item: { id: "convert", label: "Convert", icon: Target, hasFlyout: true },
-    },
-    {
-      kind: "item",
-      item: { id: "market", label: "Market", icon: Megaphone, hasFlyout: true },
-    },
-    {
-      kind: "item",
-      item: {
-        id: "automate",
-        label: "Automate",
-        icon: Workflow,
-        hasFlyout: true,
-      },
-    },
-    {
-      kind: "item",
-      item: { id: "analyze", label: "Analyze", icon: ChartLine, hasFlyout: true },
-    },
-    { kind: "divider", id: "div-3" },
-    {
-      kind: "item",
-      item: { id: "mobile-app", label: "Mobile App", icon: Smartphone },
-    },
-    {
-      kind: "item",
-      item: { id: "payments-nav", label: "Payments", icon: CreditCard },
-    },
-    { kind: "divider", id: "div-4" },
   ],
   // Last row in the scroll region, so the nav's bottom edge is free for the AI
   // dock rather than being taken by a pinned Settings footer.

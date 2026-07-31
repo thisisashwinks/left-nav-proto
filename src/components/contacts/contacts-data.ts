@@ -58,7 +58,9 @@ export const smartLists: SmartList[] = [
 
 /** The 16 rows from the TableCard, verbatim. */
 export const contacts: Contact[] = [
-  { id: "jatin", name: "Jatin", handle: "@jatin", email: null, created: "Jul 28, 2026", lastActivity: "1 day ago", status: "inquiry", tone: "blue", selected: true },
+  // left-nav.pen draws this row selected to show the selection bar, but a fresh
+  // page load has nothing selected — the same reasoning as the nav's own rows.
+  { id: "jatin", name: "Jatin", handle: "@jatin", email: null, created: "Jul 28, 2026", lastActivity: "1 day ago", status: "inquiry", tone: "blue" },
   { id: "shivani", name: "Shivani", handle: "@shivani88426", email: null, created: "Jul 28, 2026", lastActivity: "2 days ago", status: "inquiry", tone: "pink" },
   { id: "tridev", name: "Tridev Singh", handle: "@tridevsingh", email: null, created: "Jul 28, 2026", lastActivity: "2 days ago", status: "inquiry", tone: "green" },
   { id: "pradeep", name: "Pradeep Kumar", handle: "@pradeep_k", email: null, created: "Jul 28, 2026", lastActivity: "2 days ago", status: "inquiry", tone: "orange" },

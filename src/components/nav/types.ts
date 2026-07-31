@@ -50,8 +50,10 @@ export interface NavConfig {
    * three recent rows — Recent collapses back to one icon that opens the panel.
    */
   railFixed: NavItem[];
-  /** The product groups and workspace links. Scrolls. */
-  entries: NavEntry[];
+  /**
+   * The scrolling middle — the product groups and workspace links — is derived
+   * from the active grouping mode rather than authored here. See nav-entries.ts.
+   */
   /** Last row in the scroll region, not a pinned footer. */
   settings: NavItem;
 }

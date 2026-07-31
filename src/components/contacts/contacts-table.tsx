@@ -92,7 +92,19 @@ export function ContactsTable({
   onToggleRow: (id: string) => void;
 }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-pg-surface">
+      {/*
+        The card's 1px ring, drawn as an overlay rather than on the card itself.
+        As an inset shadow on the container it was painted over: the header row
+        and every body row carry their own background, so they covered the ring
+        along the top, left, right and bottom edges and it only survived in the
+        gaps. An overlay paints above the rows and costs no layout, which a real
+        CSS border would (it would add 2px and shift every measured cell).
+      */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-10 rounded-[10px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]"
+      />
       <div
         role="row"
         className="flex h-[38px] shrink-0 items-center bg-pg-surface shadow-[inset_0_-1px_0_0_var(--pg-head-border)]"
@@ -122,7 +134,9 @@ export function ContactsTable({
               key={c.id}
               role="row"
               className={cn(
-                "group flex h-[44px] cursor-pointer items-center shadow-[inset_0_-1px_0_0_var(--pg-row-border)]",
+                // The last row drops its divider: against the card's rounded
+                // bottom it read as a line floating short of both corners.
+                "group flex h-[44px] cursor-pointer items-center shadow-[inset_0_-1px_0_0_var(--pg-row-border)] last:shadow-none",
                 "motion-tap",
                 c.selected
                   ? "bg-pg-row-selected"

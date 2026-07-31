@@ -23,11 +23,159 @@ import {
   type TuningKnob,
 } from "@/design/tuning";
 import { useTheme } from "@/components/theme/theme-provider";
+import { catalogue } from "@/components/nav/catalogue";
+import {
+  densityFor,
+  GROUPING_BLURBS,
+  GROUPING_LABELS,
+  GROUPING_MODES,
+  NAV_ROLES,
+  ROLE_LABELS,
+  type Density,
+  type NavRole,
+} from "@/components/nav/grouping";
+import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { cn } from "@/lib/utils";
 import { useTuning } from "./tuning-provider";
 
-/** Section order in the panel. The two theme sections lead, knobs follow. */
-const SECTIONS = ["Theme", "Search", ...TUNING_GROUPS] as const;
+const DENSITY_NOTE: Record<Density, string> = {
+  flat: "a flat list, no groups",
+  mixed: "a mix of flat rows and groups",
+  grouped: "the full grouped treatment",
+};
+
+const ROLE_NOTE: Record<NavRole, string> = {
+  user: "Pins, their order, and labels only this user sees. No structure.",
+  admin: "Also grouping, group order, icons, and names for the sub-account.",
+  agency: "Also custom groups, and names that every sub-account inherits.",
+};
+
+/**
+ * Grouping, permissions and edit mode.
+ *
+ * These are the switches a review actually argues about, so they sit above the
+ * pixel knobs: the point of the section is to change the nav's model live rather
+ * than describe four screenshots.
+ */
+function NavStructureSection({
+  open,
+  onToggle,
+}: {
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const layout = useNavLayout();
+  const { state, can } = layout;
+  const density = densityFor(catalogue.length);
+
+  const changed =
+    (state.grouping === "product" ? 0 : 1) +
+    (layout.isDefaultLayout ? 0 : 1) +
+    (state.editing ? 1 : 0);
+
+  return (
+    <Section
+      id="Nav structure"
+      open={open}
+      onToggle={onToggle}
+      changedCount={layout.isDefaultLayout && !state.editing ? 0 : changed}
+      onReset={layout.resetLayout}
+    >
+      <Segmented
+        label="Grouping"
+        options={GROUPING_MODES}
+        value={state.grouping}
+        onChange={layout.setGrouping}
+        format={(v) => GROUPING_LABELS[v]}
+      />
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        {GROUPING_BLURBS[state.grouping]}
+      </p>
+
+      <Segmented
+        label="Editing as"
+        options={NAV_ROLES}
+        value={state.role}
+        onChange={layout.setRole}
+        format={(v) => ROLE_LABELS[v]}
+      />
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        {ROLE_NOTE[state.role]}
+      </p>
+
+      <Segmented
+        label="Renames apply to"
+        options={["account", "agency"] as const}
+        value={can.writeAgencyScope ? state.labelScope : "account"}
+        onChange={layout.setLabelScope}
+        format={(v) => (v === "account" ? "This account" : "Every account")}
+      />
+      {!can.writeAgencyScope ? (
+        <p className="text-[10px] leading-[14px] text-pg-faint">
+          Only the agency can rename for every account, so this stays on “this
+          account”.
+        </p>
+      ) : null}
+
+      <Toggle
+        label="Edit mode in the nav"
+        checked={state.editing}
+        disabled={!can.regroup && !can.renameForSelf}
+        onChange={layout.setEditing}
+      />
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        Hover a group row in the nav to rename it or change its icon. Structure —
+        new groups, reordering, moving products — lives in the grid launcher.
+      </p>
+
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        Density is computed, not chosen: {catalogue.length} products means{" "}
+        {DENSITY_NOTE[density]}.
+      </p>
+    </Section>
+  );
+}
+
+function Toggle({
+  label,
+  checked,
+  disabled = false,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className="motion-tap flex items-center justify-between gap-2 disabled:opacity-40"
+    >
+      <span className="text-[11px] leading-none text-pg-muted">{label}</span>
+      <span
+        className={cn(
+          "relative h-[16px] w-[28px] shrink-0 rounded-full transition-colors duration-150",
+          checked ? "bg-brand" : "bg-pg-border",
+        )}
+      >
+        <span
+          className={cn(
+            "absolute top-[2px] size-[12px] rounded-full bg-white transition-[left] duration-150",
+            checked ? "left-[14px]" : "left-[2px]",
+          )}
+        />
+      </span>
+    </button>
+  );
+}
+
+/** Section order in the panel. The theme, search and nav sections lead. */
+const SECTIONS = ["Theme", "Search", "Nav structure", ...TUNING_GROUPS] as const;
 
 type SectionId = (typeof SECTIONS)[number];
 
@@ -371,6 +519,11 @@ export function TuningPanel() {
             onChange={(v: SurfaceTheme) => setAppTheme(v)}
           />
         </Section>
+
+        <NavStructureSection
+          open={openSections.includes("Nav structure")}
+          onToggle={() => toggleSection("Nav structure")}
+        />
 
         <Section
           id="Search"

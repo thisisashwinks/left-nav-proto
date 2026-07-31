@@ -12,6 +12,7 @@ import { CollapsedRail } from "@/components/nav/collapsed-rail";
 import { FavoritesMorph } from "@/components/nav/favorites-morph";
 import { LeftNav } from "@/components/nav/left-nav";
 import { productById } from "@/components/nav/catalogue";
+import { flyoutForGroup } from "@/components/nav/group-flyout";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { PinnedLauncher } from "@/components/nav/pinned-launcher";
 import { UndoToast } from "@/components/nav/undo-toast";
@@ -77,7 +78,25 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [switcherOpen, setSwitcherOpen] = React.useState(false);
-  const { state: layout } = useNavLayout();
+  const {
+    state: layout,
+    groups,
+    productLabelFor,
+    productIconFor,
+  } = useNavLayout();
+
+  /*
+   * The panel behind each group row. Built here rather than looked up in the
+   * authored registry because three of the four grouping modes have no authored
+   * panels — a job group or a group the user just made needs one generated from
+   * the catalogue. Memoised because useExitTransition compares by identity, and a
+   * fresh object every render would read as a new flyout on every render.
+   */
+  const groupFlyouts = React.useMemo(
+    () =>
+      new Map(groups.map((group) => [group.id, flyoutForGroup(layout, group)])),
+    [layout, groups],
+  );
 
   /*
    * Which sub-account the session is in, plus its recents and favourites. Owned
@@ -125,15 +144,26 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    */
   const aiSession = useAiSession();
 
-  /** The chip row is a window onto the ordered pin list, so it takes the head. */
+  /**
+   * The chip row is a window onto the ordered pin list, so it takes the head.
+   * Labels and icons come from the store's resolvers, not the raw catalogue, so a
+   * renamed product's dock caption matches its nav row.
+   */
   const pinnedItems = layout.pinned
-    .map(productById)
-    .filter((p): p is NonNullable<typeof p> => p !== undefined)
-    .map((p) => ({ id: p.id, label: p.label, icon: p.icon }));
+    .filter((id) => productById(id) !== undefined)
+    .map((id) => ({
+      id,
+      label: productLabelFor(id),
+      icon: productIconFor(id),
+    }));
   const overflowCount = Math.max(0, layout.pinned.length - PINNED_VISIBLE);
 
   const navWidth = collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
-  const requested = intent.activeId ? (flyouts[intent.activeId] ?? null) : null;
+  // Group panels win over the authored registry: a renamed Engage has to open a
+  // panel titled with its new name, and the registry still holds the old one.
+  const requested = intent.activeId
+    ? (groupFlyouts.get(intent.activeId) ?? flyouts[intent.activeId] ?? null)
+    : null;
   const flyout = useExitTransition(requested, FLYOUT_EXIT_MS);
   // A bare `true` rather than the session object: useExitTransition compares
   // by identity, and the session is rebuilt on every render.

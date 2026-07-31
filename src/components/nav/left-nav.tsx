@@ -1,15 +1,19 @@
 "use client";
 
+import * as React from "react";
 import type { Account } from "@/components/accounts/accounts-data";
 import { AiDock } from "@/components/ai/ai-dock";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import type { SurfaceTheme } from "@/design/theme";
 import { CollapseToggle } from "./collapse-toggle";
 import { EXPANDED_PINNED_BLOCK } from "./favorites-morph";
+import { IconPicker, useIconPicker } from "./icon-picker";
+import { navEntriesFor } from "./nav-entries";
 import { flyoutIdFor, navConfig } from "./nav-config";
 import { NavDivider } from "./nav-divider";
 import { NavHeader } from "./nav-header";
 import { NavItemRow } from "./nav-item-row";
+import { useNavRowEdit } from "./use-nav-row-edit";
 import { NavSectionLabel } from "./nav-section-label";
 import type { NavConfig, NavEntry, NavItem } from "./types";
 
@@ -42,9 +46,13 @@ interface LeftNavProps {
  *
  * Restructured from "Screen A · Nav open + Contacts" per the nav review: the
  * standing entry points (Recent, AI Agents, Quick Actions) sit in a fixed
- * cluster under the favourites dock so they never scroll away, the five product
+ * cluster under the favourites dock so they never scroll away, the product
  * groups and workspace links scroll below, and Settings is the last scrollable
  * row rather than a pinned footer — which frees the bottom edge for the AI dock.
+ *
+ * The middle block is derived from the active grouping mode rather than authored,
+ * so switching between product groups, jobs, a flat list and the user's own
+ * groups changes what the nav contains without changing how it is drawn.
  *
  * Row geometry is unchanged from the design: 272px wide, 1px right border, rows
  * padded 9px/8px with 2px between them.
@@ -66,8 +74,16 @@ export function LeftNav({
   onToggleSwitcher,
   aiSession,
 }: LeftNavProps) {
+  const picker = useIconPicker();
+  const { state, groups, editFor, pickerProps } = useNavRowEdit(picker);
+  const entries = React.useMemo(
+    () => navEntriesFor(state, groups),
+    [state, groups],
+  );
+
   const renderRow = (item: NavItem) => {
     const flyoutId = flyoutIdFor(item);
+    const edit = editFor(item.id);
     return (
       <NavItemRow
         key={item.id}
@@ -82,6 +98,7 @@ export function LeftNav({
           if (item.hasFlyout) onPinFlyout(flyoutId);
         }}
         onHover={item.hasFlyout ? () => onHoverFlyout(flyoutId) : undefined}
+        {...(edit ? { edit } : {})}
       />
     );
   };
@@ -139,7 +156,7 @@ export function LeftNav({
         data-cursor="menu"
         className="flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto px-[10px] pb-[2px]"
       >
-        {config.entries.map(renderEntry)}
+        {entries.map(renderEntry)}
         {renderRow(config.settings)}
       </div>
 
@@ -152,6 +169,8 @@ export function LeftNav({
         <AiDock collapsed={false} session={aiSession} />
         <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
       </div>
+
+      {pickerProps ? <IconPicker {...pickerProps} /> : null}
     </nav>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { Search } from "lucide-react";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import type { Account } from "@/components/accounts/accounts-data";
@@ -10,6 +11,7 @@ import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import { CollapseToggle } from "./collapse-toggle";
 import { collapsedPinnedBlock, PINNED_VISIBLE } from "./favorites-morph";
+import { navEntriesFor } from "./nav-entries";
 import { useNavLayout } from "./nav-layout-provider";
 import { flyoutIdFor, navConfig } from "./nav-config";
 import { RailTooltip } from "./rail-tooltip";
@@ -65,9 +67,16 @@ export function CollapsedRail({
   // The capsule hugs its contents when collapsed, so the hole left for it has to
   // match. Read from the same store the capsule does rather than take a prop, so
   // the two can never disagree.
-  const { state: layout } = useNavLayout();
+  const { state: layout, groups } = useNavLayout();
   const pinnedBlock = collapsedPinnedBlock(
     Math.min(layout.pinned.length, PINNED_VISIBLE) + 1,
+  );
+  // Same derivation as the expanded nav, so the two faces always hold the same
+  // rows. Editing is not offered here — there is no visible label to rename, so
+  // the rail shows the result of an edit rather than being a place to make one.
+  const entries = React.useMemo(
+    () => navEntriesFor(layout, groups),
+    [layout, groups],
   );
 
   const railButton = (
@@ -223,7 +232,7 @@ export function CollapsedRail({
         data-cursor="menu"
         className="flex w-full flex-1 flex-col items-center gap-[calc(var(--t-nav-space,2px)+2px)] overflow-y-auto"
       >
-        {config.entries.map((entry) =>
+        {entries.map((entry) =>
           entry.kind === "item" ? (
             renderRailRow(entry.item)
           ) : entry.kind === "divider" ? (
