@@ -12,6 +12,7 @@ import { navConfig } from "@/components/nav/nav-config";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { useExitTransition } from "@/lib/use-exit-transition";
+import { useFlyoutIntent } from "@/lib/use-flyout-intent";
 
 /** Nav widths from left-nav.pen; the flyout docks against whichever is showing. */
 const EXPANDED_WIDTH = 272;
@@ -19,6 +20,13 @@ const COLLAPSED_WIDTH = 64;
 
 /** Must match --dur-fast, which drives the panel's exit animation. */
 const FLYOUT_EXIT_MS = 140;
+
+/**
+ * How long the panel survives the pointer leaving. Long enough to cross the
+ * seam between a trigger and the panel, or between two triggers, without the
+ * panel closing and reopening.
+ */
+const FLYOUT_HOVER_GRACE_MS = 180;
 
 /**
  * Screen A's frame: the nav on the left and, to its right, the app bar stacked
@@ -34,23 +42,18 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const { navTheme, headerTheme } = useTheme();
   const [collapsed, setCollapsed] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
-  const [openFlyoutId, setOpenFlyoutId] = React.useState<string | null>(null);
+  const intent = useFlyoutIntent(FLYOUT_HOVER_GRACE_MS);
 
   const navWidth = collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
-  const requested = openFlyoutId ? (flyouts[openFlyoutId] ?? null) : null;
+  const requested = intent.activeId ? (flyouts[intent.activeId] ?? null) : null;
   const flyout = useExitTransition(requested, FLYOUT_EXIT_MS);
-
-  // Clicking the row that is already open closes it, which is what makes the
-  // nav rows feel like toggles rather than one-way triggers.
-  const toggleFlyout = (id: string) =>
-    setOpenFlyoutId((current) => (current === id ? null : id));
-
-  const closeFlyout = () => setOpenFlyoutId(null);
 
   return (
     <div className="relative flex min-h-0 flex-1 overflow-hidden bg-app">
       <div
         style={{ width: navWidth }}
+        onPointerLeave={intent.scheduleClear}
+        onPointerEnter={intent.cancelClear}
         className="relative z-20 h-full shrink-0 overflow-hidden motion-move"
       >
         {/*
@@ -61,7 +64,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           theme={navTheme}
           items={navConfig.pinned}
           collapsed={collapsed}
-          onOpenFavorites={() => toggleFlyout("favorites")}
+          onOpenFavorites={() => intent.togglePin("favorites")}
         />
 
         <div
@@ -78,8 +81,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             theme={navTheme}
             selectedId={selectedId}
             onSelect={setSelectedId}
-            openFlyoutId={openFlyoutId}
-            onOpenFlyout={toggleFlyout}
+            openFlyoutId={intent.activeId}
+            pinnedFlyoutId={intent.pinnedId}
+            onHoverFlyout={intent.hover}
+            onPinFlyout={intent.togglePin}
           />
         </div>
 
@@ -97,8 +102,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             theme={navTheme}
             selectedId={selectedId}
             onSelect={setSelectedId}
-            openFlyoutId={openFlyoutId}
-            onOpenFlyout={toggleFlyout}
+            openFlyoutId={intent.activeId}
+            pinnedFlyoutId={intent.pinnedId}
+            onHoverFlyout={intent.hover}
+            onPinFlyout={intent.togglePin}
           />
         </div>
       </div>
@@ -119,20 +126,27 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             type="button"
             aria-label="Close menu"
             tabIndex={-1}
-            onClick={closeFlyout}
+            onClick={intent.close}
             style={{ left: navWidth }}
             className={cn(
               "absolute top-0 right-0 bottom-0 z-10 cursor-default motion-move",
               flyout.phase === "entering" ? "opacity-100" : "opacity-0",
             )}
           />
+          {/*
+            Deliberately unkeyed. Keying by id remounted the panel when moving
+            from one trigger to the next, which replayed the entrance from
+            opacity 0 and let the page flash through underneath. Unkeyed, the
+            panel persists and only its rows re-enter.
+          */}
           <FlyoutPanel
-            key={flyout.value.id}
             config={flyout.value}
             offsetLeft={navWidth}
             theme={navTheme}
             phase={flyout.phase}
-            onClose={closeFlyout}
+            onPointerEnter={intent.cancelClear}
+            onPointerLeave={intent.scheduleClear}
+            onClose={intent.close}
           />
         </>
       ) : null}

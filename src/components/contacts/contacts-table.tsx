@@ -122,7 +122,7 @@ export function ContactsTable({
               key={c.id}
               role="row"
               className={cn(
-                "group flex h-[44px] items-center shadow-[inset_0_-1px_0_0_var(--pg-row-border)]",
+                "group flex h-[44px] cursor-pointer items-center shadow-[inset_0_-1px_0_0_var(--pg-row-border)]",
                 "motion-tap",
                 c.selected
                   ? "bg-pg-row-selected"

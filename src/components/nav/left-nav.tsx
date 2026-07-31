@@ -16,8 +16,12 @@ interface LeftNavProps {
   /** Row the user has selected. Null on first load — nothing is preselected. */
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /** Flyout currently showing — hovered if any, else pinned. */
   openFlyoutId: string | null;
-  onOpenFlyout: (flyoutId: string) => void;
+  /** Flyout pinned by a click. Survives the pointer leaving. */
+  pinnedFlyoutId: string | null;
+  onHoverFlyout: (flyoutId: string) => void;
+  onPinFlyout: (flyoutId: string) => void;
 }
 
 /**
@@ -33,7 +37,9 @@ export function LeftNav({
   selectedId,
   onSelect,
   openFlyoutId,
-  onOpenFlyout,
+  pinnedFlyoutId,
+  onHoverFlyout,
+  onPinFlyout,
 }: LeftNavProps) {
   return (
     <nav
@@ -56,7 +62,10 @@ export function LeftNav({
         style={{ height: EXPANDED_PINNED_BLOCK }}
       />
 
-      <div className="flex w-full flex-1 flex-col items-start gap-[2px] overflow-y-auto px-[10px] py-[2px]">
+      <div
+        data-cursor="menu"
+        className="flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto px-[10px] py-[2px]"
+      >
         {config.entries.map((entry) => {
           if (entry.kind === "label") {
             return <NavSectionLabel key={entry.id} text={entry.text} />;
@@ -73,12 +82,14 @@ export function LeftNav({
               item={item}
               active={
                 item.id === selectedId ||
-                (item.hasFlyout === true && flyoutId === openFlyoutId)
+                (item.hasFlyout === true &&
+                  (flyoutId === openFlyoutId || flyoutId === pinnedFlyoutId))
               }
               onSelect={() => {
                 onSelect(item.id);
-                if (item.hasFlyout) onOpenFlyout(flyoutId);
+                if (item.hasFlyout) onPinFlyout(flyoutId);
               }}
+              onHover={item.hasFlyout ? () => onHoverFlyout(flyoutId) : undefined}
             />
           );
         })}

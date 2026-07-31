@@ -18,6 +18,8 @@
   --dur-fast: 140ms;
   --dur-base: 220ms;
   --dur-slow: 300ms;
+  /* Dock lift — long enough to read as movement, short enough to feel direct. */
+  --dur-dock: 260ms;
 
   /* Per-row delay for staggered lists. */
   --stagger-step: 16ms;
@@ -112,6 +114,18 @@
   transition-duration: var(--dur-press);
 }
 
+/*
+ * The dock lift. Slower than motion-tap and slightly overshooting, so the icon
+ * settles rather than snapping — at 140ms linear-out it read as instantaneous.
+ */
+.motion-dock {
+  transition-property:
+    color, background-color, box-shadow, opacity, transform, translate, scale,
+    rotate;
+  transition-duration: var(--dur-dock);
+  transition-timing-function: var(--ease-overshoot);
+}
+
 /* ─── Utilities ──────────────────────────────────────────────────────────── */
 
 .motion-panel-in {
@@ -147,6 +161,7 @@
     --dur-fast: 1ms;
     --dur-base: 1ms;
     --dur-slow: 1ms;
+    --dur-dock: 1ms;
     --stagger-step: 0ms;
   }
 

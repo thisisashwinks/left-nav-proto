@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+import { TuningPanel } from "@/components/tuning/tuning-panel";
+import { TuningProvider } from "@/components/tuning/tuning-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DEFAULT_THEME } from "@/design/theme";
 import "./globals.css";
@@ -36,7 +38,10 @@ export default function RootLayout({
     >
       <body className="flex h-full flex-col bg-app text-app-fg">
         <ThemeProvider>
-          <TooltipProvider>{children}</TooltipProvider>
+          <TuningProvider>
+            <TooltipProvider>{children}</TooltipProvider>
+            <TuningPanel />
+          </TuningProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -16,6 +16,9 @@ interface FlyoutPanelProps {
   offsetLeft: number;
   theme: SurfaceTheme;
   phase: TransitionPhase;
+  /** Keeps the panel alive while the pointer is inside it. */
+  onPointerEnter?: () => void;
+  onPointerLeave?: () => void;
   onClose: () => void;
 }
 
@@ -36,6 +39,8 @@ export function FlyoutPanel({
   offsetLeft,
   theme,
   phase,
+  onPointerEnter,
+  onPointerLeave,
   onClose,
 }: FlyoutPanelProps) {
   const [activeId, setActiveId] = React.useState<string | null>(null);
@@ -58,10 +63,13 @@ export function FlyoutPanel({
       data-nav-theme={theme}
       role="dialog"
       aria-label={config.title}
+      data-cursor="menu"
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
       tabIndex={-1}
       style={{ left: offsetLeft }}
       className={cn(
-        "absolute top-0 bottom-0 z-30 flex w-[360px] flex-col items-start gap-[10px] overflow-y-auto bg-nav pt-[14px] pr-[14px] pb-[16px] pl-[14px] shadow-[8px_0_24px_0_var(--fly-shadow),inset_-1px_0_0_0_var(--fly-border)] outline-none",
+        "absolute top-0 bottom-0 z-30 flex w-[360px] flex-col items-start gap-[var(--t-fly-block-gap,10px)] overflow-y-auto bg-nav pt-[14px] pr-[14px] pb-[16px] pl-[14px] shadow-[8px_0_24px_0_var(--fly-shadow),inset_-1px_0_0_0_var(--fly-border)] outline-none",
         // `left` animates too, so the panel follows the nav edge when the rail
         // collapses underneath an open panel instead of jumping.
         "motion-move",
@@ -128,7 +136,7 @@ export function FlyoutPanel({
         </div>
       ) : null}
 
-      <div className="w-full flex-1" />
+      <div data-cursor="inert" className="w-full flex-1" />
 
       {/* The bottom slot lands last, after the list has settled. */}
       {config.bottom ? (

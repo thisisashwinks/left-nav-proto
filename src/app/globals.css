@@ -237,8 +237,20 @@
     cursor: grabbing;
   }
 
-  /* Text selection inside a row shouldn't look like a click target. */
-  [role="row"] {
+  /*
+   * Menu lists carry the pointer on the container, not just on their rows.
+   * The design puts 2px between nav rows and 10px between flyout blocks, and
+   * without this the cursor drops back to an arrow every time it crosses one —
+   * which reads as the pointer flickering on and off as you sweep a menu.
+   */
+  [data-cursor="menu"],
+  [data-cursor="menu"] * {
+    cursor: pointer;
+  }
+
+  /* Genuinely dead space inside such a container opts back out. */
+  [data-cursor="inert"],
+  [data-cursor="inert"] * {
     cursor: default;
   }
 }

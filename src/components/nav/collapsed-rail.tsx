@@ -14,8 +14,12 @@ interface CollapsedRailProps {
   /** Row the user has selected. Shared with the expanded nav. */
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /** Flyout currently showing — hovered if any, else pinned. */
   openFlyoutId: string | null;
-  onOpenFlyout: (id: string) => void;
+  /** Flyout pinned by a click. Survives the pointer leaving. */
+  pinnedFlyoutId: string | null;
+  onHoverFlyout: (id: string) => void;
+  onPinFlyout: (id: string) => void;
 }
 
 /**
@@ -31,7 +35,9 @@ export function CollapsedRail({
   selectedId,
   onSelect,
   openFlyoutId,
-  onOpenFlyout,
+  pinnedFlyoutId,
+  onHoverFlyout,
+  onPinFlyout,
 }: CollapsedRailProps) {
   const railButton = (
     id: string,
@@ -39,6 +45,7 @@ export function CollapsedRail({
     content: React.ReactNode,
     active: boolean,
     onClick: () => void,
+    onHover?: () => void,
   ) => (
     <button
       key={id}
@@ -47,6 +54,8 @@ export function CollapsedRail({
       aria-label={label}
       aria-current={active ? "page" : undefined}
       onClick={onClick}
+      onPointerEnter={onHover}
+      onFocus={onHover}
       className={cn(
         "flex h-[35px] w-[40px] shrink-0 items-center justify-center rounded-[7px]",
         "motion-tap hover:scale-105 active:scale-95 motion-press",
@@ -84,6 +93,7 @@ export function CollapsedRail({
     <nav
       data-nav-theme={theme}
       aria-label="Main"
+      data-cursor="menu"
       // Bottom padding is 3px, not the design's 12px, on purpose: the Pencil
       // file puts the Settings icon at y-centre 910.5 here but 920 in the
       // expanded footer, so collapsing made the icon hop 9.5px. Holding the
@@ -121,8 +131,9 @@ export function CollapsedRail({
         "recent",
         "Recent",
         <History size={16} aria-hidden="true" />,
-        openFlyoutId === "recent",
-        () => onOpenFlyout("recent"),
+        openFlyoutId === "recent" || pinnedFlyoutId === "recent",
+        () => onPinFlyout("recent"),
+        () => onHoverFlyout("recent"),
       )}
 
       {grouped.map((group, gi) => (
@@ -139,11 +150,13 @@ export function CollapsedRail({
                 <i.icon size={16} aria-hidden="true" />
               ) : null,
               i.id === selectedId ||
-                (i.hasFlyout === true && flyoutId === openFlyoutId),
+                (i.hasFlyout === true &&
+                  (flyoutId === openFlyoutId || flyoutId === pinnedFlyoutId)),
               () => {
                 onSelect(i.id);
-                if (i.hasFlyout) onOpenFlyout(flyoutId);
+                if (i.hasFlyout) onPinFlyout(flyoutId);
               },
+              i.hasFlyout ? () => onHoverFlyout(flyoutId) : undefined,
             );
           })}
         </div>

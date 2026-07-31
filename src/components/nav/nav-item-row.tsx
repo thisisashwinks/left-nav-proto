@@ -9,6 +9,8 @@ interface NavItemRowProps {
   item: NavItem;
   active?: boolean;
   onSelect?: () => void;
+  /** Pointer entered — used to preview this row's flyout. */
+  onHover?: () => void;
 }
 
 /**
@@ -17,7 +19,12 @@ interface NavItemRowProps {
  *   default  padding 9px 8px   (everything else)
  *   gap 10px, radius 7px, 16px leading icon, 15px trailing chevron
  */
-export function NavItemRow({ item, active = false, onSelect }: NavItemRowProps) {
+export function NavItemRow({
+  item,
+  active = false,
+  onSelect,
+  onHover,
+}: NavItemRowProps) {
   const Icon = item.icon;
   const compact = item.density === "compact";
 
@@ -26,10 +33,16 @@ export function NavItemRow({ item, active = false, onSelect }: NavItemRowProps) 
       type="button"
       aria-current={active ? "page" : undefined}
       onClick={onSelect}
+      onPointerEnter={onHover}
+      onFocus={onHover}
       className={cn(
-        "group flex w-full shrink-0 items-center gap-[10px] rounded-[7px] px-[8px] text-left",
+        "group flex w-full shrink-0 items-center text-left",
+        "gap-[var(--t-nav-gap,10px)] rounded-[var(--t-nav-radius,7px)] px-[var(--t-nav-px,8px)]",
         "motion-tap",
-        compact ? "py-[6px]" : "py-[9px]",
+        // Compact rows keep their tighter padding proportionally.
+        compact
+          ? "py-[calc(var(--t-nav-py,9px)*0.667)]"
+          : "py-[var(--t-nav-py,9px)]",
         active ? "bg-nav-hover" : "hover:bg-nav-hover active:bg-nav-active",
         "active:scale-[0.99] motion-press",
       )}
@@ -40,6 +53,7 @@ export function NavItemRow({ item, active = false, onSelect }: NavItemRowProps) 
         <Icon
           size={16}
           aria-hidden="true"
+          style={{ width: "var(--t-nav-icon, 16px)", height: "var(--t-nav-icon, 16px)" }}
           className={cn(
             "shrink-0 motion-tap group-hover:scale-110",
             active ? "text-nav-fg" : "text-nav-fg-muted group-hover:text-nav-fg",
@@ -49,7 +63,7 @@ export function NavItemRow({ item, active = false, onSelect }: NavItemRowProps) 
 
       <span
         className={cn(
-          "text-[14px] leading-[normal]",
+          "text-[length:var(--t-nav-font,14px)] leading-[normal]",
           item.hasFlyout ? "flex-1" : "whitespace-nowrap",
           item.ai ? "text-nav-ai-fg" : "text-nav-fg",
         )}

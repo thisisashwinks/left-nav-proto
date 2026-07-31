@@ -79,18 +79,23 @@ function DockButton({
       className="motion-move group/dock absolute size-[16px] text-nav-fg-muted before:absolute before:top-[-7px] before:left-[-7px] before:size-[30px] before:content-[''] hover:text-nav-fg focus-visible:text-nav-fg"
       style={{ left, top }}
     >
-      <span className="motion-tap relative block origin-bottom group-hover/dock:-translate-y-[4px] group-hover/dock:scale-125 group-focus-visible/dock:-translate-y-[4px] group-focus-visible/dock:scale-125">
+      <span className="motion-dock relative block origin-bottom group-hover/dock:-translate-y-[var(--t-dock-lift,5px)] group-hover/dock:scale-[var(--t-dock-scale,1.25)] group-focus-visible/dock:-translate-y-[var(--t-dock-lift,5px)] group-focus-visible/dock:scale-[var(--t-dock-scale,1.25)]">
         <span
           aria-hidden="true"
-          className="motion-tap absolute top-[-6px] left-[-6px] size-[28px] rounded-full bg-nav-rail-hi opacity-0 group-hover/dock:opacity-100 group-focus-visible/dock:opacity-100"
+          className="motion-dock absolute top-[-6px] left-[-6px] size-[28px] rounded-full bg-nav-rail-hi opacity-0 group-hover/dock:opacity-100 group-focus-visible/dock:opacity-100"
         />
-        <Icon size={16} aria-hidden="true" className="relative" />
+        <Icon
+          size={16}
+          aria-hidden="true"
+          className="relative"
+          style={{ width: "var(--t-dock-icon, 16px)", height: "var(--t-dock-icon, 16px)" }}
+        />
       </span>
 
       {showLabel ? (
         <span
           aria-hidden="true"
-          className="motion-tap pointer-events-none absolute top-[18px] left-1/2 -translate-x-1/2 -translate-y-[2px] text-[8px] leading-none font-semibold tracking-[0.2px] whitespace-nowrap text-nav-fg-muted opacity-0 group-hover/dock:translate-y-0 group-hover/dock:opacity-100 group-focus-visible/dock:translate-y-0 group-focus-visible/dock:opacity-100"
+          className="motion-dock pointer-events-none absolute top-[var(--t-dock-label-top,16px)] left-1/2 -translate-x-1/2 -translate-y-[3px] text-[length:var(--t-dock-label,8px)] leading-none font-semibold tracking-[0.2px] whitespace-nowrap text-nav-fg-muted opacity-0 group-hover/dock:translate-y-0 group-hover/dock:opacity-100 group-focus-visible/dock:translate-y-0 group-focus-visible/dock:opacity-100"
         >
           {label}
         </span>

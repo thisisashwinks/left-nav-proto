@@ -18,20 +18,20 @@ const BADGE_TONE: Record<FlyoutBadgeTone, string> = {
  */
 const VARIANT = {
   product: {
-    row: "gap-[10px] px-[8px] py-[9px] items-start",
+    row: "gap-[var(--t-fly-gap,10px)] px-[8px] py-[var(--t-fly-py,9px)] items-start",
     iconBox: "w-[24px] h-[22px]",
     iconSize: 20,
     text: "gap-[2px]",
     title: "font-semibold whitespace-nowrap",
-    desc: "text-[12.5px] leading-[17px] w-full",
+    desc: "text-[length:var(--t-fly-desc,12.5px)] leading-[17px] w-full",
   },
   compact: {
-    row: "gap-[11px] px-[8px] py-[9px] items-center",
+    row: "gap-[calc(var(--t-fly-gap,10px)+1px)] px-[8px] py-[var(--t-fly-py,9px)] items-center",
     iconBox: "w-[24px] h-[22px]",
     iconSize: 19,
     text: "gap-[1px]",
     title: "font-semibold whitespace-nowrap",
-    desc: "text-[12.5px] leading-[normal] whitespace-nowrap",
+    desc: "text-[length:var(--t-fly-desc,12.5px)] leading-[normal] whitespace-nowrap",
   },
   recent: {
     row: "gap-[11px] p-[8px] items-center",
@@ -42,12 +42,12 @@ const VARIANT = {
     desc: "text-[12px] leading-[normal] whitespace-nowrap",
   },
   action: {
-    row: "gap-[10px] px-[8px] py-[9px] items-center",
+    row: "gap-[var(--t-fly-gap,10px)] px-[8px] py-[var(--t-fly-py,9px)] items-center",
     iconBox: "w-[24px] h-[22px]",
     iconSize: 20,
     text: "gap-[2px]",
     title: "font-semibold whitespace-nowrap",
-    desc: "text-[12.5px] leading-[17px] w-full",
+    desc: "text-[length:var(--t-fly-desc,12.5px)] leading-[17px] w-full",
   },
 } as const satisfies Record<FlyoutItemVariant, unknown>;
 
@@ -79,6 +79,9 @@ export function FlyoutRow({
       className={cn(
         "motion-row-in group flex w-full shrink-0 rounded-[9px] text-left",
         "motion-tap",
+        // v.row carries the per-variant gap, padding and alignment. Losing it
+        // is what collapsed every flyout row's breathing room.
+        v.row,
         active ? "bg-nav-hover" : "hover:bg-nav-hover",
         "active:scale-[0.99] motion-press",
       )}
@@ -100,14 +103,24 @@ export function FlyoutRow({
         {item.ai ? (
           <NavAiSparkle />
         ) : Icon ? (
-          <Icon size={v.iconSize} aria-hidden="true" />
+          <Icon
+            size={v.iconSize}
+            aria-hidden="true"
+            style={{
+              width: "var(--t-fly-icon, 20px)",
+              height: "var(--t-fly-icon, 20px)",
+            }}
+          />
         ) : null}
       </div>
 
       <div className={cn("flex h-fit flex-1 flex-col items-start", v.text)}>
         <div className="flex w-full shrink-0 items-center gap-[7px]">
           <span
-            className={cn("text-[14px] leading-[normal] text-nav-fg", v.title)}
+            className={cn(
+              "text-[length:var(--t-fly-title,14px)] leading-[normal] text-nav-fg",
+              v.title,
+            )}
           >
             {item.label}
           </span>
