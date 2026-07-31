@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
+import { ThemeProvider } from "@/components/theme/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { DEFAULT_THEME } from "@/design/theme";
 import "./globals.css";
 
 const inter = Inter({
@@ -26,10 +28,16 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      // Rendered here so the first paint already has the right tokens;
+      // ThemeProvider keeps these in sync when the theme changes at runtime.
+      data-accent={DEFAULT_THEME.accent}
+      data-app-theme={DEFAULT_THEME.appTheme}
       className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
-        <TooltipProvider>{children}</TooltipProvider>
+      <body className="flex h-full flex-col bg-app text-app-fg">
+        <ThemeProvider>
+          <TooltipProvider>{children}</TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

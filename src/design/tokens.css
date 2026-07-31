@@ -1,0 +1,256 @@
+/*
+ * Design tokens for the left nav prototype.
+ *
+ * Four layers, in order:
+ *   1. HighRise palette   — raw scales, never referenced directly by components.
+ *   2. Brand / accent     — swappable via [data-accent] on <html>.
+ *   3. Nav surface        — swappable via [data-nav-theme] on the nav element,
+ *                           so the nav can be dark while the app stays light.
+ *   4. Header surface     — swappable via [data-header-theme].
+ *
+ * Components only ever read layers 2-4. That is what makes recolouring and
+ * dark-nav-on-light-app possible without touching component code.
+ *
+ * Palette values are taken verbatim from
+ * https://highrise.gohighlevel.com/components/colors
+ */
+
+/* ─── Layer 1: HighRise palette ─────────────────────────────────────────── */
+
+:root {
+  --hr-base-white: #ffffff;
+  --hr-base-black: #000000;
+
+  --hr-primary-25: #f5f8ff;
+  --hr-primary-50: #eff4ff;
+  --hr-primary-100: #d1e0ff;
+  --hr-primary-200: #b2ccff;
+  --hr-primary-300: #84adff;
+  --hr-primary-400: #528bff;
+  --hr-primary-500: #2970ff;
+  --hr-primary-600: #155eef;
+  --hr-primary-700: #004eeb;
+  --hr-primary-800: #0040c1;
+  --hr-primary-900: #00359e;
+
+  --hr-gray-25: #fcfcfd;
+  --hr-gray-50: #f9fafb;
+  --hr-gray-100: #f2f4f7;
+  --hr-gray-200: #eaecf0;
+  --hr-gray-300: #d0d5dd;
+  --hr-gray-400: #98a2b3;
+  --hr-gray-500: #667085;
+  --hr-gray-600: #475467;
+  --hr-gray-700: #344054;
+  --hr-gray-800: #1d2939;
+  --hr-gray-900: #101828;
+
+  --hr-blue-25: #f5faff;
+  --hr-blue-50: #eff8ff;
+  --hr-blue-100: #d1e9ff;
+  --hr-blue-200: #b2ddff;
+  --hr-blue-300: #84caff;
+  --hr-blue-400: #53b1fd;
+  --hr-blue-500: #2e90fa;
+  --hr-blue-600: #1570ef;
+  --hr-blue-700: #175cd3;
+  --hr-blue-800: #1849a9;
+  --hr-blue-900: #194185;
+
+  --hr-blue-light-25: #f5fbff;
+  --hr-blue-light-50: #f0f9ff;
+  --hr-blue-light-100: #e0f2fe;
+  --hr-blue-light-200: #b9e6fe;
+  --hr-blue-light-300: #7cd4fd;
+  --hr-blue-light-400: #36bffa;
+  --hr-blue-light-500: #0ba5ec;
+  --hr-blue-light-600: #0086c9;
+  --hr-blue-light-700: #026aa2;
+  --hr-blue-light-800: #065986;
+  --hr-blue-light-900: #0b4a6f;
+
+  --hr-success-25: #f6fef9;
+  --hr-success-50: #ecfdf3;
+  --hr-success-100: #d1fadf;
+  --hr-success-200: #a6f4c5;
+  --hr-success-300: #6ce9a6;
+  --hr-success-400: #32d583;
+  --hr-success-500: #12b76a;
+  --hr-success-600: #039855;
+  --hr-success-700: #027a48;
+  --hr-success-800: #05603a;
+  --hr-success-900: #054f31;
+
+  --hr-warning-25: #fffcf5;
+  --hr-warning-50: #fffaeb;
+  --hr-warning-100: #fef0c7;
+  --hr-warning-200: #fedf89;
+  --hr-warning-300: #fec84b;
+  --hr-warning-400: #fdb022;
+  --hr-warning-500: #f79009;
+  --hr-warning-600: #dc6803;
+  --hr-warning-700: #b54708;
+  --hr-warning-800: #93370d;
+  --hr-warning-900: #7a2e0e;
+
+  --hr-error-25: #fffbfa;
+  --hr-error-50: #fef3f2;
+  --hr-error-100: #fee4e2;
+  --hr-error-200: #fecdca;
+  --hr-error-300: #fda29b;
+  --hr-error-400: #f97066;
+  --hr-error-500: #f04438;
+  --hr-error-600: #d92d20;
+  --hr-error-700: #b42318;
+  --hr-error-800: #912018;
+  --hr-error-900: #7a271a;
+}
+
+/* ─── Layer 2: brand / accent ───────────────────────────────────────────── */
+
+/*
+ * Named `--brand-*` rather than `--accent-*` on purpose: shadcn already owns
+ * `--accent` as a neutral hover surface, and reusing it would silently
+ * repaint every shadcn component.
+ */
+
+:root,
+:root[data-accent="highrise"] {
+  --brand-soft: var(--hr-primary-50);
+  --brand-soft-2: var(--hr-primary-100);
+  --brand: var(--hr-primary-600);
+  --brand-strong: var(--hr-primary-700);
+  --brand-fg: var(--hr-base-white);
+}
+
+/* The exact blue used in the Pencil file, for pixel diffing against it. */
+:root[data-accent="pencil-blue"] {
+  --brand-soft: #eff6ff;
+  --brand-soft-2: #dbeafe;
+  --brand: #2563eb;
+  --brand-strong: #1d4ed8;
+  --brand-fg: #ffffff;
+}
+
+:root[data-accent="blue"] {
+  --brand-soft: var(--hr-blue-50);
+  --brand-soft-2: var(--hr-blue-100);
+  --brand: var(--hr-blue-600);
+  --brand-strong: var(--hr-blue-700);
+  --brand-fg: var(--hr-base-white);
+}
+
+:root[data-accent="blue-light"] {
+  --brand-soft: var(--hr-blue-light-50);
+  --brand-soft-2: var(--hr-blue-light-100);
+  --brand: var(--hr-blue-light-600);
+  --brand-strong: var(--hr-blue-light-700);
+  --brand-fg: var(--hr-base-white);
+}
+
+:root[data-accent="success"] {
+  --brand-soft: var(--hr-success-50);
+  --brand-soft-2: var(--hr-success-100);
+  --brand: var(--hr-success-600);
+  --brand-strong: var(--hr-success-700);
+  --brand-fg: var(--hr-base-white);
+}
+
+:root[data-accent="warning"] {
+  --brand-soft: var(--hr-warning-50);
+  --brand-soft-2: var(--hr-warning-100);
+  --brand: var(--hr-warning-600);
+  --brand-strong: var(--hr-warning-700);
+  --brand-fg: var(--hr-base-white);
+}
+
+:root[data-accent="error"] {
+  --brand-soft: var(--hr-error-50);
+  --brand-soft-2: var(--hr-error-100);
+  --brand: var(--hr-error-600);
+  --brand-strong: var(--hr-error-700);
+  --brand-fg: var(--hr-base-white);
+}
+
+/* ─── Layer 3: nav surface ──────────────────────────────────────────────── */
+
+/*
+ * Light values are the resolved values from the Pencil file's light theme
+ * (`l-*` / `st-*` variables). Dark values are its dark theme.
+ */
+
+[data-nav-theme="light"] {
+  --nav-bg: #ffffff;
+  --nav-border: #ececef;
+  --nav-divider: #ececef;
+  --nav-fg: #18181b;
+  --nav-fg-muted: #5b5b66;
+  --nav-fg-subtle: #9a9aa6;
+  --nav-hover: #f5f5f7;
+  --nav-active: #f0f0f3;
+  --nav-rail-bg: #f7f9fa;
+  --nav-rail-border: #e4e6eb;
+  --nav-rail-hi: #f2f3f5;
+  --nav-ai-icon: #6837f0;
+  --nav-ai-fg: #5925db;
+}
+
+[data-nav-theme="dark"] {
+  --nav-bg: #0f0f12;
+  --nav-border: #26262c;
+  --nav-divider: #26262c;
+  --nav-fg: #f2f2f5;
+  --nav-fg-muted: #a1a1ac;
+  --nav-fg-subtle: #71717a;
+  --nav-hover: #1e1e24;
+  --nav-active: #24242c;
+  --nav-rail-bg: #17171b;
+  --nav-rail-border: #2b2b33;
+  --nav-rail-hi: #24242c;
+  --nav-ai-icon: #a78bfa;
+  --nav-ai-fg: #c4b5fd;
+}
+
+/* ─── Layer 4: header surface ───────────────────────────────────────────── */
+
+[data-header-theme="light"] {
+  --hdr-bg: #ffffff;
+  --hdr-border: #e9eaec;
+  --hdr-fg: #374151;
+  --hdr-fg-muted: #5b6472;
+  --hdr-chip-bg: #eff1f4;
+  --hdr-icon-neutral-bg: #ededed;
+  --hdr-act-call: #16a34a;
+  --hdr-act-ai: #7c3aed;
+  --hdr-act-launch: #ea580c;
+  --hdr-act-alert: #dc2626;
+  --hdr-avatar-bg: #4b5563;
+}
+
+[data-header-theme="dark"] {
+  --hdr-bg: #17171b;
+  --hdr-border: #26262c;
+  --hdr-fg: #d4d4d8;
+  --hdr-fg-muted: #a1a1ac;
+  --hdr-chip-bg: #24242c;
+  --hdr-icon-neutral-bg: #2e2e36;
+  --hdr-act-call: #16a34a;
+  --hdr-act-ai: #7c3aed;
+  --hdr-act-launch: #ea580c;
+  --hdr-act-alert: #dc2626;
+  --hdr-avatar-bg: #52525b;
+}
+
+/* ─── App canvas ────────────────────────────────────────────────────────── */
+
+[data-app-theme="light"] {
+  --app-bg: #f7f8fa;
+  --app-fg: var(--hr-gray-900);
+  --app-fg-muted: var(--hr-gray-500);
+}
+
+[data-app-theme="dark"] {
+  --app-bg: #0b0b0e;
+  --app-fg: var(--hr-gray-50);
+  --app-fg-muted: var(--hr-gray-400);
+}
