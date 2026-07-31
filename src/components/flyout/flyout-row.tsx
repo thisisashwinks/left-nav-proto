@@ -1,8 +1,15 @@
 "use client";
 
+import type * as React from "react";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import { cn } from "@/lib/utils";
-import type { FlyoutItem, FlyoutItemVariant } from "./types";
+import type { FlyoutBadgeTone, FlyoutItem, FlyoutItemVariant } from "./types";
+
+/** Same gradient angle and stops in both tones; only the ramp differs. */
+const BADGE_TONE: Record<FlyoutBadgeTone, string> = {
+  new: "bg-[linear-gradient(-53.271deg,var(--fly-badge-from)_20.741%,var(--fly-badge-to)_61.206%)] text-fly-badge-fg",
+  beta: "bg-[linear-gradient(-53.271deg,var(--fly-badge-beta-from)_20.741%,var(--fly-badge-beta-to)_61.206%)] text-fly-badge-beta-fg",
+};
 
 /**
  * Per-variant geometry, read off the Pencil export. The differences are small
@@ -48,6 +55,8 @@ interface FlyoutRowProps {
   item: FlyoutItem;
   variant: FlyoutItemVariant;
   active?: boolean;
+  /** Position in the stagger sequence when the panel opens. */
+  rowIndex?: number;
   onSelect?: (id: string) => void;
 }
 
@@ -55,6 +64,7 @@ export function FlyoutRow({
   item,
   variant,
   active = false,
+  rowIndex = 0,
   onSelect,
 }: FlyoutRowProps) {
   const v = VARIANT[variant];
@@ -65,15 +75,20 @@ export function FlyoutRow({
       type="button"
       aria-current={active ? "true" : undefined}
       onClick={() => onSelect?.(item.id)}
+      style={{ "--row-index": rowIndex } as React.CSSProperties}
       className={cn(
-        "group flex w-full shrink-0 rounded-[9px] text-left",
-        v.row,
+        "motion-row-in group flex w-full shrink-0 rounded-[9px] text-left",
+        "motion-tap",
         active ? "bg-nav-hover" : "hover:bg-nav-hover",
+        "active:scale-[0.99] motion-press",
       )}
     >
       <div
         className={cn(
           "flex shrink-0 items-center justify-center",
+          // The icon leans in a touch on hover — enough to feel responsive
+          // without shifting the text beside it.
+          "motion-tap group-hover:scale-110",
           v.iconBox,
           active
             ? "text-nav-fg"
@@ -97,8 +112,13 @@ export function FlyoutRow({
             {item.label}
           </span>
           {item.badge ? (
-            <span className="shrink-0 rounded-[2px] bg-[linear-gradient(-53.271deg,var(--fly-badge-from)_20.741%,var(--fly-badge-to)_61.206%)] px-[4px] py-[2px] text-[10px] leading-[normal] font-semibold whitespace-nowrap text-fly-badge-fg shadow-[0_2px_4px_0_#00000014]">
-              {item.badge}
+            <span
+              className={cn(
+                "shrink-0 rounded-[2px] px-[4px] py-[2px] text-[10px] leading-[normal] font-semibold whitespace-nowrap shadow-[0_2px_4px_0_#00000014]",
+                BADGE_TONE[item.badge.tone],
+              )}
+            >
+              {item.badge.label}
             </span>
           ) : null}
         </div>

@@ -1,12 +1,12 @@
 "use client";
 
 import type { SurfaceTheme } from "@/design/theme";
-import { flyoutIdFor, navConfig, RECENT_LABEL_ID } from "./nav-config";
+import { flyoutIdFor, navConfig } from "./nav-config";
 import { NavDivider } from "./nav-divider";
 import { NavHeader } from "./nav-header";
 import { NavItemRow } from "./nav-item-row";
 import { NavSectionLabel } from "./nav-section-label";
-import { PinnedRail } from "./pinned-rail";
+import { EXPANDED_PINNED_BLOCK } from "./favorites-morph";
 import type { NavConfig } from "./types";
 
 interface LeftNavProps {
@@ -46,25 +46,20 @@ export function LeftNav({
     >
       <NavHeader logoSrc={config.logoSrc} logoAlt={config.logoAlt} />
 
-      <PinnedRail
-        items={config.pinned}
-        onExpand={() => onOpenFlyout("favorites")}
+      {/*
+        The pinned capsule itself is rendered by FavoritesMorph, outside both nav
+        faces, so it can travel between the two layouts. This reserves its space.
+      */}
+      <div
+        aria-hidden="true"
+        className="w-full shrink-0"
+        style={{ height: EXPANDED_PINNED_BLOCK }}
       />
 
       <div className="flex w-full flex-1 flex-col items-start gap-[2px] overflow-y-auto px-[10px] py-[2px]">
         {config.entries.map((entry) => {
           if (entry.kind === "label") {
-            return (
-              <NavSectionLabel
-                key={entry.id}
-                text={entry.text}
-                onOpen={
-                  entry.id === RECENT_LABEL_ID
-                    ? () => onOpenFlyout("recent")
-                    : undefined
-                }
-              />
-            );
+            return <NavSectionLabel key={entry.id} text={entry.text} />;
           }
           if (entry.kind === "divider") {
             return <NavDivider key={entry.id} />;

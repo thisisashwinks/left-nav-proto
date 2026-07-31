@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "../design/tokens.css";
+@import "../design/motion.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -40,6 +41,7 @@
   --color-fly-promo-icon: var(--fly-promo-icon);
   --color-fly-promo-body: var(--fly-promo-body);
   --color-fly-badge-fg: var(--fly-badge-fg);
+  --color-fly-badge-beta-fg: var(--fly-badge-beta-fg);
   --color-fly-tile: var(--fly-tile-bg);
 
   --color-hdr: var(--hdr-bg);
@@ -197,5 +199,46 @@
   }
   html {
     @apply font-sans;
+  }
+
+  /*
+   * Tailwind v4's Preflight sets `cursor: default` on buttons to match the HTML
+   * spec, which leaves every control in the app showing an arrow. Put the
+   * pointer back on things that are actually actionable, and be explicit about
+   * the states that should read differently.
+   */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  a[href],
+  label[for],
+  select:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea {
+    cursor: text;
+  }
+
+  /* Anything the user can pick up. Nothing is draggable yet — this is here so
+     the grabbing state is already correct when pinned reordering lands. */
+  [draggable="true"] {
+    cursor: grab;
+  }
+
+  [draggable="true"]:active {
+    cursor: grabbing;
+  }
+
+  /* Text selection inside a row shouldn't look like a click target. */
+  [role="row"] {
+    cursor: default;
   }
 }

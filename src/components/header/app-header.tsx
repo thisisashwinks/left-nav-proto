@@ -50,6 +50,7 @@ export function AppHeader({ theme, config = headerConfig }: AppHeaderProps) {
               onClick={() => setActiveTabId(tab.id)}
               className={cn(
                 "flex h-full shrink-0 items-center px-[2px] text-[14px] leading-[normal] whitespace-nowrap",
+                "motion-tap",
                 active
                   ? "font-semibold text-brand shadow-[inset_0_-2px_0_0_var(--brand)]"
                   : "text-hdr-fg hover:shadow-[inset_0_-2px_0_0_var(--hdr-border)]",
@@ -64,7 +65,7 @@ export function AppHeader({ theme, config = headerConfig }: AppHeaderProps) {
       <div className="flex shrink-0 items-center gap-[12px]">
         <button
           type="button"
-          className="flex shrink-0 items-center gap-[6px] rounded-full bg-hdr-chip px-[10px] py-[5px]"
+          className="group flex shrink-0 items-center gap-[6px] rounded-full bg-hdr-chip px-[10px] py-[5px] motion-tap hover:brightness-95 active:scale-95"
         >
           <Megaphone size={13} aria-hidden="true" className="shrink-0 text-hdr-fg-muted" />
           <span className="text-[12px] leading-[normal] whitespace-nowrap text-hdr-fg-muted">
@@ -74,7 +75,7 @@ export function AppHeader({ theme, config = headerConfig }: AppHeaderProps) {
 
         <button
           type="button"
-          className="flex shrink-0 items-center rounded-full bg-brand px-[10px] py-[5px]"
+          className="flex shrink-0 items-center rounded-full bg-brand px-[10px] py-[5px] motion-tap hover:brightness-110 active:scale-95"
         >
           <span className="text-[12px] leading-[normal] whitespace-nowrap text-brand-fg">
             {config.updatesLabel}
@@ -90,6 +91,7 @@ export function AppHeader({ theme, config = headerConfig }: AppHeaderProps) {
               aria-label={action.label}
               className={cn(
                 "flex size-[26px] shrink-0 items-center justify-center rounded-full",
+                "motion-tap hover:scale-110 hover:shadow-[0_2px_8px_0_rgba(15,23,42,0.2)] active:scale-95 motion-press",
                 TONE_CLASSES[action.tone],
               )}
             >
@@ -105,7 +107,7 @@ export function AppHeader({ theme, config = headerConfig }: AppHeaderProps) {
             type="button"
             title="Account"
             aria-label="Account"
-            className="flex size-[26px] shrink-0 items-center justify-center rounded-full bg-hdr-avatar"
+            className="flex size-[26px] shrink-0 items-center justify-center rounded-full bg-hdr-avatar motion-tap hover:scale-110 active:scale-95"
           >
             <span className="text-[11px] leading-[normal] font-semibold text-white">
               {config.avatarInitials}

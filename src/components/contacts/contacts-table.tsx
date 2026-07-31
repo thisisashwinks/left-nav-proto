@@ -37,9 +37,10 @@ function Checkbox({ checked }: { checked: boolean }) {
     <span
       className={cn(
         "flex size-[17px] shrink-0 items-center justify-center rounded-[5px] border-[1.5px]",
+        "motion-tap",
         checked
           ? "border-brand bg-brand text-white"
-          : "border-pg-disabled bg-pg-surface",
+          : "border-pg-disabled bg-pg-surface group-hover:border-pg-muted",
       )}
     >
       {checked ? <Check size={12} aria-hidden="true" /> : null}
@@ -60,7 +61,7 @@ function HeadCell({
     <div
       style={width ? { width } : undefined}
       className={cn(
-        "flex h-full items-center gap-[6px] px-[16px]",
+        "group/head flex h-full items-center gap-[6px] px-[16px]",
         width ? "shrink-0" : "flex-1",
       )}
     >
@@ -71,7 +72,7 @@ function HeadCell({
         <ChevronsUpDown
           size={13}
           aria-hidden="true"
-          className="shrink-0 text-pg-disabled"
+          className="shrink-0 text-pg-disabled motion-tap group-hover/head:text-pg-muted"
         />
       ) : null}
     </div>
@@ -121,8 +122,11 @@ export function ContactsTable({
               key={c.id}
               role="row"
               className={cn(
-                "flex h-[44px] items-center shadow-[inset_0_-1px_0_0_var(--pg-row-border)]",
-                c.selected ? "bg-pg-row-selected" : "bg-pg-surface",
+                "group flex h-[44px] items-center shadow-[inset_0_-1px_0_0_var(--pg-row-border)]",
+                "motion-tap",
+                c.selected
+                  ? "bg-pg-row-selected"
+                  : "bg-pg-surface hover:bg-pg-row-border/60",
               )}
             >
               <div
@@ -134,6 +138,7 @@ export function ContactsTable({
                   aria-label={`Select ${c.name}`}
                   aria-pressed={!!c.selected}
                   onClick={() => onToggleRow(c.id)}
+                  className="transition-transform motion-press active:scale-90"
                 >
                   <Checkbox checked={!!c.selected} />
                 </button>
@@ -144,6 +149,7 @@ export function ContactsTable({
                   aria-hidden="true"
                   className={cn(
                     "flex size-[26px] shrink-0 items-center justify-center rounded-full text-[11px] leading-[normal] font-semibold",
+                    "motion-tap group-hover:scale-110",
                     TONE_STYLE[c.tone],
                   )}
                 >
@@ -223,7 +229,7 @@ export function ContactsTable({
                 <button
                   type="button"
                   aria-label={`Actions for ${c.name}`}
-                  className="text-pg-disabled hover:text-pg-muted"
+                  className="text-pg-disabled opacity-0 motion-tap group-hover:opacity-100 hover:text-pg-muted focus-visible:opacity-100"
                 >
                   <Ellipsis size={16} aria-hidden="true" />
                 </button>

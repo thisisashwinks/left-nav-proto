@@ -21,9 +21,13 @@ export function FlyoutActionRow({
     <button
       type="button"
       onClick={() => onSelect?.(row.id)}
-      className="flex w-full shrink-0 items-center gap-[10px] rounded-[9px] bg-fly-card px-[12px] py-[11px] text-left shadow-[inset_0_0_0_1px_var(--nav-divider)] hover:bg-nav-hover"
+      className="group flex w-full shrink-0 items-center gap-[10px] rounded-[9px] bg-fly-card px-[12px] py-[11px] text-left shadow-[inset_0_0_0_1px_var(--nav-divider)] motion-tap hover:bg-nav-hover"
     >
-      <Icon size={18} aria-hidden="true" className="shrink-0 text-nav-fg-muted" />
+      <Icon
+        size={18}
+        aria-hidden="true"
+        className="shrink-0 text-nav-fg-muted motion-tap group-hover:scale-110"
+      />
       <span className="flex h-fit flex-1 flex-col items-start gap-[1px]">
         <span className="text-[13px] leading-[normal] font-semibold whitespace-nowrap text-nav-fg">
           {row.title}
@@ -35,7 +39,7 @@ export function FlyoutActionRow({
       <ArrowRight
         size={16}
         aria-hidden="true"
-        className="shrink-0 text-nav-fg-subtle"
+        className="shrink-0 text-nav-fg-subtle motion-tap group-hover:translate-x-[3px] group-hover:text-nav-fg-muted"
       />
     </button>
   );

@@ -1,8 +1,6 @@
 import {
   Bot,
   Boxes,
-  Building2,
-  CalendarCheck,
   CalendarPlus,
   Calendar,
   ChartColumn,
@@ -12,7 +10,6 @@ import {
   FileText,
   Gauge,
   Globe,
-  Headset,
   History,
   Layers,
   LayoutTemplate,
@@ -22,13 +19,8 @@ import {
   MessageSquarePlus,
   Package,
   PhoneCall,
-  Puzzle,
   Receipt,
-  Repeat,
-  Rocket,
   Settings2,
-  ShoppingCart,
-  Smartphone,
   Sparkles,
   Star,
   Target,
@@ -38,7 +30,6 @@ import {
   Users,
   Video,
   Workflow,
-  Wrench,
 } from "lucide-react";
 import type { FlyoutConfig, FlyoutEntry, FlyoutItem } from "./types";
 
@@ -56,9 +47,12 @@ const label = (id: string, text: string): FlyoutEntry => ({
  * Actions are ported verbatim from left-nav.pen — same labels, descriptions,
  * icons and ordering.
  *
- * AI Agents and Everything have no design in the file, so their content is
- * authored from the HighLevel product surface and is the part most likely to
- * need editing. Both follow the same structure as their designed siblings.
+ * AI Agents has no design in the file, so its content is authored from the
+ * HighLevel product surface and is the part most likely to need editing. It
+ * follows the same structure as its designed siblings.
+ *
+ * The nav's "More" row opens the Recent panel — that is where the full recent
+ * list lives, rather than in a separate all-products panel.
  */
 
 const engage: FlyoutConfig = {
@@ -96,7 +90,7 @@ const engage: FlyoutConfig = {
       label: "Meetings",
       description: "Online meetings and collaboration",
       icon: Video,
-      badge: "New",
+      badge: { label: "New", tone: "new" },
     }),
   ],
   cta: {
@@ -168,6 +162,7 @@ const market: FlyoutConfig = {
       label: "Events",
       description: "Ticketing, registration and check-in.",
       icon: Ticket,
+      badge: { label: "Beta", tone: "beta" },
     }),
     item({
       id: "memberships",
@@ -470,7 +465,7 @@ const aiAgents: FlyoutConfig = {
       label: "AI Employee",
       description: "The full suite of AI that works across your account.",
       ai: true,
-      badge: "New",
+      badge: { label: "New", tone: "new" },
     }),
     item({
       id: "conversation-ai",
@@ -552,65 +547,6 @@ const aiAgents: FlyoutConfig = {
   },
 };
 
-/**
- * Not in the Pencil file — this is what the nav's "More" row opens. Every area
- * of the product in one panel, grouped the way the nav groups them.
- */
-const everything: FlyoutConfig = {
-  id: "everything",
-  title: "Everything",
-  variant: "compact",
-  entries: [
-    label("ev-engage", "Engage"),
-    item({ id: "ev-conversations", label: "Conversations", description: "Unified inbox", icon: MessageCircle }),
-    item({ id: "ev-contacts", label: "Contacts", description: "People & smart lists", icon: Users }),
-    item({ id: "ev-companies", label: "Companies", description: "Accounts & org records", icon: Building2 }),
-    item({ id: "ev-calendars", label: "Calendars", description: "Scheduling & appointments", icon: Calendar }),
-    item({ id: "ev-reputation", label: "Reputation", description: "Reviews & listings", icon: Star }),
-    item({ id: "ev-meetings", label: "Meetings", description: "Online meetings", icon: Video }),
-
-    label("ev-convert", "Convert"),
-    item({ id: "ev-opportunities", label: "Opportunities", description: "Pipelines & deals", icon: Target }),
-    item({ id: "ev-invoices", label: "Invoices & estimates", description: "Quotes & billing", icon: Receipt }),
-    item({ id: "ev-payments", label: "Payments", description: "Orders & transactions", icon: CreditCard }),
-    item({ id: "ev-products", label: "Products", description: "Catalogue & pricing", icon: Package }),
-    item({ id: "ev-subscriptions", label: "Subscriptions", description: "Recurring revenue", icon: Repeat }),
-
-    label("ev-market", "Market"),
-    item({ id: "ev-marketing", label: "Marketing", description: "Campaigns & social", icon: Megaphone }),
-    item({ id: "ev-sites", label: "Sites & funnels", description: "Pages & forms", icon: LayoutTemplate }),
-    item({ id: "ev-stores", label: "Stores", description: "Ecommerce storefronts", icon: ShoppingCart }),
-    item({ id: "ev-events", label: "Events", description: "Ticketing & registration", icon: Ticket }),
-    item({ id: "ev-memberships", label: "Memberships", description: "Courses & communities", icon: Globe }),
-
-    label("ev-automate", "Automate"),
-    item({ id: "ev-automation", label: "Automation", description: "Workflows & triggers", icon: Workflow }),
-    item({ id: "ev-ai-agents", label: "AI Agents", description: "Voice & chat agents", icon: Bot }),
-    item({ id: "ev-vertical-ai", label: "Vertical AI", description: "Industry playbooks", icon: Layers }),
-
-    label("ev-analyze", "Analyze"),
-    item({ id: "ev-reporting", label: "Reporting", description: "Attribution & calls", icon: ChartLine }),
-    item({ id: "ev-dashboards", label: "Dashboards", description: "Custom widgets", icon: Gauge }),
-
-    label("ev-workspace", "Workspace"),
-    item({ id: "ev-mobile", label: "Mobile App", description: "iOS & Android", icon: Smartphone }),
-    item({ id: "ev-marketplace", label: "App Marketplace", description: "Integrations & apps", icon: Puzzle }),
-    item({ id: "ev-launchpad", label: "Launchpad", description: "Setup & onboarding", icon: Rocket }),
-    item({ id: "ev-support", label: "Support", description: "Help & live chat", icon: Headset }),
-    item({ id: "ev-tasks", label: "Tasks", description: "To-dos & assignments", icon: CalendarCheck }),
-    item({ id: "ev-settings", label: "Settings", description: "Account & team", icon: Wrench }),
-  ],
-  bottom: {
-    kind: "action",
-    row: {
-      id: "customise-nav",
-      icon: Settings2,
-      title: "Customise navigation",
-      subtitle: "Choose what shows and in what order",
-    },
-  },
-};
-
 export const flyouts: Record<string, FlyoutConfig> = {
   favorites,
   recent,
@@ -621,5 +557,4 @@ export const flyouts: Record<string, FlyoutConfig> = {
   market,
   automate,
   analyze,
-  everything,
 };

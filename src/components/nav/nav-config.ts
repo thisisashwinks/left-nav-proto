@@ -68,8 +68,8 @@ export const navConfig: NavConfig = {
         label: "More",
         icon: Ellipsis,
         hasFlyout: true,
-        // "More" is the entry point to the full product list.
-        flyoutId: "everything",
+        // "More" sits under the RECENT group and opens the full recent list.
+        flyoutId: "recent",
       },
     },
     { kind: "divider", id: "div-1" },
@@ -138,6 +138,3 @@ export const navConfig: NavConfig = {
 export function flyoutIdFor(item: { id: string; flyoutId?: string }): string {
   return item.flyoutId ?? item.id;
 }
-
-/** The section label that opens the Recent flyout. */
-export const RECENT_LABEL_ID = "recent-label";

@@ -215,6 +215,9 @@
   --fly-badge-from: #b3ccff;
   --fly-badge-to: #d1e0ff;
   --fly-badge-fg: #344ded;
+  --fly-badge-beta-from: #fade89;
+  --fly-badge-beta-to: #fcefc7;
+  --fly-badge-beta-fg: #b54707;
   --fly-tile-bg: #f4f4f6;
   --fly-duration-bg: #101828cc;
 }
@@ -248,6 +251,9 @@
   --fly-badge-from: #1e2a4a;
   --fly-badge-to: #26324f;
   --fly-badge-fg: #b2ccff;
+  --fly-badge-beta-from: #3a2c0c;
+  --fly-badge-beta-to: #2b2313;
+  --fly-badge-beta-fg: #fcd34d;
   --fly-tile-bg: #1e1e24;
   --fly-duration-bg: #000000cc;
 }

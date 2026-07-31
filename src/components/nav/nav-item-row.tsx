@@ -28,8 +28,10 @@ export function NavItemRow({ item, active = false, onSelect }: NavItemRowProps) 
       onClick={onSelect}
       className={cn(
         "group flex w-full shrink-0 items-center gap-[10px] rounded-[7px] px-[8px] text-left",
+        "motion-tap",
         compact ? "py-[6px]" : "py-[9px]",
         active ? "bg-nav-hover" : "hover:bg-nav-hover active:bg-nav-active",
+        "active:scale-[0.99] motion-press",
       )}
     >
       {item.ai ? (
@@ -39,7 +41,7 @@ export function NavItemRow({ item, active = false, onSelect }: NavItemRowProps) 
           size={16}
           aria-hidden="true"
           className={cn(
-            "shrink-0",
+            "shrink-0 motion-tap group-hover:scale-110",
             active ? "text-nav-fg" : "text-nav-fg-muted group-hover:text-nav-fg",
           )}
         />
@@ -59,10 +61,12 @@ export function NavItemRow({ item, active = false, onSelect }: NavItemRowProps) 
         <ChevronRight
           size={15}
           aria-hidden="true"
+          // Nudges toward the flyout it opens, which is the direction the panel
+          // arrives from.
           className={cn(
-            "shrink-0",
+            "shrink-0 motion-tap group-hover:translate-x-[2px]",
             active
-              ? "text-nav-fg-muted"
+              ? "translate-x-[2px] text-nav-fg-muted"
               : "text-nav-fg-subtle group-hover:text-nav-fg-muted",
           )}
         />

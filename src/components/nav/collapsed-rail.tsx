@@ -1,15 +1,19 @@
 "use client";
 
-import { ChevronRight, History, Search } from "lucide-react";
+import { History } from "lucide-react";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
-import { navConfig } from "./nav-config";
+import { COLLAPSED_PINNED_BLOCK } from "./favorites-morph";
+import { flyoutIdFor, navConfig } from "./nav-config";
 import type { NavConfig, NavItem } from "./types";
 
 interface CollapsedRailProps {
   theme: SurfaceTheme;
   config?: NavConfig;
+  /** Row the user has selected. Shared with the expanded nav. */
+  selectedId: string | null;
+  onSelect: (id: string) => void;
   openFlyoutId: string | null;
   onOpenFlyout: (id: string) => void;
 }
@@ -18,12 +22,14 @@ interface CollapsedRailProps {
  * The 64px icon rail from the CollapsedRail component in left-nav.pen.
  *
  * Geometry: 64px wide, padded 12px 8px with 4px between children, a 30px logo
- * mark, a 38px search button, the pinned favourites capsule (44px wide, 22px
- * radius, 40x30 slots), then 40x35 icon buttons separated by inset dividers.
+ * mark, the Search and Favourites capsules (44px wide, 22px radius, 40x30
+ * slots), then 40x35 icon buttons separated by inset dividers.
  */
 export function CollapsedRail({
   theme,
   config = navConfig,
+  selectedId,
+  onSelect,
   openFlyoutId,
   onOpenFlyout,
 }: CollapsedRailProps) {
@@ -32,6 +38,7 @@ export function CollapsedRail({
     label: string,
     content: React.ReactNode,
     active: boolean,
+    onClick: () => void,
   ) => (
     <button
       key={id}
@@ -39,9 +46,10 @@ export function CollapsedRail({
       title={label}
       aria-label={label}
       aria-current={active ? "page" : undefined}
-      onClick={() => onOpenFlyout(id)}
+      onClick={onClick}
       className={cn(
         "flex h-[35px] w-[40px] shrink-0 items-center justify-center rounded-[7px]",
+        "motion-tap hover:scale-105 active:scale-95 motion-press",
         active
           ? "bg-nav-hover text-nav-fg"
           : "text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg",
@@ -76,7 +84,11 @@ export function CollapsedRail({
     <nav
       data-nav-theme={theme}
       aria-label="Main"
-      className="flex h-full w-[64px] shrink-0 flex-col items-center gap-[4px] overflow-hidden bg-nav px-[8px] py-[12px] shadow-[inset_-1px_0_0_0_var(--nav-border)]"
+      // Bottom padding is 3px, not the design's 12px, on purpose: the Pencil
+      // file puts the Settings icon at y-centre 910.5 here but 920 in the
+      // expanded footer, so collapsing made the icon hop 9.5px. Holding the
+      // expanded baseline is worth the deviation.
+      className="flex h-full w-[64px] shrink-0 flex-col items-center gap-[4px] overflow-hidden bg-nav pt-[12px] pr-[8px] pb-[3px] pl-[8px] shadow-[inset_-1px_0_0_0_var(--nav-border)]"
     >
       <div
         role="img"
@@ -86,52 +98,31 @@ export function CollapsedRail({
         <span className="text-[13px] leading-none font-bold text-nav">A</span>
       </div>
 
-      <button
-        type="button"
-        title="Search"
-        aria-label="Search"
-        className="flex size-[38px] shrink-0 items-center justify-center rounded-[9px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg-muted"
-      >
-        <Search size={16} aria-hidden="true" />
-      </button>
-
-      <div className="flex w-[44px] shrink-0 flex-col items-center gap-[2px] rounded-[22px] bg-fly-card px-[2px] py-[5px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
-        {config.pinned.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            title={label}
-            aria-label={label}
-            className="flex h-[30px] w-[40px] shrink-0 items-center justify-center rounded-[15px] text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
-          >
-            <Icon size={16} aria-hidden="true" />
-          </button>
-        ))}
-        <button
-          type="button"
-          title="Favorites"
-          aria-label="Favorites"
-          onClick={() => onOpenFlyout("favorites")}
-          className="flex h-[30px] w-[40px] shrink-0 items-center justify-center rounded-[15px]"
-        >
-          <span className="flex size-[24px] items-center justify-center rounded-full bg-nav-rail-disc text-nav-fg-muted">
-            <ChevronRight size={16} aria-hidden="true" />
-          </span>
-        </button>
-      </div>
+      {/*
+        Reserved space for the Search and Favourites capsules, which
+        FavoritesMorph renders outside both nav faces so they can travel
+        between the two layouts.
+      */}
+      <div
+        aria-hidden="true"
+        className="w-[44px] shrink-0"
+        style={{ height: COLLAPSED_PINNED_BLOCK }}
+      />
 
       {railButton(
         "recent",
         "Recent",
         <History size={16} aria-hidden="true" />,
         openFlyoutId === "recent",
+        () => onOpenFlyout("recent"),
       )}
 
       {grouped.map((group, gi) => (
         <div key={gi} className="flex w-full flex-col items-center gap-[4px]">
           {divider(`div-${gi}`)}
-          {group.map((i) =>
-            railButton(
+          {group.map((i) => {
+            const flyoutId = flyoutIdFor(i);
+            return railButton(
               i.id,
               i.label,
               i.ai ? (
@@ -139,9 +130,14 @@ export function CollapsedRail({
               ) : i.icon ? (
                 <i.icon size={16} aria-hidden="true" />
               ) : null,
-              openFlyoutId === i.id,
-            ),
-          )}
+              i.id === selectedId ||
+                (i.hasFlyout === true && flyoutId === openFlyoutId),
+              () => {
+                onSelect(i.id);
+                if (i.hasFlyout) onOpenFlyout(flyoutId);
+              },
+            );
+          })}
         </div>
       ))}
 
@@ -151,7 +147,7 @@ export function CollapsedRail({
         type="button"
         title={config.footer.label}
         aria-label={config.footer.label}
-        className="flex h-[35px] w-[40px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
+        className="flex h-[35px] w-[40px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-muted motion-tap hover:scale-105 hover:bg-nav-hover hover:text-nav-fg active:scale-95"
       >
         {config.footer.icon ? (
           <config.footer.icon size={16} aria-hidden="true" />

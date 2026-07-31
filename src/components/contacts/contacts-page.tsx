@@ -30,6 +30,7 @@ function OutlineButton({
       type="button"
       className={cn(
         "flex h-[34px] shrink-0 items-center gap-[7px] rounded-[8px] bg-pg-surface px-[14px] text-[13px] leading-[normal] font-medium whitespace-nowrap text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)]",
+        "motion-tap hover:shadow-[inset_0_0_0_1px_var(--pg-border-strong),0_1px_3px_0_rgba(15,23,42,0.06)] active:scale-[0.97]",
         className,
       )}
       {...rest}
@@ -84,7 +85,7 @@ export function ContactsPage() {
           </OutlineButton>
           <button
             type="button"
-            className="flex h-[34px] shrink-0 items-center gap-[7px] rounded-[8px] bg-brand px-[16px] text-[13px] leading-[normal] font-semibold whitespace-nowrap text-brand-fg"
+            className="flex h-[34px] shrink-0 items-center gap-[7px] rounded-[8px] bg-brand px-[16px] text-[13px] leading-[normal] font-semibold whitespace-nowrap text-brand-fg motion-tap hover:brightness-110 hover:shadow-[0_2px_10px_0_rgba(21,94,239,0.35)] active:scale-[0.97]"
           >
             <Plus size={16} aria-hidden="true" />
             Add contact
@@ -109,9 +110,10 @@ export function ContactsPage() {
               // as bare text, with no pill at all.
               className={cn(
                 "flex h-[32px] shrink-0 items-center gap-[7px] rounded-[8px]",
+                "motion-tap active:scale-[0.97]",
                 active
                   ? "bg-brand-soft pr-[6px] pl-[11px] shadow-[inset_0_0_0_1px_var(--brand)]"
-                  : "bg-pg-surface px-[11px] shadow-[inset_0_0_0_1px_var(--pg-border)]",
+                  : "bg-pg-surface px-[11px] shadow-[inset_0_0_0_1px_var(--pg-border)] hover:shadow-[inset_0_0_0_1px_var(--pg-border-strong)]",
               )}
             >
               <Icon
@@ -145,14 +147,14 @@ export function ContactsPage() {
         <button
           type="button"
           aria-label="Create list"
-          className="flex size-[32px] shrink-0 items-center justify-center rounded-[8px] text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border-strong)]"
+          className="flex size-[32px] shrink-0 items-center justify-center rounded-[8px] text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border-strong)] motion-tap hover:rotate-90 hover:text-pg-text active:scale-90"
         >
           <Plus size={14} aria-hidden="true" />
         </button>
       </div>
 
       <div className="flex shrink-0 items-center gap-[10px]">
-        <div className="flex h-[34px] flex-1 items-center gap-[9px] rounded-[8px] bg-pg-surface px-[14px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
+        <div className="flex h-[34px] flex-1 items-center gap-[9px] rounded-[8px] bg-pg-surface px-[14px] shadow-[inset_0_0_0_1px_var(--pg-border)] motion-tap focus-within:shadow-[inset_0_0_0_1px_var(--brand),0_0_0_3px_var(--brand-soft)]">
           <Search size={16} aria-hidden="true" className="shrink-0 text-pg-faint" />
           <input
             type="search"
@@ -191,7 +193,7 @@ export function ContactsPage() {
             </span>
             <button
               type="button"
-              className="flex h-[30px] shrink-0 items-center gap-[8px] rounded-[8px] bg-pg-surface px-[10px] shadow-[inset_0_0_0_1px_var(--pg-border)]"
+              className="flex h-[30px] shrink-0 items-center gap-[8px] rounded-[8px] bg-pg-surface px-[10px] shadow-[inset_0_0_0_1px_var(--pg-border)] motion-tap hover:shadow-[inset_0_0_0_1px_var(--pg-border-strong)] active:scale-95"
             >
               <span className="text-[13px] leading-[normal] font-medium text-pg-text">
                 20
@@ -214,7 +216,7 @@ export function ContactsPage() {
             <button
               type="button"
               aria-label="Next page"
-              className="flex size-[30px] shrink-0 items-center justify-center rounded-[8px] bg-pg-surface text-pg-text-strong shadow-[inset_0_0_0_1px_var(--pg-border)]"
+              className="flex size-[30px] shrink-0 items-center justify-center rounded-[8px] bg-pg-surface text-pg-text-strong shadow-[inset_0_0_0_1px_var(--pg-border)] motion-tap hover:shadow-[inset_0_0_0_1px_var(--pg-border-strong)] active:scale-90"
             >
               <ChevronRight size={15} aria-hidden="true" />
             </button>
@@ -225,7 +227,7 @@ export function ContactsPage() {
       {selectedCount > 0 ? (
         <div
           role="status"
-          className="absolute bottom-[24px] left-1/2 flex h-[42px] -translate-x-1/2 items-center gap-[14px] rounded-[10px] bg-pg-overlay px-[14px] shadow-[0_8px_24px_0_#0f172a47]"
+          className="motion-slot-in absolute bottom-[24px] left-1/2 flex h-[42px] -translate-x-1/2 items-center gap-[14px] rounded-[10px] bg-pg-overlay px-[14px] shadow-[0_8px_24px_0_#0f172a47]"
         >
           <span className="text-[13px] leading-[normal] font-semibold whitespace-nowrap text-pg-surface">
             {selectedCount} selected
@@ -235,14 +237,14 @@ export function ContactsPage() {
             <button
               key={action}
               type="button"
-              className="text-[13px] leading-[normal] font-medium whitespace-nowrap text-pg-overlay-fg"
+              className="text-[13px] leading-[normal] font-medium whitespace-nowrap text-pg-overlay-fg motion-tap hover:brightness-125 active:scale-95"
             >
               {action}
             </button>
           ))}
           <button
             type="button"
-            className="text-[13px] leading-[normal] font-medium whitespace-nowrap text-pg-danger"
+            className="text-[13px] leading-[normal] font-medium whitespace-nowrap text-pg-danger motion-tap hover:brightness-110 active:scale-95"
           >
             Delete
           </button>
@@ -251,7 +253,7 @@ export function ContactsPage() {
             type="button"
             aria-label="Clear selection"
             onClick={() => setRows((c) => c.map((r) => ({ ...r, selected: false })))}
-            className="text-pg-faint hover:text-pg-overlay-fg"
+            className="text-pg-faint motion-tap hover:rotate-90 hover:text-pg-overlay-fg"
           >
             <X size={13} aria-hidden="true" />
           </button>

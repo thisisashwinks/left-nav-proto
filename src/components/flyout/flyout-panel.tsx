@@ -4,6 +4,7 @@ import * as React from "react";
 import { X } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
+import type { TransitionPhase } from "@/lib/use-exit-transition";
 import { BottomSlot } from "./bottom-slot";
 import { FlyoutActionRow } from "./flyout-action-row";
 import { FlyoutRow } from "./flyout-row";
@@ -14,8 +15,16 @@ interface FlyoutPanelProps {
   /** Distance from the viewport's left edge — 272 when open, 64 when collapsed. */
   offsetLeft: number;
   theme: SurfaceTheme;
+  phase: TransitionPhase;
   onClose: () => void;
 }
+
+/**
+ * Rows past this point animate with the same delay as the last one. Without a
+ * cap, Everything-sized lists would still be cascading seconds after the panel
+ * has settled.
+ */
+const MAX_STAGGERED_ROWS = 12;
 
 /**
  * The 360px flyout from left-nav.pen: absolutely positioned against the nav's
@@ -26,6 +35,7 @@ export function FlyoutPanel({
   config,
   offsetLeft,
   theme,
+  phase,
   onClose,
 }: FlyoutPanelProps) {
   const [activeId, setActiveId] = React.useState<string | null>(null);
@@ -50,7 +60,13 @@ export function FlyoutPanel({
       aria-label={config.title}
       tabIndex={-1}
       style={{ left: offsetLeft }}
-      className="absolute top-0 bottom-0 z-30 flex w-[360px] flex-col items-start gap-[10px] overflow-y-auto bg-nav pt-[14px] pr-[14px] pb-[16px] pl-[14px] shadow-[8px_0_24px_0_var(--fly-shadow),inset_-1px_0_0_0_var(--fly-border)] outline-none"
+      className={cn(
+        "absolute top-0 bottom-0 z-30 flex w-[360px] flex-col items-start gap-[10px] overflow-y-auto bg-nav pt-[14px] pr-[14px] pb-[16px] pl-[14px] shadow-[8px_0_24px_0_var(--fly-shadow),inset_-1px_0_0_0_var(--fly-border)] outline-none",
+        // `left` animates too, so the panel follows the nav edge when the rail
+        // collapses underneath an open panel instead of jumping.
+        "motion-move",
+        phase === "entering" ? "motion-panel-in" : "motion-panel-out",
+      )}
     >
       <div className="flex w-full shrink-0 items-center gap-[8px] pt-0 pr-[2px] pb-[4px] pl-[2px]">
         <div className="flex h-fit flex-1 items-center justify-between">
@@ -61,19 +77,20 @@ export function FlyoutPanel({
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="flex size-[22px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg-muted"
+            className="flex size-[22px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle motion-tap hover:bg-nav-hover hover:text-nav-fg-muted hover:rotate-90 active:scale-90"
           >
             <X size={15} aria-hidden="true" />
           </button>
         </div>
       </div>
 
-      {config.entries.map((entry) =>
+      {config.entries.map((entry, i) =>
         entry.kind === "label" ? (
           <div
             key={entry.id}
+            style={{ "--row-index": Math.min(i, MAX_STAGGERED_ROWS) } as React.CSSProperties}
             className={cn(
-              "flex w-full shrink-0 items-start pt-[6px] pr-[2px] pl-[2px]",
+              "motion-row-in flex w-full shrink-0 items-start pt-[6px] pr-[2px] pl-[2px]",
               config.spaciousLabels ? "pb-[4px]" : "pb-[2px]",
             )}
           >
@@ -92,16 +109,40 @@ export function FlyoutPanel({
             item={entry.item}
             variant={config.variant}
             active={entry.item.id === activeId}
+            rowIndex={Math.min(i, MAX_STAGGERED_ROWS)}
             onSelect={setActiveId}
           />
         ),
       )}
 
-      {config.cta ? <FlyoutActionRow row={config.cta} /> : null}
+      {config.cta ? (
+        <div
+          style={
+            {
+              "--row-index": Math.min(config.entries.length, MAX_STAGGERED_ROWS),
+            } as React.CSSProperties
+          }
+          className="motion-row-in w-full shrink-0"
+        >
+          <FlyoutActionRow row={config.cta} />
+        </div>
+      ) : null}
 
       <div className="w-full flex-1" />
 
-      {config.bottom ? <BottomSlot slot={config.bottom} /> : null}
+      {/* The bottom slot lands last, after the list has settled. */}
+      {config.bottom ? (
+        <div
+          style={
+            {
+              "--row-index": Math.min(config.entries.length + 2, MAX_STAGGERED_ROWS + 2),
+            } as React.CSSProperties
+          }
+          className="motion-row-in w-full shrink-0"
+        >
+          <BottomSlot slot={config.bottom} />
+        </div>
+      ) : null}
     </div>
   );
 }

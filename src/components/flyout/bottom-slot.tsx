@@ -34,7 +34,7 @@ function FeaturedCard({
 }) {
   const Icon = slot.icon;
   return (
-    <div className="flex w-full shrink-0 flex-col items-start gap-[8px] rounded-[10px] bg-[linear-gradient(-67.269deg,var(--fly-promo-from)_13.281%,var(--fly-promo-to)_77.336%)] p-[14px] shadow-[0_2px_4px_0_#00000014]">
+    <div className="group flex w-full shrink-0 flex-col items-start gap-[8px] rounded-[10px] bg-[linear-gradient(-67.269deg,var(--fly-promo-from)_13.281%,var(--fly-promo-to)_77.336%)] p-[14px] shadow-[0_2px_4px_0_#00000014] motion-move hover:-translate-y-[2px] hover:shadow-[0_8px_20px_0_#0000001f]">
       <div className="flex w-full shrink-0 items-center gap-[10px]">
         <Icon size={18} aria-hidden="true" className="shrink-0 text-fly-promo-icon" />
         <span className="text-[14px] leading-[normal] font-semibold whitespace-nowrap text-fly-promo-fg">
@@ -46,7 +46,7 @@ function FeaturedCard({
       </p>
       <button
         type="button"
-        className="flex shrink-0 items-center gap-[6px] pt-[2px]"
+        className="flex shrink-0 items-center gap-[6px] pt-[2px] [&>svg]:transition-transform [&>svg]:duration-[var(--dur-fast)] hover:[&>svg]:scale-125"
       >
         <CirclePlay size={16} aria-hidden="true" className="shrink-0 text-fly-promo-icon" />
         <span className="text-[12.5px] leading-[normal] font-medium whitespace-nowrap text-fly-promo-fg">
@@ -66,8 +66,8 @@ function ShortLoopCard({
   return (
     <div className="flex w-full shrink-0 flex-col items-start gap-[2px] rounded-[10px] bg-nav p-[10px] shadow-[0_8px_22px_0_#1018281a,inset_0_0_0_1px_var(--nav-divider)]">
       <SlotLabel>{slot.label}</SlotLabel>
-      <div className="relative flex h-[158px] w-full shrink-0 items-center justify-center overflow-hidden rounded-[9px] bg-fly-tile shadow-[inset_0_0_0_1px_var(--nav-divider)]">
-        <span className="flex size-[44px] items-center justify-center rounded-full bg-nav text-fly-accent shadow-[0_4px_12px_0_#10182833]">
+      <div className="group relative flex h-[158px] w-full shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-[9px] bg-fly-tile shadow-[inset_0_0_0_1px_var(--nav-divider)]">
+        <span className="flex size-[44px] items-center justify-center rounded-full bg-nav text-fly-accent shadow-[0_4px_12px_0_#10182833] motion-move group-hover:scale-110">
           <Play size={20} aria-hidden="true" />
         </span>
         <span className="absolute right-[10px] bottom-[10px] rounded-[5px] bg-[var(--fly-duration-bg)] px-[7px] py-[3px] font-mono text-[10px] leading-[normal] font-medium text-white">
@@ -99,9 +99,13 @@ function ContextualHelpCard({
         <button
           key={q}
           type="button"
-          className="flex w-full shrink-0 items-center gap-[9px] rounded-[7px] px-[8px] py-[7px] text-left hover:bg-nav-hover"
+          className="group flex w-full shrink-0 items-center gap-[9px] rounded-[7px] px-[8px] py-[7px] text-left motion-tap hover:bg-nav-hover"
         >
-          <CircleHelp size={15} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
+          <CircleHelp
+            size={15}
+            aria-hidden="true"
+            className="shrink-0 text-nav-fg-subtle motion-tap group-hover:text-nav-fg-muted"
+          />
           <span className="flex-1 text-[12.5px] leading-[normal] text-nav-fg-muted">
             {q}
           </span>
@@ -109,13 +113,17 @@ function ContextualHelpCard({
       ))}
       <button
         type="button"
-        className="flex w-full shrink-0 items-center gap-[9px] rounded-[7px] bg-fly-accent-soft p-[8px] text-left"
+        className="group flex w-full shrink-0 items-center gap-[9px] rounded-[7px] bg-fly-accent-soft p-[8px] text-left motion-tap hover:scale-[1.02] active:scale-100"
       >
         <Sparkles size={15} aria-hidden="true" className="shrink-0 text-fly-accent" />
         <span className="flex-1 text-[12.5px] leading-[normal] font-semibold text-fly-accent">
           {slot.askLabel}
         </span>
-        <ArrowRight size={14} aria-hidden="true" className="shrink-0 text-fly-accent" />
+        <ArrowRight
+          size={14}
+          aria-hidden="true"
+          className="shrink-0 text-fly-accent motion-tap group-hover:translate-x-[3px]"
+        />
       </button>
     </div>
   );
@@ -142,7 +150,7 @@ function WhatsNewCard({
           type="button"
           aria-label="Dismiss"
           onClick={onDismiss}
-          className="shrink-0 text-fly-accent"
+          className="shrink-0 text-fly-accent motion-tap hover:rotate-90"
         >
           <X size={14} aria-hidden="true" />
         </button>
@@ -150,11 +158,15 @@ function WhatsNewCard({
       <p className="w-full text-[12.5px] leading-[18px] text-nav-fg-muted">
         {slot.body}
       </p>
-      <button type="button" className="flex shrink-0 items-center gap-[6px]">
+      <button type="button" className="group flex shrink-0 items-center gap-[6px]">
         <span className="text-[12.5px] leading-[normal] font-medium whitespace-nowrap text-fly-accent">
           {slot.linkLabel}
         </span>
-        <ArrowRight size={14} aria-hidden="true" className="shrink-0 text-fly-accent" />
+        <ArrowRight
+          size={14}
+          aria-hidden="true"
+          className="shrink-0 text-fly-accent motion-tap group-hover:translate-x-[3px]"
+        />
       </button>
     </div>
   );
@@ -180,7 +192,10 @@ function Carousel({
 
   return (
     <div className="flex w-full shrink-0 flex-col items-start gap-[8px]">
-      <BottomSlot slot={current} onSelect={onSelect} />
+      {/* Keyed on the page so each swap replays the entrance. */}
+      <div key={index} className="motion-slot-in w-full">
+        <BottomSlot slot={current} onSelect={onSelect} />
+      </div>
       {pages.length > 1 ? (
         <div className="flex w-full shrink-0 items-center justify-between px-[2px]">
           <div className="flex items-center gap-[5px]">
@@ -192,8 +207,8 @@ function Carousel({
                 aria-current={i === index ? "true" : undefined}
                 onClick={() => setIndex(i)}
                 className={cn(
-                  "size-[6px] rounded-full",
-                  i === index ? "bg-fly-accent" : "bg-nav-divider",
+                  "size-[6px] rounded-full motion-tap hover:scale-125",
+                  i === index ? "scale-125 bg-fly-accent" : "bg-nav-divider",
                 )}
               />
             ))}
@@ -203,7 +218,7 @@ function Carousel({
               type="button"
               aria-label="Previous card"
               onClick={() => setIndex((i) => (i - 1 + pages.length) % pages.length)}
-              className="flex size-[20px] items-center justify-center rounded-[6px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg-muted"
+              className="flex size-[20px] items-center justify-center rounded-[6px] text-nav-fg-subtle motion-tap hover:bg-nav-hover hover:text-nav-fg-muted active:scale-90"
             >
               <ChevronLeft size={14} aria-hidden="true" />
             </button>
@@ -211,7 +226,7 @@ function Carousel({
               type="button"
               aria-label="Next card"
               onClick={() => setIndex((i) => (i + 1) % pages.length)}
-              className="flex size-[20px] items-center justify-center rounded-[6px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg-muted"
+              className="flex size-[20px] items-center justify-center rounded-[6px] text-nav-fg-subtle motion-tap hover:bg-nav-hover hover:text-nav-fg-muted active:scale-90"
             >
               <ChevronRight size={14} aria-hidden="true" />
             </button>

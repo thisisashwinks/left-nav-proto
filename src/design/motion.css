@@ -1,0 +1,160 @@
+/*
+ * Motion tokens and keyframes.
+ *
+ * Durations and easings live here rather than inline so the whole feel can be
+ * retuned in one place. Everything is disabled under prefers-reduced-motion at
+ * the bottom of this file — that is the one rule that must stay last.
+ */
+
+:root {
+  /* Decelerating; the default for anything entering or growing. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Symmetric; for things that move between two settled positions. */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  /* Slight overshoot. Used sparingly — the collapse toggle only. */
+  --ease-overshoot: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+  --dur-press: 90ms;
+  --dur-fast: 140ms;
+  --dur-base: 220ms;
+  --dur-slow: 300ms;
+
+  /* Per-row delay for staggered lists. */
+  --stagger-step: 16ms;
+}
+
+/* ─── Keyframes ──────────────────────────────────────────────────────────── */
+
+@keyframes fly-panel-in {
+  from {
+    opacity: 0;
+    transform: translate3d(-10px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes fly-panel-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(-8px, 0, 0);
+  }
+}
+
+/* Rows cascade in behind the panel. Small distances only — a long travel
+   reads as sluggish when eight rows do it at once. */
+@keyframes fly-row-in {
+  from {
+    opacity: 0;
+    transform: translate3d(-6px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes nav-face-in {
+  from {
+    opacity: 0;
+    transform: translate3d(-6px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes slot-swap-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* ─── Transition utilities ───────────────────────────────────────────────── */
+
+/*
+ * Tailwind v4 compiles translate/scale/rotate to their own CSS properties, not
+ * to `transform`. An arbitrary list like `transition-[color,transform]` silently
+ * fails to animate them (and `transition-[transform]` degrades to `all`), so the
+ * property lists live here where they can name every property once, correctly.
+ */
+
+.motion-tap {
+  transition-property:
+    color, background-color, border-color, box-shadow, opacity, filter,
+    transform, translate, scale, rotate;
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease-out);
+}
+
+/* Same properties, slower — for elements that travel a real distance. */
+.motion-move {
+  transition-property:
+    width, height, left, top, border-radius, box-shadow, opacity, transform,
+    translate, scale, rotate;
+  transition-duration: var(--dur-slow);
+  transition-timing-function: var(--ease-out);
+}
+
+.motion-press:active {
+  transition-duration: var(--dur-press);
+}
+
+/* ─── Utilities ──────────────────────────────────────────────────────────── */
+
+.motion-panel-in {
+  animation: fly-panel-in var(--dur-base) var(--ease-out) both;
+}
+
+.motion-panel-out {
+  animation: fly-panel-out var(--dur-fast) var(--ease-in-out) both;
+}
+
+.motion-row-in {
+  animation: fly-row-in var(--dur-base) var(--ease-out) both;
+  animation-delay: calc(var(--row-index, 0) * var(--stagger-step));
+}
+
+.motion-face-in {
+  animation: nav-face-in var(--dur-base) var(--ease-out) both;
+}
+
+.motion-slot-in {
+  animation: slot-swap-in var(--dur-base) var(--ease-out) both;
+}
+
+/* ─── Reduced motion ─────────────────────────────────────────────────────── */
+
+/*
+ * Collapses every duration to ~0 instead of removing animations, so elements
+ * animating `both` still land on their end state rather than disappearing.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-press: 1ms;
+    --dur-fast: 1ms;
+    --dur-base: 1ms;
+    --dur-slow: 1ms;
+    --stagger-step: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
+  }
+}

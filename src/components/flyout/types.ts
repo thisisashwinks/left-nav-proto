@@ -11,6 +11,17 @@ import type { LucideIcon } from "lucide-react";
  */
 export type FlyoutItemVariant = "product" | "compact" | "recent" | "action";
 
+/**
+ * Gradient pill next to a product label. Both tones share the same geometry
+ * and gradient angle in the design and differ only in colour ramp.
+ */
+export type FlyoutBadgeTone = "new" | "beta";
+
+export interface FlyoutBadge {
+  label: string;
+  tone: FlyoutBadgeTone;
+}
+
 export interface FlyoutItem {
   id: string;
   label: string;
@@ -20,8 +31,8 @@ export interface FlyoutItem {
   ai?: boolean;
   /** Trailing timestamp, `recent` variant only. */
   time?: string;
-  /** Gradient "New" pill next to the label, `product` variant only. */
-  badge?: string;
+  /** Gradient pill next to the label, `product` variant only. */
+  badge?: FlyoutBadge;
 }
 
 export type FlyoutEntry =
