@@ -27,18 +27,44 @@ const EXPANDED = {
   showLabels: true,
 };
 
-const COLLAPSED = {
-  container: { left: 10, top: 88, width: 44, height: 200, radius: 22 },
-  slots: [100, 132, 164, 196, 228, 260].map((top) => ({ left: 24, top })),
-  // A caption under a 16px icon is ~60px wide, which the 64px rail would clip.
-  // The native tooltip carries the name in this state instead.
-  showLabels: false,
-};
+/**
+ * Collapsed capsule metrics, from the design's vertical capsule: 5px padding at
+ * each end, 30px slots, 2px between them — so each slot after the first adds 32.
+ */
+const COLLAPSED_TOP = 88;
+const COLLAPSED_SLOT_PITCH = 32;
+
+/**
+ * The collapsed capsule is sized to its contents rather than to a fixed five
+ * slots. Expanded, the pill spans the nav whatever it holds and the leftover
+ * space is fine; collapsed, an oversized capsule reads as a gap with nothing in
+ * it. Six slots gives the design's 200px.
+ */
+export function collapsedPinnedBlock(slotCount: number): number {
+  return COLLAPSED_SLOT_PITCH * slotCount + 8;
+}
+
+function collapsedGeometry(slotCount: number) {
+  return {
+    container: {
+      left: 10,
+      top: COLLAPSED_TOP,
+      width: 44,
+      height: collapsedPinnedBlock(slotCount),
+      radius: 22,
+    },
+    slots: Array.from({ length: slotCount }, (_, i) => ({
+      left: 24,
+      top: COLLAPSED_TOP + 12 + i * COLLAPSED_SLOT_PITCH,
+    })),
+    // A caption under a 16px icon is ~60px wide, which the 64px rail would clip.
+    // The tooltip carries the name in this state instead.
+    showLabels: false,
+  };
+}
 
 /** Height the expanded nav reserves: 40px pill + 12px bottom padding. */
 export const EXPANDED_PINNED_BLOCK = 52;
-/** Height the collapsed rail reserves for the vertical capsule. */
-export const COLLAPSED_PINNED_BLOCK = 200;
 
 const EXPANDED_NAV_WIDTH = 272;
 const COLLAPSED_NAV_WIDTH = 64;
@@ -109,7 +135,14 @@ interface FavoritesMorphProps {
   items: PinnedRailItem[];
   collapsed: boolean;
   onSelect?: (id: string) => void;
-  onOpenFavorites: () => void;
+  /** Click the chevron — pins the manage surface open. */
+  onOpenLauncher: () => void;
+  /** Hover the chevron — previews it on the nav's shared intent timer. */
+  onHoverLauncher: () => void;
+  /** The launcher is open. */
+  launcherActive: boolean;
+  /** Pins that fall outside the visible row, which the badge counts. */
+  overflowCount: number;
 }
 
 /**
@@ -126,10 +159,14 @@ export function FavoritesMorph({
   items,
   collapsed,
   onSelect,
-  onOpenFavorites,
+  onOpenLauncher,
+  onHoverLauncher,
+  launcherActive,
+  overflowCount,
 }: FavoritesMorphProps) {
-  const g = collapsed ? COLLAPSED : EXPANDED;
   const visible = items.slice(0, PINNED_VISIBLE);
+  // Favourites plus the permanent grid chip.
+  const g = collapsed ? collapsedGeometry(visible.length + 1) : EXPANDED;
   const navWidth = collapsed ? COLLAPSED_NAV_WIDTH : EXPANDED_NAV_WIDTH;
 
   /**
@@ -190,31 +227,68 @@ export function FavoritesMorph({
           />
         ))}
 
+        {/*
+          The chevron that ends the chip row, and it is permanent: it is the
+          product list, not an overflow symptom. A 9-dot grid sat here for a
+          while and read as a second, competing app-switcher next to the account
+          mark; the chevron says "more of this row" instead, and turns to face
+          the panel while it is open.
+
+          It opens on hover, on the same intent timer as the product rows, so the
+          whole nav answers to the pointer the same way — and still pins on click,
+          which is what keeps it open while you work inside it.
+
+          The count badge appears only when pins fall outside the visible row,
+          which is what makes unlimited pinning safe: the row shows what fits,
+          the panel holds the rest and says how many.
+        */}
         <button
           type="button"
-          title="Show all pinned"
-          aria-label="Show all pinned"
-          onClick={onOpenFavorites}
+          title="All products"
+          aria-label={
+            overflowCount > 0
+              ? `All products, ${overflowCount} more pinned`
+              : "All products"
+          }
+          aria-expanded={launcherActive}
+          onClick={onOpenLauncher}
+          onPointerEnter={onHoverLauncher}
+          onFocus={onHoverLauncher}
           className={cn(
-            "motion-move group/dock absolute size-[16px] text-nav-fg-muted",
+            "motion-move group/dock absolute size-[16px]",
             "before:absolute before:top-[-7px] before:left-[-7px] before:size-[30px] before:content-['']",
             "hover:text-nav-fg",
+            launcherActive ? "text-nav-fg" : "text-nav-fg-muted",
           )}
           style={{ left: g.slots[lastSlot].left, top: slotTop(lastSlot) }}
         >
           {/*
             The disc is a child rather than a sibling so it can darken with the
-            chevron. That also makes it concentric, 1px off the design's 227px.
+            icon. That also makes it concentric, 1px off the design's 227px.
           */}
           <span
             aria-hidden="true"
-            className="motion-tap absolute top-[-4px] left-[-4px] size-[24px] rounded-full bg-nav-rail-hi group-hover/dock:bg-nav-rail-disc"
+            className={cn(
+              "motion-tap absolute top-[-4px] left-[-4px] size-[24px] rounded-full group-hover/dock:bg-nav-rail-disc",
+              launcherActive ? "bg-nav-rail-disc" : "bg-nav-rail-hi",
+            )}
           />
           <ChevronRight
             size={16}
             aria-hidden="true"
-            className="motion-tap relative group-hover/dock:translate-x-[2px]"
+            className={cn(
+              "motion-tap relative",
+              launcherActive && "rotate-180",
+            )}
           />
+          {overflowCount > 0 ? (
+            <span
+              aria-hidden="true"
+              className="absolute top-[-8px] left-[9px] flex h-[14px] min-w-[14px] items-center justify-center rounded-full bg-brand px-[3px] text-[9px] leading-none font-semibold text-brand-fg"
+            >
+              {overflowCount}
+            </span>
+          ) : null}
         </button>
       </div>
     </div>

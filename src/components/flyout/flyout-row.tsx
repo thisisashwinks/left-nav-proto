@@ -2,6 +2,8 @@
 
 import type * as React from "react";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
+import { PinButton } from "@/components/nav/pin-button";
+import { productById } from "@/components/nav/catalogue";
 import { cn } from "@/lib/utils";
 import type { FlyoutBadgeTone, FlyoutItem, FlyoutItemVariant } from "./types";
 
@@ -77,7 +79,7 @@ export function FlyoutRow({
       onClick={() => onSelect?.(item.id)}
       style={{ "--row-index": rowIndex } as React.CSSProperties}
       className={cn(
-        "motion-row-in group flex w-full shrink-0 rounded-[9px] text-left",
+        "motion-row-in group group/row flex w-full shrink-0 rounded-[9px] text-left",
         "motion-tap",
         // v.row carries the per-variant gap, padding and alignment. Losing it
         // is what collapsed every flyout row's breathing room.
@@ -150,6 +152,9 @@ export function FlyoutRow({
           {item.time}
         </span>
       ) : null}
+
+      {/* Only rows that map to a pinnable product get a pin. */}
+      {productById(item.id) ? <PinButton productId={item.id} /> : null}
     </button>
   );
 }

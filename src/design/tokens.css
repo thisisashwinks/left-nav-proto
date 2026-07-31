@@ -1,14 +1,17 @@
 /*
  * Design tokens for the left nav prototype.
  *
- * Four layers, in order:
+ * Six layers, in order:
  *   1. HighRise palette   — raw scales, never referenced directly by components.
  *   2. Brand / accent     — swappable via [data-accent] on <html>.
  *   3. Nav surface        — swappable via [data-nav-theme] on the nav element,
  *                           so the nav can be dark while the app stays light.
  *   4. Header surface     — swappable via [data-header-theme].
+ *   5. Search / page      — [data-search-theme] and [data-page-theme].
+ *   6. Neutral tint       — [data-tint] on <html>, overriding layers 3-5 so the
+ *                           accent reaches the whites, greys and text as well.
  *
- * Components only ever read layers 2-4. That is what makes recolouring and
+ * Components only ever read layers 2-5. That is what makes recolouring and
  * dark-nav-on-light-app possible without touching component code.
  *
  * Palette values are taken verbatim from
@@ -164,12 +167,60 @@
   --brand-fg: var(--hr-base-white);
 }
 
+/*
+ * The accent follows whichever sub-account is current: the switcher writes that
+ * account's logo colour to --account-brand, and the rest of the ramp is derived
+ * from it here rather than in JS.
+ *
+ * Derived in CSS on purpose. `oklch(from ...)` is the same mechanism the tint
+ * layer below already uses, so one property is enough to move the whole
+ * workspace — buttons, links, the row highlight and, with tint on, the neutrals
+ * too. Holding lightness explicit on the soft steps keeps a dark navy and a
+ * bright amber producing equally usable tints.
+ *
+ * The fallback is the HighRise primary, which is what the first paint shows
+ * before the switcher has written anything.
+ */
+:root[data-accent="account"] {
+  --brand: var(--account-brand, var(--hr-primary-600));
+  --brand-strong: oklch(from var(--brand) calc(l * 0.88) c h);
+  --brand-soft: oklch(from var(--brand) 0.97 calc(c * 0.3) h);
+  --brand-soft-2: oklch(from var(--brand) 0.92 calc(c * 0.5) h);
+  --brand-fg: var(--hr-base-white);
+}
+
 :root[data-accent="error"] {
   --brand-soft: var(--hr-error-50);
   --brand-soft-2: var(--hr-error-100);
   --brand: var(--hr-error-600);
   --brand-strong: var(--hr-error-700);
   --brand-fg: var(--hr-base-white);
+}
+
+/* ─── The AI mark ───────────────────────────────────────────────────────── */
+
+/*
+ * Two stops, both read off the accent, and deliberately outside the nav-theme
+ * scopes — the mark is an object with its own colour, not a surface that
+ * repaints with the chrome around it, so it stays identical on a light nav and
+ * a dark one.
+ *
+ * The second stop is lighter and 22 degrees *below* the accent. Below, not
+ * above: from the default blue, rotating up lands on violet, which is the
+ * purple we were getting away from. Rotating down stays on the accent's own
+ * side of the wheel, and holds for the other presets too. The step is small on
+ * purpose — a wide gradient inside a 20px circle reads as two colours fighting.
+ *
+ * Each value is declared twice: a plain hex first, then the relative-colour
+ * version. Browsers without `oklch(from ...)` drop the second and keep a
+ * sensible default-accent fallback rather than rendering nothing.
+ */
+
+:root {
+  --orb-1: #155eef;
+  --orb-1: var(--brand);
+  --orb-2: #46abf7;
+  --orb-2: oklch(from var(--brand) calc(l + 0.2) calc(c * 0.88) calc(h - 26));
 }
 
 /* ─── Layer 3: nav surface ──────────────────────────────────────────────── */
@@ -192,17 +243,30 @@
   --nav-rail-border: #e4e6eb;
   --nav-rail-hi: #f2f3f5;
   --nav-rail-disc: #ebebef;
-  --nav-ai-icon: #6837f0;
-  --nav-ai-fg: #5925db;
+  /* Every AI surface reads off the accent. See the orb block above for why. */
+  --nav-ai-icon: var(--brand);
+  --nav-ai-fg: var(--brand-strong);
 
-  /* The persistent AI dock. Deliberately its own ramp, not --brand: the AI
-     surface should stay recognisable when an agency recolours the accent. */
-  --ai-from: #6837f0;
-  --ai-to: #a855f7;
-  --ai-soft-from: #f5f2ff;
-  --ai-soft-to: #fdf4ff;
-  --ai-border: #e4dbff;
-  --ai-ring: #a855f766;
+  /* The persistent AI dock and the window's halo. The accent leads; the second
+     hue is the same neighbour the orb uses, so all of it stays one family. */
+  --ai-from: var(--brand);
+  --ai-to: #3b9dfb;
+  --ai-to: oklch(from var(--brand) calc(l + 0.14) c calc(h - 30));
+  --ai-soft-from: #eff4ff;
+  --ai-soft-from: oklch(from var(--brand) 0.97 calc(c * 0.32) h);
+  --ai-soft-to: #eef8ff;
+  --ai-soft-to: oklch(from var(--brand) 0.98 calc(c * 0.26) calc(h - 30));
+  --ai-border: #d3e0fd;
+  --ai-border: oklch(from var(--brand) 0.9 calc(c * 0.5) h);
+  --ai-ring: #155eef66;
+  --ai-ring: oklch(from var(--brand) 0.7 c h / 0.4);
+
+  --ai-win-bg: #fffffff2;
+  --ai-win-shadow: #10265e2e;
+  --ai-bubble: #eef3ff;
+  --ai-bubble: oklch(from var(--brand) 0.96 calc(c * 0.3) h);
+  --ai-quote: #f7faff;
+  --ai-quote: oklch(from var(--brand) 0.985 calc(c * 0.18) h);
 
   /*
    * Flyout-only values. Anything the flyout shares with the nav (text, icon,
@@ -244,15 +308,32 @@
   --nav-rail-border: #2b2b33;
   --nav-rail-hi: #24242c;
   --nav-rail-disc: #2e2e36;
-  --nav-ai-icon: #a78bfa;
-  --nav-ai-fg: #c4b5fd;
+  /* Same derivations as light, lifted so the accent still carries on a dark
+     surface — the hue is the accent's, only the lightness differs. */
+  --nav-ai-icon: #7ba3ff;
+  --nav-ai-icon: oklch(from var(--brand) 0.74 c h);
+  --nav-ai-fg: #a8c2ff;
+  --nav-ai-fg: oklch(from var(--brand) 0.83 calc(c * 0.85) h);
 
-  --ai-from: #a78bfa;
-  --ai-to: #d8b4fe;
-  --ai-soft-from: #1a1626;
-  --ai-soft-to: #201a2e;
-  --ai-border: #332a4d;
-  --ai-ring: #a78bfa66;
+  --ai-from: #7ba3ff;
+  --ai-from: oklch(from var(--brand) 0.74 c h);
+  --ai-to: #86d0ff;
+  --ai-to: oklch(from var(--brand) 0.82 calc(c * 0.9) calc(h - 30));
+  --ai-soft-from: #131a2e;
+  --ai-soft-from: oklch(from var(--brand) 0.2 calc(c * 0.5) h);
+  --ai-soft-to: #12202e;
+  --ai-soft-to: oklch(from var(--brand) 0.22 calc(c * 0.45) calc(h - 30));
+  --ai-border: #26355c;
+  --ai-border: oklch(from var(--brand) 0.34 calc(c * 0.6) h);
+  --ai-ring: #7ba3ff66;
+  --ai-ring: oklch(from var(--brand) 0.74 c h / 0.4);
+
+  --ai-win-bg: #0f131ff7;
+  --ai-win-shadow: #00000080;
+  --ai-bubble: #1c2740;
+  --ai-bubble: oklch(from var(--brand) 0.28 calc(c * 0.5) h);
+  --ai-quote: #151c2c;
+  --ai-quote: oklch(from var(--brand) 0.22 calc(c * 0.4) h);
 
   --fly-border: #26262c;
   --fly-shadow: #00000066;
@@ -284,7 +365,6 @@
   --hdr-chip-bg: #eff1f4;
   --hdr-icon-neutral-bg: #ededed;
   --hdr-act-call: #16a34a;
-  --hdr-act-ai: #7c3aed;
   --hdr-act-launch: #ea580c;
   --hdr-act-alert: #dc2626;
   --hdr-avatar-bg: #4b5563;
@@ -298,7 +378,6 @@
   --hdr-chip-bg: #24242c;
   --hdr-icon-neutral-bg: #2e2e36;
   --hdr-act-call: #16a34a;
-  --hdr-act-ai: #7c3aed;
   --hdr-act-launch: #ea580c;
   --hdr-act-alert: #dc2626;
   --hdr-avatar-bg: #52525b;
@@ -449,4 +528,185 @@
   --app-bg: #0b0b0e;
   --app-fg: var(--hr-gray-50);
   --app-fg-muted: var(--hr-gray-400);
+}
+
+/* ─── Layer 6: neutral tint ─────────────────────────────────────────────── */
+
+/*
+ * Swapped via [data-tint] on <html>. Decides whether the accent stops at the
+ * things that are already accent-coloured, or carries into the neutrals too.
+ *
+ * `off` is the design as measured: every scope above keeps its own hexes, and
+ * changing the accent repaints buttons, links and the AI, nothing else. That is
+ * the honest default for a review, because it is what the Pencil file shows.
+ *
+ * `subtle` and `full` rebuild each neutral as a relative colour off --brand:
+ * the token keeps the lightness measured from its original hex, and takes the
+ * accent's hue with a fraction of its chroma. Holding lightness fixed is the
+ * whole trick — contrast ratios survive the recolour, so a warning-orange
+ * workspace is no less readable than the default blue one, and only the
+ * temperature of the greys moves.
+ *
+ * Three factors rather than one, because neutrals do not want the same dose.
+ * Surfaces are nearly white or nearly black, so a trace of chroma reads clearly
+ * and more looks dyed; borders need roughly double to register at all against
+ * the surface they sit on; text sits in the middle, where too much chroma stops
+ * reading as ink and starts reading as a coloured label.
+ *
+ * Pure white is emitted at L 0.99 rather than 1: chroma at full lightness is
+ * out of gamut and clamps straight back to white, so the whites would be the
+ * one thing the tint could not touch.
+ *
+ * Every value is a relative colour, so browsers without `oklch(from ...)` drop
+ * these declarations and keep the untinted ramps above — the prototype degrades
+ * to `off` rather than to nothing.
+ */
+
+:root {
+  /* Fraction of the accent's chroma each kind of neutral takes. */
+  --tint-surface: 0;
+  --tint-line: 0;
+  --tint-text: 0;
+}
+
+:root[data-tint="subtle"] {
+  --tint-surface: 0.08;
+  --tint-line: 0.14;
+  --tint-text: 0.11;
+}
+
+:root[data-tint="full"] {
+  --tint-surface: 0.2;
+  --tint-line: 0.34;
+  --tint-text: 0.24;
+}
+
+:root:not([data-tint="off"]) [data-nav-theme="light"] {
+  --nav-bg: oklch(from var(--brand) 0.99 calc(c * var(--tint-surface)) h);
+  --nav-border: oklch(from var(--brand) 0.9439 calc(c * var(--tint-line)) h);
+  --nav-divider: oklch(from var(--brand) 0.9439 calc(c * var(--tint-line)) h);
+  --nav-fg: oklch(from var(--brand) 0.2103 calc(c * var(--tint-text)) h);
+  --nav-fg-muted: oklch(from var(--brand) 0.4751 calc(c * var(--tint-text)) h);
+  --nav-fg-subtle: oklch(from var(--brand) 0.6901 calc(c * var(--tint-text)) h);
+  --nav-hover: oklch(from var(--brand) 0.9707 calc(c * var(--tint-surface)) h);
+  --nav-active: oklch(from var(--brand) 0.956 calc(c * var(--tint-surface)) h);
+  --nav-rail-bg: oklch(from var(--brand) 0.9809 calc(c * var(--tint-surface)) h);
+  --nav-rail-border: oklch(from var(--brand) 0.9248 calc(c * var(--tint-line)) h);
+  --nav-rail-hi: oklch(from var(--brand) 0.964 calc(c * var(--tint-surface)) h);
+  --nav-rail-disc: oklch(from var(--brand) 0.9412 calc(c * var(--tint-line)) h);
+  --fly-border: oklch(from var(--brand) 0.9217 calc(c * var(--tint-line)) h);
+  --fly-card-bg: oklch(from var(--brand) 0.9851 calc(c * var(--tint-surface)) h);
+  --fly-tile-bg: oklch(from var(--brand) 0.9677 calc(c * var(--tint-surface)) h);
+}
+
+:root:not([data-tint="off"]) [data-nav-theme="dark"] {
+  --nav-bg: oklch(from var(--brand) 0.1698 calc(c * var(--tint-surface)) h);
+  --nav-border: oklch(from var(--brand) 0.2711 calc(c * var(--tint-line)) h);
+  --nav-divider: oklch(from var(--brand) 0.2711 calc(c * var(--tint-line)) h);
+  --nav-fg: oklch(from var(--brand) 0.962 calc(c * var(--tint-text)) h);
+  --nav-fg-muted: oklch(from var(--brand) 0.7125 calc(c * var(--tint-text)) h);
+  --nav-fg-subtle: oklch(from var(--brand) 0.5517 calc(c * var(--tint-text)) h);
+  --nav-hover: oklch(from var(--brand) 0.2376 calc(c * var(--tint-surface)) h);
+  --nav-active: oklch(from var(--brand) 0.2638 calc(c * var(--tint-surface)) h);
+  --nav-rail-bg: oklch(from var(--brand) 0.2064 calc(c * var(--tint-surface)) h);
+  --nav-rail-border: oklch(from var(--brand) 0.2924 calc(c * var(--tint-line)) h);
+  --nav-rail-hi: oklch(from var(--brand) 0.2638 calc(c * var(--tint-surface)) h);
+  --nav-rail-disc: oklch(from var(--brand) 0.3044 calc(c * var(--tint-line)) h);
+  --fly-border: oklch(from var(--brand) 0.2711 calc(c * var(--tint-line)) h);
+  --fly-card-bg: oklch(from var(--brand) 0.2064 calc(c * var(--tint-surface)) h);
+  --fly-tile-bg: oklch(from var(--brand) 0.2376 calc(c * var(--tint-surface)) h);
+}
+
+:root:not([data-tint="off"]) [data-header-theme="light"] {
+  --hdr-bg: oklch(from var(--brand) 0.99 calc(c * var(--tint-surface)) h);
+  --hdr-border: oklch(from var(--brand) 0.9368 calc(c * var(--tint-line)) h);
+  --hdr-fg: oklch(from var(--brand) 0.3729 calc(c * var(--tint-text)) h);
+  --hdr-fg-muted: oklch(from var(--brand) 0.5006 calc(c * var(--tint-text)) h);
+  --hdr-chip-bg: oklch(from var(--brand) 0.9575 calc(c * var(--tint-surface)) h);
+  --hdr-icon-neutral-bg: oklch(from var(--brand) 0.9461 calc(c * var(--tint-surface)) h);
+}
+
+:root:not([data-tint="off"]) [data-header-theme="dark"] {
+  --hdr-bg: oklch(from var(--brand) 0.2064 calc(c * var(--tint-surface)) h);
+  --hdr-border: oklch(from var(--brand) 0.2711 calc(c * var(--tint-line)) h);
+  --hdr-fg: oklch(from var(--brand) 0.8711 calc(c * var(--tint-text)) h);
+  --hdr-fg-muted: oklch(from var(--brand) 0.7125 calc(c * var(--tint-text)) h);
+  --hdr-chip-bg: oklch(from var(--brand) 0.2638 calc(c * var(--tint-surface)) h);
+  --hdr-icon-neutral-bg: oklch(from var(--brand) 0.3044 calc(c * var(--tint-surface)) h);
+}
+
+:root:not([data-tint="off"]) [data-search-theme="light"] {
+  --sr-bg: oklch(from var(--brand) 0.99 calc(c * var(--tint-surface)) h);
+  --sr-border: oklch(from var(--brand) 0.9439 calc(c * var(--tint-line)) h);
+  --sr-fg: oklch(from var(--brand) 0.2103 calc(c * var(--tint-text)) h);
+  --sr-muted: oklch(from var(--brand) 0.6901 calc(c * var(--tint-text)) h);
+  --sr-icon: oklch(from var(--brand) 0.4751 calc(c * var(--tint-text)) h);
+  --sr-row-active: oklch(from var(--brand) 0.9707 calc(c * var(--tint-surface)) h);
+  --sr-chip-bg: oklch(from var(--brand) 0.9851 calc(c * var(--tint-surface)) h);
+  --sr-kbd-bg: oklch(from var(--brand) 0.99 calc(c * var(--tint-surface)) h);
+  --sr-kbd-border: oklch(from var(--brand) 0.9439 calc(c * var(--tint-line)) h);
+  --sr-footer-bg: oklch(from var(--brand) 0.9851 calc(c * var(--tint-surface)) h);
+}
+
+:root:not([data-tint="off"]) [data-search-theme="dark"] {
+  --sr-bg: oklch(from var(--brand) 0.2064 calc(c * var(--tint-surface)) h);
+  --sr-border: oklch(from var(--brand) 0.2924 calc(c * var(--tint-line)) h);
+  --sr-fg: oklch(from var(--brand) 0.962 calc(c * var(--tint-text)) h);
+  --sr-muted: oklch(from var(--brand) 0.6403 calc(c * var(--tint-text)) h);
+  --sr-icon: oklch(from var(--brand) 0.7125 calc(c * var(--tint-text)) h);
+  --sr-row-active: oklch(from var(--brand) 0.2638 calc(c * var(--tint-surface)) h);
+  --sr-chip-bg: oklch(from var(--brand) 0.2376 calc(c * var(--tint-surface)) h);
+  --sr-kbd-bg: oklch(from var(--brand) 0.2376 calc(c * var(--tint-surface)) h);
+  --sr-kbd-border: oklch(from var(--brand) 0.3247 calc(c * var(--tint-line)) h);
+  --sr-footer-bg: oklch(from var(--brand) 0.1886 calc(c * var(--tint-surface)) h);
+}
+
+:root:not([data-tint="off"]) [data-page-theme="light"]:not([data-untinted]) {
+  --pg-bg: oklch(from var(--brand) 0.9789 calc(c * var(--tint-surface)) h);
+  --pg-surface: oklch(from var(--brand) 0.99 calc(c * var(--tint-surface)) h);
+  --pg-heading: oklch(from var(--brand) 0.2077 calc(c * var(--tint-text)) h);
+  --pg-text: oklch(from var(--brand) 0.3717 calc(c * var(--tint-text)) h);
+  --pg-text-strong: oklch(from var(--brand) 0.4455 calc(c * var(--tint-text)) h);
+  --pg-muted: oklch(from var(--brand) 0.5544 calc(c * var(--tint-text)) h);
+  --pg-faint: oklch(from var(--brand) 0.7107 calc(c * var(--tint-text)) h);
+  --pg-disabled: oklch(from var(--brand) 0.869 calc(c * var(--tint-line)) h);
+  --pg-border: oklch(from var(--brand) 0.9288 calc(c * var(--tint-line)) h);
+  --pg-border-strong: oklch(from var(--brand) 0.8906 calc(c * var(--tint-line)) h);
+  --pg-card-border: oklch(from var(--brand) 0.9319 calc(c * var(--tint-line)) h);
+  --pg-head-border: oklch(from var(--brand) 0.9445 calc(c * var(--tint-line)) h);
+  --pg-row-border: oklch(from var(--brand) 0.966 calc(c * var(--tint-line)) h);
+  --pg-row-selected: oklch(from var(--brand) 0.9781 calc(c * var(--tint-surface)) h);
+  --pg-overlay-bg: oklch(from var(--brand) 0.2077 calc(c * var(--tint-surface)) h);
+  --pg-overlay-fg: oklch(from var(--brand) 0.9288 calc(c * var(--tint-text)) h);
+}
+
+:root:not([data-tint="off"]) [data-page-theme="dark"]:not([data-untinted]) {
+  --pg-bg: oklch(from var(--brand) 0.151 calc(c * var(--tint-surface)) h);
+  --pg-surface: oklch(from var(--brand) 0.198 calc(c * var(--tint-surface)) h);
+  --pg-heading: oklch(from var(--brand) 0.9683 calc(c * var(--tint-text)) h);
+  --pg-text: oklch(from var(--brand) 0.869 calc(c * var(--tint-text)) h);
+  --pg-text-strong: oklch(from var(--brand) 0.8032 calc(c * var(--tint-text)) h);
+  --pg-muted: oklch(from var(--brand) 0.675 calc(c * var(--tint-text)) h);
+  --pg-faint: oklch(from var(--brand) 0.5623 calc(c * var(--tint-text)) h);
+  --pg-disabled: oklch(from var(--brand) 0.4279 calc(c * var(--tint-line)) h);
+  --pg-border: oklch(from var(--brand) 0.2811 calc(c * var(--tint-line)) h);
+  --pg-border-strong: oklch(from var(--brand) 0.3161 calc(c * var(--tint-line)) h);
+  --pg-card-border: oklch(from var(--brand) 0.2725 calc(c * var(--tint-line)) h);
+  --pg-head-border: oklch(from var(--brand) 0.2734 calc(c * var(--tint-line)) h);
+  --pg-row-border: oklch(from var(--brand) 0.2386 calc(c * var(--tint-line)) h);
+  --pg-row-selected: oklch(from var(--brand) 0.2327 calc(c * var(--tint-surface)) h);
+  --pg-overlay-bg: oklch(from var(--brand) 0.9683 calc(c * var(--tint-surface)) h);
+  --pg-overlay-fg: oklch(from var(--brand) 0.3717 calc(c * var(--tint-text)) h);
+}
+
+:root:not([data-tint="off"])[data-app-theme="light"] {
+  --app-bg: oklch(from var(--brand) 0.9789 calc(c * var(--tint-surface)) h);
+  --app-fg: oklch(from var(--brand) 0.2099 calc(c * var(--tint-text)) h);
+  --app-fg-muted: oklch(from var(--brand) 0.5444 calc(c * var(--tint-text)) h);
+}
+
+:root:not([data-tint="off"])[data-app-theme="dark"] {
+  --app-bg: oklch(from var(--brand) 0.151 calc(c * var(--tint-surface)) h);
+  --app-fg: oklch(from var(--brand) 0.9846 calc(c * var(--tint-text)) h);
+  --app-fg-muted: oklch(from var(--brand) 0.7098 calc(c * var(--tint-text)) h);
 }

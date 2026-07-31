@@ -3,6 +3,7 @@
 @import "shadcn/tailwind.css";
 @import "../design/tokens.css";
 @import "../design/motion.css";
+@import "../design/ai.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -51,7 +52,6 @@
   --color-hdr-chip: var(--hdr-chip-bg);
   --color-hdr-icon-neutral: var(--hdr-icon-neutral-bg);
   --color-hdr-act-call: var(--hdr-act-call);
-  --color-hdr-act-ai: var(--hdr-act-ai);
   --color-hdr-act-launch: var(--hdr-act-launch);
   --color-hdr-act-alert: var(--hdr-act-alert);
   --color-hdr-avatar: var(--hdr-avatar-bg);

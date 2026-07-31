@@ -11,6 +11,13 @@
 const GLYPH_WIDTH = 19.87750095129013;
 const GLYPH_HEIGHT = 20.585000962018967;
 
+/**
+ * Height over width. Exported so callers sizing the glyph from a container —
+ * the orb centres it in a circle — can work out its height without
+ * re-deriving the ratio and drifting out of step with the path.
+ */
+export const SPARKLE_ASPECT = GLYPH_HEIGHT / GLYPH_WIDTH;
+
 const GLYPH_PATH =
   "M17.045 6.2925l0.79-1.75 1.75-0.79c0.39-0.18 0.39-0.73 0-0.91l-1.75-0.79-0.79-1.76c-0.18-0.39-0.73-0.39-0.91 0l-0.79 1.75-1.76 0.79c-0.39 0.18-0.39 0.73 0 0.91l1.75 0.79 0.79 1.76c0.18 0.39 0.74 0.39 0.92 0z m-7.96 1.5l-1.59-3.5c-0.35-0.78-1.47-0.78-1.82 0l-1.59 3.5-3.5 1.59c-0.78 0.36-0.78 1.47 0 1.82l3.5 1.59 1.59 3.5c0.36 0.78 1.47 0.78 1.82 0l1.59-3.5 3.5-1.59c0.78-0.36 0.78-1.47 0-1.82l-3.5-1.59z m7.04 6.5l-0.79 1.75-1.75 0.79c-0.39 0.18-0.39 0.73 0 0.91l1.75 0.79 0.79 1.76c0.18 0.39 0.73 0.39 0.91 0l0.79-1.75 1.76-0.79c0.39-0.18 0.39-0.73 0-0.91l-1.75-0.79-0.79-1.76c-0.18-0.39-0.74-0.39-0.92 0z";
 
@@ -66,19 +73,6 @@ export function NavAiSparkle({ className }: { className?: string }) {
       glyphWidth={13.252}
       offsetX={1.374}
       offsetY={1.138}
-      className={className}
-    />
-  );
-}
-
-/** The header variant: 15px box, glyph centred with a 0.5px inset. */
-export function HeaderAiSparkle({ className }: { className?: string }) {
-  return (
-    <AiSparkle
-      box={15}
-      glyphWidth={13.252}
-      offsetX={0.5}
-      offsetY={0.5}
       className={className}
     />
   );

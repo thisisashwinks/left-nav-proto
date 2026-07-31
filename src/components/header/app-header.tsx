@@ -2,14 +2,12 @@
 
 import * as React from "react";
 import { Megaphone } from "lucide-react";
-import { HeaderAiSparkle } from "@/components/icons/ai-sparkle";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import { headerConfig, type HeaderActionTone, type HeaderConfig } from "./header-config";
 
 const TONE_CLASSES: Record<HeaderActionTone, string> = {
   call: "bg-hdr-act-call text-white",
-  ai: "bg-hdr-act-ai text-white",
   launch: "bg-hdr-act-launch text-white",
   alert: "bg-hdr-act-alert text-white",
   neutral: "bg-hdr-icon-neutral text-hdr-fg-muted",
@@ -95,11 +93,7 @@ export function AppHeader({ theme, config = headerConfig }: AppHeaderProps) {
                 TONE_CLASSES[action.tone],
               )}
             >
-              {action.ai ? (
-                <HeaderAiSparkle />
-              ) : action.icon ? (
-                <action.icon size={15} aria-hidden="true" />
-              ) : null}
+              <action.icon size={15} aria-hidden="true" />
             </button>
           ))}
 

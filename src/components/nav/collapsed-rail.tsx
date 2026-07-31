@@ -1,13 +1,18 @@
 "use client";
 
 import { Search } from "lucide-react";
+import { AccountLogo } from "@/components/accounts/account-logo";
+import type { Account } from "@/components/accounts/accounts-data";
+import { AiDock } from "@/components/ai/ai-dock";
+import type { AiSession } from "@/components/ai/use-ai-session";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
-import { AiDock } from "./ai-dock";
 import { CollapseToggle } from "./collapse-toggle";
-import { COLLAPSED_PINNED_BLOCK } from "./favorites-morph";
+import { collapsedPinnedBlock, PINNED_VISIBLE } from "./favorites-morph";
+import { useNavLayout } from "./nav-layout-provider";
 import { flyoutIdFor, navConfig } from "./nav-config";
+import { RailTooltip } from "./rail-tooltip";
 import type { NavConfig, NavItem } from "./types";
 
 interface CollapsedRailProps {
@@ -25,6 +30,12 @@ interface CollapsedRailProps {
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onSearch: () => void;
+  /** Sub-account the session is in. The rail's mark is its switcher trigger. */
+  account: Account;
+  switcherOpen: boolean;
+  onToggleSwitcher: () => void;
+  /** Owned by the shell, so the window can escape the rail's clipped box. */
+  aiSession: AiSession;
 }
 
 /**
@@ -46,7 +57,19 @@ export function CollapsedRail({
   collapsed,
   onToggleCollapsed,
   onSearch,
+  account,
+  switcherOpen,
+  onToggleSwitcher,
+  aiSession,
 }: CollapsedRailProps) {
+  // The capsule hugs its contents when collapsed, so the hole left for it has to
+  // match. Read from the same store the capsule does rather than take a prop, so
+  // the two can never disagree.
+  const { state: layout } = useNavLayout();
+  const pinnedBlock = collapsedPinnedBlock(
+    Math.min(layout.pinned.length, PINNED_VISIBLE) + 1,
+  );
+
   const railButton = (
     id: string,
     label: string,
@@ -54,27 +77,42 @@ export function CollapsedRail({
     active: boolean,
     onClick: () => void,
     onHover?: () => void,
-  ) => (
-    <button
-      key={id}
-      type="button"
-      title={label}
-      aria-label={label}
-      aria-current={active ? "page" : undefined}
-      onClick={onClick}
-      onPointerEnter={onHover}
-      onFocus={onHover}
-      className={cn(
-        "flex h-[35px] w-[40px] shrink-0 items-center justify-center rounded-[7px]",
-        "motion-tap hover:scale-105 active:scale-95 motion-press",
-        active
-          ? "bg-nav-hover text-nav-fg"
-          : "text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg",
-      )}
-    >
-      {content}
-    </button>
-  );
+    /** Rows with no flyout get a label tooltip instead. */
+    tooltip = false,
+  ) => {
+    const button = (
+      <button
+        key={id}
+        type="button"
+        // A tooltip replaces the native title rather than joining it.
+        title={tooltip ? undefined : label}
+        aria-label={label}
+        aria-current={active ? "page" : undefined}
+        onClick={onClick}
+        onPointerEnter={onHover}
+        onFocus={onHover}
+        className={cn(
+          // Radius comes from the same knob the expanded rows use — it is one
+          // row treatment seen two ways, so it must not drift when retuned.
+          "flex h-[35px] w-[40px] shrink-0 items-center justify-center rounded-[var(--t-nav-radius,7px)]",
+          "motion-tap hover:scale-105 active:scale-95 motion-press",
+          active
+            ? "bg-nav-hover text-nav-fg"
+            : "text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg",
+        )}
+      >
+        {content}
+      </button>
+    );
+
+    return tooltip ? (
+      <RailTooltip key={id} label={label}>
+        {button}
+      </RailTooltip>
+    ) : (
+      button
+    );
+  };
 
   const divider = (key: string) => (
     <div key={key} className="flex w-full shrink-0 items-start px-[8px] py-[4px]">
@@ -90,7 +128,16 @@ export function CollapsedRail({
       i.ai ? (
         <NavAiSparkle className="text-nav-ai-icon" />
       ) : i.icon ? (
-        <i.icon size={16} aria-hidden="true" />
+        <i.icon
+          size={16}
+          aria-hidden="true"
+          // Same knob as the expanded row's icon. The rail tile stays 40x35, so
+          // the icon grows inside it rather than resizing the tile.
+          style={{
+            width: "var(--t-nav-icon, 16px)",
+            height: "var(--t-nav-icon, 16px)",
+          }}
+        />
       ) : null,
       i.id === selectedId ||
         (i.hasFlyout === true &&
@@ -100,6 +147,7 @@ export function CollapsedRail({
         if (i.hasFlyout) onPinFlyout(flyoutId);
       },
       i.hasFlyout ? () => onHoverFlyout(flyoutId) : undefined,
+      i.hasFlyout !== true,
     );
   };
 
@@ -114,23 +162,40 @@ export function CollapsedRail({
       // expanded baseline is worth the deviation.
       className="flex h-full w-[64px] shrink-0 flex-col items-center gap-[4px] overflow-hidden bg-nav pt-[12px] pr-[8px] pb-[3px] pl-[8px] shadow-[inset_-1px_0_0_0_var(--nav-border)]"
     >
-      <div
-        role="img"
-        aria-label={config.logoAlt}
-        className="flex size-[30px] shrink-0 items-center justify-center rounded-[7px] bg-nav-fg"
-      >
-        <span className="text-[13px] leading-none font-bold text-nav">A</span>
-      </div>
-
+      {/*
+        The rail has no room for a name or a chevron, so the mark itself is the
+        switcher trigger — same panel, anchored to this tile instead.
+      */}
       <button
         type="button"
-        title="Search"
-        aria-label="Search"
-        onClick={onSearch}
-        className="motion-tap flex size-[38px] shrink-0 items-center justify-center rounded-[9px] text-nav-fg-subtle hover:scale-105 hover:bg-nav-hover hover:text-nav-fg-muted active:scale-95"
+        title={`Switch sub-account — ${account.name}`}
+        aria-label={`Switch sub-account. Current account: ${account.name}`}
+        aria-haspopup="dialog"
+        aria-expanded={switcherOpen}
+        onClick={onToggleSwitcher}
+        className={cn(
+          "motion-tap flex size-[30px] shrink-0 items-center justify-center outline-none",
+          switcherOpen ? "scale-105" : "hover:scale-105 active:scale-95",
+        )}
       >
-        <Search size={16} aria-hidden="true" />
+        <AccountLogo
+          logo={account.logo}
+          src={config.logoSrc ?? account.logoSrc}
+          size={30}
+          radius={7}
+        />
       </button>
+
+      <RailTooltip label="Search">
+        <button
+          type="button"
+          aria-label="Search"
+          onClick={onSearch}
+          className="motion-tap flex size-[38px] shrink-0 items-center justify-center rounded-[9px] text-nav-fg-subtle hover:scale-105 hover:bg-nav-hover hover:text-nav-fg-muted active:scale-95"
+        >
+          <Search size={16} aria-hidden="true" />
+        </button>
+      </RailTooltip>
 
       {/*
         Reserved space for the pinned capsule, which FavoritesMorph renders
@@ -139,18 +204,24 @@ export function CollapsedRail({
       <div
         aria-hidden="true"
         className="w-[44px] shrink-0"
-        style={{ height: COLLAPSED_PINNED_BLOCK }}
+        style={{ height: pinnedBlock }}
       />
 
-      <div className="flex w-full flex-col items-center gap-[4px]">
-        {config.fixed.map(renderRailRow)}
+      {/*
+        Row spacing tracks the expanded nav's knob, offset by the 2px the rail
+        measures wider — with no labels to separate the rows, the design gives
+        them more air. Sharing the knob keeps the two faces moving together;
+        the offset keeps each at its own measured default.
+      */}
+      <div className="flex w-full flex-col items-center gap-[calc(var(--t-nav-space,2px)+2px)]">
+        {config.railFixed.map(renderRailRow)}
       </div>
 
       {divider("div-fixed")}
 
       <div
         data-cursor="menu"
-        className="flex w-full flex-1 flex-col items-center gap-[4px] overflow-y-auto"
+        className="flex w-full flex-1 flex-col items-center gap-[calc(var(--t-nav-space,2px)+2px)] overflow-y-auto"
       >
         {config.entries.map((entry) =>
           entry.kind === "item" ? (
@@ -163,7 +234,7 @@ export function CollapsedRail({
       </div>
 
       <div className="flex shrink-0 flex-col items-center gap-[6px] pt-[6px]">
-        <AiDock collapsed />
+        <AiDock collapsed session={aiSession} />
         <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
       </div>
     </nav>

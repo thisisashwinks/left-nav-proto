@@ -4,6 +4,8 @@ import * as React from "react";
 import { Search, X } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
+import { productById } from "@/components/nav/catalogue";
+import { PinButton } from "@/components/nav/pin-button";
 import { Kbd } from "./kbd";
 import { useSearch } from "./use-search";
 
@@ -104,7 +106,7 @@ export function SearchFlyout({
                   onPointerEnter={() => s.setActiveIndex(index)}
                   onClick={onClose}
                   className={cn(
-                    "motion-tap flex w-full shrink-0 gap-[10px] rounded-[9px] px-[8px] py-[9px] text-left",
+                    "group/row motion-tap flex w-full shrink-0 gap-[10px] rounded-[9px] px-[8px] py-[9px] text-left",
                     isAction ? "items-center" : "items-start",
                     active ? "bg-sr-row-active" : "bg-transparent",
                   )}
@@ -139,6 +141,10 @@ export function SearchFlyout({
                       ) : null}
                     </span>
                   )}
+
+                  {productById(r.id.replace(/^p-/, "")) ? (
+                    <PinButton productId={r.id.replace(/^p-/, "")} />
+                  ) : null}
                 </button>
               );
             })}

@@ -1,13 +1,21 @@
 "use client";
 
 import * as React from "react";
+import { AccountSwitcher } from "@/components/accounts/account-switcher";
+import { useAccounts } from "@/components/accounts/use-accounts";
+import { AiWindow } from "@/components/ai/ai-window";
+import { useAiSession } from "@/components/ai/use-ai-session";
 import { flyouts } from "@/components/flyout/flyout-config";
 import { FlyoutPanel } from "@/components/flyout/flyout-panel";
 import { AppHeader } from "@/components/header/app-header";
 import { CollapsedRail } from "@/components/nav/collapsed-rail";
 import { FavoritesMorph } from "@/components/nav/favorites-morph";
 import { LeftNav } from "@/components/nav/left-nav";
-import { navConfig } from "@/components/nav/nav-config";
+import { productById } from "@/components/nav/catalogue";
+import { useNavLayout } from "@/components/nav/nav-layout-provider";
+import { PinnedLauncher } from "@/components/nav/pinned-launcher";
+import { UndoToast } from "@/components/nav/undo-toast";
+import { PINNED_VISIBLE } from "@/components/nav/favorites-morph";
 import { CommandPalette } from "@/components/search/command-palette";
 import { SearchFlyout } from "@/components/search/search-flyout";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -21,6 +29,30 @@ const COLLAPSED_WIDTH = 64;
 
 /** Must match --dur-fast, which drives the panel's exit animation. */
 const FLYOUT_EXIT_MS = 140;
+
+/** Same, for the Ask AI window's exit. */
+const AI_EXIT_MS = 140;
+
+/** Same again, for the account switcher's exit. */
+const SWITCHER_EXIT_MS = 140;
+
+/**
+ * Where the account switcher hangs from, per nav face: 6px below its trigger and
+ * flush with the trigger's left edge, so the panel reads as growing out of it.
+ * Expanded, the trigger is the 30px chip at y14 inside the nav's 12px padding,
+ * whose hover surface starts 6px in; collapsed, it is the 30px mark at y12
+ * inside the rail's 8px padding.
+ */
+/**
+ * The launcher's id in the flyout intent. Deliberately not a key in `flyouts`:
+ * it has its own component, so the generic panel must not claim it.
+ */
+const LAUNCHER_ID = "launcher";
+
+const SWITCHER_ANCHOR = {
+  expanded: { left: 6, top: 50 },
+  collapsed: { left: 8, top: 48 },
+} as const;
 
 /**
  * How long the panel survives the pointer leaving. Long enough to cross the
@@ -44,6 +76,29 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const [collapsed, setCollapsed] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [searchOpen, setSearchOpen] = React.useState(false);
+  const [switcherOpen, setSwitcherOpen] = React.useState(false);
+  const { state: layout } = useNavLayout();
+
+  /*
+   * Which sub-account the session is in, plus its recents and favourites. Owned
+   * here because the nav header shows the current account and both nav faces
+   * have to agree on it — the switcher panel only reads and writes it.
+   */
+  const accounts = useAccounts();
+
+  /*
+   * Seeds the accent from the current account's logo. Only the one property is
+   * written — tokens.css derives the rest of the brand ramp from it, and the
+   * tint layer derives the neutrals from that, so switching account can move the
+   * whole workspace's temperature rather than just its buttons.
+   *
+   * Set on <html> because that is where [data-accent] is scoped, and React does
+   * not own that element here.
+   */
+  const accountBrand = accounts.current.logo.from;
+  React.useEffect(() => {
+    document.documentElement.style.setProperty("--account-brand", accountBrand);
+  }, [accountBrand]);
 
   // Cmd/Ctrl-K opens search from anywhere, which is the whole point of the
   // spotlight treatment. Bound on the window so it works with focus in the page.
@@ -51,6 +106,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
+        // Search and the switcher both own the keyboard, so opening one has to
+        // dismiss the other rather than stacking two focus traps.
+        setSwitcherOpen(false);
         setSearchOpen((open) => !open);
       }
     };
@@ -60,9 +118,53 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
 
   const intent = useFlyoutIntent(FLYOUT_HOVER_GRACE_MS);
 
+  /*
+   * The Ask AI conversation lives here rather than in the dock that opens it:
+   * both nav faces clip their overflow, so the window has to be rendered out
+   * here, and it has to survive the nav collapsing underneath it.
+   */
+  const aiSession = useAiSession();
+
+  /** The chip row is a window onto the ordered pin list, so it takes the head. */
+  const pinnedItems = layout.pinned
+    .map(productById)
+    .filter((p): p is NonNullable<typeof p> => p !== undefined)
+    .map((p) => ({ id: p.id, label: p.label, icon: p.icon }));
+  const overflowCount = Math.max(0, layout.pinned.length - PINNED_VISIBLE);
+
   const navWidth = collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
   const requested = intent.activeId ? (flyouts[intent.activeId] ?? null) : null;
   const flyout = useExitTransition(requested, FLYOUT_EXIT_MS);
+  // A bare `true` rather than the session object: useExitTransition compares
+  // by identity, and the session is rebuilt on every render.
+  const ai = useExitTransition(aiSession.open || null, AI_EXIT_MS);
+  const switcher = useExitTransition(switcherOpen || null, SWITCHER_EXIT_MS);
+  /*
+   * The launcher rides the same hover intent as the product rows rather than its
+   * own open flag, which is what makes the chip row's chevron behave like every
+   * other trigger in the nav: preview on hover, pin on click, one panel at a
+   * time, and the same grace period when the pointer crosses the seam into it.
+   */
+  const launcher = useExitTransition(
+    intent.activeId === LAUNCHER_ID || null,
+    FLYOUT_EXIT_MS,
+  );
+
+  // Opening the switcher clears whatever else is showing over the canvas: it is
+  // a modal choice, and a flyout left open behind it would keep reacting to
+  // hover through the scrim.
+  const toggleSwitcher = React.useCallback(() => {
+    if (switcherOpen) {
+      setSwitcherOpen(false);
+      return;
+    }
+    // Read state rather than an updater: these are side effects, and an updater
+    // is called twice under StrictMode. `intent.close()` covers the launcher
+    // too, now that it shares the flyout intent.
+    intent.close();
+    setSearchOpen(false);
+    setSwitcherOpen(true);
+  }, [intent, switcherOpen]);
 
   return (
     <div className="relative flex min-h-0 flex-1 overflow-hidden bg-app">
@@ -78,9 +180,12 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         */}
         <FavoritesMorph
           theme={navTheme}
-          items={navConfig.pinned}
+          items={pinnedItems}
           collapsed={collapsed}
-          onOpenFavorites={() => intent.togglePin("favorites")}
+          onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
+          onHoverLauncher={() => intent.hover(LAUNCHER_ID)}
+          launcherActive={intent.activeId === LAUNCHER_ID}
+          overflowCount={overflowCount}
         />
 
         <div
@@ -104,6 +209,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             collapsed={collapsed}
             onToggleCollapsed={() => setCollapsed((c) => !c)}
             onSearch={() => setSearchOpen(true)}
+            account={accounts.current}
+            switcherOpen={switcherOpen}
+            onToggleSwitcher={toggleSwitcher}
+            aiSession={aiSession}
           />
         </div>
 
@@ -128,6 +237,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             collapsed={collapsed}
             onToggleCollapsed={() => setCollapsed((c) => !c)}
             onSearch={() => setSearchOpen(true)}
+            account={accounts.current}
+            switcherOpen={switcherOpen}
+            onToggleSwitcher={toggleSwitcher}
+            aiSession={aiSession}
           />
         </div>
       </div>
@@ -172,6 +285,48 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           />
         </>
       ) : null}
+
+      {/*
+        Above the flyouts, below search. Docked past the nav's right edge, so
+        the dock it grew out of stays visible beside it.
+      */}
+      {ai.isMounted ? (
+        <AiWindow
+          theme={navTheme}
+          offsetLeft={navWidth}
+          session={aiSession}
+          phase={ai.phase}
+        />
+      ) : null}
+
+      {launcher.isMounted ? (
+        <PinnedLauncher
+          offsetLeft={navWidth}
+          theme={navTheme}
+          phase={launcher.phase}
+          onPointerEnter={intent.cancelClear}
+          onPointerLeave={intent.scheduleClear}
+          onClose={intent.close}
+        />
+      ) : null}
+
+      {/*
+        Anchored to its trigger in whichever nav face is showing, and rendered
+        out here because both faces clip their overflow.
+      */}
+      {switcher.isMounted ? (
+        <AccountSwitcher
+          session={accounts}
+          anchor={
+            collapsed ? SWITCHER_ANCHOR.collapsed : SWITCHER_ANCHOR.expanded
+          }
+          theme={navTheme}
+          phase={switcher.phase}
+          onClose={() => setSwitcherOpen(false)}
+        />
+      ) : null}
+
+      <UndoToast />
 
       {/* Search sits above the flyouts; both treatments share the same model. */}
       {searchOpen ? (

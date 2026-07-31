@@ -4,6 +4,8 @@ import * as React from "react";
 import { Search } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
+import { productById } from "@/components/nav/catalogue";
+import { PinButton } from "@/components/nav/pin-button";
 import { Kbd } from "./kbd";
 import { useSearch } from "./use-search";
 
@@ -91,7 +93,7 @@ export function CommandPalette({
                     onPointerEnter={() => s.setActiveIndex(index)}
                     onClick={onClose}
                     className={cn(
-                      "motion-tap flex h-[38px] w-full shrink-0 items-center gap-[10px] rounded-[6px] px-[8px] text-left",
+                      "group/row motion-tap flex h-[38px] w-full shrink-0 items-center gap-[10px] rounded-[6px] px-[8px] text-left",
                       active ? "bg-sr-row-active" : "bg-transparent",
                     )}
                   >
@@ -123,6 +125,9 @@ export function CommandPalette({
                         </span>
                         <Kbd>↵</Kbd>
                       </>
+                    ) : null}
+                    {productById(r.id.replace(/^p-/, "")) ? (
+                      <PinButton productId={r.id.replace(/^p-/, "")} />
                     ) : null}
                   </button>
                 );

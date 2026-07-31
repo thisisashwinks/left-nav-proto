@@ -1,16 +1,20 @@
 "use client";
 
 import * as React from "react";
-import { RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import { ChevronRight, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import {
   ACCENT_LABELS,
   ACCENTS,
+  DEFAULT_THEME,
   SEARCH_MODE_LABELS,
   SEARCH_MODES,
   SURFACE_THEMES,
+  TINT_LABELS,
+  TINTS,
   type Accent,
   type SearchMode,
   type SurfaceTheme,
+  type Tint,
 } from "@/design/theme";
 import {
   TUNING_DEFAULTS,
@@ -21,6 +25,14 @@ import {
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { useTuning } from "./tuning-provider";
+
+/** Section order in the panel. The two theme sections lead, knobs follow. */
+const SECTIONS = ["Theme", "Search", ...TUNING_GROUPS] as const;
+
+type SectionId = (typeof SECTIONS)[number];
+
+/** Only the first section is open on load — the rest stay out of the way. */
+const INITIAL_OPEN: SectionId[] = ["Theme"];
 
 function Row({ knob }: { knob: TuningKnob }) {
   const { state, set } = useTuning();
@@ -99,6 +111,86 @@ function Segmented<T extends string>({
 }
 
 /**
+ * One collapsible group of controls.
+ *
+ * Collapsed sections still report how many of their values differ from the
+ * design, so nothing changed mid-demo can hide behind a closed section.
+ */
+function Section({
+  id,
+  open,
+  onToggle,
+  changedCount,
+  onReset,
+  children,
+}: {
+  id: SectionId;
+  open: boolean;
+  onToggle: () => void;
+  changedCount: number;
+  onReset: () => void;
+  children: React.ReactNode;
+}) {
+  const panelId = `tuning-section-${id.replace(/\s+/g, "-").toLowerCase()}`;
+
+  return (
+    <section className="border-t border-pg-border first:border-t-0">
+      <div className="group flex items-center">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          aria-controls={panelId}
+          className="motion-tap flex min-w-0 flex-1 items-center gap-[6px] py-[10px] pl-[14px] text-left"
+        >
+          <ChevronRight
+            size={12}
+            aria-hidden="true"
+            className={cn(
+              "shrink-0 text-pg-faint transition-transform duration-150",
+              open && "rotate-90",
+            )}
+          />
+          <span className="truncate text-[11px] leading-none font-semibold tracking-[0.4px] text-pg-heading uppercase">
+            {id}
+          </span>
+          {changedCount > 0 ? (
+            <span
+              title={`${changedCount} changed from the design`}
+              className="ml-[2px] shrink-0 rounded-full bg-brand px-[5px] py-[2px] font-mono text-[9px] leading-none text-brand-fg tabular-nums"
+            >
+              {changedCount}
+            </span>
+          ) : null}
+        </button>
+        <button
+          type="button"
+          onClick={onReset}
+          disabled={changedCount === 0}
+          title={`Reset ${id.toLowerCase()} to design values`}
+          aria-label={`Reset ${id.toLowerCase()} to design values`}
+          className="motion-tap mr-[10px] flex size-[22px] shrink-0 items-center justify-center rounded-[6px] text-pg-faint opacity-0 hover:bg-pg-row-border hover:text-pg-text focus-visible:opacity-100 disabled:pointer-events-none group-hover:opacity-100"
+        >
+          <RotateCcw size={12} aria-hidden="true" />
+        </button>
+      </div>
+
+      <div
+        id={panelId}
+        className="grid transition-[grid-template-rows] duration-200 ease-out"
+        style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
+      >
+        <div className="overflow-hidden">
+          <div className="flex flex-col gap-[10px] px-[14px] pt-[2px] pb-[14px]">
+            {children}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
  * Sticky demo controls. Retunes the nav's sizing, spacing and motion live so
  * options can be compared in front of an audience rather than described.
  *
@@ -108,10 +200,14 @@ function Segmented<T extends string>({
  */
 export function TuningPanel() {
   const [open, setOpen] = React.useState(false);
-  const { isDefault, reset } = useTuning();
+  const [openSections, setOpenSections] =
+    React.useState<SectionId[]>(INITIAL_OPEN);
+  const { state, set, isDefault, reset } = useTuning();
   const {
     accent,
     setAccent,
+    tint,
+    setTint,
     appTheme,
     setAppTheme,
     navTheme,
@@ -124,6 +220,40 @@ export function TuningPanel() {
     setSearchTheme,
   } = useTheme();
 
+  const toggleSection = (id: SectionId) =>
+    setOpenSections((s) =>
+      s.includes(id) ? s.filter((x) => x !== id) : [...s, id],
+    );
+
+  const allOpen = openSections.length === SECTIONS.length;
+
+  const themeChanged =
+    (accent !== DEFAULT_THEME.accent ? 1 : 0) +
+    (tint !== DEFAULT_THEME.tint ? 1 : 0) +
+    (navTheme !== DEFAULT_THEME.navTheme ? 1 : 0) +
+    (headerTheme !== DEFAULT_THEME.headerTheme ? 1 : 0) +
+    (appTheme !== DEFAULT_THEME.appTheme ? 1 : 0);
+
+  const searchChanged =
+    (searchMode !== DEFAULT_THEME.searchMode ? 1 : 0) +
+    (searchTheme !== DEFAULT_THEME.searchTheme ? 1 : 0);
+
+  const resetTheme = () => {
+    setAccent(DEFAULT_THEME.accent);
+    setTint(DEFAULT_THEME.tint);
+    setNavTheme(DEFAULT_THEME.navTheme);
+    setHeaderTheme(DEFAULT_THEME.headerTheme);
+    setAppTheme(DEFAULT_THEME.appTheme);
+  };
+
+  const resetSearch = () => {
+    setSearchMode(DEFAULT_THEME.searchMode);
+    setSearchTheme(DEFAULT_THEME.searchTheme);
+  };
+
+  const everythingIsDefault =
+    isDefault && themeChanged === 0 && searchChanged === 0;
+
   if (!open) {
     return (
       <button
@@ -134,7 +264,7 @@ export function TuningPanel() {
         className="motion-tap fixed top-1/2 right-0 z-50 flex size-[36px] -translate-y-1/2 items-center justify-center rounded-l-[10px] bg-pg-overlay text-pg-surface shadow-[0_4px_16px_0_rgba(15,23,42,0.28)] hover:pr-[3px]"
       >
         <SlidersHorizontal size={16} aria-hidden="true" />
-        {!isDefault ? (
+        {!everythingIsDefault ? (
           <span
             aria-hidden="true"
             className="absolute top-[6px] right-[6px] size-[6px] rounded-full bg-brand"
@@ -148,6 +278,9 @@ export function TuningPanel() {
     <aside
       aria-label="Prototype controls"
       data-page-theme="light"
+      // Opts out of [data-tint]: the panel is a tool, not part of the design
+      // being reviewed, so it must not recolour along with the workspace.
+      data-untinted=""
       className="fixed inset-y-0 right-0 z-50 flex w-[280px] flex-col bg-pg-surface shadow-[-8px_0_28px_0_rgba(15,23,42,0.18)]"
     >
       <header className="flex shrink-0 items-center justify-between px-[14px] py-[12px] shadow-[inset_0_-1px_0_0_var(--pg-border)]">
@@ -157,10 +290,14 @@ export function TuningPanel() {
         <div className="flex items-center gap-[2px]">
           <button
             type="button"
-            onClick={reset}
-            disabled={isDefault}
-            title="Reset to the design's measured values"
-            aria-label="Reset to design values"
+            onClick={() => {
+              reset();
+              resetTheme();
+              resetSearch();
+            }}
+            disabled={everythingIsDefault}
+            title="Reset everything to the design's measured values"
+            aria-label="Reset everything to design values"
             className="motion-tap flex size-[26px] items-center justify-center rounded-[6px] text-pg-muted hover:bg-pg-row-border hover:text-pg-text disabled:opacity-40"
           >
             <RotateCcw size={14} aria-hidden="true" />
@@ -176,11 +313,27 @@ export function TuningPanel() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-[16px] overflow-y-auto px-[14px] py-[14px]">
-        <section className="flex flex-col gap-[8px]">
-          <h3 className="text-[10px] leading-none font-semibold tracking-[0.5px] text-pg-faint uppercase">
-            Theme
-          </h3>
+      <div className="flex shrink-0 items-center justify-between px-[14px] py-[8px] shadow-[inset_0_-1px_0_0_var(--pg-border)]">
+        <span className="text-[10px] leading-none text-pg-faint">
+          {everythingIsDefault ? "Matching the design" : "Retuned"}
+        </span>
+        <button
+          type="button"
+          onClick={() => setOpenSections(allOpen ? [] : [...SECTIONS])}
+          className="motion-tap rounded-[6px] px-[6px] py-[3px] text-[10px] leading-none text-pg-muted hover:bg-pg-row-border hover:text-pg-text"
+        >
+          {allOpen ? "Collapse all" : "Expand all"}
+        </button>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <Section
+          id="Theme"
+          open={openSections.includes("Theme")}
+          onToggle={() => toggleSection("Theme")}
+          changedCount={themeChanged}
+          onReset={resetTheme}
+        >
           <Segmented
             label="Accent"
             options={ACCENTS}
@@ -188,6 +341,17 @@ export function TuningPanel() {
             onChange={(v: Accent) => setAccent(v)}
             format={(v) => ACCENT_LABELS[v]}
           />
+          <Segmented
+            label="Neutral tint"
+            options={TINTS}
+            value={tint}
+            onChange={(v: Tint) => setTint(v)}
+            format={(v) => TINT_LABELS[v]}
+          />
+          <p className="text-[10px] leading-[14px] text-pg-faint">
+            Off keeps the design&apos;s greys. Subtle and full carry the accent
+            into the whites, borders and text at the same lightness.
+          </p>
           <Segmented
             label="Nav surface"
             options={SURFACE_THEMES}
@@ -206,12 +370,15 @@ export function TuningPanel() {
             value={appTheme}
             onChange={(v: SurfaceTheme) => setAppTheme(v)}
           />
-        </section>
+        </Section>
 
-        <section className="flex flex-col gap-[8px]">
-          <h3 className="text-[10px] leading-none font-semibold tracking-[0.5px] text-pg-faint uppercase">
-            Search
-          </h3>
+        <Section
+          id="Search"
+          open={openSections.includes("Search")}
+          onToggle={() => toggleSection("Search")}
+          changedCount={searchChanged}
+          onReset={resetSearch}
+        >
           <Segmented
             label="Treatment"
             options={SEARCH_MODES}
@@ -228,18 +395,29 @@ export function TuningPanel() {
           <p className="text-[10px] leading-[14px] text-pg-faint">
             Open with ⌘K / Ctrl-K, or the search icon in the nav.
           </p>
-        </section>
+        </Section>
 
-        {TUNING_GROUPS.map((group) => (
-          <section key={group} className="flex flex-col gap-[10px]">
-            <h3 className="text-[10px] leading-none font-semibold tracking-[0.5px] text-pg-faint uppercase">
-              {group}
-            </h3>
-            {TUNING_KNOBS.filter((k) => k.group === group).map((knob) => (
-              <Row key={knob.id} knob={knob} />
-            ))}
-          </section>
-        ))}
+        {TUNING_GROUPS.map((group) => {
+          const knobs = TUNING_KNOBS.filter((k) => k.group === group);
+          return (
+            <Section
+              key={group}
+              id={group}
+              open={openSections.includes(group)}
+              onToggle={() => toggleSection(group)}
+              changedCount={
+                knobs.filter((k) => state[k.id] !== TUNING_DEFAULTS[k.id]).length
+              }
+              onReset={() => {
+                for (const knob of knobs) set(knob.id, TUNING_DEFAULTS[knob.id]);
+              }}
+            >
+              {knobs.map((knob) => (
+                <Row key={knob.id} knob={knob} />
+              ))}
+            </Section>
+          );
+        })}
       </div>
     </aside>
   );

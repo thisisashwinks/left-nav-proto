@@ -1,7 +1,9 @@
 "use client";
 
+import type { Account } from "@/components/accounts/accounts-data";
+import { AiDock } from "@/components/ai/ai-dock";
+import type { AiSession } from "@/components/ai/use-ai-session";
 import type { SurfaceTheme } from "@/design/theme";
-import { AiDock } from "./ai-dock";
 import { CollapseToggle } from "./collapse-toggle";
 import { EXPANDED_PINNED_BLOCK } from "./favorites-morph";
 import { flyoutIdFor, navConfig } from "./nav-config";
@@ -9,7 +11,7 @@ import { NavDivider } from "./nav-divider";
 import { NavHeader } from "./nav-header";
 import { NavItemRow } from "./nav-item-row";
 import { NavSectionLabel } from "./nav-section-label";
-import type { NavConfig, NavItem } from "./types";
+import type { NavConfig, NavEntry, NavItem } from "./types";
 
 interface LeftNavProps {
   /** Drives [data-nav-theme], independent of the app's own theme. */
@@ -27,6 +29,12 @@ interface LeftNavProps {
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onSearch: () => void;
+  /** Sub-account the session is in. Shown in the header's switcher trigger. */
+  account: Account;
+  switcherOpen: boolean;
+  onToggleSwitcher: () => void;
+  /** Owned by the shell, so the window can escape the nav's clipped box. */
+  aiSession: AiSession;
 }
 
 /**
@@ -53,6 +61,10 @@ export function LeftNav({
   collapsed,
   onToggleCollapsed,
   onSearch,
+  account,
+  switcherOpen,
+  onToggleSwitcher,
+  aiSession,
 }: LeftNavProps) {
   const renderRow = (item: NavItem) => {
     const flyoutId = flyoutIdFor(item);
@@ -74,6 +86,16 @@ export function LeftNav({
     );
   };
 
+  const renderEntry = (entry: NavEntry) => {
+    if (entry.kind === "label") {
+      return <NavSectionLabel key={entry.id} text={entry.text} />;
+    }
+    if (entry.kind === "divider") {
+      return <NavDivider key={entry.id} />;
+    }
+    return renderRow(entry.item);
+  };
+
   return (
     <nav
       data-nav-theme={theme}
@@ -84,8 +106,11 @@ export function LeftNav({
       className="flex h-full w-[272px] shrink-0 flex-col items-start overflow-hidden bg-nav shadow-[inset_-1px_0_0_0_var(--nav-border)]"
     >
       <NavHeader
+        account={account}
         logoSrc={config.logoSrc}
         logoAlt={config.logoAlt}
+        switcherOpen={switcherOpen}
+        onToggleSwitcher={onToggleSwitcher}
         onSearch={onSearch}
       />
 
@@ -103,7 +128,7 @@ export function LeftNav({
         data-cursor="menu"
         className="flex w-full shrink-0 flex-col items-start gap-[var(--t-nav-space,2px)] px-[10px]"
       >
-        {config.fixed.map(renderRow)}
+        {config.fixed.map(renderEntry)}
       </div>
 
       <div className="w-full shrink-0 px-[10px]">
@@ -114,21 +139,17 @@ export function LeftNav({
         data-cursor="menu"
         className="flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto px-[10px] pb-[2px]"
       >
-        {config.entries.map((entry) => {
-          if (entry.kind === "label") {
-            return <NavSectionLabel key={entry.id} text={entry.text} />;
-          }
-          if (entry.kind === "divider") {
-            return <NavDivider key={entry.id} />;
-          }
-          return renderRow(entry.item);
-        })}
+        {config.entries.map(renderEntry)}
         {renderRow(config.settings)}
       </div>
 
-      {/* AI takes the bottom bar; the drawer toggle sits at its right end. */}
-      <div className="flex w-full shrink-0 items-end gap-[8px] px-[12px] pt-[8px] pb-[12px]">
-        <AiDock collapsed={false} />
+      {/*
+        AI takes the bottom bar; the drawer toggle sits at its right end, centred
+        against the pill rather than sharing its baseline — the toggle is 28px
+        and the pill 38px, so bottom-aligning them dropped the toggle 5px low.
+      */}
+      <div className="flex w-full shrink-0 items-center gap-[8px] px-[12px] pt-[8px] pb-[12px]">
+        <AiDock collapsed={false} session={aiSession} />
         <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
       </div>
     </nav>

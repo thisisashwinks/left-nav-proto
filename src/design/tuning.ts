@@ -74,10 +74,10 @@ export const TUNING_DEFAULTS: TuningState = {
 
 export const TUNING_KNOBS: TuningKnob[] = [
   { id: "navIconSize", cssVar: "--t-nav-icon", label: "Icon size", group: "Nav rows", min: 12, max: 24, step: 1, unit: "px", hint: "Design: 16" },
-  { id: "navRowFontSize", cssVar: "--t-nav-font", label: "Label size", group: "Nav rows", min: 11, max: 18, step: 0.5, unit: "px", hint: "Design: 14" },
-  { id: "navRowGap", cssVar: "--t-nav-gap", label: "Icon → label gap", group: "Nav rows", min: 4, max: 20, step: 1, unit: "px", hint: "Design: 10" },
-  { id: "navRowPaddingY", cssVar: "--t-nav-py", label: "Row padding Y", group: "Nav rows", min: 4, max: 16, step: 1, unit: "px", hint: "Design: 9" },
-  { id: "navRowPaddingX", cssVar: "--t-nav-px", label: "Row padding X", group: "Nav rows", min: 4, max: 16, step: 1, unit: "px", hint: "Design: 8" },
+  { id: "navRowFontSize", cssVar: "--t-nav-font", label: "Label size", group: "Nav rows", min: 11, max: 18, step: 0.5, unit: "px", hint: "Design: 14 · expanded only" },
+  { id: "navRowGap", cssVar: "--t-nav-gap", label: "Icon → label gap", group: "Nav rows", min: 4, max: 20, step: 1, unit: "px", hint: "Design: 10 · expanded only" },
+  { id: "navRowPaddingY", cssVar: "--t-nav-py", label: "Row padding Y", group: "Nav rows", min: 4, max: 16, step: 1, unit: "px", hint: "Design: 9 · expanded only" },
+  { id: "navRowPaddingX", cssVar: "--t-nav-px", label: "Row padding X", group: "Nav rows", min: 4, max: 16, step: 1, unit: "px", hint: "Design: 8 · expanded only" },
   { id: "navRowRadius", cssVar: "--t-nav-radius", label: "Row radius", group: "Nav rows", min: 0, max: 16, step: 1, unit: "px", hint: "Design: 7" },
   { id: "navRowSpacing", cssVar: "--t-nav-space", label: "Between rows", group: "Nav rows", min: 0, max: 10, step: 1, unit: "px", hint: "Design: 2" },
 

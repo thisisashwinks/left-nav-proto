@@ -37,11 +37,19 @@ export interface NavConfig {
   logoAlt: string;
   pinned: PinnedRailItem[];
   /**
-   * The fixed cluster under the favourites dock — Recent, AI Agents, Quick
-   * Actions. Never scrolls, so the entry points stay reachable however long the
-   * product list gets.
+   * The fixed cluster under the favourites dock — the Recent block, AI Agents,
+   * Quick Actions. Never scrolls, so the entry points stay reachable however
+   * long the product list gets.
+   *
+   * Entries rather than plain items because the Recent block is a section label,
+   * three rows and a "More" row, as in left-nav.pen.
    */
-  fixed: NavItem[];
+  fixed: NavEntry[];
+  /**
+   * The same cluster for the 64px rail, which has no room for a section label or
+   * three recent rows — Recent collapses back to one icon that opens the panel.
+   */
+  railFixed: NavItem[];
   /** The product groups and workspace links. Scrolls. */
   entries: NavEntry[];
   /** Last row in the scroll region, not a pinned footer. */

@@ -6,15 +6,13 @@ export interface HeaderTab {
 }
 
 /** Which token supplies the circular button's background. */
-export type HeaderActionTone = "call" | "ai" | "launch" | "alert" | "neutral";
+export type HeaderActionTone = "call" | "launch" | "alert" | "neutral";
 
 export interface HeaderAction {
   id: string;
   label: string;
   tone: HeaderActionTone;
-  /** Omitted for the AI action, which uses the filled sparkle. */
-  icon?: LucideIcon;
-  ai?: boolean;
+  icon: LucideIcon;
 }
 
 export interface HeaderConfig {
@@ -40,8 +38,10 @@ export const headerConfig: HeaderConfig = {
   whatsNewLabel: "What's new",
   updatesLabel: "Contact updates",
   actions: [
+    // No AI action here. The assistant is a standing entry point in the nav
+    // now, and two doors to the same thing — one of which vanishes inside a
+    // builder — is worse than one that is always in the same place.
     { id: "call", label: "Call", tone: "call", icon: Phone },
-    { id: "ai", label: "AI assistant", tone: "ai", ai: true },
     { id: "launch", label: "What's shipping", tone: "launch", icon: Rocket },
     { id: "alerts", label: "Notifications", tone: "alert", icon: Bell },
     { id: "help", label: "Help", tone: "neutral", icon: Info },

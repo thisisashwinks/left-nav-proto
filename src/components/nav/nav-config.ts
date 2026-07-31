@@ -1,8 +1,12 @@
 import {
+  Calendar,
   ChartLine,
+  CheckCheck,
   CreditCard,
+  Ellipsis,
   GamepadDirectional,
   History,
+  Mail,
   Megaphone,
   MessageCircle,
   MessagesSquare,
@@ -13,7 +17,55 @@ import {
   Users,
   Workflow,
 } from "lucide-react";
-import type { NavConfig } from "./types";
+import type { NavConfig, NavItem } from "./types";
+
+/**
+ * The Recent block, straight from "Screen A · Nav open + Contacts" in
+ * left-nav.pen: a RECENT label, three compact rows with no chevron, then a
+ * "More" row that opens the full Recent panel.
+ *
+ * The three rows are the last places the user was, so they are real
+ * destinations, not a preview of a menu — which is why they carry no chevron and
+ * sit on the design's tighter 6px padding rather than the standard 9px.
+ */
+const recentItems: NavItem[] = [
+  { id: "recent-tasks", label: "Tasks", icon: CheckCheck, density: "compact" },
+  {
+    id: "recent-email-campaigns",
+    label: "Email Campaigns",
+    icon: Mail,
+    density: "compact",
+  },
+  {
+    id: "recent-calendars",
+    label: "Calendars",
+    icon: Calendar,
+    density: "compact",
+  },
+];
+
+/** Standard row density and a chevron: this one is the door to the panel. */
+const recentMore: NavItem = {
+  id: "recent-more",
+  label: "More",
+  icon: Ellipsis,
+  hasFlyout: true,
+  flyoutId: "recent",
+};
+
+const aiAgents: NavItem = {
+  id: "ai-agents",
+  label: "AI Agents",
+  ai: true,
+  hasFlyout: true,
+};
+
+const quickActions: NavItem = {
+  id: "quick-actions",
+  label: "Quick Actions",
+  icon: GamepadDirectional,
+  hasFlyout: true,
+};
 
 /**
  * Mirrors "Screen A · Nav open + Contacts" in left-nav.pen, top to bottom.
@@ -31,14 +83,19 @@ export const navConfig: NavConfig = {
   ],
   // Fixed cluster: the standing entry points, above anything that scrolls.
   fixed: [
-    { id: "recent", label: "Recent", icon: History, hasFlyout: true },
-    { id: "ai-agents", label: "AI Agents", ai: true, hasFlyout: true },
-    {
-      id: "quick-actions",
-      label: "Quick Actions",
-      icon: GamepadDirectional,
-      hasFlyout: true,
-    },
+    { kind: "label", id: "recent-label", text: "Recent" },
+    ...recentItems.map((item) => ({ kind: "item" as const, item })),
+    { kind: "item", item: recentMore },
+    { kind: "divider", id: "div-recent" },
+    { kind: "item", item: aiAgents },
+    { kind: "item", item: quickActions },
+  ],
+  railFixed: [
+    // The rail has no section labels and no room for three rows, so Recent goes
+    // back to being one icon — the panel behind "More" is the same one.
+    { id: "recent", label: "Recent", icon: History, hasFlyout: true, flyoutId: "recent" },
+    aiAgents,
+    quickActions,
   ],
   entries: [
     {

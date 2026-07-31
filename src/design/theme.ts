@@ -12,6 +12,9 @@
  */
 
 export const ACCENTS = [
+  // Follows the current sub-account's logo colour; see [data-accent="account"]
+  // in tokens.css. First in the list because it is the default.
+  "account",
   "highrise",
   "pencil-blue",
   "blue",
@@ -40,8 +43,28 @@ export const SEARCH_MODE_LABELS: Record<SearchMode, string> = {
   flyout: "Nav panel",
 };
 
+/**
+ * How far the accent reaches into the neutrals — surfaces, borders and text.
+ *
+ * `off` keeps the design's own neutral ramps verbatim, so the accent only
+ * repaints the things that are already accent-coloured. The other two rebuild
+ * every neutral at its measured lightness but on the accent's hue, which is
+ * what turns a recolour into a whole-workspace theme rather than a button swap.
+ */
+export const TINTS = ["off", "subtle", "full"] as const;
+
+export type Tint = (typeof TINTS)[number];
+
+export const TINT_LABELS: Record<Tint, string> = {
+  off: "Off",
+  subtle: "Subtle",
+  full: "Full",
+};
+
 export interface ThemeState {
   accent: Accent;
+  /** Whether the accent also tints the whites, greys and text. */
+  tint: Tint;
   appTheme: SurfaceTheme;
   navTheme: SurfaceTheme;
   headerTheme: SurfaceTheme;
@@ -55,7 +78,10 @@ export interface ThemeState {
  * the two agree on first paint and hydration stays clean.
  */
 export const DEFAULT_THEME: ThemeState = {
-  accent: "highrise",
+  // Falls back to the HighRise primary until the switcher writes an account
+  // colour, so this is identical to `highrise` on first paint.
+  accent: "account",
+  tint: "off",
   appTheme: "light",
   navTheme: "light",
   headerTheme: "light",
@@ -65,6 +91,7 @@ export const DEFAULT_THEME: ThemeState = {
 
 /** Human-readable labels, for the controls UI added later. */
 export const ACCENT_LABELS: Record<Accent, string> = {
+  account: "Sub-account logo",
   highrise: "HighRise primary",
   "pencil-blue": "Pencil blue",
   blue: "Blue",
