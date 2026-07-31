@@ -56,6 +56,16 @@
   --color-hdr-act-alert: var(--hdr-act-alert);
   --color-hdr-avatar: var(--hdr-avatar-bg);
 
+  --color-sr: var(--sr-bg);
+  --color-sr-border: var(--sr-border);
+  --color-sr-fg: var(--sr-fg);
+  --color-sr-muted: var(--sr-muted);
+  --color-sr-icon: var(--sr-icon);
+  --color-sr-row-active: var(--sr-row-active);
+  --color-sr-chip: var(--sr-chip-bg);
+  --color-sr-kbd: var(--sr-kbd-bg);
+  --color-sr-footer: var(--sr-footer-bg);
+
   --color-pg: var(--pg-bg);
   --color-pg-surface: var(--pg-surface);
   --color-pg-heading: var(--pg-heading);

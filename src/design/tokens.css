@@ -304,6 +304,47 @@
   --hdr-avatar-bg: #52525b;
 }
 
+/* ─── Search surface ───────────────────────────────────────────────────── */
+
+/*
+ * Swapped via [data-search-theme]. Search gets its own scope on purpose: the
+ * review asked for it to read as visually distinct from the nav so the two are
+ * never confused. Light is the Pencil file's values verbatim; dark is the
+ * default here, per that feedback.
+ */
+
+[data-search-theme="light"] {
+  --sr-bg: #ffffff;
+  --sr-border: #ececef;
+  --sr-fg: #18181b;
+  --sr-muted: #9a9aa6;
+  --sr-icon: #5b5b66;
+  --sr-row-active: #f5f5f7;
+  --sr-chip-bg: #fafafa;
+  --sr-kbd-bg: #ffffff;
+  --sr-kbd-border: #ececef;
+  --sr-footer-bg: #fafafa;
+  --sr-caret: #5b5bd6;
+  --sr-shadow: #18181b3d;
+  --sr-scrim: #18181b1f;
+}
+
+[data-search-theme="dark"] {
+  --sr-bg: #17171b;
+  --sr-border: #2b2b33;
+  --sr-fg: #f2f2f5;
+  --sr-muted: #8b8b96;
+  --sr-icon: #a1a1ac;
+  --sr-row-active: #24242c;
+  --sr-chip-bg: #1e1e24;
+  --sr-kbd-bg: #1e1e24;
+  --sr-kbd-border: #33333c;
+  --sr-footer-bg: #131317;
+  --sr-caret: #a5a5f5;
+  --sr-shadow: #00000080;
+  --sr-scrim: #0b0b0e66;
+}
+
 /* ─── Layer 5: page surface (Contacts and any future page) ──────────────── */
 
 /*

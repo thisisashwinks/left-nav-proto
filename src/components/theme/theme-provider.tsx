@@ -4,6 +4,7 @@ import * as React from "react";
 import {
   DEFAULT_THEME,
   type Accent,
+  type SearchMode,
   type SurfaceTheme,
   type ThemeState,
 } from "@/design/theme";
@@ -13,6 +14,8 @@ interface ThemeContextValue extends ThemeState {
   setAppTheme: (theme: SurfaceTheme) => void;
   setNavTheme: (theme: SurfaceTheme) => void;
   setHeaderTheme: (theme: SurfaceTheme) => void;
+  setSearchMode: (mode: SearchMode) => void;
+  setSearchTheme: (theme: SurfaceTheme) => void;
 }
 
 const ThemeContext = React.createContext<ThemeContextValue | null>(null);
@@ -52,6 +55,8 @@ export function ThemeProvider({
       setAppTheme: (appTheme) => setState((s) => ({ ...s, appTheme })),
       setNavTheme: (navTheme) => setState((s) => ({ ...s, navTheme })),
       setHeaderTheme: (headerTheme) => setState((s) => ({ ...s, headerTheme })),
+      setSearchMode: (searchMode) => setState((s) => ({ ...s, searchMode })),
+      setSearchTheme: (searchTheme) => setState((s) => ({ ...s, searchTheme })),
     }),
     [state],
   );

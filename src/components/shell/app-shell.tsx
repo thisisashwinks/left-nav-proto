@@ -8,6 +8,8 @@ import { CollapsedRail } from "@/components/nav/collapsed-rail";
 import { FavoritesMorph } from "@/components/nav/favorites-morph";
 import { LeftNav } from "@/components/nav/left-nav";
 import { navConfig } from "@/components/nav/nav-config";
+import { CommandPalette } from "@/components/search/command-palette";
+import { SearchFlyout } from "@/components/search/search-flyout";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { useExitTransition } from "@/lib/use-exit-transition";
@@ -38,9 +40,24 @@ const FLYOUT_HOVER_GRACE_MS = 180;
  * accessibility tree.
  */
 export function AppShell({ children }: { children?: React.ReactNode }) {
-  const { navTheme, headerTheme } = useTheme();
+  const { navTheme, headerTheme, searchMode, searchTheme } = useTheme();
   const [collapsed, setCollapsed] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = React.useState(false);
+
+  // Cmd/Ctrl-K opens search from anywhere, which is the whole point of the
+  // spotlight treatment. Bound on the window so it works with focus in the page.
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   const intent = useFlyoutIntent(FLYOUT_HOVER_GRACE_MS);
 
   const navWidth = collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
@@ -86,6 +103,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             onPinFlyout={intent.togglePin}
             collapsed={collapsed}
             onToggleCollapsed={() => setCollapsed((c) => !c)}
+            onSearch={() => setSearchOpen(true)}
           />
         </div>
 
@@ -109,6 +127,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             onPinFlyout={intent.togglePin}
             collapsed={collapsed}
             onToggleCollapsed={() => setCollapsed((c) => !c)}
+            onSearch={() => setSearchOpen(true)}
           />
         </div>
       </div>
@@ -154,6 +173,21 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         </>
       ) : null}
 
+      {/* Search sits above the flyouts; both treatments share the same model. */}
+      {searchOpen ? (
+        searchMode === "spotlight" ? (
+          <CommandPalette
+            theme={searchTheme}
+            onClose={() => setSearchOpen(false)}
+          />
+        ) : (
+          <SearchFlyout
+            offsetLeft={navWidth}
+            theme={searchTheme}
+            onClose={() => setSearchOpen(false)}
+          />
+        )
+      ) : null}
     </div>
   );
 }

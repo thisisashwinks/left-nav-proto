@@ -26,6 +26,7 @@ interface LeftNavProps {
   onPinFlyout: (flyoutId: string) => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  onSearch: () => void;
 }
 
 /**
@@ -51,6 +52,7 @@ export function LeftNav({
   onPinFlyout,
   collapsed,
   onToggleCollapsed,
+  onSearch,
 }: LeftNavProps) {
   const renderRow = (item: NavItem) => {
     const flyoutId = flyoutIdFor(item);
@@ -81,7 +83,11 @@ export function LeftNav({
       // pixel of content width and push every measurement off by one.
       className="flex h-full w-[272px] shrink-0 flex-col items-start overflow-hidden bg-nav shadow-[inset_-1px_0_0_0_var(--nav-border)]"
     >
-      <NavHeader logoSrc={config.logoSrc} logoAlt={config.logoAlt} />
+      <NavHeader
+        logoSrc={config.logoSrc}
+        logoAlt={config.logoAlt}
+        onSearch={onSearch}
+      />
 
       {/*
         The pinned capsule itself is rendered by FavoritesMorph, outside both nav

@@ -5,8 +5,11 @@ import { RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import {
   ACCENT_LABELS,
   ACCENTS,
+  SEARCH_MODE_LABELS,
+  SEARCH_MODES,
   SURFACE_THEMES,
   type Accent,
+  type SearchMode,
   type SurfaceTheme,
 } from "@/design/theme";
 import {
@@ -115,6 +118,10 @@ export function TuningPanel() {
     setNavTheme,
     headerTheme,
     setHeaderTheme,
+    searchMode,
+    setSearchMode,
+    searchTheme,
+    setSearchTheme,
   } = useTheme();
 
   if (!open) {
@@ -199,6 +206,28 @@ export function TuningPanel() {
             value={appTheme}
             onChange={(v: SurfaceTheme) => setAppTheme(v)}
           />
+        </section>
+
+        <section className="flex flex-col gap-[8px]">
+          <h3 className="text-[10px] leading-none font-semibold tracking-[0.5px] text-pg-faint uppercase">
+            Search
+          </h3>
+          <Segmented
+            label="Treatment"
+            options={SEARCH_MODES}
+            value={searchMode}
+            onChange={(v: SearchMode) => setSearchMode(v)}
+            format={(v) => SEARCH_MODE_LABELS[v]}
+          />
+          <Segmented
+            label="Search surface"
+            options={SURFACE_THEMES}
+            value={searchTheme}
+            onChange={(v: SurfaceTheme) => setSearchTheme(v)}
+          />
+          <p className="text-[10px] leading-[14px] text-pg-faint">
+            Open with ⌘K / Ctrl-K, or the search icon in the nav.
+          </p>
         </section>
 
         {TUNING_GROUPS.map((group) => (

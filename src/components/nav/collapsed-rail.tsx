@@ -24,6 +24,7 @@ interface CollapsedRailProps {
   onPinFlyout: (id: string) => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  onSearch: () => void;
 }
 
 /**
@@ -44,6 +45,7 @@ export function CollapsedRail({
   onPinFlyout,
   collapsed,
   onToggleCollapsed,
+  onSearch,
 }: CollapsedRailProps) {
   const railButton = (
     id: string,
@@ -124,6 +126,7 @@ export function CollapsedRail({
         type="button"
         title="Search"
         aria-label="Search"
+        onClick={onSearch}
         className="motion-tap flex size-[38px] shrink-0 items-center justify-center rounded-[9px] text-nav-fg-subtle hover:scale-105 hover:bg-nav-hover hover:text-nav-fg-muted active:scale-95"
       >
         <Search size={16} aria-hidden="true" />
