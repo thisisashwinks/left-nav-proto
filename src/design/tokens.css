@@ -282,6 +282,98 @@
   --hdr-avatar-bg: #52525b;
 }
 
+/* ─── Layer 5: page surface (Contacts and any future page) ──────────────── */
+
+/*
+ * Swapped via [data-page-theme]. The Contacts design uses a slate ramp that is
+ * distinct from the nav's neutral ramp, so it gets its own scope rather than
+ * borrowing --nav-*. Every blue in the design maps to --brand-* instead of a
+ * literal, which is what makes the accent swap reach the page too.
+ */
+
+[data-page-theme="light"] {
+  --pg-bg: #f7f8fa;
+  --pg-surface: #ffffff;
+  --pg-heading: #0f172a;
+  --pg-text: #334155;
+  --pg-text-strong: #475569;
+  --pg-muted: #64748b;
+  --pg-faint: #94a3b8;
+  --pg-disabled: #cbd5e1;
+  --pg-border: #e2e8f0;
+  --pg-border-strong: #d3dce6;
+  --pg-card-border: #e4e9ef;
+  --pg-head-border: #e9edf2;
+  --pg-row-border: #f1f4f8;
+  --pg-row-selected: #f4f8ff;
+  --pg-overlay-bg: #0f172a;
+  --pg-overlay-fg: #e2e8f0;
+  --pg-overlay-divider: #ffffff29;
+  --pg-danger: #fda4af;
+
+  --pg-status-inquiry-dot: #3b82f6;
+  --pg-status-inquiry-fg: #1d4ed8;
+  --pg-status-subscribed-dot: #10b981;
+  --pg-status-subscribed-fg: #047857;
+
+  /* Avatar tones, cycled per contact. */
+  --pg-av-blue-bg: #eff6ff;
+  --pg-av-blue-fg: #1d4ed8;
+  --pg-av-pink-bg: #fdf2f8;
+  --pg-av-pink-fg: #db2777;
+  --pg-av-green-bg: #ecfdf5;
+  --pg-av-green-fg: #059669;
+  --pg-av-orange-bg: #fff7ed;
+  --pg-av-orange-fg: #ea580c;
+  --pg-av-purple-bg: #faf5ff;
+  --pg-av-purple-fg: #9333ea;
+  --pg-av-yellow-bg: #fefce8;
+  --pg-av-yellow-fg: #ca8a04;
+  --pg-av-teal-bg: #f0fdfa;
+  --pg-av-teal-fg: #0d9488;
+}
+
+[data-page-theme="dark"] {
+  --pg-bg: #0b0b0e;
+  --pg-surface: #15151a;
+  --pg-heading: #f1f5f9;
+  --pg-text: #cbd5e1;
+  --pg-text-strong: #b4c0cf;
+  --pg-muted: #8b98a9;
+  --pg-faint: #6b7686;
+  --pg-disabled: #46505e;
+  --pg-border: #282832;
+  --pg-border-strong: #303040;
+  --pg-card-border: #26262f;
+  --pg-head-border: #262631;
+  --pg-row-border: #1e1e26;
+  --pg-row-selected: #161d2e;
+  --pg-overlay-bg: #f1f5f9;
+  --pg-overlay-fg: #334155;
+  --pg-overlay-divider: #0f172a29;
+  --pg-danger: #f43f5e;
+
+  --pg-status-inquiry-dot: #3b82f6;
+  --pg-status-inquiry-fg: #93b4fd;
+  --pg-status-subscribed-dot: #10b981;
+  --pg-status-subscribed-fg: #6ee7b7;
+
+  --pg-av-blue-bg: #16203a;
+  --pg-av-blue-fg: #93b4fd;
+  --pg-av-pink-bg: #33132a;
+  --pg-av-pink-fg: #f9a8d4;
+  --pg-av-green-bg: #10281f;
+  --pg-av-green-fg: #6ee7b7;
+  --pg-av-orange-bg: #2b1a0d;
+  --pg-av-orange-fg: #fdba74;
+  --pg-av-purple-bg: #241436;
+  --pg-av-purple-fg: #d8b4fe;
+  --pg-av-yellow-bg: #2a230c;
+  --pg-av-yellow-fg: #fde047;
+  --pg-av-teal-bg: #0d2725;
+  --pg-av-teal-fg: #5eead4;
+}
+
 /* ─── App canvas ────────────────────────────────────────────────────────── */
 
 [data-app-theme="light"] {

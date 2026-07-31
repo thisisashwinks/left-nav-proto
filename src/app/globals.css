@@ -54,6 +54,24 @@
   --color-hdr-act-alert: var(--hdr-act-alert);
   --color-hdr-avatar: var(--hdr-avatar-bg);
 
+  --color-pg: var(--pg-bg);
+  --color-pg-surface: var(--pg-surface);
+  --color-pg-heading: var(--pg-heading);
+  --color-pg-text: var(--pg-text);
+  --color-pg-text-strong: var(--pg-text-strong);
+  --color-pg-muted: var(--pg-muted);
+  --color-pg-faint: var(--pg-faint);
+  --color-pg-disabled: var(--pg-disabled);
+  --color-pg-border: var(--pg-border);
+  --color-pg-border-strong: var(--pg-border-strong);
+  --color-pg-card-border: var(--pg-card-border);
+  --color-pg-head-border: var(--pg-head-border);
+  --color-pg-row-border: var(--pg-row-border);
+  --color-pg-row-selected: var(--pg-row-selected);
+  --color-pg-overlay: var(--pg-overlay-bg);
+  --color-pg-overlay-fg: var(--pg-overlay-fg);
+  --color-pg-danger: var(--pg-danger);
+
   --color-app: var(--app-bg);
   --color-app-fg: var(--app-fg);
   --color-app-fg-muted: var(--app-fg-muted);
