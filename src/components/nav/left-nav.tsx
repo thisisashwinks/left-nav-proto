@@ -1,8 +1,7 @@
 "use client";
 
-import * as React from "react";
 import type { SurfaceTheme } from "@/design/theme";
-import { DEFAULT_ACTIVE_ITEM_ID, navConfig } from "./nav-config";
+import { flyoutIdFor, navConfig, RECENT_LABEL_ID } from "./nav-config";
 import { NavDivider } from "./nav-divider";
 import { NavHeader } from "./nav-header";
 import { NavItemRow } from "./nav-item-row";
@@ -14,6 +13,11 @@ interface LeftNavProps {
   /** Drives [data-nav-theme], independent of the app's own theme. */
   theme: SurfaceTheme;
   config?: NavConfig;
+  /** Row the user has selected. Null on first load — nothing is preselected. */
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  openFlyoutId: string | null;
+  onOpenFlyout: (flyoutId: string) => void;
 }
 
 /**
@@ -23,9 +27,14 @@ interface LeftNavProps {
  * a fit-height header and pinned rail, a flex-1 scroll region padded 2px 10px
  * with 2px between rows, and a bordered footer.
  */
-export function LeftNav({ theme, config = navConfig }: LeftNavProps) {
-  const [activeId, setActiveId] = React.useState(DEFAULT_ACTIVE_ITEM_ID);
-
+export function LeftNav({
+  theme,
+  config = navConfig,
+  selectedId,
+  onSelect,
+  openFlyoutId,
+  onOpenFlyout,
+}: LeftNavProps) {
   return (
     <nav
       data-nav-theme={theme}
@@ -37,22 +46,44 @@ export function LeftNav({ theme, config = navConfig }: LeftNavProps) {
     >
       <NavHeader logoSrc={config.logoSrc} logoAlt={config.logoAlt} />
 
-      <PinnedRail items={config.pinned} />
+      <PinnedRail
+        items={config.pinned}
+        onExpand={() => onOpenFlyout("favorites")}
+      />
 
       <div className="flex w-full flex-1 flex-col items-start gap-[2px] overflow-y-auto px-[10px] py-[2px]">
         {config.entries.map((entry) => {
           if (entry.kind === "label") {
-            return <NavSectionLabel key={entry.id} text={entry.text} />;
+            return (
+              <NavSectionLabel
+                key={entry.id}
+                text={entry.text}
+                onOpen={
+                  entry.id === RECENT_LABEL_ID
+                    ? () => onOpenFlyout("recent")
+                    : undefined
+                }
+              />
+            );
           }
           if (entry.kind === "divider") {
             return <NavDivider key={entry.id} />;
           }
+
+          const { item } = entry;
+          const flyoutId = flyoutIdFor(item);
           return (
             <NavItemRow
-              key={entry.item.id}
-              item={entry.item}
-              active={entry.item.id === activeId}
-              onSelect={setActiveId}
+              key={item.id}
+              item={item}
+              active={
+                item.id === selectedId ||
+                (item.hasFlyout === true && flyoutId === openFlyoutId)
+              }
+              onSelect={() => {
+                onSelect(item.id);
+                if (item.hasFlyout) onOpenFlyout(flyoutId);
+              }}
             />
           );
         })}

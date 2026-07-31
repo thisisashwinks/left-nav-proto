@@ -63,7 +63,14 @@ export const navConfig: NavConfig = {
     },
     {
       kind: "item",
-      item: { id: "more", label: "More", icon: Ellipsis, hasFlyout: true },
+      item: {
+        id: "more",
+        label: "More",
+        icon: Ellipsis,
+        hasFlyout: true,
+        // "More" is the entry point to the full product list.
+        flyoutId: "everything",
+      },
     },
     { kind: "divider", id: "div-1" },
     {
@@ -124,8 +131,13 @@ export const navConfig: NavConfig = {
 };
 
 /**
- * The row the Pencil reference shows in its open/hover state. Matching it here
- * keeps the default render pixel-identical to the design; hovering any other
- * row produces the same treatment.
+ * Which flyout a nav row opens. The Pencil reference renders Engage in its open
+ * state, but nothing is selected on first load here — selection follows what the
+ * user actually clicks.
  */
-export const DEFAULT_ACTIVE_ITEM_ID = "engage";
+export function flyoutIdFor(item: { id: string; flyoutId?: string }): string {
+  return item.flyoutId ?? item.id;
+}
+
+/** The section label that opens the Recent flyout. */
+export const RECENT_LABEL_ID = "recent-label";

@@ -8,7 +8,7 @@ import type { NavItem } from "./types";
 interface NavItemRowProps {
   item: NavItem;
   active?: boolean;
-  onSelect?: (id: string) => void;
+  onSelect?: () => void;
 }
 
 /**
@@ -25,7 +25,7 @@ export function NavItemRow({ item, active = false, onSelect }: NavItemRowProps) 
     <button
       type="button"
       aria-current={active ? "page" : undefined}
-      onClick={() => onSelect?.(item.id)}
+      onClick={onSelect}
       className={cn(
         "group flex w-full shrink-0 items-center gap-[10px] rounded-[7px] px-[8px] text-left",
         compact ? "py-[6px]" : "py-[9px]",

@@ -15,6 +15,8 @@ export interface NavItem {
   ai?: boolean;
   /** Trailing chevron, meaning the row opens a flyout. */
   hasFlyout?: boolean;
+  /** Key into the flyout registry. Falls back to `id` when omitted. */
+  flyoutId?: string;
   density?: NavItemDensity;
 }
 

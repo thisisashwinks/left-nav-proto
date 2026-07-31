@@ -28,8 +28,19 @@
   --color-nav-rail: var(--nav-rail-bg);
   --color-nav-rail-border: var(--nav-rail-border);
   --color-nav-rail-hi: var(--nav-rail-hi);
+  --color-nav-rail-disc: var(--nav-rail-disc);
   --color-nav-ai-icon: var(--nav-ai-icon);
   --color-nav-ai-fg: var(--nav-ai-fg);
+
+  --color-fly-border: var(--fly-border);
+  --color-fly-card: var(--fly-card-bg);
+  --color-fly-accent: var(--fly-accent);
+  --color-fly-accent-soft: var(--fly-accent-soft);
+  --color-fly-promo-fg: var(--fly-promo-fg);
+  --color-fly-promo-icon: var(--fly-promo-icon);
+  --color-fly-promo-body: var(--fly-promo-body);
+  --color-fly-badge-fg: var(--fly-badge-fg);
+  --color-fly-tile: var(--fly-tile-bg);
 
   --color-hdr: var(--hdr-bg);
   --color-hdr-border: var(--hdr-border);

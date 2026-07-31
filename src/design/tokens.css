@@ -191,8 +191,32 @@
   --nav-rail-bg: #f7f9fa;
   --nav-rail-border: #e4e6eb;
   --nav-rail-hi: #f2f3f5;
+  --nav-rail-disc: #ebebef;
   --nav-ai-icon: #6837f0;
   --nav-ai-fg: #5925db;
+
+  /*
+   * Flyout-only values. Anything the flyout shares with the nav (text, icon,
+   * hover, divider) reuses the --nav-* tokens above rather than duplicating.
+   * The promo/badge/accent values are brand-tinted but deliberately hold the
+   * design's own hexes so the default render matches the Pencil file; re-point
+   * them at --brand-* if you want them to follow the accent.
+   */
+  --fly-border: #e4e5e7;
+  --fly-shadow: #0000001f;
+  --fly-card-bg: #fafafa;
+  --fly-accent: #5b5bd6;
+  --fly-accent-soft: #eeeefb;
+  --fly-promo-from: #b3ccff;
+  --fly-promo-to: #f0f5ff;
+  --fly-promo-fg: #344ded;
+  --fly-promo-icon: #375ff0;
+  --fly-promo-body: #384252;
+  --fly-badge-from: #b3ccff;
+  --fly-badge-to: #d1e0ff;
+  --fly-badge-fg: #344ded;
+  --fly-tile-bg: #f4f4f6;
+  --fly-duration-bg: #101828cc;
 }
 
 [data-nav-theme="dark"] {
@@ -207,8 +231,25 @@
   --nav-rail-bg: #17171b;
   --nav-rail-border: #2b2b33;
   --nav-rail-hi: #24242c;
+  --nav-rail-disc: #2e2e36;
   --nav-ai-icon: #a78bfa;
   --nav-ai-fg: #c4b5fd;
+
+  --fly-border: #26262c;
+  --fly-shadow: #00000066;
+  --fly-card-bg: #17171b;
+  --fly-accent: #a5a5f5;
+  --fly-accent-soft: #1e1e2e;
+  --fly-promo-from: #1e2a4a;
+  --fly-promo-to: #14161f;
+  --fly-promo-fg: #b2ccff;
+  --fly-promo-icon: #84adff;
+  --fly-promo-body: #a1a1ac;
+  --fly-badge-from: #1e2a4a;
+  --fly-badge-to: #26324f;
+  --fly-badge-fg: #b2ccff;
+  --fly-tile-bg: #1e1e24;
+  --fly-duration-bg: #000000cc;
 }
 
 /* ─── Layer 4: header surface ───────────────────────────────────────────── */
