@@ -1,11 +1,8 @@
 import {
-  Calendar,
   ChartLine,
-  CheckCheck,
   CreditCard,
-  Ellipsis,
   GamepadDirectional,
-  Mail,
+  History,
   Megaphone,
   MessageCircle,
   MessagesSquare,
@@ -32,61 +29,18 @@ export const navConfig: NavConfig = {
     { id: "opportunities", label: "Opportunities", icon: Target },
     { id: "payments", label: "Payments", icon: CreditCard },
   ],
+  // Fixed cluster: the standing entry points, above anything that scrolls.
+  fixed: [
+    { id: "recent", label: "Recent", icon: History, hasFlyout: true },
+    { id: "ai-agents", label: "AI Agents", ai: true, hasFlyout: true },
+    {
+      id: "quick-actions",
+      label: "Quick Actions",
+      icon: GamepadDirectional,
+      hasFlyout: true,
+    },
+  ],
   entries: [
-    { kind: "label", id: "recent-label", text: "Recent" },
-    {
-      kind: "item",
-      item: {
-        id: "tasks",
-        label: "Tasks",
-        icon: CheckCheck,
-        density: "compact",
-      },
-    },
-    {
-      kind: "item",
-      item: {
-        id: "email-campaigns",
-        label: "Email Campaigns",
-        icon: Mail,
-        density: "compact",
-      },
-    },
-    {
-      kind: "item",
-      item: {
-        id: "calendars",
-        label: "Calendars",
-        icon: Calendar,
-        density: "compact",
-      },
-    },
-    {
-      kind: "item",
-      item: {
-        id: "more",
-        label: "More",
-        icon: Ellipsis,
-        hasFlyout: true,
-        // "More" sits under the RECENT group and opens the full recent list.
-        flyoutId: "recent",
-      },
-    },
-    { kind: "divider", id: "div-1" },
-    {
-      kind: "item",
-      item: { id: "ai-agents", label: "AI Agents", ai: true, hasFlyout: true },
-    },
-    {
-      kind: "item",
-      item: {
-        id: "quick-actions",
-        label: "Quick Actions",
-        icon: GamepadDirectional,
-        hasFlyout: true,
-      },
-    },
-    { kind: "divider", id: "div-2" },
     {
       kind: "item",
       item: {
@@ -126,8 +80,11 @@ export const navConfig: NavConfig = {
       kind: "item",
       item: { id: "payments-nav", label: "Payments", icon: CreditCard },
     },
+    { kind: "divider", id: "div-4" },
   ],
-  footer: { id: "settings", label: "Settings", icon: Settings },
+  // Last row in the scroll region, so the nav's bottom edge is free for the AI
+  // dock rather than being taken by a pinned Settings footer.
+  settings: { id: "settings", label: "Settings", icon: Settings },
 };
 
 /**

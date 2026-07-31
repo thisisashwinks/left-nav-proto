@@ -84,6 +84,19 @@
   }
 }
 
+/* Breathing ring while the AI dock is listening. */
+@keyframes ai-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+}
+
 /* ─── Transition utilities ───────────────────────────────────────────────── */
 
 /*
@@ -147,6 +160,10 @@
 
 .motion-slot-in {
   animation: slot-swap-in var(--dur-base) var(--ease-out) both;
+}
+
+.motion-ai-pulse {
+  animation: ai-pulse 1.6s var(--ease-in-out) infinite;
 }
 
 /* ─── Reduced motion ─────────────────────────────────────────────────────── */

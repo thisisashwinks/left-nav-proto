@@ -195,6 +195,15 @@
   --nav-ai-icon: #6837f0;
   --nav-ai-fg: #5925db;
 
+  /* The persistent AI dock. Deliberately its own ramp, not --brand: the AI
+     surface should stay recognisable when an agency recolours the accent. */
+  --ai-from: #6837f0;
+  --ai-to: #a855f7;
+  --ai-soft-from: #f5f2ff;
+  --ai-soft-to: #fdf4ff;
+  --ai-border: #e4dbff;
+  --ai-ring: #a855f766;
+
   /*
    * Flyout-only values. Anything the flyout shares with the nav (text, icon,
    * hover, divider) reuses the --nav-* tokens above rather than duplicating.
@@ -237,6 +246,13 @@
   --nav-rail-disc: #2e2e36;
   --nav-ai-icon: #a78bfa;
   --nav-ai-fg: #c4b5fd;
+
+  --ai-from: #a78bfa;
+  --ai-to: #d8b4fe;
+  --ai-soft-from: #1a1626;
+  --ai-soft-to: #201a2e;
+  --ai-border: #332a4d;
+  --ai-ring: #a78bfa66;
 
   --fly-border: #26262c;
   --fly-shadow: #00000066;

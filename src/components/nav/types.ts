@@ -36,6 +36,14 @@ export interface NavConfig {
   logoSrc?: string;
   logoAlt: string;
   pinned: PinnedRailItem[];
+  /**
+   * The fixed cluster under the favourites dock — Recent, AI Agents, Quick
+   * Actions. Never scrolls, so the entry points stay reachable however long the
+   * product list gets.
+   */
+  fixed: NavItem[];
+  /** The product groups and workspace links. Scrolls. */
   entries: NavEntry[];
-  footer: NavItem;
+  /** Last row in the scroll region, not a pinned footer. */
+  settings: NavItem;
 }

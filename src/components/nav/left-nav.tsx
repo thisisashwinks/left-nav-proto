@@ -1,13 +1,15 @@
 "use client";
 
 import type { SurfaceTheme } from "@/design/theme";
+import { AiDock } from "./ai-dock";
+import { CollapseToggle } from "./collapse-toggle";
+import { EXPANDED_PINNED_BLOCK } from "./favorites-morph";
 import { flyoutIdFor, navConfig } from "./nav-config";
 import { NavDivider } from "./nav-divider";
 import { NavHeader } from "./nav-header";
 import { NavItemRow } from "./nav-item-row";
 import { NavSectionLabel } from "./nav-section-label";
-import { EXPANDED_PINNED_BLOCK } from "./favorites-morph";
-import type { NavConfig } from "./types";
+import type { NavConfig, NavItem } from "./types";
 
 interface LeftNavProps {
   /** Drives [data-nav-theme], independent of the app's own theme. */
@@ -22,14 +24,21 @@ interface LeftNavProps {
   pinnedFlyoutId: string | null;
   onHoverFlyout: (flyoutId: string) => void;
   onPinFlyout: (flyoutId: string) => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }
 
 /**
- * The 272px expanded nav from "Screen A · Nav open + Contacts".
+ * The 272px expanded nav.
  *
- * Structure and spacing come from left-nav.pen: 272px wide, 1px right border,
- * a fit-height header and pinned rail, a flex-1 scroll region padded 2px 10px
- * with 2px between rows, and a bordered footer.
+ * Restructured from "Screen A · Nav open + Contacts" per the nav review: the
+ * standing entry points (Recent, AI Agents, Quick Actions) sit in a fixed
+ * cluster under the favourites dock so they never scroll away, the five product
+ * groups and workspace links scroll below, and Settings is the last scrollable
+ * row rather than a pinned footer — which frees the bottom edge for the AI dock.
+ *
+ * Row geometry is unchanged from the design: 272px wide, 1px right border, rows
+ * padded 9px/8px with 2px between them.
  */
 export function LeftNav({
   theme,
@@ -40,7 +49,29 @@ export function LeftNav({
   pinnedFlyoutId,
   onHoverFlyout,
   onPinFlyout,
+  collapsed,
+  onToggleCollapsed,
 }: LeftNavProps) {
+  const renderRow = (item: NavItem) => {
+    const flyoutId = flyoutIdFor(item);
+    return (
+      <NavItemRow
+        key={item.id}
+        item={item}
+        active={
+          item.id === selectedId ||
+          (item.hasFlyout === true &&
+            (flyoutId === openFlyoutId || flyoutId === pinnedFlyoutId))
+        }
+        onSelect={() => {
+          onSelect(item.id);
+          if (item.hasFlyout) onPinFlyout(flyoutId);
+        }}
+        onHover={item.hasFlyout ? () => onHoverFlyout(flyoutId) : undefined}
+      />
+    );
+  };
+
   return (
     <nav
       data-nav-theme={theme}
@@ -64,7 +95,18 @@ export function LeftNav({
 
       <div
         data-cursor="menu"
-        className="flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto px-[10px] py-[2px]"
+        className="flex w-full shrink-0 flex-col items-start gap-[var(--t-nav-space,2px)] px-[10px]"
+      >
+        {config.fixed.map(renderRow)}
+      </div>
+
+      <div className="w-full shrink-0 px-[10px]">
+        <NavDivider />
+      </div>
+
+      <div
+        data-cursor="menu"
+        className="flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto px-[10px] pb-[2px]"
       >
         {config.entries.map((entry) => {
           if (entry.kind === "label") {
@@ -73,39 +115,15 @@ export function LeftNav({
           if (entry.kind === "divider") {
             return <NavDivider key={entry.id} />;
           }
-
-          const { item } = entry;
-          const flyoutId = flyoutIdFor(item);
-          return (
-            <NavItemRow
-              key={item.id}
-              item={item}
-              active={
-                item.id === selectedId ||
-                (item.hasFlyout === true &&
-                  (flyoutId === openFlyoutId || flyoutId === pinnedFlyoutId))
-              }
-              onSelect={() => {
-                onSelect(item.id);
-                if (item.hasFlyout) onPinFlyout(flyoutId);
-              }}
-              onHover={item.hasFlyout ? () => onHoverFlyout(flyoutId) : undefined}
-            />
-          );
+          return renderRow(entry.item);
         })}
+        {renderRow(config.settings)}
       </div>
 
-      <div className="flex w-full shrink-0 items-center gap-[10px] pt-[10px] pr-[12px] pb-[12px] pl-[12px] shadow-[inset_0_1px_0_0_var(--nav-border)]">
-        {config.footer.icon ? (
-          <config.footer.icon
-            size={16}
-            aria-hidden="true"
-            className="shrink-0 text-nav-fg-muted"
-          />
-        ) : null}
-        <span className="text-[14px] leading-[normal] whitespace-nowrap text-nav-fg">
-          {config.footer.label}
-        </span>
+      {/* AI takes the bottom bar; the drawer toggle sits at its right end. */}
+      <div className="flex w-full shrink-0 items-end gap-[8px] px-[12px] pt-[8px] pb-[12px]">
+        <AiDock collapsed={false} />
+        <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
       </div>
     </nav>
   );

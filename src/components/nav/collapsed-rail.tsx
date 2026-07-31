@@ -1,9 +1,11 @@
 "use client";
 
-import { History, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
+import { AiDock } from "./ai-dock";
+import { CollapseToggle } from "./collapse-toggle";
 import { COLLAPSED_PINNED_BLOCK } from "./favorites-morph";
 import { flyoutIdFor, navConfig } from "./nav-config";
 import type { NavConfig, NavItem } from "./types";
@@ -20,6 +22,8 @@ interface CollapsedRailProps {
   pinnedFlyoutId: string | null;
   onHoverFlyout: (id: string) => void;
   onPinFlyout: (id: string) => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }
 
 /**
@@ -38,6 +42,8 @@ export function CollapsedRail({
   pinnedFlyoutId,
   onHoverFlyout,
   onPinFlyout,
+  collapsed,
+  onToggleCollapsed,
 }: CollapsedRailProps) {
   const railButton = (
     id: string,
@@ -74,20 +80,26 @@ export function CollapsedRail({
     </div>
   );
 
-  // Only the rows that have a flyout appear on the rail; the plain links
-  // (Mobile App, Payments) come after the last divider, as in the design.
-  const railItems = config.entries.flatMap((e) =>
-    e.kind === "item" && e.item.density !== "compact" && e.item.id !== "more"
-      ? [e.item]
-      : [],
-  );
-  const grouped: NavItem[][] = [
-    railItems.filter((i) => i.id === "ai-agents" || i.id === "quick-actions"),
-    railItems.filter((i) =>
-      ["engage", "convert", "market", "automate", "analyze"].includes(i.id),
-    ),
-    railItems.filter((i) => !i.hasFlyout),
-  ];
+  const renderRailRow = (i: NavItem) => {
+    const flyoutId = flyoutIdFor(i);
+    return railButton(
+      i.id,
+      i.label,
+      i.ai ? (
+        <NavAiSparkle className="text-nav-ai-icon" />
+      ) : i.icon ? (
+        <i.icon size={16} aria-hidden="true" />
+      ) : null,
+      i.id === selectedId ||
+        (i.hasFlyout === true &&
+          (flyoutId === openFlyoutId || flyoutId === pinnedFlyoutId)),
+      () => {
+        onSelect(i.id);
+        if (i.hasFlyout) onPinFlyout(flyoutId);
+      },
+      i.hasFlyout ? () => onHoverFlyout(flyoutId) : undefined,
+    );
+  };
 
   return (
     <nav
@@ -127,53 +139,30 @@ export function CollapsedRail({
         style={{ height: COLLAPSED_PINNED_BLOCK }}
       />
 
-      {railButton(
-        "recent",
-        "Recent",
-        <History size={16} aria-hidden="true" />,
-        openFlyoutId === "recent" || pinnedFlyoutId === "recent",
-        () => onPinFlyout("recent"),
-        () => onHoverFlyout("recent"),
-      )}
+      <div className="flex w-full flex-col items-center gap-[4px]">
+        {config.fixed.map(renderRailRow)}
+      </div>
 
-      {grouped.map((group, gi) => (
-        <div key={gi} className="flex w-full flex-col items-center gap-[4px]">
-          {divider(`div-${gi}`)}
-          {group.map((i) => {
-            const flyoutId = flyoutIdFor(i);
-            return railButton(
-              i.id,
-              i.label,
-              i.ai ? (
-                <NavAiSparkle className="text-nav-ai-icon" />
-              ) : i.icon ? (
-                <i.icon size={16} aria-hidden="true" />
-              ) : null,
-              i.id === selectedId ||
-                (i.hasFlyout === true &&
-                  (flyoutId === openFlyoutId || flyoutId === pinnedFlyoutId)),
-              () => {
-                onSelect(i.id);
-                if (i.hasFlyout) onPinFlyout(flyoutId);
-              },
-              i.hasFlyout ? () => onHoverFlyout(flyoutId) : undefined,
-            );
-          })}
-        </div>
-      ))}
+      {divider("div-fixed")}
 
-      <div className="w-px flex-1" />
-
-      <button
-        type="button"
-        title={config.footer.label}
-        aria-label={config.footer.label}
-        className="flex h-[35px] w-[40px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-muted motion-tap hover:scale-105 hover:bg-nav-hover hover:text-nav-fg active:scale-95"
+      <div
+        data-cursor="menu"
+        className="flex w-full flex-1 flex-col items-center gap-[4px] overflow-y-auto"
       >
-        {config.footer.icon ? (
-          <config.footer.icon size={16} aria-hidden="true" />
-        ) : null}
-      </button>
+        {config.entries.map((entry) =>
+          entry.kind === "item" ? (
+            renderRailRow(entry.item)
+          ) : entry.kind === "divider" ? (
+            divider(entry.id)
+          ) : null,
+        )}
+        {renderRailRow(config.settings)}
+      </div>
+
+      <div className="flex shrink-0 flex-col items-center gap-[6px] pt-[6px]">
+        <AiDock collapsed />
+        <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
+      </div>
     </nav>
   );
 }

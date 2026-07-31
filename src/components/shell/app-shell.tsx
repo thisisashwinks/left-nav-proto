@@ -4,7 +4,6 @@ import * as React from "react";
 import { flyouts } from "@/components/flyout/flyout-config";
 import { FlyoutPanel } from "@/components/flyout/flyout-panel";
 import { AppHeader } from "@/components/header/app-header";
-import { CollapseToggle } from "@/components/nav/collapse-toggle";
 import { CollapsedRail } from "@/components/nav/collapsed-rail";
 import { FavoritesMorph } from "@/components/nav/favorites-morph";
 import { LeftNav } from "@/components/nav/left-nav";
@@ -85,6 +84,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             pinnedFlyoutId={intent.pinnedId}
             onHoverFlyout={intent.hover}
             onPinFlyout={intent.togglePin}
+            collapsed={collapsed}
+            onToggleCollapsed={() => setCollapsed((c) => !c)}
           />
         </div>
 
@@ -106,6 +107,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             pinnedFlyoutId={intent.pinnedId}
             onHoverFlyout={intent.hover}
             onPinFlyout={intent.togglePin}
+            collapsed={collapsed}
+            onToggleCollapsed={() => setCollapsed((c) => !c)}
           />
         </div>
       </div>
@@ -151,15 +154,6 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         </>
       ) : null}
 
-      <div
-        style={{ left: navWidth - 12 }}
-        className="absolute bottom-[24px] z-40 motion-move"
-      >
-        <CollapseToggle
-          collapsed={collapsed}
-          onToggle={() => setCollapsed((c) => !c)}
-        />
-      </div>
     </div>
   );
 }
