@@ -5,7 +5,7 @@ import { Search, X } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import { productById } from "@/components/nav/catalogue";
-import { PinButton } from "@/components/nav/pin-button";
+import { WithPin } from "@/components/nav/with-pin";
 import { Kbd } from "./kbd";
 import { useSearch } from "./use-search";
 
@@ -98,9 +98,17 @@ export function SearchFlyout({
               const active = r.id === s.activeId;
               const Icon = r.icon;
               const isAction = r.kind === "action";
+              const productId = r.id.replace(/^p-/, "");
+              const pinnable = productById(productId) !== undefined;
               return (
-                <button
+                <WithPin
                   key={r.id}
+                  productId={productId}
+                  // Stacked rows align the star with the title, not the row's
+                  // middle, matching the flyout rows these mirror.
+                  pinClass={isAction ? undefined : "top-[9px]"}
+                >
+                <button
                   type="button"
                   aria-current={active ? "true" : undefined}
                   onPointerEnter={() => s.setActiveIndex(index)}
@@ -108,6 +116,8 @@ export function SearchFlyout({
                   className={cn(
                     "group/row motion-tap flex w-full shrink-0 gap-[10px] rounded-[9px] px-[8px] py-[9px] text-left",
                     isAction ? "items-center" : "items-start",
+                    // Holds the star's 22px plus the row's 10px gap.
+                    pinnable && "pr-[40px]",
                     active ? "bg-sr-row-active" : "bg-transparent",
                   )}
                 >
@@ -142,10 +152,8 @@ export function SearchFlyout({
                     </span>
                   )}
 
-                  {productById(r.id.replace(/^p-/, "")) ? (
-                    <PinButton productId={r.id.replace(/^p-/, "")} />
-                  ) : null}
                 </button>
+                </WithPin>
               );
             })}
           </React.Fragment>

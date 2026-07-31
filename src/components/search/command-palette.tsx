@@ -5,7 +5,7 @@ import { Search } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import { productById } from "@/components/nav/catalogue";
-import { PinButton } from "@/components/nav/pin-button";
+import { WithPin } from "@/components/nav/with-pin";
 import { Kbd } from "./kbd";
 import { useSearch } from "./use-search";
 
@@ -85,15 +85,18 @@ export function CommandPalette({
                 const index = s.flat.indexOf(r);
                 const active = r.id === s.activeId;
                 const Icon = r.icon;
+                const pinnable = productById(r.id.replace(/^p-/, "")) !== undefined;
                 return (
+                  <WithPin key={r.id} productId={r.id.replace(/^p-/, "")}>
                   <button
-                    key={r.id}
                     type="button"
                     aria-current={active ? "true" : undefined}
                     onPointerEnter={() => s.setActiveIndex(index)}
                     onClick={onClose}
                     className={cn(
                       "group/row motion-tap flex h-[38px] w-full shrink-0 items-center gap-[10px] rounded-[6px] px-[8px] text-left",
+                      // Holds the star's 22px plus the row's 10px gap.
+                      pinnable && "pr-[40px]",
                       active ? "bg-sr-row-active" : "bg-transparent",
                     )}
                   >
@@ -126,10 +129,8 @@ export function CommandPalette({
                         <Kbd>↵</Kbd>
                       </>
                     ) : null}
-                    {productById(r.id.replace(/^p-/, "")) ? (
-                      <PinButton productId={r.id.replace(/^p-/, "")} />
-                    ) : null}
                   </button>
+                  </WithPin>
                 );
               })}
             </React.Fragment>

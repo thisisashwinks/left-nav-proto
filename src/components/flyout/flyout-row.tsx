@@ -2,7 +2,7 @@
 
 import type * as React from "react";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
-import { PinButton } from "@/components/nav/pin-button";
+import { WithPin } from "@/components/nav/with-pin";
 import { productById } from "@/components/nav/catalogue";
 import { cn } from "@/lib/utils";
 import type { FlyoutBadgeTone, FlyoutItem, FlyoutItemVariant } from "./types";
@@ -26,6 +26,11 @@ const VARIANT = {
     text: "gap-[2px]",
     title: "font-semibold whitespace-nowrap",
     desc: "text-[length:var(--t-fly-desc,12.5px)] leading-[17px] w-full",
+    // Space held for the pin, which is no longer a flex child. Exactly the pin's
+    // 22px plus the gap it used to sit behind, so the text wraps where it did.
+    pinReserve: "pr-[calc(8px+22px+var(--t-fly-gap,10px))]",
+    // items-start rows align the pin with the title, not the row's middle.
+    pinTop: "top-[var(--t-fly-py,9px)]",
   },
   compact: {
     row: "gap-[calc(var(--t-fly-gap,10px)+1px)] px-[8px] py-[var(--t-fly-py,9px)] items-center",
@@ -34,6 +39,8 @@ const VARIANT = {
     text: "gap-[1px]",
     title: "font-semibold whitespace-nowrap",
     desc: "text-[length:var(--t-fly-desc,12.5px)] leading-[normal] whitespace-nowrap",
+    pinReserve: "pr-[calc(8px+22px+var(--t-fly-gap,10px)+1px)]",
+    pinTop: "top-1/2 -translate-y-1/2",
   },
   recent: {
     row: "gap-[11px] p-[8px] items-center",
@@ -42,6 +49,8 @@ const VARIANT = {
     text: "gap-[1px]",
     title: "font-medium whitespace-nowrap",
     desc: "text-[12px] leading-[normal] whitespace-nowrap",
+    pinReserve: "pr-[41px]",
+    pinTop: "top-1/2 -translate-y-1/2",
   },
   action: {
     row: "gap-[var(--t-fly-gap,10px)] px-[8px] py-[var(--t-fly-py,9px)] items-center",
@@ -50,6 +59,8 @@ const VARIANT = {
     text: "gap-[2px]",
     title: "font-semibold whitespace-nowrap",
     desc: "text-[length:var(--t-fly-desc,12.5px)] leading-[17px] w-full",
+    pinReserve: "pr-[calc(8px+22px+var(--t-fly-gap,10px))]",
+    pinTop: "top-1/2 -translate-y-1/2",
   },
 } as const satisfies Record<FlyoutItemVariant, unknown>;
 
@@ -71,8 +82,10 @@ export function FlyoutRow({
 }: FlyoutRowProps) {
   const v = VARIANT[variant];
   const Icon = item.icon;
+  /** Only rows that map to a pinnable product get a pin. */
+  const pinnable = productById(item.id) !== undefined;
 
-  return (
+  const row = (
     <button
       type="button"
       aria-current={active ? "true" : undefined}
@@ -84,6 +97,8 @@ export function FlyoutRow({
         // v.row carries the per-variant gap, padding and alignment. Losing it
         // is what collapsed every flyout row's breathing room.
         v.row,
+        // Replaces the padding the pin used to occupy as a flex child.
+        pinnable && v.pinReserve,
         active ? "bg-nav-hover" : "hover:bg-nav-hover",
         "active:scale-[0.99] motion-press",
       )}
@@ -152,9 +167,12 @@ export function FlyoutRow({
           {item.time}
         </span>
       ) : null}
-
-      {/* Only rows that map to a pinnable product get a pin. */}
-      {productById(item.id) ? <PinButton productId={item.id} /> : null}
     </button>
+  );
+
+  return (
+    <WithPin productId={item.id} pinClass={v.pinTop}>
+      {row}
+    </WithPin>
   );
 }
