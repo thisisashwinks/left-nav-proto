@@ -23,6 +23,8 @@ export interface TuningKnob {
 
 export interface TuningState {
   navIconSize: number;
+  /** What a nav icon grows to on hover, in px. Drives the scale, not a width. */
+  navIconHoverSize: number;
   navRowFontSize: number;
   navRowGap: number;
   navRowPaddingY: number;
@@ -31,6 +33,8 @@ export interface TuningState {
   navRowSpacing: number;
   dockIconSize: number;
   dockLabelSize: number;
+  /** The centred caption's own size — it has room the tracking one does not. */
+  dockCenterLabelSize: number;
   dockLabelOffset: number;
   dockLift: number;
   dockScale: number;
@@ -46,19 +50,41 @@ export interface TuningState {
   durDock: number;
 }
 
-/** Defaults are the measured Pencil values — resetting returns to the design. */
+/**
+ * Where the prototype starts.
+ *
+ * Mostly the values measured out of left-nav.pen, with one deliberate departure:
+ * icons default to 14px, not the design's 16. That came out of live testing in the
+ * review — 14 against a 14px label was the size everyone settled on — so it is the
+ * baseline the prototype should present, and Reset should return to it rather than
+ * to a size we have already decided against. Each knob's hint still names the
+ * design's own value where the two differ.
+ */
 export const TUNING_DEFAULTS: TuningState = {
-  navIconSize: 16,
+  navIconSize: 14,
+  // Hover takes the icon to the design's 16 — the resting size is the one that
+  // came down, so growing back to 16 is the row saying "this is the one".
+  navIconHoverSize: 16,
   navRowFontSize: 14,
   navRowGap: 10,
   navRowPaddingY: 9,
   navRowPaddingX: 8,
   navRowRadius: 7,
   navRowSpacing: 2,
+  // The dock keeps 16. Its icons carry no label beside them, so they are the only
+  // thing naming the row and drop off faster than a nav row's icon does.
   dockIconSize: 16,
   dockLabelSize: 8,
+  // Inside the band it is a label on a surface rather than a hover hint squeezed
+  // between two sections, so it can carry real size — one step under a nav row's
+  // 14, which keeps the dock subordinate to the rows below it.
+  dockCenterLabelSize: 12,
   dockLabelOffset: 16,
-  dockLift: 5,
+  // No lift by default: the icons grow in place. Lifting made the row feel like
+  // it was reflowing on every pass, and with the caption now inside the band
+  // there is nowhere above an icon for it to go. The knob stays so the lift can
+  // still be demoed.
+  dockLift: 0,
   dockScale: 125,
   flyoutIconSize: 20,
   flyoutTitleSize: 14,
@@ -73,7 +99,8 @@ export const TUNING_DEFAULTS: TuningState = {
 };
 
 export const TUNING_KNOBS: TuningKnob[] = [
-  { id: "navIconSize", cssVar: "--t-nav-icon", label: "Icon size", group: "Nav rows", min: 12, max: 24, step: 1, unit: "px", hint: "Design: 16" },
+  { id: "navIconSize", cssVar: "--t-nav-icon", label: "Icon size", group: "Nav rows", min: 12, max: 24, step: 1, unit: "px", hint: "14 from live testing · design ships 16" },
+  { id: "navIconHoverSize", cssVar: "--t-nav-icon-hover", label: "Icon size on hover", group: "Nav rows", min: 12, max: 28, step: 1, unit: "px", hint: "Grows to the design's 16" },
   { id: "navRowFontSize", cssVar: "--t-nav-font", label: "Label size", group: "Nav rows", min: 11, max: 18, step: 0.5, unit: "px", hint: "Design: 14 · expanded only" },
   { id: "navRowGap", cssVar: "--t-nav-gap", label: "Icon → label gap", group: "Nav rows", min: 4, max: 20, step: 1, unit: "px", hint: "Design: 10 · expanded only" },
   { id: "navRowPaddingY", cssVar: "--t-nav-py", label: "Row padding Y", group: "Nav rows", min: 4, max: 16, step: 1, unit: "px", hint: "Design: 9 · expanded only" },
@@ -82,9 +109,10 @@ export const TUNING_KNOBS: TuningKnob[] = [
   { id: "navRowSpacing", cssVar: "--t-nav-space", label: "Between rows", group: "Nav rows", min: 0, max: 10, step: 1, unit: "px", hint: "Design: 2" },
 
   { id: "dockIconSize", cssVar: "--t-dock-icon", label: "Icon size", group: "Favourites dock", min: 12, max: 24, step: 1, unit: "px", hint: "Design: 16" },
-  { id: "dockLabelSize", cssVar: "--t-dock-label", label: "Caption size", group: "Favourites dock", min: 6, max: 12, step: 0.5, unit: "px" },
-  { id: "dockLabelOffset", cssVar: "--t-dock-label-top", label: "Caption offset", group: "Favourites dock", min: 8, max: 26, step: 1, unit: "px" },
-  { id: "dockLift", cssVar: "--t-dock-lift", label: "Hover lift", group: "Favourites dock", min: 0, max: 12, step: 1, unit: "px" },
+  { id: "dockLabelSize", cssVar: "--t-dock-label", label: "Caption size", group: "Favourites dock", min: 6, max: 12, step: 0.5, unit: "px", hint: "“Under the icon” only" },
+  { id: "dockCenterLabelSize", cssVar: "--t-dock-center-label", label: "Centred caption size", group: "Favourites dock", min: 8, max: 16, step: 0.5, unit: "px", hint: "Inside the band, so it can be bigger" },
+  { id: "dockLabelOffset", cssVar: "--t-dock-label-top", label: "Caption offset", group: "Favourites dock", min: 8, max: 26, step: 1, unit: "px", hint: "“Under the icon” only" },
+  { id: "dockLift", cssVar: "--t-dock-lift", label: "Hover lift", group: "Favourites dock", min: 0, max: 12, step: 1, unit: "px", hint: "0 — icons grow in place" },
   { id: "dockScale", cssVar: "--t-dock-scale", label: "Hover scale %", group: "Favourites dock", min: 100, max: 180, step: 5, unit: "px" },
 
   { id: "flyoutIconSize", cssVar: "--t-fly-icon", label: "Icon size", group: "Flyout", min: 14, max: 26, step: 1, unit: "px", hint: "Design: 20" },
@@ -116,5 +144,19 @@ export function tuningToCssVars(state: TuningState): Record<string, string> {
     out[knob.cssVar] =
       knob.id === "dockScale" ? String(value / 100) : `${value}${knob.unit}`;
   }
+
+  /*
+   * The nav icon's hover scale, derived rather than dialled.
+   *
+   * Both sizes are knobs, so the scale between them has to be computed. It cannot
+   * be done in CSS: `calc(16px / 14px)` is dividing a length by a length, which
+   * `calc()` does not accept, and a hardcoded 1.1 would only hit 16px while the
+   * resting size happened to be 14.5. Computed here, hover always lands exactly on
+   * the size the knob names, whatever the resting size is.
+   */
+  out["--t-nav-icon-scale"] = String(
+    state.navIconSize > 0 ? state.navIconHoverSize / state.navIconSize : 1,
+  );
+
   return out;
 }

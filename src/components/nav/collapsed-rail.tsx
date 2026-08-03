@@ -8,8 +8,10 @@ import { AiDock } from "@/components/ai/ai-dock";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import type { SurfaceTheme } from "@/design/theme";
+import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { CollapseToggle } from "./collapse-toggle";
+import { EntryClusterRail } from "./entry-cluster";
 import { collapsedPinnedBlock, PINNED_VISIBLE } from "./favorites-morph";
 import { navEntriesFor } from "./nav-entries";
 import { useNavLayout } from "./nav-layout-provider";
@@ -67,6 +69,8 @@ export function CollapsedRail({
   // The capsule hugs its contents when collapsed, so the hole left for it has to
   // match. Read from the same store the capsule does rather than take a prop, so
   // the two can never disagree.
+  const { entryLayout } = useTheme();
+  const topEntry = entryLayout === "top";
   const { state: layout, groups } = useNavLayout();
   const pinnedBlock = collapsedPinnedBlock(
     Math.min(layout.pinned.length, PINNED_VISIBLE) + 1,
@@ -195,16 +199,20 @@ export function CollapsedRail({
         />
       </button>
 
-      <RailTooltip label="Search">
-        <button
-          type="button"
-          aria-label="Search"
-          onClick={onSearch}
-          className="motion-tap flex size-[38px] shrink-0 items-center justify-center rounded-[9px] text-nav-fg-subtle hover:scale-105 hover:bg-nav-hover hover:text-nav-fg-muted active:scale-95"
-        >
-          <Search size={16} aria-hidden="true" />
-        </button>
-      </RailTooltip>
+      {topEntry ? (
+        <EntryClusterRail onSearch={onSearch} session={aiSession} />
+      ) : (
+        <RailTooltip label="Search">
+          <button
+            type="button"
+            aria-label="Search"
+            onClick={onSearch}
+            className="motion-tap flex size-[38px] shrink-0 items-center justify-center rounded-[9px] text-nav-fg-subtle hover:scale-105 hover:bg-nav-hover hover:text-nav-fg-muted active:scale-95"
+          >
+            <Search size={16} aria-hidden="true" />
+          </button>
+        </RailTooltip>
+      )}
 
       {/*
         Reserved space for the pinned capsule, which FavoritesMorph renders
@@ -243,7 +251,7 @@ export function CollapsedRail({
       </div>
 
       <div className="flex shrink-0 flex-col items-center gap-[6px] pt-[6px]">
-        <AiDock collapsed session={aiSession} />
+        {topEntry ? null : <AiDock collapsed session={aiSession} />}
         <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
       </div>
     </nav>

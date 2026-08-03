@@ -5,7 +5,9 @@ import type { Account } from "@/components/accounts/accounts-data";
 import { AiDock } from "@/components/ai/ai-dock";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import type { SurfaceTheme } from "@/design/theme";
+import { useTheme } from "@/components/theme/theme-provider";
 import { CollapseToggle } from "./collapse-toggle";
+import { EntryCluster } from "./entry-cluster";
 import { EXPANDED_PINNED_BLOCK } from "./favorites-morph";
 import { IconPicker, useIconPicker } from "./icon-picker";
 import { navEntriesFor } from "./nav-entries";
@@ -74,6 +76,8 @@ export function LeftNav({
   onToggleSwitcher,
   aiSession,
 }: LeftNavProps) {
+  const { entryLayout } = useTheme();
+  const topEntry = entryLayout === "top";
   const picker = useIconPicker();
   const { state, groups, editFor, pickerProps } = useNavRowEdit(picker);
   const entries = React.useMemo(
@@ -128,8 +132,13 @@ export function LeftNav({
         logoAlt={config.logoAlt}
         switcherOpen={switcherOpen}
         onToggleSwitcher={onToggleSwitcher}
-        onSearch={onSearch}
+        // In `top` mode search has moved down into its own row, so the header
+        // must not also carry it — two search icons 50px apart is the overlap the
+        // review asked us to remove, not a fallback.
+        {...(topEntry ? {} : { onSearch })}
       />
+
+      {topEntry ? <EntryCluster onSearch={onSearch} session={aiSession} /> : null}
 
       {/*
         The pinned capsule itself is rendered by FavoritesMorph, outside both nav
@@ -164,9 +173,13 @@ export function LeftNav({
         AI takes the bottom bar; the drawer toggle sits at its right end, centred
         against the pill rather than sharing its baseline — the toggle is 28px
         and the pill 38px, so bottom-aligning them dropped the toggle 5px low.
+
+        In `top` mode the pill is gone and the toggle keeps the corner on its own,
+        which is the whole point of the comparison: whether the nav's bottom edge
+        is worth an AI dock, or is better left quiet.
       */}
-      <div className="flex w-full shrink-0 items-center gap-[8px] px-[12px] pt-[8px] pb-[12px]">
-        <AiDock collapsed={false} session={aiSession} />
+      <div className="flex w-full shrink-0 items-center justify-end gap-[8px] px-[12px] pt-[8px] pb-[12px]">
+        {topEntry ? null : <AiDock collapsed={false} session={aiSession} />}
         <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
       </div>
 

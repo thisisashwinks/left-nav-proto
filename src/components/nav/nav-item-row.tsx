@@ -176,7 +176,9 @@ function RowIcon({ item, active }: { item: NavItem; active: boolean }) {
       aria-hidden="true"
       style={{ width: "var(--t-nav-icon, 16px)", height: "var(--t-nav-icon, 16px)" }}
       className={cn(
-        "shrink-0 motion-tap group-hover:scale-110",
+        // Grows to exactly the hover size the knob names — the ratio is computed
+        // in tuningToCssVars, because CSS cannot divide one length by another.
+        "shrink-0 motion-tap group-hover:scale-[var(--t-nav-icon-scale,1.143)]",
         active ? "text-nav-fg" : "text-nav-fg-muted group-hover:text-nav-fg",
       )}
     />

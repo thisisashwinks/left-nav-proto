@@ -6,12 +6,18 @@ import {
   ACCENT_LABELS,
   ACCENTS,
   DEFAULT_THEME,
+  DOCK_LABEL_LABELS,
+  DOCK_LABELS,
+  ENTRY_LAYOUT_LABELS,
+  ENTRY_LAYOUTS,
   SEARCH_MODE_LABELS,
   SEARCH_MODES,
   SURFACE_THEMES,
   TINT_LABELS,
   TINTS,
   type Accent,
+  type DockLabel,
+  type EntryLayout,
   type SearchMode,
   type SurfaceTheme,
   type Tint,
@@ -366,6 +372,10 @@ export function TuningPanel() {
     setSearchMode,
     searchTheme,
     setSearchTheme,
+    dockLabel,
+    setDockLabel,
+    entryLayout,
+    setEntryLayout,
   } = useTheme();
 
   const toggleSection = (id: SectionId) =>
@@ -384,7 +394,8 @@ export function TuningPanel() {
 
   const searchChanged =
     (searchMode !== DEFAULT_THEME.searchMode ? 1 : 0) +
-    (searchTheme !== DEFAULT_THEME.searchTheme ? 1 : 0);
+    (searchTheme !== DEFAULT_THEME.searchTheme ? 1 : 0) +
+    (entryLayout !== DEFAULT_THEME.entryLayout ? 1 : 0);
 
   const resetTheme = () => {
     setAccent(DEFAULT_THEME.accent);
@@ -548,6 +559,18 @@ export function TuningPanel() {
           <p className="text-[10px] leading-[14px] text-pg-faint">
             Open with ⌘K / Ctrl-K, or the search icon in the nav.
           </p>
+          <Segmented
+            label="Search + Ask AI placement"
+            options={ENTRY_LAYOUTS}
+            value={entryLayout}
+            onChange={(v: EntryLayout) => setEntryLayout(v)}
+            format={(v) => ENTRY_LAYOUT_LABELS[v]}
+          />
+          <p className="text-[10px] leading-[14px] text-pg-faint">
+            {entryLayout === "top"
+              ? "Both sit under the logo, above Favorites — the first thing on entry. The bottom edge is left to the drawer toggle."
+              : "Search in the logo row, Ask AI on the bottom edge. Today's arrangement."}
+          </p>
         </Section>
 
         {TUNING_GROUPS.map((group) => {
@@ -565,6 +588,29 @@ export function TuningPanel() {
                 for (const knob of knobs) set(knob.id, TUNING_DEFAULTS[knob.id]);
               }}
             >
+              {/*
+                The label mode leads its section: it decides whether the caption
+                knobs below it do anything at all, so putting it after them would
+                let someone tune a size that is switched off.
+              */}
+              {group === "Favourites dock" ? (
+                <>
+                  <Segmented
+                    label="Caption position"
+                    options={DOCK_LABELS}
+                    value={dockLabel}
+                    onChange={(v: DockLabel) => setDockLabel(v)}
+                    format={(v) => DOCK_LABEL_LABELS[v]}
+                  />
+                  <p className="text-[10px] leading-[14px] text-pg-faint">
+                    {dockLabel === "under"
+                      ? "Tracks the hovered icon, macOS-style."
+                      : dockLabel === "center"
+                        ? "One caption fixed at the dock's centre; only its text changes."
+                        : "No caption. The native tooltip names the icon instead."}
+                  </p>
+                </>
+              ) : null}
               {knobs.map((knob) => (
                 <Row key={knob.id} knob={knob} />
               ))}

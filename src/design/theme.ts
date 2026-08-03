@@ -61,6 +61,45 @@ export const TINT_LABELS: Record<Tint, string> = {
   full: "Full",
 };
 
+/**
+ * Where the favourites dock puts an icon's name.
+ *
+ * `under` is what the dock shipped with — the caption tracks the hovered icon,
+ * macOS-style. The review flagged two problems with it: the caption moves, and it
+ * reads as content appearing under the row. So two alternatives:
+ *
+ *  center  One caption, fixed inside the band along its bottom edge, whose *text*
+ *          changes with the hovered icon. Nothing moves, so nothing can be nudged.
+ *  none    No caption at all — the current default. The native tooltip carries
+ *          the name instead.
+ */
+export const DOCK_LABELS = ["under", "center", "none"] as const;
+
+export type DockLabel = (typeof DOCK_LABELS)[number];
+
+export const DOCK_LABEL_LABELS: Record<DockLabel, string> = {
+  under: "Under the icon",
+  center: "Centred, fixed",
+  none: "None",
+};
+
+/**
+ * Where search and Ask AI live.
+ *
+ * `split` is today's arrangement: search is an icon in the logo row, Ask AI holds
+ * the nav's bottom edge. `top` is the review's open question — both together as
+ * the second thing in the nav, directly under the logo and above Favorites, so
+ * they are the first thing a user meets on entry.
+ */
+export const ENTRY_LAYOUTS = ["split", "top"] as const;
+
+export type EntryLayout = (typeof ENTRY_LAYOUTS)[number];
+
+export const ENTRY_LAYOUT_LABELS: Record<EntryLayout, string> = {
+  split: "Header + bottom",
+  top: "Both under the logo",
+};
+
 export interface ThemeState {
   accent: Accent;
   /** Whether the accent also tints the whites, greys and text. */
@@ -71,6 +110,8 @@ export interface ThemeState {
   searchMode: SearchMode;
   /** Search defaults to dark so it never reads as part of the nav. */
   searchTheme: SurfaceTheme;
+  dockLabel: DockLabel;
+  entryLayout: EntryLayout;
 }
 
 /**
@@ -87,6 +128,11 @@ export const DEFAULT_THEME: ThemeState = {
   headerTheme: "light",
   searchMode: "spotlight",
   searchTheme: "dark",
+  // No caption by default. The dock is five icons the user chose and put there,
+  // so it is the one row where recognition is already solved; the tooltip covers
+  // the rest. `center` and `under` stay one click away for the comparison.
+  dockLabel: "none",
+  entryLayout: "split",
 };
 
 /** Human-readable labels, for the controls UI added later. */

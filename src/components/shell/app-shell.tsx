@@ -9,6 +9,10 @@ import { flyouts } from "@/components/flyout/flyout-config";
 import { FlyoutPanel } from "@/components/flyout/flyout-panel";
 import { AppHeader } from "@/components/header/app-header";
 import { CollapsedRail } from "@/components/nav/collapsed-rail";
+import {
+  ENTRY_CLUSTER_HEIGHT,
+  ENTRY_CLUSTER_RAIL_HEIGHT,
+} from "@/components/nav/entry-cluster";
 import { FavoritesMorph } from "@/components/nav/favorites-morph";
 import { LeftNav } from "@/components/nav/left-nav";
 import { productById } from "@/components/nav/catalogue";
@@ -73,7 +77,14 @@ const FLYOUT_HOVER_GRACE_MS = 180;
  * accessibility tree.
  */
 export function AppShell({ children }: { children?: React.ReactNode }) {
-  const { navTheme, headerTheme, searchMode, searchTheme } = useTheme();
+  const {
+    navTheme,
+    headerTheme,
+    searchMode,
+    searchTheme,
+    dockLabel,
+    entryLayout,
+  } = useTheme();
   const [collapsed, setCollapsed] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [searchOpen, setSearchOpen] = React.useState(false);
@@ -213,9 +224,18 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           items={pinnedItems}
           collapsed={collapsed}
           onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
-          onHoverLauncher={() => intent.hover(LAUNCHER_ID)}
           launcherActive={intent.activeId === LAUNCHER_ID}
           overflowCount={overflowCount}
+          dockLabel={dockLabel}
+          // The capsule's geometry is absolute, so anything inserted above it in
+          // either face has to be handed to it as an offset.
+          topOffset={
+            entryLayout === "top"
+              ? collapsed
+                ? ENTRY_CLUSTER_RAIL_HEIGHT
+                : ENTRY_CLUSTER_HEIGHT
+              : 0
+          }
         />
 
         <div

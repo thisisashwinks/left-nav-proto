@@ -42,15 +42,22 @@ export function NavHeader({
           />
         </div>
 
-        <button
-          type="button"
-          title="Search"
-          aria-label="Search"
-          onClick={onSearch}
-          className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg-muted active:scale-95"
-        >
-          <Search size={16} aria-hidden="true" />
-        </button>
+        {/*
+          Omitted, not disabled, when search has moved elsewhere. Rendering it
+          with no handler left a search icon in the header that did nothing — a
+          worse outcome than either placement.
+        */}
+        {onSearch ? (
+          <button
+            type="button"
+            title="Search"
+            aria-label="Search"
+            onClick={onSearch}
+            className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg-muted active:scale-95"
+          >
+            <Search size={16} aria-hidden="true" />
+          </button>
+        ) : null}
       </div>
     </div>
   );

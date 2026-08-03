@@ -13,7 +13,7 @@ export interface FlyoutIntent {
   scheduleClear: () => void;
   /** Pointer came back before the beat elapsed. */
   cancelClear: () => void;
-  /** Click a trigger: pins it, or unpins if it was already pinned. */
+  /** Click a trigger: opens it, or closes it if it was already open. */
   togglePin: (id: string) => void;
   /** Close everything, pinned included. */
   close: () => void;
@@ -60,10 +60,25 @@ export function useFlyoutIntent(clearDelayMs = 120): FlyoutIntent {
     }, clearDelayMs);
   }, [cancelClear, clearDelayMs]);
 
-  const togglePin = React.useCallback((id: string) => {
-    setPinnedId((current) => (current === id ? null : id));
-    setHoveredId(id);
-  }, []);
+  /**
+   * Click a trigger to pin it; click the same one again to close.
+   *
+   * Both halves of the state have to move together. Unpinning alone left
+   * `hoveredId` set — and `activeId` prefers hover — so a second click on an open
+   * trigger dropped the pin and changed nothing on screen. Reading `pinnedId`
+   * here rather than inside an updater keeps the two decisions the same decision;
+   * this is an event handler, so reading state directly is safe, and `pinnedId`
+   * is in the deps so it never goes stale.
+   */
+  const togglePin = React.useCallback(
+    (id: string) => {
+      cancelClear();
+      const closing = pinnedId === id;
+      setPinnedId(closing ? null : id);
+      setHoveredId(closing ? null : id);
+    },
+    [cancelClear, pinnedId],
+  );
 
   const close = React.useCallback(() => {
     cancelClear();
