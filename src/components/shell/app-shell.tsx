@@ -83,6 +83,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     searchMode,
     searchTheme,
     dockLabel,
+    dockPosition,
     entryLayout,
   } = useTheme();
   const [collapsed, setCollapsed] = React.useState(false);
@@ -227,10 +228,12 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           launcherActive={intent.activeId === LAUNCHER_ID}
           overflowCount={overflowCount}
           dockLabel={dockLabel}
+          dockPosition={dockPosition}
           // The capsule's geometry is absolute, so anything inserted above it in
-          // either face has to be handed to it as an offset.
+          // either face has to be handed to it as an offset. Irrelevant at the
+          // bottom, where it is measured from the nav's last edge instead.
           topOffset={
-            entryLayout === "top"
+            dockPosition === "top" && entryLayout === "top"
               ? collapsed
                 ? ENTRY_CLUSTER_RAIL_HEIGHT
                 : ENTRY_CLUSTER_HEIGHT
@@ -296,7 +299,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <AppHeader theme={headerTheme} />
+        <AppHeader
+          theme={headerTheme}
+          // Only when the rail has nowhere of its own for it: collapsed, with the
+          // entry cluster at the top, its logo row is a bare 30px mark and its
+          // footer is empty by design.
+          {...(entryLayout === "top" && collapsed
+            ? { onExpandNav: () => setCollapsed(false) }
+            : {})}
+        />
         <div className="min-h-0 flex-1 overflow-auto">{children}</div>
       </div>
 

@@ -5,21 +5,29 @@ export interface HeaderTab {
   label: string;
 }
 
-/** Which token supplies the circular button's background. */
-export type HeaderActionTone = "call" | "launch" | "alert" | "neutral";
+/**
+ * How the action is drawn.
+ *
+ * Only one filled treatment survives. Four saturated discs in a row — green,
+ * orange, red, grey — competed with each other and with the accent, and colour
+ * that means nothing but "this is a button" spends the loudest thing on the page
+ * on chrome. `plain` is the default; `call` keeps its fill because placing a call
+ * is the one irreversible action up here and worth the emphasis.
+ */
+export type HeaderActionTone = "call" | "plain";
 
 export interface HeaderAction {
   id: string;
   label: string;
   tone: HeaderActionTone;
   icon: LucideIcon;
+  /** Unread marker. Carries the signal the red disc used to. */
+  dot?: boolean;
 }
 
 export interface HeaderConfig {
   tabs: HeaderTab[];
   activeTabId: string;
-  whatsNewLabel: string;
-  updatesLabel: string;
   actions: HeaderAction[];
   avatarInitials: string;
 }
@@ -35,16 +43,14 @@ export const headerConfig: HeaderConfig = {
     { id: "companies", label: "Companies" },
   ],
   activeTabId: "smart-lists",
-  whatsNewLabel: "What's new",
-  updatesLabel: "Contact updates",
   actions: [
     // No AI action here. The assistant is a standing entry point in the nav
     // now, and two doors to the same thing — one of which vanishes inside a
     // builder — is worse than one that is always in the same place.
     { id: "call", label: "Call", tone: "call", icon: Phone },
-    { id: "launch", label: "What's shipping", tone: "launch", icon: Rocket },
-    { id: "alerts", label: "Notifications", tone: "alert", icon: Bell },
-    { id: "help", label: "Help", tone: "neutral", icon: Info },
+    { id: "launch", label: "What's shipping", tone: "plain", icon: Rocket },
+    { id: "alerts", label: "Notifications", tone: "plain", icon: Bell, dot: true },
+    { id: "help", label: "Help", tone: "plain", icon: Info },
   ],
   avatarInitials: "NS",
 };

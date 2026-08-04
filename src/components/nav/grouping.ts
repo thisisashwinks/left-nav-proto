@@ -144,7 +144,11 @@ export interface NavLayoutState {
 
 export const DEFAULT_LAYOUT: NavLayoutState = {
   pinned: DEFAULT_PINNED,
-  grouping: "product",
+  // Jobs by default. The research calls this the right organizing unit and the
+  // highest-risk change — "group by the user's job, not by team or SKU" — so the
+  // prototype should open on the proposal, not on the thing being replaced. Product
+  // groups are one click away for the comparison.
+  grouping: "job",
   agencyLabels: {},
   accountLabels: {},
   agencyProductLabels: {},

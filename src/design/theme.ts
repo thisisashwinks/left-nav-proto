@@ -84,6 +84,26 @@ export const DOCK_LABEL_LABELS: Record<DockLabel, string> = {
 };
 
 /**
+ * Where the favourites dock sits in the nav.
+ *
+ * `top` is the design: directly under the logo, the first thing you see. `bottom`
+ * pins it to the nav's last edge instead — a thumb-rail, always in the same place
+ * regardless of how far the product list has scrolled, and out of the way of the
+ * cluster of standing entry points at the top.
+ *
+ * Worth testing because the two answer different questions. At the top the dock is
+ * a statement of what matters; at the bottom it is a tool you reach for.
+ */
+export const DOCK_POSITIONS = ["top", "bottom"] as const;
+
+export type DockPosition = (typeof DOCK_POSITIONS)[number];
+
+export const DOCK_POSITION_LABELS: Record<DockPosition, string> = {
+  top: "Under the logo",
+  bottom: "Nav bottom edge",
+};
+
+/**
  * Where search and Ask AI live.
  *
  * `split` is today's arrangement: search is an icon in the logo row, Ask AI holds
@@ -111,6 +131,7 @@ export interface ThemeState {
   /** Search defaults to dark so it never reads as part of the nav. */
   searchTheme: SurfaceTheme;
   dockLabel: DockLabel;
+  dockPosition: DockPosition;
   entryLayout: EntryLayout;
 }
 
@@ -132,7 +153,11 @@ export const DEFAULT_THEME: ThemeState = {
   // so it is the one row where recognition is already solved; the tooltip covers
   // the rest. `center` and `under` stay one click away for the comparison.
   dockLabel: "none",
-  entryLayout: "split",
+  dockPosition: "top",
+  // Both under the logo is the default now: it is the arrangement the review
+  // wanted to see, and it closes the search/Ask AI overlap rather than keeping one
+  // at each end of the nav.
+  entryLayout: "top",
 };
 
 /** Human-readable labels, for the controls UI added later. */

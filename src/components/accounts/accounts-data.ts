@@ -28,7 +28,11 @@ export const accounts: readonly Account[] = [
     id: "acme",
     name: "ACME",
     meta: "1100 Congress Ave, Austin, TX",
-    logo: { glyph: "block", from: "#4338ca", to: "#6366f1" },
+    // The HighRise primary ramp, not an indigo of its own. The accent defaults to
+    // following the current account's logo, so the account you land in decides the
+    // whole workspace's colour — and the one you land in first should look like the
+    // product's own blue rather than announcing a theme nobody chose.
+    logo: { glyph: "block", from: "#155eef", to: "#528bff" },
   },
   {
     id: "northwind",

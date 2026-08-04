@@ -1,14 +1,15 @@
 "use client";
 
 import * as React from "react";
+import { Search } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
 import { AiDock } from "@/components/ai/ai-dock";
 import type { AiSession } from "@/components/ai/use-ai-session";
-import type { SurfaceTheme } from "@/design/theme";
+import type { DockPosition, SurfaceTheme } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { CollapseToggle } from "./collapse-toggle";
 import { EntryCluster } from "./entry-cluster";
-import { EXPANDED_PINNED_BLOCK } from "./favorites-morph";
+import { pinnedBlockFor } from "./favorites-morph";
 import { IconPicker, useIconPicker } from "./icon-picker";
 import { navEntriesFor } from "./nav-entries";
 import { flyoutIdFor, navConfig } from "./nav-config";
@@ -76,7 +77,7 @@ export function LeftNav({
   onToggleSwitcher,
   aiSession,
 }: LeftNavProps) {
-  const { entryLayout } = useTheme();
+  const { entryLayout, dockPosition } = useTheme();
   const topEntry = entryLayout === "top";
   const picker = useIconPicker();
   const { state, groups, editFor, pickerProps } = useNavRowEdit(picker);
@@ -132,23 +133,27 @@ export function LeftNav({
         logoAlt={config.logoAlt}
         switcherOpen={switcherOpen}
         onToggleSwitcher={onToggleSwitcher}
-        // In `top` mode search has moved down into its own row, so the header
-        // must not also carry it — two search icons 50px apart is the overlap the
-        // review asked us to remove, not a fallback.
-        {...(topEntry ? {} : { onSearch })}
+        // In `top` mode search has moved down into the merged control, so the
+        // header's right edge goes to the drawer toggle — otherwise the toggle
+        // would be the only thing left in a 48px footer.
+        trailing={
+          topEntry ? (
+            <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
+          ) : (
+            <HeaderSearchButton onSearch={onSearch} />
+          )
+        }
       />
 
       {topEntry ? <EntryCluster onSearch={onSearch} session={aiSession} /> : null}
 
       {/*
         The pinned capsule itself is rendered by FavoritesMorph, outside both nav
-        faces, so it can travel between the two layouts. This reserves its space.
+        faces, so it can travel between the two layouts. This reserves its space —
+        here when the dock sits under the logo, and after the scroll region when it
+        is pinned to the nav's bottom edge.
       */}
-      <div
-        aria-hidden="true"
-        className="w-full shrink-0"
-        style={{ height: EXPANDED_PINNED_BLOCK }}
-      />
+      {dockPosition === "top" ? <PinnedHole position="top" /> : null}
 
       <div
         data-cursor="menu"
@@ -174,16 +179,48 @@ export function LeftNav({
         against the pill rather than sharing its baseline — the toggle is 28px
         and the pill 38px, so bottom-aligning them dropped the toggle 5px low.
 
-        In `top` mode the pill is gone and the toggle keeps the corner on its own,
-        which is the whole point of the comparison: whether the nav's bottom edge
-        is worth an AI dock, or is better left quiet.
+        In `top` mode both have moved up, so the footer is dropped entirely rather
+        than left as an empty 48px strip. The nav simply ends with its last row,
+        which is the point of the comparison: whether the bottom edge is worth
+        spending on at all.
       */}
-      <div className="flex w-full shrink-0 items-center justify-end gap-[8px] px-[12px] pt-[8px] pb-[12px]">
-        {topEntry ? null : <AiDock collapsed={false} session={aiSession} />}
-        <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
-      </div>
+      {topEntry ? null : (
+        <div className="flex w-full shrink-0 items-center gap-[8px] px-[12px] pt-[8px] pb-[12px]">
+          <AiDock collapsed={false} session={aiSession} />
+          <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
+        </div>
+      )}
+
+      {/* Last in the nav, so the dock really is on its bottom edge. */}
+      {dockPosition === "bottom" ? <PinnedHole position="bottom" /> : null}
 
       {pickerProps ? <IconPicker {...pickerProps} /> : null}
     </nav>
+  );
+}
+
+/** Reserves the space the floating capsule occupies, so nothing sits under it. */
+function PinnedHole({ position }: { position: DockPosition }) {
+  return (
+    <div
+      aria-hidden="true"
+      className="w-full shrink-0"
+      style={{ height: pinnedBlockFor(position) }}
+    />
+  );
+}
+
+/** The header's search icon, for the arrangement where search lives up here. */
+function HeaderSearchButton({ onSearch }: { onSearch: () => void }) {
+  return (
+    <button
+      type="button"
+      title="Search"
+      aria-label="Search"
+      onClick={onSearch}
+      className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg-muted active:scale-95"
+    >
+      <Search size={16} aria-hidden="true" />
+    </button>
   );
 }

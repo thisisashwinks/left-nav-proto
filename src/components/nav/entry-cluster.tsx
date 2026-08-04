@@ -24,8 +24,16 @@ import { Kbd } from "@/components/search/kbd";
 /** 36px row plus 12px below it. The nav's absolute geometry needs this exact. */
 export const ENTRY_CLUSTER_HEIGHT = 48;
 
-/** Stacked 38px buttons with 4px between them, in the 64px rail. */
-export const ENTRY_CLUSTER_RAIL_HEIGHT = 42;
+/**
+ * What the rail's cluster adds over the single search button it replaces: a second
+ * 38px button, the 4px rail gap above it, and 8px of clearance below.
+ *
+ * The clearance is the point. Stacked, the orb ended up directly against the
+ * favourites capsule with only the rail's 4px gap between them, and two round
+ * things 4px apart read as one control. 8px separates the entry point from the
+ * dock without opening a hole in a 64px rail.
+ */
+export const ENTRY_CLUSTER_RAIL_HEIGHT = 38 + 4 + 8;
 
 export function EntryCluster({
   onSearch,
@@ -35,36 +43,54 @@ export function EntryCluster({
   session: AiSession;
 }) {
   return (
-    <div className="flex w-full shrink-0 items-center gap-[8px] px-[12px] pb-[12px]">
-      <button
-        type="button"
-        onClick={onSearch}
-        className="motion-tap flex h-[36px] min-w-0 flex-1 items-center gap-[9px] rounded-[10px] px-[10px] text-left shadow-[inset_0_0_0_1px_var(--nav-divider)] hover:bg-nav-hover"
-      >
-        <Search size={16} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
-        <span className="min-w-0 flex-1 truncate text-[13px] leading-[normal] text-nav-fg-subtle">
-          Search
-        </span>
-        <Kbd>⌘K</Kbd>
-      </button>
+    <div className="flex w-full shrink-0 px-[12px] pb-[12px]">
+      {/*
+        One control, two targets.
 
-      <button
-        type="button"
-        title="Ask AI"
-        aria-label="Ask AI"
-        onClick={() => session.launch()}
-        // The orb is the button at this size, as in the rail — chrome around it
-        // would make it the third bordered box in a 248px row.
-        className="motion-tap relative flex size-[36px] shrink-0 items-center justify-center rounded-full hover:scale-105 active:scale-95 motion-press"
-      >
-        {session.open ? (
-          <span
-            aria-hidden="true"
-            className="motion-ai-pulse absolute inset-[-3px] rounded-full ring-2 ring-[var(--ai-ring)]"
-          />
-        ) : null}
-        <AiOrb size={36} state={session.state} glow />
-      </button>
+        A field and a separate orb beside it read as two features that happen to
+        be adjacent, which is the overlap the review wanted closed. Sharing one
+        border makes them one thing you can either type into or ask — the "smart
+        unified input" direction, without yet merging the *behaviours*, which is a
+        much bigger question than placement.
+
+        A div, not a button: it holds two controls, and nesting buttons is invalid
+        markup that browsers resolve inconsistently.
+      */}
+      <div className="motion-tap flex h-[36px] w-full items-center rounded-[10px] pr-[4px] pl-[10px] shadow-[inset_0_0_0_1px_var(--nav-divider)] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]">
+        <button
+          type="button"
+          onClick={onSearch}
+          className="flex h-full min-w-0 flex-1 items-center gap-[9px] text-left"
+        >
+          <Search size={16} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
+          <span className="min-w-0 flex-1 truncate text-[13px] leading-[normal] text-nav-fg-subtle">
+            Search or ask AI
+          </span>
+          <Kbd>⌘K</Kbd>
+        </button>
+
+        {/* Reads as the seam between the two halves of one control. */}
+        <span
+          aria-hidden="true"
+          className="mx-[8px] h-[16px] w-px shrink-0 bg-nav-divider"
+        />
+
+        <button
+          type="button"
+          title="Ask AI"
+          aria-label="Ask AI"
+          onClick={() => session.launch()}
+          className="motion-tap relative flex size-[28px] shrink-0 items-center justify-center rounded-full hover:scale-105 active:scale-95 motion-press"
+        >
+          {session.open ? (
+            <span
+              aria-hidden="true"
+              className="motion-ai-pulse absolute inset-[-3px] rounded-full ring-2 ring-[var(--ai-ring)]"
+            />
+          ) : null}
+          <AiOrb size={28} state={session.state} glow />
+        </button>
+      </div>
     </div>
   );
 }
@@ -81,7 +107,7 @@ export function EntryClusterRail({
   session: AiSession;
 }) {
   return (
-    <div className="flex shrink-0 flex-col items-center gap-[4px]">
+    <div className="flex shrink-0 flex-col items-center gap-[4px] pb-[8px]">
       <button
         type="button"
         title="Search"

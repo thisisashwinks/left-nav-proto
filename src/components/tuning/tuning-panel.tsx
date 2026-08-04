@@ -8,6 +8,8 @@ import {
   DEFAULT_THEME,
   DOCK_LABEL_LABELS,
   DOCK_LABELS,
+  DOCK_POSITION_LABELS,
+  DOCK_POSITIONS,
   ENTRY_LAYOUT_LABELS,
   ENTRY_LAYOUTS,
   SEARCH_MODE_LABELS,
@@ -17,6 +19,7 @@ import {
   TINTS,
   type Accent,
   type DockLabel,
+  type DockPosition,
   type EntryLayout,
   type SearchMode,
   type SurfaceTheme,
@@ -374,6 +377,8 @@ export function TuningPanel() {
     setSearchTheme,
     dockLabel,
     setDockLabel,
+    dockPosition,
+    setDockPosition,
     entryLayout,
     setEntryLayout,
   } = useTheme();
@@ -595,6 +600,18 @@ export function TuningPanel() {
               */}
               {group === "Favourites dock" ? (
                 <>
+                  <Segmented
+                    label="Dock position"
+                    options={DOCK_POSITIONS}
+                    value={dockPosition}
+                    onChange={(v: DockPosition) => setDockPosition(v)}
+                    format={(v) => DOCK_POSITION_LABELS[v]}
+                  />
+                  <p className="text-[10px] leading-[14px] text-pg-faint">
+                    {dockPosition === "bottom"
+                      ? "Pinned to the nav's last edge — same place however far the list has scrolled."
+                      : "Directly under the logo, as designed."}
+                  </p>
                   <Segmented
                     label="Caption position"
                     options={DOCK_LABELS}

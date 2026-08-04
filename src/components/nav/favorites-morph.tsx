@@ -3,7 +3,7 @@
 import * as React from "react";
 import { ChevronRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { DockLabel, SurfaceTheme } from "@/design/theme";
+import type { DockLabel, DockPosition, SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import type { PinnedRailItem } from "./types";
 
@@ -21,14 +21,19 @@ import type { PinnedRailItem } from "./types";
 export const PINNED_VISIBLE = 5;
 
 /**
- * The favourites block, re-measured from left-nav.pen: 272 x 68, padded 12 left,
- * 12 right, 12 top, 16 bottom, holding a 248 x 40 capsule.
+ * The favourites block: 272 wide, padded 12 left, 12 right, 6 top, 16 bottom,
+ * holding a 248 x 40 capsule.
  *
- * The heavier bottom padding is deliberate and is what the review approved — it
- * separates the dock from the Recent label below it, and it is also the room a
- * centred caption needs to sit under the icons without touching anything.
+ * left-nav.pen measures 12 at the top, but the header already ends in 10px of its
+ * own bottom padding, so 12 more put 22px between the logo and the band — the two
+ * read as unrelated rather than as one cluster. 6 here closes it to 16 without
+ * touching the header's own measured geometry.
+ *
+ * The bottom stays heavier, deliberately: it separates the dock from the Recent
+ * label below it, and it is the room the band grows into when it opens to carry a
+ * centred caption.
  */
-const BLOCK = { padTop: 12, padBottom: 16 };
+const BLOCK = { padTop: 6, padBottom: 16 };
 
 /** Where the block starts: directly below the 54px logo row. */
 const BLOCK_TOP = 54;
@@ -49,15 +54,37 @@ const SLOT_LEFTS = [24, 65.6, 107.2, 148.8, 190.4, 232];
  */
 const CAPSULE = { rest: 40, open: 56 };
 
-/** Room left under the caption, inside the band. */
+/** Where the icon row sits inside the resting band. */
+const SLOT_INSET = (CAPSULE.rest - 16) / 2;
+
+/** Room left under the caption, inside the band, at the top of the nav. */
 const CAPTION_BOTTOM = 10;
 
 /**
- * Height the expanded nav reserves. Constant, and exactly the design's 68 — the
- * band's own growth is absorbed by the bottom padding rather than added to it.
+ * Where the caption sits from the band's *top* edge when the dock is pinned to the
+ * nav's bottom.
+ *
+ * Mirrored, but not by the same number. There the band opens downward and the
+ * caption takes the new space below the icons; here it opens upward and the caption
+ * takes the space above them. The icons are bottom-anchored at SLOT_INSET, so the
+ * band's extra 16px all appears above them: 12 for the caption and 4 to breathe
+ * against the band's edge, leaving 6 between caption and icon.
  */
-export const EXPANDED_PINNED_BLOCK =
-  BLOCK.padTop + CAPSULE.rest + BLOCK.padBottom;
+const CAPTION_TOP = CAPSULE.open - SLOT_INSET - 16 - 6 - 12;
+
+/**
+ * At the nav's bottom edge the block is padded evenly — the heavier 16 existed to
+ * separate the dock from the Recent label under it, and at the bottom there is
+ * nothing under it to separate from.
+ */
+const BOTTOM_BLOCK = { padTop: 12, padBottom: 12 };
+
+/** How much of the nav's height the block claims, per position. */
+export function pinnedBlockFor(position: DockPosition): number {
+  return position === "bottom"
+    ? BOTTOM_BLOCK.padTop + CAPSULE.rest + BOTTOM_BLOCK.padBottom
+    : BLOCK.padTop + CAPSULE.rest + BLOCK.padBottom;
+}
 
 function expandedGeometry() {
   return {
@@ -68,11 +95,11 @@ function expandedGeometry() {
       height: CAPSULE.rest,
       radius: 34,
     },
-    // Centred in the resting band. The band only ever grows downward, so the icon
-    // row stays put whether it is open or not.
+    // Centred in the resting band. The band only ever grows away from the icons,
+    // so the icon row stays put whether it is open or not.
     slots: SLOT_LEFTS.map((left) => ({
       left,
-      top: BLOCK_TOP + BLOCK.padTop + (CAPSULE.rest - 16) / 2,
+      top: BLOCK_TOP + BLOCK.padTop + SLOT_INSET,
     })),
     /** Dock captions only make sense horizontally; see below. */
     showLabels: true,
@@ -121,8 +148,12 @@ const COLLAPSED_NAV_WIDTH = 64;
 interface DockButtonProps {
   label: string;
   icon: LucideIcon;
-  left: number;
-  top: number;
+  /**
+   * Absolute placement inside the row. `top` or `bottom` depending on which edge
+   * the band is anchored to — the icons have to be pinned to the edge the band
+   * does *not* grow from, or they slide when it opens.
+   */
+  slot: React.CSSProperties;
   /** True only in `under` mode, where each icon carries its own caption. */
   showLabel: boolean;
   /** Native tooltip, for the modes with no visible caption. */
@@ -143,8 +174,7 @@ interface DockButtonProps {
 function DockButton({
   label,
   icon: Icon,
-  left,
-  top,
+  slot,
   showLabel,
   titled,
   onClick,
@@ -163,7 +193,7 @@ function DockButton({
       onBlur={() => onHoverChange?.(false)}
       // ::before widens the hit target to 30px without moving the icon.
       className="motion-move group/dock absolute size-[16px] text-nav-fg-muted before:absolute before:top-[-7px] before:left-[-7px] before:size-[30px] before:content-[''] hover:text-nav-fg focus-visible:text-nav-fg"
-      style={{ left, top }}
+      style={slot}
     >
       {/*
         Grows in place, from its own centre.
@@ -212,6 +242,8 @@ interface FavoritesMorphProps {
   overflowCount: number;
   /** Where an icon's name goes, or whether it appears at all. */
   dockLabel: DockLabel;
+  /** Under the logo, or pinned to the nav's bottom edge. */
+  dockPosition: DockPosition;
   /**
    * Pixels the capsule sits lower than its measured position, because something
    * was inserted above it. Geometry here is absolute in nav-wrapper coordinates
@@ -239,6 +271,7 @@ export function FavoritesMorph({
   launcherActive,
   overflowCount,
   dockLabel,
+  dockPosition,
   topOffset = 0,
 }: FavoritesMorphProps) {
   const visible = items.slice(0, PINNED_VISIBLE);
@@ -273,10 +306,35 @@ export function FavoritesMorph({
     ? "left-[10px] w-[44px] rounded-[22px] group-hover/row:left-0 group-hover/row:w-[64px] group-hover/row:rounded-none"
     : "left-[12px] w-[248px] rounded-[30px] group-hover/row:left-0 group-hover/row:w-[272px] group-hover/row:rounded-none";
 
+  /**
+   * Which edge the band hangs from.
+   *
+   * Only the expanded band cares. Its height animates, so whichever edge it is
+   * anchored to is the edge that stays still — and the icons have to be pinned to
+   * that same edge or they slide 16px every time the band opens.
+   */
+  const anchoredToBottom = dockPosition === "bottom";
+
   /** Slot positions are wrapper-absolute; the row is the offset parent, so the
    *  offset cancels out here and is applied once to the row itself. */
   const slotTop = (i: number) => g.slots[i].top - g.container.top;
   const lastSlot = g.slots.length - 1;
+
+  const slotStyle = (i: number): React.CSSProperties =>
+    anchoredToBottom && !collapsed
+      ? { left: g.slots[i].left, bottom: SLOT_INSET }
+      : { left: g.slots[i].left, top: slotTop(i) };
+
+  /**
+   * Where the row itself sits.
+   *
+   * At the bottom it is measured from the nav's last edge rather than from the
+   * header, so it stays put however long the product list gets — which is the whole
+   * argument for the variant.
+   */
+  const rowPlacement: React.CSSProperties = anchoredToBottom
+    ? { bottom: collapsed ? BOTTOM_BLOCK.padBottom : BOTTOM_BLOCK.padBottom }
+    : { top: g.container.top + topOffset };
 
   return (
     <div
@@ -301,7 +359,7 @@ export function FavoritesMorph({
         style={
           {
             left: 0,
-            top: g.container.top + topOffset,
+            ...rowPlacement,
             width: navWidth,
             "--band-h": `${g.container.height}px`,
             "--band-h-open": `${CAPSULE.open}px`,
@@ -321,8 +379,7 @@ export function FavoritesMorph({
             key={id}
             label={label}
             icon={icon}
-            left={g.slots[i].left}
-            top={slotTop(i)}
+            slot={slotStyle(i)}
             showLabel={g.showLabels && dockLabel === "under"}
             // The rail relies on RailTooltip, so it wants no native title; the
             // expanded nav wants one wherever there is no visible caption.
@@ -359,7 +416,12 @@ export function FavoritesMorph({
           <div
             aria-hidden="true"
             className="pointer-events-none absolute left-1/2 h-0 w-0"
-            style={{ bottom: CAPTION_BOTTOM }}
+            // Mirrored with the band: it opens away from the icons, so the caption
+            // takes the room that appears — below at the top of the nav, above when
+            // the dock is pinned to the bottom edge.
+            style={
+              anchoredToBottom ? { top: CAPTION_TOP } : { bottom: CAPTION_BOTTOM }
+            }
           >
             {/*
               Every caption is mounted at once, stacked on the same centre point.
@@ -377,7 +439,11 @@ export function FavoritesMorph({
               <span
                 key={id}
                 className={cn(
-                  "motion-dock absolute bottom-0 left-0 block text-[length:var(--t-dock-center-label,12px)] leading-none font-medium whitespace-nowrap text-nav-fg-muted",
+                  "motion-dock absolute left-0 block text-[length:var(--t-dock-center-label,12px)] leading-none font-medium whitespace-nowrap text-nav-fg-muted",
+                  // The wrapper is a zero-height point, so the caption has to hang
+                  // from the same edge the wrapper was measured from — anchoring it
+                  // to the other one puts it outside the band.
+                  anchoredToBottom ? "top-0" : "bottom-0",
                   hoveredIndex === i
                     ? "translate-x-[-50%] opacity-100"
                     : hoveredIndex !== null && i < hoveredIndex

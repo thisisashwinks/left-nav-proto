@@ -69,7 +69,7 @@ export function CollapsedRail({
   // The capsule hugs its contents when collapsed, so the hole left for it has to
   // match. Read from the same store the capsule does rather than take a prop, so
   // the two can never disagree.
-  const { entryLayout } = useTheme();
+  const { entryLayout, dockPosition } = useTheme();
   const topEntry = entryLayout === "top";
   const { state: layout, groups } = useNavLayout();
   const pinnedBlock = collapsedPinnedBlock(
@@ -218,11 +218,13 @@ export function CollapsedRail({
         Reserved space for the pinned capsule, which FavoritesMorph renders
         outside both nav faces so it can travel between the two layouts.
       */}
-      <div
-        aria-hidden="true"
-        className="w-[44px] shrink-0"
-        style={{ height: pinnedBlock }}
-      />
+      {dockPosition === "top" ? (
+        <div
+          aria-hidden="true"
+          className="w-[44px] shrink-0"
+          style={{ height: pinnedBlock }}
+        />
+      ) : null}
 
       {/*
         Row spacing tracks the expanded nav's knob, offset by the 2px the rail
@@ -250,10 +252,27 @@ export function CollapsedRail({
         {renderRailRow(config.settings)}
       </div>
 
-      <div className="flex shrink-0 flex-col items-center gap-[6px] pt-[6px]">
-        {topEntry ? null : <AiDock collapsed session={aiSession} />}
-        <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
-      </div>
+      {/*
+        In `top` mode both the dock and the toggle have gone: AI is up with search,
+        and expanding is done from the app bar's far left, which is immediately
+        right of this rail. So the footer is dropped rather than left as an empty
+        strip — same reasoning as the expanded nav's.
+      */}
+      {topEntry ? null : (
+        <div className="flex shrink-0 flex-col items-center gap-[6px] pt-[6px]">
+          <AiDock collapsed session={aiSession} />
+          <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
+        </div>
+      )}
+
+      {/* Last in the rail, so the capsule really is on its bottom edge. */}
+      {dockPosition === "bottom" ? (
+        <div
+          aria-hidden="true"
+          className="w-[44px] shrink-0"
+          style={{ height: pinnedBlock + 12 }}
+        />
+      ) : null}
     </nav>
   );
 }

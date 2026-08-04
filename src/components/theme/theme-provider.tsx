@@ -5,6 +5,7 @@ import {
   DEFAULT_THEME,
   type Accent,
   type DockLabel,
+  type DockPosition,
   type EntryLayout,
   type SearchMode,
   type SurfaceTheme,
@@ -21,6 +22,7 @@ interface ThemeContextValue extends ThemeState {
   setSearchMode: (mode: SearchMode) => void;
   setSearchTheme: (theme: SurfaceTheme) => void;
   setDockLabel: (mode: DockLabel) => void;
+  setDockPosition: (position: DockPosition) => void;
   setEntryLayout: (layout: EntryLayout) => void;
 }
 
@@ -66,6 +68,7 @@ export function ThemeProvider({
       setSearchMode: (searchMode) => setState((s) => ({ ...s, searchMode })),
       setSearchTheme: (searchTheme) => setState((s) => ({ ...s, searchTheme })),
       setDockLabel: (dockLabel) => setState((s) => ({ ...s, dockLabel })),
+      setDockPosition: (dockPosition) => setState((s) => ({ ...s, dockPosition })),
       setEntryLayout: (entryLayout) => setState((s) => ({ ...s, entryLayout })),
     }),
     [state],
