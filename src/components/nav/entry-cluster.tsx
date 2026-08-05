@@ -57,52 +57,53 @@ export function EntryCluster({
         A div, not a button: it holds two controls, and nesting buttons is invalid
         markup that browsers resolve inconsistently.
       */}
-      <div className="motion-tap flex h-[36px] w-full items-center rounded-[10px] pr-[10px] pl-[4px] shadow-[inset_0_0_0_1px_var(--nav-divider)] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]">
+      <div className="motion-tap flex h-[36px] w-full items-center gap-[6px] rounded-full pr-[10px] pl-[4px] shadow-[inset_0_0_0_1px_var(--nav-divider)] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]">
         {/*
-          AI leads, and it says so.
+          Reads as one field you can talk to.
 
-          The review's finding was that the orb alone is not identifiable as an AI
-          assistant — there is no established icon for one the way there is for
-          search, so a glyph on its own has nothing to trade on. The words are the
-          fix. Putting it first also makes the reading order match the intent: this
-          is an assistant you can also search with, not a search box with a robot
-          bolted to the end.
+          The orb and the placeholder are the AI target and they fill the pill, so
+          the thing that looks like an input says what it does — which was the
+          review's objection to the orb on its own, since there is no established
+          icon for an AI assistant to trade on. No separator: a rule down the middle
+          made it two controls sharing a border rather than one control.
+
+          Fully rounded, because a pill reads as somewhere to type where a 10px
+          radius read as a button.
         */}
         <button
           type="button"
           title="Ask AI"
           onClick={() => session.launch()}
-          className="motion-tap relative flex h-[28px] shrink-0 items-center gap-[6px] rounded-full pr-[8px] pl-[2px] hover:bg-nav-hover active:scale-95 motion-press"
+          className="motion-tap relative flex h-full min-w-0 flex-1 items-center gap-[8px] text-left"
         >
           {session.open ? (
             <span
               aria-hidden="true"
-              className="motion-ai-pulse absolute top-1/2 left-[2px] size-[28px] -translate-y-1/2 rounded-full ring-2 ring-[var(--ai-ring)]"
+              className="motion-ai-pulse absolute top-1/2 left-0 size-[28px] -translate-y-1/2 rounded-full ring-2 ring-[var(--ai-ring)]"
             />
           ) : null}
           <AiOrb size={28} state={session.state} glow />
-          <span className="text-[13px] leading-[normal] font-medium whitespace-nowrap text-nav-fg">
+          <span className="min-w-0 flex-1 truncate text-[13px] leading-[normal] text-nav-fg-subtle">
             Ask AI
           </span>
         </button>
 
-        {/* Reads as the seam between the two halves of one control. */}
-        <span
-          aria-hidden="true"
-          className="mx-[8px] h-[16px] w-px shrink-0 bg-nav-divider"
-        />
-
+        {/*
+          Search keeps the trailing end, next to the shortcut that opens it. It is
+          the smaller of the two jobs here and the only one whose glyph needs no
+          explaining, so an icon alone carries it.
+        */}
         <button
           type="button"
+          title="Search"
+          aria-label="Search"
           onClick={onSearch}
-          className="flex h-full min-w-0 flex-1 items-center gap-[8px] text-left"
+          className="motion-tap flex size-[24px] shrink-0 items-center justify-center rounded-full text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg-muted active:scale-95"
         >
-          <Search size={16} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
-          <span className="min-w-0 flex-1 truncate text-[13px] leading-[normal] text-nav-fg-subtle">
-            Search
-          </span>
-          <Kbd>⌘K</Kbd>
+          <Search size={16} aria-hidden="true" />
         </button>
+
+        <Kbd>⌘K</Kbd>
       </div>
     </div>
   );
