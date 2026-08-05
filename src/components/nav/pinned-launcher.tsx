@@ -15,6 +15,7 @@ import {
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
+import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { productById } from "./catalogue";
 import { GROUPING_LABELS, type ResolvedGroup } from "./grouping";
 import { nameForIcon } from "./icon-catalogue";
@@ -95,6 +96,9 @@ export function PinnedLauncher({
    */
   const reorderable = state.grouping === "custom" && can.customise && !q;
 
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  useScrollEdges(scrollRef);
+
   const pickerTarget = picker.targetId;
 
   return (
@@ -117,11 +121,14 @@ export function PinnedLauncher({
         onPointerLeave={onPointerLeave}
         style={{ left: offsetLeft }}
         className={cn(
-          "absolute top-0 bottom-0 z-40 flex w-[360px] flex-col items-start gap-[10px] overflow-y-auto bg-nav pt-[14px] pr-[14px] pb-[16px] pl-[14px] shadow-[8px_0_24px_0_var(--fly-shadow),inset_-1px_0_0_0_var(--fly-border)]",
+          // Header and filter pinned, list scrolling, "New group" pinned at the
+          // bottom — same reasoning as the flyout panel: on a short screen the
+          // whole thing scrolled and the create affordance went with it.
+          "absolute top-0 bottom-0 z-40 flex w-[360px] flex-col items-start overflow-hidden bg-nav pt-[14px] pb-[16px] shadow-[8px_0_24px_0_var(--fly-shadow),inset_-1px_0_0_0_var(--fly-border)]",
           phase === "entering" ? "motion-panel-in" : "motion-panel-out",
         )}
       >
-        <div className="flex w-full shrink-0 items-center justify-between px-[2px] pb-[4px]">
+        <div className="flex w-full shrink-0 items-center justify-between px-[16px] pb-[4px]">
           <h2 className="text-[15px] leading-[normal] font-semibold whitespace-nowrap text-nav-fg">
             All products
           </h2>
@@ -145,7 +152,7 @@ export function PinnedLauncher({
         </div>
 
         {/* Same index the spotlight uses, so typing here and there agree. */}
-        <div className="flex h-[36px] w-full shrink-0 items-center gap-[9px] rounded-[9px] px-[10px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
+        <div className="mx-[14px] flex h-[36px] w-[calc(100%-28px)] shrink-0 items-center gap-[9px] rounded-[9px] px-[10px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
           <Search size={16} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
           <input
             type="text"
@@ -157,6 +164,16 @@ export function PinnedLauncher({
           />
         </div>
 
+        <div
+          data-scroll-shell=""
+          className="relative flex min-h-0 w-full flex-1 flex-col"
+        >
+          <div aria-hidden="true" data-scroll-fade="top" />
+          <div
+            ref={scrollRef}
+            data-scroll-region=""
+            className="flex w-full flex-1 flex-col items-start gap-[10px] overflow-y-auto px-[14px] pt-[10px]"
+          >
         {pinnedIds.length > 0 ? (
           <>
             <SectionHeading count={state.pinned.length}>Favorites</SectionHeading>
@@ -248,8 +265,12 @@ export function PinnedLauncher({
           </p>
         ) : null}
 
+          </div>
+          <div aria-hidden="true" data-scroll-fade="bottom" />
+        </div>
+
         {can.customise && !q ? (
-          <div className="mt-[6px] w-full shrink-0 pt-[12px] shadow-[inset_0_1px_0_0_var(--nav-divider)]">
+          <div className="mx-[14px] mt-[6px] w-[calc(100%-28px)] shrink-0 pt-[12px] shadow-[inset_0_1px_0_0_var(--nav-divider)]">
             {creating ? (
               <div className="flex w-full items-center gap-[10px] rounded-[9px] px-[8px] py-[8px]">
                 <Plus size={16} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />

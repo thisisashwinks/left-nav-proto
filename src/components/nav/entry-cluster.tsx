@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import { AiOrb } from "@/components/ai/ai-orb";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import { Kbd } from "@/components/search/kbd";
+import { RailTooltip } from "./rail-tooltip";
 
 /**
  * Search and Ask AI together, directly under the logo.
@@ -56,17 +57,33 @@ export function EntryCluster({
         A div, not a button: it holds two controls, and nesting buttons is invalid
         markup that browsers resolve inconsistently.
       */}
-      <div className="motion-tap flex h-[36px] w-full items-center rounded-[10px] pr-[4px] pl-[10px] shadow-[inset_0_0_0_1px_var(--nav-divider)] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]">
+      <div className="motion-tap flex h-[36px] w-full items-center rounded-[10px] pr-[10px] pl-[4px] shadow-[inset_0_0_0_1px_var(--nav-divider)] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]">
+        {/*
+          AI leads, and it says so.
+
+          The review's finding was that the orb alone is not identifiable as an AI
+          assistant — there is no established icon for one the way there is for
+          search, so a glyph on its own has nothing to trade on. The words are the
+          fix. Putting it first also makes the reading order match the intent: this
+          is an assistant you can also search with, not a search box with a robot
+          bolted to the end.
+        */}
         <button
           type="button"
-          onClick={onSearch}
-          className="flex h-full min-w-0 flex-1 items-center gap-[9px] text-left"
+          title="Ask AI"
+          onClick={() => session.launch()}
+          className="motion-tap relative flex h-[28px] shrink-0 items-center gap-[6px] rounded-full pr-[8px] pl-[2px] hover:bg-nav-hover active:scale-95 motion-press"
         >
-          <Search size={16} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
-          <span className="min-w-0 flex-1 truncate text-[13px] leading-[normal] text-nav-fg-subtle">
-            Search or ask AI
+          {session.open ? (
+            <span
+              aria-hidden="true"
+              className="motion-ai-pulse absolute top-1/2 left-[2px] size-[28px] -translate-y-1/2 rounded-full ring-2 ring-[var(--ai-ring)]"
+            />
+          ) : null}
+          <AiOrb size={28} state={session.state} glow />
+          <span className="text-[13px] leading-[normal] font-medium whitespace-nowrap text-nav-fg">
+            Ask AI
           </span>
-          <Kbd>⌘K</Kbd>
         </button>
 
         {/* Reads as the seam between the two halves of one control. */}
@@ -77,18 +94,14 @@ export function EntryCluster({
 
         <button
           type="button"
-          title="Ask AI"
-          aria-label="Ask AI"
-          onClick={() => session.launch()}
-          className="motion-tap relative flex size-[28px] shrink-0 items-center justify-center rounded-full hover:scale-105 active:scale-95 motion-press"
+          onClick={onSearch}
+          className="flex h-full min-w-0 flex-1 items-center gap-[8px] text-left"
         >
-          {session.open ? (
-            <span
-              aria-hidden="true"
-              className="motion-ai-pulse absolute inset-[-3px] rounded-full ring-2 ring-[var(--ai-ring)]"
-            />
-          ) : null}
-          <AiOrb size={28} state={session.state} glow />
+          <Search size={16} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
+          <span className="min-w-0 flex-1 truncate text-[13px] leading-[normal] text-nav-fg-subtle">
+            Search
+          </span>
+          <Kbd>⌘K</Kbd>
         </button>
       </div>
     </div>
@@ -108,31 +121,39 @@ export function EntryClusterRail({
 }) {
   return (
     <div className="flex shrink-0 flex-col items-center gap-[4px] pb-[8px]">
-      <button
-        type="button"
-        title="Search"
-        aria-label="Search"
-        onClick={onSearch}
-        className="motion-tap flex size-[38px] shrink-0 items-center justify-center rounded-[9px] text-nav-fg-subtle hover:scale-105 hover:bg-nav-hover hover:text-nav-fg-muted active:scale-95"
-      >
-        <Search size={16} aria-hidden="true" />
-      </button>
+      {/*
+        AI first here too, so the order survives collapsing. The rail has no room
+        for the label, so the tooltip carries the name — which is why AI keeps the
+        leading position: it is the one of the two whose glyph does not explain
+        itself, and being first is the only ordering cue left.
+      */}
+      <RailTooltip label="Ask AI">
+        <button
+          type="button"
+          aria-label="Ask AI"
+          onClick={() => session.launch()}
+          className="motion-tap relative flex size-[38px] shrink-0 items-center justify-center rounded-full hover:scale-105 active:scale-95 motion-press"
+        >
+          {session.open ? (
+            <span
+              aria-hidden="true"
+              className="motion-ai-pulse absolute inset-[-3px] rounded-full ring-2 ring-[var(--ai-ring)]"
+            />
+          ) : null}
+          <AiOrb size={38} state={session.state} glow />
+        </button>
+      </RailTooltip>
 
-      <button
-        type="button"
-        title="Ask AI"
-        aria-label="Ask AI"
-        onClick={() => session.launch()}
-        className="motion-tap relative flex size-[38px] shrink-0 items-center justify-center rounded-full hover:scale-105 active:scale-95 motion-press"
-      >
-        {session.open ? (
-          <span
-            aria-hidden="true"
-            className="motion-ai-pulse absolute inset-[-3px] rounded-full ring-2 ring-[var(--ai-ring)]"
-          />
-        ) : null}
-        <AiOrb size={38} state={session.state} glow />
-      </button>
+      <RailTooltip label="Search">
+        <button
+          type="button"
+          aria-label="Search"
+          onClick={onSearch}
+          className="motion-tap flex size-[38px] shrink-0 items-center justify-center rounded-[9px] text-nav-fg-subtle hover:scale-105 hover:bg-nav-hover hover:text-nav-fg-muted active:scale-95"
+        >
+          <Search size={16} aria-hidden="true" />
+        </button>
+      </RailTooltip>
     </div>
   );
 }

@@ -57,6 +57,40 @@ export const GROUPING_BLURBS: Record<GroupingMode, string> = {
   custom: "The user's own groups, seeded from the mode you left.",
 };
 
+/**
+ * How much the account has bolted onto its nav.
+ *
+ * A stress control, not a product setting. Overflow only showed up before by
+ * switching to flat grouping, which changes row *structure* as well as row count
+ * — two variables at once, and not the case the review actually named. The real
+ * one is "users who add many custom links", so this varies exactly that.
+ */
+export const NAV_VOLUMES = ["default", "busy", "heavy", "overloaded"] as const;
+
+export type NavVolume = (typeof NAV_VOLUMES)[number];
+
+export const NAV_VOLUME_LABELS: Record<NavVolume, string> = {
+  default: "Default",
+  busy: "Busy",
+  heavy: "Heavy",
+  overloaded: "Overloaded",
+};
+
+/**
+ * How many custom links each setting adds.
+ *
+ * Chosen against measurements, not by feel: the nav has zero spare height on a
+ * 14-inch screen, so `busy` is deliberately the smallest number that tips it over
+ * — that is the point it makes. `heavy` overflows a 16.2-inch screen too, and
+ * `overloaded` is enough to exercise the floor tier.
+ */
+export const NAV_VOLUME_EXTRA_LINKS: Record<NavVolume, number> = {
+  default: 0,
+  busy: 6,
+  heavy: 14,
+  overloaded: 30,
+};
+
 /** Who a label override belongs to. Both levels exist so the tradeoff is demoable. */
 export type LabelScope = "agency" | "account";
 
@@ -140,6 +174,8 @@ export interface NavLayoutState {
   role: NavRole;
   labelScope: LabelScope;
   editing: boolean;
+  /** How many custom links the account has piled on. A stress control. */
+  navVolume: NavVolume;
 }
 
 export const DEFAULT_LAYOUT: NavLayoutState = {
@@ -159,6 +195,7 @@ export const DEFAULT_LAYOUT: NavLayoutState = {
   role: "agency",
   labelScope: "account",
   editing: false,
+  navVolume: "default",
 };
 
 /** A group as the nav should render it, after grouping mode and overrides. */

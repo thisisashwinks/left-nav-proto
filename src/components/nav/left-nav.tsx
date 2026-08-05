@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Search } from "lucide-react";
+import { History, Search, Star } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
+import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { AiDock } from "@/components/ai/ai-dock";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import type { DockPosition, SurfaceTheme } from "@/design/theme";
@@ -17,6 +18,7 @@ import { NavDivider } from "./nav-divider";
 import { NavHeader } from "./nav-header";
 import { NavItemRow } from "./nav-item-row";
 import { useNavRowEdit } from "./use-nav-row-edit";
+import type { NavDensity } from "./use-nav-density";
 import { NavSectionLabel } from "./nav-section-label";
 import type { NavConfig, NavEntry, NavItem } from "./types";
 
@@ -42,6 +44,16 @@ interface LeftNavProps {
   onToggleSwitcher: () => void;
   /** Owned by the shell, so the window can escape the nav's clipped box. */
   aiSession: AiSession;
+  /**
+   * How much vertical room the nav has. Measured by the shell on the wrapper both
+   * faces share, so the two faces and the floating capsule can never disagree
+   * about it.
+   */
+  density: NavDensity;
+  /** Opens the manage surface — the floor tier's stand-in for the dock. */
+  onOpenLauncher: () => void;
+  /** How many inline recent rows to show, after the density budget. */
+  recentsBudget: number;
 }
 
 /**
@@ -76,15 +88,28 @@ export function LeftNav({
   switcherOpen,
   onToggleSwitcher,
   aiSession,
+  density,
+  onOpenLauncher,
+  recentsBudget,
 }: LeftNavProps) {
   const { entryLayout, dockPosition } = useTheme();
   const topEntry = entryLayout === "top";
+  const atFloor = density === "floor";
   const picker = useIconPicker();
   const { state, groups, editFor, pickerProps } = useNavRowEdit(picker);
   const entries = React.useMemo(
     () => navEntriesFor(state, groups),
     [state, groups],
   );
+
+  // Trims the Recent block to what the density and the recents mode allow.
+  const fixedEntries = React.useMemo(
+    () => trimRecents(config.fixed, recentsBudget),
+    [config.fixed, recentsBudget],
+  );
+
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  useScrollEdges(scrollRef);
 
   const renderRow = (item: NavItem) => {
     const flyoutId = flyoutIdFor(item);
@@ -153,25 +178,52 @@ export function LeftNav({
         here when the dock sits under the logo, and after the scroll region when it
         is pinned to the nav's bottom edge.
       */}
-      {dockPosition === "top" ? <PinnedHole position="top" /> : null}
+      {dockPosition === "top" && !atFloor ? <PinnedHole position="top" /> : null}
+
+      {/*
+        The standing entry points normally sit above the scroll region so they never
+        scroll away. At the floor they move *into* it: they are `shrink-0` inside an
+        `overflow-hidden` nav with no page scroll behind it, so on a short enough
+        screen they were being clipped and Quick Actions became permanently
+        unreachable. A row you can scroll to beats a row pinned out of sight.
+      */}
+      {atFloor ? null : (
+        <>
+          <div
+            data-cursor="menu"
+            className="flex w-full shrink-0 flex-col items-start gap-[var(--t-nav-space,2px)] px-[10px]"
+          >
+            {fixedEntries.map(renderEntry)}
+          </div>
+
+          <div className="w-full shrink-0 px-[10px]">
+            <NavDivider />
+          </div>
+        </>
+      )}
 
       <div
-        data-cursor="menu"
-        className="flex w-full shrink-0 flex-col items-start gap-[var(--t-nav-space,2px)] px-[10px]"
+        data-scroll-shell=""
+        className="relative flex min-h-0 w-full flex-1 flex-col"
       >
-        {config.fixed.map(renderEntry)}
-      </div>
-
-      <div className="w-full shrink-0 px-[10px]">
-        <NavDivider />
-      </div>
-
-      <div
-        data-cursor="menu"
-        className="flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto px-[10px] pb-[2px]"
-      >
-        {entries.map(renderEntry)}
-        {renderRow(config.settings)}
+        <div aria-hidden="true" data-scroll-fade="top" />
+        <div
+          ref={scrollRef}
+          data-scroll-region=""
+          data-cursor="menu"
+          className="flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto px-[10px] pb-[2px]"
+        >
+          {atFloor ? (
+            <>
+              <FavoritesRow onOpen={onOpenLauncher} />
+              {fixedEntries.map(renderEntry)}
+              <NavDivider />
+            </>
+          ) : null}
+          {entries.map(renderEntry)}
+          {renderRow(config.settings)}
+        </div>
+        <div aria-hidden="true" data-scroll-fade="bottom" />
       </div>
 
       {/*
@@ -192,11 +244,72 @@ export function LeftNav({
       )}
 
       {/* Last in the nav, so the dock really is on its bottom edge. */}
-      {dockPosition === "bottom" ? <PinnedHole position="bottom" /> : null}
+      {dockPosition === "bottom" && !atFloor ? (
+        <PinnedHole position="bottom" />
+      ) : null}
 
       {pickerProps ? <IconPicker {...pickerProps} /> : null}
     </nav>
   );
+}
+
+/**
+ * Favourites as a plain scrollable row, for the floor tier.
+ *
+ * The capsule cannot simply join the scroll region: FavoritesMorph positions it with
+ * absolute coordinates in nav-wrapper space, and the faces only reserve a hole in
+ * flow, so moving the hole would leave the capsule behind. Rather than refactor that
+ * geometry for the smallest screens, the floor swaps the dock for one row that opens
+ * the same manage surface — the favourites are still one click away, and every row
+ * in the nav is reachable.
+ */
+function FavoritesRow({ onOpen }: { onOpen: () => void }) {
+  return (
+    <NavItemRow
+      item={{ id: "favorites-row", label: "Favorites", icon: Star, hasFlyout: true }}
+      onSelect={onOpen}
+    />
+  );
+}
+
+/**
+ * Drops inline recent rows past the budget, keeping the most recent ones.
+ *
+ * Operates on entries rather than on the config so the section label goes with them:
+ * a "RECENT" heading over nothing but a "More" row is worse than no heading. At a
+ * budget of zero the whole block goes and Recent lives behind its own row.
+ */
+function trimRecents(entries: NavEntry[], budget: number): NavEntry[] {
+  const isRecentRow = (e: NavEntry) =>
+    e.kind === "item" && e.item.id.startsWith("recent-") && e.item.id !== "recent-more";
+
+  const total = entries.filter(isRecentRow).length;
+  if (budget >= total) return entries;
+
+  let seen = 0;
+  const kept = entries.filter((e) => {
+    if (!isRecentRow(e)) return true;
+    seen += 1;
+    return seen <= budget;
+  });
+
+  if (budget > 0) return kept;
+
+  /*
+   * With no rows above it, the block's section label goes — and the door stops
+   * being "More".
+   *
+   * "More" only means anything as the tail of a visible list. On its own it is more
+   * than nothing, so the row takes the name and the icon the rail already uses for
+   * the same destination: Recent, with a history glyph.
+   */
+  return kept
+    .filter((e) => !(e.kind === "label" && e.id === "recent-label"))
+    .map((e) =>
+      e.kind === "item" && e.item.id === "recent-more"
+        ? { kind: "item", item: { ...e.item, label: "Recent", icon: History } }
+        : e,
+    );
 }
 
 /** Reserves the space the floating capsule occupies, so nothing sits under it. */

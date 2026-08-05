@@ -1,7 +1,8 @@
-import { CreditCard, Smartphone } from "lucide-react";
+import { CreditCard, Link2, Smartphone } from "lucide-react";
 import {
   iconForProduct,
   labelForProduct,
+  NAV_VOLUME_EXTRA_LINKS,
   type NavLayoutState,
   type ResolvedGroup,
 } from "./grouping";
@@ -22,15 +23,66 @@ const workspaceLinks: NavItem[] = [
 ];
 
 /**
+ * The custom links the volume switch piles on.
+ *
+ * Named like the real thing rather than "Item 7" — an agency's nav fills up with
+ * links to their own tools, and a nav full of placeholder text does not read like
+ * the problem it is standing in for. They carry no flyout, because a custom link is
+ * a destination.
+ */
+const CUSTOM_LINK_NAMES = [
+  "Client portal",
+  "Onboarding hub",
+  "Support desk",
+  "Billing portal",
+  "Brand assets",
+  "Training library",
+  "Partner directory",
+  "Status page",
+  "Release notes",
+  "Community",
+  "Referral program",
+  "Templates vault",
+  "Reporting exports",
+  "Compliance centre",
+  "Vendor invoices",
+];
+
+function customLinks(count: number): NavItem[] {
+  return Array.from({ length: count }, (_, i) => ({
+    // Wraps rather than running out, so `overloaded` can exceed the name list.
+    id: `custom-link-${i + 1}`,
+    label:
+      i < CUSTOM_LINK_NAMES.length
+        ? (CUSTOM_LINK_NAMES[i] as string)
+        : `${CUSTOM_LINK_NAMES[i % CUSTOM_LINK_NAMES.length]} ${
+            Math.floor(i / CUSTOM_LINK_NAMES.length) + 1
+          }`,
+    icon: Link2,
+  }));
+}
+
+/**
  * The middle of the nav, derived from the active grouping.
  *
  * One function for both nav faces so the rail and the expanded nav can never
  * disagree about what the nav contains — they only differ in how they draw it.
+ * That includes the volume switch's custom links, which is why it belongs here
+ * rather than in either face.
  */
 export function navEntriesFor(
   state: NavLayoutState,
   groups: ResolvedGroup[],
 ): NavEntry[] {
+  const extra = customLinks(NAV_VOLUME_EXTRA_LINKS[state.navVolume]);
+  const extraEntries: NavEntry[] =
+    extra.length === 0
+      ? []
+      : [
+          ...extra.map((item): NavEntry => ({ kind: "item", item })),
+          { kind: "divider", id: "div-custom" },
+        ];
+
   if (state.grouping === "flat") {
     // No headings and no chevrons: in flat mode a row is a destination, not a
     // door to a panel, which is the whole point of the mode.
@@ -47,6 +99,7 @@ export function navEntriesFor(
         }),
       ),
       { kind: "divider", id: "div-flat" },
+      ...extraEntries,
     ];
   }
 
@@ -66,6 +119,7 @@ export function navEntriesFor(
     { kind: "divider", id: "div-groups" },
     ...workspaceLinks.map((item): NavEntry => ({ kind: "item", item })),
     { kind: "divider", id: "div-workspace" },
+    ...extraEntries,
   ];
 }
 

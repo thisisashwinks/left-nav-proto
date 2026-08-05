@@ -84,6 +84,41 @@ export const DOCK_LABEL_LABELS: Record<DockLabel, string> = {
 };
 
 /**
+ * Below this viewport width the nav starts collapsed.
+ *
+ * Measured, not guessed: on a tablet in portrait the viewport is 834px wide, where
+ * the 272px nav is 33% of the screen and leaves a 562px canvas. The review flagged
+ * tablets without saying what should happen; giving the canvas back is the obvious
+ * answer, and 900px sits above the tablet and below any laptop.
+ */
+export const AUTO_COLLAPSE_WIDTH = 900;
+
+/**
+ * How many inline recent rows the nav carries.
+ *
+ * The 04 Aug review's objection: pinned and recents overlap, and both eat the
+ * default menu's real estate. Pinned should show everything pinned; recents need
+ * two or three to be worth having; and the two together crowd the product list.
+ *
+ * `adaptive` is the middle ground the group landed on — recents give way as pins
+ * accumulate, because a user who has curated pins has already told you what they
+ * reach for. The other two are the endpoints, for comparison.
+ *
+ * `fixed-three` is the default, and deliberately: the account ships with five pins,
+ * so adaptive would open on a single recent row and the designed block — three
+ * destinations and a More row — would never be what anyone saw first.
+ */
+export const RECENTS_MODES = ["adaptive", "flyout-only", "fixed-three"] as const;
+
+export type RecentsMode = (typeof RECENTS_MODES)[number];
+
+export const RECENTS_MODE_LABELS: Record<RecentsMode, string> = {
+  adaptive: "Adaptive",
+  "flyout-only": "Flyout only",
+  "fixed-three": "Always three",
+};
+
+/**
  * Where the favourites dock sits in the nav.
  *
  * `top` is the design: directly under the logo, the first thing you see. `bottom`
@@ -133,6 +168,9 @@ export interface ThemeState {
   dockLabel: DockLabel;
   dockPosition: DockPosition;
   entryLayout: EntryLayout;
+  recentsMode: RecentsMode;
+  /** Start collapsed on narrow viewports. Off makes the tablet case demoable. */
+  autoCollapse: boolean;
 }
 
 /**
@@ -158,6 +196,8 @@ export const DEFAULT_THEME: ThemeState = {
   // wanted to see, and it closes the search/Ask AI overlap rather than keeping one
   // at each end of the nav.
   entryLayout: "top",
+  recentsMode: "fixed-three",
+  autoCollapse: true,
 };
 
 /** Human-readable labels, for the controls UI added later. */

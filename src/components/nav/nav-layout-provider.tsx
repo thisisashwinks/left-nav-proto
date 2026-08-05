@@ -20,6 +20,7 @@ import {
   type NavLayoutState,
   type NavPermissions,
   type NavRole,
+  type NavVolume,
   type ResolvedGroup,
 } from "./grouping";
 
@@ -93,6 +94,7 @@ interface NavLayoutContextValue {
   ) => void;
 
   // Prototype switches.
+  setNavVolume: (volume: NavVolume) => void;
   setRole: (role: NavRole) => void;
   setLabelScope: (scope: LabelScope) => void;
   setEditing: (editing: boolean) => void;
@@ -461,6 +463,15 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
           };
         }),
 
+      setNavVolume: (navVolume) =>
+        commit(
+          "Changed nav volume",
+          (s) => (s.navVolume === navVolume ? s : { ...s, navVolume }),
+          // A stress control, not an edit the user made — offering to undo it
+          // would put scaffolding in the same toast as real changes.
+          { silent: true },
+        ),
+
       setRole: (role) =>
         commit(
           "Changed role",
@@ -497,10 +508,12 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         commit("Reset the nav to the shipped layout", (s) => ({
           ...DEFAULT_LAYOUT,
           // The prototype switches are how you got here — resetting the layout
-          // must not also change who you are pretending to be.
+          // must not also change who you are pretending to be, or empty out the
+          // nav you deliberately filled to demo overflow.
           role: s.role,
           labelScope: s.labelScope,
           editing: s.editing,
+          navVolume: s.navVolume,
         })),
 
       isDefaultLayout:

@@ -5,6 +5,7 @@ import { ChevronRight, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import {
   ACCENT_LABELS,
   ACCENTS,
+  AUTO_COLLAPSE_WIDTH,
   DEFAULT_THEME,
   DOCK_LABEL_LABELS,
   DOCK_LABELS,
@@ -12,6 +13,8 @@ import {
   DOCK_POSITIONS,
   ENTRY_LAYOUT_LABELS,
   ENTRY_LAYOUTS,
+  RECENTS_MODE_LABELS,
+  RECENTS_MODES,
   SEARCH_MODE_LABELS,
   SEARCH_MODES,
   SURFACE_THEMES,
@@ -21,6 +24,7 @@ import {
   type DockLabel,
   type DockPosition,
   type EntryLayout,
+  type RecentsMode,
   type SearchMode,
   type SurfaceTheme,
   type Tint,
@@ -37,8 +41,12 @@ import {
   densityFor,
   GROUPING_BLURBS,
   GROUPING_LABELS,
+  DEFAULT_LAYOUT,
   GROUPING_MODES,
   NAV_ROLES,
+  NAV_VOLUME_EXTRA_LINKS,
+  NAV_VOLUME_LABELS,
+  NAV_VOLUMES,
   ROLE_LABELS,
   type Density,
   type NavRole,
@@ -75,10 +83,18 @@ function NavStructureSection({
 }) {
   const layout = useNavLayout();
   const { state, can } = layout;
+  // Recents straddle the two stores: how many rows to show is a nav-structure
+  // question, but the mode is a theme axis like the dock's caption and position.
+  const { recentsMode, setRecentsMode, autoCollapse, setAutoCollapse } =
+    useTheme();
   const density = densityFor(catalogue.length);
 
+  // Compared against the store's own defaults rather than hardcoded values — the
+  // default grouping moved to `job`, and a literal here silently claimed the
+  // section was retuned on first load.
   const changed =
-    (state.grouping === "product" ? 0 : 1) +
+    (state.grouping === DEFAULT_LAYOUT.grouping ? 0 : 1) +
+    (state.navVolume === DEFAULT_LAYOUT.navVolume ? 0 : 1) +
     (layout.isDefaultLayout ? 0 : 1) +
     (state.editing ? 1 : 0);
 
@@ -87,7 +103,7 @@ function NavStructureSection({
       id="Nav structure"
       open={open}
       onToggle={onToggle}
-      changedCount={layout.isDefaultLayout && !state.editing ? 0 : changed}
+      changedCount={changed}
       onReset={layout.resetLayout}
     >
       <Segmented
@@ -99,6 +115,19 @@ function NavStructureSection({
       />
       <p className="text-[10px] leading-[14px] text-pg-faint">
         {GROUPING_BLURBS[state.grouping]}
+      </p>
+
+      <Segmented
+        label="Nav volume"
+        options={NAV_VOLUMES}
+        value={state.navVolume}
+        onChange={layout.setNavVolume}
+        format={(v) => NAV_VOLUME_LABELS[v]}
+      />
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        {state.navVolume === "default"
+          ? "The shipped nav. Fits a 14-inch screen with nothing to spare."
+          : `Adds ${NAV_VOLUME_EXTRA_LINKS[state.navVolume]} custom links, the way an agency's nav actually fills up.`}
       </p>
 
       <Segmented
@@ -125,6 +154,31 @@ function NavStructureSection({
           account”.
         </p>
       ) : null}
+
+      <Segmented
+        label="Inline recents"
+        options={RECENTS_MODES}
+        value={recentsMode}
+        onChange={(v: RecentsMode) => setRecentsMode(v)}
+        format={(v) => RECENTS_MODE_LABELS[v]}
+      />
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        {recentsMode === "adaptive"
+          ? "Recents give way as pins accumulate — 3 with none pinned, down to 1 past four."
+          : recentsMode === "flyout-only"
+            ? "No inline rows. Recent lives behind its own row, freeing the cluster."
+            : "Three destinations and a More row, as designed."}
+      </p>
+
+      <Toggle
+        label="Auto-collapse on narrow screens"
+        checked={autoCollapse}
+        onChange={setAutoCollapse}
+      />
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        Starts on the rail under {AUTO_COLLAPSE_WIDTH}px, where the 272px nav would
+        take a third of a tablet. Touching the drawer toggle overrides it for good.
+      </p>
 
       <Toggle
         label="Edit mode in the nav"

@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Search } from "lucide-react";
+import { Search, Star } from "lucide-react";
+import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import type { Account } from "@/components/accounts/accounts-data";
 import { AiDock } from "@/components/ai/ai-dock";
@@ -17,6 +18,7 @@ import { navEntriesFor } from "./nav-entries";
 import { useNavLayout } from "./nav-layout-provider";
 import { flyoutIdFor, navConfig } from "./nav-config";
 import { RailTooltip } from "./rail-tooltip";
+import type { NavDensity } from "./use-nav-density";
 import type { NavConfig, NavItem } from "./types";
 
 interface CollapsedRailProps {
@@ -40,6 +42,10 @@ interface CollapsedRailProps {
   onToggleSwitcher: () => void;
   /** Owned by the shell, so the window can escape the rail's clipped box. */
   aiSession: AiSession;
+  /** Measured by the shell on the wrapper both faces share. */
+  density: NavDensity;
+  /** Opens the manage surface — the floor tier's stand-in for the capsule. */
+  onOpenLauncher: () => void;
 }
 
 /**
@@ -65,7 +71,12 @@ export function CollapsedRail({
   switcherOpen,
   onToggleSwitcher,
   aiSession,
+  density,
+  onOpenLauncher,
 }: CollapsedRailProps) {
+  const atFloor = density === "floor";
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  useScrollEdges(scrollRef);
   // The capsule hugs its contents when collapsed, so the hole left for it has to
   // match. Read from the same store the capsule does rather than take a prop, so
   // the two can never disagree.
@@ -218,7 +229,7 @@ export function CollapsedRail({
         Reserved space for the pinned capsule, which FavoritesMorph renders
         outside both nav faces so it can travel between the two layouts.
       */}
-      {dockPosition === "top" ? (
+      {dockPosition === "top" && !atFloor ? (
         <div
           aria-hidden="true"
           className="w-[44px] shrink-0"
@@ -232,24 +243,48 @@ export function CollapsedRail({
         them more air. Sharing the knob keeps the two faces moving together;
         the offset keeps each at its own measured default.
       */}
-      <div className="flex w-full flex-col items-center gap-[calc(var(--t-nav-space,2px)+2px)]">
-        {config.railFixed.map(renderRailRow)}
-      </div>
-
-      {divider("div-fixed")}
+      {/*
+        As in the expanded nav, the fixed cluster joins the scroll at the floor. The
+        rail is the worse case: 440px of chrome, so a 380px rail had a 0px scroll
+        region with every product row unreachable.
+      */}
+      {atFloor ? null : (
+        <>
+          <div className="flex w-full flex-col items-center gap-[calc(var(--t-nav-space,2px)+2px)]">
+            {config.railFixed.map(renderRailRow)}
+          </div>
+          {divider("div-fixed")}
+        </>
+      )}
 
       <div
-        data-cursor="menu"
-        className="flex w-full flex-1 flex-col items-center gap-[calc(var(--t-nav-space,2px)+2px)] overflow-y-auto"
+        data-scroll-shell=""
+        className="relative flex min-h-0 w-full flex-1 flex-col"
       >
-        {entries.map((entry) =>
-          entry.kind === "item" ? (
-            renderRailRow(entry.item)
-          ) : entry.kind === "divider" ? (
-            divider(entry.id)
-          ) : null,
-        )}
-        {renderRailRow(config.settings)}
+        <div aria-hidden="true" data-scroll-fade="top" />
+        <div
+          ref={scrollRef}
+          data-scroll-region=""
+          data-cursor="menu"
+          className="flex w-full flex-1 flex-col items-center gap-[calc(var(--t-nav-space,2px)+2px)] overflow-y-auto"
+        >
+          {atFloor ? (
+            <>
+              {railButton("favorites-rail", "Favorites", <Star size={16} aria-hidden="true" />, false, onOpenLauncher, undefined, true)}
+              {config.railFixed.map(renderRailRow)}
+              {divider("div-fixed-floor")}
+            </>
+          ) : null}
+          {entries.map((entry) =>
+            entry.kind === "item" ? (
+              renderRailRow(entry.item)
+            ) : entry.kind === "divider" ? (
+              divider(entry.id)
+            ) : null,
+          )}
+          {renderRailRow(config.settings)}
+        </div>
+        <div aria-hidden="true" data-scroll-fade="bottom" />
       </div>
 
       {/*
@@ -266,7 +301,7 @@ export function CollapsedRail({
       )}
 
       {/* Last in the rail, so the capsule really is on its bottom edge. */}
-      {dockPosition === "bottom" ? (
+      {dockPosition === "bottom" && !atFloor ? (
         <div
           aria-hidden="true"
           className="w-[44px] shrink-0"

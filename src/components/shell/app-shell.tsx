@@ -14,6 +14,11 @@ import {
   ENTRY_CLUSTER_RAIL_HEIGHT,
 } from "@/components/nav/entry-cluster";
 import { FavoritesMorph } from "@/components/nav/favorites-morph";
+import {
+  densityVars,
+  recentsBudgetFor,
+  useNavDensity,
+} from "@/components/nav/use-nav-density";
 import { LeftNav } from "@/components/nav/left-nav";
 import { productById } from "@/components/nav/catalogue";
 import { flyoutForGroup } from "@/components/nav/group-flyout";
@@ -23,10 +28,12 @@ import { UndoToast } from "@/components/nav/undo-toast";
 import { PINNED_VISIBLE } from "@/components/nav/favorites-morph";
 import { CommandPalette } from "@/components/search/command-palette";
 import { SearchFlyout } from "@/components/search/search-flyout";
+import { AUTO_COLLAPSE_WIDTH } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { useExitTransition } from "@/lib/use-exit-transition";
 import { useFlyoutIntent } from "@/lib/use-flyout-intent";
+import { useMediaQuery } from "@/lib/use-media-query";
 
 /** Nav widths from left-nav.pen; the flyout docks against whichever is showing. */
 const EXPANDED_WIDTH = 272;
@@ -85,8 +92,24 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     dockLabel,
     dockPosition,
     entryLayout,
+    recentsMode,
+    autoCollapse,
   } = useTheme();
-  const [collapsed, setCollapsed] = React.useState(false);
+  /*
+   * Collapsed follows the viewport until the user says otherwise.
+   *
+   * `null` means "no opinion yet", so a narrow viewport gets the rail without
+   * anyone asking. The moment the user touches the toggle their choice sticks for
+   * good — resizing never overrides a decision they made on purpose, which is the
+   * behaviour the earlier review asked for when the drawer toggle was added.
+   *
+   * Derived rather than synced in an effect: an effect that calls setState here
+   * would render the wrong face first and then correct itself, and Next 16 rejects
+   * that pattern outright.
+   */
+  const [manualCollapsed, setManualCollapsed] = React.useState<boolean | null>(
+    null,
+  );
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [switcherOpen, setSwitcherOpen] = React.useState(false);
@@ -147,7 +170,49 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  const narrow = useMediaQuery(`(max-width: ${AUTO_COLLAPSE_WIDTH - 1}px)`);
+  const collapsed = manualCollapsed ?? (autoCollapse && narrow);
+  const toggleCollapsed = React.useCallback(
+    () => setManualCollapsed(!collapsed),
+    [collapsed],
+  );
+
   const intent = useFlyoutIntent(FLYOUT_HOVER_GRACE_MS);
+
+  /*
+   * How much room the nav has, measured once here on the wrapper both faces share.
+   *
+   * Measured rather than derived from the viewport: the nav's height is not the
+   * window's, and the wrapper is the box that actually has to hold the faces. Doing
+   * it here rather than inside each face means the two faces and the floating
+   * capsule cannot disagree about the tier — which matters, because the capsule is
+   * positioned in this wrapper's coordinate space.
+   */
+  const navWrapRef = React.useRef<HTMLDivElement>(null);
+  const density = useNavDensity(navWrapRef, collapsed);
+  const atFloor = density === "floor";
+
+  /*
+   * How many inline recent rows to show.
+   *
+   * Two inputs, and density always wins. The mode is a product question — the review
+   * argued pinned and recents overlap — while density is a safety mechanism: at the
+   * floor tier the answer has to be zero whatever the mode says, or the rows we just
+   * made reachable get crowded out again.
+   */
+  const recentsBudget = Math.min(
+    recentsBudgetFor(density),
+    recentsMode === "flyout-only"
+      ? 0
+      : recentsMode === "fixed-three"
+        ? 3
+        : // Adaptive: a user with pins has already said what they reach for.
+          layout.pinned.length === 0
+          ? 3
+          : layout.pinned.length <= 3
+            ? 2
+            : 1,
+  );
 
   /*
    * The Ask AI conversation lives here rather than in the dock that opens it:
@@ -211,7 +276,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   return (
     <div className="relative flex min-h-0 flex-1 overflow-hidden bg-app">
       <div
-        style={{ width: navWidth }}
+        ref={navWrapRef}
+        style={{ width: navWidth, ...densityVars(density) }}
         onPointerLeave={intent.scheduleClear}
         onPointerEnter={intent.cancelClear}
         className="relative z-20 h-full shrink-0 overflow-hidden motion-move"
@@ -220,6 +286,13 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           Rendered before the faces so it sits near its visual position in the
           tab order. It paints above them via its own z-index.
         */}
+        {/*
+          Withdrawn at the floor tier, where each face shows a plain Favorites row
+          inside its scroll region instead. The capsule is positioned absolutely in
+          this wrapper, so it cannot join a scroll region — leaving it up would mean
+          a floating dock hanging over rows trying to scroll underneath it.
+        */}
+        {atFloor ? null : (
         <FavoritesMorph
           theme={navTheme}
           items={pinnedItems}
@@ -240,6 +313,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               : 0
           }
         />
+        )}
 
         <div
           inert={collapsed}
@@ -260,12 +334,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             onHoverFlyout={intent.hover}
             onPinFlyout={intent.togglePin}
             collapsed={collapsed}
-            onToggleCollapsed={() => setCollapsed((c) => !c)}
+            onToggleCollapsed={toggleCollapsed}
             onSearch={() => setSearchOpen(true)}
             account={accounts.current}
             switcherOpen={switcherOpen}
             onToggleSwitcher={toggleSwitcher}
             aiSession={aiSession}
+            density={density}
+            onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
+            recentsBudget={recentsBudget}
           />
         </div>
 
@@ -288,12 +365,14 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             onHoverFlyout={intent.hover}
             onPinFlyout={intent.togglePin}
             collapsed={collapsed}
-            onToggleCollapsed={() => setCollapsed((c) => !c)}
+            onToggleCollapsed={toggleCollapsed}
             onSearch={() => setSearchOpen(true)}
             account={accounts.current}
             switcherOpen={switcherOpen}
             onToggleSwitcher={toggleSwitcher}
             aiSession={aiSession}
+            density={density}
+            onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
           />
         </div>
       </div>
@@ -305,7 +384,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           // entry cluster at the top, its logo row is a bare 30px mark and its
           // footer is empty by design.
           {...(entryLayout === "top" && collapsed
-            ? { onExpandNav: () => setCollapsed(false) }
+            ? { onExpandNav: () => setManualCollapsed(false) }
             : {})}
         />
         <div className="min-h-0 flex-1 overflow-auto">{children}</div>

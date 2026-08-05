@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
+import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { BottomSlot } from "./bottom-slot";
 import { FlyoutActionRow } from "./flyout-action-row";
 import { FlyoutRow } from "./flyout-row";
@@ -57,6 +58,9 @@ export function FlyoutPanel({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  useScrollEdges(scrollRef);
+
   return (
     <div
       ref={panelRef}
@@ -69,14 +73,21 @@ export function FlyoutPanel({
       tabIndex={-1}
       style={{ left: offsetLeft }}
       className={cn(
-        "absolute top-0 bottom-0 z-30 flex w-[360px] flex-col items-start gap-[var(--t-fly-block-gap,10px)] overflow-y-auto bg-nav pt-[14px] pr-[14px] pb-[16px] pl-[14px] shadow-[8px_0_24px_0_var(--fly-shadow),inset_-1px_0_0_0_var(--fly-border)] outline-none",
+        // The panel itself no longer scrolls — its middle does.
+        //
+        // As one scrolling box with a `flex-1` spacer pushing the bottom slot down,
+        // a short screen collapsed the spacer to 0 and scrolled the featured block
+        // and contextual help clean out of sight. Whatever is in that slot is the
+        // reason the panel is 360px wide; it should be the last thing to go, not the
+        // first. So the title and the slot are pinned and only the list moves.
+        "absolute top-0 bottom-0 z-30 flex w-[360px] flex-col items-start overflow-hidden bg-nav pt-[14px] pb-[16px] shadow-[8px_0_24px_0_var(--fly-shadow),inset_-1px_0_0_0_var(--fly-border)] outline-none",
         // `left` animates too, so the panel follows the nav edge when the rail
         // collapses underneath an open panel instead of jumping.
         "motion-move",
         phase === "entering" ? "motion-panel-in" : "motion-panel-out",
       )}
     >
-      <div className="flex w-full shrink-0 items-center gap-[8px] pt-0 pr-[2px] pb-[4px] pl-[2px]">
+      <div className="flex w-full shrink-0 items-center gap-[8px] px-[16px] pt-0 pb-[4px]">
         <div className="flex h-fit flex-1 items-center justify-between">
           <h2 className="text-[15px] leading-[normal] font-semibold whitespace-nowrap text-nav-fg">
             {config.title}
@@ -92,6 +103,16 @@ export function FlyoutPanel({
         </div>
       </div>
 
+      <div
+        data-scroll-shell=""
+        className="relative flex min-h-0 w-full flex-1 flex-col"
+      >
+        <div aria-hidden="true" data-scroll-fade="top" />
+        <div
+          ref={scrollRef}
+          data-scroll-region=""
+          className="flex w-full flex-1 flex-col items-start gap-[var(--t-fly-block-gap,10px)] overflow-y-auto px-[14px] pt-[var(--t-fly-block-gap,10px)]"
+        >
       {config.entries.map((entry, i) =>
         entry.kind === "label" ? (
           <div
@@ -135,10 +156,14 @@ export function FlyoutPanel({
           <FlyoutActionRow row={config.cta} />
         </div>
       ) : null}
+        </div>
+        <div aria-hidden="true" data-scroll-fade="bottom" />
+      </div>
 
-      <div data-cursor="inert" className="w-full flex-1" />
-
-      {/* The bottom slot lands last, after the list has settled. */}
+      {/*
+        Pinned below the scroll region, so it survives a short screen. Lands last,
+        after the list has settled.
+      */}
       {config.bottom ? (
         <div
           style={
@@ -146,7 +171,7 @@ export function FlyoutPanel({
               "--row-index": Math.min(config.entries.length + 2, MAX_STAGGERED_ROWS + 2),
             } as React.CSSProperties
           }
-          className="motion-row-in w-full shrink-0"
+          className="motion-row-in w-full shrink-0 px-[14px] pt-[var(--t-fly-block-gap,10px)]"
         >
           <BottomSlot slot={config.bottom} />
         </div>

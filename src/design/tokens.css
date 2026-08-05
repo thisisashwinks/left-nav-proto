@@ -238,6 +238,10 @@
   --nav-fg-muted: #5b5b66;
   --nav-fg-subtle: #9a9aa6;
   --nav-hover: #f5f5f7;
+  /* Between the divider and the muted text: the scrollbar has to be findable
+     without competing with the rows it sits beside. */
+  --nav-scrollbar: #c9c9d1;
+  --nav-scrollbar-hover: #a8a8b4;
   --nav-active: #f0f0f3;
   --nav-rail-bg: #f7f9fa;
   --nav-rail-border: #e4e6eb;
@@ -303,6 +307,8 @@
   --nav-fg-muted: #a1a1ac;
   --nav-fg-subtle: #71717a;
   --nav-hover: #1e1e24;
+  --nav-scrollbar: #3f3f48;
+  --nav-scrollbar-hover: #55555f;
   --nav-active: #24242c;
   --nav-rail-bg: #17171b;
   --nav-rail-border: #2b2b33;

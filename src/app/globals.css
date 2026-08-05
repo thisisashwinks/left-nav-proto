@@ -264,3 +264,92 @@
     cursor: default;
   }
 }
+/* ─── Scroll affordances ─────────────────────────────────────────────────────
+ *
+ * The nav's overflow was completely silent. macOS uses overlay scrollbars, so the
+ * measured scrollbar width is 0 and a nav with 439px of rows hidden looked exactly
+ * like one with nothing hidden. On a 14-inch screen the default nav has zero spare
+ * height, so this is the common case, not an edge case.
+ *
+ * Two affordances, both driven by data attributes that `useScrollEdges` writes, so
+ * scrolling costs no React renders:
+ *   1. A fade at whichever edge has content past it.
+ *   2. A real, thin scrollbar — but only while there is something to scroll.
+ */
+@layer components {
+  [data-scroll-region] {
+    position: relative;
+    /* Reserves the gutter permanently, so the scrollbar appearing when the list
+       grows never reflows the rows underneath it. */
+    scrollbar-gutter: stable;
+  }
+
+  /*
+   * Only overflowing regions get a visible scrollbar. A permanent track in a nav
+   * that fits reads as broken.
+   *
+   * Styled through ::-webkit-scrollbar alone, deliberately. Setting the standard
+   * `scrollbar-width` makes Chrome ignore the -webkit- pseudo-elements entirely,
+   * and `thin` on macOS means an overlay scrollbar that reserves no space and stays
+   * invisible until you already know to scroll — which is the problem, not the fix.
+   * Firefox keeps its own default scrollbar here; the demo runs in Chrome.
+   */
+  [data-scroll-region][data-overflowing]::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  [data-scroll-region][data-overflowing]::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  [data-scroll-region][data-overflowing]::-webkit-scrollbar-thumb {
+    background-color: var(--nav-scrollbar, rgb(0 0 0 / 0.22));
+    border-radius: 999px;
+    /* Inset the thumb from the 8px track without shrinking the hit target. */
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  [data-scroll-region][data-overflowing]::-webkit-scrollbar-thumb:hover {
+    background-color: var(--nav-scrollbar-hover, rgb(0 0 0 / 0.36));
+  }
+
+  /*
+   * The fades are on the scroller's parent, not the scroller itself: a sticky or
+   * fixed child of a scrolling box either scrolls with the content or forces a new
+   * containing block, and both fought the absolutely-positioned favourites capsule.
+   * The parent carries them as siblings that never move.
+   */
+  [data-scroll-fade] {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 24px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--dur-fast, 140ms) var(--ease-out, ease-out);
+    z-index: 5;
+  }
+
+  [data-scroll-fade="top"] {
+    top: 0;
+    background: linear-gradient(to bottom, var(--nav-bg) 15%, transparent);
+  }
+
+  [data-scroll-fade="bottom"] {
+    bottom: 0;
+    background: linear-gradient(to top, var(--nav-bg) 15%, transparent);
+  }
+
+  /*
+   * Shown only when that edge actually has content past it.
+   *
+   * Plain descendant selectors, not `:has()`. The hook mirrors the edge flags from
+   * the scroller onto this shell precisely so these can stay simple — one less
+   * moving part between the measurement and the pixels.
+   */
+  [data-scroll-shell][data-scroll-top] [data-scroll-fade="top"],
+  [data-scroll-shell][data-scroll-bottom] [data-scroll-fade="bottom"] {
+    opacity: 1;
+  }
+}
