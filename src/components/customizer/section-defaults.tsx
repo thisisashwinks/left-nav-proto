@@ -1,11 +1,13 @@
 "use client";
 
 import * as React from "react";
+import type { Account } from "@/components/accounts/accounts-data";
 import { catalogue } from "@/components/nav/catalogue";
 import {
   GROUPING_LABELS,
   GROUPING_MODES,
   type GroupingMode,
+  type NavLayoutState,
 } from "@/components/nav/grouping";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { cn } from "@/lib/utils";
@@ -25,8 +27,12 @@ const LANDING_LABELS: Record<(typeof LANDING_OPTIONS)[number], string> = {
  * is a starting point, not a cage — users change their own pins and the nav
  * remembers their own recents from day one.
  */
-export function DefaultsSection() {
+export function DefaultsSection({ account }: { account: Account }) {
   const layout = useNavLayout();
+  const state = layout.profileFor(account.id);
+  const patch = (recipe: (s: NavLayoutState) => NavLayoutState) =>
+    layout.updateProfile(account.id, recipe);
+  // Prototype-only: not yet part of the account profile store.
   const [landing, setLanding] = React.useState<(typeof LANDING_OPTIONS)[number]>("launchpad");
 
   return (
@@ -37,13 +43,20 @@ export function DefaultsSection() {
       >
         <div className="flex flex-wrap gap-[8px] pt-[4px]">
           {catalogue.map((product) => {
-            const pinned = layout.isPinned(product.id);
+            const pinned = state.pinned.includes(product.id);
             return (
               <button
                 key={product.id}
                 type="button"
                 aria-pressed={pinned}
-                onClick={() => layout.togglePin(product.id)}
+                onClick={() =>
+                  patch((s) => ({
+                    ...s,
+                    pinned: s.pinned.includes(product.id)
+                      ? s.pinned.filter((id) => id !== product.id)
+                      : [...s.pinned, product.id],
+                  }))
+                }
                 className={cn(
                   "motion-tap flex items-center gap-[7px] rounded-full px-[11px] py-[6px] text-[12.5px] leading-none font-medium",
                   pinned
@@ -58,7 +71,7 @@ export function DefaultsSection() {
           })}
         </div>
         <p className="mt-[10px] text-[11.5px] leading-[16px] text-pg-faint">
-          {layout.state.pinned.length} pinned. The dock shows five at a time; the rest sit behind its chevron.
+          {state.pinned.length} pinned. The dock shows five at a time; the rest sit behind its chevron.
         </p>
       </Card>
 
@@ -79,8 +92,10 @@ export function DefaultsSection() {
           <SelectField<GroupingMode>
             label="Default grouping"
             options={GROUPING_MODES}
-            value={layout.state.grouping}
-            onChange={layout.setGrouping}
+            value={state.grouping}
+            onChange={(mode) =>
+              patch((s) => (s.grouping === mode ? s : { ...s, grouping: mode }))
+            }
             format={(v) => GROUPING_LABELS[v]}
           />
         </SettingRow>

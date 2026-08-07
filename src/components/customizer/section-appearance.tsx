@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import type { Account } from "@/components/accounts/accounts-data";
 import { useTuning } from "@/components/tuning/tuning-provider";
 import { TUNING_DEFAULTS, type TuningState } from "@/design/tuning";
 import {
@@ -14,15 +15,15 @@ import {
   type EntryLayout,
   type RecentsMode,
 } from "@/design/theme";
-import { useTheme } from "@/components/theme/theme-provider";
+import { useTheme, type AccountTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { Card, Seg, SettingRow, Stepper, Switch } from "./controls";
 
 /**
  * Appearance: density as one decision, with the raw values one disclosure
  * away — chosen presets for everyone, Custom for the agency that knows
- * exactly what it wants. Every value drives the CSS custom properties the
- * live nav reads, so this section retunes the real thing beside it.
+ * exactly what it wants. Every value is written to this account's tuning
+ * and theme profiles so another account's density stays untouched.
  */
 
 type DensityChoice = "compact" | "comfortable" | "relaxed" | "custom";
@@ -76,14 +77,20 @@ function densityOf(state: TuningState): DensityChoice {
   return "custom";
 }
 
-export function AppearanceSection() {
-  const { state, set } = useTuning();
-  const {
-    dockPosition, setDockPosition,
-    entryLayout, setEntryLayout,
-    recentsMode, setRecentsMode,
-    autoCollapse, setAutoCollapse,
-  } = useTheme();
+export function AppearanceSection({ account }: { account: Account }) {
+  const tuning = useTuning();
+  const state = tuning.stateFor(account.id);
+  const set = <K extends keyof TuningState>(key: K, value: TuningState[K]) =>
+    tuning.setFor(account.id, key, value);
+  const theme = useTheme();
+  const override = theme.accountThemeFor(account.id);
+  const write = (patch: AccountTheme) => theme.setAccountTheme(account.id, patch);
+
+  const dockPosition = override.dockPosition ?? theme.dockPosition;
+  const entryLayout = override.entryLayout ?? theme.entryLayout;
+  const recentsMode = override.recentsMode ?? theme.recentsMode;
+  const autoCollapse = override.autoCollapse ?? theme.autoCollapse;
+
   const density = densityOf(state);
   // Custom stays open once chosen, even if the steppers land back on a preset.
   const [customOpen, setCustomOpen] = React.useState(density === "custom");
@@ -155,16 +162,38 @@ export function AppearanceSection() {
 
       <Card title="Layout" sub="Where the standing pieces sit. All four are live — the nav on the left is the preview.">
         <SettingRow label="Favourites dock" desc="A statement at the top, or a thumb-rail at the bottom.">
-          <Seg<DockPosition> label="Dock position" options={DOCK_POSITIONS} value={dockPosition} onChange={setDockPosition} format={(v) => DOCK_POSITION_LABELS[v]} />
+          <Seg<DockPosition>
+            label="Dock position"
+            options={DOCK_POSITIONS}
+            value={dockPosition}
+            onChange={(v) => write({ dockPosition: v })}
+            format={(v) => DOCK_POSITION_LABELS[v]}
+          />
         </SettingRow>
         <SettingRow label="Search & Ask AI" desc="Together under the logo, or split between header and bottom edge.">
-          <Seg<EntryLayout> label="Entry placement" options={ENTRY_LAYOUTS} value={entryLayout} onChange={setEntryLayout} format={(v) => ENTRY_LAYOUT_LABELS[v]} />
+          <Seg<EntryLayout>
+            label="Entry placement"
+            options={ENTRY_LAYOUTS}
+            value={entryLayout}
+            onChange={(v) => write({ entryLayout: v })}
+            format={(v) => ENTRY_LAYOUT_LABELS[v]}
+          />
         </SettingRow>
         <SettingRow label="Inline recents" desc="How many recently visited rows the nav itself carries.">
-          <Seg<RecentsMode> label="Recents" options={RECENTS_MODES} value={recentsMode} onChange={setRecentsMode} format={(v) => RECENTS_MODE_LABELS[v]} />
+          <Seg<RecentsMode>
+            label="Recents"
+            options={RECENTS_MODES}
+            value={recentsMode}
+            onChange={(v) => write({ recentsMode: v })}
+            format={(v) => RECENTS_MODE_LABELS[v]}
+          />
         </SettingRow>
         <SettingRow label="Collapse on small screens" desc="Below 900px the nav starts as the icon rail." last>
-          <Switch on={autoCollapse} onToggle={() => setAutoCollapse(!autoCollapse)} label="Auto-collapse" />
+          <Switch
+            on={autoCollapse}
+            onToggle={() => write({ autoCollapse: !autoCollapse })}
+            label="Auto-collapse"
+          />
         </SettingRow>
       </Card>
     </div>

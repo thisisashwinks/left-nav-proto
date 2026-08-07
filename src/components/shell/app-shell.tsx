@@ -43,6 +43,7 @@ import { CommandPalette } from "@/components/search/command-palette";
 import { SearchFlyout } from "@/components/search/search-flyout";
 import { AUTO_COLLAPSE_WIDTH } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
+import { useTuning } from "@/components/tuning/tuning-provider";
 import { cn } from "@/lib/utils";
 import { useExitTransition } from "@/lib/use-exit-transition";
 import { useFlyoutIntent } from "@/lib/use-flyout-intent";
@@ -104,6 +105,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     searchTheme,
     scopeModel,
   } = useTheme();
+  const { setActiveAccount: setActiveTuningAccount } = useTuning();
   const {
     navTheme,
     headerTheme,
@@ -138,6 +140,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     groups,
     productLabelFor,
     productIconFor,
+    setActiveAccount: setActiveNavAccount,
   } = useNavLayout();
 
   /*
@@ -187,12 +190,22 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     document.documentElement.style.setProperty("--account-brand", accountBrand);
   }, [accountBrand]);
 
-  // Whose saved look the workspace wears. The agency's own overrides live
-  // under "agency"; every sub-account carries its own set.
+  // Whose saved look / density / nav layout the workspace wears. The
+  // agency's own profiles live under "agency"; every sub-account carries
+  // its own set. All three stores share one owner key so a switch never
+  // leaves one surface on the previous account. Layout effect so the first
+  // paint after a switch already wears the arriving account.
   const themeOwnerId = agencyScope ? "agency" : accounts.current.id;
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     setActiveThemeAccount(themeOwnerId);
-  }, [themeOwnerId, setActiveThemeAccount]);
+    setActiveTuningAccount(themeOwnerId);
+    setActiveNavAccount(themeOwnerId);
+  }, [
+    themeOwnerId,
+    setActiveThemeAccount,
+    setActiveTuningAccount,
+    setActiveNavAccount,
+  ]);
 
   // Cmd/Ctrl-K opens search from anywhere, which is the whole point of the
   // spotlight treatment. Bound on the window so it works with focus in the page.
@@ -361,7 +374,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         style={{ width: navWidth, ...densityVars(density) }}
         onPointerLeave={intent.scheduleClear}
         onPointerEnter={intent.cancelClear}
-        className="relative z-20 h-full shrink-0 overflow-hidden motion-move"
+        className="relative z-20 h-full min-h-0 shrink-0 self-stretch overflow-hidden bg-nav motion-move"
       >
         {/*
           Rendered before the faces so it sits near its visual position in the
@@ -493,7 +506,6 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           {selectedId === "agency-sub-accounts" ? (
             customizeAccount ? (
               <CustomizerPage
-                session={accounts}
                 account={customizeAccount}
                 onBack={() => setCustomizeAccountId(null)}
               />

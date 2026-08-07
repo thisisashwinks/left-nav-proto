@@ -2,9 +2,11 @@
 
 import * as React from "react";
 import { Lock, Search } from "lucide-react";
+import type { Account } from "@/components/accounts/accounts-data";
 import { cn } from "@/lib/utils";
 import { Card, Chip, SettingRow, Switch } from "./controls";
-import { defaultFeatureState, FEATURE_GROUPS, FEATURES } from "./customizer-data";
+import { FEATURE_GROUPS, FEATURES } from "./customizer-data";
+import { useCustomizerProfiles } from "./customizer-profiles";
 
 /**
  * Features: everything the account can have, on or off.
@@ -15,11 +17,16 @@ import { defaultFeatureState, FEATURE_GROUPS, FEATURES } from "./customizer-data
  * row it removes are the same mental map. Turning a product off removes it
  * from the nav, search and quick actions for every user — data is kept.
  */
-export function FeaturesSection() {
-  const [state, setState] = React.useState<Record<string, boolean>>(defaultFeatureState);
+export function FeaturesSection({ account }: { account: Account }) {
+  const profiles = useCustomizerProfiles();
+  const state = profiles.profileFor(account.id).features;
   const [query, setQuery] = React.useState("");
 
-  const toggle = (id: string) => setState((s) => ({ ...s, [id]: !s[id] }));
+  const toggle = (id: string) =>
+    profiles.updateProfile(account.id, (p) => ({
+      ...p,
+      features: { ...p.features, [id]: !p.features[id] },
+    }));
   const q = query.trim().toLowerCase();
   const visible = FEATURES.filter(
     (f) => q === "" || f.label.toLowerCase().includes(q) || f.desc.toLowerCase().includes(q),

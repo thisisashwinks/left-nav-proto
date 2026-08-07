@@ -207,8 +207,9 @@ export interface ThemeState {
  * the two agree on first paint and hydration stays clean.
  */
 export const DEFAULT_THEME: ThemeState = {
-  // Black by default: accents are earned by a brand, not shipped by us.
-  accent: "black",
+  // Account logo colour by default: every sub-account already carries a brand
+  // swatch (`logo.from`), and black stays one click away if they want quiet.
+  accent: "account",
   tint: "off",
   appTheme: "light",
   navTheme: "light",

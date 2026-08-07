@@ -81,7 +81,7 @@ export function BrandSection({ editing }: { editing: Account }) {
       >
         <SettingRow
           label="Colour"
-          desc={`Black is the default — colour is something ${editing.name}'s brand brings. The swatches come from their brand board.`}
+          desc={`Starts on ${editing.name}'s logo colour. Black is still there if you want a quieter product chrome.`}
         >
           <AccentSwatches
             editing={editing}
@@ -115,10 +115,10 @@ export function BrandSection({ editing }: { editing: Account }) {
 }
 
 /**
- * The accent as swatches, not a dropdown of theme names: Black first (the
- * default), then the colours this account's brand board holds — its logo
- * colour and secondary. Picking a brand swatch writes --custom-accent, which
- * the `custom` accent resolves on <html>.
+ * The accent as swatches, not a dropdown of theme names: logo colour first
+ * (the default), then secondary from the brand board, then black for a quiet
+ * chrome. Picking the secondary swatch writes --custom-accent, which the
+ * `custom` accent resolves on <html>.
  */
 function AccentSwatches({
   editing,
@@ -133,13 +133,7 @@ function AccentSwatches({
 }) {
   const swatches: { label: string; hex: string; selected: boolean; pick: () => void }[] = [
     {
-      label: "Black — default",
-      hex: "#18181b",
-      selected: accent === "black",
-      pick: () => onPick({ accent: "black" }),
-    },
-    {
-      label: `${editing.name} logo colour`,
+      label: `${editing.name} logo colour — default`,
       hex: editing.logo.from,
       selected: accent === "account",
       pick: () => onPick({ accent: "account" }),
@@ -149,6 +143,12 @@ function AccentSwatches({
       hex: editing.logo.to,
       selected: accent === "custom" && customAccent === editing.logo.to,
       pick: () => onPick({ accent: "custom", customAccent: editing.logo.to }),
+    },
+    {
+      label: "Black",
+      hex: "#18181b",
+      selected: accent === "black",
+      pick: () => onPick({ accent: "black" }),
     },
   ];
 

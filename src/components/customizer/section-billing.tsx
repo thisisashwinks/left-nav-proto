@@ -1,9 +1,9 @@
 "use client";
 
-import * as React from "react";
 import { Wallet } from "lucide-react";
+import type { Account } from "@/components/accounts/accounts-data";
 import { Card, Chip, LimitField, SettingRow, Stepper, Switch } from "./controls";
-import { MARKUPS, RESELL_ADDONS } from "./customizer-data";
+import { useCustomizerProfiles } from "./customizer-profiles";
 
 /**
  * Billing & markups: production spreads this over five tabs — SaaS, Payments,
@@ -11,10 +11,15 @@ import { MARKUPS, RESELL_ADDONS } from "./customizer-data";
  * the wallet that pays for usage, the multiplier you charge on it, and the
  * flat add-ons you resell. One section, three cards, in that order.
  */
-export function BillingSection() {
-  const [markups, setMarkups] = React.useState(MARKUPS);
-  const [resell, setResell] = React.useState(RESELL_ADDONS);
-  const [autoRecharge, setAutoRecharge] = React.useState(10);
+export function BillingSection({ account }: { account: Account }) {
+  const profiles = useCustomizerProfiles();
+  const billing = profiles.profileFor(account.id).billing;
+  const { markups, resell, autoRecharge } = billing;
+  const patch = (recipe: (b: typeof billing) => typeof billing) =>
+    profiles.updateProfile(account.id, (p) => ({
+      ...p,
+      billing: recipe(p.billing),
+    }));
 
   return (
     <div className="flex flex-col gap-[14px]">
@@ -40,7 +45,15 @@ export function BillingSection() {
         </div>
         <SettingRow label="Auto-recharge" desc="Top up when the balance falls to $0, so sending never stops mid-campaign." last>
           <span className="text-[12px] text-pg-muted">with</span>
-          <Stepper label="Auto-recharge amount" value={autoRecharge} onChange={setAutoRecharge} min={10} max={500} step={10} unit="$" />
+          <Stepper
+            label="Auto-recharge amount"
+            value={autoRecharge}
+            onChange={(v) => patch((b) => ({ ...b, autoRecharge: v }))}
+            min={10}
+            max={500}
+            step={10}
+            unit="$"
+          />
         </SettingRow>
       </Card>
 
@@ -63,7 +76,14 @@ export function BillingSection() {
             <Stepper
               label={`${m.label} markup`}
               value={m.markup}
-              onChange={(v) => setMarkups((s) => s.map((x) => (x.id === m.id ? { ...x, markup: Math.round(v * 100) / 100 } : x)))}
+              onChange={(v) =>
+                patch((b) => ({
+                  ...b,
+                  markups: b.markups.map((x) =>
+                    x.id === m.id ? { ...x, markup: Math.round(v * 100) / 100 } : x,
+                  ),
+                }))
+              }
               min={1}
               max={10}
               step={0.5}
@@ -72,7 +92,14 @@ export function BillingSection() {
             />
             <Switch
               on={m.on}
-              onToggle={() => setMarkups((s) => s.map((x) => (x.id === m.id ? { ...x, on: !x.on } : x)))}
+              onToggle={() =>
+                patch((b) => ({
+                  ...b,
+                  markups: b.markups.map((x) =>
+                    x.id === m.id ? { ...x, on: !x.on } : x,
+                  ),
+                }))
+              }
               label={`Rebill ${m.label}`}
             />
           </SettingRow>
@@ -98,7 +125,12 @@ export function BillingSection() {
                 label={`${r.label} price`}
                 value={r.customerPays}
                 onChange={(v) =>
-                  setResell((s) => s.map((x) => (x.id === r.id ? { ...x, customerPays: v ?? x.youPay } : x)))
+                  patch((b) => ({
+                    ...b,
+                    resell: b.resell.map((x) =>
+                      x.id === r.id ? { ...x, customerPays: v ?? x.youPay } : x,
+                    ),
+                  }))
                 }
                 placeholder={`${r.youPay}`}
                 unit="$/mo"
@@ -109,7 +141,14 @@ export function BillingSection() {
               </Chip>
               <Switch
                 on={r.on}
-                onToggle={() => setResell((s) => s.map((x) => (x.id === r.id ? { ...x, on: !x.on } : x)))}
+                onToggle={() =>
+                  patch((b) => ({
+                    ...b,
+                    resell: b.resell.map((x) =>
+                      x.id === r.id ? { ...x, on: !x.on } : x,
+                    ),
+                  }))
+                }
                 label={`Resell ${r.label}`}
               />
             </SettingRow>

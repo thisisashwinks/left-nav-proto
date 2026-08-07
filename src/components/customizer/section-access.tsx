@@ -1,9 +1,11 @@
 "use client";
 
-import * as React from "react";
 import { Check, Minus, ShieldCheck } from "lucide-react";
-import { LABEL_MAX, useNavLayout, type LabelScope } from "@/components/nav/nav-layout-provider";
+import type { Account } from "@/components/accounts/accounts-data";
+import type { LabelScope, NavLayoutState } from "@/components/nav/grouping";
+import { LABEL_MAX, useNavLayout } from "@/components/nav/nav-layout-provider";
 import { Card, Seg, SettingRow, Switch } from "./controls";
+import { useCustomizerProfiles } from "./customizer-profiles";
 
 interface MatrixRow {
   label: string;
@@ -28,16 +30,18 @@ const MATRIX: MatrixRow[] = [
  * configures, the user personalises. Fixed cells are the architecture;
  * switches are this agency's policy, and flipping one is the whole edit.
  */
-export function AccessSection() {
+export function AccessSection({ account }: { account: Account }) {
   const layout = useNavLayout();
-  const [policies, setPolicies] = React.useState<Record<string, boolean>>({
-    "Rename for themselves:user": true,
-    "Rename for the whole account:admin": true,
-    "Change grouping and icons:admin": true,
-    "Build custom groups:admin": true,
-    "Add custom links:admin": true,
-  });
-  const [hipaa, setHipaa] = React.useState(false);
+  const state = layout.profileFor(account.id);
+  const patchLayout = (recipe: (s: NavLayoutState) => NavLayoutState) =>
+    layout.updateProfile(account.id, recipe);
+  const profiles = useCustomizerProfiles();
+  const access = profiles.profileFor(account.id).access;
+  const patchAccess = (recipe: (a: typeof access) => typeof access) =>
+    profiles.updateProfile(account.id, (p) => ({
+      ...p,
+      access: recipe(p.access),
+    }));
 
   const cell = (row: MatrixRow, col: "user" | "admin") => {
     const kind = row[col];
@@ -46,8 +50,13 @@ export function AccessSection() {
     const key = `${row.label}:${col}`;
     return (
       <Switch
-        on={policies[key] === true}
-        onToggle={() => setPolicies((s) => ({ ...s, [key]: !s[key] }))}
+        on={access.policies[key] === true}
+        onToggle={() =>
+          patchAccess((a) => ({
+            ...a,
+            policies: { ...a.policies, [key]: !a.policies[key] },
+          }))
+        }
         label={`${row.label} — ${col}`}
       />
     );
@@ -90,8 +99,12 @@ export function AccessSection() {
           <Seg<LabelScope>
             label="Rename scope"
             options={["account", "agency"]}
-            value={layout.state.labelScope}
-            onChange={layout.setLabelScope}
+            value={state.labelScope}
+            onChange={(scope) =>
+              patchLayout((s) =>
+                s.labelScope === scope ? s : { ...s, labelScope: scope },
+              )
+            }
             format={(v) => (v === "account" ? "This account" : "Every account")}
           />
         </SettingRow>
@@ -105,10 +118,19 @@ export function AccessSection() {
               HIPAA mode
             </span>
           }
-          desc={hipaa ? "On. This cannot be turned off — that is the point of it." : "One-way: once on, it cannot be disabled, to maintain compliance."}
+          desc={
+            access.hipaa
+              ? "On. This cannot be turned off — that is the point of it."
+              : "One-way: once on, it cannot be disabled, to maintain compliance."
+          }
           last
         >
-          <Switch on={hipaa} onToggle={() => setHipaa(true)} disabled={hipaa} label="HIPAA mode" />
+          <Switch
+            on={access.hipaa}
+            onToggle={() => patchAccess((a) => ({ ...a, hipaa: true }))}
+            disabled={access.hipaa}
+            label="HIPAA mode"
+          />
         </SettingRow>
       </Card>
     </div>

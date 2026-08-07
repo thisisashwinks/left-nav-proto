@@ -1,28 +1,78 @@
 "use client";
 
 import * as React from "react";
-import { ExternalLink, Plus, TriangleAlert } from "lucide-react";
-import { useNavLayout } from "@/components/nav/nav-layout-provider";
+import { ExternalLink, Pencil, Plus, TriangleAlert } from "lucide-react";
+import type { Account } from "@/components/accounts/accounts-data";
 import {
   GROUPING_BLURBS,
   GROUPING_LABELS,
   GROUPING_MODES,
+  isGroupRenamed,
+  isIconOverridden,
+  permissionsFor,
+  resolveGroups,
+  seedCustomGroups,
   type GroupingMode,
+  type NavLayoutState,
+  type ResolvedGroup,
 } from "@/components/nav/grouping";
+import { nameForIcon } from "@/components/nav/icon-catalogue";
+import { IconPicker, useIconPicker } from "@/components/nav/icon-picker";
+import { InlineRename } from "@/components/nav/inline-rename";
+import { LABEL_MAX, useNavLayout } from "@/components/nav/nav-layout-provider";
 import { cn } from "@/lib/utils";
 import { Card, Chip, SettingRow, Switch } from "./controls";
 
 /**
  * Navigation: what the nav contains and how it is organised.
  *
- * Bound to the same store the nav renders from, so choosing a grouping mode
- * here rearranges the real nav on the left mid-click. Group-level rename,
- * icons and reordering stay in the nav itself (click a row while editing) —
- * one place to edit a thing, and it is the thing.
+ * Bound to the edited account's layout profile — not the session nav — so
+ * customizing one client never rearranges another. When that account is also
+ * the active session, updateProfile writes the live store and the real nav
+ * moves with it.
+ *
+ * Group rename and icons edit in this list; reorder still happens in the nav
+ * while edit mode is on.
  */
-export function NavigationSection() {
+export function NavigationSection({ account }: { account: Account }) {
   const layout = useNavLayout();
-  const { state, groups } = layout;
+  const state = layout.profileFor(account.id);
+  const groups = resolveGroups(state);
+  const can = permissionsFor(state.role);
+  const picker = useIconPicker();
+  const patch = (recipe: (s: NavLayoutState) => NavLayoutState) =>
+    layout.updateProfile(account.id, recipe);
+
+  const pickerTarget = picker.targetId;
+  const pickerProps =
+    pickerTarget && picker.anchor
+      ? {
+          anchor: picker.anchor,
+          selected: nameForIcon(
+            groups.find((g) => g.id === pickerTarget)?.icon,
+          ),
+          onPick: (iconName: string) => {
+            patch((s) =>
+              s.icons[pickerTarget] === iconName
+                ? s
+                : { ...s, icons: { ...s.icons, [pickerTarget]: iconName } },
+            );
+          },
+          ...(isIconOverridden(state, pickerTarget)
+            ? {
+                onReset: () => {
+                  patch((s) => {
+                    if (!(pickerTarget in s.icons)) return s;
+                    const icons = { ...s.icons };
+                    delete icons[pickerTarget];
+                    return { ...s, icons };
+                  });
+                },
+              }
+            : {}),
+          onClose: picker.close,
+        }
+      : null;
 
   return (
     <div className="flex flex-col gap-[14px]">
@@ -36,7 +86,18 @@ export function NavigationSection() {
               key={mode}
               mode={mode}
               selected={state.grouping === mode}
-              onSelect={() => layout.setGrouping(mode)}
+              onSelect={() =>
+                patch((s) =>
+                  s.grouping === mode
+                    ? s
+                    : {
+                        ...s,
+                        grouping: mode,
+                        customGroups:
+                          mode === "custom" ? seedCustomGroups(s) : s.customGroups,
+                      },
+                )
+              }
             />
           ))}
         </div>
@@ -44,43 +105,67 @@ export function NavigationSection() {
 
       <Card
         title="Groups"
-        sub="Rename, re-icon and reorder in the nav itself — click any group while edit mode is on. Changes land here as overrides."
+        sub="Rename or change an icon here. Turn on Edit in the nav to reorder groups in the live rail."
         aside={
           <label className="flex shrink-0 items-center gap-[8px] text-[12px] font-medium text-pg-text">
             Edit in the nav
-            <Switch on={state.editing} onToggle={() => layout.setEditing(!state.editing)} label="Edit mode" />
+            <Switch
+              on={state.editing}
+              onToggle={() =>
+                patch((s) => ({ ...s, editing: !s.editing }))
+              }
+              label="Edit mode"
+            />
           </label>
         }
       >
         {groups.map((group, i) => (
-          <SettingRow
+          <GroupOverrideRow
             key={group.id}
-            label={
-              <span className="flex items-center gap-[8px]">
-                <group.icon size={15} aria-hidden="true" className="text-pg-muted" />
-                {group.label}
-              </span>
-            }
-            desc={`${group.productIds.length} products${group.label === group.defaultLabel ? "" : ` · shipped as “${group.defaultLabel}”`}`}
+            group={group}
+            state={state}
+            canRegroup={can.regroup}
             last={i === groups.length - 1}
-          >
-            {layout.isRenamed(group.id) ? (
-              <>
-                <Chip tone="overridden">Renamed</Chip>
-                <button
-                  type="button"
-                  onClick={() => layout.resetLabel(group.id)}
-                  className="motion-tap text-[12px] leading-none font-medium text-pg-muted hover:text-pg-heading"
-                >
-                  Reset
-                </button>
-              </>
-            ) : (
-              <Chip tone="inherit">Default</Chip>
-            )}
-          </SettingRow>
+            onRename={(next) => {
+              const trimmed = next.trim().slice(0, LABEL_MAX);
+              if (!trimmed) return;
+              patch((s) => {
+                if (s.customGroups.some((g) => g.id === group.id)) {
+                  return {
+                    ...s,
+                    customGroups: s.customGroups.map((g) =>
+                      g.id === group.id ? { ...g, label: trimmed } : g,
+                    ),
+                  };
+                }
+                const scope =
+                  s.labelScope === "agency" &&
+                  permissionsFor(s.role).writeAgencyScope
+                    ? "agency"
+                    : "account";
+                const key =
+                  scope === "agency" ? "agencyLabels" : "accountLabels";
+                if (s[key][group.id] === trimmed) return s;
+                return { ...s, [key]: { ...s[key], [group.id]: trimmed } };
+              });
+            }}
+            onResetLabel={() =>
+              patch((s) => {
+                const accountLabels = { ...s.accountLabels };
+                delete accountLabels[group.id];
+                const agencyLabels = { ...s.agencyLabels };
+                if (permissionsFor(s.role).writeAgencyScope) {
+                  delete agencyLabels[group.id];
+                }
+                return { ...s, accountLabels, agencyLabels };
+              })
+            }
+            onPickIcon={(el) => picker.open(group.id, el)}
+          />
         ))}
       </Card>
+
+      {pickerProps ? <IconPicker {...pickerProps} /> : null}
 
       <Card
         title="Custom links"
@@ -127,6 +212,96 @@ export function NavigationSection() {
         </div>
       </Card>
     </div>
+  );
+}
+
+function GroupOverrideRow({
+  group,
+  state,
+  canRegroup,
+  last,
+  onRename,
+  onResetLabel,
+  onPickIcon,
+}: {
+  group: ResolvedGroup;
+  state: NavLayoutState;
+  canRegroup: boolean;
+  last: boolean;
+  onRename: (next: string) => void;
+  onResetLabel: () => void;
+  onPickIcon: (trigger: HTMLElement) => void;
+}) {
+  const [renaming, setRenaming] = React.useState(false);
+  const renamed = isGroupRenamed(state, group.id);
+  const Icon = group.icon;
+
+  return (
+    <SettingRow
+      label={
+        <span className="group/row flex items-center gap-[8px]">
+          {canRegroup ? (
+            <button
+              type="button"
+              aria-label={`Change the ${group.label} icon`}
+              title="Change icon"
+              onClick={(e) => onPickIcon(e.currentTarget)}
+              className="motion-tap flex size-[22px] shrink-0 items-center justify-center rounded-[6px] text-pg-muted outline-[1px] outline-offset-0 outline-transparent hover:bg-pg-bg hover:text-pg-heading hover:outline-dashed hover:outline-[var(--pg-border)]"
+            >
+              <Icon size={15} aria-hidden="true" />
+            </button>
+          ) : (
+            <Icon size={15} aria-hidden="true" className="shrink-0 text-pg-muted" />
+          )}
+          {renaming ? (
+            <InlineRename
+              value={group.label}
+              ariaLabel={`Rename ${group.label}`}
+              onCommit={(next) => {
+                onRename(next);
+                setRenaming(false);
+              }}
+              onCancel={() => setRenaming(false)}
+              className="bg-pg-bg text-[13px] leading-[18px] font-medium text-pg-heading"
+            />
+          ) : (
+            <>
+              <span className="min-w-0 truncate">{group.label}</span>
+              <button
+                type="button"
+                aria-label={`Rename ${group.label}`}
+                title="Rename"
+                onClick={() => setRenaming(true)}
+                className="motion-tap flex size-[20px] shrink-0 items-center justify-center rounded-[5px] text-pg-muted opacity-0 hover:bg-pg-bg hover:text-pg-heading group-hover/row:opacity-100 focus-visible:opacity-100"
+              >
+                <Pencil size={11} aria-hidden="true" />
+              </button>
+            </>
+          )}
+        </span>
+      }
+      desc={`${group.productIds.length} products${
+        group.label === group.defaultLabel
+          ? ""
+          : ` · shipped as “${group.defaultLabel}”`
+      }`}
+      last={last}
+    >
+      {renamed ? (
+        <>
+          <Chip tone="overridden">Renamed</Chip>
+          <button
+            type="button"
+            onClick={onResetLabel}
+            className="motion-tap text-[12px] leading-none font-medium text-pg-muted hover:text-pg-heading"
+          >
+            Reset
+          </button>
+        </>
+      ) : (
+        <Chip tone="inherit">Default</Chip>
+      )}
+    </SettingRow>
   );
 }
 

@@ -1,0 +1,33 @@
+{
+  "feature_slug": "customizer-group-overrides",
+  "stage": "build",
+  "mode": "code",
+  "status": "completed",
+  "written_artifacts": [
+    "spec.md",
+    "tasks.md",
+    "state.json"
+  ],
+  "inputs_used": [
+    "approved Cursor plan: groups_inline_edit",
+    "spec.md",
+    "tasks.md"
+  ],
+  "assumptions": [
+    "NavigationSection already account-scopes via profileFor/updateProfile",
+    "No new nav-layout store APIs required"
+  ],
+  "completed_phases": ["1"],
+  "current_phase": null,
+  "completed_slices": [
+    "1.1-group-override-ui"
+  ],
+  "remaining_slices": [],
+  "validation": {
+    "tsc": "npx tsc --noEmit — exit 0",
+    "chunk_review": "typescript-reviewer — fixed double picker.close; simplified editing toggle"
+  },
+  "recommended_next_commands": [
+    "/aw:test"
+  ]
+}

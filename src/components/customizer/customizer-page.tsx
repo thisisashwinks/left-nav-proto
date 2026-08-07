@@ -3,8 +3,6 @@
 import * as React from "react";
 import {
   ArrowLeft,
-  Building2,
-  ChevronDown,
   Layers,
   ListTree,
   Lock,
@@ -17,7 +15,6 @@ import {
 } from "lucide-react";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import type { Account } from "@/components/accounts/accounts-data";
-import type { AccountsSession } from "@/components/accounts/use-accounts";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { AccessSection } from "./section-access";
@@ -56,13 +53,14 @@ const SECTIONS: { id: SectionId; label: string; icon: LucideIcon; blurb: string 
  * eight jobs. Deliberately rendered inside the shell rather than as its own
  * page: the real nav sits on the left, live-bound to half these controls,
  * so the preview problem solves itself — you watch the actual product change.
+ *
+ * Layout is edge-to-edge chrome (section rail | canvas | live preview), not
+ * inset mockup cards — each column stretches the full content height.
  */
 export function CustomizerPage({
-  session,
   account,
   onBack,
 }: {
-  session: AccountsSession;
   /** The account being shaped — chosen on the Sub-accounts page, not implied. */
   account: Account;
   onBack: () => void;
@@ -70,12 +68,11 @@ export function CustomizerPage({
   const { effective } = useTheme();
   const appTheme = effective.appTheme;
   const [section, setSection] = React.useState<SectionId>("brand");
-  const [editingScope, setEditingScope] = React.useState<"account" | "agency">("account");
   const active = SECTIONS.find((s) => s.id === section) ?? SECTIONS[0];
 
   return (
     <div data-page-theme={appTheme} className="flex h-full min-h-0 flex-col bg-pg-bg">
-      <header className="flex shrink-0 items-center gap-[12px] px-[24px] pt-[18px] pb-[14px]">
+      <header className="flex shrink-0 items-center gap-[12px] px-[24px] pt-[18px] pb-[14px] shadow-[inset_0_-1px_0_0_var(--pg-border)]">
         <button
           type="button"
           aria-label="Back to sub-accounts"
@@ -103,31 +100,12 @@ export function CustomizerPage({
         </div>
       </header>
 
-      {/*
-        The scope strip: every edit below lands somewhere, and this names
-        where. Editing the agency default reaches every account that has not
-        overridden the setting; editing one account writes an override.
-      */}
-      <div className="mx-[24px] flex shrink-0 items-center gap-[10px] rounded-[10px] bg-[color-mix(in_oklab,var(--brand)_7%,var(--pg-surface))] px-[13px] py-[9px] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--brand)_25%,transparent)]">
-        <Building2 size={14} aria-hidden="true" className="shrink-0 text-brand" />
-        <p className="min-w-0 flex-1 truncate text-[12.5px] leading-[17px] font-medium text-pg-heading">
-          {editingScope === "agency"
-            ? `Editing the ${session.agency.name} default — applies to all 14 accounts unless overridden`
-            : `Editing ${account.name} only — anything changed here stops following the agency default`}
-        </p>
-        <button
-          type="button"
-          onClick={() => setEditingScope((s) => (s === "agency" ? "account" : "agency"))}
-          className="motion-tap flex shrink-0 items-center gap-[6px] rounded-[7px] bg-pg-surface px-[9px] py-[6px] text-[12px] leading-none font-medium text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border)]"
+      <div className="flex min-h-0 flex-1 items-stretch">
+        <nav
+          aria-label="Customizer sections"
+          className="flex h-full w-[218px] shrink-0 flex-col shadow-[inset_-1px_0_0_0_var(--pg-border)]"
         >
-          {editingScope === "agency" ? "Edit this account instead" : "Edit the agency default"}
-          <ChevronDown size={12} aria-hidden="true" className="text-pg-muted" />
-        </button>
-      </div>
-
-      <div className="flex min-h-0 flex-1 gap-[20px] px-[24px] pt-[16px] pb-[24px]">
-        <nav aria-label="Customizer sections" className="w-[218px] shrink-0">
-          <ul className="flex flex-col gap-[2px]">
+          <ul className="flex min-h-0 flex-1 flex-col gap-[2px] overflow-y-auto px-[8px] py-[12px]">
             {SECTIONS.map((s) => {
               const selected = s.id === section;
               return (
@@ -138,7 +116,9 @@ export function CustomizerPage({
                     onClick={() => setSection(s.id)}
                     className={cn(
                       "motion-tap flex w-full items-start gap-[9px] rounded-[9px] px-[10px] py-[8px] text-left",
-                      selected ? "bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-border)]" : "hover:bg-pg-surface/60",
+                      selected
+                        ? "bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-border)]"
+                        : "hover:bg-pg-surface/70",
                     )}
                   >
                     <s.icon size={15} aria-hidden="true" className={cn("mt-[2px] shrink-0", selected ? "text-brand" : "text-pg-muted")} />
@@ -155,18 +135,20 @@ export function CustomizerPage({
           </ul>
         </nav>
 
-        <main aria-label={active.label} className="min-h-0 min-w-0 flex-1 overflow-y-auto pr-[2px] pb-[8px]">
+        <main aria-label={active.label} className="min-h-0 min-w-0 flex-1 overflow-y-auto px-[24px] pt-[16px] pb-[24px]">
           {section === "brand" ? <BrandSection editing={account} /> : null}
-          {section === "navigation" ? <NavigationSection /> : null}
-          {section === "features" ? <FeaturesSection /> : null}
-          {section === "limits" ? <LimitsSection /> : null}
-          {section === "billing" ? <BillingSection /> : null}
-          {section === "appearance" ? <AppearanceSection /> : null}
-          {section === "defaults" ? <DefaultsSection /> : null}
-          {section === "access" ? <AccessSection /> : null}
+          {section === "navigation" ? <NavigationSection key={account.id} account={account} /> : null}
+          {section === "features" ? <FeaturesSection key={account.id} account={account} /> : null}
+          {section === "limits" ? <LimitsSection key={account.id} account={account} /> : null}
+          {section === "billing" ? <BillingSection key={account.id} account={account} /> : null}
+          {section === "appearance" ? <AppearanceSection key={account.id} account={account} /> : null}
+          {section === "defaults" ? <DefaultsSection key={account.id} account={account} /> : null}
+          {section === "access" ? <AccessSection key={account.id} account={account} /> : null}
         </main>
 
-        <PreviewPane account={account} />
+        <div className="hidden h-full min-h-0 w-[260px] shrink-0 flex-col shadow-[inset_1px_0_0_0_var(--pg-border)] xl:flex">
+          <PreviewPane account={account} />
+        </div>
       </div>
     </div>
   );

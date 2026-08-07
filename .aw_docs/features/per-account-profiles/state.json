@@ -1,0 +1,52 @@
+{
+  "feature_slug": "per-account-profiles",
+  "stage": "build",
+  "mode": "code",
+  "status": "complete",
+  "written_artifacts": [
+    "investigation.md",
+    "spec.md",
+    "tasks.md",
+    "execution.md",
+    "state.json"
+  ],
+  "inputs_used": [
+    "investigation.md",
+    "spec.md",
+    "tasks.md"
+  ],
+  "files_changed": [
+    "src/components/nav/nav-layout-provider.tsx",
+    "src/components/shell/app-shell.tsx",
+    "src/components/customizer/customizer-profiles.tsx",
+    "src/app/layout.tsx",
+    "src/components/customizer/customizer-page.tsx",
+    "src/components/customizer/section-appearance.tsx",
+    "src/components/customizer/section-navigation.tsx",
+    "src/components/customizer/section-defaults.tsx",
+    "src/components/customizer/section-features.tsx",
+    "src/components/customizer/section-limits.tsx",
+    "src/components/customizer/section-billing.tsx",
+    "src/components/customizer/section-access.tsx",
+    "src/components/customizer/preview-pane.tsx"
+  ],
+  "completed_phases": ["1", "2", "3"],
+  "current_phase": null,
+  "completed_slices": [
+    "1.1-nav-layout",
+    "1.2-shell-activation",
+    "2.1-customizer-profiles",
+    "2.2-retarget-sections",
+    "3-verify"
+  ],
+  "remaining_slices": [],
+  "validation_commands": ["npx tsc --noEmit"],
+  "reviewer_agents_used": ["typescript-reviewer"],
+  "blocking_findings": [],
+  "deferred_findings": [
+    "DefaultsSection.landing still local prototype state",
+    "Access policy keys are display strings"
+  ],
+  "save_point_commits": [],
+  "recommended_next_commands": ["/aw:test"]
+}

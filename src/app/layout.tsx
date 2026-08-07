@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
+import { CustomizerProfilesProvider } from "@/components/customizer/customizer-profiles";
 import { NavLayoutProvider } from "@/components/nav/nav-layout-provider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { TuningPanel } from "@/components/tuning/tuning-panel";
@@ -38,12 +39,14 @@ export default function RootLayout({
       data-tint={DEFAULT_THEME.tint}
       className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex h-full flex-col bg-app text-app-fg">
+      <body className="flex h-dvh flex-col overflow-hidden bg-app text-app-fg">
         <ThemeProvider>
           <TuningProvider>
             <NavLayoutProvider>
-              <TooltipProvider>{children}</TooltipProvider>
-              <TuningPanel />
+              <CustomizerProfilesProvider>
+                <TooltipProvider>{children}</TooltipProvider>
+                <TuningPanel />
+              </CustomizerProfilesProvider>
             </NavLayoutProvider>
           </TuningProvider>
         </ThemeProvider>

@@ -238,22 +238,28 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
   const state = store.layout;
   const undoOffer = store.undoOffer;
 
+  // Refs so account switches can park/load without putting dispatch inside a
+  // setState updater (updaters must stay pure under Strict Mode).
+  const stateRef = React.useRef(state);
+  stateRef.current = state;
+  const profilesRef = React.useRef(profiles);
+  profilesRef.current = profiles;
+  const activeIdRef = React.useRef(activeId);
+  activeIdRef.current = activeId;
+
   // Swap-on-switch: park the leaving account's layout, wake the arriving
   // one's. The reducer keeps holding only the active account's state, so
   // every existing mutation and the undo offer stay exactly as they were.
-  const setActiveAccount = React.useCallback(
-    (accountId: string) => {
-      if (accountId === activeId) return;
-      setProfiles((all) => {
-        const next = { ...all };
-        if (activeId !== null) next[activeId] = state;
-        dispatch({ type: "load", layout: next[accountId] ?? DEFAULT_LAYOUT });
-        return next;
-      });
-      setActiveId(accountId);
-    },
-    [activeId, state],
-  );
+  const setActiveAccount = React.useCallback((accountId: string) => {
+    const leaving = activeIdRef.current;
+    if (accountId === leaving) return;
+    const nextProfiles = { ...profilesRef.current };
+    if (leaving !== null) nextProfiles[leaving] = stateRef.current;
+    const incoming = nextProfiles[accountId] ?? DEFAULT_LAYOUT;
+    setProfiles(nextProfiles);
+    dispatch({ type: "load", layout: incoming });
+    setActiveId(accountId);
+  }, []);
 
   const profileFor = React.useCallback(
     (accountId: string): NavLayoutState =>
@@ -265,8 +271,13 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
 
   const updateProfile = React.useCallback(
     (accountId: string, recipe: (s: NavLayoutState) => NavLayoutState) => {
-      if (accountId === activeId) {
-        dispatch({ type: "commit", message: "", next: (s) => recipe(s), silent: true });
+      if (accountId === activeIdRef.current) {
+        dispatch({
+          type: "commit",
+          message: "",
+          next: (s) => recipe(s),
+          silent: true,
+        });
         return;
       }
       setProfiles((all) => ({
@@ -274,7 +285,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         [accountId]: recipe(all[accountId] ?? DEFAULT_LAYOUT),
       }));
     },
-    [activeId],
+    [],
   );
 
   const commit = React.useCallback(
@@ -588,8 +599,12 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       undoOffer,
       undo: () => dispatch({ type: "undo" }),
       dismissUndo: () => dispatch({ type: "dismiss" }),
+
+      setActiveAccount,
+      profileFor,
+      updateProfile,
     };
-  }, [state, undoOffer, commit]);
+  }, [state, undoOffer, commit, setActiveAccount, profileFor, updateProfile]);
 
   return <NavLayoutContext value={value}>{children}</NavLayoutContext>;
 }
