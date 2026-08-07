@@ -181,6 +181,22 @@
  * The fallback is the HighRise primary, which is what the first paint shows
  * before the switcher has written anything.
  */
+:root[data-accent="black"] {
+  --brand: #18181b;
+  --brand-strong: #000000;
+  --brand-soft: #f4f4f5;
+  --brand-soft-2: #e4e4e7;
+  --brand-fg: var(--hr-base-white);
+}
+
+:root[data-accent="custom"] {
+  --brand: var(--custom-accent, #18181b);
+  --brand-strong: oklch(from var(--brand) calc(l * 0.88) c h);
+  --brand-soft: oklch(from var(--brand) 0.97 calc(c * 0.3) h);
+  --brand-soft-2: oklch(from var(--brand) 0.92 calc(c * 0.5) h);
+  --brand-fg: var(--hr-base-white);
+}
+
 :root[data-accent="account"] {
   --brand: var(--account-brand, var(--hr-primary-600));
   --brand-strong: oklch(from var(--brand) calc(l * 0.88) c h);

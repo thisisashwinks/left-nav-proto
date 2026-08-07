@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { PanelLeftOpen } from "lucide-react";
+import { ChevronRight, House, PanelLeftOpen } from "lucide-react";
+import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import { headerConfig, type HeaderActionTone, type HeaderConfig } from "./header-config";
@@ -18,6 +19,10 @@ interface AppHeaderProps {
   /** Drives [data-header-theme], independent of the app's own theme. */
   theme: SurfaceTheme;
   config?: HeaderConfig;
+  /** Where you are: ["Contacts", "Smart lists"]. Home renders before it. */
+  crumbs?: string[];
+  /** Opens the Ask AI window — the header's copy of the nav's standing entry. */
+  onAskAi?: () => void;
   /**
    * Reopens the nav from the app bar's far left.
    *
@@ -31,79 +36,85 @@ interface AppHeaderProps {
 }
 
 /**
- * The 48px app bar from "Screen A · Nav open + Contacts".
- *
- * From left-nav.pen: 48px tall, padded 0 16px, 1px bottom border, tabs spaced
- * 20px apart with a 2px active underline, and a right cluster of 26px circular
- * actions spaced 8px with 12px between groups.
+ * The 48px app bar, restructured per the header review: the tab strip is gone
+ * — those destinations moved into the page title's dropdown, where the page
+ * itself is the navigator — and what remains is orientation. Left: the nav
+ * toggle, Home, and the breadcrumb naming where you are. Right: Ask AI and
+ * the utilities.
  */
 export function AppHeader({
   theme,
   config = headerConfig,
+  crumbs = ["Contacts", "Smart lists"],
+  onAskAi,
   onExpandNav,
 }: AppHeaderProps) {
-  const [activeTabId, setActiveTabId] = React.useState(config.activeTabId);
-
   return (
     <header
       data-header-theme={theme}
       // Inset shadows rather than borders, for the same reason as the nav:
       // Pencil overlays strokes, so a real border would shrink the 48px content
-      // box and shift the tab underline.
+      // box and shift the content baseline.
       className="flex h-[48px] w-full shrink-0 items-center justify-between bg-hdr px-[16px] shadow-[inset_0_-1px_0_0_var(--hdr-border)]"
     >
-      {/*
-        Wrapped, because the header is `justify-between`: a third top-level child
-        would be pushed to the centre instead of staying beside the tabs.
-      */}
-      <div className="flex h-full min-w-0 shrink-0 items-center">
+      <div className="flex h-full min-w-0 items-center gap-[4px]">
         {onExpandNav ? (
           <button
             type="button"
             title="Expand navigation"
             aria-label="Expand navigation"
             onClick={onExpandNav}
-            // Keeps the 20px tab rhythm to its right, so the row still reads as
-            // tabs with a control in front of them rather than a seventh tab.
-            className="motion-tap mr-[16px] flex size-[28px] shrink-0 items-center justify-center rounded-[7px] text-hdr-fg-muted hover:bg-hdr-chip hover:text-hdr-fg active:scale-95 motion-press"
+            className="motion-tap mr-[8px] flex size-[28px] shrink-0 items-center justify-center rounded-[7px] text-hdr-fg-muted hover:bg-hdr-chip hover:text-hdr-fg active:scale-95 motion-press"
           >
             <PanelLeftOpen size={17} aria-hidden="true" />
           </button>
         ) : null}
 
-        <nav aria-label="Contacts sections" className="flex h-full shrink-0 items-center gap-[20px]">
-        {config.tabs.map((tab) => {
-          const active = tab.id === activeTabId;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              aria-current={active ? "page" : undefined}
-              onClick={() => setActiveTabId(tab.id)}
-              className={cn(
-                "flex h-full shrink-0 items-center px-[2px] text-[14px] leading-[normal] whitespace-nowrap",
-                "motion-tap",
-                active
-                  ? "font-semibold text-brand shadow-[inset_0_-2px_0_0_var(--brand)]"
-                  : "text-hdr-fg hover:shadow-[inset_0_-2px_0_0_var(--hdr-border)]",
-              )}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
+        <button
+          type="button"
+          title="Home"
+          aria-label="Home"
+          className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[7px] text-hdr-fg-muted hover:bg-hdr-chip hover:text-hdr-fg active:scale-95"
+        >
+          <House size={15} aria-hidden="true" />
+        </button>
+
+        <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-[4px]">
+          {crumbs.map((crumb, i) => {
+            const last = i === crumbs.length - 1;
+            return (
+              <React.Fragment key={`${crumb}-${i}`}>
+                <ChevronRight size={13} aria-hidden="true" className="shrink-0 text-hdr-fg-muted opacity-60" />
+                <span
+                  aria-current={last ? "page" : undefined}
+                  className={cn(
+                    "truncate text-[13px] leading-[normal] whitespace-nowrap",
+                    last ? "font-semibold text-hdr-fg" : "text-hdr-fg-muted",
+                  )}
+                >
+                  {crumb}
+                </span>
+              </React.Fragment>
+            );
+          })}
         </nav>
       </div>
 
-      {/*
-        The "What's new" and "Contact updates" chips are gone.
-
-        Both were announcements competing with the tabs beside them, and the filled
-        one was spending the accent — the same colour that marks the active tab — on
-        a promo. Whatever they announced belongs in the flyouts' bottom slot, which
-        exists for exactly this and is already built.
-      */}
       <div className="flex shrink-0 items-center gap-[12px]">
+        {/*
+          Ask AI moved up here from the tab row's old spot — with the tabs gone
+          the header's left is orientation and its right is action, and the
+          assistant is the first action.
+        */}
+        <button
+          type="button"
+          onClick={onAskAi}
+          className="motion-tap flex h-[28px] shrink-0 items-center gap-[6px] rounded-full bg-hdr-chip px-[11px] text-[12.5px] leading-none font-medium text-hdr-fg hover:scale-[1.03] active:scale-95"
+        >
+          <NavAiSparkle className="size-[13px] text-nav-ai-icon" />
+          Ask AI
+        </button>
+
         <div className="flex shrink-0 items-center gap-[8px]">
           {config.actions.map((action) => (
             <button

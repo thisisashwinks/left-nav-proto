@@ -25,13 +25,20 @@ import {
   useNavDensity,
 } from "@/components/nav/use-nav-density";
 import { LeftNav } from "@/components/nav/left-nav";
-import { agencyFlyouts } from "@/components/nav/agency-config";
+import { agencyFlyouts, agencyPinned } from "@/components/nav/agency-config";
+import {
+  accountSettingsFlyout,
+  agencySettingsFlyout,
+  SETTINGS_FLYOUT_ID,
+} from "@/components/nav/settings-config";
 import { productById } from "@/components/nav/catalogue";
 import { flyoutForGroup } from "@/components/nav/group-flyout";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { PinnedLauncher } from "@/components/nav/pinned-launcher";
 import { UndoToast } from "@/components/nav/undo-toast";
 import { PINNED_VISIBLE } from "@/components/nav/favorites-morph";
+import { AccountsIndexPage } from "@/components/customizer/accounts-index";
+import { CustomizerPage } from "@/components/customizer/customizer-page";
 import { CommandPalette } from "@/components/search/command-palette";
 import { SearchFlyout } from "@/components/search/search-flyout";
 import { AUTO_COLLAPSE_WIDTH } from "@/design/theme";
@@ -91,17 +98,21 @@ const FLYOUT_HOVER_GRACE_MS = 180;
  */
 export function AppShell({ children }: { children?: React.ReactNode }) {
   const {
-    navTheme,
-    headerTheme,
+    effective,
+    setActiveThemeAccount,
     searchMode,
     searchTheme,
+    scopeModel,
+  } = useTheme();
+  const {
+    navTheme,
+    headerTheme,
     dockLabel,
     dockPosition,
     entryLayout,
     recentsMode,
     autoCollapse,
-    scopeModel,
-  } = useTheme();
+  } = effective;
   /*
    * Collapsed follows the viewport until the user says otherwise.
    *
@@ -118,6 +129,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     null,
   );
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  /** Who the customizer is shaping. Null = still on the Sub-accounts picker. */
+  const [customizeAccountId, setCustomizeAccountId] = React.useState<string | null>(null);
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [switcherOpen, setSwitcherOpen] = React.useState(false);
   const {
@@ -151,6 +164,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   // What the nav header shows: the agency identity at agency scope, the
   // current sub-account otherwise. One derivation for both nav faces.
   const headerAccount = agencyScope ? accounts.agency : accounts.current;
+  const customizeAccount =
+    accounts.accounts.find((a) => a.id === customizeAccountId) ?? null;
   const recentAccounts = accounts.recentIds
     .map((id) => accounts.accounts.find((a) => a.id === id))
     .filter((a): a is (typeof accounts.accounts)[number] => a !== undefined);
@@ -171,6 +186,13 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   React.useEffect(() => {
     document.documentElement.style.setProperty("--account-brand", accountBrand);
   }, [accountBrand]);
+
+  // Whose saved look the workspace wears. The agency's own overrides live
+  // under "agency"; every sub-account carries its own set.
+  const themeOwnerId = agencyScope ? "agency" : accounts.current.id;
+  React.useEffect(() => {
+    setActiveThemeAccount(themeOwnerId);
+  }, [themeOwnerId, setActiveThemeAccount]);
 
   // Cmd/Ctrl-K opens search from anywhere, which is the whole point of the
   // spotlight treatment. Bound on the window so it works with focus in the page.
@@ -196,6 +218,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   );
 
   const intent = useFlyoutIntent(FLYOUT_HOVER_GRACE_MS);
+
 
   /*
    * How much room the nav has, measured once here on the wrapper both faces share.
@@ -244,13 +267,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * Labels and icons come from the store's resolvers, not the raw catalogue, so a
    * renamed product's dock caption matches its nav row.
    */
-  const pinnedItems = layout.pinned
-    .filter((id) => productById(id) !== undefined)
-    .map((id) => ({
-      id,
-      label: productLabelFor(id),
-      icon: productIconFor(id),
-    }));
+  const pinnedItems = agencyScope
+    ? agencyPinned
+    : layout.pinned
+        .filter((id) => productById(id) !== undefined)
+        .map((id) => ({
+          id,
+          label: productLabelFor(id),
+          icon: productIconFor(id),
+        }));
   const overflowCount = Math.max(0, layout.pinned.length - PINNED_VISIBLE);
 
   const railActive = scopeModel === "rail";
@@ -265,10 +290,16 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   // Group panels win over the authored registry: a renamed Engage has to open a
   // panel titled with its new name, and the registry still holds the old one.
   // At agency scope the agency's own panels take their place.
+  // The Settings row opens a flyout like any group row; which menu it holds
+  // follows the scope, not the registry.
   const requested = intent.activeId
-    ? agencyScope
-      ? (agencyFlyouts[intent.activeId] ?? null)
-      : (groupFlyouts.get(intent.activeId) ?? flyouts[intent.activeId] ?? null)
+    ? intent.activeId === SETTINGS_FLYOUT_ID
+      ? agencyScope
+        ? agencySettingsFlyout
+        : accountSettingsFlyout
+      : agencyScope
+        ? (agencyFlyouts[intent.activeId] ?? null)
+        : (groupFlyouts.get(intent.activeId) ?? flyouts[intent.activeId] ?? null)
     : null;
   const flyout = useExitTransition(requested, FLYOUT_EXIT_MS);
   // A bare `true` rather than the session object: useExitTransition compares
@@ -311,6 +342,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     scopeRef.current = accounts.scope;
     intent.close();
     setSelectedId(null);
+    setCustomizeAccountId(null);
   }, [accounts.scope, intent]);
 
   return (
@@ -341,8 +373,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           this wrapper, so it cannot join a scroll region — leaving it up would mean
           a floating dock hanging over rows trying to scroll underneath it.
         */}
-        {/* The dock is the sub-account's fast path; at agency scope it goes. */}
-        {atFloor || agencyScope ? null : (
+        {atFloor ? null : (
         <FavoritesMorph
           theme={navTheme}
           items={pinnedItems}
@@ -434,6 +465,16 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader
           theme={headerTheme}
+          crumbs={
+            selectedId === "agency-sub-accounts"
+              ? customizeAccount
+                ? ["Sub-accounts", `Customize ${customizeAccount.name}`]
+                : ["Sub-accounts"]
+              : agencyScope
+                ? [accounts.agency.name, "Overview"]
+                : ["Contacts", "Smart lists"]
+          }
+          onAskAi={() => aiSession.launch()}
           // Only when the rail has nowhere of its own for it: collapsed, with the
           // entry cluster at the top, its logo row is a bare 30px mark and its
           // footer is empty by design.
@@ -441,7 +482,31 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             ? { onExpandNav: () => setManualCollapsed(false) }
             : {})}
         />
-        <div className="min-h-0 flex-1 overflow-auto">{children}</div>
+        {/*
+          The customizer lives behind the Sub-accounts page, as production
+          shapes an account from its row there: the nav row opens the table,
+          and picking an account opens its customizer. A canvas destination,
+          not a route, so the live nav stays beside it and scope/rail state
+          survives entering and leaving.
+        */}
+        <div className="min-h-0 flex-1 overflow-auto">
+          {selectedId === "agency-sub-accounts" ? (
+            customizeAccount ? (
+              <CustomizerPage
+                session={accounts}
+                account={customizeAccount}
+                onBack={() => setCustomizeAccountId(null)}
+              />
+            ) : (
+              <AccountsIndexPage
+                session={accounts}
+                onCustomize={setCustomizeAccountId}
+              />
+            )
+          ) : (
+            children
+          )}
+        </div>
       </div>
 
       {flyout.isMounted && flyout.value ? (

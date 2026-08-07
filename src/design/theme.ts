@@ -12,9 +12,14 @@
  */
 
 export const ACCENTS = [
+  // Near-black: the round-2 decision — the product's own accent is quiet, and
+  // colour is something a brand brings, not something we impose.
+  "black",
   // Follows the current sub-account's logo colour; see [data-accent="account"]
-  // in tokens.css. First in the list because it is the default.
+  // in tokens.css.
   "account",
+  // An arbitrary swatch — the customizer writes --custom-accent on <html>.
+  "custom",
   "highrise",
   "pencil-blue",
   "blue",
@@ -202,9 +207,8 @@ export interface ThemeState {
  * the two agree on first paint and hydration stays clean.
  */
 export const DEFAULT_THEME: ThemeState = {
-  // Falls back to the HighRise primary until the switcher writes an account
-  // colour, so this is identical to `highrise` on first paint.
-  accent: "account",
+  // Black by default: accents are earned by a brand, not shipped by us.
+  accent: "black",
   tint: "off",
   appTheme: "light",
   navTheme: "light",
@@ -229,6 +233,8 @@ export const DEFAULT_THEME: ThemeState = {
 
 /** Human-readable labels, for the controls UI added later. */
 export const ACCENT_LABELS: Record<Accent, string> = {
+  black: "Black",
+  custom: "Brand colour",
   account: "Sub-account logo",
   highrise: "HighRise primary",
   "pencil-blue": "Pencil blue",

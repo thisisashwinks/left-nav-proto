@@ -8,7 +8,6 @@ import {
   INITIAL_FAVORITE_IDS,
   INITIAL_RAIL_IDS,
   INITIAL_RECENT_IDS,
-  RAIL_LIMIT,
   RECENT_LIMIT,
   type Account,
 } from "./accounts-data";
@@ -31,9 +30,8 @@ export interface AccountsSession {
   /** Most recently visited first, current account excluded. */
   recentIds: readonly string[];
   favoriteIds: readonly string[];
-  /** Ordered working set for the account rail (Model C). Never includes the agency. */
+  /** Ordered open set for the account rail (Model C). Never includes the agency. */
   railIds: readonly string[];
-  railLimit: number;
   isFavorite: (id: string) => boolean;
   onRail: (id: string) => boolean;
   switchTo: (id: string) => void;
@@ -92,11 +90,7 @@ export function useAccounts(): AccountsSession {
   }, []);
 
   const addToRail = React.useCallback((id: string) => {
-    setRailIds((ids) =>
-      // The cap is enforced here, not just in the panel's copy, so no caller
-      // can grow the rail past the point where it stops being spatial.
-      ids.includes(id) || ids.length >= RAIL_LIMIT ? ids : [...ids, id],
-    );
+    setRailIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
   }, []);
 
   const removeFromRail = React.useCallback((id: string) => {
@@ -122,7 +116,6 @@ export function useAccounts(): AccountsSession {
     recentIds: recentIds.filter((id) => id !== currentId),
     favoriteIds,
     railIds,
-    railLimit: RAIL_LIMIT,
     isFavorite,
     onRail,
     switchTo,

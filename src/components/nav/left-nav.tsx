@@ -103,7 +103,7 @@ export function LeftNav({
   onOpenLauncher,
   recentsBudget,
 }: LeftNavProps) {
-  const { entryLayout, dockPosition } = useTheme();
+  const { entryLayout, dockPosition } = useTheme().effective;
   const topEntry = entryLayout === "top";
   const atFloor = density === "floor";
   const agencyScope = scope === "agency";
@@ -197,9 +197,7 @@ export function LeftNav({
         here when the dock sits under the logo, and after the scroll region when it
         is pinned to the nav's bottom edge.
       */}
-      {dockPosition === "top" && !atFloor && !agencyScope ? (
-        <PinnedHole position="top" />
-      ) : null}
+      {dockPosition === "top" && !atFloor ? <PinnedHole position="top" /> : null}
 
       {/*
         The standing entry points normally sit above the scroll region so they never

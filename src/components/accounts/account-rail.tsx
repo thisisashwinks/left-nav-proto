@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus } from "lucide-react";
+import { Grip } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import { AccountLogo } from "./account-logo";
@@ -69,32 +69,48 @@ export function AccountRail({
 
       <div aria-hidden="true" className="w-[26px] shrink-0 border-t border-nav-divider" />
 
-      {railAccounts.map((account) => (
-        <RailTile
-          key={account.id}
-          label={account.name}
-          selected={session.scope === "account" && account.id === session.current.id}
-          onClick={() => session.switchTo(account.id)}
-        >
-          <AccountLogo logo={account.logo} src={account.logoSrc} size={32} radius={999} />
-        </RailTile>
-      ))}
+      {/*
+        Uncapped, so the open set scrolls rather than clipping. The agency tile
+        above and the + below stay put — the two fixed points of the rail.
+      */}
+      {/*
+        py-[5px]: the selection ring draws 4px outside the tile, and an
+        overflow container clips at its padding edge — the first and last
+        tiles' rings were losing their top and bottom arcs.
+      */}
+      <div className="flex min-h-0 w-full flex-col items-center gap-[7px] overflow-y-auto py-[5px] [scrollbar-width:none]">
+        {railAccounts.map((account) => (
+          <RailTile
+            key={account.id}
+            label={account.name}
+            selected={session.scope === "account" && account.id === session.current.id}
+            onClick={() => session.switchTo(account.id)}
+          >
+            <AccountLogo logo={account.logo} src={account.logoSrc} size={30} radius={999} />
+          </RailTile>
+        ))}
+      </div>
 
-      <RailTooltip label="Open another account">
+      {/*
+        The waffle, not a +: the panel behind it is every account you have,
+        so the icon should say "browse", not "create". A plus here read as
+        "make a new sub-account".
+      */}
+      <RailTooltip label="All accounts">
         <button
           type="button"
-          aria-label="Open another account"
+          aria-label="All accounts"
           aria-haspopup="dialog"
           aria-expanded={switcherOpen}
           onClick={onToggleSwitcher}
           className={cn(
-            "motion-tap flex size-[32px] shrink-0 items-center justify-center rounded-full border border-dashed border-nav-divider text-nav-fg-subtle",
+            "motion-tap flex size-[32px] shrink-0 items-center justify-center rounded-full text-nav-fg-subtle",
             switcherOpen
               ? "bg-nav-active text-nav-fg"
-              : "hover:border-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg-muted",
+              : "hover:bg-nav-hover hover:text-nav-fg-muted",
           )}
         >
-          <Plus size={15} aria-hidden="true" />
+          <Grip size={17} aria-hidden="true" />
         </button>
       </RailTooltip>
     </nav>

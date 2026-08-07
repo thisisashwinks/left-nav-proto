@@ -104,6 +104,18 @@ interface NavLayoutContextValue {
   undoOffer: UndoOffer | null;
   undo: () => void;
   dismissUndo: () => void;
+
+  /**
+   * Per-account layouts: every sub-account carries its own grouping, pins,
+   * labels and icons. The shell activates the current account's profile;
+   * the customizer reads and writes any account's without activating it.
+   */
+  setActiveAccount: (accountId: string) => void;
+  profileFor: (accountId: string) => NavLayoutState;
+  updateProfile: (
+    accountId: string,
+    recipe: (s: NavLayoutState) => NavLayoutState,
+  ) => void;
 }
 
 const NavLayoutContext = React.createContext<NavLayoutContextValue | null>(null);
@@ -143,7 +155,9 @@ type Action =
       silent?: boolean;
     }
   | { type: "undo" }
-  | { type: "dismiss" };
+  | { type: "dismiss" }
+  /** Account switch: swap in another account's saved layout, drop the offer. */
+  | { type: "load"; layout: NavLayoutState };
 
 function reducer(store: Store, action: Action): Store {
   switch (action.type) {
@@ -173,6 +187,9 @@ function reducer(store: Store, action: Action): Store {
         : store;
     case "dismiss":
       return store.undoOffer ? { ...store, undoOffer: null } : store;
+    case "load":
+      // An undo offer must not survive into another account's layout.
+      return { ...store, layout: action.layout, undoOffer: null };
   }
 }
 
@@ -214,9 +231,51 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
     nextOfferId: 1,
     nextGroupId: 1,
   });
+  /** Saved layouts for every account that is not the active one. */
+  const [profiles, setProfiles] = React.useState<Record<string, NavLayoutState>>({});
+  const [activeId, setActiveId] = React.useState<string | null>(null);
 
   const state = store.layout;
   const undoOffer = store.undoOffer;
+
+  // Swap-on-switch: park the leaving account's layout, wake the arriving
+  // one's. The reducer keeps holding only the active account's state, so
+  // every existing mutation and the undo offer stay exactly as they were.
+  const setActiveAccount = React.useCallback(
+    (accountId: string) => {
+      if (accountId === activeId) return;
+      setProfiles((all) => {
+        const next = { ...all };
+        if (activeId !== null) next[activeId] = state;
+        dispatch({ type: "load", layout: next[accountId] ?? DEFAULT_LAYOUT });
+        return next;
+      });
+      setActiveId(accountId);
+    },
+    [activeId, state],
+  );
+
+  const profileFor = React.useCallback(
+    (accountId: string): NavLayoutState =>
+      accountId === activeId
+        ? state
+        : (profiles[accountId] ?? DEFAULT_LAYOUT),
+    [activeId, state, profiles],
+  );
+
+  const updateProfile = React.useCallback(
+    (accountId: string, recipe: (s: NavLayoutState) => NavLayoutState) => {
+      if (accountId === activeId) {
+        dispatch({ type: "commit", message: "", next: (s) => recipe(s), silent: true });
+        return;
+      }
+      setProfiles((all) => ({
+        ...all,
+        [accountId]: recipe(all[accountId] ?? DEFAULT_LAYOUT),
+      }));
+    },
+    [activeId],
+  );
 
   const commit = React.useCallback(
     (

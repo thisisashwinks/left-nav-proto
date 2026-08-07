@@ -3,16 +3,23 @@
 import * as React from "react";
 import {
   ArrowUpDown,
+  Building2,
+  CheckCheck,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Columns3,
   EllipsisVertical,
+  ListChecks,
   ListFilter,
+  Pin,
   Plus,
   Search,
+  Settings,
+  SlidersHorizontal,
   Upload,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
@@ -40,6 +47,107 @@ function OutlineButton({
   );
 }
 
+/** What the header's tab strip used to hold — now the title's own menu. */
+const AREA_PAGES: { id: string; label: string; icon: LucideIcon }[] = [
+  { id: "smart-lists", label: "Smart lists", icon: ListChecks },
+  { id: "bulk-actions", label: "Bulk actions", icon: SlidersHorizontal },
+  { id: "tasks", label: "Tasks", icon: CheckCheck },
+  { id: "companies", label: "Companies", icon: Building2 },
+  { id: "manage", label: "Manage smart lists", icon: Settings },
+];
+
+/**
+ * The page title as the navigator, per the header restructure: the tab strip
+ * is gone from the app bar, so "Smart lists ⌄" opens the area's own menu —
+ * the same destinations, one click away from the thing they are about. This
+ * is the flyout-becomes-dropdown pattern every group's inner pages will use.
+ */
+function PageTitleMenu() {
+  const [open, setOpen] = React.useState(false);
+  const [pageId, setPageId] = React.useState("smart-lists");
+  const current = AREA_PAGES.find((p) => p.id === pageId) ?? AREA_PAGES[0];
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="motion-tap group/title -mx-[6px] flex items-center gap-[6px] rounded-[8px] px-[6px] py-[2px] hover:bg-pg-surface"
+      >
+        <h1 className="text-[20px] leading-[normal] font-semibold tracking-[-0.2px] whitespace-nowrap text-pg-heading">
+          {current.label}
+        </h1>
+        <ChevronDown
+          size={16}
+          aria-hidden="true"
+          className={cn("text-pg-muted motion-tap", open && "rotate-180")}
+        />
+      </button>
+
+      {open ? (
+        <>
+          <button
+            type="button"
+            aria-label="Close menu"
+            tabIndex={-1}
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-30 cursor-default"
+          />
+          <div
+            role="menu"
+            aria-label="Contacts pages"
+            className="absolute top-[calc(100%+8px)] left-[-6px] z-40 w-[280px] rounded-[12px] bg-pg-surface p-[6px] shadow-[0_16px_32px_-8px_rgba(15,23,42,0.18),0_4px_8px_-4px_rgba(15,23,42,0.12),inset_0_0_0_1px_var(--pg-border)]"
+          >
+            <div className="flex items-center gap-[8px] px-[10px] pt-[8px] pb-[6px]">
+              <span className="flex-1 text-[14px] leading-[18px] font-semibold text-pg-heading">
+                Contacts
+              </span>
+              <Pin size={14} aria-hidden="true" className="text-pg-faint" />
+            </div>
+            {AREA_PAGES.map((page) => {
+              const selected = page.id === pageId;
+              return (
+                <button
+                  key={page.id}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={selected}
+                  onClick={() => {
+                    setPageId(page.id);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "motion-tap flex w-full items-center gap-[10px] rounded-[8px] px-[10px] py-[9px] text-left",
+                    selected
+                      ? "bg-pg-bg shadow-[inset_0_0_0_1px_var(--pg-border)]"
+                      : "hover:bg-pg-bg",
+                  )}
+                >
+                  <page.icon size={15} aria-hidden="true" className="text-pg-muted" />
+                  <span className={cn("text-[13.5px] leading-[18px]", selected ? "font-semibold text-pg-heading" : "text-pg-text")}>
+                    {page.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 /**
  * The Contacts page from the ContactsApp component in left-nav.pen.
  *
@@ -51,7 +159,8 @@ function OutlineButton({
  * --brand-*, so the page follows both the page theme and the accent.
  */
 export function ContactsPage() {
-  const { appTheme } = useTheme();
+  const { effective } = useTheme();
+  const appTheme = effective.appTheme;
   const [rows, setRows] = React.useState(seedContacts);
   const [activeList, setActiveList] = React.useState("all");
 
@@ -71,9 +180,7 @@ export function ContactsPage() {
     >
       <div className="flex shrink-0 items-center justify-between">
         <div className="flex flex-col items-start gap-[3px]">
-          <h1 className="text-[20px] leading-[normal] font-semibold tracking-[-0.2px] whitespace-nowrap text-pg-heading">
-            Smart lists
-          </h1>
+          <PageTitleMenu />
           <p className="text-[13px] leading-[normal] whitespace-nowrap text-pg-muted">
             1,469 contacts organized across 6 lists
           </p>

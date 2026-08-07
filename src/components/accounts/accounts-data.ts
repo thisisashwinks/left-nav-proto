@@ -171,12 +171,6 @@ export const INITIAL_RAIL_IDS: readonly string[] = [
   "slack",
 ];
 
-/**
- * The most tiles the rail will hold. A hard cap on purpose: the rail only
- * answers "where am I" pre-attentively while it stays small enough to be
- * spatial. Past this, an account belongs behind the panel and ⌘K.
- */
-export const RAIL_LIMIT = 8;
 
 /** Most recently visited first, as the Recent group orders them. */
 export const INITIAL_RECENT_IDS: readonly string[] = [

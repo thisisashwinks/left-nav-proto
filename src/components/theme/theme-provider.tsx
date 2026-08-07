@@ -15,6 +15,30 @@ import {
   type Tint,
 } from "@/design/theme";
 
+/**
+ * A tenant's own look and layout, layered over the platform theme: the
+ * branded axes plus the nav-layout ones. Only genuinely platform-wide axes
+ * (search treatment, scope model) stay out.
+ */
+export type AccountTheme = Partial<
+  Pick<
+    ThemeState,
+    | "accent"
+    | "tint"
+    | "navTheme"
+    | "headerTheme"
+    | "appTheme"
+    | "dockLabel"
+    | "dockPosition"
+    | "entryLayout"
+    | "recentsMode"
+    | "autoCollapse"
+  >
+> & {
+  /** The hex behind the `custom` accent, from the account's brand board. */
+  customAccent?: string;
+};
+
 interface ThemeContextValue extends ThemeState {
   setAccent: (accent: Accent) => void;
   setTint: (tint: Tint) => void;
@@ -29,6 +53,16 @@ interface ThemeContextValue extends ThemeState {
   setRecentsMode: (mode: RecentsMode) => void;
   setAutoCollapse: (enabled: boolean) => void;
   setScopeModel: (model: ScopeModel) => void;
+  /**
+   * What the workspace actually renders: the platform theme with the active
+   * account's overrides applied. Chrome reads this; the prototype-controls
+   * panel keeps reading and writing the base fields above.
+   */
+  effective: ThemeState;
+  /** Which account's overrides are live. The shell sets it on every switch. */
+  setActiveThemeAccount: (accountId: string | null) => void;
+  accountThemeFor: (accountId: string) => AccountTheme;
+  setAccountTheme: (accountId: string, patch: AccountTheme) => void;
 }
 
 const ThemeContext = React.createContext<ThemeContextValue | null>(null);
@@ -51,20 +85,49 @@ export function ThemeProvider({
   initial = DEFAULT_THEME,
 }: ThemeProviderProps) {
   const [state, setState] = React.useState<ThemeState>(initial);
+  const [accountThemes, setAccountThemes] = React.useState<
+    Record<string, AccountTheme>
+  >({});
+  const [activeAccountId, setActiveAccountId] = React.useState<string | null>(
+    null,
+  );
+
+  // The platform theme with the active account's own look on top. Switching
+  // accounts swaps the override set, which is what makes a theme belong to a
+  // tenant instead of to the browser tab.
+  const activeOverride = React.useMemo(
+    () => (activeAccountId && accountThemes[activeAccountId]) || {},
+    [activeAccountId, accountThemes],
+  );
+  const effective: ThemeState = React.useMemo(
+    () => ({ ...state, ...stripCustom(activeOverride) }),
+    [state, activeOverride],
+  );
 
   // The document-level axes live on <html>, which React does not own here, so
   // they are mirrored imperatively. layout.tsx renders the same defaults so the
   // first paint already matches.
   React.useEffect(() => {
     const root = document.documentElement;
-    root.dataset.accent = state.accent;
-    root.dataset.appTheme = state.appTheme;
-    root.dataset.tint = state.tint;
-  }, [state.accent, state.appTheme, state.tint]);
+    root.dataset.accent = effective.accent;
+    root.dataset.appTheme = effective.appTheme;
+    root.dataset.tint = effective.tint;
+    if (activeOverride.customAccent) {
+      root.style.setProperty("--custom-accent", activeOverride.customAccent);
+    }
+  }, [effective.accent, effective.appTheme, effective.tint, activeOverride.customAccent]);
 
   const value = React.useMemo<ThemeContextValue>(
     () => ({
       ...state,
+      effective,
+      setActiveThemeAccount: setActiveAccountId,
+      accountThemeFor: (accountId) => accountThemes[accountId] ?? {},
+      setAccountTheme: (accountId, patch) =>
+        setAccountThemes((themes) => ({
+          ...themes,
+          [accountId]: { ...themes[accountId], ...patch },
+        })),
       setAccent: (accent) => setState((s) => ({ ...s, accent })),
       setTint: (tint) => setState((s) => ({ ...s, tint })),
       setAppTheme: (appTheme) => setState((s) => ({ ...s, appTheme })),
@@ -79,8 +142,15 @@ export function ThemeProvider({
       setAutoCollapse: (autoCollapse) => setState((s) => ({ ...s, autoCollapse })),
       setScopeModel: (scopeModel) => setState((s) => ({ ...s, scopeModel })),
     }),
-    [state],
+    [state, effective, accountThemes],
   );
 
   return <ThemeContext value={value}>{children}</ThemeContext>;
+}
+
+/** The ThemeState slice of an override — customAccent is not a theme axis. */
+function stripCustom(override: AccountTheme): Partial<ThemeState> {
+  const rest = { ...override };
+  delete rest.customAccent;
+  return rest;
 }

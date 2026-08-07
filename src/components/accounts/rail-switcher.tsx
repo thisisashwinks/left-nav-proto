@@ -61,8 +61,6 @@ export function RailSwitcher({
     (a) => !session.onRail(a.id) && !session.recentIds.includes(a.id),
   );
 
-  const railFull = session.railIds.length >= session.railLimit;
-
   return (
     <>
       <button
@@ -106,7 +104,7 @@ export function RailSwitcher({
           ) : null}
 
           <Group
-            label={`OPEN · ${session.railIds.length} OF ${session.railLimit}`}
+            label={`OPEN · ${session.railIds.length}`}
             accounts={onRail}
             session={session}
             action="remove"
@@ -126,9 +124,8 @@ export function RailSwitcher({
         <div className="mt-[8px] flex shrink-0 items-start gap-[8px] px-[7px] pt-[8px] shadow-[inset_0_1px_0_0_var(--fly-border)]">
           <Info size={13} aria-hidden="true" className="mt-[1px] shrink-0 text-nav-fg-subtle" />
           <p className="text-[11.5px] leading-[16px] text-nav-fg-subtle">
-            {railFull
-              ? `All ${session.railLimit} slots are in use — close an account to open another. Everything stays one search away.`
-              : `Keep up to ${session.railLimit} accounts open on the left. Everything else stays one search away.`}
+            Accounts you open stay on the left until you close them. Everything
+            else stays one search away.
           </p>
         </div>
       </div>
@@ -150,8 +147,6 @@ function Group({
   onClose: () => void;
 }) {
   if (accounts.length === 0) return null;
-  const railFull = session.railIds.length >= session.railLimit;
-
   return (
     <>
       <div className="sticky top-0 z-10 bg-nav px-[7px] pt-[8px] pb-[4px]">
@@ -174,6 +169,9 @@ function Group({
             <button
               type="button"
               onClick={() => {
+                // Jumping into an account opens it on the rail too — you are
+                // working in it now, so it has earned a tile (space allowing).
+                session.addToRail(account.id);
                 session.switchTo(account.id);
                 onClose();
               }}
@@ -200,23 +198,25 @@ function Group({
               aria-label={
                 action === "remove"
                   ? `Close ${account.name}`
-                  : `Keep ${account.name} open`
+                  : `Open ${account.name}`
               }
-              title={action === "remove" ? "Close" : "Keep open"}
-              disabled={action === "add" && railFull}
-              onClick={() =>
-                action === "remove"
-                  ? session.removeFromRail(account.id)
-                  : session.addToRail(account.id)
-              }
+              title={action === "remove" ? "Close" : "Open"}
+              onClick={() => {
+                if (action === "remove") {
+                  session.removeFromRail(account.id);
+                  return;
+                }
+                // The + is the row's own action seen closer: open it on the
+                // rail AND go there. Adding without going read as a dead click.
+                session.addToRail(account.id);
+                session.switchTo(account.id);
+                onClose();
+              }}
               className={cn(
                 // Visible at rest — a hover-only affordance made the panel
                 // read as a plain list until you happened to mouse a row.
                 "motion-tap flex size-[24px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle",
-                "shadow-[inset_0_0_0_1px_var(--fly-border)]",
-                action === "add" && railFull
-                  ? "cursor-not-allowed opacity-40"
-                  : "hover:bg-nav-active hover:text-nav-fg",
+                "shadow-[inset_0_0_0_1px_var(--fly-border)] hover:bg-nav-active hover:text-nav-fg",
               )}
             >
               {action === "remove" ? (

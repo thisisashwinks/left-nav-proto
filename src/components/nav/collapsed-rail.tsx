@@ -86,7 +86,7 @@ export function CollapsedRail({
   // The capsule hugs its contents when collapsed, so the hole left for it has to
   // match. Read from the same store the capsule does rather than take a prop, so
   // the two can never disagree.
-  const { entryLayout, dockPosition } = useTheme();
+  const { entryLayout, dockPosition } = useTheme().effective;
   const topEntry = entryLayout === "top";
   const { state: layout, groups } = useNavLayout();
   const pinnedBlock = collapsedPinnedBlock(
@@ -237,7 +237,7 @@ export function CollapsedRail({
         Reserved space for the pinned capsule, which FavoritesMorph renders
         outside both nav faces so it can travel between the two layouts.
       */}
-      {dockPosition === "top" && !atFloor && !agencyScope ? (
+      {dockPosition === "top" && !atFloor ? (
         <div
           aria-hidden="true"
           className="w-[44px] shrink-0"

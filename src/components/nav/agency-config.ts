@@ -51,11 +51,25 @@ export const agencyEntries: NavEntry[] = [
   ).map((item): NavEntry => ({ kind: "item", item })),
 ];
 
+/**
+ * The agency's own favourites dock. Static for now — the pin/unpin store is
+ * catalogue-scoped — but the dock itself renders identically at both scopes.
+ */
+export const agencyPinned = [
+  { id: "prospecting", label: "Prospecting", icon: UserSearch },
+  { id: "snapshots", label: "Snapshots", icon: Camera },
+  { id: "saas-configurator", label: "SaaS configurator", icon: Scale },
+  { id: "agency-reporting", label: "Rollup reporting", icon: ChartLine },
+  { id: "agency-sub-accounts-pin", label: "Sub-accounts", icon: Users },
+];
+
 /** The agency's Settings row — same chrome position as the client one. */
 export const agencySettings: NavItem = {
   id: "agency-settings",
   label: "Settings",
   icon: Settings,
+  hasFlyout: true,
+  flyoutId: "settings-menu",
 };
 
 const explore = (id: string, label: string): FlyoutConfig["cta"] => ({

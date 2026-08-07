@@ -94,7 +94,13 @@ export const navConfig: NavConfig = {
   ],
   // Last row in the scroll region, so the nav's bottom edge is free for the AI
   // dock rather than being taken by a pinned Settings footer.
-  settings: { id: "settings", label: "Settings", icon: Settings },
+  settings: {
+    id: "settings",
+    label: "Settings",
+    icon: Settings,
+    hasFlyout: true,
+    flyoutId: "settings-menu",
+  },
 };
 
 /**
