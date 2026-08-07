@@ -15,6 +15,8 @@ import {
   ENTRY_LAYOUTS,
   RECENTS_MODE_LABELS,
   RECENTS_MODES,
+  SCOPE_MODEL_LABELS,
+  SCOPE_MODELS,
   SEARCH_MODE_LABELS,
   SEARCH_MODES,
   SURFACE_THEMES,
@@ -25,6 +27,7 @@ import {
   type DockPosition,
   type EntryLayout,
   type RecentsMode,
+  type ScopeModel,
   type SearchMode,
   type SurfaceTheme,
   type Tint,
@@ -85,8 +88,14 @@ function NavStructureSection({
   const { state, can } = layout;
   // Recents straddle the two stores: how many rows to show is a nav-structure
   // question, but the mode is a theme axis like the dock's caption and position.
-  const { recentsMode, setRecentsMode, autoCollapse, setAutoCollapse } =
-    useTheme();
+  const {
+    recentsMode,
+    setRecentsMode,
+    autoCollapse,
+    setAutoCollapse,
+    scopeModel,
+    setScopeModel,
+  } = useTheme();
   const density = densityFor(catalogue.length);
 
   // Compared against the store's own defaults rather than hardcoded values — the
@@ -95,6 +104,7 @@ function NavStructureSection({
   const changed =
     (state.grouping === DEFAULT_LAYOUT.grouping ? 0 : 1) +
     (state.navVolume === DEFAULT_LAYOUT.navVolume ? 0 : 1) +
+    (scopeModel === DEFAULT_THEME.scopeModel ? 0 : 1) +
     (layout.isDefaultLayout ? 0 : 1) +
     (state.editing ? 1 : 0);
 
@@ -106,6 +116,19 @@ function NavStructureSection({
       changedCount={changed}
       onReset={layout.resetLayout}
     >
+      <Segmented
+        label="Agency ↔ sub-account"
+        options={SCOPE_MODELS}
+        value={scopeModel}
+        onChange={(v: ScopeModel) => setScopeModel(v)}
+        format={(v) => SCOPE_MODEL_LABELS[v]}
+      />
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        {scopeModel === "rail"
+          ? "Model C: the agency and your open accounts as a rail of tiles. Open and close accounts from the + tile."
+          : "Model A: one nav, scope named in the header. The agency is the marked case — squircle and an AGENCY word."}
+      </p>
+
       <Segmented
         label="Grouping"
         options={GROUPING_MODES}

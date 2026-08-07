@@ -155,6 +155,28 @@ export const ENTRY_LAYOUT_LABELS: Record<EntryLayout, string> = {
   top: "Both under the logo",
 };
 
+/**
+ * How the workspace switch is presented — the round-2 models from the
+ * exploration board.
+ *
+ *  rail    Model C: a 56px account rail on the far left. The agency is the
+ *          first tile, the clients you have open sit under it, and switching
+ *          is one click that costs nothing. The rail is a capped working set,
+ *          curated from its own panel — not the full account list.
+ *  header  Model A: one nav whose identity row names the scope. The agency is
+ *          the marked case — squircle mark plus an AGENCY eyebrow — and a
+ *          sub-account is a plain circle with no eyebrow. Mark the exception,
+ *          not the rule.
+ */
+export const SCOPE_MODELS = ["rail", "header"] as const;
+
+export type ScopeModel = (typeof SCOPE_MODELS)[number];
+
+export const SCOPE_MODEL_LABELS: Record<ScopeModel, string> = {
+  rail: "Account rail",
+  header: "Header only",
+};
+
 export interface ThemeState {
   accent: Accent;
   /** Whether the accent also tints the whites, greys and text. */
@@ -171,6 +193,8 @@ export interface ThemeState {
   recentsMode: RecentsMode;
   /** Start collapsed on narrow viewports. Off makes the tablet case demoable. */
   autoCollapse: boolean;
+  /** Which workspace-switch model is live. See SCOPE_MODELS. */
+  scopeModel: ScopeModel;
 }
 
 /**
@@ -198,6 +222,9 @@ export const DEFAULT_THEME: ThemeState = {
   entryLayout: "top",
   recentsMode: "fixed-three",
   autoCollapse: true,
+  // The rail is the recommendation, so the prototype opens on it. Model A is
+  // one click away for the comparison.
+  scopeModel: "rail",
 };
 
 /** Human-readable labels, for the controls UI added later. */

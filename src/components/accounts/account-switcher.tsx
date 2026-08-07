@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
+import { AccountLogo } from "./account-logo";
 import { AccountRow } from "./account-row";
 import { useAccountSwitcher } from "./use-account-switcher";
 import type { AccountsSession } from "./use-accounts";
@@ -16,6 +17,12 @@ interface AccountSwitcherProps {
   theme: SurfaceTheme;
   phase: TransitionPhase;
   onClose: () => void;
+  /**
+   * Model A: the agency is a standing row above the groups, symmetric with the
+   * account rows — not a link buried where production hides it. Off in the
+   * rail model, where the agency is a tile that is always on screen.
+   */
+  showAgency?: boolean;
 }
 
 const PANEL_WIDTH = 320;
@@ -37,6 +44,7 @@ export function AccountSwitcher({
   theme,
   phase,
   onClose,
+  showAgency = false,
 }: AccountSwitcherProps) {
   const s = useAccountSwitcher(session, onClose);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -109,6 +117,21 @@ export function AccountSwitcher({
           ref={listRef}
           className="-mx-[2px] mt-[6px] min-h-0 flex-1 overflow-y-auto px-[2px]"
         >
+          {/*
+            Above the groups and outside the arrow-key list: scope is a
+            different kind of jump from picking a sibling account, and it must
+            not reorder under a query the way search results do.
+          */}
+          {showAgency && s.query.trim() === "" ? (
+            <AgencyRow
+              session={session}
+              onSelect={() => {
+                session.switchToAgency();
+                onClose();
+              }}
+            />
+          ) : null}
+
           {s.flat.length === 0 ? (
             <p className="px-[7px] py-[16px] text-[13px] leading-[18px] text-nav-fg-subtle">
               No sub-accounts match “{s.query.trim()}”.
@@ -154,6 +177,48 @@ export function AccountSwitcher({
           </span>
         </div>
       </div>
+    </>
+  );
+}
+
+/**
+ * The agency as a row: squircle mark, AGENCY eyebrow, and the current-scope
+ * treatment when the session is already there. Mirrors the account rows'
+ * geometry so the panel reads as one list with a marked first entry.
+ */
+function AgencyRow({
+  session,
+  onSelect,
+}: {
+  session: AccountsSession;
+  onSelect: () => void;
+}) {
+  const current = session.scope === "agency";
+  return (
+    <>
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-current={current ? "true" : undefined}
+        className={cn(
+          "flex w-full items-center gap-[10px] rounded-[8px] px-[7px] py-[7px] text-left outline-none",
+          current ? "bg-nav-active" : "hover:bg-nav-hover",
+        )}
+      >
+        <AccountLogo logo={session.agency.logo} size={28} radius={8} />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="text-[9px] leading-[11px] font-bold tracking-[0.08em] text-nav-fg-muted">
+            AGENCY
+          </span>
+          <span className="truncate text-[13.5px] leading-[17px] font-semibold text-nav-fg">
+            {session.agency.name}
+          </span>
+        </span>
+        <span className="shrink-0 text-[11px] leading-[normal] text-nav-fg-subtle">
+          {current ? "Current" : "All accounts"}
+        </span>
+      </button>
+      <div className="mx-[7px] my-[6px] h-px bg-nav-divider" />
     </>
   );
 }

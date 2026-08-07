@@ -12,6 +12,8 @@ interface WorkspaceTriggerProps {
   logoAlt: string;
   open: boolean;
   onToggle: () => void;
+  /** Agency scope: the marked case — AGENCY eyebrow, squircle, taller chip. */
+  agency?: boolean;
 }
 
 /**
@@ -29,6 +31,7 @@ export function WorkspaceTrigger({
   logoAlt,
   open,
   onToggle,
+  agency = false,
 }: WorkspaceTriggerProps) {
   const ref = React.useRef<HTMLButtonElement>(null);
   const wasOpen = React.useRef(open);
@@ -46,18 +49,24 @@ export function WorkspaceTrigger({
       type="button"
       aria-haspopup="dialog"
       aria-expanded={open}
-      aria-label={`Switch sub-account. Current account: ${account.name}`}
+      aria-label={
+        agency
+          ? `Switch workspace. Current scope: ${account.name}, all accounts`
+          : `Switch sub-account. Current account: ${account.name}`
+      }
       onClick={onToggle}
       className={cn(
         // Negative margin cancels the padding, so the hover surface extends
         // around the logo instead of pushing it in from the nav's 12px edge.
-        "group/ws motion-tap -mx-[6px] flex h-[30px] min-w-0 items-center gap-[5px] rounded-[8px] px-[6px] outline-none active:scale-[0.99]",
+        "group/ws motion-tap -mx-[6px] flex min-w-0 items-center gap-[5px] rounded-[8px] px-[6px] outline-none active:scale-[0.99]",
+        // The two-line agency lockup needs the taller chip; accounts keep 30px.
+        agency ? "h-[36px]" : "h-[30px]",
         open
           ? "bg-nav-active"
           : "hover:bg-nav-hover focus-visible:ring-[1.5px] focus-visible:ring-brand",
       )}
     >
-      <BrandMark account={account} logoSrc={logoSrc} alt={logoAlt} />
+      <BrandMark account={account} logoSrc={logoSrc} alt={logoAlt} agency={agency} />
 
       <ChevronsUpDown
         size={14}

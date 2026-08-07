@@ -5,6 +5,7 @@ import { Search, Star } from "lucide-react";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import type { Account } from "@/components/accounts/accounts-data";
+import type { WorkspaceScope } from "@/components/accounts/use-accounts";
 import { AiDock } from "@/components/ai/ai-dock";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
@@ -13,6 +14,7 @@ import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { CollapseToggle } from "./collapse-toggle";
 import { EntryClusterRail } from "./entry-cluster";
+import { agencyEntries, agencySettings } from "./agency-config";
 import { collapsedPinnedBlock, PINNED_VISIBLE } from "./favorites-morph";
 import { navEntriesFor } from "./nav-entries";
 import { useNavLayout } from "./nav-layout-provider";
@@ -36,7 +38,9 @@ interface CollapsedRailProps {
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onSearch: () => void;
-  /** Sub-account the session is in. The rail's mark is its switcher trigger. */
+  /** Whose nav this is: one sub-account, or the agency across all of them. */
+  scope: WorkspaceScope;
+  /** Identity behind the rail's mark — the account, or the agency at agency scope. */
   account: Account;
   switcherOpen: boolean;
   onToggleSwitcher: () => void;
@@ -67,6 +71,7 @@ export function CollapsedRail({
   collapsed,
   onToggleCollapsed,
   onSearch,
+  scope,
   account,
   switcherOpen,
   onToggleSwitcher,
@@ -75,6 +80,7 @@ export function CollapsedRail({
   onOpenLauncher,
 }: CollapsedRailProps) {
   const atFloor = density === "floor";
+  const agencyScope = scope === "agency";
   const scrollRef = React.useRef<HTMLDivElement>(null);
   useScrollEdges(scrollRef);
   // The capsule hugs its contents when collapsed, so the hole left for it has to
@@ -90,8 +96,8 @@ export function CollapsedRail({
   // rows. Editing is not offered here — there is no visible label to rename, so
   // the rail shows the result of an edit rather than being a place to make one.
   const entries = React.useMemo(
-    () => navEntriesFor(layout, groups),
-    [layout, groups],
+    () => (agencyScope ? agencyEntries : navEntriesFor(layout, groups)),
+    [agencyScope, layout, groups],
   );
 
   const railButton = (
@@ -204,9 +210,11 @@ export function CollapsedRail({
       >
         <AccountLogo
           logo={account.logo}
-          src={config.logoSrc ?? account.logoSrc}
+          src={agencyScope ? account.logoSrc : (config.logoSrc ?? account.logoSrc)}
           size={30}
-          radius={7}
+          // The round-2 shape language: squircle marks the agency, accounts
+          // are circles. Shape carries the scope, not colour.
+          radius={agencyScope ? 9 : 999}
         />
       </button>
 
@@ -229,7 +237,7 @@ export function CollapsedRail({
         Reserved space for the pinned capsule, which FavoritesMorph renders
         outside both nav faces so it can travel between the two layouts.
       */}
-      {dockPosition === "top" && !atFloor ? (
+      {dockPosition === "top" && !atFloor && !agencyScope ? (
         <div
           aria-hidden="true"
           className="w-[44px] shrink-0"
@@ -248,7 +256,12 @@ export function CollapsedRail({
         rail is the worse case: 440px of chrome, so a 380px rail had a 0px scroll
         region with every product row unreachable.
       */}
-      {atFloor ? null : (
+      {/*
+        The client's fixed cluster is Recent-products plus the AI pair; the
+        agency scope has no equivalent yet, so its rail goes straight to the
+        groups rather than showing rows that would open client panels.
+      */}
+      {atFloor || agencyScope ? null : (
         <>
           <div className="flex w-full flex-col items-center gap-[calc(var(--t-nav-space,2px)+2px)]">
             {config.railFixed.map(renderRailRow)}
@@ -268,7 +281,7 @@ export function CollapsedRail({
           data-cursor="menu"
           className="flex w-full flex-1 flex-col items-center gap-[calc(var(--t-nav-space,2px)+2px)] overflow-y-auto"
         >
-          {atFloor ? (
+          {atFloor && !agencyScope ? (
             <>
               {railButton("favorites-rail", "Favorites", <Star size={16} aria-hidden="true" />, false, onOpenLauncher, undefined, true)}
               {config.railFixed.map(renderRailRow)}
@@ -282,7 +295,7 @@ export function CollapsedRail({
               divider(entry.id)
             ) : null,
           )}
-          {renderRailRow(config.settings)}
+          {renderRailRow(agencyScope ? agencySettings : config.settings)}
         </div>
         <div aria-hidden="true" data-scroll-fade="bottom" />
       </div>

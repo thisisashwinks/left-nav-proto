@@ -1,7 +1,12 @@
 "use client";
 
 import * as React from "react";
+import {
+  AccountRail,
+  ACCOUNT_RAIL_WIDTH,
+} from "@/components/accounts/account-rail";
 import { AccountSwitcher } from "@/components/accounts/account-switcher";
+import { RailSwitcher } from "@/components/accounts/rail-switcher";
 import { useAccounts } from "@/components/accounts/use-accounts";
 import { AiWindow } from "@/components/ai/ai-window";
 import { useAiSession } from "@/components/ai/use-ai-session";
@@ -20,6 +25,7 @@ import {
   useNavDensity,
 } from "@/components/nav/use-nav-density";
 import { LeftNav } from "@/components/nav/left-nav";
+import { agencyFlyouts } from "@/components/nav/agency-config";
 import { productById } from "@/components/nav/catalogue";
 import { flyoutForGroup } from "@/components/nav/group-flyout";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
@@ -94,6 +100,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     entryLayout,
     recentsMode,
     autoCollapse,
+    scopeModel,
   } = useTheme();
   /*
    * Collapsed follows the viewport until the user says otherwise.
@@ -140,16 +147,27 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    */
   const accounts = useAccounts();
 
+  const agencyScope = accounts.scope === "agency";
+  // What the nav header shows: the agency identity at agency scope, the
+  // current sub-account otherwise. One derivation for both nav faces.
+  const headerAccount = agencyScope ? accounts.agency : accounts.current;
+  const recentAccounts = accounts.recentIds
+    .map((id) => accounts.accounts.find((a) => a.id === id))
+    .filter((a): a is (typeof accounts.accounts)[number] => a !== undefined);
+
   /*
-   * Seeds the accent from the current account's logo. Only the one property is
-   * written — tokens.css derives the rest of the brand ramp from it, and the
-   * tint layer derives the neutrals from that, so switching account can move the
-   * whole workspace's temperature rather than just its buttons.
+   * Seeds the accent from whoever owns the workspace right now: the current
+   * sub-account's logo, or the agency's own brand at agency scope — switching
+   * to the agency rebrands the whole surface, exactly as entering a client
+   * does. Only the one property is written — tokens.css derives the rest of
+   * the brand ramp from it, and the tint layer derives the neutrals from
+   * that, so a scope change can move the workspace's temperature rather than
+   * just its buttons.
    *
    * Set on <html> because that is where [data-accent] is scoped, and React does
    * not own that element here.
    */
-  const accountBrand = accounts.current.logo.from;
+  const accountBrand = headerAccount.logo.from;
   React.useEffect(() => {
     document.documentElement.style.setProperty("--account-brand", accountBrand);
   }, [accountBrand]);
@@ -235,11 +253,22 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     }));
   const overflowCount = Math.max(0, layout.pinned.length - PINNED_VISIBLE);
 
+  const railActive = scopeModel === "rail";
   const navWidth = collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
+  /*
+   * Where panels dock. With the account rail live, everything that hangs off
+   * the nav's right edge — flyouts, the AI window, the launcher — starts one
+   * rail further right, and the switcher panels anchor past it too.
+   */
+  const railWidth = railActive ? ACCOUNT_RAIL_WIDTH : 0;
+  const leftOffset = railWidth + navWidth;
   // Group panels win over the authored registry: a renamed Engage has to open a
   // panel titled with its new name, and the registry still holds the old one.
+  // At agency scope the agency's own panels take their place.
   const requested = intent.activeId
-    ? (groupFlyouts.get(intent.activeId) ?? flyouts[intent.activeId] ?? null)
+    ? agencyScope
+      ? (agencyFlyouts[intent.activeId] ?? null)
+      : (groupFlyouts.get(intent.activeId) ?? flyouts[intent.activeId] ?? null)
     : null;
   const flyout = useExitTransition(requested, FLYOUT_EXIT_MS);
   // A bare `true` rather than the session object: useExitTransition compares
@@ -273,8 +302,28 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     setSwitcherOpen(true);
   }, [intent, switcherOpen]);
 
+  // Leaving one scope for the other closes whatever was open over the canvas —
+  // a client flyout has no meaning at agency scope and vice versa — and drops
+  // the row selection, which named a row the other scope does not have.
+  const scopeRef = React.useRef(accounts.scope);
+  React.useEffect(() => {
+    if (scopeRef.current === accounts.scope) return;
+    scopeRef.current = accounts.scope;
+    intent.close();
+    setSelectedId(null);
+  }, [accounts.scope, intent]);
+
   return (
     <div className="relative flex min-h-0 flex-1 overflow-hidden bg-app">
+      {railActive ? (
+        <AccountRail
+          session={accounts}
+          theme={navTheme}
+          switcherOpen={switcherOpen}
+          onToggleSwitcher={toggleSwitcher}
+        />
+      ) : null}
+
       <div
         ref={navWrapRef}
         style={{ width: navWidth, ...densityVars(density) }}
@@ -292,7 +341,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           this wrapper, so it cannot join a scroll region — leaving it up would mean
           a floating dock hanging over rows trying to scroll underneath it.
         */}
-        {atFloor ? null : (
+        {/* The dock is the sub-account's fast path; at agency scope it goes. */}
+        {atFloor || agencyScope ? null : (
         <FavoritesMorph
           theme={navTheme}
           items={pinnedItems}
@@ -336,7 +386,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             collapsed={collapsed}
             onToggleCollapsed={toggleCollapsed}
             onSearch={() => setSearchOpen(true)}
-            account={accounts.current}
+            scope={accounts.scope}
+            account={headerAccount}
+            recentAccounts={recentAccounts}
+            onSwitchAccount={accounts.switchTo}
             switcherOpen={switcherOpen}
             onToggleSwitcher={toggleSwitcher}
             aiSession={aiSession}
@@ -367,7 +420,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             collapsed={collapsed}
             onToggleCollapsed={toggleCollapsed}
             onSearch={() => setSearchOpen(true)}
-            account={accounts.current}
+            scope={accounts.scope}
+            account={headerAccount}
             switcherOpen={switcherOpen}
             onToggleSwitcher={toggleSwitcher}
             aiSession={aiSession}
@@ -402,7 +456,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             aria-label="Close menu"
             tabIndex={-1}
             onClick={intent.close}
-            style={{ left: navWidth }}
+            style={{ left: leftOffset }}
             className={cn(
               "absolute top-0 right-0 bottom-0 z-10 cursor-default motion-move",
               flyout.phase === "entering" ? "opacity-100" : "opacity-0",
@@ -416,7 +470,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           */}
           <FlyoutPanel
             config={flyout.value}
-            offsetLeft={navWidth}
+            offsetLeft={leftOffset}
             theme={navTheme}
             phase={flyout.phase}
             onPointerEnter={intent.cancelClear}
@@ -433,7 +487,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       {ai.isMounted ? (
         <AiWindow
           theme={navTheme}
-          offsetLeft={navWidth}
+          offsetLeft={leftOffset}
           session={aiSession}
           phase={ai.phase}
         />
@@ -441,7 +495,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
 
       {launcher.isMounted ? (
         <PinnedLauncher
-          offsetLeft={navWidth}
+          offsetLeft={leftOffset}
           theme={navTheme}
           phase={launcher.phase}
           onPointerEnter={intent.cancelClear}
@@ -453,17 +507,32 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       {/*
         Anchored to its trigger in whichever nav face is showing, and rendered
         out here because both faces clip their overflow.
+
+        Two models, two panels. The rail model gets the curate-and-jump panel
+        docked past the rail; the header model keeps the anchored switcher,
+        with the agency as its standing first row.
       */}
       {switcher.isMounted ? (
-        <AccountSwitcher
-          session={accounts}
-          anchor={
-            collapsed ? SWITCHER_ANCHOR.collapsed : SWITCHER_ANCHOR.expanded
-          }
-          theme={navTheme}
-          phase={switcher.phase}
-          onClose={() => setSwitcherOpen(false)}
-        />
+        railActive ? (
+          <RailSwitcher
+            session={accounts}
+            offsetLeft={ACCOUNT_RAIL_WIDTH}
+            theme={navTheme}
+            phase={switcher.phase}
+            onClose={() => setSwitcherOpen(false)}
+          />
+        ) : (
+          <AccountSwitcher
+            session={accounts}
+            showAgency
+            anchor={
+              collapsed ? SWITCHER_ANCHOR.collapsed : SWITCHER_ANCHOR.expanded
+            }
+            theme={navTheme}
+            phase={switcher.phase}
+            onClose={() => setSwitcherOpen(false)}
+          />
+        )
       ) : null}
 
       <UndoToast />
@@ -477,7 +546,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           />
         ) : (
           <SearchFlyout
-            offsetLeft={navWidth}
+            offsetLeft={leftOffset}
             theme={searchTheme}
             onClose={() => setSearchOpen(false)}
           />

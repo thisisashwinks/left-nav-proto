@@ -10,6 +10,8 @@ interface NavHeaderProps {
   logoAlt: string;
   switcherOpen: boolean;
   onToggleSwitcher: () => void;
+  /** Agency scope — the trigger takes the marked treatment. */
+  agency?: boolean;
   /**
    * What sits at the row's right edge.
    *
@@ -35,6 +37,7 @@ export function NavHeader({
   logoAlt,
   switcherOpen,
   onToggleSwitcher,
+  agency = false,
   trailing,
 }: NavHeaderProps) {
   return (
@@ -47,6 +50,7 @@ export function NavHeader({
             logoAlt={logoAlt}
             open={switcherOpen}
             onToggle={onToggleSwitcher}
+            agency={agency}
           />
         </div>
 

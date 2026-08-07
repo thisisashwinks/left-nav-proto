@@ -66,8 +66,16 @@ export function RailTooltip({
         ? createPortal(
             <div
               role="tooltip"
-              style={{ top: pos.top, left: pos.left }}
-              className="motion-tap pointer-events-none fixed z-[60] -translate-y-1/2 rounded-[6px] bg-pg-overlay px-[8px] py-[4px] text-[12px] leading-none whitespace-nowrap text-pg-surface shadow-[0_4px_12px_0_rgba(15,23,42,0.24)]"
+              // Literal overlay colours, not --pg-overlay-*: those tokens are
+              // scoped under [data-page-theme], and this portal lands on
+              // <body>, outside every scope — the pill rendered unstyled.
+              style={{
+                top: pos.top,
+                left: pos.left,
+                backgroundColor: "#0f172a",
+                color: "#e2e8f0",
+              }}
+              className="motion-tap pointer-events-none fixed z-[60] -translate-y-1/2 rounded-[6px] px-[8px] py-[4px] text-[12px] leading-none whitespace-nowrap shadow-[0_4px_12px_0_rgba(15,23,42,0.24)]"
             >
               {label}
             </div>,

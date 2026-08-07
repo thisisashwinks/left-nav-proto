@@ -2,12 +2,15 @@
 
 import * as React from "react";
 import { History, Search, Star } from "lucide-react";
+import { AccountLogo } from "@/components/accounts/account-logo";
 import type { Account } from "@/components/accounts/accounts-data";
+import type { WorkspaceScope } from "@/components/accounts/use-accounts";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { AiDock } from "@/components/ai/ai-dock";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import type { DockPosition, SurfaceTheme } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
+import { agencyEntries, agencySettings } from "./agency-config";
 import { CollapseToggle } from "./collapse-toggle";
 import { EntryCluster } from "./entry-cluster";
 import { pinnedBlockFor } from "./favorites-morph";
@@ -38,8 +41,13 @@ interface LeftNavProps {
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onSearch: () => void;
-  /** Sub-account the session is in. Shown in the header's switcher trigger. */
+  /** Whose nav this is: one sub-account, or the agency across all of them. */
+  scope: WorkspaceScope;
+  /** Identity in the header — the current account, or the agency at agency scope. */
   account: Account;
+  /** Recently visited accounts, for the agency scope's Recent block. */
+  recentAccounts: Account[];
+  onSwitchAccount: (id: string) => void;
   switcherOpen: boolean;
   onToggleSwitcher: () => void;
   /** Owned by the shell, so the window can escape the nav's clipped box. */
@@ -84,7 +92,10 @@ export function LeftNav({
   collapsed,
   onToggleCollapsed,
   onSearch,
+  scope,
   account,
+  recentAccounts,
+  onSwitchAccount,
   switcherOpen,
   onToggleSwitcher,
   aiSession,
@@ -95,11 +106,14 @@ export function LeftNav({
   const { entryLayout, dockPosition } = useTheme();
   const topEntry = entryLayout === "top";
   const atFloor = density === "floor";
+  const agencyScope = scope === "agency";
   const picker = useIconPicker();
   const { state, groups, editFor, pickerProps } = useNavRowEdit(picker);
+  // At agency scope the middle block is the agency's own config — the grouping
+  // modes, renames and volume switch stay a sub-account exercise.
   const entries = React.useMemo(
-    () => navEntriesFor(state, groups),
-    [state, groups],
+    () => (agencyScope ? agencyEntries : navEntriesFor(state, groups)),
+    [agencyScope, state, groups],
   );
 
   // Trims the Recent block to what the density and the recents mode allow.
@@ -113,7 +127,9 @@ export function LeftNav({
 
   const renderRow = (item: NavItem) => {
     const flyoutId = flyoutIdFor(item);
-    const edit = editFor(item.id);
+    // Inline edit is for the catalogue's rows; the agency config has no
+    // override maps behind it yet, so its rows stay plain destinations.
+    const edit = agencyScope ? undefined : editFor(item.id);
     return (
       <NavItemRow
         key={item.id}
@@ -154,7 +170,10 @@ export function LeftNav({
     >
       <NavHeader
         account={account}
-        logoSrc={config.logoSrc}
+        agency={agencyScope}
+        // The config's demo logo pins the header to one asset; at agency scope
+        // the identity is the agency's own mark, never that override.
+        logoSrc={agencyScope ? undefined : config.logoSrc}
         logoAlt={config.logoAlt}
         switcherOpen={switcherOpen}
         onToggleSwitcher={onToggleSwitcher}
@@ -178,7 +197,9 @@ export function LeftNav({
         here when the dock sits under the logo, and after the scroll region when it
         is pinned to the nav's bottom edge.
       */}
-      {dockPosition === "top" && !atFloor ? <PinnedHole position="top" /> : null}
+      {dockPosition === "top" && !atFloor && !agencyScope ? (
+        <PinnedHole position="top" />
+      ) : null}
 
       {/*
         The standing entry points normally sit above the scroll region so they never
@@ -193,7 +214,14 @@ export function LeftNav({
             data-cursor="menu"
             className="flex w-full shrink-0 flex-col items-start gap-[var(--t-nav-space,2px)] px-[10px]"
           >
-            {fixedEntries.map(renderEntry)}
+            {agencyScope ? (
+              <RecentAccountsBlock
+                accounts={recentAccounts}
+                onSwitch={onSwitchAccount}
+              />
+            ) : (
+              fixedEntries.map(renderEntry)
+            )}
           </div>
 
           <div className="w-full shrink-0 px-[10px]">
@@ -215,13 +243,20 @@ export function LeftNav({
         >
           {atFloor ? (
             <>
-              <FavoritesRow onOpen={onOpenLauncher} />
-              {fixedEntries.map(renderEntry)}
+              {agencyScope ? null : <FavoritesRow onOpen={onOpenLauncher} />}
+              {agencyScope ? (
+                <RecentAccountsBlock
+                  accounts={recentAccounts}
+                  onSwitch={onSwitchAccount}
+                />
+              ) : (
+                fixedEntries.map(renderEntry)
+              )}
               <NavDivider />
             </>
           ) : null}
           {entries.map(renderEntry)}
-          {renderRow(config.settings)}
+          {renderRow(agencyScope ? agencySettings : config.settings)}
         </div>
         <div aria-hidden="true" data-scroll-fade="bottom" />
       </div>
@@ -250,6 +285,43 @@ export function LeftNav({
 
       {pickerProps ? <IconPicker {...pickerProps} /> : null}
     </nav>
+  );
+}
+
+/**
+ * The agency's Recent block: the last sub-accounts visited, as compact rows
+ * with the account's own mark where a product row has its icon. Clicking one
+ * is the fast path back into a client — the block plays the role the client
+ * nav's Recent products play, at the unit the agency thinks in.
+ */
+function RecentAccountsBlock({
+  accounts,
+  onSwitch,
+}: {
+  accounts: Account[];
+  onSwitch: (id: string) => void;
+}) {
+  if (accounts.length === 0) return null;
+  return (
+    <>
+      <NavSectionLabel text="Recent accounts" />
+      {accounts.map((account) => (
+        <button
+          key={account.id}
+          type="button"
+          onClick={() => onSwitch(account.id)}
+          className="motion-tap flex w-full items-center gap-[var(--t-nav-gap,10px)] rounded-[var(--t-nav-radius,7px)] px-[var(--t-nav-px,8px)] py-[6px] text-left hover:bg-nav-hover active:scale-[0.99]"
+        >
+          <AccountLogo logo={account.logo} src={account.logoSrc} size={16} radius={999} />
+          <span
+            className="truncate leading-[20px] text-nav-fg"
+            style={{ fontSize: "calc(var(--t-nav-font, 14px) - 0.5px)" }}
+          >
+            {account.name}
+          </span>
+        </button>
+      ))}
+    </>
   );
 }
 

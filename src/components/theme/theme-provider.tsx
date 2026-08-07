@@ -8,6 +8,7 @@ import {
   type DockPosition,
   type EntryLayout,
   type RecentsMode,
+  type ScopeModel,
   type SearchMode,
   type SurfaceTheme,
   type ThemeState,
@@ -27,6 +28,7 @@ interface ThemeContextValue extends ThemeState {
   setEntryLayout: (layout: EntryLayout) => void;
   setRecentsMode: (mode: RecentsMode) => void;
   setAutoCollapse: (enabled: boolean) => void;
+  setScopeModel: (model: ScopeModel) => void;
 }
 
 const ThemeContext = React.createContext<ThemeContextValue | null>(null);
@@ -75,6 +77,7 @@ export function ThemeProvider({
       setEntryLayout: (entryLayout) => setState((s) => ({ ...s, entryLayout })),
       setRecentsMode: (recentsMode) => setState((s) => ({ ...s, recentsMode })),
       setAutoCollapse: (autoCollapse) => setState((s) => ({ ...s, autoCollapse })),
+      setScopeModel: (scopeModel) => setState((s) => ({ ...s, scopeModel })),
     }),
     [state],
   );

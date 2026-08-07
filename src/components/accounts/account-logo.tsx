@@ -121,9 +121,18 @@ export function AccountLogo({
           width: size,
           height: size,
           borderRadius: radius,
+          // A logo tile, not a photo crop: real marks are mostly transparent
+          // squares, so they sit contained on a white tile with a hairline
+          // ring — the Slack-workspace treatment. The white also keeps dark
+          // marks legible on the dark nav.
+          backgroundColor: "#ffffff",
           backgroundImage: `url(${src})`,
-          backgroundSize: "cover",
+          // Most favicons carry their own safe-area padding, so the artwork
+          // needs nearly the whole tile before it reads at 20px.
+          backgroundSize: "86% 86%",
+          backgroundRepeat: "no-repeat",
           backgroundPosition: "center",
+          boxShadow: "inset 0 0 0 1px rgba(16,24,40,0.12)",
           flexShrink: 0,
         }}
       />
