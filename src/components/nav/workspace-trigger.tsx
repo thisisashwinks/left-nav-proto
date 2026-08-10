@@ -58,15 +58,13 @@ export function WorkspaceTrigger({
       className={cn(
         // Negative margin cancels the padding, so the hover surface extends
         // around the logo instead of pushing it in from the nav's 12px edge.
-        "group/ws motion-tap -mx-[6px] flex min-w-0 items-center gap-[5px] rounded-[8px] px-[6px] outline-none active:scale-[0.99]",
-        // The two-line agency lockup needs the taller chip; accounts keep 30px.
-        agency ? "h-[36px]" : "h-[30px]",
+        "group/ws motion-tap -mx-[6px] flex h-[30px] min-w-0 items-center gap-[5px] rounded-[8px] px-[6px] outline-none active:scale-[0.99]",
         open
           ? "bg-nav-active"
           : "hover:bg-nav-hover focus-visible:ring-[1.5px] focus-visible:ring-brand",
       )}
     >
-      <BrandMark account={account} logoSrc={logoSrc} alt={logoAlt} agency={agency} />
+      <BrandMark account={account} logoSrc={logoSrc} alt={logoAlt} />
 
       <ChevronsUpDown
         size={14}

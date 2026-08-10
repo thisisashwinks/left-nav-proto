@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Grip } from "lucide-react";
+import { Grip, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import { AccountLogo } from "./account-logo";
@@ -9,13 +9,17 @@ import type { Account } from "./accounts-data";
 import { RailTooltip } from "@/components/nav/rail-tooltip";
 import type { AccountsSession } from "./use-accounts";
 
-/** The rail's width — the shell adds this to every panel's dock offset. */
+/** The rail's two widths — the shell adds the live one to panel offsets. */
 export const ACCOUNT_RAIL_WIDTH = 56;
+export const ACCOUNT_RAIL_EXPANDED_WIDTH = 216;
 
 interface AccountRailProps {
   session: AccountsSession;
   theme: SurfaceTheme;
-  /** Whether the Accounts panel is open — the + tile shows as pressed. */
+  /** Expanded shows full account names — for the logos that don't earn recognition. */
+  expanded: boolean;
+  onToggleExpanded: () => void;
+  /** Whether the Accounts panel is open — the waffle shows as pressed. */
   switcherOpen: boolean;
   onToggleSwitcher: () => void;
 }
@@ -23,20 +27,22 @@ interface AccountRailProps {
 /**
  * Model C: the account rail.
  *
- * The agency is not a mode — it is the first tile, squircle where the
- * accounts are circles, separated by a rule. Below it, the open accounts:
- * the ones the user has chosen to keep on the rail, capped at the session's
- * limit and managed from the panel behind the + tile.
+ * The agency is not a mode — it is the first row, sitting on its own neutral
+ * plate. The plate is the whole differentiator: no AGENCY label (cramped,
+ * and redundant next to a name like "Johnson Agency"), and no shape tricks —
+ * per the Aug 7 review, a zone survives even the case where a sub-account
+ * carries the agency's own name, because it isn't a string.
  *
- * Where-am-I is answered by position and shape, not colour: the selected
- * tile carries a bar on the rail's edge, a ring around the mark, and full
- * opacity — three redundant cues, because the review's finding was that one
- * was not enough. The tiles themselves keep each account's real logo; that
- * is the tenant's brand, not a signal we invented.
+ * The rail expands to show full names: many real tenant logos are too poor
+ * to be recognisable at 28px, so readable names are one toggle away. The
+ * active account is a filled row plus the edge bar — the earlier ring read
+ * as too subtle in review.
  */
 export function AccountRail({
   session,
   theme,
+  expanded,
+  onToggleExpanded,
   switcherOpen,
   onToggleSwitcher,
 }: AccountRailProps) {
@@ -49,119 +55,183 @@ export function AccountRail({
       data-nav-theme={theme}
       aria-label="Accounts"
       data-cursor="menu"
-      className="flex h-full shrink-0 flex-col items-center gap-[7px] overflow-hidden bg-nav-rail py-[10px] shadow-[inset_-1px_0_0_0_var(--nav-border)]"
-      style={{ width: ACCOUNT_RAIL_WIDTH }}
+      className="motion-move flex h-full shrink-0 flex-col gap-[7px] overflow-hidden bg-nav-rail py-[8px] shadow-[inset_-1px_0_0_0_var(--nav-border)]"
+      style={{ width: expanded ? ACCOUNT_RAIL_EXPANDED_WIDTH : ACCOUNT_RAIL_WIDTH }}
     >
-      <RailTile
-        label={`${session.agency.name} — agency`}
-        selected={session.scope === "agency"}
-        onClick={session.switchToAgency}
-        squircle
-      >
-        {/* Squircle: the agency's shape, never used by an account tile. */}
-        <AccountLogo
-          logo={session.agency.logo}
-          src={session.agency.logoSrc}
-          size={34}
-          radius={10}
+      {/*
+        The agency zone: a neutral plate the agency row sits on, ending at
+        nothing — the plate's own edge is the boundary. Same tile shape as
+        every account below it.
+      */}
+      <div className="mx-[6px] shrink-0 rounded-[10px] bg-nav-rail-disc p-[4px]">
+        <RailRow
+          label={`${session.agency.name} — agency`}
+          name={session.agency.name}
+          expanded={expanded}
+          selected={session.scope === "agency"}
+          onClick={session.switchToAgency}
+          account={session.agency}
         />
-      </RailTile>
-
-      <div aria-hidden="true" className="w-[26px] shrink-0 border-t border-nav-divider" />
-
-      {/*
-        Uncapped, so the open set scrolls rather than clipping. The agency tile
-        above and the + below stay put — the two fixed points of the rail.
-      */}
-      {/*
-        py-[5px]: the selection ring draws 4px outside the tile, and an
-        overflow container clips at its padding edge — the first and last
-        tiles' rings were losing their top and bottom arcs.
-      */}
-      <div className="flex min-h-0 w-full flex-col items-center gap-[7px] overflow-y-auto py-[5px] [scrollbar-width:none]">
-        {railAccounts.map((account) => (
-          <RailTile
-            key={account.id}
-            label={account.name}
-            selected={session.scope === "account" && account.id === session.current.id}
-            onClick={() => session.switchTo(account.id)}
-          >
-            <AccountLogo logo={account.logo} src={account.logoSrc} size={30} radius={999} />
-          </RailTile>
-        ))}
       </div>
 
       {/*
-        The waffle, not a +: the panel behind it is every account you have,
-        so the icon should say "browse", not "create". A plus here read as
-        "make a new sub-account".
+        Uncapped, so the open set scrolls rather than clipping. The agency
+        plate above and the bottom toggle stay put — the fixed points.
+
+        "All accounts" rides at the tail of the list rather than the footer:
+        it is the directory the list is a slice of, so it belongs with the
+        accounts — the footer is rail chrome, and putting an account action
+        down there read as chrome. The waffle, not a +: the panel behind it
+        is every account you have, so the icon should say "browse", not
+        "create".
       */}
-      <RailTooltip label="All accounts">
-        <button
-          type="button"
-          aria-label="All accounts"
-          aria-haspopup="dialog"
-          aria-expanded={switcherOpen}
-          onClick={onToggleSwitcher}
-          className={cn(
-            "motion-tap flex size-[32px] shrink-0 items-center justify-center rounded-full text-nav-fg-subtle",
-            switcherOpen
-              ? "bg-nav-active text-nav-fg"
-              : "hover:bg-nav-hover hover:text-nav-fg-muted",
-          )}
-        >
-          <Grip size={17} aria-hidden="true" />
-        </button>
-      </RailTooltip>
+      <div className="flex min-h-0 w-full flex-1 flex-col gap-[4px] overflow-y-auto px-[6px] py-[2px] [scrollbar-width:none]">
+        {railAccounts.map((account) => (
+          <RailRow
+            key={account.id}
+            label={account.name}
+            name={account.name}
+            expanded={expanded}
+            selected={session.scope === "account" && account.id === session.current.id}
+            onClick={() => session.switchTo(account.id)}
+            account={account}
+          />
+        ))}
+
+        <Tooltipped label="All accounts" show={!expanded}>
+          <button
+            type="button"
+            aria-label="All accounts"
+            aria-haspopup="dialog"
+            aria-expanded={switcherOpen}
+            onClick={onToggleSwitcher}
+            className={cn(
+              "motion-tap flex h-[36px] w-full shrink-0 items-center gap-[9px] rounded-[9px] p-[4px] text-nav-fg-subtle",
+              !expanded && "justify-center",
+              switcherOpen
+                ? "bg-nav-active text-nav-fg"
+                : "hover:bg-nav-hover hover:text-nav-fg-muted",
+            )}
+          >
+            {/* A 28px stage, so the glyph centres exactly under the logos above. */}
+            <span className="flex size-[28px] shrink-0 items-center justify-center">
+              <Grip size={16} aria-hidden="true" />
+            </span>
+            {expanded ? (
+              <span className="truncate text-[12.5px] leading-none font-medium">
+                All accounts
+              </span>
+            ) : null}
+          </button>
+        </Tooltipped>
+      </div>
+
+      <div className="mx-[10px] shrink-0 border-t border-nav-divider" aria-hidden="true" />
+
+      {/*
+        The nav's drawer glyphs, not bespoke chevrons — one affordance for
+        "make this rail wider or narrower" wherever it appears. Collapsed it
+        is the same 28px square as the nav's toggle, tooltipped "Expand";
+        expanded it takes the row and says "Collapse", so the footer never
+        reads as an empty strip.
+      */}
+      <div className="flex shrink-0 px-[6px]">
+        <Tooltipped label="Expand" show={!expanded}>
+          <button
+            type="button"
+            aria-expanded={expanded}
+            aria-label={expanded ? "Collapse account rail" : "Expand account rail"}
+            onClick={onToggleExpanded}
+            className={cn(
+              "motion-tap flex h-[28px] w-full items-center gap-[8px] rounded-[7px] text-nav-fg-subtle",
+              "hover:bg-nav-hover hover:text-nav-fg active:scale-95 motion-press",
+              expanded ? "px-[9px]" : "justify-center",
+            )}
+          >
+            {expanded ? (
+              <>
+                <PanelLeftClose size={16} aria-hidden="true" className="shrink-0" />
+                <span className="truncate text-[12px] leading-none font-medium">
+                  Collapse
+                </span>
+              </>
+            ) : (
+              <PanelLeftOpen size={16} aria-hidden="true" />
+            )}
+          </button>
+        </Tooltipped>
+      </div>
     </nav>
   );
 }
 
 /**
- * One tile. Selection is three redundant cues — the edge bar, a ring around
- * the mark, and full opacity against everyone else's rest state — because
- * the tenant's logo itself must never be repainted to say "you are here".
+ * One account row. Active is a filled row plus the edge bar — said twice, in
+ * fill and in position, without ever repainting the tenant's logo. Expanded,
+ * the name rides along and the fill gets a whole row to work with.
  */
-function RailTile({
+function RailRow({
   label,
+  name,
+  expanded,
   selected,
   onClick,
-  squircle = false,
-  children,
+  account,
 }: {
   label: string;
+  name: string;
+  expanded: boolean;
   selected: boolean;
   onClick: () => void;
-  /** The agency's shape — the selection ring has to follow it. */
-  squircle?: boolean;
-  children: React.ReactNode;
+  account: Account;
 }) {
   return (
-    <div className="relative flex w-full shrink-0 items-center justify-center">
+    <div className="relative w-full shrink-0">
       <span
         aria-hidden="true"
         className={cn(
-          "absolute left-0 w-[3px] rounded-r-[2px] bg-nav-fg motion-move",
-          selected ? "h-[26px] opacity-100" : "h-[8px] opacity-0",
+          "absolute top-1/2 -left-[6px] w-[3px] -translate-y-1/2 rounded-r-[2px] bg-nav-fg motion-move",
+          selected ? "h-[24px] opacity-100" : "h-[8px] opacity-0",
         )}
       />
-      <RailTooltip label={label}>
+      <Tooltipped label={label} show={!expanded}>
         <button
           type="button"
           aria-label={label}
           aria-current={selected ? "page" : undefined}
           onClick={onClick}
           className={cn(
-            "motion-tap flex items-center justify-center outline-none focus-visible:ring-[1.5px] focus-visible:ring-brand",
-            squircle ? "rounded-[12px]" : "rounded-full",
-            selected
-              ? "opacity-100 ring-2 ring-nav-fg ring-offset-2 ring-offset-nav-rail"
-              : "opacity-55 grayscale-[0.2] hover:scale-105 hover:opacity-100 hover:grayscale-0 active:scale-95",
+            "motion-tap flex w-full items-center gap-[9px] rounded-[9px] p-[4px] outline-none focus-visible:ring-[1.5px] focus-visible:ring-brand",
+            !expanded && "justify-center",
+            selected ? "bg-nav shadow-[0_1px_2px_0_rgba(15,23,42,0.08),inset_0_0_0_1px_var(--nav-border)]" : "hover:bg-nav-hover",
           )}
         >
-          {children}
+          <AccountLogo logo={account.logo} src={account.logoSrc} size={28} radius={999} />
+          {expanded ? (
+            <span
+              className={cn(
+                "min-w-0 flex-1 truncate text-left text-[13px] leading-[17px]",
+                selected ? "font-semibold text-nav-fg" : "font-medium text-nav-fg-muted",
+              )}
+            >
+              {name}
+            </span>
+          ) : null}
         </button>
-      </RailTooltip>
+      </Tooltipped>
     </div>
   );
+}
+
+/** Tooltip only while collapsed — expanded rows carry their own names. */
+function Tooltipped({
+  label,
+  show,
+  children,
+}: {
+  label: string;
+  show: boolean;
+  children: React.ReactNode;
+}) {
+  return show ? <RailTooltip label={label}>{children}</RailTooltip> : <>{children}</>;
 }

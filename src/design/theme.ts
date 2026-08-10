@@ -156,8 +156,8 @@ export const ENTRY_LAYOUTS = ["split", "top"] as const;
 export type EntryLayout = (typeof ENTRY_LAYOUTS)[number];
 
 export const ENTRY_LAYOUT_LABELS: Record<EntryLayout, string> = {
-  split: "Header + bottom",
-  top: "Both under the logo",
+  split: "Bottom edge",
+  top: "Under the logo",
 };
 
 /**

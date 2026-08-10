@@ -45,6 +45,29 @@ export function EntryCluster({
 }) {
   return (
     <div className="flex w-full shrink-0 px-[12px] pb-[12px]">
+      <EntryPill onSearch={onSearch} session={session} />
+    </div>
+  );
+}
+
+/**
+ * The pill itself, placement-free.
+ *
+ * Both arrangements now show the same merged control — the review landed on the
+ * pill being the answer regardless of edge, so top vs bottom is purely a
+ * placement question and the two variants must not drift apart visually. The
+ * caller owns padding: the top cluster wraps it, the nav footer lays it beside
+ * the drawer toggle.
+ */
+export function EntryPill({
+  onSearch,
+  session,
+}: {
+  onSearch: () => void;
+  session: AiSession;
+}) {
+  return (
+    <>
       {/*
         One control, two targets.
 
@@ -105,7 +128,7 @@ export function EntryCluster({
 
         <Kbd>⌘K</Kbd>
       </div>
-    </div>
+    </>
   );
 }
 

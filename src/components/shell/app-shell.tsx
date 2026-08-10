@@ -3,6 +3,7 @@
 import * as React from "react";
 import {
   AccountRail,
+  ACCOUNT_RAIL_EXPANDED_WIDTH,
   ACCOUNT_RAIL_WIDTH,
 } from "@/components/accounts/account-rail";
 import { AccountSwitcher } from "@/components/accounts/account-switcher";
@@ -41,6 +42,11 @@ import { AccountsIndexPage } from "@/components/customizer/accounts-index";
 import { CustomizerPage } from "@/components/customizer/customizer-page";
 import { CommandPalette } from "@/components/search/command-palette";
 import { SearchFlyout } from "@/components/search/search-flyout";
+import {
+  ACCOUNT_BANNERS,
+  AGENCY_BANNERS,
+  TopBanner,
+} from "@/components/shell/top-banner";
 import { AUTO_COLLAPSE_WIDTH } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { useTuning } from "@/components/tuning/tuning-provider";
@@ -98,13 +104,7 @@ const FLYOUT_HOVER_GRACE_MS = 180;
  * accessibility tree.
  */
 export function AppShell({ children }: { children?: React.ReactNode }) {
-  const {
-    effective,
-    setActiveThemeAccount,
-    searchMode,
-    searchTheme,
-    scopeModel,
-  } = useTheme();
+  const { effective, setActiveThemeAccount, scopeModel } = useTheme();
   const { setActiveAccount: setActiveTuningAccount } = useTuning();
   const {
     navTheme,
@@ -114,6 +114,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     entryLayout,
     recentsMode,
     autoCollapse,
+    // Per-account like the rest of the look — a tenant can ship spotlight
+    // search while its neighbour keeps the nav panel.
+    searchMode,
+    searchTheme,
   } = effective;
   /*
    * Collapsed follows the viewport until the user says otherwise.
@@ -135,6 +139,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const [customizeAccountId, setCustomizeAccountId] = React.useState<string | null>(null);
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [switcherOpen, setSwitcherOpen] = React.useState(false);
+  const [railExpanded, setRailExpanded] = React.useState(false);
   const {
     state: layout,
     groups,
@@ -292,13 +297,21 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const overflowCount = Math.max(0, layout.pinned.length - PINNED_VISIBLE);
 
   const railActive = scopeModel === "rail";
+  /*
+   * Expanded shows full account names beside the tiles — the answer to
+   * low-quality tenant logos. Panel offsets follow the live width.
+   */
   const navWidth = collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
   /*
    * Where panels dock. With the account rail live, everything that hangs off
    * the nav's right edge — flyouts, the AI window, the launcher — starts one
    * rail further right, and the switcher panels anchor past it too.
    */
-  const railWidth = railActive ? ACCOUNT_RAIL_WIDTH : 0;
+  const railWidth = railActive
+    ? railExpanded
+      ? ACCOUNT_RAIL_EXPANDED_WIDTH
+      : ACCOUNT_RAIL_WIDTH
+    : 0;
   const leftOffset = railWidth + navWidth;
   // Group panels win over the authored registry: a renamed Engage has to open a
   // panel titled with its new name, and the registry still holds the old one.
@@ -359,11 +372,21 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   }, [accounts.scope, intent]);
 
   return (
-    <div className="relative flex min-h-0 flex-1 overflow-hidden bg-app">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      {/*
+        Agency-level banners span the whole window — over the account rail, the
+        nav and the canvas — because platform-to-agency comms are about the
+        whole relationship, not any one account. The width is the level.
+      */}
+      <TopBanner banners={AGENCY_BANNERS} />
+
+      <div className="relative flex min-h-0 flex-1 overflow-hidden bg-app">
       {railActive ? (
         <AccountRail
           session={accounts}
           theme={navTheme}
+          expanded={railExpanded}
+          onToggleExpanded={() => setRailExpanded((v) => !v)}
           switcherOpen={switcherOpen}
           onToggleSwitcher={toggleSwitcher}
         />
@@ -461,8 +484,6 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             pinnedFlyoutId={intent.pinnedId}
             onHoverFlyout={intent.hover}
             onPinFlyout={intent.togglePin}
-            collapsed={collapsed}
-            onToggleCollapsed={toggleCollapsed}
             onSearch={() => setSearchOpen(true)}
             scope={accounts.scope}
             account={headerAccount}
@@ -476,6 +497,18 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
+        {/*
+          Sub-account banners start where the account's content starts, right
+          of both rails — the left edge says whose problem it is, and the strip
+          leaves with its account on switch (the key remounts it, which also
+          resets its dismissals to that account's own).
+        */}
+        {accounts.scope === "account" ? (
+          <TopBanner
+            key={accounts.current.id}
+            banners={ACCOUNT_BANNERS[accounts.current.id] ?? []}
+          />
+        ) : null}
         <AppHeader
           theme={headerTheme}
           crumbs={
@@ -487,13 +520,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 ? [accounts.agency.name, "Overview"]
                 : ["Contacts", "Smart lists"]
           }
-          onAskAi={() => aiSession.launch()}
-          // Only when the rail has nowhere of its own for it: collapsed, with the
-          // entry cluster at the top, its logo row is a bare 30px mark and its
-          // footer is empty by design.
-          {...(entryLayout === "top" && collapsed
-            ? { onExpandNav: () => setManualCollapsed(false) }
-            : {})}
+          // Whenever the rail is showing: the 64px face has no logo row or
+          // footer slot for a toggle in either arrangement, so reopening is
+          // done from the app bar's far left, immediately right of the rail.
+          {...(collapsed ? { onExpandNav: () => setManualCollapsed(false) } : {})}
         />
         {/*
           The customizer lives behind the Sub-accounts page, as production
@@ -593,7 +623,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         railActive ? (
           <RailSwitcher
             session={accounts}
-            offsetLeft={ACCOUNT_RAIL_WIDTH}
+            offsetLeft={railWidth}
             theme={navTheme}
             phase={switcher.phase}
             onClose={() => setSwitcherOpen(false)}
@@ -629,6 +659,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           />
         )
       ) : null}
+      </div>
     </div>
   );
 }

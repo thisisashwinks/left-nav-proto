@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { ChevronRight, House, PanelLeftOpen } from "lucide-react";
-import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import { headerConfig, type HeaderActionTone, type HeaderConfig } from "./header-config";
@@ -21,8 +20,6 @@ interface AppHeaderProps {
   config?: HeaderConfig;
   /** Where you are: ["Contacts", "Smart lists"]. Home renders before it. */
   crumbs?: string[];
-  /** Opens the Ask AI window — the header's copy of the nav's standing entry. */
-  onAskAi?: () => void;
   /**
    * Reopens the nav from the app bar's far left.
    *
@@ -39,14 +36,13 @@ interface AppHeaderProps {
  * The 48px app bar, restructured per the header review: the tab strip is gone
  * — those destinations moved into the page title's dropdown, where the page
  * itself is the navigator — and what remains is orientation. Left: the nav
- * toggle, Home, and the breadcrumb naming where you are. Right: Ask AI and
- * the utilities.
+ * toggle, Home, and the breadcrumb naming where you are. Right: the
+ * utilities. Ask AI lives in the nav's merged pill, not up here.
  */
 export function AppHeader({
   theme,
   config = headerConfig,
   crumbs = ["Contacts", "Smart lists"],
-  onAskAi,
   onExpandNav,
 }: AppHeaderProps) {
   return (
@@ -102,19 +98,11 @@ export function AppHeader({
 
       <div className="flex shrink-0 items-center gap-[12px]">
         {/*
-          Ask AI moved up here from the tab row's old spot — with the tabs gone
-          the header's left is orientation and its right is action, and the
-          assistant is the first action.
+          No Ask AI up here anymore: the nav's merged pill is the assistant's
+          one standing entry in both arrangements now, and a second copy in the
+          header was exactly the duplication the review flagged between search
+          and AI.
         */}
-        <button
-          type="button"
-          onClick={onAskAi}
-          className="motion-tap flex h-[28px] shrink-0 items-center gap-[6px] rounded-full bg-hdr-chip px-[11px] text-[12.5px] leading-none font-medium text-hdr-fg hover:scale-[1.03] active:scale-95"
-        >
-          <NavAiSparkle className="size-[13px] text-nav-ai-icon" />
-          Ask AI
-        </button>
-
         <div className="flex shrink-0 items-center gap-[8px]">
           {config.actions.map((action) => (
             <button

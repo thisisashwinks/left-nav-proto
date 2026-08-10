@@ -23,113 +23,92 @@ export interface Account {
   logoSrc?: string;
 }
 
-/**
- * Real brand marks, fetched from Google's favicon service, so the switcher
- * reads like a real agency's book of clients rather than fourteen drawn
- * swatches. Stand-ins for tenant uploads — the product never ships these.
- */
-function brandLogo(domain: string): string {
-  return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
-}
-
 export const accounts: readonly Account[] = [
   {
-    id: "nike",
-    name: "Nike",
-    meta: "One Bowerman Dr, Beaverton, OR",
-    logo: { glyph: "bolt", from: "#111111", to: "#3f3f46" },
-    logoSrc: brandLogo("nike.com"),
+    id: "acme",
+    name: "ACME",
+    // Shares the agency's NAME (the review's hard case) but never its mark —
+    // identical name plus identical logo would leave nothing to tell apart.
+    meta: "1100 Congress Ave, Austin, TX",
+    logo: { glyph: "bolt", from: "#b91c1c", to: "#ef4444" },
   },
   {
-    id: "airbnb",
-    name: "Airbnb",
-    meta: "888 Brannan St, San Francisco, CA",
-    logo: { glyph: "arc", from: "#ff385c", to: "#ff7a94" },
-    logoSrc: brandLogo("airbnb.com"),
+    id: "northwind",
+    name: "Northwind Realty",
+    meta: "820 16th St, Denver, CO",
+    logo: { glyph: "peak", from: "#0369a1", to: "#0ea5e9" },
   },
   {
-    id: "starbucks",
-    name: "Starbucks",
-    meta: "2401 Utah Ave S, Seattle, WA",
-    logo: { glyph: "ring", from: "#006241", to: "#00754a" },
-    logoSrc: brandLogo("starbucks.com"),
+    id: "brightpath",
+    name: "Brightpath Dental",
+    meta: "4455 E Camelback Rd, Phoenix, AZ",
+    logo: { glyph: "ring", from: "#0f766e", to: "#14b8a6" },
   },
   {
-    id: "spotify",
-    name: "Spotify",
-    meta: "4 World Trade Center, New York, NY",
-    logo: { glyph: "wave", from: "#1db954", to: "#30d467" },
-    logoSrc: brandLogo("spotify.com"),
+    id: "coastal",
+    name: "Coastal Fitness Co.",
+    meta: "2100 Kettner Blvd, San Diego, CA",
+    logo: { glyph: "wave", from: "#0e7490", to: "#22d3ee" },
   },
   {
-    id: "slack",
-    name: "Slack",
-    meta: "500 Howard St, San Francisco, CA",
-    logo: { glyph: "dots", from: "#4a154b", to: "#7c3085" },
-    logoSrc: brandLogo("slack.com"),
+    id: "lumen",
+    name: "Lumen Home Services",
+    meta: "615 Church St, Nashville, TN",
+    logo: { glyph: "spark", from: "#b45309", to: "#f59e0b" },
   },
   {
-    id: "shopify",
-    name: "Shopify",
-    meta: "151 O'Connor St, Ottawa, ON",
-    logo: { glyph: "leaf", from: "#5e8e3e", to: "#95bf47" },
-    logoSrc: brandLogo("shopify.com"),
+    id: "pinnacle",
+    name: "Pinnacle Roofing",
+    meta: "1200 Main St, Kansas City, MO",
+    logo: { glyph: "chevrons", from: "#c2410c", to: "#f97316" },
   },
   {
-    id: "netflix",
-    name: "Netflix",
-    meta: "121 Albright Way, Los Gatos, CA",
-    logo: { glyph: "block", from: "#b1060f", to: "#e50914" },
-    logoSrc: brandLogo("netflix.com"),
+    id: "riverstone",
+    name: "Riverstone Law",
+    meta: "900 SW 5th Ave, Portland, OR",
+    logo: { glyph: "shield", from: "#334155", to: "#64748b" },
   },
   {
-    id: "uber",
-    name: "Uber",
-    meta: "1725 3rd St, San Francisco, CA",
-    logo: { glyph: "block", from: "#111111", to: "#3f3f46" },
-    logoSrc: brandLogo("uber.com"),
+    id: "summit",
+    name: "Summit Auto Group",
+    meta: "300 W Myrtle St, Boise, ID",
+    logo: { glyph: "bolt", from: "#1d4ed8", to: "#3b82f6" },
   },
   {
-    id: "tesla",
-    name: "Tesla",
-    meta: "1 Tesla Rd, Austin, TX",
-    logo: { glyph: "peak", from: "#cc0000", to: "#e82127" },
-    logoSrc: brandLogo("tesla.com"),
+    id: "veritas",
+    name: "Veritas Insurance",
+    meta: "185 Asylum St, Hartford, CT",
+    logo: { glyph: "arc", from: "#6d28d9", to: "#8b5cf6" },
   },
   {
-    id: "mcdonalds",
-    name: "McDonald's",
-    meta: "110 N Carpenter St, Chicago, IL",
-    logo: { glyph: "chevrons", from: "#da291c", to: "#ffc72c" },
-    logoSrc: brandLogo("mcdonalds.com"),
+    id: "bluebird",
+    name: "Bluebird Med Spa",
+    meta: "1450 Brickell Ave, Miami, FL",
+    logo: { glyph: "leaf", from: "#be185d", to: "#f43f5e" },
   },
   {
-    id: "figma",
-    name: "Figma",
-    meta: "760 Market St, San Francisco, CA",
-    logo: { glyph: "orbit", from: "#a259ff", to: "#f24e1e" },
-    logoSrc: brandLogo("figma.com"),
+    id: "ironwood",
+    name: "Ironwood Landscaping",
+    meta: "88 E Broad St, Columbus, OH",
+    logo: { glyph: "peak", from: "#15803d", to: "#22c55e" },
   },
   {
-    id: "notion",
-    name: "Notion",
-    meta: "2300 Harrison St, San Francisco, CA",
-    logo: { glyph: "block", from: "#111111", to: "#3f3f46" },
-    logoSrc: brandLogo("notion.so"),
+    id: "harborview",
+    name: "Harborview Hotels",
+    meta: "25 Calhoun St, Charleston, SC",
+    logo: { glyph: "dots", from: "#1e3a8a", to: "#2563eb" },
   },
   {
-    id: "duolingo",
-    name: "Duolingo",
-    meta: "5900 Penn Ave, Pittsburgh, PA",
-    logo: { glyph: "spark", from: "#58cc02", to: "#89e219" },
-    logoSrc: brandLogo("duolingo.com"),
+    id: "quantum",
+    name: "Quantum IT Partners",
+    meta: "150 Fayetteville St, Raleigh, NC",
+    logo: { glyph: "orbit", from: "#7e22ce", to: "#a855f7" },
   },
   {
-    id: "stripe",
-    name: "Stripe",
-    meta: "354 Oyster Point Blvd, South San Francisco, CA",
-    logo: { glyph: "wave", from: "#635bff", to: "#9089ff" },
-    logoSrc: brandLogo("stripe.com"),
+    id: "meadowlark",
+    name: "Meadowlark Bakery",
+    meta: "1 S Pinckney St, Madison, WI",
+    logo: { glyph: "leaf", from: "#a16207", to: "#eab308" },
   },
 ];
 
@@ -138,25 +117,23 @@ export const accounts: readonly Account[] = [
  *
  * Shaped like an Account so every mark-rendering call site can take either,
  * but it is not in `accounts` — the agency is a scope, not one more row in
- * the sub-account list. Its mark deliberately stays in the product's own
- * neutral ramp: per the round-2 decision, the agency is distinguished by
- * shape (squircle) and the AGENCY word, never by a colour of its own.
+ * the sub-account list. Per the Aug 7 review it carries no AGENCY label and
+ * no shape of its own: the neutral plate its tile sits on is the whole
+ * differentiator.
  */
 export const agency: Account = {
   id: "agency",
-  name: "WPP",
+  name: "Acme Agency",
   meta: "All accounts",
-  // The agency has a brand of its own, and selecting it rebrands the whole
-  // workspace — this `from` seeds the accent the way a client's logo does.
-  // The scope signal itself stays shape and the AGENCY word, never colour.
-  // WPP over Ogilvy: Ogilvy's favicon is a blank 110-byte placeholder on
-  // every logo service, while WPP's dotted wordmark survives 34px.
-  logo: { glyph: "block", from: "#1b1f8a", to: "#4348c4" },
-  logoSrc: brandLogo("wpp.com"),
+  // Deliberately shares a name with the ACME sub-account: the review's
+  // hardest case is an agency whose client carries the same name, so the
+  // differentiator has to survive identical strings. It is the plate the
+  // tile sits on — never a label, never a shape trick.
+  logo: { glyph: "block", from: "#155eef", to: "#528bff" },
 };
 
 /** The account the session starts in. Matches the logo in the nav header. */
-export const INITIAL_ACCOUNT_ID = "nike";
+export const INITIAL_ACCOUNT_ID = "acme";
 
 /**
  * Who starts open on the account rail (Model C). Open accounts are a working
@@ -164,25 +141,25 @@ export const INITIAL_ACCOUNT_ID = "nike";
  * search.
  */
 export const INITIAL_RAIL_IDS: readonly string[] = [
-  "nike",
-  "airbnb",
-  "starbucks",
-  "spotify",
-  "slack",
+  "acme",
+  "brightpath",
+  "northwind",
+  "coastal",
+  "pinnacle",
 ];
 
 
 /** Most recently visited first, as the Recent group orders them. */
 export const INITIAL_RECENT_IDS: readonly string[] = [
-  "spotify",
-  "slack",
-  "shopify",
+  "quantum",
+  "lumen",
+  "harborview",
 ];
 
 export const INITIAL_FAVORITE_IDS: readonly string[] = [
-  "figma",
-  "notion",
-  "duolingo",
+  "brightpath",
+  "pinnacle",
+  "harborview",
 ];
 
 /** How many recents the group shows before the rest fall through to All. */

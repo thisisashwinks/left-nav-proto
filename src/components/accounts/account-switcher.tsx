@@ -196,28 +196,31 @@ function AgencyRow({
   const current = session.scope === "agency";
   return (
     <>
-      <button
-        type="button"
-        onClick={onSelect}
-        aria-current={current ? "true" : undefined}
-        className={cn(
-          "flex w-full items-center gap-[10px] rounded-[8px] px-[7px] py-[7px] text-left outline-none",
-          current ? "bg-nav-active" : "hover:bg-nav-hover",
-        )}
-      >
-        <AccountLogo logo={session.agency.logo} size={28} radius={8} />
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="text-[9px] leading-[11px] font-bold tracking-[0.08em] text-nav-fg-muted">
-            AGENCY
-          </span>
-          <span className="truncate text-[13.5px] leading-[17px] font-semibold text-nav-fg">
+      {/*
+        On its own plate, not under a label: the Aug 7 review dropped the
+        AGENCY eyebrow — a neutral zone survives even a sub-account named
+        after the agency, which a word never could.
+      */}
+      <div className="rounded-[10px] bg-nav-rail-disc p-[3px]">
+        <button
+          type="button"
+          onClick={onSelect}
+          aria-label={`${session.agency.name} — agency, all accounts`}
+          aria-current={current ? "true" : undefined}
+          className={cn(
+            "flex w-full items-center gap-[10px] rounded-[8px] px-[7px] py-[6px] text-left outline-none",
+            current ? "bg-nav shadow-[inset_0_0_0_1px_var(--nav-border)]" : "hover:bg-nav-hover",
+          )}
+        >
+          <AccountLogo logo={session.agency.logo} size={28} radius={999} />
+          <span className="truncate min-w-0 flex-1 text-[13.5px] leading-[17px] font-semibold text-nav-fg">
             {session.agency.name}
           </span>
-        </span>
-        <span className="shrink-0 text-[11px] leading-[normal] text-nav-fg-subtle">
-          {current ? "Current" : "All accounts"}
-        </span>
-      </button>
+          <span className="shrink-0 text-[11px] leading-[normal] text-nav-fg-subtle">
+            {current ? "Current" : "All accounts"}
+          </span>
+        </button>
+      </div>
       <div className="mx-[7px] my-[6px] h-px bg-nav-divider" />
     </>
   );

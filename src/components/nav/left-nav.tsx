@@ -1,18 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { History, Search, Star } from "lucide-react";
+import { History, Star } from "lucide-react";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import type { Account } from "@/components/accounts/accounts-data";
 import type { WorkspaceScope } from "@/components/accounts/use-accounts";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
-import { AiDock } from "@/components/ai/ai-dock";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import type { DockPosition, SurfaceTheme } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { agencyEntries, agencySettings } from "./agency-config";
 import { CollapseToggle } from "./collapse-toggle";
-import { EntryCluster } from "./entry-cluster";
+import { EntryCluster, EntryPill } from "./entry-cluster";
 import { pinnedBlockFor } from "./favorites-morph";
 import { IconPicker, useIconPicker } from "./icon-picker";
 import { navEntriesFor } from "./nav-entries";
@@ -177,15 +176,11 @@ export function LeftNav({
         logoAlt={config.logoAlt}
         switcherOpen={switcherOpen}
         onToggleSwitcher={onToggleSwitcher}
-        // In `top` mode search has moved down into the merged control, so the
-        // header's right edge goes to the drawer toggle — otherwise the toggle
-        // would be the only thing left in a 48px footer.
+        // The drawer toggle holds the header's right edge in both
+        // arrangements — collapsing is nav chrome, not entry, so it must not
+        // move when the pill does. Per review: the toggle need not shift.
         trailing={
-          topEntry ? (
-            <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
-          ) : (
-            <HeaderSearchButton onSearch={onSearch} />
-          )
+          <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
         }
       />
 
@@ -260,19 +255,20 @@ export function LeftNav({
       </div>
 
       {/*
-        AI takes the bottom bar; the drawer toggle sits at its right end, centred
-        against the pill rather than sharing its baseline — the toggle is 28px
-        and the pill 38px, so bottom-aligning them dropped the toggle 5px low.
+        The same merged Search + Ask AI pill the `top` arrangement shows, holding
+        the bottom edge instead — the two variants differ only in the pill's
+        placement now, which is the comparison the review actually wants to
+        make. The pill is alone down here: the drawer toggle stays up in the
+        header either way.
 
-        In `top` mode both have moved up, so the footer is dropped entirely rather
-        than left as an empty 48px strip. The nav simply ends with its last row,
-        which is the point of the comparison: whether the bottom edge is worth
-        spending on at all.
+        In `top` mode the footer is dropped entirely rather than left as an
+        empty 48px strip. The nav simply ends with its last row, which is the
+        point of the comparison: whether the bottom edge is worth spending on
+        at all.
       */}
       {topEntry ? null : (
-        <div className="flex w-full shrink-0 items-center gap-[8px] px-[12px] pt-[8px] pb-[12px]">
-          <AiDock collapsed={false} session={aiSession} />
-          <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
+        <div className="flex w-full shrink-0 px-[12px] pt-[8px] pb-[12px]">
+          <EntryPill onSearch={onSearch} session={aiSession} />
         </div>
       )}
 
@@ -390,20 +386,5 @@ function PinnedHole({ position }: { position: DockPosition }) {
       className="w-full shrink-0"
       style={{ height: pinnedBlockFor(position) }}
     />
-  );
-}
-
-/** The header's search icon, for the arrangement where search lives up here. */
-function HeaderSearchButton({ onSearch }: { onSearch: () => void }) {
-  return (
-    <button
-      type="button"
-      title="Search"
-      aria-label="Search"
-      onClick={onSearch}
-      className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg-muted active:scale-95"
-    >
-      <Search size={16} aria-hidden="true" />
-    </button>
   );
 }

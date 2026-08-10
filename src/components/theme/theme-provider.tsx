@@ -17,8 +17,8 @@ import {
 
 /**
  * A tenant's own look and layout, layered over the platform theme: the
- * branded axes plus the nav-layout ones. Only genuinely platform-wide axes
- * (search treatment, scope model) stay out.
+ * branded axes plus the nav-layout and search ones. Only the genuinely
+ * platform-wide axis (scope model) stays out.
  */
 export type AccountTheme = Partial<
   Pick<
@@ -33,6 +33,8 @@ export type AccountTheme = Partial<
     | "entryLayout"
     | "recentsMode"
     | "autoCollapse"
+    | "searchMode"
+    | "searchTheme"
   >
 > & {
   /** The hex behind the `custom` accent, from the account's brand board. */

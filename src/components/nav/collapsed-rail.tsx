@@ -1,18 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { Search, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import type { Account } from "@/components/accounts/accounts-data";
 import type { WorkspaceScope } from "@/components/accounts/use-accounts";
-import { AiDock } from "@/components/ai/ai-dock";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import type { SurfaceTheme } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
-import { CollapseToggle } from "./collapse-toggle";
 import { EntryClusterRail } from "./entry-cluster";
 import { agencyEntries, agencySettings } from "./agency-config";
 import { collapsedPinnedBlock, PINNED_VISIBLE } from "./favorites-morph";
@@ -35,8 +33,6 @@ interface CollapsedRailProps {
   pinnedFlyoutId: string | null;
   onHoverFlyout: (id: string) => void;
   onPinFlyout: (id: string) => void;
-  collapsed: boolean;
-  onToggleCollapsed: () => void;
   onSearch: () => void;
   /** Whose nav this is: one sub-account, or the agency across all of them. */
   scope: WorkspaceScope;
@@ -68,8 +64,6 @@ export function CollapsedRail({
   pinnedFlyoutId,
   onHoverFlyout,
   onPinFlyout,
-  collapsed,
-  onToggleCollapsed,
   onSearch,
   scope,
   account,
@@ -212,26 +206,18 @@ export function CollapsedRail({
           logo={account.logo}
           src={agencyScope ? account.logoSrc : (config.logoSrc ?? account.logoSrc)}
           size={30}
-          // The round-2 shape language: squircle marks the agency, accounts
-          // are circles. Shape carries the scope, not colour.
-          radius={agencyScope ? 9 : 999}
+          radius={999}
         />
       </button>
 
+      {/*
+        In `bottom` mode the pair has moved down with the pill, so nothing
+        stands between the mark and the rows — search is no longer a separate
+        control that only exists in one arrangement.
+      */}
       {topEntry ? (
         <EntryClusterRail onSearch={onSearch} session={aiSession} />
-      ) : (
-        <RailTooltip label="Search">
-          <button
-            type="button"
-            aria-label="Search"
-            onClick={onSearch}
-            className="motion-tap flex size-[38px] shrink-0 items-center justify-center rounded-[9px] text-nav-fg-subtle hover:scale-105 hover:bg-nav-hover hover:text-nav-fg-muted active:scale-95"
-          >
-            <Search size={16} aria-hidden="true" />
-          </button>
-        </RailTooltip>
-      )}
+      ) : null}
 
       {/*
         Reserved space for the pinned capsule, which FavoritesMorph renders
@@ -301,15 +287,15 @@ export function CollapsedRail({
       </div>
 
       {/*
-        In `top` mode both the dock and the toggle have gone: AI is up with search,
-        and expanding is done from the app bar's far left, which is immediately
-        right of this rail. So the footer is dropped rather than left as an empty
-        strip — same reasoning as the expanded nav's.
+        The same stacked pair the `top` arrangement shows under the logo — the
+        expanded nav's merged pill, seen at rail width — holding the bottom
+        edge instead. Nothing else joins it: expanding the rail is done from
+        the app bar's far left in both arrangements, so the entry point is the
+        only thing that moves between them.
       */}
       {topEntry ? null : (
-        <div className="flex shrink-0 flex-col items-center gap-[6px] pt-[6px]">
-          <AiDock collapsed session={aiSession} />
-          <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
+        <div className="flex shrink-0 flex-col items-center pt-[6px]">
+          <EntryClusterRail onSearch={onSearch} session={aiSession} />
         </div>
       )}
 

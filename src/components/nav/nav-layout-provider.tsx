@@ -239,13 +239,17 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
   const undoOffer = store.undoOffer;
 
   // Refs so account switches can park/load without putting dispatch inside a
-  // setState updater (updaters must stay pure under Strict Mode).
+  // setState updater (updaters must stay pure under Strict Mode). Synced in
+  // an effect, not during render: switches only ever fire from events and
+  // effects, both of which run after this has caught up.
   const stateRef = React.useRef(state);
-  stateRef.current = state;
   const profilesRef = React.useRef(profiles);
-  profilesRef.current = profiles;
   const activeIdRef = React.useRef(activeId);
-  activeIdRef.current = activeId;
+  React.useEffect(() => {
+    stateRef.current = state;
+    profilesRef.current = profiles;
+    activeIdRef.current = activeId;
+  });
 
   // Swap-on-switch: park the leaving account's layout, wake the arriving
   // one's. The reducer keeps holding only the active account's state, so

@@ -5,15 +5,21 @@ import type { Account } from "@/components/accounts/accounts-data";
 import { useTuning } from "@/components/tuning/tuning-provider";
 import { TUNING_DEFAULTS, type TuningState } from "@/design/tuning";
 import {
+  DOCK_LABEL_LABELS,
+  DOCK_LABELS,
   DOCK_POSITION_LABELS,
   DOCK_POSITIONS,
   ENTRY_LAYOUT_LABELS,
   ENTRY_LAYOUTS,
   RECENTS_MODE_LABELS,
   RECENTS_MODES,
+  SEARCH_MODE_LABELS,
+  SEARCH_MODES,
+  type DockLabel,
   type DockPosition,
   type EntryLayout,
   type RecentsMode,
+  type SearchMode,
 } from "@/design/theme";
 import { useTheme, type AccountTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
@@ -87,9 +93,11 @@ export function AppearanceSection({ account }: { account: Account }) {
   const write = (patch: AccountTheme) => theme.setAccountTheme(account.id, patch);
 
   const dockPosition = override.dockPosition ?? theme.dockPosition;
+  const dockLabel = override.dockLabel ?? theme.dockLabel;
   const entryLayout = override.entryLayout ?? theme.entryLayout;
   const recentsMode = override.recentsMode ?? theme.recentsMode;
   const autoCollapse = override.autoCollapse ?? theme.autoCollapse;
+  const searchMode = override.searchMode ?? theme.searchMode;
 
   const density = densityOf(state);
   // Custom stays open once chosen, even if the steppers land back on a preset.
@@ -170,7 +178,25 @@ export function AppearanceSection({ account }: { account: Account }) {
             format={(v) => DOCK_POSITION_LABELS[v]}
           />
         </SettingRow>
-        <SettingRow label="Search & Ask AI" desc="Together under the logo, or split between header and bottom edge.">
+        <SettingRow label="Dock caption" desc="What the favourites capsule says about itself, if anything.">
+          <Seg<DockLabel>
+            label="Dock caption"
+            options={DOCK_LABELS}
+            value={dockLabel}
+            onChange={(v) => write({ dockLabel: v })}
+            format={(v) => DOCK_LABEL_LABELS[v]}
+          />
+        </SettingRow>
+        <SettingRow label="Search style" desc="A centred spotlight over the page, or a panel docked to the nav.">
+          <Seg<SearchMode>
+            label="Search style"
+            options={SEARCH_MODES}
+            value={searchMode}
+            onChange={(v) => write({ searchMode: v })}
+            format={(v) => SEARCH_MODE_LABELS[v]}
+          />
+        </SettingRow>
+        <SettingRow label="Search & Ask AI" desc="One merged pill — first thing under the logo, or holding the bottom edge.">
           <Seg<EntryLayout>
             label="Entry placement"
             options={ENTRY_LAYOUTS}

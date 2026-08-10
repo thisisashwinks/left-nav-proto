@@ -650,8 +650,8 @@ export function TuningPanel() {
           />
           <p className="text-[10px] leading-[14px] text-pg-faint">
             {entryLayout === "top"
-              ? "Both sit under the logo, above Favorites — the first thing on entry. The bottom edge is left to the drawer toggle."
-              : "Search in the logo row, Ask AI on the bottom edge. Today's arrangement."}
+              ? "The merged pill sits under the logo, above Favorites — the first thing on entry. The bottom edge is left to the drawer toggle."
+              : "The same merged pill, holding the nav's bottom edge beside the drawer toggle."}
           </p>
         </Section>
 
