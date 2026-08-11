@@ -161,6 +161,20 @@ export const ENTRY_LAYOUT_LABELS: Record<EntryLayout, string> = {
 };
 
 /**
+ * How a group row's flyout opens. `hover` previews on rollover with the
+ * direction-aware dwell; `click` is Khoi's Aug 10 suggestion — nothing opens
+ * until the row is actually clicked, trading discoverability for calm.
+ */
+export const FLYOUT_TRIGGERS = ["hover", "click"] as const;
+
+export type FlyoutTrigger = (typeof FLYOUT_TRIGGERS)[number];
+
+export const FLYOUT_TRIGGER_LABELS: Record<FlyoutTrigger, string> = {
+  hover: "On hover",
+  click: "On click",
+};
+
+/**
  * How the workspace switch is presented — the round-2 models from the
  * exploration board.
  *
@@ -195,6 +209,7 @@ export interface ThemeState {
   dockLabel: DockLabel;
   dockPosition: DockPosition;
   entryLayout: EntryLayout;
+  flyoutTrigger: FlyoutTrigger;
   recentsMode: RecentsMode;
   /** Start collapsed on narrow viewports. Off makes the tablet case demoable. */
   autoCollapse: boolean;
@@ -226,6 +241,7 @@ export const DEFAULT_THEME: ThemeState = {
   // Moving the one merged control down clears the nav's entry. "Under the
   // logo" stays one click away for the comparison.
   entryLayout: "split",
+  flyoutTrigger: "hover",
   recentsMode: "fixed-three",
   autoCollapse: true,
   // The rail is the recommendation, so the prototype opens on it. Model A is

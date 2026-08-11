@@ -7,16 +7,17 @@ import {
   ChartLine,
   Compass,
   CreditCard,
+  FileSignature,
   FileText,
   Gauge,
   Globe,
   History,
   Layers,
   LayoutTemplate,
+  ListTodo,
   Mail,
   Megaphone,
   MessageCircle,
-  MessageSquarePlus,
   Package,
   PhoneCall,
   Receipt,
@@ -392,6 +393,14 @@ const recent: FlyoutConfig = {
   },
 };
 
+/*
+ * The v3 data-backed shortlist (ClickUp 86d3zcfg7, Pendo 90-day unique human
+ * actors): a quick action must CREATE something from a blank state, with the
+ * contact at most a field in the form. Contact-centric verbs (send message,
+ * make a call) belong on the contact and conversation surfaces; builder
+ * sessions (workflow, funnel, campaign) are not 10-second actions; review
+ * request demoted — its volume was automation, not humans.
+ */
 const quickActions: FlyoutConfig = {
   id: "quick-actions",
   title: "Quick Actions",
@@ -401,41 +410,15 @@ const quickActions: FlyoutConfig = {
     item({
       id: "qa-contact",
       label: "Add a contact",
-      description: "Add a new contact from scratch",
+      description: "New contact from scratch",
       icon: UserPlus,
     }),
     item({
       id: "qa-opportunity",
-      label: "Create an opportunity",
+      label: "Add an opportunity",
       description: "Add a deal to your pipeline",
       icon: Target,
     }),
-    item({
-      id: "qa-invoice",
-      label: "Create an invoice",
-      description: "Bill a customer for work",
-      icon: Receipt,
-    }),
-    label("qa-reach-out", "Reach out"),
-    item({
-      id: "qa-conversation",
-      label: "Start a conversation",
-      description: "Send an SMS, email or chat",
-      icon: MessageSquarePlus,
-    }),
-    item({
-      id: "qa-review",
-      label: "Send a review request",
-      description: "Ask a customer for a review",
-      icon: Star,
-    }),
-    item({
-      id: "qa-campaign",
-      label: "Launch a campaign",
-      description: "Send a broadcast to a list",
-      icon: Megaphone,
-    }),
-    label("qa-schedule", "Schedule"),
     item({
       id: "qa-appointment",
       label: "Book an appointment",
@@ -443,10 +426,22 @@ const quickActions: FlyoutConfig = {
       icon: CalendarPlus,
     }),
     item({
-      id: "qa-funnel",
-      label: "Build a funnel",
-      description: "Create a funnel or landing page",
-      icon: LayoutTemplate,
+      id: "qa-task",
+      label: "Add a task",
+      description: "Something to do, for you or the team",
+      icon: ListTodo,
+    }),
+    item({
+      id: "qa-invoice",
+      label: "Create an invoice",
+      description: "Bill a customer — estimates live here too",
+      icon: Receipt,
+    }),
+    item({
+      id: "qa-document",
+      label: "Send a document for signature",
+      description: "Contract or proposal, signed online",
+      icon: FileSignature,
     }),
   ],
 };

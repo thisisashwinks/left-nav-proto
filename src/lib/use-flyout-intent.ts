@@ -93,25 +93,29 @@ export function useFlyoutIntent(clearDelayMs = 120): FlyoutIntent {
         timer.current = null;
       }
       /*
-       * The safe-triangle rule: with a panel already showing, a pointer that
-       * is moving toward it (rightward, flatter than steep) is trying to
-       * REACH it — the sibling trigger under the cursor is just in the way.
-       * Hold the switch briefly; only if the pointer settles on the sibling
-       * (still there when the timer fires, no rightward escape) does the
-       * panel change. Vertical browsing keeps switching instantly.
+       * With a panel already showing, no sibling steals it instantly — every
+       * switch waits out a short dwell, so sweeping the list doesn't strobe a
+       * panel per row. The dwell is direction-aware: a pointer moving toward
+       * the panel (rightward, flatter than steep) is trying to REACH it, so
+       * the hold stretches further; plain browsing gets just enough delay to
+       * give the switching a rhythm instead of a flicker. Only the FIRST
+       * panel, opened over nothing, still appears immediately.
        */
       const showing = hoveredRef.current;
       const m = motion.current;
       const towardPanel = m.dx > 2 && m.dx >= Math.abs(m.dy);
-      if (showing !== null && showing !== id && towardPanel) {
+      if (showing !== null && showing !== id) {
         if (pendingHover.current?.id === id) return;
         cancelPending();
         pendingHover.current = {
           id,
-          timer: setTimeout(() => {
-            pendingHover.current = null;
-            setHoveredId(id);
-          }, 260),
+          timer: setTimeout(
+            () => {
+              pendingHover.current = null;
+              setHoveredId(id);
+            },
+            towardPanel ? 280 : 120,
+          ),
         };
         return;
       }

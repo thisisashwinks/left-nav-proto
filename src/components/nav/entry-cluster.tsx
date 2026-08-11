@@ -26,15 +26,11 @@ import { RailTooltip } from "./rail-tooltip";
 export const ENTRY_CLUSTER_HEIGHT = 48;
 
 /**
- * What the rail's cluster adds over the single search button it replaces: a second
- * 38px button, the 4px rail gap above it, and 8px of clearance below.
- *
- * The clearance is the point. Stacked, the orb ended up directly against the
- * favourites capsule with only the rail's 4px gap between them, and two round
- * things 4px apart read as one control. 8px separates the entry point from the
- * dock without opening a hole in a 64px rail.
+ * What the rail's cluster adds over the single 38px search button it replaces:
+ * the capsule is 3 + 38 + 2 + 38 + 3 = 84px tall, plus 8px of clearance below
+ * so the orb never sits directly against the favourites capsule.
  */
-export const ENTRY_CLUSTER_RAIL_HEIGHT = 38 + 4 + 8;
+export const ENTRY_CLUSTER_RAIL_HEIGHT = 84 + 8 - 38;
 
 export function EntryCluster({
   onSearch,
@@ -144,7 +140,13 @@ export function EntryClusterRail({
   session: AiSession;
 }) {
   return (
-    <div className="flex shrink-0 flex-col items-center gap-[4px] pb-[8px]">
+    <div className="flex shrink-0 flex-col items-center pb-[8px]">
+      {/*
+        The same ring the expanded pill wears, stood upright — so the pair
+        reads as ONE control seen at rail width, not two round things that
+        happen to be stacked. Same reasoning as the favourites capsule.
+      */}
+      <div className="flex w-[44px] flex-col items-center gap-[2px] rounded-full p-[3px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
       {/*
         AI first here too, so the order survives collapsing. The rail has no room
         for the label, so the tooltip carries the name — which is why AI keeps the
@@ -173,11 +175,12 @@ export function EntryClusterRail({
           type="button"
           aria-label="Search"
           onClick={onSearch}
-          className="motion-tap flex size-[38px] shrink-0 items-center justify-center rounded-[9px] text-nav-fg-subtle hover:scale-105 hover:bg-nav-hover hover:text-nav-fg-muted active:scale-95"
+          className="motion-tap flex size-[38px] shrink-0 items-center justify-center rounded-full text-nav-fg-subtle hover:scale-105 hover:bg-nav-hover hover:text-nav-fg-muted active:scale-95"
         >
           <Search size={16} aria-hidden="true" />
         </button>
       </RailTooltip>
+      </div>
     </div>
   );
 }

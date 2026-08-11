@@ -11,6 +11,8 @@ import {
   DOCK_POSITIONS,
   ENTRY_LAYOUT_LABELS,
   ENTRY_LAYOUTS,
+  FLYOUT_TRIGGER_LABELS,
+  FLYOUT_TRIGGERS,
   RECENTS_MODE_LABELS,
   RECENTS_MODES,
   SEARCH_MODE_LABELS,
@@ -18,6 +20,7 @@ import {
   type DockLabel,
   type DockPosition,
   type EntryLayout,
+  type FlyoutTrigger,
   type RecentsMode,
   type SearchMode,
 } from "@/design/theme";
@@ -98,6 +101,7 @@ export function AppearanceSection({ account }: { account: Account }) {
   const recentsMode = override.recentsMode ?? theme.recentsMode;
   const autoCollapse = override.autoCollapse ?? theme.autoCollapse;
   const searchMode = override.searchMode ?? theme.searchMode;
+  const flyoutTrigger = override.flyoutTrigger ?? theme.flyoutTrigger;
 
   const density = densityOf(state);
   // Custom stays open once chosen, even if the steppers land back on a preset.
@@ -185,6 +189,15 @@ export function AppearanceSection({ account }: { account: Account }) {
             value={dockLabel}
             onChange={(v) => write({ dockLabel: v })}
             format={(v) => DOCK_LABEL_LABELS[v]}
+          />
+        </SettingRow>
+        <SettingRow label="Flyout menus" desc="Preview a row's menu on rollover, or open it only on click.">
+          <Seg<FlyoutTrigger>
+            label="Flyout menus"
+            options={FLYOUT_TRIGGERS}
+            value={flyoutTrigger}
+            onChange={(v) => write({ flyoutTrigger: v })}
+            format={(v) => FLYOUT_TRIGGER_LABELS[v]}
           />
         </SettingRow>
         <SettingRow label="Search style" desc="A centred spotlight over the page, or a panel docked to the nav.">

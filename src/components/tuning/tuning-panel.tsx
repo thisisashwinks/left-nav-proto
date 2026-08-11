@@ -13,6 +13,8 @@ import {
   DOCK_POSITIONS,
   ENTRY_LAYOUT_LABELS,
   ENTRY_LAYOUTS,
+  FLYOUT_TRIGGER_LABELS,
+  FLYOUT_TRIGGERS,
   RECENTS_MODE_LABELS,
   RECENTS_MODES,
   SCOPE_MODEL_LABELS,
@@ -26,6 +28,7 @@ import {
   type DockLabel,
   type DockPosition,
   type EntryLayout,
+  type FlyoutTrigger,
   type RecentsMode,
   type ScopeModel,
   type SearchMode,
@@ -95,6 +98,8 @@ function NavStructureSection({
     setAutoCollapse,
     scopeModel,
     setScopeModel,
+    flyoutTrigger,
+    setFlyoutTrigger,
   } = useTheme();
   const density = densityFor(catalogue.length);
 
@@ -138,6 +143,19 @@ function NavStructureSection({
       />
       <p className="text-[10px] leading-[14px] text-pg-faint">
         {GROUPING_BLURBS[state.grouping]}
+      </p>
+
+      <Segmented
+        label="Flyouts open"
+        options={FLYOUT_TRIGGERS}
+        value={flyoutTrigger}
+        onChange={(v: FlyoutTrigger) => setFlyoutTrigger(v)}
+        format={(v) => FLYOUT_TRIGGER_LABELS[v]}
+      />
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        {flyoutTrigger === "hover"
+          ? "Rollover previews a row's menu, with a dwell so sweeping the list doesn't strobe."
+          : "Khoi's alternative: nothing opens until the row is clicked."}
       </p>
 
       <Segmented

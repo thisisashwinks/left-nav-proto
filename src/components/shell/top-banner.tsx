@@ -142,9 +142,10 @@ interface TopBannerProps {
   banners: Banner[];
   /**
    * A slimmer cut of the same strip — no disc, tighter type, CTA as a text
-   * link. Used for the agency strip while a sub-account strip is also up, so
-   * two stacked levels don't read as a wall (the Aug 10 "impenetrable" note):
-   * the level you are inside keeps the full voice, the outer one recedes.
+   * link. The agency strip wears it permanently: the outer level is ambient,
+   * the account level keeps the full voice, and the size contrast is what
+   * keeps a two-level stack legible (the Aug 10 "impenetrable" note) without
+   * the strip ever resizing as you move between accounts.
    */
   condensed?: boolean;
 }

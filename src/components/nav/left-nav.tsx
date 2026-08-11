@@ -37,6 +37,12 @@ interface LeftNavProps {
   pinnedFlyoutId: string | null;
   onHoverFlyout: (flyoutId: string) => void;
   onPinFlyout: (flyoutId: string) => void;
+  /**
+   * Hovering a row with no flyout of its own. Fades the open preview after
+   * the grace — the in-nav dismissal, so getting rid of a panel never means
+   * travelling all the way across it (Khoi's distance note).
+   */
+  onHoverPlain?: () => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onSearch: () => void;
@@ -90,6 +96,7 @@ export function LeftNav({
   pinnedFlyoutId,
   onHoverFlyout,
   onPinFlyout,
+  onHoverPlain,
   collapsed,
   onToggleCollapsed,
   onSearch,
@@ -145,7 +152,7 @@ export function LeftNav({
           onSelect(item.id);
           if (item.hasFlyout) onPinFlyout(flyoutId);
         }}
-        onHover={item.hasFlyout ? () => onHoverFlyout(flyoutId) : undefined}
+        onHover={item.hasFlyout ? () => onHoverFlyout(flyoutId) : onHoverPlain}
         {...(edit ? { edit } : {})}
       />
     );

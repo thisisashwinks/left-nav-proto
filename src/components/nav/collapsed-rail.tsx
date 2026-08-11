@@ -33,6 +33,8 @@ interface CollapsedRailProps {
   pinnedFlyoutId: string | null;
   onHoverFlyout: (id: string) => void;
   onPinFlyout: (id: string) => void;
+  /** Hovering a row with no flyout — fades the open preview after the grace. */
+  onHoverPlain?: () => void;
   onSearch: () => void;
   /** Whose nav this is: one sub-account, or the agency across all of them. */
   scope: WorkspaceScope;
@@ -66,6 +68,7 @@ export function CollapsedRail({
   pinnedFlyoutId,
   onHoverFlyout,
   onPinFlyout,
+  onHoverPlain,
   onSearch,
   scope,
   account,
@@ -173,7 +176,7 @@ export function CollapsedRail({
         onSelect(i.id);
         if (i.hasFlyout) onPinFlyout(flyoutId);
       },
-      i.hasFlyout ? () => onHoverFlyout(flyoutId) : undefined,
+      i.hasFlyout ? () => onHoverFlyout(flyoutId) : onHoverPlain,
       i.hasFlyout !== true,
     );
   };

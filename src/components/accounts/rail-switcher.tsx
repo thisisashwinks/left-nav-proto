@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Info, Minus, Plus, Search } from "lucide-react";
+import { Minus, Plus, Search } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
 import { cn } from "@/lib/utils";
@@ -78,7 +78,10 @@ export function RailSwitcher({
         data-cursor="menu"
         style={{ left: offsetLeft + 8, width: PANEL_WIDTH }}
         className={cn(
-          "absolute top-[10px] bottom-[10px] z-50 flex flex-col overflow-hidden rounded-[12px] bg-nav p-[8px]",
+          // Hugs its rows rather than pinning to the viewport's bottom edge —
+          // a short directory is a short panel; a long one scrolls inside the
+          // same cap.
+          "absolute top-[10px] z-50 flex max-h-[calc(100%_-_20px)] flex-col overflow-hidden rounded-[12px] bg-nav p-[8px]",
           "shadow-[0_16px_32px_-8px_var(--fly-shadow),0_4px_8px_-4px_var(--fly-shadow),inset_0_0_0_1px_var(--fly-border)]",
           phase === "entering" ? "motion-menu-in" : "motion-menu-out",
         )}
@@ -121,13 +124,6 @@ export function RailSwitcher({
           )}
         </div>
 
-        <div className="mt-[8px] flex shrink-0 items-start gap-[8px] px-[7px] pt-[8px] shadow-[inset_0_1px_0_0_var(--fly-border)]">
-          <Info size={13} aria-hidden="true" className="mt-[1px] shrink-0 text-nav-fg-subtle" />
-          <p className="text-[11.5px] leading-[16px] text-nav-fg-subtle">
-            Accounts you open stay on the left until you close them. Everything
-            else stays one search away.
-          </p>
-        </div>
       </div>
     </>
   );

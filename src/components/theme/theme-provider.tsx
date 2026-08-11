@@ -7,6 +7,7 @@ import {
   type DockLabel,
   type DockPosition,
   type EntryLayout,
+  type FlyoutTrigger,
   type RecentsMode,
   type ScopeModel,
   type SearchMode,
@@ -31,6 +32,7 @@ export type AccountTheme = Partial<
     | "dockLabel"
     | "dockPosition"
     | "entryLayout"
+    | "flyoutTrigger"
     | "recentsMode"
     | "autoCollapse"
     | "searchMode"
@@ -52,6 +54,7 @@ interface ThemeContextValue extends ThemeState {
   setDockLabel: (mode: DockLabel) => void;
   setDockPosition: (position: DockPosition) => void;
   setEntryLayout: (layout: EntryLayout) => void;
+  setFlyoutTrigger: (trigger: FlyoutTrigger) => void;
   setRecentsMode: (mode: RecentsMode) => void;
   setAutoCollapse: (enabled: boolean) => void;
   setScopeModel: (model: ScopeModel) => void;
@@ -140,6 +143,7 @@ export function ThemeProvider({
       setDockLabel: (dockLabel) => setState((s) => ({ ...s, dockLabel })),
       setDockPosition: (dockPosition) => setState((s) => ({ ...s, dockPosition })),
       setEntryLayout: (entryLayout) => setState((s) => ({ ...s, entryLayout })),
+      setFlyoutTrigger: (flyoutTrigger) => setState((s) => ({ ...s, flyoutTrigger })),
       setRecentsMode: (recentsMode) => setState((s) => ({ ...s, recentsMode })),
       setAutoCollapse: (autoCollapse) => setState((s) => ({ ...s, autoCollapse })),
       setScopeModel: (scopeModel) => setState((s) => ({ ...s, scopeModel })),

@@ -124,6 +124,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     // search while its neighbour keeps the nav panel.
     searchMode,
     searchTheme,
+    flyoutTrigger,
   } = effective;
   /*
    * Collapsed follows the viewport until the user says otherwise.
@@ -396,6 +397,16 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     if (plainUser && scope === "agency") switchTo(current.id);
   }, [plainUser, scope, switchTo, current.id]);
 
+  /*
+   * Khoi's click-only alternative, as a per-account setting: with the trigger
+   * on `click`, rollover previews nothing — rows open their panel only when
+   * pinned by a click. Hover mode keeps the direction-aware dwell.
+   */
+  const hoverEnabled = flyoutTrigger !== "click";
+  const noHover = React.useCallback(() => {}, []);
+  const hoverFlyout = hoverEnabled ? intent.hover : noHover;
+  const hoverPlain = hoverEnabled ? intent.scheduleClear : noHover;
+
   // Leaving one scope for the other closes whatever was open over the canvas —
   // a client flyout has no meaning at agency scope and vice versa — and drops
   // the row selection, which named a row the other scope does not have.
@@ -413,19 +424,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       {/*
         Agency-level banners span the whole window — over the account rail, the
         nav and the canvas — because platform-to-agency comms are about the
-        whole relationship, not any one account. The width is the level. While
-        a sub-account strip is also up, this one condenses so the stack stays
-        legible — and a plain sub-account user never sees agency comms at all.
+        whole relationship, not any one account. The width is the level.
+
+        Always the slim cut, at every scope: the outer level is ambient comms,
+        so it never earns the full voice — and a strip that resized when you
+        switched accounts read as a glitch, not a hierarchy. Account banners
+        below keep the full height; the contrast IS the stacking answer.
+        A plain sub-account user never sees agency comms at all.
       */}
-      {plainUser ? null : (
-        <TopBanner
-          banners={AGENCY_BANNERS}
-          condensed={
-            accounts.scope === "account" &&
-            (ACCOUNT_BANNERS[accounts.current.id]?.length ?? 0) > 0
-          }
-        />
-      )}
+      {plainUser ? null : <TopBanner banners={AGENCY_BANNERS} condensed />}
 
       <div className="relative flex min-h-0 flex-1 overflow-hidden bg-app">
       {railActive ? (
@@ -466,14 +473,22 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           overflowCount={overflowCount}
           dockLabel={dockLabel}
           dockPosition={dockPosition}
-          // The capsule's geometry is absolute, so anything inserted above it in
-          // either face has to be handed to it as an offset. Irrelevant at the
-          // bottom, where it is measured from the nav's last edge instead.
+          // The capsule's geometry is absolute, so anything inserted above OR
+          // removed from above it in either face is handed over as an offset.
+          // The collapsed base position still assumes the rail's old 38px
+          // search button + 4px gap; with the pair moved to the bottom edge
+          // that space is gone, so the capsule pulls up by those 42px.
+          // Irrelevant at the bottom, where it is measured from the nav's
+          // last edge instead.
           topOffset={
-            dockPosition === "top" && entryLayout === "top"
+            dockPosition === "top"
               ? collapsed
-                ? ENTRY_CLUSTER_RAIL_HEIGHT
-                : ENTRY_CLUSTER_HEIGHT
+                ? entryLayout === "top"
+                  ? ENTRY_CLUSTER_RAIL_HEIGHT
+                  : -42
+                : entryLayout === "top"
+                  ? ENTRY_CLUSTER_HEIGHT
+                  : 0
               : 0
           }
         />
@@ -495,7 +510,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             onSelect={setSelectedId}
             openFlyoutId={intent.activeId}
             pinnedFlyoutId={intent.pinnedId}
-            onHoverFlyout={intent.hover}
+            onHoverFlyout={hoverFlyout}
+            onHoverPlain={hoverPlain}
             onPinFlyout={intent.togglePin}
             collapsed={collapsed}
             onToggleCollapsed={toggleCollapsed}
@@ -530,7 +546,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             onSelect={setSelectedId}
             openFlyoutId={intent.activeId}
             pinnedFlyoutId={intent.pinnedId}
-            onHoverFlyout={intent.hover}
+            onHoverFlyout={hoverFlyout}
+            onHoverPlain={hoverPlain}
             onPinFlyout={intent.togglePin}
             onSearch={() => setSearchOpen(true)}
             scope={accounts.scope}
