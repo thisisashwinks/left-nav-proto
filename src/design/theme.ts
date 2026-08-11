@@ -161,11 +161,12 @@ export const ENTRY_LAYOUT_LABELS: Record<EntryLayout, string> = {
 };
 
 /**
- * How a group row's flyout opens. `hover` previews on rollover with the
- * direction-aware dwell; `click` is Khoi's Aug 10 suggestion — nothing opens
- * until the row is actually clicked, trading discoverability for calm.
+ * How a group row's flyout opens. `click` — Khoi's Aug 10 suggestion, and the
+ * default — opens nothing until the row is actually clicked, trading
+ * discoverability for calm; `hover` previews on rollover with the
+ * direction-aware dwell. Default listed first, as everywhere else.
  */
-export const FLYOUT_TRIGGERS = ["hover", "click"] as const;
+export const FLYOUT_TRIGGERS = ["click", "hover"] as const;
 
 export type FlyoutTrigger = (typeof FLYOUT_TRIGGERS)[number];
 
@@ -241,7 +242,10 @@ export const DEFAULT_THEME: ThemeState = {
   // Moving the one merged control down clears the nav's entry. "Under the
   // logo" stays one click away for the comparison.
   entryLayout: "split",
-  flyoutTrigger: "hover",
+  // Click is the default per the Aug 11 direction: Khoi's "maybe the L2
+  // doesn't get exposed until the user actually clicks" — hover preview
+  // (with its dwell) stays one toggle away for the comparison.
+  flyoutTrigger: "click",
   recentsMode: "fixed-three",
   autoCollapse: true,
   // The rail is the recommendation, so the prototype opens on it. Model A is
