@@ -476,8 +476,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           // The capsule's geometry is absolute, so anything inserted above OR
           // removed from above it in either face is handed over as an offset.
           // The collapsed base position still assumes the rail's old 38px
-          // search button + 4px gap; with the pair moved to the bottom edge
-          // that space is gone, so the capsule pulls up by those 42px.
+          // search button + 4px gap + 4px of clearance; with the pair moved
+          // to the bottom edge that space is gone, so the capsule pulls up to
+          // sit exactly 8px under the mark (measured: base leaves 12px at
+          // -34, so -38).
           // Irrelevant at the bottom, where it is measured from the nav's
           // last edge instead.
           topOffset={
@@ -485,7 +487,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               ? collapsed
                 ? entryLayout === "top"
                   ? ENTRY_CLUSTER_RAIL_HEIGHT
-                  : -42
+                  : -38
                 : entryLayout === "top"
                   ? ENTRY_CLUSTER_HEIGHT
                   : 0
