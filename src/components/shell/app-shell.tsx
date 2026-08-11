@@ -81,9 +81,15 @@ const SWITCHER_EXIT_MS = 140;
  */
 const LAUNCHER_ID = "launcher";
 
+/*
+ * The menu expands FROM the trigger rather than dropping below it: its first
+ * row is the current account, laid over where the trigger sat, so the click
+ * reads as the trigger's own box growing. Per Khoi's note — a pulldown was
+ * expected, so the panel now behaves like one.
+ */
 const SWITCHER_ANCHOR = {
-  expanded: { left: 6, top: 50 },
-  collapsed: { left: 8, top: 48 },
+  expanded: { left: 4, top: 6 },
+  collapsed: { left: 8, top: 6 },
 } as const;
 
 /**
@@ -139,6 +145,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const [customizeAccountId, setCustomizeAccountId] = React.useState<string | null>(null);
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [switcherOpen, setSwitcherOpen] = React.useState(false);
+  /** The rail's "All accounts" directory — a separate surface from the menu. */
+  const [directoryOpen, setDirectoryOpen] = React.useState(false);
   const [railExpanded, setRailExpanded] = React.useState(false);
   const {
     state: layout,
@@ -296,7 +304,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         }));
   const overflowCount = Math.max(0, layout.pinned.length - PINNED_VISIBLE);
 
-  const railActive = scopeModel === "rail";
+  /*
+   * A plain sub-account user has no agency structure at all: no account rail,
+   * no way to switch accounts, no agency scope. Scope and permission are
+   * separate axes — this is the permission axis deciding whether the scope
+   * machinery is even visible.
+   */
+  const plainUser = layout.role === "user";
+  const canSwitch = !plainUser;
+  const railActive = scopeModel === "rail" && !plainUser;
   /*
    * Expanded shows full account names beside the tiles — the answer to
    * low-quality tenant logos. Panel offsets follow the live width.
@@ -332,6 +348,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   // by identity, and the session is rebuilt on every render.
   const ai = useExitTransition(aiSession.open || null, AI_EXIT_MS);
   const switcher = useExitTransition(switcherOpen || null, SWITCHER_EXIT_MS);
+  const directory = useExitTransition(directoryOpen || null, SWITCHER_EXIT_MS);
   /*
    * The launcher rides the same hover intent as the product rows rather than its
    * own open flag, which is what makes the chip row's chevron behave like every
@@ -356,8 +373,28 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     // too, now that it shares the flyout intent.
     intent.close();
     setSearchOpen(false);
+    setDirectoryOpen(false);
     setSwitcherOpen(true);
   }, [intent, switcherOpen]);
+
+  // The rail's "All accounts" directory — same modal discipline as the menu.
+  const toggleDirectory = React.useCallback(() => {
+    if (directoryOpen) {
+      setDirectoryOpen(false);
+      return;
+    }
+    intent.close();
+    setSearchOpen(false);
+    setSwitcherOpen(false);
+    setDirectoryOpen(true);
+  }, [intent, directoryOpen]);
+
+  // Demoting the session to a plain user while parked at agency scope drops
+  // it back into the one account that user is allowed to see.
+  const { scope, switchTo, current } = accounts;
+  React.useEffect(() => {
+    if (plainUser && scope === "agency") switchTo(current.id);
+  }, [plainUser, scope, switchTo, current.id]);
 
   // Leaving one scope for the other closes whatever was open over the canvas —
   // a client flyout has no meaning at agency scope and vice versa — and drops
@@ -376,9 +413,19 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       {/*
         Agency-level banners span the whole window — over the account rail, the
         nav and the canvas — because platform-to-agency comms are about the
-        whole relationship, not any one account. The width is the level.
+        whole relationship, not any one account. The width is the level. While
+        a sub-account strip is also up, this one condenses so the stack stays
+        legible — and a plain sub-account user never sees agency comms at all.
       */}
-      <TopBanner banners={AGENCY_BANNERS} />
+      {plainUser ? null : (
+        <TopBanner
+          banners={AGENCY_BANNERS}
+          condensed={
+            accounts.scope === "account" &&
+            (ACCOUNT_BANNERS[accounts.current.id]?.length ?? 0) > 0
+          }
+        />
+      )}
 
       <div className="relative flex min-h-0 flex-1 overflow-hidden bg-app">
       {railActive ? (
@@ -387,8 +434,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           theme={navTheme}
           expanded={railExpanded}
           onToggleExpanded={() => setRailExpanded((v) => !v)}
-          switcherOpen={switcherOpen}
-          onToggleSwitcher={toggleSwitcher}
+          switcherOpen={directoryOpen}
+          onToggleSwitcher={toggleDirectory}
         />
       ) : null}
 
@@ -459,6 +506,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             onSwitchAccount={accounts.switchTo}
             switcherOpen={switcherOpen}
             onToggleSwitcher={toggleSwitcher}
+            canSwitch={canSwitch}
             aiSession={aiSession}
             density={density}
             onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
@@ -489,6 +537,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             account={headerAccount}
             switcherOpen={switcherOpen}
             onToggleSwitcher={toggleSwitcher}
+            canSwitch={canSwitch}
             aiSession={aiSession}
             density={density}
             onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
@@ -612,34 +661,38 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       ) : null}
 
       {/*
-        Anchored to its trigger in whichever nav face is showing, and rendered
-        out here because both faces clip their overflow.
-
-        Two models, two panels. The rail model gets the curate-and-jump panel
-        docked past the rail; the header model keeps the anchored switcher,
-        with the agency as its standing first row.
+        Two triggers, two jobs — Khoi's "duplicativeness" note. The workspace
+        trigger expands in place into the quick menu (AccountSwitcher, anchored
+        over the trigger it grew from) in BOTH models; the rail's "All
+        accounts" waffle opens the curate-and-jump directory (RailSwitcher).
+        Rendered out here because the nav faces clip their overflow.
       */}
       {switcher.isMounted ? (
-        railActive ? (
-          <RailSwitcher
-            session={accounts}
-            offsetLeft={railWidth}
-            theme={navTheme}
-            phase={switcher.phase}
-            onClose={() => setSwitcherOpen(false)}
-          />
-        ) : (
-          <AccountSwitcher
-            session={accounts}
-            showAgency
-            anchor={
-              collapsed ? SWITCHER_ANCHOR.collapsed : SWITCHER_ANCHOR.expanded
-            }
-            theme={navTheme}
-            phase={switcher.phase}
-            onClose={() => setSwitcherOpen(false)}
-          />
-        )
+        <AccountSwitcher
+          session={accounts}
+          showAgency={!railActive && canSwitch}
+          anchor={{
+            left:
+              railWidth +
+              (collapsed ? SWITCHER_ANCHOR.collapsed : SWITCHER_ANCHOR.expanded)
+                .left,
+            top: (collapsed ? SWITCHER_ANCHOR.collapsed : SWITCHER_ANCHOR.expanded)
+              .top,
+          }}
+          theme={navTheme}
+          phase={switcher.phase}
+          onClose={() => setSwitcherOpen(false)}
+        />
+      ) : null}
+
+      {directory.isMounted ? (
+        <RailSwitcher
+          session={accounts}
+          offsetLeft={railWidth}
+          theme={navTheme}
+          phase={directory.phase}
+          onClose={() => setDirectoryOpen(false)}
+        />
       ) : null}
 
       <UndoToast />

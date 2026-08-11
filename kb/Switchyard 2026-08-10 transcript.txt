@@ -1,0 +1,41 @@
+[0:01] Hey Neil, it's Coy.
+[0:03] Here's some reactions to the latest prototype.
+[0:05] I'm sorry I was out of pocket today.
+[0:07] Um, but wanted to get you these thoughts before tomorrow, Tuesday.
+[0:14] So, let's see if I can hide this.
+[0:20] So I think this is definitely a step forward, but I have some questions and some things I want to point out.
+[0:28] Um, this experience is a little jarring to me.
+[0:33] Because we had this pulldown menu or these up and down icons, I expected this to show me a pulldown, so jumping into a search seemed weird and I know it's the same as this one, but it feels odd.
+[0:51] Also, I wonder if, when you click on this,
+[0:57] Maybe this thing should open up as well.
+[0:59] It's just a duplicativeness of these 2 seems like a bit much to me and not the most elegant solution.
+[1:10] I also think with these icons here and this ask AI, it just seems like a cluster of iconcept can be kind of confusing.
+[1:19] It just leads me to think this is not the right place for this whole unit and maybe it belongs down at the bottom or something to just get out of the way here.
+[1:31] So I appreciate you changing these logos too from the more famous companies and more generic ones, so that works.
+[1:37] Well,
+[1:38] I think I understand what you're saying here about,
+[1:43] Let's see, where was it?
+[1:46] The banners.
+[1:48] I don't know how I could get to that banner.
+[1:50] There's a banner that should appear just for Acme, I believe.
+[1:54] Let me see what hit refresh.
+[1:57] Let me get that back.
+[2:01] Anyway, I don't I don't see it, but I did see there was their 2nd banner here.
+[2:06] And that felt like quite dense to me.
+[2:09] Like we are stacking a lot.
+[2:10] We're already stacking a lot of elements here.
+[2:13] I mean, certainly a huge improvement over what we've got today, but I feel like it's becoming a bit impenetrable for me in terms of understanding what's going on.
+[2:22] Um, So I think my next set of comments is with the navigation, which I feel is still a little tricky, um, I understand why we want to reveal the contents of the 2nd tier, the L2 on rollover, but like, if I'm here on AI agents, and I want to get to, say, funnel AI there, like, and I might go like this, and there's just some, like, usability engineering we need to do here to make sure that's gonna work.
+[2:52] right?
+[2:53] Because I'll end up rolling over quick action as many times.
+[2:56] Um, If I if I'm just rolling over this and I want to get rid of it.
+[3:05] The way to do that is, I think, to move all the way over here to the right, which seems like a lot of distance for me to travel as a user who's just browsing.
+[3:16] So this whole second tier navigation, just want to point out, we should keep refining it to figure out what's the right set of interactions.
+[3:26] Maybe these don't get exposed.
+[3:29] I'm sorry, maybe the L2 doesn't get exposed until the user actually clicks, right?
+[3:33] Maybe that will be more intuitive.
+[3:36] We could just try that.
+[3:40] And I wish I could get that other one back.
+[3:44] The other banner back.
+[3:47] Anyway, just kind of rambling right now.
+[3:49] Hopefully that helps, and I will talk to you tomorrow.

@@ -2,6 +2,7 @@
 
 import type * as React from "react";
 import type { Account } from "@/components/accounts/accounts-data";
+import { BrandMark } from "./brand-mark";
 import { WorkspaceTrigger } from "./workspace-trigger";
 
 interface NavHeaderProps {
@@ -12,6 +13,11 @@ interface NavHeaderProps {
   onToggleSwitcher: () => void;
   /** Agency scope — the trigger takes the marked treatment. */
   agency?: boolean;
+  /**
+   * False for a plain sub-account user: there is nothing to switch TO, so the
+   * identity renders as a static mark-and-name rather than a trigger.
+   */
+  canSwitch?: boolean;
   /**
    * What sits at the row's right edge.
    *
@@ -38,20 +44,27 @@ export function NavHeader({
   switcherOpen,
   onToggleSwitcher,
   agency = false,
+  canSwitch = true,
   trailing,
 }: NavHeaderProps) {
   return (
     <div className="flex w-full shrink-0 flex-col items-start gap-[10px] pt-[14px] pr-[12px] pb-[10px] pl-[12px]">
       <div className="flex w-full items-center gap-[6px]">
         <div className="flex min-w-0 flex-1 items-center">
-          <WorkspaceTrigger
-            account={account}
-            logoSrc={logoSrc}
-            logoAlt={logoAlt}
-            open={switcherOpen}
-            onToggle={onToggleSwitcher}
-            agency={agency}
-          />
+          {canSwitch ? (
+            <WorkspaceTrigger
+              account={account}
+              logoSrc={logoSrc}
+              logoAlt={logoAlt}
+              open={switcherOpen}
+              onToggle={onToggleSwitcher}
+              agency={agency}
+            />
+          ) : (
+            <span className="flex h-[30px] min-w-0 items-center">
+              <BrandMark account={account} logoSrc={logoSrc} alt={logoAlt} />
+            </span>
+          )}
         </div>
 
         {trailing}

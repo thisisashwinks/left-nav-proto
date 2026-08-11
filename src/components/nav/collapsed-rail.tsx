@@ -40,6 +40,8 @@ interface CollapsedRailProps {
   account: Account;
   switcherOpen: boolean;
   onToggleSwitcher: () => void;
+  /** False for a plain sub-account user — the mark renders inert. */
+  canSwitch?: boolean;
   /** Owned by the shell, so the window can escape the rail's clipped box. */
   aiSession: AiSession;
   /** Measured by the shell on the wrapper both faces share. */
@@ -69,6 +71,7 @@ export function CollapsedRail({
   account,
   switcherOpen,
   onToggleSwitcher,
+  canSwitch = true,
   aiSession,
   density,
   onOpenLauncher,
@@ -188,27 +191,42 @@ export function CollapsedRail({
     >
       {/*
         The rail has no room for a name or a chevron, so the mark itself is the
-        switcher trigger — same panel, anchored to this tile instead.
+        switcher trigger — same panel, anchored to this tile instead. A plain
+        sub-account user has nothing to switch to, so the mark goes inert.
       */}
-      <button
-        type="button"
-        title={`Switch sub-account — ${account.name}`}
-        aria-label={`Switch sub-account. Current account: ${account.name}`}
-        aria-haspopup="dialog"
-        aria-expanded={switcherOpen}
-        onClick={onToggleSwitcher}
-        className={cn(
-          "motion-tap flex size-[30px] shrink-0 items-center justify-center outline-none",
-          switcherOpen ? "scale-105" : "hover:scale-105 active:scale-95",
-        )}
-      >
-        <AccountLogo
-          logo={account.logo}
-          src={agencyScope ? account.logoSrc : (config.logoSrc ?? account.logoSrc)}
-          size={30}
-          radius={999}
-        />
-      </button>
+      {canSwitch ? (
+        <button
+          type="button"
+          title={`Switch sub-account — ${account.name}`}
+          aria-label={`Switch sub-account. Current account: ${account.name}`}
+          aria-haspopup="dialog"
+          aria-expanded={switcherOpen}
+          onClick={onToggleSwitcher}
+          className={cn(
+            "motion-tap flex size-[30px] shrink-0 items-center justify-center outline-none",
+            switcherOpen ? "scale-105" : "hover:scale-105 active:scale-95",
+          )}
+        >
+          <AccountLogo
+            logo={account.logo}
+            src={agencyScope ? account.logoSrc : (config.logoSrc ?? account.logoSrc)}
+            size={30}
+            radius={999}
+          />
+        </button>
+      ) : (
+        <span
+          title={account.name}
+          className="flex size-[30px] shrink-0 items-center justify-center"
+        >
+          <AccountLogo
+            logo={account.logo}
+            src={config.logoSrc ?? account.logoSrc}
+            size={30}
+            radius={999}
+          />
+        </span>
+      )}
 
       {/*
         In `bottom` mode the pair has moved down with the pill, so nothing

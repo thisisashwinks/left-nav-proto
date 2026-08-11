@@ -221,10 +221,11 @@ export const DEFAULT_THEME: ThemeState = {
   // the rest. `center` and `under` stay one click away for the comparison.
   dockLabel: "none",
   dockPosition: "top",
-  // Both under the logo is the default now: it is the arrangement the review
-  // wanted to see, and it closes the search/Ask AI overlap rather than keeping one
-  // at each end of the nav.
-  entryLayout: "top",
+  // The bottom edge is the default per Khoi's Aug 10 review: with the pill up
+  // top, the header + pill + favourites capsule read as "a cluster of icons".
+  // Moving the one merged control down clears the nav's entry. "Under the
+  // logo" stays one click away for the comparison.
+  entryLayout: "split",
   recentsMode: "fixed-three",
   autoCollapse: true,
   // The rail is the recommendation, so the prototype opens on it. Model A is

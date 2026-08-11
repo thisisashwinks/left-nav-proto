@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Search } from "lucide-react";
+import { ChevronsUpDown, Search } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
@@ -92,6 +92,10 @@ export function AccountSwitcher({
           top: anchor.top,
           width: PANEL_WIDTH,
           maxHeight: `calc(100vh - ${anchor.top + VIEWPORT_GUTTER}px)`,
+          // The animation grows from where the trigger's mark sits, so the
+          // panel reads as the trigger's own bounding box expanding — not a
+          // dropdown appearing on top of it.
+          transformOrigin: "22px 22px",
         }}
         className={cn(
           "absolute z-50 flex flex-col overflow-hidden rounded-[12px] bg-nav p-[8px]",
@@ -99,7 +103,39 @@ export function AccountSwitcher({
           phase === "entering" ? "motion-menu-in" : "motion-menu-out",
         )}
       >
-        <div className="motion-tap flex h-[34px] shrink-0 items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">
+        {/*
+          The trigger, continued: the same mark and name that was clicked is
+          the menu's first row, laid over where the trigger sat. Per the Aug 10
+          review — the chevrons promised a pulldown, so the current account
+          leads the menu and search is a row inside it, not the front door.
+          Clicking the row folds the menu back into the trigger.
+        */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={`${session.current.name} — current account. Collapse menu`}
+          className="motion-tap flex w-full shrink-0 items-center gap-[7px] rounded-[8px] bg-nav-active px-[7px] py-[5px] text-left outline-none"
+        >
+          <AccountLogo
+            logo={session.current.logo}
+            src={session.current.logoSrc}
+            size={20}
+            radius={999}
+          />
+          <span className="min-w-0 flex-1 truncate text-[14px] leading-[20px] font-semibold text-nav-fg">
+            {session.current.name}
+          </span>
+          <span className="shrink-0 text-[11px] leading-[normal] text-nav-fg-subtle">
+            Current
+          </span>
+          <ChevronsUpDown
+            size={14}
+            aria-hidden="true"
+            className="shrink-0 text-nav-fg-subtle"
+          />
+        </button>
+
+        <div className="motion-tap mt-[6px] flex h-[32px] shrink-0 items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">
           <Search size={15} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
           <input
             ref={inputRef}

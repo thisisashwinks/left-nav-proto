@@ -74,6 +74,17 @@ export const AGENCY_BANNERS: Banner[] = [
  * its account and goes with it.
  */
 export const ACCOUNT_BANNERS: Record<string, Banner[]> = {
+  // ACME is the account every reviewer opens first, so it carries one too.
+  acme: [
+    {
+      id: "acme-import",
+      tone: "warning",
+      icon: CalendarClock,
+      lead: "Contact import still running",
+      detail: "1,469 of 2,100 contacts are in. Lists update as it finishes.",
+      cta: "View progress",
+    },
+  ],
   coastal: [
     {
       id: "coastal-payment",
@@ -129,6 +140,13 @@ const TONES: Record<
 
 interface TopBannerProps {
   banners: Banner[];
+  /**
+   * A slimmer cut of the same strip — no disc, tighter type, CTA as a text
+   * link. Used for the agency strip while a sub-account strip is also up, so
+   * two stacked levels don't read as a wall (the Aug 10 "impenetrable" note):
+   * the level you are inside keeps the full voice, the outer one recedes.
+   */
+  condensed?: boolean;
 }
 
 /**
@@ -136,7 +154,7 @@ interface TopBannerProps {
  * current banner; the strip goes when none are left. Session-only state:
  * this is a prototype of placement and anatomy, not persistence.
  */
-export function TopBanner({ banners }: TopBannerProps) {
+export function TopBanner({ banners, condensed = false }: TopBannerProps) {
   const [dismissed, setDismissed] = React.useState<string[]>([]);
   const [index, setIndex] = React.useState(0);
 
@@ -152,40 +170,63 @@ export function TopBanner({ banners }: TopBannerProps) {
     <div
       role="status"
       className={cn(
-        "flex h-[44px] w-full shrink-0 items-center gap-[10px] pr-[10px] pl-[14px]",
+        "flex w-full shrink-0 items-center gap-[10px] pr-[10px] pl-[14px]",
+        condensed ? "h-[32px]" : "h-[44px]",
         tone.bar,
       )}
     >
-      <span
-        aria-hidden="true"
+      {condensed ? (
+        <Icon size={13} aria-hidden="true" className={cn("shrink-0", tone.disc)} />
+      ) : (
+        <span
+          aria-hidden="true"
+          className={cn(
+            "flex size-[26px] shrink-0 items-center justify-center rounded-full bg-white/85",
+            "shadow-[0_1px_2px_0_rgba(15,23,42,0.12)]",
+            tone.disc,
+          )}
+        >
+          <Icon size={14} />
+        </span>
+      )}
+
+      <p
         className={cn(
-          "flex size-[26px] shrink-0 items-center justify-center rounded-full bg-white/85",
-          "shadow-[0_1px_2px_0_rgba(15,23,42,0.12)]",
-          tone.disc,
+          "min-w-0 flex-1 truncate leading-[18px]",
+          condensed ? "text-[12px]" : "text-[13px]",
         )}
       >
-        <Icon size={14} />
-      </span>
-
-      <p className="min-w-0 flex-1 truncate text-[13px] leading-[18px]">
         <span className="font-semibold">{banner.lead}</span>
         <span className="opacity-75">{"  ·  "}</span>
         <span className="opacity-90">{banner.detail}</span>
       </p>
 
       {banner.cta ? (
-        <button
-          type="button"
-          className={cn(
-            "motion-tap flex h-[27px] shrink-0 items-center rounded-[7px] bg-white px-[11px]",
-            "text-[12.5px] leading-none font-semibold",
-            "shadow-[0_1px_2px_0_rgba(15,23,42,0.12),inset_0_0_0_1px_rgba(15,23,42,0.06)]",
-            "hover:scale-[1.02] active:scale-[0.98]",
-            tone.cta,
-          )}
-        >
-          {banner.cta}
-        </button>
+        condensed ? (
+          <button
+            type="button"
+            className={cn(
+              "motion-tap shrink-0 text-[12px] leading-none font-semibold underline underline-offset-2",
+              "hover:opacity-80 active:opacity-60",
+              tone.cta,
+            )}
+          >
+            {banner.cta}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={cn(
+              "motion-tap flex h-[27px] shrink-0 items-center rounded-[7px] bg-white px-[11px]",
+              "text-[12.5px] leading-none font-semibold",
+              "shadow-[0_1px_2px_0_rgba(15,23,42,0.12),inset_0_0_0_1px_rgba(15,23,42,0.06)]",
+              "hover:scale-[1.02] active:scale-[0.98]",
+              tone.cta,
+            )}
+          >
+            {banner.cta}
+          </button>
+        )
       ) : null}
 
       {/* Strip management, gathered on the trailing edge away from content. */}

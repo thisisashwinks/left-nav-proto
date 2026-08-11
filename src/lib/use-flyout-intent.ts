@@ -34,22 +34,91 @@ export function useFlyoutIntent(clearDelayMs = 120): FlyoutIntent {
   const [pinnedId, setPinnedId] = React.useState<string | null>(null);
   const [hoveredId, setHoveredId] = React.useState<string | null>(null);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** A hover waiting out the direction check — id and its commit timer. */
+  const pendingHover = React.useRef<{
+    id: string;
+    timer: ReturnType<typeof setTimeout>;
+  } | null>(null);
+  /**
+   * The pointer's last movement, sampled globally. The panels dock to the
+   * nav's right, so "moving right" means "heading for the open panel" — the
+   * one direction in which crossing a sibling trigger must not switch panels.
+   */
+  const motion = React.useRef({ x: 0, y: 0, dx: 0, dy: 0 });
+  const hoveredRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    hoveredRef.current = hoveredId;
+  }, [hoveredId]);
+
+  React.useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      const m = motion.current;
+      m.dx = e.clientX - m.x;
+      m.dy = e.clientY - m.y;
+      m.x = e.clientX;
+      m.y = e.clientY;
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
+  }, []);
+
+  const cancelPending = React.useCallback(() => {
+    if (pendingHover.current !== null) {
+      clearTimeout(pendingHover.current.timer);
+      pendingHover.current = null;
+    }
+  }, []);
 
   const cancelClear = React.useCallback(() => {
     if (timer.current !== null) {
       clearTimeout(timer.current);
       timer.current = null;
     }
-  }, []);
+    // Reaching the panel is the strongest signal there is: whatever trigger
+    // the pointer crossed on the way was en route, not a destination.
+    cancelPending();
+  }, [cancelPending]);
 
-  React.useEffect(() => cancelClear, [cancelClear]);
+  React.useEffect(() => {
+    return () => {
+      if (timer.current !== null) clearTimeout(timer.current);
+      cancelPending();
+    };
+  }, [cancelPending]);
 
   const hover = React.useCallback(
     (id: string) => {
-      cancelClear();
+      if (timer.current !== null) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
+      /*
+       * The safe-triangle rule: with a panel already showing, a pointer that
+       * is moving toward it (rightward, flatter than steep) is trying to
+       * REACH it — the sibling trigger under the cursor is just in the way.
+       * Hold the switch briefly; only if the pointer settles on the sibling
+       * (still there when the timer fires, no rightward escape) does the
+       * panel change. Vertical browsing keeps switching instantly.
+       */
+      const showing = hoveredRef.current;
+      const m = motion.current;
+      const towardPanel = m.dx > 2 && m.dx >= Math.abs(m.dy);
+      if (showing !== null && showing !== id && towardPanel) {
+        if (pendingHover.current?.id === id) return;
+        cancelPending();
+        pendingHover.current = {
+          id,
+          timer: setTimeout(() => {
+            pendingHover.current = null;
+            setHoveredId(id);
+          }, 260),
+        };
+        return;
+      }
+      cancelPending();
       setHoveredId(id);
     },
-    [cancelClear],
+    [cancelPending],
   );
 
   const scheduleClear = React.useCallback(() => {
@@ -59,6 +128,11 @@ export function useFlyoutIntent(clearDelayMs = 120): FlyoutIntent {
       setHoveredId(null);
     }, clearDelayMs);
   }, [cancelClear, clearDelayMs]);
+
+  React.useEffect(() => {
+    // A pending switch must not outlive the panel it was deferring to.
+    if (hoveredId === null) cancelPending();
+  }, [hoveredId, cancelPending]);
 
   /**
    * Click a trigger to pin it; click the same one again to close.

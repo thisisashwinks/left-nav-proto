@@ -49,6 +49,8 @@ interface LeftNavProps {
   onSwitchAccount: (id: string) => void;
   switcherOpen: boolean;
   onToggleSwitcher: () => void;
+  /** False for a plain sub-account user — the trigger renders inert. */
+  canSwitch?: boolean;
   /** Owned by the shell, so the window can escape the nav's clipped box. */
   aiSession: AiSession;
   /**
@@ -97,6 +99,7 @@ export function LeftNav({
   onSwitchAccount,
   switcherOpen,
   onToggleSwitcher,
+  canSwitch = true,
   aiSession,
   density,
   onOpenLauncher,
@@ -176,6 +179,7 @@ export function LeftNav({
         logoAlt={config.logoAlt}
         switcherOpen={switcherOpen}
         onToggleSwitcher={onToggleSwitcher}
+        canSwitch={canSwitch}
         // The drawer toggle holds the header's right edge in both
         // arrangements — collapsing is nav chrome, not entry, so it must not
         // move when the pill does. Per review: the toggle need not shift.
