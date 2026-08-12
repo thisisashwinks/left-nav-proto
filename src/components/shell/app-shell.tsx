@@ -59,6 +59,9 @@ import { useMediaQuery } from "@/lib/use-media-query";
 const EXPANDED_WIDTH = 272;
 const COLLAPSED_WIDTH = 64;
 
+/** The 28px expand button + 4px rail gap that sit under the collapsed mark. */
+const RAIL_EXPAND_BLOCK = 32;
+
 /** Must match --dur-fast, which drives the panel's exit animation. */
 const FLYOUT_EXIT_MS = 140;
 
@@ -398,16 +401,12 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   }, [plainUser, scope, switchTo, current.id]);
 
   /*
-   * Aug 11 review: with the account rail live, the header trigger opening its
-   * own switcher was a second, overlapping account-switching surface. So in
-   * the rail model the identity click expands the rail (names beside tiles)
-   * instead — switching stays the rail's job. The header model keeps the
-   * in-place menu; it has no rail to lean on.
+   * Aug 11 review, tightened same day: with the account rail live, the nav's
+   * identity is a NAME, not a control — clicking the logo does nothing, and
+   * the leftmost strip is the only place accounts change. The header model
+   * keeps the in-place menu; it has no rail to lean on.
    */
-  const onIdentityClick = railActive
-    ? () => setRailExpanded((v) => !v)
-    : toggleSwitcher;
-  const identityOpen = railActive ? railExpanded : switcherOpen;
+  const identityCanSwitch = canSwitch && !railActive;
 
   /*
    * Khoi's click-only alternative, as a per-account setting: with the trigger
@@ -492,19 +491,16 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           dockPosition={dockPosition}
           // The capsule's geometry is absolute, so anything inserted above OR
           // removed from above it in either face is handed over as an offset.
-          // The collapsed base position still assumes the rail's old 38px
-          // search button + 4px gap + 4px of clearance; with the pair moved
-          // to the bottom edge that space is gone, so the capsule pulls up to
-          // sit exactly 8px under the mark (measured: base leaves 12px at
-          // -34, so -38).
-          // Irrelevant at the bottom, where it is measured from the nav's
-          // last edge instead.
+          // Collapsed, the base position assumed the rail's old 38px search
+          // button; the pair moved to the bottom edge (-38 lands the capsule
+          // 8px under the mark) and the 28px expand button + 4px gap moved IN
+          // under the mark (+32). Irrelevant at the bottom, where it is
+          // measured from the nav's last edge instead.
           topOffset={
             dockPosition === "top"
               ? collapsed
-                ? entryLayout === "top"
-                  ? ENTRY_CLUSTER_RAIL_HEIGHT
-                  : -38
+                ? RAIL_EXPAND_BLOCK +
+                  (entryLayout === "top" ? ENTRY_CLUSTER_RAIL_HEIGHT : -38)
                 : entryLayout === "top"
                   ? ENTRY_CLUSTER_HEIGHT
                   : 0
@@ -539,9 +535,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             account={headerAccount}
             recentAccounts={recentAccounts}
             onSwitchAccount={accounts.switchTo}
-            switcherOpen={identityOpen}
-            onToggleSwitcher={onIdentityClick}
-            canSwitch={canSwitch}
+            switcherOpen={switcherOpen}
+            onToggleSwitcher={toggleSwitcher}
+            canSwitch={identityCanSwitch}
             aiSession={aiSession}
             density={density}
             onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
@@ -571,9 +567,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             onSearch={() => setSearchOpen(true)}
             scope={accounts.scope}
             account={headerAccount}
-            switcherOpen={identityOpen}
-            onToggleSwitcher={onIdentityClick}
-            canSwitch={canSwitch}
+            switcherOpen={switcherOpen}
+            onToggleSwitcher={toggleSwitcher}
+            canSwitch={identityCanSwitch}
+            onExpand={() => setManualCollapsed(false)}
             aiSession={aiSession}
             density={density}
             onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
@@ -605,10 +602,6 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 ? [accounts.agency.name, "Overview"]
                 : ["Contacts", "Smart lists"]
           }
-          // Whenever the rail is showing: the 64px face has no logo row or
-          // footer slot for a toggle in either arrangement, so reopening is
-          // done from the app bar's far left, immediately right of the rail.
-          {...(collapsed ? { onExpandNav: () => setManualCollapsed(false) } : {})}
         />
         {/*
           The customizer lives behind the Sub-accounts page, as production

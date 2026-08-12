@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronRight, House, PanelLeftOpen } from "lucide-react";
+import { ChevronRight, House } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import { headerConfig, type HeaderActionTone, type HeaderConfig } from "./header-config";
@@ -20,30 +20,20 @@ interface AppHeaderProps {
   config?: HeaderConfig;
   /** Where you are: ["Contacts", "Smart lists"]. Home renders before it. */
   crumbs?: string[];
-  /**
-   * Reopens the nav from the app bar's far left.
-   *
-   * Only passed when the nav has nowhere of its own to put it — collapsed, with
-   * search and Ask AI moved to the top, the 64px rail has no logo row left to hang
-   * a toggle from and its footer is empty by design. Sitting immediately right of
-   * the rail, this is the nearest place the control can go without inventing a
-   * floating button.
-   */
-  onExpandNav?: () => void;
 }
 
 /**
  * The 48px app bar, restructured per the header review: the tab strip is gone
  * — those destinations moved into the page title's dropdown, where the page
- * itself is the navigator — and what remains is orientation. Left: the nav
- * toggle, Home, and the breadcrumb naming where you are. Right: the
- * utilities. Ask AI lives in the nav's merged pill, not up here.
+ * itself is the navigator — and what remains is orientation. Left: Home and
+ * the breadcrumb naming where you are. Right: the utilities. Ask AI lives in
+ * the nav's merged pill, and the nav's own toggle lives in the nav — the app
+ * bar carries no chrome for either.
  */
 export function AppHeader({
   theme,
   config = headerConfig,
   crumbs = ["Contacts", "Smart lists"],
-  onExpandNav,
 }: AppHeaderProps) {
   return (
     <header
@@ -54,18 +44,6 @@ export function AppHeader({
       className="flex h-[48px] w-full shrink-0 items-center justify-between bg-hdr px-[16px] shadow-[inset_0_-1px_0_0_var(--hdr-border)]"
     >
       <div className="flex h-full min-w-0 items-center gap-[4px]">
-        {onExpandNav ? (
-          <button
-            type="button"
-            title="Expand navigation"
-            aria-label="Expand navigation"
-            onClick={onExpandNav}
-            className="motion-tap mr-[8px] flex size-[28px] shrink-0 items-center justify-center rounded-[7px] text-hdr-fg-muted hover:bg-hdr-chip hover:text-hdr-fg active:scale-95 motion-press"
-          >
-            <PanelLeftOpen size={17} aria-hidden="true" />
-          </button>
-        ) : null}
-
         <button
           type="button"
           title="Home"

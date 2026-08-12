@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Star } from "lucide-react";
+import { PanelLeftOpen, Star } from "lucide-react";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import type { Account } from "@/components/accounts/accounts-data";
@@ -44,6 +44,8 @@ interface CollapsedRailProps {
   onToggleSwitcher: () => void;
   /** False for a plain sub-account user — the mark renders inert. */
   canSwitch?: boolean;
+  /** Reopens the expanded nav. Lives right under the mark, not in the app bar. */
+  onExpand: () => void;
   /** Owned by the shell, so the window can escape the rail's clipped box. */
   aiSession: AiSession;
   /** Measured by the shell on the wrapper both faces share. */
@@ -75,6 +77,7 @@ export function CollapsedRail({
   switcherOpen,
   onToggleSwitcher,
   canSwitch = true,
+  onExpand,
   aiSession,
   density,
   onOpenLauncher,
@@ -230,6 +233,22 @@ export function CollapsedRail({
           />
         </span>
       )}
+
+      {/*
+        Reopening the nav happens right under the mark — inside the rail the
+        drawer belongs to, not off in the app bar (Aug 11 ask). Same glyph and
+        size as the expanded header's toggle, so it reads as the same control.
+      */}
+      <RailTooltip label="Expand navigation">
+        <button
+          type="button"
+          aria-label="Expand navigation"
+          onClick={onExpand}
+          className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95 motion-press"
+        >
+          <PanelLeftOpen size={16} aria-hidden="true" />
+        </button>
+      </RailTooltip>
 
       {/*
         In `bottom` mode the pair has moved down with the pill, so nothing
