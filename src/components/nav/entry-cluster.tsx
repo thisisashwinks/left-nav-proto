@@ -89,37 +89,41 @@ export function EntryPill({
           Fully rounded, because a pill reads as somewhere to type where a 10px
           radius read as a button.
         */}
+        {/*
+          The orb ALONE opens the assistant panel (Aug 11 ask) — everywhere
+          else on the pill, label included, is search. One control, but the
+          AI entrance is exactly the AI-shaped part of it.
+        */}
         <button
           type="button"
           title="Ask AI"
+          aria-label="Ask AI"
           onClick={() => session.launch()}
-          className="motion-tap relative flex h-full min-w-0 flex-1 items-center gap-[8px] text-left"
+          className="motion-tap relative flex size-[28px] shrink-0 items-center justify-center rounded-full hover:scale-105 active:scale-95"
         >
           {session.open ? (
             <span
               aria-hidden="true"
-              className="motion-ai-pulse absolute top-1/2 left-0 size-[28px] -translate-y-1/2 rounded-full ring-2 ring-[var(--ai-ring)]"
+              className="motion-ai-pulse absolute inset-0 rounded-full ring-2 ring-[var(--ai-ring)]"
             />
           ) : null}
           <AiOrb size={28} state={session.state} glow />
-          <span className="min-w-0 flex-1 truncate text-[13px] leading-[normal] text-nav-fg-subtle">
-            Ask AI
-          </span>
         </button>
 
-        {/*
-          Search keeps the trailing end, next to the shortcut that opens it. It is
-          the smaller of the two jobs here and the only one whose glyph needs no
-          explaining, so an icon alone carries it.
-        */}
         <button
           type="button"
           title="Search"
-          aria-label="Search"
           onClick={onSearch}
-          className="motion-tap flex size-[24px] shrink-0 items-center justify-center rounded-full text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg-muted active:scale-95"
+          className="motion-tap flex h-full min-w-0 flex-1 items-center gap-[8px] text-left"
         >
-          <Search size={16} aria-hidden="true" />
+          <span className="min-w-0 flex-1 truncate text-[13px] leading-[normal] text-nav-fg-subtle">
+            Ask AI
+          </span>
+          <Search
+            size={16}
+            aria-hidden="true"
+            className="shrink-0 text-nav-fg-subtle"
+          />
         </button>
 
         <Kbd>⌘K</Kbd>

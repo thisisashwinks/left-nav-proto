@@ -9,7 +9,11 @@ import {
 import { AccountSwitcher } from "@/components/accounts/account-switcher";
 import { RailSwitcher } from "@/components/accounts/rail-switcher";
 import { useAccounts } from "@/components/accounts/use-accounts";
-import { AI_DOCKED_WIDTH, AiWindow } from "@/components/ai/ai-window";
+import {
+  AI_DOCKED_WIDTH,
+  AiWindow,
+  type AiPanelMode,
+} from "@/components/ai/ai-window";
 import { useAiSession } from "@/components/ai/use-ai-session";
 import { flyouts } from "@/components/flyout/flyout-config";
 import { FlyoutPanel } from "@/components/flyout/flyout-panel";
@@ -148,8 +152,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   /** Who the customizer is shaping. Null = still on the Sub-accounts picker. */
   const [customizeAccountId, setCustomizeAccountId] = React.useState<string | null>(null);
   const [searchOpen, setSearchOpen] = React.useState(false);
-  /** Ask AI pinned into the layout (canvas shrinks) vs floating over it. */
-  const [aiDocked, setAiDocked] = React.useState(false);
+  /** Ask AI: floating over the page, docked into the layout, or full screen. */
+  const [aiMode, setAiMode] = React.useState<AiPanelMode>("floating");
   const [switcherOpen, setSwitcherOpen] = React.useState(false);
   /** The rail's "All accounts" directory — a separate surface from the menu. */
   const [directoryOpen, setDirectoryOpen] = React.useState(false);
@@ -647,7 +651,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
 
       {/* The layout hole the docked Ask AI panel sits in — the canvas
           shrinks beside the conversation instead of running under it. */}
-      {ai.isMounted && aiDocked ? (
+      {ai.isMounted && aiMode === "docked" ? (
         <div aria-hidden="true" className="shrink-0" style={{ width: AI_DOCKED_WIDTH }} />
       ) : null}
 
@@ -697,8 +701,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           theme={navTheme}
           session={aiSession}
           phase={ai.phase}
-          docked={aiDocked}
-          onToggleDocked={() => setAiDocked((v) => !v)}
+          mode={aiMode}
+          onModeChange={setAiMode}
         />
       ) : null}
 

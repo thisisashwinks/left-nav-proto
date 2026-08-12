@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Minus, Plus, Search } from "lucide-react";
+import { Pin, PinOff, Search } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
 import { cn } from "@/lib/utils";
@@ -107,7 +107,7 @@ export function RailSwitcher({
           ) : null}
 
           <Group
-            label={`OPEN · ${session.railIds.length}`}
+            label={`PINNED · ${session.railIds.length}`}
             accounts={onRail}
             session={session}
             action="remove"
@@ -193,10 +193,10 @@ function Group({
               type="button"
               aria-label={
                 action === "remove"
-                  ? `Close ${account.name}`
-                  : `Open ${account.name}`
+                  ? `Unpin ${account.name}`
+                  : `Pin ${account.name}`
               }
-              title={action === "remove" ? "Close" : "Open"}
+              title={action === "remove" ? "Unpin" : "Pin"}
               onClick={() => {
                 if (action === "remove") {
                   session.removeFromRail(account.id);
@@ -216,9 +216,9 @@ function Group({
               )}
             >
               {action === "remove" ? (
-                <Minus size={14} aria-hidden="true" />
+                <PinOff size={14} aria-hidden="true" />
               ) : (
-                <Plus size={14} aria-hidden="true" />
+                <Pin size={14} aria-hidden="true" />
               )}
             </button>
           </div>

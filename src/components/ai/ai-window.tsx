@@ -1,11 +1,22 @@
 "use client";
 
 import * as React from "react";
-import { ArrowUp, Mic, PanelRight, PictureInPicture2, Plus, X } from "lucide-react";
+import {
+  ArrowUp,
+  Bookmark,
+  History,
+  Maximize2,
+  Mic,
+  Minimize2,
+  PanelRight,
+  PictureInPicture2,
+  Plus,
+  X,
+} from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
-import { AI_CONTEXT_LABEL, type AiReply } from "./ai-config";
+import type { AiReply } from "./ai-config";
 import { AiOrb } from "./ai-orb";
 import { AiSuggestions } from "./ai-suggestions";
 import type { AiSession, AiState, AiTurn } from "./use-ai-session";
@@ -29,12 +40,16 @@ import { VoiceWave } from "./voice-wave";
  */
 
 /** Width from the design review: wide enough for a drafted message to breathe. */
-const WINDOW_WIDTH = 440;
-/** Inset from the shell's edges in both modes. */
-const WINDOW_GUTTER = 12;
+const WINDOW_WIDTH = 460;
 
-/** The layout hole the shell reserves while the panel is docked. */
-export const AI_DOCKED_WIDTH = WINDOW_WIDTH + WINDOW_GUTTER * 2;
+/** The layout hole the shell reserves while the panel is docked — flush. */
+export const AI_DOCKED_WIDTH = WINDOW_WIDTH;
+
+/**
+ * How the panel holds the screen: floating over the page, docked into the
+ * layout beside it, or expanded to take the whole canvas over.
+ */
+export type AiPanelMode = "floating" | "docked" | "full";
 
 /** Per-word delay in an answer, and the cap so a long one still lands fast. */
 const WORD_STEP_MS = 26;
@@ -48,18 +63,19 @@ interface AiWindowProps {
   theme: SurfaceTheme;
   session: AiSession;
   phase: TransitionPhase;
-  /** Pinned into the layout (canvas shrinks) vs floating over the page. */
-  docked: boolean;
-  onToggleDocked: () => void;
+  mode: AiPanelMode;
+  onModeChange: (mode: AiPanelMode) => void;
 }
 
 export function AiWindow({
   theme,
   session,
   phase,
-  docked,
-  onToggleDocked,
+  mode,
+  onModeChange,
 }: AiWindowProps) {
+  const docked = mode === "docked";
+  const full = mode === "full";
   const { turns, value, listening, state, close, focusNonce } = session;
 
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
@@ -105,6 +121,66 @@ export function AiWindow({
 
   const empty = turns.length === 0;
 
+  const composer = (
+    <div className="flex w-full items-end gap-[8px] rounded-[24px] bg-[linear-gradient(135deg,var(--ai-soft-from),var(--ai-soft-to))] py-[8px] pr-[8px] pl-[16px] shadow-[inset_0_0_0_1px_var(--ai-border),0_14px_36px_-20px_var(--ai-win-shadow)]">
+      {listening ? (
+        <div className="flex min-w-0 flex-1 items-center gap-[9px] py-[3px]">
+          <VoiceWave className="h-[18px] text-[var(--ai-from)]" />
+          <span className="min-w-0 flex-1 truncate text-[13px] leading-[normal] text-nav-fg">
+            {value || "Listening…"}
+          </span>
+        </div>
+      ) : (
+        <textarea
+          ref={inputRef}
+          rows={1}
+          value={value}
+          onChange={(e) => session.setValue(e.target.value)}
+          onKeyDown={(e) => {
+            // Enter sends; Shift+Enter is how you get a second line.
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              session.submit(value);
+            }
+          }}
+          placeholder={empty ? "How can I help you today?" : "Ask anything about this page…"}
+          aria-label="Ask AI"
+          className="min-w-0 flex-1 resize-none bg-transparent py-[4px] text-[13px] leading-[19px] text-nav-fg placeholder:text-nav-fg-subtle focus:outline-none"
+        />
+      )}
+
+      <button
+        type="button"
+        aria-label={listening ? "Stop listening" : "Start voice input"}
+        aria-pressed={listening}
+        onClick={session.toggleListening}
+        className={cn(
+          "motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-full active:scale-95",
+          listening
+            ? "bg-[var(--ai-from)] text-white"
+            : "text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg-muted",
+        )}
+      >
+        <Mic size={14} aria-hidden="true" />
+      </button>
+
+      <button
+        type="button"
+        aria-label="Send"
+        disabled={value.trim().length === 0}
+        onClick={() => session.submit(value)}
+        className={cn(
+          "motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-full",
+          value.trim().length > 0
+            ? "bg-[linear-gradient(135deg,var(--ai-from),var(--ai-to))] text-white hover:scale-110 active:scale-95"
+            : "bg-nav-rail-disc text-nav-fg-subtle",
+        )}
+      >
+        <ArrowUp size={14} aria-hidden="true" />
+      </button>
+    </div>
+  );
+
   return (
     <div
       data-nav-theme={theme}
@@ -115,7 +191,7 @@ export function AiWindow({
       {/* Click-away, floating mode only. Deliberately not a scrim — the page
           behind is the context the answer is about, so dimming it would work
           against itself. */}
-      {docked ? null : (
+      {mode === "floating" ? (
         <button
           type="button"
           aria-label="Close Ask AI"
@@ -123,19 +199,14 @@ export function AiWindow({
           onClick={close}
           className="pointer-events-auto absolute inset-0 cursor-default"
         />
-      )}
+      ) : null}
 
       {/* The bloom sits outside the clipped window so its blur is not cut off. */}
       <div
         data-ai-state={state}
         aria-hidden="true"
         className="pointer-events-none absolute"
-        style={{
-          right: WINDOW_GUTTER,
-          bottom: WINDOW_GUTTER,
-          width: WINDOW_WIDTH,
-          height: 300,
-        }}
+        style={{ right: 0, bottom: 0, width: WINDOW_WIDTH, height: 300 }}
       >
         <div
           className={cn(
@@ -145,153 +216,130 @@ export function AiWindow({
         />
       </div>
 
+      {/*
+        Flush to the shell's right edge in both modes — a side panel, not a
+        floating card. Floating throws a long shadow across the page; docked
+        keeps only the hairline seam, since the layout hole beside it does
+        the separating.
+      */}
       <div
         role="dialog"
         aria-label="Ask AI"
         data-ai-state={state}
-        style={{
-          right: WINDOW_GUTTER,
-          top: WINDOW_GUTTER,
-          bottom: WINDOW_GUTTER,
-          width: WINDOW_WIDTH,
-        }}
+        style={{ width: full ? "100%" : WINDOW_WIDTH }}
         className={cn(
-          "ai-halo pointer-events-auto absolute flex origin-bottom-right flex-col overflow-hidden rounded-[16px]",
+          "motion-move pointer-events-auto absolute inset-y-0 right-0 flex origin-right overflow-hidden",
           "bg-[var(--ai-win-bg)] backdrop-blur-[18px]",
-          // Docked, the panel is furniture, not a popover — the throw shadow
-          // goes and the layout hole beside it does the separating.
-          docked
-            ? "shadow-[0_8px_24px_-12px_var(--ai-win-shadow)]"
-            : "shadow-[0_24px_60px_-12px_var(--ai-win-shadow)]",
+          full
+            ? "shadow-none"
+            : docked
+              ? "shadow-[inset_1px_0_0_0_var(--ai-border)]"
+              : "shadow-[inset_1px_0_0_0_var(--ai-border),-32px_0_72px_-32px_var(--ai-win-shadow)]",
           phase === "entering" ? "ai-window-in" : "ai-window-out",
         )}
       >
-        <header className="relative flex h-[44px] shrink-0 items-center gap-[8px] px-[12px] shadow-[inset_0_-1px_0_0_var(--ai-border)]">
-          <AiOrb size={18} state={state} />
-          <span className="text-[13px] leading-none font-semibold text-nav-fg">
-            Ask AI
+        {/* The tool strip on the panel's own left edge: the orb as identity,
+            then the conversation-level actions. */}
+        <div className="flex w-[50px] shrink-0 flex-col items-center gap-[4px] pt-[14px] pb-[12px] shadow-[inset_-1px_0_0_0_var(--ai-border)]">
+          <span className="mb-[8px] flex size-[30px] items-center justify-center">
+            <AiOrb size={26} state={state} glow />
           </span>
-          {/* The scope of an answer should never be a guess. */}
-          <span className="rounded-full bg-nav-rail px-[7px] py-[3px] text-[11px] leading-none whitespace-nowrap text-nav-fg-muted shadow-[inset_0_0_0_1px_var(--nav-rail-border)]">
-            {AI_CONTEXT_LABEL}
-          </span>
-
-          <span className="flex-1" />
-
-          {empty ? null : (
-            <IconButton label="New conversation" onClick={session.reset}>
-              <Plus size={14} aria-hidden="true" />
-            </IconButton>
-          )}
-          <IconButton
-            label={docked ? "Float panel" : "Dock panel"}
-            onClick={onToggleDocked}
-          >
-            {docked ? (
-              <PictureInPicture2 size={14} aria-hidden="true" />
-            ) : (
-              <PanelRight size={14} aria-hidden="true" />
-            )}
+          <IconButton label="New conversation" onClick={session.reset}>
+            <Plus size={15} aria-hidden="true" />
           </IconButton>
-          <IconButton label="Close" onClick={close}>
-            <X size={14} aria-hidden="true" />
+          <IconButton label="Saved answers" onClick={() => {}}>
+            <Bookmark size={15} aria-hidden="true" />
           </IconButton>
-        </header>
-
-        <div
-          ref={scrollRef}
-          className="flex min-h-0 flex-1 flex-col gap-[14px] overflow-y-auto px-[12px] py-[14px]"
-        >
-          {empty ? (
-            <div className="flex flex-col gap-[12px]">
-              <div
-                className="ai-rise flex flex-col gap-[3px] px-[6px] pt-[6px]"
-                style={{ "--rise-index": 0 } as React.CSSProperties}
-              >
-                <h2 className="text-[16px] leading-[22px] font-semibold text-nav-fg">
-                  What can I help with?
-                </h2>
-                <p className="text-[13px] leading-[18px] text-nav-fg-muted">
-                  I can see your contacts, smart lists, and workflows on this page.
-                </p>
-              </div>
-
-              <AiSuggestions
-                variant="roomy"
-                suggestions={session.suggestions}
-                onPick={(s) => session.submit(s.prompt)}
-                onShuffle={session.shuffle}
-              />
-            </div>
-          ) : (
-            turns.map((turn) => (
-              <Turn key={turn.id} turn={turn} state={state} />
-            ))
-          )}
+          <IconButton label="History" onClick={() => {}}>
+            <History size={15} aria-hidden="true" />
+          </IconButton>
         </div>
 
-        <div className="shrink-0 p-[10px] shadow-[inset_0_1px_0_0_var(--ai-border)]">
-          <div className="flex items-end gap-[8px] rounded-[12px] bg-[linear-gradient(135deg,var(--ai-soft-from),var(--ai-soft-to))] px-[10px] py-[8px] shadow-[inset_0_0_0_1px_var(--ai-border)]">
-            {listening ? (
-              <div className="flex min-w-0 flex-1 items-center gap-[9px] py-[2px]">
-                <VoiceWave className="h-[18px] text-[var(--ai-from)]" />
-                <span className="min-w-0 flex-1 truncate text-[13px] leading-[normal] text-nav-fg">
-                  {value || "Listening…"}
-                </span>
-              </div>
-            ) : (
-              <textarea
-                ref={inputRef}
-                rows={1}
-                value={value}
-                onChange={(e) => session.setValue(e.target.value)}
-                onKeyDown={(e) => {
-                  // Enter sends; Shift+Enter is how you get a second line.
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    session.submit(value);
-                  }
-                }}
-                placeholder="Ask anything about this page…"
-                aria-label="Ask AI"
-                className="min-w-0 flex-1 resize-none bg-transparent py-[2px] text-[13px] leading-[19px] text-nav-fg placeholder:text-nav-fg-subtle focus:outline-none"
-              />
-            )}
-
-            <button
-              type="button"
-              aria-label={listening ? "Stop listening" : "Start voice input"}
-              aria-pressed={listening}
-              onClick={session.toggleListening}
-              className={cn(
-                "motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-full active:scale-95",
-                listening
-                  ? "bg-[var(--ai-from)] text-white"
-                  : "text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg-muted",
-              )}
+        <div className="relative flex min-w-0 flex-1 flex-col">
+          <div className="absolute top-[10px] right-[10px] z-10 flex items-center gap-[2px]">
+            <IconButton
+              label={docked ? "Float panel" : "Dock panel"}
+              onClick={() => onModeChange(docked ? "floating" : "docked")}
             >
-              <Mic size={14} aria-hidden="true" />
-            </button>
-
-            <button
-              type="button"
-              aria-label="Send"
-              disabled={value.trim().length === 0}
-              onClick={() => session.submit(value)}
-              className={cn(
-                "motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-full",
-                value.trim().length > 0
-                  ? "bg-[linear-gradient(135deg,var(--ai-from),var(--ai-to))] text-white hover:scale-110 active:scale-95"
-                  : "bg-nav-rail-disc text-nav-fg-subtle",
+              {docked ? (
+                <PictureInPicture2 size={14} aria-hidden="true" />
+              ) : (
+                <PanelRight size={14} aria-hidden="true" />
               )}
+            </IconButton>
+            <IconButton
+              label={full ? "Exit full screen" : "Expand"}
+              onClick={() => onModeChange(full ? "floating" : "full")}
             >
-              <ArrowUp size={14} aria-hidden="true" />
-            </button>
+              {full ? (
+                <Minimize2 size={14} aria-hidden="true" />
+              ) : (
+                <Maximize2 size={14} aria-hidden="true" />
+              )}
+            </IconButton>
+            <IconButton label="Close" onClick={close}>
+              <X size={14} aria-hidden="true" />
+            </IconButton>
           </div>
+
+          {empty ? (
+            /* The reference layout: greeting and composer in the panel's
+               centre, suggestions receding below them. The max width keeps
+               the centre column conversational even in full screen. */
+            <div className="mx-auto flex min-h-0 w-full max-w-[560px] flex-1 flex-col justify-center gap-[20px] px-[24px] pb-[32px]">
+              <div
+                className="ai-rise flex items-center justify-center gap-[12px]"
+                style={{ "--rise-index": 0 } as React.CSSProperties}
+              >
+                <AiOrb size={28} state={state} />
+                <h2 className="text-[23px] leading-[32px] font-semibold tracking-[-0.3px] text-nav-fg">
+                  {greetingFor(new Date())}, Neel
+                </h2>
+              </div>
+
+              {composer}
+
+              <div
+                className="ai-rise"
+                style={{ "--rise-index": 1 } as React.CSSProperties}
+              >
+                <AiSuggestions
+                  variant="compact"
+                  suggestions={session.suggestions}
+                  onPick={(s) => session.submit(s.prompt)}
+                  onShuffle={session.shuffle}
+                />
+              </div>
+            </div>
+          ) : (
+            <>
+              <div
+                ref={scrollRef}
+                className="flex min-h-0 flex-1 flex-col overflow-y-auto px-[14px] pt-[46px] pb-[14px]"
+              >
+                <div className="mx-auto flex w-full max-w-[720px] flex-col gap-[14px]">
+                  {turns.map((turn) => (
+                    <Turn key={turn.id} turn={turn} state={state} />
+                  ))}
+                </div>
+              </div>
+              <div className="mx-auto w-full max-w-[744px] shrink-0 px-[12px] pb-[12px]">
+                {composer}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
   );
+}
+
+/** Sentence-case time-of-day greeting, the reference's opening line. */
+function greetingFor(now: Date): string {
+  const hour = now.getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
 }
 
 /* ─── Pieces ─────────────────────────────────────────────────────────────── */
