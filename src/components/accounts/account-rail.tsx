@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Grip, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Grip } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import { AccountLogo } from "./account-logo";
@@ -18,11 +18,21 @@ interface AccountRailProps {
   theme: SurfaceTheme;
   /** Expanded shows full account names — for the logos that don't earn recognition. */
   expanded: boolean;
-  onToggleExpanded: () => void;
+  /** Owned by the shell — panel offsets follow the live width. */
+  onExpandedChange: (expanded: boolean) => void;
   /** Whether the Accounts panel is open — the waffle shows as pressed. */
   switcherOpen: boolean;
   onToggleSwitcher: () => void;
 }
+
+/**
+ * Hover intent for the auto-expanding rail. Entering waits a beat so a
+ * pointer crossing the strip on its way to the nav doesn't pop the names
+ * open; leaving waits a little longer so a brief overshoot doesn't slam
+ * them shut.
+ */
+const EXPAND_DELAY_MS = 150;
+const COLLAPSE_DELAY_MS = 250;
 
 /**
  * Model C: the account rail.
@@ -42,7 +52,7 @@ export function AccountRail({
   session,
   theme,
   expanded,
-  onToggleExpanded,
+  onExpandedChange,
   switcherOpen,
   onToggleSwitcher,
 }: AccountRailProps) {
@@ -50,12 +60,45 @@ export function AccountRail({
     .map((id) => session.accounts.find((a) => a.id === id))
     .filter((a): a is Account => a !== undefined);
 
+  // No expand/collapse control anymore (Aug 11 ask): the rail widens itself
+  // under the pointer and narrows when it leaves — GoCollab's browse pattern.
+  const hoverTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setHover = React.useCallback(
+    (next: boolean) => {
+      if (hoverTimer.current !== null) clearTimeout(hoverTimer.current);
+      hoverTimer.current = setTimeout(
+        () => {
+          hoverTimer.current = null;
+          onExpandedChange(next);
+        },
+        next ? EXPAND_DELAY_MS : COLLAPSE_DELAY_MS,
+      );
+    },
+    [onExpandedChange],
+  );
+  React.useEffect(() => {
+    return () => {
+      if (hoverTimer.current !== null) clearTimeout(hoverTimer.current);
+    };
+  }, []);
+
   return (
     <nav
       data-nav-theme={theme}
       aria-label="Accounts"
       data-cursor="menu"
-      className="motion-move flex h-full shrink-0 flex-col gap-[7px] overflow-hidden bg-nav-rail py-[8px] shadow-[inset_-1px_0_0_0_var(--nav-border)]"
+      onPointerLeave={() => setHover(false)}
+      // An overlay, not a flow column: the shell holds a fixed 56px slot and
+      // this widens OVER the nav — the page never moves under the pointer.
+      // Expansion is triggered from the account tiles themselves: resting on
+      // an account is when its name matters. The waffle stays a plain click
+      // target for the directory.
+      className={cn(
+        "motion-move absolute inset-y-0 left-0 z-30 flex flex-col gap-[7px] overflow-hidden bg-nav-rail py-[8px]",
+        expanded
+          ? "shadow-[inset_-1px_0_0_0_var(--nav-border),16px_0_40px_-20px_rgba(15,23,42,0.45)]"
+          : "shadow-[inset_-1px_0_0_0_var(--nav-border)]",
+      )}
       style={{ width: expanded ? ACCOUNT_RAIL_EXPANDED_WIDTH : ACCOUNT_RAIL_WIDTH }}
     >
       {/*
@@ -70,6 +113,7 @@ export function AccountRail({
           expanded={expanded}
           selected={session.scope === "agency"}
           onClick={session.switchToAgency}
+          onHover={() => setHover(true)}
           account={session.agency}
         />
       </div>
@@ -94,6 +138,7 @@ export function AccountRail({
             expanded={expanded}
             selected={session.scope === "account" && account.id === session.current.id}
             onClick={() => session.switchTo(account.id)}
+            onHover={() => setHover(true)}
             account={account}
           />
         ))}
@@ -126,41 +171,6 @@ export function AccountRail({
         </Tooltipped>
       </div>
 
-      <div className="mx-[10px] shrink-0 border-t border-nav-divider" aria-hidden="true" />
-
-      {/*
-        The nav's drawer glyphs, not bespoke chevrons — one affordance for
-        "make this rail wider or narrower" wherever it appears. Collapsed it
-        is the same 28px square as the nav's toggle, tooltipped "Expand";
-        expanded it takes the row and says "Collapse", so the footer never
-        reads as an empty strip.
-      */}
-      <div className="flex shrink-0 px-[6px]">
-        <Tooltipped label="Expand" show={!expanded}>
-          <button
-            type="button"
-            aria-expanded={expanded}
-            aria-label={expanded ? "Collapse account rail" : "Expand account rail"}
-            onClick={onToggleExpanded}
-            className={cn(
-              "motion-tap flex h-[28px] w-full items-center gap-[8px] rounded-[7px] text-nav-fg-subtle",
-              "hover:bg-nav-hover hover:text-nav-fg active:scale-95 motion-press",
-              expanded ? "px-[9px]" : "justify-center",
-            )}
-          >
-            {expanded ? (
-              <>
-                <PanelLeftClose size={16} aria-hidden="true" className="shrink-0" />
-                <span className="truncate text-[12px] leading-none font-medium">
-                  Collapse
-                </span>
-              </>
-            ) : (
-              <PanelLeftOpen size={16} aria-hidden="true" />
-            )}
-          </button>
-        </Tooltipped>
-      </div>
     </nav>
   );
 }
@@ -176,6 +186,7 @@ function RailRow({
   expanded,
   selected,
   onClick,
+  onHover,
   account,
 }: {
   label: string;
@@ -183,6 +194,8 @@ function RailRow({
   expanded: boolean;
   selected: boolean;
   onClick: () => void;
+  /** Resting on a tile is what opens the names out. */
+  onHover?: () => void;
   account: Account;
 }) {
   return (
@@ -199,6 +212,7 @@ function RailRow({
           type="button"
           aria-label={label}
           aria-current={selected ? "page" : undefined}
+          onPointerEnter={onHover}
           onClick={onClick}
           className={cn(
             "motion-tap flex w-full items-center gap-[9px] rounded-[9px] p-[4px] outline-none focus-visible:ring-[1.5px] focus-visible:ring-brand",

@@ -9,7 +9,7 @@ import {
 import { AccountSwitcher } from "@/components/accounts/account-switcher";
 import { RailSwitcher } from "@/components/accounts/rail-switcher";
 import { useAccounts } from "@/components/accounts/use-accounts";
-import { AiWindow } from "@/components/ai/ai-window";
+import { AI_DOCKED_WIDTH, AiWindow } from "@/components/ai/ai-window";
 import { useAiSession } from "@/components/ai/use-ai-session";
 import { flyouts } from "@/components/flyout/flyout-config";
 import { FlyoutPanel } from "@/components/flyout/flyout-panel";
@@ -148,6 +148,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   /** Who the customizer is shaping. Null = still on the Sub-accounts picker. */
   const [customizeAccountId, setCustomizeAccountId] = React.useState<string | null>(null);
   const [searchOpen, setSearchOpen] = React.useState(false);
+  /** Ask AI pinned into the layout (canvas shrinks) vs floating over it. */
+  const [aiDocked, setAiDocked] = React.useState(false);
   const [switcherOpen, setSwitcherOpen] = React.useState(false);
   /** The rail's "All accounts" directory — a separate surface from the menu. */
   const [directoryOpen, setDirectoryOpen] = React.useState(false);
@@ -327,7 +329,11 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * the nav's right edge — flyouts, the AI window, the launcher — starts one
    * rail further right, and the switcher panels anchor past it too.
    */
-  const railWidth = railActive
+  // Constant: the rail expands as an overlay, so panels never chase it.
+  const railWidth = railActive ? ACCOUNT_RAIL_WIDTH : 0;
+  // Except the accounts directory, which docks against the rail's LIVE edge —
+  // opened beside the expanded names it sits at 216, beside the tiles at 56.
+  const railLiveWidth = railActive
     ? railExpanded
       ? ACCOUNT_RAIL_EXPANDED_WIDTH
       : ACCOUNT_RAIL_WIDTH
@@ -452,14 +458,24 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
 
       <div className="relative flex min-h-0 flex-1 overflow-hidden bg-app">
       {railActive ? (
-        <AccountRail
-          session={accounts}
-          theme={navTheme}
-          expanded={railExpanded}
-          onToggleExpanded={() => setRailExpanded((v) => !v)}
-          switcherOpen={directoryOpen}
-          onToggleSwitcher={toggleDirectory}
-        />
+        <>
+          {/* The rail's flow footprint. The rail itself is an overlay, so
+              widening it never moves the nav or the page. */}
+          <div aria-hidden="true" className="w-[56px] shrink-0" />
+          <AccountRail
+            session={accounts}
+            theme={navTheme}
+            expanded={railExpanded}
+            // Frozen while the directory is up: the panel docks against the
+            // rail's edge, so the rail widening or narrowing underneath it
+            // left the two surfaces overlapping.
+            onExpandedChange={(v) => {
+              if (!directoryOpen) setRailExpanded(v);
+            }}
+            switcherOpen={directoryOpen}
+            onToggleSwitcher={toggleDirectory}
+          />
+        </>
       ) : null}
 
       <div
@@ -629,6 +645,12 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         </div>
       </div>
 
+      {/* The layout hole the docked Ask AI panel sits in — the canvas
+          shrinks beside the conversation instead of running under it. */}
+      {ai.isMounted && aiDocked ? (
+        <div aria-hidden="true" className="shrink-0" style={{ width: AI_DOCKED_WIDTH }} />
+      ) : null}
+
       {flyout.isMounted && flyout.value ? (
         <>
           {/*
@@ -666,15 +688,17 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       ) : null}
 
       {/*
-        Above the flyouts, below search. Docked past the nav's right edge, so
-        the dock it grew out of stays visible beside it.
+        Above the flyouts, below search. A full-height panel on the right
+        edge — floating over the page, or docked into the layout via the
+        spacer beside the content column.
       */}
       {ai.isMounted ? (
         <AiWindow
           theme={navTheme}
-          offsetLeft={leftOffset}
           session={aiSession}
           phase={ai.phase}
+          docked={aiDocked}
+          onToggleDocked={() => setAiDocked((v) => !v)}
         />
       ) : null}
 
@@ -717,10 +741,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       {directory.isMounted ? (
         <RailSwitcher
           session={accounts}
-          offsetLeft={railWidth}
+          offsetLeft={railLiveWidth}
           theme={navTheme}
           phase={directory.phase}
-          onClose={() => setDirectoryOpen(false)}
+          // Closing also settles the rail shut — the pointer is on the panel,
+          // not the rail, so leaving it open would strand the names.
+          onClose={() => {
+            setDirectoryOpen(false);
+            setRailExpanded(false);
+          }}
         />
       ) : null}
 
@@ -732,6 +761,12 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           <CommandPalette
             theme={searchTheme}
             onClose={() => setSearchOpen(false)}
+            // The typed query rides along, so a dead-end search becomes a
+            // question instead of a shrug.
+            onAskAi={(query) => {
+              setSearchOpen(false);
+              aiSession.launch(query.trim() === "" ? undefined : query);
+            }}
           />
         ) : (
           <SearchFlyout

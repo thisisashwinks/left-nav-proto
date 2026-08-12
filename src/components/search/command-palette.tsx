@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Search } from "lucide-react";
+import { AiOrb } from "@/components/ai/ai-orb";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import { productById } from "@/components/nav/catalogue";
@@ -20,9 +21,12 @@ import { useSearch } from "./use-search";
 export function CommandPalette({
   theme,
   onClose,
+  onAskAi,
 }: {
   theme: SurfaceTheme;
   onClose: () => void;
+  /** Hands the typed query to the Ask AI window — search's escape hatch. */
+  onAskAi: (query: string) => void;
 }) {
   const s = useSearch(onClose);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -65,6 +69,21 @@ export function CommandPalette({
             className="min-w-0 flex-1 bg-transparent text-[15px] leading-[normal] text-sr-fg caret-[var(--sr-caret)] placeholder:text-sr-muted focus:outline-none"
           />
           <Kbd onClick={onClose}>esc</Kbd>
+          {/*
+            The far right belongs to the assistant: when search is not going
+            to find it, the question — typed query included — jumps straight
+            to Ask AI instead of dying in an empty result list.
+          */}
+          <button
+            type="button"
+            onClick={() => onAskAi(s.query)}
+            className="motion-tap flex h-[32px] shrink-0 items-center gap-[6px] rounded-full pr-[11px] pl-[4px] shadow-[inset_0_0_0_1px_var(--sr-border)] hover:bg-sr-row-active active:scale-95"
+          >
+            <AiOrb size={24} state="idle" />
+            <span className="text-[12.5px] leading-none font-medium whitespace-nowrap text-sr-fg">
+              Ask AI
+            </span>
+          </button>
         </div>
 
         <div className="flex max-h-[360px] shrink-0 flex-col gap-[1px] overflow-y-auto p-[8px]">

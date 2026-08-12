@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowUp, Mic, Plus, X } from "lucide-react";
+import { ArrowUp, Mic, PanelRight, PictureInPicture2, Plus, X } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
@@ -12,13 +12,12 @@ import type { AiSession, AiState, AiTurn } from "./use-ai-session";
 import { VoiceWave } from "./voice-wave";
 
 /**
- * The Ask AI window.
- *
- * Grows out of the dock in the nav rather than appearing as a centred modal:
- * the pill you typed into stays on screen and the window extends from it, so
- * the surface reads as the same object getting bigger. That is also why it does
- * not dim the page — the assistant is scoped to what you are looking at, and
- * hiding that context would work against the answer.
+ * The Ask AI window — a full-height panel on the RIGHT edge (Aug 11 ask,
+ * after the Gemini-style side panel reference). Floating by default, it
+ * overlays the page without dimming it — the page is the context the answer
+ * is about. The header's dock control pins it INTO the layout instead: the
+ * canvas shrinks beside it and the page stays fully interactive, the way a
+ * long conversation wants to be read.
  *
  * The Siri-ish feel is three layers, all in ai.css: a blurred colour bloom
  * behind the glass, a 1px conic ring sweeping around the edge, and answers that
@@ -31,8 +30,11 @@ import { VoiceWave } from "./voice-wave";
 
 /** Width from the design review: wide enough for a drafted message to breathe. */
 const WINDOW_WIDTH = 440;
-/** Gap between the nav's right edge and the window. */
-const WINDOW_GUTTER = 10;
+/** Inset from the shell's edges in both modes. */
+const WINDOW_GUTTER = 12;
+
+/** The layout hole the shell reserves while the panel is docked. */
+export const AI_DOCKED_WIDTH = WINDOW_WIDTH + WINDOW_GUTTER * 2;
 
 /** Per-word delay in an answer, and the cap so a long one still lands fast. */
 const WORD_STEP_MS = 26;
@@ -44,13 +46,20 @@ const COMPOSER_MAX_HEIGHT = 96;
 interface AiWindowProps {
   /** Drives [data-nav-theme]; the window borrows the nav's AI ramp. */
   theme: SurfaceTheme;
-  /** The nav's current width. The window docks just past it. */
-  offsetLeft: number;
   session: AiSession;
   phase: TransitionPhase;
+  /** Pinned into the layout (canvas shrinks) vs floating over the page. */
+  docked: boolean;
+  onToggleDocked: () => void;
 }
 
-export function AiWindow({ theme, offsetLeft, session, phase }: AiWindowProps) {
+export function AiWindow({
+  theme,
+  session,
+  phase,
+  docked,
+  onToggleDocked,
+}: AiWindowProps) {
   const { turns, value, listening, state, close, focusNonce } = session;
 
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
@@ -99,25 +108,34 @@ export function AiWindow({ theme, offsetLeft, session, phase }: AiWindowProps) {
   return (
     <div
       data-nav-theme={theme}
-      className="absolute inset-0 z-40"
-      style={{ left: offsetLeft }}
+      // pointer-events gate: floating gets a click-away layer; docked leaves
+      // the whole page interactive with only the panel itself catching input.
+      className="pointer-events-none absolute inset-0 z-40"
     >
-      {/* Click-away. Deliberately not a scrim — the page behind is the context
-          the answer is about, so dimming it would work against itself. */}
-      <button
-        type="button"
-        aria-label="Close Ask AI"
-        tabIndex={-1}
-        onClick={close}
-        className="absolute inset-0 cursor-default"
-      />
+      {/* Click-away, floating mode only. Deliberately not a scrim — the page
+          behind is the context the answer is about, so dimming it would work
+          against itself. */}
+      {docked ? null : (
+        <button
+          type="button"
+          aria-label="Close Ask AI"
+          tabIndex={-1}
+          onClick={close}
+          className="pointer-events-auto absolute inset-0 cursor-default"
+        />
+      )}
 
       {/* The bloom sits outside the clipped window so its blur is not cut off. */}
       <div
         data-ai-state={state}
         aria-hidden="true"
         className="pointer-events-none absolute"
-        style={{ left: WINDOW_GUTTER, bottom: 12, width: WINDOW_WIDTH, height: 300 }}
+        style={{
+          right: WINDOW_GUTTER,
+          bottom: WINDOW_GUTTER,
+          width: WINDOW_WIDTH,
+          height: 300,
+        }}
       >
         <div
           className={cn(
@@ -132,14 +150,19 @@ export function AiWindow({ theme, offsetLeft, session, phase }: AiWindowProps) {
         aria-label="Ask AI"
         data-ai-state={state}
         style={{
-          left: WINDOW_GUTTER,
-          bottom: 12,
+          right: WINDOW_GUTTER,
+          top: WINDOW_GUTTER,
+          bottom: WINDOW_GUTTER,
           width: WINDOW_WIDTH,
-          maxHeight: "min(620px, calc(100% - 24px))",
         }}
         className={cn(
-          "ai-halo absolute flex origin-bottom-left flex-col overflow-hidden rounded-[16px]",
-          "bg-[var(--ai-win-bg)] shadow-[0_24px_60px_-12px_var(--ai-win-shadow)] backdrop-blur-[18px]",
+          "ai-halo pointer-events-auto absolute flex origin-bottom-right flex-col overflow-hidden rounded-[16px]",
+          "bg-[var(--ai-win-bg)] backdrop-blur-[18px]",
+          // Docked, the panel is furniture, not a popover — the throw shadow
+          // goes and the layout hole beside it does the separating.
+          docked
+            ? "shadow-[0_8px_24px_-12px_var(--ai-win-shadow)]"
+            : "shadow-[0_24px_60px_-12px_var(--ai-win-shadow)]",
           phase === "entering" ? "ai-window-in" : "ai-window-out",
         )}
       >
@@ -160,6 +183,16 @@ export function AiWindow({ theme, offsetLeft, session, phase }: AiWindowProps) {
               <Plus size={14} aria-hidden="true" />
             </IconButton>
           )}
+          <IconButton
+            label={docked ? "Float panel" : "Dock panel"}
+            onClick={onToggleDocked}
+          >
+            {docked ? (
+              <PictureInPicture2 size={14} aria-hidden="true" />
+            ) : (
+              <PanelRight size={14} aria-hidden="true" />
+            )}
+          </IconButton>
           <IconButton label="Close" onClick={close}>
             <X size={14} aria-hidden="true" />
           </IconButton>
