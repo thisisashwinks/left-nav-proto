@@ -398,6 +398,18 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   }, [plainUser, scope, switchTo, current.id]);
 
   /*
+   * Aug 11 review: with the account rail live, the header trigger opening its
+   * own switcher was a second, overlapping account-switching surface. So in
+   * the rail model the identity click expands the rail (names beside tiles)
+   * instead — switching stays the rail's job. The header model keeps the
+   * in-place menu; it has no rail to lean on.
+   */
+  const onIdentityClick = railActive
+    ? () => setRailExpanded((v) => !v)
+    : toggleSwitcher;
+  const identityOpen = railActive ? railExpanded : switcherOpen;
+
+  /*
    * Khoi's click-only alternative, as a per-account setting: with the trigger
    * on `click`, rollover previews nothing — rows open their panel only when
    * pinned by a click. Hover mode keeps the direction-aware dwell.
@@ -426,13 +438,18 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         nav and the canvas — because platform-to-agency comms are about the
         whole relationship, not any one account. The width is the level.
 
-        Always the slim cut, at every scope: the outer level is ambient comms,
-        so it never earns the full voice — and a strip that resized when you
-        switched accounts read as a glitch, not a hierarchy. Account banners
-        below keep the full height; the contrast IS the stacking answer.
-        A plain sub-account user never sees agency comms at all.
+        Never two banners at once (Aug 11 consensus): an account's own banner
+        outranks agency promos, so while the current account has one, the
+        agency strip yields entirely — a promo has no business competing with
+        "this account is missing a payment method". Still the slim cut, so it
+        reads as ambient rather than shouting. A plain sub-account user never
+        sees agency comms at all.
       */}
-      {plainUser ? null : <TopBanner banners={AGENCY_BANNERS} condensed />}
+      {plainUser ||
+      (accounts.scope === "account" &&
+        (ACCOUNT_BANNERS[accounts.current.id]?.length ?? 0) > 0) ? null : (
+        <TopBanner banners={AGENCY_BANNERS} condensed />
+      )}
 
       <div className="relative flex min-h-0 flex-1 overflow-hidden bg-app">
       {railActive ? (
@@ -522,8 +539,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             account={headerAccount}
             recentAccounts={recentAccounts}
             onSwitchAccount={accounts.switchTo}
-            switcherOpen={switcherOpen}
-            onToggleSwitcher={toggleSwitcher}
+            switcherOpen={identityOpen}
+            onToggleSwitcher={onIdentityClick}
             canSwitch={canSwitch}
             aiSession={aiSession}
             density={density}
@@ -554,8 +571,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             onSearch={() => setSearchOpen(true)}
             scope={accounts.scope}
             account={headerAccount}
-            switcherOpen={switcherOpen}
-            onToggleSwitcher={toggleSwitcher}
+            switcherOpen={identityOpen}
+            onToggleSwitcher={onIdentityClick}
             canSwitch={canSwitch}
             aiSession={aiSession}
             density={density}

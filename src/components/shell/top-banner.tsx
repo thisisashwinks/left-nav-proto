@@ -73,24 +73,19 @@ export const AGENCY_BANNERS: Banner[] = [
  * one, so switching accounts demonstrates the scoping: the strip appears with
  * its account and goes with it.
  */
+/*
+ * Per the Aug 11 review: banners name their account ("Coastal Fitness is
+ * missing a payment method"), and processing status — bulk imports and the
+ * like — is NOT top-banner material; that belongs to a background-processes
+ * surface near the work itself, so ACME's import strip was removed.
+ */
 export const ACCOUNT_BANNERS: Record<string, Banner[]> = {
-  // ACME is the account every reviewer opens first, so it carries one too.
-  acme: [
-    {
-      id: "acme-import",
-      tone: "warning",
-      icon: CalendarClock,
-      lead: "Contact import still running",
-      detail: "1,469 of 2,100 contacts are in. Lists update as it finishes.",
-      cta: "View progress",
-    },
-  ],
   coastal: [
     {
       id: "coastal-payment",
       tone: "danger",
       icon: CreditCard,
-      lead: "Payment method is missing",
+      lead: "Coastal Fitness Co. is missing a payment method",
       detail: "Add a card to keep this account's campaigns running.",
       cta: "Add card",
     },
@@ -100,7 +95,7 @@ export const ACCOUNT_BANNERS: Record<string, Banner[]> = {
       id: "brightpath-trial",
       tone: "warning",
       icon: CalendarClock,
-      lead: "Trial ends Aug 24",
+      lead: "Brightpath Dental's trial ends Aug 24",
       detail: "Pick a plan to keep automations running.",
       cta: "Choose plan",
     },
@@ -142,10 +137,10 @@ interface TopBannerProps {
   banners: Banner[];
   /**
    * A slimmer cut of the same strip — no disc, tighter type, CTA as a text
-   * link. The agency strip wears it permanently: the outer level is ambient,
-   * the account level keeps the full voice, and the size contrast is what
-   * keeps a two-level stack legible (the Aug 10 "impenetrable" note) without
-   * the strip ever resizing as you move between accounts.
+   * link. The agency strip wears it permanently: only one banner ever shows
+   * at a time now, but agency comms stay ambient where an account's own
+   * banner speaks at full height — and the strip never resizes as you move
+   * between accounts.
    */
   condensed?: boolean;
 }
