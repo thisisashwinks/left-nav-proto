@@ -406,6 +406,8 @@ const quickActions: FlyoutConfig = {
   title: "Quick Actions",
   variant: "action",
   entries: [
+    // The category labels survive the reshuffle — "Reach out" went with its
+    // contact-centric rows, and the revenue pair earned its own group.
     label("qa-create", "Create"),
     item({
       id: "qa-contact",
@@ -420,17 +422,19 @@ const quickActions: FlyoutConfig = {
       icon: Target,
     }),
     item({
-      id: "qa-appointment",
-      label: "Book an appointment",
-      description: "Add a booking to your calendar",
-      icon: CalendarPlus,
-    }),
-    item({
       id: "qa-task",
       label: "Add a task",
       description: "Something to do, for you or the team",
       icon: ListTodo,
     }),
+    label("qa-schedule", "Schedule"),
+    item({
+      id: "qa-appointment",
+      label: "Book an appointment",
+      description: "Add a booking to your calendar",
+      icon: CalendarPlus,
+    }),
+    label("qa-get-paid", "Get paid"),
     item({
       id: "qa-invoice",
       label: "Create an invoice",
