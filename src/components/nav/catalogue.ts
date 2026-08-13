@@ -380,10 +380,11 @@ export const catalogue: CatalogueProduct[] = [
       { id: "memberships-courses", label: "Courses" },
       { id: "memberships-communities", label: "Communities" },
       { id: "memberships-credentials", label: "Credentials" },
-      { id: "memberships-client", label: "Client experience" },
+      { id: "memberships-client", label: "Client portal" },
     ],
-    // Client experience is Client Portal's ONE home — it shipped identically
-    // under Sites too (Duplicates sheet). Live app also grew Events (Beta).
+    // Client portal's ONE home — it shipped identically under Sites too
+    // (Duplicates sheet); the name users know stays. Live app also grew
+    // Events (Beta).
   },
 
   /* ---- Run on autopilot ---- */
