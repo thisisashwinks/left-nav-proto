@@ -17,6 +17,7 @@ import {
   Megaphone,
   MessageCircle,
   Package,
+  Presentation,
   Radar,
   Receipt,
   Repeat,
@@ -213,7 +214,15 @@ export const catalogue: CatalogueProduct[] = [
     groupId: "market",
     jobId: "job-attract",
     blurb: "Ticketing, registration and check-in.",
-    children: [{ id: "events-webinars", label: "Webinars" }],
+  },
+  {
+    id: "webinars",
+    label: "Webinars",
+    icon: Presentation,
+    groupId: "market",
+    jobId: "job-attract",
+    blurb: "Host, register and replay webinars.",
+    // Its own product beside Events, not inside it (Aug 13 correction).
   },
   {
     id: "reputation",
