@@ -184,6 +184,12 @@ export function AccountRail({
               every account below it.
             */}
             <div className="mx-[6px] shrink-0 rounded-[10px] bg-nav-rail-disc p-[4px]">
+              {/*
+                The strip wears the PLATFORM's mark, not the agency's (Aug 13
+                ask): the rail is HighLevel-owned chrome that holds every
+                tenant, so its top tile says whose product this is — the nav
+                beside it keeps the agency's own brand.
+              */}
               <RailRow
                 label={`${session.agency.name} — agency`}
                 name={session.agency.name}
@@ -191,7 +197,9 @@ export function AccountRail({
                 selected={session.scope === "agency"}
                 onClick={session.switchToAgency}
                 onHover={() => setHover(true)}
-                account={session.agency}
+                account={{ ...session.agency, logoSrc: "/hl-logo.png" }}
+                // Rounded square, not the tenant circle: platform mark ≠ account.
+                logoRadius={9}
               />
             </div>
 
@@ -279,6 +287,7 @@ function RailRow({
   onClick,
   onHover,
   account,
+  logoRadius = 999,
 }: {
   label: string;
   name: string;
@@ -288,6 +297,8 @@ function RailRow({
   /** Resting on a tile is what opens the names out. */
   onHover?: () => void;
   account: Account;
+  /** Tenant tiles are discs; the platform mark wears a rounded square. */
+  logoRadius?: number;
 }) {
   return (
     <div className="relative w-full shrink-0">
@@ -311,7 +322,7 @@ function RailRow({
             selected ? "bg-nav shadow-[0_1px_2px_0_rgba(15,23,42,0.08),inset_0_0_0_1px_var(--nav-border)]" : "hover:bg-nav-hover",
           )}
         >
-          <AccountLogo logo={account.logo} src={account.logoSrc} size={28} radius={999} />
+          <AccountLogo logo={account.logo} src={account.logoSrc} size={28} radius={logoRadius} />
           {expanded ? (
             <span
               className={cn(

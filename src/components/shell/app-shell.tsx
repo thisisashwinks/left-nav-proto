@@ -15,7 +15,7 @@ import {
 import { useAiSession } from "@/components/ai/use-ai-session";
 import { flyouts } from "@/components/flyout/flyout-config";
 import { FlyoutPanel } from "@/components/flyout/flyout-panel";
-import { AppHeader } from "@/components/header/app-header";
+import { AppHeader, type Crumb } from "@/components/header/app-header";
 import { CollapsedRail } from "@/components/nav/collapsed-rail";
 import {
   ENTRY_CLUSTER_HEIGHT,
@@ -409,6 +409,60 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     setDirectoryOpen(true);
   }, [intent, directoryOpen]);
 
+  /*
+   * The interactive trail (Aug 13 ask): group ▸ product ▸ page, and every
+   * segment is a switcher for its SIBLINGS — the groups beside this group,
+   * the products beside this product, the product's other L2 pages. The
+   * grouping level renders only when the active mode has real groups.
+   */
+  const openProduct = React.useCallback((id: string) => {
+    setProductPage(id === "contacts" ? null : { productId: id, childId: null });
+  }, []);
+  const productCrumbs = React.useMemo((): (string | Crumb)[] => {
+    const productId = productPage?.productId ?? "contacts";
+    const childId = productPage?.childId ?? null;
+    const product = productById(productId);
+    if (!product) return ["Contacts", "Smart lists"];
+    const group = groups.find((g) => g.productIds.includes(productId));
+    const segments: (string | Crumb)[] = [];
+    if (group) {
+      segments.push({
+        label: group.label,
+        options: groups
+          .filter((g) => g.productIds.length > 0)
+          .map((g) => ({ id: g.id, label: g.label, selected: g.id === group.id })),
+        onSelect: (gid) => {
+          const first = groups.find((g) => g.id === gid)?.productIds[0];
+          if (first) openProduct(first);
+        },
+      });
+    }
+    segments.push({
+      label: productLabelFor(productId),
+      options: (group?.productIds ?? [productId]).map((id) => ({
+        id,
+        label: productLabelFor(id),
+        selected: id === productId,
+      })),
+      onSelect: openProduct,
+    });
+    if (productId === "contacts") {
+      segments.push("Smart lists");
+    } else if (childId) {
+      segments.push({
+        label: childById(childId)?.child.label ?? "",
+        options: (product.children ?? []).map((c) => ({
+          id: c.id,
+          label: c.label,
+          selected: c.id === childId,
+        })),
+        onSelect: (cid) =>
+          setProductPage({ productId, childId: cid }),
+      });
+    }
+    return segments;
+  }, [productPage, groups, productLabelFor, openProduct]);
+
   // Demoting the session to a plain user while parked at agency scope drops
   // it back into the one account that user is allowed to see.
   const { scope, switchTo, current } = accounts;
@@ -634,14 +688,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 : ["Sub-accounts"]
               : agencyScope
                 ? [accounts.agency.name, "Overview"]
-                : productPage
-                  ? [
-                      productLabelFor(productPage.productId),
-                      ...(productPage.childId
-                        ? [childById(productPage.childId)?.child.label ?? ""]
-                        : []),
-                    ]
-                  : ["Contacts", "Smart lists"]
+                : productCrumbs
           }
         />
         {/*

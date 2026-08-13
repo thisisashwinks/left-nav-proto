@@ -40,7 +40,10 @@ export function EntryCluster({
   session: AiSession;
 }) {
   return (
-    <div className="flex w-full shrink-0 px-[12px] pb-[12px]">
+    // 22px under the pill, not 12: hugging the nav's foot read as an
+    // afterthought — the lift gives the entry the margin a primary control
+    // deserves (Aug 13 ask).
+    <div className="flex w-full shrink-0 px-[12px] pb-[22px]">
       <EntryPill onSearch={onSearch} session={session} />
     </div>
   );
@@ -144,7 +147,8 @@ export function EntryClusterRail({
   session: AiSession;
 }) {
   return (
-    <div className="flex shrink-0 flex-col items-center pb-[8px]">
+    // Same lift as the expanded pill: 18px of clearance under the capsule.
+    <div className="flex shrink-0 flex-col items-center pb-[18px]">
       {/*
         The same ring the expanded pill wears, stood upright — so the pair
         reads as ONE control seen at rail width, not two round things that

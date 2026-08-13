@@ -202,9 +202,15 @@ export function TopBanner({ banners, condensed = false }: TopBannerProps) {
         </span>
       )}
 
+      {/*
+        Message and verb travel together: the CTA sits right after the
+        sentence it answers, and the spacer comes AFTER the pair — a button
+        exiled to the far edge stopped reading as part of its banner
+        (Aug 13 note). Only the strip's management stays on the trailing edge.
+      */}
       <p
         className={cn(
-          "min-w-0 flex-1 truncate leading-[18px]",
+          "min-w-0 shrink truncate leading-[18px]",
           condensed ? "text-[12px]" : "text-[13px]",
         )}
       >
@@ -240,6 +246,9 @@ export function TopBanner({ banners, condensed = false }: TopBannerProps) {
           </button>
         )
       ) : null}
+
+      {/* Pushes the strip's management to the trailing edge, past the content. */}
+      <div aria-hidden="true" className="min-w-0 flex-1" />
 
       {/* Strip management, gathered on the trailing edge away from content. */}
       <div className="flex shrink-0 items-center gap-[2px] pl-[4px]">
