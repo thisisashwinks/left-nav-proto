@@ -21,6 +21,8 @@ interface FlyoutPanelProps {
   onPointerEnter?: () => void;
   onPointerLeave?: () => void;
   onClose: () => void;
+  /** Fired for row and L2-child clicks — the shell routes them to pages. */
+  onNavigate?: (id: string) => void;
 }
 
 /**
@@ -43,6 +45,7 @@ export function FlyoutPanel({
   onPointerEnter,
   onPointerLeave,
   onClose,
+  onNavigate,
 }: FlyoutPanelProps) {
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const panelRef = React.useRef<HTMLDivElement>(null);
@@ -139,7 +142,10 @@ export function FlyoutPanel({
             variant={config.variant}
             active={entry.item.id === activeId}
             rowIndex={Math.min(i, MAX_STAGGERED_ROWS)}
-            onSelect={setActiveId}
+            onSelect={(id) => {
+              setActiveId(id);
+              onNavigate?.(id);
+            }}
           />
         ),
       )}

@@ -212,8 +212,14 @@ export function AccountRail({
                 vertical centre (the agency plate alone holds the top), and when
                 the list outgrows the strip the margins collapse to zero so
                 everything stays scrollable — justify-center would clip the top.
+
+                pb 45: the scroll area starts BELOW the agency block (2px pad
+                + 44px plate + 7px gap = 53) but ends 8px above the strip's
+                foot, so its own centre sits (53-8)/2 = 22.5px below the
+                strip's. The padding makes the wrapper that much taller under
+                the tiles, lifting the visible group onto the TRUE centre.
               */}
-              <div className="my-auto flex w-full flex-col gap-[4px]">
+              <div className="my-auto flex w-full flex-col gap-[4px] pb-[45px]">
                 {railAccounts.map((account) => (
                   <RailRow
                     key={account.id}

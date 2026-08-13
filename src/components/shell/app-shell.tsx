@@ -34,7 +34,8 @@ import {
   agencySettingsFlyout,
   SETTINGS_FLYOUT_ID,
 } from "@/components/nav/settings-config";
-import { productById } from "@/components/nav/catalogue";
+import { childById, productById } from "@/components/nav/catalogue";
+import { ProductPage } from "@/components/product/product-page";
 import { flyoutForGroup } from "@/components/nav/group-flyout";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { PinnedLauncher } from "@/components/nav/pinned-launcher";
@@ -150,6 +151,16 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     null,
   );
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  /**
+   * Which product's demo page fills the canvas, and which of its L2 places is
+   * showing. Null = the Contacts page (the shipped default). Every flyout row
+   * and nested-dropdown child routes here, so the title-menu interaction the
+   * Contacts page established is demoable for every product.
+   */
+  const [productPage, setProductPage] = React.useState<{
+    productId: string;
+    childId: string | null;
+  } | null>(null);
   /** Who the customizer is shaping. Null = still on the Sub-accounts picker. */
   const [customizeAccountId, setCustomizeAccountId] = React.useState<string | null>(null);
   const [searchOpen, setSearchOpen] = React.useState(false);
@@ -624,7 +635,14 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 : ["Sub-accounts"]
               : agencyScope
                 ? [accounts.agency.name, "Overview"]
-                : ["Contacts", "Smart lists"]
+                : productPage
+                  ? [
+                      productLabelFor(productPage.productId),
+                      ...(productPage.childId
+                        ? [childById(productPage.childId)?.child.label ?? ""]
+                        : []),
+                    ]
+                  : ["Contacts", "Smart lists"]
           }
         />
         {/*
@@ -647,6 +665,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 onCustomize={setCustomizeAccountId}
               />
             )
+          ) : productPage && productById(productPage.productId) ? (
+            <ProductPage
+              key={productPage.productId}
+              product={productById(productPage.productId)!}
+              childId={productPage.childId}
+              onChildChange={(childId) =>
+                setProductPage({ productId: productPage.productId, childId })
+              }
+            />
           ) : (
             children
           )}
@@ -691,6 +718,21 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             onPointerEnter={intent.cancelClear}
             onPointerLeave={intent.scheduleClear}
             onClose={intent.close}
+            onNavigate={(id) => {
+              // Rows that name a catalogue product (or one of its L2 children)
+              // open that product's page; anything else keeps its old inert
+              // highlight. Contacts stays the purpose-built page.
+              const child = childById(id);
+              const target = child
+                ? { productId: child.product.id, childId: id }
+                : productById(id)
+                  ? { productId: id, childId: null }
+                  : undefined;
+              if (target === undefined) return;
+              setProductPage(target.productId === "contacts" ? null : target);
+              setSelectedId(null);
+              intent.close();
+            }}
           />
         </>
       ) : null}

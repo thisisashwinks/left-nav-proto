@@ -31,11 +31,11 @@ export function UndoToast() {
       // silently swapping its text.
       key={undoOffer.id}
       role="status"
-      // Anchored to the nav's bottom-left, not centred. The Contacts selection
-      // bar already owns the centre at bottom-24, and the two would sit exactly
-      // on top of each other — editing the nav and having rows selected is a
-      // perfectly ordinary combination.
-      className="motion-slot-in absolute bottom-[24px] left-[16px] z-40 flex h-[38px] items-center gap-[12px] rounded-[10px] bg-pg-overlay px-[14px] shadow-[0_8px_24px_0_rgba(15,23,42,0.28)]"
+      // Top centre (Aug 13 ask) — bottom-left sat on the Ask AI pill. The top
+      // edge is free: banners are rare and the toast floats above the header
+      // rather than inside it. Centre-bottom stays with the Contacts selection
+      // bar, which owns that slot.
+      className="motion-slot-in absolute top-[16px] left-1/2 z-40 flex h-[38px] -translate-x-1/2 items-center gap-[12px] rounded-[10px] bg-pg-overlay px-[14px] shadow-[0_8px_24px_0_rgba(15,23,42,0.28)]"
     >
       <span className="text-[13px] leading-none whitespace-nowrap text-pg-surface">
         {undoOffer.message}

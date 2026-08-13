@@ -165,16 +165,6 @@ export function FlyoutRow({
               {item.badge.label}
             </span>
           ) : null}
-          {hasChildren ? (
-            <ChevronDown
-              size={13}
-              aria-hidden="true"
-              className={cn(
-                "shrink-0 text-nav-fg-subtle motion-move",
-                open && "rotate-180",
-              )}
-            />
-          ) : null}
         </div>
 
         {item.description ? (
@@ -190,6 +180,23 @@ export function FlyoutRow({
         <span className="shrink-0 text-[12px] leading-[normal] whitespace-nowrap text-nav-fg-subtle">
           {item.time}
         </span>
+      ) : null}
+
+      {/*
+        Disclosure at the row's far edge (Aug 13 ask — inline by the label read
+        as part of the name). It sits just inside the pin's reserved column,
+        so the two trailing affordances stack left-to-right: chevron, then pin
+        on hover.
+      */}
+      {hasChildren ? (
+        <ChevronDown
+          size={14}
+          aria-hidden="true"
+          className={cn(
+            "ml-auto shrink-0 self-center text-nav-fg-subtle motion-move",
+            open && "rotate-180",
+          )}
+        />
       ) : null}
     </button>
   );

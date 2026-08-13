@@ -470,8 +470,25 @@ export const catalogue: CatalogueProduct[] = [
 
 const BY_ID = new Map(catalogue.map((p) => [p.id, p]));
 
+/** Child id → its parent product and the child itself, for navigation. */
+const CHILD_INDEX = new Map<
+  string,
+  { product: CatalogueProduct; child: CatalogueChild }
+>();
+for (const product of catalogue) {
+  for (const child of product.children ?? []) {
+    CHILD_INDEX.set(child.id, { product, child });
+  }
+}
+
 export function productById(id: string): CatalogueProduct | undefined {
   return BY_ID.get(id);
+}
+
+export function childById(
+  id: string,
+): { product: CatalogueProduct; child: CatalogueChild } | undefined {
+  return CHILD_INDEX.get(id);
 }
 
 export function productsInGroup(groupId: string): CatalogueProduct[] {
