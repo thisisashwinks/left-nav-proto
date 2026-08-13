@@ -129,7 +129,14 @@ export function AccountRail({
         is every account you have, so the icon should say "browse", not
         "create".
       */}
-      <div className="flex min-h-0 w-full flex-1 flex-col gap-[4px] overflow-y-auto px-[6px] py-[2px] [scrollbar-width:none]">
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto px-[6px] py-[2px] [scrollbar-width:none]">
+        {/*
+          Auto margins, not justify-center: the tiles sit in the strip's
+          vertical centre (the agency plate alone holds the top), and when
+          the list outgrows the strip the margins collapse to zero so
+          everything stays scrollable — justify-center would clip the top.
+        */}
+        <div className="my-auto flex w-full flex-col gap-[4px]">
         {railAccounts.map((account) => (
           <RailRow
             key={account.id}
@@ -169,6 +176,7 @@ export function AccountRail({
             ) : null}
           </button>
         </Tooltipped>
+        </div>
       </div>
 
     </nav>
