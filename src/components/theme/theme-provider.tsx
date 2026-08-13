@@ -35,6 +35,7 @@ export type AccountTheme = Partial<
     | "flyoutTrigger"
     | "recentsMode"
     | "autoCollapse"
+    | "launchpad"
     | "searchMode"
     | "searchTheme"
   >
@@ -92,7 +93,11 @@ export function ThemeProvider({
   const [state, setState] = React.useState<ThemeState>(initial);
   const [accountThemes, setAccountThemes] = React.useState<
     Record<string, AccountTheme>
-  >({});
+  >({
+    // Brightpath is mid-trial — the one account still in its zero state, so
+    // switching to it demos the setup guide appearing and leaving.
+    brightpath: { launchpad: true },
+  });
   const [activeAccountId, setActiveAccountId] = React.useState<string | null>(
     null,
   );

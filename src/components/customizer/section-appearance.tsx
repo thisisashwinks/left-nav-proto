@@ -102,6 +102,7 @@ export function AppearanceSection({ account }: { account: Account }) {
   const autoCollapse = override.autoCollapse ?? theme.autoCollapse;
   const searchMode = override.searchMode ?? theme.searchMode;
   const flyoutTrigger = override.flyoutTrigger ?? theme.flyoutTrigger;
+  const launchpad = override.launchpad ?? theme.launchpad;
 
   const density = densityOf(state);
   // Custom stays open once chosen, even if the steppers land back on a preset.
@@ -227,11 +228,22 @@ export function AppearanceSection({ account }: { account: Account }) {
             format={(v) => RECENTS_MODE_LABELS[v]}
           />
         </SettingRow>
-        <SettingRow label="Collapse on small screens" desc="Below 900px the nav starts as the icon rail." last>
+        <SettingRow label="Collapse on small screens" desc="Below 900px the nav starts as the icon rail.">
           <Switch
             on={autoCollapse}
             onToggle={() => write({ autoCollapse: !autoCollapse })}
             label="Auto-collapse"
+          />
+        </SettingRow>
+        <SettingRow
+          label="Setup guide"
+          desc="The zero-state Getting started row. Shows while the account is onboarding; turn off on activation."
+          last
+        >
+          <Switch
+            on={launchpad}
+            onToggle={() => write({ launchpad: !launchpad })}
+            label="Setup guide"
           />
         </SettingRow>
       </Card>

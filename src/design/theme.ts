@@ -214,6 +214,13 @@ export interface ThemeState {
   recentsMode: RecentsMode;
   /** Start collapsed on narrow viewports. Off makes the tablet case demoable. */
   autoCollapse: boolean;
+  /**
+   * The zero-state setup guide (Mapping row 61): Launchpad is an onboarding
+   * surface, not a permanent L1 — it shows while an account is still being
+   * set up and hides after activation. Per-account, so one demo account can
+   * be "new" while the rest are activated.
+   */
+  launchpad: boolean;
   /** Which workspace-switch model is live. See SCOPE_MODELS. */
   scopeModel: ScopeModel;
 }
@@ -248,6 +255,9 @@ export const DEFAULT_THEME: ThemeState = {
   flyoutTrigger: "click",
   recentsMode: "fixed-three",
   autoCollapse: true,
+  // Activated accounts don't see the setup guide; Brightpath (the trial
+  // account) carries it as a per-account override.
+  launchpad: false,
   // The rail is the recommendation, so the prototype opens on it. Model A is
   // one click away for the comparison.
   scopeModel: "rail",

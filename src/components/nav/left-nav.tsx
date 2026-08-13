@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { History, Star } from "lucide-react";
+import { History, Rocket, Star } from "lucide-react";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import type { Account } from "@/components/accounts/accounts-data";
 import type { WorkspaceScope } from "@/components/accounts/use-accounts";
@@ -112,7 +112,7 @@ export function LeftNav({
   onOpenLauncher,
   recentsBudget,
 }: LeftNavProps) {
-  const { entryLayout, dockPosition } = useTheme().effective;
+  const { entryLayout, dockPosition, launchpad } = useTheme().effective;
   const topEntry = entryLayout === "top";
   const atFloor = density === "floor";
   const agencyScope = scope === "agency";
@@ -214,6 +214,16 @@ export function LeftNav({
       */}
       {atFloor ? null : (
         <>
+          {/*
+            The zero-state setup guide (Mapping row 61): Launchpad as a
+            temporary row while the account is being set up, not a permanent
+            L1. First thing under the dock, only for accounts still
+            onboarding — Brightpath in the demo — and it leaves on activation
+            (toggle in the customizer's Appearance). Below the pinned hole,
+            not above: the favourites capsule floats over the header block at
+            a fixed offset, and a row slid in under the header sat beneath it.
+          */}
+          {launchpad && !agencyScope ? <SetupGuideRow /> : null}
           <div
             data-cursor="menu"
             className="flex w-full shrink-0 flex-col items-start gap-[var(--t-nav-space,2px)] px-[10px]"
@@ -397,5 +407,40 @@ function PinnedHole({ position }: { position: DockPosition }) {
       className="w-full shrink-0"
       style={{ height: pinnedBlockFor(position) }}
     />
+  );
+}
+
+/**
+ * The zero-state setup guide row. Deliberately reads as a guest, not a
+ * product: a soft brand wash and a progress meter say "temporary, almost
+ * done" — the whole point (Mapping 61) is that this row EARNS its exit.
+ */
+function SetupGuideRow() {
+  const done = 4;
+  const total = 7;
+  return (
+    <div className="w-full shrink-0 px-[10px] pt-[2px] pb-[6px]">
+      <button
+        type="button"
+        className="motion-tap group flex w-full flex-col gap-[7px] rounded-[9px] bg-brand-soft px-[10px] py-[9px] text-left shadow-[inset_0_0_0_1px_var(--brand)] hover:brightness-[1.02] active:scale-[0.99]"
+      >
+        <span className="flex w-full items-center gap-[8px]">
+          <Rocket size={15} aria-hidden="true" className="shrink-0 text-brand" />
+          <span className="min-w-0 flex-1 truncate text-[13px] leading-[normal] font-semibold text-brand-strong">
+            Getting started
+          </span>
+          <span className="shrink-0 text-[11.5px] leading-none font-medium text-brand-strong opacity-80">
+            {done} of {total}
+          </span>
+        </span>
+        {/* The meter is the row's exit visa: at 7/7 the row leaves the nav. */}
+        <span className="h-[3px] w-full overflow-hidden rounded-full bg-brand-soft-2">
+          <span
+            className="block h-full rounded-full bg-brand motion-move"
+            style={{ width: `${(done / total) * 100}%` }}
+          />
+        </span>
+      </button>
+    </div>
   );
 }
