@@ -193,7 +193,9 @@ export function FlyoutRow({
           size={14}
           aria-hidden="true"
           className={cn(
-            "ml-auto shrink-0 self-center text-nav-fg-subtle motion-move",
+            // Top-aligned on the title's own line (Aug 13 ask) — centring on
+            // the whole row left it floating beside the description.
+            "ml-auto mt-[3px] shrink-0 self-start text-nav-fg-subtle motion-move",
             open && "rotate-180",
           )}
         />

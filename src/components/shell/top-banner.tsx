@@ -8,6 +8,7 @@ import {
   CreditCard,
   Megaphone,
   Trophy,
+  Wallet,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -78,8 +79,23 @@ export const AGENCY_BANNERS: Banner[] = [
  * missing a payment method"), and processing status — bulk imports and the
  * like — is NOT top-banner material; that belongs to a background-processes
  * surface near the work itself, so ACME's import strip was removed.
+ *
+ * ACME carries the wallet strip from the Aug 13 audit — the one banner that
+ * appeared on all 79 crawl screenshots — so the default view demonstrates
+ * the account-banner anatomy without switching accounts. Service failing is
+ * exactly what the top strip is FOR; contrast the import status it replaced.
  */
 export const ACCOUNT_BANNERS: Record<string, Banner[]> = {
+  acme: [
+    {
+      id: "acme-wallet",
+      tone: "danger",
+      icon: Wallet,
+      lead: "ACME's wallet balance is below $0",
+      detail: "SMS, calls and emails will start failing.",
+      cta: "Add credits",
+    },
+  ],
   coastal: [
     {
       id: "coastal-payment",

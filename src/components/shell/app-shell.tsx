@@ -460,9 +460,20 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         reads as ambient rather than shouting. A plain sub-account user never
         sees agency comms at all.
       */}
-      {plainUser ||
-      (accounts.scope === "account" &&
-        (ACCOUNT_BANNERS[accounts.current.id]?.length ?? 0) > 0) ? null : (
+      {accounts.scope === "account" &&
+      (ACCOUNT_BANNERS[accounts.current.id]?.length ?? 0) > 0 ? (
+        /*
+          The account's own strip now takes the SAME topmost, full-bleed slot
+          as agency comms (Aug 13 ask — banners live at the very top of the
+          screen, above the rails). Scope still reads from the copy, which
+          names its account, and the key remounts the strip — with its
+          dismissals — per account.
+        */
+        <TopBanner
+          key={accounts.current.id}
+          banners={ACCOUNT_BANNERS[accounts.current.id] ?? []}
+        />
+      ) : plainUser ? null : (
         <TopBanner banners={AGENCY_BANNERS} condensed />
       )}
 
@@ -614,18 +625,6 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/*
-          Sub-account banners start where the account's content starts, right
-          of both rails — the left edge says whose problem it is, and the strip
-          leaves with its account on switch (the key remounts it, which also
-          resets its dismissals to that account's own).
-        */}
-        {accounts.scope === "account" ? (
-          <TopBanner
-            key={accounts.current.id}
-            banners={ACCOUNT_BANNERS[accounts.current.id] ?? []}
-          />
-        ) : null}
         <AppHeader
           theme={headerTheme}
           crumbs={
