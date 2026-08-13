@@ -110,7 +110,9 @@ function expandedGeometry() {
  * Collapsed capsule metrics, from the design's vertical capsule: 5px padding at
  * each end, 30px slots, 2px between them — so each slot after the first adds 32.
  */
-const COLLAPSED_TOP = 88;
+// 85, not the design's 88: the rail's top pad dropped 12→9 so the mark
+// centres on the app header's midline, and the capsule rides up with it.
+const COLLAPSED_TOP = 85;
 const COLLAPSED_SLOT_PITCH = 32;
 
 /**

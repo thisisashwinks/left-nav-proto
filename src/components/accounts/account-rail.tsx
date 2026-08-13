@@ -127,7 +127,9 @@ export function AccountRail({
         // an account is when its name matters. The waffle stays a plain click
         // target for the directory.
         className={cn(
-          "motion-move absolute inset-y-0 left-0 z-30 flex flex-col gap-[7px] overflow-hidden bg-nav-rail py-[8px]",
+          // pt 2: the agency plate is 44px tall (4 + 36 + 4), so 2px above and
+          // below centres its tile on y=24 — the app header's own midline.
+          "motion-move absolute inset-y-0 left-0 z-30 flex flex-col gap-[7px] overflow-hidden bg-nav-rail pt-[2px] pb-[8px]",
           expanded || switcherOpen
             ? "shadow-[inset_-1px_0_0_0_var(--nav-border),16px_0_40px_-20px_rgba(15,23,42,0.45)]"
             : "shadow-[inset_-1px_0_0_0_var(--nav-border)]",
@@ -154,7 +156,8 @@ export function AccountRail({
               clicked in, now a header — which is what sells the morph — with
               the close affordance at the far end.
             */}
-            <div className="flex h-[36px] shrink-0 items-center gap-[9px] px-[10px] pb-[4px]">
+            {/* 44px under the rail's 2px top pad — centred on y=24 like the header. */}
+            <div className="flex h-[44px] shrink-0 items-center gap-[9px] px-[10px]">
               <span className="flex size-[28px] shrink-0 items-center justify-center text-nav-fg-muted">
                 <Grip size={16} aria-hidden="true" />
               </span>

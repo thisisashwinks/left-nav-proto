@@ -47,8 +47,11 @@ export function NavHeader({
   canSwitch = true,
   trailing,
 }: NavHeaderProps) {
+  // 9 + 30 + 9 = 48: the identity row centres on the app header's own
+  // midline (48px tall, content at 24), so mark, name, collapse, breadcrumb
+  // and header icons all sit on ONE line across the top of the screen.
   return (
-    <div className="flex w-full shrink-0 flex-col items-start gap-[10px] pt-[14px] pr-[12px] pb-[10px] pl-[12px]">
+    <div className="flex w-full shrink-0 flex-col items-start gap-[10px] pt-[9px] pr-[12px] pb-[9px] pl-[12px]">
       <div className="flex w-full items-center gap-[6px]">
         <div className="flex min-w-0 flex-1 items-center">
           {canSwitch ? (

@@ -193,7 +193,9 @@ export function CollapsedRail({
       // file puts the Settings icon at y-centre 910.5 here but 920 in the
       // expanded footer, so collapsing made the icon hop 9.5px. Holding the
       // expanded baseline is worth the deviation.
-      className="flex h-full w-[64px] shrink-0 flex-col items-center gap-[4px] overflow-hidden bg-nav pt-[12px] pr-[8px] pb-[3px] pl-[8px] shadow-[inset_-1px_0_0_0_var(--nav-border)]"
+      // pt 9: the 30px mark centres on y=24, the app header's midline —
+      // matching the expanded header row and the account rail's plate.
+      className="flex h-full w-[64px] shrink-0 flex-col items-center gap-[4px] overflow-hidden bg-nav pt-[9px] pr-[8px] pb-[3px] pl-[8px] shadow-[inset_-1px_0_0_0_var(--nav-border)]"
     >
       {/*
         The rail has no room for a name or a chevron, so the mark itself is the

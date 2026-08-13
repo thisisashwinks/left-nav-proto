@@ -92,9 +92,12 @@ const LAUNCHER_ID = "launcher";
  * reads as the trigger's own box growing. Per Khoi's note — a pulldown was
  * expected, so the panel now behaves like one.
  */
+// Tops track the identity rows they grow from: the expanded header row now
+// starts at pt 9 (was 14) and the collapsed mark at pt 9 (was 12), so both
+// anchors ride up by the same amounts to keep the morph seamless.
 const SWITCHER_ANCHOR = {
-  expanded: { left: 4, top: 6 },
-  collapsed: { left: 8, top: 6 },
+  expanded: { left: 4, top: 1 },
+  collapsed: { left: 8, top: 3 },
 } as const;
 
 /**

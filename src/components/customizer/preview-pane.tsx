@@ -85,7 +85,7 @@ export function PreviewPane({ account }: { account: Account }) {
         className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[12px] bg-nav shadow-[inset_0_0_0_1px_var(--nav-border),0_8px_24px_-12px_rgba(15,23,42,0.18)]"
       >
         {/* NavHeader: trigger on the left, drawer toggle on the right. */}
-        <div className="flex shrink-0 items-center gap-[6px] pt-[14px] pr-[12px] pb-[10px] pl-[12px]">
+        <div className="flex shrink-0 items-center gap-[6px] pt-[9px] pr-[12px] pb-[9px] pl-[12px]">
           <span className="flex h-[30px] min-w-0 flex-1 items-center gap-[7px]">
             <AccountLogo logo={account.logo} src={account.logoSrc} size={20} radius={999} />
             <span className="truncate text-[14px] leading-[20px] font-semibold text-nav-fg">
