@@ -22,6 +22,17 @@ export interface FlyoutBadge {
   tone: FlyoutBadgeTone;
 }
 
+/**
+ * An L2 sub-place nested under a product row — the flyout's answer to the
+ * header-tab dropdowns the current app hides these in (Invoices & Estimates ▾,
+ * Products ▾, Client Portal ▾ …). Aug 13 audit, report §2.
+ */
+export interface FlyoutChildItem {
+  id: string;
+  label: string;
+  badge?: FlyoutBadge;
+}
+
 export interface FlyoutItem {
   id: string;
   label: string;
@@ -33,6 +44,8 @@ export interface FlyoutItem {
   time?: string;
   /** Gradient pill next to the label, `product` variant only. */
   badge?: FlyoutBadge;
+  /** L2 sub-places. A row with children expands in place — a nested dropdown. */
+  children?: FlyoutChildItem[];
 }
 
 export type FlyoutEntry =

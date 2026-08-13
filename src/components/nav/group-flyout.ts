@@ -55,6 +55,8 @@ export function flyoutForGroup(
           label: labelForProduct(state, id),
           icon: iconForProduct(state, id),
           ...(product?.blurb ? { description: product.blurb } : {}),
+          // The L2 layer: sub-places render as a nested dropdown on the row.
+          ...(product?.children ? { children: product.children } : {}),
         },
       };
     }),
@@ -78,13 +80,17 @@ function resolveAuthoredEntry(state: NavLayoutState) {
     if (entry.kind !== "item") return entry;
     // Only rows that name a real product can be overridden — an authored row for
     // something outside the catalogue keeps whatever the design gave it.
-    if (!productById(entry.item.id)) return entry;
+    const product = productById(entry.item.id);
+    if (!product) return entry;
     return {
       kind: "item",
       item: {
         ...entry.item,
         label: labelForProduct(state, entry.item.id),
         icon: iconForProduct(state, entry.item.id),
+        // Authored panels inherit the catalogue's L2 layer too, so the SKU
+        // comparison view shows the same nested dropdowns as the job view.
+        ...(product.children ? { children: product.children } : {}),
       },
     };
   };

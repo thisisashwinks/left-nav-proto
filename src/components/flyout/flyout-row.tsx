@@ -1,6 +1,7 @@
 "use client";
 
-import type * as React from "react";
+import * as React from "react";
+import { ChevronDown } from "lucide-react";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import { WithPin } from "@/components/nav/with-pin";
 import { productById } from "@/components/nav/catalogue";
@@ -84,12 +85,25 @@ export function FlyoutRow({
   const Icon = item.icon;
   /** Only rows that map to a pinnable product get a pin. */
   const pinnable = productById(item.id) !== undefined;
+  /*
+   * A row with L2 children behaves as a nested dropdown: clicking it expands
+   * the sub-places in place instead of selecting. This mirrors the current
+   * app's header-tab dropdowns (Invoices & Estimates ▾, Products ▾ …), which
+   * the Aug 13 audit mapped into the flyouts as L2. The chevron rides the
+   * label — a nested <button> would be invalid markup, so the whole row is
+   * the toggle.
+   */
+  const hasChildren = (item.children?.length ?? 0) > 0;
+  const [open, setOpen] = React.useState(false);
 
   const row = (
     <button
       type="button"
       aria-current={active ? "true" : undefined}
-      onClick={() => onSelect?.(item.id)}
+      aria-expanded={hasChildren ? open : undefined}
+      onClick={() =>
+        hasChildren ? setOpen((o) => !o) : onSelect?.(item.id)
+      }
       style={{ "--row-index": rowIndex } as React.CSSProperties}
       className={cn(
         "motion-row-in group group/row flex w-full shrink-0 rounded-[9px] text-left",
@@ -151,6 +165,16 @@ export function FlyoutRow({
               {item.badge.label}
             </span>
           ) : null}
+          {hasChildren ? (
+            <ChevronDown
+              size={13}
+              aria-hidden="true"
+              className={cn(
+                "shrink-0 text-nav-fg-subtle motion-move",
+                open && "rotate-180",
+              )}
+            />
+          ) : null}
         </div>
 
         {item.description ? (
@@ -170,9 +194,48 @@ export function FlyoutRow({
     </button>
   );
 
+  if (!hasChildren) {
+    return (
+      <WithPin productId={item.id} pinClass={v.pinTop}>
+        {row}
+      </WithPin>
+    );
+  }
+
   return (
-    <WithPin productId={item.id} pinClass={v.pinTop}>
-      {row}
-    </WithPin>
+    <div className="w-full shrink-0">
+      <WithPin productId={item.id} pinClass={v.pinTop}>
+        {row}
+      </WithPin>
+      {open ? (
+        /*
+          The nested dropdown. Indented to the parent's text column and hung
+          off a hairline that drops from the icon's centreline, so the rows
+          read as the parent's contents rather than more siblings.
+        */
+        <div className="motion-menu-in mt-[2px] ml-[19px] flex w-auto flex-col gap-[1px] border-l border-[var(--nav-divider,var(--nav-border))] pr-[8px] pl-[13px]">
+          {item.children?.map((child) => (
+            <button
+              key={child.id}
+              type="button"
+              onClick={() => onSelect?.(child.id)}
+              className="motion-tap flex h-[30px] w-full items-center gap-[7px] rounded-[7px] px-[9px] text-left text-[13px] leading-[normal] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg active:scale-[0.99]"
+            >
+              <span className="truncate">{child.label}</span>
+              {child.badge ? (
+                <span
+                  className={cn(
+                    "shrink-0 rounded-[2px] px-[4px] py-[1.5px] text-[9.5px] leading-[normal] font-semibold whitespace-nowrap shadow-[0_2px_4px_0_#00000014]",
+                    BADGE_TONE[child.badge.tone],
+                  )}
+                >
+                  {child.badge.label}
+                </span>
+              ) : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
