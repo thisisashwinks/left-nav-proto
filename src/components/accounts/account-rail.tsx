@@ -152,15 +152,12 @@ export function AccountRail({
             )}
           >
             {/*
-              The waffle row, grown up: same glyph in the same corner it was
-              clicked in, now a header — which is what sells the morph — with
-              the close affordance at the far end.
+              The panel header: title and close only. The waffle glyph is
+              gone (Aug 13 ask) — once the strip has morphed, the title
+              carries the identity and the icon just repeated it.
             */}
             {/* 44px under the rail's 2px top pad — centred on y=24 like the header. */}
-            <div className="flex h-[44px] shrink-0 items-center gap-[9px] px-[10px]">
-              <span className="flex size-[28px] shrink-0 items-center justify-center text-nav-fg-muted">
-                <Grip size={16} aria-hidden="true" />
-              </span>
+            <div className="flex h-[44px] shrink-0 items-center gap-[9px] px-[12px]">
               <span className="min-w-0 flex-1 truncate text-[13.5px] leading-[18px] font-semibold text-nav-fg">
                 All accounts
               </span>
