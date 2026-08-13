@@ -1,17 +1,21 @@
 "use client";
 
 import * as React from "react";
-import { Grip } from "lucide-react";
+import { Grip, X } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
+import type { TransitionPhase } from "@/lib/use-exit-transition";
 import { cn } from "@/lib/utils";
 import { AccountLogo } from "./account-logo";
 import type { Account } from "./accounts-data";
 import { RailTooltip } from "@/components/nav/rail-tooltip";
+import { RailDirectory } from "./rail-switcher";
 import type { AccountsSession } from "./use-accounts";
 
-/** The rail's two widths — the shell adds the live one to panel offsets. */
+/** The rail's widths — the shell adds the live one to panel offsets. */
 export const ACCOUNT_RAIL_WIDTH = 56;
 export const ACCOUNT_RAIL_EXPANDED_WIDTH = 216;
+/** The width the strip grows to when it becomes the accounts directory. */
+export const ACCOUNT_RAIL_DIRECTORY_WIDTH = 340;
 
 interface AccountRailProps {
   session: AccountsSession;
@@ -20,9 +24,13 @@ interface AccountRailProps {
   expanded: boolean;
   /** Owned by the shell — panel offsets follow the live width. */
   onExpandedChange: (expanded: boolean) => void;
-  /** Whether the Accounts panel is open — the waffle shows as pressed. */
+  /** Whether the strip has morphed into the accounts directory. */
   switcherOpen: boolean;
+  /** Mount/phase from the shell's exit transition — content outlives the flag. */
+  switcherMounted: boolean;
+  switcherPhase: TransitionPhase;
   onToggleSwitcher: () => void;
+  onCloseSwitcher: () => void;
 }
 
 /**
@@ -47,6 +55,10 @@ const COLLAPSE_DELAY_MS = 250;
  * to be recognisable at 28px, so readable names are one toggle away. The
  * active account is a filled row plus the edge bar — the earlier ring read
  * as too subtle in review.
+ *
+ * Clicking the waffle MORPHS the strip into the directory (Aug 13 ask):
+ * the same overlay widens to panel width and swaps its tiles for the
+ * search-and-pin list, instead of docking a second surface beside itself.
  */
 export function AccountRail({
   session,
@@ -54,7 +66,10 @@ export function AccountRail({
   expanded,
   onExpandedChange,
   switcherOpen,
+  switcherMounted,
+  switcherPhase,
   onToggleSwitcher,
+  onCloseSwitcher,
 }: AccountRailProps) {
   const railAccounts = session.railIds
     .map((id) => session.accounts.find((a) => a.id === id))
@@ -82,104 +97,163 @@ export function AccountRail({
     };
   }, []);
 
+  const width = switcherOpen
+    ? ACCOUNT_RAIL_DIRECTORY_WIDTH
+    : expanded
+      ? ACCOUNT_RAIL_EXPANDED_WIDTH
+      : ACCOUNT_RAIL_WIDTH;
+
   return (
-    <nav
-      data-nav-theme={theme}
-      aria-label="Accounts"
-      data-cursor="menu"
-      onPointerLeave={() => setHover(false)}
-      // An overlay, not a flow column: the shell holds a fixed 56px slot and
-      // this widens OVER the nav — the page never moves under the pointer.
-      // Expansion is triggered from the account tiles themselves: resting on
-      // an account is when its name matters. The waffle stays a plain click
-      // target for the directory.
-      className={cn(
-        "motion-move absolute inset-y-0 left-0 z-30 flex flex-col gap-[7px] overflow-hidden bg-nav-rail py-[8px]",
-        expanded
-          ? "shadow-[inset_-1px_0_0_0_var(--nav-border),16px_0_40px_-20px_rgba(15,23,42,0.45)]"
-          : "shadow-[inset_-1px_0_0_0_var(--nav-border)]",
-      )}
-      style={{ width: expanded ? ACCOUNT_RAIL_EXPANDED_WIDTH : ACCOUNT_RAIL_WIDTH }}
-    >
-      {/*
-        The agency zone: a neutral plate the agency row sits on, ending at
-        nothing — the plate's own edge is the boundary. Same tile shape as
-        every account below it.
-      */}
-      <div className="mx-[6px] shrink-0 rounded-[10px] bg-nav-rail-disc p-[4px]">
-        <RailRow
-          label={`${session.agency.name} — agency`}
-          name={session.agency.name}
-          expanded={expanded}
-          selected={session.scope === "agency"}
-          onClick={session.switchToAgency}
-          onHover={() => setHover(true)}
-          account={session.agency}
+    <>
+      {/* Click-away while morphed — the directory is a modal choice. */}
+      {switcherMounted ? (
+        <button
+          type="button"
+          aria-label="Close accounts directory"
+          tabIndex={-1}
+          onClick={onCloseSwitcher}
+          className="absolute inset-0 z-30 cursor-default"
         />
-      </div>
+      ) : null}
 
-      {/*
-        Uncapped, so the open set scrolls rather than clipping. The agency
-        plate above and the bottom toggle stay put — the fixed points.
-
-        "All accounts" rides at the tail of the list rather than the footer:
-        it is the directory the list is a slice of, so it belongs with the
-        accounts — the footer is rail chrome, and putting an account action
-        down there read as chrome. The waffle, not a +: the panel behind it
-        is every account you have, so the icon should say "browse", not
-        "create".
-      */}
-      <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto px-[6px] py-[2px] [scrollbar-width:none]">
-        {/*
-          Auto margins, not justify-center: the tiles sit in the strip's
-          vertical centre (the agency plate alone holds the top), and when
-          the list outgrows the strip the margins collapse to zero so
-          everything stays scrollable — justify-center would clip the top.
-        */}
-        <div className="my-auto flex w-full flex-col gap-[4px]">
-        {railAccounts.map((account) => (
-          <RailRow
-            key={account.id}
-            label={account.name}
-            name={account.name}
-            expanded={expanded}
-            selected={session.scope === "account" && account.id === session.current.id}
-            onClick={() => session.switchTo(account.id)}
-            onHover={() => setHover(true)}
-            account={account}
-          />
-        ))}
-
-        <Tooltipped label="All accounts" show={!expanded}>
-          <button
-            type="button"
-            aria-label="All accounts"
-            aria-haspopup="dialog"
-            aria-expanded={switcherOpen}
-            onClick={onToggleSwitcher}
+      <nav
+        data-nav-theme={theme}
+        aria-label="Accounts"
+        data-cursor="menu"
+        onPointerLeave={() => setHover(false)}
+        // An overlay, not a flow column: the shell holds a fixed 56px slot and
+        // this widens OVER the nav — the page never moves under the pointer.
+        // Expansion is triggered from the account tiles themselves: resting on
+        // an account is when its name matters. The waffle stays a plain click
+        // target for the directory.
+        className={cn(
+          "motion-move absolute inset-y-0 left-0 z-30 flex flex-col gap-[7px] overflow-hidden bg-nav-rail py-[8px]",
+          expanded || switcherOpen
+            ? "shadow-[inset_-1px_0_0_0_var(--nav-border),16px_0_40px_-20px_rgba(15,23,42,0.45)]"
+            : "shadow-[inset_-1px_0_0_0_var(--nav-border)]",
+        )}
+        style={{ width }}
+      >
+        {switcherMounted ? (
+          /*
+            The morphed face. Fixed at directory width inside the animating
+            frame, so the rows never squish while the strip is still growing
+            or already shrinking — the nav's overflow-hidden does the reveal.
+          */
+          <div
+            role="dialog"
+            aria-label="Accounts"
+            style={{ width: ACCOUNT_RAIL_DIRECTORY_WIDTH }}
             className={cn(
-              "motion-tap flex h-[36px] w-full shrink-0 items-center gap-[9px] rounded-[9px] p-[4px] text-nav-fg-subtle",
-              !expanded && "justify-center",
-              switcherOpen
-                ? "bg-nav-active text-nav-fg"
-                : "hover:bg-nav-hover hover:text-nav-fg-muted",
+              "flex min-h-0 flex-1 flex-col",
+              switcherPhase === "entering" ? "motion-menu-in" : "motion-menu-out",
             )}
           >
-            {/* A 28px stage, so the glyph centres exactly under the logos above. */}
-            <span className="flex size-[28px] shrink-0 items-center justify-center">
-              <Grip size={16} aria-hidden="true" />
-            </span>
-            {expanded ? (
-              <span className="truncate text-[12.5px] leading-none font-medium">
+            {/*
+              The waffle row, grown up: same glyph in the same corner it was
+              clicked in, now a header — which is what sells the morph — with
+              the close affordance at the far end.
+            */}
+            <div className="flex h-[36px] shrink-0 items-center gap-[9px] px-[10px] pb-[4px]">
+              <span className="flex size-[28px] shrink-0 items-center justify-center text-nav-fg-muted">
+                <Grip size={16} aria-hidden="true" />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[13.5px] leading-[18px] font-semibold text-nav-fg">
                 All accounts
               </span>
-            ) : null}
-          </button>
-        </Tooltipped>
-        </div>
-      </div>
+              <button
+                type="button"
+                aria-label="Close accounts directory"
+                onClick={onCloseSwitcher}
+                className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
+              >
+                <X size={15} aria-hidden="true" />
+              </button>
+            </div>
 
-    </nav>
+            <RailDirectory session={session} onClose={onCloseSwitcher} />
+          </div>
+        ) : (
+          <>
+            {/*
+              The agency zone: a neutral plate the agency row sits on, ending at
+              nothing — the plate's own edge is the boundary. Same tile shape as
+              every account below it.
+            */}
+            <div className="mx-[6px] shrink-0 rounded-[10px] bg-nav-rail-disc p-[4px]">
+              <RailRow
+                label={`${session.agency.name} — agency`}
+                name={session.agency.name}
+                expanded={expanded}
+                selected={session.scope === "agency"}
+                onClick={session.switchToAgency}
+                onHover={() => setHover(true)}
+                account={session.agency}
+              />
+            </div>
+
+            {/*
+              Uncapped, so the open set scrolls rather than clipping. The agency
+              plate above stays put — the fixed point.
+
+              "All accounts" rides at the tail of the list rather than the footer:
+              it is the directory the list is a slice of, so it belongs with the
+              accounts — the footer is rail chrome, and putting an account action
+              down there read as chrome. The waffle, not a +: the panel behind it
+              is every account you have, so the icon should say "browse", not
+              "create".
+            */}
+            <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto px-[6px] py-[2px] [scrollbar-width:none]">
+              {/*
+                Auto margins, not justify-center: the tiles sit in the strip's
+                vertical centre (the agency plate alone holds the top), and when
+                the list outgrows the strip the margins collapse to zero so
+                everything stays scrollable — justify-center would clip the top.
+              */}
+              <div className="my-auto flex w-full flex-col gap-[4px]">
+                {railAccounts.map((account) => (
+                  <RailRow
+                    key={account.id}
+                    label={account.name}
+                    name={account.name}
+                    expanded={expanded}
+                    selected={session.scope === "account" && account.id === session.current.id}
+                    onClick={() => session.switchTo(account.id)}
+                    onHover={() => setHover(true)}
+                    account={account}
+                  />
+                ))}
+
+                <Tooltipped label="All accounts" show={!expanded}>
+                  <button
+                    type="button"
+                    aria-label="All accounts"
+                    aria-haspopup="dialog"
+                    aria-expanded={switcherOpen}
+                    onClick={onToggleSwitcher}
+                    className={cn(
+                      "motion-tap flex h-[36px] w-full shrink-0 items-center gap-[9px] rounded-[9px] p-[4px] text-nav-fg-subtle",
+                      !expanded && "justify-center",
+                      "hover:bg-nav-hover hover:text-nav-fg-muted",
+                    )}
+                  >
+                    {/* A 28px stage, so the glyph centres exactly under the logos above. */}
+                    <span className="flex size-[28px] shrink-0 items-center justify-center">
+                      <Grip size={16} aria-hidden="true" />
+                    </span>
+                    {expanded ? (
+                      <span className="truncate text-[12.5px] leading-none font-medium">
+                        All accounts
+                      </span>
+                    ) : null}
+                  </button>
+                </Tooltipped>
+              </div>
+            </div>
+          </>
+        )}
+      </nav>
+    </>
   );
 }
 

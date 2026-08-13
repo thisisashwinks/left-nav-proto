@@ -3,11 +3,9 @@
 import * as React from "react";
 import {
   AccountRail,
-  ACCOUNT_RAIL_EXPANDED_WIDTH,
   ACCOUNT_RAIL_WIDTH,
 } from "@/components/accounts/account-rail";
 import { AccountSwitcher } from "@/components/accounts/account-switcher";
-import { RailSwitcher } from "@/components/accounts/rail-switcher";
 import { useAccounts } from "@/components/accounts/use-accounts";
 import {
   AI_DOCKED_WIDTH,
@@ -333,15 +331,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * the nav's right edge — flyouts, the AI window, the launcher — starts one
    * rail further right, and the switcher panels anchor past it too.
    */
-  // Constant: the rail expands as an overlay, so panels never chase it.
+  // Constant: the rail expands as an overlay — the directory included, which
+  // now morphs the rail itself wider — so panels never chase it.
   const railWidth = railActive ? ACCOUNT_RAIL_WIDTH : 0;
-  // Except the accounts directory, which docks against the rail's LIVE edge —
-  // opened beside the expanded names it sits at 216, beside the tiles at 56.
-  const railLiveWidth = railActive
-    ? railExpanded
-      ? ACCOUNT_RAIL_EXPANDED_WIDTH
-      : ACCOUNT_RAIL_WIDTH
-    : 0;
   const leftOffset = railWidth + navWidth;
   // Group panels win over the authored registry: a renamed Engage has to open a
   // panel titled with its new name, and the registry still holds the old one.
@@ -477,7 +469,16 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               if (!directoryOpen) setRailExpanded(v);
             }}
             switcherOpen={directoryOpen}
+            switcherMounted={directory.isMounted}
+            switcherPhase={directory.phase}
             onToggleSwitcher={toggleDirectory}
+            // Closing also settles the rail shut — the pointer is on the
+            // morphed panel, not the tiles, so leaving the names expanded
+            // underneath would strand them.
+            onCloseSwitcher={() => {
+              setDirectoryOpen(false);
+              setRailExpanded(false);
+            }}
           />
         </>
       ) : null}
@@ -721,8 +722,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         Two triggers, two jobs — Khoi's "duplicativeness" note. The workspace
         trigger expands in place into the quick menu (AccountSwitcher, anchored
         over the trigger it grew from) in BOTH models; the rail's "All
-        accounts" waffle opens the curate-and-jump directory (RailSwitcher).
-        Rendered out here because the nav faces clip their overflow.
+        accounts" waffle morphs the rail itself into the curate-and-jump
+        directory (rendered inside AccountRail).
       */}
       {switcher.isMounted ? (
         <AccountSwitcher
@@ -739,21 +740,6 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           theme={navTheme}
           phase={switcher.phase}
           onClose={() => setSwitcherOpen(false)}
-        />
-      ) : null}
-
-      {directory.isMounted ? (
-        <RailSwitcher
-          session={accounts}
-          offsetLeft={railLiveWidth}
-          theme={navTheme}
-          phase={directory.phase}
-          // Closing also settles the rail shut — the pointer is on the panel,
-          // not the rail, so leaving it open would strand the names.
-          onClose={() => {
-            setDirectoryOpen(false);
-            setRailExpanded(false);
-          }}
         />
       ) : null}
 

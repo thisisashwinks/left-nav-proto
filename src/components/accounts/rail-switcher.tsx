@@ -2,39 +2,30 @@
 
 import * as React from "react";
 import { Pin, PinOff, Search } from "lucide-react";
-import type { SurfaceTheme } from "@/design/theme";
-import type { TransitionPhase } from "@/lib/use-exit-transition";
 import { cn } from "@/lib/utils";
 import { AccountLogo } from "./account-logo";
 import { matchAccounts, type Account } from "./accounts-data";
 import type { AccountsSession } from "./use-accounts";
 
-interface RailSwitcherProps {
+interface RailDirectoryProps {
   session: AccountsSession;
-  /** Docked past the rail's right edge, like every other panel. */
-  offsetLeft: number;
-  theme: SurfaceTheme;
-  phase: TransitionPhase;
   onClose: () => void;
 }
 
-const PANEL_WIDTH = 340;
-
 /**
- * The Accounts panel behind the rail's + tile.
+ * The accounts directory the rail morphs into.
  *
- * One panel, two jobs: curate the rail (add, remove, see the cap) and jump
+ * Not a docked dialog any more (Aug 13 ask): clicking the waffle widens the
+ * rail itself into this — one surface growing, instead of two surfaces
+ * meeting at an edge, which is the seam every earlier round tripped over.
+ * The rail owns the frame; this is only the content.
+ *
+ * One panel, two jobs: curate the rail (pin, unpin, see the cap) and jump
  * to any account that has not earned a tile. Grouped the way the decision
- * actually reads — what is on the rail, what you touched recently, then
+ * actually reads — what is pinned, what you touched recently, then
  * everything — with the same search the old switcher had.
  */
-export function RailSwitcher({
-  session,
-  offsetLeft,
-  theme,
-  phase,
-  onClose,
-}: RailSwitcherProps) {
+export function RailDirectory({ session, onClose }: RailDirectoryProps) {
   const [query, setQuery] = React.useState("");
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -62,70 +53,45 @@ export function RailSwitcher({
   );
 
   return (
-    <>
-      <button
-        type="button"
-        aria-label="Close accounts panel"
-        tabIndex={-1}
-        onClick={onClose}
-        className="absolute inset-0 z-40 cursor-default"
-      />
-
-      <div
-        role="dialog"
-        aria-label="Accounts"
-        data-nav-theme={theme}
-        data-cursor="menu"
-        style={{ left: offsetLeft + 8, width: PANEL_WIDTH }}
-        className={cn(
-          // Hugs its rows rather than pinning to the viewport's bottom edge —
-          // a short directory is a short panel; a long one scrolls inside the
-          // same cap.
-          "absolute top-[10px] z-50 flex max-h-[calc(100%_-_20px)] flex-col overflow-hidden rounded-[12px] bg-nav p-[8px]",
-          "shadow-[0_16px_32px_-8px_var(--fly-shadow),0_4px_8px_-4px_var(--fly-shadow),inset_0_0_0_1px_var(--fly-border)]",
-          phase === "entering" ? "motion-menu-in" : "motion-menu-out",
-        )}
-      >
-        <div className="motion-tap flex h-[34px] shrink-0 items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">
-          <Search size={15} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={`Search ${session.accounts.length} accounts`}
-            aria-label="Search accounts"
-            className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none"
-          />
-        </div>
-
-        <div className="-mx-[2px] mt-[6px] min-h-0 flex-1 overflow-y-auto px-[2px]">
-          {matches.length === 0 ? (
-            <p className="px-[7px] py-[16px] text-[13px] leading-[18px] text-nav-fg-subtle">
-              No accounts match “{query.trim()}”.
-            </p>
-          ) : null}
-
-          <Group
-            label={`PINNED · ${session.railIds.length}`}
-            accounts={onRail}
-            session={session}
-            action="remove"
-            onClose={onClose}
-          />
-          {/* While searching, recency stops mattering — one flat list reads faster. */}
-          {searching ? (
-            <Group label="EVERYTHING ELSE" accounts={[...recent, ...rest]} session={session} action="add" onClose={onClose} />
-          ) : (
-            <>
-              <Group label="RECENT" accounts={recent} session={session} action="add" onClose={onClose} />
-              <Group label="ALL ACCOUNTS" accounts={rest} session={session} action="add" onClose={onClose} />
-            </>
-          )}
-        </div>
-
+    <div className="flex min-h-0 flex-1 flex-col px-[8px] pb-[8px]">
+      <div className="motion-tap flex h-[34px] shrink-0 items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">
+        <Search size={15} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={`Search ${session.accounts.length} accounts`}
+          aria-label="Search accounts"
+          className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none"
+        />
       </div>
-    </>
+
+      <div className="-mx-[2px] mt-[6px] min-h-0 flex-1 overflow-y-auto px-[2px]">
+        {matches.length === 0 ? (
+          <p className="px-[7px] py-[16px] text-[13px] leading-[18px] text-nav-fg-subtle">
+            No accounts match “{query.trim()}”.
+          </p>
+        ) : null}
+
+        <Group
+          label={`PINNED · ${session.railIds.length}`}
+          accounts={onRail}
+          session={session}
+          action="remove"
+          onClose={onClose}
+        />
+        {/* While searching, recency stops mattering — one flat list reads faster. */}
+        {searching ? (
+          <Group label="EVERYTHING ELSE" accounts={[...recent, ...rest]} session={session} action="add" onClose={onClose} />
+        ) : (
+          <>
+            <Group label="RECENT" accounts={recent} session={session} action="add" onClose={onClose} />
+            <Group label="ALL ACCOUNTS" accounts={rest} session={session} action="add" onClose={onClose} />
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -145,7 +111,7 @@ function Group({
   if (accounts.length === 0) return null;
   return (
     <>
-      <div className="sticky top-0 z-10 bg-nav px-[7px] pt-[8px] pb-[4px]">
+      <div className="sticky top-0 z-10 bg-nav-rail px-[7px] pt-[8px] pb-[4px]">
         <span className="text-[10.5px] leading-[14px] font-semibold tracking-[0.6px] text-nav-fg-subtle uppercase">
           {label}
         </span>
