@@ -5,8 +5,10 @@ import { NavDensityCard } from "./nav-card-density";
 import { NavFavouritesCard } from "./nav-card-favourites";
 import { NavLayoutCard } from "./nav-card-layout";
 import { NavLinksCard } from "./nav-card-links";
-import { NavGroupsCard, NavOrganisationCard } from "./nav-card-organisation";
+import { NavOrganisationCard } from "./nav-card-organisation";
 import { NavPermissionsCard } from "./nav-card-permissions";
+import { NavProductsCard } from "./nav-card-products";
+import { NavTreeCard } from "./nav-card-tree";
 import { PreviewPane } from "./preview-pane";
 
 /**
@@ -22,19 +24,29 @@ export function NavigationTab({ account }: { account: Account }) {
   return (
     <div className="flex items-start gap-[16px]">
       <div className="flex min-w-0 flex-1 flex-col gap-[16px]">
+        {/*
+          What the account is on comes first: grouping, favourites and density
+          are all decisions about a list this card decides the contents of.
+        */}
+        <NavProductsCard account={account} />
         <NavOrganisationCard account={account} />
-        <NavGroupsCard account={account} />
-        <NavLinksCard />
+        {/* Tree before links and favourites: both are decisions about rows this
+            card decides the shape of. */}
+        <NavTreeCard account={account} />
+        <NavLinksCard account={account} />
         <NavFavouritesCard account={account} />
         <NavLayoutCard account={account} />
         <NavDensityCard account={account} />
         <NavPermissionsCard account={account} />
       </div>
 
-      <aside className="sticky top-0 hidden w-[300px] shrink-0 overflow-hidden rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-border)] xl:block">
-        <div className="h-[560px]">
-          <PreviewPane account={account} />
-        </div>
+      {/*
+        Sticky so the nav being described stays on screen through a tab this
+        long. Height tracks the viewport rather than the column, or the preview
+        would stretch to the full scroll height and never be visible whole.
+      */}
+      <aside className="sticky top-0 hidden h-[calc(100vh-190px)] max-h-[760px] min-h-[420px] w-[300px] shrink-0 overflow-hidden rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-border)] xl:block">
+        <PreviewPane account={account} />
       </aside>
     </div>
   );

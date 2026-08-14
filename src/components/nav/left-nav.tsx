@@ -15,7 +15,7 @@ import { EntryCluster, EntryPill } from "./entry-cluster";
 import { pinnedBlockFor } from "./favorites-morph";
 import { IconPicker, useIconPicker } from "./icon-picker";
 import { navEntriesFor } from "./nav-entries";
-import { flyoutIdFor, navConfig } from "./nav-config";
+import { fixedEntriesFor, flyoutIdFor, navConfig } from "./nav-config";
 import { NavDivider } from "./nav-divider";
 import { NavHeader } from "./nav-header";
 import { NavItemRow } from "./nav-item-row";
@@ -125,10 +125,16 @@ export function LeftNav({
     [agencyScope, state, groups],
   );
 
-  // Trims the Recent block to what the density and the recents mode allow.
+  // Recent names this account's own places, then the block is trimmed to what
+  // the density and the recents mode allow. At agency scope the cluster is the
+  // agency's, so it keeps the authored rows.
   const fixedEntries = React.useMemo(
-    () => trimRecents(config.fixed, recentsBudget),
-    [config.fixed, recentsBudget],
+    () =>
+      trimRecents(
+        agencyScope ? config.fixed : fixedEntriesFor(state, config.fixed),
+        recentsBudget,
+      ),
+    [agencyScope, state, config.fixed, recentsBudget],
   );
 
   const scrollRef = React.useRef<HTMLDivElement>(null);

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import {
   flattenGroups,
   searchResults,
@@ -30,7 +31,17 @@ export function useSearch(onClose: () => void): UseSearch {
   const [query, setQueryRaw] = React.useState("");
   const [activeIndex, setActiveIndex] = React.useState(0);
 
-  const groups = React.useMemo(() => searchResults(query), [query]);
+  // Scoped to the account the session is in, so search and the nav agree about
+  // what exists. A product the account never bought is not a search result.
+  const { state } = useNavLayout();
+  const enabled = React.useMemo(
+    () => new Set(state.enabledProducts),
+    [state.enabledProducts],
+  );
+  const groups = React.useMemo(
+    () => searchResults(query, enabled),
+    [query, enabled],
+  );
   const flat = React.useMemo(() => flattenGroups(groups), [groups]);
 
   // Typing re-ranks, so the highlight goes back to the top hit.

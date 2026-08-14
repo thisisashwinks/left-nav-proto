@@ -1,7 +1,10 @@
 "use client";
 
 import type { Account } from "@/components/accounts/accounts-data";
-import { catalogue } from "@/components/nav/catalogue";
+import {
+  enabledProducts,
+  labelForProduct,
+} from "@/components/nav/grouping";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { cn } from "@/lib/utils";
 import { Card } from "./controls";
@@ -9,6 +12,10 @@ import { Card } from "./controls";
 /**
  * Starter favourites: the dock a new user in this account gets on day one.
  * A starting point, not a cage — users repin their own from there.
+ *
+ * Offers this account's products under this account's names — pinning
+ * something they are not on is not a choice anyone should be able to make
+ * here, and "Patients" is what the row will say in the nav.
  */
 export function NavFavouritesCard({ account }: { account: Account }) {
   const layout = useNavLayout();
@@ -20,7 +27,7 @@ export function NavFavouritesCard({ account }: { account: Account }) {
       sub="The dock a new user gets on day one. They can change it — this only decides the first impression."
     >
       <div className="flex flex-wrap gap-[8px] pt-[4px]">
-        {catalogue.map((product) => {
+        {enabledProducts(state).map((product) => {
           const pinned = state.pinned.includes(product.id);
           return (
             <button
@@ -43,7 +50,7 @@ export function NavFavouritesCard({ account }: { account: Account }) {
               )}
             >
               <product.icon size={13} aria-hidden="true" />
-              {product.label}
+              {labelForProduct(state, product.id)}
             </button>
           );
         })}

@@ -12,7 +12,12 @@ import {
   Target,
   Users,
 } from "lucide-react";
-import type { NavConfig, NavItem } from "./types";
+import {
+  iconForProduct,
+  labelForProduct,
+  type NavLayoutState,
+} from "./grouping";
+import type { NavConfig, NavEntry, NavItem } from "./types";
 
 /**
  * The Recent block, straight from "Screen A · Nav open + Contacts" in
@@ -102,6 +107,63 @@ export const navConfig: NavConfig = {
     flyoutId: "settings-menu",
   },
 };
+
+/** How many places the inline Recent block can name at most. */
+const RECENT_ROWS = 3;
+
+/**
+ * The fixed cluster with its Recent rows resolved against the account.
+ *
+ * The authored rows name Tasks, Email Campaigns and Calendars — fine for the
+ * account the design was drawn from, wrong for a barbershop that has none of
+ * them. Recent is a claim about where this user has been, so it can only name
+ * places this account has, under this account's own names.
+ *
+ * Stand-ins for real history: the account's products that are NOT already in
+ * the dock, since somewhere you pinned is somewhere you no longer need a
+ * recent row for.
+ */
+export function fixedEntriesFor(
+  state: NavLayoutState,
+  fixed: NavEntry[],
+): NavEntry[] {
+  const candidates = state.enabledProducts
+    .filter((id) => !state.pinned.includes(id))
+    .slice(0, RECENT_ROWS);
+
+  let next = 0;
+  const resolved: NavEntry[] = [];
+  for (const entry of fixed) {
+    const isRecentRow =
+      entry.kind === "item" &&
+      entry.item.id.startsWith("recent-") &&
+      entry.item.id !== "recent-more";
+    if (!isRecentRow) {
+      resolved.push(entry);
+      continue;
+    }
+    const productId = candidates[next];
+    next += 1;
+    // Fewer products than authored rows simply means fewer rows.
+    if (productId === undefined) continue;
+    resolved.push({
+      kind: "item",
+      item: {
+        id: `recent-${productId}`,
+        label: labelForProduct(state, productId),
+        icon: iconForProduct(state, productId),
+        density: "compact",
+      },
+    });
+  }
+
+  // A heading over nothing is worse than no heading — the same rule
+  // `trimRecents` applies at the floor tier.
+  if (candidates.length > 0) return resolved;
+  return resolved.filter(
+    (e) => !(e.kind === "label" && e.id === "recent-label"),
+  );
+}
 
 /**
  * Which flyout a nav row opens. The Pencil reference renders Engage in its open

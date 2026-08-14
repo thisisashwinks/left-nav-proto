@@ -684,7 +684,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           crumbs={
             selectedId === "agency-sub-accounts"
               ? customizeAccount
-                ? ["Sub-accounts", `Customize ${customizeAccount.name}`]
+                ? ["Sub-accounts", customizeAccount.name]
                 : ["Sub-accounts"]
               : agencyScope
                 ? [accounts.agency.name, "Overview"]
@@ -692,11 +692,12 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           }
         />
         {/*
-          The customizer lives behind the Sub-accounts page, as production
-          shapes an account from its row there: the nav row opens the table,
-          and picking an account opens its customizer. A canvas destination,
-          not a route, so the live nav stays beside it and scope/rail state
-          survives entering and leaving.
+          The sub-account settings page lives behind the Sub-accounts table, as
+          production puts it: the nav row opens the table, and picking an
+          account opens its settings. A canvas destination, not a route, so the
+          live nav stays beside it and scope/rail state survives entering and
+          leaving — which is what makes the Navigation tab's preview the
+          product itself.
         */}
         <div className="min-h-0 flex-1 overflow-auto">
           {selectedId === "agency-sub-accounts" ? (

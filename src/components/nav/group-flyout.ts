@@ -35,7 +35,18 @@ export function flyoutForGroup(
       // Follows the rename: the panel's title is the same label as the row that
       // opened it, or the two disagree the moment anyone edits one.
       title: group.label,
-      entries: authored.entries.map(resolveAuthoredEntry(state)),
+      entries: authored.entries
+        // An authored panel was written against the full catalogue, so it will
+        // happily offer Memberships to a roofer. Rows naming a product this
+        // account is not on come out; rows naming something outside the
+        // catalogue (headings, editorial rows) stay.
+        .filter(
+          (entry) =>
+            entry.kind !== "item" ||
+            productById(entry.item.id) === undefined ||
+            state.enabledProducts.includes(entry.item.id),
+        )
+        .map(resolveAuthoredEntry(state)),
       ...(authored.cta
         ? { cta: { ...authored.cta, title: `Explore ${group.label}` } }
         : {}),

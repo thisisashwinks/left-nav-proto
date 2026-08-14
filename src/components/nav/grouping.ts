@@ -7,6 +7,7 @@ import {
   DEFAULT_PINNED,
   productById,
   type CatalogueGroup,
+  type CatalogueProduct,
 } from "./catalogue";
 import { iconByName, nameForIcon } from "./icon-catalogue";
 
@@ -153,6 +154,23 @@ export interface CustomGroup {
 
 export interface NavLayoutState {
   /**
+   * What the agency provisioned for this account — the products the nav is
+   * allowed to show at all.
+   *
+   * The catalogue is what HighLevel ships; this is what one tenant bought. A
+   * dentist has no storefront and a roofer has no courses, so every view of the
+   * catalogue filters through this, and a group left with nothing in it is
+   * dropped rather than drawn empty. Seeded per account in
+   * `account-nav-profiles.ts`.
+   */
+  enabledProducts: string[];
+  /**
+   * The links this account bolted on beside the products — its own portals and
+   * tools, not catalogue rows. Separate from the volume switch's generated
+   * links, which are a stress control rather than something a tenant chose.
+   */
+  customLinks: string[];
+  /**
    * Ordered pinned product ids. Unlimited — the chip row is a window onto this
    * list, not a capacity, so nothing here is capped.
    */
@@ -179,6 +197,10 @@ export interface NavLayoutState {
 }
 
 export const DEFAULT_LAYOUT: NavLayoutState = {
+  // An unconfigured account is on everything — which is precisely the state
+  // every account used to be stuck in, and is now only the fallback.
+  enabledProducts: catalogue.map((p) => p.id),
+  customLinks: [],
   pinned: DEFAULT_PINNED,
   // Jobs by default. The research calls this the right organizing unit and the
   // highest-risk change — "group by the user's job, not by team or SKU" — so the
@@ -218,6 +240,16 @@ const SHIPPED_GROUPS = new Map<string, CatalogueGroup>(
 /** The single flat pseudo-group. Flat mode has no headings, but surfaces that
  *  list groups (the launcher) still need something to list. */
 const FLAT_GROUP_ID = "all-products";
+
+/**
+ * Where a product sits when no custom group claims it.
+ *
+ * Not a group the user manages — a destination. Products filed here draw as
+ * plain top-level rows in the nav, which is how an account keeps three or four
+ * things it uses constantly out from under a heading while everything else
+ * stays filed.
+ */
+export const UNGROUPED_ID = "ungrouped";
 
 export function defaultLabelForGroup(
   state: NavLayoutState,
@@ -324,8 +356,69 @@ function applyOrder(
   return [...known, ...missing];
 }
 
+/**
+ * The products this account is actually on.
+ *
+ * One place to ask, so no surface can accidentally reason about the catalogue
+ * when it means the tenant's slice of it.
+ */
+export function enabledSetFor(state: NavLayoutState): Set<string> {
+  return new Set(state.enabledProducts);
+}
+
+export function isProductEnabled(
+  state: NavLayoutState,
+  productId: string,
+): boolean {
+  return state.enabledProducts.includes(productId);
+}
+
+/** The account's products, in catalogue order. */
+export function enabledProducts(state: NavLayoutState): CatalogueProduct[] {
+  const enabled = enabledSetFor(state);
+  return catalogue.filter((p) => enabled.has(p.id));
+}
+
+/**
+ * Provisions or de-provisions a product, and repairs everything that pointed
+ * at it.
+ *
+ * Turning a product off has to take it out of the dock and out of whatever
+ * custom group it was filed in, or it survives as a pin to a place the account
+ * no longer has. Turning one on is the easy direction: it appears in its group
+ * and nothing else has to move.
+ */
+export function withProduct(
+  state: NavLayoutState,
+  productId: string,
+  enabled: boolean,
+): NavLayoutState {
+  const has = state.enabledProducts.includes(productId);
+  if (has === enabled) return state;
+  if (enabled) {
+    // Catalogue order, so a product returns to where it was rather than to the
+    // end of the list.
+    const next = new Set([...state.enabledProducts, productId]);
+    return {
+      ...state,
+      enabledProducts: catalogue.filter((p) => next.has(p.id)).map((p) => p.id),
+    };
+  }
+  return {
+    ...state,
+    enabledProducts: state.enabledProducts.filter((id) => id !== productId),
+    pinned: state.pinned.filter((id) => id !== productId),
+    customGroups: state.customGroups.map((g) =>
+      g.productIds.includes(productId)
+        ? { ...g, productIds: g.productIds.filter((id) => id !== productId) }
+        : g,
+    ),
+  };
+}
+
 /** Every group the active mode shows, in the order it shows them. */
 export function resolveGroups(state: NavLayoutState): ResolvedGroup[] {
+  const enabled = enabledSetFor(state);
   const build = (
     ids: string[],
     productsFor: (id: string) => string[],
@@ -336,9 +429,20 @@ export function resolveGroups(state: NavLayoutState): ResolvedGroup[] {
       label: labelForGroup(state, id),
       defaultLabel: defaultLabelForGroup(state, id),
       icon: iconForGroup(state, id),
-      productIds: productsFor(id),
+      productIds: productsFor(id).filter((pid) => enabled.has(pid)),
       custom,
     }));
+
+  /**
+   * A heading with nothing under it is worse than no heading: it opens an empty
+   * panel and implies the account owns something it does not. Shipped groups
+   * therefore disappear for accounts that bought none of their products — which
+   * is how a five-product barbershop ends up with two groups rather than five.
+   * Custom groups are exempt: the user made them, so an empty one is a shelf
+   * they are still filling, not a mistake.
+   */
+  const populated = (groups: ResolvedGroup[]): ResolvedGroup[] =>
+    groups.filter((g) => g.productIds.length > 0);
 
   switch (state.grouping) {
     case "product": {
@@ -346,10 +450,12 @@ export function resolveGroups(state: NavLayoutState): ResolvedGroup[] {
         state.groupOrder.product,
         catalogueGroups.map((g) => g.id),
       );
-      return build(
-        ids,
-        (id) => catalogue.filter((p) => p.groupId === id).map((p) => p.id),
-        false,
+      return populated(
+        build(
+          ids,
+          (id) => catalogue.filter((p) => p.groupId === id).map((p) => p.id),
+          false,
+        ),
       );
     }
     case "job": {
@@ -357,10 +463,12 @@ export function resolveGroups(state: NavLayoutState): ResolvedGroup[] {
         state.groupOrder.job,
         catalogueJobs.map((g) => g.id),
       );
-      return build(
-        ids,
-        (id) => catalogue.filter((p) => p.jobId === id).map((p) => p.id),
-        false,
+      return populated(
+        build(
+          ids,
+          (id) => catalogue.filter((p) => p.jobId === id).map((p) => p.id),
+          false,
+        ),
       );
     }
     case "flat": {
@@ -387,18 +495,18 @@ export function resolveGroups(state: NavLayoutState): ResolvedGroup[] {
           ),
         true,
       );
-      // Anything not filed anywhere still has to be reachable, so it collects in
-      // a group the user cannot delete rather than disappearing from the nav.
-      const filed = new Set(groups.flatMap((g) => g.productIds));
-      const loose = catalogue.filter((p) => !filed.has(p.id)).map((p) => p.id);
+      // Anything no group claims is a top-level row: still reachable, still
+      // ordered, just without a heading over it. Collected here rather than in
+      // each surface so the nav, the launcher and search agree on what is loose.
+      const loose = looseProductIds(state, groups);
       if (loose.length === 0) return groups;
       return [
         ...groups,
         {
-          id: "ungrouped",
-          label: labelForGroup(state, "ungrouped"),
-          defaultLabel: "Everything else",
-          icon: iconForGroup(state, "ungrouped"),
+          id: UNGROUPED_ID,
+          label: labelForGroup(state, UNGROUPED_ID),
+          defaultLabel: "Top level",
+          icon: iconForGroup(state, UNGROUPED_ID),
           productIds: loose,
           custom: false,
         },
@@ -427,6 +535,189 @@ export function seedCustomGroups(state: NavLayoutState): CustomGroup[] {
     iconName: iconNameFor(state, g.id),
     productIds: g.productIds,
   }));
+}
+
+/**
+ * The products no custom group claims — the nav's top-level rows.
+ *
+ * Takes already-resolved groups when the caller has them, so resolveGroups does
+ * not resolve itself twice, and falls back to the stored tree for callers that
+ * only hold state (the editor, which needs to know where a product sits before
+ * it draws the control that moves it).
+ */
+export function looseProductIds(
+  state: NavLayoutState,
+  groups?: ResolvedGroup[],
+): string[] {
+  const enabled = enabledSetFor(state);
+  const filed = new Set(
+    groups
+      ? groups.filter((g) => g.id !== UNGROUPED_ID).flatMap((g) => g.productIds)
+      : state.customGroups.flatMap((g) => g.productIds),
+  );
+  return catalogue
+    .filter((p) => enabled.has(p.id) && !filed.has(p.id))
+    .map((p) => p.id);
+}
+
+/** The custom group holding a product, or null when it sits at top level. */
+export function groupIdForProduct(
+  state: NavLayoutState,
+  productId: string,
+): string | null {
+  return (
+    state.customGroups.find((g) => g.productIds.includes(productId))?.id ?? null
+  );
+}
+
+/**
+ * The state as an editable tree.
+ *
+ * Structure can only be edited in the custom tree — the other three modes are
+ * views of what ships, and letting a move rewrite them would mean an account
+ * silently diverging from the product with no way back. So the first structural
+ * edit switches to custom, seeded from whatever was showing: the tree the user
+ * starts editing is the tree they were looking at.
+ */
+export function customTreeFor(state: NavLayoutState): NavLayoutState {
+  if (state.grouping === "custom" && state.customGroups.length > 0) return state;
+  return { ...state, grouping: "custom", customGroups: seedCustomGroups(state) };
+}
+
+/** A group id nothing else in this account is using. */
+function nextGroupIdFor(state: NavLayoutState): string {
+  const taken = new Set(state.customGroups.map((g) => g.id));
+  let n = state.customGroups.length + 1;
+  while (taken.has(`group-${n}`)) n += 1;
+  return `group-${n}`;
+}
+
+/** Adds an empty group at the end of the tree, ready to be filled. */
+export function withNewGroup(
+  state: NavLayoutState,
+  label = "New group",
+): NavLayoutState {
+  const base = customTreeFor(state);
+  return {
+    ...base,
+    customGroups: [
+      ...base.customGroups,
+      { id: nextGroupIdFor(base), label, iconName: "Folder", productIds: [] },
+    ],
+  };
+}
+
+/**
+ * Deletes a group. Its products fall to top level rather than out of the nav —
+ * a group is a shelf, not a container, so removing the shelf cannot lose what
+ * was on it.
+ */
+export function withGroupDeleted(
+  state: NavLayoutState,
+  groupId: string,
+): NavLayoutState {
+  if (!state.customGroups.some((g) => g.id === groupId)) return state;
+  const custom = state.groupOrder.custom?.filter((id) => id !== groupId);
+  return {
+    ...state,
+    customGroups: state.customGroups.filter((g) => g.id !== groupId),
+    groupOrder: custom ? { ...state.groupOrder, custom } : state.groupOrder,
+    // The overrides went with the group; leaving them would reattach a stale
+    // name or icon to the next group that happens to take the same id.
+    accountLabels: withoutKey(state.accountLabels, groupId),
+    agencyLabels: withoutKey(state.agencyLabels, groupId),
+    icons: withoutKey(state.icons, groupId),
+  };
+}
+
+/** Moves a group one place up (-1) or down (+1) in the tree. */
+export function withGroupMoved(
+  state: NavLayoutState,
+  groupId: string,
+  delta: number,
+): NavLayoutState {
+  const base = customTreeFor(state);
+  const order = applyOrder(
+    base.groupOrder.custom,
+    base.customGroups.map((g) => g.id),
+  );
+  const from = order.indexOf(groupId);
+  const to = from + delta;
+  if (from < 0 || to < 0 || to >= order.length) return state;
+  const next = [...order];
+  next[from] = order[to] as string;
+  next[to] = order[from] as string;
+  return { ...base, groupOrder: { ...base.groupOrder, custom: next } };
+}
+
+/**
+ * Files a product into a group, or to top level when groupId is null.
+ *
+ * One function for both directions because they are the same edit: a product
+ * belongs to at most one group, so moving it out of one and into another is a
+ * single rewrite of the tree rather than a remove followed by an add that could
+ * half-fail.
+ */
+export function withProductFiled(
+  state: NavLayoutState,
+  productId: string,
+  groupId: string | null,
+): NavLayoutState {
+  if (!isProductEnabled(state, productId)) return state;
+  const target = groupId === UNGROUPED_ID ? null : groupId;
+  const base = customTreeFor(state);
+  if (target !== null && !base.customGroups.some((g) => g.id === target)) {
+    return state;
+  }
+  if (base === state && groupIdForProduct(state, productId) === target) {
+    return state;
+  }
+  return {
+    ...base,
+    customGroups: base.customGroups.map((g) => {
+      const has = g.productIds.includes(productId);
+      if (g.id === target) {
+        return has ? g : { ...g, productIds: [...g.productIds, productId] };
+      }
+      return has
+        ? { ...g, productIds: g.productIds.filter((id) => id !== productId) }
+        : g;
+    }),
+  };
+}
+
+/** Moves a product one place up (-1) or down (+1) inside its group. */
+export function withProductOrdered(
+  state: NavLayoutState,
+  groupId: string,
+  productId: string,
+  delta: number,
+): NavLayoutState {
+  const group = state.customGroups.find((g) => g.id === groupId);
+  if (!group) return state;
+  const from = group.productIds.indexOf(productId);
+  const to = from + delta;
+  if (from < 0 || to < 0 || to >= group.productIds.length) return state;
+  const productIds = [...group.productIds];
+  productIds[from] = group.productIds[to] as string;
+  productIds[to] = group.productIds[from] as string;
+  return {
+    ...state,
+    customGroups: state.customGroups.map((g) =>
+      g.id === groupId ? { ...g, productIds } : g,
+    ),
+  };
+}
+
+/** A copy without one key, or the same reference when the key was absent. */
+function withoutKey<T>(
+  map: Record<string, T>,
+  key: string,
+): Record<string, T> {
+  if (!(key in map)) return map;
+  const next = { ...map };
+  delete next[key];
+  return next;
 }
 
 /** The stored icon name for a group, falling back to its shipped icon's name. */

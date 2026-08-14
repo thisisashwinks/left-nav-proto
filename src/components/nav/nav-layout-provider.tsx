@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import type { LucideIcon } from "lucide-react";
+import { INITIAL_ACCOUNT_ID } from "@/components/accounts/accounts-data";
+import { navProfileFor } from "./account-nav-profiles";
 import {
-  DEFAULT_LAYOUT,
   defaultLabelForGroup,
   iconForGroup,
   iconForProduct,
@@ -205,6 +206,23 @@ function reorder<T>(list: T[], from: number, to: number): T[] {
   return next;
 }
 
+/**
+ * Whether two override maps carry the same entries.
+ *
+ * "No overrides at all" stopped being the test for an untouched nav the moment
+ * accounts arrived with their own vocabulary — a dental practice is unedited
+ * *with* four renames in it.
+ */
+function sameMap(
+  a: Record<string, string>,
+  b: Record<string, string>,
+): boolean {
+  const keys = Object.keys(a);
+  return (
+    keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k])
+  );
+}
+
 /** Drops a key from a record, returning the same reference when it was absent. */
 function without(
   map: Record<string, string>,
@@ -226,14 +244,18 @@ function without(
  */
 export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
   const [store, dispatch] = React.useReducer(reducer, {
-    layout: DEFAULT_LAYOUT,
+    // Seeded with the account the session opens in rather than the shipped
+    // default: an account's layout is a property of the account, so the very
+    // first paint has to be its own — not the whole catalogue, corrected a
+    // frame later.
+    layout: navProfileFor(INITIAL_ACCOUNT_ID),
     undoOffer: null,
     nextOfferId: 1,
     nextGroupId: 1,
   });
   /** Saved layouts for every account that is not the active one. */
   const [profiles, setProfiles] = React.useState<Record<string, NavLayoutState>>({});
-  const [activeId, setActiveId] = React.useState<string | null>(null);
+  const [activeId, setActiveId] = React.useState<string | null>(INITIAL_ACCOUNT_ID);
 
   const state = store.layout;
   const undoOffer = store.undoOffer;
@@ -259,7 +281,9 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
     if (accountId === leaving) return;
     const nextProfiles = { ...profilesRef.current };
     if (leaving !== null) nextProfiles[leaving] = stateRef.current;
-    const incoming = nextProfiles[accountId] ?? DEFAULT_LAYOUT;
+    // First visit wakes the account's own seeded layout — its products, its
+    // vocabulary, its grouping. After that, whatever the user left behind.
+    const incoming = nextProfiles[accountId] ?? navProfileFor(accountId);
     setProfiles(nextProfiles);
     dispatch({ type: "load", layout: incoming });
     setActiveId(accountId);
@@ -269,7 +293,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
     (accountId: string): NavLayoutState =>
       accountId === activeId
         ? state
-        : (profiles[accountId] ?? DEFAULT_LAYOUT),
+        : (profiles[accountId] ?? navProfileFor(accountId)),
     [activeId, state, profiles],
   );
 
@@ -286,7 +310,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       }
       setProfiles((all) => ({
         ...all,
-        [accountId]: recipe(all[accountId] ?? DEFAULT_LAYOUT),
+        [accountId]: recipe(all[accountId] ?? navProfileFor(accountId)),
       }));
     },
     [],
@@ -303,6 +327,15 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
 
   const value = React.useMemo<NavLayoutContextValue>(() => {
     const can = permissionsFor(state.role);
+    /**
+     * What "unchanged" means for THIS account.
+     *
+     * Not the shipped default: resetting a dental practice to the shipped
+     * layout would hand it the whole catalogue and take its patients back to
+     * contacts. The account's provisioning and vocabulary are the floor a reset
+     * returns to — undoing the user's edits, not the agency's setup.
+     */
+    const base = navProfileFor(activeId ?? INITIAL_ACCOUNT_ID);
     /**
      * Where a rename lands. The scope switch is only honoured for roles that may
      * write it — otherwise an agency-scoped edit made while playing "user" would
@@ -579,8 +612,8 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         ),
 
       resetLayout: () =>
-        commit("Reset the nav to the shipped layout", (s) => ({
-          ...DEFAULT_LAYOUT,
+        commit("Reset the nav to this account's layout", (s) => ({
+          ...base,
           // The prototype switches are how you got here — resetting the layout
           // must not also change who you are pretending to be, or empty out the
           // nav you deliberately filled to demo overflow.
@@ -591,14 +624,15 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         })),
 
       isDefaultLayout:
-        state.grouping === DEFAULT_LAYOUT.grouping &&
-        state.pinned.join() === DEFAULT_LAYOUT.pinned.join() &&
-        Object.keys(state.accountLabels).length === 0 &&
-        Object.keys(state.agencyLabels).length === 0 &&
-        Object.keys(state.accountProductLabels).length === 0 &&
-        Object.keys(state.agencyProductLabels).length === 0 &&
+        state.grouping === base.grouping &&
+        state.pinned.join() === base.pinned.join() &&
+        state.enabledProducts.join() === base.enabledProducts.join() &&
+        sameMap(state.accountLabels, base.accountLabels) &&
+        sameMap(state.agencyLabels, base.agencyLabels) &&
+        sameMap(state.accountProductLabels, base.accountProductLabels) &&
+        sameMap(state.agencyProductLabels, base.agencyProductLabels) &&
         Object.keys(state.icons).length === 0 &&
-        state.customGroups.length === 0,
+        state.customGroups.length === base.customGroups.length,
 
       undoOffer,
       undo: () => dispatch({ type: "undo" }),
@@ -608,7 +642,15 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       profileFor,
       updateProfile,
     };
-  }, [state, undoOffer, commit, setActiveAccount, profileFor, updateProfile]);
+  }, [
+    state,
+    activeId,
+    undoOffer,
+    commit,
+    setActiveAccount,
+    profileFor,
+    updateProfile,
+  ]);
 
   return <NavLayoutContext value={value}>{children}</NavLayoutContext>;
 }

@@ -5,6 +5,8 @@ import { Brush, ChevronRight, Plus, Search } from "lucide-react";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import { matchAccounts } from "@/components/accounts/accounts-data";
 import type { AccountsSession } from "@/components/accounts/use-accounts";
+import { industryFor } from "@/components/nav/account-nav-profiles";
+import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { useTheme } from "@/components/theme/theme-provider";
 
 /**
@@ -21,6 +23,7 @@ export function AccountsIndexPage({
   onCustomize: (accountId: string) => void;
 }) {
   const { effective } = useTheme();
+  const layout = useNavLayout();
   const appTheme = effective.appTheme;
   const [query, setQuery] = React.useState("");
   const accounts = matchAccounts(query, session.accounts);
@@ -65,6 +68,17 @@ export function AccountsIndexPage({
             <span className="flex-1 text-[11px] leading-none font-semibold tracking-[0.04em] text-pg-muted uppercase">
               Address
             </span>
+            {/*
+              The two columns that decide what an operator opens: what trade
+              this client is in, and how much of the catalogue they are on.
+              Both are what makes their nav look the way it does.
+            */}
+            <span className="w-[170px] text-[11px] leading-none font-semibold tracking-[0.04em] text-pg-muted uppercase">
+              Industry
+            </span>
+            <span className="w-[80px] text-[11px] leading-none font-semibold tracking-[0.04em] text-pg-muted uppercase">
+              Products
+            </span>
             <span className="w-[70px] text-[11px] leading-none font-semibold tracking-[0.04em] text-pg-muted uppercase">
               Status
             </span>
@@ -92,6 +106,12 @@ export function AccountsIndexPage({
               </span>
               <span className="min-w-0 flex-1 truncate text-[12.5px] text-pg-muted">
                 {account.meta}
+              </span>
+              <span className="w-[170px] truncate text-[12.5px] text-pg-muted">
+                {industryFor(account.id) ?? "—"}
+              </span>
+              <span className="w-[80px] text-[12.5px] text-pg-muted tabular-nums">
+                {layout.profileFor(account.id).enabledProducts.length}
               </span>
               <span className="w-[70px]">
                 <span className="rounded-[5px] bg-[color-mix(in_oklab,#16a34a_12%,transparent)] px-[6px] py-[3px] text-[10.5px] leading-none font-semibold text-[#15803d]">

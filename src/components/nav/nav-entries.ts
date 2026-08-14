@@ -3,6 +3,7 @@ import {
   iconForProduct,
   labelForProduct,
   NAV_VOLUME_EXTRA_LINKS,
+  UNGROUPED_ID,
   type NavLayoutState,
   type ResolvedGroup,
 } from "./grouping";
@@ -16,10 +17,13 @@ import type { NavEntry, NavItem } from "./types";
  * working answer is one canonical destination plus contextual surfacing — so
  * they are pinned chrome rather than another view of the catalogue. Flat mode
  * drops them, because there they would be the same row twice.
+ *
+ * Each one names a product, so an account that never bought it gets no
+ * shortcut: a barbershop with no mobile app should not carry a row to it.
  */
-const workspaceLinks: NavItem[] = [
-  { id: "mobile-app-link", label: "Mobile App", icon: Smartphone },
-  { id: "payments-link", label: "Payments", icon: CreditCard },
+const WORKSPACE_LINKS: (NavItem & { productId: string })[] = [
+  { id: "mobile-app-link", productId: "mobile-app", label: "Mobile App", icon: Smartphone },
+  { id: "payments-link", productId: "payments", label: "Payments", icon: CreditCard },
 ];
 
 /**
@@ -48,7 +52,7 @@ const CUSTOM_LINK_NAMES = [
   "Vendor invoices",
 ];
 
-function customLinks(count: number): NavItem[] {
+function volumeLinks(count: number): NavItem[] {
   return Array.from({ length: count }, (_, i) => ({
     // Wraps rather than running out, so `overloaded` can exceed the name list.
     id: `custom-link-${i + 1}`,
@@ -58,6 +62,22 @@ function customLinks(count: number): NavItem[] {
         : `${CUSTOM_LINK_NAMES[i % CUSTOM_LINK_NAMES.length]} ${
             Math.floor(i / CUSTOM_LINK_NAMES.length) + 1
           }`,
+    icon: Link2,
+  }));
+}
+
+/**
+ * The account's own links — its portals, wikis and supplier tools.
+ *
+ * Real per tenant rather than generated, because the point they make is
+ * different from the volume switch's: these are the handful of links a
+ * roofing company genuinely has, and they are what makes one account's nav
+ * read as a different business from its neighbour's.
+ */
+function accountLinks(labels: string[]): NavItem[] {
+  return labels.map((label, i) => ({
+    id: `account-link-${i + 1}`,
+    label,
     icon: Link2,
   }));
 }
@@ -74,7 +94,10 @@ export function navEntriesFor(
   state: NavLayoutState,
   groups: ResolvedGroup[],
 ): NavEntry[] {
-  const extra = customLinks(NAV_VOLUME_EXTRA_LINKS[state.navVolume]);
+  const extra = [
+    ...accountLinks(state.customLinks),
+    ...volumeLinks(NAV_VOLUME_EXTRA_LINKS[state.navVolume]),
+  ];
   const extraEntries: NavEntry[] =
     extra.length === 0
       ? []
@@ -83,28 +106,44 @@ export function navEntriesFor(
           { kind: "divider", id: "div-custom" },
         ];
 
+  const workspaceLinks = WORKSPACE_LINKS.filter((link) =>
+    state.enabledProducts.includes(link.productId),
+  );
+
+  const productRow = (id: string): NavEntry => ({
+    kind: "item",
+    item: {
+      id,
+      label: labelForProduct(state, id),
+      icon: iconForProduct(state, id),
+    },
+  });
+
   if (state.grouping === "flat") {
     // No headings and no chevrons: in flat mode a row is a destination, not a
     // door to a panel, which is the whole point of the mode.
     const products = groups[0]?.productIds ?? [];
     return [
-      ...products.map(
-        (id): NavEntry => ({
-          kind: "item",
-          item: {
-            id,
-            label: labelForProduct(state, id),
-            icon: iconForProduct(state, id),
-          },
-        }),
-      ),
+      ...products.map(productRow),
       { kind: "divider", id: "div-flat" },
       ...extraEntries,
     ];
   }
 
+  /*
+   * Products the custom tree leaves unfiled are rows, not a group.
+   *
+   * Drawing them under an "Everything else" heading made the nav lie twice: it
+   * implied a shelf the user never built, and it buried the two or three things
+   * they had deliberately pulled out of every group behind a chevron. As rows
+   * they read as what they are — top level, no heading, one click.
+   */
+  const loose =
+    groups.find((g) => g.id === UNGROUPED_ID)?.productIds ?? [];
+  const shelves = loose.length === 0 ? groups : groups.filter((g) => g.id !== UNGROUPED_ID);
+
   return [
-    ...groups.map(
+    ...shelves.map(
       (group): NavEntry => ({
         kind: "item",
         item: {
@@ -116,6 +155,7 @@ export function navEntriesFor(
         },
       }),
     ),
+    ...loose.map(productRow),
     { kind: "divider", id: "div-groups" },
     ...workspaceLinks.map((item): NavEntry => ({ kind: "item", item })),
     { kind: "divider", id: "div-workspace" },
@@ -131,6 +171,14 @@ export function editTargetFor(
 ): { kind: "group" | "product"; id: string } | null {
   if (groups.some((g) => g.id === itemId)) return { kind: "group", id: itemId };
   if (state.grouping === "flat" && groups[0]?.productIds.includes(itemId)) {
+    return { kind: "product", id: itemId };
+  }
+  // Top-level rows are products, so renaming one in the nav writes the product
+  // override rather than doing nothing.
+  if (
+    state.grouping === "custom" &&
+    groups.find((g) => g.id === UNGROUPED_ID)?.productIds.includes(itemId)
+  ) {
     return { kind: "product", id: itemId };
   }
   return null;

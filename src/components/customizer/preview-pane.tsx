@@ -8,7 +8,7 @@ import { AiOrb } from "@/components/ai/ai-orb";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import { resolveGroups, iconForProduct, labelForProduct } from "@/components/nav/grouping";
 import { navEntriesFor } from "@/components/nav/nav-entries";
-import { navConfig } from "@/components/nav/nav-config";
+import { fixedEntriesFor, navConfig } from "@/components/nav/nav-config";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import type { NavEntry, NavItem } from "@/components/nav/types";
 import { Kbd } from "@/components/search/kbd";
@@ -113,7 +113,10 @@ export function PreviewPane({ account }: { account: Account }) {
           className="flex w-full shrink-0 flex-col px-[10px]"
           style={{ gap: knobs.navRowSpacing }}
         >
-          {navConfig.fixed.map((entry) => (
+          {/* Recent names this account's places, as the live nav does — a
+              preview showing Tasks for an account without Tasks would be
+              the one row in it that is not this account's. */}
+          {fixedEntriesFor(profile, navConfig.fixed).map((entry) => (
             <EntryPreview key={keyOf(entry)} entry={entry} knobs={knobs} />
           ))}
         </div>
@@ -149,7 +152,7 @@ export function PreviewPane({ account }: { account: Account }) {
       </div>
 
       <p className="shrink-0 px-[2px] text-[10.5px] leading-[14px] text-pg-faint">
-        Updates as you change Brand, Navigation, Appearance and Defaults.
+        Updates as you change anything on this tab.
       </p>
     </aside>
   );

@@ -5,13 +5,13 @@ import { Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * The customizer's control kit.
+ * The Navigation tab's control kit.
  *
  * One deliberate departure from the prototype-controls panel: no sliders.
- * Every value here is one a customer reasons about as a number or a choice,
- * so it gets the input that says so — steppers with units, segmented choices,
- * fields with an "Unlimited" rest state — and every control fits the page
- * surface tokens, so the whole screen follows the accent and page theme.
+ * Every value here is one an agency reasons about as a number or a choice, so
+ * it gets the input that says so — steppers with units, segmented choices —
+ * and every control fits the page surface tokens, so the whole tab follows the
+ * accent and page theme.
  */
 
 export function Card({
@@ -192,76 +192,6 @@ export function Seg<T extends string>({
   );
 }
 
-/** Number field whose empty state reads as its policy ("Unlimited"). */
-export function LimitField({
-  value,
-  onChange,
-  placeholder,
-  unit,
-  disabled = false,
-  label,
-}: {
-  value: number | null;
-  onChange: (v: number | null) => void;
-  placeholder: string;
-  unit?: string;
-  disabled?: boolean;
-  label: string;
-}) {
-  return (
-    <label
-      className={cn(
-        "flex h-[32px] w-[150px] items-center gap-[6px] rounded-[8px] bg-pg-surface px-[10px] shadow-[inset_0_0_0_1px_var(--pg-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]",
-        disabled && "opacity-45",
-      )}
-    >
-      <input
-        type="text"
-        inputMode="numeric"
-        aria-label={label}
-        disabled={disabled}
-        value={value === null ? "" : value.toLocaleString("en-US")}
-        placeholder={placeholder}
-        onChange={(e) => {
-          const digits = e.target.value.replace(/[^0-9]/g, "");
-          onChange(digits === "" ? null : Number(digits));
-        }}
-        className="min-w-0 flex-1 bg-transparent text-right text-[13px] leading-none text-pg-heading tabular-nums placeholder:text-pg-faint focus:outline-none"
-      />
-      {unit ? <span className="shrink-0 text-[11.5px] leading-none text-pg-muted">{unit}</span> : null}
-    </label>
-  );
-}
-
-export function SelectField<T extends string>({
-  options,
-  value,
-  onChange,
-  format,
-  label,
-}: {
-  options: readonly T[];
-  value: T;
-  onChange: (v: T) => void;
-  format?: (v: T) => string;
-  label: string;
-}) {
-  return (
-    <select
-      aria-label={label}
-      value={value}
-      onChange={(e) => onChange(e.target.value as T)}
-      className="h-[32px] rounded-[8px] bg-pg-surface pr-[8px] pl-[10px] text-[12.5px] font-medium text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border)] focus:outline-none focus:shadow-[inset_0_0_0_1.5px_var(--brand)]"
-    >
-      {options.map((opt) => (
-        <option key={opt} value={opt}>
-          {format ? format(opt) : opt}
-        </option>
-      ))}
-    </select>
-  );
-}
-
 const CHIP_TONES = {
   inherit: "bg-pg-bg text-pg-muted",
   overridden: "bg-[color-mix(in_oklab,var(--brand)_12%,transparent)] text-brand",
@@ -285,28 +215,5 @@ export function Chip({
     >
       {children}
     </span>
-  );
-}
-
-/** Thin usage meter with a right-aligned readout. */
-export function Meter({
-  used,
-  total,
-  readout,
-}: {
-  used: number;
-  total: number;
-  readout: string;
-}) {
-  const pct = total <= 0 ? 0 : Math.min(100, Math.round((used / total) * 100));
-  return (
-    <div className="flex w-full items-center gap-[10px]">
-      <div className="h-[5px] flex-1 overflow-hidden rounded-full bg-pg-bg shadow-[inset_0_0_0_1px_var(--pg-border)]">
-        <div className="h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
-      </div>
-      <span className="shrink-0 text-[11.5px] leading-none text-pg-muted tabular-nums">
-        {readout}
-      </span>
-    </div>
   );
 }

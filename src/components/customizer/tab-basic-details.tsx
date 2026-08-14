@@ -34,7 +34,7 @@ export function BasicDetailsTab({ account }: { account: Account }) {
             <Field
               label="Phone Number"
               className="sm:col-span-2"
-              defaultValue={owner.phone}
+              defaultValue={phoneFor(city, owner.line)}
             />
           </div>
         </FormCard>
@@ -45,7 +45,7 @@ export function BasicDetailsTab({ account }: { account: Account }) {
             <Field label="Street Address" className="sm:col-span-2" defaultValue={street} />
             <Field label="City" defaultValue={city} />
             <SelectFieldRow label="Country" required options={["United States", "Canada", "United Kingdom", "Australia"]} />
-            <Field label="Zip / Postal Code" defaultValue={owner.zip} />
+            <Field label="Zip / Postal Code" defaultValue={LOCALES[city]?.zip ?? ""} />
             <Field label="State / Prov / Region" defaultValue={region} />
           </div>
         </FormCard>
@@ -189,12 +189,38 @@ function ListPanel({ title, action }: { title: string; action: string }) {
  * account, so a screenshot taken twice shows the same person.
  */
 const OWNERS = [
-  { first: "Dana", last: "Whitfield", phone: "+1 (512) 555-0134", zip: "78701" },
-  { first: "Marcus", last: "Reed", phone: "+1 (303) 555-0186", zip: "80202" },
-  { first: "Priya", last: "Raman", phone: "+1 (602) 555-0117", zip: "85018" },
-  { first: "Elena", last: "Vasquez", phone: "+1 (619) 555-0152", zip: "92101" },
-  { first: "Tom", last: "Byrne", phone: "+1 (615) 555-0173", zip: "37219" },
+  { first: "Dana", last: "Whitfield", line: "34" },
+  { first: "Marcus", last: "Reed", line: "86" },
+  { first: "Priya", last: "Raman", line: "17" },
+  { first: "Elena", last: "Vasquez", line: "52" },
+  { first: "Tom", last: "Byrne", line: "73" },
 ] as const;
+
+/** Postal code and area code per demo city, so an address reads as one place. */
+const LOCALES: Record<string, { zip: string; area: string }> = {
+  Austin: { zip: "78701", area: "512" },
+  Denver: { zip: "80202", area: "303" },
+  Phoenix: { zip: "85018", area: "602" },
+  "San Diego": { zip: "92101", area: "619" },
+  Nashville: { zip: "37219", area: "615" },
+  "Kansas City": { zip: "64105", area: "816" },
+  Portland: { zip: "97204", area: "503" },
+  Boise: { zip: "83702", area: "208" },
+  Hartford: { zip: "06103", area: "860" },
+  Miami: { zip: "33131", area: "305" },
+  Columbus: { zip: "43215", area: "614" },
+  Charleston: { zip: "29401", area: "843" },
+  Raleigh: { zip: "27601", area: "919" },
+  "New Orleans": { zip: "70130", area: "504" },
+  Boulder: { zip: "80302", area: "720" },
+  Madison: { zip: "53703", area: "608" },
+};
+
+/** US format, per the copy guidelines: +1 (###) ###-####. */
+function phoneFor(city: string, line: string): string {
+  const area = LOCALES[city]?.area;
+  return area ? `+1 (${area}) 555-01${line}` : "";
+}
 
 function ownerFor(account: Account): (typeof OWNERS)[number] {
   let hash = 0;

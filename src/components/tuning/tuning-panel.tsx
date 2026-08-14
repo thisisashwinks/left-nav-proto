@@ -101,7 +101,10 @@ function NavStructureSection({
     flyoutTrigger,
     setFlyoutTrigger,
   } = useTheme();
-  const density = densityFor(catalogue.length);
+  // The account's own count, not the catalogue's: density is a property of the
+  // nav in front of you, and this panel is read while switching between a
+  // four-product barbershop and a thirty-product retail chain.
+  const density = densityFor(state.enabledProducts.length);
 
   // Compared against the store's own defaults rather than hardcoded values — the
   // default grouping moved to `job`, and a literal here silently claimed the
@@ -233,8 +236,9 @@ function NavStructureSection({
       </p>
 
       <p className="text-[10px] leading-[14px] text-pg-faint">
-        Density is computed, not chosen: {catalogue.length} products means{" "}
-        {DENSITY_NOTE[density]}.
+        Density is computed, not chosen: this account is on{" "}
+        {state.enabledProducts.length} of {catalogue.length} products, which
+        means {DENSITY_NOTE[density]}.
       </p>
     </Section>
   );
