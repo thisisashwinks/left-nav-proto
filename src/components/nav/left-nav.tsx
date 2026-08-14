@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { History, Rocket, Star } from "lucide-react";
+import { History, Pin, Rocket } from "lucide-react";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import type { Account } from "@/components/accounts/accounts-data";
 import type { WorkspaceScope } from "@/components/accounts/use-accounts";
@@ -353,7 +353,7 @@ function RecentAccountsBlock({
 function FavoritesRow({ onOpen }: { onOpen: () => void }) {
   return (
     <NavItemRow
-      item={{ id: "favorites-row", label: "Favorites", icon: Star, hasFlyout: true }}
+      item={{ id: "favorites-row", label: "Pinned", icon: Pin, hasFlyout: true }}
       onSelect={onOpen}
     />
   );

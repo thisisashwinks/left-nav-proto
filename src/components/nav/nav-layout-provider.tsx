@@ -330,14 +330,14 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       isPinned: (productId) => state.pinned.includes(productId),
 
       pin: (productId) =>
-        commit("Added to favorites", (s) =>
+        commit("Pinned", (s) =>
           s.pinned.includes(productId)
             ? s
             : { ...s, pinned: [...s.pinned, productId] },
         ),
 
       unpin: (productId) =>
-        commit("Removed from favorites", (s) => ({
+        commit("Unpinned", (s) => ({
           ...s,
           pinned: s.pinned.filter((id) => id !== productId),
         })),
@@ -345,8 +345,8 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       togglePin: (productId) =>
         commit(
           state.pinned.includes(productId)
-            ? "Removed from favorites"
-            : "Added to favorites",
+            ? "Unpinned"
+            : "Pinned",
           (s) => ({
             ...s,
             pinned: s.pinned.includes(productId)
@@ -356,7 +356,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         ),
 
       movePin: (fromIndex, toIndex) =>
-        commit("Reordered your favorites", (s) => {
+        commit("Reordered your pinned items", (s) => {
           const pinned = reorder(s.pinned, fromIndex, toIndex);
           return pinned === s.pinned ? s : { ...s, pinned };
         }),

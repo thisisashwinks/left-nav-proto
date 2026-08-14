@@ -176,7 +176,7 @@ export function PinnedLauncher({
           >
         {pinnedIds.length > 0 ? (
           <>
-            <SectionHeading count={state.pinned.length}>Favorites</SectionHeading>
+            <SectionHeading count={state.pinned.length}>Pinned</SectionHeading>
             {pinnedIds.map((id) => {
               const index = state.pinned.indexOf(id);
               return (
@@ -204,7 +204,7 @@ export function PinnedLauncher({
           // Only when there are genuinely none — a filter that hides them all
           // is not an empty favourites list, so it drops the section instead.
           <>
-            <SectionHeading>Favorites</SectionHeading>
+            <SectionHeading>Pinned</SectionHeading>
             <p className="w-full px-[2px] pb-[4px] text-[12.5px] leading-[17px] text-nav-fg-subtle">
               No favorites yet. Star anything below and it appears at the top of
               the nav.

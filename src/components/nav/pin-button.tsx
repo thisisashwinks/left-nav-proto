@@ -1,6 +1,6 @@
 "use client";
 
-import { Star } from "lucide-react";
+import { Pin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavLayout } from "./nav-layout-provider";
 
@@ -8,10 +8,9 @@ import { useNavLayout } from "./nav-layout-provider";
  * The favourite affordance that appears on hover wherever a product already is
  * — a flyout row, a search result, a recents entry.
  *
- * A star rather than a pin, and one star that fills rather than two icons that
- * swap: the sub-account switcher already marks its favourites this way, and two
- * different glyphs for the same gesture read as two different features. The
- * nav's own copy calls the dock Favorites, so the star is what matches it.
+ * A pin that fills, not a star (Aug 13): the rail directory, the dock row and
+ * this button all say "pin" now — one glyph and one verb for one gesture,
+ * everywhere it appears.
  *
  * Adding never goes through a settings screen, and there is no confirm step:
  * the same star is the undo. Always rendered rather than conditionally mounted
@@ -33,8 +32,8 @@ export function PinButton({
   return (
     <button
       type="button"
-      title={pinned ? "Remove from favorites" : "Add to favorites"}
-      aria-label={pinned ? "Remove from favorites" : "Add to favorites"}
+      title={pinned ? "Unpin" : "Pin"}
+      aria-label={pinned ? "Unpin" : "Pin"}
       aria-pressed={pinned}
       onClick={(e) => {
         // The row itself navigates; pinning must not also trigger that.
@@ -52,7 +51,7 @@ export function PinButton({
         className,
       )}
     >
-      <Star
+      <Pin
         size={14}
         fill={pinned ? "currentColor" : "none"}
         aria-hidden="true"

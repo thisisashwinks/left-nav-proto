@@ -277,7 +277,9 @@ const analyze: FlyoutConfig = {
 
 const favorites: FlyoutConfig = {
   id: "favorites",
-  title: "Favorites",
+  // "Pinned", not "Favorites" (Aug 13): the rail directory, the row pins and
+  // the dock all say pin — one verb for one gesture, everywhere.
+  title: "Pinned",
   variant: "compact",
   entries: [
     item({
@@ -322,7 +324,7 @@ const favorites: FlyoutConfig = {
     row: {
       id: "manage-favorites",
       icon: Settings2,
-      title: "Manage favorites",
+      title: "Manage pinned",
       subtitle: "Reorder or remove pinned areas",
     },
   },

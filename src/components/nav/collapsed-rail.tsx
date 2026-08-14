@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { PanelLeftOpen, Star } from "lucide-react";
+import { PanelLeftOpen, Pin } from "lucide-react";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import type { Account } from "@/components/accounts/accounts-data";
@@ -312,7 +312,7 @@ export function CollapsedRail({
         >
           {atFloor && !agencyScope ? (
             <>
-              {railButton("favorites-rail", "Favorites", <Star size={16} aria-hidden="true" />, false, onOpenLauncher, undefined, true)}
+              {railButton("favorites-rail", "Pinned", <Pin size={16} aria-hidden="true" />, false, onOpenLauncher, undefined, true)}
               {config.railFixed.map(renderRailRow)}
               {divider("div-fixed-floor")}
             </>

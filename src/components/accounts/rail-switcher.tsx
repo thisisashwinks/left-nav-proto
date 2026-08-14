@@ -12,8 +12,8 @@ interface RailDirectoryProps {
   onClose: () => void;
 }
 
-/** How the one list is ordered. Recency is the default per the Aug 13 review. */
-type DirectorySort = "recent" | "alpha";
+/** How many rows the RECENT section holds — the trail, not a history page. */
+const RECENT_ROWS = 5;
 
 /**
  * The accounts directory the rail morphs into.
@@ -23,14 +23,14 @@ type DirectorySort = "recent" | "alpha";
  * meeting at an edge, which is the seam every earlier round tripped over.
  * The rail owns the frame; this is only the content.
  *
- * ONE list, not Pinned/Recent/All (Aug 13 review): the groups made the
- * panel a filing exercise. Sorting carries the recency signal instead —
- * default is recently accessed, A–Z one click away — and pinning stays a
- * per-row action rather than a section.
+ * Two sections (Aug 13, refined): RECENT on top — the current account and
+ * the trail behind it — then ALL, the complete directory with the pinned
+ * accounts leading it. Pinning stays a per-row action; the pin's reward is
+ * rank in ALL, not a section of its own. While searching, sections drop
+ * away — one flat filtered list reads faster.
  */
 export function RailDirectory({ session, onClose }: RailDirectoryProps) {
   const [query, setQuery] = React.useState("");
-  const [sort, setSort] = React.useState<DirectorySort>("recent");
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
@@ -46,29 +46,29 @@ export function RailDirectory({ session, onClose }: RailDirectoryProps) {
   }, [onClose]);
 
   const matches = matchAccounts(query, session.accounts);
+  const searching = query.trim() !== "";
 
-  /*
-   * Recency order: the current account first (it is the most recently
-   * accessed by definition), then the recents trail, then everyone else in
-   * their stable seed order. Alphabetical is a plain locale sort.
-   */
   const currentId = session.scope === "account" ? session.current.id : null;
   const { recentIds } = session;
-  const ordered = React.useMemo(() => {
-    if (sort === "alpha") {
-      return [...matches].sort((a, b) => a.name.localeCompare(b.name));
-    }
-    const rank = new Map<string, number>();
-    if (currentId !== null) rank.set(currentId, -1);
-    recentIds.forEach((id, i) => {
-      if (!rank.has(id)) rank.set(id, i);
+  const { recent, all } = React.useMemo(() => {
+    // RECENT: the current account leads (it is the most recently accessed by
+    // definition), then the trail, capped so the section stays a glance.
+    const recentOrder = [
+      ...(currentId !== null ? [currentId] : []),
+      ...recentIds.filter((id) => id !== currentId),
+    ].slice(0, RECENT_ROWS);
+    const recentRows = recentOrder
+      .map((id) => matches.find((a) => a.id === id))
+      .filter((a): a is Account => a !== undefined);
+    // ALL: the COMPLETE directory (recents included — a directory with holes
+    // reads as missing accounts), pinned first, then seed order.
+    const allRows = [...matches].sort((a, b) => {
+      const ap = session.onRail(a.id) ? 0 : 1;
+      const bp = session.onRail(b.id) ? 0 : 1;
+      return ap - bp;
     });
-    return [...matches].sort(
-      (a, b) =>
-        (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
-        (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER),
-    );
-  }, [matches, sort, currentId, recentIds]);
+    return { recent: recentRows, all: allRows };
+  }, [matches, currentId, recentIds, session]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col px-[8px] pb-[8px]">
@@ -85,54 +85,33 @@ export function RailDirectory({ session, onClose }: RailDirectoryProps) {
         />
       </div>
 
-      {/* The sort IS the old grouping, made explicit and optional. */}
-      <div
-        role="radiogroup"
-        aria-label="Sort accounts"
-        className="mt-[8px] flex shrink-0 items-center gap-[4px] px-[2px]"
-      >
-        {(
-          [
-            ["recent", "Recently accessed"],
-            ["alpha", "A–Z"],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            role="radio"
-            aria-checked={sort === id}
-            onClick={() => setSort(id)}
-            className={cn(
-              "motion-tap flex h-[24px] items-center rounded-full px-[10px] text-[11.5px] leading-none font-medium",
-              sort === id
-                ? "bg-nav-active text-nav-fg shadow-[inset_0_0_0_1px_var(--fly-border)]"
-                : "text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg-muted",
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
       <div className="-mx-[2px] mt-[6px] min-h-0 flex-1 overflow-y-auto px-[2px]">
-        {ordered.length === 0 ? (
+        {matches.length === 0 ? (
           <p className="px-[7px] py-[16px] text-[13px] leading-[18px] text-nav-fg-subtle">
             No accounts match “{query.trim()}”.
           </p>
         ) : null}
 
-        <Group accounts={ordered} session={session} onClose={onClose} />
+        {searching ? (
+          <Group accounts={matches} session={session} onClose={onClose} />
+        ) : (
+          <>
+            <Group label="RECENT" accounts={recent} session={session} onClose={onClose} />
+            <Group label="ALL" accounts={all} session={session} onClose={onClose} />
+          </>
+        )}
       </div>
     </div>
   );
 }
 
 function Group({
+  label,
   accounts,
   session,
   onClose,
 }: {
+  label?: string;
   accounts: Account[];
   session: AccountsSession;
   onClose: () => void;
@@ -140,6 +119,13 @@ function Group({
   if (accounts.length === 0) return null;
   return (
     <>
+      {label ? (
+        <div className="sticky top-0 z-10 bg-nav-rail px-[7px] pt-[8px] pb-[4px]">
+          <span className="text-[10.5px] leading-[14px] font-semibold tracking-[0.6px] text-nav-fg-subtle uppercase">
+            {label}
+          </span>
+        </div>
+      ) : null}
       {accounts.map((account) => {
         const current =
           session.scope === "account" && account.id === session.current.id;

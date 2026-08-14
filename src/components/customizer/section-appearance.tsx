@@ -174,7 +174,7 @@ export function AppearanceSection({ account }: { account: Account }) {
       </Card>
 
       <Card title="Layout" sub="Where the standing pieces sit. All four are live — the nav on the left is the preview.">
-        <SettingRow label="Favourites dock" desc="A statement at the top, or a thumb-rail at the bottom.">
+        <SettingRow label="Pinned dock" desc="A statement at the top, or a thumb-rail at the bottom.">
           <Seg<DockPosition>
             label="Dock position"
             options={DOCK_POSITIONS}

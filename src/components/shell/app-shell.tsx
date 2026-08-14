@@ -42,7 +42,7 @@ import { PinnedLauncher } from "@/components/nav/pinned-launcher";
 import { UndoToast } from "@/components/nav/undo-toast";
 import { PINNED_VISIBLE } from "@/components/nav/favorites-morph";
 import { AccountsIndexPage } from "@/components/customizer/accounts-index";
-import { CustomizerPage } from "@/components/customizer/customizer-page";
+import { SubAccountPage } from "@/components/customizer/subaccount-page";
 import { CommandPalette } from "@/components/search/command-palette";
 import { SearchFlyout } from "@/components/search/search-flyout";
 import {
@@ -701,7 +701,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         <div className="min-h-0 flex-1 overflow-auto">
           {selectedId === "agency-sub-accounts" ? (
             customizeAccount ? (
-              <CustomizerPage
+              <SubAccountPage
                 account={customizeAccount}
                 onBack={() => setCustomizeAccountId(null)}
               />

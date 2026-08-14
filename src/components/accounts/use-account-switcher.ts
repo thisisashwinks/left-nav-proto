@@ -83,7 +83,7 @@ export function useAccountSwitcher(
 
     return [
       { id: "recent", label: "Recent", accounts: recent },
-      { id: "favorites", label: "Favorites", accounts: favorites },
+      { id: "favorites", label: "Pinned", accounts: favorites },
       { id: "all", label: "All accounts", accounts: rest },
     ].filter((g) => g.accounts.length > 0);
   }, [accounts, current.id, favoriteIds, query, recentIds]);
