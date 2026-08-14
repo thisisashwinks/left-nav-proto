@@ -127,9 +127,9 @@ export function AccountRail({
         // an account is when its name matters. The waffle stays a plain click
         // target for the directory.
         className={cn(
-          // pt 2: the agency plate is 44px tall (4 + 36 + 4), so 2px above and
-          // below centres its tile on y=24 — the app header's own midline.
-          "motion-move absolute inset-y-0 left-0 z-30 flex flex-col gap-[7px] overflow-hidden bg-nav-rail pt-[2px] pb-[8px]",
+          // pt 4: the agency plate is 40px tall (4 + 32 + 4 with the 24px
+          // logo), so 4px above centres its tile on y=24 — the header's midline.
+          "motion-move absolute inset-y-0 left-0 z-30 flex flex-col gap-[7px] overflow-hidden bg-nav-rail pt-[4px] pb-[8px]",
           expanded || switcherOpen
             ? "shadow-[inset_-1px_0_0_0_var(--nav-border),16px_0_40px_-20px_rgba(15,23,42,0.45)]"
             : "shadow-[inset_-1px_0_0_0_var(--nav-border)]",
@@ -218,13 +218,13 @@ export function AccountRail({
                 the list outgrows the strip the margins collapse to zero so
                 everything stays scrollable — justify-center would clip the top.
 
-                pb 45: the scroll area starts BELOW the agency block (2px pad
-                + 44px plate + 7px gap = 53) but ends 8px above the strip's
-                foot, so its own centre sits (53-8)/2 = 22.5px below the
+                pb 43: the scroll area starts BELOW the agency block (4px pad
+                + 40px plate + 7px gap = 51) but ends 8px above the strip's
+                foot, so its own centre sits (51-8)/2 = 21.5px below the
                 strip's. The padding makes the wrapper that much taller under
                 the tiles, lifting the visible group onto the TRUE centre.
               */}
-              <div className="my-auto flex w-full flex-col gap-[4px] pb-[45px]">
+              <div className="my-auto flex w-full flex-col gap-[4px] pb-[43px]">
                 {railAccounts.map((account) => (
                   <RailRow
                     key={account.id}
@@ -251,8 +251,8 @@ export function AccountRail({
                       "hover:bg-nav-hover hover:text-nav-fg-muted",
                     )}
                   >
-                    {/* A 28px stage, so the glyph centres exactly under the logos above. */}
-                    <span className="flex size-[28px] shrink-0 items-center justify-center">
+                    {/* A 24px stage, so the glyph centres exactly under the logos above. */}
+                    <span className="flex size-[24px] shrink-0 items-center justify-center">
                       <Grip size={16} aria-hidden="true" />
                     </span>
                     {expanded ? (
@@ -319,7 +319,8 @@ function RailRow({
             selected ? "bg-nav shadow-[0_1px_2px_0_rgba(15,23,42,0.08),inset_0_0_0_1px_var(--nav-border)]" : "hover:bg-nav-hover",
           )}
         >
-          <AccountLogo logo={account.logo} src={account.logoSrc} size={28} radius={logoRadius} />
+          {/* 24, not 28 (Aug 13): the tenant tiles read oversized in the strip. */}
+          <AccountLogo logo={account.logo} src={account.logoSrc} size={24} radius={logoRadius} />
           {expanded ? (
             <span
               className={cn(
