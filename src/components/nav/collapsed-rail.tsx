@@ -193,9 +193,10 @@ export function CollapsedRail({
       // file puts the Settings icon at y-centre 910.5 here but 920 in the
       // expanded footer, so collapsing made the icon hop 9.5px. Holding the
       // expanded baseline is worth the deviation.
-      // pt 9: the 30px mark centres on y=24, the app header's midline —
-      // matching the expanded header row and the account rail's plate.
-      className="flex h-full w-[64px] shrink-0 flex-col items-center gap-[4px] overflow-hidden bg-nav pt-[9px] pr-[8px] pb-[3px] pl-[8px] shadow-[inset_-1px_0_0_0_var(--nav-border)]"
+      // pt 11: the 26px mark centres on y=24, the app header's midline —
+      // matching the expanded header row and the account rail's plate. 26,
+      // not 30 (Aug 13 review): the mark was crowding the AI orb visually.
+      className="flex h-full w-[64px] shrink-0 flex-col items-center gap-[4px] overflow-hidden bg-nav pt-[11px] pr-[8px] pb-[3px] pl-[8px] shadow-[inset_-1px_0_0_0_var(--nav-border)]"
     >
       {/*
         The rail has no room for a name or a chevron, so the mark itself is the
@@ -211,26 +212,26 @@ export function CollapsedRail({
           aria-expanded={switcherOpen}
           onClick={onToggleSwitcher}
           className={cn(
-            "motion-tap flex size-[30px] shrink-0 items-center justify-center outline-none",
+            "motion-tap flex size-[26px] shrink-0 items-center justify-center outline-none",
             switcherOpen ? "scale-105" : "hover:scale-105 active:scale-95",
           )}
         >
           <AccountLogo
             logo={account.logo}
             src={agencyScope ? account.logoSrc : (config.logoSrc ?? account.logoSrc)}
-            size={30}
+            size={26}
             radius={999}
           />
         </button>
       ) : (
         <span
           title={account.name}
-          className="flex size-[30px] shrink-0 items-center justify-center"
+          className="flex size-[26px] shrink-0 items-center justify-center"
         >
           <AccountLogo
             logo={account.logo}
             src={config.logoSrc ?? account.logoSrc}
-            size={30}
+            size={26}
             radius={999}
           />
         </span>

@@ -102,8 +102,13 @@ export function EntryPill({
           title="Ask AI"
           aria-label="Ask AI"
           onClick={() => session.launch()}
-          className="motion-tap relative flex size-[28px] shrink-0 items-center justify-center rounded-full hover:scale-105 active:scale-95"
+          className="motion-tap group/orb relative flex size-[28px] shrink-0 items-center justify-center rounded-full hover:scale-105 active:scale-95"
         >
+          {/* The ClickUp sweep: wakes under the pointer, rests to nothing. */}
+          <span
+            aria-hidden="true"
+            className="ai-hover-ring group-hover/orb:opacity-100"
+          />
           {session.open ? (
             <span
               aria-hidden="true"
@@ -166,8 +171,12 @@ export function EntryClusterRail({
           type="button"
           aria-label="Ask AI"
           onClick={() => session.launch()}
-          className="motion-tap relative flex size-[38px] shrink-0 items-center justify-center rounded-full hover:scale-105 active:scale-95 motion-press"
+          className="motion-tap group/orb relative flex size-[38px] shrink-0 items-center justify-center rounded-full hover:scale-105 active:scale-95 motion-press"
         >
+          <span
+            aria-hidden="true"
+            className="ai-hover-ring group-hover/orb:opacity-100"
+          />
           {session.open ? (
             <span
               aria-hidden="true"

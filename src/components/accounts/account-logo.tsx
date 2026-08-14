@@ -34,10 +34,17 @@ export type LogoGlyph =
   | "dots";
 
 export interface AccountLogoSpec {
-  glyph: LogoGlyph;
+  /** Absent for accounts with no mark at all — initials carry the tile. */
+  glyph?: LogoGlyph;
   /** Gradient stops, top-left to bottom-right. */
   from: string;
   to: string;
+  /**
+   * The production fallback (Aug 13 review): most real sub-accounts never
+   * upload a logo, so the tile shows initials on the brand wash — the
+   * contacts-avatar pattern. Wins over `glyph` when both are set.
+   */
+  initials?: string;
 }
 
 /** All marks are drawn in a 32x32 box and scaled by the caller. */
@@ -160,7 +167,23 @@ export function AccountLogo({
         rx={(radius * 32) / size}
         fill={`url(#${gradientId})`}
       />
-      {GLYPHS[logo.glyph]}
+      {logo.initials ? (
+        <text
+          x="16"
+          y="16.5"
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill="#fff"
+          fontSize={logo.initials.length > 1 ? 12.5 : 14.5}
+          fontWeight={600}
+          fontFamily="inherit"
+          letterSpacing="0.3"
+        >
+          {logo.initials}
+        </text>
+      ) : logo.glyph ? (
+        GLYPHS[logo.glyph]
+      ) : null}
     </svg>
   );
 }

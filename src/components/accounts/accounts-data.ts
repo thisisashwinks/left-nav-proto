@@ -66,7 +66,9 @@ export const accounts: readonly Account[] = [
     id: "riverstone",
     name: "Riverstone Law",
     meta: "900 SW 5th Ave, Portland, OR",
-    logo: { glyph: "shield", from: "#334155", to: "#64748b" },
+    // No mark on purpose: stands in for the production majority that never
+    // uploads a logo — the tile falls back to initials (Aug 13 review).
+    logo: { initials: "RL", from: "#334155", to: "#64748b" },
   },
   {
     id: "summit",
@@ -108,7 +110,9 @@ export const accounts: readonly Account[] = [
     id: "meadowlark",
     name: "Meadowlark Bakery",
     meta: "1 S Pinckney St, Madison, WI",
-    logo: { glyph: "leaf", from: "#a16207", to: "#eab308" },
+    // Second no-logo account, so the fallback shows in a list, not as a
+    // one-off.
+    logo: { initials: "MB", from: "#a16207", to: "#eab308" },
   },
 ];
 

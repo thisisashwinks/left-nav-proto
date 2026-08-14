@@ -154,6 +154,39 @@
   pointer-events: none;
 }
 
+/*
+ * The ClickUp-style hover ring (Aug 13 review, from the AI Chats reference):
+ * at rest nothing; under the pointer a multicolour conic sweep circles the
+ * orb, fast enough to read as alive. Hollow via the same mask trick as
+ * .ai-halo, so only a 2px rim paints — the orb stays the subject.
+ */
+.ai-hover-ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: 999px;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--ai-angle),
+    #ff8a00,
+    #ff2d78,
+    #a537fd,
+    #2d9bff,
+    #ff8a00
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: ai-spin 1.6s linear infinite;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
 .ai-bloom {
   position: absolute;
   inset: -36px;
@@ -344,6 +377,7 @@
 @media (prefers-reduced-motion: reduce) {
   .ai-halo::before,
   .ai-bloom,
+  .ai-hover-ring,
   .ai-thinking-line,
   .ai-wave-bar,
   .ai-orb-drift {

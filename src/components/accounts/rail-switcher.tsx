@@ -12,6 +12,9 @@ interface RailDirectoryProps {
   onClose: () => void;
 }
 
+/** How the one list is ordered. Recency is the default per the Aug 13 review. */
+type DirectorySort = "recent" | "alpha";
+
 /**
  * The accounts directory the rail morphs into.
  *
@@ -20,13 +23,14 @@ interface RailDirectoryProps {
  * meeting at an edge, which is the seam every earlier round tripped over.
  * The rail owns the frame; this is only the content.
  *
- * One panel, two jobs: curate the rail (pin, unpin, see the cap) and jump
- * to any account that has not earned a tile. Grouped the way the decision
- * actually reads — what is pinned, what you touched recently, then
- * everything — with the same search the old switcher had.
+ * ONE list, not Pinned/Recent/All (Aug 13 review): the groups made the
+ * panel a filing exercise. Sorting carries the recency signal instead —
+ * default is recently accessed, A–Z one click away — and pinning stays a
+ * per-row action rather than a section.
  */
 export function RailDirectory({ session, onClose }: RailDirectoryProps) {
   const [query, setQuery] = React.useState("");
+  const [sort, setSort] = React.useState<DirectorySort>("recent");
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
@@ -42,15 +46,29 @@ export function RailDirectory({ session, onClose }: RailDirectoryProps) {
   }, [onClose]);
 
   const matches = matchAccounts(query, session.accounts);
-  const searching = query.trim() !== "";
 
-  const onRail = matches.filter((a) => session.onRail(a.id));
-  const recent = matches.filter(
-    (a) => !session.onRail(a.id) && session.recentIds.includes(a.id),
-  );
-  const rest = matches.filter(
-    (a) => !session.onRail(a.id) && !session.recentIds.includes(a.id),
-  );
+  /*
+   * Recency order: the current account first (it is the most recently
+   * accessed by definition), then the recents trail, then everyone else in
+   * their stable seed order. Alphabetical is a plain locale sort.
+   */
+  const currentId = session.scope === "account" ? session.current.id : null;
+  const { recentIds } = session;
+  const ordered = React.useMemo(() => {
+    if (sort === "alpha") {
+      return [...matches].sort((a, b) => a.name.localeCompare(b.name));
+    }
+    const rank = new Map<string, number>();
+    if (currentId !== null) rank.set(currentId, -1);
+    recentIds.forEach((id, i) => {
+      if (!rank.has(id)) rank.set(id, i);
+    });
+    return [...matches].sort(
+      (a, b) =>
+        (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+        (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER),
+    );
+  }, [matches, sort, currentId, recentIds]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col px-[8px] pb-[8px]">
@@ -67,58 +85,67 @@ export function RailDirectory({ session, onClose }: RailDirectoryProps) {
         />
       </div>
 
+      {/* The sort IS the old grouping, made explicit and optional. */}
+      <div
+        role="radiogroup"
+        aria-label="Sort accounts"
+        className="mt-[8px] flex shrink-0 items-center gap-[4px] px-[2px]"
+      >
+        {(
+          [
+            ["recent", "Recently accessed"],
+            ["alpha", "A–Z"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="radio"
+            aria-checked={sort === id}
+            onClick={() => setSort(id)}
+            className={cn(
+              "motion-tap flex h-[24px] items-center rounded-full px-[10px] text-[11.5px] leading-none font-medium",
+              sort === id
+                ? "bg-nav-active text-nav-fg shadow-[inset_0_0_0_1px_var(--fly-border)]"
+                : "text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg-muted",
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div className="-mx-[2px] mt-[6px] min-h-0 flex-1 overflow-y-auto px-[2px]">
-        {matches.length === 0 ? (
+        {ordered.length === 0 ? (
           <p className="px-[7px] py-[16px] text-[13px] leading-[18px] text-nav-fg-subtle">
             No accounts match “{query.trim()}”.
           </p>
         ) : null}
 
-        <Group
-          label={`PINNED · ${session.railIds.length}`}
-          accounts={onRail}
-          session={session}
-          action="remove"
-          onClose={onClose}
-        />
-        {/* While searching, recency stops mattering — one flat list reads faster. */}
-        {searching ? (
-          <Group label="EVERYTHING ELSE" accounts={[...recent, ...rest]} session={session} action="add" onClose={onClose} />
-        ) : (
-          <>
-            <Group label="RECENT" accounts={recent} session={session} action="add" onClose={onClose} />
-            <Group label="ALL ACCOUNTS" accounts={rest} session={session} action="add" onClose={onClose} />
-          </>
-        )}
+        <Group accounts={ordered} session={session} onClose={onClose} />
       </div>
     </div>
   );
 }
 
 function Group({
-  label,
   accounts,
   session,
-  action,
   onClose,
 }: {
-  label: string;
   accounts: Account[];
   session: AccountsSession;
-  action: "add" | "remove";
   onClose: () => void;
 }) {
   if (accounts.length === 0) return null;
   return (
     <>
-      <div className="sticky top-0 z-10 bg-nav-rail px-[7px] pt-[8px] pb-[4px]">
-        <span className="text-[10.5px] leading-[14px] font-semibold tracking-[0.6px] text-nav-fg-subtle uppercase">
-          {label}
-        </span>
-      </div>
       {accounts.map((account) => {
         const current =
           session.scope === "account" && account.id === session.current.id;
+        // The row's own pin state decides its trailing action — pinning is
+        // curation on the row now, not a section you file accounts into.
+        const action = session.onRail(account.id) ? "remove" : "add";
         return (
           <div
             key={account.id}
@@ -164,15 +191,12 @@ function Group({
               }
               title={action === "remove" ? "Unpin" : "Pin"}
               onClick={() => {
-                if (action === "remove") {
-                  session.removeFromRail(account.id);
-                  return;
-                }
-                // The + is the row's own action seen closer: open it on the
-                // rail AND go there. Adding without going read as a dead click.
-                session.addToRail(account.id);
-                session.switchTo(account.id);
-                onClose();
+                // Pure curation now: with one sorted list, the pin toggles
+                // the rail tile and nothing else — the ROW is the jump. The
+                // old add-and-go behaviour belonged to the "All accounts"
+                // section this list replaced.
+                if (action === "remove") session.removeFromRail(account.id);
+                else session.addToRail(account.id);
               }}
               className={cn(
                 // Visible at rest — a hover-only affordance made the panel

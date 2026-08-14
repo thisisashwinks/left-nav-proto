@@ -98,7 +98,7 @@ const LAUNCHER_ID = "launcher";
 // anchors ride up by the same amounts to keep the morph seamless.
 const SWITCHER_ANCHOR = {
   expanded: { left: 4, top: 1 },
-  collapsed: { left: 8, top: 3 },
+  collapsed: { left: 8, top: 5 },
 } as const;
 
 /**
