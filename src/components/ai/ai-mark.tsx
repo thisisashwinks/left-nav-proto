@@ -2,29 +2,19 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * HighLevel's own AI mark (Aug 13, v2): a four-blade pinwheel mid-turn.
+ * The AI mark, v3 (Aug 13): a gradient donut with a star floating in it.
  *
- * The first cut traced the ClickUp flower too closely — six round petals,
- * centred four-point star. This one keeps what made that good (soft colour,
- * layered motion) and changes the identity: blades LEAN instead of petals
- * radiating, so the mark reads as something turning — automation — even
- * when still. The palette starts from the brand's own blue and adds teal
- * and coral, deliberately outside the reference's lavender-to-orange run.
- * The centre is a lit core, not a star; a single micro-spark sits off-axis
- * at two o'clock, like a glint thrown off the spin.
+ * The donut is a CSS conic ring — brand blue through violet, magenta, ember
+ * and teal — masked to a torus, with a blurred copy underneath for bloom.
+ * Doing it in CSS rather than SVG is the trick: the gradient's start angle
+ * is `--ai-angle`, so on hover (or while the session thinks) the COLOURS
+ * flow around the ring while the ring itself holds still — light moving
+ * through a form, not an asset rotating. The star sits in the hole wearing
+ * the same ramp, so mark and motion share one palette.
  *
- * Motion lives in ai.css (`.ai-mark-*`), scoped to `.ai-entry` hover: the
- * swirl turns, the core breathes against it, the glint flares on its own
- * beat. Three layers, three tempos.
+ * Animation lives in ai.css (`.ai-donut*`, `.ai-mark-star`), scoped to
+ * `.ai-entry` hover and to data-ai-state = thinking/listening.
  */
-
-/** Four blades, 90° apart, each pre-leaned 30° about its own centre. */
-const BLADES: { angle: number; from: string; to: string }[] = [
-  { angle: 0, from: "#155eef", to: "#6aa8ff" }, // brand blue — top
-  { angle: 90, from: "#7c3aed", to: "#c0a1fb" }, // violet — right
-  { angle: 180, from: "#ff5d73", to: "#ffab70" }, // coral — bottom
-  { angle: 270, from: "#0d9488", to: "#67e8f9" }, // teal — left
-];
 
 export function AiMark({
   size,
@@ -33,75 +23,48 @@ export function AiMark({
 }: {
   /** Rendered box in px. */
   size: number;
-  /** Session state — "thinking"/"listening" keep the swirl turning unhovered. */
+  /** Session state — thinking/listening keep the ring flowing unhovered. */
   state?: string;
   className?: string;
 }) {
   const uid = React.useId();
 
   return (
-    <svg
-      viewBox="0 0 32 32"
-      xmlns="http://www.w3.org/2000/svg"
+    <span
       aria-hidden="true"
       data-ai-state={state}
-      style={{ width: size, height: size, flexShrink: 0 }}
+      style={{ width: size, height: size }}
       className={cn("ai-mark", className)}
     >
-      <defs>
-        {BLADES.map((blade, i) => (
-          <linearGradient
-            key={blade.angle}
-            id={`${uid}-b${i}`}
-            x1="0.5"
-            y1="1"
-            x2="0.5"
-            y2="0"
-          >
-            <stop offset="0%" stopColor={blade.from} />
-            <stop offset="100%" stopColor={blade.to} />
+      {/* Bloom first, so the crisp ring paints over its own glow. */}
+      <span className="ai-donut-bloom" />
+      <span className="ai-donut" />
+
+      <svg
+        viewBox="0 0 32 32"
+        xmlns="http://www.w3.org/2000/svg"
+        className="ai-mark-star"
+      >
+        <defs>
+          <linearGradient id={`${uid}-star`} x1="0.2" y1="0" x2="0.8" y2="1">
+            <stop offset="0%" stopColor="#6aa8ff" />
+            <stop offset="48%" stopColor="#8b5cf6" />
+            <stop offset="100%" stopColor="#f43f7d" />
           </linearGradient>
-        ))}
-        <radialGradient id={`${uid}-core`}>
-          <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="70%" stopColor="#ffffff" stopOpacity="0.92" />
-          <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-        </radialGradient>
-        <filter id={`${uid}-soft`} x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur stdDeviation="0.5" />
-        </filter>
-      </defs>
-
-      <g className="ai-mark-swirl" filter={`url(#${uid}-soft)`}>
-        {BLADES.map((blade, i) => (
-          <ellipse
-            key={blade.angle}
-            cx="16"
-            cy="9"
-            rx="3.6"
-            ry="7"
-            fill={`url(#${uid}-b${i})`}
-            opacity="0.95"
-            // Outer rotate places the blade around the wheel; inner rotate
-            // leans it about its own middle — the lean is the pinwheel.
-            transform={`rotate(${blade.angle} 16 16) rotate(30 16 9)`}
-          />
-        ))}
-      </g>
-
-      {/* The lit core, breathing against the swirl's turn. */}
-      <g className="ai-mark-core">
-        <circle cx="16" cy="16" r="6" fill={`url(#${uid}-core)`} opacity="0.55" />
-        <circle cx="16" cy="16" r="3.1" fill="#ffffff" />
-      </g>
-
-      {/* One glint at two o'clock — thrown off the spin, not centred on it. */}
-      <path
-        className="ai-mark-spark"
-        d="M24.6 4.6 C25.05 6.3 25.85 7.1 27.55 7.55 C25.85 8 25.05 8.8 24.6 10.5 C24.15 8.8 23.35 8 21.65 7.55 C23.35 7.1 24.15 6.3 24.6 4.6 Z"
-        fill="#ffffff"
-        opacity="0.95"
-      />
-    </svg>
+        </defs>
+        {/*
+          The star wears the ring's own ramp rather than plain white, so it
+          survives the light nav (a white star vanished into the pill) and
+          the pair reads as one object.
+        */}
+        <path d={STAR_PATH} fill={`url(#${uid}-star)`} />
+        {/* A white facet on the upper-left arm — the glint that makes it a gem. */}
+        <path d={STAR_PATH} fill="#ffffff" opacity="0.28" transform="translate(-0.7 -0.7) scale(0.92)" style={{ transformOrigin: "16px 16px" }} />
+      </svg>
+    </span>
   );
 }
+
+/** Four-point star with concave sides, centred on 16/16, arms to ±7.6. */
+const STAR_PATH =
+  "M16 8.4 C17.15 12.7 19.3 14.85 23.6 16 C19.3 17.15 17.15 19.3 16 23.6 C14.85 19.3 12.7 17.15 8.4 16 C12.7 14.85 14.85 12.7 16 8.4 Z";

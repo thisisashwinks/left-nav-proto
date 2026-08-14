@@ -199,18 +199,21 @@
   opacity: 1;
 }
 
-/* ─── The AI mark: a pinwheel mid-turn (Aug 13 v2, our own) ──────────────── */
+/* ─── The AI mark: a gradient donut with a star inside (Aug 13 v3) ───────── */
 
 /*
- * At rest the mark holds still. Under the pointer (`.ai-entry` wraps the
- * whole Ask AI control) — or whenever the session is thinking/listening —
- * it comes alive in three layers on three tempos: the mark pops a few
- * percent, the blade wheel turns with an uneven cadence (fast into the
- * turn, easing out — a wind-up, not a rotor), the core breathes against
- * the turn, and the glint flares on its own beat. The uneven cadence is
- * the signature; a linear spin is what every other AI mark does.
+ * Three layers in one box: a blurred bloom, the conic ring masked to a
+ * torus, and the star in the hole. At rest everything holds still. Under
+ * the pointer (`.ai-entry` wraps the whole Ask AI control) — or while the
+ * session thinks — the ring's COLOURS flow around the donut (the gradient
+ * angle animates, the form never moves), the star twinkles on its own
+ * beat, and the mark pops a few percent. Light moving through a shape
+ * reads richer than a shape spinning.
  */
 .ai-mark {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
   transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -218,60 +221,65 @@
   transform: scale(1.1);
 }
 
-.ai-mark-swirl,
-.ai-mark-core,
-.ai-mark-spark {
-  transform-box: fill-box;
+.ai-donut,
+.ai-donut-bloom {
+  position: absolute;
+  inset: 5%;
+  border-radius: 999px;
+  background: conic-gradient(
+    from var(--ai-angle),
+    #155eef,
+    #8b5cf6,
+    #f43f7d,
+    #ff9a5a,
+    #14b8a6,
+    #155eef
+  );
+}
+
+/* The torus: mask out everything but a rim ~17% of the box thick. */
+.ai-donut {
+  padding: 17%;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* The same disc blurred out — the ring's own light on the surface below. */
+.ai-donut-bloom {
+  filter: blur(3px);
+  opacity: 0.4;
+}
+
+.ai-mark-star {
+  position: absolute;
+  inset: 0;
   transform-origin: center;
 }
 
-.ai-entry:hover .ai-mark-swirl,
-.ai-mark:is([data-ai-state="thinking"], [data-ai-state="listening"]) .ai-mark-swirl {
-  animation: ai-mark-turn 2.6s cubic-bezier(0.45, 0.05, 0.35, 0.95) infinite;
+.ai-entry:hover :is(.ai-donut, .ai-donut-bloom),
+.ai-mark:is([data-ai-state="thinking"], [data-ai-state="listening"])
+  :is(.ai-donut, .ai-donut-bloom) {
+  animation: ai-spin 2.2s linear infinite;
 }
 
-.ai-entry:hover .ai-mark-core,
-.ai-mark:is([data-ai-state="thinking"], [data-ai-state="listening"]) .ai-mark-core {
-  animation: ai-mark-breathe 2.6s ease-in-out infinite;
+.ai-entry:hover .ai-mark-star,
+.ai-mark:is([data-ai-state="thinking"], [data-ai-state="listening"]) .ai-mark-star {
+  animation: ai-star-twinkle 1.5s ease-in-out infinite;
 }
 
-.ai-entry:hover .ai-mark-spark,
-.ai-mark:is([data-ai-state="thinking"], [data-ai-state="listening"]) .ai-mark-spark {
-  animation: ai-mark-glint 1.3s ease-in-out infinite;
-}
-
-/* Quarter-turns with a settle between them — the wheel clicks around. */
-@keyframes ai-mark-turn {
-  0% {
-    transform: rotate(0deg);
-  }
-  50% {
-    transform: rotate(90deg);
-  }
-  100% {
-    transform: rotate(180deg);
-  }
-}
-
-@keyframes ai-mark-breathe {
+@keyframes ai-star-twinkle {
   0%,
   100% {
-    transform: scale(1);
+    transform: scale(1) rotate(0deg);
   }
   50% {
-    transform: scale(1.18);
-  }
-}
-
-@keyframes ai-mark-glint {
-  0%,
-  100% {
-    transform: scale(0.75);
-    opacity: 0.5;
-  }
-  50% {
-    transform: scale(1.2);
-    opacity: 1;
+    transform: scale(1.18) rotate(18deg);
   }
 }
 
@@ -466,9 +474,9 @@
   .ai-halo::before,
   .ai-bloom,
   .ai-hover-ring,
-  .ai-mark-swirl,
-  .ai-mark-core,
-  .ai-mark-spark,
+  .ai-donut,
+  .ai-donut-bloom,
+  .ai-mark-star,
   .ai-thinking-line,
   .ai-wave-bar,
   .ai-orb-drift {
