@@ -199,6 +199,54 @@
   opacity: 1;
 }
 
+/* ─── The flower mark (ClickUp reference, Aug 13) ────────────────────────── */
+
+/*
+ * At rest the flower just sits there. Under the pointer (`.ai-entry` marks
+ * the whole Ask AI control) it comes alive in three layers: the mark pops a
+ * few percent, the petals begin a slow continuous turn, and the sparkle
+ * twinkles — scale and a small rotation on an easing loop. Each layer has
+ * its own tempo, which is what makes it read as alive rather than as one
+ * spinning asset.
+ */
+.ai-flower {
+  transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ai-entry:hover .ai-flower {
+  transform: scale(1.1);
+}
+
+.ai-flower-petals,
+.ai-flower-spark {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.ai-entry:hover .ai-flower-petals {
+  animation: ai-flower-spin 7s linear infinite;
+}
+
+.ai-entry:hover .ai-flower-spark {
+  animation: ai-spark-twinkle 1.5s ease-in-out infinite;
+}
+
+@keyframes ai-flower-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ai-spark-twinkle {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.24) rotate(22deg);
+  }
+}
+
 .ai-bloom {
   position: absolute;
   inset: -36px;
@@ -390,6 +438,8 @@
   .ai-halo::before,
   .ai-bloom,
   .ai-hover-ring,
+  .ai-flower-petals,
+  .ai-flower-spark,
   .ai-thinking-line,
   .ai-wave-bar,
   .ai-orb-drift {
