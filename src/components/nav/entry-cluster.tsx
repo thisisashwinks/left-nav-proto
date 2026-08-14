@@ -1,7 +1,7 @@
 "use client";
 
 import { Search } from "lucide-react";
-import { AiFlower } from "@/components/ai/ai-flower";
+import { AiMark } from "@/components/ai/ai-mark";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import { Kbd } from "@/components/search/kbd";
 import { RailTooltip } from "./rail-tooltip";
@@ -115,7 +115,7 @@ export function EntryPill({
               className="motion-ai-pulse absolute inset-0 rounded-full ring-2 ring-[var(--ai-ring)]"
             />
           ) : null}
-          <AiFlower size={26} />
+          <AiMark size={26} />
         </button>
 
         <button
@@ -183,7 +183,7 @@ export function EntryClusterRail({
               className="motion-ai-pulse absolute inset-[-3px] rounded-full ring-2 ring-[var(--ai-ring)]"
             />
           ) : null}
-          <AiFlower size={32} />
+          <AiMark size={32} />
         </button>
       </RailTooltip>
 
