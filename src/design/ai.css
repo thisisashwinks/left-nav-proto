@@ -187,6 +187,18 @@
   transition: opacity 220ms ease;
 }
 
+/*
+ * Wake conditions live HERE, not in a Tailwind group-hover utility: these
+ * rules are unlayered while utilities sit in @layer, and unlayered wins the
+ * cascade — a `group-hover:opacity-100` on the span can never out-rank the
+ * `opacity: 0` above. `.ai-entry` marks the whole entry control, so resting
+ * anywhere on the pill wakes the orb, not just the 28px orb itself.
+ */
+.ai-entry:hover .ai-hover-ring,
+:is(button, a):is(:hover, :focus-visible) > .ai-hover-ring {
+  opacity: 1;
+}
+
 .ai-bloom {
   position: absolute;
   inset: -36px;

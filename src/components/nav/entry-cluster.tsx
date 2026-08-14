@@ -79,7 +79,7 @@ export function EntryPill({
         A div, not a button: it holds two controls, and nesting buttons is invalid
         markup that browsers resolve inconsistently.
       */}
-      <div className="motion-tap flex h-[36px] w-full items-center gap-[6px] rounded-full pr-[10px] pl-[4px] shadow-[inset_0_0_0_1px_var(--nav-divider)] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]">
+      <div className="ai-entry motion-tap flex h-[36px] w-full items-center gap-[6px] rounded-full pr-[10px] pl-[4px] shadow-[inset_0_0_0_1px_var(--nav-divider)] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]">
         {/*
           Reads as one field you can talk to.
 
@@ -159,7 +159,7 @@ export function EntryClusterRail({
         reads as ONE control seen at rail width, not two round things that
         happen to be stacked. Same reasoning as the favourites capsule.
       */}
-      <div className="flex w-[44px] flex-col items-center gap-[2px] rounded-full p-[3px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
+      <div className="ai-entry flex w-[44px] flex-col items-center gap-[2px] rounded-full p-[3px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
       {/*
         AI first here too, so the order survives collapsing. The rail has no room
         for the label, so the tooltip carries the name — which is why AI keeps the
