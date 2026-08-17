@@ -1,4 +1,3 @@
-import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -27,8 +26,6 @@ export function AiMark({
   state?: string;
   className?: string;
 }) {
-  const uid = React.useId();
-
   return (
     <span
       aria-hidden="true"
@@ -45,21 +42,20 @@ export function AiMark({
         xmlns="http://www.w3.org/2000/svg"
         className="ai-mark-star"
       >
-        <defs>
-          <linearGradient id={`${uid}-star`} x1="0.2" y1="0" x2="0.8" y2="1">
-            <stop offset="0%" stopColor="#6aa8ff" />
-            <stop offset="48%" stopColor="#8b5cf6" />
-            <stop offset="100%" stopColor="#f43f7d" />
-          </linearGradient>
-        </defs>
         {/*
-          The star wears the ring's own ramp rather than plain white, so it
-          survives the light nav (a white star vanished into the pill) and
-          the pair reads as one object.
+          Solid white (Aug 13 ask). It reads because the bloom tints the
+          donut's hole underneath; the soft drop shadow keeps its edge on the
+          lightest surfaces. The path MORPHS on hover — star inflating into a
+          rounded gem and back while it quarter-turns — which needs the star
+          and gem paths to share a structure: one M, four C segments each.
+          Both live in ai.css as `d: path(…)` keyframes.
         */}
-        <path d={STAR_PATH} fill={`url(#${uid}-star)`} />
-        {/* A white facet on the upper-left arm — the glint that makes it a gem. */}
-        <path d={STAR_PATH} fill="#ffffff" opacity="0.28" transform="translate(-0.7 -0.7) scale(0.92)" style={{ transformOrigin: "16px 16px" }} />
+        <path
+          className="ai-mark-star-shape"
+          d={STAR_PATH}
+          fill="#ffffff"
+          style={{ filter: "drop-shadow(0 1px 1.5px rgba(15, 23, 42, 0.3))" }}
+        />
       </svg>
     </span>
   );

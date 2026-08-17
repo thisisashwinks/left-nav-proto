@@ -155,48 +155,12 @@
 }
 
 /*
- * The ClickUp-style hover ring (Aug 13 review, from the AI Chats reference):
- * at rest nothing; under the pointer a multicolour conic sweep circles the
- * orb, fast enough to read as alive. Hollow via the same mask trick as
- * .ai-halo, so only a 2px rim paints — the orb stays the subject.
+ * Retired Aug 13: the hover ring around the orb button. The mark itself
+ * morphs now (see .ai-mark-star-shape) — a second halo on top read as
+ * noise. Kept as a no-op so any straggler markup renders nothing.
  */
 .ai-hover-ring {
-  position: absolute;
-  inset: -3px;
-  border-radius: 999px;
-  padding: 2px;
-  background: conic-gradient(
-    from var(--ai-angle),
-    #ff8a00,
-    #ff2d78,
-    #a537fd,
-    #2d9bff,
-    #ff8a00
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  animation: ai-spin 1.6s linear infinite;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 220ms ease;
-}
-
-/*
- * Wake conditions live HERE, not in a Tailwind group-hover utility: these
- * rules are unlayered while utilities sit in @layer, and unlayered wins the
- * cascade — a `group-hover:opacity-100` on the span can never out-rank the
- * `opacity: 0` above. `.ai-entry` marks the whole entry control, so resting
- * anywhere on the pill wakes the orb, not just the 28px orb itself.
- */
-.ai-entry:hover .ai-hover-ring,
-:is(button, a):is(:hover, :focus-visible) > .ai-hover-ring {
-  opacity: 1;
+  display: none;
 }
 
 /* ─── The AI mark: a gradient donut with a star inside (Aug 13 v3) ───────── */
@@ -268,18 +232,37 @@
   animation: ai-spin 2.2s linear infinite;
 }
 
-.ai-entry:hover .ai-mark-star,
-.ai-mark:is([data-ai-state="thinking"], [data-ai-state="listening"]) .ai-mark-star {
-  animation: ai-star-twinkle 1.5s ease-in-out infinite;
+/*
+ * The morph (Aug 13, replacing the pill's hover ring): the star INFLATES
+ * into a rounded gem while it quarter-turns, then breathes back — a shape
+ * becoming another shape, not an icon wiggling. Works because both paths
+ * share one structure (an M and four C segments), which is what lets the
+ * browser interpolate `d`. The gem's control points are the star's pushed
+ * outward until the concave sides go convex.
+ */
+.ai-mark-star-shape {
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
-@keyframes ai-star-twinkle {
+.ai-entry:hover .ai-mark-star-shape,
+.ai-mark:is([data-ai-state="thinking"], [data-ai-state="listening"]) .ai-mark-star-shape {
+  animation: ai-star-morph 1.7s ease-in-out infinite;
+}
+
+@keyframes ai-star-morph {
   0%,
   100% {
-    transform: scale(1) rotate(0deg);
+    d: path(
+      "M16 8.4 C17.15 12.7 19.3 14.85 23.6 16 C19.3 17.15 17.15 19.3 16 23.6 C14.85 19.3 12.7 17.15 8.4 16 C12.7 14.85 14.85 12.7 16 8.4 Z"
+    );
+    transform: rotate(0deg) scale(1);
   }
   50% {
-    transform: scale(1.18) rotate(18deg);
+    d: path(
+      "M16 8.4 C19.6 9.4 22.6 12.4 23.6 16 C22.6 19.6 19.6 22.6 16 23.6 C12.4 22.6 9.4 19.6 8.4 16 C9.4 12.4 12.4 9.4 16 8.4 Z"
+    );
+    transform: rotate(90deg) scale(1.06);
   }
 }
 
@@ -473,10 +456,10 @@
 @media (prefers-reduced-motion: reduce) {
   .ai-halo::before,
   .ai-bloom,
-  .ai-hover-ring,
   .ai-donut,
   .ai-donut-bloom,
   .ai-mark-star,
+  .ai-mark-star-shape,
   .ai-thinking-line,
   .ai-wave-bar,
   .ai-orb-drift {
