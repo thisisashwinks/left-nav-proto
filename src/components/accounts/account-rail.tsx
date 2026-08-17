@@ -182,10 +182,12 @@ export function AccountRail({
             */}
             <div className="mx-[6px] shrink-0 rounded-[10px] bg-nav-rail-disc p-[4px]">
               {/*
-                The strip wears the PLATFORM's mark, not the agency's (Aug 13
-                ask): the rail is HighLevel-owned chrome that holds every
-                tenant, so its top tile says whose product this is — the nav
-                beside it keeps the agency's own brand.
+                The tile wears the AGENCY's own mark. It briefly carried the
+                HighLevel logo instead, on the reading that the rail is platform
+                chrome — but for a white-labelled product the top of a client's
+                screen is the last place our logo belongs, and the tile is a
+                destination (the agency scope) rather than a brand plate. The
+                thing it has to say is "this is you", which is the agency's mark.
               */}
               <RailRow
                 label={`${session.agency.name} — agency`}
@@ -194,8 +196,9 @@ export function AccountRail({
                 selected={session.scope === "agency"}
                 onClick={session.switchToAgency}
                 onHover={() => setHover(true)}
-                account={{ ...session.agency, logoSrc: "/hl-logo.png" }}
-                // Rounded square, not the tenant circle: platform mark ≠ account.
+                account={session.agency}
+                // Rounded square, not the tenant circle: the agency is the scope
+                // over the accounts below, so its tile is a different shape.
                 logoRadius={9}
               />
             </div>
