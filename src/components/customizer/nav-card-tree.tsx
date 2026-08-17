@@ -8,6 +8,7 @@ import {
   GROUPING_LABELS,
   groupIdForProduct,
   isGroupRenamed,
+  nextGroupIdFor,
   isIconOverridden,
   permissionsFor,
   resolveGroups,
@@ -52,12 +53,27 @@ export function NavTreeCard({ account }: { account: Account }) {
   const picker = useIconPicker();
   const [addingTo, setAddingTo] = React.useState<string | null>(null);
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
+  /**
+   * The group whose rename field should open on mount. Set by Add group, so a
+   * new shelf asks for its name instead of sitting there called "New group"
+   * until somebody finds the pencil.
+   */
+  const [namingId, setNamingId] = React.useState<string | null>(null);
 
   const patch = (recipe: (s: NavLayoutState) => NavLayoutState) =>
     layout.updateProfile(account.id, recipe);
 
-  const shelves = groups.filter((g) => g.id !== UNGROUPED_ID);
-  const loose = groups.find((g) => g.id === UNGROUPED_ID)?.productIds ?? [];
+  /*
+   * Flat has one pseudo-group holding everything, which the nav draws as bare
+   * rows. Drawing it here as a shelf called "All products" would contradict the
+   * mode's whole claim, so in flat the products are listed as what they are:
+   * top-level rows, no shelf above them.
+   */
+  const flat = state.grouping === "flat";
+  const shelves = flat ? [] : groups.filter((g) => g.id !== UNGROUPED_ID);
+  const loose = flat
+    ? (groups[0]?.productIds ?? [])
+    : (groups.find((g) => g.id === UNGROUPED_ID)?.productIds ?? []);
   const destinations = shelves;
 
   const pickerTarget = picker.targetId;
@@ -189,6 +205,7 @@ export function NavTreeCard({ account }: { account: Account }) {
                 <GroupName
                   group={group}
                   canRename={can.renameForEveryone}
+                  startNaming={group.id === namingId}
                   onRename={(next) => rename(group, next)}
                 />
 
@@ -289,7 +306,12 @@ export function NavTreeCard({ account }: { account: Account }) {
         {editable ? (
           <button
             type="button"
-            onClick={() => patch((s) => withNewGroup(s))}
+            onClick={() => {
+              // The id is derivable before the group exists, which is what lets
+              // the new row mount straight into its rename field.
+              setNamingId(nextGroupIdFor(customTreeFor(state)));
+              patch((s) => withNewGroup(s));
+            }}
             className="motion-tap mt-[10px] flex h-[32px] items-center gap-[6px] rounded-[8px] px-[11px] text-[12.5px] leading-none font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:shadow-[inset_0_0_0_1px_var(--pg-border-strong)]"
           >
             <FolderPlus size={13} aria-hidden="true" />
@@ -302,7 +324,11 @@ export function NavTreeCard({ account }: { account: Account }) {
 
       <Card
         title="Top level rows"
-        sub="Products no group claims. They draw as plain rows in the nav — no heading, no flyout, one click."
+        sub={
+          flat
+            ? "Flat files nothing, so every product this account is on is a row — that is the mode, not a leftover."
+            : "Products no group claims. They draw as plain rows in the nav — no heading, no flyout, one click."
+        }
       >
         {loose.length === 0 ? (
           <p className="py-[6px] text-[12.5px] leading-[17px] text-pg-muted">
@@ -326,8 +352,8 @@ export function NavTreeCard({ account }: { account: Account }) {
         )}
         {loose.length > 0 ? (
           <p className="mt-[10px] text-[11.5px] leading-[16px] text-pg-faint">
-            Order here follows the catalogue, not the groups above — a top-level
-            row has no shelf to be first on.
+            {loose.length} row{loose.length === 1 ? "" : "s"}, in catalogue order
+            — a top-level row has no shelf to be first on.
           </p>
         ) : null}
       </Card>
@@ -339,13 +365,16 @@ export function NavTreeCard({ account }: { account: Account }) {
 function GroupName({
   group,
   canRename,
+  startNaming = false,
   onRename,
 }: {
   group: ResolvedGroup;
   canRename: boolean;
+  /** True for a group that was just created, which mounts asking for its name. */
+  startNaming?: boolean;
   onRename: (next: string) => void;
 }) {
-  const [renaming, setRenaming] = React.useState(false);
+  const [renaming, setRenaming] = React.useState(startNaming && canRename);
 
   if (renaming) {
     return (

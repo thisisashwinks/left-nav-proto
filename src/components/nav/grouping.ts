@@ -584,8 +584,14 @@ export function customTreeFor(state: NavLayoutState): NavLayoutState {
   return { ...state, grouping: "custom", customGroups: seedCustomGroups(state) };
 }
 
-/** A group id nothing else in this account is using. */
-function nextGroupIdFor(state: NavLayoutState): string {
+/**
+ * A group id nothing else in this account is using.
+ *
+ * Exported so a caller can know the id before it exists — the editor names a
+ * new group by opening its rename field, which needs the id one render before
+ * withNewGroup returns the tree containing it.
+ */
+export function nextGroupIdFor(state: NavLayoutState): string {
   const taken = new Set(state.customGroups.map((g) => g.id));
   let n = state.customGroups.length + 1;
   while (taken.has(`group-${n}`)) n += 1;
