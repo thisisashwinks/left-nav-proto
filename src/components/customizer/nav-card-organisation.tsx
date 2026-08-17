@@ -1,6 +1,7 @@
 "use client";
 
 import type { Account } from "@/components/accounts/accounts-data";
+import { industryFor } from "@/components/nav/account-nav-profiles";
 import {
   GROUPING_BLURBS,
   GROUPING_LABELS,
@@ -10,7 +11,7 @@ import {
 } from "@/components/nav/grouping";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { cn } from "@/lib/utils";
-import { Card } from "./controls";
+import { Card, Chip } from "./controls";
 
 /**
  * Which tree the account is on.
@@ -23,11 +24,15 @@ import { Card } from "./controls";
 export function NavOrganisationCard({ account }: { account: Account }) {
   const layout = useNavLayout();
   const state = layout.profileFor(account.id);
+  const industry = industryFor(account.id);
 
   return (
     <Card
       title="How the nav is organised"
       sub="Four views of one catalogue. Switching is lossless — nothing has to be re-filed."
+      // The trade this account is in, because every decision below reads
+      // differently for a brokerage than for a barbershop.
+      aside={industry ? <Chip tone="inherit">{industry}</Chip> : undefined}
     >
       <div className="grid grid-cols-2 gap-[10px] pt-[4px] xl:grid-cols-4">
         {GROUPING_MODES.map((mode) => (

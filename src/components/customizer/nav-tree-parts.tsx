@@ -173,8 +173,8 @@ export function AddProductsPanel({
       </div>
 
       <p className="mt-[8px] px-[4px] text-[11px] leading-[15px] text-pg-faint">
-        Only products this account is on appear here. Turn more on in Products in
-        this account, above.
+        Only products this account is on appear here. What it is on is set in
+        Features and Limits.
       </p>
     </div>
   );

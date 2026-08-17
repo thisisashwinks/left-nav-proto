@@ -544,11 +544,6 @@ export function industryFor(accountId: string): string | undefined {
   return ACCOUNT_NAV_SEEDS[accountId]?.industry;
 }
 
-/** Why this account's nav looks the way it does. Operator-facing. */
-export function noteFor(accountId: string): string | undefined {
-  return ACCOUNT_NAV_SEEDS[accountId]?.note;
-}
-
 const CATALOGUE_IDS = new Set(catalogue.map((p) => p.id));
 
 /**

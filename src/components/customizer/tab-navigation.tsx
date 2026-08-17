@@ -7,7 +7,6 @@ import { NavLayoutCard } from "./nav-card-layout";
 import { NavLinksCard } from "./nav-card-links";
 import { NavOrganisationCard } from "./nav-card-organisation";
 import { NavPermissionsCard } from "./nav-card-permissions";
-import { NavProductsCard } from "./nav-card-products";
 import { NavTreeCard } from "./nav-card-tree";
 import { PreviewPane } from "./preview-pane";
 
@@ -24,11 +23,6 @@ export function NavigationTab({ account }: { account: Account }) {
   return (
     <div className="flex items-start gap-[16px]">
       <div className="flex min-w-0 flex-1 flex-col gap-[16px]">
-        {/*
-          What the account is on comes first: grouping, favourites and density
-          are all decisions about a list this card decides the contents of.
-        */}
-        <NavProductsCard account={account} />
         <NavOrganisationCard account={account} />
         {/* Tree before links and favourites: both are decisions about rows this
             card decides the shape of. */}
