@@ -190,14 +190,21 @@
   position: absolute;
   inset: 5%;
   border-radius: 999px;
+  /*
+   * Shades of the ACCENT, not a rainbow (Aug 13): the ring runs from the
+   * brand colour up through its lit neighbour (--ai-to already carries the
+   * account's accent shifted lighter) to a near-white highlight, then down
+   * into shadow and back — one hue family, so the mark rebrands with the
+   * tenant like everything else. The flowing light stays; the carnival goes.
+   */
   background: conic-gradient(
     from var(--ai-angle),
-    #155eef,
-    #8b5cf6,
-    #f43f7d,
-    #ff9a5a,
-    #14b8a6,
-    #155eef
+    var(--ai-from),
+    var(--ai-to),
+    color-mix(in oklab, var(--ai-from) 34%, white),
+    var(--ai-to),
+    color-mix(in oklab, var(--ai-from) 74%, black),
+    var(--ai-from)
   );
 }
 
