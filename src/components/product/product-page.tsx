@@ -42,10 +42,11 @@ export function ProductPage({ product, childId, onChildChange }: ProductPageProp
   return (
     <div
       data-page-theme={effective.appTheme}
-      // No fill and no padding: the canvas paints nothing either, so content sits
-      // directly on the shell plane, the rows bring their own surface, and the
-      // canvas's own margin is the entire inset on every side.
-      className="relative flex h-full min-h-0 flex-col gap-[14px]"
+      // No fill: the canvas paints nothing either, so content sits directly on
+      // the shell plane and the rows bring their own surface. Horizontal inset
+      // only — the canvas's own margin is the whole vertical one — and it comes
+      // from --page-inset, which the app bar above reads too so the two agree.
+      className="relative flex h-full min-h-0 flex-col gap-[14px] px-[var(--page-inset)]"
     >
       <div className="flex shrink-0 items-center justify-between">
         <div className="flex flex-col items-start gap-[3px]">

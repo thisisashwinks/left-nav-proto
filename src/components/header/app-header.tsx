@@ -68,12 +68,21 @@ export function AppHeader({
       // separation. Only the token is dropped, so the crumb menu that reads
       // --hdr-bg stays a real panel.
       className={cn(
-        // Padded to the canvas gap rather than a value of its own. The canvas is
-        // inset by that gap and the page inside it adds nothing, so matching it
-        // here lands the bar's content on exactly the canvas's left and right
-        // edges — which is what makes the Home glyph line up with the page title
-        // and the utilities line up with the table's right edge.
-        "flex h-[48px] w-full shrink-0 items-center justify-between px-[var(--shell-canvas-gap)]",
+        // Padded to the canvas gap PLUS the page's own inset, rather than a value of
+        // its own: the canvas is inset by the gap and the page inside it pads by
+        // --page-inset, so summing them lands the bar on the same edges as the
+        // content below. That is exact on the right, where the last utility's box IS
+        // its visible edge.
+        //
+        // The left is that sum minus 6.5px, which is not a fudge: the Home glyph is
+        // 15px inside a 28px hit target, so it sits (28-15)/2 inside its own box, and
+        // aligning the BOX would leave the glyph 6.5px right of the page title.
+        // Pulling the padding back by exactly that inset puts the glyph — the thing
+        // you actually see — on the title's edge. Same trick the page title itself
+        // uses with -mx-[6px] px-[6px] to sit flush in its container.
+        "flex h-[48px] w-full shrink-0 items-center justify-between",
+        "pr-[calc(var(--shell-canvas-gap)+var(--page-inset))]",
+        "pl-[calc(var(--shell-canvas-gap)+var(--page-inset)-6.5px)]",
         surface === "filled"
           ? "bg-hdr shadow-[inset_0_-1px_0_0_var(--hdr-border)]"
           : "bg-transparent",
