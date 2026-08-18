@@ -45,6 +45,15 @@ interface NavItemRowProps {
  * it becomes a `<div>` holding several buttons, because a rename field and a
  * pencil cannot live inside a button — nested interactive elements are invalid
  * and browsers disagree about what they do with the clicks.
+ *
+ * In the editable rendering the whole row carries the click, not the label
+ * inside it. The label's button is only as wide as its text, so hanging the
+ * handler there left the icon, the padding and the strip under the chevron dead
+ * — a row that looks like one target and behaves like three. The button stays as
+ * the focusable, named control and does NOT handle clicks itself: activating it
+ * from the keyboard dispatches a click that bubbles to the row, so mouse and
+ * keyboard both arrive at one handler. Every affordance in the row stops
+ * propagation, so the pencil, the icon and the rename field never select.
  */
 export function NavItemRow({
   item,
@@ -118,8 +127,17 @@ export function NavItemRow({
     <div
       // `group/row` rather than a bare group: the affordances key off this row
       // specifically, and an unnamed group would also match any hovered ancestor.
-      className={cn(rowClass, "group/row group", active && "bg-nav-hover", "hover:bg-nav-hover")}
+      className={cn(
+        rowClass,
+        "group/row group",
+        active && "bg-nav-hover",
+        "hover:bg-nav-hover",
+        // Matches the read-only row's press feedback, but not while renaming —
+        // scaling a row mid-edit drags the text field with it.
+        !edit.renaming && "active:bg-nav-active active:scale-[0.99] motion-press",
+      )}
       onPointerEnter={onHover}
+      onClick={edit.renaming ? undefined : onSelect}
     >
       {edit.onPickIcon ? (
         <IconTrigger onOpen={edit.onPickIcon}>{icon}</IconTrigger>
@@ -139,10 +157,9 @@ export function NavItemRow({
         <button
           type="button"
           aria-current={active ? "page" : undefined}
-          onClick={onSelect}
           onFocus={onHover}
-          // Fills the row so the whole width still navigates. `min-w-0` lets the
-          // label truncate instead of pushing the affordances out of the nav.
+          // No onClick: the row above owns it, and this button's own activation
+          // — mouse or keyboard — bubbles up to it.
           className="flex min-w-0 flex-1 items-center text-left"
         >
           {label}
