@@ -570,6 +570,77 @@
   --app-fg-muted: var(--hr-gray-400);
 }
 
+/* ─── Shell plane ───────────────────────────────────────────────────────── */
+
+/*
+ * The plane the chrome sits ON, rather than a colour the chrome paints itself.
+ *
+ * Aug 18 direction: the header, the nav and both switchers give up their white.
+ * They no longer read as four surfaces butted together with seams between them
+ * — they are objects arranged on one continuous plane, and the only surface
+ * left in the window is the page itself, floated on top of that plane with a
+ * radius and a shadow.
+ *
+ * That inverts what the plane has to be. It used to be the same near-white as
+ * the canvas (#f7f8fa both sides), which was fine while every piece of chrome
+ * painted its own white over it. With the chrome transparent the plane IS what
+ * you see behind it, so it has to sit a clear step BELOW the canvas it carries
+ * — the float reads from the canvas being lighter, not only from the shadow.
+ *
+ * Keyed by [data-shell-theme], which the shell sets from the NAV's theme rather
+ * than the app's. The nav is the dominant chrome, and a dark nav on a light app
+ * stays supported: the plane goes dark with it and the light canvas floats on
+ * top, which is the arrangement that model was always reaching for.
+ *
+ * Radius, shadow and gap follow the HighRise canvas spec: 12px radius, shadow/lg,
+ * 12px inset — one step tighter than the 16px default, because here the gap is
+ * repeated on every edge of the canvas rather than only at the window's.
+ */
+
+[data-shell-theme="light"] {
+  --shell-bg: #e9ebf0;
+  --shell-canvas-ring: transparent;
+}
+
+[data-shell-theme="dark"] {
+  /* Below the canvas's own #0b0b0e, which is nearly the floor already — hence
+     the ring below, which is what actually carries the float down here. */
+  --shell-bg: #07070a;
+  /* The dark canvas is a hair off the floor already, so down here the hairline is
+     what carries the float. Held as a literal (it is --pg-border's value) because
+     that token is scoped to the page element, not to the canvas wrapper. */
+  --shell-canvas-ring: #282832;
+}
+
+:root {
+  --shell-canvas-radius: 12px;
+  --shell-canvas-gap: 12px;
+  /* shadow/lg from the HighRise spec. */
+  --shell-canvas-shadow:
+    0 12px 16px -4px rgba(16, 24, 40, 0.08), 0 4px 6px -2px rgba(16, 24, 40, 0.03);
+}
+
+/*
+ * Nav rows on the plane.
+ *
+ * Set on the containers that went transparent, not on the nav theme, because the
+ * panels that borrow these tokens — the flyout, the launcher, the rail's
+ * directory — are still real white surfaces and need the original ramp. Only the
+ * rows sitting directly on the plane are re-pointed.
+ *
+ * Selected goes to pure white: on a grey plane "stronger" means whiter, so the
+ * measured #f0f0f3 active would have read as LESS emphasis than its own hover.
+ * Dark needs none of this — its hover and active are both lifts already.
+ */
+[data-shell-theme="light"] [data-chrome-plane] {
+  --nav-active: #ffffff;
+  --nav-scroll-fade: var(--shell-bg);
+}
+
+[data-shell-theme="dark"] [data-chrome-plane] {
+  --nav-scroll-fade: var(--shell-bg);
+}
+
 /* ─── Layer 6: neutral tint ─────────────────────────────────────────────── */
 
 /*
@@ -749,4 +820,16 @@
   --app-bg: oklch(from var(--brand) 0.151 calc(c * var(--tint-surface)) h);
   --app-fg: oklch(from var(--brand) 0.9846 calc(c * var(--tint-text)) h);
   --app-fg-muted: oklch(from var(--brand) 0.7098 calc(c * var(--tint-text)) h);
+}
+
+:root:not([data-tint="off"]) [data-shell-theme="light"] {
+  --shell-bg: oklch(from var(--brand) 0.94 calc(c * var(--tint-surface)) h);
+}
+
+:root:not([data-tint="off"]) [data-shell-theme="dark"] {
+  --shell-bg: oklch(from var(--brand) 0.1303 calc(c * var(--tint-surface)) h);
+}
+
+:root:not([data-tint="off"]) [data-shell-theme="light"] [data-chrome-plane] {
+  --nav-active: oklch(from var(--brand) 0.99 calc(c * var(--tint-surface)) h);
 }

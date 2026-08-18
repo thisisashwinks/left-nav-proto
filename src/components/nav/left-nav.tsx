@@ -195,7 +195,11 @@ export function LeftNav({
       // Pencil draws strokes over the box instead of adding to it, so every
       // border in the nav is an inset shadow. A real CSS border would steal a
       // pixel of content width and push every measurement off by one.
-      className="flex h-full w-[272px] shrink-0 flex-col items-start overflow-hidden bg-nav shadow-[inset_-1px_0_0_0_var(--nav-border)]"
+      //
+      // No fill and no seam of its own: the chrome card in the shell paints the
+      // surface this and the account rail share, so a face that painted itself
+      // would draw a second box inside that one.
+      className="flex h-full w-[272px] shrink-0 flex-col items-start overflow-hidden"
     >
       <NavHeader
         account={account}

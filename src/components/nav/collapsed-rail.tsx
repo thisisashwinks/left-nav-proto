@@ -196,7 +196,10 @@ export function CollapsedRail({
       // pt 11: the 26px mark centres on y=24, the app header's midline —
       // matching the expanded header row and the account rail's plate. 26,
       // not 30 (Aug 13 review): the mark was crowding the AI orb visually.
-      className="flex h-full w-[64px] shrink-0 flex-col items-center gap-[4px] overflow-hidden bg-nav pt-[11px] pr-[8px] pb-[3px] pl-[8px] shadow-[inset_-1px_0_0_0_var(--nav-border)]"
+      // Transparent, same as the expanded face — the shell's chrome card paints
+      // the surface for both, so collapsing narrows the card rather than swapping
+      // one treatment for another.
+      className="flex h-full w-[64px] shrink-0 flex-col items-center gap-[4px] overflow-hidden pt-[11px] pr-[8px] pb-[3px] pl-[8px]"
     >
       {/*
         The rail has no room for a name or a chevron, so the mark itself is the

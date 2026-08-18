@@ -83,7 +83,11 @@ export function FlyoutPanel({
         // and contextual help clean out of sight. Whatever is in that slot is the
         // reason the panel is 360px wide; it should be the last thing to go, not the
         // first. So the title and the slot are pinned and only the list moves.
-        "absolute top-0 bottom-0 z-30 flex w-[360px] flex-col items-start overflow-hidden bg-nav pt-[14px] pb-[16px] shadow-[8px_0_24px_0_var(--fly-shadow),inset_-1px_0_0_0_var(--fly-border)] outline-none",
+        // Inset and rounded to match the nav card it docks against — a panel that
+        // ran the full page height overhung the card by the gap at both ends. Left
+        // stays flush rather than gapped: the pointer travels from a nav row into
+        // this panel, and a dead strip between them would close it on the way.
+        "absolute top-[var(--shell-canvas-gap)] bottom-[var(--shell-canvas-gap)] z-30 flex w-[360px] flex-col items-start overflow-hidden rounded-[var(--shell-canvas-radius)] bg-nav pt-[14px] pb-[16px] shadow-[var(--shell-canvas-shadow),inset_0_0_0_1px_var(--fly-border)] outline-none",
         // `left` animates too, so the panel follows the nav edge when the rail
         // collapses underneath an open panel instead of jumping.
         "motion-move",

@@ -30,6 +30,15 @@ const TONE_CLASSES: Record<HeaderActionTone, string> = {
 interface AppHeaderProps {
   /** Drives [data-header-theme], independent of the app's own theme. */
   theme: SurfaceTheme;
+  /**
+   * Whether the bar paints its own surface.
+   *
+   * `plane` is the default arrangement: no fill and no bottom rule, so the bar is
+   * a breadcrumb and a row of glyphs sitting on the shell's plane alongside the
+   * nav. `filled` keeps the measured white (or near-black) bar, which is what a
+   * header themed against the plane still needs to stay legible.
+   */
+  surface?: "plane" | "filled";
   config?: HeaderConfig;
   /** Where you are: ["Contacts", "Smart lists"]. Home renders before it. */
   crumbs?: (string | Crumb)[];
@@ -45,6 +54,7 @@ interface AppHeaderProps {
  */
 export function AppHeader({
   theme,
+  surface = "plane",
   config = headerConfig,
   crumbs = ["Contacts", "Smart lists"],
 }: AppHeaderProps) {
@@ -53,8 +63,16 @@ export function AppHeader({
       data-header-theme={theme}
       // Inset shadows rather than borders, for the same reason as the nav:
       // Pencil overlays strokes, so a real border would shrink the 48px content
-      // box and shift the content baseline.
-      className="flex h-[48px] w-full shrink-0 items-center justify-between bg-hdr px-[16px] shadow-[inset_0_-1px_0_0_var(--hdr-border)]"
+      // box and shift the content baseline. On the plane there is no rule at all
+      // — the gap under the bar, and the floated canvas below it, are the
+      // separation. Only the token is dropped, so the crumb menu that reads
+      // --hdr-bg stays a real panel.
+      className={cn(
+        "flex h-[48px] w-full shrink-0 items-center justify-between px-[16px]",
+        surface === "filled"
+          ? "bg-hdr shadow-[inset_0_-1px_0_0_var(--hdr-border)]"
+          : "bg-transparent",
+      )}
     >
       <div className="flex h-full min-w-0 items-center gap-[4px]">
         <button

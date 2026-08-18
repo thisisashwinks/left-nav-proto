@@ -45,6 +45,8 @@
   --color-fly-badge-beta-fg: var(--fly-badge-beta-fg);
   --color-fly-tile: var(--fly-tile-bg);
 
+  --color-shell: var(--shell-bg);
+
   --color-hdr: var(--hdr-bg);
   --color-hdr-border: var(--hdr-border);
   --color-hdr-fg: var(--hdr-fg);
@@ -333,12 +335,12 @@
 
   [data-scroll-fade="top"] {
     top: 0;
-    background: linear-gradient(to bottom, var(--nav-bg) 15%, transparent);
+    background: linear-gradient(to bottom, var(--nav-scroll-fade, var(--nav-bg)) 15%, transparent);
   }
 
   [data-scroll-fade="bottom"] {
     bottom: 0;
-    background: linear-gradient(to top, var(--nav-bg) 15%, transparent);
+    background: linear-gradient(to top, var(--nav-scroll-fade, var(--nav-bg)) 15%, transparent);
   }
 
   /*

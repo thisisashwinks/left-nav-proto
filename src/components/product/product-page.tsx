@@ -42,7 +42,7 @@ export function ProductPage({ product, childId, onChildChange }: ProductPageProp
   return (
     <div
       data-page-theme={effective.appTheme}
-      className="relative flex h-full min-h-0 flex-col gap-[14px] bg-pg p-[24px]"
+      className="relative flex h-full min-h-0 flex-col gap-[14px] bg-pg"
     >
       <div className="flex shrink-0 items-center justify-between">
         <div className="flex flex-col items-start gap-[3px]">

@@ -67,6 +67,13 @@ import { useMediaQuery } from "@/lib/use-media-query";
 
 /** Nav widths from left-nav.pen; the flyout docks against whichever is showing. */
 const EXPANDED_WIDTH = 272;
+/**
+ * The plane showing around the floating nav. Mirrors --shell-canvas-gap,
+ * which the canvas already uses, so the nav and the canvas are inset by the
+ * same amount and the plane reads as one continuous surface behind both.
+ * Duplicated as a number because the flyout's dock position is computed in JS.
+ */
+const NAV_FLOAT_GAP = 12;
 const COLLAPSED_WIDTH = 64;
 
 /** The 28px expand button + 4px rail gap that sit under the collapsed mark. */
@@ -134,6 +141,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const {
     navTheme,
     headerTheme,
+    // The page's own ground. --pg-* is scoped under [data-page-theme], so the
+    // plane has to declare that scope to reach the token at all.
+    appTheme,
     dockLabel,
     dockPosition,
     entryLayout,
@@ -362,7 +372,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   // Constant: the rail expands as an overlay — the directory included, which
   // now morphs the rail itself wider — so panels never chase it.
   const railWidth = railActive ? ACCOUNT_RAIL_WIDTH : 0;
-  const leftOffset = railWidth + navWidth;
+  // The nav's right edge in viewport space: the rail, the nav's own left
+  // gutter, then the nav. Flyouts dock here.
+  const leftOffset = railWidth + NAV_FLOAT_GAP + navWidth;
   // Group panels win over the authored registry: a renamed Engage has to open a
   // panel titled with its new name, and the registry still holds the old one.
   // At agency scope the agency's own panels take their place.
@@ -574,7 +586,40 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         <TopBanner banners={AGENCY_BANNERS} condensed />
       )}
 
-      <div className="relative flex min-h-0 flex-1 overflow-hidden bg-app">
+      {/*
+        The shell plane. Everything chrome — both switchers, the nav, the header —
+        is transparent on top of it, so this is the colour you actually see behind
+        them. Themed off the NAV rather than the app, because the nav is the
+        dominant piece of chrome: a dark nav takes the whole plane dark with it
+        and the light canvas floats on that.
+      */}
+      <div
+        data-shell-theme={navTheme}
+        // --pg-bg is the page — the same ground the settings pages already sit on,
+        // so the product has one page colour instead of a shell grey out here and
+        // a page grey inside the canvas. The token lives under [data-page-theme],
+        // which is why that scope is declared here and follows the PAGE theme even
+        // though the plane's chrome tokens still follow the nav.
+        data-page-theme={appTheme}
+        className="relative flex min-h-0 flex-1 overflow-hidden bg-pg"
+      >
+      {/*
+        One card for every piece of chrome on the left: the account rail and the
+        nav share a single floating surface, so switching accounts reads as part
+        of the nav instead of a separate strip bolted to the window edge.
+
+        The card owns the fill, the radius, the ring and the inset — the faces
+        inside it are transparent. `data-nav-theme` has to be declared here too,
+        because --nav-bg is scoped under it and the card is the thing painting it.
+
+        Deliberately NOT overflow-hidden: the rail widens to 340px for the
+        accounts directory, which is wider than this card, and clipping it would
+        cut the directory off mid-panel.
+      */}
+      <div
+        data-nav-theme={navTheme}
+        className="relative z-20 my-[var(--shell-canvas-gap)] ml-[var(--shell-canvas-gap)] flex min-h-0 self-stretch rounded-[var(--shell-canvas-radius)] bg-nav shadow-[var(--shell-canvas-shadow),inset_0_0_0_1px_var(--nav-border)]"
+      >
       {railActive ? (
         <>
           {/* The rail's flow footprint. The rail itself is an overlay, so
@@ -610,7 +655,11 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         style={{ width: navWidth, ...densityVars(density) }}
         onPointerLeave={intent.scheduleClear}
         onPointerEnter={intent.cancelClear}
-        className="relative z-20 h-full min-h-0 shrink-0 self-stretch overflow-hidden bg-nav motion-move"
+        data-chrome-plane=""
+        // Sits inside the chrome card, which owns the inset and the surface, so
+        // this is back to a plain full-height column. Every absolutely-positioned
+        // child — FavoritesMorph above all — is measured in these coordinates.
+        className="relative h-full min-h-0 shrink-0 motion-move"
       >
         {/*
           Rendered before the faces so it sits near its visual position in the
@@ -720,10 +769,23 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           />
         </div>
       </div>
+      </div>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      {/*
+        Inset from the top by the same gap as the nav card, so the app bar's row
+        and the nav's identity row sit on one line. The nav centres its mark on
+        y=24 of its own box to match the bar's midline, which only holds while the
+        two boxes start at the same y.
+      */}
+      <div className="mt-[var(--shell-canvas-gap)] flex min-w-0 flex-1 flex-col">
         <AppHeader
           theme={headerTheme}
+          // Always on the plane: glyphs and a breadcrumb, no surface of its own.
+          // It used to take a fill whenever it was themed against the nav, to keep
+          // light ink off a light plane — but with the nav floating as its own card
+          // a filled bar reads as a third competing surface, so the fill goes and
+          // the mismatched-theme case is a contrast problem to solve in the ink.
+          surface="plane"
           crumbs={
             selectedId === "agency-sub-accounts"
               ? customizeAccount
@@ -743,7 +805,13 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           product itself.
         */}
           <ContactsAreaProvider value={[contactsPageId, setContactsPageId]}>
-            <div className="min-h-0 flex-1 overflow-auto">
+            {/*
+              The only real surface in the window now. Inset on every edge so the
+              plane runs behind and around it, with the radius and shadow/lg the
+              HighRise canvas spec asks for — that, plus sitting a step lighter
+              than the plane, is what reads as floating.
+            */}
+            <div className="m-[var(--shell-canvas-gap)] min-h-0 flex-1 overflow-auto rounded-[var(--shell-canvas-radius)] bg-pg-surface shadow-[inset_0_0_0_1px_var(--shell-canvas-ring)]">
               {selectedId === "agency-sub-accounts" ? (
                 customizeAccount ? (
                   <SubAccountPage
