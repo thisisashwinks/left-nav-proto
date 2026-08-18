@@ -134,16 +134,26 @@ export function AccountRail({
           // against the nav. It becomes a real surface only while it is widened
           // OVER the nav, where transparency would let the rows it covers show
           // straight through it.
-          //
-          // Rounded on all four corners once it is that surface. Its left edge is the
-          // chrome card's own edge and follows the card's radius; its right edge is
-          // rounded too, because this reads as a panel lifted OVER the nav rather
-          // than a section cut out of it — which is also what the hard directional
-          // shadow is saying. Deliberately unlike the flyout, whose left corners are
-          // square because it continues the nav rather than covering it.
-          expanded || switcherOpen
-            ? "rounded-[var(--shell-canvas-radius)] bg-nav-rail shadow-[inset_0_0_0_1px_var(--nav-border),16px_0_40px_-20px_rgba(15,23,42,0.45)]"
-            : "bg-transparent",
+          (expanded || switcherOpen) &&
+            "bg-nav-rail shadow-[inset_0_0_0_1px_var(--nav-border),16px_0_40px_-20px_rgba(15,23,42,0.45)]",
+          !expanded && !switcherOpen && "bg-transparent",
+          /*
+            The two widened states round differently, and on purpose.
+            
+            Hovering an account is a peek: the strip grows a little, stays inside
+            the chrome card, and reads as a floating panel — so all four corners
+            follow the card's radius.
+
+            The directory is a takeover. It is wider than the card, so its right
+            edge is a cut across the page rather than the edge of a panel sitting
+            on it, and a radius there would round a corner in open space. Left
+            corners still follow the card, since that edge IS the card's edge.
+          */
+          switcherOpen
+            ? "rounded-l-[var(--shell-canvas-radius)]"
+            : expanded
+              ? "rounded-[var(--shell-canvas-radius)]"
+              : null,
         )}
         style={{ width }}
       >
