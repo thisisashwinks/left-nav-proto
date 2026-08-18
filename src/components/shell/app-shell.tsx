@@ -622,9 +622,21 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       >
       {railActive ? (
         <>
-          {/* The rail's flow footprint. The rail itself is an overlay, so
-              widening it never moves the nav or the page. */}
-          <div aria-hidden="true" className="w-[56px] shrink-0" />
+          {/*
+            The rail's flow footprint. The rail itself is an overlay, so widening
+            it never moves the nav or the page.
+
+            It also carries the hairline between the switcher column and the nav.
+            On this element rather than on the rail, because the rail slides out
+            to 216px on hover and 340px for the directory — a line drawn on it
+            would travel with it, where the seam it marks does not move. Inset
+            shadow, not a border: a real border would take a pixel off the 56px
+            slot and shift every tile in the column.
+          */}
+          <div
+            aria-hidden="true"
+            className="w-[56px] shrink-0 shadow-[inset_-1px_0_0_0_var(--nav-divider)]"
+          />
           <AccountRail
             session={accounts}
             theme={navTheme}
@@ -659,7 +671,13 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         // Sits inside the chrome card, which owns the inset and the surface, so
         // this is back to a plain full-height column. Every absolutely-positioned
         // child — FavoritesMorph above all — is measured in these coordinates.
-        className="relative h-full min-h-0 shrink-0 motion-move"
+        //
+        // The z-index is load-bearing, not decoration. FavoritesMorph is z-30, the
+        // same as the account rail, and the capsule is later in the DOM — so
+        // without a stacking context here the two tie and the dock paints over the
+        // switcher panel. A z-index on this element traps the capsule inside it and
+        // puts the whole column under the rail, where it belongs.
+        className="relative z-10 h-full min-h-0 shrink-0 motion-move"
       >
         {/*
           Rendered before the faces so it sits near its visual position in the

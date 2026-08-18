@@ -130,12 +130,18 @@ export function AccountRail({
           // pt 4: the agency plate is 40px tall (4 + 32 + 4 with the 24px
           // logo), so 4px above centres its tile on y=24 — the header's midline.
           "motion-move absolute inset-y-0 left-0 z-30 flex flex-col gap-[7px] overflow-hidden pt-[4px] pb-[8px]",
-          // At rest the switcher is tiles on the shell plane — no fill, no seam
+          // At rest the switcher is tiles on the chrome card — no fill, no seam
           // against the nav. It becomes a real surface only while it is widened
           // OVER the nav, where transparency would let the rows it covers show
           // straight through it.
+          //
+          // Rounded and ringed on all four sides once it is that surface, matching
+          // the nav card and the flyout: it is a panel floating over the nav, and a
+          // single right-hand seam is the treatment for a column butted against
+          // something, which this no longer is. The hard directional shadow stays —
+          // that is what lifts it off the rows it covers.
           expanded || switcherOpen
-            ? "bg-nav-rail shadow-[inset_-1px_0_0_0_var(--nav-border),16px_0_40px_-20px_rgba(15,23,42,0.45)]"
+            ? "rounded-[var(--shell-canvas-radius)] bg-nav-rail shadow-[inset_0_0_0_1px_var(--nav-border),16px_0_40px_-20px_rgba(15,23,42,0.45)]"
             : "bg-transparent",
         )}
         style={{ width }}
