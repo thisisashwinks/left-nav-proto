@@ -583,7 +583,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           banners={ACCOUNT_BANNERS[accounts.current.id] ?? []}
         />
       ) : plainUser ? null : (
-        <TopBanner banners={AGENCY_BANNERS} condensed />
+        <TopBanner banners={AGENCY_BANNERS} />
       )}
 
       {/*

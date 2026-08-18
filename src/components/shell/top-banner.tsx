@@ -151,14 +151,6 @@ const TONES: Record<
 
 interface TopBannerProps {
   banners: Banner[];
-  /**
-   * A slimmer cut of the same strip — no disc, tighter type, CTA as a text
-   * link. The agency strip wears it permanently: only one banner ever shows
-   * at a time now, but agency comms stay ambient where an account's own
-   * banner speaks at full height — and the strip never resizes as you move
-   * between accounts.
-   */
-  condensed?: boolean;
 }
 
 /**
@@ -166,7 +158,15 @@ interface TopBannerProps {
  * current banner; the strip goes when none are left. Session-only state:
  * this is a prototype of placement and anatomy, not persistence.
  */
-export function TopBanner({ banners, condensed = false }: TopBannerProps) {
+/*
+ * There used to be a `condensed` cut of this — 32px, no disc, tighter type, CTA
+ * as a text link — worn permanently by the agency strip so agency comms read as
+ * ambient beside an account's own banner. It is gone: two heights and two type
+ * scales for the same component meant the strip changed size and weight as you
+ * moved between agency and account, which read as a bug rather than a hierarchy.
+ * One strip, one treatment.
+ */
+export function TopBanner({ banners }: TopBannerProps) {
   const [dismissed, setDismissed] = React.useState<string[]>([]);
   const [index, setIndex] = React.useState(0);
 
@@ -192,24 +192,20 @@ export function TopBanner({ banners, condensed = false }: TopBannerProps) {
         // margins on its own.
         "mx-[var(--shell-canvas-gap)] mt-[var(--shell-canvas-gap)] flex shrink-0",
         "items-center gap-[10px] overflow-hidden rounded-[var(--shell-canvas-radius)] pr-[10px] pl-[14px]",
-        condensed ? "h-[32px]" : "h-[44px]",
+        "h-[44px]",
         tone.bar,
       )}
     >
-      {condensed ? (
-        <Icon size={13} aria-hidden="true" className={cn("shrink-0", tone.disc)} />
-      ) : (
-        <span
-          aria-hidden="true"
-          className={cn(
-            "flex size-[26px] shrink-0 items-center justify-center rounded-full bg-white/85",
-            "shadow-[0_1px_2px_0_rgba(15,23,42,0.12)]",
-            tone.disc,
-          )}
-        >
-          <Icon size={14} />
-        </span>
-      )}
+      <span
+        aria-hidden="true"
+        className={cn(
+          "flex size-[26px] shrink-0 items-center justify-center rounded-full bg-white/85",
+          "shadow-[0_1px_2px_0_rgba(15,23,42,0.12)]",
+          tone.disc,
+        )}
+      >
+        <Icon size={14} />
+      </span>
 
       {/*
         Message and verb travel together: the CTA sits right after the
@@ -220,7 +216,7 @@ export function TopBanner({ banners, condensed = false }: TopBannerProps) {
       <p
         className={cn(
           "min-w-0 shrink truncate leading-[18px]",
-          condensed ? "text-[12px]" : "text-[13px]",
+          "text-[13px]",
         )}
       >
         <span className="font-semibold">{banner.lead}</span>
@@ -229,31 +225,18 @@ export function TopBanner({ banners, condensed = false }: TopBannerProps) {
       </p>
 
       {banner.cta ? (
-        condensed ? (
-          <button
-            type="button"
-            className={cn(
-              "motion-tap shrink-0 text-[12px] leading-none font-semibold underline underline-offset-2",
-              "hover:opacity-80 active:opacity-60",
-              tone.cta,
-            )}
-          >
-            {banner.cta}
-          </button>
-        ) : (
-          <button
-            type="button"
-            className={cn(
-              "motion-tap flex h-[27px] shrink-0 items-center rounded-[7px] bg-white px-[11px]",
-              "text-[12.5px] leading-none font-semibold",
-              "shadow-[0_1px_2px_0_rgba(15,23,42,0.12),inset_0_0_0_1px_rgba(15,23,42,0.06)]",
-              "hover:scale-[1.02] active:scale-[0.98]",
-              tone.cta,
-            )}
-          >
-            {banner.cta}
-          </button>
-        )
+        <button
+          type="button"
+          className={cn(
+            "motion-tap flex h-[27px] shrink-0 items-center rounded-[7px] bg-white px-[11px]",
+            "text-[12.5px] leading-none font-semibold",
+            "shadow-[0_1px_2px_0_rgba(15,23,42,0.12),inset_0_0_0_1px_rgba(15,23,42,0.06)]",
+            "hover:scale-[1.02] active:scale-[0.98]",
+            tone.cta,
+          )}
+        >
+          {banner.cta}
+        </button>
       ) : null}
 
       {/* Pushes the strip's management to the trailing edge, past the content. */}
