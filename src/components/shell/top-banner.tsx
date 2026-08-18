@@ -182,7 +182,16 @@ export function TopBanner({ banners, condensed = false }: TopBannerProps) {
     <div
       role="status"
       className={cn(
-        "flex w-full shrink-0 items-center gap-[10px] pr-[10px] pl-[14px]",
+        // Inset top, left and right and rounded to the shell radius, so the strip
+        // reads as a card on the page like the nav and the flyout rather than a
+        // bar welded to the window. No bottom margin: the plane's own content is
+        // already inset, which supplies the gap under it.
+        //
+        // `w-full` goes with it — 100% plus horizontal margins overflows. The
+        // banner is a flex-column child, so it stretches to the width minus its
+        // margins on its own.
+        "mx-[var(--shell-canvas-gap)] mt-[var(--shell-canvas-gap)] flex shrink-0",
+        "items-center gap-[10px] overflow-hidden rounded-[var(--shell-canvas-radius)] pr-[10px] pl-[14px]",
         condensed ? "h-[32px]" : "h-[44px]",
         tone.bar,
       )}
