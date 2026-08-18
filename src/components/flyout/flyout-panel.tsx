@@ -83,11 +83,17 @@ export function FlyoutPanel({
         // and contextual help clean out of sight. Whatever is in that slot is the
         // reason the panel is 360px wide; it should be the last thing to go, not the
         // first. So the title and the slot are pinned and only the list moves.
-        // Inset and rounded to match the nav card it docks against — a panel that
-        // ran the full page height overhung the card by the gap at both ends. Left
-        // stays flush rather than gapped: the pointer travels from a nav row into
-        // this panel, and a dead strip between them would close it on the way.
-        "absolute top-[var(--shell-canvas-gap)] bottom-[var(--shell-canvas-gap)] z-30 flex w-[360px] flex-col items-start overflow-hidden rounded-[var(--shell-canvas-radius)] bg-nav pt-[14px] pb-[16px] shadow-[var(--shell-canvas-shadow),inset_0_0_0_1px_var(--fly-border)] outline-none",
+        // Inset to match the nav card it docks against — a panel that ran the full
+        // page height overhung the card by the gap at both ends. Left stays flush
+        // rather than gapped: the pointer travels from a nav row into this panel,
+        // and a dead strip between them would close it on the way.
+        //
+        // Rounded on the right only, and no border on the left. Both are the same
+        // idea: this is the nav continuing, not a second card. A left radius would
+        // cut a notch out of the seam, and a left border would sit against the
+        // card's right border and read as one 2px line.
+        "absolute top-[var(--shell-canvas-gap)] bottom-[var(--shell-canvas-gap)] z-30 flex w-[360px] flex-col items-start overflow-hidden rounded-r-[var(--shell-canvas-radius)] bg-nav pt-[14px] pb-[16px] outline-none",
+        "shadow-[var(--shell-canvas-shadow),inset_0_1px_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border)]",
         // `left` animates too, so the panel follows the nav edge when the rail
         // collapses underneath an open panel instead of jumping.
         "motion-move",

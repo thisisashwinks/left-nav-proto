@@ -68,7 +68,12 @@ export function AppHeader({
       // separation. Only the token is dropped, so the crumb menu that reads
       // --hdr-bg stays a real panel.
       className={cn(
-        "flex h-[48px] w-full shrink-0 items-center justify-between px-[16px]",
+        // Padded to the canvas gap rather than a value of its own. The canvas is
+        // inset by that gap and the page inside it adds nothing, so matching it
+        // here lands the bar's content on exactly the canvas's left and right
+        // edges — which is what makes the Home glyph line up with the page title
+        // and the utilities line up with the table's right edge.
+        "flex h-[48px] w-full shrink-0 items-center justify-between px-[var(--shell-canvas-gap)]",
         surface === "filled"
           ? "bg-hdr shadow-[inset_0_-1px_0_0_var(--hdr-border)]"
           : "bg-transparent",

@@ -42,11 +42,10 @@ export function ProductPage({ product, childId, onChildChange }: ProductPageProp
   return (
     <div
       data-page-theme={effective.appTheme}
-      // No fill: the canvas paints nothing either, so content sits directly on
-      // the shell plane and the rows bring their own surface. 8px on the sides and
-      // nothing top or bottom — the canvas's own margin is the only vertical inset,
-      // so the page starts level with the header above it.
-      className="relative flex h-full min-h-0 flex-col gap-[14px] px-[8px]"
+      // No fill and no padding: the canvas paints nothing either, so content sits
+      // directly on the shell plane, the rows bring their own surface, and the
+      // canvas's own margin is the entire inset on every side.
+      className="relative flex h-full min-h-0 flex-col gap-[14px]"
     >
       <div className="flex shrink-0 items-center justify-between">
         <div className="flex flex-col items-start gap-[3px]">

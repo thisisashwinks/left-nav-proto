@@ -73,7 +73,7 @@ const EXPANDED_WIDTH = 272;
  * same amount and the plane reads as one continuous surface behind both.
  * Duplicated as a number because the flyout's dock position is computed in JS.
  */
-const NAV_FLOAT_GAP = 12;
+const NAV_FLOAT_GAP = 4;
 const COLLAPSED_WIDTH = 64;
 
 /** The 28px expand button + 4px rail gap that sit under the collapsed mark. */
@@ -618,7 +618,19 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       */}
       <div
         data-nav-theme={navTheme}
-        className="relative z-20 my-[var(--shell-canvas-gap)] ml-[var(--shell-canvas-gap)] flex min-h-0 self-stretch rounded-[var(--shell-canvas-radius)] bg-nav shadow-[var(--shell-canvas-shadow),inset_0_0_0_1px_var(--nav-border)]"
+        className={cn(
+          "relative z-20 my-[var(--shell-canvas-gap)] ml-[var(--shell-canvas-gap)] flex min-h-0 self-stretch bg-nav shadow-[var(--shell-canvas-shadow),inset_0_0_0_1px_var(--nav-border)]",
+          /*
+            The right corners square off while a panel is docked against them, so
+            the nav and the flyout read as one surface rather than two cards that
+            happen to touch. The flyout squares its left corners to match, and
+            omits its own left border, leaving this card's right edge as the single
+            hairline between them instead of two rings stacking into a 2px seam.
+          */
+          flyout.isMounted
+            ? "rounded-l-[var(--shell-canvas-radius)]"
+            : "rounded-[var(--shell-canvas-radius)]",
+        )}
       >
       {railActive ? (
         <>

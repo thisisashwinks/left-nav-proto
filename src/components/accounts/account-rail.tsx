@@ -135,11 +135,12 @@ export function AccountRail({
           // OVER the nav, where transparency would let the rows it covers show
           // straight through it.
           //
-          // Rounded and ringed on all four sides once it is that surface, matching
-          // the nav card and the flyout: it is a panel floating over the nav, and a
-          // single right-hand seam is the treatment for a column butted against
-          // something, which this no longer is. The hard directional shadow stays —
-          // that is what lifts it off the rows it covers.
+          // Rounded on all four corners once it is that surface. Its left edge is the
+          // chrome card's own edge and follows the card's radius; its right edge is
+          // rounded too, because this reads as a panel lifted OVER the nav rather
+          // than a section cut out of it — which is also what the hard directional
+          // shadow is saying. Deliberately unlike the flyout, whose left corners are
+          // square because it continues the nav rather than covering it.
           expanded || switcherOpen
             ? "rounded-[var(--shell-canvas-radius)] bg-nav-rail shadow-[inset_0_0_0_1px_var(--nav-border),16px_0_40px_-20px_rgba(15,23,42,0.45)]"
             : "bg-transparent",
