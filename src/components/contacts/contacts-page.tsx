@@ -164,11 +164,11 @@ export function ContactsPage() {
   return (
     <div
       data-page-theme={appTheme}
-      // Transparent, and inset by the canvas padding the layout spec asks for.
-      // No fill of its own: --pg-bg is the shell plane now, so painting it here
-      // put the page ground back over the white canvas and the canvas stopped
-      // reading as a surface at all.
-      className="relative flex h-full min-h-0 flex-col gap-[14px] p-[16px]"
+      // No fill: the canvas paints nothing either, so content sits directly on
+      // the shell plane and the rows bring their own surface. 8px on the sides and
+      // nothing top or bottom — the canvas's own margin is the only vertical inset,
+      // so the page starts level with the header above it.
+      className="relative flex h-full min-h-0 flex-col gap-[14px] px-[8px]"
     >
       <div className="flex shrink-0 items-center justify-between">
         <div className="flex flex-col items-start gap-[3px]">

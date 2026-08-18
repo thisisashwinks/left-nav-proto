@@ -829,7 +829,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               HighRise canvas spec asks for — that, plus sitting a step lighter
               than the plane, is what reads as floating.
             */}
-            <div className="m-[var(--shell-canvas-gap)] min-h-0 flex-1 overflow-auto rounded-[var(--shell-canvas-radius)] bg-pg-surface shadow-[inset_0_0_0_1px_var(--shell-canvas-ring)]">
+            <div className="m-[var(--shell-canvas-gap)] min-h-0 flex-1 overflow-auto rounded-[var(--shell-canvas-radius)] shadow-[inset_0_0_0_1px_var(--shell-canvas-ring)]">
               {selectedId === "agency-sub-accounts" ? (
                 customizeAccount ? (
                   <SubAccountPage
