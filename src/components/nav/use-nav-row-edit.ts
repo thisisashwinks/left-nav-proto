@@ -19,21 +19,25 @@ type IconPickerProps = React.ComponentProps<typeof IconPicker>;
  * Which row is being renamed is local state, not store state: it is a transient
  * UI mode, and putting it in the store would mean a rename started in the nav
  * appeared to also be in progress in the launcher.
+ *
+ * Editing is gated on permission, not on a mode. It used to sit behind an
+ * "edit mode" switch, which meant the affordance the Aug 18 review actually asked
+ * for — hover a row, get a pencil, rename it there — was invisible unless someone
+ * had found a toggle on a prototype panel first. `state.editing` survives as a
+ * forcing switch that pins every pencil open, which is useful for photographing
+ * the affordance and for nothing else.
  */
 export function useNavRowEdit(picker: IconPickerHandle) {
   const layout = useNavLayout();
   const { state, groups, can } = layout;
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
 
-  // Leaving edit mode ends any rename in flight. Derived rather than cleared in
-  // an effect: masking the stale id is one expression, and an effect that calls
-  // setState during render is both a lint error and a wasted second pass.
-  const activeRenamingId = state.editing ? renamingId : null;
-
   const editFor = (itemId: string): NavRowEdit | null => {
-    if (!state.editing) return null;
+    // Renaming is the personalization layer, so every role has it — but ask
+    // rather than assume, so a role that loses it loses the pencil with it.
+    if (!can.renameForSelf) return null;
     const target = editTargetFor(state, groups, itemId);
-    // Chrome — Recent, AI Agents, Settings, the workspace links. Those are
+    // Chrome — Recent, AI Agents, Settings, custom links. Those are
     // product decisions, not the account's, so they are not renameable here.
     if (!target) return null;
 
@@ -44,7 +48,8 @@ export function useNavRowEdit(picker: IconPickerHandle) {
       : layout.isProductRenamed(id);
 
     return {
-      renaming: activeRenamingId === itemId,
+      renaming: renamingId === itemId,
+      pinned: state.editing,
       onStartRename: () => setRenamingId(itemId),
       onCommitRename: (next) => {
         if (isGroup) layout.setLabel(id, next);
@@ -52,9 +57,8 @@ export function useNavRowEdit(picker: IconPickerHandle) {
         setRenamingId(null);
       },
       onCancelRename: () => setRenamingId(null),
-      // Renaming is the personalization layer, so every role gets it — at
-      // account scope for a user, at whichever scope is selected above that.
-      // Icons are governance, so they follow the regroup permission.
+      // Renames land at account scope for a user, and at whichever scope is
+      // selected above that. Icons are governance, so they follow regroup.
       ...(can.regroup
         ? { onPickIcon: (trigger: HTMLElement) => picker.open(id, trigger) }
         : {}),

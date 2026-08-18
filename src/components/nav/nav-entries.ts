@@ -1,4 +1,4 @@
-import { CreditCard, Link2, Smartphone } from "lucide-react";
+import { Link2 } from "lucide-react";
 import {
   iconForProduct,
   labelForProduct,
@@ -8,23 +8,6 @@ import {
   type ResolvedGroup,
 } from "./grouping";
 import type { NavEntry, NavItem } from "./types";
-
-/**
- * The workspace links that sit below the product block in left-nav.pen.
- *
- * Kept out of the grouping entirely. They are shortcuts to places that already
- * live inside a group — the research's "cross-cutting entities" question, whose
- * working answer is one canonical destination plus contextual surfacing — so
- * they are pinned chrome rather than another view of the catalogue. Flat mode
- * drops them, because there they would be the same row twice.
- *
- * Each one names a product, so an account that never bought it gets no
- * shortcut: a barbershop with no mobile app should not carry a row to it.
- */
-const WORKSPACE_LINKS: (NavItem & { productId: string })[] = [
-  { id: "mobile-app-link", productId: "mobile-app", label: "Mobile App", icon: Smartphone },
-  { id: "payments-link", productId: "payments", label: "Payments", icon: CreditCard },
-];
 
 /**
  * The custom links the volume switch piles on.
@@ -106,10 +89,6 @@ export function navEntriesFor(
           { kind: "divider", id: "div-custom" },
         ];
 
-  const workspaceLinks = WORKSPACE_LINKS.filter((link) =>
-    state.enabledProducts.includes(link.productId),
-  );
-
   const productRow = (id: string): NavEntry => ({
     kind: "item",
     item: {
@@ -157,8 +136,6 @@ export function navEntriesFor(
     ),
     ...loose.map(productRow),
     { kind: "divider", id: "div-groups" },
-    ...workspaceLinks.map((item): NavEntry => ({ kind: "item", item })),
-    { kind: "divider", id: "div-workspace" },
     ...extraEntries,
   ];
 }

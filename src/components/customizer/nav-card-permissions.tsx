@@ -4,7 +4,8 @@ import { Check, Minus } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
 import type { LabelScope, NavLayoutState } from "@/components/nav/grouping";
 import { LABEL_MAX, useNavLayout } from "@/components/nav/nav-layout-provider";
-import { Card, Seg, SettingRow, Switch } from "./controls";
+import { Card, Seg, Switch } from "./controls";
+import { GatedRow } from "./gated";
 import { useCustomizerProfiles } from "./customizer-profiles";
 
 interface MatrixRow {
@@ -19,7 +20,7 @@ const MATRIX: MatrixRow[] = [
   { label: "Pin and reorder favourites", desc: "Their own dock only — never governed.", user: "yes", admin: "yes" },
   { label: "Rename for themselves", desc: "Personal labels nobody else sees.", user: "policy", admin: "yes" },
   { label: "Rename for the whole account", desc: "Writes the override every user sees.", user: "no", admin: "policy" },
-  { label: "Change grouping and icons", desc: "Jobs, product, flat or custom; icon swaps.", user: "no", admin: "policy" },
+  { label: "Change grouping and icons", desc: "Areas, jobs, product, flat or custom; icon swaps.", user: "no", admin: "policy" },
   { label: "Build custom groups", desc: "Their own tree, seeded from the mode they left.", user: "no", admin: "policy" },
   { label: "Add custom links", desc: "Still gated by the link rules.", user: "no", admin: "policy" },
 ];
@@ -91,17 +92,30 @@ export function NavPermissionsCard({ account }: { account: Account }) {
       </Card>
 
       <Card title="Rename scope" sub={`Where a rename made in the nav lands. Labels cap at ${LABEL_MAX} characters either way.`}>
-        <SettingRow label="Renames apply to" desc="Every account writes the default all your accounts inherit." last>
-          <Seg<LabelScope>
-            label="Rename scope"
-            options={["account", "agency"]}
-            value={state.labelScope}
-            onChange={(scope) =>
-              patchLayout((s) => (s.labelScope === scope ? s : { ...s, labelScope: scope }))
-            }
-            format={(v) => (v === "account" ? "This account" : "Every account")}
-          />
-        </SettingRow>
+        <GatedRow
+          cap="renameAllAccounts"
+          accountId={account.id}
+          label="Renames apply to"
+          desc="All accounts writes the default every account inherits — and an account override still wins over it, so one client can keep its own word for something."
+          last
+        >
+          {(locked) => (
+            <Seg<LabelScope>
+              label="Rename scope"
+              /*
+                Locked collapses to one option rather than showing a disabled
+                second one: a single option reads as a statement of where renames
+                land, where a greyed-out choice beside it reads as a tease.
+              */
+              options={locked ? ["account"] : ["account", "agency"]}
+              value={locked ? "account" : state.labelScope}
+              onChange={(scope) =>
+                patchLayout((s) => (s.labelScope === scope ? s : { ...s, labelScope: scope }))
+              }
+              format={(v) => (v === "account" ? "This account only" : "All accounts")}
+            />
+          )}
+        </GatedRow>
       </Card>
     </>
   );

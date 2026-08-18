@@ -8,11 +8,14 @@ import { EditAffordance, InlineRename } from "./inline-rename";
 import type { NavItem } from "./types";
 
 /**
- * What editing this row offers. Absent when edit mode is off or the role has no
- * permission, which is what keeps the read-only row exactly as it was designed.
+ * What editing this row offers. Absent when the role has no permission to rename
+ * this row, or when the row is chrome rather than a group or a product — which is
+ * what keeps a read-only row exactly as it was designed.
  */
 export interface NavRowEdit {
   renaming: boolean;
+  /** Show the pencil without a hover. The prototype panel's forcing switch. */
+  pinned?: boolean;
   onStartRename: () => void;
   onCommitRename: (next: string) => void;
   onCancelRename: () => void;
@@ -148,13 +151,18 @@ export function NavItemRow({
 
       {!edit.renaming ? (
         <>
-          <EditAffordance label={`Rename ${item.label}`} onClick={edit.onStartRename}>
+          <EditAffordance
+            label={`Rename ${item.label}`}
+            onClick={edit.onStartRename}
+            pinned={edit.pinned ?? false}
+          >
             <Pencil size={11} aria-hidden="true" />
           </EditAffordance>
           {edit.onReset ? (
             <EditAffordance
               label={`Reset ${item.label} to the shipped name`}
               onClick={edit.onReset}
+              pinned={edit.pinned ?? false}
             >
               <RotateCcw size={11} aria-hidden="true" />
             </EditAffordance>

@@ -51,7 +51,7 @@ export interface NavConfig {
    */
   railFixed: NavItem[];
   /**
-   * The scrolling middle — the product groups and workspace links — is derived
+   * The scrolling middle — the product groups and any custom links — is derived
    * from the active grouping mode rather than authored here. See nav-entries.ts.
    */
   /** Last row in the scroll region, not a pinned footer. */

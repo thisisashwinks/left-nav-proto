@@ -76,6 +76,16 @@ export interface CatalogueProduct {
   groupId: string;
   /** Outcome grouping — the job the user came here to get done. */
   jobId: string;
+  /**
+   * Area grouping — the tree a new account gets.
+   *
+   * Typed as `SuiteId` rather than `string` on purpose. This mode has no
+   * `UNGROUPED_ID` fallback, so a product carrying a typo'd area would vanish
+   * from the nav, the launcher and the breadcrumbs with no error anywhere. The
+   * literal type turns that into a compile error, and makes a *missing* areaId
+   * one too.
+   */
+  suiteId: SuiteId;
   /** One line of what it is. Feeds the flyout rows for generated panels. */
   blurb: string;
   /** L2 sub-places, rendered as a nested dropdown under the product row. */
@@ -107,6 +117,43 @@ export const catalogueJobs: CatalogueGroup[] = [
   { id: "job-measure", defaultLabel: "See how it's going", icon: ChartLine },
 ];
 
+/**
+ * The same catalogue grouped by product area — the tree that ships as default.
+ *
+ * Locked in the Aug 18 review: HubSpot's grouping becomes HighLevel's default.
+ * Roughly 5–7% of users arrive from HubSpot and it is a stated competitive
+ * target, but the real argument was humility — nobody in the room claimed to be
+ * the expert on ideal grouping, so ship a tree the market has already validated,
+ * let accounts switch away from it, and revisit on real usage data in ~6 months.
+ *
+ * Order is HubSpot's own. Their "Data management" and "Development" areas are
+ * deliberately absent: HighLevel ships nothing that maps to imports/objects/data
+ * quality or to private apps, and a group no product references would be dropped
+ * by `populated()` for every account forever — declared but unreachable data. The
+ * cost of that omission is `mobile-app`, which HubSpot would file under connected
+ * apps and which lands in CRM here: the same records, on a phone. It is the
+ * weakest of the 31 assignments and the first to revisit.
+ */
+export const catalogueSuites = [
+  { id: "suite-crm", defaultLabel: "CRM", icon: Users },
+  { id: "suite-marketing", defaultLabel: "Marketing", icon: Megaphone },
+  { id: "suite-content", defaultLabel: "Content", icon: LayoutTemplate },
+  { id: "suite-sales", defaultLabel: "Sales", icon: Handshake },
+  { id: "suite-revenue", defaultLabel: "Revenue", icon: CreditCard },
+  { id: "suite-agents", defaultLabel: "Agents", icon: Bot },
+  { id: "suite-automation", defaultLabel: "Automation", icon: Workflow },
+  { id: "suite-reporting", defaultLabel: "Reporting", icon: ChartLine },
+] as const satisfies readonly CatalogueGroup[];
+
+/**
+ * The area ids, derived from the array rather than written twice.
+ *
+ * Ids are prefixed `suite-` for the same reason jobs are prefixed `job-`: all
+ * three trees are flattened into one lookup in grouping.ts, and a collision
+ * there would silently shadow a group's label and icon in *every* mode.
+ */
+export type SuiteId = (typeof catalogueSuites)[number]["id"];
+
 export const catalogue: CatalogueProduct[] = [
   /* ---- Talk to customers ---- */
   {
@@ -115,6 +162,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: MessageCircle,
     groupId: "engage",
     jobId: "job-talk",
+    suiteId: "suite-crm",
     blurb: "Unified inbox — SMS, email, chat and social in one place.",
     // Manual Actions is a queue inside the inbox, not a place (Mapping row 8).
   },
@@ -124,6 +172,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Users,
     groupId: "engage",
     jobId: "job-talk",
+    suiteId: "suite-crm",
     blurb: "People and smart lists.",
     // Bulk Actions → in-page control; Custom Fields → Settings (Mapping 3–4).
   },
@@ -133,6 +182,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Building2,
     groupId: "engage",
     jobId: "job-talk",
+    suiteId: "suite-crm",
     blurb: "The businesses your contacts belong to.",
     // Varun (Jul 31): a parent-level object, beside Contacts — not a tab.
   },
@@ -142,6 +192,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: ListTodo,
     groupId: "engage",
     jobId: "job-talk",
+    suiteId: "suite-crm",
     blurb: "Work to do — yours and the team's.",
     // Outgrown its Contacts tab; own destination (new release incoming).
   },
@@ -151,6 +202,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Calendar,
     groupId: "engage",
     jobId: "job-talk",
+    suiteId: "suite-sales",
     blurb: "Scheduling, availability and appointments.",
     // Calendar vs list = a view toggle inside; settings live in Settings.
   },
@@ -160,6 +212,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Video,
     groupId: "engage",
     jobId: "job-talk",
+    suiteId: "suite-crm",
     blurb: "Online meetings and collaboration.",
   },
   {
@@ -168,6 +221,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Smartphone,
     groupId: "engage",
     jobId: "job-talk",
+    suiteId: "suite-crm",
     blurb: "Take the workspace with you on iOS and Android.",
   },
 
@@ -178,6 +232,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Share2,
     groupId: "market",
     jobId: "job-attract",
+    suiteId: "suite-marketing",
     blurb: "Plan and post across every social channel.",
     // Pulled out of Marketing's tab pile — a distinct daily job (Mapping 28).
   },
@@ -187,6 +242,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Mail,
     groupId: "market",
     jobId: "job-attract",
+    suiteId: "suite-marketing",
     blurb: "Broadcasts, sequences and deliverability.",
   },
   {
@@ -195,6 +251,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: LayoutTemplate,
     groupId: "market",
     jobId: "job-attract",
+    suiteId: "suite-content",
     blurb: "Landing pages, funnels and forms.",
     children: [
       { id: "sites-funnels", label: "Funnels" },
@@ -213,6 +270,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Ticket,
     groupId: "market",
     jobId: "job-attract",
+    suiteId: "suite-marketing",
     blurb: "Ticketing, registration and check-in.",
   },
   {
@@ -221,6 +279,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Presentation,
     groupId: "market",
     jobId: "job-attract",
+    suiteId: "suite-marketing",
     blurb: "Host, register and replay webinars.",
     // Its own product beside Events, not inside it (Aug 13 correction).
   },
@@ -230,6 +289,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Star,
     groupId: "market",
     jobId: "job-attract",
+    suiteId: "suite-marketing",
     blurb: "Reviews, ratings and business listings.",
     children: [
       { id: "reputation-requests", label: "Requests" },
@@ -245,6 +305,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Handshake,
     groupId: "market",
     jobId: "job-attract",
+    suiteId: "suite-marketing",
     blurb: "Campaigns, partners and payouts.",
     children: [
       { id: "affiliate-campaigns", label: "Campaigns" },
@@ -261,6 +322,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: BadgeDollarSign,
     groupId: "market",
     jobId: "job-attract",
+    suiteId: "suite-marketing",
     blurb: "Google, Meta and LinkedIn ads in one place.",
   },
   {
@@ -269,6 +331,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Radar,
     groupId: "market",
     jobId: "job-attract",
+    suiteId: "suite-sales",
     blurb: "Score and pitch the accounts you want.",
     // Its Settings/Analytics tabs map to Settings and Reporting.
   },
@@ -278,6 +341,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: FileText,
     groupId: "market",
     jobId: "job-attract",
+    suiteId: "suite-content",
     blurb: "Snippets, email, invoice and document templates — one home.",
     children: [
       { id: "templates-snippets", label: "Snippets" },
@@ -296,6 +360,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Target,
     groupId: "convert",
     jobId: "job-paid",
+    suiteId: "suite-sales",
     blurb: "Pipelines, stages and deal value.",
     // Forecast → Reporting; Pipelines config → Settings; Bulk Actions →
     // in-page (the live app grew these four tabs after the Aug 4 crawl).
@@ -306,6 +371,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Receipt,
     groupId: "convert",
     jobId: "job-paid",
+    suiteId: "suite-revenue",
     blurb: "Bill customers and chase what is owed.",
     children: [
       { id: "invoices-all", label: "All invoices" },
@@ -320,6 +386,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: FileSignature,
     groupId: "convert",
     jobId: "job-paid",
+    suiteId: "suite-sales",
     blurb: "Proposals and contracts, signed online.",
     // L1 vs L2-under-Invoices is an open tree test (Mapping 18).
   },
@@ -329,6 +396,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: CreditCard,
     groupId: "convert",
     jobId: "job-paid",
+    suiteId: "suite-revenue",
     blurb: "Orders, transactions and payment links.",
     children: [
       { id: "payments-orders", label: "Orders" },
@@ -343,6 +411,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Repeat,
     groupId: "convert",
     jobId: "job-paid",
+    suiteId: "suite-revenue",
     blurb: "Recurring plans, trials and dunning.",
   },
   {
@@ -351,6 +420,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Package,
     groupId: "convert",
     jobId: "job-paid",
+    suiteId: "suite-revenue",
     blurb: "Your catalogue, pricing and inventory.",
     children: [
       { id: "products-collections", label: "Collections" },
@@ -366,6 +436,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: ShoppingCart,
     groupId: "market",
     jobId: "job-paid",
+    suiteId: "suite-revenue",
     blurb: "Sell online with a hosted storefront.",
     // Out of the Sites tab pile — selling is a money job (Mapping 42, T4).
   },
@@ -375,6 +446,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Globe,
     groupId: "market",
     jobId: "job-paid",
+    suiteId: "suite-content",
     blurb: "Courses, communities and gated content.",
     children: [
       { id: "memberships-courses", label: "Courses" },
@@ -394,6 +466,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Workflow,
     groupId: "automate",
     jobId: "job-autopilot",
+    suiteId: "suite-automation",
     blurb: "Workflows, triggers and handoffs.",
     children: [
       { id: "automation-workflows", label: "Workflows" },
@@ -409,6 +482,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Bot,
     groupId: "automate",
     jobId: "job-autopilot",
+    suiteId: "suite-agents",
     blurb: "Agents that reply, qualify and book for you.",
     children: [
       { id: "ai-voice", label: "Voice AI" },
@@ -425,6 +499,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Sparkles,
     groupId: "automate",
     jobId: "job-autopilot",
+    suiteId: "suite-agents",
     blurb: "Build and tune your own agents.",
     // The strategic bet — named, time-boxed T6 exception (Mapping 63).
   },
@@ -434,6 +509,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Boxes,
     groupId: "automate",
     jobId: "job-autopilot",
+    suiteId: "suite-agents",
     blurb: "Prebuilt agents you can clone and tune.",
   },
 
@@ -444,6 +520,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: ChartLine,
     groupId: "analyze",
     jobId: "job-measure",
+    suiteId: "suite-reporting",
     blurb: "Every product's numbers, in one place.",
     children: [
       { id: "reporting-attribution", label: "Attribution" },
@@ -465,6 +542,7 @@ export const catalogue: CatalogueProduct[] = [
     icon: Gauge,
     groupId: "analyze",
     jobId: "job-measure",
+    suiteId: "suite-reporting",
     blurb: "Live widgets across every product.",
   },
 ];

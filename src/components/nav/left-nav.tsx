@@ -9,6 +9,7 @@ import { useScrollEdges } from "@/lib/use-scroll-edges";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import type { DockPosition, SurfaceTheme } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
+import { usePlanFor } from "@/components/customizer/customizer-profiles";
 import { agencyEntries, agencySettings } from "./agency-config";
 import { CollapseToggle } from "./collapse-toggle";
 import { EntryCluster, EntryPill } from "./entry-cluster";
@@ -77,7 +78,7 @@ interface LeftNavProps {
  * Restructured from "Screen A · Nav open + Contacts" per the nav review: the
  * standing entry points (Recent, AI Agents, Quick Actions) sit in a fixed
  * cluster under the favourites dock so they never scroll away, the product
- * groups and workspace links scroll below, and Settings is the last scrollable
+ * groups and custom links scroll below, and Settings is the last scrollable
  * row rather than a pinned footer — which frees the bottom edge for the AI dock.
  *
  * The middle block is derived from the active grouping mode rather than authored,
@@ -112,10 +113,23 @@ export function LeftNav({
   onOpenLauncher,
   recentsBudget,
 }: LeftNavProps) {
-  const { entryLayout, dockPosition, launchpad } = useTheme().effective;
+  const {
+    entryLayout,
+    dockPosition,
+    launchpad: launchpadSetting,
+  } = useTheme().effective;
   const topEntry = entryLayout === "top";
   const atFloor = density === "floor";
   const agencyScope = scope === "agency";
+  /*
+   * The base plan has no setup-guide toggle: the row is always visible there. So
+   * the plan substitutes for the setting rather than the customizer merely
+   * showing a locked switch — the tiering is a property of the nav, not a claim
+   * on a settings page. Owner key matches the shell's, so a switch moves this
+   * with everything else.
+   */
+  const { has } = usePlanFor(agencyScope ? "agency" : account.id);
+  const launchpad = has("launchpadToggle") ? launchpadSetting : true;
   const picker = useIconPicker();
   const { state, groups, editFor, pickerProps } = useNavRowEdit(picker);
   // At agency scope the middle block is the agency's own config — the grouping

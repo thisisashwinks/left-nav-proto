@@ -35,6 +35,7 @@ import {
   type SurfaceTheme,
   type Tint,
 } from "@/design/theme";
+import { PLAN_PRICES, PLAN_TIERS } from "@/design/plans";
 import {
   TUNING_DEFAULTS,
   TUNING_GROUPS,
@@ -57,6 +58,7 @@ import {
   type Density,
   type NavRole,
 } from "@/components/nav/grouping";
+import { useCustomizerProfiles } from "@/components/customizer/customizer-profiles";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { cn } from "@/lib/utils";
 import { useTuning } from "./tuning-provider";
@@ -71,6 +73,18 @@ const ROLE_NOTE: Record<NavRole, string> = {
   user: "Pins, their order, and labels only this user sees. No structure.",
   admin: "Also grouping, group order, icons, and names for the sub-account.",
   agency: "Also custom groups, and names that every sub-account inherits.",
+};
+
+/** "Per account" plus the three tiers — the plan switch's four positions. */
+const PLAN_CHOICES = ["seeded", ...PLAN_TIERS] as const;
+
+type PlanChoice = (typeof PLAN_CHOICES)[number];
+
+const PLAN_CHOICE_LABELS: Record<PlanChoice, string> = {
+  seeded: "Per account",
+  starter: PLAN_PRICES.starter,
+  pro: PLAN_PRICES.pro,
+  elite: PLAN_PRICES.elite,
 };
 
 /**
@@ -105,6 +119,7 @@ function NavStructureSection({
   // nav in front of you, and this panel is read while switching between a
   // four-product barbershop and a thirty-product retail chain.
   const density = densityFor(state.enabledProducts.length);
+  const { demoPlan, setDemoPlan } = useCustomizerProfiles();
 
   // Compared against the store's own defaults rather than hardcoded values — the
   // default grouping moved to `job`, and a literal here silently claimed the
@@ -114,6 +129,7 @@ function NavStructureSection({
     (state.navVolume === DEFAULT_LAYOUT.navVolume ? 0 : 1) +
     (scopeModel === DEFAULT_THEME.scopeModel ? 0 : 1) +
     (layout.isDefaultLayout ? 0 : 1) +
+    (demoPlan === null ? 0 : 1) +
     (state.editing ? 1 : 0);
 
   return (
@@ -124,6 +140,21 @@ function NavStructureSection({
       changedCount={changed}
       onReset={layout.resetLayout}
     >
+      <Segmented
+        label="Plan"
+        options={PLAN_CHOICES}
+        value={demoPlan ?? "seeded"}
+        onChange={(v: PlanChoice) =>
+          setDemoPlan(v === "seeded" ? null : v)
+        }
+        format={(v) => PLAN_CHOICE_LABELS[v]}
+      />
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        {demoPlan === null
+          ? "Each account on the plan it is seeded with, so the sub-account list shows a real spread."
+          : `Every account forced onto ${PLAN_PRICES[demoPlan]}, to read the customizer as that agency sees it.`}
+      </p>
+
       <Segmented
         label="Agency ↔ sub-account"
         options={SCOPE_MODELS}
@@ -225,14 +256,16 @@ function NavStructureSection({
       </p>
 
       <Toggle
-        label="Edit mode in the nav"
+        label="Keep every pencil visible"
         checked={state.editing}
         disabled={!can.regroup && !can.renameForSelf}
         onChange={layout.setEditing}
       />
       <p className="text-[10px] leading-[14px] text-pg-faint">
-        Hover a group row in the nav to rename it or change its icon. Structure —
-        new groups, reordering, moving products — lives in the grid launcher.
+        Renaming needs no mode: hover any group row in the nav and the pencil is
+        there, for every role that may rename. This pins them all open instead,
+        for screenshots. Structure — new groups, reordering, moving products —
+        lives in the grid launcher.
       </p>
 
       <p className="text-[10px] leading-[14px] text-pg-faint">

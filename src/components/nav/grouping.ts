@@ -4,6 +4,7 @@ import {
   catalogue,
   catalogueGroups,
   catalogueJobs,
+  catalogueSuites,
   DEFAULT_PINNED,
   productById,
   type CatalogueGroup,
@@ -14,9 +15,14 @@ import { iconByName, nameForIcon } from "./icon-catalogue";
 /**
  * How the nav's middle section is organized.
  *
- * The four modes are the four answers to the first question in the nav research
- * — "what is the rail *for*?" — rather than four cosmetic layouts:
+ * The five modes are five answers to the first question in the nav research
+ * — "what is the rail *for*?" — rather than five cosmetic layouts:
  *
+ *  default  Grouped by product area: CRM, Marketing, Content, Sales, Revenue,
+ *           Agents, Automation, Reporting. The tree new accounts get, locked in
+ *           the Aug 18 review — HubSpot's shape, chosen because the market has
+ *           already validated it and nobody in the room claimed to be the expert
+ *           on ideal grouping. Revisit on usage data, not on taste.
  *  product  Grouped by SKU: Engage, Convert, Market, Automate, Analyze. What we
  *           ship today. The Console/Catalog archetype — "a grouped shelf of
  *           products I've provisioned."
@@ -30,14 +36,17 @@ import { iconByName, nameForIcon } from "./icon-catalogue";
  *  custom   The user's own groups. The third controller the research says the
  *           field has and we lack.
  *
- * The first three are views of one catalogue — every product carries both a
- * groupId and a jobId — so switching is lossless. Custom is a real tree, seeded
+ * The first four are views of one catalogue — every product carries a groupId, a
+ * jobId and a suiteId — so switching is lossless. Custom is a real tree, seeded
  * from whichever mode was showing when the user switched, so "start over"
  * never means "start from nothing".
  */
-export type GroupingMode = "product" | "job" | "flat" | "custom";
+export type GroupingMode = "default" | "product" | "job" | "flat" | "custom";
 
+// Default first, as everywhere else in this codebase — the order here is the
+// order of both the picker grid and the prototype panel's segmented control.
 export const GROUPING_MODES: readonly GroupingMode[] = [
+  "default",
   "product",
   "job",
   "flat",
@@ -45,6 +54,7 @@ export const GROUPING_MODES: readonly GroupingMode[] = [
 ] as const;
 
 export const GROUPING_LABELS: Record<GroupingMode, string> = {
+  default: "Default",
   product: "Product",
   job: "Jobs",
   flat: "Flat",
@@ -52,6 +62,8 @@ export const GROUPING_LABELS: Record<GroupingMode, string> = {
 };
 
 export const GROUPING_BLURBS: Record<GroupingMode, string> = {
+  default:
+    "Grouped by area — CRM, marketing, sales, revenue. What new accounts get.",
   product: "Grouped by SKU — what ships today.",
   job: "Grouped by outcome. Tenet 4, validated by HubSpot.",
   flat: "No groups. Every product a row, search for the tail.",
@@ -202,11 +214,12 @@ export const DEFAULT_LAYOUT: NavLayoutState = {
   enabledProducts: catalogue.map((p) => p.id),
   customLinks: [],
   pinned: DEFAULT_PINNED,
-  // Jobs by default. The research calls this the right organizing unit and the
-  // highest-risk change — "group by the user's job, not by team or SKU" — so the
-  // prototype should open on the proposal, not on the thing being replaced. Product
-  // groups are one click away for the comparison.
-  grouping: "job",
+  // Areas by default, per the Aug 18 review: ship the tree the market has already
+  // validated, and let usage data rather than taste decide whether it stays. Jobs
+  // — which the research argued for and which this prototype opened on until now
+  // — is one click away, and four sub-accounts are still seeded onto it so the
+  // comparison has real tenants behind it rather than a switch on a panel.
+  grouping: "default",
   agencyLabels: {},
   accountLabels: {},
   agencyProductLabels: {},
@@ -219,6 +232,17 @@ export const DEFAULT_LAYOUT: NavLayoutState = {
   editing: false,
   navVolume: "default",
 };
+
+/**
+ * Modes that draw real headings.
+ *
+ * Flat has none by definition and custom is the user's own, so anything that
+ * needs "a shipped tree worth copying" asks here rather than listing the modes
+ * inline — a list that silently went stale the moment a fifth mode arrived.
+ */
+export function isGroupedMode(mode: GroupingMode): boolean {
+  return mode === "default" || mode === "product" || mode === "job";
+}
 
 /** A group as the nav should render it, after grouping mode and overrides. */
 export interface ResolvedGroup {
@@ -234,7 +258,10 @@ export interface ResolvedGroup {
 }
 
 const SHIPPED_GROUPS = new Map<string, CatalogueGroup>(
-  [...catalogueGroups, ...catalogueJobs].map((g) => [g.id, g]),
+  [...catalogueGroups, ...catalogueJobs, ...catalogueSuites].map((g) => [
+    g.id,
+    g,
+  ]),
 );
 
 /** The single flat pseudo-group. Flat mode has no headings, but surfaces that
@@ -445,6 +472,19 @@ export function resolveGroups(state: NavLayoutState): ResolvedGroup[] {
     groups.filter((g) => g.productIds.length > 0);
 
   switch (state.grouping) {
+    case "default": {
+      const ids = applyOrder(
+        state.groupOrder.default,
+        catalogueSuites.map((g) => g.id),
+      );
+      return populated(
+        build(
+          ids,
+          (id) => catalogue.filter((p) => p.suiteId === id).map((p) => p.id),
+          false,
+        ),
+      );
+    }
     case "product": {
       const ids = applyOrder(
         state.groupOrder.product,
@@ -527,7 +567,9 @@ export function seedCustomGroups(state: NavLayoutState): CustomGroup[] {
   // Only a grouped mode is worth copying. Seeding from flat produces exactly one
   // group holding all 23 products, which is not a starting point for building
   // groups — it is the absence of them.
-  const source: GroupingMode = state.grouping === "job" ? "job" : "product";
+  const source: GroupingMode = isGroupedMode(state.grouping)
+    ? state.grouping
+    : "default";
   const groups = resolveGroups({ ...state, grouping: source });
   return groups.map((g) => ({
     id: `custom-${g.id}`,

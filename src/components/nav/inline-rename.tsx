@@ -104,11 +104,18 @@ export function EditAffordance({
   onClick,
   children,
   className,
+  pinned = false,
 }: {
   label: string;
   onClick: () => void;
   children: React.ReactNode;
   className?: string;
+  /**
+   * Show without waiting for a hover. Off by default — a nav that shows a pencil
+   * on every row reads as an editor, and this one is a nav that happens to be
+   * editable. The prototype panel turns it on to photograph the affordance.
+   */
+  pinned?: boolean;
 }) {
   return (
     <button
@@ -122,8 +129,10 @@ export function EditAffordance({
       }}
       className={cn(
         "motion-tap flex size-[20px] shrink-0 items-center justify-center rounded-[5px]",
-        "text-nav-fg-subtle opacity-0 hover:bg-nav-hover hover:text-nav-fg",
-        "group-hover/row:opacity-100 focus-visible:opacity-100",
+        "text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg",
+        pinned
+          ? "opacity-100"
+          : "opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100",
         className,
       )}
     >

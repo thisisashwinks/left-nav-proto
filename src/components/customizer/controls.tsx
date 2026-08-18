@@ -162,21 +162,35 @@ export function Seg<T extends string>({
   onChange,
   format,
   label,
+  disabled = false,
 }: {
   options: readonly T[];
   value: T;
   onChange: (v: T) => void;
   format?: (v: T) => string;
   label: string;
+  disabled?: boolean;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="flex rounded-[8px] bg-pg-bg p-[2px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className={cn(
+        "flex rounded-[8px] bg-pg-bg p-[2px] shadow-[inset_0_0_0_1px_var(--pg-border)]",
+        // Matches Switch and Stepper, the two controls that already had this.
+        disabled && "opacity-45",
+      )}
+    >
       {options.map((opt) => (
         <button
           key={opt}
           type="button"
           role="radio"
           aria-checked={opt === value}
+          // Really disabled, not `pointer-events-none` on a wrapper: a focusable
+          // button behind that class is still tab-reachable and Enter-activatable,
+          // so a keyboard user could change a locked setting.
+          disabled={disabled}
           onClick={() => onChange(opt)}
           className={cn(
             "motion-tap rounded-[6px] px-[10px] py-[5px] text-[12px] leading-none font-medium whitespace-nowrap",
@@ -195,7 +209,14 @@ export function Seg<T extends string>({
 const CHIP_TONES = {
   inherit: "bg-pg-bg text-pg-muted",
   overridden: "bg-[color-mix(in_oklab,var(--brand)_12%,transparent)] text-brand",
-  locked: "bg-pg-bg text-pg-muted",
+  /**
+   * Outlined and quiet — deliberately the faintest tone in the set, because it
+   * names something this account cannot have. It used to be byte-identical to
+   * `inherit`, which already means "this is the shipped default" two cards over;
+   * two meanings must not share one look.
+   */
+  locked:
+    "bg-transparent text-pg-faint shadow-[inset_0_0_0_1px_var(--pg-border)]",
   metered: "bg-[color-mix(in_oklab,var(--brand)_12%,transparent)] text-brand",
 } as const;
 
@@ -215,5 +236,43 @@ export function Chip({
     >
       {children}
     </span>
+  );
+}
+
+/**
+ * A monospace textarea, for the one setting whose value is code.
+ *
+ * Every autocorrect affordance is off: a browser that capitalises the first
+ * letter of a CSS selector or curls a quote produces a stylesheet that silently
+ * does nothing.
+ */
+export function CodeArea({
+  value,
+  onChange,
+  label,
+  placeholder,
+  disabled = false,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  label: string;
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      aria-label={label}
+      placeholder={placeholder}
+      disabled={disabled}
+      spellCheck={false}
+      autoCapitalize="off"
+      autoCorrect="off"
+      className={cn(
+        "min-h-[180px] w-full resize-y rounded-[8px] bg-pg-bg px-[11px] py-[9px] font-mono text-[12.5px] leading-[18px] text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] outline-none placeholder:text-pg-faint focus:shadow-[inset_0_0_0_1.5px_var(--brand)]",
+        disabled && "opacity-60",
+      )}
+    />
   );
 }

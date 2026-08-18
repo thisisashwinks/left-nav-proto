@@ -1,6 +1,7 @@
 "use client";
 
 import type { Account } from "@/components/accounts/accounts-data";
+import { NavCustomCssCard } from "./nav-card-custom-css";
 import { NavDensityCard } from "./nav-card-density";
 import { NavFavouritesCard } from "./nav-card-favourites";
 import { NavLayoutCard } from "./nav-card-layout";
@@ -18,6 +19,11 @@ import { PreviewPane } from "./preview-pane";
  * their own tabs — this tab does not restate them. Reading order runs from
  * what the nav contains, through what it looks like, to who may change it,
  * with the live nav on the right so every control has a visible consequence.
+ *
+ * What each card offers depends on the account's plan: the base tier gets a nav
+ * it can organise, name and theme, the middle tier adds the governance controls,
+ * and the top tier adds the CSS escape hatch at the bottom. Locked rows stay
+ * visible and readable — an agency should be able to see what the next tier buys.
  */
 export function NavigationTab({ account }: { account: Account }) {
   return (
@@ -32,6 +38,10 @@ export function NavigationTab({ account }: { account: Account }) {
         <NavLayoutCard account={account} />
         <NavDensityCard account={account} />
         <NavPermissionsCard account={account} />
+        {/* Last, because it loads last and overrides everything above it. Keyed
+            by account so the textarea's draft belongs to one account and never
+            follows the operator into the next one. */}
+        <NavCustomCssCard key={account.id} account={account} />
       </div>
 
       {/*

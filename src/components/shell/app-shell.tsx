@@ -35,6 +35,12 @@ import {
   SETTINGS_FLYOUT_ID,
 } from "@/components/nav/settings-config";
 import { childById, productById } from "@/components/nav/catalogue";
+import {
+  contactsAreaLabel,
+  ContactsAreaProvider,
+  CONTACTS_AREA_DEFAULT,
+  CONTACTS_AREA_PAGES,
+} from "@/components/contacts/contacts-area";
 import { ProductPage } from "@/components/product/product-page";
 import { flyoutForGroup } from "@/components/nav/group-flyout";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
@@ -42,6 +48,7 @@ import { PinnedLauncher } from "@/components/nav/pinned-launcher";
 import { UndoToast } from "@/components/nav/undo-toast";
 import { PINNED_VISIBLE } from "@/components/nav/favorites-morph";
 import { AccountsIndexPage } from "@/components/customizer/accounts-index";
+import { useCustomizerProfiles } from "@/components/customizer/customizer-profiles";
 import { SubAccountPage } from "@/components/customizer/subaccount-page";
 import { CommandPalette } from "@/components/search/command-palette";
 import { SearchFlyout } from "@/components/search/search-flyout";
@@ -86,6 +93,9 @@ const SWITCHER_EXIT_MS = 140;
  * it has its own component, so the generic panel must not claim it.
  */
 const LAUNCHER_ID = "launcher";
+
+/** The page-menu row for a product's landing view, which has no child id. */
+const OVERVIEW_CRUMB_ID = "__overview";
 
 /*
  * The menu expands FROM the trigger rather than dropping below it: its first
@@ -177,12 +187,14 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     productIconFor,
     setActiveAccount: setActiveNavAccount,
   } = useNavLayout();
+  const { setActiveAccount: setActiveCustomizerAccount } =
+    useCustomizerProfiles();
 
   /*
    * The panel behind each group row. Built here rather than looked up in the
-   * authored registry because three of the four grouping modes have no authored
-   * panels — a job group or a group the user just made needs one generated from
-   * the catalogue. Memoised because useExitTransition compares by identity, and a
+   * authored registry because four of the five grouping modes have no authored
+   * panels — an area group, a job group or a group the user just made needs one
+   * generated from the catalogue. Memoised because useExitTransition compares by identity, and a
    * fresh object every render would read as a new flyout on every render.
    */
   const groupFlyouts = React.useMemo(
@@ -225,9 +237,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     document.documentElement.style.setProperty("--account-brand", accountBrand);
   }, [accountBrand]);
 
-  // Whose saved look / density / nav layout the workspace wears. The
-  // agency's own profiles live under "agency"; every sub-account carries
-  // its own set. All three stores share one owner key so a switch never
+  // Whose saved look / density / nav layout / stylesheet the workspace wears.
+  // The agency's own profiles live under "agency"; every sub-account carries
+  // its own set. All four stores share one owner key so a switch never
   // leaves one surface on the previous account. Layout effect so the first
   // paint after a switch already wears the arriving account.
   const themeOwnerId = agencyScope ? "agency" : accounts.current.id;
@@ -235,11 +247,13 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     setActiveThemeAccount(themeOwnerId);
     setActiveTuningAccount(themeOwnerId);
     setActiveNavAccount(themeOwnerId);
+    setActiveCustomizerAccount(themeOwnerId);
   }, [
     themeOwnerId,
     setActiveThemeAccount,
     setActiveTuningAccount,
     setActiveNavAccount,
+    setActiveCustomizerAccount,
   ]);
 
   // Cmd/Ctrl-K opens search from anywhere, which is the whole point of the
@@ -418,6 +432,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const openProduct = React.useCallback((id: string) => {
     setProductPage(id === "contacts" ? null : { productId: id, childId: null });
   }, []);
+  /*
+   * The Contacts canvas's own page, held here rather than inside the page, so
+   * the trail's last crumb and the page title are one control in two places
+   * (Aug 18 ask): the tail of the breadcrumb IS the page header, so it clicks
+   * and drops down exactly as the header does.
+   */
+  const [contactsPageId, setContactsPageId] = React.useState(
+    CONTACTS_AREA_DEFAULT,
+  );
   const productCrumbs = React.useMemo((): (string | Crumb)[] => {
     const productId = productPage?.productId ?? "contacts";
     const childId = productPage?.childId ?? null;
@@ -446,22 +469,42 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       })),
       onSelect: openProduct,
     });
-    if (productId === "contacts") {
-      segments.push("Smart lists");
+    /*
+     * The last crumb mirrors the page title, dropdown and all. On the default
+     * Contacts canvas that is the area's page menu; inside a product it is the
+     * L2 page menu, including the landing view the title menu offers, so the
+     * tail can walk back out to it without a trip through the nav.
+     */
+    if (!productPage) {
+      segments.push({
+        label: contactsAreaLabel(contactsPageId),
+        options: CONTACTS_AREA_PAGES.map((page) => ({
+          id: page.id,
+          label: page.label,
+          selected: page.id === contactsPageId,
+        })),
+        onSelect: setContactsPageId,
+      });
     } else if (childId) {
       segments.push({
         label: childById(childId)?.child.label ?? "",
-        options: (product.children ?? []).map((c) => ({
-          id: c.id,
-          label: c.label,
-          selected: c.id === childId,
-        })),
+        options: [
+          { id: OVERVIEW_CRUMB_ID, label: product.label, selected: false },
+          ...(product.children ?? []).map((c) => ({
+            id: c.id,
+            label: c.label,
+            selected: c.id === childId,
+          })),
+        ],
         onSelect: (cid) =>
-          setProductPage({ productId, childId: cid }),
+          setProductPage({
+            productId,
+            childId: cid === OVERVIEW_CRUMB_ID ? null : cid,
+          }),
       });
     }
     return segments;
-  }, [productPage, groups, productLabelFor, openProduct]);
+  }, [productPage, groups, productLabelFor, openProduct, contactsPageId]);
 
   // Demoting the session to a plain user while parked at agency scope drops
   // it back into the one account that user is allowed to see.
@@ -699,32 +742,37 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           leaving — which is what makes the Navigation tab's preview the
           product itself.
         */}
-        <div className="min-h-0 flex-1 overflow-auto">
-          {selectedId === "agency-sub-accounts" ? (
-            customizeAccount ? (
-              <SubAccountPage
-                account={customizeAccount}
-                onBack={() => setCustomizeAccountId(null)}
-              />
-            ) : (
-              <AccountsIndexPage
-                session={accounts}
-                onCustomize={setCustomizeAccountId}
-              />
-            )
-          ) : productPage && productById(productPage.productId) ? (
-            <ProductPage
-              key={productPage.productId}
-              product={productById(productPage.productId)!}
-              childId={productPage.childId}
-              onChildChange={(childId) =>
-                setProductPage({ productId: productPage.productId, childId })
-              }
-            />
-          ) : (
-            children
-          )}
-        </div>
+          <ContactsAreaProvider value={[contactsPageId, setContactsPageId]}>
+            <div className="min-h-0 flex-1 overflow-auto">
+              {selectedId === "agency-sub-accounts" ? (
+                customizeAccount ? (
+                  <SubAccountPage
+                    account={customizeAccount}
+                    onBack={() => setCustomizeAccountId(null)}
+                  />
+                ) : (
+                  <AccountsIndexPage
+                    session={accounts}
+                    onCustomize={setCustomizeAccountId}
+                  />
+                )
+              ) : productPage && productById(productPage.productId) ? (
+                <ProductPage
+                  key={productPage.productId}
+                  product={productById(productPage.productId)!}
+                  childId={productPage.childId}
+                  onChildChange={(childId) =>
+                    setProductPage({
+                      productId: productPage.productId,
+                      childId,
+                    })
+                  }
+                />
+              ) : (
+                children
+              )}
+            </div>
+          </ContactsAreaProvider>
       </div>
 
       {/* The layout hole the docked Ask AI panel sits in — the canvas

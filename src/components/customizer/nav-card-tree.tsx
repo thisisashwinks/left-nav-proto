@@ -318,6 +318,7 @@ export function NavTreeCard({ account }: { account: Account }) {
             Add group
           </button>
         ) : null}
+
       </Card>
 
       {pickerProps ? <IconPicker {...pickerProps} /> : null}

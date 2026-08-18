@@ -1,3 +1,4 @@
+import { DEFAULT_PLAN, type PlanTier } from "@/design/plans";
 import { catalogue, DEFAULT_PINNED } from "./catalogue";
 import { DEFAULT_LAYOUT, type CustomGroup, type GroupingMode, type NavLayoutState } from "./grouping";
 
@@ -18,8 +19,12 @@ import { DEFAULT_LAYOUT, type CustomGroup, type GroupingMode, type NavLayoutStat
  *              that end up empty are dropped rather than rendered hollow.
  *  grouping    small accounts ship flat because grouping four rows is noise;
  *              one account keeps the shipped SKU view, one has its owner's own
- *              tree — the three controllers the research names, each in a real
- *              account instead of a switch on a panel.
+ *              tree — the controllers the research names, each in a real account
+ *              instead of a switch on a panel. Six accounts name no mode at all
+ *              and inherit the shipped default: that is deliberate, so the next
+ *              time the default moves it moves in one place. The four that stay
+ *              on jobs stay because their `groupLabels` are keyed `job-*` —
+ *              trade vocabulary that only renders in that mode.
  *  labels      the vocabulary of the trade. A dental practice has Patients, a
  *              gym has Members, a law firm has Matters. Written into the
  *              ACCOUNT scope, so the customizer shows them as overrides and
@@ -37,7 +42,10 @@ export interface AccountNavSeed {
   note: string;
   /** Provisioned catalogue product ids. Everything else is not sold to them. */
   products: string[];
-  /** Defaults to jobs, like the shipped layout. */
+  /**
+   * Omit to inherit `DEFAULT_LAYOUT.grouping`, which is what most seeds do.
+   * Set it only where the account is making a point the default cannot.
+   */
   grouping?: GroupingMode;
   /** Starter dock. Filtered against `products`, so a seed can never pin a ghost. */
   pinned?: string[];
@@ -47,6 +55,15 @@ export interface AccountNavSeed {
   groupLabels?: Record<string, string>;
   /** The account's own links, below the products. */
   links?: string[];
+  /**
+   * Which plan this account is on. Omit to inherit `DEFAULT_PLAN`.
+   *
+   * Seeded rather than uniform because the tiering argument is only legible
+   * across a spread of accounts: the smallest tenants are on the base plan,
+   * where most of the governance controls are locked, and the largest are on the
+   * top plan with the CSS escape hatch available.
+   */
+  plan?: PlanTier;
   /** The owner's own tree, for accounts that built one. Implies custom mode. */
   groups?: { id: string; label: string; iconName: string; products: string[] }[];
 }
@@ -68,11 +85,10 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
    */
   acme: {
     industry: "Multi-location retail",
+    plan: "elite",
     note: "The full catalogue — 12 locations, every product provisioned. The stress case.",
     products: catalogue.map((p) => p.id),
-    grouping: "job",
     pinned: ["conversations", "contacts", "opportunities", "payments", "reporting"],
-    links: ["Brand assets", "Store playbook", "Support desk"],
   },
 
   northwind: {
@@ -115,6 +131,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
    */
   brightpath: {
     industry: "Dental practice",
+    plan: "starter",
     note: "Mid-trial on seven products. Flat, because four headings over seven rows is not structure.",
     products: [
       "conversations",
@@ -137,6 +154,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
 
   coastal: {
     industry: "Gym & fitness studio",
+    plan: "pro",
     note: "Members, classes and recurring plans — the subscription shape.",
     products: [
       "conversations",
@@ -186,7 +204,6 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
       "automation",
       "reporting",
     ],
-    grouping: "job",
     pinned: ["conversations", "calendars", "opportunities", "invoices", "mobile-app"],
     productLabels: {
       calendars: "Job scheduling",
@@ -204,6 +221,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
    */
   pinnacle: {
     industry: "Roofing contractor",
+    plan: "elite",
     note: "Rebuilt the nav around the crew's day — the custom tree, as an account rather than a switch.",
     products: [
       "conversations",
@@ -315,7 +333,6 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
       "reporting",
       "dashboards",
     ],
-    grouping: "job",
     pinned: ["conversations", "contacts", "opportunities", "ad-manager", "reporting"],
     productLabels: {
       contacts: "Leads",
@@ -344,7 +361,6 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
       "automation",
       "reporting",
     ],
-    grouping: "job",
     pinned: ["conversations", "contacts", "opportunities", "subscriptions"],
     productLabels: {
       contacts: "Policyholders",
@@ -358,6 +374,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
 
   bluebird: {
     industry: "Med spa & aesthetics",
+    plan: "pro",
     note: "Bookings, packages and retail — the one account selling both time and product.",
     products: [
       "conversations",
@@ -397,6 +414,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
    */
   ironwood: {
     industry: "Landscaping crew",
+    plan: "starter",
     note: "Four products. Nothing to group — the case that says structure has to be earned.",
     products: ["conversations", "contacts", "calendars", "invoices"],
     grouping: "flat",
@@ -424,7 +442,6 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
       "reporting",
       "dashboards",
     ],
-    grouping: "job",
     pinned: ["conversations", "contacts", "calendars", "reputation"],
     productLabels: {
       contacts: "Guests",
@@ -457,7 +474,6 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
       "reporting",
       "dashboards",
     ],
-    grouping: "job",
     pinned: ["conversations", "companies", "tasks", "opportunities", "dashboards"],
     productLabels: {
       companies: "Client companies",
@@ -472,6 +488,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
 
   meadowlark: {
     industry: "Bakery & local retail",
+    plan: "starter",
     note: "Eight products, sitting exactly on the flat threshold — a shop, not a funnel.",
     products: [
       "conversations",
@@ -499,6 +516,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
    */
   fadeco: {
     industry: "Barbershop",
+    plan: "starter",
     note: "Five products and a chair. Bookings are the whole job.",
     products: ["conversations", "contacts", "calendars", "payments", "reputation"],
     grouping: "flat",
@@ -542,6 +560,11 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
 /** The trade an account is in, for any surface that lists accounts. */
 export function industryFor(accountId: string): string | undefined {
   return ACCOUNT_NAV_SEEDS[accountId]?.industry;
+}
+
+/** The plan an account is on. Unseeded accounts — the agency key included. */
+export function planFor(accountId: string): PlanTier {
+  return ACCOUNT_NAV_SEEDS[accountId]?.plan ?? DEFAULT_PLAN;
 }
 
 const CATALOGUE_IDS = new Set(catalogue.map((p) => p.id));

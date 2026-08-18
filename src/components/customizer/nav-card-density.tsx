@@ -6,6 +6,8 @@ import { useTuning } from "@/components/tuning/tuning-provider";
 import { TUNING_DEFAULTS, type TuningState } from "@/design/tuning";
 import { cn } from "@/lib/utils";
 import { Card, SettingRow, Stepper } from "./controls";
+import { usePlanFor } from "./customizer-profiles";
+import { LockBadge, PlanNote } from "./gated";
 
 /**
  * Density as one decision, with the raw values one disclosure away — chosen
@@ -71,14 +73,22 @@ export function NavDensityCard({ account }: { account: Account }) {
   const set = <K extends keyof TuningState>(key: K, value: TuningState[K]) =>
     tuning.setFor(account.id, key, value);
 
+  const { has } = usePlanFor(account.id);
+  const canCustom = has("densityCustom");
   const density = densityOf(state);
   // Custom stays open once chosen, even if the steppers land back on a preset.
   const [customOpen, setCustomOpen] = React.useState(density === "custom");
-  const showKnobs = customOpen || density === "custom";
+  /*
+   * The plan gates the panel, not just the tile. `densityOf` returns "custom"
+   * for any stored tuning that matches no preset, so without the plan term an
+   * account that had been tuned and then downgraded would still render all seven
+   * steppers.
+   */
+  const showKnobs = (customOpen || density === "custom") && canCustom;
 
   const choose = (choice: DensityChoice) => {
     if (choice === "custom") {
-      setCustomOpen(true);
+      if (canCustom) setCustomOpen(true);
       return;
     }
     setCustomOpen(false);
@@ -91,18 +101,25 @@ export function NavDensityCard({ account }: { account: Account }) {
         {(Object.keys(PRESET_COPY) as DensityChoice[]).map((choice) => {
           const selected = choice === "custom" ? showKnobs && density === "custom" : !showKnobs && density === choice;
           const preview = choice === "custom" ? PRESETS.comfortable : PRESETS[choice];
+          // Locked tiles stay visible — advertising that the tier exists is the
+          // only reason to draw one — but really disabled, because a tile that
+          // looks pressable and does nothing is a lie to sighted and assistive
+          // users alike.
+          const locked = choice === "custom" && !canCustom;
           return (
             <button
               key={choice}
               type="button"
               role="radio"
               aria-checked={selected}
+              disabled={locked}
               onClick={() => choose(choice)}
               className={cn(
                 "motion-tap flex flex-col gap-[8px] rounded-[10px] p-[11px] text-left",
                 selected
                   ? "bg-[color-mix(in_oklab,var(--brand)_6%,var(--pg-surface))] shadow-[inset_0_0_0_1.5px_var(--brand)]"
                   : "shadow-[inset_0_0_0_1px_var(--pg-border)] hover:shadow-[inset_0_0_0_1px_var(--pg-border-strong)]",
+                locked && "opacity-60",
               )}
             >
               <span className="flex h-[52px] w-full flex-col justify-center overflow-hidden rounded-[7px] bg-pg-bg px-[9px] shadow-[inset_0_0_0_1px_var(--pg-border)]" style={{ gap: preview.navRowSpacing + 2 }}>
@@ -113,12 +130,22 @@ export function NavDensityCard({ account }: { account: Account }) {
                   </span>
                 ))}
               </span>
-              <span className="text-[12.5px] leading-[16px] font-semibold text-pg-heading">{PRESET_COPY[choice][0]}</span>
+              <span className="flex items-center gap-[6px] text-[12.5px] leading-[16px] font-semibold text-pg-heading">
+                {PRESET_COPY[choice][0]}
+                {choice === "custom" ? (
+                  <LockBadge cap="densityCustom" accountId={account.id} />
+                ) : null}
+              </span>
               <span className="text-[11px] leading-[15px] text-pg-muted">{PRESET_COPY[choice][1]}</span>
             </button>
           );
         })}
       </div>
+
+      <PlanNote cap="densityCustom" accountId={account.id}>
+        Custom density is on the $297 plan — the three presets are yours on every
+        plan.
+      </PlanNote>
 
       {showKnobs ? (
         <div className="mt-[14px] grid grid-cols-1 gap-x-[24px] rounded-[10px] bg-pg-bg px-[14px] py-[3px] shadow-[inset_0_0_0_1px_var(--pg-border)] md:grid-cols-2">
