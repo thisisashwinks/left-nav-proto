@@ -216,16 +216,18 @@
 /* ─── The AI mark ───────────────────────────────────────────────────────── */
 
 /*
- * Two stops, both read off the accent, and deliberately outside the nav-theme
+ * Two stops, both read off --ai-base, and deliberately outside the nav-theme
  * scopes — the mark is an object with its own colour, not a surface that
  * repaints with the chrome around it, so it stays identical on a light nav and
  * a dark one.
  *
- * The second stop is lighter and 22 degrees *below* the accent. Below, not
- * above: from the default blue, rotating up lands on violet, which is the
- * purple we were getting away from. Rotating down stays on the accent's own
- * side of the wheel, and holds for the other presets too. The step is small on
- * purpose — a wide gradient inside a 20px circle reads as two colours fighting.
+ * The second stop is lighter and 22 degrees *above* the base. Above, not below:
+ * this rotation used to point down to avoid landing on violet, back when the
+ * mark read off a blue accent. Now that the mark IS purple that reasoning
+ * inverts — rotating down from purple lands on blue, which is the accent's
+ * territory and the thing Ask AI is no longer supposed to borrow. Up stays in
+ * the purple family. The step is small on purpose — a wide gradient inside a
+ * 20px circle reads as two colours fighting.
  *
  * Each value is declared twice: a plain hex first, then the relative-colour
  * version. Browsers without `oklch(from ...)` drop the second and keep a
@@ -233,10 +235,25 @@
  */
 
 :root {
-  --orb-1: #155eef;
-  --orb-1: var(--brand);
-  --orb-2: #46abf7;
-  --orb-2: oklch(from var(--brand) calc(l + 0.2) calc(c * 0.88) calc(h - 26));
+  /*
+   * Ask AI's own colour, and deliberately NOT the account's accent.
+   *
+   * Every other surface in this prototype rebrands per agency; Ask AI does not.
+   * Per the Aug 17 review: recolouring the assistant per tenant spends the equity
+   * of the one surface users are meant to recognise across every HighLevel
+   * account, and once the colour is negotiable the icon and the animation are
+   * next. So the whole AI palette derives from here rather than from --brand,
+   * and this line sits outside the accent blocks where nothing can override it.
+   *
+   * Purple 600 / 700.
+   */
+  --ai-base: #9333ea;
+  --ai-base-strong: #7e22ce;
+
+  --orb-1: #9333ea;
+  --orb-1: var(--ai-base);
+  --orb-2: #f275fd;
+  --orb-2: oklch(from var(--ai-base) calc(l + 0.2) calc(c * 0.88) calc(h + 22));
 }
 
 /* ─── Layer 3: nav surface ──────────────────────────────────────────────── */
@@ -263,30 +280,31 @@
   --nav-rail-border: #e4e6eb;
   --nav-rail-hi: #f2f3f5;
   --nav-rail-disc: #ebebef;
-  /* Every AI surface reads off the accent. See the orb block above for why. */
-  --nav-ai-icon: var(--brand);
-  --nav-ai-fg: var(--brand-strong);
+  /* Every AI surface reads off --ai-base, never the accent. See :root for why. */
+  --nav-ai-icon: var(--ai-base);
+  --nav-ai-fg: var(--ai-base-strong);
 
-  /* The persistent AI dock and the window's halo. The accent leads; the second
-     hue is the same neighbour the orb uses, so all of it stays one family. */
-  --ai-from: var(--brand);
-  --ai-to: #3b9dfb;
-  --ai-to: oklch(from var(--brand) calc(l + 0.14) c calc(h - 30));
-  --ai-soft-from: #eff4ff;
-  --ai-soft-from: oklch(from var(--brand) 0.97 calc(c * 0.32) h);
-  --ai-soft-to: #eef8ff;
-  --ai-soft-to: oklch(from var(--brand) 0.98 calc(c * 0.26) calc(h - 30));
-  --ai-border: #d3e0fd;
-  --ai-border: oklch(from var(--brand) 0.9 calc(c * 0.5) h);
-  --ai-ring: #155eef66;
-  --ai-ring: oklch(from var(--brand) 0.7 c h / 0.4);
+  /* The persistent AI dock and the window's halo. Ask AI's purple leads; the
+     second hue rotates UP into magenta, the same direction the mark takes, so
+     all of it stays in the purple family instead of drifting back to blue. */
+  --ai-from: var(--ai-base);
+  --ai-to: #f14ce0;
+  --ai-to: oklch(from var(--ai-base) calc(l + 0.14) c calc(h + 30));
+  --ai-soft-from: #ffe9ff;
+  --ai-soft-from: oklch(from var(--ai-base) 0.97 calc(c * 0.32) h);
+  --ai-soft-to: #ffe9ff;
+  --ai-soft-to: oklch(from var(--ai-base) 0.98 calc(c * 0.26) calc(h + 30));
+  --ai-border: #eecaff;
+  --ai-border: oklch(from var(--ai-base) 0.9 calc(c * 0.5) h);
+  --ai-ring: #be69ff66;
+  --ai-ring: oklch(from var(--ai-base) 0.7 c h / 0.4);
 
   --ai-win-bg: #fffffff2;
-  --ai-win-shadow: #10265e2e;
-  --ai-bubble: #eef3ff;
-  --ai-bubble: oklch(from var(--brand) 0.96 calc(c * 0.3) h);
-  --ai-quote: #f7faff;
-  --ai-quote: oklch(from var(--brand) 0.985 calc(c * 0.18) h);
+  --ai-win-shadow: #2e105e2e;
+  --ai-bubble: #fbe6ff;
+  --ai-bubble: oklch(from var(--ai-base) 0.96 calc(c * 0.3) h);
+  --ai-quote: #fff4ff;
+  --ai-quote: oklch(from var(--ai-base) 0.985 calc(c * 0.18) h);
 
   /*
    * Flyout-only values. Anything the flyout shares with the nav (text, icon,
@@ -330,32 +348,32 @@
   --nav-rail-border: #2b2b33;
   --nav-rail-hi: #24242c;
   --nav-rail-disc: #2e2e36;
-  /* Same derivations as light, lifted so the accent still carries on a dark
-     surface — the hue is the accent's, only the lightness differs. */
-  --nav-ai-icon: #7ba3ff;
-  --nav-ai-icon: oklch(from var(--brand) 0.74 c h);
-  --nav-ai-fg: #a8c2ff;
-  --nav-ai-fg: oklch(from var(--brand) 0.83 calc(c * 0.85) h);
+  /* Same derivations as light, lifted so the purple still carries on a dark
+     surface — the hue is unchanged, only the lightness differs. */
+  --nav-ai-icon: #cb76ff;
+  --nav-ai-icon: oklch(from var(--ai-base) 0.74 c h);
+  --nav-ai-fg: #e39fff;
+  --nav-ai-fg: oklch(from var(--ai-base) 0.83 calc(c * 0.85) h);
 
-  --ai-from: #7ba3ff;
-  --ai-from: oklch(from var(--brand) 0.74 c h);
-  --ai-to: #86d0ff;
-  --ai-to: oklch(from var(--brand) 0.82 calc(c * 0.9) calc(h - 30));
-  --ai-soft-from: #131a2e;
-  --ai-soft-from: oklch(from var(--brand) 0.2 calc(c * 0.5) h);
-  --ai-soft-to: #12202e;
-  --ai-soft-to: oklch(from var(--brand) 0.22 calc(c * 0.45) calc(h - 30));
-  --ai-border: #26355c;
-  --ai-border: oklch(from var(--brand) 0.34 calc(c * 0.6) h);
-  --ai-ring: #7ba3ff66;
-  --ai-ring: oklch(from var(--brand) 0.74 c h / 0.4);
+  --ai-from: #cb76ff;
+  --ai-from: oklch(from var(--ai-base) 0.74 c h);
+  --ai-to: #ff83ff;
+  --ai-to: oklch(from var(--ai-base) 0.82 calc(c * 0.9) calc(h + 30));
+  --ai-soft-from: #230043;
+  --ai-soft-from: oklch(from var(--ai-base) 0.2 calc(c * 0.5) h);
+  --ai-soft-to: #350031;
+  --ai-soft-to: oklch(from var(--ai-base) 0.22 calc(c * 0.45) calc(h + 30));
+  --ai-border: #481677;
+  --ai-border: oklch(from var(--ai-base) 0.34 calc(c * 0.6) h);
+  --ai-ring: #ca75ff66;
+  --ai-ring: oklch(from var(--ai-base) 0.74 c h / 0.4);
 
   --ai-win-bg: #0f131ff7;
   --ai-win-shadow: #00000080;
-  --ai-bubble: #1c2740;
-  --ai-bubble: oklch(from var(--brand) 0.28 calc(c * 0.5) h);
-  --ai-quote: #151c2c;
-  --ai-quote: oklch(from var(--brand) 0.22 calc(c * 0.4) h);
+  --ai-bubble: #360e5b;
+  --ai-bubble: oklch(from var(--ai-base) 0.28 calc(c * 0.5) h);
+  --ai-quote: #240640;
+  --ai-quote: oklch(from var(--ai-base) 0.22 calc(c * 0.4) h);
 
   --fly-border: #26262c;
   --fly-shadow: #00000066;
