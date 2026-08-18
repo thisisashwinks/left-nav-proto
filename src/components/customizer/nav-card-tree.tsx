@@ -71,6 +71,13 @@ export function NavTreeCard({ account }: { account: Account }) {
    */
   const flat = state.grouping === "flat";
   const shelves = flat ? [] : groups.filter((g) => g.id !== UNGROUPED_ID);
+  /*
+   * Rows no shelf holds: everything in flat mode, and whatever custom leaves
+   * unfiled. They live in this card rather than a second one — the tab is a
+   * single card now, so a product listed nowhere in it would simply be missing.
+   * In flat that is the entire account, which is exactly the case that made this
+   * necessary.
+   */
   const loose = flat
     ? (groups[0]?.productIds ?? [])
     : (groups.find((g) => g.id === UNGROUPED_ID)?.productIds ?? []);
@@ -303,6 +310,28 @@ export function NavTreeCard({ account }: { account: Account }) {
           );
         })}
 
+        {loose.length > 0 ? (
+          <div className={shelves.length > 0 ? "pt-[10px]" : ""}>
+            {shelves.length > 0 ? (
+              <div className="pb-[6px] text-[11px] leading-none font-semibold tracking-[0.04em] text-pg-muted uppercase">
+                Top level
+              </div>
+            ) : null}
+            {loose.map((productId, i) => (
+              <ProductRow
+                key={productId}
+                state={state}
+                productId={productId}
+                groups={destinations}
+                currentGroupId={groupIdForProduct(state, productId)}
+                editable={editable}
+                onMove={(target) => patch((s) => withProductFiled(s, productId, target))}
+                last={i === loose.length - 1}
+              />
+            ))}
+          </div>
+        ) : null}
+
         {editable ? (
           <button
             type="button"
@@ -323,41 +352,6 @@ export function NavTreeCard({ account }: { account: Account }) {
 
       {pickerProps ? <IconPicker {...pickerProps} /> : null}
 
-      <Card
-        title="Top level rows"
-        sub={
-          flat
-            ? "Flat files nothing, so every product this account is on is a row — that is the mode, not a leftover."
-            : "Products no group claims. They draw as plain rows in the nav — no heading, no flyout, one click."
-        }
-      >
-        {loose.length === 0 ? (
-          <p className="py-[6px] text-[12.5px] leading-[17px] text-pg-muted">
-            {editable
-              ? "Nothing at top level. Set a product's group to “Top level” above to pull it out of every group."
-              : "Every product this account is on is filed in a group."}
-          </p>
-        ) : (
-          loose.map((productId, i) => (
-            <ProductRow
-              key={productId}
-              state={state}
-              productId={productId}
-              groups={destinations}
-              currentGroupId={groupIdForProduct(state, productId)}
-              editable={editable}
-              onMove={(target) => patch((s) => withProductFiled(s, productId, target))}
-              last={i === loose.length - 1}
-            />
-          ))
-        )}
-        {loose.length > 0 ? (
-          <p className="mt-[10px] text-[11.5px] leading-[16px] text-pg-faint">
-            {loose.length} row{loose.length === 1 ? "" : "s"}, in catalogue order
-            — a top-level row has no shelf to be first on.
-          </p>
-        ) : null}
-      </Card>
     </>
   );
 }
