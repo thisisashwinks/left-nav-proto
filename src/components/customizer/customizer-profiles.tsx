@@ -9,13 +9,7 @@ import {
   type PlanTier,
 } from "@/design/plans";
 
-/** Who may change what about the nav — the policies the agency flips. */
-export interface AccessProfile {
-  policies: Record<string, boolean>;
-}
-
 export interface CustomizerProfile {
-  access: AccessProfile;
   /**
    * The account's own stylesheet. Top tier only, and it overrides every setting
    * in the Navigation tab — which is the whole point of it.
@@ -25,17 +19,8 @@ export interface CustomizerProfile {
   favoritesAsDefault: boolean;
 }
 
-const DEFAULT_ACCESS_POLICIES: Record<string, boolean> = {
-  "Rename for themselves:user": true,
-  "Rename for the whole account:admin": true,
-  "Change grouping and icons:admin": true,
-  "Build custom groups:admin": true,
-  "Add custom links:admin": true,
-};
-
 export function defaultCustomizerProfile(): CustomizerProfile {
   return {
-    access: { policies: { ...DEFAULT_ACCESS_POLICIES } },
     customCss: "",
     favoritesAsDefault: false,
   };

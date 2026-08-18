@@ -7,7 +7,7 @@ import { NavFavouritesCard } from "./nav-card-favourites";
 import { NavLayoutCard } from "./nav-card-layout";
 import { NavLinksCard } from "./nav-card-links";
 import { NavOrganisationCard } from "./nav-card-organisation";
-import { NavPermissionsCard } from "./nav-card-permissions";
+import { NavRenameScopeCard } from "./nav-card-rename-scope";
 import { NavTreeCard } from "./nav-card-tree";
 import { PreviewPane } from "./preview-pane";
 
@@ -16,9 +16,9 @@ import { PreviewPane } from "./preview-pane";
  * everything about the left nav, and nothing else.
  *
  * Production already owns features, limits, billing, branding and the rest in
- * their own tabs — this tab does not restate them. Reading order runs from
- * what the nav contains, through what it looks like, to who may change it,
- * with the live nav on the right so every control has a visible consequence.
+ * their own tabs — this tab does not restate them. Reading order runs from what
+ * the nav contains, through what it looks like, to where a rename lands, with
+ * the live nav on the right so every control has a visible consequence.
  *
  * What each card offers depends on the account's plan: the base tier gets a nav
  * it can organise, name and theme, the middle tier adds the governance controls,
@@ -37,7 +37,7 @@ export function NavigationTab({ account }: { account: Account }) {
         <NavFavouritesCard account={account} />
         <NavLayoutCard account={account} />
         <NavDensityCard account={account} />
-        <NavPermissionsCard account={account} />
+        <NavRenameScopeCard account={account} />
         {/* Last, because it loads last and overrides everything above it. Keyed
             by account so the textarea's draft belongs to one account and never
             follows the operator into the next one. */}
