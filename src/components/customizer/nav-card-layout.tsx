@@ -23,13 +23,14 @@ import { usePlanFor } from "./customizer-profiles";
  * nav stays untouched. When the edited account is also the session account the
  * nav on the left is the preview.
  *
- * Deliberately shorter than it was. The Aug 18 scope lock left five settings
- * here, and the four it dropped — the dock's position and caption, the search
- * style, and how many recents the nav carries inline — were removed rather than
- * gated: "lock on to a single setting rather than giving options" is a decision
- * that they stop being an agency's choice at all. All four are still live axes
- * in the prototype-controls panel, where the team compares them; they just no
- * longer pretend to be shipping settings.
+ * Deliberately shorter than it was. Everything dropped from here — the dock's
+ * position and caption, the search style, how many recents the nav carries
+ * inline, and collapse-on-small-screens — was removed rather than gated: "lock
+ * on to a single setting rather than giving options" is a decision that they
+ * stop being an agency's choice at all. Collapsing is the clearest case, since
+ * it is true by default and there was nothing to decide. All of them are still
+ * live axes in the prototype-controls panel, where the team compares them; they
+ * just no longer pretend to be shipping settings.
  */
 export function NavLayoutCard({ account }: { account: Account }) {
   const theme = useTheme();
@@ -39,7 +40,6 @@ export function NavLayoutCard({ account }: { account: Account }) {
 
   const navTheme = override.navTheme ?? theme.navTheme;
   const entryLayout = override.entryLayout ?? theme.entryLayout;
-  const autoCollapse = override.autoCollapse ?? theme.autoCollapse;
   const flyoutTrigger = override.flyoutTrigger ?? theme.flyoutTrigger;
   /*
    * On the base plan the setup guide is not a toggle — it is always visible, so
@@ -86,13 +86,6 @@ export function NavLayoutCard({ account }: { account: Account }) {
           value={entryLayout}
           onChange={(v) => write({ entryLayout: v })}
           format={(v) => ENTRY_LAYOUT_LABELS[v]}
-        />
-      </SettingRow>
-      <SettingRow label="Collapse on small screens" desc="Below 900px the nav starts as the icon rail. A user who touches the drawer toggle overrides it from then on.">
-        <Switch
-          on={autoCollapse}
-          onToggle={() => write({ autoCollapse: !autoCollapse })}
-          label="Auto-collapse"
         />
       </SettingRow>
       <GatedRow

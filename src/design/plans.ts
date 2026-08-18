@@ -58,7 +58,6 @@ export const DEFAULT_PLAN: PlanTier = "pro";
  */
 export type NavCapability =
   | "favoritesOrder"
-  | "renameAllAccounts"
   | "densityCustom"
   | "launchpadToggle"
   | "defaultFavoritesForNew"
@@ -68,7 +67,6 @@ export type NavCapability =
 /** The lowest tier that unlocks each capability. */
 export const MIN_PLAN: Record<NavCapability, PlanTier> = {
   favoritesOrder: "pro",
-  renameAllAccounts: "pro",
   densityCustom: "pro",
   launchpadToggle: "pro",
   defaultFavoritesForNew: "pro",
