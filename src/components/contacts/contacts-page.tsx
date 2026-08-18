@@ -3,25 +3,20 @@
 import * as React from "react";
 import {
   ArrowUpDown,
-  Building2,
-  CheckCheck,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Columns3,
   EllipsisVertical,
-  ListChecks,
   ListFilter,
   Pin,
   Plus,
   Search,
-  Settings,
-  SlidersHorizontal,
   Upload,
   X,
-  type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
+import { CONTACTS_AREA_PAGES, useContactsArea } from "./contacts-area";
 import { cn } from "@/lib/utils";
 import { contacts as seedContacts, smartLists } from "./contacts-data";
 import { ContactsTable } from "./contacts-table";
@@ -47,15 +42,6 @@ function OutlineButton({
   );
 }
 
-/** What the header's tab strip used to hold — now the title's own menu. */
-const AREA_PAGES: { id: string; label: string; icon: LucideIcon }[] = [
-  { id: "smart-lists", label: "Smart lists", icon: ListChecks },
-  { id: "bulk-actions", label: "Bulk actions", icon: SlidersHorizontal },
-  { id: "tasks", label: "Tasks", icon: CheckCheck },
-  { id: "companies", label: "Companies", icon: Building2 },
-  { id: "manage", label: "Manage smart lists", icon: Settings },
-];
-
 /**
  * The page title as the navigator, per the header restructure: the tab strip
  * is gone from the app bar, so "Smart lists ⌄" opens the area's own menu —
@@ -64,8 +50,10 @@ const AREA_PAGES: { id: string; label: string; icon: LucideIcon }[] = [
  */
 function PageTitleMenu() {
   const [open, setOpen] = React.useState(false);
-  const [pageId, setPageId] = React.useState("smart-lists");
-  const current = AREA_PAGES.find((p) => p.id === pageId) ?? AREA_PAGES[0];
+  // Shared with the breadcrumb's last crumb, which opens this same menu.
+  const [pageId, setPageId] = useContactsArea();
+  const current =
+    CONTACTS_AREA_PAGES.find((p) => p.id === pageId) ?? CONTACTS_AREA_PAGES[0];
 
   React.useEffect(() => {
     if (!open) return;
@@ -115,7 +103,7 @@ function PageTitleMenu() {
               </span>
               <Pin size={14} aria-hidden="true" className="text-pg-faint" />
             </div>
-            {AREA_PAGES.map((page) => {
+            {CONTACTS_AREA_PAGES.map((page) => {
               const selected = page.id === pageId;
               return (
                 <button
