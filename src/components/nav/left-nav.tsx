@@ -203,16 +203,21 @@ export function LeftNav({
   /*
    * The same list, folded.
    *
-   * A heading opens a band and owns everything until the next heading, so the
-   * fold is a walk rather than a tree — which is why the entry list stays flat
-   * and both nav faces keep reading the same one. Only the `sec-` labels this
-   * mode emits are foldable; Recent's own heading is left alone.
+   * A heading opens a band and owns everything until the next heading OR the
+   * next rule, so the fold is a walk rather than a tree — which is why the entry
+   * list stays flat and both nav faces keep reading the same one.
+   *
+   * The rule matters: Recent's band is closed by `div-recent`, and without that
+   * boundary folding Recent would take Quick Actions down with it.
    */
   const renderBanded = (list: NavEntry[]) => {
     const out: React.ReactNode[] = [];
     let section: string | null = null;
     for (const entry of list) {
-      if (entry.kind === "label" && entry.id.startsWith("sec-")) {
+      if (
+        entry.kind === "label" &&
+        (entry.id.startsWith("sec-") || entry.id === "recent-label")
+      ) {
         section = entry.id;
         const folded = foldedSections.has(entry.id);
         out.push(
@@ -231,7 +236,7 @@ export function LeftNav({
         );
         continue;
       }
-      if (entry.kind === "label") section = null;
+      if (entry.kind === "label" || entry.kind === "divider") section = null;
       if (section && foldedSections.has(section)) continue;
       out.push(renderEntry(entry));
     }
@@ -309,6 +314,8 @@ export function LeftNav({
                 accounts={recentAccounts}
                 onSwitch={onSwitchAccount}
               />
+            ) : sectionHeadings ? (
+              renderBanded(fixedEntries)
             ) : (
               fixedEntries.map(renderEntry)
             )}
@@ -339,6 +346,8 @@ export function LeftNav({
                   accounts={recentAccounts}
                   onSwitch={onSwitchAccount}
                 />
+              ) : sectionHeadings ? (
+                renderBanded(fixedEntries)
               ) : (
                 fixedEntries.map(renderEntry)
               )}
