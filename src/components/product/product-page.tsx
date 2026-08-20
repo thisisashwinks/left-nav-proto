@@ -33,6 +33,8 @@ interface ProductPageProps {
   groupLabel?: string;
   siblings?: { id: string; label: string; icon?: LucideIcon }[];
   onSelectSibling?: (id: string) => void;
+  /** A tab or sub-tab id the nav asked for, pre-selected on the bar. */
+  initialTab?: string | null;
 }
 
 /**
@@ -51,15 +53,12 @@ export function ProductPage({
   groupLabel,
   siblings,
   onSelectSibling,
+  initialTab,
 }: ProductPageProps) {
   const { effective } = useTheme();
-  const tabsInNav = effective.tabsInNav;
   const pages = React.useMemo(
-    () =>
-      product.tabs && !tabsInNav
-        ? []
-        : flattenPages(product.children ?? [], tabsInNav),
-    [product, tabsInNav],
+    () => (product.tabs ? [] : flattenPages(product.children ?? [])),
+    [product],
   );
   const current = pages.find((p) => p.child.id === childId)?.child ?? null;
   const title = current?.label ?? overviewLabel(product);
@@ -69,11 +68,33 @@ export function ProductPage({
    * tab is not a destination: it does not belong in the trail or the URL.
    */
   const tabOwner = current ?? product;
-  const tabs =
-    tabOwner.tabs && !tabsInNav ? (tabOwner.children ?? []) : [];
+  const tabs = React.useMemo(
+    () => (tabOwner.tabs ? (tabOwner.children ?? []) : []),
+    [tabOwner],
+  );
+  /*
+   * `initialTab` is whatever the nav was clicked with, which may name a tab or a
+   * sub-tab. Either way it selects the pair, so a deep nav row still lands
+   * somewhere exact — without the tab ever reaching the breadcrumb.
+   */
+  const seeded = React.useMemo(() => {
+    if (!initialTab) return { tab: null as string | null, sub: null as string | null };
+    if (tabs.some((t) => t.id === initialTab)) {
+      return { tab: initialTab, sub: null };
+    }
+    const parent = tabs.find((t) =>
+      (t.children ?? []).some((c) => c.id === initialTab),
+    );
+    return parent
+      ? { tab: parent.id, sub: initialTab }
+      : { tab: null, sub: null };
+  }, [initialTab, tabs]);
+
   const [activeTab, setActiveTab] = React.useState<string | null>(null);
   const currentTab =
-    tabs.find((t) => t.id === activeTab)?.id ?? tabs[0]?.id ?? null;
+    tabs.find((t) => t.id === (activeTab ?? seeded.tab))?.id ??
+    tabs[0]?.id ??
+    null;
   /*
    * A second, quieter row when the selected tab itself has children.
    *
@@ -81,12 +102,12 @@ export function ProductPage({
    * Estimates has a tab bar, and picking Estimates gives you Draft/Sent/Accepted
    * under it. Both levels are filters on one page, so neither reaches the trail.
    */
-  const subTabs = tabsInNav
-    ? []
-    : (tabs.find((t) => t.id === currentTab)?.children ?? []);
+  const subTabs = tabs.find((t) => t.id === currentTab)?.children ?? [];
   const [activeSubTab, setActiveSubTab] = React.useState<string | null>(null);
   const currentSubTab =
-    subTabs.find((t) => t.id === activeSubTab)?.id ?? subTabs[0]?.id ?? null;
+    subTabs.find((t) => t.id === (activeSubTab ?? seeded.sub))?.id ??
+    subTabs[0]?.id ??
+    null;
 
   return (
     <div
@@ -294,17 +315,14 @@ interface PageNode {
  */
 function flattenPages(
   nodes: readonly CatalogueChild[],
-  tabsInNav: boolean,
   depth = 0,
 ): PageNode[] {
   return nodes.flatMap((child) => [
     { child, depth },
-    // Stop at a tabs-parent: its children are tabs on its page, so they are not
-    // pages of their own and must not appear in the title menu — unless the
-    // review axis has promoted every tab to a place.
-    ...(child.tabs && !tabsInNav
-      ? []
-      : flattenPages(child.children ?? [], tabsInNav, depth + 1)),
+    // Stop at a tabs-parent. Its children are tabs on its page, so they are not
+    // pages — and that is true however the nav chooses to draw them. The
+    // `tabsInNav` axis moves rows around; it does not turn a filter into a place.
+    ...(child.tabs ? [] : flattenPages(child.children ?? [], depth + 1)),
   ]);
 }
 

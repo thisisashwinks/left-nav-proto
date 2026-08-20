@@ -192,6 +192,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     owner: string;
     productId: string;
     childId: string | null;
+    /** A tab the nav asked for. In-page state, never part of the trail. */
+    tabId?: string | null;
   } | null>(null);
   /** Who the customizer is shaping. Null = still on the Sub-accounts picker. */
   const [customizeAccountId, setCustomizeAccountId] = React.useState<string | null>(null);
@@ -336,10 +338,44 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     : undefined;
   /** Opens a page under the current owner, so the derivation above can trust it. */
   const setProductPage = React.useCallback(
-    (next: { productId: string; childId: string | null } | null) =>
-      setRawProductPage(next ? { owner: themeOwnerId, ...next } : null),
+    (
+      next:
+        | { productId: string; childId: string | null; tabId?: string | null }
+        | null,
+    ) => setRawProductPage(next ? { owner: themeOwnerId, ...next } : null),
     [themeOwnerId],
   );
+
+  /*
+   * Split an id into the place you land on and the tab that gets selected there.
+   *
+   * A nav row can name a tab — that is the whole point of the "nested in nav"
+   * axis — but a tab is not a destination. So the trail stops at the last real
+   * place and the tab becomes in-page state, which is why flipping the axis
+   * never changes the breadcrumb.
+   */
+  const resolveTarget = React.useCallback((id: string) => {
+    const hit = childById(id);
+    if (!hit) {
+      const product = productById(id);
+      if (!product) return null;
+      return { productId: id, childId: null, tabId: null };
+    }
+    const chain = [...hit.path, hit.child];
+    const places: CatalogueChild[] = [];
+    let owner: { tabs?: boolean } = hit.product;
+    for (const node of chain) {
+      if (owner.tabs) break;
+      places.push(node);
+      owner = node;
+    }
+    const place = places[places.length - 1];
+    return {
+      productId: hit.product.id,
+      childId: place?.id ?? null,
+      tabId: places.length < chain.length ? id : null,
+    };
+  }, []);
   React.useLayoutEffect(() => {
     setActiveThemeAccount(themeOwnerId);
     setActiveTuningAccount(themeOwnerId);
@@ -590,10 +626,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         openProduct(id);
         return;
       }
-      const hit = childById(id);
-      if (hit) setProductPage({ productId: hit.product.id, childId: id });
+      const target = resolveTarget(id);
+      if (target) setProductPage(target);
     },
-    [groups, openProduct, setProductPage],
+    [groups, openProduct, setProductPage, resolveTarget],
   );
 
   /** A product row for a crumb menu, with its own pages hanging off it. */
@@ -719,7 +755,16 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
        * exactly what the single-segment version produced.
        */
       const hit = childById(childId);
-      const chain = hit ? [...hit.path, hit.child] : [];
+      const raw = hit ? [...hit.path, hit.child] : [];
+      // Truncate at the first tabs-owner: a tab never earns a segment, whatever
+      // the nav is currently doing with the tab rows.
+      const chain: CatalogueChild[] = [];
+      let owner: { tabs?: boolean } = product;
+      for (const node of raw) {
+        if (owner.tabs) break;
+        chain.push(node);
+        owner = node;
+      }
       let siblings: readonly CatalogueChild[] = product.children ?? [];
       chain.forEach((node, i) => {
         const previous = chain[i - 1];
@@ -1109,7 +1154,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 )
               ) : canvasPage && productById(canvasPage.productId) ? (
                 <ProductPage
-                  key={canvasPage.productId}
+                  key={`${canvasPage.productId}:${canvasPage.tabId ?? ""}`}
+                  initialTab={canvasPage.tabId ?? null}
                   product={productById(canvasPage.productId)!}
                   childId={canvasPage.childId}
                   groupLabel={canvasGroup?.label}
@@ -1182,15 +1228,19 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                   ? { productId: id, childId: null }
                   : undefined;
               if (target === undefined) return;
-              setProductPage(
-                target.productId === "contacts"
-                  ? null
-                  : // A row clicked with no page named means "the product", which
-                    // opens on its first page rather than a bare overview.
-                    target.childId
-                    ? target
-                    : { ...target, childId: firstPageOf(target.productId) },
-              );
+              if (target.productId === "contacts") {
+                setProductPage(null);
+              } else {
+                const resolved = resolveTarget(id);
+                setProductPage(
+                  resolved && (resolved.childId || resolved.tabId)
+                    ? resolved
+                    : {
+                        productId: target.productId,
+                        childId: firstPageOf(target.productId),
+                      },
+                );
+              }
               setSelectedId(null);
               intent.close();
             }}
