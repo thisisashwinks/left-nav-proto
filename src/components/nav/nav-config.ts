@@ -126,6 +126,8 @@ const RECENT_ROWS = 3;
 export function fixedEntriesFor(
   state: NavLayoutState,
   fixed: NavEntry[],
+  /** Give the standing entry points a heading of their own, like Recent's. */
+  sectionHeadings = false,
 ): NavEntry[] {
   const candidates = state.enabledProducts
     .filter((id) => !state.pinned.includes(id))
@@ -172,10 +174,39 @@ export function fixedEntriesFor(
         )
       : resolved;
 
+  /*
+   * A heading over the standing entry points.
+   *
+   * They sat between Recent's rule and the first product band with nothing
+   * naming them, which in the headings variant made them look like leftovers.
+   * "Shortcuts" rather than "Quick Actions": a heading that repeats its single
+   * row's label says nothing twice.
+   */
+  const banded = sectionHeadings
+    ? trimmed.flatMap((e): NavEntry[] =>
+        e.kind === "item" &&
+        (e.item.id === "quick-actions" || e.item.id === "ai-agents")
+          ? [{ kind: "label", id: "sec-shortcuts", text: "Shortcuts" }, e]
+          : [e],
+      )
+    : trimmed;
+
   // A heading over nothing is worse than no heading — the same rule
   // `trimRecents` applies at the floor tier.
-  if (candidates.length > 0) return trimmed;
-  return trimmed.filter(
+  const once: NavEntry[] = [];
+  for (const e of banded) {
+    if (
+      e.kind === "label" &&
+      e.id === "sec-shortcuts" &&
+      once.some((x) => x.kind === "label" && x.id === "sec-shortcuts")
+    ) {
+      continue;
+    }
+    once.push(e);
+  }
+
+  if (candidates.length > 0) return once;
+  return once.filter(
     (e) => !(e.kind === "label" && e.id === "recent-label"),
   );
 }

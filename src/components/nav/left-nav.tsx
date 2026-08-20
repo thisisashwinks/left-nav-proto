@@ -157,10 +157,12 @@ export function LeftNav({
   const fixedEntries = React.useMemo(
     () =>
       trimRecents(
-        agencyScope ? config.fixed : fixedEntriesFor(state, config.fixed),
+        agencyScope
+          ? config.fixed
+          : fixedEntriesFor(state, config.fixed, sectionHeadings),
         recentsBudget,
       ),
-    [agencyScope, state, config.fixed, recentsBudget],
+    [agencyScope, state, config.fixed, recentsBudget, sectionHeadings],
   );
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -354,8 +356,26 @@ export function LeftNav({
               <NavDivider />
             </>
           ) : null}
-          {sectionHeadings ? renderBanded(entries) : entries.map(renderEntry)}
-          {renderRow(agencyScope ? agencySettings : config.settings)}
+          {sectionHeadings ? (
+            /*
+              Settings is inside the last band here, not the bottom anchor it is
+              in the plain arrangement. It is one of the not-a-product rows the
+              "More" heading names, so it folds with them — the anchor and the
+              band cannot both own it.
+            */
+            renderBanded([
+              ...entries,
+              {
+                kind: "item",
+                item: agencyScope ? agencySettings : config.settings,
+              },
+            ])
+          ) : (
+            <>
+              {entries.map(renderEntry)}
+              {renderRow(agencyScope ? agencySettings : config.settings)}
+            </>
+          )}
         </div>
         <div aria-hidden="true" data-scroll-fade="bottom" />
       </div>

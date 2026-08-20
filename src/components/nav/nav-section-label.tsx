@@ -30,7 +30,7 @@ export function NavSectionLabel({
 
   if (!onToggle) {
     return (
-      <div className="flex w-full shrink-0 items-start justify-between pt-[2px] pr-[8px] pb-[6px] pl-[8px]">
+      <div className="flex w-full shrink-0 items-start justify-between pt-[14px] pr-[8px] pb-[6px] pl-[8px]">
         {label}
       </div>
     );
@@ -48,7 +48,7 @@ export function NavSectionLabel({
       type="button"
       aria-expanded={!collapsed}
       onClick={onToggle}
-      className="motion-tap group flex w-full shrink-0 items-center justify-between rounded-[6px] pt-[2px] pr-[6px] pb-[6px] pl-[8px] text-left hover:bg-nav-hover"
+      className="motion-tap group mt-[8px] flex w-full shrink-0 items-center justify-between rounded-[6px] pt-[6px] pr-[6px] pb-[6px] pl-[8px] text-left first:mt-0 hover:bg-nav-hover"
     >
       {label}
       <ChevronDown

@@ -148,15 +148,17 @@ export function navEntriesFor(
        */
       ...(sectionHeadings ? [band("ia-buckets", "Products")] : []),
       ...buckets.map(shelfRow),
-      band("ia-destinations", "Tools"),
+      /*
+       * One "More" band, not three.
+       *
+       * Mobile, the account's own links and Settings were a heading each, which
+       * gave the tail of the nav more headings than rows. They are all the same
+       * kind of thing — the stuff that is not a product — so they share a band.
+       * Settings is appended by `left-nav`, since it is the face that owns the
+       * bottom anchor.
+       */
+      band("ia-more", "More"),
       ...loose.map(productRow),
-      ...(sectionHeadings
-        ? extraEntries.length > 0
-          ? [band("ia-links", "Links")]
-          : []
-        // Distinct from the rule `band("ia-destinations")` already emitted above
-        // it: two dividers sharing an id made React drop one of them.
-        : [{ kind: "divider" as const, id: "div-ia-links" }]),
       ...extraEntries,
     ];
   }
@@ -168,7 +170,9 @@ export function navEntriesFor(
     return [
       ...(sectionHeadings ? [band("flat", "Products")] : []),
       ...products.map(productRow),
-      ...(extraEntries.length > 0 ? [band("links", "Links")] : []),
+      ...(sectionHeadings
+        ? [band("flat-more", "More")]
+        : [{ kind: "divider" as const, id: "div-flat" }]),
       ...extraEntries,
     ];
   }
@@ -188,13 +192,10 @@ export function navEntriesFor(
   return [
     ...(sectionHeadings ? [band("groups", "Products")] : []),
     ...shelves.map(shelfRow),
-    ...(sectionHeadings && loose.length > 0 ? [band("loose", "Tools")] : []),
-    ...loose.map(productRow),
     ...(sectionHeadings
-      ? extraEntries.length > 0
-        ? [band("links", "Links")]
-        : []
+      ? [band("groups-more", "More")]
       : [{ kind: "divider" as const, id: "div-groups" }]),
+    ...loose.map(productRow),
     ...extraEntries,
   ];
 }
