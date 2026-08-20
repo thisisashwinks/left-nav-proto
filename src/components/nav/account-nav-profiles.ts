@@ -1,5 +1,6 @@
 import { DEFAULT_PLAN, type PlanTier } from "@/design/plans";
-import { catalogue, DEFAULT_PINNED } from "./catalogue";
+import { allProducts, catalogue, DEFAULT_PINNED } from "./catalogue";
+import { PROPOSED_PRODUCT_IDS } from "./proposed-ia";
 import { DEFAULT_LAYOUT, type CustomGroup, type GroupingMode, type NavLayoutState } from "./grouping";
 
 /**
@@ -77,6 +78,30 @@ export interface AccountNavSeed {
  * has a real account behind it rather than a hypothetical.
  */
 export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
+  /**
+   * The only account on the proposed tree, and the one the session opens in.
+   *
+   * Its whole job is to be the new IA standing next to the old one: ACME two
+   * tiles down is still on the shipped areas, Northwind on the job groups, so
+   * the comparison is a click rather than a rebuild. No `groups` key — that
+   * would force custom mode and lose the buckets' own labels, icons and order.
+   */
+  fieldstone: {
+    industry: "Multi-service field operations",
+    plan: "elite",
+    note: "The Aug 19 proposal — twelve buckets over their own product set. The only account on the new tree.",
+    products: [...PROPOSED_PRODUCT_IDS],
+    grouping: "proposed",
+    pinned: [
+      "ia-crm-conversations",
+      "ia-crm-contacts",
+      "ia-automation-workflows",
+      "ia-commerce-invoices",
+      "ia-reporting-dashboard",
+    ],
+    links: ["Field ops handbook", "Supplier portal"],
+  },
+
   /**
    * The maximal case, and the one every earlier review was shot against: an
    * account on effectively the whole catalogue. Kept full on purpose — the
@@ -567,7 +592,9 @@ export function planFor(accountId: string): PlanTier {
   return ACCOUNT_NAV_SEEDS[accountId]?.plan ?? DEFAULT_PLAN;
 }
 
-const CATALOGUE_IDS = new Set(catalogue.map((p) => p.id));
+// Spans both IAs: the proposed tree's seed names `ia-*` ids, and filtering it
+// against the shipped 31 would leave the account with no products at all.
+const CATALOGUE_IDS = new Set(allProducts.map((p) => p.id));
 
 /**
  * The layout an account wakes up in.

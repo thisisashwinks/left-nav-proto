@@ -15,7 +15,11 @@ import {
 import { useAiSession } from "@/components/ai/use-ai-session";
 import { flyouts } from "@/components/flyout/flyout-config";
 import { FlyoutPanel } from "@/components/flyout/flyout-panel";
-import { AppHeader, type Crumb } from "@/components/header/app-header";
+import {
+  AppHeader,
+  type Crumb,
+  type CrumbOption,
+} from "@/components/header/app-header";
 import { CollapsedRail } from "@/components/nav/collapsed-rail";
 import {
   ENTRY_CLUSTER_HEIGHT,
@@ -35,6 +39,12 @@ import {
   SETTINGS_FLYOUT_ID,
 } from "@/components/nav/settings-config";
 import { childById, productById } from "@/components/nav/catalogue";
+import type { CatalogueChild } from "@/components/nav/catalogue";
+import {
+  PROPOSED_HOME_ID,
+  PROPOSED_SETTINGS_ID,
+} from "@/components/nav/proposed-ia";
+import { UNGROUPED_ID } from "@/components/nav/grouping";
 import {
   contactsAreaLabel,
   ContactsAreaProvider,
@@ -177,7 +187,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * and nested-dropdown child routes here, so the title-menu interaction the
    * Contacts page established is demoable for every product.
    */
-  const [productPage, setProductPage] = React.useState<{
+  const [rawProductPage, setRawProductPage] = React.useState<{
+    /** Which account this page was opened under. See the derivation below. */
+    owner: string;
     productId: string;
     childId: string | null;
   } | null>(null);
@@ -253,6 +265,81 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   // leaves one surface on the previous account. Layout effect so the first
   // paint after a switch already wears the arriving account.
   const themeOwnerId = agencyScope ? "agency" : accounts.current.id;
+  /*
+   * Switching owner sends the canvas home.
+   *
+   * Accounts do not share a product set — the proposed tree's products exist in
+   * no other account — so a page left open from the account you just left is one
+   * the arriving account cannot reach from its own nav. Derived rather than
+   * reset: the page carries the owner it was opened under, and a mismatch simply
+   * reads as "no page". No effect and no ref to keep in step.
+   */
+  const productPage =
+    rawProductPage && rawProductPage.owner === themeOwnerId
+      ? rawProductPage
+      : null;
+  /*
+   * Where "home" is for this tenant.
+   *
+   * The first product of the first group, which for the proposed tree is CRM ▸
+   * Contacts and for another account is whatever their own tree puts first.
+   * Nothing may assume a product named "contacts" exists — the proposed tree's
+   * is `ia-crm-contacts`, and a tenant could have neither.
+   */
+  /*
+   * Home is the launchpad when the tenant has one, and otherwise the first
+   * product of the first bucket. It is deliberately not "the first row in the
+   * nav": the proposed tree's first row is AI, whose own first product is called
+   * Getting Started, and landing there made Home look like an AI page.
+   */
+  const homeProductId =
+    layout.grouping === "proposed" && productById(PROPOSED_HOME_ID)
+      ? PROPOSED_HOME_ID
+      : groups.find((g) => g.productIds.length > 0)?.productIds[0];
+  /*
+   * The page a product opens on, or null for the product's own page.
+   *
+   * Null when the product is a tabs-parent: its children are tabs living ON that
+   * page, so naming one as the open child would put a tab in the breadcrumb.
+   */
+  const firstPageOf = React.useCallback((id: string) => {
+    const product = productById(id);
+    if (!product || product.tabs) return null;
+    return product.children?.[0]?.id ?? null;
+  }, []);
+  /*
+   * What fills the canvas, falling back to home rather than to Contacts.
+   *
+   * The shipped accounts still open on the hand-built ContactsPage passed in as
+   * `children` — it is the one page with real furniture. A tenant on the proposed
+   * tree has no Contacts to open, so it lands on its own first product instead,
+   * which is also what keeps "Contacts ▸ Smart lists" out of its breadcrumb.
+   */
+  const canvasPage = React.useMemo(
+    () =>
+      productPage ??
+      (layout.grouping === "proposed" && homeProductId
+        ? {
+            owner: themeOwnerId,
+            productId: homeProductId,
+            childId: firstPageOf(homeProductId),
+          }
+        : null),
+    [productPage, layout.grouping, homeProductId, themeOwnerId, firstPageOf],
+  );
+  /** The bucket the open product sits in, for the page title's step-up menu. */
+  const canvasGroup = canvasPage
+    ? groups.find(
+        (g) =>
+          g.id !== UNGROUPED_ID && g.productIds.includes(canvasPage.productId),
+      )
+    : undefined;
+  /** Opens a page under the current owner, so the derivation above can trust it. */
+  const setProductPage = React.useCallback(
+    (next: { productId: string; childId: string | null } | null) =>
+      setRawProductPage(next ? { owner: themeOwnerId, ...next } : null),
+    [themeOwnerId],
+  );
   React.useLayoutEffect(() => {
     setActiveThemeAccount(themeOwnerId);
     setActiveTuningAccount(themeOwnerId);
@@ -384,7 +471,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     ? intent.activeId === SETTINGS_FLYOUT_ID
       ? agencyScope
         ? agencySettingsFlyout
-        : accountSettingsFlyout
+        : // groupFlyouts only holds the Settings bucket when this account is on
+          // the proposed tree, so the fallback is every other account's today.
+          (groupFlyouts.get(PROPOSED_SETTINGS_ID) ?? accountSettingsFlyout)
       : agencyScope
         ? (agencyFlyouts[intent.activeId] ?? null)
         : (groupFlyouts.get(intent.activeId) ?? flyouts[intent.activeId] ?? null)
@@ -441,9 +530,22 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * the products beside this product, the product's other L2 pages. The
    * grouping level renders only when the active mode has real groups.
    */
-  const openProduct = React.useCallback((id: string) => {
-    setProductPage(id === "contacts" ? null : { productId: id, childId: null });
-  }, []);
+  const openProduct = React.useCallback(
+    (id: string) => {
+      if (id === "contacts") {
+        setProductPage(null);
+        return;
+      }
+      // A product with pages opens on its FIRST listed page rather than a bare
+      // overview: the overview of a product that is only a container for its
+      // pages is an empty room, and the user never asked to stand in it.
+      setProductPage({
+        productId: id,
+        childId: firstPageOf(id),
+      });
+    },
+    [setProductPage, firstPageOf],
+  );
   /*
    * The Contacts canvas's own page, held here rather than inside the page, so
    * the trail's last crumb and the page title are one control in two places
@@ -453,33 +555,145 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const [contactsPageId, setContactsPageId] = React.useState(
     CONTACTS_AREA_DEFAULT,
   );
+  /*
+   * Selecting a nav row, and opening it when the row is a destination.
+   *
+   * The proposed tree's Launchpad and Mobile own no products, so the row IS the
+   * page — there is no flyout to route through. Gated on the mode because in
+   * flat and custom a top-level product row has always been an inert highlight,
+   * and those accounts must keep behaving exactly as they do today.
+   */
+  const selectNavRow = React.useCallback(
+    (id: string) => {
+      setSelectedId(id);
+      if (layout.grouping === "proposed" && productById(id)) openProduct(id);
+    },
+    [layout.grouping, openProduct],
+  );
+  /*
+   * One handler for every level of a crumb menu.
+   *
+   * The menus cascade, so a click can land on a bucket, a product or a page and
+   * the segment that opened the menu no longer tells you which. Resolve by id
+   * instead: groups jump to their first product, products open on their first
+   * page, and a page id opens that page on its own product.
+   */
+  const pickCrumb = React.useCallback(
+    (id: string) => {
+      const group = groups.find((g) => g.id === id);
+      if (group) {
+        const first = group.productIds[0];
+        if (first) openProduct(first);
+        return;
+      }
+      if (productById(id) && !childById(id)) {
+        openProduct(id);
+        return;
+      }
+      const hit = childById(id);
+      if (hit) setProductPage({ productId: hit.product.id, childId: id });
+    },
+    [groups, openProduct, setProductPage],
+  );
+
+  /** A product row for a crumb menu, with its own pages hanging off it. */
+  const productOption = React.useCallback(
+    (id: string, selectedId?: string | null): CrumbOption => {
+      const product = productById(id);
+      const pages = product?.tabs ? [] : (product?.children ?? []);
+      return {
+        id,
+        label: productLabelFor(id),
+        icon: productIconFor(id),
+        selected: id === selectedId,
+        ...(pages.length > 0
+          ? {
+              children: pages.map((page) => ({
+                id: page.id,
+                label: page.label,
+                // A page with pages of its own cascades one level further.
+                ...(page.tabs || !page.children?.length
+                  ? {}
+                  : {
+                      children: page.children.map((leaf) => ({
+                        id: leaf.id,
+                        label: leaf.label,
+                      })),
+                    }),
+              })),
+            }
+          : {}),
+      };
+    },
+    [productLabelFor, productIconFor],
+  );
+
+  /*
+   * Everything that sits at the top of the nav, as one switchable list.
+   *
+   * Launchpad is a top-level row like the buckets, so from its trail you must be
+   * able to reach AI or CRM, and from theirs you must be able to get back to it.
+   * It has no bucket of its own, which is exactly why it has to be spliced in
+   * here rather than derived from `groups`.
+   */
+  const topLevelOptions = React.useCallback(
+    (selectedGroupId: string | null, selectedProductId: string | null) => {
+      const home =
+        layout.grouping === "proposed" && productById(PROPOSED_HOME_ID)
+          ? [
+              {
+                id: PROPOSED_HOME_ID,
+                label: productLabelFor(PROPOSED_HOME_ID),
+                icon: productIconFor(PROPOSED_HOME_ID),
+                selected: selectedProductId === PROPOSED_HOME_ID,
+              },
+            ]
+          : [];
+      const buckets = groups
+        .filter((g) => g.id !== UNGROUPED_ID && g.productIds.length > 0)
+        .map((g) => ({
+          id: g.id,
+          label: g.label,
+          icon: g.icon,
+          selected: g.id === selectedGroupId,
+          children: g.productIds.map((pid) =>
+            productOption(pid, g.id === selectedGroupId ? selectedProductId : null),
+          ),
+        }));
+      const loose = (
+        groups.find((g) => g.id === UNGROUPED_ID)?.productIds ?? []
+      ).map((id) => productOption(id, selectedProductId));
+      return [...home, ...buckets, ...loose] as CrumbOption[];
+    },
+    [groups, layout.grouping, productLabelFor, productIconFor, productOption],
+  );
+
   const productCrumbs = React.useMemo((): (string | Crumb)[] => {
-    const productId = productPage?.productId ?? "contacts";
-    const childId = productPage?.childId ?? null;
+    const productId = canvasPage?.productId ?? "contacts";
+    const childId = canvasPage?.childId ?? null;
     const product = productById(productId);
     if (!product) return ["Contacts", "Smart lists"];
-    const group = groups.find((g) => g.productIds.includes(productId));
+    // The ungrouped pseudo-group is a bucket in the data, not a place: its rows
+    // are top level. Claiming it as a parent put the literal id in the trail.
+    const group = groups.find(
+      (g) => g.id !== UNGROUPED_ID && g.productIds.includes(productId),
+    );
     const segments: (string | Crumb)[] = [];
     if (group) {
       segments.push({
         label: group.label,
-        options: groups
-          .filter((g) => g.productIds.length > 0)
-          .map((g) => ({ id: g.id, label: g.label, selected: g.id === group.id })),
-        onSelect: (gid) => {
-          const first = groups.find((g) => g.id === gid)?.productIds[0];
-          if (first) openProduct(first);
-        },
+        icon: group.icon,
+        options: topLevelOptions(group.id, productId),
+        onSelect: pickCrumb,
       });
     }
     segments.push({
       label: productLabelFor(productId),
-      options: (group?.productIds ?? [productId]).map((id) => ({
-        id,
-        label: productLabelFor(id),
-        selected: id === productId,
-      })),
-      onSelect: openProduct,
+      icon: productIconFor(productId),
+      options: group
+        ? group.productIds.map((id) => productOption(id, productId))
+        : topLevelOptions(null, productId),
+      onSelect: pickCrumb,
     });
     /*
      * The last crumb mirrors the page title, dropdown and all. On the default
@@ -487,7 +701,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
      * L2 page menu, including the landing view the title menu offers, so the
      * tail can walk back out to it without a trip through the nav.
      */
-    if (!productPage) {
+    if (!canvasPage) {
       segments.push({
         label: contactsAreaLabel(contactsPageId),
         options: CONTACTS_AREA_PAGES.map((page) => ({
@@ -498,25 +712,59 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         onSelect: setContactsPageId,
       });
     } else if (childId) {
-      segments.push({
-        label: childById(childId)?.child.label ?? "",
-        options: [
-          { id: OVERVIEW_CRUMB_ID, label: product.label, selected: false },
-          ...(product.children ?? []).map((c) => ({
-            id: c.id,
-            label: c.label,
-            selected: c.id === childId,
-          })),
-        ],
-        onSelect: (cid) =>
-          setProductPage({
-            productId,
-            childId: cid === OVERVIEW_CRUMB_ID ? null : cid,
-          }),
+      /*
+       * One segment per level, walked from the index's ancestor chain rather
+       * than assumed to be one deep — the proposed tree nests L4 under an L3
+       * (Calendars ▸ Settings ▸ Services). At L3-only depth this produces
+       * exactly what the single-segment version produced.
+       */
+      const hit = childById(childId);
+      const chain = hit ? [...hit.path, hit.child] : [];
+      let siblings: readonly CatalogueChild[] = product.children ?? [];
+      chain.forEach((node, i) => {
+        const previous = chain[i - 1];
+        const up =
+          i === 0 || !previous
+            ? {
+                id: OVERVIEW_CRUMB_ID,
+                label: product.label,
+                icon: productIconFor(productId),
+                selected: false,
+              }
+            : { id: previous.id, label: previous.label, selected: false };
+        segments.push({
+          label: node.label,
+          // The level above, then this level's siblings — the shape the L3 crumb
+          // already had, one level deeper.
+          options: [
+            up,
+            ...siblings.map((c) => ({
+              id: c.id,
+              label: c.label,
+              selected: c.id === node.id,
+            })),
+          ],
+          onSelect: (cid) =>
+            setProductPage({
+              productId,
+              childId: cid === OVERVIEW_CRUMB_ID ? null : cid,
+            }),
+        });
+        siblings = node.children ?? [];
       });
     }
     return segments;
-  }, [productPage, groups, productLabelFor, openProduct, contactsPageId]);
+  }, [
+    canvasPage,
+    groups,
+    productLabelFor,
+    productIconFor,
+    productOption,
+    topLevelOptions,
+    pickCrumb,
+    setProductPage,
+    contactsPageId,
+  ]);
 
   // Demoting the session to a plain user while parked at agency scope drops
   // it back into the one account that user is allowed to see.
@@ -744,7 +992,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           <LeftNav
             theme={navTheme}
             selectedId={selectedId}
-            onSelect={setSelectedId}
+            onSelect={selectNavRow}
             openFlyoutId={intent.activeId}
             pinnedFlyoutId={intent.pinnedId}
             onHoverFlyout={hoverFlyout}
@@ -780,7 +1028,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           <CollapsedRail
             theme={navTheme}
             selectedId={selectedId}
-            onSelect={setSelectedId}
+            onSelect={selectNavRow}
             openFlyoutId={intent.activeId}
             pinnedFlyoutId={intent.pinnedId}
             onHoverFlyout={hoverFlyout}
@@ -816,6 +1064,11 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           // a filled bar reads as a third competing surface, so the fill goes and
           // the mismatched-theme case is a contrast problem to solve in the ink.
           surface="plane"
+          onHome={() => {
+            if (homeProductId) openProduct(homeProductId);
+            else setProductPage(null);
+            setSelectedId(null);
+          }}
           crumbs={
             selectedId === "agency-sub-accounts"
               ? customizeAccount
@@ -854,14 +1107,21 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                     onCustomize={setCustomizeAccountId}
                   />
                 )
-              ) : productPage && productById(productPage.productId) ? (
+              ) : canvasPage && productById(canvasPage.productId) ? (
                 <ProductPage
-                  key={productPage.productId}
-                  product={productById(productPage.productId)!}
-                  childId={productPage.childId}
+                  key={canvasPage.productId}
+                  product={productById(canvasPage.productId)!}
+                  childId={canvasPage.childId}
+                  groupLabel={canvasGroup?.label}
+                  siblings={(canvasGroup?.productIds ?? []).map((id) => ({
+                    id,
+                    label: productLabelFor(id),
+                    icon: productIconFor(id),
+                  }))}
+                  onSelectSibling={openProduct}
                   onChildChange={(childId) =>
                     setProductPage({
-                      productId: productPage.productId,
+                      productId: canvasPage.productId,
                       childId,
                     })
                   }
@@ -922,7 +1182,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                   ? { productId: id, childId: null }
                   : undefined;
               if (target === undefined) return;
-              setProductPage(target.productId === "contacts" ? null : target);
+              setProductPage(
+                target.productId === "contacts"
+                  ? null
+                  : // A row clicked with no page named means "the product", which
+                    // opens on its first page rather than a bare overview.
+                    target.childId
+                    ? target
+                    : { ...target, childId: firstPageOf(target.productId) },
+              );
               setSelectedId(null);
               intent.close();
             }}

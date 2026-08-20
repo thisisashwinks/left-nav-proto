@@ -157,10 +157,28 @@ export function fixedEntriesFor(
     });
   }
 
+  /*
+   * The proposed tree drops the two standing entry points.
+   *
+   * AI Agents is a bucket of its own there, so the row was the same place twice,
+   * and Quick Actions is a demo affordance the proposal never asked for. Scoped
+   * to the mode rather than deleted, so every other account keeps both.
+   */
+  const trimmed =
+    state.grouping === "proposed"
+      ? resolved.filter(
+          (e) =>
+            !(
+              e.kind === "item" &&
+              (e.item.id === "ai-agents" || e.item.id === "quick-actions")
+            ) && !(e.kind === "divider" && e.id === "div-recent"),
+        )
+      : resolved;
+
   // A heading over nothing is worse than no heading — the same rule
   // `trimRecents` applies at the floor tier.
-  if (candidates.length > 0) return resolved;
-  return resolved.filter(
+  if (candidates.length > 0) return trimmed;
+  return trimmed.filter(
     (e) => !(e.kind === "label" && e.id === "recent-label"),
   );
 }

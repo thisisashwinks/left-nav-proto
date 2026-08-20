@@ -44,6 +44,7 @@ import {
 } from "@/design/tuning";
 import { useTheme } from "@/components/theme/theme-provider";
 import { catalogue } from "@/components/nav/catalogue";
+import { PROPOSED_PRODUCT_IDS } from "@/components/nav/proposed-ia";
 import {
   densityFor,
   GROUPING_BLURBS,
@@ -94,6 +95,15 @@ const PLAN_CHOICE_LABELS: Record<PlanChoice, string> = {
  * pixel knobs: the point of the section is to change the nav's model live rather
  * than describe four screenshots.
  */
+/**
+ * Are a page's tabs also nav rows?
+ *
+ * The proposed IA says no — a view is not a place. This is how you argue with
+ * that in front of someone rather than in a document.
+ */
+const TABS_IN_NAV_CHOICES = ["page", "nav"] as const;
+type TabsInNavChoice = (typeof TABS_IN_NAV_CHOICES)[number];
+
 function NavStructureSection({
   open,
   onToggle,
@@ -114,6 +124,8 @@ function NavStructureSection({
     setScopeModel,
     flyoutTrigger,
     setFlyoutTrigger,
+    tabsInNav,
+    setTabsInNav,
   } = useTheme();
   // The account's own count, not the catalogue's: density is a property of the
   // nav in front of you, and this panel is read while switching between a
@@ -166,6 +178,19 @@ function NavStructureSection({
         {scopeModel === "rail"
           ? "Model C: the agency and your open accounts as a rail of tiles. Open and close accounts from the + tile."
           : "Model A: one nav, scope named in the header. The agency is the marked case — squircle and an AGENCY word."}
+      </p>
+
+      <Segmented
+        label="Page tabs"
+        options={TABS_IN_NAV_CHOICES}
+        value={tabsInNav ? "nav" : "page"}
+        onChange={(v: TabsInNavChoice) => setTabsInNav(v === "nav")}
+        format={(v) => (v === "page" ? "On the page" : "Nested in nav")}
+      />
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        {tabsInNav
+          ? "Every tab is also a nav row and a page with its own breadcrumb — roughly what the app does today."
+          : "Views stay on the page they belong to: saved lists, statuses and settings sections are tabs, not rows."}
       </p>
 
       <Segmented
@@ -270,8 +295,13 @@ function NavStructureSection({
 
       <p className="text-[10px] leading-[14px] text-pg-faint">
         Density is computed, not chosen: this account is on{" "}
-        {state.enabledProducts.length} of {catalogue.length} products, which
-        means {DENSITY_NOTE[density]}.
+        {state.enabledProducts.length} of{" "}
+        {/* The account's own universe, not the sum of both IAs — an account on
+            the proposed tree can never reach the shipped 31, and vice versa. */}
+        {state.grouping === "proposed"
+          ? PROPOSED_PRODUCT_IDS.length
+          : catalogue.length}{" "}
+        products, which means {DENSITY_NOTE[density]}.
       </p>
     </Section>
   );

@@ -1,7 +1,10 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { Check, ChevronRight, House } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { CaretDown } from "@/components/icons/caret-down";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import { headerConfig, type HeaderActionTone, type HeaderConfig } from "./header-config";
@@ -14,9 +17,27 @@ import { UserAvatar } from "./user-avatar";
  * this page), so the trail is not just orientation but a way to move
  * sideways without going back through the nav. Aug 13 ask.
  */
+/**
+ * A row in a crumb's menu, which may itself hold a menu.
+ *
+ * The trail is a tree, not a list: a bucket holds products and a product holds
+ * pages, so switching sideways at the bucket level should not mean landing on
+ * that bucket's first product and re-opening a second menu. Rows with `children`
+ * cascade to the right on hover, and clicking one still navigates.
+ */
+export interface CrumbOption {
+  id: string;
+  label: string;
+  icon?: LucideIcon;
+  selected?: boolean;
+  children?: CrumbOption[];
+}
+
 export interface Crumb {
   label: string;
-  options?: { id: string; label: string; selected?: boolean }[];
+  /** The same glyph the nav uses for this group or product, so the trail matches it. */
+  icon?: LucideIcon;
+  options?: CrumbOption[];
   onSelect?: (id: string) => void;
 }
 
@@ -42,6 +63,8 @@ interface AppHeaderProps {
   config?: HeaderConfig;
   /** Where you are: ["Contacts", "Smart lists"]. Home renders before it. */
   crumbs?: (string | Crumb)[];
+  /** Home goes to the account's first product, whatever that is for this tenant. */
+  onHome?: () => void;
 }
 
 /**
@@ -57,6 +80,7 @@ export function AppHeader({
   surface = "plane",
   config = headerConfig,
   crumbs = ["Contacts", "Smart lists"],
+  onHome,
 }: AppHeaderProps) {
   return (
     <header
@@ -93,6 +117,7 @@ export function AppHeader({
           type="button"
           title="Home"
           aria-label="Home"
+          onClick={onHome}
           className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[7px] text-hdr-fg-muted hover:bg-hdr-chip hover:text-hdr-fg active:scale-95"
         >
           <House size={15} aria-hidden="true" />
@@ -107,16 +132,19 @@ export function AppHeader({
               <React.Fragment key={`${seg.label}-${i}`}>
                 <ChevronRight size={13} aria-hidden="true" className="shrink-0 text-hdr-fg-muted opacity-60" />
                 {seg.options && seg.options.length > 0 ? (
-                  <CrumbMenu seg={seg} last={last} />
+                  <CrumbMenu seg={seg} last={last} theme={theme} />
                 ) : (
                   <span
                     aria-current={last ? "page" : undefined}
                     className={cn(
-                      "truncate text-[13px] leading-[normal] whitespace-nowrap",
+                      "flex min-w-0 items-center gap-[5px] truncate text-[13px] leading-[normal] whitespace-nowrap",
                       last ? "font-semibold text-hdr-fg" : "text-hdr-fg-muted",
                     )}
                   >
-                    {seg.label}
+                    {seg.icon ? (
+                      <seg.icon size={14} aria-hidden="true" className="shrink-0 opacity-80" />
+                    ) : null}
+                    <span className="truncate">{seg.label}</span>
                   </span>
                 )}
               </React.Fragment>
@@ -178,7 +206,165 @@ export function AppHeader({
  * sibling list, with the current one checked. Same one-menu-at-a-time,
  * Escape-and-click-away manners as every other menu in the shell.
  */
-function CrumbMenu({ seg, last }: { seg: Crumb; last: boolean }) {
+/**
+ * One level of a crumb menu, and every level below it.
+ *
+ * Submenus open on hover and close when the pointer leaves the whole row —
+ * including the submenu itself, which is why the handlers sit on the wrapper
+ * rather than the button. Keyboard users get the same thing from the row's own
+ * focus, since a focused parent keeps its child mounted.
+ */
+const SUBMENU_WIDTH = 230;
+
+function CrumbOptions({
+  options,
+  onPick,
+  theme,
+  depth = 0,
+}: {
+  options: CrumbOption[];
+  onPick: (id: string) => void;
+  /** The hdr-* tokens live under [data-header-theme], which the portal leaves. */
+  theme: SurfaceTheme;
+  depth?: number;
+}) {
+  const [openId, setOpenId] = React.useState<string | null>(null);
+  /*
+   * Submenus are portalled to the body, not nested in the panel.
+   *
+   * The panel scrolls (`overflow-y-auto`), and an absolutely positioned child of
+   * a scroll container is clipped by it — which is exactly what happened: the
+   * cascade opened and was cropped to the parent menu's box. Fixed position from
+   * the row's own rect escapes that, and flips left when the panel would run off
+   * the right edge.
+   */
+  const [anchor, setAnchor] = React.useState<{
+    left: number;
+    top: number;
+  } | null>(null);
+
+  const openAt = (id: string, el: HTMLElement | null) => {
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    /*
+     * Shift to fit, do not flip.
+     *
+     * Flipping a third-level panel to the left of its row lands it on top of the
+     * first panel, which is worse than being tight against the edge — you lose
+     * the trail you walked in on. Clamping keeps every level readable and the
+     * chain intact, which is what menus conventionally do when space runs out.
+     */
+    setAnchor({
+      left: Math.max(
+        8,
+        Math.min(rect.right - 4, window.innerWidth - SUBMENU_WIDTH - 8),
+      ),
+      top: Math.max(8, Math.min(rect.top - 5, window.innerHeight - 140)),
+    });
+    setOpenId(id);
+  };
+
+  return (
+    <>
+      {options.map((option) => {
+        const nested = (option.children?.length ?? 0) > 0;
+        const showing = nested && openId === option.id;
+        return (
+          <div
+            key={option.id}
+            className="relative"
+            onPointerEnter={(e) =>
+              nested
+                ? openAt(option.id, e.currentTarget as HTMLElement)
+                : setOpenId(null)
+            }
+            onPointerLeave={() => setOpenId(null)}
+          >
+            <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={option.selected ?? false}
+              aria-haspopup={nested ? "menu" : undefined}
+              aria-expanded={nested ? showing : undefined}
+              onClick={() => onPick(option.id)}
+              onFocus={(e) =>
+                nested
+                  ? openAt(option.id, e.currentTarget.parentElement)
+                  : setOpenId(null)
+              }
+              className="motion-tap flex w-full items-center gap-[8px] rounded-[7px] px-[9px] py-[7px] text-left hover:bg-hdr-chip"
+            >
+              {option.icon ? (
+                <option.icon
+                  size={15}
+                  aria-hidden="true"
+                  className={cn(
+                    "shrink-0",
+                    option.selected ? "text-hdr-fg" : "text-hdr-fg-muted",
+                  )}
+                />
+              ) : null}
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate text-[13px] leading-[18px]",
+                  option.selected
+                    ? "font-semibold text-hdr-fg"
+                    : "text-hdr-fg-muted",
+                )}
+              >
+                {option.label}
+              </span>
+              {option.selected ? (
+                <Check size={13} aria-hidden="true" className="shrink-0 text-hdr-fg" />
+              ) : null}
+              {nested ? (
+                <ChevronRight
+                  size={13}
+                  aria-hidden="true"
+                  className="shrink-0 text-hdr-fg-muted opacity-70"
+                />
+              ) : null}
+            </button>
+
+            {showing && anchor
+              ? createPortal(
+                  <div
+                    role="menu"
+                    aria-label={option.label}
+                    data-header-theme={theme}
+                    style={{ left: anchor.left, top: anchor.top, width: SUBMENU_WIDTH }}
+                    // Overlaps the parent by 4px so the pointer never crosses a
+                    // gap on its way in.
+                    className="fixed z-[60] max-h-[min(70vh,460px)] overflow-y-auto rounded-[10px] bg-hdr p-[5px] shadow-[0_16px_32px_-8px_rgba(15,23,42,0.2),0_4px_8px_-4px_rgba(15,23,42,0.12),inset_0_0_0_1px_var(--hdr-border)]"
+                    onPointerEnter={() => setOpenId(option.id)}
+                    onPointerLeave={() => setOpenId(null)}
+                  >
+                    <CrumbOptions
+                      options={option.children ?? []}
+                      onPick={onPick}
+                      theme={theme}
+                      depth={depth + 1}
+                    />
+                  </div>,
+                  document.body,
+                )
+              : null}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function CrumbMenu({
+  seg,
+  last,
+  theme,
+}: {
+  seg: Crumb;
+  last: boolean;
+  theme: SurfaceTheme;
+}) {
   const [open, setOpen] = React.useState(false);
 
   React.useEffect(() => {
@@ -203,11 +389,17 @@ function CrumbMenu({ seg, last }: { seg: Crumb; last: boolean }) {
           open && "bg-hdr-chip",
         )}
       >
-        {/*
-          No standing chevron (Aug 13 note — a rank of dropdown glyphs read as
-          noise): the hover wash and the open state are the affordance, and
-          aria-haspopup carries it for assistive tech.
-        */}
+
+        {seg.icon ? (
+          <seg.icon
+            size={14}
+            aria-hidden="true"
+            className={cn(
+              "shrink-0 opacity-80",
+              last ? "text-hdr-fg" : "text-hdr-fg-muted",
+            )}
+          />
+        ) : null}
         <span
           className={cn(
             "truncate text-[13px] leading-[normal] whitespace-nowrap",
@@ -216,6 +408,20 @@ function CrumbMenu({ seg, last }: { seg: Crumb; last: boolean }) {
         >
           {seg.label}
         </span>
+        {/*
+          A standing caret after all. The Aug 13 note dropped it because a rank
+          of glyphs read as noise, but with icons now leading each segment the
+          trail no longer reads as switchable at all — hover is not an
+          affordance you can see. Kept small and faint so it sits under the
+          label rather than beside it.
+        */}
+        <CaretDown
+          size={11}
+          className={cn(
+            "-mr-[1px] shrink-0 text-hdr-fg-muted motion-move",
+            open ? "rotate-180 opacity-90" : "opacity-70",
+          )}
+        />
       </button>
 
       {open ? (
@@ -232,33 +438,14 @@ function CrumbMenu({ seg, last }: { seg: Crumb; last: boolean }) {
             aria-label={`Switch ${seg.label}`}
             className="absolute top-[calc(100%+6px)] left-0 z-50 max-h-[400px] w-[240px] overflow-y-auto rounded-[10px] bg-hdr p-[5px] shadow-[0_16px_32px_-8px_rgba(15,23,42,0.2),0_4px_8px_-4px_rgba(15,23,42,0.12),inset_0_0_0_1px_var(--hdr-border)]"
           >
-            {seg.options?.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                role="menuitemradio"
-                aria-checked={option.selected ?? false}
-                onClick={() => {
-                  setOpen(false);
-                  if (!option.selected) seg.onSelect?.(option.id);
-                }}
-                className="motion-tap flex w-full items-center gap-[8px] rounded-[7px] px-[9px] py-[7px] text-left hover:bg-hdr-chip"
-              >
-                <span
-                  className={cn(
-                    "min-w-0 flex-1 truncate text-[13px] leading-[18px]",
-                    option.selected
-                      ? "font-semibold text-hdr-fg"
-                      : "text-hdr-fg-muted",
-                  )}
-                >
-                  {option.label}
-                </span>
-                {option.selected ? (
-                  <Check size={13} aria-hidden="true" className="shrink-0 text-hdr-fg" />
-                ) : null}
-              </button>
-            ))}
+            <CrumbOptions
+              options={seg.options ?? []}
+              theme={theme}
+              onPick={(id) => {
+                setOpen(false);
+                seg.onSelect?.(id);
+              }}
+            />
           </div>
         </>
       ) : null}

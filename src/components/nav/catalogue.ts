@@ -31,8 +31,15 @@ import {
   Users,
   Video,
   Workflow,
-  type LucideIcon,
 } from "lucide-react";
+
+import type {
+  CatalogueChild,
+  CatalogueEntry,
+  CatalogueGroup,
+  ChildHit,
+} from "./catalogue-types";
+import { proposedCatalogue } from "./proposed-ia";
 
 /**
  * Everything the account owns, and the two ways the product ships it grouped.
@@ -54,24 +61,14 @@ import {
  * controls, Settings, and Reporting respectively, per the Mapping sheet.
  */
 
-export interface CatalogueGroup {
-  id: string;
-  /** The name we ship. Overrides never replace it — see the label store. */
-  defaultLabel: string;
-  icon: LucideIcon;
-}
+export type {
+  CatalogueChild,
+  CatalogueEntry,
+  CatalogueGroup,
+  ChildHit,
+} from "./catalogue-types";
 
-/** An L2 sub-place inside a product — one of today's tab-bar dropdowns, homed. */
-export interface CatalogueChild {
-  id: string;
-  label: string;
-  badge?: { label: string; tone: "new" | "beta" };
-}
-
-export interface CatalogueProduct {
-  id: string;
-  label: string;
-  icon: LucideIcon;
+export interface CatalogueProduct extends CatalogueEntry {
   /** SKU grouping — Engage, Convert, Market, Automate, Analyze. */
   groupId: string;
   /** Outcome grouping — the job the user came here to get done. */
@@ -86,10 +83,6 @@ export interface CatalogueProduct {
    * one too.
    */
   suiteId: SuiteId;
-  /** One line of what it is. Feeds the flyout rows for generated panels. */
-  blurb: string;
-  /** L2 sub-places, rendered as a nested dropdown under the product row. */
-  children?: CatalogueChild[];
 }
 
 /** The five product groupings, in nav order. */
@@ -547,26 +540,60 @@ export const catalogue: CatalogueProduct[] = [
   },
 ];
 
-const BY_ID = new Map(catalogue.map((p) => [p.id, p]));
+/**
+ * Every product either IA can file, for lookup only.
+ *
+ * Deliberately not a merge of the trees: `catalogue` stays exactly 31 entries so
+ * `DEFAULT_LAYOUT.enabledProducts`, ACME's seed and the three shipped-tree
+ * branches of `resolveGroups` keep meaning what they mean today. Only the index
+ * spans both, which is what lets `productById`/`childById` — and therefore the
+ * pin buttons, the crumbs and every product page — work for both IAs without a
+ * single call site learning that a second tree exists.
+ */
+export const allProducts: readonly CatalogueEntry[] = [
+  ...catalogue,
+  ...proposedCatalogue,
+];
 
-/** Child id → its parent product and the child itself, for navigation. */
-const CHILD_INDEX = new Map<
-  string,
-  { product: CatalogueProduct; child: CatalogueChild }
->();
-for (const product of catalogue) {
-  for (const child of product.children ?? []) {
-    CHILD_INDEX.set(child.id, { product, child });
+const BY_ID = new Map<string, CatalogueEntry>(
+  allProducts.map((p) => [p.id, p]),
+);
+
+/** Child id → the product that owns it, plus the ancestors above it. */
+const CHILD_INDEX = new Map<string, ChildHit>();
+function indexChildren(
+  product: CatalogueEntry,
+  kids: readonly CatalogueChild[],
+  path: readonly CatalogueChild[],
+) {
+  for (const child of kids) {
+    CHILD_INDEX.set(child.id, { product, child, path });
+    if (child.children?.length) {
+      indexChildren(product, child.children, [...path, child]);
+    }
+  }
+}
+for (const product of allProducts) {
+  indexChildren(product, product.children ?? [], []);
+}
+
+if (process.env.NODE_ENV !== "production") {
+  // Both IAs share one index, so a duplicate id would silently shadow a product
+  // in the launcher, the pins and the breadcrumbs. Prefixes (`suite-`, `ia-`)
+  // are the convention; this is the proof.
+  const total = catalogue.length + proposedCatalogue.length;
+  if (BY_ID.size !== total) {
+    throw new Error(
+      `Duplicate product id across the two catalogues: ${total - BY_ID.size} collision(s)`,
+    );
   }
 }
 
-export function productById(id: string): CatalogueProduct | undefined {
+export function productById(id: string): CatalogueEntry | undefined {
   return BY_ID.get(id);
 }
 
-export function childById(
-  id: string,
-): { product: CatalogueProduct; child: CatalogueChild } | undefined {
+export function childById(id: string): ChildHit | undefined {
   return CHILD_INDEX.get(id);
 }
 

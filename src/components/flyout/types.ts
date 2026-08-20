@@ -31,6 +31,14 @@ export interface FlyoutChildItem {
   id: string;
   label: string;
   badge?: FlyoutBadge;
+  /**
+   * One level deeper — L4. Needed because `group-flyout.ts` spreads
+   * `product.children` in wholesale; without the field the nesting type-checks
+   * by widening and then silently never renders.
+   */
+  children?: FlyoutChildItem[];
+  /** Children are tabs on this row's page, so the row never discloses them. */
+  tabs?: boolean;
 }
 
 export interface FlyoutItem {
@@ -38,6 +46,8 @@ export interface FlyoutItem {
   label: string;
   description?: string;
   icon?: LucideIcon;
+  /** Children are tabs on this row's page, so the row never discloses them. */
+  tabs?: boolean;
   /** Renders the filled sparkle instead of a Lucide icon. */
   ai?: boolean;
   /** Trailing timestamp, `recent` variant only. */

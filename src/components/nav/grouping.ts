@@ -1,15 +1,17 @@
 import type { LucideIcon } from "lucide-react";
 import { Folder } from "lucide-react";
 import {
+  allProducts,
   catalogue,
   catalogueGroups,
   catalogueJobs,
   catalogueSuites,
   DEFAULT_PINNED,
   productById,
+  type CatalogueEntry,
   type CatalogueGroup,
-  type CatalogueProduct,
 } from "./catalogue";
+import { PROPOSED_DESTINATION_IDS, proposedBuckets } from "./proposed-ia";
 import { iconByName, nameForIcon } from "./icon-catalogue";
 
 /**
@@ -41,7 +43,22 @@ import { iconByName, nameForIcon } from "./icon-catalogue";
  * from whichever mode was showing when the user switched, so "start over"
  * never means "start from nothing".
  */
-export type GroupingMode = "default" | "product" | "job" | "flat" | "custom";
+export type GroupingMode =
+  | "default"
+  | "product"
+  | "job"
+  | "flat"
+  | "custom"
+  /**
+   * The Aug 19 proposal: twelve buckets over their own product set.
+   *
+   * Deliberately absent from `GROUPING_MODES` below, so it never appears in the
+   * mode picker. The other five are views of one catalogue and switching between
+   * them is lossless; this one has its own products, so pointing an existing
+   * account at it would leave every bucket empty — `populated()` would drop the
+   * lot. It is reached by seeding an account onto it, not by a switch.
+   */
+  | "proposed";
 
 // Default first, as everywhere else in this codebase — the order here is the
 // order of both the picker grid and the prototype panel's segmented control.
@@ -59,6 +76,7 @@ export const GROUPING_LABELS: Record<GroupingMode, string> = {
   job: "Jobs",
   flat: "Flat",
   custom: "Custom",
+  proposed: "Proposed",
 };
 
 export const GROUPING_BLURBS: Record<GroupingMode, string> = {
@@ -68,6 +86,8 @@ export const GROUPING_BLURBS: Record<GroupingMode, string> = {
   job: "Grouped by outcome. Tenet 4, validated by HubSpot.",
   flat: "No groups. Every product a row, search for the tail.",
   custom: "The user's own groups, seeded from the mode you left.",
+  proposed:
+    "The Aug 19 proposal — twelve buckets over their own product set.",
 };
 
 /**
@@ -241,7 +261,12 @@ export const DEFAULT_LAYOUT: NavLayoutState = {
  * inline — a list that silently went stale the moment a fifth mode arrived.
  */
 export function isGroupedMode(mode: GroupingMode): boolean {
-  return mode === "default" || mode === "product" || mode === "job";
+  return (
+    mode === "default" ||
+    mode === "product" ||
+    mode === "job" ||
+    mode === "proposed"
+  );
 }
 
 /** A group as the nav should render it, after grouping mode and overrides. */
@@ -258,10 +283,12 @@ export interface ResolvedGroup {
 }
 
 const SHIPPED_GROUPS = new Map<string, CatalogueGroup>(
-  [...catalogueGroups, ...catalogueJobs, ...catalogueSuites].map((g) => [
-    g.id,
-    g,
-  ]),
+  [
+    ...catalogueGroups,
+    ...catalogueJobs,
+    ...catalogueSuites,
+    ...proposedBuckets,
+  ].map((g) => [g.id, g]),
 );
 
 /** The single flat pseudo-group. Flat mode has no headings, but surfaces that
@@ -400,10 +427,10 @@ export function isProductEnabled(
   return state.enabledProducts.includes(productId);
 }
 
-/** The account's products, in catalogue order. */
-export function enabledProducts(state: NavLayoutState): CatalogueProduct[] {
+/** The account's products, in catalogue order — from either IA. */
+export function enabledProducts(state: NavLayoutState): CatalogueEntry[] {
   const enabled = enabledSetFor(state);
-  return catalogue.filter((p) => enabled.has(p.id));
+  return allProducts.filter((p) => enabled.has(p.id));
 }
 
 /**
@@ -428,7 +455,9 @@ export function withProduct(
     const next = new Set([...state.enabledProducts, productId]);
     return {
       ...state,
-      enabledProducts: catalogue.filter((p) => next.has(p.id)).map((p) => p.id),
+      enabledProducts: allProducts
+        .filter((p) => next.has(p.id))
+        .map((p) => p.id),
     };
   }
   return {
@@ -521,6 +550,48 @@ export function resolveGroups(state: NavLayoutState): ResolvedGroup[] {
         .map((p) => p.id);
       return build([FLAT_GROUP_ID], () => ids, false);
     }
+    case "proposed": {
+      /*
+       * Membership lives on the bucket here, not on the product — the proposal
+       * is an authored nested list with an order at both levels, so one array
+       * holds it rather than a key repeated across ninety products. Which makes
+       * this case a near-copy of `custom` below rather than of the three
+       * shipped-tree cases above.
+       */
+      const ids = applyOrder(
+        state.groupOrder.proposed,
+        proposedBuckets.map((b) => b.id),
+      );
+      const byId = new Map(proposedBuckets.map((b) => [b.id, b]));
+      const groups = populated(
+        build(
+          ids,
+          (id) =>
+            (byId.get(id)?.productIds ?? []).filter((pid) => enabled.has(pid)),
+          false,
+        ),
+      );
+      /*
+       * Launchpad and Mobile own no products, so they are never buckets — they
+       * are top-level rows, filed exactly as the custom tree files what no group
+       * claims. That is also why `populated()` above never has an empty bucket
+       * to drop: a product-less bucket does not become a group in the first
+       * place.
+       */
+      const loose = PROPOSED_DESTINATION_IDS.filter((id) => enabled.has(id));
+      if (loose.length === 0) return groups;
+      return [
+        ...groups,
+        {
+          id: UNGROUPED_ID,
+          label: labelForGroup(state, UNGROUPED_ID),
+          defaultLabel: "Top level",
+          icon: iconForGroup(state, UNGROUPED_ID),
+          productIds: [...loose],
+          custom: false,
+        },
+      ];
+    }
     case "custom": {
       const ids = applyOrder(
         state.groupOrder.custom,
@@ -597,7 +668,7 @@ export function looseProductIds(
       ? groups.filter((g) => g.id !== UNGROUPED_ID).flatMap((g) => g.productIds)
       : state.customGroups.flatMap((g) => g.productIds),
   );
-  return catalogue
+  return allProducts
     .filter((p) => enabled.has(p.id) && !filed.has(p.id))
     .map((p) => p.id);
 }

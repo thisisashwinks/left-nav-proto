@@ -5,8 +5,14 @@ import { ChevronDown } from "lucide-react";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import { WithPin } from "@/components/nav/with-pin";
 import { productById } from "@/components/nav/catalogue";
+import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
-import type { FlyoutBadgeTone, FlyoutItem, FlyoutItemVariant } from "./types";
+import type {
+  FlyoutBadgeTone,
+  FlyoutChildItem,
+  FlyoutItem,
+  FlyoutItemVariant,
+} from "./types";
 
 /** Same gradient angle and stops in both tones; only the ramp differs. */
 const BADGE_TONE: Record<FlyoutBadgeTone, string> = {
@@ -71,6 +77,8 @@ interface FlyoutRowProps {
   active?: boolean;
   /** Position in the stagger sequence when the panel opens. */
   rowIndex?: number;
+  /** Start expanded — set when this row is the panel's only expandable one. */
+  defaultOpen?: boolean;
   onSelect?: (id: string) => void;
 }
 
@@ -79,28 +87,45 @@ export function FlyoutRow({
   variant,
   active = false,
   rowIndex = 0,
+  defaultOpen = false,
   onSelect,
 }: FlyoutRowProps) {
   const v = VARIANT[variant];
   const Icon = item.icon;
+  /*
+   * When the review axis is on, a tabs-parent discloses like any other parent —
+   * its tabs become nav rows and pages. Read here rather than threaded through
+   * FlyoutPanel and group-flyout, because this is the only place the decision
+   * changes anything.
+   */
+  const { tabsInNav } = useTheme();
   /** Only rows that map to a pinnable product get a pin. */
   const pinnable = productById(item.id) !== undefined;
   /*
-   * A row with L2 children behaves as a nested dropdown: clicking it expands
-   * the sub-places in place instead of selecting. This mirrors the current
-   * app's header-tab dropdowns (Invoices & Estimates ▾, Products ▾ …), which
-   * the Aug 13 audit mapped into the flyouts as L2. The chevron rides the
-   * label — a nested <button> would be invalid markup, so the whole row is
-   * the toggle.
+   * A row with children is a disclosure, not a link.
+   *
+   * The whole row is the target: a parent has no page of its own worth landing
+   * on, and an 18px chevron is too small a thing to make the only way in. So
+   * clicking expands, you pick a child, and clicking the parent again collapses.
+   * The chevron beside the label is the state indicator, not the control — which
+   * is also why it is `aria-hidden` and the row carries `aria-expanded`.
+   *
+   * Leaf rows still navigate on click. Reaching a parent product's own page is
+   * the breadcrumb's job, and it opens on the parent's first child.
    */
-  const hasChildren = (item.children?.length ?? 0) > 0;
-  const [open, setOpen] = React.useState(false);
+  // A tabs-parent is a destination: its children live on its page, so the row
+  // navigates like a leaf rather than opening a nested list of non-places.
+  const hasChildren =
+    (item.children?.length ?? 0) > 0 && (tabsInNav || !item.tabs);
+  const [open, setOpen] = React.useState(defaultOpen);
+  const panelId = React.useId();
 
   const row = (
     <button
       type="button"
       aria-current={active ? "true" : undefined}
       aria-expanded={hasChildren ? open : undefined}
+      aria-controls={hasChildren ? panelId : undefined}
       onClick={() =>
         hasChildren ? setOpen((o) => !o) : onSelect?.(item.id)
       }
@@ -183,18 +208,15 @@ export function FlyoutRow({
       ) : null}
 
       {/*
-        Disclosure at the row's far edge (Aug 13 ask — inline by the label read
-        as part of the name). It sits just inside the pin's reserved column,
-        so the two trailing affordances stack left-to-right: chevron, then pin
-        on hover.
+        State indicator at the row's far edge (Aug 13 ask — inline by the label
+        read as part of the name). Top-aligned on the title's own line, and it
+        sits just inside the pin's reserved column.
       */}
       {hasChildren ? (
         <ChevronDown
           size={14}
           aria-hidden="true"
           className={cn(
-            // Top-aligned on the title's own line (Aug 13 ask) — centring on
-            // the whole row left it floating beside the description.
             "ml-auto mt-[3px] shrink-0 self-start text-nav-fg-subtle motion-move",
             open && "rotate-180",
           )}
@@ -212,37 +234,127 @@ export function FlyoutRow({
   }
 
   return (
-    <div className="w-full shrink-0">
+    <div className="relative w-full shrink-0">
       <WithPin productId={item.id} pinClass={v.pinTop}>
         {row}
       </WithPin>
       {open ? (
-        /*
-          The nested dropdown. Indented to the parent's text column and hung
-          off a hairline that drops from the icon's centreline, so the rows
-          read as the parent's contents rather than more siblings.
-        */
-        <div className="motion-menu-in mt-[2px] ml-[19px] flex w-auto flex-col gap-[1px] border-l border-[var(--nav-divider,var(--nav-border))] pr-[8px] pl-[13px]">
-          {item.children?.map((child) => (
-            <button
-              key={child.id}
-              type="button"
-              onClick={() => onSelect?.(child.id)}
-              className="motion-tap flex h-[30px] w-full items-center gap-[7px] rounded-[7px] px-[9px] text-left text-[13px] leading-[normal] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg active:scale-[0.99]"
-            >
-              <span className="truncate">{child.label}</span>
-              {child.badge ? (
-                <span
-                  className={cn(
-                    "shrink-0 rounded-[2px] px-[4px] py-[1.5px] text-[9.5px] leading-[normal] font-semibold whitespace-nowrap shadow-[0_2px_4px_0_#00000014]",
-                    BADGE_TONE[child.badge.tone],
-                  )}
-                >
-                  {child.badge.label}
-                </span>
-              ) : null}
-            </button>
-          ))}
+        <div id={panelId}>
+          <FlyoutChildRows
+            nodes={item.children ?? []}
+            depth={0}
+            onSelect={onSelect}
+            tabsInNav={tabsInNav}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** L4 is the stop. Deeper than that is a data mistake, not a level. */
+const MAX_CHILD_DEPTH = 1;
+
+/**
+ * The nested dropdown, one level per call.
+ *
+ * Indented to the parent's text column and hung off a hairline that drops from
+ * the icon's centreline, so the rows read as the parent's contents rather than
+ * more siblings. Recursive because the proposed IA nests one level further —
+ * Calendars ▸ Settings ▸ Services — and a flat `.map` silently dropped it.
+ */
+function FlyoutChildRows({
+  nodes,
+  depth,
+  onSelect,
+  tabsInNav,
+}: {
+  nodes: readonly FlyoutChildItem[];
+  depth: number;
+  onSelect?: (id: string) => void;
+  tabsInNav: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "motion-menu-in mt-[2px] flex w-auto flex-col gap-[1px] border-l border-[var(--nav-divider,var(--nav-border))] pr-[8px]",
+        depth === 0 ? "ml-[19px] pl-[13px]" : "ml-[9px] pl-[11px]",
+      )}
+    >
+      {nodes.map((child) => (
+        <FlyoutChildRow
+          key={child.id}
+          child={child}
+          depth={depth}
+          onSelect={onSelect}
+          tabsInNav={tabsInNav}
+        />
+      ))}
+    </div>
+  );
+}
+
+function FlyoutChildRow({
+  child,
+  depth,
+  onSelect,
+  tabsInNav,
+}: {
+  child: FlyoutChildItem;
+  depth: number;
+  onSelect?: (id: string) => void;
+  tabsInNav: boolean;
+}) {
+  const nested =
+    (child.children?.length ?? 0) > 0 &&
+    (tabsInNav || !child.tabs) &&
+    depth < MAX_CHILD_DEPTH;
+  const [open, setOpen] = React.useState(false);
+  const panelId = React.useId();
+
+  return (
+    <div className="relative w-full">
+      <button
+        type="button"
+        aria-expanded={nested ? open : undefined}
+        aria-controls={nested ? panelId : undefined}
+        onClick={() => (nested ? setOpen((o) => !o) : onSelect?.(child.id))}
+        className={cn(
+          "motion-tap flex h-[30px] w-full items-center gap-[7px] rounded-[7px] px-[9px] text-left leading-[normal] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg active:scale-[0.99]",
+          // One notch down per level, so depth is legible without a marker.
+          depth === 0 ? "text-[13px]" : "text-[12.5px]",
+        )}
+      >
+        <span className="truncate">{child.label}</span>
+        {child.badge ? (
+          <span
+            className={cn(
+              "shrink-0 rounded-[2px] px-[4px] py-[1.5px] text-[9.5px] leading-[normal] font-semibold whitespace-nowrap shadow-[0_2px_4px_0_#00000014]",
+              BADGE_TONE[child.badge.tone],
+            )}
+          >
+            {child.badge.label}
+          </span>
+        ) : null}
+        {nested ? (
+          <ChevronDown
+            size={13}
+            aria-hidden="true"
+            className={cn(
+              "ml-auto shrink-0 text-nav-fg-subtle motion-move",
+              open && "rotate-180",
+            )}
+          />
+        ) : null}
+      </button>
+      {nested && open ? (
+        <div id={panelId}>
+          <FlyoutChildRows
+            nodes={child.children ?? []}
+            depth={depth + 1}
+            onSelect={onSelect}
+            tabsInNav={tabsInNav}
+          />
         </div>
       ) : null}
     </div>

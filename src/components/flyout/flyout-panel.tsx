@@ -50,6 +50,21 @@ export function FlyoutPanel({
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const panelRef = React.useRef<HTMLDivElement>(null);
 
+  /*
+   * A panel whose only row is expandable opens it.
+   *
+   * Automation is the case: one product, Workflows, with everything real one
+   * level down. Collapsed, the panel is a single row whose only job is to reveal
+   * the panel's actual contents — a click that carries no decision. Expanded, the
+   * panel says what is in it.
+   */
+  const itemRows = config.entries.filter((e) => e.kind === "item");
+  const soleExpandable =
+    itemRows.length === 1 &&
+    (itemRows[0]?.kind === "item"
+      ? (itemRows[0].item.children?.length ?? 0) > 0
+      : false);
+
   // Escape closes, and focus moves into the panel so keyboard users land here
   // rather than back at the top of the document.
   React.useEffect(() => {
@@ -151,6 +166,7 @@ export function FlyoutPanel({
             item={entry.item}
             variant={config.variant}
             active={entry.item.id === activeId}
+            defaultOpen={soleExpandable}
             rowIndex={Math.min(i, MAX_STAGGERED_ROWS)}
             onSelect={(id) => {
               setActiveId(id);

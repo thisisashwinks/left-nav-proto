@@ -223,6 +223,19 @@ export interface ThemeState {
   launchpad: boolean;
   /** Which workspace-switch model is live. See SCOPE_MODELS. */
   scopeModel: ScopeModel;
+  /**
+   * Whether a page's tabs ALSO appear as nested rows in the nav.
+   *
+   * The proposed IA marks a lot of nodes as tabs — saved lists, statuses,
+   * settings sections — on the argument that a view is not a place. That is a
+   * claim worth testing rather than asserting, so this flips it: on, every tab
+   * is a nav row and a page with its own breadcrumb, which is roughly what the
+   * app does today; off, tabs live only on the page they belong to.
+   *
+   * A review axis, so it is platform-wide and deliberately out of AccountTheme —
+   * the point is to compare the two answers, not to ship one per tenant.
+   */
+  tabsInNav: boolean;
 }
 
 /**
@@ -261,6 +274,8 @@ export const DEFAULT_THEME: ThemeState = {
   // The rail is the recommendation, so the prototype opens on it. Model A is
   // one click away for the comparison.
   scopeModel: "rail",
+  // Off: the proposal's own answer. The toggle is how you argue with it.
+  tabsInNav: false,
 };
 
 /** Human-readable labels, for the controls UI added later. */

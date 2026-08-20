@@ -7,6 +7,7 @@ import {
   type NavLayoutState,
   type ResolvedGroup,
 } from "./grouping";
+import { PROPOSED_HOME_ID, PROPOSED_SETTINGS_ID } from "./proposed-ia";
 import type { NavEntry, NavItem } from "./types";
 
 /**
@@ -98,6 +99,42 @@ export function navEntriesFor(
     },
   });
 
+  const shelfRow = (group: ResolvedGroup): NavEntry => ({
+    kind: "item",
+    item: {
+      id: group.id,
+      label: group.label,
+      icon: group.icon,
+      hasFlyout: true,
+      flyoutId: group.id,
+    },
+  });
+
+  if (state.grouping === "proposed") {
+    /*
+     * The proposal's band order, which is authored rather than derived: the
+     * buckets that own products, a rule, the two destinations that own none, a
+     * rule, then the account's own links. Settings is absent on purpose — it is
+     * a bucket whose products fill the nav's existing bottom-anchored Settings
+     * row, so putting it in this list would draw it twice.
+     */
+    const loose = groups.find((g) => g.id === UNGROUPED_ID)?.productIds ?? [];
+    const buckets = groups.filter(
+      (g) => g.id !== UNGROUPED_ID && g.id !== PROPOSED_SETTINGS_ID,
+    );
+    return [
+      // Launchpad leads: it is where the workspace opens, so it is the first row
+      // as well as the card above. The card carries the progress meter and earns
+      // its exit at 7/7; the row is the plain destination that outlives it.
+      productRow(PROPOSED_HOME_ID),
+      ...buckets.map(shelfRow),
+      { kind: "divider", id: "div-ia-buckets" },
+      ...loose.map(productRow),
+      { kind: "divider", id: "div-ia-destinations" },
+      ...extraEntries,
+    ];
+  }
+
   if (state.grouping === "flat") {
     // No headings and no chevrons: in flat mode a row is a destination, not a
     // door to a panel, which is the whole point of the mode.
@@ -122,18 +159,7 @@ export function navEntriesFor(
   const shelves = loose.length === 0 ? groups : groups.filter((g) => g.id !== UNGROUPED_ID);
 
   return [
-    ...shelves.map(
-      (group): NavEntry => ({
-        kind: "item",
-        item: {
-          id: group.id,
-          label: group.label,
-          icon: group.icon,
-          hasFlyout: true,
-          flyoutId: group.id,
-        },
-      }),
-    ),
+    ...shelves.map(shelfRow),
     ...loose.map(productRow),
     { kind: "divider", id: "div-groups" },
     ...extraEntries,
@@ -153,7 +179,7 @@ export function editTargetFor(
   // Top-level rows are products, so renaming one in the nav writes the product
   // override rather than doing nothing.
   if (
-    state.grouping === "custom" &&
+    (state.grouping === "custom" || state.grouping === "proposed") &&
     groups.find((g) => g.id === UNGROUPED_ID)?.productIds.includes(itemId)
   ) {
     return { kind: "product", id: itemId };

@@ -25,6 +25,15 @@ export interface Account {
 
 export const accounts: readonly Account[] = [
   {
+    // First, and the account the session opens in: the only tenant on the
+    // proposed twelve-bucket tree. ACME sits directly below it, still on the
+    // shipped areas, so old and new IA are one click apart.
+    id: "fieldstone",
+    name: "Fieldstone Group",
+    meta: "700 Louisiana St, Houston, TX",
+    logo: { glyph: "peak", from: "#0f766e", to: "#2dd4bf" },
+  },
+  {
     id: "acme",
     name: "ACME",
     // Shares the agency's NAME (the review's hard case) but never its mark —
@@ -152,7 +161,7 @@ export const agency: Account = {
 };
 
 /** The account the session starts in. Matches the logo in the nav header. */
-export const INITIAL_ACCOUNT_ID = "acme";
+export const INITIAL_ACCOUNT_ID = "fieldstone";
 
 /**
  * Who starts open on the account rail (Model C). Open accounts are a working
@@ -163,6 +172,7 @@ export const INITIAL_ACCOUNT_ID = "acme";
  * A ladder, largest to smallest, so every size the nav has to survive is one
  * click away and nothing has to be searched for:
  *
+ *   Fieldstone    92  the proposed IA — twelve buckets, its own product set
  *   ACME          31  the whole catalogue — the stress case
  *   Northwind     15  jobs, mid-sized
  *   Pinnacle      13  the owner's own custom tree
@@ -179,6 +189,7 @@ export const INITIAL_ACCOUNT_ID = "acme";
  * directory — but this working set is chosen to span the range.
  */
 export const INITIAL_RAIL_IDS: readonly string[] = [
+  "fieldstone",
   "acme",
   "northwind",
   "pinnacle",

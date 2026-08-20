@@ -1,4 +1,3 @@
-import { Compass } from "lucide-react";
 import { flyouts } from "@/components/flyout/flyout-config";
 import type { FlyoutConfig, FlyoutEntry } from "@/components/flyout/types";
 import { productById } from "./catalogue";
@@ -68,15 +67,13 @@ export function flyoutForGroup(
           ...(product?.blurb ? { description: product.blurb } : {}),
           // The L2 layer: sub-places render as a nested dropdown on the row.
           ...(product?.children ? { children: product.children } : {}),
+          ...(product?.tabs ? { tabs: true } : {}),
         },
       };
     }),
-    cta: {
-      id: `explore-${group.id}`,
-      icon: Compass,
-      title: `Explore ${group.label}`,
-      subtitle: "See everything in this area",
-    },
+    // No synthetic CTA. An "Explore {group}" row on the bottom of every generated
+    // panel said nothing the rows above it had not already said, and repeated
+    // verbatim across all of them.
   };
 }
 

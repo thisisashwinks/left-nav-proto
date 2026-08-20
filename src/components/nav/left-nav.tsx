@@ -17,6 +17,7 @@ import { pinnedBlockFor } from "./favorites-morph";
 import { IconPicker, useIconPicker } from "./icon-picker";
 import { navEntriesFor } from "./nav-entries";
 import { fixedEntriesFor, flyoutIdFor, navConfig } from "./nav-config";
+import { PROPOSED_HOME_ID } from "./proposed-ia";
 import { NavDivider } from "./nav-divider";
 import { NavHeader } from "./nav-header";
 import { NavItemRow } from "./nav-item-row";
@@ -247,7 +248,9 @@ export function LeftNav({
             not above: the favourites capsule floats over the header block at
             a fixed offset, and a row slid in under the header sat beneath it.
           */}
-          {launchpad && !agencyScope ? <SetupGuideRow /> : null}
+          {launchpad && !agencyScope ? (
+            <SetupGuideRow onOpen={() => onSelect?.(PROPOSED_HOME_ID)} />
+          ) : null}
           <div
             data-cursor="menu"
             className="flex w-full shrink-0 flex-col items-start gap-[var(--t-nav-space,2px)] px-[10px]"
@@ -439,19 +442,22 @@ function PinnedHole({ position }: { position: DockPosition }) {
  * product: a soft brand wash and a progress meter say "temporary, almost
  * done" — the whole point (Mapping 61) is that this row EARNS its exit.
  */
-function SetupGuideRow() {
+function SetupGuideRow({ onOpen }: { onOpen?: () => void }) {
   const done = 4;
   const total = 7;
   return (
-    <div className="w-full shrink-0 px-[10px] pt-[2px] pb-[6px]">
+    // pb rather than a gap on the parent: the card is the only thing between the
+    // dock and Recent, and it needs to read as its own band, not a first row.
+    <div className="w-full shrink-0 px-[10px] pt-[4px] pb-[16px]">
       <button
         type="button"
+        onClick={onOpen}
         className="motion-tap group flex w-full flex-col gap-[7px] rounded-[9px] bg-brand-soft px-[10px] py-[9px] text-left shadow-[inset_0_0_0_1px_var(--brand)] hover:brightness-[1.02] active:scale-[0.99]"
       >
         <span className="flex w-full items-center gap-[8px]">
           <Rocket size={15} aria-hidden="true" className="shrink-0 text-brand" />
           <span className="min-w-0 flex-1 truncate text-[13px] leading-[normal] font-semibold text-brand-strong">
-            Getting started
+            Launchpad
           </span>
           <span className="shrink-0 text-[11.5px] leading-none font-medium text-brand-strong opacity-80">
             {done} of {total}

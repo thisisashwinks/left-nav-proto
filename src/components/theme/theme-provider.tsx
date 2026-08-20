@@ -59,6 +59,7 @@ interface ThemeContextValue extends ThemeState {
   setRecentsMode: (mode: RecentsMode) => void;
   setAutoCollapse: (enabled: boolean) => void;
   setScopeModel: (model: ScopeModel) => void;
+  setTabsInNav: (enabled: boolean) => void;
   /**
    * What the workspace actually renders: the platform theme with the active
    * account's overrides applied. Chrome reads this; the prototype-controls
@@ -97,6 +98,9 @@ export function ThemeProvider({
     // Brightpath is mid-trial — the one account still in its zero state, so
     // switching to it demos the setup guide appearing and leaving.
     brightpath: { launchpad: true },
+    // Fieldstone's IA files Launchpad as the getting-started card rather than an
+    // L1 row, so the card has to be on for the bucket to exist at all.
+    fieldstone: { launchpad: true },
   });
   const [activeAccountId, setActiveAccountId] = React.useState<string | null>(
     null,
@@ -152,6 +156,7 @@ export function ThemeProvider({
       setRecentsMode: (recentsMode) => setState((s) => ({ ...s, recentsMode })),
       setAutoCollapse: (autoCollapse) => setState((s) => ({ ...s, autoCollapse })),
       setScopeModel: (scopeModel) => setState((s) => ({ ...s, scopeModel })),
+      setTabsInNav: (tabsInNav) => setState((s) => ({ ...s, tabsInNav })),
     }),
     [state, effective, accountThemes],
   );
