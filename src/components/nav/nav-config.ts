@@ -158,20 +158,17 @@ export function fixedEntriesFor(
   }
 
   /*
-   * The proposed tree drops the two standing entry points.
+   * The proposed tree drops the AI Agents row.
    *
-   * AI Agents is a bucket of its own there, so the row was the same place twice,
-   * and Quick Actions is a demo affordance the proposal never asked for. Scoped
-   * to the mode rather than deleted, so every other account keeps both.
+   * AI is a bucket of its own there, so the row was the same place twice. Quick
+   * Actions stays — it is not a place at all, it is a shortcut sheet, so nothing
+   * in the IA duplicates it. Scoped to the mode rather than deleted, so every
+   * other account keeps both.
    */
   const trimmed =
     state.grouping === "proposed"
       ? resolved.filter(
-          (e) =>
-            !(
-              e.kind === "item" &&
-              (e.item.id === "ai-agents" || e.item.id === "quick-actions")
-            ) && !(e.kind === "divider" && e.id === "div-recent"),
+          (e) => !(e.kind === "item" && e.item.id === "ai-agents"),
         )
       : resolved;
 

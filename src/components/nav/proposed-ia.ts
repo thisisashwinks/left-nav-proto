@@ -794,7 +794,6 @@ const COMMERCE: CatalogueEntry[] = [
     label: "Invoices & Estimates",
     icon: Receipt,
     blurb: "Bill for work, one-off or recurring.",
-    tabs: true,
     children: [
       { id: "ia-commerce-invoices-all", label: "All Invoices" },
       { id: "ia-commerce-invoices-recurring", label: "Recurring Invoices" },
@@ -830,7 +829,6 @@ const COMMERCE: CatalogueEntry[] = [
     label: "Documents & Contracts",
     icon: FileSignature,
     blurb: "Send, sign and store agreements.",
-    tabs: true,
     children: [
       {
         id: "ia-commerce-documents-all",
