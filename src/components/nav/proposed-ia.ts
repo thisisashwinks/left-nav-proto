@@ -59,6 +59,7 @@ import {
   Rocket,
   Rss,
   ScrollText,
+  Send,
   Settings,
   Share2,
   ShieldCheck,
@@ -79,6 +80,7 @@ import {
   Wallet,
   Wand,
   Workflow,
+  Zap,
 } from "lucide-react";
 
 import type { CatalogueEntry, CatalogueGroup } from "./catalogue-types";
@@ -507,17 +509,30 @@ const AUTOMATION: CatalogueEntry[] = [
           { id: "ia-automation-list-deleted", label: "Deleted" },
         ],
       },
-      // The sheet marks Campaigns and Triggers "only visible to older accounts".
-      // CatalogueChild has no visibility axis and one row does not earn one, so
-      // the legacy status is carried as a badge instead of a filter.
-      {
-        id: "ia-automation-campaigns",
-        label: "Campaigns, Triggers",
-        badge: { label: "Legacy", tone: "beta" },
-      },
       { id: "ia-automation-analytics", label: "Analytics" },
       { id: "ia-automation-settings", label: "Settings" },
     ],
+  },
+  /*
+   * Campaigns and Triggers are two products, not one row.
+   *
+   * The sheet drew them as a single "Campaigns, Triggers" child marked "only
+   * visible to older accounts", which collapsed two separate things into one and
+   * then labelled the pair Legacy. They are separate Automation tabs in the app
+   * today, so they are separate L2s here. No badge: whether either is on its way
+   * out is a decision the nav should not be pre-announcing.
+   */
+  {
+    id: "ia-automation-campaigns",
+    label: "Campaigns",
+    icon: Send,
+    blurb: "The older sequence builder.",
+  },
+  {
+    id: "ia-automation-triggers",
+    label: "Triggers",
+    icon: Zap,
+    blurb: "The older single-step automations.",
   },
 ];
 
