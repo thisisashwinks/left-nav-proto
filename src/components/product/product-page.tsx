@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import {
-  ChevronLeft,
   Columns3,
   EllipsisVertical,
   ListFilter,
@@ -10,8 +9,6 @@ import {
   Search,
   Upload,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { CaretDown } from "@/components/icons/caret-down";
 import { useTheme } from "@/components/theme/theme-provider";
 import type {
   CatalogueChild,
@@ -28,11 +25,6 @@ interface ProductPageProps {
   product: CatalogueEntry;
   /** The L2 sub-place showing, or null for the product's own landing view. */
   childId: string | null;
-  onChildChange: (id: string | null) => void;
-  /** The bucket this product sits in, for the title menu's step-up view. */
-  groupLabel?: string;
-  siblings?: { id: string; label: string; icon?: LucideIcon }[];
-  onSelectSibling?: (id: string) => void;
   /** A tab or sub-tab id the nav asked for, pre-selected on the bar. */
   initialTab?: string | null;
 }
@@ -40,19 +32,14 @@ interface ProductPageProps {
 /**
  * The stand-in page every product opens to.
  *
- * The point of this page is its HEADER: the title is the navigator, exactly
- * as ContactsPage does for Smart lists — the current app's header-tab
- * dropdowns become the title's own menu, listing the product's L2 places
- * from the catalogue. The body below is a deliberately plain stage (toolbar
- * and skeleton rows), because the interaction being demoed is up top.
+ * The title was the navigator until the breadcrumb grew cascading menus; now the
+ * trail owns switching and this is a plain heading. What the page still carries
+ * is the in-page tab bar — one or two rows of views that deliberately are NOT
+ * places. The body is a plain stage on purpose.
  */
 export function ProductPage({
   product,
   childId,
-  onChildChange,
-  groupLabel,
-  siblings,
-  onSelectSibling,
   initialTab,
 }: ProductPageProps) {
   const { effective } = useTheme();
@@ -120,22 +107,18 @@ export function ProductPage({
     >
       <div className="flex shrink-0 items-center justify-between">
         <div className="flex flex-col items-start gap-[3px]">
-          {pages.length > 0 ? (
-            <TitleMenu
-              area={product.label}
-              pages={pages}
-              currentId={current?.id ?? null}
-              overview={overviewLabel(product)}
-              onChange={onChildChange}
-              groupLabel={groupLabel}
-              siblings={siblings}
-              onSelectSibling={onSelectSibling}
-            />
-          ) : (
-            <h1 className="text-[20px] leading-[normal] font-semibold tracking-[-0.2px] whitespace-nowrap text-pg-heading">
-              {title}
-            </h1>
-          )}
+          {/*
+            A heading, not a menu (Abhishek, Aug 19).
+            
+            The title used to be the navigator — that was this page's whole point
+            before the breadcrumb had cascading menus. Now the trail does it
+            better, and a caret here offered a second way to the same places
+            while looking like it might do something else. Two navigators on one
+            screen is the misleading part.
+          */}
+          <h1 className="text-[20px] leading-[normal] font-semibold tracking-[-0.2px] whitespace-nowrap text-pg-heading">
+            {title}
+          </h1>
           <p className="text-[13px] leading-[normal] whitespace-nowrap text-pg-muted">
             {product.blurb}
           </p>
@@ -346,225 +329,5 @@ function ToolbarButton({
       <Icon size={15} aria-hidden="true" className="text-pg-text-strong" />
       {label}
     </button>
-  );
-}
-
-/**
- * "{Current page} ⌄" — the same title-as-navigator ContactsPage established
- * for Smart lists, generated from the catalogue's L2 children. The menu is
- * headed by the product's name, so the dropdown reads as "where you are
- * inside {product}".
- */
-function TitleMenu({
-  area,
-  pages,
-  currentId,
-  overview,
-  onChange,
-  groupLabel,
-  siblings = [],
-  onSelectSibling,
-}: {
-  area: string;
-  pages: PageNode[];
-  currentId: string | null;
-  overview: string;
-  onChange: (id: string | null) => void;
-  /** The bucket this product sits in — the level the back arrow steps up to. */
-  groupLabel?: string;
-  /** The other products in that bucket, so switching never leaves the menu. */
-  siblings?: { id: string; label: string; icon?: LucideIcon }[];
-  onSelectSibling?: (id: string) => void;
-}) {
-  const [open, setOpen] = React.useState(false);
-  /*
-   * Two levels in one menu: this product's pages, and one step up, the bucket's
-   * products. The review's ask — from a page you should be able to keep moving
-   * without closing the menu and going back through the nav.
-   */
-  const [view, setView] = React.useState<"pages" | "products">("pages");
-  const canStepUp = Boolean(groupLabel && siblings.length > 0 && onSelectSibling);
-  const current = pages.find((p) => p.child.id === currentId)?.child;
-
-
-  React.useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open]);
-
-  const row = (
-    selected: boolean,
-    label: string,
-    onClick: () => void,
-    badge?: CatalogueChild["badge"],
-    key?: string,
-    depth = 0,
-  ) => (
-    <button
-      key={key ?? label}
-      type="button"
-      role="menuitemradio"
-      aria-checked={selected}
-      onClick={onClick}
-      // Depth as indent: the L4s read as belonging to the L3 above them.
-      style={depth > 0 ? { paddingLeft: 10 + depth * 14 } : undefined}
-      className={cn(
-        "motion-tap flex w-full items-center gap-[8px] rounded-[8px] px-[10px] py-[9px] text-left",
-        selected
-          ? "bg-pg-bg shadow-[inset_0_0_0_1px_var(--pg-border)]"
-          : "hover:bg-pg-bg",
-      )}
-    >
-      <span
-        className={cn(
-          "text-[13.5px] leading-[18px]",
-          selected ? "font-semibold text-pg-heading" : "text-pg-text",
-        )}
-      >
-        {label}
-      </span>
-      {badge ? (
-        <span className="shrink-0 rounded-[4px] bg-pg-bg px-[5px] py-[1px] text-[10px] leading-[14px] font-semibold text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border)]">
-          {badge.label}
-        </span>
-      ) : null}
-    </button>
-  );
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => {
-          // Reopening always starts at this product's pages, never wherever it
-          // was left. Done here rather than in an effect — Next 16 rejects
-          // setState in an effect, and the toggle is the honest place for it.
-          setOpen((v) => !v);
-          setView("pages");
-        }}
-        className="motion-tap group/title -mx-[6px] flex items-center gap-[6px] rounded-[8px] px-[6px] py-[2px] hover:bg-pg-surface"
-      >
-        <h1 className="text-[20px] leading-[normal] font-semibold tracking-[-0.2px] whitespace-nowrap text-pg-heading">
-          {current?.label ?? overview}
-        </h1>
-        <CaretDown
-          size={14}
-          className={cn("shrink-0 text-pg-muted motion-tap", open && "rotate-180")}
-        />
-      </button>
-
-      {open ? (
-        <>
-          <button
-            type="button"
-            aria-label="Close menu"
-            tabIndex={-1}
-            onClick={() => setOpen(false)}
-            className="fixed inset-0 z-30 cursor-default"
-          />
-          <div
-            role="menu"
-            aria-label={view === "pages" ? `${area} pages` : `${groupLabel} products`}
-            className="absolute top-[calc(100%+8px)] left-[-6px] z-40 w-[280px] rounded-[12px] bg-pg-surface p-[6px] shadow-[0_16px_32px_-8px_rgba(15,23,42,0.18),0_4px_8px_-4px_rgba(15,23,42,0.12),inset_0_0_0_1px_var(--pg-border)]"
-          >
-            {/*
-              The header is a header, not a row.
-              
-              It used to be 14px semibold — the same weight the selected row
-              wears — so "Social Planner" the heading and "Social Listening" the
-              selection read as siblings. Now it is small, uppercase, tracked and
-              muted, sitting above a rule: the same section-label idiom the
-              flyout panels already use, and impossible to mistake for a choice.
-            */}
-            <div className="mb-[4px] flex items-center gap-[6px] border-b border-[var(--pg-border)] px-[6px] pt-[5px] pb-[7px]">
-              {canStepUp ? (
-                <button
-                  type="button"
-                  aria-label={
-                    view === "pages"
-                      ? `Up to ${groupLabel}`
-                      : `Back to ${area}`
-                  }
-                  onClick={() =>
-                    setView((v) => (v === "pages" ? "products" : "pages"))
-                  }
-                  className="motion-tap flex size-[20px] shrink-0 items-center justify-center rounded-[5px] text-pg-muted hover:bg-pg-bg hover:text-pg-text active:scale-95"
-                >
-                  <ChevronLeft size={14} aria-hidden="true" />
-                </button>
-              ) : null}
-              <span className="flex-1 truncate text-[11px] leading-[14px] font-semibold tracking-[0.5px] text-pg-faint uppercase">
-                {view === "pages" ? area : groupLabel}
-              </span>
-            </div>
-
-            {view === "pages" ? (
-              <>
-                {row(currentId === null, overview, () => {
-                  onChange(null);
-                  setOpen(false);
-                })}
-                {pages.map(({ child, depth }) =>
-                  row(
-                    child.id === currentId,
-                    child.label,
-                    () => {
-                      onChange(child.id);
-                      setOpen(false);
-                    },
-                    child.badge,
-                    child.id,
-                    depth,
-                  ),
-                )}
-              </>
-            ) : (
-              siblings.map((sibling) => (
-                <button
-                  key={sibling.id}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={sibling.label === area}
-                  onClick={() => {
-                    onSelectSibling?.(sibling.id);
-                    setOpen(false);
-                  }}
-                  className={cn(
-                    "motion-tap flex w-full items-center gap-[9px] rounded-[8px] px-[10px] py-[9px] text-left",
-                    sibling.label === area
-                      ? "bg-pg-bg shadow-[inset_0_0_0_1px_var(--pg-border)]"
-                      : "hover:bg-pg-bg",
-                  )}
-                >
-                  {sibling.icon ? (
-                    <sibling.icon
-                      size={15}
-                      aria-hidden="true"
-                      className="shrink-0 text-pg-muted"
-                    />
-                  ) : null}
-                  <span
-                    className={cn(
-                      "truncate text-[13.5px] leading-[18px]",
-                      sibling.label === area
-                        ? "font-semibold text-pg-heading"
-                        : "text-pg-text",
-                    )}
-                  >
-                    {sibling.label}
-                  </span>
-                </button>
-              ))
-            )}
-          </div>
-        </>
-      ) : null}
-    </div>
   );
 }

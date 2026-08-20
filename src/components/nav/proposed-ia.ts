@@ -651,6 +651,20 @@ const MARKETING: CatalogueEntry[] = [
     ],
   },
   {
+    /*
+     * Marketing, not Settings (Abhishek, Aug 19).
+     *
+     * Consent and opt-outs read as account-wide plumbing, which is the argument
+     * for Settings — but the people who work in it are the ones sending the
+     * campaigns, and a preference is the reason a send is suppressed. It belongs
+     * next to the sending tools.
+     */
+    id: "ia-marketing-preferences",
+    label: "Preference Management Hub",
+    icon: SlidersHorizontal,
+    blurb: "Consent, opt-outs and quiet hours.",
+  },
+  {
     id: "ia-marketing-reputation",
     label: "Reputation",
     icon: Star,
@@ -1157,14 +1171,6 @@ const SETTINGS: CatalogueEntry[] = [
     label: "Billing",
     icon: Banknote,
     blurb: "Plan, wallet and invoices for this account.",
-  },
-  {
-    // Shipped today as Settings › Preference Management Hub. Consent and
-    // opt-outs span every channel, so it is genuinely account-wide.
-    id: "ia-settings-preferences",
-    label: "Preference Management Hub",
-    icon: SlidersHorizontal,
-    blurb: "Consent, opt-outs and quiet hours.",
   },
   {
     id: "ia-settings-import",

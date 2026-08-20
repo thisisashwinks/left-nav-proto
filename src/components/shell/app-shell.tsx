@@ -329,13 +329,6 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         : null),
     [productPage, layout.grouping, homeProductId, themeOwnerId, firstPageOf],
   );
-  /** The bucket the open product sits in, for the page title's step-up menu. */
-  const canvasGroup = canvasPage
-    ? groups.find(
-        (g) =>
-          g.id !== UNGROUPED_ID && g.productIds.includes(canvasPage.productId),
-      )
-    : undefined;
   /** Opens a page under the current owner, so the derivation above can trust it. */
   const setProductPage = React.useCallback(
     (
@@ -1158,19 +1151,6 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                   initialTab={canvasPage.tabId ?? null}
                   product={productById(canvasPage.productId)!}
                   childId={canvasPage.childId}
-                  groupLabel={canvasGroup?.label}
-                  siblings={(canvasGroup?.productIds ?? []).map((id) => ({
-                    id,
-                    label: productLabelFor(id),
-                    icon: productIconFor(id),
-                  }))}
-                  onSelectSibling={openProduct}
-                  onChildChange={(childId) =>
-                    setProductPage({
-                      productId: canvasPage.productId,
-                      childId,
-                    })
-                  }
                 />
               ) : (
                 children
