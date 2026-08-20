@@ -118,7 +118,15 @@ export function LeftNav({
     entryLayout,
     dockPosition,
     launchpad: launchpadSetting,
+    sectionHeadings,
   } = useTheme().effective;
+  /**
+   * Which bands are folded. Face-local on purpose: a fold is a property of the
+   * nav you are looking at, not of the account's tree.
+   */
+  const [foldedSections, setFoldedSections] = React.useState<Set<string>>(
+    () => new Set(),
+  );
   const topEntry = entryLayout === "top";
   const atFloor = density === "floor";
   const agencyScope = scope === "agency";
@@ -136,8 +144,11 @@ export function LeftNav({
   // At agency scope the middle block is the agency's own config — the grouping
   // modes, renames and volume switch stay a sub-account exercise.
   const entries = React.useMemo(
-    () => (agencyScope ? agencyEntries : navEntriesFor(state, groups)),
-    [agencyScope, state, groups],
+    () =>
+      agencyScope
+        ? agencyEntries
+        : navEntriesFor(state, groups, sectionHeadings),
+    [agencyScope, state, groups, sectionHeadings],
   );
 
   // Recent names this account's own places, then the block is trimmed to what
@@ -187,6 +198,44 @@ export function LeftNav({
       return <NavDivider key={entry.id} />;
     }
     return renderRow(entry.item);
+  };
+
+  /*
+   * The same list, folded.
+   *
+   * A heading opens a band and owns everything until the next heading, so the
+   * fold is a walk rather than a tree — which is why the entry list stays flat
+   * and both nav faces keep reading the same one. Only the `sec-` labels this
+   * mode emits are foldable; Recent's own heading is left alone.
+   */
+  const renderBanded = (list: NavEntry[]) => {
+    const out: React.ReactNode[] = [];
+    let section: string | null = null;
+    for (const entry of list) {
+      if (entry.kind === "label" && entry.id.startsWith("sec-")) {
+        section = entry.id;
+        const folded = foldedSections.has(entry.id);
+        out.push(
+          <NavSectionLabel
+            key={entry.id}
+            text={entry.text}
+            collapsed={folded}
+            onToggle={() =>
+              setFoldedSections((prev) => {
+                const next = new Set(prev);
+                if (!next.delete(entry.id)) next.add(entry.id);
+                return next;
+              })
+            }
+          />,
+        );
+        continue;
+      }
+      if (entry.kind === "label") section = null;
+      if (section && foldedSections.has(section)) continue;
+      out.push(renderEntry(entry));
+    }
+    return out;
   };
 
   return (
@@ -296,7 +345,7 @@ export function LeftNav({
               <NavDivider />
             </>
           ) : null}
-          {entries.map(renderEntry)}
+          {sectionHeadings ? renderBanded(entries) : entries.map(renderEntry)}
           {renderRow(agencyScope ? agencySettings : config.settings)}
         </div>
         <div aria-hidden="true" data-scroll-fade="bottom" />

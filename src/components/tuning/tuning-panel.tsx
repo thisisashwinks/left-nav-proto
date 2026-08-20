@@ -104,6 +104,10 @@ const PLAN_CHOICE_LABELS: Record<PlanChoice, string> = {
 const TABS_IN_NAV_CHOICES = ["page", "nav"] as const;
 type TabsInNavChoice = (typeof TABS_IN_NAV_CHOICES)[number];
 
+/** Does every band in the nav get a heading it can be folded by? */
+const SECTION_CHOICES = ["plain", "labelled"] as const;
+type SectionChoice = (typeof SECTION_CHOICES)[number];
+
 function NavStructureSection({
   open,
   onToggle,
@@ -126,6 +130,8 @@ function NavStructureSection({
     setFlyoutTrigger,
     tabsInNav,
     setTabsInNav,
+    sectionHeadings,
+    setSectionHeadings,
   } = useTheme();
   // The account's own count, not the catalogue's: density is a property of the
   // nav in front of you, and this panel is read while switching between a
@@ -191,6 +197,19 @@ function NavStructureSection({
         {tabsInNav
           ? "Every tab is also a nav row and a page with its own breadcrumb — roughly what the app does today."
           : "Views stay on the page they belong to: saved lists, statuses and settings sections are tabs, not rows."}
+      </p>
+
+      <Segmented
+        label="Sections"
+        options={SECTION_CHOICES}
+        value={sectionHeadings ? "labelled" : "plain"}
+        onChange={(v: SectionChoice) => setSectionHeadings(v === "labelled")}
+        format={(v) => (v === "plain" ? "Rules only" : "Headings")}
+      />
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        {sectionHeadings
+          ? "Every band wears a small caps heading and folds when you click it — Recent's treatment, applied throughout."
+          : "One continuous list, bands separated by rules. Only Recent has a heading."}
       </p>
 
       <Segmented

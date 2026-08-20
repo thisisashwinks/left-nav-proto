@@ -236,6 +236,19 @@ export interface ThemeState {
    * the point is to compare the two answers, not to ship one per tenant.
    */
   tabsInNav: boolean;
+  /**
+   * Whether every band in the nav wears a heading and can be collapsed.
+   *
+   * Off, only Recent has a heading and nothing folds — the nav is one continuous
+   * list separated by rules. On, each band (groups, tools, links) gets the same
+   * small caps label Recent already has, and clicking it folds the band away.
+   *
+   * The argument for: an account on ninety products needs to be able to put half
+   * the nav away, and a heading is what makes a band nameable. Against: headings
+   * cost a row of height each and a fold is state the user has to remember. A
+   * review axis, so the two can be seen side by side.
+   */
+  sectionHeadings: boolean;
 }
 
 /**
@@ -276,6 +289,7 @@ export const DEFAULT_THEME: ThemeState = {
   scopeModel: "rail",
   // Off: the proposal's own answer. The toggle is how you argue with it.
   tabsInNav: false,
+  sectionHeadings: false,
 };
 
 /** Human-readable labels, for the controls UI added later. */

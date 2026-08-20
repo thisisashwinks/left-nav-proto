@@ -77,7 +77,20 @@ function accountLinks(labels: string[]): NavItem[] {
 export function navEntriesFor(
   state: NavLayoutState,
   groups: ResolvedGroup[],
+  /**
+   * Headings instead of rules.
+   *
+   * Each band gets the small caps label Recent already wears, and the label is
+   * what folds it — see `left-nav.tsx`, which owns the fold state because it is
+   * a property of the face rather than of the tree.
+   */
+  sectionHeadings = false,
 ): NavEntry[] {
+  /** A band opener: a heading when they are on, otherwise the rule we shipped. */
+  const band = (id: string, text: string): NavEntry =>
+    sectionHeadings
+      ? { kind: "label", id: `sec-${id}`, text }
+      : { kind: "divider", id: `div-${id}` };
   const extra = [
     ...accountLinks(state.customLinks),
     ...volumeLinks(NAV_VOLUME_EXTRA_LINKS[state.navVolume]),
@@ -87,7 +100,11 @@ export function navEntriesFor(
       ? []
       : [
           ...extra.map((item): NavEntry => ({ kind: "item", item })),
-          { kind: "divider", id: "div-custom" },
+          // With headings the band is opened by its label, so a closing rule
+          // would draw a line between it and Settings for no reason.
+          ...(sectionHeadings
+            ? []
+            : [{ kind: "divider" as const, id: "div-custom" }]),
         ];
 
   const productRow = (id: string): NavEntry => ({
@@ -129,10 +146,17 @@ export function navEntriesFor(
        * It still appears in the breadcrumb's top-level menu, since from AI or CRM
        * you have to be able to get back to it.
        */
+      ...(sectionHeadings ? [band("ia-buckets", "Products")] : []),
       ...buckets.map(shelfRow),
-      { kind: "divider", id: "div-ia-buckets" },
+      band("ia-destinations", "Tools"),
       ...loose.map(productRow),
-      { kind: "divider", id: "div-ia-destinations" },
+      ...(sectionHeadings
+        ? extraEntries.length > 0
+          ? [band("ia-links", "Links")]
+          : []
+        // Distinct from the rule `band("ia-destinations")` already emitted above
+        // it: two dividers sharing an id made React drop one of them.
+        : [{ kind: "divider" as const, id: "div-ia-links" }]),
       ...extraEntries,
     ];
   }
@@ -142,8 +166,9 @@ export function navEntriesFor(
     // door to a panel, which is the whole point of the mode.
     const products = groups[0]?.productIds ?? [];
     return [
+      ...(sectionHeadings ? [band("flat", "Products")] : []),
       ...products.map(productRow),
-      { kind: "divider", id: "div-flat" },
+      ...(extraEntries.length > 0 ? [band("links", "Links")] : []),
       ...extraEntries,
     ];
   }
@@ -161,9 +186,15 @@ export function navEntriesFor(
   const shelves = loose.length === 0 ? groups : groups.filter((g) => g.id !== UNGROUPED_ID);
 
   return [
+    ...(sectionHeadings ? [band("groups", "Products")] : []),
     ...shelves.map(shelfRow),
+    ...(sectionHeadings && loose.length > 0 ? [band("loose", "Tools")] : []),
     ...loose.map(productRow),
-    { kind: "divider", id: "div-groups" },
+    ...(sectionHeadings
+      ? extraEntries.length > 0
+        ? [band("links", "Links")]
+        : []
+      : [{ kind: "divider" as const, id: "div-groups" }]),
     ...extraEntries,
   ];
 }
