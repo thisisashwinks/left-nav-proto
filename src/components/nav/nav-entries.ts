@@ -7,7 +7,7 @@ import {
   type NavLayoutState,
   type ResolvedGroup,
 } from "./grouping";
-import { PROPOSED_HOME_ID, PROPOSED_SETTINGS_ID } from "./proposed-ia";
+import { PROPOSED_SETTINGS_ID } from "./proposed-ia";
 import type { NavEntry, NavItem } from "./types";
 
 /**
@@ -123,10 +123,12 @@ export function navEntriesFor(
       (g) => g.id !== UNGROUPED_ID && g.id !== PROPOSED_SETTINGS_ID,
     );
     return [
-      // Launchpad leads: it is where the workspace opens, so it is the first row
-      // as well as the card above. The card carries the progress meter and earns
-      // its exit at 7/7; the row is the plain destination that outlives it.
-      productRow(PROPOSED_HOME_ID),
+      /*
+       * No Launchpad row. The card above Recent is its only nav affordance — a
+       * row as well would be the same door twice, which is what it looked like.
+       * It still appears in the breadcrumb's top-level menu, since from AI or CRM
+       * you have to be able to get back to it.
+       */
       ...buckets.map(shelfRow),
       { kind: "divider", id: "div-ia-buckets" },
       ...loose.map(productRow),
