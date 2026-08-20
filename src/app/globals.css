@@ -134,6 +134,9 @@
 }
 
 :root {
+  /* The scroll region's reserved scrollbar gutter. Anything that has to line up
+     with rows inside that region adds this to its own padding. */
+  --nav-scroll-gutter: 8px;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -287,6 +290,23 @@
   }
 
   /*
+   * The gutter is always this wide, overflowing or not.
+   *
+   * It used to be set only under [data-overflowing], which meant a region that
+   * fitted reserved the browser default instead — so the gutter changed width
+   * depending on content. Anything outside the scroll region that wants to line
+   * up with the rows inside it reads --nav-scroll-gutter and adds it to its own
+   * padding; see the fixed cluster in left-nav.
+   */
+  [data-scroll-region]::-webkit-scrollbar {
+    width: var(--nav-scroll-gutter);
+  }
+
+  [data-scroll-region]::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /*
    * Only overflowing regions get a visible scrollbar. A permanent track in a nav
    * that fits reads as broken.
    *
@@ -296,14 +316,6 @@
    * invisible until you already know to scroll — which is the problem, not the fix.
    * Firefox keeps its own default scrollbar here; the demo runs in Chrome.
    */
-  [data-scroll-region][data-overflowing]::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  [data-scroll-region][data-overflowing]::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
   [data-scroll-region][data-overflowing]::-webkit-scrollbar-thumb {
     background-color: var(--nav-scrollbar, rgb(0 0 0 / 0.22));
     border-radius: 999px;

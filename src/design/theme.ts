@@ -188,6 +188,29 @@ export const FLYOUT_TRIGGER_LABELS: Record<FlyoutTrigger, string> = {
  *          sub-account is a plain circle with no eyebrow. Mark the exception,
  *          not the rule.
  */
+/**
+ * How the nav's bands are named, and which of them fold.
+ *
+ *  plain   What we shipped: one continuous list, bands separated by rules, only
+ *          Recent named, nothing folds.
+ *  recent  Same, but Recent's heading folds it — the smallest useful version of
+ *          the idea, since Recent is the band that goes stale fastest. Its
+ *          chevron lines up with the rows' own, so the fold reads as belonging
+ *          to the list rather than sitting outside it.
+ *  all     Every band named and foldable: Recent, Shortcuts, Products, More.
+ *
+ * A review axis, so the three can be seen side by side rather than argued about.
+ */
+export const NAV_SECTIONS = ["plain", "recent", "all"] as const;
+
+export type NavSections = (typeof NAV_SECTIONS)[number];
+
+export const NAV_SECTION_LABELS: Record<NavSections, string> = {
+  plain: "Rules only",
+  recent: "Recent folds",
+  all: "All headings",
+};
+
 export const SCOPE_MODELS = ["rail", "header"] as const;
 
 export type ScopeModel = (typeof SCOPE_MODELS)[number];
@@ -236,19 +259,8 @@ export interface ThemeState {
    * the point is to compare the two answers, not to ship one per tenant.
    */
   tabsInNav: boolean;
-  /**
-   * Whether every band in the nav wears a heading and can be collapsed.
-   *
-   * Off, only Recent has a heading and nothing folds — the nav is one continuous
-   * list separated by rules. On, each band (groups, tools, links) gets the same
-   * small caps label Recent already has, and clicking it folds the band away.
-   *
-   * The argument for: an account on ninety products needs to be able to put half
-   * the nav away, and a heading is what makes a band nameable. Against: headings
-   * cost a row of height each and a fold is state the user has to remember. A
-   * review axis, so the two can be seen side by side.
-   */
-  sectionHeadings: boolean;
+  /** How the nav's bands are named and whether they fold. See NAV_SECTIONS. */
+  navSections: NavSections;
 }
 
 /**
@@ -289,7 +301,7 @@ export const DEFAULT_THEME: ThemeState = {
   scopeModel: "rail",
   // Off: the proposal's own answer. The toggle is how you argue with it.
   tabsInNav: false,
-  sectionHeadings: false,
+  navSections: "plain",
 };
 
 /** Human-readable labels, for the controls UI added later. */

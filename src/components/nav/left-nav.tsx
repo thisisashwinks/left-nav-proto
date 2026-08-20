@@ -118,8 +118,11 @@ export function LeftNav({
     entryLayout,
     dockPosition,
     launchpad: launchpadSetting,
-    sectionHeadings,
+    navSections,
   } = useTheme().effective;
+  /** Recent folds in both heading variants; only "all" names every band. */
+  const foldable = navSections !== "plain";
+  const bandEverything = navSections === "all";
   /**
    * Which bands are folded. Face-local on purpose: a fold is a property of the
    * nav you are looking at, not of the account's tree.
@@ -147,8 +150,8 @@ export function LeftNav({
     () =>
       agencyScope
         ? agencyEntries
-        : navEntriesFor(state, groups, sectionHeadings),
-    [agencyScope, state, groups, sectionHeadings],
+        : navEntriesFor(state, groups, bandEverything),
+    [agencyScope, state, groups, bandEverything],
   );
 
   // Recent names this account's own places, then the block is trimmed to what
@@ -159,10 +162,10 @@ export function LeftNav({
       trimRecents(
         agencyScope
           ? config.fixed
-          : fixedEntriesFor(state, config.fixed, sectionHeadings),
+          : fixedEntriesFor(state, config.fixed, bandEverything),
         recentsBudget,
       ),
-    [agencyScope, state, config.fixed, recentsBudget, sectionHeadings],
+    [agencyScope, state, config.fixed, recentsBudget, bandEverything],
   );
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -309,21 +312,26 @@ export function LeftNav({
           ) : null}
           <div
             data-cursor="menu"
-            className="flex w-full shrink-0 flex-col items-start gap-[var(--t-nav-space,2px)] px-[10px]"
+            /*
+              The scroll region below reserves a scrollbar gutter, so matching its
+              left padding alone left this band 8px wider — its chevrons sat
+              outboard of every row under it. Add the gutter here too.
+            */
+            className="flex w-full shrink-0 flex-col items-start gap-[var(--t-nav-space,2px)] pl-[10px] pr-[calc(10px+var(--nav-scroll-gutter,8px))]"
           >
             {agencyScope ? (
               <RecentAccountsBlock
                 accounts={recentAccounts}
                 onSwitch={onSwitchAccount}
               />
-            ) : sectionHeadings ? (
+            ) : foldable ? (
               renderBanded(fixedEntries)
             ) : (
               fixedEntries.map(renderEntry)
             )}
           </div>
 
-          <div className="w-full shrink-0 px-[10px]">
+          <div className="w-full shrink-0 pl-[10px] pr-[calc(10px+var(--nav-scroll-gutter,8px))]">
             <NavDivider />
           </div>
         </>
@@ -348,7 +356,7 @@ export function LeftNav({
                   accounts={recentAccounts}
                   onSwitch={onSwitchAccount}
                 />
-              ) : sectionHeadings ? (
+              ) : foldable ? (
                 renderBanded(fixedEntries)
               ) : (
                 fixedEntries.map(renderEntry)
@@ -356,7 +364,7 @@ export function LeftNav({
               <NavDivider />
             </>
           ) : null}
-          {sectionHeadings ? (
+          {bandEverything ? (
             /*
               Settings is inside the last band here, not the bottom anchor it is
               in the plain arrangement. It is one of the not-a-product rows the
@@ -526,7 +534,7 @@ function SetupGuideRow({ onOpen }: { onOpen?: () => void }) {
   return (
     // pb rather than a gap on the parent: the card is the only thing between the
     // dock and Recent, and it needs to read as its own band, not a first row.
-    <div className="w-full shrink-0 px-[10px] pt-[4px] pb-[16px]">
+    <div className="w-full shrink-0 pt-[4px] pb-[16px] pl-[10px] pr-[calc(10px+var(--nav-scroll-gutter,8px))]">
       <button
         type="button"
         onClick={onOpen}

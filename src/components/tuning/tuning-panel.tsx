@@ -44,6 +44,11 @@ import {
 } from "@/design/tuning";
 import { useTheme } from "@/components/theme/theme-provider";
 import { catalogue } from "@/components/nav/catalogue";
+import {
+  NAV_SECTIONS,
+  NAV_SECTION_LABELS,
+  type NavSections,
+} from "@/design/theme";
 import { PROPOSED_PRODUCT_IDS } from "@/components/nav/proposed-ia";
 import {
   densityFor,
@@ -104,9 +109,7 @@ const PLAN_CHOICE_LABELS: Record<PlanChoice, string> = {
 const TABS_IN_NAV_CHOICES = ["page", "nav"] as const;
 type TabsInNavChoice = (typeof TABS_IN_NAV_CHOICES)[number];
 
-/** Does every band in the nav get a heading it can be folded by? */
-const SECTION_CHOICES = ["plain", "labelled"] as const;
-type SectionChoice = (typeof SECTION_CHOICES)[number];
+
 
 function NavStructureSection({
   open,
@@ -130,8 +133,8 @@ function NavStructureSection({
     setFlyoutTrigger,
     tabsInNav,
     setTabsInNav,
-    sectionHeadings,
-    setSectionHeadings,
+    navSections,
+    setNavSections,
   } = useTheme();
   // The account's own count, not the catalogue's: density is a property of the
   // nav in front of you, and this panel is read while switching between a
@@ -201,15 +204,17 @@ function NavStructureSection({
 
       <Segmented
         label="Sections"
-        options={SECTION_CHOICES}
-        value={sectionHeadings ? "labelled" : "plain"}
-        onChange={(v: SectionChoice) => setSectionHeadings(v === "labelled")}
-        format={(v) => (v === "plain" ? "Rules only" : "Headings")}
+        options={NAV_SECTIONS}
+        value={navSections}
+        onChange={(v: NavSections) => setNavSections(v)}
+        format={(v) => NAV_SECTION_LABELS[v]}
       />
       <p className="text-[10px] leading-[14px] text-pg-faint">
-        {sectionHeadings
-          ? "Every band wears a small caps heading and folds when you click it — Recent's treatment, applied throughout."
-          : "One continuous list, bands separated by rules. Only Recent has a heading."}
+        {navSections === "plain"
+          ? "One continuous list, bands separated by rules. Only Recent has a heading, and nothing folds."
+          : navSections === "recent"
+            ? "Only Recent is named, and its heading folds it — the band that goes stale fastest, put away in one click."
+            : "Every band named and foldable: Recent, Shortcuts, Products, More."}
       </p>
 
       <Segmented

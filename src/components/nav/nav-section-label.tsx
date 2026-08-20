@@ -48,11 +48,16 @@ export function NavSectionLabel({
       type="button"
       aria-expanded={!collapsed}
       onClick={onToggle}
-      className="motion-tap group mt-[8px] flex w-full shrink-0 items-center justify-between rounded-[6px] pt-[6px] pr-[6px] pb-[6px] pl-[8px] text-left first:mt-0 hover:bg-nav-hover"
+      className={cn(
+        "motion-tap group mt-[8px] flex w-full shrink-0 items-center justify-between rounded-[6px] pt-[6px] pb-[6px] text-left first:mt-0 hover:bg-nav-hover",
+        // Same horizontal insets as a nav row, so this caret sits in the same
+        // column as the rows' flyout chevrons instead of a few pixels outboard.
+        "px-[var(--t-nav-px,8px)]",
+      )}
     >
       {label}
       <ChevronDown
-        size={13}
+        size={15}
         aria-hidden="true"
         className={cn(
           "shrink-0 text-nav-fg-subtle opacity-0 motion-move group-hover:opacity-100",

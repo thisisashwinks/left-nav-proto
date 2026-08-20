@@ -9,6 +9,7 @@ import {
   type EntryLayout,
   type FlyoutTrigger,
   type RecentsMode,
+  type NavSections,
   type ScopeModel,
   type SearchMode,
   type SurfaceTheme,
@@ -60,7 +61,7 @@ interface ThemeContextValue extends ThemeState {
   setAutoCollapse: (enabled: boolean) => void;
   setScopeModel: (model: ScopeModel) => void;
   setTabsInNav: (enabled: boolean) => void;
-  setSectionHeadings: (enabled: boolean) => void;
+  setNavSections: (mode: NavSections) => void;
   /**
    * What the workspace actually renders: the platform theme with the active
    * account's overrides applied. Chrome reads this; the prototype-controls
@@ -158,8 +159,7 @@ export function ThemeProvider({
       setAutoCollapse: (autoCollapse) => setState((s) => ({ ...s, autoCollapse })),
       setScopeModel: (scopeModel) => setState((s) => ({ ...s, scopeModel })),
       setTabsInNav: (tabsInNav) => setState((s) => ({ ...s, tabsInNav })),
-      setSectionHeadings: (sectionHeadings) =>
-        setState((s) => ({ ...s, sectionHeadings })),
+      setNavSections: (navSections) => setState((s) => ({ ...s, navSections })),
     }),
     [state, effective, accountThemes],
   );
