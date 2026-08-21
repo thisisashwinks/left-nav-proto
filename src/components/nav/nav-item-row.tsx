@@ -4,6 +4,8 @@ import * as React from "react";
 import {
   ChevronRight,
   EllipsisVertical,
+  Eye,
+  EyeOff,
   GripVertical,
   Pencil,
   RotateCcw,
@@ -39,6 +41,16 @@ export interface NavRowEdit {
    * without the label truncating to make room for controls nobody asked for.
    */
   onOpenMenu?: (trigger: HTMLElement) => void;
+  /**
+   * Switching this row off, and back on.
+   *
+   * Hover-only while the row is showing — a nav that wears an eye on every row
+   * reads as a settings screen. Once hidden the eye stays out, because a dimmed
+   * row with no visible control is a row you cannot get back without guessing
+   * where its switch went.
+   */
+  onToggleHidden?: () => void;
+  hidden?: boolean;
   /**
    * What that menu contains.
    *
@@ -160,7 +172,16 @@ export function NavItemRow({
       : "min-h-[calc(var(--t-nav-py,9px)*2+20px)]",
   );
 
-  const icon = <RowIcon item={item} active={active} />;
+  /*
+   * Switched off: struck through and faded, but only the CONTENT.
+   *
+   * The dim used to sit on the row, which took the eye down with it — and opacity
+   * is multiplicative, so no child can climb back out of a faded parent. Since the
+   * eye is the only way back, it has to stay at full strength while everything it
+   * is describing goes quiet.
+   */
+  const off = edit?.hidden ?? false;
+  const icon = <RowIcon item={item} active={active} dimmed={off} />;
 
   const label = (
     <span
@@ -168,6 +189,16 @@ export function NavItemRow({
         "truncate text-[length:var(--t-nav-font,14px)] leading-[normal]",
         item.hasFlyout ? "flex-1" : "whitespace-nowrap",
         item.ai ? "text-nav-ai-fg" : "text-nav-fg",
+        /*
+         * Faded, not struck through.
+         *
+         * A strike reads as deleted, and it put a line through a name the admin
+         * is still choosing between — which looked wrong for a row that is only
+         * switched off. The fade goes a little further than it would have to on
+         * its own, and the pinned eye-off beside it is what actually says which
+         * state this is.
+         */
+        off && "opacity-40",
       )}
     >
       {item.label}
@@ -185,6 +216,7 @@ export function NavItemRow({
         active
           ? "translate-x-[2px] text-nav-fg-muted"
           : "text-nav-fg-subtle group-hover:text-nav-fg-muted",
+        off && "opacity-40",
       )}
     />
   ) : null;
@@ -393,6 +425,23 @@ export function NavItemRow({
 
       {!edit.renaming ? (
         <>
+          {edit.onToggleHidden ? (
+            <EditAffordance
+              label={
+                edit.hidden ? `Show ${item.label}` : `Hide ${item.label}`
+              }
+              onClick={edit.onToggleHidden}
+              // Pinned once hidden: the only way back has to be visible.
+              pinned={edit.hidden ?? false}
+              className="-my-[2px]"
+            >
+              {edit.hidden ? (
+                <EyeOff size={12} aria-hidden="true" />
+              ) : (
+                <Eye size={12} aria-hidden="true" />
+              )}
+            </EditAffordance>
+          ) : null}
           {edit.onOpenMenu ? (
             <MenuAffordance
               label={`Edit ${item.label}`}
@@ -450,7 +499,15 @@ function MenuAffordance({
   );
 }
 
-function RowIcon({ item, active }: { item: NavItem; active: boolean }) {
+function RowIcon({
+  item,
+  active,
+  dimmed = false,
+}: {
+  item: NavItem;
+  active: boolean;
+  dimmed?: boolean;
+}) {
   const Icon = item.icon;
   if (item.ai) return <NavAiSparkle className="text-nav-ai-icon" />;
   if (!Icon) return null;
@@ -464,6 +521,7 @@ function RowIcon({ item, active }: { item: NavItem; active: boolean }) {
         // in tuningToCssVars, because CSS cannot divide one length by another.
         "shrink-0 motion-tap group-hover:scale-[var(--t-nav-icon-scale,1.143)]",
         active ? "text-nav-fg" : "text-nav-fg-muted group-hover:text-nav-fg",
+        dimmed && "opacity-40",
       )}
     />
   );

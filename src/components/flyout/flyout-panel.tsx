@@ -131,6 +131,8 @@ export function FlyoutPanel({
       },
       onCancelRename: () => setRenamingId(null),
       onOpenMenu: (trigger) => menu.open(productId, trigger),
+      hidden: layout.isRowHidden(productId),
+      onToggleHidden: () => layout.toggleRowHidden(productId),
       onDragStart: (e) => {
         e.dataTransfer.setData(L2_MIME, productId);
         e.dataTransfer.setData("text/plain", layout.productLabelFor(productId));

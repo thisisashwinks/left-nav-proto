@@ -1,7 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDown, EllipsisVertical, GripVertical } from "lucide-react";
+import {
+  ChevronDown,
+  EllipsisVertical,
+  Eye,
+  EyeOff,
+  GripVertical,
+} from "lucide-react";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import { EditAffordance, InlineRename } from "@/components/nav/inline-rename";
 import { WithPin } from "@/components/nav/with-pin";
@@ -86,6 +92,9 @@ export interface FlyoutRowEdit {
   onCommitRename: (next: string) => void;
   onCancelRename: () => void;
   onOpenMenu: (trigger: HTMLElement) => void;
+  /** Switching the row off, and back on. Hover-only until it is off. */
+  onToggleHidden: () => void;
+  hidden: boolean;
   onDragStart: (e: React.DragEvent) => void;
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: (e: React.DragEvent) => void;
@@ -157,6 +166,13 @@ export function FlyoutRow({
     // are not favouriting a row while you are restructuring the nav, and
     // sharing the column is what keeps every measurement in this file true.
     (pinnable || edit) && v.pinReserve,
+    /*
+     * Editing puts two controls where the pin's one was, so the text has to give
+     * up another 22px or it runs under the eye. Added on top of the variant's own
+     * reserve rather than replacing it, so all four variants stay in step without
+     * four more strings to keep true.
+     */
+    edit && !edit.renaming && "pr-[calc(var(--t-fly-gap,10px)+30px)]",
     active ? "bg-nav-hover" : "hover:bg-nav-hover",
     !edit?.renaming && "active:scale-[0.99] motion-press",
     // The grab cursor lives on the grip, not the row.
@@ -191,6 +207,9 @@ export function FlyoutRow({
             : item.ai
               ? "text-nav-ai-icon"
               : "text-nav-fg-muted group-hover:text-nav-fg",
+          // Content only. The eye is the way back, and opacity is multiplicative
+          // — a child cannot climb out of a faded parent.
+          edit?.hidden && "opacity-40",
         )}
       >
         {item.ai ? (
@@ -225,6 +244,9 @@ export function FlyoutRow({
               className={cn(
                 "text-[length:var(--t-fly-title,14px)] leading-[normal] text-nav-fg",
                 v.title,
+                // Faded, not struck through — a strike reads as deleted, and a
+                // hidden row is only switched off. The pinned eye-off says which.
+                edit?.hidden && "opacity-40",
                 // In edit mode the text is the rename target, same as in the
                 // nav. The row itself keeps its own job — expanding, or opening
                 // the page — so the two gestures stay separate targets.
@@ -258,7 +280,11 @@ export function FlyoutRow({
 
         {item.description ? (
           <span
-            className={cn("text-left text-nav-fg-subtle font-normal", v.desc)}
+            className={cn(
+              "text-left text-nav-fg-subtle font-normal",
+              v.desc,
+              edit?.hidden && "opacity-40",
+            )}
           >
             {item.description}
           </span>
@@ -368,7 +394,32 @@ export function FlyoutRow({
       <div className="group/row relative w-full shrink-0">
         {node}
         {edit.renaming ? null : (
-          <span className={cn("absolute right-[8px] z-10", v.pinTop)}>
+          /*
+           * The eye and the kebab share the pin's column.
+           *
+           * Two 20px controls do not fit where one pin was, so the pair shifts
+           * left by exactly one of them and the row's reserved trailing space
+           * grows to match — see `editReserve` above. Hover reveals the eye; the
+           * kebab is always out, because in edit mode every row has a menu.
+           */
+          <span
+            className={cn(
+              "absolute right-[8px] z-10 flex items-center gap-[2px]",
+              v.pinTop,
+            )}
+          >
+            <EditAffordance
+              label={edit.hidden ? `Show ${item.label}` : `Hide ${item.label}`}
+              onClick={edit.onToggleHidden}
+              // Pinned once hidden: the only way back has to be visible.
+              pinned={edit.hidden}
+            >
+              {edit.hidden ? (
+                <EyeOff size={12} aria-hidden="true" />
+              ) : (
+                <Eye size={12} aria-hidden="true" />
+              )}
+            </EditAffordance>
             <EditAffordance
               label={`Edit ${item.label}`}
               onClick={edit.onOpenMenu}

@@ -226,6 +226,34 @@ export function isBlockHidden(state: NavLayoutState, block: NavBlock): boolean {
   return state.hiddenBlocks.includes(block);
 }
 
+/**
+ * Whether this category or row is switched off.
+ *
+ * Hiding is not removing. A category the account does not want is still a
+ * category the agency provisioned, and a product taken out of the nav is still a
+ * product they are paying for — so the tree keeps them and the nav stops drawing
+ * them. Which also means the way back is the same gesture as the way out, in the
+ * same place, instead of a search through a list of everything.
+ */
+export function isRowHidden(state: NavLayoutState, id: string): boolean {
+  return state.hiddenRows.includes(id);
+}
+
+export function withRowHidden(
+  state: NavLayoutState,
+  id: string,
+  hidden: boolean,
+): NavLayoutState {
+  const has = state.hiddenRows.includes(id);
+  if (has === hidden) return state;
+  return {
+    ...state,
+    hiddenRows: hidden
+      ? [...state.hiddenRows, id]
+      : state.hiddenRows.filter((x) => x !== id),
+  };
+}
+
 export interface CustomGroup {
   id: string;
   label: string;
@@ -272,6 +300,15 @@ export interface NavLayoutState {
    */
   hiddenBlocks: NavBlock[];
   /**
+   * Categories and rows switched off, by id.
+   *
+   * Separate from `enabledProducts`, which is what the agency sold this account —
+   * a different question with a different owner. This is what the account chose to
+   * look at, and it is held as a set of what is OFF so a product added later
+   * arrives visible.
+   */
+  hiddenRows: string[];
+  /**
    * Ordered pinned product ids. Unlimited — the chip row is a window onto this
    * list, not a capacity, so nothing here is capped.
    */
@@ -304,6 +341,7 @@ export const DEFAULT_LAYOUT: NavLayoutState = {
   customLinks: [],
   tailOrder: [],
   hiddenBlocks: [],
+  hiddenRows: [],
   pinned: DEFAULT_PINNED,
   // Areas by default, per the Aug 18 review: ship the tree the market has already
   // validated, and let usage data rather than taste decide whether it stays. Jobs
@@ -571,8 +609,39 @@ export function withProduct(
   };
 }
 
-/** Every group the active mode shows, in the order it shows them. */
+/**
+ * Every group the active mode shows, in the order it shows them.
+ *
+ * The tree, then what the account chose to look at. Filtering here rather than in
+ * each surface means the nav, the rail, the launcher, search, the breadcrumb and
+ * every flyout inherit one answer — and that edit mode, which filters nothing,
+ * can show a hidden row so it can be switched back on.
+ */
 export function resolveGroups(state: NavLayoutState): ResolvedGroup[] {
+  const groups = resolveTree(state);
+  if (state.editing || state.hiddenRows.length === 0) return groups;
+  const hidden = new Set(state.hiddenRows);
+  const out: ResolvedGroup[] = [];
+  for (const group of groups) {
+    if (hidden.has(group.id)) continue;
+    const productIds = group.productIds.filter((id) => !hidden.has(id));
+    /*
+     * A category whose every row is hidden is a door to an empty panel, so it
+     * goes too. One the admin simply has not filled yet is a different thing and
+     * stays — which is why this asks whether HIDING emptied it rather than
+     * whether it is empty.
+     */
+    if (productIds.length === 0 && group.productIds.length > 0) continue;
+    out.push(
+      productIds.length === group.productIds.length
+        ? group
+        : { ...group, productIds },
+    );
+  }
+  return out;
+}
+
+function resolveTree(state: NavLayoutState): ResolvedGroup[] {
   const enabled = enabledSetFor(state);
   const build = (
     ids: string[],

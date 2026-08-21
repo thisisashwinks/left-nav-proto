@@ -287,6 +287,8 @@ export function LeftNav({
       const renameable = editTargetFor(state, groups, itemId) !== null;
       return {
         ...(renameable ? { renameOnLabelClick: true } : {}),
+        hidden: layout.isRowHidden(itemId),
+        onToggleHidden: () => layout.toggleRowHidden(itemId),
         drag: tailDrag(itemId),
       };
     }
@@ -392,6 +394,8 @@ export function LeftNav({
       lifted: lifted === itemId,
     };
     return {
+      hidden: layout.isRowHidden(itemId),
+      onToggleHidden: () => layout.toggleRowHidden(itemId),
       /*
        * The label is the rename target, not the row.
        *

@@ -23,10 +23,12 @@ import {
   withGroupDeleted,
   withNewGroup,
   isBlockHidden,
+  isRowHidden,
   looseProductIds,
   NAV_BLOCK_LABELS,
   withProduct,
   withProductAdded,
+  withRowHidden,
   withProductFiled,
   type GroupingMode,
   type LabelScope,
@@ -165,6 +167,10 @@ interface NavLayoutContextValue {
   setLabelScope: (scope: LabelScope) => void;
   /** Switches one of the nav's non-tree blocks off, or back on. */
   toggleBlock: (block: NavBlock) => void;
+  /** Whether this category or row is switched off. */
+  isRowHidden: (id: string) => boolean;
+  /** Switches one category or row off, or back on. */
+  toggleRowHidden: (id: string) => void;
   setEditing: (editing: boolean) => void;
   /**
    * Opens an edit session, taking a baseline the whole session can be thrown
@@ -920,6 +926,20 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       // Kept for the prototype panel's switch, and routed through the same two
       // steps as the nav's own control so the two cannot disagree about whether
       // a baseline exists.
+      isRowHidden: (id) => isRowHidden(state, id),
+
+      toggleRowHidden: (id) => {
+        const hiding = !isRowHidden(state, id);
+        // The name, because a hidden row is dimmed rather than gone and the toast
+        // is what tells you which of two dimmed rows just changed.
+        const name = resolveGroups(state).some((g) => g.id === id)
+          ? labelForGroup(state, id)
+          : labelForProduct(state, id);
+        commit(`${hiding ? "Hid" : "Showed"} ${name}`, (s) =>
+          withRowHidden(s, id, hiding),
+        );
+      },
+
       toggleBlock: (block) =>
         commit(
           isBlockHidden(state, block)
