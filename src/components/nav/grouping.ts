@@ -1,5 +1,11 @@
 import type { LucideIcon } from "lucide-react";
-import { Folder } from "lucide-react";
+import {
+  Folder,
+  GamepadDirectional,
+  History,
+  Pin,
+  Rocket,
+} from "lucide-react";
 import {
   allProducts,
   catalogue,
@@ -11,7 +17,11 @@ import {
   type CatalogueEntry,
   type CatalogueGroup,
 } from "./catalogue";
-import { PROPOSED_DESTINATION_IDS, proposedBuckets } from "./proposed-ia";
+import {
+  PROPOSED_DESTINATION_IDS,
+  PROPOSED_UNLISTED_IDS,
+  proposedBuckets,
+} from "./proposed-ia";
 import { iconByName, nameForIcon } from "./icon-catalogue";
 
 /**
@@ -176,6 +186,46 @@ export function permissionsFor(role: NavRole): NavPermissions {
   };
 }
 
+/** The nav's non-tree blocks, each of which the account can switch off. */
+export type NavBlock = "launchpad" | "recent" | "quickActions" | "pinned";
+
+/**
+ * In the order the nav draws them: the dock, the setup card, Recent, then Quick
+ * Actions. A settings list whose order does not match what it is describing makes
+ * the reader map one onto the other every time they look.
+ */
+export const NAV_BLOCKS: readonly NavBlock[] = [
+  "pinned",
+  "launchpad",
+  "recent",
+  "quickActions",
+];
+
+/** The names the nav itself uses. "Pinned", not "Favourites" — the row says Pinned. */
+export const NAV_BLOCK_LABELS: Record<NavBlock, string> = {
+  pinned: "Pinned",
+  launchpad: "Launchpad",
+  recent: "Recent",
+  quickActions: "Quick Actions",
+};
+
+/**
+ * The glyph each block wears in the nav.
+ *
+ * The same icons, not near-misses: the list is a list of things you can see on
+ * screen, so recognising one should not require reading its name.
+ */
+export const NAV_BLOCK_ICONS: Record<NavBlock, LucideIcon> = {
+  pinned: Pin,
+  launchpad: Rocket,
+  recent: History,
+  quickActions: GamepadDirectional,
+};
+
+export function isBlockHidden(state: NavLayoutState, block: NavBlock): boolean {
+  return state.hiddenBlocks.includes(block);
+}
+
 export interface CustomGroup {
   id: string;
   label: string;
@@ -202,6 +252,25 @@ export interface NavLayoutState {
    * links, which are a stress control rather than something a tenant chose.
    */
   customLinks: string[];
+  /**
+   * The order of the nav's tail — the rows that belong to no category.
+   *
+   * Its own list because the tail is not one kind of thing: it holds products no
+   * category claims AND the account's own links, and the two have nowhere else
+   * to be ordered together. Empty means "however they came out", which is
+   * catalogue order followed by the account's links.
+   */
+  tailOrder: string[];
+  /**
+   * The standing blocks the account has switched off.
+   *
+   * Recent, Quick Actions and the favourites dock are the three things in the nav
+   * that are not the account's tree — they are conveniences over it. Which means
+   * an agency can reasonably decide their clients do not want them, and until now
+   * had no way to say so. Held as a set of what is OFF rather than what is on, so
+   * a block added later is on by default.
+   */
+  hiddenBlocks: NavBlock[];
   /**
    * Ordered pinned product ids. Unlimited — the chip row is a window onto this
    * list, not a capacity, so nothing here is capped.
@@ -233,6 +302,8 @@ export const DEFAULT_LAYOUT: NavLayoutState = {
   // every account used to be stuck in, and is now only the fallback.
   enabledProducts: catalogue.map((p) => p.id),
   customLinks: [],
+  tailOrder: [],
+  hiddenBlocks: [],
   pinned: DEFAULT_PINNED,
   // Areas by default, per the Aug 18 review: ship the tree the market has already
   // validated, and let usage data rather than taste decide whether it stays. Jobs
@@ -260,6 +331,20 @@ export const DEFAULT_LAYOUT: NavLayoutState = {
  * needs "a shipped tree worth copying" asks here rather than listing the modes
  * inline — a list that silently went stale the moment a fifth mode arrived.
  */
+/**
+ * Whether structure can be edited without leaving the mode.
+ *
+ * Custom is the tree the user built. Proposed joined it because the proposal is
+ * an authored nested list with an order at both levels — exactly the shape the
+ * custom tree stores — so an account can be handed the proposal and then adjust
+ * it without the first edit throwing the whole arrangement away. The three
+ * shipped modes stay views: a move there would mean the account silently
+ * diverging from the product with no way back, so they seed a custom tree first.
+ */
+export function isStructuralMode(mode: GroupingMode): boolean {
+  return mode === "custom" || mode === "proposed";
+}
+
 export function isGroupedMode(mode: GroupingMode): boolean {
   return (
     mode === "default" ||
@@ -367,7 +452,21 @@ function defaultIconForGroup(
 ): LucideIcon {
   if (groupId === FLAT_GROUP_ID) return Folder;
   const custom = state.customGroups.find((g) => g.id === groupId);
-  if (custom) return iconByName(custom.iconName) ?? Folder;
+  if (custom) {
+    /*
+     * The shipped icon before the folder.
+     *
+     * A stored group only holds its icon's *name*, and a name can only be
+     * resolved back if the icon is one the picker offers — which most of the
+     * proposal's bucket glyphs are not. So a proposed account that seeded its
+     * tree on the first edit had every category turn into a folder. Falling
+     * through to the group's own id is right in general: a seeded bucket keeps
+     * the id it was authored under, so the authored icon is still its default.
+     */
+    return (
+      iconByName(custom.iconName) ?? SHIPPED_GROUPS.get(groupId)?.icon ?? Folder
+    );
+  }
   return SHIPPED_GROUPS.get(groupId)?.icon ?? Folder;
 }
 
@@ -558,27 +657,52 @@ export function resolveGroups(state: NavLayoutState): ResolvedGroup[] {
        * this case a near-copy of `custom` below rather than of the three
        * shipped-tree cases above.
        */
+      /*
+       * Once the account has edited its tree, the edited tree IS the proposal.
+       *
+       * customGroups is empty until the first structural edit, so what the nav
+       * draws is the authored buckets; after one it draws what the admin left
+       * behind, still in proposed mode. Editing in place would otherwise cost
+       * the account everything the mode carries — the band order, Settings as a
+       * flyout rather than a row — for the sake of renaming one heading.
+       */
+      const edited = state.customGroups.length > 0;
       const ids = applyOrder(
         state.groupOrder.proposed,
-        proposedBuckets.map((b) => b.id),
+        (edited ? state.customGroups : proposedBuckets).map((b) => b.id),
       );
-      const byId = new Map(proposedBuckets.map((b) => [b.id, b]));
-      const groups = populated(
-        build(
-          ids,
-          (id) =>
-            (byId.get(id)?.productIds ?? []).filter((pid) => enabled.has(pid)),
-          false,
+      // Only membership is read here, and a bucket and a stored group agree on
+      // that much even though they disagree about everything else.
+      const byId = new Map<string, { productIds: readonly string[] }>(
+        (edited ? state.customGroups : proposedBuckets).map(
+          (g) => [g.id, g] as const,
         ),
       );
+      const built = build(
+        ids,
+        (id) =>
+          (byId.get(id)?.productIds ?? []).filter((pid) => enabled.has(pid)),
+        edited,
+      );
+      // An authored bucket with nothing in it is a mistake; one the admin is
+      // still filling is not, which is why only the unedited tree is pruned.
+      const groups = edited ? built : populated(built);
       /*
        * Launchpad and Mobile own no products, so they are never buckets — they
        * are top-level rows, filed exactly as the custom tree files what no group
-       * claims. That is also why `populated()` above never has an empty bucket
-       * to drop: a product-less bucket does not become a group in the first
-       * place.
+       * claims. Which is also why the edited tree asks the same question the
+       * custom case does rather than naming the two: by then a row can be loose
+       * because the admin pulled it out of a bucket.
        */
-      const loose = PROPOSED_DESTINATION_IDS.filter((id) => enabled.has(id));
+      const loose = edited
+        ? // Launchpad is reachable and never a row — the card above Recent is
+          // its only nav affordance. `looseProductIds` answers "filed nowhere",
+          // which after an edit is true of it, so it has to be excluded by name
+          // or the first drag puts a second Launchpad in the nav.
+          looseProductIds(state, groups).filter(
+            (id) => !PROPOSED_UNLISTED_IDS.includes(id),
+          )
+        : PROPOSED_DESTINATION_IDS.filter((id) => enabled.has(id));
       if (loose.length === 0) return groups;
       return [
         ...groups,
@@ -642,12 +766,30 @@ export function seedCustomGroups(state: NavLayoutState): CustomGroup[] {
     ? state.grouping
     : "default";
   const groups = resolveGroups({ ...state, grouping: source });
-  return groups.map((g) => ({
-    id: `custom-${g.id}`,
-    label: g.label,
-    iconName: iconNameFor(state, g.id),
-    productIds: g.productIds,
-  }));
+  return (
+    groups
+      /*
+       * "Top level" is not a group. It is the name resolveGroups gives to what
+       * no group claimed, so seeding it would turn the absence of a shelf into
+       * a shelf — and in the proposal's case put Launchpad and Mobile behind a
+       * heading they were deliberately kept out of.
+       */
+      .filter((g) => g.id !== UNGROUPED_ID)
+      .map((g) => ({
+        /*
+         * Proposed keeps its ids. The prefix exists so a custom group cannot
+         * collide with a shipped suite it was copied from, but the proposal's
+         * buckets ARE the ids the rest of the nav is keyed on — the Settings
+         * bucket nav-entries holds back, the labels and icons SHIPPED_GROUPS
+         * supplies, the order stored under groupOrder.proposed. Rename them and
+         * the account keeps its products and loses its arrangement.
+         */
+        id: source === "proposed" ? g.id : `custom-${g.id}`,
+        label: g.label,
+        iconName: iconNameFor(state, g.id),
+        productIds: g.productIds,
+      }))
+  );
 }
 
 /**
@@ -673,28 +815,108 @@ export function looseProductIds(
     .map((p) => p.id);
 }
 
+/**
+ * The products this account could add to its nav.
+ *
+ * Wider than `enabledProducts`, narrower than the catalogue. Wider, because a
+ * product the agency switched off — or one an admin removed a moment ago — has to
+ * be reachable again, or "remove" is a one-way door. Narrower, because the two
+ * product sets share one lookup index: offering all of it put Conversations and
+ * Contacts from the shipped catalogue in an Add menu on an account whose entire
+ * nav is the proposal, which is not a product it has.
+ *
+ * The test is "does this account's own tree know where this product goes" —
+ * either it is provisioned, or the tree it is filed in is this account's.
+ */
+export function addableProducts(state: NavLayoutState): CatalogueEntry[] {
+  const enabled = enabledSetFor(state);
+  return allProducts.filter(
+    (p) => enabled.has(p.id) || groupIdForProduct(state, p.id) !== null,
+  );
+}
+
+/**
+ * The account's nav as a tree of ids: categories with their products under them,
+ * and the rows that belong to no category alongside.
+ *
+ * For the menus that ask "which product?". Naming each product's parent in its own
+ * label — "Snippets — in Marketing" — turned a ninety-row list into ninety
+ * sentences, and still made the shelves impossible to see. The tree is what the
+ * admin already knows: the same shape as the nav, and the same shape as the
+ * breadcrumb's own menu.
+ */
+export interface NavTreeNode {
+  id: string;
+  productIds: readonly string[];
+}
+
+export function navTreeFor(state: NavLayoutState): {
+  categories: NavTreeNode[];
+  loose: string[];
+} {
+  const groups = resolveGroups(state);
+  const universe = new Set(addableProducts(state).map((p) => p.id));
+  const categories = groups
+    .filter((g) => g.id !== UNGROUPED_ID)
+    .map((g) => ({
+      id: g.id,
+      // The category's own membership, which for a de-provisioned product is
+      // still where it belongs — that is how "remove" stays reversible.
+      productIds: (state.customGroups.find((c) => c.id === g.id)?.productIds ??
+        proposedBuckets.find((b) => b.id === g.id)?.productIds ??
+        g.productIds
+      ).filter((id) => universe.has(id)),
+    }));
+  const filed = new Set(categories.flatMap((c) => c.productIds));
+  return {
+    categories,
+    loose: [...universe].filter((id) => !filed.has(id)),
+  };
+}
+
 /** The custom group holding a product, or null when it sits at top level. */
 export function groupIdForProduct(
   state: NavLayoutState,
   productId: string,
 ): string | null {
-  return (
-    state.customGroups.find((g) => g.productIds.includes(productId))?.id ?? null
+  const found = state.customGroups.find((g) =>
+    g.productIds.includes(productId),
   );
+  if (found) return found.id;
+  // Before the first structural edit a proposed account has no stored tree, and
+  // answering "top level" for all ninety of its rows would have every Move
+  // control claim the row is somewhere it visibly is not.
+  if (state.grouping === "proposed" && state.customGroups.length === 0) {
+    return (
+      proposedBuckets.find((b) => b.productIds.includes(productId))?.id ?? null
+    );
+  }
+  return null;
 }
 
 /**
  * The state as an editable tree.
  *
- * Structure can only be edited in the custom tree — the other three modes are
- * views of what ships, and letting a move rewrite them would mean an account
- * silently diverging from the product with no way back. So the first structural
- * edit switches to custom, seeded from whatever was showing: the tree the user
- * starts editing is the tree they were looking at.
+ * The three shipped modes are views of what ships, and letting a move rewrite
+ * them would mean an account silently diverging from the product with no way
+ * back — so the first structural edit there switches to custom, seeded from
+ * whatever was showing: the tree the user starts editing is the tree they were
+ * looking at.
+ *
+ * Custom and proposed keep their mode. Both already store their structure the
+ * same way, so an edit in either is an edit to the account's own tree rather
+ * than a defection from a shipped one, and the mode carries rendering the tree
+ * cannot: proposed keeps its band order and its Settings flyout.
  */
 export function customTreeFor(state: NavLayoutState): NavLayoutState {
-  if (state.grouping === "custom" && state.customGroups.length > 0) return state;
-  return { ...state, grouping: "custom", customGroups: seedCustomGroups(state) };
+  if (isStructuralMode(state.grouping) && state.customGroups.length > 0) {
+    return state;
+  }
+  return {
+    ...state,
+    grouping: isStructuralMode(state.grouping) ? state.grouping : "custom",
+    customGroups: seedCustomGroups(state),
+  };
 }
 
 /**
@@ -715,13 +937,27 @@ export function nextGroupIdFor(state: NavLayoutState): string {
 export function withNewGroup(
   state: NavLayoutState,
   label = "New group",
+  /**
+   * The id to use, when the caller already holds one.
+   *
+   * Creating a group and opening its rename field is one gesture, and the field
+   * needs the id a render before the tree containing it exists — so the caller
+   * generates it and hands it down rather than guessing what this function
+   * chose.
+   */
+  id?: string,
 ): NavLayoutState {
   const base = customTreeFor(state);
   return {
     ...base,
     customGroups: [
       ...base.customGroups,
-      { id: nextGroupIdFor(base), label, iconName: "Folder", productIds: [] },
+      {
+        id: id ?? nextGroupIdFor(base),
+        label,
+        iconName: "Folder",
+        productIds: [],
+      },
     ],
   };
 }
@@ -736,11 +972,16 @@ export function withGroupDeleted(
   groupId: string,
 ): NavLayoutState {
   if (!state.customGroups.some((g) => g.id === groupId)) return state;
-  const custom = state.groupOrder.custom?.filter((id) => id !== groupId);
+  // Whichever structural mode is showing owns the order, so proposed's stored
+  // order is the one pruned when the nav is drawn from proposed.
+  const key = state.grouping;
+  const order = state.groupOrder[key]?.filter((id) => id !== groupId);
   return {
     ...state,
     customGroups: state.customGroups.filter((g) => g.id !== groupId),
-    groupOrder: custom ? { ...state.groupOrder, custom } : state.groupOrder,
+    groupOrder: order
+      ? { ...state.groupOrder, [key]: order }
+      : state.groupOrder,
     // The overrides went with the group; leaving them would reattach a stale
     // name or icon to the next group that happens to take the same id.
     accountLabels: withoutKey(state.accountLabels, groupId),
@@ -756,8 +997,9 @@ export function withGroupMoved(
   delta: number,
 ): NavLayoutState {
   const base = customTreeFor(state);
+  const key = base.grouping;
   const order = applyOrder(
-    base.groupOrder.custom,
+    base.groupOrder[key],
     base.customGroups.map((g) => g.id),
   );
   const from = order.indexOf(groupId);
@@ -766,7 +1008,7 @@ export function withGroupMoved(
   const next = [...order];
   next[from] = order[to] as string;
   next[to] = order[from] as string;
-  return { ...base, groupOrder: { ...base.groupOrder, custom: next } };
+  return { ...base, groupOrder: { ...base.groupOrder, [key]: next } };
 }
 
 /**
@@ -781,6 +1023,14 @@ export function withProductFiled(
   state: NavLayoutState,
   productId: string,
   groupId: string | null,
+  /**
+   * Where in the destination it lands. Omitted, it goes last.
+   *
+   * A menu that says "move to Marketing" has no position to offer, so appending
+   * is the honest default; a drop does, and dropping a row onto the third row of
+   * a panel has to leave it third or the gesture lied.
+   */
+  index?: number,
 ): NavLayoutState {
   if (!isProductEnabled(state, productId)) return state;
   const target = groupId === UNGROUPED_ID ? null : groupId;
@@ -788,7 +1038,11 @@ export function withProductFiled(
   if (target !== null && !base.customGroups.some((g) => g.id === target)) {
     return state;
   }
-  if (base === state && groupIdForProduct(state, productId) === target) {
+  if (
+    base === state &&
+    index === undefined &&
+    groupIdForProduct(state, productId) === target
+  ) {
     return state;
   }
   return {
@@ -796,11 +1050,54 @@ export function withProductFiled(
     customGroups: base.customGroups.map((g) => {
       const has = g.productIds.includes(productId);
       if (g.id === target) {
-        return has ? g : { ...g, productIds: [...g.productIds, productId] };
+        // Filed within its own group, the row has to come out before it goes
+        // back in, or an index past its old position lands one place short.
+        const without = has
+          ? g.productIds.filter((id) => id !== productId)
+          : g.productIds;
+        if (has && index === undefined) return g;
+        const at = Math.max(0, Math.min(index ?? without.length, without.length));
+        const productIds = [...without];
+        productIds.splice(at, 0, productId);
+        return { ...g, productIds };
       }
       return has
         ? { ...g, productIds: g.productIds.filter((id) => id !== productId) }
         : g;
+    }),
+  };
+}
+
+/**
+ * Adds a product to a group without taking it out of any other.
+ *
+ * Filing is a move — a product belongs to at most one shelf — but ADDING is not.
+ * An admin putting Invoices under both Commerce and CRM is not making a mistake:
+ * some products genuinely belong in two places, and the nav can show a row twice
+ * without the tree becoming ambiguous, because membership is stored per bucket.
+ * Moving one stays a move: the kebab's "Move to" and a drag both go through
+ * `withProductFiled`, which still removes it from where it was.
+ */
+export function withProductAdded(
+  state: NavLayoutState,
+  productId: string,
+  groupId: string,
+  index?: number,
+): NavLayoutState {
+  const base = customTreeFor(state);
+  const target = base.customGroups.find((g) => g.id === groupId);
+  if (!target || target.productIds.includes(productId)) return state;
+  return {
+    ...base,
+    customGroups: base.customGroups.map((g) => {
+      if (g.id !== groupId) return g;
+      const productIds = [...g.productIds];
+      productIds.splice(
+        Math.max(0, Math.min(index ?? productIds.length, productIds.length)),
+        0,
+        productId,
+      );
+      return { ...g, productIds };
     }),
   };
 }
@@ -839,12 +1136,20 @@ function withoutKey<T>(
   return next;
 }
 
-/** The stored icon name for a group, falling back to its shipped icon's name. */
+/**
+ * The stored icon name for a group.
+ *
+ * Empty rather than "Folder" when the group's shipped glyph is not one the
+ * picker offers. A name is only worth storing if it can be resolved back, and
+ * writing "Folder" for an icon that merely has no name turned every proposed
+ * bucket whose glyph is outside the picker's set — CRM, Creators Hub,
+ * Integrations — into a folder the moment the account seeded its tree. Empty
+ * misses in `iconByName`, which is what lets the group fall through to the icon
+ * its id was authored with.
+ */
 function iconNameFor(state: NavLayoutState, groupId: string): string {
   return (
-    state.icons[groupId] ??
-    nameForIcon(SHIPPED_GROUPS.get(groupId)?.icon) ??
-    "Folder"
+    state.icons[groupId] ?? nameForIcon(SHIPPED_GROUPS.get(groupId)?.icon) ?? ""
   );
 }
 

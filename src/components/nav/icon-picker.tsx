@@ -38,7 +38,7 @@ export function IconPicker({
 }) {
   const [query, setQuery] = React.useState("");
   const ref = React.useRef<HTMLDivElement>(null);
-  const results = searchIcons(query);
+  const { icons: results, hidden } = searchIcons(query);
   // Portalling to the body puts the panel outside every [data-nav-theme] scope,
   // so all of --nav-* and --fly-* resolve to nothing and the panel paints with no
   // background at all. It has to carry the nav surface with it.
@@ -57,7 +57,7 @@ export function IconPicker({
     return () => document.removeEventListener("keydown", onKeyDown, true);
   }, [onClose]);
 
-  const estimatedHeight = 300;
+  const estimatedHeight = 340;
   const flip = anchor.bottom + estimatedHeight > window.innerHeight;
   const top = flip
     ? Math.max(8, anchor.top - estimatedHeight - GAP)
@@ -84,7 +84,7 @@ export function IconPicker({
         data-nav-theme={navTheme}
         data-cursor="menu"
         style={{ top, left, width: WIDTH }}
-        className="motion-panel-in fixed z-[71] flex max-h-[300px] flex-col gap-[8px] rounded-[10px] bg-nav p-[10px] shadow-[0_12px_32px_0_var(--fly-shadow),inset_0_0_0_1px_var(--fly-border)]"
+        className="motion-panel-in fixed z-[71] flex max-h-[340px] flex-col gap-[8px] rounded-[10px] bg-nav p-[10px] shadow-[0_12px_32px_0_var(--fly-shadow),inset_0_0_0_1px_var(--fly-border)]"
       >
         <div className="flex shrink-0 items-center gap-[8px] rounded-[7px] px-[8px] py-[6px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
           <Search size={13} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
@@ -128,6 +128,13 @@ export function IconPicker({
           {results.length === 0 ? (
             <p className="col-span-7 px-[2px] py-[10px] text-[12px] text-nav-fg-subtle">
               No icons match “{query}”
+            </p>
+          ) : null}
+          {/* Says what it cut. A picker that quietly stops at 240 of 1,756 reads
+              as one that simply does not have the icon you are looking for. */}
+          {hidden > 0 ? (
+            <p className="col-span-7 px-[2px] py-[8px] text-[11px] leading-[15px] text-nav-fg-subtle">
+              {hidden} more — keep typing to narrow it down.
             </p>
           ) : null}
         </div>

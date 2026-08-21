@@ -107,7 +107,12 @@ export function EditAffordance({
   pinned = false,
 }: {
   label: string;
-  onClick: () => void;
+  /**
+   * Handed its own element, which callers that open a portalled popover need to
+   * anchor it — and which callers that just act can ignore, since a handler
+   * taking fewer arguments is still a handler.
+   */
+  onClick: (trigger: HTMLElement) => void;
   children: React.ReactNode;
   className?: string;
   /**
@@ -125,7 +130,7 @@ export function EditAffordance({
       onClick={(e) => {
         // The row underneath navigates; the pencil must not.
         e.stopPropagation();
-        onClick();
+        onClick(e.currentTarget);
       }}
       className={cn(
         "motion-tap flex size-[20px] shrink-0 items-center justify-center rounded-[5px]",

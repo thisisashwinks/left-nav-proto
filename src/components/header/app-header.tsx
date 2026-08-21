@@ -52,14 +52,20 @@ interface AppHeaderProps {
   /** Drives [data-header-theme], independent of the app's own theme. */
   theme: SurfaceTheme;
   /**
-   * Whether the bar paints its own surface.
+   * Whether the bar paints its own surface, and which edges it is inset from.
    *
    * `plane` is the default arrangement: no fill and no bottom rule, so the bar is
    * a breadcrumb and a row of glyphs sitting on the shell's plane alongside the
    * nav. `filled` keeps the measured white (or near-black) bar, which is what a
    * header themed against the plane still needs to stay legible.
+   *
+   * `joined` is the bar as the canvas's own top edge: the same fill, a hairline
+   * under it, and the canvas gap dropped from its padding because the card it
+   * lives in already carries that inset. Its corners are the card's — clipped by
+   * the card, not rounded here — so the band reads as the surface's top rather
+   * than a bar laid over it.
    */
-  surface?: "plane" | "filled";
+  surface?: "plane" | "filled" | "joined";
   config?: HeaderConfig;
   /** Where you are: ["Contacts", "Smart lists"]. Home renders before it. */
   crumbs?: (string | Crumb)[];
@@ -105,11 +111,14 @@ export function AppHeader({
         // you actually see — on the title's edge. Same trick the page title itself
         // uses with -mx-[6px] px-[6px] to sit flush in its container.
         "flex h-[48px] w-full shrink-0 items-center justify-between",
-        "pr-[calc(var(--shell-canvas-gap)+var(--page-inset))]",
-        "pl-[calc(var(--shell-canvas-gap)+var(--page-inset)-6.5px)]",
-        surface === "filled"
-          ? "bg-hdr shadow-[inset_0_-1px_0_0_var(--hdr-border)]"
-          : "bg-transparent",
+        // Joined, the canvas gap is already spent by the card's own margin, so the
+        // bar pads by the page's inset alone and still lands on the content's edges.
+        surface === "joined"
+          ? "pr-[var(--page-inset)] pl-[calc(var(--page-inset)-6.5px)]"
+          : "pr-[calc(var(--shell-canvas-gap)+var(--page-inset))] pl-[calc(var(--shell-canvas-gap)+var(--page-inset)-6.5px)]",
+        surface === "plane"
+          ? "bg-transparent"
+          : "bg-hdr shadow-[inset_0_-1px_0_0_var(--hdr-border)]",
       )}
     >
       <div className="flex h-full min-w-0 items-center gap-[4px]">

@@ -242,7 +242,10 @@ export function ProductPage({
         The stage. Skeleton rows, not fake data: this page exists to demo the
         title menu, and plausible-but-fabricated records would upstage it.
       */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-border)]">
+      {/* --pg-card-border, not --pg-border: this is the page's one big card, the
+          same thing the contacts table draws, and the joined shells switch that
+          token off so the card is not a second ring inside the canvas's own. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
         <div className="flex h-[40px] shrink-0 items-center gap-[16px] border-b border-[var(--pg-border)] px-[16px]">
           <span className="h-[10px] w-[14px] rounded-[3px] bg-pg-bg shadow-[inset_0_0_0_1px_var(--pg-border)]" />
           <span className="text-[12px] leading-[normal] font-semibold tracking-[0.4px] text-pg-faint uppercase">

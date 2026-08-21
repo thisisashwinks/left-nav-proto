@@ -15,6 +15,8 @@ import {
   ENTRY_LAYOUTS,
   FLYOUT_TRIGGER_LABELS,
   FLYOUT_TRIGGERS,
+  PAGE_SHELL_LABELS,
+  PAGE_SHELLS,
   RECENTS_MODE_LABELS,
   RECENTS_MODES,
   SCOPE_MODEL_LABELS,
@@ -29,6 +31,7 @@ import {
   type DockPosition,
   type EntryLayout,
   type FlyoutTrigger,
+  type PageShell,
   type RecentsMode,
   type ScopeModel,
   type SearchMode,
@@ -567,6 +570,8 @@ export function TuningPanel() {
     setDockPosition,
     entryLayout,
     setEntryLayout,
+    pageShell,
+    setPageShell,
   } = useTheme();
 
   const toggleSection = (id: SectionId) =>
@@ -581,7 +586,8 @@ export function TuningPanel() {
     (tint !== DEFAULT_THEME.tint ? 1 : 0) +
     (navTheme !== DEFAULT_THEME.navTheme ? 1 : 0) +
     (headerTheme !== DEFAULT_THEME.headerTheme ? 1 : 0) +
-    (appTheme !== DEFAULT_THEME.appTheme ? 1 : 0);
+    (appTheme !== DEFAULT_THEME.appTheme ? 1 : 0) +
+    (pageShell !== DEFAULT_THEME.pageShell ? 1 : 0);
 
   const searchChanged =
     (searchMode !== DEFAULT_THEME.searchMode ? 1 : 0) +
@@ -594,6 +600,7 @@ export function TuningPanel() {
     setNavTheme(DEFAULT_THEME.navTheme);
     setHeaderTheme(DEFAULT_THEME.headerTheme);
     setAppTheme(DEFAULT_THEME.appTheme);
+    setPageShell(DEFAULT_THEME.pageShell);
   };
 
   const resetSearch = () => {
@@ -720,6 +727,20 @@ export function TuningPanel() {
             value={appTheme}
             onChange={(v: SurfaceTheme) => setAppTheme(v)}
           />
+          <Segmented
+            label="Page shell"
+            options={PAGE_SHELLS}
+            value={pageShell}
+            onChange={(v: PageShell) => setPageShell(v)}
+            format={(v) => PAGE_SHELL_LABELS[v]}
+          />
+          <p className="text-[10px] leading-[14px] text-pg-faint">
+            {pageShell === "plane"
+              ? "The shipped arrangement: an unfilled bar on the plane, with the canvas floating below it."
+              : pageShell === "canvas"
+                ? "Breadcrumb, avatar and utilities become the canvas's own top band — one card, filled band, page ground under the hairline."
+                : "The same card filled all the way down: bar and page on one white surface, cards reading by their rings alone."}
+          </p>
         </Section>
 
         <NavStructureSection

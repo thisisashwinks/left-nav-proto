@@ -1,9 +1,10 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Check, Eye, Search, SquarePen, TriangleAlert } from "lucide-react";
 import { AiMark } from "@/components/ai/ai-mark";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import { Kbd } from "@/components/search/kbd";
+import { cn } from "@/lib/utils";
 import { RailTooltip } from "./rail-tooltip";
 
 /**
@@ -35,17 +36,236 @@ export const ENTRY_CLUSTER_RAIL_HEIGHT = 84 + 8 - 38;
 export function EntryCluster({
   onSearch,
   session,
+  edit,
 }: {
   onSearch: () => void;
   session: AiSession;
+  edit?: EditNavProps;
 }) {
   return (
     // 22px under the pill, not 12: hugging the nav's foot read as an
     // afterthought — the lift gives the entry the margin a primary control
     // deserves (Aug 13 ask).
     <div className="flex w-full shrink-0 px-[12px] pb-[22px]">
-      <EntryPill onSearch={onSearch} session={session} />
+      <EntryPill onSearch={onSearch} session={session} {...(edit ? { edit } : {})} />
     </div>
+  );
+}
+
+/** What the nav's edit control offers. Absent for roles that may not restructure. */
+export interface EditNavProps {
+  editing: boolean;
+  /** Opens the session. */
+  onStart: () => void;
+  /** Closes it, keeping everything. */
+  onSave: () => void;
+  /** Closes it, putting the nav back — via a confirmation when it would lose work. */
+  onDiscard: () => void;
+  /** Whether anything has changed, which is what makes Save worth pressing. */
+  dirty: boolean;
+  /**
+   * How many categories are still empty.
+   *
+   * An empty category is a heading over nothing: it opens a panel with no rows
+   * in it, and it tells the account it owns something it does not. So it is a
+   * legal state to be IN while building — you make the shelf, then you fill it —
+   * and an illegal state to leave behind, which is why the count blocks saving
+   * rather than blocking the edit that created it.
+   */
+  blocked: number;
+  /**
+   * Opens the show/hide menu for the nav's non-tree blocks.
+   *
+   * On the mode's own control rather than on a row, because Recent, Quick Actions
+   * and the favourites dock are not rows in the tree — they are conveniences over
+   * it, and switching one off is a different kind of decision from moving a
+   * product.
+   */
+  onOpenBlocks: (trigger: HTMLElement) => void;
+}
+
+/**
+ * The way into editing the nav, hung above the pill.
+ *
+ * Absolutely positioned rather than a row of its own, which is what lets it
+ * appear on hover without the nav's geometry moving: the entry cluster's height
+ * is load-bearing — the floating favourites capsule is placed against it — and a
+ * control that reflowed the nav every time the pointer entered it would shift
+ * the capsule and every row under it.
+ *
+ * Hidden until the nav is hovered, and then only for admins. Editing is rare and
+ * consequential, and a pencil sitting permanently over the search field would
+ * make the nav read as a thing you maintain rather than a thing you use. Once
+ * editing it stays put and becomes the way out, because a mode you can only
+ * leave by finding the control that started it is a trap.
+ */
+function EditNavButton({
+  editing,
+  onStart,
+  onSave,
+  onDiscard,
+  dirty,
+  blocked,
+  onOpenBlocks,
+}: EditNavProps) {
+  if (editing) {
+    const blockedNote =
+      blocked === 1
+        ? "1 category is empty — put something in it first"
+        : `${blocked} categories are empty — put something in them first`;
+    /*
+     * Two controls while editing, because the session has two endings.
+     *
+     * A single "Done" is fine when every edit is its own undoable step, but
+     * restructuring is a rename, three drags and a deletion — and the toast only
+     * ever holds the last of them. Discard is the way out of the whole session,
+     * so it has to be as visible as the way to keep it.
+     */
+    return (
+      /*
+       * Two rows, not one.
+       *
+       * Four things — the mode, what the nav shows, and the two ways out — do not
+       * fit across 272px, and the one that gave way was the label saying which
+       * mode you are in. So the card states the mode and what is showing on the
+       * top line, and keeps the bottom line for the two decisions that end the
+       * session. A card rather than a pill, because a pill two rows tall is just a
+       * card with the wrong corners.
+       *
+       * Absolutely positioned, so none of it can move a row.
+       */
+      <div className="absolute -top-[74px] right-0 left-0 z-20 flex flex-col gap-[6px] rounded-[10px] bg-nav p-[8px] shadow-[0_4px_12px_0_var(--fly-shadow),inset_0_0_0_1px_var(--nav-border,var(--nav-divider))]">
+        <div className="flex items-center justify-between gap-[6px]">
+          <span
+            role="status"
+            className="flex min-w-0 items-center gap-[5px] truncate text-[11.5px] leading-[15px] font-semibold whitespace-nowrap text-brand"
+          >
+            <SquarePen size={11} aria-hidden="true" className="shrink-0" />
+            Editing nav
+          </span>
+          {/*
+            A named control, not a bare eye.
+
+            What it opens is a list of the four blocks the nav can show —
+            Launchpad, Recent, Quick Actions, Favourites — and an unlabelled glyph
+            beside "Discard" read as a third exit rather than as a menu about
+            contents. "Show / hide" rather than "What shows": the label has to name
+            the ACTION, since the thing being shown or hidden is whatever you pick
+            in the menu, and a control named after its subject reads as a status.
+          */}
+          <button
+            type="button"
+            aria-label="Show or hide parts of the nav"
+            onClick={(e) => onOpenBlocks(e.currentTarget)}
+            className="motion-tap flex h-[20px] shrink-0 items-center gap-[4px] rounded-[6px] px-[6px] text-[11.5px] leading-none font-medium text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95"
+          >
+            <Eye size={12} aria-hidden="true" />
+            Show / hide
+          </button>
+        </div>
+
+        <div className="flex items-center justify-end gap-[6px]">
+          <button
+            type="button"
+            onClick={onDiscard}
+            className="motion-tap flex h-[26px] shrink-0 items-center rounded-[7px] px-[10px] text-[12px] leading-none font-medium text-nav-fg-muted shadow-[inset_0_0_0_1px_var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg active:scale-95"
+          >
+            Discard
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={blocked > 0}
+            // The reason lives on the control that is refusing, because the rows
+            // it is refusing over may be scrolled out of sight. They carry the
+            // amber ring; this says how many and why.
+            title={blocked > 0 ? blockedNote : undefined}
+            className={cn(
+              "motion-tap flex h-[26px] shrink-0 items-center gap-[5px] rounded-[7px] px-[10px] text-[12px] leading-none font-medium",
+              blocked > 0
+                ? "cursor-not-allowed text-nav-fg-subtle shadow-[inset_0_0_0_1px_var(--hr-warning-300)]"
+                : "bg-brand text-brand-fg hover:opacity-90 active:scale-95",
+            )}
+          >
+            {blocked > 0 ? (
+              <TriangleAlert
+                size={13}
+                aria-hidden="true"
+                className="text-[var(--hr-warning-500)]"
+              />
+            ) : (
+              <Check size={13} aria-hidden="true" />
+            )}
+            {/* With two rows there is room to say it properly again. An admin who
+                opened the mode to look around is not told they are saving. */}
+            {blocked > 0
+              ? "Empty category"
+              : dirty
+                ? "Save changes"
+                : "Done"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /*
+   * A circle until hovered, then a pill that says what it does.
+   *
+   * A pencil on its own is not self-explanatory — it could mean "rename this
+   * account" as easily as "restructure the nav" — but a permanent label sitting
+   * over the search field would make the nav look like something you administer.
+   * Growing on hover is the compromise: it costs nothing until you look at it,
+   * and because the control is absolutely positioned the growth cannot move the
+   * rows below it.
+   *
+   * It grows to a FIXED width rather than to `auto`, because auto does not
+   * animate — the label would snap out at full width and the whole gesture would
+   * read as a glitch rather than as the control opening. The label's own fade is
+   * held back a beat so the box leads and the text follows it out, which is what
+   * makes 300ms feel deliberate instead of slow.
+   */
+  return (
+    <button
+      type="button"
+      aria-label="Edit navigation"
+      onClick={onStart}
+      className={cn(
+        "group/edit absolute -top-[34px] right-0 z-20 flex h-[26px] items-center overflow-hidden rounded-full",
+        // Square while it is a glyph: 26 by 26, the icon dead centre.
+        "w-[26px] justify-center gap-0 px-0",
+        // A hairline the same colour as the row dividers was invisible against the
+        // nav's own surface. The stronger ring and the row-level ink are what make
+        // a white circle on a white nav read as a control.
+        "bg-nav text-nav-fg shadow-[0_2px_8px_0_var(--fly-shadow),inset_0_0_0_1px_var(--nav-border,var(--nav-divider))]",
+        "transition-[width,gap,padding,opacity,color,transform] duration-[var(--dur-slow)] ease-[var(--ease-out)]",
+        "hover:w-[92px] hover:justify-start hover:gap-[6px] hover:pl-[7px] hover:bg-nav-hover",
+        "focus-visible:w-[92px] focus-visible:justify-start focus-visible:gap-[6px] focus-visible:pl-[7px]",
+        "active:scale-95",
+        // Focus-visible as well as hover, so the control is reachable from the
+        // keyboard by something other than luck.
+        "opacity-0 group-hover/nav:opacity-100 focus-visible:opacity-100",
+      )}
+    >
+      <SquarePen size={13} aria-hidden="true" className="shrink-0" />
+      {/*
+        Zero-width until hovered, or the icon is pushed out of the circle.
+
+        The label is `whitespace-nowrap`, so as a flex item it claims its natural
+        52px — inside a 26px box with `justify-center` that overflows equally on
+        both sides, pushing the glyph past the left edge and clipping it. Which is
+        why the button looked empty: the pencil was outside it. Collapsing the
+        span is what keeps the icon centred; the button's own width animates the
+        growth, and the text fades in a beat later so it arrives inside a box
+        that is already open.
+      */}
+      <span
+        aria-hidden="true"
+        className="w-0 overflow-hidden text-[12px] leading-none font-medium whitespace-nowrap opacity-0 transition-opacity duration-[var(--dur-base)] ease-[var(--ease-out)] group-hover/edit:w-auto group-hover/edit:opacity-100 group-hover/edit:delay-[90ms] group-focus-visible/edit:w-auto group-focus-visible/edit:opacity-100"
+      >
+        Edit nav
+      </span>
+    </button>
   );
 }
 
@@ -61,12 +281,17 @@ export function EntryCluster({
 export function EntryPill({
   onSearch,
   session,
+  edit,
 }: {
   onSearch: () => void;
   session: AiSession;
+  edit?: EditNavProps;
 }) {
   return (
-    <>
+    // Relative, so the edit control has something to hang off. `w-full` keeps it
+    // the same flex child the pill used to be in both arrangements.
+    <div className="relative w-full">
+      {edit ? <EditNavButton {...edit} /> : null}
       {/*
         One control, two targets.
 
@@ -79,7 +304,14 @@ export function EntryPill({
         A div, not a button: it holds two controls, and nesting buttons is invalid
         markup that browsers resolve inconsistently.
       */}
-      <div className="ai-entry motion-tap flex h-[36px] w-full items-center gap-[6px] rounded-full pr-[10px] pl-[4px] shadow-[inset_0_0_0_1px_var(--nav-divider)] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]">
+      <div
+        className={cn(
+          "ai-entry motion-tap flex h-[36px] w-full items-center gap-[6px] rounded-full pr-[10px] pl-[4px] shadow-[inset_0_0_0_1px_var(--nav-divider)] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]",
+          // Search and Ask AI are not part of the tree, so edit mode does not
+          // reach them — said with the cursor, the same way the rows say it.
+          edit?.editing && "[&_button]:cursor-not-allowed",
+        )}
+      >
         {/*
           Reads as one field you can talk to.
 
@@ -131,7 +363,7 @@ export function EntryPill({
 
         <Kbd>⌘K</Kbd>
       </div>
-    </>
+    </div>
   );
 }
 

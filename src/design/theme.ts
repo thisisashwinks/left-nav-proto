@@ -211,6 +211,33 @@ export const NAV_SECTION_LABELS: Record<NavSections, string> = {
   all: "All headings",
 };
 
+/**
+ * How the app bar and the page canvas are arranged.
+ *
+ *  plane    What we shipped: the bar paints nothing. Breadcrumb and utilities sit
+ *           directly on the shell plane beside the nav card, and the canvas floats
+ *           below them as its own inset surface.
+ *  canvas   The bar is the canvas's own top edge — one card holding the bar and
+ *           the page, the band filled (white, or near-black when the header is
+ *           themed dark) with a hairline under it, and the page keeping its own
+ *           ground below that line.
+ *  surface  The same one card, filled all the way down: bar and page on a single
+ *           white surface, with the hairline the only thing dividing them. The
+ *           page's ground disappears, so its cards read by their rings alone.
+ *
+ * A review axis — the question is whether orientation belongs to the window or to
+ * the page it names — so all three are built to be switched between live.
+ */
+export const PAGE_SHELLS = ["plane", "canvas", "surface"] as const;
+
+export type PageShell = (typeof PAGE_SHELLS)[number];
+
+export const PAGE_SHELL_LABELS: Record<PageShell, string> = {
+  plane: "Bar on the plane",
+  canvas: "Bar in the canvas",
+  surface: "One surface",
+};
+
 export const SCOPE_MODELS = ["rail", "header"] as const;
 
 export type ScopeModel = (typeof SCOPE_MODELS)[number];
@@ -261,6 +288,8 @@ export interface ThemeState {
   tabsInNav: boolean;
   /** How the nav's bands are named and whether they fold. See NAV_SECTIONS. */
   navSections: NavSections;
+  /** Whether the app bar sits on the plane or inside the canvas. See PAGE_SHELLS. */
+  pageShell: PageShell;
 }
 
 /**
@@ -302,6 +331,9 @@ export const DEFAULT_THEME: ThemeState = {
   // Off: the proposal's own answer. The toggle is how you argue with it.
   tabsInNav: false,
   navSections: "plain",
+  // The plane is what the review has been reading all along, so it stays the
+  // default and the joined canvas is the thing being proposed against it.
+  pageShell: "plane",
 };
 
 /** Human-readable labels, for the controls UI added later. */

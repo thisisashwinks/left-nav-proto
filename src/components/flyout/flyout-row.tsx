@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, EllipsisVertical, GripVertical } from "lucide-react";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
+import { EditAffordance, InlineRename } from "@/components/nav/inline-rename";
 import { WithPin } from "@/components/nav/with-pin";
 import { productById } from "@/components/nav/catalogue";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -71,6 +72,29 @@ const VARIANT = {
   },
 } as const satisfies Record<FlyoutItemVariant, unknown>;
 
+/**
+ * What editing this row offers, when the nav is in edit mode and this panel
+ * belongs to a category.
+ *
+ * The panel owns it rather than the row: which row is being renamed is one
+ * decision for the whole list, and the drag needs to know a row's position
+ * among its siblings, which only the list knows.
+ */
+export interface FlyoutRowEdit {
+  renaming: boolean;
+  onStartRename: () => void;
+  onCommitRename: (next: string) => void;
+  onCancelRename: () => void;
+  onOpenMenu: (trigger: HTMLElement) => void;
+  onDragStart: (e: React.DragEvent) => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragLeave: (e: React.DragEvent) => void;
+  onDrop: (e: React.DragEvent) => void;
+  onDragEnd: (e: React.DragEvent) => void;
+  over: boolean;
+  lifted: boolean;
+}
+
 interface FlyoutRowProps {
   item: FlyoutItem;
   variant: FlyoutItemVariant;
@@ -80,6 +104,7 @@ interface FlyoutRowProps {
   /** Start expanded — set when this row is the panel's only expandable one. */
   defaultOpen?: boolean;
   onSelect?: (id: string) => void;
+  edit?: FlyoutRowEdit;
 }
 
 export function FlyoutRow({
@@ -89,6 +114,7 @@ export function FlyoutRow({
   rowIndex = 0,
   defaultOpen = false,
   onSelect,
+  edit,
 }: FlyoutRowProps) {
   const v = VARIANT[variant];
   const Icon = item.icon;
@@ -120,28 +146,39 @@ export function FlyoutRow({
   const [open, setOpen] = React.useState(defaultOpen);
   const panelId = React.useId();
 
-  const row = (
-    <button
-      type="button"
-      aria-current={active ? "true" : undefined}
-      aria-expanded={hasChildren ? open : undefined}
-      aria-controls={hasChildren ? panelId : undefined}
-      onClick={() =>
-        hasChildren ? setOpen((o) => !o) : onSelect?.(item.id)
-      }
-      style={{ "--row-index": rowIndex } as React.CSSProperties}
-      className={cn(
-        "motion-row-in group group/row flex w-full shrink-0 rounded-[9px] text-left",
-        "motion-tap",
-        // v.row carries the per-variant gap, padding and alignment. Losing it
-        // is what collapsed every flyout row's breathing room.
-        v.row,
-        // Replaces the padding the pin used to occupy as a flex child.
-        pinnable && v.pinReserve,
-        active ? "bg-nav-hover" : "hover:bg-nav-hover",
-        "active:scale-[0.99] motion-press",
-      )}
-    >
+  const rowClass = cn(
+    "motion-row-in group group/row flex w-full shrink-0 rounded-[9px] text-left",
+    "motion-tap",
+    // v.row carries the per-variant gap, padding and alignment. Losing it
+    // is what collapsed every flyout row's breathing room.
+    v.row,
+    // Replaces the padding the pin used to occupy as a flex child. Editing
+    // reuses it for the kebab, which stands exactly where the pin was — you
+    // are not favouriting a row while you are restructuring the nav, and
+    // sharing the column is what keeps every measurement in this file true.
+    (pinnable || edit) && v.pinReserve,
+    active ? "bg-nav-hover" : "hover:bg-nav-hover",
+    !edit?.renaming && "active:scale-[0.99] motion-press",
+    // The grab cursor lives on the grip, not the row.
+    edit?.over && "bg-nav-hover shadow-[inset_0_0_0_1px_var(--brand)]",
+    // Same as the nav's rows: the slot it left reads as a hole, not a ghost.
+    edit?.lifted &&
+      /*
+       * Everything but the handle.
+       *
+       * `[&>*]:invisible` hid the grip too — and Chrome aborts a drag the instant
+       * its source element stops being visible, so the row emptied out and the
+       * gesture died in the same frame: dragstart, then dragend, no dragover in
+       * between. The handle has to survive its own drag.
+       */
+      "bg-transparent outline-1 outline-dashed outline-[var(--nav-divider)] [&>*:not([data-drag-handle])]:invisible",
+  );
+  const rowStyle = { "--row-index": rowIndex } as React.CSSProperties;
+  const onRowClick = () =>
+    hasChildren ? setOpen((o) => !o) : onSelect?.(item.id);
+
+  const inner = (
+    <>
       <div
         className={cn(
           "flex shrink-0 items-center justify-center",
@@ -172,14 +209,41 @@ export function FlyoutRow({
 
       <div className={cn("flex h-fit flex-1 flex-col items-start", v.text)}>
         <div className="flex w-full shrink-0 items-center gap-[7px]">
-          <span
-            className={cn(
-              "text-[length:var(--t-fly-title,14px)] leading-[normal] text-nav-fg",
-              v.title,
-            )}
-          >
-            {item.label}
-          </span>
+          {edit?.renaming ? (
+            <InlineRename
+              value={item.label}
+              onCommit={edit.onCommitRename}
+              onCancel={edit.onCancelRename}
+              ariaLabel={`Rename ${item.label}`}
+              className={cn(
+                "text-[length:var(--t-fly-title,14px)] leading-[normal]",
+                v.title,
+              )}
+            />
+          ) : (
+            <span
+              className={cn(
+                "text-[length:var(--t-fly-title,14px)] leading-[normal] text-nav-fg",
+                v.title,
+                // In edit mode the text is the rename target, same as in the
+                // nav. The row itself keeps its own job — expanding, or opening
+                // the page — so the two gestures stay separate targets.
+                edit && "-mx-[3px] rounded-[4px] px-[3px] hover:bg-nav-active",
+              )}
+              {...(edit
+                ? {
+                    role: "button",
+                    tabIndex: 0,
+                    onClick: (e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      edit.onStartRename();
+                    },
+                  }
+                : {})}
+            >
+              {item.label}
+            </span>
+          )}
           {item.badge ? (
             <span
               className={cn(
@@ -222,22 +286,110 @@ export function FlyoutRow({
           )}
         />
       ) : null}
+    </>
+  );
+
+  /*
+   * A div while editing, a button otherwise.
+   *
+   * The rename field and the kebab are interactive, and neither can live inside
+   * a button — nested interactive elements are invalid markup that browsers
+   * resolve differently. Same split NavItemRow makes, for the same reason; the
+   * read-only path is untouched, so every measurement taken against it holds.
+   */
+  const row = edit ? (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-current={active ? "true" : undefined}
+      aria-expanded={hasChildren ? open : undefined}
+      aria-controls={hasChildren ? panelId : undefined}
+      onClick={edit.renaming ? undefined : onRowClick}
+      onKeyDown={(e) => {
+        if (edit.renaming) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onRowClick();
+        }
+      }}
+      // Claimed on the way in as well as on the way over.
+      onDragEnter={edit.onDragOver}
+      onDragOver={edit.onDragOver}
+      onDragLeave={edit.onDragLeave}
+      onDrop={edit.onDrop}
+      style={rowStyle}
+      className={rowClass}
+    >
+      {/*
+        The handle, for the same reason the nav's rows have one: the row is made
+        of buttons and a mousedown inside a form control does not start an
+        ancestor's drag. The grip is the element the browser drags.
+      */}
+      {edit.renaming ? null : (
+        <span
+          data-drag-handle=""
+          draggable
+          role="button"
+          tabIndex={-1}
+          aria-label={`Reorder ${item.label}`}
+          title="Drag to reorder"
+          onDragStart={edit.onDragStart}
+          onDragEnd={edit.onDragEnd}
+          onClick={(e) => e.stopPropagation()}
+          // Always on in edit mode, and animating its width in, for the same
+          // reasons as the nav's rows.
+          className="motion-grip-in -ml-[4px] flex size-[18px] shrink-0 cursor-grab items-center justify-center self-center overflow-hidden rounded-[4px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:cursor-grabbing"
+        >
+          <GripVertical size={14} aria-hidden="true" />
+        </span>
+      )}
+      {inner}
+    </div>
+  ) : (
+    <button
+      type="button"
+      aria-current={active ? "true" : undefined}
+      aria-expanded={hasChildren ? open : undefined}
+      aria-controls={hasChildren ? panelId : undefined}
+      onClick={onRowClick}
+      style={rowStyle}
+      className={rowClass}
+    >
+      {inner}
     </button>
   );
 
-  if (!hasChildren) {
-    return (
+  /*
+   * The kebab takes the pin's place while editing — same column, same vertical
+   * rule, so the row's reserved trailing space serves whichever one is showing.
+   */
+  const withTrailing = (node: React.ReactNode) =>
+    edit ? (
+      <div className="group/row relative w-full shrink-0">
+        {node}
+        {edit.renaming ? null : (
+          <span className={cn("absolute right-[8px] z-10", v.pinTop)}>
+            <EditAffordance
+              label={`Edit ${item.label}`}
+              onClick={edit.onOpenMenu}
+              pinned
+            >
+              <EllipsisVertical size={13} aria-hidden="true" />
+            </EditAffordance>
+          </span>
+        )}
+      </div>
+    ) : (
       <WithPin productId={item.id} pinClass={v.pinTop}>
-        {row}
+        {node}
       </WithPin>
     );
-  }
+
+  if (!hasChildren) return withTrailing(row);
 
   return (
     <div className="relative w-full shrink-0">
-      <WithPin productId={item.id} pinClass={v.pinTop}>
-        {row}
-      </WithPin>
+      {withTrailing(row)}
       {open ? (
         <div id={panelId}>
           <FlyoutChildRows

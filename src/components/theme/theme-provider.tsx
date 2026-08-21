@@ -10,6 +10,7 @@ import {
   type FlyoutTrigger,
   type RecentsMode,
   type NavSections,
+  type PageShell,
   type ScopeModel,
   type SearchMode,
   type SurfaceTheme,
@@ -62,6 +63,7 @@ interface ThemeContextValue extends ThemeState {
   setScopeModel: (model: ScopeModel) => void;
   setTabsInNav: (enabled: boolean) => void;
   setNavSections: (mode: NavSections) => void;
+  setPageShell: (shell: PageShell) => void;
   /**
    * What the workspace actually renders: the platform theme with the active
    * account's overrides applied. Chrome reads this; the prototype-controls
@@ -160,6 +162,7 @@ export function ThemeProvider({
       setScopeModel: (scopeModel) => setState((s) => ({ ...s, scopeModel })),
       setTabsInNav: (tabsInNav) => setState((s) => ({ ...s, tabsInNav })),
       setNavSections: (navSections) => setState((s) => ({ ...s, navSections })),
+      setPageShell: (pageShell) => setState((s) => ({ ...s, pageShell })),
     }),
     [state, effective, accountThemes],
   );

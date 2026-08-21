@@ -30,7 +30,19 @@ export interface FlyoutIntent {
  * The clear is delayed so the pointer can cross the seam between a trigger and
  * the panel — or between two triggers — without the panel blinking.
  */
-export function useFlyoutIntent(clearDelayMs = 120): FlyoutIntent {
+export function useFlyoutIntent(
+  clearDelayMs = 120,
+  /**
+   * Keep the open panel open, whatever the pointer does.
+   *
+   * Set while the nav is being edited. Moving a row from one category to another
+   * means leaving the panel to reach the nav, and every trip out would otherwise
+   * close the thing being edited. Only the hover-driven clear is suppressed —
+   * Escape, the panel's own close button and the scrim still work, so the panel
+   * is held rather than stuck.
+   */
+  hold = false,
+): FlyoutIntent {
   const [pinnedId, setPinnedId] = React.useState<string | null>(null);
   const [hoveredId, setHoveredId] = React.useState<string | null>(null);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -127,11 +139,12 @@ export function useFlyoutIntent(clearDelayMs = 120): FlyoutIntent {
 
   const scheduleClear = React.useCallback(() => {
     cancelClear();
+    if (hold) return;
     timer.current = setTimeout(() => {
       timer.current = null;
       setHoveredId(null);
     }, clearDelayMs);
-  }, [cancelClear, clearDelayMs]);
+  }, [cancelClear, clearDelayMs, hold]);
 
   React.useEffect(() => {
     // A pending switch must not outlive the panel it was deferring to.

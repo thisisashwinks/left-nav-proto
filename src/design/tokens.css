@@ -600,6 +600,16 @@
 [data-shell-theme="light"] {
   --shell-bg: #e9ebf0;
   --shell-canvas-ring: transparent;
+  /*
+   * The hairline a canvas gets when it is a card in its own right.
+   *
+   * Distinct from --shell-canvas-ring, which is transparent up here on purpose:
+   * the floating canvas is a step lighter than the plane and needs no line. A
+   * canvas that carries the app bar is a sibling of the nav card instead, so it
+   * takes the NAV's border weight rather than the page's heavier --pg-border —
+   * two cards on one plane should be drawn with one line.
+   */
+  --shell-canvas-border: #ececef;
 }
 
 [data-shell-theme="dark"] {
@@ -610,6 +620,8 @@
      what carries the float. Held as a literal (it is --pg-border's value) because
      that token is scoped to the page element, not to the canvas wrapper. */
   --shell-canvas-ring: #282832;
+  /* The nav card's own dark border, for the same sibling reason. */
+  --shell-canvas-border: #26262c;
 }
 
 :root {
@@ -626,6 +638,47 @@
   /* shadow/lg from the HighRise spec. */
   --shell-canvas-shadow:
     0 12px 16px -4px rgba(16, 24, 40, 0.08), 0 4px 6px -2px rgba(16, 24, 40, 0.03);
+}
+
+/*
+ * The page's inset when it shares a card with the app bar.
+ *
+ * Floating, 8px is right and the page needs no vertical inset at all: the canvas
+ * is inset from the plane on every edge, so its own margin is the gap above and
+ * below, and 8px of gutter is measured against a surface with nothing drawn on
+ * its edge. Joined, both of those stop being true — the page sits inside a
+ * BORDERED card, where an 8px gutter put the page's own cards' hairlines 8px
+ * from the card's own, close enough to read as one doubled line, and the page
+ * would open hard against the bar's rule.
+ *
+ * So joined, one value insets all four sides: 12px, which is the nav card's own
+ * interior — 12px to the blocks at its head and foot, 10px to a row. Two cards
+ * side by side on one plane should hold their contents off their edges by the
+ * same amount, which matters more here than the HighRise canvas's 16px, since
+ * that figure is written for a canvas with the window around it rather than a
+ * sibling card. The app bar reads the same token, so changing it moves the
+ * breadcrumb and the utilities with the content below them.
+ */
+[data-shell-joined] {
+  --page-inset: 12px;
+}
+
+/*
+ * Joined, the page's own card stops drawing a ring.
+ *
+ * The canvas is the bordered surface in these two arrangements, so a page card
+ * ringed 12px inside it is a second hairline tracking the first — a card in a
+ * card, and on "One surface" a white ring on white. The card keeps its fill and
+ * its radius, which is what still separates it from the page around it; only the
+ * line goes. Floating, the canvas draws no line of its own up here, so the card's
+ * ring is the only edge there is and it stays.
+ *
+ * Scoped one level deeper than the card itself: --pg-card-border is declared
+ * under [data-page-theme], which the page root carries, so a declaration on the
+ * card alone would lose to the page's own.
+ */
+[data-shell-joined] [data-page-theme] {
+  --pg-card-border: transparent;
 }
 
 /*
@@ -832,10 +885,13 @@
 
 :root:not([data-tint="off"]) [data-shell-theme="light"] {
   --shell-bg: oklch(from var(--brand) 0.94 calc(c * var(--tint-surface)) h);
+  /* --nav-border's own tinted lightness, so the two cards keep one line. */
+  --shell-canvas-border: oklch(from var(--brand) 0.9439 calc(c * var(--tint-line)) h);
 }
 
 :root:not([data-tint="off"]) [data-shell-theme="dark"] {
   --shell-bg: oklch(from var(--brand) 0.1303 calc(c * var(--tint-surface)) h);
+  --shell-canvas-border: oklch(from var(--brand) 0.2711 calc(c * var(--tint-line)) h);
 }
 
 :root:not([data-tint="off"]) [data-shell-theme="light"] [data-chrome-plane] {

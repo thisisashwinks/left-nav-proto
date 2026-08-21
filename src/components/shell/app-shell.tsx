@@ -44,7 +44,7 @@ import {
   PROPOSED_HOME_ID,
   PROPOSED_SETTINGS_ID,
 } from "@/components/nav/proposed-ia";
-import { UNGROUPED_ID } from "@/components/nav/grouping";
+import { isBlockHidden, UNGROUPED_ID } from "@/components/nav/grouping";
 import {
   contactsAreaLabel,
   ContactsAreaProvider,
@@ -164,7 +164,18 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     searchMode,
     searchTheme,
     flyoutTrigger,
+    pageShell,
   } = effective;
+  /*
+   * Whether the app bar and the page are one card.
+   *
+   * Both joined arrangements fold the bar into the canvas: the right column
+   * itself becomes the inset surface, the bar fills its top band, and the page
+   * scrolls under it. They differ only in what the page below the hairline sits
+   * on — its own ground, or the same fill as the bar. `plane` keeps the shipped
+   * arrangement, a transparent bar with the canvas floating below it.
+   */
+  const barInCanvas = pageShell !== "plane";
   /*
    * Collapsed follows the viewport until the user says otherwise.
    *
@@ -405,7 +416,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     [collapsed],
   );
 
-  const intent = useFlyoutIntent(FLYOUT_HOVER_GRACE_MS);
+  /*
+   * Editing holds the open panel open.
+   *
+   * The gesture the review asked for — drag a row out of one category's panel and
+   * into another — needs the panel to survive the pointer leaving it. Read here
+   * because the intent hook is the shell's, and gating each of its close call
+   * sites separately would leave the hover clear as the one that still fired.
+   */
+  const intent = useFlyoutIntent(FLYOUT_HOVER_GRACE_MS, layout.editing);
 
 
   /*
@@ -987,7 +1006,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           this wrapper, so it cannot join a scroll region — leaving it up would mean
           a floating dock hanging over rows trying to scroll underneath it.
         */}
-        {atFloor ? null : (
+        {atFloor || isBlockHidden(layout, "pinned") ? null : (
         <FavoritesMorph
           theme={navTheme}
           items={pinnedItems}
@@ -1091,17 +1110,47 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         Inset from the top by the same gap as the nav card, so the app bar's row
         and the nav's identity row sit on one line. The nav centres its mark on
         y=24 of its own box to match the bar's midline, which only holds while the
-        two boxes start at the same y.
+        two boxes start at the same y — which is why the joined arrangement takes
+        its inset as a full margin rather than moving the bar down.
       */}
-      <div className="mt-[var(--shell-canvas-gap)] flex min-w-0 flex-1 flex-col">
+      <div
+        // Marks the joined arrangements for tokens.css, which re-points
+        // --page-inset here: inside a bordered card the page needs a wider
+        // gutter, and the bar reads the same token so the two move together.
+        data-shell-joined={barInCanvas ? "" : undefined}
+        className={cn(
+          "flex min-w-0 flex-1 flex-col",
+          barInCanvas
+            ? /*
+                One card for the bar and the page. It carries the canvas's radius,
+                ring and float, and clips — the bar's band has no corners of its
+                own, so the card's are what round the top of the surface.
+              */
+              cn(
+                // Ringed with --shell-canvas-border, not the floating canvas's own
+                // ring: as a card beside the nav card it needs the same visible
+                // hairline the nav has. The plane's ring is transparent in light,
+                // which left this card's edge to the shadow alone.
+                "m-[var(--shell-canvas-gap)] min-h-0 overflow-hidden rounded-[var(--shell-canvas-radius)] shadow-[var(--shell-canvas-shadow),inset_0_0_0_1px_var(--shell-canvas-border)]",
+                // The page's ground, or the bar's own fill carried all the way
+                // down. --pg-surface rather than --hdr-bg: below the hairline it
+                // is the page's surface, and the two are the same white anyway
+                // unless the header is themed against the page.
+                pageShell === "surface" ? "bg-pg-surface" : "bg-pg",
+              )
+            : "mt-[var(--shell-canvas-gap)]",
+        )}
+      >
         <AppHeader
           theme={headerTheme}
-          // Always on the plane: glyphs and a breadcrumb, no surface of its own.
-          // It used to take a fill whenever it was themed against the nav, to keep
-          // light ink off a light plane — but with the nav floating as its own card
-          // a filled bar reads as a third competing surface, so the fill goes and
-          // the mismatched-theme case is a contrast problem to solve in the ink.
-          surface="plane"
+          // On the plane it paints nothing: glyphs and a breadcrumb, no surface of
+          // its own. It used to take a fill whenever it was themed against the nav,
+          // to keep light ink off a light plane — but with the nav floating as its
+          // own card a filled bar reads as a third competing surface, so the fill
+          // goes and the mismatched-theme case is a contrast problem to solve in
+          // the ink. Joined, the fill comes back for the opposite reason: there the
+          // band IS the canvas's top edge, not a bar laid over the plane.
+          surface={barInCanvas ? "joined" : "plane"}
           onHome={() => {
             if (homeProductId) openProduct(homeProductId);
             else setProductPage(null);
@@ -1132,7 +1181,18 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               HighRise canvas spec asks for — that, plus sitting a step lighter
               than the plane, is what reads as floating.
             */}
-            <div className="m-[var(--shell-canvas-gap)] min-h-0 flex-1 overflow-auto rounded-[var(--shell-canvas-radius)] shadow-[inset_0_0_0_1px_var(--shell-canvas-ring)]">
+            <div
+              className={cn(
+                "min-h-0 flex-1 overflow-auto",
+                barInCanvas
+                  ? // Inside the joined card the surface is already there, so all
+                    // this needs is the breathing room the canvas's own margin used
+                    // to give the page. The same token the page insets itself by
+                    // horizontally, so all four sides come out equal.
+                    "py-[var(--page-inset)]"
+                  : "m-[var(--shell-canvas-gap)] rounded-[var(--shell-canvas-radius)] shadow-[inset_0_0_0_1px_var(--shell-canvas-ring)]",
+              )}
+            >
               {selectedId === "agency-sub-accounts" ? (
                 customizeAccount ? (
                   <SubAccountPage

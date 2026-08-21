@@ -1,41 +1,51 @@
 import {
+  AppWindow,
   Award,
   BadgeDollarSign,
   Banknote,
   Blocks,
-  Bot,
-  SearchCheck,
-  MessageSquareText,
-  Files,
-  Factory,
-  Brain,
   BookOpen,
+  Bot,
   Boxes,
   Braces,
+  Brain,
+  BriefcaseBusiness,
   Building2,
   Calendar,
-  ChartLine,
-  ChartColumn,
-  ChartPie,
   Car,
+  ChartColumn,
+  ChartLine,
+  ChartPie,
+  CircleQuestionMark,
   CircleUser,
   ClipboardList,
+  Cog,
   Compass,
   Contact,
+  CornerUpRight,
   CreditCard,
   Database,
+  Factory,
+  FileChartColumn,
+  FileClock,
+  Files,
   FileSignature,
   FileText,
   FlaskConical,
   FolderOpen,
   Gauge,
   Gift,
+  GitBranch,
   Globe,
   GraduationCap,
   Handshake,
+  Headset,
+  HeartHandshake,
   House,
+  IdCard,
   KeyRound,
   LayoutTemplate,
+  Library,
   Link,
   Link2,
   ListChecks,
@@ -43,6 +53,8 @@ import {
   Mail,
   Megaphone,
   MessageCircle,
+  MessageSquare,
+  MessageSquareText,
   MessagesSquare,
   Mic,
   MonitorSmartphone,
@@ -53,12 +65,15 @@ import {
   Presentation,
   Puzzle,
   QrCode,
+  Quote,
   Radar,
+  RadioTower,
   Receipt,
   Repeat,
   Rocket,
   Rss,
   ScrollText,
+  SearchCheck,
   Send,
   Settings,
   Share2,
@@ -71,12 +86,13 @@ import {
   Star,
   Store,
   Target,
+  TextCursorInput,
   Ticket,
   TicketPercent,
   Timer,
   Upload,
-  UsersRound,
   Users,
+  UsersRound,
   Wallet,
   Wand,
   Workflow,
@@ -456,7 +472,7 @@ const CRM: CatalogueEntry[] = [
   {
     id: "ia-crm-custom-fields",
     label: "Custom Fields",
-    icon: ListChecks,
+    icon: TextCursorInput,
     blurb: "The shape of your records.",
     tabs: true,
     // Fields belong to an object, so the object is how you find them. Car is a
@@ -472,7 +488,7 @@ const CRM: CatalogueEntry[] = [
   {
     id: "ia-crm-ticketing",
     label: "Ticketing",
-    icon: Ticket,
+    icon: Headset,
     blurb: "Support requests with an owner and an SLA.",
   },
   {
@@ -493,7 +509,7 @@ const AUTOMATION: CatalogueEntry[] = [
   {
     id: "ia-automation-workflows",
     label: "Workflows",
-    icon: Workflow,
+    icon: GitBranch,
     blurb: "Triggers, actions and handoffs.",
     children: [
       {
@@ -619,7 +635,7 @@ const MARKETING: CatalogueEntry[] = [
     // Shipped twice today — a Conversations tab and a Marketing tab. Homed once.
     id: "ia-marketing-snippets",
     label: "Snippets",
-    icon: FileText,
+    icon: Quote,
     blurb: "Reusable message blocks.",
     tabs: true,
     children: [
@@ -686,7 +702,7 @@ const CONTENT: CatalogueEntry[] = [
   {
     id: "ia-content-sites",
     label: "Sites",
-    icon: LayoutTemplate,
+    icon: AppWindow,
     blurb: "Funnels, websites and blogs.",
     children: [
       { id: "ia-content-sites-funnel", label: "Funnel" },
@@ -752,13 +768,13 @@ const CONTENT: CatalogueEntry[] = [
   {
     id: "ia-content-quizzes",
     label: "Quizzes",
-    icon: Puzzle,
+    icon: CircleQuestionMark,
     blurb: "Score answers and route on the result.",
   },
   {
     id: "ia-content-chat",
     label: "Chat Widget",
-    icon: MessageCircle,
+    icon: MessageSquare,
     blurb: "The bubble on your site.",
   },
   {
@@ -776,7 +792,7 @@ const CONTENT: CatalogueEntry[] = [
   {
     id: "ia-content-redirects",
     label: "URL Redirect",
-    icon: Link2,
+    icon: CornerUpRight,
     blurb: "Send an old link somewhere new.",
   },
   {
@@ -803,7 +819,7 @@ const REPORTING: CatalogueEntry[] = [
   {
     id: "ia-reporting-reports",
     label: "Reports",
-    icon: ChartLine,
+    icon: FileChartColumn,
     blurb: "The shipped set, one per channel.",
     children: [
       { id: "ia-reporting-google", label: "Google Ads" },
@@ -955,7 +971,7 @@ const COMMERCE: CatalogueEntry[] = [
   {
     id: "ia-commerce-settings",
     label: "Settings",
-    icon: Settings,
+    icon: Cog,
     blurb: "Receipts, tax, shipping and notifications.",
   },
   {
@@ -995,7 +1011,7 @@ const CREATORS: CatalogueEntry[] = [
   {
     id: "ia-creators-courses",
     label: "Courses",
-    icon: GraduationCap,
+    icon: Library,
     blurb: "Lessons, offers and progress.",
     tabs: true,
     children: [
@@ -1062,7 +1078,7 @@ const CREATORS: CatalogueEntry[] = [
   {
     id: "ia-creators-gokollab",
     label: "GoKollab Marketplace",
-    icon: Store,
+    icon: HeartHandshake,
     blurb: "List your programme where buyers browse.",
   },
 ];
@@ -1122,7 +1138,7 @@ const SETTINGS: CatalogueEntry[] = [
   {
     id: "ia-settings-business",
     label: "Business Profile",
-    icon: Store,
+    icon: BriefcaseBusiness,
     blurb: "Name, address and the details on your invoices.",
   },
   {
@@ -1140,7 +1156,7 @@ const SETTINGS: CatalogueEntry[] = [
   {
     id: "ia-settings-communications",
     label: "Communications",
-    icon: MessagesSquare,
+    icon: RadioTower,
     blurb: "The channels this account sends on.",
     children: [
       {
@@ -1187,7 +1203,7 @@ const SETTINGS: CatalogueEntry[] = [
   {
     id: "ia-settings-audit",
     label: "Audit Logs",
-    icon: ScrollText,
+    icon: FileClock,
     blurb: "Who changed what, and when.",
   },
 ];
@@ -1258,7 +1274,7 @@ const ids = (products: CatalogueEntry[]) => products.map((p) => p.id);
  */
 export const proposedBuckets: ProposedBucket[] = [
   { id: "ia-ai", defaultLabel: "AI", icon: Sparkles, productIds: ids(AI) },
-  { id: "ia-crm", defaultLabel: "CRM", icon: Users, productIds: ids(CRM) },
+  { id: "ia-crm", defaultLabel: "CRM", icon: IdCard, productIds: ids(CRM) },
   {
     id: "ia-automation",
     defaultLabel: "Automation",
@@ -1332,7 +1348,10 @@ export const PROPOSED_HOME_ID = "ia-launchpad";
  * something else is already their entry point. Exempt from the filed-exactly-
  * once check below for that reason.
  */
-const UNLISTED_IDS: readonly string[] = ids(LAUNCHPAD);
+export const PROPOSED_UNLISTED_IDS: readonly string[] = ids(LAUNCHPAD);
+
+/** Local alias, kept so the invariant below reads as it did. */
+const UNLISTED_IDS = PROPOSED_UNLISTED_IDS;
 
 export const PROPOSED_PRODUCT_IDS: readonly string[] = ids(proposedCatalogue);
 

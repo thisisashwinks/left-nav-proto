@@ -20,12 +20,15 @@ type IconPickerProps = React.ComponentProps<typeof IconPicker>;
  * UI mode, and putting it in the store would mean a rename started in the nav
  * appeared to also be in progress in the launcher.
  *
- * Editing is gated on permission, not on a mode. It used to sit behind an
- * "edit mode" switch, which meant the affordance the Aug 18 review actually asked
- * for — hover a row, get a pencil, rename it there — was invisible unless someone
- * had found a toggle on a prototype panel first. `state.editing` survives as a
- * forcing switch that pins every pencil open, which is useful for photographing
- * the affordance and for nothing else.
+ * Editing is gated on permission AND on the mode.
+ *
+ * It briefly sat on permission alone, so that hovering any row gave you a pencil
+ * without having to find a switch first. Reviewed in the nav, that read as a nav
+ * you maintain rather than a nav you use: ninety rows each offering to be
+ * renamed, on every hover, forever. So the affordances are back behind the mode —
+ * but the mode's own way in is now a control in the nav itself rather than a
+ * toggle on a prototype panel, which is what made the old arrangement
+ * undiscoverable.
  */
 export function useNavRowEdit(picker: IconPickerHandle) {
   const layout = useNavLayout();
@@ -36,6 +39,9 @@ export function useNavRowEdit(picker: IconPickerHandle) {
     // Renaming is the personalization layer, so every role has it — but ask
     // rather than assume, so a role that loses it loses the pencil with it.
     if (!can.renameForSelf) return null;
+    // Outside the mode a row is a destination and nothing else. No pencil, no
+    // kebab, no hover affordance of any kind.
+    if (!state.editing) return null;
     const target = editTargetFor(state, groups, itemId);
     // Chrome — Recent, AI Agents, Settings, custom links. Those are
     // product decisions, not the account's, so they are not renameable here.
@@ -49,7 +55,7 @@ export function useNavRowEdit(picker: IconPickerHandle) {
 
     return {
       renaming: renamingId === itemId,
-      pinned: state.editing,
+      pinned: true,
       onStartRename: () => setRenamingId(itemId),
       onCommitRename: (next) => {
         if (isGroup) layout.setLabel(id, next);
@@ -91,5 +97,19 @@ export function useNavRowEdit(picker: IconPickerHandle) {
         }
       : null;
 
-  return { state, groups, can, editFor, pickerProps };
+  return {
+    state,
+    groups,
+    can,
+    editFor,
+    pickerProps,
+    /**
+     * Opens a row's rename field from outside a row.
+     *
+     * The nav's Add-a-category action needs it: the new row has to mount already
+     * asking for its name, and the only thing that knows the row exists is the
+     * commit that just created it.
+     */
+    startRename: setRenamingId,
+  };
 }

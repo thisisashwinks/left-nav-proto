@@ -74,6 +74,36 @@ function accountLinks(labels: string[]): NavItem[] {
  * That includes the volume switch's custom links, which is why it belongs here
  * rather than in either face.
  */
+/**
+ * The tail's rows, in the account's own order.
+ *
+ * Products no category claims and the account's own links are one list here,
+ * because on screen they are one run of rows — and because a drag has to be able
+ * to put a product between two links. The volume switch's generated links stay at
+ * the end: they are stress-test scaffolding, not something anyone arranges.
+ */
+export function tailRowsFor(
+  state: NavLayoutState,
+  looseIds: readonly string[],
+): NavItem[] {
+  const links = accountLinks(state.customLinks);
+  const byId = new Map<string, NavItem>();
+  for (const id of looseIds) {
+    byId.set(id, {
+      id,
+      label: labelForProduct(state, id),
+      icon: iconForProduct(state, id),
+    });
+  }
+  for (const link of links) byId.set(link.id, link);
+  const defaults = [...looseIds, ...links.map((l) => l.id)];
+  const known = state.tailOrder.filter((id) => byId.has(id));
+  const missing = defaults.filter((id) => !known.includes(id));
+  return [...known, ...missing]
+    .map((id) => byId.get(id))
+    .filter((item): item is NavItem => item !== undefined);
+}
+
 export function navEntriesFor(
   state: NavLayoutState,
   groups: ResolvedGroup[],
@@ -91,10 +121,7 @@ export function navEntriesFor(
     sectionHeadings
       ? { kind: "label", id: `sec-${id}`, text }
       : { kind: "divider", id: `div-${id}` };
-  const extra = [
-    ...accountLinks(state.customLinks),
-    ...volumeLinks(NAV_VOLUME_EXTRA_LINKS[state.navVolume]),
-  ];
+  const extra = volumeLinks(NAV_VOLUME_EXTRA_LINKS[state.navVolume]);
   const extraEntries: NavEntry[] =
     extra.length === 0
       ? []
@@ -157,8 +184,20 @@ export function navEntriesFor(
        * Settings is appended by `left-nav`, since it is the face that owns the
        * bottom anchor.
        */
-      band("ia-more", "More"),
-      ...loose.map(productRow),
+      /*
+       * No rule between the categories and the tail.
+       *
+       * They read as one list because they behave as one: a row can be dragged
+       * out of a category into the tail and back, and a line across the middle
+       * made that look like a boundary the drag was not allowed to cross. The
+       * heading survives for the arrangement that names its bands — a label is a
+       * name for what follows, which a rule is not.
+       */
+      ...(sectionHeadings ? [band("ia-more", "More")] : []),
+      ...tailRowsFor(state, loose).map((item): NavEntry => ({
+        kind: "item",
+        item,
+      })),
       ...extraEntries,
     ];
   }

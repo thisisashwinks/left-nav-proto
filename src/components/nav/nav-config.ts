@@ -16,6 +16,7 @@ import {
   iconForProduct,
   labelForProduct,
   type NavLayoutState,
+  isBlockHidden,
 } from "./grouping";
 import type { NavConfig, NavEntry, NavItem } from "./types";
 
@@ -167,12 +168,36 @@ export function fixedEntriesFor(
    * in the IA duplicates it. Scoped to the mode rather than deleted, so every
    * other account keeps both.
    */
-  const trimmed =
+  const dropped =
     state.grouping === "proposed"
       ? resolved.filter(
           (e) => !(e.kind === "item" && e.item.id === "ai-agents"),
         )
       : resolved;
+
+  /*
+   * The blocks the account has switched off.
+   *
+   * Recent and Quick Actions are conveniences over the tree rather than parts of
+   * it, so an agency can decide their clients do not want them. Filtered here
+   * rather than in either nav face, so the rail and the expanded nav can never
+   * disagree about what the account has.
+   */
+  const trimmed = dropped.filter((e) => {
+    if (isBlockHidden(state, "recent")) {
+      if (e.kind === "label" && e.id === "recent-label") return false;
+      if (e.kind === "divider" && e.id === "div-recent") return false;
+      if (e.kind === "item" && e.item.id.startsWith("recent-")) return false;
+    }
+    if (
+      isBlockHidden(state, "quickActions") &&
+      e.kind === "item" &&
+      e.item.id === "quick-actions"
+    ) {
+      return false;
+    }
+    return true;
+  });
 
   /*
    * A heading over the standing entry points.

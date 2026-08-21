@@ -60,7 +60,7 @@ export function AccountsIndexPage({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-[24px] pb-[24px]">
-        <div className="overflow-hidden rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-border)]">
+        <div className="overflow-hidden rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
           <div className="flex items-center gap-[14px] px-[16px] py-[9px] shadow-[inset_0_-1px_0_0_var(--pg-border)]">
             <span className="w-[300px] text-[11px] leading-none font-semibold tracking-[0.04em] text-pg-muted uppercase">
               Name

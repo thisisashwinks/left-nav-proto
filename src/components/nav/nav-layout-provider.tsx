@@ -4,6 +4,8 @@ import * as React from "react";
 import type { LucideIcon } from "lucide-react";
 import { INITIAL_ACCOUNT_ID } from "@/components/accounts/accounts-data";
 import { navProfileFor } from "./account-nav-profiles";
+import { productById } from "./catalogue";
+import { tailRowsFor } from "./nav-entries";
 import {
   defaultLabelForGroup,
   iconForGroup,
@@ -14,10 +16,21 @@ import {
   labelForGroup,
   labelForProduct,
   permissionsFor,
+  customTreeFor,
   resolveGroups,
+  UNGROUPED_ID,
   seedCustomGroups,
+  withGroupDeleted,
+  withNewGroup,
+  isBlockHidden,
+  looseProductIds,
+  NAV_BLOCK_LABELS,
+  withProduct,
+  withProductAdded,
+  withProductFiled,
   type GroupingMode,
   type LabelScope,
+  type NavBlock,
   type NavLayoutState,
   type NavPermissions,
   type NavRole,
@@ -76,8 +89,60 @@ interface NavLayoutContextValue {
   // Structure.
   setGrouping: (mode: GroupingMode) => void;
   moveGroup: (fromIndex: number, toIndex: number) => void;
-  createGroup: (label: string) => void;
+  /**
+   * Adds a group. `id` lets the caller name it before it exists, which is what
+   * the nav needs to mount the new row straight into its rename field.
+   */
+  createGroup: (label: string, id?: string) => void;
+  /**
+   * Adds a group at a position rather than at the end.
+   *
+   * One commit, so the new category and its place in the list are one undo. Done
+   * as create-then-move it would be two, and the toast only holds the last —
+   * undoing would leave an empty category behind in the middle of the nav.
+   */
+  createGroupAt: (label: string, id: string, index: number) => void;
   deleteGroup: (groupId: string) => void;
+  /**
+   * Removes a group after rehoming everything on it.
+   *
+   * One method rather than a loop of `moveProductToGroup` calls followed by a
+   * delete, because the whole thing has to be one undo: a category holding
+   * fourteen rows would otherwise take fifteen presses to put back, and the
+   * toast only ever offers the last one.
+   */
+  deleteGroupInto: (groupId: string, destinationId: string | null) => void;
+  /**
+   * Takes a row out of the nav entirely.
+   *
+   * De-provisioning rather than unfiling: "remove" on a row inside a category
+   * has to mean gone, because unfiling it would move it to top level and leave
+   * the admin looking at the row they just removed.
+   */
+  removeProductFromNav: (productId: string) => void;
+  /**
+   * Puts a row into a category at a position, provisioning it if the account
+   * had it switched off.
+   *
+   * One commit, because "add this" and "add it here" are one decision — and
+   * because the two halves done separately would each offer their own undo, the
+   * second of which would leave the row in the nav at the wrong index.
+   */
+  /**
+   * Puts a row in the nav's tail — the rows that belong to no category — at a
+   * position.
+   *
+   * One verb for two arrivals: a product dragged out of a category, and a tail
+   * row moved past its neighbours. Both end as "this row, no category, here",
+   * and splitting them would mean a drag out of a flyout landing at the end of
+   * the tail rather than where it was dropped.
+   */
+  placeInTail: (rowId: string, index: number) => void;
+  addProductToGroup: (
+    productId: string,
+    groupId: string,
+    index: number,
+  ) => void;
   /**
    * Files a product into a custom group, removing it from wherever it was.
    * Without an index it lands at the end, which is where a "move to…" belongs;
@@ -98,7 +163,20 @@ interface NavLayoutContextValue {
   setNavVolume: (volume: NavVolume) => void;
   setRole: (role: NavRole) => void;
   setLabelScope: (scope: LabelScope) => void;
+  /** Switches one of the nav's non-tree blocks off, or back on. */
+  toggleBlock: (block: NavBlock) => void;
   setEditing: (editing: boolean) => void;
+  /**
+   * Opens an edit session, taking a baseline the whole session can be thrown
+   * away against.
+   */
+  beginEditing: () => void;
+  /** Closes the session, keeping every change. */
+  saveEditing: () => void;
+  /** Closes the session, putting the nav back to where it opened. */
+  discardEditing: () => void;
+  /** Whether the open session has changed anything worth warning about. */
+  editDirty: boolean;
   resetLayout: () => void;
   isDefaultLayout: boolean;
 
@@ -143,6 +221,18 @@ interface Store {
   nextOfferId: number;
   /** Counter for generated group ids, so they are stable without Math.random. */
   nextGroupId: number;
+  /**
+   * The nav as it stood when edit mode opened, kept so the whole session can be
+   * thrown away.
+   *
+   * Restructuring is not one edit. It is a rename, three drags and a deletion,
+   * and the undo toast only ever holds the last of them — so an admin who
+   * decides halfway through that the old arrangement was better has no way back.
+   * The baseline is that way back. Null when nobody is editing.
+   */
+  editBaseline: NavLayoutState | null;
+  /** Whether anything has actually changed since the baseline was taken. */
+  editDirty: boolean;
 }
 
 type Action =
@@ -157,6 +247,12 @@ type Action =
     }
   | { type: "undo" }
   | { type: "dismiss" }
+  /** Opens edit mode and takes the baseline. */
+  | { type: "beginEdit" }
+  /** Closes edit mode, keeping everything. */
+  | { type: "saveEdit" }
+  /** Closes edit mode, putting the baseline back. */
+  | { type: "discardEdit" }
   /** Account switch: swap in another account's saved layout, drop the offer. */
   | { type: "load"; layout: NavLayoutState };
 
@@ -170,10 +266,16 @@ function reducer(store: Store, action: Action): Store {
       const nextGroupId = action.claimsId
         ? store.nextGroupId + 1
         : store.nextGroupId;
-      if (action.silent) return { ...store, layout, nextGroupId };
+      // Silent steps are switches, not edits, so they leave the session clean —
+      // flipping the volume knob mid-edit must not make Discard look meaningful.
+      const editDirty =
+        store.editBaseline !== null && !action.silent ? true : store.editDirty;
+      if (action.silent) return { ...store, layout, nextGroupId, editDirty };
       return {
+        ...store,
         layout,
         nextGroupId,
+        editDirty,
         undoOffer: {
           id: store.nextOfferId,
           message: action.message,
@@ -182,6 +284,35 @@ function reducer(store: Store, action: Action): Store {
         nextOfferId: store.nextOfferId + 1,
       };
     }
+    case "beginEdit":
+      return store.layout.editing
+        ? store
+        : {
+            ...store,
+            layout: { ...store.layout, editing: true },
+            // Taken before the flag goes on, so discarding cannot restore a
+            // state that thinks it is still being edited.
+            editBaseline: store.layout,
+            editDirty: false,
+          };
+    case "saveEdit":
+      return {
+        ...store,
+        layout: { ...store.layout, editing: false },
+        editBaseline: null,
+        editDirty: false,
+        // The session's last undo offer would restore a step from inside an
+        // edit the admin has now committed to. Closing the session closes it.
+        undoOffer: null,
+      };
+    case "discardEdit":
+      return {
+        ...store,
+        layout: store.editBaseline ?? { ...store.layout, editing: false },
+        editBaseline: null,
+        editDirty: false,
+        undoOffer: null,
+      };
     case "undo":
       return store.undoOffer
         ? { ...store, layout: store.undoOffer.restore, undoOffer: null }
@@ -189,8 +320,16 @@ function reducer(store: Store, action: Action): Store {
     case "dismiss":
       return store.undoOffer ? { ...store, undoOffer: null } : store;
     case "load":
-      // An undo offer must not survive into another account's layout.
-      return { ...store, layout: action.layout, undoOffer: null };
+      // An undo offer must not survive into another account's layout, and
+      // neither can an edit session: its baseline belongs to the account being
+      // left, so restoring it here would paste one account's nav onto another.
+      return {
+        ...store,
+        layout: action.layout,
+        undoOffer: null,
+        editBaseline: null,
+        editDirty: false,
+      };
   }
 }
 
@@ -204,6 +343,84 @@ function reorder<T>(list: T[], from: number, to: number): T[] {
   if (moved === undefined) return list;
   next.splice(to, 0, moved);
   return next;
+}
+
+/*
+ * Toast copy that names what moved and where.
+ *
+ * Built from the state BEFORE the edit, because that is when the row is still in
+ * the place the sentence describes. Kept here rather than inline so the three
+ * reorder verbs phrase the same fact the same way — "to the top", "after X" —
+ * instead of each inventing its own wording.
+ */
+
+function positionPhrase(
+  labels: string[],
+  fromIndex: number,
+  toIndex: number,
+): string {
+  if (toIndex <= 0) return "to the top";
+  const landing = labels.filter((_, i) => i !== fromIndex)[toIndex - 1];
+  return landing ? `after ${landing}` : "to the end";
+}
+
+function moveGroupMessage(
+  state: NavLayoutState,
+  fromIndex: number,
+  toIndex: number,
+): string {
+  const labels = resolveGroups(state).map((g) => g.label);
+  const moved = labels[fromIndex];
+  if (!moved) return "Reordered the nav";
+  return `Moved ${moved} ${positionPhrase(labels, fromIndex, toIndex)}`;
+}
+
+function withinGroupMessage(
+  state: NavLayoutState,
+  groupId: string,
+  fromIndex: number,
+  toIndex: number,
+): string {
+  const group = state.customGroups.find((g) => g.id === groupId);
+  const ids = group?.productIds ?? [];
+  const movedId = ids[fromIndex];
+  if (!movedId) return "Reordered the group";
+  const labels = ids.map((id) => labelForProduct(state, id));
+  return `Moved ${labelForProduct(state, movedId)} ${positionPhrase(
+    labels,
+    fromIndex,
+    toIndex,
+  )}`;
+}
+
+function placeInTailMessage(state: NavLayoutState, rowId: string): string {
+  const product = productById(rowId);
+  if (!product) return "Reordered the nav";
+  const home = resolveGroups(state).find(
+    (g) => g.id !== UNGROUPED_ID && g.productIds.includes(rowId),
+  );
+  const name = labelForProduct(state, rowId);
+  // Out of a category is the part worth naming — a reorder within the tail is
+  // just a reorder, but leaving a category changes where the row lives.
+  return home ? `Moved ${name} out of ${home.label}` : `Moved ${name}`;
+}
+
+function deleteGroupMessage(
+  state: NavLayoutState,
+  groupId: string,
+  destinationId: string | null,
+): string {
+  const name = labelForGroup(state, groupId);
+  const count =
+    resolveGroups(state).find((g) => g.id === groupId)?.productIds.length ?? 0;
+  if (count === 0) return `Removed ${name}`;
+  const rows = count === 1 ? "1 item" : `${count} items`;
+  // Where they went is the half of this the admin cannot see afterwards — the
+  // category is gone, so the toast is the only record of where its rows landed.
+  const where = destinationId
+    ? labelForGroup(state, destinationId)
+    : "top level";
+  return `Removed ${name} — ${rows} moved to ${where}`;
 }
 
 /**
@@ -252,6 +469,8 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
     undoOffer: null,
     nextOfferId: 1,
     nextGroupId: 1,
+    editBaseline: null,
+    editDirty: false,
   });
   /** Saved layouts for every account that is not the active one. */
   const [profiles, setProfiles] = React.useState<Record<string, NavLayoutState>>({});
@@ -363,14 +582,14 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       isPinned: (productId) => state.pinned.includes(productId),
 
       pin: (productId) =>
-        commit("Pinned", (s) =>
+        commit(`Pinned ${labelForProduct(state, productId)}`, (s) =>
           s.pinned.includes(productId)
             ? s
             : { ...s, pinned: [...s.pinned, productId] },
         ),
 
       unpin: (productId) =>
-        commit("Unpinned", (s) => ({
+        commit(`Unpinned ${labelForProduct(state, productId)}`, (s) => ({
           ...s,
           pinned: s.pinned.filter((id) => id !== productId),
         })),
@@ -378,8 +597,8 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       togglePin: (productId) =>
         commit(
           state.pinned.includes(productId)
-            ? "Unpinned"
-            : "Pinned",
+            ? `Unpinned ${labelForProduct(state, productId)}`
+            : `Pinned ${labelForProduct(state, productId)}`,
           (s) => ({
             ...s,
             pinned: s.pinned.includes(productId)
@@ -402,7 +621,10 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         const trimmed = label.trim().slice(0, LABEL_MAX);
         if (!trimmed) return;
         const custom = state.customGroups.some((g) => g.id === groupId);
-        commit("Renamed group", (s) => {
+        // The old name and the new one, because the row on screen now shows only
+        // the new one — "Renamed group" left the admin unable to tell which of
+        // twelve categories the toast was offering to change back.
+        commit(`Renamed ${labelForGroup(state, groupId)} to ${trimmed}`, (s) => {
           // A custom group has no shipped name to override, so its rename is a
           // write to the group itself — which is also why it survives a reset of
           // the override maps.
@@ -421,7 +643,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       },
 
       resetLabel: (groupId) =>
-        commit("Reset to the shipped name", (s) => {
+        commit(`Reset ${labelForGroup(state, groupId)} to its shipped name`, (s) => {
           const accountLabels = without(s.accountLabels, groupId);
           const agencyLabels = can.writeAgencyScope
             ? without(s.agencyLabels, groupId)
@@ -442,11 +664,16 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
           effectiveScope(scope) === "agency"
             ? "agencyProductLabels"
             : "accountProductLabels";
-        commit("Renamed product", setLabelIn(key, productId, trimmed));
+        commit(
+          `Renamed ${labelForProduct(state, productId)} to ${trimmed}`,
+          setLabelIn(key, productId, trimmed),
+        );
       },
 
       resetProductLabel: (productId) =>
-        commit("Reset to the shipped name", (s) => {
+        commit(
+          `Reset ${labelForProduct(state, productId)} to its shipped name`,
+          (s) => {
           const accountProductLabels = without(s.accountProductLabels, productId);
           const agencyProductLabels = can.writeAgencyScope
             ? without(s.agencyProductLabels, productId)
@@ -494,74 +721,160 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         ),
 
       moveGroup: (fromIndex, toIndex) =>
-        commit("Reordered the nav", (s) => {
+        /*
+         * The message names the row and where it went.
+         *
+         * "Reordered the nav" was true of every reorder and therefore said
+         * nothing — an admin who dragged three rows and looked away had no way
+         * to tell which one the toast was offering to put back.
+         */
+        commit(moveGroupMessage(state, fromIndex, toIndex), (s) => {
           const current = resolveGroups(s).map((g) => g.id);
           const next = reorder(current, fromIndex, toIndex);
           if (next === current) return s;
           return { ...s, groupOrder: { ...s.groupOrder, [s.grouping]: next } };
         }),
 
-      createGroup: (label) => {
+      /*
+       * The three structural verbs below all delegate to the recipes in
+       * grouping.ts.
+       *
+       * They used to be second implementations of the same edits, and the two
+       * families had drifted: this delete kept the group's stale name and icon
+       * around to reattach themselves to whatever took its id next, and this
+       * move forced grouping to "custom", which on a proposed account traded the
+       * whole arrangement for one reordered row. Going through the recipes means
+       * one behaviour per verb — and, because these still go through commit(),
+       * the recipes finally get the undo the customizer never had.
+       */
+      createGroup: (label, id) => {
         const trimmed = label.trim().slice(0, LABEL_MAX);
         if (!trimmed) return;
         commit(
-          "Added a group",
-          (s, generatedId) => ({
-            ...s,
-            // Creating a group is only meaningful in the custom tree, so it
-            // switches the mode rather than creating something invisible.
-            grouping: "custom",
-            customGroups: [
-              ...seedCustomGroups(s),
-              { id: generatedId, label: trimmed, iconName: "Folder", productIds: [] },
-            ],
-          }),
-          { claimsId: true },
+          `Added ${trimmed}`,
+          (s, generatedId) => withNewGroup(s, trimmed, id ?? generatedId),
+          // The store's counter only advances when the store's id was used.
+          // Consuming it for a caller-supplied id would leave a gap and make
+          // the next prediction wrong.
+          id ? undefined : { claimsId: true },
         );
       },
 
-      deleteGroup: (groupId) =>
-        commit("Deleted the group", (s) => {
-          if (!s.customGroups.some((g) => g.id === groupId)) return s;
+      createGroupAt: (label, id, index) => {
+        const trimmed = label.trim().slice(0, LABEL_MAX);
+        if (!trimmed) return;
+        commit(`Added ${trimmed}`, (s) => {
+          const added = withNewGroup(s, trimmed, id);
+          if (added === s) return s;
+          const order = resolveGroups(added)
+            .map((g) => g.id)
+            .filter((gid) => gid !== UNGROUPED_ID);
+          const from = order.indexOf(id);
+          if (from < 0) return added;
+          const next = [...order];
+          next.splice(from, 1);
+          next.splice(Math.max(0, Math.min(index, next.length)), 0, id);
           return {
-            ...s,
-            // Its products fall through to "Everything else" rather than being
-            // deleted with it — a group is a shelf, not a container.
-            customGroups: s.customGroups.filter((g) => g.id !== groupId),
+            ...added,
+            groupOrder: { ...added.groupOrder, [added.grouping]: next },
           };
+        });
+      },
+
+      deleteGroup: (groupId) =>
+        commit(`Deleted ${labelForGroup(state, groupId)}`, (s) =>
+          withGroupDeleted(s, groupId),
+        ),
+
+      deleteGroupInto: (groupId, destinationId) =>
+        commit(deleteGroupMessage(state, groupId, destinationId), (state) => {
+          const s = customTreeFor(state);
+          const doomed = s.customGroups.find((g) => g.id === groupId);
+          if (!doomed) return state;
+          // Refile first, delete second. The other order would drop the rows to
+          // top level in between, and withProductFiled asks where a product is
+          // before it moves it.
+          const filed = destinationId
+            ? doomed.productIds.reduce(
+                (acc, id) => withProductFiled(acc, id, destinationId),
+                s,
+              )
+            : s;
+          return withGroupDeleted(filed, groupId);
         }),
+
+      removeProductFromNav: (productId) =>
+        commit(
+          `Removed ${labelForProduct(state, productId)} from the nav`,
+          (s) => withProduct(s, productId, false),
+        ),
+
+      placeInTail: (rowId, index) =>
+        commit(placeInTailMessage(state, rowId), (s) => {
+          // Unfiled first, so the tail it is being ordered into already contains
+          // it — otherwise the splice would place it and looseProductIds would
+          // then append a second copy.
+          const unfiled = productById(rowId)
+            ? withProductFiled(s, rowId, null)
+            : s;
+          const tail = tailRowsFor(
+            unfiled,
+            looseProductIds(unfiled, resolveGroups(unfiled)),
+          ).map((r) => r.id);
+          const without = tail.filter((id) => id !== rowId);
+          const at = Math.max(0, Math.min(index, without.length));
+          const tailOrder = [...without];
+          tailOrder.splice(at, 0, rowId);
+          return { ...unfiled, tailOrder };
+        }),
+
+      addProductToGroup: (productId, groupId, index) =>
+        commit(
+          `Added ${labelForProduct(state, productId)} to ${labelForGroup(
+            state,
+            groupId,
+          )}`,
+          /*
+           * Added, not filed.
+           *
+           * Filing takes the product out of wherever it was, which turned every
+           * "add to this category" into a move — the row vanished from the panel
+           * the admin had just been looking at. Adding leaves it where it is, so
+           * a product can sit in two categories; moving one is still a move, and
+           * still goes through the kebab or a drag.
+           *
+           * Provision first: neither recipe will place a product the account does
+           * not have.
+           */
+          (s) =>
+            withProductAdded(
+              withProduct(s, productId, true),
+              productId,
+              groupId,
+              index,
+            ),
+        ),
 
       moveProductToGroup: (productId, groupId, index) =>
-        commit("Moved to another group", (s) => {
-          const groups = seedCustomGroups(s);
-          const destination = groups.find((g) => g.id === groupId);
-          if (!destination) return s;
-          if (destination.productIds.includes(productId)) return s;
-          const at = index ?? destination.productIds.length;
-          return {
-            ...s,
-            grouping: "custom",
-            customGroups: groups.map((g) => {
-              if (g.id === groupId) {
-                const productIds = [...g.productIds];
-                productIds.splice(Math.max(0, Math.min(at, productIds.length)), 0, productId);
-                return { ...g, productIds };
-              }
-              if (!g.productIds.includes(productId)) return g;
-              return {
-                ...g,
-                productIds: g.productIds.filter((id) => id !== productId),
-              };
-            }),
-          };
-        }),
+        commit(
+          `Moved ${labelForProduct(state, productId)} to ${labelForGroup(
+            state,
+            groupId,
+          )}`,
+          (s) => withProductFiled(s, productId, groupId, index),
+        ),
 
       moveProductWithinGroup: (groupId, fromIndex, toIndex) =>
-        commit("Reordered the group", (s) => {
+        commit(withinGroupMessage(state, groupId, fromIndex, toIndex), (state) => {
+          // Through customTreeFor, so reordering inside an authored bucket works
+          // on the first try. Reading s.customGroups directly meant an account
+          // that had never been edited had nothing to reorder, and the drag just
+          // sprang back with no explanation.
+          const s = customTreeFor(state);
           const group = s.customGroups.find((g) => g.id === groupId);
-          if (!group) return s;
+          if (!group) return state;
           const productIds = reorder(group.productIds, fromIndex, toIndex);
-          if (productIds === group.productIds) return s;
+          if (productIds === group.productIds) return state;
           return {
             ...s,
             customGroups: s.customGroups.map((g) =>
@@ -604,12 +917,29 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
           { silent: true },
         ),
 
-      setEditing: (editing) =>
+      // Kept for the prototype panel's switch, and routed through the same two
+      // steps as the nav's own control so the two cannot disagree about whether
+      // a baseline exists.
+      toggleBlock: (block) =>
         commit(
-          "Toggled edit mode",
-          (s) => (s.editing === editing ? s : { ...s, editing }),
-          { silent: true },
+          isBlockHidden(state, block)
+            ? `Showed ${NAV_BLOCK_LABELS[block]}`
+            : `Hid ${NAV_BLOCK_LABELS[block]}`,
+          (s) => ({
+            ...s,
+            hiddenBlocks: s.hiddenBlocks.includes(block)
+              ? s.hiddenBlocks.filter((b) => b !== block)
+              : [...s.hiddenBlocks, block],
+          }),
         ),
+
+      setEditing: (editing) =>
+        editing ? dispatch({ type: "beginEdit" }) : dispatch({ type: "saveEdit" }),
+
+      beginEditing: () => dispatch({ type: "beginEdit" }),
+      saveEditing: () => dispatch({ type: "saveEdit" }),
+      discardEditing: () => dispatch({ type: "discardEdit" }),
+      editDirty: store.editDirty,
 
       resetLayout: () =>
         commit("Reset the nav to this account's layout", (s) => ({
@@ -646,6 +976,10 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
     state,
     activeId,
     undoOffer,
+    // The edit session's dirty flag is read straight off the store, so the
+    // context has to be rebuilt when it moves or Discard would stay greyed out
+    // through a whole session of changes.
+    store.editDirty,
     commit,
     setActiveAccount,
     profileFor,

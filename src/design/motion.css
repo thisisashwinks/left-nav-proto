@@ -211,6 +211,28 @@
  * Collapses every duration to ~0 instead of removing animations, so elements
  * animating `both` still land on their end state rather than disappearing.
  */
+/**
+ * The drag handle arriving.
+ *
+ * Edit mode adds a grip to the front of every row, which pushes the icon and the
+ * label along. Appearing instantly, that read as the whole nav twitching sideways
+ * the moment the mode opened. Animating the handle's own width means the rows
+ * slide over rather than jump, and the movement itself explains where the space
+ * went. `both` so the handle holds its size after the animation, and the width is
+ * animated rather than a transform because everything after it has to move with
+ * it.
+ */
+@keyframes grip-in {
+  from {
+    width: 0;
+    opacity: 0;
+  }
+}
+
+.motion-grip-in {
+  animation: grip-in var(--dur-slow) var(--ease-out) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --dur-press: 1ms;
