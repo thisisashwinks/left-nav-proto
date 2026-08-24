@@ -1,5 +1,11 @@
-import type { RowMenuOption } from "./row-menu";
-import { navTreeFor, type NavLayoutState } from "./grouping";
+import { FolderInput, Pencil, Trash2 } from "lucide-react";
+import type { RowMenuAction, RowMenuOption } from "./row-menu";
+import {
+  navTreeFor,
+  UNGROUPED_ID,
+  type NavLayoutState,
+  type ResolvedGroup,
+} from "./grouping";
 import { labelForGroup, labelForProduct, iconForGroup, iconForProduct } from "./grouping";
 
 /**
@@ -37,4 +43,69 @@ export function productTreeOptions(
   // The rows with no category sit at the top level beside the branches, because
   // that is exactly where they sit in the nav.
   return [...branches, ...loose.filter((id) => !exclude(id)).map(leaf)];
+}
+
+/**
+ * The kebab menu for a product row, wherever the row is.
+ *
+ * One builder for both levels. A product inside a category's panel and the same
+ * product sitting at the nav's top level are the same object in two places, and
+ * they were offering two different sets of controls: the panel gave a kebab with
+ * rename / move / remove, while a top-level row fell back to the bare pencil the
+ * pre-edit-mode nav used — so the trailing cluster changed shape depending on
+ * where the row happened to live.
+ *
+ * `currentGroupId` is null for a row at top level, which is also what marks
+ * "Top level" as the entry you are already on.
+ */
+export function productMenuActions({
+  productId,
+  currentGroupId,
+  categories,
+  onRename,
+  onMoveToGroup,
+  onMoveToTopLevel,
+  onRemove,
+}: {
+  productId: string;
+  currentGroupId: string | null;
+  categories: readonly ResolvedGroup[];
+  onRename: () => void;
+  onMoveToGroup: (groupId: string) => void;
+  onMoveToTopLevel: () => void;
+  onRemove: () => void;
+}): RowMenuAction[] {
+  void productId;
+  return [
+    { id: "rename", label: "Rename", icon: Pencil, onSelect: onRename },
+    {
+      id: "move",
+      label: "Move to",
+      icon: FolderInput,
+      options: [
+        ...categories.map((g) => ({
+          id: g.id,
+          label: g.label,
+          icon: g.icon,
+          current: g.id === currentGroupId,
+        })),
+        // Out of every category, but still in the nav. Offered here because a
+        // menu is the only way to reach it without a drag.
+        {
+          id: UNGROUPED_ID,
+          label: "Top level",
+          current: currentGroupId === null,
+        },
+      ],
+      onPick: (groupId) =>
+        groupId === UNGROUPED_ID ? onMoveToTopLevel() : onMoveToGroup(groupId),
+    },
+    {
+      id: "remove",
+      label: "Remove from the nav",
+      icon: Trash2,
+      danger: true,
+      onSelect: onRemove,
+    },
+  ];
 }

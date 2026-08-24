@@ -97,6 +97,15 @@ export interface NavRowDrag {
   onDragEnd: (e: React.DragEvent) => void;
   /** Drawn as a ring when a drop here would land. */
   over: boolean;
+  /**
+   * Something this row would accept is in flight, but is not over it yet.
+   *
+   * A drop target that only appears once the pointer is already on it is a
+   * target you find by feel — which is why "can I drag a product into another
+   * category" read as no. Every category advertises while a product is being
+   * dragged, the same way the seams advertise while a category is.
+   */
+  eligible?: boolean;
   /** Faded while this row is the one in flight. */
   lifted: boolean;
 }
@@ -262,6 +271,11 @@ export function NavItemRow({
         // descendant, so the grab cursor has to be set on the row itself and win
         // on specificity. Not while renaming: a text field you cannot drag.
         // The cursor lives on the grip now, not the row.
+        // Eligible first, so being ON the row always wins over merely being a
+        // candidate.
+        edit.drag?.eligible &&
+          !edit.drag?.over &&
+          "shadow-[inset_0_0_0_1px_var(--nav-divider)]",
         edit.drag?.over &&
           "shadow-[inset_0_0_0_1px_var(--nav-fg)] bg-nav-hover",
         /*
@@ -469,6 +483,11 @@ export function NavItemRow({
             </>
           )}
           {chevron}
+          {/* And the slot held empty when there is no chevron, so the eye and
+              kebab sit in one column down the whole list. */}
+          {chevron === null ? (
+            <span aria-hidden="true" className="w-[15px] shrink-0" />
+          ) : null}
         </>
       ) : null}
     </div>

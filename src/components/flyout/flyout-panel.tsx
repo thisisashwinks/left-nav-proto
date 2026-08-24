@@ -1,12 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { FolderInput, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 
 import { L2_MIME } from "@/components/nav/nav-drag";
 import { UNGROUPED_ID } from "@/components/nav/grouping";
 import { PROPOSED_SETTINGS_ID } from "@/components/nav/proposed-ia";
-import { productTreeOptions } from "@/components/nav/product-options";
+import {
+  productMenuActions,
+  productTreeOptions,
+} from "@/components/nav/product-options";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import {
   RowMenu,
@@ -231,33 +234,18 @@ export function FlyoutPanel({
     />
   );
 
-  const menuActions = (productId: string): RowMenuAction[] => [
-    {
-      id: "rename",
-      label: "Rename",
-      icon: Pencil,
-      onSelect: () => setRenamingId(productId),
-    },
-    {
-      id: "move",
-      label: "Move to",
-      icon: FolderInput,
-      options: destinations.map((g) => ({
-        id: g.id,
-        label: g.label,
-        icon: g.icon,
-        current: g.id === category?.id,
-      })),
-      onPick: (groupId) => layout.moveProductToGroup(productId, groupId),
-    },
-    {
-      id: "remove",
-      label: "Remove from the nav",
-      icon: Trash2,
-      danger: true,
-      onSelect: () => layout.removeProductFromNav(productId),
-    },
-  ];
+  const menuActions = (productId: string): RowMenuAction[] =>
+    // The shared builder, so a product's menu is the same object wherever the
+    // row is — in this panel or sitting at the nav's top level.
+    productMenuActions({
+      productId,
+      currentGroupId: category?.id ?? null,
+      categories: destinations,
+      onRename: () => setRenamingId(productId),
+      onMoveToGroup: (groupId) => layout.moveProductToGroup(productId, groupId),
+      onMoveToTopLevel: () => layout.placeInTail(productId, 0),
+      onRemove: () => layout.removeProductFromNav(productId),
+    });
 
   /*
    * A panel whose only row is expandable opens it.

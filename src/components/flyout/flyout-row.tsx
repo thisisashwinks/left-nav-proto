@@ -161,18 +161,16 @@ export function FlyoutRow({
     // v.row carries the per-variant gap, padding and alignment. Losing it
     // is what collapsed every flyout row's breathing room.
     v.row,
-    // Replaces the padding the pin used to occupy as a flex child. Editing
-    // reuses it for the kebab, which stands exactly where the pin was — you
-    // are not favouriting a row while you are restructuring the nav, and
-    // sharing the column is what keeps every measurement in this file true.
-    (pinnable || edit) && v.pinReserve,
     /*
-     * Editing puts two controls where the pin's one was, so the text has to give
-     * up another 22px or it runs under the eye. Added on top of the variant's own
-     * reserve rather than replacing it, so all four variants stay in step without
-     * four more strings to keep true.
+     * Reserved only for the pin, which is absolute.
+     *
+     * Edit mode's controls are flex children instead, laid out in the same order
+     * and on the same gap as the nav's rows — so the two levels read as one row
+     * treatment rather than two. Flex sizes the text against them, which is what
+     * makes the reserve unnecessary AND what stops the eye and the chevron from
+     * ever colliding, whatever the label's length.
      */
-    edit && !edit.renaming && "pr-[calc(var(--t-fly-gap,10px)+30px)]",
+    pinnable && !edit && v.pinReserve,
     active ? "bg-nav-hover" : "hover:bg-nav-hover",
     !edit?.renaming && "active:scale-[0.99] motion-press",
     // The grab cursor lives on the grip, not the row.
@@ -303,21 +301,69 @@ export function FlyoutRow({
         sits just inside the pin's reserved column.
       */}
       {/*
-        The state chevron yields in edit mode. Its corner is where the eye and
-        the kebab stand, and the three overlapped (Aug 21 review, flagged as a
-        bug); of the three, the chevron is the one whose job the row itself
-        already does — clicking a parent still expands it either way.
+        One trailing cluster, in one order, at both levels: eye, then kebab, then
+        the disclosure chevron flush against the row's edge.
+        
+        It used to be two different rows wearing the same name — the nav spaced
+        its three controls 10px apart in flow while the flyout crammed an
+        absolutely-positioned pair 2px apart and dropped the chevron entirely to
+        stop them colliding. Same order and the same gap in flow fixes the
+        collision by construction rather than by removing the thing that
+        collided.
       */}
-      {hasChildren && !edit ? (
-        <ChevronDown
-          size={14}
-          aria-hidden="true"
-          className={cn(
-            "ml-auto mt-[3px] shrink-0 self-start text-nav-fg-subtle motion-move",
-            open && "rotate-180",
-          )}
-        />
-      ) : null}
+      <span
+        className={cn(
+          "ml-auto flex shrink-0 items-center gap-[var(--t-fly-gap,10px)]",
+          // items-start variants align the cluster to the title's line, not the
+          // middle of a two-line row.
+          variant === "product" ? "mt-[2px] self-start" : "self-center",
+        )}
+      >
+        {edit && !edit.renaming ? (
+          <>
+            <EditAffordance
+              label={edit.hidden ? `Show ${item.label}` : `Hide ${item.label}`}
+              onClick={edit.onToggleHidden}
+              // Pinned once hidden: the only way back has to be visible.
+              pinned={edit.hidden}
+            >
+              {edit.hidden ? (
+                <EyeOff size={12} aria-hidden="true" />
+              ) : (
+                <Eye size={12} aria-hidden="true" />
+              )}
+            </EditAffordance>
+            <EditAffordance
+              label={`Edit ${item.label}`}
+              onClick={edit.onOpenMenu}
+              pinned
+            >
+              <EllipsisVertical size={13} aria-hidden="true" />
+            </EditAffordance>
+          </>
+        ) : null}
+        {hasChildren ? (
+          <ChevronDown
+            size={14}
+            aria-hidden="true"
+            className={cn(
+              "shrink-0 text-nav-fg-subtle motion-move",
+              open && "rotate-180",
+            )}
+          />
+        ) : edit && !edit.renaming ? (
+          /*
+           * The slot, held empty.
+           *
+           * Without it a leaf row's kebab slides into the chevron's place and the
+           * column of controls zig-zags down the list — the eye and the kebab
+           * have to be in the same place on every row for the cluster to read as
+           * one column you can aim at. Only in edit mode: outside it there is no
+           * column, and a leaf row should simply be narrower.
+           */
+          <span aria-hidden="true" className="w-[14px] shrink-0" />
+        ) : null}
+      </span>
     </>
   );
 
@@ -395,47 +441,15 @@ export function FlyoutRow({
    * The kebab takes the pin's place while editing — same column, same vertical
    * rule, so the row's reserved trailing space serves whichever one is showing.
    */
+  /*
+   * The pin, for read-only rows only.
+   *
+   * Edit mode's controls are inside the row now, so there is nothing to hang
+   * here — and the pin itself has no place in a mode about restructuring.
+   */
   const withTrailing = (node: React.ReactNode) =>
     edit ? (
-      <div className="group/row relative w-full shrink-0">
-        {node}
-        {edit.renaming ? null : (
-          /*
-           * The eye and the kebab share the pin's column.
-           *
-           * Two 20px controls do not fit where one pin was, so the pair shifts
-           * left by exactly one of them and the row's reserved trailing space
-           * grows to match — see `editReserve` above. Hover reveals the eye; the
-           * kebab is always out, because in edit mode every row has a menu.
-           */
-          <span
-            className={cn(
-              "absolute right-[8px] z-10 flex items-center gap-[2px]",
-              v.pinTop,
-            )}
-          >
-            <EditAffordance
-              label={edit.hidden ? `Show ${item.label}` : `Hide ${item.label}`}
-              onClick={edit.onToggleHidden}
-              // Pinned once hidden: the only way back has to be visible.
-              pinned={edit.hidden}
-            >
-              {edit.hidden ? (
-                <EyeOff size={12} aria-hidden="true" />
-              ) : (
-                <Eye size={12} aria-hidden="true" />
-              )}
-            </EditAffordance>
-            <EditAffordance
-              label={`Edit ${item.label}`}
-              onClick={edit.onOpenMenu}
-              pinned
-            >
-              <EllipsisVertical size={13} aria-hidden="true" />
-            </EditAffordance>
-          </span>
-        )}
-      </div>
+      <div className="group/row relative w-full shrink-0">{node}</div>
     ) : (
       <WithPin productId={item.id} pinClass={v.pinTop}>
         {node}

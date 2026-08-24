@@ -42,7 +42,7 @@ import {
   UNGROUPED_ID,
 } from "./grouping";
 import { L1_MIME, L2_MIME } from "./nav-drag";
-import { productTreeOptions } from "./product-options";
+import { productMenuActions, productTreeOptions } from "./product-options";
 import { RowSeam } from "./row-seam";
 import { IconPicker, useIconPicker } from "./icon-picker";
 import { useNavLayout } from "./nav-layout-provider";
@@ -232,8 +232,19 @@ export function LeftNav({
    * theme values because the account's answer lives in the layout store.
    */
   const launchpad = launchpadAllowed && !isBlockHidden(state, "launchpad");
-  /** The card on screen, as the Quick Actions fold needs to know it. */
-  const launchpadShowing = launchpad && !agencyScope;
+  /*
+   * The card outlives Launchpad.
+   *
+   * Hiding Launchpad used to demote Quick Actions back to a plain nav row,
+   * which meant the same control changed shape depending on a setting about
+   * something else. The box is the constant now: both jobs on, it is the
+   * Launchpad card with the Quick actions footer; Launchpad off, the SAME box
+   * stays and Quick actions is all it says; both off, it goes. Scoped to
+   * accounts whose plan carries the card at all — elsewhere (ACME's shipped
+   * modes) Quick Actions keeps its standalone row.
+   */
+  const cardQuickActions = quickActionsShown && launchpadAllowed && !agencyScope;
+  const cardShowing = (launchpad || cardQuickActions) && !agencyScope;
 
   /*
    * The categories, in the order the nav draws them.
@@ -320,16 +331,40 @@ export function LeftNav({
     const group = categories.find((g) => g.id === itemId);
     if (!group) {
       const tailIndex = tailRowIds.indexOf(itemId);
-      // A tail row has no panel and no products, so no category menu — but it
-      // still moves, and it still goes into a category.
       if (tailIndex < 0) return {};
       // Click-to-rename only where there is something to write the name to.
       const renameable = editTargetFor(state, groups, itemId) !== null;
+      /*
+       * The same kebab a product wears inside a panel.
+       *
+       * A top-level row used to fall back to the bare pencil the pre-edit-mode
+       * nav used, so the trailing cluster changed shape depending on where the
+       * product happened to sit — a category row and a panel row both offered
+       * eye + kebab, and this one offered eye + pencil. Built from the shared
+       * `productMenuActions`, so the two can no longer drift: it is one menu,
+       * called from two places.
+       */
       return {
         ...(renameable ? { renameOnLabelClick: true } : {}),
         hidden: layout.isRowHidden(itemId),
         onToggleHidden: () => layout.toggleRowHidden(itemId),
         drag: tailDrag(itemId),
+        onOpenMenu: (trigger) => {
+          setMenuTrigger(trigger);
+          menu.open(itemId, trigger);
+        },
+        menuActions: productMenuActions({
+          productId: itemId,
+          // Null: a tail row is in no category, which is what marks "Top level"
+          // as the entry it is already on.
+          currentGroupId: null,
+          categories,
+          onRename: () => startRename(itemId),
+          onMoveToGroup: (groupId) =>
+            layout.moveProductToGroup(itemId, groupId),
+          onMoveToTopLevel: () => {},
+          onRemove: () => layout.removeProductFromNav(itemId),
+        }),
       };
     }
     const i = indexOfCategory(itemId);
@@ -460,6 +495,10 @@ export function LeftNav({
         setOver(null);
       },
       over: over === itemId,
+      // Every category is a candidate while a product is in flight — which is
+      // what makes "drag it into another category" a gesture you can see rather
+      // than one you have to already know about.
+      eligible: dragTypes.includes(L2_MIME),
       lifted: lifted === itemId,
     };
     return {
@@ -537,7 +576,7 @@ export function LeftNav({
      * the card (finished onboarding, or the block hidden) keep the row, or
      * Quick Actions would be reachable nowhere.
      */
-    if (!launchpadShowing) return base;
+    if (!cardQuickActions) return base;
     return tidyRules(
       base.filter((e) => !(e.kind === "item" && e.item.id === "quick-actions")),
     );
@@ -547,7 +586,7 @@ export function LeftNav({
     config.fixed,
     recentsBudget,
     bandEverything,
-    launchpadShowing,
+    cardQuickActions,
   ]);
   /**
    * Whether the standing cluster has anything in it.
@@ -619,14 +658,26 @@ export function LeftNav({
         }
       : undefined;
 
+  /*
+   * The open kebab's menu, for a category OR a top-level product row.
+   *
+   * It used to resolve the id against `categories` alone, so a product row's
+   * kebab opened nothing at all. The title comes from whichever kind of thing
+   * the id names — the actions themselves are already built per row by
+   * `editExtras`, which is what keeps the menu and the row in agreement.
+   */
   const menuOpen =
     menu.openId && menu.anchor
       ? (() => {
-          const group = categories.find((g) => g.id === menu.openId);
-          const extras = menu.openId ? editExtras(menu.openId) : {};
-          return group && extras.menuActions
-            ? { group, anchor: menu.anchor, actions: extras.menuActions }
-            : null;
+          const id = menu.openId;
+          const extras = editExtras(id);
+          if (!extras.menuActions) return null;
+          const group = categories.find((g) => g.id === id);
+          return {
+            title: group ? group.label : layout.productLabelFor(id),
+            anchor: menu.anchor,
+            actions: extras.menuActions,
+          };
         })()
       : null;
 
@@ -1024,10 +1075,11 @@ export function LeftNav({
           {atFloor && !agencyScope && pinnedShown ? (
             <FavoritesRow onOpen={onOpenLauncher} />
           ) : null}
-          {launchpad && !agencyScope ? (
+          {cardShowing ? (
             <SetupGuideRow
+              showLaunchpad={launchpad}
               onOpen={() => onSelect?.(PROPOSED_HOME_ID)}
-              {...(quickActionsShown
+              {...(cardQuickActions
                 ? { onQuickActions: () => onPinFlyout("quick-actions") }
                 : {})}
             />
@@ -1113,7 +1165,7 @@ export function LeftNav({
       {menuOpen ? (
         <RowMenu
           anchor={menuOpen.anchor}
-          title={menuOpen.group.label}
+          title={menuOpen.title}
           actions={menuOpen.actions}
           onClose={menu.close}
         />
@@ -1309,9 +1361,16 @@ function PinnedHole({ position }: { position: DockPosition }) {
  * done" — the whole point (Mapping 61) is that this row EARNS its exit.
  */
 function SetupGuideRow({
+  showLaunchpad = true,
   onOpen,
   onQuickActions,
 }: {
+  /**
+   * False when Launchpad is switched off but Quick Actions is not — the box
+   * stays and Quick actions is all it holds, so hiding one job never reshapes
+   * the other into a different kind of control.
+   */
+  showLaunchpad?: boolean;
   onOpen?: () => void;
   /**
    * Opens the Quick Actions flyout from the card's footer row.
@@ -1336,50 +1395,71 @@ function SetupGuideRow({
       {/* A div holding two buttons — the card navigates, the ⚡ opens a panel,
           and nesting one button in another is invalid markup. */}
       <div className="motion-tap group relative flex w-full flex-col gap-[7px] rounded-[9px] bg-brand-soft px-[10px] py-[9px] text-left shadow-[inset_0_0_0_1px_var(--brand)] hover:brightness-[1.02]">
-        <button
-          type="button"
-          onClick={onOpen}
-          className="absolute inset-0 rounded-[9px] motion-press active:scale-[0.99]"
-          aria-label="Open Launchpad"
-        />
-        <span className="pointer-events-none flex w-full items-center gap-[8px]">
-          <Rocket size={15} aria-hidden="true" className="shrink-0 text-brand" />
-          <span className="min-w-0 flex-1 truncate text-[13px] leading-[normal] font-semibold text-brand-strong">
-            Launchpad
-          </span>
-          <span className="shrink-0 text-[11.5px] leading-none font-medium text-brand-strong opacity-80">
-            {done} of {total}
-          </span>
-        </span>
-        {/* The meter is the row's exit visa: at 7/7 the row leaves the nav. */}
-        <span className="pointer-events-none h-[3px] w-full overflow-hidden rounded-full bg-brand-soft-2">
-          <span
-            className="block h-full rounded-full bg-brand motion-move"
-            style={{ width: `${(done / total) * 100}%` }}
-          />
-        </span>
+        {showLaunchpad ? (
+          <>
+            <button
+              type="button"
+              onClick={onOpen}
+              className="absolute inset-0 rounded-[9px] motion-press active:scale-[0.99]"
+              aria-label="Open Launchpad"
+            />
+            <span className="pointer-events-none flex w-full items-center gap-[8px]">
+              <Rocket
+                size={15}
+                aria-hidden="true"
+                className="shrink-0 text-brand"
+              />
+              <span className="min-w-0 flex-1 truncate text-[13px] leading-[normal] font-semibold text-brand-strong">
+                Launchpad
+              </span>
+              <span className="shrink-0 text-[11.5px] leading-none font-medium text-brand-strong opacity-80">
+                {done} of {total}
+              </span>
+            </span>
+            {/* The meter is the row's exit visa: at 7/7 the row leaves the nav. */}
+            <span className="pointer-events-none h-[3px] w-full overflow-hidden rounded-full bg-brand-soft-2">
+              <span
+                className="block h-full rounded-full bg-brand motion-move"
+                style={{ width: `${(done / total) * 100}%` }}
+              />
+            </span>
+          </>
+        ) : null}
         {onQuickActions ? (
           <>
-            {/* A hairline in the card's own key, so the footer reads as the
-                card's second job rather than a separate control stuck on. */}
-            <span
-              aria-hidden="true"
-              className="pointer-events-none -mx-[10px] mt-[1px] h-px bg-[var(--brand)] opacity-20"
-            />
+            {/* The hairline only when there are two jobs to separate. */}
+            {showLaunchpad ? (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none -mx-[10px] mt-[1px] h-px bg-[var(--brand)] opacity-20"
+              />
+            ) : null}
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onQuickActions();
               }}
-              className="motion-tap pointer-events-auto relative z-10 -mx-[6px] -mb-[3px] flex items-center gap-[8px] rounded-[6px] px-[6px] py-[4px] text-left hover:bg-brand-soft-2 active:scale-[0.99]"
+              className={cn(
+                "motion-tap pointer-events-auto relative z-10 -mx-[6px] flex items-center gap-[8px] rounded-[6px] px-[6px] text-left hover:bg-brand-soft-2 active:scale-[0.99]",
+                // Alone in the box, the row takes the header's own scale — it
+                // IS the card now, not a footer of one.
+                showLaunchpad ? "-mb-[3px] py-[4px]" : "-my-[3px] py-[6px]",
+              )}
             >
               <GamepadDirectional
-                size={14}
+                size={showLaunchpad ? 14 : 15}
                 aria-hidden="true"
                 className="shrink-0 text-brand"
               />
-              <span className="min-w-0 flex-1 truncate text-[12px] leading-[16px] font-medium text-brand-strong">
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate leading-[16px] font-medium text-brand-strong",
+                  showLaunchpad
+                    ? "text-[12px]"
+                    : "text-[13px] font-semibold",
+                )}
+              >
                 Quick actions
               </span>
               <ChevronRight

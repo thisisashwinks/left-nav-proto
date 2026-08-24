@@ -551,7 +551,19 @@ function ProductRow({
           }
         : {})}
       className={cn(
-        "group/row motion-tap flex w-full shrink-0 items-center gap-[10px] rounded-[9px] px-[8px] py-[8px]",
+        /*
+         * `relative`, and the pin's column reserved — the same treatment
+         * `WithPin` gives a flyout row.
+         *
+         * The pin used to be a flex child here, which made it the one surface
+         * where it participated in layout: it shifted with the row's other
+         * controls instead of holding a fixed column, so the same button sat in
+         * a different place depending on which surface you were looking at. Now
+         * it is an overlay at the row's trailing edge in both, and the text
+         * gives up exactly the width it occupies.
+         */
+        "group/row motion-tap relative flex w-full shrink-0 items-center gap-[10px] rounded-[9px] py-[8px] pl-[8px]",
+        "pr-[calc(8px+22px+10px)]",
         dragging ? "opacity-40" : "hover:bg-nav-hover",
       )}
     >
@@ -631,7 +643,15 @@ function ProductRow({
         </span>
       ) : null}
 
-      {!renaming ? <PinButton productId={productId} /> : null}
+      {/*
+        Absolutely positioned and vertically centred, matching a flyout row's
+        single-line variants. The row's own `pr` above is the space it stands in.
+      */}
+      {!renaming ? (
+        <span className="absolute top-1/2 right-[8px] z-10 -translate-y-1/2">
+          <PinButton productId={productId} />
+        </span>
+      ) : null}
     </div>
   );
 }
