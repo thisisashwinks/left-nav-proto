@@ -321,8 +321,15 @@ export function FlyoutPanel({
         // own border — top, right and bottom in brand, nothing on the left, so
         // the two boxes read as one surface with one stroke around it.
         navEditing
-          ? "shadow-[var(--shell-canvas-shadow),inset_0_1.5px_0_0_var(--brand),inset_-1.5px_0_0_0_var(--brand),inset_0_-1.5px_0_0_var(--brand)]"
-          : "shadow-[var(--shell-canvas-shadow),inset_0_1px_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border)]",
+          /*
+           * Hairlines only — no drop shadow. The canvas-sized shadow this panel
+           * used to wear spilled left over the nav and read as a dark seam
+           * BETWEEN L1 and L2, when the panel is supposed to be the nav
+           * continuing (Khoi, Aug 24). The card behind both already carries the
+           * float; the panel needs only its edges.
+           */
+          ? "shadow-[inset_0_1.5px_0_0_var(--brand),inset_-1.5px_0_0_0_var(--brand),inset_0_-1.5px_0_0_var(--brand)]"
+          : "shadow-[inset_0_1px_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border)]",
         // `left` animates too, so the panel follows the nav edge when the rail
         // collapses underneath an open panel instead of jumping.
         "motion-move",

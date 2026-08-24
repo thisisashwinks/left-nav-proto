@@ -1094,8 +1094,6 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             onSearch={() => setSearchOpen(true)}
             scope={accounts.scope}
             account={headerAccount}
-            switcherOpen={switcherOpen}
-            onToggleSwitcher={toggleSwitcher}
             canSwitch={identityCanSwitch}
             onExpand={() => setManualCollapsed(false)}
             aiSession={aiSession}
@@ -1225,6 +1223,22 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         <div aria-hidden="true" className="shrink-0" style={{ width: AI_DOCKED_WIDTH }} />
       ) : null}
 
+      {/*
+        The page steps back while the nav is being edited (design review,
+        Aug 21): a full-strength canvas kept pulling the eye off the thing being
+        rearranged. A dim, not a blocker — pointer-events pass through, so the
+        page stays reachable and leaving the mode is never trapped behind a
+        scrim. Under the flyouts (z-10+), which must stay full-strength: they
+        are part of what is being edited.
+      */}
+      {layout.editing ? (
+        <div
+          aria-hidden="true"
+          style={{ left: leftOffset }}
+          className="motion-fade-in pointer-events-none absolute top-0 right-0 bottom-0 z-[5] bg-[#10182826]"
+        />
+      ) : null}
+
       {flyout.isMounted && flyout.value ? (
         <>
           {/*
@@ -1339,7 +1353,14 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         />
       ) : null}
 
-      <UndoToast />
+      {/*
+        Anchored to the nav column, above the Ask AI pill (design review,
+        Aug 21: the confirmation belongs inline in the nav, where the move
+        happened, and must not sit ON the pill). `leftOffset` is the nav's
+        right edge, so the toast hugs the column whatever the rail and
+        collapse state are doing.
+      */}
+      <UndoToast navWidth={leftOffset} />
 
       {/* Search sits above the flyouts; both treatments share the same model. */}
       {searchOpen ? (

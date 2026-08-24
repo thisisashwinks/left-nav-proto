@@ -26,7 +26,15 @@ function SlotLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** "Meet AI Employee" — the gradient promo card from the Engage panel. */
+/**
+ * "Meet AI Employee" — the promo card in a panel's bottom slot.
+ *
+ * Flat, crisp, and still on hover (Aug 24 review). The gradient became one
+ * tint; the blurred drop shadow became a 1px border, because the soft edge was
+ * reading as an unfinished element rather than a card; and the rollover stopped
+ * moving — a promo that lifts toward the pointer reads as the page shifting,
+ * where a background stepping darker reads as "this is active".
+ */
 function FeaturedCard({
   slot,
 }: {
@@ -34,7 +42,7 @@ function FeaturedCard({
 }) {
   const Icon = slot.icon;
   return (
-    <div className="group flex w-full shrink-0 flex-col items-start gap-[8px] rounded-[10px] bg-[linear-gradient(-67.269deg,var(--fly-promo-from)_13.281%,var(--fly-promo-to)_77.336%)] p-[14px] shadow-[0_2px_4px_0_#00000014] motion-move hover:-translate-y-[2px] hover:shadow-[0_8px_20px_0_#0000001f]">
+    <div className="group flex w-full shrink-0 flex-col items-start gap-[8px] rounded-[10px] bg-[var(--fly-promo-bg)] p-[14px] shadow-[inset_0_0_0_1px_var(--fly-promo-border)] motion-tap hover:bg-[var(--fly-promo-bg-hover)]">
       <div className="flex w-full shrink-0 items-center gap-[10px]">
         <Icon size={18} aria-hidden="true" className="shrink-0 text-fly-promo-icon" />
         <span className="text-[14px] leading-[normal] font-semibold whitespace-nowrap text-fly-promo-fg">

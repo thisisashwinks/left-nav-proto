@@ -279,6 +279,8 @@
   --nav-rail-bg: #f7f9fa;
   --nav-rail-border: #e4e6eb;
   --nav-rail-hi: #f2f3f5;
+  /* The whole band on rollover — a real step darker, per the Aug 24 review. */
+  --nav-rail-hover: #ececf0;
   --nav-rail-disc: #ebebef;
   /* Every AI surface reads off --ai-base, never the accent. See :root for why. */
   --nav-ai-icon: var(--ai-base);
@@ -320,6 +322,10 @@
   --fly-accent-soft: #eeeefb;
   --fly-promo-from: #b3ccff;
   --fly-promo-to: #f0f5ff;
+  /* The flat template (Aug 24 review): one tint, a crisp edge, a darker hover. */
+  --fly-promo-bg: #e8effe;
+  --fly-promo-bg-hover: #dbe7fd;
+  --fly-promo-border: #b9cdf6;
   --fly-promo-fg: #344ded;
   --fly-promo-icon: #375ff0;
   --fly-promo-body: #384252;
@@ -347,6 +353,7 @@
   --nav-rail-bg: #17171b;
   --nav-rail-border: #2b2b33;
   --nav-rail-hi: #24242c;
+  --nav-rail-hover: #202027;
   --nav-rail-disc: #2e2e36;
   /* Same derivations as light, lifted so the purple still carries on a dark
      surface — the hue is unchanged, only the lightness differs. */
@@ -382,6 +389,9 @@
   --fly-accent-soft: #1e1e2e;
   --fly-promo-from: #1e2a4a;
   --fly-promo-to: #14161f;
+  --fly-promo-bg: #1a2138;
+  --fly-promo-bg-hover: #212a47;
+  --fly-promo-border: #2e3c63;
   --fly-promo-fg: #b2ccff;
   --fly-promo-icon: #84adff;
   --fly-promo-body: #a1a1ac;
@@ -693,13 +703,17 @@
  * measured #f0f0f3 active would have read as LESS emphasis than its own hover.
  * Dark needs none of this — its hover and active are both lifts already.
  */
+/*
+ * --nav-scroll-fade deliberately NOT overridden to the shell's grey here.
+ *
+ * It used to be, from when nav rows sat directly on the plane. With the nav as
+ * its own card the fade must dissolve into the card's surface — painting
+ * shell-grey over the card read as a translucent curtain sitting ON the rows
+ * rather than the rows fading out (Khoi, Aug 24; also the Aug 21 review's
+ * "white-to-transparent, not dark gray").
+ */
 [data-shell-theme="light"] [data-chrome-plane] {
   --nav-active: #ffffff;
-  --nav-scroll-fade: var(--shell-bg);
-}
-
-[data-shell-theme="dark"] [data-chrome-plane] {
-  --nav-scroll-fade: var(--shell-bg);
 }
 
 /* ─── Layer 6: neutral tint ─────────────────────────────────────────────── */
@@ -765,6 +779,7 @@
   --nav-rail-bg: oklch(from var(--brand) 0.9809 calc(c * var(--tint-surface)) h);
   --nav-rail-border: oklch(from var(--brand) 0.9248 calc(c * var(--tint-line)) h);
   --nav-rail-hi: oklch(from var(--brand) 0.964 calc(c * var(--tint-surface)) h);
+  --nav-rail-hover: oklch(from var(--brand) 0.952 calc(c * var(--tint-surface)) h);
   --nav-rail-disc: oklch(from var(--brand) 0.9412 calc(c * var(--tint-line)) h);
   --fly-border: oklch(from var(--brand) 0.9217 calc(c * var(--tint-line)) h);
   --fly-card-bg: oklch(from var(--brand) 0.9851 calc(c * var(--tint-surface)) h);

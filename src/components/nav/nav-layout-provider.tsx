@@ -17,6 +17,7 @@ import {
   labelForProduct,
   permissionsFor,
   customTreeFor,
+  groupIdForProduct,
   resolveGroups,
   UNGROUPED_ID,
   seedCustomGroups,
@@ -27,7 +28,6 @@ import {
   looseProductIds,
   NAV_BLOCK_LABELS,
   withProduct,
-  withProductAdded,
   withRowHidden,
   withProductFiled,
   type GroupingMode,
@@ -171,6 +171,13 @@ interface NavLayoutContextValue {
   isRowHidden: (id: string) => boolean;
   /** Switches one category or row off, or back on. */
   toggleRowHidden: (id: string) => void;
+  /**
+   * Hides or shows every row in a category at once.
+   *
+   * One commit, so "hide all" is one undo — twelve eyes clicked one at a time
+   * would leave eleven of them past the toast's five-second window.
+   */
+  setGroupRowsHidden: (groupId: string, hidden: boolean) => void;
   setEditing: (editing: boolean) => void;
   /**
    * Opens an edit session, taking a baseline the whole session can be thrown
@@ -834,32 +841,37 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
           return { ...unfiled, tailOrder };
         }),
 
-      addProductToGroup: (productId, groupId, index) =>
-        commit(
-          `Added ${labelForProduct(state, productId)} to ${labelForGroup(
-            state,
+      addProductToGroup: (productId, groupId, index) => {
+        /*
+         * A move, not a copy — duplication is out for MVP (design review,
+         * Aug 21): one row in two categories made breadcrumbs ambiguous and the
+         * IA unpredictable, so "add" for a product that already lives somewhere
+         * RELOCATES it, and the toast says so by naming where it came from.
+         * Products the account has but files nowhere are genuinely added.
+         *
+         * Provision first: no recipe will place a product the account does not
+         * have.
+         */
+        const from = groupIdForProduct(state, productId);
+        const message =
+          from && from !== groupId
+            ? `Moved ${labelForProduct(state, productId)} from ${labelForGroup(
+                state,
+                from,
+              )} to ${labelForGroup(state, groupId)}`
+            : `Added ${labelForProduct(state, productId)} to ${labelForGroup(
+                state,
+                groupId,
+              )}`;
+        commit(message, (s) =>
+          withProductFiled(
+            withProduct(s, productId, true),
+            productId,
             groupId,
-          )}`,
-          /*
-           * Added, not filed.
-           *
-           * Filing takes the product out of wherever it was, which turned every
-           * "add to this category" into a move — the row vanished from the panel
-           * the admin had just been looking at. Adding leaves it where it is, so
-           * a product can sit in two categories; moving one is still a move, and
-           * still goes through the kebab or a drag.
-           *
-           * Provision first: neither recipe will place a product the account does
-           * not have.
-           */
-          (s) =>
-            withProductAdded(
-              withProduct(s, productId, true),
-              productId,
-              groupId,
-              index,
-            ),
-        ),
+            index,
+          ),
+        );
+      },
 
       moveProductToGroup: (productId, groupId, index) =>
         commit(
@@ -937,6 +949,21 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
           : labelForProduct(state, id);
         commit(`${hiding ? "Hid" : "Showed"} ${name}`, (s) =>
           withRowHidden(s, id, hiding),
+        );
+      },
+
+      setGroupRowsHidden: (groupId, hidden) => {
+        const name = labelForGroup(state, groupId);
+        commit(
+          hidden ? `Hid everything in ${name}` : `Showed everything in ${name}`,
+          (s) => {
+            const ids =
+              resolveGroups(s).find((g) => g.id === groupId)?.productIds ?? [];
+            return ids.reduce(
+              (acc, id) => withRowHidden(acc, id, hidden),
+              s,
+            );
+          },
         );
       },
 

@@ -77,6 +77,28 @@ export function useScrollEdges<T extends HTMLElement>(
     el.addEventListener("scroll", read, { passive: true });
 
     /*
+     * The scrollbar only exists while the mouse does.
+     *
+     * A permanently drawn thumb is chrome announcing itself all day for a fact
+     * you need a few seconds a session (Aug 24 review: "they're only necessary
+     * when the mouse is active"). Activity — pointer movement over the region,
+     * or actual scrolling — flips an attribute the CSS keys the thumb's colour
+     * on, and ~1.2s of stillness clears it. On the element only, not mirrored
+     * to the parent: nothing but the scrollbar rule reads it.
+     */
+    let idleTimer: ReturnType<typeof setTimeout> | null = null;
+    const active = () => {
+      el.toggleAttribute("data-scrollbar-active", true);
+      if (idleTimer !== null) clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        idleTimer = null;
+        el.toggleAttribute("data-scrollbar-active", false);
+      }, 1200);
+    };
+    el.addEventListener("pointermove", active, { passive: true });
+    el.addEventListener("scroll", active, { passive: true });
+
+    /*
      * Both observers are needed. ResizeObserver catches the box getting shorter —
      * a window resize, or the nav's own chrome changing height. MutationObserver
      * catches the content changing while the box does not: switching grouping mode
@@ -91,6 +113,9 @@ export function useScrollEdges<T extends HTMLElement>(
 
     return () => {
       el.removeEventListener("scroll", read);
+      el.removeEventListener("pointermove", active);
+      el.removeEventListener("scroll", active);
+      if (idleTimer !== null) clearTimeout(idleTimer);
       resize.disconnect();
       mutation.disconnect();
     };

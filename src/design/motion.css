@@ -211,6 +211,17 @@
  * Collapses every duration to ~0 instead of removing animations, so elements
  * animating `both` still land on their end state rather than disappearing.
  */
+/** The canvas dim arriving — a plain fade, so the page recedes rather than blinks. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.motion-fade-in {
+  animation: fade-in var(--dur-slow) var(--ease-out) both;
+}
+
 /**
  * The drag handle arriving.
  *

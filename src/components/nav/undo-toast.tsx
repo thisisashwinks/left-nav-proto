@@ -14,7 +14,12 @@ const DISMISS_MS = 5000;
  * most recent offer, so a burst of pinning collapses into one thing to undo
  * rather than a queue to dismiss.
  */
-export function UndoToast() {
+export function UndoToast({
+  navWidth,
+}: {
+  /** The nav column's right edge, so the toast can centre itself on the nav. */
+  navWidth: number;
+}) {
   const { undoOffer, undo, dismissUndo } = useNavLayout();
 
   React.useEffect(() => {
@@ -31,13 +36,20 @@ export function UndoToast() {
       // silently swapping its text.
       key={undoOffer.id}
       role="status"
-      // Top centre (Aug 13 ask) — bottom-left sat on the Ask AI pill. The top
-      // edge is free: banners are rare and the toast floats above the header
-      // rather than inside it. Centre-bottom stays with the Contacts selection
-      // bar, which owns that slot.
-      className="motion-slot-in absolute top-[16px] left-1/2 z-40 flex h-[38px] -translate-x-1/2 items-center gap-[12px] rounded-[10px] bg-pg-overlay px-[14px] shadow-[0_8px_24px_0_rgba(15,23,42,0.28)]"
+      /*
+       * Riding the nav's foot, above the Ask AI pill (design review, Aug 21).
+       * It was top-centre of the page, which put the confirmation a screen away
+       * from the row that just moved — the eye is IN the nav when the toast
+       * matters. 74px up clears the pill and its lift. Left-aligned to the nav
+       * rather than centred on it: the message names two categories and is
+       * routinely wider than the column, and centring pushed it off the window's
+       * left edge. Growing rightward over the canvas is the direction with room.
+       */
+      style={{ left: Math.max(12, navWidth - 260) }}
+      className="motion-slot-in absolute bottom-[74px] z-40 flex h-[38px] max-w-[min(520px,calc(100%-24px))] items-center gap-[12px] rounded-[10px] bg-pg-overlay px-[14px] shadow-[0_8px_24px_0_rgba(15,23,42,0.28)]"
     >
-      <span className="text-[13px] leading-none whitespace-nowrap text-pg-surface">
+
+      <span className="truncate text-[13px] leading-none whitespace-nowrap text-pg-surface">
         {undoOffer.message}
       </span>
       <span aria-hidden="true" className="h-[16px] w-px bg-[var(--pg-overlay-divider)]" />

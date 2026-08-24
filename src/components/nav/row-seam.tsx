@@ -112,7 +112,8 @@ export function RowSeam({
         <span
           aria-hidden="true"
           className={cn(
-            "motion-tap absolute inset-x-[8px] h-[2px] rounded-full bg-brand",
+            // Ink, not brand — an insertion mark is chrome (Aug 21 review).
+            "motion-tap absolute inset-x-[8px] h-[2px] rounded-full bg-nav-fg",
             over
               ? "opacity-100"
               : eligible
@@ -134,7 +135,7 @@ export function RowSeam({
               e.stopPropagation();
               onAdd(e.currentTarget);
             }}
-            className="motion-tap relative z-10 flex size-[16px] items-center justify-center rounded-full bg-brand text-brand-fg opacity-0 group-hover/seam:opacity-100 hover:scale-110 focus-visible:opacity-100"
+            className="motion-tap relative z-10 flex size-[16px] items-center justify-center rounded-full bg-nav-fg text-nav opacity-0 group-hover/seam:opacity-100 hover:scale-110 focus-visible:opacity-100"
           >
             <Plus size={11} aria-hidden="true" />
           </button>

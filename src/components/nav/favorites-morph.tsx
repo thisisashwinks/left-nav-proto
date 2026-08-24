@@ -194,7 +194,10 @@ function DockButton({
       onFocus={() => onHoverChange?.(true)}
       onBlur={() => onHoverChange?.(false)}
       // ::before widens the hit target to 30px without moving the icon.
-      className="motion-move group/dock absolute size-[16px] text-nav-fg-muted before:absolute before:top-[-7px] before:left-[-7px] before:size-[30px] before:content-[''] hover:text-nav-fg focus-visible:text-nav-fg"
+      // Knocked out with the band: entering the row takes every icon to full
+      // ink, not just the one under the pointer — the whole area is one control
+      // announcing itself (Khoi, Aug 24).
+      className="motion-move group/dock absolute size-[16px] text-nav-fg-muted before:absolute before:top-[-7px] before:left-[-7px] before:size-[30px] before:content-[''] group-hover/row:text-nav-fg focus-visible:text-nav-fg"
       style={slot}
     >
       {/*
@@ -371,7 +374,14 @@ export function FavoritesMorph({
         <div
           aria-hidden="true"
           className={cn(
-            "motion-move absolute inset-y-0 bg-nav-rail shadow-[inset_0_0_0_1px_var(--nav-rail-border)]",
+            /*
+             * Fill only — no ring. The capsule's 1px stroke ran parallel to the
+             * nav card's own left edge a few pixels away and the two read as a
+             * doubled line (Khoi, Aug 24). The fill is what defines the capsule;
+             * hover darkens it a step and pushes the icons to full ink, which is
+             * also the stronger rollover the same review asked for.
+             */
+            "motion-move absolute inset-y-0 bg-nav-rail group-hover/row:bg-nav-rail-hover",
             capsuleClass,
           )}
         />

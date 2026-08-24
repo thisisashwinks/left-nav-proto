@@ -2,6 +2,7 @@
 
 import type * as React from "react";
 import type { Account } from "@/components/accounts/accounts-data";
+import { AccountLogo } from "@/components/accounts/account-logo";
 import { BrandMark } from "./brand-mark";
 import { WorkspaceTrigger } from "./workspace-trigger";
 
@@ -27,6 +28,8 @@ interface NavHeaderProps {
    * empty footer to itself.
    */
   trailing?: React.ReactNode;
+  /** Collapses the nav in place — the logo mark's second job. */
+  onToggleCollapsed?: () => void;
 }
 
 /**
@@ -46,6 +49,7 @@ export function NavHeader({
   agency = false,
   canSwitch = true,
   trailing,
+  onToggleCollapsed,
 }: NavHeaderProps) {
   // 9 + 30 + 9 = 48: the identity row centres on the app header's own
   // midline (48px tall, content at 24), so mark, name, collapse, breadcrumb
@@ -62,10 +66,36 @@ export function NavHeader({
               open={switcherOpen}
               onToggle={onToggleSwitcher}
               agency={agency}
+              {...(onToggleCollapsed ? { onToggleCollapsed } : {})}
             />
           ) : (
-            <span className="flex h-[30px] min-w-0 items-center">
-              <BrandMark account={account} logoSrc={logoSrc} alt={logoAlt} />
+            <span className="flex h-[30px] min-w-0 items-center gap-[7px]">
+              {onToggleCollapsed ? (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Collapse navigation"
+                    title="Collapse navigation"
+                    onClick={onToggleCollapsed}
+                    className="motion-tap -m-[3px] flex shrink-0 items-center justify-center rounded-full p-[3px] hover:bg-nav-hover active:scale-95"
+                  >
+                    <AccountLogo
+                      logo={account.logo}
+                      src={logoSrc ?? account.logoSrc}
+                      size={20}
+                      radius={999}
+                    />
+                  </button>
+                  <BrandMark
+                    account={account}
+                    logoSrc={logoSrc}
+                    alt={logoAlt}
+                    withMark={false}
+                  />
+                </>
+              ) : (
+                <BrandMark account={account} logoSrc={logoSrc} alt={logoAlt} />
+              )}
             </span>
           )}
         </div>

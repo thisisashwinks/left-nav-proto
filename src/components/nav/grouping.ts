@@ -1140,12 +1140,11 @@ export function withProductFiled(
 /**
  * Adds a product to a group without taking it out of any other.
  *
- * Filing is a move — a product belongs to at most one shelf — but ADDING is not.
- * An admin putting Invoices under both Commerce and CRM is not making a mistake:
- * some products genuinely belong in two places, and the nav can show a row twice
- * without the tree becoming ambiguous, because membership is stored per bucket.
- * Moving one stays a move: the kebab's "Move to" and a drag both go through
- * `withProductFiled`, which still removes it from where it was.
+ * UNUSED BY DECISION, kept deliberately. Duplication — one row living in two
+ * categories — was cut for MVP (design review, Aug 21: ambiguous breadcrumbs,
+ * unpredictable IA) and every "add" now goes through `withProductFiled`, which
+ * relocates. The same review noted users may ask for duplication back after
+ * launch; this recipe is what turning it back on costs.
  */
 export function withProductAdded(
   state: NavLayoutState,

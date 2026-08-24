@@ -138,7 +138,9 @@ function EditNavButton({
         <div className="flex items-center justify-between gap-[6px]">
           <span
             role="status"
-            className="flex min-w-0 items-center gap-[5px] truncate text-[11.5px] leading-[15px] font-semibold whitespace-nowrap text-brand"
+            // Neutral ink, not brand (Aug 21 review): the mode label is chrome,
+            // and brand here competed with semantic states and the AI's own hue.
+            className="flex min-w-0 items-center gap-[5px] truncate text-[11.5px] leading-[15px] font-semibold whitespace-nowrap text-nav-fg"
           >
             <SquarePen size={11} aria-hidden="true" className="shrink-0" />
             Editing nav
@@ -184,7 +186,9 @@ function EditNavButton({
               "motion-tap flex h-[26px] shrink-0 items-center gap-[5px] rounded-[7px] px-[10px] text-[12px] leading-none font-medium",
               blocked > 0
                 ? "cursor-not-allowed text-nav-fg-subtle shadow-[inset_0_0_0_1px_var(--hr-warning-300)]"
-                : "bg-brand text-brand-fg hover:opacity-90 active:scale-95",
+                : // Inverted ink rather than brand — still unmistakably the
+                  // primary action, without borrowing the accent (Aug 21).
+                  "bg-nav-fg text-nav hover:opacity-90 active:scale-95",
             )}
           >
             {blocked > 0 ? (

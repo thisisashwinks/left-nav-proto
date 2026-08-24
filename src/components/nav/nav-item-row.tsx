@@ -263,7 +263,7 @@ export function NavItemRow({
         // on specificity. Not while renaming: a text field you cannot drag.
         // The cursor lives on the grip now, not the row.
         edit.drag?.over &&
-          "shadow-[inset_0_0_0_1px_var(--brand)] bg-nav-hover",
+          "shadow-[inset_0_0_0_1px_var(--nav-fg)] bg-nav-hover",
         /*
          * The row it came from reads as a hole, not as a ghost.
          *

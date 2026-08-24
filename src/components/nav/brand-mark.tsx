@@ -9,6 +9,11 @@ interface BrandMarkProps {
    */
   logoSrc?: string;
   alt: string;
+  /**
+   * False when the caller draws the mark itself — the split header makes the
+   * logo its own collapse button and this then renders only the name.
+   */
+  withMark?: boolean;
 }
 
 /**
@@ -19,15 +24,22 @@ interface BrandMarkProps {
  * the chevron lands directly beside the name whatever the name's length; long
  * names truncate rather than pushing the header's search button off the edge.
  */
-export function BrandMark({ account, logoSrc, alt }: BrandMarkProps) {
+export function BrandMark({
+  account,
+  logoSrc,
+  alt,
+  withMark = true,
+}: BrandMarkProps) {
   return (
     <span className="flex min-w-0 items-center gap-[7px]" title={alt}>
-      <AccountLogo
-        logo={account.logo}
-        src={logoSrc ?? account.logoSrc}
-        size={20}
-        radius={999}
-      />
+      {withMark ? (
+        <AccountLogo
+          logo={account.logo}
+          src={logoSrc ?? account.logoSrc}
+          size={20}
+          radius={999}
+        />
+      ) : null}
       <span className="truncate text-[14px] leading-[20px] font-semibold text-nav-fg">
         {account.name}
       </span>

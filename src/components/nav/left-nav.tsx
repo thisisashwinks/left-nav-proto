@@ -2,8 +2,11 @@
 
 import * as React from "react";
 import {
+  ChevronRight,
   Eye,
+  EyeOff,
   FolderPlus,
+  GamepadDirectional,
   History,
   Image,
   MoveDown,
@@ -220,6 +223,7 @@ export function LeftNav({
    * have to agree, or the nav keeps a 48px gap for something that is not there.
    */
   const pinnedShown = !isBlockHidden(state, "pinned");
+  const quickActionsShown = !isBlockHidden(state, "quickActions");
   /**
    * Whether the Launchpad card shows.
    *
@@ -228,6 +232,8 @@ export function LeftNav({
    * theme values because the account's answer lives in the layout store.
    */
   const launchpad = launchpadAllowed && !isBlockHidden(state, "launchpad");
+  /** The card on screen, as the Quick Actions fold needs to know it. */
+  const launchpadShowing = launchpad && !agencyScope;
 
   /*
    * The categories, in the order the nav draws them.
@@ -251,6 +257,40 @@ export function LeftNav({
    * and tells the account it owns something it does not.
    */
   const emptyCategories = categories.filter((g) => g.productIds.length === 0);
+  /*
+   * Which empty categories have EARNED their warning.
+   *
+   * Created-empty is a step, not a mistake — the panel opens with the category
+   * precisely so it can be filled — and ringing it amber at birth told the
+   * admin off for following the intended path (Aug 21 review). The ring waits
+   * for the moment the panel is dismissed with the category still empty, which
+   * is the first act that reads as "walking away from it". Save stays blocked
+   * on ANY empty category; only the ring is deferred.
+   *
+   * Adjusted during render from the openFlyoutId transition rather than in an
+   * effect — this is derived history, and the render-adjust pattern is the one
+   * the React 19 lint permits.
+   */
+  const [warnedEmpty, setWarnedEmpty] = React.useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [prevOpenFlyout, setPrevOpenFlyout] = React.useState(openFlyoutId);
+  if (prevOpenFlyout !== openFlyoutId) {
+    setPrevOpenFlyout(openFlyoutId);
+    if (
+      editing &&
+      prevOpenFlyout &&
+      emptyCategories.some((g) => g.id === prevOpenFlyout)
+    ) {
+      setWarnedEmpty((prev) => new Set(prev).add(prevOpenFlyout));
+    }
+  }
+  const [wasEditing, setWasEditing] = React.useState(editing);
+  if (wasEditing !== editing) {
+    // A new session starts clean — last session's scoldings are not carryover.
+    setWasEditing(editing);
+    if (!editing) setWarnedEmpty(new Set());
+  }
 
   /** A tail row's drag wiring: it can be reordered, or filed into a category. */
   const tailDrag = (rowId: string): NavRowDrag => ({
@@ -333,6 +373,31 @@ export function LeftNav({
         icon: MoveDown,
         ...(last ? {} : { onSelect: () => layout.moveGroup(i, i + 1) }),
       },
+      /*
+       * Bulk visibility, one commit each way (design review, Aug 21). "Hide all"
+       * only when something is showing, "show all" only when something is hidden
+       * — a menu offering both at all times reads as two mystery switches.
+       */
+      ...(group.productIds.some((id) => !layout.isRowHidden(id))
+        ? [
+            {
+              id: "hide-all",
+              label: "Hide all items",
+              icon: EyeOff,
+              onSelect: () => layout.setGroupRowsHidden(itemId, true),
+            },
+          ]
+        : []),
+      ...(group.productIds.some((id) => layout.isRowHidden(id))
+        ? [
+            {
+              id: "show-all",
+              label: "Show all items",
+              icon: Eye,
+              onSelect: () => layout.setGroupRowsHidden(itemId, false),
+            },
+          ]
+        : []),
       {
         id: "add",
         label: "Add a category",
@@ -343,6 +408,10 @@ export function LeftNav({
           const id = nextGroupIdFor(customTreeFor(state));
           layout.createGroup("New category", id);
           startRename(id);
+          // And its panel opens at once (design review, Aug 21): an empty
+          // category's first need is contents, and the open panel is both the
+          // prompt and the place to answer it.
+          onPinFlyout(id);
         },
       },
       {
@@ -406,7 +475,9 @@ export function LeftNav({
        */
       renameOnLabelClick: true,
       ...(empty
-        ? { warning: `${group.label} is empty — add an item to it` }
+        ? warnedEmpty.has(itemId)
+          ? { warning: `${group.label} is empty — add an item to it` }
+          : {}
         : {}),
       onOpenMenu: (trigger) => {
         setMenuTrigger(trigger);
@@ -451,18 +522,33 @@ export function LeftNav({
   // Recent names this account's own places, then the block is trimmed to what
   // the density and the recents mode allow. At agency scope the cluster is the
   // agency's, so it keeps the authored rows.
-  const fixedEntries = React.useMemo(
-    () =>
-      tidyRules(
-        trimRecents(
-          agencyScope
-            ? config.fixed
-            : fixedEntriesFor(state, config.fixed, bandEverything),
-          recentsBudget,
-        ),
+  const fixedEntries = React.useMemo(() => {
+    const base = tidyRules(
+      trimRecents(
+        agencyScope
+          ? config.fixed
+          : fixedEntriesFor(state, config.fixed, bandEverything),
+        recentsBudget,
       ),
-    [agencyScope, state, config.fixed, recentsBudget, bandEverything],
-  );
+    );
+    /*
+     * Quick Actions folds into the Launchpad card when the card is showing —
+     * two standing shortcuts became one band (Khoi, Aug 24). Accounts without
+     * the card (finished onboarding, or the block hidden) keep the row, or
+     * Quick Actions would be reachable nowhere.
+     */
+    if (!launchpadShowing) return base;
+    return tidyRules(
+      base.filter((e) => !(e.kind === "item" && e.item.id === "quick-actions")),
+    );
+  }, [
+    agencyScope,
+    state,
+    config.fixed,
+    recentsBudget,
+    bandEverything,
+    launchpadShowing,
+  ]);
   /**
    * Whether the standing cluster has anything in it.
    *
@@ -589,8 +675,11 @@ export function LeftNav({
     const id = nextGroupIdFor(customTreeFor(state));
     layout.createGroupAt("New category", id, index);
     // Mounts asking for its name: an empty category called "New category" is
-    // not a thing anyone wanted, it is a step on the way to one.
+    // not a thing anyone wanted, it is a step on the way to one. Its panel
+    // opens alongside (Aug 21 review) — the prompt to fill it is the place
+    // you fill it from.
     startRename(id);
+    onPinFlyout(id);
   };
 
   /**
@@ -879,6 +968,10 @@ export function LeftNav({
         trailing={
           <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
         }
+        // The mark collapses in place — a target that never moves, unlike the
+        // drawer toggle riding the right edge (Khoi, Aug 24). Supplemental: the
+        // drawer toggle above stays.
+        onToggleCollapsed={onToggleCollapsed}
       />
 
       {topEntry ? (
@@ -899,66 +992,6 @@ export function LeftNav({
         <PinnedHole position="top" />
       ) : null}
 
-      {/*
-        The standing entry points normally sit above the scroll region so they never
-        scroll away. At the floor they move *into* it: they are `shrink-0` inside an
-        `overflow-hidden` nav with no page scroll behind it, so on a short enough
-        screen they were being clipped and Quick Actions became permanently
-        unreachable. A row you can scroll to beats a row pinned out of sight.
-      */}
-      {atFloor ? null : (
-        <>
-          {/*
-            The zero-state setup guide (Mapping row 61): Launchpad as a
-            temporary row while the account is being set up, not a permanent
-            L1. First thing under the dock, only for accounts still
-            onboarding — Brightpath in the demo — and it leaves on activation
-            (toggle in the customizer's Appearance). Below the pinned hole,
-            not above: the favourites capsule floats over the header block at
-            a fixed offset, and a row slid in under the header sat beneath it.
-          */}
-          {launchpad && !agencyScope ? (
-            <SetupGuideRow onOpen={() => onSelect?.(PROPOSED_HOME_ID)} />
-          ) : null}
-          <div
-            data-cursor="menu"
-            /*
-              The scroll region below reserves a scrollbar gutter, so matching its
-              left padding alone left this band 8px wider — its chevrons sat
-              outboard of every row under it. Add the gutter here too.
-            */
-            className="flex w-full shrink-0 flex-col items-start gap-[var(--t-nav-space,2px)] pl-[10px] pr-[calc(10px+var(--nav-scroll-gutter,8px))]"
-          >
-            {agencyScope ? (
-              <RecentAccountsBlock
-                accounts={recentAccounts}
-                onSwitch={onSwitchAccount}
-              />
-            ) : foldable ? (
-              renderBanded(fixedEntries)
-            ) : (
-              fixedEntries.map(renderEntry)
-            )}
-          </div>
-
-          {/*
-            The rule that closes the standing cluster — only when there is a
-            cluster to close.
-
-            Launchpad is a card, not a section, so it needs no rule under it: the
-            card's own edges already say where it ends. When Recent and Quick
-            Actions are both off, this rule was the only thing between the card
-            and the first category, which read as a section boundary with nothing
-            on one side of it.
-          */}
-          {fixedHasRows ? (
-            <div className="w-full shrink-0 pl-[10px] pr-[calc(10px+var(--nav-scroll-gutter,8px))]">
-              <NavDivider />
-            </div>
-          ) : null}
-        </>
-      )}
-
       <div
         data-scroll-shell=""
         className="relative flex min-h-0 w-full flex-1 flex-col"
@@ -976,24 +1009,45 @@ export function LeftNav({
             editing ? "pb-[76px]" : "pb-[2px]",
           )}
         >
-          {atFloor ? (
-            <>
-              {agencyScope || !pinnedShown ? null : (
-                <FavoritesRow onOpen={onOpenLauncher} />
-              )}
-              {agencyScope ? (
-                <RecentAccountsBlock
-                  accounts={recentAccounts}
-                  onSwitch={onSwitchAccount}
-                />
-              ) : foldable ? (
-                renderBanded(fixedEntries)
-              ) : (
-                fixedEntries.map(renderEntry)
-              )}
-              <NavDivider />
-            </>
+          {/*
+            One scrolling unit (Khoi, Aug 24: "maybe it all scrolls naturally").
+
+            The Launchpad card and the Recent block used to stand above this
+            region so they never scrolled away — which meant they spent nav
+            height whether or not you were looking at them, and the region's top
+            fade hung a visible gap below the cluster's closing rule. Now only
+            the header, the pinned capsule and the search pill hold still;
+            everything the account can outgrow scrolls together. The floor's
+            FavoritesRow keeps its density gate — it stands in for the capsule,
+            which only leaves at the floor.
+          */}
+          {atFloor && !agencyScope && pinnedShown ? (
+            <FavoritesRow onOpen={onOpenLauncher} />
           ) : null}
+          {launchpad && !agencyScope ? (
+            <SetupGuideRow
+              onOpen={() => onSelect?.(PROPOSED_HOME_ID)}
+              {...(quickActionsShown
+                ? { onQuickActions: () => onPinFlyout("quick-actions") }
+                : {})}
+            />
+          ) : null}
+          {agencyScope ? (
+            <RecentAccountsBlock
+              accounts={recentAccounts}
+              onSwitch={onSwitchAccount}
+            />
+          ) : foldable ? (
+            renderBanded(fixedEntries)
+          ) : (
+            fixedEntries.map(renderEntry)
+          )}
+          {/*
+            The rule that closes the opening cluster — only when there is one to
+            close. Launchpad is a card and needs no rule under it: its own edges
+            say where it ends.
+          */}
+          {fixedHasRows ? <NavDivider /> : null}
           {bandEverything ? (
             /*
               Settings is inside the last band here, not the bottom anchor it is
@@ -1254,19 +1308,41 @@ function PinnedHole({ position }: { position: DockPosition }) {
  * product: a soft brand wash and a progress meter say "temporary, almost
  * done" — the whole point (Mapping 61) is that this row EARNS its exit.
  */
-function SetupGuideRow({ onOpen }: { onOpen?: () => void }) {
+function SetupGuideRow({
+  onOpen,
+  onQuickActions,
+}: {
+  onOpen?: () => void;
+  /**
+   * Opens the Quick Actions flyout from the card's footer row.
+   *
+   * Quick Actions folded into this card rather than standing as its own row —
+   * the L1 had more standing items than categories (Khoi, Aug 24), and the two
+   * are the same kind of thing: shortcuts for an account still finding its
+   * feet. A NAMED row, not a corner glyph: the first cut was a 22px icon on the
+   * card's edge, which combined the two by making one of them invisible. A
+   * control you fold into another surface has to keep its name or it is not
+   * folded, it is lost. Absent when the account has hidden the block.
+   */
+  onQuickActions?: () => void;
+}) {
   const done = 4;
   const total = 7;
   return (
     // pb rather than a gap on the parent: the card is the only thing between the
     // dock and Recent, and it needs to read as its own band, not a first row.
-    <div className="w-full shrink-0 pt-[4px] pb-[16px] pl-[10px] pr-[calc(10px+var(--nav-scroll-gutter,8px))]">
-      <button
-        type="button"
-        onClick={onOpen}
-        className="motion-tap group flex w-full flex-col gap-[7px] rounded-[9px] bg-brand-soft px-[10px] py-[9px] text-left shadow-[inset_0_0_0_1px_var(--brand)] hover:brightness-[1.02] active:scale-[0.99]"
-      >
-        <span className="flex w-full items-center gap-[8px]">
+    // Horizontal padding comes from the scroll region it now lives in.
+    <div className="w-full shrink-0 pt-[4px] pb-[14px]">
+      {/* A div holding two buttons — the card navigates, the ⚡ opens a panel,
+          and nesting one button in another is invalid markup. */}
+      <div className="motion-tap group relative flex w-full flex-col gap-[7px] rounded-[9px] bg-brand-soft px-[10px] py-[9px] text-left shadow-[inset_0_0_0_1px_var(--brand)] hover:brightness-[1.02]">
+        <button
+          type="button"
+          onClick={onOpen}
+          className="absolute inset-0 rounded-[9px] motion-press active:scale-[0.99]"
+          aria-label="Open Launchpad"
+        />
+        <span className="pointer-events-none flex w-full items-center gap-[8px]">
           <Rocket size={15} aria-hidden="true" className="shrink-0 text-brand" />
           <span className="min-w-0 flex-1 truncate text-[13px] leading-[normal] font-semibold text-brand-strong">
             Launchpad
@@ -1276,13 +1352,45 @@ function SetupGuideRow({ onOpen }: { onOpen?: () => void }) {
           </span>
         </span>
         {/* The meter is the row's exit visa: at 7/7 the row leaves the nav. */}
-        <span className="h-[3px] w-full overflow-hidden rounded-full bg-brand-soft-2">
+        <span className="pointer-events-none h-[3px] w-full overflow-hidden rounded-full bg-brand-soft-2">
           <span
             className="block h-full rounded-full bg-brand motion-move"
             style={{ width: `${(done / total) * 100}%` }}
           />
         </span>
-      </button>
+        {onQuickActions ? (
+          <>
+            {/* A hairline in the card's own key, so the footer reads as the
+                card's second job rather than a separate control stuck on. */}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none -mx-[10px] mt-[1px] h-px bg-[var(--brand)] opacity-20"
+            />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onQuickActions();
+              }}
+              className="motion-tap pointer-events-auto relative z-10 -mx-[6px] -mb-[3px] flex items-center gap-[8px] rounded-[6px] px-[6px] py-[4px] text-left hover:bg-brand-soft-2 active:scale-[0.99]"
+            >
+              <GamepadDirectional
+                size={14}
+                aria-hidden="true"
+                className="shrink-0 text-brand"
+              />
+              <span className="min-w-0 flex-1 truncate text-[12px] leading-[16px] font-medium text-brand-strong">
+                Quick actions
+              </span>
+              <ChevronRight
+                size={13}
+                aria-hidden="true"
+                className="shrink-0 text-brand opacity-70"
+              />
+            </button>
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }

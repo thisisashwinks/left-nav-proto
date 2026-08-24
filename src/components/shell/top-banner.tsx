@@ -125,26 +125,34 @@ export const ACCOUNT_BANNERS: Record<string, Banner[]> = {
  * Each tone is a soft wash with a hairline base and a white disc for the
  * glyph, so the strip has structure without shouting.
  */
+/*
+ * Flat tints and light strokes (design review, Aug 21). The promo gradient went
+ * — same verdict as the flyout's promo card — and each tone's stroke sits a
+ * shade or two lighter than the ink it used to borrow, so the strip reads as a
+ * tinted band rather than an outlined component. `cta` is the hollow chip's
+ * ink AND its stroke: the review asked for smaller, tracked-out, all-caps and
+ * hollow, and a hollow chip is drawn in one colour.
+ */
 const TONES: Record<
   BannerTone,
   { bar: string; disc: string; cta: string; fallback: LucideIcon }
 > = {
   promo: {
-    bar: "bg-[linear-gradient(90deg,#dee5fd,#e9e2fc)] text-[#1d2a63] shadow-[inset_0_-1px_0_0_rgba(29,42,99,0.12)]",
+    bar: "bg-[#e3e8fd] text-[#1d2a63] shadow-[inset_0_-1px_0_0_rgba(29,42,99,0.07)]",
     disc: "text-[#4553c8]",
-    cta: "text-[#3746c0]",
+    cta: "text-[#3746c0] shadow-[inset_0_0_0_1px_#aab5ec]",
     fallback: Megaphone,
   },
   warning: {
-    bar: "bg-[#fdf0d1] text-[#6d4703] shadow-[inset_0_-1px_0_0_rgba(109,71,3,0.14)]",
+    bar: "bg-[#fdf0d1] text-[#6d4703] shadow-[inset_0_-1px_0_0_rgba(109,71,3,0.08)]",
     disc: "text-[#a16207]",
-    cta: "text-[#92400e]",
+    cta: "text-[#92400e] shadow-[inset_0_0_0_1px_#e4c37e]",
     fallback: CalendarClock,
   },
   danger: {
-    bar: "bg-[#fce4e1] text-[#6d1d16] shadow-[inset_0_-1px_0_0_rgba(109,29,22,0.14)]",
+    bar: "bg-[#fce4e1] text-[#6d1d16] shadow-[inset_0_-1px_0_0_rgba(109,29,22,0.08)]",
     disc: "text-[#c2362b]",
-    cta: "text-[#c2362b]",
+    cta: "text-[#c2362b] shadow-[inset_0_0_0_1px_#eba8a1]",
     fallback: CreditCard,
   },
 };
@@ -208,11 +216,12 @@ export function TopBanner({ banners }: TopBannerProps) {
       </span>
 
       {/*
-        Message and verb travel together: the CTA sits right after the
-        sentence it answers, and the spacer comes AFTER the pair — a button
-        exiled to the far edge stopped reading as part of its banner
-        (Aug 13 note). Only the strip's management stays on the trailing edge.
+        Centred (design review, Aug 21 — reversing the Aug 13 left alignment).
+        The message and its verb still travel together; a spacer on each side
+        is what centres the pair while the disc and the strip's management hold
+        the edges.
       */}
+      <div aria-hidden="true" className="min-w-0 flex-1" />
       <p
         className={cn(
           "min-w-0 shrink truncate leading-[18px]",
@@ -227,11 +236,12 @@ export function TopBanner({ banners }: TopBannerProps) {
       {banner.cta ? (
         <button
           type="button"
+          // Hollow, small, all-caps and tracked out (Aug 21 review) — a label
+          // wearing a stroke, not a white block competing with the message.
           className={cn(
-            "motion-tap flex h-[27px] shrink-0 items-center rounded-[7px] bg-white px-[11px]",
-            "text-[12.5px] leading-none font-semibold",
-            "shadow-[0_1px_2px_0_rgba(15,23,42,0.12),inset_0_0_0_1px_rgba(15,23,42,0.06)]",
-            "hover:scale-[1.02] active:scale-[0.98]",
+            "motion-tap flex h-[24px] shrink-0 items-center rounded-[7px] bg-transparent px-[10px]",
+            "text-[10.5px] leading-none font-semibold tracking-[0.7px] uppercase",
+            "hover:bg-white/40 active:scale-[0.98]",
             tone.cta,
           )}
         >

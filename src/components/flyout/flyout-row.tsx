@@ -176,7 +176,7 @@ export function FlyoutRow({
     active ? "bg-nav-hover" : "hover:bg-nav-hover",
     !edit?.renaming && "active:scale-[0.99] motion-press",
     // The grab cursor lives on the grip, not the row.
-    edit?.over && "bg-nav-hover shadow-[inset_0_0_0_1px_var(--brand)]",
+    edit?.over && "bg-nav-hover shadow-[inset_0_0_0_1px_var(--nav-fg)]",
     // Same as the nav's rows: the slot it left reads as a hole, not a ghost.
     edit?.lifted &&
       /*
@@ -302,7 +302,13 @@ export function FlyoutRow({
         read as part of the name). Top-aligned on the title's own line, and it
         sits just inside the pin's reserved column.
       */}
-      {hasChildren ? (
+      {/*
+        The state chevron yields in edit mode. Its corner is where the eye and
+        the kebab stand, and the three overlapped (Aug 21 review, flagged as a
+        bug); of the three, the chevron is the one whose job the row itself
+        already does — clicking a parent still expands it either way.
+      */}
+      {hasChildren && !edit ? (
         <ChevronDown
           size={14}
           aria-hidden="true"
@@ -480,8 +486,11 @@ function FlyoutChildRows({
   return (
     <div
       className={cn(
-        "motion-menu-in mt-[2px] flex w-auto flex-col gap-[1px] border-l border-[var(--nav-divider,var(--nav-border))] pr-[8px]",
-        depth === 0 ? "ml-[19px] pl-[13px]" : "ml-[9px] pl-[11px]",
+        // No rule down the left edge — the indent alone carries the nesting
+        // (Khoi, Aug 24: "the more visual elements we can remove, the better").
+        // The border's 1px folds into the padding so the text does not shift.
+        "motion-menu-in mt-[2px] flex w-auto flex-col gap-[1px] pr-[8px]",
+        depth === 0 ? "ml-[19px] pl-[14px]" : "ml-[9px] pl-[12px]",
       )}
     >
       {nodes.map((child) => (

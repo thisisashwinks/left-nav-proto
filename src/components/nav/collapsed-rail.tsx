@@ -40,8 +40,6 @@ interface CollapsedRailProps {
   scope: WorkspaceScope;
   /** Identity behind the rail's mark — the account, or the agency at agency scope. */
   account: Account;
-  switcherOpen: boolean;
-  onToggleSwitcher: () => void;
   /** False for a plain sub-account user — the mark renders inert. */
   canSwitch?: boolean;
   /** Reopens the expanded nav. Lives right under the mark, not in the app bar. */
@@ -74,8 +72,6 @@ export function CollapsedRail({
   onSearch,
   scope,
   account,
-  switcherOpen,
-  onToggleSwitcher,
   canSwitch = true,
   onExpand,
   aiSession,
@@ -110,15 +106,11 @@ export function CollapsedRail({
     active: boolean,
     onClick: () => void,
     onHover?: () => void,
-    /** Rows with no flyout get a label tooltip instead. */
-    tooltip = false,
   ) => {
     const button = (
       <button
         key={id}
         type="button"
-        // A tooltip replaces the native title rather than joining it.
-        title={tooltip ? undefined : label}
         aria-label={label}
         aria-current={active ? "page" : undefined}
         onClick={onClick}
@@ -138,12 +130,17 @@ export function CollapsedRail({
       </button>
     );
 
-    return tooltip ? (
+    /*
+     * Every icon gets the tooltip, not just the flyout-less ones (design
+     * review, Aug 21: "still to be added for all states"). Flyout rows used to
+     * lean on the native title, which is OS-delayed and easy to never see; the
+     * tooltip names the icon immediately, and in click-trigger mode — the
+     * default — nothing else appears on hover to fight it.
+     */
+    return (
       <RailTooltip key={id} label={label}>
         {button}
       </RailTooltip>
-    ) : (
-      button
     );
   };
 
@@ -180,7 +177,6 @@ export function CollapsedRail({
         if (i.hasFlyout) onPinFlyout(flyoutId);
       },
       i.hasFlyout ? () => onHoverFlyout(flyoutId) : onHoverPlain,
-      i.hasFlyout !== true,
     );
   };
 
@@ -206,18 +202,19 @@ export function CollapsedRail({
         switcher trigger — same panel, anchored to this tile instead. A plain
         sub-account user has nothing to switch to, so the mark goes inert.
       */}
+      {/*
+        The mark expands the nav in place (Khoi, Aug 24) — the same target that
+        collapsed it, exactly where it was when it did. Switching accounts at
+        rail width is the account rail's job, one column left; the logo opening
+        a second switcher here was the same door twice.
+      */}
       {canSwitch ? (
         <button
           type="button"
-          title={`Switch sub-account — ${account.name}`}
-          aria-label={`Switch sub-account. Current account: ${account.name}`}
-          aria-haspopup="dialog"
-          aria-expanded={switcherOpen}
-          onClick={onToggleSwitcher}
-          className={cn(
-            "motion-tap flex size-[26px] shrink-0 items-center justify-center outline-none",
-            switcherOpen ? "scale-105" : "hover:scale-105 active:scale-95",
-          )}
+          title="Expand navigation"
+          aria-label="Expand navigation"
+          onClick={onExpand}
+          className="motion-tap flex size-[26px] shrink-0 items-center justify-center outline-none hover:scale-105 active:scale-95"
         >
           <AccountLogo
             logo={account.logo}
@@ -311,11 +308,14 @@ export function CollapsedRail({
           ref={scrollRef}
           data-scroll-region=""
           data-cursor="menu"
-          className="flex w-full flex-1 flex-col items-center gap-[calc(var(--t-nav-space,2px)+2px)] overflow-y-auto"
+          // overflow-x hidden explicitly: `overflow-y-auto` alone computes
+          // overflow-x to auto, and the icons' hover scale tipped the region
+          // into x-overflow — a horizontal scrollbar in a 64px rail.
+          className="flex w-full flex-1 flex-col items-center gap-[calc(var(--t-nav-space,2px)+2px)] overflow-x-hidden overflow-y-auto"
         >
           {atFloor && !agencyScope ? (
             <>
-              {railButton("favorites-rail", "Pinned", <Pin size={16} aria-hidden="true" />, false, onOpenLauncher, undefined, true)}
+              {railButton("favorites-rail", "Pinned", <Pin size={16} aria-hidden="true" />, false, onOpenLauncher)}
               {config.railFixed.map(renderRailRow)}
               {divider("div-fixed-floor")}
             </>
