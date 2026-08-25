@@ -11,6 +11,7 @@ import {
   Image,
   MoveDown,
   MoveUp,
+  RotateCcw,
   Pencil,
   Pin,
   Plus,
@@ -27,7 +28,11 @@ import type { AiSession } from "@/components/ai/use-ai-session";
 import type { DockPosition, SurfaceTheme } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { usePlanFor } from "@/components/nav/nav-profiles";
-import { agencyEntriesFor, agencySettings } from "./agency-config";
+import {
+  agencyBuckets,
+  agencyEntriesFor,
+  agencySettings,
+} from "./agency-config";
 import { CollapseToggle } from "./collapse-toggle";
 import { EntryCluster, EntryPill, type EditNavProps } from "./entry-cluster";
 import { pinnedBlockFor } from "./pinned-morph";
@@ -60,6 +65,9 @@ import type { NavDensity } from "./use-nav-density";
 import { NavSectionLabel } from "./nav-section-label";
 import { NavRowsSkeleton } from "@/components/shell/switching";
 import { NavAppearance } from "./nav-appearance";
+import type { LucideIcon } from "lucide-react";
+import { useAgencyLayout } from "./agency-layout";
+import { iconByName, nameForIcon } from "./icon-catalogue";
 import type { NavConfig, NavEntry, NavItem } from "./types";
 
 /** The show/hide menu's one view, opened directly rather than via an entry. */
@@ -204,6 +212,8 @@ export function LeftNav({
   const { state, groups, can, editFor, pickerProps, startRename } =
     useNavRowEdit(picker);
   const layout = useNavLayout();
+  const agencyLayout = useAgencyLayout();
+  const [agencyRenaming, setAgencyRenaming] = React.useState<string | null>(null);
   const menu = useRowMenu();
   /**
    * The kebab the open menu came out of, so the menu's own actions can anchor a
@@ -219,7 +229,9 @@ export function LeftNav({
    * is authored config with no override maps behind it, so there is nothing there
    * for an edit to write to.
    */
-  const editing = state.editing && can.customise && !agencyScope;
+  // Agency scope edits too now, against its own store. Same verbs, same mode,
+  // same way in — the tree behind it is the only thing that differs.
+  const editing = state.editing && can.customise;
   /** The category whose removal is being confirmed. */
   const [deleting, setDeleting] = React.useState<string | null>(null);
   /** Which seam's add-picker is open, and where a pick should land. */
@@ -369,6 +381,82 @@ export function LeftNav({
   /** Everything editing a row offers beyond renaming it. */
   const editExtras = (itemId: string): Partial<NavRowEdit> => {
     if (!editing) return {};
+
+    /*
+     * The agency tree's kebab.
+     *
+     * Four verbs, and deliberately not five: there is no "remove from the nav"
+     * because a bucket is platform IA rather than something the agency added,
+     * and no "move to" because there is nowhere to move it TO — the tree is one
+     * flat list of thirteen. Hiding is the reversible version of removal, which
+     * is the right one for rows you did not create.
+     */
+    if (agencyScope) {
+      if (itemId === agencySettings.id) return {};
+      const index = agencyLayout.indexOf(itemId);
+      if (index < 0) return {};
+      const hidden = agencyLayout.isHidden(itemId);
+
+      return {
+        menuActions: [
+          {
+            id: "rename",
+            label: "Rename",
+            icon: Pencil,
+            onSelect: () => setAgencyRenaming(itemId),
+          },
+          ...(can.regroup
+            ? [
+                {
+                  id: "icon",
+                  label: "Change icon",
+                  icon: Image,
+                  onSelect: () => {
+                    if (menuTrigger) picker.open(itemId, menuTrigger);
+                  },
+                },
+              ]
+            : []),
+          {
+            id: "up",
+            label: "Move up",
+            icon: MoveUp,
+            ...(index > 0
+              ? { onSelect: () => agencyLayout.move(itemId, -1) }
+              : {}),
+          },
+          {
+            id: "down",
+            label: "Move down",
+            icon: MoveDown,
+            ...(index < agencyLayout.count - 1
+              ? { onSelect: () => agencyLayout.move(itemId, 1) }
+              : {}),
+          },
+          {
+            id: "hide",
+            label: hidden ? "Show in the nav" : "Hide from the nav",
+            icon: hidden ? Eye : EyeOff,
+            onSelect: () => agencyLayout.toggleHidden(itemId),
+          },
+          ...(agencyLayout.isRenamed(itemId)
+            ? [
+                {
+                  id: "reset",
+                  label: "Reset name",
+                  icon: RotateCcw,
+                  onSelect: () => agencyLayout.resetLabel(itemId),
+                },
+              ]
+            : []),
+        ],
+        onOpenMenu: (trigger: HTMLElement) => {
+          setMenuTrigger(trigger);
+          menu.open(itemId, trigger);
+        },
+      };
+    }
+
     const group = categories.find((g) => g.id === itemId);
     if (!group) {
       const tailIndex = tailRowIds.indexOf(itemId);
@@ -585,10 +673,25 @@ export function LeftNav({
     () =>
       tidyRules(
         agencyScope
-          ? agencyEntriesFor()
+          ? agencyEntriesFor({
+              order: agencyLayout.state.order,
+              labels: agencyLayout.state.labels,
+              // An override naming an icon that no longer exists resolves to
+              // undefined; dropping those falls back to the shipped glyph
+              // rather than rendering a hole.
+              icons: Object.fromEntries(
+                Object.entries(agencyLayout.state.icons)
+                  .map(([id, name]) => [id, iconByName(name)] as const)
+                  .filter((pair): pair is [string, LucideIcon] => !!pair[1]),
+              ),
+              hidden: agencyLayout.state.hidden,
+              // Hidden rows stay on screen while editing, faded, because the
+              // only way back for a hidden row is the row itself.
+              showHidden: editing,
+            })
           : navEntriesFor(state, groups, bandEverything),
       ),
-    [agencyScope, state, groups, bandEverything],
+    [agencyScope, agencyLayout.state, editing, state, groups, bandEverything],
   );
 
   /**
@@ -683,25 +786,34 @@ export function LeftNav({
 
   /** The pill's edit control. Absent for roles that may not restructure. */
   const editNav: EditNavProps | undefined =
-    can.customise && !agencyScope
+    can.customise
       ? {
           editing,
-          dirty: layout.editDirty,
-          blocked: emptyCategories.length,
-          onStart: () => layout.beginEditing(),
+          dirty: agencyScope ? agencyLayout.dirty : layout.editDirty,
+          // The agency tree has no categories to leave empty — its buckets are
+          // platform IA and always have contents.
+          blocked: agencyScope ? 0 : emptyCategories.length,
+          onStart: () => {
+            layout.beginEditing();
+            // Both stores snapshot together, so Discard means the same thing
+            // whichever scope the session was opened in.
+            agencyLayout.beginEditing();
+          },
           onOpenBlocks: (trigger) => setBlocksAt(trigger.getBoundingClientRect()),
           onOpenAppearance: (trigger) =>
             setColoursAt(trigger.getBoundingClientRect()),
           onSave: () => {
             closeEditSurfaces();
             layout.saveEditing();
+            agencyLayout.save();
           },
           onDiscard: () => {
             // Nothing changed, nothing to warn about — the confirmation only
             // earns its interruption when there is work to lose.
-            if (!layout.editDirty) {
+            if (!layout.editDirty && !agencyLayout.dirty) {
               closeEditSurfaces();
               layout.discardEditing();
+              agencyLayout.discard();
               return;
             }
             menu.close();
@@ -726,8 +838,15 @@ export function LeftNav({
           const extras = editExtras(id);
           if (!extras.menuActions) return null;
           const group = categories.find((g) => g.id === id);
+          const agencyBucket = agencyScope
+            ? agencyBuckets.find((b) => b.id === id)
+            : undefined;
           return {
-            title: group ? group.label : layout.productLabelFor(id),
+            title: agencyBucket
+              ? agencyLayout.labelFor(agencyBucket.id, agencyBucket.label)
+              : group
+                ? group.label
+                : layout.productLabelFor(id),
             anchor: menu.anchor,
             actions: extras.menuActions,
           };
@@ -873,11 +992,48 @@ export function LeftNav({
       tailIndex: 0,
     });
 
+  /**
+   * The agency tree's edit bundle.
+   *
+   * The same shape `useNavRowEdit` builds for a catalogue row, backed by the
+   * agency store instead. Kept here rather than folded into that hook because
+   * the two share a contract and nothing else: there is no `editTargetFor`
+   * walk to do, no group-versus-product split, and no reason to teach a
+   * catalogue-shaped hook about a tree that has no catalogue.
+   */
+  const agencyEditFor = (itemId: string): NavRowEdit | null => {
+    if (!editing) return null;
+    // Settings is chrome at both scopes — anchored, not part of the tree.
+    if (itemId === agencySettings.id) return null;
+    if (agencyLayout.indexOf(itemId) < 0) return null;
+
+    return {
+      renaming: agencyRenaming === itemId,
+      pinned: true,
+      onStartRename: () => setAgencyRenaming(itemId),
+      onCommitRename: (next) => {
+        agencyLayout.setLabel(itemId, next);
+        setAgencyRenaming(null);
+      },
+      onCancelRename: () => setAgencyRenaming(null),
+      hidden: agencyLayout.isHidden(itemId),
+      onToggleHidden: () => agencyLayout.toggleHidden(itemId),
+      ...(can.regroup
+        ? {
+            onPickIcon: (trigger: HTMLElement) => picker.open(itemId, trigger),
+          }
+        : {}),
+      ...(agencyLayout.isRenamed(itemId)
+        ? { onReset: () => agencyLayout.resetLabel(itemId) }
+        : {}),
+    };
+  };
+
   const renderRow = (item: NavItem) => {
     const flyoutId = flyoutIdFor(item);
     // Inline edit is for the catalogue's rows; the agency config has no
     // override maps behind it yet, so its rows stay plain destinations.
-    const base = agencyScope ? undefined : editFor(item.id);
+    const base = agencyScope ? agencyEditFor(item.id) : editFor(item.id);
     const extras = editExtras(item.id);
     /*
      * A row can be movable without being renameable.
@@ -1231,7 +1387,24 @@ export function LeftNav({
         <PinnedHole position="bottom" />
       ) : null}
 
-      {pickerProps ? <IconPicker {...pickerProps} /> : null}
+      {agencyScope && picker.targetId && picker.anchor ? (
+        <IconPicker
+          anchor={picker.anchor}
+          selected={
+            agencyLayout.iconNameFor(picker.targetId) ??
+            nameForIcon(
+              agencyBuckets.find((b) => b.id === picker.targetId)?.icon,
+            )
+          }
+          onPick={(name) => agencyLayout.setIcon(picker.targetId!, name)}
+          {...(agencyLayout.hasIconOverride(picker.targetId)
+            ? { onReset: () => agencyLayout.resetIcon(picker.targetId!) }
+            : {})}
+          onClose={picker.close}
+        />
+      ) : pickerProps ? (
+        <IconPicker {...pickerProps} />
+      ) : null}
       {menuOpen ? (
         <RowMenu
           anchor={menuOpen.anchor}
@@ -1275,6 +1448,10 @@ export function LeftNav({
           onConfirm={() => {
             setConfirmingDiscard(false);
             layout.discardEditing();
+            // Both stores, or Discard silently keeps half the session — the
+            // agency's reorder survived while the sub-account's edits went
+            // back, which is worse than not offering Discard at all.
+            agencyLayout.discard();
           }}
           onCancel={() => setConfirmingDiscard(false)}
         />

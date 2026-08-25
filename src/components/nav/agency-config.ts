@@ -354,17 +354,41 @@ export const agencyPlaces: Record<string, AgencyPlace> = (() => {
   return out;
 })();
 
-/** The flat entry list. Every bucket with children opens a panel. */
-export function agencyEntriesFor(): NavEntry[] {
-  return agencyBuckets.map((bucket) => ({
-    kind: "item",
-    item: {
-      id: bucket.id,
-      label: bucket.label,
-      icon: bucket.icon,
-      ...(bucket.children.length > 0 ? { hasFlyout: true } : {}),
-    },
-  }));
+/** How the agency has edited its own tree. Everything is optional. */
+export interface AgencyOverrides {
+  order?: readonly string[];
+  labels?: Record<string, string>;
+  icons?: Record<string, LucideIcon>;
+  hidden?: readonly string[];
+  /** Editing shows hidden rows, faded, so they can be brought back. */
+  showHidden?: boolean;
+}
+
+/**
+ * The flat entry list. Every bucket with children opens a panel.
+ *
+ * Overrides are applied here rather than baked into `agencyBuckets` so the
+ * config stays the shipped tree and the store stays the diff against it —
+ * which is what makes "reset to default" a deletion rather than a second
+ * source of truth.
+ */
+export function agencyEntriesFor(o: AgencyOverrides = {}): NavEntry[] {
+  const byId = new Map(agencyBuckets.map((b) => [b.id, b]));
+  const ordered = o.order
+    ? o.order.map((id) => byId.get(id)).filter((b): b is AgencyBucket => !!b)
+    : agencyBuckets;
+
+  return ordered
+    .filter((b) => o.showHidden || !o.hidden?.includes(b.id))
+    .map((bucket) => ({
+      kind: "item",
+      item: {
+        id: bucket.id,
+        label: o.labels?.[bucket.id] ?? bucket.label,
+        icon: o.icons?.[bucket.id] ?? bucket.icon,
+        ...(bucket.children.length > 0 ? { hasFlyout: true } : {}),
+      },
+    }));
 }
 
 /** Every bucket's top row, for the 64px rail, which shows L1 and nothing else. */
