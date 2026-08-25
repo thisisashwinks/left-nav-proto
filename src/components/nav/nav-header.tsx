@@ -51,6 +51,9 @@ export function NavHeader({
   trailing,
   onToggleCollapsed,
 }: NavHeaderProps) {
+  // A config `logoSrc` pins the header to one asset for a demo, so it outranks
+  // the account's own pair — the wide logo included.
+  const wordmark = logoSrc ? undefined : account.wordmarkSrc;
   // 9 + 30 + 9 = 48: the identity row centres on the app header's own
   // midline (48px tall, content at 24), so mark, name, collapse, breadcrumb
   // and header icons all sit on ONE line across the top of the screen.
@@ -71,6 +74,42 @@ export function NavHeader({
           ) : (
             <span className="flex h-[30px] min-w-0 items-center gap-[7px]">
               {onToggleCollapsed ? (
+                wordmark ? (
+                  /*
+                    A wide logo takes the whole header row.
+                    
+                    The split header makes the square mark its own collapse
+                    button and sets the name beside it — but a wide logo already
+                    contains the name, and the uploads are two crops of one
+                    brand, so showing both put the same glyph on screen twice.
+                    The wordmark becomes the button instead. It is a larger
+                    target than the 20px disc it replaces, not a smaller one.
+                  */
+                  <button
+                    type="button"
+                    aria-label="Collapse navigation"
+                    title={logoAlt}
+                    onClick={onToggleCollapsed}
+                    className="motion-tap -mx-[4px] flex min-w-0 items-center rounded-[7px] px-[4px] py-[2px] hover:bg-nav-hover active:scale-[0.98]"
+                  >
+                    {/*
+                      Height-bound, width free, capped at 168px.
+                      
+                      Production proposes 350×180 for this asset, which is a
+                      1.94:1 box — bound to a 22px row that comes out ~43px
+                      wide, far too small to read. Real agency wordmarks are
+                      nearer 4:1 or 5:1 and land around 100px, which is the case
+                      this is tuned for. Worth raising: the 350×180 guidance
+                      suits a login screen, not a nav row, and an agency that
+                      follows it literally will not like the result.
+                    */}
+                    <img
+                      src={wordmark}
+                      alt={account.name}
+                      className="h-[22px] w-auto max-w-[168px] object-contain object-left"
+                    />
+                  </button>
+                ) : (
                 <>
                   <button
                     type="button"
@@ -93,6 +132,7 @@ export function NavHeader({
                     withMark={false}
                   />
                 </>
+                )
               ) : (
                 <BrandMark account={account} logoSrc={logoSrc} alt={logoAlt} />
               )}

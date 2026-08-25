@@ -193,6 +193,43 @@
   transition-timing-function: var(--ease-overshoot);
 }
 
+
+/*
+ * The account switch, as one movement.
+ *
+ * A switch takes 2–4 seconds, and for most of it nothing can happen — the
+ * arriving account's rows do not exist yet. Cutting straight to skeleton and
+ * later cutting back made the wait read as two glitches with a pause between
+ * them. Giving the departure and the arrival a direction turns the same wait
+ * into one gesture: the old list leaves to the left, the new one arrives from
+ * the left behind it.
+ *
+ * Short, and deliberately not scaled to the wait. The motion marks the two
+ * ends; the skeleton holds the middle. A three-second animation would just be
+ * a slower stall.
+ */
+@keyframes nav-swap-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(-10px, 0, 0);
+  }
+}
+
+@keyframes nav-swap-in {
+  from {
+    opacity: 0;
+    transform: translate3d(-10px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 /* ─── Utilities ──────────────────────────────────────────────────────────── */
 
 .motion-panel-in {
@@ -201,6 +238,21 @@
 
 .motion-panel-out {
   animation: fly-panel-out var(--dur-fast) var(--ease-in-out) both;
+}
+
+.motion-nav-swap-out {
+  animation: nav-swap-out var(--dur-fast) var(--ease-in-out) both;
+}
+
+.motion-nav-swap-in {
+  animation: nav-swap-in var(--dur-base) var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-nav-swap-out,
+  .motion-nav-swap-in {
+    animation: none;
+  }
 }
 
 .motion-row-in {

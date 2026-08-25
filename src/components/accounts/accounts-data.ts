@@ -25,8 +25,17 @@ export interface Account {
    * picking hexes for it.
    */
   logo: AccountLogoSpec;
-  /** An uploaded asset, which overrides the drawn mark. */
+  /**
+   * The square mark, uploaded. Overrides the drawn tile everywhere the mark
+   * appears: the rail, the collapsed nav, the switcher.
+   */
   logoSrc?: string;
+  /**
+   * The wide logo — the 350×180 asset production already asks for. Used only
+   * where there is room for it: the expanded nav header. It carries the name
+   * inside the artwork, so nothing is set beside it.
+   */
+  wordmarkSrc?: string;
   /**
    * The tenant's real brand colour, once they have uploaded a logo to take it
    * from. Seeds the workspace accent under `[data-accent="account"]`.
@@ -55,12 +64,18 @@ export const accounts: readonly Account[] = [
     // Shares the agency's NAME (the review's hard case) but never its mark —
     // identical name plus identical logo would leave nothing to tell apart.
     meta: "1100 Congress Ave, Austin, TX",
+    wordmarkSrc: "/wordmark-acme.svg",
+    brandColor: "#d92d20",
     logo: { glyph: "bolt", ...accountColorFor("acme") },
   },
   {
     id: "northwind",
     name: "Northwind Realty",
     meta: "820 16th St, Denver, CO",
+    // Both assets uploaded: the wide logo takes the nav header, the square mark
+    // takes the rail. The account that shows the top of the ladder.
+    wordmarkSrc: "/wordmark-northwind.svg",
+    brandColor: "#0086c9",
     logo: { glyph: "peak", ...accountColorFor("northwind") },
   },
   {

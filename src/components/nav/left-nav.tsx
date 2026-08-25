@@ -76,6 +76,15 @@ interface LeftNavProps {
    * the continuity that makes a three-second wait bearable.
    */
   loading?: boolean;
+  /**
+   * Changes when the SETTLED account changes, not when a switch starts.
+   *
+   * Remounts the scrolling middle so the arriving rows play their entrance.
+   * Keyed on the committed account rather than the pending one, or the new list
+   * would mount the instant you clicked and animate in while its contents were
+   * still the old account's.
+   */
+  contentKey?: string;
   /** Row the user has selected. Null on first load — nothing is preselected. */
   selectedId: string | null;
   onSelect: (id: string) => void;
@@ -149,6 +158,7 @@ export function LeftNav({
   onToggleCollapsed,
   onSearch,
   loading = false,
+  contentKey = "",
   scope,
   account,
   recentAccounts,
@@ -262,7 +272,17 @@ export function LeftNav({
    * the card reads the same in both places, and the agency's Recent accounts
    * block sits under it rather than instead of it.
    */
-  const cardQuickActions = quickActionsShown && launchpadAllowed;
+  /*
+   * The card shows at both scopes; Quick actions does not.
+   *
+   * The setup guide was gated off at agency on the assumption that setup is a
+   * client-side job. It is not — an agency has its own account to finish, and
+   * the Aug 25 mapping gives Launchpad an L1 row. Quick actions is the other
+   * way round: it creates contacts, appointments and the like, which are things
+   * that live IN a sub-account. There is nothing for it to create from here.
+   */
+  const cardQuickActions =
+    quickActionsShown && launchpadAllowed && !agencyScope;
   const cardShowing = launchpad || cardQuickActions;
 
   /*
@@ -1138,8 +1158,12 @@ export function LeftNav({
               screen belong to the account you just left — showing them for
               three more seconds invites a click into the wrong place.
             */
-            <NavRowsSkeleton />
-          ) : bandEverything ? (
+            <div className="motion-nav-swap-out">
+              <NavRowsSkeleton />
+            </div>
+          ) : (
+            <div key={contentKey} className="motion-nav-swap-in">
+              {bandEverything ? (
             /*
               Settings is inside the last band here, not the bottom anchor it is
               in the plain arrangement. It is one of the not-a-product rows the
@@ -1168,6 +1192,8 @@ export function LeftNav({
               <NavDivider />
               {renderRow(agencyScope ? agencySettings : config.settings)}
             </>
+              )}
+            </div>
           )}
         </div>
         <div aria-hidden="true" data-scroll-fade="bottom" />

@@ -308,7 +308,23 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       ? agencyPlaces[selectedId]
       : undefined;
 
-  const accountBrand = headerAccount.brandColor ?? "var(--hr-primary-600)";
+  /*
+   * Neutral until a brand is actually set.
+   *
+   * The agency's mark is grey because it is the platform, not a tenant — and a
+   * blue accent under a grey mark was the same claim the mark had just stopped
+   * making: that HighRise's colour is the agency's. So with nothing uploaded the
+   * agency reads neutral throughout, Launchpad card included. The moment a
+   * brand colour is set it takes over everything, which is what the accent is
+   * for.
+   *
+   * Sub-accounts keep HighRise primary as their unbranded default: a client
+   * workspace with no colour at all reads unfinished rather than restrained.
+   */
+  const showingAgency = pending ? pending.scope === "agency" : agencyScope;
+  const accountBrand =
+    headerAccount.brandColor ??
+    (showingAgency ? "var(--hr-gray-600)" : "var(--hr-primary-600)");
   React.useEffect(() => {
     document.documentElement.style.setProperty("--account-brand", accountBrand);
   }, [accountBrand]);
@@ -1100,6 +1116,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             onToggleCollapsed={toggleCollapsed}
             onSearch={() => setSearchOpen(true)}
             loading={pending !== null}
+            // The settled identity, not `headerAccount` — that already shows
+            // the account being switched TO, and keying on it would remount the
+            // list a beat before its contents change.
+            contentKey={agencyScope ? "agency" : accounts.current.id}
             scope={accounts.scope}
             account={headerAccount}
             recentAccounts={recentAccounts}
