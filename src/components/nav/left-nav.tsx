@@ -245,8 +245,15 @@ export function LeftNav({
   } | null>(null);
   /** Where the show/hide menu is anchored, when it is open. */
   const [blocksAt, setBlocksAt] = React.useState<DOMRect | null>(null);
-  const [coloursAt, setColoursAt] = React.useState<DOMRect | null>(null);
-  const [templatesAt, setTemplatesAt] = React.useState<DOMRect | null>(null);
+  /*
+   * The trigger elements, not their rects.
+   *
+   * A rect frozen at click time detaches the moment anything reflows — the nav
+   * finishing an expand, the card growing a control. The panels re-measure from
+   * the element instead.
+   */
+  const [coloursAt, setColoursAt] = React.useState<HTMLElement | null>(null);
+  const [templatesAt, setTemplatesAt] = React.useState<HTMLElement | null>(null);
   /*
    * First run.
    *
@@ -813,15 +820,13 @@ export function LeftNav({
             agencyLayout.beginEditing();
           },
           onOpenBlocks: (trigger) => setBlocksAt(trigger.getBoundingClientRect()),
-          onOpenAppearance: (trigger) =>
-            setColoursAt(trigger.getBoundingClientRect()),
+          onOpenAppearance: (trigger) => setColoursAt(trigger),
           // Templates are a sub-account idea: the agency tree is platform IA,
           // so there is no arrangement of it worth reusing elsewhere.
           ...(agencyScope
             ? {}
             : {
-                onOpenTemplates: (trigger: HTMLElement) =>
-                  setTemplatesAt(trigger.getBoundingClientRect()),
+                onOpenTemplates: (trigger: HTMLElement) => setTemplatesAt(trigger),
                 showIntro: !introDismissed && !editing,
                 onDismissIntro: () => setIntroDismissed(true),
               }),

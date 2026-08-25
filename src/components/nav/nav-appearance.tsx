@@ -4,6 +4,7 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { Check, TriangleAlert } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
+import { useAnchored } from "@/lib/use-anchored";
 import { cn } from "@/lib/utils";
 
 /**
@@ -62,7 +63,8 @@ export function NavAppearance({
   onClose,
 }: {
   accountId: string;
-  anchor: DOMRect;
+  /** The control that opened it, so the panel can stay attached to it. */
+  anchor: HTMLElement;
   onClose: () => void;
 }) {
   const theme = useTheme();
@@ -76,7 +78,7 @@ export function NavAppearance({
   const ratio = contrastRatio(accentHex, surface);
   const weak = ratio < 3;
 
-  const ref = React.useRef<HTMLDivElement>(null);
+  const { ref, top, left } = useAnchored(anchor, WIDTH, GAP);
   React.useEffect(() => {
     const away = (e: PointerEvent) => {
       if (!ref.current?.contains(e.target as Node)) onClose();
@@ -89,9 +91,6 @@ export function NavAppearance({
       document.removeEventListener("keydown", esc);
     };
   }, [onClose]);
-
-  const top = Math.min(anchor.bottom + GAP, window.innerHeight - 300);
-  const left = Math.min(anchor.left, window.innerWidth - WIDTH - 8);
 
   return createPortal(
     <div

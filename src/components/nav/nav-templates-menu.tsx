@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Check, LayoutTemplate, Plus, Trash2 } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
+import { useAnchored } from "@/lib/use-anchored";
 import { useNavTemplates } from "./nav-templates";
 
 /**
@@ -25,7 +26,8 @@ export function NavTemplatesMenu({
   onClose,
 }: {
   accountName: string;
-  anchor: DOMRect;
+  /** The control that opened it, so the panel can stay attached to it. */
+  anchor: HTMLElement;
   onSave: (name: string) => void;
   onApply: (templateId: string) => void;
   onClose: () => void;
@@ -34,7 +36,7 @@ export function NavTemplatesMenu({
   const navTheme = useTheme().effective.navTheme;
   const [naming, setNaming] = React.useState(false);
   const [draft, setDraft] = React.useState("");
-  const ref = React.useRef<HTMLDivElement>(null);
+  const { ref, top, left } = useAnchored(anchor, WIDTH, GAP);
 
   React.useEffect(() => {
     const away = (e: PointerEvent) => {
@@ -55,9 +57,6 @@ export function NavTemplatesMenu({
     setDraft("");
     setNaming(false);
   };
-
-  const top = Math.min(anchor.bottom + GAP, window.innerHeight - 320);
-  const left = Math.min(anchor.left, window.innerWidth - WIDTH - 8);
 
   return createPortal(
     <div
