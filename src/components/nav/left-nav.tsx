@@ -26,11 +26,11 @@ import { useScrollEdges } from "@/lib/use-scroll-edges";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import type { DockPosition, SurfaceTheme } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
-import { usePlanFor } from "@/components/customizer/customizer-profiles";
-import { agencyEntries, agencySettings } from "./agency-config";
+import { usePlanFor } from "@/components/nav/nav-profiles";
+import { agencyEntriesFor, agencySettings } from "./agency-config";
 import { CollapseToggle } from "./collapse-toggle";
 import { EntryCluster, EntryPill, type EditNavProps } from "./entry-cluster";
-import { pinnedBlockFor } from "./favorites-morph";
+import { pinnedBlockFor } from "./pinned-morph";
 import {
   customTreeFor,
   isBlockHidden,
@@ -172,7 +172,7 @@ export function LeftNav({
   const agencyScope = scope === "agency";
   /*
    * The base plan has no setup-guide toggle: the row is always visible there. So
-   * the plan substitutes for the setting rather than the customizer merely
+   * the plan substitutes for the setting rather than the nav merely
    * showing a locked switch — the tiering is a property of the nav, not a claim
    * on a settings page. Owner key matches the shell's, so a switch moves this
    * with everything else.
@@ -364,6 +364,15 @@ export function LeftNav({
             layout.moveProductToGroup(itemId, groupId),
           onMoveToTopLevel: () => {},
           onRemove: () => layout.removeProductFromNav(itemId),
+          // Top-level rows reorder through the tail rather than through a
+          // group, but the menu entry is the same one a panel row gets — the
+          // keyboard path to reordering should not depend on where a row sits.
+          ...(tailIndex > 0
+            ? { onMoveUp: () => layout.placeInTail(itemId, tailIndex - 1) }
+            : {}),
+          ...(tailIndex < tailRowIds.length - 1
+            ? { onMoveDown: () => layout.placeInTail(itemId, tailIndex + 1) }
+            : {}),
         }),
       };
     }
@@ -535,7 +544,7 @@ export function LeftNav({
     () =>
       tidyRules(
         agencyScope
-          ? agencyEntries
+          ? agencyEntriesFor()
           : navEntriesFor(state, groups, bandEverything),
       ),
     [agencyScope, state, groups, bandEverything],
@@ -1034,7 +1043,7 @@ export function LeftNav({
       ) : null}
 
       {/*
-        The pinned capsule itself is rendered by FavoritesMorph, outside both nav
+        The pinned capsule itself is rendered by PinnedMorph, outside both nav
         faces, so it can travel between the two layouts. This reserves its space —
         here when the dock sits under the logo, and after the scroll region when it
         is pinned to the nav's bottom edge.
@@ -1069,11 +1078,11 @@ export function LeftNav({
             fade hung a visible gap below the cluster's closing rule. Now only
             the header, the pinned capsule and the search pill hold still;
             everything the account can outgrow scrolls together. The floor's
-            FavoritesRow keeps its density gate — it stands in for the capsule,
+            PinnedRow keeps its density gate — it stands in for the capsule,
             which only leaves at the floor.
           */}
           {atFloor && !agencyScope && pinnedShown ? (
-            <FavoritesRow onOpen={onOpenLauncher} />
+            <PinnedRow onOpen={onOpenLauncher} />
           ) : null}
           {cardShowing ? (
             <SetupGuideRow
@@ -1288,17 +1297,17 @@ function RecentAccountsBlock({
 /**
  * Favourites as a plain scrollable row, for the floor tier.
  *
- * The capsule cannot simply join the scroll region: FavoritesMorph positions it with
+ * The capsule cannot simply join the scroll region: PinnedMorph positions it with
  * absolute coordinates in nav-wrapper space, and the faces only reserve a hole in
  * flow, so moving the hole would leave the capsule behind. Rather than refactor that
  * geometry for the smallest screens, the floor swaps the dock for one row that opens
  * the same manage surface — the favourites are still one click away, and every row
  * in the nav is reachable.
  */
-function FavoritesRow({ onOpen }: { onOpen: () => void }) {
+function PinnedRow({ onOpen }: { onOpen: () => void }) {
   return (
     <NavItemRow
-      item={{ id: "favorites-row", label: "Pinned", icon: Pin, hasFlyout: true }}
+      item={{ id: "pinned-row", label: "Pinned", icon: Pin, hasFlyout: true }}
       onSelect={onOpen}
     />
   );

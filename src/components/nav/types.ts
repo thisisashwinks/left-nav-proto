@@ -17,6 +17,19 @@ export interface NavItem {
   hasFlyout?: boolean;
   /** Key into the flyout registry. Falls back to `id` when omitted. */
   flyoutId?: string;
+  /**
+   * The row discloses its children in place instead of opening a flyout: the
+   * chevron points down when open, and the children follow it in the same flat
+   * entry list, marked `child`.
+   *
+   * Agency scope is built entirely this way (Aug 25). Mutually exclusive with
+   * `hasFlyout` — a row cannot both open a panel and open itself.
+   */
+  expandable?: boolean;
+  /** Only meaningful with `expandable`. */
+  expanded?: boolean;
+  /** A disclosed child, indented one step under its `expandable` parent. */
+  child?: boolean;
   density?: NavItemDensity;
 }
 

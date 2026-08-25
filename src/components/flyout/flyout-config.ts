@@ -275,8 +275,8 @@ const analyze: FlyoutConfig = {
   },
 };
 
-const favorites: FlyoutConfig = {
-  id: "favorites",
+const pinned: FlyoutConfig = {
+  id: "pinned",
   // "Pinned", not "Favorites" (Aug 13): the rail directory, the row pins and
   // the dock all say pin — one verb for one gesture, everywhere.
   title: "Pinned",
@@ -322,7 +322,7 @@ const favorites: FlyoutConfig = {
   bottom: {
     kind: "action",
     row: {
-      id: "manage-favorites",
+      id: "manage-pinned",
       icon: Settings2,
       title: "Manage pinned",
       subtitle: "Reorder or remove pinned areas",
@@ -549,7 +549,7 @@ const aiAgents: FlyoutConfig = {
 };
 
 export const flyouts: Record<string, FlyoutConfig> = {
-  favorites,
+  pinned,
   recent,
   "ai-agents": aiAgents,
   "quick-actions": quickActions,

@@ -5,7 +5,7 @@ import {
   accounts as allAccounts,
   agency,
   INITIAL_ACCOUNT_ID,
-  INITIAL_FAVORITE_IDS,
+  INITIAL_PINNED_IDS,
   INITIAL_RAIL_IDS,
   INITIAL_RECENT_IDS,
   RECENT_LIMIT,
@@ -29,14 +29,14 @@ export interface AccountsSession {
   agency: Account;
   /** Most recently visited first, current account excluded. */
   recentIds: readonly string[];
-  favoriteIds: readonly string[];
+  pinnedIds: readonly string[];
   /** Ordered open set for the account rail (Model C). Never includes the agency. */
   railIds: readonly string[];
-  isFavorite: (id: string) => boolean;
+  isPinned: (id: string) => boolean;
   onRail: (id: string) => boolean;
   switchTo: (id: string) => void;
   switchToAgency: () => void;
-  toggleFavorite: (id: string) => void;
+  togglePinned: (id: string) => void;
   addToRail: (id: string) => void;
   removeFromRail: (id: string) => void;
 }
@@ -55,8 +55,8 @@ export function useAccounts(): AccountsSession {
   const [scope, setScope] = React.useState<WorkspaceScope>("account");
   const [recentIds, setRecentIds] =
     React.useState<readonly string[]>(INITIAL_RECENT_IDS);
-  const [favoriteIds, setFavoriteIds] =
-    React.useState<readonly string[]>(INITIAL_FAVORITE_IDS);
+  const [pinnedIds, setPinnedIds] =
+    React.useState<readonly string[]>(INITIAL_PINNED_IDS);
   const [railIds, setRailIds] =
     React.useState<readonly string[]>(INITIAL_RAIL_IDS);
 
@@ -83,8 +83,8 @@ export function useAccounts(): AccountsSession {
   // look from, and leaving it puts you back exactly where you were.
   const switchToAgency = React.useCallback(() => setScope("agency"), []);
 
-  const toggleFavorite = React.useCallback((id: string) => {
-    setFavoriteIds((ids) =>
+  const togglePinned = React.useCallback((id: string) => {
+    setPinnedIds((ids) =>
       ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id],
     );
   }, []);
@@ -97,9 +97,9 @@ export function useAccounts(): AccountsSession {
     setRailIds((ids) => ids.filter((i) => i !== id));
   }, []);
 
-  const isFavorite = React.useCallback(
-    (id: string) => favoriteIds.includes(id),
-    [favoriteIds],
+  const isPinned = React.useCallback(
+    (id: string) => pinnedIds.includes(id),
+    [pinnedIds],
   );
 
   const onRail = React.useCallback(
@@ -114,13 +114,13 @@ export function useAccounts(): AccountsSession {
     agency,
     // Defensive: the current account never belongs in its own Recent list.
     recentIds: recentIds.filter((id) => id !== currentId),
-    favoriteIds,
+    pinnedIds,
     railIds,
-    isFavorite,
+    isPinned,
     onRail,
     switchTo,
     switchToAgency,
-    toggleFavorite,
+    togglePinned,
     addToRail,
     removeFromRail,
   };

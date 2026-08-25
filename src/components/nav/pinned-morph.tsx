@@ -234,7 +234,7 @@ function DockButton({
   );
 }
 
-interface FavoritesMorphProps {
+interface PinnedMorphProps {
   theme: SurfaceTheme;
   items: PinnedRailItem[];
   collapsed: boolean;
@@ -267,7 +267,7 @@ interface FavoritesMorphProps {
  * their DOM order. It is rendered before the faces to keep it as close to its
  * visual position in the tab order as possible.
  */
-export function FavoritesMorph({
+export function PinnedMorph({
   theme,
   items,
   collapsed,
@@ -278,7 +278,7 @@ export function FavoritesMorph({
   dockLabel,
   dockPosition,
   topOffset = 0,
-}: FavoritesMorphProps) {
+}: PinnedMorphProps) {
   const visible = items.slice(0, PINNED_VISIBLE);
   // Favourites plus the permanent grid chip.
   const g = collapsed ? collapsedGeometry(visible.length + 1) : expandedGeometry();

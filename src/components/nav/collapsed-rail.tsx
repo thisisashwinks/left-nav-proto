@@ -12,14 +12,14 @@ import type { SurfaceTheme } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { EntryClusterRail } from "./entry-cluster";
-import { agencyEntries, agencySettings } from "./agency-config";
-import { collapsedPinnedBlock, PINNED_VISIBLE } from "./favorites-morph";
+import { agencyRailItems, agencySettings } from "./agency-config";
+import { collapsedPinnedBlock, PINNED_VISIBLE } from "./pinned-morph";
 import { navEntriesFor } from "./nav-entries";
 import { useNavLayout } from "./nav-layout-provider";
 import { flyoutIdFor, navConfig } from "./nav-config";
 import { RailTooltip } from "./rail-tooltip";
 import type { NavDensity } from "./use-nav-density";
-import type { NavConfig, NavItem } from "./types";
+import type { NavConfig, NavEntry, NavItem } from "./types";
 
 interface CollapsedRailProps {
   theme: SurfaceTheme;
@@ -95,7 +95,13 @@ export function CollapsedRail({
   // rows. Editing is not offered here — there is no visible label to rename, so
   // the rail shows the result of an edit rather than being a place to make one.
   const entries = React.useMemo(
-    () => (agencyScope ? agencyEntries : navEntriesFor(layout, groups)),
+    () =>
+      agencyScope
+        ? // L1 only. The rail has no room to disclose, and a child row here
+          // would be an icon with no parent visible to explain it — expanding
+          // the nav is how you reach the second level.
+          agencyRailItems.map((item): NavEntry => ({ kind: "item", item }))
+        : navEntriesFor(layout, groups),
     [agencyScope, layout, groups],
   );
 
@@ -263,7 +269,7 @@ export function CollapsedRail({
       ) : null}
 
       {/*
-        Reserved space for the pinned capsule, which FavoritesMorph renders
+        Reserved space for the pinned capsule, which PinnedMorph renders
         outside both nav faces so it can travel between the two layouts.
       */}
       {dockPosition === "top" && !atFloor ? (
@@ -315,7 +321,7 @@ export function CollapsedRail({
         >
           {atFloor && !agencyScope ? (
             <>
-              {railButton("favorites-rail", "Pinned", <Pin size={16} aria-hidden="true" />, false, onOpenLauncher)}
+              {railButton("pinned-rail", "Pinned", <Pin size={16} aria-hidden="true" />, false, onOpenLauncher)}
               {config.railFixed.map(renderRailRow)}
               {divider("div-fixed-floor")}
             </>

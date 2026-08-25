@@ -139,20 +139,23 @@ export function AccountRail({
           !expanded && !switcherOpen && "bg-transparent",
           /*
             The two widened states round differently, and on purpose.
-            
-            Hovering an account is a peek: the strip grows a little, stays inside
-            the chrome card, and reads as a floating panel — so all four corners
-            follow the card's radius.
 
-            The directory is a takeover. It is wider than the card, so its right
-            edge is a cut across the page rather than the edge of a panel sitting
-            on it, and a radius there would round a corner in open space. Left
-            corners still follow the card, since that edge IS the card's edge.
+            The expanded peek grows over the nav sitting right behind it. It is
+            the rail continuing, not a second card laid on top, so its right
+            edge stays square — a radius there notches the seam and reads as a
+            gap where the two surfaces are meant to be continuous.
+
+            The directory is a takeover that stands clear of what it covers, so
+            it reads as its own panel and keeps all four corners.
+
+            Left corners follow the card in both, since that edge IS the card's.
           */
+          // Same precedence as `width` above: both flags can be true at once,
+          // and the directory wins.
           switcherOpen
-            ? "rounded-l-[var(--shell-canvas-radius)]"
+            ? "rounded-[var(--shell-canvas-radius)]"
             : expanded
-              ? "rounded-[var(--shell-canvas-radius)]"
+              ? "rounded-l-[var(--shell-canvas-radius)]"
               : null,
         )}
         style={{ width }}

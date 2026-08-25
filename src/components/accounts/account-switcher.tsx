@@ -191,10 +191,10 @@ export function AccountSwitcher({
                     index={index}
                     active={account.id === s.activeId}
                     current={account.id === session.current.id}
-                    favorite={session.isFavorite(account.id)}
+                    pinned={session.isPinned(account.id)}
                     onActivate={() => s.setActiveIndex(index)}
                     onSelect={() => s.select(account.id)}
-                    onToggleFavorite={() => session.toggleFavorite(account.id)}
+                    onTogglePinned={() => session.togglePinned(account.id)}
                   />
                 );
               })}

@@ -1,3 +1,5 @@
+import { accountColorFor } from "@/lib/account-color";
+
 import type { AccountLogoSpec } from "./account-logo";
 
 /**
@@ -17,10 +19,24 @@ export interface Account {
    * The fallback mark, drawn from this spec — see `account-logo.tsx`. Kept
    * even when `logoSrc` is set: its `from` colour paints the tile while the
    * real logo loads, and stands in entirely if the fetch fails offline.
+   *
+   * Only the SHAPE is authored here. The colours come from
+   * `accountColorFor(id)`, so a new account gets a usable tile without anyone
+   * picking hexes for it.
    */
   logo: AccountLogoSpec;
   /** An uploaded asset, which overrides the drawn mark. */
   logoSrc?: string;
+  /**
+   * The tenant's real brand colour, once they have uploaded a logo to take it
+   * from. Seeds the workspace accent under `[data-accent="account"]`.
+   *
+   * Deliberately NOT `logo.from`. That field used to do both jobs, which meant
+   * a fallback tile colour repainted every button and link in the app — so an
+   * account that had never uploaded anything still "had" a brand. Absent here
+   * means no brand yet, and the accent stays on HighRise primary.
+   */
+  brandColor?: string;
 }
 
 export const accounts: readonly Account[] = [
@@ -31,7 +47,7 @@ export const accounts: readonly Account[] = [
     id: "fieldstone",
     name: "Fieldstone Group",
     meta: "700 Louisiana St, Houston, TX",
-    logo: { glyph: "peak", from: "#0f766e", to: "#2dd4bf" },
+    logo: { glyph: "peak", ...accountColorFor("fieldstone") },
   },
   {
     id: "acme",
@@ -39,37 +55,37 @@ export const accounts: readonly Account[] = [
     // Shares the agency's NAME (the review's hard case) but never its mark —
     // identical name plus identical logo would leave nothing to tell apart.
     meta: "1100 Congress Ave, Austin, TX",
-    logo: { glyph: "bolt", from: "#b91c1c", to: "#ef4444" },
+    logo: { glyph: "bolt", ...accountColorFor("acme") },
   },
   {
     id: "northwind",
     name: "Northwind Realty",
     meta: "820 16th St, Denver, CO",
-    logo: { glyph: "peak", from: "#0369a1", to: "#0ea5e9" },
+    logo: { glyph: "peak", ...accountColorFor("northwind") },
   },
   {
     id: "brightpath",
     name: "Brightpath Dental",
     meta: "4455 E Camelback Rd, Phoenix, AZ",
-    logo: { glyph: "ring", from: "#0f766e", to: "#14b8a6" },
+    logo: { glyph: "ring", ...accountColorFor("brightpath") },
   },
   {
     id: "coastal",
     name: "Coastal Fitness Co.",
     meta: "2100 Kettner Blvd, San Diego, CA",
-    logo: { glyph: "wave", from: "#0e7490", to: "#22d3ee" },
+    logo: { glyph: "wave", ...accountColorFor("coastal") },
   },
   {
     id: "lumen",
     name: "Lumen Home Services",
     meta: "615 Church St, Nashville, TN",
-    logo: { glyph: "spark", from: "#b45309", to: "#f59e0b" },
+    logo: { glyph: "spark", ...accountColorFor("lumen") },
   },
   {
     id: "pinnacle",
     name: "Pinnacle Roofing",
     meta: "1200 Main St, Kansas City, MO",
-    logo: { glyph: "chevrons", from: "#c2410c", to: "#f97316" },
+    logo: { glyph: "chevrons", ...accountColorFor("pinnacle") },
   },
   {
     id: "riverstone",
@@ -77,43 +93,43 @@ export const accounts: readonly Account[] = [
     meta: "900 SW 5th Ave, Portland, OR",
     // No mark on purpose: stands in for the production majority that never
     // uploads a logo — the tile falls back to initials (Aug 13 review).
-    logo: { initials: "RL", from: "#334155", to: "#64748b" },
+    logo: { initials: "RL", ...accountColorFor("riverstone") },
   },
   {
     id: "summit",
     name: "Summit Auto Group",
     meta: "300 W Myrtle St, Boise, ID",
-    logo: { glyph: "bolt", from: "#1d4ed8", to: "#3b82f6" },
+    logo: { glyph: "bolt", ...accountColorFor("summit") },
   },
   {
     id: "veritas",
     name: "Veritas Insurance",
     meta: "185 Asylum St, Hartford, CT",
-    logo: { glyph: "arc", from: "#6d28d9", to: "#8b5cf6" },
+    logo: { glyph: "arc", ...accountColorFor("veritas") },
   },
   {
     id: "bluebird",
     name: "Bluebird Med Spa",
     meta: "1450 Brickell Ave, Miami, FL",
-    logo: { glyph: "leaf", from: "#be185d", to: "#f43f5e" },
+    logo: { glyph: "leaf", ...accountColorFor("bluebird") },
   },
   {
     id: "ironwood",
     name: "Ironwood Landscaping",
     meta: "88 E Broad St, Columbus, OH",
-    logo: { glyph: "peak", from: "#15803d", to: "#22c55e" },
+    logo: { glyph: "peak", ...accountColorFor("ironwood") },
   },
   {
     id: "harborview",
     name: "Harborview Hotels",
     meta: "25 Calhoun St, Charleston, SC",
-    logo: { glyph: "dots", from: "#1e3a8a", to: "#2563eb" },
+    logo: { glyph: "dots", ...accountColorFor("harborview") },
   },
   {
     id: "quantum",
     name: "Quantum IT Partners",
     meta: "150 Fayetteville St, Raleigh, NC",
-    logo: { glyph: "orbit", from: "#7e22ce", to: "#a855f7" },
+    logo: { glyph: "orbit", ...accountColorFor("quantum") },
   },
   {
     // The smallest thing an agency sells: five products and a chair. Here so
@@ -122,13 +138,13 @@ export const accounts: readonly Account[] = [
     id: "fadeco",
     name: "Fade & Co Barbers",
     meta: "1912 Magazine St, New Orleans, LA",
-    logo: { glyph: "chevrons", from: "#3f3f46", to: "#71717a" },
+    logo: { glyph: "chevrons", ...accountColorFor("fadeco") },
   },
   {
     id: "wildflower",
     name: "Wildflower Coaching",
     meta: "1401 Pearl St, Boulder, CO",
-    logo: { glyph: "leaf", from: "#4d7c0f", to: "#84cc16" },
+    logo: { glyph: "leaf", ...accountColorFor("wildflower") },
   },
   {
     id: "meadowlark",
@@ -136,7 +152,7 @@ export const accounts: readonly Account[] = [
     meta: "1 S Pinckney St, Madison, WI",
     // Second no-logo account, so the fallback shows in a list, not as a
     // one-off.
-    logo: { initials: "MB", from: "#a16207", to: "#eab308" },
+    logo: { initials: "MB", ...accountColorFor("meadowlark") },
   },
 ];
 
@@ -157,7 +173,12 @@ export const agency: Account = {
   // hardest case is an agency whose client carries the same name, so the
   // differentiator has to survive identical strings. It is the plate the
   // tile sits on — never a label, never a shape trick.
-  logo: { glyph: "block", from: "#155eef", to: "#528bff" },
+  //
+  // Neutral grey, and the only account that is: `accountColorFor` special-cases
+  // this id. The agency is the platform, not a tenant, so it has no brand of
+  // its own to wear until one is uploaded — which is what the new agency logo
+  // field is for. A blue mark here read as just another client.
+  logo: { glyph: "block", ...accountColorFor("agency") },
 };
 
 /** The account the session starts in. Matches the logo in the nav header. */
@@ -211,7 +232,7 @@ export const INITIAL_RECENT_IDS: readonly string[] = [
   "harborview",
 ];
 
-export const INITIAL_FAVORITE_IDS: readonly string[] = [
+export const INITIAL_PINNED_IDS: readonly string[] = [
   "brightpath",
   "pinnacle",
   "harborview",

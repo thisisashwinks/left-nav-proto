@@ -32,6 +32,16 @@ interface FlyoutPanelProps {
   config: FlyoutConfig;
   /** Distance from the viewport's left edge — 272 when open, 64 when collapsed. */
   offsetLeft: number;
+  /**
+   * Distance from the row's top edge — the canvas gap, so the panel's top lines
+   * up with the nav card's.
+   *
+   * It briefly cleared the app bar as well in the joined arrangement, so the
+   * breadcrumb stayed uncovered. That was wrong: it left the panel 48px shorter
+   * than the nav it docks against, and the two are meant to read as one
+   * surface. Matching the nav wins; the bar is a transient thing to cover.
+   */
+  offsetTop: number;
   theme: SurfaceTheme;
   phase: TransitionPhase;
   /** Keeps the panel alive while the pointer is inside it. */
@@ -60,6 +70,7 @@ const ADD_VIEW = "add";
 export function FlyoutPanel({
   config,
   offsetLeft,
+  offsetTop,
   theme,
   phase,
   onPointerEnter,
@@ -234,10 +245,16 @@ export function FlyoutPanel({
     />
   );
 
-  const menuActions = (productId: string): RowMenuAction[] =>
+  const menuActions = (productId: string): RowMenuAction[] => {
+    // Where this row sits in its category, so the menu can offer a nudge and
+    // know when not to. Absent for a panel with no category behind it.
+    const order = category?.productIds ?? [];
+    const at = order.indexOf(productId);
+    const canMove = category !== undefined && at !== -1;
+
     // The shared builder, so a product's menu is the same object wherever the
     // row is — in this panel or sitting at the nav's top level.
-    productMenuActions({
+    return productMenuActions({
       productId,
       currentGroupId: category?.id ?? null,
       categories: destinations,
@@ -245,7 +262,20 @@ export function FlyoutPanel({
       onMoveToGroup: (groupId) => layout.moveProductToGroup(productId, groupId),
       onMoveToTopLevel: () => layout.placeInTail(productId, 0),
       onRemove: () => layout.removeProductFromNav(productId),
+      ...(canMove && at > 0
+        ? {
+            onMoveUp: () =>
+              layout.moveProductWithinGroup(category.id, at, at - 1),
+          }
+        : {}),
+      ...(canMove && at < order.length - 1
+        ? {
+            onMoveDown: () =>
+              layout.moveProductWithinGroup(category.id, at, at + 1),
+          }
+        : {}),
     });
+  };
 
   /*
    * A panel whose only row is expandable opens it.
@@ -286,7 +316,7 @@ export function FlyoutPanel({
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
       tabIndex={-1}
-      style={{ left: offsetLeft }}
+      style={{ left: offsetLeft, top: offsetTop }}
       className={cn(
         // The panel itself no longer scrolls — its middle does.
         //
@@ -304,7 +334,7 @@ export function FlyoutPanel({
         // idea: this is the nav continuing, not a second card. A left radius would
         // cut a notch out of the seam, and a left border would sit against the
         // card's right border and read as one 2px line.
-        "absolute top-[var(--shell-canvas-gap)] bottom-[var(--shell-canvas-gap)] z-30 flex w-[360px] flex-col items-start overflow-hidden rounded-r-[var(--shell-canvas-radius)] bg-nav pt-[14px] pb-[16px] outline-none",
+        "absolute bottom-[var(--shell-canvas-gap)] z-30 flex w-[360px] flex-col items-start overflow-hidden rounded-r-[var(--shell-canvas-radius)] bg-nav pt-[14px] pb-[16px] outline-none",
         // Editing, the panel completes the nav's ring rather than wearing its
         // own border — top, right and bottom in brand, nothing on the left, so
         // the two boxes read as one surface with one stroke around it.

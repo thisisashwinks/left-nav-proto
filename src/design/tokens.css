@@ -107,6 +107,121 @@
   --hr-error-700: #b42318;
   --hr-error-800: #912018;
   --hr-error-900: #7a271a;
+
+  /*
+   * The hue families beyond the seven the chrome needs. Added Aug 25 for
+   * `lib/account-color.ts`, which assigns a sub-account's avatar tile a hue
+   * deterministically instead of hand-picking one per account. Same source and
+   * same 25→900 shape as the ramps above.
+   */
+
+  --hr-indigo-25: #f5f8ff;
+  --hr-indigo-50: #eef4ff;
+  --hr-indigo-100: #e0eaff;
+  --hr-indigo-200: #c7d7fe;
+  --hr-indigo-300: #a4bcfd;
+  --hr-indigo-400: #8098f9;
+  --hr-indigo-500: #6172f3;
+  --hr-indigo-600: #444ce7;
+  --hr-indigo-700: #3538cd;
+  --hr-indigo-800: #2d31a6;
+  --hr-indigo-900: #2d3282;
+
+  --hr-violet-25: #fbfaff;
+  --hr-violet-50: #f5f3ff;
+  --hr-violet-100: #ece9fe;
+  --hr-violet-200: #ddd6fe;
+  --hr-violet-300: #c3b5fd;
+  --hr-violet-400: #a48afb;
+  --hr-violet-500: #875bf7;
+  --hr-violet-600: #7839ee;
+  --hr-violet-700: #6927da;
+  --hr-violet-800: #5720b7;
+  --hr-violet-900: #491c96;
+
+  --hr-purple-25: #fafaff;
+  --hr-purple-50: #f4f3ff;
+  --hr-purple-100: #ebe9fe;
+  --hr-purple-200: #d9d6fe;
+  --hr-purple-300: #bdb4fe;
+  --hr-purple-400: #9b8afb;
+  --hr-purple-500: #7a5af8;
+  --hr-purple-600: #6938ef;
+  --hr-purple-700: #5925dc;
+  --hr-purple-800: #4a1fb8;
+  --hr-purple-900: #3e1c96;
+
+  --hr-fuchsia-25: #fefaff;
+  --hr-fuchsia-50: #fdf4ff;
+  --hr-fuchsia-100: #fbe8ff;
+  --hr-fuchsia-200: #f6d0fe;
+  --hr-fuchsia-300: #eeaafd;
+  --hr-fuchsia-400: #e478fa;
+  --hr-fuchsia-500: #d444f1;
+  --hr-fuchsia-600: #ba24d5;
+  --hr-fuchsia-700: #9f1ab1;
+  --hr-fuchsia-800: #821890;
+  --hr-fuchsia-900: #6f1877;
+
+  --hr-pink-25: #fef6fb;
+  --hr-pink-50: #fdf2fa;
+  --hr-pink-100: #fce7f6;
+  --hr-pink-200: #fcceee;
+  --hr-pink-300: #faa7e0;
+  --hr-pink-400: #f670c7;
+  --hr-pink-500: #ee46bc;
+  --hr-pink-600: #dd2590;
+  --hr-pink-700: #c11574;
+  --hr-pink-800: #9e165f;
+  --hr-pink-900: #851651;
+
+  --hr-rose-25: #fff5f6;
+  --hr-rose-50: #fff1f3;
+  --hr-rose-100: #ffe4e8;
+  --hr-rose-200: #fecdd6;
+  --hr-rose-300: #fea3b4;
+  --hr-rose-400: #fd6f8e;
+  --hr-rose-500: #f63d68;
+  --hr-rose-600: #e31b54;
+  --hr-rose-700: #c01048;
+  --hr-rose-800: #a11043;
+  --hr-rose-900: #89123e;
+
+  --hr-orange-25: #fefaf5;
+  --hr-orange-50: #fef6ee;
+  --hr-orange-100: #fdead7;
+  --hr-orange-200: #f9dbaf;
+  --hr-orange-300: #f7b27a;
+  --hr-orange-400: #f38744;
+  --hr-orange-500: #ef6820;
+  --hr-orange-600: #e04f16;
+  --hr-orange-700: #b93815;
+  --hr-orange-800: #932f19;
+  --hr-orange-900: #772917;
+
+  --hr-teal-25: #f6fefc;
+  --hr-teal-50: #f0fdf9;
+  --hr-teal-100: #ccfbef;
+  --hr-teal-200: #99f6e0;
+  --hr-teal-300: #5fe9d0;
+  --hr-teal-400: #2ed3b7;
+  --hr-teal-500: #15b79e;
+  --hr-teal-600: #0e9384;
+  --hr-teal-700: #107569;
+  --hr-teal-800: #125d56;
+  --hr-teal-900: #134e48;
+
+  --hr-cyan-25: #f5feff;
+  --hr-cyan-50: #ecfdff;
+  --hr-cyan-100: #cff9fe;
+  --hr-cyan-200: #a5f0fc;
+  --hr-cyan-300: #67e3f9;
+  --hr-cyan-400: #22ccee;
+  --hr-cyan-500: #06aed4;
+  --hr-cyan-600: #088ab2;
+  --hr-cyan-700: #0e7090;
+  --hr-cyan-800: #155b75;
+  --hr-cyan-900: #164c63;
 }
 
 /* ─── Layer 2: brand / accent ───────────────────────────────────────────── */

@@ -67,7 +67,7 @@ import {
   type Density,
   type NavRole,
 } from "@/components/nav/grouping";
-import { useCustomizerProfiles } from "@/components/customizer/customizer-profiles";
+import { useNavProfiles } from "@/components/nav/nav-profiles";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { cn } from "@/lib/utils";
 import { useTuning } from "./tuning-provider";
@@ -143,7 +143,7 @@ function NavStructureSection({
   // nav in front of you, and this panel is read while switching between a
   // four-product barbershop and a thirty-product retail chain.
   const density = densityFor(state.enabledProducts.length);
-  const { demoPlan, setDemoPlan } = useCustomizerProfiles();
+  const { demoPlan, setDemoPlan } = useNavProfiles();
 
   // Compared against the store's own defaults rather than hardcoded values — the
   // default grouping moved to `job`, and a literal here silently claimed the
@@ -176,7 +176,7 @@ function NavStructureSection({
       <p className="text-[10px] leading-[14px] text-pg-faint">
         {demoPlan === null
           ? "Each account on the plan it is seeded with, so the sub-account list shows a real spread."
-          : `Every account forced onto ${PLAN_PRICES[demoPlan]}, to read the customizer as that agency sees it.`}
+          : `Every account forced onto ${PLAN_PRICES[demoPlan]}, to read the nav as that agency sees it.`}
       </p>
 
       <Segmented

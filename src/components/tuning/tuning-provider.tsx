@@ -16,7 +16,7 @@ interface TuningContextValue {
   isDefault: boolean;
   /** Whose knobs the live nav wears. The shell sets it on every switch. */
   setActiveAccount: (accountId: string | null) => void;
-  /** Per-account access, for the customizer editing someone you are not in. */
+  /** Per-account access: each account carries its own tuning. */
   stateFor: (accountId: string) => TuningState;
   setFor: <K extends keyof TuningState>(
     accountId: string,

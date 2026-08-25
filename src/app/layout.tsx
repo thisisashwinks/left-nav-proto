@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
-import { CustomizerProfilesProvider } from "@/components/customizer/customizer-profiles";
+import { NavProfilesProvider } from "@/components/nav/nav-profiles";
 import { NavLayoutProvider } from "@/components/nav/nav-layout-provider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { TuningPanel } from "@/components/tuning/tuning-panel";
@@ -43,10 +43,10 @@ export default function RootLayout({
         <ThemeProvider>
           <TuningProvider>
             <NavLayoutProvider>
-              <CustomizerProfilesProvider>
+              <NavProfilesProvider>
                 <TooltipProvider>{children}</TooltipProvider>
                 <TuningPanel />
-              </CustomizerProfilesProvider>
+              </NavProfilesProvider>
             </NavLayoutProvider>
           </TuningProvider>
         </ThemeProvider>

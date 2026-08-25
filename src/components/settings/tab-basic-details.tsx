@@ -3,6 +3,7 @@
 import * as React from "react";
 import { FileText, Plus, Search } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
+import { hashId } from "@/lib/account-color";
 
 /**
  * Basic Details, as production draws it: the Account and General Information
@@ -223,9 +224,7 @@ function phoneFor(city: string, line: string): string {
 }
 
 function ownerFor(account: Account): (typeof OWNERS)[number] {
-  let hash = 0;
-  for (const char of account.id) hash = (hash * 31 + char.charCodeAt(0)) % 997;
-  return OWNERS[hash % OWNERS.length];
+  return OWNERS[hashId(account.id) % OWNERS.length];
 }
 
 /** "1100 Congress Ave, Austin, TX" -> street, city, region. */

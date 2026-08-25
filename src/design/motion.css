@@ -110,8 +110,8 @@
   }
 }
 
-/* Confirms a favourite toggled without moving anything around it. */
-@keyframes star-pop {
+/* Confirms a pin toggled without moving anything around it. */
+@keyframes pin-pop {
   0% {
     scale: 1;
   }
@@ -144,6 +144,21 @@
  * fails to animate them (and `transition-[transform]` degrades to `all`), so the
  * property lists live here where they can name every property once, correctly.
  */
+
+/*
+ * Drives `pin-pop`. The keyframes have been here since the dock landed, but the
+ * class that runs them never was — account-row applied `motion-star-pop` and
+ * Tailwind had nothing to resolve it to, so the pin toggled with no feedback.
+ */
+.motion-pin-pop {
+  animation: pin-pop var(--dur-fast) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-pin-pop {
+    animation: none;
+  }
+}
 
 .motion-tap {
   transition-property:

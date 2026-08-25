@@ -6,7 +6,6 @@ import type { Account } from "@/components/accounts/accounts-data";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { BasicDetailsTab } from "./tab-basic-details";
-import { NavigationTab } from "./tab-navigation";
 import { ProductionStubTab } from "./tab-production-stub";
 
 /**
@@ -14,17 +13,19 @@ import { ProductionStubTab } from "./tab-production-stub";
  * back arrow, account name, the note chip, Switch to Sub-Account and Actions,
  * then the tab strip.
  *
- * The proposal is one tab wide. Navigation is the only new entry in that strip
- * and the only tab this prototype draws in full — every other tab is
- * production's, named in production's order, and left alone. Keeping the page
- * that people already use means the nav work can ship as an addition rather
- * than a migration.
+ * It carries no Navigation tab. That tab was the prototype's second way to edit
+ * a nav tree, and the Aug 25 review chose one: editing happens in place, in the
+ * sidebar, on the account you are in. The page stays because the Sub-accounts
+ * table needs somewhere to go and because Basic Details shows the surface the
+ * nav work sits beside — but the tree editor and its live preview are gone.
+ *
+ * The cost, taken deliberately: an agency admin can no longer shape a
+ * sub-account's nav without switching into it.
  */
 
 /** Production's tabs, in production's order. */
 const TABS = [
   { id: "basic", label: "Basic Details" },
-  { id: "navigation", label: "Navigation", isNew: true },
   { id: "saas", label: "SaaS" },
   { id: "features", label: "Features and Limits" },
   { id: "payments", label: "Payments" },
@@ -47,9 +48,9 @@ export function SubAccountPage({
   onBack: () => void;
 }) {
   const { effective } = useTheme();
-  // The nav tab is the reason this page exists in the prototype, so it opens
-  // there; Basic Details is one click away and shows the page it was added to.
-  const [tab, setTab] = React.useState<TabId>("navigation");
+  // Production's own first tab. The page used to open on Navigation, which no
+  // longer exists here.
+  const [tab, setTab] = React.useState<TabId>("basic");
   const active = TABS.find((t) => t.id === tab) ?? TABS[0];
 
   return (
@@ -118,11 +119,6 @@ export function SubAccountPage({
                 )}
               >
                 {t.label}
-                {"isNew" in t && t.isNew ? (
-                  <span className="rounded-[5px] bg-[color-mix(in_oklab,var(--brand)_14%,transparent)] px-[5px] py-[2px] text-[10px] leading-none font-semibold text-brand">
-                    New
-                  </span>
-                ) : null}
               </button>
             );
           })}
@@ -134,10 +130,7 @@ export function SubAccountPage({
         className="min-h-0 flex-1 overflow-y-auto p-[16px]"
       >
         {tab === "basic" ? <BasicDetailsTab key={account.id} account={account} /> : null}
-        {tab === "navigation" ? <NavigationTab key={account.id} account={account} /> : null}
-        {tab !== "basic" && tab !== "navigation" ? (
-          <ProductionStubTab label={active.label} />
-        ) : null}
+        {tab !== "basic" ? <ProductionStubTab label={active.label} /> : null}
       </main>
     </div>
   );

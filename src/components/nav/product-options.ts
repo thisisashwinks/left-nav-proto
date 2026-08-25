@@ -1,4 +1,4 @@
-import { FolderInput, Pencil, Trash2 } from "lucide-react";
+import { FolderInput, MoveDown, MoveUp, Pencil, Trash2 } from "lucide-react";
 import type { RowMenuAction, RowMenuOption } from "./row-menu";
 import {
   navTreeFor,
@@ -66,6 +66,8 @@ export function productMenuActions({
   onMoveToGroup,
   onMoveToTopLevel,
   onRemove,
+  onMoveUp,
+  onMoveDown,
 }: {
   productId: string;
   currentGroupId: string | null;
@@ -74,10 +76,23 @@ export function productMenuActions({
   onMoveToGroup: (groupId: string) => void;
   onMoveToTopLevel: () => void;
   onRemove: () => void;
+  /**
+   * Reorder within the row's own list. Omitted at the ends, exactly as the
+   * category rows do it — an offered "Move up" that does nothing is worse than
+   * a greyed one that shows the limit.
+   *
+   * Drag was the only way to do this until the customizer's nudge buttons were
+   * removed with it (Aug 25). Those buttons were the keyboard, 200%-zoom and
+   * trackpad-averse path; the menu is where that path lives now.
+   */
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }): RowMenuAction[] {
   void productId;
   return [
     { id: "rename", label: "Rename", icon: Pencil, onSelect: onRename },
+    { id: "up", label: "Move up", icon: MoveUp, ...(onMoveUp ? { onSelect: onMoveUp } : {}) },
+    { id: "down", label: "Move down", icon: MoveDown, ...(onMoveDown ? { onSelect: onMoveDown } : {}) },
     {
       id: "move",
       label: "Move to",

@@ -28,7 +28,7 @@ import { DEFAULT_LAYOUT, type CustomGroup, type GroupingMode, type NavLayoutStat
  *              trade vocabulary that only renders in that mode.
  *  labels      the vocabulary of the trade. A dental practice has Patients, a
  *              gym has Members, a law firm has Matters. Written into the
- *              ACCOUNT scope, so the customizer shows them as overrides and
+ *              ACCOUNT scope, so the nav shows them as overrides and
  *              "Reset" puts the shipped name back — which is exactly what an
  *              agency did to get here.
  *  links       the tools that account bolts on beside the products.
@@ -630,7 +630,7 @@ export function navProfileFor(accountId: string): NavLayoutState {
     customGroups,
     pinned: (seed.pinned ?? DEFAULT_PINNED).filter((id) => enabled.has(id)),
     // Account scope, not agency: these are renames one client asked for, and
-    // the customizer has to show them as overrides that can be reset.
+    // the nav has to show them as overrides that can be reset.
     accountProductLabels: keep(seed.productLabels),
     accountLabels: { ...(seed.groupLabels ?? {}) },
     customLinks: [...(seed.links ?? [])],

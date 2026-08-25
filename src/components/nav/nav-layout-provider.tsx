@@ -199,15 +199,15 @@ interface NavLayoutContextValue {
 
   /**
    * Per-account layouts: every sub-account carries its own grouping, pins,
-   * labels and icons. The shell activates the current account's profile;
-   * the customizer reads and writes any account's without activating it.
+   * labels and icons. The shell activates the current account's profile.
+   *
+   * `profileFor` reads an account without activating it — the Sub-accounts
+   * table counts each account's enabled products that way. There is no
+   * cross-account WRITE any more: the customizer that did that is gone, and
+   * in-place editing only ever touches the account you are in.
    */
   setActiveAccount: (accountId: string) => void;
   profileFor: (accountId: string) => NavLayoutState;
-  updateProfile: (
-    accountId: string,
-    recipe: (s: NavLayoutState) => NavLayoutState,
-  ) => void;
 }
 
 const NavLayoutContext = React.createContext<NavLayoutContextValue | null>(null);
@@ -529,24 +529,6 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
     [activeId, state, profiles],
   );
 
-  const updateProfile = React.useCallback(
-    (accountId: string, recipe: (s: NavLayoutState) => NavLayoutState) => {
-      if (accountId === activeIdRef.current) {
-        dispatch({
-          type: "commit",
-          message: "",
-          next: (s) => recipe(s),
-          silent: true,
-        });
-        return;
-      }
-      setProfiles((all) => ({
-        ...all,
-        [accountId]: recipe(all[accountId] ?? navProfileFor(accountId)),
-      }));
-    },
-    [],
-  );
 
   const commit = React.useCallback(
     (
@@ -1017,7 +999,6 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
 
       setActiveAccount,
       profileFor,
-      updateProfile,
     };
   }, [
     state,
@@ -1030,7 +1011,6 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
     commit,
     setActiveAccount,
     profileFor,
-    updateProfile,
   ]);
 
   return <NavLayoutContext value={value}>{children}</NavLayoutContext>;

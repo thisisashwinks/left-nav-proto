@@ -18,7 +18,7 @@ export const ACCENTS = [
   // Follows the current sub-account's logo colour; see [data-accent="account"]
   // in tokens.css.
   "account",
-  // An arbitrary swatch — the customizer writes --custom-accent on <html>.
+  // An arbitrary swatch — theme-provider writes --custom-accent on <html>.
   "custom",
   "highrise",
   "pencil-blue",
@@ -331,9 +331,10 @@ export const DEFAULT_THEME: ThemeState = {
   // Off: the proposal's own answer. The toggle is how you argue with it.
   tabsInNav: false,
   navSections: "plain",
-  // The plane is what the review has been reading all along, so it stays the
-  // default and the joined canvas is the thing being proposed against it.
-  pageShell: "plane",
+  // The bar in the canvas — the Aug 25 answer to "move back to a normal
+  // layout". The nav keeps floating; the chrome joins the page it names, so the
+  // arrangement reads as one surface rather than two detached ones.
+  pageShell: "canvas",
 };
 
 /** Human-readable labels, for the controls UI added later. */

@@ -48,9 +48,9 @@ export function useAccountSwitcher(
    */
   const [snapshot] = React.useState(() => ({
     recentIds: session.recentIds,
-    favoriteIds: session.favoriteIds,
+    pinnedIds: session.pinnedIds,
   }));
-  const { recentIds, favoriteIds } = snapshot;
+  const { recentIds, pinnedIds } = snapshot;
 
   const groups = React.useMemo<AccountGroup[]>(() => {
     const byId = (id: string) => accounts.find((a) => a.id === id);
@@ -67,7 +67,7 @@ export function useAccountSwitcher(
       .map(byId)
       .filter((a): a is Account => a !== undefined && a.id !== current.id);
 
-    const favorites = favoriteIds
+    const pinnedAccounts = pinnedIds
       .map(byId)
       .filter((a): a is Account => a !== undefined);
 
@@ -77,16 +77,16 @@ export function useAccountSwitcher(
     // read as missing, and would put its star out of reach.
     const shown = new Set([
       ...recent.map((a) => a.id),
-      ...favorites.map((a) => a.id),
+      ...pinnedAccounts.map((a) => a.id),
     ]);
     const rest = accounts.filter((a) => !shown.has(a.id));
 
     return [
       { id: "recent", label: "Recent", accounts: recent },
-      { id: "favorites", label: "Pinned", accounts: favorites },
+      { id: "pinned", label: "Pinned", accounts: pinnedAccounts },
       { id: "all", label: "All accounts", accounts: rest },
     ].filter((g) => g.accounts.length > 0);
-  }, [accounts, current.id, favoriteIds, query, recentIds]);
+  }, [accounts, current.id, pinnedIds, query, recentIds]);
 
   const flat = React.useMemo(() => groups.flatMap((g) => g.accounts), [groups]);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Brush, ChevronRight, Plus, Search } from "lucide-react";
+import { ChevronRight, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import { matchAccounts } from "@/components/accounts/accounts-data";
 import type { AccountsSession } from "@/components/accounts/use-accounts";
@@ -10,17 +10,21 @@ import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { useTheme } from "@/components/theme/theme-provider";
 
 /**
- * The Sub-accounts page, as the door to the customizer: pick who you are
- * shaping first, then shape them. Mirrors production's Sub-Accounts table —
- * name, status, a per-row action — minus the twelve columns of admin that
- * belong to the account detail, not to choosing an account.
+ * The Sub-accounts page: pick an account, then manage it. Mirrors production's
+ * Sub-Accounts table — name, status, a per-row action — minus the twelve
+ * columns of admin that belong to the account detail, not to choosing one.
+ *
+ * It used to be the door to the nav customizer, and the row action said
+ * "Customize" because the page behind it could reshape a client's navigation.
+ * That tab is gone (Aug 25 — editing happens in place, in the account), so the
+ * action promises only what the page still delivers: its settings.
  */
 export function AccountsIndexPage({
   session,
-  onCustomize,
+  onManage,
 }: {
   session: AccountsSession;
-  onCustomize: (accountId: string) => void;
+  onManage: (accountId: string) => void;
 }) {
   const { effective } = useTheme();
   const layout = useNavLayout();
@@ -36,7 +40,7 @@ export function AccountsIndexPage({
             Sub-accounts
           </h1>
           <p className="text-[12px] leading-[16px] text-pg-muted">
-            {session.accounts.length} accounts · pick one to customize what it gets and how it looks.
+            {session.accounts.length} accounts · pick one to manage its details and settings.
           </p>
         </div>
         <label className="flex h-[32px] w-[240px] shrink-0 items-center gap-[8px] rounded-[8px] bg-pg-surface px-[10px] shadow-[inset_0_0_0_1px_var(--pg-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">
@@ -93,7 +97,7 @@ export function AccountsIndexPage({
             <button
               key={account.id}
               type="button"
-              onClick={() => onCustomize(account.id)}
+              onClick={() => onManage(account.id)}
               className={`group/row flex w-full items-center gap-[14px] px-[16px] py-[10px] text-left hover:bg-pg-bg ${
                 i === accounts.length - 1 ? "" : "shadow-[inset_0_-1px_0_0_var(--pg-border)]"
               }`}
@@ -119,8 +123,8 @@ export function AccountsIndexPage({
                 </span>
               </span>
               <span className="flex w-[110px] items-center justify-end gap-[5px] text-[12.5px] leading-none font-medium text-brand opacity-0 group-hover/row:opacity-100">
-                <Brush size={13} aria-hidden="true" />
-                Customize
+                <SlidersHorizontal size={13} aria-hidden="true" />
+                Manage
                 <ChevronRight size={13} aria-hidden="true" />
               </span>
             </button>

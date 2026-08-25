@@ -25,14 +25,19 @@ import {
   ENTRY_CLUSTER_HEIGHT,
   ENTRY_CLUSTER_RAIL_HEIGHT,
 } from "@/components/nav/entry-cluster";
-import { FavoritesMorph } from "@/components/nav/favorites-morph";
+import { PinnedMorph } from "@/components/nav/pinned-morph";
 import {
   densityVars,
   recentsBudgetFor,
   useNavDensity,
 } from "@/components/nav/use-nav-density";
 import { LeftNav } from "@/components/nav/left-nav";
-import { agencyFlyouts, agencyPinned } from "@/components/nav/agency-config";
+import {
+  agencyFlyouts,
+  agencyPinned,
+  agencyPlaces,
+} from "@/components/nav/agency-config";
+import { AgencyPlacePage } from "@/components/settings/agency-place-page";
 import {
   accountSettingsFlyout,
   agencySettingsFlyout,
@@ -56,10 +61,9 @@ import { flyoutForGroup } from "@/components/nav/group-flyout";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { PinnedLauncher } from "@/components/nav/pinned-launcher";
 import { UndoToast } from "@/components/nav/undo-toast";
-import { PINNED_VISIBLE } from "@/components/nav/favorites-morph";
-import { AccountsIndexPage } from "@/components/customizer/accounts-index";
-import { useCustomizerProfiles } from "@/components/customizer/customizer-profiles";
-import { SubAccountPage } from "@/components/customizer/subaccount-page";
+import { PINNED_VISIBLE } from "@/components/nav/pinned-morph";
+import { AccountsIndexPage } from "@/components/settings/accounts-index";
+import { SubAccountPage } from "@/components/settings/subaccount-page";
 import { CommandPalette } from "@/components/search/command-palette";
 import { SearchFlyout } from "@/components/search/search-flyout";
 import {
@@ -85,6 +89,7 @@ const EXPANDED_WIDTH = 272;
  */
 const NAV_FLOAT_GAP = 4;
 const COLLAPSED_WIDTH = 64;
+
 
 /** The 28px expand button + 4px rail gap that sit under the collapsed mark. */
 const RAIL_EXPAND_BLOCK = 32;
@@ -206,8 +211,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     /** A tab the nav asked for. In-page state, never part of the trail. */
     tabId?: string | null;
   } | null>(null);
-  /** Who the customizer is shaping. Null = still on the Sub-accounts picker. */
-  const [customizeAccountId, setCustomizeAccountId] = React.useState<string | null>(null);
+  /** Which account's settings page is open. Null = still on the picker. */
+  const [manageAccountId, setManageAccountId] = React.useState<string | null>(null);
   const [searchOpen, setSearchOpen] = React.useState(false);
   /** Ask AI: floating over the page, docked into the layout, or full screen. */
   const [aiMode, setAiMode] = React.useState<AiPanelMode>("floating");
@@ -222,8 +227,6 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     productIconFor,
     setActiveAccount: setActiveNavAccount,
   } = useNavLayout();
-  const { setActiveAccount: setActiveCustomizerAccount } =
-    useCustomizerProfiles();
 
   /*
    * The panel behind each group row. Built here rather than looked up in the
@@ -249,25 +252,44 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   // What the nav header shows: the agency identity at agency scope, the
   // current sub-account otherwise. One derivation for both nav faces.
   const headerAccount = agencyScope ? accounts.agency : accounts.current;
-  const customizeAccount =
-    accounts.accounts.find((a) => a.id === customizeAccountId) ?? null;
+  const manageAccount =
+    accounts.accounts.find((a) => a.id === manageAccountId) ?? null;
   const recentAccounts = accounts.recentIds
     .map((id) => accounts.accounts.find((a) => a.id === id))
     .filter((a): a is (typeof accounts.accounts)[number] => a !== undefined);
 
   /*
    * Seeds the accent from whoever owns the workspace right now: the current
-   * sub-account's logo, or the agency's own brand at agency scope — switching
-   * to the agency rebrands the whole surface, exactly as entering a client
-   * does. Only the one property is written — tokens.css derives the rest of
-   * the brand ramp from it, and the tint layer derives the neutrals from
-   * that, so a scope change can move the workspace's temperature rather than
-   * just its buttons.
+   * sub-account's brand, or the agency's at agency scope — switching to the
+   * agency rebrands the whole surface, exactly as entering a client does. Only
+   * the one property is written — tokens.css derives the rest of the brand ramp
+   * from it, and the tint layer derives the neutrals from that, so a scope
+   * change can move the workspace's temperature rather than just its buttons.
+   *
+   * Reads `brandColor`, NOT the tile's gradient. Those were the same field
+   * until Aug 25, which meant the avatar's fallback colour repainted every
+   * button in the app — and once tile colours became derived rather than
+   * authored, an account would have been accented by a hash of its id. An
+   * account with no uploaded logo has no brand to wear, so it falls back to
+   * HighRise primary and the workspace stays neutral until there is one.
    *
    * Set on <html> because that is where [data-accent] is scoped, and React does
    * not own that element here.
    */
-  const accountBrand = headerAccount.logo.from;
+  /*
+   * Which agency destination the canvas is showing.
+   *
+   * Sub-accounts keeps its own branch below — it has a real table and a nested
+   * settings page, which is more than a place. Everything else in the agency
+   * tree resolves through one index so a row, its page and its breadcrumb can
+   * never disagree about what it is called.
+   */
+  const agencyPlace =
+    agencyScope && selectedId && selectedId !== "agency-sub-accounts"
+      ? agencyPlaces[selectedId]
+      : undefined;
+
+  const accountBrand = headerAccount.brandColor ?? "var(--hr-primary-600)";
   React.useEffect(() => {
     document.documentElement.style.setProperty("--account-brand", accountBrand);
   }, [accountBrand]);
@@ -384,13 +406,11 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     setActiveThemeAccount(themeOwnerId);
     setActiveTuningAccount(themeOwnerId);
     setActiveNavAccount(themeOwnerId);
-    setActiveCustomizerAccount(themeOwnerId);
   }, [
     themeOwnerId,
     setActiveThemeAccount,
     setActiveTuningAccount,
     setActiveNavAccount,
-    setActiveCustomizerAccount,
   ]);
 
   // Cmd/Ctrl-K opens search from anywhere, which is the whole point of the
@@ -523,7 +543,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           // the proposed tree, so the fallback is every other account's today.
           (groupFlyouts.get(PROPOSED_SETTINGS_ID) ?? accountSettingsFlyout)
       : agencyScope
-        ? (agencyFlyouts[intent.activeId] ?? null)
+        ? // Only the deep buckets have one — the shallow ones disclose in place
+          // and never ask for a panel.
+          (agencyFlyouts[intent.activeId] ?? null)
         : (groupFlyouts.get(intent.activeId) ?? flyouts[intent.activeId] ?? null)
     : null;
   const flyout = useExitTransition(requested, FLYOUT_EXIT_MS);
@@ -857,7 +879,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     scopeRef.current = accounts.scope;
     intent.close();
     setSelectedId(null);
-    setCustomizeAccountId(null);
+    setManageAccountId(null);
   }, [accounts.scope, intent]);
 
   return (
@@ -987,9 +1009,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         data-chrome-plane=""
         // Sits inside the chrome card, which owns the inset and the surface, so
         // this is back to a plain full-height column. Every absolutely-positioned
-        // child — FavoritesMorph above all — is measured in these coordinates.
+        // child — PinnedMorph above all — is measured in these coordinates.
         //
-        // The z-index is load-bearing, not decoration. FavoritesMorph is z-30, the
+        // The z-index is load-bearing, not decoration. PinnedMorph is z-30, the
         // same as the account rail, and the capsule is later in the DOM — so
         // without a stacking context here the two tie and the dock paints over the
         // switcher panel. A z-index on this element traps the capsule inside it and
@@ -1007,7 +1029,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           a floating dock hanging over rows trying to scroll underneath it.
         */}
         {atFloor || isBlockHidden(layout, "pinned") ? null : (
-        <FavoritesMorph
+        <PinnedMorph
           theme={navTheme}
           items={pinnedItems}
           collapsed={collapsed}
@@ -1156,12 +1178,23 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           }}
           crumbs={
             selectedId === "agency-sub-accounts"
-              ? customizeAccount
-                ? ["Sub-accounts", customizeAccount.name]
+              ? manageAccount
+                ? ["Sub-accounts", manageAccount.name]
                 : ["Sub-accounts"]
-              : agencyScope
-                ? [accounts.agency.name, "Overview"]
-                : productCrumbs
+              : agencyPlace
+                ? // Bucket, then the L2 that owns it, then the row itself —
+                  // skipping the bucket when the row IS the bucket, so a
+                  // destination like Labs does not read "Labs / Labs".
+                  [
+                    ...(agencyPlace.bucket.label === agencyPlace.label
+                      ? []
+                      : [agencyPlace.bucket.label]),
+                    ...(agencyPlace.parent ? [agencyPlace.parent.label] : []),
+                    agencyPlace.label,
+                  ]
+                : agencyScope
+                  ? [accounts.agency.name, "Overview"]
+                  : productCrumbs
           }
         />
         {/*
@@ -1192,17 +1225,28 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               )}
             >
               {selectedId === "agency-sub-accounts" ? (
-                customizeAccount ? (
+                manageAccount ? (
                   <SubAccountPage
-                    account={customizeAccount}
-                    onBack={() => setCustomizeAccountId(null)}
+                    account={manageAccount}
+                    onBack={() => setManageAccountId(null)}
                   />
                 ) : (
                   <AccountsIndexPage
                     session={accounts}
-                    onCustomize={setCustomizeAccountId}
+                    onManage={setManageAccountId}
                   />
                 )
+              ) : agencyPlace ? (
+                <AgencyPlacePage
+                  key={selectedId ?? ""}
+                  title={agencyPlace.label}
+                  {...(agencyPlace.description
+                    ? { description: agencyPlace.description }
+                    : {})}
+                  {...(agencyPlace.tabs.length > 0
+                    ? { tabs: agencyPlace.tabs }
+                    : {})}
+                />
               ) : canvasPage && productById(canvasPage.productId) ? (
                 <ProductPage
                   key={`${canvasPage.productId}:${canvasPage.tabId ?? ""}`}
@@ -1266,15 +1310,35 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           <FlyoutPanel
             config={flyout.value}
             offsetLeft={leftOffset}
+            offsetTop={NAV_FLOAT_GAP}
             theme={navTheme}
             phase={flyout.phase}
             onPointerEnter={intent.cancelClear}
             onPointerLeave={intent.scheduleClear}
             onClose={intent.close}
             onNavigate={(id) => {
+              /*
+               * Selecting dismisses the panel.
+               *
+               * `onNavigate` only ever fires for a LEAF — `flyout-row.tsx` gives
+               * a row with children a disclosure instead, at both levels — so
+               * this closes exactly when the click was a destination, and never
+               * when it was "show me what is under this". That is what makes one
+               * handler correct for both scopes.
+               *
+               * Unconditional, and ahead of the early returns below: a row that
+               * names nothing navigable is still a leaf the pointer has finished
+               * with, and a panel left standing after it reads as a missed click.
+               */
+              intent.close();
               // Rows that name a catalogue product (or one of its L2 children)
               // open that product's page; anything else keeps its old inert
               // highlight. Contacts stays the purpose-built page.
+              // Agency rows name no catalogue product — the tree is its own.
+              if (agencyScope) {
+                if (agencyPlaces[id]) setSelectedId(id);
+                return;
+              }
               const child = childById(id);
               const target = child
                 ? { productId: child.product.id, childId: id }

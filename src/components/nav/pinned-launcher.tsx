@@ -202,12 +202,12 @@ export function PinnedLauncher({
           </>
         ) : state.pinned.length === 0 ? (
           // Only when there are genuinely none — a filter that hides them all
-          // is not an empty favourites list, so it drops the section instead.
+          // is not an empty pin list, so it drops the section instead.
           <>
             <SectionHeading>Pinned</SectionHeading>
             <p className="w-full px-[2px] pb-[4px] text-[12.5px] leading-[17px] text-nav-fg-subtle">
-              No favorites yet. Star anything below and it appears at the top of
-              the nav.
+              No pinned items yet. Pin anything below and it appears at the top
+              of the nav.
             </p>
           </>
         ) : null}

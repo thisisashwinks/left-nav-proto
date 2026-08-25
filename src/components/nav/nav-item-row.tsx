@@ -164,6 +164,14 @@ export function NavItemRow({
     "flex w-full shrink-0 items-center text-left",
     "gap-[var(--t-nav-gap,10px)] rounded-[var(--t-nav-radius,7px)] px-[var(--t-nav-px,8px)]",
     "motion-tap",
+    /*
+     * A disclosed child is indented by its parent's icon plus the row gap, so
+     * the child labels line up with the parent LABEL rather than sitting in a
+     * hanging indent of their own. Padding rather than margin: the hover fill
+     * still spans the full row, so the band reads as one list.
+     */
+    item.child &&
+      "pl-[calc(var(--t-nav-px,8px)+16px+var(--t-nav-gap,10px))]",
     // Compact rows keep their tighter padding proportionally.
     compact ? "py-[calc(var(--t-nav-py,9px)*0.667)]" : "py-[var(--t-nav-py,9px)]",
     /*
@@ -196,7 +204,7 @@ export function NavItemRow({
     <span
       className={cn(
         "truncate text-[length:var(--t-nav-font,14px)] leading-[normal]",
-        item.hasFlyout ? "flex-1" : "whitespace-nowrap",
+        item.hasFlyout || item.expandable ? "flex-1" : "whitespace-nowrap",
         item.ai ? "text-nav-ai-fg" : "text-nav-fg",
         /*
          * Faded, not struck through.
@@ -214,7 +222,29 @@ export function NavItemRow({
     </span>
   );
 
-  const chevron = item.hasFlyout ? (
+  const chevron = item.expandable ? (
+    /*
+     * The same glyph as the flyout chevron, rotated rather than swapped for a
+     * caret. A disclosure and a panel-opener are the same promise — "there is
+     * more behind this row" — and the difference is only WHERE it arrives, which
+     * is what the rotation says: right for beside, down for beneath.
+     *
+     * No hover nudge. There is nowhere for the pointer to travel to; the content
+     * appears under the row it is already on.
+     */
+    <ChevronRight
+      size={15}
+      aria-hidden="true"
+      className={cn(
+        "shrink-0 motion-tap",
+        item.expanded && "rotate-90",
+        active || item.expanded
+          ? "text-nav-fg-muted"
+          : "text-nav-fg-subtle group-hover:text-nav-fg-muted",
+        off && "opacity-40",
+      )}
+    />
+  ) : item.hasFlyout ? (
     <ChevronRight
       size={15}
       aria-hidden="true"

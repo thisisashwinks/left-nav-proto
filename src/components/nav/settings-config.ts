@@ -38,6 +38,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { FlyoutConfig, FlyoutEntry } from "@/components/flyout/types";
+import { agencySettingsBucket, panelFor } from "./agency-config";
 
 /**
  * The Settings takeover menus, transcribed from production and regrouped.
@@ -108,43 +109,20 @@ export const accountSettingsFlyout: FlyoutConfig = {
   ],
 };
 
-/** Agency settings — the flat 21 rows, sorted the same way. */
-export const agencySettingsFlyout: FlyoutConfig = {
-  id: SETTINGS_FLYOUT_ID,
-  title: "Settings",
-  variant: "compact",
-  entries: [
-  ...entry("Organisation", [
-    ["profile", "My profile", CircleUser],
-    ["company", "Company", Building2],
-    ["team", "Team", Users],
-    ["billing", "Billing", Receipt],
-  ]),
-  ...entry("Automation", [
-    ["workflow", "Workflow settings", Workflow],
-    ["workflow-premium", "Premium features", Zap],
-    ["workflow-ai", "External AI models", Bot],
-  ]),
-  ...entry("Channels", [
-    ["phone", "Phone integration", Phone],
-    ["email", "Email services", Mail],
-    ["system-emails", "System emails", MailCheck],
-    ["announcements", "Announcements", Megaphone],
-  ]),
-  ...entry("Revenue", [
-    ["stripe", "Stripe", CreditCard],
-    ["affiliates", "Affiliates", UsersRound],
-    ["domains", "Domain purchase", Globe],
-  ]),
-  ...entry("Platform & security", [
-    ["nav-branding", "Navigation & branding", Brush],
-    ["menu-links", "Custom menu links", Link2],
-    ["private-integrations", "Private integrations", Plug],
-    ["api-keys", "API keys", KeyRound],
-    ["compliance", "Compliance", ShieldCheck],
-    ["labs", "Labs", FlaskConical],
-    ["audit-logs", "Audit logs", ScrollText],
-    ["media-storage", "Media storage usage", Database],
-  ]),
-  ],
-};
+/**
+ * Agency settings — the Aug 25 mapping's thirteenth bucket.
+ *
+ * Eight rows, not the flat twenty-one this used to hold. Eleven of those rows
+ * were promoted out of Settings and into the nav tree proper (Phone
+ * integration, Labs, API keys, Domain purchase, Media storage usage and the
+ * rest), and what remains regroups under Company, Billing and System messages,
+ * which each carry their own third level as page tabs.
+ *
+ * Projected from `agencySettingsBucket` rather than authored, so the panel and
+ * the breadcrumb index cannot disagree about what Settings contains. Only the
+ * id differs: the shell routes Settings by SETTINGS_FLYOUT_ID at both scopes.
+ */
+export const agencySettingsFlyout: FlyoutConfig = panelFor(
+  agencySettingsBucket,
+  SETTINGS_FLYOUT_ID,
+);

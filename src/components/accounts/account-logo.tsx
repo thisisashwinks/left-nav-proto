@@ -14,9 +14,18 @@ import * as React from "react";
  * in the nav header to 30px in the collapsed rail. Real uploads override them
  * through `navConfig.logoSrc` / `Account.logoSrc`.
  *
- * Colours are literal hexes rather than theme tokens: a tenant's brand does not
- * follow the accent or repaint in dark mode. Every ramp is dark enough for the
- * white mark to hold contrast on both nav surfaces.
+ * Colours do not follow the accent and do not repaint in dark mode: a tenant's
+ * mark is its own, not the workspace's. They arrive already resolved in the
+ * spec's `from`/`to`, assigned by `lib/account-color.ts` from the account id —
+ * this component never picks one. Every hue in that palette is dark enough at
+ * 600 for the white mark to hold contrast on both nav surfaces.
+ *
+ * The gradient's light end is weaker: white against the 400 stop measures
+ * 1.8–2.8:1, under the 3.0 large-text threshold. That is inherited, not new —
+ * the hand-picked pairs this replaced measured 1.8–3.8:1 — and the mark sits
+ * centred, nearer the 500 midpoint. Tightening every pair to 700→500 lifts the
+ * light end to 2.4–4.0 and is a one-line change in `account-color.ts` if the
+ * accessibility pass calls for it.
  */
 
 export type LogoGlyph =

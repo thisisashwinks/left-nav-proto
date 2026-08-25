@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, Star } from "lucide-react";
+import { Check, Pin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccountLogo } from "./account-logo";
 import type { Account } from "./accounts-data";
@@ -13,10 +13,10 @@ interface AccountRowProps {
   /** Highlighted by the keyboard or the pointer — one highlight, either source. */
   active: boolean;
   current: boolean;
-  favorite: boolean;
+  pinned: boolean;
   onActivate: () => void;
   onSelect: () => void;
-  onToggleFavorite: () => void;
+  onTogglePinned: () => void;
 }
 
 /**
@@ -32,10 +32,10 @@ export function AccountRow({
   index,
   active,
   current,
-  favorite,
+  pinned,
   onActivate,
   onSelect,
-  onToggleFavorite,
+  onTogglePinned,
 }: AccountRowProps) {
   // Replays the pop on every toggle. A CSS transition can't express it, and an
   // always-on class would fire once on mount and never again.
@@ -90,24 +90,24 @@ export function AccountRow({
 
       <button
         type="button"
-        aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
-        aria-pressed={favorite}
+        aria-label={pinned ? `Unpin ${account.name}` : `Pin ${account.name}`}
+        aria-pressed={pinned}
         onClick={() => {
           setPopping(true);
-          onToggleFavorite();
+          onTogglePinned();
         }}
         onAnimationEnd={() => setPopping(false)}
         className={cn(
           "motion-tap absolute top-1/2 right-[6px] flex size-[24px] -translate-y-1/2 items-center justify-center rounded-[6px] outline-none hover:bg-nav-active focus-visible:opacity-100",
-          popping && "motion-star-pop",
-          // Unfavourited stars stay out of the way until the row is hovered;
-          // favourited ones are the group's only marker, so they always show.
-          favorite
+          popping && "motion-pin-pop",
+          // Unpinned rows keep the glyph out of the way until hovered; pinned
+          // ones are the group's only marker, so they always show.
+          pinned
             ? "text-brand opacity-100"
             : "text-nav-fg-subtle opacity-0 hover:text-nav-fg group-hover/row:opacity-100",
         )}
       >
-        <Star size={14} fill={favorite ? "currentColor" : "none"} aria-hidden="true" />
+        <Pin size={14} fill={pinned ? "currentColor" : "none"} aria-hidden="true" />
       </button>
     </div>
   );

@@ -1,5 +1,5 @@
 /**
- * What each plan tier unlocks in the nav customizer.
+ * What each plan tier unlocks in the nav.
  *
  * The scope locked on Aug 18 is tiered, not flat: the base plan gets a nav it
  * can organise, name and theme, the middle plan gets the governance controls an
@@ -7,9 +7,9 @@
  * This file is the whole plan sheet — moving a setting between tiers is a
  * one-line edit to `MIN_PLAN`, which is the point of keeping it in one place.
  *
- * Sits in `design/` with the other axis definitions rather than in the
- * customizer folder because the gates are not the customizer's alone: two are
- * theme axes, one is a tuning concern, one is a rename-scope concern, and the
+ * Sits in `design/` with the other axis definitions because the gates belong to
+ * no single surface: two are theme axes, one is a tuning concern, one is a
+ * rename-scope concern, and the
  * per-tenant seeds in `components/nav/account-nav-profiles.ts` need `PlanTier`
  * to declare which plan a sub-account is on. `design/` is the layer everything
  * imports and that imports nothing back.
@@ -57,19 +57,19 @@ export const DEFAULT_PLAN: PlanTier = "pro";
  * a key here rather than threading a boolean through a card.
  */
 export type NavCapability =
-  | "favoritesOrder"
+  | "pinnedOrder"
   | "densityCustom"
   | "launchpadToggle"
-  | "defaultFavoritesForNew"
+  | "defaultPinnedForNew"
   | "flyoutTrigger"
   | "customCss";
 
 /** The lowest tier that unlocks each capability. */
 export const MIN_PLAN: Record<NavCapability, PlanTier> = {
-  favoritesOrder: "pro",
+  pinnedOrder: "pro",
   densityCustom: "pro",
   launchpadToggle: "pro",
-  defaultFavoritesForNew: "pro",
+  defaultPinnedForNew: "pro",
   flyoutTrigger: "pro",
   // Overrides every setting above it, which is why it is the top tier alone.
   customCss: "elite",
