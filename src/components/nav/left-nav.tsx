@@ -58,6 +58,7 @@ import { NavItemRow, type NavRowDrag, type NavRowEdit } from "./nav-item-row";
 import { useNavRowEdit } from "./use-nav-row-edit";
 import type { NavDensity } from "./use-nav-density";
 import { NavSectionLabel } from "./nav-section-label";
+import { NavRowsSkeleton } from "@/components/shell/switching";
 import type { NavConfig, NavEntry, NavItem } from "./types";
 
 /** The show/hide menu's one view, opened directly rather than via an entry. */
@@ -67,6 +68,14 @@ interface LeftNavProps {
   /** Drives [data-nav-theme], independent of the app's own theme. */
   theme: SurfaceTheme;
   config?: NavConfig;
+  /**
+   * A switch is in flight, so the scrolling middle is not this account's yet.
+   *
+   * Only the middle. The header, the entry pill and the dock are the same
+   * furniture whichever account you are in, and blanking them would throw away
+   * the continuity that makes a three-second wait bearable.
+   */
+  loading?: boolean;
   /** Row the user has selected. Null on first load — nothing is preselected. */
   selectedId: string | null;
   onSelect: (id: string) => void;
@@ -139,6 +148,7 @@ export function LeftNav({
   collapsed,
   onToggleCollapsed,
   onSearch,
+  loading = false,
   scope,
   account,
   recentAccounts,
@@ -243,8 +253,17 @@ export function LeftNav({
    * accounts whose plan carries the card at all — elsewhere (ACME's shipped
    * modes) Quick Actions keeps its standalone row.
    */
-  const cardQuickActions = quickActionsShown && launchpadAllowed && !agencyScope;
-  const cardShowing = (launchpad || cardQuickActions) && !agencyScope;
+  /*
+   * The Launchpad card shows at BOTH scopes (Aug 25).
+   *
+   * It was gated off at agency on the assumption that setup is a client-side
+   * job. It is not: an agency has its own account to finish — white label,
+   * domains, billing — and the sheet gives Launchpad an L1 row of its own. So
+   * the card reads the same in both places, and the agency's Recent accounts
+   * block sits under it rather than instead of it.
+   */
+  const cardQuickActions = quickActionsShown && launchpadAllowed;
+  const cardShowing = launchpad || cardQuickActions;
 
   /*
    * The categories, in the order the nav draws them.
@@ -1087,7 +1106,11 @@ export function LeftNav({
           {cardShowing ? (
             <SetupGuideRow
               showLaunchpad={launchpad}
-              onOpen={() => onSelect?.(PROPOSED_HOME_ID)}
+              // At agency the card opens the agency's own Launchpad row; at
+              // sub-account it opens the proposed tree's home product.
+              onOpen={() =>
+                onSelect?.(agencyScope ? "agency-launchpad" : PROPOSED_HOME_ID)
+              }
               {...(cardQuickActions
                 ? { onQuickActions: () => onPinFlyout("quick-actions") }
                 : {})}
@@ -1109,7 +1132,14 @@ export function LeftNav({
             say where it ends.
           */}
           {fixedHasRows ? <NavDivider /> : null}
-          {bandEverything ? (
+          {loading ? (
+            /*
+              The arriving account's rows are not here yet, and the ones on
+              screen belong to the account you just left — showing them for
+              three more seconds invites a click into the wrong place.
+            */
+            <NavRowsSkeleton />
+          ) : bandEverything ? (
             /*
               Settings is inside the last band here, not the bottom anchor it is
               in the plain arrangement. It is one of the not-a-product rows the

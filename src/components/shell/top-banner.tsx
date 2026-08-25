@@ -133,24 +133,32 @@ export const ACCOUNT_BANNERS: Record<string, Banner[]> = {
  * ink AND its stroke: the review asked for smaller, tracked-out, all-caps and
  * hollow, and a hollow chip is drawn in one colour.
  */
+/*
+ * No bottom hairline on the bar (Aug 25).
+ *
+ * Each tone used to close itself off with an inset bottom line. Under the
+ * floating chrome that line reads as a border on a strip that is not a card —
+ * the banner sits on the plane, and the chrome below it already has its own
+ * edge, so the two stacked up as a double rule.
+ */
 const TONES: Record<
   BannerTone,
   { bar: string; disc: string; cta: string; fallback: LucideIcon }
 > = {
   promo: {
-    bar: "bg-[#e3e8fd] text-[#1d2a63] shadow-[inset_0_-1px_0_0_rgba(29,42,99,0.07)]",
+    bar: "bg-[#e3e8fd] text-[#1d2a63]",
     disc: "text-[#4553c8]",
     cta: "text-[#3746c0] shadow-[inset_0_0_0_1px_#aab5ec]",
     fallback: Megaphone,
   },
   warning: {
-    bar: "bg-[#fdf0d1] text-[#6d4703] shadow-[inset_0_-1px_0_0_rgba(109,71,3,0.08)]",
+    bar: "bg-[#fdf0d1] text-[#6d4703]",
     disc: "text-[#a16207]",
     cta: "text-[#92400e] shadow-[inset_0_0_0_1px_#e4c37e]",
     fallback: CalendarClock,
   },
   danger: {
-    bar: "bg-[#fce4e1] text-[#6d1d16] shadow-[inset_0_-1px_0_0_rgba(109,29,22,0.08)]",
+    bar: "bg-[#fce4e1] text-[#6d1d16]",
     disc: "text-[#c2362b]",
     cta: "text-[#c2362b] shadow-[inset_0_0_0_1px_#eba8a1]",
     fallback: CreditCard,

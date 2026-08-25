@@ -79,6 +79,8 @@ export interface AgencyBucket {
   id: string;
   label: string;
   icon: LucideIcon;
+  /** Shown under the title on the bucket's own page, when it has one. */
+  description?: string;
   /** Empty for the four buckets that are destinations rather than panels. */
   children: AgencyChild[];
 }
@@ -101,7 +103,15 @@ export const agencyBuckets: AgencyBucket[] = [
     icon: Gift,
     children: [],
   },
-  { id: "agency-launchpad", label: "Launchpad", icon: Rocket, children: [] },
+  {
+    id: "agency-launchpad",
+    label: "Launchpad",
+    icon: Rocket,
+    children: [],
+    // The agency has its own account to finish, so its Launchpad reads like a
+    // sub-account's rather than being a different kind of page.
+    description: "Finish setting the agency up.",
+  },
   {
     id: "agency-ai-suite",
     label: "AI Suite",
@@ -323,7 +333,12 @@ export interface AgencyPlace {
 export const agencyPlaces: Record<string, AgencyPlace> = (() => {
   const out: Record<string, AgencyPlace> = {};
   for (const bucket of [...agencyBuckets, agencySettingsBucket]) {
-    out[bucket.id] = { label: bucket.label, bucket, tabs: [] };
+    out[bucket.id] = {
+      label: bucket.label,
+      ...(bucket.description ? { description: bucket.description } : {}),
+      bucket,
+      tabs: [],
+    };
     for (const c of bucket.children) {
       out[c.id] = {
         label: c.label,

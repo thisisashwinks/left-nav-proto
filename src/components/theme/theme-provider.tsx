@@ -105,6 +105,10 @@ export function ThemeProvider({
     // Fieldstone's IA files Launchpad as the getting-started card rather than an
     // L1 row, so the card has to be on for the bucket to exist at all.
     fieldstone: { launchpad: true },
+    // The agency has its own account to finish — white label, domains, billing
+    // — and the Aug 25 mapping gives Launchpad an L1 row at agency scope. The
+    // card is how that row reads in the nav, the same as in a sub-account.
+    agency: { launchpad: true },
   });
   const [activeAccountId, setActiveAccountId] = React.useState<string | null>(
     null,

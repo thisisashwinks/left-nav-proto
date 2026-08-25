@@ -39,6 +39,11 @@ import {
 } from "@/components/nav/agency-config";
 import { AgencyPlacePage } from "@/components/settings/agency-place-page";
 import {
+  CanvasSkeleton,
+  NavRowsSkeleton,
+  SwitchProgress,
+} from "@/components/shell/switching";
+import {
   accountSettingsFlyout,
   agencySettingsFlyout,
   SETTINGS_FLYOUT_ID,
@@ -251,7 +256,21 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const agencyScope = accounts.scope === "agency";
   // What the nav header shows: the agency identity at agency scope, the
   // current sub-account otherwise. One derivation for both nav faces.
-  const headerAccount = agencyScope ? accounts.agency : accounts.current;
+  /*
+   * The identity the chrome wears.
+   *
+   * While a switch is in flight this is the account being switched TO, not the
+   * one still loaded. The nav header, the rail's active tile and the accent all
+   * change on the click rather than three seconds later — the destination is
+   * the one thing we know immediately, and showing it is most of what makes the
+   * wait read as progress instead of a stall.
+   */
+  const pending = accounts.pending;
+  const headerAccount = pending
+    ? pending.account
+    : agencyScope
+      ? accounts.agency
+      : accounts.current;
   const manageAccount =
     accounts.accounts.find((a) => a.id === manageAccountId) ?? null;
   const recentAccounts = accounts.recentIds
@@ -1080,6 +1099,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             collapsed={collapsed}
             onToggleCollapsed={toggleCollapsed}
             onSearch={() => setSearchOpen(true)}
+            loading={pending !== null}
             scope={accounts.scope}
             account={headerAccount}
             recentAccounts={recentAccounts}
@@ -1205,6 +1225,12 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           leaving — which is what makes the Navigation tab's preview the
           product itself.
         */}
+          {pending ? (
+            <SwitchProgress
+              label={pending.account.name}
+              duration={pending.duration}
+            />
+          ) : null}
           <ContactsAreaProvider value={[contactsPageId, setContactsPageId]}>
             {/*
               The only real surface in the window now. Inset on every edge so the
@@ -1224,7 +1250,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                   : "m-[var(--shell-canvas-gap)] rounded-[var(--shell-canvas-radius)] shadow-[inset_0_0_0_1px_var(--shell-canvas-ring)]",
               )}
             >
-              {selectedId === "agency-sub-accounts" ? (
+              {pending ? (
+                <CanvasSkeleton />
+              ) : selectedId === "agency-sub-accounts" ? (
                 manageAccount ? (
                   <SubAccountPage
                     account={manageAccount}
