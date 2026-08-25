@@ -30,6 +30,8 @@ import { useTheme } from "@/components/theme/theme-provider";
 const WIDTH = 288;
 /** Clear of the nav's edge, with room for the tail. */
 const GAP = 12;
+/** How far the tail sits from the card's edge, and its clearance from a corner. */
+const TAIL_INSET = 26;
 
 export function NavIntroCard({
   onDismiss,
@@ -42,6 +44,8 @@ export function NavIntroCard({
   const [anchor, setAnchor] = React.useState<DOMRect | null>(null);
   /** The nav's own right edge, which is what the card must clear. */
   const [navRight, setNavRight] = React.useState(0);
+  const cardRef = React.useRef<HTMLDivElement>(null);
+  const [height, setHeight] = React.useState(0);
 
   /*
    * Tracked from the control itself rather than passed down.
@@ -111,18 +115,48 @@ export function NavIntroCard({
     };
   }, []);
 
+  React.useLayoutEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const measure = () => setHeight(el.getBoundingClientRect().height);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  });
+
   if (!anchor) return null;
 
-  // The tail sits low on the card's left edge and points at the control, so the
-  // card can hang above the fold of the nav rather than beside its very bottom.
-  const TAIL_FROM_BOTTOM = 26;
+  /*
+   * The card is placed, then the TAIL is aimed — not the other way round.
+   *
+   * It used to derive the card's top from a hardcoded 176px card height, so the
+   * tail only lined up with the control at one exact copy length; anything that
+   * rewrapped the body pushed the point 70px off the button it was supposed to
+   * indicate. And no fixed offset can survive being clamped at a viewport edge.
+   *
+   * So the card takes the best position it can, and the tail is then placed at
+   * the anchor's centre in the card's own coordinates. Alignment holds whatever
+   * the height turns out to be, and whether or not the clamp moved the card.
+   */
+  const centreY = anchor.top + anchor.height / 2;
   const left = Math.max(anchor.right, navRight) + GAP;
-  const top = Math.max(
-    8,
-    Math.min(
-      anchor.top + anchor.height / 2 - (176 - TAIL_FROM_BOTTOM),
-      window.innerHeight - 200,
-    ),
+
+  const MARGIN = 8;
+  // Preferred: the tail's resting spot low on the card, level with the control.
+  const preferred = centreY - (height - TAIL_INSET);
+  const top =
+    height === 0
+      ? preferred
+      : Math.max(
+          MARGIN,
+          Math.min(preferred, window.innerHeight - height - MARGIN),
+        );
+
+  // Kept clear of the rounded corners, so the point never grows out of one.
+  const tailTop = Math.min(
+    Math.max(centreY - top, TAIL_INSET),
+    Math.max(TAIL_INSET, height - TAIL_INSET),
   );
 
   return createPortal(
@@ -130,6 +164,7 @@ export function NavIntroCard({
       role="dialog"
       aria-label="About the new navigation"
       data-nav-theme={navTheme}
+      ref={cardRef}
       style={{ left, top, width: WIDTH }}
       className="motion-panel-in fixed z-[70] rounded-[10px] bg-nav p-[12px] shadow-[0_12px_32px_0_var(--fly-shadow),inset_0_0_0_1px_var(--fly-border)]"
     >
@@ -140,12 +175,12 @@ export function NavIntroCard({
       */}
       <span
         aria-hidden="true"
-        style={{ bottom: TAIL_FROM_BOTTOM }}
+        style={{ top: tailTop - 5 }}
         className="absolute -left-[5px] size-[10px] rotate-45 bg-[var(--fly-border)]"
       />
       <span
         aria-hidden="true"
-        style={{ bottom: TAIL_FROM_BOTTOM }}
+        style={{ top: tailTop - 5 }}
         className="absolute -left-[4px] size-[10px] rotate-45 bg-nav"
       />
 
