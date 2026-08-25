@@ -1346,6 +1346,28 @@ export function LeftNav({
             <>
               {entries.map(renderEntry)}
               {/*
+                A standing way in, while editing.
+
+                Adding was only ever offered by the seam plus, which appears
+                between two rows on hover — so the whole verb was invisible
+                until you happened to sweep the gap it lives in, and a reviewer
+                who never did that concluded the nav could not be added to at
+                all. The seams stay: they are how you add something in a
+                PARTICULAR place. This is how you find out you can add at all,
+                and it puts the new row at the end.
+              */}
+              {editing && !agencyScope ? (
+                <AddToNavRow
+                  onOpen={(trigger) =>
+                    setAddingAt({
+                      index: entries.length,
+                      tailIndex: tailRowIds.length,
+                      anchor: trigger.getBoundingClientRect(),
+                    })
+                  }
+                />
+              ) : null}
+              {/*
                 A rule above Settings, and only there.
                 
                 The rule between the categories and the tail went because they are
@@ -1540,6 +1562,31 @@ function RecentAccountsBlock({
         </button>
       ))}
     </>
+  );
+}
+
+/**
+ * The dashed "add" row at the end of the tree, in edit mode.
+ *
+ * Dashed rather than filled: it is not a place, it is the outline of one that
+ * does not exist yet. Same height and same indent as a real row, so the list's
+ * rhythm survives — a taller call-to-action here read as a banner and stopped
+ * looking like part of the tree it adds to.
+ */
+function AddToNavRow({
+  onOpen,
+}: {
+  onOpen: (trigger: HTMLElement) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => onOpen(e.currentTarget)}
+      className="motion-tap mt-[2px] flex h-[36px] w-full shrink-0 items-center gap-[10px] rounded-[7px] px-[8px] text-left text-[13.5px] leading-[normal] font-medium text-nav-fg-subtle outline-1 outline-dashed outline-[var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg active:scale-[0.99]"
+    >
+      <Plus size={16} aria-hidden="true" className="shrink-0" />
+      Add a category or product
+    </button>
   );
 }
 
