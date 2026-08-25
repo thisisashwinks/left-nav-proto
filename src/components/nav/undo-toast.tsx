@@ -20,7 +20,7 @@ export function UndoToast({
   /** The nav column's right edge, so the toast can centre itself on the nav. */
   navWidth: number;
 }) {
-  const { undoOffer, undo, dismissUndo } = useNavLayout();
+  const { undoOffer, undo, dismissUndo, state } = useNavLayout();
 
   React.useEffect(() => {
     if (!undoOffer) return;
@@ -44,9 +44,17 @@ export function UndoToast({
        * rather than centred on it: the message names two categories and is
        * routinely wider than the column, and centring pushed it off the window's
        * left edge. Growing rightward over the canvas is the direction with room.
+       *
+       * 74px clears the pill; editing needs 94 more, because the editing card
+       * stands between the two and the toast was landing across its Discard and
+       * Save. Undo appears almost exclusively WHILE editing, so the colliding
+       * case was the common one rather than the edge.
        */
-      style={{ left: Math.max(12, navWidth - 260) }}
-      className="motion-slot-in absolute bottom-[74px] z-40 flex h-[38px] max-w-[min(520px,calc(100%-24px))] items-center gap-[12px] rounded-[10px] bg-pg-overlay px-[14px] shadow-[0_8px_24px_0_rgba(15,23,42,0.28)]"
+      style={{
+        left: Math.max(12, navWidth - 260),
+        bottom: state.editing ? 74 + 94 : 74,
+      }}
+      className="motion-slot-in absolute z-40 flex h-[38px] max-w-[min(520px,calc(100%-24px))] items-center gap-[12px] rounded-[10px] bg-pg-overlay px-[14px] shadow-[0_8px_24px_0_rgba(15,23,42,0.28)]"
     >
 
       <span className="truncate text-[13px] leading-none whitespace-nowrap text-pg-surface">

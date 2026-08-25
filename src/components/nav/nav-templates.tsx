@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { resolveOwned } from "./catalogue-equivalents";
 import { customTreeFor, type NavLayoutState } from "./grouping";
 
 /**
@@ -243,6 +244,61 @@ const SEED_TEMPLATES: readonly NavTemplate[] = [
   ),
 ];
 
+/**
+ * The template's groups, then whatever the account already had for the rest.
+ *
+ * A template names a handful of products — sixteen for the dental one — and an
+ * account can own a hundred. Filing only the named ones and letting the rest
+ * fall loose produced five groups above eighty ungrouped rows, which is a flat
+ * list with a header on it: the opposite of what applying a grouping is for.
+ *
+ * So the unclaimed products keep the shape they already had. The account's own
+ * tree is materialised, stripped of anything the template just claimed, and
+ * appended — groups it empties are dropped. The template leads, the account's
+ * existing structure carries the tail, and nothing ends up loose that was not
+ * loose before.
+ */
+function mergedGroups(
+  a: NavArrangement,
+  target: NavLayoutState,
+  owns: ReadonlySet<string>,
+) {
+  const fromTemplate = a.customGroups
+    .map((g) => ({
+      ...g,
+      productIds: g.productIds
+        .map((p) => resolveOwned(p, owns))
+        .filter((p): p is string => p !== undefined),
+    }))
+    .filter((g) => g.productIds.length > 0);
+
+  const claimed = new Set(fromTemplate.flatMap((g) => g.productIds));
+
+  const byLabel = (label: string) => label.trim().toLowerCase();
+  const templateLabels = new Map(
+    fromTemplate.map((g) => [byLabel(g.label), g] as const),
+  );
+
+  const remaining: typeof fromTemplate = [];
+  for (const group of customTreeFor(target).customGroups) {
+    const left = group.productIds.filter((p) => !claimed.has(p));
+    if (left.length === 0) continue;
+    // Same id only when the template came from this account; same LABEL
+    // happens all the time, because both sides call a thing "Reporting". Two
+    // rows with one name is worse than either arrangement on its own, so the
+    // leftovers join the template's group instead of starting a rival.
+    if (fromTemplate.some((t) => t.id === group.id)) continue;
+    const twin = templateLabels.get(byLabel(group.label));
+    if (twin) {
+      twin.productIds = [...twin.productIds, ...left];
+      continue;
+    }
+    remaining.push({ ...group, productIds: left });
+  }
+
+  return [...fromTemplate, ...remaining];
+}
+
 export function NavTemplatesProvider({
   children,
 }: {
@@ -298,9 +354,10 @@ export function NavTemplatesProvider({
         // Every product reference is filtered to what this account owns. A
         // group left empty by that filter is dropped rather than drawn as a
         // heading over nothing.
-        customGroups: a.customGroups
-          .map((g) => ({ ...g, productIds: g.productIds.filter((p) => owns.has(p)) }))
-          .filter((g) => g.productIds.length > 0),
+        // Each id is translated to whatever this account calls the same
+        // product before being filtered, so the two catalogues do not read as
+        // "owns nothing" to one another.
+        customGroups: mergedGroups(a, target, owns),
         /*
          * Never hand back an empty dock.
          *
@@ -312,15 +369,21 @@ export function NavTemplatesProvider({
          * leaves nothing.
          */
         pinned: (() => {
-          const kept = a.pinned.filter((p) => owns.has(p));
+          const kept = a.pinned
+            .map((p) => resolveOwned(p, owns))
+            .filter((p): p is string => p !== undefined);
           return kept.length > 0 ? kept : target.pinned;
         })(),
-        hiddenRows: a.hiddenRows.filter((p) => owns.has(p)),
+        hiddenRows: a.hiddenRows
+          .map((p) => resolveOwned(p, owns))
+          .filter((p): p is string => p !== undefined),
         // The tail also holds the account's OWN links, which the template knows
         // nothing about — so template order first, then anything of the
         // account's it did not mention, rather than discarding them.
         tailOrder: [
-          ...a.tailOrder.filter((p) => owns.has(p)),
+          ...a.tailOrder
+            .map((p) => resolveOwned(p, owns))
+            .filter((p): p is string => p !== undefined),
           ...target.tailOrder.filter((p) => !a.tailOrder.includes(p)),
         ],
       };
