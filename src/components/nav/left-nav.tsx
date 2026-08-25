@@ -67,6 +67,8 @@ import { NavRowsSkeleton } from "@/components/shell/switching";
 import { NavAppearance } from "./nav-appearance";
 import type { LucideIcon } from "lucide-react";
 import { useAgencyLayout } from "./agency-layout";
+import { NavTemplatesMenu } from "./nav-templates-menu";
+import { useNavTemplates } from "./nav-templates";
 import { iconByName, nameForIcon } from "./icon-catalogue";
 import type { NavConfig, NavEntry, NavItem } from "./types";
 
@@ -213,6 +215,7 @@ export function LeftNav({
     useNavRowEdit(picker);
   const layout = useNavLayout();
   const agencyLayout = useAgencyLayout();
+  const templates = useNavTemplates();
   const [agencyRenaming, setAgencyRenaming] = React.useState<string | null>(null);
   const menu = useRowMenu();
   /**
@@ -243,6 +246,7 @@ export function LeftNav({
   /** Where the show/hide menu is anchored, when it is open. */
   const [blocksAt, setBlocksAt] = React.useState<DOMRect | null>(null);
   const [coloursAt, setColoursAt] = React.useState<DOMRect | null>(null);
+  const [templatesAt, setTemplatesAt] = React.useState<DOMRect | null>(null);
   /** Whether the discard warning is up. */
   const [confirmingDiscard, setConfirmingDiscard] = React.useState(false);
   /** The row in flight, and the row the pointer is over. Drag-local. */
@@ -757,6 +761,7 @@ export function LeftNav({
     setConfirmingDiscard(false);
     setBlocksAt(null);
     setColoursAt(null);
+    setTemplatesAt(null);
   };
 
   /**
@@ -802,6 +807,14 @@ export function LeftNav({
           onOpenBlocks: (trigger) => setBlocksAt(trigger.getBoundingClientRect()),
           onOpenAppearance: (trigger) =>
             setColoursAt(trigger.getBoundingClientRect()),
+          // Templates are a sub-account idea: the agency tree is platform IA,
+          // so there is no arrangement of it worth reusing elsewhere.
+          ...(agencyScope
+            ? {}
+            : {
+                onOpenTemplates: (trigger: HTMLElement) =>
+                  setTemplatesAt(trigger.getBoundingClientRect()),
+              }),
           onSave: () => {
             closeEditSurfaces();
             layout.saveEditing();
@@ -1437,6 +1450,23 @@ export function LeftNav({
           title={menuOpen.title}
           actions={menuOpen.actions}
           onClose={menu.close}
+        />
+      ) : null}
+      {templatesAt ? (
+        <NavTemplatesMenu
+          accountName={account.name}
+          anchor={templatesAt}
+          onSave={(name) => {
+            templates.save(name, account.name, state);
+            setTemplatesAt(null);
+          }}
+          onApply={(id) => {
+            const patch = templates.patchFor(id, state);
+            const tpl = templates.templates.find((t) => t.id === id);
+            if (patch && tpl) layout.applyArrangement(tpl.name, patch);
+            setTemplatesAt(null);
+          }}
+          onClose={() => setTemplatesAt(null)}
         />
       ) : null}
       {coloursAt ? (

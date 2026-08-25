@@ -191,6 +191,14 @@ interface NavLayoutContextValue {
   /** Whether the open session has changed anything worth warning about. */
   editDirty: boolean;
   resetLayout: () => void;
+  /**
+   * Drop a saved arrangement onto this account, as one undoable step.
+   *
+   * One commit rather than a series, because applying a template is one
+   * decision — an undo that peeled it back a group at a time would be worse
+   * than no undo.
+   */
+  applyArrangement: (label: string, patch: Partial<NavLayoutState>) => void;
   isDefaultLayout: boolean;
 
   undoOffer: UndoOffer | null;
@@ -970,6 +978,8 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       discardEditing: () => dispatch({ type: "discardEdit" }),
       editDirty: store.editDirty,
 
+      applyArrangement: (label, patch) =>
+        commit(`Applied ${label}`, (s) => ({ ...s, ...patch })),
       resetLayout: () =>
         commit("Reset the nav to this account's layout", (s) => ({
           ...base,

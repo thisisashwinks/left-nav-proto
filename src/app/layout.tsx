@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
 import { BrandProvider } from "@/components/accounts/brand-store";
 import { AgencyLayoutProvider } from "@/components/nav/agency-layout";
+import { NavTemplatesProvider } from "@/components/nav/nav-templates";
 import { NavProfilesProvider } from "@/components/nav/nav-profiles";
 import { NavLayoutProvider } from "@/components/nav/nav-layout-provider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
@@ -46,12 +47,14 @@ export default function RootLayout({
           <TuningProvider>
             <NavLayoutProvider>
               <BrandProvider>
-              <AgencyLayoutProvider>
+              <NavTemplatesProvider>
+                <AgencyLayoutProvider>
                 <NavProfilesProvider>
                 <TooltipProvider>{children}</TooltipProvider>
                 <TuningPanel />
               </NavProfilesProvider>
                 </AgencyLayoutProvider>
+                </NavTemplatesProvider>
               </BrandProvider>
             </NavLayoutProvider>
           </TuningProvider>

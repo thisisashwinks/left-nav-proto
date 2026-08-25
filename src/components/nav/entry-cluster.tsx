@@ -1,6 +1,14 @@
 "use client";
 
-import { Check, Eye, Palette, Search, SquarePen, TriangleAlert } from "lucide-react";
+import {
+  Check,
+  Eye,
+  LayoutTemplate,
+  Palette,
+  Search,
+  SquarePen,
+  TriangleAlert,
+} from "lucide-react";
 import { AiMark } from "@/components/ai/ai-mark";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import { Kbd } from "@/components/search/kbd";
@@ -65,6 +73,8 @@ export interface EditNavProps {
   dirty: boolean;
   /** Opens the colour controls, anchored on the button that asked. */
   onOpenAppearance: (trigger: HTMLElement) => void;
+  /** Opens saved groupings — save this one, or apply another. */
+  onOpenTemplates?: (trigger: HTMLElement) => void;
   /**
    * How many categories are still empty.
    *
@@ -110,6 +120,7 @@ function EditNavButton({
   blocked,
   onOpenBlocks,
   onOpenAppearance,
+  onOpenTemplates,
 }: EditNavProps) {
   if (editing) {
     const blockedNote =
@@ -181,6 +192,17 @@ function EditNavButton({
             <Palette size={12} aria-hidden="true" />
             Colours
           </button>
+          {onOpenTemplates ? (
+            <button
+              type="button"
+              aria-label="Save or apply a grouping template"
+              onClick={(e) => onOpenTemplates(e.currentTarget)}
+              className="motion-tap flex h-[20px] shrink-0 items-center gap-[4px] rounded-[6px] px-[6px] text-[11.5px] leading-none font-medium text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95"
+            >
+              <LayoutTemplate size={12} aria-hidden="true" />
+              Templates
+            </button>
+          ) : null}
         </div>
 
         <div className="flex items-center justify-end gap-[6px]">

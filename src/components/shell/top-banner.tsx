@@ -207,16 +207,28 @@ export function TopBanner({ banners }: TopBannerProps) {
         // banner is a flex-column child, so it stretches to the width minus its
         // margins on its own.
         "mx-[var(--shell-canvas-gap)] mt-[var(--shell-canvas-gap)] flex shrink-0",
-        "items-center gap-[10px] overflow-hidden rounded-[var(--shell-canvas-radius)] pr-[10px] pl-[14px]",
-        "h-[44px]",
+        "items-center gap-[8px] overflow-hidden rounded-[var(--shell-canvas-radius)] pr-[8px] pl-[10px]",
+        /*
+         * 32px, which is the height the agency strip used to wear.
+         *
+         * "One banner treatment, not two" collapsed the condensed agency cut
+         * into the account's 44px one, and the single surviving height was the
+         * taller of the two. A banner is ambient — it is the one thing on
+         * screen nobody came for — and at 44px it was taking as much vertical
+         * room as the app bar under it. The condensed cut was right; it just
+         * should have been the one that survived.
+         */
+        "h-[32px]",
         tone.bar,
       )}
     >
       <span
         aria-hidden="true"
         className={cn(
-          "flex size-[26px] shrink-0 items-center justify-center rounded-full bg-white/85",
-          "shadow-[0_1px_2px_0_rgba(15,23,42,0.12)]",
+          // No disc at this height — a filled 26px circle in a 32px strip left
+          // 3px above and below and read as a button. The glyph carries the
+          // tone on its own, which is what the condensed cut always did.
+          "flex shrink-0 items-center justify-center",
           tone.disc,
         )}
       >
@@ -232,8 +244,8 @@ export function TopBanner({ banners }: TopBannerProps) {
       <div aria-hidden="true" className="min-w-0 flex-1" />
       <p
         className={cn(
-          "min-w-0 shrink truncate leading-[18px]",
-          "text-[13px]",
+          "min-w-0 shrink truncate leading-[16px]",
+          "text-[12.5px]",
         )}
       >
         <span className="font-semibold">{banner.lead}</span>
@@ -247,7 +259,7 @@ export function TopBanner({ banners }: TopBannerProps) {
           // Hollow, small, all-caps and tracked out (Aug 21 review) — a label
           // wearing a stroke, not a white block competing with the message.
           className={cn(
-            "motion-tap flex h-[24px] shrink-0 items-center rounded-[7px] bg-transparent px-[10px]",
+            "motion-tap flex h-[20px] shrink-0 items-center rounded-[6px] bg-transparent px-[8px]",
             "text-[10.5px] leading-none font-semibold tracking-[0.7px] uppercase",
             "hover:bg-white/40 active:scale-[0.98]",
             tone.cta,
