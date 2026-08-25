@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Eye, Search, SquarePen, TriangleAlert } from "lucide-react";
+import { Check, Eye, Palette, Search, SquarePen, TriangleAlert } from "lucide-react";
 import { AiMark } from "@/components/ai/ai-mark";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import { Kbd } from "@/components/search/kbd";
@@ -63,6 +63,8 @@ export interface EditNavProps {
   onDiscard: () => void;
   /** Whether anything has changed, which is what makes Save worth pressing. */
   dirty: boolean;
+  /** Opens the colour controls, anchored on the button that asked. */
+  onOpenAppearance: (trigger: HTMLElement) => void;
   /**
    * How many categories are still empty.
    *
@@ -107,6 +109,7 @@ function EditNavButton({
   dirty,
   blocked,
   onOpenBlocks,
+  onOpenAppearance,
 }: EditNavProps) {
   if (editing) {
     const blockedNote =
@@ -163,6 +166,20 @@ function EditNavButton({
           >
             <Eye size={12} aria-hidden="true" />
             Show / hide
+          </button>
+          {/*
+            Beside Show / hide, because they are the same kind of decision:
+            what the nav contains, and what it looks like. Both are the
+            account's own, and both are only reachable while editing it.
+          */}
+          <button
+            type="button"
+            aria-label="Change the navigation's colours"
+            onClick={(e) => onOpenAppearance(e.currentTarget)}
+            className="motion-tap flex h-[20px] shrink-0 items-center gap-[4px] rounded-[6px] px-[6px] text-[11.5px] leading-none font-medium text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95"
+          >
+            <Palette size={12} aria-hidden="true" />
+            Colours
           </button>
         </div>
 

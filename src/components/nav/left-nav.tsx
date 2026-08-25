@@ -59,6 +59,7 @@ import { useNavRowEdit } from "./use-nav-row-edit";
 import type { NavDensity } from "./use-nav-density";
 import { NavSectionLabel } from "./nav-section-label";
 import { NavRowsSkeleton } from "@/components/shell/switching";
+import { NavAppearance } from "./nav-appearance";
 import type { NavConfig, NavEntry, NavItem } from "./types";
 
 /** The show/hide menu's one view, opened directly rather than via an entry. */
@@ -229,6 +230,7 @@ export function LeftNav({
   } | null>(null);
   /** Where the show/hide menu is anchored, when it is open. */
   const [blocksAt, setBlocksAt] = React.useState<DOMRect | null>(null);
+  const [coloursAt, setColoursAt] = React.useState<DOMRect | null>(null);
   /** Whether the discard warning is up. */
   const [confirmingDiscard, setConfirmingDiscard] = React.useState(false);
   /** The row in flight, and the row the pointer is over. Drag-local. */
@@ -651,6 +653,7 @@ export function LeftNav({
     setDeleting(null);
     setConfirmingDiscard(false);
     setBlocksAt(null);
+    setColoursAt(null);
   };
 
   /**
@@ -687,6 +690,8 @@ export function LeftNav({
           blocked: emptyCategories.length,
           onStart: () => layout.beginEditing(),
           onOpenBlocks: (trigger) => setBlocksAt(trigger.getBoundingClientRect()),
+          onOpenAppearance: (trigger) =>
+            setColoursAt(trigger.getBoundingClientRect()),
           onSave: () => {
             closeEditSurfaces();
             layout.saveEditing();
@@ -1233,6 +1238,13 @@ export function LeftNav({
           title={menuOpen.title}
           actions={menuOpen.actions}
           onClose={menu.close}
+        />
+      ) : null}
+      {coloursAt ? (
+        <NavAppearance
+          accountId={account.id}
+          anchor={coloursAt}
+          onClose={() => setColoursAt(null)}
         />
       ) : null}
       {blocksAt ? (
