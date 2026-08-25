@@ -25,6 +25,8 @@ import type { TransitionPhase } from "@/lib/use-exit-transition";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { BottomSlot } from "./bottom-slot";
 import { FlyoutActionRow } from "./flyout-action-row";
+import { IconPicker, useIconPicker } from "@/components/nav/icon-picker";
+import { nameForIcon } from "@/components/nav/icon-catalogue";
 import { FlyoutRow, type FlyoutRowEdit } from "./flyout-row";
 import type { FlyoutConfig } from "./types";
 
@@ -134,6 +136,8 @@ export function FlyoutPanel({
     (g) => g.id !== UNGROUPED_ID && g.id !== PROPOSED_SETTINGS_ID,
   );
 
+  const picker = useIconPicker();
+
   const editFor = (productId: string): FlyoutRowEdit | undefined => {
     if (!editing || !category) return undefined;
     return {
@@ -145,6 +149,11 @@ export function FlyoutPanel({
       },
       onCancelRename: () => setRenamingId(null),
       onOpenMenu: (trigger) => menu.open(productId, trigger),
+      // Icons are governance, so they follow `regroup` — the same gate the
+      // nav's own rows use, rather than a second rule for the same action.
+      ...(layout.can.regroup
+        ? { onPickIcon: (trigger: HTMLElement) => picker.open(productId, trigger) }
+        : {}),
       hidden: layout.isRowHidden(productId),
       onToggleHidden: () => layout.toggleRowHidden(productId),
       onDragStart: (e) => {
@@ -469,6 +478,19 @@ export function FlyoutPanel({
         </div>
       ) : null}
 
+      {picker.targetId && picker.anchor ? (
+        <IconPicker
+          anchor={picker.anchor}
+          // The effective icon, so the shipped glyph reads as selected before
+          // anything has been overridden.
+          selected={nameForIcon(layout.productIconFor(picker.targetId))}
+          onPick={(name) => layout.setIcon(picker.targetId!, name)}
+          {...(layout.hasIconOverride(picker.targetId)
+            ? { onReset: () => layout.resetIcon(picker.targetId!) }
+            : {})}
+          onClose={picker.close}
+        />
+      ) : null}
       {menu.openId && menu.anchor ? (
         <RowMenu
           anchor={menu.anchor}

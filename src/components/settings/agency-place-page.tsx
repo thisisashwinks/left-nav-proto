@@ -96,5 +96,5 @@ export function AgencyPlacePage({
 
 /** The tab labels for a place, when the mapping gave it a third level. */
 export function tabsFor(parent: AgencyChild | undefined): readonly string[] {
-  return parent?.l3 ?? [];
+  return (parent?.l3 ?? []).map((x) => x.label);
 }

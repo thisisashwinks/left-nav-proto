@@ -92,6 +92,14 @@ export interface FlyoutRowEdit {
   onCommitRename: (next: string) => void;
   onCancelRename: () => void;
   onOpenMenu: (trigger: HTMLElement) => void;
+  /**
+   * Clicking the row's own glyph opens the picker.
+   *
+   * The nav's rows have had this since the picker landed; the panel's had only
+   * the kebab, so the obvious gesture — click the icon you want to change —
+   * did nothing on exactly the rows most people change.
+   */
+  onPickIcon?: (trigger: HTMLElement) => void;
   /** Switching the row off, and back on. Hover-only until it is off. */
   onToggleHidden: () => void;
   hidden: boolean;
@@ -191,8 +199,7 @@ export function FlyoutRow({
   const onRowClick = () =>
     hasChildren ? setOpen((o) => !o) : onSelect?.(item.id);
 
-  const inner = (
-    <>
+  const iconBox = (
       <div
         className={cn(
           "flex shrink-0 items-center justify-center",
@@ -223,6 +230,41 @@ export function FlyoutRow({
           />
         ) : null}
       </div>
+  );
+
+  const inner = (
+    <>
+      {edit?.onPickIcon ? (
+        /*
+         * A button around the glyph, not a handler on the row.
+         *
+         * The row already owns a click — it navigates — so the icon has to stop
+         * propagation or changing an icon would also leave the panel. Rendered
+         * only in edit mode: outside it the icon is decoration and a focus stop
+         * on every one of them is noise for keyboard users.
+         */
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label={`Change the ${item.label} icon`}
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            edit.onPickIcon?.(e.currentTarget as HTMLElement);
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.stopPropagation();
+            e.preventDefault();
+            edit.onPickIcon?.(e.currentTarget as HTMLElement);
+          }}
+          className="motion-tap -m-[3px] cursor-pointer rounded-[6px] p-[3px] hover:bg-nav-active"
+        >
+          {iconBox}
+        </span>
+      ) : (
+        iconBox
+      )}
 
       <div className={cn("flex h-fit flex-1 flex-col items-start", v.text)}>
         <div className="flex w-full shrink-0 items-center gap-[7px]">
@@ -551,6 +593,15 @@ function FlyoutChildRow({
           depth === 0 ? "text-[13px]" : "text-[12.5px]",
         )}
       >
+        {child.icon ? (
+          // Same 16px box the nav's own rows use, so an L3 row reads as the
+          // same kind of thing one level down rather than a sub-item of one.
+          <child.icon
+            size={16}
+            aria-hidden="true"
+            className="shrink-0 text-nav-fg-subtle"
+          />
+        ) : null}
         <span className="truncate">{child.label}</span>
         {child.badge ? (
           <span

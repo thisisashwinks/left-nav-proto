@@ -30,6 +30,12 @@ export interface FlyoutBadge {
 export interface FlyoutChildItem {
   id: string;
   label: string;
+  /**
+   * An L3 row is a destination like any other, and a destination can be
+   * pinned — so it needs a glyph the dock and the collapsed rail can show.
+   * Without one a pinned L3 would arrive in the dock as an empty tile.
+   */
+  icon?: LucideIcon;
   badge?: FlyoutBadge;
   /**
    * One level deeper — L4. Needed because `group-flyout.ts` spreads

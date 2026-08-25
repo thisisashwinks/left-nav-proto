@@ -1319,11 +1319,15 @@ export function LeftNav({
               screen belong to the account you just left — showing them for
               three more seconds invites a click into the wrong place.
             */
-            <div className="motion-nav-swap-out">
+            // `w-full` is load-bearing: the scroll region is `items-start`, so
+            // a bare wrapper shrinks to its content and every row inside — each
+            // `w-full` of THAT — stops short of the nav's edge, stranding the
+            // chevrons mid-row.
+            <div className="motion-nav-swap-out w-full">
               <NavRowsSkeleton />
             </div>
           ) : (
-            <div key={contentKey} className="motion-nav-swap-in">
+            <div key={contentKey} className="motion-nav-swap-in w-full">
               {bandEverything ? (
             /*
               Settings is inside the last band here, not the bottom anchor it is

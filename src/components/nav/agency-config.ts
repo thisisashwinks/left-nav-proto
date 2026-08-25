@@ -2,8 +2,10 @@ import {
   Antenna,
   AudioLines,
   BadgeDollarSign,
+  Bell,
   BookOpen,
   Boxes,
+  Brush,
   Building2,
   Camera,
   ChartPie,
@@ -16,13 +18,14 @@ import {
   GraduationCap,
   Grid2x2,
   Handshake,
-
   KeyRound,
   LayoutDashboard,
   Lightbulb,
   Link2,
+  type LucideIcon,
   Mail,
   Megaphone,
+  Monitor,
   Phone,
   Plug,
   Puzzle,
@@ -31,13 +34,15 @@ import {
   Scale,
   ScrollText,
   Settings,
+  ShieldCheck,
   Shirt,
+  Smartphone,
   Sparkles,
   Store,
   Users,
   UserSearch,
+  Wallet,
   Workflow,
-  type LucideIcon,
 } from "lucide-react";
 import type { FlyoutConfig } from "@/components/flyout/types";
 import type { NavEntry, NavItem } from "./types";
@@ -71,8 +76,13 @@ import type { NavEntry, NavItem } from "./types";
 export interface AgencyChild extends NavItem {
   /** One line of what it is, as the panel rows show. */
   description: string;
-  /** The sheet's columns C–F. Disclosed by the panel row, never by the nav. */
-  l3?: string[];
+  /**
+   * The sheet's columns C–F. Disclosed by the panel row, never by the nav.
+   *
+   * Each carries an icon: an L3 row is a destination, a destination can be
+   * pinned, and a pinned row with no glyph is an empty tile in the dock.
+   */
+  l3?: AgencyL3[];
 }
 
 export interface AgencyBucket {
@@ -85,13 +95,26 @@ export interface AgencyBucket {
   children: AgencyChild[];
 }
 
+export interface AgencyL3 {
+  label: string;
+  icon: LucideIcon;
+}
+
+const l3 = (label: string, icon: LucideIcon): AgencyL3 => ({ label, icon });
+
 const child = (
   id: string,
   label: string,
   icon: LucideIcon,
   description: string,
-  l3?: string[],
-): AgencyChild => ({ id, label, icon, description, ...(l3 ? { l3 } : {}) });
+  sub?: AgencyL3[],
+): AgencyChild => ({
+  id,
+  label,
+  icon,
+  description,
+  ...(sub ? { l3: sub } : {}),
+});
 
 export const agencyBuckets: AgencyBucket[] = [
   {
@@ -151,9 +174,9 @@ export const agencyBuckets: AgencyBucket[] = [
       child("agency-template-library", "Template library", Grid2x2, "Funnels, emails and sites to start from."),
       child("agency-media-storage", "Media storage usage", Boxes, "What every account is holding, and the cap."),
       child("agency-workflow-settings", "Workflow settings", Workflow, "Builder defaults and the AI models workflows may call.", [
-        "Builder settings",
-        "Workflow premium features",
-        "Workflow external AI models",
+        l3("Builder settings", Settings),
+        l3("Workflow premium features", Sparkles),
+        l3("Workflow external AI models", Boxes),
       ]),
       child("agency-domain-purchase", "Domain purchase", Antenna, "Buy and assign domains to accounts."),
       child("agency-launchpad-settings", "Launchpad settings", Rocket, "What a new account is asked to finish."),
@@ -199,8 +222,8 @@ export const agencyBuckets: AgencyBucket[] = [
       child("agency-ideas", "Ideas", Lightbulb, "Request features and vote on them."),
       child("agency-status", "Status", Antenna, "Live platform health and incidents."),
       child("agency-download-apps", "Download apps", Download, "The mobile and desktop clients.", [
-        "Mobile app",
-        "Desktop app",
+        l3("Mobile app", Smartphone),
+        l3("Desktop app", Monitor),
       ]),
       child("agency-swag", "GHL swag", Shirt, "Branded merchandise."),
     ],
@@ -239,24 +262,24 @@ export const agencySettingsBucket: AgencyBucket = {
   children: [
     child("agency-my-profile", "My profile", CircleUser, "Your own account and sign-in."),
     child("agency-company", "Company", Building2, "Who the agency is, and how it is branded.", [
-      "Basic details",
-      "White label",
-      "Advanced settings",
-      "Single sign-on (SSO)",
-      "Compliance",
+      l3("Basic details", ClipboardList),
+      l3("White label", Brush),
+      l3("Advanced settings", Settings),
+      l3("Single sign-on (SSO)", KeyRound),
+      l3("Compliance", ShieldCheck),
     ]),
     child("agency-users", "Users", Users, "Who can get in, and what they can reach."),
     child("agency-billing", "Billing", Receipt, "What you pay, and what you collect.", [
-      "Subscription",
-      "Payments",
-      "Wallet & transactions",
-      "Notifications",
-      "Stripe integration",
+      l3("Subscription", Receipt),
+      l3("Payments", CreditCard),
+      l3("Wallet & transactions", Wallet),
+      l3("Notifications", Bell),
+      l3("Stripe integration", Plug),
     ]),
     child("agency-settings-email", "Email services", Mail, "The sending domains and providers."),
     child("agency-system-messages", "System messages", Megaphone, "What the platform sends on your behalf.", [
-      "System emails",
-      "Announcements",
+      l3("System emails", Mail),
+      l3("Announcements", Megaphone),
     ]),
     child("agency-menu-links", "Custom menu links", Link2, "Your own tools, in the nav."),
     child("agency-audit-logs", "Audit logs", ScrollText, "Who changed what, and when."),
@@ -299,7 +322,11 @@ export function panelFor(bucket: AgencyBucket, id = bucket.id): FlyoutConfig {
                    * same rows back to disclosing, so both readings survive.
                    */
                   tabs: true,
-                  children: c.l3.map((l) => ({ id: slug(c.id, l), label: l })),
+                  children: c.l3.map((x) => ({
+                    id: slug(c.id, x.label),
+                    label: x.label,
+                    icon: x.icon,
+                  })),
                 }
               : {}),
       },
@@ -344,10 +371,10 @@ export const agencyPlaces: Record<string, AgencyPlace> = (() => {
         label: c.label,
         description: c.description,
         bucket,
-        tabs: c.l3 ?? [],
+        tabs: (c.l3 ?? []).map((x) => x.label),
       };
-      for (const l of c.l3 ?? []) {
-        out[slug(c.id, l)] = { label: l, bucket, parent: c, tabs: [] };
+      for (const x of c.l3 ?? []) {
+        out[slug(c.id, x.label)] = { label: x.label, bucket, parent: c, tabs: [] };
       }
     }
   }
