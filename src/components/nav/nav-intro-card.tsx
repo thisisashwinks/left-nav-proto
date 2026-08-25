@@ -53,7 +53,26 @@ export function NavIntroCard({
    */
   React.useEffect(() => {
     const measure = () => {
-      const el = document.querySelector('[aria-label="Edit navigation"]');
+      /*
+       * The VISIBLE control, not merely the first one in the DOM.
+       *
+       * Both nav faces stay mounted — the collapsed rail and the expanded nav —
+       * with the inactive one marked `inert` and `aria-hidden`. Collapsed, the
+       * only "Edit navigation" button in the document belongs to the hidden
+       * expanded face, and anchoring to it left the card floating in the canvas
+       * pointing at nothing, since the rail it should have pointed at is 64px
+       * wide and has no edit control at all.
+       *
+       * Filtering to the live face also gives the collapsed case the right
+       * answer for free: there is no visible anchor, so there is no card. The
+       * mode it introduces cannot be reached from the rail anyway, and a
+       * coach-mark for something you cannot do is worse than none.
+       */
+      const el = [...document.querySelectorAll('[aria-label="Edit navigation"]')].find(
+        (candidate) =>
+          !candidate.closest('[inert], [aria-hidden="true"]') &&
+          candidate.getBoundingClientRect().width > 0,
+      );
       setAnchor(el ? el.getBoundingClientRect() : null);
       // The BUTTON's right edge is inside the nav's padding, so clearing that
       // left the card sitting ten pixels over the nav's own edge. The card has
@@ -62,9 +81,31 @@ export function NavIntroCard({
       setNavRight(nav ? nav.getBoundingClientRect().right : 0);
     };
     measure();
+
+    /*
+     * Observed, not just polled.
+     *
+     * The nav's width ANIMATES between 64 and 272, and on a 400ms poll the card
+     * lagged a collapse by up to a frame-and-a-half — long enough to be caught
+     * sitting over the rail it had just been pointing beside. A ResizeObserver
+     * fires throughout the transition, so the card tracks the edge rather than
+     * snapping to it afterwards.
+     *
+     * The interval stays as a slow backstop: the two nav faces swap which one
+     * is `inert`, and that changes which button is the live anchor without
+     * resizing anything.
+     */
+    const observer = new ResizeObserver(measure);
+    const nav = document
+      .querySelector('[aria-label="Edit navigation"]')
+      ?.closest("nav");
+    if (nav) observer.observe(nav);
+    observer.observe(document.body);
+
     const id = setInterval(measure, 400);
     window.addEventListener("resize", measure);
     return () => {
+      observer.disconnect();
       clearInterval(id);
       window.removeEventListener("resize", measure);
     };

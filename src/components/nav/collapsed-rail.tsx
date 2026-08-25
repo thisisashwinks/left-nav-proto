@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { PanelLeftOpen, Pin } from "lucide-react";
+import { PanelLeftOpen, Pin, SquarePen } from "lucide-react";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import type { Account } from "@/components/accounts/accounts-data";
@@ -50,6 +50,13 @@ interface CollapsedRailProps {
   density: NavDensity;
   /** Opens the manage surface — the floor tier's stand-in for the capsule. */
   onOpenLauncher: () => void;
+  /**
+   * Expand the nav and open edit mode.
+   *
+   * Absent for roles that may not restructure, and at agency scope, so the rail
+   * offers it exactly when the expanded nav would.
+   */
+  onEdit?: () => void;
 }
 
 /**
@@ -77,6 +84,7 @@ export function CollapsedRail({
   aiSession,
   density,
   onOpenLauncher,
+  onEdit,
 }: CollapsedRailProps) {
   const atFloor = density === "floor";
   const agencyScope = scope === "agency";
@@ -345,6 +353,32 @@ export function CollapsedRail({
         the app bar's far left in both arrangements, so the entry point is the
         only thing that moves between them.
       */}
+      {/*
+        Editing is reachable from the rail, but not done here.
+        
+        There is no label to rename at 40px, so the rail has always shown the
+        RESULT of an edit rather than being a place to make one — and the
+        control went with the labels. That left the whole feature invisible to
+        anyone working collapsed, which is the state the nav auto-enters under
+        900px. So the rail keeps the entrance and drops the workspace: this
+        expands the nav first, then opens the mode, landing you where the work
+        can actually be done.
+      */}
+      {onEdit ? (
+        <div className="flex shrink-0 flex-col items-center pt-[6px]">
+          <RailTooltip label="Edit nav">
+            <button
+              type="button"
+              aria-label="Edit navigation"
+              onClick={onEdit}
+              className="motion-tap flex h-[35px] w-[40px] shrink-0 items-center justify-center rounded-[var(--t-nav-radius,7px)] text-nav-fg-subtle hover:scale-105 hover:bg-nav-hover hover:text-nav-fg active:scale-95"
+            >
+              <SquarePen size={16} aria-hidden="true" />
+            </button>
+          </RailTooltip>
+        </div>
+      ) : null}
+
       {topEntry ? null : (
         <div className="flex shrink-0 flex-col items-center pt-[6px]">
           <EntryClusterRail onSearch={onSearch} session={aiSession} />

@@ -232,6 +232,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     productLabelFor,
     productIconFor,
     setActiveAccount: setActiveNavAccount,
+    beginEditing: beginNavEditing,
+    can: navCan,
   } = useNavLayout();
 
   /*
@@ -1162,6 +1164,16 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             aiSession={aiSession}
             density={density}
             onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
+            {...(agencyScope || !navCan.customise
+              ? {}
+              : {
+                  // Expand FIRST, then open the mode: the rail is the entrance,
+                  // the expanded nav is the workspace.
+                  onEdit: () => {
+                    setManualCollapsed(false);
+                    beginNavEditing();
+                  },
+                })}
           />
         </div>
       </div>
