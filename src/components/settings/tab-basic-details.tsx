@@ -4,6 +4,7 @@ import * as React from "react";
 import { FileText, Plus, Search } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
 import { hashId } from "@/lib/account-color";
+import { BrandCard } from "./brand-card";
 
 /**
  * Basic Details, as production draws it: the Account and General Information
@@ -21,6 +22,12 @@ export function BasicDetailsTab({ account }: { account: Account }) {
   return (
     <div className="flex flex-col items-start gap-[16px] lg:flex-row">
       <div className="flex w-full min-w-0 flex-1 flex-col gap-[16px]">
+        {/*
+          Above the forms, not buried under them. Production puts the logo
+          field halfway down Business Profile between a phone number and a
+          currency picker, which is how agencies end up not knowing it exists.
+        */}
+        <BrandCard account={account} />
         <FormCard title="Account" footer={<SaveButton />}>
           <div className="grid grid-cols-1 gap-x-[12px] gap-y-[16px] sm:grid-cols-2">
             <Field label="First Name" required defaultValue={owner.first} />

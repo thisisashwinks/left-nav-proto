@@ -37,6 +37,7 @@ import {
   agencyPinned,
   agencyPlaces,
 } from "@/components/nav/agency-config";
+import { AgencyCompanyPage } from "@/components/settings/agency-company-page";
 import { AgencyPlacePage } from "@/components/settings/agency-place-page";
 import {
   CanvasSkeleton,
@@ -1284,6 +1285,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                     onManage={setManageAccountId}
                   />
                 )
+              ) : agencyPlace && selectedId === "agency-company" ? (
+                // The one agency settings page drawn in full: White label is
+                // where the logo pair lives.
+                <AgencyCompanyPage agency={accounts.agency} />
               ) : agencyPlace ? (
                 <AgencyPlacePage
                   key={selectedId ?? ""}

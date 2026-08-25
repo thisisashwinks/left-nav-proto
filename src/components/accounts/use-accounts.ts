@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { hashId } from "@/lib/account-color";
+import { applyBrand, useBrand } from "./brand-store";
 import {
   accounts as allAccounts,
   agency,
@@ -107,8 +108,25 @@ export function useAccounts(): AccountsSession {
   const [railIds, setRailIds] =
     React.useState<readonly string[]>(INITIAL_RAIL_IDS);
 
-  const current =
-    allAccounts.find((a) => a.id === currentId) ?? allAccounts[0];
+  /*
+   * Uploads applied once, here.
+   *
+   * Every mark in the app reads its Account from this hook, so merging at the
+   * source means a logo uploaded on the settings page appears in the nav
+   * header, the rail, the switcher and the collapsed rail without any of them
+   * knowing uploads exist.
+   */
+  const { uploads } = useBrand();
+  const branded = React.useMemo(
+    () => allAccounts.map((a) => applyBrand(a, uploads)),
+    [uploads],
+  );
+  const brandedAgency = React.useMemo(
+    () => applyBrand(agency, uploads),
+    [uploads],
+  );
+
+  const current = branded.find((a) => a.id === currentId) ?? branded[0];
 
   const [pending, setPending] = React.useState<PendingSwitch | null>(null);
   /*
@@ -141,7 +159,7 @@ export function useAccounts(): AccountsSession {
 
   const switchTo = React.useCallback(
     (id: string) => {
-      const target = allAccounts.find((a) => a.id === id);
+      const target = branded.find((a) => a.id === id);
       if (!target) return;
       // Already here and not looking from the agency: nothing to load.
       if (id === currentId && scope === "account") return;
@@ -165,7 +183,7 @@ export function useAccounts(): AccountsSession {
         },
       );
     },
-    [begin, currentId, scope],
+    [begin, branded, currentId, scope],
   );
 
   // Scope moves, the current account does not: agency scope is a place you
@@ -173,10 +191,10 @@ export function useAccounts(): AccountsSession {
   const switchToAgency = React.useCallback(() => {
     if (scope === "agency") return;
     begin(
-      { scope: "agency", account: agency, duration: latencyFor("agency") },
+      { scope: "agency", account: brandedAgency, duration: latencyFor("agency") },
       () => setScope("agency"),
     );
-  }, [begin, scope]);
+  }, [begin, brandedAgency, scope]);
 
   const togglePinned = React.useCallback((id: string) => {
     setPinnedIds((ids) =>
@@ -203,10 +221,10 @@ export function useAccounts(): AccountsSession {
   );
 
   return {
-    accounts: allAccounts,
+    accounts: branded,
     current,
     scope,
-    agency,
+    agency: brandedAgency,
     // Defensive: the current account never belongs in its own Recent list.
     recentIds: recentIds.filter((id) => id !== currentId),
     pinnedIds,

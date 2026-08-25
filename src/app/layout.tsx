@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
+import { BrandProvider } from "@/components/accounts/brand-store";
 import { NavProfilesProvider } from "@/components/nav/nav-profiles";
 import { NavLayoutProvider } from "@/components/nav/nav-layout-provider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
@@ -43,10 +44,12 @@ export default function RootLayout({
         <ThemeProvider>
           <TuningProvider>
             <NavLayoutProvider>
+              <BrandProvider>
               <NavProfilesProvider>
                 <TooltipProvider>{children}</TooltipProvider>
                 <TuningPanel />
               </NavProfilesProvider>
+              </BrandProvider>
             </NavLayoutProvider>
           </TuningProvider>
         </ThemeProvider>
