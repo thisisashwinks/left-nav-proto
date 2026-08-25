@@ -247,6 +247,14 @@ export function LeftNav({
   const [blocksAt, setBlocksAt] = React.useState<DOMRect | null>(null);
   const [coloursAt, setColoursAt] = React.useState<DOMRect | null>(null);
   const [templatesAt, setTemplatesAt] = React.useState<DOMRect | null>(null);
+  /*
+   * First run.
+   *
+   * Session state, so a reviewer meets the card on every reload — production
+   * would persist the dismissal per user. Sub-account only: the agency tree is
+   * platform IA, and the card's promise is about arranging your own.
+   */
+  const [introDismissed, setIntroDismissed] = React.useState(false);
   /** Whether the discard warning is up. */
   const [confirmingDiscard, setConfirmingDiscard] = React.useState(false);
   /** The row in flight, and the row the pointer is over. Drag-local. */
@@ -814,6 +822,8 @@ export function LeftNav({
             : {
                 onOpenTemplates: (trigger: HTMLElement) =>
                   setTemplatesAt(trigger.getBoundingClientRect()),
+                showIntro: !introDismissed && !editing,
+                onDismissIntro: () => setIntroDismissed(true),
               }),
           onSave: () => {
             closeEditSurfaces();

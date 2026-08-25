@@ -1,5 +1,6 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
 import {
   Check,
   Eye,
@@ -10,6 +11,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { AiMark } from "@/components/ai/ai-mark";
+import { NavIntroCard } from "./nav-intro-card";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import { Kbd } from "@/components/search/kbd";
 import { cn } from "@/lib/utils";
@@ -75,6 +77,9 @@ export interface EditNavProps {
   onOpenAppearance: (trigger: HTMLElement) => void;
   /** Opens saved groupings — save this one, or apply another. */
   onOpenTemplates?: (trigger: HTMLElement) => void;
+  /** First run: the card announcing the mode has not been dismissed yet. */
+  showIntro?: boolean;
+  onDismissIntro?: () => void;
   /**
    * How many categories are still empty.
    *
@@ -112,6 +117,7 @@ export interface EditNavProps {
  * leave by finding the control that started it is a trap.
  */
 function EditNavButton({
+  revealed = false,
   editing,
   onStart,
   onSave,
@@ -121,7 +127,35 @@ function EditNavButton({
   onOpenBlocks,
   onOpenAppearance,
   onOpenTemplates,
-}: EditNavProps) {
+  showIntro = false,
+  onDismissIntro,
+}: EditNavProps & { revealed?: boolean }) {
+  if (!editing && showIntro && onDismissIntro) {
+    return (
+      <>
+        <NavIntroCard
+          onDismiss={onDismissIntro}
+          onStartEditing={() => {
+            onDismissIntro();
+            onStart();
+          }}
+        />
+        <EditNavButton
+          editing={editing}
+          dirty={dirty}
+          blocked={blocked}
+          onStart={onStart}
+          onSave={onSave}
+          onDiscard={onDiscard}
+          onOpenBlocks={onOpenBlocks}
+          onOpenAppearance={onOpenAppearance}
+          {...(onOpenTemplates ? { onOpenTemplates } : {})}
+          revealed
+        />
+      </>
+    );
+  }
+
   if (editing) {
     const blockedNote =
       blocked === 1
@@ -149,12 +183,21 @@ function EditNavButton({
        * Absolutely positioned, so none of it can move a row.
        */
       <div className="absolute -top-[74px] right-0 left-0 z-20 flex flex-col gap-[6px] rounded-[10px] bg-nav p-[8px] shadow-[0_4px_12px_0_var(--fly-shadow),inset_0_0_0_1px_var(--nav-border,var(--nav-divider))]">
-        <div className="flex items-center justify-between gap-[6px]">
+        {/*
+          The tools get the top line to themselves.
+          
+          They used to share it with the mode label, which worked at two and
+          broke at three: Templates ran off the card's right edge, clipped
+          mid-word. Three named controls need the full 256px, so the label moved
+          down beside the two exits — where it still says which mode you are in,
+          next to the buttons that end it.
+        */}
+        <div className="flex items-center gap-[6px]">
           <span
             role="status"
             // Neutral ink, not brand (Aug 21 review): the mode label is chrome,
             // and brand here competed with semantic states and the AI's own hue.
-            className="flex min-w-0 items-center gap-[5px] truncate text-[11.5px] leading-[15px] font-semibold whitespace-nowrap text-nav-fg"
+            className="flex min-w-0 flex-1 items-center gap-[5px] truncate text-[11.5px] leading-[15px] font-semibold whitespace-nowrap text-nav-fg"
           >
             <SquarePen size={11} aria-hidden="true" className="shrink-0" />
             Editing nav
@@ -169,43 +212,35 @@ function EditNavButton({
             the ACTION, since the thing being shown or hidden is whatever you pick
             in the menu, and a control named after its subject reads as a status.
           */}
-          <button
-            type="button"
-            aria-label="Show or hide parts of the nav"
-            onClick={(e) => onOpenBlocks(e.currentTarget)}
-            className="motion-tap flex h-[20px] shrink-0 items-center gap-[4px] rounded-[6px] px-[6px] text-[11.5px] leading-none font-medium text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95"
-          >
-            <Eye size={12} aria-hidden="true" />
-            Show / hide
-          </button>
+          <EditTool
+            label="Show or hide parts of the nav"
+            short="Show / hide"
+            icon={Eye}
+            onOpen={onOpenBlocks}
+          />
           {/*
             Beside Show / hide, because they are the same kind of decision:
             what the nav contains, and what it looks like. Both are the
             account's own, and both are only reachable while editing it.
           */}
-          <button
-            type="button"
-            aria-label="Change the navigation's colours"
-            onClick={(e) => onOpenAppearance(e.currentTarget)}
-            className="motion-tap flex h-[20px] shrink-0 items-center gap-[4px] rounded-[6px] px-[6px] text-[11.5px] leading-none font-medium text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95"
-          >
-            <Palette size={12} aria-hidden="true" />
-            Colours
-          </button>
+          <EditTool
+            label="Change the navigation's colours"
+            short="Colours"
+            icon={Palette}
+            onOpen={onOpenAppearance}
+          />
           {onOpenTemplates ? (
-            <button
-              type="button"
-              aria-label="Save or apply a grouping template"
-              onClick={(e) => onOpenTemplates(e.currentTarget)}
-              className="motion-tap flex h-[20px] shrink-0 items-center gap-[4px] rounded-[6px] px-[6px] text-[11.5px] leading-none font-medium text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95"
-            >
-              <LayoutTemplate size={12} aria-hidden="true" />
-              Templates
-            </button>
+            <EditTool
+              label="Save or apply a grouping template"
+              short="Templates"
+              icon={LayoutTemplate}
+              onOpen={onOpenTemplates}
+            />
           ) : null}
         </div>
 
         <div className="flex items-center justify-end gap-[6px]">
+          <span className="flex shrink-0 items-center gap-[6px]">
           <button
             type="button"
             onClick={onDiscard}
@@ -247,6 +282,7 @@ function EditNavButton({
                 ? "Save changes"
                 : "Done"}
           </button>
+          </span>
         </div>
       </div>
     );
@@ -273,10 +309,30 @@ function EditNavButton({
       type="button"
       aria-label="Edit navigation"
       onClick={onStart}
+      data-revealed={revealed ? "" : undefined}
       className={cn(
         "group/edit absolute -top-[34px] right-0 z-20 flex h-[26px] items-center overflow-hidden rounded-full",
         // Square while it is a glyph: 26 by 26, the icon dead centre.
         "w-[26px] justify-center gap-0 px-0",
+        /*
+         * Held open while the first-run card is pointing at it.
+         *
+         * The card explains a control that is a 26px circle at rest and only
+         * names itself on hover — so pointing at it while it is still an
+         * anonymous dot asks the reader to take the introduction on trust. Held
+         * open, the thing being described is legible at the moment it is
+         * described, and it closes to its resting state when the card goes.
+         */
+        /*
+         * The `data-revealed:` variant, not plain classes.
+         *
+         * `opacity-0` and `opacity-100` are both single classes, so which one
+         * won came down to stylesheet order rather than intent — the button
+         * duly expanded to 92px and stayed completely invisible. An attribute
+         * selector outranks a class, so the held-open state actually holds.
+         */
+        "data-revealed:w-[92px] data-revealed:justify-start data-revealed:gap-[6px]",
+        "data-revealed:bg-nav-hover data-revealed:pl-[7px] data-revealed:opacity-100",
         // A hairline the same colour as the row dividers was invisible against the
         // nav's own surface. The stronger ring and the row-level ink are what make
         // a white circle on a white nav read as a control.
@@ -304,7 +360,7 @@ function EditNavButton({
       */}
       <span
         aria-hidden="true"
-        className="w-0 overflow-hidden text-[12px] leading-none font-medium whitespace-nowrap opacity-0 transition-opacity duration-[var(--dur-base)] ease-[var(--ease-out)] group-hover/edit:w-auto group-hover/edit:opacity-100 group-hover/edit:delay-[90ms] group-focus-visible/edit:w-auto group-focus-visible/edit:opacity-100"
+        className="w-0 overflow-hidden text-[12px] leading-none font-medium whitespace-nowrap opacity-0 transition-opacity duration-[var(--dur-base)] ease-[var(--ease-out)] group-hover/edit:w-auto group-hover/edit:opacity-100 group-hover/edit:delay-[90ms] group-focus-visible/edit:w-auto group-focus-visible/edit:opacity-100 group-data-revealed/edit:w-auto group-data-revealed/edit:opacity-100"
       >
         Edit nav
       </span>
@@ -321,6 +377,45 @@ function EditNavButton({
  * caller owns padding: the top cluster wraps it, the nav footer lays it beside
  * the drawer toggle.
  */
+/**
+ * One tool in the editing card's top row.
+ *
+ * The glyph carries it, with the name in a tooltip and on the accessible name.
+ * That reverses the Aug 21 "a named control, not a bare eye" call, and the
+ * reason it can: that argument was about a lone eye sitting BESIDE Discard,
+ * where an unlabelled glyph read as a third way out. Three same-sized glyphs on
+ * a row of their own read as a toolbar instead.
+ *
+ * The forcing function was width. Three labelled controls measured 248px inside
+ * a 232px row, so "Templates" clipped mid-word — and that is in English, which
+ * is the shortest this copy will ever be. A label that only fits in one
+ * language is not a label.
+ */
+function EditTool({
+  label,
+  short,
+  icon: Icon,
+  onOpen,
+}: {
+  label: string;
+  /** The tooltip. Shorter than the accessible name, which says the action. */
+  short: string;
+  icon: LucideIcon;
+  onOpen: (trigger: HTMLElement) => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={short}
+      onClick={(e) => onOpen(e.currentTarget)}
+      className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95"
+    >
+      <Icon size={14} aria-hidden="true" />
+    </button>
+  );
+}
+
 export function EntryPill({
   onSearch,
   session,
@@ -350,9 +445,14 @@ export function EntryPill({
       <div
         className={cn(
           "ai-entry motion-tap flex h-[36px] w-full items-center gap-[6px] rounded-full pr-[10px] pl-[4px] shadow-[inset_0_0_0_1px_var(--nav-divider)] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]",
-          // Search and Ask AI are not part of the tree, so edit mode does not
-          // reach them — said with the cursor, the same way the rows say it.
-          edit?.editing && "[&_button]:cursor-not-allowed",
+          // Both stay live while editing (Aug 25).
+          //
+          // They were locked out on the grounds that they are not part of the
+          // tree, which is true and beside the point: arranging a nav is
+          // exactly when you need to find a product you half-remember, or ask
+          // where something lives. Refusing the two ways to look things up
+          // during the one task that is about what the nav contains made the
+          // mode feel like a trap rather than a mode.
         )}
       >
         {/*
