@@ -582,6 +582,16 @@ function FlyoutChildRow({
 
   return (
     <div className="relative w-full">
+      {/*
+        Pinnable, like any other destination. The star is a sibling rather than
+        a child of the row, because the row is itself a button and nesting one
+        control inside another is invalid — the same reason WithPin exists for
+        the product rows above.
+
+        Only leaves: a row that discloses is a container, and pinning it would
+        put something in the dock that opens a list rather than a place.
+      */}
+      <WithPin productId={nested ? "" : child.id}>
       <button
         type="button"
         aria-expanded={nested ? open : undefined}
@@ -589,6 +599,7 @@ function FlyoutChildRow({
         onClick={() => (nested ? setOpen((o) => !o) : onSelect?.(child.id))}
         className={cn(
           "motion-tap flex h-[30px] w-full items-center gap-[7px] rounded-[7px] px-[9px] text-left leading-[normal] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg active:scale-[0.99]",
+          !nested && "pr-[30px]",
           // One notch down per level, so depth is legible without a marker.
           depth === 0 ? "text-[13px]" : "text-[12.5px]",
         )}
@@ -624,6 +635,7 @@ function FlyoutChildRow({
           />
         ) : null}
       </button>
+      </WithPin>
       {nested && open ? (
         <div id={panelId}>
           <FlyoutChildRows

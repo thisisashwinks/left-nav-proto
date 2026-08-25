@@ -2,7 +2,7 @@
 
 import type * as React from "react";
 import { cn } from "@/lib/utils";
-import { productById } from "./catalogue";
+import { childById, productById } from "./catalogue";
 import { PinButton } from "./pin-button";
 
 /**
@@ -26,13 +26,18 @@ export function WithPin({
   pinClass,
   children,
 }: {
-  /** Ignored when it names nothing pinnable, so callers need no guard. */
+  /**
+   * Ignored when it names nothing pinnable, so callers need no guard.
+   *
+   * An L3 row counts: it is a destination, and the dock resolves child ids the
+   * same way it resolves products.
+   */
   productId: string;
   /** Vertical placement — centred on single-line rows, top-aligned on stacked. */
   pinClass?: string;
   children: React.ReactNode;
 }) {
-  if (!productById(productId)) return children;
+  if (!productById(productId) && !childById(productId)) return children;
 
   return (
     <div className="group/row relative w-full shrink-0">

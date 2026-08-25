@@ -1,6 +1,12 @@
 import { flyouts } from "@/components/flyout/flyout-config";
-import type { FlyoutConfig, FlyoutEntry } from "@/components/flyout/types";
+import type {
+  FlyoutChildItem,
+  FlyoutConfig,
+  FlyoutEntry,
+} from "@/components/flyout/types";
 import { productById } from "./catalogue";
+import type { CatalogueChild } from "./catalogue-types";
+import { iconForChildLabel } from "./l3-icons";
 import {
   iconForProduct,
   labelForProduct,
@@ -22,6 +28,28 @@ import {
  * decisions someone made per area; inventing them for a group the user just
  * created would be fabricating content.
  */
+/**
+ * L3 rows, each with a glyph of its own.
+ *
+ * They inherited the parent's icon for one revision, and a panel of six rows
+ * all wearing the Sites glyph told you nothing the heading above them had not
+ * already said. An L3 is a destination — it can be pinned, and promoted out to
+ * L2 or L1 — so it has to mean something on its own, away from the parent it
+ * came from.
+ *
+ * The catalogue's own icon wins where one is authored; otherwise the label
+ * decides. Nothing falls through to the parent.
+ */
+function childrenWithIcons(
+  kids: readonly CatalogueChild[],
+): FlyoutChildItem[] {
+  return kids.map((kid) => ({
+    ...kid,
+    icon: kid.icon ?? iconForChildLabel(kid.label),
+    ...(kid.children ? { children: childrenWithIcons(kid.children) } : {}),
+  }));
+}
+
 export function flyoutForGroup(
   state: NavLayoutState,
   group: ResolvedGroup,
@@ -66,7 +94,11 @@ export function flyoutForGroup(
           icon: iconForProduct(state, id),
           ...(product?.blurb ? { description: product.blurb } : {}),
           // The L2 layer: sub-places render as a nested dropdown on the row.
-          ...(product?.children ? { children: product.children } : {}),
+          ...(product?.children
+            ? {
+                children: childrenWithIcons(product.children),
+              }
+            : {}),
           ...(product?.tabs ? { tabs: true } : {}),
         },
       };
@@ -98,7 +130,11 @@ function resolveAuthoredEntry(state: NavLayoutState) {
         icon: iconForProduct(state, entry.item.id),
         // Authored panels inherit the catalogue's L2 layer too, so the SKU
         // comparison view shows the same nested dropdowns as the job view.
-        ...(product.children ? { children: product.children } : {}),
+        ...(product.children
+          ? {
+              children: childrenWithIcons(product.children),
+            }
+          : {}),
       },
     };
   };

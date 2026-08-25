@@ -27,6 +27,12 @@ export interface CatalogueGroup {
 export interface CatalogueChild {
   id: string;
   label: string;
+  /**
+   * An L3 row is a destination, and a destination can be pinned — so it needs
+   * a glyph the dock, the collapsed rail and the launcher can draw. Without one
+   * a pinned L3 arrived as an empty tile.
+   */
+  icon?: LucideIcon;
   badge?: { label: string; tone: "new" | "beta" };
   children?: CatalogueChild[];
   /**

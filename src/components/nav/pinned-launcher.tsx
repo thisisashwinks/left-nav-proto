@@ -16,7 +16,7 @@ import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
-import { productById } from "./catalogue";
+import { childById, productById } from "./catalogue";
 import { GROUPING_LABELS, type ResolvedGroup } from "./grouping";
 import { nameForIcon } from "./icon-catalogue";
 import { IconPicker, useIconPicker } from "./icon-picker";
@@ -75,7 +75,13 @@ export function PinnedLauncher({
   const matches = (label: string) => !q || label.toLowerCase().includes(q);
 
   const pinnedIds = state.pinned.filter(
-    (id) => productById(id) !== undefined && matches(layout.productLabelFor(id)),
+    (id) =>
+      // A pin can name an L3 row as well as a product now, so the guard asks
+      // whether the id resolves to anything the nav can draw rather than
+      // whether it is a product. It stayed a product check for one revision
+      // after L3 became pinnable, which silently dropped those pins.
+      (productById(id) !== undefined || childById(id) !== undefined) &&
+      matches(layout.productLabelFor(id)),
   );
 
   // Resolved up front so the "All products" heading knows whether anything

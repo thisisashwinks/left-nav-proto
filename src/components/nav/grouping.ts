@@ -12,6 +12,7 @@ import {
   catalogueGroups,
   catalogueJobs,
   catalogueSuites,
+  childById,
   DEFAULT_PINNED,
   productById,
   type CatalogueEntry,
@@ -23,6 +24,7 @@ import {
   proposedBuckets,
 } from "./proposed-ia";
 import { iconByName, nameForIcon } from "./icon-catalogue";
+import { iconForChildLabel } from "./l3-icons";
 
 /**
  * How the nav's middle section is organized.
@@ -470,6 +472,10 @@ export function labelForProduct(
     state.accountProductLabels[productId] ??
     state.agencyProductLabels[productId] ??
     productById(productId)?.label ??
+    // An L3 row can be pinned and promoted, so every id that reaches the dock,
+    // the rail or the launcher has to resolve — and a child id is not a product
+    // id. Without this a pinned L3 rendered as its own raw id.
+    childById(productId)?.child.label ??
     productId
   );
 }
@@ -519,7 +525,16 @@ export function iconForProduct(
   state: NavLayoutState,
   productId: string,
 ): LucideIcon {
-  const shipped = productById(productId)?.icon ?? Folder;
+  const hit = childById(productId);
+  const shipped =
+    productById(productId)?.icon ??
+    // The same rule the panel uses, so a row keeps the glyph it was pinned
+    // with: its own if authored, otherwise the one its label earns. Never the
+    // parent's — a pinned "SEO" wearing the Sites icon is indistinguishable
+    // from Sites itself in the dock.
+    hit?.child.icon ??
+    (hit ? iconForChildLabel(hit.child.label) : undefined) ??
+    Folder;
   return iconByName(state.icons[productId]) ?? shipped;
 }
 
