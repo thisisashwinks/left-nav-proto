@@ -5,7 +5,6 @@ import {
   ArrowDown,
   ArrowUp,
   GripVertical,
-  Pencil,
   Plus,
   RotateCcw,
   Search,
@@ -101,6 +100,16 @@ export function PinnedLauncher({
    * group's — "move down" would move the row past something it cannot see.
    */
   const reorderable = state.grouping === "custom" && can.customise && !q;
+  /*
+   * Renaming belongs to the mode, here as everywhere else.
+   *
+   * The launcher offered a pencil on every row all the time, so a product could
+   * be renamed from a panel you opened to LAUNCH something — no mode entered,
+   * no Save, no Discard, and the change landing in a nav you were not looking
+   * at. The nav's own rows have been behind the mode since it shipped; this was
+   * the one surface that never got the gate.
+   */
+  const editable = state.editing && can.renameForSelf;
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
   useScrollEdges(scrollRef);
@@ -229,18 +238,26 @@ export function PinnedLauncher({
               index={groupIndex}
               groupCount={groups.length}
               renaming={renamingId === group.id}
-              onStartRename={() => setRenamingId(group.id)}
+              {...(editable
+                ? {
+                    onStartRename: () => setRenamingId(group.id),
+                    onPickIcon: (el: HTMLElement) => picker.open(group.id, el),
+                  }
+                : {})}
               onEndRename={() => setRenamingId(null)}
-              onPickIcon={(el) => picker.open(group.id, el)}
             />
             {productIds.map((id, i) => (
               <ProductRow
                 key={`${group.id}-${id}`}
                 productId={id}
                 renaming={renamingId === `${group.id}:${id}`}
-                onStartRename={() => setRenamingId(`${group.id}:${id}`)}
+                {...(editable
+                  ? {
+                      onStartRename: () => setRenamingId(`${group.id}:${id}`),
+                      onPickIcon: (el: HTMLElement) => picker.open(id, el),
+                    }
+                  : {})}
                 onEndRename={() => setRenamingId(null)}
-                onPickIcon={(el) => picker.open(id, el)}
                 {...(reorderable
                   ? {
                       reorder: {
@@ -418,9 +435,10 @@ function GroupHeader({
   index: number;
   groupCount: number;
   renaming: boolean;
-  onStartRename: () => void;
+  /** Absent outside edit mode, which is what removes the affordances. */
+  onStartRename?: () => void;
   onEndRename: () => void;
-  onPickIcon: (trigger: HTMLElement) => void;
+  onPickIcon?: (trigger: HTMLElement) => void;
 }) {
   const layout = useNavLayout();
   const { can } = layout;
@@ -429,7 +447,7 @@ function GroupHeader({
 
   return (
     <div className="group/row flex w-full shrink-0 items-center gap-[8px] pt-[10px] pr-[2px] pb-[2px] pl-[2px]">
-      {can.regroup ? (
+      {can.regroup && onPickIcon ? (
         <button
           type="button"
           aria-label={`Change the ${group.label} icon`}
@@ -454,6 +472,23 @@ function GroupHeader({
           onCancel={onEndRename}
           className="text-[11px] leading-[13px] font-semibold tracking-[0.5px] uppercase"
         />
+      ) : onStartRename ? (
+        /*
+          The label IS the rename target while editing.
+          
+          A pencil beside it was a second control for the thing the text
+          already names — and every other surface in the nav renames by
+          clicking the words. Outside the mode this is a plain span again, so
+          the panel reads as a launcher rather than an editor.
+        */
+        <button
+          type="button"
+          onClick={onStartRename}
+          aria-label={`Rename ${group.label}`}
+          className="motion-tap min-w-0 flex-1 truncate rounded-[4px] text-left text-[11px] leading-[13px] font-semibold tracking-[0.5px] whitespace-nowrap text-nav-fg-subtle uppercase outline-[1px] outline-offset-2 outline-transparent hover:outline-dashed hover:outline-[var(--nav-divider)]"
+        >
+          {group.label}
+        </button>
       ) : (
         <span className="min-w-0 flex-1 truncate text-[11px] leading-[13px] font-semibold tracking-[0.5px] whitespace-nowrap text-nav-fg-subtle uppercase">
           {group.label}
@@ -462,10 +497,7 @@ function GroupHeader({
 
       {!renaming ? (
         <span className="flex shrink-0 items-center gap-[1px] opacity-0 group-hover/row:opacity-100 focus-within:opacity-100">
-          <TinyButton label={`Rename ${group.label}`} onClick={onStartRename}>
-            <Pencil size={10} aria-hidden="true" />
-          </TinyButton>
-          {renamed ? (
+          {renamed && onStartRename ? (
             <TinyButton
               label={`Reset ${group.label} to the shipped name`}
               onClick={() => layout.resetLabel(group.id)}
@@ -606,6 +638,17 @@ function ProductRow({
           onCancel={onEndRename}
           className="text-[14px] leading-[normal]"
         />
+      ) : onStartRename ? (
+        // Click the words to rename, as the nav's own rows do. Only in the
+        // mode — outside it this row exists to launch the product.
+        <button
+          type="button"
+          onClick={onStartRename}
+          aria-label={`Rename ${label}`}
+          className="motion-tap min-w-0 flex-1 truncate rounded-[5px] text-left text-[14px] leading-[normal] text-nav-fg outline-[1px] outline-offset-2 outline-transparent hover:outline-dashed hover:outline-[var(--nav-divider)]"
+        >
+          {label}
+        </button>
       ) : (
         <span className="min-w-0 flex-1 truncate text-[14px] leading-[normal] text-nav-fg">
           {label}
@@ -614,11 +657,6 @@ function ProductRow({
 
       {!renaming ? (
         <span className="flex shrink-0 items-center gap-[1px] opacity-0 group-hover/row:opacity-100 focus-within:opacity-100">
-          {onStartRename ? (
-            <TinyButton label={`Rename ${label}`} onClick={onStartRename}>
-              <Pencil size={10} aria-hidden="true" />
-            </TinyButton>
-          ) : null}
           {renamed && onStartRename ? (
             <TinyButton
               label={`Reset ${label} to the shipped name`}
