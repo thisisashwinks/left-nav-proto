@@ -226,6 +226,12 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   /** The rail's "All accounts" directory — a separate surface from the menu. */
   const [directoryOpen, setDirectoryOpen] = React.useState(false);
   const [railExpanded, setRailExpanded] = React.useState(false);
+  /*
+   * The first-run card, owned here because both nav faces answer to it: the
+   * expanded control holds itself open while the card points at it, and the
+   * rail's — hidden until hover — has to do the same.
+   */
+  const [introDismissed, setIntroDismissed] = React.useState(false);
   const {
     state: layout,
     groups,
@@ -1119,6 +1125,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             onToggleCollapsed={toggleCollapsed}
             onSearch={() => setSearchOpen(true)}
             loading={pending !== null}
+            introDismissed={introDismissed}
+            onDismissIntro={() => setIntroDismissed(true)}
             // The settled identity, not `headerAccount` — that already shows
             // the account being switched TO, and keying on it would remount the
             // list a beat before its contents change.
@@ -1173,6 +1181,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                     setManualCollapsed(false);
                     beginNavEditing();
                   },
+                  // Held visible while the card is pointing at it — a
+                  // coach-mark aimed at something invisible teaches nothing.
+                  editRevealed: !introDismissed && !layout.editing,
                 })}
           />
         </div>

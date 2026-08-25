@@ -57,6 +57,8 @@ interface CollapsedRailProps {
    * offers it exactly when the expanded nav would.
    */
   onEdit?: () => void;
+  /** Hold the edit control open — the first-run card is pointing at it. */
+  editRevealed?: boolean;
 }
 
 /**
@@ -85,6 +87,7 @@ export function CollapsedRail({
   density,
   onOpenLauncher,
   onEdit,
+  editRevealed = false,
 }: CollapsedRailProps) {
   const atFloor = density === "floor";
   const agencyScope = scope === "agency";
@@ -209,7 +212,7 @@ export function CollapsedRail({
       // Transparent, same as the expanded face — the shell's chrome card paints
       // the surface for both, so collapsing narrows the card rather than swapping
       // one treatment for another.
-      className="flex h-full w-[64px] shrink-0 flex-col items-center gap-[4px] overflow-hidden pt-[11px] pr-[8px] pb-[3px] pl-[8px]"
+      className="group/nav flex h-full w-[64px] shrink-0 flex-col items-center gap-[4px] overflow-hidden pt-[11px] pr-[8px] pb-[3px] pl-[8px]"
     >
       {/*
         The rail has no room for a name or a chevron, so the mark itself is the
@@ -371,7 +374,22 @@ export function CollapsedRail({
               type="button"
               aria-label="Edit navigation"
               onClick={onEdit}
-              className="motion-tap flex h-[35px] w-[40px] shrink-0 items-center justify-center rounded-[var(--t-nav-radius,7px)] text-nav-fg-subtle hover:scale-105 hover:bg-nav-hover hover:text-nav-fg active:scale-95"
+              /*
+               * Hidden until the nav is hovered, as the expanded face does it.
+               *
+               * There the control rests as a 26px dot and only names itself
+               * under the pointer — an editing affordance should not be part of
+               * the furniture you look at all day. Standing permanently in a
+               * 64px rail of destinations, this one was the loudest thing in a
+               * column whose whole job is to be quiet.
+               *
+               * Focus reveals it too, or it would be a keyboard trap in
+               * reverse: reachable by Tab and invisible while focused.
+               */
+              className={cn(
+                "motion-tap flex h-[35px] w-[40px] shrink-0 items-center justify-center rounded-[var(--t-nav-radius,7px)] text-nav-fg-subtle transition-opacity duration-[var(--dur-fast)] group-hover/nav:opacity-100 hover:scale-105 hover:bg-nav-hover hover:text-nav-fg focus-visible:opacity-100 active:scale-95",
+                editRevealed ? "bg-nav-hover opacity-100" : "opacity-0",
+              )}
             >
               <SquarePen size={16} aria-hidden="true" />
             </button>

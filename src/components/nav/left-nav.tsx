@@ -88,6 +88,16 @@ interface LeftNavProps {
    */
   loading?: boolean;
   /**
+   * The first-run card's state, owned by the shell.
+   *
+   * Both nav faces need it: the card anchors to whichever edit control is
+   * visible, and the collapsed rail's is hidden until hover — so the rail has
+   * to know to hold its control open while the card is pointing at it. One
+   * owner above both faces is the only place that can be true from.
+   */
+  introDismissed?: boolean;
+  onDismissIntro?: () => void;
+  /**
    * Changes when the SETTLED account changes, not when a switch starts.
    *
    * Remounts the scrolling middle so the arriving rows play their entrance.
@@ -169,6 +179,8 @@ export function LeftNav({
   onToggleCollapsed,
   onSearch,
   loading = false,
+  introDismissed = false,
+  onDismissIntro,
   contentKey = "",
   scope,
   account,
@@ -261,7 +273,6 @@ export function LeftNav({
    * would persist the dismissal per user. Sub-account only: the agency tree is
    * platform IA, and the card's promise is about arranging your own.
    */
-  const [introDismissed, setIntroDismissed] = React.useState(false);
   /** Whether the discard warning is up. */
   const [confirmingDiscard, setConfirmingDiscard] = React.useState(false);
   /** The row in flight, and the row the pointer is over. Drag-local. */
@@ -828,7 +839,7 @@ export function LeftNav({
             : {
                 onOpenTemplates: (trigger: HTMLElement) => setTemplatesAt(trigger),
                 showIntro: !introDismissed && !editing,
-                onDismissIntro: () => setIntroDismissed(true),
+                ...(onDismissIntro ? { onDismissIntro } : {}),
               }),
           onSave: () => {
             closeEditSurfaces();

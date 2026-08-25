@@ -226,7 +226,20 @@ export function navEntriesFor(
    */
   const loose =
     groups.find((g) => g.id === UNGROUPED_ID)?.productIds ?? [];
-  const shelves = loose.length === 0 ? groups : groups.filter((g) => g.id !== UNGROUPED_ID);
+  /*
+   * The Settings bucket never becomes a row here either.
+   *
+   * Its products fill the nav's bottom-anchored Settings row, so drawing it as
+   * a shelf as well is the same door twice. That exclusion lived only in the
+   * `proposed` branch above — but the rule belongs to the TREE, not to the
+   * mode: applying a template converts an account to `custom`, this branch
+   * takes over, and Settings appeared as a bucket AND as the anchor.
+   */
+  const shelves = groups.filter(
+    (g) =>
+      g.id !== PROPOSED_SETTINGS_ID &&
+      (loose.length === 0 || g.id !== UNGROUPED_ID),
+  );
 
   return [
     ...(sectionHeadings ? [band("groups", "Products")] : []),
