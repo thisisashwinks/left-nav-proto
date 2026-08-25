@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { NavLayoutState } from "./grouping";
+import { customTreeFor, type NavLayoutState } from "./grouping";
 
 /**
  * Saved groupings, kept at agency level and applied to any account.
@@ -48,8 +48,13 @@ export type NavArrangement = Pick<
 export interface NavTemplate {
   id: string;
   name: string;
-  /** The account it was captured from, so a list of templates says where each came from. */
+  /**
+   * The account it was captured from, so a list says where each came from.
+   * Empty for the shipped presets, which came from nobody's account.
+   */
   fromAccount: string;
+  /** A shipped starting point rather than something this agency saved. */
+  builtIn?: boolean;
   /** How many products it arranges, as a rough size for the list. */
   productCount: number;
   arrangement: NavArrangement;
@@ -74,26 +79,178 @@ export function useNavTemplates(): TemplatesValue {
 }
 
 export function captureArrangement(state: NavLayoutState): NavArrangement {
+  /*
+   * Materialise the tree before capturing it.
+   *
+   * `customGroups` is EMPTY unless the account is already in a structural
+   * custom mode — every other mode derives its groups from the catalogue at
+   * render time and stores nothing. So saving a template from an account on
+   * `default`, `job` or `proposed` captured the mode NAME and an empty tree,
+   * and applying it elsewhere re-derived that mode against the target's own
+   * products. From the proposed tree that was close to nothing, because its
+   * buckets are built over a product set most accounts do not own — which is
+   * the "only a few links come across" this fixes.
+   *
+   * `customTreeFor` is the same seeding the editor uses when you first
+   * restructure an authored mode. A template is therefore always a concrete
+   * tree, whatever mode it was authored in.
+   */
+  const tree = customTreeFor(state);
   return {
-    grouping: state.grouping,
-    customGroups: state.customGroups,
-    groupOrder: state.groupOrder,
-    agencyLabels: state.agencyLabels,
-    agencyProductLabels: state.agencyProductLabels,
-    icons: state.icons,
-    pinned: state.pinned,
-    hiddenBlocks: state.hiddenBlocks,
-    hiddenRows: state.hiddenRows,
-    tailOrder: state.tailOrder,
+    grouping: "custom",
+    customGroups: tree.customGroups,
+    groupOrder: tree.groupOrder,
+    agencyLabels: tree.agencyLabels,
+    agencyProductLabels: tree.agencyProductLabels,
+    icons: tree.icons,
+    pinned: tree.pinned,
+    hiddenBlocks: tree.hiddenBlocks,
+    hiddenRows: tree.hiddenRows,
+    tailOrder: tree.tailOrder,
   };
 }
+
+
+/**
+ * Five shipped presets.
+ *
+ * An empty templates panel teaches nothing: an agency opening it sees a feature
+ * with no examples and has to imagine both what a template is and why they
+ * would want one. Five verticals answer both at once — and they are the actual
+ * starting points most agencies would otherwise build by hand, since a dental
+ * practice and a gym genuinely do want different navs.
+ *
+ * Built from real catalogue ids, so applying one is a real rearrangement rather
+ * than a demo that looks right and does nothing. Each is deliberately partial:
+ * `patchFor` filters every product against what the target account owns, so a
+ * preset naming twenty products lands correctly on an account with five.
+ */
+const preset = (
+  id: string,
+  name: string,
+  groups: Array<[string, string, string[]]>,
+  pinned: string[],
+): NavTemplate => ({
+  id,
+  name,
+  fromAccount: "",
+  builtIn: true,
+  productCount: new Set(groups.flatMap(([, , ids]) => ids)).size,
+  arrangement: {
+    grouping: "custom",
+    customGroups: groups.map(([gid, label, productIds]) => ({
+      id: gid,
+      label,
+      iconName: GROUP_ICONS[gid] ?? "Folder",
+      productIds,
+    })),
+    groupOrder: {},
+    agencyLabels: {},
+    agencyProductLabels: {},
+    icons: {},
+    pinned,
+    hiddenBlocks: [],
+    hiddenRows: [],
+    tailOrder: [],
+  },
+});
+
+/** Group id to Lucide name, kept beside the presets that use them. */
+const GROUP_ICONS: Record<string, string> = {
+  "t-front-desk": "Stethoscope",
+  "t-patients": "Users",
+  "t-get-booked": "Megaphone",
+  "t-money": "CreditCard",
+  "t-jobs": "Wrench",
+  "t-talk": "MessageCircle",
+  "t-win-work": "Megaphone",
+  "t-paid": "CreditCard",
+  "t-clients": "Scale",
+  "t-matters": "FileText",
+  "t-billing": "CreditCard",
+  "t-growth": "Megaphone",
+  "t-members": "Dumbbell",
+  "t-schedule": "CalendarDays",
+  "t-sell": "ShoppingCart",
+  "t-marketing": "Megaphone",
+  "t-audience": "GraduationCap",
+  "t-programmes": "CalendarDays",
+  "t-launch": "Megaphone",
+  "t-automate": "Workflow",
+  "t-insight": "ChartLine",
+};
+
+const SEED_TEMPLATES: readonly NavTemplate[] = [
+  preset(
+    "tpl-dental",
+    "Dental practice",
+    [
+      ["t-front-desk", "Front desk", ["conversations", "calendars", "meetings"]],
+      ["t-patients", "Patients", ["contacts", "companies", "tasks", "documents"]],
+      ["t-get-booked", "Get booked", ["sites", "reputation", "email-campaigns", "social-planner"]],
+      ["t-money", "Billing", ["invoices", "payments", "subscriptions"]],
+      ["t-insight", "Reporting", ["reporting", "dashboards"]],
+    ],
+    ["conversations", "calendars", "contacts", "payments"],
+  ),
+  preset(
+    "tpl-home-services",
+    "Home services",
+    [
+      ["t-jobs", "Jobs", ["calendars", "tasks", "opportunities"]],
+      ["t-talk", "Customers", ["conversations", "contacts", "reputation"]],
+      ["t-win-work", "Win work", ["sites", "ad-manager", "email-campaigns", "prospecting"]],
+      ["t-paid", "Get paid", ["invoices", "payments", "documents"]],
+      ["t-insight", "Reporting", ["reporting", "dashboards"]],
+    ],
+    ["conversations", "calendars", "opportunities", "invoices"],
+  ),
+  preset(
+    "tpl-law",
+    "Law firm",
+    [
+      ["t-clients", "Clients", ["contacts", "companies", "conversations"]],
+      ["t-matters", "Matters", ["tasks", "documents", "calendars", "meetings"]],
+      ["t-billing", "Billing", ["invoices", "payments", "subscriptions"]],
+      ["t-growth", "Growth", ["sites", "email-campaigns", "reputation"]],
+      ["t-insight", "Reporting", ["reporting"]],
+    ],
+    ["contacts", "conversations", "documents", "invoices"],
+  ),
+  preset(
+    "tpl-fitness",
+    "Fitness studio",
+    [
+      ["t-members", "Members", ["memberships", "contacts", "conversations"]],
+      ["t-schedule", "Schedule", ["calendars", "events", "meetings"]],
+      ["t-sell", "Sell", ["products", "stores", "payments", "subscriptions"]],
+      ["t-marketing", "Marketing", ["social-planner", "email-campaigns", "reputation", "sites"]],
+      ["t-insight", "Reporting", ["reporting", "dashboards"]],
+    ],
+    ["memberships", "calendars", "conversations", "payments"],
+  ),
+  preset(
+    "tpl-coaching",
+    "Coaching & courses",
+    [
+      ["t-audience", "Audience", ["contacts", "conversations", "memberships"]],
+      ["t-programmes", "Programmes", ["events", "webinars", "meetings", "calendars"]],
+      ["t-sell", "Sell", ["products", "stores", "payments", "subscriptions", "invoices"]],
+      ["t-launch", "Market", ["email-campaigns", "social-planner", "sites", "ad-manager"]],
+      ["t-automate", "Automate", ["automation", "ai-agents-product"]],
+    ],
+    ["conversations", "memberships", "events", "payments"],
+  ),
+];
 
 export function NavTemplatesProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [templates, setTemplates] = React.useState<readonly NavTemplate[]>([]);
+  const [templates, setTemplates] = React.useState<readonly NavTemplate[]>(
+    SEED_TEMPLATES,
+  );
   const seq = React.useRef(0);
 
   const save = React.useCallback(
@@ -107,7 +264,11 @@ export function NavTemplatesProvider({
           id: `tpl-${seq.current}`,
           name: trimmed,
           fromAccount,
-          productCount: state.enabledProducts.length,
+          // What the template ARRANGES, not what the account owns — the two
+          // differ the moment a product sits in no group.
+          productCount: new Set(
+            captureArrangement(state).customGroups.flatMap((g) => g.productIds),
+          ).size,
           arrangement: captureArrangement(state),
         },
       ]);
@@ -140,7 +301,20 @@ export function NavTemplatesProvider({
         customGroups: a.customGroups
           .map((g) => ({ ...g, productIds: g.productIds.filter((p) => owns.has(p)) }))
           .filter((g) => g.productIds.length > 0),
-        pinned: a.pinned.filter((p) => owns.has(p)),
+        /*
+         * Never hand back an empty dock.
+         *
+         * A template's pins are its author's, and an account that owns none of
+         * them would have had its favourites silently emptied by applying a
+         * grouping — which is not what "apply a grouping" promises, and is
+         * destructive in a way the rest of the patch is not. So: the
+         * template's pins where the account owns them, and its own if that
+         * leaves nothing.
+         */
+        pinned: (() => {
+          const kept = a.pinned.filter((p) => owns.has(p));
+          return kept.length > 0 ? kept : target.pinned;
+        })(),
         hiddenRows: a.hiddenRows.filter((p) => owns.has(p)),
         // The tail also holds the account's OWN links, which the template knows
         // nothing about — so template order first, then anything of the

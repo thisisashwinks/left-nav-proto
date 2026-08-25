@@ -96,7 +96,12 @@ export function NavTemplatesMenu({
                     {t.name}
                   </span>
                   <span className="block truncate text-[11.5px] leading-[15px] text-nav-fg-subtle">
-                    From {t.fromAccount} · {t.productCount} products
+                    {/*
+                      Presets say so rather than claiming an origin. "From
+                      HighLevel" would have read as another agency's account.
+                    */}
+                    {t.builtIn ? "Preset" : `From ${t.fromAccount}`} ·{" "}
+                    {t.productCount} products
                   </span>
                 </span>
               </button>
