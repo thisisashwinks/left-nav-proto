@@ -134,8 +134,6 @@ function NavStructureSection({
     autoCollapse,
     setAutoCollapse,
     scopeModel,
-    navGeneration,
-    setNavGeneration,
     setScopeModel,
     flyoutTrigger,
     setFlyoutTrigger,
@@ -182,27 +180,6 @@ function NavStructureSection({
         {demoPlan === null
           ? "Each account on the plan it is seeded with, so the sub-account list shows a real spread."
           : `Every account forced onto ${PLAN_PRICES[demoPlan]}, to read the nav as that agency sees it.`}
-      </p>
-
-      {/*
-        First in the section, and deliberately.
-
-        Every other control here tunes the proposal. This one asks whether to
-        look at the proposal at all, so it reads as the question the rest are
-        answers to — and it is the reliable way back once the legacy nav, which
-        has no edit card, is on screen.
-      */}
-      <Segmented
-        label="Navigation"
-        options={NAV_GENERATIONS}
-        value={navGeneration}
-        onChange={(v: NavGeneration) => setNavGeneration(v)}
-        format={(v) => NAV_GENERATION_LABELS[v]}
-      />
-      <p className="text-[10px] leading-[14px] text-pg-faint">
-        {navGeneration === "legacy"
-          ? "Production's sidebar, transcribed: one flat list, no flyouts, no grouping, no pinning. Rows select but do not navigate."
-          : "The proposal. Switch to Old nav to compare it against what ships today — also on the Editing nav card."}
       </p>
 
       <Segmented
@@ -598,6 +575,10 @@ export function TuningPanel() {
     setEntryLayout,
     pageShell,
     setPageShell,
+    navGeneration,
+    setNavGeneration,
+    navSwitchInEditCard,
+    setNavSwitchInEditCard,
   } = useTheme();
 
   const toggleSection = (id: SectionId) =>
@@ -707,6 +688,48 @@ export function TuningPanel() {
         >
           {allOpen ? "Collapse all" : "Expand all"}
         </button>
+      </div>
+
+      {/*
+        Above the sections, not inside one.
+
+        It started in "Nav structure", which is collapsed on load — so the one
+        control that gets you back out of the legacy nav was behind a disclosure,
+        in a panel you had to know existed, on a surface that deliberately has no
+        edit card. That is a trap with a key you cannot see.
+
+        It also is not a tuning knob. Everything below adjusts the proposal;
+        this chooses whether you are looking at the proposal at all, which is why
+        it sits with the panel's own chrome rather than among the axes.
+      */}
+      <div className="flex shrink-0 flex-col gap-[6px] px-[14px] py-[10px] shadow-[inset_0_-1px_0_0_var(--pg-border)]">
+        <Segmented
+          label="Navigation"
+          options={NAV_GENERATIONS}
+          value={navGeneration}
+          onChange={(v: NavGeneration) => setNavGeneration(v)}
+          format={(v) => NAV_GENERATION_LABELS[v]}
+        />
+        <p className="text-[10px] leading-[14px] text-pg-faint">
+          {navGeneration === "legacy"
+            ? "Production's sidebar, transcribed: one flat list, no flyouts, no grouping, no pinning. Rows select but do not navigate."
+            : "The proposal. Switch to Old nav to compare it against what ships today."}
+        </p>
+        {/*
+          Paired with the choice above, because it is a question about that
+          choice: not which nav to show, but whether an admin should be able to
+          answer that from inside the nav itself.
+        */}
+        <Toggle
+          label="Offer the switch in the Editing nav card"
+          checked={navSwitchInEditCard}
+          onChange={setNavSwitchInEditCard}
+        />
+        <p className="text-[10px] leading-[14px] text-pg-faint">
+          {navSwitchInEditCard
+            ? "A fourth icon on the card's toolbar, opening the same two options. Off, the card keeps only the three tools that edit this nav."
+            : "The card shows Show / hide, Colours and Templates only. Switching navigation happens here."}
+        </p>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">

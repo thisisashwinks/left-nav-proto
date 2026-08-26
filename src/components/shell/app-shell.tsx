@@ -40,6 +40,10 @@ import {
 } from "@/components/nav/agency-config";
 import { AgencyCompanyPage } from "@/components/settings/agency-company-page";
 import { BusinessProfilePage } from "@/components/settings/business-profile-page";
+import {
+  LEGACY_BUSINESS_PROFILE_ID,
+  PROPOSED_BUSINESS_PROFILE_ID,
+} from "@/components/nav/proposed-ia";
 import { AgencyPlacePage } from "@/components/settings/agency-place-page";
 import {
   CanvasSkeleton,
@@ -167,6 +171,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     scopeModel,
     navGeneration,
     setNavGeneration,
+    legacyNavTheme,
   } = useTheme();
   const { setActiveAccount: setActiveTuningAccount } = useTuning();
   const {
@@ -416,6 +421,25 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         : null),
     [productPage, layout.grouping, homeProductId, themeOwnerId, firstPageOf],
   );
+  /*
+   * Whether the canvas is showing Business Profile.
+   *
+   * Two ids, because the row arrives by two different routes and neither one
+   * covers both accounts. On the proposed tree the row IS a catalogue product
+   * (`ia-settings-business`), so clicking it sets a product page like any other
+   * row; on every other grouping it comes from the hand-written account settings
+   * menu, where it names no product and only ever sets `selectedId`.
+   *
+   * Checking one id was the bug: the page was wired to the settings-menu id
+   * alone, so on the proposed tree — which is what the demo accounts are on — the
+   * click fell through to the generic demo-stage table and the real page was
+   * unreachable.
+   */
+  const businessProfileShowing =
+    !agencyScope &&
+    (selectedId === LEGACY_BUSINESS_PROFILE_ID ||
+      canvasPage?.productId === PROPOSED_BUSINESS_PROFILE_ID);
+
   /** Opens a page under the current owner, so the derivation above can trust it. */
   const setProductPage = React.useCallback(
     (
@@ -1010,7 +1034,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         and the light canvas floats on that.
       */}
       <div
-        data-shell-theme={navTheme}
+        // Same reasoning as the nav card: the plane is themed off the nav, and
+        // while the legacy nav is up that is the nav it must follow.
+        data-shell-theme={legacyNav ? legacyNavTheme : navTheme}
         // --pg-bg is the page — the same ground the settings pages already sit on,
         // so the product has one page colour instead of a shell grey out here and
         // a page grey inside the canvas. The token lives under [data-page-theme],
@@ -1033,7 +1059,14 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         cut the directory off mid-panel.
       */}
       <div
-        data-nav-theme={navTheme}
+        /*
+         * The card paints its own --nav-bg, and the legacy nav does not cover
+         * its rounded corners — so with the two on different themes the card's
+         * corners showed the workspace's light behind a dark sidebar. The card
+         * wears whatever the nav inside it wears.
+         */
+        {...(legacyNav ? { "data-legacy-nav": "" } : {})}
+        data-nav-theme={legacyNav ? legacyNavTheme : navTheme}
         className={cn(
           "relative z-20 my-[var(--shell-canvas-gap)] ml-[var(--shell-canvas-gap)] flex min-h-0 self-stretch bg-nav shadow-[var(--shell-canvas-shadow),inset_0_0_0_1px_var(--nav-border)]",
           /*
@@ -1125,7 +1158,6 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             scope={accounts.scope}
             account={accounts.current}
             agency={accounts.agency}
-            theme={navTheme}
             onLeave={() => setNavGeneration("new")}
             onSwitchScope={() =>
               accounts.scope === "agency"
@@ -1367,11 +1399,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             >
               {pending ? (
                 <CanvasSkeleton />
-              ) : !agencyScope && selectedId === "setting-business-profile" ? (
+              ) : businessProfileShowing ? (
                 // The sub-account's own settings page, and the one drawn in
                 // full: it is where a sub-account uploads its logos, so it is
-                // the counterpart to the agency's White label tab. Its Settings
-                // row existed in the flyout with nothing behind it.
+                // the counterpart to the agency's White label tab.
                 <BusinessProfilePage account={accounts.current} />
               ) : selectedId === "agency-sub-accounts" ? (
                 manageAccount ? (
@@ -1498,7 +1529,16 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 : productById(id)
                   ? { productId: id, childId: null }
                   : undefined;
-              if (target === undefined) return;
+              if (target === undefined) {
+                /*
+                 * Rows that name no catalogue product used to stop here, which
+                 * meant the account settings menu could not select anything —
+                 * including Business Profile, the one row in it with a real page
+                 * behind it. Selecting it is what the canvas branch above reads.
+                 */
+                if (id === LEGACY_BUSINESS_PROFILE_ID) setSelectedId(id);
+                return;
+              }
               if (target.productId === "contacts") {
                 setProductPage(null);
               } else {

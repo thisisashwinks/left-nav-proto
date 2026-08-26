@@ -1335,6 +1335,19 @@ export const proposedBuckets: ProposedBucket[] = [
 /** The bucket whose products fill the nav's bottom-anchored Settings panel. */
 export const PROPOSED_SETTINGS_ID = "ia-settings";
 
+/**
+ * Business Profile, which is a real page rather than a stub.
+ *
+ * Named here because the shell has to recognise it: on the proposed tree the row
+ * is a catalogue product like any other, so clicking it opens a product page —
+ * and the shell needs to know that this one product has a hand-built page behind
+ * it instead of the demo-stage table.
+ */
+export const PROPOSED_BUSINESS_PROFILE_ID = "ia-settings-business";
+
+/** The same page as reached from the non-proposed account settings menu. */
+export const LEGACY_BUSINESS_PROFILE_ID = "setting-business-profile";
+
 /** Product ids that render as top-level destination rows rather than in a bucket. */
 export const PROPOSED_DESTINATION_IDS: readonly string[] = ids(DESTINATIONS);
 

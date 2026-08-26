@@ -454,6 +454,62 @@
   --fly-duration-bg: #101828cc;
 }
 
+/*
+ * The legacy nav's own dark, which is not the prototype's.
+ *
+ * Production's sidebar is a blue-grey slate (#2E3748); the prototype's dark nav
+ * is a near-neutral near-black. Rendering the transcription in our black would
+ * quietly restyle the thing it exists to be compared against, so it keeps its
+ * own base — and the rest of the ramp is derived from that base rather than
+ * hand-picked, so the surface, its hovers and its ink stay one family.
+ *
+ * Scoped to [data-legacy-nav] so nothing else on the page is touched. The
+ * compound selector is one attribute more specific than the shared dark block
+ * below, which is what makes it win — not source order, so moving either block
+ * is safe.
+ *
+ * Each derived token declares a hex first and the oklch second: browsers without
+ * relative colour syntax keep a hand-matched approximation instead of falling
+ * back to the near-black above.
+ */
+[data-legacy-nav][data-nav-theme="dark"] {
+  --legacy-nav-base: #2e3748;
+
+  --nav-bg: var(--legacy-nav-base);
+  --nav-border: #414e61;
+  --nav-border: oklch(from var(--legacy-nav-base) calc(l + 0.08) c h);
+  --nav-divider: #414e61;
+  --nav-divider: oklch(from var(--legacy-nav-base) calc(l + 0.08) c h);
+  --nav-hover: #3b4759;
+  --nav-hover: oklch(from var(--legacy-nav-base) calc(l + 0.06) c h);
+  --nav-active: #46536780;
+  --nav-active: oklch(from var(--legacy-nav-base) calc(l + 0.1) c h);
+  --nav-rail-bg: #27303f;
+  --nav-rail-bg: oklch(from var(--legacy-nav-base) calc(l - 0.03) c h);
+  --nav-rail-border: #414e61;
+  --nav-rail-border: oklch(from var(--legacy-nav-base) calc(l + 0.08) c h);
+  --nav-rail-hi: #465367;
+  --nav-rail-hi: oklch(from var(--legacy-nav-base) calc(l + 0.1) c h);
+  --nav-rail-hover: #465367;
+  --nav-rail-hover: oklch(from var(--legacy-nav-base) calc(l + 0.1) c h);
+  --nav-rail-disc: #4d5b70;
+  --nav-rail-disc: oklch(from var(--legacy-nav-base) calc(l + 0.12) c h);
+
+  /* Ink: the base's hue held, chroma pulled back so text reads as grey rather
+     than tinted, lightness set outright. */
+  --nav-fg: #f2f5f9;
+  --nav-fg: oklch(from var(--legacy-nav-base) 0.965 calc(c * 0.3) h);
+  --nav-fg-muted: #a8b3c3;
+  --nav-fg-muted: oklch(from var(--legacy-nav-base) 0.76 calc(c * 0.55) h);
+  --nav-fg-subtle: #7c8798;
+  --nav-fg-subtle: oklch(from var(--legacy-nav-base) 0.62 calc(c * 0.55) h);
+
+  --nav-scrollbar: #4d5b70;
+  --nav-scrollbar: oklch(from var(--legacy-nav-base) calc(l + 0.12) c h);
+  --nav-scrollbar-hover: #5c6b82;
+  --nav-scrollbar-hover: oklch(from var(--legacy-nav-base) calc(l + 0.18) c h);
+}
+
 [data-nav-theme="dark"] {
   --nav-bg: #0f0f12;
   --nav-border: #26262c;

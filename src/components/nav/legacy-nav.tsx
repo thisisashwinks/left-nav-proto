@@ -8,6 +8,7 @@ import {
   Box,
   Calendar,
   ChevronsUpDown,
+  Check,
   Contact,
   GitFork,
   Globe,
@@ -23,9 +24,10 @@ import {
   MousePointerClick,
   Monitor,
   Package,
+  Moon,
   Receipt,
+  Replace,
   Rocket,
-  RotateCcw,
   Search,
   Send,
   Settings,
@@ -34,7 +36,9 @@ import {
   ShoppingBag,
   Smartphone,
   Sparkles,
+  SquarePen,
   Star,
+  Sun,
   Store,
   TrendingUp,
   User,
@@ -49,6 +53,7 @@ import { AccountLogo } from "@/components/accounts/account-logo";
 import type { Account } from "@/components/accounts/accounts-data";
 import type { WorkspaceScope } from "@/components/accounts/use-accounts";
 import type { SurfaceTheme } from "@/design/theme";
+import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 
 /**
@@ -79,7 +84,6 @@ export function LegacyNav({
   scope,
   account,
   agency,
-  theme,
   onLeave,
   onSwitchScope,
 }: {
@@ -88,7 +92,6 @@ export function LegacyNav({
   account: Account;
   /** Whose logo sits at the top — production's white-label slot. */
   agency: Account;
-  theme: SurfaceTheme;
   /** Back to the proposal. Not production's; see the pill at the foot. */
   onLeave: () => void;
   /**
@@ -102,6 +105,7 @@ export function LegacyNav({
    */
   onSwitchScope: () => void;
 }) {
+  const legacyNavTheme = useTheme().legacyNavTheme;
   const agencyScope = scope === "agency";
   const rows = agencyScope ? AGENCY_ROWS : ACCOUNT_ROWS;
   // Launchpad is the selected row in both screenshots, so the transcription
@@ -120,8 +124,12 @@ export function LegacyNav({
 
   return (
     <div
-      data-nav-theme={theme}
-      className="flex h-full min-h-0 w-full flex-col bg-nav"
+      // Its own light/dark, not the workspace's — see legacyNavTheme. The
+      // marker is what points tokens.css at production's slate instead of the
+      // prototype's near-black.
+      data-legacy-nav=""
+      data-nav-theme={legacyNavTheme}
+      className="group/legacy relative flex h-full min-h-0 w-full flex-col bg-nav"
     >
       {/*
         The platform's logo, centred, in both scopes — production's white-label
@@ -249,26 +257,158 @@ export function LegacyNav({
       </div>
 
       {/*
-        Not production's, and the one invented element here.
+        The way out, in the same place and shape the proposal puts it.
 
-        The transcription has no edit control, so the card carrying the toggle
-        that got you here is gone the moment you arrive — leaving the prototype
-        in a state you can only leave through the controls panel. Anyone showing
-        this to a room should not have to know the panel exists, so the way back
-        is on the surface you are stuck on. Quiet, and captioned as an escape
-        rather than a feature.
+        This replaced a standing "Back to new nav" pill. Two affordances for one
+        job read as two different jobs, and the pill was the more invented of the
+        pair — the card at least mirrors a control the other nav already has, so
+        the two navs stay comparable on how they are administered as well as on
+        what they contain.
       */}
+      <LegacyEditFoot onLeave={onLeave} />
+    </div>
+  );
+}
+
+/**
+ * The edit affordance, and the card it becomes.
+ *
+ * Deliberately the proposal's own shape — hidden until the nav is hovered, then
+ * a card with its tools on one line and the two exits on the next — because the
+ * comparison being run here includes "what is it like to administer this thing".
+ * A different treatment would make that comparison about the treatment.
+ *
+ * Two tools, where the proposal has three or four, and that IS the finding: there
+ * is no structure to show, hide, group or template. What is left is how it looks
+ * and whether you want it at all.
+ */
+function LegacyEditFoot({ onLeave }: { onLeave: () => void }) {
+  const { legacyNavTheme, setLegacyNavTheme } = useTheme();
+  const [editing, setEditing] = React.useState(false);
+
+  /*
+   * What Discard puts back.
+   *
+   * Captured when the session opens rather than read at Discard time, which is
+   * the whole point: the buttons mean the same here as they do on the proposal's
+   * card, where Discard undoes a session rather than the last thing you touched.
+   *
+   * Only the theme is in it. Switching to the new nav also ends the session — it
+   * unmounts this entire nav, card included — so it is committed by definition
+   * and there would be nothing left on screen to press Discard with.
+   */
+  const [baseline, setBaseline] = React.useState<SurfaceTheme>(legacyNavTheme);
+
+  if (!editing) {
+    return (
       <div className="shrink-0 px-[12px] pb-[12px]">
         <button
           type="button"
-          onClick={onLeave}
-          className="motion-tap flex h-[32px] w-full items-center justify-center gap-[6px] rounded-[8px] text-[12.5px] leading-none font-medium text-nav-fg-subtle shadow-[inset_0_0_0_1px_var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg active:scale-[0.99]"
+          onClick={() => {
+            setBaseline(legacyNavTheme);
+            setEditing(true);
+          }}
+          aria-label="Edit navigation"
+          /*
+           * Revealed on hover and on focus, as the proposal's pencil is: an
+           * editing affordance should not be part of the furniture you look at
+           * all day, and one reachable by Tab but invisible while focused is a
+           * keyboard trap in reverse.
+           */
+          className="motion-tap flex h-[30px] w-full items-center justify-center gap-[6px] rounded-[8px] text-[12px] leading-none font-medium text-nav-fg-subtle opacity-0 transition-opacity duration-[var(--dur-fast)] group-hover/legacy:opacity-100 hover:bg-nav-hover hover:text-nav-fg focus-visible:opacity-100"
         >
-          <RotateCcw size={13} aria-hidden="true" />
-          Back to new nav
+          <SquarePen size={13} aria-hidden="true" />
+          Edit nav
         </button>
       </div>
+    );
+  }
+
+  return (
+    <div className="shrink-0 px-[12px] pb-[12px]">
+      <div className="flex flex-col gap-[6px] rounded-[10px] bg-nav p-[8px] shadow-[0_4px_12px_0_var(--fly-shadow),inset_0_0_0_1px_var(--nav-divider)]">
+        <div className="flex items-center gap-[6px]">
+          <span
+            role="status"
+            className="flex min-w-0 flex-1 items-center gap-[5px] truncate text-[11.5px] leading-[15px] font-semibold whitespace-nowrap text-nav-fg"
+          >
+            <SquarePen size={11} aria-hidden="true" className="shrink-0" />
+            Editing nav
+          </span>
+          <LegacyTool
+            label={
+              legacyNavTheme === "dark"
+                ? "Switch this navigation to light"
+                : "Switch this navigation to dark"
+            }
+            short={legacyNavTheme === "dark" ? "Light" : "Dark"}
+            icon={legacyNavTheme === "dark" ? Sun : Moon}
+            onClick={() =>
+              setLegacyNavTheme(legacyNavTheme === "dark" ? "light" : "dark")
+            }
+          />
+          <LegacyTool
+            label="Switch to the new navigation"
+            short="New nav"
+            icon={Replace}
+            /*
+             * Ends the session by leaving the surface it belongs to. No need to
+             * clear `editing` — this unmounts the whole nav — but it is cleared
+             * anyway so that coming back does not land straight in the mode.
+             */
+            onClick={() => {
+              setEditing(false);
+              onLeave();
+            }}
+          />
+        </div>
+
+        <div className="flex items-center justify-end gap-[6px]">
+          <button
+            type="button"
+            onClick={() => {
+              setLegacyNavTheme(baseline);
+              setEditing(false);
+            }}
+            className="motion-tap flex h-[26px] shrink-0 items-center rounded-[7px] px-[10px] text-[12px] leading-none font-medium text-nav-fg-muted shadow-[inset_0_0_0_1px_var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg active:scale-95"
+          >
+            Discard
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="motion-tap flex h-[26px] shrink-0 items-center gap-[5px] rounded-[7px] bg-nav-fg px-[10px] text-[12px] leading-none font-medium text-nav hover:opacity-90 active:scale-95"
+          >
+            <Check size={13} aria-hidden="true" />
+            {legacyNavTheme === baseline ? "Done" : "Save changes"}
+          </button>
+        </div>
+      </div>
     </div>
+  );
+}
+
+function LegacyTool({
+  label,
+  short,
+  icon: Icon,
+  onClick,
+}: {
+  label: string;
+  short: string;
+  icon: LucideIcon;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={short}
+      onClick={onClick}
+      className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95"
+    >
+      <Icon size={14} aria-hidden="true" />
+    </button>
   );
 }
 

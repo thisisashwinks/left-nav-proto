@@ -19,6 +19,7 @@ import { Kbd } from "@/components/search/kbd";
 import { cn } from "@/lib/utils";
 import { RailTooltip } from "./rail-tooltip";
 import { NavGenerationMenu } from "./nav-generation-menu";
+import { useTheme } from "@/components/theme/theme-provider";
 
 /**
  * Search and Ask AI together, directly under the logo.
@@ -143,6 +144,26 @@ function EditNavButton({
    */
   const [generationAnchor, setGenerationAnchor] =
     React.useState<HTMLElement | null>(null);
+  const navSwitchInEditCard = useTheme().effective.navSwitchInEditCard;
+
+  /*
+   * Drop the anchor when the tool is switched off.
+   *
+   * Adjusted during render, the way useExitTransition and useSwapPhase do it,
+   * rather than in an effect — an effect that calls setState cascades a second
+   * render, and the linter rejects it.
+   *
+   * Not merely cosmetic. Hiding the tool unmounts the button the open menu is
+   * anchored to, and `useAnchored` holds the ELEMENT so it can re-measure: left
+   * behind, it would go on reading a detached node whose rect is 0,0 and park
+   * the panel in the corner if the tool were ever switched back on.
+   */
+  const [switchWasOffered, setSwitchWasOffered] =
+    React.useState(navSwitchInEditCard);
+  if (switchWasOffered !== navSwitchInEditCard) {
+    setSwitchWasOffered(navSwitchInEditCard);
+    if (!navSwitchInEditCard) setGenerationAnchor(null);
+  }
 
   if (!editing && showIntro && onDismissIntro) {
     return (
@@ -197,7 +218,7 @@ function EditNavButton({
        * Absolutely positioned, so none of it can move a row.
        */
       <>
-      {generationAnchor ? (
+      {generationAnchor && navSwitchInEditCard ? (
         <NavGenerationMenu
           anchor={generationAnchor}
           onClose={() => setGenerationAnchor(null)}
@@ -266,13 +287,21 @@ function EditNavButton({
             the end keeps the three that belong together adjacent, and the odd
             one out at the edge — the same reason Settings sits apart in the nav
             itself.
+
+            Behind its own axis, because whether it belongs here at all is part
+            of what is being reviewed: it lets an admin swap their whole
+            navigation from a mode they opened to rename one row. Switched off,
+            the card is back to the three tools that only ever edit this nav, and
+            the comparison lives in the prototype controls alone.
           */}
-          <EditTool
-            label="Switch between this navigation and the one that ships today"
-            short="Navigation"
-            icon={Replace}
-            onOpen={(trigger) => setGenerationAnchor(trigger)}
-          />
+          {navSwitchInEditCard ? (
+            <EditTool
+              label="Switch between this navigation and the one that ships today"
+              short="Navigation"
+              icon={Replace}
+              onOpen={(trigger) => setGenerationAnchor(trigger)}
+            />
+          ) : null}
         </div>
 
         <div className="flex items-center justify-end gap-[6px]">

@@ -297,6 +297,28 @@ export interface ThemeState {
   /** Proposal or production. See NAV_GENERATIONS. */
   navGeneration: NavGeneration;
   /**
+   * Whether the Editing nav card offers the generation switch.
+   *
+   * Its own axis because putting the control there is itself a proposal, and a
+   * contested one: it lets an admin swap their whole navigation from inside a
+   * mode they opened to rename a row, which is either a useful comparison or a
+   * cliff edge depending on who you ask. Off, the card keeps its three tools and
+   * the switch lives only in the prototype controls — which is what the shipped
+   * product would most likely do.
+   */
+  navSwitchInEditCard: boolean;
+  /**
+   * Light or dark for the legacy nav, kept apart from `navTheme`.
+   *
+   * Its own setting rather than the shared one because the two navs are being
+   * compared, not swapped: forcing `navTheme` dark on the way into the old nav
+   * would leave the new nav dark on the way out, silently changing the thing
+   * under review as a side effect of looking at the alternative.
+   *
+   * Dark by default, which is how production ships it.
+   */
+  legacyNavTheme: SurfaceTheme;
+  /**
    * Whether a page's tabs ALSO appear as nested rows in the nav.
    *
    * The proposed IA marks a lot of nodes as tabs — saved lists, statuses,
@@ -353,6 +375,10 @@ export const DEFAULT_THEME: ThemeState = {
   scopeModel: "rail",
   // The proposal, obviously. `legacy` is the control group, not the default.
   navGeneration: "new",
+  // On, so the comparison is one click from the nav being argued about.
+  navSwitchInEditCard: true,
+  // Production's own default, and the state both source screenshots were in.
+  legacyNavTheme: "dark",
   // Off: the proposal's own answer. The toggle is how you argue with it.
   tabsInNav: false,
   navSections: "plain",

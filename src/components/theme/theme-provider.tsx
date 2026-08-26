@@ -63,6 +63,8 @@ interface ThemeContextValue extends ThemeState {
   setAutoCollapse: (enabled: boolean) => void;
   setScopeModel: (model: ScopeModel) => void;
   setNavGeneration: (generation: NavGeneration) => void;
+  setNavSwitchInEditCard: (enabled: boolean) => void;
+  setLegacyNavTheme: (theme: SurfaceTheme) => void;
   setTabsInNav: (enabled: boolean) => void;
   setNavSections: (mode: NavSections) => void;
   setPageShell: (shell: PageShell) => void;
@@ -168,6 +170,10 @@ export function ThemeProvider({
       setScopeModel: (scopeModel) => setState((s) => ({ ...s, scopeModel })),
       setNavGeneration: (navGeneration) =>
         setState((s) => ({ ...s, navGeneration })),
+      setNavSwitchInEditCard: (navSwitchInEditCard) =>
+        setState((s) => ({ ...s, navSwitchInEditCard })),
+      setLegacyNavTheme: (legacyNavTheme) =>
+        setState((s) => ({ ...s, legacyNavTheme })),
       setTabsInNav: (tabsInNav) => setState((s) => ({ ...s, tabsInNav })),
       setNavSections: (navSections) => setState((s) => ({ ...s, navSections })),
       setPageShell: (pageShell) => setState((s) => ({ ...s, pageShell })),
