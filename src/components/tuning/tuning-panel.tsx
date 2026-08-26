@@ -165,7 +165,17 @@ function NavStructureSection({
       open={open}
       onToggle={onToggle}
       changedCount={changed}
-      onReset={layout.resetLayout}
+      /*
+        A true reset, not the "look at the default" switch the nav offers: show
+        the default and then adopt it, which leaves nothing stashed. This is the
+        dev control that puts the section back to shipped values, so a held-aside
+        arrangement surviving it would be a state the panel claims to have
+        cleared.
+      */
+      onReset={() => {
+        layout.showDefaultLayout();
+        layout.adoptDefaultLayout();
+      }}
     >
       <Segmented
         label="Plan"
@@ -579,6 +589,8 @@ export function TuningPanel() {
     setNavGeneration,
     navSwitchInEditCard,
     setNavSwitchInEditCard,
+    layoutSwitchInEditCard,
+    setLayoutSwitchInEditCard,
   } = useTheme();
 
   const toggleSection = (id: SectionId) =>
@@ -716,19 +728,31 @@ export function TuningPanel() {
             : "The proposal. Switch to Old nav to compare it against what ships today."}
         </p>
         {/*
-          Paired with the choice above, because it is a question about that
-          choice: not which nav to show, but whether an admin should be able to
-          answer that from inside the nav itself.
+          Two questions about the same thing: not which nav or layout to show,
+          but whether an admin should be able to answer either from inside the
+          nav. Both live on rows in the edit card's overflow menu, so switching
+          one off removes a row rather than changing the card's shape.
         */}
         <Toggle
-          label="Offer the switch in the Editing nav card"
+          label="Navigation switch in the edit card"
           checked={navSwitchInEditCard}
           onChange={setNavSwitchInEditCard}
         />
         <p className="text-[10px] leading-[14px] text-pg-faint">
           {navSwitchInEditCard
-            ? "A fourth icon on the card's toolbar, opening the same two options. Off, the card keeps only the three tools that edit this nav."
-            : "The card shows Show / hide, Colours and Templates only. Switching navigation happens here."}
+            ? "A Navigation row in the card's ⋯ menu, opening the same two options. Off, switching navigation happens only here."
+            : "The card's ⋯ menu has no Navigation row. Switching happens only here."}
+        </p>
+
+        <Toggle
+          label="Layout switch in the edit card"
+          checked={layoutSwitchInEditCard}
+          onChange={setLayoutSwitchInEditCard}
+        />
+        <p className="text-[10px] leading-[14px] text-pg-faint">
+          {layoutSwitchInEditCard
+            ? "A Layout row in the card's ⋯ menu, for looking at the sidebar we ship. Off, the default layout is unreachable — which is what the product looks like without this idea."
+            : "The card's ⋯ menu has no Layout row, so the default layout cannot be reached from the nav at all."}
         </p>
       </div>
 

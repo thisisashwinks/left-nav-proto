@@ -87,11 +87,20 @@ const VARIANT = {
  * among its siblings, which only the list knows.
  */
 export interface FlyoutRowEdit {
-  renaming: boolean;
-  onStartRename: () => void;
-  onCommitRename: (next: string) => void;
-  onCancelRename: () => void;
-  onOpenMenu: (trigger: HTMLElement) => void;
+  /*
+   * Everything but the drag is optional.
+   *
+   * The agency tree's panels reorder and nothing else: their rows are platform
+   * IA, with no override map to write a rename into and no kebab's worth of
+   * verbs behind them. Rendering a pencil and an eye that did nothing would be
+   * a worse answer than not rendering them, so each affordance appears only
+   * when its handler does.
+   */
+  renaming?: boolean;
+  onStartRename?: () => void;
+  onCommitRename?: (next: string) => void;
+  onCancelRename?: () => void;
+  onOpenMenu?: (trigger: HTMLElement) => void;
   /**
    * Clicking the row's own glyph opens the picker.
    *
@@ -101,8 +110,8 @@ export interface FlyoutRowEdit {
    */
   onPickIcon?: (trigger: HTMLElement) => void;
   /** Switching the row off, and back on. Hover-only until it is off. */
-  onToggleHidden: () => void;
-  hidden: boolean;
+  onToggleHidden?: () => void;
+  hidden?: boolean;
   onDragStart: (e: React.DragEvent) => void;
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: (e: React.DragEvent) => void;
@@ -271,8 +280,8 @@ export function FlyoutRow({
           {edit?.renaming ? (
             <InlineRename
               value={item.label}
-              onCommit={edit.onCommitRename}
-              onCancel={edit.onCancelRename}
+              onCommit={edit.onCommitRename ?? (() => {})}
+              onCancel={edit.onCancelRename ?? (() => {})}
               ariaLabel={`Rename ${item.label}`}
               className={cn(
                 "text-[length:var(--t-fly-title,14px)] leading-[normal]",
@@ -290,15 +299,16 @@ export function FlyoutRow({
                 // In edit mode the text is the rename target, same as in the
                 // nav. The row itself keeps its own job — expanding, or opening
                 // the page — so the two gestures stay separate targets.
-                edit && "-mx-[3px] rounded-[4px] px-[3px] hover:bg-nav-active",
+                edit?.onStartRename &&
+                  "-mx-[3px] rounded-[4px] px-[3px] hover:bg-nav-active",
               )}
-              {...(edit
+              {...(edit?.onStartRename
                 ? {
                     role: "button",
                     tabIndex: 0,
                     onClick: (e: React.MouseEvent) => {
                       e.stopPropagation();
-                      edit.onStartRename();
+                      edit.onStartRename?.();
                     },
                   }
                 : {})}
@@ -363,25 +373,29 @@ export function FlyoutRow({
       >
         {edit && !edit.renaming ? (
           <>
-            <EditAffordance
-              label={edit.hidden ? `Show ${item.label}` : `Hide ${item.label}`}
-              onClick={edit.onToggleHidden}
-              // Pinned once hidden: the only way back has to be visible.
-              pinned={edit.hidden}
-            >
-              {edit.hidden ? (
-                <EyeOff size={12} aria-hidden="true" />
-              ) : (
-                <Eye size={12} aria-hidden="true" />
-              )}
-            </EditAffordance>
-            <EditAffordance
-              label={`Edit ${item.label}`}
-              onClick={edit.onOpenMenu}
-              pinned
-            >
-              <EllipsisVertical size={13} aria-hidden="true" />
-            </EditAffordance>
+            {edit.onToggleHidden ? (
+              <EditAffordance
+                label={edit.hidden ? `Show ${item.label}` : `Hide ${item.label}`}
+                onClick={edit.onToggleHidden}
+                // Pinned once hidden: the only way back has to be visible.
+                pinned={edit.hidden ?? false}
+              >
+                {edit.hidden ? (
+                  <EyeOff size={12} aria-hidden="true" />
+                ) : (
+                  <Eye size={12} aria-hidden="true" />
+                )}
+              </EditAffordance>
+            ) : null}
+            {edit.onOpenMenu ? (
+              <EditAffordance
+                label={`Edit ${item.label}`}
+                onClick={edit.onOpenMenu}
+                pinned
+              >
+                <EllipsisVertical size={13} aria-hidden="true" />
+              </EditAffordance>
+            ) : null}
           </>
         ) : null}
         {hasChildren ? (

@@ -15,6 +15,7 @@ import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
+import type { CatalogueChild } from "./catalogue-types";
 import { childById, productById } from "./catalogue";
 import { GROUPING_LABELS, type ResolvedGroup } from "./grouping";
 import { nameForIcon } from "./icon-catalogue";
@@ -67,17 +68,38 @@ export function PinnedLauncher({
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
   const picker = useIconPicker();
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  const q = query.trim().toLowerCase();
+  const searching = q.length > 0;
 
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      // Escape empties the field before it closes the panel. A typed query is
+      // work, and taking the whole surface away with it is the wrong first
+      // answer — the second Escape still closes.
+      if (searching) {
+        setQuery("");
+        inputRef.current?.focus();
+        return;
+      }
+      onClose();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  }, [onClose, searching]);
 
-  const q = query.trim().toLowerCase();
-  const matches = (label: string) => !q || label.toLowerCase().includes(q);
+  /*
+    Searching replaces the panel rather than filtering it.
+
+    Filtering left both headings standing over one or two survivors each, so the
+    structure you were reading through kept rearranging itself under the query.
+    A search is a different question — "where is this" rather than "what is
+    there" — and it gets its own flat answer, sub-items included. The sections
+    come back intact the moment the field is empty.
+  */
+  const hits = searching ? searchHits(layout, groups, q) : [];
 
   const pinnedIds = state.pinned.filter(
     (id) =>
@@ -85,19 +107,13 @@ export function PinnedLauncher({
       // whether the id resolves to anything the nav can draw rather than
       // whether it is a product. It stayed a product check for one revision
       // after L3 became pinnable, which silently dropped those pins.
-      (productById(id) !== undefined || childById(id) !== undefined) &&
-      matches(layout.productLabelFor(id)),
+      productById(id) !== undefined || childById(id) !== undefined,
   );
 
   // Resolved up front so the "All products" heading knows whether anything
-  // survives the filter before it commits to rendering.
+  // is under it before it commits to rendering.
   const visibleGroups = groups
-    .map((group) => ({
-      group,
-      productIds: group.productIds.filter((id) =>
-        matches(layout.productLabelFor(id)),
-      ),
-    }))
+    .map((group) => ({ group, productIds: group.productIds }))
     .filter(({ productIds }) => productIds.length > 0);
 
   /**
@@ -176,13 +192,33 @@ export function PinnedLauncher({
         <div className="mx-[14px] flex h-[36px] w-[calc(100%-28px)] shrink-0 items-center gap-[9px] rounded-[9px] px-[10px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
           <Search size={16} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
           <input
-            type="text"
+            ref={inputRef}
+            type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filter products"
-            aria-label="Filter products"
-            className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg placeholder:text-nav-fg-subtle focus:outline-none"
+            placeholder="Search products"
+            aria-label="Search products"
+            className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg placeholder:text-nav-fg-subtle focus:outline-none [&::-webkit-search-cancel-button]:hidden"
           />
+          {/*
+            The way back out. Escape does the same thing, but the panel opens
+            under the pointer and stays there — a keyboard-only exit from a
+            state this visible is not an exit most people will find.
+          */}
+          {searching ? (
+            <button
+              type="button"
+              aria-label="Clear search"
+              title="Clear search"
+              onClick={() => {
+                setQuery("");
+                inputRef.current?.focus();
+              }}
+              className="motion-tap flex size-[20px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
+            >
+              <X size={14} aria-hidden="true" />
+            </button>
+          ) : null}
         </div>
 
         <div
@@ -195,106 +231,115 @@ export function PinnedLauncher({
             data-scroll-region=""
             className="flex w-full flex-1 flex-col items-start gap-[10px] overflow-y-auto px-[14px] pt-[10px]"
           >
-        {pinnedIds.length > 0 ? (
-          <>
-            <SectionHeading count={state.pinned.length}>Pinned</SectionHeading>
-            {agencyScope ? <PinnedScopeNote /> : null}
-            {pinnedIds.map((id) => {
-              const index = state.pinned.indexOf(id);
-              return (
-                <ProductRow
-                  key={`pin-${id}`}
-                  productId={id}
-                  reorder={{
-                    onUp: () => layout.movePin(index, index - 1),
-                    onDown: () => layout.movePin(index, index + 1),
-                    upDisabled: index === 0,
-                    downDisabled: index === state.pinned.length - 1,
-                  }}
-                  drag={{
-                    key: `pin:${index}`,
-                    onDrop: (from) => {
-                      const fromIndex = Number(from.split(":")[1]);
-                      if (!Number.isNaN(fromIndex)) layout.movePin(fromIndex, index);
-                    },
-                  }}
-                />
-              );
-            })}
-          </>
-        ) : state.pinned.length === 0 ? (
-          // Only when there are genuinely none — a filter that hides them all
-          // is not an empty pin list, so it drops the section instead.
-          <>
-            <SectionHeading>Pinned</SectionHeading>
-            {agencyScope ? <PinnedScopeNote /> : null}
-            <p className="w-full px-[2px] pb-[4px] text-[12.5px] leading-[17px] text-nav-fg-subtle">
-              No pinned items yet. Pin anything below and it appears at the top
-              of the nav.
+        {searching ? (
+          hits.length > 0 ? (
+            hits.map((hit) => (
+              <SearchRow key={hit.id} productId={hit.id} context={hit.context} />
+            ))
+          ) : (
+            <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
+              No products match “{query}”
             </p>
-          </>
-        ) : null}
+          )
+        ) : (
+          <>
+          {pinnedIds.length > 0 ? (
+            <>
+              <SectionHeading count={state.pinned.length}>Pinned</SectionHeading>
+              {agencyScope ? <PinnedScopeNote /> : null}
+              {pinnedIds.map((id) => {
+                const index = state.pinned.indexOf(id);
+                return (
+                  <ProductRow
+                    key={`pin-${id}`}
+                    productId={id}
+                    gripReplacesIcon
+                    reorder={{
+                      onUp: () => layout.movePin(index, index - 1),
+                      onDown: () => layout.movePin(index, index + 1),
+                      upDisabled: index === 0,
+                      downDisabled: index === state.pinned.length - 1,
+                    }}
+                    drag={{
+                      key: `pin:${index}`,
+                      onDrop: (from) => {
+                        const fromIndex = Number(from.split(":")[1]);
+                        if (!Number.isNaN(fromIndex)) layout.movePin(fromIndex, index);
+                      },
+                    }}
+                  />
+                );
+              })}
+            </>
+          ) : state.pinned.length === 0 ? (
+            // Only when there are genuinely none — a filter that hides them all
+            // is not an empty pin list, so it drops the section instead.
+            <>
+              <SectionHeading>Pinned</SectionHeading>
+              {agencyScope ? <PinnedScopeNote /> : null}
+              <p className="w-full px-[2px] pb-[4px] text-[12.5px] leading-[17px] text-nav-fg-subtle">
+                No pinned items yet. Pin anything below and it appears at the top
+                of the nav.
+              </p>
+            </>
+          ) : null}
 
-        {visibleGroups.length > 0 ? (
-          <SectionHeading divider>All products</SectionHeading>
-        ) : null}
+          {visibleGroups.length > 0 ? (
+            <SectionHeading divider>All products</SectionHeading>
+          ) : null}
 
-        {visibleGroups.map(({ group, productIds }, groupIndex) => (
-          <React.Fragment key={group.id}>
-            <GroupHeader
-              group={group}
-              index={groupIndex}
-              groupCount={groups.length}
-              renaming={renamingId === group.id}
-              {...(editable
-                ? {
-                    onStartRename: () => setRenamingId(group.id),
-                    onPickIcon: (el: HTMLElement) => picker.open(group.id, el),
-                  }
-                : {})}
-              onEndRename={() => setRenamingId(null)}
-            />
-            {productIds.map((id, i) => (
-              <ProductRow
-                key={`${group.id}-${id}`}
-                productId={id}
-                renaming={renamingId === `${group.id}:${id}`}
+          {visibleGroups.map(({ group, productIds }, groupIndex) => (
+            <React.Fragment key={group.id}>
+              <GroupHeader
+                group={group}
+                index={groupIndex}
+                groupCount={groups.length}
+                renaming={renamingId === group.id}
                 {...(editable
                   ? {
-                      onStartRename: () => setRenamingId(`${group.id}:${id}`),
-                      onPickIcon: (el: HTMLElement) => picker.open(id, el),
+                      onStartRename: () => setRenamingId(group.id),
+                      onPickIcon: (el: HTMLElement) => picker.open(group.id, el),
                     }
                   : {})}
                 onEndRename={() => setRenamingId(null)}
-                {...(reorderable
-                  ? {
-                      reorder: {
-                        onUp: () => nudge(layout, groups, group, i, -1),
-                        onDown: () => nudge(layout, groups, group, i, 1),
-                        // Never disabled in custom mode: at a boundary the nudge
-                        // crosses into the neighbouring group instead of
-                        // stopping, which is what makes the whole list one axis.
-                        upDisabled: groupIndex === 0 && i === 0,
-                        downDisabled:
-                          groupIndex === groups.length - 1 &&
-                          i === productIds.length - 1,
-                      },
-                      drag: {
-                        key: `${group.id}:${i}`,
-                        onDrop: (from) => dropInto(layout, from, group, i),
-                      },
-                    }
-                  : {})}
               />
-            ))}
-          </React.Fragment>
-        ))}
-
-        {q && pinnedIds.length === 0 && visibleGroups.length === 0 ? (
-          <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
-            No products match “{query}”
-          </p>
-        ) : null}
+              {productIds.map((id, i) => (
+                <ProductRow
+                  key={`${group.id}-${id}`}
+                  productId={id}
+                  renaming={renamingId === `${group.id}:${id}`}
+                  {...(editable
+                    ? {
+                        onStartRename: () => setRenamingId(`${group.id}:${id}`),
+                        onPickIcon: (el: HTMLElement) => picker.open(id, el),
+                      }
+                    : {})}
+                  onEndRename={() => setRenamingId(null)}
+                  {...(reorderable
+                    ? {
+                        reorder: {
+                          onUp: () => nudge(layout, groups, group, i, -1),
+                          onDown: () => nudge(layout, groups, group, i, 1),
+                          // Never disabled in custom mode: at a boundary the nudge
+                          // crosses into the neighbouring group instead of
+                          // stopping, which is what makes the whole list one axis.
+                          upDisabled: groupIndex === 0 && i === 0,
+                          downDisabled:
+                            groupIndex === groups.length - 1 &&
+                            i === productIds.length - 1,
+                        },
+                        drag: {
+                          key: `${group.id}:${i}`,
+                          onDrop: (from) => dropInto(layout, from, group, i),
+                        },
+                      }
+                    : {})}
+                />
+              ))}
+            </React.Fragment>
+          ))}
+          </>
+        )}
 
           </div>
           <div aria-hidden="true" data-scroll-fade="bottom" />
@@ -353,6 +398,115 @@ export function PinnedLauncher({
         />
       ) : null}
     </>
+  );
+}
+
+interface SearchHit {
+  id: string;
+  /** Where it lives: the group for a product, the product for a sub-item. */
+  context: string;
+  /** 0 when the label opens with the query, 1 when it merely contains it. */
+  rank: number;
+}
+
+/**
+ * Everything the query names, flat — products and the sub-places inside them.
+ *
+ * Sub-items are in because the panel is the only place that lists them all, and
+ * a search that can find Contacts but not Smart Lists sends you hunting through
+ * a product you already named. They pin like anything else, so a result row
+ * needs no special case beyond the line saying where it came from.
+ *
+ * Order: prefix matches first, and the catalogue's own order within each rank.
+ * `sort` is stable, so results settle rather than reshuffling as you type.
+ */
+function searchHits(
+  layout: ReturnType<typeof useNavLayout>,
+  groups: ResolvedGroup[],
+  q: string,
+): SearchHit[] {
+  const hits: SearchHit[] = [];
+  // A product can sit in one group and a child under one parent, but the
+  // proposed IA files some ids twice — one row each, not two.
+  const seen = new Set<string>();
+
+  const add = (id: string, context: string) => {
+    if (seen.has(id)) return;
+    const at = layout.productLabelFor(id).toLowerCase().indexOf(q);
+    if (at === -1) return;
+    seen.add(id);
+    hits.push({ id, context, rank: at === 0 ? 0 : 1 });
+  };
+
+  const walk = (kids: readonly CatalogueChild[], trail: string[]) => {
+    for (const child of kids) {
+      add(child.id, trail.join(" · "));
+      // `tabs` means this row's children are views on its page rather than
+      // places of their own. They never appear in a flyout, so they never
+      // appear here either — the rule the whole nav is built on.
+      if (child.children?.length && !child.tabs) {
+        walk(child.children, [...trail, layout.productLabelFor(child.id)]);
+      }
+    }
+  };
+
+  for (const group of groups) {
+    for (const id of group.productIds) {
+      add(id, group.label);
+      const product = productById(id);
+      if (product?.children?.length && !product.tabs) {
+        walk(product.children, [layout.productLabelFor(id)]);
+      }
+    }
+  }
+
+  return hits.sort((a, b) => a.rank - b.rank);
+}
+
+/**
+ * One search result: what it is, where it lives, and whether it is pinned.
+ *
+ * Deliberately not `ProductRow`. A result has no position to nudge — the list
+ * is the query's order, not the nav's — and renaming a product you have only
+ * just found, from a list that disappears when you clear the field, is an edit
+ * made somewhere you cannot see its effect. Pinning is the one thing that still
+ * makes sense here, and it is the reason most people search this panel at all.
+ */
+function SearchRow({
+  productId,
+  context,
+}: {
+  productId: string;
+  context: string;
+}) {
+  const layout = useNavLayout();
+  const icon = layout.productIconFor(productId);
+  const label = layout.productLabelFor(productId);
+
+  return (
+    <div
+      className={cn(
+        // Same geometry as ProductRow, pin column included, so a result and a
+        // list row are recognisably the same object.
+        "group/row motion-tap relative flex w-full shrink-0 items-center gap-[10px] rounded-[9px] py-[6px] pl-[8px]",
+        "pr-[calc(8px+22px+10px)] hover:bg-nav-hover",
+      )}
+    >
+      <ResolvedIcon icon={icon} size={18} className="text-nav-fg-muted" />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-[14px] leading-[18px] text-nav-fg">
+          {label}
+        </span>
+        {context ? (
+          <span className="truncate text-[12px] leading-[16px] text-nav-fg-subtle">
+            {context}
+          </span>
+        ) : null}
+      </span>
+      <span className="absolute top-1/2 right-[8px] z-10 -translate-y-1/2">
+        <PinButton productId={productId} />
+      </span>
+    </div>
   );
 }
 
@@ -483,7 +637,7 @@ function GroupHeader({
       ) : onStartRename ? (
         /*
           The label IS the rename target while editing.
-          
+
           A pencil beside it was a second control for the thing the text
           already names — and every other surface in the nav renames by
           clicking the words. Outside the mode this is a plain span again, so
@@ -555,6 +709,7 @@ function GroupHeader({
 function ProductRow({
   productId,
   renaming = false,
+  gripReplacesIcon = false,
   onStartRename,
   onEndRename,
   onPickIcon,
@@ -563,6 +718,11 @@ function ProductRow({
 }: {
   productId: string;
   renaming?: boolean;
+  /**
+   * The grip takes the icon's place on hover instead of standing in a column of
+   * its own. See the icon slot below for why only Pinned asks for this.
+   */
+  gripReplacesIcon?: boolean;
   onStartRename?: () => void;
   onEndRename?: () => void;
   onPickIcon?: (trigger: HTMLElement) => void;
@@ -613,7 +773,7 @@ function ProductRow({
         dragging ? "opacity-40" : "hover:bg-nav-hover",
       )}
     >
-      {drag ? (
+      {drag && !gripReplacesIcon ? (
         <GripVertical
           size={14}
           aria-hidden="true"
@@ -621,7 +781,34 @@ function ProductRow({
         />
       ) : null}
 
-      {onPickIcon && can.regroup ? (
+      {drag && gripReplacesIcon ? (
+        /*
+          The grip stands in the icon's place rather than beside it.
+
+          A leading grip column only exists while the pointer is on the row, but
+          it holds its width always — so Pinned's icons sat one column right of
+          every icon under All products, and the panel read as two lists rather
+          than one. Swapping in place keeps a single icon column down the whole
+          panel, and costs nothing: the row itself has always been the drag
+          target, so the grip was only ever saying so.
+
+          Only Pinned asks for this. A row under All products can carry the icon
+          picker on the same glyph while custom grouping is on, and a picker you
+          cannot hover without it turning into something else is not a picker.
+        */
+        <span className="relative flex size-[18px] shrink-0 cursor-grab items-center justify-center active:cursor-grabbing">
+          <ResolvedIcon
+            icon={icon}
+            size={18}
+            className="text-nav-fg-muted transition-opacity duration-100 group-hover/row:opacity-0"
+          />
+          <GripVertical
+            size={15}
+            aria-hidden="true"
+            className="absolute inset-0 m-auto text-nav-fg-subtle opacity-0 transition-opacity duration-100 group-hover/row:opacity-100"
+          />
+        </span>
+      ) : onPickIcon && can.regroup ? (
         <button
           type="button"
           aria-label={`Change the ${label} icon`}

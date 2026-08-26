@@ -308,6 +308,17 @@ export interface ThemeState {
    */
   navSwitchInEditCard: boolean;
   /**
+   * Whether the Editing nav card offers the layout switch.
+   *
+   * The same question as `navSwitchInEditCard` and just as contested: showing an
+   * admin the shipped sidebar is a support tool, and putting it inside a
+   * restructuring mode is a claim that it belongs to editing. Off, the menu keeps
+   * only its template rows and the default layout is unreachable from the nav —
+   * which is worth being able to see, because it is what the product would look
+   * like if this idea were cut.
+   */
+  layoutSwitchInEditCard: boolean;
+  /**
    * Light or dark for the legacy nav, kept apart from `navTheme`.
    *
    * Its own setting rather than the shared one because the two navs are being
@@ -377,6 +388,8 @@ export const DEFAULT_THEME: ThemeState = {
   navGeneration: "new",
   // On, so the comparison is one click from the nav being argued about.
   navSwitchInEditCard: true,
+  // On, for the same reason: the comparison should be one menu away.
+  layoutSwitchInEditCard: true,
   // Production's own default, and the state both source screenshots were in.
   legacyNavTheme: "dark",
   // Off: the proposal's own answer. The toggle is how you argue with it.

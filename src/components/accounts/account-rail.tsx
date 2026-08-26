@@ -343,7 +343,9 @@ function RailRow({
           className={cn(
             "motion-tap flex w-full items-center gap-[9px] rounded-[9px] p-[4px] outline-none focus-visible:ring-[1.5px] focus-visible:ring-brand",
             !expanded && "justify-center",
-            selected ? "bg-nav shadow-[0_1px_2px_0_rgba(15,23,42,0.08),inset_0_0_0_1px_var(--nav-border)]" : "hover:bg-nav-hover",
+            // Fill and a hairline, no drop shadow: the tile is flush in the
+            // strip, and a cast shadow lifted it off a surface it sits on.
+            selected ? "bg-nav shadow-[inset_0_0_0_1px_var(--nav-border)]" : "hover:bg-nav-hover",
           )}
         >
           {/* 24, not 28 (Aug 13): the tenant tiles read oversized in the strip. */}

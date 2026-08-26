@@ -5,9 +5,8 @@ import type { LucideIcon } from "lucide-react";
 import {
   Check,
   Eye,
-  LayoutTemplate,
+  MoreHorizontal,
   Palette,
-  Replace,
   Search,
   SquarePen,
   TriangleAlert,
@@ -18,8 +17,7 @@ import type { AiSession } from "@/components/ai/use-ai-session";
 import { Kbd } from "@/components/search/kbd";
 import { cn } from "@/lib/utils";
 import { RailTooltip } from "./rail-tooltip";
-import { NavGenerationMenu } from "./nav-generation-menu";
-import { useTheme } from "@/components/theme/theme-provider";
+import { EditMoreMenu } from "./edit-more-menu";
 
 /**
  * Search and Ask AI together, directly under the logo.
@@ -103,6 +101,16 @@ export interface EditNavProps {
    * product.
    */
   onOpenBlocks: (trigger: HTMLElement) => void;
+  /* ---- What the overflow menu needs. See EditMoreMenu. ---- */
+  /** Seeds the template name. */
+  accountName: string;
+  /** Whether the shipped default is what is on screen. */
+  viewingDefault: boolean;
+  /** Goes through the warning first; the shell owns that dialog. */
+  onShowDefault: () => void;
+  onRestoreOwn: () => void;
+  onApplyTemplate: (templateId: string) => void;
+  onSaveTemplate: (name: string) => void;
 }
 
 /**
@@ -131,6 +139,12 @@ function EditNavButton({
   onOpenBlocks,
   onOpenAppearance,
   onOpenTemplates,
+  accountName,
+  viewingDefault,
+  onShowDefault,
+  onRestoreOwn,
+  onApplyTemplate,
+  onSaveTemplate,
   showIntro = false,
   onDismissIntro,
 }: EditNavProps & { revealed?: boolean }) {
@@ -142,28 +156,7 @@ function EditNavButton({
    * because nothing outside the card needs to know the menu is open. The other
    * three are lifted only because they outlive the card's own layout.
    */
-  const [generationAnchor, setGenerationAnchor] =
-    React.useState<HTMLElement | null>(null);
-  const navSwitchInEditCard = useTheme().effective.navSwitchInEditCard;
-
-  /*
-   * Drop the anchor when the tool is switched off.
-   *
-   * Adjusted during render, the way useExitTransition and useSwapPhase do it,
-   * rather than in an effect — an effect that calls setState cascades a second
-   * render, and the linter rejects it.
-   *
-   * Not merely cosmetic. Hiding the tool unmounts the button the open menu is
-   * anchored to, and `useAnchored` holds the ELEMENT so it can re-measure: left
-   * behind, it would go on reading a detached node whose rect is 0,0 and park
-   * the panel in the corner if the tool were ever switched back on.
-   */
-  const [switchWasOffered, setSwitchWasOffered] =
-    React.useState(navSwitchInEditCard);
-  if (switchWasOffered !== navSwitchInEditCard) {
-    setSwitchWasOffered(navSwitchInEditCard);
-    if (!navSwitchInEditCard) setGenerationAnchor(null);
-  }
+  const [moreAnchor, setMoreAnchor] = React.useState<HTMLElement | null>(null);
 
   if (!editing && showIntro && onDismissIntro) {
     return (
@@ -184,6 +177,12 @@ function EditNavButton({
           onDiscard={onDiscard}
           onOpenBlocks={onOpenBlocks}
           onOpenAppearance={onOpenAppearance}
+          accountName={accountName}
+          viewingDefault={viewingDefault}
+          onShowDefault={onShowDefault}
+          onRestoreOwn={onRestoreOwn}
+          onApplyTemplate={onApplyTemplate}
+          onSaveTemplate={onSaveTemplate}
           {...(onOpenTemplates ? { onOpenTemplates } : {})}
           revealed
         />
@@ -218,10 +217,16 @@ function EditNavButton({
        * Absolutely positioned, so none of it can move a row.
        */
       <>
-      {generationAnchor && navSwitchInEditCard ? (
-        <NavGenerationMenu
-          anchor={generationAnchor}
-          onClose={() => setGenerationAnchor(null)}
+      {moreAnchor ? (
+        <EditMoreMenu
+          anchor={moreAnchor}
+          accountName={accountName}
+          viewingDefault={viewingDefault}
+          onShowDefault={onShowDefault}
+          onRestoreOwn={onRestoreOwn}
+          onApplyTemplate={onApplyTemplate}
+          onSaveTemplate={onSaveTemplate}
+          onClose={() => setMoreAnchor(null)}
         />
       ) : null}
       <div className="absolute -top-[74px] right-0 left-0 z-20 flex flex-col gap-[6px] rounded-[10px] bg-nav p-[8px] shadow-[0_4px_12px_0_var(--fly-shadow),inset_0_0_0_1px_var(--nav-border,var(--nav-divider))]">
@@ -233,6 +238,15 @@ function EditNavButton({
           mid-word. Three named controls need the full 256px, so the label moved
           down beside the two exits — where it still says which mode you are in,
           next to the buttons that end it.
+        */}
+        {/*
+          Tools in their own group, spaced tighter than the row.
+
+          At five icons the row's 6px gaps pushed the total past 232px and
+          "Editing nav" clipped mid-word — the same failure its own note records
+          at three labelled controls. 4px between icons buys back the 8px the
+          fifth one costs, and the icons read as one cluster rather than five
+          separate controls, which is what they are.
         */}
         <div className="flex items-center gap-[6px]">
           <span
@@ -254,6 +268,7 @@ function EditNavButton({
             the ACTION, since the thing being shown or hidden is whatever you pick
             in the menu, and a control named after its subject reads as a status.
           */}
+          <span className="flex shrink-0 items-center gap-[4px]">
           <EditTool
             label="Show or hide parts of the nav"
             short="Show / hide"
@@ -271,37 +286,26 @@ function EditNavButton({
             icon={Palette}
             onOpen={onOpenAppearance}
           />
-          {onOpenTemplates ? (
-            <EditTool
-              label="Save or apply a grouping template"
-              short="Templates"
-              icon={LayoutTemplate}
-              onOpen={onOpenTemplates}
-            />
-          ) : null}
           {/*
-            Last in the row, and the only one that does not edit this nav.
+            Everything reached once a session, behind one control.
 
-            Show / hide, Colours and Templates all change the nav you are
-            standing in; this one replaces it with production's. Putting it at
-            the end keeps the three that belong together adjacent, and the odd
-            one out at the edge — the same reason Settings sits apart in the nav
-            itself.
+            Templates, which layout and which navigation were three more icons on
+            a row that had already run out of width — and they are a different
+            kind of thing from the two that stayed. Show / hide and Colours change
+            what you are looking at while you arrange it, so they are worth a
+            click each; these are decisions you make once and leave.
 
-            Behind its own axis, because whether it belongs here at all is part
-            of what is being reviewed: it lets an admin swap their whole
-            navigation from a mode they opened to rename one row. Switched off,
-            the card is back to the three tools that only ever edit this nav, and
-            the comparison lives in the prototype controls alone.
+            The `navSwitchInEditCard` axis still gates the navigation entry, but
+            it now hides one row inside a menu rather than an icon on the card, so
+            switching it off no longer changes the card's shape.
           */}
-          {navSwitchInEditCard ? (
-            <EditTool
-              label="Switch between this navigation and the one that ships today"
-              short="Navigation"
-              icon={Replace}
-              onOpen={(trigger) => setGenerationAnchor(trigger)}
-            />
-          ) : null}
+          <EditTool
+            label="More editing options — templates, layout, navigation"
+            short="More"
+            icon={MoreHorizontal}
+            onOpen={(trigger) => setMoreAnchor(trigger)}
+          />
+          </span>
         </div>
 
         <div className="flex items-center justify-end gap-[6px]">
@@ -462,20 +466,30 @@ function EditTool({
   short,
   icon: Icon,
   onOpen,
+  disabled = false,
 }: {
   label: string;
   /** The tooltip. Shorter than the accessible name, which says the action. */
   short: string;
   icon: LucideIcon;
   onOpen: (trigger: HTMLElement) => void;
+  /**
+   * Really disabled, not just faded.
+   *
+   * Reset has nothing to do on a nav already at its default, and a live control
+   * that silently does nothing teaches less than one that says why. A faded
+   * button would still be tab-reachable and Enter-activatable.
+   */
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       aria-label={label}
       title={short}
+      disabled={disabled}
       onClick={(e) => onOpen(e.currentTarget)}
-      className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95"
+      className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
     >
       <Icon size={14} aria-hidden="true" />
     </button>

@@ -24,7 +24,7 @@ export function RowSeam({
   accepts,
   onDrop,
   onAdd,
-  addLabel,
+  addLabel = "Add here",
   /** The gap this list uses between rows, so the seam can cancel its own slot. */
   pull = "var(--t-nav-space,2px)",
   /** How tall the invisible hit strip is. Wider lists can afford more. */
@@ -48,7 +48,8 @@ export function RowSeam({
    * taking fewer arguments is still a handler.
    */
   onAdd?: (trigger: HTMLElement) => void;
-  addLabel: string;
+  /** Names the plus. Only read when there is one — a drop-only seam has none. */
+  addLabel?: string;
   pull?: string;
   reach?: number;
 }) {

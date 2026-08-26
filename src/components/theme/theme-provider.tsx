@@ -64,6 +64,7 @@ interface ThemeContextValue extends ThemeState {
   setScopeModel: (model: ScopeModel) => void;
   setNavGeneration: (generation: NavGeneration) => void;
   setNavSwitchInEditCard: (enabled: boolean) => void;
+  setLayoutSwitchInEditCard: (enabled: boolean) => void;
   setLegacyNavTheme: (theme: SurfaceTheme) => void;
   setTabsInNav: (enabled: boolean) => void;
   setNavSections: (mode: NavSections) => void;
@@ -172,6 +173,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, navGeneration })),
       setNavSwitchInEditCard: (navSwitchInEditCard) =>
         setState((s) => ({ ...s, navSwitchInEditCard })),
+      setLayoutSwitchInEditCard: (layoutSwitchInEditCard) =>
+        setState((s) => ({ ...s, layoutSwitchInEditCard })),
       setLegacyNavTheme: (legacyNavTheme) =>
         setState((s) => ({ ...s, legacyNavTheme })),
       setTabsInNav: (tabsInNav) => setState((s) => ({ ...s, tabsInNav })),

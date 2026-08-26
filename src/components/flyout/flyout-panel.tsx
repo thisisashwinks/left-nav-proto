@@ -3,7 +3,9 @@
 import * as React from "react";
 import { Plus, X } from "lucide-react";
 
-import { L2_MIME } from "@/components/nav/nav-drag";
+import { AGENCY_L2_MIME, L2_MIME } from "@/components/nav/nav-drag";
+import { agencyBuckets } from "@/components/nav/agency-config";
+import { useAgencyLayout } from "@/components/nav/agency-layout";
 import { UNGROUPED_ID } from "@/components/nav/grouping";
 import { PROPOSED_SETTINGS_ID } from "@/components/nav/proposed-ia";
 import {
@@ -185,6 +187,121 @@ export function FlyoutPanel({
 
   const dragTypes = useDragTypes();
 
+  /*
+   * The agency tree's panels, which are a second thing this component draws.
+   *
+   * Nothing above knows the difference — the shell hands over a FlyoutConfig
+   * either way — so the panel asks the agency store directly, exactly as it
+   * already asks the catalogue store whether `config.id` is one of its
+   * categories. What comes back is narrower: these rows reorder and do nothing
+   * else, because a bucket's contents are platform IA rather than an
+   * arrangement of products the agency owns.
+   */
+  const agency = useAgencyLayout();
+  const agencyBucket = agencyBuckets.find(
+    (b) => b.id === config.id && b.children.length > 0,
+  );
+  const agencyEditing = navEditing && agencyBucket !== undefined;
+
+  /** The authored panel order, as ids — what a saved order is a diff against. */
+  const agencyDefaults = React.useMemo(
+    () => (agencyBucket ? agencyBucket.children.map((c) => c.id) : []),
+    [agencyBucket],
+  );
+  /*
+   * Memoised, not merely computed: it is a fresh array every call, and the
+   * entry list below keys off it — an unmemoised order would rebuild the rows
+   * on every render and restart their entrance animation mid-panel.
+   */
+  const agencyBucketId = agencyBucket?.id;
+  const childOrderFor = agency.childOrderFor;
+  const agencyOrder = React.useMemo(
+    () =>
+      agencyBucketId ? childOrderFor(agencyBucketId, agencyDefaults) : [],
+    [agencyBucketId, agencyDefaults, childOrderFor],
+  );
+
+  /*
+   * The rows this panel actually draws, in this agency's order.
+   *
+   * Applied here rather than in `agencyFlyouts` because that map is a module
+   * constant built once at import — a projection of the authored config, with
+   * no store to read. Rebuilding it per render in the shell would push the
+   * agency's edits through three components that have no other reason to know
+   * about them.
+   */
+  const entries = React.useMemo(() => {
+    if (!agencyBucket) return config.entries;
+    const byId = new Map(
+      config.entries.flatMap((e) => (e.kind === "item" ? [[e.item.id, e]] : [])),
+    );
+    // An agency panel is item rows and nothing else. If that ever stops being
+    // true, the authored order stands rather than the headings being sorted
+    // into the middle of the list.
+    if (byId.size !== config.entries.length) return config.entries;
+    return agencyOrder.flatMap((id) => {
+      const entry = byId.get(id);
+      return entry ? [entry] : [];
+    });
+  }, [agencyBucket, agencyOrder, config.entries]);
+
+  /** Where a row dropped into seam `index` lands, in the panel's own order. */
+  const dropAgencyRowAt = (rowId: string, index: number) => {
+    if (!agencyBucket) return;
+    const from = agencyOrder.indexOf(rowId);
+    if (from < 0) return;
+    // The seams are positions BETWEEN rows, so seam 2 means "third". A row
+    // travelling down leaves everything below it one place higher, which is
+    // why the target index comes down by one in that direction.
+    const to = from < index ? index - 1 : index;
+    agency.moveChildTo(agencyBucket.id, agencyDefaults, rowId, to);
+  };
+
+  const agencyEditFor = (rowId: string): FlyoutRowEdit | undefined => {
+    if (!agencyEditing || !agencyBucket) return undefined;
+    return {
+      onDragStart: (e) => {
+        e.dataTransfer.setData(AGENCY_L2_MIME, rowId);
+        e.dataTransfer.effectAllowed = "move";
+        setLifted(rowId);
+      },
+      /*
+       * A row here is not a drop target, at either scope.
+       *
+       * Reordering asks "between which two?", and the seam is where that is
+       * answered. A highlighted row would promise nesting, and an agency panel
+       * has no nesting to offer.
+       */
+      onDragOver: () => {},
+      onDragLeave: () => {},
+      onDrop: () => {},
+      onDragEnd: () => {
+        setLifted(null);
+        setOver(null);
+      },
+      over: false,
+      lifted: lifted === rowId,
+    };
+  };
+
+  /**
+   * A seam between two agency rows. Drop-only: there is nothing to add.
+   *
+   * The sub-account seam doubles as "+ add here" because a category is filled
+   * from a catalogue. A bucket is not — its contents ship with the platform —
+   * so the plus would open a picker with nothing to pick.
+   */
+  const agencySeam = (index: number) => (
+    <RowSeam
+      key={`agency-seam-${index}`}
+      dragTypes={dragTypes}
+      accepts={[AGENCY_L2_MIME]}
+      onDrop={(id) => dropAgencyRowAt(id, index)}
+      pull="var(--t-fly-block-gap,10px)"
+      reach={12}
+    />
+  );
+
   /** Where a row dropped into seam `index` lands, in the group's own order. */
   const dropRowAt = (productId: string, index: number) => {
     if (!category) return;
@@ -230,8 +347,8 @@ export function FlyoutPanel({
 
   /** The last row the panel draws, so the closing seam knows where to go. */
   const lastRowId = (() => {
-    for (let i = config.entries.length - 1; i >= 0; i -= 1) {
-      const e = config.entries[i];
+    for (let i = entries.length - 1; i >= 0; i -= 1) {
+      const e = entries[i];
       if (e?.kind === "item") return e.item.id;
     }
     return null;
@@ -294,7 +411,7 @@ export function FlyoutPanel({
    * the panel's actual contents — a click that carries no decision. Expanded, the
    * panel says what is in it.
    */
-  const itemRows = config.entries.filter((e) => e.kind === "item");
+  const itemRows = entries.filter((e) => e.kind === "item");
   const soleExpandable =
     itemRows.length === 1 &&
     (itemRows[0]?.kind === "item"
@@ -398,7 +515,7 @@ export function FlyoutPanel({
       */}
       {editing && category && lastRowId === null ? seam(0) : null}
 
-      {config.entries.map((entry, i) =>
+      {entries.map((entry, i) =>
         entry.kind === "label" ? (
           <div
             key={entry.id}
@@ -421,7 +538,11 @@ export function FlyoutPanel({
           <React.Fragment key={entry.item.id}>
             {/* A seam above every row and one below the last, so a row can be
                 dropped at either end of the list as well as between two. */}
-            {editing && category ? seam(rowIndexOf(entry.item.id)) : null}
+            {editing && category
+              ? seam(rowIndexOf(entry.item.id))
+              : agencyEditing
+                ? agencySeam(i)
+                : null}
           <FlyoutRow
             key={entry.item.id}
             item={entry.item}
@@ -434,12 +555,17 @@ export function FlyoutPanel({
               onNavigate?.(id);
             }}
             {...(() => {
-              const edit = editFor(entry.item.id);
+              const edit =
+                editFor(entry.item.id) ?? agencyEditFor(entry.item.id);
               return edit ? { edit } : {};
             })()}
           />
-            {editing && category && entry.item.id === lastRowId
-              ? seam(category.productIds.length)
+            {entry.item.id === lastRowId
+              ? editing && category
+                ? seam(category.productIds.length)
+                : agencyEditing
+                  ? agencySeam(entries.length)
+                  : null
               : null}
           </React.Fragment>
         ),
@@ -449,7 +575,7 @@ export function FlyoutPanel({
         <div
           style={
             {
-              "--row-index": Math.min(config.entries.length, MAX_STAGGERED_ROWS),
+              "--row-index": Math.min(entries.length, MAX_STAGGERED_ROWS),
             } as React.CSSProperties
           }
           className="motion-row-in w-full shrink-0"
@@ -469,7 +595,7 @@ export function FlyoutPanel({
         <div
           style={
             {
-              "--row-index": Math.min(config.entries.length + 2, MAX_STAGGERED_ROWS + 2),
+              "--row-index": Math.min(entries.length + 2, MAX_STAGGERED_ROWS + 2),
             } as React.CSSProperties
           }
           className="motion-row-in w-full shrink-0 px-[14px] pt-[var(--t-fly-block-gap,10px)]"

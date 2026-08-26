@@ -190,7 +190,26 @@ interface NavLayoutContextValue {
   discardEditing: () => void;
   /** Whether the open session has changed anything worth warning about. */
   editDirty: boolean;
-  resetLayout: () => void;
+  /**
+   * Put the shipped default on screen, holding this account's own aside.
+   *
+   * Replaced `resetLayout`, which overwrote the account's arrangement and left
+   * a five-second toast as the only way back. The default is something you LOOK
+   * at — the layout the changelog and the help docs describe — so an agency on a
+   * support call can get to the nav in the screenshot and back again without
+   * betting their setup on catching a toast.
+   */
+  showDefaultLayout: () => void;
+  /** Back to the account's own arrangement, dropping anything done to the default. */
+  restoreOwnLayout: () => void;
+  /** Keep the edited default as the account's own. See the save flow. */
+  adoptDefaultLayout: () => void;
+  /** Whether the shipped default is what is on screen. */
+  viewingDefault: boolean;
+  /** The arrangement held aside, for offering as a template before it is dropped. */
+  stashedOwnLayout: NavLayoutState | null;
+  /** Whether the default on screen has been edited away from the shipped one. */
+  defaultEdited: boolean;
   /**
    * Drop a saved arrangement onto this account, as one undoable step.
    *
@@ -254,6 +273,20 @@ interface Store {
   editBaseline: NavLayoutState | null;
   /** Whether anything has actually changed since the baseline was taken. */
   editDirty: boolean;
+  /**
+   * The account's OWN arrangement, held aside while the shipped default is on
+   * screen. Null whenever the account is looking at its own nav.
+   *
+   * This is the whole mechanism behind "Default layout / Your layout", and it is
+   * a stash rather than a history: exactly one arrangement is kept, because the
+   * question being answered is "what does the nav in the help doc look like",
+   * not "what did this nav look like in March". Undo remains the tool for single
+   * steps; this is the tool for the one comparison support calls actually need.
+   *
+   * Doubles as the flag — non-null means the default is showing — so the two can
+   * never disagree about which layout is on screen.
+   */
+  ownLayout: NavLayoutState | null;
 }
 
 type Action =
@@ -275,7 +308,13 @@ type Action =
   /** Closes edit mode, putting the baseline back. */
   | { type: "discardEdit" }
   /** Account switch: swap in another account's saved layout, drop the offer. */
-  | { type: "load"; layout: NavLayoutState };
+  | { type: "load"; layout: NavLayoutState }
+  /** Put the shipped default on screen, holding the account's own aside. */
+  | { type: "showDefault"; base: NavLayoutState }
+  /** Put the account's own arrangement back, dropping anything done to the default. */
+  | { type: "restoreOwn" }
+  /** Keep what is on screen as the account's own, discarding the stash. */
+  | { type: "adoptDefault" };
 
 function reducer(store: Store, action: Action): Store {
   switch (action.type) {
@@ -340,6 +379,54 @@ function reducer(store: Store, action: Action): Store {
         : store;
     case "dismiss":
       return store.undoOffer ? { ...store, undoOffer: null } : store;
+    case "showDefault": {
+      // Already showing it: the stash must not be overwritten with the default
+      // itself, which would silently destroy the arrangement it exists to hold.
+      if (store.ownLayout !== null) return store;
+      return {
+        ...store,
+        ownLayout: store.layout,
+        /*
+         * The prototype switches ride along, exactly as resetLayout kept them:
+         * looking at the stock nav must not also change who you are pretending
+         * to be, or empty out a nav deliberately filled to demo overflow.
+         */
+        layout: {
+          ...action.base,
+          role: store.layout.role,
+          labelScope: store.layout.labelScope,
+          editing: store.layout.editing,
+          navVolume: store.layout.navVolume,
+        },
+        // The offer names a step in the layout being put away; leaving it up
+        // would offer to undo something no longer on screen.
+        undoOffer: null,
+      };
+    }
+
+    case "restoreOwn": {
+      if (store.ownLayout === null) return store;
+      return {
+        ...store,
+        layout: {
+          ...store.ownLayout,
+          // Same carry-over in reverse, so a switch flipped while the default
+          // was up is not reverted by coming back.
+          role: store.layout.role,
+          labelScope: store.layout.labelScope,
+          editing: store.layout.editing,
+          navVolume: store.layout.navVolume,
+        },
+        ownLayout: null,
+        undoOffer: null,
+      };
+    }
+
+    case "adoptDefault":
+      // What is on screen becomes theirs. The stash is dropped by the caller
+      // only after it has been offered as a template — see the save flow.
+      return { ...store, ownLayout: null };
+
     case "load":
       // An undo offer must not survive into another account's layout, and
       // neither can an edit session: its baseline belongs to the account being
@@ -350,6 +437,9 @@ function reducer(store: Store, action: Action): Store {
         undoOffer: null,
         editBaseline: null,
         editDirty: false,
+        // The stash holds the account being LEFT. Carrying it across would let
+        // "Back to your layout" paste one tenant's nav onto another's.
+        ownLayout: null,
       };
   }
 }
@@ -461,6 +551,76 @@ function sameMap(
   );
 }
 
+/**
+ * Everything about a layout that belongs to the ACCOUNT rather than the demo.
+ *
+ * The four excluded keys are prototype switches — which role you are pretending
+ * to be, which scope a rename writes to, whether edit mode is open, how full the
+ * nav is. Flipping one of those is not an edit to the account's nav, and
+ * counting it as one would make "you have unsaved changes" fire on a demo knob.
+ */
+const LAYOUT_KEYS = [
+  "enabledProducts",
+  "customLinks",
+  "tailOrder",
+  "hiddenBlocks",
+  "hiddenRows",
+  "pinned",
+  "grouping",
+  "agencyLabels",
+  "accountLabels",
+  "agencyProductLabels",
+  "accountProductLabels",
+  "icons",
+  "groupOrder",
+  "customGroups",
+] as const satisfies readonly (keyof NavLayoutState)[];
+
+/**
+ * Key order is not content.
+ *
+ * These records are rebuilt by spreading, so two layouts with identical renames
+ * can serialise differently purely because the keys were inserted in a different
+ * order. Sorting before comparing is what stops a no-op reading as an edit.
+ */
+function stableShape(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableShape);
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value as Record<string, unknown>)
+        .sort()
+        .map((k) => [k, stableShape((value as Record<string, unknown>)[k])]),
+    );
+  }
+  return value;
+}
+
+/**
+ * Whether two layouts are the same nav.
+ *
+ * Replaces a hand-written comparison of eight fields, which was fine while it
+ * only greyed out a button and dangerous the moment it started guarding a step
+ * that can destroy an arrangement: hiding a block, hiding a row, reordering a
+ * group, reordering the tail and adding a custom link all counted as "no change",
+ * so the confirmation never appeared and the edit was silently dropped.
+ *
+ * Comparing the whole shape also means it cannot rot. A field added to
+ * NavLayoutState is compared the moment it is added to LAYOUT_KEYS, and the
+ * `satisfies` above is what makes forgetting that a type error rather than a
+ * quiet hole.
+ *
+ * Deliberately biased: array ORDER counts even where the field is arguably a
+ * set, so a spurious reorder reads as an edit. A false positive costs one
+ * unnecessary prompt; a false negative costs somebody their nav.
+ */
+function sameLayout(a: NavLayoutState, b: NavLayoutState): boolean {
+  return LAYOUT_KEYS.every(
+    (key) =>
+      JSON.stringify(stableShape(a[key])) ===
+      JSON.stringify(stableShape(b[key])),
+  );
+}
+
 /** Drops a key from a record, returning the same reference when it was absent. */
 function without(
   map: Record<string, string>,
@@ -492,6 +652,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
     nextGroupId: 1,
     editBaseline: null,
     editDirty: false,
+    ownLayout: null,
   });
   /** Saved layouts for every account that is not the active one. */
   const [profiles, setProfiles] = React.useState<Record<string, NavLayoutState>>({});
@@ -507,10 +668,13 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
   const stateRef = React.useRef(state);
   const profilesRef = React.useRef(profiles);
   const activeIdRef = React.useRef(activeId);
+  /** The held-aside arrangement, for the switch handler below. */
+  const ownLayoutRef = React.useRef(store.ownLayout);
   React.useEffect(() => {
     stateRef.current = state;
     profilesRef.current = profiles;
     activeIdRef.current = activeId;
+    ownLayoutRef.current = store.ownLayout;
   });
 
   // Swap-on-switch: park the leaving account's layout, wake the arriving
@@ -520,7 +684,34 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
     const leaving = activeIdRef.current;
     if (accountId === leaving) return;
     const nextProfiles = { ...profilesRef.current };
-    if (leaving !== null) nextProfiles[leaving] = stateRef.current;
+    /*
+     * Save the account's OWN arrangement, not whatever is on screen.
+     *
+     * While the shipped default is being previewed, `state` IS the default —
+     * so writing it here handed the account the stock nav as its saved layout
+     * and dropped the real one, permanently and silently, because `load` clears
+     * the stash on the way out. Previewing the default and glancing at another
+     * account was enough to destroy the thing this feature exists to protect.
+     *
+     * The preview is abandoned by leaving, which is right: it was never the
+     * account's nav, and nobody expects a preview to follow them.
+     */
+    if (leaving !== null) {
+      /*
+       * Stored closed, never mid-session.
+       *
+       * `editing` lives in the layout, so a profile written while the card was
+       * open carried the open mode with it and returning to the account dropped
+       * you straight back into editing — against a baseline that had been
+       * discarded on the way out, which made Discard a button that undid nothing.
+       * LeftNav commits the session when the switch begins; this makes the
+       * stored shape correct even if some future caller does not.
+       */
+      const keeping = ownLayoutRef.current ?? stateRef.current;
+      nextProfiles[leaving] = keeping.editing
+        ? { ...keeping, editing: false }
+        : keeping;
+    }
     // First visit wakes the account's own seeded layout — its products, its
     // vocabulary, its grouping. After that, whatever the user left behind.
     const incoming = nextProfiles[accountId] ?? navProfileFor(accountId);
@@ -549,6 +740,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
 
   const value = React.useMemo<NavLayoutContextValue>(() => {
     const can = permissionsFor(state.role);
+
     /**
      * What "unchanged" means for THIS account.
      *
@@ -558,6 +750,15 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
      * returns to — undoing the user's edits, not the agency's setup.
      */
     const base = navProfileFor(activeId ?? INITIAL_ACCOUNT_ID);
+
+    /*
+     * Whether the nav on screen matches what this account ships with.
+     *
+     * Hoisted to a local because two things read it: the control that offers the
+     * default, and `defaultEdited` — which asks the same question while the
+     * default is showing, and must never be able to answer it differently.
+     */
+    const isDefaultLayout = sameLayout(state, base);
     /**
      * Where a rename lands. The scope switch is only honoured for roles that may
      * write it — otherwise an agency-scoped edit made while playing "user" would
@@ -980,28 +1181,21 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
 
       applyArrangement: (label, patch) =>
         commit(`Applied ${label}`, (s) => ({ ...s, ...patch })),
-      resetLayout: () =>
-        commit("Reset the nav to this account's layout", (s) => ({
-          ...base,
-          // The prototype switches are how you got here — resetting the layout
-          // must not also change who you are pretending to be, or empty out the
-          // nav you deliberately filled to demo overflow.
-          role: s.role,
-          labelScope: s.labelScope,
-          editing: s.editing,
-          navVolume: s.navVolume,
-        })),
+      showDefaultLayout: () => dispatch({ type: "showDefault", base }),
+      restoreOwnLayout: () => dispatch({ type: "restoreOwn" }),
+      adoptDefaultLayout: () => dispatch({ type: "adoptDefault" }),
+      viewingDefault: store.ownLayout !== null,
+      stashedOwnLayout: store.ownLayout,
+      /*
+       * Whether the stock layout on screen has been changed.
+       *
+       * Reuses isDefaultLayout's own comparison rather than a second one: while
+       * the default is showing, "still the default" and "not yet edited" are the
+       * same question, and two comparisons that must agree eventually will not.
+       */
+      defaultEdited: store.ownLayout !== null && !isDefaultLayout,
 
-      isDefaultLayout:
-        state.grouping === base.grouping &&
-        state.pinned.join() === base.pinned.join() &&
-        state.enabledProducts.join() === base.enabledProducts.join() &&
-        sameMap(state.accountLabels, base.accountLabels) &&
-        sameMap(state.agencyLabels, base.agencyLabels) &&
-        sameMap(state.accountProductLabels, base.accountProductLabels) &&
-        sameMap(state.agencyProductLabels, base.agencyProductLabels) &&
-        Object.keys(state.icons).length === 0 &&
-        state.customGroups.length === base.customGroups.length,
+      isDefaultLayout,
 
       undoOffer,
       undo: () => dispatch({ type: "undo" }),

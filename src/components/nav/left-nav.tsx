@@ -48,7 +48,7 @@ import {
   nextGroupIdFor,
   UNGROUPED_ID,
 } from "./grouping";
-import { L1_MIME, L2_MIME } from "./nav-drag";
+import { AGENCY_L1_MIME, L1_MIME, L2_MIME } from "./nav-drag";
 import { productMenuActions, productTreeOptions } from "./product-options";
 import { RowSeam } from "./row-seam";
 import { IconPicker, useIconPicker } from "./icon-picker";
@@ -56,6 +56,11 @@ import { useNavLayout } from "./nav-layout-provider";
 import { RowMenu, useRowMenu, type RowMenuAction } from "./row-menu";
 import { DeleteGroupDialog } from "./delete-group-dialog";
 import { DiscardEditsDialog } from "./discard-edits-dialog";
+import {
+  KeepChangesDialog,
+  LayoutSwitch,
+  LayoutSwitchWarning,
+} from "./layout-switch";
 import { editTargetFor, navEntriesFor } from "./nav-entries";
 import { fixedEntriesFor, flyoutIdFor, navConfig } from "./nav-config";
 import { PROPOSED_HOME_ID } from "./proposed-ia";
@@ -270,6 +275,10 @@ export function LeftNav({
    */
   /** Whether the discard warning is up. */
   const [confirmingDiscard, setConfirmingDiscard] = React.useState(false);
+  /** The default is showing, was edited, and Done has been pressed. */
+  const [keepingOldLayout, setKeepingOldLayout] = React.useState(false);
+  /** The warning stands between the control and the switch. */
+  const [confirmingDefault, setConfirmingDefault] = React.useState(false);
   /** The row in flight, and the row the pointer is over. Drag-local. */
   const [lifted, setLifted] = React.useState<string | null>(null);
   const [over, setOver] = React.useState<string | null>(null);
@@ -422,7 +431,38 @@ export function LeftNav({
       if (index < 0) return {};
       const hidden = agencyLayout.isHidden(itemId);
 
+      /*
+       * The same gesture the account's own categories have, on the tree above
+       * them.
+       *
+       * Only reordering: a bucket is not a container, so it never highlights
+       * as a place to drop something INTO — refusing is simply never calling
+       * preventDefault. That is also what keeps a panel row from climbing up
+       * here, since the seams between buckets take the bucket type alone.
+       */
+      const drag: NavRowDrag = {
+        onDragStart: (e) => {
+          e.dataTransfer.setData(AGENCY_L1_MIME, itemId);
+          e.dataTransfer.setData(
+            "text/plain",
+            agencyLayout.labelFor(itemId, itemId),
+          );
+          e.dataTransfer.effectAllowed = "move";
+          setLifted(itemId);
+        },
+        onDragOver: () => {},
+        onDragLeave: () => {},
+        onDrop: () => {},
+        onDragEnd: () => {
+          setLifted(null);
+          setOver(null);
+        },
+        over: false,
+        lifted: lifted === itemId,
+      };
+
       return {
+        drag,
         menuActions: [
           {
             id: "rename",
@@ -785,6 +825,39 @@ export function LeftNav({
     setTemplatesAt(null);
   };
 
+  /*
+   * Switching account commits the open edit session rather than abandoning it.
+   *
+   * The session used to just evaporate: the edits survived, because the leaving
+   * account's live state is what gets written to its profile, but the SESSION
+   * did not — so `editing` rode along into the saved profile and coming back
+   * dropped you into edit mode again, on a session whose baseline had been
+   * thrown away. Discard was then a button that closed the card and undid
+   * nothing.
+   *
+   * Fires when the switch BEGINS, not when it lands: `loading` goes true on the
+   * click, and the account's profile is written 2-4 seconds later.
+   *
+   * Deliberately NOT adopting a previewed default. `saveEditing` closes the
+   * session; it does not decide whose layout wins. While the default is up the
+   * stash still holds the account's own, and that is what gets persisted — so
+   * edits made on top of the stock nav are abandoned with the preview, which is
+   * the only answer here that cannot destroy an arrangement behind someone's
+   * back.
+   *
+   * An effect rather than a render-phase check because both calls dispatch into
+   * OTHER providers, and updating another component while this one renders is
+   * exactly the thing React warns about.
+   */
+  React.useEffect(() => {
+    if (!loading || !editing) return;
+    layout.saveEditing();
+    agencyLayout.save();
+    // `layout` and `agencyLayout` are stable context values; depending on them
+    // would re-run this on every commit they make.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, editing]);
+
   /**
    * The three blocks that are not the account's tree, as switches.
    *
@@ -827,6 +900,30 @@ export function LeftNav({
           },
           onOpenBlocks: (trigger) => setBlocksAt(trigger.getBoundingClientRect()),
           onOpenAppearance: (trigger) => setColoursAt(trigger),
+          accountName: account.name,
+          viewingDefault: layout.viewingDefault,
+          /*
+           * Both doors the layout switch used to own, now reached from the menu.
+           *
+           * Leaving still asks before it destroys pending edits — moving the
+           * control into a menu changed where the decision is made, not whether
+           * it is guarded.
+           */
+          onShowDefault: () => setConfirmingDefault(true),
+          onRestoreOwn: () => {
+            if (layout.defaultEdited) {
+              setKeepingOldLayout(true);
+              return;
+            }
+            layout.restoreOwnLayout();
+          },
+          onApplyTemplate: (id: string) => {
+            const patch = templates.patchFor(id, state);
+            const tpl = templates.templates.find((t) => t.id === id);
+            if (patch && tpl) layout.applyArrangement(tpl.name, patch);
+          },
+          onSaveTemplate: (name: string) =>
+            templates.save(name, account.name, state),
           // Templates are a sub-account idea: the agency tree is platform IA,
           // so there is no arrangement of it worth reusing elsewhere.
           ...(agencyScope
@@ -837,9 +934,26 @@ export function LeftNav({
                 ...(onDismissIntro ? { onDismissIntro } : {}),
               }),
           onSave: () => {
+            /*
+             * The one place the flow can destroy something.
+             *
+             * Saving while the default is showing replaces the account's own
+             * arrangement with whatever was built on top of the stock one — so
+             * before it lands, the arrangement being replaced is offered as a
+             * template. Only when it was actually EDITED: pressing Done on an
+             * untouched default changes nothing, and a dialog there would be a
+             * question about a decision nobody made.
+             */
+            if (layout.viewingDefault && layout.defaultEdited) {
+              closeEditSurfaces();
+              setKeepingOldLayout(true);
+              return;
+            }
             closeEditSurfaces();
             layout.saveEditing();
             agencyLayout.save();
+            // An untouched default is simply put away, not adopted.
+            if (layout.viewingDefault) layout.restoreOwnLayout();
           },
           onDiscard: () => {
             // Nothing changed, nothing to warn about — the confirmation only
@@ -927,6 +1041,35 @@ export function LeftNav({
     const to = from < index ? index - 1 : index;
     if (to !== from) layout.moveGroup(from, to);
   };
+
+  /**
+   * Where a bucket dropped into seam `index` lands.
+   *
+   * Same arithmetic as `dropCategoryAt`, against the agency store's flat order:
+   * a row travelling down leaves everything below it one place higher, so the
+   * target index comes down by one in that direction.
+   */
+  const dropAgencyAt = (bucketId: string, index: number) => {
+    const from = agencyLayout.indexOf(bucketId);
+    if (from < 0) return;
+    agencyLayout.moveTo(bucketId, from < index ? index - 1 : index);
+  };
+
+  /**
+   * A seam between two buckets. Drop-only, like the panels'.
+   *
+   * The account's seams offer a plus because a category is filled from a
+   * catalogue. The agency tree has none — its thirteen buckets ship with the
+   * platform — so there is nothing for a plus to offer.
+   */
+  const agencyGap = (index: number) => (
+    <RowSeam
+      key={`agency-gap-${index}`}
+      dragTypes={dragTypes}
+      accepts={[AGENCY_L1_MIME]}
+      onDrop={(id) => dropAgencyAt(id, index)}
+    />
+  );
 
   const addCategoryAt = (index: number) => {
     const id = nextGroupIdFor(customTreeFor(state));
@@ -1091,6 +1234,13 @@ export function LeftNav({
           }
         : undefined;
     const categoryIndex = editing ? indexOfCategory(item.id) : -1;
+    /*
+     * The agency tree is one flat list, so its rows need one seam each rather
+     * than the categories/tail split the account's nav makes — there is no tail
+     * to cross into and nothing to file.
+     */
+    const agencyIndex =
+      editing && agencyScope ? agencyLayout.indexOf(item.id) : -1;
     const row = (
       <NavItemRow
         key={item.id}
@@ -1111,6 +1261,17 @@ export function LeftNav({
         {...(editing && !edit ? { locked: true } : {})}
       />
     );
+    if (agencyIndex >= 0) {
+      return (
+        <React.Fragment key={item.id}>
+          {agencyGap(agencyIndex)}
+          {row}
+          {agencyIndex === agencyLayout.count - 1
+            ? agencyGap(agencyLayout.count)
+            : null}
+        </React.Fragment>
+      );
+    }
     if (categoryIndex < 0) {
       const tailIndex = editing ? tailRowIds.indexOf(item.id) : -1;
       if (tailIndex < 0) return row;
@@ -1449,6 +1610,32 @@ export function LeftNav({
         point of the comparison: whether the bottom edge is worth spending on
         at all.
       */}
+      {/*
+        Between the list and the entry pill: below everything the switch would
+        change, above the one control that is never affected by it. Only where
+        there is a layout to compare — a plain user cannot restructure, so the
+        stock nav IS their nav and the control would name a distinction that does
+        not exist for them.
+      */}
+      {can.customise ? (
+        <LayoutSwitch
+          viewingDefault={layout.viewingDefault}
+          onRestoreOwn={() => {
+            /*
+             * Leaving with edits pending destroys exactly what pressing Done
+             * would, so it asks exactly what Done asks. Guarding only the Done
+             * path left this as a silent way to throw the same work away — a
+             * confirmation with an open door beside it is not a guard.
+             */
+            if (layout.defaultEdited) {
+              setKeepingOldLayout(true);
+              return;
+            }
+            layout.restoreOwnLayout();
+          }}
+        />
+      ) : null}
+
       {topEntry ? null : (
         <div className="flex w-full shrink-0 px-[12px] pt-[8px] pb-[12px]">
           <EntryPill
@@ -1535,6 +1722,50 @@ export function LeftNav({
           // throw the menu clean off the left edge.
           align="start"
           onClose={() => setAddingAt(null)}
+        />
+      ) : null}
+      {confirmingDefault ? (
+        <LayoutSwitchWarning
+          onConfirm={() => {
+            setConfirmingDefault(false);
+            layout.showDefaultLayout();
+          }}
+          onCancel={() => setConfirmingDefault(false)}
+        />
+      ) : null}
+      {keepingOldLayout ? (
+        <KeepChangesDialog
+          suggestedName={`${account.name} — previous layout`}
+          onKeepWithBackup={(name: string) => {
+            /*
+             * Saved from the STASH, not from what is on screen: the arrangement
+             * worth keeping is the one about to be replaced, and the nav in
+             * front of you is the thing replacing it.
+             */
+            const stashed = layout.stashedOwnLayout;
+            if (stashed) templates.save(name, account.name, stashed);
+            setKeepingOldLayout(false);
+            layout.adoptDefaultLayout();
+            layout.saveEditing();
+            agencyLayout.save();
+          }}
+          onKeepOnly={() => {
+            setKeepingOldLayout(false);
+            layout.adoptDefaultLayout();
+            layout.saveEditing();
+            agencyLayout.save();
+          }}
+          onDiscard={() => {
+            /*
+             * The answer that leaves nothing changed: the edits go, the session
+             * closes, and the stash comes back. `restoreOwnLayout` already drops
+             * whatever was done to the default, so there is nothing else to undo.
+             */
+            setKeepingOldLayout(false);
+            layout.discardEditing();
+            agencyLayout.discard();
+            layout.restoreOwnLayout();
+          }}
         />
       ) : null}
       {confirmingDiscard ? (
