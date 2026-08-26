@@ -230,13 +230,20 @@
  * Named `--brand-*` rather than `--accent-*` on purpose: shadcn already owns
  * `--accent` as a neutral hover surface, and reusing it would silently
  * repaint every shadcn component.
+ *
+ * Each accent states its colour once as `--brand-base` and points `--brand` at
+ * it. The indirection exists for the dark nav below, which rebuilds the whole
+ * ramp from the accent's hue: a custom property that references itself is a
+ * cycle and goes invalid, so the dark scope cannot derive `--brand` from
+ * `--brand` — it derives everything from the base instead.
  */
 
 :root,
 :root[data-accent="highrise"] {
   --brand-soft: var(--hr-primary-50);
   --brand-soft-2: var(--hr-primary-100);
-  --brand: var(--hr-primary-600);
+  --brand-base: var(--hr-primary-600);
+  --brand: var(--brand-base);
   --brand-strong: var(--hr-primary-700);
   --brand-fg: var(--hr-base-white);
 }
@@ -245,7 +252,8 @@
 :root[data-accent="pencil-blue"] {
   --brand-soft: #eff6ff;
   --brand-soft-2: #dbeafe;
-  --brand: #2563eb;
+  --brand-base: #2563eb;
+  --brand: var(--brand-base);
   --brand-strong: #1d4ed8;
   --brand-fg: #ffffff;
 }
@@ -253,7 +261,8 @@
 :root[data-accent="blue"] {
   --brand-soft: var(--hr-blue-50);
   --brand-soft-2: var(--hr-blue-100);
-  --brand: var(--hr-blue-600);
+  --brand-base: var(--hr-blue-600);
+  --brand: var(--brand-base);
   --brand-strong: var(--hr-blue-700);
   --brand-fg: var(--hr-base-white);
 }
@@ -261,7 +270,8 @@
 :root[data-accent="blue-light"] {
   --brand-soft: var(--hr-blue-light-50);
   --brand-soft-2: var(--hr-blue-light-100);
-  --brand: var(--hr-blue-light-600);
+  --brand-base: var(--hr-blue-light-600);
+  --brand: var(--brand-base);
   --brand-strong: var(--hr-blue-light-700);
   --brand-fg: var(--hr-base-white);
 }
@@ -269,7 +279,8 @@
 :root[data-accent="success"] {
   --brand-soft: var(--hr-success-50);
   --brand-soft-2: var(--hr-success-100);
-  --brand: var(--hr-success-600);
+  --brand-base: var(--hr-success-600);
+  --brand: var(--brand-base);
   --brand-strong: var(--hr-success-700);
   --brand-fg: var(--hr-base-white);
 }
@@ -277,7 +288,8 @@
 :root[data-accent="warning"] {
   --brand-soft: var(--hr-warning-50);
   --brand-soft-2: var(--hr-warning-100);
-  --brand: var(--hr-warning-600);
+  --brand-base: var(--hr-warning-600);
+  --brand: var(--brand-base);
   --brand-strong: var(--hr-warning-700);
   --brand-fg: var(--hr-base-white);
 }
@@ -297,7 +309,8 @@
  * before the switcher has written anything.
  */
 :root[data-accent="black"] {
-  --brand: #18181b;
+  --brand-base: #18181b;
+  --brand: var(--brand-base);
   --brand-strong: #000000;
   --brand-soft: #f4f4f5;
   --brand-soft-2: #e4e4e7;
@@ -305,7 +318,8 @@
 }
 
 :root[data-accent="custom"] {
-  --brand: var(--custom-accent, #18181b);
+  --brand-base: var(--custom-accent, #18181b);
+  --brand: var(--brand-base);
   --brand-strong: oklch(from var(--brand) calc(l * 0.88) c h);
   --brand-soft: oklch(from var(--brand) 0.97 calc(c * 0.3) h);
   --brand-soft-2: oklch(from var(--brand) 0.92 calc(c * 0.5) h);
@@ -313,7 +327,8 @@
 }
 
 :root[data-accent="account"] {
-  --brand: var(--account-brand, var(--hr-primary-600));
+  --brand-base: var(--account-brand, var(--hr-primary-600));
+  --brand: var(--brand-base);
   --brand-strong: oklch(from var(--brand) calc(l * 0.88) c h);
   --brand-soft: oklch(from var(--brand) 0.97 calc(c * 0.3) h);
   --brand-soft-2: oklch(from var(--brand) 0.92 calc(c * 0.5) h);
@@ -323,9 +338,50 @@
 :root[data-accent="error"] {
   --brand-soft: var(--hr-error-50);
   --brand-soft-2: var(--hr-error-100);
-  --brand: var(--hr-error-600);
+  --brand-base: var(--hr-error-600);
+  --brand: var(--brand-base);
   --brand-strong: var(--hr-error-700);
   --brand-fg: var(--hr-base-white);
+}
+
+/*
+ * The brand ramp, rebuilt for a dark nav.
+ *
+ * These four were declared once at :root and never again, so the Launchpad card
+ * — the only brand-coloured surface in the nav — kept its light-mode colours on
+ * a near-black nav. Measured, `--brand-soft` sat at 17.4:1 against the dark nav
+ * where it sits at 1.1:1 against the light one: a whisper in light became the
+ * loudest object on the surface in dark, brighter than the nav's own headings
+ * and far louder than the selected row it hangs above. Nobody chose that; it
+ * fell out of a 50-level tint having no dark counterpart.
+ *
+ * So the pair inverts, which is what every other token in this file already
+ * does. The surfaces drop to the lightness ordinary nav furniture lives at and
+ * the ink lifts above them; the hue is untouched, so an agency's accent is still
+ * recognisably theirs. Same derivation the `custom` and `account` accents use
+ * for their light ramps, at dark lightnesses.
+ *
+ * Scoped to the nav rather than the app: this is about the surface the card
+ * lands on, and the canvas has its own theme.
+ */
+[data-nav-theme="dark"] {
+  /* Chroma pulled back as lightness drops — a fully saturated colour at 0.26
+     reads as a stain rather than a tinted surface. */
+  --brand-soft: oklch(from var(--brand-base) 0.26 calc(c * 0.42) h);
+  --brand-soft-2: oklch(from var(--brand-base) 0.33 calc(c * 0.5) h);
+
+  /* The ring, the icon and the meter's fill. Lifted clear of the surface above
+     so a 3px meter and a 15px glyph still register. */
+  --brand: oklch(from var(--brand-base) 0.72 calc(c * 0.95) h);
+
+  /* The card's text, and the brightest step — in light it is DARKER than
+     --brand (700 against 600), so on a dark surface it has to be lighter. */
+  --brand-strong: oklch(from var(--brand-base) 0.88 calc(c * 0.6) h);
+
+  /* Ink that sits ON a brand fill: the pinned overflow badge and the icon
+     picker's selected tile. White was right against a 600-level fill and is
+     wrong against the lifted one, so it flips with everything else. */
+  --brand-fg: oklch(from var(--brand-base) 0.16 calc(c * 0.5) h);
 }
 
 /* ─── The AI mark ───────────────────────────────────────────────────────── */

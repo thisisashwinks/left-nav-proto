@@ -464,7 +464,15 @@ export function isGroupRenamed(
   );
 }
 
-export function labelForProduct(
+/**
+ * A row's own name, before anything is said about where it came from.
+ *
+ * The rename overrides first — an explicit name is the whole answer, and the
+ * qualifier below deliberately does not survive one. Then the catalogue: a
+ * product's label, or a child's, since an L3 can be pinned and promoted and
+ * every id that reaches the dock, the rail or the launcher has to resolve.
+ */
+export function baseLabelForProduct(
   state: NavLayoutState,
   productId: string,
 ): string {
@@ -472,12 +480,84 @@ export function labelForProduct(
     state.accountProductLabels[productId] ??
     state.agencyProductLabels[productId] ??
     productById(productId)?.label ??
-    // An L3 row can be pinned and promoted, so every id that reaches the dock,
-    // the rail or the launcher has to resolve — and a child id is not a product
-    // id. Without this a pinned L3 rendered as its own raw id.
     childById(productId)?.child.label ??
     productId
   );
+}
+
+/**
+ * Every id the nav has lifted out of the tree and stood on its own.
+ *
+ * Pins, the tail, and whatever has been filed into a custom category — the
+ * three places a row appears away from the panel it came from, which is
+ * exactly where a bare "Settings" stops naming anything. Rows still sitting
+ * inside their parent's flyout are not here: that panel's own title says which
+ * Settings it is.
+ */
+function liftedRowIds(state: NavLayoutState): string[] {
+  return [
+    ...state.pinned,
+    ...state.tailOrder,
+    ...state.customGroups.flatMap((g) => g.productIds),
+  ];
+}
+
+/**
+ * Whether this L3 has to say which product it came from.
+ *
+ * Only on a real collision: a lifted row keeps its plain name until something
+ * else standing beside it answers to the same one, at which point the ambiguity
+ * is real and worth four extra words. The alternative — qualifying every L3 on
+ * principle — makes "Sites › Blogs" out of a row nothing else is competing
+ * with, and pays for it in every truncated nav row.
+ */
+function collidesWhenLifted(
+  state: NavLayoutState,
+  productId: string,
+  label: string,
+): boolean {
+  const seen = new Set<string>();
+  for (const id of liftedRowIds(state)) {
+    // The same id can be pinned AND in the tail — that is one row in two
+    // places, not two rows sharing a name.
+    if (id === productId || seen.has(id)) continue;
+    seen.add(id);
+    if (baseLabelForProduct(state, id) === label) return true;
+  }
+  return false;
+}
+
+export function labelForProduct(
+  state: NavLayoutState,
+  productId: string,
+): string {
+  const base = baseLabelForProduct(state, productId);
+  // A rename replaces the name outright, qualifier included: renaming is
+  // usually how someone answers this very problem, and prefixing their answer
+  // would be arguing with it.
+  if (
+    state.accountProductLabels[productId] !== undefined ||
+    state.agencyProductLabels[productId] !== undefined
+  ) {
+    return base;
+  }
+  const hit = childById(productId);
+  // Products are already unique names at the top of the tree. Only a row that
+  // was lifted out of one can need to say where it came from.
+  if (!hit || productById(productId)) return base;
+  if (!collidesWhenLifted(state, productId, base)) return base;
+  /*
+   * The immediate parent, not the whole trail.
+   *
+   * At L3 that IS the product — "Opportunities › Settings", which is the case
+   * this exists for. One level deeper it is the L3 above it, which is both
+   * shorter and more use than repeating the product two rows running.
+   *
+   * Resolved through `labelForProduct` so a renamed parent carries its new name
+   * into every child that names it.
+   */
+  const parentId = hit.path[hit.path.length - 1]?.id ?? hit.product.id;
+  return `${labelForProduct(state, parentId)} › ${base}`;
 }
 
 export function isProductRenamed(

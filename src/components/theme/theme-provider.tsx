@@ -10,6 +10,7 @@ import {
   type FlyoutTrigger,
   type RecentsMode,
   type NavSections,
+  type RailTileShape,
   type PageShell,
   type ScopeModel,
   type NavGeneration,
@@ -45,6 +46,16 @@ export type AccountTheme = Partial<
 > & {
   /** The hex behind the `custom` accent, from the account's brand board. */
   customAccent?: string;
+  /**
+   * Colours this account mixed for itself, kept as reusable tiles.
+   *
+   * Per account rather than platform-wide: a brand colour belongs to the tenant
+   * that owns the brand, and one agency's palette accumulating in another's
+   * picker would be a leak, not a convenience.
+   *
+   * Newest first, so a colour just mixed is the first tile in the row.
+   */
+  customSwatches?: string[];
 };
 
 interface ThemeContextValue extends ThemeState {
@@ -68,6 +79,7 @@ interface ThemeContextValue extends ThemeState {
   setLegacyNavTheme: (theme: SurfaceTheme) => void;
   setTabsInNav: (enabled: boolean) => void;
   setNavSections: (mode: NavSections) => void;
+  setRailTileShape: (shape: RailTileShape) => void;
   setPageShell: (shell: PageShell) => void;
   /**
    * What the workspace actually renders: the platform theme with the active
@@ -179,6 +191,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, legacyNavTheme })),
       setTabsInNav: (tabsInNav) => setState((s) => ({ ...s, tabsInNav })),
       setNavSections: (navSections) => setState((s) => ({ ...s, navSections })),
+      setRailTileShape: (railTileShape) =>
+        setState((s) => ({ ...s, railTileShape })),
       setPageShell: (pageShell) => setState((s) => ({ ...s, pageShell })),
     }),
     [state, effective, accountThemes],

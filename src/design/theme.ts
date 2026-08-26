@@ -212,6 +212,28 @@ export const NAV_SECTION_LABELS: Record<NavSections, string> = {
 };
 
 /**
+ * The shape of a tile in the account rail.
+ *
+ *  pill      Fully rounded: the row, the agency's plate above it and the
+ *            agency's own mark. One shape down the whole strip, which is what
+ *            makes the rail read as a column of tokens rather than a stack of
+ *            small cards.
+ *  squircle  The 9px tile the rail shipped with, and the rounded square on the
+ *            agency mark that set it apart from the tenant discs below.
+ *
+ * A review axis: it changes nothing but shape, and the argument for either is
+ * one you have to see rather than read.
+ */
+export const RAIL_TILE_SHAPES = ["pill", "squircle"] as const;
+
+export type RailTileShape = (typeof RAIL_TILE_SHAPES)[number];
+
+export const RAIL_TILE_SHAPE_LABELS: Record<RailTileShape, string> = {
+  pill: "Pill",
+  squircle: "Squircle",
+};
+
+/**
  * How the app bar and the page canvas are arranged.
  *
  *  plane    What we shipped: the bar paints nothing. Breadcrumb and utilities sit
@@ -344,6 +366,8 @@ export interface ThemeState {
   tabsInNav: boolean;
   /** How the nav's bands are named and whether they fold. See NAV_SECTIONS. */
   navSections: NavSections;
+  /** The account rail's tile shape, agency plate and mark included. */
+  railTileShape: RailTileShape;
   /** Whether the app bar sits on the plane or inside the canvas. See PAGE_SHELLS. */
   pageShell: PageShell;
 }
@@ -395,6 +419,9 @@ export const DEFAULT_THEME: ThemeState = {
   // Off: the proposal's own answer. The toggle is how you argue with it.
   tabsInNav: false,
   navSections: "plain",
+  // Fully rounded, which is the proposal. The squircle the rail shipped with is
+  // one click away for the comparison.
+  railTileShape: "pill",
   // The bar in the canvas — the Aug 25 answer to "move back to a normal
   // layout". The nav keeps floating; the chrome joins the page it names, so the
   // arrangement reads as one surface rather than two detached ones.

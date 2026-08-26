@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@/lib/utils";
+import { createPortal } from "react-dom";
 import { SWITCH_SLOW_MS } from "@/components/accounts/use-accounts";
 
 /**
@@ -94,8 +94,8 @@ export function CanvasSkeleton() {
 }
 
 /**
- * The determinate bar across the top of the canvas, and the line that appears
- * when the wait runs long.
+ * The determinate bar across the top of the WINDOW, and the line that appears
+ * over the canvas when the wait runs long.
  *
  * Determinate on purpose. An indeterminate bar says "something is happening";
  * over three seconds people want to know whether it is nearly done, and we
@@ -133,22 +133,44 @@ export function SwitchProgress({
 
   return (
     <>
-      <div
-        role="progressbar"
-        aria-label={`Opening ${label}`}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(pct)}
-        className="absolute inset-x-0 top-0 z-40 h-[2px] overflow-hidden bg-transparent"
-      >
+      {/*
+        The bar belongs to the WINDOW, not to the column it was declared in.
+        
+        It used to be absolutely positioned inside the right-hand column, which
+        put it under the banner strip and under the app bar — a page loader
+        drawn halfway down the page, reading as part of the canvas rather than
+        as the browser-level "something is arriving" it is meant to be. Fixed to
+        the viewport's top edge is where every other product puts this.
+        
+        Portalled rather than merely `fixed`, because `position: fixed` is
+        resolved against the nearest ancestor carrying a transform, filter or
+        containment — and the shell is full of `motion-move` elements that take
+        a transform mid-animation. Anchored to <body> it cannot be captured by
+        one of them partway through a switch, which is exactly when it shows.
+        
+        z-[90] clears everything else in the app, dialogs at z-[80] included:
+        this is chrome about the whole window, and a modal opened as a switch
+        lands should not cut the bar in half.
+      */}
+      {createPortal(
         <div
-          className="h-full rounded-r-full bg-brand"
-          // Width is driven per frame, not by a CSS transition: a transition
-          // would still be easing toward the old value when the switch lands,
-          // and the bar would visibly rewind as it unmounted.
-          style={{ width: `${pct}%` }}
-        />
-      </div>
+          role="progressbar"
+          aria-label={`Opening ${label}`}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(pct)}
+          className="pointer-events-none fixed inset-x-0 top-0 z-[90] h-[2px] overflow-hidden bg-transparent"
+        >
+          <div
+            className="h-full rounded-r-full bg-brand"
+            // Width is driven per frame, not by a CSS transition: a transition
+            // would still be easing toward the old value when the switch lands,
+            // and the bar would visibly rewind as it unmounted.
+            style={{ width: `${pct}%` }}
+          />
+        </div>,
+        document.body,
+      )}
 
       {slow ? (
         <div

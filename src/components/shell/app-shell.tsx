@@ -575,7 +575,18 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const pinnedItems = agencyScope
     ? agencyPinned
     : layout.pinned
-        .filter((id) => productById(id) !== undefined)
+        /*
+         * A pin can name an L3 row as well as a product.
+         *
+         * This asked `productById` alone, so pinning Conversations › Settings
+         * put it in the launcher's Pinned list and in the nav, and then dropped
+         * it silently from the dock — the one surface the pin exists for. The
+         * guard is the same one the launcher uses: does the id resolve to
+         * anything the nav can draw.
+         */
+        .filter(
+          (id) => productById(id) !== undefined || childById(id) !== undefined,
+        )
         .map((id) => ({
           id,
           label: productLabelFor(id),

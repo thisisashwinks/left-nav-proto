@@ -481,7 +481,10 @@ function SearchRow({
 }) {
   const layout = useNavLayout();
   const icon = layout.productIconFor(productId);
-  const label = layout.productLabelFor(productId);
+  // The base name, not the qualified one: this row already carries a line
+  // saying where it lives, and "Opportunities › Settings" over "Opportunities"
+  // is the same fact printed twice.
+  const label = layout.productBaseLabelFor(productId);
 
   return (
     <div
@@ -824,7 +827,9 @@ function ProductRow({
 
       {renaming && onEndRename ? (
         <InlineRename
-          value={label}
+          // The row's own name, not the "Opportunities › Settings" a collision
+          // draws it as — see `productBaseLabelFor`.
+          value={layout.productBaseLabelFor(productId)}
           ariaLabel={`Rename ${label}`}
           onCommit={(next) => {
             layout.setProductLabel(productId, next);

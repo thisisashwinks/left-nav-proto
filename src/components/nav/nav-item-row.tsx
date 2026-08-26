@@ -77,6 +77,15 @@ export interface NavRowEdit {
    */
   renameOnLabelClick?: boolean;
   /** Reordering. Present only in edit mode, and only for rows that may move. */
+  /**
+   * What the rename field starts from, when it differs from what the row shows.
+   *
+   * A lifted L3 whose name collides is drawn as "Opportunities › Settings", and
+   * that string is the nav explaining the row rather than the row's name — so
+   * the field opens on "Settings" and a rename replaces the name, not the
+   * explanation.
+   */
+  renameValue?: string;
   drag?: NavRowDrag;
 }
 
@@ -402,7 +411,7 @@ export function NavItemRow({
 
       {edit.renaming ? (
         <InlineRename
-          value={item.label}
+          value={edit.renameValue ?? item.label}
           onCommit={edit.onCommitRename}
           onCancel={edit.onCancelRename}
           ariaLabel={`Rename ${item.label}`}

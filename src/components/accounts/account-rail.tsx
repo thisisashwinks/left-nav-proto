@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Grip, X } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
+import { useTheme } from "@/components/theme/theme-provider";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
 import { cn } from "@/lib/utils";
 import { AccountLogo } from "./account-logo";
@@ -96,6 +97,16 @@ export function AccountRail({
       if (hoverTimer.current !== null) clearTimeout(hoverTimer.current);
     };
   }, []);
+
+  /*
+   * The rail's tile shape, read from the review axis rather than fixed.
+   *
+   * `effective` and not the base state: it is what the workspace actually
+   * renders once the active account's overrides are applied, and the rail is
+   * chrome like everything else that reads it.
+   */
+  const { effective } = useTheme();
+  const pillTiles = effective.railTileShape === "pill";
 
   const width = switcherOpen
     ? ACCOUNT_RAIL_DIRECTORY_WIDTH
@@ -204,7 +215,28 @@ export function AccountRail({
               nothing — the plate's own edge is the boundary. Same tile shape as
               every account below it.
             */}
-            <div className="mx-[6px] shrink-0 rounded-[10px] bg-nav-rail-disc p-[4px]">
+            <div
+              className={cn(
+                // The margin carries the squaring, so it is the margin that has
+                // to animate — `motion-move` transitions width and height and
+                // neither of those is what changes here.
+                "shrink-0 bg-nav-rail-disc p-[4px] transition-[margin] duration-[var(--dur-slow)] ease-[var(--ease-out)]",
+                // Concentric with the tile inside it: a pill in a 10px box
+                // reads as a mistake at 4px of padding.
+                pillTiles ? "rounded-full" : "rounded-[10px]",
+                /*
+                  8px collapsed, so the plate is 40×40 — square, which is what
+                  makes a full radius read as a disc rather than a lozenge. The
+                  width is taken out of the margins rather than off the tile so
+                  the plate stays a percentage of the strip: it then GROWS with
+                  the rail's own width animation instead of snapping to a fixed
+                  size the moment the names open.
+                */
+                // 10/6 for the same reason the list below is 14/10: the plate
+                // is 40 wide, so this lands its centre on the same x=30.
+                expanded ? "mx-[6px]" : "mr-[6px] ml-[10px]",
+              )}
+            >
               {/*
                 The tile wears the AGENCY's own mark. It briefly carried the
                 HighLevel logo instead, on the reading that the rail is platform
@@ -221,9 +253,14 @@ export function AccountRail({
                 onClick={session.switchToAgency}
                 onHover={() => setHover(true)}
                 account={session.agency}
-                // Rounded square, not the tenant circle: the agency is the scope
-                // over the accounts below, so its tile is a different shape.
-                logoRadius={9}
+                /*
+                  Under the pill axis the agency's mark is a disc like every
+                  tenant's below it: the plate it sits on is what says "this is
+                  the scope over them", and saying it twice — plate AND a shape
+                  the rest of the column does not use — was the redundancy the
+                  pill treatment removes. Squircle keeps the rounded square.
+                */
+                logoRadius={pillTiles ? 999 : 9}
               />
             </div>
 
@@ -238,7 +275,40 @@ export function AccountRail({
               is every account you have, so the icon should say "browse", not
               "create".
             */}
-            <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto px-[6px] py-[2px] [scrollbar-width:none]">
+            <div
+              className={cn(
+                "flex min-h-0 w-full flex-1 flex-col overflow-y-auto py-[2px] [scrollbar-width:none]",
+                // Padding, on the same curve as the rail's own width — the rows
+                // are `w-full` inside it, so this is what carries them in and
+                // out rather than each tile resizing itself.
+                "transition-[padding] duration-[var(--dur-slow)] ease-[var(--ease-out)]",
+                /*
+                  The tiles are squared from here, not from their own width.
+
+                  Collapsed, 12px a side leaves exactly 32px — the same as a
+                  tile's height (4 + 24 + 4), so the fill is a circle instead of
+                  the 44×32 lozenge a full radius made of it. Doing it in the
+                  padding keeps every row `w-full`, so they still track the
+                  rail's width animation on the way open and closed; a fixed
+                  32px on the tile itself would jump to its final size in the
+                  first frame and then sit there while the strip caught up.
+
+                  The selected row's edge bar is positioned against the row, so
+                  it follows the tile in and stays 3px off its edge.
+                */
+                /*
+                  14 left, 10 right — not 12 and 12.
+
+                  The strip's own width is 56, but the hairline that ends it is
+                  faint and the 4px gap between it and the nav card is very
+                  nearly the same white, so what reads as "the sidebar" is the
+                  60px band. Centring a 32px tile on THAT means x=14..46, which
+                  is 2px right of the rail's own midline. The tiles look centred
+                  because they are — against the edge the eye actually finds.
+                */
+                expanded ? "px-[6px]" : "pr-[10px] pl-[14px]",
+              )}
+            >
               {/*
                 Auto margins, not justify-center: the tiles sit in the strip's
                 vertical centre (the agency plate alone holds the top), and when
@@ -273,8 +343,24 @@ export function AccountRail({
                     aria-expanded={switcherOpen}
                     onClick={onToggleSwitcher}
                     className={cn(
-                      "motion-tap flex h-[36px] w-full shrink-0 items-center gap-[9px] rounded-[9px] p-[4px] text-nav-fg-subtle",
-                      !expanded && "justify-center",
+                      "motion-tap flex h-[36px] shrink-0 items-center gap-[9px] p-[4px] text-nav-fg-subtle",
+                      // The same tile as the accounts above it, so the hover
+                      // fills line up down one column.
+                      pillTiles ? "rounded-full" : "rounded-[9px]",
+                      /*
+                        36 wide to match its own 36px height, which is 4px more
+                        than an account tile — so it bleeds 2px into the strip's
+                        padding either side rather than shrinking to 32 and
+                        drawing an upright lozenge.
+
+                        Negative margin and NOT a fixed width: the column
+                        stretches its children, so a margin still leaves the box
+                        a percentage of the strip and it travels with the width
+                        animation. A `w-[36px]` would snap to its final size in
+                        the first frame of a collapse and sit there while the
+                        rail closed around it.
+                      */
+                      !expanded && "-mx-[2px] justify-center",
                       "hover:bg-nav-hover hover:text-nav-fg-muted",
                     )}
                   >
@@ -324,12 +410,25 @@ function RailRow({
   /** Tenant tiles are discs; the platform mark wears a rounded square. */
   logoRadius?: number;
 }) {
+  const { effective } = useTheme();
+  const pillTiles = effective.railTileShape === "pill";
+
   return (
     <div className="relative w-full shrink-0">
       <span
         aria-hidden="true"
         className={cn(
-          "absolute top-1/2 -left-[6px] w-[3px] -translate-y-1/2 rounded-r-[2px] bg-nav-fg motion-move",
+          "absolute top-1/2 w-[3px] -translate-y-1/2 rounded-r-[2px] bg-nav-fg motion-move",
+          /*
+            Flush against the rail's left edge, at both widths.
+
+            It is an edge marker — it says WHICH row you are on by where it sits
+            in the strip, not by hugging the tile. Offset from the row, so the
+            number has to change when the row moves: the tile sits 14px in when
+            the strip is collapsed and 6px in when the names are open, and both
+            of these put the bar's own left edge on x=0.
+          */
+          expanded ? "-left-[6px]" : "-left-[14px]",
           selected ? "h-[24px] opacity-100" : "h-[8px] opacity-0",
         )}
       />
@@ -341,7 +440,11 @@ function RailRow({
           onPointerEnter={onHover}
           onClick={onClick}
           className={cn(
-            "motion-tap flex w-full items-center gap-[9px] rounded-[9px] p-[4px] outline-none focus-visible:ring-[1.5px] focus-visible:ring-brand",
+            "motion-tap flex w-full items-center gap-[9px] p-[4px] outline-none focus-visible:ring-[1.5px] focus-visible:ring-brand",
+            // Shape on every row, not just the selected one: the hover fill and
+            // the selected fill are the same box, and only one of them being a
+            // pill reads as the row changing shape under the pointer.
+            pillTiles ? "rounded-full" : "rounded-[9px]",
             !expanded && "justify-center",
             // Fill and a hairline, no drop shadow: the tile is flush in the
             // strip, and a cast shadow lifted it off a surface it sits on.

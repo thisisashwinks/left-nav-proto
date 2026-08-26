@@ -79,6 +79,26 @@ const VARIANT = {
 } as const satisfies Record<FlyoutItemVariant, unknown>;
 
 /**
+ * Whether an L2 row shows its one-line blurb under the title.
+ *
+ * Off (Aug 27): the descriptions were doing the work of a first visit on every
+ * visit — two lines of explanation under a row whose name already says what it
+ * is, on a surface people open dozens of times a day. Titles alone halve the
+ * panel's height and let a category's shape be read in one glance.
+ *
+ * The `product` variant only, which is the L2 list in the screenshot — the
+ * category panels and the agency's buckets. Recent is deliberately untouched:
+ * its second line is the row's KIND ("Jatin — Contact", "Q3 Enterprise Pipeline
+ * — Opportunities"), which is the only thing telling those names apart, not a
+ * blurb explaining a product people already know.
+ *
+ * A constant rather than a deletion: the copy is still authored on every entry
+ * in the catalogue and the agency config, and flipping this back is the whole
+ * of bringing it back.
+ */
+const SHOW_ROW_DESCRIPTIONS = false;
+
+/**
  * What editing this row offers, when the nav is in edit mode and this panel
  * belongs to a category.
  *
@@ -101,6 +121,11 @@ export interface FlyoutRowEdit {
   onCommitRename?: (next: string) => void;
   onCancelRename?: () => void;
   onOpenMenu?: (trigger: HTMLElement) => void;
+  /**
+   * What the rename field starts from, when the row is drawn with a qualifier.
+   * See NavRowEdit.renameValue — same reason, same rule.
+   */
+  renameValue?: string;
   /**
    * Clicking the row's own glyph opens the picker.
    *
@@ -153,6 +178,9 @@ export function FlyoutRow({
   const { tabsInNav } = useTheme();
   /** Only rows that map to a pinnable product get a pin. */
   const pinnable = productById(item.id) !== undefined;
+  const showDesc =
+    item.description !== undefined &&
+    (variant !== "product" || SHOW_ROW_DESCRIPTIONS);
   /*
    * A row with children is a disclosure, not a link.
    *
@@ -178,6 +206,10 @@ export function FlyoutRow({
     // v.row carries the per-variant gap, padding and alignment. Losing it
     // is what collapsed every flyout row's breathing room.
     v.row,
+    // The product variant tops out its children so the icon lines up with the
+    // title rather than with the middle of a two-line row. With the blurb off
+    // there is no second line to align against, so it centres like the rest.
+    !showDesc && "items-center",
     /*
      * Reserved only for the pin, which is absolute.
      *
@@ -279,7 +311,7 @@ export function FlyoutRow({
         <div className="flex w-full shrink-0 items-center gap-[7px]">
           {edit?.renaming ? (
             <InlineRename
-              value={item.label}
+              value={edit.renameValue ?? item.label}
               onCommit={edit.onCommitRename ?? (() => {})}
               onCancel={edit.onCancelRename ?? (() => {})}
               ariaLabel={`Rename ${item.label}`}
@@ -328,7 +360,7 @@ export function FlyoutRow({
           ) : null}
         </div>
 
-        {item.description ? (
+        {showDesc && item.description ? (
           <span
             className={cn(
               "text-left text-nav-fg-subtle font-normal",
@@ -367,8 +399,11 @@ export function FlyoutRow({
         className={cn(
           "ml-auto flex shrink-0 items-center gap-[var(--t-fly-gap,10px)]",
           // items-start variants align the cluster to the title's line, not the
-          // middle of a two-line row.
-          variant === "product" ? "mt-[2px] self-start" : "self-center",
+          // middle of a two-line row. A row with no blurb has only the one line,
+          // so the cluster sits on the row's own middle.
+          variant === "product" && showDesc
+            ? "mt-[2px] self-start"
+            : "self-center",
         )}
       >
         {edit && !edit.renaming ? (

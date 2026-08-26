@@ -14,6 +14,7 @@ import {
   isIconOverridden,
   isProductRenamed,
   labelForGroup,
+  baseLabelForProduct,
   labelForProduct,
   permissionsFor,
   customTreeFor,
@@ -76,6 +77,14 @@ interface NavLayoutContextValue {
   isRenamed: (groupId: string) => boolean;
 
   productLabelFor: (productId: string) => string;
+  /**
+   * The row's own name, without the "Opportunities › " a collision adds.
+   *
+   * What a rename field starts from: the qualifier is something the nav says
+   * about a row, not part of the row's name, and prefilling it would turn the
+   * first commit into a rename to a string nobody typed.
+   */
+  productBaseLabelFor: (productId: string) => string;
   setProductLabel: (productId: string, label: string, scope?: LabelScope) => void;
   resetProductLabel: (productId: string) => void;
   isProductRenamed: (productId: string) => boolean;
@@ -859,6 +868,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         }),
 
       productLabelFor: (productId) => labelForProduct(state, productId),
+      productBaseLabelFor: (productId) => baseLabelForProduct(state, productId),
       isProductRenamed: (productId) => isProductRenamed(state, productId),
 
       setProductLabel: (productId, label, scope) => {

@@ -144,6 +144,7 @@ export function FlyoutPanel({
     if (!editing || !category) return undefined;
     return {
       renaming: renamingId === productId,
+      renameValue: layout.productBaseLabelFor(productId),
       onStartRename: () => setRenamingId(productId),
       onCommitRename: (next) => {
         layout.setProductLabel(productId, next);

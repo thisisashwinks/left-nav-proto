@@ -17,6 +17,8 @@ import {
   FLYOUT_TRIGGERS,
   PAGE_SHELL_LABELS,
   PAGE_SHELLS,
+  RAIL_TILE_SHAPE_LABELS,
+  RAIL_TILE_SHAPES,
   RECENTS_MODE_LABELS,
   RECENTS_MODES,
   SCOPE_MODEL_LABELS,
@@ -35,6 +37,7 @@ import {
   type EntryLayout,
   type FlyoutTrigger,
   type PageShell,
+  type RailTileShape,
   type RecentsMode,
   type ScopeModel,
   type SearchMode,
@@ -141,6 +144,8 @@ function NavStructureSection({
     setTabsInNav,
     navSections,
     setNavSections,
+    railTileShape,
+    setRailTileShape,
   } = useTheme();
   // The account's own count, not the catalogue's: density is a property of the
   // nav in front of you, and this panel is read while switching between a
@@ -204,6 +209,27 @@ function NavStructureSection({
           ? "Model C: the agency and your open accounts as a rail of tiles. Open and close accounts from the + tile."
           : "Model A: one nav, scope named in the header. The agency is the marked case — squircle and an AGENCY word."}
       </p>
+
+      {/*
+        Sits under the scope control because it only has anything to say while
+        the rail is the scope model — it is that strip's own shape.
+      */}
+      {scopeModel === "rail" ? (
+        <>
+          <Segmented
+            label="Rail tiles"
+            options={RAIL_TILE_SHAPES}
+            value={railTileShape}
+            onChange={(v: RailTileShape) => setRailTileShape(v)}
+            format={(v) => RAIL_TILE_SHAPE_LABELS[v]}
+          />
+          <p className="text-[10px] leading-[14px] text-pg-faint">
+            {railTileShape === "pill"
+              ? "Fully rounded, all the way down: the tiles, the agency's plate and the agency's own mark. One shape for the whole strip."
+              : "The rail as it shipped: 9px tiles, and a rounded square on the agency mark to set it apart from the tenant discs."}
+          </p>
+        </>
+      ) : null}
 
       <Segmented
         label="Page tabs"

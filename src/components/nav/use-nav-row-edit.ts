@@ -56,6 +56,9 @@ export function useNavRowEdit(picker: IconPickerHandle) {
     return {
       renaming: renamingId === itemId,
       pinned: true,
+      // Products only: a group's label carries no qualifier, so there is
+      // nothing for the field to start from but the label itself.
+      ...(isGroup ? {} : { renameValue: layout.productBaseLabelFor(id) }),
       onStartRename: () => setRenamingId(itemId),
       onCommitRename: (next) => {
         if (isGroup) layout.setLabel(id, next);

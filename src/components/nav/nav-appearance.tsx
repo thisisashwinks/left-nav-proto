@@ -2,10 +2,11 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { Check, TriangleAlert } from "lucide-react";
+import { ChevronLeft, Check, Plus, TriangleAlert } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { useAnchored } from "@/lib/use-anchored";
 import { cn } from "@/lib/utils";
+import { AccentPicker, CustomSwatch } from "./color-picker";
 
 /**
  * How an account colours its own nav.
@@ -26,6 +27,15 @@ import { cn } from "@/lib/utils";
  */
 
 const WIDTH = 248;
+/*
+ * The board needs more room than the swatch grid.
+ *
+ * HighRise's picker defaults to 298px and the saturation area is the reason —
+ * at 224px of usable width the crosshair has too little travel to place a
+ * colour precisely. The panel widens for the board and narrows again on the way
+ * back, so the resting state is not paying for a view it is not showing.
+ */
+const PICKER_WIDTH = 288;
 const GAP = 6;
 
 /** The accents on offer, from the HighRise ramps already in tokens.css. */
@@ -78,7 +88,51 @@ export function NavAppearance({
   const ratio = contrastRatio(accentHex, surface);
   const weak = ratio < 3;
 
-  const { ref, top, left } = useAnchored(anchor, WIDTH, GAP);
+  /*
+   * The board replaces the panel's contents rather than opening beside it —
+   * the drill pattern RowMenu and the edit card's menu already use here. One
+   * box that stays where it opened survives being anchored near the nav's foot,
+   * which a second popover flying upward does not.
+   */
+  const [picking, setPicking] = React.useState(false);
+  const custom = override.customSwatches ?? [];
+
+  const setAccentTo = (hex: string) =>
+    theme.setAccountTheme(accountId, { accent: "custom", customAccent: hex });
+
+  const saveCustom = (hex: string) => {
+    const value = hex.toLowerCase();
+    /*
+     * A colour already on offer is selected, not copied.
+     *
+     * HLColorPicker refuses a duplicate outright — "Color already in palette" —
+     * because a swatch is identified by its value, so two tiles holding one
+     * colour are indistinguishable. Mixing your way to a colour that happens to
+     * be one of the ten presets used to tick it in both rows at once, which
+     * reads as two separate selections.
+     */
+    const isPreset = SWATCHES.some((s) => s.hex === value);
+    theme.setAccountTheme(accountId, {
+      accent: "custom",
+      customAccent: value,
+      // Newest first, so a colour just mixed is the first tile in the row.
+      ...(isPreset
+        ? {}
+        : { customSwatches: [value, ...custom.filter((c) => c !== value)] }),
+    });
+    setPicking(false);
+  };
+
+  const removeCustom = (hex: string) =>
+    theme.setAccountTheme(accountId, {
+      customSwatches: custom.filter((c) => c !== hex),
+    });
+
+  const { ref, top, left } = useAnchored(
+    anchor,
+    picking ? PICKER_WIDTH : WIDTH,
+    GAP,
+  );
   React.useEffect(() => {
     const away = (e: PointerEvent) => {
       if (!ref.current?.contains(e.target as Node)) onClose();
@@ -102,9 +156,29 @@ export function NavAppearance({
       // Without it `bg-nav` resolves against the root and the panel paints
       // nothing, which is exactly what happened first time.
       data-nav-theme={navTheme}
-      style={{ top, left, width: WIDTH }}
+      style={{ top, left, width: picking ? PICKER_WIDTH : WIDTH }}
       className="motion-panel-in fixed z-[71] rounded-[10px] bg-nav p-[12px] shadow-[0_12px_32px_0_var(--fly-shadow),inset_0_0_0_1px_var(--fly-border)]"
     >
+      {picking ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setPicking(false)}
+            className="motion-tap mb-[8px] flex h-[24px] items-center gap-[5px] rounded-[6px] pr-[6px] text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
+          >
+            <ChevronLeft size={14} aria-hidden="true" className="shrink-0" />
+            <span className="text-[10.5px] leading-none font-semibold tracking-[0.5px] uppercase">
+              Custom colour
+            </span>
+          </button>
+          <AccentPicker
+            initial={accentHex}
+            onCancel={() => setPicking(false)}
+            onSave={saveCustom}
+          />
+        </>
+      ) : (
+      <>
       <Group label="Surface">
         <div className="flex gap-[6px]">
           {(["light", "dark"] as const).map((mode) => (
@@ -141,12 +215,7 @@ export function NavAppearance({
                 title={`${s.label} — ${contrastRatio(s.hex, surface).toFixed(1)}:1`}
                 aria-label={s.label}
                 aria-pressed={on}
-                onClick={() =>
-                  theme.setAccountTheme(accountId, {
-                    accent: "custom",
-                    customAccent: s.hex,
-                  })
-                }
+                onClick={() => setAccentTo(s.hex)}
                 className={cn(
                   "motion-tap flex size-[30px] items-center justify-center rounded-[7px]",
                   on && "shadow-[0_0_0_2px_var(--nav)_,0_0_0_4px_var(--nav-fg)]",
@@ -159,6 +228,38 @@ export function NavAppearance({
               </button>
             );
           })}
+        </div>
+      </Group>
+
+      {/*
+        The account's own colours, kept under the presets.
+
+        HighRise groups swatches into labelled sections with their own add
+        button, and the split earns itself here: the ten above are ours and
+        never change, these are the tenant's and can be removed. One flat grid
+        would make a brand colour look like something we shipped.
+      */}
+      <Group label="Custom">
+        <div className="grid grid-cols-5 gap-[6px]">
+          {custom.map((hex) => (
+            <CustomSwatch
+              key={hex}
+              hex={hex}
+              selected={accentHex.toLowerCase() === hex}
+              contrast={`${contrastRatio(hex, surface).toFixed(1)}:1`}
+              onSelect={() => setAccentTo(hex)}
+              onRemove={() => removeCustom(hex)}
+            />
+          ))}
+          <button
+            type="button"
+            onClick={() => setPicking(true)}
+            aria-label="Mix a custom colour"
+            title="Mix a custom colour"
+            className="motion-tap flex size-[30px] items-center justify-center rounded-[7px] text-nav-fg-subtle shadow-[inset_0_0_0_1px_var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg"
+          >
+            <Plus size={14} aria-hidden="true" />
+          </button>
         </div>
       </Group>
 
@@ -183,6 +284,8 @@ export function NavAppearance({
             : " Clears 3:1 for buttons and selected rows."}
         </span>
       </p>
+      </>
+      )}
     </div>,
     document.body,
   );
