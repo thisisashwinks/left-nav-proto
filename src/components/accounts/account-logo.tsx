@@ -165,8 +165,16 @@ export function AccountLogo({
     >
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor={logo.from} />
-          <stop offset="100%" stopColor={logo.to} />
+          {/* Initials tiles are placeholders, not brand marks — they wash
+              neutral grey so only real marks (glyphs, uploads) carry colour. */}
+          <stop
+            offset="0%"
+            stopColor={logo.initials ? "var(--hr-gray-600)" : logo.from}
+          />
+          <stop
+            offset="100%"
+            stopColor={logo.initials ? "var(--hr-gray-400)" : logo.to}
+          />
         </linearGradient>
       </defs>
       {/* rx is in viewBox units, so the CSS radius has to be scaled up with it. */}

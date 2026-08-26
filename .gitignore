@@ -42,3 +42,6 @@ next-env.d.ts
 
 # Feedback recordings — too heavy for git; transcripts are committed instead
 kb/*.mp4
+
+# Yarn lockfile — this project uses npm (package-lock.json)
+yarn.lock
