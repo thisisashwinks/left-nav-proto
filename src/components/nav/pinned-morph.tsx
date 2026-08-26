@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { DockLabel, DockPosition, SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
+import type { SwapPhase } from "@/lib/use-swap-phase";
 import type { PinnedRailItem } from "./types";
 
 /**
@@ -256,6 +257,17 @@ interface PinnedMorphProps {
    * it has to be passed in rather than pushing it in flow.
    */
   topOffset?: number;
+  /**
+   * Where the account switch has got to, so the capsule leaves and arrives with
+   * the rest of the nav.
+   *
+   * It cannot ride the scroll region's wrapper the way every other block does —
+   * it is drawn outside both nav faces so one element can morph between the two
+   * layouts — so it plays the same animation on its own root instead. Pins are
+   * per-account, so holding still through a switch would leave the previous
+   * account's favourites sitting above the arriving account's list.
+   */
+  swap?: SwapPhase;
 }
 
 /**
@@ -278,6 +290,7 @@ export function PinnedMorph({
   dockLabel,
   dockPosition,
   topOffset = 0,
+  swap = "idle",
 }: PinnedMorphProps) {
   const visible = items.slice(0, PINNED_VISIBLE);
   // Favourites plus the permanent grid chip.
@@ -341,10 +354,24 @@ export function PinnedMorph({
     ? { bottom: collapsed ? BOTTOM_BLOCK.padBottom : BOTTOM_BLOCK.padBottom }
     : { top: g.container.top + topOffset };
 
+  /*
+   * Gone for the length of the wait, not skeletonised.
+   *
+   * The face below still draws its PinnedHole — that is driven by whether pins
+   * are shown, not by the switch — so the space stays reserved and nothing under
+   * the capsule shifts while it is away. Unmounting here is also what restarts
+   * the entrance: remounting on the way back to `idle` replays the animation
+   * without needing a key to force it.
+   */
+  if (swap === "waiting") return null;
+
   return (
     <div
       data-nav-theme={theme}
-      className="pointer-events-none absolute inset-0 z-30"
+      className={cn(
+        "pointer-events-none absolute inset-0 z-30",
+        swap === "leaving" ? "motion-nav-swap-out" : "motion-nav-swap-in",
+      )}
     >
       {/*
         The whole row is the hover target, not each icon — the band should open

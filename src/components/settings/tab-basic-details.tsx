@@ -3,8 +3,14 @@
 import * as React from "react";
 import { FileText, Plus, Search } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
-import { hashId } from "@/lib/account-color";
 import { BrandCard } from "./brand-card";
+import {
+  LOCALES,
+  ownerFor,
+  phoneFor,
+  slugFor,
+  splitAddress,
+} from "./demo-business-data";
 
 /**
  * Basic Details, as production draws it: the Account and General Information
@@ -16,7 +22,7 @@ import { BrandCard } from "./brand-card";
  */
 export function BasicDetailsTab({ account }: { account: Account }) {
   const owner = ownerFor(account);
-  const slug = account.name.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const slug = slugFor(account);
   const [street, city, region] = splitAddress(account.meta);
 
   return (
@@ -191,51 +197,9 @@ function ListPanel({ title, action }: { title: string; action: string }) {
   );
 }
 
-/**
- * Stand-in account owners. Production reads these off the account record; the
- * prototype has no such record, so they are derived from the id — stable per
- * account, so a screenshot taken twice shows the same person.
+/*
+ * The stand-in owners, locales and address helpers moved to
+ * ./demo-business-data — Business Profile shows the same business from the
+ * sub-account's side, and two copies of these tables would let the two pages
+ * disagree about one account.
  */
-const OWNERS = [
-  { first: "Dana", last: "Whitfield", line: "34" },
-  { first: "Marcus", last: "Reed", line: "86" },
-  { first: "Priya", last: "Raman", line: "17" },
-  { first: "Elena", last: "Vasquez", line: "52" },
-  { first: "Tom", last: "Byrne", line: "73" },
-] as const;
-
-/** Postal code and area code per demo city, so an address reads as one place. */
-const LOCALES: Record<string, { zip: string; area: string }> = {
-  Austin: { zip: "78701", area: "512" },
-  Denver: { zip: "80202", area: "303" },
-  Phoenix: { zip: "85018", area: "602" },
-  "San Diego": { zip: "92101", area: "619" },
-  Nashville: { zip: "37219", area: "615" },
-  "Kansas City": { zip: "64105", area: "816" },
-  Portland: { zip: "97204", area: "503" },
-  Boise: { zip: "83702", area: "208" },
-  Hartford: { zip: "06103", area: "860" },
-  Miami: { zip: "33131", area: "305" },
-  Columbus: { zip: "43215", area: "614" },
-  Charleston: { zip: "29401", area: "843" },
-  Raleigh: { zip: "27601", area: "919" },
-  "New Orleans": { zip: "70130", area: "504" },
-  Boulder: { zip: "80302", area: "720" },
-  Madison: { zip: "53703", area: "608" },
-};
-
-/** US format, per the copy guidelines: +1 (###) ###-####. */
-function phoneFor(city: string, line: string): string {
-  const area = LOCALES[city]?.area;
-  return area ? `+1 (${area}) 555-01${line}` : "";
-}
-
-function ownerFor(account: Account): (typeof OWNERS)[number] {
-  return OWNERS[hashId(account.id) % OWNERS.length];
-}
-
-/** "1100 Congress Ave, Austin, TX" -> street, city, region. */
-function splitAddress(meta: string): [string, string, string] {
-  const parts = meta.split(",").map((part) => part.trim());
-  return [parts[0] ?? "", parts[1] ?? "", parts[2] ?? ""];
-}

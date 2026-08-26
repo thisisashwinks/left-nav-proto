@@ -21,6 +21,9 @@ import {
   RECENTS_MODES,
   SCOPE_MODEL_LABELS,
   SCOPE_MODELS,
+  NAV_GENERATIONS,
+  NAV_GENERATION_LABELS,
+  type NavGeneration,
   SEARCH_MODE_LABELS,
   SEARCH_MODES,
   SURFACE_THEMES,
@@ -131,6 +134,8 @@ function NavStructureSection({
     autoCollapse,
     setAutoCollapse,
     scopeModel,
+    navGeneration,
+    setNavGeneration,
     setScopeModel,
     flyoutTrigger,
     setFlyoutTrigger,
@@ -177,6 +182,27 @@ function NavStructureSection({
         {demoPlan === null
           ? "Each account on the plan it is seeded with, so the sub-account list shows a real spread."
           : `Every account forced onto ${PLAN_PRICES[demoPlan]}, to read the nav as that agency sees it.`}
+      </p>
+
+      {/*
+        First in the section, and deliberately.
+
+        Every other control here tunes the proposal. This one asks whether to
+        look at the proposal at all, so it reads as the question the rest are
+        answers to — and it is the reliable way back once the legacy nav, which
+        has no edit card, is on screen.
+      */}
+      <Segmented
+        label="Navigation"
+        options={NAV_GENERATIONS}
+        value={navGeneration}
+        onChange={(v: NavGeneration) => setNavGeneration(v)}
+        format={(v) => NAV_GENERATION_LABELS[v]}
+      />
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        {navGeneration === "legacy"
+          ? "Production's sidebar, transcribed: one flat list, no flyouts, no grouping, no pinning. Rows select but do not navigate."
+          : "The proposal. Switch to Old nav to compare it against what ships today — also on the Editing nav card."}
       </p>
 
       <Segmented

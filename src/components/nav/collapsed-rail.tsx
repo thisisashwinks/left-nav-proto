@@ -3,6 +3,9 @@
 import * as React from "react";
 import { PanelLeftOpen, Pin, SquarePen } from "lucide-react";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
+import { useSwapPhase } from "@/lib/use-swap-phase";
+import { NAV_SWAP_OUT_MS } from "@/design/motion-timing";
+import { RailRowsSkeleton } from "@/components/shell/switching";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import type { Account } from "@/components/accounts/accounts-data";
 import type { WorkspaceScope } from "@/components/accounts/use-accounts";
@@ -59,6 +62,15 @@ interface CollapsedRailProps {
   onEdit?: () => void;
   /** Hold the edit control open — the first-run card is pointing at it. */
   editRevealed?: boolean;
+  /**
+   * An account switch is in flight.
+   *
+   * The rail never took this, so collapsed it sat showing the departing
+   * account's icons for the whole 2–4 second load — no skeleton, no motion, and
+   * a column of rows that open panels the arriving account does not have. It is
+   * the state the nav auto-enters under 900px, so it is not a rare view.
+   */
+  loading?: boolean;
 }
 
 /**
@@ -88,7 +100,10 @@ export function CollapsedRail({
   onOpenLauncher,
   onEdit,
   editRevealed = false,
+  loading = false,
 }: CollapsedRailProps) {
+  // Same three phases the expanded face runs, from the same flag.
+  const swap = useSwapPhase(loading, NAV_SWAP_OUT_MS);
   const atFloor = density === "floor";
   const agencyScope = scope === "agency";
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -328,8 +343,18 @@ export function CollapsedRail({
           // overflow-x hidden explicitly: `overflow-y-auto` alone computes
           // overflow-x to auto, and the icons' hover scale tipped the region
           // into x-overflow — a horizontal scrollbar in a 64px rail.
-          className="flex w-full flex-1 flex-col items-center gap-[calc(var(--t-nav-space,2px)+2px)] overflow-x-hidden overflow-y-auto"
+          className={cn(
+            "flex w-full flex-1 flex-col items-center gap-[calc(var(--t-nav-space,2px)+2px)] overflow-x-hidden overflow-y-auto",
+            // As in the expanded face: the whole region travels, and `waiting`
+            // carries no class so the entrance can replay.
+            swap === "leaving" && "motion-nav-swap-out",
+            swap === "idle" && "motion-nav-swap-in",
+          )}
         >
+          {swap === "waiting" ? (
+            <RailRowsSkeleton />
+          ) : (
+          <>
           {atFloor && !agencyScope ? (
             <>
               {railButton("pinned-rail", "Pinned", <Pin size={16} aria-hidden="true" />, false, onOpenLauncher)}
@@ -345,6 +370,8 @@ export function CollapsedRail({
             ) : null,
           )}
           {renderRailRow(agencyScope ? agencySettings : config.settings)}
+          </>
+          )}
         </div>
         <div aria-hidden="true" data-scroll-fade="bottom" />
       </div>

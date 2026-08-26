@@ -21,6 +21,7 @@ import {
   type CrumbOption,
 } from "@/components/header/app-header";
 import { CollapsedRail } from "@/components/nav/collapsed-rail";
+import { LegacyNav } from "@/components/nav/legacy-nav";
 import {
   ENTRY_CLUSTER_HEIGHT,
   ENTRY_CLUSTER_RAIL_HEIGHT,
@@ -38,6 +39,7 @@ import {
   agencyPlaces,
 } from "@/components/nav/agency-config";
 import { AgencyCompanyPage } from "@/components/settings/agency-company-page";
+import { BusinessProfilePage } from "@/components/settings/business-profile-page";
 import { AgencyPlacePage } from "@/components/settings/agency-place-page";
 import {
   CanvasSkeleton,
@@ -82,6 +84,8 @@ import { useTheme } from "@/components/theme/theme-provider";
 import { useTuning } from "@/components/tuning/tuning-provider";
 import { cn } from "@/lib/utils";
 import { useExitTransition } from "@/lib/use-exit-transition";
+import { useSwapPhase } from "@/lib/use-swap-phase";
+import { NAV_SWAP_OUT_MS } from "@/design/motion-timing";
 import { useFlyoutIntent } from "@/lib/use-flyout-intent";
 import { useMediaQuery } from "@/lib/use-media-query";
 
@@ -157,7 +161,13 @@ const FLYOUT_HOVER_GRACE_MS = 180;
  * accessibility tree.
  */
 export function AppShell({ children }: { children?: React.ReactNode }) {
-  const { effective, setActiveThemeAccount, scopeModel } = useTheme();
+  const {
+    effective,
+    setActiveThemeAccount,
+    scopeModel,
+    navGeneration,
+    setNavGeneration,
+  } = useTheme();
   const { setActiveAccount: setActiveTuningAccount } = useTuning();
   const {
     navTheme,
@@ -557,12 +567,29 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    */
   const plainUser = layout.role === "user";
   const canSwitch = !plainUser;
-  const railActive = scopeModel === "rail" && !plainUser;
+  /*
+   * Production's nav, in place of the proposal's.
+   *
+   * A platform-wide axis, so it is read off the base theme rather than
+   * `effective` — an account override would let one tenant sit on the old nav
+   * while its neighbour sits on the new one, which is a comparison nobody asked
+   * for.
+   */
+  const legacyNav = navGeneration === "legacy";
+  /*
+   * The rail goes with it. The legacy nav carries its own switcher inside the
+   * column — "Click here to switch" — and that IS the model the rail replaces,
+   * so keeping both would put two ways to change account on screen and make the
+   * comparison unreadable.
+   */
+  const railActive = scopeModel === "rail" && !plainUser && !legacyNav;
   /*
    * Expanded shows full account names beside the tiles — the answer to
    * low-quality tenant logos. Panel offsets follow the live width.
    */
-  const navWidth = collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
+  // The legacy nav has no collapsed face — production's own collapse is a
+  // different mechanism and out of scope — so it holds the expanded width.
+  const navWidth = collapsed && !legacyNav ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
   /*
    * Where panels dock. With the account rail live, everything that hangs off
    * the nav's right edge — flyouts, the AI window, the launcher — starts one
@@ -914,17 +941,35 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const hoverFlyout = hoverEnabled ? intent.hover : noHover;
   const hoverPlain = hoverEnabled ? intent.scheduleClear : noHover;
 
-  // Leaving one scope for the other closes whatever was open over the canvas —
-  // a client flyout has no meaning at agency scope and vice versa — and drops
-  // the row selection, which named a row the other scope does not have.
+  /*
+   * An open L2 panel leaves as soon as the switch BEGINS.
+   *
+   * Closing it was previously the scope effect's job, which got both halves
+   * wrong: `scope` only distinguishes agency from sub-account, so moving between
+   * two sub-accounts left the panel up, and `scope` only changes when the switch
+   * COMMITS, so even when it did fire the panel hung there for the whole 2–4
+   * second load and then blinked out at the end. Watching `pending` catches every
+   * switch at its start, and closing through `intent` means the panel plays its
+   * normal exit rather than disappearing.
+   */
+  const switching = accounts.pending !== null;
+  React.useEffect(() => {
+    if (switching) intent.close();
+  }, [switching, intent]);
+
+  // The capsule lives out here rather than in a nav face, so the shell has to
+  // resolve the phase for it. Both faces derive the same one from `loading`.
+  const navSwap = useSwapPhase(switching, NAV_SWAP_OUT_MS);
+
+  // Leaving one scope for the other drops the row selection, which named a row
+  // the other scope does not have. The panel is handled above, on every switch.
   const scopeRef = React.useRef(accounts.scope);
   React.useEffect(() => {
     if (scopeRef.current === accounts.scope) return;
     scopeRef.current = accounts.scope;
-    intent.close();
     setSelectedId(null);
     setManageAccountId(null);
-  }, [accounts.scope, intent]);
+  }, [accounts.scope]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -1067,6 +1112,30 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           tab order. It paints above them via its own z-index.
         */}
         {/*
+          Production's nav takes the whole column, in place of everything below.
+
+          Not a third face beside the two: the capsule, the flyout plumbing, the
+          density tiers and the collapsed rail are all machinery this nav does not
+          have, and rendering them inert behind it would leave the comparison
+          arguing against a version of the old nav that does not exist. One
+          branch, one nav.
+        */}
+        {legacyNav ? (
+          <LegacyNav
+            scope={accounts.scope}
+            account={accounts.current}
+            agency={accounts.agency}
+            theme={navTheme}
+            onLeave={() => setNavGeneration("new")}
+            onSwitchScope={() =>
+              accounts.scope === "agency"
+                ? accounts.switchTo(accounts.current.id)
+                : accounts.switchToAgency()
+            }
+          />
+        ) : (
+        <>
+        {/*
           Withdrawn at the floor tier, where each face shows a plain Favorites row
           inside its scroll region instead. The capsule is positioned absolutely in
           this wrapper, so it cannot join a scroll region — leaving it up would mean
@@ -1077,6 +1146,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           theme={navTheme}
           items={pinnedItems}
           collapsed={collapsed}
+          // Same phase the nav faces compute from the same flag, so the capsule
+          // and the rows leave on one beat instead of two.
+          swap={navSwap}
           onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
           launcherActive={intent.activeId === LAUNCHER_ID}
           overflowCount={overflowCount}
@@ -1124,13 +1196,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             collapsed={collapsed}
             onToggleCollapsed={toggleCollapsed}
             onSearch={() => setSearchOpen(true)}
-            loading={pending !== null}
+            loading={switching}
             introDismissed={introDismissed}
             onDismissIntro={() => setIntroDismissed(true)}
-            // The settled identity, not `headerAccount` — that already shows
-            // the account being switched TO, and keying on it would remount the
-            // list a beat before its contents change.
-            contentKey={agencyScope ? "agency" : accounts.current.id}
             scope={accounts.scope}
             account={headerAccount}
             recentAccounts={recentAccounts}
@@ -1157,6 +1225,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         >
           <CollapsedRail
             theme={navTheme}
+            loading={switching}
             selectedId={selectedId}
             onSelect={selectNavRow}
             openFlyoutId={intent.activeId}
@@ -1187,6 +1256,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 })}
           />
         </div>
+        </>
+        )}
       </div>
       </div>
 
@@ -1296,6 +1367,12 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             >
               {pending ? (
                 <CanvasSkeleton />
+              ) : !agencyScope && selectedId === "setting-business-profile" ? (
+                // The sub-account's own settings page, and the one drawn in
+                // full: it is where a sub-account uploads its logos, so it is
+                // the counterpart to the agency's White label tab. Its Settings
+                // row existed in the flyout with nothing behind it.
+                <BusinessProfilePage account={accounts.current} />
               ) : selectedId === "agency-sub-accounts" ? (
                 manageAccount ? (
                   <SubAccountPage
@@ -1462,6 +1539,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           offsetLeft={leftOffset}
           theme={navTheme}
           phase={launcher.phase}
+          agencyScope={agencyScope}
           onPointerEnter={intent.cancelClear}
           onPointerLeave={intent.scheduleClear}
           onClose={intent.close}

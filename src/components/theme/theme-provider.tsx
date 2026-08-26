@@ -12,6 +12,7 @@ import {
   type NavSections,
   type PageShell,
   type ScopeModel,
+  type NavGeneration,
   type SearchMode,
   type SurfaceTheme,
   type ThemeState,
@@ -61,6 +62,7 @@ interface ThemeContextValue extends ThemeState {
   setRecentsMode: (mode: RecentsMode) => void;
   setAutoCollapse: (enabled: boolean) => void;
   setScopeModel: (model: ScopeModel) => void;
+  setNavGeneration: (generation: NavGeneration) => void;
   setTabsInNav: (enabled: boolean) => void;
   setNavSections: (mode: NavSections) => void;
   setPageShell: (shell: PageShell) => void;
@@ -164,6 +166,8 @@ export function ThemeProvider({
       setRecentsMode: (recentsMode) => setState((s) => ({ ...s, recentsMode })),
       setAutoCollapse: (autoCollapse) => setState((s) => ({ ...s, autoCollapse })),
       setScopeModel: (scopeModel) => setState((s) => ({ ...s, scopeModel })),
+      setNavGeneration: (navGeneration) =>
+        setState((s) => ({ ...s, navGeneration })),
       setTabsInNav: (tabsInNav) => setState((s) => ({ ...s, tabsInNav })),
       setNavSections: (navSections) => setState((s) => ({ ...s, navSections })),
       setPageShell: (pageShell) => setState((s) => ({ ...s, pageShell })),

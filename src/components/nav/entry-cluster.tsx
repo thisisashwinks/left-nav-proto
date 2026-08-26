@@ -16,6 +16,8 @@ import type { AiSession } from "@/components/ai/use-ai-session";
 import { Kbd } from "@/components/search/kbd";
 import { cn } from "@/lib/utils";
 import { RailTooltip } from "./rail-tooltip";
+import { useTheme } from "@/components/theme/theme-provider";
+import { NAV_GENERATIONS, NAV_GENERATION_LABELS } from "@/design/theme";
 
 /**
  * Search and Ask AI together, directly under the logo.
@@ -239,7 +241,19 @@ function EditNavButton({
           ) : null}
         </div>
 
-        <div className="flex items-center justify-end gap-[6px]">
+        <div className="flex items-center justify-between gap-[6px]">
+          {/*
+            The comparison, on the row with the exits rather than up with the
+            tools.
+
+            The tools row is already full — its own comment records Templates
+            being clipped mid-word at three controls — and this is not a tool
+            anyway: Show / hide, Colours and Templates all edit the nav you are
+            in, where this one replaces it wholesale with production's. It
+            belongs beside the buttons that end the session, because choosing the
+            old nav ends it too.
+          */}
+          <GenerationToggle />
           <span className="flex shrink-0 items-center gap-[6px]">
           <button
             type="button"
@@ -413,6 +427,57 @@ function EditTool({
     >
       <Icon size={14} aria-hidden="true" />
     </button>
+  );
+}
+
+/**
+ * New nav / Old nav, as a two-state segmented control.
+ *
+ * A segmented pair rather than a switch: a switch needs a label saying what it
+ * switches, and "Old nav" as a caption beside a toggle reads as though something
+ * is being turned off. Two named segments say what both answers are and which
+ * one you are looking at, in the same width.
+ *
+ * Reads the theme directly instead of taking props. The generation is a
+ * platform-wide review axis living in ThemeState, so threading it down through
+ * LeftNav's props to reach the one card that sets it would add a parameter to
+ * two components that have no other use for it.
+ */
+function GenerationToggle() {
+  const { navGeneration, setNavGeneration } = useTheme();
+
+  return (
+    <span
+      role="radiogroup"
+      aria-label="Which navigation to show"
+      className="flex shrink-0 rounded-[7px] bg-nav-hover p-[2px]"
+    >
+      {NAV_GENERATIONS.map((generation) => {
+        const active = generation === navGeneration;
+        return (
+          <button
+            key={generation}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => setNavGeneration(generation)}
+            title={
+              generation === "legacy"
+                ? "Show the navigation that ships today"
+                : "Show the proposed navigation"
+            }
+            className={cn(
+              "motion-tap rounded-[5px] px-[8px] py-[4px] text-[11px] leading-none font-medium whitespace-nowrap",
+              active
+                ? "bg-nav text-nav-fg shadow-[inset_0_0_0_1px_var(--nav-divider)]"
+                : "text-nav-fg-subtle hover:text-nav-fg-muted",
+            )}
+          >
+            {NAV_GENERATION_LABELS[generation]}
+          </button>
+        );
+      })}
+    </span>
   );
 }
 

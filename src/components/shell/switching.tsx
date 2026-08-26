@@ -42,6 +42,30 @@ export function NavRowsSkeleton({ rows = 9 }: { rows?: number }) {
   );
 }
 
+/**
+ * The same wait, at rail width.
+ *
+ * Not NavRowsSkeleton narrowed: that one pairs an icon with a text bar, and in a
+ * 64px rail there is no label to stand in for — a bar beside the square would be
+ * drawing something the real rows do not have. Squares alone, centred like the
+ * icons they replace.
+ */
+export function RailRowsSkeleton({ rows = 9 }: { rows?: number }) {
+  return (
+    <div
+      aria-hidden="true"
+      className="motion-fade-in flex w-full flex-col items-center gap-[6px] pt-[6px]"
+    >
+      {Array.from({ length: rows }, (_, i) => (
+        <span
+          key={i}
+          className="size-[16px] shrink-0 rounded-[4px] bg-nav-hover"
+        />
+      ))}
+    </div>
+  );
+}
+
 /** The page, while the arriving account's is on its way. */
 export function CanvasSkeleton() {
   return (

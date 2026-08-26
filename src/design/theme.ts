@@ -247,6 +247,27 @@ export const SCOPE_MODEL_LABELS: Record<ScopeModel, string> = {
   header: "Header only",
 };
 
+/**
+ * Which navigation the workspace draws: this proposal, or the one shipping today.
+ *
+ * The whole prototype is an argument about the nav, and an argument needs the
+ * thing it is arguing with on screen. Reviewers had been comparing against a
+ * memory of production, or against screenshots in another window — so `legacy`
+ * draws production's own sidebar, transcribed, and the two become one click
+ * apart.
+ *
+ * A review axis rather than a tenant setting, for the same reason `tabsInNav`
+ * is: the point is to compare the two answers, not to ship both.
+ */
+export const NAV_GENERATIONS = ["new", "legacy"] as const;
+
+export type NavGeneration = (typeof NAV_GENERATIONS)[number];
+
+export const NAV_GENERATION_LABELS: Record<NavGeneration, string> = {
+  new: "New nav",
+  legacy: "Old nav",
+};
+
 export interface ThemeState {
   accent: Accent;
   /** Whether the accent also tints the whites, greys and text. */
@@ -273,6 +294,8 @@ export interface ThemeState {
   launchpad: boolean;
   /** Which workspace-switch model is live. See SCOPE_MODELS. */
   scopeModel: ScopeModel;
+  /** Proposal or production. See NAV_GENERATIONS. */
+  navGeneration: NavGeneration;
   /**
    * Whether a page's tabs ALSO appear as nested rows in the nav.
    *
@@ -328,6 +351,8 @@ export const DEFAULT_THEME: ThemeState = {
   // The rail is the recommendation, so the prototype opens on it. Model A is
   // one click away for the comparison.
   scopeModel: "rail",
+  // The proposal, obviously. `legacy` is the control group, not the default.
+  navGeneration: "new",
   // Off: the proposal's own answer. The toggle is how you argue with it.
   tabsInNav: false,
   navSections: "plain",

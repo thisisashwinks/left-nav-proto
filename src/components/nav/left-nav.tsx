@@ -24,6 +24,8 @@ import type { WorkspaceScope } from "@/components/accounts/use-accounts";
 import { cn } from "@/lib/utils";
 import { useDragTypes } from "@/lib/use-drag-active";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
+import { useSwapPhase } from "@/lib/use-swap-phase";
+import { NAV_SWAP_OUT_MS } from "@/design/motion-timing";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import type { DockPosition, SurfaceTheme } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -97,15 +99,6 @@ interface LeftNavProps {
    */
   introDismissed?: boolean;
   onDismissIntro?: () => void;
-  /**
-   * Changes when the SETTLED account changes, not when a switch starts.
-   *
-   * Remounts the scrolling middle so the arriving rows play their entrance.
-   * Keyed on the committed account rather than the pending one, or the new list
-   * would mount the instant you clicked and animate in while its contents were
-   * still the old account's.
-   */
-  contentKey?: string;
   /** Row the user has selected. Null on first load — nothing is preselected. */
   selectedId: string | null;
   onSelect: (id: string) => void;
@@ -181,7 +174,6 @@ export function LeftNav({
   loading = false,
   introDismissed = false,
   onDismissIntro,
-  contentKey = "",
   scope,
   account,
   recentAccounts,
@@ -194,6 +186,9 @@ export function LeftNav({
   onOpenLauncher,
   recentsBudget,
 }: LeftNavProps) {
+  // Out, hold, in. `loading` alone flips in one commit and so cannot express a
+  // departure — see useSwapPhase.
+  const swap = useSwapPhase(loading, NAV_SWAP_OUT_MS);
   const {
     entryLayout,
     dockPosition,
@@ -1306,6 +1301,23 @@ export function LeftNav({
             // to scroll clear of it — otherwise the last rows sit under the one
             // control that can end the session.
             editing ? "pb-[76px]" : "pb-[2px]",
+            /*
+              Everything the account owns leaves and arrives as one gesture.
+
+              The animation sits on the scroll region itself, not on a wrapper
+              inside it, because every block the switch replaces is a child of
+              this element — pinned row, Launchpad card, Recent accounts, the L1
+              tree, Settings. It used to wrap the L1 tree alone, so the blocks
+              above it held still while the tree slid out from under them, which
+              read as the tree glitching rather than the nav changing.
+
+              `waiting` carries no animation class on purpose: that is what lets
+              the entrance replay. An element keeps a finished animation until its
+              `animation-name` changes, so going out → (none) → in restarts it,
+              where out → in → in would play the entrance only once.
+            */
+            swap === "leaving" && "motion-nav-swap-out",
+            swap === "idle" && "motion-nav-swap-in",
           )}
         >
           {/*
@@ -1320,6 +1332,21 @@ export function LeftNav({
             PinnedRow keeps its density gate — it stands in for the capsule,
             which only leaves at the floor.
           */}
+          {swap === "waiting" ? (
+            /*
+              The arriving account's rows are not here yet, and the ones on
+              screen belong to the account you just left — showing them for
+              three more seconds invites a click into the wrong place.
+            */
+            // `w-full` is load-bearing: the scroll region is `items-start`, so
+            // a bare wrapper shrinks to its content and every row inside — each
+            // `w-full` of THAT — stops short of the nav's edge, stranding the
+            // chevrons mid-row.
+            <div className="w-full">
+              <NavRowsSkeleton />
+            </div>
+          ) : (
+          <>
           {atFloor && !agencyScope && pinnedShown ? (
             <PinnedRow onOpen={onOpenLauncher} />
           ) : null}
@@ -1352,22 +1379,7 @@ export function LeftNav({
             say where it ends.
           */}
           {fixedHasRows ? <NavDivider /> : null}
-          {loading ? (
-            /*
-              The arriving account's rows are not here yet, and the ones on
-              screen belong to the account you just left — showing them for
-              three more seconds invites a click into the wrong place.
-            */
-            // `w-full` is load-bearing: the scroll region is `items-start`, so
-            // a bare wrapper shrinks to its content and every row inside — each
-            // `w-full` of THAT — stops short of the nav's edge, stranding the
-            // chevrons mid-row.
-            <div className="motion-nav-swap-out w-full">
-              <NavRowsSkeleton />
-            </div>
-          ) : (
-            <div key={contentKey} className="motion-nav-swap-in w-full">
-              {bandEverything ? (
+          {bandEverything ? (
             /*
               Settings is inside the last band here, not the bottom anchor it is
               in the plain arrangement. It is one of the not-a-product rows the
@@ -1418,8 +1430,8 @@ export function LeftNav({
               <NavDivider />
               {renderRow(agencyScope ? agencySettings : config.settings)}
             </>
-              )}
-            </div>
+          )}
+          </>
           )}
         </div>
         <div aria-hidden="true" data-scroll-fade="bottom" />

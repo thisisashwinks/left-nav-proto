@@ -42,6 +42,7 @@ export function PinnedLauncher({
   offsetLeft,
   theme,
   phase,
+  agencyScope,
   onPointerEnter,
   onPointerLeave,
   onClose,
@@ -50,6 +51,11 @@ export function PinnedLauncher({
   theme: SurfaceTheme;
   /** Drives the enter/exit animation, as for the product flyouts. */
   phase: TransitionPhase;
+  /**
+   * Whether the panel is open at agency scope. The note under Pinned names the
+   * agency view, which is a lie in a sub-account — the same panel serves both.
+   */
+  agencyScope: boolean;
   /** Keeps the panel alive while the pointer is inside it. */
   onPointerEnter?: () => void;
   onPointerLeave?: () => void;
@@ -192,6 +198,7 @@ export function PinnedLauncher({
         {pinnedIds.length > 0 ? (
           <>
             <SectionHeading count={state.pinned.length}>Pinned</SectionHeading>
+            {agencyScope ? <PinnedScopeNote /> : null}
             {pinnedIds.map((id) => {
               const index = state.pinned.indexOf(id);
               return (
@@ -220,6 +227,7 @@ export function PinnedLauncher({
           // is not an empty pin list, so it drops the section instead.
           <>
             <SectionHeading>Pinned</SectionHeading>
+            {agencyScope ? <PinnedScopeNote /> : null}
             <p className="w-full px-[2px] pb-[4px] text-[12.5px] leading-[17px] text-nav-fg-subtle">
               No pinned items yet. Pin anything below and it appears at the top
               of the nav.
@@ -722,6 +730,27 @@ function TinyButton({
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * Says who a pin belongs to, under the Pinned heading at agency scope.
+ *
+ * Pins read as global from inside this panel: nothing on the surface says the
+ * arrangement is the agency's own, so an admin curating it here can reasonably
+ * expect every sub-account to inherit it. They do not — each account and user
+ * carries its own pin list — and the correction is cheaper as a line of copy
+ * here than as a surprise later.
+ */
+function PinnedScopeNote() {
+  return (
+    // Sits 4px under the heading. The scroll column spaces its children 10px
+    // apart and the heading carries 2px of its own bottom padding, so reaching
+    // 4px means pulling 8px back rather than setting a margin outright.
+    <p className="mt-[-8px] w-full px-[2px] pb-[2px] text-[12.5px] leading-[17px] text-nav-fg-subtle">
+      Pins here apply to this agency view only. Sub-accounts and users keep
+      their own pinned items.
+    </p>
   );
 }
 
