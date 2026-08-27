@@ -15,6 +15,19 @@ import type {
   CatalogueEntry,
 } from "@/components/nav/catalogue";
 import { cn } from "@/lib/utils";
+import { InboxPage } from "./inbox-page";
+
+/**
+ * The products whose landing view IS the inbox, in both catalogues.
+ *
+ * Two ids for one product because the shipped tree and the proposed IA each
+ * carry their own copy of it — the same page under two names, which is the
+ * whole point of having two trees to compare.
+ */
+const INBOX_PRODUCT_IDS = new Set(["conversations", "ia-crm-conversations"]);
+
+/** The L2 that is the inbox itself, where the proposed tree breaks it out. */
+const INBOX_CHILD_IDS = new Set(["ia-crm-conversations-inbox"]);
 
 interface ProductPageProps {
   /**
@@ -43,6 +56,17 @@ export function ProductPage({
   initialTab,
 }: ProductPageProps) {
   const { effective } = useTheme();
+  /*
+   * The inbox gets the real page; everything else gets the stage.
+   *
+   * Landing on Conversations with no child selected counts: the inbox is what
+   * that product IS, and dropping someone onto a skeleton table when they
+   * clicked the row named Conversations would be the one page in the prototype
+   * that lies about where it took you.
+   */
+  const isInbox =
+    INBOX_PRODUCT_IDS.has(product.id) &&
+    (childId === null || INBOX_CHILD_IDS.has(childId));
   const pages = React.useMemo(
     () => (product.tabs ? [] : flattenPages(product.children ?? [])),
     [product],
@@ -95,6 +119,22 @@ export function ProductPage({
     subTabs.find((t) => t.id === (activeSubTab ?? seeded.sub))?.id ??
     subTabs[0]?.id ??
     null;
+
+  /*
+   * After the hooks, never before them.
+   *
+   * Every hook above runs for the inbox too and its results go unused, which is
+   * the price of the rule — returning early from the middle of a component that
+   * has already called four of them is how a render crashes on the NEXT page
+   * you navigate to, not this one.
+   */
+  if (isInbox) {
+    return (
+      <div data-page-theme={effective.appTheme} className="h-full min-h-0">
+        <InboxPage />
+      </div>
+    );
+  }
 
   return (
     <div

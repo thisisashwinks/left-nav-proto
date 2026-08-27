@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
+import { cn } from "@/lib/utils";
 
 /** Gap between the icon's right edge and the tooltip. */
 const OFFSET = 8;
@@ -23,9 +24,19 @@ const OFFSET = 8;
  */
 export function RailTooltip({
   label,
+  placement = "right",
   children,
 }: {
   label: string;
+  /**
+   * Which side the pill sits on.
+   *
+   * `right` is the rail's, and anchors to the rail's edge rather than the
+   * icon's. `below` is for the pinned capsule when it is a horizontal row: a
+   * tooltip to the right of a chip would land on the chip beside it, which is
+   * the one place it must not be.
+   */
+  placement?: "right" | "below";
   children: React.ReactNode;
 }) {
   const ref = React.useRef<HTMLSpanElement>(null);
@@ -41,6 +52,10 @@ export function RailTooltip({
     // Offset from the rail's edge, not the icon's. The icon is inset from the
     // rail, so anchoring to it left the tooltip starting a few px inside the
     // nav — visually attached to the wrong thing.
+    if (placement === "below") {
+      setPos({ top: box.bottom + OFFSET, left: box.left + box.width / 2 });
+      return;
+    }
     const railRight =
       trigger.closest("nav")?.getBoundingClientRect().right ?? box.right;
     setPos({
@@ -75,7 +90,12 @@ export function RailTooltip({
                 backgroundColor: "#0f172a",
                 color: "#e2e8f0",
               }}
-              className="motion-tap pointer-events-none fixed z-[60] -translate-y-1/2 rounded-[6px] px-[8px] py-[4px] text-[12px] leading-none whitespace-nowrap shadow-[0_4px_12px_0_rgba(15,23,42,0.24)]"
+              className={cn(
+                "motion-tap pointer-events-none fixed z-[60] rounded-[6px] px-[8px] py-[4px] text-[12px] leading-none whitespace-nowrap shadow-[0_4px_12px_0_rgba(15,23,42,0.24)]",
+                // Centred on the icon either way: vertically beside it, or
+                // horizontally under it.
+                placement === "below" ? "-translate-x-1/2" : "-translate-y-1/2",
+              )}
             >
               {label}
             </div>,

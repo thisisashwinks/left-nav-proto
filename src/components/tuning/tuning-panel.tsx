@@ -25,6 +25,8 @@ import {
   FLYOUT_TRIGGERS,
   PAGE_SHELL_LABELS,
   PAGE_SHELLS,
+  INBOX_PALETTE_LABELS,
+  INBOX_PALETTES,
   LAYOUT_REPLACE_DIALOG_LABELS,
   LAYOUT_REPLACE_DIALOGS,
   RAIL_TILE_SHAPE_LABELS,
@@ -50,6 +52,7 @@ import {
   type EntryLayout,
   type GetAppPlacement,
   type FlyoutTrigger,
+  type InboxPalette,
   type LayoutReplaceDialog,
   type PageShell,
   type RailTileShape,
@@ -1193,6 +1196,8 @@ export function TuningPanel() {
     setGetAppPlacement,
     pageShell,
     setPageShell,
+    inboxPalette,
+    setInboxPalette,
     navGeneration,
     setNavGeneration,
     navSwitchInEditCard,
@@ -1219,7 +1224,8 @@ export function TuningPanel() {
     (navTheme !== DEFAULT_THEME.navTheme ? 1 : 0) +
     (headerTheme !== DEFAULT_THEME.headerTheme ? 1 : 0) +
     (appTheme !== DEFAULT_THEME.appTheme ? 1 : 0) +
-    (pageShell !== DEFAULT_THEME.pageShell ? 1 : 0);
+    (pageShell !== DEFAULT_THEME.pageShell ? 1 : 0) +
+    (inboxPalette !== DEFAULT_THEME.inboxPalette ? 1 : 0);
 
   const searchChanged =
     (searchMode !== DEFAULT_THEME.searchMode ? 1 : 0) +
@@ -1234,6 +1240,7 @@ export function TuningPanel() {
     setHeaderTheme(DEFAULT_THEME.headerTheme);
     setAppTheme(DEFAULT_THEME.appTheme);
     setPageShell(DEFAULT_THEME.pageShell);
+    setInboxPalette(DEFAULT_THEME.inboxPalette);
   };
 
   const resetSearch = () => {
@@ -1527,6 +1534,27 @@ export function TuningPanel() {
               : pageShell === "canvas"
                 ? "Breadcrumb, avatar and utilities become the canvas's own top band — one card, filled band, page ground under the hairline."
                 : "The same card filled all the way down: bar and page on one white surface, cards reading by their rings alone."}
+          </Note>
+
+          {/*
+            One page's palette, in the section about colour.
+
+            It is not a theme axis in the ordinary sense — nothing else in the
+            app reads it — but "which colours is this drawn in" is the question
+            this section answers, and filing it under Nav structure because it
+            happens to affect one page would be filing it by accident.
+          */}
+          <Segmented
+            label="Inbox colours"
+            options={INBOX_PALETTES}
+            value={inboxPalette}
+            onChange={(v: InboxPalette) => setInboxPalette(v)}
+            format={(v) => INBOX_PALETTE_LABELS[v]}
+          />
+          <Note>
+            {inboxPalette === "product"
+              ? "Conversations ▸ Inbox in the shipped page's own greys, blue and WhatsApp green. Fixed — it stays light when the app goes dark, as the real page does."
+              : "The inbox on this prototype's page tokens, so it follows light, dark and the accent like every other surface here."}
           </Note>
         </Section>
 

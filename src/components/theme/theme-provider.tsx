@@ -17,6 +17,7 @@ import {
   type MergedPinOrder,
   type MergedHeading,
   type MergedAgencyRecents,
+  type InboxPalette,
   type LayoutReplaceDialog,
   type NavSections,
   type RailTileShape,
@@ -117,6 +118,7 @@ interface ThemeContextValue extends ThemeState {
   setTabsInNav: (enabled: boolean) => void;
   setNavSections: (mode: NavSections) => void;
   setLayoutReplaceDialog: (mode: LayoutReplaceDialog) => void;
+  setInboxPalette: (palette: InboxPalette) => void;
   setRailTileShape: (shape: RailTileShape) => void;
   setPageShell: (shell: PageShell) => void;
   /**
@@ -268,6 +270,8 @@ export function ThemeProvider({
       setNavSections: (navSections) => setState((s) => ({ ...s, navSections })),
       setLayoutReplaceDialog: (layoutReplaceDialog) =>
         setState((s) => ({ ...s, layoutReplaceDialog })),
+      setInboxPalette: (inboxPalette) =>
+        setState((s) => ({ ...s, inboxPalette })),
       setRailTileShape: (railTileShape) =>
         setState((s) => ({ ...s, railTileShape })),
       setPageShell: (pageShell) => setState((s) => ({ ...s, pageShell })),

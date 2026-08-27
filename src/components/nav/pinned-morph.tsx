@@ -5,6 +5,8 @@ import { ChevronRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { DockLabel, DockPosition, SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
+import { ComposedIcon } from "./composed-icon";
+import { RailTooltip } from "./rail-tooltip";
 import type { SwapPhase } from "@/lib/use-swap-phase";
 import type { PinnedRailItem } from "./types";
 
@@ -151,6 +153,8 @@ const COLLAPSED_NAV_WIDTH = 64;
 interface DockButtonProps {
   label: string;
   icon: LucideIcon;
+  /** The row's own glyph, when `icon` is its parent's. See ComposedIcon. */
+  badge?: LucideIcon;
   /**
    * Absolute placement inside the row. `top` or `bottom` depending on which edge
    * the band is anchored to — the icons have to be pinned to the edge the band
@@ -159,7 +163,18 @@ interface DockButtonProps {
   slot: React.CSSProperties;
   /** True only in `under` mode, where each icon carries its own caption. */
   showLabel: boolean;
-  /** Native tooltip, for the modes with no visible caption. */
+  /** Which side the tooltip sits on — under the chip row, beside the rail. */
+  placement: "right" | "below";
+  /**
+   * Name the icon on hover, for the modes with no visible caption.
+   *
+   * A real tooltip rather than the native `title` it used to set. The dock is
+   * the one surface in the nav with no text on it at all, so the name is not a
+   * nicety here — and a browser tooltip arrives a second late, in the OS's own
+   * styling, which is exactly wrong for the fastest row in the nav. It also
+   * carries the qualifier: "Opportunities › Settings", which is the whole
+   * reason you would hover a gear.
+   */
   titled: boolean;
   onClick?: () => void;
   /** Reports hover up, so a shared caption can name what is under the pointer. */
@@ -177,17 +192,17 @@ interface DockButtonProps {
 function DockButton({
   label,
   icon: Icon,
+  badge,
   slot,
   showLabel,
   titled,
+  placement,
   onClick,
   onHoverChange,
 }: DockButtonProps) {
-  return (
+  const button = (
     <button
       type="button"
-      // A visible caption already names it; a native tooltip would duplicate it.
-      title={titled ? label : undefined}
       aria-label={label}
       onClick={onClick}
       onPointerEnter={() => onHoverChange?.(true)}
@@ -215,12 +230,22 @@ function DockButton({
           aria-hidden="true"
           className="motion-dock absolute top-[-6px] left-[-6px] size-[28px] rounded-full bg-nav-rail-hi opacity-0 group-hover/dock:opacity-100 group-focus-visible/dock:opacity-100"
         />
-        <Icon
-          size={16}
-          aria-hidden="true"
-          className="relative"
+        {/*
+          Sized by the dock knob, so a retuned dock takes the badge with it.
+          The knockout paints the capsule's own fill — the badge sits on the
+          rail, not on the nav behind it.
+        */}
+        <span
+          className="relative block"
           style={{ width: "var(--t-dock-icon, 16px)", height: "var(--t-dock-icon, 16px)" }}
-        />
+        >
+          <ComposedIcon
+            icon={Icon}
+            {...(badge ? { badge } : {})}
+            size={16}
+            className="size-full"
+          />
+        </span>
       </span>
 
       {showLabel ? (
@@ -232,6 +257,21 @@ function DockButton({
         </span>
       ) : null}
     </button>
+  );
+
+  /*
+   * The tooltip wraps the button rather than living inside it.
+   *
+   * `RailTooltip` measures its first child, and the button is the thing with a
+   * box — the wrapper is `display: contents`, so the dock's absolute slot
+   * geometry is untouched by it.
+   */
+  return titled ? (
+    <RailTooltip label={label} placement={placement}>
+      {button}
+    </RailTooltip>
+  ) : (
+    button
   );
 }
 
@@ -413,16 +453,25 @@ export function PinnedMorph({
           )}
         />
 
-        {visible.map(({ id, label, icon }, i) => (
+        {visible.map(({ id, label, icon, badge }, i) => (
           <DockButton
             key={id}
             label={label}
             icon={icon}
+            {...(badge ? { badge } : {})}
             slot={slotStyle(i)}
             showLabel={g.showLabels && dockLabel === "under"}
-            // The rail relies on RailTooltip, so it wants no native title; the
-            // expanded nav wants one wherever there is no visible caption.
-            titled={!g.showLabels || dockLabel !== "under"}
+            /*
+              Named on hover unless a caption is already naming it.
+
+              Both caption modes are suppressed, `center` included — it names
+              the hovered icon too, and a pill saying the same words two
+              hundred pixels away is a second answer to a question already
+              answered. With no caption at all, which is the default, every
+              icon gets one.
+            */
+            titled={!(g.showLabels && dockLabel !== "none")}
+            placement={collapsed ? "right" : "below"}
             onClick={() => onSelect?.(id)}
             {...(centred
               ? {
@@ -518,9 +567,16 @@ export function PinnedMorph({
           which is what makes unlimited pinning safe: the row shows what fits,
           the panel holds the rest and says how many.
         */}
+        <RailTooltip
+          label={
+            overflowCount > 0
+              ? `All products · ${overflowCount} more pinned`
+              : "All products"
+          }
+          placement={collapsed ? "right" : "below"}
+        >
         <button
           type="button"
-          title="All products"
           aria-label={
             overflowCount > 0
               ? `All products, ${overflowCount} more pinned`
@@ -564,6 +620,7 @@ export function PinnedMorph({
             </span>
           ) : null}
         </button>
+        </RailTooltip>
       </div>
     </div>
   );

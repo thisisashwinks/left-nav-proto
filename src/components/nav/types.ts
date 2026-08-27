@@ -42,6 +42,15 @@ export interface PinnedRailItem {
   id: string;
   label: string;
   icon: LucideIcon;
+  /**
+   * The row's own glyph, when `icon` is its parent's.
+   *
+   * Set for a pinned row whose name had to be qualified — "Opportunities ›
+   * Settings" — where the base becomes the parent's mark and this drops to a
+   * badge on its corner. See `glyphFor`. Absent for everything else, which is
+   * most rows.
+   */
+  badge?: LucideIcon;
 }
 
 export interface NavConfig {

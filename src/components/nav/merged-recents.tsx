@@ -14,7 +14,8 @@ import { useTheme } from "@/components/theme/theme-provider";
 import { agencyPlaces } from "./agency-config";
 import { useAgencyLayout } from "./agency-layout";
 import { childById, productById } from "./catalogue";
-import type { NavLayoutState } from "./grouping";
+import { glyphFor, type NavLayoutState } from "./grouping";
+import { ComposedIcon } from "./composed-icon";
 import { useNavLayout } from "./nav-layout-provider";
 
 /**
@@ -59,6 +60,8 @@ export interface MergedRow {
   id: string;
   label: string;
   icon: LucideIcon | undefined;
+  /** The row's own glyph, when `icon` is its parent's. See ComposedIcon. */
+  badge?: LucideIcon;
   /**
    * Drawn in the icon's place when the row is not a place at all.
    *
@@ -279,8 +282,7 @@ export function MergedRecentsBlock({
   onSelect: (id: string) => void;
   onOpenPanel: () => void;
 }) {
-  const { state, groups, productLabelFor, productIconFor, togglePin } =
-    useNavLayout();
+  const { state, groups, productLabelFor, togglePin } = useNavLayout();
   const { mergedRowDetail, mergedPinOrder } = useTheme().effective;
 
   /** Which group a product sits in, for the breadcrumb under its name. */
@@ -316,16 +318,20 @@ export function MergedRecentsBlock({
       // The same guard the dock uses: a pin can name an L3 as well as a product,
       // and an id that resolves to neither is a row the nav cannot draw.
       if (!productById(id) && !childById(id)) return null;
+      // The same composite the dock and the panel draw, so one pin looks like
+      // itself wherever you meet it.
+      const glyph = glyphFor(state, id);
       return {
         id,
         label: productLabelFor(id),
-        icon: productIconFor(id),
+        icon: glyph.icon,
+        ...(glyph.badge ? { badge: glyph.badge } : {}),
         detail: detailFor(id),
         pinned,
         onTogglePin: () => togglePin(id),
       };
     },
-    [productLabelFor, productIconFor, detailFor, togglePin],
+    [state, productLabelFor, detailFor, togglePin],
   );
 
   const pins = React.useMemo(
@@ -557,18 +563,15 @@ function MergedItemRow({
         onClick={onSelect}
         className="flex min-w-0 flex-1 items-center gap-[var(--t-nav-gap,10px)] text-left"
       >
-        {row.avatar ?? (
-          Icon ? (
-            <Icon
+        {row.avatar ??
+          (Icon ? (
+            <ComposedIcon
+              icon={Icon}
+              {...(row.badge ? { badge: row.badge } : {})}
               size={16}
-              aria-hidden="true"
-              className={cn(
-                "shrink-0",
-                active ? "text-nav-fg" : "text-nav-fg-muted",
-              )}
+              className={active ? "text-nav-fg" : "text-nav-fg-muted"}
             />
-          ) : null
-        )}
+          ) : null)}
         <span className="flex min-w-0 flex-col">
           <span className="truncate text-[length:var(--t-nav-font,14px)] leading-[18px] text-nav-fg">
             {row.label}

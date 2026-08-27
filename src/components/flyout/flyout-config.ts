@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import type { FlyoutConfig, FlyoutEntry, FlyoutItem } from "./types";
 
+
 const item = (i: FlyoutItem): FlyoutEntry => ({ kind: "item", item: i });
 const label = (id: string, text: string): FlyoutEntry => ({
   kind: "label",

@@ -7,7 +7,7 @@ import {
   type NavLayoutState,
   type ResolvedGroup,
 } from "./grouping";
-import { PROPOSED_SETTINGS_ID } from "./proposed-ia";
+import { PROPOSED_AI_ID, PROPOSED_SETTINGS_ID } from "./proposed-ia";
 import type { NavEntry, NavItem } from "./types";
 
 /**
@@ -151,6 +151,18 @@ export function navEntriesFor(
       icon: group.icon,
       hasFlyout: true,
       flyoutId: group.id,
+      /*
+       * The AI shelf wears the AI mark.
+       *
+       * `ai` swaps the icon for the purple sparkle and tints the label — the
+       * treatment the shipped tree gives its AI Agents row. The proposed tree
+       * folded that entry point into a bucket, and the mark went with it, so
+       * the one row in the nav that is a different KIND of thing read exactly
+       * like Content. Keyed off the id rather than a field on the group,
+       * because "is this the AI shelf" is a fact about the IA and not
+       * something an account should be able to set on any category it likes.
+       */
+      ...(group.id === PROPOSED_AI_ID ? { ai: true } : {}),
     },
   });
 

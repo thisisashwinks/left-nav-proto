@@ -20,7 +20,8 @@ import type { TransitionPhase } from "@/lib/use-exit-transition";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
 import type { CatalogueChild } from "./catalogue-types";
 import { childById, productById } from "./catalogue";
-import { GROUPING_LABELS, type ResolvedGroup } from "./grouping";
+import { glyphFor, GROUPING_LABELS, type ResolvedGroup } from "./grouping";
+import { ComposedIcon } from "./composed-icon";
 import { nameForIcon } from "./icon-catalogue";
 import { IconPicker, useIconPicker } from "./icon-picker";
 import { InlineRename } from "./inline-rename";
@@ -872,7 +873,15 @@ function ProductRow({
   const layout = useNavLayout();
   const { can } = layout;
   const [dragging, setDragging] = React.useState(false);
-  const icon = external?.icon ?? layout.productIconFor(productId);
+  /*
+   * The parent's mark with the row's own badged onto it, for a lifted row whose
+   * name had to be qualified. `external` rows are the agency's, which the
+   * catalogue cannot resolve and which have no lifted rows to disambiguate.
+   */
+  const glyph = external
+    ? { icon: external.icon, badge: undefined }
+    : glyphFor(layout.state, productId);
+  const icon = glyph.icon;
   const label = external?.label ?? layout.productLabelFor(productId);
   const renamed = external ? false : layout.isProductRenamed(productId);
 
@@ -937,8 +946,9 @@ function ProductRow({
           cannot hover without it turning into something else is not a picker.
         */
         <span className="relative flex size-[18px] shrink-0 cursor-grab items-center justify-center active:cursor-grabbing">
-          <ResolvedIcon
+          <ComposedIcon
             icon={icon}
+            {...(glyph.badge ? { badge: glyph.badge } : {})}
             size={18}
             className="text-nav-fg-muted transition-opacity duration-100 group-hover/row:opacity-0"
           />
@@ -956,10 +966,19 @@ function ProductRow({
           onClick={(e) => onPickIcon(e.currentTarget)}
           className="motion-tap flex size-[22px] shrink-0 items-center justify-center rounded-[5px] text-nav-fg-muted outline-[1px] outline-offset-0 outline-transparent group-hover/row:outline-dashed group-hover/row:outline-[var(--nav-divider)] hover:bg-nav-hover"
         >
-          <ResolvedIcon icon={icon} size={18} />
+          <ComposedIcon
+            icon={icon}
+            {...(glyph.badge ? { badge: glyph.badge } : {})}
+            size={18}
+          />
         </button>
       ) : (
-        <ResolvedIcon icon={icon} size={18} className="text-nav-fg-muted" />
+        <ComposedIcon
+          icon={icon}
+          {...(glyph.badge ? { badge: glyph.badge } : {})}
+          size={18}
+          className="text-nav-fg-muted"
+        />
       )}
 
       {renaming && onEndRename ? (

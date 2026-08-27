@@ -527,6 +527,31 @@ export const SCOPE_MODEL_LABELS: Record<ScopeModel, string> = {
  * one destructive moment deserves, and it is answered by watching people meet
  * it, not by arguing about it.
  */
+/**
+ * Which palette the Conversations inbox paints itself in.
+ *
+ *  tokens   The prototype's own page tokens, like every other surface here: it
+ *           follows light and dark, and the accent, so the inbox changes with
+ *           whatever is being reviewed.
+ *  product  The colours the shipped inbox actually uses — the greys, the blue
+ *           and the WhatsApp green off the real screen. Pixel-close to what a
+ *           customer sees today, and deliberately fixed: it does not follow the
+ *           app theme, because the page it is imitating does not either.
+ *
+ * Scoped to the inbox on purpose. It is the one page in the prototype drawn
+ * from a screenshot rather than from the design system, so it is the one page
+ * where "does our system change how this reads" is a question worth being able
+ * to answer by flipping between the two.
+ */
+export const INBOX_PALETTES = ["product", "tokens"] as const;
+
+export type InboxPalette = (typeof INBOX_PALETTES)[number];
+
+export const INBOX_PALETTE_LABELS: Record<InboxPalette, string> = {
+  product: "Product",
+  tokens: "Prototype",
+};
+
 export const LAYOUT_REPLACE_DIALOGS = ["simple", "keep-old"] as const;
 
 export type LayoutReplaceDialog = (typeof LAYOUT_REPLACE_DIALOGS)[number];
@@ -627,6 +652,8 @@ export interface ThemeState {
    * product would most likely do.
    */
   navSwitchInEditCard: boolean;
+  /** Which palette the Conversations inbox uses. See INBOX_PALETTES. */
+  inboxPalette: InboxPalette;
   /** How replacing my layout is confirmed. See LAYOUT_REPLACE_DIALOGS. */
   layoutReplaceDialog: LayoutReplaceDialog;
   /** Which colour control the edit card carries. See NAV_COLOUR_CONTROLS. */
@@ -746,6 +773,9 @@ export const DEFAULT_THEME: ThemeState = {
   // The icon, not the panel: one click for the decision people actually repeat.
   // The two-button version is the proposal: one destructive moment, one
   // sentence, two answers. The template-saving version is one click away.
+  // The real thing by default: the page is a transcription of a screenshot, so
+  // it opens looking like the screenshot. The tokened version is one click away.
+  inboxPalette: "product",
   layoutReplaceDialog: "simple",
   navColourControl: "toggle",
   // On, for the same reason: the comparison should be one menu away.

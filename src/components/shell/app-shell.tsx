@@ -43,11 +43,15 @@ import {
   agencyPlaces,
 } from "@/components/nav/agency-config";
 import { useAgencyLayout } from "@/components/nav/agency-layout";
+import { AskAiPage } from "@/components/ai/ask-ai-page";
 import { AgencyCompanyPage } from "@/components/settings/agency-company-page";
 import { BusinessProfilePage } from "@/components/settings/business-profile-page";
 import {
   LEGACY_BUSINESS_PROFILE_ID,
+  PROPOSED_ASK_AI_ID,
   PROPOSED_BUSINESS_PROFILE_ID,
+  PROPOSED_CONTACTS_ID,
+  PROPOSED_CONTACTS_LIST_ID,
 } from "@/components/nav/proposed-ia";
 import { AgencyPlacePage } from "@/components/settings/agency-place-page";
 import {
@@ -66,7 +70,7 @@ import {
   PROPOSED_HOME_ID,
   PROPOSED_SETTINGS_ID,
 } from "@/components/nav/proposed-ia";
-import { isBlockHidden, UNGROUPED_ID } from "@/components/nav/grouping";
+import { glyphFor, isBlockHidden, UNGROUPED_ID } from "@/components/nav/grouping";
 import {
   contactsAreaLabel,
   ContactsAreaProvider,
@@ -630,11 +634,24 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         .filter(
           (id) => productById(id) !== undefined || childById(id) !== undefined,
         )
-        .map((id) => ({
-          id,
-          label: productLabelFor(id),
-          icon: productIconFor(id),
-        }));
+        .map((id) => {
+          /*
+           * A lifted row wears its parent's mark with its own on the corner.
+           *
+           * The dock is the surface that needed this: pin two Settings rows and
+           * it drew two identical gears, with no label anywhere to tell them
+           * apart. `glyphFor` decides which rows qualify — the same condition
+           * that decides which labels get a "Opportunities › " in front of them,
+           * so the icon and the name can never disagree.
+           */
+          const glyph = glyphFor(layout, id);
+          return {
+            id,
+            label: productLabelFor(id),
+            icon: glyph.icon,
+            ...(glyph.badge ? { badge: glyph.badge } : {}),
+          };
+        });
   const overflowCount = Math.max(0, layout.pinned.length - PINNED_VISIBLE);
 
   /*
@@ -1488,6 +1505,22 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             >
               {pending ? (
                 <CanvasSkeleton />
+              ) : canvasPage?.productId === PROPOSED_ASK_AI_ID ? (
+                /*
+                 * The assistant as a destination.
+                 *
+                 * One row, one id, one page. Ask AI briefly existed twice — a
+                 * hand-declared row in the shipped tree's AI Agents panel as
+                 * well as the catalogue product the proposed tree already had —
+                 * and two rows for one page is two things to keep in step for
+                 * no gain. The catalogue entry wins: it is the one the IA
+                 * authored, and it carries its own label, icon and blurb.
+                 *
+                 * Ahead of the product-page branch below, which would otherwise
+                 * open the demo-stage table under a heading promising "the
+                 * assistant, its history and its templates".
+                 */
+                <AskAiPage />
               ) : businessProfileShowing ? (
                 // The sub-account's own settings page, and the one drawn in
                 // full: it is where a sub-account uploads its logos, so it is
@@ -1520,6 +1553,24 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                     ? { tabs: agencyPlace.tabs }
                     : {})}
                 />
+              ) : canvasPage?.productId === PROPOSED_CONTACTS_ID &&
+                (canvasPage.childId === null ||
+                  canvasPage.childId === PROPOSED_CONTACTS_LIST_ID) ? (
+                /*
+                 * CRM ▸ Contacts ▸ List is Smart lists.
+                 *
+                 * The same hand-built page the shipped tree opens on, at the
+                 * place the proposed tree files it. Without this an account on
+                 * this IA got the demo-stage grid on the one screen in the
+                 * prototype that has real furniture — and the two trees
+                 * disagreed about whether Contacts was a real page.
+                 *
+                 * `childId === null` is in the test because Contacts has no
+                 * tabs of its own, so the nav resolves the row to its first
+                 * child; a caller that opens the product bare must land in the
+                 * same place rather than on a blank product page.
+                 */
+                children
               ) : canvasPage && productById(canvasPage.productId) ? (
                 <ProductPage
                   key={`${canvasPage.productId}:${canvasPage.tabId ?? ""}`}

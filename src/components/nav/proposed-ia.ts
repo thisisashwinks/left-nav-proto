@@ -161,6 +161,20 @@ export interface ProposedBucket extends CatalogueGroup {
  * it hangs under Conversation AI.
  */
 const AI: CatalogueEntry[] = [
+  /*
+   * First in the bucket, not last.
+   *
+   * Every other row here is an agent you configure and leave running; this is
+   * the one you talk to. It leads because it is the only row a first-time
+   * visitor can use without setting anything up — and filing the conversational
+   * surface below twelve automations buries the door most people came for.
+   */
+  {
+    id: "ia-ai-ask",
+    label: "Ask AI",
+    icon: MessageSquareText,
+    blurb: "The assistant, its history and its templates.",
+  },
   {
     id: "ia-ai-getting-started",
     label: "Getting Started",
@@ -260,12 +274,6 @@ const AI: CatalogueEntry[] = [
     blurb: "Score agent answers before customers see them.",
     tabs: true,
     children: [{ id: "ia-ai-evaluations-ask", label: "Ask AI Evaluations" }],
-  },
-  {
-    id: "ia-ai-ask",
-    label: "Ask AI",
-    icon: MessageSquareText,
-    blurb: "The assistant, its history and its templates.",
   },
 ];
 
@@ -1337,6 +1345,17 @@ export const proposedBuckets: ProposedBucket[] = [
 export const PROPOSED_SETTINGS_ID = "ia-settings";
 
 /**
+ * The AI bucket, named so the nav can draw it as an AI row.
+ *
+ * The shipped tree marks its AI entry point with the purple sparkle and purple
+ * label — it is the one row in the nav that is a different KIND of thing, not
+ * just a different area. The proposed tree folded that entry point into a
+ * bucket and lost the mark with it, which left the nav's most distinctive row
+ * looking like Content. Same treatment, whichever tree is on.
+ */
+export const PROPOSED_AI_ID = "ia-ai";
+
+/**
  * Business Profile, which is a real page rather than a stub.
  *
  * Named here because the shell has to recognise it: on the proposed tree the row
@@ -1348,6 +1367,33 @@ export const PROPOSED_BUSINESS_PROFILE_ID = "ia-settings-business";
 
 /** The same page as reached from the non-proposed account settings menu. */
 export const LEGACY_BUSINESS_PROFILE_ID = "setting-business-profile";
+
+/**
+ * Ask AI, the other product on this tree with a hand-built page behind it.
+ *
+ * Same reasoning as Business Profile: on the proposed tree the assistant is a
+ * catalogue product like any other, so clicking it opened the demo-stage table
+ * — an empty grid under a heading promising "the assistant, its history and its
+ * templates". The shell has to know this one has a real canvas.
+ */
+export const PROPOSED_ASK_AI_ID = "ia-ai-ask";
+
+/**
+ * Contacts, and the saved-lists page under it.
+ *
+ * The third product on this tree with a hand-built page behind it. Smart lists
+ * is the one canvas in the prototype with real furniture — a chip rail, a
+ * sixteen-row table, a selection bar — and on the proposed tree it was
+ * unreachable: the shell only recognised the SHIPPED catalogue's `contacts`,
+ * so an account on this IA got the demo-stage grid at the exact spot the page
+ * belongs.
+ *
+ * Named at both levels because only the List child earns it. Tags and
+ * Engagement Score are their own pages and stay stubs; handing all three the
+ * contacts table would be the tree claiming three places are one.
+ */
+export const PROPOSED_CONTACTS_ID = "ia-crm-contacts";
+export const PROPOSED_CONTACTS_LIST_ID = "ia-crm-contacts-list";
 
 /** Product ids that render as top-level destination rows rather than in a bucket. */
 export const PROPOSED_DESTINATION_IDS: readonly string[] = ids(DESTINATIONS);

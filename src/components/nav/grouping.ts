@@ -560,6 +560,70 @@ export function labelForProduct(
   return `${labelForProduct(state, parentId)} › ${base}`;
 }
 
+/**
+ * The parent a lifted row should wear the glyph of, or null.
+ *
+ * The exact condition `labelForProduct` uses to prefix a row with "Opportunities
+ * › ", deliberately: the icon and the label are answering one question — "which
+ * Settings is this" — and a row whose name says it was lifted while its glyph
+ * says nothing is a row that solved the problem in text only. Three products
+ * ship a Settings, and in a 16px dock there is no text at all.
+ *
+ * Null when nothing is ambiguous. A pinned "Pipelines" is unique, keeps its
+ * plain name, and has no business wearing a badge that implies otherwise.
+ */
+export function qualifiedParentFor(
+  state: NavLayoutState,
+  productId: string,
+): string | null {
+  /*
+   * A rename or a chosen icon is the user answering this themselves.
+   *
+   * Both are the gesture someone reaches for when two rows look alike, and
+   * composing over the top of either would be arguing with the answer. The
+   * rename rule is `labelForProduct`'s own; the icon rule is its equivalent for
+   * the glyph, and it has to be here rather than there because only this
+   * function is about the glyph.
+   */
+  if (
+    state.accountProductLabels[productId] !== undefined ||
+    state.agencyProductLabels[productId] !== undefined ||
+    state.icons[productId] !== undefined
+  ) {
+    return null;
+  }
+  const hit = childById(productId);
+  // Products are already unique at the top of the tree; only a lifted row can
+  // need to say where it came from.
+  if (!hit || productById(productId)) return null;
+  if (!collidesWhenLifted(state, productId, baseLabelForProduct(state, productId))) {
+    return null;
+  }
+  // The immediate parent, matching the label's own qualifier exactly — at L3
+  // that is the product, one level deeper it is the L3 above.
+  return hit.path[hit.path.length - 1]?.id ?? hit.product.id;
+}
+
+/**
+ * What a row draws: one glyph, or a parent's glyph badged with its own.
+ *
+ * The base is the PARENT, not the row — which reads backwards until you look at
+ * a dock. Five gears in a row say nothing; five different marks, each with a
+ * small gear on the corner, say "settings for five different things", and the
+ * thing you are actually looking for is the part that differs.
+ */
+export function glyphFor(
+  state: NavLayoutState,
+  productId: string,
+): { icon: LucideIcon; badge?: LucideIcon } {
+  const parentId = qualifiedParentFor(state, productId);
+  if (!parentId) return { icon: iconForProduct(state, productId) };
+  return {
+    icon: iconForProduct(state, parentId),
+    badge: iconForProduct(state, productId),
+  };
+}
+
 export function isProductRenamed(
   state: NavLayoutState,
   productId: string,
