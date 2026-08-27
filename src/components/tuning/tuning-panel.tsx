@@ -778,6 +778,7 @@ function Toggle({
 
 /** Section order in the panel. The theme, search and nav sections lead. */
 const SECTIONS = [
+  "Edit card",
   "Theme",
   "Search",
   "Nav structure",
@@ -1227,6 +1228,19 @@ export function TuningPanel() {
     (pageShell !== DEFAULT_THEME.pageShell ? 1 : 0) +
     (inboxPalette !== DEFAULT_THEME.inboxPalette ? 1 : 0);
 
+  const editCardChanged =
+    (navSwitchInEditCard !== DEFAULT_THEME.navSwitchInEditCard ? 1 : 0) +
+    (layoutSwitchInEditCard !== DEFAULT_THEME.layoutSwitchInEditCard ? 1 : 0) +
+    (layoutReplaceDialog !== DEFAULT_THEME.layoutReplaceDialog ? 1 : 0) +
+    (navColourControl !== DEFAULT_THEME.navColourControl ? 1 : 0);
+
+  const resetEditCard = () => {
+    setNavSwitchInEditCard(DEFAULT_THEME.navSwitchInEditCard);
+    setLayoutSwitchInEditCard(DEFAULT_THEME.layoutSwitchInEditCard);
+    setLayoutReplaceDialog(DEFAULT_THEME.layoutReplaceDialog);
+    setNavColourControl(DEFAULT_THEME.navColourControl);
+  };
+
   const searchChanged =
     (searchMode !== DEFAULT_THEME.searchMode ? 1 : 0) +
     (searchTheme !== DEFAULT_THEME.searchTheme ? 1 : 0) +
@@ -1253,7 +1267,10 @@ export function TuningPanel() {
   };
 
   const everythingIsDefault =
-    isDefault && themeChanged === 0 && searchChanged === 0;
+    isDefault &&
+    themeChanged === 0 &&
+    searchChanged === 0 &&
+    editCardChanged === 0;
 
   /*
    * The matcher, handed down rather than applied here.
@@ -1380,16 +1397,23 @@ export function TuningPanel() {
 
       <TuningFilterContext value={filter}>
       {/*
-        Above the sections, not inside one.
+        Above the sections, not inside one — and now the only thing up here.
 
-        It started in "Nav structure", which is collapsed on load — so the one
+        It started in "Nav structure", which is collapsed on load, so the one
         control that gets you back out of the legacy nav was behind a disclosure,
         in a panel you had to know existed, on a surface that deliberately has no
-        edit card. That is a trap with a key you cannot see.
+        edit card. That is a trap with a key you cannot see, and it is the whole
+        reason this one control does not fold with the rest.
 
-        It also is not a tuning knob. Everything below adjusts the proposal;
-        this chooses whether you are looking at the proposal at all, which is why
-        it sits with the panel's own chrome rather than among the axes.
+        It also is not a tuning knob. Everything below adjusts the proposal; this
+        chooses whether you are looking at the proposal at all, which is why it
+        sits with the panel's own chrome rather than among the axes.
+
+        The four edit-card controls that used to keep it company moved into a
+        section of their own. They had no claim on being permanently open — they
+        were only here because they are about the same part of the nav — and five
+        controls standing over a panel of collapsed sections meant the panel
+        could never actually be put away.
       */}
       <PinnedGroup>
         <Segmented
@@ -1404,80 +1428,99 @@ export function TuningPanel() {
             ? "Production's sidebar, transcribed: one flat list, no flyouts, no grouping, no pinning. Rows select but do not navigate."
             : "The proposal. Switch to Old nav to compare it against what ships today."}
         </Note>
-        {/*
-          Two questions about the same thing: not which nav or layout to show,
-          but whether an admin should be able to answer either from inside the
-          nav. Both live on rows in the edit card's overflow menu, so switching
-          one off removes a row rather than changing the card's shape.
-        */}
-        <Toggle
-          label="Navigation switch in the edit card"
-          checked={navSwitchInEditCard}
-          onChange={setNavSwitchInEditCard}
-        />
-        <Note>
-          {navSwitchInEditCard
-            ? "A Navigation row in the card's ⋯ menu, opening the same two options. Off, switching navigation happens only here."
-            : "The card's ⋯ menu has no Navigation row. Switching happens only here."}
-        </Note>
-
-        <Toggle
-          label="Layout switch in the edit card"
-          checked={layoutSwitchInEditCard}
-          onChange={setLayoutSwitchInEditCard}
-        />
-        <Note>
-          {layoutSwitchInEditCard
-            ? "A Layout row in the card's ⋯ menu, for looking at the sidebar we ship. Off, the default layout is unreachable — which is what the product looks like without this idea."
-            : "The card's ⋯ menu has no Layout row, so the default layout cannot be reached from the nav at all."}
-        </Note>
-
-        {/*
-          The one destructive moment in the layout flow, and how much ceremony
-          it gets. Under the Layout switch, since it only ever fires because of
-          it.
-        */}
-        {layoutSwitchInEditCard ? (
-          <>
-            <Segmented
-              label="Replacing my layout"
-              options={LAYOUT_REPLACE_DIALOGS}
-              value={layoutReplaceDialog}
-              onChange={(v: LayoutReplaceDialog) => setLayoutReplaceDialog(v)}
-              format={(v) => LAYOUT_REPLACE_DIALOG_LABELS[v]}
-            />
-            <Note>
-              {layoutReplaceDialog === "simple"
-                ? "Saving edits made on the HighLevel default: one sentence, Discard and Save changes. The layout being replaced is simply gone — nothing to name, nothing filed."
-                : "The full version: the arrangement being replaced is offered as a named template first, so it can be put back later. Three answers, weighted."}
-            </Note>
-          </>
-        ) : null}
-
-        {/*
-          Which colour control the card carries, and nothing more.
-          
-          The accents and the custom picker were briefly hosted here too, on the
-          reasoning that the icon does not cover them. But the full panel does,
-          it is one pill away, and duplicating ten swatches plus a colour picker
-          into a dev panel to cover a mode you can leave in a click is a second
-          copy to keep in step for no reach it adds.
-        */}
-        <Segmented
-          label="Nav colours"
-          options={NAV_COLOUR_CONTROLS}
-          value={navColourControl}
-          onChange={(v: NavColourControl) => setNavColourControl(v)}
-          format={(v) => NAV_COLOUR_CONTROL_LABELS[v]}
-        />
-        <Note>
-          {navColourControl === "toggle"
-            ? "One icon on the card, flipping light and dark. Accents and the custom picker are in the full panel — switch to it to reach them."
-            : "The card's palette icon opens the full surface — light/dark, accents and the custom picker — anchored to itself."}
-        </Note>
       </PinnedGroup>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        {/*
+          Everything the edit card offers, behind a disclosure of its own.
+
+          These four used to sit in the pinned group with the Navigation switch,
+          which meant five controls permanently open above a panel of collapsed
+          sections — the one part of the panel you could not put away. Only the
+          Navigation switch has to stay up there, and for a specific reason: it
+          is the way back out of the legacy nav, which has no edit card to reach
+          it from. The rest are ordinary axes and fold like the rest.
+        */}
+        <Section
+          id="Edit card"
+          open={openSections.includes("Edit card")}
+          onToggle={() => toggleSection("Edit card")}
+          changedCount={editCardChanged}
+          onReset={resetEditCard}
+        >
+          {/*
+            Two questions about the same thing: not which nav or layout to show,
+            but whether an admin should be able to answer either from inside the
+            nav. Both live on rows in the edit card's overflow menu, so switching
+            one off removes a row rather than changing the card's shape.
+          */}
+          <Toggle
+            label="Navigation switch in the edit card"
+            checked={navSwitchInEditCard}
+            onChange={setNavSwitchInEditCard}
+          />
+          <Note>
+            {navSwitchInEditCard
+              ? "A Navigation row in the card's ⋯ menu, opening the same two options. Off, switching navigation happens only here."
+              : "The card's ⋯ menu has no Navigation row. Switching happens only here."}
+          </Note>
+
+          <Toggle
+            label="Layout switch in the edit card"
+            checked={layoutSwitchInEditCard}
+            onChange={setLayoutSwitchInEditCard}
+          />
+          <Note>
+            {layoutSwitchInEditCard
+              ? "A Layout row in the card's ⋯ menu, for looking at the sidebar we ship. Off, the default layout is unreachable — which is what the product looks like without this idea."
+              : "The card's ⋯ menu has no Layout row, so the default layout cannot be reached from the nav at all."}
+          </Note>
+
+          {/*
+            The one destructive moment in the layout flow, and how much ceremony
+            it gets. Under the Layout switch, since it only ever fires because of
+            it.
+          */}
+          {layoutSwitchInEditCard ? (
+            <>
+              <Segmented
+                label="Replacing my layout"
+                options={LAYOUT_REPLACE_DIALOGS}
+                value={layoutReplaceDialog}
+                onChange={(v: LayoutReplaceDialog) => setLayoutReplaceDialog(v)}
+                format={(v) => LAYOUT_REPLACE_DIALOG_LABELS[v]}
+              />
+              <Note>
+                {layoutReplaceDialog === "simple"
+                  ? "Saving edits made on the HighLevel default: one sentence, Discard and Save changes. The layout being replaced is simply gone — nothing to name, nothing filed."
+                  : "The full version: the arrangement being replaced is offered as a named template first, so it can be put back later. Three answers, weighted."}
+              </Note>
+            </>
+          ) : null}
+
+          {/*
+            Which colour control the card carries, and nothing more.
+          
+            The accents and the custom picker were briefly hosted here too, on the
+            reasoning that the icon does not cover them. But the full panel does,
+            it is one pill away, and duplicating ten swatches plus a colour picker
+            into a dev panel to cover a mode you can leave in a click is a second
+            copy to keep in step for no reach it adds.
+          */}
+          <Segmented
+            label="Nav colours"
+            options={NAV_COLOUR_CONTROLS}
+            value={navColourControl}
+            onChange={(v: NavColourControl) => setNavColourControl(v)}
+            format={(v) => NAV_COLOUR_CONTROL_LABELS[v]}
+          />
+          <Note>
+            {navColourControl === "toggle"
+              ? "One icon on the card, flipping light and dark. Accents and the custom picker are in the full panel — switch to it to reach them."
+              : "The card's palette icon opens the full surface — light/dark, accents and the custom picker — anchored to itself."}
+          </Note>
+        </Section>
+
         <Section
           id="Theme"
           open={openSections.includes("Theme")}
