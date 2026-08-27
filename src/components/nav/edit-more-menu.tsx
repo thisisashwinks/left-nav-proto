@@ -12,6 +12,7 @@ import {
   Package,
   PanelLeft,
   Save,
+  FilePlus2,
   SquareMenu,
   UserRound,
   type LucideIcon,
@@ -48,7 +49,7 @@ const OLD_NAV_ICON = List;
 const WIDTH = 244;
 const GAP = 6;
 
-type View = "root" | "apply" | "save" | "layout" | "navigation";
+type View = "root" | "apply" | "save" | "create" | "layout" | "navigation";
 
 /**
  * The edit card's overflow menu: templates, which layout, which navigation.
@@ -72,21 +73,28 @@ type View = "root" | "apply" | "save" | "layout" | "navigation";
 export function EditMoreMenu({
   anchor,
   accountName,
+  accountId,
   viewingDefault,
   onShowDefault,
   onRestoreOwn,
   onApplyTemplate,
-  onSaveTemplate,
+  onCreateTemplate,
+  onUpdateTemplate,
   onClose,
 }: {
   anchor: HTMLElement;
   /** Seeds the template name, so saving is one keystroke less. */
   accountName: string;
+  /** Whose template link is being read — which decides if Save is live. */
+  accountId: string;
   viewingDefault: boolean;
   onShowDefault: () => void;
   onRestoreOwn: () => void;
   onApplyTemplate: (templateId: string) => void;
-  onSaveTemplate: (name: string) => void;
+  /** Creates a template from this arrangement and puts the account on it. */
+  onCreateTemplate: (name: string) => void;
+  /** Overwrites the template the account is already on. */
+  onUpdateTemplate: (templateId: string) => void;
   onClose: () => void;
 }) {
   const { navGeneration, setNavGeneration, effective } = useTheme();
@@ -95,7 +103,7 @@ export function EditMoreMenu({
    * Read off `effective` like the rest of the card's chrome.
    */
   const { navSwitchInEditCard, layoutSwitchInEditCard } = effective;
-  const { templates } = useNavTemplates();
+  const { templates, linkedFor, accountsOn } = useNavTemplates();
   const [view, setView] = React.useState<View>("root");
   const [draft, setDraft] = React.useState(`${accountName} nav`);
   const { ref, top, left } = useAnchored(anchor, WIDTH, GAP);
@@ -133,6 +141,13 @@ export function EditMoreMenu({
     if (hidden) setView("root");
   }
 
+  /**
+   * The template this account is on, if any. Everything the two save rows say
+   * hangs off it: with a link there is a template to update, and without one
+   * the only honest verb is "create".
+   */
+  const linked = linkedFor(accountId);
+
   const body = (() => {
     if (view === "apply") {
       return (
@@ -160,12 +175,46 @@ export function EditMoreMenu({
       );
     }
 
-    if (view === "save") {
+    if (view === "save" && linked) {
+      const others = accountsOn(linked.id) - 1;
+      return (
+        <Drill title="Save template" onBack={() => setView("root")}>
+          <p className="px-[7px] pb-[6px] text-[12px] leading-[16px] text-nav-fg-subtle">
+            Replaces what{" "}
+            <span className="font-medium text-nav-fg">{linked.name}</span> holds
+            with this arrangement.
+            {/*
+              Said before the overwrite, not after: a template is shared, and
+              the one thing an agency needs to know before replacing it is who
+              else is on it. They are NOT re-arranged — a link is provenance,
+              not a subscription — and saying so here is what stops the update
+              from feeling like it reached into forty navs.
+            */}
+            {others > 0
+              ? ` ${others === 1 ? "1 other account is" : `${others} other accounts are`} on it — they keep what they have until you apply it to them.`
+              : " No other account is on it yet."}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              onUpdateTemplate(linked.id);
+              onClose();
+            }}
+            className="motion-tap mx-[5px] mt-[2px] flex h-[30px] items-center justify-center rounded-[7px] bg-nav-fg text-[12.5px] leading-none font-medium text-nav hover:opacity-90"
+          >
+            Update {linked.name}
+          </button>
+        </Drill>
+      );
+    }
+
+    if (view === "create") {
       const named = draft.trim();
       return (
-        <Drill title="Save as template" onBack={() => setView("root")}>
+        <Drill title="Create new template" onBack={() => setView("root")}>
           <p className="px-[7px] pb-[6px] text-[12px] leading-[16px] text-nav-fg-subtle">
-            Keeps this arrangement so you can put it on another account.
+            Keeps this arrangement so you can put it on another account. This
+            account moves onto the new template.
           </p>
           <input
             type="text"
@@ -174,7 +223,7 @@ export function EditMoreMenu({
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key !== "Enter" || named === "") return;
-              onSaveTemplate(named);
+              onCreateTemplate(named);
               onClose();
             }}
             aria-label="Template name"
@@ -184,12 +233,12 @@ export function EditMoreMenu({
             type="button"
             disabled={named === ""}
             onClick={() => {
-              onSaveTemplate(named);
+              onCreateTemplate(named);
               onClose();
             }}
             className="motion-tap mx-[5px] mt-[6px] flex h-[30px] items-center justify-center rounded-[7px] bg-nav-fg text-[12.5px] leading-none font-medium text-nav hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Save template
+            Create template
           </button>
         </Drill>
       );
@@ -200,8 +249,10 @@ export function EditMoreMenu({
         <Drill title="Layout" onBack={() => setView("root")}>
           <MenuRow
             icon={OWN_LAYOUT_ICON}
-            label="Your layout"
-            note="The arrangement this account has now."
+            label="My layout"
+            // Short enough not to truncate: a note that needs a tooltip to be
+            // read is a note that has stopped being one.
+            note="What I have now"
             checked={!viewingDefault}
             onSelect={() => {
               if (viewingDefault) onRestoreOwn();
@@ -210,8 +261,8 @@ export function EditMoreMenu({
           />
           <MenuRow
             icon={DEFAULT_LAYOUT_ICON}
-            label="Default layout"
-            note="What we ship, and what the help docs show."
+            label="HighLevel default layout"
+            note="What we ship"
             checked={viewingDefault}
             onSelect={() => {
               if (!viewingDefault) onShowDefault();
@@ -248,10 +299,29 @@ export function EditMoreMenu({
 
     return (
       <>
+        {/*
+          Two verbs, not one.
+          
+          This was a single "Save as template" that always made a new one, which
+          left an agency with three copies of the same dental nav after three
+          rounds of tidying and no way to say "the template was wrong". Save
+          means the template this account is ON; Create means a new one. The
+          first is dead unless there is something to save into, and it says so
+          rather than silently doing the second thing.
+        */}
         <MenuRow
           icon={Save}
-          label="Save as template"
+          label="Save template"
+          note={linked ? linked.name : "This account isn't on a template"}
+          disabled={!linked}
           onSelect={() => setView("save")}
+          branch
+        />
+        <MenuRow
+          icon={FilePlus2}
+          label="Create new template"
+          note={`From ${accountName}'s arrangement`}
+          onSelect={() => setView("create")}
           branch
         />
         <MenuRow
@@ -274,7 +344,7 @@ export function EditMoreMenu({
             label="Layout"
             // The current answer on the row that opens the choice, so the menu
             // says which layout is up without being drilled into.
-            note={viewingDefault ? "Default layout" : "Your layout"}
+            note={viewingDefault ? "HighLevel default layout" : "My layout"}
             onSelect={() => setView("layout")}
             branch
           />
@@ -350,6 +420,7 @@ function MenuRow({
   note,
   checked,
   branch = false,
+  disabled = false,
   onSelect,
 }: {
   icon: LucideIcon;
@@ -360,6 +431,8 @@ function MenuRow({
   checked?: boolean;
   /** Opens another view rather than acting, so it gets a chevron. */
   branch?: boolean;
+  /** Nothing to act on. The row stays, and its note says why. */
+  disabled?: boolean;
   onSelect: () => void;
 }) {
   return (
@@ -367,10 +440,15 @@ function MenuRow({
       type="button"
       role={checked === undefined ? undefined : "menuitemradio"}
       aria-checked={checked}
+      disabled={disabled}
       onClick={onSelect}
       className={cn(
         "motion-tap flex w-full items-start gap-[8px] rounded-[7px] px-[7px] py-[6px] text-left",
-        checked ? "bg-nav-hover" : "hover:bg-nav-hover",
+        disabled
+          ? "cursor-not-allowed opacity-40"
+          : checked
+            ? "bg-nav-hover"
+            : "hover:bg-nav-hover",
       )}
     >
       <Icon
@@ -390,7 +468,7 @@ function MenuRow({
       </span>
       {checked ? (
         <Check size={13} aria-hidden="true" className="mt-[2px] shrink-0 text-nav-fg" />
-      ) : branch ? (
+      ) : branch && !disabled ? (
         <ChevronRight
           size={13}
           aria-hidden="true"

@@ -253,6 +253,36 @@ export const MERGED_HEADING_LABELS: Record<MergedHeading, string> = {
 };
 
 /**
+ * What "recent" means in the agency nav.
+ *
+ * The one place the merge does not simply port across. A sub-account's Recent
+ * names places; the agency's names ACCOUNTS — the clients you last had open —
+ * and the agency's pins name places again (Prospecting, Snapshots, rollup
+ * reporting). So merging pins into the agency's Recent asks a question the
+ * sub-account never had to answer: which of the two units is the list made of.
+ *
+ *  places    Pins and recently visited agency areas. Recent accounts keeps its
+ *            own block, because switching client is not navigating — it changes
+ *            what the whole nav is about, and burying that in a list of pages
+ *            makes the most consequential row in the agency nav the least
+ *            marked one.
+ *  accounts  Pins and recently visited accounts in one list. Closest to what
+ *            the agency nav shows today, and the version where a pinned page
+ *            and a client sit a row apart.
+ *  both      Pins, then places, then accounts. Everything reachable in one
+ *            list, and three runs deep — worth seeing before ruling out.
+ */
+export const MERGED_AGENCY_RECENTS = ["places", "accounts", "both"] as const;
+
+export type MergedAgencyRecents = (typeof MERGED_AGENCY_RECENTS)[number];
+
+export const MERGED_AGENCY_RECENTS_LABELS: Record<MergedAgencyRecents, string> = {
+  places: "Agency areas",
+  accounts: "Accounts",
+  both: "Areas + accounts",
+};
+
+/**
  * Which end of the pinned run a new pin lands on.
  *
  *  newest    Prepended, so the row you just pinned is the first thing under the
@@ -289,6 +319,35 @@ export type DockPosition = (typeof DOCK_POSITIONS)[number];
 export const DOCK_POSITION_LABELS: Record<DockPosition, string> = {
   top: "Under the logo",
   bottom: "Nav bottom edge",
+};
+
+/**
+ * Where the companion apps are handed to you.
+ *
+ * One modal either way — the komoot-style Get the app sheet — and three places
+ * to reach it from. They are not the same offer:
+ *
+ *  header  Two glyphs in the app bar, left of the phone. Standing and visible,
+ *          which is the point: an app nobody installs is an app nobody knew
+ *          about, and the bar is the one strip of chrome every screen shows.
+ *          The cost is two more glyphs in a row that is already six wide.
+ *  menu    Two rows in the avatar menu, where production put them. Discreet and
+ *          conventional — and behind a menu most users open once, to sign out.
+ *  nav     Two rows in the sidebar, beside Settings. Reads as part of the
+ *          product rather than as an ad for it, at the price of nav height
+ *          spent on something you do exactly once.
+ *
+ * Exclusive, all three. The offer duplicated across two surfaces is the
+ * duplication the review keeps objecting to everywhere else.
+ */
+export const GET_APP_PLACEMENTS = ["header", "menu", "nav"] as const;
+
+export type GetAppPlacement = (typeof GET_APP_PLACEMENTS)[number];
+
+export const GET_APP_PLACEMENT_LABELS: Record<GetAppPlacement, string> = {
+  header: "App bar",
+  menu: "Avatar menu",
+  nav: "Sidebar",
 };
 
 /**
@@ -435,6 +494,58 @@ export const SCOPE_MODEL_LABELS: Record<ScopeModel, string> = {
  * A review axis rather than a tenant setting, for the same reason `tabsInNav`
  * is: the point is to compare the two answers, not to ship both.
  */
+/**
+ * What the edit card's colour control is.
+ *
+ * `toggle` — one icon that flips the nav between light and dark, and nothing
+ *   else. The default, because light-or-dark is the only colour decision most
+ *   admins make and it is the only one they make more than once. An icon that
+ *   does it in a click beats a panel that does it in three.
+ * `panel` — the full surface: light/dark, ten accents, and a custom picker with
+ *   the contrast reading underneath.
+ *
+ * Both answers keep every capability. Under `toggle` the accents and the custom
+ * picker move into the prototype controls rather than disappearing, so the axis
+ * is about where the rarely-used half of the panel lives, not whether it exists.
+ */
+/**
+ * What happens when edits made on the HighLevel default are about to replace
+ * my layout.
+ *
+ *  simple    A message and two buttons. Save changes adopts the edited default
+ *            as my layout; the one it replaces is simply gone. Nothing to name,
+ *            nothing to file — the case for it is that most people editing the
+ *            shipped nav are building the layout they actually want, and asking
+ *            them to name and archive the arrangement they are deliberately
+ *            leaving behind is a step about a thing they have stopped caring
+ *            about.
+ *  keep-old  The full version: the arrangement being replaced is offered as a
+ *            named template first, so it can be put back later. Three answers,
+ *            weighted, with a name field.
+ *
+ * A review axis rather than a setting: the question is how much ceremony this
+ * one destructive moment deserves, and it is answered by watching people meet
+ * it, not by arguing about it.
+ */
+export const LAYOUT_REPLACE_DIALOGS = ["simple", "keep-old"] as const;
+
+export type LayoutReplaceDialog = (typeof LAYOUT_REPLACE_DIALOGS)[number];
+
+export const LAYOUT_REPLACE_DIALOG_LABELS: Record<LayoutReplaceDialog, string> =
+  {
+    simple: "Simple",
+    "keep-old": "Save old layout",
+  };
+
+export const NAV_COLOUR_CONTROLS = ["toggle", "panel"] as const;
+
+export type NavColourControl = (typeof NAV_COLOUR_CONTROLS)[number];
+
+export const NAV_COLOUR_CONTROL_LABELS: Record<NavColourControl, string> = {
+  toggle: "Light / dark icon",
+  panel: "Full colours panel",
+};
+
 export const NAV_GENERATIONS = ["new", "legacy"] as const;
 
 export type NavGeneration = (typeof NAV_GENERATIONS)[number];
@@ -457,6 +568,8 @@ export interface ThemeState {
   dockLabel: DockLabel;
   dockPosition: DockPosition;
   entryLayout: EntryLayout;
+  /** Where the Get the app offer is reached from. See GET_APP_PLACEMENTS. */
+  getAppPlacement: GetAppPlacement;
   flyoutTrigger: FlyoutTrigger;
   recentsMode: RecentsMode;
   /*
@@ -480,6 +593,8 @@ export interface ThemeState {
    * being a second command palette. On, and one click from off.
    */
   mergedPanelSearch: boolean;
+  /** What the agency nav's merged list is made of. See MERGED_AGENCY_RECENTS. */
+  mergedAgencyRecents: MergedAgencyRecents;
   /** Rows the block shows before overflowing — pinned and recent together. */
   mergedVisibleRows: number;
   /** Most pinned rows the unexpanded block will spend its budget on. */
@@ -512,6 +627,10 @@ export interface ThemeState {
    * product would most likely do.
    */
   navSwitchInEditCard: boolean;
+  /** How replacing my layout is confirmed. See LAYOUT_REPLACE_DIALOGS. */
+  layoutReplaceDialog: LayoutReplaceDialog;
+  /** Which colour control the edit card carries. See NAV_COLOUR_CONTROLS. */
+  navColourControl: NavColourControl;
   /**
    * Whether the Editing nav card offers the layout switch.
    *
@@ -579,6 +698,9 @@ export const DEFAULT_THEME: ThemeState = {
   // Moving the one merged control down clears the nav's entry. "Under the
   // logo" stays one click away for the comparison.
   entryLayout: "split",
+  // The bar. The apps are the one thing in this menu nobody goes looking for,
+  // and a glyph beside the phone is the only placement that meets them halfway.
+  getAppPlacement: "header",
   // Click is the default per the Aug 11 direction: Khoi's "maybe the L2
   // doesn't get exposed until the user actually clicks" — hover preview
   // (with its dwell) stays one toggle away for the comparison.
@@ -597,6 +719,8 @@ export const DEFAULT_THEME: ThemeState = {
   mergedPinOrder: "newest",
   mergedHeading: "quick-access",
   mergedPanelSearch: true,
+  // Places, so Recent accounts keeps the block it has earned.
+  mergedAgencyRecents: "places",
   /*
    * Five, three, two. Five is what the screenshot shows and about what a nav can
    * spend on history before the product list starts below the fold; three pins
@@ -619,6 +743,11 @@ export const DEFAULT_THEME: ThemeState = {
   navGeneration: "new",
   // On, so the comparison is one click from the nav being argued about.
   navSwitchInEditCard: true,
+  // The icon, not the panel: one click for the decision people actually repeat.
+  // The two-button version is the proposal: one destructive moment, one
+  // sentence, two answers. The template-saving version is one click away.
+  layoutReplaceDialog: "simple",
+  navColourControl: "toggle",
   // On, for the same reason: the comparison should be one menu away.
   layoutSwitchInEditCard: true,
   // Production's own default, and the state both source screenshots were in.

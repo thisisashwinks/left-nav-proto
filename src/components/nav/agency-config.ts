@@ -349,6 +349,16 @@ export const agencyFlyouts: Record<string, FlyoutConfig> = Object.fromEntries(
  */
 export interface AgencyPlace {
   label: string;
+  /**
+   * The row's own glyph.
+   *
+   * Added when agency pins became real: a pin is stored as an id, and every
+   * surface that draws one — the capsule, the merged list, the panel — needs a
+   * label and an icon back out of it. Everything except the icon was already
+   * here, so the icon was the one thing each caller had to go and find by
+   * walking the bucket tree itself.
+   */
+  icon: LucideIcon;
   description?: string;
   /** The L1 this place sits under. Equal to the place itself for a bucket row. */
   bucket: AgencyBucket;
@@ -362,6 +372,7 @@ export const agencyPlaces: Record<string, AgencyPlace> = (() => {
   for (const bucket of [...agencyBuckets, agencySettingsBucket]) {
     out[bucket.id] = {
       label: bucket.label,
+      icon: bucket.icon,
       ...(bucket.description ? { description: bucket.description } : {}),
       bucket,
       tabs: [],
@@ -369,12 +380,21 @@ export const agencyPlaces: Record<string, AgencyPlace> = (() => {
     for (const c of bucket.children) {
       out[c.id] = {
         label: c.label,
+        // `NavItem.icon` is optional, so a child that never declared one
+        // borrows its bucket's rather than leaving a pinned row blank.
+        icon: c.icon ?? bucket.icon,
         description: c.description,
         bucket,
         tabs: (c.l3 ?? []).map((x) => x.label),
       };
       for (const x of c.l3 ?? []) {
-        out[slug(c.id, x.label)] = { label: x.label, bucket, parent: c, tabs: [] };
+        out[slug(c.id, x.label)] = {
+          label: x.label,
+          icon: x.icon,
+          bucket,
+          parent: c,
+          tabs: [],
+        };
       }
     }
   }
@@ -426,13 +446,21 @@ export const agencyRailItems: NavItem[] = agencyBuckets.map((b) => ({
 }));
 
 /**
- * The agency's own dock. Static — the pin store is catalogue-scoped — but the
- * dock renders identically at both scopes.
+ * What the agency starts pinned with.
+ *
+ * Ids of real places, not a hand-written list of labels and icons. It was the
+ * latter for as long as agency pins were decorative: the capsule drew five
+ * chips and nothing could be pinned or unpinned, so the chips did not have to
+ * name anywhere you could actually go — and none of them did. Now that the
+ * agency has a pin store, every one of these has to resolve, or the row it
+ * draws is a dead end.
+ *
+ * The same five concepts, pointed at the places that exist.
  */
-export const agencyPinned = [
-  { id: "prospecting", label: "Prospecting", icon: UserSearch },
-  { id: "snapshots", label: "Snapshots", icon: Camera },
-  { id: "saas-configurator", label: "SaaS configurator", icon: Scale },
-  { id: "agency-reporting", label: "Rollup reporting", icon: ChartPie },
-  { id: "agency-sub-accounts-pin", label: "Sub-accounts", icon: Users },
+export const agencyPinnedSeed: string[] = [
+  "agency-prospecting",
+  "agency-account-snapshot",
+  "agency-saas-configurator",
+  "agency-dash-summary",
+  "agency-sub-accounts",
 ];

@@ -44,7 +44,6 @@ const PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["ai-studio", "ia-ai-studio"],
   ["reporting", "ia-reporting-reports"],
   ["dashboards", "ia-reporting-dashboard"],
-  ["mobile-app", "ia-mobile"],
 ];
 
 const BOTH_WAYS = new Map<string, string[]>();

@@ -81,7 +81,6 @@ import {
   ShoppingBag,
   ShoppingCart,
   SlidersHorizontal,
-  Smartphone,
   Sparkles,
   Star,
   Store,
@@ -1217,12 +1216,21 @@ const SETTINGS: CatalogueEntry[] = [
  * never would. Switched on per account via the `launchpad` theme axis.
  */
 const DESTINATIONS: CatalogueEntry[] = [
-  {
-    id: "ia-mobile",
-    label: "Mobile",
-    icon: Smartphone,
-    blurb: "The same records, on a phone.",
-  },
+  /*
+   * Empty, since Mobile left.
+   *
+   * It was the one destination: a top-level row whose only job was to hand you
+   * the phone app. That offer is now an axis — app bar, avatar menu or sidebar,
+   * see GET_APP_PLACEMENTS — and on the sidebar setting it draws Mobile app AND
+   * Desktop app beside Settings, where chrome belongs. Keeping this row as well
+   * would have been the same offer twice in one nav, one of them naming only
+   * half of it.
+   *
+   * The band stays as a concept rather than being torn out: a destination is a
+   * real shape in this IA (a page that belongs in no bucket), the tree is still
+   * being argued over, and everything downstream already handles the list being
+   * empty.
+   */
 ];
 
 /**
@@ -1316,13 +1324,6 @@ export const proposedBuckets: ProposedBucket[] = [
     defaultLabel: "Integrations",
     icon: Plug,
     productIds: ids(INTEGRATIONS),
-  },
-  {
-    id: "ia-mobile",
-    defaultLabel: "Mobile",
-    icon: Smartphone,
-    productIds: [],
-    destination: true,
   },
   {
     id: "ia-settings",

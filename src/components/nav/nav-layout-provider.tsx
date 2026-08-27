@@ -306,7 +306,7 @@ interface Store {
    * The account's OWN arrangement, held aside while the shipped default is on
    * screen. Null whenever the account is looking at its own nav.
    *
-   * This is the whole mechanism behind "Default layout / Your layout", and it is
+   * This is the whole mechanism behind "HighLevel default layout / My layout", and it is
    * a stash rather than a history: exactly one arrangement is kept, because the
    * question being answered is "what does the nav in the help doc look like",
    * not "what did this nav look like in March". Undo remains the tool for single
@@ -467,7 +467,7 @@ function reducer(store: Store, action: Action): Store {
         editBaseline: null,
         editDirty: false,
         // The stash holds the account being LEFT. Carrying it across would let
-        // "Back to your layout" paste one tenant's nav onto another's.
+        // "Back to my layout" paste one tenant's nav onto another's.
         ownLayout: null,
       };
   }

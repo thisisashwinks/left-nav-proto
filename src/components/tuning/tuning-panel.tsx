@@ -1,7 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { ChevronRight, RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import {
+  ChevronRight,
+  RotateCcw,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import {
   ACCENT_LABELS,
   ACCENTS,
@@ -13,10 +19,14 @@ import {
   DOCK_POSITIONS,
   ENTRY_LAYOUT_LABELS,
   ENTRY_LAYOUTS,
+  GET_APP_PLACEMENTS,
+  GET_APP_PLACEMENT_LABELS,
   FLYOUT_TRIGGER_LABELS,
   FLYOUT_TRIGGERS,
   PAGE_SHELL_LABELS,
   PAGE_SHELLS,
+  LAYOUT_REPLACE_DIALOG_LABELS,
+  LAYOUT_REPLACE_DIALOGS,
   RAIL_TILE_SHAPE_LABELS,
   RAIL_TILE_SHAPES,
   RECENTS_MODE_LABELS,
@@ -24,6 +34,9 @@ import {
   SCOPE_MODEL_LABELS,
   SCOPE_MODELS,
   NAV_GENERATIONS,
+  NAV_COLOUR_CONTROLS,
+  NAV_COLOUR_CONTROL_LABELS,
+  type NavColourControl,
   NAV_GENERATION_LABELS,
   type NavGeneration,
   SEARCH_MODE_LABELS,
@@ -35,7 +48,9 @@ import {
   type DockLabel,
   type DockPosition,
   type EntryLayout,
+  type GetAppPlacement,
   type FlyoutTrigger,
+  type LayoutReplaceDialog,
   type PageShell,
   type RailTileShape,
   type RecentsMode,
@@ -51,12 +66,15 @@ import {
   MERGED_PIN_ORDER_LABELS,
   MERGED_HEADINGS,
   MERGED_HEADING_LABELS,
+  MERGED_AGENCY_RECENTS,
+  MERGED_AGENCY_RECENTS_LABELS,
   type MergedPinScope,
   type MergedPinMark,
   type MergedOverflow,
   type MergedRowDetail,
   type MergedPinOrder,
   type MergedHeading,
+  type MergedAgencyRecents,
   type ScopeModel,
   type SearchMode,
   type SurfaceTheme,
@@ -178,6 +196,8 @@ function NavStructureSection({
     setMergedHeading,
     mergedPanelSearch,
     setMergedPanelSearch,
+    mergedAgencyRecents,
+    setMergedAgencyRecents,
     mergedVisibleRows,
     setMergedVisibleRows,
     mergedPinCap,
@@ -243,11 +263,11 @@ function NavStructureSection({
         }
         format={(v) => PLAN_CHOICE_LABELS[v]}
       />
-      <p className="text-[10px] leading-[14px] text-pg-faint">
+      <Note>
         {demoPlan === null
           ? "Each account on the plan it is seeded with, so the sub-account list shows a real spread."
           : `Every account forced onto ${PLAN_PRICES[demoPlan]}, to read the nav as that agency sees it.`}
-      </p>
+      </Note>
 
       <Segmented
         label="Agency ↔ sub-account"
@@ -256,11 +276,11 @@ function NavStructureSection({
         onChange={(v: ScopeModel) => setScopeModel(v)}
         format={(v) => SCOPE_MODEL_LABELS[v]}
       />
-      <p className="text-[10px] leading-[14px] text-pg-faint">
+      <Note>
         {scopeModel === "rail"
           ? "Model C: the agency and your open accounts as a rail of tiles. Open and close accounts from the + tile."
           : "Model A: one nav, scope named in the header. The agency is the marked case — squircle and an AGENCY word."}
-      </p>
+      </Note>
 
       {/*
         Sits under the scope control because it only has anything to say while
@@ -275,11 +295,11 @@ function NavStructureSection({
             onChange={(v: RailTileShape) => setRailTileShape(v)}
             format={(v) => RAIL_TILE_SHAPE_LABELS[v]}
           />
-          <p className="text-[10px] leading-[14px] text-pg-faint">
+          <Note>
             {railTileShape === "pill"
               ? "Fully rounded, all the way down: the tiles, the agency's plate and the agency's own mark. One shape for the whole strip."
               : "The rail as it shipped: 9px tiles, and a rounded square on the agency mark to set it apart from the tenant discs."}
-          </p>
+          </Note>
         </>
       ) : null}
 
@@ -290,11 +310,11 @@ function NavStructureSection({
         onChange={(v: TabsInNavChoice) => setTabsInNav(v === "nav")}
         format={(v) => (v === "page" ? "On the page" : "Nested in nav")}
       />
-      <p className="text-[10px] leading-[14px] text-pg-faint">
+      <Note>
         {tabsInNav
           ? "Every tab is also a nav row and a page with its own breadcrumb — roughly what the app does today."
           : "Views stay on the page they belong to: saved lists, statuses and settings sections are tabs, not rows."}
-      </p>
+      </Note>
 
       <Segmented
         label="Sections"
@@ -303,13 +323,13 @@ function NavStructureSection({
         onChange={(v: NavSections) => setNavSections(v)}
         format={(v) => NAV_SECTION_LABELS[v]}
       />
-      <p className="text-[10px] leading-[14px] text-pg-faint">
+      <Note>
         {navSections === "plain"
           ? "One continuous list, bands separated by rules. Only Recent has a heading, and nothing folds."
           : navSections === "recent"
             ? "Only Recent is named, and its heading folds it — the band that goes stale fastest, put away in one click."
             : "Every band named and foldable: Recent, Shortcuts, Products, More."}
-      </p>
+      </Note>
 
       <Segmented
         label="Grouping"
@@ -318,9 +338,9 @@ function NavStructureSection({
         onChange={layout.setGrouping}
         format={(v) => GROUPING_LABELS[v]}
       />
-      <p className="text-[10px] leading-[14px] text-pg-faint">
+      <Note>
         {GROUPING_BLURBS[state.grouping]}
-      </p>
+      </Note>
 
       <Segmented
         label="Flyouts open"
@@ -329,11 +349,11 @@ function NavStructureSection({
         onChange={(v: FlyoutTrigger) => setFlyoutTrigger(v)}
         format={(v) => FLYOUT_TRIGGER_LABELS[v]}
       />
-      <p className="text-[10px] leading-[14px] text-pg-faint">
+      <Note>
         {flyoutTrigger === "hover"
           ? "Rollover previews a row's menu, with a dwell so sweeping the list doesn't strobe."
           : "Khoi's alternative: nothing opens until the row is clicked."}
-      </p>
+      </Note>
 
       <Segmented
         label="Nav volume"
@@ -342,11 +362,11 @@ function NavStructureSection({
         onChange={layout.setNavVolume}
         format={(v) => NAV_VOLUME_LABELS[v]}
       />
-      <p className="text-[10px] leading-[14px] text-pg-faint">
+      <Note>
         {state.navVolume === "default"
           ? "The shipped nav. Fits a 14-inch screen with nothing to spare."
           : `Adds ${NAV_VOLUME_EXTRA_LINKS[state.navVolume]} custom links, the way an agency's nav actually fills up.`}
-      </p>
+      </Note>
 
       <Segmented
         label="Editing as"
@@ -355,9 +375,9 @@ function NavStructureSection({
         onChange={layout.setRole}
         format={(v) => ROLE_LABELS[v]}
       />
-      <p className="text-[10px] leading-[14px] text-pg-faint">
+      <Note>
         {ROLE_NOTE[state.role]}
-      </p>
+      </Note>
 
       <Segmented
         label="Renames apply to"
@@ -367,10 +387,10 @@ function NavStructureSection({
         format={(v) => (v === "account" ? "This account" : "Every account")}
       />
       {!can.writeAgencyScope ? (
-        <p className="text-[10px] leading-[14px] text-pg-faint">
+        <Note>
           Only the agency can rename for every account, so this stays on “this
           account”.
-        </p>
+        </Note>
       ) : null}
 
       <Segmented
@@ -380,7 +400,7 @@ function NavStructureSection({
         onChange={(v: RecentsMode) => setRecentsMode(v)}
         format={(v) => RECENTS_MODE_LABELS[v]}
       />
-      <p className="text-[10px] leading-[14px] text-pg-faint">
+      <Note>
         {recentsMode === "adaptive"
           ? "Recents give way as pins accumulate — 3 with none pinned, down to 1 past four."
           : recentsMode === "flyout-only"
@@ -388,7 +408,7 @@ function NavStructureSection({
             : recentsMode === "merged"
               ? "One list. Pins sit at the top of Recents and the pinned bar goes — the Cloudflare arrangement."
               : "Three destinations and a More row, as designed."}
-      </p>
+      </Note>
 
       {/*
         The merge's own axes, and only while the merge is on.
@@ -412,10 +432,23 @@ function NavStructureSection({
             onChange={(v: MergedHeading) => setMergedHeading(v)}
             format={(v) => MERGED_HEADING_LABELS[v]}
           />
-          <p className="text-[10px] leading-[14px] text-pg-faint">
+          <Note>
             You can pin a page you never opened. Under “Recents” the heading is
             then simply false — “Quick access” holds both without lying.
-          </p>
+          </Note>
+
+          <Segmented
+            label="Agency list holds"
+            options={MERGED_AGENCY_RECENTS}
+            value={mergedAgencyRecents}
+            onChange={(v: MergedAgencyRecents) => setMergedAgencyRecents(v)}
+            format={(v) => MERGED_AGENCY_RECENTS_LABELS[v]}
+          />
+          <Note>
+            The agency pins areas but its Recent has always named accounts. On
+            “agency areas” the Recent accounts block stays; the other two pull
+            clients into the merged list and drop it.
+          </Note>
 
           <Segmented
             label="Pinned bar"
@@ -458,10 +491,10 @@ function NavStructureSection({
             checked={mergedPanelSearch}
             onChange={setMergedPanelSearch}
           />
-          <p className="text-[10px] leading-[14px] text-pg-faint">
+          <Note>
             The panel behind “View all” carries the pin list and the full
             history. Off, it is a list you read; on, it is one you can query.
-          </p>
+          </Note>
 
           <Stepper
             label="Rows before overflow"
@@ -503,10 +536,10 @@ function NavStructureSection({
         checked={autoCollapse}
         onChange={setAutoCollapse}
       />
-      <p className="text-[10px] leading-[14px] text-pg-faint">
+      <Note>
         Starts on the rail under {AUTO_COLLAPSE_WIDTH}px, where the 272px nav would
         take a third of a tablet. Touching the drawer toggle overrides it for good.
-      </p>
+      </Note>
 
       <Toggle
         label="Keep every pencil visible"
@@ -514,14 +547,14 @@ function NavStructureSection({
         disabled={!can.regroup && !can.renameForSelf}
         onChange={layout.setEditing}
       />
-      <p className="text-[10px] leading-[14px] text-pg-faint">
+      <Note>
         Renaming needs no mode: hover any group row in the nav and the pencil is
         there, for every role that may rename. This pins them all open instead,
         for screenshots. Structure — new groups, reordering, moving products —
         lives in the grid launcher.
-      </p>
+      </Note>
 
-      <p className="text-[10px] leading-[14px] text-pg-faint">
+      <Note>
         Density is computed, not chosen: this account is on{" "}
         {state.enabledProducts.length} of{" "}
         {/* The account's own universe, not the sum of both IAs — an account on
@@ -530,7 +563,7 @@ function NavStructureSection({
           ? PROPOSED_PRODUCT_IDS.length
           : catalogue.length}{" "}
         products, which means {DENSITY_NOTE[density]}.
-      </p>
+      </Note>
     </Section>
   );
 }
@@ -566,22 +599,49 @@ function BulkActionsSection({
         checked={settings.enabled}
         onChange={(v) => set("enabled", v)}
       />
-      <p className="text-[10px] leading-[14px] text-pg-faint">
+      <Note>
         {settings.enabled
           ? "Sub-accounts gains checkboxes and a toolbar. Ticking rows is how a bulk run starts."
           : "No checkboxes. The table is a list you pick one account from — what the page was before this."}
-      </p>
+      </Note>
+
+      <Toggle
+        label="Also in the All accounts panel"
+        checked={settings.bulkInDirectory}
+        disabled={!settings.enabled}
+        onChange={(v) => set("bulkInDirectory", v)}
+      />
+      <Note>
+        {settings.bulkInDirectory
+          ? "The rail's directory grows checkboxes, and a Bulk actions button appears beside its close. Same flow, reached from the panel you already have open."
+          : "The directory stays a jump list. Bulk runs start from the Sub-accounts table only — a switcher that also changes things is one you hesitate in."}
+      </Note>
+
+      <Toggle
+        label="Update feature access path"
+        checked={settings.featuresPath}
+        disabled={!settings.enabled}
+        onChange={(v) => set("featuresPath", v)}
+      />
+      <Note>
+        {settings.featuresPath
+          ? "Bulk runs can grant and revoke products as well as push a navigation arrangement."
+          : "Templates only. Entitlement is billing's question, not the nav's — and with one path left, the modal opens straight on it rather than asking."}
+      </Note>
 
       <Toggle
         label="Per-sub-account path"
         checked={settings.perAccountPath}
+        disabled={!settings.enabled || !settings.featuresPath}
         onChange={(v) => set("perAccountPath", v)}
       />
-      <p className="text-[10px] leading-[14px] text-pg-faint">
+      <Note>
         {settings.perAccountPath
           ? "A third path: pick features, then answer for each sub-account in a grid. Powerful, and it makes the chooser teach two ideas before an admin can pick either."
-          : "Two paths — template and features. Bulk means one decision landing everywhere; the per-account grid is a different product wearing the same title."}
-      </p>
+          : !settings.featuresPath
+            ? "Needs the feature access path — it is the same idea, answered per account."
+            : "Two paths — template and features. Bulk means one decision landing everywhere; the per-account grid is a different product wearing the same title."}
+      </Note>
 
       <Segmented
         label="Entry"
@@ -590,11 +650,11 @@ function BulkActionsSection({
         onChange={(v: BulkEntry) => set("entry", v)}
         format={(v) => BULK_ENTRY_LABELS[v]}
       />
-      <p className="text-[10px] leading-[14px] text-pg-faint">
+      <Note>
         {settings.entry === "chooser"
           ? "One Bulk actions button, and the modal's first card asks which path. Costs a click; is the only place the paths are seen together."
           : "One button per path in the toolbar. Faster, and an admin who picked wrong backs out instead of switching."}
-      </p>
+      </Note>
 
       <Segmented
         label="Toolbar"
@@ -603,22 +663,22 @@ function BulkActionsSection({
         onChange={(v: BulkBar) => set("bar", v)}
         format={(v) => BULK_BAR_LABELS[v]}
       />
-      <p className="text-[10px] leading-[14px] text-pg-faint">
+      <Note>
         {settings.bar === "inline"
           ? "Above the table. Never covers a row, but pushes the table down the moment you tick something."
           : "A floating bar over the page. The table holds still; the last row sits under it."}
-      </p>
+      </Note>
 
       <Toggle
         label="Confirm before applying"
         checked={settings.confirmStep}
         onChange={(v) => set("confirmStep", v)}
       />
-      <p className="text-[10px] leading-[14px] text-pg-faint">
+      <Note>
         {settings.confirmStep
           ? "The run states its blast radius — “N changes across N sub-accounts” — while it can still be cancelled."
           : "Apply commits from the decide step with no count. This is what removing the safety net looks like."}
-      </p>
+      </Note>
 
       <Segmented
         label="Outcome"
@@ -627,33 +687,33 @@ function BulkActionsSection({
         onChange={(v: BulkOutcome) => set("outcome", v)}
         format={(v) => BULK_OUTCOME_LABELS[v]}
       />
-      <p className="text-[10px] leading-[14px] text-pg-faint">
+      <Note>
         {settings.outcome === "queued"
           ? "Production's honest answer: the work is queued and lands in a few minutes. The nav still changes here immediately — the prototype has no queue to wait on."
           : "The success card claims the change is already live. Compare how much the wait costs the flow."}
-      </p>
+      </Note>
 
       <Toggle
         label="Select all matching"
         checked={settings.selectAllMatching}
         onChange={(v) => set("selectAllMatching", v)}
       />
-      <p className="text-[10px] leading-[14px] text-pg-faint">
+      <Note>
         {settings.selectAllMatching
           ? "“Select all 18” beside the count — production's escape hatch from ticking a page at a time."
           : "Selection is only ever what was ticked by hand."}
-      </p>
+      </Note>
 
       <Toggle
         label="Bulk action history"
         checked={settings.keepHistory}
         onChange={(v) => set("keepHistory", v)}
       />
-      <p className="text-[10px] leading-[14px] text-pg-faint">
+      <Note>
         {settings.keepHistory
           ? "Every run is kept and readable from the table header and the success card — which accounts, which features, which way."
           : "Runs leave no record. A bulk change becomes something nobody can check afterwards."}
-      </p>
+      </Note>
 
       <Stepper
         label="Apply delay"
@@ -678,6 +738,10 @@ function Toggle({
   disabled?: boolean;
   onChange: (next: boolean) => void;
 }) {
+  // A switch has two states and neither is named on screen, so the words that
+  // find it are the ones a reader would use for what it does.
+  const { hidden, mark } = useFiltered(label, "on off toggle");
+
   return (
     <button
       type="button"
@@ -685,7 +749,11 @@ function Toggle({
       aria-checked={checked}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className="motion-tap flex items-center justify-between gap-2 disabled:opacity-40"
+      {...mark}
+      className={cn(
+        "motion-tap flex items-center justify-between gap-2 disabled:opacity-40",
+        hidden && "hidden",
+      )}
     >
       <span className="text-[11px] leading-none text-pg-muted">{label}</span>
       <span
@@ -723,9 +791,15 @@ function Row({ knob }: { knob: TuningKnob }) {
   const { state, set } = useTuning();
   const value = state[knob.id];
   const changed = value !== TUNING_DEFAULTS[knob.id];
+  // The hint too: a knob's label is often three words for a measurement, and
+  // the hint is where the thing it measures is actually named.
+  const { hidden, mark } = useFiltered(knob.label, knob.hint, knob.id);
 
   return (
-    <label className="flex flex-col gap-[3px]">
+    <label
+      {...mark}
+      className={cn("flex-col gap-[3px]", hidden ? "hidden" : "flex")}
+    >
       <span className="flex items-baseline justify-between gap-2">
         <span className="text-[11px] leading-none text-pg-muted">
           {knob.label}
@@ -843,8 +917,18 @@ function Segmented<T extends string>({
   onChange: (v: T) => void;
   format?: (v: T) => string;
 }) {
+  // The option names count as well as the label — "pill", "dark", "bottom edge"
+  // are what someone remembers about a control whose title they do not.
+  const { hidden, mark } = useFiltered(
+    label,
+    options.map((o) => (format ? format(o) : o)).join(" "),
+  );
+
   return (
-    <div className="flex flex-col gap-[4px]">
+    <div
+      {...mark}
+      className={cn("flex-col gap-[4px]", hidden ? "hidden" : "flex")}
+    >
       <span className="text-[11px] leading-none text-pg-muted">{label}</span>
       <div className="flex flex-wrap gap-[4px]">
         {options.map((opt) => (
@@ -873,6 +957,98 @@ function Segmented<T extends string>({
  * Collapsed sections still report how many of their values differ from the
  * design, so nothing changed mid-demo can hide behind a closed section.
  */
+/**
+ * The panel's filter, and how a control knows whether it survived it.
+ *
+ * There are close to fifty controls in here across eight sections, and the
+ * honest problem is not that they are hard to find once you know the name —
+ * it is that you often do not. So the query matches a control's LABEL and its
+ * option names both: typing "pill", "dark" or "bottom" finds the control whose
+ * choices say so, not just the ones whose titles do.
+ *
+ * Filtering rather than jumping, because a jump answers "where is X" and this
+ * has to answer "what is there about X" — three related controls sitting under
+ * one query is the useful result, and a jump can only ever land on one.
+ */
+const TuningFilterContext = React.createContext<{
+  query: string;
+  matches: (...text: (string | undefined)[]) => boolean;
+}>({ query: "", matches: () => true });
+
+function useTuningFilter() {
+  return React.useContext(TuningFilterContext);
+}
+
+/**
+ * Whether this control survived the query, and the mark that says so.
+ *
+ * Deliberately stateless. The first version had each control REPORT its fate
+ * to its section through a context so the section could hide itself when
+ * nothing in it matched — which put a state update in an effect in every one of
+ * fifty controls, and the panel locked the main thread the moment it opened. A
+ * group cannot ask its children a question during render; what it can do is let
+ * the browser answer it afterwards.
+ *
+ * So a control that matched marks itself `data-match`, and a group hides itself
+ * with `:has([data-match])` — the same question, asked in CSS, where the answer
+ * costs nothing and cannot loop.
+ */
+function useFiltered(...text: (string | undefined)[]): {
+  /** Filtered out: still rendered, but not shown and not marking its group. */
+  hidden: boolean;
+  /** Spread onto the control's root element. */
+  mark: { "data-match"?: "" };
+} {
+  const { query, matches } = useTuningFilter();
+  const hidden = query !== "" && !matches(...text);
+  return { hidden, mark: hidden ? {} : { "data-match": "" } };
+}
+
+/**
+ * One line of prose under a control.
+ *
+ * Hidden while a query is up. The notes explain a control you are already
+ * looking at; in a filtered list they would be the longest thing on screen,
+ * explaining controls chosen for you by a search you can re-read at the top.
+ */
+function Note({ children }: { children: React.ReactNode }) {
+  const { query } = useTuningFilter();
+  if (query !== "") return null;
+  // The markup this component replaced, NOT another <Note>. Rendering itself
+  // recursed until the stack blew, which reads as the panel hanging the tab the
+  // moment it is opened rather than as an error — the paragraphs are
+  // unconditional, so every open hit it.
+  return (
+    <p className="text-[10px] leading-[14px] text-pg-faint">{children}</p>
+  );
+}
+
+/**
+ * The pinned strip above the sections — same filtering, no heading to hide.
+ *
+ * It holds the controls that are not axes of the proposal but choices about
+ * which proposal you are looking at, so it never collapses and never scrolls
+ * away. Under a query it behaves like any section: the controls that do not
+ * match go, and if none do the strip goes with them rather than leaving a
+ * bordered band of nothing at the top of the results.
+ */
+function PinnedGroup({ children }: { children: React.ReactNode }) {
+  const { query } = useTuningFilter();
+
+  return (
+    <div
+      className={cn(
+        "shrink-0 flex-col gap-[6px] px-[14px] py-[10px] shadow-[inset_0_-1px_0_0_var(--pg-border)]",
+        // Gone while filtering unless something inside it marked itself — the
+        // browser answers "is there anything in here", not a state machine.
+        query === "" ? "flex" : "hidden has-[[data-match]]:flex",
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 function Section({
   id,
   open,
@@ -889,14 +1065,43 @@ function Section({
   children: React.ReactNode;
 }) {
   const panelId = `tuning-section-${id.replace(/\s+/g, "-").toLowerCase()}`;
+  const filter = useTuningFilter();
+  const { query, matches } = filter;
+  const filtering = query !== "";
+
+  /*
+   * A section whose own NAME matches shows everything in it.
+   *
+   * "bulk" should open Bulk actions whole, not hand back the two controls in it
+   * that happen to repeat the word — and the section that answers a query is
+   * usually the section you were looking for. Passed down as a matcher that
+   * says yes to everything, so the children need no second rule.
+   */
+  const titleMatch = filtering && matches(id);
+  const childFilter = React.useMemo(
+    () => (titleMatch ? { query, matches: () => true } : filter),
+    [titleMatch, query, filter],
+  );
+
+  // Open while filtering: a section collapsed over the one control you searched
+  // for is the same as not finding it. Whether it is SHOWN at all is CSS's
+  // question — see `useFiltered`.
+  const showOpen = filtering ? true : open;
 
   return (
-    <section className="border-t border-pg-border first:border-t-0">
+    <section
+      className={cn(
+        "border-t border-pg-border first:border-t-0",
+        filtering &&
+          !titleMatch &&
+          "hidden has-[[data-match]]:block",
+      )}
+    >
       <div className="group flex items-center">
         <button
           type="button"
           onClick={onToggle}
-          aria-expanded={open}
+          aria-expanded={showOpen}
           aria-controls={panelId}
           className="motion-tap flex min-w-0 flex-1 items-center gap-[6px] py-[10px] pl-[14px] text-left"
         >
@@ -905,7 +1110,7 @@ function Section({
             aria-hidden="true"
             className={cn(
               "shrink-0 text-pg-faint transition-transform duration-150",
-              open && "rotate-90",
+              showOpen && "rotate-90",
             )}
           />
           <span className="truncate text-[11px] leading-none font-semibold tracking-[0.4px] text-pg-heading uppercase">
@@ -935,11 +1140,13 @@ function Section({
       <div
         id={panelId}
         className="grid transition-[grid-template-rows] duration-200 ease-out"
-        style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
+        style={{ gridTemplateRows: showOpen ? "1fr" : "0fr" }}
       >
         <div className="overflow-hidden">
           <div className="flex flex-col gap-[10px] px-[14px] pt-[2px] pb-[14px]">
-            {children}
+            <TuningFilterContext value={childFilter}>
+              {children}
+            </TuningFilterContext>
           </div>
         </div>
       </div>
@@ -957,6 +1164,7 @@ function Section({
  */
 export function TuningPanel() {
   const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
   const [openSections, setOpenSections] =
     React.useState<SectionId[]>(INITIAL_OPEN);
   const { state, set, isDefault, reset } = useTuning();
@@ -981,6 +1189,8 @@ export function TuningPanel() {
     setDockPosition,
     entryLayout,
     setEntryLayout,
+    getAppPlacement,
+    setGetAppPlacement,
     pageShell,
     setPageShell,
     navGeneration,
@@ -989,7 +1199,12 @@ export function TuningPanel() {
     setNavSwitchInEditCard,
     layoutSwitchInEditCard,
     setLayoutSwitchInEditCard,
+    layoutReplaceDialog,
+    setLayoutReplaceDialog,
+    navColourControl,
+    setNavColourControl,
   } = useTheme();
+
 
   const toggleSection = (id: SectionId) =>
     setOpenSections((s) =>
@@ -1009,7 +1224,8 @@ export function TuningPanel() {
   const searchChanged =
     (searchMode !== DEFAULT_THEME.searchMode ? 1 : 0) +
     (searchTheme !== DEFAULT_THEME.searchTheme ? 1 : 0) +
-    (entryLayout !== DEFAULT_THEME.entryLayout ? 1 : 0);
+    (entryLayout !== DEFAULT_THEME.entryLayout ? 1 : 0) +
+    (getAppPlacement !== DEFAULT_THEME.getAppPlacement ? 1 : 0);
 
   const resetTheme = () => {
     setAccent(DEFAULT_THEME.accent);
@@ -1026,10 +1242,31 @@ export function TuningPanel() {
     // The placement counts towards this section's changed badge, so it has to
     // come back with the rest of it — without this, Reset left the button lit.
     setEntryLayout(DEFAULT_THEME.entryLayout);
+    setGetAppPlacement(DEFAULT_THEME.getAppPlacement);
   };
 
   const everythingIsDefault =
     isDefault && themeChanged === 0 && searchChanged === 0;
+
+  /*
+   * The matcher, handed down rather than applied here.
+   *
+   * Every word has to appear somewhere in the control's text, in any order:
+   * "dark nav" finds the nav surface control, and typing a second word narrows
+   * rather than starting again — which is the behaviour of every search box a
+   * reader has used, and the one thing they will assume without being told.
+   */
+  const filter = React.useMemo(() => {
+    const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    return {
+      query: terms.length > 0 ? query : "",
+      matches: (...text: (string | undefined)[]) => {
+        if (terms.length === 0) return true;
+        const hay = text.filter(Boolean).join(" ").toLowerCase();
+        return terms.every((t) => hay.includes(t));
+      },
+    };
+  }, [query]);
 
   if (!open) {
     return (
@@ -1090,6 +1327,37 @@ export function TuningPanel() {
         </div>
       </header>
 
+      {/*
+        Fifty-odd controls across eight sections, most of them collapsed.
+
+        Knowing the name is not the problem — remembering which section it was
+        filed under is. So the query matches labels AND option names, and the
+        sections that hold nothing matching drop out entirely rather than
+        staying as a row of empty headings to scroll past.
+      */}
+      <div className="flex shrink-0 items-center gap-[8px] px-[14px] py-[8px] shadow-[inset_0_-1px_0_0_var(--pg-border)]">
+        <Search size={13} aria-hidden="true" className="shrink-0 text-pg-faint" />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search controls"
+          aria-label="Search controls"
+          className="min-w-0 flex-1 bg-transparent text-[11px] leading-none text-pg-text placeholder:text-pg-faint focus:outline-none"
+        />
+        {query !== "" ? (
+          <button
+            type="button"
+            onClick={() => setQuery("")}
+            aria-label="Clear search"
+            title="Clear search"
+            className="motion-tap flex size-[18px] shrink-0 items-center justify-center rounded-[5px] text-pg-faint hover:bg-pg-row-border hover:text-pg-text"
+          >
+            <X size={12} aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
+
       <div className="flex shrink-0 items-center justify-between px-[14px] py-[8px] shadow-[inset_0_-1px_0_0_var(--pg-border)]">
         <span className="text-[10px] leading-none text-pg-faint">
           {everythingIsDefault ? "Matching the design" : "Retuned"}
@@ -1103,6 +1371,7 @@ export function TuningPanel() {
         </button>
       </div>
 
+      <TuningFilterContext value={filter}>
       {/*
         Above the sections, not inside one.
 
@@ -1115,7 +1384,7 @@ export function TuningPanel() {
         this chooses whether you are looking at the proposal at all, which is why
         it sits with the panel's own chrome rather than among the axes.
       */}
-      <div className="flex shrink-0 flex-col gap-[6px] px-[14px] py-[10px] shadow-[inset_0_-1px_0_0_var(--pg-border)]">
+      <PinnedGroup>
         <Segmented
           label="Navigation"
           options={NAV_GENERATIONS}
@@ -1123,11 +1392,11 @@ export function TuningPanel() {
           onChange={(v: NavGeneration) => setNavGeneration(v)}
           format={(v) => NAV_GENERATION_LABELS[v]}
         />
-        <p className="text-[10px] leading-[14px] text-pg-faint">
+        <Note>
           {navGeneration === "legacy"
             ? "Production's sidebar, transcribed: one flat list, no flyouts, no grouping, no pinning. Rows select but do not navigate."
             : "The proposal. Switch to Old nav to compare it against what ships today."}
-        </p>
+        </Note>
         {/*
           Two questions about the same thing: not which nav or layout to show,
           but whether an admin should be able to answer either from inside the
@@ -1139,23 +1408,67 @@ export function TuningPanel() {
           checked={navSwitchInEditCard}
           onChange={setNavSwitchInEditCard}
         />
-        <p className="text-[10px] leading-[14px] text-pg-faint">
+        <Note>
           {navSwitchInEditCard
             ? "A Navigation row in the card's ⋯ menu, opening the same two options. Off, switching navigation happens only here."
             : "The card's ⋯ menu has no Navigation row. Switching happens only here."}
-        </p>
+        </Note>
 
         <Toggle
           label="Layout switch in the edit card"
           checked={layoutSwitchInEditCard}
           onChange={setLayoutSwitchInEditCard}
         />
-        <p className="text-[10px] leading-[14px] text-pg-faint">
+        <Note>
           {layoutSwitchInEditCard
             ? "A Layout row in the card's ⋯ menu, for looking at the sidebar we ship. Off, the default layout is unreachable — which is what the product looks like without this idea."
             : "The card's ⋯ menu has no Layout row, so the default layout cannot be reached from the nav at all."}
-        </p>
-      </div>
+        </Note>
+
+        {/*
+          The one destructive moment in the layout flow, and how much ceremony
+          it gets. Under the Layout switch, since it only ever fires because of
+          it.
+        */}
+        {layoutSwitchInEditCard ? (
+          <>
+            <Segmented
+              label="Replacing my layout"
+              options={LAYOUT_REPLACE_DIALOGS}
+              value={layoutReplaceDialog}
+              onChange={(v: LayoutReplaceDialog) => setLayoutReplaceDialog(v)}
+              format={(v) => LAYOUT_REPLACE_DIALOG_LABELS[v]}
+            />
+            <Note>
+              {layoutReplaceDialog === "simple"
+                ? "Saving edits made on the HighLevel default: one sentence, Discard and Save changes. The layout being replaced is simply gone — nothing to name, nothing filed."
+                : "The full version: the arrangement being replaced is offered as a named template first, so it can be put back later. Three answers, weighted."}
+            </Note>
+          </>
+        ) : null}
+
+        {/*
+          Which colour control the card carries, and nothing more.
+          
+          The accents and the custom picker were briefly hosted here too, on the
+          reasoning that the icon does not cover them. But the full panel does,
+          it is one pill away, and duplicating ten swatches plus a colour picker
+          into a dev panel to cover a mode you can leave in a click is a second
+          copy to keep in step for no reach it adds.
+        */}
+        <Segmented
+          label="Nav colours"
+          options={NAV_COLOUR_CONTROLS}
+          value={navColourControl}
+          onChange={(v: NavColourControl) => setNavColourControl(v)}
+          format={(v) => NAV_COLOUR_CONTROL_LABELS[v]}
+        />
+        <Note>
+          {navColourControl === "toggle"
+            ? "One icon on the card, flipping light and dark. Accents and the custom picker are in the full panel — switch to it to reach them."
+            : "The card's palette icon opens the full surface — light/dark, accents and the custom picker — anchored to itself."}
+        </Note>
+      </PinnedGroup>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <Section
@@ -1179,10 +1492,10 @@ export function TuningPanel() {
             onChange={(v: Tint) => setTint(v)}
             format={(v) => TINT_LABELS[v]}
           />
-          <p className="text-[10px] leading-[14px] text-pg-faint">
+          <Note>
             Off keeps the design&apos;s greys. Subtle and full carry the accent
             into the whites, borders and text at the same lightness.
-          </p>
+          </Note>
           <Segmented
             label="Nav surface"
             options={SURFACE_THEMES}
@@ -1208,13 +1521,13 @@ export function TuningPanel() {
             onChange={(v: PageShell) => setPageShell(v)}
             format={(v) => PAGE_SHELL_LABELS[v]}
           />
-          <p className="text-[10px] leading-[14px] text-pg-faint">
+          <Note>
             {pageShell === "plane"
               ? "The shipped arrangement: an unfilled bar on the plane, with the canvas floating below it."
               : pageShell === "canvas"
                 ? "Breadcrumb, avatar and utilities become the canvas's own top band — one card, filled band, page ground under the hairline."
                 : "The same card filled all the way down: bar and page on one white surface, cards reading by their rings alone."}
-          </p>
+          </Note>
         </Section>
 
         <NavStructureSection
@@ -1247,9 +1560,9 @@ export function TuningPanel() {
             value={searchTheme}
             onChange={(v: SurfaceTheme) => setSearchTheme(v)}
           />
-          <p className="text-[10px] leading-[14px] text-pg-faint">
+          <Note>
             Open with ⌘K / Ctrl-K, or the search icon in the nav.
-          </p>
+          </Note>
           <Segmented
             label="Search + Ask AI placement"
             options={ENTRY_LAYOUTS}
@@ -1257,13 +1570,28 @@ export function TuningPanel() {
             onChange={(v: EntryLayout) => setEntryLayout(v)}
             format={(v) => ENTRY_LAYOUT_LABELS[v]}
           />
-          <p className="text-[10px] leading-[14px] text-pg-faint">
+          <Note>
             {entryLayout === "top"
               ? "The merged pill sits under the logo, above Favorites — the first thing on entry. The bottom edge is left to the drawer toggle."
               : entryLayout === "header"
                 ? "Out of the nav and into the app bar, left of the utility icons. The one placement that survives the nav collapsing — so the nav shows it at neither end, at either width."
                 : "The same merged pill, holding the nav's bottom edge beside the drawer toggle."}
-          </p>
+          </Note>
+
+          <Segmented
+            label="Get the app"
+            options={GET_APP_PLACEMENTS}
+            value={getAppPlacement}
+            onChange={(v: GetAppPlacement) => setGetAppPlacement(v)}
+            format={(v) => GET_APP_PLACEMENT_LABELS[v]}
+          />
+          <Note>
+            {getAppPlacement === "header"
+              ? "Two glyphs left of the phone. Standing and visible — an app nobody knows about is an app nobody installs."
+              : getAppPlacement === "menu"
+                ? "Two rows in the avatar menu, where production puts them. Conventional, and behind a menu most people open to sign out."
+                : "Two rows beside Settings, at both nav widths. Reads as part of the product, at the price of nav height spent on a one-time job."}
+          </Note>
         </Section>
 
         {TUNING_GROUPS.map((group) => {
@@ -1295,11 +1623,11 @@ export function TuningPanel() {
                     onChange={(v: DockPosition) => setDockPosition(v)}
                     format={(v) => DOCK_POSITION_LABELS[v]}
                   />
-                  <p className="text-[10px] leading-[14px] text-pg-faint">
+                  <Note>
                     {dockPosition === "bottom"
                       ? "Pinned to the nav's last edge — same place however far the list has scrolled."
                       : "Directly under the logo, as designed."}
-                  </p>
+                  </Note>
                   <Segmented
                     label="Caption position"
                     options={DOCK_LABELS}
@@ -1307,13 +1635,13 @@ export function TuningPanel() {
                     onChange={(v: DockLabel) => setDockLabel(v)}
                     format={(v) => DOCK_LABEL_LABELS[v]}
                   />
-                  <p className="text-[10px] leading-[14px] text-pg-faint">
+                  <Note>
                     {dockLabel === "under"
                       ? "Tracks the hovered icon, macOS-style."
                       : dockLabel === "center"
                         ? "One caption fixed at the dock's centre; only its text changes."
                         : "No caption. The native tooltip names the icon instead."}
-                  </p>
+                  </Note>
                 </>
               ) : null}
               {knobs.map((knob) => (
@@ -1323,6 +1651,7 @@ export function TuningPanel() {
           );
         })}
       </div>
+      </TuningFilterContext>
     </aside>
   );
 }

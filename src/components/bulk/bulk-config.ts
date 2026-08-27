@@ -176,6 +176,30 @@ export interface BulkSettings {
    * chose.
    */
   perAccountPath: boolean;
+  /**
+   * Whether feature access is a bulk action at all.
+   *
+   * On by default — granting and revoking products across a shelf of accounts
+   * is the thing agencies ask for by name. But entitlement and arrangement are
+   * different kinds of change with different owners (one is billing, one is
+   * design), and there is a real version of this feature that only ever pushes
+   * navigation. Switching it off is how that version gets looked at: the
+   * chooser drops to one path, and with one path there is nothing to choose, so
+   * the modal opens straight on templates.
+   */
+  featuresPath: boolean;
+  /**
+   * Whether the rail's All accounts directory can also run a bulk action.
+   *
+   * The Sub-accounts table is where bulk belongs — it is a management screen,
+   * and the rows carry the status and product counts you need to decide with.
+   * The directory is a JUMP list: you open it to go somewhere. Putting
+   * checkboxes in it is a real proposal (it is the fastest path to "these
+   * four, right now", and it is open far more often than the table is) and a
+   * real risk (a switcher that also changes things is a switcher you hesitate
+   * in). Off by default, and switchable, because that trade is the argument.
+   */
+  bulkInDirectory: boolean;
 }
 
 export const BULK_DEFAULTS: BulkSettings = {
@@ -192,6 +216,8 @@ export const BULK_DEFAULTS: BulkSettings = {
   applyDelayMs: 900,
   keepHistory: true,
   perAccountPath: false,
+  featuresPath: true,
+  bulkInDirectory: false,
 };
 
 /**
@@ -202,7 +228,13 @@ export const BULK_DEFAULTS: BulkSettings = {
  * kind of drift that only shows up in a demo.
  */
 export function pathsFor(settings: BulkSettings): readonly BulkPath[] {
-  return settings.perAccountPath
-    ? BULK_PATHS
-    : BULK_PATHS.filter((p) => p !== "per-account");
+  return BULK_PATHS.filter((path) => {
+    // The per-account grid IS a feature path — it just answers per account. So
+    // it cannot outlive the switch that removes feature access from the flow.
+    if (path === "per-account") {
+      return settings.featuresPath && settings.perAccountPath;
+    }
+    if (path === "features") return settings.featuresPath;
+    return true;
+  });
 }

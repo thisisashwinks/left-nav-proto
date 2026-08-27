@@ -61,14 +61,13 @@ import { useNavLayout } from "./nav-layout-provider";
 import { RowMenu, useRowMenu, type RowMenuAction } from "./row-menu";
 import { DeleteGroupDialog } from "./delete-group-dialog";
 import { DiscardEditsDialog } from "./discard-edits-dialog";
-import {
-  KeepChangesDialog,
-  LayoutSwitch,
-  LayoutSwitchWarning,
-} from "./layout-switch";
+import { KeepChangesDialog, LayoutSwitchWarning } from "./layout-switch";
 import { editTargetFor, navEntriesFor } from "./nav-entries";
 import { fixedEntriesFor, flyoutIdFor, navConfig } from "./nav-config";
-import { MergedRecentsBlock } from "./merged-recents";
+import {
+  AgencyMergedRecentsBlock,
+  MergedRecentsBlock,
+} from "./merged-recents";
 import { PROPOSED_HOME_ID } from "./proposed-ia";
 import { NavDivider } from "./nav-divider";
 import { NavHeader } from "./nav-header";
@@ -78,10 +77,15 @@ import type { NavDensity } from "./use-nav-density";
 import { NavSectionLabel } from "./nav-section-label";
 import { NavRowsSkeleton } from "@/components/shell/switching";
 import { NavAppearance } from "./nav-appearance";
-import type { LucideIcon } from "lucide-react";
+import { Monitor, Smartphone, type LucideIcon } from "lucide-react";
+import type { AppKind } from "@/components/header/get-app-modal";
 import { useAgencyLayout } from "./agency-layout";
 import { NavTemplatesMenu } from "./nav-templates-menu";
-import { useNavTemplates } from "./nav-templates";
+import {
+  patchForArrangement,
+  useNavTemplates,
+  type NavTemplate,
+} from "./nav-templates";
 import { iconByName, nameForIcon } from "./icon-catalogue";
 import type { NavConfig, NavEntry, NavItem } from "./types";
 
@@ -151,6 +155,13 @@ interface LeftNavProps {
   onOpenLauncher: () => void;
   /** How many inline recent rows to show, after the density budget. */
   recentsBudget: number;
+  /**
+   * Opens the Get the app modal, when the placement axis puts the offer here.
+   *
+   * The shell owns the modal — three surfaces can open it and only one of them
+   * is the nav — so this is a door, not a piece of state.
+   */
+  onOpenApp: (kind: AppKind) => void;
 }
 
 /**
@@ -196,6 +207,7 @@ export function LeftNav({
   density,
   onOpenLauncher,
   recentsBudget,
+  onOpenApp,
 }: LeftNavProps) {
   // Out, hold, in. `loading` alone flips in one commit and so cannot express a
   // departure — see useSwapPhase.
@@ -207,15 +219,18 @@ export function LeftNav({
     navSections,
     recentsMode,
     mergedPinScope,
+    mergedAgencyRecents,
+    getAppPlacement,
   } = useTheme().effective;
   /*
    * Recents and Pinned drawn as one list — see merged-recents.tsx.
    *
-   * Sub-account only. At agency scope the cluster's Recent block names accounts
-   * rather than places, and there is no such thing as a pinned account, so
-   * there is nothing to merge.
+   * Both scopes. The agency's version merges its own pinned AREAS with its own
+   * history, and what that history is made of — areas, the clients it last had
+   * open, or both — is its own axis, because it is the one question the
+   * sub-account never had to answer.
    */
-  const mergedMode = recentsMode === "merged" && scope !== "agency";
+  const mergedMode = recentsMode === "merged";
   /** Recent folds in both heading variants; only "all" names every band. */
   const foldable = navSections !== "plain";
   const bandEverything = navSections === "all";
@@ -223,6 +238,17 @@ export function LeftNav({
    * Which bands are folded. Face-local on purpose: a fold is a property of the
    * nav you are looking at, not of the account's tree.
    */
+  /** The companion-app rows, when the placement axis puts them in the nav. */
+  const getAppEntries: NavEntry[] = [
+    {
+      kind: "item",
+      item: { id: "get-app-mobile", label: "Mobile app", icon: Smartphone },
+    },
+    {
+      kind: "item",
+      item: { id: "get-app-desktop", label: "Desktop app", icon: Monitor },
+    },
+  ];
   const [foldedSections, setFoldedSections] = React.useState<Set<string>>(
     () => new Set(),
   );
@@ -255,6 +281,29 @@ export function LeftNav({
   const mergedHidesCapsule = merged && mergedPinScope !== "both";
   const agencyScope = scope === "agency";
   /*
+   * Recently visited clients, in the shape the merged list takes.
+   *
+   * Resolved here rather than inside that component because the mark is an
+   * `AccountLogo` and the accounts themselves are the shell's, not the nav
+   * store's — the list only needs to know how to draw what it is handed.
+   */
+  const mergedAccountRows = React.useMemo(
+    () =>
+      recentAccounts.map((account) => ({
+        id: account.id,
+        label: account.name,
+        mark: (
+          <AccountLogo
+            logo={account.logo}
+            src={account.logoSrc}
+            size={16}
+            radius={999}
+          />
+        ),
+      })),
+    [recentAccounts],
+  );
+  /*
    * The base plan has no setup-guide toggle: the row is always visible there. So
    * the plan substitutes for the setting rather than the nav merely
    * showing a locked switch — the tiering is a property of the nav, not a claim
@@ -269,6 +318,22 @@ export function LeftNav({
   const layout = useNavLayout();
   const agencyLayout = useAgencyLayout();
   const templates = useNavTemplates();
+
+  /**
+   * Put a template on this account, and record that it is on it.
+   *
+   * The one path all three template verbs end in. Saving is also an apply:
+   * `captureArrangement` normalises the tree it takes — it materialises the
+   * groups and switches the mode to custom — so an account that saved without
+   * applying would be on a template whose shape it does not actually have, and
+   * the very next "Save template" would silently re-normalise it again. Landing
+   * the template back on the account it came from makes the two agree from the
+   * first press.
+   */
+  const putOnAccount = (tpl: NavTemplate) => {
+    layout.applyArrangement(tpl.name, patchForArrangement(tpl.arrangement, state));
+    templates.link(account.id, tpl.id);
+  };
   const [agencyRenaming, setAgencyRenaming] = React.useState<string | null>(null);
   const menu = useRowMenu();
   /**
@@ -317,7 +382,19 @@ export function LeftNav({
   /** Whether the discard warning is up. */
   const [confirmingDiscard, setConfirmingDiscard] = React.useState(false);
   /** The default is showing, was edited, and Done has been pressed. */
-  const [keepingOldLayout, setKeepingOldLayout] = React.useState(false);
+  /**
+   * Why the replace-my-layout question is up, or null when it is not.
+   *
+   * `save` is Done pressed on an edited default; `switch` is asking to go back
+   * to my layout with those edits still pending. Both replace the same thing,
+   * so they ask the same question — but they are not the same request, and the
+   * simple dialog's second button has to mean what the reader came here for:
+   * backing out of a save leaves you where you were, while backing out of a
+   * switch would strand you on a nav you asked to leave.
+   */
+  const [keepingOldLayout, setKeepingOldLayout] = React.useState<
+    "save" | "switch" | null
+  >(null);
   /** The warning stands between the control and the switch. */
   const [confirmingDefault, setConfirmingDefault] = React.useState(false);
   /** The row in flight, and the row the pointer is over. Drag-local. */
@@ -872,6 +949,18 @@ export function LeftNav({
    * it — a divider dividing one thing from nothing.
    */
   const fixedHasRows = fixedEntries.some((e) => e.kind === "item");
+  /*
+   * Whether the cluster's closing rule has anything to close.
+   *
+   * At agency scope the cluster is not `fixedEntries` at all — it is the Recent
+   * accounts block, which the merged list swallows whole on two of its three
+   * settings. Left alone, the rule then landed directly under the merged
+   * block's own rule: two hairlines, four pixels apart, dividing nothing from
+   * nothing.
+   */
+  const showClusterRule = agencyScope
+    ? recentAccounts.length > 0 && !(merged && mergedAgencyRecents !== "places")
+    : fixedHasRows;
 
   /** Leaving the mode has to take its transient surfaces with it. */
   const closeEditSurfaces = () => {
@@ -970,18 +1059,27 @@ export function LeftNav({
           onShowDefault: () => setConfirmingDefault(true),
           onRestoreOwn: () => {
             if (layout.defaultEdited) {
-              setKeepingOldLayout(true);
+              setKeepingOldLayout("switch");
               return;
             }
             layout.restoreOwnLayout();
           },
+          accountId: account.id,
           onApplyTemplate: (id: string) => {
-            const patch = templates.patchFor(id, state);
             const tpl = templates.templates.find((t) => t.id === id);
-            if (patch && tpl) layout.applyArrangement(tpl.name, patch);
+            if (tpl) putOnAccount(tpl);
           },
-          onSaveTemplate: (name: string) =>
-            templates.save(name, account.name, state),
+          // Created FROM this account, so this account goes onto it. Without
+          // the link the menu would only ever offer Create again, which is how
+          // an agency ends up with four copies of one nav.
+          onCreateTemplate: (name: string) => {
+            const tpl = templates.save(name, account.name, state);
+            if (tpl) putOnAccount(tpl);
+          },
+          onUpdateTemplate: (id: string) => {
+            const tpl = templates.update(id, account.name, state);
+            if (tpl) putOnAccount(tpl);
+          },
           // Templates are a sub-account idea: the agency tree is platform IA,
           // so there is no arrangement of it worth reusing elsewhere.
           ...(agencyScope
@@ -1004,14 +1102,23 @@ export function LeftNav({
              */
             if (layout.viewingDefault && layout.defaultEdited) {
               closeEditSurfaces();
-              setKeepingOldLayout(true);
+              setKeepingOldLayout("save");
               return;
             }
             closeEditSurfaces();
             layout.saveEditing();
             agencyLayout.save();
-            // An untouched default is simply put away, not adopted.
-            if (layout.viewingDefault) layout.restoreOwnLayout();
+            /*
+             * Done ends the SESSION, not the view.
+             *
+             * It used to put an untouched default away on the way out, on the
+             * reading that looking at the shipped nav is a detour you are
+             * returning from. It is not — you might have opened it to work
+             * alongside a help doc, and being thrown back to your own nav the
+             * moment you left edit mode undid something you never asked to
+             * undo. The banner stays up, and its own button is the way back,
+             * as is the Layout row in the ⋯ menu.
+             */
           },
           onDiscard: () => {
             // Nothing changed, nothing to warn about — the confirmation only
@@ -1309,6 +1416,18 @@ export function LeftNav({
             (flyoutId === openFlyoutId || flyoutId === pinnedFlyoutId))
         }
         onSelect={() => {
+          /*
+            The companion-app rows open a modal rather than going anywhere.
+
+            Caught here because the banded arrangement folds them into the last
+            band, which means they arrive through the generic row renderer and
+            would otherwise select an id no page answers to. The plain
+            arrangement wires them directly and never reaches this.
+          */
+          if (item.id === "get-app-mobile" || item.id === "get-app-desktop") {
+            onOpenApp(item.id === "get-app-mobile" ? "mobile" : "desktop");
+            return;
+          }
           onSelect(item.id);
           if (item.hasFlyout) onPinFlyout(flyoutId);
         }}
@@ -1591,7 +1710,16 @@ export function LeftNav({
             cheaper than two, and a list that holds still while the rest moves is
             back to being two things.
           */}
-          {merged ? (
+          {merged && agencyScope ? (
+            <AgencyMergedRecentsBlock
+              selectedId={selectedId}
+              onSelect={onSelect}
+              accounts={mergedAccountRows}
+              onSwitchAccount={onSwitchAccount}
+              onOpenPanel={onOpenLauncher}
+            />
+          ) : null}
+          {merged && !agencyScope ? (
             <MergedRecentsBlock
               selectedId={selectedId}
               onSelect={onSelect}
@@ -1607,10 +1735,19 @@ export function LeftNav({
             />
           ) : null}
           {agencyScope ? (
-            <RecentAccountsBlock
-              accounts={recentAccounts}
-              onSwitch={onSwitchAccount}
-            />
+            /*
+              Recent accounts stands down once the merged list is naming
+              accounts itself. With the list set to areas only it stays — a
+              client switch is not navigation, and burying the agency nav's most
+              consequential row inside a list of pages is exactly what the
+              "areas" option exists to avoid.
+            */
+            merged && mergedAgencyRecents !== "places" ? null : (
+              <RecentAccountsBlock
+                accounts={recentAccounts}
+                onSwitch={onSwitchAccount}
+              />
+            )
           ) : foldable ? (
             renderBanded(fixedEntries)
           ) : (
@@ -1621,7 +1758,7 @@ export function LeftNav({
             close. Launchpad is a card and needs no rule under it: its own edges
             say where it ends.
           */}
-          {fixedHasRows ? <NavDivider /> : null}
+          {showClusterRule ? <NavDivider /> : null}
           {bandEverything ? (
             /*
               Settings is inside the last band here, not the bottom anchor it is
@@ -1631,6 +1768,13 @@ export function LeftNav({
             */
             renderBanded([
               ...entries,
+              /*
+                The companion apps fold with Settings here, for the same reason
+                Settings itself does: this arrangement bands EVERYTHING, and a
+                pair of rows standing outside the last band would be the one
+                exception the "More" heading does not name.
+              */
+              ...(getAppPlacement === "nav" ? getAppEntries : []),
               {
                 kind: "item",
                 item: agencyScope ? agencySettings : config.settings,
@@ -1671,6 +1815,29 @@ export function LeftNav({
                 nav still has is the one worth drawing.
               */}
               <NavDivider />
+              {/*
+                The companion apps, when the axis puts them in the nav.
+
+                Below the rule with Settings rather than above it, because they
+                are the same kind of thing: chrome the platform offers, not the
+                account's tree. Above it they would have read as the last two
+                products, which is the one thing they are not.
+              */}
+              {getAppPlacement === "nav"
+                ? getAppEntries.map((e) =>
+                    e.kind === "item" ? (
+                      <NavItemRow
+                        key={e.item.id}
+                        item={e.item}
+                        onSelect={() =>
+                          onOpenApp(
+                            e.item.id === "get-app-mobile" ? "mobile" : "desktop",
+                          )
+                        }
+                      />
+                    ) : null,
+                  )
+                : null}
               {renderRow(agencyScope ? agencySettings : config.settings)}
             </>
           )}
@@ -1693,30 +1860,15 @@ export function LeftNav({
         at all.
       */}
       {/*
-        Between the list and the entry pill: below everything the switch would
-        change, above the one control that is never affected by it. Only where
-        there is a layout to compare — a plain user cannot restructure, so the
-        stock nav IS their nav and the control would name a distinction that does
-        not exist for them.
+        No standing banner while the default is up.
+
+        There was one here — a notice plus a "Back to my layout" button — on the
+        argument that a state you can enter must be visibly leavable from inside
+        it. The nav itself turned out to be the notice: a layout you did not
+        build looks nothing like the one you did, from the first row down, and
+        saying so in a box above it told you what you were already looking at.
+        The way back is the ⋯ menu's Layout row, which is also the way in.
       */}
-      {can.customise ? (
-        <LayoutSwitch
-          viewingDefault={layout.viewingDefault}
-          onRestoreOwn={() => {
-            /*
-             * Leaving with edits pending destroys exactly what pressing Done
-             * would, so it asks exactly what Done asks. Guarding only the Done
-             * path left this as a silent way to throw the same work away — a
-             * confirmation with an open door beside it is not a guard.
-             */
-            if (layout.defaultEdited) {
-              setKeepingOldLayout(true);
-              return;
-            }
-            layout.restoreOwnLayout();
-          }}
-        />
-      ) : null}
 
       {headerEntry ? (
         /*
@@ -1778,14 +1930,20 @@ export function LeftNav({
         <NavTemplatesMenu
           accountName={account.name}
           anchor={templatesAt}
-          onSave={(name) => {
-            templates.save(name, account.name, state);
+          accountId={account.id}
+          onCreate={(name) => {
+            const tpl = templates.save(name, account.name, state);
+            if (tpl) putOnAccount(tpl);
+            setTemplatesAt(null);
+          }}
+          onUpdate={(id) => {
+            const tpl = templates.update(id, account.name, state);
+            if (tpl) putOnAccount(tpl);
             setTemplatesAt(null);
           }}
           onApply={(id) => {
-            const patch = templates.patchFor(id, state);
             const tpl = templates.templates.find((t) => t.id === id);
-            if (patch && tpl) layout.applyArrangement(tpl.name, patch);
+            if (tpl) putOnAccount(tpl);
             setTemplatesAt(null);
           }}
           onClose={() => setTemplatesAt(null)}
@@ -1841,13 +1999,13 @@ export function LeftNav({
              */
             const stashed = layout.stashedOwnLayout;
             if (stashed) templates.save(name, account.name, stashed);
-            setKeepingOldLayout(false);
+            setKeepingOldLayout(null);
             layout.adoptDefaultLayout();
             layout.saveEditing();
             agencyLayout.save();
           }}
           onKeepOnly={() => {
-            setKeepingOldLayout(false);
+            setKeepingOldLayout(null);
             layout.adoptDefaultLayout();
             layout.saveEditing();
             agencyLayout.save();
@@ -1858,10 +2016,31 @@ export function LeftNav({
              * closes, and the stash comes back. `restoreOwnLayout` already drops
              * whatever was done to the default, so there is nothing else to undo.
              */
-            setKeepingOldLayout(false);
+            setKeepingOldLayout(null);
             layout.discardEditing();
             agencyLayout.discard();
             layout.restoreOwnLayout();
+          }}
+          /*
+            Backing out, which means different things at the two doors.
+
+            From Done, the session simply stays open on the edited default —
+            nothing was decided. From "back to my layout" there is no such
+            neutral answer: closing the dialog and staying put would leave the
+            reader on the nav they just asked to leave, with the same two
+            answers waiting the next time they ask. So there it discards the
+            edits and takes them where they were going, which is what they
+            asked for before the question was put to them.
+          */
+          onCancel={() => {
+            if (keepingOldLayout === "switch") {
+              setKeepingOldLayout(null);
+              layout.discardEditing();
+              agencyLayout.discard();
+              layout.restoreOwnLayout();
+              return;
+            }
+            setKeepingOldLayout(null);
           }}
         />
       ) : null}

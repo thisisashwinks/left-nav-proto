@@ -2,111 +2,20 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { Info, Package, TriangleAlert } from "lucide-react";
+import { Package, TriangleAlert } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
-import { cn } from "@/lib/utils";
 
-/**
- * Your layout / Default layout, standing on the nav in both states.
+/*
+ * The standing My layout / HighLevel default layout banner used to live here.
  *
- * The case this exists for is a support call. HighLevel's changelogs and help
- * docs picture the sidebar we ship; an agency that has renamed six rows and
- * regrouped the rest is reading those docs about a nav they do not have. So the
- * shipped layout becomes something you can put on screen for a minute — get
- * oriented, point at the row the doc means — and then leave.
- *
- * Which is why it is NOT the reset control it replaced. Reset overwrote the
- * account's arrangement and left a five-second toast as the only way back; this
- * holds that arrangement aside and hands it back. One stash, not a history:
- * "what does the nav in the screenshot look like" is the question support
- * actually has, and answering it does not require knowing what the nav looked
- * like last March.
- *
- * Standing rather than tucked into the edit card, because none of that involves
- * editing. Making someone enter a restructuring mode to look at a layout is the
- * wrong shape for a control used mid-call with a customer on the line.
+ * Removed (Aug 27): it sat on the nav whenever the default was up, saying the
+ * nav was not yours and offering a way back. The nav says the first part by
+ * itself — a layout you did not build looks nothing like the one you did — and
+ * the ⋯ menu's Layout row is the way back as well as the way in, so the box was
+ * repeating what was already on screen and taking 60px to do it. What remains
+ * here is the pair of dialogs that guard the switch, which are the parts that
+ * say something the nav cannot.
  */
-export function LayoutSwitch({
-  viewingDefault,
-  onRestoreOwn,
-  collapsed = false,
-}: {
-  viewingDefault: boolean;
-  onRestoreOwn: () => void;
-  /** The rail's version: the glyph alone, with its name as a tooltip. */
-  collapsed?: boolean;
-}) {
-  // The rail has no room for the banner, so collapsed it is the button alone —
-  // and only while the default is up, for the same reason as above.
-  if (!viewingDefault) return null;
-
-  if (collapsed) {
-    return (
-      <div className="flex w-full shrink-0 justify-center px-[8px] pb-[8px]">
-        <button
-          type="button"
-          onClick={onRestoreOwn}
-          title="Showing the default layout — back to yours"
-          className={cn(
-            "motion-tap flex h-[32px] w-[40px] items-center justify-center rounded-[7px]",
-            viewingDefault
-              ? "bg-nav-active text-nav-fg"
-              : "text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg",
-          )}
-        >
-          <Package size={15} aria-hidden="true" />
-        </button>
-      </div>
-    );
-  }
-
-  /*
-   * While the default is up the control stops being a switch and becomes a
-   * notice with a way out.
-   *
-   * A quiet two-state toggle would leave the most important fact — that this is
-   * not your nav — as the difference between two similarly-weighted segments.
-   * Someone who wandered off mid-call and came back needs the nav to say what it
-   * is showing, not to be readable as a setting they might have changed.
-   */
-  if (viewingDefault) {
-    return (
-      <div className="w-full shrink-0 px-[12px] pb-[10px]">
-        <div className="flex flex-col gap-[6px] rounded-[9px] bg-nav-hover p-[8px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
-          <span className="flex items-start gap-[6px]">
-            <Info
-              size={13}
-              aria-hidden="true"
-              className="mt-[1px] shrink-0 text-nav-fg-subtle"
-            />
-            <span className="min-w-0 text-[11.5px] leading-[15px] text-nav-fg-muted">
-              Showing the <strong className="font-semibold text-nav-fg">default layout</strong> — the one in
-              our help docs.
-            </span>
-          </span>
-          <button
-            type="button"
-            onClick={onRestoreOwn}
-            className="motion-tap flex h-[28px] w-full items-center justify-center rounded-[7px] bg-nav-fg text-[12px] leading-none font-medium text-nav hover:opacity-90 active:scale-[0.99]"
-          >
-            Back to your layout
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  /*
-   * Nothing at rest. Reaching the default is the edit menu's job now.
-   *
-   * The BANNER above is not the same control and does not go with it. That one
-   * is not a way in, it is a notice you are somewhere unusual plus the way out —
-   * and without it the default could be entered from a menu and then only left
-   * through that menu, on a nav that no longer looks like yours and offers no
-   * clue why. A state you can enter must be visibly leavable from inside it.
-   */
-  return null;
-}
 
 /**
  * What you are told before the default goes up.
@@ -145,7 +54,7 @@ export function LayoutSwitchWarning({
     >
       <button
         type="button"
-        aria-label="Stay on your layout"
+        aria-label="Stay on my layout"
         tabIndex={-1}
         onClick={onCancel}
         className="absolute inset-0 cursor-default bg-[#10182899]"
@@ -153,7 +62,7 @@ export function LayoutSwitchWarning({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Showing the default layout"
+        aria-label="Showing the HighLevel default layout"
         className="motion-panel-in relative flex w-[400px] max-w-full flex-col gap-[8px] rounded-[8px] bg-nav p-[16px] shadow-[0_20px_24px_-4px_rgba(16,24,40,0.08),0_8px_8px_-4px_rgba(16,24,40,0.03),inset_0_0_0_1px_var(--fly-border)]"
       >
         <span
@@ -163,11 +72,11 @@ export function LayoutSwitchWarning({
           <Package size={18} />
         </span>
         <h2 className="text-[16px] leading-[normal] font-semibold text-nav-fg">
-          You&rsquo;re about to see the default layout
+          You&rsquo;re about to see the HighLevel default layout
         </h2>
         <p className="text-[13px] leading-[18px] text-nav-fg-subtle">
           This is the sidebar we ship, and the one our help docs and changelogs
-          describe. Your own layout is kept — switch back any time.
+          describe. My layout is kept — switch back any time.
         </p>
         <p className="text-[13px] leading-[18px] text-nav-fg-subtle">
           One thing to know: anything you <strong className="font-semibold text-nav-fg-muted">edit and save</strong> while
@@ -189,7 +98,7 @@ export function LayoutSwitchWarning({
             onClick={onConfirm}
             className="motion-tap flex h-[36px] items-center rounded-[6px] bg-nav-fg px-[12px] text-[14px] leading-[20px] font-medium text-nav hover:opacity-90 active:scale-[0.98]"
           >
-            Show default layout
+            Show HighLevel default
           </button>
         </div>
       </div>
@@ -221,6 +130,7 @@ export function KeepChangesDialog({
   onKeepWithBackup,
   onKeepOnly,
   onDiscard,
+  onCancel,
 }: {
   suggestedName: string;
   /** Save the replaced arrangement as a template, then adopt the changes. */
@@ -229,22 +139,34 @@ export function KeepChangesDialog({
   onKeepOnly: () => void;
   /** Throw the changes away and go back to their own layout. */
   onDiscard: () => void;
+  /** Back out of the question, leaving the edited default on screen. */
+  onCancel: () => void;
 }) {
-  const { navTheme } = useTheme();
+  const { navTheme, effective } = useTheme();
+  const simple = effective.layoutReplaceDialog === "simple";
   const [name, setName] = React.useState(suggestedName);
   const named = name.trim();
 
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      // Escape means "never mind", which here is the discarding answer — the
-      // only one that leaves the account exactly as it was found.
+      /*
+        Escape means "never mind", and what that means depends on which answers
+        are on offer.
+
+        The full version has a discarding answer, and it is the only one that
+        leaves the account exactly as it was found — so Escape takes it. The
+        simple version does not: its two answers both keep the edits, so Escape
+        backs out of the question instead and leaves the session open, which is
+        the only reading that does not decide something on the reader's behalf.
+      */
       e.stopPropagation();
-      onDiscard();
+      if (simple) onCancel();
+      else onDiscard();
     };
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [onDiscard]);
+  }, [onDiscard, onCancel, simple]);
 
   return createPortal(
     <div
@@ -256,7 +178,7 @@ export function KeepChangesDialog({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Keep these changes as your layout?"
+        aria-label="Keep these changes as my layout?"
         className="motion-panel-in relative flex w-[420px] max-w-full flex-col gap-[8px] rounded-[8px] bg-nav p-[16px] shadow-[0_20px_24px_-4px_rgba(16,24,40,0.08),0_8px_8px_-4px_rgba(16,24,40,0.03),inset_0_0_0_1px_var(--fly-border)]"
       >
         <span
@@ -266,17 +188,59 @@ export function KeepChangesDialog({
           <TriangleAlert size={18} />
         </span>
         <h2 className="text-[16px] leading-[normal] font-semibold text-nav-fg">
-          Keep these changes as your layout?
+          Keep these changes as my layout?
         </h2>
-        <p className="text-[13px] leading-[18px] text-nav-fg-subtle">
-          You edited the default layout. Keeping these changes makes them your
-          nav from now on, and the layout you had before is replaced — save it as
-          a template and you can put it back whenever you want.
-        </p>
+        {simple ? (
+          /*
+            One sentence, and it says the part that matters: what you lose.
 
+            The full version below spends a paragraph and a name field offering
+            to file the old arrangement away first. This one does not, because
+            the whole premise of the simple reading is that someone editing the
+            shipped nav is building the layout they want and has already
+            decided about the one they are leaving.
+          */
+          <p className="text-[13px] leading-[18px] text-nav-fg-subtle">
+            You edited the HighLevel default layout. Saving makes these changes
+            my layout from now on, and the layout I have today is replaced.
+          </p>
+        ) : (
+          <p className="text-[13px] leading-[18px] text-nav-fg-subtle">
+            You edited the HighLevel default layout. Keeping these changes makes
+            them my layout from now on, and the layout I had before is replaced
+            — save it as a template and it can go back any time.
+          </p>
+        )}
+
+        {simple ? (
+          <div className="mt-[10px] flex justify-end gap-[12px]">
+            {/*
+              Discard backs out of the SAVE, not out of the edits: it closes the
+              question and leaves the session exactly where it was, so nothing
+              is decided by a button pressed to get rid of a dialog.
+            */}
+            <button
+              type="button"
+              onClick={onCancel}
+              className="motion-tap flex h-[36px] items-center rounded-[6px] px-[12px] text-[14px] leading-[20px] text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              autoFocus
+              onClick={onKeepOnly}
+              className="motion-tap flex h-[36px] items-center rounded-[6px] bg-nav-fg px-[12px] text-[14px] leading-[20px] font-medium text-nav hover:opacity-90 active:scale-[0.98]"
+            >
+              Save changes
+            </button>
+          </div>
+        ) : null}
+
+        {simple ? null : (
         <label className="mt-[4px] flex flex-col gap-[4px]">
           <span className="text-[12px] leading-[16px] font-medium text-nav-fg-muted">
-            Name for your previous layout
+            Name for my previous layout
           </span>
           <input
             type="text"
@@ -289,6 +253,7 @@ export function KeepChangesDialog({
             className="h-[36px] w-full rounded-[8px] bg-nav px-[10px] text-[13px] leading-none text-nav-fg shadow-[inset_0_0_0_1px_var(--nav-divider)] focus:outline-none focus:shadow-[inset_0_0_0_1.5px_var(--nav-fg-subtle)]"
           />
         </label>
+        )}
 
         {/*
           Stacked, not a row of three.
@@ -298,6 +263,7 @@ export function KeepChangesDialog({
           them is a clause nobody reads twice. A column lets each answer be a
           full sentence and puts the safe one first.
         */}
+        {simple ? null : (
         <div className="mt-[10px] flex flex-col gap-[6px]">
           <button
             type="button"
@@ -322,6 +288,7 @@ export function KeepChangesDialog({
             Discard the changes and go back to my layout
           </button>
         </div>
+        )}
       </div>
     </div>,
     document.body,

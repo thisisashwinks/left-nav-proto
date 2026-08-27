@@ -90,11 +90,20 @@ export function BulkModal({
   const { templates } = useNavTemplates();
   const { profileFor } = useNavLayout();
 
-  const [path, setPath] = React.useState<BulkPath | null>(initialPath);
+  const paths = pathsFor(settings);
+  /*
+   * A chooser with one card is not a choice.
+   *
+   * With feature access switched off there is only ever the template path, so
+   * asking which of one thing to do is a click that carries no information.
+   * The modal opens on the only path it has.
+   */
+  const opening = initialPath ?? (paths.length === 1 ? paths[0]! : null);
+  const [path, setPath] = React.useState<BulkPath | null>(opening);
   const [step, setStep] = React.useState<Step>(
-    initialPath === null
+    opening === null
       ? "path"
-      : initialPath === "template"
+      : opening === "template"
         ? "template-pick"
         : "feature-pick",
   );
@@ -230,9 +239,10 @@ export function BulkModal({
     if (step === "template-review") return "template-pick";
     if (step === "feature-decide" || step === "matrix") return "feature-pick";
     if (step === "template-pick" || step === "feature-pick") {
-      // Straight-in entry has nothing behind the first step, so Back is a
-      // Cancel wearing the wrong word. It is simply not offered.
-      return settings.entry === "chooser" && initialPath === null ? "path" : null;
+      // Straight-in entry has nothing behind the first step, and neither does a
+      // single-path flow that skipped the chooser. Back would be a Cancel
+      // wearing the wrong word, so it is simply not offered.
+      return settings.entry === "chooser" && opening === null ? "path" : null;
     }
     return null;
   };
@@ -283,7 +293,7 @@ export function BulkModal({
           {step === "path" ? (
             <PathChooser
               accounts={accounts}
-              paths={pathsFor(settings)}
+              paths={paths}
               onPick={(next) => {
                 setPath(next);
                 setStep(next === "template" ? "template-pick" : "feature-pick");
@@ -418,9 +428,13 @@ export function BulkModal({
                               Without it "enable" is a guess: an admin cannot
                               tell whether they are turning something on for
                               everyone or for the one account that lacks it.
+
+                              "have it" rather than "on": a bare `2 of 3 on`
+                              reads as a fraction with no noun, and the first
+                              question anyone asked of it was what it counted.
                             */}
                             <span className="shrink-0 text-[13px] leading-[18px] text-pg-muted tabular-nums">
-                              {owns} of {accounts.length} on
+                              {owns} of {accounts.length} have it
                             </span>
                             <Box
                               checked={picked.includes(f.id)}
@@ -472,7 +486,7 @@ export function BulkModal({
                           {featureLabel(id)}
                         </span>
                         <span className="block text-[13px] leading-[18px] text-pg-muted tabular-nums">
-                          {ownedCount(id)} of {accounts.length} on today
+                          {ownedCount(id)} of {accounts.length} have it today
                         </span>
                       </span>
                       <Switch

@@ -26,6 +26,7 @@ export function AccountMenu({
   name,
   email,
   initials,
+  showApps,
   onOpenApp,
   onClose,
 }: {
@@ -33,6 +34,14 @@ export function AccountMenu({
   name: string;
   email: string;
   initials: string;
+  /**
+   * Whether the two companion-app rows live here.
+   *
+   * Off when the placement axis has moved them to the app bar or the sidebar.
+   * The offer stands in exactly one place at a time — two copies of it a click
+   * apart is the duplication the review objects to everywhere else.
+   */
+  showApps: boolean;
   onOpenApp: (kind: AppKind) => void;
   onClose: () => void;
 }) {
@@ -96,24 +105,27 @@ export function AccountMenu({
         onSelect={() => {}}
       />
 
-      <Rule />
-
-      <Row
-        icon={Smartphone}
-        label="Mobile app"
-        onSelect={() => {
-          onOpenApp("mobile");
-          onClose();
-        }}
-      />
-      <Row
-        icon={Monitor}
-        label="Desktop app"
-        onSelect={() => {
-          onOpenApp("desktop");
-          onClose();
-        }}
-      />
+      {showApps ? (
+        <>
+          <Rule />
+          <Row
+            icon={Smartphone}
+            label="Mobile app"
+            onSelect={() => {
+              onOpenApp("mobile");
+              onClose();
+            }}
+          />
+          <Row
+            icon={Monitor}
+            label="Desktop app"
+            onSelect={() => {
+              onOpenApp("desktop");
+              onClose();
+            }}
+          />
+        </>
+      ) : null}
 
       <Rule />
 

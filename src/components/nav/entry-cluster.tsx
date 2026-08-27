@@ -5,9 +5,11 @@ import type { LucideIcon } from "lucide-react";
 import {
   Check,
   Eye,
+  Moon,
   MoreHorizontal,
   Palette,
   Search,
+  Sun,
   SquarePen,
   TriangleAlert,
 } from "lucide-react";
@@ -18,6 +20,7 @@ import { Kbd } from "@/components/search/kbd";
 import { cn } from "@/lib/utils";
 import { RailTooltip } from "./rail-tooltip";
 import { EditMoreMenu } from "./edit-more-menu";
+import { useTheme } from "@/components/theme/theme-provider";
 
 /**
  * Search and Ask AI together, directly under the logo.
@@ -104,13 +107,16 @@ export interface EditNavProps {
   /* ---- What the overflow menu needs. See EditMoreMenu. ---- */
   /** Seeds the template name. */
   accountName: string;
+  /** Whose template link the menu reads, to tell Save from Create. */
+  accountId: string;
   /** Whether the shipped default is what is on screen. */
   viewingDefault: boolean;
   /** Goes through the warning first; the shell owns that dialog. */
   onShowDefault: () => void;
   onRestoreOwn: () => void;
   onApplyTemplate: (templateId: string) => void;
-  onSaveTemplate: (name: string) => void;
+  onCreateTemplate: (name: string) => void;
+  onUpdateTemplate: (templateId: string) => void;
 }
 
 /**
@@ -141,11 +147,13 @@ function EditNavButton({
   onOpenAppearance,
   onOpenTemplates,
   accountName,
+  accountId,
   viewingDefault,
   onShowDefault,
   onRestoreOwn,
   onApplyTemplate,
-  onSaveTemplate,
+  onCreateTemplate,
+  onUpdateTemplate,
   showIntro = false,
   onDismissIntro,
 }: EditNavProps & {
@@ -170,6 +178,19 @@ function EditNavButton({
    */
   const [moreAnchor, setMoreAnchor] = React.useState<HTMLElement | null>(null);
 
+  /*
+   * Read here rather than threaded through EditNavProps.
+   *
+   * The light/dark tool writes the same per-account override the colours panel
+   * writes, so it needs the store either way — and adding three more props to an
+   * interface that already carries fourteen would be worse than one hook call.
+   */
+  const themeCtx = useTheme();
+  const { setAccountTheme } = themeCtx;
+  const colourControl = themeCtx.effective.navColourControl;
+  const navTheme =
+    themeCtx.accountThemeFor(accountId).navTheme ?? themeCtx.effective.navTheme;
+
   if (!editing && showIntro && onDismissIntro) {
     return (
       <>
@@ -190,11 +211,13 @@ function EditNavButton({
           onOpenBlocks={onOpenBlocks}
           onOpenAppearance={onOpenAppearance}
           accountName={accountName}
+          accountId={accountId}
           viewingDefault={viewingDefault}
           onShowDefault={onShowDefault}
           onRestoreOwn={onRestoreOwn}
           onApplyTemplate={onApplyTemplate}
-          onSaveTemplate={onSaveTemplate}
+          onCreateTemplate={onCreateTemplate}
+          onUpdateTemplate={onUpdateTemplate}
           {...(onOpenTemplates ? { onOpenTemplates } : {})}
           atFoot={atFoot}
           revealed
@@ -234,11 +257,13 @@ function EditNavButton({
         <EditMoreMenu
           anchor={moreAnchor}
           accountName={accountName}
+          accountId={accountId}
           viewingDefault={viewingDefault}
           onShowDefault={onShowDefault}
           onRestoreOwn={onRestoreOwn}
           onApplyTemplate={onApplyTemplate}
-          onSaveTemplate={onSaveTemplate}
+          onCreateTemplate={onCreateTemplate}
+          onUpdateTemplate={onUpdateTemplate}
           onClose={() => setMoreAnchor(null)}
         />
       ) : null}
@@ -298,12 +323,42 @@ function EditNavButton({
             what the nav contains, and what it looks like. Both are the
             account's own, and both are only reachable while editing it.
           */}
-          <EditTool
-            label="Change the navigation's colours"
-            short="Colours"
-            icon={Palette}
-            onOpen={onOpenAppearance}
-          />
+          {/*
+            One control, two shapes — see NAV_COLOUR_CONTROLS.
+            
+            Light-or-dark is the only colour decision most admins make, and the
+            only one they make repeatedly; the accents and the custom picker are
+            a once-ever choice. So the default spends the card's one colour slot
+            on the repeated decision and does it in a single click, with the rest
+            reachable from the prototype controls. `panel` puts the whole surface
+            back on this icon for comparison.
+          */}
+          {colourControl === "panel" ? (
+            <EditTool
+              label="Change the navigation's colours"
+              short="Colours"
+              icon={Palette}
+              onOpen={onOpenAppearance}
+            />
+          ) : (
+            <EditTool
+              label={
+                navTheme === "dark"
+                  ? "Switch the navigation to light"
+                  : "Switch the navigation to dark"
+              }
+              // The icon shows the destination, not the current state: a sun on
+              // a dark nav reads as "go light", where a moon there reads as a
+              // label for where you already are.
+              short={navTheme === "dark" ? "Light" : "Dark"}
+              icon={navTheme === "dark" ? Sun : Moon}
+              onOpen={() =>
+                setAccountTheme(accountId, {
+                  navTheme: navTheme === "dark" ? "light" : "dark",
+                })
+              }
+            />
+          )}
           {/*
             Everything reached once a session, behind one control.
 

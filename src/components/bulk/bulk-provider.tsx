@@ -98,7 +98,7 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
   const [history, setHistory] = React.useState<readonly BulkRun[]>([]);
   const seq = React.useRef(0);
   const { applyToAccounts, profileFor } = useNavLayout();
-  const { patchFor } = useNavTemplates();
+  const { patchFor, link } = useNavTemplates();
 
   const set = React.useCallback(
     <K extends keyof BulkSettings>(key: K, value: BulkSettings[K]) =>
@@ -154,6 +154,12 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
         return patch ? { ...layout, ...patch } : layout;
       });
 
+      // Every account in the run is now ON this template, which is what makes
+      // the edit card's "Save template" live for them afterwards: fix one
+      // account's nav, save, and the template the other thirty-nine came from
+      // is the thing that gets corrected.
+      for (const id of accountIds) link(id, templateId);
+
       return record({
         path: "template",
         title: "Apply saved template",
@@ -165,7 +171,7 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
         changeCount: accountIds.length,
       });
     },
-    [applyToAccounts, patchFor, record],
+    [applyToAccounts, patchFor, link, record],
   );
 
   const applyFeatures = React.useCallback<BulkValue["applyFeatures"]>(

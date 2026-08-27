@@ -1,7 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Pin, PinOff, Search } from "lucide-react";
+import { Check, Minus, Pin, PinOff, Search, Sparkles, X } from "lucide-react";
+import type { BulkPath } from "@/components/bulk/bulk-config";
+import { BulkHistoryModal } from "@/components/bulk/bulk-history-modal";
+import { BulkModal } from "@/components/bulk/bulk-modal";
+import { useBulkActions } from "@/components/bulk/bulk-provider";
 import { cn } from "@/lib/utils";
 import { AccountLogo } from "./account-logo";
 import { matchAccounts, type Account } from "./accounts-data";
@@ -21,17 +25,29 @@ const RECENT_ROWS = 5;
  * Not a docked dialog any more (Aug 13 ask): clicking the waffle widens the
  * rail itself into this — one surface growing, instead of two surfaces
  * meeting at an edge, which is the seam every earlier round tripped over.
- * The rail owns the frame; this is only the content.
+ * The rail owns the frame; this is the whole of the content, header included.
  *
  * Two sections (Aug 13, refined): RECENT on top — the current account and
  * the trail behind it — then ALL, the complete directory with the pinned
  * accounts leading it. Pinning stays a per-row action; the pin's reward is
  * rank in ALL, not a section of its own. While searching, sections drop
  * away — one flat filtered list reads faster.
+ *
+ * Behind a prototype switch it is also a bulk surface: every row grows a
+ * checkbox and the header grows a Bulk actions button beside the close. The
+ * case for it is that this panel is open far more often than the Sub-accounts
+ * table, so "these four, right now" is one gesture away. The case against is
+ * that a switcher which also CHANGES things is a switcher you hesitate in —
+ * which is why the checkboxes are off unless someone turns them on.
  */
 export function RailDirectory({ session, onClose }: RailDirectoryProps) {
   const [query, setQuery] = React.useState("");
+  const [selected, setSelected] = React.useState<readonly string[]>([]);
+  const [bulk, setBulk] = React.useState<{ path: BulkPath | null } | null>(null);
+  const [historyOpen, setHistoryOpen] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const { settings } = useBulkActions();
+  const picking = settings.enabled && settings.bulkInDirectory;
 
   React.useEffect(() => {
     inputRef.current?.focus();
@@ -39,11 +55,14 @@ export function RailDirectory({ session, onClose }: RailDirectoryProps) {
 
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      // Not while a bulk modal is up: that one owns Escape, and closing the
+      // panel out from under it would take its selection — and itself — with
+      // it mid-flow.
+      if (e.key === "Escape" && bulk === null && !historyOpen) onClose();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  }, [onClose, bulk, historyOpen]);
 
   const matches = matchAccounts(query, session.accounts);
   const searching = query.trim() !== "";
@@ -70,38 +89,134 @@ export function RailDirectory({ session, onClose }: RailDirectoryProps) {
     return { recent: recentRows, all: allRows };
   }, [matches, currentId, recentIds, session]);
 
+  /*
+   * Selection is by id and the sections overlap — an account in RECENT is also
+   * in ALL — so both of its rows read the same tick. That is right: there is
+   * one account, ticked once, however many places the panel draws it.
+   */
+  const toggleRow = (id: string) =>
+    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+
+  const selectedAccounts = React.useMemo(
+    () => session.accounts.filter((a) => selected.includes(a.id)),
+    [session.accounts, selected],
+  );
+
+  const visibleIds = matches.map((a) => a.id);
+  const visibleSelected = visibleIds.filter((id) => selected.includes(id));
+  const allVisibleOn =
+    visibleIds.length > 0 && visibleSelected.length === visibleIds.length;
+
+  const rowProps = {
+    session,
+    onClose,
+    picking,
+    selected,
+    onToggle: toggleRow,
+  };
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col px-[8px] pb-[8px]">
-      <div className="motion-tap flex h-[34px] shrink-0 items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">
-        <Search size={15} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
-        <input
-          ref={inputRef}
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={`Search ${session.accounts.length} accounts`}
-          aria-label="Search accounts"
-          className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none"
-        />
-      </div>
+    <>
+      {/*
+        The panel header: title and close only. The waffle glyph is gone
+        (Aug 13 ask) — once the strip has morphed, the title carries the
+        identity and the icon just repeated it.
 
-      <div className="-mx-[2px] mt-[6px] min-h-0 flex-1 overflow-y-auto px-[2px]">
-        {matches.length === 0 ? (
-          <p className="px-[7px] py-[16px] text-[13px] leading-[18px] text-nav-fg-subtle">
-            No accounts match “{query.trim()}”.
-          </p>
+        44px under the rail's 2px top pad — centred on y=24 like the header.
+      */}
+      <div className="flex h-[44px] shrink-0 items-center gap-[9px] px-[12px]">
+        {picking ? (
+          <Box
+            checked={allVisibleOn}
+            mixed={visibleSelected.length > 0 && !allVisibleOn}
+            onClick={() =>
+              setSelected((s) =>
+                allVisibleOn
+                  ? s.filter((id) => !visibleIds.includes(id))
+                  : [...new Set([...s, ...visibleIds])],
+              )
+            }
+            label="Select every account shown"
+          />
         ) : null}
-
-        {searching ? (
-          <Group accounts={matches} session={session} onClose={onClose} />
-        ) : (
-          <>
-            <Group label="RECENT" accounts={recent} session={session} onClose={onClose} />
-            <Group label="ALL" accounts={all} session={session} onClose={onClose} />
-          </>
-        )}
+        <span className="min-w-0 flex-1 truncate text-[13.5px] leading-[18px] font-semibold text-nav-fg">
+          {/* The count replaces the title rather than joining it: at 340px
+              there is room for one thing on the left, and while rows are
+              ticked the count is the more useful of the two. */}
+          {selected.length > 0 ? `${selected.length} selected` : "All accounts"}
+        </span>
+        {picking && selected.length > 0 ? (
+          /*
+            Always the chooser here, whatever the Entry knob says. Straight-in
+            draws a button per path, and three of those do not fit beside a
+            title and a close in a 340px panel — so the directory asks once,
+            in the modal, where there is room to explain the choice.
+          */
+          <button
+            type="button"
+            onClick={() => setBulk({ path: null })}
+            className="motion-tap flex h-[26px] shrink-0 items-center gap-[5px] rounded-[7px] bg-brand px-[9px] text-[12px] leading-none font-medium text-brand-fg active:scale-[0.98]"
+          >
+            <Sparkles size={12} aria-hidden="true" />
+            Bulk actions
+          </button>
+        ) : null}
+        <button
+          type="button"
+          aria-label="Close accounts directory"
+          onClick={onClose}
+          className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
+        >
+          <X size={15} aria-hidden="true" />
+        </button>
       </div>
-    </div>
+
+      <div className="flex min-h-0 flex-1 flex-col px-[8px] pb-[8px]">
+        <div className="motion-tap flex h-[34px] shrink-0 items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">
+          <Search size={15} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={`Search ${session.accounts.length} accounts`}
+            aria-label="Search accounts"
+            className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none"
+          />
+        </div>
+
+        <div className="-mx-[2px] mt-[6px] min-h-0 flex-1 overflow-y-auto px-[2px]">
+          {matches.length === 0 ? (
+            <p className="px-[7px] py-[16px] text-[13px] leading-[18px] text-nav-fg-subtle">
+              No accounts match “{query.trim()}”.
+            </p>
+          ) : null}
+
+          {searching ? (
+            <Group accounts={matches} {...rowProps} />
+          ) : (
+            <>
+              <Group label="RECENT" accounts={recent} {...rowProps} />
+              <Group label="ALL" accounts={all} {...rowProps} />
+            </>
+          )}
+        </div>
+      </div>
+
+      {bulk && selectedAccounts.length > 0 ? (
+        <BulkModal
+          accounts={selectedAccounts}
+          initialPath={bulk.path}
+          onClose={() => setBulk(null)}
+          onOpenHistory={() => {
+            setBulk(null);
+            setHistoryOpen(true);
+          }}
+        />
+      ) : null}
+
+      {historyOpen ? <BulkHistoryModal onClose={() => setHistoryOpen(false)} /> : null}
+    </>
   );
 }
 
@@ -110,11 +225,17 @@ function Group({
   accounts,
   session,
   onClose,
+  picking,
+  selected,
+  onToggle,
 }: {
   label?: string;
   accounts: Account[];
   session: AccountsSession;
   onClose: () => void;
+  picking: boolean;
+  selected: readonly string[];
+  onToggle: (id: string) => void;
 }) {
   if (accounts.length === 0) return null;
   return (
@@ -129,6 +250,7 @@ function Group({
       {accounts.map((account) => {
         const current =
           session.scope === "account" && account.id === session.current.id;
+        const ticked = selected.includes(account.id);
         // The row's own pin state decides its trailing action — pinning is
         // curation on the row now, not a section you file accounts into.
         const action = session.onRail(account.id) ? "remove" : "add";
@@ -137,10 +259,26 @@ function Group({
             key={account.id}
             className={cn(
               "group/row flex w-full items-center gap-[10px] rounded-[8px] px-[7px] py-[6px]",
-              current ? "bg-nav-active" : "hover:bg-nav-hover",
+              ticked
+                ? "bg-nav-active"
+                : current
+                  ? "bg-nav-active"
+                  : "hover:bg-nav-hover",
             )}
           >
-            {/* The row is the jump; the trailing button is the curation. */}
+            {picking ? (
+              <Box
+                checked={ticked}
+                onClick={() => onToggle(account.id)}
+                label={`Select ${account.name}`}
+              />
+            ) : null}
+            {/*
+              The row is still the jump, ticked or not. Selecting is a separate
+              target rather than a mode: a panel whose rows mean "go" until you
+              tick something and then mean "tick" is how you land in the wrong
+              account halfway through choosing four.
+            */}
             <button
               type="button"
               onClick={() => {
@@ -201,5 +339,46 @@ function Group({
         );
       })}
     </>
+  );
+}
+
+/**
+ * The same 17px box the tables draw, in the nav's own colours — this panel is
+ * a nav surface, and a page-token checkbox on it goes invisible in dark.
+ */
+function Box({
+  checked,
+  mixed = false,
+  onClick,
+  label,
+}: {
+  checked: boolean;
+  mixed?: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={mixed ? "mixed" : checked}
+      aria-label={label}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className={cn(
+        "motion-tap flex size-[17px] shrink-0 items-center justify-center rounded-[5px] border-[1.5px]",
+        checked || mixed
+          ? "border-brand bg-brand text-brand-fg"
+          : "border-[var(--fly-border)] hover:border-nav-fg-subtle",
+      )}
+    >
+      {mixed ? (
+        <Minus size={12} aria-hidden="true" />
+      ) : checked ? (
+        <Check size={12} aria-hidden="true" />
+      ) : null}
+    </button>
   );
 }

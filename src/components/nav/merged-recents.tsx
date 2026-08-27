@@ -5,15 +5,17 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
+  Pin,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MERGED_HEADING_LABELS } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
+import { agencyPlaces } from "./agency-config";
+import { useAgencyLayout } from "./agency-layout";
 import { childById, productById } from "./catalogue";
 import type { NavLayoutState } from "./grouping";
 import { useNavLayout } from "./nav-layout-provider";
-import { PinButton } from "./pin-button";
 
 /**
  * Recents and Pinned as one list — the Cloudflare arrangement.
@@ -53,31 +55,57 @@ export function recentIdsFor(state: NavLayoutState): string[] {
 }
 
 /** One resolved row: a pin or a recent visit, already named and iconed. */
-interface MergedRow {
+export interface MergedRow {
   id: string;
   label: string;
   icon: LucideIcon | undefined;
+  /**
+   * Drawn in the icon's place when the row is not a place at all.
+   *
+   * The agency list can hold sub-accounts, and a client is recognised by its
+   * mark rather than by a glyph from the same set every page uses.
+   */
+  avatar?: React.ReactNode;
   /** The trail under the name. Empty when the row is a top-level product. */
   detail: string;
   pinned: boolean;
+  /**
+   * Pinning this row, when it is a thing that can be pinned.
+   *
+   * Passed in rather than read from a store, because the two scopes keep their
+   * pins in different ones — and because some rows are not pinnable at all: a
+   * sub-account in the agency list is somewhere you switch to, not a page you
+   * keep, so it simply has no pin.
+   */
+  onTogglePin?: () => void;
 }
 
-export function MergedRecentsBlock({
+/**
+ * The merged list itself, given rows that someone else resolved.
+ *
+ * Split from the two derivations below because the arrangement is the same in
+ * both scopes and the vocabulary is not: a sub-account merges products with
+ * products, the agency merges areas with areas or with whole clients. Every
+ * axis, every count and every pixel of this is shared; only what goes in it
+ * differs, which is exactly the seam.
+ */
+function MergedList({
+  pins,
+  recents,
   selectedId,
   onSelect,
   onOpenPanel,
 }: {
+  pins: MergedRow[];
+  recents: MergedRow[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  /** Opens the full Recent panel — the day-grouped history. */
+  /** Opens the panel behind "View all" — the full pin list and history. */
   onOpenPanel: () => void;
 }) {
-  const { state, groups, productLabelFor, productIconFor } = useNavLayout();
   const {
     mergedPinMark,
     mergedOverflow,
-    mergedRowDetail,
-    mergedPinOrder,
     mergedHeading,
     mergedVisibleRows,
     mergedPinCap,
@@ -98,71 +126,6 @@ export function MergedRecentsBlock({
    * want from a heading over a truncated list.
    */
   const [expanded, setExpanded] = React.useState(false);
-
-  /** Which group a product sits in, for the breadcrumb under its name. */
-  const groupOf = React.useCallback(
-    (productId: string) =>
-      groups.find((g) => g.productIds.includes(productId))?.label ?? "",
-    [groups],
-  );
-
-  const detailFor = React.useCallback(
-    (id: string): string => {
-      if (mergedRowDetail === "name") return "";
-      /*
-       * A pinned L3 is the case that makes the breadcrumb load-bearing: three
-       * products ship a Settings, and a merged list showing three rows called
-       * Settings is a list you cannot use. The trail names the product and any
-       * ancestors between it and the row.
-       */
-      const child = childById(id);
-      if (child) {
-        return [
-          productLabelFor(child.product.id),
-          ...child.path.map((c) => c.label),
-        ].join(" / ");
-      }
-      return groupOf(id);
-    },
-    [mergedRowDetail, productLabelFor, groupOf],
-  );
-
-  const resolve = React.useCallback(
-    (id: string, pinned: boolean): MergedRow | null => {
-      // The same guard the dock uses: a pin can name an L3 as well as a product,
-      // and an id that resolves to neither is a row the nav cannot draw.
-      if (!productById(id) && !childById(id)) return null;
-      return {
-        id,
-        label: productLabelFor(id),
-        icon: productIconFor(id),
-        detail: detailFor(id),
-        pinned,
-      };
-    },
-    [productLabelFor, productIconFor, detailFor],
-  );
-
-  const pins = React.useMemo(() => {
-    const ordered =
-      mergedPinOrder === "newest"
-        ? // `pin()` appends, so the stored tail is the newest pin. Reversing puts
-          // the row you just pinned directly under the heading — the merge's
-          // replacement for the capsule's "it flew over there" feedback.
-          [...state.pinned].reverse()
-        : state.pinned;
-    return ordered
-      .map((id) => resolve(id, true))
-      .filter((row): row is MergedRow => row !== null);
-  }, [state.pinned, mergedPinOrder, resolve]);
-
-  const recents = React.useMemo(
-    () =>
-      recentIdsFor(state)
-        .map((id) => resolve(id, false))
-        .filter((row): row is MergedRow => row !== null),
-    [state, resolve],
-  );
 
   const budget = expanded
     ? Math.max(mergedExpandedRows, mergedVisibleRows)
@@ -294,6 +257,236 @@ function BlockHeading({
 }
 
 /**
+ * Puts the pinned run the way up the axis asks for.
+ *
+ * Both stores append on pin, so the stored tail is the newest. Shared because
+ * "where does the row I just pinned appear" has one answer for the product, and
+ * having it drift between scopes would make the axis untestable.
+ */
+function orderPins(pinned: readonly string[], newestFirst: boolean): string[] {
+  return newestFirst ? [...pinned].reverse() : [...pinned];
+}
+
+/**
+ * The sub-account's merged list: products and L3 rows, pinned and recent.
+ */
+export function MergedRecentsBlock({
+  selectedId,
+  onSelect,
+  onOpenPanel,
+}: {
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onOpenPanel: () => void;
+}) {
+  const { state, groups, productLabelFor, productIconFor, togglePin } =
+    useNavLayout();
+  const { mergedRowDetail, mergedPinOrder } = useTheme().effective;
+
+  /** Which group a product sits in, for the breadcrumb under its name. */
+  const groupOf = React.useCallback(
+    (productId: string) =>
+      groups.find((g) => g.productIds.includes(productId))?.label ?? "",
+    [groups],
+  );
+
+  const detailFor = React.useCallback(
+    (id: string): string => {
+      if (mergedRowDetail === "name") return "";
+      /*
+       * A pinned L3 is the case that makes the breadcrumb load-bearing: three
+       * products ship a Settings, and a merged list showing three rows called
+       * Settings is a list you cannot use. The trail names the product and any
+       * ancestors between it and the row.
+       */
+      const child = childById(id);
+      if (child) {
+        return [
+          productLabelFor(child.product.id),
+          ...child.path.map((c) => c.label),
+        ].join(" / ");
+      }
+      return groupOf(id);
+    },
+    [mergedRowDetail, productLabelFor, groupOf],
+  );
+
+  const resolve = React.useCallback(
+    (id: string, pinned: boolean): MergedRow | null => {
+      // The same guard the dock uses: a pin can name an L3 as well as a product,
+      // and an id that resolves to neither is a row the nav cannot draw.
+      if (!productById(id) && !childById(id)) return null;
+      return {
+        id,
+        label: productLabelFor(id),
+        icon: productIconFor(id),
+        detail: detailFor(id),
+        pinned,
+        onTogglePin: () => togglePin(id),
+      };
+    },
+    [productLabelFor, productIconFor, detailFor, togglePin],
+  );
+
+  const pins = React.useMemo(
+    () =>
+      orderPins(state.pinned, mergedPinOrder === "newest")
+        .map((id) => resolve(id, true))
+        .filter((row): row is MergedRow => row !== null),
+    [state.pinned, mergedPinOrder, resolve],
+  );
+
+  const recents = React.useMemo(
+    () =>
+      recentIdsFor(state)
+        .map((id) => resolve(id, false))
+        .filter((row): row is MergedRow => row !== null),
+    [state, resolve],
+  );
+
+  return (
+    <MergedList
+      pins={pins}
+      recents={recents}
+      selectedId={selectedId}
+      onSelect={onSelect}
+      onOpenPanel={onOpenPanel}
+    />
+  );
+}
+
+/**
+ * The agency's merged list.
+ *
+ * Same arrangement, different vocabulary. The agency pins AREAS — Prospecting,
+ * SaaS configurator, rollup reporting — and its Recent has always named
+ * ACCOUNTS, the clients it last had open. Which of those the merged list is
+ * made of is the one question the sub-account never had to answer, so it is an
+ * axis rather than a decision: see MERGED_AGENCY_RECENTS.
+ *
+ * Accounts never carry a pin. Switching client is not navigating — it changes
+ * what the whole nav is about — and "keep this at the top of my list" is not a
+ * thing you can coherently say about it. They ride in the recent run only.
+ */
+export function AgencyMergedRecentsBlock({
+  selectedId,
+  onSelect,
+  onOpenPanel,
+  accounts,
+  onSwitchAccount,
+}: {
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onOpenPanel: () => void;
+  /** Recently visited sub-accounts, in the order they were last open. */
+  accounts: { id: string; label: string; mark: React.ReactNode }[];
+  onSwitchAccount: (id: string) => void;
+}) {
+  const agency = useAgencyLayout();
+  const { mergedRowDetail, mergedPinOrder, mergedAgencyRecents } =
+    useTheme().effective;
+
+  const resolvePlace = React.useCallback(
+    (id: string, pinned: boolean): MergedRow | null => {
+      const place = agencyPlaces[id];
+      if (!place) return null;
+      /*
+       * The trail names the bucket the row sits under, and the L2 above an L3.
+       * An agency row is one or two levels deep, so this is shorter than a
+       * sub-account's — but it is doing the same job: three buckets have a
+       * Reselling, and the list has to say which one this is.
+       */
+      const trail =
+        mergedRowDetail === "name"
+          ? ""
+          : [
+              place.bucket.id === id ? "" : place.bucket.label,
+              place.parent?.label ?? "",
+            ]
+              .filter(Boolean)
+              .join(" / ");
+      return {
+        id,
+        label: agency.labelFor(id, place.label),
+        icon: place.icon,
+        detail: trail,
+        pinned,
+        onTogglePin: () => agency.togglePin(id),
+      };
+    },
+    [agency, mergedRowDetail],
+  );
+
+  const pins = React.useMemo(
+    () =>
+      orderPins(agency.pinned, mergedPinOrder === "newest")
+        .map((id) => resolvePlace(id, true))
+        .filter((row): row is MergedRow => row !== null),
+    [agency.pinned, mergedPinOrder, resolvePlace],
+  );
+
+  const recents = React.useMemo(() => {
+    const places =
+      mergedAgencyRecents === "accounts"
+        ? []
+        : agencyRecentPlaceIds(agency.state.order, agency.pinned)
+            .map((id) => resolvePlace(id, false))
+            .filter((row): row is MergedRow => row !== null);
+
+    const clients: MergedRow[] =
+      mergedAgencyRecents === "places"
+        ? []
+        : accounts.map((account) => ({
+            id: `account:${account.id}`,
+            label: account.label,
+            icon: undefined,
+            avatar: account.mark,
+            detail: mergedRowDetail === "name" ? "" : "Sub-account",
+            pinned: false,
+          }));
+
+    return [...places, ...clients];
+  }, [
+    mergedAgencyRecents,
+    agency.state.order,
+    agency.pinned,
+    resolvePlace,
+    accounts,
+    mergedRowDetail,
+  ]);
+
+  return (
+    <MergedList
+      pins={pins}
+      recents={recents}
+      selectedId={selectedId}
+      onSelect={(id) =>
+        id.startsWith("account:")
+          ? onSwitchAccount(id.slice("account:".length))
+          : onSelect(id)
+      }
+      onOpenPanel={onOpenPanel}
+    />
+  );
+}
+
+/**
+ * Stand-ins for the agency's own history: its buckets, in nav order, minus
+ * anything pinned.
+ *
+ * The same shape as the sub-account's stand-in and for the same reason — there
+ * is no visit log behind this prototype, and a Recent block that named the same
+ * three rows for every agency would be worse than one derived from the tree in
+ * front of you.
+ */
+export function agencyRecentPlaceIds(
+  order: readonly string[],
+  pinned: readonly string[],
+): string[] {
+  return order.filter((id) => !pinned.includes(id));
+}
+
+/**
  * How the budget is split between the two runs.
  *
  * Pins win, up to their cap — a user who curated pins has already told you what
@@ -364,16 +557,18 @@ function MergedItemRow({
         onClick={onSelect}
         className="flex min-w-0 flex-1 items-center gap-[var(--t-nav-gap,10px)] text-left"
       >
-        {Icon ? (
-          <Icon
-            size={16}
-            aria-hidden="true"
-            className={cn(
-              "shrink-0",
-              active ? "text-nav-fg" : "text-nav-fg-muted",
-            )}
-          />
-        ) : null}
+        {row.avatar ?? (
+          Icon ? (
+            <Icon
+              size={16}
+              aria-hidden="true"
+              className={cn(
+                "shrink-0",
+                active ? "text-nav-fg" : "text-nav-fg-muted",
+              )}
+            />
+          ) : null
+        )}
         <span className="flex min-w-0 flex-col">
           <span className="truncate text-[length:var(--t-nav-font,14px)] leading-[18px] text-nav-fg">
             {row.label}
@@ -385,15 +580,37 @@ function MergedItemRow({
           ) : null}
         </span>
       </button>
-      <PinButton
-        productId={row.id}
-        className={cn(
-          // "Nothing" means nothing: the pin is still reachable, but a pinned row
-          // may not advertise itself, or the mode would be marking pins after all.
-          mark === "none" &&
-            "text-nav-fg-subtle opacity-0 group-hover/row:opacity-100",
-        )}
-      />
+      {row.onTogglePin ? (
+        <button
+          type="button"
+          title={row.pinned ? "Unpin" : "Pin"}
+          aria-label={row.pinned ? "Unpin" : "Pin"}
+          aria-pressed={row.pinned}
+          onClick={row.onTogglePin}
+          className={cn(
+            "motion-tap flex size-[22px] shrink-0 items-center justify-center rounded-[6px]",
+            "hover:bg-nav-hover active:scale-90 motion-press",
+            row.pinned
+              ? "text-brand opacity-100"
+              : "text-nav-fg-subtle opacity-0 group-hover/row:opacity-100 hover:text-nav-fg focus-visible:opacity-100",
+            // "Nothing" means nothing: the pin is still reachable, but a pinned
+            // row may not advertise itself, or the mode would be marking pins
+            // after all.
+            mark === "none" &&
+              "text-nav-fg-subtle opacity-0 group-hover/row:opacity-100",
+          )}
+        >
+          <Pin
+            size={14}
+            fill={row.pinned && mark !== "none" ? "currentColor" : "none"}
+            aria-hidden="true"
+          />
+        </button>
+      ) : (
+        // A row nobody can pin still gives up the column, so every label in the
+        // list truncates at the same place.
+        <span aria-hidden="true" className="size-[22px] shrink-0" />
+      )}
     </div>
   );
 }

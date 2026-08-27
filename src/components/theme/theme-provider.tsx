@@ -7,6 +7,7 @@ import {
   type DockLabel,
   type DockPosition,
   type EntryLayout,
+  type GetAppPlacement,
   type FlyoutTrigger,
   type RecentsMode,
   type MergedPinScope,
@@ -15,11 +16,14 @@ import {
   type MergedRowDetail,
   type MergedPinOrder,
   type MergedHeading,
+  type MergedAgencyRecents,
+  type LayoutReplaceDialog,
   type NavSections,
   type RailTileShape,
   type PageShell,
   type ScopeModel,
   type NavGeneration,
+  type NavColourControl,
   type SearchMode,
   type SurfaceTheme,
   type ThemeState,
@@ -42,6 +46,7 @@ export type AccountTheme = Partial<
     | "dockLabel"
     | "dockPosition"
     | "entryLayout"
+    | "getAppPlacement"
     | "flyoutTrigger"
     | "recentsMode"
     | "mergedPinScope"
@@ -51,6 +56,7 @@ export type AccountTheme = Partial<
     | "mergedPinOrder"
     | "mergedHeading"
     | "mergedPanelSearch"
+    | "mergedAgencyRecents"
     | "mergedVisibleRows"
     | "mergedPinCap"
     | "mergedRecentFloor"
@@ -86,6 +92,7 @@ interface ThemeContextValue extends ThemeState {
   setDockLabel: (mode: DockLabel) => void;
   setDockPosition: (position: DockPosition) => void;
   setEntryLayout: (layout: EntryLayout) => void;
+  setGetAppPlacement: (placement: GetAppPlacement) => void;
   setFlyoutTrigger: (trigger: FlyoutTrigger) => void;
   setRecentsMode: (mode: RecentsMode) => void;
   setMergedPinScope: (scope: MergedPinScope) => void;
@@ -95,6 +102,7 @@ interface ThemeContextValue extends ThemeState {
   setMergedPinOrder: (order: MergedPinOrder) => void;
   setMergedHeading: (heading: MergedHeading) => void;
   setMergedPanelSearch: (enabled: boolean) => void;
+  setMergedAgencyRecents: (source: MergedAgencyRecents) => void;
   setMergedVisibleRows: (rows: number) => void;
   setMergedPinCap: (rows: number) => void;
   setMergedRecentFloor: (rows: number) => void;
@@ -103,10 +111,12 @@ interface ThemeContextValue extends ThemeState {
   setScopeModel: (model: ScopeModel) => void;
   setNavGeneration: (generation: NavGeneration) => void;
   setNavSwitchInEditCard: (enabled: boolean) => void;
+  setNavColourControl: (control: NavColourControl) => void;
   setLayoutSwitchInEditCard: (enabled: boolean) => void;
   setLegacyNavTheme: (theme: SurfaceTheme) => void;
   setTabsInNav: (enabled: boolean) => void;
   setNavSections: (mode: NavSections) => void;
+  setLayoutReplaceDialog: (mode: LayoutReplaceDialog) => void;
   setRailTileShape: (shape: RailTileShape) => void;
   setPageShell: (shell: PageShell) => void;
   /**
@@ -117,6 +127,14 @@ interface ThemeContextValue extends ThemeState {
   effective: ThemeState;
   /** Which account's overrides are live. The shell sets it on every switch. */
   setActiveThemeAccount: (accountId: string | null) => void;
+  /**
+   * Whose overrides `effective` is currently merging in.
+   *
+   * Exposed so the prototype controls can host the account-scoped colour
+   * controls — accent, custom swatches, nav surface — which are per account and
+   * therefore need to know which account.
+   */
+  activeThemeAccount: string | null;
   accountThemeFor: (accountId: string) => AccountTheme;
   setAccountTheme: (accountId: string, patch: AccountTheme) => void;
 }
@@ -189,6 +207,7 @@ export function ThemeProvider({
       ...state,
       effective,
       setActiveThemeAccount: setActiveAccountId,
+      activeThemeAccount: activeAccountId,
       accountThemeFor: (accountId) => accountThemes[accountId] ?? {},
       setAccountTheme: (accountId, patch) =>
         setAccountThemes((themes) => ({
@@ -205,6 +224,8 @@ export function ThemeProvider({
       setDockLabel: (dockLabel) => setState((s) => ({ ...s, dockLabel })),
       setDockPosition: (dockPosition) => setState((s) => ({ ...s, dockPosition })),
       setEntryLayout: (entryLayout) => setState((s) => ({ ...s, entryLayout })),
+      setGetAppPlacement: (getAppPlacement) =>
+        setState((s) => ({ ...s, getAppPlacement })),
       setFlyoutTrigger: (flyoutTrigger) => setState((s) => ({ ...s, flyoutTrigger })),
       setRecentsMode: (recentsMode) => setState((s) => ({ ...s, recentsMode })),
       setMergedPinScope: (mergedPinScope) =>
@@ -221,6 +242,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, mergedHeading })),
       setMergedPanelSearch: (mergedPanelSearch) =>
         setState((s) => ({ ...s, mergedPanelSearch })),
+      setMergedAgencyRecents: (mergedAgencyRecents) =>
+        setState((s) => ({ ...s, mergedAgencyRecents })),
       setMergedVisibleRows: (mergedVisibleRows) =>
         setState((s) => ({ ...s, mergedVisibleRows })),
       setMergedPinCap: (mergedPinCap) =>
@@ -235,12 +258,16 @@ export function ThemeProvider({
         setState((s) => ({ ...s, navGeneration })),
       setNavSwitchInEditCard: (navSwitchInEditCard) =>
         setState((s) => ({ ...s, navSwitchInEditCard })),
+      setNavColourControl: (navColourControl) =>
+        setState((s) => ({ ...s, navColourControl })),
       setLayoutSwitchInEditCard: (layoutSwitchInEditCard) =>
         setState((s) => ({ ...s, layoutSwitchInEditCard })),
       setLegacyNavTheme: (legacyNavTheme) =>
         setState((s) => ({ ...s, legacyNavTheme })),
       setTabsInNav: (tabsInNav) => setState((s) => ({ ...s, tabsInNav })),
       setNavSections: (navSections) => setState((s) => ({ ...s, navSections })),
+      setLayoutReplaceDialog: (layoutReplaceDialog) =>
+        setState((s) => ({ ...s, layoutReplaceDialog })),
       setRailTileShape: (railTileShape) =>
         setState((s) => ({ ...s, railTileShape })),
       setPageShell: (pageShell) => setState((s) => ({ ...s, pageShell })),

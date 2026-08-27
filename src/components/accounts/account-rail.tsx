@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Grip, X } from "lucide-react";
+import { Grip } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
@@ -187,25 +187,12 @@ export function AccountRail({
             )}
           >
             {/*
-              The panel header: title and close only. The waffle glyph is
-              gone (Aug 13 ask) — once the strip has morphed, the title
-              carries the identity and the icon just repeated it.
+              Header included: the panel's title row is the directory's, not
+              the rail's. It used to live here, which meant anything the
+              directory wanted to put beside the close button — a count, a
+              Bulk actions button — had to be lifted into the rail and passed
+              back down. The rail owns the frame; the panel owns its chrome.
             */}
-            {/* 44px under the rail's 2px top pad — centred on y=24 like the header. */}
-            <div className="flex h-[44px] shrink-0 items-center gap-[9px] px-[12px]">
-              <span className="min-w-0 flex-1 truncate text-[13.5px] leading-[18px] font-semibold text-nav-fg">
-                All accounts
-              </span>
-              <button
-                type="button"
-                aria-label="Close accounts directory"
-                onClick={onCloseSwitcher}
-                className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
-              >
-                <X size={15} aria-hidden="true" />
-              </button>
-            </div>
-
             <RailDirectory session={session} onClose={onCloseSwitcher} />
           </div>
         ) : (

@@ -852,11 +852,15 @@ function resolveTree(state: NavLayoutState): ResolvedGroup[] {
       // still filling is not, which is why only the unedited tree is pruned.
       const groups = edited ? built : populated(built);
       /*
-       * Launchpad and Mobile own no products, so they are never buckets — they
-       * are top-level rows, filed exactly as the custom tree files what no group
+       * Launchpad owns no products, so it is never a bucket — it is a
+       * top-level row, filed exactly as the custom tree files what no group
        * claims. Which is also why the edited tree asks the same question the
-       * custom case does rather than naming the two: by then a row can be loose
+       * custom case does rather than naming it: by then a row can be loose
        * because the admin pulled it out of a bucket.
+       *
+       * Mobile used to be the other one. It left when the companion apps became
+       * a placement axis — see GET_APP_PLACEMENTS — so the destination band is
+       * empty for now and this simply produces no extra group.
        */
       const loose = edited
         ? // Launchpad is reachable and never a row — the card above Recent is

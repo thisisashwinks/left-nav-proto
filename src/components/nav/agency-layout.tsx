@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { agencyBuckets } from "./agency-config";
+import { agencyBuckets, agencyPinnedSeed } from "./agency-config";
 
 /**
  * The agency's edits to its own nav.
@@ -44,8 +44,28 @@ const SEED: AgencyLayoutState = {
   childOrder: {},
 };
 
+/**
+ * What the agency has pinned, in its own order.
+ *
+ * Deliberately NOT part of `AgencyLayoutState`. That state is the tree, and the
+ * tree is edited behind a mode with a Save and a Discard; a pin is
+ * personalization and lands the instant you click it, exactly as a sub-account
+ * pin does. Folding pins into the edit session would mean Discard silently
+ * unpinning something you pinned while you happened to be renaming a bucket.
+ *
+ * Seeded from the same five the capsule was hardcoded to, so nothing about the
+ * agency nav looks different until someone changes it.
+ */
+const PIN_SEED: string[] = agencyPinnedSeed;
+
 interface AgencyLayoutValue {
   state: AgencyLayoutState;
+  /** Pinned agency rows, in the order they were arranged. */
+  pinned: string[];
+  isPinned: (id: string) => boolean;
+  togglePin: (id: string) => void;
+  /** Reordering, from the panel grips and nudge buttons. */
+  movePin: (fromIndex: number, toIndex: number) => void;
   /** True once the session has changed something Save would keep. */
   dirty: boolean;
   beginEditing: () => void;
@@ -139,6 +159,7 @@ export function AgencyLayoutProvider({
    * makes "put it back" mean the same thing after four edits as after one.
    */
   const [baseline, setBaseline] = React.useState<AgencyLayoutState | null>(null);
+  const [pinned, setPinned] = React.useState<string[]>(PIN_SEED);
 
   const beginEditing = React.useCallback(
     () => setBaseline((b) => b ?? state),
@@ -176,7 +197,17 @@ export function AgencyLayoutProvider({
       discard,
       // SEED is a module constant and never mutated, so it can be handed back
       // directly — every writer here replaces the object rather than editing it.
-      resetAll: () => setState(SEED),
+      resetAll: () => {
+        setState(SEED);
+        /*
+         * "As shipped" includes the pins.
+         *
+         * They are not part of the tree, but they are part of what a fresh
+         * agency nav looks like, and a reset that left a curated pin list
+         * standing would not be one.
+         */
+        setPinned(PIN_SEED);
+      },
       isDefault,
 
       labelFor: (id, fallback) => state.labels[id] ?? fallback,
@@ -200,6 +231,34 @@ export function AgencyLayoutProvider({
         patch({ icons: next });
       },
       hasIconOverride: (id) => state.icons[id] !== undefined,
+
+      pinned,
+      isPinned: (id) => pinned.includes(id),
+      togglePin: (id) =>
+        setPinned((current) =>
+          current.includes(id)
+            ? current.filter((x) => x !== id)
+            : // Appended, never inserted — the same rule the catalogue store
+              // follows. Where a new pin APPEARS is the merged block's
+              // question, and it answers it by reading this list either way up.
+              [...current, id],
+        ),
+      movePin: (fromIndex, toIndex) =>
+        setPinned((current) => {
+          if (
+            fromIndex < 0 ||
+            toIndex < 0 ||
+            fromIndex >= current.length ||
+            toIndex >= current.length ||
+            fromIndex === toIndex
+          ) {
+            return current;
+          }
+          const next = [...current];
+          const [moved] = next.splice(fromIndex, 1);
+          next.splice(toIndex, 0, moved!);
+          return next;
+        }),
 
       isHidden: (id) => state.hidden.includes(id),
       toggleHidden: (id) =>
@@ -243,7 +302,7 @@ export function AgencyLayoutProvider({
       indexOf: (id) => state.order.indexOf(id),
       count: state.order.length,
     };
-  }, [state, dirty, isDefault, beginEditing, save, discard]);
+  }, [state, pinned, dirty, isDefault, beginEditing, save, discard]);
 
   return (
     <AgencyLayoutContext value={value}>{children}</AgencyLayoutContext>

@@ -2,15 +2,16 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronRight, House } from "lucide-react";
+import { Check, ChevronRight, House, Monitor, Smartphone } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { CaretDown } from "@/components/icons/caret-down";
 import type { SurfaceTheme } from "@/design/theme";
+import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { headerConfig, type HeaderActionTone, type HeaderConfig } from "./header-config";
 import { UserAvatar } from "./user-avatar";
 import { AccountMenu } from "./account-menu";
-import { GetAppModal, type AppKind } from "./get-app-modal";
+import type { AppKind } from "./get-app-modal";
 
 /**
  * One breadcrumb segment. A plain string stays a label; a segment with
@@ -74,6 +75,14 @@ interface AppHeaderProps {
   /** Home goes to the account's first product, whatever that is for this tenant. */
   onHome?: () => void;
   /**
+   * Opens the Get the app modal.
+   *
+   * Owned by the shell now that the sidebar can open the same sheet. Two
+   * surfaces cannot each keep their own copy of one modal's state without
+   * eventually showing two of them, so neither keeps it.
+   */
+  onOpenApp: (kind: AppKind) => void;
+  /**
    * The search + Ask AI pill, when the entry axis puts it up here.
    *
    * Passed in rather than built here: it is the nav's own control relocated,
@@ -98,15 +107,16 @@ export function AppHeader({
   config = headerConfig,
   crumbs = ["Contacts", "Smart lists"],
   onHome,
+  onOpenApp,
   entry,
 }: AppHeaderProps) {
+  const { getAppPlacement } = useTheme().effective;
   /*
    * The trigger element, not a rect: useAnchored re-measures from it, and the
    * bar moves when the shell switches arrangement.
    */
   const [accountAnchor, setAccountAnchor] =
     React.useState<HTMLElement | null>(null);
-  const [appModal, setAppModal] = React.useState<AppKind | null>(null);
 
   return (
     <header
@@ -194,6 +204,29 @@ export function AppHeader({
         {entry ? <div className="w-[230px] shrink-0">{entry}</div> : null}
 
         <div className="flex shrink-0 items-center gap-[8px]">
+          {/*
+            The companion apps as standing glyphs, when the axis puts them here.
+
+            First in the row, so they read as an offer rather than as another
+            utility: the five that follow are things this account DOES, and the
+            phone is where that run starts. Same 26px target and the same muted
+            tone, because an offer that shouts in the app bar is an ad.
+          */}
+          {getAppPlacement === "header" ? (
+            <>
+              <AppGlyph
+                icon={Smartphone}
+                label="Mobile app"
+                onSelect={() => onOpenApp("mobile")}
+              />
+              <AppGlyph
+                icon={Monitor}
+                label="Desktop app"
+                onSelect={() => onOpenApp("desktop")}
+              />
+            </>
+          ) : null}
+
           {config.actions.map((action) => (
             <button
               key={action.id}
@@ -256,19 +289,12 @@ export function AppHeader({
           name={config.userName}
           email={config.userEmail}
           initials={config.avatarInitials}
-          onOpenApp={setAppModal}
+          showApps={getAppPlacement === "menu"}
+          onOpenApp={onOpenApp}
           onClose={() => setAccountAnchor(null)}
         />
       ) : null}
 
-      {/*
-        Outlives the menu on purpose. The menu closes as the modal opens — a
-        dropdown left hanging behind a modal reads as two surfaces fighting —
-        so the modal's state cannot live inside it.
-      */}
-      {appModal ? (
-        <GetAppModal kind={appModal} onClose={() => setAppModal(null)} />
-      ) : null}
     </header>
   );
 }
@@ -425,6 +451,39 @@ function CrumbOptions({
         );
       })}
     </>
+  );
+}
+
+/**
+ * One companion-app glyph in the app bar.
+ *
+ * Deliberately not a `HeaderAction`: those are authored in header-config and
+ * carry tones, dots and counts because they report on the account. This reports
+ * on nothing — it is a door — so it takes the quietest tone in the row and none
+ * of the machinery.
+ */
+function AppGlyph({
+  icon: Icon,
+  label,
+  onSelect,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={onSelect}
+      className={cn(
+        "relative flex size-[26px] shrink-0 items-center justify-center rounded-full",
+        "motion-tap text-hdr-fg-muted hover:scale-110 hover:text-hdr-fg active:scale-95 motion-press",
+      )}
+    >
+      <Icon size={16} aria-hidden="true" />
+    </button>
   );
 }
 

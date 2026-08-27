@@ -78,15 +78,10 @@ export function NavAppearance({
   onClose: () => void;
 }) {
   const theme = useTheme();
-  const override = theme.accountThemeFor(accountId);
-  const navTheme = override.navTheme ?? theme.effective.navTheme;
-  const accentHex = override.customAccent ?? "#155eef";
-
-  // The surface the accent has to hold up against, which is the whole reason
-  // the two controls are in one popover rather than two places.
-  const surface = navTheme === "dark" ? "#0c111d" : "#ffffff";
-  const ratio = contrastRatio(accentHex, surface);
-  const weak = ratio < 3;
+  // Only what the portal itself needs: the nav theme for its own scope, since
+  // everything else moved into NavColours with the controls that read it.
+  const navTheme =
+    theme.accountThemeFor(accountId).navTheme ?? theme.effective.navTheme;
 
   /*
    * The board replaces the panel's contents rather than opening beside it —
@@ -95,38 +90,6 @@ export function NavAppearance({
    * which a second popover flying upward does not.
    */
   const [picking, setPicking] = React.useState(false);
-  const custom = override.customSwatches ?? [];
-
-  const setAccentTo = (hex: string) =>
-    theme.setAccountTheme(accountId, { accent: "custom", customAccent: hex });
-
-  const saveCustom = (hex: string) => {
-    const value = hex.toLowerCase();
-    /*
-     * A colour already on offer is selected, not copied.
-     *
-     * HLColorPicker refuses a duplicate outright — "Color already in palette" —
-     * because a swatch is identified by its value, so two tiles holding one
-     * colour are indistinguishable. Mixing your way to a colour that happens to
-     * be one of the ten presets used to tick it in both rows at once, which
-     * reads as two separate selections.
-     */
-    const isPreset = SWATCHES.some((s) => s.hex === value);
-    theme.setAccountTheme(accountId, {
-      accent: "custom",
-      customAccent: value,
-      // Newest first, so a colour just mixed is the first tile in the row.
-      ...(isPreset
-        ? {}
-        : { customSwatches: [value, ...custom.filter((c) => c !== value)] }),
-    });
-    setPicking(false);
-  };
-
-  const removeCustom = (hex: string) =>
-    theme.setAccountTheme(accountId, {
-      customSwatches: custom.filter((c) => c !== hex),
-    });
 
   const { ref, top, left } = useAnchored(
     anchor,
@@ -159,11 +122,101 @@ export function NavAppearance({
       style={{ top, left, width: picking ? PICKER_WIDTH : WIDTH }}
       className="motion-panel-in fixed z-[71] rounded-[10px] bg-nav p-[12px] shadow-[0_12px_32px_0_var(--fly-shadow),inset_0_0_0_1px_var(--fly-border)]"
     >
+      <NavColours accountId={accountId} picking={picking} onPicking={setPicking} />
+    </div>,
+    document.body,
+  );
+}
+
+function Group({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mb-[10px] last:mb-0">
+      <span className="mb-[6px] block text-[10.5px] leading-[14px] font-semibold tracking-[0.5px] text-nav-fg-subtle uppercase">
+        {label}
+      </span>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The colour controls themselves, with no surface of their own.
+ *
+ * Split out of NavAppearance so two places can host them: the edit card's
+ * anchored popover, and the prototype controls — which is where the accents and
+ * the custom picker live when the card is set to show only a light/dark icon.
+ * One implementation, because two would drift and the contrast reading is the
+ * kind of thing that drifts silently.
+ *
+ * `picking` is owned by the caller rather than here: the popover has to widen
+ * for the picker board, so it needs to know which view is up.
+ */
+export function NavColours({
+  accountId,
+  picking,
+  onPicking,
+}: {
+  accountId: string;
+  picking: boolean;
+  onPicking: (picking: boolean) => void;
+}) {
+  const theme = useTheme();
+  const override = theme.accountThemeFor(accountId);
+  const navTheme = override.navTheme ?? theme.effective.navTheme;
+  const accentHex = override.customAccent ?? "#155eef";
+
+  // The surface the accent has to hold up against, which is the whole reason
+  // the two controls are in one popover rather than two places.
+  const surface = navTheme === "dark" ? "#0c111d" : "#ffffff";
+  const ratio = contrastRatio(accentHex, surface);
+  const weak = ratio < 3;
+  const custom = override.customSwatches ?? [];
+
+  const setAccentTo = (hex: string) =>
+    theme.setAccountTheme(accountId, { accent: "custom", customAccent: hex });
+
+  const saveCustom = (hex: string) => {
+    const value = hex.toLowerCase();
+    /*
+     * A colour already on offer is selected, not copied.
+     *
+     * HLColorPicker refuses a duplicate outright — "Color already in palette" —
+     * because a swatch is identified by its value, so two tiles holding one
+     * colour are indistinguishable. Mixing your way to a colour that happens to
+     * be one of the ten presets used to tick it in both rows at once, which
+     * reads as two separate selections.
+     */
+    const isPreset = SWATCHES.some((s) => s.hex === value);
+    theme.setAccountTheme(accountId, {
+      accent: "custom",
+      customAccent: value,
+      // Newest first, so a colour just mixed is the first tile in the row.
+      ...(isPreset
+        ? {}
+        : { customSwatches: [value, ...custom.filter((c) => c !== value)] }),
+    });
+    onPicking(false);
+  };
+
+  const removeCustom = (hex: string) =>
+    theme.setAccountTheme(accountId, {
+      customSwatches: custom.filter((c) => c !== hex),
+    });
+
+
+  return (
+    <>
       {picking ? (
         <>
           <button
             type="button"
-            onClick={() => setPicking(false)}
+            onClick={() => onPicking(false)}
             className="motion-tap mb-[8px] flex h-[24px] items-center gap-[5px] rounded-[6px] pr-[6px] text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
           >
             <ChevronLeft size={14} aria-hidden="true" className="shrink-0" />
@@ -173,7 +226,7 @@ export function NavAppearance({
           </button>
           <AccentPicker
             initial={accentHex}
-            onCancel={() => setPicking(false)}
+            onCancel={() => onPicking(false)}
             onSave={saveCustom}
           />
         </>
@@ -253,7 +306,7 @@ export function NavAppearance({
           ))}
           <button
             type="button"
-            onClick={() => setPicking(true)}
+            onClick={() => onPicking(true)}
             aria-label="Mix a custom colour"
             title="Mix a custom colour"
             className="motion-tap flex size-[30px] items-center justify-center rounded-[7px] text-nav-fg-subtle shadow-[inset_0_0_0_1px_var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg"
@@ -286,24 +339,6 @@ export function NavAppearance({
       </p>
       </>
       )}
-    </div>,
-    document.body,
-  );
-}
-
-function Group({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="mb-[10px] last:mb-0">
-      <span className="mb-[6px] block text-[10.5px] leading-[14px] font-semibold tracking-[0.5px] text-nav-fg-subtle uppercase">
-        {label}
-      </span>
-      {children}
-    </div>
+    </>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { PanelLeftOpen, Pin, SquarePen } from "lucide-react";
+import { Monitor, PanelLeftOpen, Pin, Smartphone, SquarePen } from "lucide-react";
+import type { AppKind } from "@/components/header/get-app-modal";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { useSwapPhase } from "@/lib/use-swap-phase";
 import { NAV_SWAP_OUT_MS } from "@/design/motion-timing";
@@ -54,6 +55,12 @@ interface CollapsedRailProps {
   /** Opens the manage surface — the floor tier's stand-in for the capsule. */
   onOpenLauncher: () => void;
   /**
+   * Opens the Get the app modal, when the placement axis puts the offer in the
+   * nav. The rail carries it too — an offer that disappears the moment the nav
+   * collapses is not in the nav, it is in one width of it.
+   */
+  onOpenApp: (kind: AppKind) => void;
+  /**
    * Expand the nav and open edit mode.
    *
    * Absent for roles that may not restructure, and at agency scope, so the rail
@@ -98,6 +105,7 @@ export function CollapsedRail({
   aiSession,
   density,
   onOpenLauncher,
+  onOpenApp,
   onEdit,
   editRevealed = false,
   loading = false,
@@ -111,7 +119,7 @@ export function CollapsedRail({
   // The capsule hugs its contents when collapsed, so the hole left for it has to
   // match. Read from the same store the capsule does rather than take a prop, so
   // the two can never disagree.
-  const { entryLayout, dockPosition, recentsMode, mergedPinScope } =
+  const { entryLayout, dockPosition, recentsMode, mergedPinScope, getAppPlacement } =
     useTheme().effective;
   /*
    * The rail keeps its pinned icons under most of the merge, and loses them
@@ -125,7 +133,7 @@ export function CollapsedRail({
    * invisible the moment the nav collapses.
    */
   const mergedDropsRailPins =
-    recentsMode === "merged" && !agencyScope && mergedPinScope === "everywhere";
+    recentsMode === "merged" && mergedPinScope === "everywhere";
   const topEntry = entryLayout === "top";
   // In the app bar, the entry is drawn once — up there. See left-nav.
   const headerEntry = entryLayout === "header";
@@ -385,6 +393,24 @@ export function CollapsedRail({
               divider(entry.id)
             ) : null,
           )}
+          {getAppPlacement === "nav" ? (
+            <>
+              {railButton(
+                "get-app-mobile",
+                "Mobile app",
+                <Smartphone size={16} aria-hidden="true" />,
+                false,
+                () => onOpenApp("mobile"),
+              )}
+              {railButton(
+                "get-app-desktop",
+                "Desktop app",
+                <Monitor size={16} aria-hidden="true" />,
+                false,
+                () => onOpenApp("desktop"),
+              )}
+            </>
+          ) : null}
           {renderRailRow(agencyScope ? agencySettings : config.settings)}
           </>
           )}

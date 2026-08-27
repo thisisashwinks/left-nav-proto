@@ -5,11 +5,13 @@ import {
   ArrowDown,
   ArrowUp,
   GripVertical,
+  Pin,
   Plus,
   RotateCcw,
   Search,
   Trash2,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { MERGED_HEADING_LABELS, type SurfaceTheme } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -22,8 +24,10 @@ import { GROUPING_LABELS, type ResolvedGroup } from "./grouping";
 import { nameForIcon } from "./icon-catalogue";
 import { IconPicker, useIconPicker } from "./icon-picker";
 import { InlineRename } from "./inline-rename";
+import { agencyPlaces } from "./agency-config";
+import { useAgencyLayout } from "./agency-layout";
 import { useNavLayout } from "./nav-layout-provider";
-import { recentIdsFor } from "./merged-recents";
+import { agencyRecentPlaceIds, recentIdsFor } from "./merged-recents";
 import { PinButton } from "./pin-button";
 import { ResolvedIcon } from "./resolved-icon";
 
@@ -77,6 +81,7 @@ export function PinnedLauncher({
   const layout = useNavLayout();
   const { state, groups, can } = layout;
   const { recentsMode, mergedHeading, mergedPanelSearch } = useTheme().effective;
+  const agency = useAgencyLayout();
   /*
    * In merged mode this panel is the one surface behind the nav's single list.
    *
@@ -87,7 +92,7 @@ export function PinnedLauncher({
    * whole argument for merging is that one list beats two, and it would not
    * survive the list having two doors to two different places.
    */
-  const mergedPanel = recentsMode === "merged" && !agencyScope;
+  const mergedPanel = recentsMode === "merged";
   const [query, setQuery] = React.useState("");
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
@@ -182,6 +187,37 @@ export function PinnedLauncher({
    * everything under "All products" a few rows below. Real history would be
    * bounded by time instead, and the cap is where that bound would go.
    */
+  /*
+   * The agency panel is the same three sections over a different tree.
+   *
+   * Pinned, Recent, then everything — but resolved out of `agencyPlaces` and
+   * the agency's own pin store, because the catalogue knows nothing about
+   * buckets. `external` on ProductRow is what lets both use one row.
+   */
+  const agencyPinnedIds = agency.pinned.filter((id) => agencyPlaces[id]);
+  const agencyRecentIds = mergedPanel
+    ? agencyRecentPlaceIds(agency.state.order, agency.pinned).slice(
+        0,
+        PANEL_RECENT_ROWS,
+      )
+    : [];
+  const agencyAllIds = agency.state.order.filter((id) => agencyPlaces[id]);
+  const agencyRow = (id: string) => {
+    const place = agencyPlaces[id]!;
+    return {
+      label: agency.labelFor(id, place.label),
+      icon: place.icon,
+      pinned: agency.isPinned(id),
+      onTogglePin: () => agency.togglePin(id),
+    };
+  };
+  /** Agency search is a label match over the places, not the catalogue index. */
+  const agencyHits = searching
+    ? Object.keys(agencyPlaces).filter((id) =>
+        agency.labelFor(id, agencyPlaces[id]!.label).toLowerCase().includes(q),
+      )
+    : [];
+
   const recentIds = mergedPanel ? recentIdsFor(state).slice(0, PANEL_RECENT_ROWS) : [];
 
   const showSearch = !mergedPanel || mergedPanelSearch;
@@ -288,7 +324,18 @@ export function PinnedLauncher({
             data-scroll-region=""
             className="flex w-full flex-1 flex-col items-start gap-[10px] overflow-y-auto px-[14px] pt-[10px]"
           >
-        {searching ? (
+        {mergedPanel && agencyScope ? (
+          <AgencyPanelBody
+            searching={searching}
+            query={query}
+            hitIds={agencyHits}
+            pinnedIds={agencyPinnedIds}
+            recentIds={agencyRecentIds}
+            allIds={agencyAllIds}
+            rowFor={agencyRow}
+            onMovePin={agency.movePin}
+          />
+        ) : searching ? (
           hits.length > 0 ? (
             hits.map((hit) => (
               <SearchRow key={hit.id} productId={hit.id} context={hit.context} />
@@ -792,6 +839,7 @@ function ProductRow({
   onPickIcon,
   reorder,
   drag,
+  external,
 }: {
   productId: string;
   renaming?: boolean;
@@ -805,13 +853,28 @@ function ProductRow({
   onPickIcon?: (trigger: HTMLElement) => void;
   reorder?: ReorderControls;
   drag?: DragControls;
+  /**
+   * A row the catalogue cannot resolve, handed over already named.
+   *
+   * The agency tree is not a product catalogue, so `productLabelFor` and the
+   * pin store behind `PinButton` know nothing about it. Rather than a second
+   * row component that would drift from this one pixel by pixel, the caller
+   * supplies what it knows and the row draws itself the same way — minus the
+   * rename and the icon picker, which belong to the catalogue's edit mode.
+   */
+  external?: {
+    label: string;
+    icon: LucideIcon;
+    pinned: boolean;
+    onTogglePin: () => void;
+  };
 }) {
   const layout = useNavLayout();
   const { can } = layout;
   const [dragging, setDragging] = React.useState(false);
-  const icon = layout.productIconFor(productId);
-  const label = layout.productLabelFor(productId);
-  const renamed = layout.isProductRenamed(productId);
+  const icon = external?.icon ?? layout.productIconFor(productId);
+  const label = external?.label ?? layout.productLabelFor(productId);
+  const renamed = external ? false : layout.isProductRenamed(productId);
 
   return (
     <div
@@ -967,10 +1030,172 @@ function ProductRow({
       */}
       {!renaming ? (
         <span className="absolute top-1/2 right-[8px] z-10 -translate-y-1/2">
-          <PinButton productId={productId} />
+          {external ? (
+            <ExternalPinButton
+              pinned={external.pinned}
+              onToggle={external.onTogglePin}
+            />
+          ) : (
+            <PinButton productId={productId} />
+          )}
         </span>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * `PinButton` for a row the catalogue does not own.
+ *
+ * Same geometry and same states — it has to, or the agency's pin list would
+ * read as a different control from the sub-account's. Only where the truth
+ * lives differs: passed in here, read from the store there.
+ */
+function ExternalPinButton({
+  pinned,
+  onToggle,
+}: {
+  pinned: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      title={pinned ? "Unpin" : "Pin"}
+      aria-label={pinned ? "Unpin" : "Pin"}
+      aria-pressed={pinned}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle();
+      }}
+      className={cn(
+        "motion-tap flex size-[22px] shrink-0 items-center justify-center rounded-[6px]",
+        "hover:bg-nav-hover active:scale-90 motion-press",
+        pinned
+          ? "text-brand opacity-100"
+          : "text-nav-fg-subtle opacity-0 group-hover/row:opacity-100 hover:text-nav-fg focus-visible:opacity-100",
+      )}
+    >
+      <Pin size={14} fill={pinned ? "currentColor" : "none"} aria-hidden="true" />
+    </button>
+  );
+}
+
+/**
+ * The panel's contents at agency scope, in merged mode.
+ *
+ * The same three sections in the same order as the sub-account's — Pinned with
+ * its grips, Recent, then everything — over the agency's buckets instead of the
+ * catalogue. A separate body rather than five conditionals threaded through the
+ * other one: the two trees share a row and a layout, and nothing else, so the
+ * place to fork is here and not inside every section.
+ */
+function AgencyPanelBody({
+  searching,
+  query,
+  hitIds,
+  pinnedIds,
+  recentIds,
+  allIds,
+  rowFor,
+  onMovePin,
+}: {
+  searching: boolean;
+  query: string;
+  hitIds: string[];
+  pinnedIds: string[];
+  recentIds: string[];
+  allIds: string[];
+  rowFor: (id: string) => {
+    label: string;
+    icon: LucideIcon;
+    pinned: boolean;
+    onTogglePin: () => void;
+  };
+  onMovePin: (from: number, to: number) => void;
+}) {
+  if (searching) {
+    if (hitIds.length === 0) {
+      return (
+        <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
+          Nothing matches “{query}”
+        </p>
+      );
+    }
+    return (
+      <>
+        {hitIds.map((id) => (
+          <ProductRow key={`hit-${id}`} productId={id} external={rowFor(id)} />
+        ))}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {pinnedIds.length > 0 ? (
+        <>
+          <SectionHeading count={pinnedIds.length}>Pinned</SectionHeading>
+          {pinnedIds.map((id, index) => (
+            <ProductRow
+              key={`agency-pin-${id}`}
+              productId={id}
+              external={rowFor(id)}
+              gripReplacesIcon
+              reorder={{
+                onUp: () => onMovePin(index, index - 1),
+                onDown: () => onMovePin(index, index + 1),
+                upDisabled: index === 0,
+                downDisabled: index === pinnedIds.length - 1,
+              }}
+              drag={{
+                key: `agency-pin:${index}`,
+                onDrop: (from) => {
+                  const fromIndex = Number(from.split(":")[1]);
+                  if (!Number.isNaN(fromIndex)) onMovePin(fromIndex, index);
+                },
+              }}
+            />
+          ))}
+        </>
+      ) : (
+        <>
+          <SectionHeading>Pinned</SectionHeading>
+          <p className="w-full px-[2px] pb-[4px] text-[12.5px] leading-[17px] text-nav-fg-subtle">
+            No pinned items yet. Pin anything below and it appears at the top of
+            the nav.
+          </p>
+        </>
+      )}
+
+      {recentIds.length > 0 ? (
+        <>
+          <SectionHeading divider count={recentIds.length}>
+            Recent
+          </SectionHeading>
+          {recentIds.map((id) => (
+            <ProductRow
+              key={`agency-recent-${id}`}
+              productId={id}
+              external={rowFor(id)}
+            />
+          ))}
+        </>
+      ) : null}
+
+      {allIds.length > 0 ? (
+        <>
+          <SectionHeading divider>All areas</SectionHeading>
+          {allIds.map((id) => (
+            <ProductRow
+              key={`agency-all-${id}`}
+              productId={id}
+              external={rowFor(id)}
+            />
+          ))}
+        </>
+      ) : null}
+    </>
   );
 }
 

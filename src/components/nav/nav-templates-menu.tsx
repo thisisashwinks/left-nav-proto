@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { Check, LayoutTemplate, Plus, Trash2 } from "lucide-react";
+import { Check, LayoutTemplate, Plus, Save, Trash2 } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { useAnchored } from "@/lib/use-anchored";
@@ -20,19 +20,24 @@ const GAP = 6;
 
 export function NavTemplatesMenu({
   accountName,
+  accountId,
   anchor,
-  onSave,
+  onCreate,
+  onUpdate,
   onApply,
   onClose,
 }: {
   accountName: string;
+  /** Whose template link is read, to tell "save" from "save as". */
+  accountId: string;
   /** The control that opened it, so the panel can stay attached to it. */
   anchor: HTMLElement;
-  onSave: (name: string) => void;
+  onCreate: (name: string) => void;
+  onUpdate: (templateId: string) => void;
   onApply: (templateId: string) => void;
   onClose: () => void;
 }) {
-  const { templates, remove } = useNavTemplates();
+  const { templates, remove, linkedFor } = useNavTemplates();
   const navTheme = useTheme().effective.navTheme;
   const [naming, setNaming] = React.useState(false);
   const [draft, setDraft] = React.useState("");
@@ -51,9 +56,11 @@ export function NavTemplatesMenu({
     };
   }, [onClose]);
 
+  const linked = linkedFor(accountId);
+
   const commit = () => {
     if (draft.trim() === "") return;
-    onSave(draft);
+    onCreate(draft);
     setDraft("");
     setNaming(false);
   };
@@ -146,14 +153,38 @@ export function NavTemplatesMenu({
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={() => setNaming(true)}
-            className="motion-tap flex w-full items-center gap-[7px] rounded-[7px] px-[7px] py-[6px] text-[12.5px] leading-[16px] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
-          >
-            <Plus size={14} aria-hidden="true" className="shrink-0" />
-            Save {accountName}&rsquo;s grouping as a template
-          </button>
+          <>
+            {/*
+              Two verbs, the same pair the edit card's menu draws. Save means the
+              template this account is already on; Create means a new one. One
+              row that did both is what left agencies with three copies of the
+              same nav and no way to correct the original.
+            */}
+            <button
+              type="button"
+              disabled={linked === null}
+              onClick={() => linked && onUpdate(linked.id)}
+              className="motion-tap flex w-full items-center gap-[7px] rounded-[7px] px-[7px] py-[6px] text-left text-[12.5px] leading-[16px] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg disabled:pointer-events-none disabled:opacity-40"
+            >
+              <Save size={14} aria-hidden="true" className="shrink-0" />
+              <span className="min-w-0 flex-1 truncate">
+                {linked ? `Save to ${linked.name}` : "Save template"}
+              </span>
+            </button>
+            {linked === null ? (
+              <p className="px-[7px] pb-[4px] text-[11px] leading-[15px] text-nav-fg-subtle">
+                {accountName} isn&rsquo;t on a template yet.
+              </p>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setNaming(true)}
+              className="motion-tap flex w-full items-center gap-[7px] rounded-[7px] px-[7px] py-[6px] text-[12.5px] leading-[16px] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
+            >
+              <Plus size={14} aria-hidden="true" className="shrink-0" />
+              Create new template
+            </button>
+          </>
         )}
       </div>
     </div>,

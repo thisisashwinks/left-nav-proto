@@ -20,6 +20,10 @@ import {
   type Crumb,
   type CrumbOption,
 } from "@/components/header/app-header";
+import {
+  GetAppModal,
+  type AppKind,
+} from "@/components/header/get-app-modal";
 import { CollapsedRail } from "@/components/nav/collapsed-rail";
 import { LegacyNav } from "@/components/nav/legacy-nav";
 import {
@@ -36,9 +40,9 @@ import {
 import { LeftNav } from "@/components/nav/left-nav";
 import {
   agencyFlyouts,
-  agencyPinned,
   agencyPlaces,
 } from "@/components/nav/agency-config";
+import { useAgencyLayout } from "@/components/nav/agency-layout";
 import { AgencyCompanyPage } from "@/components/settings/agency-company-page";
 import { BusinessProfilePage } from "@/components/settings/business-profile-page";
 import {
@@ -258,6 +262,16 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     beginEditing: beginNavEditing,
     can: navCan,
   } = useNavLayout();
+  // The agency's own store, for the capsule's pin list at agency scope.
+  const agencyLayout = useAgencyLayout();
+  /*
+   * The Get the app modal, owned here rather than by the bar.
+   *
+   * Three surfaces can now open it — the app bar, the avatar menu and the
+   * sidebar — and the axis that decides which is read in two of them. State
+   * kept in any one of those would be state the other two cannot reach.
+   */
+  const [appModal, setAppModal] = React.useState<AppKind | null>(null);
 
   /*
    * The panel behind each group row. Built here rather than looked up in the
@@ -324,13 +338,20 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   /*
    * Which agency destination the canvas is showing.
    *
-   * Sub-accounts keeps its own branch below — it has a real table and a nested
+   * Accounts keeps its own branch below — it has a real table and a nested
    * settings page, which is more than a place. Everything else in the agency
    * tree resolves through one index so a row, its page and its breadcrumb can
    * never disagree about what it is called.
+   *
+   * The table hangs off the L2 `agency-accounts`, not the L1 bucket above it.
+   * Sub-accounts is a bucket with seven children — snapshots, the template
+   * library, media usage — and having the bucket itself load one of them made
+   * the other six read as siblings of a page that had already opened. The row
+   * opens the panel; Accounts opens the table. Same rule as every other bucket
+   * in the tree.
    */
   const agencyPlace =
-    agencyScope && selectedId && selectedId !== "agency-sub-accounts"
+    agencyScope && selectedId && selectedId !== "agency-accounts"
       ? agencyPlaces[selectedId]
       : undefined;
 
@@ -577,7 +598,25 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * renamed product's dock caption matches its nav row.
    */
   const pinnedItems = agencyScope
-    ? agencyPinned
+    ? /*
+       * The agency's pins, resolved the same way the sub-account's are.
+       *
+       * This was a hardcoded list of five chips for as long as agency pinning
+       * was decorative. Now that the agency has a pin store — so a row in its
+       * nav can be pinned and unpinned like any other — the capsule has to be a
+       * window onto that store, or pinning would appear to do nothing up here.
+       */
+      agencyLayout.pinned.flatMap((id) => {
+        const place = agencyPlaces[id];
+        if (!place) return [];
+        return [
+          {
+            id,
+            label: agencyLayout.labelFor(id, place.label),
+            icon: place.icon,
+          },
+        ];
+      })
     : layout.pinned
         /*
          * A pin can name an L3 row as well as a product.
@@ -1197,7 +1236,6 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         {atFloor ||
         isBlockHidden(layout, "pinned") ||
         (recentsMode === "merged" &&
-          !agencyScope &&
           (mergedPinScope === "everywhere" ||
             (mergedPinScope === "capsule-off" && !collapsed))) ? null : (
         <PinnedMorph
@@ -1244,6 +1282,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         >
           <LeftNav
             theme={navTheme}
+            onOpenApp={setAppModal}
             selectedId={selectedId}
             onSelect={selectNavRow}
             openFlyoutId={intent.activeId}
@@ -1283,6 +1322,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         >
           <CollapsedRail
             theme={navTheme}
+            onOpenApp={setAppModal}
             loading={switching}
             selectedId={selectedId}
             onSelect={selectNavRow}
@@ -1356,6 +1396,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       >
         <AppHeader
           theme={headerTheme}
+          onOpenApp={setAppModal}
           /*
             The entry, when the axis puts it up here.
 
@@ -1389,10 +1430,13 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             setSelectedId(null);
           }}
           crumbs={
-            selectedId === "agency-sub-accounts"
-              ? manageAccount
-                ? ["Sub-accounts", manageAccount.name]
-                : ["Sub-accounts"]
+            selectedId === "agency-accounts"
+              ? // Bucket, then the row, then whichever account was opened from
+                // it — the same three-part shape the generic branch builds, so
+                // the table's trail does not read as a special case.
+                manageAccount
+                ? ["Sub-accounts", "Accounts", manageAccount.name]
+                : ["Sub-accounts", "Accounts"]
               : agencyPlace
                 ? // Bucket, then the L2 that owns it, then the row itself —
                   // skipping the bucket when the row IS the bucket, so a
@@ -1449,7 +1493,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 // full: it is where a sub-account uploads its logos, so it is
                 // the counterpart to the agency's White label tab.
                 <BusinessProfilePage account={accounts.current} />
-              ) : selectedId === "agency-sub-accounts" ? (
+              ) : selectedId === "agency-accounts" ? (
                 manageAccount ? (
                   <SubAccountPage
                     account={manageAccount}
@@ -1565,7 +1609,14 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               // highlight. Contacts stays the purpose-built page.
               // Agency rows name no catalogue product — the tree is its own.
               if (agencyScope) {
-                if (agencyPlaces[id]) setSelectedId(id);
+                if (agencyPlaces[id]) {
+                  // Any agency row is a fresh destination, so the account whose
+                  // settings were open behind the table stops being open. Left
+                  // set, clicking Accounts landed on the last sub-account's
+                  // settings page instead of on the table the row names.
+                  setManageAccountId(null);
+                  setSelectedId(id);
+                }
                 return;
               }
               const child = childById(id);
@@ -1617,6 +1668,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           mode={aiMode}
           onModeChange={setAiMode}
         />
+      ) : null}
+
+      {/*
+        Get the app, opened from whichever surface the placement axis put the
+        offer on. Portalled from inside itself, so where it sits in this tree
+        buys nothing but a place to keep its state.
+      */}
+      {appModal ? (
+        <GetAppModal kind={appModal} onClose={() => setAppModal(null)} />
       ) : null}
 
       {launcher.isMounted ? (

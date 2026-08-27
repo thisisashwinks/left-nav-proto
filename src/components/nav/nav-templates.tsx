@@ -63,10 +63,48 @@ export interface NavTemplate {
 
 interface TemplatesValue {
   templates: readonly NavTemplate[];
-  save: (name: string, fromAccount: string, state: NavLayoutState) => void;
+  /** Creates a template and returns its id, so the caller can link to it. */
+  save: (
+    name: string,
+    fromAccount: string,
+    state: NavLayoutState,
+  ) => NavTemplate | null;
+  /**
+   * Overwrites an existing template's arrangement, keeping its name and id.
+   *
+   * The counterpart to `save`, and the reason the menu can offer two verbs
+   * instead of one ambiguous "Save as template". Editing the nav of an account
+   * that is on a template and pressing save should mean "the template was
+   * wrong, this is what it should be" — not "here is a fourteenth template
+   * called Dental practice (2)".
+   */
+  update: (
+    id: string,
+    fromAccount: string,
+    state: NavLayoutState,
+  ) => NavTemplate | null;
   remove: (id: string) => void;
   /** The patch to apply, already intersected with what this account owns. */
   patchFor: (id: string, target: NavLayoutState) => Partial<NavLayoutState> | null;
+
+  /**
+   * Which template an account is ON.
+   *
+   * Set when a template is applied to it — one at a time from the edit menu, or
+   * in a bulk run — and when an arrangement is saved from it. Without this the
+   * menu has no way to tell "save" from "save as", because there is no such
+   * thing as the current template.
+   *
+   * A link is a claim about provenance, not a subscription: updating the
+   * template does not reach back into the accounts on it. That is what Apply
+   * is for, and keeping the two separate is what stops one agency's edit from
+   * silently rewriting forty navs.
+   */
+  linkedIdFor: (accountId: string) => string | null;
+  linkedFor: (accountId: string) => NavTemplate | null;
+  link: (accountId: string, templateId: string) => void;
+  /** How many accounts are on a template. Shown before an update overwrites it. */
+  accountsOn: (templateId: string) => number;
 }
 
 const TemplatesContext = React.createContext<TemplatesValue | null>(null);
@@ -299,6 +337,63 @@ function mergedGroups(
   return [...fromTemplate, ...remaining];
 }
 
+/**
+ * The patch one arrangement makes on one target, independent of the store.
+ *
+ * Split out of `patchFor` so a template that has just been created — and is
+ * therefore not in `templates` yet this tick — can still be applied.
+ */
+export function patchForArrangement(
+  a: NavArrangement,
+  target: NavLayoutState,
+): Partial<NavLayoutState> {
+    const owns = new Set(target.enabledProducts);
+
+    return {
+      grouping: a.grouping,
+      groupOrder: a.groupOrder,
+      agencyLabels: a.agencyLabels,
+      agencyProductLabels: a.agencyProductLabels,
+      icons: a.icons,
+      hiddenBlocks: a.hiddenBlocks,
+      // Every product reference is filtered to what this account owns. A
+      // group left empty by that filter is dropped rather than drawn as a
+      // heading over nothing.
+      // Each id is translated to whatever this account calls the same
+      // product before being filtered, so the two catalogues do not read as
+      // "owns nothing" to one another.
+      customGroups: mergedGroups(a, target, owns),
+      /*
+       * Never hand back an empty dock.
+       *
+       * A template's pins are its author's, and an account that owns none of
+       * them would have had its favourites silently emptied by applying a
+       * grouping — which is not what "apply a grouping" promises, and is
+       * destructive in a way the rest of the patch is not. So: the
+       * template's pins where the account owns them, and its own if that
+       * leaves nothing.
+       */
+      pinned: (() => {
+        const kept = a.pinned
+          .map((p) => resolveOwned(p, owns))
+          .filter((p): p is string => p !== undefined);
+        return kept.length > 0 ? kept : target.pinned;
+      })(),
+      hiddenRows: a.hiddenRows
+        .map((p) => resolveOwned(p, owns))
+        .filter((p): p is string => p !== undefined),
+      // The tail also holds the account's OWN links, which the template knows
+      // nothing about — so template order first, then anything of the
+      // account's it did not mention, rather than discarding them.
+      tailOrder: [
+        ...a.tailOrder
+          .map((p) => resolveOwned(p, owns))
+          .filter((p): p is string => p !== undefined),
+        ...target.tailOrder.filter((p) => !a.tailOrder.includes(p)),
+      ],
+    };
+}
+
 export function NavTemplatesProvider({
   children,
 }: {
@@ -307,93 +402,159 @@ export function NavTemplatesProvider({
   const [templates, setTemplates] = React.useState<readonly NavTemplate[]>(
     SEED_TEMPLATES,
   );
+  /** accountId → the template it is on. */
+  const [links, setLinks] = React.useState<Record<string, string>>({});
   const seq = React.useRef(0);
+  // `update` needs the template it is replacing without taking `templates` as a
+  // dependency — the callback is handed to a menu that must not be rebuilt on
+  // every save.
+  const templatesRef = React.useRef(templates);
+  React.useEffect(() => {
+    templatesRef.current = templates;
+  }, [templates]);
 
   const save = React.useCallback(
     (name: string, fromAccount: string, state: NavLayoutState) => {
       const trimmed = name.trim();
-      if (trimmed === "") return;
+      if (trimmed === "") return null;
       seq.current += 1;
-      setTemplates((all) => [
-        ...all,
-        {
-          id: `tpl-${seq.current}`,
-          name: trimmed,
-          fromAccount,
-          // What the template ARRANGES, not what the account owns — the two
-          // differ the moment a product sits in no group.
-          productCount: new Set(
-            captureArrangement(state).customGroups.flatMap((g) => g.productIds),
-          ).size,
-          arrangement: captureArrangement(state),
-        },
-      ]);
+      const arrangement = captureArrangement(state);
+      /*
+       * Built here and RETURNED, not just pushed into state.
+       *
+       * The caller's next move is to put this template on the account it came
+       * from, and `setTemplates` has not landed by then — a lookup by id in the
+       * same tick finds nothing, so the apply and the link both silently no-op.
+       * Handing back the object closes that gap without a effect-and-flag dance.
+       */
+      const created: NavTemplate = {
+        id: `tpl-${seq.current}`,
+        name: trimmed,
+        fromAccount,
+        // What the template ARRANGES, not what the account owns — the two
+        // differ the moment a product sits in no group.
+        productCount: new Set(arrangement.customGroups.flatMap((g) => g.productIds))
+          .size,
+        arrangement,
+      };
+      setTemplates((all) => [...all, created]);
+      return created;
+    },
+    [],
+  );
+
+  const update = React.useCallback(
+    (id: string, fromAccount: string, state: NavLayoutState) => {
+      const arrangement = captureArrangement(state);
+      const before = templatesRef.current.find((t) => t.id === id);
+      if (!before) return null;
+      const after: NavTemplate = {
+        ...before,
+        builtIn: false,
+        fromAccount,
+        productCount: new Set(arrangement.customGroups.flatMap((g) => g.productIds))
+          .size,
+        arrangement,
+      };
+      setTemplates((all) =>
+        all.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                /*
+                 * An overwritten preset stops calling itself a preset.
+                 *
+                 * `builtIn` means "this is what we shipped", and the moment an
+                 * agency saves their own arrangement into one that is no longer
+                 * true. Keeping the badge would have the list vouching for a
+                 * tree nobody at HighLevel has seen. So the row starts saying
+                 * where it actually came from instead.
+                 */
+                builtIn: false,
+                fromAccount,
+                productCount: new Set(
+                  arrangement.customGroups.flatMap((g) => g.productIds),
+                ).size,
+                arrangement,
+              }
+            : t,
+        ),
+      );
+      return after;
     },
     [],
   );
 
   const remove = React.useCallback(
-    (id: string) => setTemplates((all) => all.filter((t) => t.id !== id)),
+    (id: string) => {
+      setTemplates((all) => all.filter((t) => t.id !== id));
+      // Links to a template that no longer exists would leave accounts claiming
+      // to be on nothing, and the menu offering to update it.
+      setLinks((all) =>
+        Object.fromEntries(
+          Object.entries(all).filter(([, templateId]) => templateId !== id),
+        ),
+      );
+    },
     [],
+  );
+
+  const link = React.useCallback(
+    (accountId: string, templateId: string) =>
+      setLinks((all) => ({ ...all, [accountId]: templateId })),
+    [],
+  );
+
+  const linkedIdFor = React.useCallback(
+    (accountId: string) => links[accountId] ?? null,
+    [links],
+  );
+
+  const linkedFor = React.useCallback(
+    (accountId: string) => {
+      const id = links[accountId];
+      return (id && templates.find((t) => t.id === id)) || null;
+    },
+    [links, templates],
+  );
+
+  const accountsOn = React.useCallback(
+    (templateId: string) =>
+      Object.values(links).filter((id) => id === templateId).length,
+    [links],
   );
 
   const patchFor = React.useCallback(
     (id: string, target: NavLayoutState): Partial<NavLayoutState> | null => {
       const tpl = templates.find((t) => t.id === id);
-      if (!tpl) return null;
-      const owns = new Set(target.enabledProducts);
-      const a = tpl.arrangement;
-
-      return {
-        grouping: a.grouping,
-        groupOrder: a.groupOrder,
-        agencyLabels: a.agencyLabels,
-        agencyProductLabels: a.agencyProductLabels,
-        icons: a.icons,
-        hiddenBlocks: a.hiddenBlocks,
-        // Every product reference is filtered to what this account owns. A
-        // group left empty by that filter is dropped rather than drawn as a
-        // heading over nothing.
-        // Each id is translated to whatever this account calls the same
-        // product before being filtered, so the two catalogues do not read as
-        // "owns nothing" to one another.
-        customGroups: mergedGroups(a, target, owns),
-        /*
-         * Never hand back an empty dock.
-         *
-         * A template's pins are its author's, and an account that owns none of
-         * them would have had its favourites silently emptied by applying a
-         * grouping — which is not what "apply a grouping" promises, and is
-         * destructive in a way the rest of the patch is not. So: the
-         * template's pins where the account owns them, and its own if that
-         * leaves nothing.
-         */
-        pinned: (() => {
-          const kept = a.pinned
-            .map((p) => resolveOwned(p, owns))
-            .filter((p): p is string => p !== undefined);
-          return kept.length > 0 ? kept : target.pinned;
-        })(),
-        hiddenRows: a.hiddenRows
-          .map((p) => resolveOwned(p, owns))
-          .filter((p): p is string => p !== undefined),
-        // The tail also holds the account's OWN links, which the template knows
-        // nothing about — so template order first, then anything of the
-        // account's it did not mention, rather than discarding them.
-        tailOrder: [
-          ...a.tailOrder
-            .map((p) => resolveOwned(p, owns))
-            .filter((p): p is string => p !== undefined),
-          ...target.tailOrder.filter((p) => !a.tailOrder.includes(p)),
-        ],
-      };
+      return tpl ? patchForArrangement(tpl.arrangement, target) : null;
     },
     [templates],
   );
 
   const value = React.useMemo<TemplatesValue>(
-    () => ({ templates, save, remove, patchFor }),
-    [templates, save, remove, patchFor],
+    () => ({
+      templates,
+      save,
+      update,
+      remove,
+      patchFor,
+      linkedIdFor,
+      linkedFor,
+      link,
+      accountsOn,
+    }),
+    [
+      templates,
+      save,
+      update,
+      remove,
+      patchFor,
+      linkedIdFor,
+      linkedFor,
+      link,
+      accountsOn,
+    ],
   );
 
   return <TemplatesContext value={value}>{children}</TemplatesContext>;
