@@ -9,6 +9,8 @@ import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import { headerConfig, type HeaderActionTone, type HeaderConfig } from "./header-config";
 import { UserAvatar } from "./user-avatar";
+import { AccountMenu } from "./account-menu";
+import { GetAppModal, type AppKind } from "./get-app-modal";
 
 /**
  * One breadcrumb segment. A plain string stays a label; a segment with
@@ -71,6 +73,15 @@ interface AppHeaderProps {
   crumbs?: (string | Crumb)[];
   /** Home goes to the account's first product, whatever that is for this tenant. */
   onHome?: () => void;
+  /**
+   * The search + Ask AI pill, when the entry axis puts it up here.
+   *
+   * Passed in rather than built here: it is the nav's own control relocated,
+   * and the shell already holds the session and the search opener it needs. The
+   * bar just gives it a place to stand — to the LEFT of the utilities, so the
+   * five glyphs keep the bar's right edge they have always held.
+   */
+  entry?: React.ReactNode;
 }
 
 /**
@@ -87,7 +98,16 @@ export function AppHeader({
   config = headerConfig,
   crumbs = ["Contacts", "Smart lists"],
   onHome,
+  entry,
 }: AppHeaderProps) {
+  /*
+   * The trigger element, not a rect: useAnchored re-measures from it, and the
+   * bar moves when the shell switches arrangement.
+   */
+  const [accountAnchor, setAccountAnchor] =
+    React.useState<HTMLElement | null>(null);
+  const [appModal, setAppModal] = React.useState<AppKind | null>(null);
+
   return (
     <header
       data-header-theme={theme}
@@ -164,11 +184,15 @@ export function AppHeader({
 
       <div className="flex shrink-0 items-center gap-[12px]">
         {/*
-          No Ask AI up here anymore: the nav's merged pill is the assistant's
-          one standing entry in both arrangements now, and a second copy in the
-          header was exactly the duplication the review flagged between search
-          and AI.
+          The merged pill, when the entry axis puts it here.
+
+          Nothing is duplicated by it: the nav gives the control up entirely in
+          this arrangement, so this is the same single entry point standing
+          somewhere else. 230px — wide enough for the placeholder and the
+          keycap, narrow enough to leave the breadcrumb its room on a laptop.
         */}
+        {entry ? <div className="w-[230px] shrink-0">{entry}</div> : null}
+
         <div className="flex shrink-0 items-center gap-[8px]">
           {config.actions.map((action) => (
             <button
@@ -200,12 +224,51 @@ export function AppHeader({
             type="button"
             title="Account"
             aria-label="Account"
+            aria-haspopup="menu"
+            aria-expanded={accountAnchor !== null}
+            onClick={(e) => {
+              /*
+               * The element is read HERE, not inside the updater.
+               *
+               * React nulls `currentTarget` once the handler returns, and a
+               * functional updater runs later, during the render it schedules —
+               * so reading it in there yielded null and the menu opened anchored
+               * to nothing, which renders as not opening at all. It worked on
+               * the first click and silently stopped working on every one after,
+               * which is the worst shape a bug like this can take.
+               *
+               * Toggling on the trigger, so a second click closes rather than
+               * re-anchoring the menu already open under the pointer.
+               */
+              const trigger = e.currentTarget;
+              setAccountAnchor((open) => (open ? null : trigger));
+            }}
             className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-full motion-press hover:scale-110 active:scale-95"
           >
             <UserAvatar size={26} initials={config.avatarInitials} />
           </button>
         </div>
       </div>
+
+      {accountAnchor ? (
+        <AccountMenu
+          anchor={accountAnchor}
+          name={config.userName}
+          email={config.userEmail}
+          initials={config.avatarInitials}
+          onOpenApp={setAppModal}
+          onClose={() => setAccountAnchor(null)}
+        />
+      ) : null}
+
+      {/*
+        Outlives the menu on purpose. The menu closes as the modal opens — a
+        dropdown left hanging behind a modal reads as two surfaces fighting —
+        so the modal's state cannot live inside it.
+      */}
+      {appModal ? (
+        <GetAppModal kind={appModal} onClose={() => setAppModal(null)} />
+      ) : null}
     </header>
   );
 }

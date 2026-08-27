@@ -645,6 +645,24 @@
   --hdr-act-launch: #ea580c;
   --hdr-act-alert: #dc2626;
   --hdr-avatar-bg: #4b5563;
+
+  /*
+   * The AI mark's own gradient, repeated for this surface.
+   *
+   * `--ai-from`/`--ai-to` are declared under [data-nav-theme], because until
+   * now every AI entry point stood inside the nav. The `header` placement puts
+   * the merged pill in the app bar, which is outside that scope entirely — so
+   * the donut resolved to nothing and the orb came out invisible, a ring of
+   * empty space where the mark should be.
+   *
+   * Same derivations as the light nav, not a second palette: the mark is Ask
+   * AI's, not the surface's, and it has to look like itself wherever it lands.
+   */
+  --ai-from: var(--ai-base);
+  --ai-to: #f14ce0;
+  --ai-to: oklch(from var(--ai-base) calc(l + 0.14) c calc(h + 30));
+  --ai-ring: #be69ff66;
+  --ai-ring: oklch(from var(--ai-base) 0.7 c h / 0.4);
 }
 
 [data-header-theme="dark"] {
@@ -658,6 +676,14 @@
   --hdr-act-launch: #ea580c;
   --hdr-act-alert: #dc2626;
   --hdr-avatar-bg: #52525b;
+
+  /* Lifted for a dark bar, exactly as the dark nav lifts them. */
+  --ai-from: #cb76ff;
+  --ai-from: oklch(from var(--ai-base) 0.74 c h);
+  --ai-to: #ff83ff;
+  --ai-to: oklch(from var(--ai-base) 0.82 calc(c * 0.9) calc(h + 30));
+  --ai-ring: #a855f766;
+  --ai-ring: oklch(from var(--ai-base) 0.75 c h / 0.45);
 }
 
 /* ─── Search surface ───────────────────────────────────────────────────── */

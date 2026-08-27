@@ -244,6 +244,26 @@ interface NavLayoutContextValue {
    */
   setActiveAccount: (accountId: string) => void;
   profileFor: (accountId: string) => NavLayoutState;
+  /**
+   * The one cross-account WRITE, and it exists for exactly one caller: the
+   * Sub-accounts table's bulk actions.
+   *
+   * The customizer that used to edit another account's nav is gone, and it
+   * should stay gone — editing one account from inside another is how you
+   * change the wrong client's nav. A bulk run is a different act: the admin
+   * ticked the rows themselves, the same change lands on every one of them, and
+   * the modal states the blast radius before it commits. So this takes a LIST,
+   * never a single id, and refuses to pretend it is editing.
+   *
+   * Silent on the active account: the undo toast can only put back the one
+   * account it is holding, and an undo that quietly repairs one of forty is
+   * worse than no undo at all. Bulk runs are reversed by another bulk run.
+   */
+  applyToAccounts: (
+    accountIds: readonly string[],
+    message: string,
+    patch: (layout: NavLayoutState) => NavLayoutState,
+  ) => void;
 }
 
 const NavLayoutContext = React.createContext<NavLayoutContextValue | null>(null);
@@ -738,6 +758,46 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
   );
 
 
+  const applyToAccounts = React.useCallback(
+    (
+      accountIds: readonly string[],
+      message: string,
+      patch: (layout: NavLayoutState) => NavLayoutState,
+    ) => {
+      const active = activeIdRef.current;
+      /*
+       * A functional update, not a spread of the ref.
+       *
+       * `profilesRef` only catches up in an effect, so two calls in the same
+       * tick — which is exactly what a per-account run is — both read the
+       * pre-run map and the second overwrote the first. Four changes went in
+       * and one came out. Reading `prev` inside the updater is the only version
+       * that survives a burst of calls; the patch is pure, so Strict Mode's
+       * double invocation is harmless.
+       */
+      setProfiles((prev) => {
+        let touched = false;
+        const nextProfiles = { ...prev };
+        for (const id of accountIds) {
+          if (id === active) continue;
+          // Unvisited accounts have no stored profile yet, so the seed is the
+          // base — same rule `profileFor` reads by, so a bulk run lands on the
+          // account's real arrangement whether or not anyone has opened it.
+          const base = nextProfiles[id] ?? navProfileFor(id);
+          const next = patch(base);
+          if (next === base) continue;
+          nextProfiles[id] = next;
+          touched = true;
+        }
+        return touched ? nextProfiles : prev;
+      });
+      if (active !== null && accountIds.includes(active)) {
+        dispatch({ type: "commit", message, next: patch, silent: true });
+      }
+    },
+    [],
+  );
+
   const commit = React.useCallback(
     (
       message: string,
@@ -1213,6 +1273,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
 
       setActiveAccount,
       profileFor,
+      applyToAccounts,
     };
   }, [
     state,
@@ -1225,6 +1286,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
     commit,
     setActiveAccount,
     profileFor,
+    applyToAccounts,
   ]);
 
   return <NavLayoutContext value={value}>{children}</NavLayoutContext>;

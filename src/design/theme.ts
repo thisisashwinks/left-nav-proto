@@ -113,7 +113,12 @@ export const AUTO_COLLAPSE_WIDTH = 900;
  * so adaptive would open on a single recent row and the designed block — three
  * destinations and a More row — would never be what anyone saw first.
  */
-export const RECENTS_MODES = ["adaptive", "flyout-only", "fixed-three"] as const;
+export const RECENTS_MODES = [
+  "adaptive",
+  "flyout-only",
+  "fixed-three",
+  "merged",
+] as const;
 
 export type RecentsMode = (typeof RECENTS_MODES)[number];
 
@@ -121,6 +126,149 @@ export const RECENTS_MODE_LABELS: Record<RecentsMode, string> = {
   adaptive: "Adaptive",
   "flyout-only": "Flyout only",
   "fixed-three": "Always three",
+  merged: "Merged with pinned",
+};
+
+/*
+ * ---------------------------------------------------------------------------
+ * Merged recents — the Cloudflare arrangement
+ * ---------------------------------------------------------------------------
+ *
+ * The 04 Aug objection, answered a fourth way: instead of rationing the space
+ * between two blocks, there is only one block. Pins sit at the top of Recents
+ * and recently visited places follow them — so pinning becomes "keep this at the
+ * top of the list I already read" rather than "put this in a second list
+ * somewhere else". Cloudflare ships exactly this, and it is the reason a pinned
+ * bar and a recents block stop competing for the same 200 vertical pixels.
+ *
+ * Everything below is an axis of that arrangement rather than a setting we would
+ * ship. The merge raises about six questions with no obvious answer, and the
+ * only honest way to choose is to look at all of them on screen.
+ */
+
+/**
+ * How completely the pinned capsule goes away in merged mode.
+ *
+ *  capsule-off  No floating capsule in the expanded nav, but the collapsed rail
+ *               keeps its pinned icons — an icon rail has no room for a titled
+ *               list, and pins are the only rows worth an unlabelled glyph.
+ *  everywhere   The rail loses them too, and gets a single Recent glyph. The
+ *               purest reading of "one list", at the cost of pinning being
+ *               invisible whenever the nav is collapsed.
+ *  both         Capsule AND merged block, so the two can be compared side by
+ *               side. Deliberately the duplication the review objected to — it
+ *               is here to be looked at, not to be shipped.
+ */
+export const MERGED_PIN_SCOPES = ["capsule-off", "everywhere", "both"] as const;
+
+export type MergedPinScope = (typeof MERGED_PIN_SCOPES)[number];
+
+export const MERGED_PIN_SCOPE_LABELS: Record<MergedPinScope, string> = {
+  "capsule-off": "Capsule off, rail keeps pins",
+  everywhere: "Gone everywhere",
+  both: "Keep both",
+};
+
+/**
+ * How a pinned row is told apart from a recently visited one.
+ *
+ *  glyph     A filled pin trails the row, and a hairline closes the pinned run.
+ *            One list, with the ordering rule made legible.
+ *  sublabel  Small-caps PINNED and RECENT headings. Unambiguous, and arguably
+ *            re-creates the two blocks the merge was supposed to remove.
+ *  none      Nothing. Truly one list — and no way to explain why the order is
+ *            stable for some rows and not others.
+ */
+export const MERGED_PIN_MARKS = ["glyph", "sublabel", "none"] as const;
+
+export type MergedPinMark = (typeof MERGED_PIN_MARKS)[number];
+
+export const MERGED_PIN_MARK_LABELS: Record<MergedPinMark, string> = {
+  glyph: "Pin glyph + rule",
+  sublabel: "Pinned / Recent headings",
+  none: "Nothing",
+};
+
+/**
+ * What happens past the visible row budget.
+ *
+ *  expand   "Show N more" opens the rest in place, with the full history still
+ *           one click further on. Cheap for a short list, and the list does not
+ *           vanish when the pointer leaves.
+ *  flyout   A More row opens the existing Recent panel, grouped by day.
+ *  cap      Nothing. The block is exactly its budget and the tail falls off,
+ *           which makes over-pinning a visible cost.
+ */
+export const MERGED_OVERFLOWS = ["expand", "flyout", "cap"] as const;
+
+export type MergedOverflow = (typeof MERGED_OVERFLOWS)[number];
+
+export const MERGED_OVERFLOW_LABELS: Record<MergedOverflow, string> = {
+  expand: "Expand in place",
+  flyout: "More opens the panel",
+  cap: "Hard cap",
+};
+
+/**
+ * Whether a row names its place in the tree underneath itself.
+ *
+ * The screenshot's distinguishing feature: "Argo Smart Routing" over
+ * "content-mobbin.xyz / Traffic". It is what makes a merged list survive pinned
+ * L3s, whose names collide constantly — three products have a Settings. It also
+ * roughly doubles row height, so it trades legibility for count, which is the
+ * whole reason it is a switch and not a decision.
+ */
+export const MERGED_ROW_DETAILS = ["name", "breadcrumb"] as const;
+
+export type MergedRowDetail = (typeof MERGED_ROW_DETAILS)[number];
+
+export const MERGED_ROW_DETAIL_LABELS: Record<MergedRowDetail, string> = {
+  name: "Name only",
+  breadcrumb: "Name + breadcrumb",
+};
+
+/**
+ * What the merged block is called.
+ *
+ * The merge's sharpest edge case, and the one a name can dissolve: you can pin
+ * a page you have never opened, and it lands in a block headed RECENT. The
+ * heading is then simply false, and no amount of ordering or marking fixes a
+ * false heading.
+ *
+ * `recents` is Cloudflare's own answer — they get away with it because their
+ * pins are shallow and usually recent anyway. `quick-access` is Drive's, and it
+ * is the honest one: curated things and recent things are both quick access, so
+ * the block can hold either without the label lying and without needing to
+ * explain the ordering rule. `shortcuts` says the same thing in a shorter word
+ * and gives up the "recent" idea entirely.
+ */
+export const MERGED_HEADINGS = ["recents", "quick-access", "shortcuts"] as const;
+
+export type MergedHeading = (typeof MERGED_HEADINGS)[number];
+
+export const MERGED_HEADING_LABELS: Record<MergedHeading, string> = {
+  recents: "Recents",
+  "quick-access": "Quick access",
+  shortcuts: "Shortcuts",
+};
+
+/**
+ * Which end of the pinned run a new pin lands on.
+ *
+ *  newest    Prepended, so the row you just pinned is the first thing under the
+ *            heading. The merge loses the capsule's "it flew over there"
+ *            feedback, and this is the cheapest way to give it back.
+ *  arranged  Pin order as stored, which is what the launcher lets you drag. One
+ *            order everywhere, at the cost of a new pin appearing several rows
+ *            down — sometimes below the fold.
+ */
+export const MERGED_PIN_ORDERS = ["newest", "arranged"] as const;
+
+export type MergedPinOrder = (typeof MERGED_PIN_ORDERS)[number];
+
+export const MERGED_PIN_ORDER_LABELS: Record<MergedPinOrder, string> = {
+  newest: "Newest pin first",
+  arranged: "As arranged",
 };
 
 /**
@@ -146,18 +294,24 @@ export const DOCK_POSITION_LABELS: Record<DockPosition, string> = {
 /**
  * Where search and Ask AI live.
  *
- * `split` is today's arrangement: search is an icon in the logo row, Ask AI holds
- * the nav's bottom edge. `top` is the review's open question — both together as
- * the second thing in the nav, directly under the logo and above Favorites, so
- * they are the first thing a user meets on entry.
+ * `split` is today's arrangement: the merged pill holds the nav's bottom edge.
+ * `top` is the review's open question — the same pill as the second thing in the
+ * nav, directly under the logo and above Favorites, so it is the first thing a
+ * user meets on entry. `header` takes it out of the nav altogether and puts it
+ * in the app bar, left of the utility icons: the one placement that survives the
+ * nav collapsing, since the bar never does.
+ *
+ * Exclusive, all three. The pill is a standing entry point and two of them on
+ * one screen is the duplication the review flagged in the first place.
  */
-export const ENTRY_LAYOUTS = ["split", "top"] as const;
+export const ENTRY_LAYOUTS = ["split", "top", "header"] as const;
 
 export type EntryLayout = (typeof ENTRY_LAYOUTS)[number];
 
 export const ENTRY_LAYOUT_LABELS: Record<EntryLayout, string> = {
   split: "Bottom edge",
   top: "Under the logo",
+  header: "Top bar",
 };
 
 /**
@@ -305,6 +459,35 @@ export interface ThemeState {
   entryLayout: EntryLayout;
   flyoutTrigger: FlyoutTrigger;
   recentsMode: RecentsMode;
+  /*
+   * The merged arrangement's own axes. Read only when `recentsMode` is
+   * "merged"; kept on the theme rather than behind it so switching modes back
+   * and forth never loses how you had the merge tuned.
+   */
+  mergedPinScope: MergedPinScope;
+  mergedPinMark: MergedPinMark;
+  mergedOverflow: MergedOverflow;
+  mergedRowDetail: MergedRowDetail;
+  mergedPinOrder: MergedPinOrder;
+  mergedHeading: MergedHeading;
+  /**
+   * Whether the merged panel carries a search field.
+   *
+   * The panel behind "View all" is the merge's manage surface — full history,
+   * the pin list with its grips, and everything the account owns. Search makes
+   * it a place you can also *find* things in, which is either the reason the
+   * panel earns its width or the reason it stops being a nav panel and starts
+   * being a second command palette. On, and one click from off.
+   */
+  mergedPanelSearch: boolean;
+  /** Rows the block shows before overflowing — pinned and recent together. */
+  mergedVisibleRows: number;
+  /** Most pinned rows the unexpanded block will spend its budget on. */
+  mergedPinCap: number;
+  /** Recent rows the pinned run may never squeeze out. */
+  mergedRecentFloor: number;
+  /** Rows the expanded block grows to, before the panel takes over. */
+  mergedExpandedRows: number;
   /** Start collapsed on narrow viewports. Off makes the tablet case demoable. */
   autoCollapse: boolean;
   /**
@@ -401,6 +584,30 @@ export const DEFAULT_THEME: ThemeState = {
   // (with its dwell) stays one toggle away for the comparison.
   flyoutTrigger: "click",
   recentsMode: "fixed-three",
+  /*
+   * The merge's defaults are the recommendation, not a neutral position: the
+   * capsule goes, the block never folds, pins wear a glyph and a rule, the tail
+   * expands in place, rows carry their breadcrumb, and a new pin lands on top.
+   * Every one of them is one click from its alternatives.
+   */
+  mergedPinScope: "capsule-off",
+  mergedPinMark: "glyph",
+  mergedOverflow: "expand",
+  mergedRowDetail: "breadcrumb",
+  mergedPinOrder: "newest",
+  mergedHeading: "quick-access",
+  mergedPanelSearch: true,
+  /*
+   * Five, three, two. Five is what the screenshot shows and about what a nav can
+   * spend on history before the product list starts below the fold; three pins
+   * is the point past which a pinned run stops reading as "a few favourites";
+   * two recents is the floor below which the block stops being Recents at all
+   * and quietly becomes a pinned bar with a history glyph on it.
+   */
+  mergedVisibleRows: 5,
+  mergedPinCap: 3,
+  mergedRecentFloor: 2,
+  mergedExpandedRows: 12,
   autoCollapse: true,
   // Activated accounts don't see the setup guide; Brightpath (the trial
   // account) carries it as a per-account override.

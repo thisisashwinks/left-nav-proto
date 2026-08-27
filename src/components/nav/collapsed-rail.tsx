@@ -111,8 +111,24 @@ export function CollapsedRail({
   // The capsule hugs its contents when collapsed, so the hole left for it has to
   // match. Read from the same store the capsule does rather than take a prop, so
   // the two can never disagree.
-  const { entryLayout, dockPosition } = useTheme().effective;
+  const { entryLayout, dockPosition, recentsMode, mergedPinScope } =
+    useTheme().effective;
+  /*
+   * The rail keeps its pinned icons under most of the merge, and loses them
+   * under one option.
+   *
+   * An icon rail has no room for a titled list with breadcrumbs, so the merged
+   * block simply cannot exist down here — which means "the capsule is gone
+   * because the pins are in the list above" is not true of this face. Under
+   * `everywhere` the icons go anyway, and the rail's Recent glyph is the only
+   * door left: the purest reading of one list, and the one where pinning is
+   * invisible the moment the nav collapses.
+   */
+  const mergedDropsRailPins =
+    recentsMode === "merged" && !agencyScope && mergedPinScope === "everywhere";
   const topEntry = entryLayout === "top";
+  // In the app bar, the entry is drawn once — up there. See left-nav.
+  const headerEntry = entryLayout === "header";
   const { state: layout, groups } = useNavLayout();
   const pinnedBlock = collapsedPinnedBlock(
     Math.min(layout.pinned.length, PINNED_VISIBLE) + 1,
@@ -298,7 +314,7 @@ export function CollapsedRail({
         Reserved space for the pinned capsule, which PinnedMorph renders
         outside both nav faces so it can travel between the two layouts.
       */}
-      {dockPosition === "top" && !atFloor ? (
+      {dockPosition === "top" && !atFloor && !mergedDropsRailPins ? (
         <div
           aria-hidden="true"
           className="w-[44px] shrink-0"
@@ -424,14 +440,14 @@ export function CollapsedRail({
         </div>
       ) : null}
 
-      {topEntry ? null : (
+      {topEntry || headerEntry ? null : (
         <div className="flex shrink-0 flex-col items-center pt-[6px]">
           <EntryClusterRail onSearch={onSearch} session={aiSession} />
         </div>
       )}
 
       {/* Last in the rail, so the capsule really is on its bottom edge. */}
-      {dockPosition === "bottom" && !atFloor ? (
+      {dockPosition === "bottom" && !atFloor && !mergedDropsRailPins ? (
         <div
           aria-hidden="true"
           className="w-[44px] shrink-0"

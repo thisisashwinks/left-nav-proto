@@ -36,7 +36,12 @@ import {
   agencySettings,
 } from "./agency-config";
 import { CollapseToggle } from "./collapse-toggle";
-import { EntryCluster, EntryPill, type EditNavProps } from "./entry-cluster";
+import {
+  EditNavAnchor,
+  EntryCluster,
+  EntryPill,
+  type EditNavProps,
+} from "./entry-cluster";
 import { pinnedBlockFor } from "./pinned-morph";
 import {
   customTreeFor,
@@ -63,6 +68,7 @@ import {
 } from "./layout-switch";
 import { editTargetFor, navEntriesFor } from "./nav-entries";
 import { fixedEntriesFor, flyoutIdFor, navConfig } from "./nav-config";
+import { MergedRecentsBlock } from "./merged-recents";
 import { PROPOSED_HOME_ID } from "./proposed-ia";
 import { NavDivider } from "./nav-divider";
 import { NavHeader } from "./nav-header";
@@ -199,7 +205,17 @@ export function LeftNav({
     dockPosition,
     launchpad: launchpadSetting,
     navSections,
+    recentsMode,
+    mergedPinScope,
   } = useTheme().effective;
+  /*
+   * Recents and Pinned drawn as one list — see merged-recents.tsx.
+   *
+   * Sub-account only. At agency scope the cluster's Recent block names accounts
+   * rather than places, and there is no such thing as a pinned account, so
+   * there is nothing to merge.
+   */
+  const mergedMode = recentsMode === "merged" && scope !== "agency";
   /** Recent folds in both heading variants; only "all" names every band. */
   const foldable = navSections !== "plain";
   const bandEverything = navSections === "all";
@@ -211,7 +227,32 @@ export function LeftNav({
     () => new Set(),
   );
   const topEntry = entryLayout === "top";
+  /*
+   * The entry has left the nav entirely — it is in the app bar.
+   *
+   * Neither end of the nav draws it then, at either width. The bar does not
+   * collapse, so a second copy down here would be the same control twice on
+   * screen rather than a fallback for a face that has lost it.
+   */
+  const headerEntry = entryLayout === "header";
   const atFloor = density === "floor";
+  /*
+   * The merge is off at the floor tier, whatever the mode says.
+   *
+   * Density always wins over a product decision here — the same rule the inline
+   * recents budget follows. At the floor there is no room for a list of any
+   * kind, so both conveniences go back to being one row each: a Pinned door and
+   * a Recent door, which is exactly what every other mode shows down there.
+   */
+  const merged = mergedMode && !atFloor;
+  /*
+   * Whether the floating capsule still stands while the merged block is up.
+   *
+   * `both` is the comparison case and keeps it. The other two take it away —
+   * that is the point of merging — and they differ only in what the collapsed
+   * rail does, which is the rail's own business.
+   */
+  const mergedHidesCapsule = merged && mergedPinScope !== "both";
   const agencyScope = scope === "agency";
   /*
    * The base plan has no setup-guide toggle: the row is always visible there. So
@@ -289,8 +330,12 @@ export function LeftNav({
    *
    * Both the hole this face reserves and the capsule the shell floats over it
    * have to agree, or the nav keeps a 48px gap for something that is not there.
+   *
+   * The merge is the second thing that can switch it off, and for a different
+   * reason: not "this account does not want pins" but "the pins are already on
+   * screen, in the list above".
    */
-  const pinnedShown = !isBlockHidden(state, "pinned");
+  const pinnedShown = !isBlockHidden(state, "pinned") && !mergedHidesCapsule;
   const quickActionsShown = !isBlockHidden(state, "quickActions");
   /**
    * Whether the Launchpad card shows.
@@ -780,13 +825,25 @@ export function LeftNav({
   // the density and the recents mode allow. At agency scope the cluster is the
   // agency's, so it keeps the authored rows.
   const fixedEntries = React.useMemo(() => {
+    const resolved = agencyScope
+      ? config.fixed
+      : fixedEntriesFor(state, config.fixed, bandEverything);
+    /*
+     * Merged mode takes the whole authored Recent block out, More row included.
+     *
+     * A budget of zero would leave the More row behind, renamed to "Recent" —
+     * correct when Recent has retreated behind a door, wrong here, where Recent
+     * is the block directly above with its own overflow control. Two doors to
+     * one destination, a few rows apart.
+     */
     const base = tidyRules(
-      trimRecents(
-        agencyScope
-          ? config.fixed
-          : fixedEntriesFor(state, config.fixed, bandEverything),
-        recentsBudget,
-      ),
+      merged
+        ? resolved.filter(
+            (e) =>
+              !(e.kind === "item" && e.item.id.startsWith("recent-")) &&
+              !(e.kind === "label" && e.id === "recent-label"),
+          )
+        : trimRecents(resolved, recentsBudget),
     );
     /*
      * Quick Actions folds into the Launchpad card when the card is showing —
@@ -805,6 +862,7 @@ export function LeftNav({
     recentsBudget,
     bandEverything,
     cardQuickActions,
+    merged,
   ]);
   /**
    * Whether the standing cluster has anything in it.
@@ -1508,7 +1566,9 @@ export function LeftNav({
             </div>
           ) : (
           <>
-          {atFloor && !agencyScope && pinnedShown ? (
+          {atFloor &&
+          !agencyScope &&
+          (pinnedShown || (mergedMode && !isBlockHidden(state, "pinned"))) ? (
             <PinnedRow onOpen={onOpenLauncher} />
           ) : null}
           {cardShowing ? (
@@ -1522,6 +1582,28 @@ export function LeftNav({
               {...(cardQuickActions
                 ? { onQuickActions: () => onPinFlyout("quick-actions") }
                 : {})}
+            />
+          ) : null}
+          {/*
+            Recents-with-pins-on-top sits where Recent sat: first in the cluster,
+            directly under the header now that the capsule has gone. It scrolls
+            with everything else — the merge's argument is that one list is
+            cheaper than two, and a list that holds still while the rest moves is
+            back to being two things.
+          */}
+          {merged ? (
+            <MergedRecentsBlock
+              selectedId={selectedId}
+              onSelect={onSelect}
+              /*
+                "View all" opens the launcher, not the authored Recent flyout.
+                Merged mode has one list, so it gets one panel behind it: the
+                full history AND the pin list with its grips, which is the
+                surface the capsule's overflow used to lead to. Two panels for
+                one block would put the pins back in a place of their own,
+                which is the arrangement this mode exists to remove.
+              */
+              onOpenPanel={onOpenLauncher}
             />
           ) : null}
           {agencyScope ? (
@@ -1636,7 +1718,22 @@ export function LeftNav({
         />
       ) : null}
 
-      {topEntry ? null : (
+      {headerEntry ? (
+        /*
+          No pill, but the way into edit mode still lives in the nav.
+
+          It hangs off the pill in both other arrangements, which is a
+          measurement taken from something that is no longer here — so the nav's
+          foot keeps a zero-height line for it to hang off instead. Editing the
+          nav is the nav's own affordance; it does not follow search into the
+          bar.
+        */
+        editNav ? (
+          <div className="flex w-full shrink-0 px-[12px] pb-[12px]">
+            <EditNavAnchor edit={editNav} />
+          </div>
+        ) : null
+      ) : topEntry ? null : (
         <div className="flex w-full shrink-0 px-[12px] pt-[8px] pb-[12px]">
           <EntryPill
             onSearch={onSearch}

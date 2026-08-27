@@ -39,6 +39,24 @@ import {
   type PageShell,
   type RailTileShape,
   type RecentsMode,
+  MERGED_PIN_SCOPES,
+  MERGED_PIN_SCOPE_LABELS,
+  MERGED_PIN_MARKS,
+  MERGED_PIN_MARK_LABELS,
+  MERGED_OVERFLOWS,
+  MERGED_OVERFLOW_LABELS,
+  MERGED_ROW_DETAILS,
+  MERGED_ROW_DETAIL_LABELS,
+  MERGED_PIN_ORDERS,
+  MERGED_PIN_ORDER_LABELS,
+  MERGED_HEADINGS,
+  MERGED_HEADING_LABELS,
+  type MergedPinScope,
+  type MergedPinMark,
+  type MergedOverflow,
+  type MergedRowDetail,
+  type MergedPinOrder,
+  type MergedHeading,
   type ScopeModel,
   type SearchMode,
   type SurfaceTheme,
@@ -52,6 +70,18 @@ import {
   type TuningKnob,
 } from "@/design/tuning";
 import { useTheme } from "@/components/theme/theme-provider";
+import {
+  BULK_BARS,
+  BULK_BAR_LABELS,
+  BULK_ENTRIES,
+  BULK_ENTRY_LABELS,
+  BULK_OUTCOMES,
+  BULK_OUTCOME_LABELS,
+  type BulkBar,
+  type BulkEntry,
+  type BulkOutcome,
+} from "@/components/bulk/bulk-config";
+import { useBulkActions } from "@/components/bulk/bulk-provider";
 import { catalogue } from "@/components/nav/catalogue";
 import {
   NAV_SECTIONS,
@@ -134,6 +164,28 @@ function NavStructureSection({
   const {
     recentsMode,
     setRecentsMode,
+    mergedPinScope,
+    setMergedPinScope,
+    mergedPinMark,
+    setMergedPinMark,
+    mergedOverflow,
+    setMergedOverflow,
+    mergedRowDetail,
+    setMergedRowDetail,
+    mergedPinOrder,
+    setMergedPinOrder,
+    mergedHeading,
+    setMergedHeading,
+    mergedPanelSearch,
+    setMergedPanelSearch,
+    mergedVisibleRows,
+    setMergedVisibleRows,
+    mergedPinCap,
+    setMergedPinCap,
+    mergedRecentFloor,
+    setMergedRecentFloor,
+    mergedExpandedRows,
+    setMergedExpandedRows,
     autoCollapse,
     setAutoCollapse,
     scopeModel,
@@ -333,8 +385,118 @@ function NavStructureSection({
           ? "Recents give way as pins accumulate — 3 with none pinned, down to 1 past four."
           : recentsMode === "flyout-only"
             ? "No inline rows. Recent lives behind its own row, freeing the cluster."
-            : "Three destinations and a More row, as designed."}
+            : recentsMode === "merged"
+              ? "One list. Pins sit at the top of Recents and the pinned bar goes — the Cloudflare arrangement."
+              : "Three destinations and a More row, as designed."}
       </p>
+
+      {/*
+        The merge's own axes, and only while the merge is on.
+
+        Eleven controls is a lot to hang under a segmented control, but they are
+        eleven open questions rather than eleven settings — the arrangement is
+        one decision with a long tail, and the tail is what has to be looked at
+        before the decision can be made. Hidden in the other three modes, where
+        none of them means anything.
+      */}
+      {recentsMode === "merged" ? (
+        <div className="flex flex-col gap-[10px] rounded-[8px] border border-pg-row-border p-[8px]">
+          <span className="text-[11px] leading-none font-semibold text-pg-text">
+            Merged recents
+          </span>
+
+          <Segmented
+            label="Block is called"
+            options={MERGED_HEADINGS}
+            value={mergedHeading}
+            onChange={(v: MergedHeading) => setMergedHeading(v)}
+            format={(v) => MERGED_HEADING_LABELS[v]}
+          />
+          <p className="text-[10px] leading-[14px] text-pg-faint">
+            You can pin a page you never opened. Under “Recents” the heading is
+            then simply false — “Quick access” holds both without lying.
+          </p>
+
+          <Segmented
+            label="Pinned bar"
+            options={MERGED_PIN_SCOPES}
+            value={mergedPinScope}
+            onChange={(v: MergedPinScope) => setMergedPinScope(v)}
+            format={(v) => MERGED_PIN_SCOPE_LABELS[v]}
+          />
+          <Segmented
+            label="Marking pins"
+            options={MERGED_PIN_MARKS}
+            value={mergedPinMark}
+            onChange={(v: MergedPinMark) => setMergedPinMark(v)}
+            format={(v) => MERGED_PIN_MARK_LABELS[v]}
+          />
+          <Segmented
+            label="Overflow"
+            options={MERGED_OVERFLOWS}
+            value={mergedOverflow}
+            onChange={(v: MergedOverflow) => setMergedOverflow(v)}
+            format={(v) => MERGED_OVERFLOW_LABELS[v]}
+          />
+          <Segmented
+            label="Row detail"
+            options={MERGED_ROW_DETAILS}
+            value={mergedRowDetail}
+            onChange={(v: MergedRowDetail) => setMergedRowDetail(v)}
+            format={(v) => MERGED_ROW_DETAIL_LABELS[v]}
+          />
+          <Segmented
+            label="New pin lands"
+            options={MERGED_PIN_ORDERS}
+            value={mergedPinOrder}
+            onChange={(v: MergedPinOrder) => setMergedPinOrder(v)}
+            format={(v) => MERGED_PIN_ORDER_LABELS[v]}
+          />
+
+          <Toggle
+            label="Search in the panel"
+            checked={mergedPanelSearch}
+            onChange={setMergedPanelSearch}
+          />
+          <p className="text-[10px] leading-[14px] text-pg-faint">
+            The panel behind “View all” carries the pin list and the full
+            history. Off, it is a list you read; on, it is one you can query.
+          </p>
+
+          <Stepper
+            label="Rows before overflow"
+            value={mergedVisibleRows}
+            min={2}
+            max={12}
+            onChange={setMergedVisibleRows}
+            hint="Pinned and recent together."
+          />
+          <Stepper
+            label="Max pinned rows"
+            value={mergedPinCap}
+            min={0}
+            max={12}
+            onChange={setMergedPinCap}
+            hint="What the unexpanded block will spend on pins."
+          />
+          <Stepper
+            label="Guaranteed recents"
+            value={mergedRecentFloor}
+            min={0}
+            max={6}
+            onChange={setMergedRecentFloor}
+            hint="Rows the pinned run may never squeeze out."
+          />
+          <Stepper
+            label="Rows when expanded"
+            value={mergedExpandedRows}
+            min={4}
+            max={24}
+            onChange={setMergedExpandedRows}
+            hint="Where “show more” stops and the panel takes over."
+          />
+        </div>
+      ) : null}
 
       <Toggle
         label="Auto-collapse on narrow screens"
@@ -369,6 +531,138 @@ function NavStructureSection({
           : catalogue.length}{" "}
         products, which means {DENSITY_NOTE[density]}.
       </p>
+    </Section>
+  );
+}
+
+/**
+ * Bulk actions — the Sub-accounts table's selection flow.
+ *
+ * Here from the start rather than bolted on after the first review, because
+ * every switch below is a question the room WILL ask the moment they see the
+ * flow: does the modal make you choose a path first, does a run confirm before
+ * it commits, does the toolbar move the table. Each one is cheap to argue about
+ * live and expensive to argue about in a document.
+ */
+function BulkActionsSection({
+  open,
+  onToggle,
+}: {
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const { settings, set, reset, changedCount } = useBulkActions();
+
+  return (
+    <Section
+      id="Bulk actions"
+      open={open}
+      onToggle={onToggle}
+      changedCount={changedCount}
+      onReset={reset}
+    >
+      <Toggle
+        label="Selection and bulk actions"
+        checked={settings.enabled}
+        onChange={(v) => set("enabled", v)}
+      />
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        {settings.enabled
+          ? "Sub-accounts gains checkboxes and a toolbar. Ticking rows is how a bulk run starts."
+          : "No checkboxes. The table is a list you pick one account from — what the page was before this."}
+      </p>
+
+      <Toggle
+        label="Per-sub-account path"
+        checked={settings.perAccountPath}
+        onChange={(v) => set("perAccountPath", v)}
+      />
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        {settings.perAccountPath
+          ? "A third path: pick features, then answer for each sub-account in a grid. Powerful, and it makes the chooser teach two ideas before an admin can pick either."
+          : "Two paths — template and features. Bulk means one decision landing everywhere; the per-account grid is a different product wearing the same title."}
+      </p>
+
+      <Segmented
+        label="Entry"
+        options={BULK_ENTRIES}
+        value={settings.entry}
+        onChange={(v: BulkEntry) => set("entry", v)}
+        format={(v) => BULK_ENTRY_LABELS[v]}
+      />
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        {settings.entry === "chooser"
+          ? "One Bulk actions button, and the modal's first card asks which path. Costs a click; is the only place the paths are seen together."
+          : "One button per path in the toolbar. Faster, and an admin who picked wrong backs out instead of switching."}
+      </p>
+
+      <Segmented
+        label="Toolbar"
+        options={BULK_BARS}
+        value={settings.bar}
+        onChange={(v: BulkBar) => set("bar", v)}
+        format={(v) => BULK_BAR_LABELS[v]}
+      />
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        {settings.bar === "inline"
+          ? "Above the table. Never covers a row, but pushes the table down the moment you tick something."
+          : "A floating bar over the page. The table holds still; the last row sits under it."}
+      </p>
+
+      <Toggle
+        label="Confirm before applying"
+        checked={settings.confirmStep}
+        onChange={(v) => set("confirmStep", v)}
+      />
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        {settings.confirmStep
+          ? "The run states its blast radius — “N changes across N sub-accounts” — while it can still be cancelled."
+          : "Apply commits from the decide step with no count. This is what removing the safety net looks like."}
+      </p>
+
+      <Segmented
+        label="Outcome"
+        options={BULK_OUTCOMES}
+        value={settings.outcome}
+        onChange={(v: BulkOutcome) => set("outcome", v)}
+        format={(v) => BULK_OUTCOME_LABELS[v]}
+      />
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        {settings.outcome === "queued"
+          ? "Production's honest answer: the work is queued and lands in a few minutes. The nav still changes here immediately — the prototype has no queue to wait on."
+          : "The success card claims the change is already live. Compare how much the wait costs the flow."}
+      </p>
+
+      <Toggle
+        label="Select all matching"
+        checked={settings.selectAllMatching}
+        onChange={(v) => set("selectAllMatching", v)}
+      />
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        {settings.selectAllMatching
+          ? "“Select all 18” beside the count — production's escape hatch from ticking a page at a time."
+          : "Selection is only ever what was ticked by hand."}
+      </p>
+
+      <Toggle
+        label="Bulk action history"
+        checked={settings.keepHistory}
+        onChange={(v) => set("keepHistory", v)}
+      />
+      <p className="text-[10px] leading-[14px] text-pg-faint">
+        {settings.keepHistory
+          ? "Every run is kept and readable from the table header and the success card — which accounts, which features, which way."
+          : "Runs leave no record. A bulk change becomes something nobody can check afterwards."}
+      </p>
+
+      <Stepper
+        label="Apply delay"
+        value={Math.round(settings.applyDelayMs / 100)}
+        min={0}
+        max={30}
+        onChange={(n) => set("applyDelayMs", n * 100)}
+        hint={`${settings.applyDelayMs}ms of simulated queue before the success card. 0 makes it instant.`}
+      />
     </Section>
   );
 }
@@ -412,7 +706,13 @@ function Toggle({
 }
 
 /** Section order in the panel. The theme, search and nav sections lead. */
-const SECTIONS = ["Theme", "Search", "Nav structure", ...TUNING_GROUPS] as const;
+const SECTIONS = [
+  "Theme",
+  "Search",
+  "Nav structure",
+  "Bulk actions",
+  ...TUNING_GROUPS,
+] as const;
 
 type SectionId = (typeof SECTIONS)[number];
 
@@ -455,6 +755,78 @@ function Row({ knob }: { knob: TuningKnob }) {
         </span>
       ) : null}
     </label>
+  );
+}
+
+/**
+ * A small integer, set by two buttons rather than a slider.
+ *
+ * The range knobs elsewhere in this panel are continuous and forgiving — a
+ * couple of milliseconds either way changes nothing. A row count is neither:
+ * four and five are different designs, and a slider you have to land exactly
+ * makes choosing between them a dexterity problem.
+ */
+function Stepper({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+  hint,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (n: number) => void;
+  hint?: string;
+}) {
+  const step = (delta: number) =>
+    onChange(Math.min(max, Math.max(min, value + delta)));
+
+  return (
+    <div className="flex flex-col gap-[3px]">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] leading-none text-pg-muted">{label}</span>
+        <div className="flex items-center gap-[4px]">
+          <StepButton label="−" disabled={value <= min} onClick={() => step(-1)} />
+          <span className="w-[16px] text-center font-mono text-[11px] leading-none tabular-nums text-pg-text">
+            {value}
+          </span>
+          <StepButton label="+" disabled={value >= max} onClick={() => step(1)} />
+        </div>
+      </div>
+      {hint ? (
+        <span className="text-[10px] leading-[14px] text-pg-faint">{hint}</span>
+      ) : null}
+    </div>
+  );
+}
+
+function StepButton({
+  label,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label === "+" ? "Increase" : "Decrease"}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "motion-tap size-[18px] rounded-[5px] text-[11px] leading-none",
+        disabled
+          ? "bg-pg-row-border text-pg-faint"
+          : "bg-pg-row-border text-pg-text hover:bg-pg-border",
+      )}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -651,6 +1023,9 @@ export function TuningPanel() {
   const resetSearch = () => {
     setSearchMode(DEFAULT_THEME.searchMode);
     setSearchTheme(DEFAULT_THEME.searchTheme);
+    // The placement counts towards this section's changed badge, so it has to
+    // come back with the rest of it — without this, Reset left the button lit.
+    setEntryLayout(DEFAULT_THEME.entryLayout);
   };
 
   const everythingIsDefault =
@@ -847,6 +1222,11 @@ export function TuningPanel() {
           onToggle={() => toggleSection("Nav structure")}
         />
 
+        <BulkActionsSection
+          open={openSections.includes("Bulk actions")}
+          onToggle={() => toggleSection("Bulk actions")}
+        />
+
         <Section
           id="Search"
           open={openSections.includes("Search")}
@@ -880,7 +1260,9 @@ export function TuningPanel() {
           <p className="text-[10px] leading-[14px] text-pg-faint">
             {entryLayout === "top"
               ? "The merged pill sits under the logo, above Favorites — the first thing on entry. The bottom edge is left to the drawer toggle."
-              : "The same merged pill, holding the nav's bottom edge beside the drawer toggle."}
+              : entryLayout === "header"
+                ? "Out of the nav and into the app bar, left of the utility icons. The one placement that survives the nav collapsing — so the nav shows it at neither end, at either width."
+                : "The same merged pill, holding the nav's bottom edge beside the drawer toggle."}
           </p>
         </Section>
 

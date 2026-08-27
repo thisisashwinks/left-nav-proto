@@ -130,6 +130,7 @@ export interface EditNavProps {
  */
 function EditNavButton({
   revealed = false,
+  atFoot = false,
   editing,
   onStart,
   onSave,
@@ -147,7 +148,18 @@ function EditNavButton({
   onSaveTemplate,
   showIntro = false,
   onDismissIntro,
-}: EditNavProps & { revealed?: boolean }) {
+}: EditNavProps & {
+  revealed?: boolean;
+  /**
+   * There is no pill under this one — the entry has moved to the app bar.
+   *
+   * The control hangs ABOVE the pill normally, which is a measurement taken
+   * from something that is no longer there. At the foot it grows up from the
+   * nav's bottom edge instead, overlaying the rows above it exactly as it
+   * always did.
+   */
+  atFoot?: boolean;
+}) {
   /*
    * The trigger for the Navigation menu, held as the element rather than a rect.
    *
@@ -184,6 +196,7 @@ function EditNavButton({
           onApplyTemplate={onApplyTemplate}
           onSaveTemplate={onSaveTemplate}
           {...(onOpenTemplates ? { onOpenTemplates } : {})}
+          atFoot={atFoot}
           revealed
         />
       </>
@@ -229,7 +242,12 @@ function EditNavButton({
           onClose={() => setMoreAnchor(null)}
         />
       ) : null}
-      <div className="absolute -top-[74px] right-0 left-0 z-20 flex flex-col gap-[6px] rounded-[10px] bg-nav p-[8px] shadow-[0_4px_12px_0_var(--fly-shadow),inset_0_0_0_1px_var(--nav-border,var(--nav-divider))]">
+      <div
+        className={cn(
+          "absolute right-0 left-0 z-20 flex flex-col gap-[6px] rounded-[10px] bg-nav p-[8px] shadow-[0_4px_12px_0_var(--fly-shadow),inset_0_0_0_1px_var(--nav-border,var(--nav-divider))]",
+          atFoot ? "bottom-0" : "-top-[74px]",
+        )}
+      >
         {/*
           The tools get the top line to themselves.
           
@@ -381,7 +399,8 @@ function EditNavButton({
       onClick={onStart}
       data-revealed={revealed ? "" : undefined}
       className={cn(
-        "group/edit absolute -top-[34px] right-0 z-20 flex h-[26px] items-center overflow-hidden rounded-full",
+        "group/edit absolute right-0 z-20 flex h-[26px] items-center overflow-hidden rounded-full",
+        atFoot ? "bottom-0" : "-top-[34px]",
         // Square while it is a glyph: 26 by 26, the icon dead centre.
         "w-[26px] justify-center gap-0 px-0",
         /*
@@ -496,15 +515,40 @@ function EditTool({
   );
 }
 
+/**
+ * The edit control with no pill under it.
+ *
+ * What the nav's foot holds when the entry has moved to the app bar: a
+ * zero-height line for the control to hang off, so the nav keeps its way into
+ * edit mode without keeping a 36px hole where the pill used to be.
+ */
+export function EditNavAnchor({ edit }: { edit: EditNavProps }) {
+  return (
+    <div className="relative h-0 w-full">
+      <EditNavButton {...edit} atFoot />
+    </div>
+  );
+}
+
 export function EntryPill({
   onSearch,
   session,
   edit,
+  tone = "nav",
 }: {
   onSearch: () => void;
   session: AiSession;
   edit?: EditNavProps;
+  /**
+   * Which surface's tokens to wear.
+   *
+   * The pill is the same control in the nav and in the app bar, but the bar has
+   * its own theme axis — it can be dark over a light nav — so the ring and the
+   * placeholder have to read against whichever surface it is standing on.
+   */
+  tone?: "nav" | "header";
 }) {
+  const header = tone === "header";
   return (
     // Relative, so the edit control has something to hang off. `w-full` keeps it
     // the same flex child the pill used to be in both arrangements.
@@ -524,7 +568,10 @@ export function EntryPill({
       */}
       <div
         className={cn(
-          "ai-entry motion-tap flex h-[36px] w-full items-center gap-[6px] rounded-full pr-[10px] pl-[4px] shadow-[inset_0_0_0_1px_var(--nav-divider)] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]",
+          "ai-entry motion-tap flex h-[36px] w-full items-center gap-[6px] rounded-full pr-[10px] pl-[4px] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]",
+          header
+            ? "shadow-[inset_0_0_0_1px_var(--hdr-border)]"
+            : "shadow-[inset_0_0_0_1px_var(--nav-divider)]",
           // Both stay live while editing (Aug 25).
           //
           // They were locked out on the grounds that they are not part of the
@@ -574,13 +621,21 @@ export function EntryPill({
           onClick={onSearch}
           className="motion-tap flex h-full min-w-0 flex-1 items-center gap-[8px] text-left"
         >
-          <span className="min-w-0 flex-1 truncate text-[13px] leading-[normal] text-nav-fg-subtle">
+          <span
+            className={cn(
+              "min-w-0 flex-1 truncate text-[13px] leading-[normal]",
+              header ? "text-hdr-fg-muted" : "text-nav-fg-subtle",
+            )}
+          >
             Ask AI
           </span>
           <Search
             size={16}
             aria-hidden="true"
-            className="shrink-0 text-nav-fg-subtle"
+            className={cn(
+              "shrink-0",
+              header ? "text-hdr-fg-muted" : "text-nav-fg-subtle",
+            )}
           />
         </button>
 

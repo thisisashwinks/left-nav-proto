@@ -11,7 +11,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import type { SurfaceTheme } from "@/design/theme";
+import { MERGED_HEADING_LABELS, type SurfaceTheme } from "@/design/theme";
+import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
@@ -22,8 +23,19 @@ import { nameForIcon } from "./icon-catalogue";
 import { IconPicker, useIconPicker } from "./icon-picker";
 import { InlineRename } from "./inline-rename";
 import { useNavLayout } from "./nav-layout-provider";
+import { recentIdsFor } from "./merged-recents";
 import { PinButton } from "./pin-button";
 import { ResolvedIcon } from "./resolved-icon";
+
+/**
+ * How many recent rows the merged panel lists.
+ *
+ * A cap rather than the whole history, because the history here is a stand-in —
+ * the account's products minus its pins — and uncapped it would repeat almost
+ * everything the "All products" section shows a few rows below. Real history is
+ * bounded by time, and this is where that bound would go.
+ */
+const PANEL_RECENT_ROWS = 10;
 
 /**
  * The grid launcher — Option C from the spec board, grown into the full manage
@@ -64,6 +76,18 @@ export function PinnedLauncher({
 }) {
   const layout = useNavLayout();
   const { state, groups, can } = layout;
+  const { recentsMode, mergedHeading, mergedPanelSearch } = useTheme().effective;
+  /*
+   * In merged mode this panel is the one surface behind the nav's single list.
+   *
+   * The block up there shows the head of the pin list and the head of the
+   * history; "View all" has to land somewhere that holds both in full, plus the
+   * grips for reordering pins that the capsule's overflow used to lead to. That
+   * is this panel with a Recent section added, rather than a second panel — the
+   * whole argument for merging is that one list beats two, and it would not
+   * survive the list having two doors to two different places.
+   */
+  const mergedPanel = recentsMode === "merged" && !agencyScope;
   const [query, setQuery] = React.useState("");
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
@@ -138,6 +162,30 @@ export function PinnedLauncher({
 
   const pickerTarget = picker.targetId;
 
+  /*
+   * The panel takes the name of the block that opened it.
+   *
+   * Arriving at a panel headed "All products" from a row that said "View all"
+   * under "Quick access" reads as having landed somewhere else — and the pin
+   * list you came for is the second section down. The All products heading is
+   * still inside, naming the part of the panel it is actually about.
+   */
+  const panelTitle = mergedPanel
+    ? MERGED_HEADING_LABELS[mergedHeading]
+    : "All products";
+
+  /*
+   * The history the merged block is a window onto.
+   *
+   * Capped rather than complete: with stand-in recents this is the account's
+   * product list minus its pins, so an uncapped section would repeat almost
+   * everything under "All products" a few rows below. Real history would be
+   * bounded by time instead, and the cap is where that bound would go.
+   */
+  const recentIds = mergedPanel ? recentIdsFor(state).slice(0, PANEL_RECENT_ROWS) : [];
+
+  const showSearch = !mergedPanel || mergedPanelSearch;
+
   return (
     <>
       <button
@@ -151,7 +199,7 @@ export function PinnedLauncher({
 
       <div
         role="dialog"
-        aria-label="All products"
+        aria-label={panelTitle}
         data-nav-theme={theme}
         data-cursor="menu"
         onPointerEnter={onPointerEnter}
@@ -167,7 +215,7 @@ export function PinnedLauncher({
       >
         <div className="flex w-full shrink-0 items-center justify-between px-[16px] pb-[4px]">
           <h2 className="text-[15px] leading-[normal] font-semibold whitespace-nowrap text-nav-fg">
-            All products
+            {panelTitle}
           </h2>
           <div className="flex items-center gap-[6px]">
             {/*
@@ -188,7 +236,15 @@ export function PinnedLauncher({
           </div>
         </div>
 
-        {/* Same index the spotlight uses, so typing here and there agree. */}
+        {/*
+          Same index the spotlight uses, so typing here and there agree.
+
+          Switchable in merged mode only, where this panel is the block's own
+          surface rather than the product launcher: whether a nav panel should
+          also be a place you query is the open question there, and it is not
+          one anywhere else.
+        */}
+        {showSearch ? (
         <div className="mx-[14px] flex h-[36px] w-[calc(100%-28px)] shrink-0 items-center gap-[9px] rounded-[9px] px-[10px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
           <Search size={16} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
           <input
@@ -220,6 +276,7 @@ export function PinnedLauncher({
             </button>
           ) : null}
         </div>
+        ) : null}
 
         <div
           data-scroll-shell=""
@@ -281,6 +338,23 @@ export function PinnedLauncher({
                 No pinned items yet. Pin anything below and it appears at the top
                 of the nav.
               </p>
+            </>
+          ) : null}
+
+          {/*
+            Recent, in the same order and from the same derivation as the nav
+            block — see recentIdsFor. Read-only rows: there is no arranging a
+            history, which is the one real difference between this section and
+            the pin list above it, and the reason the grips stay up there.
+          */}
+          {mergedPanel && recentIds.length > 0 ? (
+            <>
+              <SectionHeading divider count={recentIds.length}>
+                Recent
+              </SectionHeading>
+              {recentIds.map((id) => (
+                <ProductRow key={`recent-${id}`} productId={id} />
+              ))}
             </>
           ) : null}
 

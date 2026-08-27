@@ -25,6 +25,7 @@ import { LegacyNav } from "@/components/nav/legacy-nav";
 import {
   ENTRY_CLUSTER_HEIGHT,
   ENTRY_CLUSTER_RAIL_HEIGHT,
+  EntryPill,
 } from "@/components/nav/entry-cluster";
 import { PinnedMorph } from "@/components/nav/pinned-morph";
 import {
@@ -184,6 +185,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     dockPosition,
     entryLayout,
     recentsMode,
+    mergedPinScope,
     autoCollapse,
     // Per-account like the rest of the look — a tenant can ship spotlight
     // search while its neighbour keeps the nav panel.
@@ -548,7 +550,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    */
   const recentsBudget = Math.min(
     recentsBudgetFor(density),
-    recentsMode === "flyout-only"
+    // Merged mode draws its own list and the nav strips the authored one, so
+    // the inline budget has nothing left to ration.
+    recentsMode === "merged" || recentsMode === "flyout-only"
       ? 0
       : recentsMode === "fixed-three"
         ? 3
@@ -1184,7 +1188,18 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           this wrapper, so it cannot join a scroll region — leaving it up would mean
           a floating dock hanging over rows trying to scroll underneath it.
         */}
-        {atFloor || isBlockHidden(layout, "pinned") ? null : (
+        {/*
+          Merged mode is the third thing that withdraws the capsule, and the
+          only one that does it because the pins are somewhere else on screen
+          rather than because nobody wants them. `both` keeps it, so the two
+          arrangements can be compared without switching modes.
+        */}
+        {atFloor ||
+        isBlockHidden(layout, "pinned") ||
+        (recentsMode === "merged" &&
+          !agencyScope &&
+          (mergedPinScope === "everywhere" ||
+            (mergedPinScope === "capsule-off" && !collapsed))) ? null : (
         <PinnedMorph
           theme={navTheme}
           items={pinnedItems}
@@ -1341,6 +1356,25 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       >
         <AppHeader
           theme={headerTheme}
+          /*
+            The entry, when the axis puts it up here.
+
+            Built at the shell rather than inside the bar: the session and the
+            search opener are the shell's, and the bar has no business knowing
+            what either of them is — it is being handed a control to stand, not
+            asked to assemble one.
+          */
+          {...(entryLayout === "header"
+            ? {
+                entry: (
+                  <EntryPill
+                    onSearch={() => setSearchOpen(true)}
+                    session={aiSession}
+                    tone="header"
+                  />
+                ),
+              }
+            : {})}
           // On the plane it paints nothing: glyphs and a breadcrumb, no surface of
           // its own. It used to take a fill whenever it was themed against the nav,
           // to keep light ink off a light plane — but with the nav floating as its

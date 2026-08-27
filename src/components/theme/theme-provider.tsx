@@ -9,6 +9,12 @@ import {
   type EntryLayout,
   type FlyoutTrigger,
   type RecentsMode,
+  type MergedPinScope,
+  type MergedPinMark,
+  type MergedOverflow,
+  type MergedRowDetail,
+  type MergedPinOrder,
+  type MergedHeading,
   type NavSections,
   type RailTileShape,
   type PageShell,
@@ -38,6 +44,17 @@ export type AccountTheme = Partial<
     | "entryLayout"
     | "flyoutTrigger"
     | "recentsMode"
+    | "mergedPinScope"
+    | "mergedPinMark"
+    | "mergedOverflow"
+    | "mergedRowDetail"
+    | "mergedPinOrder"
+    | "mergedHeading"
+    | "mergedPanelSearch"
+    | "mergedVisibleRows"
+    | "mergedPinCap"
+    | "mergedRecentFloor"
+    | "mergedExpandedRows"
     | "autoCollapse"
     | "launchpad"
     | "searchMode"
@@ -71,6 +88,17 @@ interface ThemeContextValue extends ThemeState {
   setEntryLayout: (layout: EntryLayout) => void;
   setFlyoutTrigger: (trigger: FlyoutTrigger) => void;
   setRecentsMode: (mode: RecentsMode) => void;
+  setMergedPinScope: (scope: MergedPinScope) => void;
+  setMergedPinMark: (mark: MergedPinMark) => void;
+  setMergedOverflow: (overflow: MergedOverflow) => void;
+  setMergedRowDetail: (detail: MergedRowDetail) => void;
+  setMergedPinOrder: (order: MergedPinOrder) => void;
+  setMergedHeading: (heading: MergedHeading) => void;
+  setMergedPanelSearch: (enabled: boolean) => void;
+  setMergedVisibleRows: (rows: number) => void;
+  setMergedPinCap: (rows: number) => void;
+  setMergedRecentFloor: (rows: number) => void;
+  setMergedExpandedRows: (rows: number) => void;
   setAutoCollapse: (enabled: boolean) => void;
   setScopeModel: (model: ScopeModel) => void;
   setNavGeneration: (generation: NavGeneration) => void;
@@ -179,6 +207,28 @@ export function ThemeProvider({
       setEntryLayout: (entryLayout) => setState((s) => ({ ...s, entryLayout })),
       setFlyoutTrigger: (flyoutTrigger) => setState((s) => ({ ...s, flyoutTrigger })),
       setRecentsMode: (recentsMode) => setState((s) => ({ ...s, recentsMode })),
+      setMergedPinScope: (mergedPinScope) =>
+        setState((s) => ({ ...s, mergedPinScope })),
+      setMergedPinMark: (mergedPinMark) =>
+        setState((s) => ({ ...s, mergedPinMark })),
+      setMergedOverflow: (mergedOverflow) =>
+        setState((s) => ({ ...s, mergedOverflow })),
+      setMergedRowDetail: (mergedRowDetail) =>
+        setState((s) => ({ ...s, mergedRowDetail })),
+      setMergedPinOrder: (mergedPinOrder) =>
+        setState((s) => ({ ...s, mergedPinOrder })),
+      setMergedHeading: (mergedHeading) =>
+        setState((s) => ({ ...s, mergedHeading })),
+      setMergedPanelSearch: (mergedPanelSearch) =>
+        setState((s) => ({ ...s, mergedPanelSearch })),
+      setMergedVisibleRows: (mergedVisibleRows) =>
+        setState((s) => ({ ...s, mergedVisibleRows })),
+      setMergedPinCap: (mergedPinCap) =>
+        setState((s) => ({ ...s, mergedPinCap })),
+      setMergedRecentFloor: (mergedRecentFloor) =>
+        setState((s) => ({ ...s, mergedRecentFloor })),
+      setMergedExpandedRows: (mergedExpandedRows) =>
+        setState((s) => ({ ...s, mergedExpandedRows })),
       setAutoCollapse: (autoCollapse) => setState((s) => ({ ...s, autoCollapse })),
       setScopeModel: (scopeModel) => setState((s) => ({ ...s, scopeModel })),
       setNavGeneration: (navGeneration) =>

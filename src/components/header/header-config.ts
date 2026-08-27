@@ -30,6 +30,9 @@ export interface HeaderConfig {
   activeTabId: string;
   actions: HeaderAction[];
   avatarInitials: string;
+  /** Who the account menu says you are signed in as. */
+  userName: string;
+  userEmail: string;
 }
 
 /** Mirrors the AppBar in "Screen A · Nav open + Contacts". */
@@ -52,5 +55,7 @@ export const headerConfig: HeaderConfig = {
     { id: "alerts", label: "Notifications", tone: "plain", icon: Bell, dot: true },
     { id: "help", label: "Help", tone: "plain", icon: Info },
   ],
-  avatarInitials: "NS",
+  avatarInitials: "AK",
+  userName: "Ashwin K S",
+  userEmail: "ashwin.ks@gohighlevel.com",
 };
