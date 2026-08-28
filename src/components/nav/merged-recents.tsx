@@ -283,7 +283,10 @@ function BlockHeading({
  * "where does the row I just pinned appear" has one answer for the product, and
  * having it drift between scopes would make the axis untestable.
  */
-function orderPins(pinned: readonly string[], newestFirst: boolean): string[] {
+export function orderPins(
+  pinned: readonly string[],
+  newestFirst: boolean,
+): string[] {
   return newestFirst ? [...pinned].reverse() : [...pinned];
 }
 
@@ -521,7 +524,7 @@ export function agencyRecentPlaceIds(
  * out first hands its unspent rows to the other, so the block is never short of
  * its budget while there are rows left to draw.
  */
-function allocate({
+export function allocate({
   pinCount,
   recentCount,
   budget,

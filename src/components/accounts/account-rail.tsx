@@ -1,15 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { Grip } from "lucide-react";
+import { Grip, Pin } from "lucide-react";
 import {
   RAIL_TILE_SIZE,
   RAIL_TILE_SIZE_ACTIVE,
   RAIL_TILE_SIZE_REST,
   RAIL_TILE_BOX,
+  RAIL_ROW_END_PAD,
   type SurfaceTheme,
 } from "@/design/theme";
 import { RAIL_RECENT_LIMIT } from "@/design/theme";
+import { usePinnedInk } from "@/components/nav/pin-button";
 import { useTheme } from "@/components/theme/theme-provider";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
 import { cn } from "@/lib/utils";
@@ -60,6 +62,28 @@ interface AccountRailProps {
  * them shut.
  */
 const EXPAND_DELAY_MS = 150;
+
+/**
+ * The close, in three numbers that have to add up.
+ *
+ * Fast open, slow close: opening answers a pointer that has just arrived and
+ * has to keep up with the hand that asked; closing has nothing waiting on it,
+ * and at 300ms the names did not slide out so much as blink away.
+ *
+ * The strip narrows over CLOSE. Its fill, ring and shadow are held for HOLD and
+ * then fade over FADE — held, because dropping them at the start left the names
+ * sliding out over nav rows showing straight through, which reads as the strip
+ * going transparent rather than narrowing; faded, because dropping them at the
+ * end is a snap on a move that was deliberately slowed to be watched.
+ *
+ * HOLD + FADE lands on CLOSE on purpose: the paint finishes with the geometry,
+ * not after it. Declared here rather than as CSS tokens because a timeout and a
+ * stylesheet have to agree on them, and two copies of a number drift the first
+ * time one is tuned.
+ */
+const RAIL_CLOSE_MS = 900;
+const RAIL_PAINT_HOLD_MS = 600;
+const RAIL_PAINT_FADE_MS = RAIL_CLOSE_MS - RAIL_PAINT_HOLD_MS;
 const COLLAPSE_DELAY_MS = 250;
 
 /**
@@ -233,7 +257,15 @@ export function AccountRail({
               the first frame of a collapse and sit there while the
               rail closed around it.
             */
-            !expanded && "-mx-[2px] justify-center",
+            /*
+              Padding, not `justify-center` — see the account tiles below.
+
+              This row is 36 wide around a 24px stage, so unlike them it has 4px
+              of slack. Spending it as 6px of padding a side puts the glyph
+              exactly where centring would, using a property that does not
+              relocate the content the moment the class lands.
+            */
+            !expanded && "-mx-[2px] px-[6px]",
             "hover:bg-nav-hover hover:text-nav-fg-muted",
           )}
         >
@@ -262,11 +294,80 @@ export function AccountRail({
    */
   const [magnifyIndex, setMagnifyIndex] = React.useState<number | null>(null);
 
+  /*
+   * Fast open, slow close.
+   *
+   * The strip widens in answer to a pointer resting on it, so opening has to
+   * keep up with the hand that asked. Closing has nothing waiting on it, and at
+   * 300ms the names did not slide out so much as vanish — see --dur-rail-close.
+   *
+   * The directory is its own gesture: a click, a takeover, and a panel that has
+   * to be there before you look for it. It keeps the ordinary timing both ways.
+   */
+  const railDuration =
+    expanded || switcherOpen ? "var(--dur-slow)" : `${RAIL_CLOSE_MS}ms`;
+
+  /*
+   * The surface outlives the gesture that closes it.
+   *
+   * `expanded` flips the instant the pointer leaves, and the fill went with it
+   * — so for the whole close the names slid out over the nav rows showing
+   * straight through, which read as the strip going transparent rather than
+   * narrowing. The paint is held until the width has actually landed, then
+   * dropped in one step, by which point there is nothing left to see through.
+   */
+  const surfaceUp = expanded || switcherOpen;
+  const [painted, setPainted] = React.useState(surfaceUp);
+
+  /*
+   * Opening paints during render; closing unpaints on a timer.
+   *
+   * The two directions are not symmetric, so they are not written
+   * symmetrically. Painting has to happen in the same commit as the width
+   * change or the first frame of the open is a transparent strip — which is
+   * what a render-phase update is for, and the pattern the nav already uses to
+   * react to a prop it does not own. Unpainting is the thing that has to wait,
+   * and waiting is what an effect is for.
+   */
+  const [wasUp, setWasUp] = React.useState(surfaceUp);
+  if (wasUp !== surfaceUp) {
+    setWasUp(surfaceUp);
+    if (surfaceUp) setPainted(true);
+  }
+
+  React.useEffect(() => {
+    if (surfaceUp) return;
+    const timer = setTimeout(() => setPainted(false), RAIL_PAINT_HOLD_MS);
+    return () => clearTimeout(timer);
+  }, [surfaceUp]);
+
   const width = switcherOpen
     ? ACCOUNT_RAIL_DIRECTORY_WIDTH
     : expanded
       ? ACCOUNT_RAIL_EXPANDED_WIDTH
       : ACCOUNT_RAIL_WIDTH;
+
+  /*
+   * The strip only outranks the nav's panels once it is standing over them.
+   *
+   * At rest it is a 56px column beside the nav and shares z-30 with the flyout,
+   * the pinned capsule and the launcher — none of which it overlaps, so the
+   * order between them never came up. Widened it covers all three, and sharing
+   * a level means DOM order decides: the flyout is rendered after the rail, so
+   * an L2 panel left open behind a collapsed nav painted straight over the
+   * account switcher the pointer was actually on.
+   *
+   * This is the order INSIDE the chrome card, which is a stacking context of
+   * its own — so what it settles is the rail against the nav column beside it,
+   * not the rail against the flyout, which is a sibling of the card entirely.
+   * The card handles that half by raising its own level on the same condition;
+   * see the note there. Both are needed and neither is sufficient.
+   *
+   * Only while widened, so the resting strip keeps its place in the ladder — in
+   * particular under the edit-mode dim at 31, which is allowed to cover it and
+   * can, because `locked` stops it widening at all.
+   */
+  const raised = expanded || switcherMounted;
 
   return (
     <>
@@ -277,7 +378,9 @@ export function AccountRail({
           aria-label="Close accounts directory"
           tabIndex={-1}
           onClick={onCloseSwitcher}
-          className="absolute inset-0 z-30 cursor-default"
+          // One under the strip, and above whatever the strip is covering: a
+          // click meant for "close the directory" must not land on a flyout.
+          className="absolute inset-0 z-[44] cursor-default"
         />
       ) : null}
 
@@ -294,7 +397,8 @@ export function AccountRail({
         className={cn(
           // pt 4: the agency plate is 40px tall (4 + 32 + 4 with the 24px
           // logo), so 4px above centres its tile on y=24 — the header's midline.
-          "motion-move absolute inset-y-0 left-0 z-30 flex flex-col gap-[7px] overflow-hidden pt-[4px] pb-[8px]",
+          "absolute inset-y-0 left-0 flex flex-col gap-[7px] overflow-hidden pt-[4px] pb-[8px]",
+          raised ? "z-[45]" : "z-30",
           // Nothing in the strip answers the pointer while the nav is being
           // edited — see `locked`. On the whole nav rather than per tile, so a
           // future control added here is inert by default rather than by
@@ -304,9 +408,9 @@ export function AccountRail({
           // against the nav. It becomes a real surface only while it is widened
           // OVER the nav, where transparency would let the rows it covers show
           // straight through it.
-          (expanded || switcherOpen) &&
+          painted &&
             "bg-nav-rail shadow-[inset_0_0_0_1px_var(--nav-border),16px_0_40px_-20px_rgba(15,23,42,0.45)]",
-          !expanded && !switcherOpen && "bg-transparent",
+          !painted && "bg-transparent",
           /*
             The two widened states round differently, and on purpose.
 
@@ -322,13 +426,42 @@ export function AccountRail({
           */
           // Same precedence as `width` above: both flags can be true at once,
           // and the directory wins.
+          // The corners belong to the painted surface, so they are held for
+          // exactly as long as it is: squaring them off mid-close would put a
+          // hard corner on a card that is still visibly a card.
           switcherOpen
             ? "rounded-[var(--shell-canvas-radius)]"
-            : expanded
+            : painted
               ? "rounded-l-[var(--shell-canvas-radius)]"
               : null,
         )}
-        style={{ width }}
+        /*
+          Two clocks on one element, so both are declared here.
+
+          The width takes the long one and the paint takes the short one, which
+          a single `transition-duration` cannot express — and `motion-move`
+          would set one for everything from an unlayered stylesheet, beating any
+          utility that tried to override it. So the property list, the durations
+          and the curve are all inline, and the class is gone.
+
+          Opening paints instantly (0ms): the fill has to be there in the frame
+          the strip starts widening, or the first frame of the open is a
+          transparent box.
+
+          `--rail-dur` carries the width's own duration down to the plate and the
+          list, whose margin and padding are what actually move the tiles.
+        */
+        style={
+          {
+            width,
+            transitionProperty: "width, background-color, box-shadow",
+            transitionDuration: surfaceUp
+              ? "var(--dur-slow), 0ms, 0ms"
+              : `${RAIL_CLOSE_MS}ms, ${RAIL_PAINT_FADE_MS}ms, ${RAIL_PAINT_FADE_MS}ms`,
+            transitionTimingFunction: "var(--ease-out)",
+            "--rail-dur": railDuration,
+          } as React.CSSProperties
+        }
       >
         {switcherMounted ? (
           /*
@@ -366,7 +499,7 @@ export function AccountRail({
                 // The margin carries the squaring, so it is the margin that has
                 // to animate — `motion-move` transitions width and height and
                 // neither of those is what changes here.
-                "shrink-0 bg-nav-rail-disc p-[4px] transition-[margin] duration-[var(--dur-slow)] ease-[var(--ease-out)]",
+                "shrink-0 bg-nav-rail-disc p-[4px] transition-[margin] duration-[var(--rail-dur,var(--dur-slow))] ease-[var(--ease-out)]",
                 // Concentric with the tile inside it: a pill in a 10px box
                 // reads as a mistake at 4px of padding.
                 pillTiles ? "rounded-full" : "rounded-[10px]",
@@ -436,7 +569,7 @@ export function AccountRail({
                     what it is anchored to; it should look anchored.
                   */
                   "-mt-[3px] flex w-full shrink-0 flex-col gap-[4px]",
-                  "transition-[padding] duration-[var(--dur-slow)] ease-[var(--ease-out)]",
+                  "transition-[padding] duration-[var(--rail-dur,var(--dur-slow))] ease-[var(--ease-out)]",
                   expanded ? "px-[6px]" : "pr-[10px] pl-[14px]",
                 )}
               >
@@ -473,7 +606,7 @@ export function AccountRail({
                 // Padding, on the same curve as the rail's own width — the rows
                 // are `w-full` inside it, so this is what carries them in and
                 // out rather than each tile resizing itself.
-                "transition-[padding] duration-[var(--dur-slow)] ease-[var(--ease-out)]",
+                "transition-[padding] duration-[var(--rail-dur,var(--dur-slow))] ease-[var(--ease-out)]",
                 /*
                   The tiles are squared from here, not from their own width.
 
@@ -550,23 +683,24 @@ export function AccountRail({
                     }}
                     account={account}
                     magnify={magnifyScale(effective.railMagnify, magnifyIndex, i)}
+                    // Only worth marking when there is a second run to tell it
+                    // apart from. On `pinned` every row is pinned, and a column
+                    // of identical marks says nothing.
+                    pinned={effective.railRecents === "recent"}
                   />
                 ))}
 
                 {/*
-                  The rule between what was arranged and what merely happened.
+                  No rule between the two runs (Aug 29).
 
-                  One hairline and nothing else — no badge, no dim. A tenant
-                  tile is a face and already carries its own identity; a second
-                  marker on top of a 24px disc is one signal more than the strip
-                  can hold, and dimming a row you can click reads as disabled.
+                  The hairline was carrying the distinction on its own, which
+                  made it a boundary: two lists that happen to touch. They are
+                  one list — the accounts you keep, then the ones you were just
+                  in — and the pin on the kept rows says which is which without
+                  cutting the column in half. It also only ever showed at one of
+                  the rail's two widths, since a rule across a 32px strip is a
+                  dash.
                 */}
-                {centredRecents.length > 0 ? (
-                  <span
-                    aria-hidden="true"
-                    className="my-[3px] h-px w-full shrink-0 self-center bg-nav-border"
-                  />
-                ) : null}
                 {centredRecents.map((account, i) => (
                   <RailRow
                     key={account.id}
@@ -619,6 +753,7 @@ function RailRow({
   logoRadius = 999,
   markSize,
   magnify = 1,
+  pinned = false,
 }: {
   label: string;
   name: string;
@@ -642,8 +777,19 @@ function RailRow({
   markSize?: number;
   /** Dock magnification for this row: 1 when the pointer is elsewhere. */
   magnify?: number;
+  /**
+   * Kept on the rail rather than merely recent.
+   *
+   * Drawn only while the names are open: collapsed, the row is a 32px tile with
+   * a mark in it and nowhere to put a second glyph. That is the honest limit of
+   * the strip, and it is why the two runs still sit in arrangement order —
+   * pinned first — so the collapsed rail carries the distinction by position
+   * when it cannot carry it by mark.
+   */
+  pinned?: boolean;
 }) {
   const { effective } = useTheme();
+  const pinnedInk = usePinnedInk();
   const pillTiles = effective.railTileShape === "pill";
   /*
    * The active account's mark grows; every other tile stays where it was.
@@ -670,7 +816,85 @@ function RailRow({
    * three different mark sizes, and — the part that matters — keeps every tap
    * target 32px whatever is drawn inside it.
    */
-  const pad = (RAIL_TILE_BOX - size) / 2;
+  const contain = effective.railZoomFit === "contain";
+  /*
+   * ...except for the active tile, which was 2px short of everyone else.
+   *
+   * The 32px box holds a 24px mark on 4px and a 16px mark on 8px, and then asks
+   * the 28px active mark to make do with 2 — so the one tile drawn largest is
+   * also the one drawn tightest, and its disc reads as pressing against the
+   * pill's edge before anything is even hovered. `contain` puts the floor at
+   * 4px and lets the ROW grow to 36 instead of squeezing the mark: the size is
+   * how the rail says which account is active, so the size is not the part to
+   * give up.
+   */
+  const pad = contain
+    ? Math.max(RAIL_TILE_MIN_PAD, (RAIL_TILE_BOX - size) / 2)
+    : (RAIL_TILE_BOX - size) / 2;
+
+  /*
+   * What the row measures once it is padded, and how far outside its column it
+   * has to reach to stay square.
+   *
+   * Collapsed, every row's WIDTH comes from the strip's padding — 14 left and
+   * 10 right of a 56px rail, so 32px — while its HEIGHT comes from the mark
+   * plus its own padding. Those two agreed at 32 until the active tile's row
+   * grew to 36 to give its mark the clearance every other mark had, and a
+   * "circle" 32 across and 36 tall is a lozenge standing on end.
+   *
+   * So the row takes the difference back out of the column's padding: 2px each
+   * side, which is the same trick and the same number the All accounts button
+   * already uses to reach 36. The two now match exactly, which is the point —
+   * they sit in one column and are the only two rows in it that are not 32.
+   *
+   * Zero for every other tile, and zero expanded, where the row is a full-width
+   * pill and width is not a property it has.
+   */
+  const box = size + pad * 2;
+  const outset = expanded ? 0 : Math.max(0, (box - RAIL_TILE_BOX) / 2);
+
+  /*
+   * How far the mark may actually grow.
+   *
+   * The mark is what magnifies, not the row. Scaling the whole row contained
+   * the disc, but it moved the fill, the hairline and the name along with it —
+   * so a mark growing inside its tile became the tile itself lurching, and the
+   * thing the pointer was resting on stopped holding still.
+   *
+   * The transform goes back on the mark and a CEILING does the containing: the
+   * zoom may spend HALF the mark's resting clearance and no more, so the other
+   * half is still there at full magnification. `(size + pad) / size` is that
+   * rule — pad each side at rest, pad/2 each side at the ceiling.
+   *
+   * Half, not all of it. Letting the mark run to a pixel off the edge was
+   * arithmetically contained and read as overflowing anyway: at 34px inside a
+   * 36px pill the disc is flush with the fill, and a shape touching its own
+   * container looks like a shape escaping it. Containment has to be visible to
+   * count, and what makes it visible is the gap surviving.
+   *
+   * Measured against `pad` rather than `endPad`, because the mark sits at the
+   * row's start and grows from its own centre — the near side is the side that
+   * runs out first, and vertically that padding is the only one there is.
+   *
+   * The ceiling differs per tile, which is the point: a 16px resting mark has
+   * 8px a side to play with and never reaches its limit, while the 28px active
+   * one is bounded almost at once. Both stay visibly inside.
+   */
+  const zoom = contain ? Math.min(magnify, (size + pad) / size) : magnify;
+  /*
+   * The trailing edge is a constant; only the leading one carries the mark.
+   *
+   * `pad` is derived from the mark size, which is what squares the tile and
+   * centres marks of three different diameters on one column. Applied to all
+   * four sides it also pushed the row's LAST child around: the active row pads
+   * by 2 and the rest by 8, so the pins sat at three different distances from
+   * the edge and the active one hung 6px further right than its neighbours.
+   *
+   * A fixed end padding puts every pin on one column and gives it room to
+   * breathe off the edge. Collapsed there is no trailing content, so the
+   * derived value stays — it is what keeps the tile a circle.
+   */
+  const endPad = expanded ? RAIL_ROW_END_PAD : pad;
 
   return (
     <div className="relative w-full shrink-0">
@@ -706,14 +930,54 @@ function RailRow({
           aria-current={selected ? "page" : undefined}
           onPointerEnter={onHover}
           onClick={onClick}
-          style={{ padding: pad }}
+          style={{
+            paddingBlock: pad,
+            paddingInlineStart: pad,
+            paddingInlineEnd: endPad,
+            /*
+              An explicit width, not a pair of negative margins.
+
+              The row is `w-full`, which is `width: 100%` — and a negative
+              margin does not widen a box whose width is already resolved. It
+              only lets it hang outside its column, so the first attempt at this
+              left the tile 32 wide and merely shifted it two pixels left. The
+              width has to be stated, and then one margin pulls it back into
+              centre; the other is dropped on the floor by over-constraint
+              resolution anyway.
+            */
+            ...(outset > 0
+              ? {
+                  width: box,
+                  marginInlineStart: -outset,
+                  transitionProperty: "padding, margin, width",
+                }
+              : {}),
+          }}
           className={cn(
             "motion-tap flex w-full items-center gap-[9px] outline-none transition-[padding] duration-[var(--dur-fast)] ease-[var(--ease-out)] focus-visible:ring-[1.5px] focus-visible:ring-brand",
             // Shape on every row, not just the selected one: the hover fill and
             // the selected fill are the same box, and only one of them being a
             // pill reads as the row changing shape under the pointer.
             pillTiles ? "rounded-full" : "rounded-[9px]",
-            !expanded && "justify-center",
+            /*
+              No `justify-center` when collapsed, and nothing replacing it.
+
+              Collapsed, the row's padding is derived from the mark it holds —
+              `pad` on the near side, the same on the far once the label is gone
+              — so the content box measures exactly the mark and there is no
+              slack for centring to take up. Start and centre are the same pixel
+              at rest.
+
+              They are NOT the same pixel during the close. `justify-center`
+              applies in the frame `expanded` flips, while the width takes 900ms
+              to follow: the mark jumped to the middle of a still-open 204px row
+              and then travelled back left as the strip narrowed around it. Only
+              the active tile escaped, because its explicit width lands at once
+              — which is why one tile drifted left and every other drifted right.
+
+              Left-anchored, every mark sits still while the row closes in on
+              it, and arrives centred because the arithmetic says so.
+            */
             // Fill and a hairline, no drop shadow: the tile is flush in the
             // strip, and a cast shadow lifted it off a surface it sits on.
             selected ? "bg-nav shadow-[inset_0_0_0_1px_var(--nav-border)]" : "hover:bg-nav-hover",
@@ -730,7 +994,7 @@ function RailRow({
           */}
           <span
             aria-hidden={undefined}
-            style={{ transform: magnify === 1 ? undefined : `scale(${magnify})` }}
+            style={zoom === 1 ? undefined : { transform: `scale(${zoom})` }}
             className="flex shrink-0 origin-center transition-transform duration-[var(--dur-dock)] ease-[var(--ease-out)]"
           >
             <AccountLogo
@@ -741,14 +1005,42 @@ function RailRow({
             />
           </span>
           {expanded ? (
-            <span
-              className={cn(
-                "min-w-0 flex-1 truncate text-left text-[13px] leading-[17px]",
-                selected ? "font-semibold text-nav-fg" : "font-medium text-nav-fg-muted",
-              )}
-            >
-              {name}
-            </span>
+            <>
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate text-left text-[13px] leading-[17px]",
+                  selected ? "font-semibold text-nav-fg" : "font-medium text-nav-fg-muted",
+                )}
+              >
+                {name}
+              </span>
+              {/*
+                The same mark the merged block uses on a kept row: a filled pin
+                at 12px in gray ink. Grey rather than brand, and for the same
+                reason it is grey there — a column of brand pins down the right
+                edge becomes the loudest thing in the strip and pulls the eye
+                off the names it is meant to be qualifying.
+
+                Not a button. In the nav the pin is the control that unpins;
+                here curation belongs to the directory's own pin column, and a
+                second place to unpin — inside a strip you are crossing on the
+                way somewhere else — is a misclick waiting to happen.
+              */}
+              {/*
+                A fixed slot, not a bare glyph. Every row gives up the same
+                width whether it is pinned or not, so the names all truncate at
+                the same place and the pins land on one column instead of
+                drifting with the length of the label beside them.
+              */}
+              <span
+                aria-hidden="true"
+                className="flex size-[14px] shrink-0 items-center justify-center"
+              >
+                {pinned ? (
+                  <Pin size={12} fill="currentColor" className={pinnedInk} />
+                ) : null}
+              </span>
+            </>
           ) : null}
         </button>
       </Tooltipped>
@@ -768,6 +1060,13 @@ function RailRow({
  * bump following the cursor; four is the whole strip breathing every time you
  * cross it on the way somewhere else.
  */
+/**
+ * The least space a mark gets between itself and its row's edge.
+ *
+ * What every tile except the active one already had. See `pad`.
+ */
+const RAIL_TILE_MIN_PAD = 4;
+
 const MAGNIFY_FALLOFF = [1.35, 1.15, 1.05] as const;
 
 function magnifyScale(

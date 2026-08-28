@@ -26,6 +26,7 @@ import {
   type RailTileShape,
   type RailRecents,
   type RailDirectorySpot,
+  type RailZoomFit,
   type LaunchpadCard,
   type RailSizing,
   type EditTreatment,
@@ -135,6 +136,7 @@ interface ThemeContextValue extends ThemeState {
   setRailTileShape: (shape: RailTileShape) => void;
   setRailRecents: (mode: RailRecents) => void;
   setRailDirectorySpot: (spot: RailDirectorySpot) => void;
+  setRailZoomFit: (fit: RailZoomFit) => void;
   setLaunchpadCard: (variant: LaunchpadCard) => void;
   setEditTreatment: (treatment: EditTreatment) => void;
   setRailSizing: (sizing: RailSizing) => void;
@@ -304,6 +306,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, railRecents })),
       setRailDirectorySpot: (railDirectorySpot) =>
         setState((s) => ({ ...s, railDirectorySpot })),
+      setRailZoomFit: (railZoomFit) =>
+        setState((s) => ({ ...s, railZoomFit })),
       setLaunchpadCard: (launchpadCard) =>
         setState((s) => ({ ...s, launchpadCard })),
       setEditTreatment: (editTreatment) =>

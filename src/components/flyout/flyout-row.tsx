@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import { EditAffordance, InlineRename } from "@/components/nav/inline-rename";
-import { WithPin } from "@/components/nav/with-pin";
+import { isPinnable, WithPin } from "@/components/nav/with-pin";
 import { productById } from "@/components/nav/catalogue";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
@@ -47,6 +47,24 @@ const PLACE_TITLE = "font-normal whitespace-nowrap";
 /** The pin's column, held open by the row's own padding plus the gap. */
 const PLACE_PIN_RESERVE =
   "pr-[calc(var(--t-nav-px,8px)+22px+var(--t-nav-gap,10px))]";
+
+/**
+ * The trailing columns, at both levels.
+ *
+ * The chevron is the LAST thing on a row that has one, and the pin sits just
+ * inboard of it — so the pin lands on the same line whether a row discloses or
+ * not, and the disclosure is always at the edge where the eye looks for it.
+ *
+ * The pin cannot be a flex child (it is a control, and the row is a button), so
+ * it is an overlay hung at `PIN_INSET` while a spacer of its width holds the
+ * column open in flow. The two numbers have to agree, which is why they are
+ * here rather than inline at either site.
+ */
+const CHEVRON_SLOT = 14;
+const PIN_SLOT = 22;
+const TRAILING_GAP = 10;
+const ROW_EDGE = 8;
+const PIN_INSET = ROW_EDGE + CHEVRON_SLOT + TRAILING_GAP;
 
 /**
  * Per-variant geometry, read off the Pencil export.
@@ -278,7 +296,9 @@ export function FlyoutRow({
      * makes the reserve unnecessary AND what stops the eye and the chevron from
      * ever colliding, whatever the label's length.
      */
-    pinnable && !edit && v.pinReserve,
+    // The pin's column is a flex spacer in the trailing cluster now, at both
+    // levels and in both modes, so the row no longer pads for it.
+    
     active ? "bg-nav-hover" : "hover:bg-nav-hover",
     !edit?.renaming && "active:scale-[0.99] motion-press",
     // The grab cursor lives on the grip, not the row.
@@ -527,9 +547,23 @@ export function FlyoutRow({
             ) : null}
           </>
         ) : null}
+        {/*
+          The pin's column, held open in flow.
+          
+          The pin itself is an overlay — it is a control and the row is a button
+          — so nothing here but the width it needs. Editing hides the pin, and
+          the kebab has already taken its place in the cluster above.
+        */}
+        {pinnable && !edit ? (
+          <span
+            aria-hidden="true"
+            style={{ width: PIN_SLOT }}
+            className="shrink-0"
+          />
+        ) : null}
         {hasChildren ? (
           <ChevronDown
-            size={14}
+            size={CHEVRON_SLOT}
             aria-hidden="true"
             className={cn(
               // Same ink and the same lift on hover as the nav row's chevron,
@@ -541,17 +575,21 @@ export function FlyoutRow({
               open && "rotate-180",
             )}
           />
-        ) : edit && !edit.renaming ? (
+        ) : !edit?.renaming ? (
           /*
            * The slot, held empty.
            *
-           * Without it a leaf row's kebab slides into the chevron's place and the
-           * column of controls zig-zags down the list — the eye and the kebab
-           * have to be in the same place on every row for the cluster to read as
-           * one column you can aim at. Only in edit mode: outside it there is no
-           * column, and a leaf row should simply be narrower.
+           * Without it a leaf row's last control slides into the chevron's place
+           * and the trailing column zig-zags down the list — every mark has to
+           * be in the same place on every row for the cluster to read as one
+           * column you can aim at. In BOTH modes now: read-only the column is
+           * the pin's, and it drifted for exactly the same reason.
            */
-          <span aria-hidden="true" className="w-[14px] shrink-0" />
+          <span
+            aria-hidden="true"
+            style={{ width: CHEVRON_SLOT }}
+            className="shrink-0"
+          />
         ) : null}
       </span>
     </>
@@ -644,6 +682,7 @@ export function FlyoutRow({
       <WithPin
         productId={item.id}
         pinClass={v.pinTop}
+        pinInset={PIN_INSET}
         // 12, as the nav's own rows use: an L2 row is the same kind of row one
         // level down, so its trailing mark is the same mark at the same size.
         pinSize={12}
@@ -734,7 +773,7 @@ function Row({
     );
   }
   return (
-    <WithPin productId={childId}>
+    <WithPin productId={childId} pinInset={PIN_INSET}>
       <button type="button" {...rest}>
         {children}
       </button>
@@ -906,12 +945,11 @@ function FlyoutChildRow({
           // The same fill an active row wears anywhere else in the nav, so
           // "you are here" looks the same at every level.
           child.id === activeId && "bg-nav-hover text-nav-fg",
-          // The pin's own width plus the gap the L2 rows leave in front of
-          // theirs — stated the same way so retuning the flyout gap moves both.
-          // Not while editing: the kebab is a flex child there, so the trailing
-          // column is real width rather than reserved space behind an overlay.
-          !nested && !edit && "pr-[calc(8px+22px+var(--t-fly-gap,10px))]",
-          edit && "pr-[4px]",
+          // 8px, matching the L2 row's own px — the two trailing clusters have
+          // to start from the same right edge or nothing in them can line up.
+          // In both modes: the pin's column is a flex spacer now rather than
+          // padding behind an overlay, so there is nothing left to reserve.
+          "pr-[8px]",
           // One notch down per level, so depth is legible without a marker.
           depth === 0 ? "text-[13px]" : "text-[12.5px]",
         )}
@@ -966,18 +1004,20 @@ function FlyoutChildRow({
             {child.badge.label}
           </span>
         ) : null}
-        {nested ? (
-          <ChevronDown
-            size={13}
-            aria-hidden="true"
-            className={cn(
-              "ml-auto shrink-0 text-nav-fg-subtle motion-move",
-              open && "rotate-180",
-            )}
-          />
-        ) : null}
-        {edit ? (
-          <span className={cn("shrink-0", !nested && "ml-auto")}>
+        {/*
+          The same trailing cluster the L2 row builds, in the same order and on
+          the same gap: the row's own mark — kebab while editing, the pin's
+          reserved column outside it — then the disclosure chevron flush against
+          the row's edge.
+
+          The chevron used to come FIRST here, so a nested row put its mark
+          where every other row puts its chevron and the column zig-zagged
+          wherever a row happened to have children. Same order at both levels,
+          and the same slot held empty on a leaf, so the marks sit on one line
+          and the chevron is the last thing on every row that has one.
+        */}
+        <span className="ml-auto flex shrink-0 items-center gap-[var(--t-fly-gap,10px)]">
+          {edit ? (
             <EditAffordance
               label={`Edit ${child.label}`}
               onClick={(trigger) => edit.onOpenMenu(child.id, trigger)}
@@ -985,8 +1025,30 @@ function FlyoutChildRow({
             >
               <EllipsisVertical size={12} aria-hidden="true" />
             </EditAffordance>
-          </span>
-        ) : null}
+          ) : isPinnable(child.id) ? (
+            <span
+              aria-hidden="true"
+              style={{ width: PIN_SLOT }}
+              className="shrink-0"
+            />
+          ) : null}
+          {nested ? (
+            <ChevronDown
+              size={CHEVRON_SLOT}
+              aria-hidden="true"
+              className={cn(
+                "shrink-0 text-nav-fg-subtle motion-move",
+                open && "rotate-180",
+              )}
+            />
+          ) : (
+            <span
+              aria-hidden="true"
+              style={{ width: CHEVRON_SLOT }}
+              className="shrink-0"
+            />
+          )}
+        </span>
       </Row>
       </ChildShell>
       {nested && open ? (

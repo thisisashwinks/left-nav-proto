@@ -423,6 +423,36 @@ export const LAUNCHPAD_CARD_LABELS: Record<LaunchpadCard, string> = {
 };
 
 /**
+ * Whether a magnified rail tile stays inside its own row.
+ *
+ * The Dock analogy was taken literally: the mark carries the scale transform and
+ * the row does not, so a hovered tile grows OVER its neighbours. That is right
+ * for a Dock, where an icon floats on a translucent shelf and has no container
+ * of its own. It is wrong here, because these tiles do have one — a pill with a
+ * fill, a hairline and a name in it — and at 1.35x a 28px active mark reaches
+ * 38px inside a 32px row. The disc breaks the pill's edge on every hover, and
+ * the row you are pointing at is the one that looks broken.
+ *
+ *  overflow  What shipped: the mark scales, the pill holds still.
+ *  contain   The whole row scales — fill, hairline, name and mark together — so
+ *            the mark can never leave a box that is growing with it. The tile
+ *            still swells under the pointer; it swells as one object.
+ *
+ * `contain` also resets the active tile's clearance. Its 28px mark sat in a
+ * 32px row with 2px a side, against the 4px every other tile gets, so it read
+ * as bursting out even at rest. The mark keeps its 28px — that size is how the
+ * rail marks the active account — and the row grows to 36 to hold it properly.
+ */
+export const RAIL_ZOOM_FITS = ["contain", "overflow"] as const;
+
+export type RailZoomFit = (typeof RAIL_ZOOM_FITS)[number];
+
+export const RAIL_ZOOM_FIT_LABELS: Record<RailZoomFit, string> = {
+  contain: "Inside the row",
+  overflow: "Over the row",
+};
+
+/**
  * Where "All accounts" sits on the rail, and what travels with it.
  *
  * The waffle is the way into the directory — the only place you can search every
@@ -657,6 +687,15 @@ export const RAIL_TILE_SIZE = 24;
 export const RAIL_TILE_SIZE_ACTIVE = 28;
 export const RAIL_TILE_SIZE_REST = 16;
 export const RAIL_TILE_BOX = 32;
+
+/**
+ * The gap after a row's last child, once the names are open.
+ *
+ * Fixed rather than derived from the mark, because what sits there is the pin —
+ * and a mark that means "kept" has to land on the same column down the whole
+ * list or it reads as noise rather than as a column.
+ */
+export const RAIL_ROW_END_PAD = 10;
 
 export const RAIL_TILE_SHAPES = ["pill", "squircle"] as const;
 
@@ -996,6 +1035,8 @@ export interface ThemeState {
    * whoever points at one.
    */
   railMagnify: boolean;
+  /** Whether a magnified tile stays inside its row. See RAIL_ZOOM_FITS. */
+  railZoomFit: RailZoomFit;
   /** Whether the app bar sits on the plane or inside the canvas. See PAGE_SHELLS. */
   pageShell: PageShell;
 }
@@ -1143,7 +1184,9 @@ export const DEFAULT_THEME: ThemeState = {
   railTileShape: "pill",
   // Today's behaviour, so the rail opens as the thing being argued with rather
   // than as the proposal. Both answers are one click away.
-  railRecents: "pinned",
+  // Pinned + recent (Aug 29): the rail keeps its arrangement AND answers the
+  // tenth-account problem, which is the complaint the axis exists for.
+  railRecents: "recent",
   /*
    * Under the agency plate.
    *
@@ -1166,6 +1209,9 @@ export const DEFAULT_THEME: ThemeState = {
   railSizing: "active",
   railActiveBar: false,
   railMagnify: true,
+  // Contained. A tile that breaks its own pill on hover is a bug wearing an
+  // animation; "Over the row" keeps the shipped behaviour for the comparison.
+  railZoomFit: "contain",
   // Back to the bar on the plane (Aug 28). The joined card is one click away;
   // this is the arrangement the review opens on.
   pageShell: "plane",

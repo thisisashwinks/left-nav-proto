@@ -212,6 +212,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * light veil the mode always had: enough to settle the page down, not enough
    * to stop you reading it while you arrange the nav it belongs to.
    */
+  const CANVAS_VEIL = editTreatment === "dim" ? "#1018284d" : "#10182826";
+  const RAIL_VEIL = "#1018281a";
   const editScrim =
     editTreatment === "dim"
       ? "bg-[#1018284d] backdrop-saturate-[0.35]"
@@ -234,6 +236,18 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * "behind the mode" and little enough to leave the marks themselves alone.
    */
   const editRailScrim = "bg-[#1018281a]";
+
+  /*
+   * The nav's own margins, ramped between its two neighbours.
+   *
+   * The strip above and below the nav is the ONE band that spans from the
+   * rail's veil to the canvas's, and they are different strengths — 10% and
+   * 30%. A flat fill there has to pick one, which puts a visible step at
+   * whichever edge it does not match, twice, on a 4px band. A left-to-right
+   * ramp between the two makes the whole top edge of the shell read as one
+   * surface receding, rather than three bands that happen to be adjacent.
+   */
+  const editNavMarginScrim = `linear-gradient(to right, ${RAIL_VEIL}, ${CANVAS_VEIL})`;
   /*
    * Whether the app bar and the page are one card.
    *
@@ -1171,15 +1185,42 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         {...(legacyNav ? { "data-legacy-nav": "" } : {})}
         data-nav-theme={legacyNav ? legacyNavTheme : navTheme}
         className={cn(
-          "relative z-20 my-[var(--shell-canvas-gap)] ml-[var(--shell-canvas-gap)] flex min-h-0 self-stretch bg-nav shadow-[var(--shell-canvas-shadow),inset_0_0_0_1px_var(--nav-border)]",
+          "relative my-[var(--shell-canvas-gap)] ml-[var(--shell-canvas-gap)] flex min-h-0 self-stretch bg-nav shadow-[var(--shell-canvas-shadow),inset_0_0_0_1px_var(--nav-border)]",
+          /*
+            The card's own level, and why the RAIL's cannot be set on the rail.
+            
+            `relative` plus a z-index makes this a stacking context, so every
+            z-index inside it is resolved against its siblings here and then the
+            whole card competes as one box. The account rail lives in here; the
+            L2 flyout is a sibling of this card at z-30. So a rail set to z-45
+            still lost — not by a pixel of ordering, but because 45 was being
+            compared against the nav column beside it and never against the
+            panel outside. Raising the rail was answering the wrong question.
+            
+            The card is the thing that has to move, and only while the rail is
+            actually standing over something: widened it covers the flyout and
+            the launcher, so the card goes above both. At rest it drops back to
+            20, under the panels it docks against — which is what keeps the
+            flyout's squared left edge reading as one surface with the nav
+            rather than as a card laid on top of it.
+          */
+          railActive && (railExpanded || directory.isMounted)
+            ? "z-[45]"
+            : "z-20",
           /*
             The right corners square off while a panel is docked against them, so
             the nav and the flyout read as one surface rather than two cards that
             happen to touch. The flyout squares its left corners to match, and
             omits its own left border, leaving this card's right edge as the single
             hairline between them instead of two rings stacking into a 2px seam.
+
+            EITHER panel, not just the L2 one. The Recents launcher docks in the
+            same place and was left out of this test, so the card kept its 12px
+            curve behind it and the two surfaces met around a notch at the top
+            and the bottom of the seam — the corner belonging to a card that, for
+            as long as the panel is open, has no corner there.
           */
-          flyout.isMounted
+          flyout.isMounted || launcher.isMounted
             ? "rounded-l-[var(--shell-canvas-radius)]"
             : "rounded-[var(--shell-canvas-radius)]",
         )}
@@ -1286,8 +1327,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         {atFloor ||
         isBlockHidden(layout, "pinned") ||
         (recentsMode === "merged" &&
-          (mergedPinScope === "everywhere" ||
-            (mergedPinScope === "capsule-off" && !collapsed))) ? null : (
+          !agencyScope &&
+          mergedPinScope !== "both") ? null : (
         <PinnedMorph
           theme={navTheme}
           items={pinnedItems}
@@ -1373,6 +1414,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           <CollapsedRail
             theme={navTheme}
             onOpenApp={setAppModal}
+            // The same budget the expanded face gets, so collapsing the nav
+            // never changes which shortcuts the account appears to have.
+            recentsBudget={recentsBudget}
             loading={switching}
             selectedId={selectedId}
             onSelect={selectNavRow}
@@ -1702,30 +1746,51 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         catches the mismatch precisely because the strips are the same size and
         touch at the seam.
         
-        Only while a panel is open. Alone, the nav has no neighbour to be
-        inconsistent with, and dimming its own margins would be the mode putting
-        a grey line above and below itself for no one.
+        Whenever the mode is on, panel or no panel. It was gated on the panel at
+        first, on the grounds that alone the nav has no neighbour to be
+        inconsistent with — which was wrong twice over. The rail is a neighbour,
+        and it is always there; and the band is 4px of untouched white running
+        the width of the nav across the top and bottom of a dimmed screen, which
+        reads as a seam rather than as nothing.
         
-        Left of the nav, not the whole card: the rail is chrome, not the thing
-        being edited, and its margins have nothing to line up with.
+        Left of the nav, not the whole card: the rail's own margins are covered
+        by its full-height veil already.
+        
+        TALLER than the margin they fill, by the card's corner radius.
+        
+        The veils leave a rectangular hole for the nav, and the nav card is a
+        rounded rectangle — so at its top-right and bottom-right corners, where
+        the card's arc pulls away from the square edge of the canvas veil, a
+        12px wedge of undimmed plane showed through. A bright notch on an
+        otherwise dimmed screen, in the two places the eye is already drawn to
+        because that is where the two surfaces meet.
+        
+        These strips sit UNDER the card (z-5 against z-20), so extending them
+        down past the radius costs nothing: the card paints over everything but
+        the wedge, and the wedge fills with the gradient's value at that x —
+        which is the canvas veil, exactly what it is continuing round the curve.
+        The left corners need no such patch; the rail's veil sits ABOVE the card
+        and already covers them.
       */}
-      {layout.editing && flyout.isMounted ? (
+      {layout.editing ? (
         <>
           <div
             aria-hidden="true"
-            style={{ left: railWidth + NAV_FLOAT_GAP, width: navWidth }}
-            className={cn(
-              "motion-fade-in pointer-events-none absolute top-0 z-[5] h-[var(--shell-canvas-gap)]",
-              editScrim,
-            )}
+            style={{
+              left: railWidth + NAV_FLOAT_GAP,
+              width: navWidth,
+              backgroundImage: editNavMarginScrim,
+            }}
+            className="motion-fade-in pointer-events-none absolute top-0 z-[5] h-[calc(var(--shell-canvas-gap)+var(--shell-canvas-radius))]"
           />
           <div
             aria-hidden="true"
-            style={{ left: railWidth + NAV_FLOAT_GAP, width: navWidth }}
-            className={cn(
-              "motion-fade-in pointer-events-none absolute bottom-0 z-[5] h-[var(--shell-canvas-gap)]",
-              editScrim,
-            )}
+            style={{
+              left: railWidth + NAV_FLOAT_GAP,
+              width: navWidth,
+              backgroundImage: editNavMarginScrim,
+            }}
+            className="motion-fade-in pointer-events-none absolute bottom-0 z-[5] h-[calc(var(--shell-canvas-gap)+var(--shell-canvas-radius))]"
           />
         </>
       ) : null}
@@ -1876,6 +1941,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       {launcher.isMounted ? (
         <PinnedLauncher
           offsetLeft={leftOffset}
+          offsetTop={NAV_FLOAT_GAP}
           theme={navTheme}
           phase={launcher.phase}
           agencyScope={agencyScope}

@@ -21,10 +21,16 @@ import { PinButton } from "./pin-button";
  * The caller keeps one responsibility: the row needs right padding equal to the
  * star plus the gap it used to sit behind, or its text will run underneath.
  */
+/** Whether this id names something the dock can hold. */
+export function isPinnable(productId: string): boolean {
+  return productById(productId) !== undefined || childById(productId) !== undefined;
+}
+
 export function WithPin({
   productId,
   pinClass,
   pinSize,
+  pinInset = 8,
   children,
 }: {
   /**
@@ -38,14 +44,30 @@ export function WithPin({
   pinClass?: string;
   /** The glyph's size, when this surface's rows want a different one. */
   pinSize?: number;
+  /**
+   * How far in from the row's trailing edge the pin sits, in px.
+   *
+   * 8 by default, which puts it flush at the edge. A surface whose rows also
+   * carry a disclosure chevron passes the chevron's column instead, so the
+   * chevron stays the last thing on the row and the pins still land on one
+   * line whether a row discloses or not.
+   *
+   * A style rather than a class: two `right-*` utilities on one element resolve
+   * by source order in the generated sheet, which is not something a caller can
+   * reason about.
+   */
+  pinInset?: number;
   children: React.ReactNode;
 }) {
-  if (!productById(productId) && !childById(productId)) return children;
+  if (!isPinnable(productId)) return children;
 
   return (
     <div className="group/row relative w-full shrink-0">
       {children}
-      <span className={cn("absolute right-[8px] z-10", pinClass ?? "top-1/2 -translate-y-1/2")}>
+      <span
+        style={{ right: pinInset }}
+        className={cn("absolute z-10", pinClass ?? "top-1/2 -translate-y-1/2")}
+      >
         <PinButton
           productId={productId}
           {...(pinSize !== undefined ? { size: pinSize } : {})}

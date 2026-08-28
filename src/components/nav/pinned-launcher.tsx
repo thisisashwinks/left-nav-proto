@@ -59,6 +59,7 @@ const PANEL_RECENT_ROWS = 10;
  */
 export function PinnedLauncher({
   offsetLeft,
+  offsetTop,
   theme,
   phase,
   agencyScope,
@@ -67,6 +68,11 @@ export function PinnedLauncher({
   onClose,
 }: {
   offsetLeft: number;
+  /**
+   * Distance from the shell's top edge — the canvas gap, so this panel's top
+   * lines up with the nav card's and with the L2 flyout it opens over.
+   */
+  offsetTop: number;
   theme: SurfaceTheme;
   /** Drives the enter/exit animation, as for the product flyouts. */
   phase: TransitionPhase;
@@ -243,12 +249,27 @@ export function PinnedLauncher({
         data-cursor="menu"
         onPointerEnter={onPointerEnter}
         onPointerLeave={onPointerLeave}
-        style={{ left: offsetLeft }}
+        style={{ left: offsetLeft, top: offsetTop }}
         className={cn(
           // Header and filter pinned, list scrolling, "New group" pinned at the
           // bottom — same reasoning as the flyout panel: on a short screen the
           // whole thing scrolled and the create affordance went with it.
-          "absolute top-0 bottom-0 z-40 flex w-[360px] flex-col items-start overflow-hidden bg-nav pt-[14px] pb-[16px] shadow-[8px_0_24px_0_var(--fly-shadow),inset_-1px_0_0_0_var(--fly-border)]",
+          "absolute bottom-[var(--shell-canvas-gap)] z-40 flex w-[360px] flex-col items-start overflow-hidden rounded-r-[var(--shell-canvas-radius)] bg-nav pt-[14px] pb-[16px]",
+          /*
+            The same box the L2 panels are, and for the same reasons.
+            
+            This one ran the full page height with no radius and an 8px drop
+            shadow spilling LEFT over the nav — so beside a flyout it read as a
+            different KIND of surface: taller, squarer, and tinted by its own
+            shadow even though both are `bg-nav`. That was the "background looks
+            off" — not the fill, the shadow lying on top of it.
+            
+            Inset top and bottom to the canvas gap, right corners rounded, and
+            three hairlines instead of the shadow. Nothing on the left: the
+            pointer travels from a nav row into this panel, and a border there
+            would stack against the nav card's own into a 2px seam.
+          */
+          "shadow-[inset_0_1px_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border)]",
           phase === "entering" ? "motion-panel-in" : "motion-panel-out",
         )}
       >

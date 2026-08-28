@@ -43,6 +43,8 @@ import {
   RAIL_TILE_SHAPES,
   LAUNCHPAD_CARDS,
   LAUNCHPAD_CARD_LABELS,
+  RAIL_ZOOM_FITS,
+  RAIL_ZOOM_FIT_LABELS,
   RAIL_DIRECTORY_SPOTS,
   RAIL_DIRECTORY_SPOT_LABELS,
   RAIL_RECENTS,
@@ -79,6 +81,7 @@ import {
   type RailTileShape,
   type RailRecents,
   type RailDirectorySpot,
+  type RailZoomFit,
   type LaunchpadCard,
   type RecentsMode,
   MERGED_PIN_SCOPES,
@@ -258,6 +261,8 @@ function NavStructureSection({
     setRailRecents,
     railDirectorySpot,
     setRailDirectorySpot,
+    railZoomFit,
+    setRailZoomFit,
     editTreatment,
     setEditTreatment,
     railSizing,
@@ -347,7 +352,7 @@ function NavStructureSection({
             {railRecents === "pinned"
               ? "The curated set and nothing else. Visit a ninth account and the rail keeps no trace of it — going back means the directory again."
               : railRecents === "recent"
-                ? "A run of recents under the curated set, closed off by a hairline. The rail keeps its arrangement; history gets a place of its own."
+                ? "The accounts you keep, marked with a pin, then the three you were last in. One list, not two — the pin says which is which, so no rule cuts the column in half."
                 : "No second run: visiting an account puts it on the rail and the oldest unpinned tile falls off. An MRU with a pinned head."}
           </Note>
 
@@ -364,6 +369,19 @@ function NavStructureSection({
               : railDirectorySpot === "top"
                 ? "Anchored under the agency plate. The one fixed point in the strip, so the way into search is in the same place every time."
                 : "Anchored under the agency, with the account you are in raised beside it. It leaves a hole where that tile was in the ordered set."}
+          </Note>
+
+          <Segmented
+            label="Hover zoom stays"
+            options={RAIL_ZOOM_FITS}
+            value={railZoomFit}
+            onChange={(v: RailZoomFit) => setRailZoomFit(v)}
+            format={(v) => RAIL_ZOOM_FIT_LABELS[v]}
+          />
+          <Note>
+            {railZoomFit === "contain"
+              ? "The whole row scales as one object, so the mark cannot break its own pill. The active tile also gets the 4px clearance every other tile has — its row grows to 36px rather than the mark shrinking."
+              : "As it shipped: the mark scales and the pill holds still, Dock-style. At 1.35× a 28px mark reaches 38px inside a 32px row."}
           </Note>
 
           <Segmented

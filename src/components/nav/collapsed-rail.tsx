@@ -1,7 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { Monitor, PanelLeftOpen, Pin, Smartphone, SquarePen } from "lucide-react";
+import {
+  History,
+  Monitor,
+  PanelLeftOpen,
+  Pin,
+  Smartphone,
+  SquarePen,
+} from "lucide-react";
 import {
   GET_APP_LABELS,
   type AppKind,
@@ -23,7 +30,11 @@ import { agencyRailItems, agencySettings } from "./agency-config";
 import { collapsedPinnedBlock, PINNED_VISIBLE } from "./pinned-morph";
 import { navEntriesFor } from "./nav-entries";
 import { useNavLayout } from "./nav-layout-provider";
-import { flyoutIdFor, navConfig } from "./nav-config";
+import { allocate, orderPins, recentIdsFor } from "./merged-recents";
+import { ResolvedIcon } from "./resolved-icon";
+import { fixedEntriesFor, flyoutIdFor, navConfig } from "./nav-config";
+import { usePlanFor } from "@/components/nav/nav-profiles";
+import { isBlockHidden } from "./grouping";
 import { RailTooltip } from "./rail-tooltip";
 import type { NavDensity } from "./use-nav-density";
 import type { NavConfig, NavEntry, NavItem } from "./types";
@@ -57,6 +68,17 @@ interface CollapsedRailProps {
   density: NavDensity;
   /** Opens the manage surface — the floor tier's stand-in for the capsule. */
   onOpenLauncher: () => void;
+  /**
+   * How many inline recent rows to draw, after the density budget.
+   *
+   * The same number the expanded face is given. The rail used to ignore recents
+   * entirely and show one History glyph instead, on the reasoning that 64px has
+   * no room for a list — which was true of a list with labels and section
+   * headings, and is not true of a column of 16px marks. The cost of being
+   * right about the width was that collapsing the nav changed which shortcuts
+   * existed, so the two faces disagreed about what the account's nav contained.
+   */
+  recentsBudget: number;
   /**
    * Opens the Get the app modal, when the placement axis puts the offer in the
    * nav. The rail carries it too — an offer that disappears the moment the nav
@@ -108,6 +130,7 @@ export function CollapsedRail({
   aiSession,
   density,
   onOpenLauncher,
+  recentsBudget,
   onOpenApp,
   onEdit,
   editRevealed = false,
@@ -122,8 +145,18 @@ export function CollapsedRail({
   // The capsule hugs its contents when collapsed, so the hole left for it has to
   // match. Read from the same store the capsule does rather than take a prop, so
   // the two can never disagree.
-  const { entryLayout, dockPosition, recentsMode, mergedPinScope, getAppPlacement } =
-    useTheme().effective;
+  const {
+    entryLayout,
+    dockPosition,
+    recentsMode,
+    mergedPinScope,
+    mergedPinOrder,
+    mergedVisibleRows,
+    mergedPinCap,
+    mergedRecentFloor,
+    getAppPlacement,
+    launchpad: launchpadSetting,
+  } = useTheme().effective;
   /*
    * The rail keeps its pinned icons under most of the merge, and loses them
    * under one option.
@@ -135,12 +168,126 @@ export function CollapsedRail({
    * door left: the purest reading of one list, and the one where pinning is
    * invisible the moment the nav collapses.
    */
-  const mergedDropsRailPins =
-    recentsMode === "merged" && mergedPinScope === "everywhere";
+  /*
+   * The rail draws whatever the expanded face draws — see `recentsBudget`.
+   *
+   * Merged mode puts the pins in the list rather than in a capsule, so the rail
+   * does too, and the floating capsule survives only on `both`, which is the
+   * setting whose whole purpose is to show the two arrangements at once. That
+   * makes `capsule-off` and `everywhere` identical down here: they only ever
+   * differed in what the rail did, and the rail no longer has an opinion of its
+   * own to differ with.
+   */
+  const merged = recentsMode === "merged" && !agencyScope;
+  const mergedDropsRailPins = merged && mergedPinScope !== "both";
+
+
   const topEntry = entryLayout === "top";
   // In the app bar, the entry is drawn once — up there. See left-nav.
   const headerEntry = entryLayout === "header";
-  const { state: layout, groups } = useNavLayout();
+  const { state: layout, groups, productIconFor, productLabelFor } =
+    useNavLayout();
+  /*
+   * The same two gates the expanded face applies to Quick Actions: the plan
+   * decides whether the Launchpad card exists at all, and the card is what
+   * Quick Actions folds into. Read here rather than passed down, so the rail
+   * cannot be handed a stale answer.
+   */
+  const { has } = usePlanFor(agencyScope ? "agency" : account.id);
+  const launchpadAllowed = has("launchpadToggle") ? launchpadSetting : true;
+  const cardQuickActions =
+    !isBlockHidden(layout, "quickActions") && launchpadAllowed && !agencyScope;
+  /*
+   * The rail's copy of the fixed cluster, resolved exactly as the nav resolves
+   * it and trimmed by the same budget.
+   *
+   * `railFixed` authored a single History glyph in place of the rows; that row
+   * is still the door to the panel, so it stays — as the tail of the list it
+   * names, which is what "More" means, rather than as a stand-in for a list
+   * that is not there.
+   */
+  const recentRows = React.useMemo(() => {
+    if (agencyScope) return [];
+    if (merged) {
+      const pins = orderPins(layout.pinned, mergedPinOrder === "newest").map((id) => ({
+        id,
+        icon: productIconFor(id),
+        label: productLabelFor(id),
+        pinned: true,
+      }));
+      const recents = recentIdsFor(layout).map((id) => ({
+        id,
+        icon: productIconFor(id),
+        label: productLabelFor(id),
+        pinned: false,
+      }));
+      const { pinsShown, recentsShown } = allocate({
+        pinCount: pins.length,
+        recentCount: recents.length,
+        budget: mergedVisibleRows,
+        pinCap: mergedPinCap,
+        recentFloor: mergedRecentFloor,
+      });
+      return [...pins.slice(0, pinsShown), ...recents.slice(0, recentsShown)];
+    }
+    return recentIdsFor(layout)
+      .slice(0, recentsBudget)
+      .map((id) => ({
+        id,
+        icon: productIconFor(id),
+        label: productLabelFor(id),
+        pinned: false,
+      }));
+  }, [
+    agencyScope,
+    merged,
+    layout,
+    productIconFor,
+    productLabelFor,
+    mergedPinOrder,
+    mergedVisibleRows,
+    mergedPinCap,
+    mergedRecentFloor,
+    recentsBudget,
+  ]);
+
+  /** Where the pinned run ends, for the hairline that closes it. */
+  const pinnedRun = recentRows.filter((r) => r.pinned).length;
+
+  /*
+   * The standing entry points, resolved rather than authored.
+   *
+   * `config.railFixed` is a hand-written list — a Recent glyph, AI Agents,
+   * Quick Actions — and it was drawn verbatim whatever the account had done.
+   * The expanded face resolves the same cluster against the account and drops
+   * from it: the proposed tree has no AI Agents row because AI is a bucket of
+   * its own there, Quick Actions folds into the Launchpad card wherever that
+   * card exists, and a hidden block takes its row with it. None of that reached
+   * the rail, so collapsing the nav grew back two rows the expanded nav had
+   * deliberately removed.
+   *
+   * So the rail asks the same question and takes the same answer. Recent rows
+   * are stripped here because the marks above already are the recents — the
+   * authored glyph was a stand-in for a list that is now actually drawn.
+   */
+  const fixedRows = React.useMemo(() => {
+    if (agencyScope) return [];
+    const resolved = fixedEntriesFor(layout, navConfig.fixed);
+    return resolved.flatMap((e): NavItem[] => {
+      if (e.kind !== "item") return [];
+      if (e.item.id.startsWith("recent")) return [];
+      if (cardQuickActions && e.item.id === "quick-actions") return [];
+      return [e.item];
+    });
+  }, [agencyScope, layout, cardQuickActions]);
+
+  /**
+   * The Recent door, for the floor tier alone.
+   *
+   * The authored glyph — kept because at the floor the rail cannot draw the
+   * list it stands for, which is exactly the case it was written for.
+   */
+  const recentDoor = navConfig.railFixed.find((i) => i.id === "recent") ?? null;
   const pinnedBlock = collapsedPinnedBlock(
     Math.min(layout.pinned.length, PINNED_VISIBLE) + 1,
   );
@@ -352,7 +499,40 @@ export function CollapsedRail({
       {atFloor || agencyScope ? null : (
         <>
           <div className="flex w-full flex-col items-center gap-[calc(var(--t-nav-space,2px)+2px)]">
-            {config.railFixed.map(renderRailRow)}
+            {/*
+              The same rows the expanded face is showing, as marks.
+
+              Drawn ahead of the authored cluster so the column reads in the
+              order the nav does: shortcuts, then the standing entry points. In
+              merged mode the pinned run leads and a hairline closes it — the
+              one piece of the merged block's grammar that survives at 64px,
+              since a pin glyph on a 16px mark would be a second mark.
+            */}
+            {recentRows.map((row, i) => (
+              <React.Fragment key={row.id}>
+                {merged && pinnedRun > 0 && i === pinnedRun
+                  ? divider("div-merged-run")
+                  : null}
+                {railButton(
+                  row.id,
+                  row.label,
+                  <ResolvedIcon icon={row.icon} size={16} />,
+                  row.id === selectedId,
+                  () => onSelect(row.id),
+                  onHoverPlain,
+                )}
+              </React.Fragment>
+            ))}
+            {/*
+              No "view all" down here.
+
+              The expanded block's heading carries one because it is a heading
+              with a spare right edge; a 64px column has neither, and a glyph
+              for it would be a third History mark in a strip that already shows
+              the history itself. Getting to the whole list means opening the
+              nav, which is one click and the click you were going to make.
+            */}
+            {fixedRows.map(renderRailRow)}
           </div>
           {divider("div-fixed")}
         </>
@@ -385,7 +565,15 @@ export function CollapsedRail({
           {atFloor && !agencyScope ? (
             <>
               {railButton("pinned-rail", "Pinned", <Pin size={16} aria-hidden="true" />, false, onOpenLauncher)}
-              {config.railFixed.map(renderRailRow)}
+              {/*
+                At the floor there is no room to draw the recents, so the door
+                comes back — which is what the expanded face does down here too:
+                its budget goes to zero and the More row takes the name Recent.
+                The rest of the cluster is resolved, not authored, for the same
+                reason as above.
+              */}
+              {recentDoor ? renderRailRow(recentDoor) : null}
+              {fixedRows.map(renderRailRow)}
               {divider("div-fixed-floor")}
             </>
           ) : null}
