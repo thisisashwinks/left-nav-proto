@@ -329,3 +329,19 @@
     transition-duration: 1ms !important;
   }
 }
+
+/*
+ * The hatched edge for edit mode's `hatch` treatment.
+ *
+ * A repeating gradient rather than a dashed border: a dash is still a border,
+ * and the whole point of this option is to look like a MODE — the barber's-pole
+ * language design tools use for "you are inside something" — rather than like a
+ * selection or a focus ring.
+ */
+.nav-edit-hatch {
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--nav-edit-ring) 0 3px,
+    transparent 3px 7px
+  );
+}

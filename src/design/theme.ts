@@ -532,6 +532,39 @@ export const NAV_SECTION_LABELS: Record<NavSections, string> = {
  * why the rail widens to names on hover. `railMagnify` is the counterweight —
  * see below.
  */
+/**
+ * How the nav says it is in edit mode.
+ *
+ * The mode changes what a click does — a label renames, a row drags — and the
+ * affordances alone do not say so until you hover one. Something has to mark
+ * the region the mode applies to, and every candidate trades differently.
+ *
+ *  ring   What ships: a neutral stroke around the nav, and the page a step
+ *         back behind it. Quiet, and the thing a review keeps calling
+ *         unclear — a 1.5px outline is also what a focus ring looks like.
+ *  dim    No stroke at all. Everything outside the nav drops much further and
+ *         desaturates, so the mode is shown by what is WITHDRAWN. The
+ *         strongest signal here and the only one that cannot be mistaken for
+ *         focus; the cost is that you can no longer read the page you are
+ *         arranging the nav for.
+ *  hatch  A 4px diagonal-striped band on the nav's edges instead of a line.
+ *         Design-tool language: unmistakably a mode rather than a selection,
+ *         and unlike anything else in the product. Loud by construction.
+ *  band   A bar across the nav's top that says "Editing navigation" in words.
+ *         The weakest region cue and the strongest statement of WHAT the mode
+ *         is — the only option that does not make you infer it.
+ */
+export const EDIT_TREATMENTS = ["ring", "dim", "hatch", "band"] as const;
+
+export type EditTreatment = (typeof EDIT_TREATMENTS)[number];
+
+export const EDIT_TREATMENT_LABELS: Record<EditTreatment, string> = {
+  ring: "Border",
+  dim: "Dimmed surround",
+  hatch: "Hatched edge",
+  band: "Header band",
+};
+
 export const RAIL_SIZINGS = ["uniform", "active"] as const;
 
 export type RailSizing = (typeof RAIL_SIZINGS)[number];
@@ -809,6 +842,8 @@ export interface ThemeState {
   railTileShape: RailTileShape;
   /** Whether the rail carries recents beside its curated set. See RAIL_RECENTS. */
   railRecents: RailRecents;
+  /** How edit mode marks the nav. See EDIT_TREATMENTS. */
+  editTreatment: EditTreatment;
   /** Whether size marks the active account. See RAIL_SIZINGS. */
   railSizing: RailSizing;
   /**
@@ -953,6 +988,8 @@ export const DEFAULT_THEME: ThemeState = {
    * shrinking the inactive tiles is the half that still has to be argued, so it
    * stays one click away rather than arriving by default.
    */
+  // The border, which is what ships. The other three are the proposals.
+  editTreatment: "ring",
   railSizing: "uniform",
   railMagnify: true,
   // Back to the bar on the plane (Aug 28). The joined card is one click away;

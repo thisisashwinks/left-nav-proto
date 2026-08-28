@@ -24,6 +24,7 @@ import {
   type RailTileShape,
   type RailRecents,
   type RailSizing,
+  type EditTreatment,
   type PageShell,
   type ScopeModel,
   type NavGeneration,
@@ -126,6 +127,7 @@ interface ThemeContextValue extends ThemeState {
   setInboxPalette: (palette: InboxPalette) => void;
   setRailTileShape: (shape: RailTileShape) => void;
   setRailRecents: (mode: RailRecents) => void;
+  setEditTreatment: (treatment: EditTreatment) => void;
   setRailSizing: (sizing: RailSizing) => void;
   setRailMagnify: (enabled: boolean) => void;
   setPageShell: (shell: PageShell) => void;
@@ -286,6 +288,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, railTileShape })),
       setRailRecents: (railRecents) =>
         setState((s) => ({ ...s, railRecents })),
+      setEditTreatment: (editTreatment) =>
+        setState((s) => ({ ...s, editTreatment })),
       setRailSizing: (railSizing) => setState((s) => ({ ...s, railSizing })),
       setRailMagnify: (railMagnify) => setState((s) => ({ ...s, railMagnify })),
       setPageShell: (pageShell) => setState((s) => ({ ...s, pageShell })),

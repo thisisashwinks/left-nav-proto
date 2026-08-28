@@ -201,7 +201,21 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     searchTheme,
     flyoutTrigger,
     pageShell,
+    editTreatment,
   } = effective;
+
+  /*
+   * How hard the surround steps back while editing.
+   *
+   * The `dim` treatment is the whole signal — there is no stroke to fall back
+   * on — so it goes much further and drains the colour with it. The others keep
+   * the light veil the mode always had: enough to settle the page down, not
+   * enough to stop you reading it while you arrange the nav it belongs to.
+   */
+  const editScrim =
+    editTreatment === "dim"
+      ? "bg-[#1018284d] backdrop-saturate-[0.35]"
+      : "bg-[#10182826]";
   /*
    * Whether the app bar and the page are one card.
    *
@@ -1626,7 +1640,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         <div
           aria-hidden="true"
           style={{ left: leftOffset }}
-          className="motion-fade-in pointer-events-none absolute top-0 right-0 bottom-0 z-[5] bg-[#10182826]"
+          className={cn(
+            "motion-fade-in pointer-events-none absolute top-0 right-0 bottom-0 z-[5]",
+            editScrim,
+          )}
         />
       ) : null}
 
@@ -1649,7 +1666,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         <div
           aria-hidden="true"
           style={{ width: railWidth + NAV_FLOAT_GAP }}
-          className="motion-fade-in pointer-events-none absolute top-0 left-0 bottom-0 z-[31] bg-[#10182826]"
+          className={cn(
+            "motion-fade-in pointer-events-none absolute top-0 left-0 bottom-0 z-[31]",
+            editScrim,
+          )}
         />
       ) : null}
 
@@ -1675,12 +1695,18 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           <div
             aria-hidden="true"
             style={{ left: railWidth + NAV_FLOAT_GAP, width: navWidth }}
-            className="motion-fade-in pointer-events-none absolute top-0 z-[5] h-[var(--shell-canvas-gap)] bg-[#10182826]"
+            className={cn(
+              "motion-fade-in pointer-events-none absolute top-0 z-[5] h-[var(--shell-canvas-gap)]",
+              editScrim,
+            )}
           />
           <div
             aria-hidden="true"
             style={{ left: railWidth + NAV_FLOAT_GAP, width: navWidth }}
-            className="motion-fade-in pointer-events-none absolute bottom-0 z-[5] h-[var(--shell-canvas-gap)] bg-[#10182826]"
+            className={cn(
+              "motion-fade-in pointer-events-none absolute bottom-0 z-[5] h-[var(--shell-canvas-gap)]",
+              editScrim,
+            )}
           />
         </>
       ) : null}

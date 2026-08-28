@@ -32,6 +32,8 @@ import {
   LAYOUT_REPLACE_DIALOG_LABELS,
   LAYOUT_REPLACE_DIALOGS,
   RAIL_TILE_SHAPE_LABELS,
+  EDIT_TREATMENTS,
+  EDIT_TREATMENT_LABELS,
   RAIL_SIZINGS,
   RAIL_SIZING_LABELS,
   RAIL_TILE_SHAPES,
@@ -62,6 +64,7 @@ import {
   type InboxPalette,
   type LayoutReplaceDialog,
   type PageShell,
+  type EditTreatment,
   type RailSizing,
   type RailTileShape,
   type RailRecents,
@@ -235,6 +238,8 @@ function NavStructureSection({
     setRailTileShape,
     railRecents,
     setRailRecents,
+    editTreatment,
+    setEditTreatment,
     railSizing,
     setRailSizing,
     railMagnify,
@@ -465,6 +470,23 @@ function NavStructureSection({
           account”.
         </Note>
       ) : null}
+
+      <Segmented
+        label="Editing treatment"
+        options={EDIT_TREATMENTS}
+        value={editTreatment}
+        onChange={(v: EditTreatment) => setEditTreatment(v)}
+        format={(v) => EDIT_TREATMENT_LABELS[v]}
+      />
+      <Note>
+        {editTreatment === "ring"
+          ? "What ships: a neutral stroke around the nav, page a step back behind it. Quiet — and a 1.5px outline is also what a focus ring looks like, which is the objection."
+          : editTreatment === "dim"
+            ? "No stroke. Everything outside the nav drops much further and desaturates, so the mode is shown by what is withdrawn. Unmistakable; you can no longer read the page you are arranging the nav for."
+            : editTreatment === "hatch"
+              ? "A 4px diagonal band on the nav's edges instead of a line — design-tool language for “you are inside something”. Loud by construction, and unlike anything else in the product."
+              : "A bar across the nav's top that says it in words. The weakest cue about WHERE the mode applies, the strongest about WHAT it is."}
+      </Note>
 
       {/*
         Quick actions, which is one switch over two surfaces.

@@ -77,7 +77,7 @@ import type { NavDensity } from "./use-nav-density";
 import { NavSectionLabel } from "./nav-section-label";
 import { NavRowsSkeleton } from "@/components/shell/switching";
 import { NavAppearance } from "./nav-appearance";
-import { Monitor, Smartphone, type LucideIcon } from "lucide-react";
+import { Monitor, Smartphone, SquarePen, type LucideIcon } from "lucide-react";
 import {
   GET_APP_LABELS,
   type AppKind,
@@ -224,6 +224,7 @@ export function LeftNav({
     mergedPinScope,
     mergedAgencyRecents,
     getAppPlacement,
+    editTreatment,
   } = useTheme().effective;
   /*
    * Recents and Pinned drawn as one list — see merged-recents.tsx.
@@ -1606,7 +1607,13 @@ export function LeftNav({
          * So the nav stays square and the panel carries the curve, which is the
          * only place in the pair where the outline actually turns a corner.
          */
+        /*
+         * Only the `ring` treatment draws a stroke. `dim` withdraws everything
+         * else instead, `hatch` puts a striped band on the edges (below), and
+         * `band` names the mode in words across the top — see EDIT_TREATMENTS.
+         */
         editing &&
+          editTreatment === "ring" &&
           (openFlyoutId
             ? /*
                * With a panel open the two are one surface, so the ring is one
@@ -1618,8 +1625,48 @@ export function LeftNav({
                */
               "rounded-none shadow-[inset_1.5px_0_0_0_var(--nav-edit-ring),inset_0_1.5px_0_0_var(--nav-edit-ring),inset_0_-1.5px_0_0_var(--nav-edit-ring)]"
             : "rounded-none shadow-[inset_0_0_0_1.5px_var(--nav-edit-ring)]"),
+        editing && editTreatment !== "ring" && "rounded-none",
       )}
     >
+      {/*
+        The hatched edge.
+
+        Four strips rather than one bordered box: a repeating gradient can only
+        be masked to an edge with `mask`, and four 4px children are cheaper to
+        reason about than a mask that has to survive the flyout squaring one
+        side. The right strip is dropped while a panel is docked, for the same
+        reason the ring omits it — that seam is how a row travels between the
+        nav and the panel, and a barber's pole down it says "boundary" exactly
+        where there is none.
+      */}
+      {editing && editTreatment === "hatch" ? (
+        <span aria-hidden="true" className="pointer-events-none absolute inset-0 z-40">
+          <span className="nav-edit-hatch absolute inset-x-0 top-0 h-[4px]" />
+          <span className="nav-edit-hatch absolute inset-x-0 bottom-0 h-[4px]" />
+          <span className="nav-edit-hatch absolute inset-y-0 left-0 w-[4px]" />
+          {openFlyoutId ? null : (
+            <span className="nav-edit-hatch absolute inset-y-0 right-0 w-[4px]" />
+          )}
+        </span>
+      ) : null}
+
+      {/*
+        The header band.
+
+        The one treatment that says what the mode IS rather than where it
+        applies, so it carries words. It pushes the nav's contents down by its
+        own height instead of overlaying them — a bar that covered the account
+        name would be trading one confusion for another.
+      */}
+      {editing && editTreatment === "band" ? (
+        <div
+          className="flex h-[26px] w-full shrink-0 items-center gap-[6px] px-[12px] text-[11.5px] leading-none font-semibold tracking-[0.02em] text-white"
+          style={{ background: "var(--nav-edit-ring)" }}
+        >
+          <SquarePen size={13} aria-hidden="true" className="shrink-0" />
+          Editing navigation
+        </div>
+      ) : null}
       <NavHeader
         account={account}
         agency={agencyScope}
