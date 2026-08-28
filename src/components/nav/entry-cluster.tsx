@@ -625,7 +625,8 @@ export function EntryPill({
         className={cn(
           "ai-entry motion-tap flex h-[36px] w-full items-center gap-[6px] rounded-full pr-[10px] pl-[4px] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]",
           header
-            ? "shadow-[inset_0_0_0_1px_var(--hdr-border)]"
+            ? // Its own token, not the bar's hairline: see --hdr-entry-border.
+              "shadow-[inset_0_0_0_1px_var(--hdr-entry-border)]"
             : "shadow-[inset_0_0_0_1px_var(--nav-divider)]",
           // Both stay live while editing (Aug 25).
           //

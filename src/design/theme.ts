@@ -290,7 +290,13 @@ export const MERGED_AGENCY_RECENTS_LABELS: Record<MergedAgencyRecents, string> =
  *            feedback, and this is the cheapest way to give it back.
  *  arranged  Pin order as stored, which is what the launcher lets you drag. One
  *            order everywhere, at the cost of a new pin appearing several rows
- *            down — sometimes below the fold.
+ *            down — sometimes below the fold, where View all reaches it.
+ *
+ * `arranged` is the default (Aug 28). `newest` gave the pin useful feedback but
+ * paid for it by reordering the block around the row you just acted on: with a
+ * hard cap, pinning the fourth row moved it to the first and pushed the last
+ * one out of sight. Two rows you did not touch moved, which reads as the nav
+ * rearranging itself rather than as a pin landing.
  */
 export const MERGED_PIN_ORDERS = ["newest", "arranged"] as const;
 
@@ -371,6 +377,77 @@ export const ENTRY_LAYOUT_LABELS: Record<EntryLayout, string> = {
   split: "Bottom edge",
   top: "Under the logo",
   header: "Top bar",
+};
+
+/**
+ * Whether the account rail shows recently visited accounts as well as its own.
+ *
+ * The rail is a CURATED working set — eight tenants an agency arranged, not a
+ * history — which is the right shape until you visit a ninth. Switch to Coastal
+ * from the directory and the rail it is not on carries no trace of it: getting
+ * back means opening the directory and finding it again, for an account you were
+ * in ten seconds ago. The tenth-account problem, and the rail has no answer.
+ *
+ *  pinned   Today. The rail is exactly what was arranged and nothing else.
+ *  recent   A run of recents under the curated set, closed off by a hairline —
+ *           the same bargain the sub-account nav's merged block strikes.
+ *  auto     No second run at all: visiting an account puts it ON the rail, and
+ *           the oldest tile nobody pinned falls off. The rail becomes an MRU
+ *           with a pinned head. Fewer parts, and the trade is that a set you
+ *           arranged keeps rearranging itself.
+ *
+ * `recent` and `auto` answer the same complaint from opposite directions, which
+ * is why both are here: one adds a place for history, the other admits the rail
+ * was always partly history and stops pretending otherwise.
+ */
+export const RAIL_RECENTS = ["pinned", "recent", "auto"] as const;
+
+export type RailRecents = (typeof RAIL_RECENTS)[number];
+
+export const RAIL_RECENTS_LABELS: Record<RailRecents, string> = {
+  pinned: "Pinned only",
+  recent: "Pinned + recent",
+  auto: "Recents join the rail",
+};
+
+/**
+ * How many recent accounts the rail carries, on the `recent` setting.
+ *
+ * Small on purpose. The rail's whole claim is that it is a glance, and a
+ * history long enough to scroll is the directory with extra steps.
+ */
+export const RAIL_RECENT_LIMIT = 3;
+
+/**
+ * What clicking a row that has children does.
+ *
+ * The two-click problem, and whether it is a problem. A parent in a flyout has
+ * always been a pure disclosure: click it, a list appears, click again in that
+ * list to actually go somewhere. Which means the first click puts you nowhere,
+ * and the row that names the thing you want is the one row that cannot take you
+ * to it.
+ *
+ *  open-first  Clicking a parent expands it AND opens its first child behind the
+ *              panel. Click away and you are already on that page; pick a
+ *              different child and you go there instead, which is the click you
+ *              were going to make anyway. One click now lands somewhere.
+ *  disclose    The original: expanding and navigating stay separate verbs. The
+ *              conservative reading, and not obviously wrong — it never takes
+ *              you somewhere you did not ask for, and "show me what is in here"
+ *              is a real thing to want without committing to a page.
+ *
+ * The cost of `open-first` is a page load you may not have wanted: browsing the
+ * tree now navigates as a side effect. In this prototype that is free. In
+ * production it is a fetch per parent row you open, which is the argument the
+ * axis exists to have.
+ */
+export const L2_CLICK_ACTIONS = ["open-first", "disclose"] as const;
+
+export type L2ClickAction = (typeof L2_CLICK_ACTIONS)[number];
+
+export const L2_CLICK_ACTION_LABELS: Record<L2ClickAction, string> = {
+  "open-first": "Opens first page",
+  disclose: "Expands only",
 };
 
 /**
@@ -627,6 +704,8 @@ export interface ThemeState {
   /** Where the Get the app offer is reached from. See GET_APP_PLACEMENTS. */
   getAppPlacement: GetAppPlacement;
   flyoutTrigger: FlyoutTrigger;
+  /** What clicking a parent row does. See L2_CLICK_ACTIONS. */
+  l2ClickAction: L2ClickAction;
   recentsMode: RecentsMode;
   /*
    * The merged arrangement's own axes. Read only when `recentsMode` is
@@ -728,6 +807,8 @@ export interface ThemeState {
   navSections: NavSections;
   /** The account rail's tile shape, agency plate and mark included. */
   railTileShape: RailTileShape;
+  /** Whether the rail carries recents beside its curated set. See RAIL_RECENTS. */
+  railRecents: RailRecents;
   /** Whether size marks the active account. See RAIL_SIZINGS. */
   railSizing: RailSizing;
   /**
@@ -789,13 +870,16 @@ export const DEFAULT_THEME: ThemeState = {
   // doesn't get exposed until the user actually clicks" — hover preview
   // (with its dwell) stays one toggle away for the comparison.
   flyoutTrigger: "click",
+  // Opening the page too. A first click that lands nowhere is the thing this
+  // answers; "Expands only" is the original, one click away for the comparison.
+  l2ClickAction: "open-first",
   // Merged, per the Aug 28 walkthrough: one list with pins at its top and no
   // separate pinned bar. The other three arrangements stay one click away.
   recentsMode: "merged",
   /*
    * The merge's defaults are the recommendation, not a neutral position: the
-   * capsule goes, the block never folds, pins wear a glyph and a rule, the tail
-   * expands in place, rows carry their breadcrumb, and a new pin lands on top.
+   * capsule goes, the block never folds, pins wear a glyph and a rule, rows
+   * carry their breadcrumb, and a new pin stays where the row already was.
    * Every one of them is one click from its alternatives.
    */
   mergedPinScope: "capsule-off",
@@ -803,8 +887,17 @@ export const DEFAULT_THEME: ThemeState = {
   // Hard cap and "Recents" settled on Aug 28: the block holds a fixed number of
   // rows rather than growing, and it is named after what is actually in it.
   mergedOverflow: "cap",
-  mergedRowDetail: "breadcrumb",
-  mergedPinOrder: "newest",
+  /*
+   * The name alone (Aug 28). The breadcrumb under every row roughly doubled the
+   * block's height to answer a question the labels mostly answer themselves —
+   * and it is the pinned L3s with colliding names that need it, which the
+   * qualified label ("Opportunities › Settings") now handles on its own. The
+   * second line is one click away for the cases it does not.
+   */
+  mergedRowDetail: "name",
+  // Stored order: a new pin stays where the row already was instead of jumping
+  // to the top. See MERGED_PIN_ORDERS.
+  mergedPinOrder: "arranged",
   mergedHeading: "recents",
   mergedPanelSearch: true,
   // Places, so Recent accounts keeps the block it has earned.
@@ -849,6 +942,9 @@ export const DEFAULT_THEME: ThemeState = {
   // Fully rounded, which is the proposal. The squircle the rail shipped with is
   // one click away for the comparison.
   railTileShape: "pill",
+  // Today's behaviour, so the rail opens as the thing being argued with rather
+  // than as the proposal. Both answers are one click away.
+  railRecents: "pinned",
   /*
    * Magnification on, resting size unchanged (Aug 28).
    *

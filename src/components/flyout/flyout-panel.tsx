@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { Plus, X } from "lucide-react";
+import { Image, Plus, RotateCcw, X } from "lucide-react";
 
 import { AGENCY_L2_MIME, L2_MIME } from "@/components/nav/nav-drag";
 import { agencyBuckets } from "@/components/nav/agency-config";
 import { useAgencyLayout } from "@/components/nav/agency-layout";
+import { childById } from "@/components/nav/catalogue";
 import { UNGROUPED_ID } from "@/components/nav/grouping";
 import { PROPOSED_SETTINGS_ID } from "@/components/nav/proposed-ia";
 import {
@@ -29,7 +30,11 @@ import { BottomSlot } from "./bottom-slot";
 import { FlyoutActionRow } from "./flyout-action-row";
 import { IconPicker, useIconPicker } from "@/components/nav/icon-picker";
 import { nameForIcon } from "@/components/nav/icon-catalogue";
-import { FlyoutRow, type FlyoutRowEdit } from "./flyout-row";
+import {
+  FlyoutRow,
+  type FlyoutChildEdit,
+  type FlyoutRowEdit,
+} from "./flyout-row";
 import type { FlyoutConfig } from "./types";
 
 interface FlyoutPanelProps {
@@ -53,7 +58,12 @@ interface FlyoutPanelProps {
   onPointerLeave?: () => void;
   onClose: () => void;
   /** Fired for row and L2-child clicks — the shell routes them to pages. */
-  onNavigate?: (id: string) => void;
+  /**
+   * Fired for a row's page. `keepOpen` is set when the click opened a
+   * disclosure and landed on its first child — the panel has to survive that,
+   * because picking from the list it just opened is the next thing you do.
+   */
+  onNavigate?: (id: string, keepOpen?: boolean) => void;
 }
 
 /**
@@ -127,6 +137,16 @@ export function FlyoutPanel({
   const [lifted, setLifted] = React.useState<string | null>(null);
   const [over, setOver] = React.useState<string | null>(null);
   const menu = useRowMenu();
+  /**
+   * The kebab the open menu came out of.
+   *
+   * `useRowMenu` keeps a rect, which is all a menu needs — but the icon picker
+   * anchors to an element, and "Change icon" opens one from inside the menu. So
+   * the element is held here as well, as the nav's own rows already do.
+   */
+  const [menuTrigger, setMenuTrigger] = React.useState<HTMLElement | null>(
+    null,
+  );
   /** Which seam's add-picker is open, anchored to the plus that opened it. */
   const [adding, setAdding] = React.useState<{
     index: number;
@@ -151,7 +171,10 @@ export function FlyoutPanel({
         setRenamingId(null);
       },
       onCancelRename: () => setRenamingId(null),
-      onOpenMenu: (trigger) => menu.open(productId, trigger),
+      onOpenMenu: (trigger) => {
+        setMenuTrigger(trigger);
+        menu.open(productId, trigger);
+      },
       // Icons are governance, so they follow `regroup` — the same gate the
       // nav's own rows use, rather than a second rule for the same action.
       ...(layout.can.regroup
@@ -185,6 +208,24 @@ export function FlyoutPanel({
       lifted: lifted === productId,
     };
   };
+
+  /**
+   * Editing for the rows inside a row.
+   *
+   * Icons only, and behind `regroup` like every other icon in the nav: an L3's
+   * glyph is often inferred from its label rather than authored, so it is the
+   * one property of a sub-page an account has a real reason to correct.
+   */
+  const childEdit: FlyoutChildEdit | undefined =
+    editing && layout.can.regroup
+      ? {
+          onPickIcon: (childId, trigger) => picker.open(childId, trigger),
+          onOpenMenu: (childId, trigger) => {
+            setMenuTrigger(trigger);
+            menu.open(childId, trigger);
+          },
+        }
+      : undefined;
 
   const dragTypes = useDragTypes();
 
@@ -373,6 +414,38 @@ export function FlyoutPanel({
   );
 
   const menuActions = (productId: string): RowMenuAction[] => {
+    /*
+     * An L3's menu is not a product's menu.
+     *
+     * Rename, move-to, remove — none of them mean anything for a page that
+     * belongs to a product rather than to the account's tree, and offering
+     * them would be four entries where one applies. So the child's menu
+     * carries exactly what the child's glyph does, plus the way back to the
+     * shipped one.
+     */
+    if (childById(productId)) {
+      return [
+        {
+          id: "icon",
+          label: "Change icon",
+          icon: Image,
+          onSelect: () => {
+            if (menuTrigger) picker.open(productId, menuTrigger);
+          },
+        },
+        ...(layout.hasIconOverride(productId)
+          ? [
+              {
+                id: "reset-icon",
+                label: "Reset icon",
+                icon: RotateCcw,
+                onSelect: () => layout.resetIcon(productId),
+              },
+            ]
+          : []),
+      ];
+    }
+
     // Where this row sits in its category, so the menu can offer a nudge and
     // know when not to. Absent for a panel with no category behind it.
     const order = category?.productIds ?? [];
@@ -386,6 +459,14 @@ export function FlyoutPanel({
       currentGroupId: category?.id ?? null,
       categories: destinations,
       onRename: () => setRenamingId(productId),
+      // The same gate the row's own glyph is behind, so the two ways in agree.
+      ...(layout.can.regroup
+        ? {
+            onPickIcon: () => {
+              if (menuTrigger) picker.open(productId, menuTrigger);
+            },
+          }
+        : {}),
       onMoveToGroup: (groupId) => layout.moveProductToGroup(productId, groupId),
       onMoveToTopLevel: () => layout.placeInTail(productId, 0),
       onRemove: () => layout.removeProductFromNav(productId),
@@ -473,7 +554,7 @@ export function FlyoutPanel({
            * continuing (Khoi, Aug 24). The card behind both already carries the
            * float; the panel needs only its edges.
            */
-          ? "shadow-[inset_0_1.5px_0_0_var(--brand),inset_-1.5px_0_0_0_var(--brand),inset_0_-1.5px_0_0_var(--brand)]"
+          ? "shadow-[inset_0_1.5px_0_0_var(--nav-edit-ring),inset_-1.5px_0_0_0_var(--nav-edit-ring),inset_0_-1.5px_0_0_var(--nav-edit-ring)]"
           : "shadow-[inset_0_1px_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border)]",
         // `left` animates too, so the panel follows the nav edge when the rail
         // collapses underneath an open panel instead of jumping.
@@ -549,17 +630,22 @@ export function FlyoutPanel({
             item={entry.item}
             variant={config.variant}
             active={entry.item.id === activeId}
+            // Not the same question as `active`: that asks whether THIS row is
+            // the page, this asks which row under it is — the dropdown needs the
+            // id to mark one of its own.
+            activeId={activeId}
             defaultOpen={soleExpandable}
             rowIndex={Math.min(i, MAX_STAGGERED_ROWS)}
-            onSelect={(id) => {
+            onSelect={(id, keepOpen) => {
               setActiveId(id);
-              onNavigate?.(id);
+              onNavigate?.(id, keepOpen);
             }}
             {...(() => {
               const edit =
                 editFor(entry.item.id) ?? agencyEditFor(entry.item.id);
               return edit ? { edit } : {};
             })()}
+            {...(childEdit ? { childEdit } : {})}
           />
             {entry.item.id === lastRowId
               ? editing && category

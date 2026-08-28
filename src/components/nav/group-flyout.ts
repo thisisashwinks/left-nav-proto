@@ -6,7 +6,6 @@ import type {
 } from "@/components/flyout/types";
 import { productById } from "./catalogue";
 import type { CatalogueChild } from "./catalogue-types";
-import { iconForChildLabel } from "./l3-icons";
 import {
   iconForProduct,
   labelForProduct,
@@ -41,12 +40,22 @@ import {
  * decides. Nothing falls through to the parent.
  */
 function childrenWithIcons(
+  state: NavLayoutState,
   kids: readonly CatalogueChild[],
 ): FlyoutChildItem[] {
   return kids.map((kid) => ({
     ...kid,
-    icon: kid.icon ?? iconForChildLabel(kid.label),
-    ...(kid.children ? { children: childrenWithIcons(kid.children) } : {}),
+    /*
+     * Resolved through the store, not off the catalogue.
+     *
+     * `iconForProduct` answers for a child id too: an override first, then the
+     * authored glyph, then the one the label earns. Reading `kid.icon` directly
+     * skipped the first of those — so picking a new icon for an L3 changed the
+     * dock and the launcher, and the panel it was picked IN carried on showing
+     * the old one.
+     */
+    icon: iconForProduct(state, kid.id),
+    ...(kid.children ? { children: childrenWithIcons(state, kid.children) } : {}),
   }));
 }
 
@@ -96,7 +105,7 @@ export function flyoutForGroup(
           // The L2 layer: sub-places render as a nested dropdown on the row.
           ...(product?.children
             ? {
-                children: childrenWithIcons(product.children),
+                children: childrenWithIcons(state, product.children),
               }
             : {}),
           ...(product?.tabs ? { tabs: true } : {}),
@@ -132,7 +141,7 @@ function resolveAuthoredEntry(state: NavLayoutState) {
         // comparison view shows the same nested dropdowns as the job view.
         ...(product.children
           ? {
-              children: childrenWithIcons(product.children),
+              children: childrenWithIcons(state, product.children),
             }
           : {}),
       },

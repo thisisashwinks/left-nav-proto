@@ -146,26 +146,58 @@ export interface FlyoutRowEdit {
   lifted: boolean;
 }
 
+/**
+ * What editing offers on an L3 row — the nested ones inside a panel.
+ *
+ * Narrower than `FlyoutRowEdit` on purpose. An L3 is a page inside a product,
+ * not a row of the account's tree: there is nowhere to move it TO, nothing to
+ * remove it from, and no order to nudge it in that the product itself does not
+ * own. Its icon is the exception — it is drawn from the row's LABEL when the
+ * catalogue gives it none, so it is a guess, and a guess is exactly the kind of
+ * thing an admin should be able to correct.
+ *
+ * Both handlers take the child's id: one bundle serves every row in the
+ * dropdown rather than one built per row, which would mean rebuilding the whole
+ * tree of callbacks on each render of the panel.
+ */
+export interface FlyoutChildEdit {
+  onPickIcon: (childId: string, trigger: HTMLElement) => void;
+  onOpenMenu: (childId: string, trigger: HTMLElement) => void;
+}
+
 interface FlyoutRowProps {
   item: FlyoutItem;
   variant: FlyoutItemVariant;
   active?: boolean;
+  /** Which row the page behind the panel is on, for the nested dropdown. */
+  activeId?: string | null;
   /** Position in the stagger sequence when the panel opens. */
   rowIndex?: number;
   /** Start expanded — set when this row is the panel's only expandable one. */
   defaultOpen?: boolean;
-  onSelect?: (id: string) => void;
+  /**
+   * Go to this row's page.
+   *
+   * `keepOpen` marks a navigation that is a step rather than a destination — a
+   * parent opening its first child behind the panel — so the caller knows not to
+   * dismiss the list the user is about to pick from.
+   */
+  onSelect?: (id: string, keepOpen?: boolean) => void;
   edit?: FlyoutRowEdit;
+  /** Editing for the rows INSIDE this one. Absent outside the mode. */
+  childEdit?: FlyoutChildEdit;
 }
 
 export function FlyoutRow({
   item,
   variant,
   active = false,
+  activeId = null,
   rowIndex = 0,
   defaultOpen = false,
   onSelect,
   edit,
+  childEdit,
 }: FlyoutRowProps) {
   const v = VARIANT[variant];
   const Icon = item.icon;
@@ -175,7 +207,7 @@ export function FlyoutRow({
    * FlyoutPanel and group-flyout, because this is the only place the decision
    * changes anything.
    */
-  const { tabsInNav } = useTheme();
+  const { tabsInNav, l2ClickAction } = useTheme();
   /** Only rows that map to a pinnable product get a pin. */
   const pinnable = productById(item.id) !== undefined;
   const showDesc =
@@ -237,8 +269,40 @@ export function FlyoutRow({
       "bg-transparent outline-1 outline-dashed outline-[var(--nav-divider)] [&>*:not([data-drag-handle])]:invisible",
   );
   const rowStyle = { "--row-index": rowIndex } as React.CSSProperties;
-  const onRowClick = () =>
-    hasChildren ? setOpen((o) => !o) : onSelect?.(item.id);
+  /*
+   * A disclosure that also lands you somewhere — on the `open-first` axis.
+   *
+   * The two behaviours used to be exclusive: a leaf navigated, a parent only
+   * expanded — so reaching a page under an L2 was two clicks, and the first of
+   * them put you nowhere. On `open-first`, opening a parent also opens its
+   * first child behind the panel; on `disclose` it expands and nothing else,
+   * which is where this started. See L2_CLICK_ACTIONS. Click away and you are already on that page; pick a
+   * different child and you go there instead, which is the click you were going
+   * to make anyway.
+   *
+   * Only on the way OPEN. Collapsing an expanded parent must not navigate: by
+   * then you are on one of its children, quite possibly not the first, and
+   * dragging you back to the top of the list to close a dropdown would be the
+   * panel undoing your last choice.
+   *
+   * `keepOpen` is what separates this from a leaf click. A leaf is the end of
+   * the errand and the panel goes; this is the middle of one, and the list you
+   * just opened has to still be there.
+   */
+  const onRowClick = () => {
+    if (!hasChildren) {
+      onSelect?.(item.id);
+      return;
+    }
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setOpen(true);
+    if (l2ClickAction !== "open-first") return;
+    const first = firstPlaceUnder(item.children, tabsInNav);
+    if (first) onSelect?.(first, true);
+  };
 
   const iconBox = (
       <div
@@ -557,12 +621,83 @@ export function FlyoutRow({
           <FlyoutChildRows
             nodes={item.children ?? []}
             depth={0}
+            activeId={activeId}
             onSelect={onSelect}
             tabsInNav={tabsInNav}
+            {...(childEdit ? { edit: childEdit } : {})}
           />
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The pin, or the space the kebab needs instead.
+ *
+ * Editing hides the pin at every level — the mode is about what the nav
+ * contains, and a favourite is a shortcut to something already in it. So while
+ * editing the row gets a plain positioned wrapper, and outside the mode it gets
+ * `WithPin` exactly as before.
+ */
+function ChildShell({
+  edit,
+  children,
+}: {
+  edit?: FlyoutChildEdit;
+  children: React.ReactNode;
+}) {
+  return edit ? (
+    <div className="group/row relative w-full">{children}</div>
+  ) : (
+    <>{children}</>
+  );
+}
+
+/**
+ * The L3 row's own element: a button normally, a div while editing.
+ *
+ * The same split `FlyoutRow` makes one level up, for the same reason — the
+ * glyph and the kebab are interactive and neither can live inside a button.
+ */
+function Row({
+  edit,
+  childId,
+  children,
+  ...rest
+}: {
+  edit?: FlyoutChildEdit;
+  /** Empty for a row that discloses — see WithPin's own note. */
+  childId: string;
+  children: React.ReactNode;
+  onClick: () => void;
+  className: string;
+  "aria-current"?: "page" | undefined;
+  "aria-expanded"?: boolean | undefined;
+  "aria-controls"?: string | undefined;
+}) {
+  if (edit) {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        {...rest}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          e.preventDefault();
+          rest.onClick();
+        }}
+      >
+        {children}
+      </div>
+    );
+  }
+  return (
+    <WithPin productId={childId}>
+      <button type="button" {...rest}>
+        {children}
+      </button>
+    </WithPin>
   );
 }
 
@@ -580,13 +715,25 @@ const MAX_CHILD_DEPTH = 1;
 function FlyoutChildRows({
   nodes,
   depth,
+  activeId,
   onSelect,
   tabsInNav,
+  edit,
 }: {
   nodes: readonly FlyoutChildItem[];
   depth: number;
-  onSelect?: (id: string) => void;
+  /**
+   * The row the page behind the panel is currently on.
+   *
+   * Needed the moment opening a disclosure started navigating: the dropdown
+   * appears, the page changes behind it, and without this nothing in the list
+   * says which row you landed on. A user who then picks the second item has no
+   * way to know they were on the first.
+   */
+  activeId: string | null;
+  onSelect?: (id: string, keepOpen?: boolean) => void;
   tabsInNav: boolean;
+  edit?: FlyoutChildEdit;
 }) {
   return (
     <div
@@ -594,7 +741,13 @@ function FlyoutChildRows({
         // No rule down the left edge — the indent alone carries the nesting
         // (Khoi, Aug 24: "the more visual elements we can remove, the better").
         // The border's 1px folds into the padding so the text does not shift.
-        "motion-menu-in mt-[2px] flex w-auto flex-col gap-[1px] pr-[8px]",
+        //
+        // Indented on the LEFT only. It used to carry `pr-[8px]` as well, which
+        // pulled every nested row's right edge 8px inboard — and since the pin
+        // is positioned against that edge, an L3's pin sat 8px left of its
+        // parent's. Nesting is a left-hand idea; the trailing column belongs to
+        // the panel and every row in it shares one.
+        "motion-menu-in mt-[2px] flex w-auto flex-col gap-[1px]",
         depth === 0 ? "ml-[19px] pl-[14px]" : "ml-[9px] pl-[12px]",
       )}
     >
@@ -603,25 +756,69 @@ function FlyoutChildRows({
           key={child.id}
           child={child}
           depth={depth}
+          activeId={activeId}
           onSelect={onSelect}
           tabsInNav={tabsInNav}
+          {...(edit ? { edit } : {})}
         />
       ))}
     </div>
   );
 }
 
+/**
+ * The first row under this one that is actually a place.
+ *
+ * Descends the first branch until it reaches something that does not disclose:
+ * an L2 whose first child is itself a parent has no page of its own to offer,
+ * so the answer is that child's first child, and so on. A `tabs` node stops the
+ * walk unless tabs are being drawn as nav rows — its children live on its page,
+ * which makes the node itself the destination.
+ *
+ * Null when the branch bottoms out in nothing navigable, which is a tree bug
+ * rather than a case to design for — the caller simply opens the disclosure and
+ * navigates nowhere.
+ */
+function firstPlaceUnder(
+  nodes: readonly FlyoutChildItem[] | undefined,
+  tabsInNav: boolean,
+  depth = 0,
+): string | null {
+  const first = nodes?.[0];
+  if (!first) return null;
+  const discloses =
+    (first.children?.length ?? 0) > 0 &&
+    (tabsInNav || !first.tabs) &&
+    depth < MAX_CHILD_DEPTH;
+  if (!discloses) return first.id;
+  return firstPlaceUnder(first.children, tabsInNav, depth + 1) ?? first.id;
+}
+
 function FlyoutChildRow({
   child,
   depth,
+  activeId,
   onSelect,
   tabsInNav,
+  edit,
 }: {
   child: FlyoutChildItem;
   depth: number;
-  onSelect?: (id: string) => void;
+  /**
+   * The row the page behind the panel is currently on.
+   *
+   * Needed the moment opening a disclosure started navigating: the dropdown
+   * appears, the page changes behind it, and without this nothing in the list
+   * says which row you landed on. A user who then picks the second item has no
+   * way to know they were on the first.
+   */
+  activeId: string | null;
+  onSelect?: (id: string, keepOpen?: boolean) => void;
   tabsInNav: boolean;
+  edit?: FlyoutChildEdit;
 }) {
+  const { l2ClickAction } = useTheme();
+  const openFirst = l2ClickAction === "open-first";
   const nested =
     (child.children?.length ?? 0) > 0 &&
     (tabsInNav || !child.tabs) &&
@@ -640,27 +837,82 @@ function FlyoutChildRow({
         Only leaves: a row that discloses is a container, and pinning it would
         put something in the dock that opens a list rather than a place.
       */}
-      <WithPin productId={nested ? "" : child.id}>
-      <button
-        type="button"
+      <ChildShell edit={edit}>
+      <Row
+        edit={edit}
+        childId={nested ? "" : child.id}
+        aria-current={child.id === activeId ? "page" : undefined}
         aria-expanded={nested ? open : undefined}
         aria-controls={nested ? panelId : undefined}
-        onClick={() => (nested ? setOpen((o) => !o) : onSelect?.(child.id))}
+        onClick={() => {
+          // The same bargain the L2 rows strike — see `onRowClick` above.
+          if (!nested) {
+            onSelect?.(child.id);
+            return;
+          }
+          if (open) {
+            setOpen(false);
+            return;
+          }
+          setOpen(true);
+          if (openFirst) {
+            const first = firstPlaceUnder(child.children, tabsInNav, depth + 1);
+            if (first) onSelect?.(first, true);
+          }
+        }}
         className={cn(
           "motion-tap flex h-[30px] w-full items-center gap-[7px] rounded-[7px] px-[9px] text-left leading-[normal] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg active:scale-[0.99]",
-          !nested && "pr-[30px]",
+          // The same fill an active row wears anywhere else in the nav, so
+          // "you are here" looks the same at every level.
+          child.id === activeId && "bg-nav-hover text-nav-fg",
+          // The pin's own width plus the gap the L2 rows leave in front of
+          // theirs — stated the same way so retuning the flyout gap moves both.
+          // Not while editing: the kebab is a flex child there, so the trailing
+          // column is real width rather than reserved space behind an overlay.
+          !nested && !edit && "pr-[calc(8px+22px+var(--t-fly-gap,10px))]",
+          edit && "pr-[4px]",
           // One notch down per level, so depth is legible without a marker.
           depth === 0 ? "text-[13px]" : "text-[12.5px]",
         )}
       >
         {child.icon ? (
-          // Same 16px box the nav's own rows use, so an L3 row reads as the
-          // same kind of thing one level down rather than a sub-item of one.
-          <child.icon
-            size={16}
-            aria-hidden="true"
-            className="shrink-0 text-nav-fg-subtle"
-          />
+          edit ? (
+            /*
+              The glyph is the picker's trigger, as it is one level up.
+
+              A span with a role rather than a button: while editing the row is
+              a div, but outside the mode it is still a real <button>, and a
+              button inside a button is invalid markup browsers resolve however
+              they like. This works in both.
+            */
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label={`Change the ${child.label} icon`}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                edit.onPickIcon(child.id, e.currentTarget as HTMLElement);
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" && e.key !== " ") return;
+                e.stopPropagation();
+                e.preventDefault();
+                edit.onPickIcon(child.id, e.currentTarget as HTMLElement);
+              }}
+              className="motion-tap -m-[3px] flex shrink-0 cursor-pointer items-center justify-center rounded-[5px] p-[3px] text-nav-fg-subtle hover:bg-nav-active"
+            >
+              <child.icon size={16} aria-hidden="true" />
+            </span>
+          ) : (
+            // Same 16px box the nav's own rows use, so an L3 row reads as the
+            // same kind of thing one level down rather than a sub-item of one.
+            <child.icon
+              size={16}
+              aria-hidden="true"
+              className="shrink-0 text-nav-fg-subtle"
+            />
+          )
         ) : null}
         <span className="truncate">{child.label}</span>
         {child.badge ? (
@@ -683,15 +935,28 @@ function FlyoutChildRow({
             )}
           />
         ) : null}
-      </button>
-      </WithPin>
+        {edit ? (
+          <span className={cn("shrink-0", !nested && "ml-auto")}>
+            <EditAffordance
+              label={`Edit ${child.label}`}
+              onClick={(trigger) => edit.onOpenMenu(child.id, trigger)}
+              pinned
+            >
+              <EllipsisVertical size={12} aria-hidden="true" />
+            </EditAffordance>
+          </span>
+        ) : null}
+      </Row>
+      </ChildShell>
       {nested && open ? (
         <div id={panelId}>
           <FlyoutChildRows
             nodes={child.children ?? []}
             depth={depth + 1}
+            activeId={activeId}
             onSelect={onSelect}
             tabsInNav={tabsInNav}
+            {...(edit ? { edit } : {})}
           />
         </div>
       ) : null}

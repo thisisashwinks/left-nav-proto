@@ -9,6 +9,7 @@ import {
   type EntryLayout,
   type GetAppPlacement,
   type FlyoutTrigger,
+  type L2ClickAction,
   type RecentsMode,
   type MergedPinScope,
   type MergedPinMark,
@@ -21,6 +22,7 @@ import {
   type LayoutReplaceDialog,
   type NavSections,
   type RailTileShape,
+  type RailRecents,
   type RailSizing,
   type PageShell,
   type ScopeModel,
@@ -50,6 +52,7 @@ export type AccountTheme = Partial<
     | "entryLayout"
     | "getAppPlacement"
     | "flyoutTrigger"
+    | "l2ClickAction"
     | "recentsMode"
     | "mergedPinScope"
     | "mergedPinMark"
@@ -96,6 +99,7 @@ interface ThemeContextValue extends ThemeState {
   setEntryLayout: (layout: EntryLayout) => void;
   setGetAppPlacement: (placement: GetAppPlacement) => void;
   setFlyoutTrigger: (trigger: FlyoutTrigger) => void;
+  setL2ClickAction: (action: L2ClickAction) => void;
   setRecentsMode: (mode: RecentsMode) => void;
   setMergedPinScope: (scope: MergedPinScope) => void;
   setMergedPinMark: (mark: MergedPinMark) => void;
@@ -121,6 +125,7 @@ interface ThemeContextValue extends ThemeState {
   setLayoutReplaceDialog: (mode: LayoutReplaceDialog) => void;
   setInboxPalette: (palette: InboxPalette) => void;
   setRailTileShape: (shape: RailTileShape) => void;
+  setRailRecents: (mode: RailRecents) => void;
   setRailSizing: (sizing: RailSizing) => void;
   setRailMagnify: (enabled: boolean) => void;
   setPageShell: (shell: PageShell) => void;
@@ -232,6 +237,8 @@ export function ThemeProvider({
       setGetAppPlacement: (getAppPlacement) =>
         setState((s) => ({ ...s, getAppPlacement })),
       setFlyoutTrigger: (flyoutTrigger) => setState((s) => ({ ...s, flyoutTrigger })),
+      setL2ClickAction: (l2ClickAction) =>
+        setState((s) => ({ ...s, l2ClickAction })),
       setRecentsMode: (recentsMode) => setState((s) => ({ ...s, recentsMode })),
       setMergedPinScope: (mergedPinScope) =>
         setState((s) => ({ ...s, mergedPinScope })),
@@ -277,6 +284,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, inboxPalette })),
       setRailTileShape: (railTileShape) =>
         setState((s) => ({ ...s, railTileShape })),
+      setRailRecents: (railRecents) =>
+        setState((s) => ({ ...s, railRecents })),
       setRailSizing: (railSizing) => setState((s) => ({ ...s, railSizing })),
       setRailMagnify: (railMagnify) => setState((s) => ({ ...s, railMagnify })),
       setPageShell: (pageShell) => setState((s) => ({ ...s, pageShell })),

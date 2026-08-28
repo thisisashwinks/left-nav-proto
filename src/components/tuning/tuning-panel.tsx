@@ -23,6 +23,8 @@ import {
   GET_APP_PLACEMENT_LABELS,
   FLYOUT_TRIGGER_LABELS,
   FLYOUT_TRIGGERS,
+  L2_CLICK_ACTIONS,
+  L2_CLICK_ACTION_LABELS,
   PAGE_SHELL_LABELS,
   PAGE_SHELLS,
   INBOX_PALETTE_LABELS,
@@ -33,6 +35,8 @@ import {
   RAIL_SIZINGS,
   RAIL_SIZING_LABELS,
   RAIL_TILE_SHAPES,
+  RAIL_RECENTS,
+  RAIL_RECENTS_LABELS,
   RECENTS_MODE_LABELS,
   RECENTS_MODES,
   SCOPE_MODEL_LABELS,
@@ -54,11 +58,13 @@ import {
   type EntryLayout,
   type GetAppPlacement,
   type FlyoutTrigger,
+  type L2ClickAction,
   type InboxPalette,
   type LayoutReplaceDialog,
   type PageShell,
   type RailSizing,
   type RailTileShape,
+  type RailRecents,
   type RecentsMode,
   MERGED_PIN_SCOPES,
   MERGED_PIN_SCOPE_LABELS,
@@ -219,12 +225,16 @@ function NavStructureSection({
     setScopeModel,
     flyoutTrigger,
     setFlyoutTrigger,
+    l2ClickAction,
+    setL2ClickAction,
     tabsInNav,
     setTabsInNav,
     navSections,
     setNavSections,
     railTileShape,
     setRailTileShape,
+    railRecents,
+    setRailRecents,
     railSizing,
     setRailSizing,
     railMagnify,
@@ -299,6 +309,21 @@ function NavStructureSection({
       */}
       {scopeModel === "rail" ? (
         <>
+          <Segmented
+            label="Rail holds"
+            options={RAIL_RECENTS}
+            value={railRecents}
+            onChange={(v: RailRecents) => setRailRecents(v)}
+            format={(v) => RAIL_RECENTS_LABELS[v]}
+          />
+          <Note>
+            {railRecents === "pinned"
+              ? "The curated set and nothing else. Visit a ninth account and the rail keeps no trace of it — going back means the directory again."
+              : railRecents === "recent"
+                ? "A run of recents under the curated set, closed off by a hairline. The rail keeps its arrangement; history gets a place of its own."
+                : "No second run: visiting an account puts it on the rail and the oldest unpinned tile falls off. An MRU with a pinned head."}
+          </Note>
+
           <Segmented
             label="Rail tiles"
             options={RAIL_TILE_SHAPES}
@@ -388,6 +413,19 @@ function NavStructureSection({
         {flyoutTrigger === "hover"
           ? "Rollover previews a row's menu, with a dwell so sweeping the list doesn't strobe."
           : "Khoi's alternative: nothing opens until the row is clicked."}
+      </Note>
+
+      <Segmented
+        label="Clicking a row with children"
+        options={L2_CLICK_ACTIONS}
+        value={l2ClickAction}
+        onChange={(v: L2ClickAction) => setL2ClickAction(v)}
+        format={(v) => L2_CLICK_ACTION_LABELS[v]}
+      />
+      <Note>
+        {l2ClickAction === "open-first"
+          ? "Expands AND opens the first item behind the panel, so one click lands somewhere. Pick another to switch; click the canvas to dismiss."
+          : "Expanding and navigating stay separate. Never takes you somewhere you didn't ask for — at the cost of a first click that lands nowhere."}
       </Note>
 
       <Segmented
@@ -537,6 +575,11 @@ function NavStructureSection({
             onChange={(v: MergedRowDetail) => setMergedRowDetail(v)}
             format={(v) => MERGED_ROW_DETAIL_LABELS[v]}
           />
+          <Note>
+            {mergedRowDetail === "name"
+              ? "One line per row, so the block holds twice as many in the same space. Names that collide say where they came from on their own."
+              : "Every row names its place underneath itself — “Conversations / CRM”. Doubles the row height, and the block's."}
+          </Note>
           <Segmented
             label="New pin lands"
             options={MERGED_PIN_ORDERS}
@@ -544,6 +587,11 @@ function NavStructureSection({
             onChange={(v: MergedPinOrder) => setMergedPinOrder(v)}
             format={(v) => MERGED_PIN_ORDER_LABELS[v]}
           />
+          <Note>
+            {mergedPinOrder === "newest"
+              ? "The row you just pinned jumps to the top — feedback that the pin landed, paid for by everything above it moving down and the last row dropping out of the cap."
+              : "The row you just pinned stays where it already was, at the end of the pinned run. Nothing above it moves; if the cap pushes it under the fold, View all reaches it."}
+          </Note>
 
           <Toggle
             label="Search in the panel"

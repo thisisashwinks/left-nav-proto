@@ -7,6 +7,7 @@ import {
   RAIL_TILE_SIZE_SMALL,
   type SurfaceTheme,
 } from "@/design/theme";
+import { RAIL_RECENT_LIMIT } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
 import { cn } from "@/lib/utils";
@@ -80,6 +81,7 @@ export function AccountRail({
     .map((id) => session.accounts.find((a) => a.id === id))
     .filter((a): a is Account => a !== undefined);
 
+
   // No expand/collapse control anymore (Aug 11 ask): the rail widens itself
   // under the pointer and narrows when it leaves — GoCollab's browse pattern.
   const hoverTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -110,6 +112,29 @@ export function AccountRail({
    * chrome like everything else that reads it.
    */
   const { effective } = useTheme();
+  /*
+   * Recently visited accounts the rail does not already carry.
+   *
+   * The tenth-account problem: the rail is a curated eight, so the moment you
+   * open a ninth from the directory it leaves no trace — going back to an
+   * account you were in ten seconds ago means finding it in the directory
+   * again. On the `recent` setting these close that gap without joining the
+   * curated set; on `auto` the set absorbs them instead and there is nothing
+   * left here to show.
+   *
+   * The current account is excluded by the session already; the rail's own ids
+   * are filtered out here, because a tile in two runs of one strip is the same
+   * account twice.
+   */
+  const recentAccounts =
+    effective.railRecents === "recent"
+      ? session.recentIds
+          .filter((id) => !session.railIds.includes(id))
+          .map((id) => session.accounts.find((a) => a.id === id))
+          .filter((a): a is Account => a !== undefined)
+          .slice(0, RAIL_RECENT_LIMIT)
+      : [];
+
   const pillTiles = effective.railTileShape === "pill";
 
   /*
@@ -344,6 +369,46 @@ export function AccountRail({
                     }}
                     account={account}
                     magnify={magnifyScale(effective.railMagnify, magnifyIndex, i)}
+                  />
+                ))}
+
+                {/*
+                  The rule between what was arranged and what merely happened.
+
+                  One hairline and nothing else — no badge, no dim. A tenant
+                  tile is a face and already carries its own identity; a second
+                  marker on top of a 24px disc is one signal more than the strip
+                  can hold, and dimming a row you can click reads as disabled.
+                */}
+                {recentAccounts.length > 0 ? (
+                  <span
+                    aria-hidden="true"
+                    className="my-[3px] h-px w-full shrink-0 self-center bg-nav-border"
+                  />
+                ) : null}
+                {recentAccounts.map((account, i) => (
+                  <RailRow
+                    key={account.id}
+                    label={account.name}
+                    name={account.name}
+                    expanded={expanded}
+                    selected={
+                      session.scope === "account" &&
+                      account.id === session.current.id
+                    }
+                    onClick={() => session.switchTo(account.id)}
+                    onHover={() => {
+                      setHover(true);
+                      // Indices continue past the curated run so the magnify
+                      // curve treats the strip as one column, which it is.
+                      setMagnifyIndex(railAccounts.length + i);
+                    }}
+                    account={account}
+                    magnify={magnifyScale(
+                      effective.railMagnify,
+                      magnifyIndex,
+                      railAccounts.length + i,
+                    )}
                   />
                 ))}
 

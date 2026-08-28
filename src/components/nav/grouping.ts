@@ -20,6 +20,7 @@ import {
 } from "./catalogue";
 import {
   PROPOSED_DESTINATION_IDS,
+  PROPOSED_PRODUCT_IDS,
   PROPOSED_UNLISTED_IDS,
   proposedBuckets,
 } from "./proposed-ia";
@@ -1108,6 +1109,78 @@ export function navTreeFor(state: NavLayoutState): {
         g.productIds
       ).filter((id) => universe.has(id)),
     }));
+  const filed = new Set(categories.flatMap((c) => c.productIds));
+  return {
+    categories,
+    loose: [...universe].filter((id) => !filed.has(id)),
+  };
+}
+
+/**
+ * The SHIPPED tree, ignoring everything this account did to its nav.
+ *
+ * `navTreeFor` above answers "what does this nav look like", which is right for
+ * a Move-to menu — you are filing a row into the arrangement in front of you.
+ * It is wrong for the Add-a-product picker, which was using it too: on an
+ * account running a template, the picker offered that template's own
+ * categories, in the template's order, under the template's renames. So the one
+ * place an admin goes to find a product they do not have yet was organised by a
+ * structure built around the products they already do.
+ *
+ * The picker is a view of the catalogue, not of the nav. Stock categories, stock
+ * order, stock names, stock icons, stock membership — the same list every time,
+ * so knowing where Snippets lives is knowledge that survives a template switch.
+ *
+ * Two things still come from the account, because they are about what CAN be
+ * added rather than how it is arranged: only products this tenant was
+ * provisioned appear, and a product filed nowhere in the shipped tree falls
+ * loose exactly as it does in the nav.
+ */
+export function stockTreeFor(state: NavLayoutState): {
+  categories: { id: string; label: string; icon: LucideIcon; productIds: string[] }[];
+  loose: string[];
+} {
+  const universe = new Set(addableProducts(state).map((p) => p.id));
+
+  /*
+   * Which catalogue this tenant is on, worked out from what it owns.
+   *
+   * Not from `state.grouping`: an account seeded onto the proposed IA and then
+   * switched to custom reports "custom", and the shipped suites hold none of
+   * its ninety products — so keying off the mode would empty the picker for
+   * exactly the accounts the proposal is about. The proposed IA's own twelve
+   * buckets are its stock default; the suites are the shipped catalogue's.
+   */
+  const proposed = PROPOSED_PRODUCT_IDS.some((id) => universe.has(id));
+
+  const source: { id: string; label: string; icon: LucideIcon; productIds: readonly string[] }[] =
+    proposed
+      ? proposedBuckets.map((b) => ({
+          id: b.id,
+          label: b.defaultLabel,
+          icon: b.icon,
+          productIds: b.productIds,
+        }))
+      : catalogueSuites.map((g) => ({
+          id: g.id,
+          label: g.defaultLabel,
+          icon: g.icon,
+          // Catalogue order within the suite, which is the order the shelf was
+          // authored in — not the order this account dragged its rows into.
+          productIds: catalogue
+            .filter((p) => p.suiteId === g.id)
+            .map((p) => p.id),
+        }));
+
+  const categories = source
+    .map((g) => ({
+      id: g.id,
+      label: g.label,
+      icon: g.icon,
+      productIds: g.productIds.filter((id) => universe.has(id)),
+    }))
+    .filter((g) => g.productIds.length > 0);
+
   const filed = new Set(categories.flatMap((c) => c.productIds));
   return {
     categories,

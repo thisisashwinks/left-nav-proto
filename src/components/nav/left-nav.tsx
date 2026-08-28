@@ -687,6 +687,15 @@ export function LeftNav({
           currentGroupId: null,
           categories,
           onRename: () => startRename(itemId),
+          // Anchored on the kebab the menu came out of, which is the element
+          // the reader is looking at when they pick the entry.
+          ...(can.regroup
+            ? {
+                onPickIcon: () => {
+                  if (menuTrigger) picker.open(itemId, menuTrigger);
+                },
+              }
+            : {}),
           onMoveToGroup: (groupId) =>
             layout.moveProductToGroup(itemId, groupId),
           onMoveToTopLevel: () => {},
@@ -1581,6 +1590,22 @@ export function LeftNav({
          * than adding to it, and a real border would steal a pixel of the 272px
          * every measurement in this file is taken against.
          */
+        /*
+         * Square, at L1.
+         *
+         * The ring used to carry the canvas radius on all four corners, which
+         * put a 12px curve in the middle of a column whose edges are straight:
+         * the nav's left edge butts the account rail and its right edge butts
+         * the page, and neither is a corner of anything. Against the grey card
+         * a few pixels away — which IS rounded, at its own corners — the two
+         * curves sat near each other without lining up, and the mismatch read
+         * as the ring being slightly off rather than as a deliberate shape.
+         *
+         * The radius the eye expects belongs to the FLYOUT, and the flyout
+         * already draws it: `rounded-r-[--shell-canvas-radius]` on its own box.
+         * So the nav stays square and the panel carries the curve, which is the
+         * only place in the pair where the outline actually turns a corner.
+         */
         editing &&
           (openFlyoutId
             ? /*
@@ -1591,8 +1616,8 @@ export function LeftNav({
                * where the mode is least a boundary — that seam is how a row gets
                * from a category to the nav and back.
                */
-              "rounded-l-[var(--shell-canvas-radius,12px)] shadow-[inset_1.5px_0_0_0_var(--brand),inset_0_1.5px_0_0_var(--brand),inset_0_-1.5px_0_0_var(--brand)]"
-            : "rounded-[var(--shell-canvas-radius,12px)] shadow-[inset_0_0_0_1.5px_var(--brand)]"),
+              "rounded-none shadow-[inset_1.5px_0_0_0_var(--nav-edit-ring),inset_0_1.5px_0_0_var(--nav-edit-ring),inset_0_-1.5px_0_0_var(--nav-edit-ring)]"
+            : "rounded-none shadow-[inset_0_0_0_1.5px_var(--nav-edit-ring)]"),
       )}
     >
       <NavHeader

@@ -1,47 +1,70 @@
-import { FolderInput, MoveDown, MoveUp, Pencil, Trash2 } from "lucide-react";
-import type { RowMenuAction, RowMenuOption } from "./row-menu";
 import {
-  navTreeFor,
+  FolderInput,
+  Image,
+  MoveDown,
+  MoveUp,
+  Pencil,
+  Trash2,
+} from "lucide-react";
+import type { RowMenuAction, RowMenuOption } from "./row-menu";
+import { productById } from "./catalogue";
+import {
+  stockTreeFor,
   UNGROUPED_ID,
   type NavLayoutState,
   type ResolvedGroup,
 } from "./grouping";
-import { labelForGroup, labelForProduct, iconForGroup, iconForProduct } from "./grouping";
+import { labelForProduct } from "./grouping";
 
 /**
- * The nav's own tree, as options for a menu.
+ * The SHIPPED catalogue, as options for a menu.
  *
- * Categories are branches you walk into and products are the leaves — the same
- * shape as the nav and as the breadcrumb's menu, which is the whole point: an
- * admin looking for Snippets knows it is under Marketing, and a flat list of
- * ninety rows each ending "— in Marketing" made them read that fact ninety times
- * to find it once.
+ * Categories are branches you walk into and products are the leaves — an admin
+ * looking for Snippets knows it is under Marketing, and a flat list of ninety
+ * rows each ending "— in Marketing" made them read that fact ninety times to
+ * find it once.
  *
- * `exclude` drops what is already where the menu is adding to, so the list never
- * offers to put a row where it already is. An emptied branch drops out with it.
+ * The tree is the catalogue's, not this nav's. It used to be the nav's, which
+ * meant the picker reorganised itself around whatever the account had done:
+ * pick a healthcare template and adding a product happened under Front desk,
+ * Patients and Get booked, in that template's order, under its renames. The one
+ * list an admin uses to find something they do NOT have yet was arranged by the
+ * things they already do — and it moved every time the nav did, so nothing
+ * about using it was learnable.
+ *
+ * Stock everywhere, product names included: this is a view of what HighLevel
+ * ships, and a shelf whose labels shift per tenant is not a shelf. What the
+ * account owns still governs what appears — you cannot add what you were not
+ * provisioned — and `exclude` drops what is already where the menu is adding
+ * to, so the list never offers to put a row where it already is. An emptied
+ * branch drops out with it.
  */
 export function productTreeOptions(
   state: NavLayoutState,
   exclude: (productId: string) => boolean,
 ): RowMenuOption[] {
-  const { categories, loose } = navTreeFor(state);
-  const leaf = (id: string): RowMenuOption => ({
-    id,
-    label: labelForProduct(state, id),
-    icon: iconForProduct(state, id),
-  });
+  const { categories, loose } = stockTreeFor(state);
+  const leaf = (id: string): RowMenuOption => {
+    const shipped = productById(id);
+    return {
+      id,
+      // The shipped name and glyph, not the account's. See the note above.
+      label: shipped?.label ?? labelForProduct(state, id),
+      ...(shipped?.icon ? { icon: shipped.icon } : {}),
+    };
+  };
 
   const branches = categories
     .map((c) => ({
       id: c.id,
-      label: labelForGroup(state, c.id),
-      icon: iconForGroup(state, c.id),
+      label: c.label,
+      icon: c.icon,
       children: c.productIds.filter((id) => !exclude(id)).map(leaf),
     }))
     .filter((b) => b.children.length > 0);
 
-  // The rows with no category sit at the top level beside the branches, because
-  // that is exactly where they sit in the nav.
+  // Products the shipped tree files nowhere sit at the top level beside the
+  // branches, which is where the nav puts them too.
   return [...branches, ...loose.filter((id) => !exclude(id)).map(leaf)];
 }
 
@@ -63,6 +86,7 @@ export function productMenuActions({
   currentGroupId,
   categories,
   onRename,
+  onPickIcon,
   onMoveToGroup,
   onMoveToTopLevel,
   onRemove,
@@ -73,6 +97,15 @@ export function productMenuActions({
   currentGroupId: string | null;
   categories: readonly ResolvedGroup[];
   onRename: () => void;
+  /**
+   * Opens the icon picker. Absent for roles that may not change icons.
+   *
+   * The row's own glyph has opened the picker since it shipped, and the menu
+   * did not — so the one gesture people try first worked and the exhaustive
+   * list of what a row can do was missing an entry it does have. A menu that
+   * omits an action is read as the action not existing.
+   */
+  onPickIcon?: () => void;
   onMoveToGroup: (groupId: string) => void;
   onMoveToTopLevel: () => void;
   onRemove: () => void;
@@ -91,6 +124,9 @@ export function productMenuActions({
   void productId;
   return [
     { id: "rename", label: "Rename", icon: Pencil, onSelect: onRename },
+    ...(onPickIcon
+      ? [{ id: "icon", label: "Change icon", icon: Image, onSelect: onPickIcon }]
+      : []),
     { id: "up", label: "Move up", icon: MoveUp, ...(onMoveUp ? { onSelect: onMoveUp } : {}) },
     { id: "down", label: "Move down", icon: MoveDown, ...(onMoveDown ? { onSelect: onMoveDown } : {}) },
     {

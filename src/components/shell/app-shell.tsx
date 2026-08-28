@@ -1401,7 +1401,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 // ring: as a card beside the nav card it needs the same visible
                 // hairline the nav has. The plane's ring is transparent in light,
                 // which left this card's edge to the shadow alone.
-                "m-[var(--shell-canvas-gap)] min-h-0 overflow-hidden rounded-[var(--shell-canvas-radius)] shadow-[var(--shell-canvas-shadow),inset_0_0_0_1px_var(--shell-canvas-border)]",
+                //
+                // The ring itself is drawn as an overlay below, not here — see
+                // the note on it. `relative` is what that overlay hangs from.
+                "relative m-[var(--shell-canvas-gap)] min-h-0 overflow-hidden rounded-[var(--shell-canvas-radius)] shadow-[var(--shell-canvas-shadow)]",
                 // The page's ground, or the bar's own fill carried all the way
                 // down. --pg-surface rather than --hdr-bg: below the hairline it
                 // is the page's surface, and the two are the same white anyway
@@ -1411,6 +1414,26 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             : "mt-[var(--shell-canvas-gap)]",
         )}
       >
+        {barInCanvas ? (
+          /*
+            The card's hairline, drawn over its contents rather than under them.
+
+            It was an inset box-shadow on the card, which paints above the card's
+            own background and BELOW its children — and the app bar's band is a
+            child that fills the full width. So the ring was covered for the
+            bar's 48px and visible for the page underneath it: a card whose edge
+            stopped and started again a third of the way down.
+
+            An overlay is the only version that holds whatever a child paints to
+            the edge. Inert, and inside the card's `overflow-hidden`, so it
+            follows the same radius the corners already use.
+          */
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 z-30 rounded-[var(--shell-canvas-radius)] shadow-[inset_0_0_0_1px_var(--shell-canvas-border)]"
+          />
+        ) : null}
+
         <AppHeader
           theme={headerTheme}
           onOpenApp={setAppModal}
@@ -1607,6 +1630,61 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         />
       ) : null}
 
+      {/*
+        The account rail steps back too.
+
+        It is the agency's switcher, not part of the tree being arranged — you
+        cannot drag a row into it or rename a tile — so leaving it at full
+        strength put the one column you definitely are not editing at the same
+        weight as the one you are. Now everything outside the nav recedes
+        together and the mode has a single, unbroken edge.
+
+        Above the rail's own z-30 rather than beside it: the rail is an overlay
+        that widens on hover and morphs into the directory, so a dim underneath
+        it would be covered the moment it mattered. Pointer-events still pass,
+        so switching account mid-edit stays reachable — the dim marks what the
+        mode does not touch, it does not fence it off.
+      */}
+      {layout.editing && railActive ? (
+        <div
+          aria-hidden="true"
+          style={{ width: railWidth + NAV_FLOAT_GAP }}
+          className="motion-fade-in pointer-events-none absolute top-0 left-0 bottom-0 z-[31] bg-[#10182826]"
+        />
+      ) : null}
+
+      {/*
+        The two strips above and below the nav, dimmed to match.
+        
+        The dim starts at the nav's RIGHT edge, so the 4px of plane showing above
+        and below the nav card stayed at full strength while the identical 4px
+        above and below the flyout — which is right of that edge — went grey.
+        With a panel open the two are meant to read as one surface, and the eye
+        catches the mismatch precisely because the strips are the same size and
+        touch at the seam.
+        
+        Only while a panel is open. Alone, the nav has no neighbour to be
+        inconsistent with, and dimming its own margins would be the mode putting
+        a grey line above and below itself for no one.
+        
+        Left of the nav, not the whole card: the rail is chrome, not the thing
+        being edited, and its margins have nothing to line up with.
+      */}
+      {layout.editing && flyout.isMounted ? (
+        <>
+          <div
+            aria-hidden="true"
+            style={{ left: railWidth + NAV_FLOAT_GAP, width: navWidth }}
+            className="motion-fade-in pointer-events-none absolute top-0 z-[5] h-[var(--shell-canvas-gap)] bg-[#10182826]"
+          />
+          <div
+            aria-hidden="true"
+            style={{ left: railWidth + NAV_FLOAT_GAP, width: navWidth }}
+            className="motion-fade-in pointer-events-none absolute bottom-0 z-[5] h-[var(--shell-canvas-gap)] bg-[#10182826]"
+          />
+        </>
+      ) : null}
+
       {flyout.isMounted && flyout.value ? (
         <>
           {/*
@@ -1640,21 +1718,31 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             onPointerEnter={intent.cancelClear}
             onPointerLeave={intent.scheduleClear}
             onClose={intent.close}
-            onNavigate={(id) => {
+            onNavigate={(id, keepOpen) => {
               /*
-               * Selecting dismisses the panel.
+               * Selecting dismisses the panel — unless the selection was a
+               * side effect of opening a list.
                *
-               * `onNavigate` only ever fires for a LEAF — `flyout-row.tsx` gives
-               * a row with children a disclosure instead, at both levels — so
-               * this closes exactly when the click was a destination, and never
-               * when it was "show me what is under this". That is what makes one
-               * handler correct for both scopes.
+               * `onNavigate` used to fire only for a LEAF, because a row with
+               * children was a disclosure and nothing else. It now fires for a
+               * parent too, carrying that parent's first child: opening the
+               * dropdown also opens the page behind it, so the two-click
+               * "expand, then pick" became one click that lands you somewhere.
                *
-               * Unconditional, and ahead of the early returns below: a row that
-               * names nothing navigable is still a leaf the pointer has finished
-               * with, and a panel left standing after it reads as a missed click.
+               * Ahead of the early returns below: a row that names nothing
+               * navigable is still a leaf the pointer has finished with, and a
+               * panel left standing after it reads as a missed click. There is
+               * a second close at the foot of this handler for the path that
+               * gets that far, and both are gated the same way.
+               *
+               * `keepOpen` is the exception, and it is not a leaf click at all —
+               * it is a parent opening its first child behind the panel. The
+               * list it just disclosed is the thing you are about to choose
+               * from, so closing it here would undo the click that opened it.
+               * What dismisses the panel then is the scrim: clicking anywhere
+               * in the canvas, which is the gesture that means "done here".
                */
-              intent.close();
+              if (!keepOpen) intent.close();
               // Rows that name a catalogue product (or one of its L2 children)
               // open that product's page; anything else keeps its old inert
               // highlight. Contacts stays the purpose-built page.
@@ -1700,7 +1788,17 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 );
               }
               setSelectedId(null);
-              intent.close();
+              /*
+               * The second close, and the one that was actually firing.
+               *
+               * The handler closes the panel up top and again down here — the
+               * early one covers the paths that return before reaching this
+               * line, this one covers the product path. Making only the first
+               * conditional left a parent click landing on its page and then
+               * dismissing the very list it had just opened, three statements
+               * later. Both have to honour `keepOpen` or neither does.
+               */
+              if (!keepOpen) intent.close();
             }}
           />
         </>

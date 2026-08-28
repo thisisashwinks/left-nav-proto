@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { hashId } from "@/lib/account-color";
+import { useTheme } from "@/components/theme/theme-provider";
 import { applyBrand, useBrand } from "./brand-store";
 import {
   accounts as allAccounts,
@@ -98,7 +99,19 @@ export interface AccountsSession {
  * both switcher panels all read it, and it has to survive any of them
  * closing.
  */
+/**
+ * The most tiles the rail will hold on the `auto` setting.
+ *
+ * The seeded rail's own length. A rail that grows every time you visit an
+ * account is a directory in a 56px strip within a week, so joining has to cost
+ * something: the newest arrival pushes the oldest UNPINNED tile off the end.
+ * Pinned accounts are exempt — they are the part of the rail somebody chose.
+ */
+const RAIL_MAX = INITIAL_RAIL_IDS.length;
+
 export function useAccounts(): AccountsSession {
+  // Whether visiting an account puts it on the rail. See RAIL_RECENTS.
+  const { railRecents } = useTheme().effective;
   const [currentId, setCurrentId] = React.useState(INITIAL_ACCOUNT_ID);
   const [scope, setScope] = React.useState<WorkspaceScope>("account");
   const [recentIds, setRecentIds] =
@@ -178,12 +191,44 @@ export function useAccounts(): AccountsSession {
                 ...ids.filter((i) => i !== previousId && i !== id),
               ].slice(0, RECENT_LIMIT),
             );
+            /*
+             * On `auto`, the account you just opened joins the rail.
+             *
+             * Prepended rather than appended: the point is that the tenth
+             * account you visit is reachable without going back to the
+             * directory, and the top of the strip is where the eye starts.
+             * Something has to leave to make room, and it is the oldest tile
+             * nobody pinned — evicting a pinned one would mean the rail
+             * discarding the only part of itself that was deliberate.
+             */
+            if (railRecents === "auto") {
+              setRailIds((current) => {
+                if (current.includes(id)) return current;
+                const next = [id, ...current];
+                while (next.length > RAIL_MAX) {
+                  const victim = [...next]
+                    .reverse()
+                    .find((x) => !pinnedIds.includes(x));
+                  if (victim === undefined) break;
+                  next.splice(next.indexOf(victim), 1);
+                }
+                return next;
+              });
+            }
             return id;
           });
         },
       );
     },
-    [begin, branded, currentId, scope],
+    /*
+     * `pinnedIds` is a dependency because `auto`'s eviction reads it.
+     *
+     * Captured from the closure rather than a ref: the callback fires while the
+     * switch animation runs, and `switchTo` is rebuilt whenever the pin list
+     * changes — so the instance the click reached already holds the pins as
+     * they were when it was clicked, which is the only moment that matters.
+     */
+    [begin, branded, currentId, scope, railRecents, pinnedIds],
   );
 
   // Scope moves, the current account does not: agency scope is a place you

@@ -354,8 +354,22 @@
    */
   [data-scroll-fade] {
     position: absolute;
-    left: 0;
-    right: 0;
+    /*
+     * Inset by the hairline it would otherwise paint over.
+     *
+     * Every panel in the nav draws its border as an INSET box-shadow, and an
+     * inset shadow paints above the element's own background but below its
+     * children — so a fade spanning the full width covered the 1px of border it
+     * reached, and the panel's edge broke wherever the list was scrolled. Not a
+     * stacking problem: no z-index on the fade can put it under a shadow that
+     * belongs to an ancestor. The fix is for the fade to stop one pixel short.
+     *
+     * Costs nothing where the shell is already inset from the edge: the scroll
+     * region pads its rows well past 1px, so there is never content in the
+     * column this gives up.
+     */
+    left: 1px;
+    right: 1px;
     height: 24px;
     pointer-events: none;
     opacity: 0;
