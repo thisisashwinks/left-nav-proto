@@ -789,7 +789,9 @@ export const DEFAULT_THEME: ThemeState = {
   // doesn't get exposed until the user actually clicks" — hover preview
   // (with its dwell) stays one toggle away for the comparison.
   flyoutTrigger: "click",
-  recentsMode: "fixed-three",
+  // Merged, per the Aug 28 walkthrough: one list with pins at its top and no
+  // separate pinned bar. The other three arrangements stay one click away.
+  recentsMode: "merged",
   /*
    * The merge's defaults are the recommendation, not a neutral position: the
    * capsule goes, the block never folds, pins wear a glyph and a rule, the tail
@@ -798,10 +800,12 @@ export const DEFAULT_THEME: ThemeState = {
    */
   mergedPinScope: "capsule-off",
   mergedPinMark: "glyph",
-  mergedOverflow: "expand",
+  // Hard cap and "Recents" settled on Aug 28: the block holds a fixed number of
+  // rows rather than growing, and it is named after what is actually in it.
+  mergedOverflow: "cap",
   mergedRowDetail: "breadcrumb",
   mergedPinOrder: "newest",
-  mergedHeading: "quick-access",
+  mergedHeading: "recents",
   mergedPanelSearch: true,
   // Places, so Recent accounts keeps the block it has earned.
   mergedAgencyRecents: "places",
@@ -845,14 +849,19 @@ export const DEFAULT_THEME: ThemeState = {
   // Fully rounded, which is the proposal. The squircle the rail shipped with is
   // one click away for the comparison.
   railTileShape: "pill",
-  // Both off: this is a proposal, and the rail that ships is the thing it has
-  // to be compared against.
+  /*
+   * Magnification on, resting size unchanged (Aug 28).
+   *
+   * Deliberately not the whole proposal. The Dock behaviour is worth having on
+   * its own — it makes a 24px tenant logo readable by pointing at it — while
+   * shrinking the inactive tiles is the half that still has to be argued, so it
+   * stays one click away rather than arriving by default.
+   */
   railSizing: "uniform",
-  railMagnify: false,
-  // The bar in the canvas — the Aug 25 answer to "move back to a normal
-  // layout". The nav keeps floating; the chrome joins the page it names, so the
-  // arrangement reads as one surface rather than two detached ones.
-  pageShell: "canvas",
+  railMagnify: true,
+  // Back to the bar on the plane (Aug 28). The joined card is one click away;
+  // this is the arrangement the review opens on.
+  pageShell: "plane",
 };
 
 /** Human-readable labels, for the controls UI added later. */

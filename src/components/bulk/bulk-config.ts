@@ -217,7 +217,10 @@ export const BULK_DEFAULTS: BulkSettings = {
   keepHistory: true,
   perAccountPath: false,
   featuresPath: true,
-  bulkInDirectory: false,
+  // On (Aug 28): the rail's directory is open far more often than the
+  // Sub-accounts table is, so "these four, right now" is one gesture from where
+  // an operator already is.
+  bulkInDirectory: true,
 };
 
 /**

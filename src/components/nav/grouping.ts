@@ -342,7 +342,16 @@ export const DEFAULT_LAYOUT: NavLayoutState = {
   enabledProducts: catalogue.map((p) => p.id),
   customLinks: [],
   tailOrder: [],
-  hiddenBlocks: [],
+  /*
+   * Quick actions starts off (Aug 28).
+   *
+   * A block rather than a theme axis, so it is the ACCOUNT's answer and it
+   * lands here — every seeded profile spreads this layout, so one entry turns
+   * the row off for the whole demo set while leaving each account free to turn
+   * it back on. Reachable from the nav's own Show / hide control and from the
+   * prototype panel, which are the same switch.
+   */
+  hiddenBlocks: ["quickActions"],
   hiddenRows: [],
   pinned: DEFAULT_PINNED,
   // Areas by default, per the Aug 18 review: ship the tree the market has already
