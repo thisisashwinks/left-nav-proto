@@ -30,6 +30,8 @@ import {
   LAYOUT_REPLACE_DIALOG_LABELS,
   LAYOUT_REPLACE_DIALOGS,
   RAIL_TILE_SHAPE_LABELS,
+  RAIL_SIZINGS,
+  RAIL_SIZING_LABELS,
   RAIL_TILE_SHAPES,
   RECENTS_MODE_LABELS,
   RECENTS_MODES,
@@ -55,6 +57,7 @@ import {
   type InboxPalette,
   type LayoutReplaceDialog,
   type PageShell,
+  type RailSizing,
   type RailTileShape,
   type RecentsMode,
   MERGED_PIN_SCOPES,
@@ -113,6 +116,7 @@ import { PROPOSED_PRODUCT_IDS } from "@/components/nav/proposed-ia";
 import {
   densityFor,
   GROUPING_BLURBS,
+  isBlockHidden,
   GROUPING_LABELS,
   DEFAULT_LAYOUT,
   GROUPING_MODES,
@@ -221,6 +225,10 @@ function NavStructureSection({
     setNavSections,
     railTileShape,
     setRailTileShape,
+    railSizing,
+    setRailSizing,
+    railMagnify,
+    setRailMagnify,
   } = useTheme();
   // The account's own count, not the catalogue's: density is a property of the
   // nav in front of you, and this panel is read while switching between a
@@ -302,6 +310,30 @@ function NavStructureSection({
             {railTileShape === "pill"
               ? "Fully rounded, all the way down: the tiles, the agency's plate and the agency's own mark. One shape for the whole strip."
               : "The rail as it shipped: 9px tiles, and a rounded square on the agency mark to set it apart from the tenant discs."}
+          </Note>
+
+          <Segmented
+            label="Marking the active account"
+            options={RAIL_SIZINGS}
+            value={railSizing}
+            onChange={(v: RailSizing) => setRailSizing(v)}
+            format={(v) => RAIL_SIZING_LABELS[v]}
+          />
+          <Note>
+            {railSizing === "active"
+              ? "Inactive tiles drop to 20px and the live one keeps 24, so size carries the state. One big disc in a column of small ones is seen rather than read — and it is the only treatment that also shows “none of them”, which is what agency scope is. The fill and the edge bar stay."
+              : "What ships: one size down the strip, with the active account carried by a filled tile and the bar at the strip's edge. Both are marks you have to read."}
+          </Note>
+
+          <Toggle
+            label="Dock magnification on hover"
+            checked={railMagnify}
+            onChange={setRailMagnify}
+          />
+          <Note>
+            {railMagnify
+              ? "macOS-Dock behaviour: the tile under the pointer swells and its neighbours swell less, so a bump follows the cursor. Hands the size back on demand, which is the answer to a 20px logo being hard to recognise."
+              : "Tiles hold their size under the pointer. Off, the smaller resting size has no counterweight — which is the version worth arguing with."}
           </Note>
         </>
       ) : null}
@@ -395,6 +427,30 @@ function NavStructureSection({
           account”.
         </Note>
       ) : null}
+
+      {/*
+        Quick actions, which is one switch over two surfaces.
+
+        The nav draws it in two places depending on the account: as the footer
+        row of the Launchpad card where that card exists, and as a standing row
+        of its own where it does not. Both read the same hidden block, so this
+        is one toggle rather than two — a control that hid the row but left the
+        card's footer would be answering half the question.
+
+        Writes the account's own `hiddenBlocks`, the same field the nav's
+        Show / hide control writes. A parallel prototype-only flag would let the
+        panel and the nav disagree about a setting the nav already owns.
+      */}
+      <Toggle
+        label="Quick actions"
+        checked={!isBlockHidden(state, "quickActions")}
+        onChange={() => layout.toggleBlock("quickActions")}
+      />
+      <Note>
+        {isBlockHidden(state, "quickActions")
+          ? "Hidden — no footer row on the Launchpad card, and no standing row for the accounts that never had the card."
+          : "Shown. It rides in the Launchpad card's footer where that card exists, and as its own row where it does not."}
+      </Note>
 
       <Segmented
         label="Inline recents"

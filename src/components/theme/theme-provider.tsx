@@ -21,6 +21,7 @@ import {
   type LayoutReplaceDialog,
   type NavSections,
   type RailTileShape,
+  type RailSizing,
   type PageShell,
   type ScopeModel,
   type NavGeneration,
@@ -120,6 +121,8 @@ interface ThemeContextValue extends ThemeState {
   setLayoutReplaceDialog: (mode: LayoutReplaceDialog) => void;
   setInboxPalette: (palette: InboxPalette) => void;
   setRailTileShape: (shape: RailTileShape) => void;
+  setRailSizing: (sizing: RailSizing) => void;
+  setRailMagnify: (enabled: boolean) => void;
   setPageShell: (shell: PageShell) => void;
   /**
    * What the workspace actually renders: the platform theme with the active
@@ -274,6 +277,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, inboxPalette })),
       setRailTileShape: (railTileShape) =>
         setState((s) => ({ ...s, railTileShape })),
+      setRailSizing: (railSizing) => setState((s) => ({ ...s, railSizing })),
+      setRailMagnify: (railMagnify) => setState((s) => ({ ...s, railMagnify })),
       setPageShell: (pageShell) => setState((s) => ({ ...s, pageShell })),
     }),
     [state, effective, accountThemes],

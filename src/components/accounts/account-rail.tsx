@@ -2,7 +2,11 @@
 
 import * as React from "react";
 import { Grip } from "lucide-react";
-import type { SurfaceTheme } from "@/design/theme";
+import {
+  RAIL_TILE_SIZE,
+  RAIL_TILE_SIZE_SMALL,
+  type SurfaceTheme,
+} from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
 import { cn } from "@/lib/utils";
@@ -107,6 +111,17 @@ export function AccountRail({
    */
   const { effective } = useTheme();
   const pillTiles = effective.railTileShape === "pill";
+
+  /*
+   * Which tile the pointer is on, for the Dock magnification.
+   *
+   * Held here rather than per row because the effect is about NEIGHBOURS: on a
+   * real Dock the icon under the cursor swells most and the ones beside it
+   * swell less, which is what makes it read as one surface bending rather than
+   * as a row of independent buttons popping. A row cannot know its distance
+   * from the pointer without the strip telling it.
+   */
+  const [magnifyIndex, setMagnifyIndex] = React.useState<number | null>(null);
 
   const width = switcherOpen
     ? ACCOUNT_RAIL_DIRECTORY_WIDTH
@@ -308,8 +323,14 @@ export function AccountRail({
                 strip's. The padding makes the wrapper that much taller under
                 the tiles, lifting the visible group onto the TRUE centre.
               */}
-              <div className="my-auto flex w-full flex-col gap-[4px] pb-[43px]">
-                {railAccounts.map((account) => (
+              <div
+                className="my-auto flex w-full flex-col gap-[4px] pb-[43px]"
+                // Cleared on the list, not per row: leaving one tile for the
+                // next fires a leave before the enter, and resetting there made
+                // the whole strip snap flat between every pair of tiles.
+                onPointerLeave={() => setMagnifyIndex(null)}
+              >
+                {railAccounts.map((account, i) => (
                   <RailRow
                     key={account.id}
                     label={account.name}
@@ -317,8 +338,12 @@ export function AccountRail({
                     expanded={expanded}
                     selected={session.scope === "account" && account.id === session.current.id}
                     onClick={() => session.switchTo(account.id)}
-                    onHover={() => setHover(true)}
+                    onHover={() => {
+                      setHover(true);
+                      setMagnifyIndex(i);
+                    }}
                     account={account}
+                    magnify={magnifyScale(effective.railMagnify, magnifyIndex, i)}
                   />
                 ))}
 
@@ -385,6 +410,7 @@ function RailRow({
   onHover,
   account,
   logoRadius = 999,
+  magnify = 1,
 }: {
   label: string;
   name: string;
@@ -396,9 +422,22 @@ function RailRow({
   account: Account;
   /** Tenant tiles are discs; the platform mark wears a rounded square. */
   logoRadius?: number;
+  /** Dock magnification for this row: 1 when the pointer is elsewhere. */
+  magnify?: number;
 }) {
   const { effective } = useTheme();
   const pillTiles = effective.railTileShape === "pill";
+  /*
+   * The active account keeps its size; everything else comes down.
+   *
+   * Only the MARK changes — the button around it keeps its padding, so the tap
+   * target is the size it always was. Shrinking a target to make a state
+   * legible would be trading one usability problem for another.
+   */
+  const size =
+    selected || effective.railSizing === "uniform"
+      ? RAIL_TILE_SIZE
+      : RAIL_TILE_SIZE_SMALL;
 
   return (
     <div className="relative w-full shrink-0">
@@ -438,8 +477,27 @@ function RailRow({
             selected ? "bg-nav shadow-[inset_0_0_0_1px_var(--nav-border)]" : "hover:bg-nav-hover",
           )}
         >
-          {/* 24, not 28 (Aug 13): the tenant tiles read oversized in the strip. */}
-          <AccountLogo logo={account.logo} src={account.logoSrc} size={24} radius={logoRadius} />
+          {/*
+            24, not 28 (Aug 13): the tenant tiles read oversized in the strip.
+            20 when the rail is marking the active account by size.
+
+            Magnification is a TRANSFORM rather than a bigger `size`, so a tile
+            swelling under the pointer cannot reflow the column beneath it — the
+            mark grows over its neighbours the way a Dock icon does, and every
+            row stays exactly where the eye left it.
+          */}
+          <span
+            aria-hidden={undefined}
+            style={{ transform: magnify === 1 ? undefined : `scale(${magnify})` }}
+            className="flex shrink-0 origin-center transition-transform duration-[var(--dur-dock)] ease-[var(--ease-out)]"
+          >
+            <AccountLogo
+              logo={account.logo}
+              src={account.logoSrc}
+              size={size}
+              radius={logoRadius}
+            />
+          </span>
           {expanded ? (
             <span
               className={cn(
@@ -454,6 +512,29 @@ function RailRow({
       </Tooltipped>
     </div>
   );
+}
+
+/**
+ * The Dock's falloff, as three numbers.
+ *
+ * A real Dock computes scale from the pointer's exact distance along the strip;
+ * a rail of eleven fixed tiles does not need that. Distance in ROWS is enough,
+ * and it has one property the continuous version lacks here: it cannot jitter
+ * while the pointer wanders inside a single tile.
+ *
+ * The tail is short on purpose. Two neighbours either side is what reads as a
+ * bump following the cursor; four is the whole strip breathing every time you
+ * cross it on the way somewhere else.
+ */
+const MAGNIFY_FALLOFF = [1.35, 1.15, 1.05] as const;
+
+function magnifyScale(
+  enabled: boolean,
+  hovered: number | null,
+  index: number,
+): number {
+  if (!enabled || hovered === null) return 1;
+  return MAGNIFY_FALLOFF[Math.abs(hovered - index)] ?? 1;
 }
 
 /** Tooltip only while collapsed — expanded rows carry their own names. */

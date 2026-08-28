@@ -437,6 +437,37 @@ export const NAV_SECTION_LABELS: Record<NavSections, string> = {
  * A review axis: it changes nothing but shape, and the argument for either is
  * one you have to see rather than read.
  */
+/**
+ * How the account rail marks the account you are in.
+ *
+ * The rail draws every tenant at one size, and says which one is live with a
+ * filled tile and a bar at the strip's edge. Both are marks you have to READ:
+ * they are the same shape as everything around them, differing only in fill.
+ *
+ *  uniform   What ships: one size down the strip, active carried by fill and
+ *            the edge bar.
+ *  active    Inactive tiles come down to 20px and the live one keeps 24, so
+ *            size is the signal. One big disc in a column of small ones is
+ *            seen rather than read — and it is the only treatment that also
+ *            answers "none of them", which is what agency scope looks like.
+ *
+ * The cost is legibility: real tenant logos are already poor at 24px, which is
+ * why the rail widens to names on hover. `railMagnify` is the counterweight —
+ * see below.
+ */
+export const RAIL_SIZINGS = ["uniform", "active"] as const;
+
+export type RailSizing = (typeof RAIL_SIZINGS)[number];
+
+export const RAIL_SIZING_LABELS: Record<RailSizing, string> = {
+  uniform: "One size",
+  active: "Active is larger",
+};
+
+/** Resting diameter of a tile that is not the active account, in px. */
+export const RAIL_TILE_SIZE = 24;
+export const RAIL_TILE_SIZE_SMALL = 20;
+
 export const RAIL_TILE_SHAPES = ["pill", "squircle"] as const;
 
 export type RailTileShape = (typeof RAIL_TILE_SHAPES)[number];
@@ -697,6 +728,18 @@ export interface ThemeState {
   navSections: NavSections;
   /** The account rail's tile shape, agency plate and mark included. */
   railTileShape: RailTileShape;
+  /** Whether size marks the active account. See RAIL_SIZINGS. */
+  railSizing: RailSizing;
+  /**
+   * macOS-Dock magnification on the account rail.
+   *
+   * Kept separate from `railSizing` because they answer different questions —
+   * one is how the rail marks state at rest, the other is what it does under
+   * the pointer — and either is defensible without the other. Together they
+   * are the whole proposal: shrink the tiles, then hand the size back to
+   * whoever points at one.
+   */
+  railMagnify: boolean;
   /** Whether the app bar sits on the plane or inside the canvas. See PAGE_SHELLS. */
   pageShell: PageShell;
 }
@@ -802,6 +845,10 @@ export const DEFAULT_THEME: ThemeState = {
   // Fully rounded, which is the proposal. The squircle the rail shipped with is
   // one click away for the comparison.
   railTileShape: "pill",
+  // Both off: this is a proposal, and the rail that ships is the thing it has
+  // to be compared against.
+  railSizing: "uniform",
+  railMagnify: false,
   // The bar in the canvas — the Aug 25 answer to "move back to a normal
   // layout". The nav keeps floating; the chrome joins the page it names, so the
   // arrangement reads as one surface rather than two detached ones.
