@@ -1229,8 +1229,8 @@ const DESTINATIONS: CatalogueEntry[] = [
    *
    * It was the one destination: a top-level row whose only job was to hand you
    * the phone app. That offer is now an axis — app bar, avatar menu or sidebar,
-   * see GET_APP_PLACEMENTS — and on the sidebar setting it draws Mobile app AND
-   * Desktop app beside Settings, where chrome belongs. Keeping this row as well
+   * see GET_APP_PLACEMENTS — and on the sidebar setting it draws Get Mobile App
+   * AND Get Desktop App beside Settings, where chrome belongs. Keeping this row
    * would have been the same offer twice in one nav, one of them naming only
    * half of it.
    *

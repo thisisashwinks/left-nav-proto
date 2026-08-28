@@ -78,7 +78,10 @@ import { NavSectionLabel } from "./nav-section-label";
 import { NavRowsSkeleton } from "@/components/shell/switching";
 import { NavAppearance } from "./nav-appearance";
 import { Monitor, Smartphone, type LucideIcon } from "lucide-react";
-import type { AppKind } from "@/components/header/get-app-modal";
+import {
+  GET_APP_LABELS,
+  type AppKind,
+} from "@/components/header/get-app-modal";
 import { useAgencyLayout } from "./agency-layout";
 import { NavTemplatesMenu } from "./nav-templates-menu";
 import {
@@ -242,11 +245,19 @@ export function LeftNav({
   const getAppEntries: NavEntry[] = [
     {
       kind: "item",
-      item: { id: "get-app-mobile", label: "Mobile app", icon: Smartphone },
+      item: {
+        id: "get-app-mobile",
+        label: GET_APP_LABELS.mobile,
+        icon: Smartphone,
+      },
     },
     {
       kind: "item",
-      item: { id: "get-app-desktop", label: "Desktop app", icon: Monitor },
+      item: {
+        id: "get-app-desktop",
+        label: GET_APP_LABELS.desktop,
+        icon: Monitor,
+      },
     },
   ];
   const [foldedSections, setFoldedSections] = React.useState<Set<string>>(

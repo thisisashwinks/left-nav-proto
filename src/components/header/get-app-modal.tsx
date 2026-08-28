@@ -21,6 +21,20 @@ import { cn } from "@/lib/utils";
 
 export type AppKind = "mobile" | "desktop";
 
+/**
+ * What the two entry points are called, wherever they stand.
+ *
+ * One constant because the offer now appears in three exclusive places — the app
+ * bar, the avatar menu and the sidebar, at both nav widths — and copy repeated
+ * across five files is copy that ends up saying five things. "Get" is doing work
+ * here: "Mobile app" alone reads like a place in the product, which is exactly
+ * what the row it replaced in the nav used to be.
+ */
+export const GET_APP_LABELS: Record<AppKind, string> = {
+  mobile: "Get Mobile App",
+  desktop: "Get Desktop App",
+};
+
 /*
  * Real store URLs, and deliberately searches rather than app ids.
  *

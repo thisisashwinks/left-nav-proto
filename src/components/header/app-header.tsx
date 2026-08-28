@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { headerConfig, type HeaderActionTone, type HeaderConfig } from "./header-config";
 import { UserAvatar } from "./user-avatar";
 import { AccountMenu } from "./account-menu";
-import type { AppKind } from "./get-app-modal";
+import { GET_APP_LABELS, type AppKind } from "./get-app-modal";
 
 /**
  * One breadcrumb segment. A plain string stays a label; a segment with
@@ -216,12 +216,12 @@ export function AppHeader({
             <>
               <AppGlyph
                 icon={Smartphone}
-                label="Mobile app"
+                label={GET_APP_LABELS.mobile}
                 onSelect={() => onOpenApp("mobile")}
               />
               <AppGlyph
                 icon={Monitor}
-                label="Desktop app"
+                label={GET_APP_LABELS.desktop}
                 onSelect={() => onOpenApp("desktop")}
               />
             </>

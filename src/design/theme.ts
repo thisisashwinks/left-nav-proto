@@ -720,14 +720,28 @@ export const DEFAULT_THEME: ThemeState = {
   // the rest. `center` and `under` stay one click away for the comparison.
   dockLabel: "none",
   dockPosition: "top",
-  // The bottom edge is the default per Khoi's Aug 10 review: with the pill up
-  // top, the header + pill + favourites capsule read as "a cluster of icons".
-  // Moving the one merged control down clears the nav's entry. "Under the
-  // logo" stays one click away for the comparison.
-  entryLayout: "split",
-  // The bar. The apps are the one thing in this menu nobody goes looking for,
-  // and a glyph beside the phone is the only placement that meets them halfway.
-  getAppPlacement: "header",
+  /*
+   * The app bar.
+   *
+   * Khoi's Aug 10 review put it on the nav's bottom edge, to clear the cluster
+   * of icons that the header, the pill and the favourites capsule made of the
+   * nav's top. The bar answers that objection better: the pill is out of the
+   * nav altogether, so there is no cluster to break up — and it is the one
+   * placement that survives the nav collapsing, since the bar never does.
+   *
+   * Both nav placements stay one click away for the comparison.
+   */
+  entryLayout: "header",
+  /*
+   * The avatar menu, which is where production puts it.
+   *
+   * The bar is the louder answer and it is one click away, but with search now
+   * standing up there too the utility run is carrying the pill, five glyphs and
+   * the avatar — and two more for the companion apps turns a row of things this
+   * account DOES into a row that also advertises. The menu is the conventional
+   * home for it; whether that is too quiet is exactly what the axis is for.
+   */
+  getAppPlacement: "menu",
   // Click is the default per the Aug 11 direction: Khoi's "maybe the L2
   // doesn't get exposed until the user actually clicks" — hover preview
   // (with its dwell) stays one toggle away for the comparison.

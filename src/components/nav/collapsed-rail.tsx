@@ -2,7 +2,10 @@
 
 import * as React from "react";
 import { Monitor, PanelLeftOpen, Pin, Smartphone, SquarePen } from "lucide-react";
-import type { AppKind } from "@/components/header/get-app-modal";
+import {
+  GET_APP_LABELS,
+  type AppKind,
+} from "@/components/header/get-app-modal";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { useSwapPhase } from "@/lib/use-swap-phase";
 import { NAV_SWAP_OUT_MS } from "@/design/motion-timing";
@@ -397,14 +400,14 @@ export function CollapsedRail({
             <>
               {railButton(
                 "get-app-mobile",
-                "Mobile app",
+                GET_APP_LABELS.mobile,
                 <Smartphone size={16} aria-hidden="true" />,
                 false,
                 () => onOpenApp("mobile"),
               )}
               {railButton(
                 "get-app-desktop",
-                "Desktop app",
+                GET_APP_LABELS.desktop,
                 <Monitor size={16} aria-hidden="true" />,
                 false,
                 () => onOpenApp("desktop"),

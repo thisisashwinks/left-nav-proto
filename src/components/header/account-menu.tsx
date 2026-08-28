@@ -6,7 +6,7 @@ import { ChevronRight, LogOut, Monitor, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAnchored } from "@/lib/use-anchored";
 import { UserAvatar } from "./user-avatar";
-import type { AppKind } from "./get-app-modal";
+import { GET_APP_LABELS, type AppKind } from "./get-app-modal";
 
 const WIDTH = 268;
 const GAP = 8;
@@ -110,7 +110,7 @@ export function AccountMenu({
           <Rule />
           <Row
             icon={Smartphone}
-            label="Mobile app"
+            label={GET_APP_LABELS.mobile}
             onSelect={() => {
               onOpenApp("mobile");
               onClose();
@@ -118,7 +118,7 @@ export function AccountMenu({
           />
           <Row
             icon={Monitor}
-            label="Desktop app"
+            label={GET_APP_LABELS.desktop}
             onSelect={() => {
               onOpenApp("desktop");
               onClose();
