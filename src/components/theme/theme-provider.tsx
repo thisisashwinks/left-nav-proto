@@ -19,10 +19,14 @@ import {
   type MergedHeading,
   type MergedAgencyRecents,
   type InboxPalette,
+  type PanelRecentHeading,
+  type PinMarkColour,
   type LayoutReplaceDialog,
   type NavSections,
   type RailTileShape,
   type RailRecents,
+  type RailDirectorySpot,
+  type LaunchpadCard,
   type RailSizing,
   type EditTreatment,
   type PageShell,
@@ -69,6 +73,7 @@ export type AccountTheme = Partial<
     | "mergedExpandedRows"
     | "autoCollapse"
     | "launchpad"
+    | "launchpadCard"
     | "searchMode"
     | "searchTheme"
   >
@@ -125,10 +130,15 @@ interface ThemeContextValue extends ThemeState {
   setNavSections: (mode: NavSections) => void;
   setLayoutReplaceDialog: (mode: LayoutReplaceDialog) => void;
   setInboxPalette: (palette: InboxPalette) => void;
+  setPanelRecentHeading: (heading: PanelRecentHeading) => void;
+  setPinMarkColour: (colour: PinMarkColour) => void;
   setRailTileShape: (shape: RailTileShape) => void;
   setRailRecents: (mode: RailRecents) => void;
+  setRailDirectorySpot: (spot: RailDirectorySpot) => void;
+  setLaunchpadCard: (variant: LaunchpadCard) => void;
   setEditTreatment: (treatment: EditTreatment) => void;
   setRailSizing: (sizing: RailSizing) => void;
+  setRailActiveBar: (enabled: boolean) => void;
   setRailMagnify: (enabled: boolean) => void;
   setPageShell: (shell: PageShell) => void;
   /**
@@ -284,13 +294,23 @@ export function ThemeProvider({
         setState((s) => ({ ...s, layoutReplaceDialog })),
       setInboxPalette: (inboxPalette) =>
         setState((s) => ({ ...s, inboxPalette })),
+      setPanelRecentHeading: (panelRecentHeading) =>
+        setState((s) => ({ ...s, panelRecentHeading })),
+      setPinMarkColour: (pinMarkColour) =>
+        setState((s) => ({ ...s, pinMarkColour })),
       setRailTileShape: (railTileShape) =>
         setState((s) => ({ ...s, railTileShape })),
       setRailRecents: (railRecents) =>
         setState((s) => ({ ...s, railRecents })),
+      setRailDirectorySpot: (railDirectorySpot) =>
+        setState((s) => ({ ...s, railDirectorySpot })),
+      setLaunchpadCard: (launchpadCard) =>
+        setState((s) => ({ ...s, launchpadCard })),
       setEditTreatment: (editTreatment) =>
         setState((s) => ({ ...s, editTreatment })),
       setRailSizing: (railSizing) => setState((s) => ({ ...s, railSizing })),
+      setRailActiveBar: (railActiveBar) =>
+        setState((s) => ({ ...s, railActiveBar })),
       setRailMagnify: (railMagnify) => setState((s) => ({ ...s, railMagnify })),
       setPageShell: (pageShell) => setState((s) => ({ ...s, pageShell })),
     }),

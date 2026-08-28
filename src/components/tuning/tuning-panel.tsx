@@ -31,12 +31,20 @@ import {
   INBOX_PALETTES,
   LAYOUT_REPLACE_DIALOG_LABELS,
   LAYOUT_REPLACE_DIALOGS,
+  PANEL_RECENT_HEADING_LABELS,
+  PANEL_RECENT_HEADINGS,
+  PIN_MARK_COLOUR_LABELS,
+  PIN_MARK_COLOURS,
   RAIL_TILE_SHAPE_LABELS,
   EDIT_TREATMENTS,
   EDIT_TREATMENT_LABELS,
   RAIL_SIZINGS,
   RAIL_SIZING_LABELS,
   RAIL_TILE_SHAPES,
+  LAUNCHPAD_CARDS,
+  LAUNCHPAD_CARD_LABELS,
+  RAIL_DIRECTORY_SPOTS,
+  RAIL_DIRECTORY_SPOT_LABELS,
   RAIL_RECENTS,
   RAIL_RECENTS_LABELS,
   RECENTS_MODE_LABELS,
@@ -64,10 +72,14 @@ import {
   type InboxPalette,
   type LayoutReplaceDialog,
   type PageShell,
+  type PanelRecentHeading,
+  type PinMarkColour,
   type EditTreatment,
   type RailSizing,
   type RailTileShape,
   type RailRecents,
+  type RailDirectorySpot,
+  type LaunchpadCard,
   type RecentsMode,
   MERGED_PIN_SCOPES,
   MERGED_PIN_SCOPE_LABELS,
@@ -198,6 +210,8 @@ function NavStructureSection({
   const {
     recentsMode,
     setRecentsMode,
+    launchpadCard,
+    setLaunchpadCard,
     mergedPinScope,
     setMergedPinScope,
     mergedPinMark,
@@ -205,6 +219,10 @@ function NavStructureSection({
     mergedOverflow,
     setMergedOverflow,
     mergedRowDetail,
+    panelRecentHeading,
+    setPanelRecentHeading,
+    pinMarkColour,
+    setPinMarkColour,
     setMergedRowDetail,
     mergedPinOrder,
     setMergedPinOrder,
@@ -238,10 +256,14 @@ function NavStructureSection({
     setRailTileShape,
     railRecents,
     setRailRecents,
+    railDirectorySpot,
+    setRailDirectorySpot,
     editTreatment,
     setEditTreatment,
     railSizing,
     setRailSizing,
+    railActiveBar,
+    setRailActiveBar,
     railMagnify,
     setRailMagnify,
   } = useTheme();
@@ -330,6 +352,21 @@ function NavStructureSection({
           </Note>
 
           <Segmented
+            label="All accounts sits"
+            options={RAIL_DIRECTORY_SPOTS}
+            value={railDirectorySpot}
+            onChange={(v: RailDirectorySpot) => setRailDirectorySpot(v)}
+            format={(v) => RAIL_DIRECTORY_SPOT_LABELS[v]}
+          />
+          <Note>
+            {railDirectorySpot === "tail"
+              ? "As it shipped: last in the tile column — which floats in the strip's centre, so the button moves whenever the open set changes length."
+              : railDirectorySpot === "top"
+                ? "Anchored under the agency plate. The one fixed point in the strip, so the way into search is in the same place every time."
+                : "Anchored under the agency, with the account you are in raised beside it. It leaves a hole where that tile was in the ordered set."}
+          </Note>
+
+          <Segmented
             label="Rail tiles"
             options={RAIL_TILE_SHAPES}
             value={railTileShape}
@@ -351,8 +388,19 @@ function NavStructureSection({
           />
           <Note>
             {railSizing === "active"
-              ? "Inactive tiles drop to 20px and the live one keeps 24, so size carries the state. One big disc in a column of small ones is seen rather than read — and it is the only treatment that also shows “none of them”, which is what agency scope is. The fill and the edge bar stay."
-              : "What ships: one size down the strip, with the active account carried by a filled tile and the bar at the strip's edge. Both are marks you have to read."}
+              ? "The live tile goes to 28 and the rest to 16, so size carries the state. Every tile stays a 32px circle — only the mark inside changes — so the column's rhythm and the tap targets hold."
+              : "One 24px mark down the strip, with the active account carried by its filled tile alone — a mark you have to read."}
+          </Note>
+
+          <Toggle
+            label="Bar beside the active tile"
+            checked={railActiveBar}
+            onChange={setRailActiveBar}
+          />
+          <Note>
+            {railActiveBar
+              ? "The 3px mark at the strip's outer edge, back on. A third answer to a question the size and the fill already answer — and the only one that lives outside the tile."
+              : "Off. The active account is the bigger, filled tile; nothing else in the strip is claiming to mark it."}
           </Note>
 
           <Toggle
@@ -479,13 +527,9 @@ function NavStructureSection({
         format={(v) => EDIT_TREATMENT_LABELS[v]}
       />
       <Note>
-        {editTreatment === "ring"
-          ? "What ships: a neutral stroke around the nav, page a step back behind it. Quiet — and a 1.5px outline is also what a focus ring looks like, which is the objection."
-          : editTreatment === "dim"
-            ? "No stroke. Everything outside the nav drops much further and desaturates, so the mode is shown by what is withdrawn. Unmistakable; you can no longer read the page you are arranging the nav for."
-            : editTreatment === "hatch"
-              ? "A 4px diagonal band on the nav's edges instead of a line — design-tool language for “you are inside something”. Loud by construction, and unlike anything else in the product."
-              : "A bar across the nav's top that says it in words. The weakest cue about WHERE the mode applies, the strongest about WHAT it is."}
+        {editTreatment === "dim"
+          ? "No stroke. Everything outside the nav drops back and desaturates, so the mode is shown by what is withdrawn. The rail goes a step lighter than the page — it is how you leave, not something to ignore."
+          : "A neutral stroke around the nav, surround a step back behind it. Quiet — and a 1.5px outline is also what a focus ring looks like, which was the objection."}
       </Note>
 
       {/*
@@ -510,6 +554,25 @@ function NavStructureSection({
         {isBlockHidden(state, "quickActions")
           ? "Hidden — no footer row on the Launchpad card, and no standing row for the accounts that never had the card."
           : "Shown. It rides in the Launchpad card's footer where that card exists, and as its own row where it does not."}
+      </Note>
+
+      <Segmented
+        label="Launchpad card"
+        options={LAUNCHPAD_CARDS}
+        value={launchpadCard}
+        onChange={(v: LaunchpadCard) => setLaunchpadCard(v)}
+        format={(v) => LAUNCHPAD_CARD_LABELS[v]}
+      />
+      <Note>
+        {launchpadCard === "tinted"
+          ? "The brand fill without the ring, and the words in the nav's own ink. A card, not an alert."
+          : launchpadCard === "outline"
+            ? "No fill — a neutral hairline. A container rather than a highlight; brand survives only in the meter."
+            : launchpadCard === "quiet"
+              ? "The grey a hovered row wears. Present, and carrying no colour of its own."
+              : launchpadCard === "plain"
+                ? "No card at all. Two rows on the nav's ground, indented to its own icon column — does this need to be a card?"
+                : "What shipped: brand fill and a full brand ring. The loudest thing in the nav, for as long as onboarding lasts."}
       </Note>
 
       <Segmented
@@ -602,6 +665,37 @@ function NavStructureSection({
               ? "One line per row, so the block holds twice as many in the same space. Names that collide say where they came from on their own."
               : "Every row names its place underneath itself — “Conversations / CRM”. Doubles the row height, and the block's."}
           </Note>
+          {/*
+            Platform-wide, but hosted here: this is the section about the block
+            that made the question worth asking, and the pin has no section of
+            its own to live in.
+          */}
+          <Segmented
+            label="Pin colour"
+            options={PIN_MARK_COLOURS}
+            value={pinMarkColour}
+            onChange={(v: PinMarkColour) => setPinMarkColour(v)}
+            format={(v) => PIN_MARK_COLOUR_LABELS[v]}
+          />
+          <Note>
+            {pinMarkColour === "grey"
+              ? "Set pins in gray-400 everywhere — the dock, the panels, the lists. A pin is a state, not an action asking to be pressed."
+              : "Set pins in the accent everywhere, as it shipped: the pin is the gesture these surfaces exist for, and colour says so."}
+          </Note>
+
+          <Segmented
+            label="Panel history heading"
+            options={PANEL_RECENT_HEADINGS}
+            value={panelRecentHeading}
+            onChange={(v: PanelRecentHeading) => setPanelRecentHeading(v)}
+            format={(v) => PANEL_RECENT_HEADING_LABELS[v]}
+          />
+          <Note>
+            {panelRecentHeading === "recent"
+              ? "The panel is titled “Recents” and its second section “Recent” — the same word twice, one line apart."
+              : "Names the section by what is in it, so it does not repeat the panel's own title one line above it."}
+          </Note>
+
           <Segmented
             label="New pin lands"
             options={MERGED_PIN_ORDERS}

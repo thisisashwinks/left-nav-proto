@@ -46,6 +46,19 @@ export type { LabelScope, NavLayoutState };
 /** How long a label may be. Settled on the spec board: one line, no emoji. */
 export const LABEL_MAX = 24;
 
+/**
+ * How many things may be pinned at once.
+ *
+ * Five, which is what the dock shows and what a fresh account starts with. The
+ * list was uncapped on the reasoning that the chip row is a window onto it
+ * rather than a capacity — true, but it made "pinned" mean two different things
+ * depending on where you were standing: five in the dock, however many in the
+ * launcher, with no surface saying which of them was the real list. A cap says
+ * it once, and the refusal is shown on the row rather than discovered by
+ * clicking.
+ */
+export const PIN_LIMIT = 5;
+
 /** What an undo offer describes. One per editing action. */
 interface UndoOffer {
   id: number;
@@ -62,6 +75,13 @@ interface NavLayoutContextValue {
 
   // Favourites — the personalization layer every role gets.
   isPinned: (productId: string) => boolean;
+  /**
+   * Whether another pin would be refused.
+   *
+   * Asked by every surface that draws a pin button, so the cap is visible on
+   * the row BEFORE it is hit rather than as a click that silently does nothing.
+   */
+  pinsFull: boolean;
   /** Appends, per the decision: never reorders what was already there. */
   pin: (productId: string) => void;
   unpin: (productId: string) => void;
@@ -853,9 +873,16 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       groups: resolveGroups(state),
 
       isPinned: (productId) => state.pinned.includes(productId),
+      pinsFull: state.pinned.length >= PIN_LIMIT,
 
       pin: (productId) =>
-        commit(`Pinned ${labelForProduct(state, productId)}`, (s) =>
+        // Silently no-op past the cap rather than growing the list: the button
+        // that would call this is already disabled, so reaching here means a
+        // caller that did not ask — and a limit enforced in one place is a
+        // limit with a hole in it.
+        state.pinned.length >= PIN_LIMIT && !state.pinned.includes(productId)
+          ? undefined
+          : commit(`Pinned ${labelForProduct(state, productId)}`, (s) =>
           s.pinned.includes(productId)
             ? s
             : { ...s, pinned: [...s.pinned, productId] },
@@ -867,18 +894,23 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
           pinned: s.pinned.filter((id) => id !== productId),
         })),
 
-      togglePin: (productId) =>
+      togglePin: (productId) => {
+        const pinning = !state.pinned.includes(productId);
+        // Unpinning is always allowed — the cap is on how many you may keep,
+        // not on touching the ones you have.
+        if (pinning && state.pinned.length >= PIN_LIMIT) return;
         commit(
-          state.pinned.includes(productId)
-            ? `Unpinned ${labelForProduct(state, productId)}`
-            : `Pinned ${labelForProduct(state, productId)}`,
+          pinning
+            ? `Pinned ${labelForProduct(state, productId)}`
+            : `Unpinned ${labelForProduct(state, productId)}`,
           (s) => ({
             ...s,
             pinned: s.pinned.includes(productId)
               ? s.pinned.filter((id) => id !== productId)
               : [...s.pinned, productId],
           }),
-        ),
+        );
+      },
 
       movePin: (fromIndex, toIndex) =>
         commit("Reordered your pinned items", (s) => {

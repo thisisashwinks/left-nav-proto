@@ -27,7 +27,11 @@ import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { useSwapPhase } from "@/lib/use-swap-phase";
 import { NAV_SWAP_OUT_MS } from "@/design/motion-timing";
 import type { AiSession } from "@/components/ai/use-ai-session";
-import type { DockPosition, SurfaceTheme } from "@/design/theme";
+import type {
+  DockPosition,
+  LaunchpadCard,
+  SurfaceTheme,
+} from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { usePlanFor } from "@/components/nav/nav-profiles";
 import {
@@ -77,7 +81,7 @@ import type { NavDensity } from "./use-nav-density";
 import { NavSectionLabel } from "./nav-section-label";
 import { NavRowsSkeleton } from "@/components/shell/switching";
 import { NavAppearance } from "./nav-appearance";
-import { Monitor, Smartphone, SquarePen, type LucideIcon } from "lucide-react";
+import { Monitor, Smartphone, type LucideIcon } from "lucide-react";
 import {
   GET_APP_LABELS,
   type AppKind,
@@ -1609,8 +1613,8 @@ export function LeftNav({
          */
         /*
          * Only the `ring` treatment draws a stroke. `dim` withdraws everything
-         * else instead, `hatch` puts a striped band on the edges (below), and
-         * `band` names the mode in words across the top — see EDIT_TREATMENTS.
+         * around the nav instead, so the nav needs no edge of its own — see
+         * EDIT_TREATMENTS.
          */
         editing &&
           editTreatment === "ring" &&
@@ -1625,48 +1629,9 @@ export function LeftNav({
                */
               "rounded-none shadow-[inset_1.5px_0_0_0_var(--nav-edit-ring),inset_0_1.5px_0_0_var(--nav-edit-ring),inset_0_-1.5px_0_0_var(--nav-edit-ring)]"
             : "rounded-none shadow-[inset_0_0_0_1.5px_var(--nav-edit-ring)]"),
-        editing && editTreatment !== "ring" && "rounded-none",
+        editing && editTreatment === "dim" && "rounded-none",
       )}
     >
-      {/*
-        The hatched edge.
-
-        Four strips rather than one bordered box: a repeating gradient can only
-        be masked to an edge with `mask`, and four 4px children are cheaper to
-        reason about than a mask that has to survive the flyout squaring one
-        side. The right strip is dropped while a panel is docked, for the same
-        reason the ring omits it — that seam is how a row travels between the
-        nav and the panel, and a barber's pole down it says "boundary" exactly
-        where there is none.
-      */}
-      {editing && editTreatment === "hatch" ? (
-        <span aria-hidden="true" className="pointer-events-none absolute inset-0 z-40">
-          <span className="nav-edit-hatch absolute inset-x-0 top-0 h-[4px]" />
-          <span className="nav-edit-hatch absolute inset-x-0 bottom-0 h-[4px]" />
-          <span className="nav-edit-hatch absolute inset-y-0 left-0 w-[4px]" />
-          {openFlyoutId ? null : (
-            <span className="nav-edit-hatch absolute inset-y-0 right-0 w-[4px]" />
-          )}
-        </span>
-      ) : null}
-
-      {/*
-        The header band.
-
-        The one treatment that says what the mode IS rather than where it
-        applies, so it carries words. It pushes the nav's contents down by its
-        own height instead of overlaying them — a bar that covered the account
-        name would be trading one confusion for another.
-      */}
-      {editing && editTreatment === "band" ? (
-        <div
-          className="flex h-[26px] w-full shrink-0 items-center gap-[6px] px-[12px] text-[11.5px] leading-none font-semibold tracking-[0.02em] text-white"
-          style={{ background: "var(--nav-edit-ring)" }}
-        >
-          <SquarePen size={13} aria-hidden="true" className="shrink-0" />
-          Editing navigation
-        </div>
-      ) : null}
       <NavHeader
         account={account}
         agency={agencyScope}
@@ -2323,6 +2288,78 @@ function PinnedHole({ position }: { position: DockPosition }) {
  * product: a soft brand wash and a progress meter say "temporary, almost
  * done" — the whole point (Mapping 61) is that this row EARNS its exit.
  */
+/**
+ * How each Launchpad variant paints itself. See LAUNCHPAD_CARDS.
+ *
+ * A table rather than five branches through the markup: the variants differ
+ * only in colour and in whether there is a box, and writing that as conditionals
+ * inside the JSX is how one of them quietly ends up with the wrong meter track.
+ *
+ * The meter's FILL is brand in every row on purpose. It is the one part of the
+ * card that is status rather than decoration — it is what says the card is
+ * temporary — so it survives every step down in contrast.
+ */
+const LAUNCHPAD_STYLE: Record<
+  LaunchpadCard,
+  {
+    box: string;
+    title: string;
+    count: string;
+    icon: string;
+    track: string;
+    rule: string;
+    action: string;
+  }
+> = {
+  solid: {
+    box: "rounded-[9px] bg-brand-soft px-[10px] py-[9px] shadow-[inset_0_0_0_1px_var(--brand)] hover:brightness-[1.02]",
+    title: "text-brand-strong",
+    count: "text-brand-strong opacity-80",
+    icon: "text-brand",
+    track: "bg-brand-soft-2",
+    rule: "bg-[var(--brand)] opacity-20",
+    action: "hover:bg-brand-soft-2",
+  },
+  tinted: {
+    box: "rounded-[9px] bg-brand-soft px-[10px] py-[9px] hover:brightness-[1.02]",
+    title: "text-nav-fg",
+    count: "text-nav-fg-subtle",
+    icon: "text-brand",
+    track: "bg-brand-soft-2",
+    rule: "bg-[var(--brand)] opacity-15",
+    action: "hover:bg-brand-soft-2",
+  },
+  outline: {
+    box: "rounded-[9px] px-[10px] py-[9px] shadow-[inset_0_0_0_1px_var(--nav-border)] hover:bg-nav-hover",
+    title: "text-nav-fg",
+    count: "text-nav-fg-subtle",
+    icon: "text-brand",
+    track: "bg-nav-hover",
+    rule: "bg-nav-border",
+    action: "hover:bg-nav-hover",
+  },
+  quiet: {
+    box: "rounded-[9px] bg-nav-hover px-[10px] py-[9px] hover:bg-nav-active",
+    title: "text-nav-fg",
+    count: "text-nav-fg-subtle",
+    icon: "text-nav-fg-muted",
+    track: "bg-nav-border",
+    rule: "bg-nav-border",
+    action: "hover:bg-nav-active",
+  },
+  plain: {
+    // No box at all, and the nav's own horizontal inset rather than the card's
+    // — so the rocket lands in the same column as every other row's icon.
+    box: "px-[var(--t-nav-px,8px)] py-[2px]",
+    title: "text-nav-fg",
+    count: "text-nav-fg-subtle",
+    icon: "text-nav-fg-muted",
+    track: "bg-nav-border",
+    rule: "bg-transparent",
+    action: "hover:bg-nav-hover",
+  },
+};
+
 function SetupGuideRow({
   showLaunchpad = true,
   onOpen,
@@ -2348,39 +2385,80 @@ function SetupGuideRow({
    */
   onQuickActions?: () => void;
 }) {
+  const { launchpadCard } = useTheme().effective;
+  const v = LAUNCHPAD_STYLE[launchpadCard];
+  const plain = launchpadCard === "plain";
   const done = 4;
   const total = 7;
   return (
-    // pb rather than a gap on the parent: the card is the only thing between the
-    // dock and Recent, and it needs to read as its own band, not a first row.
-    // Horizontal padding comes from the scroll region it now lives in.
-    <div className="w-full shrink-0 pt-[4px] pb-[14px]">
+    /*
+      pb rather than a gap on the parent: the card is the only thing between the
+      dock and Recent, and it needs to read as its own band, not a first row.
+      Horizontal padding comes from the scroll region it now lives in.
+
+      2px, not 14. Whatever follows the card is a section heading, and those
+      carry 14px of their own lead-in — so the card was paying for a gap the
+      next block had already bought, and the two stacked into 28px of nothing
+      between the setup guide and the first thing under it.
+    */
+    <div className={cn("w-full shrink-0 pt-[4px]", plain ? "pb-[4px]" : "pb-[2px]")}>
       {/* A div holding two buttons — the card navigates, the ⚡ opens a panel,
           and nesting one button in another is invalid markup. */}
-      <div className="motion-tap group relative flex w-full flex-col gap-[7px] rounded-[9px] bg-brand-soft px-[10px] py-[9px] text-left shadow-[inset_0_0_0_1px_var(--brand)] hover:brightness-[1.02]">
+      <div
+        className={cn(
+          "motion-tap group relative flex w-full flex-col gap-[7px] text-left",
+          v.box,
+        )}
+      >
         {showLaunchpad ? (
           <>
             <button
               type="button"
               onClick={onOpen}
-              className="absolute inset-0 rounded-[9px] motion-press active:scale-[0.99]"
+              className={cn(
+                "absolute inset-0 motion-press active:scale-[0.99]",
+                plain ? "rounded-[7px]" : "rounded-[9px]",
+              )}
               aria-label="Open Launchpad"
             />
             <span className="pointer-events-none flex w-full items-center gap-[8px]">
               <Rocket
                 size={15}
                 aria-hidden="true"
-                className="shrink-0 text-brand"
+                className={cn("shrink-0", v.icon)}
               />
-              <span className="min-w-0 flex-1 truncate text-[13px] leading-[normal] font-semibold text-brand-strong">
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate text-[13px] leading-[normal] font-semibold",
+                  v.title,
+                )}
+              >
                 Launchpad
               </span>
-              <span className="shrink-0 text-[11.5px] leading-none font-medium text-brand-strong opacity-80">
+              <span
+                className={cn(
+                  "shrink-0 text-[11.5px] leading-none font-medium",
+                  v.count,
+                )}
+              >
                 {done} of {total}
               </span>
             </span>
-            {/* The meter is the row's exit visa: at 7/7 the row leaves the nav. */}
-            <span className="pointer-events-none h-[3px] w-full overflow-hidden rounded-full bg-brand-soft-2">
+            {/*
+              The meter is the row's exit visa: at 7/7 the row leaves the nav.
+
+              2px beyond the card's own gap, and only here. The title row is
+              text and the meter is a 3px rule; on the shared 7px they read as
+              one stacked unit, and the meter wants to sit under the row rather
+              than against it. The gap below it is left alone — that one
+              separates two jobs, not a label from its own progress.
+            */}
+            <span
+              className={cn(
+                "pointer-events-none mt-[6px] h-[3px] w-full overflow-hidden rounded-full",
+                v.track,
+              )}
+            >
               <span
                 className="block h-full rounded-full bg-brand motion-move"
                 style={{ width: `${(done / total) * 100}%` }}
@@ -2391,10 +2469,13 @@ function SetupGuideRow({
         {onQuickActions ? (
           <>
             {/* The hairline only when there are two jobs to separate. */}
-            {showLaunchpad ? (
+            {showLaunchpad && !plain ? (
               <span
                 aria-hidden="true"
-                className="pointer-events-none -mx-[10px] mt-[1px] h-px bg-[var(--brand)] opacity-20"
+                className={cn(
+                  "pointer-events-none -mx-[10px] mt-[1px] h-px",
+                  v.rule,
+                )}
               />
             ) : null}
             <button
@@ -2404,7 +2485,8 @@ function SetupGuideRow({
                 onQuickActions();
               }}
               className={cn(
-                "motion-tap pointer-events-auto relative z-10 -mx-[6px] flex items-center gap-[8px] rounded-[6px] px-[6px] text-left hover:bg-brand-soft-2 active:scale-[0.99]",
+                "motion-tap pointer-events-auto relative z-10 -mx-[6px] flex items-center gap-[8px] rounded-[6px] px-[6px] text-left active:scale-[0.99]",
+                v.action,
                 // Alone in the box, the row takes the header's own scale — it
                 // IS the card now, not a footer of one.
                 showLaunchpad ? "-mb-[3px] py-[4px]" : "-my-[3px] py-[6px]",
@@ -2413,14 +2495,13 @@ function SetupGuideRow({
               <GamepadDirectional
                 size={showLaunchpad ? 14 : 15}
                 aria-hidden="true"
-                className="shrink-0 text-brand"
+                className={cn("shrink-0", v.icon)}
               />
               <span
                 className={cn(
-                  "min-w-0 flex-1 truncate leading-[16px] font-medium text-brand-strong",
-                  showLaunchpad
-                    ? "text-[12px]"
-                    : "text-[13px] font-semibold",
+                  "min-w-0 flex-1 truncate leading-[16px] font-medium",
+                  v.title,
+                  showLaunchpad ? "text-[12px]" : "text-[13px] font-semibold",
                 )}
               >
                 Quick actions
@@ -2428,7 +2509,7 @@ function SetupGuideRow({
               <ChevronRight
                 size={13}
                 aria-hidden="true"
-                className="shrink-0 text-brand opacity-70"
+                className={cn("shrink-0 opacity-70", v.icon)}
               />
             </button>
           </>

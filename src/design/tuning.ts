@@ -86,7 +86,10 @@ export const TUNING_DEFAULTS: TuningState = {
   // still be demoed.
   dockLift: 0,
   dockScale: 125,
-  flyoutIconSize: 20,
+  // 16 (Aug 28): the same glyph a nav row draws. At 20 an L2 row read as a
+  // heavier thing than the L1 that opened it, when it is the same kind of row
+  // one level down. Still tunable — the knob is how the old 20 gets compared.
+  flyoutIconSize: 16,
   flyoutTitleSize: 14,
   flyoutDescSize: 12.5,
   flyoutRowGap: 10,
@@ -115,7 +118,7 @@ export const TUNING_KNOBS: TuningKnob[] = [
   { id: "dockLift", cssVar: "--t-dock-lift", label: "Hover lift", group: "Favourites dock", min: 0, max: 12, step: 1, unit: "px", hint: "0 — icons grow in place" },
   { id: "dockScale", cssVar: "--t-dock-scale", label: "Hover scale %", group: "Favourites dock", min: 100, max: 180, step: 5, unit: "px" },
 
-  { id: "flyoutIconSize", cssVar: "--t-fly-icon", label: "Icon size", group: "Flyout", min: 14, max: 26, step: 1, unit: "px", hint: "Design: 20" },
+  { id: "flyoutIconSize", cssVar: "--t-fly-icon", label: "Icon size", group: "Flyout", min: 14, max: 26, step: 1, unit: "px", hint: "16, matching a nav row · design shipped 20" },
   { id: "flyoutTitleSize", cssVar: "--t-fly-title", label: "Title size", group: "Flyout", min: 11, max: 18, step: 0.5, unit: "px", hint: "Design: 14" },
   { id: "flyoutDescSize", cssVar: "--t-fly-desc", label: "Description size", group: "Flyout", min: 10, max: 16, step: 0.5, unit: "px", hint: "Design: 12.5" },
   { id: "flyoutRowGap", cssVar: "--t-fly-gap", label: "Icon → text gap", group: "Flyout", min: 4, max: 20, step: 1, unit: "px", hint: "Design: 10" },

@@ -549,12 +549,11 @@ export function FlyoutPanel({
         // own border — top, right and bottom in brand, nothing on the left, so
         // the two boxes read as one surface with one stroke around it.
         /*
-         * The panel completes the nav's outline, so it has to follow whichever
+         * The panel completes the nav's outline, so it follows whichever
          * treatment the nav is wearing. Only `ring` puts a stroke here; under
-         * `hatch` the striped band continues instead (below), and under `dim`
-         * and `band` the panel keeps its ordinary hairline — the mode is being
-         * carried somewhere else entirely, and a brand-weight edge on the panel
-         * alone would read as the panel being selected.
+         * `dim` the panel keeps its ordinary hairline, because the mode is
+         * being carried by the surround and a heavy edge on the panel alone
+         * would read as the panel being selected.
          */
         navEditing && editTreatment === "ring"
           /*
@@ -572,16 +571,6 @@ export function FlyoutPanel({
         phase === "entering" ? "motion-panel-in" : "motion-panel-out",
       )}
     >
-      {/* The nav's hatched edge, continued round the panel's own three sides.
-          Nothing on the left: that seam is where the two boxes join. */}
-      {navEditing && editTreatment === "hatch" ? (
-        <span aria-hidden="true" className="pointer-events-none absolute inset-0 z-40">
-          <span className="nav-edit-hatch absolute inset-x-0 top-0 h-[4px]" />
-          <span className="nav-edit-hatch absolute inset-x-0 bottom-0 h-[4px]" />
-          <span className="nav-edit-hatch absolute inset-y-0 right-0 w-[4px]" />
-        </span>
-      ) : null}
-
       <div className="flex w-full shrink-0 items-center gap-[8px] px-[16px] pt-0 pb-[4px]">
         <div className="flex h-fit flex-1 items-center justify-between">
           <h2 className="text-[15px] leading-[normal] font-semibold whitespace-nowrap text-nav-fg">

@@ -17,6 +17,8 @@ import { childById, productById } from "./catalogue";
 import { glyphFor, type NavLayoutState } from "./grouping";
 import { ComposedIcon } from "./composed-icon";
 import { useNavLayout } from "./nav-layout-provider";
+import { PIN_CAP_HINT, usePinnedInk } from "./pin-button";
+import { RailTooltip } from "./rail-tooltip";
 
 /**
  * Recents and Pinned as one list — the Cloudflare arrangement.
@@ -81,6 +83,13 @@ export interface MergedRow {
    * keep, so it simply has no pin.
    */
   onTogglePin?: () => void;
+  /**
+   * Pinnable in principle, refused right now — the list is full.
+   *
+   * Carried on the row rather than read from a store inside it, for the same
+   * reason `onTogglePin` is: the two scopes cap different lists.
+   */
+  pinBlocked?: boolean;
 }
 
 /**
@@ -245,7 +254,15 @@ function BlockHeading({
           onClick={action.onClick}
           className="motion-tap group flex shrink-0 items-center gap-[2px] rounded-[5px] py-[2px] pr-[3px] pl-[5px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg-muted"
         >
-          <span className="text-[11px] leading-[13px] whitespace-nowrap">
+          {/*
+            Medium, against the heading's semibold.
+
+            The heading is a label and this is a control, and at 11px there is
+            not enough size between them to say which is which — regular read as
+            a caption sitting next to a title rather than as something to click.
+            One step of weight is the whole difference.
+          */}
+          <span className="text-[11px] leading-[13px] font-medium whitespace-nowrap">
             {action.label}
           </span>
           <ChevronRight
@@ -282,7 +299,8 @@ export function MergedRecentsBlock({
   onSelect: (id: string) => void;
   onOpenPanel: () => void;
 }) {
-  const { state, groups, productLabelFor, togglePin } = useNavLayout();
+  const { state, groups, productLabelFor, togglePin, pinsFull } =
+    useNavLayout();
   const { mergedRowDetail, mergedPinOrder } = useTheme().effective;
 
   /** Which group a product sits in, for the breadcrumb under its name. */
@@ -329,9 +347,10 @@ export function MergedRecentsBlock({
         detail: detailFor(id),
         pinned,
         onTogglePin: () => togglePin(id),
+        ...(!pinned && pinsFull ? { pinBlocked: true } : {}),
       };
     },
-    [state, productLabelFor, detailFor, togglePin],
+    [state, productLabelFor, detailFor, togglePin, pinsFull],
   );
 
   const pins = React.useMemo(
@@ -545,6 +564,7 @@ function MergedItemRow({
   onSelect: () => void;
 }) {
   const Icon = row.icon;
+  const pinnedInk = usePinnedInk();
   return (
     <div
       // `group/row` rather than a bare group: PinButton's hover variant names
@@ -584,37 +604,81 @@ function MergedItemRow({
         </span>
       </button>
       {row.onTogglePin ? (
+        <MaybeCapHint blocked={row.pinBlocked ?? false}>
         <button
           type="button"
-          title={row.pinned ? "Unpin" : "Pin"}
+          // Live, not disabled — the hover is where the refusal explains
+          // itself. See PinButton for the whole of that reasoning.
+          aria-disabled={row.pinBlocked ?? false}
+          title={
+            row.pinned ? "Unpin" : row.pinBlocked ? PIN_CAP_HINT : "Pin"
+          }
           aria-label={row.pinned ? "Unpin" : "Pin"}
           aria-pressed={row.pinned}
-          onClick={row.onTogglePin}
+          onClick={row.pinBlocked ? undefined : row.onTogglePin}
           className={cn(
             "motion-tap flex size-[22px] shrink-0 items-center justify-center rounded-[6px]",
             "hover:bg-nav-hover active:scale-90 motion-press",
+            /*
+              Grey, not brand — and only in this block.
+              
+              Everywhere else the pin is the brand colour because it is the
+              gesture that surface exists for. Here it is on every row of a list
+              you read top to bottom, so five brand-coloured pins down the right
+              edge became the loudest thing in the nav and pulled the eye off the
+              names. Ink at gray-500 still says "kept" without competing.
+            */
             row.pinned
-              ? "text-brand opacity-100"
+              ? cn(pinnedInk, "opacity-100")
               : "text-nav-fg-subtle opacity-0 group-hover/row:opacity-100 hover:text-nav-fg focus-visible:opacity-100",
             // "Nothing" means nothing: the pin is still reachable, but a pinned
             // row may not advertise itself, or the mode would be marking pins
             // after all.
             mark === "none" &&
               "text-nav-fg-subtle opacity-0 group-hover/row:opacity-100",
+            row.pinBlocked &&
+              "cursor-not-allowed opacity-0 group-hover/row:opacity-30 hover:bg-transparent hover:text-nav-fg-subtle",
           )}
         >
           <Pin
-            size={14}
+            // 12, not 14: it sits beside a 16px leading glyph, and a trailing
+            // mark that matches the icon it trails reads as a second icon.
+            size={12}
             fill={row.pinned && mark !== "none" ? "currentColor" : "none"}
             aria-hidden="true"
           />
         </button>
+        </MaybeCapHint>
       ) : (
         // A row nobody can pin still gives up the column, so every label in the
         // list truncates at the same place.
         <span aria-hidden="true" className="size-[22px] shrink-0" />
       )}
     </div>
+  );
+}
+
+/**
+ * The refusal's explanation, and only when there is one to give.
+ *
+ * Wrapping every pin would put a tooltip on a control whose glyph already says
+ * what it does; wrapping only the blocked ones means the pill appears exactly
+ * where the click would have failed.
+ */
+function MaybeCapHint({
+  blocked,
+  children,
+}: {
+  blocked: boolean;
+  children: React.ReactNode;
+}) {
+  if (!blocked) return <>{children}</>;
+  // Below, not beside: a pill to the right of a pin at the nav's own right edge
+  // lands off the surface it belongs to.
+  return (
+    <RailTooltip label={PIN_CAP_HINT} placement="below">
+      {children}
+    </RailTooltip>
   );
 }
 

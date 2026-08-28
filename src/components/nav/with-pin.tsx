@@ -24,6 +24,7 @@ import { PinButton } from "./pin-button";
 export function WithPin({
   productId,
   pinClass,
+  pinSize,
   children,
 }: {
   /**
@@ -35,6 +36,8 @@ export function WithPin({
   productId: string;
   /** Vertical placement — centred on single-line rows, top-aligned on stacked. */
   pinClass?: string;
+  /** The glyph's size, when this surface's rows want a different one. */
+  pinSize?: number;
   children: React.ReactNode;
 }) {
   if (!productById(productId) && !childById(productId)) return children;
@@ -43,7 +46,10 @@ export function WithPin({
     <div className="group/row relative w-full shrink-0">
       {children}
       <span className={cn("absolute right-[8px] z-10", pinClass ?? "top-1/2 -translate-y-1/2")}>
-        <PinButton productId={productId} />
+        <PinButton
+          productId={productId}
+          {...(pinSize !== undefined ? { size: pinSize } : {})}
+        />
       </span>
     </div>
   );

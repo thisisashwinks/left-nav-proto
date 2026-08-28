@@ -380,6 +380,82 @@ export const ENTRY_LAYOUT_LABELS: Record<EntryLayout, string> = {
 };
 
 /**
+ * How loudly the Launchpad card announces itself.
+ *
+ * The card shipped at full strength — brand fill, a 1px brand ring all the way
+ * round, brand text — which made the first thing in the nav the loudest thing
+ * on the screen. That is defensible for a surface an account is meant to
+ * finish and leave, and indefensible as the permanent neighbour of a product
+ * list it is not part of. Every variant below is quieter than it; the argument
+ * is how much quieter, and what is lost on the way down.
+ *
+ *  solid    What shipped. Brand fill and a full brand ring. The baseline.
+ *  tinted   The same fill, no ring, and the words in the nav's own ink. Reads
+ *           as a card without reading as an alert.
+ *  outline  No fill at all — a neutral hairline. The card becomes a container
+ *           rather than a highlight, and brand survives only in the meter.
+ *  quiet    A neutral grey fill, the same one a hovered row wears. Present, and
+ *           carrying no colour of its own.
+ *  plain    No card. Two rows on the nav's ground with a meter under the first,
+ *           indented to the nav's own column — the version that asks whether
+ *           this needed to be a card at all.
+ *
+ * The meter keeps the brand in every variant, deliberately. It is the one part
+ * that is genuinely status rather than decoration, and it is the card's exit
+ * visa: at 7 of 7 the whole thing leaves the nav.
+ */
+export const LAUNCHPAD_CARDS = [
+  "tinted",
+  "outline",
+  "quiet",
+  "plain",
+  "solid",
+] as const;
+
+export type LaunchpadCard = (typeof LAUNCHPAD_CARDS)[number];
+
+export const LAUNCHPAD_CARD_LABELS: Record<LaunchpadCard, string> = {
+  tinted: "Tinted",
+  outline: "Outline",
+  quiet: "Neutral",
+  plain: "No card",
+  solid: "Full brand",
+};
+
+/**
+ * Where "All accounts" sits on the rail, and what travels with it.
+ *
+ * The waffle is the way into the directory — the only place you can search every
+ * tenant — and it rides at the tail of the tile column, which puts it at the
+ * bottom of a group that floats in the strip's vertical centre. So the one
+ * control whose position you would want to learn is the one control that moves
+ * every time the open set changes length.
+ *
+ *  tail        What shipped: last in the tile column, below the accounts it is
+ *              the directory for.
+ *  top         Directly under the agency plate, where the plate anchors it. A
+ *              fixed target: same place in every account, at every rail length.
+ *  top-active  The same, plus the account you are IN hoisted up beside it. The
+ *              rest stay centred, so the top of the strip becomes "who you are,
+ *              where you are, and how to leave" and the middle stays the set
+ *              you arranged.
+ *
+ * `top-active` costs the active tile its place in the ordered set — it leaves a
+ * hole where it was, and the tile you are looking at is no longer where you
+ * last clicked it. Whether that is orientation or disorientation is the thing
+ * to look at.
+ */
+export const RAIL_DIRECTORY_SPOTS = ["tail", "top", "top-active"] as const;
+
+export type RailDirectorySpot = (typeof RAIL_DIRECTORY_SPOTS)[number];
+
+export const RAIL_DIRECTORY_SPOT_LABELS: Record<RailDirectorySpot, string> = {
+  tail: "Below the accounts",
+  top: "Under the agency",
+  "top-active": "Under the agency, with active",
+};
+
+/**
  * Whether the account rail shows recently visited accounts as well as its own.
  *
  * The rail is a CURATED working set — eight tenants an agency arranged, not a
@@ -515,56 +591,51 @@ export const NAV_SECTION_LABELS: Record<NavSections, string> = {
  * one you have to see rather than read.
  */
 /**
- * How the account rail marks the account you are in.
- *
- * The rail draws every tenant at one size, and says which one is live with a
- * filled tile and a bar at the strip's edge. Both are marks you have to READ:
- * they are the same shape as everything around them, differing only in fill.
- *
- *  uniform   What ships: one size down the strip, active carried by fill and
- *            the edge bar.
- *  active    Inactive tiles come down to 20px and the live one keeps 24, so
- *            size is the signal. One big disc in a column of small ones is
- *            seen rather than read — and it is the only treatment that also
- *            answers "none of them", which is what agency scope looks like.
- *
- * The cost is legibility: real tenant logos are already poor at 24px, which is
- * why the rail widens to names on hover. `railMagnify` is the counterweight —
- * see below.
- */
-/**
  * How the nav says it is in edit mode.
  *
  * The mode changes what a click does — a label renames, a row drags — and the
  * affordances alone do not say so until you hover one. Something has to mark
- * the region the mode applies to, and every candidate trades differently.
+ * the region the mode applies to.
  *
- *  ring   What ships: a neutral stroke around the nav, and the page a step
- *         back behind it. Quiet, and the thing a review keeps calling
- *         unclear — a 1.5px outline is also what a focus ring looks like.
- *  dim    No stroke at all. Everything outside the nav drops much further and
- *         desaturates, so the mode is shown by what is WITHDRAWN. The
- *         strongest signal here and the only one that cannot be mistaken for
- *         focus; the cost is that you can no longer read the page you are
- *         arranging the nav for.
- *  hatch  A 4px diagonal-striped band on the nav's edges instead of a line.
- *         Design-tool language: unmistakably a mode rather than a selection,
- *         and unlike anything else in the product. Loud by construction.
- *  band   A bar across the nav's top that says "Editing navigation" in words.
- *         The weakest region cue and the strongest statement of WHAT the mode
- *         is — the only option that does not make you infer it.
+ *  ring  A neutral stroke around the nav, and the surround a step back behind
+ *        it. Quiet, and the thing the review kept calling unclear: a 1.5px
+ *        outline is also what a focus ring looks like.
+ *  dim   No stroke at all. Everything outside the nav drops further and
+ *        desaturates, so the mode is shown by what is WITHDRAWN rather than by
+ *        what is added — which cannot be mistaken for a selection, and needs no
+ *        colour of its own.
+ *
+ * Two hatched-edge and header-band variants were built and cut (Aug 28): both
+ * read as louder versions of the same idea the ring already has, and neither
+ * survived being seen next to `dim`.
  */
-export const EDIT_TREATMENTS = ["ring", "dim", "hatch", "band"] as const;
+export const EDIT_TREATMENTS = ["ring", "dim"] as const;
 
 export type EditTreatment = (typeof EDIT_TREATMENTS)[number];
 
 export const EDIT_TREATMENT_LABELS: Record<EditTreatment, string> = {
   ring: "Border",
   dim: "Dimmed surround",
-  hatch: "Hatched edge",
-  band: "Header band",
 };
 
+/**
+ * How the account rail marks the account you are in.
+ *
+ * The rail draws every tenant at one size and says which is live with a filled
+ * tile and a bar at the strip's edge. Both are marks you have to READ: same
+ * shape as everything around them, differing only in fill.
+ *
+ *  uniform  One size down the strip. Active carried by the fill alone.
+ *  active   The live tile goes to 28 and the rest to 16, so size is the
+ *           signal. One big disc in a column of small ones is seen rather than
+ *           read — and it is the only treatment that also answers "none of
+ *           them", which is what agency scope looks like.
+ *
+ * A 12px spread, which is wide on purpose: at 4px the difference was there and
+ * nobody saw it. The cost is that a 16px tenant mark is a colour rather than a
+ * logo — which the rail can afford, because reading it is what hover
+ * magnification and the names-on-hover width are both already for.
+ */
 export const RAIL_SIZINGS = ["uniform", "active"] as const;
 
 export type RailSizing = (typeof RAIL_SIZINGS)[number];
@@ -574,9 +645,18 @@ export const RAIL_SIZING_LABELS: Record<RailSizing, string> = {
   active: "Active is larger",
 };
 
-/** Resting diameter of a tile that is not the active account, in px. */
+/**
+ * Rail mark diameters, in px: the one size, then the pair.
+ *
+ * `RAIL_TILE_BOX` is the constant the three are padded INTO. Every tile stays a
+ * 32px circle whatever mark it holds, so the column's rhythm never changes and
+ * the tap targets are all the size they always were — only the artwork inside
+ * grows and shrinks.
+ */
 export const RAIL_TILE_SIZE = 24;
-export const RAIL_TILE_SIZE_SMALL = 20;
+export const RAIL_TILE_SIZE_ACTIVE = 28;
+export const RAIL_TILE_SIZE_REST = 16;
+export const RAIL_TILE_BOX = 32;
 
 export const RAIL_TILE_SHAPES = ["pill", "squircle"] as const;
 
@@ -684,6 +764,49 @@ export const SCOPE_MODEL_LABELS: Record<ScopeModel, string> = {
  * where "does our system change how this reads" is a question worth being able
  * to answer by flipping between the two.
  */
+/**
+ * What the history section inside the merged panel is called.
+ *
+ * The panel is titled "Recents" and its second section was headed "Recent",
+ * which reads as the same word twice and leaves the reader working out whether
+ * the section is a subset of the panel or the panel itself repeated. Each of
+ * these names the section by what is in it rather than by the panel it sits in.
+ *
+ *  history      Plainest, and the one word nobody has to interpret.
+ *  visited      Says what put a row there: you went somewhere, not you kept it.
+ *  recent       The original, kept as the control group.
+ */
+/**
+ * What colour a set pin is drawn in, everywhere it appears.
+ *
+ *  grey   Ink at gray-400. A pin is a state, not an action — once set it is
+ *         describing the row rather than asking to be pressed — and a column of
+ *         brand-coloured pins down a list was the loudest thing in the nav.
+ *  brand  The accent, as it shipped. The pin is the gesture these surfaces
+ *         exist for, and colour is how it says so.
+ *
+ * One axis for every surface rather than a per-surface exception: a pin that is
+ * blue in the dock and grey in the list reads as two different marks.
+ */
+export const PIN_MARK_COLOURS = ["grey", "brand"] as const;
+
+export type PinMarkColour = (typeof PIN_MARK_COLOURS)[number];
+
+export const PIN_MARK_COLOUR_LABELS: Record<PinMarkColour, string> = {
+  grey: "Grey",
+  brand: "Brand",
+};
+
+export const PANEL_RECENT_HEADINGS = ["history", "visited", "recent"] as const;
+
+export type PanelRecentHeading = (typeof PANEL_RECENT_HEADINGS)[number];
+
+export const PANEL_RECENT_HEADING_LABELS: Record<PanelRecentHeading, string> = {
+  history: "History",
+  visited: "Recently visited",
+  recent: "Recent",
+};
+
 export const INBOX_PALETTES = ["product", "tokens"] as const;
 
 export type InboxPalette = (typeof INBOX_PALETTES)[number];
@@ -780,6 +903,8 @@ export interface ThemeState {
    * be "new" while the rest are activated.
    */
   launchpad: boolean;
+  /** How much contrast the Launchpad card carries. See LAUNCHPAD_CARDS. */
+  launchpadCard: LaunchpadCard;
   /** Which workspace-switch model is live. See SCOPE_MODELS. */
   scopeModel: ScopeModel;
   /** Proposal or production. See NAV_GENERATIONS. */
@@ -795,6 +920,10 @@ export interface ThemeState {
    * product would most likely do.
    */
   navSwitchInEditCard: boolean;
+  /** What colour a set pin wears. See PIN_MARK_COLOURS. */
+  pinMarkColour: PinMarkColour;
+  /** What the merged panel's history section is headed. See PANEL_RECENT_HEADINGS. */
+  panelRecentHeading: PanelRecentHeading;
   /** Which palette the Conversations inbox uses. See INBOX_PALETTES. */
   inboxPalette: InboxPalette;
   /** How replacing my layout is confirmed. See LAYOUT_REPLACE_DIALOGS. */
@@ -842,10 +971,21 @@ export interface ThemeState {
   railTileShape: RailTileShape;
   /** Whether the rail carries recents beside its curated set. See RAIL_RECENTS. */
   railRecents: RailRecents;
+  /** Where the rail's directory button sits. See RAIL_DIRECTORY_SPOTS. */
+  railDirectorySpot: RailDirectorySpot;
   /** How edit mode marks the nav. See EDIT_TREATMENTS. */
   editTreatment: EditTreatment;
   /** Whether size marks the active account. See RAIL_SIZINGS. */
   railSizing: RailSizing;
+  /**
+   * The bar at the strip's outer edge beside the active tile.
+   *
+   * Off by default (Aug 28). With the active tile now larger AND filled, the
+   * bar was a third answer to a question already answered twice — and it is the
+   * only one of the three that lives outside the tile, so it read as a piece of
+   * chrome belonging to the rail rather than as a property of the account.
+   */
+  railActiveBar: boolean;
   /**
    * macOS-Dock magnification on the account rail.
    *
@@ -945,13 +1085,33 @@ export const DEFAULT_THEME: ThemeState = {
    * and quietly becomes a pinned bar with a history glyph on it.
    */
   mergedVisibleRows: 5,
-  mergedPinCap: 3,
-  mergedRecentFloor: 2,
+  /*
+   * Five and zero (Aug 28), which is the pin limit and no reserved recents.
+   *
+   * The pair used to be 3 and 2, holding two history rows back from a pinned
+   * run that could grow forever. With pinning capped at five — see PIN_LIMIT —
+   * the run cannot crowd anything out that the cap does not already allow: pin
+   * all five and the block is your five, pin fewer and the rest is history.
+   * Reserving a floor on top of that would mean hiding a pin you set to make
+   * room for a page you happened to open.
+   */
+  mergedPinCap: 5,
+  mergedRecentFloor: 0,
   mergedExpandedRows: 12,
   autoCollapse: true,
   // Activated accounts don't see the setup guide; Brightpath (the trial
   // account) carries it as a per-account override.
   launchpad: false,
+  /*
+   * Outline, not the brand-filled original.
+   *
+   * The card sits above a product list it is not part of, and at full strength
+   * it was the loudest thing on screen for as long as onboarding took. A
+   * neutral hairline makes it a container rather than a highlight, and leaves
+   * the only brand in it to the meter — which is the part that is actually
+   * status. "Full brand" is one click away, at the end of the list.
+   */
+  launchpadCard: "outline",
   // The rail is the recommendation, so the prototype opens on it. Model A is
   // one click away for the comparison.
   scopeModel: "rail",
@@ -964,6 +1124,10 @@ export const DEFAULT_THEME: ThemeState = {
   // sentence, two answers. The template-saving version is one click away.
   // The real thing by default: the page is a transcription of a screenshot, so
   // it opens looking like the screenshot. The tokened version is one click away.
+  // "Recently visited": names the section by what put a row in it — you went
+  // there — rather than repeating the panel's own title one line above.
+  pinMarkColour: "grey",
+  panelRecentHeading: "visited",
   inboxPalette: "product",
   layoutReplaceDialog: "simple",
   navColourControl: "toggle",
@@ -981,16 +1145,26 @@ export const DEFAULT_THEME: ThemeState = {
   // than as the proposal. Both answers are one click away.
   railRecents: "pinned",
   /*
-   * Magnification on, resting size unchanged (Aug 28).
+   * Under the agency plate.
    *
-   * Deliberately not the whole proposal. The Dock behaviour is worth having on
-   * its own — it makes a 24px tenant logo readable by pointing at it — while
-   * shrinking the inactive tiles is the half that still has to be argued, so it
-   * stays one click away rather than arriving by default.
+   * The tail is where it shipped, and it is the one placement that cannot be
+   * learned: the tile column floats in the strip's vertical centre, so the way
+   * into search moves whenever the open set changes length. The plate is the
+   * strip's only fixed point. "Below the accounts" is one click away.
    */
-  // The border, which is what ships. The other three are the proposals.
-  editTreatment: "ring",
-  railSizing: "uniform",
+  railDirectorySpot: "top",
+  /*
+   * The rail's three answers to "which account am I in", all on (Aug 28).
+   *
+   * Size marks the active tile, the edge bar is retired to a switch, and
+   * magnification hands the size back to whichever tile you point at — which is
+   * what keeps a 24px tenant logo readable now that the active one is bigger.
+   */
+  // The dim, per the Aug 28 review: the surround carries the mode and the nav
+  // needs no outline of its own. Border is one click away for the comparison.
+  editTreatment: "dim",
+  railSizing: "active",
+  railActiveBar: false,
   railMagnify: true,
   // Back to the bar on the plane (Aug 28). The joined card is one click away;
   // this is the arrangement the review opens on.

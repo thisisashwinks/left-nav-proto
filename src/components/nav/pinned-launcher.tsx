@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { MERGED_HEADING_LABELS, type SurfaceTheme } from "@/design/theme";
+import { PANEL_RECENT_HEADING_LABELS } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
@@ -29,7 +30,7 @@ import { agencyPlaces } from "./agency-config";
 import { useAgencyLayout } from "./agency-layout";
 import { useNavLayout } from "./nav-layout-provider";
 import { agencyRecentPlaceIds, recentIdsFor } from "./merged-recents";
-import { PinButton } from "./pin-button";
+import { PinButton, usePinnedInk } from "./pin-button";
 import { ResolvedIcon } from "./resolved-icon";
 
 /**
@@ -81,7 +82,8 @@ export function PinnedLauncher({
 }) {
   const layout = useNavLayout();
   const { state, groups, can } = layout;
-  const { recentsMode, mergedHeading, mergedPanelSearch } = useTheme().effective;
+  const { recentsMode, mergedHeading, mergedPanelSearch, panelRecentHeading } =
+    useTheme().effective;
   const agency = useAgencyLayout();
   /*
    * In merged mode this panel is the one surface behind the nav's single list.
@@ -398,7 +400,7 @@ export function PinnedLauncher({
           {mergedPanel && recentIds.length > 0 ? (
             <>
               <SectionHeading divider count={recentIds.length}>
-                Recent
+                {PANEL_RECENT_HEADING_LABELS[panelRecentHeading]}
               </SectionHeading>
               {recentIds.map((id) => (
                 <ProductRow key={`recent-${id}`} productId={id} />
@@ -1077,6 +1079,9 @@ function ExternalPinButton({
   pinned: boolean;
   onToggle: () => void;
 }) {
+  // The agency's own pins, drawn in whatever ink the platform's are — the mark
+  // means the same thing at both scopes, so it cannot be two colours.
+  const pinnedInk = usePinnedInk();
   return (
     <button
       type="button"
@@ -1091,7 +1096,7 @@ function ExternalPinButton({
         "motion-tap flex size-[22px] shrink-0 items-center justify-center rounded-[6px]",
         "hover:bg-nav-hover active:scale-90 motion-press",
         pinned
-          ? "text-brand opacity-100"
+          ? cn(pinnedInk, "opacity-100")
           : "text-nav-fg-subtle opacity-0 group-hover/row:opacity-100 hover:text-nav-fg focus-visible:opacity-100",
       )}
     >
@@ -1133,6 +1138,7 @@ function AgencyPanelBody({
   };
   onMovePin: (from: number, to: number) => void;
 }) {
+  const { panelRecentHeading } = useTheme().effective;
   if (searching) {
     if (hitIds.length === 0) {
       return (
@@ -1190,7 +1196,7 @@ function AgencyPanelBody({
       {recentIds.length > 0 ? (
         <>
           <SectionHeading divider count={recentIds.length}>
-            Recent
+            {PANEL_RECENT_HEADING_LABELS[panelRecentHeading]}
           </SectionHeading>
           {recentIds.map((id) => (
             <ProductRow

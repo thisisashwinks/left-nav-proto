@@ -27,43 +27,66 @@ const BADGE_TONE: Record<FlyoutBadgeTone, string> = {
   beta: "bg-[linear-gradient(-53.271deg,var(--fly-badge-beta-from)_20.741%,var(--fly-badge-beta-to)_61.206%)] text-fly-badge-beta-fg",
 };
 
+/*
+ * A row that lists a place, in the nav's own measurements.
+ *
+ * Same gap, same padding, same radius, same weight — read from the SAME tokens
+ * the nav rows read, not from numbers that happen to match today. The two
+ * levels are one list seen at two depths, and the panel is already framed as a
+ * panel: it has its own surface, its own title and its own edge, so the rows
+ * inside it have nothing left to prove by looking different.
+ *
+ * `items-center`: with the blurb off there is no second line to top-align to.
+ */
+const PLACE_ROW =
+  "gap-[var(--t-nav-gap,10px)] px-[var(--t-nav-px,8px)] py-[var(--t-nav-py,9px)] items-center";
+
+/** The nav's label: regular weight, and it truncates rather than overflowing. */
+const PLACE_TITLE = "font-normal whitespace-nowrap";
+
+/** The pin's column, held open by the row's own padding plus the gap. */
+const PLACE_PIN_RESERVE =
+  "pr-[calc(var(--t-nav-px,8px)+22px+var(--t-nav-gap,10px))]";
+
 /**
- * Per-variant geometry, read off the Pencil export. The differences are small
- * but real — gap, vertical alignment, icon size, and title weight all shift
- * between the product panels and the Favorites/Recent/Quick Actions panels.
+ * Per-variant geometry, read off the Pencil export.
+ *
+ * Three of the four are place lists now — a category's panel, Pinned, Recent —
+ * and they share one row with the nav. Quick Actions keeps its own: its rows
+ * are commands rather than destinations, and a row that reads exactly like a
+ * nav row is read as somewhere you can go.
  */
 const VARIANT = {
   product: {
-    row: "gap-[var(--t-fly-gap,10px)] px-[8px] py-[var(--t-fly-py,9px)] items-start",
+    row: PLACE_ROW,
     iconBox: "w-[24px] h-[22px]",
     iconSize: 20,
     text: "gap-[2px]",
-    title: "font-semibold whitespace-nowrap",
+    title: PLACE_TITLE,
     desc: "text-[length:var(--t-fly-desc,12.5px)] leading-[17px] w-full",
     // Space held for the pin, which is no longer a flex child. Exactly the pin's
     // 22px plus the gap it used to sit behind, so the text wraps where it did.
-    pinReserve: "pr-[calc(8px+22px+var(--t-fly-gap,10px))]",
-    // items-start rows align the pin with the title, not the row's middle.
-    pinTop: "top-[var(--t-fly-py,9px)]",
+    pinReserve: PLACE_PIN_RESERVE,
+    pinTop: "top-1/2 -translate-y-1/2",
   },
   compact: {
-    row: "gap-[calc(var(--t-fly-gap,10px)+1px)] px-[8px] py-[var(--t-fly-py,9px)] items-center",
+    row: PLACE_ROW,
     iconBox: "w-[24px] h-[22px]",
     iconSize: 19,
     text: "gap-[1px]",
-    title: "font-semibold whitespace-nowrap",
+    title: PLACE_TITLE,
     desc: "text-[length:var(--t-fly-desc,12.5px)] leading-[normal] whitespace-nowrap",
-    pinReserve: "pr-[calc(8px+22px+var(--t-fly-gap,10px)+1px)]",
+    pinReserve: PLACE_PIN_RESERVE,
     pinTop: "top-1/2 -translate-y-1/2",
   },
   recent: {
-    row: "gap-[11px] p-[8px] items-center",
+    row: PLACE_ROW,
     iconBox: "w-[26px] h-[22px]",
     iconSize: 19,
     text: "gap-[1px]",
-    title: "font-medium whitespace-nowrap",
+    title: PLACE_TITLE,
     desc: "text-[12px] leading-[normal] whitespace-nowrap",
-    pinReserve: "pr-[41px]",
+    pinReserve: PLACE_PIN_RESERVE,
     pinTop: "top-1/2 -translate-y-1/2",
   },
   action: {
@@ -233,7 +256,11 @@ export function FlyoutRow({
   const panelId = React.useId();
 
   const rowClass = cn(
-    "motion-row-in group group/row flex w-full shrink-0 rounded-[9px] text-left",
+    "motion-row-in group group/row flex w-full shrink-0 text-left",
+    // The nav's radius on a place row, its own on an action row.
+    variant === "action"
+      ? "rounded-[9px]"
+      : "rounded-[var(--t-nav-radius,7px)]",
     "motion-tap",
     // v.row carries the per-variant gap, padding and alignment. Losing it
     // is what collapsed every flyout row's breathing room.
@@ -309,8 +336,9 @@ export function FlyoutRow({
         className={cn(
           "flex shrink-0 items-center justify-center",
           // The icon leans in a touch on hover — enough to feel responsive
-          // without shifting the text beside it.
-          "motion-tap group-hover:scale-110",
+          // without shifting the text beside it. The nav's own factor, so both
+          // levels lean by the same amount.
+          "motion-tap group-hover:scale-[var(--t-nav-icon-scale,1.143)]",
           v.iconBox,
           active
             ? "text-nav-fg"
@@ -329,8 +357,10 @@ export function FlyoutRow({
             size={v.iconSize}
             aria-hidden="true"
             style={{
-              width: "var(--t-fly-icon, 20px)",
-              height: "var(--t-fly-icon, 20px)",
+              // 16 is the fallback now, matching a nav row's glyph — the
+              // knob's default, restated here for the frame before it lands.
+              width: "var(--t-fly-icon, 16px)",
+              height: "var(--t-fly-icon, 16px)",
             }}
           />
         ) : null}
@@ -502,7 +532,12 @@ export function FlyoutRow({
             size={14}
             aria-hidden="true"
             className={cn(
-              "shrink-0 text-nav-fg-subtle motion-move",
+              // Same ink and the same lift on hover as the nav row's chevron,
+              // which is the same glyph pointing a different way.
+              "shrink-0 motion-move",
+              active
+                ? "text-nav-fg-muted"
+                : "text-nav-fg-subtle group-hover:text-nav-fg-muted",
               open && "rotate-180",
             )}
           />
@@ -606,7 +641,13 @@ export function FlyoutRow({
     edit ? (
       <div className="group/row relative w-full shrink-0">{node}</div>
     ) : (
-      <WithPin productId={item.id} pinClass={v.pinTop}>
+      <WithPin
+        productId={item.id}
+        pinClass={v.pinTop}
+        // 12, as the nav's own rows use: an L2 row is the same kind of row one
+        // level down, so its trailing mark is the same mark at the same size.
+        pinSize={12}
+      >
         {node}
       </WithPin>
     );

@@ -208,14 +208,32 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * How hard the surround steps back while editing.
    *
    * The `dim` treatment is the whole signal — there is no stroke to fall back
-   * on — so it goes much further and drains the colour with it. The others keep
-   * the light veil the mode always had: enough to settle the page down, not
-   * enough to stop you reading it while you arrange the nav it belongs to.
+   * on — so it goes further and drains the colour with it. `ring` keeps the
+   * light veil the mode always had: enough to settle the page down, not enough
+   * to stop you reading it while you arrange the nav it belongs to.
    */
   const editScrim =
     editTreatment === "dim"
       ? "bg-[#1018284d] backdrop-saturate-[0.35]"
       : "bg-[#10182826]";
+
+  /*
+   * The rail steps back LESS than the page.
+   *
+   * Both are outside the mode, but they are outside it differently. The page is
+   * what you are ignoring while you arrange; the rail is how you leave — the
+   * account you are in, and the ten you could switch to. Dimming it as hard as
+   * the canvas pushed a piece of live chrome into the background and made the
+   * whole left edge read as disabled. A lighter veil says "not this, but still
+   * here", which is the true state.
+   *
+   * A flat 10% and no desaturation, whichever treatment is on. The earlier
+   * version stacked a 15% veil on a 0.65 saturate filter, and the two together
+   * drained the tenant marks to mud — the rail is a column of brand colours,
+   * and it is the colours you pick an account out by. 10% is enough to say
+   * "behind the mode" and little enough to leave the marks themselves alone.
+   */
+  const editRailScrim = "bg-[#1018281a]";
   /*
    * Whether the app bar and the page are one card.
    *
@@ -1193,6 +1211,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             onExpandedChange={(v) => {
               if (!directoryOpen) setRailExpanded(v);
             }}
+            locked={layout.editing}
             switcherOpen={directoryOpen}
             switcherMounted={directory.isMounted}
             switcherPhase={directory.phase}
@@ -1668,7 +1687,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           style={{ width: railWidth + NAV_FLOAT_GAP }}
           className={cn(
             "motion-fade-in pointer-events-none absolute top-0 left-0 bottom-0 z-[31]",
-            editScrim,
+            editRailScrim,
           )}
         />
       ) : null}

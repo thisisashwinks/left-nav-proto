@@ -155,7 +155,21 @@ export function RailDirectory({ session, onClose }: RailDirectoryProps) {
           <button
             type="button"
             onClick={() => setBulk({ path: null })}
-            className="motion-tap flex h-[26px] shrink-0 items-center gap-[5px] rounded-[7px] bg-brand px-[9px] text-[12px] leading-none font-medium text-brand-fg active:scale-[0.98]"
+            /*
+              Neutral ink, not the accent.
+
+              Selection is not branded. The accent is the tenant's colour and it
+              is already doing a job in this panel — every row wears a logo in
+              it — so spending it again on a control that acts ON those rows put
+              the loudest thing on screen in the same hue as the things it was
+              about to change. Worse, the button changed colour per account: the
+              same destructive action was red in one and violet in the next,
+              which is the one place a colour ought to be constant.
+
+              Near-black rather than mid-grey: this is the primary action of a
+              selection state, and grey-on-grey reads as disabled.
+            */
+            className="motion-tap flex h-[26px] shrink-0 items-center gap-[5px] rounded-[7px] bg-nav-fg px-[9px] text-[12px] leading-none font-medium text-nav active:scale-[0.98]"
           >
             <Sparkles size={12} aria-hidden="true" />
             Bulk actions
@@ -290,12 +304,20 @@ function Group({
               }}
               className="flex min-w-0 flex-1 items-center gap-[10px] text-left outline-none"
             >
-              <AccountLogo logo={account.logo} src={account.logoSrc} size={28} radius={999} />
+              {/*
+                One step down across the row (Aug 28): 24px mark, 13px name,
+                11px address. The panel is a LIST — seventeen rows you scan for
+                a name — and at 28/13.5 it was drawn at the weight of the strip
+                it replaces, where there are eleven tiles and no words at all.
+                Smaller fits more of the directory on screen without the rows
+                losing their hierarchy.
+              */}
+              <AccountLogo logo={account.logo} src={account.logoSrc} size={24} radius={999} />
               <span className="flex min-w-0 flex-col">
-                <span className="truncate text-[13.5px] leading-[18px] font-medium text-nav-fg">
+                <span className="truncate text-[13px] leading-[17px] font-medium text-nav-fg">
                   {account.name}
                 </span>
-                <span className="truncate text-[11.5px] leading-[15px] text-nav-fg-subtle">
+                <span className="truncate text-[11px] leading-[14px] text-nav-fg-subtle">
                   {account.meta}
                 </span>
               </span>
@@ -325,14 +347,14 @@ function Group({
               className={cn(
                 // Visible at rest — a hover-only affordance made the panel
                 // read as a plain list until you happened to mouse a row.
-                "motion-tap flex size-[24px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle",
+                "motion-tap flex size-[22px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle",
                 "shadow-[inset_0_0_0_1px_var(--fly-border)] hover:bg-nav-active hover:text-nav-fg",
               )}
             >
               {action === "remove" ? (
-                <PinOff size={14} aria-hidden="true" />
+                <PinOff size={13} aria-hidden="true" />
               ) : (
-                <Pin size={14} aria-hidden="true" />
+                <Pin size={13} aria-hidden="true" />
               )}
             </button>
           </div>
@@ -369,8 +391,10 @@ function Box({
       }}
       className={cn(
         "motion-tap flex size-[17px] shrink-0 items-center justify-center rounded-[5px] border-[1.5px]",
+        // The same neutral the Bulk actions button wears — one ink for the
+        // whole selection layer, and none of it the tenant's.
         checked || mixed
-          ? "border-brand bg-brand text-brand-fg"
+          ? "border-nav-fg bg-nav-fg text-nav"
           : "border-[var(--fly-border)] hover:border-nav-fg-subtle",
       )}
     >
