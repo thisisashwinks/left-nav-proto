@@ -34,9 +34,11 @@ export function RailTooltip({
    * `right` is the rail's, and anchors to the rail's edge rather than the
    * icon's. `below` is for the pinned capsule when it is a horizontal row: a
    * tooltip to the right of a chip would land on the chip beside it, which is
-   * the one place it must not be.
+   * the one place it must not be. `above` is for a row of glyphs at the nav's
+   * FOOT — below is off the bottom of the window, and right is off the side of
+   * the nav entirely, which is where the edit card's tooltips were landing.
    */
-  placement?: "right" | "below";
+  placement?: "right" | "below" | "above";
   children: React.ReactNode;
 }) {
   const ref = React.useRef<HTMLSpanElement>(null);
@@ -54,6 +56,12 @@ export function RailTooltip({
     // nav — visually attached to the wrong thing.
     if (placement === "below") {
       setPos({ top: box.bottom + OFFSET, left: box.left + box.width / 2 });
+      return;
+    }
+    if (placement === "above") {
+      // Anchored on the trigger's own centre, not on any container's edge:
+      // these glyphs sit in a row, so the pill has to say WHICH one.
+      setPos({ top: box.top - OFFSET, left: box.left + box.width / 2 });
       return;
     }
     const railRight =
@@ -92,9 +100,13 @@ export function RailTooltip({
               }}
               className={cn(
                 "motion-tap pointer-events-none fixed z-[60] rounded-[6px] px-[8px] py-[4px] text-[12px] leading-none whitespace-nowrap shadow-[0_4px_12px_0_rgba(15,23,42,0.24)]",
-                // Centred on the icon either way: vertically beside it, or
-                // horizontally under it.
-                placement === "below" ? "-translate-x-1/2" : "-translate-y-1/2",
+                // Centred on the icon whichever side it takes: vertically
+                // beside it, horizontally above or under it.
+                placement === "below"
+                  ? "-translate-x-1/2"
+                  : placement === "above"
+                    ? "-translate-x-1/2 -translate-y-full"
+                    : "-translate-y-1/2",
               )}
             >
               {label}

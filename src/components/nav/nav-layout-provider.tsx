@@ -4,6 +4,7 @@ import * as React from "react";
 import type { LucideIcon } from "lucide-react";
 import { INITIAL_ACCOUNT_ID } from "@/components/accounts/accounts-data";
 import { navProfileFor } from "./account-nav-profiles";
+import { AGENCY_SCOPE_ID, useNavProfiles, type EditBlock } from "./nav-profiles";
 import { productById } from "./catalogue";
 import { tailRowsFor } from "./nav-entries";
 import {
@@ -284,6 +285,15 @@ interface NavLayoutContextValue {
     message: string,
     patch: (layout: NavLayoutState) => NavLayoutState,
   ) => void;
+
+  /**
+   * Why the active account cannot be edited, or `null` when it can.
+   *
+   * The plan's half of `can`, kept separately as well because `can` can only
+   * say NO — and a refusal that cannot say which tier, or which sub-account
+   * spent the allowance, is a dead end rather than a decision.
+   */
+  editBlock: EditBlock | null;
 }
 
 const NavLayoutContext = React.createContext<NavLayoutContextValue | null>(null);
@@ -709,6 +719,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
 
   const state = store.layout;
   const undoOffer = store.undoOffer;
+  const plans = useNavProfiles();
 
   // Refs so account switches can park/load without putting dispatch inside a
   // setState updater (updaters must stay pure under Strict Mode). Synced in
@@ -828,7 +839,29 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = React.useMemo<NavLayoutContextValue>(() => {
-    const can = permissionsFor(state.role);
+    /*
+     * Role AND plan, intersected once.
+     *
+     * Both answer "may I", and the ~25 surfaces that gate on `can` should not
+     * each have to remember to ask twice. Folding the plan in here is what
+     * makes the tier ladder real everywhere at once: a locked $97 nav is a
+     * `can.customise` of false, which every rename field, drag handle and row
+     * menu already respects.
+     */
+    const role = permissionsFor(state.role);
+    const scopeId = activeId ?? AGENCY_SCOPE_ID;
+    const blocked = plans.editBlockFor(scopeId) !== null;
+    const can: NavPermissions = blocked
+      ? {
+          ...role,
+          // Personalisation survives every tier — pins and a user's own labels
+          // are not what the ladder prices.
+          renameForEveryone: false,
+          regroup: false,
+          customise: false,
+          writeAgencyScope: false,
+        }
+      : role;
 
     /**
      * What "unchanged" means for THIS account.
@@ -1276,9 +1309,28 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       setEditing: (editing) =>
         editing ? dispatch({ type: "beginEdit" }) : dispatch({ type: "saveEdit" }),
 
-      beginEditing: () => dispatch({ type: "beginEdit" }),
+      beginEditing: () => {
+        // Claimed on entry rather than on the first change: the seat is the
+        // right to have a customised nav, and an agency that opened the editor
+        // on a second client has already made the choice the limit is about.
+        plans.claimSeat(activeId ?? AGENCY_SCOPE_ID);
+        dispatch({ type: "beginEdit" });
+      },
       saveEditing: () => dispatch({ type: "saveEdit" }),
-      discardEditing: () => dispatch({ type: "discardEdit" }),
+      discardEditing: () => {
+        /*
+         * Discard hands the seat back — but only if nothing was kept.
+         *
+         * "Locked once claimed" is about the decision, not about opening a
+         * panel: an agency that entered the editor on the wrong client and
+         * pressed Discard has customised nothing, and burning their one
+         * allowance for it would be a trap rather than a limit. A session that
+         * changed something and was then discarded still gives it back, for the
+         * same reason — what is left behind is the account's original nav.
+         */
+        plans.releaseSeat(activeId ?? AGENCY_SCOPE_ID);
+        dispatch({ type: "discardEdit" });
+      },
       editDirty: store.editDirty,
 
       applyArrangement: (label, patch) =>
@@ -1306,6 +1358,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       setActiveAccount,
       profileFor,
       applyToAccounts,
+      editBlock: plans.editBlockFor(scopeId),
     };
   }, [
     state,
@@ -1319,6 +1372,8 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
     setActiveAccount,
     profileFor,
     applyToAccounts,
+    plans,
+    activeId,
   ]);
 
   return <NavLayoutContext value={value}>{children}</NavLayoutContext>;

@@ -24,6 +24,11 @@ import { BulkHistoryModal } from "@/components/bulk/bulk-history-modal";
 import { BulkModal } from "@/components/bulk/bulk-modal";
 import { plural, useBulkActions } from "@/components/bulk/bulk-provider";
 import { industryFor } from "@/components/nav/account-nav-profiles";
+import { useNavProfiles } from "@/components/nav/nav-profiles";
+import { productsFor } from "@/components/nav/saas-tiers";
+import { SAAS_TIER_LABELS, SAAS_TIER_PRICES, type SaasTier } from "@/design/plans";
+import { SaasTierDialog } from "./saas-tier-dialog";
+import { withProduct } from "@/components/nav/grouping";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
@@ -62,6 +67,9 @@ export function AccountsIndexPage({
   const { effective } = useTheme();
   const layout = useNavLayout();
   const { settings, history } = useBulkActions();
+  const { saasTierFor, setSaasTier } = useNavProfiles();
+  /** The account whose plan is being changed, if any. */
+  const [tierFor, setTierFor] = React.useState<string | null>(null);
   const appTheme = effective.appTheme;
   const [query, setQuery] = React.useState("");
   const [selected, setSelected] = React.useState<readonly string[]>([]);
@@ -192,6 +200,10 @@ export function AccountsIndexPage({
             <span className="w-[170px] text-[11px] leading-none font-semibold tracking-[0.04em] text-pg-muted uppercase">
               Industry
             </span>
+            <span className="w-[130px] text-[11px] leading-none font-semibold tracking-[0.04em] text-pg-muted uppercase">
+              {/* Their plan, not yours — see saas-tier-dialog.tsx. */}
+              Client plan
+            </span>
             <span className="w-[80px] text-[11px] leading-none font-semibold tracking-[0.04em] text-pg-muted uppercase">
               Products
             </span>
@@ -254,6 +266,38 @@ export function AccountsIndexPage({
                   <span className="w-[170px] truncate text-[12.5px] text-pg-muted">
                     {industryFor(account.id) ?? "—"}
                   </span>
+                  {/*
+                    A span with a role, not a button.
+                    
+                    The row IS a button — it opens the account — and nesting a
+                    control inside one is invalid markup that browsers resolve
+                    differently. The same trick `flyout-row.tsx` uses for its
+                    icon picker, for the same reason.
+                  */}
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Change ${account.name}'s plan`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      setTierFor(account.id);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter" && e.key !== " ") return;
+                      e.stopPropagation();
+                      e.preventDefault();
+                      setTierFor(account.id);
+                    }}
+                    className="motion-tap flex w-[130px] cursor-pointer items-center gap-[6px] rounded-[6px] px-[6px] py-[4px] hover:bg-pg-row-border"
+                  >
+                    <span className="truncate text-[12.5px] leading-none font-medium text-pg-heading">
+                      {SAAS_TIER_LABELS[saasTierFor(account.id)]}
+                    </span>
+                    <span className="shrink-0 text-[11.5px] leading-none text-pg-faint tabular-nums">
+                      {SAAS_TIER_PRICES[saasTierFor(account.id)]}
+                    </span>
+                  </span>
                   <span className="w-[80px] text-[12.5px] text-pg-muted tabular-nums">
                     {layout.profileFor(account.id).enabledProducts.length}
                   </span>
@@ -284,6 +328,36 @@ export function AccountsIndexPage({
           onOpenHistory={() => {
             setBulk(null);
             setHistoryOpen(true);
+          }}
+        />
+      ) : null}
+
+      {tierFor ? (
+        <SaasTierDialog
+          account={session.accounts.find((a) => a.id === tierFor)!}
+          current={saasTierFor(tierFor)}
+          onClose={() => setTierFor(null)}
+          onChoose={(tier: SaasTier) => {
+            setSaasTier(tierFor, tier);
+            /*
+              An upgrade GRANTS the tier's products, it does not replace the
+              account's tree.
+              
+              The whole texture of this prototype is that a dental practice and
+              a roofer have different navs; a tier that overwrote the tree would
+              trade that for a demo of three identical ones. So the tier decides
+              what the client is entitled to, and their own arrangement of it
+              survives — which is also how HighLevel's SaaS tiers actually work.
+            */
+            layout.applyToAccounts(
+              [tierFor],
+              `Upgraded to ${SAAS_TIER_LABELS[tier]}`,
+              (state) =>
+                productsFor(tier).reduce(
+                  (acc, id) => withProduct(acc, id, true),
+                  state,
+                ),
+            );
           }}
         />
       ) : null}

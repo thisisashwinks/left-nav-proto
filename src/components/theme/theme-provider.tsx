@@ -9,6 +9,7 @@ import {
   type EntryLayout,
   type GetAppPlacement,
   type FlyoutTrigger,
+  type L3Disclosure,
   type L2ClickAction,
   type RecentsMode,
   type MergedPinScope,
@@ -33,7 +34,9 @@ import {
   type PageShell,
   type ScopeModel,
   type NavGeneration,
+  type NavSwitchSurface,
   type NavColourControl,
+  type SubAccountSwitcher,
   type SearchMode,
   type SurfaceTheme,
   type ThemeState,
@@ -57,7 +60,9 @@ export type AccountTheme = Partial<
     | "dockPosition"
     | "entryLayout"
     | "getAppPlacement"
+    | "agencySearch"
     | "flyoutTrigger"
+    | "l3Disclosure"
     | "l2ClickAction"
     | "recentsMode"
     | "mergedPinScope"
@@ -105,7 +110,9 @@ interface ThemeContextValue extends ThemeState {
   setDockPosition: (position: DockPosition) => void;
   setEntryLayout: (layout: EntryLayout) => void;
   setGetAppPlacement: (placement: GetAppPlacement) => void;
+  setAgencySearch: (enabled: boolean) => void;
   setFlyoutTrigger: (trigger: FlyoutTrigger) => void;
+  setL3Disclosure: (disclosure: L3Disclosure) => void;
   setL2ClickAction: (action: L2ClickAction) => void;
   setRecentsMode: (mode: RecentsMode) => void;
   setMergedPinScope: (scope: MergedPinScope) => void;
@@ -123,8 +130,12 @@ interface ThemeContextValue extends ThemeState {
   setAutoCollapse: (enabled: boolean) => void;
   setScopeModel: (model: ScopeModel) => void;
   setNavGeneration: (generation: NavGeneration) => void;
+  setNavSwitchSurface: (surface: NavSwitchSurface) => void;
   setNavSwitchInEditCard: (enabled: boolean) => void;
   setNavColourControl: (control: NavColourControl) => void;
+  setSubAccountSwitcher: (switcher: SubAccountSwitcher) => void;
+  setUserMultiAccount: (enabled: boolean) => void;
+  setProductDirectoryRow: (enabled: boolean) => void;
   setLayoutSwitchInEditCard: (enabled: boolean) => void;
   setLegacyNavTheme: (theme: SurfaceTheme) => void;
   setTabsInNav: (enabled: boolean) => void;
@@ -250,7 +261,11 @@ export function ThemeProvider({
       setEntryLayout: (entryLayout) => setState((s) => ({ ...s, entryLayout })),
       setGetAppPlacement: (getAppPlacement) =>
         setState((s) => ({ ...s, getAppPlacement })),
+      setAgencySearch: (agencySearch) =>
+        setState((s) => ({ ...s, agencySearch })),
       setFlyoutTrigger: (flyoutTrigger) => setState((s) => ({ ...s, flyoutTrigger })),
+      setL3Disclosure: (l3Disclosure) =>
+        setState((s) => ({ ...s, l3Disclosure })),
       setL2ClickAction: (l2ClickAction) =>
         setState((s) => ({ ...s, l2ClickAction })),
       setRecentsMode: (recentsMode) => setState((s) => ({ ...s, recentsMode })),
@@ -282,10 +297,18 @@ export function ThemeProvider({
       setScopeModel: (scopeModel) => setState((s) => ({ ...s, scopeModel })),
       setNavGeneration: (navGeneration) =>
         setState((s) => ({ ...s, navGeneration })),
+      setNavSwitchSurface: (navSwitchSurface) =>
+        setState((s) => ({ ...s, navSwitchSurface })),
       setNavSwitchInEditCard: (navSwitchInEditCard) =>
         setState((s) => ({ ...s, navSwitchInEditCard })),
       setNavColourControl: (navColourControl) =>
         setState((s) => ({ ...s, navColourControl })),
+      setSubAccountSwitcher: (subAccountSwitcher) =>
+        setState((s) => ({ ...s, subAccountSwitcher })),
+      setUserMultiAccount: (userMultiAccount) =>
+        setState((s) => ({ ...s, userMultiAccount })),
+      setProductDirectoryRow: (productDirectoryRow) =>
+        setState((s) => ({ ...s, productDirectoryRow })),
       setLayoutSwitchInEditCard: (layoutSwitchInEditCard) =>
         setState((s) => ({ ...s, layoutSwitchInEditCard })),
       setLegacyNavTheme: (legacyNavTheme) =>

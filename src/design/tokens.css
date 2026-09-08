@@ -425,6 +425,29 @@
   --orb-1: var(--ai-base);
   --orb-2: #f275fd;
   --orb-2: oklch(from var(--ai-base) calc(l + 0.2) calc(c * 0.88) calc(h + 22));
+
+  /*
+   * The Ask AI button's own tint, and the reason it is HERE.
+   *
+   * `--ai-soft-from`, `--ai-soft-to` and `--ai-border` live under
+   * [data-nav-theme], because every surface that used them — the dock, the
+   * composer — is inside the nav. The Ask AI button is not: on the `header`
+   * entry placement it stands in the app bar, which is scoped by
+   * [data-header-theme] instead, so those three resolved to nothing and the
+   * gradient collapsed to an invalid value. Not a faint tint — no tint and no
+   * label colour either.
+   *
+   * So the button reads off --ai-base directly, which sits at the root where
+   * nothing can scope it away. A touch deeper than --ai-soft as well: that pair
+   * is a whisper meant to sit under 13px of text on a white panel, and a button
+   * has to look pressable from across the bar.
+   */
+  --ai-btn-from: #f3ddff;
+  --ai-btn-from: oklch(from var(--ai-base) 0.93 calc(c * 0.42) h);
+  --ai-btn-to: #ffe4fb;
+  --ai-btn-to: oklch(from var(--ai-base) 0.95 calc(c * 0.34) calc(h + 34));
+  --ai-btn-fg: #7e22ce;
+  --ai-btn-fg: var(--ai-base-strong);
 }
 
 /* ─── Layer 3: nav surface ──────────────────────────────────────────────── */

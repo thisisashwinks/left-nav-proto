@@ -22,6 +22,8 @@ import {
   GET_APP_PLACEMENTS,
   GET_APP_PLACEMENT_LABELS,
   FLYOUT_TRIGGER_LABELS,
+  L3_DISCLOSURES,
+  L3_DISCLOSURE_LABELS,
   FLYOUT_TRIGGERS,
   L2_CLICK_ACTIONS,
   L2_CLICK_ACTION_LABELS,
@@ -55,10 +57,16 @@ import {
   SCOPE_MODELS,
   NAV_GENERATIONS,
   NAV_COLOUR_CONTROLS,
+  SUB_ACCOUNT_SWITCHERS,
+  SUB_ACCOUNT_SWITCHER_LABELS,
+  type SubAccountSwitcher,
   NAV_COLOUR_CONTROL_LABELS,
   type NavColourControl,
   NAV_GENERATION_LABELS,
+  NAV_SWITCH_SURFACES,
+  NAV_SWITCH_SURFACE_LABELS,
   type NavGeneration,
+  type NavSwitchSurface,
   SEARCH_MODE_LABELS,
   SEARCH_MODES,
   SURFACE_THEMES,
@@ -70,6 +78,7 @@ import {
   type EntryLayout,
   type GetAppPlacement,
   type FlyoutTrigger,
+  type L3Disclosure,
   type L2ClickAction,
   type InboxPalette,
   type LayoutReplaceDialog,
@@ -110,7 +119,14 @@ import {
   type SurfaceTheme,
   type Tint,
 } from "@/design/theme";
-import { PLAN_PRICES, PLAN_TIERS } from "@/design/plans";
+import {
+  AGENCY_PLANS,
+
+  AGENCY_PLAN_PRICES,
+  CUSTOM_NAV_SEATS,
+  DEFAULT_AGENCY_PLAN,
+  type AgencyPlan,
+} from "@/design/plans";
 import {
   TUNING_DEFAULTS,
   TUNING_GROUPS,
@@ -170,15 +186,27 @@ const ROLE_NOTE: Record<NavRole, string> = {
 };
 
 /** "Per account" plus the three tiers — the plan switch's four positions. */
-const PLAN_CHOICES = ["seeded", ...PLAN_TIERS] as const;
+/**
+ * The agency plan, by price.
+ *
+ * There is no "per account" position any more: the agency plan is one
+ * subscription for the whole workspace, and the per-tenant value it used to be
+ * confused with is now the SaaS tier, which lives on the Sub-accounts table
+ * where a per-tenant thing belongs.
+ */
+const AGENCY_PLAN_CHOICE_LABELS: Record<AgencyPlan, string> = {
+  starter: AGENCY_PLAN_PRICES.starter,
+  pro: AGENCY_PLAN_PRICES.pro,
+  elite: AGENCY_PLAN_PRICES.elite,
+};
 
-type PlanChoice = (typeof PLAN_CHOICES)[number];
-
-const PLAN_CHOICE_LABELS: Record<PlanChoice, string> = {
-  seeded: "Per account",
-  starter: PLAN_PRICES.starter,
-  pro: PLAN_PRICES.pro,
-  elite: PLAN_PRICES.elite,
+/** What each tier lets an agency admin do to navigation, in one line. */
+const AGENCY_PLAN_NOTES: Record<AgencyPlan, string> = {
+  starter:
+    "Starter. The nav can be used and personalised — pins, recents, a preset, light or dark — but not edited. Every editing control is visible and locked, naming $297.",
+  pro: "Unlimited. Editing unlocks, for ONE sub-account: the first client whose nav you change claims it, and the rest stay locked until you upgrade. Unlimited sub-accounts either way — it is the customised navigation that is rationed, not the accounts.",
+  elite:
+    "Agency Pro. Every sub-account's nav is editable, which is also what makes the Sub-accounts table's bulk actions reachable — applying one arrangement to many clients needs more than one customised nav.",
 };
 
 /**
@@ -249,6 +277,8 @@ function NavStructureSection({
     setScopeModel,
     flyoutTrigger,
     setFlyoutTrigger,
+    l3Disclosure,
+    setL3Disclosure,
     l2ClickAction,
     setL2ClickAction,
     tabsInNav,
@@ -276,7 +306,7 @@ function NavStructureSection({
   // nav in front of you, and this panel is read while switching between a
   // four-product barbershop and a thirty-product retail chain.
   const density = densityFor(state.enabledProducts.length);
-  const { demoPlan, setDemoPlan } = useNavProfiles();
+  const { agencyPlan, setAgencyPlan, seatHolder } = useNavProfiles();
 
   // Compared against the store's own defaults rather than hardcoded values — the
   // default grouping moved to `job`, and a literal here silently claimed the
@@ -286,7 +316,7 @@ function NavStructureSection({
     (state.navVolume === DEFAULT_LAYOUT.navVolume ? 0 : 1) +
     (scopeModel === DEFAULT_THEME.scopeModel ? 0 : 1) +
     (layout.isDefaultLayout ? 0 : 1) +
-    (demoPlan === null ? 0 : 1) +
+    (agencyPlan === DEFAULT_AGENCY_PLAN ? 0 : 1) +
     (state.editing ? 1 : 0);
 
   return (
@@ -308,19 +338,27 @@ function NavStructureSection({
       }}
     >
       <Segmented
-        label="Plan"
-        options={PLAN_CHOICES}
-        value={demoPlan ?? "seeded"}
-        onChange={(v: PlanChoice) =>
-          setDemoPlan(v === "seeded" ? null : v)
-        }
-        format={(v) => PLAN_CHOICE_LABELS[v]}
+        label="Agency plan"
+        options={AGENCY_PLANS}
+        value={agencyPlan}
+        onChange={(v: AgencyPlan) => setAgencyPlan(v)}
+        format={(v) => AGENCY_PLAN_CHOICE_LABELS[v]}
       />
-      <Note>
-        {demoPlan === null
-          ? "Each account on the plan it is seeded with, so the sub-account list shows a real spread."
-          : `Every account forced onto ${PLAN_PRICES[demoPlan]}, to read the nav as that agency sees it.`}
-      </Note>
+      <Note>{AGENCY_PLAN_NOTES[agencyPlan]}</Note>
+      {/*
+        The seat, stated only where it exists.
+        
+        At $97 there is none to spend and at $497 there is no limit to hit, so a
+        line about it on those tiers would be describing a rule that is not
+        running.
+      */}
+      {CUSTOM_NAV_SEATS[agencyPlan] === 1 ? (
+        <Note>
+          {seatHolder === null
+            ? "No sub-account has claimed the customised navigation yet."
+            : `Claimed by ${seatHolder}. Every other sub-account's nav is locked until $497.`}
+        </Note>
+      ) : null}
 
       <Segmented
         label="Agency ↔ sub-account"
@@ -483,7 +521,22 @@ function NavStructureSection({
       <Note>
         {flyoutTrigger === "hover"
           ? "Rollover previews a row's menu, with a dwell so sweeping the list doesn't strobe."
-          : "Khoi's alternative: nothing opens until the row is clicked."}
+          : flyoutTrigger === "sticky"
+            ? "The menubar rule: nothing opens until you click, and once a panel is open, moving along the nav moves the panel with you. Applies at both levels — the first L2 you click opens its L3, then hovering a sibling swaps it."
+            : "Khoi's alternative: nothing opens until the row is clicked."}
+      </Note>
+
+      <Segmented
+        label="L3 rows appear"
+        options={L3_DISCLOSURES}
+        value={l3Disclosure}
+        onChange={(v: L3Disclosure) => setL3Disclosure(v)}
+        format={(v) => L3_DISCLOSURE_LABELS[v]}
+      />
+      <Note>
+        {l3Disclosure === "panel"
+          ? "A dropdown beside the L2 panel, sized to its contents, cascading again for L4. The panel behind it never moves, so the L2 list stays where your eye left it."
+          : "Dropped open underneath their parent and indented, growing the L2 panel. One surface — and a deep tree pushes everything below it a long way down."}
       </Note>
 
       <Segmented
@@ -1433,6 +1486,8 @@ export function TuningPanel() {
     setEntryLayout,
     getAppPlacement,
     setGetAppPlacement,
+    agencySearch,
+    setAgencySearch,
     pageShell,
     setPageShell,
     inboxPalette,
@@ -1441,12 +1496,20 @@ export function TuningPanel() {
     setNavGeneration,
     navSwitchInEditCard,
     setNavSwitchInEditCard,
+    navSwitchSurface,
+    setNavSwitchSurface,
     layoutSwitchInEditCard,
     setLayoutSwitchInEditCard,
     layoutReplaceDialog,
     setLayoutReplaceDialog,
     navColourControl,
     setNavColourControl,
+    productDirectoryRow,
+    setProductDirectoryRow,
+    subAccountSwitcher,
+    setSubAccountSwitcher,
+    userMultiAccount,
+    setUserMultiAccount,
   } = useTheme();
 
 
@@ -1470,13 +1533,15 @@ export function TuningPanel() {
     (navSwitchInEditCard !== DEFAULT_THEME.navSwitchInEditCard ? 1 : 0) +
     (layoutSwitchInEditCard !== DEFAULT_THEME.layoutSwitchInEditCard ? 1 : 0) +
     (layoutReplaceDialog !== DEFAULT_THEME.layoutReplaceDialog ? 1 : 0) +
-    (navColourControl !== DEFAULT_THEME.navColourControl ? 1 : 0);
+    (navColourControl !== DEFAULT_THEME.navColourControl ? 1 : 0) +
+    (navSwitchSurface !== DEFAULT_THEME.navSwitchSurface ? 1 : 0);
 
   const resetEditCard = () => {
     setNavSwitchInEditCard(DEFAULT_THEME.navSwitchInEditCard);
     setLayoutSwitchInEditCard(DEFAULT_THEME.layoutSwitchInEditCard);
     setLayoutReplaceDialog(DEFAULT_THEME.layoutReplaceDialog);
     setNavColourControl(DEFAULT_THEME.navColourControl);
+    setNavSwitchSurface(DEFAULT_THEME.navSwitchSurface);
   };
 
   const searchChanged =
@@ -1699,8 +1764,21 @@ export function TuningPanel() {
           />
           <Note>
             {navSwitchInEditCard
-              ? "A Navigation row in the card's ⋯ menu, opening the same two options. Off, switching navigation happens only here."
-              : "The card's ⋯ menu has no Navigation row. Switching happens only here."}
+              ? "A second route to the same choice, three levels into a mode Starter cannot open. The Switch nav button beside Edit nav is the first."
+              : "The ⋯ menu keeps only the tools that adjust the nav you have. Switching navigation is the button beside Edit nav."}
+          </Note>
+
+          <Segmented
+            label="Switching navigation opens"
+            options={NAV_SWITCH_SURFACES}
+            value={navSwitchSurface}
+            onChange={(v: NavSwitchSurface) => setNavSwitchSurface(v)}
+            format={(v) => NAV_SWITCH_SURFACE_LABELS[v]}
+          />
+          <Note>
+            {navSwitchSurface === "modal"
+              ? "Two cards with a sketch of each arrangement. Picking a navigation is a choice between two products — a menu row can describe them but not show them."
+              : "The drill-down in the card's ⋯ menu: a label and a sentence each."}
           </Note>
 
           <Toggle
@@ -1745,6 +1823,54 @@ export function TuningPanel() {
             into a dev panel to cover a mode you can leave in a click is a second
             copy to keep in step for no reach it adds.
           */}
+          {/*
+            The gap this closes: a sub-account person who belongs to more than
+            one account had no switcher at all, because the rail was gated on
+            not being a plain user.
+          */}
+          <Toggle
+            label="Member of several accounts"
+            checked={userMultiAccount}
+            onChange={setUserMultiAccount}
+          />
+          <Note>
+            {userMultiAccount
+              ? "The signed-in sub-account person belongs to more than one account, so they get a switcher. Set the role to User to see it."
+              : "One account only — both switcher treatments disappear, because a list of one is not a choice."}
+          </Note>
+          <Segmented
+            label="Member switcher"
+            options={SUB_ACCOUNT_SWITCHERS}
+            value={subAccountSwitcher}
+            onChange={(v: SubAccountSwitcher) => setSubAccountSwitcher(v)}
+            format={(v) => SUB_ACCOUNT_SWITCHER_LABELS[v]}
+          />
+          <Note>
+            {subAccountSwitcher === "rail"
+              ? "The same rail the agency uses, minus the agency plate and the All accounts door — neither means anything from inside the set."
+              : "The nav's identity row becomes the switcher, listing the accounts they belong to. No agency row."}
+          </Note>
+
+          {/*
+            A second door to the product directory, off by default.
+
+            The panel already opens from "View all" on the merged block, which
+            is where you are looking when you want more of the list. This asks
+            whether the whole catalogue should also be reachable from a standing
+            row — the answer for anyone whose merged block is switched off, and a
+            spare question for everyone else, which is why it starts off.
+          */}
+          <Toggle
+            label="Product directory row"
+            checked={productDirectoryRow}
+            onChange={setProductDirectoryRow}
+          />
+          <Note>
+            {productDirectoryRow
+              ? "A standing row above Settings, at both nav widths, opening the same panel as View all."
+              : "Off: the directory opens from View all on the merged block. Switch on to add a standing row above Settings."}
+          </Note>
+
           <Segmented
             label="Nav colours"
             options={NAV_COLOUR_CONTROLS}
@@ -1887,6 +2013,17 @@ export function TuningPanel() {
                 : "The same merged pill, holding the nav's bottom edge beside the drawer toggle."}
           </Note>
 
+          <Toggle
+            label="Search at agency scope"
+            checked={agencySearch}
+            onChange={setAgencySearch}
+          />
+          <Note>
+            {agencySearch
+              ? "The agency gets the same merged pill a sub-account has."
+              : "Ask AI only. Thirteen buckets and a client list that already has its own search field — the pill had no corpus to add."}
+          </Note>
+
           <Segmented
             label="Get the app"
             options={GET_APP_PLACEMENTS}
@@ -1895,11 +2032,13 @@ export function TuningPanel() {
             format={(v) => GET_APP_PLACEMENT_LABELS[v]}
           />
           <Note>
-            {getAppPlacement === "header"
-              ? "Two glyphs left of the phone. Standing and visible — an app nobody knows about is an app nobody installs."
-              : getAppPlacement === "menu"
-                ? "Two rows in the avatar menu, where production puts them. Conventional, and behind a menu most people open to sign out."
-                : "Two rows beside Settings, at both nav widths. Reads as part of the product, at the price of nav height spent on a one-time job."}
+            {getAppPlacement === "flyout"
+              ? "One row, “White-label apps”, opening a panel with the two platforms in it. Names the thing before asking which flavour, and spends one nav row instead of two."
+              : getAppPlacement === "header"
+                ? "Two glyphs left of the phone. Standing and visible — an app nobody knows about is an app nobody installs."
+                : getAppPlacement === "menu"
+                  ? "Two rows in the avatar menu, where production puts them. Conventional, and behind a menu most people open to sign out."
+                  : "Two rows beside Settings, at both nav widths. Reads as part of the product, at the price of two rows and of one offer looking like two products."}
           </Note>
         </Section>
 

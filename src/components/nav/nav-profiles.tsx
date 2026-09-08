@@ -1,35 +1,71 @@
 "use client";
 
 import * as React from "react";
-import { planFor } from "@/components/nav/account-nav-profiles";
+import { saasTierFor as seededTierFor } from "@/components/nav/account-nav-profiles";
 import {
+  CUSTOM_NAV_SEATS,
+  DEFAULT_AGENCY_PLAN,
   hasCapability,
   minPlanFor,
+  type AgencyPlan,
   type NavCapability,
-  type PlanTier,
+  type SaasTier,
 } from "@/design/plans";
 
 /**
- * Per-account nav policy: which plan an account is on, and therefore what its
- * nav is allowed to do.
+ * The two pricing layers, and the one seat that sits between them.
  *
- * This used to be the customizer's profile store, and carried a per-account
- * `customCss` string that the provider injected into <head>. When the Navigation
- * tab went (Aug 25) it took `CodeArea` with it — the only writer that store ever
- * had — so the profiles map could never be anything but empty and the injection
- * effects could never fire. The dead half is gone rather than left dormant; the
- * `customCss` capability stays declared in `plans.ts`, so restoring the feature
- * is a matter of adding an editor, not of rebuilding the gate.
+ *   The AGENCY PLAN is the workspace's own HighLevel subscription — one value
+ *   for the whole session. It decides whether an agency admin may edit
+ *   navigation at all, and on how many sub-accounts.
+ *
+ *   The SAAS TIER is what the agency resells each client on. One per
+ *   sub-account. It decides what that client's own workspace holds.
+ *
+ * They used to be one field called `plan`, seeded per account, which made the
+ * ladder unreadable: a per-tenant value cannot express "this agency may
+ * customise one navigation", because the limit is about the agency and the
+ * value lived on the tenant.
  */
 
+/**
+ * Why an account cannot be edited right now. `null` means it can.
+ *
+ * Returned rather than thrown, and specific rather than boolean, because the
+ * two refusals need different words and a different way out: one is a tier you
+ * do not have, the other is a seat you have already spent.
+ */
+export type EditBlock =
+  | { kind: "plan"; needs: AgencyPlan }
+  | { kind: "seat"; holder: string };
+
 interface NavProfilesValue {
+  /** The workspace's own HighLevel plan. One per session. */
+  agencyPlan: AgencyPlan;
+  setAgencyPlan: (plan: AgencyPlan) => void;
+  /** Whether the agency plan carries a capability at all. */
+  has: (cap: NavCapability) => boolean;
+  /** The lowest plan that would unlock it, for the upsell's copy. */
+  min: (cap: NavCapability) => AgencyPlan;
+
   /**
-   * A prototype control: force every account onto one plan, or `null` to let each
-   * account use the plan it is seeded with.
+   * The sub-account holding the agency's customised navigation, if any.
+   *
+   * One seat on $297, none on $97, unlimited on $497 — so this is only ever
+   * consulted in the middle tier. Locked once claimed, per the Sep 8 decision:
+   * the way to a second customised nav is the upgrade, not a reshuffle.
    */
-  demoPlan: PlanTier | null;
-  setDemoPlan: (plan: PlanTier | null) => void;
-  planForAccount: (accountId: string) => PlanTier;
+  seatHolder: string | null;
+  /** Claims the seat for an account, or no-ops if it already holds it. */
+  claimSeat: (accountId: string) => void;
+  /** Gives the seat back — what Discard does when nothing was kept. */
+  releaseSeat: (accountId: string) => void;
+  /** Null when this account may be edited; otherwise why not. */
+  editBlockFor: (accountId: string) => EditBlock | null;
+
+  /** The tier this client is resold on. */
+  saasTierFor: (accountId: string) => SaasTier;
+  setSaasTier: (accountId: string, tier: SaasTier) => void;
 }
 
 const NavProfilesContext = React.createContext<NavProfilesValue | null>(null);
@@ -43,44 +79,98 @@ export function useNavProfiles(): NavProfilesValue {
 }
 
 /**
- * What one account's plan lets it change.
+ * The agency's own scope key.
  *
- * Takes an account id rather than reading an ambient "current account". That was
- * originally because the Navigation tab gated a client the operator was not
- * inside; in-place editing always edits the current account, but agency scope
- * still asks for "agency" while a sub-account is loaded, so the argument earns
- * its keep.
+ * The agency editing ITS own nav never consumes a seat: the seat is the right
+ * to customise a client's navigation, and the agency is not one of its own
+ * clients. Without this the first thing an admin does — tidy their own nav —
+ * would spend the allowance meant for the work they bought it for.
  */
-export function usePlanFor(accountId: string): {
-  plan: PlanTier;
-  has: (cap: NavCapability) => boolean;
-  min: (cap: NavCapability) => PlanTier;
-} {
-  const { planForAccount } = useNavProfiles();
-  const plan = planForAccount(accountId);
-  return {
-    plan,
-    has: (cap) => hasCapability(plan, cap),
-    min: minPlanFor,
-  };
-}
+export const AGENCY_SCOPE_ID = "agency";
 
 export function NavProfilesProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [demoPlan, setDemoPlan] = React.useState<PlanTier | null>(null);
+  const [agencyPlan, setAgencyPlan] =
+    React.useState<AgencyPlan>(DEFAULT_AGENCY_PLAN);
+  const [seatHolder, setSeatHolder] = React.useState<string | null>(null);
+  /** Upgrades made in this session, over the seeded tier. */
+  const [tierOverrides, setTierOverrides] = React.useState<
+    Record<string, SaasTier>
+  >({});
 
-  const planForAccount = React.useCallback(
-    (accountId: string) => demoPlan ?? planFor(accountId),
-    [demoPlan],
+  const has = React.useCallback(
+    (cap: NavCapability) => hasCapability(agencyPlan, cap),
+    [agencyPlan],
+  );
+
+  const editBlockFor = React.useCallback(
+    (accountId: string): EditBlock | null => {
+      // The agency's own nav is outside the allowance entirely — see the note
+      // on AGENCY_SCOPE_ID.
+      if (!hasCapability(agencyPlan, "editNav")) {
+        return { kind: "plan", needs: minPlanFor("editNav") };
+      }
+      if (accountId === AGENCY_SCOPE_ID) return null;
+      if (CUSTOM_NAV_SEATS[agencyPlan] === Number.POSITIVE_INFINITY) return null;
+      if (seatHolder === null || seatHolder === accountId) return null;
+      return { kind: "seat", holder: seatHolder };
+    },
+    [agencyPlan, seatHolder],
+  );
+
+  const claimSeat = React.useCallback(
+    (accountId: string) => {
+      if (accountId === AGENCY_SCOPE_ID) return;
+      setSeatHolder((held) => held ?? accountId);
+    },
+    [],
+  );
+
+  const releaseSeat = React.useCallback((accountId: string) => {
+    setSeatHolder((held) => (held === accountId ? null : held));
+  }, []);
+
+  const saasTierFor = React.useCallback(
+    (accountId: string): SaasTier =>
+      tierOverrides[accountId] ?? seededTierFor(accountId),
+    [tierOverrides],
+  );
+
+  const setSaasTier = React.useCallback(
+    (accountId: string, tier: SaasTier) =>
+      setTierOverrides((all) => ({ ...all, [accountId]: tier })),
+    [],
   );
 
   const value = React.useMemo<NavProfilesValue>(
-    () => ({ demoPlan, setDemoPlan, planForAccount }),
-    [demoPlan, planForAccount],
+    () => ({
+      agencyPlan,
+      setAgencyPlan,
+      has,
+      min: minPlanFor,
+      seatHolder,
+      claimSeat,
+      releaseSeat,
+      editBlockFor,
+      saasTierFor,
+      setSaasTier,
+    }),
+    [
+      agencyPlan,
+      has,
+      seatHolder,
+      claimSeat,
+      releaseSeat,
+      editBlockFor,
+      saasTierFor,
+      setSaasTier,
+    ],
   );
 
-  return <NavProfilesContext value={value}>{children}</NavProfilesContext>;
+  return (
+    <NavProfilesContext value={value}>{children}</NavProfilesContext>
+  );
 }

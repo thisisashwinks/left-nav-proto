@@ -34,11 +34,28 @@ interface UseAccountSwitcher {
 export function useAccountSwitcher(
   session: AccountsSession,
   onClose: () => void,
+  /**
+   * Restricts the panel to these accounts, for a member who belongs to some of
+   * them rather than owning all of them.
+   *
+   * Undefined means every account, which is the agency's case. Filtered here
+   * rather than in the component so search, the grouping and the keyboard
+   * cursor all see the same restricted set — filtering only the rendered rows
+   * would leave Enter selecting an account that is not on screen.
+   */
+  only?: readonly string[],
 ): UseAccountSwitcher {
   const [query, setQueryRaw] = React.useState("");
   const [activeIndex, setActiveIndex] = React.useState(0);
 
-  const { accounts, current } = session;
+  const { current } = session;
+  const accounts = React.useMemo(
+    () =>
+      only === undefined
+        ? session.accounts
+        : session.accounts.filter((a) => only.includes(a.id)),
+    [session.accounts, only],
+  );
 
   /*
    * Grouping is snapshotted when the panel opens, while the stars themselves

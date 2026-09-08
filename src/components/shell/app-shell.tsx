@@ -14,6 +14,12 @@ import {
 } from "@/components/ai/ai-window";
 import { useAiSession } from "@/components/ai/use-ai-session";
 import { flyouts } from "@/components/flyout/flyout-config";
+import {
+  GET_APP_FLYOUT_ID,
+  GET_APP_NAV_LABEL,
+  GET_APP_ROW_IDS,
+  getAppFlyout,
+} from "@/components/flyout/get-app-flyout";
 import { FlyoutPanel } from "@/components/flyout/flyout-panel";
 import {
   AppHeader,
@@ -21,6 +27,7 @@ import {
   type CrumbOption,
 } from "@/components/header/app-header";
 import {
+  GET_APP_LABELS,
   GetAppModal,
   type AppKind,
 } from "@/components/header/get-app-modal";
@@ -39,7 +46,9 @@ import {
 } from "@/components/nav/use-nav-density";
 import { LeftNav } from "@/components/nav/left-nav";
 import {
+  agencyBuckets,
   agencyFlyouts,
+  agencyL3Id,
   agencyPlaces,
 } from "@/components/nav/agency-config";
 import { useAgencyLayout } from "@/components/nav/agency-layout";
@@ -54,6 +63,9 @@ import {
   PROPOSED_CONTACTS_LIST_ID,
 } from "@/components/nav/proposed-ia";
 import { AgencyPlacePage } from "@/components/settings/agency-place-page";
+import { GetAppPage } from "@/components/settings/get-app-page";
+import { WhiteLabelDesktopPage } from "@/components/settings/white-label-desktop-page";
+import { WhiteLabelMobilePage } from "@/components/settings/white-label-mobile-page";
 import {
   CanvasSkeleton,
   NavRowsSkeleton,
@@ -201,6 +213,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     searchTheme,
     flyoutTrigger,
     pageShell,
+    subAccountSwitcher,
+    userMultiAccount,
+    agencySearch,
     editTreatment,
   } = effective;
 
@@ -707,7 +722,21 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * machinery is even visible.
    */
   const plainUser = layout.role === "user";
-  const canSwitch = !plainUser;
+  /*
+   * A sub-account person who belongs to more than one account.
+   *
+   * The gap this closes: the rail was gated on NOT being a plain user, so
+   * somebody who owns two businesses on the platform had no switcher of any
+   * kind — the one audience whose accounts are all they have, and the one with
+   * no way to move between them. `admin` is a sub-account role too, so it
+   * counts here; only `agency` sits above the accounts.
+   */
+  const memberOfMany = layout.role !== "agency" && userMultiAccount;
+  /*
+   * Switching is now either the agency's or a member's, and they are not the
+   * same thing — a member never reaches agency scope, only its siblings.
+   */
+  const canSwitch = !plainUser || memberOfMany;
   /*
    * Production's nav, in place of the proposal's.
    *
@@ -723,7 +752,24 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * so keeping both would put two ways to change account on screen and make the
    * comparison unreadable.
    */
-  const railActive = scopeModel === "rail" && !plainUser && !legacyNav;
+  /*
+   * The agency's rail: the working set, capped by the agency itself.
+   */
+  const agencyRail = scopeModel === "rail" && !plainUser && !legacyNav;
+  /*
+   * A member's rail, when that is the treatment they are given.
+   *
+   * Independent of `scopeModel`, which is the agency-vs-sub-account comparison
+   * axis and has nothing to say about how a member moves between the accounts
+   * they belong to. Suppressed under the legacy nav for the same reason the
+   * agency's is: that nav carries its own switcher inside the column.
+   */
+  const memberRail =
+    memberOfMany && subAccountSwitcher === "rail" && !legacyNav && plainUser;
+  const railActive = agencyRail || memberRail;
+  /** The alternative treatment: a control in the nav header instead. */
+  const memberDropdown =
+    memberOfMany && subAccountSwitcher === "dropdown" && !legacyNav && plainUser;
   /*
    * Expanded shows full account names beside the tiles — the answer to
    * low-quality tenant logos. Panel offsets follow the live width.
@@ -748,7 +794,17 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   // The Settings row opens a flyout like any group row; which menu it holds
   // follows the scope, not the registry.
   const requested = intent.activeId
-    ? intent.activeId === SETTINGS_FLYOUT_ID
+    ? /*
+        The companion-app panel, ahead of every other lookup.
+
+        It belongs to no tree — not the account's, not the agency's — so
+        neither registry can produce it, and it exists at both scopes: an
+        agency hands these apps to its clients, a sub-account installs them.
+        One line before the scope split is the whole of that.
+      */
+      intent.activeId === GET_APP_FLYOUT_ID
+      ? getAppFlyout
+      : intent.activeId === SETTINGS_FLYOUT_ID
       ? agencyScope
         ? agencySettingsFlyout
         : // groupFlyouts only holds the Settings bucket when this account is on
@@ -950,6 +1006,103 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     [groups, layout.grouping, productLabelFor, productIconFor, productOption],
   );
 
+  /**
+   * The agency trail, as switchers rather than words.
+   *
+   * The agency branch built plain strings, so every crumb on every agency page
+   * wore no caret and did nothing — including the two app pages, which is what
+   * surfaced it. The shape is the product trail's, because the question is the
+   * same one: at each level, what else could I have picked here?
+   *
+   *   bucket  every other bucket in the tree
+   *   parent  the rows beside it inside that bucket
+   *   row     its own siblings — the L2s of the bucket, or the L3s of the L2
+   *
+   * A bucket that IS the destination gets one crumb, not two identical ones.
+   */
+  const agencyCrumbs = React.useMemo((): (string | Crumb)[] => {
+    if (!agencyPlace) return [];
+    const pick = (id: string) => {
+      if (!agencyPlaces[id]) return;
+      // Same reset the nav's own rows do: a fresh destination closes whatever
+      // sub-account was open behind the Accounts table.
+      setManageAccountId(null);
+      setSelectedId(id);
+    };
+    const option = (
+      id: string,
+      label: string,
+      icon: CrumbOption["icon"],
+      selectedId: string,
+    ): CrumbOption => ({
+      id,
+      label,
+      ...(icon ? { icon } : {}),
+      selected: id === selectedId,
+    });
+
+    const { bucket, parent, label } = agencyPlace;
+    const buckets = agencyBuckets.map((b) =>
+      option(b.id, b.label, b.icon, bucket.id),
+    );
+    const out: (string | Crumb)[] = [];
+
+    if (bucket.label === label) {
+      // The row IS the bucket — one crumb, offering the other buckets.
+      out.push({
+        label,
+        icon: bucket.icon,
+        options: buckets,
+        onSelect: pick,
+      });
+      return out;
+    }
+
+    out.push({
+      label: bucket.label,
+      icon: bucket.icon,
+      options: buckets,
+      onSelect: pick,
+    });
+
+    const rows = bucket.children.map((c) =>
+      option(c.id, c.label, c.icon, parent?.id ?? selectedId ?? ""),
+    );
+
+    if (parent) {
+      out.push({
+        label: parent.label,
+        ...(parent.icon ? { icon: parent.icon } : {}),
+        options: rows,
+        onSelect: pick,
+      });
+      // L3s are keyed by a slug of their parent and label — the same one
+      // `agencyPlaces` was built with, so `pick` can resolve them.
+      const l3 = (parent.l3 ?? []).map((x) =>
+        option(
+          agencyL3Id(parent.id, x.label),
+          x.label,
+          x.icon,
+          selectedId ?? "",
+        ),
+      );
+      out.push({
+        label,
+        options: l3,
+        onSelect: pick,
+      });
+      return out;
+    }
+
+    out.push({
+      label,
+      ...(agencyPlace.icon ? { icon: agencyPlace.icon } : {}),
+      options: rows,
+      onSelect: pick,
+    });
+    return out;
+  }, [agencyPlace, selectedId]);
+
   const productCrumbs = React.useMemo((): (string | Crumb)[] => {
     const productId = canvasPage?.productId ?? "contacts";
     const childId = canvasPage?.childId ?? null;
@@ -1073,14 +1226,39 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const identityCanSwitch = canSwitch && !railActive;
 
   /*
-   * Khoi's click-only alternative, as a per-account setting: with the trigger
-   * on `click`, rollover previews nothing — rows open their panel only when
-   * pinned by a click. Hover mode keeps the direction-aware dwell.
+   * Three triggers, and the middle one is the default. See FLYOUT_TRIGGERS.
+   *
+   *   click   Rollover previews nothing; a row opens its panel only when
+   *           pinned by a click. Khoi's alternative.
+   *   hover   Every rollover previews, with the direction-aware dwell.
+   *   sticky  Nothing opens until you click — and once a panel IS open, moving
+   *           along the nav moves the panel with you.
+   *
+   * Sticky RE-PINS rather than previewing. Preview falls back to whatever was
+   * clicked the moment the pointer leaves, so hovering along four categories
+   * and then reaching for the page would have snapped the panel back to the
+   * first one — the nav undoing the last four things you did. Re-pinning makes
+   * the hovered panel the real selection, which is what an open menubar does.
    */
-  const hoverEnabled = flyoutTrigger !== "click";
   const noHover = React.useCallback(() => {}, []);
-  const hoverFlyout = hoverEnabled ? intent.hover : noHover;
-  const hoverPlain = hoverEnabled ? intent.scheduleClear : noHover;
+  const stickyHover = React.useCallback(
+    (id: string) => {
+      // Nothing is open yet, so there is nothing to move along: the first
+      // opening is still a click, which is the whole point of the mode.
+      if (intent.pinnedId === null || id === intent.pinnedId) return;
+      intent.togglePin(id);
+    },
+    [intent],
+  );
+  const hoverFlyout =
+    flyoutTrigger === "hover"
+      ? intent.hover
+      : flyoutTrigger === "sticky"
+        ? stickyHover
+        : noHover;
+  // Only the previewing mode needs the leave-and-fall-back timer. Sticky has no
+  // preview to drop, and clearing on leave would close the panel it just moved.
+  const hoverPlain = flyoutTrigger === "hover" ? intent.scheduleClear : noHover;
 
   /*
    * An open L2 panel leaves as soon as the switch BEGINS.
@@ -1245,6 +1423,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           <AccountRail
             session={accounts}
             theme={navTheme}
+            // A member's rail loses the agency plate and the directory door —
+            // see membersOnly. The agency's keeps both.
+            membersOnly={memberRail}
             expanded={railExpanded}
             // Frozen while the directory is up: the panel docks against the
             // rail's edge, so the rail widening or narrowing underneath it
@@ -1303,7 +1484,6 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             scope={accounts.scope}
             account={accounts.current}
             agency={accounts.agency}
-            onLeave={() => setNavGeneration("new")}
             onSwitchScope={() =>
               accounts.scope === "agency"
                 ? accounts.switchTo(accounts.current.id)
@@ -1433,7 +1613,13 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             aiSession={aiSession}
             density={density}
             onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
-            {...(agencyScope || !navCan.customise
+            {/*
+              Gone while a switch is in flight, as the expanded face's pill is:
+              the rail's entrance leads to the same editor, over the same
+              half-loaded tree. `pending` is the switch, and it is what the
+              skeleton rows are drawn from.
+            */
+            ...(agencyScope || !navCan.customise || pending !== null
               ? {}
               : {
                   // Expand FIRST, then open the mode: the rail is the entrance,
@@ -1514,6 +1700,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         <AppHeader
           theme={headerTheme}
           onOpenApp={setAppModal}
+          entryFills={!agencyScope || agencySearch}
           /*
             The entry, when the axis puts it up here.
 
@@ -1529,6 +1716,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                     onSearch={() => setSearchOpen(true)}
                     session={aiSession}
                     tone="header"
+                    // The agency has thirteen buckets and a client list with a
+                    // search of its own — no corpus the pill could add to.
+                    searchEnabled={!agencyScope || agencySearch}
                   />
                 ),
               }
@@ -1554,17 +1744,42 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 manageAccount
                 ? ["Sub-accounts", "Accounts", manageAccount.name]
                 : ["Sub-accounts", "Accounts"]
-              : agencyPlace
-                ? // Bucket, then the L2 that owns it, then the row itself —
-                  // skipping the bucket when the row IS the bucket, so a
-                  // destination like Labs does not read "Labs / Labs".
+              : selectedId === GET_APP_ROW_IDS.mobile ||
+                  selectedId === GET_APP_ROW_IDS.desktop
+                ? /*
+                    The sub-account's copy of the pair, written out because it
+                    belongs to no tree that could supply it.
+
+                    The first crumb stays a word: this row sits beside Settings
+                    as chrome, so there is nothing it could offer to switch TO
+                    — a caret there would open a list of one. The second is the
+                    real switcher, and the one that matters: mobile and desktop
+                    are the two things you came here to choose between.
+                  */
                   [
-                    ...(agencyPlace.bucket.label === agencyPlace.label
-                      ? []
-                      : [agencyPlace.bucket.label]),
-                    ...(agencyPlace.parent ? [agencyPlace.parent.label] : []),
-                    agencyPlace.label,
+                    GET_APP_NAV_LABEL,
+                    {
+                      label:
+                        selectedId === GET_APP_ROW_IDS.mobile
+                          ? GET_APP_LABELS.mobile
+                          : GET_APP_LABELS.desktop,
+                      options: [
+                        {
+                          id: GET_APP_ROW_IDS.mobile,
+                          label: GET_APP_LABELS.mobile,
+                          selected: selectedId === GET_APP_ROW_IDS.mobile,
+                        },
+                        {
+                          id: GET_APP_ROW_IDS.desktop,
+                          label: GET_APP_LABELS.desktop,
+                          selected: selectedId === GET_APP_ROW_IDS.desktop,
+                        },
+                      ],
+                      onSelect: (id: string) => setSelectedId(id),
+                    },
                   ]
+              : agencyPlace
+                ? agencyCrumbs
                 : agencyScope
                   ? [accounts.agency.name, "Overview"]
                   : productCrumbs
@@ -1638,6 +1853,22 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                     onManage={setManageAccountId}
                   />
                 )
+              ) : selectedId === "agency-app-mobile" ? (
+                /*
+                 * The agency's own app pages, ahead of the generic
+                 * `agencyPlacePage` stub that every other bucket row falls
+                 * through to. Two of the tree's rows have a real screen behind
+                 * them now, and these are they.
+                 */
+                <WhiteLabelMobilePage agency={accounts.agency} />
+              ) : selectedId === "agency-app-desktop" ? (
+                <WhiteLabelDesktopPage />
+              ) : selectedId === GET_APP_ROW_IDS.mobile ? (
+                // The sub-account's side of the same panel: the offer as a
+                // page, because a nav row is a destination. See GetAppPage.
+                <GetAppPage kind="mobile" />
+              ) : selectedId === GET_APP_ROW_IDS.desktop ? (
+                <GetAppPage kind="desktop" />
               ) : agencyPlace && selectedId === "agency-company" ? (
                 // The one agency settings page drawn in full: White label is
                 // where the logo pair lives.
@@ -1853,6 +2084,27 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                * in the canvas, which is the gesture that means "done here".
                */
               if (!keepOpen) intent.close();
+              /*
+                The two rows in the companion-app panel open the sheet, not a
+                page. Checked before the catalogue lookups below, which would
+                find nothing for them and return silently — the same dead end
+                Business Profile used to hit.
+              */
+              if (id === GET_APP_ROW_IDS.mobile || id === GET_APP_ROW_IDS.desktop) {
+                /*
+                 * A page, not the sheet.
+                 *
+                 * These ids only reach this handler from the nav's own panel,
+                 * which is a destination — so it lands you somewhere and the
+                 * nav's selection points at what you are looking at. The app
+                 * bar and the avatar menu still open the modal: those are
+                 * asides, and a page would lose whatever you were doing.
+                 */
+                setManageAccountId(null);
+                setProductPage(null);
+                setSelectedId(id);
+                return;
+              }
               // Rows that name a catalogue product (or one of its L2 children)
               // open that product's page; anything else keeps its old inert
               // highlight. Contacts stays the purpose-built page.
@@ -1961,7 +2213,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       {switcher.isMounted ? (
         <AccountSwitcher
           session={accounts}
-          showAgency={!railActive && canSwitch}
+          /*
+            Never for a member. `canSwitch` is now true for them too, so the old
+            test would have offered an agency row to somebody with no agency
+            scope to reach — the panel's own guard has to name the role, not
+            just the ability to switch.
+          */
+          showAgency={!railActive && canSwitch && !plainUser}
+          // A member sees the accounts they belong to; the agency sees them all.
+          {...(memberDropdown ? { only: accounts.railIds } : {})}
           anchor={{
             left:
               railWidth +

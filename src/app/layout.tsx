@@ -46,20 +46,28 @@ export default function RootLayout({
       <body className="flex h-dvh flex-col overflow-hidden bg-app text-app-fg">
         <ThemeProvider>
           <TuningProvider>
-            <NavLayoutProvider>
-              <BrandProvider>
-              <NavTemplatesProvider>
-                <AgencyLayoutProvider>
-                <NavProfilesProvider>
-                <BulkActionsProvider>
-                <TooltipProvider>{children}</TooltipProvider>
-                <TuningPanel />
-                </BulkActionsProvider>
-              </NavProfilesProvider>
-                </AgencyLayoutProvider>
-                </NavTemplatesProvider>
-              </BrandProvider>
-            </NavLayoutProvider>
+            {/*
+              Plans OUTSIDE the layout store, not inside it.
+
+              The layout store now folds the agency plan into `can` — the
+              permissions every editing surface reads — so it has to be able to
+              ask what the plan allows. It used to sit three providers above the
+              answer.
+            */}
+            <NavProfilesProvider>
+              <NavLayoutProvider>
+                <BrandProvider>
+                  <NavTemplatesProvider>
+                    <AgencyLayoutProvider>
+                      <BulkActionsProvider>
+                        <TooltipProvider>{children}</TooltipProvider>
+                        <TuningPanel />
+                      </BulkActionsProvider>
+                    </AgencyLayoutProvider>
+                  </NavTemplatesProvider>
+                </BrandProvider>
+              </NavLayoutProvider>
+            </NavProfilesProvider>
           </TuningProvider>
         </ThemeProvider>
       </body>

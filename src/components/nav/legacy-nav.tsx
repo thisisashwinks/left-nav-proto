@@ -8,7 +8,6 @@ import {
   Box,
   Calendar,
   ChevronsUpDown,
-  Check,
   Contact,
   GitFork,
   Globe,
@@ -26,7 +25,7 @@ import {
   Package,
   Moon,
   Receipt,
-  Replace,
+  PanelsTopLeft,
   Rocket,
   Search,
   Send,
@@ -36,7 +35,6 @@ import {
   ShoppingBag,
   Smartphone,
   Sparkles,
-  SquarePen,
   Star,
   Sun,
   Store,
@@ -52,8 +50,8 @@ import {
 import { AccountLogo } from "@/components/accounts/account-logo";
 import type { Account } from "@/components/accounts/accounts-data";
 import type { WorkspaceScope } from "@/components/accounts/use-accounts";
-import type { SurfaceTheme } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
+import { NavGenerationModal } from "./nav-generation-modal";
 import { cn } from "@/lib/utils";
 
 /**
@@ -84,7 +82,6 @@ export function LegacyNav({
   scope,
   account,
   agency,
-  onLeave,
   onSwitchScope,
 }: {
   scope: WorkspaceScope;
@@ -92,8 +89,6 @@ export function LegacyNav({
   account: Account;
   /** Whose logo sits at the top — production's white-label slot. */
   agency: Account;
-  /** Back to the proposal. Not production's; see the pill at the foot. */
-  onLeave: () => void;
   /**
    * Agency ↔ sub-account, the one thing the switcher does.
    *
@@ -265,137 +260,98 @@ export function LegacyNav({
         the two navs stay comparable on how they are administered as well as on
         what they contain.
       */}
-      <LegacyEditFoot onLeave={onLeave} />
+      <LegacyEditFoot />
     </div>
   );
 }
 
 /**
- * The edit affordance, and the card it becomes.
+ * The old nav's foot: two icon buttons, and no editing.
  *
- * Deliberately the proposal's own shape — hidden until the nav is hovered, then
- * a card with its tools on one line and the two exits on the next — because the
- * comparison being run here includes "what is it like to administer this thing".
- * A different treatment would make that comparison about the treatment.
+ * It used to mirror the proposal's edit card — a hidden pencil, then a card
+ * with tools and a Save/Discard pair. That was built to make the two navs
+ * comparable on how they are administered, and the comparison it actually
+ * produced was that there is nothing here to administer: the card's own note
+ * said as much, "two tools, where the proposal has three or four, and that IS
+ * the finding".
  *
- * Two tools, where the proposal has three or four, and that IS the finding: there
- * is no structure to show, hide, group or template. What is left is how it looks
- * and whether you want it at all.
+ * A mode with nothing in it is ceremony. Both remaining controls are single
+ * clicks that need no session, no baseline and no Discard — so they are two
+ * plain icon buttons at the nav's foot, named by tooltip, and the mode goes.
+ * Which also removes the last thing implying this nav can be restructured.
  */
-function LegacyEditFoot({ onLeave }: { onLeave: () => void }) {
+function LegacyEditFoot() {
   const { legacyNavTheme, setLegacyNavTheme } = useTheme();
-  const [editing, setEditing] = React.useState(false);
-
-  /*
-   * What Discard puts back.
-   *
-   * Captured when the session opens rather than read at Discard time, which is
-   * the whole point: the buttons mean the same here as they do on the proposal's
-   * card, where Discard undoes a session rather than the last thing you touched.
-   *
-   * Only the theme is in it. Switching to the new nav also ends the session — it
-   * unmounts this entire nav, card included — so it is committed by definition
-   * and there would be nothing left on screen to press Discard with.
-   */
-  const [baseline, setBaseline] = React.useState<SurfaceTheme>(legacyNavTheme);
-
-  if (!editing) {
-    return (
-      <div className="shrink-0 px-[12px] pb-[12px]">
-        <button
-          type="button"
-          onClick={() => {
-            setBaseline(legacyNavTheme);
-            setEditing(true);
-          }}
-          aria-label="Edit navigation"
-          /*
-           * Revealed on hover and on focus, as the proposal's pencil is: an
-           * editing affordance should not be part of the furniture you look at
-           * all day, and one reachable by Tab but invisible while focused is a
-           * keyboard trap in reverse.
-           */
-          className="motion-tap flex h-[30px] w-full items-center justify-center gap-[6px] rounded-[8px] text-[12px] leading-none font-medium text-nav-fg-subtle opacity-0 transition-opacity duration-[var(--dur-fast)] group-hover/legacy:opacity-100 hover:bg-nav-hover hover:text-nav-fg focus-visible:opacity-100"
-        >
-          <SquarePen size={13} aria-hidden="true" />
-          Edit nav
-        </button>
-      </div>
-    );
-  }
+  const [switching, setSwitching] = React.useState(false);
 
   return (
-    <div className="shrink-0 px-[12px] pb-[12px]">
-      <div className="flex flex-col gap-[6px] rounded-[10px] bg-nav p-[8px] shadow-[0_4px_12px_0_var(--fly-shadow),inset_0_0_0_1px_var(--nav-divider)]">
-        <div className="flex items-center gap-[6px]">
-          <span
-            role="status"
-            className="flex min-w-0 flex-1 items-center gap-[5px] truncate text-[11.5px] leading-[15px] font-semibold whitespace-nowrap text-nav-fg"
-          >
-            <SquarePen size={11} aria-hidden="true" className="shrink-0" />
-            Editing nav
-          </span>
-          <LegacyTool
-            label={
-              legacyNavTheme === "dark"
-                ? "Switch this navigation to light"
-                : "Switch this navigation to dark"
-            }
-            short={legacyNavTheme === "dark" ? "Light" : "Dark"}
-            icon={legacyNavTheme === "dark" ? Sun : Moon}
-            onClick={() =>
-              setLegacyNavTheme(legacyNavTheme === "dark" ? "light" : "dark")
-            }
-          />
-          <LegacyTool
-            label="Switch to the new navigation"
-            short="New nav"
-            icon={Replace}
-            /*
-             * Ends the session by leaving the surface it belongs to. No need to
-             * clear `editing` — this unmounts the whole nav — but it is cleared
-             * anyway so that coming back does not land straight in the mode.
-             */
-            onClick={() => {
-              setEditing(false);
-              onLeave();
-            }}
-          />
-        </div>
+    /*
+      Right-aligned, and the same pair of pills the new nav's foot carries.
 
-        <div className="flex items-center justify-end gap-[6px]">
-          <button
-            type="button"
-            onClick={() => {
-              setLegacyNavTheme(baseline);
-              setEditing(false);
-            }}
-            className="motion-tap flex h-[26px] shrink-0 items-center rounded-[7px] px-[10px] text-[12px] leading-none font-medium text-nav-fg-muted shadow-[inset_0_0_0_1px_var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg active:scale-95"
-          >
-            Discard
-          </button>
-          <button
-            type="button"
-            onClick={() => setEditing(false)}
-            className="motion-tap flex h-[26px] shrink-0 items-center gap-[5px] rounded-[7px] bg-nav-fg px-[10px] text-[12px] leading-none font-medium text-nav hover:opacity-90 active:scale-95"
-          >
-            <Check size={13} aria-hidden="true" />
-            {legacyNavTheme === baseline ? "Done" : "Save changes"}
-          </button>
-        </div>
-      </div>
+      They were icon-only with a tooltip, which is a different control from the
+      one doing the same job three pixels away in the other nav — and the
+      comparison being run here includes how the two are administered, so a
+      gratuitous difference in the chrome is noise in the result. Now both navs
+      reveal on hover, grow rightward into a named pill, and sit on the same
+      edge.
+    */
+    <div className="flex shrink-0 items-center justify-end gap-[6px] px-[12px] pb-[12px]">
+      <LegacyTool
+        label={
+          legacyNavTheme === "dark"
+            ? "Switch this navigation to light"
+            : "Switch this navigation to dark"
+        }
+        short={legacyNavTheme === "dark" ? "Light" : "Dark"}
+        width="hover:w-[74px] focus-visible:w-[74px]"
+        icon={legacyNavTheme === "dark" ? Sun : Moon}
+        onClick={() =>
+          setLegacyNavTheme(legacyNavTheme === "dark" ? "light" : "dark")
+        }
+      />
+      {/*
+        The same modal the new nav opens, in the other direction.
+        
+        It used to leave immediately. Leaving is the more consequential of the
+        two directions, not the less — the whole workspace rearranges, top bar
+        included — so it gets the same two-card choice and the same Save. A trip
+        that needs explaining one way needs explaining both ways.
+      */}
+      <LegacyTool
+        label="Switch navigation"
+        short="Switch nav"
+        width="hover:w-[104px] focus-visible:w-[104px]"
+        icon={PanelsTopLeft}
+        onClick={() => setSwitching(true)}
+      />
+      {switching ? (
+        <NavGenerationModal onClose={() => setSwitching(false)} />
+      ) : null}
     </div>
   );
 }
 
+/**
+ * One control at the old nav's foot: a circle that grows into a named pill.
+ *
+ * The proposal's own `SwitchNavButton`, transcribed — same 26px resting
+ * circle, same reveal on the nav's hover, same growth rightward with the label
+ * fading in a beat behind the box. Held here rather than shared because the two
+ * navs are meant to be comparable without being coupled: this file is a
+ * transcription, and importing the proposal's chrome into it would make the old
+ * nav depend on the thing it is the control group for.
+ */
 function LegacyTool({
   label,
   short,
+  width,
   icon: Icon,
   onClick,
 }: {
   label: string;
   short: string;
+  /** The open width, stated per label — `auto` cannot be animated. */
+  width: string;
   icon: LucideIcon;
   onClick: () => void;
 }) {
@@ -403,11 +359,33 @@ function LegacyTool({
     <button
       type="button"
       aria-label={label}
-      title={short}
       onClick={onClick}
-      className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95"
+      className={cn(
+        "group/tool relative flex h-[26px] shrink-0 items-center overflow-hidden rounded-full",
+        "w-[26px] justify-center gap-0 px-0",
+        "bg-nav text-nav-fg shadow-[0_2px_8px_0_var(--fly-shadow),inset_0_0_0_1px_var(--nav-divider)]",
+        "transition-[width,gap,padding,opacity,color,transform] duration-[var(--dur-slow)] ease-[var(--ease-out)]",
+        "hover:justify-start hover:gap-[6px] hover:px-[8px] hover:bg-nav-hover",
+        "focus-visible:justify-start focus-visible:gap-[6px] focus-visible:px-[8px]",
+        "active:scale-95",
+        // Out of the furniture until the nav is looked at, and reachable by Tab
+        // rather than by luck — the same pair of rules the proposal's pill uses.
+        "opacity-0 group-hover/legacy:opacity-100 focus-visible:opacity-100",
+        width,
+      )}
     >
-      <Icon size={14} aria-hidden="true" />
+      <Icon size={13} aria-hidden="true" className="shrink-0" />
+      {/*
+        Zero-width at rest, or the glyph is pushed out of its own circle: the
+        label claims its natural width as a flex item, and `justify-center`
+        then overflows it equally on both sides.
+      */}
+      <span
+        aria-hidden="true"
+        className="w-0 overflow-hidden text-[12px] leading-none font-medium whitespace-nowrap opacity-0 transition-opacity duration-[var(--dur-base)] ease-[var(--ease-out)] group-hover/tool:w-auto group-hover/tool:opacity-100 group-hover/tool:delay-[90ms] group-focus-visible/tool:w-auto group-focus-visible/tool:opacity-100"
+      >
+        {short}
+      </span>
     </button>
   );
 }

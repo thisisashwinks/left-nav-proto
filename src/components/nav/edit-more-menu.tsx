@@ -81,8 +81,16 @@ export function EditMoreMenu({
   onCreateTemplate,
   onUpdateTemplate,
   onClose,
+  onOpenNavModal,
 }: {
   anchor: HTMLElement;
+  /**
+   * Hands the choice to the modal instead of drilling into it here.
+   *
+   * Owned by the caller because this menu unmounts the moment a row is picked,
+   * and a modal that dies with the thing that opened it never appears.
+   */
+  onOpenNavModal: () => void;
   /** Seeds the template name, so saving is one keystroke less. */
   accountName: string;
   /** Whose template link is being read — which decides if Save is live. */
@@ -102,7 +110,8 @@ export function EditMoreMenu({
    * Both rows are behind their own axis, so the menu can be seen without either.
    * Read off `effective` like the rest of the card's chrome.
    */
-  const { navSwitchInEditCard, layoutSwitchInEditCard } = effective;
+  const { navSwitchInEditCard, layoutSwitchInEditCard, navSwitchSurface } =
+    effective;
   const { templates, linkedFor, accountsOn } = useNavTemplates();
   const [view, setView] = React.useState<View>("root");
   const [draft, setDraft] = React.useState(`${accountName} nav`);
@@ -350,12 +359,28 @@ export function EditMoreMenu({
           />
         ) : null}
         {navSwitchInEditCard ? (
+          /*
+            The one row in this menu that is not about the nav you have.
+            
+            Everything else here adjusts an arrangement; this replaces it. Which
+            is also why it is worth asking whether an overflow menu inside edit
+            mode is the only place it should live — on the Starter plan editing
+            is locked, so this row is unreachable and the switch has no route at
+            all. See NAV_SWITCH_SURFACES.
+          */
           <MenuRow
             icon={NAVIGATION_ICON}
             label="Navigation"
             note={NAV_GENERATION_LABELS[navGeneration]}
-            onSelect={() => setView("navigation")}
-            branch
+            onSelect={() => {
+              if (navSwitchSurface === "modal") {
+                onClose();
+                onOpenNavModal();
+                return;
+              }
+              setView("navigation");
+            }}
+            branch={navSwitchSurface === "menu"}
           />
         ) : null}
       </>

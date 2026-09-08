@@ -116,6 +116,30 @@ export function GetAppModal({
           <X size={16} aria-hidden="true" />
         </button>
 
+        <GetAppContent kind={kind} />
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/**
+ * The offer itself — the column of copy and downloads, and the picture beside it.
+ *
+ * Lifted out of the modal so the page can be the same thing without being a
+ * second copy of it. The sub-account's `flyout` placement opens this in the
+ * canvas rather than over it, and a page and a sheet that drift apart on their
+ * store links is exactly the bug this prevents.
+ *
+ * Two siblings rather than one wrapper: the modal lays them out as a row inside
+ * its own dialog box and the page frames them differently, so the flex parent
+ * belongs to the caller.
+ */
+export function GetAppContent({ kind }: { kind: AppKind }) {
+  const mobile = kind === "mobile";
+
+  return (
+    <>
         <div className="flex min-w-0 flex-1 flex-col items-center overflow-y-auto px-[40px] py-[44px] text-center">
           <span
             aria-hidden="true"
@@ -215,9 +239,7 @@ export function GetAppModal({
         <div className="relative hidden w-[380px] shrink-0 overflow-hidden bg-brand-soft md:block">
           <AppArtwork mobile={mobile} />
         </div>
-      </div>
-    </div>,
-    document.body,
+    </>
   );
 }
 
@@ -272,7 +294,7 @@ function StoreButton({
  * It will not scan. That is the one thing to fix before this goes near a
  * customer, and the reason this comment exists.
  */
-function QrPlaceholder() {
+export function QrPlaceholder() {
   const CELLS = 21;
   const inFinder = (r: number, c: number) => {
     const near = (br: number, bc: number) =>

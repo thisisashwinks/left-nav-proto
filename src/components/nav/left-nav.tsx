@@ -9,13 +9,14 @@ import {
   GamepadDirectional,
   History,
   Image,
+  LayoutGrid,
   MoveDown,
   MoveUp,
-  RotateCcw,
   Pencil,
   Pin,
   Plus,
   Rocket,
+  RotateCcw,
   Trash2,
 } from "lucide-react";
 import { AccountLogo } from "@/components/accounts/account-logo";
@@ -33,7 +34,9 @@ import type {
   SurfaceTheme,
 } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
-import { usePlanFor } from "@/components/nav/nav-profiles";
+import { permissionsFor as layoutPermissionsFor } from "./grouping";
+import { type EditBlock } from "@/components/nav/nav-profiles";
+import { PlanWall } from "./plan-wall";
 import {
   agencyBuckets,
   agencyEntriesFor,
@@ -86,6 +89,10 @@ import {
   GET_APP_LABELS,
   type AppKind,
 } from "@/components/header/get-app-modal";
+import {
+  GET_APP_FLYOUT_ID,
+  GET_APP_NAV_LABEL,
+} from "@/components/flyout/get-app-flyout";
 import { useAgencyLayout } from "./agency-layout";
 import { NavTemplatesMenu } from "./nav-templates-menu";
 import {
@@ -95,6 +102,33 @@ import {
 } from "./nav-templates";
 import { iconByName, nameForIcon } from "./icon-catalogue";
 import type { NavConfig, NavEntry, NavItem } from "./types";
+
+/**
+ * The standing product-directory row.
+ *
+ * A module constant rather than built per render: it carries no account state —
+ * every tenant's directory row is the same row, and it opens the same panel.
+ */
+const PRODUCT_DIRECTORY_ITEM: NavItem = {
+  id: "product-directory",
+  label: "Product directory",
+  icon: LayoutGrid,
+  /*
+   * The chevron, and it is not decoration.
+   *
+   * `hasFlyout` is presentational in NavItemRow — it draws the trailing
+   * ChevronRight and nothing else — and this row earns it: what it opens is the
+   * 360px directory panel docked against the nav's right edge, which is the
+   * direction the chevron leans toward. Every other row that opens a panel from
+   * that edge carries the same mark, and the one that did not read as a dead
+   * end.
+   *
+   * No flyout machinery is involved: this item is rendered straight through
+   * NavItemRow with its own `onSelect`, never added to the entry list, so
+   * nothing tries to resolve a flyout registered under its id.
+   */
+  hasFlyout: true,
+};
 
 /** The show/hide menu's one view, opened directly rather than via an entry. */
 const BLOCKS_VIEW = "blocks";
@@ -228,6 +262,8 @@ export function LeftNav({
     mergedPinScope,
     mergedAgencyRecents,
     getAppPlacement,
+    productDirectoryRow,
+    agencySearch,
     editTreatment,
   } = useTheme().effective;
   /*
@@ -246,6 +282,23 @@ export function LeftNav({
    * Which bands are folded. Face-local on purpose: a fold is a property of the
    * nav you are looking at, not of the account's tree.
    */
+  /**
+   * The one row that opens the pair, when the axis puts it in the nav.
+   *
+   * `hasFlyout`, so it behaves like every other row with a panel behind it —
+   * hover previews, click pins, the chevron leans. Nothing about it is special
+   * except what is inside the panel.
+   */
+  const getAppFlyoutEntry: NavEntry = {
+    kind: "item",
+    item: {
+      id: GET_APP_FLYOUT_ID,
+      label: GET_APP_NAV_LABEL,
+      icon: Smartphone,
+      hasFlyout: true,
+    },
+  };
+
   /** The companion-app rows, when the placement axis puts them in the nav. */
   const getAppEntries: NavEntry[] = [
     {
@@ -326,8 +379,16 @@ export function LeftNav({
    * on a settings page. Owner key matches the shell's, so a switch moves this
    * with everything else.
    */
-  const { has } = usePlanFor(agencyScope ? "agency" : account.id);
-  const launchpadAllowed = has("launchpadToggle") ? launchpadSetting : true;
+  /*
+   * The setup card follows the account's own switch, at every tier.
+   *
+   * It used to be gated on a `launchpadToggle` capability — the one plan key
+   * the codebase ever read — which put a governance control behind a paywall
+   * while the twelve capabilities the ladder actually prices were ungated. The
+   * ladder is about EDITING the nav now (see plans.ts); whether an account
+   * shows its own setup guide is not a thing to sell.
+   */
+  const launchpadAllowed = launchpadSetting;
   const picker = useIconPicker();
   const { state, groups, can, editFor, pickerProps, startRename } =
     useNavRowEdit(picker);
@@ -388,6 +449,8 @@ export function LeftNav({
    */
   const [coloursAt, setColoursAt] = React.useState<HTMLElement | null>(null);
   const [templatesAt, setTemplatesAt] = React.useState<HTMLElement | null>(null);
+  /** The refusal on screen, when the plan turned an edit away. */
+  const [wall, setWall] = React.useState<EditBlock | null>(null);
   /*
    * First run.
    *
@@ -1056,15 +1119,42 @@ export function LeftNav({
   ];
 
   /** The pill's edit control. Absent for roles that may not restructure. */
+  /*
+   * Built when the role allows it, whether or not the PLAN does.
+   *
+   * `can.customise` is now role ∩ plan, so a locked tier would have dropped the
+   * whole control — and a feature you cannot see is a feature you never buy.
+   * The card is built either way; `planLock` turns it into a door to the wall
+   * instead of a door to the editor.
+   */
+  /*
+   * Nothing to edit until there is a nav to edit.
+   *
+   * A switch takes two to four seconds, and for all of it the column is
+   * skeleton rows belonging to an account that has not arrived. The pill
+   * offered to restructure that — and pressing it opened edit mode over the
+   * OUTGOING account's tree, which is the one thing the control must never do.
+   * It comes back when the rows do.
+   */
+  const roleMayEdit =
+    layoutPermissionsFor(state.role).customise && swap === "idle";
+  const planLock = layout.editBlock;
   const editNav: EditNavProps | undefined =
-    can.customise
+    roleMayEdit
       ? {
+          ...(planLock ? { planLock } : {}),
           editing,
           dirty: agencyScope ? agencyLayout.dirty : layout.editDirty,
           // The agency tree has no categories to leave empty — its buckets are
           // platform IA and always have contents.
           blocked: agencyScope ? 0 : emptyCategories.length,
           onStart: () => {
+            // Locked, the pill opens the wall rather than the editor. Same
+            // control, same place — only the door behind it changes.
+            if (planLock) {
+              setWall(planLock);
+              return;
+            }
             layout.beginEditing();
             // Both stores snapshot together, so Discard means the same thing
             // whichever scope the session was opened in.
@@ -1658,6 +1748,7 @@ export function LeftNav({
         <EntryCluster
           onSearch={onSearch}
           session={aiSession}
+          searchEnabled={!agencyScope || agencySearch}
           {...(editNav ? { edit: editNav } : {})}
         />
       ) : null}
@@ -1822,7 +1913,11 @@ export function LeftNav({
                 pair of rows standing outside the last band would be the one
                 exception the "More" heading does not name.
               */
-              ...(getAppPlacement === "nav" ? getAppEntries : []),
+              ...(getAppPlacement === "nav"
+                ? getAppEntries
+                : getAppPlacement === "flyout" && !agencyScope
+                  ? [getAppFlyoutEntry]
+                  : []),
               {
                 kind: "item",
                 item: agencyScope ? agencySettings : config.settings,
@@ -1864,6 +1959,24 @@ export function LeftNav({
               */}
               <NavDivider />
               {/*
+                A standing door to the product directory, when the axis offers it.
+
+                Below the rule, with Settings and the app rows rather than above
+                it with the products: it is an affordance OVER the tree, not a
+                member of it, and a row that opens a panel listing every product
+                would read very oddly as the last product in the list.
+
+                First of the three, because it is the one that is still about the
+                account's own products — Settings and the installers are the
+                platform's. Closest to the tree it belongs to.
+              */}
+              {productDirectoryRow ? (
+                <NavItemRow
+                  item={PRODUCT_DIRECTORY_ITEM}
+                  onSelect={onOpenLauncher}
+                />
+              ) : null}
+              {/*
                 The companion apps, when the axis puts them in the nav.
 
                 Below the rule with Settings rather than above it, because they
@@ -1885,6 +1998,26 @@ export function LeftNav({
                       />
                     ) : null,
                   )
+                : null}
+              {/*
+                The flyout placement, through `renderRow` rather than a bare
+                NavItemRow: the row has a panel behind it, and everything that
+                makes a row with a panel work — the hover intent, the pin, the
+                active state while its panel is up — lives in there.
+              */}
+              {/*
+                Sub-account only.
+
+                The agency tree carries White label apps as a bucket of its own
+                — it is an area the agency works in, with two real pages behind
+                it — so a chrome row saying the same words next to Settings
+                would be the same destination twice, one of them outside the
+                tree it belongs to.
+              */}
+              {getAppPlacement === "flyout" &&
+              !agencyScope &&
+              getAppFlyoutEntry.kind === "item"
+                ? renderRow(getAppFlyoutEntry.item)
                 : null}
               {renderRow(agencyScope ? agencySettings : config.settings)}
             </>
@@ -1938,6 +2071,7 @@ export function LeftNav({
           <EntryPill
             onSearch={onSearch}
             session={aiSession}
+            searchEnabled={!agencyScope || agencySearch}
             {...(editNav ? { edit: editNav } : {})}
           />
         </div>
@@ -1995,6 +2129,13 @@ export function LeftNav({
             setTemplatesAt(null);
           }}
           onClose={() => setTemplatesAt(null)}
+        />
+      ) : null}
+      {wall ? (
+        <PlanWall
+          block={wall}
+          accountName={account.name}
+          onClose={() => setWall(null)}
         />
       ) : null}
       {coloursAt ? (

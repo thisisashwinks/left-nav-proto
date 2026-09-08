@@ -3,6 +3,7 @@
 import * as React from "react";
 import {
   ChevronDown,
+  ChevronRight,
   EllipsisVertical,
   Eye,
   EyeOff,
@@ -44,27 +45,100 @@ const PLACE_ROW =
 /** The nav's label: regular weight, and it truncates rather than overflowing. */
 const PLACE_TITLE = "font-normal whitespace-nowrap";
 
-/** The pin's column, held open by the row's own padding plus the gap. */
-const PLACE_PIN_RESERVE =
-  "pr-[calc(var(--t-nav-px,8px)+22px+var(--t-nav-gap,10px))]";
+/**
+ * Handed down when the L3 rows live in a dropdown beside the panel rather than
+ * inline beneath their parent — see L3_DISCLOSURES.
+ *
+ * The rows themselves are unchanged: a disclosure still discloses, it just
+ * reports upward instead of expanding in place. Which level a list is at
+ * travels with it, because a cascade replaces everything BELOW the level you
+ * opened from and needs to know where that is.
+ */
+export interface FlyoutCascadeApi {
+  /** Open this row's children as the next level, anchored to its element. */
+  open: (
+    id: string,
+    label: string,
+    nodes: readonly FlyoutChildItem[],
+    el: HTMLElement,
+    level: number,
+  ) => void;
+  /**
+   * Swap a level that is already open, on rollover. Absent unless the trigger
+   * is sticky — see FLYOUT_TRIGGERS.
+   */
+  hover?: (
+    id: string,
+    label: string,
+    nodes: readonly FlyoutChildItem[],
+    el: HTMLElement,
+    level: number,
+  ) => void;
+  /** The row id open at each level, so a parent can show itself as expanded. */
+  openIds: readonly string[];
+  /** Which level the list being rendered sits at. L2's own children are 0. */
+  level: number;
+}
 
 /**
- * The trailing columns, at both levels.
+ * The row's own trailing padding, and nothing more.
  *
- * The chevron is the LAST thing on a row that has one, and the pin sits just
- * inboard of it — so the pin lands on the same line whether a row discloses or
- * not, and the disclosure is always at the edge where the eye looks for it.
+ * It used to reserve the pin's width on top of this, which was right while the
+ * pin was the only trailing mark and there was nothing in flow holding its
+ * column open. Both changed: the cluster below carries a spacer of the pin's
+ * width, so reserving it again spent 22px twice and left every L2 label
+ * stopping a good 40px short of an edge whose marks sit 8px in. The panel read
+ * as having a wider right margin than left, because it did.
+ */
+const PLACE_PIN_RESERVE = "pr-[var(--t-nav-px,8px)]";
+
+/**
+ * The trailing marks, and the one arithmetic they share.
  *
- * The pin cannot be a flex child (it is a control, and the row is a button), so
- * it is an overlay hung at `PIN_INSET` while a spacer of its width holds the
- * column open in flow. The two numbers have to agree, which is why they are
- * here rather than inline at either site.
+ * The chevron is the LAST thing on a row that has one and the pin sits just
+ * inboard of it, so the pin lands on the same line whether a row discloses or
+ * not. The pin cannot be a flex child — it is a control and the row is a
+ * button — so it is an overlay hung at `PIN_INSET` while a spacer of its width
+ * holds the column open in flow. The numbers have to agree, which is why they
+ * are here rather than inline at either site.
  */
 const CHEVRON_SLOT = 14;
 const PIN_SLOT = 22;
 const TRAILING_GAP = 10;
 const ROW_EDGE = 8;
 const PIN_INSET = ROW_EDGE + CHEVRON_SLOT + TRAILING_GAP;
+
+/**
+ * What the panel's header has to pad by to line up with its rows.
+ *
+ * Exported because the header is the one part of a panel that is NOT a row, and
+ * it has to agree with them anyway: the title sits over the icon column and the
+ * close button over the chevron. Derived from the row's own numbers so the two
+ * cannot drift — the alternative is a pair of literals in another file that are
+ * correct until somebody retunes a gap.
+ *
+ * Written out as literal class strings rather than composed from the constants
+ * above: Tailwind reads the SOURCE for class names, so a name built by a
+ * template at runtime is one it never sees — the utility is never generated and
+ * the padding silently does nothing. 14px is the scroll region's own inset,
+ * which the rows sit inside.
+ */
+
+/** Title left edge = the panel's inset plus the row's own = the icon's edge. */
+export const PANEL_HEADER_PL = "pl-[calc(14px+var(--t-nav-px,8px))]";
+
+/**
+ * Close button right edge = the row's right edge, and the same 22px line the
+ * chevron ends on.
+ *
+ * It briefly carried a -4px correction, to centre a 15px glyph in a 22px target
+ * on a 14px chevron's centre. That arithmetic is right and the approach is
+ * wrong: it holds only while both glyphs stay their current sizes, and it reads
+ * as a fudge because it is one. The close button pushes its glyph to the END of
+ * its box instead — see the header — so both marks are flush against one line
+ * and the alignment survives either glyph changing size.
+ */
+export const PANEL_HEADER_PR = "pr-[calc(14px+var(--t-nav-px,8px))]";
 
 /**
  * Per-variant geometry, read off the Pencil export.
@@ -77,7 +151,17 @@ const PIN_INSET = ROW_EDGE + CHEVRON_SLOT + TRAILING_GAP;
 const VARIANT = {
   product: {
     row: PLACE_ROW,
-    iconBox: "w-[24px] h-[22px]",
+    /*
+     * The glyph's own size, both ways — no stage around it.
+     *
+     * The 24px stage dated from 20px icons of differing widths, and it bought
+     * label alignment across rows. Every glyph now renders at exactly
+     * `--t-fly-icon`, so it bought nothing and cost the panel its symmetry:
+     * the icon sat 4px further in than the chevron sat from the other edge, so
+     * the left margin read as smaller and the right as "quite large". A row's
+     * icon box is the icon, which is what a nav row has always done.
+     */
+    iconBox: "w-[var(--t-fly-icon,16px)] h-[var(--t-fly-icon,16px)]",
     iconSize: 20,
     text: "gap-[2px]",
     title: PLACE_TITLE,
@@ -89,7 +173,7 @@ const VARIANT = {
   },
   compact: {
     row: PLACE_ROW,
-    iconBox: "w-[24px] h-[22px]",
+    iconBox: "w-[var(--t-fly-icon,16px)] h-[var(--t-fly-icon,16px)]",
     iconSize: 19,
     text: "gap-[1px]",
     title: PLACE_TITLE,
@@ -99,7 +183,7 @@ const VARIANT = {
   },
   recent: {
     row: PLACE_ROW,
-    iconBox: "w-[26px] h-[22px]",
+    iconBox: "w-[var(--t-fly-icon,16px)] h-[var(--t-fly-icon,16px)]",
     iconSize: 19,
     text: "gap-[1px]",
     title: PLACE_TITLE,
@@ -227,6 +311,8 @@ interface FlyoutRowProps {
   edit?: FlyoutRowEdit;
   /** Editing for the rows INSIDE this one. Absent outside the mode. */
   childEdit?: FlyoutChildEdit;
+  /** Present when L3 lives in a dropdown beside the panel. */
+  cascade?: FlyoutCascadeApi;
 }
 
 export function FlyoutRow({
@@ -239,6 +325,7 @@ export function FlyoutRow({
   onSelect,
   edit,
   childEdit,
+  cascade,
 }: FlyoutRowProps) {
   const v = VARIANT[variant];
   const Icon = item.icon;
@@ -270,8 +357,18 @@ export function FlyoutRow({
   // navigates like a leaf rather than opening a nested list of non-places.
   const hasChildren =
     (item.children?.length ?? 0) > 0 && (tabsInNav || !item.tabs);
-  const [open, setOpen] = React.useState(defaultOpen);
+  const [inlineOpen, setInlineOpen] = React.useState(defaultOpen);
+  /*
+   * Two sources for one flag.
+   *
+   * Inline, the row owns whether it is open. Cascading, the PANEL owns it —
+   * which row's dropdown is up is a fact about the panel, not about a row, or
+   * two rows could both believe they were the open one.
+   */
+  const open = cascade ? cascade.openIds[0] === item.id : inlineOpen;
   const panelId = React.useId();
+  /** The row's own box, for anchoring the dropdown that hangs off it. */
+  const rowRef = React.useRef<HTMLDivElement>(null);
 
   const rowClass = cn(
     "motion-row-in group group/row flex w-full shrink-0 text-left",
@@ -341,11 +438,26 @@ export function FlyoutRow({
       onSelect?.(item.id);
       return;
     }
-    if (open) {
-      setOpen(false);
+    if (cascade) {
+      // Toggling closed is the panel's job too: it clears the stack by opening
+      // nothing, which is what an empty node list means at this level.
+      cascade.open(
+        open ? "" : item.id,
+        item.label,
+        open ? [] : (item.children ?? []),
+        rowRef.current ?? document.body,
+        0,
+      );
+      if (open || l2ClickAction !== "open-first") return;
+      const firstCascade = firstPlaceUnder(item.children, tabsInNav);
+      if (firstCascade) onSelect?.(firstCascade, true);
       return;
     }
-    setOpen(true);
+    if (open) {
+      setInlineOpen(false);
+      return;
+    }
+    setInlineOpen(true);
     if (l2ClickAction !== "open-first") return;
     const first = firstPlaceUnder(item.children, tabsInNav);
     if (first) onSelect?.(first, true);
@@ -562,6 +674,27 @@ export function FlyoutRow({
           />
         ) : null}
         {hasChildren ? (
+          /*
+            The chevron points where the panel will appear.
+            
+            Down, then flipped up when open, is the accordion's own grammar: it
+            describes a list growing downward and closing again. A dropdown
+            opens to the RIGHT and does not push the list around, so a
+            down-chevron there promised the wrong motion — and flipping it to
+            point up while a panel sat off to the side said nothing at all.
+          */
+          cascade ? (
+            <ChevronRight
+              size={CHEVRON_SLOT}
+              aria-hidden="true"
+              className={cn(
+                "shrink-0 motion-move",
+                active || open
+                  ? "text-nav-fg-muted"
+                  : "text-nav-fg-subtle group-hover:text-nav-fg-muted",
+              )}
+            />
+          ) : (
           <ChevronDown
             size={CHEVRON_SLOT}
             aria-hidden="true"
@@ -575,6 +708,7 @@ export function FlyoutRow({
               open && "rotate-180",
             )}
           />
+          )
         ) : !edit?.renaming ? (
           /*
            * The slot, held empty.
@@ -694,9 +828,24 @@ export function FlyoutRow({
   if (!hasChildren) return withTrailing(row);
 
   return (
-    <div className="relative w-full shrink-0">
+    <div
+      ref={rowRef}
+      onPointerEnter={
+        cascade?.hover
+          ? () =>
+              cascade.hover?.(
+                item.id,
+                item.label,
+                hasChildren ? (item.children ?? []) : [],
+                rowRef.current ?? document.body,
+                0,
+              )
+          : undefined
+      }
+      className="relative w-full shrink-0"
+    >
       {withTrailing(row)}
-      {open ? (
+      {open && !cascade ? (
         <div id={panelId}>
           <FlyoutChildRows
             nodes={item.children ?? []}
@@ -743,10 +892,20 @@ function ChildShell({
 function Row({
   edit,
   childId,
+  pinInset = PIN_INSET,
   children,
   ...rest
 }: {
   edit?: FlyoutChildEdit;
+  /**
+   * Where the pin overlay sits, in px from the row's trailing edge.
+   *
+   * The pin cannot be a flex child, so it does not move when the cluster's
+   * order does — the caller has to tell it. Inverted, the pin IS the trailing
+   * edge and sits at `ROW_EDGE`; in the panel it stays inboard of the chevron's
+   * column.
+   */
+  pinInset?: number;
   /** Empty for a row that discloses — see WithPin's own note. */
   childId: string;
   children: React.ReactNode;
@@ -773,7 +932,7 @@ function Row({
     );
   }
   return (
-    <WithPin productId={childId} pinInset={PIN_INSET}>
+    <WithPin productId={childId} pinInset={pinInset}>
       <button type="button" {...rest}>
         {children}
       </button>
@@ -792,16 +951,18 @@ const MAX_CHILD_DEPTH = 1;
  * more siblings. Recursive because the proposed IA nests one level further —
  * Calendars ▸ Settings ▸ Services — and a flat `.map` silently dropped it.
  */
-function FlyoutChildRows({
+export function FlyoutChildRows({
   nodes,
   depth,
   activeId,
   onSelect,
   tabsInNav,
   edit,
+  cascade,
 }: {
   nodes: readonly FlyoutChildItem[];
   depth: number;
+  cascade?: FlyoutCascadeApi;
   /**
    * The row the page behind the panel is currently on.
    *
@@ -827,13 +988,26 @@ function FlyoutChildRows({
         // is positioned against that edge, an L3's pin sat 8px left of its
         // parent's. Nesting is a left-hand idea; the trailing column belongs to
         // the panel and every row in it shares one.
-        "motion-menu-in mt-[2px] flex w-auto flex-col gap-[1px]",
-        depth === 0 ? "ml-[19px] pl-[14px]" : "ml-[9px] pl-[12px]",
+        "motion-menu-in flex w-auto flex-col gap-[1px]",
+        /*
+          The indent is a NESTING device, and a dropdown has nothing to nest
+          under.
+          
+          Inline, these numbers hang the rows off their parent's text column —
+          the parent is directly above them, and the offset is what says "these
+          belong to that". In a dropdown the parent is in another panel
+          entirely, so the same offset just pushed the list 19px right of
+          centre: 25px of space on the left against 6px on the right, in a
+          floating box whose padding is supposed to be even.
+        */
+        cascade ? "mt-0 ml-0 pl-0" : "mt-[2px]",
+        !cascade && (depth === 0 ? "ml-[19px] pl-[14px]" : "ml-[9px] pl-[12px]"),
       )}
     >
       {nodes.map((child) => (
         <FlyoutChildRow
           key={child.id}
+          {...(cascade ? { cascade } : {})}
           child={child}
           depth={depth}
           activeId={activeId}
@@ -881,9 +1055,11 @@ function FlyoutChildRow({
   onSelect,
   tabsInNav,
   edit,
+  cascade,
 }: {
   child: FlyoutChildItem;
   depth: number;
+  cascade?: FlyoutCascadeApi;
   /**
    * The row the page behind the panel is currently on.
    *
@@ -903,11 +1079,33 @@ function FlyoutChildRow({
     (child.children?.length ?? 0) > 0 &&
     (tabsInNav || !child.tabs) &&
     depth < MAX_CHILD_DEPTH;
-  const [open, setOpen] = React.useState(false);
+  const [inlineOpen, setInlineOpen] = React.useState(false);
+  // Cascading, the panel owns which row is open at this level — see the same
+  // note on FlyoutRow.
+  const open = cascade
+    ? cascade.openIds[cascade.level + 1] === child.id
+    : inlineOpen;
   const panelId = React.useId();
+  /** This row's box, for anchoring the level that hangs off it. */
+  const rowRef = React.useRef<HTMLDivElement>(null);
 
   return (
-    <div className="relative w-full">
+    <div
+      ref={rowRef}
+      onPointerEnter={
+        cascade?.hover
+          ? () =>
+              cascade.hover?.(
+                child.id,
+                child.label,
+                nested ? (child.children ?? []) : [],
+                rowRef.current ?? document.body,
+                cascade.level + 1,
+              )
+          : undefined
+      }
+      className="relative w-full"
+    >
       {/*
         Pinnable, like any other destination. The star is a sibling rather than
         a child of the row, because the row is itself a button and nesting one
@@ -921,6 +1119,7 @@ function FlyoutChildRow({
       <Row
         edit={edit}
         childId={nested ? "" : child.id}
+        pinInset={cascade ? ROW_EDGE : PIN_INSET}
         aria-current={child.id === activeId ? "page" : undefined}
         aria-expanded={nested ? open : undefined}
         aria-controls={nested ? panelId : undefined}
@@ -930,11 +1129,28 @@ function FlyoutChildRow({
             onSelect?.(child.id);
             return;
           }
-          if (open) {
-            setOpen(false);
+          if (cascade) {
+            cascade.open(
+              open ? "" : child.id,
+              child.label,
+              open ? [] : (child.children ?? []),
+              rowRef.current ?? document.body,
+              cascade.level + 1,
+            );
+            if (open || !openFirst) return;
+            const firstDeep = firstPlaceUnder(
+              child.children,
+              tabsInNav,
+              depth + 1,
+            );
+            if (firstDeep) onSelect?.(firstDeep, true);
             return;
           }
-          setOpen(true);
+          if (open) {
+            setInlineOpen(false);
+            return;
+          }
+          setInlineOpen(true);
           if (openFirst) {
             const first = firstPlaceUnder(child.children, tabsInNav, depth + 1);
             if (first) onSelect?.(first, true);
@@ -1016,7 +1232,23 @@ function FlyoutChildRow({
           and the same slot held empty on a leaf, so the marks sit on one line
           and the chevron is the last thing on every row that has one.
         */}
-        <span className="ml-auto flex shrink-0 items-center gap-[var(--t-fly-gap,10px)]">
+        {/*
+          Inverted in a dropdown: chevron first, the row's own mark last.
+          
+          In the panel the two levels share one trailing column, so the chevron
+          has to be the outermost thing or an L3's mark would sit where an L2's
+          chevron is. A dropdown has no L2 list beside it to line up with — and
+          almost no L3 row has children, so holding the chevron's column at the
+          OUTER edge left a permanent strip of nothing to the right of every
+          pin. Putting the mark last spends that space on the thing that is
+          always there.
+        */}
+        <span
+          className={cn(
+            "ml-auto flex shrink-0 items-center gap-[var(--t-fly-gap,10px)]",
+            cascade && "flex-row-reverse",
+          )}
+        >
           {edit ? (
             <EditAffordance
               label={`Edit ${child.label}`}
@@ -1033,14 +1265,26 @@ function FlyoutChildRow({
             />
           ) : null}
           {nested ? (
-            <ChevronDown
-              size={CHEVRON_SLOT}
-              aria-hidden="true"
-              className={cn(
-                "shrink-0 text-nav-fg-subtle motion-move",
-                open && "rotate-180",
-              )}
-            />
+            // Right in a dropdown, down inline — see the L2 row's own note.
+            cascade ? (
+              <ChevronRight
+                size={CHEVRON_SLOT}
+                aria-hidden="true"
+                className={cn(
+                  "shrink-0 motion-move",
+                  open ? "text-nav-fg-muted" : "text-nav-fg-subtle",
+                )}
+              />
+            ) : (
+              <ChevronDown
+                size={CHEVRON_SLOT}
+                aria-hidden="true"
+                className={cn(
+                  "shrink-0 text-nav-fg-subtle motion-move",
+                  open && "rotate-180",
+                )}
+              />
+            )
           ) : (
             <span
               aria-hidden="true"
@@ -1051,7 +1295,7 @@ function FlyoutChildRow({
         </span>
       </Row>
       </ChildShell>
-      {nested && open ? (
+      {nested && open && !cascade ? (
         <div id={panelId}>
           <FlyoutChildRows
             nodes={child.children ?? []}

@@ -1,14 +1,11 @@
 "use client";
 
 import * as React from "react";
+import { History, LayoutGrid, Monitor, PanelLeftOpen, Pin, Smartphone, SquarePen } from "lucide-react";
 import {
-  History,
-  Monitor,
-  PanelLeftOpen,
-  Pin,
-  Smartphone,
-  SquarePen,
-} from "lucide-react";
+  GET_APP_FLYOUT_ID,
+  GET_APP_NAV_LABEL,
+} from "@/components/flyout/get-app-flyout";
 import {
   GET_APP_LABELS,
   type AppKind,
@@ -33,7 +30,7 @@ import { useNavLayout } from "./nav-layout-provider";
 import { allocate, orderPins, recentIdsFor } from "./merged-recents";
 import { ResolvedIcon } from "./resolved-icon";
 import { fixedEntriesFor, flyoutIdFor, navConfig } from "./nav-config";
-import { usePlanFor } from "@/components/nav/nav-profiles";
+import { useNavProfiles } from "@/components/nav/nav-profiles";
 import { isBlockHidden } from "./grouping";
 import { RailTooltip } from "./rail-tooltip";
 import type { NavDensity } from "./use-nav-density";
@@ -149,12 +146,14 @@ export function CollapsedRail({
     entryLayout,
     dockPosition,
     recentsMode,
+    productDirectoryRow,
     mergedPinScope,
     mergedPinOrder,
     mergedVisibleRows,
     mergedPinCap,
     mergedRecentFloor,
     getAppPlacement,
+    agencySearch,
     launchpad: launchpadSetting,
   } = useTheme().effective;
   /*
@@ -193,8 +192,16 @@ export function CollapsedRail({
    * Quick Actions folds into. Read here rather than passed down, so the rail
    * cannot be handed a stale answer.
    */
-  const { has } = usePlanFor(agencyScope ? "agency" : account.id);
-  const launchpadAllowed = has("launchpadToggle") ? launchpadSetting : true;
+  /*
+   * The setup card follows the account's own switch, at every tier.
+   *
+   * It used to be gated on a `launchpadToggle` capability — the one plan key
+   * the codebase ever read — which put a governance control behind a paywall
+   * while the twelve capabilities the ladder actually prices were ungated. The
+   * ladder is about EDITING the nav now (see plans.ts); whether an account
+   * shows its own setup guide is not a thing to sell.
+   */
+  const launchpadAllowed = launchpadSetting;
   const cardQuickActions =
     !isBlockHidden(layout, "quickActions") && launchpadAllowed && !agencyScope;
   /*
@@ -465,7 +472,11 @@ export function CollapsedRail({
         control that only exists in one arrangement.
       */}
       {topEntry ? (
-        <EntryClusterRail onSearch={onSearch} session={aiSession} />
+        <EntryClusterRail
+          onSearch={onSearch}
+          session={aiSession}
+          searchEnabled={!agencyScope || agencySearch}
+        />
       ) : null}
 
       {/*
@@ -584,6 +595,36 @@ export function CollapsedRail({
               divider(entry.id)
             ) : null,
           )}
+          {/*
+            The same standing door, at rail width. Both faces show L1, so a row
+            that exists in one and not the other would make collapsing the nav
+            silently remove a destination.
+          */}
+          {productDirectoryRow
+            ? railButton(
+                "product-directory",
+                "Product directory",
+                <LayoutGrid size={16} aria-hidden="true" />,
+                false,
+                onOpenLauncher,
+              )
+            : null}
+          {/*
+            The flyout placement collapses to the row it already is.
+
+            Through `renderRailRow`, so the tile answers the same hover intent
+            and wears the same active fill as every other row with a panel —
+            the panel docks against the rail's edge exactly as a category's
+            does.
+          */}
+          {getAppPlacement === "flyout" && !agencyScope
+            ? renderRailRow({
+                id: GET_APP_FLYOUT_ID,
+                label: GET_APP_NAV_LABEL,
+                icon: Smartphone,
+                hasFlyout: true,
+              })
+            : null}
           {getAppPlacement === "nav" ? (
             <>
               {railButton(
@@ -659,7 +700,11 @@ export function CollapsedRail({
 
       {topEntry || headerEntry ? null : (
         <div className="flex shrink-0 flex-col items-center pt-[6px]">
-          <EntryClusterRail onSearch={onSearch} session={aiSession} />
+          <EntryClusterRail
+          onSearch={onSearch}
+          session={aiSession}
+          searchEnabled={!agencyScope || agencySearch}
+        />
         </div>
       )}
 

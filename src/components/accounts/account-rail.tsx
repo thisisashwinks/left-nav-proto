@@ -29,6 +29,15 @@ export const ACCOUNT_RAIL_DIRECTORY_WIDTH = 340;
 
 interface AccountRailProps {
   session: AccountsSession;
+  /**
+   * The rail belongs to a member of these accounts, not to the agency above
+   * them.
+   *
+   * Drops the two parts that only mean something from above: the agency plate,
+   * because there is no agency scope to switch into, and "All accounts",
+   * because the rail is already the whole set rather than a slice of it.
+   */
+  membersOnly?: boolean;
   theme: SurfaceTheme;
   /** Expanded shows full account names — for the logos that don't earn recognition. */
   expanded: boolean;
@@ -115,6 +124,7 @@ export function AccountRail({
   onToggleSwitcher,
   onCloseSwitcher,
   locked = false,
+  membersOnly = false,
 }: AccountRailProps) {
   const railAccounts = session.railIds
     .map((id) => session.accounts.find((a) => a.id === id))
@@ -490,60 +500,75 @@ export function AccountRail({
         ) : (
           <>
             {/*
-              The agency zone: a neutral plate the agency row sits on, ending at
-              nothing — the plate's own edge is the boundary. Same tile shape as
-              every account below it.
+              Whose set this is.
+
+              An agency rail is capped by the agency itself: the set below it is
+              a working slice of every client it owns, and the plate says who
+              owns them. A member's rail has no such cap, because there is no
+              scope above their accounts to go to — so the rail simply starts
+              with an account, and that absence is the honest difference between
+              the two rails rather than a badge saying which one you are looking
+              at.
             */}
-            <div
-              className={cn(
-                // The margin carries the squaring, so it is the margin that has
-                // to animate — `motion-move` transitions width and height and
-                // neither of those is what changes here.
-                "shrink-0 bg-nav-rail-disc p-[4px] transition-[margin] duration-[var(--rail-dur,var(--dur-slow))] ease-[var(--ease-out)]",
-                // Concentric with the tile inside it: a pill in a 10px box
-                // reads as a mistake at 4px of padding.
-                pillTiles ? "rounded-full" : "rounded-[10px]",
-                /*
-                  8px collapsed, so the plate is 40×40 — square, which is what
-                  makes a full radius read as a disc rather than a lozenge. The
-                  width is taken out of the margins rather than off the tile so
-                  the plate stays a percentage of the strip: it then GROWS with
-                  the rail's own width animation instead of snapping to a fixed
-                  size the moment the names open.
-                */
-                // 10/6 for the same reason the list below is 14/10: the plate
-                // is 40 wide, so this lands its centre on the same x=30.
-                expanded ? "mx-[6px]" : "mr-[6px] ml-[10px]",
-              )}
-            >
+            {membersOnly ? null : (
+              <>
               {/*
-                The tile wears the AGENCY's own mark. It briefly carried the
-                HighLevel logo instead, on the reading that the rail is platform
-                chrome — but for a white-labelled product the top of a client's
-                screen is the last place our logo belongs, and the tile is a
-                destination (the agency scope) rather than a brand plate. The
-                thing it has to say is "this is you", which is the agency's mark.
+                The agency zone: a neutral plate the agency row sits on, ending at
+                nothing — the plate's own edge is the boundary. Same tile shape as
+                every account below it.
               */}
-              <RailRow
-                label={`${session.agency.name} — agency`}
-                name={session.agency.name}
-                expanded={expanded}
-                selected={session.scope === "agency"}
-                onClick={session.switchToAgency}
-                onHover={() => setHover(true)}
-                account={session.agency}
-                /*
-                  Under the pill axis the agency's mark is a disc like every
-                  tenant's below it: the plate it sits on is what says "this is
-                  the scope over them", and saying it twice — plate AND a shape
-                  the rest of the column does not use — was the redundancy the
-                  pill treatment removes. Squircle keeps the rounded square.
-                */
-                logoRadius={pillTiles ? 999 : 9}
-                // Fixed, not sized by scope — see `markSize`.
-                markSize={20}
-              />
-            </div>
+              <div
+                className={cn(
+                  // The margin carries the squaring, so it is the margin that has
+                  // to animate — `motion-move` transitions width and height and
+                  // neither of those is what changes here.
+                  "shrink-0 bg-nav-rail-disc p-[4px] transition-[margin] duration-[var(--rail-dur,var(--dur-slow))] ease-[var(--ease-out)]",
+                  // Concentric with the tile inside it: a pill in a 10px box
+                  // reads as a mistake at 4px of padding.
+                  pillTiles ? "rounded-full" : "rounded-[10px]",
+                  /*
+                    8px collapsed, so the plate is 40×40 — square, which is what
+                    makes a full radius read as a disc rather than a lozenge. The
+                    width is taken out of the margins rather than off the tile so
+                    the plate stays a percentage of the strip: it then GROWS with
+                    the rail's own width animation instead of snapping to a fixed
+                    size the moment the names open.
+                  */
+                  // 10/6 for the same reason the list below is 14/10: the plate
+                  // is 40 wide, so this lands its centre on the same x=30.
+                  expanded ? "mx-[6px]" : "mr-[6px] ml-[10px]",
+                )}
+              >
+                {/*
+                  The tile wears the AGENCY's own mark. It briefly carried the
+                  HighLevel logo instead, on the reading that the rail is platform
+                  chrome — but for a white-labelled product the top of a client's
+                  screen is the last place our logo belongs, and the tile is a
+                  destination (the agency scope) rather than a brand plate. The
+                  thing it has to say is "this is you", which is the agency's mark.
+                */}
+                <RailRow
+                  label={`${session.agency.name} — agency`}
+                  name={session.agency.name}
+                  expanded={expanded}
+                  selected={session.scope === "agency"}
+                  onClick={session.switchToAgency}
+                  onHover={() => setHover(true)}
+                  account={session.agency}
+                  /*
+                    Under the pill axis the agency's mark is a disc like every
+                    tenant's below it: the plate it sits on is what says "this is
+                    the scope over them", and saying it twice — plate AND a shape
+                    the rest of the column does not use — was the redundancy the
+                    pill treatment removes. Squircle keeps the rounded square.
+                  */
+                  logoRadius={pillTiles ? 999 : 9}
+                  // Fixed, not sized by scope — see `markSize`.
+                  markSize={20}
+                />
+              </div>
+              </>
+            )}
 
             {/*
               The hoisted cluster: the directory, and optionally the account you
@@ -573,7 +598,12 @@ export function AccountRail({
                   expanded ? "px-[6px]" : "pr-[10px] pl-[14px]",
                 )}
               >
-                {directoryButton}
+                {/*
+                  Absent for a member, and meaningfully so: their rail IS every
+                  account they can reach, so a door to "all accounts" would open
+                  onto the same list they are already looking at.
+                */}
+                {membersOnly ? null : directoryButton}
                 {activeAccount ? (
                   <RailRow
                     label={activeAccount.name}

@@ -7,19 +7,24 @@ import {
   Eye,
   Moon,
   MoreHorizontal,
+  PanelsTopLeft,
   Palette,
   Search,
   Sun,
+  Lock,
   SquarePen,
   TriangleAlert,
 } from "lucide-react";
 import { AiMark } from "@/components/ai/ai-mark";
 import { NavIntroCard } from "./nav-intro-card";
+import { AGENCY_PLAN_PRICES } from "@/design/plans";
+import type { EditBlock } from "./nav-profiles";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import { Kbd } from "@/components/search/kbd";
 import { cn } from "@/lib/utils";
 import { RailTooltip } from "./rail-tooltip";
 import { EditMoreMenu } from "./edit-more-menu";
+import { NavGenerationModal } from "./nav-generation-modal";
 import { useTheme } from "@/components/theme/theme-provider";
 
 /**
@@ -52,17 +57,32 @@ export function EntryCluster({
   onSearch,
   session,
   edit,
+  searchEnabled = true,
 }: {
   onSearch: () => void;
   session: AiSession;
   edit?: EditNavProps;
+  /**
+   * Whether the pill is a search field as well as an AI entrance.
+   *
+   * False at agency scope by default — see AGENCY_SEARCH_DEFAULT. The orb and
+   * the label stay; the magnifier and the keycap go, and the whole pill becomes
+   * the one target it still has. A field that opens nothing is worse than no
+   * field.
+   */
+  searchEnabled?: boolean;
 }) {
   return (
     // 22px under the pill, not 12: hugging the nav's foot read as an
     // afterthought — the lift gives the entry the margin a primary control
     // deserves (Aug 13 ask).
     <div className="flex w-full shrink-0 px-[12px] pb-[22px]">
-      <EntryPill onSearch={onSearch} session={session} {...(edit ? { edit } : {})} />
+      <EntryPill
+        onSearch={onSearch}
+        session={session}
+        searchEnabled={searchEnabled}
+        {...(edit ? { edit } : {})}
+      />
     </div>
   );
 }
@@ -105,6 +125,15 @@ export interface EditNavProps {
    */
   onOpenBlocks: (trigger: HTMLElement) => void;
   /* ---- What the overflow menu needs. See EditMoreMenu. ---- */
+  /**
+   * Locked by the agency plan, and why.
+   *
+   * The control STAYS — greyed, badged with the tier that would unlock it, and
+   * opening the wall instead of the editor. Hiding it would make the two tiers
+   * look like two products rather than one product at two prices, and an
+   * agency on $97 would never learn the feature exists.
+   */
+  planLock?: EditBlock;
   /** Seeds the template name. */
   accountName: string;
   /** Whose template link the menu reads, to tell Save from Create. */
@@ -135,6 +164,7 @@ export interface EditNavProps {
  * leave by finding the control that started it is a trap.
  */
 function EditNavButton({
+  planLock,
   revealed = false,
   atFoot = false,
   editing,
@@ -177,6 +207,7 @@ function EditNavButton({
    * three are lifted only because they outlive the card's own layout.
    */
   const [moreAnchor, setMoreAnchor] = React.useState<HTMLElement | null>(null);
+  const [navModalOpen, setNavModalOpen] = React.useState(false);
 
   /*
    * Read here rather than threaded through EditNavProps.
@@ -202,6 +233,7 @@ function EditNavButton({
           }}
         />
         <EditNavButton
+          {...(planLock ? { planLock } : {})}
           editing={editing}
           dirty={dirty}
           blocked={blocked}
@@ -265,7 +297,15 @@ function EditNavButton({
           onCreateTemplate={onCreateTemplate}
           onUpdateTemplate={onUpdateTemplate}
           onClose={() => setMoreAnchor(null)}
+          onOpenNavModal={() => setNavModalOpen(true)}
         />
+      ) : null}
+      {/*
+        Outlives the menu on purpose — the menu closes as the modal opens, and a
+        dropdown left hanging behind a modal reads as two surfaces fighting.
+      */}
+      {navModalOpen ? (
+        <NavGenerationModal onClose={() => setNavModalOpen(false)} />
       ) : null}
       <div
         className={cn(
@@ -448,14 +488,49 @@ function EditNavButton({
    * makes 300ms feel deliberate instead of slow.
    */
   return (
+    /*
+      Two controls, side by side, both hidden until the nav is hovered.
+
+      Switching navigation is not an editing tool and it was living inside one —
+      three levels into the edit card's overflow, behind a mode that the Starter
+      plan cannot open at all. Out here it is a peer of Edit nav rather than a
+      leaf of it: same size, same reveal, same grow-on-hover, and reachable
+      whatever the plan says about restructuring.
+
+      A flex row rather than two absolute boxes: they have to sit beside each
+      other without either of them knowing how wide the other's label is when it
+      opens.
+    */
+    <div
+      className={cn(
+        "absolute right-0 z-20 flex items-center gap-[6px]",
+        atFoot ? "bottom-0" : "-top-[34px]",
+      )}
+    >
+      <SwitchNavButton
+        revealed={revealed}
+        onOpen={() => setNavModalOpen(true)}
+      />
+      {/*
+        Rendered here as well as in the editing branch above, because that is
+        where it was and this is where the button is.
+
+        `navModalOpen` is one piece of state on a component with three returns —
+        the intro card, the editing card, and this — and the modal was only
+        mounted by the second of them. So the button set a flag nothing was
+        listening to and clicking it did nothing at all, silently, which is the
+        worst shape this bug could take.
+      */}
+      {navModalOpen ? (
+        <NavGenerationModal onClose={() => setNavModalOpen(false)} />
+      ) : null}
     <button
       type="button"
       aria-label="Edit navigation"
       onClick={onStart}
       data-revealed={revealed ? "" : undefined}
       className={cn(
-        "group/edit absolute right-0 z-20 flex h-[26px] items-center overflow-hidden rounded-full",
-        atFoot ? "bottom-0" : "-top-[34px]",
+        "group/edit relative flex h-[26px] shrink-0 items-center overflow-hidden rounded-full",
         // Square while it is a glyph: 26 by 26, the icon dead centre.
         "w-[26px] justify-center gap-0 px-0",
         /*
@@ -475,15 +550,31 @@ function EditNavButton({
          * duly expanded to 92px and stayed completely invisible. An attribute
          * selector outranks a class, so the held-open state actually holds.
          */
-        "data-revealed:w-[92px] data-revealed:justify-start data-revealed:gap-[6px]",
-        "data-revealed:bg-nav-hover data-revealed:pl-[7px] data-revealed:opacity-100",
+        /*
+          Symmetric padding, and a width that fits what is in the pill.
+          
+          It grew to a flat 92px with padding on the LEFT only, so the label
+          finished ~19px short of the right edge and the pill read as
+          off-centre. The open width is stated per content instead — the locked
+          pill carries a second glyph and needs the room for it — and the
+          padding is the same on both sides, which is the only way the gap
+          before the label and the gap after it can agree.
+        */
+        planLock
+          ? "data-revealed:w-[104px]"
+          : "data-revealed:w-[86px]",
+        "data-revealed:justify-start data-revealed:gap-[6px]",
+        "data-revealed:bg-nav-hover data-revealed:px-[8px] data-revealed:opacity-100",
         // A hairline the same colour as the row dividers was invisible against the
         // nav's own surface. The stronger ring and the row-level ink are what make
         // a white circle on a white nav read as a control.
         "bg-nav text-nav-fg shadow-[0_2px_8px_0_var(--fly-shadow),inset_0_0_0_1px_var(--nav-border,var(--nav-divider))]",
         "transition-[width,gap,padding,opacity,color,transform] duration-[var(--dur-slow)] ease-[var(--ease-out)]",
-        "hover:w-[92px] hover:justify-start hover:gap-[6px] hover:pl-[7px] hover:bg-nav-hover",
-        "focus-visible:w-[92px] focus-visible:justify-start focus-visible:gap-[6px] focus-visible:pl-[7px]",
+        planLock
+          ? "hover:w-[104px] focus-visible:w-[104px]"
+          : "hover:w-[86px] focus-visible:w-[86px]",
+        "hover:justify-start hover:gap-[6px] hover:px-[8px] hover:bg-nav-hover",
+        "focus-visible:justify-start focus-visible:gap-[6px] focus-visible:px-[8px]",
         "active:scale-95",
         // Focus-visible as well as hover, so the control is reachable from the
         // keyboard by something other than luck.
@@ -506,7 +597,101 @@ function EditNavButton({
         aria-hidden="true"
         className="w-0 overflow-hidden text-[12px] leading-none font-medium whitespace-nowrap opacity-0 transition-opacity duration-[var(--dur-base)] ease-[var(--ease-out)] group-hover/edit:w-auto group-hover/edit:opacity-100 group-hover/edit:delay-[90ms] group-focus-visible/edit:w-auto group-focus-visible/edit:opacity-100 group-data-revealed/edit:w-auto group-data-revealed/edit:opacity-100"
       >
+        {/*
+          The verb, at every tier.
+          
+          It briefly read as the PRICE when locked, which turned the control
+          into an advert and stopped it saying what it is. The label names the
+          feature; the padlock beside it says you cannot have it yet; the
+          tooltip says what to do about it. Three jobs, three elements — rather
+          than one word doing all three and none of them well.
+        */}
         Edit nav
+      </span>
+      {planLock ? (
+        /*
+          The padlock carries its own tooltip, naming the tier.
+          
+          The label says what the control is and the padlock says you cannot
+          have it — but neither says what it would take, and a lock with no
+          price is a dead end. It sits on the GLYPH rather than on the button
+          because the button's hover is already spoken for: that gesture opens
+          the pill, and a tooltip riding on it would fire every time anyone
+          brushed the control.
+          
+          Reachable only once the pill is open, which is the right sequence:
+          the padlock has no width at rest, so there is nothing to point at
+          until the control has named itself.
+        */
+        <RailTooltip
+          label={`Upgrade to ${AGENCY_PLAN_PRICES[planLock.kind === "plan" ? planLock.needs : "elite"]} to edit`}
+        >
+          <Lock
+            size={12}
+            aria-hidden="true"
+            // Trailing, and fading in with the label: at rest the pill is a
+            // 26px circle with the pencil dead centre, and a padlock crammed in
+            // beside it would make the resting state unreadable to say
+            // something the hover state says better.
+            className="w-0 shrink-0 overflow-hidden opacity-0 transition-opacity duration-[var(--dur-base)] ease-[var(--ease-out)] group-hover/edit:w-auto group-hover/edit:opacity-100 group-hover/edit:delay-[90ms] group-focus-visible/edit:w-auto group-focus-visible/edit:opacity-100 group-data-revealed/edit:w-auto group-data-revealed/edit:opacity-100"
+          />
+        </RailTooltip>
+      ) : null}
+    </button>
+    </div>
+  );
+}
+
+/**
+ * The way out of this navigation, beside the way into editing it.
+ *
+ * The same pill Edit nav is — a 26px circle that grows into a named control on
+ * hover — because they are peers and the pair has to read as one cluster rather
+ * than as a control and an afterthought.
+ *
+ * `PanelsTopLeft`, not `Replace`: the two-arrows glyph says "swap" without
+ * saying what for, and at 13px it read as a pair of tally marks beside a
+ * pencil. This one draws a window with a left panel and a top bar, which is
+ * both what is being chosen and what the modal's own sketches show. The legacy
+ * nav uses the same mark for the same trip in the other direction.
+ *
+ * Deliberately not plan-gated. Editing a nav is a $297 capability; choosing
+ * which nav you have is not, and putting this behind the same lock left Starter
+ * agencies with no route back at all.
+ */
+function SwitchNavButton({
+  revealed,
+  onOpen,
+}: {
+  revealed: boolean;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label="Switch navigation"
+      onClick={onOpen}
+      data-revealed={revealed ? "" : undefined}
+      className={cn(
+        "group/edit relative flex h-[26px] shrink-0 items-center overflow-hidden rounded-full",
+        "w-[26px] justify-center gap-0 px-0",
+        "data-revealed:w-[104px] data-revealed:justify-start data-revealed:gap-[6px]",
+        "data-revealed:bg-nav-hover data-revealed:px-[8px] data-revealed:opacity-100",
+        "bg-nav text-nav-fg shadow-[0_2px_8px_0_var(--fly-shadow),inset_0_0_0_1px_var(--nav-border,var(--nav-divider))]",
+        "transition-[width,gap,padding,opacity,color,transform] duration-[var(--dur-slow)] ease-[var(--ease-out)]",
+        "hover:w-[104px] hover:justify-start hover:gap-[6px] hover:px-[8px] hover:bg-nav-hover",
+        "focus-visible:w-[104px] focus-visible:justify-start focus-visible:gap-[6px] focus-visible:px-[8px]",
+        "active:scale-95",
+        "opacity-0 group-hover/nav:opacity-100 focus-visible:opacity-100",
+      )}
+    >
+      <PanelsTopLeft size={13} aria-hidden="true" className="shrink-0" />
+      {/* Zero-width at rest, for the reason spelled out on Edit nav's label. */}
+      <span
+        aria-hidden="true"
+        className="w-0 overflow-hidden text-[12px] leading-none font-medium whitespace-nowrap opacity-0 transition-opacity duration-[var(--dur-base)] ease-[var(--ease-out)] group-hover/edit:w-auto group-hover/edit:opacity-100 group-hover/edit:delay-[90ms] group-focus-visible/edit:w-auto group-focus-visible/edit:opacity-100 group-data-revealed/edit:w-auto group-data-revealed/edit:opacity-100"
+      >
+        Switch nav
       </span>
     </button>
   );
@@ -556,17 +741,40 @@ function EditTool({
    */
   disabled?: boolean;
 }) {
-  return (
+  const button = (
     <button
       type="button"
       aria-label={label}
-      title={short}
       disabled={disabled}
       onClick={(e) => onOpen(e.currentTarget)}
       className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
     >
       <Icon size={14} aria-hidden="true" />
     </button>
+  );
+  /*
+   * A real tooltip, not the native `title`.
+   *
+   * Every control on this row is a bare glyph — that was the deliberate call
+   * once there were five of them and labels would not fit — which makes the
+   * name the only thing saying what each one does. A browser tooltip arrives a
+   * second late, in the OS's own styling, on a toolbar you are sweeping across;
+   * by the time it appears the pointer has usually moved on.
+   *
+   * Above, not right and not below.
+   *
+   * Below is off the bottom of the window — the card sits at the nav's foot.
+   * Right was worse and is what this fixes: `right` anchors to the NAV's edge
+   * rather than to the glyph, which is correct for a 56px rail and wrong here,
+   * so the pill flew out past the nav and hung in the canvas beside a control
+   * it was supposed to be naming. Above puts it over the glyph it belongs to,
+   * where there is always room: the card is 34px up from the nav's foot and the
+   * nav is the full height of the window.
+   */
+  return (
+    <RailTooltip label={short} placement="above">
+      {button}
+    </RailTooltip>
   );
 }
 
@@ -590,10 +798,21 @@ export function EntryPill({
   session,
   edit,
   tone = "nav",
+  searchEnabled = true,
 }: {
   onSearch: () => void;
   session: AiSession;
   edit?: EditNavProps;
+  /**
+   * Whether the pill is a search field as well as an AI entrance.
+   *
+   * False at agency scope by default — see AGENCY_SEARCH_DEFAULT. The orb and
+   * the label stay; the magnifier and the keycap go, and the whole pill becomes
+   * the one target it still has. A field that opens nothing is worse than no
+   * field.
+   */
+  searchEnabled?: boolean;
+
   /**
    * Which surface's tokens to wear.
    *
@@ -607,7 +826,7 @@ export function EntryPill({
   return (
     // Relative, so the edit control has something to hang off. `w-full` keeps it
     // the same flex child the pill used to be in both arrangements.
-    <div className="relative w-full">
+    <div className={cn("relative", searchEnabled ? "w-full" : "w-auto")}>
       {edit ? <EditNavButton {...edit} /> : null}
       {/*
         One control, two targets.
@@ -623,11 +842,53 @@ export function EntryPill({
       */}
       <div
         className={cn(
-          "ai-entry motion-tap flex h-[36px] w-full items-center gap-[6px] rounded-full pr-[10px] pl-[4px] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]",
-          header
-            ? // Its own token, not the bar's hairline: see --hdr-entry-border.
-              "shadow-[inset_0_0_0_1px_var(--hdr-entry-border)]"
-            : "shadow-[inset_0_0_0_1px_var(--nav-divider)]",
+          "ai-entry motion-tap flex items-center gap-[6px] rounded-full focus-within:shadow-[inset_0_0_0_1px_var(--brand)]",
+          /*
+            A field fills its column; a button is the size of what it says.
+            
+            `w-full` and 36px are what an input wants — room to type into, and
+            the platform's control height so it lines up with the other fields
+            on the screen. Neither is true of a button whose whole content is an
+            orb and two words: stretched to the column it went on reading as a
+            search bar however it was painted, which was the objection. So it
+            hugs, and it drops to 32 — a touch under the input height, which is
+            what stops it competing with the 26px utility glyphs beside it in
+            the bar.
+          */
+          searchEnabled
+            ? "h-[36px] w-full pr-[10px] pl-[4px]"
+            : "h-[32px] w-auto pr-[12px] pl-[4px]",
+          /*
+            With search, a field. Without it, a button.
+            
+            The hairline ring is what says "type here" — an empty box with a
+            faint edge is the shape of an input, whatever is inside it. Once the
+            magnifier and the keycap are gone that shape is a promise the pill
+            cannot keep, so the treatment changes with the job: the same tinted
+            surface the Ask AI dock and the composer wear, which is this app's
+            standing answer to "this is the AI, and it is a thing you press".
+            
+            Same height and same radius either way, so switching the axis moves
+            no geometry — only the fill.
+          */
+          !searchEnabled &&
+            /*
+              Fill only, no ring.
+
+              Root-scoped tokens, not the nav's --ai-soft trio: in the app bar
+              those resolve to nothing at all. See --ai-btn-* in tokens.css.
+
+              The hairline was carried over from the field, where an edge is the
+              whole affordance — a box with nothing in it has to be drawn. A
+              filled shape already has an edge, and outlining it was the same
+              boundary stated twice.
+            */
+            "bg-[linear-gradient(135deg,var(--ai-btn-from),var(--ai-btn-to))] hover:brightness-[0.97] active:scale-[0.98] motion-press",
+          searchEnabled &&
+            (header
+              ? // Its own token, not the bar's hairline: see --hdr-entry-border.
+                "shadow-[inset_0_0_0_1px_var(--hdr-entry-border)]"
+              : "shadow-[inset_0_0_0_1px_var(--nav-divider)]"),
           // Both stay live while editing (Aug 25).
           //
           // They were locked out on the grounds that they are not part of the
@@ -660,7 +921,10 @@ export function EntryPill({
           title="Ask AI"
           aria-label="Ask AI"
           onClick={() => session.launch()}
-          className="motion-tap relative flex size-[28px] shrink-0 items-center justify-center rounded-full hover:scale-105 active:scale-95"
+          className={cn(
+            "motion-tap relative flex shrink-0 items-center justify-center rounded-full hover:scale-105 active:scale-95",
+            searchEnabled ? "size-[28px]" : "size-[24px]",
+          )}
         >
           {session.open ? (
             <span
@@ -668,34 +932,58 @@ export function EntryPill({
               className="motion-ai-pulse absolute inset-0 rounded-full ring-2 ring-[var(--ai-ring)]"
             />
           ) : null}
-          <AiMark size={26} />
+          <AiMark size={searchEnabled ? 26 : 22} />
         </button>
 
+        {/*
+          The rest of the pill: search where there is something to search, and
+          the AI entrance where there is not. Either way it stays one target the
+          width of the control — a pill with a dead half reads as broken, and a
+          pill that is all orb reads as a button pretending to be a field.
+        */}
         <button
           type="button"
-          title="Search"
-          onClick={onSearch}
-          className="motion-tap flex h-full min-w-0 flex-1 items-center gap-[8px] text-left"
+          title={searchEnabled ? "Search" : "Ask AI"}
+          onClick={searchEnabled ? onSearch : () => session.launch()}
+          className={cn(
+            "motion-tap flex h-full min-w-0 items-center gap-[8px] text-left",
+            searchEnabled ? "flex-1" : "shrink-0",
+          )}
         >
           <span
             className={cn(
-              "min-w-0 flex-1 truncate text-[13px] leading-[normal]",
-              header ? "text-hdr-fg-muted" : "text-nav-fg-subtle",
+              "min-w-0 truncate text-[13px] leading-[normal]",
+              // Only a field's placeholder has a column to fill.
+              searchEnabled ? "flex-1" : "shrink-0",
+              /*
+                A placeholder is muted because it is a prompt for text that is
+                not there yet. A button's label is the button, so as a button it
+                takes the AI ink and a medium weight — the same step of weight
+                that separates a control from a caption anywhere else in here.
+              */
+              searchEnabled
+                ? header
+                  ? "text-hdr-fg-muted"
+                  : "text-nav-fg-subtle"
+                : "font-medium text-[var(--ai-btn-fg)]",
             )}
           >
             Ask AI
           </span>
-          <Search
-            size={16}
-            aria-hidden="true"
-            className={cn(
-              "shrink-0",
-              header ? "text-hdr-fg-muted" : "text-nav-fg-subtle",
-            )}
-          />
+          {searchEnabled ? (
+            <Search
+              size={16}
+              aria-hidden="true"
+              className={cn(
+                "shrink-0",
+                header ? "text-hdr-fg-muted" : "text-nav-fg-subtle",
+              )}
+            />
+          ) : null}
         </button>
 
-        <Kbd>⌘K</Kbd>
+        {/* The keycap is the shortcut's label, so it goes with the shortcut. */}
+        {searchEnabled ? <Kbd>⌘K</Kbd> : null}
       </div>
     </div>
   );
@@ -708,9 +996,19 @@ export function EntryPill({
 export function EntryClusterRail({
   onSearch,
   session,
+  searchEnabled = true,
 }: {
   onSearch: () => void;
   session: AiSession;
+  /**
+   * Whether the pill is a search field as well as an AI entrance.
+   *
+   * False at agency scope by default — see AGENCY_SEARCH_DEFAULT. The orb and
+   * the label stay; the magnifier and the keycap go, and the whole pill becomes
+   * the one target it still has. A field that opens nothing is worse than no
+   * field.
+   */
+  searchEnabled?: boolean;
 }) {
   return (
     // Same lift as the expanded pill: 18px of clearance under the capsule.
@@ -744,16 +1042,18 @@ export function EntryClusterRail({
         </button>
       </RailTooltip>
 
-      <RailTooltip label="Search">
-        <button
-          type="button"
-          aria-label="Search"
-          onClick={onSearch}
-          className="motion-tap flex size-[38px] shrink-0 items-center justify-center rounded-full text-nav-fg-subtle hover:scale-105 hover:bg-nav-hover hover:text-nav-fg-muted active:scale-95"
-        >
-          <Search size={16} aria-hidden="true" />
-        </button>
-      </RailTooltip>
+      {searchEnabled ? (
+        <RailTooltip label="Search">
+          <button
+            type="button"
+            aria-label="Search"
+            onClick={onSearch}
+            className="motion-tap flex size-[38px] shrink-0 items-center justify-center rounded-full text-nav-fg-subtle hover:scale-105 hover:bg-nav-hover hover:text-nav-fg-muted active:scale-95"
+          >
+            <Search size={16} aria-hidden="true" />
+          </button>
+        </RailTooltip>
+      ) : null}
       </div>
     </div>
   );

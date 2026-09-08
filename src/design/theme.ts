@@ -330,9 +330,13 @@ export const DOCK_POSITION_LABELS: Record<DockPosition, string> = {
 /**
  * Where the companion apps are handed to you.
  *
- * One modal either way — the komoot-style Get the app sheet — and three places
- * to reach it from. They are not the same offer:
+ * One modal whichever way in you take — the komoot-style Get the app sheet —
+ * and four places to reach it from. They are not the same offer:
  *
+ *  flyout  One L1 row, "White-label apps", opening a panel with the two
+ *          platforms in it. The default: it spends one row rather than two on
+ *          something done once, says what the thing IS before asking which
+ *          flavour you want, and puts the choice where a row is free.
  *  header  Two glyphs in the app bar, left of the phone. Standing and visible,
  *          which is the point: an app nobody installs is an app nobody knew
  *          about, and the bar is the one strip of chrome every screen shows.
@@ -340,21 +344,41 @@ export const DOCK_POSITION_LABELS: Record<DockPosition, string> = {
  *  menu    Two rows in the avatar menu, where production put them. Discreet and
  *          conventional — and behind a menu most users open once, to sign out.
  *  nav     Two rows in the sidebar, beside Settings. Reads as part of the
- *          product rather than as an ad for it, at the price of nav height
- *          spent on something you do exactly once.
+ *          product rather than as an ad for it, at the price of two nav rows
+ *          and of one offer looking like two products.
  *
- * Exclusive, all three. The offer duplicated across two surfaces is the
+ * Exclusive, all four. The offer duplicated across two surfaces is the
  * duplication the review keeps objecting to everywhere else.
  */
-export const GET_APP_PLACEMENTS = ["header", "menu", "nav"] as const;
+export const GET_APP_PLACEMENTS = ["flyout", "header", "menu", "nav"] as const;
 
 export type GetAppPlacement = (typeof GET_APP_PLACEMENTS)[number];
 
 export const GET_APP_PLACEMENT_LABELS: Record<GetAppPlacement, string> = {
+  flyout: "Sidebar flyout",
   header: "App bar",
   menu: "Avatar menu",
-  nav: "Sidebar",
+  nav: "Sidebar rows",
 };
+
+/**
+ * Whether the agency's entry point offers search as well as Ask AI.
+ *
+ * The merged pill was built for a sub-account, where search has a corpus worth
+ * searching — ninety products, their pages, the account's own links. The agency
+ * nav is thirteen buckets and a client list, and the client list already has a
+ * search field of its own in the directory. So the pill up there was offering a
+ * second, worse way into a set small enough to read.
+ *
+ * Off, the pill keeps the orb and the label and drops the magnifier and the
+ * keycap — one control that does one thing. On, the agency gets the same merged
+ * pill a sub-account has, which is where this goes if the agency surface ever
+ * grows a corpus.
+ *
+ * The sub-account is untouched either way; this axis only ever reads at agency
+ * scope.
+ */
+export const AGENCY_SEARCH_DEFAULT = false;
 
 /**
  * Where search and Ask AI live.
@@ -562,14 +586,58 @@ export const L2_CLICK_ACTION_LABELS: Record<L2ClickAction, string> = {
  * discoverability for calm; `hover` previews on rollover with the
  * direction-aware dwell. Default listed first, as everywhere else.
  */
-export const FLYOUT_TRIGGERS = ["click", "hover"] as const;
+/**
+ * How an L2 row reveals its L3 rows.
+ *
+ *  inline  Today: the L3 rows drop open underneath their parent, indented, and
+ *          the L2 panel grows. One surface, and the parent stays visible above
+ *          the children — but a deep tree pushes everything below it far down a
+ *          panel you then have to scroll.
+ *  panel   A small dropdown beside the L2 panel, sized to its contents, which
+ *          cascades again for L4. The panel behind it never moves, so the L2
+ *          list stays where your eye left it — and the levels read as levels
+ *          rather than as one list with indents.
+ *
+ * The dropdown is the default: the L2 panel is already a full-height surface,
+ * and growing a second list inside it was the thing that made three levels feel
+ * like one long page.
+ */
+export const L3_DISCLOSURES = ["panel", "inline"] as const;
+
+export type L3Disclosure = (typeof L3_DISCLOSURES)[number];
+
+export const L3_DISCLOSURE_LABELS: Record<L3Disclosure, string> = {
+  panel: "Dropdown beside it",
+  inline: "Inline, indented",
+};
+
+export const FLYOUT_TRIGGERS = ["click", "hover", "sticky"] as const;
 
 export type FlyoutTrigger = (typeof FLYOUT_TRIGGERS)[number];
 
 export const FLYOUT_TRIGGER_LABELS: Record<FlyoutTrigger, string> = {
   hover: "On hover",
   click: "On click",
+  sticky: "Click, then hover",
 };
+
+/**
+ * `sticky`, and why it is the default.
+ *
+ * The other two are the two halves of one argument that neither wins. Pure
+ * hover opens panels at people who were only crossing the nav on their way
+ * somewhere else; pure click makes comparing two categories a four-click job —
+ * open, close, open, close — when the whole reason to look at a second one is
+ * that the first was not it.
+ *
+ * Sticky is the menubar rule, and everyone already knows it without being
+ * taught: nothing opens until you ask, and once something IS open the nav
+ * behaves like an open menu — moving along it moves the panel with you. The
+ * cost of a wrong first click is one more hover, not another click.
+ *
+ * Applies at both levels, the same way: the first L2 row you click opens its
+ * L3, and after that hovering a sibling swaps it.
+ */
 
 /**
  * How the workspace switch is presented — the round-2 models from the
@@ -865,6 +933,31 @@ export const LAYOUT_REPLACE_DIALOG_LABELS: Record<LayoutReplaceDialog, string> =
     "keep-old": "Save old layout",
   };
 
+/**
+ * How a sub-account person with access to several accounts switches between them.
+ *
+ * The rail was built for the agency: a working set of clients, curated out of
+ * hundreds, with the agency itself as the first tile. But a sub-account owner
+ * can belong to more than one account — two businesses, a franchise pair — and
+ * today they get no switcher at all, because the rail is gated on not being a
+ * plain user.
+ *
+ * `rail`     the same vertical rail, minus the parts that only make sense
+ *            above the accounts. The default: it is one mechanism serving two
+ *            audiences rather than a second thing to learn.
+ * `dropdown` a control in the nav header that lists the accounts they can
+ *            reach. Cheaper in horizontal space, and closer to what most
+ *            products do — at the cost of hiding the set until opened.
+ */
+export const SUB_ACCOUNT_SWITCHERS = ["rail", "dropdown"] as const;
+
+export type SubAccountSwitcher = (typeof SUB_ACCOUNT_SWITCHERS)[number];
+
+export const SUB_ACCOUNT_SWITCHER_LABELS: Record<SubAccountSwitcher, string> = {
+  rail: "Vertical rail",
+  dropdown: "Header dropdown",
+};
+
 export const NAV_COLOUR_CONTROLS = ["toggle", "panel"] as const;
 
 export type NavColourControl = (typeof NAV_COLOUR_CONTROLS)[number];
@@ -875,6 +968,30 @@ export const NAV_COLOUR_CONTROL_LABELS: Record<NavColourControl, string> = {
 };
 
 export const NAV_GENERATIONS = ["new", "legacy"] as const;
+
+/**
+ * How the choice between the two navigations is presented.
+ *
+ *  modal  Two cards, each showing the arrangement it names, one marked as
+ *         current. The choice is between two products rather than between two
+ *         settings, and the thing a person needs in order to make it is a look
+ *         at both — which a menu row cannot give them.
+ *  menu   The drill-down in the edit card's ⋯: a label and a sentence each.
+ *         Cheaper, and three levels deep inside a mode you entered to rename a
+ *         row.
+ *
+ * A presentation axis, not a placement one — both are opened from the same row.
+ * Where that row should ALSO live is a separate and more serious question; see
+ * the note on the row itself in edit-more-menu.tsx.
+ */
+export const NAV_SWITCH_SURFACES = ["modal", "menu"] as const;
+
+export type NavSwitchSurface = (typeof NAV_SWITCH_SURFACES)[number];
+
+export const NAV_SWITCH_SURFACE_LABELS: Record<NavSwitchSurface, string> = {
+  modal: "Modal with previews",
+  menu: "Dropdown",
+};
 
 export type NavGeneration = (typeof NAV_GENERATIONS)[number];
 
@@ -898,6 +1015,10 @@ export interface ThemeState {
   entryLayout: EntryLayout;
   /** Where the Get the app offer is reached from. See GET_APP_PLACEMENTS. */
   getAppPlacement: GetAppPlacement;
+  /** Whether the agency's entry pill carries search. See AGENCY_SEARCH_DEFAULT. */
+  agencySearch: boolean;
+  /** How an L2 row reveals its L3 rows. See L3_DISCLOSURES. */
+  l3Disclosure: L3Disclosure;
   flyoutTrigger: FlyoutTrigger;
   /** What clicking a parent row does. See L2_CLICK_ACTIONS. */
   l2ClickAction: L2ClickAction;
@@ -948,6 +1069,8 @@ export interface ThemeState {
   scopeModel: ScopeModel;
   /** Proposal or production. See NAV_GENERATIONS. */
   navGeneration: NavGeneration;
+  /** How the two navigations are offered. See NAV_SWITCH_SURFACES. */
+  navSwitchSurface: NavSwitchSurface;
   /**
    * Whether the Editing nav card offers the generation switch.
    *
@@ -967,8 +1090,31 @@ export interface ThemeState {
   inboxPalette: InboxPalette;
   /** How replacing my layout is confirmed. See LAYOUT_REPLACE_DIALOGS. */
   layoutReplaceDialog: LayoutReplaceDialog;
+  /** How a multi-account sub-account person switches. See SUB_ACCOUNT_SWITCHERS. */
+  subAccountSwitcher: SubAccountSwitcher;
+  /**
+   * Whether the signed-in sub-account person belongs to more than one account.
+   *
+   * The switcher's precondition, and its own axis so the single-account case
+   * stays demoable: with one account there is nothing to switch to, and BOTH
+   * treatments have to disappear rather than offer a list of one.
+   */
+  userMultiAccount: boolean;
   /** Which colour control the edit card carries. See NAV_COLOUR_CONTROLS. */
   navColourControl: NavColourControl;
+  /**
+   * A standing L1 row that opens the product directory.
+   *
+   * The directory already has a door: "View all", on the merged block, which is
+   * where you are already looking when you want more of the list. This adds a
+   * second one at the nav's foot for anyone who wants the whole catalogue
+   * reachable without going through a block that can be switched off.
+   *
+   * Off by default, and deliberately. Two doors to one panel is a cost paid in
+   * nav height and in the question "are these the same thing" — worth offering,
+   * not worth assuming.
+   */
+  productDirectoryRow: boolean;
   /**
    * Whether the Editing nav card offers the layout switch.
    *
@@ -1081,11 +1227,15 @@ export const DEFAULT_THEME: ThemeState = {
    * account DOES into a row that also advertises. The menu is the conventional
    * home for it; whether that is too quiet is exactly what the axis is for.
    */
-  getAppPlacement: "menu",
+  // One row that opens the pair, per the Sep 8 direction. See
+  // GET_APP_PLACEMENTS for what the other three cost.
+  getAppPlacement: "flyout",
+  agencySearch: AGENCY_SEARCH_DEFAULT,
   // Click is the default per the Aug 11 direction: Khoi's "maybe the L2
   // doesn't get exposed until the user actually clicks" — hover preview
   // (with its dwell) stays one toggle away for the comparison.
-  flyoutTrigger: "click",
+  l3Disclosure: "panel",
+  flyoutTrigger: "sticky",
   // Opening the page too. A first click that lands nowhere is the thing this
   // answers; "Expands only" is the original, one click away for the comparison.
   l2ClickAction: "open-first",
@@ -1158,8 +1308,22 @@ export const DEFAULT_THEME: ThemeState = {
   scopeModel: "rail",
   // The proposal, obviously. `legacy` is the control group, not the default.
   navGeneration: "new",
-  // On, so the comparison is one click from the nav being argued about.
-  navSwitchInEditCard: true,
+  // The modal. Picking a navigation is a decision about the whole workspace,
+  // and the menu could describe the two without ever showing them.
+  navSwitchSurface: "modal",
+  /*
+   * Off, now that the switch has a control of its own.
+   *
+   * The row was in this menu because there was nowhere else for it to be, and
+   * it was always the odd one out: everything else in here adjusts the nav you
+   * have, and that one replaces it. With Switch nav standing beside Edit nav —
+   * outside the mode, and outside the plan gate that made the row unreachable
+   * on Starter — keeping it here as well would be the same journey offered
+   * twice, one of them three levels deep.
+   *
+   * The axis stays so the buried version can still be looked at.
+   */
+  navSwitchInEditCard: false,
   // The icon, not the panel: one click for the decision people actually repeat.
   // The two-button version is the proposal: one destructive moment, one
   // sentence, two answers. The template-saving version is one click away.
@@ -1171,7 +1335,13 @@ export const DEFAULT_THEME: ThemeState = {
   panelRecentHeading: "visited",
   inboxPalette: "product",
   layoutReplaceDialog: "simple",
+  // The rail: one mechanism for both audiences beats a second one to learn.
+  subAccountSwitcher: "rail",
+  // On, so the case this exists for is what you see first.
+  userMultiAccount: true,
   navColourControl: "toggle",
+  // Off: "View all" is the door. This is the alternative, not the default.
+  productDirectoryRow: false,
   // On, for the same reason: the comparison should be one menu away.
   layoutSwitchInEditCard: true,
   // Production's own default, and the state both source screenshots were in.

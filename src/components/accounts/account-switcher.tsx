@@ -23,6 +23,8 @@ interface AccountSwitcherProps {
    * rail model, where the agency is a tile that is always on screen.
    */
   showAgency?: boolean;
+  /** Only these accounts, for a member's switcher. See useAccountSwitcher. */
+  only?: readonly string[];
 }
 
 const PANEL_WIDTH = 320;
@@ -45,8 +47,9 @@ export function AccountSwitcher({
   phase,
   onClose,
   showAgency = false,
+  only,
 }: AccountSwitcherProps) {
-  const s = useAccountSwitcher(session, onClose);
+  const s = useAccountSwitcher(session, onClose, only);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
 

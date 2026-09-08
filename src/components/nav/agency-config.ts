@@ -203,6 +203,36 @@ export const agencyBuckets: AgencyBucket[] = [
     ],
   },
   {
+    /*
+     * The apps the agency SHIPS, not the ones it installs.
+     *
+     * Resources ▸ Download apps is the other half of the pair and is
+     * deliberately left alone: that one hands the agency's own staff a client
+     * to install, this one is where the agency brands the client its customers
+     * will download. Production keeps them apart for the same reason — one is
+     * a link, the other is a build pipeline with a queue and two store
+     * listings behind it.
+     */
+    id: "agency-white-label-apps",
+    label: "White label apps",
+    icon: Smartphone,
+    description: "Your own mobile and desktop apps, under your own brand.",
+    children: [
+      child(
+        "agency-app-mobile",
+        "Mobile App",
+        Smartphone,
+        "iOS and Android builds, and where they are in the queue.",
+      ),
+      child(
+        "agency-app-desktop",
+        "Desktop App",
+        Monitor,
+        "Theme, icon and copy for the desktop client.",
+      ),
+    ],
+  },
+  {
     id: "agency-marketplace",
     label: "App marketplace",
     icon: Store,
@@ -286,7 +316,15 @@ export const agencySettingsBucket: AgencyBucket = {
   ],
 };
 
-const slug = (parentId: string, label: string) =>
+/**
+ * An L3's id: its parent plus a slug of its label.
+ *
+ * Exported because the breadcrumb has to offer the L3s beside the one you are
+ * on, and an option's id has to be the key `agencyPlaces` was built with — so
+ * the trail derives it with the same function the index did rather than with a
+ * second copy of the rule.
+ */
+export const agencyL3Id = (parentId: string, label: string) =>
   `${parentId}-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 
 /**
@@ -323,7 +361,7 @@ export function panelFor(bucket: AgencyBucket, id = bucket.id): FlyoutConfig {
                    */
                   tabs: true,
                   children: c.l3.map((x) => ({
-                    id: slug(c.id, x.label),
+                    id: agencyL3Id(c.id, x.label),
                     label: x.label,
                     icon: x.icon,
                   })),
@@ -388,7 +426,7 @@ export const agencyPlaces: Record<string, AgencyPlace> = (() => {
         tabs: (c.l3 ?? []).map((x) => x.label),
       };
       for (const x of c.l3 ?? []) {
-        out[slug(c.id, x.label)] = {
+        out[agencyL3Id(c.id, x.label)] = {
           label: x.label,
           icon: x.icon,
           bucket,

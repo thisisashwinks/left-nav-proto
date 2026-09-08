@@ -33,10 +33,14 @@ import { IconPicker, useIconPicker } from "@/components/nav/icon-picker";
 import { nameForIcon } from "@/components/nav/icon-catalogue";
 import {
   FlyoutRow,
+  PANEL_HEADER_PL,
+  PANEL_HEADER_PR,
   type FlyoutChildEdit,
   type FlyoutRowEdit,
+  FlyoutChildRows,
 } from "./flyout-row";
-import type { FlyoutConfig } from "./types";
+import { FlyoutCascade } from "./flyout-cascade";
+import type { FlyoutChildItem, FlyoutConfig } from "./types";
 
 interface FlyoutPanelProps {
   config: FlyoutConfig;
@@ -133,7 +137,93 @@ export function FlyoutPanel({
    * break the outline in the middle.
    */
   const navEditing = layout.state.editing && layout.can.customise;
-  const { editTreatment } = useTheme().effective;
+  const { editTreatment, l3Disclosure, flyoutTrigger } = useTheme().effective;
+  // The same axis the rows read for themselves; the cascade renders them from
+  // out here, so it has to answer the question too.
+  const { tabsInNav } = useTheme();
+
+  /*
+   * The cascade stack: one entry per open dropdown, outermost first.
+   *
+   * Held here rather than in the rows because a level REPLACES everything below
+   * it — opening a sibling's dropdown has to close the one that was up, and a
+   * row that owned its own open flag could not know about its siblings. The
+   * panel is the smallest thing that can see them all.
+   */
+  const [cascade, setCascade] = React.useState<
+    { id: string; label: string; nodes: readonly FlyoutChildItem[]; anchor: { top: number; right: number } }[]
+  >([]);
+
+  /*
+   * Cleared whenever the panel itself changes.
+   *
+   * The dropdowns are portalled to <body>, so nothing about unmounting this
+   * panel takes them with it — switch category with one open and its rows would
+   * hang in space over a panel they no longer belong to.
+   *
+   * Adjusted during render rather than in an effect, which is the pattern the
+   * rest of this codebase uses for derived state: an effect would paint one
+   * frame of the old cascade over the new panel, and lint rightly refuses
+   * setState in one.
+   */
+  const [cascadeOwner, setCascadeOwner] = React.useState(config.id);
+  if (cascadeOwner !== config.id) {
+    setCascadeOwner(config.id);
+    if (cascade.length > 0) setCascade([]);
+  }
+
+  /*
+   * Hover only moves a cascade that is already open.
+   *
+   * Nothing opens on a rollover — that is the whole difference between sticky
+   * and hover mode. A row with no children closes the stack at its level,
+   * because leaving the last dropdown up while the pointer sits on a leaf would
+   * attach it to a row it does not belong to.
+   */
+  const hoverCascade = React.useCallback(
+    (
+      id: string,
+      label: string,
+      nodes: readonly FlyoutChildItem[],
+      el: HTMLElement,
+      level: number,
+    ) => {
+      setCascade((c) => {
+        if (c.length <= level) return c;
+        if (nodes.length === 0) return c.slice(0, level);
+        if (c[level]?.id === id) return c;
+        const box = el.getBoundingClientRect();
+        return [
+          ...c.slice(0, level),
+          { id, label, nodes, anchor: { top: box.top, right: box.right } },
+        ];
+      });
+    },
+    [],
+  );
+
+  const openCascade = React.useCallback(
+    (
+      id: string,
+      label: string,
+      nodes: readonly FlyoutChildItem[],
+      el: HTMLElement,
+      level: number,
+    ) => {
+      // An empty node list is how a row says "close mine" — see the rows'
+      // onClick. Truncating at `level` drops it and everything under it.
+      if (nodes.length === 0) {
+        setCascade((c) => c.slice(0, level));
+        return;
+      }
+      const box = el.getBoundingClientRect();
+      setCascade((c) => [
+        ...c.slice(0, level),
+        { id, label, nodes, anchor: { top: box.top, right: box.right } },
+      ]);
+    },
+    [],
+  );
   const editing = navEditing && category !== undefined;
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
   const [lifted, setLifted] = React.useState<string | null>(null);
@@ -341,7 +431,6 @@ export function FlyoutPanel({
       dragTypes={dragTypes}
       accepts={[AGENCY_L2_MIME]}
       onDrop={(id) => dropAgencyRowAt(id, index)}
-      pull="var(--t-fly-block-gap,10px)"
       reach={12}
     />
   );
@@ -408,9 +497,9 @@ export function FlyoutPanel({
         setAdding({ index, anchor: trigger.getBoundingClientRect() })
       }
       addLabel="Add an item here"
-      // The flyout's rows sit a block-gap apart, which is roomier than the nav's
-      // two pixels — so the seam cancels that gap instead, and can reach further.
-      pull="var(--t-fly-block-gap,10px)"
+      // The rows sit on the nav's own 2px now, so the seam cancels that
+      // instead — its default. Reach stays wider than the nav's: the panel is
+      // 360px and a seam you have to hit within 8px of is a seam you miss.
       reach={12}
     />
   );
@@ -571,7 +660,21 @@ export function FlyoutPanel({
         phase === "entering" ? "motion-panel-in" : "motion-panel-out",
       )}
     >
-      <div className="flex w-full shrink-0 items-center gap-[8px] px-[16px] pt-0 pb-[4px]">
+      {/*
+        The header pads to the ROWS, not to the panel.
+
+        16px a side put the title 6px left of the icon column under it and the
+        close button 6px right of the chevrons — close enough to look like a
+        mistake and not close enough to look deliberate. Both edges now come
+        from the row's own numbers; see PANEL_HEADER_PL.
+      */}
+      <div
+        className={cn(
+          "flex w-full shrink-0 items-center gap-[8px] pt-0 pb-[4px]",
+          PANEL_HEADER_PL,
+          PANEL_HEADER_PR,
+        )}
+      >
         <div className="flex h-fit flex-1 items-center justify-between">
           <h2 className="text-[15px] leading-[normal] font-semibold whitespace-nowrap text-nav-fg">
             {config.title}
@@ -580,7 +683,14 @@ export function FlyoutPanel({
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="flex size-[22px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle motion-tap hover:bg-nav-hover hover:text-nav-fg-muted hover:rotate-90 active:scale-90"
+            /*
+              `justify-end`, not centre: the target keeps its 22px so it stays
+              easy to hit, and grows LEFTWARD, which puts the glyph's own right
+              edge on the same line the rows' chevrons end on. Centring it
+              would leave the two marks 4px apart with nothing visible
+              explaining why.
+            */
+            className="flex size-[22px] shrink-0 items-center justify-end rounded-[6px] text-nav-fg-subtle motion-tap hover:bg-nav-hover hover:text-nav-fg-muted hover:rotate-90 active:scale-90"
           >
             <X size={15} aria-hidden="true" />
           </button>
@@ -595,7 +705,17 @@ export function FlyoutPanel({
         <div
           ref={scrollRef}
           data-scroll-region=""
-          className="flex w-full flex-1 flex-col items-start gap-[var(--t-fly-block-gap,10px)] overflow-y-auto px-[14px] pt-[var(--t-fly-block-gap,10px)]"
+          /*
+            The nav's row spacing, not the flyout's block gap.
+
+            10px between rows made an L2 list read as a set of cards where the
+            nav's own list reads as a list — the rows are the same height and
+            the same treatment now, so the space between them was the last
+            thing making the two levels look like different kinds of thing. The
+            block gap stays what it is: it still spaces the panel's TOP inset
+            and whatever sits below the rows.
+          */
+          className="flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto px-[14px] pt-[var(--t-fly-block-gap,10px)]"
         >
       {/*
         An empty category's panel still offers a seam.
@@ -645,6 +765,26 @@ export function FlyoutPanel({
             activeId={activeId}
             defaultOpen={soleExpandable}
             rowIndex={Math.min(i, MAX_STAGGERED_ROWS)}
+            {...(l3Disclosure === "panel"
+              ? {
+                  cascade: {
+                    open: openCascade,
+                    /*
+                      Sticky, one level down.
+                      
+                      With a dropdown already up, crossing a sibling row swaps
+                      it — the same rule the nav follows at L1. Absent unless
+                      the mode is on, so a row has nothing to call rather than a
+                      handler that decides to do nothing.
+                    */
+                    ...(flyoutTrigger === "sticky"
+                      ? { hover: hoverCascade }
+                      : {}),
+                    openIds: cascade.map((c) => c.id),
+                    level: 0,
+                  },
+                }
+              : {})}
             onSelect={(id, keepOpen) => {
               setActiveId(id);
               onNavigate?.(id, keepOpen);
@@ -734,6 +874,46 @@ export function FlyoutPanel({
           // 16px button would throw it two hundred pixels to the left.
           align="start"
           onClose={() => setAdding(null)}
+        />
+      ) : null}
+
+      {/*
+        The cascade, rendered from the panel rather than from the rows.
+        
+        Each level's rows are the SAME component the inline mode uses, so a row
+        in a dropdown drags, renames, pins and menus exactly as it does in the
+        list — there is one L3 row in this codebase, seen in two places.
+      */}
+      {cascade.length > 0 ? (
+        <FlyoutCascade
+          theme={theme}
+          onPointerEnter={onPointerEnter}
+          onPointerLeave={onPointerLeave}
+          levels={cascade.map((level, i) => ({
+            id: level.id,
+            anchor: level.anchor,
+            body: (
+              <FlyoutChildRows
+                nodes={level.nodes}
+                depth={i}
+                activeId={activeId}
+                onSelect={(id: string, keepOpen?: boolean) => {
+                  setActiveId(id);
+                  onNavigate?.(id, keepOpen);
+                }}
+                tabsInNav={tabsInNav}
+                cascade={{
+                  open: openCascade,
+                  ...(flyoutTrigger === "sticky"
+                    ? { hover: hoverCascade }
+                    : {}),
+                  openIds: cascade.map((c) => c.id),
+                  level: i,
+                }}
+                {...(childEdit ? { edit: childEdit } : {})}
+              />
+            ),
+          }))}
         />
       ) : null}
     </div>

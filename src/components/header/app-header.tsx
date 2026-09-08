@@ -83,6 +83,11 @@ interface AppHeaderProps {
    */
   onOpenApp: (kind: AppKind) => void;
   /**
+   * Whether the entry is a field that wants its 230px, or a button that does
+   * not. The bar cannot tell by looking — `entry` is an opaque node.
+   */
+  entryFills?: boolean;
+  /**
    * The search + Ask AI pill, when the entry axis puts it up here.
    *
    * Passed in rather than built here: it is the nav's own control relocated,
@@ -109,6 +114,7 @@ export function AppHeader({
   onHome,
   onOpenApp,
   entry,
+  entryFills = true,
 }: AppHeaderProps) {
   const { getAppPlacement } = useTheme().effective;
   /*
@@ -200,8 +206,17 @@ export function AppHeader({
           this arrangement, so this is the same single entry point standing
           somewhere else. 230px — wide enough for the placeholder and the
           keycap, narrow enough to leave the breadcrumb its room on a laptop.
+
+          A reserved width, though, only for the thing that needs one. Where the
+          entry is the Ask AI button rather than the search field, 230px is
+          200-odd pixels of nothing between the breadcrumb and the utilities —
+          so the slot hugs and gives the room back to the trail.
         */}
-        {entry ? <div className="w-[230px] shrink-0">{entry}</div> : null}
+        {entry ? (
+          <div className={cn("shrink-0", entryFills ? "w-[230px]" : "w-auto")}>
+            {entry}
+          </div>
+        ) : null}
 
         <div className="flex shrink-0 items-center gap-[8px]">
           {/*
