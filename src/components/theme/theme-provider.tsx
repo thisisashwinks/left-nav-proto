@@ -21,6 +21,9 @@ import {
   type MergedAgencyRecents,
   type InboxPalette,
   type PanelRecentHeading,
+  type AiButtonStyle,
+  type DirectoryDisclosure,
+  type LegacyFootControl,
   type PinMarkColour,
   type LayoutReplaceDialog,
   type NavSections,
@@ -144,6 +147,9 @@ interface ThemeContextValue extends ThemeState {
   setInboxPalette: (palette: InboxPalette) => void;
   setPanelRecentHeading: (heading: PanelRecentHeading) => void;
   setPinMarkColour: (colour: PinMarkColour) => void;
+  setAiButtonStyle: (style: AiButtonStyle) => void;
+  setLegacyFootControl: (control: LegacyFootControl) => void;
+  setDirectoryDisclosure: (mode: DirectoryDisclosure) => void;
   setRailTileShape: (shape: RailTileShape) => void;
   setRailRecents: (mode: RailRecents) => void;
   setRailDirectorySpot: (spot: RailDirectorySpot) => void;
@@ -323,6 +329,12 @@ export function ThemeProvider({
         setState((s) => ({ ...s, panelRecentHeading })),
       setPinMarkColour: (pinMarkColour) =>
         setState((s) => ({ ...s, pinMarkColour })),
+      setAiButtonStyle: (aiButtonStyle) =>
+        setState((s) => ({ ...s, aiButtonStyle })),
+      setLegacyFootControl: (legacyFootControl) =>
+        setState((s) => ({ ...s, legacyFootControl })),
+      setDirectoryDisclosure: (directoryDisclosure) =>
+        setState((s) => ({ ...s, directoryDisclosure })),
       setRailTileShape: (railTileShape) =>
         setState((s) => ({ ...s, railTileShape })),
       setRailRecents: (railRecents) =>

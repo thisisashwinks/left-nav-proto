@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 import { EntryClusterRail } from "./entry-cluster";
 import { agencyRailItems, agencySettings } from "./agency-config";
 import { collapsedPinnedBlock, PINNED_VISIBLE } from "./pinned-morph";
-import { navEntriesFor } from "./nav-entries";
+import { navEntriesFor, withMiddleTailRow } from "./nav-entries";
 import { useNavLayout } from "./nav-layout-provider";
 import { allocate, orderPins, recentIdsFor } from "./merged-recents";
 import { ResolvedIcon } from "./resolved-icon";
@@ -65,6 +65,14 @@ interface CollapsedRailProps {
   density: NavDensity;
   /** Opens the manage surface — the floor tier's stand-in for the capsule. */
   onOpenLauncher: () => void;
+  /**
+   * Opens the product directory — the catalogue, on its own.
+   *
+   * A second callback rather than a flag on the first: the two doors lead to
+   * different halves of one panel, and a row that said "directory" while
+   * calling the thing that opens Pinned and Recent is how they got conflated.
+   */
+  onOpenDirectory: () => void;
   /**
    * How many inline recent rows to draw, after the density budget.
    *
@@ -127,6 +135,7 @@ export function CollapsedRail({
   aiSession,
   density,
   onOpenLauncher,
+  onOpenDirectory,
   recentsBudget,
   onOpenApp,
   onEdit,
@@ -308,8 +317,18 @@ export function CollapsedRail({
           // would be an icon with no parent visible to explain it — expanding
           // the nav is how you reach the second level.
           agencyRailItems.map((item): NavEntry => ({ kind: "item", item }))
-        : navEntriesFor(layout, groups),
-    [agencyScope, layout, groups],
+        : getAppPlacement === "flyout"
+          ? // Same list, same position — see left-nav. The rail used to render
+            // this row by hand at its foot, which is how the two faces ended
+            // up disagreeing about where it belongs.
+            withMiddleTailRow(navEntriesFor(layout, groups), {
+              id: GET_APP_FLYOUT_ID,
+              label: GET_APP_NAV_LABEL,
+              icon: Smartphone,
+              hasFlyout: true,
+            })
+          : navEntriesFor(layout, groups),
+    [agencyScope, layout, groups, getAppPlacement],
   );
 
   const railButton = (
@@ -606,24 +625,8 @@ export function CollapsedRail({
                 "Product directory",
                 <LayoutGrid size={16} aria-hidden="true" />,
                 false,
-                onOpenLauncher,
+                onOpenDirectory,
               )
-            : null}
-          {/*
-            The flyout placement collapses to the row it already is.
-
-            Through `renderRailRow`, so the tile answers the same hover intent
-            and wears the same active fill as every other row with a panel —
-            the panel docks against the rail's edge exactly as a category's
-            does.
-          */}
-          {getAppPlacement === "flyout" && !agencyScope
-            ? renderRailRow({
-                id: GET_APP_FLYOUT_ID,
-                label: GET_APP_NAV_LABEL,
-                icon: Smartphone,
-                hasFlyout: true,
-              })
             : null}
           {getAppPlacement === "nav" ? (
             <>

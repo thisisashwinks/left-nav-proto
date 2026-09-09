@@ -104,6 +104,37 @@ export function tailRowsFor(
     .filter((item): item is NavItem => item !== undefined);
 }
 
+/**
+ * Puts a chrome row at the FOOT of the tree band, above the account's links.
+ *
+ * White-label apps is the case: it is not a product, so it belongs to no
+ * category and cannot live in the tail's order — but it is also not Settings,
+ * and sitting beside Settings under the rule made it read as platform chrome
+ * when it is a place the account goes. The foot of the middle band is where it
+ * belongs: last of the things the account works in, ahead of the links the
+ * account bolted on.
+ *
+ * "Above the links" rather than "at the end" because the links are the tail's
+ * own tail — an account with six portals would otherwise have this row buried
+ * six rows down, where nobody looks for it.
+ */
+export function withMiddleTailRow(
+  entries: NavEntry[],
+  item: NavItem,
+): NavEntry[] {
+  const at = entries.findIndex(
+    (e) =>
+      e.kind === "item" &&
+      // The account's own links, and the volume switch's generated
+      // scaffolding, which sits after them.
+      (e.item.id.startsWith("account-link-") ||
+        e.item.id.startsWith("custom-link-")),
+  );
+  const row: NavEntry = { kind: "item", item };
+  if (at < 0) return [...entries, row];
+  return [...entries.slice(0, at), row, ...entries.slice(at)];
+}
+
 export function navEntriesFor(
   state: NavLayoutState,
   groups: ResolvedGroup[],

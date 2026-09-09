@@ -3,6 +3,10 @@
 import * as React from "react";
 import {
   ArrowDown,
+  ChevronDown,
+  ChevronRight,
+  Monitor,
+  Smartphone,
   ArrowUp,
   GripVertical,
   Pin,
@@ -21,7 +25,16 @@ import type { TransitionPhase } from "@/lib/use-exit-transition";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
 import type { CatalogueChild } from "./catalogue-types";
 import { childById, productById } from "./catalogue";
-import { glyphFor, GROUPING_LABELS, type ResolvedGroup } from "./grouping";
+import { iconForChildLabel } from "./l3-icons";
+import { FlyoutCascade } from "@/components/flyout/flyout-cascade";
+import {
+  GET_APP_FLYOUT_ID,
+  GET_APP_NAV_LABEL,
+  GET_APP_ROW_IDS,
+} from "@/components/flyout/get-app-flyout";
+import { GET_APP_LABELS } from "@/components/header/get-app-modal";
+import { useHoverDwell } from "@/lib/use-hover-dwell";
+import { glyphFor, type ResolvedGroup } from "./grouping";
 import { ComposedIcon } from "./composed-icon";
 import { nameForIcon } from "./icon-catalogue";
 import { IconPicker, useIconPicker } from "./icon-picker";
@@ -63,6 +76,7 @@ export function PinnedLauncher({
   theme,
   phase,
   agencyScope,
+  variant = "merged",
   onPointerEnter,
   onPointerLeave,
   onClose,
@@ -81,6 +95,19 @@ export function PinnedLauncher({
    * agency view, which is a lie in a sub-account — the same panel serves both.
    */
   agencyScope: boolean;
+  /**
+   * Which half of the panel this is.
+   *
+   * `merged` is the block's own surface, opened by "View all": what you keep
+   * and where you have been. `directory` is the catalogue, opened by the
+   * standing Product directory row: everything the account has, arranged as the
+   * nav arranges it.
+   *
+   * One component because they share the shell, the search field and the row —
+   * and because with the directory axis off there is only one panel, holding
+   * both halves, which is the arrangement this is being compared against.
+   */
+  variant?: "merged" | "directory";
   /** Keeps the panel alive while the pointer is inside it. */
   onPointerEnter?: () => void;
   onPointerLeave?: () => void;
@@ -88,8 +115,14 @@ export function PinnedLauncher({
 }) {
   const layout = useNavLayout();
   const { state, groups, can } = layout;
-  const { recentsMode, mergedHeading, mergedPanelSearch, panelRecentHeading } =
-    useTheme().effective;
+  const {
+    recentsMode,
+    mergedHeading,
+    mergedPanelSearch,
+    panelRecentHeading,
+    productDirectoryRow,
+    getAppPlacement,
+  } = useTheme().effective;
   const agency = useAgencyLayout();
   /*
    * In merged mode this panel is the one surface behind the nav's single list.
@@ -102,6 +135,18 @@ export function PinnedLauncher({
    * survive the list having two doors to two different places.
    */
   const mergedPanel = recentsMode === "merged";
+  /*
+   * What this panel shows, once the two doors are two panels.
+   *
+   * With the directory axis ON the halves are split: View all keeps Pinned and
+   * Recent, the directory keeps the catalogue, and neither carries the other's
+   * sections. With it OFF there is one panel and it holds everything, which is
+   * the arrangement being compared against — so the flags fall back to what
+   * they were.
+   */
+  const split = productDirectoryRow;
+  const showKept = variant === "merged" && mergedPanel;
+  const showCatalogue = variant === "directory" || !split;
   const [query, setQuery] = React.useState("");
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
@@ -137,8 +182,6 @@ export function PinnedLauncher({
     there" — and it gets its own flat answer, sub-items included. The sections
     come back intact the moment the field is empty.
   */
-  const hits = searching ? searchHits(layout, groups, q) : [];
-
   const pinnedIds = state.pinned.filter(
     (id) =>
       // A pin can name an L3 row as well as a product now, so the guard asks
@@ -150,9 +193,57 @@ export function PinnedLauncher({
 
   // Resolved up front so the "All products" heading knows whether anything
   // is under it before it commits to rendering.
-  const visibleGroups = groups
-    .map((group) => ({ group, productIds: group.productIds }))
-    .filter(({ productIds }) => productIds.length > 0);
+  /**
+   * White-label apps, as an L1 of the directory.
+   *
+   * It is a row of the sidebar, so it is a place the directory has to be able
+   * to explain — a catalogue that omits a row the reader can SEE in the nav is
+   * a catalogue they stop trusting. Its two platforms are its L2s, exactly as
+   * the panel behind the row lists them.
+   *
+   * Only while the apps ARE in the sidebar. Under the app-bar or avatar-menu
+   * placements they are chrome hanging off the header, reachable from a glyph
+   * that has nothing to do with the product tree — and a directory row for them
+   * would send someone to a part of the nav that has no such row.
+   */
+  const appsInSidebar = getAppPlacement === "flyout" && !agencyScope;
+  const appsEntry: DirectoryBranch | null = appsInSidebar
+    ? {
+        group: {
+          id: GET_APP_FLYOUT_ID,
+          label: GET_APP_NAV_LABEL,
+          defaultLabel: GET_APP_NAV_LABEL,
+          icon: Smartphone,
+          productIds: [],
+          custom: false,
+        },
+        productIds: [],
+        // Stated rather than derived: these two name no catalogue product, so
+        // the label and glyph have to come from the same place the panel's own
+        // rows take them from.
+        rows: [
+          {
+            id: GET_APP_ROW_IDS.mobile,
+            label: GET_APP_LABELS.mobile,
+            icon: Smartphone,
+            pages: [],
+          },
+          {
+            id: GET_APP_ROW_IDS.desktop,
+            label: GET_APP_LABELS.desktop,
+            icon: Monitor,
+            pages: [],
+          },
+        ],
+      }
+    : null;
+
+  const visibleGroups: DirectoryBranch[] = [
+    ...groups
+      .map((group) => ({ group, productIds: group.productIds }))
+      .filter(({ productIds }) => productIds.length > 0),
+    ...(appsEntry ? [appsEntry] : []),
+  ];
 
   /**
    * Reordering is off while a filter is applied. The nudge buttons and drops work
@@ -170,6 +261,14 @@ export function PinnedLauncher({
    * the one surface that never got the gate.
    */
   const editable = state.editing && can.renameForSelf;
+  /**
+   * The mode, for deciding which All-products rendering to draw.
+   *
+   * Not `editable`, which also asks whether this role may rename: a reviewer in
+   * the mode without rename rights still opened it to ARRANGE, and handing them
+   * a browse tree would leave the drag they came for nowhere to happen.
+   */
+  const editing = state.editing && can.customise;
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
   useScrollEdges(scrollRef);
@@ -184,9 +283,13 @@ export function PinnedLauncher({
    * list you came for is the second section down. The All products heading is
    * still inside, naming the part of the panel it is actually about.
    */
-  const panelTitle = mergedPanel
-    ? MERGED_HEADING_LABELS[mergedHeading]
-    : "All products";
+  const panelTitle =
+    variant === "directory"
+      ? // Named for the row that opens it, as the merged half is.
+        "Product directory"
+      : mergedPanel
+        ? MERGED_HEADING_LABELS[mergedHeading]
+        : "All products";
 
   /*
    * The history the merged block is a window onto.
@@ -229,7 +332,34 @@ export function PinnedLauncher({
 
   const recentIds = mergedPanel ? recentIdsFor(state).slice(0, PANEL_RECENT_ROWS) : [];
 
+  /*
+   * Search only reaches what this panel holds.
+   *
+   * With the directory split off, "Search products" in the kept half was
+   * searching a catalogue that is no longer in the panel — so typing turned a
+   * list of five pins and ten recents into a list of ninety products, most of
+   * them reachable only by leaving. A field searches its own surface, or the
+   * result set is an answer to a question the reader did not ask.
+   *
+   * The directory keeps the whole index, which is what it is for.
+   */
+  const keptIds = showKept ? [...pinnedIds, ...recentIds] : [];
+  const hits = !searching
+    ? []
+    : showKept && !showCatalogue
+      ? searchHits(layout, groups, q, new Set(keptIds))
+      : searchHits(layout, groups, q);
+
   const showSearch = !mergedPanel || mergedPanelSearch;
+
+  /**
+   * What the field promises, which has to be what it delivers.
+   *
+   * "Search products" over a panel holding pins and history is a promise about
+   * a corpus that is one panel away — see `hits`.
+   */
+  const searchScopeLabel =
+    showKept && !showCatalogue ? "Search pinned and recent" : "Search products";
 
   return (
     <>
@@ -279,12 +409,15 @@ export function PinnedLauncher({
           </h2>
           <div className="flex items-center gap-[6px]">
             {/*
-              States which grouping is showing. The panel lists the same groups
-              as the nav, so without this it is not obvious why they changed.
+              The grouping chip is gone (Sep 9).
+
+              It named the active grouping mode — "Proposed", "Areas", "Custom"
+              — which is a fact about the prototype's axes rather than about
+              anything on screen. A reviewer read it as a label on the panel's
+              CONTENTS and asked what a proposed pin was. The panel lists the
+              same groups the nav does; if they change, the nav changed with
+              them, and that is where the answer belongs.
             */}
-            <span className="rounded-[5px] bg-nav-hover px-[6px] py-[3px] text-[10px] leading-none text-nav-fg-subtle">
-              {GROUPING_LABELS[state.grouping]}
-            </span>
             <button
               type="button"
               aria-label="Close"
@@ -312,8 +445,8 @@ export function PinnedLauncher({
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search products"
-            aria-label="Search products"
+            placeholder={searchScopeLabel}
+            aria-label={searchScopeLabel}
             className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg placeholder:text-nav-fg-subtle focus:outline-none [&::-webkit-search-cancel-button]:hidden"
           />
           {/*
@@ -366,12 +499,14 @@ export function PinnedLauncher({
             ))
           ) : (
             <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
-              No products match “{query}”
+              {showKept && !showCatalogue
+                ? `Nothing pinned or recent matches “${query}”`
+                : `No products match “${query}”`}
             </p>
           )
         ) : (
           <>
-          {pinnedIds.length > 0 ? (
+          {showKept && pinnedIds.length > 0 ? (
             <>
               <SectionHeading count={state.pinned.length}>Pinned</SectionHeading>
               {agencyScope ? <PinnedScopeNote /> : null}
@@ -399,7 +534,7 @@ export function PinnedLauncher({
                 );
               })}
             </>
-          ) : state.pinned.length === 0 ? (
+          ) : showKept && state.pinned.length === 0 ? (
             // Only when there are genuinely none — a filter that hides them all
             // is not an empty pin list, so it drops the section instead.
             <>
@@ -418,7 +553,7 @@ export function PinnedLauncher({
             history, which is the one real difference between this section and
             the pin list above it, and the reason the grips stay up there.
           */}
-          {mergedPanel && recentIds.length > 0 ? (
+          {showKept && recentIds.length > 0 ? (
             <>
               <SectionHeading divider count={recentIds.length}>
                 {PANEL_RECENT_HEADING_LABELS[panelRecentHeading]}
@@ -429,11 +564,34 @@ export function PinnedLauncher({
             </>
           ) : null}
 
-          {visibleGroups.length > 0 ? (
-            <SectionHeading divider>All products</SectionHeading>
+          {/*
+            All products, and only where it belongs.
+
+            In the directory when the axis splits the two, in this panel when it
+            does not — see `showCatalogue`. The heading stays either way: it
+            names the section, and in the directory it is the only section there
+            is, which is worth saying out loud.
+          */}
+          {showCatalogue && visibleGroups.length > 0 ? (
+            <SectionHeading divider={showKept}>All products</SectionHeading>
           ) : null}
 
-          {visibleGroups.map(({ group, productIds }, groupIndex) => (
+          {/*
+            A tree to walk, unless the nav is being edited.
+
+            Browsing and arranging are different jobs and they wanted different
+            rows: the tree answers "where does this live", which is what a
+            directory is for and what a flat list of ninety rows could not do.
+            The flat list is the manage surface — grips, nudges, renames, icons
+            — so it comes back while the mode that uses those is open, rather
+            than the mode losing the only place it could do that work.
+          */}
+          {showCatalogue && !editing ? (
+            <DirectoryTree groups={visibleGroups} theme={theme} />
+          ) : null}
+
+          {showCatalogue && editing
+            ? visibleGroups.map(({ group, productIds }, groupIndex) => (
             <React.Fragment key={group.id}>
               <GroupHeader
                 group={group}
@@ -482,7 +640,8 @@ export function PinnedLauncher({
                 />
               ))}
             </React.Fragment>
-          ))}
+              ))
+            : null}
           </>
         )}
 
@@ -490,7 +649,16 @@ export function PinnedLauncher({
           <div aria-hidden="true" data-scroll-fade="bottom" />
         </div>
 
-        {can.customise && !q ? (
+        {/*
+          Only where the groups it creates are visible and arrangeable.
+
+          "New group" under a browse tree offers to make a shelf you cannot then
+          put anything on — the filling is done by dragging, which is the manage
+          list's job. And in the merged half there is no catalogue on screen at
+          all, so a group created there would appear in a panel you are not
+          looking at.
+        */}
+        {showCatalogue && editing && can.customise && !q ? (
           <div className="mx-[14px] mt-[6px] w-[calc(100%-28px)] shrink-0 pt-[12px] shadow-[inset_0_1px_0_0_var(--nav-divider)]">
             {creating ? (
               <div className="flex w-full items-center gap-[10px] rounded-[9px] px-[8px] py-[8px]">
@@ -569,6 +737,14 @@ function searchHits(
   layout: ReturnType<typeof useNavLayout>,
   groups: ResolvedGroup[],
   q: string,
+  /**
+   * The ids this search may return, when the panel holds a subset.
+   *
+   * The walk still covers the whole tree — that is what gives every hit its
+   * "in Contacts" trail — and this filters what comes back out of it. Absent,
+   * everything is fair game, which is the directory's case.
+   */
+  only?: ReadonlySet<string>,
 ): SearchHit[] {
   const hits: SearchHit[] = [];
   // A product can sit in one group and a child under one parent, but the
@@ -577,6 +753,7 @@ function searchHits(
 
   const add = (id: string, context: string) => {
     if (seen.has(id)) return;
+    if (only && !only.has(id)) return;
     const at = layout.productLabelFor(id).toLowerCase().indexOf(q);
     if (at === -1) return;
     seen.add(id);
@@ -1298,6 +1475,512 @@ function PinnedScopeNote() {
  * are subordinate to it, and two headings at the same weight would read as a flat
  * list of peers rather than two sections.
  */
+/**
+ * All products as a tree you walk, not a list you scroll.
+ *
+ * The directory's whole job is "where does this live" — someone who has read a
+ * help doc naming Payments ▸ Invoices ▸ Estimates, or who half-remembers a
+ * feature and needs to find its neighbourhood. A flat run of ninety rows
+ * answers "is it here" and nothing else: it destroys the one piece of
+ * information the reader came for, which is the shape.
+ *
+ * So the panel's own three levels are the nav's three levels — L1 category, L2
+ * product, L3 page — disclosed in place rather than in flyouts. In place
+ * because a flyout hanging off a panel that is itself a flyout is a third
+ * surface to keep track of, and because the point is to SEE the nesting: a
+ * dropdown that covers its own parent hides the thing being explained.
+ *
+ * Accordion, not multi-open: one L1 at a time, one L2 within it. Ninety rows
+ * fully expanded is the flat list again, with indents.
+ */
+function DirectoryTree({
+  groups,
+  theme,
+}: {
+  groups: DirectoryBranch[];
+  theme: SurfaceTheme;
+}) {
+  const layout = useNavLayout();
+  const { directoryDisclosure } = useTheme().effective;
+  const [openGroup, setOpenGroup] = React.useState<string | null>(null);
+  /*
+   * The same dwell every other panel-to-the-right in this nav uses.
+   *
+   * The directory has the identical geometry and therefore the identical
+   * problem: the panels open to the right, the rows are a column, and nobody
+   * reaches a panel travelling perfectly horizontally. Cutting the corner
+   * crosses two or three siblings, and without the hold each one rewrote the
+   * thing being reached for. Shared rather than re-timed here — see
+   * use-hover-dwell.
+   */
+  const { defer: deferSwitch, cancel: cancelSwitch } = useHoverDwell();
+
+  /*
+   * The cascade stack, held here for the same reason the L2 panel holds its
+   * own: a level REPLACES everything below it, so opening one L1's products has
+   * to close the last one's — and a row owning its own flag cannot see its
+   * siblings. The list is the smallest thing that can.
+   */
+  const [levels, setLevels] = React.useState<
+    { id: string; anchor: { top: number; right: number }; rows: DirectoryEntry[] }[]
+  >([]);
+
+  /** Closes on the way out, with a beat's grace to cross the gap. */
+  const leave = React.useRef<number | null>(null);
+  const hold = () => {
+    if (leave.current !== null) window.clearTimeout(leave.current);
+    leave.current = null;
+    // Arriving cancels a pending switch: the rows crossed on the way were en
+    // route, not destinations.
+    cancelSwitch();
+  };
+  const scheduleClose = () => {
+    hold();
+    leave.current = window.setTimeout(() => setLevels([]), 220);
+  };
+  React.useEffect(() => hold, []);
+
+  const anchorOf = (el: HTMLElement) => {
+    const box = el.getBoundingClientRect();
+    return { top: box.top, right: box.right };
+  };
+
+  /** Opens a level, dropping everything that was open below it. */
+  const openAt = (
+    depth: number,
+    id: string,
+    el: HTMLElement,
+    rows: DirectoryEntry[],
+  ) => {
+    hold();
+    setLevels((current) => {
+      // Same row again closes it, which is what makes the chevron a toggle.
+      if (current[depth]?.id === id) return current.slice(0, depth);
+      return [...current.slice(0, depth), { id, anchor: anchorOf(el), rows }];
+    });
+  };
+
+  if (directoryDisclosure === "inline") {
+    return (
+      <>
+        {groups.map(({ group, productIds }) => (
+          <DirectoryGroup
+            key={group.id}
+            group={group}
+            productIds={productIds}
+            open={openGroup === group.id}
+            onToggle={() =>
+              setOpenGroup((current) =>
+                current === group.id ? null : group.id,
+              )
+            }
+          />
+        ))}
+      </>
+    );
+  }
+
+  return (
+    <div
+      className="flex w-full flex-col gap-[2px]"
+      onPointerLeave={scheduleClose}
+      onPointerEnter={hold}
+    >
+      {groups.map(({ group, productIds, rows: given }) => {
+        const Icon = group.icon;
+        const rows: DirectoryEntry[] =
+          given ??
+          productIds.map((id) => ({
+            id,
+            label: layout.productLabelFor(id),
+            icon: layout.productIconFor(id),
+            pages: childrenOfProduct(id),
+          }));
+        return (
+          <DirectoryRow
+            key={group.id}
+            label={group.label}
+            count={rows.length}
+            open={levels[0]?.id === group.id}
+            icon={<Icon size={16} aria-hidden="true" />}
+            cascades
+            onToggle={(el) => openAt(0, group.id, el, rows)}
+            /*
+              Hover moves a cascade that is already open; it never opens one.
+              The same rule the nav's own dropdowns follow — a rollover that
+              opened panels would fire on every row the pointer crossed on its
+              way to the one it wanted.
+            */
+            onHover={(el) => {
+              if (levels.length === 0) return;
+              deferSwitch(group.id, () => openAt(0, group.id, el, rows));
+            }}
+          />
+        );
+      })}
+
+      {levels.length > 0 ? (
+        <FlyoutCascade
+          theme={theme}
+          onPointerEnter={hold}
+          onPointerLeave={scheduleClose}
+          levels={levels.map((level, depth) => ({
+            id: level.id,
+            anchor: level.anchor,
+            body: (
+              <div className="flex w-full flex-col gap-[2px]">
+                {level.rows.map((row) => (
+                  <DirectoryRow
+                    key={row.id}
+                    label={row.label}
+                    icon={<ResolvedIcon icon={row.icon} size={16} />}
+                    pinFor={row.id}
+                    {...(row.pages.length > 0
+                      ? {
+                          cascades: true,
+                          count: row.pages.length,
+                          open: levels[depth + 1]?.id === row.id,
+                          onToggle: (el: HTMLElement) =>
+                            openAt(
+                              depth + 1,
+                              row.id,
+                              el,
+                              row.pages.map((page) => ({
+                                id: page.id,
+                                label: page.label,
+                                icon: iconForChildLabel(page.label),
+                                pages: [],
+                              })),
+                            ),
+                          onHover: (el: HTMLElement) => {
+                            if (levels.length <= depth + 1) return;
+                            deferSwitch(row.id, () =>
+                              openAt(
+                                depth + 1,
+                                row.id,
+                                el,
+                                row.pages.map((page) => ({
+                                  id: page.id,
+                                  label: page.label,
+                                  icon: iconForChildLabel(page.label),
+                                  pages: [],
+                                })),
+                              ),
+                            );
+                          },
+                        }
+                      : {})}
+                  />
+                ))}
+              </div>
+            ),
+          }))}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * One L1 of the directory: a group, and what to list under it.
+ *
+ * `rows` is the escape hatch for a branch whose children are not catalogue
+ * products — White-label apps is the only one today, and stating its two rows
+ * beats teaching the resolver about a product that does not exist.
+ */
+interface DirectoryBranch {
+  group: ResolvedGroup;
+  productIds: string[];
+  rows?: DirectoryEntry[];
+}
+
+/** One row of a cascade level: a place, and whatever hangs off it. */
+interface DirectoryEntry {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  pages: readonly CatalogueChild[];
+}
+
+/** One L1: the category row, and its products when it is open. */
+function DirectoryGroup({
+  group,
+  productIds,
+  open,
+  onToggle,
+}: {
+  group: ResolvedGroup;
+  productIds: string[];
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const layout = useNavLayout();
+  const Icon = group.icon;
+  const [openProduct, setOpenProduct] = React.useState<string | null>(null);
+
+  return (
+    <div className="flex w-full shrink-0 flex-col">
+      <DirectoryRow
+        label={group.label}
+        count={productIds.length}
+        open={open}
+        onToggle={onToggle}
+        icon={<Icon size={16} aria-hidden="true" />}
+      />
+
+      {open ? (
+        /*
+          Indented to the parent's TEXT column, so the children read as its
+          contents rather than as more categories. The same indent the nav's own
+          nested rows take, for the same reason.
+        */
+        <div className="motion-menu-in mt-[2px] flex flex-col gap-[2px] pl-[26px]">
+          {productIds.map((id) => {
+            const kids = childrenOfProduct(id);
+            return (
+              <DirectoryProduct
+                key={id}
+                productId={id}
+                label={layout.productLabelFor(id)}
+                icon={layout.productIconFor(id)}
+                pages={kids}
+                open={openProduct === id}
+                onToggle={() =>
+                  setOpenProduct((current) => (current === id ? null : id))
+                }
+              />
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** One L2: the product, its pin, and its pages when it is open. */
+function DirectoryProduct({
+  productId,
+  label,
+  icon,
+  pages,
+  open,
+  onToggle,
+}: {
+  productId: string;
+  label: string;
+  icon: LucideIcon;
+  /** Its L3s. Named `pages`, not `children`: this is data, not JSX. */
+  pages: readonly CatalogueChild[];
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="flex w-full shrink-0 flex-col">
+      <DirectoryRow
+        label={label}
+        open={open}
+        {...(pages.length > 0 ? { onToggle, count: pages.length } : {})}
+        icon={<ResolvedIcon icon={icon} size={16} />}
+        pinFor={productId}
+      />
+
+      {open && pages.length > 0 ? (
+        <div className="motion-menu-in mt-[2px] flex flex-col gap-[2px] pl-[26px]">
+          {pages.map((child) => (
+            <DirectoryRow
+              key={child.id}
+              label={child.label}
+              icon={
+                <ResolvedIcon
+                  icon={iconForChildLabel(child.label)}
+                  size={15}
+                />
+              }
+              pinFor={child.id}
+              small
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * One row of the tree, at any level.
+ *
+ * A div rather than a button when it can be pinned: the pin is a control and
+ * the row would be one, which is the same nesting problem `WithPin` exists to
+ * solve everywhere else in here. The disclosure is the row's own click; hover
+ * lights it, so a walk down the tree feels like the nav's own rows.
+ */
+function DirectoryRow({
+  label,
+  icon,
+  count,
+  open = false,
+  onToggle,
+  onHover,
+  cascades = false,
+  pinFor,
+  small = false,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  /** How many rows are behind this one, when it discloses. */
+  count?: number;
+  open?: boolean;
+  /**
+   * Absent on a leaf, which is what makes it a leaf.
+   *
+   * Handed the row's own element: a cascade hangs off where the row IS, and
+   * only the row knows that.
+   */
+  onToggle?: (el: HTMLElement) => void;
+  /** Moves an already-open cascade. Never opens one — see the caller. */
+  onHover?: (el: HTMLElement) => void;
+  /** Points right rather than down: the level opens beside, not below. */
+  cascades?: boolean;
+  /** The id to pin, when this row names something pinnable. */
+  pinFor?: string;
+  small?: boolean;
+}) {
+  const pinnable =
+    pinFor !== undefined &&
+    (productById(pinFor) !== undefined || childById(pinFor) !== undefined);
+
+  const inner = (
+    <>
+      <span className="flex size-[16px] shrink-0 items-center justify-center text-nav-fg-muted">
+        {icon}
+      </span>
+      <span
+        className={cn(
+          "min-w-0 flex-1 truncate text-left text-nav-fg",
+          small ? "text-[13px] leading-[18px]" : "text-[14px] leading-[normal]",
+        )}
+      >
+        {label}
+      </span>
+      {count !== undefined ? (
+        <span className="shrink-0 text-[11px] leading-none text-nav-fg-subtle tabular-nums">
+          {count}
+        </span>
+      ) : null}
+      {/*
+        An overlay at the row's edge, not the last thing in flow.
+
+        In flow it would be pushed inboard by the space the text gives up for
+        the PIN, which is how the two ended up the wrong way round: whichever
+        mark the reserve was for, the other one drifted. Positioned against the
+        wrapper below, both marks hold a column of their own — chevron at the
+        edge, pin one slot in — and the text's reserve only has to be wide
+        enough to clear them.
+
+        Still a child of the row's button, so the arrow is part of the target
+        that opens the level rather than a dead pixel over it.
+      */}
+      {onToggle ? (
+        <span className="absolute top-1/2 right-[8px] -translate-y-1/2">
+          {cascades ? (
+            // Right, because that is where the level appears — a down-chevron
+            // beside a panel that opens sideways promises the wrong motion.
+            <ChevronRight
+              size={13}
+              aria-hidden="true"
+              className={cn(
+                "shrink-0 motion-move",
+                open ? "text-nav-fg-muted" : "text-nav-fg-subtle",
+              )}
+            />
+          ) : (
+            <ChevronDown
+              size={13}
+              aria-hidden="true"
+              className={cn(
+                "shrink-0 text-nav-fg-subtle motion-move",
+                open && "rotate-180",
+              )}
+            />
+          )}
+        </span>
+      ) : null}
+    </>
+  );
+
+  /*
+   * The chevron owns the edge; the pin sits inboard of it.
+   *
+   * Both marks are at the row's trailing end and only one of them can be last —
+   * and it has to be the chevron, because the chevron is what says there is
+   * another level and where it will appear. A pin outboard of it put the row's
+   * least consequential control at the edge the eye reads first for structure,
+   * and made a nested row look like a leaf with a stray arrow.
+   *
+   * A leaf has no chevron and no reserved slot for one: its pin goes to the
+   * edge, which is where a trailing mark belongs when it is the only one.
+   */
+  const trailingReserve = onToggle
+    ? pinnable
+      ? // chevron, its gap, the pin, and the pin's own gap
+        "pr-[calc(8px+13px+10px+22px+10px)]"
+      : "pr-[calc(8px+13px+10px)]"
+    : pinnable
+      ? "pr-[calc(8px+22px+10px)]"
+      : "pr-[8px]";
+
+  /** Where the pin hangs: at the edge, or one chevron-and-gap inboard. */
+  const pinInset = onToggle ? "right-[calc(8px+13px+10px)]" : "right-[8px]";
+
+  const row = onToggle ? (
+    <button
+      type="button"
+      aria-expanded={open}
+      onClick={(e) => onToggle(e.currentTarget)}
+      onPointerEnter={(e) => onHover?.(e.currentTarget)}
+      className={cn(
+        "group/row motion-tap flex w-full shrink-0 items-center gap-[10px] rounded-[9px] py-[7px] pl-[8px] text-left hover:bg-nav-hover",
+        trailingReserve,
+        open && "bg-nav-hover",
+      )}
+    >
+      {inner}
+    </button>
+  ) : (
+    <div
+      className={cn(
+        "group/row motion-tap flex w-full shrink-0 items-center gap-[10px] rounded-[9px] py-[7px] pl-[8px] hover:bg-nav-hover",
+        trailingReserve,
+      )}
+    >
+      {inner}
+    </div>
+  );
+
+  /*
+    Always wrapped, pinnable or not: the chevron is positioned against this,
+    and a row without a pin would otherwise hang its arrow off whatever
+    happened to be positioned further up the tree.
+  */
+  return (
+    <span className="group/row relative block w-full">
+      {row}
+      {pinnable ? (
+        <span className={cn("absolute top-1/2 z-10 -translate-y-1/2", pinInset)}>
+          <PinButton productId={pinFor} size={12} />
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+/** An L2's pages, minus the ones that are tabs rather than places. */
+function childrenOfProduct(productId: string): readonly CatalogueChild[] {
+  const product = productById(productId);
+  if (!product || product.tabs) return [];
+  return product.children ?? [];
+}
+
 function SectionHeading({
   children,
   count,

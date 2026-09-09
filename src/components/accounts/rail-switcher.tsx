@@ -13,6 +13,16 @@ import type { AccountsSession } from "./use-accounts";
 
 interface RailDirectoryProps {
   session: AccountsSession;
+  /**
+   * Opened from a member's rail rather than the agency's.
+   *
+   * Only two things follow from it, because only two things should: the panel
+   * is named for the set it holds, and it is never a bulk surface. WHICH
+   * accounts it lists is not decided here at all — the session arrives already
+   * scoped, so this component cannot leak an account the member has no access
+   * to even if someone later forgets this flag exists.
+   */
+  membersOnly?: boolean;
   onClose: () => void;
 }
 
@@ -40,14 +50,25 @@ const RECENT_ROWS = 5;
  * that a switcher which also CHANGES things is a switcher you hesitate in —
  * which is why the checkboxes are off unless someone turns them on.
  */
-export function RailDirectory({ session, onClose }: RailDirectoryProps) {
+export function RailDirectory({
+  session,
+  membersOnly = false,
+  onClose,
+}: RailDirectoryProps) {
   const [query, setQuery] = React.useState("");
   const [selected, setSelected] = React.useState<readonly string[]>([]);
   const [bulk, setBulk] = React.useState<{ path: BulkPath | null } | null>(null);
   const [historyOpen, setHistoryOpen] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const { settings } = useBulkActions();
-  const picking = settings.enabled && settings.bulkInDirectory;
+  /*
+   * Never for a member. Bulk-applying templates and feature access is an agency
+   * operation on its clients — a member selecting four of the businesses they
+   * work in and pushing settings across them is not a smaller version of that,
+   * it is a different and unauthorised thing. The prototype switch turns the
+   * agency's checkboxes on; it has nothing to say about this panel.
+   */
+  const picking = settings.enabled && settings.bulkInDirectory && !membersOnly;
 
   React.useEffect(() => {
     inputRef.current?.focus();
@@ -143,7 +164,11 @@ export function RailDirectory({ session, onClose }: RailDirectoryProps) {
           {/* The count replaces the title rather than joining it: at 340px
               there is room for one thing on the left, and while rows are
               ticked the count is the more useful of the two. */}
-          {selected.length > 0 ? `${selected.length} selected` : "All accounts"}
+          {selected.length > 0
+            ? `${selected.length} selected`
+            : membersOnly
+              ? "My accounts"
+              : "All accounts"}
         </span>
         {picking && selected.length > 0 ? (
           /*

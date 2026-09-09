@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useHoverDwell } from "./use-hover-dwell";
 
 export interface FlyoutIntent {
   /** The flyout to show: whatever is hovered, else whatever is pinned. */
@@ -15,6 +16,8 @@ export interface FlyoutIntent {
   cancelClear: () => void;
   /** Click a trigger: opens it, or closes it if it was already open. */
   togglePin: (id: string) => void;
+  /** Move the open panel to a sibling, once the pointer has settled on it. */
+  movePin: (id: string) => void;
   /** Close everything, pinned included. */
   close: () => void;
 }
@@ -46,40 +49,32 @@ export function useFlyoutIntent(
   const [pinnedId, setPinnedId] = React.useState<string | null>(null);
   const [hoveredId, setHoveredId] = React.useState<string | null>(null);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** A hover waiting out the direction check — id and its commit timer. */
-  const pendingHover = React.useRef<{
-    id: string;
-    timer: ReturnType<typeof setTimeout>;
-  } | null>(null);
-  /**
-   * The pointer's last movement, sampled globally. The panels dock to the
-   * nav's right, so "moving right" means "heading for the open panel" — the
-   * one direction in which crossing a sibling trigger must not switch panels.
+  /*
+   * The dwell that protects a diagonal, shared with the L3 cascade.
+   *
+   * Both levels open a panel to the right of a column of rows, so both have the
+   * same problem and must not solve it twice — see use-hover-dwell.ts.
    */
-  const motion = React.useRef({ x: 0, y: 0, dx: 0, dy: 0 });
+  const { defer: deferSwitch, cancel: cancelPending } = useHoverDwell();
+
   const hoveredRef = React.useRef<string | null>(null);
   React.useEffect(() => {
     hoveredRef.current = hoveredId;
   }, [hoveredId]);
-
+  /*
+   * The pinned panel, readable from the hover handler.
+   *
+   * The dwell asks "is a panel already up", and it was asking `hoveredId`
+   * alone — which is null for a panel opened by CLICK the moment the pointer
+   * steps off the row that opened it. So in click mode, the arrangement this
+   * nav ships with, the very next sibling the pointer crossed took the
+   * instant-open path and swapped the panel with no delay at all. The dwell
+   * existed and simply did not apply to the case it was written for.
+   */
+  const pinnedRef = React.useRef<string | null>(null);
   React.useEffect(() => {
-    const onMove = (e: PointerEvent) => {
-      const m = motion.current;
-      m.dx = e.clientX - m.x;
-      m.dy = e.clientY - m.y;
-      m.x = e.clientX;
-      m.y = e.clientY;
-    };
-    window.addEventListener("pointermove", onMove, { passive: true });
-    return () => window.removeEventListener("pointermove", onMove);
-  }, []);
-
-  const cancelPending = React.useCallback(() => {
-    if (pendingHover.current !== null) {
-      clearTimeout(pendingHover.current.timer);
-      pendingHover.current = null;
-    }
-  }, []);
+    pinnedRef.current = pinnedId;
+  }, [pinnedId]);
 
   const cancelClear = React.useCallback(() => {
     if (timer.current !== null) {
@@ -106,35 +101,20 @@ export function useFlyoutIntent(
       }
       /*
        * With a panel already showing, no sibling steals it instantly — every
-       * switch waits out a short dwell, so sweeping the list doesn't strobe a
-       * panel per row. The dwell is direction-aware: a pointer moving toward
-       * the panel (rightward, flatter than steep) is trying to REACH it, so
-       * the hold stretches further; plain browsing gets just enough delay to
-       * give the switching a rhythm instead of a flicker. Only the FIRST
-       * panel, opened over nothing, still appears immediately.
+       * switch waits out a dwell, so sweeping the list doesn't strobe a panel
+       * per row, and crossing rows on the way to the open panel does not
+       * rewrite it under the pointer. Only the FIRST panel, opened over
+       * nothing, still appears immediately.
        */
-      const showing = hoveredRef.current;
-      const m = motion.current;
-      const towardPanel = m.dx > 2 && m.dx >= Math.abs(m.dy);
+      const showing = hoveredRef.current ?? pinnedRef.current;
       if (showing !== null && showing !== id) {
-        if (pendingHover.current?.id === id) return;
-        cancelPending();
-        pendingHover.current = {
-          id,
-          timer: setTimeout(
-            () => {
-              pendingHover.current = null;
-              setHoveredId(id);
-            },
-            towardPanel ? 280 : 120,
-          ),
-        };
+        deferSwitch(id, () => setHoveredId(id));
         return;
       }
       cancelPending();
       setHoveredId(id);
     },
-    [cancelPending],
+    [cancelPending, deferSwitch],
   );
 
   const scheduleClear = React.useCallback(() => {
@@ -171,6 +151,24 @@ export function useFlyoutIntent(
     [cancelClear, pinnedId],
   );
 
+  /**
+   * Move an already-open panel to a sibling, after the dwell.
+   *
+   * What `sticky` calls instead of re-pinning on the spot. It commits both
+   * halves, exactly as `togglePin` does — the moved-to panel becomes the real
+   * selection rather than a preview, which is what stops the nav snapping back
+   * to the clicked row the moment the pointer leaves.
+   */
+  const movePin = React.useCallback(
+    (id: string) => {
+      deferSwitch(id, () => {
+        setPinnedId(id);
+        setHoveredId(id);
+      });
+    },
+    [deferSwitch],
+  );
+
   const close = React.useCallback(() => {
     cancelClear();
     setPinnedId(null);
@@ -184,6 +182,7 @@ export function useFlyoutIntent(
     scheduleClear,
     cancelClear,
     togglePin,
+    movePin,
     close,
   };
 }

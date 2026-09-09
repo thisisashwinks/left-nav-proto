@@ -40,6 +40,7 @@ import {
   FlyoutChildRows,
 } from "./flyout-row";
 import { FlyoutCascade } from "./flyout-cascade";
+import { useHoverDwell } from "@/lib/use-hover-dwell";
 import type { FlyoutChildItem, FlyoutConfig } from "./types";
 
 interface FlyoutPanelProps {
@@ -173,6 +174,17 @@ export function FlyoutPanel({
   }
 
   /*
+   * The same dwell the L1 rows use, one level in — see use-hover-dwell.ts.
+   *
+   * The cascade sits to the right of this panel exactly as this panel sits to
+   * the right of the nav, so reaching it means cutting the corner across two or
+   * three sibling L2 rows. Swapping on contact rewrote the dropdown the pointer
+   * was travelling towards, which is the same bug at a smaller scale and reads
+   * worse here: the L3 list is what you were already looking at.
+   */
+  const { defer: deferCascade, cancel: cancelCascade } = useHoverDwell();
+
+  /*
    * Hover only moves a cascade that is already open.
    *
    * Nothing opens on a rollover — that is the whole difference between sticky
@@ -188,18 +200,36 @@ export function FlyoutPanel({
       el: HTMLElement,
       level: number,
     ) => {
-      setCascade((c) => {
-        if (c.length <= level) return c;
-        if (nodes.length === 0) return c.slice(0, level);
-        if (c[level]?.id === id) return c;
-        const box = el.getBoundingClientRect();
-        return [
-          ...c.slice(0, level),
-          { id, label, nodes, anchor: { top: box.top, right: box.right } },
-        ];
+      /*
+       * The box is measured NOW, not when the timer fires.
+       *
+       * By then the pointer has moved on and the element may have scrolled;
+       * reading it late would anchor the dropdown to wherever the row had got
+       * to rather than to the row that was hovered.
+       */
+      const box = el.getBoundingClientRect();
+      const anchor = { top: box.top, right: box.right };
+      /*
+       * Closing is immediate; opening waits.
+       *
+       * A leaf row says "close the stack at my level", and that is not a switch
+       * anyone has to be protected from — holding it would leave a dropdown
+       * hanging off a row with no children while the pointer sat on it.
+       */
+      if (nodes.length === 0) {
+        cancelCascade();
+        setCascade((c) => (c.length <= level ? c : c.slice(0, level)));
+        return;
+      }
+      deferCascade(`${level}:${id}`, () => {
+        setCascade((c) => {
+          if (c.length <= level) return c;
+          if (c[level]?.id === id) return c;
+          return [...c.slice(0, level), { id, label, nodes, anchor }];
+        });
       });
     },
-    [],
+    [deferCascade, cancelCascade],
   );
 
   const openCascade = React.useCallback(
@@ -212,6 +242,15 @@ export function FlyoutPanel({
     ) => {
       // An empty node list is how a row says "close mine" — see the rows'
       // onClick. Truncating at `level` drops it and everything under it.
+      /*
+       * A click beats its own pending hover.
+       *
+       * Clicking a row means having crossed it, so a deferred switch for that
+       * very row — or for a sibling passed on the way — may still be armed. Let
+       * it fire and it lands a few hundred milliseconds after the click and
+       * silently replaces what the click opened.
+       */
+      cancelCascade();
       if (nodes.length === 0) {
         setCascade((c) => c.slice(0, level));
         return;
@@ -222,7 +261,7 @@ export function FlyoutPanel({
         { id, label, nodes, anchor: { top: box.top, right: box.right } },
       ]);
     },
-    [],
+    [cancelCascade],
   );
   const editing = navEditing && category !== undefined;
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
@@ -758,7 +797,23 @@ export function FlyoutPanel({
             key={entry.item.id}
             item={entry.item}
             variant={config.variant}
-            active={entry.item.id === activeId}
+            /*
+              The same rule one level in — see the note on the nav's own rows.
+
+              A row with a dropdown is lit while that dropdown is up and not
+              otherwise, so moving the cascade along the list moves the fill
+              with it instead of leaving one behind on whichever row was
+              clicked first. Only when the cascade is a PANEL: disclosed
+              inline, the open state is the row's own and the list below it is
+              already saying which row it belongs to.
+            */
+            active={
+              l3Disclosure === "panel" &&
+              (entry.item.children?.length ?? 0) > 0 &&
+              (tabsInNav || !entry.item.tabs)
+                ? cascade[0]?.id === entry.item.id
+                : entry.item.id === activeId
+            }
             // Not the same question as `active`: that asks whether THIS row is
             // the page, this asks which row under it is — the dropdown needs the
             // id to mark one of its own.
@@ -887,7 +942,12 @@ export function FlyoutPanel({
       {cascade.length > 0 ? (
         <FlyoutCascade
           theme={theme}
-          onPointerEnter={onPointerEnter}
+          onPointerEnter={() => {
+            // Reaching the dropdown cancels any pending switch — the rows the
+            // pointer crossed on the way were en route, not destinations.
+            cancelCascade();
+            onPointerEnter?.();
+          }}
           onPointerLeave={onPointerLeave}
           levels={cascade.map((level, i) => ({
             id: level.id,

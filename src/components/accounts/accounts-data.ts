@@ -288,3 +288,29 @@ export function matchAccounts(
       monogramFor(a.name).toLowerCase().startsWith(q),
   );
 }
+
+/**
+ * The accounts a sub-account person belongs to.
+ *
+ * The agency reaches all seventeen; a member reaches the fourteen listed here.
+ * Three are deliberately left out — Summit, Bluebird and Wildflower — and they
+ * are the whole point of the field existing. Without them "a member only sees
+ * what they have permission for" is a claim the prototype makes and never
+ * demonstrates: every list would be the full list, and searching would always
+ * find what you typed. With them, typing "summit" as a member returns nothing
+ * and the same search as the agency returns the account, which is the
+ * difference made visible in one gesture.
+ *
+ * Fourteen rather than a handful because the number IS the problem being
+ * solved. A member with three accounts needs no directory — the strip already
+ * holds them. The case that broke the old assumption (see `membersOnly`) is the
+ * franchise owner or the multi-location operator holding ten to fifteen, where
+ * the rail's working set stops being the whole set and the accounts nobody
+ * pinned quietly become unreachable.
+ *
+ * The three that are out are all accounts nothing else seeds — no rail tile, no
+ * recent, no pin — so removing them takes nothing else with it.
+ */
+export const MEMBER_ACCOUNT_IDS: readonly string[] = accounts
+  .map((a) => a.id)
+  .filter((id) => !["summit", "bluebird", "wildflower"].includes(id));

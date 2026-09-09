@@ -151,6 +151,17 @@ const SWITCHER_EXIT_MS = 140;
  */
 const LAUNCHER_ID = "launcher";
 
+/**
+ * The product directory: the same panel component, a different half of it.
+ *
+ * Its own id rather than a flag, because the panel is opened through the same
+ * hover intent every flyout uses — one panel at a time, with the same grace
+ * period — and "which one is open" is exactly what that intent tracks. Two ids
+ * also mean the two doors cannot be confused for one: View all opens Pinned and
+ * Recent, this opens the catalogue.
+ */
+const DIRECTORY_ID = "product-directory";
+
 /** The page-menu row for a product's landing view, which has no child id. */
 const OVERVIEW_CRUMB_ID = "__overview";
 
@@ -356,7 +367,17 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * here because the nav header shows the current account and both nav faces
    * have to agree on it — the switcher panel only reads and writes it.
    */
-  const accounts = useAccounts();
+  /*
+   * Scoped to the signed-in person when they are a member rather than the
+   * agency. Read straight off `layout.role` rather than the `plainUser` and
+   * `memberOfMany` flags derived far below, because this decides what the
+   * session CONTAINS and therefore has to be settled before anything reads it.
+   *
+   * Not gated on `userMultiAccount`: that axis says whether a switcher is
+   * offered at all, and a member with one account should still be a member with
+   * one account rather than one holding the agency's whole book.
+   */
+  const accounts = useAccounts({ scopeToMember: layout.role === "user" });
 
   const agencyScope = accounts.scope === "agency";
   // What the nav header shows: the agency identity at agency scope, the
@@ -767,9 +788,13 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const memberRail =
     memberOfMany && subAccountSwitcher === "rail" && !legacyNav && plainUser;
   const railActive = agencyRail || memberRail;
-  /** The alternative treatment: a control in the nav header instead. */
-  const memberDropdown =
-    memberOfMany && subAccountSwitcher === "dropdown" && !legacyNav && plainUser;
+  /*
+   * The alternative treatment — a control in the nav header — needs no flag of
+   * its own any more. It is simply what a member gets when the rail is off:
+   * `canSwitch` puts the workspace trigger there, and the panel behind it is
+   * bounded by the scoped session rather than by an allow-list this file used
+   * to have to remember to pass.
+   */
   /*
    * Expanded shows full account names beside the tiles — the answer to
    * low-quality tenant logos. Panel offsets follow the live width.
@@ -828,8 +853,20 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * other trigger in the nav: preview on hover, pin on click, one panel at a
    * time, and the same grace period when the pointer crosses the seam into it.
    */
-  const launcher = useExitTransition(
-    intent.activeId === LAUNCHER_ID || null,
+  /*
+   * Which half of the panel is up, kept through the exit animation.
+   *
+   * A string rather than a boolean, so the closing panel keeps rendering the
+   * sections it opened with: `useExitTransition` hands back the last non-null
+   * value, and a panel that switched to the other half mid-fade would reshuffle
+   * on its way out.
+   */
+  const launcher = useExitTransition<"merged" | "directory">(
+    intent.activeId === LAUNCHER_ID
+      ? "merged"
+      : intent.activeId === DIRECTORY_ID
+        ? "directory"
+        : null,
     FLYOUT_EXIT_MS,
   );
 
@@ -1246,7 +1283,17 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       // Nothing is open yet, so there is nothing to move along: the first
       // opening is still a click, which is the whole point of the mode.
       if (intent.pinnedId === null || id === intent.pinnedId) return;
-      intent.togglePin(id);
+      /*
+       * `movePin`, not `togglePin` — the difference is a dwell.
+       *
+       * Re-pinning on `pointerenter` swapped the panel the instant the pointer
+       * touched a sibling, which is fine when you meant to browse and wrong
+       * every other time: reaching an open panel means crossing the rows
+       * between you and it, and each one rewrote the thing you were reaching
+       * for. `movePin` holds the row for a beat first, and reaching the panel
+       * cancels the hold.
+       */
+      intent.movePin(id);
     },
     [intent],
   );
@@ -1577,6 +1624,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             aiSession={aiSession}
             density={density}
             onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
+            onOpenDirectory={() => intent.togglePin(DIRECTORY_ID)}
             recentsBudget={recentsBudget}
           />
         </div>
@@ -1613,6 +1661,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             aiSession={aiSession}
             density={density}
             onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
+            onOpenDirectory={() => intent.togglePin(DIRECTORY_ID)}
             {/*
               Gone while a switch is in flight, as the expanded face's pill is:
               the rail's entrance leads to the same editor, over the same
@@ -2196,6 +2245,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           offsetTop={NAV_FLOAT_GAP}
           theme={navTheme}
           phase={launcher.phase}
+          variant={launcher.value ?? "merged"}
           agencyScope={agencyScope}
           onPointerEnter={intent.cancelClear}
           onPointerLeave={intent.scheduleClear}
@@ -2220,8 +2270,13 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             just the ability to switch.
           */
           showAgency={!railActive && canSwitch && !plainUser}
-          // A member sees the accounts they belong to; the agency sees them all.
-          {...(memberDropdown ? { only: accounts.railIds } : {})}
+          /*
+            No allow-list any more: the session itself is already scoped to the
+            member's accounts, so this panel lists exactly what they can reach.
+            It used to be handed `only={accounts.railIds}` — which bounded the
+            list to the ten tiles on the strip, so the four accounts the member
+            belongs to but never pinned could not be reached from here at all.
+          */
           anchor={{
             left:
               railWidth +

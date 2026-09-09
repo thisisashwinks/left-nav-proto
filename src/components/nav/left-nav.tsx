@@ -69,7 +69,11 @@ import { RowMenu, useRowMenu, type RowMenuAction } from "./row-menu";
 import { DeleteGroupDialog } from "./delete-group-dialog";
 import { DiscardEditsDialog } from "./discard-edits-dialog";
 import { KeepChangesDialog, LayoutSwitchWarning } from "./layout-switch";
-import { editTargetFor, navEntriesFor } from "./nav-entries";
+import {
+  editTargetFor,
+  navEntriesFor,
+  withMiddleTailRow,
+} from "./nav-entries";
 import { fixedEntriesFor, flyoutIdFor, navConfig } from "./nav-config";
 import {
   AgencyMergedRecentsBlock,
@@ -194,6 +198,14 @@ interface LeftNavProps {
   density: NavDensity;
   /** Opens the manage surface — the floor tier's stand-in for the dock. */
   onOpenLauncher: () => void;
+  /**
+   * Opens the product directory — the catalogue, on its own.
+   *
+   * A second callback rather than a flag on the first: the two doors lead to
+   * different halves of one panel, and a row that said "directory" while
+   * calling the thing that opens Pinned and Recent is how they got conflated.
+   */
+  onOpenDirectory: () => void;
   /** How many inline recent rows to show, after the density budget. */
   recentsBudget: number;
   /**
@@ -247,6 +259,7 @@ export function LeftNav({
   aiSession,
   density,
   onOpenLauncher,
+  onOpenDirectory,
   recentsBudget,
   onOpenApp,
 }: LeftNavProps) {
@@ -289,15 +302,15 @@ export function LeftNav({
    * hover previews, click pins, the chevron leans. Nothing about it is special
    * except what is inside the panel.
    */
-  const getAppFlyoutEntry: NavEntry = {
-    kind: "item",
-    item: {
+  const getAppFlyoutItem: NavItem = React.useMemo(
+    () => ({
       id: GET_APP_FLYOUT_ID,
       label: GET_APP_NAV_LABEL,
       icon: Smartphone,
       hasFlyout: true,
-    },
-  };
+    }),
+    [],
+  );
 
   /** The companion-app rows, when the placement axis puts them in the nav. */
   const getAppEntries: NavEntry[] = [
@@ -964,9 +977,31 @@ export function LeftNav({
               // only way back for a hidden row is the row itself.
               showHidden: editing,
             })
-          : navEntriesFor(state, groups, bandEverything),
+          : /*
+              White-label apps rides at the foot of the tree band.
+
+              In the entry list rather than beside Settings, because both faces
+              build their rows from this list — so the rail and the expanded nav
+              cannot end up putting it in two different places, which is exactly
+              what happened while it was rendered by hand at each foot.
+            */
+            getAppPlacement === "flyout"
+            ? withMiddleTailRow(
+                navEntriesFor(state, groups, bandEverything),
+                getAppFlyoutItem,
+              )
+            : navEntriesFor(state, groups, bandEverything),
       ),
-    [agencyScope, agencyLayout.state, editing, state, groups, bandEverything],
+    [
+      agencyScope,
+      agencyLayout.state,
+      editing,
+      state,
+      groups,
+      bandEverything,
+      getAppPlacement,
+      getAppFlyoutItem,
+    ],
   );
 
   /**
@@ -981,7 +1016,11 @@ export function LeftNav({
     !categories.some((g) => g.id === e.item.id) &&
     // The volume switch's generated links are scaffolding, not something anyone
     // arranges.
-    !e.item.id.startsWith("custom-link-")
+    !e.item.id.startsWith("custom-link-") &&
+    // Chrome, not a row of the tree: it cannot be dragged into the tail's
+    // order, and `placeInTail` has nothing to write for an id that names no
+    // product.
+    e.item.id !== GET_APP_FLYOUT_ID
       ? [e.item.id]
       : [],
   );
@@ -1525,10 +1564,23 @@ export function LeftNav({
       <NavItemRow
         key={item.id}
         item={item}
+        /*
+         * A row that opens a panel is lit by its PANEL, not by having been
+         * clicked.
+         *
+         * These were an `||`, so clicking CRM lit it as the selection and
+         * hovering Marketing lit that one as the open panel — two rows filled
+         * at once, one of them pointing at a panel that is no longer there.
+         * The fill has to mean one thing, and for a door the only useful
+         * meaning is "what is behind this is what is open".
+         *
+         * Leaf rows keep the selection, because for them the fill means the
+         * page you are on and there is no panel to disagree with it.
+         */
         active={
-          item.id === selectedId ||
-          (item.hasFlyout === true &&
-            (flyoutId === openFlyoutId || flyoutId === pinnedFlyoutId))
+          item.hasFlyout === true
+            ? flyoutId === openFlyoutId || flyoutId === pinnedFlyoutId
+            : item.id === selectedId
         }
         onSelect={() => {
           /*
@@ -1913,11 +1965,8 @@ export function LeftNav({
                 pair of rows standing outside the last band would be the one
                 exception the "More" heading does not name.
               */
-              ...(getAppPlacement === "nav"
-                ? getAppEntries
-                : getAppPlacement === "flyout" && !agencyScope
-                  ? [getAppFlyoutEntry]
-                  : []),
+              // `flyout` is in the entry list above, at the band's foot.
+              ...(getAppPlacement === "nav" ? getAppEntries : []),
               {
                 kind: "item",
                 item: agencyScope ? agencySettings : config.settings,
@@ -1973,7 +2022,7 @@ export function LeftNav({
               {productDirectoryRow ? (
                 <NavItemRow
                   item={PRODUCT_DIRECTORY_ITEM}
-                  onSelect={onOpenLauncher}
+                  onSelect={onOpenDirectory}
                 />
               ) : null}
               {/*
@@ -2005,20 +2054,7 @@ export function LeftNav({
                 makes a row with a panel work — the hover intent, the pin, the
                 active state while its panel is up — lives in there.
               */}
-              {/*
-                Sub-account only.
 
-                The agency tree carries White label apps as a bucket of its own
-                — it is an area the agency works in, with two real pages behind
-                it — so a chrome row saying the same words next to Settings
-                would be the same destination twice, one of them outside the
-                tree it belongs to.
-              */}
-              {getAppPlacement === "flyout" &&
-              !agencyScope &&
-              getAppFlyoutEntry.kind === "item"
-                ? renderRow(getAppFlyoutEntry.item)
-                : null}
               {renderRow(agencyScope ? agencySettings : config.settings)}
             </>
           )}

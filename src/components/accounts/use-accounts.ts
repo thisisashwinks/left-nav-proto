@@ -11,6 +11,7 @@ import {
   INITIAL_PINNED_IDS,
   INITIAL_RAIL_IDS,
   INITIAL_RECENT_IDS,
+  MEMBER_ACCOUNT_IDS,
   RECENT_LIMIT,
   type Account,
 } from "./accounts-data";
@@ -109,7 +110,27 @@ export interface AccountsSession {
  */
 const RAIL_MAX = INITIAL_RAIL_IDS.length;
 
-export function useAccounts(): AccountsSession {
+export interface AccountsOptions {
+  /**
+   * Cut the session down to the accounts the signed-in person belongs to.
+   *
+   * Applied HERE, at the source, rather than at each surface. Every mark in the
+   * app already reads its account from this hook, so scoping it once means the
+   * rail, the directory, the header dropdown, the switcher panel and anything
+   * added later are all bounded by construction — none of them has to know that
+   * permissions exist, and none of them can forget. The alternative, passing an
+   * allow-list to each panel, was already in the tree as the dropdown's
+   * `only={accounts.railIds}`: it bounded that ONE surface, and it bounded it to
+   * the wrong set — the rail's ten tiles rather than the member's fourteen
+   * accounts, which is precisely how an account nobody pinned became
+   * unreachable.
+   */
+  scopeToMember?: boolean;
+}
+
+export function useAccounts({
+  scopeToMember = false,
+}: AccountsOptions = {}): AccountsSession {
   // Whether visiting an account puts it on the rail. See RAIL_RECENTS.
   const { railRecents } = useTheme().effective;
   const [currentId, setCurrentId] = React.useState(INITIAL_ACCOUNT_ID);
@@ -130,10 +151,12 @@ export function useAccounts(): AccountsSession {
    * knowing uploads exist.
    */
   const { uploads } = useBrand();
-  const branded = React.useMemo(
-    () => allAccounts.map((a) => applyBrand(a, uploads)),
-    [uploads],
-  );
+  const branded = React.useMemo(() => {
+    const visible = scopeToMember
+      ? allAccounts.filter((a) => MEMBER_ACCOUNT_IDS.includes(a.id))
+      : allAccounts;
+    return visible.map((a) => applyBrand(a, uploads));
+  }, [uploads, scopeToMember]);
   const brandedAgency = React.useMemo(
     () => applyBrand(agency, uploads),
     [uploads],
@@ -265,15 +288,35 @@ export function useAccounts(): AccountsSession {
     [railIds],
   );
 
+  /*
+   * `isPinned` and `onRail` are deliberately NOT filtered.
+   *
+   * They answer "is this account pinned", and the only ids either is ever asked
+   * about have come out of the filtered lists above. Filtering them again would
+   * cost a scan per row to change no answer.
+   */
+
+  /*
+   * The seeded id lists are written for the agency, which reaches everything.
+   * Bound them to what is visible so a member's rail cannot draw a tile for an
+   * account their own directory refuses to list — the one inconsistency that
+   * would make the boundary look like a bug rather than a rule.
+   */
+  const reachable = React.useCallback(
+    (ids: readonly string[]) =>
+      scopeToMember ? ids.filter((id) => MEMBER_ACCOUNT_IDS.includes(id)) : ids,
+    [scopeToMember],
+  );
+
   return {
     accounts: branded,
     current,
     scope,
     agency: brandedAgency,
     // Defensive: the current account never belongs in its own Recent list.
-    recentIds: recentIds.filter((id) => id !== currentId),
-    pinnedIds,
-    railIds,
+    recentIds: reachable(recentIds.filter((id) => id !== currentId)),
+    pinnedIds: reachable(pinnedIds),
+    railIds: reachable(railIds),
     isPinned,
     onRail,
     switchTo,

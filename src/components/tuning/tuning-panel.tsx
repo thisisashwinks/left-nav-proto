@@ -11,6 +11,12 @@ import {
 import {
   ACCENT_LABELS,
   ACCENTS,
+  AI_BUTTON_STYLE_LABELS,
+  AI_BUTTON_STYLES,
+  DIRECTORY_DISCLOSURE_LABELS,
+  DIRECTORY_DISCLOSURES,
+  LEGACY_FOOT_CONTROL_LABELS,
+  LEGACY_FOOT_CONTROLS,
   AUTO_COLLAPSE_WIDTH,
   DEFAULT_THEME,
   DOCK_LABEL_LABELS,
@@ -76,6 +82,9 @@ import {
   type DockLabel,
   type DockPosition,
   type EntryLayout,
+  type AiButtonStyle,
+  type DirectoryDisclosure,
+  type LegacyFootControl,
   type GetAppPlacement,
   type FlyoutTrigger,
   type L3Disclosure,
@@ -1488,12 +1497,16 @@ export function TuningPanel() {
     setGetAppPlacement,
     agencySearch,
     setAgencySearch,
+    aiButtonStyle,
+    setAiButtonStyle,
     pageShell,
     setPageShell,
     inboxPalette,
     setInboxPalette,
     navGeneration,
     setNavGeneration,
+    legacyFootControl,
+    setLegacyFootControl,
     navSwitchInEditCard,
     setNavSwitchInEditCard,
     navSwitchSurface,
@@ -1506,6 +1519,8 @@ export function TuningPanel() {
     setNavColourControl,
     productDirectoryRow,
     setProductDirectoryRow,
+    directoryDisclosure,
+    setDirectoryDisclosure,
     subAccountSwitcher,
     setSubAccountSwitcher,
     userMultiAccount,
@@ -1731,6 +1746,28 @@ export function TuningPanel() {
             ? "Production's sidebar, transcribed: one flat list, no flyouts, no grouping, no pinning. Rows select but do not navigate."
             : "The proposal. Switch to Old nav to compare it against what ships today."}
         </Note>
+
+        {/*
+          Only while the old nav is up. It is the only thing this axis touches,
+          and a control for a surface that is not on screen is a control nobody
+          can read the effect of.
+        */}
+        {navGeneration === "legacy" ? (
+          <>
+            <Segmented
+              label="Old nav controls"
+              options={LEGACY_FOOT_CONTROLS}
+              value={legacyFootControl}
+              onChange={(v: LegacyFootControl) => setLegacyFootControl(v)}
+              format={(v) => LEGACY_FOOT_CONTROL_LABELS[v]}
+            />
+            <Note>
+              {legacyFootControl === "menu"
+                ? "One standing ⋯ at the old nav's foot, opening an Appearance card: light and dark with a Save, and the way back to the new nav below a rule."
+                : "The two grow-on-hover pills, which is what the new nav's foot does — the arrangement that makes the two navs comparable on their chrome."}
+            </Note>
+          </>
+        ) : null}
       </PinnedGroup>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -1847,8 +1884,8 @@ export function TuningPanel() {
           />
           <Note>
             {subAccountSwitcher === "rail"
-              ? "The same rail the agency uses, minus the agency plate and the All accounts door — neither means anything from inside the set."
-              : "The nav's identity row becomes the switcher, listing the accounts they belong to. No agency row."}
+              ? "The same rail the agency uses, minus the agency plate — there is no scope above the accounts to switch into. The door stays, opening on My accounts: the 14 they belong to, not the agency's 17."
+              : "The nav's identity row becomes the switcher, listing all 14 accounts they belong to — not just the ones they pinned. No agency row."}
           </Note>
 
           {/*
@@ -1861,14 +1898,27 @@ export function TuningPanel() {
             spare question for everyone else, which is why it starts off.
           */}
           <Toggle
-            label="Product directory row"
+            label="Product directory"
             checked={productDirectoryRow}
             onChange={setProductDirectoryRow}
           />
           <Note>
             {productDirectoryRow
-              ? "A standing row above Settings, at both nav widths, opening the same panel as View all."
-              : "Off: the directory opens from View all on the merged block. Switch on to add a standing row above Settings."}
+              ? "Its own place: a standing row above Settings opens the catalogue as an L1 ▸ L2 ▸ L3 tree, and View all keeps only Pinned and Recent."
+              : "One panel holding both: View all opens Pinned, Recent and the catalogue under them, and there is no standing row."}
+          </Note>
+
+          <Segmented
+            label="Directory levels open"
+            options={DIRECTORY_DISCLOSURES}
+            value={directoryDisclosure}
+            onChange={(v: DirectoryDisclosure) => setDirectoryDisclosure(v)}
+            format={(v) => DIRECTORY_DISCLOSURE_LABELS[v]}
+          />
+          <Note>
+            {directoryDisclosure === "flyout"
+              ? "Cascading panels off the directory's edge, as the nav's own flyouts do — so the catalogue teaches nothing new."
+              : "In place, indented under the parent: the whole path stays visible, at the cost of pushing everything below it down the panel."}
           </Note>
 
           <Segmented
@@ -2023,6 +2073,28 @@ export function TuningPanel() {
               ? "The agency gets the same merged pill a sub-account has."
               : "Ask AI only. Thirteen buckets and a client list that already has its own search field — the pill had no corpus to add."}
           </Note>
+
+          {/*
+            Only while the pill is a button. With search on it is a field, and a
+            field's treatment is not a choice — an input has to look like
+            somewhere you can type.
+          */}
+          {!agencySearch ? (
+            <>
+              <Segmented
+                label="Ask AI button"
+                options={AI_BUTTON_STYLES}
+                value={aiButtonStyle}
+                onChange={(v: AiButtonStyle) => setAiButtonStyle(v)}
+                format={(v) => AI_BUTTON_STYLE_LABELS[v]}
+              />
+              <Note>
+                {aiButtonStyle === "gradient"
+                  ? "The tinted purple fill the AI dock and the composer wear — the loudest control in the nav's foot, which is either the point or the problem."
+                  : "No fill, and the same hairline the search field wears. Same orb, same label, same geometry — it just stops claiming to be the most important thing down there."}
+              </Note>
+            </>
+          ) : null}
 
           <Segmented
             label="Get the app"

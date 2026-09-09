@@ -33,9 +33,18 @@ interface AccountRailProps {
    * The rail belongs to a member of these accounts, not to the agency above
    * them.
    *
-   * Drops the two parts that only mean something from above: the agency plate,
-   * because there is no agency scope to switch into, and "All accounts",
-   * because the rail is already the whole set rather than a slice of it.
+   * Drops the one part that only means something from above: the agency plate,
+   * because there is no agency scope to switch into.
+   *
+   * It used to drop the directory door as well, on the reasoning that "the rail
+   * is already the whole set rather than a slice of it". That held for the
+   * two-businesses case it was written for and fails for the one it now has to
+   * serve: a franchise owner or multi-location operator holding ten to fifteen
+   * accounts has a rail that is a working set like anyone else's, and without a
+   * door every account they had not pinned was unreachable — not hidden behind
+   * an extra click, but absent from the product. The door stays; what changes
+   * is what it opens onto, which is their fourteen and not the agency's
+   * seventeen. See `scopeToMember` in use-accounts.
    */
   membersOnly?: boolean;
   theme: SurfaceTheme;
@@ -232,11 +241,21 @@ export function AccountRail({
    * One button, two possible homes — so it is built once and placed by the
    * axis. Inlining it in both branches is how the two copies drift.
    */
+  /*
+   * "My accounts" for a member, "All accounts" for the agency.
+   *
+   * The same door onto two different sets, and the cheapest honest way to say
+   * so. "All accounts" over a list of fourteen, when seventeen exist and the
+   * agency's identical panel shows all of them, is the label quietly making a
+   * claim the panel cannot keep.
+   */
+  const directoryLabel = membersOnly ? "My accounts" : "All accounts";
+
   const directoryButton = (
-      <Tooltipped label="All accounts" show={!expanded}>
+      <Tooltipped label={directoryLabel} show={!expanded}>
         <button
           type="button"
-          aria-label="All accounts"
+          aria-label={directoryLabel}
           aria-haspopup="dialog"
           aria-expanded={switcherOpen}
           onClick={onToggleSwitcher}
@@ -285,7 +304,7 @@ export function AccountRail({
           </span>
           {expanded ? (
             <span className="truncate text-[12.5px] leading-none font-medium">
-              All accounts
+              {directoryLabel}
             </span>
           ) : null}
         </button>
@@ -495,7 +514,7 @@ export function AccountRail({
               Bulk actions button — had to be lifted into the rail and passed
               back down. The rail owns the frame; the panel owns its chrome.
             */}
-            <RailDirectory session={session} onClose={onCloseSwitcher} />
+            <RailDirectory session={session} membersOnly={membersOnly} onClose={onCloseSwitcher} />
           </div>
         ) : (
           <>
@@ -585,25 +604,31 @@ export function AccountRail({
             {hoisted ? (
               <div
                 className={cn(
+                  "flex w-full shrink-0 flex-col gap-[4px]",
                   /*
-                    -3 against the nav's own 7px gap, landing on 4.
+                    Two different things to line up with, so two numbers.
 
-                    The cluster's rows are 4px apart, so anything larger between
-                    the plate and its first row makes the waffle read as a band
-                    of its own rather than as the top of one run. The plate is
-                    what it is anchored to; it should look anchored.
+                    Under the agency the cluster hangs off the plate: -3 against
+                    the nav's own 7px gap, landing on 4. The cluster's rows are
+                    4px apart, so anything larger between the plate and its first
+                    row makes the waffle read as a band of its own rather than as
+                    the top of one run. The plate is what it is anchored to; it
+                    should look anchored.
+
+                    A member has no plate, so the door becomes the first thing in
+                    the strip and the thing across from it is the nav's own
+                    identity row — the logo, the account name, the collapse
+                    control. +2 puts the door's centre on y=28, which is where
+                    that row's name and its collapse button already sit. Left at
+                    -3 it rode 5px high, close enough to read as a mistake rather
+                    than as a choice.
                   */
-                  "-mt-[3px] flex w-full shrink-0 flex-col gap-[4px]",
+                  membersOnly ? "mt-[2px]" : "-mt-[3px]",
                   "transition-[padding] duration-[var(--rail-dur,var(--dur-slow))] ease-[var(--ease-out)]",
                   expanded ? "px-[6px]" : "pr-[10px] pl-[14px]",
                 )}
               >
-                {/*
-                  Absent for a member, and meaningfully so: their rail IS every
-                  account they can reach, so a door to "all accounts" would open
-                  onto the same list they are already looking at.
-                */}
-                {membersOnly ? null : directoryButton}
+                {directoryButton}
                 {activeAccount ? (
                   <RailRow
                     label={activeAccount.name}

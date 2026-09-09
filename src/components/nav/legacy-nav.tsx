@@ -7,6 +7,7 @@ import {
   Bot,
   Box,
   Calendar,
+  Check,
   ChevronsUpDown,
   Contact,
   GitFork,
@@ -22,6 +23,7 @@ import {
   MessageSquare,
   MousePointerClick,
   Monitor,
+  MoreHorizontal,
   Package,
   Moon,
   Receipt,
@@ -281,6 +283,198 @@ export function LegacyNav({
  * Which also removes the last thing implying this nav can be restructured.
  */
 function LegacyEditFoot() {
+  const { legacyFootControl } = useTheme();
+  return legacyFootControl === "menu" ? <LegacyMenuFoot /> : <LegacyPillFoot />;
+}
+
+/**
+ * One always-visible ⋯, and a card behind it.
+ *
+ * The pills below are discovered by sweeping the one part of this nav nobody
+ * looks at, and the theme switch is the control a reviewer most often came for
+ * — so the affordance is standing, and what it opens says what it holds.
+ *
+ * Modelled on the proposal's edit card, deliberately NOT called an edit card:
+ * there is nothing here to edit. It is two settings and an exit, which is what
+ * "Appearance" plus a ruled-off row says and what a mode would have lied about.
+ */
+function LegacyMenuFoot() {
+  const { legacyNavTheme, setLegacyNavTheme } = useTheme();
+  const [open, setOpen] = React.useState(false);
+  const [switching, setSwitching] = React.useState(false);
+  /**
+   * The theme as it was when the card opened.
+   *
+   * State, not a ref: the button's own label reads it — "Save" while there is
+   * something to keep, "Done" when there is not — and a value read during
+   * render is a value that has to be able to trigger one.
+   *
+   * Picking a theme applies it at once — it is the one control where seeing the
+   * answer IS the answer — so Save cannot be what commits. What it commits is
+   * the decision to keep it: dismissing the card without saving puts back
+   * whatever was on screen before it opened, which is the only reading that
+   * makes the button mean anything.
+   */
+  const [baseline, setBaseline] = React.useState(legacyNavTheme);
+
+  const close = (keep: boolean) => {
+    if (!keep) setLegacyNavTheme(baseline);
+    setOpen(false);
+  };
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      // Escape is "never mind", which here is the reverting answer.
+      setLegacyNavTheme(baseline);
+      setOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [open, baseline, setLegacyNavTheme]);
+
+  return (
+    <div className="relative flex shrink-0 items-center justify-end px-[12px] pb-[12px]">
+      {/* Click-away, which reverts — same answer as Escape. */}
+      {open ? (
+        <button
+          type="button"
+          aria-label="Close appearance"
+          tabIndex={-1}
+          onClick={() => close(false)}
+          className="fixed inset-0 z-10 cursor-default"
+        />
+      ) : null}
+
+      <button
+        type="button"
+        aria-label="Appearance and navigation"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => {
+          // Snapshot on the way in: it is what dismissing the card puts back.
+          setBaseline(legacyNavTheme);
+          setOpen(true);
+        }}
+        className={cn(
+          "relative z-20 flex size-[26px] shrink-0 items-center justify-center rounded-full",
+          "bg-nav text-nav-fg shadow-[0_2px_8px_0_var(--fly-shadow),inset_0_0_0_1px_var(--nav-divider)]",
+          "transition-[background-color,transform] duration-[var(--dur-fast)] ease-[var(--ease-out)]",
+          "hover:bg-nav-hover active:scale-95",
+          open && "bg-nav-hover",
+        )}
+      >
+        <MoreHorizontal size={14} aria-hidden="true" />
+      </button>
+
+      {open ? (
+        <div
+          role="dialog"
+          aria-label="Appearance"
+          className="motion-menu-in absolute right-[12px] bottom-[44px] z-20 flex w-[224px] flex-col gap-[6px] rounded-[10px] bg-nav p-[8px] shadow-[0_4px_12px_0_var(--fly-shadow),inset_0_0_0_1px_var(--nav-border,var(--nav-divider))]"
+        >
+          <span className="px-[3px] pt-[1px] text-[11.5px] leading-[15px] font-semibold text-nav-fg">
+            Appearance
+          </span>
+
+          {/*
+            Two rows and a tick, not a toggle.
+
+            A switch labelled "Dark" states one of the two states and leaves the
+            reader to infer the other; two named rows with the current one
+            ticked say both, and read the same way as every other choice in this
+            prototype's menus.
+          */}
+          {(
+            [
+              { id: "light", label: "Light", icon: Sun },
+              { id: "dark", label: "Dark", icon: Moon },
+            ] as const
+          ).map((choice) => (
+            <button
+              key={choice.id}
+              type="button"
+              role="menuitemradio"
+              aria-checked={legacyNavTheme === choice.id}
+              onClick={() => setLegacyNavTheme(choice.id)}
+              className={cn(
+                "flex w-full items-center gap-[8px] rounded-[7px] px-[7px] py-[6px] text-left",
+                "transition-colors duration-[var(--dur-fast)] hover:bg-nav-hover",
+                legacyNavTheme === choice.id && "bg-nav-hover",
+              )}
+            >
+              <choice.icon
+                size={14}
+                aria-hidden="true"
+                className="shrink-0 text-nav-fg-subtle"
+              />
+              <span className="min-w-0 flex-1 truncate text-[12.5px] leading-[17px] text-nav-fg">
+                {choice.label}
+              </span>
+              {legacyNavTheme === choice.id ? (
+                <Check
+                  size={13}
+                  aria-hidden="true"
+                  className="shrink-0 text-nav-fg"
+                />
+              ) : null}
+            </button>
+          ))}
+
+          <span aria-hidden="true" className="h-px w-full bg-nav-divider" />
+
+          {/*
+            No Save on this one, and it is not an appearance choice — hence the
+            rule above it. It keeps its confirmation, though: the whole
+            workspace rearranges, top bar included, and that is worth a sentence
+            before it happens rather than an undo afterwards.
+          */}
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              setSwitching(true);
+            }}
+            className="flex w-full items-center gap-[8px] rounded-[7px] px-[7px] py-[6px] text-left transition-colors duration-[var(--dur-fast)] hover:bg-nav-hover"
+          >
+            <PanelsTopLeft
+              size={14}
+              aria-hidden="true"
+              className="shrink-0 text-nav-fg-subtle"
+            />
+            <span className="min-w-0 flex-1 truncate text-[12.5px] leading-[17px] text-nav-fg">
+              Try the new navigation
+            </span>
+          </button>
+
+          <div className="flex items-center justify-end pt-[2px]">
+            <button
+              type="button"
+              onClick={() => close(true)}
+              className="flex h-[26px] items-center gap-[5px] rounded-[7px] bg-nav-fg px-[10px] text-[12px] leading-none font-medium text-nav transition-[opacity,transform] duration-[var(--dur-fast)] hover:opacity-90 active:scale-[0.98]"
+            >
+              <Check size={12} aria-hidden="true" />
+              {/* "Save" while it would keep a change, "Done" when there is
+                  nothing to keep — the same honesty the proposal's card uses. */}
+              {legacyNavTheme === baseline ? "Done" : "Save"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {switching ? (
+        <NavGenerationModal onClose={() => setSwitching(false)} />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The pair of grow-on-hover pills this shipped with, kept as the control group.
+ */
+function LegacyPillFoot() {
   const { legacyNavTheme, setLegacyNavTheme } = useTheme();
   const [switching, setSwitching] = React.useState(false);
 

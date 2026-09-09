@@ -823,6 +823,11 @@ export function EntryPill({
   tone?: "nav" | "header";
 }) {
   const header = tone === "header";
+  // The hook runs unconditionally; only the ANSWER is conditional. Reading it
+  // inside the `&&` made it a conditional hook call.
+  const { aiButtonStyle } = useTheme().effective;
+  // Only consulted where the pill is a button — see AI_BUTTON_STYLES.
+  const outlined = !searchEnabled && aiButtonStyle === "outline";
   return (
     // Relative, so the edit control has something to hang off. `w-full` keeps it
     // the same flex child the pill used to be in both arrangements.
@@ -872,6 +877,7 @@ export function EntryPill({
             no geometry — only the fill.
           */
           !searchEnabled &&
+            !outlined &&
             /*
               Fill only, no ring.
 
@@ -884,6 +890,23 @@ export function EntryPill({
               boundary stated twice.
             */
             "bg-[linear-gradient(135deg,var(--ai-btn-from),var(--ai-btn-to))] hover:brightness-[0.97] active:scale-[0.98] motion-press",
+          outlined &&
+            /*
+              The other way round: the field's edge, and no fill.
+
+              Deliberately the SAME hairline the search field wears rather than
+              a quieter one of its own — the point of the option is that the
+              assistant's entrance can be as plain as any other control on the
+              surface, and inventing a third border weight would be answering a
+              question nobody asked. Hover fills faintly, so the target still
+              acknowledges the pointer without the resting state shouting.
+            */
+            cn(
+              "bg-transparent active:scale-[0.98] motion-press",
+              header
+                ? "shadow-[inset_0_0_0_1px_var(--hdr-entry-border)] hover:bg-hdr-chip"
+                : "shadow-[inset_0_0_0_1px_var(--nav-divider)] hover:bg-nav-hover",
+            ),
           searchEnabled &&
             (header
               ? // Its own token, not the bar's hairline: see --hdr-entry-border.

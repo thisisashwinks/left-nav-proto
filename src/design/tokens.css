@@ -442,10 +442,19 @@
    * is a whisper meant to sit under 13px of text on a white panel, and a button
    * has to look pressable from across the bar.
    */
-  --ai-btn-from: #f3ddff;
+  /*
+   * Both stops on the purple's own hue, or just inside it.
+   *
+   * The second stop used to rotate +34, the same direction the AI mark's ring
+   * takes — which is right for a ring whose colours flow around a donut and
+   * wrong for a 32px pill, where 34 degrees of hue is not a gradient with a
+   * warm end, it is a pink button. Rotating the other way keeps the pair inside
+   * violet: whichever end the eye lands on, the answer is purple.
+   */
+  --ai-btn-from: #f1e2ff;
   --ai-btn-from: oklch(from var(--ai-base) 0.93 calc(c * 0.42) h);
-  --ai-btn-to: #ffe4fb;
-  --ai-btn-to: oklch(from var(--ai-base) 0.95 calc(c * 0.34) calc(h + 34));
+  --ai-btn-to: #eee7ff;
+  --ai-btn-to: oklch(from var(--ai-base) 0.96 calc(c * 0.30) calc(h - 10));
   --ai-btn-fg: #7e22ce;
   --ai-btn-fg: var(--ai-base-strong);
 }

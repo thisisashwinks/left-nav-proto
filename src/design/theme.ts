@@ -381,6 +381,78 @@ export const GET_APP_PLACEMENT_LABELS: Record<GetAppPlacement, string> = {
 export const AGENCY_SEARCH_DEFAULT = false;
 
 /**
+ * How the Ask AI button is drawn once it is a button rather than a field.
+ *
+ *  gradient  The tinted purple fill the AI dock and the composer wear — this
+ *            app's standing answer to "this is the assistant, and it is a thing
+ *            you press". It is also the loudest control in the nav's foot.
+ *  outline   No fill at all, and the hairline the search field wears. The pill
+ *            keeps its geometry, its orb and its label; what it gives up is the
+ *            claim to be the most important thing on the surface. Worth looking
+ *            at precisely because the agency nav has no corpus to search, so
+ *            this control is alone down there and does not have to compete.
+ *
+ * Only read where the pill IS a button — agency scope with search off. With
+ * search on, the field's own treatment is not a choice: an input has to look
+ * like somewhere you can type.
+ */
+/**
+ * How the old nav's own two controls are reached.
+ *
+ *  menu   One always-visible ⋯ button, opening a small card: the theme choice
+ *         with a Save, and the way back to the new nav. The default. Two pills
+ *         that appear on hover are two things a reviewer has to discover by
+ *         sweeping the nav's foot, and the theme switch is the control they
+ *         most often came for — an always-visible affordance is the difference
+ *         between a comparison someone can run and one they have to be shown.
+ *  pills  The pair of grow-on-hover pills this shipped with, kept as the
+ *         control group: it is the arrangement the new nav's foot uses, so it
+ *         is the one that makes the two navs comparable on their chrome.
+ *
+ * Old nav only. The new nav's foot is the thing being reviewed and is not
+ * touched by this.
+ */
+/**
+ * How the product directory opens a level.
+ *
+ *  flyout  Cascading panels off the directory's edge — L1's products in one,
+ *          an L2's pages in the next. The default, and the same three-level
+ *          pattern the nav's own flyouts use, so the directory teaches nothing
+ *          new: what you learn walking the nav is what walking the catalogue
+ *          costs.
+ *  inline  Accordion in place: the level opens under its parent, indented. The
+ *          whole path stays visible at once, which is the argument for it — and
+ *          it pushes everything below the open row down the panel, which is the
+ *          argument against.
+ */
+export const DIRECTORY_DISCLOSURES = ["flyout", "inline"] as const;
+
+export type DirectoryDisclosure = (typeof DIRECTORY_DISCLOSURES)[number];
+
+export const DIRECTORY_DISCLOSURE_LABELS: Record<DirectoryDisclosure, string> = {
+  flyout: "Flyout",
+  inline: "Inline",
+};
+
+export const LEGACY_FOOT_CONTROLS = ["menu", "pills"] as const;
+
+export type LegacyFootControl = (typeof LEGACY_FOOT_CONTROLS)[number];
+
+export const LEGACY_FOOT_CONTROL_LABELS: Record<LegacyFootControl, string> = {
+  menu: "More menu",
+  pills: "Hover pills",
+};
+
+export const AI_BUTTON_STYLES = ["gradient", "outline"] as const;
+
+export type AiButtonStyle = (typeof AI_BUTTON_STYLES)[number];
+
+export const AI_BUTTON_STYLE_LABELS: Record<AiButtonStyle, string> = {
+  gradient: "Purple fill",
+  outline: "Outline",
+};
+
+/**
  * Where search and Ask AI live.
  *
  * `split` is today's arrangement: the merged pill holds the nav's bottom edge.
@@ -1084,6 +1156,12 @@ export interface ThemeState {
   navSwitchInEditCard: boolean;
   /** What colour a set pin wears. See PIN_MARK_COLOURS. */
   pinMarkColour: PinMarkColour;
+  /** How the Ask AI button is drawn when it is not a field. See AI_BUTTON_STYLES. */
+  aiButtonStyle: AiButtonStyle;
+  /** How the old nav's own controls are reached. See LEGACY_FOOT_CONTROLS. */
+  legacyFootControl: LegacyFootControl;
+  /** How the product directory opens a level. See DIRECTORY_DISCLOSURES. */
+  directoryDisclosure: DirectoryDisclosure;
   /** What the merged panel's history section is headed. See PANEL_RECENT_HEADINGS. */
   panelRecentHeading: PanelRecentHeading;
   /** Which palette the Conversations inbox uses. See INBOX_PALETTES. */
@@ -1103,16 +1181,17 @@ export interface ThemeState {
   /** Which colour control the edit card carries. See NAV_COLOUR_CONTROLS. */
   navColourControl: NavColourControl;
   /**
-   * A standing L1 row that opens the product directory.
+   * The product directory as a place of its own, reached from a standing row.
    *
-   * The directory already has a door: "View all", on the merged block, which is
-   * where you are already looking when you want more of the list. This adds a
-   * second one at the nav's foot for anyone who wants the whole catalogue
-   * reachable without going through a block that can be switched off.
+   * This started as a second door to one panel, and two doors to one place was
+   * the cost it was weighed against. On (Sep 9) it is no longer one place: the
+   * panel splits along the seam that was already there. "View all" keeps what
+   * you kept and where you have been; the directory keeps the catalogue,
+   * walkable as L1 ▸ L2 ▸ L3 rather than listed flat, which is what makes it
+   * answer "where does this live" instead of only "is it here".
    *
-   * Off by default, and deliberately. Two doors to one panel is a cost paid in
-   * nav height and in the question "are these the same thing" — worth offering,
-   * not worth assuming.
+   * Off, the two halves live in one panel and the catalogue sits under Recent —
+   * the arrangement this is being compared against.
    */
   productDirectoryRow: boolean;
   /**
@@ -1332,6 +1411,13 @@ export const DEFAULT_THEME: ThemeState = {
   // "Recently visited": names the section by what put a row in it — you went
   // there — rather than repeating the panel's own title one line above.
   pinMarkColour: "grey",
+  // The fill, which is what ships. Outline is one click away.
+  aiButtonStyle: "gradient",
+  // The card, per the Sep 9 direction: the old nav's two controls should not
+  // have to be found by hovering the one part of it nobody looks at.
+  legacyFootControl: "menu",
+  // Cascading panels: the pattern the nav already taught.
+  directoryDisclosure: "flyout",
   panelRecentHeading: "visited",
   inboxPalette: "product",
   layoutReplaceDialog: "simple",
@@ -1341,7 +1427,8 @@ export const DEFAULT_THEME: ThemeState = {
   userMultiAccount: true,
   navColourControl: "toggle",
   // Off: "View all" is the door. This is the alternative, not the default.
-  productDirectoryRow: false,
+  // On: the directory is its own place, and All products is a tree there.
+  productDirectoryRow: true,
   // On, for the same reason: the comparison should be one menu away.
   layoutSwitchInEditCard: true,
   // Production's own default, and the state both source screenshots were in.
