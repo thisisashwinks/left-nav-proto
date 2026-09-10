@@ -187,7 +187,17 @@ export function CollapsedRail({
    * own to differ with.
    */
   const merged = recentsMode === "merged" && !agencyScope;
-  const mergedDropsRailPins = merged && mergedPinScope !== "both";
+  /*
+   * The capsule's hole follows the capsule, at BOTH scopes.
+   *
+   * `merged` above is scope-limited because the rail draws no merged LIST for
+   * the agency — its rows are buckets, not history. Whether the floating
+   * capsule exists is a different question with a different answer: the shell
+   * withdraws it in merged mode at either scope now, so a rail still reserving
+   * its space would hold a gap open for something nobody is drawing.
+   */
+  const mergedDropsRailPins =
+    recentsMode === "merged" && mergedPinScope !== "both";
 
 
   const topEntry = entryLayout === "top";

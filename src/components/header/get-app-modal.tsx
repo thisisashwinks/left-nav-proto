@@ -30,9 +30,17 @@ export type AppKind = "mobile" | "desktop";
  * here: "Mobile app" alone reads like a place in the product, which is exactly
  * what the row it replaced in the nav used to be.
  */
+/**
+ * The short names, for the surfaces where one row is the whole offer.
+ *
+ * Sentence case, which is the house rule and which title case was quietly
+ * breaking on three surfaces at once. The platform-qualified versions live in
+ * `get-app-flyout.ts`: a list of two rows can afford to say which platforms
+ * each covers, and an avatar menu cannot.
+ */
 export const GET_APP_LABELS: Record<AppKind, string> = {
-  mobile: "Get Mobile App",
-  desktop: "Get Desktop App",
+  mobile: "Get mobile app",
+  desktop: "Get desktop app",
 };
 
 /*

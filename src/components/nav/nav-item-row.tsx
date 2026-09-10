@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { EditAffordance, InlineRename } from "./inline-rename";
 import type { RowMenuAction } from "./row-menu";
 import type { NavItem } from "./types";
+import { HereBar, useHereStyle, type Marking } from "./here";
 
 /**
  * What editing this row offers. Absent when the role has no permission to rename
@@ -136,6 +137,11 @@ interface NavItemRowProps {
    * it is not editable, not inert.
    */
   locked?: boolean;
+  /**
+   * Whether this row is the page you are on, a step on the way to it, or
+   * neither. Null unless the selected-state axis is on — see SELECTED_STATES.
+   */
+  marking?: Marking;
 }
 
 /**
@@ -166,8 +172,10 @@ export function NavItemRow({
   onHover,
   edit,
   locked = false,
+  marking = null,
 }: NavItemRowProps) {
   const compact = item.density === "compact";
+  const mark = useHereStyle(marking);
 
   const rowClass = cn(
     "flex w-full shrink-0 items-center text-left",
@@ -225,6 +233,7 @@ export function NavItemRow({
          * state this is.
          */
         off && "opacity-40",
+        mark.ink,
       )}
     >
       {item.label}
@@ -270,7 +279,17 @@ export function NavItemRow({
   ) : null;
 
   if (!edit) {
+    /*
+      Wrapped so the bar has something to hang off.
+
+      The bar is absolute and the row is a `<button>`; a span inside the button
+      would sit in its padding box and move with the label. The wrapper adds no
+      box of its own — `contents` — so the row's own layout is untouched when
+      the axis is off, which it is by default.
+    */
     return (
+      <span className={cn(marking ? "relative block w-full" : "contents")}>
+      {mark.bar ? <HereBar marking={marking} /> : null}
       <button
         type="button"
         aria-current={active ? "page" : undefined}
@@ -281,6 +300,9 @@ export function NavItemRow({
           rowClass,
           "group",
           active ? "bg-nav-hover" : "hover:bg-nav-hover active:bg-nav-active",
+          // After the panel fill, so a marked row wins the ground it shares
+          // with one. The bar treatment contributes nothing here.
+          mark.row,
           "active:scale-[0.99] motion-press",
           // `data-cursor="menu"` on the band forces `cursor: pointer` on every
           // descendant, so this has to be on the row itself to win.
@@ -291,6 +313,7 @@ export function NavItemRow({
         {label}
         {chevron}
       </button>
+      </span>
     );
   }
 

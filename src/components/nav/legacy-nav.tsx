@@ -284,6 +284,16 @@ export function LegacyNav({
  */
 function LegacyEditFoot() {
   const { legacyFootControl } = useTheme();
+  /*
+   * Nothing at all, by default.
+   *
+   * Both controls behind this foot are the prototype's, not the product's:
+   * production's sidebar has no theme switch and no door to a nav that does not
+   * exist yet. Drawing them makes the control group a slightly different thing
+   * from the one being controlled for — so the comparison is driven from the
+   * panel instead, and the transcription stays a transcription.
+   */
+  if (legacyFootControl === "off") return null;
   return legacyFootControl === "menu" ? <LegacyMenuFoot /> : <LegacyPillFoot />;
 }
 

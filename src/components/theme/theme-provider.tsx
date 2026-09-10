@@ -9,6 +9,8 @@ import {
   type EntryLayout,
   type GetAppPlacement,
   type FlyoutTrigger,
+  type SelectedState,
+  type SelectedMark,
   type L3Disclosure,
   type L2ClickAction,
   type RecentsMode,
@@ -115,6 +117,8 @@ interface ThemeContextValue extends ThemeState {
   setGetAppPlacement: (placement: GetAppPlacement) => void;
   setAgencySearch: (enabled: boolean) => void;
   setFlyoutTrigger: (trigger: FlyoutTrigger) => void;
+  setSelectedState: (state: SelectedState) => void;
+  setSelectedMark: (mark: SelectedMark) => void;
   setL3Disclosure: (disclosure: L3Disclosure) => void;
   setL2ClickAction: (action: L2ClickAction) => void;
   setRecentsMode: (mode: RecentsMode) => void;
@@ -149,6 +153,7 @@ interface ThemeContextValue extends ThemeState {
   setPinMarkColour: (colour: PinMarkColour) => void;
   setAiButtonStyle: (style: AiButtonStyle) => void;
   setLegacyFootControl: (control: LegacyFootControl) => void;
+  setNavSwitchButton: (enabled: boolean) => void;
   setDirectoryDisclosure: (mode: DirectoryDisclosure) => void;
   setRailTileShape: (shape: RailTileShape) => void;
   setRailRecents: (mode: RailRecents) => void;
@@ -270,6 +275,10 @@ export function ThemeProvider({
       setAgencySearch: (agencySearch) =>
         setState((s) => ({ ...s, agencySearch })),
       setFlyoutTrigger: (flyoutTrigger) => setState((s) => ({ ...s, flyoutTrigger })),
+      setSelectedState: (selectedState) =>
+        setState((s) => ({ ...s, selectedState })),
+      setSelectedMark: (selectedMark) =>
+        setState((s) => ({ ...s, selectedMark })),
       setL3Disclosure: (l3Disclosure) =>
         setState((s) => ({ ...s, l3Disclosure })),
       setL2ClickAction: (l2ClickAction) =>
@@ -333,6 +342,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, aiButtonStyle })),
       setLegacyFootControl: (legacyFootControl) =>
         setState((s) => ({ ...s, legacyFootControl })),
+      setNavSwitchButton: (navSwitchButton) =>
+        setState((s) => ({ ...s, navSwitchButton })),
       setDirectoryDisclosure: (directoryDisclosure) =>
         setState((s) => ({ ...s, directoryDisclosure })),
       setRailTileShape: (railTileShape) =>

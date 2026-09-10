@@ -83,6 +83,7 @@ import { PROPOSED_HOME_ID } from "./proposed-ia";
 import { NavDivider } from "./nav-divider";
 import { NavHeader } from "./nav-header";
 import { NavItemRow, type NavRowDrag, type NavRowEdit } from "./nav-item-row";
+import { useHere, type Marking } from "./here";
 import { useNavRowEdit } from "./use-nav-row-edit";
 import type { NavDensity } from "./use-nav-density";
 import { NavSectionLabel } from "./nav-section-label";
@@ -1177,9 +1178,19 @@ export function LeftNav({
    */
   const roleMayEdit =
     layoutPermissionsFor(state.role).customise && swap === "idle";
-  const planLock = layout.editBlock;
+  /*
+   * The plan's answer, which is now three-valued — see EditAccess.
+   *
+   * `hidden` is the case this replaced a bare `editBlock` for: a sub-account
+   * admin under any refusal gets no control at all, where the agency gets the
+   * control with a lock on it. Reading the block directly could only express
+   * "locked", so a client on $97 was being shown a lock and a price for a
+   * subscription that is not theirs and that they cannot change.
+   */
+  const access = layout.editAccess;
+  const planLock = access.kind === "locked" ? access.block : null;
   const editNav: EditNavProps | undefined =
-    roleMayEdit
+    roleMayEdit && access.kind !== "hidden"
       ? {
           ...(planLock ? { planLock } : {}),
           editing,
@@ -1525,6 +1536,22 @@ export function LeftNav({
     };
   };
 
+  /*
+   * Read once here rather than per row: `useMarking` is a hook and rows are
+   * rendered in a loop, so each of them calling it would be a hook in a loop.
+   */
+  const here = useHere();
+  const { selectedState } = useTheme().effective;
+  const markFor = React.useCallback(
+    (isHere: boolean, isTrail: boolean): Marking => {
+      if (selectedState === "off") return null;
+      if (isHere) return "here";
+      if (selectedState === "trail" && isTrail) return "trail";
+      return null;
+    },
+    [selectedState],
+  );
+
   const renderRow = (item: NavItem) => {
     const flyoutId = flyoutIdFor(item);
     // Inline edit is for the catalogue's rows; the agency config has no
@@ -1560,10 +1587,30 @@ export function LeftNav({
      */
     const agencyIndex =
       editing && agencyScope ? agencyLayout.indexOf(item.id) : -1;
+    /*
+      Whether this row leads to the page the canvas is showing.
+
+      A category is on the trail when the current product is filed in it; a
+      product is the page itself when nothing deeper is open, and on the trail
+      when one of its own children is. `useMarking` decides what to do with
+      that — nothing at all unless the axis is on.
+    */
+    const isHere =
+      here.productId !== null &&
+      item.id === here.productId &&
+      here.childId === null;
+    const isTrail =
+      here.productId !== null &&
+      (item.id === here.productId ||
+        (groups.find((g) => g.id === item.id)?.productIds ?? []).includes(
+          here.productId,
+        ));
+
     const row = (
       <NavItemRow
         key={item.id}
         item={item}
+        marking={markFor(isHere, isTrail)}
         /*
          * A row that opens a panel is lit by its PANEL, not by having been
          * clicked.

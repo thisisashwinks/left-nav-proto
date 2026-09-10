@@ -132,19 +132,38 @@ export function useFlyoutIntent(
   }, [hoveredId, cancelPending]);
 
   /**
-   * Click a trigger to pin it; click the same one again to close.
+   * How the open panel got there: a click, or a hover that moved it.
    *
-   * Both halves of the state have to move together. Unpinning alone left
-   * `hoveredId` set — and `activeId` prefers hover — so a second click on an open
-   * trigger dropped the pin and changed nothing on screen. Reading `pinnedId`
-   * here rather than inside an updater keeps the two decisions the same decision;
-   * this is an event handler, so reading state directly is safe, and `pinnedId`
-   * is in the deps so it never goes stale.
+   * A ref rather than state — nothing renders differently because of it, and it
+   * has to be readable inside the handler that is deciding what a click means.
+   */
+  const pinnedBy = React.useRef<"click" | "hover">("click");
+
+  /**
+   * Click a trigger to pin it; click the SAME one again to close.
+   *
+   * "The same one" means the one you clicked, not merely the one showing. In
+   * sticky mode the panel follows the pointer, so by the time you click, the
+   * row under it is usually already pinned — by the hover that brought the
+   * panel there, not by you. Treating that as a second click closed the panel
+   * on the first press, which reads as the nav refusing a click nobody could
+   * see was redundant: the contents had changed under the pointer and the
+   * reader had no way to know the row was "already open".
+   *
+   * So a hover-established pin is a preview, and the first click confirms it.
+   * Only a pin you clicked can be closed by clicking it again.
+   *
+   * Both halves of the state move together either way. Unpinning alone left
+   * `hoveredId` set — and `activeId` prefers hover — so the close changed
+   * nothing on screen. Reading `pinnedId` here rather than inside an updater
+   * keeps the two decisions the same decision; this is an event handler, so
+   * reading state directly is safe, and `pinnedId` is in the deps.
    */
   const togglePin = React.useCallback(
     (id: string) => {
       cancelClear();
-      const closing = pinnedId === id;
+      const closing = pinnedId === id && pinnedBy.current === "click";
+      pinnedBy.current = "click";
       setPinnedId(closing ? null : id);
       setHoveredId(closing ? null : id);
     },
@@ -162,6 +181,9 @@ export function useFlyoutIntent(
   const movePin = React.useCallback(
     (id: string) => {
       deferSwitch(id, () => {
+        // Marked as the pointer's doing, so the next click on this row
+        // confirms the panel rather than closing it — see `togglePin`.
+        pinnedBy.current = "hover";
         setPinnedId(id);
         setHoveredId(id);
       });
@@ -171,6 +193,7 @@ export function useFlyoutIntent(
 
   const close = React.useCallback(() => {
     cancelClear();
+    pinnedBy.current = "click";
     setPinnedId(null);
     setHoveredId(null);
   }, [cancelClear]);

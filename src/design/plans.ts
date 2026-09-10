@@ -115,6 +115,127 @@ export const SUB_ACCOUNT_CAP: Record<AgencyPlan, number> = {
   elite: Number.POSITIVE_INFINITY,
 };
 
+/**
+ * What the pricing modal shows, per tier.
+ *
+ * Here rather than in the component for the reason the rest of this file is
+ * here: a price is a fact about the plan, and the modal is one of several
+ * places that has to agree with the ladder. The numbers are HighLevel's own —
+ * $97/$297/$497 monthly, and the annual price is roughly two months free, which
+ * is what lets the card show a struck monthly rate beside the discounted one.
+ */
+export const AGENCY_PLAN_MONTHLY: Record<AgencyPlan, number> = {
+  starter: 97,
+  pro: 297,
+  elite: 497,
+};
+
+export const AGENCY_PLAN_ANNUAL: Record<AgencyPlan, number> = {
+  starter: 970,
+  pro: 2970,
+  elite: 4970,
+};
+
+/** The per-month figure an annual payer actually lands on. */
+export function monthlyOnAnnual(plan: AgencyPlan): number {
+  return Math.round(AGENCY_PLAN_ANNUAL[plan] / 12);
+}
+
+/** What paying up front saves over a year, for the monthly card's nudge. */
+export function annualSaving(plan: AgencyPlan): number {
+  return AGENCY_PLAN_MONTHLY[plan] * 12 - AGENCY_PLAN_ANNUAL[plan];
+}
+
+/**
+ * The three headline limits every card states, in the same order.
+ *
+ * Same three rows on every tier, so the eye compares across the cards rather
+ * than reading each one — which is the only reason a three-column sheet beats
+ * three paragraphs.
+ */
+export interface PlanSpec {
+  users: string;
+  accounts: string;
+  saas: string;
+}
+
+export const AGENCY_PLAN_SPECS: Record<AgencyPlan, PlanSpec> = {
+  starter: {
+    users: "Unlimited users",
+    accounts: "Three sub-accounts",
+    saas: "No SaaS",
+  },
+  pro: {
+    users: "Unlimited users",
+    accounts: "Unlimited sub-accounts",
+    saas: "No SaaS",
+  },
+  elite: {
+    users: "Unlimited users",
+    accounts: "Unlimited sub-accounts",
+    saas: "Unlimited SaaS",
+  },
+};
+
+/**
+ * The feature list, split into what shows and what "Show more" reveals.
+ *
+ * Product names keep their own capitalisation — "Workflow Builder" is what the
+ * thing is called — while everything the sheet says ABOUT them is sentence
+ * case, as the rest of the prototype's copy is.
+ *
+ * Each tier lists only what it ADDS, which is why the second and third cards
+ * are headed "Everything in X plus…". One nav line sits in each of the top two
+ * because navigation editing is what opens this modal, and a pricing sheet that
+ * does not mention the feature you were just refused makes you go and find it.
+ */
+export interface PlanFeatures {
+  shown: readonly string[];
+  more: readonly string[];
+}
+
+export const AGENCY_PLAN_FEATURES: Record<AgencyPlan, PlanFeatures> = {
+  starter: {
+    shown: [
+      "Workflow Builder",
+      "Campaign Builder",
+      "2 way SMS",
+      "2 Way Email",
+      "App Marketplace for Agency & Sub-accounts",
+    ],
+    more: [
+      "Funnel & Website Builder",
+      "Calendars & appointments",
+      "Forms & Surveys",
+      "Reputation Management",
+      "Social Planner",
+      "Pin, reorder and personalise your own navigation",
+    ],
+  },
+  pro: {
+    shown: [
+      "Whitelabel Desktop",
+      "Chat Support",
+      "Phone Support",
+      "Partner Program",
+    ],
+    more: ["One sub-account’s navigation, customised and saved as a template"],
+  },
+  elite: {
+    shown: [
+      "SaaS Mode",
+      "SaaS Multi-brand Management",
+      "Email / Phone / Text Rebilling",
+      "Agent Reporting",
+      "Advanced API Access",
+    ],
+    more: [
+      "Every sub-account’s navigation, customised",
+      "Apply one arrangement to many clients at once",
+    ],
+  },
+};
+
 /** Rank derived from the ordered array rather than written out again. */
 const PLAN_RANK: Record<AgencyPlan, number> = Object.fromEntries(
   AGENCY_PLANS.map((tier, i) => [tier, i]),

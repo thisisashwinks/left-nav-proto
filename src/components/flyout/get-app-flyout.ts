@@ -12,14 +12,34 @@ import type { FlyoutConfig } from "./types";
  * says what it is about, and the choice of platform inside the panel it opens,
  * where a row costs nothing.
  *
- * "White-label apps", not "Get the app": at agency scope these ARE the
- * agency's apps, carrying its name and its mark, and the row is read by someone
- * deciding whether to hand them to a client rather than by someone installing
- * one for themselves.
+ * Named for what is behind it — see GET_APP_NAV_LABEL. It briefly said
+ * "White-label apps", which is the agency's word for the feature and means
+ * nothing to the sub-account user who just wants the app on their phone.
  */
 export const GET_APP_FLYOUT_ID = "white-label-apps";
 
-export const GET_APP_NAV_LABEL = "White-label apps";
+/**
+ * The L1's name: what the row leads to, not what the platform calls it.
+ *
+ * "White-label apps" named the FEATURE — an agency branding a client — which
+ * is a fact about who the apps belong to rather than about what is behind the
+ * row. A sub-account user reading it has no white label to think about and no
+ * way to guess that the two downloads they wanted are in there.
+ */
+export const GET_APP_NAV_LABEL = "Desktop and mobile apps";
+
+/**
+ * The L2 rows, with the platforms each one covers.
+ *
+ * The brackets are the answer to the question the row otherwise invites — "is
+ * my phone in there?" — asked at the moment someone is choosing between two
+ * rows. Cheap here, where there are two rows and room; not carried into the
+ * avatar menu, where the same words would be a paragraph beside a sign-out.
+ */
+export const GET_APP_ROW_LABELS: Record<"mobile" | "desktop", string> = {
+  mobile: `${GET_APP_LABELS.mobile} (iOS and Android)`,
+  desktop: `${GET_APP_LABELS.desktop} (macOS and Windows)`,
+};
 
 /** The ids the shell routes to the sheet. See app-shell's `onNavigate`. */
 export const GET_APP_ROW_IDS = {
@@ -38,7 +58,7 @@ export const getAppFlyout: FlyoutConfig = {
       kind: "item",
       item: {
         id: GET_APP_ROW_IDS.mobile,
-        label: GET_APP_LABELS.mobile,
+        label: GET_APP_ROW_LABELS.mobile,
         icon: Smartphone,
         description: "iOS and Android, under your own name.",
       },
@@ -47,7 +67,7 @@ export const getAppFlyout: FlyoutConfig = {
       kind: "item",
       item: {
         id: GET_APP_ROW_IDS.desktop,
-        label: GET_APP_LABELS.desktop,
+        label: GET_APP_ROW_LABELS.desktop,
         icon: Monitor,
         description: "macOS and Windows, in one download.",
       },

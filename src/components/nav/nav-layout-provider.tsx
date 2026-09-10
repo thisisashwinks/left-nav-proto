@@ -4,7 +4,12 @@ import * as React from "react";
 import type { LucideIcon } from "lucide-react";
 import { INITIAL_ACCOUNT_ID } from "@/components/accounts/accounts-data";
 import { navProfileFor } from "./account-nav-profiles";
-import { AGENCY_SCOPE_ID, useNavProfiles, type EditBlock } from "./nav-profiles";
+import {
+  AGENCY_SCOPE_ID,
+  useNavProfiles,
+  type EditAccess,
+  type EditBlock,
+} from "./nav-profiles";
 import { productById } from "./catalogue";
 import { tailRowsFor } from "./nav-entries";
 import {
@@ -294,6 +299,16 @@ interface NavLayoutContextValue {
    * spent the allowance, is a dead end rather than a decision.
    */
   editBlock: EditBlock | null;
+
+  /**
+   * Whether the Edit nav control appears at all, and how.
+   *
+   * `editBlock` says why the PLAN refuses; this says what the person in front
+   * of it should therefore see, which is not the same question — a client and
+   * an agency admin meeting the identical block get different answers. See
+   * EditAccess.
+   */
+  editAccess: EditAccess;
 }
 
 const NavLayoutContext = React.createContext<NavLayoutContextValue | null>(null);
@@ -1359,6 +1374,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       profileFor,
       applyToAccounts,
       editBlock: plans.editBlockFor(scopeId),
+      editAccess: plans.editAccessFor(scopeId, state.role === "agency"),
     };
   }, [
     state,

@@ -7,7 +7,8 @@ import { AccountLogo } from "@/components/accounts/account-logo";
 import { cn } from "@/lib/utils";
 
 /**
- * Agency ▸ White label apps ▸ Mobile App — production's page, transcribed.
+ * Agency ▸ Desktop and mobile apps ▸ Mobile app — production's page,
+ * transcribed.
  *
  * Static, for the same reason the desktop customizer is: the thing under review
  * is whether an agency can FIND this, and what the L2 panel above it should

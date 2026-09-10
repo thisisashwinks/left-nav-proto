@@ -35,6 +35,26 @@ import {
  * two refusals need different words and a different way out: one is a tier you
  * do not have, the other is a seat you have already spent.
  */
+/**
+ * Whether the Edit nav control appears at all, and in what state.
+ *
+ * Three states rather than two, because who is refused decides HOW they are
+ * refused. An agency admin meets a wall: the control stays, wears a lock and
+ * opens the pricing modal — they are the one who can clear it, so hiding the
+ * feature from them would be hiding the thing they might buy. A sub-account
+ * admin cannot buy anything; the agency's plan is not theirs to change. Showing
+ * them a lock would be advertising an upgrade to somebody with no way to make
+ * it and no bill to pay it from, so for them the control is simply absent.
+ *
+ *   open    the pill edits
+ *   locked  the pill wears a lock and opens the modal — agency only
+ *   hidden  no pill at all — sub-account roles under any refusal
+ */
+export type EditAccess =
+  | { kind: "open" }
+  | { kind: "locked"; block: EditBlock }
+  | { kind: "hidden" };
+
 export type EditBlock =
   | { kind: "plan"; needs: AgencyPlan }
   | { kind: "seat"; holder: string };
@@ -62,6 +82,15 @@ interface NavProfilesValue {
   releaseSeat: (accountId: string) => void;
   /** Null when this account may be edited; otherwise why not. */
   editBlockFor: (accountId: string) => EditBlock | null;
+
+  /**
+   * The whole question, answered once: does this person get the control?
+   *
+   * Takes the role because the answer is not a property of the plan alone —
+   * see EditAccess. `isAgencyRole` rather than the NavRole union so this file
+   * does not have to import the nav's own role model to ask one boolean.
+   */
+  editAccessFor: (accountId: string, isAgencyRole: boolean) => EditAccess;
 
   /** The tier this client is resold on. */
   saasTierFor: (accountId: string) => SaasTier;
@@ -121,6 +150,33 @@ export function NavProfilesProvider({
     [agencyPlan, seatHolder],
   );
 
+  const editAccessFor = React.useCallback(
+    (accountId: string, isAgencyRole: boolean): EditAccess => {
+      const block = editBlockFor(accountId);
+      // The agency is the one who can clear a block, so it is shown the block.
+      if (isAgencyRole) return block ? { kind: "locked", block } : { kind: "open" };
+      if (block !== null) return { kind: "hidden" };
+      /*
+       * One more refusal that only exists for a client, and it is the reason
+       * this cannot just read `editBlockFor`.
+       *
+       * On $297 with the seat still UNCLAIMED that function returns null — no
+       * block — because from the agency's side there is nothing stopping them:
+       * clicking Edit nav is how the seat gets claimed. A client clicking the
+       * same control would be taking the agency's single allowance for
+       * themselves, first-come-first-served, and the agency would find its one
+       * customised navigation spent on whichever tenant happened to open the
+       * nav first. So a client sees the control only once the seat is already
+       * theirs. Granting it stays the agency's move.
+       */
+      const seats = CUSTOM_NAV_SEATS[agencyPlan];
+      if (seats === Number.POSITIVE_INFINITY) return { kind: "open" };
+      if (accountId === AGENCY_SCOPE_ID) return { kind: "open" };
+      return seatHolder === accountId ? { kind: "open" } : { kind: "hidden" };
+    },
+    [agencyPlan, editBlockFor, seatHolder],
+  );
+
   const claimSeat = React.useCallback(
     (accountId: string) => {
       if (accountId === AGENCY_SCOPE_ID) return;
@@ -155,6 +211,7 @@ export function NavProfilesProvider({
       claimSeat,
       releaseSeat,
       editBlockFor,
+      editAccessFor,
       saasTierFor,
       setSaasTier,
     }),
@@ -165,6 +222,7 @@ export function NavProfilesProvider({
       claimSeat,
       releaseSeat,
       editBlockFor,
+      editAccessFor,
       saasTierFor,
       setSaasTier,
     ],

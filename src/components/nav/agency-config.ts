@@ -214,19 +214,30 @@ export const agencyBuckets: AgencyBucket[] = [
      * listings behind it.
      */
     id: "agency-white-label-apps",
-    label: "White label apps",
+    /*
+     * Named for what is behind the row, not for the feature.
+     *
+     * "White label apps" is the agency's word for what these ARE — its brand on
+     * someone else's platform — and it is the right word in a pricing page. In
+     * the nav it names a capability rather than a destination, and the row's
+     * job is to say where the two apps live.
+     */
+    label: "Desktop and mobile apps",
     icon: Smartphone,
     description: "Your own mobile and desktop apps, under your own brand.",
     children: [
+      // The platforms in brackets: the row is chosen from a list of two, and
+      // "which one has my phone in it" is the question being asked at that
+      // moment.
       child(
         "agency-app-mobile",
-        "Mobile App",
+        "Mobile app (iOS and Android)",
         Smartphone,
         "iOS and Android builds, and where they are in the queue.",
       ),
       child(
         "agency-app-desktop",
-        "Desktop App",
+        "Desktop app (macOS and Windows)",
         Monitor,
         "Theme, icon and copy for the desktop client.",
       ),

@@ -11,7 +11,8 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * Agency ▸ White label apps ▸ Desktop App — production's customizer, transcribed.
+ * Agency ▸ Desktop and mobile apps ▸ Desktop app — production's customizer,
+ * transcribed.
  *
  * Static on purpose. The proposal under review is the NAV: whether an agency
  * can find the place where it brands its desktop client, and what the L2 panel

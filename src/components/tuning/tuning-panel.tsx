@@ -31,6 +31,10 @@ import {
   L3_DISCLOSURES,
   L3_DISCLOSURE_LABELS,
   FLYOUT_TRIGGERS,
+  SELECTED_STATES,
+  SELECTED_STATE_LABELS,
+  SELECTED_MARKS,
+  SELECTED_MARK_LABELS,
   L2_CLICK_ACTIONS,
   L2_CLICK_ACTION_LABELS,
   PAGE_SHELL_LABELS,
@@ -87,6 +91,8 @@ import {
   type LegacyFootControl,
   type GetAppPlacement,
   type FlyoutTrigger,
+  type SelectedState,
+  type SelectedMark,
   type L3Disclosure,
   type L2ClickAction,
   type InboxPalette,
@@ -286,6 +292,10 @@ function NavStructureSection({
     setScopeModel,
     flyoutTrigger,
     setFlyoutTrigger,
+    selectedState,
+    setSelectedState,
+    selectedMark,
+    setSelectedMark,
     l3Disclosure,
     setL3Disclosure,
     l2ClickAction,
@@ -547,6 +557,47 @@ function NavStructureSection({
           ? "A dropdown beside the L2 panel, sized to its contents, cascading again for L4. The panel behind it never moves, so the L2 list stays where your eye left it."
           : "Dropped open underneath their parent and indented, growing the L2 panel. One surface — and a deep tree pushes everything below it a long way down."}
       </Note>
+
+      <Segmented
+        label="Marking the page you are on"
+        options={SELECTED_STATES}
+        value={selectedState}
+        onChange={(v: SelectedState) => setSelectedState(v)}
+        format={(v) => SELECTED_STATE_LABELS[v]}
+      />
+      <Note>
+        {selectedState === "off"
+          ? "As it ships: nothing marked. The nav answers “where can I go” and never “where am I” — the breadcrumb is the only thing that does."
+          : selectedState === "leaf"
+            ? "A bar and full ink on the exact row. Honest, and invisible whenever that row lives behind a shut panel."
+            : "The row, plus a shorter bar on every ancestor leading to it — so a closed nav still says where you are."}
+      </Note>
+
+      {/*
+        Only while there is a mark to shape. Two axes, deliberately: where the
+        mark goes and what it looks like are separate questions, and folding
+        them into one control would make twelve values of it.
+      */}
+      {selectedState !== "off" ? (
+        <>
+          <Segmented
+            label="Marked with"
+            options={SELECTED_MARKS}
+            value={selectedMark}
+            onChange={(v: SelectedMark) => setSelectedMark(v)}
+            format={(v) => SELECTED_MARK_LABELS[v]}
+          />
+          <Note>
+            {selectedMark === "bar"
+              ? "A 3px rule on the leading edge. Collides with no fill — and reads as chrome belonging to the nav rather than as a property of the row."
+              : selectedMark === "fill"
+                ? "A step darker than hover. Unmistakably the row, but the same KIND of signal as hover: on a row that is both, the difference is one shade."
+                : selectedMark === "tint"
+                  ? "The accent, softly, label included. Easiest to find; also spends brand on a state that is true all day."
+                  : "A hairline around the row. Distinct from every fill in the nav, and easy to miss at a glance on a 272px row."}
+          </Note>
+        </>
+      ) : null}
 
       <Segmented
         label="Clicking a row with children"
@@ -1507,6 +1558,10 @@ export function TuningPanel() {
     setNavGeneration,
     legacyFootControl,
     setLegacyFootControl,
+    legacyNavTheme,
+    setLegacyNavTheme,
+    navSwitchButton,
+    setNavSwitchButton,
     navSwitchInEditCard,
     setNavSwitchInEditCard,
     navSwitchSurface,
@@ -1754,6 +1809,21 @@ export function TuningPanel() {
         */}
         {navGeneration === "legacy" ? (
           <>
+            {/*
+              The old nav's own light/dark, which used to live in its foot.
+
+              With the foot hidden by default that switch had nowhere else to
+              be — and it is a reviewer's control anyway: production's sidebar
+              is dark, and looking at it light is a question about this
+              prototype rather than about that nav.
+            */}
+            <Segmented
+              label="Old nav surface"
+              options={SURFACE_THEMES}
+              value={legacyNavTheme}
+              onChange={(v: SurfaceTheme) => setLegacyNavTheme(v)}
+            />
+
             <Segmented
               label="Old nav controls"
               options={LEGACY_FOOT_CONTROLS}
@@ -1762,12 +1832,27 @@ export function TuningPanel() {
               format={(v) => LEGACY_FOOT_CONTROL_LABELS[v]}
             />
             <Note>
-              {legacyFootControl === "menu"
-                ? "One standing ⋯ at the old nav's foot, opening an Appearance card: light and dark with a Save, and the way back to the new nav below a rule."
-                : "The two grow-on-hover pills, which is what the new nav's foot does — the arrangement that makes the two navs comparable on their chrome."}
+              {legacyFootControl === "off"
+                ? "Nothing at the foot, as production has nothing there. Switch navigation and surface from up here instead."
+                : legacyFootControl === "menu"
+                  ? "One standing ⋯ at the old nav's foot, opening an Appearance card: light and dark with a Save, and the way back to the new nav below a rule."
+                  : "The two grow-on-hover pills, which is what the new nav's foot does — the arrangement that makes the two navs comparable on their chrome."}
             </Note>
           </>
-        ) : null}
+        ) : (
+          <>
+            <Toggle
+              label="Switch nav button"
+              checked={navSwitchButton}
+              onChange={setNavSwitchButton}
+            />
+            <Note>
+              {navSwitchButton
+                ? "A standing door to the old nav beside Edit nav, revealed on hover — for walking someone through both navs live."
+                : "Off: the new nav carries no door to the old one. A real account has one nav; crossing between them is this panel's job."}
+            </Note>
+          </>
+        )}
       </PinnedGroup>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -2105,7 +2190,7 @@ export function TuningPanel() {
           />
           <Note>
             {getAppPlacement === "flyout"
-              ? "One row, “White-label apps”, opening a panel with the two platforms in it. Names the thing before asking which flavour, and spends one nav row instead of two."
+              ? "One row, “Desktop and mobile apps”, opening a panel with the two platforms in it. Names the thing before asking which flavour, and spends one nav row instead of two."
               : getAppPlacement === "header"
                 ? "Two glyphs left of the phone. Standing and visible — an app nobody knows about is an app nobody installs."
                 : getAppPlacement === "menu"

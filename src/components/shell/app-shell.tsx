@@ -93,6 +93,7 @@ import { ProductPage } from "@/components/product/product-page";
 import { flyoutForGroup } from "@/components/nav/group-flyout";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { PinnedLauncher } from "@/components/nav/pinned-launcher";
+import { HereProvider } from "@/components/nav/here";
 import { UndoToast } from "@/components/nav/undo-toast";
 import { PINNED_VISIBLE } from "@/components/nav/pinned-morph";
 import { AccountsIndexPage } from "@/components/settings/accounts-index";
@@ -1337,7 +1338,28 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     setManageAccountId(null);
   }, [accounts.scope]);
 
+  /*
+   * Where the workspace is, handed to the nav as context.
+   *
+   * `canvasPage` is already the answer — it is what fills the canvas and what
+   * the breadcrumb is built from — and it was simply never offered to the nav,
+   * which is why no row could say whether it was the page you were on. At
+   * agency scope the equivalent is `selectedId`, since that tree's rows are its
+   * own destinations rather than catalogue products.
+   */
+  const here = React.useMemo(
+    () =>
+      agencyScope
+        ? { productId: selectedId, childId: null }
+        : {
+            productId: canvasPage?.productId ?? null,
+            childId: canvasPage?.childId ?? null,
+          },
+    [agencyScope, selectedId, canvasPage],
+  );
+
   return (
+    <HereProvider value={here}>
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/*
         Agency-level banners span the whole window — over the account rail, the
@@ -1550,12 +1572,16 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           only one that does it because the pins are somewhere else on screen
           rather than because nobody wants them. `both` keeps it, so the two
           arrangements can be compared without switching modes.
+
+          At BOTH scopes, now. The agency was exempted while it had no merged
+          list of its own — so it kept a horizontal dock of pinned areas above a
+          block that was about to list the same pins again, which is the exact
+          duplication merging exists to remove. It has had its own merged block
+          for a while; the exemption was left behind.
         */}
         {atFloor ||
         isBlockHidden(layout, "pinned") ||
-        (recentsMode === "merged" &&
-          !agencyScope &&
-          mergedPinScope !== "both") ? null : (
+        (recentsMode === "merged" && mergedPinScope !== "both") ? null : (
         <PinnedMorph
           theme={navTheme}
           items={pinnedItems}
@@ -2323,5 +2349,6 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       ) : null}
       </div>
     </div>
+    </HereProvider>
   );
 }

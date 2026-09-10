@@ -12,6 +12,12 @@ import {
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import { EditAffordance, InlineRename } from "@/components/nav/inline-rename";
 import { isPinnable, WithPin } from "@/components/nav/with-pin";
+import {
+  HereBar,
+  useHere,
+  useHereStyle,
+  useMarking,
+} from "@/components/nav/here";
 import { productById } from "@/components/nav/catalogue";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
@@ -40,7 +46,21 @@ const BADGE_TONE: Record<FlyoutBadgeTone, string> = {
  * `items-center`: with the blurb off there is no second line to top-align to.
  */
 const PLACE_ROW =
-  "gap-[var(--t-nav-gap,10px)] px-[var(--t-nav-px,8px)] py-[var(--t-nav-py,9px)] items-center";
+  "gap-[var(--t-nav-gap,10px)] px-[var(--t-nav-px,8px)] py-[var(--t-nav-py,9px)] items-center " +
+  /*
+   * The row's height is its own, not its contents'.
+   *
+   * Same padding as a nav row was not the same height as one: a 14px label's
+   * line box is 17px, so 9 + 17 + 9 came to 35 against L1's 38. The nav pins
+   * its content box to 20px — the height of the trailing affordance — so that
+   * a row is the same height with a pencil in it, with a rename field in it,
+   * and with neither. This row carries a 22px pin and had nothing holding the
+   * floor, so it sat three pixels short of the list it is a continuation of.
+   *
+   * The same expression, not the number it currently evaluates to, so the
+   * density knob moves all three levels together.
+   */
+  "min-h-[calc(var(--t-nav-py,9px)*2+20px)]";
 
 /** The nav's label: regular weight, and it truncates rather than overflowing. */
 const PLACE_TITLE = "font-normal whitespace-nowrap";
@@ -192,7 +212,17 @@ const VARIANT = {
     pinTop: "top-1/2 -translate-y-1/2",
   },
   action: {
-    row: "gap-[var(--t-fly-gap,10px)] px-[8px] py-[var(--t-fly-py,9px)] items-center",
+    /*
+      Its own treatment, the shared height.
+
+      Quick Actions keeps a semibold title and a wider icon box because its
+      rows are commands rather than destinations — but that argument is about
+      what a row SAYS, not how tall it is, and a command list three pixels
+      shorter than every other list in the panel just looked misaligned.
+    */
+    row:
+      "gap-[var(--t-fly-gap,10px)] px-[8px] py-[var(--t-fly-py,9px)] items-center " +
+      "min-h-[calc(var(--t-nav-py,9px)*2+20px)]",
     iconBox: "w-[24px] h-[22px]",
     iconSize: 20,
     text: "gap-[2px]",
@@ -330,6 +360,16 @@ export function FlyoutRow({
   const v = VARIANT[variant];
   const Icon = item.icon;
   /*
+   * An L2 row is the page when the canvas is on it and nothing deeper is open,
+   * and on the trail when one of its own L3s is.
+   */
+  const here = useHere();
+  const marking = useMarking(
+    here.productId === item.id && here.childId === null,
+    here.productId === item.id,
+  );
+  const mark = useHereStyle(marking);
+  /*
    * When the review axis is on, a tabs-parent discloses like any other parent —
    * its tabs become nav rows and pages. Read here rather than threaded through
    * FlyoutPanel and group-flyout, because this is the only place the decision
@@ -371,7 +411,7 @@ export function FlyoutRow({
   const rowRef = React.useRef<HTMLDivElement>(null);
 
   const rowClass = cn(
-    "motion-row-in group group/row flex w-full shrink-0 text-left",
+    "motion-row-in group group/row relative flex w-full shrink-0 text-left",
     // The nav's radius on a place row, its own on an action row.
     variant === "action"
       ? "rounded-[9px]"
@@ -397,6 +437,7 @@ export function FlyoutRow({
     // levels and in both modes, so the row no longer pads for it.
     
     active ? "bg-nav-hover" : "hover:bg-nav-hover",
+    mark.row,
     !edit?.renaming && "active:scale-[0.99] motion-press",
     // The grab cursor lives on the grip, not the row.
     edit?.over && "bg-nav-hover shadow-[inset_0_0_0_1px_var(--nav-fg)]",
@@ -551,6 +592,7 @@ export function FlyoutRow({
               className={cn(
                 "text-[length:var(--t-fly-title,14px)] leading-[normal] text-nav-fg",
                 v.title,
+                mark.ink,
                 // Faded, not struck through — a strike reads as deleted, and a
                 // hidden row is only switched off. The pinned eye-off says which.
                 edit?.hidden && "opacity-40",
@@ -760,6 +802,7 @@ export function FlyoutRow({
       style={rowStyle}
       className={rowClass}
     >
+      {mark.bar ? <HereBar marking={marking} /> : null}
       {/*
         The handle, for the same reason the nav's rows have one: the row is made
         of buttons and a mousedown inside a form control does not start an
@@ -795,6 +838,7 @@ export function FlyoutRow({
       style={rowStyle}
       className={rowClass}
     >
+      {mark.bar ? <HereBar marking={marking} /> : null}
       {inner}
     </button>
   );
@@ -932,7 +976,14 @@ function Row({
     );
   }
   return (
-    <WithPin productId={childId} pinInset={pinInset}>
+    <WithPin
+      productId={childId}
+      pinInset={pinInset}
+      // 12, the same as L1 and L2. It was falling through to PinButton's own
+      // default of 14, so the deepest rows — the ones drawn smallest in every
+      // other respect — carried the largest pin in the nav.
+      pinSize={12}
+    >
       <button type="button" {...rest}>
         {children}
       </button>
@@ -1075,6 +1126,17 @@ function FlyoutChildRow({
 }) {
   const { l2ClickAction } = useTheme();
   const openFirst = l2ClickAction === "open-first";
+  /*
+   * An L3 row is the page itself or nothing — there is no level below it to be
+   * on the trail of. A deeper cascade marks its own parent through the same
+   * call one level up.
+   */
+  const here = useHere();
+  const marking = useMarking(
+    here.childId !== null && here.childId === child.id,
+    (child.children ?? []).some((n) => n.id === here.childId),
+  );
+  const mark = useHereStyle(marking);
   const nested =
     (child.children?.length ?? 0) > 0 &&
     (tabsInNav || !child.tabs) &&
@@ -1157,7 +1219,24 @@ function FlyoutChildRow({
           }
         }}
         className={cn(
-          "motion-tap flex h-[30px] w-full items-center gap-[7px] rounded-[7px] px-[9px] text-left leading-[normal] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg active:scale-[0.99]",
+          /*
+            The nav's own vertical rhythm, not a height of its own.
+
+            It was a flat 30px against L1 and L2's 38 — nine of padding either
+            side of a 20px content box, read from --t-nav-py so the whole nav
+            retunes together. Three levels of one list at two different row
+            heights made the cascade read as a different KIND of menu rather
+            than as the same list one step deeper, and it meant the tuning knob
+            moved two of the three.
+
+            Horizontal padding and gap stay tighter, and the type keeps its
+            notch down per level: depth is still legible, it is just no longer
+            legible by the rows being a different size.
+          */
+          "motion-tap relative flex w-full items-center gap-[7px] rounded-[7px] px-[9px] text-left leading-[normal] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg active:scale-[0.99]",
+          mark.ink,
+          mark.row,
+          "py-[var(--t-nav-py,9px)] min-h-[calc(var(--t-nav-py,9px)*2+20px)]",
           // The same fill an active row wears anywhere else in the nav, so
           // "you are here" looks the same at every level.
           child.id === activeId && "bg-nav-hover text-nav-fg",
@@ -1170,6 +1249,7 @@ function FlyoutChildRow({
           depth === 0 ? "text-[13px]" : "text-[12.5px]",
         )}
       >
+        {mark.bar ? <HereBar marking={marking} /> : null}
         {child.icon ? (
           edit ? (
             /*

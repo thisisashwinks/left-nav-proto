@@ -31,8 +31,8 @@ import {
   GET_APP_FLYOUT_ID,
   GET_APP_NAV_LABEL,
   GET_APP_ROW_IDS,
+  GET_APP_ROW_LABELS,
 } from "@/components/flyout/get-app-flyout";
-import { GET_APP_LABELS } from "@/components/header/get-app-modal";
 import { useHoverDwell } from "@/lib/use-hover-dwell";
 import { glyphFor, type ResolvedGroup } from "./grouping";
 import { ComposedIcon } from "./composed-icon";
@@ -224,13 +224,13 @@ export function PinnedLauncher({
         rows: [
           {
             id: GET_APP_ROW_IDS.mobile,
-            label: GET_APP_LABELS.mobile,
+            label: GET_APP_ROW_LABELS.mobile,
             icon: Smartphone,
             pages: [],
           },
           {
             id: GET_APP_ROW_IDS.desktop,
-            label: GET_APP_LABELS.desktop,
+            label: GET_APP_ROW_LABELS.desktop,
             icon: Monitor,
             pages: [],
           },
@@ -479,7 +479,18 @@ export function PinnedLauncher({
           <div
             ref={scrollRef}
             data-scroll-region=""
-            className="flex w-full flex-1 flex-col items-start gap-[10px] overflow-y-auto px-[14px] pt-[10px]"
+            /*
+              The nav's own row spacing, not a list spacing of its own.
+
+              10px between every child made a column of 38px rows read as a
+              settings page: the rows are the same rows the nav draws, at the
+              same height, and putting four times the nav's gap between them
+              broke the one thing that made the panel feel like a continuation
+              of the list rather than a different surface. The headings pay for
+              their own air instead — see SectionHeading — which is also how
+              the nav does it.
+            */
+            className="flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto px-[14px] pt-[10px]"
           >
         {mergedPanel && agencyScope ? (
           <AgencyPanelBody
@@ -814,6 +825,8 @@ function SearchRow({
         // Same geometry as ProductRow, pin column included, so a result and a
         // list row are recognisably the same object.
         "group/row motion-tap relative flex w-full shrink-0 items-center gap-[10px] rounded-[9px] py-[6px] pl-[8px]",
+        // The comment above is a promise, so the height comes too.
+        "min-h-[calc(var(--t-nav-py,9px)*2+20px)]",
         "pr-[calc(8px+22px+10px)] hover:bg-nav-hover",
       )}
     >
@@ -933,7 +946,9 @@ function GroupHeader({
   const renamed = layout.isRenamed(group.id);
 
   return (
-    <div className="group/row flex w-full shrink-0 items-center gap-[8px] pt-[10px] pr-[2px] pb-[2px] pl-[2px]">
+    // Same reasoning as SectionHeading: the group label buys its own air now
+    // that the column is no longer handing out 10px a row.
+    <div className="group/row flex w-full shrink-0 items-center gap-[8px] pt-[14px] pr-[2px] pb-[6px] pl-[2px]">
       {can.regroup && onPickIcon ? (
         <button
           type="button"
@@ -1117,7 +1132,18 @@ function ProductRow({
          * it is an overlay at the row's trailing edge in both, and the text
          * gives up exactly the width it occupies.
          */
+        /*
+          The nav's row height, not this panel's own.
+          
+          Padding alone does not settle a height: a 14px label's line box is
+          17px, so 8 + 18 + 8 came to 34 against the nav's 38. Every list of
+          places in this product is now one rhythm — L1, the flyout's three
+          place variants, the L3 cascade and this — expressed as the same
+          calculation rather than five literals that agree until one is
+          retuned.
+        */
         "group/row motion-tap relative flex w-full shrink-0 items-center gap-[10px] rounded-[9px] py-[8px] pl-[8px]",
+        "min-h-[calc(var(--t-nav-py,9px)*2+20px)]",
         "pr-[calc(8px+22px+10px)]",
         dragging ? "opacity-40" : "hover:bg-nav-hover",
       )}
@@ -1458,10 +1484,11 @@ function TinyButton({
  */
 function PinnedScopeNote() {
   return (
-    // Sits 4px under the heading. The scroll column spaces its children 10px
-    // apart and the heading carries 2px of its own bottom padding, so reaching
-    // 4px means pulling 8px back rather than setting a margin outright.
-    <p className="mt-[-8px] w-full px-[2px] pb-[2px] text-[12.5px] leading-[17px] text-nav-fg-subtle">
+    // Sits 4px under the heading. The column now spaces its children by the
+    // nav's 2px and the heading carries 6px of its own bottom padding, so
+    // reaching 4px means pulling 4px back — it was 8 against the old 10px gap,
+    // and left alone it would have hauled this note up into the heading.
+    <p className="mt-[-4px] w-full px-[2px] pb-[2px] text-[12.5px] leading-[17px] text-nav-fg-subtle">
       Pins here apply to this agency view only. Sub-accounts and users keep
       their own pinned items.
     </p>
@@ -1994,7 +2021,15 @@ function SectionHeading({
   return (
     <div
       className={cn(
-        "flex w-full shrink-0 items-baseline gap-[6px] px-[2px] pt-[6px] pb-[2px]",
+        /*
+          14 above, 6 below — `NavSectionLabel`'s own numbers.
+
+          The column used to hand every child 10px, so the heading only had to
+          add a little; with the column down to the nav's 2px the heading
+          carries the whole separation, and the figures to carry it by are the
+          ones the nav's own RECENT label uses. Same rhythm, both surfaces.
+        */
+        "flex w-full shrink-0 items-baseline gap-[6px] px-[2px] pt-[14px] pb-[6px]",
         divider &&
           "mt-[6px] pt-[16px] shadow-[inset_0_1px_0_0_var(--nav-divider)]",
       )}

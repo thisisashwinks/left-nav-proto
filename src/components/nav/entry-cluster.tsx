@@ -219,6 +219,7 @@ function EditNavButton({
   const themeCtx = useTheme();
   const { setAccountTheme } = themeCtx;
   const colourControl = themeCtx.effective.navColourControl;
+  const { navSwitchButton } = themeCtx.effective;
   const navTheme =
     themeCtx.accountThemeFor(accountId).navTheme ?? themeCtx.effective.navTheme;
 
@@ -507,10 +508,21 @@ function EditNavButton({
         atFoot ? "bottom-0" : "-top-[34px]",
       )}
     >
-      <SwitchNavButton
-        revealed={revealed}
-        onOpen={() => setNavModalOpen(true)}
-      />
+      {/*
+        Scaffolding, and off unless someone asks for it.
+
+        The button exists so a reviewer can cross between the two navs, which
+        the prototype panel already does from outside the surface under review.
+        A real account has one nav and no reason for a door to the other, so
+        leaving it standing made the proposal slightly not the thing it is
+        proposing. See NAV_SWITCH_BUTTON_DEFAULT.
+      */}
+      {navSwitchButton ? (
+        <SwitchNavButton
+          revealed={revealed}
+          onOpen={() => setNavModalOpen(true)}
+        />
+      ) : null}
       {/*
         Rendered here as well as in the editing branch above, because that is
         where it was and this is where the button is.

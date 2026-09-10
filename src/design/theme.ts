@@ -333,7 +333,7 @@ export const DOCK_POSITION_LABELS: Record<DockPosition, string> = {
  * One modal whichever way in you take — the komoot-style Get the app sheet —
  * and four places to reach it from. They are not the same offer:
  *
- *  flyout  One L1 row, "White-label apps", opening a panel with the two
+ *  flyout  One L1 row, "Desktop and mobile apps", opening a panel with the two
  *          platforms in it. The default: it spends one row rather than two on
  *          something done once, says what the thing IS before asking which
  *          flavour you want, and puts the choice where a row is free.
@@ -399,6 +399,11 @@ export const AGENCY_SEARCH_DEFAULT = false;
 /**
  * How the old nav's own two controls are reached.
  *
+ *  off    Nothing at the foot at all — the default. Both controls behind it
+ *         are prototype scaffolding: an agency on the old nav cannot switch to
+ *         a nav that does not exist yet, and the theme switch is a reviewer's
+ *         tool. Driving the comparison from the panel keeps the transcription
+ *         honest, which is the whole value of having a control group.
  *  menu   One always-visible ⋯ button, opening a small card: the theme choice
  *         with a Save, and the way back to the new nav. The default. Two pills
  *         that appear on hover are two things a reviewer has to discover by
@@ -434,14 +439,29 @@ export const DIRECTORY_DISCLOSURE_LABELS: Record<DirectoryDisclosure, string> = 
   inline: "Inline",
 };
 
-export const LEGACY_FOOT_CONTROLS = ["menu", "pills"] as const;
+export const LEGACY_FOOT_CONTROLS = ["off", "menu", "pills"] as const;
 
 export type LegacyFootControl = (typeof LEGACY_FOOT_CONTROLS)[number];
 
 export const LEGACY_FOOT_CONTROL_LABELS: Record<LegacyFootControl, string> = {
+  off: "Hidden",
   menu: "More menu",
   pills: "Hover pills",
 };
+
+/**
+ * Whether the new nav carries a standing "Switch nav" button at its foot.
+ *
+ * Off by default (Sep 10). It is scaffolding: a real account has one nav, and
+ * the button exists so a reviewer can cross between the two — which the
+ * prototype panel already does, from outside the surface being reviewed. A
+ * control that only exists because this is a prototype makes the prototype
+ * slightly not the thing it is a prototype of.
+ *
+ * On, it is back beside Edit nav, which is where the comparison wants it when
+ * someone is being walked through both navs live.
+ */
+export const NAV_SWITCH_BUTTON_DEFAULT = false;
 
 export const AI_BUTTON_STYLES = ["gradient", "outline"] as const;
 
@@ -650,6 +670,79 @@ export type L2ClickAction = (typeof L2_CLICK_ACTIONS)[number];
 export const L2_CLICK_ACTION_LABELS: Record<L2ClickAction, string> = {
   "open-first": "Opens first page",
   disclose: "Expands only",
+};
+
+/**
+ * Whether the nav says which page you are on, and how far up it says it.
+ *
+ * It currently says nothing. On a flat sidebar that is survivable — the row is
+ * on screen and it is either filled or it is not — but this nav hides its
+ * second and third levels behind panels that are shut most of the time. Open
+ * Inbox and the row naming it is inside a flyout nobody is looking at, so the
+ * nav answers "where can I go" and never "where am I". The breadcrumb answers
+ * it, which is a different surface, above the canvas, that people read once.
+ *
+ * The awkward part is that the obvious marker is taken. A filled row already
+ * means "this row's panel is open" — see the note on the nav's own rows — and
+ * the two are not the same thing: the panel moves under the pointer while the
+ * page stays put. Give selection the same fill and the nav shows two filled
+ * rows disagreeing about what filled means.
+ *
+ * So selection gets its own channel: a bar on the row's leading edge and the
+ * label in full ink, neither of which the hover or panel states use. The axis
+ * is how far that travels:
+ *
+ *  off    Today. Nothing marked anywhere.
+ *  leaf   Only the exact row. Honest and minimal — and invisible whenever the
+ *         page lives behind a shut panel, which is most of the time.
+ *  trail  The exact row, plus every ancestor that leads to it: the L1 category
+ *         and, in a cascade, the L2 it came out of. The nav can then answer
+ *         "where am I" while closed, which is the entire point — at the cost of
+ *         marking rows you are not actually on.
+ */
+export const SELECTED_STATES = ["off", "leaf", "trail"] as const;
+
+export type SelectedState = (typeof SELECTED_STATES)[number];
+
+export const SELECTED_STATE_LABELS: Record<SelectedState, string> = {
+  off: "Off",
+  leaf: "The row only",
+  trail: "Row and its trail",
+};
+
+/**
+ * What the mark actually looks like, once SELECTED_STATES has said where it goes.
+ *
+ * Split from that axis because they are two questions and mixing them gives
+ * twelve values of one control. This one is pure appearance, and there is no
+ * obviously right answer: the constraint is only that it must not be the fill
+ * a hovered or panel-open row already wears, or the nav shows two rows in the
+ * same state meaning different things.
+ *
+ *  bar      A 3px rule on the leading edge. Costs no width and cannot collide
+ *           with any fill — and reads as chrome belonging to the nav rather
+ *           than as a property of the row, which is the complaint against it.
+ *  fill     A step darker than hover. Unmistakably the row, at the price of
+ *           being the same KIND of signal as hover: on a row that is both, the
+ *           difference is one shade.
+ *  tint     The accent, softly. The loudest and the easiest to find; also the
+ *           one that spends brand on a state that is true all day.
+ *  outline  A hairline around the row. Distinct from every fill in the nav and
+ *           quiet, but a 1px ring on a 272px row is easy to miss at a glance.
+ *
+ * The trail, where it is drawn at all, is the same treatment at lower strength
+ * rather than a second treatment — so the eye reads it as less of the same
+ * thing rather than as another kind of thing.
+ */
+export const SELECTED_MARKS = ["bar", "fill", "tint", "outline"] as const;
+
+export type SelectedMark = (typeof SELECTED_MARKS)[number];
+
+export const SELECTED_MARK_LABELS: Record<SelectedMark, string> = {
+  bar: "Edge bar",
+  fill: "Darker fill",
+  tint: "Accent tint",
+  outline: "Outline",
 };
 
 /**
@@ -1092,6 +1185,10 @@ export interface ThemeState {
   /** How an L2 row reveals its L3 rows. See L3_DISCLOSURES. */
   l3Disclosure: L3Disclosure;
   flyoutTrigger: FlyoutTrigger;
+  /** Whether the nav marks the page you are on. See SELECTED_STATES. */
+  selectedState: SelectedState;
+  /** What that mark looks like. See SELECTED_MARKS. */
+  selectedMark: SelectedMark;
   /** What clicking a parent row does. See L2_CLICK_ACTIONS. */
   l2ClickAction: L2ClickAction;
   recentsMode: RecentsMode;
@@ -1160,6 +1257,8 @@ export interface ThemeState {
   aiButtonStyle: AiButtonStyle;
   /** How the old nav's own controls are reached. See LEGACY_FOOT_CONTROLS. */
   legacyFootControl: LegacyFootControl;
+  /** The standing Switch nav button at the new nav's foot. */
+  navSwitchButton: boolean;
   /** How the product directory opens a level. See DIRECTORY_DISCLOSURES. */
   directoryDisclosure: DirectoryDisclosure;
   /** What the merged panel's history section is headed. See PANEL_RECENT_HEADINGS. */
@@ -1310,11 +1409,18 @@ export const DEFAULT_THEME: ThemeState = {
   // GET_APP_PLACEMENTS for what the other three cost.
   getAppPlacement: "flyout",
   agencySearch: AGENCY_SEARCH_DEFAULT,
-  // Click is the default per the Aug 11 direction: Khoi's "maybe the L2
-  // doesn't get exposed until the user actually clicks" — hover preview
-  // (with its dwell) stays one toggle away for the comparison.
-  l3Disclosure: "panel",
-  flyoutTrigger: "sticky",
+  // Both back to the plain answer (Sep 10). The indented list and the
+  // click-every-time trigger are what the nav shipped with, so they are what a
+  // review should open on; the dropdown and the sticky swap are the proposals,
+  // and a proposal that is already the default is not being compared to
+  // anything. Click also stands on Khoi's Aug 11 note — "maybe the L2 doesn't
+  // get exposed until the user actually clicks" — with the hover variants, and
+  // their dwell, one toggle away.
+  l3Disclosure: "inline",
+  flyoutTrigger: "click",
+  // Off, as it ships. The axis exists to look at what marking it would cost.
+  selectedState: "off",
+  selectedMark: "bar",
   // Opening the page too. A first click that lands nowhere is the thing this
   // answers; "Expands only" is the original, one click away for the comparison.
   l2ClickAction: "open-first",
@@ -1413,9 +1519,10 @@ export const DEFAULT_THEME: ThemeState = {
   pinMarkColour: "grey",
   // The fill, which is what ships. Outline is one click away.
   aiButtonStyle: "gradient",
-  // The card, per the Sep 9 direction: the old nav's two controls should not
-  // have to be found by hovering the one part of it nobody looks at.
-  legacyFootControl: "menu",
+  // Nothing (Sep 10): production's sidebar has no such control, and putting one
+  // there makes the control group a slightly different product.
+  legacyFootControl: "off",
+  navSwitchButton: NAV_SWITCH_BUTTON_DEFAULT,
   // Cascading panels: the pattern the nav already taught.
   directoryDisclosure: "flyout",
   panelRecentHeading: "visited",

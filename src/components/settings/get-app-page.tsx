@@ -5,9 +5,9 @@ import { GetAppContent, type AppKind } from "@/components/header/get-app-modal";
 /**
  * The companion-app offer as a page rather than a sheet.
  *
- * What a sub-account gets when the nav's White-label apps panel is the way in:
- * the same artwork, the same QR, the same store buttons the modal shows, in the
- * canvas instead of over it. It is the same component — see `GetAppContent` —
+ * What a sub-account gets when the nav's Desktop and mobile apps panel is the
+ * way in: the same artwork, the same QR and the same store buttons the modal
+ * shows, in the canvas instead of over it. It is the same component — see `GetAppContent` —
  * because a page and a sheet that drift apart on their download links is a bug
  * nobody would notice until a customer did.
  *
