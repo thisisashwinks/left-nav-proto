@@ -24,7 +24,6 @@ import {
   type InboxPalette,
   type PanelRecentHeading,
   type AiButtonStyle,
-  type DirectoryDisclosure,
   type LegacyFootControl,
   type PinMarkColour,
   type LayoutReplaceDialog,
@@ -44,6 +43,7 @@ import {
   type SubAccountSwitcher,
   type SearchMode,
   type SurfaceTheme,
+  type NavDarkTone,
   type ThemeState,
   type Tint,
 } from "@/design/theme";
@@ -59,6 +59,7 @@ export type AccountTheme = Partial<
     | "accent"
     | "tint"
     | "navTheme"
+    | "navDarkTone"
     | "headerTheme"
     | "appTheme"
     | "dockLabel"
@@ -108,6 +109,7 @@ interface ThemeContextValue extends ThemeState {
   setTint: (tint: Tint) => void;
   setAppTheme: (theme: SurfaceTheme) => void;
   setNavTheme: (theme: SurfaceTheme) => void;
+  setNavDarkTone: (tone: NavDarkTone) => void;
   setHeaderTheme: (theme: SurfaceTheme) => void;
   setSearchMode: (mode: SearchMode) => void;
   setSearchTheme: (theme: SurfaceTheme) => void;
@@ -154,7 +156,7 @@ interface ThemeContextValue extends ThemeState {
   setAiButtonStyle: (style: AiButtonStyle) => void;
   setLegacyFootControl: (control: LegacyFootControl) => void;
   setNavSwitchButton: (enabled: boolean) => void;
-  setDirectoryDisclosure: (mode: DirectoryDisclosure) => void;
+  setAgencyEditNav: (enabled: boolean) => void;
   setRailTileShape: (shape: RailTileShape) => void;
   setRailRecents: (mode: RailRecents) => void;
   setRailDirectorySpot: (spot: RailDirectorySpot) => void;
@@ -243,10 +245,24 @@ export function ThemeProvider({
     root.dataset.accent = effective.accent;
     root.dataset.appTheme = effective.appTheme;
     root.dataset.tint = effective.tint;
+    /*
+      On the root, not on the nav: the nav's dark tokens are declared on
+      whichever element carries `data-nav-theme`, and a custom property set on
+      an ANCESTOR loses to one set on the element itself. So the tone is an
+      ancestor flag and the override selector pairs the two — see
+      `[data-nav-dark="navy"] [data-nav-theme="dark"]` in tokens.css.
+    */
+    root.dataset.navDark = effective.navDarkTone;
     if (activeOverride.customAccent) {
       root.style.setProperty("--custom-accent", activeOverride.customAccent);
     }
-  }, [effective.accent, effective.appTheme, effective.tint, activeOverride.customAccent]);
+  }, [
+    effective.accent,
+    effective.appTheme,
+    effective.tint,
+    effective.navDarkTone,
+    activeOverride.customAccent,
+  ]);
 
   const value = React.useMemo<ThemeContextValue>(
     () => ({
@@ -264,6 +280,8 @@ export function ThemeProvider({
       setTint: (tint) => setState((s) => ({ ...s, tint })),
       setAppTheme: (appTheme) => setState((s) => ({ ...s, appTheme })),
       setNavTheme: (navTheme) => setState((s) => ({ ...s, navTheme })),
+      setNavDarkTone: (navDarkTone) =>
+        setState((s) => ({ ...s, navDarkTone })),
       setHeaderTheme: (headerTheme) => setState((s) => ({ ...s, headerTheme })),
       setSearchMode: (searchMode) => setState((s) => ({ ...s, searchMode })),
       setSearchTheme: (searchTheme) => setState((s) => ({ ...s, searchTheme })),
@@ -344,8 +362,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, legacyFootControl })),
       setNavSwitchButton: (navSwitchButton) =>
         setState((s) => ({ ...s, navSwitchButton })),
-      setDirectoryDisclosure: (directoryDisclosure) =>
-        setState((s) => ({ ...s, directoryDisclosure })),
+      setAgencyEditNav: (agencyEditNav) =>
+        setState((s) => ({ ...s, agencyEditNav })),
       setRailTileShape: (railTileShape) =>
         setState((s) => ({ ...s, railTileShape })),
       setRailRecents: (railRecents) =>

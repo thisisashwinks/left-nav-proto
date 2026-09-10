@@ -41,6 +41,7 @@ export default function RootLayout({
       data-accent={DEFAULT_THEME.accent}
       data-app-theme={DEFAULT_THEME.appTheme}
       data-tint={DEFAULT_THEME.tint}
+      data-nav-dark={DEFAULT_THEME.navDarkTone}
       className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex h-dvh flex-col overflow-hidden bg-app text-app-fg">

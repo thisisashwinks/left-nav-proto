@@ -609,6 +609,77 @@
   --nav-scrollbar-hover: oklch(from var(--legacy-nav-base) calc(l + 0.18) c h);
 }
 
+/*
+ * The navy dark, layered over the neutral one below.
+ *
+ * Written as an override rather than by parameterising the block underneath,
+ * so "Neutral" stays the shipped palette to the byte and the two are a real
+ * comparison rather than two derivations neither of which is what shipped.
+ *
+ * The selector pairs an ANCESTOR flag with the nav's own theme attribute, and
+ * has to: these tokens are declared on the element carrying `data-nav-theme`,
+ * and a custom property set higher up loses to one set on the element itself.
+ * `[data-nav-dark]` on <html> alone would never win. Two attributes also make
+ * it 0-2-0 against the 0-1-0 below, so order in the file stops mattering.
+ *
+ * One base, everything else derived from it, so retuning the navy is one hex.
+ * Each line is declared twice — a hand-picked fallback, then the relative
+ * colour — which is this file's own pattern for `oklch(from ...)`.
+ */
+[data-nav-dark="navy"] [data-nav-theme="dark"] {
+  --nav-dark-base: #0f1828;
+
+  --nav-bg: var(--nav-dark-base);
+
+  /* +0.03 L: the rail sits a step off the nav, as #17171b does off #0f0f12. */
+  --nav-rail-bg: #16202f;
+  --nav-rail-bg: oklch(from var(--nav-dark-base) calc(l + 0.03) c h);
+
+  --nav-border: #253044;
+  --nav-border: oklch(from var(--nav-dark-base) calc(l + 0.07) c h);
+  --nav-divider: #253044;
+  --nav-divider: oklch(from var(--nav-dark-base) calc(l + 0.07) c h);
+  --fly-border: #253044;
+  --fly-border: oklch(from var(--nav-dark-base) calc(l + 0.07) c h);
+
+  --nav-hover: #1c2637;
+  --nav-hover: oklch(from var(--nav-dark-base) calc(l + 0.04) c h);
+  --nav-active: #232f42;
+  --nav-active: oklch(from var(--nav-dark-base) calc(l + 0.07) c h);
+
+  --nav-rail-border: #2a3549;
+  --nav-rail-border: oklch(from var(--nav-dark-base) calc(l + 0.09) c h);
+  --nav-rail-hi: #232f42;
+  --nav-rail-hi: oklch(from var(--nav-dark-base) calc(l + 0.07) c h);
+  --nav-rail-hover: #1e2938;
+  --nav-rail-hover: oklch(from var(--nav-dark-base) calc(l + 0.05) c h);
+  --nav-rail-disc: #2e3a50;
+  --nav-rail-disc: oklch(from var(--nav-dark-base) calc(l + 0.11) c h);
+
+  --nav-scrollbar: #3a475d;
+  --nav-scrollbar: oklch(from var(--nav-dark-base) calc(l + 0.16) c h);
+  --nav-scrollbar-hover: #4a5872;
+  --nav-scrollbar-hover: oklch(from var(--nav-dark-base) calc(l + 0.24) c h);
+
+  /*
+   * The ink carries a trace of the same hue rather than staying grey.
+   *
+   * Neutral text on a tinted ground is the thing that makes a dark surface
+   * look printed on rather than lit — the chroma is a fraction of the base's
+   * and does the whole job.
+   */
+  --nav-fg: #f1f4f9;
+  --nav-fg: oklch(from var(--nav-dark-base) 0.96 calc(c * 0.3) h);
+  --nav-fg-muted: #a3aec0;
+  --nav-fg-muted: oklch(from var(--nav-dark-base) 0.74 calc(c * 0.5) h);
+  --nav-fg-subtle: #71809a;
+  --nav-fg-subtle: oklch(from var(--nav-dark-base) 0.58 calc(c * 0.5) h);
+
+  /* The panel card, a step off the panel as the rail is off the nav. */
+  --fly-card-bg: #16202f;
+  --fly-card-bg: oklch(from var(--nav-dark-base) calc(l + 0.03) c h);
+}
+
 [data-nav-theme="dark"] {
   --nav-bg: #0f0f12;
   --nav-border: #26262c;

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import { cn } from "@/lib/utils";
+import { useTruncationTitle } from "@/lib/use-truncation-title";
 import { EditAffordance, InlineRename } from "./inline-rename";
 import type { RowMenuAction } from "./row-menu";
 import type { NavItem } from "./types";
@@ -215,10 +216,20 @@ export function NavItemRow({
    * is describing goes quiet.
    */
   const off = edit?.hidden ?? false;
+  /*
+   * The tooltip hangs on the ROW, not on the words — a title only answers a
+   * pointer that is over the element carrying it, and a nav row is pointed at
+   * anywhere along its 240px.
+   */
+  const { ref: labelRef, hostRef: rowHostRef } =
+    useTruncationTitle<HTMLSpanElement>(item.label);
   const icon = <RowIcon item={item} active={active} dimmed={off} />;
 
   const label = (
     <span
+      // The full name on hover once the row has cut it — the nav's own rows
+      // truncate too, and a renamed one can be longer than the column.
+      ref={labelRef}
       className={cn(
         "truncate text-[length:var(--t-nav-font,14px)] leading-[normal]",
         item.hasFlyout || item.expandable ? "flex-1" : "whitespace-nowrap",
@@ -291,6 +302,7 @@ export function NavItemRow({
       <span className={cn(marking ? "relative block w-full" : "contents")}>
       {mark.bar ? <HereBar marking={marking} /> : null}
       <button
+        ref={rowHostRef}
         type="button"
         aria-current={active ? "page" : undefined}
         onClick={onSelect}
@@ -319,6 +331,7 @@ export function NavItemRow({
 
   return (
     <div
+      ref={rowHostRef}
       // `group/row` rather than a bare group: the affordances key off this row
       // specifically, and an unnamed group would also match any hovered ancestor.
       className={cn(

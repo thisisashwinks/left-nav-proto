@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import type { LucideIcon } from "lucide-react";
 import { nameForIcon } from "./icon-catalogue";
 import type { IconPicker, useIconPicker } from "./icon-picker";
 import { editTargetFor } from "./nav-entries";
@@ -30,7 +31,17 @@ type IconPickerProps = React.ComponentProps<typeof IconPicker>;
  * toggle on a prototype panel, which is what made the old arrangement
  * undiscoverable.
  */
-export function useNavRowEdit(picker: IconPickerHandle) {
+export function useNavRowEdit(
+  picker: IconPickerHandle,
+  /**
+   * The shipped glyph for a row the catalogue does not know.
+   *
+   * Optional, and only the expanded nav passes one: it is the face that draws
+   * those rows and therefore the only thing that knows what they look like
+   * before an override exists.
+   */
+  chromeIcon?: (id: string) => LucideIcon | null,
+) {
   const layout = useNavLayout();
   const { state, groups, can } = layout;
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
@@ -56,9 +67,19 @@ export function useNavRowEdit(picker: IconPickerHandle) {
     return {
       renaming: renamingId === itemId,
       pinned: true,
-      // Products only: a group's label carries no qualifier, so there is
-      // nothing for the field to start from but the label itself.
-      ...(isGroup ? {} : { renameValue: layout.productBaseLabelFor(id) }),
+      /*
+        Products only, and only where the base label is a NAME.
+
+        `productBaseLabelFor` falls back to the raw id for anything the
+        catalogue does not know — which is exactly the chrome rows that edit
+        like products (see CHROME_TAIL_IDS). Handing the field "white-label-
+        apps" to start from would make the first rename a rename to a slug, so
+        those rows fall through to the row's own label instead, which is what
+        NavItemRow uses when no seed is given.
+      */
+      ...(isGroup || layout.productBaseLabelFor(id) === id
+        ? {}
+        : { renameValue: layout.productBaseLabelFor(id) }),
       onStartRename: () => setRenamingId(itemId),
       onCommitRename: (next) => {
         if (isGroup) layout.setLabel(id, next);
@@ -87,10 +108,21 @@ export function useNavRowEdit(picker: IconPickerHandle) {
           anchor: picker.anchor,
           // The effective icon, not just an override, so the shipped glyph reads
           // as selected before anyone has changed anything.
+          /*
+            The effective icon, not just an override, so the shipped glyph reads
+            as selected before anyone has changed anything.
+
+            `chromeIcon` is the same rule one level out: a tail row that names
+            no product resolves through the catalogue to a folder, which would
+            show Folder ticked under a row drawing a phone. The face knows what
+            it drew, so it says.
+          */
           selected: nameForIcon(
             groups.some((g) => g.id === target)
               ? layout.iconFor(target)
-              : layout.productIconFor(target),
+              : layout.hasIconOverride(target) || !chromeIcon?.(target)
+                ? layout.productIconFor(target)
+                : chromeIcon(target)!,
           ),
           onPick: (iconName: string) => layout.setIcon(target, iconName),
           ...(layout.hasIconOverride(target)

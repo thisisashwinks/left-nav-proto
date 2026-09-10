@@ -5,6 +5,7 @@ import type {
   FlyoutEntry,
 } from "@/components/flyout/types";
 import { productById } from "./catalogue";
+import { liftedChildren } from "./nav-entries";
 import type { CatalogueChild } from "./catalogue-types";
 import {
   iconForProduct,
@@ -115,6 +116,38 @@ export function flyoutForGroup(
     // No synthetic CTA. An "Explore {group}" row on the bottom of every generated
     // panel said nothing the rows above it had not already said, and repeated
     // verbatim across all of them.
+  };
+}
+
+/**
+ * The panel behind a row that was lifted out of a category.
+ *
+ * A promoted L2 keeps the layer beneath it, so it is a door like any category
+ * row — but it is not a group, so `flyoutForGroup` never built it one and the
+ * open panel came back null. The row drew a chevron that opened nothing.
+ *
+ * Generated rather than authored, for the same reason a custom group's panel
+ * is: which rows get lifted is the account's decision, made after this file
+ * was written.
+ *
+ * Null when the row has nothing under it, which is most of the tail — the
+ * caller falls through to the authored registry.
+ */
+export function flyoutForLifted(
+  state: NavLayoutState,
+  id: string,
+): FlyoutConfig | null {
+  const kids = liftedChildren(id);
+  if (kids.length === 0) return null;
+  return {
+    id,
+    // The row's own label, overrides included, so renaming the row renames the
+    // panel it opens rather than leaving the two a click apart.
+    title: labelForProduct(state, id),
+    variant: "product",
+    entries: childrenWithIcons(state, kids).map(
+      (kid): FlyoutEntry => ({ kind: "item", item: kid }),
+    ),
   };
 }
 

@@ -21,6 +21,7 @@ import {
   type RowMenuOption,
 } from "@/components/nav/row-menu";
 import { RowSeam } from "@/components/nav/row-seam";
+import { GET_APP_FLYOUT_ID, getAppFlyout } from "./get-app-flyout";
 import type { SurfaceTheme } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
@@ -78,6 +79,23 @@ interface FlyoutPanelProps {
  * has settled.
  */
 const MAX_STAGGERED_ROWS = 12;
+
+/**
+ * A chrome row's name with the platforms dropped, for the editing mode.
+ *
+ * A rename wins outright — someone who has called it "Apps" gets "Apps",
+ * brackets or no brackets, because the qualifier is ours and the name is
+ * theirs. Only the shipped label is shortened, and only by taking the bracket
+ * off the end.
+ */
+function shortChromeLabel(
+  layout: ReturnType<typeof useNavLayout>,
+  id: string,
+): string {
+  const label = layout.productLabelFor(id);
+  const at = label.indexOf(" (");
+  return at > 0 ? label.slice(0, at) : label;
+}
 
 /** The seam menu's one view, opened directly rather than via a menu entry. */
 const ADD_VIEW = "add";
@@ -376,6 +394,34 @@ export function FlyoutPanel({
   );
   const agencyEditing = navEditing && agencyBucket !== undefined;
 
+  /*
+   * The nav's own panel: authored rows, but an account's to arrange.
+   *
+   * Neither a category nor an agency bucket, so neither branch above claims it
+   * — and yet its two rows are destinations like any other: you can keep one,
+   * call it something else, give it a glyph, put them in the order you use them
+   * in, or switch one off. All four are per-row facts the store already holds,
+   * keyed by id; the only thing missing was a panel willing to offer them.
+   */
+  const chromePanel = config.id === GET_APP_FLYOUT_ID;
+  const chromeEditing = navEditing && chromePanel;
+
+  /** The authored order, which a saved one is a diff against. */
+  const chromeDefaults = React.useMemo(
+    () =>
+      chromePanel
+        ? getAppFlyout.entries.flatMap((e) =>
+            e.kind === "item" ? [e.item.id] : [],
+          )
+        : [],
+    [chromePanel],
+  );
+  const panelRowsFor = layout.panelRowsFor;
+  const chromeOrder = React.useMemo(
+    () => (chromePanel ? panelRowsFor(GET_APP_FLYOUT_ID, chromeDefaults) : []),
+    [chromePanel, chromeDefaults, panelRowsFor],
+  );
+
   /** The authored panel order, as ids — what a saved order is a diff against. */
   const agencyDefaults = React.useMemo(
     () => (agencyBucket ? agencyBucket.children.map((c) => c.id) : []),
@@ -404,6 +450,42 @@ export function FlyoutPanel({
    * about them.
    */
   const entries = React.useMemo(() => {
+    if (chromePanel) {
+      const byId = new Map(
+        config.entries.flatMap((e) => (e.kind === "item" ? [[e.item.id, e]] : [])),
+      );
+      return chromeOrder.flatMap((id) => {
+        const entry = byId.get(id);
+        if (!entry || entry.kind !== "item") return [];
+        // Switched-off rows stay on screen while editing, faded, because the
+        // eye that brings one back is on the row itself.
+        if (layout.isRowHidden(id) && !chromeEditing) return [];
+        return [
+          {
+            ...entry,
+            item: {
+              ...entry.item,
+              /*
+                Through the store: a renamed or re-iconed row has to look
+                renamed everywhere, and the dock is already reading these.
+
+                And short while editing. The mode adds a grip, an eye and a
+                kebab to a row whose name already carries four platform names
+                in brackets — the label won, the controls were pushed off the
+                panel's edge, and reaching the kebab meant scrolling sideways
+                in a 360px panel. The brackets answer "which platforms", which
+                is a browsing question; arranging is a different job and does
+                not need them.
+              */
+              label: chromeEditing
+                ? shortChromeLabel(layout, id)
+                : layout.productLabelFor(id),
+              icon: layout.productIconFor(id),
+            },
+          },
+        ];
+      });
+    }
     if (!agencyBucket) return config.entries;
     const byId = new Map(
       config.entries.flatMap((e) => (e.kind === "item" ? [[e.item.id, e]] : [])),
@@ -416,7 +498,15 @@ export function FlyoutPanel({
       const entry = byId.get(id);
       return entry ? [entry] : [];
     });
-  }, [agencyBucket, agencyOrder, config.entries]);
+  }, [
+    agencyBucket,
+    agencyOrder,
+    config.entries,
+    chromePanel,
+    chromeOrder,
+    chromeEditing,
+    layout,
+  ]);
 
   /** Where a row dropped into seam `index` lands, in the panel's own order. */
   const dropAgencyRowAt = (rowId: string, index: number) => {
@@ -429,6 +519,79 @@ export function FlyoutPanel({
     const to = from < index ? index - 1 : index;
     agency.moveChildTo(agencyBucket.id, agencyDefaults, rowId, to);
   };
+
+  /** Where a row dropped into seam `index` lands, in this panel's own order. */
+  const dropChromeRowAt = (rowId: string, index: number) => {
+    const from = chromeOrder.indexOf(rowId);
+    if (from < 0) return;
+    // Same arithmetic as everywhere else: a row travelling down leaves
+    // everything below it one place higher.
+    const to = from < index ? index - 1 : index;
+    layout.movePanelRow(GET_APP_FLYOUT_ID, chromeDefaults, rowId, to);
+  };
+
+  /**
+   * The full set, for the nav's own rows: rename, icon, hide, reorder.
+   *
+   * Everything a category's row gets except moving to another category and
+   * being removed from the nav — there is no category to move to, and what
+   * puts these rows on screen is an axis rather than a list they could be
+   * taken out of. Hiding is the reversible version of removal and is the one
+   * these rows can honour.
+   */
+  const chromeEditFor = (rowId: string): FlyoutRowEdit | undefined => {
+    if (!chromeEditing) return undefined;
+    return {
+      renaming: renamingId === rowId,
+      renameValue: layout.productLabelFor(rowId),
+      onStartRename: () => setRenamingId(rowId),
+      onCommitRename: (next) => {
+        layout.setProductLabel(rowId, next);
+        setRenamingId(null);
+      },
+      onCancelRename: () => setRenamingId(null),
+      ...(layout.can.regroup
+        ? {
+            onPickIcon: (trigger: HTMLElement) => picker.open(rowId, trigger),
+          }
+        : {}),
+      hidden: layout.isRowHidden(rowId),
+      onToggleHidden: () => layout.toggleRowHidden(rowId),
+      // The same verbs the drag and the glyph offer, reachable by keyboard —
+      // which is the kebab's whole job on the rows one level up.
+      onOpenMenu: (trigger) => {
+        setMenuTrigger(trigger);
+        menu.open(rowId, trigger);
+      },
+      onDragStart: (e) => {
+        e.dataTransfer.setData(L2_MIME, rowId);
+        e.dataTransfer.effectAllowed = "move";
+        setLifted(rowId);
+      },
+      // A row is not a drop target; the seam between two rows is. Same rule as
+      // every other list in here.
+      onDragOver: () => {},
+      onDragLeave: () => {},
+      onDrop: () => {},
+      onDragEnd: () => {
+        setLifted(null);
+        setOver(null);
+      },
+      over: false,
+      lifted: lifted === rowId,
+    };
+  };
+
+  /** A seam between the nav's own rows. Drop-only: the pair is authored. */
+  const chromeSeam = (index: number) => (
+    <RowSeam
+      key={`chrome-seam-${index}`}
+      dragTypes={dragTypes}
+      accepts={[L2_MIME]}
+      onDrop={(id) => dropChromeRowAt(id, index)}
+      reach={12}
+    />
+  );
 
   const agencyEditFor = (rowId: string): FlyoutRowEdit | undefined => {
     if (!agencyEditing || !agencyBucket) return undefined;
@@ -544,6 +707,66 @@ export function FlyoutPanel({
   );
 
   const menuActions = (productId: string): RowMenuAction[] => {
+    /*
+     * The nav's own rows: everything a product row offers except the two verbs
+     * that need a tree behind them — see `chromeEditFor`.
+     */
+    if (chromePanel && chromeDefaults.includes(productId)) {
+      const at = chromeOrder.indexOf(productId);
+      return productMenuActions({
+        productId,
+        // In no category until someone files it — which they can now: a
+        // category holds products and the nav's own rows alike, and both draw
+        // from the same resolvers. See `withProductFiled`.
+        currentGroupId: null,
+        categories: destinations,
+        onMoveToGroup: (groupId) => layout.moveProductToGroup(productId, groupId),
+        onMoveToTopLevel: () => layout.placeInTail(productId, 0),
+        onRename: () => setRenamingId(productId),
+        ...(layout.can.regroup
+          ? {
+              onPickIcon: () => {
+                if (menuTrigger) picker.open(productId, menuTrigger);
+              },
+            }
+          : {}),
+        ...(at > 0
+          ? {
+              onMoveUp: () =>
+                layout.movePanelRow(
+                  GET_APP_FLYOUT_ID,
+                  chromeDefaults,
+                  productId,
+                  at - 1,
+                ),
+            }
+          : {}),
+        ...(at >= 0 && at < chromeOrder.length - 1
+          ? {
+              onMoveDown: () =>
+                layout.movePanelRow(
+                  GET_APP_FLYOUT_ID,
+                  chromeDefaults,
+                  productId,
+                  at + 1,
+                ),
+            }
+          : {}),
+        /*
+          Remove, and what it can honestly mean here.
+
+          A product row's Remove takes it out of the nav — it is the account's
+          list and the row was in it. These two are put here by an axis, so a
+          removal that deleted them would be undone by the next render. Hiding
+          is the same outcome from the reader's side and the only one that
+          survives: the row goes, and edit mode still shows it faded with the
+          eye that brings it back. The menu says "Remove from the nav" because
+          that is what it does to the nav you are looking at.
+        */
+        onRemove: () => layout.toggleRowHidden(productId),
+      });
+    }
+
     /*
      * An L3's menu is not a product's menu.
      *
@@ -728,10 +951,34 @@ export function FlyoutPanel({
               edge on the same line the rows' chevrons end on. Centring it
               would leave the two marks 4px apart with nothing visible
               explaining why.
+
+              The glyph therefore has to sit off the button's centre — and two
+              things follow from that, both handled here rather than by moving
+              the glyph back.
+
+              The spin is on the GLYPH, not the button: a rotation turns about
+              the box's own centre, so rotating the button swung the X down and
+              left through an arc instead of turning it in place. The app's other
+              close buttons rotate their button and look right only because they
+              are `justify-center`, where the two centres coincide.
+
+              And the hover plate is re-centred by moving the BOX, not its
+              contents: `justify-center` puts the glyph on the box's centre, and
+              -3.5px of right margin — (22 - 15) / 2, the slack the glyph used to
+              absorb on one side — slides the box back out so the glyph lands
+              exactly where `justify-end` had it. The plate ends up concentric
+              with the X and overhanging the header's right padding by those same
+              3.5px, which is a fill bleeding into 22px of whitespace and costs
+              nothing. Centring the glyph in a stationary box would have been the
+              -4px correction this file already rejected, in the other direction.
             */
-            className="flex size-[22px] shrink-0 items-center justify-end rounded-[6px] text-nav-fg-subtle motion-tap hover:bg-nav-hover hover:text-nav-fg-muted hover:rotate-90 active:scale-90"
+            className="group/close -mr-[3.5px] flex size-[22px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle motion-tap hover:bg-nav-hover hover:text-nav-fg-muted active:scale-90"
           >
-            <X size={15} aria-hidden="true" />
+            <X
+              size={15}
+              aria-hidden="true"
+              className="motion-tap group-hover/close:rotate-90"
+            />
           </button>
         </div>
       </div>
@@ -792,7 +1039,9 @@ export function FlyoutPanel({
               ? seam(rowIndexOf(entry.item.id))
               : agencyEditing
                 ? agencySeam(i)
-                : null}
+                : chromeEditing
+                  ? chromeSeam(i)
+                  : null}
           <FlyoutRow
             key={entry.item.id}
             item={entry.item}
@@ -846,7 +1095,9 @@ export function FlyoutPanel({
             }}
             {...(() => {
               const edit =
-                editFor(entry.item.id) ?? agencyEditFor(entry.item.id);
+                editFor(entry.item.id) ??
+                agencyEditFor(entry.item.id) ??
+                chromeEditFor(entry.item.id);
               return edit ? { edit } : {};
             })()}
             {...(childEdit ? { childEdit } : {})}
@@ -856,7 +1107,9 @@ export function FlyoutPanel({
                 ? seam(category.productIds.length)
                 : agencyEditing
                   ? agencySeam(entries.length)
-                  : null
+                  : chromeEditing
+                    ? chromeSeam(entries.length)
+                    : null
               : null}
           </React.Fragment>
         ),

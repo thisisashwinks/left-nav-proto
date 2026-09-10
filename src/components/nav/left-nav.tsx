@@ -70,9 +70,10 @@ import { DeleteGroupDialog } from "./delete-group-dialog";
 import { DiscardEditsDialog } from "./discard-edits-dialog";
 import { KeepChangesDialog, LayoutSwitchWarning } from "./layout-switch";
 import {
+  CHROME_TAIL_IDS,
   editTargetFor,
+  liftedChildren,
   navEntriesFor,
-  withMiddleTailRow,
 } from "./nav-entries";
 import { fixedEntriesFor, flyoutIdFor, navConfig } from "./nav-config";
 import {
@@ -274,9 +275,9 @@ export function LeftNav({
     navSections,
     recentsMode,
     mergedPinScope,
-    mergedAgencyRecents,
     getAppPlacement,
     productDirectoryRow,
+    agencyEditNav,
     agencySearch,
     editTreatment,
   } = useTheme().effective;
@@ -303,15 +304,7 @@ export function LeftNav({
    * hover previews, click pins, the chevron leans. Nothing about it is special
    * except what is inside the panel.
    */
-  const getAppFlyoutItem: NavItem = React.useMemo(
-    () => ({
-      id: GET_APP_FLYOUT_ID,
-      label: GET_APP_NAV_LABEL,
-      icon: Smartphone,
-      hasFlyout: true,
-    }),
-    [],
-  );
+
 
   /** The companion-app rows, when the placement axis puts them in the nav. */
   const getAppEntries: NavEntry[] = [
@@ -404,8 +397,41 @@ export function LeftNav({
    */
   const launchpadAllowed = launchpadSetting;
   const picker = useIconPicker();
+  /**
+   * What a chrome tail row's glyph is before anyone overrides it.
+   *
+   * Only this face draws those rows, so only this face can answer — see the
+   * `chromeIcon` parameter.
+   */
+  const chromeIcon = React.useCallback(
+    (id: string) => (id === GET_APP_FLYOUT_ID ? Smartphone : null),
+    [],
+  );
+
   const { state, groups, can, editFor, pickerProps, startRename } =
-    useNavRowEdit(picker);
+    useNavRowEdit(picker, chromeIcon);
+
+  /*
+   * Editable like any other tail row: its own name, its own glyph.
+   *
+   * Both read through the store first and fall back to the shipped pair. The
+   * row is chrome in the sense that it names no catalogue product — but an
+   * account that wants to call it "Apps" and give it a phone should be able to,
+   * for the same reason it can rename Contacts, and the override maps are keyed
+   * by id so they hold this id without being taught anything.
+   */
+  const getAppFlyoutItem: NavItem = React.useMemo(
+    () => ({
+      id: GET_APP_FLYOUT_ID,
+      label:
+        state.accountProductLabels[GET_APP_FLYOUT_ID] ??
+        state.agencyProductLabels[GET_APP_FLYOUT_ID] ??
+        GET_APP_NAV_LABEL,
+      icon: iconByName(state.icons[GET_APP_FLYOUT_ID]) ?? Smartphone,
+      hasFlyout: true,
+    }),
+    [state.accountProductLabels, state.agencyProductLabels, state.icons],
+  );
   const layout = useNavLayout();
   const agencyLayout = useAgencyLayout();
   const templates = useNavTemplates();
@@ -443,7 +469,17 @@ export function LeftNav({
    */
   // Agency scope edits too now, against its own store. Same verbs, same mode,
   // same way in — the tree behind it is the only thing that differs.
-  const editing = state.editing && can.customise;
+  /**
+   * Whether this nav can be edited at all.
+   *
+   * The agency's answer is an axis and its default is no — see
+   * AGENCY_EDIT_NAV_DEFAULT. Gated here rather than only at the card, so the
+   * mode cannot be entered from anywhere else either: with the card hidden but
+   * the flag still live, a session opened from the prototype panel would put
+   * grips and kebabs on thirteen rows and no control to leave by.
+   */
+  const editable = agencyScope ? agencyEditNav : true;
+  const editing = state.editing && can.customise && editable;
   /** The category whose removal is being confirmed. */
   const [deleting, setDeleting] = React.useState<string | null>(null);
   /** Which seam's add-picker is open, and where a pick should land. */
@@ -546,7 +582,16 @@ export function LeftNav({
    */
   const cardQuickActions =
     quickActionsShown && launchpadAllowed && !agencyScope;
-  const cardShowing = launchpad || cardQuickActions;
+  /*
+   * Sub-account only (Sep 10), reversing the Aug 25 call above.
+   *
+   * The argument for showing it at agency was that an agency has its own
+   * account to finish. True, and it has an L1 row for that — Launchpad, in the
+   * tree, three rows down. The card is a zero-state nudge for someone who has
+   * not started; an agency reading its own nav is past that, and the card was
+   * the first thing on the surface every single visit.
+   */
+  const cardShowing = (launchpad && !agencyScope) || cardQuickActions;
 
   /*
    * The categories, in the order the nav draws them.
@@ -741,8 +786,20 @@ export function LeftNav({
     if (!group) {
       const tailIndex = tailRowIds.indexOf(itemId);
       if (tailIndex < 0) return {};
-      // Click-to-rename only where there is something to write the name to.
-      const renameable = editTargetFor(state, groups, itemId) !== null;
+      /*
+       * Click-to-rename only where there is something to write the name to —
+       * and not at all once the row has become a door.
+       *
+       * A lifted row that kept its children now titles the panel it opens, so
+       * its label is doing two jobs: naming a place in the list, and naming
+       * the list inside. Renaming it renames both, and the second one is not
+       * the account's to name — the panel's contents are the product's own
+       * layer, filed under a heading the catalogue chose. Everything else the
+       * row can do it still can: icon, order, category, removal.
+       */
+      const isDoor = liftedChildren(itemId).length > 0;
+      const renameable =
+        !isDoor && editTargetFor(state, groups, itemId) !== null;
       /*
        * The same kebab a product wears inside a panel.
        *
@@ -768,7 +825,7 @@ export function LeftNav({
           // as the entry it is already on.
           currentGroupId: null,
           categories,
-          onRename: () => startRename(itemId),
+          ...(renameable ? { onRename: () => startRename(itemId) } : {}),
           // Anchored on the kebab the menu came out of, which is the element
           // the reader is looking at when they pick the entry.
           ...(can.regroup
@@ -778,10 +835,23 @@ export function LeftNav({
                 },
               }
             : {}),
-          onMoveToGroup: (groupId) =>
-            layout.moveProductToGroup(itemId, groupId),
-          onMoveToTopLevel: () => {},
-          onRemove: () => layout.removeProductFromNav(itemId),
+          /*
+            Filing and removal are for rows that name a product.
+
+            This branch also draws the chrome rows that live in the tail —
+            Desktop and mobile apps — and neither verb means anything for them:
+            a category holds products, and what puts the row in the nav is an
+            axis, so "Remove" would be undone by the next render. Everything
+            else in the menu applies to both.
+          */
+          ...(CHROME_TAIL_IDS.has(itemId)
+            ? {}
+            : {
+                onMoveToGroup: (groupId: string) =>
+                  layout.moveProductToGroup(itemId, groupId),
+                onMoveToTopLevel: () => {},
+                onRemove: () => layout.removeProductFromNav(itemId),
+              }),
           // Top-level rows reorder through the tail rather than through a
           // group, but the menu entry is the same one a panel row gets — the
           // keyboard path to reordering should not depend on where a row sits.
@@ -986,12 +1056,12 @@ export function LeftNav({
               cannot end up putting it in two different places, which is exactly
               what happened while it was rendered by hand at each foot.
             */
-            getAppPlacement === "flyout"
-            ? withMiddleTailRow(
-                navEntriesFor(state, groups, bandEverything),
-                getAppFlyoutItem,
-              )
-            : navEntriesFor(state, groups, bandEverything),
+            navEntriesFor(
+              state,
+              groups,
+              bandEverything,
+              getAppPlacement === "flyout" ? [getAppFlyoutItem] : [],
+            ),
       ),
     [
       agencyScope,
@@ -1017,11 +1087,7 @@ export function LeftNav({
     !categories.some((g) => g.id === e.item.id) &&
     // The volume switch's generated links are scaffolding, not something anyone
     // arranges.
-    !e.item.id.startsWith("custom-link-") &&
-    // Chrome, not a row of the tree: it cannot be dragged into the tail's
-    // order, and `placeInTail` has nothing to write for an id that names no
-    // product.
-    e.item.id !== GET_APP_FLYOUT_ID
+    !e.item.id.startsWith("custom-link-")
       ? [e.item.id]
       : [],
   );
@@ -1087,7 +1153,9 @@ export function LeftNav({
    * nothing.
    */
   const showClusterRule = agencyScope
-    ? recentAccounts.length > 0 && !(merged && mergedAgencyRecents !== "places")
+    ? // Nothing opens the agency's cluster any more — no card, no Recent
+      // accounts — so there is nothing for a closing rule to close.
+      false
     : fixedHasRows;
 
   /** Leaving the mode has to take its transient surfaces with it. */
@@ -1190,7 +1258,7 @@ export function LeftNav({
   const access = layout.editAccess;
   const planLock = access.kind === "locked" ? access.block : null;
   const editNav: EditNavProps | undefined =
-    roleMayEdit && access.kind !== "hidden"
+    roleMayEdit && access.kind !== "hidden" && editable
       ? {
           ...(planLock ? { planLock } : {}),
           editing,
@@ -1974,18 +2042,16 @@ export function LeftNav({
           ) : null}
           {agencyScope ? (
             /*
-              Recent accounts stands down once the merged list is naming
-              accounts itself. With the list set to areas only it stays — a
-              client switch is not navigation, and burying the agency nav's most
-              consequential row inside a list of pages is exactly what the
-              "areas" option exists to avoid.
+              No Recent accounts block (Sep 10).
+
+              It listed the clients you last had open — which is what the
+              account rail does, in a column devoted to nothing else, with the
+              tenant marks that make a client recognisable at a glance. Two
+              lists of the same handful of names on one screen, and the nav's
+              copy was the worse of the two: no marks, no switching affordance,
+              and sitting where a reader was looking for pages.
             */
-            merged && mergedAgencyRecents !== "places" ? null : (
-              <RecentAccountsBlock
-                accounts={recentAccounts}
-                onSwitch={onSwitchAccount}
-              />
-            )
+            null
           ) : foldable ? (
             renderBanded(fixedEntries)
           ) : (
@@ -2066,7 +2132,14 @@ export function LeftNav({
                 account's own products — Settings and the installers are the
                 platform's. Closest to the tree it belongs to.
               */}
-              {productDirectoryRow ? (
+              {/*
+                Sub-account only.
+
+                The agency tree is thirteen buckets you can see all of at once,
+                in a nav that does not scroll — a directory of it would list
+                what is already on screen, one panel further away.
+              */}
+              {productDirectoryRow && !agencyScope ? (
                 <NavItemRow
                   item={PRODUCT_DIRECTORY_ITEM}
                   onSelect={onOpenDirectory}
@@ -2375,42 +2448,18 @@ function tidyRules(list: NavEntry[]): NavEntry[] {
   return out;
 }
 
-/**
- * The agency's Recent block: the last sub-accounts visited, as compact rows
- * with the account's own mark where a product row has its icon. Clicking one
- * is the fast path back into a client — the block plays the role the client
- * nav's Recent products play, at the unit the agency thinks in.
+/*
+ * The agency's Recent accounts block used to live here.
+ *
+ * Removed (Sep 10): the account rail lists the clients you last had open, in a
+ * column that exists for nothing else and with the tenant marks that make a
+ * client recognisable without reading. This was the same handful of names a
+ * second time, in the worse of the two treatments, sitting where a reader was
+ * looking for pages. `recentAccounts` still arrives as a prop — the merged
+ * list can hold clients itself under two of the three MERGED_AGENCY_RECENTS
+ * values, which is the arrangement that replaced this one.
  */
-function RecentAccountsBlock({
-  accounts,
-  onSwitch,
-}: {
-  accounts: Account[];
-  onSwitch: (id: string) => void;
-}) {
-  if (accounts.length === 0) return null;
-  return (
-    <>
-      <NavSectionLabel text="Recent accounts" />
-      {accounts.map((account) => (
-        <button
-          key={account.id}
-          type="button"
-          onClick={() => onSwitch(account.id)}
-          className="motion-tap flex w-full items-center gap-[var(--t-nav-gap,10px)] rounded-[var(--t-nav-radius,7px)] px-[var(--t-nav-px,8px)] py-[6px] text-left hover:bg-nav-hover active:scale-[0.99]"
-        >
-          <AccountLogo logo={account.logo} src={account.logoSrc} size={16} radius={999} />
-          <span
-            className="truncate leading-[20px] text-nav-fg"
-            style={{ fontSize: "calc(var(--t-nav-font, 14px) - 0.5px)" }}
-          >
-            {account.name}
-          </span>
-        </button>
-      ))}
-    </>
-  );
-}
+
 
 /**
  * The dashed "add" row at the end of the tree, in edit mode.

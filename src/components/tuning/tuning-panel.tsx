@@ -13,8 +13,6 @@ import {
   ACCENTS,
   AI_BUTTON_STYLE_LABELS,
   AI_BUTTON_STYLES,
-  DIRECTORY_DISCLOSURE_LABELS,
-  DIRECTORY_DISCLOSURES,
   LEGACY_FOOT_CONTROL_LABELS,
   LEGACY_FOOT_CONTROLS,
   AUTO_COLLAPSE_WIDTH,
@@ -80,6 +78,8 @@ import {
   SEARCH_MODE_LABELS,
   SEARCH_MODES,
   SURFACE_THEMES,
+  NAV_DARK_TONES,
+  NAV_DARK_TONE_LABELS,
   TINT_LABELS,
   TINTS,
   type Accent,
@@ -87,7 +87,6 @@ import {
   type DockPosition,
   type EntryLayout,
   type AiButtonStyle,
-  type DirectoryDisclosure,
   type LegacyFootControl,
   type GetAppPlacement,
   type FlyoutTrigger,
@@ -132,6 +131,7 @@ import {
   type ScopeModel,
   type SearchMode,
   type SurfaceTheme,
+  type NavDarkTone,
   type Tint,
 } from "@/design/theme";
 import {
@@ -175,7 +175,7 @@ import {
   GROUPING_LABELS,
   DEFAULT_LAYOUT,
   GROUPING_MODES,
-  NAV_ROLES,
+  NAV_ROLES_OFFERED,
   NAV_VOLUME_EXTRA_LINKS,
   NAV_VOLUME_LABELS,
   NAV_VOLUMES,
@@ -195,9 +195,9 @@ const DENSITY_NOTE: Record<Density, string> = {
 };
 
 const ROLE_NOTE: Record<NavRole, string> = {
-  user: "Pins, their order, and labels only this user sees. No structure.",
-  admin: "Also grouping, group order, icons, and names for the sub-account.",
-  agency: "Also custom groups, and names that every sub-account inherits.",
+  user: "Inside one sub-account. Pins, their order, and labels only this user sees — no structure, and no edit mode.",
+  admin: "Administers one sub-account. Withheld from this control for now — with restructuring moved up to the agency it has the same nav permissions a user does.",
+  agency: "Administers the agency, above every sub-account. Also custom groups, and names each account inherits.",
 };
 
 /** "Per account" plus the three tiers — the plan switch's four positions. */
@@ -627,7 +627,7 @@ function NavStructureSection({
 
       <Segmented
         label="Editing as"
-        options={NAV_ROLES}
+        options={NAV_ROLES_OFFERED}
         value={state.role}
         onChange={layout.setRole}
         format={(v) => ROLE_LABELS[v]}
@@ -1139,8 +1139,19 @@ const SECTIONS = [
 
 type SectionId = (typeof SECTIONS)[number];
 
-/** Only the first section is open on load — the rest stay out of the way. */
-const INITIAL_OPEN: SectionId[] = ["Theme"];
+/**
+ * Every section closed on load.
+ *
+ * Theme used to be open, on the reasoning that a panel opening on nothing looks
+ * broken. It has stopped being true: the panel now carries a dozen sections and
+ * a search field, so what it opens on is a table of contents — and one section
+ * hanging open below it read as the panel having already been used rather than
+ * as an offer. Closed, the first thing you see is the whole list of what can be
+ * tuned, which is the more useful answer to "what is in here".
+ *
+ * `Expand all` is one click away, and searching still opens whatever matches.
+ */
+const INITIAL_OPEN: SectionId[] = [];
 
 function Row({ knob }: { knob: TuningKnob }) {
   const { state, set } = useTuning();
@@ -1532,6 +1543,8 @@ export function TuningPanel() {
     setAppTheme,
     navTheme,
     setNavTheme,
+    navDarkTone,
+    setNavDarkTone,
     headerTheme,
     setHeaderTheme,
     searchMode,
@@ -1562,6 +1575,8 @@ export function TuningPanel() {
     setLegacyNavTheme,
     navSwitchButton,
     setNavSwitchButton,
+    agencyEditNav,
+    setAgencyEditNav,
     navSwitchInEditCard,
     setNavSwitchInEditCard,
     navSwitchSurface,
@@ -1574,8 +1589,6 @@ export function TuningPanel() {
     setNavColourControl,
     productDirectoryRow,
     setProductDirectoryRow,
-    directoryDisclosure,
-    setDirectoryDisclosure,
     subAccountSwitcher,
     setSubAccountSwitcher,
     userMultiAccount,
@@ -1594,6 +1607,7 @@ export function TuningPanel() {
     (accent !== DEFAULT_THEME.accent ? 1 : 0) +
     (tint !== DEFAULT_THEME.tint ? 1 : 0) +
     (navTheme !== DEFAULT_THEME.navTheme ? 1 : 0) +
+    (navDarkTone !== DEFAULT_THEME.navDarkTone ? 1 : 0) +
     (headerTheme !== DEFAULT_THEME.headerTheme ? 1 : 0) +
     (appTheme !== DEFAULT_THEME.appTheme ? 1 : 0) +
     (pageShell !== DEFAULT_THEME.pageShell ? 1 : 0) +
@@ -1624,6 +1638,7 @@ export function TuningPanel() {
     setAccent(DEFAULT_THEME.accent);
     setTint(DEFAULT_THEME.tint);
     setNavTheme(DEFAULT_THEME.navTheme);
+    setNavDarkTone(DEFAULT_THEME.navDarkTone);
     setHeaderTheme(DEFAULT_THEME.headerTheme);
     setAppTheme(DEFAULT_THEME.appTheme);
     setPageShell(DEFAULT_THEME.pageShell);
@@ -1982,6 +1997,24 @@ export function TuningPanel() {
             row — the answer for anyone whose merged block is switched off, and a
             spare question for everyone else, which is why it starts off.
           */}
+          {/*
+            The agency's edit experience, which is off by default.
+
+            Kept beside the other agency axes rather than with the edit card's
+            own controls: the question is not how the card behaves, it is
+            whether the agency tree is something an agency arranges at all.
+          */}
+          <Toggle
+            label="Agency nav editing"
+            checked={agencyEditNav}
+            onChange={setAgencyEditNav}
+          />
+          <Note>
+            {agencyEditNav
+              ? "The agency gets the same edit card the sub-account does, backed by its own store — rename, reorder, hide, icons."
+              : "Off: no pencil and no mode at agency scope. Thirteen fixed buckets of platform IA, and a card built for a catalogue that is not there."}
+          </Note>
+
           <Toggle
             label="Product directory"
             checked={productDirectoryRow}
@@ -1991,19 +2024,6 @@ export function TuningPanel() {
             {productDirectoryRow
               ? "Its own place: a standing row above Settings opens the catalogue as an L1 ▸ L2 ▸ L3 tree, and View all keeps only Pinned and Recent."
               : "One panel holding both: View all opens Pinned, Recent and the catalogue under them, and there is no standing row."}
-          </Note>
-
-          <Segmented
-            label="Directory levels open"
-            options={DIRECTORY_DISCLOSURES}
-            value={directoryDisclosure}
-            onChange={(v: DirectoryDisclosure) => setDirectoryDisclosure(v)}
-            format={(v) => DIRECTORY_DISCLOSURE_LABELS[v]}
-          />
-          <Note>
-            {directoryDisclosure === "flyout"
-              ? "Cascading panels off the directory's edge, as the nav's own flyouts do — so the catalogue teaches nothing new."
-              : "In place, indented under the parent: the whole path stays visible, at the cost of pushing everything below it down the panel."}
           </Note>
 
           <Segmented
@@ -2051,6 +2071,23 @@ export function TuningPanel() {
             value={navTheme}
             onChange={(v: SurfaceTheme) => setNavTheme(v)}
           />
+          {/* Only when there is a dark to choose. */}
+          {navTheme === "dark" ? (
+            <>
+              <Segmented
+                label="Which dark"
+                options={NAV_DARK_TONES}
+                value={navDarkTone}
+                onChange={(v: NavDarkTone) => setNavDarkTone(v)}
+                format={(v) => NAV_DARK_TONE_LABELS[v]}
+              />
+              <Note>
+                {navDarkTone === "navy"
+                  ? "#0F1828 and a ramp derived from it. Enough hue to read as a surface rather than a hole next to a white canvas — and little enough not to compete with the tenant's accent."
+                  : "The neutral as it ships: #0f0f12, black with the colour taken out."}
+              </Note>
+            </>
+          ) : null}
           <Segmented
             label="Header surface"
             options={SURFACE_THEMES}

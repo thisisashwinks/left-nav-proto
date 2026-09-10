@@ -77,6 +77,7 @@ import {
   SETTINGS_FLYOUT_ID,
 } from "@/components/nav/settings-config";
 import { childById, productById } from "@/components/nav/catalogue";
+import { isChromePlace } from "@/components/nav/chrome-places";
 import type { CatalogueChild } from "@/components/nav/catalogue";
 import {
   PROPOSED_HOME_ID,
@@ -90,11 +91,15 @@ import {
   CONTACTS_AREA_PAGES,
 } from "@/components/contacts/contacts-area";
 import { ProductPage } from "@/components/product/product-page";
-import { flyoutForGroup } from "@/components/nav/group-flyout";
+import {
+  flyoutForGroup,
+  flyoutForLifted,
+} from "@/components/nav/group-flyout";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { PinnedLauncher } from "@/components/nav/pinned-launcher";
 import { HereProvider } from "@/components/nav/here";
 import { UndoToast } from "@/components/nav/undo-toast";
+import { UpgradeToast } from "@/components/nav/upgrade-toast";
 import { PINNED_VISIBLE } from "@/components/nav/pinned-morph";
 import { AccountsIndexPage } from "@/components/settings/accounts-index";
 import { SubAccountPage } from "@/components/settings/subaccount-page";
@@ -229,6 +234,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     userMultiAccount,
     agencySearch,
     editTreatment,
+    getAppPlacement,
   } = effective;
 
   /*
@@ -715,7 +721,11 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
          * anything the nav can draw.
          */
         .filter(
-          (id) => productById(id) !== undefined || childById(id) !== undefined,
+          (id) =>
+            productById(id) !== undefined ||
+            childById(id) !== undefined ||
+            // The nav's own rows can be pinned too — see chrome-places.
+            isChromePlace(id),
         )
         .map((id) => {
           /*
@@ -819,6 +829,26 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   // At agency scope the agency's own panels take their place.
   // The Settings row opens a flyout like any group row; which menu it holds
   // follows the scope, not the registry.
+  /*
+   * A lifted row's own panel, before the authored registry.
+   *
+   * Its id is a product's or an L2's, not a group's, so `groupFlyouts` never
+   * holds it — and the authored registry is keyed by category, so it never
+   * held it either. Without this the chevron on a promoted row opened nothing.
+   *
+   * Memoised for the same reason `groupFlyouts` is, and it is not optional:
+   * `useExitTransition` compares by identity, so a config built fresh during
+   * render reads as a NEW flyout on every render, which schedules a state
+   * update, which renders again. Called inline it took the app down with "too
+   * many re-renders" the moment one of these rows was clicked — the one place
+   * a generated config had ever been produced outside a memo.
+   */
+  const liftedFlyout = React.useMemo(
+    () =>
+      intent.activeId === null ? null : flyoutForLifted(layout, intent.activeId),
+    [layout, intent.activeId],
+  );
+
   const requested = intent.activeId
     ? /*
         The companion-app panel, ahead of every other lookup.
@@ -840,7 +870,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         ? // Only the deep buckets have one — the shallow ones disclose in place
           // and never ask for a panel.
           (agencyFlyouts[intent.activeId] ?? null)
-        : (groupFlyouts.get(intent.activeId) ?? flyouts[intent.activeId] ?? null)
+        : (groupFlyouts.get(intent.activeId) ??
+          liftedFlyout ??
+          flyouts[intent.activeId] ??
+          null)
     : null;
   const flyout = useExitTransition(requested, FLYOUT_EXIT_MS);
   // A bare `true` rather than the session object: useExitTransition compares
@@ -941,10 +974,27 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    */
   const selectNavRow = React.useCallback(
     (id: string) => {
+      /*
+       * A pinned companion-app row goes where the nav row it was pinned from
+       * goes: the canvas page under the flyout placement, the sheet under the
+       * other two. A pin is a shortcut to a destination, so it cannot have a
+       * destination of its own.
+       */
+      if (id === GET_APP_ROW_IDS.mobile || id === GET_APP_ROW_IDS.desktop) {
+        const kind = id === GET_APP_ROW_IDS.mobile ? "mobile" : "desktop";
+        if (getAppPlacement === "flyout") {
+          setManageAccountId(null);
+          setProductPage(null);
+          setSelectedId(id);
+        } else {
+          setAppModal(kind);
+        }
+        return;
+      }
       setSelectedId(id);
       if (layout.grouping === "proposed" && productById(id)) openProduct(id);
     },
-    [layout.grouping, openProduct],
+    [layout.grouping, openProduct, getAppPlacement, setProductPage],
   );
   /*
    * One handler for every level of a crumb menu.
@@ -1992,9 +2042,18 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       </div>
 
       {/* The layout hole the docked Ask AI panel sits in — the canvas
-          shrinks beside the conversation instead of running under it. */}
+          shrinks beside the conversation instead of running under it.
+
+          The panel's width PLUS the shell's gap, now that the panel floats:
+          it sits one gap in from the right, so a hole of its bare width would
+          put its left edge exactly on the canvas's, and the two cards would
+          touch. The extra gap is the gutter between them. */}
       {ai.isMounted && aiMode === "docked" ? (
-        <div aria-hidden="true" className="shrink-0" style={{ width: AI_DOCKED_WIDTH }} />
+        <div
+          aria-hidden="true"
+          className="shrink-0"
+          style={{ width: `calc(${AI_DOCKED_WIDTH}px + var(--shell-canvas-gap))` }}
+        />
       ) : null}
 
       {/*
@@ -2325,6 +2384,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         collapse state are doing.
       */}
       <UndoToast navWidth={leftOffset} />
+
+      {/*
+        The upgrade confirmation, over the canvas rather than the nav.
+
+        Same `leftOffset` the undo toast uses, meaning the opposite thing: there
+        it is the column the toast hugs, here it is the edge the canvas starts
+        at and therefore where "centred" begins.
+      */}
+      <UpgradeToast canvasLeft={leftOffset} />
 
       {/* Search sits above the flyouts; both treatments share the same model. */}
       {searchOpen ? (

@@ -93,12 +93,16 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
     note: "The Aug 19 proposal — twelve buckets over their own product set. The only account on the new tree.",
     products: [...PROPOSED_PRODUCT_IDS],
     grouping: "proposed",
+    /*
+      Four, not five: PIN_LIMIT is five, so a seeded five opens every account
+      at the cap and disables the pin button on every row in the product. One
+      free slot is the difference between "you are full" and "this is broken".
+    */
     pinned: [
       "ia-crm-conversations",
       "ia-crm-contacts",
       "ia-automation-workflows",
       "ia-commerce-invoices",
-      "ia-reporting-dashboard",
     ],
     links: ["Field ops handbook", "Supplier portal"],
   },
@@ -114,7 +118,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
     saasTier: "premium",
     note: "The full catalogue — 12 locations, every product provisioned. The stress case.",
     products: catalogue.map((p) => p.id),
-    pinned: ["conversations", "contacts", "opportunities", "payments", "reporting"],
+    pinned: ["conversations", "contacts", "opportunities", "payments"],
   },
 
   northwind: {
@@ -199,7 +203,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
       "reporting",
     ],
     grouping: "job",
-    pinned: ["conversations", "contacts", "calendars", "subscriptions", "payments"],
+    pinned: ["conversations", "contacts", "calendars", "subscriptions"],
     productLabels: {
       contacts: "Members",
       calendars: "Class schedule",
@@ -230,7 +234,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
       "automation",
       "reporting",
     ],
-    pinned: ["conversations", "calendars", "opportunities", "invoices", "mobile-app"],
+    pinned: ["conversations", "calendars", "opportunities", "invoices"],
     productLabels: {
       calendars: "Job scheduling",
       tasks: "Work orders",

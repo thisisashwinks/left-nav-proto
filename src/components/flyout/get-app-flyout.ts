@@ -1,6 +1,6 @@
 import { Monitor, Smartphone } from "lucide-react";
 import { GET_APP_LABELS } from "@/components/header/get-app-modal";
-import type { FlyoutConfig } from "./types";
+import { BETA_BADGE, NEW_BADGE, type FlyoutConfig } from "./types";
 
 /**
  * The companion apps behind one nav row instead of two.
@@ -37,8 +37,8 @@ export const GET_APP_NAV_LABEL = "Desktop and mobile apps";
  * avatar menu, where the same words would be a paragraph beside a sign-out.
  */
 export const GET_APP_ROW_LABELS: Record<"mobile" | "desktop", string> = {
-  mobile: `${GET_APP_LABELS.mobile} (iOS and Android)`,
-  desktop: `${GET_APP_LABELS.desktop} (macOS and Windows)`,
+  mobile: `${GET_APP_LABELS.mobile} (iOS & Android)`,
+  desktop: `${GET_APP_LABELS.desktop} (macOS & Windows)`,
 };
 
 /** The ids the shell routes to the sheet. See app-shell's `onNavigate`. */
@@ -60,7 +60,8 @@ export const getAppFlyout: FlyoutConfig = {
         id: GET_APP_ROW_IDS.mobile,
         label: GET_APP_ROW_LABELS.mobile,
         icon: Smartphone,
-        description: "iOS and Android, under your own name.",
+        description: "iOS & Android, under your own name.",
+        badge: BETA_BADGE,
       },
     },
     {
@@ -69,7 +70,8 @@ export const getAppFlyout: FlyoutConfig = {
         id: GET_APP_ROW_IDS.desktop,
         label: GET_APP_ROW_LABELS.desktop,
         icon: Monitor,
-        description: "macOS and Windows, in one download.",
+        description: "macOS & Windows, in one download.",
+        badge: NEW_BADGE,
       },
     },
   ],

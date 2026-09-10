@@ -25,6 +25,7 @@ import {
   proposedBuckets,
 } from "./proposed-ia";
 import { iconByName, nameForIcon } from "./icon-catalogue";
+import { chromePlace, isChromePlace } from "./chrome-places";
 import { iconForChildLabel } from "./l3-icons";
 
 /**
@@ -144,15 +145,44 @@ export type LabelScope = "agency" | "account";
  * Who is editing. Straight from the research's second question, "who *controls*
  * it?" — the field layers product-curated, agency-configured and
  * user-personalized, and the answer decides what each role may touch.
+ *
+ * Three roles across TWO tenancies, which the old labels — "User", "Admin",
+ * "Agency" — did not say:
+ *
+ *  user    A person inside a sub-account. Pins and their own labels; no
+ *          structure, and no edit mode at all.
+ *  admin   An administrator OF a sub-account. Everything `user` has, plus
+ *          grouping, order, icons and names that every user in THAT
+ *          sub-account sees. Cannot write anything the agency inherits.
+ *  agency  An administrator of the agency, above all of its sub-accounts. The
+ *          only role that may write at agency scope — see `writeAgencyScope` —
+ *          which is what makes a change a default every account picks up.
+ *
+ * So `admin` is the sub-account admin and `agency` is the agency admin. Both
+ * are "admin" in conversation, which is exactly why the labels now say which.
  */
 export type NavRole = "user" | "admin" | "agency";
 
 export const NAV_ROLES: readonly NavRole[] = ["user", "admin", "agency"] as const;
 
+/**
+ * The roles the prototype panel offers, which is not all of them.
+ *
+ * `admin` is withheld for now: with restructuring moved up to the agency it
+ * has exactly the nav permissions a plain user has, so offering it would be a
+ * third button that changes nothing on screen — and a control whose options
+ * are indistinguishable teaches the reader that the axis does not matter.
+ *
+ * It stays in `NAV_ROLES`, and in the model, because the sub-account admin is
+ * a real role that the product distinguishes elsewhere; the moment nav gives
+ * it something of its own back, this list is where it returns.
+ */
+export const NAV_ROLES_OFFERED: readonly NavRole[] = ["user", "agency"] as const;
+
 export const ROLE_LABELS: Record<NavRole, string> = {
-  user: "User",
-  admin: "Admin",
-  agency: "Agency",
+  user: "Sub-account user",
+  admin: "Sub-account admin",
+  agency: "Agency admin",
 };
 
 export interface NavPermissions {
@@ -179,13 +209,31 @@ export interface NavPermissions {
  * top of it.
  */
 export function permissionsFor(role: NavRole): NavPermissions {
+  /*
+   * Restructuring is an AGENCY capability, not an administrative one.
+   *
+   * It used to be `role !== "user"`, which handed the whole editor to a
+   * sub-account admin. That reads reasonably until you notice what the editor
+   * is for: this nav is the agency's product surface, the thing it white-labels
+   * and sells, and a client-side admin rearranging it is the tenant editing
+   * something the agency is on the hook for. It also collided with the plan
+   * ladder — nav editing is priced at the AGENCY tier, and a sub-account admin
+   * has no plan of their own to have bought it with.
+   *
+   * So the sub-account keeps what is genuinely personal — pins, their order,
+   * and labels only that person sees — and everything structural moves up.
+   * Which leaves `admin` and `user` with identical nav permissions today; the
+   * role stays in the model because the distinction is real everywhere else in
+   * the product and may come back here.
+   */
+  const agency = role === "agency";
   return {
     pin: true,
     renameForSelf: true,
-    renameForEveryone: role !== "user",
-    regroup: role !== "user",
-    customise: role !== "user",
-    writeAgencyScope: role === "agency",
+    renameForEveryone: agency,
+    regroup: agency,
+    customise: agency,
+    writeAgencyScope: agency,
   };
 }
 
@@ -293,6 +341,17 @@ export interface NavLayoutState {
    */
   tailOrder: string[];
   /**
+   * Row order inside the nav's own panels, keyed by panel id.
+   *
+   * The companion-app panel is the case: its two rows are authored, not
+   * catalogue, so no group holds them and `tailOrder` has nothing to say about
+   * rows that are not in the tail. Held as a diff against the authored order —
+   * a panel that gains a row in a later release shows it rather than having it
+   * swallowed by a saved list that predates it. Same rule, and the same reason,
+   * as the agency store's `childOrder`.
+   */
+  panelOrder: Record<string, string[]>;
+  /**
    * The standing blocks the account has switched off.
    *
    * Recent, Quick Actions and the favourites dock are the three things in the nav
@@ -343,6 +402,7 @@ export const DEFAULT_LAYOUT: NavLayoutState = {
   enabledProducts: catalogue.map((p) => p.id),
   customLinks: [],
   tailOrder: [],
+  panelOrder: {},
   /*
    * Quick actions starts off (Aug 28).
    *
@@ -491,6 +551,9 @@ export function baseLabelForProduct(
     state.agencyProductLabels[productId] ??
     productById(productId)?.label ??
     childById(productId)?.child.label ??
+    // The nav's own rows — companion apps and whatever joins them. See
+    // chrome-places: without this a pinned one reaches the dock as its id.
+    chromePlace(productId)?.label ??
     productId
   );
 }
@@ -688,6 +751,7 @@ export function iconForProduct(
     // from Sites itself in the dock.
     hit?.child.icon ??
     (hit ? iconForChildLabel(hit.child.label) : undefined) ??
+    chromePlace(productId)?.icon ??
     Folder;
   return iconByName(state.icons[productId]) ?? shipped;
 }
@@ -968,7 +1032,11 @@ function resolveTree(state: NavLayoutState): ResolvedGroup[] {
         ids,
         (id) =>
           (byId.get(id)?.productIds ?? []).filter(
-            (pid) => productById(pid) !== undefined,
+            // A category holds products, and — since "Move to" started
+            // offering it — the nav's own rows. Both draw the same way: the
+            // resolvers answer for either. Anything else is a stale id from a
+            // catalogue this account no longer has.
+            (pid) => productById(pid) !== undefined || isChromePlace(pid),
           ),
         true,
       );
@@ -1346,7 +1414,17 @@ export function withProductFiled(
    */
   index?: number,
 ): NavLayoutState {
-  if (!isProductEnabled(state, productId)) return state;
+  /*
+   * Chrome rows are filable without being provisioned.
+   *
+   * `enabledProducts` is what the agency sold this account, which is the right
+   * gate for a product and meaningless for a row the platform puts in every
+   * nav. Without the exception, "Move to Marketing" on Desktop and mobile apps
+   * returned the state unchanged and the menu entry did nothing.
+   */
+  if (!isProductEnabled(state, productId) && !isChromePlace(productId)) {
+    return state;
+  }
   const target = groupId === UNGROUPED_ID ? null : groupId;
   const base = customTreeFor(state);
   if (target !== null && !base.customGroups.some((g) => g.id === target)) {

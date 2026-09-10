@@ -5,7 +5,6 @@ import {
   ArrowDown,
   ChevronDown,
   ChevronRight,
-  Monitor,
   Smartphone,
   ArrowUp,
   GripVertical,
@@ -21,17 +20,18 @@ import { MERGED_HEADING_LABELS, type SurfaceTheme } from "@/design/theme";
 import { PANEL_RECENT_HEADING_LABELS } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
+import { useTruncationTitle } from "@/lib/use-truncation-title";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
 import type { CatalogueChild } from "./catalogue-types";
 import { childById, productById } from "./catalogue";
+import { isChromePlace } from "./chrome-places";
 import { iconForChildLabel } from "./l3-icons";
 import { FlyoutCascade } from "@/components/flyout/flyout-cascade";
 import {
   GET_APP_FLYOUT_ID,
   GET_APP_NAV_LABEL,
   GET_APP_ROW_IDS,
-  GET_APP_ROW_LABELS,
 } from "@/components/flyout/get-app-flyout";
 import { useHoverDwell } from "@/lib/use-hover-dwell";
 import { glyphFor, type ResolvedGroup } from "./grouping";
@@ -188,7 +188,9 @@ export function PinnedLauncher({
       // whether the id resolves to anything the nav can draw rather than
       // whether it is a product. It stayed a product check for one revision
       // after L3 became pinnable, which silently dropped those pins.
-      productById(id) !== undefined || childById(id) !== undefined,
+      productById(id) !== undefined ||
+      childById(id) !== undefined ||
+      isChromePlace(id),
   );
 
   // Resolved up front so the "All products" heading knows whether anything
@@ -218,23 +220,27 @@ export function PinnedLauncher({
           custom: false,
         },
         productIds: [],
-        // Stated rather than derived: these two name no catalogue product, so
-        // the label and glyph have to come from the same place the panel's own
-        // rows take them from.
-        rows: [
-          {
-            id: GET_APP_ROW_IDS.mobile,
-            label: GET_APP_ROW_LABELS.mobile,
-            icon: Smartphone,
+        /*
+          Resolved through the store, not stated.
+
+          These two are renameable, re-iconable, reorderable and hideable now —
+          so a directory listing them from a constant would show the shipped
+          pair to an account that had changed all four. The chrome registry is
+          what makes `productLabelFor` answer for them at all; the panel that
+          owns them is where the order and the hidden flags are set.
+        */
+        rows: layout
+          .panelRowsFor(GET_APP_FLYOUT_ID, [
+            GET_APP_ROW_IDS.mobile,
+            GET_APP_ROW_IDS.desktop,
+          ])
+          .filter((id) => !layout.isRowHidden(id))
+          .map((id) => ({
+            id,
+            label: layout.productLabelFor(id),
+            icon: layout.productIconFor(id),
             pages: [],
-          },
-          {
-            id: GET_APP_ROW_IDS.desktop,
-            label: GET_APP_ROW_LABELS.desktop,
-            icon: Monitor,
-            pages: [],
-          },
-        ],
+          })),
       }
     : null;
 
@@ -350,7 +356,21 @@ export function PinnedLauncher({
       ? searchHits(layout, groups, q, new Set(keptIds))
       : searchHits(layout, groups, q);
 
-  const showSearch = !mergedPanel || mergedPanelSearch;
+  /*
+   * The field follows the errand, not just the contents.
+   *
+   * Reached from "View all" this panel is the merged block's own surface: a pin
+   * list and a bounded history, short enough to read, where a field promises a
+   * corpus that is one section further down. Reached from Product directory it
+   * IS that corpus — every product the account owns — and a list that long
+   * without a query is just a scroll.
+   *
+   * So the directory always carries it, whatever the merged-panel axis says:
+   * that axis is a question about the recents surface, and it was silently
+   * answering for the catalogue too.
+   */
+  const showSearch =
+    variant === "directory" || !mergedPanel || mergedPanelSearch;
 
   /**
    * What the field promises, which has to be what it delivers.
@@ -437,8 +457,17 @@ export function PinnedLauncher({
           also be a place you query is the open question there, and it is not
           one anywhere else.
         */}
+        {/*
+          The field's own 2px on top of the header's 4px, plus the 2px the
+          header row's centring leaves under the title — 8px to the title.
+          
+          On the field rather than the header because the header's padding is
+          shared with the no-search case, where it is part of the 20px that puts
+          the first section heading clear of the title. Widening it there would
+          have moved both at once; this keeps the two independently tunable.
+        */}
         {showSearch ? (
-        <div className="mx-[14px] flex h-[36px] w-[calc(100%-28px)] shrink-0 items-center gap-[9px] rounded-[9px] px-[10px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
+        <div className="mx-[14px] mt-[2px] flex h-[36px] w-[calc(100%-28px)] shrink-0 items-center gap-[9px] rounded-[9px] px-[10px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
           <Search size={16} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
           <input
             ref={inputRef}
@@ -490,7 +519,20 @@ export function PinnedLauncher({
               their own air instead — see SectionHeading — which is also how
               the nav does it.
             */
-            className="flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto px-[14px] pt-[10px]"
+            className={cn(
+              "flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto px-[14px]",
+              /*
+                The top padding belongs to the search field, not to the list.
+                
+                10px separated the first row from the field above it. With no
+                field the same 10px stacks under the header's own 4px and the
+                first heading's 6px, leaving 20px of nothing between "Recents"
+                and "Pinned" — air that was paying for something that is not
+                there. 2px when the field is gone; the heading still pays for
+                its own space, as it does in the nav.
+              */
+              showSearch ? "pt-[10px]" : "pt-[2px]",
+            )}
           >
         {mergedPanel && agencyScope ? (
           <AgencyPanelBody
@@ -818,9 +860,12 @@ function SearchRow({
   // saying where it lives, and "Opportunities › Settings" over "Opportunities"
   // is the same fact printed twice.
   const label = layout.productBaseLabelFor(productId);
+  const { ref: labelRef, hostRef } =
+    useTruncationTitle<HTMLSpanElement>(label);
 
   return (
     <div
+      ref={hostRef}
       className={cn(
         // Same geometry as ProductRow, pin column included, so a result and a
         // list row are recognisably the same object.
@@ -832,7 +877,10 @@ function SearchRow({
     >
       <ResolvedIcon icon={icon} size={18} className="text-nav-fg-muted" />
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-[14px] leading-[18px] text-nav-fg">
+        <span
+          ref={labelRef}
+          className="truncate text-[14px] leading-[18px] text-nav-fg"
+        >
           {label}
         </span>
         {context ? (
@@ -1098,10 +1146,13 @@ function ProductRow({
     : glyphFor(layout.state, productId);
   const icon = glyph.icon;
   const label = external?.label ?? layout.productLabelFor(productId);
+  const { ref: labelRef, hostRef } =
+    useTruncationTitle<HTMLSpanElement>(label);
   const renamed = external ? false : layout.isProductRenamed(productId);
 
   return (
     <div
+      ref={hostRef}
       {...(drag
         ? {
             draggable: true,
@@ -1232,7 +1283,10 @@ function ProductRow({
           {label}
         </button>
       ) : (
-        <span className="min-w-0 flex-1 truncate text-[14px] leading-[normal] text-nav-fg">
+        <span
+          ref={labelRef}
+          className="min-w-0 flex-1 truncate text-[14px] leading-[normal] text-nav-fg"
+        >
           {label}
         </span>
       )}
@@ -1528,7 +1582,18 @@ function DirectoryTree({
   theme: SurfaceTheme;
 }) {
   const layout = useNavLayout();
-  const { directoryDisclosure } = useTheme().effective;
+  /*
+   * The nav's own axes, not the directory's.
+   *
+   * This used to read a `directoryDisclosure` of its own, which meant the
+   * catalogue could be cascading on click while every other panel in the nav
+   * was inline — two answers to one question, and a reviewer switching the nav
+   * to inline found one surface that had not heard about it. The directory is
+   * an L2 panel whose rows disclose an L3; that is the same question
+   * `l3Disclosure` and `flyoutTrigger` already answer everywhere else, so it
+   * answers to them.
+   */
+  const { l3Disclosure, flyoutTrigger } = useTheme().effective;
   const [openGroup, setOpenGroup] = React.useState<string | null>(null);
   /*
    * The same dwell every other panel-to-the-right in this nav uses.
@@ -1565,7 +1630,17 @@ function DirectoryTree({
     hold();
     leave.current = window.setTimeout(() => setLevels([]), 220);
   };
-  React.useEffect(() => hold, []);
+  /*
+    Only the timer needs clearing on unmount, and `hold` does more than that —
+    listing it as a dependency would rebind this on every render for a cleanup
+    that has one job. The ref is stable, so the cleanup reads it directly.
+  */
+  React.useEffect(
+    () => () => {
+      if (leave.current !== null) window.clearTimeout(leave.current);
+    },
+    [],
+  );
 
   const anchorOf = (el: HTMLElement) => {
     const box = el.getBoundingClientRect();
@@ -1587,7 +1662,19 @@ function DirectoryTree({
     });
   };
 
-  if (directoryDisclosure === "inline") {
+  /**
+   * Whether a rollover may move the cascade, given the trigger axis.
+   *
+   * `click` never: the panel opens and stays where it was put. `sticky` only
+   * once something is already open — the menubar rule the nav's own dropdowns
+   * follow, where the first open is deliberate and the rest are a walk.
+   * `hover` always.
+   */
+  const hoverMayOpen = (depth: number) =>
+    flyoutTrigger === "hover" ||
+    (flyoutTrigger === "sticky" && levels.length > depth);
+
+  if (l3Disclosure === "inline") {
     return (
       <>
         {groups.map(({ group, productIds }) => (
@@ -1639,7 +1726,7 @@ function DirectoryTree({
               way to the one it wanted.
             */
             onHover={(el) => {
-              if (levels.length === 0) return;
+              if (!hoverMayOpen(0)) return;
               deferSwitch(group.id, () => openAt(0, group.id, el, rows));
             }}
           />
@@ -1680,7 +1767,7 @@ function DirectoryTree({
                               })),
                             ),
                           onHover: (el: HTMLElement) => {
-                            if (levels.length <= depth + 1) return;
+                            if (!hoverMayOpen(depth + 1)) return;
                             deferSwitch(row.id, () =>
                               openAt(
                                 depth + 1,
@@ -1715,6 +1802,24 @@ function DirectoryTree({
  * products — White-label apps is the only one today, and stating its two rows
  * beats teaching the resolver about a product that does not exist.
  */
+/**
+ * A directory row is the same size as a nav flyout row.
+ *
+ * It was `py-[7px]`, which around a 14px label came out at 31px against the
+ * 38px every L2 row in the flyouts uses — close enough to look like the same
+ * control and far enough to look wrong beside one. Both numbers now come from
+ * `--t-nav-py`, the token the flyout rows are built from, so the two cannot
+ * drift apart again the next time that is tuned: 9 + 20 + 9.
+ *
+ * `small` keeps its tighter box. Those are the L3 pages in the inline tree,
+ * sitting under a 13px label — the same step down the nav's own nested rows
+ * take.
+ */
+const ROW_HEIGHT = (small: boolean) =>
+  small
+    ? "py-[7px]"
+    : "py-[var(--t-nav-py,9px)] min-h-[calc(var(--t-nav-py,9px)*2+20px)]";
+
 interface DirectoryBranch {
   group: ResolvedGroup;
   productIds: string[];
@@ -1872,6 +1977,8 @@ function DirectoryRow({
   pinFor?: string;
   small?: boolean;
 }) {
+  const { ref: labelRef, hostRef } =
+    useTruncationTitle<HTMLSpanElement>(label);
   const pinnable =
     pinFor !== undefined &&
     (productById(pinFor) !== undefined || childById(pinFor) !== undefined);
@@ -1882,6 +1989,7 @@ function DirectoryRow({
         {icon}
       </span>
       <span
+        ref={labelRef}
         className={cn(
           "min-w-0 flex-1 truncate text-left text-nav-fg",
           small ? "text-[13px] leading-[18px]" : "text-[14px] leading-[normal]",
@@ -1961,12 +2069,14 @@ function DirectoryRow({
 
   const row = onToggle ? (
     <button
+      ref={hostRef}
       type="button"
       aria-expanded={open}
       onClick={(e) => onToggle(e.currentTarget)}
       onPointerEnter={(e) => onHover?.(e.currentTarget)}
       className={cn(
-        "group/row motion-tap flex w-full shrink-0 items-center gap-[10px] rounded-[9px] py-[7px] pl-[8px] text-left hover:bg-nav-hover",
+        "group/row motion-tap flex w-full shrink-0 items-center gap-[10px] rounded-[9px] pl-[8px] text-left hover:bg-nav-hover",
+        ROW_HEIGHT(small),
         trailingReserve,
         open && "bg-nav-hover",
       )}
@@ -1975,8 +2085,10 @@ function DirectoryRow({
     </button>
   ) : (
     <div
+      ref={hostRef}
       className={cn(
-        "group/row motion-tap flex w-full shrink-0 items-center gap-[10px] rounded-[9px] py-[7px] pl-[8px] hover:bg-nav-hover",
+        "group/row motion-tap flex w-full shrink-0 items-center gap-[10px] rounded-[9px] pl-[8px] hover:bg-nav-hover",
+        ROW_HEIGHT(small),
         trailingReserve,
       )}
     >
@@ -2030,6 +2142,22 @@ function SectionHeading({
           ones the nav's own RECENT label uses. Same rhythm, both surfaces.
         */
         "flex w-full shrink-0 items-baseline gap-[6px] px-[2px] pt-[14px] pb-[6px]",
+        /*
+          Except the first, which has no section above it to be separated from.
+          
+          The 14px buys distance from the run of rows overhead. At the top of the
+          panel there is no run — just the panel's own header, which already
+          carries its 4px — so the same 14px was 14px of nothing between
+          "Recents" and "Pinned". The `first:` variant keeps this self-
+          maintaining: whichever section happens to lead the list is the one
+          that pays the reduced rate.
+          
+          12, not 0: the heading still needs to sit clear of the panel's title
+          rather than tuck under it. With the header's own 4px and the column's
+          2px that lands 20px between the two, which is the figure this was
+          tuned to by eye — 10px read as the two lines belonging to each other.
+        */
+        "first:pt-[12px]",
         divider &&
           "mt-[6px] pt-[16px] shadow-[inset_0_1px_0_0_var(--nav-divider)]",
       )}

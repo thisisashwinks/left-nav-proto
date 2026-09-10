@@ -62,7 +62,33 @@ export type EditBlock =
 interface NavProfilesValue {
   /** The workspace's own HighLevel plan. One per session. */
   agencyPlan: AgencyPlan;
+  /**
+   * Sets the plan silently — the prototype panel's control.
+   *
+   * A reviewer dropping to $97 to look at the locks has not downgraded
+   * anything; they are arranging a scenario. Announcing it would put a
+   * congratulatory toast on screen every time somebody moved a segmented
+   * control.
+   */
   setAgencyPlan: (plan: AgencyPlan) => void;
+  /**
+   * Sets the plan AND says so — what the upgrade buttons call.
+   *
+   * The two are separated here rather than at the call sites so the
+   * distinction cannot be lost by someone reaching for the obvious setter: the
+   * difference between the two is whether a PERSON chose this, and that is a
+   * fact about the caller which only the caller knows.
+   */
+  upgradePlan: (plan: AgencyPlan) => void;
+  /**
+   * The upgrade just made, for the confirmation. Null once it has been shown.
+   *
+   * Carries an id as well as the tier so that upgrading twice to the same plan
+   * — possible only in a prototype, but possible — replays the toast instead of
+   * being swallowed as "no change".
+   */
+  upgradeNotice: { plan: AgencyPlan; id: number } | null;
+  dismissUpgradeNotice: () => void;
   /** Whether the agency plan carries a capability at all. */
   has: (cap: NavCapability) => boolean;
   /** The lowest plan that would unlock it, for the upsell's copy. */
@@ -125,6 +151,22 @@ export function NavProfilesProvider({
   const [agencyPlan, setAgencyPlan] =
     React.useState<AgencyPlan>(DEFAULT_AGENCY_PLAN);
   const [seatHolder, setSeatHolder] = React.useState<string | null>(null);
+  const [upgradeNotice, setUpgradeNotice] = React.useState<{
+    plan: AgencyPlan;
+    id: number;
+  } | null>(null);
+  const nextNoticeId = React.useRef(0);
+
+  const upgradePlan = React.useCallback((plan: AgencyPlan) => {
+    setAgencyPlan(plan);
+    nextNoticeId.current += 1;
+    setUpgradeNotice({ plan, id: nextNoticeId.current });
+  }, []);
+
+  const dismissUpgradeNotice = React.useCallback(
+    () => setUpgradeNotice(null),
+    [],
+  );
   /** Upgrades made in this session, over the seeded tier. */
   const [tierOverrides, setTierOverrides] = React.useState<
     Record<string, SaasTier>
@@ -205,6 +247,9 @@ export function NavProfilesProvider({
     () => ({
       agencyPlan,
       setAgencyPlan,
+      upgradePlan,
+      upgradeNotice,
+      dismissUpgradeNotice,
       has,
       min: minPlanFor,
       seatHolder,
@@ -217,6 +262,9 @@ export function NavProfilesProvider({
     }),
     [
       agencyPlan,
+      upgradePlan,
+      upgradeNotice,
+      dismissUpgradeNotice,
       has,
       seatHolder,
       claimSeat,

@@ -25,7 +25,8 @@ import { cn } from "@/lib/utils";
 import { EntryClusterRail } from "./entry-cluster";
 import { agencyRailItems, agencySettings } from "./agency-config";
 import { collapsedPinnedBlock, PINNED_VISIBLE } from "./pinned-morph";
-import { navEntriesFor, withMiddleTailRow } from "./nav-entries";
+import { navEntriesFor } from "./nav-entries";
+import { iconByName } from "./icon-catalogue";
 import { useNavLayout } from "./nav-layout-provider";
 import { allocate, orderPins, recentIdsFor } from "./merged-recents";
 import { ResolvedIcon } from "./resolved-icon";
@@ -327,17 +328,28 @@ export function CollapsedRail({
           // would be an icon with no parent visible to explain it — expanding
           // the nav is how you reach the second level.
           agencyRailItems.map((item): NavEntry => ({ kind: "item", item }))
-        : getAppPlacement === "flyout"
-          ? // Same list, same position — see left-nav. The rail used to render
-            // this row by hand at its foot, which is how the two faces ended
-            // up disagreeing about where it belongs.
-            withMiddleTailRow(navEntriesFor(layout, groups), {
-              id: GET_APP_FLYOUT_ID,
-              label: GET_APP_NAV_LABEL,
-              icon: Smartphone,
-              hasFlyout: true,
-            })
-          : navEntriesFor(layout, groups),
+        : // Same list, same position, and now the same ORDER — the row is a
+          // member of the tail rather than something spliced in after it, so
+          // wherever it has been dragged to, both faces draw it there.
+          navEntriesFor(
+            layout,
+            groups,
+            false,
+            getAppPlacement === "flyout"
+              ? [
+                  {
+                    id: GET_APP_FLYOUT_ID,
+                    label:
+                      layout.accountProductLabels[GET_APP_FLYOUT_ID] ??
+                      layout.agencyProductLabels[GET_APP_FLYOUT_ID] ??
+                      GET_APP_NAV_LABEL,
+                    icon:
+                      iconByName(layout.icons[GET_APP_FLYOUT_ID]) ?? Smartphone,
+                    hasFlyout: true,
+                  },
+                ]
+              : [],
+          ),
     [agencyScope, layout, groups, getAppPlacement],
   );
 
@@ -629,7 +641,8 @@ export function CollapsedRail({
             that exists in one and not the other would make collapsing the nav
             silently remove a destination.
           */}
-          {productDirectoryRow
+          {/* Sub-account only, as in the expanded face. */}
+          {productDirectoryRow && !agencyScope
             ? railButton(
                 "product-directory",
                 "Product directory",

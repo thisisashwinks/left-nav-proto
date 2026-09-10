@@ -11,7 +11,7 @@ import {
   type EditBlock,
 } from "./nav-profiles";
 import { productById } from "./catalogue";
-import { tailRowsFor } from "./nav-entries";
+import { CHROME_TAIL_IDS, tailRowsFor } from "./nav-entries";
 import {
   defaultLabelForGroup,
   iconForGroup,
@@ -175,6 +175,20 @@ interface NavLayoutContextValue {
    * the tail rather than where it was dropped.
    */
   placeInTail: (rowId: string, index: number) => void;
+  /**
+   * The rows of one of the nav's own panels, in this account's order.
+   *
+   * `defaults` is the authored order; anything a saved order does not mention
+   * keeps its authored place at the end. See NavLayoutState.panelOrder.
+   */
+  panelRowsFor: (panelId: string, defaults: readonly string[]) => string[];
+  /** Puts one panel row at `index` within its own panel. */
+  movePanelRow: (
+    panelId: string,
+    defaults: readonly string[],
+    rowId: string,
+    index: number,
+  ) => void;
   addProductToGroup: (
     productId: string,
     groupId: string,
@@ -576,6 +590,23 @@ function withinGroupMessage(
     fromIndex,
     toIndex,
   )}`;
+}
+
+/**
+ * A saved panel order laid over the authored one.
+ *
+ * Ids the save does not name keep their authored place at the end, and ids it
+ * names that no longer exist fall out — the same rule the group order and the
+ * agency's child order both use, so a release that adds a row anywhere adds it
+ * everywhere rather than being swallowed by a stale list.
+ */
+function applyPanelOrder(
+  saved: readonly string[] | undefined,
+  defaults: readonly string[],
+): string[] {
+  if (!saved) return [...defaults];
+  const known = saved.filter((id) => defaults.includes(id));
+  return [...known, ...defaults.filter((id) => !known.includes(id))];
 }
 
 function placeInTailMessage(state: NavLayoutState, rowId: string): string {
@@ -1163,6 +1194,22 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
           (s) => withProduct(s, productId, false),
         ),
 
+      panelRowsFor: (panelId, defaults) =>
+        applyPanelOrder(state.panelOrder[panelId], defaults),
+
+      movePanelRow: (panelId, defaults, rowId, index) =>
+        commit(`Reordered ${labelForProduct(state, rowId)}`, (s) => {
+          const current = applyPanelOrder(s.panelOrder[panelId], defaults);
+          const from = current.indexOf(rowId);
+          if (from < 0) return s;
+          const to = Math.max(0, Math.min(index, current.length - 1));
+          if (to === from) return s;
+          const next = [...current];
+          const [moved] = next.splice(from, 1);
+          next.splice(to, 0, moved!);
+          return { ...s, panelOrder: { ...s.panelOrder, [panelId]: next } };
+        }),
+
       placeInTail: (rowId, index) =>
         commit(placeInTailMessage(state, rowId), (s) => {
           // Unfiled first, so the tail it is being ordered into already contains
@@ -1171,9 +1218,18 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
           const unfiled = productById(rowId)
             ? withProductFiled(s, rowId, null)
             : s;
+          /*
+            The chrome rows count, or the indices are off by one.
+
+            `index` comes from the face, which draws the tail WITH them — so a
+            tail computed without them puts every row after a chrome row one
+            place too high. Only the ids are needed here; the labels and glyphs
+            are the face's business.
+          */
           const tail = tailRowsFor(
             unfiled,
             looseProductIds(unfiled, resolveGroups(unfiled)),
+            [...CHROME_TAIL_IDS].map((id) => ({ id, label: id })),
           ).map((r) => r.id);
           const without = tail.filter((id) => id !== rowId);
           const at = Math.max(0, Math.min(index, without.length));

@@ -205,8 +205,10 @@ export function AiWindow({
       <div
         data-ai-state={state}
         aria-hidden="true"
-        className="pointer-events-none absolute"
-        style={{ right: 0, bottom: 0, width: WINDOW_WIDTH, height: 300 }}
+        className="pointer-events-none absolute right-[var(--shell-canvas-gap)] bottom-[var(--shell-canvas-gap)]"
+        // Tracks the window's own inset, or the glow sits below the card it is
+        // supposed to be coming from.
+        style={{ width: WINDOW_WIDTH, height: 300 }}
       >
         <div
           className={cn(
@@ -217,24 +219,42 @@ export function AiWindow({
       </div>
 
       {/*
-        Flush to the shell's right edge in both modes — a side panel, not a
-        floating card. Floating throws a long shadow across the page; docked
-        keeps only the hairline seam, since the layout hole beside it does
-        the separating.
+        A floating card on the right, mirroring the nav card on the left.
+
+        It used to sit flush to three edges — a side panel welded to the
+        window, on the reasoning that a panel is chrome. But this shell has
+        already answered that question the other way: the nav floats, the
+        canvas floats, and every surface in it is a card inset by the same
+        4px with the same 12px corner. A panel pinned to the frame in a shell
+        where nothing else is does not read as more permanent, it reads as
+        unfinished — and on the right it butted the viewport edge while its
+        opposite number on the left had a margin.
+
+        So the same two tokens the nav card uses, and a full ring rather than
+        the single inset hairline it carried: a hairline on one edge is what a
+        flush panel needs, and a card needs an outline all the way round.
       */}
       <div
         role="dialog"
         aria-label="Ask AI"
         data-ai-state={state}
-        style={{ width: full ? "100%" : WINDOW_WIDTH }}
+        // Expanded, it spans the shell and takes its margin on both sides;
+        // otherwise it keeps its own width and hangs off the right.
+        {...(full ? {} : { style: { width: WINDOW_WIDTH } })}
         className={cn(
-          "motion-move pointer-events-auto absolute inset-y-0 right-0 flex origin-right overflow-hidden",
+          "motion-move pointer-events-auto absolute flex origin-right overflow-hidden",
+          "inset-y-[var(--shell-canvas-gap)] right-[var(--shell-canvas-gap)]",
+          full && "left-[var(--shell-canvas-gap)]",
+          "rounded-[var(--shell-canvas-radius)]",
           "bg-[var(--ai-win-bg)] backdrop-blur-[18px]",
-          full
-            ? "shadow-none"
-            : docked
-              ? "shadow-[inset_1px_0_0_0_var(--ai-border)]"
-              : "shadow-[inset_1px_0_0_0_var(--ai-border),-32px_0_72px_-32px_var(--ai-win-shadow)]",
+          /*
+            Docked keeps the ring alone — the layout hole beside it is doing
+            the separating, and a long shadow over a page that has made room
+            is a shadow with nothing to cast onto. Floating keeps the throw.
+          */
+          docked || full
+            ? "shadow-[inset_0_0_0_1px_var(--ai-border)]"
+            : "shadow-[inset_0_0_0_1px_var(--ai-border),-32px_0_72px_-32px_var(--ai-win-shadow)]",
           phase === "entering" ? "ai-window-in" : "ai-window-out",
         )}
       >

@@ -3,6 +3,7 @@
 import type * as React from "react";
 import { cn } from "@/lib/utils";
 import { childById, productById } from "./catalogue";
+import { isChromePlace } from "./chrome-places";
 import { PinButton } from "./pin-button";
 
 /**
@@ -23,7 +24,12 @@ import { PinButton } from "./pin-button";
  */
 /** Whether this id names something the dock can hold. */
 export function isPinnable(productId: string): boolean {
-  return productById(productId) !== undefined || childById(productId) !== undefined;
+  return (
+    productById(productId) !== undefined ||
+    childById(productId) !== undefined ||
+    // The nav's own rows are destinations too, and a destination can be kept.
+    isChromePlace(productId)
+  );
 }
 
 export function WithPin({

@@ -23,6 +23,17 @@ export interface FlyoutBadge {
 }
 
 /**
+ * The two badges, written once.
+ *
+ * A label and a tone that have to agree — `{ label: "Beta", tone: "new" }` is
+ * a perfectly valid FlyoutBadge and a badge that says Beta in the New colours.
+ * Spelling the pair out at each of the six rows that wear one is six chances
+ * to get it wrong and no way to restyle them together later.
+ */
+export const NEW_BADGE: FlyoutBadge = { label: "New", tone: "new" };
+export const BETA_BADGE: FlyoutBadge = { label: "Beta", tone: "beta" };
+
+/**
  * An L2 sub-place nested under a product row — the flyout's answer to the
  * header-tab dropdowns the current app hides these in (Invoices & Estimates ▾,
  * Products ▾, Client Portal ▾ …). Aug 13 audit, report §2.

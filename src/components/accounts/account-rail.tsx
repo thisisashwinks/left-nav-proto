@@ -529,7 +529,85 @@ export function AccountRail({
               the two rails rather than a badge saying which one you are looking
               at.
             */}
-            {membersOnly ? null : (
+            {membersOnly ? (
+              /*
+                The agency's logo, as branding rather than as a destination.
+
+                This was removed on the reasoning that a member has no agency
+                scope to switch into — true, and beside the point. The platform
+                is sold white-label: to the people inside a sub-account the
+                agency's mark IS the product's mark, and taking it away does not
+                just drop a tile, it tells them they are using HighLevel. The
+                one thing the rail's cap has to do for a member is carry that
+                brand.
+
+                So: no plate, no hover, no selected state, no click. A tile that
+                highlights is a tile that promises somewhere to go, and there is
+                nowhere. Drawn a touch larger than the account marks below it,
+                which is what separates "whose software this is" from "which of
+                your accounts you are in" now that the plate is gone.
+
+                Not aria-hidden: whose product this is is real information, so it
+                is an image with a name rather than decoration.
+              */
+              <span
+                role="img"
+                aria-label={session.agency.name}
+                className={cn(
+                  "flex shrink-0 items-center gap-[10px] transition-[margin,padding] duration-[var(--rail-dur,var(--dur-slow))] ease-[var(--ease-out)]",
+                  // Same centre line as the tiles below — see the plate's own
+                  // note about landing on x=30 — so the column reads as one run.
+                  expanded ? "mx-[6px] px-[4px]" : "mr-[6px] ml-[10px] px-[8px]",
+                  /*
+                    Nothing under the mark; the rhythm belongs to the column.
+
+                    The rail sets its rows 4px apart, and the mark sat 9px above
+                    "My accounts" — five more than any two rows below it, which
+                    read as the cap belonging to a different block. The agency's
+                    8px is not the figure to copy: that gap is the edge of a
+                    PLATE, and there is no plate here. Zero below, and the
+                    following row's own offset lands it on the column's 4px.
+                  */
+                  "pt-[6px] pb-0",
+                )}
+              >
+                {/*
+                  The wordmark on its own when there is one, because it already
+                  contains the name — the same ladder BrandMark uses in the nav
+                  header, and for the same reason: setting the name twice is the
+                  mistake that rung exists to avoid.
+                */}
+                {expanded && session.agency.wordmarkSrc ? (
+                  <img
+                    src={session.agency.wordmarkSrc}
+                    alt=""
+                    className="h-[22px] w-auto max-w-[150px] object-contain object-left"
+                  />
+                ) : (
+                  <>
+                    <AccountLogo
+                      logo={session.agency.logo}
+                      size={24}
+                      radius={pillTiles ? 999 : 7}
+                      {...(session.agency.logoSrc
+                        ? { src: session.agency.logoSrc }
+                        : {})}
+                    />
+                    {/*
+                      The name, once the rail is open. Same type as a tile's
+                      label so the cap reads as the head of this column rather
+                      than a different kind of object — but in full ink, because
+                      it is the product's name and not one row among peers.
+                    */}
+                    {expanded ? (
+                      <span className="min-w-0 flex-1 truncate text-left text-[13px] leading-[17px] font-semibold text-nav-fg">
+                        {session.agency.name}
+                      </span>
+                    ) : null}
+                  </>
+                )}
+              </span>
+            ) : (
               <>
               {/*
                 The agency zone: a neutral plate the agency row sits on, ending at
@@ -615,15 +693,19 @@ export function AccountRail({
                     the top of one run. The plate is what it is anchored to; it
                     should look anchored.
 
-                    A member has no plate, so the door becomes the first thing in
-                    the strip and the thing across from it is the nav's own
-                    identity row — the logo, the account name, the collapse
-                    control. +2 puts the door's centre on y=28, which is where
-                    that row's name and its collapse button already sit. Left at
-                    -3 it rode 5px high, close enough to read as a mistake rather
-                    than as a choice.
+                    A member has no plate either, but it does have a cap: the
+                    agency's logo, restored because the platform is sold
+                    white-label and that mark is the product's mark. So the door
+                    is no longer the first thing in the strip, and the +2 that
+                    aligned it with the nav's identity row across the gap now
+                    aligns it with nothing — it left 9px under the logo where any
+                    two rows below sit 4px apart, and the cap read as a separate
+                    band rather than the head of one run.
+
+                    Same -3 as the agency, which against a bare mark lands on the
+                    column's own 4px.
                   */
-                  membersOnly ? "mt-[2px]" : "-mt-[3px]",
+                  "-mt-[3px]",
                   "transition-[padding] duration-[var(--rail-dur,var(--dur-slow))] ease-[var(--ease-out)]",
                   expanded ? "px-[6px]" : "pr-[10px] pl-[14px]",
                 )}

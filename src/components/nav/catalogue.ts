@@ -244,7 +244,7 @@ export const catalogue: CatalogueProduct[] = [
     groupId: "engage",
     jobId: "job-talk",
     suiteId: "suite-crm",
-    blurb: "Take the workspace with you on iOS and Android.",
+    blurb: "Take the workspace with you on iOS & Android.",
   },
 
   /* ---- Get customers ---- */
@@ -635,10 +635,17 @@ export function productsInJob(jobId: string): CatalogueProduct[] {
 }
 
 /** What a fresh account starts pinned with — the five from the design. */
+/**
+ * What a fresh account starts pinned with.
+ *
+ * Three, not five (Sep 10). Five was the dock's width and it was also
+ * PIN_LIMIT, so a new account opened at the cap: every pin button in the
+ * product, on every surface, was disabled from the first paint — which reads
+ * as "pinning is broken here" rather than as "you are full". Three leaves room
+ * to try the gesture the nav is largely about.
+ */
 export const DEFAULT_PINNED = [
   "conversations",
   "contacts",
-  "email-campaigns",
   "opportunities",
-  "payments",
 ];

@@ -3,10 +3,12 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import {
+  ArrowLeft,
   Building2,
   Check,
   ChevronDown,
   Layers,
+  Play,
   Rocket,
   Users,
   X,
@@ -20,6 +22,7 @@ import {
   AGENCY_PLAN_NAMES,
   AGENCY_PLAN_SPECS,
   AGENCY_PLANS,
+  AGENCY_PLAN_PRICES,
   annualSaving,
   monthlyOnAnnual,
   type AgencyPlan,
@@ -42,6 +45,14 @@ import { useNavProfiles, type EditBlock } from "./nav-profiles";
  * gets no control at all rather than a price list for a subscription that is
  * not theirs — see EditAccess.
  *
+ * Two steps, and the sheet is the SECOND of them.
+ *
+ * Opening straight onto three columns of prices asks somebody to value a
+ * feature they have never seen. The first step is what the feature does — forty
+ * seconds of it — with the upgrade buttons right there, so the common path is
+ * watch and decide without ever reading a comparison table. The table is one
+ * click away for the people who want it, and one click back.
+ *
  * Deliberately not a toast. A refusal you can miss is a control that looks
  * broken; this one has to be read, and it has to name what it would cost.
  */
@@ -56,7 +67,7 @@ export function PlanWall({
   onClose: () => void;
 }) {
   const { effective } = useTheme();
-  const { agencyPlan, setAgencyPlan } = useNavProfiles();
+  const { agencyPlan, upgradePlan } = useNavProfiles();
   /*
    * Annual first, as the source sheet opens.
    *
@@ -67,6 +78,40 @@ export function PlanWall({
   const [annual, setAnnual] = React.useState(true);
   /** Which card has had "Show more" pressed. One at a time keeps the row even. */
   const [expanded, setExpanded] = React.useState<AgencyPlan | null>(null);
+  /*
+   * One dialog, two contents, rather than two dialogs.
+   *
+   * The alternative — close this, open that — loses the overlay for a frame and
+   * reads as being thrown out and taken somewhere else. Swapping the contents
+   * inside one shell keeps "I am still in the same conversation, looking at more
+   * of it", which is what makes Back an obvious move rather than a rescue.
+   */
+  const [step, setStep] = React.useState<"video" | "pricing">("video");
+
+  /*
+   * The tiers that are actually a step UP from here.
+   *
+   * On $97 that is both of the others; on $297 it is only $497. Derived rather
+   * than listed so the footer cannot offer an agency the plan it is already on.
+   */
+  const upgrades = AGENCY_PLANS.filter(
+    (plan) => AGENCY_PLANS.indexOf(plan) > AGENCY_PLANS.indexOf(agencyPlan),
+  );
+  /*
+   * The one that answers THIS refusal, which is not always the cheapest step up
+   * and not always the top of the ladder: a plan block on $97 is cleared by
+   * $297, a seat block on $297 only by $497. It is the filled button; the rest
+   * are outlines beside it.
+   */
+  const clears: AgencyPlan = block.kind === "plan" ? block.needs : "elite";
+
+  const upgradeTo = React.useCallback(
+    (plan: AgencyPlan) => {
+      upgradePlan(plan);
+      onClose();
+    },
+    [upgradePlan, onClose],
+  );
 
   const holderName =
     block.kind === "seat"
@@ -99,9 +144,19 @@ export function PlanWall({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Upgrade your plan"
+        aria-label={
+          step === "video" ? "Editing your navigation" : "Upgrade your plan"
+        }
         className={cn(
-          "motion-panel-in relative flex w-[1120px] max-w-full flex-col",
+          "motion-panel-in relative flex max-w-full flex-col",
+          /*
+            The shell grows for the table rather than the table shrinking to fit
+            the shell. Animated, because a modal that changes size instantly
+            reads as a different modal — the transition is what says "this is
+            the same thing, opened out".
+          */
+          "transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out)]",
+          step === "video" ? "w-[760px]" : "w-[1120px]",
           // Tall on a laptop, so the sheet scrolls inside itself rather than
           // pushing its own header off the top of the viewport.
           "max-h-[calc(100vh-32px)] overflow-y-auto",
@@ -110,16 +165,38 @@ export function PlanWall({
         )}
       >
         <div className="flex items-start gap-[16px]">
-          <span className="flex size-[40px] shrink-0 items-center justify-center rounded-full bg-[#dcfae6] text-[#079455]">
-            <Rocket size={18} aria-hidden="true" />
-          </span>
+          {step === "pricing" ? (
+            /*
+              Back sits where the rocket was, not beside the title.
+
+              It is the same 40px slot the first step's icon occupies, so the
+              header does not reflow when the step changes — and the way out is
+              in the place the eye already went to identify the dialog.
+            */
+            <button
+              type="button"
+              onClick={() => setStep("video")}
+              aria-label="Back"
+              className="motion-tap flex size-[40px] shrink-0 items-center justify-center rounded-full text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border-strong)] hover:bg-pg hover:text-pg-heading"
+            >
+              <ArrowLeft size={18} aria-hidden="true" />
+            </button>
+          ) : (
+            <span className="flex size-[40px] shrink-0 items-center justify-center rounded-full bg-[#dcfae6] text-[#079455]">
+              <Rocket size={18} aria-hidden="true" />
+            </span>
+          )}
           <div className="min-w-0 flex-1">
             <h2 className="text-[16px] leading-[22px] font-semibold text-pg-heading">
-              Upgrade your plan
+              {step === "video"
+                ? "Editing your navigation"
+                : "Upgrade your plan"}
             </h2>
-            <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
-              Flexible pricing that grows with you.
-            </p>
+            {/* <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
+              {step === "video"
+                ? "Forty seconds on what changes when this unlocks."
+                : "Flexible pricing that grows with you."}
+            </p> */}
             {/*
               Why the sheet opened, in one line.
 
@@ -128,7 +205,7 @@ export function PlanWall({
               have used your allowance" without saying WHERE leaves an agency
               hunting seventeen accounts for the one that spent it.
             */}
-            <p className="mt-[8px] text-[13px] leading-[18px] text-pg-text">
+            <p className="mt-[4px] text-[13px] leading-[18px] text-pg-text">
               {block.kind === "plan" ? (
                 <>
                   Editing {accountName}’s navigation isn’t on{" "}
@@ -148,7 +225,9 @@ export function PlanWall({
             </p>
           </div>
 
-          <BillingToggle annual={annual} onChange={setAnnual} />
+          {step === "pricing" ? (
+            <BillingToggle annual={annual} onChange={setAnnual} />
+          ) : null}
 
           <button
             type="button"
@@ -160,38 +239,149 @@ export function PlanWall({
           </button>
         </div>
 
-        <div className="mt-[20px] grid grid-cols-1 gap-[16px] md:grid-cols-3">
-          {AGENCY_PLANS.map((plan) => (
-            <PlanCard
-              key={plan}
-              plan={plan}
-              current={agencyPlan}
-              annual={annual}
-              expanded={expanded === plan}
-              onToggleMore={() =>
-                setExpanded((open) => (open === plan ? null : plan))
-              }
-              /*
-                Upgrading here and now, rather than linking out.
+        {step === "video" ? (
+          <>
+            <VideoStep block={block} />
 
-                A prototype that sends you to a pricing page cannot show the
-                *other* side of the wall, which is the half worth reviewing:
-                what the nav looks like the moment the tier clears.
-              */
-              onUpgrade={() => {
-                setAgencyPlan(plan);
-                onClose();
-              }}
-            />
-          ))}
-        </div>
+            <div className="mt-[20px] flex flex-wrap items-center justify-between gap-[12px]">
+              <button
+                type="button"
+                onClick={onClose}
+                className="motion-tap flex h-[36px] items-center rounded-[6px] px-[12px] text-[14px] leading-[20px] font-medium text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border-strong)] hover:bg-pg"
+              >
+                Cancel
+              </button>
 
-        <p className="mt-[16px] text-[12px] leading-[16px] text-pg-faint">
-          {accountName} stays exactly as it is either way.
-        </p>
+              <div className="flex flex-wrap items-center gap-[12px]">
+                <button
+                  type="button"
+                  onClick={() => setStep("pricing")}
+                  className="motion-tap flex h-[36px] items-center rounded-[6px] px-[12px] text-[14px] leading-[20px] font-medium text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border-strong)] hover:bg-pg"
+                >
+                  See pricing details
+                </button>
+                {/*
+                  Cheapest first, and the one that CLEARS this block is the
+                  filled one — which is not always the cheapest. Ordering by
+                  price and emphasising by relevance lets the row be read either
+                  way round without the two fighting.
+                */}
+                {upgrades.map((plan) => (
+                  <button
+                    key={plan}
+                    type="button"
+                    onClick={() => upgradeTo(plan)}
+                    className={cn(
+                      "motion-tap flex h-[36px] items-center rounded-[6px] px-[14px]",
+                      "text-[14px] leading-[20px] font-medium active:scale-[0.98]",
+                      plan === clears
+                        ? "bg-brand text-brand-fg hover:opacity-90"
+                        : "text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border-strong)] hover:bg-pg",
+                    )}
+                  >
+                    Upgrade to {AGENCY_PLAN_PRICES[plan]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="mt-[20px] grid grid-cols-1 gap-[16px] md:grid-cols-3">
+              {AGENCY_PLANS.map((plan) => (
+                <PlanCard
+                  key={plan}
+                  plan={plan}
+                  current={agencyPlan}
+                  annual={annual}
+                  expanded={expanded === plan}
+                  onToggleMore={() =>
+                    setExpanded((open) => (open === plan ? null : plan))
+                  }
+                  /*
+                    Upgrading here and now, rather than linking out.
+
+                    A prototype that sends you to a pricing page cannot show the
+                    *other* side of the wall, which is the half worth reviewing:
+                    what the nav looks like the moment the tier clears.
+                  */
+                  onUpgrade={() => upgradeTo(plan)}
+                />
+              ))}
+            </div>
+
+            <p className="mt-[16px] text-[12px] leading-[16px] text-pg-faint">
+              {accountName} stays exactly as it is either way.
+            </p>
+          </>
+        )}
       </div>
     </div>,
     document.body,
+  );
+}
+
+/**
+ * What each refusal is actually selling, in three lines.
+ *
+ * Different by block, because the two audiences already know different things.
+ * On $97 nav editing is a feature they have never had. On $297 they have used
+ * it — and spent it — so the pitch is not "here is what editing does" but
+ * "here is what stops being a limit of one".
+ */
+const VALUE_POINTS: Record<"plan" | "seat", readonly string[]> = {
+  plan: [
+    "Rename any row, for everyone in the account",
+    "Group products your way, and hide what nobody opens",
+    "Save the arrangement as a template",
+  ],
+  seat: [
+    "Customise every sub-account, not one",
+    "Apply one arrangement to many clients at once",
+    "Bulk-update feature access from the same place",
+  ],
+};
+
+/**
+ * The first step: the feature, before the price.
+ *
+ * The poster is a placeholder and says so on hover. The prototype's existing
+ * convention (see ShortLoopCard, and the intro card's "Watch 40s tour") is to
+ * draw the frame a video would occupy and refuse to fake the video itself — a
+ * mock that pretends to be footage is the one thing a reviewer cannot give
+ * useful feedback on. The three lines beside it are why this step still argues
+ * its case with the play button inert, and why a real asset drops in later
+ * without the layout changing.
+ */
+function VideoStep({ block }: { block: EditBlock }) {
+  return (
+    <div className="mt-[20px] flex flex-col gap-[20px] sm:flex-row sm:items-center">
+      <div
+        title="The video is not part of the prototype"
+        className="group relative flex aspect-video w-full shrink-0 items-center justify-center overflow-hidden rounded-[10px] bg-pg shadow-[inset_0_0_0_1px_var(--pg-card-border)] sm:w-[400px]"
+      >
+        <span className="flex size-[52px] items-center justify-center rounded-full bg-pg-surface text-brand shadow-[0_4px_12px_0_#10182833] motion-move group-hover:scale-110">
+          <Play size={22} aria-hidden="true" className="ml-[3px]" />
+        </span>
+        <span className="absolute right-[10px] bottom-[10px] rounded-[5px] bg-[#101828cc] px-[7px] py-[3px] font-mono text-[11px] leading-none font-medium text-white">
+          0:40
+        </span>
+      </div>
+
+      <ul className="flex min-w-0 flex-1 flex-col gap-[12px]">
+        {VALUE_POINTS[block.kind].map((line) => (
+          <li
+            key={line}
+            className="flex items-start gap-[10px] text-[14px] leading-[20px] text-pg-text"
+          >
+            <span className="mt-[1px] flex size-[18px] shrink-0 items-center justify-center rounded-full bg-[#dcfae6] text-[#079455]">
+              <Check size={11} strokeWidth={3} aria-hidden="true" />
+            </span>
+            {line}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

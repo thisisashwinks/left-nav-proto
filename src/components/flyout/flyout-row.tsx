@@ -19,8 +19,10 @@ import {
   useMarking,
 } from "@/components/nav/here";
 import { productById } from "@/components/nav/catalogue";
+import { isChromePlace } from "@/components/nav/chrome-places";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
+import { useTruncationTitle } from "@/lib/use-truncation-title";
 import type {
   FlyoutBadgeTone,
   FlyoutChildItem,
@@ -377,7 +379,19 @@ export function FlyoutRow({
    */
   const { tabsInNav, l2ClickAction } = useTheme();
   /** Only rows that map to a pinnable product get a pin. */
-  const pinnable = productById(item.id) !== undefined;
+  // A row is pinnable if it names somewhere the dock can send you: a product,
+  // or one of the nav's own rows — see chrome-places.
+  const pinnable = productById(item.id) !== undefined || isChromePlace(item.id);
+  /**
+   * The row's own element, for hanging the truncation tooltip on.
+   *
+   * `rowRef` below is only attached to rows that DISCLOSE — it anchors their
+   * cascade — and the rows whose labels get cut are as often leaves. A title on
+   * the label alone answers only a pointer sitting on the glyphs, which is not
+   * where a reader points.
+   */
+  const { ref: labelRef, hostRef: rowHostRef } =
+    useTruncationTitle<HTMLSpanElement>(item.label);
   const showDesc =
     item.description !== undefined &&
     (variant !== "product" || SHOW_ROW_DESCRIPTIONS);
@@ -574,8 +588,17 @@ export function FlyoutRow({
         iconBox
       )}
 
-      <div className={cn("flex h-fit flex-1 flex-col items-start", v.text)}>
-        <div className="flex w-full shrink-0 items-center gap-[7px]">
+      {/*
+        `min-w-0`, or a long label does not truncate — it overflows.
+
+        A flex item's floor is its content width unless it is told otherwise, so
+        "Get desktop app (macOS & Windows)" plus a badge simply ran past the
+        row's trailing column and under the pin sitting there. The column is
+        reserved in flow; what was missing was permission for the text to give
+        ground to it.
+      */}
+      <div className={cn("flex h-fit min-w-0 flex-1 flex-col items-start", v.text)}>
+        <div className="flex w-full min-w-0 shrink-0 items-center gap-[7px]">
           {edit?.renaming ? (
             <InlineRename
               value={edit.renameValue ?? item.label}
@@ -589,8 +612,14 @@ export function FlyoutRow({
             />
           ) : (
             <span
+              /*
+                The full name on hover, but only once the row has cut it — see
+                useTruncationTitle. The ellipsis is a promise that the rest
+                exists; this is where it exists.
+              */
+              ref={labelRef}
               className={cn(
-                "text-[length:var(--t-fly-title,14px)] leading-[normal] text-nav-fg",
+                "min-w-0 truncate text-[length:var(--t-fly-title,14px)] leading-[normal] text-nav-fg",
                 v.title,
                 mark.ink,
                 // Faded, not struck through — a strike reads as deleted, and a
@@ -781,6 +810,7 @@ export function FlyoutRow({
    */
   const row = edit ? (
     <div
+      ref={rowHostRef}
       role="button"
       tabIndex={0}
       aria-current={active ? "true" : undefined}
@@ -830,6 +860,7 @@ export function FlyoutRow({
     </div>
   ) : (
     <button
+      ref={rowHostRef}
       type="button"
       aria-current={active ? "true" : undefined}
       aria-expanded={hasChildren ? open : undefined}
@@ -936,6 +967,7 @@ function ChildShell({
 function Row({
   edit,
   childId,
+  hostRef,
   pinInset = PIN_INSET,
   children,
   ...rest
@@ -958,10 +990,13 @@ function Row({
   "aria-current"?: "page" | undefined;
   "aria-expanded"?: boolean | undefined;
   "aria-controls"?: string | undefined;
+  /** Where a truncated label hangs its tooltip. See useTruncationTitle. */
+  hostRef?: (el: HTMLElement | null) => void;
 }) {
   if (edit) {
     return (
       <div
+        ref={hostRef}
         role="button"
         tabIndex={0}
         {...rest}
@@ -984,7 +1019,7 @@ function Row({
       // other respect — carried the largest pin in the nav.
       pinSize={12}
     >
-      <button type="button" {...rest}>
+      <button ref={hostRef} type="button" {...rest}>
         {children}
       </button>
     </WithPin>
@@ -1137,6 +1172,8 @@ function FlyoutChildRow({
     (child.children ?? []).some((n) => n.id === here.childId),
   );
   const mark = useHereStyle(marking);
+  const { ref: childLabelRef, hostRef: childHostRef } =
+    useTruncationTitle<HTMLSpanElement>(child.label);
   const nested =
     (child.children?.length ?? 0) > 0 &&
     (tabsInNav || !child.tabs) &&
@@ -1180,6 +1217,7 @@ function FlyoutChildRow({
       <ChildShell edit={edit}>
       <Row
         edit={edit}
+        hostRef={childHostRef}
         childId={nested ? "" : child.id}
         pinInset={cascade ? ROW_EDGE : PIN_INSET}
         aria-current={child.id === activeId ? "page" : undefined}
@@ -1289,7 +1327,10 @@ function FlyoutChildRow({
             />
           )
         ) : null}
-        <span className="truncate">{child.label}</span>
+        {/* Same rule one level down: the cut label carries its own full text. */}
+        <span ref={childLabelRef} className="truncate">
+          {child.label}
+        </span>
         {child.badge ? (
           <span
             className={cn(

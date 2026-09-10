@@ -1,4 +1,6 @@
 import { Link2 } from "lucide-react";
+import { childById, productById } from "./catalogue";
+import type { CatalogueChild } from "./catalogue-types";
 import {
   iconForProduct,
   labelForProduct,
@@ -7,6 +9,7 @@ import {
   type NavLayoutState,
   type ResolvedGroup,
 } from "./grouping";
+import { GET_APP_FLYOUT_ID } from "@/components/flyout/get-app-flyout";
 import { PROPOSED_AI_ID, PROPOSED_SETTINGS_ID } from "./proposed-ia";
 import type { NavEntry, NavItem } from "./types";
 
@@ -82,9 +85,34 @@ function accountLinks(labels: string[]): NavItem[] {
  * to put a product between two links. The volume switch's generated links stay at
  * the end: they are stress-test scaffolding, not something anyone arranges.
  */
+/**
+ * Tail rows that are chrome rather than catalogue.
+ *
+ * A set rather than a check per id, because the next one — whatever the nav
+ * grows next — should be a line here and nothing else.
+ */
+export const CHROME_TAIL_IDS: ReadonlySet<string> = new Set([
+  GET_APP_FLYOUT_ID,
+]);
+
 export function tailRowsFor(
   state: NavLayoutState,
   looseIds: readonly string[],
+  /**
+   * Rows that are in the tail without being products or links.
+   *
+   * Desktop and mobile apps is the case, and the reason this parameter exists
+   * rather than the row being spliced in after the fact: a row the tail does
+   * not know about cannot be ORDERED by it. Renaming and re-iconing are
+   * per-row overrides and worked either way, but "move up" needs the row to be
+   * a member of the list whose positions it is moving through — see
+   * `placeInTail`, which computes indices over exactly this array.
+   *
+   * Their default place is ahead of the account's own links: the links are the
+   * tail's own tail, and a row buried under six portals is a row nobody finds.
+   * `state.tailOrder` overrides that the moment anyone drags it.
+   */
+  extras: readonly NavItem[] = [],
 ): NavItem[] {
   const links = accountLinks(state.customLinks);
   const byId = new Map<string, NavItem>();
@@ -93,10 +121,25 @@ export function tailRowsFor(
       id,
       label: labelForProduct(state, id),
       icon: iconForProduct(state, id),
+      /*
+       * A lifted row keeps its own children — see `liftedChildren`.
+       *
+       * Stated here as well as in `productRow` because the tail is built twice
+       * by two different branches: the proposed tree orders its loose rows
+       * through this function, every other tree maps them straight. Fixing
+       * only the second left the promoted row a dead end on the one tree most
+       * of this prototype runs.
+       */
+      ...(liftedChildren(id).length > 0 ? { hasFlyout: true } : {}),
     });
   }
+  for (const extra of extras) byId.set(extra.id, extra);
   for (const link of links) byId.set(link.id, link);
-  const defaults = [...looseIds, ...links.map((l) => l.id)];
+  const defaults = [
+    ...looseIds,
+    ...extras.map((e) => e.id),
+    ...links.map((l) => l.id),
+  ];
   const known = state.tailOrder.filter((id) => byId.has(id));
   const missing = defaults.filter((id) => !known.includes(id));
   return [...known, ...missing]
@@ -104,36 +147,14 @@ export function tailRowsFor(
     .filter((item): item is NavItem => item !== undefined);
 }
 
-/**
- * Puts a chrome row at the FOOT of the tree band, above the account's links.
+/*
+ * `withMiddleTailRow` used to splice a chrome row into the entry list here.
  *
- * White-label apps is the case: it is not a product, so it belongs to no
- * category and cannot live in the tail's order — but it is also not Settings,
- * and sitting beside Settings under the rule made it read as platform chrome
- * when it is a place the account goes. The foot of the middle band is where it
- * belongs: last of the things the account works in, ahead of the links the
- * account bolted on.
- *
- * "Above the links" rather than "at the end" because the links are the tail's
- * own tail — an account with six portals would otherwise have this row buried
- * six rows down, where nobody looks for it.
+ * Replaced by `tailRowsFor`'s `extras` (Sep 10). Splicing put the row on
+ * screen but not in the tail, so it could be renamed and re-iconed and not
+ * MOVED — "move up" computes indices over the tail array, and a row that is
+ * not in that array has no index to move through.
  */
-export function withMiddleTailRow(
-  entries: NavEntry[],
-  item: NavItem,
-): NavEntry[] {
-  const at = entries.findIndex(
-    (e) =>
-      e.kind === "item" &&
-      // The account's own links, and the volume switch's generated
-      // scaffolding, which sits after them.
-      (e.item.id.startsWith("account-link-") ||
-        e.item.id.startsWith("custom-link-")),
-  );
-  const row: NavEntry = { kind: "item", item };
-  if (at < 0) return [...entries, row];
-  return [...entries.slice(0, at), row, ...entries.slice(at)];
-}
 
 export function navEntriesFor(
   state: NavLayoutState,
@@ -146,6 +167,8 @@ export function navEntriesFor(
    * a property of the face rather than of the tree.
    */
   sectionHeadings = false,
+  /** Tail rows that are neither products nor links. See tailRowsFor. */
+  extras: readonly NavItem[] = [],
 ): NavEntry[] {
   /** A band opener: a heading when they are on, otherwise the rule we shipped. */
   const band = (id: string, text: string): NavEntry =>
@@ -165,12 +188,41 @@ export function navEntriesFor(
             : [{ kind: "divider" as const, id: "div-custom" }]),
         ];
 
+  /*
+   * The extras as rows, for the two trees that do not run the tail through
+   * `tailRowsFor`. They keep their default place — ahead of the account's own
+   * links — and their order is not the tail's to change in those modes.
+   */
+  const extraRows = extras.map((item): NavEntry => ({ kind: "item", item }));
+
+  /** A row that is only ever a destination. See the flat branch. */
+  const flatRow = (id: string): NavEntry => ({
+    kind: "item",
+    item: {
+      id,
+      label: labelForProduct(state, id),
+      icon: iconForProduct(state, id),
+    },
+  });
+
   const productRow = (id: string): NavEntry => ({
     kind: "item",
     item: {
       id,
       label: labelForProduct(state, id),
       icon: iconForProduct(state, id),
+      /*
+       * A lifted row keeps its own children.
+       *
+       * Pulling an L2 out of its category promotes the row, and the layer
+       * underneath it came along — but the row was built as a plain
+       * destination, so the panel never opened and everything under it became
+       * unreachable from the nav. The lift moved a door and drew a wall.
+       *
+       * A tabs-parent stays a leaf: its children live ON its page, which is
+       * the one case where having children does not mean having a panel.
+       */
+      ...(liftedChildren(id).length > 0 ? { hasFlyout: true } : {}),
     },
   });
 
@@ -237,7 +289,7 @@ export function navEntriesFor(
        * name for what follows, which a rule is not.
        */
       ...(sectionHeadings ? [band("ia-more", "More")] : []),
-      ...tailRowsFor(state, loose).map((item): NavEntry => ({
+      ...tailRowsFor(state, loose, extras).map((item): NavEntry => ({
         kind: "item",
         item,
       })),
@@ -251,10 +303,17 @@ export function navEntriesFor(
     const products = groups[0]?.productIds ?? [];
     return [
       ...(sectionHeadings ? [band("flat", "Products")] : []),
-      ...products.map(productRow),
+      /*
+       * Deliberately NOT `productRow`: that one hands a row with children a
+       * chevron, and this mode's whole claim is that a row is a destination
+       * rather than a door. Flat with panels hanging off it is just the
+       * grouped tree with the groups taken out.
+       */
+      ...products.map(flatRow),
       ...(sectionHeadings
         ? [band("flat-more", "More")]
         : [{ kind: "divider" as const, id: "div-flat" }]),
+      ...extraRows,
       ...extraEntries,
     ];
   }
@@ -291,8 +350,22 @@ export function navEntriesFor(
       ? [band("groups-more", "More")]
       : [{ kind: "divider" as const, id: "div-groups" }]),
     ...loose.map(productRow),
+    ...extraRows,
     ...extraEntries,
   ];
+}
+
+/**
+ * The children a promoted row still owns, or none.
+ *
+ * Answers for a product and for an L2 alike, because either can be lifted: the
+ * tail holds whatever was dragged out, and a row that came from two levels
+ * down resolves through `childById` rather than the catalogue's top level.
+ */
+export function liftedChildren(id: string): readonly CatalogueChild[] {
+  const node = productById(id) ?? childById(id)?.child;
+  if (!node || node.tabs) return [];
+  return node.children ?? [];
 }
 
 /** Which of a row's ids the override maps are keyed by, or null if it is chrome. */
@@ -302,6 +375,16 @@ export function editTargetFor(
   itemId: string,
 ): { kind: "group" | "product"; id: string } | null {
   if (groups.some((g) => g.id === itemId)) return { kind: "group", id: itemId };
+  /*
+   * The chrome rows that live in the tail edit like products.
+   *
+   * They name no catalogue product, which is what used to disqualify them —
+   * but the override maps are keyed by id and hold any id at all, so the only
+   * thing standing between Desktop and mobile apps and a rename was this
+   * function not recognising it. `kind: "product"` is exactly right: the
+   * writers it selects are `setProductLabel` and `resetProductLabel`.
+   */
+  if (CHROME_TAIL_IDS.has(itemId)) return { kind: "product", id: itemId };
   if (state.grouping === "flat" && groups[0]?.productIds.includes(itemId)) {
     return { kind: "product", id: itemId };
   }

@@ -96,7 +96,14 @@ export function productMenuActions({
   productId: string;
   currentGroupId: string | null;
   categories: readonly ResolvedGroup[];
-  onRename: () => void;
+  /**
+   * Absent where the row may not be renamed.
+   *
+   * Only one case so far: a lifted row that still has children. Its label is
+   * also the title of the panel it opens, so the name has stopped being the
+   * row's own — see the note at the call site.
+   */
+  onRename?: () => void;
   /**
    * Opens the icon picker. Absent for roles that may not change icons.
    *
@@ -106,9 +113,19 @@ export function productMenuActions({
    * omits an action is read as the action not existing.
    */
   onPickIcon?: () => void;
-  onMoveToGroup: (groupId: string) => void;
-  onMoveToTopLevel: () => void;
-  onRemove: () => void;
+  /**
+   * Filing and removal, absent for rows that are neither.
+   *
+   * A chrome tail row — Desktop and mobile apps — can be renamed, re-iconed,
+   * reordered and hidden, because all four are per-row facts the store already
+   * holds. It cannot be moved INTO a category (categories hold products, and it
+   * is not one) and it cannot be removed from the nav (what puts it there is an
+   * axis, so the row would come straight back). Offering either would be a menu
+   * entry that quietly does nothing, which is worse than a shorter menu.
+   */
+  onMoveToGroup?: (groupId: string) => void;
+  onMoveToTopLevel?: () => void;
+  onRemove?: () => void;
   /**
    * Reorder within the row's own list. Omitted at the ends, exactly as the
    * category rows do it — an offered "Move up" that does nothing is worse than
@@ -123,13 +140,23 @@ export function productMenuActions({
 }): RowMenuAction[] {
   void productId;
   return [
-    { id: "rename", label: "Rename", icon: Pencil, onSelect: onRename },
+    ...(onRename
+      ? [
+          {
+            id: "rename",
+            label: "Rename",
+            icon: Pencil,
+            onSelect: onRename,
+          },
+        ]
+      : []),
     ...(onPickIcon
       ? [{ id: "icon", label: "Change icon", icon: Image, onSelect: onPickIcon }]
       : []),
     { id: "up", label: "Move up", icon: MoveUp, ...(onMoveUp ? { onSelect: onMoveUp } : {}) },
     { id: "down", label: "Move down", icon: MoveDown, ...(onMoveDown ? { onSelect: onMoveDown } : {}) },
-    {
+    ...(onMoveToGroup && onMoveToTopLevel
+      ? [{
       id: "move",
       label: "Move to",
       icon: FolderInput,
@@ -148,15 +175,18 @@ export function productMenuActions({
           current: currentGroupId === null,
         },
       ],
-      onPick: (groupId) =>
+      onPick: (groupId: string) =>
         groupId === UNGROUPED_ID ? onMoveToTopLevel() : onMoveToGroup(groupId),
-    },
-    {
+        }]
+      : []),
+    ...(onRemove
+      ? [{
       id: "remove",
       label: "Remove from the nav",
       icon: Trash2,
       danger: true,
       onSelect: onRemove,
-    },
+        }]
+      : []),
   ];
 }

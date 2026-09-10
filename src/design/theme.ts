@@ -89,6 +89,35 @@ export const DOCK_LABEL_LABELS: Record<DockLabel, string> = {
 };
 
 /**
+ * Which dark the dark nav is.
+ *
+ * The shipped one is a true neutral — #0f0f12, black with the colour taken
+ * out — which is honest and, on a 272px column standing next to a white
+ * canvas all day, reads as a hole rather than as a surface. Most products that
+ * ship a dark chrome do not use black for exactly this reason: a trace of blue
+ * gives the eye something to focus on and keeps the edge between chrome and
+ * page from looking like a cut.
+ *
+ *  navy  #0F1828 and a ramp derived from it. Enough hue to read as a colour
+ *        and little enough not to read as branded — the accent is the tenant's
+ *        and the chrome must not compete with it.
+ *  ink   The neutral as it ships, unchanged to the byte, so the two can be
+ *        compared rather than remembered.
+ *
+ * Only the nav's own surfaces move. The AI palette, the accent ramps and the
+ * page keep their own definitions: this is the colour of one piece of chrome,
+ * not a second theme.
+ */
+export const NAV_DARK_TONES = ["navy", "ink"] as const;
+
+export type NavDarkTone = (typeof NAV_DARK_TONES)[number];
+
+export const NAV_DARK_TONE_LABELS: Record<NavDarkTone, string> = {
+  navy: "Navy",
+  ink: "Neutral",
+};
+
+/**
  * Below this viewport width the nav starts collapsed.
  *
  * Measured, not guessed: on a tablet in portrait the viewport is 834px wide, where
@@ -261,11 +290,11 @@ export const MERGED_HEADING_LABELS: Record<MergedHeading, string> = {
  * reporting). So merging pins into the agency's Recent asks a question the
  * sub-account never had to answer: which of the two units is the list made of.
  *
- *  places    Pins and recently visited agency areas. Recent accounts keeps its
- *            own block, because switching client is not navigating — it changes
- *            what the whole nav is about, and burying that in a list of pages
- *            makes the most consequential row in the agency nav the least
- *            marked one.
+ *  places    Pins and recently visited agency areas, and nothing else: the
+ *            clients are the account rail's, which is a whole column devoted to
+ *            them. A Recent accounts block under this list used to hold them
+ *            too — the same handful of names twice on one screen, in two
+ *            treatments, one of which was the thing designed for the job.
  *  accounts  Pins and recently visited accounts in one list. Closest to what
  *            the agency nav shows today, and the version where a pinned page
  *            and a client sit a row apart.
@@ -430,14 +459,14 @@ export const AGENCY_SEARCH_DEFAULT = false;
  *          it pushes everything below the open row down the panel, which is the
  *          argument against.
  */
-export const DIRECTORY_DISCLOSURES = ["flyout", "inline"] as const;
-
-export type DirectoryDisclosure = (typeof DIRECTORY_DISCLOSURES)[number];
-
-export const DIRECTORY_DISCLOSURE_LABELS: Record<DirectoryDisclosure, string> = {
-  flyout: "Flyout",
-  inline: "Inline",
-};
+/*
+ * The product directory used to carry its own disclosure axis here.
+ *
+ * Removed (Sep 10): it asked the same question `l3Disclosure` asks — does a
+ * level open beside its parent or under it — and having both meant the
+ * catalogue could contradict every other panel in the nav. The directory now
+ * reads `l3Disclosure` and `flyoutTrigger` like everything else.
+ */
 
 export const LEGACY_FOOT_CONTROLS = ["off", "menu", "pills"] as const;
 
@@ -462,6 +491,21 @@ export const LEGACY_FOOT_CONTROL_LABELS: Record<LegacyFootControl, string> = {
  * someone is being walked through both navs live.
  */
 export const NAV_SWITCH_BUTTON_DEFAULT = false;
+
+/**
+ * Whether the agency nav offers the edit experience.
+ *
+ * Off by default (Sep 10). The agency tree is thirteen fixed buckets of
+ * platform IA: renaming one, hiding one and reordering them is a real and
+ * smaller set of verbs than the sub-account's, and the card built for the
+ * sub-account brings a mode, a Save, a Discard and an overflow menu of tools
+ * that mostly do not apply. Reviewing the proposal is easier without a control
+ * arguing for a story nobody has asked for yet.
+ *
+ * On, the agency gets the same card the sub-account does, backed by its own
+ * store — which is how the question gets looked at if it comes back.
+ */
+export const AGENCY_EDIT_NAV_DEFAULT = false;
 
 export const AI_BUTTON_STYLES = ["gradient", "outline"] as const;
 
@@ -1171,6 +1215,8 @@ export interface ThemeState {
   tint: Tint;
   appTheme: SurfaceTheme;
   navTheme: SurfaceTheme;
+  /** Which dark the dark nav is. See NAV_DARK_TONES. */
+  navDarkTone: NavDarkTone;
   headerTheme: SurfaceTheme;
   searchMode: SearchMode;
   /** Search defaults to dark so it never reads as part of the nav. */
@@ -1259,8 +1305,8 @@ export interface ThemeState {
   legacyFootControl: LegacyFootControl;
   /** The standing Switch nav button at the new nav's foot. */
   navSwitchButton: boolean;
-  /** How the product directory opens a level. See DIRECTORY_DISCLOSURES. */
-  directoryDisclosure: DirectoryDisclosure;
+  /** Whether the agency nav can be edited. See AGENCY_EDIT_NAV_DEFAULT. */
+  agencyEditNav: boolean;
   /** What the merged panel's history section is headed. See PANEL_RECENT_HEADINGS. */
   panelRecentHeading: PanelRecentHeading;
   /** Which palette the Conversations inbox uses. See INBOX_PALETTES. */
@@ -1376,6 +1422,8 @@ export const DEFAULT_THEME: ThemeState = {
   tint: "off",
   appTheme: "light",
   navTheme: "light",
+  // Navy. The neutral is one click away for the comparison.
+  navDarkTone: "navy",
   headerTheme: "light",
   searchMode: "spotlight",
   searchTheme: "dark",
@@ -1450,7 +1498,18 @@ export const DEFAULT_THEME: ThemeState = {
   // to the top. See MERGED_PIN_ORDERS.
   mergedPinOrder: "arranged",
   mergedHeading: "recents",
-  mergedPanelSearch: true,
+  /*
+   * Off in the merged panel.
+   *
+   * The panel is a pin list plus a bounded history — a set you already know,
+   * short enough to read. A field over it promises a corpus it does not hold:
+   * the thing you would type a product name into is the catalogue, which is a
+   * different panel one section down. Better to have no field than one whose
+   * scope you have to learn.
+   *
+   * The axis stays, so "on" is one click away in the prototype controls.
+   */
+  mergedPanelSearch: false,
   // Places, so Recent accounts keeps the block it has earned.
   mergedAgencyRecents: "places",
   /*
@@ -1523,8 +1582,8 @@ export const DEFAULT_THEME: ThemeState = {
   // there makes the control group a slightly different product.
   legacyFootControl: "off",
   navSwitchButton: NAV_SWITCH_BUTTON_DEFAULT,
+  agencyEditNav: AGENCY_EDIT_NAV_DEFAULT,
   // Cascading panels: the pattern the nav already taught.
-  directoryDisclosure: "flyout",
   panelRecentHeading: "visited",
   inboxPalette: "product",
   layoutReplaceDialog: "simple",

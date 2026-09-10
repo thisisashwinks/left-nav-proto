@@ -44,7 +44,12 @@ import {
   Wallet,
   Workflow,
 } from "lucide-react";
-import type { FlyoutConfig } from "@/components/flyout/types";
+import {
+  BETA_BADGE,
+  NEW_BADGE,
+  type FlyoutBadge,
+  type FlyoutConfig,
+} from "@/components/flyout/types";
 import type { NavEntry, NavItem } from "./types";
 
 /**
@@ -77,6 +82,15 @@ export interface AgencyChild extends NavItem {
   /** One line of what it is, as the panel rows show. */
   description: string;
   /**
+   * "New" or "Beta" beside the label.
+   *
+   * Only on a row that is a DESTINATION — an L2 with no L3 under it, or an L3.
+   * A row that discloses a list cannot wear one honestly: the badge would be
+   * claiming something about a whole branch when the thing that is new is one
+   * page inside it.
+   */
+  badge?: FlyoutBadge;
+  /**
    * The sheet's columns C–F. Disclosed by the panel row, never by the nav.
    *
    * Each carries an icon: an L3 row is a destination, a destination can be
@@ -98,6 +112,7 @@ export interface AgencyBucket {
 export interface AgencyL3 {
   label: string;
   icon: LucideIcon;
+  badge?: FlyoutBadge;
 }
 
 const l3 = (label: string, icon: LucideIcon): AgencyL3 => ({ label, icon });
@@ -229,18 +244,24 @@ export const agencyBuckets: AgencyBucket[] = [
       // The platforms in brackets: the row is chosen from a list of two, and
       // "which one has my phone in it" is the question being asked at that
       // moment.
-      child(
-        "agency-app-mobile",
-        "Mobile app (iOS and Android)",
-        Smartphone,
-        "iOS and Android builds, and where they are in the queue.",
-      ),
-      child(
-        "agency-app-desktop",
-        "Desktop app (macOS and Windows)",
-        Monitor,
-        "Theme, icon and copy for the desktop client.",
-      ),
+      {
+        ...child(
+          "agency-app-mobile",
+          "Mobile app (iOS & Android)",
+          Smartphone,
+          "iOS & Android builds, and where they are in the queue.",
+        ),
+        badge: BETA_BADGE,
+      },
+      {
+        ...child(
+          "agency-app-desktop",
+          "Desktop app (macOS & Windows)",
+          Monitor,
+          "Theme, icon and copy for the desktop client.",
+        ),
+        badge: NEW_BADGE,
+      },
     ],
   },
   {
@@ -263,8 +284,8 @@ export const agencyBuckets: AgencyBucket[] = [
       child("agency-ideas", "Ideas", Lightbulb, "Request features and vote on them."),
       child("agency-status", "Status", Antenna, "Live platform health and incidents."),
       child("agency-download-apps", "Download apps", Download, "The mobile and desktop clients.", [
-        l3("Mobile app", Smartphone),
-        l3("Desktop app", Monitor),
+        { ...l3("Mobile app", Smartphone), badge: BETA_BADGE },
+        { ...l3("Desktop app", Monitor), badge: NEW_BADGE },
       ]),
       child("agency-swag", "GHL swag", Shirt, "Branded merchandise."),
     ],
@@ -357,6 +378,7 @@ export function panelFor(bucket: AgencyBucket, id = bucket.id): FlyoutConfig {
             label: c.label,
             ...(c.icon ? { icon: c.icon } : {}),
             description: c.description,
+            ...(c.badge ? { badge: c.badge } : {}),
             ...(c.l3
               ? {
                   /*
@@ -375,6 +397,7 @@ export function panelFor(bucket: AgencyBucket, id = bucket.id): FlyoutConfig {
                     id: agencyL3Id(c.id, x.label),
                     label: x.label,
                     icon: x.icon,
+                    ...(x.badge ? { badge: x.badge } : {}),
                   })),
                 }
               : {}),
@@ -507,9 +530,10 @@ export const agencyRailItems: NavItem[] = agencyBuckets.map((b) => ({
  * The same five concepts, pointed at the places that exist.
  */
 export const agencyPinnedSeed: string[] = [
+  // Four, for the same reason the sub-account seeds are four: five is the cap,
+  // and an agency opening at it cannot try the gesture at all.
   "agency-prospecting",
   "agency-account-snapshot",
   "agency-saas-configurator",
   "agency-dash-summary",
-  "agency-sub-accounts",
 ];
