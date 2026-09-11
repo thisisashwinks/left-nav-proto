@@ -68,6 +68,25 @@ export function useMarking(
 }
 
 /**
+ * Whether a parent row should already be open because the page is inside it.
+ *
+ * Beside `useMarking` because it answers the same question from the other side:
+ * that one decides whether to PAINT the row you are in, this one whether to
+ * OPEN it. Tied to the same axis, so the two are one feature — switch the
+ * marking off and the nav stops volunteering where you are, in both senses.
+ *
+ * Deliberately NOT `useMarking(...) !== null`, which is the obvious way to
+ * write it and the wrong one. On the "row only" setting a parent whose CHILD is
+ * the current page is not marked — correctly, the child is — but it still has
+ * to open, or the page you are on is hidden inside a collapsed row. The gate is
+ * the axis being on, not this row being painted.
+ */
+export function useAutoOpen(isTrail: boolean): boolean {
+  const { selectedState } = useTheme().effective;
+  return selectedState !== "off" && isTrail;
+}
+
+/**
  * What this row should draw, given the marking and the treatment axis.
  *
  * One hook rather than three exported class strings, because the treatments

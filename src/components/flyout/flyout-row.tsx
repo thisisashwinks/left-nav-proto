@@ -14,6 +14,7 @@ import { EditAffordance, InlineRename } from "@/components/nav/inline-rename";
 import { isPinnable, WithPin } from "@/components/nav/with-pin";
 import {
   HereBar,
+  useAutoOpen,
   useHere,
   useHereStyle,
   useMarking,
@@ -372,6 +373,16 @@ export function FlyoutRow({
   );
   const mark = useHereStyle(marking);
   /*
+   * Already open when the page is inside it.
+   *
+   * The panel opened BECAUSE you are somewhere; making you click again to see
+   * where is the panel withholding the one thing it already knows. Inline only
+   * — see the note on `inlineOpen`. Cascading, opening this row would throw a
+   * second panel onto the screen over whatever is beside it, unasked, and that
+   * is a different and much louder proposition than growing a list in place.
+   */
+  const autoOpen = useAutoOpen(here.productId === item.id);
+  /*
    * When the review axis is on, a tabs-parent discloses like any other parent —
    * its tabs become nav rows and pages. Read here rather than threaded through
    * FlyoutPanel and group-flyout, because this is the only place the decision
@@ -411,7 +422,7 @@ export function FlyoutRow({
   // navigates like a leaf rather than opening a nested list of non-places.
   const hasChildren =
     (item.children?.length ?? 0) > 0 && (tabsInNav || !item.tabs);
-  const [inlineOpen, setInlineOpen] = React.useState(defaultOpen);
+  const [inlineOpen, setInlineOpen] = React.useState(defaultOpen || autoOpen);
   /*
    * Two sources for one flag.
    *

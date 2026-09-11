@@ -80,6 +80,25 @@ export const DEFAULT_AGENCY_PLAN: AgencyPlan = "pro";
  */
 export type NavCapability = "personalise" | "editNav" | "editUnlimited";
 
+/**
+ * The capability, as a line in a features list.
+ *
+ * The pricing sheet is reached from a refusal, and the thing that was refused
+ * is the only feature on it the reader has already tried to use — but the
+ * cards listed it nowhere, because these lists are HighLevel's marketing copy
+ * and nav editing is not one of its bullets. So somebody sent here by the nav
+ * read three columns about desktop apps and rebilling and had to take on faith
+ * that any of it covered what they had just been stopped from doing.
+ *
+ * Named here rather than in the wall because it is a fact about the ladder: if
+ * the tier that unlocks it moves, the line moves with it.
+ */
+export const CAPABILITY_FEATURES: Record<NavCapability, string> = {
+  personalise: "Pins, recents and the shipped presets",
+  editNav: "Navigation editing",
+  editUnlimited: "Navigation editing on every sub-account",
+};
+
 /** The lowest agency plan that unlocks each capability. */
 export const MIN_PLAN: Record<NavCapability, AgencyPlan> = {
   personalise: "starter",

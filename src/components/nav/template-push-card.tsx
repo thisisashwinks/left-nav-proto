@@ -3,7 +3,6 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { LayoutTemplate, X } from "lucide-react";
-import { useTheme } from "@/components/theme/theme-provider";
 
 /**
  * The two halves of telling someone a template moved.
@@ -46,13 +45,27 @@ export function TemplatePushCard({
   push: TemplatePush;
   onClose: () => void;
 }) {
-  const navTheme = useTheme().effective.navTheme;
-
   return createPortal(
     <div
       role="status"
-      data-nav-theme={navTheme}
-      className="motion-panel-in fixed bottom-[20px] left-1/2 z-[80] w-[360px] -translate-x-1/2 rounded-[10px] bg-nav p-[12px] shadow-[0_16px_40px_0_var(--fly-shadow),inset_0_0_0_1px_var(--fly-border)]"
+      /*
+       * Dark whatever the nav is wearing, and top centre rather than bottom.
+       *
+       * Every other floating surface here follows the nav's theme because it
+       * belongs to the nav — a menu, a picker, a flyout. This one does not: it
+       * reports on work that has just left this account for six others, and it
+       * is the only notice in the product that is about somewhere else. Holding
+       * one appearance is what separates a report from another panel, and dark
+       * reads as system-level against both nav themes rather than dissolving
+       * into the light one.
+       *
+       * Top centre for the same reason. The bottom edge belongs to the nav's
+       * own foot — the edit card, the undo offers — so a push landing there
+       * queued up behind the controls that caused it, in the corner the eye had
+       * just left. The top is empty and is where the canvas is looked at.
+       */
+      data-nav-theme="dark"
+      className="motion-panel-in fixed top-[16px] left-1/2 z-[80] w-[360px] -translate-x-1/2 rounded-[10px] bg-nav p-[12px] shadow-[0_16px_40px_0_var(--fly-shadow),inset_0_0_0_1px_var(--fly-border)]"
     >
       <div className="flex items-start gap-[9px]">
         <LayoutTemplate

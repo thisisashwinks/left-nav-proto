@@ -23,6 +23,9 @@ import {
   AGENCY_PLAN_NAMES,
   AGENCY_PLAN_SPECS,
   AGENCY_PLANS,
+  CAPABILITY_FEATURES,
+  hasCapability,
+  type NavCapability,
   annualSaving,
   monthlyOnAnnual,
   type AgencyPlan,
@@ -129,6 +132,17 @@ export function PlanWall({
     setAgencyPlan(chosen);
     setStep("done");
   }, [chosen, agencyPlan, setAgencyPlan]);
+
+  /*
+   * What this refusal was about, as a features-list line.
+   *
+   * The wall is only ever raised by one of two gates, and which one is exactly
+   * what `block` says: a plan block is "you cannot edit this nav at all", a
+   * seat block is "you cannot edit a SECOND one". Each card that includes the
+   * capability leads its feature list with it — see PlanCard's `lead`.
+   */
+  const wanted: NavCapability =
+    block.kind === "plan" ? "editNav" : "editUnlimited";
 
   /** What the dialog is called at each step — header, and the a11y label. */
   const title =
@@ -362,6 +376,11 @@ export function PlanWall({
                     what the nav looks like the moment the tier clears.
                   */
                   onUpgrade={() => startCheckout(plan)}
+                  lead={
+                    hasCapability(plan, wanted)
+                      ? CAPABILITY_FEATURES[wanted]
+                      : null
+                  }
                 />
               ))}
             </div>
@@ -380,6 +399,9 @@ export function PlanWall({
             onAnnualChange={setAnnual}
             affiliate={affiliate}
             onAffiliateChange={setAffiliate}
+            lead={
+              hasCapability(chosen, wanted) ? CAPABILITY_FEATURES[wanted] : null
+            }
             onBack={() => setStep("pricing")}
             onPay={pay}
           />
@@ -502,11 +524,35 @@ function BillingToggle({
 
 const SPEC_ICONS = [Users, Building2, Layers] as const;
 
+/**
+ * One ticked line of a features list, in the cards and in the checkout.
+ *
+ * `lead` is the capability the reader was refused: same tick, heavier ink, so
+ * it reads as belonging to the list rather than as a banner stuck on top of
+ * it — the point is that it IS one of the features, and that this tier has it.
+ */
+function FeatureLine({ line, lead = false }: { line: string; lead?: boolean }) {
+  return (
+    <li
+      className={cn(
+        "flex items-start gap-[10px] text-[14px] leading-[20px]",
+        lead ? "font-semibold text-pg-heading" : "text-pg-text",
+      )}
+    >
+      <span className="mt-[1px] flex size-[18px] shrink-0 items-center justify-center rounded-full bg-[#dcfae6] text-[#079455]">
+        <Check size={11} strokeWidth={3} aria-hidden="true" />
+      </span>
+      {line}
+    </li>
+  );
+}
+
 function PlanCard({
   plan,
   current,
   annual,
   expanded,
+  lead,
   onToggleMore,
   onUpgrade,
 }: {
@@ -514,6 +560,16 @@ function PlanCard({
   current: AgencyPlan;
   annual: boolean;
   expanded: boolean;
+  /**
+   * The capability that raised the wall, when this tier includes it.
+   *
+   * First in the list and in heavier ink: it is the one line on the card the
+   * reader has already met, and burying it in marketing order would make them
+   * hunt a list of five for the only thing they came to check. Null on the
+   * tiers that do not have it — an absence that is itself the argument for
+   * the tiers that do.
+   */
+  lead?: string | null;
   onToggleMore: () => void;
   onUpgrade: () => void;
 }) {
@@ -671,17 +727,10 @@ function PlanCard({
         </p>
 
         <ul className="flex flex-col gap-[10px]">
+          {lead ? <FeatureLine line={lead} lead /> : null}
           {[...features.shown, ...(expanded ? features.more : [])].map(
             (line) => (
-              <li
-                key={line}
-                className="flex items-start gap-[10px] text-[14px] leading-[20px] text-pg-text"
-              >
-                <span className="mt-[1px] flex size-[18px] shrink-0 items-center justify-center rounded-full bg-[#dcfae6] text-[#079455]">
-                  <Check size={11} strokeWidth={3} aria-hidden="true" />
-                </span>
-                {line}
-              </li>
+              <FeatureLine key={line} line={line} />
             ),
           )}
         </ul>
@@ -726,6 +775,7 @@ function CheckoutStep({
   plan,
   from,
   annual,
+  lead,
   onAnnualChange,
   affiliate,
   onAffiliateChange,
@@ -736,6 +786,8 @@ function CheckoutStep({
   /** The tier being left, for the "everything in X plus…" line. */
   from: AgencyPlan;
   annual: boolean;
+  /** The capability that raised the wall — see PlanCard. */
+  lead?: string | null;
   onAnnualChange: (annual: boolean) => void;
   affiliate: string;
   onAffiliateChange: (value: string) => void;
@@ -831,16 +883,9 @@ function CheckoutStep({
       {/* Two columns: the shown list is four or five lines, and a single
           column of them left the panel's right half empty under the price. */}
       <ul className="mt-[12px] grid grid-cols-1 gap-[12px] sm:grid-cols-2">
+        {lead ? <FeatureLine line={lead} lead /> : null}
         {features.shown.map((line) => (
-          <li
-            key={line}
-            className="flex items-start gap-[10px] text-[14px] leading-[20px] text-pg-text"
-          >
-            <span className="mt-[1px] flex size-[18px] shrink-0 items-center justify-center rounded-full bg-[#dcfae6] text-[#079455]">
-              <Check size={11} strokeWidth={3} aria-hidden="true" />
-            </span>
-            {line}
-          </li>
+          <FeatureLine key={line} line={line} />
         ))}
       </ul>
 
