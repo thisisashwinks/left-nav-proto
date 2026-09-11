@@ -146,6 +146,10 @@ export interface EditNavProps {
   onApplyTemplate: (templateId: string) => void;
   onCreateTemplate: (name: string) => void;
   onUpdateTemplate: (templateId: string) => void;
+  /** Copies a template onto a new one nobody is on. See EditMoreMenu. */
+  onDuplicateTemplate: (templateId: string) => void;
+  /** Whether the account has changed since it took its template. */
+  templateDirty: boolean;
 }
 
 /**
@@ -184,6 +188,8 @@ function EditNavButton({
   onApplyTemplate,
   onCreateTemplate,
   onUpdateTemplate,
+  onDuplicateTemplate,
+  templateDirty,
   showIntro = false,
   onDismissIntro,
 }: EditNavProps & {
@@ -251,6 +257,8 @@ function EditNavButton({
           onApplyTemplate={onApplyTemplate}
           onCreateTemplate={onCreateTemplate}
           onUpdateTemplate={onUpdateTemplate}
+          onDuplicateTemplate={onDuplicateTemplate}
+          templateDirty={templateDirty}
           {...(onOpenTemplates ? { onOpenTemplates } : {})}
           atFoot={atFoot}
           revealed
@@ -297,6 +305,8 @@ function EditNavButton({
           onApplyTemplate={onApplyTemplate}
           onCreateTemplate={onCreateTemplate}
           onUpdateTemplate={onUpdateTemplate}
+          onDuplicateTemplate={onDuplicateTemplate}
+          templateDirty={templateDirty}
           onClose={() => setMoreAnchor(null)}
           onOpenNavModal={() => setNavModalOpen(true)}
         />

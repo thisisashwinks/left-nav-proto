@@ -39,7 +39,9 @@ import {
   type ScopeModel,
   type NavGeneration,
   type NavSwitchSurface,
+  type TemplatePropagation,
   type NavColourControl,
+  type RecentsPanelLayout,
   type SubAccountSwitcher,
   type SearchMode,
   type SurfaceTheme,
@@ -140,9 +142,11 @@ interface ThemeContextValue extends ThemeState {
   setScopeModel: (model: ScopeModel) => void;
   setNavGeneration: (generation: NavGeneration) => void;
   setNavSwitchSurface: (surface: NavSwitchSurface) => void;
+  setTemplatePropagation: (propagation: TemplatePropagation) => void;
   setNavSwitchInEditCard: (enabled: boolean) => void;
   /** Whether the nav offers a dark mode at all. See ThemeState.darkMode. */
   setDarkMode: (on: boolean) => void;
+  setRecentsPanelLayout: (layout: RecentsPanelLayout) => void;
   setNavColourControl: (control: NavColourControl) => void;
   setSubAccountSwitcher: (switcher: SubAccountSwitcher) => void;
   setUserMultiAccount: (enabled: boolean) => void;
@@ -349,9 +353,13 @@ export function ThemeProvider({
         setState((s) => ({ ...s, navGeneration })),
       setNavSwitchSurface: (navSwitchSurface) =>
         setState((s) => ({ ...s, navSwitchSurface })),
+      setTemplatePropagation: (templatePropagation) =>
+        setState((s) => ({ ...s, templatePropagation })),
       setNavSwitchInEditCard: (navSwitchInEditCard) =>
         setState((s) => ({ ...s, navSwitchInEditCard })),
       setDarkMode: (darkMode) => setState((s) => ({ ...s, darkMode })),
+      setRecentsPanelLayout: (recentsPanelLayout) =>
+        setState((s) => ({ ...s, recentsPanelLayout })),
       setNavColourControl: (navColourControl) =>
         setState((s) => ({ ...s, navColourControl })),
       setSubAccountSwitcher: (subAccountSwitcher) =>

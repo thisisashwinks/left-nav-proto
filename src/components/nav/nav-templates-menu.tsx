@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { Check, LayoutTemplate, Plus, Save, Trash2 } from "lucide-react";
+import { Check, Copy, LayoutTemplate, Plus, Save, Trash2 } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { useAnchored } from "@/lib/use-anchored";
@@ -24,6 +24,8 @@ export function NavTemplatesMenu({
   anchor,
   onCreate,
   onUpdate,
+  onDuplicate,
+  dirty,
   onApply,
   onClose,
 }: {
@@ -34,6 +36,10 @@ export function NavTemplatesMenu({
   anchor: HTMLElement;
   onCreate: (name: string) => void;
   onUpdate: (templateId: string) => void;
+  /** Copies one onto a new template that no account is on. */
+  onDuplicate: (templateId: string) => void;
+  /** Whether this account has changed since it took its template. */
+  dirty: boolean;
   onApply: (templateId: string) => void;
   onClose: () => void;
 }) {
@@ -107,10 +113,24 @@ export function NavTemplatesMenu({
                       Presets say so rather than claiming an origin. "From
                       HighLevel" would have read as another agency's account.
                     */}
-                    {t.builtIn ? "Preset" : `From ${t.fromAccount}`} ·{" "}
-                    {t.productCount} products
+                    {t.builtIn ? "Preset" : `From ${t.fromAccount}`} · v
+                    {t.version} · {t.productCount} products
                   </span>
                 </span>
+              </button>
+              {/*
+                Copy before delete, in that order: one of these is how you avoid
+                needing the other. Both revealed on the same hover, since
+                neither is something you do to a template on the way past.
+              */}
+              <button
+                type="button"
+                aria-label={`Duplicate ${t.name}`}
+                title="Duplicate"
+                onClick={() => onDuplicate(t.id)}
+                className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle opacity-0 group-hover/tpl:opacity-100 hover:bg-nav-hover hover:text-nav-fg"
+              >
+                <Copy size={13} aria-hidden="true" />
               </button>
               <button
                 type="button"
@@ -162,7 +182,7 @@ export function NavTemplatesMenu({
             */}
             <button
               type="button"
-              disabled={linked === null}
+              disabled={linked === null || !dirty}
               onClick={() => linked && onUpdate(linked.id)}
               className="motion-tap flex w-full items-center gap-[7px] rounded-[7px] px-[7px] py-[6px] text-left text-[12.5px] leading-[16px] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg disabled:pointer-events-none disabled:opacity-40"
             >
@@ -174,6 +194,12 @@ export function NavTemplatesMenu({
             {linked === null ? (
               <p className="px-[7px] pb-[4px] text-[11px] leading-[15px] text-nav-fg-subtle">
                 {accountName} isn&rsquo;t on a template yet.
+              </p>
+            ) : !dirty ? (
+              // Why the row above is dead, said once. A disabled control with
+              // no reason beside it reads as broken rather than as not-yet.
+              <p className="px-[7px] pb-[4px] text-[11px] leading-[15px] text-nav-fg-subtle">
+                Nothing to save — this nav still matches {linked.name}.
               </p>
             ) : null}
             <button

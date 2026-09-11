@@ -104,13 +104,11 @@ export interface MergedRow {
 function MergedList({
   pins,
   recents,
-  selectedId,
   onSelect,
   onOpenPanel,
 }: {
   pins: MergedRow[];
   recents: MergedRow[];
-  selectedId: string | null;
   onSelect: (id: string) => void;
   /** Opens the panel behind "View all" — the full pin list and history. */
   onOpenPanel: () => void;
@@ -158,21 +156,10 @@ function MergedList({
 
   if (pins.length === 0 && recents.length === 0) return null;
 
-  /*
-   * Only a pin can be the page you are on; a recent is a way back to one.
-   *
-   * Recents are a redirect list. The row is not where that destination LIVES —
-   * the tree is, and the tree marks it, trail and all — so filling the recent
-   * as well meant one page was marked twice in two different places, and the
-   * copy at the top of the nav was the one that had nothing beneath it to
-   * explain where you were. Clicking a recent takes you somewhere; it does not
-   * make the recent itself somewhere you are.
-   */
-  const row = (r: MergedRow, kind: "pin" | "recent") => (
+  const row = (r: MergedRow) => (
     <MergedItemRow
       key={r.id}
       row={r}
-      active={kind === "pin" && selectedId === r.id}
       mark={mergedPinMark}
       onSelect={() => onSelect(r.id)}
     />
@@ -201,7 +188,7 @@ function MergedList({
       {sublabelled && visiblePins.length > 0 ? (
         <BlockHeading text="Pinned" action={viewAll} />
       ) : null}
-      {visiblePins.map((r) => row(r, "pin"))}
+      {visiblePins.map(row)}
 
       {sublabelled && visibleRecents.length > 0 ? (
         <BlockHeading
@@ -209,7 +196,7 @@ function MergedList({
           {...(visiblePins.length === 0 ? { action: viewAll } : {})}
         />
       ) : null}
-      {visibleRecents.map((r) => row(r, "recent"))}
+      {visibleRecents.map(row)}
 
       <MergedOverflowRow
         mode={mergedOverflow}
@@ -304,11 +291,9 @@ export function orderPins(
  * The sub-account's merged list: products and L3 rows, pinned and recent.
  */
 export function MergedRecentsBlock({
-  selectedId,
   onSelect,
   onOpenPanel,
 }: {
-  selectedId: string | null;
   onSelect: (id: string) => void;
   onOpenPanel: () => void;
 }) {
@@ -386,7 +371,6 @@ export function MergedRecentsBlock({
     <MergedList
       pins={pins}
       recents={recents}
-      selectedId={selectedId}
       onSelect={onSelect}
       onOpenPanel={onOpenPanel}
     />
@@ -407,13 +391,11 @@ export function MergedRecentsBlock({
  * thing you can coherently say about it. They ride in the recent run only.
  */
 export function AgencyMergedRecentsBlock({
-  selectedId,
   onSelect,
   onOpenPanel,
   accounts,
   onSwitchAccount,
 }: {
-  selectedId: string | null;
   onSelect: (id: string) => void;
   onOpenPanel: () => void;
   /** Recently visited sub-accounts, in the order they were last open. */
@@ -497,7 +479,6 @@ export function AgencyMergedRecentsBlock({
     <MergedList
       pins={pins}
       recents={recents}
-      selectedId={selectedId}
       onSelect={(id) =>
         id.startsWith("account:")
           ? onSwitchAccount(id.slice("account:".length))
@@ -565,14 +546,24 @@ export function allocate({
  * arrangement exists for, so it is on every row, not only the pinned ones: this
  * is where you pin from now that the capsule is gone.
  */
+/*
+ * No selected state, at all, on any row of this block.
+ *
+ * Every row here is a shortcut — a pin you kept or a page you were on — and a
+ * shortcut is not where its destination LIVES. The tree is, and the tree marks
+ * it: row, trail and all. Filling the shortcut too meant one page was marked
+ * twice in two places, and the copy at the top of the nav was the one with
+ * nothing beneath it to say where you were.
+ *
+ * So this block reroutes and nothing more. Hover, the pin, and that is the
+ * whole vocabulary.
+ */
 function MergedItemRow({
   row,
-  active,
   mark,
   onSelect,
 }: {
   row: MergedRow;
-  active: boolean;
   mark: "glyph" | "sublabel" | "none";
   onSelect: () => void;
 }) {
@@ -587,12 +578,11 @@ function MergedItemRow({
         "group/row motion-tap relative flex w-full shrink-0 items-center",
         "gap-[var(--t-nav-gap,10px)] rounded-[var(--t-nav-radius,7px)]",
         "px-[var(--t-nav-px,8px)] py-[calc(var(--t-nav-py,9px)*0.667)]",
-        active ? "bg-nav-hover" : "hover:bg-nav-hover",
+        "hover:bg-nav-hover",
       )}
     >
       <button
         type="button"
-        aria-current={active ? "page" : undefined}
         onClick={onSelect}
         className="flex min-w-0 flex-1 items-center gap-[var(--t-nav-gap,10px)] text-left"
       >
@@ -602,7 +592,7 @@ function MergedItemRow({
               icon={Icon}
               {...(row.badge ? { badge: row.badge } : {})}
               size={16}
-              className={active ? "text-nav-fg" : "text-nav-fg-muted"}
+              className="text-nav-fg-muted"
             />
           ) : null)}
         <span className="flex min-w-0 flex-col">

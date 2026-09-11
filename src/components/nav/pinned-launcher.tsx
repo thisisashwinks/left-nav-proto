@@ -54,6 +54,15 @@ import { ResolvedIcon } from "./resolved-icon";
  * everything the "All products" section shows a few rows below. Real history is
  * bounded by time, and this is where that bound would go.
  */
+/**
+ * How much of the combined list the stacked layout shows before "View all".
+ *
+ * Eight, which is the most that still leaves the Product directory heading and
+ * its field on screen without a scroll on a laptop — the one thing stacking the
+ * catalogue underneath must not cost.
+ */
+const STACKED_KEPT_ROWS = 8;
+
 const PANEL_RECENT_ROWS = 10;
 
 /**
@@ -121,6 +130,7 @@ export function PinnedLauncher({
     mergedPanelSearch,
     panelRecentHeading,
     productDirectoryRow,
+    recentsPanelLayout,
     getAppPlacement,
   } = useTheme().effective;
   const agency = useAgencyLayout();
@@ -162,8 +172,33 @@ export function PinnedLauncher({
    * all — tabbing it away behind a choice would hide the shortest list here
    * behind the two longest.
    */
-  const tabbed = showKept && showCatalogue && !agencyScope;
+  /*
+   * Two corpora in one panel, arranged one of three ways. See
+   * RECENTS_PANEL_LAYOUTS — this is the only place the axis is read, and these
+   * three booleans are what the rest of the file asks instead of asking it.
+   */
+  const bothHalves = showKept && showCatalogue && !agencyScope;
+  const stacked = bothHalves && recentsPanelLayout === "stacked";
+  const tabbed = bothHalves && !stacked;
+  /*
+   * Whether the pins are held out of the switcher, or fold into the list.
+   *
+   * The whole difference between the first two layouts. Held out, Pinned is a
+   * block of its own above the tabs and "Recently visited" means only the
+   * history; folded in, the tab holds one seamless run — pins first, wearing
+   * the pin mark that already distinguishes them — and the divider between the
+   * two has nothing left to separate.
+   */
+  const pinnedAboveTabs = tabbed && recentsPanelLayout === "pinned-first";
   const [tab, setTab] = React.useState<"recent" | "directory">("recent");
+  /**
+   * Whether the stacked layout's combined list is showing all of itself.
+   *
+   * Capped until asked, because the whole risk of putting the catalogue
+   * underneath the history is that the history pushes it off the bottom — and
+   * the directory's search is the part that must not need a scroll to reach.
+   */
+  const [keptExpanded, setKeptExpanded] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
@@ -367,6 +402,14 @@ export function PinnedLauncher({
    * The directory keeps the whole index, which is what it is for.
    */
   const keptIds = showKept ? [...pinnedIds, ...recentIds] : [];
+  /**
+   * The rows the visited tab lists.
+   *
+   * The history alone when Pinned is a block of its own above the switcher;
+   * the whole combined run when it is not — which is what makes the two
+   * layouts differ in the body as well as in the head.
+   */
+  const visitedIds = pinnedAboveTabs ? recentIds : keptIds;
   /*
    * In tabbed mode the field belongs to the TAB, not to the panel.
    *
@@ -392,7 +435,7 @@ export function PinnedLauncher({
              its PARENT was recent. Recents is a flat list of rows you can see;
              searching it is that list, minus what does not match.
            */
-          recentIds
+          visitedIds
             .filter((id) => layout.productLabelFor(id).toLowerCase().includes(q))
             .map((id) => ({ id, context: "", rank: 0 }))
         : searchHits(layout, groups, q)
@@ -414,7 +457,8 @@ export function PinnedLauncher({
    * answering for the catalogue too.
    */
   const showSearch =
-    tabbed || variant === "directory" || !mergedPanel || mergedPanelSearch;
+    !stacked &&
+    (tabbed || variant === "directory" || !mergedPanel || mergedPanelSearch);
 
   /**
    * What the field promises, which has to be what it delivers.
@@ -425,8 +469,13 @@ export function PinnedLauncher({
   const recentLabel = PANEL_RECENT_HEADING_LABELS[panelRecentHeading];
   const searchScopeLabel = tabbed
     ? tab === "recent"
-      ? `Search ${recentLabel.toLowerCase()}`
+      ? pinnedAboveTabs
+        ? `Search ${recentLabel.toLowerCase()}`
+        : // The tab holds the pins too, so the field must say so.
+          "Search pinned and recent"
       : "Search products"
+    : stacked
+      ? "Search products"
     : showKept && !showCatalogue
       ? "Search pinned and recent"
       : "Search products";
@@ -632,6 +681,8 @@ export function PinnedLauncher({
         */}
         {tabbed ? (
           <div className="flex w-full shrink-0 flex-col px-[14px]">
+            {pinnedAboveTabs ? (
+              <>
             <div className="flex w-full flex-col gap-[var(--t-nav-space,2px)]">
               {pinnedSection}
             </div>
@@ -648,10 +699,17 @@ export function PinnedLauncher({
               aria-hidden="true"
               className="mt-[14px] h-px w-full bg-[var(--nav-divider)]"
             />
+              </>
+            ) : null}
             <div
               role="tablist"
               aria-label="What to browse"
-              className="mt-[14px] flex w-full items-center gap-[2px] rounded-[9px] p-[2px] shadow-[inset_0_0_0_1px_var(--nav-divider)]"
+              className={cn(
+                "flex w-full items-center gap-[2px] rounded-[9px] p-[2px] shadow-[inset_0_0_0_1px_var(--nav-divider)]",
+                // 14 off the rule above it, 2 off the panel title — the same
+                // tight figure the search field takes when it follows a header.
+                pinnedAboveTabs ? "mt-[14px]" : "mt-[2px]",
+              )}
             >
               <PanelTab
                 label={recentLabel}
@@ -779,9 +837,17 @@ export function PinnedLauncher({
               </p>
             )
           ) : tab === "recent" ? (
-            recentIds.length > 0 ? (
-              recentIds.map((id) => (
-                <ProductRow key={`recent-${id}`} productId={id} />
+            visitedIds.length > 0 ? (
+              /*
+                One seamless run, pins first.
+
+                No heading between the two and no divider: a pinned row already
+                says it is pinned — it carries the mark — so a heading would be
+                labelling what the rows label themselves, and the reader would
+                be reading a structure instead of a list.
+              */
+              visitedIds.map((id) => (
+                <ProductRow key={`visited-${id}`} productId={id} />
               ))
             ) : (
               <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
@@ -802,6 +868,67 @@ export function PinnedLauncher({
             */
             <DirectoryTree groups={visibleGroups} theme={theme} disclosure="inline" />
           )
+        ) : stacked ? (
+          /*
+            One scroll, two sections, and the query belongs to the second.
+
+            The combined list is short and unsearched — it is what you have
+            been to, and you are reading it rather than looking something up.
+            The directory is ninety rows and carries its own field, placed with
+            the section it searches rather than at the head of a panel where it
+            would have promised to search both.
+          */
+          <>
+            {(keptExpanded ? keptIds : keptIds.slice(0, STACKED_KEPT_ROWS)).map(
+              (id) => (
+                <ProductRow key={`kept-${id}`} productId={id} />
+              ),
+            )}
+            {keptIds.length > STACKED_KEPT_ROWS ? (
+              <button
+                type="button"
+                onClick={() => setKeptExpanded((open) => !open)}
+                className="motion-tap flex h-[30px] w-full shrink-0 items-center rounded-[7px] px-[8px] text-left text-[13px] leading-none font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
+              >
+                {keptExpanded ? "Show less" : `View all ${keptIds.length}`}
+              </button>
+            ) : null}
+
+            <SectionHeading divider>Product directory</SectionHeading>
+            <div className="mt-[2px] mb-[6px] flex h-[36px] w-full shrink-0 items-center gap-[9px] rounded-[9px] px-[10px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
+              <Search
+                size={16}
+                aria-hidden="true"
+                className="shrink-0 text-nav-fg-subtle"
+              />
+              <input
+                ref={inputRef}
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search products"
+                aria-label="Search products"
+                className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg placeholder:text-nav-fg-subtle focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+              />
+            </div>
+            {searching ? (
+              hits.length > 0 ? (
+                hits.map((hit) => (
+                  <SearchRow
+                    key={hit.id}
+                    productId={hit.id}
+                    context={hit.context}
+                  />
+                ))
+              ) : (
+                <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
+                  No products match “{query}”
+                </p>
+              )
+            ) : editing ? null : (
+              <DirectoryTree groups={visibleGroups} theme={theme} />
+            )}
+          </>
         ) : searching ? (
           hits.length > 0 ? (
             hits.map((hit) => (

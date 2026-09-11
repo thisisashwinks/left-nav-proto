@@ -102,10 +102,15 @@ import {
 import { useAgencyLayout } from "./agency-layout";
 import { NavTemplatesMenu } from "./nav-templates-menu";
 import {
+  captureArrangement,
+  describeChanges,
+  hasLocalChanges,
   patchForArrangement,
+  rebase,
   useNavTemplates,
   type NavTemplate,
 } from "./nav-templates";
+import { TemplatePushCard, TemplateNoticeCard, type TemplatePush } from "./template-push-card";
 import { iconByName, nameForIcon } from "./icon-catalogue";
 import type { NavConfig, NavEntry, NavItem } from "./types";
 
@@ -280,6 +285,7 @@ export function LeftNav({
     agencyEditNav,
     agencySearch,
     editTreatment,
+    templatePropagation,
   } = useTheme().effective;
   /*
    * Recents and Pinned drawn as one list — see merged-recents.tsx.
@@ -448,8 +454,107 @@ export function LeftNav({
    * first press.
    */
   const putOnAccount = (tpl: NavTemplate) => {
-    layout.applyArrangement(tpl.name, patchForArrangement(tpl.arrangement, state));
-    templates.link(account.id, tpl.id);
+    /*
+     * The link's base is what LANDED, not what the template holds.
+     *
+     * The two differ by everything the account does not own, which
+     * `patchForArrangement` filters out on the way in. Recording the template's
+     * own arrangement made an account look edited the moment it was applied —
+     * "Save template" went live against a difference nobody had made, which is
+     * the opposite of what that button is for.
+     */
+    const applied = patchForArrangement(tpl.arrangement, state);
+    layout.applyArrangement(tpl.name, applied);
+    templates.link(account.id, tpl.id, applied);
+  };
+
+  /**
+   * What a template just did to everyone else on it, held until it is read.
+   *
+   * The push happens in another account's store while the agency is standing in
+   * this one, so without a report the loudest thing this feature does is also
+   * the most invisible. One card, once, naming the blast radius and the
+   * accounts whose own tuning it had to work around.
+   */
+  const [pushReport, setPushReport] = React.useState<TemplatePush | null>(null);
+  /** Whatever a push left here for whoever opened this account next. */
+  const notice = templates.noticeFor(account.id);
+  /**
+   * Whether this account has moved since it took the template.
+   *
+   * What makes "Save template" an action rather than a standing offer. Applying
+   * a template and being immediately invited to save it back is a button with
+   * nothing to do — press it and the only thing that changes is the version
+   * number, on a template fifty accounts are reading.
+   */
+  const templateLink = templates.linkFor(account.id);
+  const templateDirty = templateLink
+    ? hasLocalChanges(templateLink.base, captureArrangement(state))
+    : false;
+
+  /**
+   * Save this arrangement into the template, and carry it to the accounts on it.
+   *
+   * The one place in the nav where an edit leaves the account you are in. Three
+   * things have to be true for it to be safe, and they are the whole function:
+   *
+   *   1. Each account is re-patched against ITS OWN products, because
+   *      `patchForArrangement` intersects with what that account owns. A
+   *      template can move rows; it can never grant one.
+   *   2. An account that has been tuned by hand keeps its tuning — `rebase`
+   *      replaces the base underneath the delta rather than the whole nav.
+   *   3. Every account it touched is left a note, because a nav that
+   *      rearranged itself between two visits is a bug until something says
+   *      who did it.
+   *
+   * One `applyToAccounts` call per account rather than one for the list: the
+   * merge needs that account's own base and its own current arrangement, and
+   * the bulk API's patch only ever sees a layout. The provider is explicit that
+   * a burst of calls in one tick is safe — that is what a per-account run is.
+   */
+  const saveTemplate = (id: string) => {
+    const before = templates.templates.find((t) => t.id === id);
+    const tpl = templates.update(id, account.name, state);
+    if (!tpl || !before) return;
+    putOnAccount(tpl);
+    if (templatePropagation !== "managed") return;
+
+    const others = templates
+      .accountsOnIds(id)
+      .filter((accountId) => accountId !== account.id);
+    if (others.length === 0) return;
+
+    const changes = describeChanges(before.arrangement, tpl.arrangement);
+    const kept: string[] = [];
+    for (const accountId of others) {
+      const held = templates.linkFor(accountId);
+      if (!held) continue;
+      const current = captureArrangement(layout.profileFor(accountId));
+      const tuned = hasLocalChanges(held.base, current);
+      if (tuned) kept.push(accountId);
+      const merged = tuned ? rebase(held.base, current, tpl.arrangement) : tpl.arrangement;
+      const applied = patchForArrangement(merged, layout.profileFor(accountId));
+      layout.applyToAccounts([accountId], `Updated ${tpl.name}`, (l) => ({
+        ...l,
+        ...applied,
+      }));
+      // Re-based, not re-linked: the account is on the new version now, and its
+      // delta is measured from here — from what landed, so it starts at zero.
+      templates.link(accountId, id, applied);
+    }
+    templates.markPushed(
+      others.map((accountId) => ({ accountId, kept: kept.includes(accountId) })),
+      tpl.name,
+      tpl.version,
+      changes,
+    );
+    setPushReport({
+      name: tpl.name,
+      version: tpl.version,
+      accounts: others.length,
+      kept: kept.length,
+      changes,
+    });
   };
   const [agencyRenaming, setAgencyRenaming] = React.useState<string | null>(null);
   const menu = useRowMenu();
@@ -1341,9 +1446,10 @@ export function LeftNav({
             const tpl = templates.save(name, account.name, state);
             if (tpl) putOnAccount(tpl);
           },
-          onUpdateTemplate: (id: string) => {
-            const tpl = templates.update(id, account.name, state);
-            if (tpl) putOnAccount(tpl);
+          onUpdateTemplate: saveTemplate,
+          templateDirty,
+          onDuplicateTemplate: (id: string) => {
+            templates.duplicate(id);
           },
           // Templates are a sub-account idea: the agency tree is platform IA,
           // so there is no arrangement of it worth reusing elsewhere.
@@ -2059,7 +2165,6 @@ export function LeftNav({
           */}
           {merged && agencyScope && !isBlockHidden(state, "recent") ? (
             <AgencyMergedRecentsBlock
-              selectedId={selectedId}
               onSelect={onSelect}
               accounts={mergedAccountRows}
               onSwitchAccount={onSwitchAccount}
@@ -2068,7 +2173,6 @@ export function LeftNav({
           ) : null}
           {merged && !agencyScope && !isBlockHidden(state, "recent") ? (
             <MergedRecentsBlock
-              selectedId={selectedId}
               onSelect={onSelect}
               /*
                 "View all" opens the launcher, not the authored Recent flyout.
@@ -2248,6 +2352,23 @@ export function LeftNav({
         The way back is the ⋯ menu's Layout row, which is also the way in.
       */}
 
+      {/*
+        News about THIS nav, above the nav's own foot.
+
+        Last thing before the entry row, so it reads as a footnote to the list
+        rather than a header over it — the change it describes is in the rows
+        above, and a banner at the top would have pushed them down to say so.
+      */}
+      {notice && !agencyScope ? (
+        <TemplateNoticeCard
+          templateName={notice.templateName}
+          version={notice.version}
+          changes={notice.changes}
+          kept={notice.kept}
+          onDismiss={() => templates.dismissNotice(account.id)}
+        />
+      ) : null}
+
       {headerEntry ? (
         /*
           No pill, but the way into edit mode still lives in the nav.
@@ -2315,11 +2436,12 @@ export function LeftNav({
             if (tpl) putOnAccount(tpl);
             setTemplatesAt(null);
           }}
+          dirty={templateDirty}
           onUpdate={(id) => {
-            const tpl = templates.update(id, account.name, state);
-            if (tpl) putOnAccount(tpl);
+            saveTemplate(id);
             setTemplatesAt(null);
           }}
+          onDuplicate={(id) => templates.duplicate(id)}
           onApply={(id) => {
             const tpl = templates.templates.find((t) => t.id === id);
             if (tpl) putOnAccount(tpl);
@@ -2327,6 +2449,9 @@ export function LeftNav({
           }}
           onClose={() => setTemplatesAt(null)}
         />
+      ) : null}
+      {pushReport ? (
+        <TemplatePushCard push={pushReport} onClose={() => setPushReport(null)} />
       ) : null}
       {wall ? (
         <PlanWall

@@ -12,6 +12,7 @@ import {
   Package,
   PanelLeft,
   Save,
+  Copy,
   FilePlus2,
   SquareMenu,
   UserRound,
@@ -80,6 +81,8 @@ export function EditMoreMenu({
   onApplyTemplate,
   onCreateTemplate,
   onUpdateTemplate,
+  onDuplicateTemplate,
+  templateDirty,
   onClose,
   onOpenNavModal,
 }: {
@@ -103,16 +106,28 @@ export function EditMoreMenu({
   onCreateTemplate: (name: string) => void;
   /** Overwrites the template the account is already on. */
   onUpdateTemplate: (templateId: string) => void;
+  /** Copies a template's arrangement onto a new one that nobody is on. */
+  onDuplicateTemplate: (templateId: string) => void;
+  /**
+   * Whether this account has changed since it took its template.
+   *
+   * Computed by the caller, which is the only place that holds both the link's
+   * base and the live arrangement. Without it Save is a standing offer: apply a
+   * template, and the menu immediately invites you to save it back over itself.
+   */
+  templateDirty: boolean;
   onClose: () => void;
 }) {
   const { navGeneration, setNavGeneration, effective } = useTheme();
+  /** What saving reaches. See TEMPLATE_PROPAGATIONS. */
+  const propagation = effective.templatePropagation;
   /*
    * Both rows are behind their own axis, so the menu can be seen without either.
    * Read off `effective` like the rest of the card's chrome.
    */
   const { navSwitchInEditCard, layoutSwitchInEditCard, navSwitchSurface } =
     effective;
-  const { templates, linkedFor, accountsOn } = useNavTemplates();
+  const { templates, linkedFor, accountsOn, linkFor } = useNavTemplates();
   const [view, setView] = React.useState<View>("root");
   const [draft, setDraft] = React.useState(`${accountName} nav`);
   const { ref, top, left } = useAnchored(anchor, WIDTH, GAP);
@@ -168,11 +183,23 @@ export function EditMoreMenu({
             </p>
           ) : (
             templates.map((t) => (
+              /*
+                The copy sits on the row it copies, revealed on hover, rather
+                than as a Duplicate view of its own that would ask you to pick
+                the template twice. Same gesture the templates panel uses for
+                delete — and deliberately beside it, because they are the two
+                things you can do to a template that are not "use it".
+              */
               <MenuRow
                 key={t.id}
                 icon={LayoutTemplate}
                 label={t.name}
-                note={`${t.builtIn ? "Preset" : `From ${t.fromAccount}`} · ${t.productCount} products`}
+                note={`${t.builtIn ? "Preset" : `From ${t.fromAccount}`} · v${t.version} · ${accountsOn(t.id) === 0 ? "no accounts" : `${accountsOn(t.id)} ${accountsOn(t.id) === 1 ? "account" : "accounts"}`}`}
+                action={{
+                  icon: Copy,
+                  label: `Duplicate ${t.name}`,
+                  onSelect: () => onDuplicateTemplate(t.id),
+                }}
                 onSelect={() => {
                   onApplyTemplate(t.id);
                   onClose();
@@ -191,17 +218,24 @@ export function EditMoreMenu({
           <p className="px-[7px] pb-[6px] text-[12px] leading-[16px] text-nav-fg-subtle">
             Replaces what{" "}
             <span className="font-medium text-nav-fg">{linked.name}</span> holds
-            with this arrangement.
+            with this arrangement, as v{linked.version + 1}.
             {/*
-              Said before the overwrite, not after: a template is shared, and
-              the one thing an agency needs to know before replacing it is who
-              else is on it. They are NOT re-arranged — a link is provenance,
-              not a subscription — and saying so here is what stops the update
-              from feeling like it reached into forty navs.
+              Said before the overwrite, not after. A managed template is the
+              only edit in this nav that lands somewhere you are not standing,
+              and the number of navs it will move is the one fact that decides
+              whether to press the button — so it is stated in accounts, above
+              the button, every time.
+
+              Under `copy` the sentence flips to what is NOT about to happen,
+              rather than disappearing. "Nothing else changes" is a promise
+              worth making explicitly; silence would read the same as the
+              managed case to anyone who has seen both.
             */}
-            {others > 0
-              ? ` ${others === 1 ? "1 other account is" : `${others} other accounts are`} on it — they keep what they have until you apply it to them.`
-              : " No other account is on it yet."}
+            {others === 0
+              ? " No other account is on it yet."
+              : propagation === "managed"
+                ? ` ${others === 1 ? "1 other account is" : `${others} other accounts are`} on it and will be re-arranged now, keeping any changes made to them directly.`
+                : ` ${others === 1 ? "1 other account is" : `${others} other accounts are`} on it — they keep what they have until you apply it to them.`}
           </p>
           <button
             type="button"
@@ -211,8 +245,32 @@ export function EditMoreMenu({
             }}
             className="motion-tap mx-[5px] mt-[2px] flex h-[30px] items-center justify-center rounded-[7px] bg-nav-fg text-[12.5px] leading-none font-medium text-nav hover:opacity-90"
           >
-            Update {linked.name}
+            {others > 0 && propagation === "managed"
+              ? `Update ${others + 1} accounts`
+              : `Update ${linked.name}`}
           </button>
+          {/*
+            The way out, beside the way through.
+
+            A destructive button with no neighbour is a button people press
+            because it is the only one there. Duplicating is the same work
+            landing on a template nobody is on — which is what half the people
+            who reach this screen actually wanted, and they only find that out
+            by being offered it here.
+          */}
+          {others > 0 && propagation === "managed" ? (
+            <button
+              type="button"
+              onClick={() => {
+                onDuplicateTemplate(linked.id);
+                onClose();
+              }}
+              className="motion-tap mx-[5px] mt-[6px] flex h-[30px] items-center justify-center gap-[6px] rounded-[7px] text-[12.5px] leading-none font-medium text-nav-fg-muted shadow-[inset_0_0_0_1px_var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg"
+            >
+              <Copy size={13} aria-hidden="true" />
+              Duplicate instead
+            </button>
+          ) : null}
         </Drill>
       );
     }
@@ -321,8 +379,27 @@ export function EditMoreMenu({
         <MenuRow
           icon={Save}
           label="Save template"
-          note={linked ? linked.name : "This account isn't on a template"}
-          disabled={!linked}
+          note={
+            linked && !templateDirty
+              ? // The row stays, greyed, and says which template it would have
+                // saved into. Hiding it would make the menu change shape between
+                // two visits for a reason nobody could see.
+                `${linked.name} · no changes to save`
+              : linked
+              ? /*
+                  The row carries the version and the reach, because "Save
+                  template" is the only row in this menu whose consequences are
+                  not on screen. Two accounts on it is a different press from
+                  fifty, and that should be legible before the drill-in.
+                */
+                `${linked.name} · v${linked.version}${
+                  propagation === "managed" && accountsOn(linked.id) > 1
+                    ? ` · ${accountsOn(linked.id)} accounts`
+                    : ""
+                }`
+              : "This account isn't on a template"
+          }
+          disabled={!linked || !templateDirty}
           onSelect={() => setView("save")}
           branch
         />
@@ -446,6 +523,7 @@ function MenuRow({
   checked,
   branch = false,
   disabled = false,
+  action,
   onSelect,
 }: {
   icon: LucideIcon;
@@ -458,8 +536,43 @@ function MenuRow({
   branch?: boolean;
   /** Nothing to act on. The row stays, and its note says why. */
   disabled?: boolean;
+  /**
+   * A second verb on the row, revealed on hover.
+   *
+   * Its own element rather than a prop on the main button, because a button
+   * inside a button is invalid and the browser resolves it by ignoring one of
+   * them — which reads as a control that works everywhere except where you
+   * pressed it.
+   */
+  action?: { icon: LucideIcon; label: string; onSelect: () => void };
   onSelect: () => void;
 }) {
+  if (action) {
+    const { icon: ActionIcon, label: actionLabel, onSelect: onAction } = action;
+    return (
+      <span className="group/row flex items-center gap-[2px]">
+        <MenuRow
+          icon={Icon}
+          label={label}
+          {...(note ? { note } : {})}
+          {...(checked === undefined ? {} : { checked })}
+          branch={branch}
+          disabled={disabled}
+          onSelect={onSelect}
+        />
+        <button
+          type="button"
+          aria-label={actionLabel}
+          title={actionLabel}
+          onClick={onAction}
+          className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 hover:bg-nav-hover hover:text-nav-fg"
+        >
+          <ActionIcon size={13} aria-hidden="true" />
+        </button>
+      </span>
+    );
+  }
+
   return (
     <button
       type="button"

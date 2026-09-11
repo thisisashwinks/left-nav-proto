@@ -468,6 +468,45 @@ export const AGENCY_SEARCH_DEFAULT = false;
  * reads `l3Disclosure` and `flyoutTrigger` like everything else.
  */
 
+/**
+ * How the Recents panel arranges its two corpora.
+ *
+ * The panel holds two different things — what you have been to, and everything
+ * that exists — and they are not two views of one subject, which is why an
+ * ordinary tab strip reads oddly here. These are the three answers.
+ *
+ *  pinned-first  Pinned as its own block above the switcher, then tabs, then
+ *                the tab's own search. What shipped. Pinned is the reason most
+ *                people open the panel, so it is held out of the choice — at
+ *                the cost of a panel with unswitched content above a switcher,
+ *                which is three levels of hierarchy in a 320px column.
+ *  tabs-top      The switcher goes to the top, directly under the title, and
+ *                the pins fold into the visited list as one seamless run —
+ *                pinned rows first, wearing their pin mark, no headings and no
+ *                divider between them. Each tab keeps its own search. The
+ *                panel becomes a title, a choice, a query and a list, in that
+ *                order.
+ *  stacked       No switcher at all. The combined list runs first, capped, with
+ *                the directory under it carrying its own search. Truest to the
+ *                menu the panel actually is — at the cost of putting the
+ *                catalogue below a list it has nothing to do with, which is the
+ *                arrangement the tabs were introduced to get away from. The cap
+ *                is what keeps that honest.
+ */
+export const RECENTS_PANEL_LAYOUTS = [
+  "pinned-first",
+  "tabs-top",
+  "stacked",
+] as const;
+
+export type RecentsPanelLayout = (typeof RECENTS_PANEL_LAYOUTS)[number];
+
+export const RECENTS_PANEL_LAYOUT_LABELS: Record<RecentsPanelLayout, string> = {
+  "pinned-first": "Pinned above tabs",
+  "tabs-top": "Tabs on top",
+  stacked: "Directory below",
+};
+
 export const LEGACY_FOOT_CONTROLS = ["off", "menu", "pills"] as const;
 
 export type LegacyFootControl = (typeof LEGACY_FOOT_CONTROLS)[number];
@@ -1159,6 +1198,35 @@ export const LAYOUT_REPLACE_DIALOG_LABELS: Record<LayoutReplaceDialog, string> =
  *            reach. Cheaper in horizontal space, and closer to what most
  *            products do — at the cost of hiding the set until opened.
  */
+/**
+ * What updating a template does to the accounts already on it.
+ *
+ * The one genuinely load-bearing decision in the templates feature, and it is
+ * a decision because both answers are defensible for different agencies.
+ *
+ * `managed` a template is a live standard. Saving it re-arranges every account
+ *           on it, right then. This is what an agency running forty dentists
+ *           off one nav means by "template" — fix it once, fixed everywhere —
+ *           and it is the default because the alternative makes the feature
+ *           useless at exactly the scale it exists for: forty accounts to
+ *           re-apply by hand is forty chances to miss one.
+ * `copy`    a template is a starting point. Applying stamps a copy and the
+ *           link is only provenance; later saves reach nobody. Safer, and
+ *           right for an agency whose accounts diverge on purpose — but it
+ *           means the fix you just made lives on one account.
+ *
+ * Either way, entitlement is untouched: a push re-filters against what each
+ * account owns, so it can rearrange rows and never grant a product.
+ */
+export const TEMPLATE_PROPAGATIONS = ["managed", "copy"] as const;
+
+export type TemplatePropagation = (typeof TEMPLATE_PROPAGATIONS)[number];
+
+export const TEMPLATE_PROPAGATION_LABELS: Record<TemplatePropagation, string> = {
+  managed: "Push to every account on it",
+  copy: "Leave them as they are",
+};
+
 export const SUB_ACCOUNT_SWITCHERS = ["rail", "dropdown"] as const;
 
 export type SubAccountSwitcher = (typeof SUB_ACCOUNT_SWITCHERS)[number];
@@ -1304,6 +1372,8 @@ export interface ThemeState {
   navGeneration: NavGeneration;
   /** How the two navigations are offered. See NAV_SWITCH_SURFACES. */
   navSwitchSurface: NavSwitchSurface;
+  /** What saving a template does to the accounts on it. See TEMPLATE_PROPAGATIONS. */
+  templatePropagation: TemplatePropagation;
   /**
    * Whether the Editing nav card offers the generation switch.
    *
@@ -1357,6 +1427,8 @@ export interface ThemeState {
    * the arrangement this is being compared against.
    */
   productDirectoryRow: boolean;
+  /** How the Recents panel arranges its two halves. See RECENTS_PANEL_LAYOUTS. */
+  recentsPanelLayout: RecentsPanelLayout;
   /**
    * Whether the Editing nav card offers the layout switch.
    *
@@ -1584,6 +1656,7 @@ export const DEFAULT_THEME: ThemeState = {
   // The modal. Picking a navigation is a decision about the whole workspace,
   // and the menu could describe the two without ever showing them.
   navSwitchSurface: "modal",
+  templatePropagation: "managed",
   /*
    * Off, now that the switch has a control of its own.
    *
@@ -1632,6 +1705,9 @@ export const DEFAULT_THEME: ThemeState = {
    * holds only Pinned and Recent.
    */
   productDirectoryRow: false,
+  // Tabs on top: the switcher governs the whole body, so the panel stops
+  // having unswitched content sitting above its own switcher.
+  recentsPanelLayout: "tabs-top",
   // On, for the same reason: the comparison should be one menu away.
   layoutSwitchInEditCard: true,
   // Production's own default, and the state both source screenshots were in.

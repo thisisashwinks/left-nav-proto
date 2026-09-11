@@ -2,7 +2,11 @@
 
 import * as React from "react";
 import { resolveOwned } from "./catalogue-equivalents";
-import { customTreeFor, type NavLayoutState } from "./grouping";
+import {
+  customTreeFor,
+  type GroupingMode,
+  type NavLayoutState,
+} from "./grouping";
 
 /**
  * Saved groupings, kept at agency level and applied to any account.
@@ -58,7 +62,42 @@ export interface NavTemplate {
   builtIn?: boolean;
   /** How many products it arranges, as a rough size for the list. */
   productCount: number;
+  /**
+   * Bumped on every save. This is what makes a template a thing that CHANGES
+   * rather than a snapshot that only ever gets replaced.
+   *
+   * A link stores the version it took, so "on Dental practice v4" and "still on
+   * v3" are different sentences — and the second one is the only way an agency
+   * can be told that an account missed a push.
+   */
+  version: number;
+  /** When it was last saved, for the "updated Jan 14" line. */
+  updatedAt: string;
   arrangement: NavArrangement;
+}
+
+/**
+ * What an account's link remembers.
+ *
+ * `base` is the arrangement the template held WHEN IT WAS APPLIED, and it is
+ * the whole reason a push can be non-destructive. Without it, "what has this
+ * account changed since?" is unanswerable — the account's nav is just a nav,
+ * with no record of which parts were the template's idea and which were the
+ * agency's own tuning of this one client. Holding the base turns that into
+ * arithmetic: whatever differs from it is theirs, and theirs survives.
+ */
+export interface TemplateLink {
+  templateId: string;
+  base: NavArrangement;
+}
+
+/** One account's news, held until it is looked at. See `noticeFor`. */
+export interface TemplateNotice {
+  templateName: string;
+  version: number;
+  changes: readonly string[];
+  /** Whether this account had tweaks that the push preserved. */
+  kept: boolean;
 }
 
 interface TemplatesValue {
@@ -84,6 +123,22 @@ interface TemplatesValue {
     state: NavLayoutState,
   ) => NavTemplate | null;
   remove: (id: string) => void;
+  /**
+   * A second template holding the same arrangement, on nobody.
+   *
+   * The safe half of every template edit. Updating one is the only destructive
+   * act in this feature — fifty navs move — so the agency needs a way to say
+   * "I want to rework this, but not yet, and not on them". A duplicate carries
+   * the arrangement and NOT the links, which is exactly that: somewhere to
+   * work, with a blast radius of zero until they apply it themselves.
+   *
+   * It is also the only way to get at a preset. `builtIn` templates are
+   * overwritten the moment they are saved into, so an agency wanting "the
+   * dental one, but ours" had to choose between defacing the shipped preset and
+   * rebuilding it by hand. The copy is never `builtIn`: it is theirs from the
+   * first press.
+   */
+  duplicate: (id: string) => NavTemplate | null;
   /** The patch to apply, already intersected with what this account owns. */
   patchFor: (id: string, target: NavLayoutState) => Partial<NavLayoutState> | null;
 
@@ -102,9 +157,37 @@ interface TemplatesValue {
    */
   linkedIdFor: (accountId: string) => string | null;
   linkedFor: (accountId: string) => NavTemplate | null;
-  link: (accountId: string, templateId: string) => void;
+  /** The base an account took, which is what a later push measures against. */
+  linkFor: (accountId: string) => TemplateLink | null;
+  /**
+   * Whether an account holds the template's current arrangement.
+   *
+   * False either because a push has not reached it — `copy` propagation, or an
+   * account added since — or because someone has since edited it directly.
+   */
+  isCurrent: (accountId: string) => boolean;
+  link: (accountId: string, templateId: string, base: NavArrangement) => void;
   /** How many accounts are on a template. Shown before an update overwrites it. */
   accountsOn: (templateId: string) => number;
+  /** Who is on it — the push needs the ids, not just the count. */
+  accountsOnIds: (templateId: string) => readonly string[];
+
+  /**
+   * Park the news for accounts a push just moved, to be read when next opened.
+   *
+   * A nav that rearranged itself between two visits is indistinguishable from a
+   * bug unless something says otherwise, and the person who caused it was
+   * standing in a different account at the time. So the notice waits where the
+   * change is — one account, one card, dismissed once.
+   */
+  markPushed: (
+    entries: readonly { accountId: string; kept: boolean }[],
+    templateName: string,
+    version: number,
+    changes: readonly string[],
+  ) => void;
+  noticeFor: (accountId: string) => TemplateNotice | null;
+  dismissNotice: (accountId: string) => void;
 }
 
 const TemplatesContext = React.createContext<TemplatesValue | null>(null);
@@ -175,6 +258,12 @@ const preset = (
   fromAccount: "",
   builtIn: true,
   productCount: new Set(groups.flatMap(([, , ids]) => ids)).size,
+  // A fixed stamp, not today's date: these ship with the product, and a preset
+  // claiming it was updated this morning is a lie the list would be telling on
+  // every load. It is also the same string on the server and the client, which
+  // is what keeps hydration quiet.
+  version: 1,
+  updatedAt: "Jan 14, 2026",
   arrangement: {
     grouping: "custom",
     customGroups: groups.map(([gid, label, productIds]) => ({
@@ -342,11 +431,20 @@ function mergedGroups(
  *
  * Split out of `patchFor` so a template that has just been created — and is
  * therefore not in `templates` yet this tick — can still be applied.
+ *
+ * Returns a NavArrangement rather than a loose patch, because it builds every
+ * one of those fields and callers need that guarantee: this result IS what the
+ * account ends up arranged as, so it is also the honest thing to record as the
+ * link's base. Recording the template's own arrangement instead made every
+ * account look edited the instant it was applied — the template names products
+ * the account may not own, those get filtered out on the way in, and the
+ * difference between "what the template says" and "what landed here" is not
+ * something a person did.
  */
 export function patchForArrangement(
   a: NavArrangement,
   target: NavLayoutState,
-): Partial<NavLayoutState> {
+): NavArrangement {
     const owns = new Set(target.enabledProducts);
 
     return {
@@ -394,6 +492,246 @@ export function patchForArrangement(
     };
 }
 
+/**
+ * "Jan 14, 2026", for the line under a template's name.
+ *
+ * Only ever called from an event handler — a save or a duplicate — so it never
+ * runs during a render and can never disagree between the server's HTML and the
+ * browser's first paint.
+ */
+function today(): string {
+  return new Date().toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/** Which group a product sits in, by label — the only stable handle across two trees. */
+function groupLabelOf(a: NavArrangement, productId: string): string | null {
+  for (const g of a.customGroups) if (g.productIds.includes(productId)) return g.label;
+  return null;
+}
+
+function productsOf(a: NavArrangement): Set<string> {
+  return new Set(a.customGroups.flatMap((g) => g.productIds));
+}
+
+const sameList = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((x, i) => x === b[i]);
+
+/**
+ * What changed between two versions of a template, in a sentence a person reads.
+ *
+ * The whole argument for this: a nav that rearranged itself is a bug until
+ * somebody names the change. "Added Payments, moved Reporting into Growth" is
+ * the difference between a support ticket and a shrug — and it is computable,
+ * which is the only reason the version stamp is worth carrying.
+ *
+ * Deliberately short and deliberately incomplete. A full structural diff of two
+ * trees is a wall of text nobody finishes; five lines and a tail count is what
+ * a person will actually read before pressing on.
+ */
+export function describeChanges(
+  before: NavArrangement,
+  after: NavArrangement,
+): string[] {
+  const out: string[] = [];
+  const was = productsOf(before);
+  const now = productsOf(after);
+
+  const added = [...now].filter((p) => !was.has(p));
+  const removed = [...was].filter((p) => !now.has(p));
+  if (added.length > 0) out.push(`Added ${added.length === 1 ? added[0] : `${added.length} products`}`);
+  if (removed.length > 0)
+    out.push(`Removed ${removed.length === 1 ? removed[0] : `${removed.length} products`}`);
+
+  const moved = [...now].filter(
+    (p) => was.has(p) && groupLabelOf(before, p) !== groupLabelOf(after, p),
+  );
+  if (moved.length > 0)
+    out.push(
+      moved.length === 1
+        ? `Moved ${moved[0]} into ${groupLabelOf(after, moved[0])}`
+        : `Moved ${moved.length} products between groups`,
+    );
+
+  const groupsBefore = before.customGroups.map((g) => g.label);
+  const groupsAfter = after.customGroups.map((g) => g.label);
+  const newGroups = groupsAfter.filter((g) => !groupsBefore.includes(g));
+  const goneGroups = groupsBefore.filter((g) => !groupsAfter.includes(g));
+  if (newGroups.length > 0) out.push(`New group ${newGroups.join(", ")}`);
+  if (goneGroups.length > 0) out.push(`Dropped group ${goneGroups.join(", ")}`);
+
+  const renamed = Object.keys(after.agencyProductLabels).filter(
+    (k) => after.agencyProductLabels[k] !== before.agencyProductLabels[k],
+  );
+  if (renamed.length > 0)
+    out.push(
+      renamed.length === 1
+        ? `Renamed ${renamed[0]} to ${after.agencyProductLabels[renamed[0]]}`
+        : `Renamed ${renamed.length} rows`,
+    );
+
+  if (!sameList(before.pinned, after.pinned)) out.push("Changed the pinned set");
+  if (!sameList(before.hiddenRows, after.hiddenRows)) out.push("Changed which rows are hidden");
+
+  if (out.length === 0) out.push("No visible change to the arrangement");
+  return out.length > 5 ? [...out.slice(0, 5), `…and ${out.length - 5} more`] : out;
+}
+
+const sameMap = (
+  a: Readonly<Record<string, string>>,
+  b: Readonly<Record<string, string>>,
+) => {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const k of keys) if (a[k] !== b[k]) return false;
+  return true;
+};
+
+/**
+ * Whether an account has moved away from the template it took.
+ *
+ * EVERY field, not the interesting-looking ones. This started as a handful of
+ * checks — pins, hidden rows, renames, icons, which group a product is in — on
+ * the reasoning that those are the edits people make. They are not the only
+ * ones: reordering rows inside a group, reordering the groups themselves,
+ * renaming a group, adding one, hiding a block. An account that did any of
+ * those was reported as untouched, so "Save template" stayed dead over a nav
+ * that had genuinely diverged, and the only way to find out was to notice the
+ * button never came back.
+ *
+ * The honest question is "is this arrangement the one we handed it", and that
+ * is a comparison of the whole thing. It is also what keeps the answer correct
+ * as the editor grows: a new arrangement field is caught here the day it is
+ * added to NavArrangement, rather than the day somebody reports the button.
+ *
+ * Cheap enough to run every render — a couple of hundred strings — and it only
+ * runs at all for an account that is on a template.
+ */
+export function hasLocalChanges(
+  base: NavArrangement,
+  current: NavArrangement,
+): boolean {
+  if (base.grouping !== current.grouping) return true;
+
+  // Order matters in all four: a dock reordered is a dock changed, and a tail
+  // reordered is the agency deciding what sits at the bottom of this nav.
+  if (!sameList(base.pinned, current.pinned)) return true;
+  if (!sameList(base.hiddenRows, current.hiddenRows)) return true;
+  if (!sameList(base.hiddenBlocks, current.hiddenBlocks)) return true;
+  if (!sameList(base.tailOrder, current.tailOrder)) return true;
+
+  if (!sameMap(base.agencyLabels, current.agencyLabels)) return true;
+  if (!sameMap(base.agencyProductLabels, current.agencyProductLabels)) return true;
+  if (!sameMap(base.icons, current.icons)) return true;
+
+  // groupOrder holds per-group row order in the non-custom modes, so it is as
+  // much a part of the arrangement as the tree is.
+  // Keyed by grouping mode, so the keys are typed rather than free strings.
+  const orderKeys = new Set<GroupingMode>([
+    ...(Object.keys(base.groupOrder) as GroupingMode[]),
+    ...(Object.keys(current.groupOrder) as GroupingMode[]),
+  ]);
+  for (const k of orderKeys)
+    if (!sameList(base.groupOrder[k] ?? [], current.groupOrder[k] ?? [])) return true;
+
+  if (base.customGroups.length !== current.customGroups.length) return true;
+  for (let i = 0; i < base.customGroups.length; i += 1) {
+    const was = base.customGroups[i];
+    const now = current.customGroups[i];
+    // Compared positionally, because the order of the groups IS the nav.
+    if (was.id !== now.id) return true;
+    if (was.label !== now.label) return true;
+    if (was.iconName !== now.iconName) return true;
+    if (!sameList(was.productIds, now.productIds)) return true;
+  }
+
+  return false;
+}
+
+/** The half of `changed` that `base` never said — i.e. what the agency did here. */
+function localKeys(
+  base: Record<string, string>,
+  current: Record<string, string>,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const k of Object.keys(current)) if (current[k] !== base[k]) out[k] = current[k];
+  return out;
+}
+
+/**
+ * The new template arrangement, with this account's own tuning put back on top.
+ *
+ * The single most important function in the feature, because the alternative is
+ * a choice between two bad answers: overwrite, and an agency loses the hour it
+ * spent tuning one client's nav; or skip, and the account it spent that hour on
+ * is the one account that never gets a fix again. Neither is what anyone means
+ * by "update the template".
+ *
+ * So the account's nav is treated as `base + delta`, and only the BASE is
+ * replaced. Anything the account differs from its base on is, by definition,
+ * something a person deliberately did to this account, and it is re-applied
+ * afterwards.
+ *
+ * Where the template wins: the shape. Groups, their order, and where untouched
+ * products live are the template's whole reason for existing, and an account
+ * that never moved a row has no opinion to defend.
+ *
+ * Where the account wins: rows it actually touched — a product it moved to a
+ * different group, a rename, an icon, its pins, its hidden rows.
+ *
+ * Where NOBODY wins: a row the template removed that this account had moved.
+ * The delta has nowhere to land, so it is dropped rather than resurrecting a
+ * row the agency just deliberately deleted. That is a real loss, which is why
+ * `describeChanges` names removals on the notice.
+ */
+export function rebase(
+  base: NavArrangement,
+  current: NavArrangement,
+  next: NavArrangement,
+): NavArrangement {
+  const groups = next.customGroups.map((g) => ({ ...g, productIds: [...g.productIds] }));
+  const live = new Set(groups.flatMap((g) => g.productIds));
+
+  for (const productId of productsOf(current)) {
+    const wasIn = groupLabelOf(base, productId);
+    const isIn = groupLabelOf(current, productId);
+    // Untouched here, or touched but no longer in the template at all.
+    if (wasIn === isIn || isIn === null || !live.has(productId)) continue;
+    for (const g of groups) {
+      const at = g.productIds.indexOf(productId);
+      if (at !== -1) g.productIds.splice(at, 1);
+    }
+    const home = groups.find((g) => g.label === isIn);
+    if (home) home.productIds.push(productId);
+    // The group they moved it to is one the template does not have. Rebuilding
+    // a whole group from a single row would be inventing structure; the row
+    // takes the template's placement instead, and the notice says so.
+    else {
+      const original = next.customGroups.find((g) => g.productIds.includes(productId));
+      const back = groups.find((g) => g.id === original?.id);
+      if (back) back.productIds.push(productId);
+    }
+  }
+
+  return {
+    ...next,
+    customGroups: groups.filter((g) => g.productIds.length > 0),
+    agencyLabels: { ...next.agencyLabels, ...localKeys(base.agencyLabels, current.agencyLabels) },
+    agencyProductLabels: {
+      ...next.agencyProductLabels,
+      ...localKeys(base.agencyProductLabels, current.agencyProductLabels),
+    },
+    icons: { ...next.icons, ...localKeys(base.icons, current.icons) },
+    // Whole-list fields: an account that reordered its dock at all owns its dock.
+    pinned: sameList(base.pinned, current.pinned) ? next.pinned : current.pinned,
+    hiddenRows: sameList(base.hiddenRows, current.hiddenRows)
+      ? next.hiddenRows
+      : current.hiddenRows,
+  };
+}
+
 export function NavTemplatesProvider({
   children,
 }: {
@@ -402,8 +740,10 @@ export function NavTemplatesProvider({
   const [templates, setTemplates] = React.useState<readonly NavTemplate[]>(
     SEED_TEMPLATES,
   );
-  /** accountId → the template it is on. */
-  const [links, setLinks] = React.useState<Record<string, string>>({});
+  /** accountId → the template it is on, the version it took, and that base. */
+  const [links, setLinks] = React.useState<Record<string, TemplateLink>>({});
+  /** accountId → what a push did to it, waiting to be read. */
+  const [notices, setNotices] = React.useState<Record<string, TemplateNotice>>({});
   const seq = React.useRef(0);
   // `update` needs the template it is replacing without taking `templates` as a
   // dependency — the callback is handed to a menu that must not be rebuilt on
@@ -431,6 +771,8 @@ export function NavTemplatesProvider({
         id: `tpl-${seq.current}`,
         name: trimmed,
         fromAccount,
+        version: 1,
+        updatedAt: today(),
         // What the template ARRANGES, not what the account owns — the two
         // differ the moment a product sits in no group.
         productCount: new Set(arrangement.customGroups.flatMap((g) => g.productIds))
@@ -452,6 +794,8 @@ export function NavTemplatesProvider({
         ...before,
         builtIn: false,
         fromAccount,
+        version: before.version + 1,
+        updatedAt: today(),
         productCount: new Set(arrangement.customGroups.flatMap((g) => g.productIds))
           .size,
         arrangement,
@@ -472,6 +816,8 @@ export function NavTemplatesProvider({
                  */
                 builtIn: false,
                 fromAccount,
+                version: t.version + 1,
+                updatedAt: today(),
                 productCount: new Set(
                   arrangement.customGroups.flatMap((g) => g.productIds),
                 ).size,
@@ -492,7 +838,7 @@ export function NavTemplatesProvider({
       // to be on nothing, and the menu offering to update it.
       setLinks((all) =>
         Object.fromEntries(
-          Object.entries(all).filter(([, templateId]) => templateId !== id),
+          Object.entries(all).filter(([, held]) => held.templateId !== id),
         ),
       );
     },
@@ -500,27 +846,115 @@ export function NavTemplatesProvider({
   );
 
   const link = React.useCallback(
-    (accountId: string, templateId: string) =>
-      setLinks((all) => ({ ...all, [accountId]: templateId })),
+    (accountId: string, templateId: string, base: NavArrangement) =>
+      /*
+       * No version number on the link, deliberately.
+       *
+       * It was one, read off `templatesRef` — which only catches up in an
+       * effect, so a link written in the same tick as the save that caused it
+       * recorded the version it was replacing. The stamp would have been wrong
+       * exactly when it mattered.
+       *
+       * The base makes it unnecessary anyway: an account is current when its
+       * base IS the template's arrangement, and stale when it is not. One
+       * comparison, no second fact to keep in step.
+       */
+      setLinks((all) => ({ ...all, [accountId]: { templateId, base } })),
     [],
   );
 
   const linkedIdFor = React.useCallback(
-    (accountId: string) => links[accountId] ?? null,
+    (accountId: string) => links[accountId]?.templateId ?? null,
     [links],
   );
 
   const linkedFor = React.useCallback(
     (accountId: string) => {
-      const id = links[accountId];
+      const id = links[accountId]?.templateId;
       return (id && templates.find((t) => t.id === id)) || null;
     },
     [links, templates],
   );
 
+  const linkFor = React.useCallback(
+    (accountId: string) => links[accountId] ?? null,
+    [links],
+  );
+
+  const isCurrent = React.useCallback(
+    (accountId: string) => {
+      const held = links[accountId];
+      if (!held) return false;
+      const tpl = templates.find((t) => t.id === held.templateId);
+      return tpl ? tpl.arrangement === held.base : false;
+    },
+    [links, templates],
+  );
+
+  const duplicate = React.useCallback((id: string) => {
+    const from = templatesRef.current.find((t) => t.id === id);
+    if (!from) return null;
+    seq.current += 1;
+    const copy: NavTemplate = {
+      ...from,
+      id: `tpl-${seq.current}`,
+      // "(copy)" rather than "(2)": the list is read by a person deciding which
+      // one is the live one, and a numeral does not say which came first.
+      name: `${from.name} (copy)`,
+      builtIn: false,
+      // A duplicated preset has an origin now — this agency's, not HighLevel's.
+      fromAccount: from.builtIn ? "Preset" : from.fromAccount,
+      version: 1,
+      updatedAt: today(),
+    };
+    setTemplates((all) => [...all, copy]);
+    // No `link` call, on purpose. Nobody is on a copy until somebody applies it.
+    return copy;
+  }, []);
+
+  const markPushed = React.useCallback(
+    (
+      entries: readonly { accountId: string; kept: boolean }[],
+      templateName: string,
+      version: number,
+      changes: readonly string[],
+    ) =>
+      setNotices((all) => {
+        const next = { ...all };
+        for (const e of entries)
+          next[e.accountId] = { templateName, version, changes, kept: e.kept };
+        return next;
+      }),
+    [],
+  );
+
+  const noticeFor = React.useCallback(
+    (accountId: string) => notices[accountId] ?? null,
+    [notices],
+  );
+
+  const dismissNotice = React.useCallback(
+    (accountId: string) =>
+      setNotices((all) => {
+        if (!(accountId in all)) return all;
+        const next = { ...all };
+        delete next[accountId];
+        return next;
+      }),
+    [],
+  );
+
   const accountsOn = React.useCallback(
     (templateId: string) =>
-      Object.values(links).filter((id) => id === templateId).length,
+      Object.values(links).filter((held) => held.templateId === templateId).length,
+    [links],
+  );
+
+  const accountsOnIds = React.useCallback(
+    (templateId: string) =>
+      Object.entries(links)
+        .filter(([, held]) => held.templateId === templateId)
+        .map(([accountId]) => accountId),
     [links],
   );
 
@@ -538,22 +972,36 @@ export function NavTemplatesProvider({
       save,
       update,
       remove,
+      duplicate,
       patchFor,
       linkedIdFor,
       linkedFor,
+      linkFor,
+      isCurrent,
       link,
       accountsOn,
+      accountsOnIds,
+      markPushed,
+      noticeFor,
+      dismissNotice,
     }),
     [
       templates,
       save,
       update,
       remove,
+      duplicate,
       patchFor,
       linkedIdFor,
       linkedFor,
+      linkFor,
+      isCurrent,
       link,
       accountsOn,
+      accountsOnIds,
+      markPushed,
+      noticeFor,
+      dismissNotice,
     ],
   );
 

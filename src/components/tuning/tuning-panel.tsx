@@ -37,6 +37,8 @@ import {
   L2_CLICK_ACTION_LABELS,
   PAGE_SHELL_LABELS,
   PAGE_SHELLS,
+  RECENTS_PANEL_LAYOUTS,
+  RECENTS_PANEL_LAYOUT_LABELS,
   INBOX_PALETTE_LABELS,
   INBOX_PALETTES,
   LAYOUT_REPLACE_DIALOG_LABELS,
@@ -72,9 +74,12 @@ import {
   type NavColourControl,
   NAV_GENERATION_LABELS,
   NAV_SWITCH_SURFACES,
+  TEMPLATE_PROPAGATIONS,
+  TEMPLATE_PROPAGATION_LABELS,
   NAV_SWITCH_SURFACE_LABELS,
   type NavGeneration,
   type NavSwitchSurface,
+  type TemplatePropagation,
   SEARCH_MODE_LABELS,
   SEARCH_MODES,
   SURFACE_THEMES,
@@ -97,6 +102,7 @@ import {
   type InboxPalette,
   type LayoutReplaceDialog,
   type PageShell,
+  type RecentsPanelLayout,
   type PanelRecentHeading,
   type PinMarkColour,
   type EditTreatment,
@@ -1580,7 +1586,9 @@ export function TuningPanel() {
     navSwitchInEditCard,
     setNavSwitchInEditCard,
     navSwitchSurface,
+    templatePropagation,
     setNavSwitchSurface,
+    setTemplatePropagation,
     layoutSwitchInEditCard,
     setLayoutSwitchInEditCard,
     layoutReplaceDialog,
@@ -1588,6 +1596,8 @@ export function TuningPanel() {
     navColourControl,
     setNavColourControl,
     productDirectoryRow,
+    recentsPanelLayout,
+    setRecentsPanelLayout,
     setProductDirectoryRow,
     subAccountSwitcher,
     setSubAccountSwitcher,
@@ -1619,7 +1629,8 @@ export function TuningPanel() {
     (layoutSwitchInEditCard !== DEFAULT_THEME.layoutSwitchInEditCard ? 1 : 0) +
     (layoutReplaceDialog !== DEFAULT_THEME.layoutReplaceDialog ? 1 : 0) +
     (navColourControl !== DEFAULT_THEME.navColourControl ? 1 : 0) +
-    (navSwitchSurface !== DEFAULT_THEME.navSwitchSurface ? 1 : 0);
+    (navSwitchSurface !== DEFAULT_THEME.navSwitchSurface ? 1 : 0) +
+    (templatePropagation !== DEFAULT_THEME.templatePropagation ? 1 : 0);
 
   const resetEditCard = () => {
     setNavSwitchInEditCard(DEFAULT_THEME.navSwitchInEditCard);
@@ -1627,6 +1638,7 @@ export function TuningPanel() {
     setLayoutReplaceDialog(DEFAULT_THEME.layoutReplaceDialog);
     setNavColourControl(DEFAULT_THEME.navColourControl);
     setNavSwitchSurface(DEFAULT_THEME.navSwitchSurface);
+    setTemplatePropagation(DEFAULT_THEME.templatePropagation);
   };
 
   const searchChanged =
@@ -1920,6 +1932,23 @@ export function TuningPanel() {
               : "The drill-down in the card's ⋯ menu: a label and a sentence each."}
           </Note>
 
+          {/*
+            Templates are the only thing in this menu whose reach is other
+            accounts, so the axis that decides that reach belongs beside them.
+          */}
+          <Segmented
+            label="Saving a template"
+            options={TEMPLATE_PROPAGATIONS}
+            value={templatePropagation}
+            onChange={(v: TemplatePropagation) => setTemplatePropagation(v)}
+            format={(v) => TEMPLATE_PROPAGATION_LABELS[v]}
+          />
+          <Note>
+            {templatePropagation === "managed"
+              ? "A live standard: saving re-arranges every account on the template, keeping any per-account tuning, and leaves each one a note saying what moved."
+              : "A starting point: applying stamps a copy, and later saves reach nobody. The fix you just made lives on one account."}
+          </Note>
+
           <Toggle
             label="Layout switch in the edit card"
             checked={layoutSwitchInEditCard}
@@ -2015,6 +2044,21 @@ export function TuningPanel() {
             {agencyEditNav
               ? "The agency gets the same edit card the sub-account does, backed by its own store — rename, reorder, hide, icons."
               : "Off: no pencil and no mode at agency scope. Thirteen fixed buckets of platform IA, and a card built for a catalogue that is not there."}
+          </Note>
+
+          <Segmented
+            label="Recents panel layout"
+            options={RECENTS_PANEL_LAYOUTS}
+            value={recentsPanelLayout}
+            onChange={(v: RecentsPanelLayout) => setRecentsPanelLayout(v)}
+            format={(v) => RECENTS_PANEL_LAYOUT_LABELS[v]}
+          />
+          <Note>
+            {recentsPanelLayout === "pinned-first"
+              ? "Pinned as its own block above the switcher, then the tabs, then the tab's own search. What shipped — and the reason the panel has unswitched content sitting above its own switcher."
+              : recentsPanelLayout === "tabs-top"
+                ? "The switcher goes to the top, under the title, and the pins fold into the visited list as one run — pinned rows first, wearing their pin mark, no heading and no divider. Each tab keeps its own search."
+                : "No switcher. The combined list runs first, capped at 8 with View all, and the directory sits under it with its own search. The list above it is not searchable — it is short enough to read."}
           </Note>
 
           <Toggle

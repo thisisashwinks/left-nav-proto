@@ -23,6 +23,12 @@ const DISMISS_MS = 5000;
  *
  * Fired only by the upgrade buttons, never by the prototype panel's plan
  * control — see `upgradePlan` vs `setAgencyPlan`.
+ *
+ * Which, since Sep 10, means it is not fired at all: the plan wall's own last
+ * step is the receipt now, and a toast sliding in behind a dialog already
+ * saying the same thing is the same news twice. Left mounted and left correct,
+ * because the next surface that upgrades a plan without a dialog of its own
+ * wants exactly this and nothing else has to be built.
  */
 export function UpgradeToast({
   canvasLeft,

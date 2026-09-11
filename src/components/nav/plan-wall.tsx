@@ -8,6 +8,7 @@ import {
   Check,
   ChevronDown,
   Layers,
+  MessageCircleQuestion,
   Play,
   Rocket,
   Users,
@@ -22,7 +23,6 @@ import {
   AGENCY_PLAN_NAMES,
   AGENCY_PLAN_SPECS,
   AGENCY_PLANS,
-  AGENCY_PLAN_PRICES,
   annualSaving,
   monthlyOnAnnual,
   type AgencyPlan,
@@ -67,7 +67,7 @@ export function PlanWall({
   onClose: () => void;
 }) {
   const { effective } = useTheme();
-  const { agencyPlan, upgradePlan } = useNavProfiles();
+  const { agencyPlan, setAgencyPlan } = useNavProfiles();
   /*
    * Annual first, as the source sheet opens.
    *
@@ -86,32 +86,72 @@ export function PlanWall({
    * inside one shell keeps "I am still in the same conversation, looking at more
    * of it", which is what makes Back an obvious move rather than a rescue.
    */
-  const [step, setStep] = React.useState<"video" | "pricing">("video");
-
+  const [step, setStep] = React.useState<
+    "video" | "pricing" | "checkout" | "done"
+  >("video");
+  /** The tier being bought, once a card's Upgrade has been pressed. */
+  const [chosen, setChosen] = React.useState<AgencyPlan | null>(null);
+  const [affiliate, setAffiliate] = React.useState("");
   /*
-   * The tiers that are actually a step UP from here.
+   * What the agency was on before it paid.
    *
-   * On $97 that is both of the others; on $297 it is only $497. Derived rather
-   * than listed so the footer cannot offer an agency the plan it is already on.
+   * Captured at the moment of payment because `agencyPlan` changes on the same
+   * click, and the confirmation's whole sentence is the two ends of the move —
+   * "from $97 / month to $2970 / year". Read after the upgrade it would say the
+   * new plan twice.
    */
-  const upgrades = AGENCY_PLANS.filter(
-    (plan) => AGENCY_PLANS.indexOf(plan) > AGENCY_PLANS.indexOf(agencyPlan),
-  );
-  /*
-   * The one that answers THIS refusal, which is not always the cheapest step up
-   * and not always the top of the ladder: a plan block on $97 is cleared by
-   * $297, a seat block on $297 only by $497. It is the filled button; the rest
-   * are outlines beside it.
-   */
-  const clears: AgencyPlan = block.kind === "plan" ? block.needs : "elite";
+  const [paidFrom, setPaidFrom] = React.useState<AgencyPlan | null>(null);
 
-  const upgradeTo = React.useCallback(
-    (plan: AgencyPlan) => {
-      upgradePlan(plan);
-      onClose();
-    },
-    [upgradePlan, onClose],
-  );
+  /*
+   * A card's Upgrade opens the checkout; it does not buy anything.
+   *
+   * Pressing a price used to flip the plan and dismiss the dialog in one go,
+   * which is the one thing a real purchase never does — there was no
+   * confirmation of what was being bought, no way back, and the sheet vanished
+   * before it could say what had happened.
+   */
+  const startCheckout = React.useCallback((plan: AgencyPlan) => {
+    setChosen(plan);
+    setStep("checkout");
+  }, []);
+
+  /*
+   * The purchase itself, and then the receipt.
+   *
+   * `setAgencyPlan` rather than `upgradePlan`: the latter also fires the
+   * canvas toast, and a toast sliding in behind a dialog that is already
+   * saying the same thing is the same news twice. The confirmation step IS the
+   * confirmation now.
+   */
+  const pay = React.useCallback(() => {
+    if (chosen === null) return;
+    setPaidFrom(agencyPlan);
+    setAgencyPlan(chosen);
+    setStep("done");
+  }, [chosen, agencyPlan, setAgencyPlan]);
+
+  /** What the dialog is called at each step — header, and the a11y label. */
+  const title =
+    step === "video"
+      ? "Editing your navigation"
+      : step === "pricing"
+        ? "Upgrade your plan"
+        : step === "checkout" && chosen
+          ? `Upgrade from ${AGENCY_PLAN_NAMES[agencyPlan]} to ${AGENCY_PLAN_NAMES[chosen]} plan`
+          : "Subscription upgraded";
+
+  /*
+   * Where Back goes, or null where there is nowhere to go back TO.
+   *
+   * Null on the first step, and null once the money has moved: an upgrade is
+   * not a wizard you can reverse by walking out the way you came in.
+   */
+  const back =
+    step === "pricing"
+      ? () => setStep("video")
+      : step === "checkout"
+        ? () => setStep("pricing")
+        : null;
 
   const holderName =
     block.kind === "seat"
@@ -144,9 +184,7 @@ export function PlanWall({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={
-          step === "video" ? "Editing your navigation" : "Upgrade your plan"
-        }
+        aria-label={title}
         className={cn(
           "motion-panel-in relative flex max-w-full flex-col",
           /*
@@ -156,7 +194,13 @@ export function PlanWall({
             the same thing, opened out".
           */
           "transition-[width] duration-[var(--dur-slow)] ease-[var(--ease-out)]",
-          step === "video" ? "w-[760px]" : "w-[1120px]",
+          step === "video"
+            ? "w-[760px]"
+            : step === "pricing"
+              ? "w-[1120px]"
+              : step === "checkout"
+                ? "w-[720px]"
+                : "w-[560px]",
           // Tall on a laptop, so the sheet scrolls inside itself rather than
           // pushing its own header off the top of the viewport.
           "max-h-[calc(100vh-32px)] overflow-y-auto",
@@ -165,7 +209,7 @@ export function PlanWall({
         )}
       >
         <div className="flex items-start gap-[16px]">
-          {step === "pricing" ? (
+          {back ? (
             /*
               Back sits where the rocket was, not beside the title.
 
@@ -175,7 +219,7 @@ export function PlanWall({
             */
             <button
               type="button"
-              onClick={() => setStep("video")}
+              onClick={back}
               aria-label="Back"
               className="motion-tap flex size-[40px] shrink-0 items-center justify-center rounded-full text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border-strong)] hover:bg-pg hover:text-pg-heading"
             >
@@ -188,9 +232,7 @@ export function PlanWall({
           )}
           <div className="min-w-0 flex-1">
             <h2 className="text-[16px] leading-[22px] font-semibold text-pg-heading">
-              {step === "video"
-                ? "Editing your navigation"
-                : "Upgrade your plan"}
+              {title}
             </h2>
             {/* <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
               {step === "video"
@@ -206,7 +248,15 @@ export function PlanWall({
               hunting seventeen accounts for the one that spent it.
             */}
             <p className="mt-[4px] text-[13px] leading-[18px] text-pg-text">
-              {block.kind === "plan" ? (
+              {step === "checkout" ? (
+                annual ? (
+                  "You need to upgrade from monthly to annual plan to get 2 months free"
+                ) : (
+                  "Billed every month. Switch to annual for two months free."
+                )
+              ) : step === "done" ? (
+                "Thank you for upgrading your subscription"
+              ) : block.kind === "plan" ? (
                 <>
                   Editing {accountName}’s navigation isn’t on{" "}
                   {AGENCY_PLAN_NAMES[agencyPlan]}. Pins, recents and the shipped
@@ -225,6 +275,12 @@ export function PlanWall({
             </p>
           </div>
 
+          {/*
+            On the table only. The checkout carries its own copy of the toggle
+            inside the summary panel it governs — up here it would be a control
+            floating above the figure it changes, with the dialog's title
+            between them.
+          */}
           {step === "pricing" ? (
             <BillingToggle annual={annual} onChange={setAnnual} />
           ) : null}
@@ -243,7 +299,17 @@ export function PlanWall({
           <>
             <VideoStep block={block} />
 
-            <div className="mt-[20px] flex flex-wrap items-center justify-between gap-[12px]">
+            {/*
+              Both buttons at the trailing end, Cancel inboard of Upgrade.
+
+              Cancel was pinned to the opposite corner, which spends the full
+              width of the dialog separating two controls that are read as one
+              choice — the eye finishes the value points on the right and then
+              has to travel back across the whole footer to find that there was
+              a second option. Together, in reading order, with the affirmative
+              last: the same order every other footer in this prototype uses.
+            */}
+            <div className="mt-[20px] flex flex-wrap items-center justify-end gap-[12px]">
               <button
                 type="button"
                 onClick={onClose}
@@ -252,40 +318,30 @@ export function PlanWall({
                 Cancel
               </button>
 
-              <div className="flex flex-wrap items-center gap-[12px]">
-                <button
-                  type="button"
-                  onClick={() => setStep("pricing")}
-                  className="motion-tap flex h-[36px] items-center rounded-[6px] px-[12px] text-[14px] leading-[20px] font-medium text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border-strong)] hover:bg-pg"
-                >
-                  See pricing details
-                </button>
-                {/*
-                  Cheapest first, and the one that CLEARS this block is the
-                  filled one — which is not always the cheapest. Ordering by
-                  price and emphasising by relevance lets the row be read either
-                  way round without the two fighting.
-                */}
-                {upgrades.map((plan) => (
-                  <button
-                    key={plan}
-                    type="button"
-                    onClick={() => upgradeTo(plan)}
-                    className={cn(
-                      "motion-tap flex h-[36px] items-center rounded-[6px] px-[14px]",
-                      "text-[14px] leading-[20px] font-medium active:scale-[0.98]",
-                      plan === clears
-                        ? "bg-brand text-brand-fg hover:opacity-90"
-                        : "text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border-strong)] hover:bg-pg",
-                    )}
-                  >
-                    Upgrade to {AGENCY_PLAN_PRICES[plan]}
-                  </button>
-                ))}
-              </div>
+              {/*
+                One button, not a price row.
+
+                This footer used to carry "See pricing details" beside one
+                button per tier above the current one — three or four controls
+                saying almost the same thing, two of which committed to a
+                figure the reader had not been shown yet. A step that argues
+                the feature should end in a single "and then what", and the
+                table it opens is where the prices are compared.
+              */}
+              <button
+                type="button"
+                onClick={() => setStep("pricing")}
+                className={cn(
+                  "motion-tap flex h-[36px] items-center rounded-[6px] px-[16px]",
+                  "bg-brand text-[14px] leading-[20px] font-medium text-brand-fg",
+                  "hover:opacity-90 active:scale-[0.98]",
+                )}
+              >
+                Upgrade
+              </button>
             </div>
           </>
-        ) : (
+        ) : step === "pricing" ? (
           <>
             <div className="mt-[20px] grid grid-cols-1 gap-[16px] md:grid-cols-3">
               {AGENCY_PLANS.map((plan) => (
@@ -305,7 +361,7 @@ export function PlanWall({
                     *other* side of the wall, which is the half worth reviewing:
                     what the nav looks like the moment the tier clears.
                   */
-                  onUpgrade={() => upgradeTo(plan)}
+                  onUpgrade={() => startCheckout(plan)}
                 />
               ))}
             </div>
@@ -314,7 +370,29 @@ export function PlanWall({
               {accountName} stays exactly as it is either way.
             </p>
           </>
-        )}
+        ) : null}
+
+        {step === "checkout" && chosen ? (
+          <CheckoutStep
+            plan={chosen}
+            from={agencyPlan}
+            annual={annual}
+            onAnnualChange={setAnnual}
+            affiliate={affiliate}
+            onAffiliateChange={setAffiliate}
+            onBack={() => setStep("pricing")}
+            onPay={pay}
+          />
+        ) : null}
+
+        {step === "done" && chosen ? (
+          <DoneStep
+            plan={chosen}
+            from={paidFrom ?? chosen}
+            annual={annual}
+            onClose={onClose}
+          />
+        ) : null}
       </div>
     </div>,
     document.body,
@@ -519,6 +597,30 @@ function PlanCard({
             </>
           )}
         </p>
+        {/*
+          The button sits with the figure it commits to, not at the foot.
+
+          At the bottom of the card it was the last thing under a feature list
+          that scrolls and expands — so the price and the act of buying it were
+          a card's height apart, and "Show more" pushed them further. Here the
+          reader's eye goes price → per-month → buy, which is the order the
+          decision is actually made in. The cards no longer need their buttons
+          to line up across the row, because the prices they sit under already
+          do.
+        */}
+        {isUpgrade ? (
+          <button
+            type="button"
+            onClick={onUpgrade}
+            className={cn(
+              "motion-tap mt-[2px] flex h-[36px] w-full items-center justify-center rounded-[6px] bg-brand px-[14px]",
+              "text-[14px] leading-[20px] font-medium text-brand-fg hover:opacity-90 active:scale-[0.98]",
+            )}
+          >
+            Upgrade to {AGENCY_PLAN_NAMES[plan]}
+          </button>
+        ) : null}
+
         <p className="text-[14px] leading-[20px] text-pg-muted">
           {annual ? "Billed annually" : "Billed monthly"}
         </p>
@@ -603,33 +705,262 @@ function PlanCard({
           </button>
         ) : null}
 
-        {/*
-          Pushed to the foot so the three buttons line up across cards however
-          long the lists above them run.
-        */}
-        <div className="mt-auto pt-[16px]">
-          {isUpgrade ? (
-            <button
-              type="button"
-              onClick={onUpgrade}
-              className={cn(
-                "motion-tap flex h-[36px] w-full items-center justify-center rounded-[6px] bg-brand px-[14px]",
-                "text-[14px] leading-[20px] font-medium text-brand-fg hover:opacity-90 active:scale-[0.98]",
-              )}
-            >
-              Upgrade to {AGENCY_PLAN_NAMES[plan]}
-            </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The checkout: what is being bought, at what price, before any of it happens.
+ *
+ * A summary rather than a form, because there is nothing here to fill in — the
+ * plan came from the card that was pressed and the period from the toggle. The
+ * toggle is repeated inside the panel it governs (the table's copy lives up in
+ * the header, next to three cards it changes at once) so the figure and the
+ * control that sets it are one object.
+ *
+ * The affiliate field is the one input, and it is optional, so it sits below
+ * the fold of the decision rather than above it.
+ */
+function CheckoutStep({
+  plan,
+  from,
+  annual,
+  onAnnualChange,
+  affiliate,
+  onAffiliateChange,
+  onBack,
+  onPay,
+}: {
+  plan: AgencyPlan;
+  /** The tier being left, for the "everything in X plus…" line. */
+  from: AgencyPlan;
+  annual: boolean;
+  onAnnualChange: (annual: boolean) => void;
+  affiliate: string;
+  onAffiliateChange: (value: string) => void;
+  onBack: () => void;
+  onPay: () => void;
+}) {
+  const spec = AGENCY_PLAN_SPECS[plan];
+  const features = AGENCY_PLAN_FEATURES[plan];
+  const total = annual ? AGENCY_PLAN_ANNUAL[plan] : AGENCY_PLAN_MONTHLY[plan];
+  const perMonth = annual ? monthlyOnAnnual(plan) : AGENCY_PLAN_MONTHLY[plan];
+
+  return (
+    <>
+      <div className="mt-[20px] flex flex-col gap-[20px] rounded-[10px] bg-pg p-[20px] shadow-[inset_0_0_0_1px_var(--pg-card-border)] sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-[12px]">
+          <BillingToggle annual={annual} onChange={onAnnualChange} />
+          <div>
+            <h3 className="text-[22px] leading-[30px] font-semibold text-pg-heading">
+              {AGENCY_PLAN_NAMES[plan]} plan
+            </h3>
+            <p className="mt-[2px] text-[14px] leading-[20px] text-pg-text">
+              Billed as {annual ? "a yearly" : "a monthly"} charge of{" "}
+              <span className="font-semibold text-pg-heading">
+                ${total} {annual ? "per year" : "per month"}
+              </span>
+            </p>
+          </div>
+        </div>
+
+        <div className="shrink-0 sm:text-right">
+          <p className="flex items-baseline gap-[8px] sm:justify-end">
+            <span className="text-[40px] leading-[48px] font-semibold tracking-[-0.02em] text-pg-heading">
+              ${total}
+            </span>
+            <span className="text-[14px] leading-[20px] text-pg-muted">
+              {annual ? "per year" : "per month"}
+            </span>
+          </p>
+          {annual ? (
+            <p className="mt-[2px] text-[14px] leading-[20px] text-pg-text">
+              You pay just{" "}
+              <span className="text-pg-faint line-through">
+                ${AGENCY_PLAN_MONTHLY[plan]}
+              </span>{" "}
+              <span className="font-medium text-pg-heading">${perMonth}</span>
+              /month
+            </p>
           ) : (
-            /*
-              A spacer on the cards that get no button — the current tier and
-              anything below it. Without it the button row would sit at three
-              different heights, which reads as three differently-shaped cards
-              rather than one comparison.
-            */
-            <div aria-hidden="true" className="h-[36px]" />
+            <p className="mt-[2px] text-[14px] leading-[20px] text-pg-text">
+              Save{" "}
+              <span className="font-medium text-pg-heading">
+                ${annualSaving(plan)}
+              </span>{" "}
+              a year by paying annually
+            </p>
           )}
         </div>
       </div>
-    </div>
+
+      {/* The three specs as chips: the same facts the card listed, at a glance. */}
+      <div className="mt-[16px] grid grid-cols-1 gap-[12px] sm:grid-cols-3">
+        {[spec.users, spec.accounts, spec.saas].map((line, i) => {
+          const Icon = SPEC_ICONS[i];
+          return (
+            <div
+              key={line}
+              className="flex items-center gap-[10px] rounded-[8px] px-[12px] py-[10px] text-[14px] leading-[20px] text-pg-text shadow-[inset_0_0_0_1px_var(--pg-card-border)]"
+            >
+              <span className="flex size-[26px] shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand">
+                <Icon size={14} aria-hidden="true" />
+              </span>
+              <span className="truncate">{line}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div
+        aria-hidden="true"
+        className="mt-[20px] h-px w-full bg-[var(--pg-card-border)]"
+      />
+
+      <h4 className="mt-[20px] text-[12px] leading-[16px] font-semibold tracking-[0.06em] text-pg-heading uppercase">
+        Features
+      </h4>
+      <p className="mt-[8px] text-[14px] leading-[20px] text-pg-text">
+        Everything in{" "}
+        <span className="font-semibold text-pg-heading">
+          {AGENCY_PLAN_NAMES[from]}
+        </span>{" "}
+        plus…
+      </p>
+      {/* Two columns: the shown list is four or five lines, and a single
+          column of them left the panel's right half empty under the price. */}
+      <ul className="mt-[12px] grid grid-cols-1 gap-[12px] sm:grid-cols-2">
+        {features.shown.map((line) => (
+          <li
+            key={line}
+            className="flex items-start gap-[10px] text-[14px] leading-[20px] text-pg-text"
+          >
+            <span className="mt-[1px] flex size-[18px] shrink-0 items-center justify-center rounded-full bg-[#dcfae6] text-[#079455]">
+              <Check size={11} strokeWidth={3} aria-hidden="true" />
+            </span>
+            {line}
+          </li>
+        ))}
+      </ul>
+
+      <label className="mt-[20px] flex flex-col gap-[4px]">
+        <span className="text-[14px] leading-[20px] font-medium text-pg-heading">
+          Have an affiliate code?
+        </span>
+        <input
+          value={affiliate}
+          onChange={(e) => onAffiliateChange(e.target.value)}
+          placeholder="Type your affiliate code here"
+          className="h-[36px] w-full rounded-[6px] px-[12px] text-[14px] leading-[20px] text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border-strong)] placeholder:text-pg-faint focus:outline-none focus:shadow-[inset_0_0_0_2px_var(--brand)]"
+        />
+      </label>
+
+      <div className="mt-[20px] flex items-center justify-end gap-[12px] pt-[16px] shadow-[inset_0_1px_0_0_var(--pg-card-border)]">
+        <button
+          type="button"
+          onClick={onBack}
+          className="motion-tap flex h-[36px] items-center rounded-[6px] px-[12px] text-[14px] leading-[20px] font-medium text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border-strong)] hover:bg-pg"
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          onClick={onPay}
+          className={cn(
+            "motion-tap flex h-[36px] items-center rounded-[6px] bg-brand px-[16px]",
+            "text-[14px] leading-[20px] font-medium text-brand-fg hover:opacity-90 active:scale-[0.98]",
+          )}
+        >
+          Pay ${total} &amp; subscribe
+        </button>
+      </div>
+    </>
+  );
+}
+
+/** Where the two "join us" cards point. Inert, as the video poster is. */
+const JOIN_LINKS = [
+  { icon: Users, label: "HL Daily Group demo" },
+  { icon: MessageCircleQuestion, label: "Daily Live Q&A" },
+] as const;
+
+/**
+ * The receipt, in the dialog rather than as a toast.
+ *
+ * The confirmation used to slide in over the canvas after the sheet dismissed
+ * itself — which put the news somewhere other than where the reader was
+ * looking, on a timer, the moment after the surface they were using vanished.
+ * Ending the flow where it ran means the last thing on screen is what just
+ * happened and one way out of it.
+ */
+function DoneStep({
+  plan,
+  from,
+  annual,
+  onClose,
+}: {
+  plan: AgencyPlan;
+  /** The tier left behind — the first half of the sentence. */
+  from: AgencyPlan;
+  annual: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      <p className="mt-[16px] text-[20px] leading-[28px] font-semibold text-pg-heading">
+        Your subscription has been upgraded from $
+        {AGENCY_PLAN_MONTHLY[from]} / month to $
+        {annual ? AGENCY_PLAN_ANNUAL[plan] : AGENCY_PLAN_MONTHLY[plan]} /{" "}
+        {annual ? "year" : "month"}
+      </p>
+
+      <div className="mt-[20px] flex flex-col gap-[12px] rounded-[10px] bg-pg p-[16px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+        <p className="text-center text-[14px] leading-[20px] text-pg-text">
+          To use your HighLevel subscription to the fullest please join here
+        </p>
+        <div className="grid grid-cols-1 gap-[12px] sm:grid-cols-2">
+          {JOIN_LINKS.map(({ icon: Icon, label }) => (
+            <div
+              key={label}
+              className="flex items-center gap-[12px] rounded-[8px] bg-pg-surface p-[12px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]"
+            >
+              <span className="flex size-[34px] shrink-0 items-center justify-center rounded-[8px] text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+                <Icon size={16} aria-hidden="true" />
+              </span>
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate text-[14px] leading-[20px] text-pg-heading">
+                  {label}
+                </span>
+                <span className="text-[13px] leading-[18px] font-medium text-brand italic">
+                  Register here
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/*
+        Said plainly, because it is not true — the same clause the toast used
+        to carry. The prototype flips a plan without touching a card, and a
+        receipt that reads exactly like the real one is the kind of thing a
+        reviewer repeats to somebody else as fact.
+      */}
+      <p className="mt-[12px] text-center text-[12px] leading-[16px] text-pg-faint">
+        Nothing was billed — this is a prototype
+      </p>
+
+      <button
+        type="button"
+        onClick={onClose}
+        className={cn(
+          "motion-tap mt-[16px] flex h-[40px] w-full items-center justify-center rounded-[6px] bg-brand px-[16px]",
+          "text-[14px] leading-[20px] font-medium text-brand-fg hover:opacity-90 active:scale-[0.98]",
+        )}
+      >
+        Got it
+      </button>
+    </>
   );
 }

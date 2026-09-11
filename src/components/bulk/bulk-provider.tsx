@@ -3,7 +3,10 @@
 import * as React from "react";
 import { withProduct, type NavLayoutState } from "@/components/nav/grouping";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
-import { useNavTemplates } from "@/components/nav/nav-templates";
+import {
+  patchForArrangement,
+  useNavTemplates,
+} from "@/components/nav/nav-templates";
 import {
   BULK_DEFAULTS,
   featureLabel,
@@ -98,7 +101,7 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
   const [history, setHistory] = React.useState<readonly BulkRun[]>([]);
   const seq = React.useRef(0);
   const { applyToAccounts, profileFor } = useNavLayout();
-  const { patchFor, link } = useNavTemplates();
+  const { patchFor, link, templates } = useNavTemplates();
 
   const set = React.useCallback(
     <K extends keyof BulkSettings>(key: K, value: BulkSettings[K]) =>
@@ -158,7 +161,22 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
       // the edit card's "Save template" live for them afterwards: fix one
       // account's nav, save, and the template the other thirty-nine came from
       // is the thing that gets corrected.
-      for (const id of accountIds) link(id, templateId);
+      /*
+       * The link records the arrangement each account TOOK, not just which
+       * template it took it from. That base is what a later update measures
+       * against when it works out which of these accounts has since been tuned
+       * by hand — see `rebase`. Recording it here, at the moment they are put
+       * on the template, is the only point at which "they have changed nothing
+       * yet" is known to be true.
+       */
+      const taken = templates.find((t) => t.id === templateId);
+      if (taken)
+        for (const id of accountIds) {
+          // Per account, and via the same filter the run itself used: the base
+          // has to be what landed HERE, or every account in the run looks
+          // edited from the moment it was applied.
+          link(id, templateId, patchForArrangement(taken.arrangement, profileFor(id)));
+        }
 
       return record({
         path: "template",
@@ -171,7 +189,7 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
         changeCount: accountIds.length,
       });
     },
-    [applyToAccounts, patchFor, link, record],
+    [applyToAccounts, patchFor, link, templates, profileFor, record],
   );
 
   const applyFeatures = React.useCallback<BulkValue["applyFeatures"]>(
