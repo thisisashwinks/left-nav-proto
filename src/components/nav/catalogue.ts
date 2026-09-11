@@ -244,7 +244,7 @@ export const catalogue: CatalogueProduct[] = [
     groupId: "engage",
     jobId: "job-talk",
     suiteId: "suite-crm",
-    blurb: "Take the workspace with you on iOS & Android.",
+    blurb: "Take the workspace with you on Android & iOS.",
   },
 
   /* ---- Get customers ---- */

@@ -559,7 +559,7 @@ function NavStructureSection({
       </Note>
 
       <Segmented
-        label="Marking the page you are on"
+        label="Active page"
         options={SELECTED_STATES}
         value={selectedState}
         onChange={(v: SelectedState) => setSelectedState(v)}
@@ -567,7 +567,7 @@ function NavStructureSection({
       />
       <Note>
         {selectedState === "off"
-          ? "As it ships: nothing marked. The nav answers “where can I go” and never “where am I” — the breadcrumb is the only thing that does."
+          ? "Nothing marked. The nav answers “where can I go” and never “where am I” — the breadcrumb is the only thing that does."
           : selectedState === "leaf"
             ? "A bar and full ink on the exact row. Honest, and invisible whenever that row lives behind a shut panel."
             : "The row, plus a shorter bar on every ancestor leading to it — so a closed nav still says where you are."}
@@ -581,20 +581,18 @@ function NavStructureSection({
       {selectedState !== "off" ? (
         <>
           <Segmented
-            label="Marked with"
+            label="Active page mark"
             options={SELECTED_MARKS}
             value={selectedMark}
             onChange={(v: SelectedMark) => setSelectedMark(v)}
             format={(v) => SELECTED_MARK_LABELS[v]}
           />
           <Note>
-            {selectedMark === "bar"
-              ? "A 3px rule on the leading edge. Collides with no fill — and reads as chrome belonging to the nav rather than as a property of the row."
-              : selectedMark === "fill"
-                ? "A step darker than hover. Unmistakably the row, but the same KIND of signal as hover: on a row that is both, the difference is one shade."
-                : selectedMark === "tint"
-                  ? "The accent, softly, label included. Easiest to find; also spends brand on a state that is true all day."
-                  : "A hairline around the row. Distinct from every fill in the nav, and easy to miss at a glance on a 272px row."}
+            {selectedMark === "fill"
+              ? "A grey of its own, a real step darker than hover, so the two states never meet. The trail takes the hover fill."
+              : selectedMark === "bar"
+                ? "A 3px rule on the leading edge. Collides with no fill — and reads as chrome belonging to the nav rather than as a property of the row."
+                : "The accent under the row, label left grey. Easiest to find; also spends brand on a state that is true all day."}
           </Note>
         </>
       ) : null}
@@ -1543,6 +1541,8 @@ export function TuningPanel() {
     setAppTheme,
     navTheme,
     setNavTheme,
+    darkMode,
+    setDarkMode,
     navDarkTone,
     setNavDarkTone,
     headerTheme,
@@ -1607,6 +1607,7 @@ export function TuningPanel() {
     (accent !== DEFAULT_THEME.accent ? 1 : 0) +
     (tint !== DEFAULT_THEME.tint ? 1 : 0) +
     (navTheme !== DEFAULT_THEME.navTheme ? 1 : 0) +
+    (darkMode !== DEFAULT_THEME.darkMode ? 1 : 0) +
     (navDarkTone !== DEFAULT_THEME.navDarkTone ? 1 : 0) +
     (headerTheme !== DEFAULT_THEME.headerTheme ? 1 : 0) +
     (appTheme !== DEFAULT_THEME.appTheme ? 1 : 0) +
@@ -1638,6 +1639,7 @@ export function TuningPanel() {
     setAccent(DEFAULT_THEME.accent);
     setTint(DEFAULT_THEME.tint);
     setNavTheme(DEFAULT_THEME.navTheme);
+    setDarkMode(DEFAULT_THEME.darkMode);
     setNavDarkTone(DEFAULT_THEME.navDarkTone);
     setHeaderTheme(DEFAULT_THEME.headerTheme);
     setAppTheme(DEFAULT_THEME.appTheme);
@@ -2023,7 +2025,7 @@ export function TuningPanel() {
           <Note>
             {productDirectoryRow
               ? "Its own place: a standing row above Settings opens the catalogue as an L1 ▸ L2 ▸ L3 tree, and View all keeps only Pinned and Recent."
-              : "One panel holding both: View all opens Pinned, Recent and the catalogue under them, and there is no standing row."}
+              : "No standing row. View all keeps Pinned, then a Recents / Product directory switcher — each half with its own search, the directory as an inline L1 ▸ L2 ▸ L3 tree."}
           </Note>
 
           <Segmented
@@ -2065,41 +2067,58 @@ export function TuningPanel() {
             Off keeps the design&apos;s greys. Subtle and full carry the accent
             into the whites, borders and text at the same lightness.
           </Note>
-          <Segmented
-            label="Nav surface"
-            options={SURFACE_THEMES}
-            value={navTheme}
-            onChange={(v: SurfaceTheme) => setNavTheme(v)}
-          />
-          {/* Only when there is a dark to choose. */}
-          {navTheme === "dark" ? (
+          <Toggle label="Dark mode" checked={darkMode} onChange={setDarkMode} />
+          <Note>
+            {darkMode
+              ? "The nav, header and page can each be light or dark, and the product offers the switch: a light/dark tool in the edit card, and a Surface row in the colours panel."
+              : "Light only. The three surface controls below are hidden, the product offers no light/dark switch, and any account already set to dark is shown light. The palette is still built — this puts it back."}
+          </Note>
+          {/*
+            Hidden rather than disabled.
+
+            With dark mode off these three cannot change anything — `pinLight`
+            clamps the merged theme whatever they are set to — and a control that
+            moves and does nothing is worse than one that is not there.
+          */}
+          {darkMode ? (
             <>
               <Segmented
-                label="Which dark"
-                options={NAV_DARK_TONES}
-                value={navDarkTone}
-                onChange={(v: NavDarkTone) => setNavDarkTone(v)}
-                format={(v) => NAV_DARK_TONE_LABELS[v]}
+                label="Nav surface"
+                options={SURFACE_THEMES}
+                value={navTheme}
+                onChange={(v: SurfaceTheme) => setNavTheme(v)}
               />
-              <Note>
-                {navDarkTone === "navy"
-                  ? "#0F1828 and a ramp derived from it. Enough hue to read as a surface rather than a hole next to a white canvas — and little enough not to compete with the tenant's accent."
-                  : "The neutral as it ships: #0f0f12, black with the colour taken out."}
-              </Note>
+              {/* Only when there is a dark to choose. */}
+              {navTheme === "dark" ? (
+                <>
+                  <Segmented
+                    label="Which dark"
+                    options={NAV_DARK_TONES}
+                    value={navDarkTone}
+                    onChange={(v: NavDarkTone) => setNavDarkTone(v)}
+                    format={(v) => NAV_DARK_TONE_LABELS[v]}
+                  />
+                  <Note>
+                    {navDarkTone === "navy"
+                      ? "#0F1828 and a ramp derived from it. Enough hue to read as a surface rather than a hole next to a white canvas — and little enough not to compete with the tenant's accent."
+                      : "The neutral as it ships: #0f0f12, black with the colour taken out."}
+                  </Note>
+                </>
+              ) : null}
+              <Segmented
+                label="Header surface"
+                options={SURFACE_THEMES}
+                value={headerTheme}
+                onChange={(v: SurfaceTheme) => setHeaderTheme(v)}
+              />
+              <Segmented
+                label="Page surface"
+                options={SURFACE_THEMES}
+                value={appTheme}
+                onChange={(v: SurfaceTheme) => setAppTheme(v)}
+              />
             </>
           ) : null}
-          <Segmented
-            label="Header surface"
-            options={SURFACE_THEMES}
-            value={headerTheme}
-            onChange={(v: SurfaceTheme) => setHeaderTheme(v)}
-          />
-          <Segmented
-            label="Page surface"
-            options={SURFACE_THEMES}
-            value={appTheme}
-            onChange={(v: SurfaceTheme) => setAppTheme(v)}
-          />
           <Segmented
             label="Page shell"
             options={PAGE_SHELLS}

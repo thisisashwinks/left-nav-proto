@@ -93,35 +93,43 @@ export function useHereStyle(marking: Marking): {
   switch (selectedMark) {
     case "fill":
       /*
-       * A step past hover, not hover itself.
+       * A grey of its own, not the press state.
        *
-       * `--nav-active` is the press state, which is the only neutral in the
-       * palette darker than the hover fill — so it is the one shade that can
-       * say "this row" on a row that may also be hovered. The trail borrows
-       * the hover fill, one step back, and accepts the collision: a trail row
-       * that looks hovered is a smaller lie than an unmarked one.
+       * This used `--nav-active`, which is four points off the hover fill —
+       * near enough that the page you were on and the row under the pointer
+       * were the same colour to anyone not comparing them side by side, and
+       * the mark only exists to be read at a glance. `--nav-selected` is a
+       * real step further down the neutral ramp, so hover can still darken a
+       * selected row without the two states meeting.
+       *
+       * The trail wears the SAME fill, not a lighter one.
+       *
+       * It was the hover grey, one step back — which made a selected L3 read
+       * as a different kind of thing from the L1 and L2 that lead to it: three
+       * rows in a vertical line, one dark and two light, looking like one
+       * selection and two rollovers rather than like one path. The trail is
+       * the path TO the page; drawn in one colour it reads as a single mark
+       * spanning three levels, and the label weight is what still says which
+       * end of it you are on.
        */
       return {
         bar: false,
-        row: here ? "bg-nav-active" : "bg-nav-hover",
+        row: "bg-nav-selected",
         ink: here && "font-semibold text-nav-fg",
       };
     case "tint":
       return {
         bar: false,
         row: here ? "bg-brand-soft" : "bg-brand-soft-2",
-        // The accent carries the label too, or a brand ground under neutral
-        // ink reads as a highlight laid over the row rather than as its state.
-        ink: here ? "font-semibold text-brand-strong" : "text-brand-strong",
-      };
-    case "outline":
-      return {
-        bar: false,
-        // Inset, so the ring is inside the row's own box and cannot nudge a
-        // neighbour or clip against the scroll region's edge.
-        row: here
-          ? "shadow-[inset_0_0_0_1px_var(--brand)]"
-          : "shadow-[inset_0_0_0_1px_var(--nav-border)]",
+        /*
+         * The ground carries the accent; the label stays neutral.
+         *
+         * Brand ink on a brand ground made the row read as a link or a promo —
+         * every other label in the nav is grey, and the one coloured word in
+         * the column pulled the eye as something to CLICK rather than as the
+         * thing already open. Weight says "this row", colour says "this kind
+         * of row", and only the first is true here.
+         */
         ink: here && "font-semibold text-nav-fg",
       };
     default:

@@ -39,8 +39,8 @@ export type AppKind = "mobile" | "desktop";
  * each covers, and an avatar menu cannot.
  */
 export const GET_APP_LABELS: Record<AppKind, string> = {
-  mobile: "Get mobile app",
-  desktop: "Get desktop app",
+  mobile: "Get Android & iOS app",
+  desktop: "Get Windows & macOS app",
 };
 
 /*

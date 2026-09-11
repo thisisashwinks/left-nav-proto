@@ -1210,12 +1210,44 @@ export function LeftNav({
    * than on a row's kebab. Checked when they are showing, so the menu reads as
    * what the nav has rather than as what it is missing.
    */
+  /*
+   * The blocks this arrangement actually draws.
+   *
+   * The menu listed all four unconditionally, which made it a list of the
+   * nav's blocks in the abstract rather than of this nav's. Two of them were
+   * dead on the default settings: Pinned, because the merge takes the capsule
+   * off screen and there is no separate pin block left to switch; and — until
+   * the fix below — Recent, whose merged block never consulted the flag.
+   *
+   * A switch that is on, next to a thing that is not there, is worse than no
+   * switch: it reads as the feature being broken rather than as being off.
+   */
+  const presentBlocks = NAV_BLOCKS.filter((block) => {
+    switch (block) {
+      // Merged, the capsule is gone and the pins live inside the list above.
+      case "pinned":
+        return !mergedHidesCapsule;
+      // The account can switch the card off entirely, and then there is no
+      // Launchpad for this to govern.
+      case "launchpad":
+        return launchpadAllowed;
+      /*
+        The agency nav has no Recent block of its own — the account rail is its
+        history — so the row only exists there when the merge puts one back.
+      */
+      case "recent":
+        return merged || !agencyScope;
+      default:
+        return true;
+    }
+  });
+
   const blockActions: RowMenuAction[] = [
     {
       id: BLOCKS_VIEW,
       label: "Show in the nav",
       icon: Eye,
-      options: NAV_BLOCKS.map((block) => ({
+      options: presentBlocks.map((block) => ({
         id: block,
         label: NAV_BLOCK_LABELS[block],
         icon: NAV_BLOCK_ICONS[block],
@@ -2016,7 +2048,16 @@ export function LeftNav({
             cheaper than two, and a list that holds still while the rest moves is
             back to being two things.
           */}
-          {merged && agencyScope ? (
+          {/*
+            Gated on `recent`, like every other way of drawing this block.
+
+            Merged, this IS the Recent block — the pins are a section inside it
+            — so the switch that governs Recent has to govern it. Without this
+            the plain arrangement honoured the flag (see nav-config) and the
+            merged one silently ignored it, so the same menu row worked or did
+            nothing depending on a setting about something else.
+          */}
+          {merged && agencyScope && !isBlockHidden(state, "recent") ? (
             <AgencyMergedRecentsBlock
               selectedId={selectedId}
               onSelect={onSelect}
@@ -2025,7 +2066,7 @@ export function LeftNav({
               onOpenPanel={onOpenLauncher}
             />
           ) : null}
-          {merged && !agencyScope ? (
+          {merged && !agencyScope && !isBlockHidden(state, "recent") ? (
             <MergedRecentsBlock
               selectedId={selectedId}
               onSelect={onSelect}

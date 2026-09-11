@@ -247,18 +247,18 @@ export const agencyBuckets: AgencyBucket[] = [
       {
         ...child(
           "agency-app-mobile",
-          "Mobile app (iOS & Android)",
+          "Android & iOS app",
           Smartphone,
-          "iOS & Android builds, and where they are in the queue.",
+          "Android & iOS builds, and where they are in the queue.",
         ),
         badge: BETA_BADGE,
       },
       {
         ...child(
           "agency-app-desktop",
-          "Desktop app (macOS & Windows)",
+          "Windows & macOS app",
           Monitor,
-          "Theme, icon and copy for the desktop client.",
+          "Windows & macOS builds, and where they are in the queue.",
         ),
         badge: NEW_BADGE,
       },

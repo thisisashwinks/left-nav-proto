@@ -771,22 +771,23 @@ export const SELECTED_STATE_LABELS: Record<SelectedState, string> = {
  *           difference is one shade.
  *  tint     The accent, softly. The loudest and the easiest to find; also the
  *           one that spends brand on a state that is true all day.
- *  outline  A hairline around the row. Distinct from every fill in the nav and
- *           quiet, but a 1px ring on a 272px row is easy to miss at a glance.
+ * `outline` — a hairline ring — is gone (Sep 10). A 1px line on a 272px row
+ * was the quietest thing on a surface that also draws dividers, panel borders
+ * and an edit ring, and in a review nobody could find it without being told
+ * where to look. An option that has to be pointed out is not an option.
  *
  * The trail, where it is drawn at all, is the same treatment at lower strength
  * rather than a second treatment — so the eye reads it as less of the same
  * thing rather than as another kind of thing.
  */
-export const SELECTED_MARKS = ["bar", "fill", "tint", "outline"] as const;
+export const SELECTED_MARKS = ["fill", "bar", "tint"] as const;
 
 export type SelectedMark = (typeof SELECTED_MARKS)[number];
 
 export const SELECTED_MARK_LABELS: Record<SelectedMark, string> = {
-  bar: "Edge bar",
   fill: "Darker fill",
+  bar: "Edge bar",
   tint: "Accent tint",
-  outline: "Outline",
 };
 
 /**
@@ -1213,6 +1214,23 @@ export interface ThemeState {
   accent: Accent;
   /** Whether the accent also tints the whites, greys and text. */
   tint: Tint;
+  /**
+   * Whether the new nav offers a dark mode at all.
+   *
+   * Off (Sep 10): the proposal ships light-only, so the product shows no
+   * light/dark control anywhere and `appTheme`, `navTheme` and `headerTheme`
+   * are pinned to light however they are set. The whole dark palette stays
+   * built — every token, every `[data-nav-theme="dark"]` rule — so turning this
+   * back on restores it without rework, which is the point of it being an axis
+   * rather than a deletion.
+   *
+   * Deliberately does NOT reach `searchTheme` or `legacyNavTheme`. Those are
+   * dark on purpose and for reasons that have nothing to do with this: search
+   * is dark so it never reads as part of the nav, and the legacy nav is dark
+   * because production's nav is. Forcing them light would misrepresent the
+   * thing the prototype is being compared against.
+   */
+  darkMode: boolean;
   appTheme: SurfaceTheme;
   navTheme: SurfaceTheme;
   /** Which dark the dark nav is. See NAV_DARK_TONES. */
@@ -1420,6 +1438,7 @@ export const DEFAULT_THEME: ThemeState = {
   // swatch (`logo.from`), and black stays one click away if they want quiet.
   accent: "account",
   tint: "off",
+  darkMode: false,
   appTheme: "light",
   navTheme: "light",
   // Navy. The neutral is one click away for the comparison.
@@ -1466,9 +1485,19 @@ export const DEFAULT_THEME: ThemeState = {
   // their dwell, one toggle away.
   l3Disclosure: "inline",
   flyoutTrigger: "click",
-  // Off, as it ships. The axis exists to look at what marking it would cost.
-  selectedState: "off",
-  selectedMark: "bar",
+  /*
+   * On, and the whole trail (Sep 10).
+   *
+   * "Where am I" is a question the nav is asked all day and the breadcrumb was
+   * answering alone. The trail rather than the leaf because the leaf is
+   * invisible whenever its row lives behind a shut panel, which is most of the
+   * time — a mark you cannot see is the same as no mark for the case it was
+   * added for. Off and leaf are both one click away in the panel.
+   */
+  selectedState: "trail",
+  // The fill: the one treatment that survives a row also being hovered, now
+  // that the selected grey is a real step off the hover grey.
+  selectedMark: "fill",
   // Opening the page too. A first click that lands nowhere is the thing this
   // answers; "Expands only" is the original, one click away for the comparison.
   l2ClickAction: "open-first",
@@ -1592,9 +1621,17 @@ export const DEFAULT_THEME: ThemeState = {
   // On, so the case this exists for is what you see first.
   userMultiAccount: true,
   navColourControl: "toggle",
-  // Off: "View all" is the door. This is the alternative, not the default.
-  // On: the directory is its own place, and All products is a tree there.
-  productDirectoryRow: true,
+  /*
+   * Off (Sep 10): the sidebar row is gone and the catalogue comes back into the
+   * View all panel — not stacked under the history as it was before the split,
+   * but behind a switcher beside it, each half with its own search. The row was
+   * a standing seat in the nav spent on a destination almost nobody goes to
+   * twice; the tree it opened was worth keeping, the row was not.
+   *
+   * On restores the split: a standing row above Settings, and a View all that
+   * holds only Pinned and Recent.
+   */
+  productDirectoryRow: false,
   // On, for the same reason: the comparison should be one menu away.
   layoutSwitchInEditCard: true,
   // Production's own default, and the state both source screenshots were in.

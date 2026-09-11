@@ -27,6 +27,7 @@
   --color-nav-fg-subtle: var(--nav-fg-subtle);
   --color-nav-hover: var(--nav-hover);
   --color-nav-active: var(--nav-active);
+  --color-nav-selected: var(--nav-selected);
   --color-nav-rail: var(--nav-rail-bg);
   --color-nav-rail-border: var(--nav-rail-border);
   --color-nav-rail-hi: var(--nav-rail-hi);

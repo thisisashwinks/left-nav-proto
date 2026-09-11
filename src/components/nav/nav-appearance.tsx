@@ -232,6 +232,13 @@ export function NavColours({
         </>
       ) : (
       <>
+      {/*
+        The one group that is purely about dark mode, so it is the one group
+        that goes when there is no dark mode. Everything below it — the accent,
+        its contrast reading — is as meaningful on a light-only nav as it ever
+        was, which is why the panel stays and only this row leaves.
+      */}
+      {theme.effective.darkMode ? (
       <Group label="Surface">
         <div className="flex gap-[6px]">
           {(["light", "dark"] as const).map((mode) => (
@@ -256,6 +263,7 @@ export function NavColours({
           ))}
         </div>
       </Group>
+      ) : null}
 
       <Group label="Accent">
         <div className="grid grid-cols-5 gap-[6px]">

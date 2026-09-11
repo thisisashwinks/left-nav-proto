@@ -450,8 +450,9 @@ export function FlyoutRow({
     // The pin's column is a flex spacer in the trailing cluster now, at both
     // levels and in both modes, so the row no longer pads for it.
     
-    active ? "bg-nav-hover" : "hover:bg-nav-hover",
-    mark.row,
+    // The mark wins the ground, and keeps it under the pointer — see the note
+    // on the same condition in nav-item-row.
+    mark.row ? mark.row : active ? "bg-nav-hover" : "hover:bg-nav-hover",
     !edit?.renaming && "active:scale-[0.99] motion-press",
     // The grab cursor lives on the grip, not the row.
     edit?.over && "bg-nav-hover shadow-[inset_0_0_0_1px_var(--nav-fg)]",
@@ -1271,13 +1272,23 @@ function FlyoutChildRow({
             notch down per level: depth is still legible, it is just no longer
             legible by the rows being a different size.
           */
-          "motion-tap relative flex w-full items-center gap-[7px] rounded-[7px] px-[9px] text-left leading-[normal] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg active:scale-[0.99]",
+          "motion-tap relative flex w-full items-center gap-[7px] rounded-[7px] px-[9px] text-left leading-[normal] font-medium text-nav-fg-muted hover:text-nav-fg active:scale-[0.99]",
           mark.ink,
           mark.row,
+          // Rollover only where there is no mark holding the ground already.
+          !mark.row && child.id !== activeId && "hover:bg-nav-hover",
           "py-[var(--t-nav-py,9px)] min-h-[calc(var(--t-nav-py,9px)*2+20px)]",
-          // The same fill an active row wears anywhere else in the nav, so
-          // "you are here" looks the same at every level.
-          child.id === activeId && "bg-nav-hover text-nav-fg",
+          /*
+            The same fill an active row wears anywhere else in the nav, so
+            "you are here" looks the same at every level.
+
+            That is what this line always claimed, and `bg-nav-hover` is what
+            it did: the selected L3 and a hovered sibling were the identical
+            grey, and the panel could not answer which row you were on the
+            moment your pointer entered it. The selected neutral is a step
+            darker than hover by construction — see --nav-selected.
+          */
+          child.id === activeId && "bg-nav-selected text-nav-fg",
           // 8px, matching the L2 row's own px — the two trailing clusters have
           // to start from the same right edge or nothing in them can line up.
           // In both modes: the pin's column is a flex spacer now rather than

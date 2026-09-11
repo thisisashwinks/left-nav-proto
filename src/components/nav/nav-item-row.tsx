@@ -311,10 +311,21 @@ export function NavItemRow({
         className={cn(
           rowClass,
           "group",
-          active ? "bg-nav-hover" : "hover:bg-nav-hover active:bg-nav-active",
-          // After the panel fill, so a marked row wins the ground it shares
-          // with one. The bar treatment contributes nothing here.
-          mark.row,
+          /*
+            The mark takes the ground when there is one.
+
+            Class ORDER in this string decides nothing — both fills are the
+            same property in the same layer, so the winner is whichever
+            Tailwind happens to emit last. The condition is what makes a marked
+            row keep its fill, and it drops the rollover with it: a row you are
+            already on has nowhere to go, and lightening it under the pointer
+            reads as leaving the page rather than as feedback.
+          */
+          mark.row
+            ? mark.row
+            : active
+              ? "bg-nav-hover"
+              : "hover:bg-nav-hover active:bg-nav-active",
           "active:scale-[0.99] motion-press",
           // `data-cursor="menu"` on the band forces `cursor: pointer` on every
           // descendant, so this has to be on the row itself to win.
@@ -337,8 +348,7 @@ export function NavItemRow({
       className={cn(
         rowClass,
         "group/row group",
-        active && "bg-nav-hover",
-        "hover:bg-nav-hover",
+        mark.row ? mark.row : active ? "bg-nav-hover" : "hover:bg-nav-hover",
         // Matches the read-only row's press feedback, but not while renaming —
         // scaling a row mid-edit drags the text field with it.
         !edit.renaming && "active:bg-nav-active active:scale-[0.99] motion-press",

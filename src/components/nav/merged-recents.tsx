@@ -158,11 +158,21 @@ function MergedList({
 
   if (pins.length === 0 && recents.length === 0) return null;
 
-  const row = (r: MergedRow) => (
+  /*
+   * Only a pin can be the page you are on; a recent is a way back to one.
+   *
+   * Recents are a redirect list. The row is not where that destination LIVES —
+   * the tree is, and the tree marks it, trail and all — so filling the recent
+   * as well meant one page was marked twice in two different places, and the
+   * copy at the top of the nav was the one that had nothing beneath it to
+   * explain where you were. Clicking a recent takes you somewhere; it does not
+   * make the recent itself somewhere you are.
+   */
+  const row = (r: MergedRow, kind: "pin" | "recent") => (
     <MergedItemRow
       key={r.id}
       row={r}
-      active={selectedId === r.id}
+      active={kind === "pin" && selectedId === r.id}
       mark={mergedPinMark}
       onSelect={() => onSelect(r.id)}
     />
@@ -191,7 +201,7 @@ function MergedList({
       {sublabelled && visiblePins.length > 0 ? (
         <BlockHeading text="Pinned" action={viewAll} />
       ) : null}
-      {visiblePins.map(row)}
+      {visiblePins.map((r) => row(r, "pin"))}
 
       {sublabelled && visibleRecents.length > 0 ? (
         <BlockHeading
@@ -199,7 +209,7 @@ function MergedList({
           {...(visiblePins.length === 0 ? { action: viewAll } : {})}
         />
       ) : null}
-      {visibleRecents.map(row)}
+      {visibleRecents.map((r) => row(r, "recent"))}
 
       <MergedOverflowRow
         mode={mergedOverflow}

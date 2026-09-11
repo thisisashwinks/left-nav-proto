@@ -219,7 +219,7 @@ function EditNavButton({
   const themeCtx = useTheme();
   const { setAccountTheme } = themeCtx;
   const colourControl = themeCtx.effective.navColourControl;
-  const { navSwitchButton } = themeCtx.effective;
+  const { navSwitchButton, darkMode } = themeCtx.effective;
   const navTheme =
     themeCtx.accountThemeFor(accountId).navTheme ?? themeCtx.effective.navTheme;
 
@@ -381,6 +381,17 @@ function EditNavButton({
               icon={Palette}
               onOpen={onOpenAppearance}
             />
+          ) : !darkMode ? (
+            /*
+              Nothing to offer.
+
+              On this setting the tool IS the light/dark switch — it has no
+              second job to fall back to — so with dark mode off it would be a
+              control that toggles between one state. The card shows one fewer
+              icon rather than a dead one. The `panel` setting above keeps its
+              button, because that panel still does accent and contrast.
+            */
+            null
           ) : (
             <EditTool
               label={

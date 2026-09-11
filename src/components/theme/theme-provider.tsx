@@ -141,6 +141,8 @@ interface ThemeContextValue extends ThemeState {
   setNavGeneration: (generation: NavGeneration) => void;
   setNavSwitchSurface: (surface: NavSwitchSurface) => void;
   setNavSwitchInEditCard: (enabled: boolean) => void;
+  /** Whether the nav offers a dark mode at all. See ThemeState.darkMode. */
+  setDarkMode: (on: boolean) => void;
   setNavColourControl: (control: NavColourControl) => void;
   setSubAccountSwitcher: (switcher: SubAccountSwitcher) => void;
   setUserMultiAccount: (enabled: boolean) => void;
@@ -233,7 +235,7 @@ export function ThemeProvider({
     [activeAccountId, accountThemes],
   );
   const effective: ThemeState = React.useMemo(
-    () => ({ ...state, ...stripCustom(activeOverride) }),
+    () => pinLight({ ...state, ...stripCustom(activeOverride) }),
     [state, activeOverride],
   );
 
@@ -270,7 +272,22 @@ export function ThemeProvider({
       effective,
       setActiveThemeAccount: setActiveAccountId,
       activeThemeAccount: activeAccountId,
-      accountThemeFor: (accountId) => accountThemes[accountId] ?? {},
+      /*
+       * Stripped of its surfaces while dark mode is off.
+       *
+       * Two call sites read an account's override DIRECTLY rather than through
+       * `effective` — the edit card's colour tool and the colours panel, both of
+       * which need to know what this tenant chose rather than what the platform
+       * defaults to. A stored `navTheme: "dark"` would reach them unclamped and
+       * paint one account's nav dark in a build that has no dark mode.
+       *
+       * Stripped rather than deleted from storage: an agency that picked dark
+       * before the switch was thrown gets it back when it is thrown again.
+       */
+      accountThemeFor: (accountId) =>
+        state.darkMode
+          ? (accountThemes[accountId] ?? {})
+          : stripSurfaces(accountThemes[accountId] ?? {}),
       setAccountTheme: (accountId, patch) =>
         setAccountThemes((themes) => ({
           ...themes,
@@ -334,6 +351,7 @@ export function ThemeProvider({
         setState((s) => ({ ...s, navSwitchSurface })),
       setNavSwitchInEditCard: (navSwitchInEditCard) =>
         setState((s) => ({ ...s, navSwitchInEditCard })),
+      setDarkMode: (darkMode) => setState((s) => ({ ...s, darkMode })),
       setNavColourControl: (navColourControl) =>
         setState((s) => ({ ...s, navColourControl })),
       setSubAccountSwitcher: (subAccountSwitcher) =>
@@ -389,6 +407,35 @@ export function ThemeProvider({
 }
 
 /** The ThemeState slice of an override — customAccent is not a theme axis. */
+/**
+ * The three surfaces the new nav's chrome is painted on.
+ *
+ * Named once because two different clamps below have to agree on the list, and
+ * a fourth surface added to one and not the other is a bug nobody would see
+ * until a reviewer turned dark mode on.
+ */
+const NAV_SURFACES = ["appTheme", "navTheme", "headerTheme"] as const;
+
+/**
+ * Forces the nav's surfaces to light unless dark mode is switched on.
+ *
+ * Applied to the MERGED theme rather than to each setter, so it holds however
+ * the value got there — the prototype panel, an account override, a stored
+ * profile, or a future caller nobody has written yet. A setter-side guard would
+ * have to be remembered at each of those.
+ */
+function pinLight(theme: ThemeState): ThemeState {
+  if (theme.darkMode) return theme;
+  return { ...theme, appTheme: "light", navTheme: "light", headerTheme: "light" };
+}
+
+/** An account override with its surface choices removed. See accountThemeFor. */
+function stripSurfaces(override: AccountTheme): AccountTheme {
+  const rest = { ...override };
+  for (const key of NAV_SURFACES) delete rest[key];
+  return rest;
+}
+
 function stripCustom(override: AccountTheme): Partial<ThemeState> {
   const rest = { ...override };
   delete rest.customAccent;

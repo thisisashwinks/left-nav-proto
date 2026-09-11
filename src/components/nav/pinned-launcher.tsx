@@ -147,6 +147,23 @@ export function PinnedLauncher({
   const split = productDirectoryRow;
   const showKept = variant === "merged" && mergedPanel;
   const showCatalogue = variant === "directory" || !split;
+  /*
+   * One panel, two corpora, a switcher between them.
+   *
+   * With the directory row gone from the sidebar, this panel is once again the
+   * only way to the catalogue — and stacking the catalogue UNDER the history,
+   * as the combined panel used to, meant the tree started a scroll and a half
+   * down a list whose top ten rows were a different question entirely. Tabs put
+   * the two at the same altitude: the panel is "where do I go", and you pick
+   * whether you are going back somewhere or looking something up.
+   *
+   * Pinned stays out of it, above the switcher. It is what you keep, it is
+   * capped at five rows, and it is the reason most people open this panel at
+   * all — tabbing it away behind a choice would hide the shortest list here
+   * behind the two longest.
+   */
+  const tabbed = showKept && showCatalogue && !agencyScope;
+  const [tab, setTab] = React.useState<"recent" | "directory">("recent");
   const [query, setQuery] = React.useState("");
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
@@ -350,11 +367,38 @@ export function PinnedLauncher({
    * The directory keeps the whole index, which is what it is for.
    */
   const keptIds = showKept ? [...pinnedIds, ...recentIds] : [];
+  /*
+   * In tabbed mode the field belongs to the TAB, not to the panel.
+   *
+   * A single field over a switcher would have to search both halves at once,
+   * and then a hit could be in the half you are not looking at — which is the
+   * one thing tabs are supposed to make impossible. So Recents searches the
+   * history and the directory searches the catalogue, and switching tabs
+   * empties the field rather than carrying a query across to a corpus it was
+   * never asked about.
+   */
   const hits = !searching
     ? []
-    : showKept && !showCatalogue
-      ? searchHits(layout, groups, q, new Set(keptIds))
-      : searchHits(layout, groups, q);
+    : tabbed
+      ? tab === "recent"
+        ? /*
+             Filtered from the recents list itself, not walked out of the
+             catalogue and filtered down to it.
+ 
+             The walk is what gives a directory hit its "in Contacts" trail, and
+             it visits every product and every page to do it — so scoping it to
+             the history meant the corpus was right but the reach was the whole
+             tree, and a page you have never opened could still surface because
+             its PARENT was recent. Recents is a flat list of rows you can see;
+             searching it is that list, minus what does not match.
+           */
+          recentIds
+            .filter((id) => layout.productLabelFor(id).toLowerCase().includes(q))
+            .map((id) => ({ id, context: "", rank: 0 }))
+        : searchHits(layout, groups, q)
+      : showKept && !showCatalogue
+        ? searchHits(layout, groups, q, new Set(keptIds))
+        : searchHits(layout, groups, q);
 
   /*
    * The field follows the errand, not just the contents.
@@ -370,7 +414,7 @@ export function PinnedLauncher({
    * answering for the catalogue too.
    */
   const showSearch =
-    variant === "directory" || !mergedPanel || mergedPanelSearch;
+    tabbed || variant === "directory" || !mergedPanel || mergedPanelSearch;
 
   /**
    * What the field promises, which has to be what it delivers.
@@ -378,8 +422,119 @@ export function PinnedLauncher({
    * "Search products" over a panel holding pins and history is a promise about
    * a corpus that is one panel away — see `hits`.
    */
-  const searchScopeLabel =
-    showKept && !showCatalogue ? "Search pinned and recent" : "Search products";
+  const recentLabel = PANEL_RECENT_HEADING_LABELS[panelRecentHeading];
+  const searchScopeLabel = tabbed
+    ? tab === "recent"
+      ? `Search ${recentLabel.toLowerCase()}`
+      : "Search products"
+    : showKept && !showCatalogue
+      ? "Search pinned and recent"
+      : "Search products";
+
+  const switchTab = (next: "recent" | "directory") => {
+    setTab(next);
+    setQuery("");
+  };
+
+  /*
+   * Pinned, as a value rather than inline JSX: it is drawn in two places now —
+   * in the scrolling list when the panel is one stack, and above the switcher
+   * when it is tabbed — and two copies would be two things to keep in step.
+   */
+  const pinnedSection = !showKept ? null : pinnedIds.length > 0 ? (
+    <>
+      <SectionHeading count={state.pinned.length}>Pinned</SectionHeading>
+      {agencyScope ? <PinnedScopeNote /> : null}
+      {pinnedIds.map((id) => {
+        const index = state.pinned.indexOf(id);
+        return (
+          <ProductRow
+            key={`pin-${id}`}
+            productId={id}
+            gripReplacesIcon
+            reorder={{
+              onUp: () => layout.movePin(index, index - 1),
+              onDown: () => layout.movePin(index, index + 1),
+              upDisabled: index === 0,
+              downDisabled: index === state.pinned.length - 1,
+            }}
+            drag={{
+              key: `pin:${index}`,
+              onDrop: (from) => {
+                const fromIndex = Number(from.split(":")[1]);
+                if (!Number.isNaN(fromIndex)) layout.movePin(fromIndex, index);
+              },
+            }}
+          />
+        );
+      })}
+    </>
+  ) : state.pinned.length === 0 ? (
+    // Only when there are genuinely none — a filter that hides them all
+    // is not an empty pin list, so it drops the section instead.
+    <>
+      <SectionHeading>Pinned</SectionHeading>
+      {agencyScope ? <PinnedScopeNote /> : null}
+      <p className="w-full px-[2px] pb-[4px] text-[12.5px] leading-[17px] text-nav-fg-subtle">
+        No pinned items yet. Pin anything below and it appears at the top of the
+        nav.
+      </p>
+    </>
+  ) : null;
+
+  /** The catalogue as the manage list — grips, nudges, renames, icons. */
+  const catalogueEditList = visibleGroups.map(
+    ({ group, productIds }, groupIndex) => (
+      <React.Fragment key={group.id}>
+        <GroupHeader
+          group={group}
+          index={groupIndex}
+          groupCount={groups.length}
+          renaming={renamingId === group.id}
+          {...(editable
+            ? {
+                onStartRename: () => setRenamingId(group.id),
+                onPickIcon: (el: HTMLElement) => picker.open(group.id, el),
+              }
+            : {})}
+          onEndRename={() => setRenamingId(null)}
+        />
+        {productIds.map((id, i) => (
+          <ProductRow
+            key={`${group.id}-${id}`}
+            productId={id}
+            renaming={renamingId === `${group.id}:${id}`}
+            {...(editable
+              ? {
+                  onStartRename: () => setRenamingId(`${group.id}:${id}`),
+                  onPickIcon: (el: HTMLElement) => picker.open(id, el),
+                }
+              : {})}
+            onEndRename={() => setRenamingId(null)}
+            {...(reorderable
+              ? {
+                  reorder: {
+                    onUp: () => nudge(layout, groups, group, i, -1),
+                    onDown: () => nudge(layout, groups, group, i, 1),
+                    // Never disabled in custom mode: at a boundary the nudge
+                    // crosses into the neighbouring group instead of stopping,
+                    // which is what makes the whole list one axis.
+                    upDisabled: groupIndex === 0 && i === 0,
+                    downDisabled:
+                      groupIndex === groups.length - 1 &&
+                      i === productIds.length - 1,
+                  },
+                  drag: {
+                    key: `${group.id}:${i}`,
+                    onDrop: (from) => dropInto(layout, from, group, i),
+                  },
+                }
+              : {})}
+          />
+        ))}
+      </React.Fragment>
+    ),
+  );
 
   return (
     <>
@@ -466,8 +621,68 @@ export function PinnedLauncher({
           the first section heading clear of the title. Widening it there would
           have moved both at once; this keeps the two independently tunable.
         */}
+        {/*
+          Pinned and the switcher sit ABOVE the scroll, not in it.
+
+          The field belongs to the tab it searches, so it has to be below the
+          switcher; and a switcher that scrolls away leaves a filtered list with
+          nothing on screen saying which half you are filtering. Pinned comes up
+          here with them because it is capped at five rows — a bounded block can
+          hold the head of the panel, where an unbounded one could not.
+        */}
+        {tabbed ? (
+          <div className="flex w-full shrink-0 flex-col px-[14px]">
+            <div className="flex w-full flex-col gap-[var(--t-nav-space,2px)]">
+              {pinnedSection}
+            </div>
+            {/*
+              A rule, because the switcher is not a third thing in the pin list.
+
+              Butted straight against the last pinned row it read as another
+              row — same width, same inset, 12px of air doing all the work of
+              saying "this governs what comes BELOW, not what is above". The
+              rule is the same one SectionHeading draws between sections, which
+              is what this boundary actually is.
+            */}
+            <div
+              aria-hidden="true"
+              className="mt-[14px] h-px w-full bg-[var(--nav-divider)]"
+            />
+            <div
+              role="tablist"
+              aria-label="What to browse"
+              className="mt-[14px] flex w-full items-center gap-[2px] rounded-[9px] p-[2px] shadow-[inset_0_0_0_1px_var(--nav-divider)]"
+            >
+              <PanelTab
+                label={recentLabel}
+                selected={tab === "recent"}
+                onSelect={() => switchTab("recent")}
+              />
+              <PanelTab
+                label="Product directory"
+                selected={tab === "directory"}
+                onSelect={() => switchTab("directory")}
+              />
+            </div>
+          </div>
+        ) : null}
+
         {showSearch ? (
-        <div className="mx-[14px] mt-[2px] flex h-[36px] w-[calc(100%-28px)] shrink-0 items-center gap-[9px] rounded-[9px] px-[10px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
+        <div
+          className={cn(
+            "mx-[14px] flex h-[36px] w-[calc(100%-28px)] shrink-0 items-center gap-[9px] rounded-[9px] px-[10px] shadow-[inset_0_0_0_1px_var(--nav-divider)]",
+            /*
+              2px under a HEADER, 10px under the switcher.
+
+              The tight figure is for a field following the panel title, where
+              the two are one block. Under the switcher they are two controls —
+              a choice, then a query about what was chosen — and at 2px the
+              pair fused into one stacked widget with no reading of which
+              governs which.
+            */
+            tabbed ? "mt-[10px]" : "mt-[2px]",
+          )}
+        >
           <Search size={16} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
           <input
             ref={inputRef}
@@ -545,6 +760,48 @@ export function PinnedLauncher({
             rowFor={agencyRow}
             onMovePin={agency.movePin}
           />
+        ) : tabbed ? (
+          /*
+            Only the tab's own body scrolls — pinned, the switcher and the
+            field are the panel's head. Each half answers its own query, and
+            neither carries a heading: the selected tab is the heading.
+          */
+          searching ? (
+            hits.length > 0 ? (
+              hits.map((hit) => (
+                <SearchRow key={hit.id} productId={hit.id} context={hit.context} />
+              ))
+            ) : (
+              <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
+                {tab === "recent"
+                  ? `Nothing in ${recentLabel.toLowerCase()} matches “${query}”`
+                  : `No products match “${query}”`}
+              </p>
+            )
+          ) : tab === "recent" ? (
+            recentIds.length > 0 ? (
+              recentIds.map((id) => (
+                <ProductRow key={`recent-${id}`} productId={id} />
+              ))
+            ) : (
+              <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
+                Nothing here yet. Products you open show up in this list.
+              </p>
+            )
+          ) : editing ? (
+            catalogueEditList
+          ) : (
+            /*
+              Inline, always, in this arrangement.
+
+              The cascade hangs a panel off a panel that is itself hanging off
+              the nav — three surfaces deep, with the third covering the second
+              — and the directory's whole job is to SHOW the nesting. Reached
+              from its own standing row that trade was arguable; reached from a
+              tab inside the recents panel it is not.
+            */
+            <DirectoryTree groups={visibleGroups} theme={theme} disclosure="inline" />
+          )
         ) : searching ? (
           hits.length > 0 ? (
             hits.map((hit) => (
@@ -711,7 +968,11 @@ export function PinnedLauncher({
           all, so a group created there would appear in a panel you are not
           looking at.
         */}
-        {showCatalogue && editing && can.customise && !q ? (
+        {showCatalogue &&
+        editing &&
+        can.customise &&
+        !q &&
+        (!tabbed || tab === "directory") ? (
           <div className="mx-[14px] mt-[6px] w-[calc(100%-28px)] shrink-0 pt-[12px] shadow-[inset_0_1px_0_0_var(--nav-divider)]">
             {creating ? (
               <div className="flex w-full items-center gap-[10px] rounded-[9px] px-[8px] py-[8px]">
@@ -1502,6 +1763,40 @@ function AgencyPanelBody({
   );
 }
 
+/**
+ * One half of the panel's switcher.
+ *
+ * A segmented control rather than underlined tabs: the two halves are peers
+ * you toggle between, not sections of a document you page through, and the
+ * track makes the pair read as one control sitting over the field it governs.
+ */
+function PanelTab({
+  label,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={selected}
+      onClick={onSelect}
+      className={cn(
+        "motion-tap flex h-[28px] min-w-0 flex-1 items-center justify-center rounded-[7px] px-[8px] text-[13px] leading-[normal] whitespace-nowrap",
+        selected
+          ? "bg-nav-hover font-medium text-nav-fg"
+          : "text-nav-fg-subtle hover:text-nav-fg-muted",
+      )}
+    >
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
 function TinyButton({
   label,
   disabled = false,
@@ -1577,9 +1872,20 @@ function PinnedScopeNote() {
 function DirectoryTree({
   groups,
   theme,
+  disclosure,
 }: {
   groups: DirectoryBranch[];
   theme: SurfaceTheme;
+  /**
+   * Overrides the nav's own L3 axis for this tree.
+   *
+   * The default is still `l3Disclosure` — a directory that cascaded while the
+   * rest of the nav disclosed in place would be two answers to one question.
+   * The override exists for the one caller that cannot cascade whatever the
+   * axis says: the tree inside the recents panel, which is already a panel off
+   * a panel. See the tabbed body.
+   */
+  disclosure?: "inline" | "cascade";
 }) {
   const layout = useNavLayout();
   /*
@@ -1594,6 +1900,7 @@ function DirectoryTree({
    * answers to them.
    */
   const { l3Disclosure, flyoutTrigger } = useTheme().effective;
+  const inline = (disclosure ?? l3Disclosure) === "inline";
   const [openGroup, setOpenGroup] = React.useState<string | null>(null);
   /*
    * The same dwell every other panel-to-the-right in this nav uses.
@@ -1674,14 +1981,15 @@ function DirectoryTree({
     flyoutTrigger === "hover" ||
     (flyoutTrigger === "sticky" && levels.length > depth);
 
-  if (l3Disclosure === "inline") {
+  if (inline) {
     return (
       <>
-        {groups.map(({ group, productIds }) => (
+        {groups.map(({ group, productIds, rows }) => (
           <DirectoryGroup
             key={group.id}
             group={group}
             productIds={productIds}
+            {...(rows ? { rows } : {})}
             open={openGroup === group.id}
             onToggle={() =>
               setOpenGroup((current) =>
@@ -1838,23 +2146,41 @@ interface DirectoryEntry {
 function DirectoryGroup({
   group,
   productIds,
+  rows,
   open,
   onToggle,
 }: {
   group: ResolvedGroup;
   productIds: string[];
+  /**
+   * Stated children, for a branch the catalogue does not own.
+   *
+   * Desktop and mobile apps is the only one: its two rows are nav chrome, so
+   * there are no product ids to resolve. Without this the inline tree drew the
+   * branch and then nothing under it — the cascade had the escape hatch and
+   * this half did not.
+   */
+  rows?: DirectoryEntry[];
   open: boolean;
   onToggle: () => void;
 }) {
   const layout = useNavLayout();
   const Icon = group.icon;
   const [openProduct, setOpenProduct] = React.useState<string | null>(null);
+  const entries: DirectoryEntry[] =
+    rows ??
+    productIds.map((id) => ({
+      id,
+      label: layout.productLabelFor(id),
+      icon: layout.productIconFor(id),
+      pages: childrenOfProduct(id),
+    }));
 
   return (
     <div className="flex w-full shrink-0 flex-col">
       <DirectoryRow
         label={group.label}
-        count={productIds.length}
+        count={entries.length}
         open={open}
         onToggle={onToggle}
         icon={<Icon size={16} aria-hidden="true" />}
@@ -1867,22 +2193,21 @@ function DirectoryGroup({
           nested rows take, for the same reason.
         */
         <div className="motion-menu-in mt-[2px] flex flex-col gap-[2px] pl-[26px]">
-          {productIds.map((id) => {
-            const kids = childrenOfProduct(id);
-            return (
-              <DirectoryProduct
-                key={id}
-                productId={id}
-                label={layout.productLabelFor(id)}
-                icon={layout.productIconFor(id)}
-                pages={kids}
-                open={openProduct === id}
-                onToggle={() =>
-                  setOpenProduct((current) => (current === id ? null : id))
-                }
-              />
-            );
-          })}
+          {entries.map((entry) => (
+            <DirectoryProduct
+              key={entry.id}
+              productId={entry.id}
+              label={entry.label}
+              icon={entry.icon}
+              pages={entry.pages}
+              open={openProduct === entry.id}
+              onToggle={() =>
+                setOpenProduct((current) =>
+                  current === entry.id ? null : entry.id,
+                )
+              }
+            />
+          ))}
         </div>
       ) : null}
     </div>
@@ -1981,7 +2306,12 @@ function DirectoryRow({
     useTruncationTitle<HTMLSpanElement>(label);
   const pinnable =
     pinFor !== undefined &&
-    (productById(pinFor) !== undefined || childById(pinFor) !== undefined);
+    (productById(pinFor) !== undefined ||
+      childById(pinFor) !== undefined ||
+      // The companion-app rows: nav chrome the catalogue has never heard of,
+      // and pinnable everywhere else in the nav. Without this the directory
+      // was the one surface that listed them and refused to pin them.
+      isChromePlace(pinFor));
 
   const inner = (
     <>
