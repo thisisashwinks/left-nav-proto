@@ -111,7 +111,7 @@ import {
   useNavTemplates,
   type NavTemplate,
 } from "./nav-templates";
-import { TemplatePushCard, TemplateNoticeCard, type TemplatePush } from "./template-push-card";
+import { TemplateNoticeCard } from "./template-push-card";
 import {
   TemplateMessage,
   TemplateMessageActions,
@@ -463,7 +463,7 @@ export function LeftNav({
    * the template back on the account it came from makes the two agree from the
    * first press.
    */
-  const putOnAccount = (tpl: NavTemplate) => {
+  const putOnAccount = (tpl: NavTemplate, opts?: { silent?: boolean }) => {
     /*
      * The link's base is what LANDED, not what the template holds.
      *
@@ -474,7 +474,7 @@ export function LeftNav({
      * the opposite of what that button is for.
      */
     const applied = patchForArrangement(tpl.arrangement, state);
-    layout.applyArrangement(tpl.name, applied);
+    layout.applyArrangement(tpl.name, applied, opts);
     templates.link(account.id, tpl.id, applied);
   };
 
@@ -486,7 +486,6 @@ export function LeftNav({
    * the most invisible. One card, once, naming the blast radius and the
    * accounts whose own tuning it had to work around.
    */
-  const [pushReport, setPushReport] = React.useState<TemplatePush | null>(null);
   /** Whatever a push left here for whoever opened this account next. */
   const notice = templates.noticeFor(account.id);
   /**
@@ -526,21 +525,31 @@ export function LeftNav({
     const before = templates.templates.find((t) => t.id === id);
     const tpl = templates.update(id, account.name, state);
     if (!tpl || !before) return;
-    putOnAccount(tpl);
+    // Same: a save captures this account's own arrangement back onto the
+    // template it is already on.
+    putOnAccount(tpl, { silent: true });
+    const others =
+      templatePropagation === "managed"
+        ? templates
+            .accountsOnIds(id)
+            .filter((accountId) => accountId !== account.id)
+        : [];
     /*
-      Said whichever way the propagation axis is set.
+      One line, like every other confirmation in the feature.
 
-      On `managed` the push report below carries the detail, but it only
-      appears when other accounts were actually touched — so a save that moved
-      nobody used to be completely silent, which is the case a person is most
-      likely to be unsure about.
+      This used to raise a report card as well — the version, the account
+      count, and a bullet list of every product added, removed and regrouped.
+      It was the only message in the product shaped like that, it arrived
+      whether or not anything was worth reading, and at its worst it said "No
+      visible change to the arrangement" in four lines. The count is the fact
+      that decides whether the save went where it was meant to; the rest was
+      detail nobody was waiting on.
     */
-    templates.notify(`Saved ${tpl.name} as v${tpl.version}`);
-    if (templatePropagation !== "managed") return;
-
-    const others = templates
-      .accountsOnIds(id)
-      .filter((accountId) => accountId !== account.id);
+    templates.notify(
+      others.length === 0
+        ? `Saved ${tpl.name} as v${tpl.version}`
+        : `Saved ${tpl.name} as v${tpl.version} — ${others.length} other ${others.length === 1 ? "account" : "accounts"} updated`,
+    );
     if (others.length === 0) return;
 
     const changes = describeChanges(before.arrangement, tpl.arrangement);
@@ -561,19 +570,20 @@ export function LeftNav({
       // delta is measured from here — from what landed, so it starts at zero.
       templates.link(accountId, id, applied);
     }
+    /*
+      The per-account notice still gets the change list.
+
+      That one is read by somebody whose nav moved without them touching it, so
+      "what changed" is the whole question — where on the agency's side it was
+      a receipt for work they had just done deliberately. Gated separately; see
+      `templatePushNotice`.
+    */
     templates.markPushed(
       others.map((accountId) => ({ accountId, kept: kept.includes(accountId) })),
       tpl.name,
       tpl.version,
       changes,
     );
-    setPushReport({
-      name: tpl.name,
-      version: tpl.version,
-      accounts: others.length,
-      kept: kept.length,
-      changes,
-    });
   };
   const [agencyRenaming, setAgencyRenaming] = React.useState<string | null>(null);
   const menu = useRowMenu();
@@ -1475,7 +1485,9 @@ export function LeftNav({
           onCreateTemplate: (name: string) => {
             const tpl = templates.save(name, account.name, state);
             if (!tpl) return;
-            putOnAccount(tpl);
+            // Silent: the arrangement came FROM here, so nothing moved and
+            // there is nothing to undo. See applyArrangement.
+            putOnAccount(tpl, { silent: true });
             templates.notify(`Created ${tpl.name} — ${account.name} is on it`);
           },
           onUpdateTemplate: saveTemplate,
@@ -2490,9 +2502,6 @@ export function LeftNav({
           }}
           onClose={() => setTemplatesAt(null)}
         />
-      ) : null}
-      {pushReport ? (
-        <TemplatePushCard push={pushReport} onClose={() => setPushReport(null)} />
       ) : null}
       {wall ? (
         <PlanWall

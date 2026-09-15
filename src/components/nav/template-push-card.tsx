@@ -1,151 +1,26 @@
 "use client";
 
 import * as React from "react";
-import { createPortal } from "react-dom";
 import { LayoutTemplate, X } from "lucide-react";
-import { useTheme } from "@/components/theme/theme-provider";
-import { cn } from "@/lib/utils";
-import { useNavRight } from "./template-message";
 
 /**
- * The two halves of telling someone a template moved.
+ * Telling a sub-account that its navigation moved without it.
  *
  * A managed template is the only thing in the nav whose edit lands somewhere
- * the editor is not standing. Fifty navs change, and every piece of evidence
- * for it is in fifty places the agency is not looking — so without these two
- * cards the loudest act in the feature is also its most invisible one, and the
- * first anyone hears of it is a client asking why their sidebar moved.
+ * the editor is not standing: fifty navs change, and the first anyone in those
+ * accounts hears of it is their sidebar being different.
  *
- * So it is said twice, to two different readers, at the two moments each of
- * them can act on it:
+ * This used to be one of a pair. The other went to the AGENCY at the instant
+ * they pressed save — the version, the account count, and a bullet list of
+ * every product added, removed and regrouped. That one is gone (Sep 15): a
+ * receipt for work you have just done deliberately does not need five lines,
+ * and the save now says what it reached in one, like every other confirmation
+ * in the feature.
  *
- *   PushCard    to the agency, at the instant they press save. What it reached,
- *               and which accounts it had to work around. Read once, dismissed.
- *   NoticeCard  in each account the push touched, whenever it is next opened.
- *               Beside the nav that changed, which is the only place the news
- *               is checkable against the thing it is about.
- *
- * Neither of them blocks. The nav rearranged; nobody's work should stop for
- * that, and a modal fired at fifty accounts is fifty support tickets.
- */
-export interface TemplatePush {
-  name: string;
-  version: number;
-  /** How many other accounts it reached. */
-  accounts: number;
-  /** How many of those had their own tuning preserved through the merge. */
-  kept: number;
-  changes: readonly string[];
-}
-
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
-
-/** What just happened, to the person who caused it. */
-export function TemplatePushCard({
-  push,
-  onClose,
-}: {
-  push: TemplatePush;
-  onClose: () => void;
-}) {
-  const { templateMessagePlacement } = useTheme().effective;
-  const navRight = useNavRight();
-  // A finished report is a notice, so `by-kind` puts it on the nav with the
-  // other notices — see TemplateMessage for the kinds.
-  const onNav = templateMessagePlacement !== "centred";
-  return createPortal(
-    <div
-      role="status"
-      /*
-       * Dark whatever the nav is wearing, and top centre rather than bottom.
-       *
-       * Every other floating surface here follows the nav's theme because it
-       * belongs to the nav — a menu, a picker, a flyout. This one does not: it
-       * reports on work that has just left this account for six others, and it
-       * is the only notice in the product that is about somewhere else. Holding
-       * one appearance is what separates a report from another panel, and dark
-       * reads as system-level against both nav themes rather than dissolving
-       * into the light one.
-       *
-       * Top centre for the same reason. The bottom edge belongs to the nav's
-       * own foot — the edit card, the undo offers — so a push landing there
-       * queued up behind the controls that caused it, in the corner the eye had
-       * just left. The top is empty and is where the canvas is looked at.
-       */
-      data-nav-theme="dark"
-      /*
-        Placed by the shared rule now, not by this file.
-        
-        Top-centre was the right answer to "where does a report go" asked in
-        isolation — and asking it in isolation is how the feature ended up with
-        four messages in four coordinate systems. `by-kind` still lands a
-        finished report off the nav rather than over the canvas; the axis is
-        what lets the other two answers be seen. See TEMPLATE_MESSAGE_PLACEMENTS.
-      */
-      style={
-        onNav ? { left: navRight + 12, bottom: 74 } : { top: 16, left: "50%" }
-      }
-      className={cn(
-        "motion-panel-in fixed z-[80] w-[360px] rounded-[10px] bg-nav p-[12px] shadow-[0_16px_40px_0_var(--fly-shadow),inset_0_0_0_1px_var(--fly-border)]",
-        !onNav && "-translate-x-1/2",
-      )}
-    >
-      <div className="flex items-start gap-[9px]">
-        <LayoutTemplate
-          size={15}
-          aria-hidden="true"
-          className="mt-[2px] shrink-0 text-nav-fg-subtle"
-        />
-        <div className="min-w-0 flex-1">
-          <p className="text-[13px] leading-[18px] font-medium text-nav-fg">
-            {push.name} saved as v{push.version}
-          </p>
-          <p className="mt-[1px] text-[12px] leading-[16px] text-nav-fg-subtle">
-            {/*
-              The blast radius first, and in accounts rather than a percentage:
-              the number a person checks against what they thought they were
-              doing is "how many navs did I just move".
-            */}
-            Updated {plural(push.accounts, "other account")}.
-            {push.kept > 0
-              ? ` ${plural(push.kept, "account")} kept their own changes.`
-              : ""}
-          </p>
-          <ul className="mt-[8px] flex flex-col gap-[3px]">
-            {push.changes.map((line) => (
-              <li
-                key={line}
-                className="flex gap-[6px] text-[12px] leading-[16px] text-nav-fg-muted"
-              >
-                <span aria-hidden="true" className="text-nav-fg-subtle">
-                  ·
-                </span>
-                <span className="min-w-0">{line}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Dismiss"
-          className="motion-tap -mt-[2px] -mr-[2px] flex size-[24px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
-        >
-          <X size={14} aria-hidden="true" />
-        </button>
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
-/**
- * What happened here, to whoever opens this account next.
- *
- * Inline in the nav rather than a toast, and that is the point: it sits against
- * the list it is describing, so "moved Reporting into Growth" can be checked by
- * looking down. A toast would have floated over the canvas, which is the one
- * part of the screen the news is not about.
+ * This half stays, because its reader is in the opposite position — they did
+ * not do this, and "what changed" is the whole question rather than a detail.
+ * It does not block: the nav rearranged, and a modal fired at fifty accounts is
+ * fifty support tickets. Off unless asked for; see `templatePushNotice`.
  */
 export function TemplateNoticeCard({
   templateName,

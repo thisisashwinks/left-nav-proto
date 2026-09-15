@@ -266,7 +266,20 @@ interface NavLayoutContextValue {
    * decision — an undo that peeled it back a group at a time would be worse
    * than no undo.
    */
-  applyArrangement: (label: string, patch: Partial<NavLayoutState>) => void;
+  /**
+   * Land a template's arrangement, and offer to take it back.
+   *
+   * `silent` skips the undo offer, for the one caller where there is nothing to
+   * take back: creating a template captures THIS account's arrangement and then
+   * links the account to it, so the "change" is the account landing on a copy
+   * of what it already had. An undo toast for that says "Applied X" about a nav
+   * that did not move, next to the toast that says what actually happened.
+   */
+  applyArrangement: (
+    label: string,
+    patch: Partial<NavLayoutState>,
+    opts?: { silent?: boolean },
+  ) => void;
   isDefaultLayout: boolean;
 
   undoOffer: UndoOffer | null;
@@ -1439,8 +1452,10 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       },
       editDirty: store.editDirty,
 
-      applyArrangement: (label, patch) =>
-        commit(`Applied ${label}`, (s) => ({ ...s, ...patch })),
+      applyArrangement: (label, patch, opts) =>
+        commit(`Applied ${label}`, (s) => ({ ...s, ...patch }), {
+          ...(opts?.silent ? { silent: true } : {}),
+        }),
       showDefaultLayout: () => dispatch({ type: "showDefault", base }),
       restoreOwnLayout: () => dispatch({ type: "restoreOwn" }),
       adoptDefaultLayout: () => dispatch({ type: "adoptDefault" }),
