@@ -158,7 +158,7 @@ const SWITCHER_EXIT_MS = 140;
 const LAUNCHER_ID = "launcher";
 
 /**
- * The product directory: the same panel component, a different half of it.
+ * All products: the same panel component, a different half of it.
  *
  * Its own id rather than a flag, because the panel is opened through the same
  * hover intent every flyout uses — one panel at a time, with the same grace

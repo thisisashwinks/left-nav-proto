@@ -67,7 +67,7 @@ interface CollapsedRailProps {
   /** Opens the manage surface — the floor tier's stand-in for the capsule. */
   onOpenLauncher: () => void;
   /**
-   * Opens the product directory — the catalogue, on its own.
+   * Opens All products — the catalogue, on its own.
    *
    * A second callback rather than a flag on the first: the two doors lead to
    * different halves of one panel, and a row that said "directory" while
@@ -645,7 +645,7 @@ export function CollapsedRail({
           {productDirectoryRow && !agencyScope
             ? railButton(
                 "product-directory",
-                "Product directory",
+                "All products",
                 <LayoutGrid size={16} aria-hidden="true" />,
                 false,
                 onOpenDirectory,

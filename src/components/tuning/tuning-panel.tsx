@@ -2020,7 +2020,7 @@ export function TuningPanel() {
           </Note>
 
           {/*
-            A second door to the product directory, off by default.
+            A second door to All products, off by default.
 
             The panel already opens from "View all" on the merged block, which
             is where you are looking when you want more of the list. This asks
@@ -2055,21 +2055,21 @@ export function TuningPanel() {
           />
           <Note>
             {recentsPanelLayout === "pinned-first"
-              ? "Pinned as its own block above the switcher, then the tabs, then the tab's own search. What shipped — and the reason the panel has unswitched content sitting above its own switcher."
+              ? "Pinned as its own block above the switcher, then the tabs. Recently visited is short and unsearched; All products carries the field, because it is the list long enough to need one."
               : recentsPanelLayout === "tabs-top"
-                ? "The switcher goes to the top, under the title, and the pins fold into the visited list as one run — pinned rows first, wearing their pin mark, no heading and no divider. Each tab keeps its own search."
-                : "No switcher. The combined list runs first, capped at 8 with View all, and the directory sits under it with its own search. The list above it is not searchable — it is short enough to read."}
+                ? "The switcher goes to the top, under the title, and the pins fold into the visited list as one run — pinned rows first, wearing their pin mark, no heading and no divider. Only All products carries a search."
+                : "No switcher. The combined list runs first, capped at 8 with View all, and All products sits under it with its own search. The list above it is not searchable — it is short enough to read."}
           </Note>
 
           <Toggle
-            label="Product directory"
+            label="All products"
             checked={productDirectoryRow}
             onChange={setProductDirectoryRow}
           />
           <Note>
             {productDirectoryRow
               ? "Its own place: a standing row above Settings opens the catalogue as an L1 ▸ L2 ▸ L3 tree, and View all keeps only Pinned and Recent."
-              : "No standing row. View all keeps Pinned, then a Recents / Product directory switcher — each half with its own search, the directory as an inline L1 ▸ L2 ▸ L3 tree."}
+              : "No standing row. View all keeps Pinned, then a Recents / All products switcher — the catalogue carrying its own search, as an inline L1 ▸ L2 ▸ L3 tree."}
           </Note>
 
           <Segmented

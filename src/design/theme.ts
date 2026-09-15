@@ -447,7 +447,7 @@ export const AGENCY_SEARCH_DEFAULT = false;
  * touched by this.
  */
 /**
- * How the product directory opens a level.
+ * How All products opens a level.
  *
  *  flyout  Cascading panels off the directory's edge — L1's products in one,
  *          an L2's pages in the next. The default, and the same three-level
@@ -460,7 +460,7 @@ export const AGENCY_SEARCH_DEFAULT = false;
  *          argument against.
  */
 /*
- * The product directory used to carry its own disclosure axis here.
+ * All products used to carry its own disclosure axis here.
  *
  * Removed (Sep 10): it asked the same question `l3Disclosure` asks — does a
  * level open beside its parent or under it — and having both meant the
@@ -504,7 +504,7 @@ export type RecentsPanelLayout = (typeof RECENTS_PANEL_LAYOUTS)[number];
 export const RECENTS_PANEL_LAYOUT_LABELS: Record<RecentsPanelLayout, string> = {
   "pinned-first": "Pinned above tabs",
   "tabs-top": "Tabs on top",
-  stacked: "Directory below",
+  stacked: "All products below",
 };
 
 export const LEGACY_FOOT_CONTROLS = ["off", "menu", "pills"] as const;
@@ -1414,7 +1414,7 @@ export interface ThemeState {
   /** Which colour control the edit card carries. See NAV_COLOUR_CONTROLS. */
   navColourControl: NavColourControl;
   /**
-   * The product directory as a place of its own, reached from a standing row.
+   * All products as a place of its own, reached from a standing row.
    *
    * This started as a second door to one panel, and two doors to one place was
    * the cost it was weighed against. On (Sep 9) it is no longer one place: the
@@ -1705,9 +1705,10 @@ export const DEFAULT_THEME: ThemeState = {
    * holds only Pinned and Recent.
    */
   productDirectoryRow: false,
-  // Tabs on top: the switcher governs the whole body, so the panel stops
-  // having unswitched content sitting above its own switcher.
-  recentsPanelLayout: "tabs-top",
+  // Pinned above the tabs (Sep 15). It is the shortest list in the panel and
+  // the reason most people open it, so it is the one thing held out of the
+  // choice rather than sitting behind a tab with ninety products.
+  recentsPanelLayout: "pinned-first",
   // On, for the same reason: the comparison should be one menu away.
   layoutSwitchInEditCard: true,
   // Production's own default, and the state both source screenshots were in.

@@ -122,7 +122,7 @@ import type { NavConfig, NavEntry, NavItem } from "./types";
  */
 const PRODUCT_DIRECTORY_ITEM: NavItem = {
   id: "product-directory",
-  label: "Product directory",
+  label: "All products",
   icon: LayoutGrid,
   /*
    * The chevron, and it is not decoration.
@@ -206,7 +206,7 @@ interface LeftNavProps {
   /** Opens the manage surface — the floor tier's stand-in for the dock. */
   onOpenLauncher: () => void;
   /**
-   * Opens the product directory — the catalogue, on its own.
+   * Opens All products — the catalogue, on its own.
    *
    * A second callback rather than a flag on the first: the two doors lead to
    * different halves of one panel, and a row that said "directory" while
@@ -2266,7 +2266,7 @@ export function LeftNav({
               */}
               <NavDivider />
               {/*
-                A standing door to the product directory, when the axis offers it.
+                A standing door to All products, when the axis offers it.
 
                 Below the rule, with Settings and the app rows rather than above
                 it with the products: it is an affordance OVER the tree, not a

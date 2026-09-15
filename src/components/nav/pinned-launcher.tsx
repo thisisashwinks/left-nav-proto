@@ -57,7 +57,7 @@ import { ResolvedIcon } from "./resolved-icon";
 /**
  * How much of the combined list the stacked layout shows before "View all".
  *
- * Eight, which is the most that still leaves the Product directory heading and
+ * Eight, which is the most that still leaves the All products heading and
  * its field on screen without a scroll on a laptop — the one thing stacking the
  * catalogue underneath must not cost.
  */
@@ -109,7 +109,7 @@ export function PinnedLauncher({
    *
    * `merged` is the block's own surface, opened by "View all": what you keep
    * and where you have been. `directory` is the catalogue, opened by the
-   * standing Product directory row: everything the account has, arranged as the
+   * standing All products row: everything the account has, arranged as the
    * nav arranges it.
    *
    * One component because they share the shell, the search field and the row —
@@ -344,7 +344,7 @@ export function PinnedLauncher({
   const panelTitle =
     variant === "directory"
       ? // Named for the row that opens it, as the merged half is.
-        "Product directory"
+        "All products"
       : mergedPanel
         ? MERGED_HEADING_LABELS[mergedHeading]
         : "All products";
@@ -448,7 +448,7 @@ export function PinnedLauncher({
    *
    * Reached from "View all" this panel is the merged block's own surface: a pin
    * list and a bounded history, short enough to read, where a field promises a
-   * corpus that is one section further down. Reached from Product directory it
+   * corpus that is one section further down. Reached from All products it
    * IS that corpus — every product the account owns — and a list that long
    * without a query is just a scroll.
    *
@@ -456,8 +456,20 @@ export function PinnedLauncher({
    * that axis is a question about the recents surface, and it was silently
    * answering for the catalogue too.
    */
+  /*
+   * Recently visited carries no field; All products does.
+   *
+   * The two halves are not the same size. The history is a bounded list you
+   * read — the pins above it and a capped run of rows, all of it on screen —
+   * and a search box over something you can already see is a control with
+   * nothing to do. The catalogue is ninety rows and a query is the only
+   * sensible way in. So the field belongs to one tab and not the other, which
+   * also stops it reading as the PANEL's search and promising both corpora.
+   */
+  const searchableTab = !tabbed || tab === "directory";
   const showSearch =
     !stacked &&
+    searchableTab &&
     (tabbed || variant === "directory" || !mergedPanel || mergedPanelSearch);
 
   /**
@@ -467,18 +479,13 @@ export function PinnedLauncher({
    * a corpus that is one panel away — see `hits`.
    */
   const recentLabel = PANEL_RECENT_HEADING_LABELS[panelRecentHeading];
-  const searchScopeLabel = tabbed
-    ? tab === "recent"
-      ? pinnedAboveTabs
-        ? `Search ${recentLabel.toLowerCase()}`
-        : // The tab holds the pins too, so the field must say so.
-          "Search pinned and recent"
-      : "Search products"
-    : stacked
+  const searchScopeLabel =
+    // Tabbed, the only tab with a field is All products — see `searchableTab`.
+    tabbed || stacked
       ? "Search products"
-    : showKept && !showCatalogue
-      ? "Search pinned and recent"
-      : "Search products";
+      : showKept && !showCatalogue
+        ? "Search pinned and recent"
+        : "Search products";
 
   const switchTab = (next: "recent" | "directory") => {
     setTab(next);
@@ -717,7 +724,7 @@ export function PinnedLauncher({
                 onSelect={() => switchTab("recent")}
               />
               <PanelTab
-                label="Product directory"
+                label="All products"
                 selected={tab === "directory"}
                 onSelect={() => switchTab("directory")}
               />
@@ -894,7 +901,7 @@ export function PinnedLauncher({
               </button>
             ) : null}
 
-            <SectionHeading divider>Product directory</SectionHeading>
+            <SectionHeading divider>All products</SectionHeading>
             <div className="mt-[2px] mb-[6px] flex h-[36px] w-full shrink-0 items-center gap-[9px] rounded-[9px] px-[10px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
               <Search
                 size={16}
