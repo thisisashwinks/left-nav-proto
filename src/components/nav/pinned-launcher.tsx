@@ -2289,7 +2289,7 @@ function DirectoryGroup({
   /**
    * Stated children, for a branch the catalogue does not own.
    *
-   * Desktop and mobile apps is the only one: its two rows are nav chrome, so
+   * Desktop & mobile apps is the only one: its two rows are nav chrome, so
    * there are no product ids to resolve. Without this the inline tree drew the
    * branch and then nothing under it — the cascade had the escape hatch and
    * this half did not.

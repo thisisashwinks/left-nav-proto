@@ -13,12 +13,24 @@ import {
   PanelLeft,
   Save,
   Copy,
+  CopyPlus,
+  EllipsisVertical,
+  Trash2,
   FilePlus2,
   SquareMenu,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
+import {
+  TemplateMessage,
+  TemplateMessageActions,
+  TemplateMessageBody,
+  TemplateMessageButton,
+  TemplateMessageTitle,
+} from "./template-message";
+import { TemplateRowMenu } from "./template-row-menu";
+import { useNavLayout } from "./nav-layout-provider";
 import {
   NAV_GENERATIONS,
   NAV_GENERATION_LABELS,
@@ -127,14 +139,46 @@ export function EditMoreMenu({
    */
   const { navSwitchInEditCard, layoutSwitchInEditCard, navSwitchSurface } =
     effective;
-  const { templates, linkedFor, accountsOn, linkFor } = useNavTemplates();
+  const {
+    templates,
+    linkedFor,
+    accountsOn,
+    accountsOnIds,
+    linkFor,
+    remove,
+    rename,
+    notify,
+  } = useNavTemplates();
+  const { revertAccounts } = useNavLayout();
+  const { templateDeleteMode } = effective;
   const [view, setView] = React.useState<View>("root");
   const [draft, setDraft] = React.useState(`${accountName} nav`);
+  /** Which row's kebab is open, and the button it hangs off. */
+  const [menuFor, setMenuFor] = React.useState<string | null>(null);
+  const [menuAt, setMenuAt] = React.useState<HTMLElement | null>(null);
+  const [renamingId, setRenamingId] = React.useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = React.useState("");
+  /** The template a delete confirmation is open for. */
+  const [deleting, setDeleting] = React.useState<string | null>(null);
+  const deletingTemplate = deleting
+    ? (templates.find((t) => t.id === deleting) ?? null)
+    : null;
+  const onIt = deleting ? accountsOn(deleting) : 0;
   const { ref, top, left } = useAnchored(anchor, WIDTH, GAP);
 
   React.useEffect(() => {
     const away = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) onClose();
+      const target = e.target as Node;
+      if (ref.current?.contains(target)) return;
+      // The row menu is portalled out of this panel but belongs to it — see
+      // data-template-row-menu.
+      if (
+        target instanceof Element &&
+        target.closest("[data-template-row-menu], [data-template-message]")
+      ) {
+        return;
+      }
+      onClose();
     };
     const esc = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
@@ -182,30 +226,71 @@ export function EditMoreMenu({
               reuse on other accounts.
             </p>
           ) : (
-            templates.map((t) => (
+            templates.map((t) =>
               /*
-                The copy sits on the row it copies, revealed on hover, rather
-                than as a Duplicate view of its own that would ask you to pick
-                the template twice. Same gesture the templates panel uses for
-                delete — and deliberately beside it, because they are the two
-                things you can do to a template that are not "use it".
+                Renaming happens on the row, not in a dialog over it — the same
+                move the nav's own rows make. It is also the answer to the
+                question this started from: where do I fix "(copy)".
               */
-              <MenuRow
-                key={t.id}
-                icon={LayoutTemplate}
-                label={t.name}
-                note={`${t.builtIn ? "Preset" : `From ${t.fromAccount}`} · v${t.version} · ${accountsOn(t.id) === 0 ? "no accounts" : `${accountsOn(t.id)} ${accountsOn(t.id) === 1 ? "account" : "accounts"}`}`}
-                action={{
-                  icon: Copy,
-                  label: `Duplicate ${t.name}`,
-                  onSelect: () => onDuplicateTemplate(t.id),
-                }}
-                onSelect={() => {
-                  onApplyTemplate(t.id);
-                  onClose();
-                }}
-              />
-            ))
+              renamingId === t.id ? (
+                <input
+                  key={t.id}
+                  autoFocus
+                  value={renameDraft}
+                  onChange={(e) => setRenameDraft(e.target.value)}
+                  onBlur={() => {
+                    rename(t.id, renameDraft);
+                    if (renameDraft.trim() !== "" && renameDraft !== t.name) {
+                      notify(`Renamed to ${renameDraft.trim()}`);
+                    }
+                    setRenamingId(null);
+                  }}
+                  onKeyDown={(e) => {
+                    /*
+                      Enter blurs rather than committing itself.
+
+                      Both keys and the blur used to commit, which meant two
+                      paths to keep in step — and once the commit also raised a
+                      toast, two chances to raise it twice. One committer.
+                    */
+                    if (e.key === "Enter") e.currentTarget.blur();
+                    if (e.key === "Escape") {
+                      e.stopPropagation();
+                      setRenamingId(null);
+                    }
+                  }}
+                  aria-label={`Rename ${t.name}`}
+                  className="mx-[5px] min-w-0 rounded-[7px] bg-nav-hover px-[8px] py-[7px] text-[12.5px] leading-[16px] font-medium text-nav-fg outline-none"
+                />
+              ) : (
+                /*
+                  One kebab, not a bare glyph.
+
+                  The row carried a single `Copy` icon for duplicate — which is
+                  literally the copy-to-clipboard picture, and was read as such.
+                  There are three verbs now, and a menu is the only way
+                  "duplicate" stops being a guess at an icon.
+                */
+                <MenuRow
+                  key={t.id}
+                  icon={LayoutTemplate}
+                  label={t.name}
+                  note={`${t.builtIn ? "Preset" : `From ${t.fromAccount}`} · v${t.version} · ${accountsOn(t.id) === 0 ? "no accounts" : `${accountsOn(t.id)} ${accountsOn(t.id) === 1 ? "account" : "accounts"}`}`}
+                  action={{
+                    icon: EllipsisVertical,
+                    label: `More for ${t.name}`,
+                    onSelect: (el) => {
+                      setMenuFor(t.id);
+                      setMenuAt(el);
+                    },
+                  }}
+                  onSelect={() => {
+                    onApplyTemplate(t.id);
+                    onClose();
+                  }}
+                />
+              ),
+            )
           )}
         </Drill>
       );
@@ -213,9 +298,28 @@ export function EditMoreMenu({
 
     if (view === "save" && linked) {
       const others = accountsOn(linked.id) - 1;
+      /*
+        A decision, so it goes wherever decisions go.
+
+        It used to be a drill-down inside this popover — the same surface that
+        holds "Change icon" — which put "fifty navs are about to move" at the
+        same weight as a colour picker, in a panel you can dismiss by clicking
+        anywhere. It is now the shared message shell, so it sits beside the
+        apply and delete confirmations rather than in a third place of its own.
+        See TEMPLATE_MESSAGE_PLACEMENTS.
+      */
       return (
-        <Drill title="Save template" onBack={() => setView("root")}>
-          <p className="px-[7px] pb-[6px] text-[12px] leading-[16px] text-nav-fg-subtle">
+        <TemplateMessage
+          kind="decision"
+          label="Save template"
+          onDismiss={() => setView("root")}
+        >
+          <TemplateMessageTitle
+            icon={<Save size={15} aria-hidden="true" />}
+          >
+            Save this arrangement to {linked.name}?
+          </TemplateMessageTitle>
+          <TemplateMessageBody>
             Replaces what{" "}
             <span className="font-medium text-nav-fg">{linked.name}</span> holds
             with this arrangement, as v{linked.version + 1}.
@@ -236,42 +340,52 @@ export function EditMoreMenu({
               : propagation === "managed"
                 ? ` ${others === 1 ? "1 other account is" : `${others} other accounts are`} on it and will be re-arranged now, keeping any changes made to them directly.`
                 : ` ${others === 1 ? "1 other account is" : `${others} other accounts are`} on it — they keep what they have until you apply it to them.`}
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              onUpdateTemplate(linked.id);
-              onClose();
-            }}
-            className="motion-tap mx-[5px] mt-[2px] flex h-[30px] items-center justify-center rounded-[7px] bg-nav-fg text-[12.5px] leading-none font-medium text-nav hover:opacity-90"
-          >
-            {others > 0 && propagation === "managed"
-              ? `Update ${others + 1} accounts`
-              : `Update ${linked.name}`}
-          </button>
-          {/*
-            The way out, beside the way through.
+          </TemplateMessageBody>
+          <TemplateMessageActions
+            dismiss={
+              <TemplateMessageButton onClick={() => setView("root")}>
+                Cancel
+              </TemplateMessageButton>
+            }
+            /*
+              Least to most committing, so the primary lands last.
 
-            A destructive button with no neighbour is a button people press
-            because it is the only one there. Duplicating is the same work
-            landing on a template nobody is on — which is what half the people
-            who reach this screen actually wanted, and they only find that out
-            by being offered it here.
-          */}
-          {others > 0 && propagation === "managed" ? (
-            <button
-              type="button"
-              onClick={() => {
-                onDuplicateTemplate(linked.id);
-                onClose();
-              }}
-              className="motion-tap mx-[5px] mt-[6px] flex h-[30px] items-center justify-center gap-[6px] rounded-[7px] text-[12.5px] leading-none font-medium text-nav-fg-muted shadow-[inset_0_0_0_1px_var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg"
-            >
-              <Copy size={13} aria-hidden="true" />
-              Duplicate instead
-            </button>
-          ) : null}
-        </Drill>
+              "Duplicate instead" is the safe half of this decision — the same
+              work landing on a template nobody is on, which is what half the
+              people who reach this screen actually wanted. It sits BESIDE the
+              destructive one rather than under it, so a button with no
+              neighbour stops being the only one there.
+            */
+            actions={[
+              ...(others > 0 && propagation === "managed"
+                ? [
+                    <TemplateMessageButton
+                      key="dup"
+                      icon={<CopyPlus size={13} aria-hidden="true" />}
+                      onClick={() => {
+                        onDuplicateTemplate(linked.id);
+                        onClose();
+                      }}
+                    >
+                      Duplicate instead
+                    </TemplateMessageButton>,
+                  ]
+                : []),
+              <TemplateMessageButton
+                key="update"
+                tone="primary"
+                onClick={() => {
+                  onUpdateTemplate(linked.id);
+                  onClose();
+                }}
+              >
+                {others > 0 && propagation === "managed"
+                  ? `Update ${others + 1} accounts`
+                  : `Update ${linked.name}`}
+              </TemplateMessageButton>,
+            ]}
+          />
+        </TemplateMessage>
       );
     }
 
@@ -475,6 +589,93 @@ export function EditMoreMenu({
       className="motion-panel-in fixed z-[71] flex max-h-[360px] flex-col overflow-y-auto rounded-[10px] bg-nav p-[5px] shadow-[0_12px_32px_0_var(--fly-shadow),inset_0_0_0_1px_var(--fly-border)]"
     >
       {body}
+      {menuFor !== null && menuAt !== null ? (
+        <TemplateRowMenu
+          template={templates.find((t) => t.id === menuFor)!}
+          anchor={menuAt}
+          onRename={() => {
+            const t = templates.find((x) => x.id === menuFor);
+            if (t) {
+              setRenameDraft(t.name);
+              setRenamingId(t.id);
+            }
+            setMenuFor(null);
+          }}
+          onDuplicate={() => {
+            if (menuFor) onDuplicateTemplate(menuFor);
+            setMenuFor(null);
+          }}
+          onDelete={() => {
+            setDeleting(menuFor);
+            setMenuFor(null);
+          }}
+          onClose={() => setMenuFor(null)}
+        />
+      ) : null}
+      {deletingTemplate ? (
+        <TemplateMessage
+          kind="decision"
+          label={`Delete ${deletingTemplate.name}`}
+          onDismiss={() => setDeleting(null)}
+        >
+          <TemplateMessageTitle icon={<Trash2 size={15} aria-hidden="true" />}>
+            Delete {deletingTemplate.name}?
+          </TemplateMessageTitle>
+          <TemplateMessageBody>
+            {/*
+              What happens to the accounts on it, in accounts — the one fact
+              that decides whether to press the button. See
+              TEMPLATE_DELETE_MODES for why there are two answers.
+            */}
+            {onIt === 0 ? (
+              <>No accounts are on it. This cannot be undone.</>
+            ) : templateDeleteMode === "revert" ? (
+              <>
+                <span className="font-medium text-nav-fg">
+                  {onIt} {onIt === 1 ? "account goes" : "accounts go"}
+                </span>{" "}
+                back to the default navigation. This cannot be undone.
+              </>
+            ) : (
+              <>
+                <span className="font-medium text-nav-fg">
+                  {onIt} {onIt === 1 ? "account keeps" : "accounts keep"}
+                </span>{" "}
+                the navigation {onIt === 1 ? "it has" : "they have"} and stops
+                receiving updates. This cannot be undone.
+              </>
+            )}
+          </TemplateMessageBody>
+          <TemplateMessageActions
+            dismiss={
+              <TemplateMessageButton onClick={() => setDeleting(null)}>
+                Keep it
+              </TemplateMessageButton>
+            }
+            actions={[
+              <TemplateMessageButton
+                key="delete"
+                tone="primary"
+                onClick={() => {
+                  const id = deleting;
+                  if (!id) return;
+                  if (templateDeleteMode === "revert") {
+                    revertAccounts(
+                      accountsOnIds(id),
+                      `Reverted to default — ${deletingTemplate.name} deleted`,
+                    );
+                  }
+                  remove(id);
+                  notify(`Deleted ${deletingTemplate.name}`);
+                  setDeleting(null);
+                }}
+              >
+                Delete template
+              </TemplateMessageButton>,
+            ]}
+          />
+        </TemplateMessage>
+      ) : null}
     </div>,
     document.body,
   );
@@ -544,7 +745,17 @@ function MenuRow({
    * them — which reads as a control that works everywhere except where you
    * pressed it.
    */
-  action?: { icon: LucideIcon; label: string; onSelect: () => void };
+  /**
+   * The trailing control on the row.
+   *
+   * Handed its own element, because what it opens now is a menu and a menu has
+   * to hang off the button that opened it.
+   */
+  action?: {
+    icon: LucideIcon;
+    label: string;
+    onSelect: (el: HTMLElement) => void;
+  };
   onSelect: () => void;
 }) {
   if (action) {
@@ -564,7 +775,7 @@ function MenuRow({
           type="button"
           aria-label={actionLabel}
           title={actionLabel}
-          onClick={onAction}
+          onClick={(e) => onAction(e.currentTarget)}
           className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 hover:bg-nav-hover hover:text-nav-fg"
         >
           <ActionIcon size={13} aria-hidden="true" />

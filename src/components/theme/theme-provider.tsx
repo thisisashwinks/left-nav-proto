@@ -42,7 +42,10 @@ import {
   type TemplatePropagation,
   type NavColourControl,
   type RecentsPanelLayout,
+  type TemplateDeleteMode,
+  type TemplateMessagePlacement,
   type SubAccountSwitcher,
+  type NewDotPlacement,
   type SearchMode,
   type SurfaceTheme,
   type NavDarkTone,
@@ -147,8 +150,12 @@ interface ThemeContextValue extends ThemeState {
   /** Whether the nav offers a dark mode at all. See ThemeState.darkMode. */
   setDarkMode: (on: boolean) => void;
   setRecentsPanelLayout: (layout: RecentsPanelLayout) => void;
+  setTemplateMessagePlacement: (placement: TemplateMessagePlacement) => void;
+  setTemplateDeleteMode: (mode: TemplateDeleteMode) => void;
+  setTemplatePushNotice: (on: boolean) => void;
   setNavColourControl: (control: NavColourControl) => void;
   setSubAccountSwitcher: (switcher: SubAccountSwitcher) => void;
+  setNewDotPlacement: (placement: NewDotPlacement) => void;
   setUserMultiAccount: (enabled: boolean) => void;
   setProductDirectoryRow: (enabled: boolean) => void;
   setLayoutSwitchInEditCard: (enabled: boolean) => void;
@@ -360,10 +367,18 @@ export function ThemeProvider({
       setDarkMode: (darkMode) => setState((s) => ({ ...s, darkMode })),
       setRecentsPanelLayout: (recentsPanelLayout) =>
         setState((s) => ({ ...s, recentsPanelLayout })),
+      setTemplateMessagePlacement: (templateMessagePlacement) =>
+        setState((s) => ({ ...s, templateMessagePlacement })),
+      setTemplateDeleteMode: (templateDeleteMode) =>
+        setState((s) => ({ ...s, templateDeleteMode })),
+      setTemplatePushNotice: (templatePushNotice) =>
+        setState((s) => ({ ...s, templatePushNotice })),
       setNavColourControl: (navColourControl) =>
         setState((s) => ({ ...s, navColourControl })),
       setSubAccountSwitcher: (subAccountSwitcher) =>
         setState((s) => ({ ...s, subAccountSwitcher })),
+      setNewDotPlacement: (newDotPlacement) =>
+        setState((s) => ({ ...s, newDotPlacement })),
       setUserMultiAccount: (userMultiAccount) =>
         setState((s) => ({ ...s, userMultiAccount })),
       setProductDirectoryRow: (productDirectoryRow) =>

@@ -7,7 +7,7 @@ import { AccountLogo } from "@/components/accounts/account-logo";
 import { cn } from "@/lib/utils";
 
 /**
- * Agency ▸ Desktop and mobile apps ▸ Mobile app — production's page,
+ * Agency ▸ Desktop & mobile apps ▸ Mobile app — production's page,
  * transcribed.
  *
  * Static, for the same reason the desktop customizer is: the thing under review

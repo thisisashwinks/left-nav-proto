@@ -362,7 +362,7 @@ export const DOCK_POSITION_LABELS: Record<DockPosition, string> = {
  * One modal whichever way in you take — the komoot-style Get the app sheet —
  * and four places to reach it from. They are not the same offer:
  *
- *  flyout  One L1 row, "Desktop and mobile apps", opening a panel with the two
+ *  flyout  One L1 row, "Desktop & mobile apps", opening a panel with the two
  *          platforms in it. The default: it spends one row rather than two on
  *          something done once, says what the thing IS before asking which
  *          flavour you want, and puts the choice where a row is free.
@@ -505,6 +505,62 @@ export const RECENTS_PANEL_LAYOUT_LABELS: Record<RecentsPanelLayout, string> = {
   "pinned-first": "Pinned above tabs",
   "tabs-top": "Tabs on top",
   stacked: "All products below",
+};
+
+/**
+ * Where the template feature's messages appear.
+ *
+ * Four messages had four coordinate systems — the undo toast hung off the nav's
+ * foot, the save-template card as a popover off the edit card, the "saved as
+ * v2" receipt fixed to the top of the viewport, and the client notice inline in
+ * the nav column. Each was placed where its own author was looking. Together
+ * they read as four unrelated features.
+ *
+ *  by-kind   What a message ASKS decides where it goes. A decision you must
+ *            answer before anything happens takes the centre of the screen,
+ *            because it is blocking and should look it. A confirmation of
+ *            something that already happened hangs off the nav, where the work
+ *            was. The default: the two kinds are genuinely different errands
+ *            and a single home flattens that.
+ *  centred   Everything in the middle. One rule, no exceptions to learn — at
+ *            the cost of an Undo you were free to ignore demanding the whole
+ *            screen.
+ *  nav       Everything hung off the nav column. Keeps the feature beside the
+ *            thing it changes — at the cost of a decision that must be answered
+ *            sitting in the corner of the eye.
+ */
+export const TEMPLATE_MESSAGE_PLACEMENTS = ["by-kind", "centred", "nav"] as const;
+
+export type TemplateMessagePlacement =
+  (typeof TEMPLATE_MESSAGE_PLACEMENTS)[number];
+
+export const TEMPLATE_MESSAGE_PLACEMENT_LABELS: Record<
+  TemplateMessagePlacement,
+  string
+> = {
+  "by-kind": "By kind",
+  centred: "All centred",
+  nav: "All on the nav",
+};
+
+/**
+ * What happens to the sub-accounts on a template when it is deleted.
+ *
+ *  unlink  They keep the navigation they have and simply stop receiving
+ *          updates. Nothing on their screen changes. The default, because
+ *          deleting a template is a tidying action in the agency's own list and
+ *          should not reach into seven other people's workspaces.
+ *  revert  They go back to the shipped navigation. Honest that the link is
+ *          gone — at the price of changing seven navs as a side effect of a
+ *          cleanup nobody else asked for.
+ */
+export const TEMPLATE_DELETE_MODES = ["unlink", "revert"] as const;
+
+export type TemplateDeleteMode = (typeof TEMPLATE_DELETE_MODES)[number];
+
+export const TEMPLATE_DELETE_MODE_LABELS: Record<TemplateDeleteMode, string> = {
+  unlink: "Unlink, keep their nav",
+  revert: "Revert them to default",
 };
 
 export const LEGACY_FOOT_CONTROLS = ["off", "menu", "pills"] as const;
@@ -1236,6 +1292,35 @@ export const SUB_ACCOUNT_SWITCHER_LABELS: Record<SubAccountSwitcher, string> = {
   dropdown: "Header dropdown",
 };
 
+/**
+ * Where the New dot sits, or whether it sits anywhere.
+ *
+ * Three answers to one question — how loudly should a closed door say there is
+ * something new behind it — and they are genuinely different bets rather than
+ * styling variants:
+ *
+ *   `label`   beside the words, on the text baseline. Reads as part of the row.
+ *   `icon`    on the glyph's top-right, the shape every app uses for an unread
+ *             count. Louder, and scannable down the icon column alone; the risk
+ *             is that people read it as a notification and expect clearing it
+ *             to mean something.
+ *   `hidden`  no dot at all. The pill still sits on the product that launched,
+ *             so nothing is lost for anyone who opens the panel — what goes is
+ *             the nav's ability to tell you to open it.
+ *
+ * Not per account. Whether the platform announces its launches in the sidebar
+ * is a HighLevel decision, not a tenant's.
+ */
+export const NEW_DOT_PLACEMENTS = ["label", "icon", "hidden"] as const;
+
+export type NewDotPlacement = (typeof NEW_DOT_PLACEMENTS)[number];
+
+export const NEW_DOT_PLACEMENT_LABELS: Record<NewDotPlacement, string> = {
+  label: "Beside the text",
+  icon: "On the icon",
+  hidden: "Hidden",
+};
+
 export const NAV_COLOUR_CONTROLS = ["toggle", "panel"] as const;
 
 export type NavColourControl = (typeof NAV_COLOUR_CONTROLS)[number];
@@ -1403,6 +1488,8 @@ export interface ThemeState {
   layoutReplaceDialog: LayoutReplaceDialog;
   /** How a multi-account sub-account person switches. See SUB_ACCOUNT_SWITCHERS. */
   subAccountSwitcher: SubAccountSwitcher;
+  /** Where the New dot lands on a row that has one. See NEW_DOT_PLACEMENTS. */
+  newDotPlacement: NewDotPlacement;
   /**
    * Whether the signed-in sub-account person belongs to more than one account.
    *
@@ -1429,6 +1516,19 @@ export interface ThemeState {
   productDirectoryRow: boolean;
   /** How the Recents panel arranges its two halves. See RECENTS_PANEL_LAYOUTS. */
   recentsPanelLayout: RecentsPanelLayout;
+  /** Where the template feature's messages sit. See TEMPLATE_MESSAGE_PLACEMENTS. */
+  templateMessagePlacement: TemplateMessagePlacement;
+  /** What deleting a template does to the accounts on it. See TEMPLATE_DELETE_MODES. */
+  templateDeleteMode: TemplateDeleteMode;
+  /**
+   * Whether a sub-account is told when its agency pushes a template update.
+   *
+   * Off. The person who sees that card did not make the change, cannot undo it,
+   * and "Added 86 products" is the agency's authoring language rather than
+   * anything they asked about. The agency manages the navigation; the client
+   * uses it. On, the notice returns and follows the placement rule above.
+   */
+  templatePushNotice: boolean;
   /**
    * Whether the Editing nav card offers the layout switch.
    *
@@ -1691,6 +1791,12 @@ export const DEFAULT_THEME: ThemeState = {
   layoutReplaceDialog: "simple",
   // The rail: one mechanism for both audiences beats a second one to learn.
   subAccountSwitcher: "rail",
+  /*
+    Beside the text by default: it reads as part of the row rather than as a
+    notification, and it lands where the pill it leads to will be one level
+    down — so following the signal inward is one mark growing into words.
+  */
+  newDotPlacement: "label",
   // On, so the case this exists for is what you see first.
   userMultiAccount: true,
   navColourControl: "toggle",
@@ -1709,6 +1815,9 @@ export const DEFAULT_THEME: ThemeState = {
   // the reason most people open it, so it is the one thing held out of the
   // choice rather than sitting behind a tab with ninety products.
   recentsPanelLayout: "pinned-first",
+  templateMessagePlacement: "by-kind",
+  templateDeleteMode: "unlink",
+  templatePushNotice: false,
   // On, for the same reason: the comparison should be one menu away.
   layoutSwitchInEditCard: true,
   // Production's own default, and the state both source screenshots were in.

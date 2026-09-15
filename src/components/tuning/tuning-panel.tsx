@@ -69,16 +69,25 @@ import {
   NAV_COLOUR_CONTROLS,
   SUB_ACCOUNT_SWITCHERS,
   SUB_ACCOUNT_SWITCHER_LABELS,
+  NEW_DOT_PLACEMENTS,
+  NEW_DOT_PLACEMENT_LABELS,
+  type NewDotPlacement,
   type SubAccountSwitcher,
   NAV_COLOUR_CONTROL_LABELS,
   type NavColourControl,
   NAV_GENERATION_LABELS,
   NAV_SWITCH_SURFACES,
+  TEMPLATE_DELETE_MODE_LABELS,
+  TEMPLATE_DELETE_MODES,
+  TEMPLATE_MESSAGE_PLACEMENT_LABELS,
+  TEMPLATE_MESSAGE_PLACEMENTS,
   TEMPLATE_PROPAGATIONS,
   TEMPLATE_PROPAGATION_LABELS,
   NAV_SWITCH_SURFACE_LABELS,
   type NavGeneration,
   type NavSwitchSurface,
+  type TemplateDeleteMode,
+  type TemplateMessagePlacement,
   type TemplatePropagation,
   SEARCH_MODE_LABELS,
   SEARCH_MODES,
@@ -595,7 +604,7 @@ function NavStructureSection({
           />
           <Note>
             {selectedMark === "fill"
-              ? "A grey of its own, a real step darker than hover, so the two states never meet. The trail takes the hover fill."
+              ? "The press neutral, one step past hover, on the row and its whole trail. Quiet — it is a step of grey, not a colour."
               : selectedMark === "bar"
                 ? "A 3px rule on the leading edge. Collides with no fill — and reads as chrome belonging to the nav rather than as a property of the row."
                 : "The accent under the row, label left grey. Easiest to find; also spends brand on a state that is true all day."}
@@ -1587,6 +1596,12 @@ export function TuningPanel() {
     setNavSwitchInEditCard,
     navSwitchSurface,
     templatePropagation,
+    templateMessagePlacement,
+    setTemplateMessagePlacement,
+    templateDeleteMode,
+    setTemplateDeleteMode,
+    templatePushNotice,
+    setTemplatePushNotice,
     setNavSwitchSurface,
     setTemplatePropagation,
     layoutSwitchInEditCard,
@@ -1600,7 +1615,9 @@ export function TuningPanel() {
     setRecentsPanelLayout,
     setProductDirectoryRow,
     subAccountSwitcher,
+    newDotPlacement,
     setSubAccountSwitcher,
+    setNewDotPlacement,
     userMultiAccount,
     setUserMultiAccount,
   } = useTheme();
@@ -1630,7 +1647,11 @@ export function TuningPanel() {
     (layoutReplaceDialog !== DEFAULT_THEME.layoutReplaceDialog ? 1 : 0) +
     (navColourControl !== DEFAULT_THEME.navColourControl ? 1 : 0) +
     (navSwitchSurface !== DEFAULT_THEME.navSwitchSurface ? 1 : 0) +
-    (templatePropagation !== DEFAULT_THEME.templatePropagation ? 1 : 0);
+    (templatePropagation !== DEFAULT_THEME.templatePropagation ? 1 : 0) +
+    (templateMessagePlacement !== DEFAULT_THEME.templateMessagePlacement ? 1 : 0) +
+    (templateDeleteMode !== DEFAULT_THEME.templateDeleteMode ? 1 : 0) +
+    (templatePushNotice !== DEFAULT_THEME.templatePushNotice ? 1 : 0) +
+    (newDotPlacement !== DEFAULT_THEME.newDotPlacement ? 1 : 0);
 
   const resetEditCard = () => {
     setNavSwitchInEditCard(DEFAULT_THEME.navSwitchInEditCard);
@@ -1639,6 +1660,10 @@ export function TuningPanel() {
     setNavColourControl(DEFAULT_THEME.navColourControl);
     setNavSwitchSurface(DEFAULT_THEME.navSwitchSurface);
     setTemplatePropagation(DEFAULT_THEME.templatePropagation);
+    setTemplateMessagePlacement(DEFAULT_THEME.templateMessagePlacement);
+    setTemplateDeleteMode(DEFAULT_THEME.templateDeleteMode);
+    setTemplatePushNotice(DEFAULT_THEME.templatePushNotice);
+    setNewDotPlacement(DEFAULT_THEME.newDotPlacement);
   };
 
   const searchChanged =
@@ -1949,6 +1974,47 @@ export function TuningPanel() {
               : "A starting point: applying stamps a copy, and later saves reach nobody. The fix you just made lives on one account."}
           </Note>
 
+          <Segmented
+            label="Template messages sit"
+            options={TEMPLATE_MESSAGE_PLACEMENTS}
+            value={templateMessagePlacement}
+            onChange={(v: TemplateMessagePlacement) =>
+              setTemplateMessagePlacement(v)
+            }
+            format={(v) => TEMPLATE_MESSAGE_PLACEMENT_LABELS[v]}
+          />
+          <Note>
+            {templateMessagePlacement === "by-kind"
+              ? "What a message asks decides where it goes: a decision you must answer takes the centre of the screen, a confirmation of something that already happened hangs off the nav."
+              : templateMessagePlacement === "centred"
+                ? "Every template message in the middle of the screen — one rule with no exceptions, including the undo you were free to ignore."
+                : "Every template message hung off the nav column, beside the thing it changes — including decisions that stop the session until they are answered."}
+          </Note>
+
+          <Segmented
+            label="Deleting a template"
+            options={TEMPLATE_DELETE_MODES}
+            value={templateDeleteMode}
+            onChange={(v: TemplateDeleteMode) => setTemplateDeleteMode(v)}
+            format={(v) => TEMPLATE_DELETE_MODE_LABELS[v]}
+          />
+          <Note>
+            {templateDeleteMode === "unlink"
+              ? "Accounts on it keep the navigation they have and stop receiving updates. Nothing on their screen changes."
+              : "Accounts on it go back to the shipped navigation — seven navs change as a side effect of a cleanup in the agency's own list."}
+          </Note>
+
+          <Toggle
+            label="Tell sub-accounts about pushes"
+            checked={templatePushNotice}
+            onChange={setTemplatePushNotice}
+          />
+          <Note>
+            {templatePushNotice
+              ? "After a push, the sub-account's own nav carries a card listing what changed. It follows the placement rule above."
+              : "Off. The client is not told: they did not make the change, cannot undo it, and the change list is written in the agency's language."}
+          </Note>
+
           <Toggle
             label="Layout switch in the edit card"
             checked={layoutSwitchInEditCard}
@@ -2017,6 +2083,31 @@ export function TuningPanel() {
             {subAccountSwitcher === "rail"
               ? "The same rail the agency uses, minus the agency plate — there is no scope above the accounts to switch into. The door stays, opening on My accounts: the 14 they belong to, not the agency's 17."
               : "The nav's identity row becomes the switcher, listing all 14 accounts they belong to — not just the ones they pinned. No agency row."}
+          </Note>
+
+          {/*
+            How loudly a closed door says there is something new behind it.
+
+            The pill on the product that launched is not in question here — it
+            always shows, on the child-most row, and it is the thing that is
+            actually true. This is only about the dot its ancestors carry, which
+            exists because the panel holding that pill is CLOSED by default.
+            Fieldstone Group has both examples: Marketing ▸ Reputation ▸ Video
+            Testimonials, and Desktop and mobile apps.
+          */}
+          <Segmented
+            label="New dot"
+            options={NEW_DOT_PLACEMENTS}
+            value={newDotPlacement}
+            onChange={(v: NewDotPlacement) => setNewDotPlacement(v)}
+            format={(v) => NEW_DOT_PLACEMENT_LABELS[v]}
+          />
+          <Note>
+            {newDotPlacement === "label"
+              ? "On the text baseline, after the label. Reads as part of the row, and lands where the pill it leads to sits one level down — so following it in is one mark growing into words. The collapsed rail has no label, so it uses the icon corner regardless."
+              : newDotPlacement === "icon"
+                ? "Top-right of the glyph, outside its box. Scannable down the icon column alone and it matches the collapsed rail exactly — but it is the shape every app uses for an unread count, so people may expect clearing it to mean something."
+                : "No dot anywhere, rail included. The pill still sits on the product that launched, so nothing is lost once you open the panel — what goes is the nav's way of telling you to open it."}
           </Note>
 
           {/*
@@ -2290,7 +2381,7 @@ export function TuningPanel() {
           />
           <Note>
             {getAppPlacement === "flyout"
-              ? "One row, “Desktop and mobile apps”, opening a panel with the two platforms in it. Names the thing before asking which flavour, and spends one nav row instead of two."
+              ? "One row, “Desktop & mobile apps”, opening a panel with the two platforms in it. Names the thing before asking which flavour, and spends one nav row instead of two."
               : getAppPlacement === "header"
                 ? "Two glyphs left of the phone. Standing and visible — an app nobody knows about is an app nobody installs."
                 : getAppPlacement === "menu"

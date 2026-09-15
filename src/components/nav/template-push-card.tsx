@@ -3,6 +3,9 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { LayoutTemplate, X } from "lucide-react";
+import { useTheme } from "@/components/theme/theme-provider";
+import { cn } from "@/lib/utils";
+import { useNavRight } from "./template-message";
 
 /**
  * The two halves of telling someone a template moved.
@@ -45,6 +48,11 @@ export function TemplatePushCard({
   push: TemplatePush;
   onClose: () => void;
 }) {
+  const { templateMessagePlacement } = useTheme().effective;
+  const navRight = useNavRight();
+  // A finished report is a notice, so `by-kind` puts it on the nav with the
+  // other notices — see TemplateMessage for the kinds.
+  const onNav = templateMessagePlacement !== "centred";
   return createPortal(
     <div
       role="status"
@@ -65,7 +73,22 @@ export function TemplatePushCard({
        * just left. The top is empty and is where the canvas is looked at.
        */
       data-nav-theme="dark"
-      className="motion-panel-in fixed top-[16px] left-1/2 z-[80] w-[360px] -translate-x-1/2 rounded-[10px] bg-nav p-[12px] shadow-[0_16px_40px_0_var(--fly-shadow),inset_0_0_0_1px_var(--fly-border)]"
+      /*
+        Placed by the shared rule now, not by this file.
+        
+        Top-centre was the right answer to "where does a report go" asked in
+        isolation — and asking it in isolation is how the feature ended up with
+        four messages in four coordinate systems. `by-kind` still lands a
+        finished report off the nav rather than over the canvas; the axis is
+        what lets the other two answers be seen. See TEMPLATE_MESSAGE_PLACEMENTS.
+      */
+      style={
+        onNav ? { left: navRight + 12, bottom: 74 } : { top: 16, left: "50%" }
+      }
+      className={cn(
+        "motion-panel-in fixed z-[80] w-[360px] rounded-[10px] bg-nav p-[12px] shadow-[0_16px_40px_0_var(--fly-shadow),inset_0_0_0_1px_var(--fly-border)]",
+        !onNav && "-translate-x-1/2",
+      )}
     >
       <div className="flex items-start gap-[9px]">
         <LayoutTemplate

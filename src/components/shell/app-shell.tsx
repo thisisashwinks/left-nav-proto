@@ -14,6 +14,7 @@ import {
 } from "@/components/ai/ai-window";
 import { useAiSession } from "@/components/ai/use-ai-session";
 import { flyouts } from "@/components/flyout/flyout-config";
+import type { FlyoutConfig } from "@/components/flyout/types";
 import {
   GET_APP_FLYOUT_ID,
   GET_APP_NAV_LABEL,
@@ -98,6 +99,7 @@ import {
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { PinnedLauncher } from "@/components/nav/pinned-launcher";
 import { HereProvider } from "@/components/nav/here";
+import { NewFlagProvider, flyoutCarriesNew } from "@/components/nav/new-flag";
 import { UndoToast } from "@/components/nav/undo-toast";
 import { UpgradeToast } from "@/components/nav/upgrade-toast";
 import { PINNED_VISIBLE } from "@/components/nav/pinned-morph";
@@ -368,6 +370,30 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       new Map(groups.map((group) => [group.id, flyoutForGroup(layout, group)])),
     [layout, groups],
   );
+
+  /*
+   * Which nav rows have something New behind them. See new-flag.
+   *
+   * Computed here because this is the only place holding every panel at once —
+   * the generated group panels above, the authored registry, the agency's own,
+   * and the companion-app panel that belongs to neither tree. A row cannot
+   * answer the question itself: what it needs to know is what is INSIDE the
+   * door it opens, which is exactly the thing it has not opened.
+   *
+   * Every panel, not just the open one. The dot's whole job is to be visible
+   * before anyone has been in there.
+   */
+  const newFlagIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    const consider = (id: string, config: FlyoutConfig | undefined) => {
+      if (config && flyoutCarriesNew(config, effective.tabsInNav)) ids.add(id);
+    };
+    for (const [id, config] of groupFlyouts) consider(id, config);
+    for (const [id, config] of Object.entries(flyouts)) consider(id, config);
+    for (const [id, config] of Object.entries(agencyFlyouts)) consider(id, config);
+    consider(GET_APP_FLYOUT_ID, getAppFlyout);
+    return ids;
+  }, [groupFlyouts, effective.tabsInNav]);
 
   /*
    * Which sub-account the session is in, plus its recents and favourites. Owned
@@ -1410,6 +1436,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
 
   return (
     <HereProvider value={here}>
+    <NewFlagProvider ids={newFlagIds}>
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/*
         Agency-level banners span the whole window — over the account rail, the
@@ -2417,6 +2444,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       ) : null}
       </div>
     </div>
+    </NewFlagProvider>
     </HereProvider>
   );
 }

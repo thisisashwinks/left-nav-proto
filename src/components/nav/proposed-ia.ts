@@ -696,7 +696,21 @@ const MARKETING: CatalogueEntry[] = [
       { id: "ia-marketing-reputation-overview", label: "Overview" },
       { id: "ia-marketing-reputation-requests", label: "Requests" },
       { id: "ia-marketing-reputation-reviews", label: "Reviews" },
-      { id: "ia-marketing-reputation-video", label: "Video Testimonials" },
+      /*
+        A launch at L3, and the example the dot exists for.
+
+        The pill sits here because this is the child-most row — the thing that
+        actually shipped — and a dot carries up through Reputation to Marketing
+        in the sidebar, so the signal survives two closed doors. Its pair is
+        the Get app panel, where the launched row has nothing under it and so
+        wears the pill itself at L2. Between them the two cases cover every
+        shape a launch takes in this nav. See new-flag.
+      */
+      {
+        id: "ia-marketing-reputation-video",
+        label: "Video Testimonials",
+        badge: { label: "New", tone: "new" },
+      },
       { id: "ia-marketing-reputation-widgets", label: "Widgets" },
       { id: "ia-marketing-reputation-listings", label: "Listings" },
       { id: "ia-marketing-reputation-gbp", label: "GBP Optimisation" },

@@ -31,6 +31,7 @@ import { useNavLayout } from "./nav-layout-provider";
 import { allocate, orderPins, recentIdsFor } from "./merged-recents";
 import { ResolvedIcon } from "./resolved-icon";
 import { fixedEntriesFor, flyoutIdFor, navConfig } from "./nav-config";
+import { RailNewDot, useNewDotShown, useNewFlagIds } from "./new-flag";
 import { useNavProfiles } from "@/components/nav/nav-profiles";
 import { isBlockHidden } from "./grouping";
 import { RailTooltip } from "./rail-tooltip";
@@ -353,6 +354,11 @@ export function CollapsedRail({
     [agencyScope, layout, groups, getAppPlacement],
   );
 
+  /* Which rows carry the dot. See new-flag. */
+  const newFlagIds = useNewFlagIds();
+  /* Silent as well as invisible when the dot is switched off. */
+  const newDotShown = useNewDotShown();
+
   const railButton = (
     id: string,
     label: string,
@@ -360,12 +366,21 @@ export function CollapsedRail({
     active: boolean,
     onClick: () => void,
     onHover?: () => void,
+    /*
+      The spoken name, when it differs from the one on the tooltip.
+
+      A tile's `aria-label` REPLACES whatever is inside it, so the New dot's own
+      sr-only text was being swallowed here — the mark was visible and announced
+      to nobody. The tooltip keeps the plain label: it is read by people who can
+      already see the dot sitting next to it.
+    */
+    ariaLabel?: string,
   ) => {
     const button = (
       <button
         key={id}
         type="button"
-        aria-label={label}
+        aria-label={ariaLabel ?? label}
         aria-current={active ? "page" : undefined}
         onClick={onClick}
         onPointerEnter={onHover}
@@ -409,7 +424,21 @@ export function CollapsedRail({
     return railButton(
       i.id,
       i.label,
-      i.ai ? (
+      /*
+        The dot rides the tile here, because there is no label for it to sit
+        beside — which is the one place the rule about not putting it on a glyph
+        has to give way. It reads as a notification badge at this width and
+        there is nothing to be done about that; the alternative is dropping the
+        signal entirely for anyone working collapsed, which would mean the nav
+        announces new products only to people who happen to have the drawer
+        open.
+
+        Outside the icon rather than over it: the glyph keeps its whole box, so
+        the dot cannot land on the one stroke that distinguishes two products
+        from each other.
+      */
+      <RailNewDot on={newFlagIds.has(flyoutId)}>
+      {i.ai ? (
         <NavAiSparkle className="text-nav-ai-icon" />
       ) : i.icon ? (
         <i.icon
@@ -422,7 +451,8 @@ export function CollapsedRail({
             height: "var(--t-nav-icon, 16px)",
           }}
         />
-      ) : null,
+      ) : null}
+      </RailNewDot>,
       i.id === selectedId ||
         (i.hasFlyout === true &&
           (flyoutId === openFlyoutId || flyoutId === pinnedFlyoutId)),
@@ -431,6 +461,9 @@ export function CollapsedRail({
         if (i.hasFlyout) onPinFlyout(flyoutId);
       },
       i.hasFlyout ? () => onHoverFlyout(flyoutId) : onHoverPlain,
+      newDotShown && newFlagIds.has(flyoutId)
+        ? `${i.label}, new inside`
+        : undefined,
     );
   };
 

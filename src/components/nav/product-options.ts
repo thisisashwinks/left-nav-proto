@@ -116,7 +116,7 @@ export function productMenuActions({
   /**
    * Filing and removal, absent for rows that are neither.
    *
-   * A chrome tail row — Desktop and mobile apps — can be renamed, re-iconed,
+   * A chrome tail row — Desktop & mobile apps — can be renamed, re-iconed,
    * reordered and hidden, because all four are per-row facts the store already
    * holds. It cannot be moved INTO a category (categories hold products, and it
    * is not one) and it cannot be removed from the nav (what puts it there is an

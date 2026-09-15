@@ -26,7 +26,7 @@ export const GET_APP_FLYOUT_ID = "white-label-apps";
  * row. A sub-account user reading it has no white label to think about and no
  * way to guess that the two downloads they wanted are in there.
  */
-export const GET_APP_NAV_LABEL = "Desktop and mobile apps";
+export const GET_APP_NAV_LABEL = "Desktop & mobile apps";
 
 /**
  * The L2 rows, with the platforms each one covers.

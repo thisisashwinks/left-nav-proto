@@ -13,7 +13,7 @@ function getSnapshot(): boolean {
   return window.matchMedia(QUERY).matches
 }
 
-// Server render has no viewport, so assume desktop and let hydration correct it.
+// Server render has no viewport, so assume desktop & let hydration correct it.
 function getServerSnapshot(): boolean {
   return false
 }

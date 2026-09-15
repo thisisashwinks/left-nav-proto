@@ -18,6 +18,7 @@ import { EditAffordance, InlineRename } from "./inline-rename";
 import type { RowMenuAction } from "./row-menu";
 import type { NavItem } from "./types";
 import { HereBar, useHereStyle, type Marking } from "./here";
+import { NewDot, NewDotIcon, useCarriesNew } from "./new-flag";
 
 /**
  * What editing this row offers. Absent when the role has no permission to rename
@@ -223,7 +224,25 @@ export function NavItemRow({
    */
   const { ref: labelRef, hostRef: rowHostRef } =
     useTruncationTitle<HTMLSpanElement>(item.label);
-  const icon = <RowIcon item={item} active={active} dimmed={off} />;
+  /*
+    Whether something New is behind this row's door.
+
+    Read from context rather than passed in: the answer comes from the panel
+    this row opens, which the shell already builds, and the rows that need it
+    are spread across the nav, the rail and the launcher.
+  */
+  const dotted = useCarriesNew(item.flyoutId ?? item.id);
+
+  /*
+    The glyph, wrapped so the dot has a corner to hang off when the axis puts it
+    there. NewDotIcon is a pass-through in every other mode, so the row's layout
+    is untouched unless the dot is actually on the icon.
+  */
+  const icon = (
+    <NewDotIcon on={dotted}>
+      <RowIcon item={item} active={active} dimmed={off} />
+    </NewDotIcon>
+  );
 
   const label = (
     <span
@@ -249,6 +268,32 @@ export function NavItemRow({
     >
       {item.label}
     </span>
+  );
+
+  /*
+    Label and dot as one flexible unit.
+
+    The dot cannot simply follow the label: the label carries `flex-1` so the
+    chevron stays pinned to the row's edge, which would push the dot out there
+    with it and leave it floating in the gap, unattached to anything. Wrapping
+    moves that job up to the pair, so the label still truncates and the dot
+    stays against the last word it belongs to.
+
+    Only when there is a dot — otherwise the extra box is layout for nothing,
+    on every row in the nav.
+  */
+  const labelled = dotted ? (
+    <span
+      className={cn(
+        "flex min-w-0 items-center gap-[6px]",
+        item.hasFlyout || item.expandable ? "flex-1" : null,
+      )}
+    >
+      {label}
+      <NewDot className={cn(off && "opacity-40")} />
+    </span>
+  ) : (
+    label
   );
 
   const chevron = item.expandable ? (
@@ -333,7 +378,7 @@ export function NavItemRow({
         )}
       >
         {icon}
-        {label}
+        {labelled}
         {chevron}
       </button>
       </span>

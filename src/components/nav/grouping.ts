@@ -1419,7 +1419,7 @@ export function withProductFiled(
    *
    * `enabledProducts` is what the agency sold this account, which is the right
    * gate for a product and meaningless for a row the platform puts in every
-   * nav. Without the exception, "Move to Marketing" on Desktop and mobile apps
+   * nav. Without the exception, "Move to Marketing" on Desktop & mobile apps
    * returned the state unchanged and the menu entry did nothing.
    */
   if (!isProductEnabled(state, productId) && !isChromePlace(productId)) {

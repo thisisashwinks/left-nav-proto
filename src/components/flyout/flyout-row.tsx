@@ -24,6 +24,12 @@ import { isChromePlace } from "@/components/nav/chrome-places";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { useTruncationTitle } from "@/lib/use-truncation-title";
+import {
+  NewDot,
+  NewDotIcon,
+  childCarriesNew,
+  itemCarriesNew,
+} from "@/components/nav/new-flag";
 import type {
   FlyoutBadgeTone,
   FlyoutChildItem,
@@ -531,6 +537,7 @@ export function FlyoutRow({
   };
 
   const iconBox = (
+    <NewDotIcon on={itemCarriesNew(item, tabsInNav)}>
       <div
         className={cn(
           "flex shrink-0 items-center justify-center",
@@ -564,6 +571,7 @@ export function FlyoutRow({
           />
         ) : null}
       </div>
+    </NewDotIcon>
   );
 
   const inner = (
@@ -657,7 +665,18 @@ export function FlyoutRow({
               {item.label}
             </span>
           )}
-          {item.badge ? (
+          {/*
+            The pill only where the badge is TRUE of the row wearing it.
+
+            `hasChildren` is the same predicate the disclosure uses, so the pill
+            lands on whatever the reader can actually see as the deepest row: a
+            leaf L2 wears it, a parent hands it down to the L3 that launched.
+            Gated here rather than trusted to the data, because the data is
+            authored per panel and a badge that quietly moves up a level when
+            someone adds children is not a mistake anyone would catch by
+            reading a config file.
+          */}
+          {!hasChildren && item.badge ? (
             <span
               className={cn(
                 "shrink-0 rounded-[2px] px-[4px] py-[2px] text-[10px] leading-[normal] font-semibold whitespace-nowrap shadow-[0_2px_4px_0_#00000014]",
@@ -667,6 +686,8 @@ export function FlyoutRow({
               {item.badge.label}
             </span>
           ) : null}
+          {/* What a parent wears instead — see NewDot. */}
+          {itemCarriesNew(item, tabsInNav) ? <NewDot /> : null}
         </div>
 
         {showDesc && item.description ? (
@@ -1342,18 +1363,21 @@ function FlyoutChildRow({
           ) : (
             // Same 16px box the nav's own rows use, so an L3 row reads as the
             // same kind of thing one level down rather than a sub-item of one.
-            <child.icon
-              size={16}
-              aria-hidden="true"
-              className="shrink-0 text-nav-fg-subtle"
-            />
+            <NewDotIcon on={childCarriesNew(child, tabsInNav, depth)}>
+              <child.icon
+                size={16}
+                aria-hidden="true"
+                className="shrink-0 text-nav-fg-subtle"
+              />
+            </NewDotIcon>
           )
         ) : null}
         {/* Same rule one level down: the cut label carries its own full text. */}
         <span ref={childLabelRef} className="truncate">
           {child.label}
         </span>
-        {child.badge ? (
+        {/* Same rule one level down: `nested` is this row's disclosure. */}
+        {!nested && child.badge ? (
           <span
             className={cn(
               "shrink-0 rounded-[2px] px-[4px] py-[1.5px] text-[9.5px] leading-[normal] font-semibold whitespace-nowrap shadow-[0_2px_4px_0_#00000014]",
@@ -1363,6 +1387,7 @@ function FlyoutChildRow({
             {child.badge.label}
           </span>
         ) : null}
+        {childCarriesNew(child, tabsInNav, depth) ? <NewDot /> : null}
         {/*
           The same trailing cluster the L2 row builds, in the same order and on
           the same gap: the row's own mark — kebab while editing, the pin's

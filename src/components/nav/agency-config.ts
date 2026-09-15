@@ -237,7 +237,7 @@ export const agencyBuckets: AgencyBucket[] = [
      * the nav it names a capability rather than a destination, and the row's
      * job is to say where the two apps live.
      */
-    label: "Desktop and mobile apps",
+    label: "Desktop & mobile apps",
     icon: Smartphone,
     description: "Your own mobile and desktop apps, under your own brand.",
     children: [

@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { Undo2, X } from "lucide-react";
+import { useTheme } from "@/components/theme/theme-provider";
+import { cn } from "@/lib/utils";
 import { useNavLayout } from "./nav-layout-provider";
 
 /** How long an undo stays on offer before it slides away. */
@@ -21,6 +23,7 @@ export function UndoToast({
   navWidth: number;
 }) {
   const { undoOffer, undo, dismissUndo, state } = useNavLayout();
+  const centred = useTheme().effective.templateMessagePlacement === "centred";
 
   React.useEffect(() => {
     if (!undoOffer) return;
@@ -50,11 +53,29 @@ export function UndoToast({
        * Save. Undo appears almost exclusively WHILE editing, so the colliding
        * case was the common one rather than the edge.
        */
-      style={{
-        left: Math.max(12, navWidth - 260),
-        bottom: state.editing ? 74 + 94 : 74,
-      }}
-      className="motion-slot-in absolute z-40 flex h-[38px] max-w-[min(520px,calc(100%-24px))] items-center gap-[12px] rounded-[10px] bg-pg-overlay px-[14px] shadow-[0_8px_24px_0_rgba(15,23,42,0.28)]"
+      /*
+        Centred, this leaves the nav entirely.
+
+        It is the nav's own undo offer and every edit raises it — pinning,
+        renaming, reordering — so it is not a template surface. But the
+        placement axis was asked to govern every toast in the nav, and an axis
+        whose "all centred" setting leaves the most common toast in the product
+        where it was is not all-centred. See TEMPLATE_MESSAGE_PLACEMENTS.
+      */
+      style={
+        centred
+          ? { top: 16, left: "50%" }
+          : {
+              left: Math.max(12, navWidth - 260),
+              bottom: state.editing ? 74 + 94 : 74,
+            }
+      }
+      className={cn(
+        "motion-slot-in z-40 flex h-[38px] items-center gap-[12px] rounded-[10px] bg-pg-overlay px-[14px] shadow-[0_8px_24px_0_rgba(15,23,42,0.28)]",
+        centred
+          ? "fixed max-w-[calc(100vw-32px)] -translate-x-1/2"
+          : "absolute max-w-[min(520px,calc(100%-24px))]",
+      )}
     >
 
       <span className="truncate text-[13px] leading-none whitespace-nowrap text-pg-surface">

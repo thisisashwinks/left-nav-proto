@@ -44,10 +44,24 @@ export interface Crumb {
   onSelect?: (id: string) => void;
 }
 
+/*
+ * One treatment now: no resting background on anything in this row.
+ *
+ * `call` used to keep a filled green disc — the last of four saturated discs,
+ * held back because placing a call is irreversible. On its own it stopped
+ * reading as emphasis and started reading as status: a green dot in the app
+ * bar is where every other product in this industry puts "you are connected",
+ * and it pulled the eye on every screen for an action almost nobody takes from
+ * here. The row is now five grey glyphs, each with a disc that appears only
+ * under the pointer.
+ *
+ * The tone survives as a field because the config still distinguishes the
+ * call, and the next thing this row needs (a live-call state, say) is a real
+ * reason for it to look different — one that is about what is happening rather
+ * than about which button is scariest.
+ */
 const TONE_CLASSES: Record<HeaderActionTone, string> = {
-  call: "bg-hdr-act-call text-white hover:shadow-[0_2px_8px_0_rgba(15,23,42,0.2)]",
-  // No resting background at all — the disc only appears under the pointer, so at
-  // rest the row is four grey glyphs and one green button.
+  call: "text-hdr-fg-muted hover:bg-hdr-chip hover:text-hdr-fg",
   plain: "text-hdr-fg-muted hover:bg-hdr-chip hover:text-hdr-fg",
 };
 
@@ -254,11 +268,12 @@ export function AppHeader({
                 TONE_CLASSES[action.tone],
               )}
             >
-              {/* Unfilled icons need a touch more weight to hold the row. */}
-              <action.icon
-                size={action.tone === "call" ? 15 : 17}
-                aria-hidden="true"
-              />
+              {/*
+                One size, now that the call is unfilled like the rest. The 15px
+                was the smaller glyph a filled disc needs; on a bare icon it
+                just read as a phone drawn two points too small.
+              */}
+              <action.icon size={18} aria-hidden="true" />
               {action.dot ? (
                 <span
                   aria-hidden="true"

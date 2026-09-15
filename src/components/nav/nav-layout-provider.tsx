@@ -305,6 +305,9 @@ interface NavLayoutContextValue {
     patch: (layout: NavLayoutState) => NavLayoutState,
   ) => void;
 
+  /** Puts accounts back on their shipped navigation. See TEMPLATE_DELETE_MODES. */
+  revertAccounts: (accountIds: readonly string[], message: string) => void;
+
   /**
    * Why the active account cannot be edited, or `null` when it can.
    *
@@ -875,6 +878,38 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
+  /*
+   * Put these accounts back on the navigation they shipped with.
+   *
+   * Here rather than expressed as an `applyToAccounts` patch because the target
+   * is per-account — every tenant has its own seed — and that function's patch
+   * is handed a layout without being told whose it is. `navProfileFor` is
+   * already in scope here; threading it out to the caller so the caller could
+   * hand it back is the longer way round to the same loop.
+   */
+  const revertAccounts = React.useCallback(
+    (accountIds: readonly string[], message: string) => {
+      const active = activeIdRef.current;
+      setProfiles((prev) => {
+        const nextProfiles = { ...prev };
+        for (const id of accountIds) {
+          if (id === active) continue;
+          nextProfiles[id] = navProfileFor(id);
+        }
+        return nextProfiles;
+      });
+      if (active !== null && accountIds.includes(active)) {
+        dispatch({
+          type: "commit",
+          message,
+          next: () => navProfileFor(active),
+          silent: true,
+        });
+      }
+    },
+    [],
+  );
+
   const commit = React.useCallback(
     (
       message: string,
@@ -1429,6 +1464,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       setActiveAccount,
       profileFor,
       applyToAccounts,
+      revertAccounts,
       editBlock: plans.editBlockFor(scopeId),
       editAccess: plans.editAccessFor(scopeId, state.role === "agency"),
     };

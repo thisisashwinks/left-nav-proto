@@ -2,11 +2,29 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { Check, Copy, LayoutTemplate, Plus, Save, Trash2 } from "lucide-react";
+import {
+  Check,
+  CopyPlus,
+  EllipsisVertical,
+  LayoutTemplate,
+  Pencil,
+  Plus,
+  Save,
+  Trash2,
+} from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { useAnchored } from "@/lib/use-anchored";
+import { useNavLayout } from "./nav-layout-provider";
 import { useNavTemplates } from "./nav-templates";
+import { TemplateRowMenu } from "./template-row-menu";
+import {
+  TemplateMessage,
+  TemplateMessageActions,
+  TemplateMessageBody,
+  TemplateMessageButton,
+  TemplateMessageTitle,
+} from "./template-message";
 
 /**
  * Save this grouping, or drop a saved one on.
@@ -43,15 +61,49 @@ export function NavTemplatesMenu({
   onApply: (templateId: string) => void;
   onClose: () => void;
 }) {
-  const { templates, remove, linkedFor } = useNavTemplates();
-  const navTheme = useTheme().effective.navTheme;
+  const {
+    templates,
+    remove,
+    rename,
+    linkedFor,
+    accountsOn,
+    accountsOnIds,
+    notify,
+  } = useNavTemplates();
+  const { revertAccounts } = useNavLayout();
+  const { navTheme, templateDeleteMode } = useTheme().effective;
+  /** The template a delete confirmation is open for. */
+  const [deleting, setDeleting] = React.useState<string | null>(null);
   const [naming, setNaming] = React.useState(false);
   const [draft, setDraft] = React.useState("");
+  /** Which row's kebab menu is open, and the button it hangs off. */
+  const [menuFor, setMenuFor] = React.useState<string | null>(null);
+  const [menuAt, setMenuAt] = React.useState<HTMLElement | null>(null);
+  /*
+   * Renaming happens on the row itself.
+   *
+   * The same move the nav's own rows make: the thing you are naming stays where
+   * it is and becomes editable, rather than a dialog showing you the name out
+   * of context. It also answers the question that started this — where do I fix
+   * "(copy)" — with "where you are already looking".
+   */
+  const [renamingId, setRenamingId] = React.useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = React.useState("");
   const { ref, top, left } = useAnchored(anchor, WIDTH, GAP);
 
   React.useEffect(() => {
     const away = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) onClose();
+      const target = e.target as Node;
+      if (ref.current?.contains(target)) return;
+      // The row menu is portalled out of this panel but belongs to it — see
+      // data-template-row-menu.
+      if (
+        target instanceof Element &&
+        target.closest("[data-template-row-menu], [data-template-message]")
+      ) {
+        return;
+      }
+      onClose();
     };
     const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("pointerdown", away);
@@ -63,6 +115,10 @@ export function NavTemplatesMenu({
   }, [onClose]);
 
   const linked = linkedFor(accountId);
+  const deletingTemplate = deleting
+    ? (templates.find((t) => t.id === deleting) ?? null)
+    : null;
+  const onIt = deleting ? accountsOn(deleting) : 0;
 
   const commit = () => {
     if (draft.trim() === "") return;
@@ -94,6 +150,41 @@ export function NavTemplatesMenu({
         <div className="mb-[6px] flex min-h-0 flex-col gap-[2px] overflow-y-auto">
           {templates.map((t) => (
             <div key={t.id} className="group/tpl flex items-center gap-[4px]">
+              {renamingId === t.id ? (
+                /*
+                  The row becomes the field, rather than a dialog opening over
+                  it. Same width, same place — so the name you are fixing does
+                  not move to be fixed.
+                */
+                <input
+                  autoFocus
+                  value={renameDraft}
+                  onChange={(e) => setRenameDraft(e.target.value)}
+                  onBlur={() => {
+                    rename(t.id, renameDraft);
+                    if (renameDraft.trim() !== "" && renameDraft !== t.name) {
+                      notify(`Renamed to ${renameDraft.trim()}`);
+                    }
+                    setRenamingId(null);
+                  }}
+                  onKeyDown={(e) => {
+                    /*
+                      Enter blurs rather than committing itself.
+
+                      Both keys and the blur used to commit, which meant two
+                      paths to keep in step — and once the commit also raised a
+                      toast, two chances to raise it twice. One committer.
+                    */
+                    if (e.key === "Enter") e.currentTarget.blur();
+                    if (e.key === "Escape") {
+                      e.stopPropagation();
+                      setRenamingId(null);
+                    }
+                  }}
+                  aria-label={`Rename ${t.name}`}
+                  className="min-w-0 flex-1 rounded-[7px] bg-nav-hover px-[7px] py-[6px] text-[13px] leading-[17px] font-medium text-nav-fg outline-none"
+                />
+              ) : (
               <button
                 type="button"
                 onClick={() => onApply(t.id)}
@@ -118,27 +209,37 @@ export function NavTemplatesMenu({
                   </span>
                 </span>
               </button>
+              )}
               {/*
-                Copy before delete, in that order: one of these is how you avoid
-                needing the other. Both revealed on the same hover, since
-                neither is something you do to a template on the way past.
+                One kebab, not a row of glyphs.
+
+                Two icons was already a guess — the duplicate one was literally
+                `Copy`, which reads as "copy to clipboard" — and there are three
+                verbs now. A menu can say the words, which is the only way
+                "duplicate" and "copy" stop being the same picture. It is a
+                dropdown inside a dropdown, which is a real cost and the lesser
+                one: the alternative is four hover-only icons on a 264px row.
               */}
               <button
                 type="button"
-                aria-label={`Duplicate ${t.name}`}
-                title="Duplicate"
-                onClick={() => onDuplicate(t.id)}
-                className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle opacity-0 group-hover/tpl:opacity-100 hover:bg-nav-hover hover:text-nav-fg"
+                aria-label={`More for ${t.name}`}
+                aria-haspopup="menu"
+                aria-expanded={menuFor === t.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuFor((open) => (open === t.id ? null : t.id));
+                  setMenuAt(e.currentTarget);
+                }}
+                className={cn(
+                  "motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg",
+                  // Held open while its own menu is up, or the row the menu
+                  // belongs to loses its handle the moment you reach for it.
+                  menuFor === t.id
+                    ? "opacity-100"
+                    : "opacity-0 group-hover/tpl:opacity-100",
+                )}
               >
-                <Copy size={13} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                aria-label={`Delete ${t.name}`}
-                onClick={() => remove(t.id)}
-                className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle opacity-0 group-hover/tpl:opacity-100 hover:bg-nav-hover hover:text-nav-fg"
-              >
-                <Trash2 size={13} aria-hidden="true" />
+                <EllipsisVertical size={14} aria-hidden="true" />
               </button>
             </div>
           ))}
@@ -213,6 +314,96 @@ export function NavTemplatesMenu({
           </>
         )}
       </div>
+      {/*
+        The row's three verbs, as words.
+
+        Portalled to the body rather than nested in the panel: this list hangs
+        off a row inside a 340px-tall scroll region, and drawn inside it the
+        menu would be clipped by the very overflow that makes the list scroll.
+      */}
+      {menuFor !== null && menuAt !== null ? (
+        <TemplateRowMenu
+          template={templates.find((t) => t.id === menuFor)!}
+          anchor={menuAt}
+          onRename={() => {
+            const t = templates.find((x) => x.id === menuFor);
+            if (t) {
+              setRenameDraft(t.name);
+              setRenamingId(t.id);
+            }
+            setMenuFor(null);
+          }}
+          onDuplicate={() => {
+            if (menuFor) onDuplicate(menuFor);
+            setMenuFor(null);
+          }}
+          onDelete={() => {
+            setDeleting(menuFor);
+            setMenuFor(null);
+          }}
+          onClose={() => setMenuFor(null)}
+        />
+      ) : null}
+
+      {deletingTemplate ? (
+        <TemplateMessage
+          kind="decision"
+          label={`Delete ${deletingTemplate.name}`}
+          onDismiss={() => setDeleting(null)}
+        >
+          <TemplateMessageTitle icon={<Trash2 size={15} aria-hidden="true" />}>
+            Delete {deletingTemplate.name}?
+          </TemplateMessageTitle>
+          <TemplateMessageBody>
+            {onIt === 0 ? (
+              <>No accounts are on it. This cannot be undone.</>
+            ) : templateDeleteMode === "revert" ? (
+              <>
+                <strong className="font-medium text-nav-fg">
+                  {onIt} {onIt === 1 ? "account goes" : "accounts go"}
+                </strong>{" "}
+                back to the default navigation. This cannot be undone.
+              </>
+            ) : (
+              <>
+                <strong className="font-medium text-nav-fg">
+                  {onIt} {onIt === 1 ? "account keeps" : "accounts keep"}
+                </strong>{" "}
+                the navigation {onIt === 1 ? "it has" : "they have"} and stops
+                receiving updates. This cannot be undone.
+              </>
+            )}
+          </TemplateMessageBody>
+          <TemplateMessageActions
+            dismiss={
+              <TemplateMessageButton onClick={() => setDeleting(null)}>
+                Keep it
+              </TemplateMessageButton>
+            }
+            actions={[
+              <TemplateMessageButton
+                key="delete"
+                tone="primary"
+                onClick={() => {
+                  const id = deleting;
+                  if (!id) return;
+                  if (templateDeleteMode === "revert") {
+                    revertAccounts(
+                      accountsOnIds(id),
+                      `Reverted to default — ${deletingTemplate.name} deleted`,
+                    );
+                  }
+                  remove(id);
+                  notify(`Deleted ${deletingTemplate.name}`);
+                  setDeleting(null);
+                }}
+              >
+                Delete template
+              </TemplateMessageButton>,
+            ]}
+          />
+        </TemplateMessage>
+      ) : null}
     </div>,
     document.body,
   );

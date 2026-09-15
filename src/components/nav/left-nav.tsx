@@ -18,6 +18,7 @@ import {
   Rocket,
   RotateCcw,
   Trash2,
+  LayoutTemplate,
 } from "lucide-react";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import type { Account } from "@/components/accounts/accounts-data";
@@ -111,6 +112,14 @@ import {
   type NavTemplate,
 } from "./nav-templates";
 import { TemplatePushCard, TemplateNoticeCard, type TemplatePush } from "./template-push-card";
+import {
+  TemplateMessage,
+  TemplateMessageActions,
+  TemplateMessageBody,
+  TemplateMessageButton,
+  TemplateMessageTitle,
+  TemplateToast,
+} from "./template-message";
 import { iconByName, nameForIcon } from "./icon-catalogue";
 import type { NavConfig, NavEntry, NavItem } from "./types";
 
@@ -286,6 +295,7 @@ export function LeftNav({
     agencySearch,
     editTreatment,
     templatePropagation,
+    templatePushNotice,
   } = useTheme().effective;
   /*
    * Recents and Pinned drawn as one list — see merged-recents.tsx.
@@ -517,6 +527,15 @@ export function LeftNav({
     const tpl = templates.update(id, account.name, state);
     if (!tpl || !before) return;
     putOnAccount(tpl);
+    /*
+      Said whichever way the propagation axis is set.
+
+      On `managed` the push report below carries the detail, but it only
+      appears when other accounts were actually touched — so a save that moved
+      nobody used to be completely silent, which is the case a person is most
+      likely to be unsure about.
+    */
+    templates.notify(`Saved ${tpl.name} as v${tpl.version}`);
     if (templatePropagation !== "managed") return;
 
     const others = templates
@@ -631,6 +650,8 @@ export function LeftNav({
   >(null);
   /** The warning stands between the control and the switch. */
   const [confirmingDefault, setConfirmingDefault] = React.useState(false);
+  /** The template a pre-apply confirmation is open for. */
+  const [applying, setApplying] = React.useState<NavTemplate | null>(null);
   /** The row in flight, and the row the pointer is over. Drag-local. */
   const [lifted, setLifted] = React.useState<string | null>(null);
   const [over, setOver] = React.useState<string | null>(null);
@@ -944,7 +965,7 @@ export function LeftNav({
             Filing and removal are for rows that name a product.
 
             This branch also draws the chrome rows that live in the tail —
-            Desktop and mobile apps — and neither verb means anything for them:
+            Desktop & mobile apps — and neither verb means anything for them:
             a category holds products, and what puts the row in the nav is an
             axis, so "Remove" would be undone by the next render. Everything
             else in the menu applies to both.
@@ -1435,21 +1456,33 @@ export function LeftNav({
             layout.restoreOwnLayout();
           },
           accountId: account.id,
+          /*
+            Asked before, not just confirmed after.
+
+            Applying replaces the whole arrangement the moment it is clicked,
+            and the only thing that said so was an undo toast that appeared
+            once it already had. A template is the one action here that
+            rewrites work somebody may have spent an afternoon on, so it gets
+            the same courtesy as deleting one.
+          */
           onApplyTemplate: (id: string) => {
             const tpl = templates.templates.find((t) => t.id === id);
-            if (tpl) putOnAccount(tpl);
+            if (tpl) setApplying(tpl);
           },
           // Created FROM this account, so this account goes onto it. Without
           // the link the menu would only ever offer Create again, which is how
           // an agency ends up with four copies of one nav.
           onCreateTemplate: (name: string) => {
             const tpl = templates.save(name, account.name, state);
-            if (tpl) putOnAccount(tpl);
+            if (!tpl) return;
+            putOnAccount(tpl);
+            templates.notify(`Created ${tpl.name} — ${account.name} is on it`);
           },
           onUpdateTemplate: saveTemplate,
           templateDirty,
           onDuplicateTemplate: (id: string) => {
-            templates.duplicate(id);
+            const copy = templates.duplicate(id);
+            if (copy) templates.notify(`Duplicated as ${copy.name}`);
           },
           // Templates are a sub-account idea: the agency tree is platform IA,
           // so there is no arrangement of it worth reusing elsewhere.
@@ -2359,7 +2392,15 @@ export function LeftNav({
         rather than a header over it — the change it describes is in the rows
         above, and a banner at the top would have pushed them down to say so.
       */}
-      {notice && !agencyScope ? (
+      {/*
+        Off unless someone asks for it.
+
+        The person this card appears to did not make the change, cannot undo
+        it, and "Added 86 products" is the agency's authoring language rather
+        than anything they asked about. The agency manages the navigation; the
+        client uses it. See `templatePushNotice`.
+      */}
+      {notice && !agencyScope && templatePushNotice ? (
         <TemplateNoticeCard
           templateName={notice.templateName}
           version={notice.version}
@@ -2459,6 +2500,77 @@ export function LeftNav({
           accountName={account.name}
           onClose={() => setWall(null)}
         />
+      ) : null}
+      {/*
+        One toast for the whole feature, rendered once here.
+
+        The surfaces that raise it — the edit card's drill, the templates panel,
+        the row menu — all close as part of doing the thing they are confirming,
+        so none of them can own the confirmation of it.
+      */}
+      {templates.toast ? (
+        <TemplateToast
+          key={templates.toast.id}
+          message={templates.toast.message}
+          onDismiss={templates.dismissToast}
+        />
+      ) : null}
+      {applying ? (
+        <TemplateMessage
+          kind="decision"
+          label={`Apply ${applying.name}`}
+          onDismiss={() => setApplying(null)}
+        >
+          <TemplateMessageTitle
+            icon={<LayoutTemplate size={15} aria-hidden="true" />}
+          >
+            Apply {applying.name} to {account.name}?
+          </TemplateMessageTitle>
+          <TemplateMessageBody>
+            {/*
+              What it REPLACES, in the nav's own nouns.
+
+              "Applies a template" is the one sentence that tells a reader
+              nothing they did not already know from pressing the button. The
+              useful facts are that the arrangement goes, that their own renames
+              do not, and that it is reversible — in that order, because the
+              first is the risk and the last is the reassurance.
+            */}
+            This replaces how {account.name}&rsquo;s navigation is arranged —
+            its groups, their order, the icons and the pinned set — with the{" "}
+            {applying.productCount} products {applying.name} holds. Renames made
+            here are kept. You can undo it straight after.
+          </TemplateMessageBody>
+          <TemplateMessageActions
+            dismiss={
+              <TemplateMessageButton onClick={() => setApplying(null)}>
+                Cancel
+              </TemplateMessageButton>
+            }
+            actions={[
+              <TemplateMessageButton
+                key="apply"
+                tone="primary"
+                onClick={() => {
+                  /*
+                    No `notify` here, and deliberately.
+
+                    Applying commits a layout change, so the nav's own undo
+                    offer already says "Applied X" — and says it with an Undo
+                    beside it, which this feature's toast has no way to offer.
+                    Firing both put two toasts on screen saying the same words,
+                    one of them less useful. The other actions raise no undo
+                    offer, which is exactly why they need one of these.
+                  */
+                  putOnAccount(applying);
+                  setApplying(null);
+                }}
+              >
+                Apply template
+              </TemplateMessageButton>,
+            ]}
+          />
+        </TemplateMessage>
       ) : null}
       {coloursAt ? (
         <NavAppearance

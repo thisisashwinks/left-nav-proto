@@ -488,7 +488,7 @@
     Left where it was. Lightening this to separate it from the selected fill
     (Sep 10) bought the separation by making rollover itself barely visible —
     the cost landed on the state you see a hundred times an hour to fix the one
-    you see once. The selected neutral moved instead; see --nav-selected.
+    you see once. Selected is the press neutral now; see --nav-selected.
   */
   --nav-hover: #f5f5f7;
   /* Between the divider and the muted text: the scrollbar has to be findable
@@ -497,14 +497,19 @@
   --nav-scrollbar-hover: #a8a8b4;
   --nav-active: #f0f0f3;
   /*
-    The page you are on, when the mark is a fill.
+    The page you are on, when the mark is a fill — the press neutral, aliased.
 
-    A third neutral rather than reusing --nav-active: that one is the PRESS
-    state and sits four points off the hover fill, which is invisible as a
-    difference between "the row under the pointer" and "the row you are on".
-    This is a real step down the ramp, and hover can still darken it.
+    Selected was its own shade a step further down the ramp, which made it the
+    darkest ground in the nav and heavier than the row it was marking deserved.
+    It follows --nav-active now, so the nav has ONE "beyond hover" neutral
+    rather than two a few points apart, and tuning that one retunes both.
+
+    Written as var() beside every --nav-active rather than once at :root:
+    custom properties resolve where they are declared, so a palette that
+    redefines --nav-active without this line beside it would keep the light
+    theme's selected fill.
   */
-  --nav-selected: #e6e6ec;
+  --nav-selected: var(--nav-active);
   --nav-rail-bg: #f7f9fa;
   --nav-rail-border: #e4e6eb;
   --nav-rail-hi: #f2f3f5;
@@ -598,8 +603,7 @@
   --nav-hover: oklch(from var(--legacy-nav-base) calc(l + 0.06) c h);
   --nav-active: #46536780;
   --nav-active: oklch(from var(--legacy-nav-base) calc(l + 0.1) c h);
-  --nav-selected: #55647d;
-  --nav-selected: oklch(from var(--legacy-nav-base) calc(l + 0.17) c h);
+  --nav-selected: var(--nav-active);
   --nav-rail-bg: #27303f;
   --nav-rail-bg: oklch(from var(--legacy-nav-base) calc(l - 0.03) c h);
   --nav-rail-border: #414e61;
@@ -663,8 +667,7 @@
   --nav-hover: oklch(from var(--nav-dark-base) calc(l + 0.04) c h);
   --nav-active: #232f42;
   --nav-active: oklch(from var(--nav-dark-base) calc(l + 0.07) c h);
-  --nav-selected: #2f3e56;
-  --nav-selected: oklch(from var(--nav-dark-base) calc(l + 0.13) c h);
+  --nav-selected: var(--nav-active);
 
   --nav-rail-border: #2a3549;
   --nav-rail-border: oklch(from var(--nav-dark-base) calc(l + 0.09) c h);
@@ -713,7 +716,7 @@
   --nav-scrollbar: #3f3f48;
   --nav-scrollbar-hover: #55555f;
   --nav-active: #24242c;
-  --nav-selected: #32323d;
+  --nav-selected: var(--nav-active);
   --nav-rail-bg: #17171b;
   --nav-rail-border: #2b2b33;
   --nav-rail-hi: #24242c;
@@ -1180,7 +1183,7 @@
   --nav-fg-subtle: oklch(from var(--brand) 0.6901 calc(c * var(--tint-text)) h);
   --nav-hover: oklch(from var(--brand) 0.9707 calc(c * var(--tint-surface)) h);
   --nav-active: oklch(from var(--brand) 0.956 calc(c * var(--tint-surface)) h);
-  --nav-selected: oklch(from var(--brand) 0.9245 calc(c * var(--tint-surface)) h);
+  --nav-selected: var(--nav-active);
   --nav-rail-bg: oklch(from var(--brand) 0.9809 calc(c * var(--tint-surface)) h);
   --nav-rail-border: oklch(from var(--brand) 0.9248 calc(c * var(--tint-line)) h);
   --nav-rail-hi: oklch(from var(--brand) 0.964 calc(c * var(--tint-surface)) h);
@@ -1200,7 +1203,7 @@
   --nav-fg-subtle: oklch(from var(--brand) 0.5517 calc(c * var(--tint-text)) h);
   --nav-hover: oklch(from var(--brand) 0.2376 calc(c * var(--tint-surface)) h);
   --nav-active: oklch(from var(--brand) 0.2638 calc(c * var(--tint-surface)) h);
-  --nav-selected: oklch(from var(--brand) 0.3184 calc(c * var(--tint-surface)) h);
+  --nav-selected: var(--nav-active);
   --nav-rail-bg: oklch(from var(--brand) 0.2064 calc(c * var(--tint-surface)) h);
   --nav-rail-border: oklch(from var(--brand) 0.2924 calc(c * var(--tint-line)) h);
   --nav-rail-hi: oklch(from var(--brand) 0.2638 calc(c * var(--tint-surface)) h);

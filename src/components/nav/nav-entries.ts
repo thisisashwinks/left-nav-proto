@@ -101,7 +101,7 @@ export function tailRowsFor(
   /**
    * Rows that are in the tail without being products or links.
    *
-   * Desktop and mobile apps is the case, and the reason this parameter exists
+   * Desktop & mobile apps is the case, and the reason this parameter exists
    * rather than the row being spliced in after the fact: a row the tail does
    * not know about cannot be ORDERED by it. Renaming and re-iconing are
    * per-row overrides and worked either way, but "move up" needs the row to be
@@ -380,7 +380,7 @@ export function editTargetFor(
    *
    * They name no catalogue product, which is what used to disqualify them —
    * but the override maps are keyed by id and hold any id at all, so the only
-   * thing standing between Desktop and mobile apps and a rename was this
+   * thing standing between Desktop & mobile apps and a rename was this
    * function not recognising it. `kind: "product"` is exactly right: the
    * writers it selects are `setProductLabel` and `resetProductLabel`.
    */

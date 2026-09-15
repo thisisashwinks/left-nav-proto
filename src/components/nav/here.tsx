@@ -112,14 +112,13 @@ export function useHereStyle(marking: Marking): {
   switch (selectedMark) {
     case "fill":
       /*
-       * A grey of its own, not the press state.
+       * The press neutral, through the token that names the intent.
        *
-       * This used `--nav-active`, which is four points off the hover fill —
-       * near enough that the page you were on and the row under the pointer
-       * were the same colour to anyone not comparing them side by side, and
-       * the mark only exists to be read at a glance. `--nav-selected` is a
-       * real step further down the neutral ramp, so hover can still darken a
-       * selected row without the two states meeting.
+       * `--nav-selected` is an alias of `--nav-active` (Sep 15): one ground
+       * beyond hover rather than two a few points apart. It stays a token of
+       * its own because the rows read it for a different REASON — this is
+       * "where you are", not "you are pressing" — so the two can diverge
+       * again by editing one line, and every surface follows.
        *
        * The trail wears the SAME fill, not a lighter one.
        *

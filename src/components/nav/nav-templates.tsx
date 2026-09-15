@@ -124,6 +124,15 @@ interface TemplatesValue {
   ) => NavTemplate | null;
   remove: (id: string) => void;
   /**
+   * A new name on the same template, links and version untouched.
+   *
+   * Renaming is not a version: nothing about the arrangement moved, so an
+   * account on v2 is still on v2 and nothing gets pushed. Refused on `builtIn`
+   * presets, whose names are the platform's rather than this agency's — the way
+   * to get "the dental one, but ours" is still `duplicate`.
+   */
+  rename: (id: string, name: string) => void;
+  /**
    * A second template holding the same arrangement, on nobody.
    *
    * The safe half of every template edit. Updating one is the only destructive
@@ -188,6 +197,25 @@ interface TemplatesValue {
   ) => void;
   noticeFor: (accountId: string) => TemplateNotice | null;
   dismissNotice: (accountId: string) => void;
+
+  /**
+   * Say that something happened, for the toast.
+   *
+   * On the store rather than in each surface because the surfaces that DO these
+   * things are three different popovers, and the toast has to outlive every one
+   * of them: duplicating from the templates drill closes the drill, so a toast
+   * owned by the drill would be unmounted in the same tick it was raised. The
+   * store is the thing that survives.
+   *
+   * Creating, applying, saving, duplicating, renaming and deleting a template
+   * all pass through here. Without it the only action in the feature that said
+   * anything was apply — and only because the layout's own undo offer happened
+   * to catch it.
+   */
+  notify: (message: string) => void;
+  /** The message on screen, with an id so a repeat replays rather than sits. */
+  toast: { id: number; message: string } | null;
+  dismissToast: () => void;
 }
 
 const TemplatesContext = React.createContext<TemplatesValue | null>(null);
@@ -845,6 +873,29 @@ export function NavTemplatesProvider({
     [],
   );
 
+  const [toast, setToast] = React.useState<{
+    id: number;
+    message: string;
+  } | null>(null);
+  const toastId = React.useRef(0);
+  const notify = React.useCallback((message: string) => {
+    toastId.current += 1;
+    setToast({ id: toastId.current, message });
+  }, []);
+  const dismissToast = React.useCallback(() => setToast(null), []);
+
+  const rename = React.useCallback((id: string, name: string) => {
+    const next = name.trim();
+    if (next === "") return;
+    setTemplates((all) =>
+      all.map((t) =>
+        // The guard is here as well as in the menu: a disabled control is a
+        // courtesy, and the rule belongs with the data it protects.
+        t.id === id && !t.builtIn ? { ...t, name: next } : t,
+      ),
+    );
+  }, []);
+
   const link = React.useCallback(
     (accountId: string, templateId: string, base: NavArrangement) =>
       /*
@@ -972,6 +1023,7 @@ export function NavTemplatesProvider({
       save,
       update,
       remove,
+      rename,
       duplicate,
       patchFor,
       linkedIdFor,
@@ -984,12 +1036,16 @@ export function NavTemplatesProvider({
       markPushed,
       noticeFor,
       dismissNotice,
+      notify,
+      toast,
+      dismissToast,
     }),
     [
       templates,
       save,
       update,
       remove,
+      rename,
       duplicate,
       patchFor,
       linkedIdFor,
@@ -1002,6 +1058,9 @@ export function NavTemplatesProvider({
       markPushed,
       noticeFor,
       dismissNotice,
+      notify,
+      toast,
+      dismissToast,
     ],
   );
 
