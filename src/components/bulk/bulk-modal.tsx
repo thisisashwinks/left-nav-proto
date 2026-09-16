@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Clock,
   LayoutTemplate,
+  ArrowLeft,
   ArrowRight,
   Minus,
   Plus,
@@ -359,7 +360,28 @@ export function BulkModal({
         className="motion-panel-in relative flex max-h-[calc(100dvh-32px)] max-w-full flex-col overflow-hidden rounded-[8px] bg-pg-surface shadow-[0_20px_24px_-4px_rgba(16,24,40,0.08),0_8px_8px_-4px_rgba(16,24,40,0.03)]"
       >
         {/* Header — 12px top, 16px horizontal, per the modal spec. */}
-        <header className="flex shrink-0 items-start gap-[12px] px-[16px] pt-[12px] pb-[10px]">
+        <header className="flex shrink-0 items-start gap-[10px] px-[16px] pt-[12px] pb-[10px]">
+          {/*
+            Back is a header control, not a footer button.
+
+            In the footer it sat beside Cancel — two greys, side by side, one
+            of which goes back a step and one of which throws the run away.
+            They read as a pair of equal options, and the more dangerous of the
+            two was the easier to hit by muscle memory. Up here it is
+            navigation, where the eye already goes to find out where it is, and
+            the footer is left saying one thing: continue, or stop.
+          */}
+          {backTo() ? (
+            <button
+              type="button"
+              onClick={() => setStep(backTo()!)}
+              aria-label="Back"
+              title="Back"
+              className="motion-tap -mt-[1px] flex size-[24px] shrink-0 items-center justify-center rounded-[6px] text-pg-muted hover:bg-pg-row-border hover:text-pg-heading"
+            >
+              <ArrowLeft size={16} aria-hidden="true" />
+            </button>
+          ) : null}
           <h2 className="min-w-0 flex-1 text-[16px] leading-[22px] font-semibold text-pg-heading">
             {heading}
           </h2>
@@ -729,13 +751,7 @@ export function BulkModal({
             </>
           ) : step === "applying" ? null : (
             <>
-              {backTo() ? (
-                <SecondaryButton onClick={() => setStep(backTo()!)}>
-                  Back
-                </SecondaryButton>
-              ) : (
-                <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
-              )}
+              <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
               {step === "path" ? null : (
                 <PrimaryButton
                   disabled={nextDisabled({ step, picked: picked.length, templateId })}
