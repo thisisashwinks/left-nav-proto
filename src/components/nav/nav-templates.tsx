@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTheme } from "@/components/theme/theme-provider";
 import { resolveOwned } from "./catalogue-equivalents";
 import {
   customTreeFor,
@@ -929,6 +930,7 @@ export function NavTemplatesProvider({
 }: {
   children: React.ReactNode;
 }) {
+  const { templateSeed } = useTheme().effective;
   const [templates, setTemplates] = React.useState<readonly NavTemplate[]>(
     SEED_TEMPLATES,
   );
@@ -1239,9 +1241,25 @@ export function NavTemplatesProvider({
     [templates],
   );
 
+  /*
+   * What the menus see, which is not always what the store holds.
+   *
+   * Filtered rather than seeded differently, so the axis is reversible: the
+   * presets stay in state and come back the moment it is switched, and anything
+   * the agency made itself is never touched — only the shipped examples are
+   * hidden. The immutable default is `builtIn` too and always stays.
+   */
+  const visible = React.useMemo(
+    () =>
+      templateSeed === "presets"
+        ? templates
+        : templates.filter((t) => !t.builtIn || t.immutable),
+    [templates, templateSeed],
+  );
+
   const value = React.useMemo<TemplatesValue>(
     () => ({
-      templates,
+      templates: visible,
       save,
       update,
       remove,
@@ -1268,7 +1286,7 @@ export function NavTemplatesProvider({
       dismissToast,
     }),
     [
-      templates,
+      visible,
       save,
       update,
       remove,

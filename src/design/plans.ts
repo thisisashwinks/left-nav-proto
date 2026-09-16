@@ -57,10 +57,14 @@ export const AGENCY_PLAN_NAMES: Record<AgencyPlan, string> = {
 };
 
 /**
- * The middle tier, so the prototype opens able to edit — and $97 is something
- * you switch DOWN to in order to see the locks.
+ * The top tier (Sep 16), so nothing in the prototype is gated by default.
+ *
+ * Every sub-account is on $497 unless someone says otherwise: the locks, the
+ * single-seat limit and the plan wall are all things you switch DOWN to in
+ * order to see, rather than things standing between a reviewer and the feature
+ * they opened the prototype to look at.
  */
-export const DEFAULT_AGENCY_PLAN: AgencyPlan = "pro";
+export const DEFAULT_AGENCY_PLAN: AgencyPlan = "elite";
 
 /**
  * One key per gated capability, and only three.

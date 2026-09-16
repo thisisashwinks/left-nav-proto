@@ -36,6 +36,16 @@ const NAV_GAP = 12;
 const NAV_BOTTOM = 74;
 
 /**
+ * How far a top-centred message sits from the top of the window.
+ *
+ * One number, exported, because four surfaces place a toast there — this
+ * file's own notices, the template toast, the undo offer and the push report —
+ * and at 16px they cleared the app bar by so little that they read as attached
+ * to it rather than floating over the page.
+ */
+export const TOAST_TOP = 32;
+
+/**
  * The nav column's right edge, live.
  *
  * Measured rather than passed down. The alternative is threading an offset from
@@ -76,10 +86,15 @@ export function TemplateMessage({
   /**
    * Closing without answering.
    *
-   * A notice takes it on the scrim-less backdrop and on Escape. A decision
-   * takes it on Escape ONLY — clicking away from a question you have not
-   * answered should do nothing, or the question is optional and should not have
-   * been asked this way.
+   * Escape, the scrim, and whatever the footer calls it — all three, for both
+   * kinds.
+   *
+   * A decision's scrim used to be inert, on the reasoning that a question you
+   * can click away from is a question that will be lost. That is the right rule
+   * for a question whose answer is needed; it is the wrong one here, because
+   * every decision in this feature has "do nothing" as its safe answer and
+   * walking away IS that answer. Inert, the delete dialog had no way out that
+   * anyone found — Escape works, and nobody reaches for Escape.
    */
   onDismiss: () => void;
   width?: number;
@@ -132,8 +147,7 @@ export function TemplateMessage({
           type="button"
           aria-label="Close"
           tabIndex={-1}
-          // Deliberately inert: see `onDismiss`.
-          onClick={() => {}}
+          onClick={onDismiss}
           data-template-message=""
           className="fixed inset-0 z-[88] cursor-default bg-[#10182899]"
         />
@@ -157,7 +171,9 @@ export function TemplateMessage({
         style={
           onNav
             ? { left: navRight + NAV_GAP, bottom: NAV_BOTTOM, width }
-            : { width }
+            : decision
+              ? { width }
+              : { width, top: TOAST_TOP }
         }
         className={cn(
           "motion-panel-in fixed z-[89] flex flex-col",
@@ -171,7 +187,7 @@ export function TemplateMessage({
               ? // Dead centre, both axes.
                 "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
               : // Top centre, clear of the app bar.
-                "top-[16px] left-1/2 -translate-x-1/2",
+                "left-1/2 -translate-x-1/2",
         )}
       >
         {children}
@@ -328,7 +344,7 @@ export function useToastPlacement(): {
     onNav,
     style: onNav
       ? { left: navRight + NAV_GAP, bottom: NAV_BOTTOM }
-      : { top: 16, left: "50%" },
+      : { top: TOAST_TOP, left: "50%" },
   };
 }
 

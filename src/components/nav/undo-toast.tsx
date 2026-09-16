@@ -5,6 +5,7 @@ import { Undo2, X } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { useNavLayout } from "./nav-layout-provider";
+import { TOAST_TOP } from "./template-message";
 
 /** How long an undo stays on offer before it slides away. */
 const DISMISS_MS = 5000;
@@ -64,7 +65,7 @@ export function UndoToast({
       */
       style={
         centred
-          ? { top: 16, left: "50%" }
+          ? { top: TOAST_TOP, left: "50%" }
           : {
               left: Math.max(12, navWidth - 260),
               bottom: state.editing ? 74 + 94 : 74,

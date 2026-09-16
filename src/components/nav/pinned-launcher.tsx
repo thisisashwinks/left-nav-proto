@@ -801,33 +801,26 @@ export function PinnedLauncher({
             */
             className={cn(
               "flex w-full flex-1 flex-col items-start overflow-y-auto px-[14px]",
+              "gap-[var(--t-nav-space,2px)]",
               /*
-                Four more pixels between rows, in the Recents tab only.
-
-                The nav's own 2px is right for a list you read as one run —
-                the directory tree, where the indents and chevrons are doing
-                the separating, and the flat manage list where the rows are
-                being dragged past each other. Recents is neither: it is a
-                short run of unrelated destinations you scan rather than read,
-                every row the same height with no structure between them, and
-                at 2px they packed into a block. Spent here rather than on the
-                column, so the tree next door keeps the density it was tuned
-                for.
-              */
-              tabbed && tab === "recent"
-                ? "gap-[calc(var(--t-nav-space,2px)+4px)]"
-                : "gap-[var(--t-nav-space,2px)]",
-              /*
-                The top padding belongs to the search field, not to the list.
+                The top padding belongs to whatever is directly above the list.
                 
-                10px separated the first row from the field above it. With no
-                field the same 10px stacks under the header's own 4px and the
-                first heading's 6px, leaving 20px of nothing between "Recents"
-                and "Pinned" — air that was paying for something that is not
-                there. 2px when the field is gone; the heading still pays for
-                its own space, as it does in the nav.
+                10px separates the first row from the search field. With no
+                field and no switcher the same 10px stacks under the header's
+                own 4px and the first heading's 6px, leaving 20px of nothing
+                between "Recents" and "Pinned" — air paying for something that
+                is not there, so that case takes 2px and lets the heading pay
+                for its own space, as it does in the nav.
+
+                The switcher wants the field's figure, not the heading's
+                (Sep 16). On the Recently visited tab there is no field, so the
+                list was butted against the tab strip at 2px and the rows read
+                as the tabs' own contents — a menu hanging off the control
+                rather than the tab's PAGE. Same 10px the field gets under the
+                same switcher: the gap belongs to the boundary, not to which
+                control happens to be sitting on it.
               */
-              showSearch ? "pt-[10px]" : "pt-[2px]",
+              showSearch || tabbed ? "pt-[10px]" : "pt-[2px]",
             )}
           >
         {mergedPanel && agencyScope ? (

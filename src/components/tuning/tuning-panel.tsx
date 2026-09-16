@@ -84,6 +84,12 @@ import {
   TEMPLATE_MENU_SHAPE_LABELS,
   TEMPLATE_MENU_SHAPES,
   TEMPLATE_MESSAGE_PLACEMENT_LABELS,
+  TEMPLATE_ACTION_HOME_LABELS,
+  TEMPLATE_ACTION_HOMES,
+  TEMPLATE_SAVE_SHAPE_LABELS,
+  TEMPLATE_SAVE_SHAPES,
+  TEMPLATE_SEED_LABELS,
+  TEMPLATE_SEEDS,
   TEMPLATE_MESSAGE_PLACEMENTS,
   TEMPLATE_PROPAGATIONS,
   TEMPLATE_PROPAGATION_LABELS,
@@ -93,6 +99,9 @@ import {
   type TemplateConflict,
   type TemplateDeleteMode,
   type TemplateMenuShape,
+  type TemplateActionHome,
+  type TemplateSaveShape,
+  type TemplateSeed,
   type TemplateMessagePlacement,
   type TemplatePropagation,
   SEARCH_MODE_LABELS,
@@ -182,6 +191,11 @@ import {
   type BulkOutcome,
 } from "@/components/bulk/bulk-config";
 import { useBulkActions } from "@/components/bulk/bulk-provider";
+import {
+  BULK_FLOWS,
+  BULK_FLOW_LABELS,
+  type BulkFlow,
+} from "@/components/bulk/bulk-config";
 import { catalogue } from "@/components/nav/catalogue";
 import {
   NAV_SECTIONS,
@@ -967,6 +981,47 @@ function BulkActionsSection({
       changedCount={changedCount}
       onReset={reset}
     >
+      {/*
+        First in the section, because it is the axis the others sit inside:
+        every switch below reads differently depending on which flow is running.
+      */}
+      <Segmented
+        label="Bulk actions flow"
+        options={BULK_FLOWS}
+        value={settings.flow}
+        onChange={(v: BulkFlow) => set("flow", v)}
+        format={(v) => BULK_FLOW_LABELS[v]}
+      />
+      <Note>
+        {settings.flow === "guided"
+          ? "One screen instead of a hub, real numbers before a template lands (will change / already match / customised), undo on the run, and per-account outcomes afterwards. Selection gets one row per account, a count against a total, and a Clear."
+          : "The shipped flow: a chooser card, “applied to 17 sub-accounts” as the only figure, no undo, and one status for the whole batch."}
+      </Note>
+
+      <Toggle
+        label="Preview on one sub-account"
+        checked={settings.previewStep}
+        disabled={settings.flow !== "guided"}
+        onChange={(v) => set("previewStep", v)}
+      />
+      <Note>
+        {settings.previewStep
+          ? "A dry-run step before Apply: pick one sub-account and see the nav the template would land as, including what it drops. Nothing is written."
+          : "Off. Undo already covers the wrong-template mistake, so the extra step has to earn itself — turn it on to see what it buys."}
+      </Note>
+
+      <Toggle
+        label="Simulate a failed sub-account"
+        checked={settings.simulateFailure}
+        disabled={settings.flow !== "guided"}
+        onChange={(v) => set("simulateFailure", v)}
+      />
+      <Note>
+        {settings.simulateFailure
+          ? "One sub-account in every run fails, so the half-worked case is visible: the card names it and offers a retry for it alone."
+          : "Every run succeeds. The mixed-result card exists either way — this is how you get to see it."}
+      </Note>
+
       <Toggle
         label="Selection and bulk actions"
         checked={settings.enabled}
@@ -1610,6 +1665,12 @@ export function TuningPanel() {
     setTemplatePushNotice,
     templateMenuShape,
     setTemplateMenuShape,
+    templateSeed,
+    setTemplateSeed,
+    templateSaveShape,
+    setTemplateSaveShape,
+    templateActionHome,
+    setTemplateActionHome,
     templateConflict,
     setTemplateConflict,
     setNavSwitchSurface,
@@ -1674,6 +1735,9 @@ export function TuningPanel() {
     setTemplateDeleteMode(DEFAULT_THEME.templateDeleteMode);
     setTemplatePushNotice(DEFAULT_THEME.templatePushNotice);
     setTemplateMenuShape(DEFAULT_THEME.templateMenuShape);
+    setTemplateSeed(DEFAULT_THEME.templateSeed);
+    setTemplateSaveShape(DEFAULT_THEME.templateSaveShape);
+    setTemplateActionHome(DEFAULT_THEME.templateActionHome);
     setTemplateConflict(DEFAULT_THEME.templateConflict);
     setNewDotPlacement(DEFAULT_THEME.newDotPlacement);
   };
@@ -1997,6 +2061,45 @@ export function TuningPanel() {
             {templateMenuShape === "list-first"
               ? "The templates are the menu — applying is the row, and update, rename, duplicate and delete live on that row's ⋯. The paragraph-styles model: pick the thing, then say what to do to it."
               : "Three verbs — Save, Create, Apply — each opening a list or a form. The menu answers \u201cwhat can I do\u201d, and which templates exist is one level down inside one of them."}
+          </Note>
+
+          <Segmented
+            label="Template list starts with"
+            options={TEMPLATE_SEEDS}
+            value={templateSeed}
+            onChange={(v: TemplateSeed) => setTemplateSeed(v)}
+            format={(v) => TEMPLATE_SEED_LABELS[v]}
+          />
+          <Note>
+            {templateSeed === "default-only"
+              ? "Just the HighLevel default. The agency builds its own set — which is what happens anyway, and it makes \u201cSave as new template\u201d the obvious next move rather than one row among six."
+              : "The five worked examples as well, for showing the list full. The cost is a menu whose first impression is five arrangements nobody at this agency made."}
+          </Note>
+
+          <Segmented
+            label="Saving an arrangement"
+            options={TEMPLATE_SAVE_SHAPES}
+            value={templateSaveShape}
+            onChange={(v: TemplateSaveShape) => setTemplateSaveShape(v)}
+            format={(v) => TEMPLATE_SAVE_SHAPE_LABELS[v]}
+          />
+          <Note>
+            {templateSaveShape === "unified"
+              ? "One row — Save this arrangement — offering update or save-as-new behind it. The two are the same gesture at different scopes, and which you want depends on a fact the menu already knows."
+              : "Two places: Update to match on the template's own \u22ef, and Save as new template at the foot."}
+          </Note>
+
+          <Segmented
+            label="Rename, duplicate, delete"
+            options={TEMPLATE_ACTION_HOMES}
+            value={templateActionHome}
+            onChange={(v: TemplateActionHome) => setTemplateActionHome(v)}
+            format={(v) => TEMPLATE_ACTION_HOME_LABELS[v]}
+          />
+          <Note>
+            {templateActionHome === "manage"
+              ? "The list is a pure picker — click a row, get that arrangement — and library work sits behind one Manage templates row. The menu you open daily stops carrying the controls you need monthly."
+              : "Every row carries a \u22ef with all of it. Everything is one click away, and the picker is also a file manager."}
           </Note>
 
           <Segmented

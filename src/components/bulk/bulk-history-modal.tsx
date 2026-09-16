@@ -2,7 +2,13 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { Clock, LayoutTemplate, SlidersHorizontal, X } from "lucide-react";
+import {
+  Clock,
+  LayoutTemplate,
+  SlidersHorizontal,
+  Undo2,
+  X,
+} from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { FEATURE_ACTION_LABELS, featureLabel } from "./bulk-config";
 import { plural, useBulkActions } from "./bulk-provider";
@@ -19,7 +25,7 @@ import { plural, useBulkActions } from "./bulk-provider";
  */
 export function BulkHistoryModal({ onClose }: { onClose: () => void }) {
   const { effective } = useTheme();
-  const { history, clearHistory } = useBulkActions();
+  const { history, clearHistory, undoRun } = useBulkActions();
 
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -125,6 +131,32 @@ export function BulkHistoryModal({ onClose }: { onClose: () => void }) {
                       </span>
                     ))}
                   </div>
+                ) : null}
+
+                {/*
+                  Undo, where an admin actually looks for it.
+
+                  The success card offers it in the moment; this is the same
+                  action a day later, which is when the wrong template is
+                  usually noticed. A run that has been undone says so and
+                  offers nothing — putting it back is applying it again, and
+                  that is a decision to make from the top of the flow rather
+                  than from a log.
+                */}
+                {run.undone ? (
+                  <p className="flex items-center gap-[6px] text-[13px] leading-[18px] text-pg-muted">
+                    <Undo2 size={13} aria-hidden="true" />
+                    Undone — every sub-account was put back.
+                  </p>
+                ) : Object.keys(run.before).length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => undoRun(run.id)}
+                    className="motion-tap flex items-center gap-[6px] self-start rounded-[6px] bg-pg-surface px-[9px] py-[5px] text-[13px] leading-[18px] font-medium text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border-strong)] hover:bg-pg-row-border"
+                  >
+                    <Undo2 size={13} aria-hidden="true" />
+                    Undo this run
+                  </button>
                 ) : null}
 
                 <p className="truncate text-[12px] leading-[16px] text-pg-faint">

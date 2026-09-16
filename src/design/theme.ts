@@ -615,6 +615,75 @@ export const TEMPLATE_CONFLICT_LABELS: Record<TemplateConflict, string> = {
   resolve: "Offer a way out",
 };
 
+/**
+ * What an agency finds in the template list before it has made anything.
+ *
+ *  default-only  The HighLevel default and nothing else. The agency builds its
+ *                own set, which is what actually happens — a dental preset
+ *                written by us is a guess at somebody else's business, and an
+ *                agency that has five of them has five arrangements it did not
+ *                choose sitting above the ones it did. The default: an empty
+ *                list is also the honest zero state, and it makes "Save as new
+ *                template" the obvious next move rather than one row among six.
+ *  presets       The five worked examples as well. Useful for showing the list
+ *                full, and for arguing that a starting point beats a blank
+ *                page — at the cost of a menu whose first impression is five
+ *                things nobody here made.
+ */
+export const TEMPLATE_SEEDS = ["default-only", "presets"] as const;
+
+export type TemplateSeed = (typeof TEMPLATE_SEEDS)[number];
+
+export const TEMPLATE_SEED_LABELS: Record<TemplateSeed, string> = {
+  "default-only": "Default only",
+  presets: "Default and presets",
+};
+
+/**
+ * Where saving an arrangement lives.
+ *
+ *  split    Two places: "Update to match" on the template's own ⋯, and "Save as
+ *           new template" as a row at the foot. Which one you want depends on
+ *           whether you are already on a template — a fact the menu knows and
+ *           makes you work out anyway.
+ *  unified  One row, "Save template", opening a dialog that asks which: update
+ *           the one you are on, or keep this as a new one. The default. The two
+ *           are the same gesture at different scopes, and the dialog is where
+ *           the difference that matters — how many other accounts move — can
+ *           actually be stated beside each option.
+ */
+export const TEMPLATE_SAVE_SHAPES = ["split", "unified"] as const;
+
+export type TemplateSaveShape = (typeof TEMPLATE_SAVE_SHAPES)[number];
+
+export const TEMPLATE_SAVE_SHAPE_LABELS: Record<TemplateSaveShape, string> = {
+  split: "Two rows",
+  unified: "One row",
+};
+
+/**
+ * Where renaming, duplicating and deleting a template live.
+ *
+ * The ⋯ was doing two unrelated jobs. Applying is about the nav in front of
+ * you; renaming and deleting are about the template as an object in a library,
+ * which is a different errand on a different schedule.
+ *
+ *  on-row  Every row carries a ⋯ with all of it. Everything is one click away,
+ *          and the picker is also a file manager.
+ *  manage  The list is a pure picker — click a row, get that arrangement — and
+ *          library work sits behind one "Manage templates" row. The default:
+ *          the menu people open twenty times a day stops carrying the controls
+ *          they need twice a month.
+ */
+export const TEMPLATE_ACTION_HOMES = ["on-row", "manage"] as const;
+
+export type TemplateActionHome = (typeof TEMPLATE_ACTION_HOMES)[number];
+
+export const TEMPLATE_ACTION_HOME_LABELS: Record<TemplateActionHome, string> = {
+  "on-row": "On each row",
+  manage: "Behind Manage",
+};
+
 export const LEGACY_FOOT_CONTROLS = ["off", "menu", "pills"] as const;
 
 export type LegacyFootControl = (typeof LEGACY_FOOT_CONTROLS)[number];
@@ -1588,6 +1657,12 @@ export interface ThemeState {
   templatePushNotice: boolean;
   /** How the templates menu is ordered. See TEMPLATE_MENU_SHAPES. */
   templateMenuShape: TemplateMenuShape;
+  /** What the template list starts with. See TEMPLATE_SEEDS. */
+  templateSeed: TemplateSeed;
+  /** Where saving an arrangement lives. See TEMPLATE_SAVE_SHAPES. */
+  templateSaveShape: TemplateSaveShape;
+  /** Where library management lives. See TEMPLATE_ACTION_HOMES. */
+  templateActionHome: TemplateActionHome;
   /** What a push does about a collision. See TEMPLATE_CONFLICTS. */
   templateConflict: TemplateConflict;
   /**
@@ -1887,6 +1962,11 @@ export const DEFAULT_THEME: ThemeState = {
   templateDeleteMode: "unlink",
   templatePushNotice: false,
   templateMenuShape: "list-first",
+  templateSeed: "default-only",
+  templateSaveShape: "unified",
+  // On each row (Sep 16). The picker carrying its own library controls is the
+  // shorter path; "Manage" is the alternative, one switch away.
+  templateActionHome: "on-row",
   templateConflict: "resolve",
   // On, for the same reason: the comparison should be one menu away.
   // Off (Sep 15). "My layout vs HighLevel default" was a second, parallel way

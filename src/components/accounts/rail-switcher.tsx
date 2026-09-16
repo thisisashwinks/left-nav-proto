@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { Check, Minus, Pin, PinOff, Search, Sparkles, X } from "lucide-react";
+import { Check, Minus, Pin, Search, Sparkles, X } from "lucide-react";
 import type { BulkPath } from "@/components/bulk/bulk-config";
 import { BulkHistoryModal } from "@/components/bulk/bulk-history-modal";
 import { BulkModal } from "@/components/bulk/bulk-modal";
 import { useBulkActions } from "@/components/bulk/bulk-provider";
+import { usePinnedInk } from "@/components/nav/pin-button";
 import { cn } from "@/lib/utils";
 import { AccountLogo } from "./account-logo";
 import { matchAccounts, type Account } from "./accounts-data";
@@ -69,6 +70,15 @@ export function RailDirectory({
    * agency's checkboxes on; it has nothing to say about this panel.
    */
   const picking = settings.enabled && settings.bulkInDirectory && !membersOnly;
+  /*
+   * The guided flow's selection rules. See BULK_FLOWS.
+   *
+   * They are all one fix: a list you SELECT from has different obligations
+   * from a list you jump from. One row per account, a count you can read
+   * against a total, a way out that is not the same checkbox that got you in,
+   * and nothing else on the row competing for the click.
+   */
+  const guided = settings.flow === "guided";
 
   React.useEffect(() => {
     inputRef.current?.focus();
@@ -100,15 +110,28 @@ export function RailDirectory({
     const recentRows = recentOrder
       .map((id) => matches.find((a) => a.id === id))
       .filter((a): a is Account => a !== undefined);
-    // ALL: the COMPLETE directory (recents included — a directory with holes
-    // reads as missing accounts), pinned first, then seed order.
-    const allRows = [...matches].sort((a, b) => {
-      const ap = session.onRail(a.id) ? 0 : 1;
-      const bp = session.onRail(b.id) ? 0 : 1;
-      return ap - bp;
-    });
+    /*
+     * ALL: the complete directory, or everything the RECENT run did not
+     * already show.
+     *
+     * Recents are repeated on purpose when this panel is a JUMP list — a
+     * directory with holes in it reads as missing accounts. With checkboxes on
+     * it is the opposite: the same account drew two rows and two ticks, so a
+     * reader saw nineteen boxes checked over a count that said seventeen and
+     * had no way to know which of the pair was "the" one. One account, one
+     * row, one tick.
+     */
+    const dedupe = guided && picking;
+    const recentSet = new Set(recentRows.map((a) => a.id));
+    const allRows = [...matches]
+      .filter((a) => !dedupe || !recentSet.has(a.id))
+      .sort((a, b) => {
+        const ap = session.onRail(a.id) ? 0 : 1;
+        const bp = session.onRail(b.id) ? 0 : 1;
+        return ap - bp;
+      });
     return { recent: recentRows, all: allRows };
-  }, [matches, currentId, recentIds, session]);
+  }, [matches, currentId, recentIds, session, guided, picking]);
 
   /*
    * Selection is by id and the sections overlap — an account in RECENT is also
@@ -134,6 +157,15 @@ export function RailDirectory({
     picking,
     selected,
     onToggle: toggleRow,
+    /*
+      The pin comes off the row once rows are being ticked.
+
+      Two controls on a 34px row, one of which quietly reorders the list you
+      are working down — tick, tick, miss, and the next row has moved. Pinning
+      is curation you do while browsing; it is there whenever nothing is
+      selected, which is whenever you are browsing.
+    */
+    showPin: !(guided && picking && selected.length > 0),
   };
 
   return (
@@ -157,19 +189,59 @@ export function RailDirectory({
                   : [...new Set([...s, ...visibleIds])],
               )
             }
-            label="Select every account shown"
+            /*
+              Says what it will do to what is on screen, not "everything".
+              While a query is up this box reaches the matches and nothing
+              else — and an admin who has just filtered to three of four
+              hundred needs that stated before they press it, not discovered
+              after.
+            */
+            label={
+              searching
+                ? `Select all ${matches.length} matching`
+                : allVisibleOn
+                  ? "Clear the selection"
+                  : `Select all ${session.accounts.length} accounts`
+            }
           />
         ) : null}
         <span className="min-w-0 flex-1 truncate text-[13.5px] leading-[18px] font-semibold text-nav-fg">
           {/* The count replaces the title rather than joining it: at 340px
               there is room for one thing on the left, and while rows are
               ticked the count is the more useful of the two. */}
-          {selected.length > 0
-            ? `${selected.length} selected`
-            : membersOnly
+          {selected.length === 0
+            ? membersOnly
               ? "My accounts"
-              : "All accounts"}
+              : "All accounts"
+            : guided
+              ? /*
+                   A count against a total, because a bare "17 selected" does
+                   not say whether that is all of them or a sixth of them —
+                   and which of those it is changes whether you press the
+                   button. While searching the total is what you can see, since
+                   that is what the header box would act on.
+                */
+                `${selected.length} of ${
+                  searching ? matches.length : session.accounts.length
+                } selected`
+              : `${selected.length} selected`}
         </span>
+        {/*
+          A way out that is not the control that got you in.
+
+          Unticking 17 rows one at a time is not a way out, and the header
+          checkbox only clears what is currently VISIBLE — filter, select, clear
+          the filter, and the box no longer reaches the rest of the selection.
+        */}
+        {guided && picking && selected.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setSelected([])}
+            className="motion-tap shrink-0 rounded-[6px] px-[6px] py-[3px] text-[12px] leading-none font-medium text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
+          >
+            Clear
+          </button>
+        ) : null}
         {picking && selected.length > 0 ? (
           /*
             Always the chooser here, whatever the Entry knob says. Straight-in
@@ -218,7 +290,13 @@ export function RailDirectory({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={`Search ${session.accounts.length} accounts`}
+            /*
+              "Search 17 accounts" beside "17 selected" read as searching
+              WITHIN the selection — two seventeens on one surface meaning
+              different things. The field searches the directory; it always
+              did.
+            */
+            placeholder="Search sub-accounts"
             aria-label="Search accounts"
             className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none"
           />
@@ -236,7 +314,13 @@ export function RailDirectory({
           ) : (
             <>
               <Group label="RECENT" accounts={recent} {...rowProps} />
-              <Group label="ALL" accounts={all} {...rowProps} />
+              {/* Named for what it holds: with the recents deduped out of it,
+                  "ALL" would be a heading over all-but-five. */}
+              <Group
+                label={guided && picking ? "ALL OTHERS" : "ALL"}
+                accounts={all}
+                {...rowProps}
+              />
             </>
           )}
         </div>
@@ -267,6 +351,7 @@ function Group({
   picking,
   selected,
   onToggle,
+  showPin = true,
 }: {
   label?: string;
   accounts: Account[];
@@ -275,7 +360,15 @@ function Group({
   picking: boolean;
   selected: readonly string[];
   onToggle: (id: string) => void;
+  /** Off while a selection is in progress — see rowProps. */
+  showPin?: boolean;
 }) {
+  /*
+    The same ink a set pin wears in the nav, through the same axis — a pinned
+    account and a pinned product are one gesture, and a mark that is grey in
+    one list and branded in the other would be two.
+  */
+  const pinnedInk = usePinnedInk();
   if (accounts.length === 0) return null;
   return (
     <>
@@ -353,35 +446,60 @@ function Group({
                 Current
               </span>
             ) : null}
-            <button
-              type="button"
-              aria-label={
-                action === "remove"
-                  ? `Unpin ${account.name}`
-                  : `Pin ${account.name}`
-              }
-              title={action === "remove" ? "Unpin" : "Pin"}
-              onClick={() => {
-                // Pure curation now: with one sorted list, the pin toggles
-                // the rail tile and nothing else — the ROW is the jump. The
-                // old add-and-go behaviour belonged to the "All accounts"
-                // section this list replaced.
-                if (action === "remove") session.removeFromRail(account.id);
-                else session.addToRail(account.id);
-              }}
-              className={cn(
-                // Visible at rest — a hover-only affordance made the panel
-                // read as a plain list until you happened to mouse a row.
-                "motion-tap flex size-[22px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle",
-                "shadow-[inset_0_0_0_1px_var(--fly-border)] hover:bg-nav-active hover:text-nav-fg",
-              )}
-            >
-              {action === "remove" ? (
-                <PinOff size={13} aria-hidden="true" />
-              ) : (
-                <Pin size={13} aria-hidden="true" />
-              )}
-            </button>
+            {showPin ? (
+              /*
+                The nav's pin, on an account row — see PinButton, which this
+                deliberately mirrors rather than imports (that one pins a
+                PRODUCT through the nav layout store; this pins an account to
+                the rail through the session).
+                
+                Two things changed here (Sep 16). The state is now in the GLYPH
+                rather than in which glyph: a filled pin is pinned, an outline
+                pin is not, the way the pin reads everywhere else in the nav.
+                Pin/PinOff put the state in a diagonal slash that is 13px wide
+                and easy to miss, and worse, showed every row the icon for what
+                pressing it would DO — so a column of pinned accounts wore
+                "unpin" marks and read as the unpinned ones.
+                
+                And an unpinned row only shows it on hover. Drawn at rest on
+                every row, seventeen identical outlined boxes ran down the panel
+                as a second column competing with the logos — which made the
+                four that mattered impossible to pick out. Pinned stays visible,
+                because that one is not an affordance, it is the row telling you
+                what it is.
+              */
+              <button
+                type="button"
+                aria-label={
+                  action === "remove"
+                    ? `Unpin ${account.name}`
+                    : `Pin ${account.name}`
+                }
+                aria-pressed={action === "remove"}
+                title={action === "remove" ? "Unpin" : "Pin"}
+                onClick={() => {
+                  // Pure curation now: with one sorted list, the pin toggles
+                  // the rail tile and nothing else — the ROW is the jump. The
+                  // old add-and-go behaviour belonged to the "All accounts"
+                  // section this list replaced.
+                  if (action === "remove") session.removeFromRail(account.id);
+                  else session.addToRail(account.id);
+                }}
+                className={cn(
+                  "motion-tap flex size-[22px] shrink-0 items-center justify-center rounded-[6px]",
+                  "hover:bg-nav-active active:scale-90 motion-press",
+                  action === "remove"
+                    ? cn(pinnedInk, "opacity-100")
+                    : "text-nav-fg-subtle opacity-0 group-hover/row:opacity-100 hover:text-nav-fg focus-visible:opacity-100",
+                )}
+              >
+                <Pin
+                  size={13}
+                  fill={action === "remove" ? "currentColor" : "none"}
+                  aria-hidden="true"
+                />
+              </button>
+            ) : null}
           </div>
         );
       })}

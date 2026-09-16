@@ -3,12 +3,15 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import {
+  AlertTriangle,
   Check,
   CheckCircle2,
   ChevronRight,
   Clock,
   LayoutTemplate,
+  ArrowRight,
   Minus,
+  Plus,
   Search,
   SlidersHorizontal,
   Sparkles,
@@ -16,9 +19,15 @@ import {
   X,
 } from "lucide-react";
 import { AccountLogo } from "@/components/accounts/account-logo";
-import type { Account } from "@/components/accounts/accounts-data";
+import {
+  accounts as allAccounts,
+  type Account,
+} from "@/components/accounts/accounts-data";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
-import { useNavTemplates } from "@/components/nav/nav-templates";
+import {
+  useNavTemplates,
+  type NavTemplate,
+} from "@/components/nav/nav-templates";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import {
@@ -35,6 +44,7 @@ import {
   useBulkActions,
   type BulkRun,
   type FeatureDecision,
+  type TemplateImpact,
   type PerAccountDecisions,
 } from "./bulk-provider";
 
@@ -59,6 +69,7 @@ import {
 type Step =
   | "path"
   | "template-pick"
+  | "template-preview"
   | "template-review"
   | "feature-pick"
   | "feature-decide"
@@ -73,7 +84,7 @@ const PATH_ICONS: Record<BulkPath, typeof LayoutTemplate> = {
 };
 
 export function BulkModal({
-  accounts,
+  accounts: initialAccounts,
   initialPath,
   onClose,
   onOpenHistory,
@@ -85,8 +96,23 @@ export function BulkModal({
   onClose: () => void;
   onOpenHistory: () => void;
 }) {
+  /*
+   * The selection, editable from inside the review.
+   *
+   * It arrives from the ticked rows and used to be final: an admin who spotted
+   * a wrong account at the last step had to cancel, re-tick seventeen rows and
+   * start again — which is how people end up applying to the wrong account
+   * rather than doing that. Local state rather than a callback upward: the
+   * panel behind is still showing what was ticked, and reaching back to
+   * rewrite it from here would move things under a surface nobody is looking
+   * at. The run acts on this list.
+   */
+  const [accounts, setAccounts] =
+    React.useState<readonly Account[]>(initialAccounts);
+
   const { effective } = useTheme();
-  const { settings, applyTemplate, applyFeatures } = useBulkActions();
+  const { settings, applyTemplate, applyFeatures, templateImpact } =
+    useBulkActions();
   const { templates } = useNavTemplates();
   const { profileFor } = useNavLayout();
 
@@ -98,6 +124,18 @@ export function BulkModal({
    * asking which of one thing to do is a click that carries no information.
    * The modal opens on the only path it has.
    */
+  /*
+   * Two cards, and they stay a step of their own.
+   *
+   * The guided flow tried them as a segmented control on step 1 to save a
+   * click. It read as a filter over one screen rather than as a fork — two
+   * tabs of the same thing, where these are two different jobs with different
+   * consequences. Cards, each with its icon and the sentence that says what it
+   * does, are what make it a choice between paths. What the segmented version
+   * was really fixing was the dead-end footer, and the fix for that is the
+   * Back button on the step after — see `backTo`.
+   */
+  const guided = settings.flow === "guided";
   const opening = initialPath ?? (paths.length === 1 ? paths[0]! : null);
   const [path, setPath] = React.useState<BulkPath | null>(opening);
   const [step, setStep] = React.useState<Step>(
@@ -114,8 +152,22 @@ export function BulkModal({
   const [perAccount, setPerAccount] = React.useState<PerAccountDecisions>({});
   const [templateId, setTemplateId] = React.useState<string | null>(null);
   const [run, setRun] = React.useState<BulkRun | null>(null);
+  /** Which account the dry run is reading. Null until one is chosen. */
+  const [previewId, setPreviewId] = React.useState<string | null>(null);
 
   const accountIds = React.useMemo(() => accounts.map((a) => a.id), [accounts]);
+  /*
+   * Recomputed as the template changes, not once: picking a different
+   * template is picking a different blast radius, and a stale number here
+   * would be worse than no number.
+   */
+  const impact = React.useMemo(
+    () =>
+      templateId
+        ? templateImpact(templateId, accountIds)
+        : { willChange: 0, alreadyMatch: 0, customised: 0, droppedProducts: 0 },
+    [templateId, accountIds, templateImpact],
+  );
   const accountNames = React.useMemo(() => accounts.map((a) => a.name), [accounts]);
 
   /** How many of the selected accounts already own each feature. */
@@ -227,6 +279,8 @@ export function BulkModal({
   const width =
     step === "matrix"
       ? 940
+      : step === "template-preview"
+        ? 640
       : step === "path"
         ? 620
         : step === "feature-pick"
@@ -235,14 +289,25 @@ export function BulkModal({
             ? 520
             : 600;
 
+  /** The dry run, when it is switched on and there is more than one account. */
+  const previewing = guided && settings.previewStep && accounts.length > 1;
+
   const backTo = (): Step | null => {
-    if (step === "template-review") return "template-pick";
+    if (step === "template-review")
+      return previewing ? "template-preview" : "template-pick";
+    if (step === "template-preview") return "template-pick";
     if (step === "feature-decide" || step === "matrix") return "feature-pick";
     if (step === "template-pick" || step === "feature-pick") {
-      // Straight-in entry has nothing behind the first step, and neither does a
-      // single-path flow that skipped the chooser. Back would be a Cancel
-      // wearing the wrong word, so it is simply not offered.
-      return settings.entry === "chooser" && opening === null ? "path" : null;
+      /*
+       * Back to the fork, whenever there was one.
+       *
+       * A path you picked is a path you can un-pick: without this the only way
+       * out of the wrong card was Cancel, which throws the selection away with
+       * it. Straight-in entry and a single-path flow have nothing behind them,
+       * so there Back would be a Cancel wearing the wrong word and is not
+       * drawn.
+       */
+      return opening === null ? "path" : null;
     }
     return null;
   };
@@ -294,6 +359,7 @@ export function BulkModal({
             <PathChooser
               accounts={accounts}
               paths={paths}
+              fork={guided}
               onPick={(next) => {
                 setPath(next);
                 setStep(next === "template" ? "template-pick" : "feature-pick");
@@ -349,9 +415,39 @@ export function BulkModal({
                 <span className="font-semibold text-pg-heading">{template.name}</span>{" "}
                 will be applied to {plural(accounts.length, "sub-account")}.
               </p>
-              <Carries />
-              <AccountChips accounts={accounts} />
+              {/*
+                The blast radius, in the units an admin can check.
+
+                The classic flow states the selection back — "applied to 17" is
+                a number they typed. These four are facts about the fleet: how
+                many actually move, how many are already there, how many have
+                work of their own to lose, and what the template drops on the
+                way in. The third is the one that changes minds.
+              */}
+              {guided ? (
+                <AccountTags
+                  accounts={accounts}
+                  onRemove={(id) =>
+                    setAccounts((a) =>
+                      a.length > 1 ? a.filter((x) => x.id !== id) : a,
+                    )
+                  }
+                  onAdd={(a) => setAccounts((cur) => [...cur, a])}
+                />
+              ) : null}
+              {guided ? <ImpactCard impact={impact} /> : null}
+              <Carries split={guided} />
+              {guided ? null : <AccountSummary accounts={accounts} collapsed={false} />}
             </>
+          ) : null}
+
+          {step === "template-preview" && template ? (
+            <TemplatePreview
+              template={template}
+              accounts={accounts}
+              accountId={previewId ?? accounts[0]!.id}
+              onPickAccount={setPreviewId}
+            />
           ) : null}
 
           {step === "feature-pick" ? (
@@ -552,7 +648,9 @@ export function BulkModal({
             </div>
           ) : null}
 
-          {step === "done" && run ? (
+          {step === "done" && run && guided ? <RunReport run={run} /> : null}
+
+          {step === "done" && run && !guided ? (
             <div className="flex flex-col items-center gap-[8px] py-[24px] text-center">
               <CheckCircle2 size={30} aria-hidden="true" className="text-[var(--hr-success-600)]" />
               <h3 className="text-[16px] leading-[22px] font-semibold text-pg-heading">
@@ -575,20 +673,33 @@ export function BulkModal({
           ) : null}
         </div>
 
-        {/* Footer — 16px horizontal, 12px between buttons. */}
-        <footer className="flex shrink-0 items-center gap-[12px] px-[16px] py-[12px] shadow-[inset_0_1px_0_0_var(--pg-border)]">
+        {/*
+          Footer — 16px horizontal, 12px between buttons.
+
+          Gone entirely on the guided receipt rather than left empty: a bar with
+          a rule across the top and nothing in it reads as a control that failed
+          to load. There is nothing left to do on that step, so there is no bar.
+        */}
+        <footer
+          className={cn(
+            "flex shrink-0 items-center gap-[12px] px-[16px] py-[12px] shadow-[inset_0_1px_0_0_var(--pg-border)]",
+            step === "done" && guided && "hidden",
+          )}
+        >
           <span className="min-w-0 flex-1 truncate text-[13px] leading-[18px] text-pg-muted">
-            {footerHint({
-              step,
-              picked: picked.length,
-              templateId,
-              changeCount,
-              accounts: accounts.length,
-              confirmStep: settings.confirmStep,
-            })}
+            {guided
+              ? ""
+              : footerHint({
+                  step,
+                  picked: picked.length,
+                  templateId,
+                  changeCount,
+                  accounts: accounts.length,
+                  confirmStep: settings.confirmStep,
+                })}
           </span>
 
-          {step === "done" ? (
+          {step === "done" && guided ? null : step === "done" ? (
             <>
               {settings.keepHistory ? (
                 <SecondaryButton onClick={onOpenHistory}>
@@ -611,6 +722,12 @@ export function BulkModal({
                   disabled={nextDisabled({ step, picked: picked.length, templateId })}
                   onClick={() => {
                     if (step === "template-pick") {
+                      if (previewing) setStep("template-preview");
+                      else if (settings.confirmStep) setStep("template-review");
+                      else commit();
+                      return;
+                    }
+                    if (step === "template-preview") {
                       if (settings.confirmStep) setStep("template-review");
                       else commit();
                       return;
@@ -628,7 +745,9 @@ export function BulkModal({
                     commit();
                   }}
                 >
-                  {step === "feature-pick" || step === "template-pick"
+                  {step === "feature-pick" ||
+                  step === "template-pick" ||
+                  step === "template-preview"
                     ? "Next"
                     : "Apply changes"}
                 </PrimaryButton>
@@ -674,6 +793,7 @@ function footerHint({
   confirmStep: boolean;
 }): string {
   if (step === "path") return `${plural(accounts, "sub-account")} selected.`;
+  if (step === "template-preview") return "Nothing has been applied yet.";
   if (step === "template-pick")
     return templateId ? "" : "Pick a template to get started";
   if (step === "feature-pick")
@@ -706,7 +826,40 @@ function Context({
   );
 }
 
-function Carries() {
+function Carries({ split = false }: { split?: boolean }) {
+  if (split) {
+    /*
+     * Two lists side by side, because it is a comparison.
+     *
+     * As a three-row table the left column read as a label per row and the
+     * word "Carried" appeared once against two "Left alone"s, so the eye had
+     * to collect the second and third rows into a group the layout was not
+     * drawing. The question is "what does this touch and what does it not",
+     * and that is two columns with a heading each.
+     */
+    return (
+      <div className="grid grid-cols-1 gap-[10px] sm:grid-cols-2">
+        <CarriesColumn
+          tone="carried"
+          title="Carried over"
+          lines={[
+            "Grouping and group order",
+            "Icons and agency names",
+            "Pins and hidden rows",
+          ]}
+        />
+        <CarriesColumn
+          tone="left"
+          title="Left alone"
+          lines={[
+            "What each sub-account bought — no product is granted or revoked",
+            "Its own links",
+            "Its own renames",
+          ]}
+        />
+      </div>
+    );
+  }
   return (
     <ul className="flex flex-col gap-[4px] rounded-[6px] bg-pg px-[12px] py-[10px]">
       {[
@@ -746,15 +899,486 @@ function AccountChips({ accounts }: { accounts: readonly Account[] }) {
   );
 }
 
+/**
+ * The receipt, and deliberately almost nothing.
+ *
+ * It carried counts, an undo and two footer buttons. All three were answers to
+ * questions the reader does not have at this moment: the run did what the
+ * review step said it would, and the next thing they want is their screen
+ * back. So the card states that it happened, says when it lands, and the X
+ * closes it — the same X that has been in the corner the whole way through.
+ *
+ * Undo did not disappear with the button. It lives in the bulk action history,
+ * which is where somebody who notices the wrong template tomorrow will look —
+ * and tomorrow, not four seconds later, is when that is actually noticed.
+ *
+ * The exception is a run that half-worked. That one IS unfinished business,
+ * so it keeps its failures named and a retry for them alone.
+ */
+function RunReport({ run }: { run: BulkRun }) {
+  const failed = run.outcomes.filter((o) => o.status === "failed");
+  const changed = run.outcomes.filter((o) => o.status === "changed");
+  const { retryRun } = useBulkActions();
+
+  return (
+    <div className="flex flex-col gap-[10px] py-[4px]">
+      <div className="flex items-start gap-[10px]">
+        {failed.length > 0 ? (
+          <AlertTriangle
+            size={20}
+            aria-hidden="true"
+            className="mt-[2px] shrink-0 text-[var(--hr-warning-600)]"
+          />
+        ) : (
+          <CheckCircle2
+            size={20}
+            aria-hidden="true"
+            className="mt-[2px] shrink-0 text-[var(--hr-success-600)]"
+          />
+        )}
+        <div className="min-w-0 flex-1">
+          <h3 className="text-[16px] leading-[22px] font-semibold text-pg-heading">
+            {failed.length > 0
+              ? "Applied with problems"
+              : run.status === "queued"
+                ? "Changes submitted"
+                : "Changes applied"}
+          </h3>
+          <p className="mt-[2px] text-[14px] leading-[20px] text-pg-text">
+            {run.path === "template"
+              ? `${run.templateName} · ${plural(changed.length, "sub-account")} changed`
+              : `${plural(run.changeCount, "update")} across ${plural(changed.length, "sub-account")}`}
+          </p>
+        </div>
+      </div>
+
+      {failed.length > 0 ? (
+        <div className="flex flex-col gap-[8px] rounded-[8px] bg-[var(--hr-warning-50)] p-[12px]">
+          <p className="text-[13px] leading-[18px] text-[var(--hr-warning-700)]">
+            {failed.map((o) => o.name).join(", ")} did not update. Nothing was
+            half-written — they are exactly as they were.
+          </p>
+          <button
+            type="button"
+            onClick={() => retryRun(run.id)}
+            className="motion-tap self-start rounded-[6px] bg-pg-surface px-[10px] py-[5px] text-[13px] leading-[18px] font-medium text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border-strong)] hover:bg-pg"
+          >
+            Retry {plural(failed.length, "sub-account")}
+          </button>
+        </div>
+      ) : null}
+
+      {/*
+        Grey, not the accent. It is a fact about when the change lands, not
+        something to act on — in brand ink it read as a link, and it was the
+        loudest thing on a card whose whole job is to be quiet.
+      */}
+      {run.status === "queued" ? (
+        <p className="flex items-center gap-[6px] text-[13px] leading-[18px] text-pg-muted">
+          <Clock size={13} aria-hidden="true" />
+          Changes take effect in 2–5 minutes.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function CarriesColumn({
+  tone,
+  title,
+  lines,
+}: {
+  tone: "carried" | "left";
+  title: string;
+  lines: readonly string[];
+}) {
+  const carried = tone === "carried";
+  return (
+    <div className="flex flex-col gap-[6px] rounded-[8px] bg-pg p-[12px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+      <span className="flex items-center gap-[6px] text-[12px] leading-[16px] font-semibold tracking-[0.06em] text-pg-heading uppercase">
+        {carried ? (
+          <ArrowRight size={12} aria-hidden="true" className="text-brand" />
+        ) : (
+          <Minus size={12} aria-hidden="true" className="text-pg-faint" />
+        )}
+        {title}
+      </span>
+      <ul className="flex flex-col gap-[4px]">
+        {lines.map((line) => (
+          <li
+            key={line}
+            className={cn(
+              "text-[13px] leading-[18px]",
+              carried ? "text-pg-text" : "text-pg-muted",
+            )}
+          >
+            {line}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * The accounts as tags you can take one out of, plus a way to put one in.
+ *
+ * The review step is the last place the selection is true, and it was the one
+ * place it could not be corrected — spotting a wrong account here meant
+ * cancelling and re-ticking the lot. Closable tags because that is the shape
+ * everyone already reads as "a set you can edit", and a plus button because
+ * the fix for "I forgot one" should not be to start again.
+ *
+ * The last tag has no cross: a bulk run with nothing in it is not a smaller
+ * run, it is a different screen, and emptying the set from here would leave
+ * the flow standing on a number that is zero.
+ */
+function AccountTags({
+  accounts,
+  onRemove,
+  onAdd,
+}: {
+  accounts: readonly Account[];
+  onRemove: (id: string) => void;
+  onAdd: (account: Account) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const chosen = new Set(accounts.map((a) => a.id));
+  const rest = allAccounts.filter((a) => !chosen.has(a.id));
+  const only = accounts.length === 1;
+
+  return (
+    <div className="flex flex-col gap-[6px]">
+      <div className="flex flex-wrap items-center gap-[6px]">
+        {accounts.map((a) => (
+          <span
+            key={a.id}
+            className="flex items-center gap-[6px] rounded-[6px] bg-pg py-[4px] pr-[4px] pl-[7px] text-[13px] leading-[18px] text-pg-text shadow-[inset_0_0_0_1px_var(--pg-card-border)]"
+          >
+            <AccountLogo logo={a.logo} src={a.logoSrc} size={16} radius={999} />
+            <span className="max-w-[160px] truncate">{a.name}</span>
+            {only ? null : (
+              <button
+                type="button"
+                aria-label={`Remove ${a.name}`}
+                title="Remove from this run"
+                onClick={() => onRemove(a.id)}
+                className="motion-tap flex size-[18px] shrink-0 items-center justify-center rounded-[4px] text-pg-faint hover:bg-pg-row-border hover:text-pg-heading"
+              >
+                <X size={12} aria-hidden="true" />
+              </button>
+            )}
+          </span>
+        ))}
+
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            disabled={rest.length === 0}
+            aria-expanded={open}
+            className="motion-tap flex items-center gap-[5px] rounded-[6px] px-[8px] py-[5px] text-[13px] leading-[18px] font-medium text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border-strong)] hover:bg-pg disabled:opacity-40"
+          >
+            <Plus size={13} aria-hidden="true" />
+            Add
+          </button>
+
+          {open && rest.length > 0 ? (
+            <>
+              {/* Click-away, as the other menus in this prototype do it. */}
+              <button
+                type="button"
+                aria-label="Close"
+                tabIndex={-1}
+                onClick={() => setOpen(false)}
+                className="fixed inset-0 z-10 cursor-default"
+              />
+              <div className="absolute top-[calc(100%+4px)] left-0 z-20 max-h-[220px] w-[260px] overflow-y-auto rounded-[8px] bg-pg-surface p-[4px] shadow-[0_12px_16px_-4px_rgba(16,24,40,0.08),0_4px_6px_-2px_rgba(16,24,40,0.03),inset_0_0_0_1px_var(--pg-border)]">
+                {rest.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => {
+                      onAdd(a);
+                      // Left open: adding three is the common case, and a menu
+                      // that shuts after each one makes that three round trips.
+                      if (rest.length === 1) setOpen(false);
+                    }}
+                    className="motion-tap flex w-full items-center gap-[8px] rounded-[6px] px-[8px] py-[6px] text-left hover:bg-pg"
+                  >
+                    <AccountLogo
+                      logo={a.logo}
+                      src={a.logoSrc}
+                      size={18}
+                      radius={999}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-[13px] leading-[18px] text-pg-heading">
+                      {a.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The four numbers, as a card rather than a sentence.
+ *
+ * A sentence hides a zero — "12 will change and 5 already match" reads the
+ * same whether the third figure is 0 or 9, and the third figure is the one
+ * that means someone's work is about to be overwritten. As a grid each number
+ * has a fixed place, so the zero is visible as a zero.
+ */
+function ImpactCard({ impact }: { impact: TemplateImpact }) {
+  const rows = [
+    { label: "Will change", value: impact.willChange, warn: false },
+    { label: "Already match", value: impact.alreadyMatch, warn: false },
+    {
+      label: "Customised — will be overwritten",
+      value: impact.customised,
+      warn: impact.customised > 0,
+    },
+    {
+      label: "Products dropped (not owned)",
+      value: impact.droppedProducts,
+      warn: false,
+    },
+  ];
+  return (
+    <div className="flex flex-col gap-[2px] rounded-[8px] bg-pg p-[12px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+      {rows.map((r) => (
+        <div key={r.label} className="flex items-baseline gap-[8px]">
+          <span
+            className={cn(
+              "w-[44px] shrink-0 text-right text-[15px] leading-[22px] font-semibold tabular-nums",
+              r.warn ? "text-[var(--hr-warning-700)]" : "text-pg-heading",
+            )}
+          >
+            {r.value.toLocaleString("en-US")}
+          </span>
+          <span
+            className={cn(
+              "min-w-0 flex-1 text-[13px] leading-[22px]",
+              r.warn ? "text-[var(--hr-warning-700)]" : "text-pg-muted",
+            )}
+          >
+            {r.label}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The accounts, named but not necessarily all at once.
+ *
+ * A wrap of chips is fine for four and unreadable for forty — and an agency
+ * with four hundred sub-accounts can select all of them, at which point the
+ * chips are the whole modal. Three names and a count answers "is this roughly
+ * the right set", which is what the review step is for; the disclosure answers
+ * "exactly which", for the person who needs that.
+ */
+function AccountSummary({
+  accounts,
+  collapsed,
+}: {
+  accounts: readonly Account[];
+  collapsed: boolean;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const LEAD = 3;
+  if (!collapsed || accounts.length <= LEAD + 1) {
+    return <AccountChips accounts={accounts} />;
+  }
+  return (
+    <div className="flex flex-col gap-[8px]">
+      {open ? (
+        <AccountChips accounts={accounts} />
+      ) : (
+        <p className="text-[13px] leading-[18px] text-pg-muted">
+          {accounts
+            .slice(0, LEAD)
+            .map((a) => a.name)
+            .join(", ")}{" "}
+          and {plural(accounts.length - LEAD, "other")}.
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="motion-tap self-start text-[13px] leading-[18px] font-medium text-brand"
+      >
+        {open ? "Hide the list" : `Show all ${accounts.length}`}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * The dry run: what this template does to ONE account, before it does it to
+ * all of them.
+ *
+ * Reads rather than writes. A preview that actually applied to one account
+ * would need its own undo, would land in history as a run nobody made, and
+ * would leave that account on the template if the admin then backed out — so
+ * this computes the same intersection the apply computes and shows the result.
+ * Nothing is written until Apply.
+ *
+ * One account and a picker, not all of them: the question this answers is "is
+ * this the template I think it is", and that is answered by looking at one
+ * concrete outcome rather than seventeen abstract ones.
+ */
+function TemplatePreview({
+  template,
+  accounts,
+  accountId,
+  onPickAccount,
+}: {
+  template: NavTemplate;
+  accounts: readonly Account[];
+  accountId: string;
+  onPickAccount: (id: string) => void;
+}) {
+  const { profileFor } = useNavLayout();
+  const { patchFor } = useNavTemplates();
+  const layout = profileFor(accountId);
+  const patch = patchFor(template.id, layout);
+
+  const groups = patch?.customGroups ?? layout.customGroups;
+  const owns = new Set(layout.enabledProducts);
+  const dropped = [
+    ...new Set(template.arrangement.customGroups.flatMap((g) => g.productIds)),
+  ].filter((id) => !owns.has(id));
+
+  return (
+    <>
+      <Context accounts={accounts}>
+        Nothing is applied yet. This is what{" "}
+        <span className="font-semibold text-pg-heading">{template.name}</span>{" "}
+        would land as on one sub-account.
+      </Context>
+
+      <div className="flex flex-wrap items-center gap-[6px]">
+        {accounts.slice(0, 6).map((a) => (
+          <button
+            key={a.id}
+            type="button"
+            onClick={() => onPickAccount(a.id)}
+            className={cn(
+              "motion-tap flex items-center gap-[6px] rounded-[6px] px-[8px] py-[5px] text-[13px] leading-[18px]",
+              a.id === accountId
+                ? "bg-pg-row-selected text-pg-heading shadow-[inset_0_0_0_1.5px_var(--brand)]"
+                : "bg-pg text-pg-text hover:bg-pg-row-border",
+            )}
+          >
+            <AccountLogo logo={a.logo} src={a.logoSrc} size={16} radius={999} />
+            {a.name}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-[6px] rounded-[8px] bg-pg p-[12px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+        <span className="text-[12px] leading-[16px] font-semibold tracking-[0.06em] text-pg-heading uppercase">
+          Its nav would become
+        </span>
+        {groups.length === 0 ? (
+          <p className="text-[13px] leading-[18px] text-pg-muted">
+            No grouped rows — this account owns none of the products the
+            template arranges.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-[4px]">
+            {groups.map((g) => (
+              <li
+                key={g.id}
+                className="flex items-baseline gap-[8px] text-[13px] leading-[20px] text-pg-text"
+              >
+                <span className="min-w-0 flex-1 truncate font-medium text-pg-heading">
+                  {g.label}
+                </span>
+                <span className="shrink-0 text-pg-muted tabular-nums">
+                  {plural(g.productIds.length, "row")}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {dropped.length > 0 ? (
+          <p className="text-[13px] leading-[18px] text-[var(--hr-warning-700)]">
+            {plural(dropped.length, "product")} in the template dropped — this
+            account does not own{" "}
+            {dropped
+              .slice(0, 3)
+              .map((id) => featureLabel(id))
+              .join(", ")}
+            {dropped.length > 3 ? ", and others" : ""}.
+          </p>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
 function PathChooser({
   accounts,
   paths,
   onPick,
+  fork = false,
 }: {
   accounts: readonly Account[];
   paths: readonly BulkPath[];
   onPick: (path: BulkPath) => void;
+  /**
+   * Side by side rather than stacked.
+   *
+   * A stack of full-width rows with chevrons is a MENU — the same shape a
+   * settings list uses, read top to bottom, where the second item is "the one
+   * after the first". Two cards abreast is a fork: neither is first, and the
+   * gesture is picking a direction rather than working down a list. The
+   * difference matters here because these two paths are not variations of one
+   * job; one rearranges a nav and the other grants entitlement.
+   */
+  fork?: boolean;
 }) {
+  if (fork) {
+    return (
+      <>
+        <Context accounts={accounts}>
+          Pick what you want to change. The two do different things and are
+          applied separately.
+        </Context>
+        <div className="grid grid-cols-1 gap-[10px] sm:grid-cols-2">
+          {paths.map((p) => {
+            const Icon = PATH_ICONS[p];
+            return (
+              <button
+                key={p}
+                type="button"
+                onClick={() => onPick(p)}
+                className="motion-tap group/card flex flex-col items-start gap-[8px] rounded-[10px] bg-pg p-[14px] text-left shadow-[inset_0_0_0_1px_var(--pg-card-border)] hover:bg-pg-row-selected hover:shadow-[inset_0_0_0_1.5px_var(--brand)]"
+              >
+                <span className="flex size-[36px] shrink-0 items-center justify-center rounded-[9px] bg-pg-surface text-brand shadow-[inset_0_0_0_1px_var(--pg-border)]">
+                  <Icon size={18} aria-hidden="true" />
+                </span>
+                <span className="text-[14px] leading-[20px] font-semibold text-pg-heading">
+                  {BULK_PATH_LABELS[p]}
+                </span>
+                <span className="text-[13px] leading-[18px] text-pg-muted">
+                  {BULK_PATH_BLURBS[p]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </>
+    );
+  }
   return (
     <>
       <Context accounts={accounts}>Pick what you want to change.</Context>

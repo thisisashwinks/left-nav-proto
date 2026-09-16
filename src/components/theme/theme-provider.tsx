@@ -45,6 +45,9 @@ import {
   type TemplateDeleteMode,
   type TemplateConflict,
   type TemplateMenuShape,
+  type TemplateActionHome,
+  type TemplateSaveShape,
+  type TemplateSeed,
   type TemplateMessagePlacement,
   type SubAccountSwitcher,
   type NewDotPlacement,
@@ -156,6 +159,9 @@ interface ThemeContextValue extends ThemeState {
   setTemplateDeleteMode: (mode: TemplateDeleteMode) => void;
   setTemplatePushNotice: (on: boolean) => void;
   setTemplateMenuShape: (shape: TemplateMenuShape) => void;
+  setTemplateSeed: (seed: TemplateSeed) => void;
+  setTemplateSaveShape: (shape: TemplateSaveShape) => void;
+  setTemplateActionHome: (home: TemplateActionHome) => void;
   setTemplateConflict: (mode: TemplateConflict) => void;
   setNavColourControl: (control: NavColourControl) => void;
   setSubAccountSwitcher: (switcher: SubAccountSwitcher) => void;
@@ -379,6 +385,12 @@ export function ThemeProvider({
         setState((s) => ({ ...s, templatePushNotice })),
       setTemplateMenuShape: (templateMenuShape) =>
         setState((s) => ({ ...s, templateMenuShape })),
+      setTemplateSeed: (templateSeed) =>
+        setState((s) => ({ ...s, templateSeed })),
+      setTemplateSaveShape: (templateSaveShape) =>
+        setState((s) => ({ ...s, templateSaveShape })),
+      setTemplateActionHome: (templateActionHome) =>
+        setState((s) => ({ ...s, templateActionHome })),
       setTemplateConflict: (templateConflict) =>
         setState((s) => ({ ...s, templateConflict })),
       setNavColourControl: (navColourControl) =>

@@ -149,7 +149,57 @@ export const BULK_BAR_LABELS: Record<BulkBar, string> = {
   floating: "Floating bar",
 };
 
+/**
+ * Which version of the whole flow is running.
+ *
+ * `guided` is the design (Sep 16) and the default. Four things change, and
+ * they are one argument rather than four: a bulk run is irreversible, invisible
+ * once it lands, and aimed at accounts somebody else has already customised.
+ *
+ *   ONE SCREEN, not a hub. The paths become a segmented control at the top of
+ *   step 1 instead of a menu you click through — selection already happened,
+ *   so the hub was a click spent on a question with two answers, and it left
+ *   the modal's footer holding nothing but Cancel.
+ *   REAL NUMBERS on the template path. "Applied to 17" is a restatement of the
+ *   selection; "12 will change, 5 already match, 9 are customised" is a fact
+ *   about the fleet, and it is the one an admin needs before pressing a button
+ *   that overwrites navs.
+ *   UNDO, because the alternative to undo is a support ticket. The run snapshots
+ *   each account's arrangement on the way past and can put it back.
+ *   OUTCOMES PER ACCOUNT afterwards, so a run that half-worked says so.
+ *
+ * `classic` is what shipped before it, kept whole so the two can be put in
+ * front of the same room.
+ */
+export const BULK_FLOWS = ["guided", "classic"] as const;
+
+export type BulkFlow = (typeof BULK_FLOWS)[number];
+
+export const BULK_FLOW_LABELS: Record<BulkFlow, string> = {
+  guided: "Guided (one screen, undo)",
+  classic: "Classic (hub, no undo)",
+};
+
 export interface BulkSettings {
+  /** Which version of the flow runs. See BULK_FLOWS. */
+  flow: BulkFlow;
+  /**
+   * Offer a dry run on one account before committing to all of them.
+   *
+   * Off by default, and the open question of this design. It turns an
+   * irreversible batch into a cheap check — apply to one, look at it, then
+   * decide — which is the strongest single answer to "what if I picked the
+   * wrong template". It is also a fifth step in a flow that is already four,
+   * for a risk that undo now covers. Switchable because that is the trade.
+   */
+  previewStep: boolean;
+  /**
+   * Make one account in every run fail, so the half-worked case can be seen.
+   *
+   * Off by default: it is a demo of an error, not a design decision. On, the
+   * success card becomes a mixed result with the failures named and a retry.
+   */
+  simulateFailure: boolean;
   /** Selection checkboxes and the toolbar exist at all. */
   enabled: boolean;
   entry: BulkEntry;
@@ -203,6 +253,11 @@ export interface BulkSettings {
 }
 
 export const BULK_DEFAULTS: BulkSettings = {
+  // The new flow, per the Sep 16 review. `classic` is one switch away.
+  flow: "guided",
+  // Off: undo covers the risk it was proposed for, so it has to earn its step.
+  previewStep: false,
+  simulateFailure: false,
   enabled: true,
   entry: "chooser",
   outcome: "queued",

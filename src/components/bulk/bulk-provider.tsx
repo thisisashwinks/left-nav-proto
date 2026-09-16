@@ -6,6 +6,7 @@ import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import {
   patchForArrangement,
   useNavTemplates,
+  type NavArrangement,
 } from "@/components/nav/nav-templates";
 import {
   BULK_DEFAULTS,
@@ -37,6 +38,35 @@ export interface FeatureDecision {
  */
 export type PerAccountDecisions = Record<string, Record<string, FeatureAction>>;
 
+/**
+ * What happened to one account in a run.
+ *
+ * Per account rather than one status for the batch, because the batch is the
+ * one unit that is never true: seventeen accounts, twelve of which needed the
+ * change, five already matching, one whose write failed. A single "Applied"
+ * over that is a report nobody can act on.
+ */
+export interface AccountOutcome {
+  id: string;
+  name: string;
+  status: "changed" | "unchanged" | "failed";
+}
+
+/**
+ * The state a run has to be able to put back.
+ *
+ * Captured per account on the way past — the arrangement it had, and the
+ * template it was on if it was on one. Undo without this is guesswork: the nav
+ * it should return to is not the shipped default (that would throw away work
+ * the account did before the run) and not the template's (that is what the run
+ * just did to it). It is the thing that was there a second ago, and a second
+ * ago is the only moment it can be read.
+ */
+interface AccountSnapshot {
+  layout: NavLayoutState;
+  link: { templateId: string; base: NavArrangement } | null;
+}
+
 export interface BulkRun {
   id: number;
   path: BulkPath;
@@ -54,6 +84,30 @@ export interface BulkRun {
   /** Wall-clock label. Stamped as a counter, not a Date — the prototype has no clock worth trusting. */
   stamp: string;
   status: "queued" | "applied";
+  /** Per account, for a run that did not do the same thing to all of them. */
+  outcomes: readonly AccountOutcome[];
+  /** What each account looked like before. Empty on a run that cannot be undone. */
+  before: Readonly<Record<string, AccountSnapshot>>;
+  /** Already rolled back — a run can be undone once. */
+  undone: boolean;
+}
+
+/**
+ * What applying a template to these accounts would actually do.
+ *
+ * Four numbers, computed by running the same per-account intersection the
+ * apply itself runs and comparing the result to what is there now. The point
+ * is that none of them is the selection count: "applied to 17 sub-accounts"
+ * restates what the admin just ticked, where "12 will change, 9 of them
+ * customised" is a fact about the fleet they are about to overwrite.
+ */
+export interface TemplateImpact {
+  willChange: number;
+  alreadyMatch: number;
+  /** Already carrying their own arrangement — the ones with something to lose. */
+  customised: number;
+  /** Product references the template loses on the way in, summed per account. */
+  droppedProducts: number;
 }
 
 interface BulkValue {
@@ -64,6 +118,17 @@ interface BulkValue {
 
   history: readonly BulkRun[];
   clearHistory: () => void;
+
+  /** Puts a run back. Safe to call once; a second call is a no-op. */
+  undoRun: (runId: number) => void;
+  /** Re-applies a run to the accounts whose write failed. */
+  retryRun: (runId: number) => void;
+
+  /** The blast radius of a template push, before it is pushed. */
+  templateImpact: (
+    templateId: string,
+    accountIds: readonly string[],
+  ) => TemplateImpact;
 
   /** Applies a template to every named account. Returns the run it recorded. */
   applyTemplate: (args: {
@@ -101,7 +166,7 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
   const [history, setHistory] = React.useState<readonly BulkRun[]>([]);
   const seq = React.useRef(0);
   const { applyToAccounts, profileFor } = useNavLayout();
-  const { patchFor, link, templates } = useNavTemplates();
+  const { patchFor, link, unlink, linkFor, templates } = useNavTemplates();
 
   const set = React.useCallback(
     <K extends keyof BulkSettings>(key: K, value: BulkSettings[K]) =>
@@ -126,11 +191,60 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
     outcomeRef.current = settings.outcome;
   }, [settings.outcome]);
 
+  /*
+   * Read through refs for the same reason `outcomeRef` is: these two switches
+   * move from the tuning panel, and rebuilding both apply functions every time
+   * one of them does would churn every consumer of the store.
+   */
+  const flowRef = React.useRef(settings.flow);
+  const failRef = React.useRef(settings.simulateFailure);
+  React.useEffect(() => {
+    flowRef.current = settings.flow;
+    failRef.current = settings.simulateFailure;
+  }, [settings.flow, settings.simulateFailure]);
+
+  /**
+   * Which accounts in this run are going to "fail".
+   *
+   * The last one, deterministically, so a demo can be repeated — a random
+   * failure is a bug report nobody can reproduce in a room. Only with the
+   * switch on, and never when there is just one account: a run that is 100%
+   * failure is a different screen, and not the one this is for.
+   */
+  const failingIds = React.useCallback(
+    (accountIds: readonly string[]): ReadonlySet<string> =>
+      failRef.current && accountIds.length > 1
+        ? new Set([accountIds[accountIds.length - 1]!])
+        : new Set<string>(),
+    [],
+  );
+
+  /** Everything needed to put these accounts back, read before anything moves. */
+  const snapshot = React.useCallback(
+    (accountIds: readonly string[]): Record<string, AccountSnapshot> => {
+      // Only the guided flow offers undo, so only it pays for the copy.
+      if (flowRef.current !== "guided") return {};
+      const out: Record<string, AccountSnapshot> = {};
+      for (const id of accountIds) {
+        const existing = linkFor(id);
+        out[id] = {
+          layout: profileFor(id),
+          link: existing
+            ? { templateId: existing.templateId, base: existing.base }
+            : null,
+        };
+      }
+      return out;
+    },
+    [linkFor, profileFor],
+  );
+
   const record = React.useCallback(
-    (run: Omit<BulkRun, "id" | "stamp" | "status">): BulkRun => {
+    (run: Omit<BulkRun, "id" | "stamp" | "status" | "undone">): BulkRun => {
       seq.current += 1;
       const full: BulkRun = {
         ...run,
+        undone: false,
         id: seq.current,
         stamp: `Run ${seq.current}`,
         status: outcomeRef.current === "instant" ? "applied" : "queued",
@@ -152,7 +266,29 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
        * spraying that would hand every sub-account the first one's products,
        * which is the bug this whole file exists to not have.
        */
-      applyToAccounts(accountIds, `Applied ${templateName}`, (layout) => {
+      const before = snapshot(accountIds);
+      const failed = failingIds(accountIds);
+      /*
+       * What each account was actually going to get, read before the write.
+       *
+       * An account whose arrangement already equals the template's gets no
+       * change — the write is a no-op and reporting it as a change is how
+       * "17 applied" ends up meaning nothing. Measured the same way
+       * `templateImpact` measures it, so the preview and the receipt cannot
+       * disagree.
+       */
+      const outcomes: AccountOutcome[] = accountIds.map((id, i) => ({
+        id,
+        name: accountNames[i] ?? id,
+        status: failed.has(id)
+          ? "failed"
+          : templateChanges(profileFor(id), patchFor(templateId, profileFor(id)))
+            ? "changed"
+            : "unchanged",
+      }));
+
+      const landing = accountIds.filter((id) => !failed.has(id));
+      applyToAccounts(landing, `Applied ${templateName}`, (layout) => {
         const patch = patchFor(templateId, layout);
         return patch ? { ...layout, ...patch } : layout;
       });
@@ -171,25 +307,38 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
        */
       const taken = templates.find((t) => t.id === templateId);
       if (taken)
-        for (const id of accountIds) {
+        for (const id of landing) {
           // Per account, and via the same filter the run itself used: the base
           // has to be what landed HERE, or every account in the run looks
           // edited from the moment it was applied.
           link(id, templateId, patchForArrangement(taken.arrangement, profileFor(id)));
         }
 
+      const changed = outcomes.filter((o) => o.status === "changed").length;
       return record({
         path: "template",
         title: "Apply saved template",
-        detail: `${templateName} applied to ${plural(accountIds.length, "sub-account")}.`,
+        detail: `${templateName} applied to ${plural(landing.length, "sub-account")}.`,
         accountIds,
         accountNames,
         decisions: [],
         templateName,
-        changeCount: accountIds.length,
+        // The accounts that actually moved, not the accounts that were ticked.
+        changeCount: changed,
+        outcomes,
+        before,
       });
     },
-    [applyToAccounts, patchFor, link, templates, profileFor, record],
+    [
+      applyToAccounts,
+      patchFor,
+      link,
+      templates,
+      profileFor,
+      record,
+      snapshot,
+      failingIds,
+    ],
   );
 
   const applyFeatures = React.useCallback<BulkValue["applyFeatures"]>(
@@ -236,7 +385,22 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
        * per account. The two bulk paths pass the same decisions every time and
        * are unaffected; the per-account path needs it.
        */
+      const before = snapshot(accountIds);
+      const failed = failingIds(accountIds);
+      const outcomes: AccountOutcome[] = accountIds.map((id, i) => {
+        const owned = new Set(profileFor(id).enabledProducts);
+        const moves = forAccount(id).some(
+          (d) => (d.action === "enable") !== owned.has(d.featureId),
+        );
+        return {
+          id,
+          name: accountNames[i] ?? id,
+          status: failed.has(id) ? "failed" : moves ? "changed" : "unchanged",
+        };
+      });
+
       for (const id of accountIds) {
+        if (failed.has(id)) continue;
         const mine = forAccount(id);
         if (mine.length === 0) continue;
         applyToAccounts([id], "Updated feature access", (layout) =>
@@ -281,9 +445,131 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
         accountNames,
         decisions: named,
         changeCount,
+        outcomes,
+        before,
       });
     },
-    [applyToAccounts, profileFor, record],
+    [applyToAccounts, profileFor, record, snapshot, failingIds],
+  );
+
+  /**
+   * Puts a run back, account by account.
+   *
+   * Per account and not as one patch, because the thing being restored differs
+   * per account — that is the whole reason the snapshot is a map. The template
+   * link goes back too: an account that was on nothing before the run must not
+   * be left linked to the template the run put it on, or the next "Save
+   * template" from that account quietly edits a template it was never really
+   * on.
+   */
+  const undoRun = React.useCallback(
+    (runId: number) => {
+      const run = history.find((r) => r.id === runId);
+      if (!run || run.undone) return;
+      const ids = Object.keys(run.before);
+      if (ids.length === 0) return;
+      for (const id of ids) {
+        const snap = run.before[id]!;
+        applyToAccounts([id], `Undid ${run.title.toLowerCase()}`, () => snap.layout);
+        if (snap.link) link(id, snap.link.templateId, snap.link.base);
+        else unlink(id);
+      }
+      setHistory((h) =>
+        h.map((r) => (r.id === runId ? { ...r, undone: true } : r)),
+      );
+    },
+    [history, applyToAccounts, link, unlink],
+  );
+
+  /**
+   * Re-runs the accounts whose write failed, and only those.
+   *
+   * A retry that re-applies to everything would undo any hand-edit made to the
+   * accounts that succeeded in the meantime — the failure is the only thing
+   * that still needs doing, so it is the only thing that runs.
+   */
+  const retryRun = React.useCallback(
+    (runId: number) => {
+      const run = history.find((r) => r.id === runId);
+      if (!run) return;
+      const failed = run.outcomes.filter((o) => o.status === "failed");
+      if (failed.length === 0) return;
+      const ids = failed.map((o) => o.id);
+
+      if (run.path === "template" && run.templateName) {
+        const taken = templates.find((t) => t.name === run.templateName);
+        if (!taken) return;
+        applyToAccounts(ids, `Applied ${run.templateName}`, (layout) => {
+          const patch = patchFor(taken.id, layout);
+          return patch ? { ...layout, ...patch } : layout;
+        });
+        for (const id of ids) {
+          link(id, taken.id, patchForArrangement(taken.arrangement, profileFor(id)));
+        }
+      } else {
+        for (const id of ids) {
+          applyToAccounts([id], "Updated feature access", (layout) =>
+            run.decisions
+              .filter((d) => d.action !== "keep")
+              .reduce<NavLayoutState>(
+                (acc, d) => withProduct(acc, d.featureId, d.action === "enable"),
+                layout,
+              ),
+          );
+        }
+      }
+
+      setHistory((h) =>
+        h.map((r) =>
+          r.id === runId
+            ? {
+                ...r,
+                outcomes: r.outcomes.map((o) =>
+                  o.status === "failed" ? { ...o, status: "changed" } : o,
+                ),
+                changeCount: r.changeCount + failed.length,
+              }
+            : r,
+        ),
+      );
+    },
+    [history, applyToAccounts, patchFor, link, templates, profileFor],
+  );
+
+  const templateImpact = React.useCallback<BulkValue["templateImpact"]>(
+    (templateId, accountIds) => {
+      const taken = templates.find((t) => t.id === templateId);
+      let willChange = 0;
+      let alreadyMatch = 0;
+      let customised = 0;
+      let droppedProducts = 0;
+
+      for (const id of accountIds) {
+        const layout = profileFor(id);
+        const patch = patchFor(templateId, layout);
+        if (templateChanges(layout, patch)) willChange += 1;
+        else alreadyMatch += 1;
+        if (isCustomised(layout)) customised += 1;
+        if (taken) {
+          /*
+           * What the template loses on the way into THIS account.
+           *
+           * The blurb has always said "products they don't own are dropped";
+           * this is that sentence as a number. Counted per account and summed,
+           * because the same template can lose three rows entering a dentist
+           * and none entering a roofer.
+           */
+          const owns = new Set(layout.enabledProducts);
+          const wanted = new Set(
+            taken.arrangement.customGroups.flatMap((g) => g.productIds),
+          );
+          for (const pid of wanted) if (!owns.has(pid)) droppedProducts += 1;
+        }
+      }
+
+      return { willChange, alreadyMatch, customised, droppedProducts };
+    },
+    [templates, profileFor, patchFor],
   );
 
   const clearHistory = React.useCallback(() => setHistory([]), []);
@@ -296,6 +582,9 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
       changedCount,
       history,
       clearHistory,
+      undoRun,
+      retryRun,
+      templateImpact,
       applyTemplate,
       applyFeatures,
     }),
@@ -306,12 +595,54 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
       changedCount,
       history,
       clearHistory,
+      undoRun,
+      retryRun,
+      templateImpact,
       applyTemplate,
       applyFeatures,
     ],
   );
 
   return <BulkContext value={value}>{children}</BulkContext>;
+}
+
+/**
+ * Would this patch actually move the account's arrangement?
+ *
+ * Compared field by field over the arrangement keys the patch carries, rather
+ * than by identity: `patchFor` builds a fresh object every call, so `===`
+ * would say "changed" for every account every time and the whole point of the
+ * number is that it does not.
+ */
+function templateChanges(
+  layout: NavLayoutState,
+  patch: Partial<NavArrangement> | null,
+): boolean {
+  if (!patch) return false;
+  return (Object.keys(patch) as Array<keyof NavArrangement>).some(
+    (key) => JSON.stringify(patch[key]) !== JSON.stringify(layout[key]),
+  );
+}
+
+/**
+ * Has anyone arranged this account's nav by hand?
+ *
+ * The signals an account can only have by someone having edited it: its own
+ * groups, a renamed row, a chosen icon, a hidden row or block, a reordered
+ * tail. Pins are deliberately NOT one of them — pinning is personalisation
+ * every plan has, it survives a template push, and counting it would report
+ * every account in the fleet as customised.
+ */
+function isCustomised(layout: NavLayoutState): boolean {
+  return (
+    layout.customGroups.length > 0 ||
+    Object.keys(layout.agencyLabels).length > 0 ||
+    Object.keys(layout.agencyProductLabels).length > 0 ||
+    Object.keys(layout.icons).length > 0 ||
+    layout.hiddenRows.length > 0 ||
+    layout.hiddenBlocks.length > 0 ||
+    layout.tailOrder.length > 0
+  );
 }
 
 /** "1 change" / "3 changes" — the count and its noun, agreed. */

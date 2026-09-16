@@ -64,7 +64,15 @@ const OLD_NAV_ICON = List;
 const WIDTH = 244;
 const GAP = 6;
 
-type View = "root" | "apply" | "save" | "create" | "layout" | "navigation";
+type View =
+  | "root"
+  | "apply"
+  | "save"
+  | "create"
+  /** The library: rename, duplicate, delete. See TEMPLATE_ACTION_HOMES. */
+  | "manage"
+  | "layout"
+  | "navigation";
 
 /**
  * The edit card's overflow menu: templates, which layout, which navigation.
@@ -162,17 +170,25 @@ export function EditMoreMenu({
     divergedFor,
     clearDivergence,
     reassign,
+    unlink,
   } = useNavTemplates();
   const { revertAccounts } = useNavLayout();
   const {
     templateDeleteMode,
     templateMenuShape: menuShape,
     templateConflict,
+    templateSaveShape,
+    templateActionHome,
   } = effective;
   /** This account's unresolved collision, if the axis records them. */
   const divergence = templateConflict === "silent" ? null : divergedFor(accountId);
   /** Whether the divergence dialog is up. */
   const [resolving, setResolving] = React.useState(false);
+  /** The save dialog, and which of its two answers is selected. */
+  const [duplicating, setDuplicating] = React.useState<string | null>(null);
+  const [saving, setSaving] = React.useState(false);
+  const [saveAs, setSaveAs] = React.useState<"update" | "new">("new");
+  const [saveName, setSaveName] = React.useState("");
   const [view, setView] = React.useState<View>("root");
   const [draft, setDraft] = React.useState(`${accountName} nav`);
   /** Which row's kebab is open, and the button it hangs off. */
@@ -189,18 +205,24 @@ export function EditMoreMenu({
    * dialog — the axis says which answer is offered first, the person deleting
    * says which one happens.
    */
-  const [fate, setFate] = React.useState<"unlink" | "revert" | "move">(
-    templateDeleteMode,
-  );
+  const [fate, setFate] = React.useState<"unlink" | "move">("unlink");
   const [moveTo, setMoveTo] = React.useState("");
+  const duplicatingTemplate = duplicating
+    ? (templates.find((t) => t.id === duplicating) ?? null)
+    : null;
   const deletingTemplate = deleting
     ? (templates.find((t) => t.id === deleting) ?? null)
     : null;
   const onIt = deleting ? accountsOn(deleting) : 0;
-  /** Somewhere to move them TO: any template but this one and the default. */
-  const movableTemplates = templates.filter(
-    (t) => t.id !== deleting && t.id !== DEFAULT_TEMPLATE_ID,
-  );
+  /**
+   * Somewhere to move them to: anything but the one being deleted.
+   *
+   * The default is in here, which is what collapsed three options into two —
+   * "revert them to the HighLevel default" was only ever "move them to the
+   * default", and a separate radio for one destination in a list of
+   * destinations was the same choice asked twice.
+   */
+  const movableTemplates = templates.filter((t) => t.id !== deleting);
   const { ref, top, left } = useAnchored(anchor, WIDTH, GAP);
 
   React.useEffect(() => {
@@ -437,6 +459,83 @@ export function EditMoreMenu({
       );
     }
 
+    if (view === "manage") {
+      return (
+        <Drill title="Manage templates" onBack={() => setView("root")}>
+          {templates.map((t) =>
+            renamingId === t.id ? (
+              <input
+                key={t.id}
+                autoFocus
+                value={renameDraft}
+                onChange={(e) => setRenameDraft(e.target.value)}
+                onBlur={() => {
+                  rename(t.id, renameDraft);
+                  if (renameDraft.trim() !== "" && renameDraft !== t.name) {
+                    notify(`Renamed to ${renameDraft.trim()}`);
+                  }
+                  setRenamingId(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur();
+                  if (e.key === "Escape") {
+                    e.stopPropagation();
+                    setRenamingId(null);
+                  }
+                }}
+                aria-label={`Rename ${t.name}`}
+                /*
+                  The row's own height, held.
+
+                  A two-line row becoming a one-line field made every row below
+                  it jump up as the rename opened and back down as it closed —
+                  the list moving under the pointer at the moment somebody is
+                  reading it. `min-h` is the label plus the note plus the row's
+                  padding: 17 + 15 + 12.
+                */
+                className="mx-[5px] min-h-[44px] min-w-0 rounded-[7px] bg-nav-hover px-[8px] text-[12.5px] leading-[16px] font-medium text-nav-fg outline-none"
+              />
+            ) : (
+              <MenuRow
+                key={t.id}
+                icon={LayoutTemplate}
+                label={t.name}
+                /*
+                  Here the version and the reach ARE the point — this is the
+                  surface for looking after templates, where the picker is for
+                  choosing between them.
+                */
+                note={
+                  t.immutable
+                    ? "Can't be changed"
+                    : `v${t.version} · ${accountsOn(t.id) === 0 ? "no accounts" : `${accountsOn(t.id)} ${accountsOn(t.id) === 1 ? "account" : "accounts"}`}`
+                }
+                {...(templateHasActions(t, {
+                  canUpdate: false,
+                  canResolve: false,
+                })
+                  ? {
+                      action: {
+                        icon: EllipsisVertical,
+                        label: `More for ${t.name}`,
+                        onSelect: (el: HTMLElement) => {
+                          setMenuFor(t.id);
+                          setMenuAt(el);
+                        },
+                      },
+                    }
+                  : {})}
+                // The row itself does nothing here: managing is the ⋯, and a
+                // row that applied a template from inside "Manage" would be the
+                // picker hiding in the file manager.
+                onSelect={() => {}}
+              />
+            ),
+          )}
+        </Drill>
+      );
+    }
+
     if (view === "create") {
       const named = draft.trim();
       return (
@@ -567,36 +666,60 @@ export function EditMoreMenu({
                   }
                 }}
                 aria-label={`Rename ${t.name}`}
-                className="mx-[5px] min-w-0 rounded-[7px] bg-nav-hover px-[8px] py-[7px] text-[12.5px] leading-[16px] font-medium text-nav-fg outline-none"
+                /*
+                  The row's own height, held.
+
+                  A two-line row becoming a one-line field made every row below
+                  it jump up as the rename opened and back down as it closed —
+                  the list moving under the pointer at the moment somebody is
+                  reading it. `min-h` is the label plus the note plus the row's
+                  padding: 17 + 15 + 12.
+                */
+                className="mx-[5px] min-h-[44px] min-w-0 rounded-[7px] bg-nav-hover px-[8px] text-[12.5px] leading-[16px] font-medium text-nav-fg outline-none"
               />
             ) : (
               <MenuRow
                 key={t.id}
-                icon={t.id === DEFAULT_TEMPLATE_ID ? DEFAULT_LAYOUT_ICON : LayoutTemplate}
+                // Unused while `tickLeads` is on, and required by the type.
+                icon={LayoutTemplate}
+                tickLeads
                 label={t.name}
                 /*
                   The row says where this account stands in relation to it —
                   on it, on it with changes, or not on it — because "which of
                   these am I using" is the question the list is opened with.
                 */
+                /*
+                  One fact, not three.
+
+                  "In use · v3 · changed since" is a version nobody is tracking
+                  and a state, run together in a line too long to scan down a
+                  list. The row says WHERE THIS ACCOUNT STANDS, in a word; the
+                  version and the rest are detail, and detail belongs where you
+                  go when a word is not enough.
+                */
                 note={
                   t.id === DEFAULT_TEMPLATE_ID
-                    ? linked === null
-                      ? "What we ship · in use"
-                      : "What we ship"
+                    ? "What we ship"
                     : linked?.id === t.id
                       ? divergence?.templateId === t.id
-                        ? `In use · v${t.version} · diverged`
+                        ? "Diverged"
                         : templateDirty
-                          ? `In use · v${t.version} · changed since`
-                          : `In use · v${t.version}`
-                      : `${t.builtIn ? "Preset" : `From ${t.fromAccount}`} · v${t.version}`
+                          ? "Edited"
+                          : "In use"
+                      : t.builtIn
+                        ? "Preset"
+                        : `From ${t.fromAccount}`
                 }
                 checked={
                   t.id === DEFAULT_TEMPLATE_ID ? linked === null : linked?.id === t.id
                 }
-                {...(templateHasActions(t, {
-                  canUpdate: linked?.id === t.id && templateDirty,
+                {...(templateActionHome === "on-row" &&
+                templateHasActions(t, {
+                  canUpdate:
+                    templateSaveShape === "split" &&
+                    linked?.id === t.id &&
+                    templateDirty,
                   canResolve:
                     templateConflict === "resolve" &&
                     divergence?.templateId === t.id,
@@ -620,13 +743,80 @@ export function EditMoreMenu({
             ),
           )}
           <Rule />
-          <MenuRow
-            icon={FilePlus2}
-            label="Save as new template"
-            note={`From ${accountName}'s arrangement`}
-            onSelect={() => setView("create")}
-            branch
-          />
+          {/*
+            One row where there were two.
+
+            "Update to match" lived on a template's ⋯ and "Save as new" down
+            here, so which control you wanted depended on whether you happened
+            to be on a template — something the menu already knows. One row
+            asks, and the sheet behind it offers whichever of the two apply.
+          */}
+          {templateSaveShape === "unified" ? (
+            <MenuRow
+              icon={Save}
+              label="Save template"
+              note={
+                linked
+                  ? templateDirty
+                    ? `Update ${linked.name}, or keep a new one`
+                    : `${linked.name} already matches`
+                  : `From ${accountName}'s arrangement`
+              }
+              onSelect={() => {
+                /*
+                  Seeded on open, not on mount: the account it would name and
+                  the template it would update both change as you move around,
+                  and a name left over from the last time this was opened is a
+                  name nobody typed for this account.
+                */
+                setSaveAs(linked && templateDirty ? "update" : "new");
+                setSaveName(`${accountName} nav`);
+                setSaving(true);
+              }}
+            />
+          ) : (
+            <MenuRow
+              icon={FilePlus2}
+              label="Save as new template"
+              note={`From ${accountName}'s arrangement`}
+              onSelect={() => setView("create")}
+              branch
+            />
+          )}
+          {/*
+            Library work, out of the picker.
+
+            Renaming and deleting a template are things you do twice a month;
+            applying one is something you do all day. Keeping them on the same
+            rows made the everyday list carry the rare controls.
+          */}
+          {templateActionHome === "manage" ? (
+            <MenuRow
+              icon={LayoutTemplate}
+              label="Manage templates"
+              note={
+                templates.length === 1
+                  ? "Rename, duplicate, delete"
+                  : `${templates.length} templates`
+              }
+              onSelect={() => setView("manage")}
+              branch
+            />
+          ) : null}
+          {templateConflict === "resolve" && divergence ? (
+            /*
+              The one per-account errand that has nowhere else to go once the ⋯
+              is off the rows. It is about this nav, not about the library, so
+              it sits with the other things you do to this nav.
+            */
+            <MenuRow
+              icon={TriangleAlert}
+              label="Resolve divergence"
+              note={`${divergence.lines.length} ${divergence.lines.length === 1 ? "conflict" : "conflicts"} with ${divergence.templateName}`}
+              onSelect={() => setResolving(true)}
+              branch
+            />
+          ) : null}
           {navSwitchInEditCard ? (
             <>
               <Rule />
@@ -796,17 +986,33 @@ export function EditMoreMenu({
             setMenuFor(null);
           }}
           onDuplicate={() => {
-            if (menuFor) onDuplicateTemplate(menuFor);
+            /*
+              Asked, not done.
+
+              Duplicating is the one verb here that is silently additive: it
+              makes a sixth row named "(copy)" and nothing else changes, so the
+              press that did it and the list that grew were the only evidence
+              either way. It is also the wrong half of the pair when what you
+              meant was Rename — two rows apart in the same menu.
+            */
+            setDuplicating(menuFor);
             setMenuFor(null);
           }}
           onDelete={() => {
             // Fresh every time: a choice left over from the last deletion is a
             // choice nobody made about these accounts.
-            setFate(templateDeleteMode);
+            /*
+              The axis seeds which answer is offered first. "Revert" is now
+              "move them to the default" — the default is a row in the picker
+              like any other, which is what let the third option go.
+            */
+            setFate(templateDeleteMode === "revert" ? "move" : "unlink");
             setMoveTo(
-              templates.find(
-                (t) => t.id !== menuFor && t.id !== DEFAULT_TEMPLATE_ID,
-              )?.id ?? "",
+              templateDeleteMode === "revert"
+                ? DEFAULT_TEMPLATE_ID
+                : (templates.find(
+                    (t) => t.id !== menuFor && t.id !== DEFAULT_TEMPLATE_ID,
+                  )?.id ?? DEFAULT_TEMPLATE_ID),
             );
             setDeleting(menuFor);
             setMenuFor(null);
@@ -907,6 +1113,157 @@ export function EditMoreMenu({
           />
         </TemplateMessage>
       ) : null}
+      {duplicatingTemplate ? (
+        <TemplateMessage
+          kind="decision"
+          label={`Duplicate ${duplicatingTemplate.name}`}
+          onDismiss={() => setDuplicating(null)}
+        >
+          <TemplateMessageTitle icon={<CopyPlus size={15} aria-hidden="true" />}>
+            Duplicate {duplicatingTemplate.name}?
+          </TemplateMessageTitle>
+          <TemplateMessageBody>
+            A second template holding the same arrangement, on no accounts. Your
+            own to rename and change — {duplicatingTemplate.name} is untouched.
+          </TemplateMessageBody>
+          <TemplateMessageActions
+            dismiss={
+              <TemplateMessageButton onClick={() => setDuplicating(null)}>
+                Cancel
+              </TemplateMessageButton>
+            }
+            actions={[
+              <TemplateMessageButton
+                key="dup"
+                tone="primary"
+                onClick={() => {
+                  if (duplicating) onDuplicateTemplate(duplicating);
+                  setDuplicating(null);
+                }}
+              >
+                Duplicate
+              </TemplateMessageButton>,
+            ]}
+          />
+        </TemplateMessage>
+      ) : null}
+      {saving ? (
+        <TemplateMessage
+          kind="decision"
+          label="Save template"
+          width={440}
+          onDismiss={() => setSaving(false)}
+        >
+          <TemplateMessageTitle icon={<Save size={15} aria-hidden="true" />}>
+            Save {accountName}&rsquo;s arrangement
+          </TemplateMessageTitle>
+          <TemplateMessageBody>
+            {/*
+              The difference between the two answers is how far each one
+              reaches, and that is the only thing worth saying up here. The
+              rest is on the options themselves, beside the option it is about.
+            */}
+            {linked
+              ? "Update the template this account is on, or keep this as a new one."
+              : "Keep this arrangement so you can put it on other accounts."}
+          </TemplateMessageBody>
+
+          {/*
+            A choice only where there is one.
+
+            With no template to update there is exactly one thing this dialog
+            can do, and a single radio next to a single option is a control
+            asking you to confirm that you meant the only door in the room. The
+            field is the dialog then, with a label over it.
+          */}
+          {linked ? (
+            <div className="mt-[10px] flex flex-col gap-[2px]">
+              <SaveOption
+                selected={saveAs === "update"}
+                disabled={!templateDirty}
+                onSelect={() => setSaveAs("update")}
+                label={`Update ${linked.name}`}
+                note={
+                  !templateDirty
+                    ? "Nothing to save — this nav already matches it"
+                    : propagation === "managed" && accountsOn(linked.id) > 1
+                      ? `v${linked.version} → v${linked.version + 1}. Re-arranges ${accountsOn(linked.id)} accounts now, keeping any changes made to them directly.`
+                      : `v${linked.version} → v${linked.version + 1}. No other account is on it.`
+                }
+              />
+              <SaveOption
+                selected={saveAs === "new"}
+                onSelect={() => setSaveAs("new")}
+                label="Save as a new template"
+                note={`Touches nobody else. ${accountName} moves onto the new one.`}
+              />
+              {saveAs === "new" ? (
+                <div className="mt-[6px] ml-[30px] flex flex-col gap-[4px]">
+                  <SaveNameField
+                    value={saveName}
+                    onChange={setSaveName}
+                    onCommit={() => {
+                      if (saveName.trim() === "") return;
+                      onCreateTemplate(saveName.trim());
+                      setSaving(false);
+                      onClose();
+                    }}
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="mt-[12px] flex flex-col gap-[4px]">
+              <SaveNameField
+                value={saveName}
+                onChange={setSaveName}
+                onCommit={() => {
+                  if (saveName.trim() === "") return;
+                  onCreateTemplate(saveName.trim());
+                  setSaving(false);
+                  onClose();
+                }}
+              />
+            </div>
+          )}
+
+          <TemplateMessageActions
+            dismiss={
+              <TemplateMessageButton onClick={() => setSaving(false)}>
+                Cancel
+              </TemplateMessageButton>
+            }
+            actions={[
+              <TemplateMessageButton
+                key="save"
+                tone="primary"
+                onClick={() => {
+                  if (saveAs === "update" && linked) {
+                    onUpdateTemplate(linked.id);
+                  } else if (saveName.trim() !== "") {
+                    onCreateTemplate(saveName.trim());
+                  } else {
+                    return;
+                  }
+                  setSaving(false);
+                  onClose();
+                }}
+              >
+                {/*
+                  The button says what it will do, so the sentence finishes
+                  wherever the eye happens to be — on the options or on the
+                  footer.
+                */}
+                {saveAs === "update" && linked
+                  ? propagation === "managed" && accountsOn(linked.id) > 1
+                    ? `Update ${accountsOn(linked.id)} accounts`
+                    : `Update ${linked.name}`
+                  : "Save template"}
+              </TemplateMessageButton>,
+            ]}
+          />
+        </TemplateMessage>
+      ) : null}
       {deletingTemplate ? (
         <TemplateMessage
           kind="decision"
@@ -943,8 +1300,7 @@ export function EditMoreMenu({
             <div className="mt-[10px] flex flex-col gap-[2px]">
               {(
                 [
-                  ["unlink", `Keep their nav, stop updates`],
-                  ["revert", "Revert them to the HighLevel default"],
+                  ["unlink", "Keep their nav, stop updates"],
                   ["move", "Move them to another template"],
                 ] as const
               ).map(([value, label]) => (
@@ -992,7 +1348,7 @@ export function EditMoreMenu({
           <TemplateMessageActions
             dismiss={
               <TemplateMessageButton onClick={() => setDeleting(null)}>
-                Keep it
+                Cancel
               </TemplateMessageButton>
             }
             actions={[
@@ -1003,12 +1359,6 @@ export function EditMoreMenu({
                   const id = deleting;
                   if (!id) return;
                   const ids = accountsOnIds(id);
-                  if (onIt > 0 && fate === "revert") {
-                    revertAccounts(
-                      ids,
-                      `Reverted to default — ${deletingTemplate.name} deleted`,
-                    );
-                  }
                   if (onIt > 0 && fate === "move" && moveTo) {
                     /*
                       Moving them means moving them.
@@ -1017,11 +1367,22 @@ export function EditMoreMenu({
                       account still wearing the deleted template's arrangement
                       and claiming to be on a different one — including the
                       account you were looking at, whose nav did not move.
-                      Landing the target's arrangement first is what makes the
-                      row's new name true.
+
+                      The default is a destination like any other in the picker,
+                      and the one that cannot be landed as an arrangement: it
+                      means "whatever this tenant ships with", so those accounts
+                      are reset and left on no template at all.
                     */
-                    onApplyTemplateTo(ids, moveTo);
-                    reassign(id, moveTo);
+                    if (moveTo === DEFAULT_TEMPLATE_ID) {
+                      revertAccounts(
+                        ids,
+                        `Reset to default — ${deletingTemplate.name} deleted`,
+                      );
+                      for (const accountId of ids) unlink(accountId);
+                    } else {
+                      onApplyTemplateTo(ids, moveTo);
+                      reassign(id, moveTo);
+                    }
                   }
                   remove(id);
                   notify(
@@ -1032,7 +1393,19 @@ export function EditMoreMenu({
                   setDeleting(null);
                 }}
               >
-                Delete template
+                {/*
+                  Names the whole action, not half of it.
+
+                  "Delete template" beside a radio that also moves five accounts
+                  describes the smaller half of what the button does. Three
+                  words at most: past that it stops being a label and starts
+                  being the sentence the body already carried.
+                */}
+                {onIt === 0 || fate === "unlink"
+                  ? "Delete template"
+                  : moveTo === DEFAULT_TEMPLATE_ID
+                    ? "Reset and delete"
+                    : "Move and delete"}
               </TemplateMessageButton>,
             ]}
           />
@@ -1079,6 +1452,98 @@ function Rule() {
   );
 }
 
+/**
+ * The new template's name, with a label over it.
+ *
+ * Labelled rather than placeholder-only: a placeholder is gone the moment
+ * anyone types, and this field arrives pre-filled — so the only thing naming it
+ * would have been text that disappears before it is needed.
+ */
+function SaveNameField({
+  value,
+  onChange,
+  onCommit,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  onCommit: () => void;
+}) {
+  return (
+    <>
+      <span className="text-[11px] leading-[15px] font-medium text-nav-fg-subtle">
+        Template name
+      </span>
+      <input
+        autoFocus
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onCommit();
+        }}
+        placeholder="Dentist, Home services…"
+        aria-label="Template name"
+        className="rounded-[7px] bg-nav-hover px-[10px] py-[7px] text-[12.5px] leading-[16px] text-nav-fg outline-none placeholder:text-nav-fg-subtle"
+      />
+    </>
+  );
+}
+
+/**
+ * One of the two answers in the save dialog.
+ *
+ * The same radio the delete dialog uses, and for the same reason: two outcomes
+ * that differ in how far they reach, where the reach has to be readable beside
+ * each one rather than discovered by pressing it. A disabled option keeps its
+ * place and says why — "nothing to save" is information, and hiding the row
+ * would make the dialog change shape between two visits.
+ */
+function SaveOption({
+  selected,
+  disabled = false,
+  onSelect,
+  label,
+  note,
+}: {
+  selected: boolean;
+  disabled?: boolean;
+  onSelect: () => void;
+  label: string;
+  note: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      disabled={disabled}
+      onClick={onSelect}
+      className={cn(
+        "motion-tap flex items-start gap-[8px] rounded-[7px] px-[8px] py-[7px] text-left",
+        "disabled:pointer-events-none disabled:opacity-40",
+        selected ? "bg-nav-hover" : "hover:bg-nav-hover",
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "mt-[2px] flex size-[14px] shrink-0 items-center justify-center rounded-full shadow-[inset_0_0_0_1px_var(--nav-fg-subtle)]",
+          selected && "bg-nav-fg",
+        )}
+      >
+        {selected ? <span className="size-[5px] rounded-full bg-nav" /> : null}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[12.5px] leading-[17px] font-medium text-nav-fg">
+          {label}
+        </span>
+        <span className="mt-[1px] block text-[11.5px] leading-[16px] text-nav-fg-subtle">
+          {note}
+        </span>
+      </span>
+    </button>
+  );
+}
+
 function MenuRow({
   icon: Icon,
   label,
@@ -1087,6 +1552,7 @@ function MenuRow({
   branch = false,
   disabled = false,
   bare = false,
+  tickLeads = false,
   action,
   onSelect,
 }: {
@@ -1102,6 +1568,16 @@ function MenuRow({
   disabled?: boolean;
   /** Draws no fill of its own — the wrapper above carries it. See `action`. */
   bare?: boolean;
+  /**
+   * The leading slot becomes the tick rather than a glyph.
+   *
+   * For the template list, where every row carried the same generic
+   * `LayoutTemplate` mark — six identical icons down a column, distinguishing
+   * nothing, while the one mark that DID mean something sat at the far end of
+   * the row. The tick moves into the slot the icons were wasting, and a row
+   * that is not selected simply leaves it empty so the names still line up.
+   */
+  tickLeads?: boolean;
   /**
    * A second verb on the row, revealed on hover.
    *
@@ -1149,6 +1625,7 @@ function MenuRow({
           branch={branch}
           disabled={disabled}
           bare
+          tickLeads={tickLeads}
           onSelect={onSelect}
         />
         <button
@@ -1182,11 +1659,20 @@ function MenuRow({
               : "hover:bg-nav-hover",
       )}
     >
-      <Icon
-        size={14}
-        aria-hidden="true"
-        className="mt-[2px] shrink-0 text-nav-fg-subtle"
-      />
+      {tickLeads ? (
+        <span
+          aria-hidden="true"
+          className="mt-[2px] flex size-[14px] shrink-0 items-center justify-center"
+        >
+          {checked ? <Check size={13} className="text-nav-fg" /> : null}
+        </span>
+      ) : (
+        <Icon
+          size={14}
+          aria-hidden="true"
+          className="mt-[2px] shrink-0 text-nav-fg-subtle"
+        />
+      )}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[12.5px] leading-[17px] font-medium text-nav-fg">
           {label}
@@ -1197,7 +1683,7 @@ function MenuRow({
           </span>
         ) : null}
       </span>
-      {checked ? (
+      {checked && !tickLeads ? (
         <Check size={13} aria-hidden="true" className="mt-[2px] shrink-0 text-nav-fg" />
       ) : branch && !disabled ? (
         <ChevronRight

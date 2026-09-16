@@ -7,6 +7,7 @@ import {
   AGENCY_PLAN_PRICES,
 } from "@/design/plans";
 import { useNavProfiles } from "./nav-profiles";
+import { TOAST_TOP } from "./template-message";
 
 /** How long the confirmation stays before it slides away. */
 const DISMISS_MS = 5000;
@@ -63,7 +64,8 @@ export function UpgradeToast({
      * the pill does not eat clicks on the page header underneath it.
      */
     <div
-      style={{ left: canvasLeft, top: "calc(var(--shell-canvas-gap) + 14px)" }}
+      // The same clearance every other top-centred toast takes. See TOAST_TOP.
+      style={{ left: canvasLeft, top: TOAST_TOP }}
       className="pointer-events-none absolute right-0 z-40 flex justify-center px-[12px]"
     >
       <div
