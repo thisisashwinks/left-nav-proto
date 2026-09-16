@@ -194,7 +194,10 @@ import { useBulkActions } from "@/components/bulk/bulk-provider";
 import {
   BULK_FLOWS,
   BULK_FLOW_LABELS,
+  BULK_RECEIPTS,
+  BULK_RECEIPT_LABELS,
   type BulkFlow,
+  type BulkReceipt,
 } from "@/components/bulk/bulk-config";
 import { catalogue } from "@/components/nav/catalogue";
 import {
@@ -996,6 +999,19 @@ function BulkActionsSection({
         {settings.flow === "guided"
           ? "One screen instead of a hub, real numbers before a template lands (will change / already match / customised), undo on the run, and per-account outcomes afterwards. Selection gets one row per account, a count against a total, and a Clear."
           : "The shipped flow: a chooser card, “applied to 17 sub-accounts” as the only figure, no undo, and one status for the whole batch."}
+      </Note>
+
+      <Segmented
+        label="Run confirmation"
+        options={BULK_RECEIPTS}
+        value={settings.receipt}
+        onChange={(v: BulkReceipt) => set("receipt", v)}
+        format={(v) => BULK_RECEIPT_LABELS[v]}
+      />
+      <Note>
+        {settings.receipt === "toast"
+          ? "Apply closes the modal and the confirmation follows you out as a toast over the canvas. A run that half-worked keeps the card instead — a retry does not belong in something that disappears."
+          : "The modal ends on a card: what ran, how many changed, and when it lands. A full stop, at the cost of a dialog to dismiss before you get your screen back."}
       </Note>
 
       <Toggle

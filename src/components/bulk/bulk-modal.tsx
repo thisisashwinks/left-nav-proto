@@ -111,7 +111,7 @@ export function BulkModal({
     React.useState<readonly Account[]>(initialAccounts);
 
   const { effective } = useTheme();
-  const { settings, applyTemplate, applyFeatures, templateImpact } =
+  const { settings, applyTemplate, applyFeatures, templateImpact, announce } =
     useBulkActions();
   const { templates } = useNavTemplates();
   const { profileFor } = useNavLayout();
@@ -244,6 +244,21 @@ export function BulkModal({
               accountIds,
               accountNames,
             });
+      /*
+       * The modal gets out of the way, unless there is something left to do.
+       *
+       * A clean run is news, and news belongs in a toast — the card was three
+       * lines you read once standing between the admin and the screen they
+       * were going back to. A run that half-worked is different: it carries
+       * the failed accounts and the retry, and an action you must take does
+       * not belong in a thing that takes itself away.
+       */
+      const failed = result.outcomes.some((o) => o.status === "failed");
+      if (guided && settings.receipt === "toast" && !failed) {
+        announce(result);
+        onClose();
+        return;
+      }
       setRun(result);
       setStep("done");
     };
@@ -259,6 +274,10 @@ export function BulkModal({
     decisions,
     perAccount,
     settings.applyDelayMs,
+    settings.receipt,
+    guided,
+    announce,
+    onClose,
   ]);
 
   /* --- picking ---------------------------------------------------------- */
@@ -1042,10 +1061,42 @@ function AccountTags({
   onRemove: (id: string) => void;
   onAdd: (account: Account) => void;
 }) {
-  const [open, setOpen] = React.useState(false);
+  /*
+   * The menu is measured and portalled, not absolutely positioned in place.
+   *
+   * In place it was a 260px box hanging off a button that sits at the end of a
+   * wrapping row — so wherever the tags happened to end, the menu started, and
+   * past about two-thirds of the way across it ran off the edge. The modal body
+   * scrolls vertically, and a box overflowing the inline axis of a scroll
+   * container turns the other axis into a scrollbar too, which is the sideways
+   * scroll. Portalled to the body it is in nobody's scroll container; clamped
+   * to the viewport it cannot leave the screen.
+   */
+  const [anchor, setAnchor] = React.useState<DOMRect | null>(null);
+  const open = anchor !== null;
+  const { effective } = useTheme();
   const chosen = new Set(accounts.map((a) => a.id));
   const rest = allAccounts.filter((a) => !chosen.has(a.id));
   const only = accounts.length === 1;
+
+  const MENU_W = 260;
+  const MENU_H = 240;
+  const place = anchor
+    ? {
+        // Right-aligned to the button, so a trigger near the right edge opens
+        // inward instead of off the side.
+        left: Math.min(
+          Math.max(8, anchor.right - MENU_W),
+          Math.max(8, window.innerWidth - MENU_W - 8),
+        ),
+        // Flipped above when there is no room below — the same rule the icon
+        // picker follows, and for the same reason.
+        top:
+          anchor.bottom + 4 + MENU_H > window.innerHeight
+            ? Math.max(8, anchor.top - MENU_H - 4)
+            : anchor.bottom + 4,
+      }
+    : { left: 0, top: 0 };
 
   return (
     <div className="flex flex-col gap-[6px]">
@@ -1071,10 +1122,22 @@ function AccountTags({
           </span>
         ))}
 
-        <div className="relative">
+        <div>
           <button
             type="button"
-            onClick={() => setOpen((o) => !o)}
+            onClick={(e) => {
+              /*
+               * Measured here, not inside the updater.
+               *
+               * A state updater runs during the next render, by which point
+               * React has cleared the synthetic event and `currentTarget` is
+               * null — so reading the rect in there threw on the first click.
+               * The element is only guaranteed to be the button while the
+               * handler is on the stack.
+               */
+              const rect = e.currentTarget.getBoundingClientRect();
+              setAnchor((a) => (a ? null : rect));
+            }}
             disabled={rest.length === 0}
             aria-expanded={open}
             className="motion-tap flex items-center gap-[5px] rounded-[6px] px-[8px] py-[5px] text-[13px] leading-[18px] font-medium text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border-strong)] hover:bg-pg disabled:opacity-40"
@@ -1083,17 +1146,21 @@ function AccountTags({
             Add
           </button>
 
-          {open && rest.length > 0 ? (
-            <>
-              {/* Click-away, as the other menus in this prototype do it. */}
-              <button
-                type="button"
-                aria-label="Close"
-                tabIndex={-1}
-                onClick={() => setOpen(false)}
-                className="fixed inset-0 z-10 cursor-default"
-              />
-              <div className="absolute top-[calc(100%+4px)] left-0 z-20 max-h-[220px] w-[260px] overflow-y-auto rounded-[8px] bg-pg-surface p-[4px] shadow-[0_12px_16px_-4px_rgba(16,24,40,0.08),0_4px_6px_-2px_rgba(16,24,40,0.03),inset_0_0_0_1px_var(--pg-border)]">
+          {open && rest.length > 0
+            ? createPortal(
+                <div data-page-theme={effective.appTheme}>
+                  {/* Click-away, as the other menus in this prototype do it. */}
+                  <button
+                    type="button"
+                    aria-label="Close"
+                    tabIndex={-1}
+                    onClick={() => setAnchor(null)}
+                    className="fixed inset-0 z-[95] cursor-default"
+                  />
+                  <div
+                    style={{ ...place, width: MENU_W, maxHeight: MENU_H }}
+                    className="fixed z-[96] overflow-y-auto rounded-[8px] bg-pg-surface p-[4px] shadow-[0_12px_16px_-4px_rgba(16,24,40,0.08),0_4px_6px_-2px_rgba(16,24,40,0.03),inset_0_0_0_1px_var(--pg-border)]"
+                  >
                 {rest.map((a) => (
                   <button
                     key={a.id}
@@ -1102,7 +1169,7 @@ function AccountTags({
                       onAdd(a);
                       // Left open: adding three is the common case, and a menu
                       // that shuts after each one makes that three round trips.
-                      if (rest.length === 1) setOpen(false);
+                      if (rest.length === 1) setAnchor(null);
                     }}
                     className="motion-tap flex w-full items-center gap-[8px] rounded-[6px] px-[8px] py-[6px] text-left hover:bg-pg"
                   >
@@ -1117,9 +1184,11 @@ function AccountTags({
                     </span>
                   </button>
                 ))}
-              </div>
-            </>
-          ) : null}
+                  </div>
+                </div>,
+                document.body,
+              )
+            : null}
         </div>
       </div>
     </div>

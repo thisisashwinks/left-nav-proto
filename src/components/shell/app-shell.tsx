@@ -102,6 +102,7 @@ import { HereProvider } from "@/components/nav/here";
 import { NewFlagProvider, flyoutCarriesNew } from "@/components/nav/new-flag";
 import { UndoToast } from "@/components/nav/undo-toast";
 import { UpgradeToast } from "@/components/nav/upgrade-toast";
+import { BulkToast } from "@/components/bulk/bulk-toast";
 import { PINNED_VISIBLE } from "@/components/nav/pinned-morph";
 import { AccountsIndexPage } from "@/components/settings/accounts-index";
 import { SubAccountPage } from "@/components/settings/subaccount-page";
@@ -2420,6 +2421,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         at and therefore where "centred" begins.
       */}
       <UpgradeToast canvasLeft={leftOffset} />
+      {/* The bulk run's receipt, on the same canvas band. See BulkToast. */}
+      <BulkToast canvasLeft={leftOffset} />
 
       {/* Search sits above the flyouts; both treatments share the same model. */}
       {searchOpen ? (

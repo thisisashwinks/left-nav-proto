@@ -129,6 +129,31 @@ export const BULK_ENTRY_LABELS: Record<BulkEntry, string> = {
   direct: "Straight in",
 };
 
+/**
+ * Where the run reports back — a card in the modal, or a toast.
+ *
+ * `toast` is the default. The card was already down to a title, a line and a
+ * timing note, and all three are things you read once: the run did what the
+ * review step promised, so the reader's next move is their screen back. A
+ * modal that stays up to say "done" makes them dismiss a dialog to get it.
+ *
+ * `card` keeps the step. Its argument is that a bulk run is consequential
+ * enough to end on a full stop — and that a toast can be missed, which for
+ * "seventeen navs just changed" is a real cost.
+ *
+ * The exception, in both: a run that half-worked keeps the card either way.
+ * That one has something left to do, and an action you must take does not
+ * belong in a thing that disappears.
+ */
+export const BULK_RECEIPTS = ["toast", "card"] as const;
+
+export type BulkReceipt = (typeof BULK_RECEIPTS)[number];
+
+export const BULK_RECEIPT_LABELS: Record<BulkReceipt, string> = {
+  toast: "Toast",
+  card: "Card in the modal",
+};
+
 /** How the run reports back once Apply is pressed. */
 export const BULK_OUTCOMES = ["queued", "instant"] as const;
 
@@ -183,6 +208,8 @@ export const BULK_FLOW_LABELS: Record<BulkFlow, string> = {
 export interface BulkSettings {
   /** Which version of the flow runs. See BULK_FLOWS. */
   flow: BulkFlow;
+  /** Where the run confirms itself. See BULK_RECEIPTS. */
+  receipt: BulkReceipt;
   /**
    * Offer a dry run on one account before committing to all of them.
    *
@@ -255,6 +282,8 @@ export interface BulkSettings {
 export const BULK_DEFAULTS: BulkSettings = {
   // The new flow, per the Sep 16 review. `classic` is one switch away.
   flow: "guided",
+  // A toast: the modal closes on Apply and says so on the way out.
+  receipt: "toast",
   // Off: undo covers the risk it was proposed for, so it has to earn its step.
   previewStep: false,
   simulateFailure: false,

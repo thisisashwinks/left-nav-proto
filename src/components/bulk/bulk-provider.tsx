@@ -119,6 +119,18 @@ interface BulkValue {
   history: readonly BulkRun[];
   clearHistory: () => void;
 
+  /**
+   * The run a toast is currently announcing, or null.
+   *
+   * Held in the store rather than in the modal because the modal is gone by
+   * then — that is the whole point of the toast receipt — and the thing that
+   * draws it lives up in the shell, where it can centre itself on the canvas
+   * whichever surface started the run.
+   */
+  notice: BulkRun | null;
+  announce: (run: BulkRun) => void;
+  dismissNotice: () => void;
+
   /** Puts a run back. Safe to call once; a second call is a no-op. */
   undoRun: (runId: number) => void;
   /** Re-applies a run to the accounts whose write failed. */
@@ -164,6 +176,7 @@ export function useBulkActions(): BulkValue {
 export function BulkActionsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = React.useState<BulkSettings>(BULK_DEFAULTS);
   const [history, setHistory] = React.useState<readonly BulkRun[]>([]);
+  const [notice, setNotice] = React.useState<BulkRun | null>(null);
   const seq = React.useRef(0);
   const { applyToAccounts, profileFor } = useNavLayout();
   const { patchFor, link, unlink, linkFor, templates } = useNavTemplates();
@@ -572,6 +585,9 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
     [templates, profileFor, patchFor],
   );
 
+  const announce = React.useCallback((run: BulkRun) => setNotice(run), []);
+  const dismissNotice = React.useCallback(() => setNotice(null), []);
+
   const clearHistory = React.useCallback(() => setHistory([]), []);
 
   const value = React.useMemo<BulkValue>(
@@ -582,6 +598,9 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
       changedCount,
       history,
       clearHistory,
+      notice,
+      announce,
+      dismissNotice,
       undoRun,
       retryRun,
       templateImpact,
@@ -595,6 +614,9 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
       changedCount,
       history,
       clearHistory,
+      notice,
+      announce,
+      dismissNotice,
       undoRun,
       retryRun,
       templateImpact,
