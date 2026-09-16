@@ -240,7 +240,7 @@ export function PlanWall({
               <ArrowLeft size={18} aria-hidden="true" />
             </button>
           ) : (
-            <span className="flex size-[40px] shrink-0 items-center justify-center rounded-full bg-[#dcfae6] text-[#079455]">
+            <span className="flex size-[40px] shrink-0 items-center justify-center rounded-full bg-[var(--hr-success-100)] text-[var(--hr-success-600)]">
               <Rocket size={18} aria-hidden="true" />
             </span>
           )}
@@ -474,7 +474,7 @@ function VideoStep({ block }: { block: EditBlock }) {
             key={line}
             className="flex items-start gap-[10px] text-[14px] leading-[20px] text-pg-text"
           >
-            <span className="mt-[1px] flex size-[18px] shrink-0 items-center justify-center rounded-full bg-[#dcfae6] text-[#079455]">
+            <span className="mt-[1px] flex size-[18px] shrink-0 items-center justify-center rounded-full bg-[var(--hr-success-100)] text-[var(--hr-success-600)]">
               <Check size={11} strokeWidth={3} aria-hidden="true" />
             </span>
             {line}
@@ -539,7 +539,7 @@ function FeatureLine({ line, lead = false }: { line: string; lead?: boolean }) {
         lead ? "font-semibold text-pg-heading" : "text-pg-text",
       )}
     >
-      <span className="mt-[1px] flex size-[18px] shrink-0 items-center justify-center rounded-full bg-[#dcfae6] text-[#079455]">
+      <span className="mt-[1px] flex size-[18px] shrink-0 items-center justify-center rounded-full bg-[var(--hr-success-100)] text-[var(--hr-success-600)]">
         <Check size={11} strokeWidth={3} aria-hidden="true" />
       </span>
       {line}

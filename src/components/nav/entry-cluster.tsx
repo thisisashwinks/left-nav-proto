@@ -144,6 +144,8 @@ export interface EditNavProps {
   onShowDefault: () => void;
   onRestoreOwn: () => void;
   onApplyTemplate: (templateId: string) => void;
+  /** Lands a template on a set of accounts — see EditMoreMenu. */
+  onApplyTemplateTo: (accountIds: readonly string[], templateId: string) => void;
   onCreateTemplate: (name: string) => void;
   onUpdateTemplate: (templateId: string) => void;
   /** Copies a template onto a new one nobody is on. See EditMoreMenu. */
@@ -186,6 +188,7 @@ function EditNavButton({
   onShowDefault,
   onRestoreOwn,
   onApplyTemplate,
+  onApplyTemplateTo,
   onCreateTemplate,
   onUpdateTemplate,
   onDuplicateTemplate,
@@ -255,6 +258,7 @@ function EditNavButton({
           onShowDefault={onShowDefault}
           onRestoreOwn={onRestoreOwn}
           onApplyTemplate={onApplyTemplate}
+          onApplyTemplateTo={onApplyTemplateTo}
           onCreateTemplate={onCreateTemplate}
           onUpdateTemplate={onUpdateTemplate}
           onDuplicateTemplate={onDuplicateTemplate}
@@ -303,6 +307,7 @@ function EditNavButton({
           onShowDefault={onShowDefault}
           onRestoreOwn={onRestoreOwn}
           onApplyTemplate={onApplyTemplate}
+          onApplyTemplateTo={onApplyTemplateTo}
           onCreateTemplate={onCreateTemplate}
           onUpdateTemplate={onUpdateTemplate}
           onDuplicateTemplate={onDuplicateTemplate}

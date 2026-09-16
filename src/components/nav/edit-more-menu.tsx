@@ -14,6 +14,7 @@ import {
   Save,
   Copy,
   CopyPlus,
+  TriangleAlert,
   EllipsisVertical,
   Trash2,
   FilePlus2,
@@ -28,8 +29,9 @@ import {
   TemplateMessageBody,
   TemplateMessageButton,
   TemplateMessageTitle,
+  TemplatePicker,
 } from "./template-message";
-import { TemplateRowMenu } from "./template-row-menu";
+import { TemplateRowMenu, templateHasActions } from "./template-row-menu";
 import { useNavLayout } from "./nav-layout-provider";
 import {
   NAV_GENERATIONS,
@@ -38,7 +40,7 @@ import {
 } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import { useAnchored } from "@/lib/use-anchored";
-import { useNavTemplates } from "./nav-templates";
+import { DEFAULT_TEMPLATE_ID, useNavTemplates } from "./nav-templates";
 
 /*
  * One glyph per row, and the pairs chosen to depict the difference.
@@ -87,6 +89,7 @@ export function EditMoreMenu({
   anchor,
   accountName,
   accountId,
+  onApplyTemplateTo,
   viewingDefault,
   onShowDefault,
   onRestoreOwn,
@@ -110,6 +113,14 @@ export function EditMoreMenu({
   accountName: string;
   /** Whose template link is being read — which decides if Save is live. */
   accountId: string;
+  /**
+   * Land a template's arrangement on a set of accounts.
+   *
+   * For the delete dialog's "move them to another template": the shell owns
+   * `applyToAccounts` and the per-account patching, so the decision is made
+   * here and the work happens there.
+   */
+  onApplyTemplateTo: (accountIds: readonly string[], templateId: string) => void;
   viewingDefault: boolean;
   onShowDefault: () => void;
   onRestoreOwn: () => void;
@@ -148,9 +159,20 @@ export function EditMoreMenu({
     remove,
     rename,
     notify,
+    divergedFor,
+    clearDivergence,
+    reassign,
   } = useNavTemplates();
   const { revertAccounts } = useNavLayout();
-  const { templateDeleteMode } = effective;
+  const {
+    templateDeleteMode,
+    templateMenuShape: menuShape,
+    templateConflict,
+  } = effective;
+  /** This account's unresolved collision, if the axis records them. */
+  const divergence = templateConflict === "silent" ? null : divergedFor(accountId);
+  /** Whether the divergence dialog is up. */
+  const [resolving, setResolving] = React.useState(false);
   const [view, setView] = React.useState<View>("root");
   const [draft, setDraft] = React.useState(`${accountName} nav`);
   /** Which row's kebab is open, and the button it hangs off. */
@@ -160,10 +182,25 @@ export function EditMoreMenu({
   const [renameDraft, setRenameDraft] = React.useState("");
   /** The template a delete confirmation is open for. */
   const [deleting, setDeleting] = React.useState<string | null>(null);
+  /*
+   * What happens to the accounts on a template being deleted.
+   *
+   * Seeded from the prototype axis so the two agree on open, then owned by the
+   * dialog — the axis says which answer is offered first, the person deleting
+   * says which one happens.
+   */
+  const [fate, setFate] = React.useState<"unlink" | "revert" | "move">(
+    templateDeleteMode,
+  );
+  const [moveTo, setMoveTo] = React.useState("");
   const deletingTemplate = deleting
     ? (templates.find((t) => t.id === deleting) ?? null)
     : null;
   const onIt = deleting ? accountsOn(deleting) : 0;
+  /** Somewhere to move them TO: any template but this one and the default. */
+  const movableTemplates = templates.filter(
+    (t) => t.id !== deleting && t.id !== DEFAULT_TEMPLATE_ID,
+  );
   const { ref, top, left } = useAnchored(anchor, WIDTH, GAP);
 
   React.useEffect(() => {
@@ -312,6 +349,13 @@ export function EditMoreMenu({
         <TemplateMessage
           kind="decision"
           label="Save template"
+          /*
+            Wide enough for three buttons on one line.
+
+            At 380 "Duplicate instead" and "Update 5 accounts" each broke across
+            two lines, which turned a footer into a paragraph of buttons.
+          */
+          width={520}
           onDismiss={() => setView("root")}
         >
           <TemplateMessageTitle
@@ -361,7 +405,11 @@ export function EditMoreMenu({
                 ? [
                     <TemplateMessageButton
                       key="dup"
-                      icon={<CopyPlus size={13} aria-hidden="true" />}
+                      /*
+                        No icon. It was the only button in any of these
+                        footers wearing one, which made it read as a different
+                        class of control rather than as the second option.
+                      */
                       onClick={() => {
                         onDuplicateTemplate(linked.id);
                         onClose();
@@ -475,6 +523,125 @@ export function EditMoreMenu({
             />
           ))}
         </Drill>
+      );
+    }
+
+    /*
+      Templates first, operations second — the paragraph-styles model.
+
+      The verbs-first menu below answers "what can I do", and then asks you to
+      pick the noun inside whichever verb you chose. Most people arrive with the
+      noun: they know which arrangement they want and are looking for it. So the
+      list IS the menu, applying is the row itself, and everything else you can
+      do to a template lives on that template's own ⋯ — where a Google Doc puts
+      "update to match" and a rename.
+
+      One row at the foot saves what is on screen as a new one, which is the
+      only operation that is not about a template that already exists.
+    */
+    if (menuShape === "list-first") {
+      return (
+        <>
+          <span className="mb-[4px] block px-[7px] pt-[3px] text-[10.5px] leading-[14px] font-semibold tracking-[0.5px] text-nav-fg-subtle uppercase">
+            Navigation templates
+          </span>
+          {templates.map((t) =>
+            renamingId === t.id ? (
+              <input
+                key={t.id}
+                autoFocus
+                value={renameDraft}
+                onChange={(e) => setRenameDraft(e.target.value)}
+                onBlur={() => {
+                  rename(t.id, renameDraft);
+                  if (renameDraft.trim() !== "" && renameDraft !== t.name) {
+                    notify(`Renamed to ${renameDraft.trim()}`);
+                  }
+                  setRenamingId(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur();
+                  if (e.key === "Escape") {
+                    e.stopPropagation();
+                    setRenamingId(null);
+                  }
+                }}
+                aria-label={`Rename ${t.name}`}
+                className="mx-[5px] min-w-0 rounded-[7px] bg-nav-hover px-[8px] py-[7px] text-[12.5px] leading-[16px] font-medium text-nav-fg outline-none"
+              />
+            ) : (
+              <MenuRow
+                key={t.id}
+                icon={t.id === DEFAULT_TEMPLATE_ID ? DEFAULT_LAYOUT_ICON : LayoutTemplate}
+                label={t.name}
+                /*
+                  The row says where this account stands in relation to it —
+                  on it, on it with changes, or not on it — because "which of
+                  these am I using" is the question the list is opened with.
+                */
+                note={
+                  t.id === DEFAULT_TEMPLATE_ID
+                    ? linked === null
+                      ? "What we ship · in use"
+                      : "What we ship"
+                    : linked?.id === t.id
+                      ? divergence?.templateId === t.id
+                        ? `In use · v${t.version} · diverged`
+                        : templateDirty
+                          ? `In use · v${t.version} · changed since`
+                          : `In use · v${t.version}`
+                      : `${t.builtIn ? "Preset" : `From ${t.fromAccount}`} · v${t.version}`
+                }
+                checked={
+                  t.id === DEFAULT_TEMPLATE_ID ? linked === null : linked?.id === t.id
+                }
+                {...(templateHasActions(t, {
+                  canUpdate: linked?.id === t.id && templateDirty,
+                  canResolve:
+                    templateConflict === "resolve" &&
+                    divergence?.templateId === t.id,
+                })
+                  ? {
+                      action: {
+                        icon: EllipsisVertical,
+                        label: `More for ${t.name}`,
+                        onSelect: (el: HTMLElement) => {
+                          setMenuFor(t.id);
+                          setMenuAt(el);
+                        },
+                      },
+                    }
+                  : {})}
+                onSelect={() => {
+                  onApplyTemplate(t.id);
+                  onClose();
+                }}
+              />
+            ),
+          )}
+          <Rule />
+          <MenuRow
+            icon={FilePlus2}
+            label="Save as new template"
+            note={`From ${accountName}'s arrangement`}
+            onSelect={() => setView("create")}
+            branch
+          />
+          {navSwitchInEditCard ? (
+            <>
+              <Rule />
+              <MenuRow
+                icon={SquareMenu}
+                label="Navigation"
+                note={
+                  navGeneration === "legacy" ? "Old navigation" : "New navigation"
+                }
+                onSelect={() => setView("navigation")}
+                branch
+              />
+            </>
+          ) : null}
+        </>
       );
     }
 
@@ -593,6 +760,33 @@ export function EditMoreMenu({
         <TemplateRowMenu
           template={templates.find((t) => t.id === menuFor)!}
           anchor={menuAt}
+          /*
+            Only on the template this account is on, and only when there is
+            something to save — the same two conditions the verbs-first menu
+            puts on its "Save template" row, moved onto the row they are about.
+          */
+          {...(templateConflict === "resolve" && divergence?.templateId === menuFor
+            ? {
+                onResolve: () => {
+                  setMenuFor(null);
+                  setResolving(true);
+                },
+              }
+            : {})}
+          {...(linked?.id === menuFor && templateDirty
+            ? {
+                /*
+                  No note under it. "Re-arranges 5 accounts" sat between two
+                  menu rows reading as a heading for the one below, and the
+                  confirmation it opens already says the same thing in a
+                  sentence — with the number in the button.
+                */
+                onUpdate: () => {
+                  setMenuFor(null);
+                  setView("save");
+                },
+              }
+            : {})}
           onRename={() => {
             const t = templates.find((x) => x.id === menuFor);
             if (t) {
@@ -606,46 +800,195 @@ export function EditMoreMenu({
             setMenuFor(null);
           }}
           onDelete={() => {
+            // Fresh every time: a choice left over from the last deletion is a
+            // choice nobody made about these accounts.
+            setFate(templateDeleteMode);
+            setMoveTo(
+              templates.find(
+                (t) => t.id !== menuFor && t.id !== DEFAULT_TEMPLATE_ID,
+              )?.id ?? "",
+            );
             setDeleting(menuFor);
             setMenuFor(null);
           }}
           onClose={() => setMenuFor(null)}
         />
       ) : null}
+      {resolving && divergence ? (
+        <TemplateMessage
+          kind="decision"
+          label={`Diverged from ${divergence.templateName}`}
+          width={420}
+          onDismiss={() => setResolving(false)}
+        >
+          <TemplateMessageTitle
+            icon={<TriangleAlert size={15} aria-hidden="true" />}
+          >
+            {accountName} diverged from {divergence.templateName} v
+            {divergence.version}
+          </TemplateMessageTitle>
+          <TemplateMessageBody>
+            {/*
+              The collisions themselves, not a count.
+
+              "3 conflicts" is a number you cannot act on. Which rows, and what
+              each side called them, is the whole of what decides which button
+              to press — so the list is the body of the dialog rather than
+              something behind a disclosure.
+            */}
+            Both this account and the template changed the same things. Yours
+            were kept.
+          </TemplateMessageBody>
+          <ul className="mt-[8px] flex flex-col gap-[4px]">
+            {divergence.lines.map((line) => (
+              <li
+                key={line}
+                className="flex gap-[6px] text-[12px] leading-[16px] text-nav-fg-muted"
+              >
+                <span aria-hidden="true" className="text-nav-fg-subtle">
+                  ·
+                </span>
+                <span className="min-w-0">{line}</span>
+              </li>
+            ))}
+          </ul>
+          <TemplateMessageActions
+            dismiss={
+              <TemplateMessageButton
+                onClick={() => {
+                  clearDivergence(accountId);
+                  notify("Kept this account's version");
+                  setResolving(false);
+                  onClose();
+                }}
+              >
+                Keep mine
+              </TemplateMessageButton>
+            }
+            actions={[
+              <TemplateMessageButton
+                key="split"
+                icon={<CopyPlus size={13} aria-hidden="true" />}
+                onClick={() => {
+                  /*
+                    Split off = create from what is on screen.
+
+                    Which is exactly `onCreateTemplate`: it captures this
+                    account's arrangement and links the account to the result,
+                    so it stops receiving the old template's pushes. That is
+                    the whole difference between this and "Keep mine", which
+                    leaves the account on the template and diverging again next
+                    time.
+                  */
+                  onCreateTemplate(`${accountName} nav`);
+                  clearDivergence(accountId);
+                  setResolving(false);
+                  onClose();
+                }}
+              >
+                Save as new template
+              </TemplateMessageButton>,
+              <TemplateMessageButton
+                key="take"
+                tone="primary"
+                onClick={() => {
+                  // Taking theirs IS applying it again — same path, same
+                  // confirmation, no second way to land an arrangement.
+                  onApplyTemplate(divergence.templateId);
+                  clearDivergence(accountId);
+                  notify(`Took ${divergence.templateName}'s version`);
+                  setResolving(false);
+                  onClose();
+                }}
+              >
+                Use the template&rsquo;s
+              </TemplateMessageButton>,
+            ]}
+          />
+        </TemplateMessage>
+      ) : null}
       {deletingTemplate ? (
         <TemplateMessage
           kind="decision"
           label={`Delete ${deletingTemplate.name}`}
+          width={onIt === 0 ? 380 : 420}
           onDismiss={() => setDeleting(null)}
         >
           <TemplateMessageTitle icon={<Trash2 size={15} aria-hidden="true" />}>
             Delete {deletingTemplate.name}?
           </TemplateMessageTitle>
           <TemplateMessageBody>
-            {/*
-              What happens to the accounts on it, in accounts — the one fact
-              that decides whether to press the button. See
-              TEMPLATE_DELETE_MODES for why there are two answers.
-            */}
             {onIt === 0 ? (
               <>No accounts are on it. This cannot be undone.</>
-            ) : templateDeleteMode === "revert" ? (
-              <>
-                <span className="font-medium text-nav-fg">
-                  {onIt} {onIt === 1 ? "account goes" : "accounts go"}
-                </span>{" "}
-                back to the default navigation. This cannot be undone.
-              </>
             ) : (
               <>
                 <span className="font-medium text-nav-fg">
-                  {onIt} {onIt === 1 ? "account keeps" : "accounts keep"}
+                  {onIt} {onIt === 1 ? "account is" : "accounts are"}
                 </span>{" "}
-                the navigation {onIt === 1 ? "it has" : "they have"} and stops
-                receiving updates. This cannot be undone.
+                on it. Choose where {onIt === 1 ? "it goes" : "they go"}. This
+                cannot be undone.
               </>
             )}
           </TemplateMessageBody>
+          {/*
+            The count alone is not a decision.
+
+            Deleting a template in use has three honest outcomes and the menu
+            used to take one of them silently, chosen by a prototype axis the
+            person deleting could not see. The axis now sets which is
+            PRE-SELECTED; the choice itself is on screen, because it is about
+            other people's navigation.
+          */}
+          {onIt > 0 ? (
+            <div className="mt-[10px] flex flex-col gap-[2px]">
+              {(
+                [
+                  ["unlink", `Keep their nav, stop updates`],
+                  ["revert", "Revert them to the HighLevel default"],
+                  ["move", "Move them to another template"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={fate === value}
+                  disabled={value === "move" && movableTemplates.length === 0}
+                  onClick={() => setFate(value)}
+                  className={cn(
+                    "motion-tap flex items-center gap-[8px] rounded-[7px] px-[8px] py-[7px] text-left text-[12.5px] leading-[16px]",
+                    "disabled:pointer-events-none disabled:opacity-40",
+                    fate === value
+                      ? "bg-nav-hover text-nav-fg"
+                      : "text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg",
+                  )}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "flex size-[14px] shrink-0 items-center justify-center rounded-full shadow-[inset_0_0_0_1px_var(--nav-fg-subtle)]",
+                      fate === value && "bg-nav-fg",
+                    )}
+                  >
+                    {fate === value ? (
+                      <span className="size-[5px] rounded-full bg-nav" />
+                    ) : null}
+                  </span>
+                  {label}
+                </button>
+              ))}
+              {fate === "move" ? (
+                <div className="mt-[4px] ml-[30px]">
+                  <TemplatePicker
+                    label="Move them to"
+                    value={moveTo}
+                    options={movableTemplates}
+                    onChange={setMoveTo}
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <TemplateMessageActions
             dismiss={
               <TemplateMessageButton onClick={() => setDeleting(null)}>
@@ -659,14 +1002,33 @@ export function EditMoreMenu({
                 onClick={() => {
                   const id = deleting;
                   if (!id) return;
-                  if (templateDeleteMode === "revert") {
+                  const ids = accountsOnIds(id);
+                  if (onIt > 0 && fate === "revert") {
                     revertAccounts(
-                      accountsOnIds(id),
+                      ids,
                       `Reverted to default — ${deletingTemplate.name} deleted`,
                     );
                   }
+                  if (onIt > 0 && fate === "move" && moveTo) {
+                    /*
+                      Moving them means moving them.
+
+                      `reassign` only re-points the link, which left every
+                      account still wearing the deleted template's arrangement
+                      and claiming to be on a different one — including the
+                      account you were looking at, whose nav did not move.
+                      Landing the target's arrangement first is what makes the
+                      row's new name true.
+                    */
+                    onApplyTemplateTo(ids, moveTo);
+                    reassign(id, moveTo);
+                  }
                   remove(id);
-                  notify(`Deleted ${deletingTemplate.name}`);
+                  notify(
+                    onIt > 0 && fate === "move"
+                      ? `Deleted ${deletingTemplate.name} — ${onIt} moved to ${templates.find((t) => t.id === moveTo)?.name ?? "another template"}`
+                      : `Deleted ${deletingTemplate.name}`,
+                  );
                   setDeleting(null);
                 }}
               >
@@ -724,6 +1086,7 @@ function MenuRow({
   checked,
   branch = false,
   disabled = false,
+  bare = false,
   action,
   onSelect,
 }: {
@@ -737,6 +1100,8 @@ function MenuRow({
   branch?: boolean;
   /** Nothing to act on. The row stays, and its note says why. */
   disabled?: boolean;
+  /** Draws no fill of its own — the wrapper above carries it. See `action`. */
+  bare?: boolean;
   /**
    * A second verb on the row, revealed on hover.
    *
@@ -761,7 +1126,21 @@ function MenuRow({
   if (action) {
     const { icon: ActionIcon, label: actionLabel, onSelect: onAction } = action;
     return (
-      <span className="group/row flex items-center gap-[2px]">
+      /*
+        The fill moves to the WRAPPER, and the row inside it draws none.
+
+        The two used to be siblings, each with its own hover: the row lit up and
+        the ⋯ sat outside the lit area, as if it belonged to whatever was next
+        in the list. A trailing control that is part of the row has to be inside
+        the thing that says which row you are on — so the selected and hover
+        states live out here now, and the button within is transparent.
+      */
+      <span
+        className={cn(
+          "group/row motion-tap flex items-center gap-[2px] rounded-[7px] pr-[4px]",
+          checked ? "bg-nav-hover" : "hover:bg-nav-hover",
+        )}
+      >
         <MenuRow
           icon={Icon}
           label={label}
@@ -769,6 +1148,7 @@ function MenuRow({
           {...(checked === undefined ? {} : { checked })}
           branch={branch}
           disabled={disabled}
+          bare
           onSelect={onSelect}
         />
         <button
@@ -776,7 +1156,7 @@ function MenuRow({
           aria-label={actionLabel}
           title={actionLabel}
           onClick={(e) => onAction(e.currentTarget)}
-          className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 hover:bg-nav-hover hover:text-nav-fg"
+          className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 hover:bg-nav-active hover:text-nav-fg"
         >
           <ActionIcon size={13} aria-hidden="true" />
         </button>
@@ -795,9 +1175,11 @@ function MenuRow({
         "motion-tap flex w-full items-start gap-[8px] rounded-[7px] px-[7px] py-[6px] text-left",
         disabled
           ? "cursor-not-allowed opacity-40"
-          : checked
-            ? "bg-nav-hover"
-            : "hover:bg-nav-hover",
+          : bare
+            ? ""
+            : checked
+              ? "bg-nav-hover"
+              : "hover:bg-nav-hover",
       )}
     >
       <Icon

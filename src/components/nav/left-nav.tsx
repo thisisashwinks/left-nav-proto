@@ -104,12 +104,14 @@ import { useAgencyLayout } from "./agency-layout";
 import { NavTemplatesMenu } from "./nav-templates-menu";
 import {
   captureArrangement,
+  collisionsBetween,
   describeChanges,
   hasLocalChanges,
   patchForArrangement,
   rebase,
   useNavTemplates,
   type NavTemplate,
+  DEFAULT_TEMPLATE_ID,
 } from "./nav-templates";
 import { TemplateNoticeCard } from "./template-push-card";
 import {
@@ -296,6 +298,7 @@ export function LeftNav({
     editTreatment,
     templatePropagation,
     templatePushNotice,
+    templateConflict,
   } = useTheme().effective;
   /*
    * Recents and Pinned drawn as one list — see merged-recents.tsx.
@@ -473,6 +476,29 @@ export function LeftNav({
      * "Save template" went live against a difference nobody had made, which is
      * the opposite of what that button is for.
      */
+    /*
+      The default resets rather than patches.
+
+      Everything else in the list is a stored arrangement to land on this
+      account. The default IS this account's shipped arrangement, which no two
+      tenants share — so applying it drops back to the profile rather than
+      copying one in, and the account ends up on no template, because being on
+      the default is the same as being on nothing.
+    */
+    if (tpl.id === DEFAULT_TEMPLATE_ID) {
+      /*
+        Show it, then keep it. `showDefaultLayout` alone only PREVIEWS the
+        shipped arrangement — it stashes what was there so the preview can be
+        backed out of — and a preview is not what "apply" means. Adopting
+        straight after drops the stash, which is the difference between looking
+        at the default and being on it.
+      */
+      layout.showDefaultLayout();
+      layout.adoptDefaultLayout();
+      templates.unlink(account.id);
+      templates.notify(`Reset ${account.name} to the HighLevel default`);
+      return;
+    }
     const applied = patchForArrangement(tpl.arrangement, state);
     layout.applyArrangement(tpl.name, applied, opts);
     templates.link(account.id, tpl.id, applied);
@@ -560,6 +586,27 @@ export function LeftNav({
       const current = captureArrangement(layout.profileFor(accountId));
       const tuned = hasLocalChanges(held.base, current);
       if (tuned) kept.push(accountId);
+      /*
+        A collision is narrower than a local change.
+
+        `tuned` is true whenever the account edited anything at all, and most of
+        those merge cleanly — two people changing different rows. What is worth
+        recording is only where BOTH sides moved the same property, because that
+        is where the merge is choosing for somebody. See collisionsBetween.
+      */
+      if (templateConflict !== "silent" && tuned) {
+        const lines = collisionsBetween(held.base, current, tpl.arrangement);
+        if (lines.length > 0) {
+          templates.markDiverged(accountId, {
+            templateId: id,
+            templateName: tpl.name,
+            version: tpl.version,
+            lines,
+            mine: current,
+            theirs: tpl.arrangement,
+          });
+        }
+      }
       const merged = tuned ? rebase(held.base, current, tpl.arrangement) : tpl.arrangement;
       const applied = patchForArrangement(merged, layout.profileFor(accountId));
       layout.applyToAccounts([accountId], `Updated ${tpl.name}`, (l) => ({
@@ -1475,6 +1522,29 @@ export function LeftNav({
             rewrites work somebody may have spent an afternoon on, so it gets
             the same courtesy as deleting one.
           */
+          /*
+            The bulk half of applying, for the delete dialog's reassignment.
+
+            Per-account rather than one call for the list: `patchForArrangement`
+            filters the template against what each account actually owns, and
+            the bulk API's patch is only ever handed a layout. The provider is
+            explicit that a burst of calls in one tick is safe.
+          */
+          onApplyTemplateTo: (accountIds: readonly string[], templateId: string) => {
+            const tpl = templates.templates.find((t) => t.id === templateId);
+            if (!tpl) return;
+            for (const id of accountIds) {
+              const applied = patchForArrangement(
+                tpl.arrangement,
+                layout.profileFor(id),
+              );
+              layout.applyToAccounts([id], `Moved to ${tpl.name}`, (l) => ({
+                ...l,
+                ...applied,
+              }));
+              templates.link(id, templateId, applied);
+            }
+          },
           onApplyTemplate: (id: string) => {
             const tpl = templates.templates.find((t) => t.id === id);
             if (tpl) setApplying(tpl);

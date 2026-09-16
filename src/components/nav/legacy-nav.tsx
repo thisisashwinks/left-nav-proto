@@ -216,7 +216,7 @@ export function LegacyNav({
               ⌘K
             </kbd>
           </span>
-          <span className="flex size-[36px] shrink-0 items-center justify-center rounded-[8px] bg-[color:var(--hr-success-600,#079455)] text-white">
+          <span className="flex size-[36px] shrink-0 items-center justify-center rounded-[8px] bg-[color:var(--hr-success-600,var(--hr-success-600))] text-white">
             <Zap size={15} aria-hidden="true" />
           </span>
         </div>

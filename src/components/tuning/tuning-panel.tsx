@@ -77,8 +77,12 @@ import {
   type NavColourControl,
   NAV_GENERATION_LABELS,
   NAV_SWITCH_SURFACES,
+  TEMPLATE_CONFLICT_LABELS,
+  TEMPLATE_CONFLICTS,
   TEMPLATE_DELETE_MODE_LABELS,
   TEMPLATE_DELETE_MODES,
+  TEMPLATE_MENU_SHAPE_LABELS,
+  TEMPLATE_MENU_SHAPES,
   TEMPLATE_MESSAGE_PLACEMENT_LABELS,
   TEMPLATE_MESSAGE_PLACEMENTS,
   TEMPLATE_PROPAGATIONS,
@@ -86,7 +90,9 @@ import {
   NAV_SWITCH_SURFACE_LABELS,
   type NavGeneration,
   type NavSwitchSurface,
+  type TemplateConflict,
   type TemplateDeleteMode,
+  type TemplateMenuShape,
   type TemplateMessagePlacement,
   type TemplatePropagation,
   SEARCH_MODE_LABELS,
@@ -1602,6 +1608,10 @@ export function TuningPanel() {
     setTemplateDeleteMode,
     templatePushNotice,
     setTemplatePushNotice,
+    templateMenuShape,
+    setTemplateMenuShape,
+    templateConflict,
+    setTemplateConflict,
     setNavSwitchSurface,
     setTemplatePropagation,
     layoutSwitchInEditCard,
@@ -1663,6 +1673,8 @@ export function TuningPanel() {
     setTemplateMessagePlacement(DEFAULT_THEME.templateMessagePlacement);
     setTemplateDeleteMode(DEFAULT_THEME.templateDeleteMode);
     setTemplatePushNotice(DEFAULT_THEME.templatePushNotice);
+    setTemplateMenuShape(DEFAULT_THEME.templateMenuShape);
+    setTemplateConflict(DEFAULT_THEME.templateConflict);
     setNewDotPlacement(DEFAULT_THEME.newDotPlacement);
   };
 
@@ -1972,6 +1984,34 @@ export function TuningPanel() {
             {templatePropagation === "managed"
               ? "A live standard: saving re-arranges every account on the template, keeping any per-account tuning, and leaves each one a note saying what moved."
               : "A starting point: applying stamps a copy, and later saves reach nobody. The fix you just made lives on one account."}
+          </Note>
+
+          <Segmented
+            label="Templates menu"
+            options={TEMPLATE_MENU_SHAPES}
+            value={templateMenuShape}
+            onChange={(v: TemplateMenuShape) => setTemplateMenuShape(v)}
+            format={(v) => TEMPLATE_MENU_SHAPE_LABELS[v]}
+          />
+          <Note>
+            {templateMenuShape === "list-first"
+              ? "The templates are the menu — applying is the row, and update, rename, duplicate and delete live on that row's ⋯. The paragraph-styles model: pick the thing, then say what to do to it."
+              : "Three verbs — Save, Create, Apply — each opening a list or a form. The menu answers \u201cwhat can I do\u201d, and which templates exist is one level down inside one of them."}
+          </Note>
+
+          <Segmented
+            label="When a push collides"
+            options={TEMPLATE_CONFLICTS}
+            value={templateConflict}
+            onChange={(v: TemplateConflict) => setTemplateConflict(v)}
+            format={(v) => TEMPLATE_CONFLICT_LABELS[v]}
+          />
+          <Note>
+            {templateConflict === "resolve"
+              ? "The account keeps its own version, is marked as diverged, and is offered the three ways out: take the template's, keep mine, or split off into a template of my own."
+              : templateConflict === "flag"
+                ? "The account keeps its own version and is marked as diverged, so it can be seen and counted — but nobody is asked to do anything about it."
+                : "The account keeps its own version and nothing is said. What shipped."}
           </Note>
 
           <Segmented

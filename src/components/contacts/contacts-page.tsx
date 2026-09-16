@@ -326,7 +326,7 @@ export function ContactsPage() {
       {selectedCount > 0 ? (
         <div
           role="status"
-          className="motion-slot-in absolute bottom-[24px] left-1/2 flex h-[42px] -translate-x-1/2 items-center gap-[14px] rounded-[10px] bg-pg-overlay px-[14px] shadow-[0_8px_24px_0_#0f172a47]"
+          className="motion-slot-in absolute bottom-[24px] left-1/2 flex h-[42px] -translate-x-1/2 items-center gap-[14px] rounded-[10px] bg-pg-overlay px-[14px] shadow-[0_8px_24px_0_var(--hr-gray-900)47]"
         >
           <span className="text-[13px] leading-[normal] font-semibold whitespace-nowrap text-pg-surface">
             {selectedCount} selected

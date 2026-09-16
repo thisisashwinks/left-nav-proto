@@ -2,13 +2,13 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { CopyPlus, Pencil, Trash2 } from "lucide-react";
+import { CopyPlus, Pencil, Save, Trash2, TriangleAlert } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { useAnchored } from "@/lib/use-anchored";
 import type { NavTemplate } from "./nav-templates";
 
 /** Wide enough for "Duplicate template" on one line. */
-export const ROW_MENU_WIDTH = 186;
+export const ROW_MENU_WIDTH = 196;
 const GAP = 6;
 
 /**
@@ -22,6 +22,8 @@ const GAP = 6;
 export function TemplateRowMenu({
   template,
   anchor,
+  onUpdate,
+  onResolve,
   onRename,
   onDuplicate,
   onDelete,
@@ -29,6 +31,18 @@ export function TemplateRowMenu({
 }: {
   template: NavTemplate;
   anchor: HTMLElement;
+  /**
+   * "Update to match this nav" — absent where it makes no sense.
+   *
+   * The verb that makes the list-first menu work, and the one a paragraph-style
+   * menu is built around: you arrange the thing, then tell the style to match
+   * it. Given only when this account is actually on this template, because
+   * updating one you are not on would overwrite it with an arrangement it has
+   * never held.
+   */
+  onUpdate?: () => void;
+  /** Present only while this account is unresolved against this template. */
+  onResolve?: () => void;
   onRename: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -64,6 +78,15 @@ export function TemplateRowMenu({
    * `builtIn`, so everything is available on it from the first press.
    */
   const locked = template.builtIn === true;
+  /*
+   * The default refuses duplication as well.
+   *
+   * A preset holds an arrangement, so copying it gives you that arrangement to
+   * work on. The default holds none — it means "whatever this tenant ships
+   * with" — so a copy of it would be a copy of nothing, named "HighLevel
+   * default (copy)" and arranging zero rows.
+   */
+  const immutable = template.immutable === true;
 
   return createPortal(
     <div
@@ -84,37 +107,76 @@ export function TemplateRowMenu({
       style={{ top, left, width: ROW_MENU_WIDTH }}
       className="motion-panel-in fixed z-[72] flex flex-col gap-[1px] rounded-[9px] bg-nav p-[5px] shadow-[0_12px_32px_0_var(--fly-shadow),inset_0_0_0_1px_var(--fly-border)]"
     >
-      <RowMenuItem
-        icon={<Pencil size={13} aria-hidden="true" />}
-        disabled={locked}
-        onClick={onRename}
-      >
-        Rename template
-      </RowMenuItem>
-      <RowMenuItem
-        icon={<CopyPlus size={13} aria-hidden="true" />}
-        onClick={onDuplicate}
-      >
-        Duplicate template
-      </RowMenuItem>
-      <RowMenuItem
-        icon={<Trash2 size={13} aria-hidden="true" />}
-        disabled={locked}
-        onClick={onDelete}
-      >
-        Delete template
-      </RowMenuItem>
-      {locked ? (
-        // Why the two rows are dead, said once. A disabled control with no
-        // reason beside it reads as broken rather than as not-yours.
-        <p className="px-[8px] pt-[5px] pb-[3px] text-[11px] leading-[15px] text-nav-fg-subtle">
-          Presets can&rsquo;t be renamed or deleted. Duplicate it to get your
-          own.
-        </p>
+      {onResolve ? (
+        <RowMenuItem
+          icon={<TriangleAlert size={13} aria-hidden="true" />}
+          onClick={onResolve}
+        >
+          Resolve divergence
+        </RowMenuItem>
       ) : null}
+      {onUpdate ? (
+        <RowMenuItem
+          icon={<Save size={13} aria-hidden="true" />}
+          onClick={onUpdate}
+        >
+          Update to match
+        </RowMenuItem>
+      ) : null}
+      {/*
+        Absent, not greyed.
+
+        A preset cannot be renamed and the default cannot be touched at all —
+        and a menu that opens onto three dead rows and a paragraph explaining
+        why is a menu that has wasted the press. What you can do to this
+        template is what the menu lists; the rest is not mentioned, and the
+        kebab itself does not appear when nothing is left. See `verbs` in the
+        caller.
+      */}
+      {locked ? null : (
+        <RowMenuItem
+          icon={<Pencil size={13} aria-hidden="true" />}
+          onClick={onRename}
+        >
+          Rename template
+        </RowMenuItem>
+      )}
+      {immutable ? null : (
+        <RowMenuItem
+          icon={<CopyPlus size={13} aria-hidden="true" />}
+          onClick={onDuplicate}
+        >
+          Duplicate template
+        </RowMenuItem>
+      )}
+      {locked ? null : (
+        <RowMenuItem
+          icon={<Trash2 size={13} aria-hidden="true" />}
+          onClick={onDelete}
+        >
+          Delete template
+        </RowMenuItem>
+      )}
     </div>,
     document.body,
   );
+}
+
+/**
+ * Whether this template has any verbs at all.
+ *
+ * Read by the list so it can leave the ⋯ off entirely. The default has none —
+ * it cannot be renamed, duplicated or deleted, and you are not on it in a way
+ * that could be updated — so a kebab there opens an empty box.
+ */
+export function templateHasActions(
+  template: NavTemplate,
+  opts: { canUpdate: boolean; canResolve: boolean },
+): boolean {
+  if (opts.canUpdate || opts.canResolve) return true;
+  if (template.immutable) return false;
+  // A preset can still be duplicated, which is the whole way to get your own.
+  return true;
 }
 
 function RowMenuItem({

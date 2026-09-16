@@ -43,6 +43,8 @@ import {
   type NavColourControl,
   type RecentsPanelLayout,
   type TemplateDeleteMode,
+  type TemplateConflict,
+  type TemplateMenuShape,
   type TemplateMessagePlacement,
   type SubAccountSwitcher,
   type NewDotPlacement,
@@ -153,6 +155,8 @@ interface ThemeContextValue extends ThemeState {
   setTemplateMessagePlacement: (placement: TemplateMessagePlacement) => void;
   setTemplateDeleteMode: (mode: TemplateDeleteMode) => void;
   setTemplatePushNotice: (on: boolean) => void;
+  setTemplateMenuShape: (shape: TemplateMenuShape) => void;
+  setTemplateConflict: (mode: TemplateConflict) => void;
   setNavColourControl: (control: NavColourControl) => void;
   setSubAccountSwitcher: (switcher: SubAccountSwitcher) => void;
   setNewDotPlacement: (placement: NewDotPlacement) => void;
@@ -373,6 +377,10 @@ export function ThemeProvider({
         setState((s) => ({ ...s, templateDeleteMode })),
       setTemplatePushNotice: (templatePushNotice) =>
         setState((s) => ({ ...s, templatePushNotice })),
+      setTemplateMenuShape: (templateMenuShape) =>
+        setState((s) => ({ ...s, templateMenuShape })),
+      setTemplateConflict: (templateConflict) =>
+        setState((s) => ({ ...s, templateConflict })),
       setNavColourControl: (navColourControl) =>
         setState((s) => ({ ...s, navColourControl })),
       setSubAccountSwitcher: (subAccountSwitcher) =>

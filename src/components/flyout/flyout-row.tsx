@@ -37,10 +37,19 @@ import type {
   FlyoutItemVariant,
 } from "./types";
 
-/** Same gradient angle and stops in both tones; only the ramp differs. */
+/** One flat step of the HighRise ramp per tone. */
 const BADGE_TONE: Record<FlyoutBadgeTone, string> = {
-  new: "bg-[linear-gradient(-53.271deg,var(--fly-badge-from)_20.741%,var(--fly-badge-to)_61.206%)] text-fly-badge-fg",
-  beta: "bg-[linear-gradient(-53.271deg,var(--fly-badge-beta-from)_20.741%,var(--fly-badge-beta-to)_61.206%)] text-fly-badge-beta-fg",
+  /*
+   * Flat fill, flat edge: no gradient and no drop shadow (Sep 16).
+   *
+   * The pills carried a 2px shadow as well as their gradient, which on a 16px
+   * chip lifted them off the row — so an editorial label about a PRODUCT read
+   * as a floating control sitting on the nav. A tag is type on a ground; it
+   * belongs in the same plane as the label it qualifies. Colour is doing the
+   * work, and one step of the HighRise ramp is enough of it.
+   */
+  new: "bg-fly-badge-bg text-fly-badge-fg",
+  beta: "bg-fly-badge-beta-bg text-fly-badge-beta-fg",
 };
 
 /*
@@ -679,7 +688,7 @@ export function FlyoutRow({
           {!hasChildren && item.badge ? (
             <span
               className={cn(
-                "shrink-0 rounded-[2px] px-[4px] py-[2px] text-[10px] leading-[normal] font-semibold whitespace-nowrap shadow-[0_2px_4px_0_#00000014]",
+                "shrink-0 rounded-[2px] px-[4px] py-[2px] text-[10px] leading-[normal] font-semibold whitespace-nowrap",
                 BADGE_TONE[item.badge.tone],
               )}
             >
@@ -1380,7 +1389,7 @@ function FlyoutChildRow({
         {!nested && child.badge ? (
           <span
             className={cn(
-              "shrink-0 rounded-[2px] px-[4px] py-[1.5px] text-[9.5px] leading-[normal] font-semibold whitespace-nowrap shadow-[0_2px_4px_0_#00000014]",
+              "shrink-0 rounded-[2px] px-[4px] py-[1.5px] text-[9.5px] leading-[normal] font-semibold whitespace-nowrap",
               BADGE_TONE[child.badge.tone],
             )}
           >

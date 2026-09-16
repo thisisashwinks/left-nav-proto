@@ -554,7 +554,7 @@ export function BulkModal({
 
           {step === "done" && run ? (
             <div className="flex flex-col items-center gap-[8px] py-[24px] text-center">
-              <CheckCircle2 size={30} aria-hidden="true" className="text-[#16a34a]" />
+              <CheckCircle2 size={30} aria-hidden="true" className="text-[var(--hr-success-600)]" />
               <h3 className="text-[16px] leading-[22px] font-semibold text-pg-heading">
                 {run.status === "queued" ? "Changes submitted" : "Changes applied"}
               </h3>

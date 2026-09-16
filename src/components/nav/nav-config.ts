@@ -54,12 +54,17 @@ const recentMore: NavItem = {
   flyoutId: "recent",
 };
 
-const aiAgents: NavItem = {
-  id: "ai-agents",
-  label: "AI Agents",
-  ai: true,
-  hasFlyout: true,
-};
+/*
+ * The AI Agents row is gone (Sep 15).
+ *
+ * Every account that has it also has an AI bucket in its tree, so the nav
+ * carried two doors to the same place — one of them a chrome row above the
+ * rule, wearing a purple mark that made it look like a different KIND of
+ * destination rather than a duplicate of one. The bucket is where AI products
+ * live, it is renameable and reorderable like every other bucket, and it is
+ * the one the account can actually arrange. The promo the row's panel carried
+ * moved with it; see AI_EMPLOYEE_PROMO.
+ */
 
 const quickActions: NavItem = {
   id: "quick-actions",
@@ -88,14 +93,12 @@ export const navConfig: NavConfig = {
     ...recentItems.map((item) => ({ kind: "item" as const, item })),
     { kind: "item", item: recentMore },
     { kind: "divider", id: "div-recent" },
-    { kind: "item", item: aiAgents },
     { kind: "item", item: quickActions },
   ],
   railFixed: [
     // The rail has no section labels and no room for three rows, so Recent goes
     // back to being one icon — the panel behind "More" is the same one.
     { id: "recent", label: "Recent", icon: History, hasFlyout: true, flyoutId: "recent" },
-    aiAgents,
     quickActions,
   ],
   // Last row in the scroll region, so the nav's bottom edge is free for the AI
@@ -161,20 +164,12 @@ export function fixedEntriesFor(
   }
 
   /*
-   * The proposed tree drops the AI Agents row.
-   *
-   * AI is a bucket of its own there, so the row was the same place twice. Quick
-   * Actions stays — it is not a place at all, it is a shortcut sheet, so nothing
-   * in the IA duplicates it. Scoped to the mode rather than deleted, so every
-   * other account keeps both.
+   * This used to drop the AI Agents row on the proposed tree only — AI is a
+   * bucket there, so the row was the same place twice. It is the same place
+   * twice on every other tree as well, which is why the row itself is gone
+   * rather than filtered. Quick Actions stays: it is not a place at all, it is
+   * a shortcut sheet, so nothing in the IA duplicates it.
    */
-  const dropped =
-    state.grouping === "proposed"
-      ? resolved.filter(
-          (e) => !(e.kind === "item" && e.item.id === "ai-agents"),
-        )
-      : resolved;
-
   /*
    * The blocks the account has switched off.
    *
@@ -183,7 +178,7 @@ export function fixedEntriesFor(
    * rather than in either nav face, so the rail and the expanded nav can never
    * disagree about what the account has.
    */
-  const trimmed = dropped.filter((e) => {
+  const trimmed = resolved.filter((e) => {
     if (isBlockHidden(state, "recent")) {
       if (e.kind === "label" && e.id === "recent-label") return false;
       if (e.kind === "divider" && e.id === "div-recent") return false;
@@ -209,8 +204,7 @@ export function fixedEntriesFor(
    */
   const banded = sectionHeadings
     ? trimmed.flatMap((e): NavEntry[] =>
-        e.kind === "item" &&
-        (e.item.id === "quick-actions" || e.item.id === "ai-agents")
+        e.kind === "item" && e.item.id === "quick-actions"
           ? [{ kind: "label", id: "sec-shortcuts", text: "Shortcuts" }, e]
           : [e],
       )

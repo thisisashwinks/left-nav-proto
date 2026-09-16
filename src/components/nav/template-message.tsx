@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { Check, ChevronDown, X } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 
@@ -377,5 +377,97 @@ export function TemplateToast({
       </button>
     </div>,
     document.body,
+  );
+}
+
+/**
+ * A picker, rather than the browser's.
+ *
+ * A native `<select>` in a dialog opens the platform's own list — a grey sheet
+ * in the OS's font, drawn over the dialog with none of its theming, and on
+ * macOS it lands on top of the option you last chose rather than below the
+ * control. Everything else here is a menu the product drew; this was the one
+ * place it handed off.
+ */
+export function TemplatePicker({
+  value,
+  options,
+  onChange,
+  label,
+}: {
+  value: string;
+  options: readonly { id: string; name: string }[];
+  onChange: (id: string) => void;
+  label: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement | null>(null);
+  const chosen = options.find((o) => o.id === value);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", away);
+    return () => document.removeEventListener("pointerdown", away);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={label}
+        onClick={() => setOpen((o) => !o)}
+        className="motion-tap flex h-[32px] w-full items-center gap-[8px] rounded-[7px] bg-nav-hover px-[10px] text-left text-[12.5px] leading-none text-nav-fg"
+      >
+        <span className="min-w-0 flex-1 truncate">
+          {chosen?.name ?? "Choose a template"}
+        </span>
+        <ChevronDown
+          size={13}
+          aria-hidden="true"
+          className={cn("shrink-0 text-nav-fg-subtle motion-move", open && "rotate-180")}
+        />
+      </button>
+      {open ? (
+        /*
+          Drawn in flow above the footer rather than floating over it: this sits
+          inside a dialog that is already the topmost thing on screen, and a
+          second portalled layer over it only exists to be mis-stacked.
+        */
+        <div
+          role="listbox"
+          aria-label={label}
+          className="motion-menu-in absolute top-[calc(100%+4px)] right-0 left-0 z-10 flex max-h-[180px] flex-col gap-[1px] overflow-y-auto rounded-[8px] bg-nav p-[4px] shadow-[0_12px_32px_0_var(--fly-shadow),inset_0_0_0_1px_var(--fly-border)]"
+        >
+          {options.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              role="option"
+              aria-selected={o.id === value}
+              onClick={() => {
+                onChange(o.id);
+                setOpen(false);
+              }}
+              className={cn(
+                "motion-tap flex items-center gap-[8px] rounded-[6px] px-[8px] py-[6px] text-left text-[12.5px] leading-[16px]",
+                o.id === value
+                  ? "bg-nav-hover text-nav-fg"
+                  : "text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg",
+              )}
+            >
+              <span className="min-w-0 flex-1 truncate">{o.name}</span>
+              {o.id === value ? (
+                <Check size={13} aria-hidden="true" className="shrink-0" />
+              ) : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }

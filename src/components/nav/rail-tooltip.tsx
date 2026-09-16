@@ -95,7 +95,7 @@ export function RailTooltip({
               style={{
                 top: pos.top,
                 left: pos.left,
-                backgroundColor: "#0f172a",
+                backgroundColor: "var(--hr-gray-900)",
                 color: "#e2e8f0",
               }}
               className={cn(

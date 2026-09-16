@@ -1,10 +1,11 @@
-import { flyouts } from "@/components/flyout/flyout-config";
+import { AI_BOTTOM_SLOT, flyouts } from "@/components/flyout/flyout-config";
 import type {
   FlyoutChildItem,
   FlyoutConfig,
   FlyoutEntry,
 } from "@/components/flyout/types";
 import { productById } from "./catalogue";
+import { PROPOSED_AI_ID } from "./proposed-ia";
 import { liftedChildren } from "./nav-entries";
 import type { CatalogueChild } from "./catalogue-types";
 import {
@@ -116,6 +117,18 @@ export function flyoutForGroup(
     // No synthetic CTA. An "Explore {group}" row on the bottom of every generated
     // panel said nothing the rows above it had not already said, and repeated
     // verbatim across all of them.
+    /*
+     * One exception to "generated panels carry no editorial": the AI bucket.
+     *
+     * The rule exists so the nav does not invent a featured block for a group
+     * somebody just made — it would be fabricating content. This block is not
+     * invented: it is the promo the AI Agents row's own panel carried, moved
+     * with the row when the row was removed, onto the bucket that now holds
+     * every product it was advertising — the carousel entire, so the help
+     * slide comes with it. Keyed off the IA's own id, so a custom group a user
+     * happens to name "AI" does not inherit a pitch.
+     */
+    ...(group.id === PROPOSED_AI_ID ? { bottom: AI_BOTTOM_SLOT } : {}),
   };
 }
 

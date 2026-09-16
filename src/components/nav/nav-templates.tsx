@@ -60,6 +60,15 @@ export interface NavTemplate {
   fromAccount: string;
   /** A shipped starting point rather than something this agency saved. */
   builtIn?: boolean;
+  /**
+   * The one template nothing may be done to — see DEFAULT_TEMPLATE_ID.
+   *
+   * Stronger than `builtIn`, which only refuses renames and deletes: this also
+   * refuses being saved into. An agency that could overwrite the default would
+   * have no default, and every account created after that would inherit
+   * whatever they happened to be looking at the day they pressed it.
+   */
+  immutable?: boolean;
   /** How many products it arranges, as a rough size for the list. */
   productCount: number;
   /**
@@ -89,6 +98,25 @@ export interface NavTemplate {
 export interface TemplateLink {
   templateId: string;
   base: NavArrangement;
+}
+
+/**
+ * One account's unresolved collision with its template.
+ *
+ * Holds the arrangement it had BEFORE the push as well as the lines, because
+ * two of the three ways out need it: "keep mine" restores it, and "save as new
+ * template" captures it. Without it the only resolvable answer would be the one
+ * that throws the account's work away.
+ */
+export interface TemplateDivergence {
+  templateId: string;
+  templateName: string;
+  version: number;
+  lines: readonly string[];
+  /** What this account looked like before the push landed. */
+  mine: NavArrangement;
+  /** What the template now holds, for "use the template's version". */
+  theirs: NavArrangement;
 }
 
 /** One account's news, held until it is looked at. See `noticeFor`. */
@@ -165,6 +193,24 @@ interface TemplatesValue {
    * silently rewriting forty navs.
    */
   linkedIdFor: (accountId: string) => string | null;
+  /**
+   * Takes an account off whatever template it was on.
+   *
+   * Applying the default is the one "apply" that leaves an account on nothing:
+   * being on the default is the same as being on no template, and a link to it
+   * would make "Save to HighLevel default" look like a thing you could press.
+   */
+  unlink: (accountId: string) => void;
+  /**
+   * Moves every account on one template onto another.
+   *
+   * For deleting a template that is in use: the accounts keep the navigation
+   * they have — nothing is re-arranged — and simply start taking updates from
+   * somewhere else. Their base stays what it was, so the first push from the
+   * new template rebases against what they actually have rather than against an
+   * arrangement they were never on.
+   */
+  reassign: (fromTemplateId: string, toTemplateId: string) => void;
   linkedFor: (accountId: string) => NavTemplate | null;
   /** The base an account took, which is what a later push measures against. */
   linkFor: (accountId: string) => TemplateLink | null;
@@ -212,6 +258,18 @@ interface TemplatesValue {
    * anything was apply — and only because the layout's own undo offer happened
    * to catch it.
    */
+  /**
+   * Accounts whose own edits collided with the template's.
+   *
+   * Recorded at push time, because that is the only moment both sides of the
+   * comparison exist: afterwards the account holds the merged result and the
+   * question "what did I have before this landed" has no answer. See
+   * `collisionsBetween`.
+   */
+  divergedFor: (accountId: string) => TemplateDivergence | null;
+  markDiverged: (accountId: string, divergence: TemplateDivergence) => void;
+  clearDivergence: (accountId: string) => void;
+
   notify: (message: string) => void;
   /** The message on screen, with an id so a repeat replays rather than sits. */
   toast: { id: number; message: string } | null;
@@ -311,6 +369,48 @@ const preset = (
   },
 });
 
+/**
+ * The navigation every account ships with, as a row in the template list.
+ *
+ * It used to be a drill of its own — "My layout" against "HighLevel default
+ * layout" — which asked the same question the template list asks, in different
+ * words, one menu away. A person comparing arrangements had two places to look
+ * and no way to see them side by side.
+ *
+ * Special in two ways, and only two. It cannot be changed: not renamed, not
+ * deleted, and not saved into, because "the default" that an agency can
+ * overwrite is not a default. And it carries no stored arrangement — applying
+ * it resets the account to the profile it shipped with, which differs per
+ * tenant, so there is nothing to keep here that would be true for all of them.
+ */
+export const DEFAULT_TEMPLATE_ID = "hl-default";
+
+const DEFAULT_TEMPLATE: NavTemplate = {
+  id: DEFAULT_TEMPLATE_ID,
+  name: "HighLevel default",
+  fromAccount: "",
+  builtIn: true,
+  immutable: true,
+  // Nothing reads this: `patchFor` returns the account's own shipped profile
+  // for this id rather than an arrangement held here. Zero rather than a
+  // made-up number, and the list says "what we ship" instead of a count.
+  productCount: 0,
+  version: 1,
+  updatedAt: "Jan 14, 2026",
+  arrangement: {
+    grouping: "custom",
+    customGroups: [],
+    groupOrder: {},
+    agencyLabels: {},
+    agencyProductLabels: {},
+    icons: {},
+    pinned: [],
+    hiddenBlocks: [],
+    hiddenRows: [],
+    tailOrder: [],
+  },
+};
+
 /** Group id to Lucide name, kept beside the presets that use them. */
 const GROUP_ICONS: Record<string, string> = {
   "t-front-desk": "Stethoscope",
@@ -337,6 +437,9 @@ const GROUP_ICONS: Record<string, string> = {
 };
 
 const SEED_TEMPLATES: readonly NavTemplate[] = [
+  // First, always: it is what an account has before anyone chooses anything,
+  // so it is the row a list of alternatives is read against.
+  DEFAULT_TEMPLATE,
   preset(
     "tpl-dental",
     "Dental practice",
@@ -714,6 +817,67 @@ function localKeys(
  * row the agency just deliberately deleted. That is a real loss, which is why
  * `describeChanges` names removals on the notice.
  */
+/**
+ * Where the template and the account changed the same thing.
+ *
+ * `rebase` already answers this question implicitly and then forgets it: for
+ * every property it keeps the local value, whether the template left that
+ * property alone or moved it too. The first case is a clean merge — two people
+ * edited different things. The second is a decision being taken on somebody's
+ * behalf, and it is the only one worth telling anyone about.
+ *
+ * So a collision is three-way: the value the account started from, what it has
+ * now, and what the template now holds — all different. Two of them matching
+ * means one side did not move.
+ */
+export function collisionsBetween(
+  base: NavArrangement,
+  current: NavArrangement,
+  next: NavArrangement,
+): string[] {
+  const out: string[] = [];
+
+  const mapClash = (
+    label: (key: string) => string,
+    pick: (a: NavArrangement) => Record<string, string>,
+  ) => {
+    for (const key of Object.keys(pick(current))) {
+      const was = pick(base)[key];
+      const mine = pick(current)[key];
+      const theirs = pick(next)[key];
+      if (mine === was) continue; // the account did not touch it
+      if (theirs === undefined || theirs === was) continue; // nor did the template
+      if (mine === theirs) continue; // both landed on the same answer
+      out.push(label(key));
+    }
+  };
+
+  mapClash(
+    (key) => `Both renamed ${key} — yours “${current.agencyProductLabels[key]}”, the template’s “${next.agencyProductLabels[key]}”`,
+    (a) => a.agencyProductLabels,
+  );
+  mapClash(
+    (key) => `Both renamed the ${key} group`,
+    (a) => a.agencyLabels,
+  );
+  mapClash((key) => `Both changed the icon on ${key}`, (a) => a.icons);
+
+  if (!sameList(base.pinned, current.pinned) && !sameList(base.pinned, next.pinned)) {
+    out.push("Both changed the pinned set");
+  }
+
+  // Where a product lives, which is the change people notice first.
+  for (const productId of productsOf(current)) {
+    const was = groupLabelOf(base, productId);
+    const mine = groupLabelOf(current, productId);
+    const theirs = groupLabelOf(next, productId);
+    if (mine === was || theirs === null || theirs === was || mine === theirs) continue;
+    out.push(`Both moved ${productId} — yours to ${mine}, the template’s to ${theirs}`);
+  }
+
+  return out;
+}
+
 export function rebase(
   base: NavArrangement,
   current: NavArrangement,
@@ -772,6 +936,9 @@ export function NavTemplatesProvider({
   const [links, setLinks] = React.useState<Record<string, TemplateLink>>({});
   /** accountId → what a push did to it, waiting to be read. */
   const [notices, setNotices] = React.useState<Record<string, TemplateNotice>>({});
+  const [diverged, setDiverged] = React.useState<
+    Record<string, TemplateDivergence>
+  >({});
   const seq = React.useRef(0);
   // `update` needs the template it is replacing without taking `templates` as a
   // dependency — the callback is handed to a menu that must not be rebuilt on
@@ -818,6 +985,8 @@ export function NavTemplatesProvider({
       const arrangement = captureArrangement(state);
       const before = templatesRef.current.find((t) => t.id === id);
       if (!before) return null;
+      // The default is not a place to put things. See DEFAULT_TEMPLATE_ID.
+      if (before.immutable) return null;
       const after: NavTemplate = {
         ...before,
         builtIn: false,
@@ -861,7 +1030,9 @@ export function NavTemplatesProvider({
 
   const remove = React.useCallback(
     (id: string) => {
-      setTemplates((all) => all.filter((t) => t.id !== id));
+      setTemplates((all) =>
+        all.filter((t) => t.id !== id || t.immutable === true),
+      );
       // Links to a template that no longer exists would leave accounts claiming
       // to be on nothing, and the menu offering to update it.
       setLinks((all) =>
@@ -891,7 +1062,7 @@ export function NavTemplatesProvider({
       all.map((t) =>
         // The guard is here as well as in the menu: a disabled control is a
         // courtesy, and the rule belongs with the data it protects.
-        t.id === id && !t.builtIn ? { ...t, name: next } : t,
+        t.id === id && !t.builtIn && !t.immutable ? { ...t, name: next } : t,
       ),
     );
   }, []);
@@ -911,6 +1082,48 @@ export function NavTemplatesProvider({
        * comparison, no second fact to keep in step.
        */
       setLinks((all) => ({ ...all, [accountId]: { templateId, base } })),
+    [],
+  );
+
+  const divergedFor = React.useCallback(
+    (accountId: string) => diverged[accountId] ?? null,
+    [diverged],
+  );
+  const markDiverged = React.useCallback(
+    (accountId: string, divergence: TemplateDivergence) =>
+      setDiverged((all) => ({ ...all, [accountId]: divergence })),
+    [],
+  );
+  const clearDivergence = React.useCallback((accountId: string) => {
+    setDiverged((all) => {
+      if (!(accountId in all)) return all;
+      const next = { ...all };
+      delete next[accountId];
+      return next;
+    });
+  }, []);
+
+  const unlink = React.useCallback((accountId: string) => {
+    setLinks((all) => {
+      if (!(accountId in all)) return all;
+      const next = { ...all };
+      delete next[accountId];
+      return next;
+    });
+  }, []);
+
+  const reassign = React.useCallback(
+    (fromTemplateId: string, toTemplateId: string) => {
+      setLinks((all) =>
+        Object.fromEntries(
+          Object.entries(all).map(([accountId, held]) =>
+            held.templateId === fromTemplateId
+              ? [accountId, { ...held, templateId: toTemplateId }]
+              : [accountId, held],
+          ),
+        ),
+      );
+    },
     [],
   );
 
@@ -1011,6 +1224,15 @@ export function NavTemplatesProvider({
 
   const patchFor = React.useCallback(
     (id: string, target: NavLayoutState): Partial<NavLayoutState> | null => {
+      /*
+        The default has no stored arrangement to hand back.
+
+        It means "the navigation this tenant ships with", which is a different
+        set of rows for every account — so the caller resets from the account's
+        own profile instead of patching from here. Null says "nothing to patch"
+        and the apply path reads the id to know why.
+      */
+      if (id === DEFAULT_TEMPLATE_ID) return null;
       const tpl = templates.find((t) => t.id === id);
       return tpl ? patchForArrangement(tpl.arrangement, target) : null;
     },
@@ -1031,11 +1253,16 @@ export function NavTemplatesProvider({
       linkFor,
       isCurrent,
       link,
+      unlink,
+      reassign,
       accountsOn,
       accountsOnIds,
       markPushed,
       noticeFor,
       dismissNotice,
+      divergedFor,
+      markDiverged,
+      clearDivergence,
       notify,
       toast,
       dismissToast,
@@ -1053,11 +1280,16 @@ export function NavTemplatesProvider({
       linkFor,
       isCurrent,
       link,
+      unlink,
+      reassign,
       accountsOn,
       accountsOnIds,
       markPushed,
       noticeFor,
       dismissNotice,
+      divergedFor,
+      markDiverged,
+      clearDivergence,
       notify,
       toast,
       dismissToast,

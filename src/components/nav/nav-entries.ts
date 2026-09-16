@@ -10,7 +10,7 @@ import {
   type ResolvedGroup,
 } from "./grouping";
 import { GET_APP_FLYOUT_ID } from "@/components/flyout/get-app-flyout";
-import { PROPOSED_AI_ID, PROPOSED_SETTINGS_ID } from "./proposed-ia";
+import { PROPOSED_SETTINGS_ID } from "./proposed-ia";
 import type { NavEntry, NavItem } from "./types";
 
 /**
@@ -189,11 +189,11 @@ export function navEntriesFor(
         ];
 
   /*
-   * The extras as rows, for the two trees that do not run the tail through
-   * `tailRowsFor`. They keep their default place — ahead of the account's own
-   * links — and their order is not the tail's to change in those modes.
+   * `extraRows` is gone (Sep 15), and with it the last tree that mapped the
+   * extras straight instead of through `tailRowsFor`. Every branch builds its
+   * tail the same way now, which is the only way a chrome row can be ordered
+   * by the same drag that orders the products beside it.
    */
-  const extraRows = extras.map((item): NavEntry => ({ kind: "item", item }));
 
   /** A row that is only ever a destination. See the flat branch. */
   const flatRow = (id: string): NavEntry => ({
@@ -205,26 +205,11 @@ export function navEntriesFor(
     },
   });
 
-  const productRow = (id: string): NavEntry => ({
-    kind: "item",
-    item: {
-      id,
-      label: labelForProduct(state, id),
-      icon: iconForProduct(state, id),
-      /*
-       * A lifted row keeps its own children.
-       *
-       * Pulling an L2 out of its category promotes the row, and the layer
-       * underneath it came along — but the row was built as a plain
-       * destination, so the panel never opened and everything under it became
-       * unreachable from the nav. The lift moved a door and drew a wall.
-       *
-       * A tabs-parent stays a leaf: its children live ON its page, which is
-       * the one case where having children does not mean having a panel.
-       */
-      ...(liftedChildren(id).length > 0 ? { hasFlyout: true } : {}),
-    },
-  });
+  /*
+   * `productRow` is gone with it: the loose rows it built are built by
+   * `tailRowsFor` now, lifted children and all — see the note on its `extras`
+   * parameter, which carries the same reasoning.
+   */
 
   const shelfRow = (group: ResolvedGroup): NavEntry => ({
     kind: "item",
@@ -235,17 +220,16 @@ export function navEntriesFor(
       hasFlyout: true,
       flyoutId: group.id,
       /*
-       * The AI shelf wears the AI mark.
+       * No AI mark (Sep 15).
        *
-       * `ai` swaps the icon for the purple sparkle and tints the label — the
-       * treatment the shipped tree gives its AI Agents row. The proposed tree
-       * folded that entry point into a bucket, and the mark went with it, so
-       * the one row in the nav that is a different KIND of thing read exactly
-       * like Content. Keyed off the id rather than a field on the group,
-       * because "is this the AI shelf" is a fact about the IA and not
-       * something an account should be able to set on any category it likes.
+       * The bucket used to wear the purple sparkle and a purple label, on the
+       * argument that it was a different KIND of row. It is not: it is a
+       * bucket of products, it renames and reorders like the twelve around it,
+       * and the one row in the nav painted a different colour read as an advert
+       * sitting in the tree. The AI products behind it are what make it AI —
+       * and the promo in its panel is where the pitch belongs. Grey like
+       * everything else.
        */
-      ...(group.id === PROPOSED_AI_ID ? { ai: true } : {}),
     },
   });
 
@@ -310,10 +294,11 @@ export function navEntriesFor(
        * grouped tree with the groups taken out.
        */
       ...products.map(flatRow),
-      ...(sectionHeadings
-        ? [band("flat-more", "More")]
-        : [{ kind: "divider" as const, id: "div-flat" }]),
-      ...extraRows,
+      ...(sectionHeadings ? [band("flat-more", "More")] : []),
+      ...tailRowsFor(state, [], extras).map((item): NavEntry => ({
+        kind: "item",
+        item,
+      })),
       ...extraEntries,
     ];
   }
@@ -346,11 +331,27 @@ export function navEntriesFor(
   return [
     ...(sectionHeadings ? [band("groups", "Products")] : []),
     ...shelves.map(shelfRow),
-    ...(sectionHeadings
-      ? [band("groups-more", "More")]
-      : [{ kind: "divider" as const, id: "div-groups" }]),
-    ...loose.map(productRow),
-    ...extraRows,
+    /*
+     * No rule, and the tail built the same way the proposed tree builds it.
+     *
+     * Both halves of this were one bug wearing two faces. The rule said the
+     * categories and the tail were separate lists, when a row drags out of a
+     * category into the tail and back — and the extras were mapped straight
+     * rather than run through `tailRowsFor`, so Desktop & mobile apps landed
+     * under that rule as a fixed row: renameable, re-iconable, and impossible
+     * to MOVE, because "move up" walks indices over the tail array and this
+     * row was not in it.
+     *
+     * One consequence worth stating: the account's own links come out of
+     * `tailRowsFor` too, so trees that never called it were the one place they
+     * did not appear — while `placeInTail` had been computing positions as
+     * though they did. These two branches now agree with the store.
+     */
+    ...(sectionHeadings ? [band("groups-more", "More")] : []),
+    ...tailRowsFor(state, loose, extras).map((item): NavEntry => ({
+      kind: "item",
+      item,
+    })),
     ...extraEntries,
   ];
 }

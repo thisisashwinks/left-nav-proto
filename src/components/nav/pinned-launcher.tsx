@@ -800,7 +800,23 @@ export function PinnedLauncher({
               the nav does it.
             */
             className={cn(
-              "flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto px-[14px]",
+              "flex w-full flex-1 flex-col items-start overflow-y-auto px-[14px]",
+              /*
+                Four more pixels between rows, in the Recents tab only.
+
+                The nav's own 2px is right for a list you read as one run —
+                the directory tree, where the indents and chevrons are doing
+                the separating, and the flat manage list where the rows are
+                being dragged past each other. Recents is neither: it is a
+                short run of unrelated destinations you scan rather than read,
+                every row the same height with no structure between them, and
+                at 2px they packed into a block. Spent here rather than on the
+                column, so the tree next door keeps the density it was tuned
+                for.
+              */
+              tabbed && tab === "recent"
+                ? "gap-[calc(var(--t-nav-space,2px)+4px)]"
+                : "gap-[var(--t-nav-space,2px)]",
               /*
                 The top padding belongs to the search field, not to the list.
                 
@@ -2516,20 +2532,26 @@ function DirectoryRow({
    * least consequential control at the edge the eye reads first for structure,
    * and made a nested row look like a leaf with a stray arrow.
    *
-   * A leaf has no chevron and no reserved slot for one: its pin goes to the
-   * edge, which is where a trailing mark belongs when it is the only one.
+   * The chevron's slot is reserved on EVERY row, disclosing or not.
+   *
+   * A leaf used to drop the slot and send its pin to the edge, on the argument
+   * that a lone trailing mark belongs there. In a list it does not: the tree
+   * mixes rows that disclose with rows that do not, at four levels of indent,
+   * and letting each row decide where its pin goes put the pins on two
+   * different verticals a chevron's width apart. A column of controls is read
+   * as a column — the eye finds the ragged one before it finds the label — so
+   * the empty slot is worth more than the 23px it costs.
+   *
+   * Two columns, then, always in the same place: the chevron at the edge, the
+   * pin one gap inboard, and a blank where either is absent.
    */
-  const trailingReserve = onToggle
-    ? pinnable
-      ? // chevron, its gap, the pin, and the pin's own gap
-        "pr-[calc(8px+13px+10px+22px+10px)]"
-      : "pr-[calc(8px+13px+10px)]"
-    : pinnable
-      ? "pr-[calc(8px+22px+10px)]"
-      : "pr-[8px]";
+  const trailingReserve = pinnable
+    ? // chevron, its gap, the pin, and the pin's own gap
+      "pr-[calc(8px+13px+10px+22px+10px)]"
+    : "pr-[calc(8px+13px+10px)]";
 
-  /** Where the pin hangs: at the edge, or one chevron-and-gap inboard. */
-  const pinInset = onToggle ? "right-[calc(8px+13px+10px)]" : "right-[8px]";
+  /** One gap inboard of the chevron column, whether or not there is a chevron. */
+  const pinInset = "right-[calc(8px+13px+10px)]";
 
   const row = onToggle ? (
     <button

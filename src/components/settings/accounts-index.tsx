@@ -302,7 +302,7 @@ export function AccountsIndexPage({
                     {layout.profileFor(account.id).enabledProducts.length}
                   </span>
                   <span className="w-[70px]">
-                    <span className="rounded-[5px] bg-[color-mix(in_oklab,#16a34a_12%,transparent)] px-[6px] py-[3px] text-[10.5px] leading-none font-semibold text-[#15803d]">
+                    <span className="rounded-[5px] bg-[color-mix(in_oklab,var(--hr-success-600)_12%,transparent)] px-[6px] py-[3px] text-[10.5px] leading-none font-semibold text-[var(--hr-success-700)]">
                       Active
                     </span>
                   </span>

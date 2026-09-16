@@ -73,7 +73,7 @@ export function UpgradeToast({
         role="status"
         className="motion-slot-in pointer-events-auto flex h-[38px] max-w-full items-center gap-[10px] rounded-[10px] bg-pg-overlay px-[14px] shadow-[0_8px_24px_0_rgba(15,23,42,0.28)]"
       >
-        <span className="flex size-[18px] shrink-0 items-center justify-center rounded-full bg-[#dcfae6] text-[#079455]">
+        <span className="flex size-[18px] shrink-0 items-center justify-center rounded-full bg-[var(--hr-success-100)] text-[var(--hr-success-600)]">
           <Check size={11} strokeWidth={3} aria-hidden="true" />
         </span>
         <span className="truncate text-[13px] leading-none whitespace-nowrap text-pg-surface">

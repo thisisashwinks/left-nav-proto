@@ -563,6 +563,58 @@ export const TEMPLATE_DELETE_MODE_LABELS: Record<TemplateDeleteMode, string> = {
   revert: "Revert them to default",
 };
 
+/**
+ * How the templates menu is ordered.
+ *
+ *  verbs-first  What shipped: "Save to X", "Create new template", "Apply a
+ *               template" as three rows, each opening a list or a form. The
+ *               menu is a list of things you can DO, and the templates
+ *               themselves are one level down inside one of them — so the
+ *               question people actually arrive with, "which arrangements do I
+ *               have", is the one thing the menu does not answer.
+ *  list-first   The templates ARE the menu, and each row carries its own verbs
+ *               — the Google Docs paragraph-styles model. Applying is the row;
+ *               updating, renaming, duplicating and deleting are its ⋯. One
+ *               row at the foot saves what you have as a new one. The default:
+ *               it makes the set visible without a drill, and it puts every
+ *               operation on the thing it operates on rather than asking you to
+ *               pick the verb and then the noun.
+ */
+export const TEMPLATE_MENU_SHAPES = ["verbs-first", "list-first"] as const;
+
+export type TemplateMenuShape = (typeof TEMPLATE_MENU_SHAPES)[number];
+
+export const TEMPLATE_MENU_SHAPE_LABELS: Record<TemplateMenuShape, string> = {
+  "verbs-first": "Verbs first",
+  "list-first": "Templates first",
+};
+
+/**
+ * What happens when a pushed template and a local change touch the same thing.
+ *
+ * The merge already keeps local edits: a push rebases onto whatever the account
+ * did for itself, so a renamed row stays renamed. The question is what to do
+ * when both sides moved the SAME property, where "keep local" is a decision
+ * being taken silently on somebody's behalf.
+ *
+ *  silent    Local wins and nothing is said. What shipped.
+ *  flag      Local still wins, and the account is marked as diverged from the
+ *            template so it can be seen and counted. Says what happened without
+ *            asking anyone to act.
+ *  resolve   Local wins for now, and the account is offered the three ways out
+ *            the note describes — take the template's version, keep mine, or
+ *            split off into a template of my own. The default.
+ */
+export const TEMPLATE_CONFLICTS = ["silent", "flag", "resolve"] as const;
+
+export type TemplateConflict = (typeof TEMPLATE_CONFLICTS)[number];
+
+export const TEMPLATE_CONFLICT_LABELS: Record<TemplateConflict, string> = {
+  silent: "Local wins, quietly",
+  flag: "Flag the divergence",
+  resolve: "Offer a way out",
+};
+
 export const LEGACY_FOOT_CONTROLS = ["off", "menu", "pills"] as const;
 
 export type LegacyFootControl = (typeof LEGACY_FOOT_CONTROLS)[number];
@@ -1304,14 +1356,19 @@ export const SUB_ACCOUNT_SWITCHER_LABELS: Record<SubAccountSwitcher, string> = {
  *             count. Louder, and scannable down the icon column alone; the risk
  *             is that people read it as a notification and expect clearing it
  *             to mean something.
- *   `hidden`  no dot at all. The pill still sits on the product that launched,
- *             so nothing is lost for anyone who opens the panel — what goes is
- *             the nav's ability to tell you to open it.
+ *   `hidden`  no dot at all, and the default. The pill still sits on the
+ *             product that launched, so nothing is lost for anyone who opens
+ *             the panel — what goes is the nav's ability to tell you to open
+ *             it. That turned out to be the right trade for a sidebar that is
+ *             read a hundred times a day: a dot on a closed door is a standing
+ *             interruption, and it is standing for as long as the product is
+ *             "new", which is months. Both placements are one click away for
+ *             looking at what announcing a launch would cost.
  *
  * Not per account. Whether the platform announces its launches in the sidebar
  * is a HighLevel decision, not a tenant's.
  */
-export const NEW_DOT_PLACEMENTS = ["label", "icon", "hidden"] as const;
+export const NEW_DOT_PLACEMENTS = ["hidden", "label", "icon"] as const;
 
 export type NewDotPlacement = (typeof NEW_DOT_PLACEMENTS)[number];
 
@@ -1529,6 +1586,10 @@ export interface ThemeState {
    * uses it. On, the notice returns and follows the placement rule above.
    */
   templatePushNotice: boolean;
+  /** How the templates menu is ordered. See TEMPLATE_MENU_SHAPES. */
+  templateMenuShape: TemplateMenuShape;
+  /** What a push does about a collision. See TEMPLATE_CONFLICTS. */
+  templateConflict: TemplateConflict;
   /**
    * Whether the Editing nav card offers the layout switch.
    *
@@ -1791,12 +1852,10 @@ export const DEFAULT_THEME: ThemeState = {
   layoutReplaceDialog: "simple",
   // The rail: one mechanism for both audiences beats a second one to learn.
   subAccountSwitcher: "rail",
-  /*
-    Beside the text by default: it reads as part of the row rather than as a
-    notification, and it lands where the pill it leads to will be one level
-    down — so following the signal inward is one mark growing into words.
-  */
-  newDotPlacement: "label",
+  // Hidden (Sep 16). The pill on the product still says what launched; the
+  // nav does not also tap you on the shoulder about it every time you look at
+  // it. Both placements stay one click away in the panel.
+  newDotPlacement: "hidden",
   // On, so the case this exists for is what you see first.
   userMultiAccount: true,
   navColourControl: "toggle",
@@ -1811,15 +1870,30 @@ export const DEFAULT_THEME: ThemeState = {
    * holds only Pinned and Recent.
    */
   productDirectoryRow: false,
-  // Pinned above the tabs (Sep 15). It is the shortest list in the panel and
-  // the reason most people open it, so it is the one thing held out of the
-  // choice rather than sitting behind a tab with ninety products.
-  recentsPanelLayout: "pinned-first",
-  templateMessagePlacement: "by-kind",
+  /*
+   * Tabs on top (Sep 16).
+   *
+   * Pinned-above-tabs held the pin list out of the choice, on the argument
+   * that it is the shortest list and the reason most people open the panel.
+   * The cost was three levels of hierarchy in a 320px column — unswitched
+   * content, then a switcher, then the content it switches — and the pins
+   * read as a section the tabs were about to replace. With the switcher at
+   * the top the panel is a title, a choice, a query and a list, and the pins
+   * lead the visited run as pinned rows rather than as a block of their own.
+   */
+  recentsPanelLayout: "tabs-top",
+  // Everything in the middle (Sep 16): one rule, no exceptions to learn.
+  templateMessagePlacement: "centred",
   templateDeleteMode: "unlink",
   templatePushNotice: false,
+  templateMenuShape: "list-first",
+  templateConflict: "resolve",
   // On, for the same reason: the comparison should be one menu away.
-  layoutSwitchInEditCard: true,
+  // Off (Sep 15). "My layout vs HighLevel default" was a second, parallel way
+  // to say what a template says — and the shipped arrangement is now a row in
+  // the template list, where it can be compared with the rest instead of
+  // living in a drill of its own. See DEFAULT_TEMPLATE_ID.
+  layoutSwitchInEditCard: false,
   // Production's own default, and the state both source screenshots were in.
   legacyNavTheme: "dark",
   // Off: the proposal's own answer. The toggle is how you argue with it.

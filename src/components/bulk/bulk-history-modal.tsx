@@ -95,7 +95,7 @@ export function BulkHistoryModal({ onClose }: { onClose: () => void }) {
                     className={
                       run.status === "queued"
                         ? "flex shrink-0 items-center gap-[4px] rounded-[5px] bg-[color-mix(in_oklab,var(--brand)_12%,transparent)] px-[6px] py-[3px] text-[11px] leading-none font-semibold text-brand"
-                        : "shrink-0 rounded-[5px] bg-[color-mix(in_oklab,#16a34a_12%,transparent)] px-[6px] py-[3px] text-[11px] leading-none font-semibold text-[#15803d]"
+                        : "shrink-0 rounded-[5px] bg-[color-mix(in_oklab,var(--hr-success-600)_12%,transparent)] px-[6px] py-[3px] text-[11px] leading-none font-semibold text-[var(--hr-success-700)]"
                     }
                   >
                     {run.status === "queued" ? (

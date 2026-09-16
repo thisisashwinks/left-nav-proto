@@ -43,7 +43,9 @@
   --color-fly-promo-fg: var(--fly-promo-fg);
   --color-fly-promo-icon: var(--fly-promo-icon);
   --color-fly-promo-body: var(--fly-promo-body);
+  --color-fly-badge-bg: var(--fly-badge-bg);
   --color-fly-badge-fg: var(--fly-badge-fg);
+  --color-fly-badge-beta-bg: var(--fly-badge-beta-bg);
   --color-fly-badge-beta-fg: var(--fly-badge-beta-fg);
   --color-fly-tile: var(--fly-tile-bg);
 

@@ -32,7 +32,12 @@ import {
   Video,
   Workflow,
 } from "lucide-react";
-import type { FlyoutConfig, FlyoutEntry, FlyoutItem } from "./types";
+import type {
+  FlyoutBottomSlot,
+  FlyoutConfig,
+  FlyoutEntry,
+  FlyoutItem,
+} from "./types";
 
 
 const item = (i: FlyoutItem): FlyoutEntry => ({ kind: "item", item: i });
@@ -457,6 +462,50 @@ const quickActions: FlyoutConfig = {
  * Not in the Pencil file — authored from the HighLevel AI surface. Structured
  * like Automate (product rows, an explore CTA, a promo slot).
  */
+/**
+ * "Meet AI Employee" — the promo, named rather than inlined.
+ *
+ * It was authored twice: once in the Engage panel's bottom slot and once in
+ * the AI Agents carousel. The AI Agents row is gone (see nav-config), and the
+ * AI bucket's panel is generated from the catalogue rather than authored — so
+ * the pitch had nowhere to live unless the one surface that is actually about
+ * AI could reach it. Exported for `flyoutForGroup`, which hangs it under the
+ * generated AI panel.
+ */
+export const AI_EMPLOYEE_PROMO = {
+  kind: "featured",
+  icon: Sparkles,
+  title: "Meet AI Employee",
+  body: "Your always-on AI that replies, qualifies leads and books appointments — 24/7.",
+  linkLabel: "Watch 60s demo",
+} as const satisfies FlyoutBottomSlot;
+
+/**
+ * The whole bottom slot the AI Agents panel carried, promo AND help.
+ *
+ * Two slides on the carousel, not one: the pitch is for somebody who has not
+ * bought AI yet, and the scoped questions are for somebody who has and is
+ * stuck. A panel that only ever advertises is no use to the second person,
+ * which is most of the people who open it twice. The dots are also the only
+ * thing on the surface saying there is more than one card.
+ */
+export const AI_BOTTOM_SLOT = {
+  kind: "carousel",
+  slides: [
+    AI_EMPLOYEE_PROMO,
+    {
+      kind: "contextualHelp",
+      label: "Help with AI",
+      questions: [
+        "How do I train an agent on my business?",
+        "When does an agent hand off to a human?",
+        "What do AI credits cost?",
+      ],
+      askLabel: "Ask AI about AI",
+    },
+  ],
+} as const satisfies FlyoutBottomSlot;
+
 const aiAgents: FlyoutConfig = {
   id: "ai-agents",
   title: "AI Agents",
@@ -528,13 +577,7 @@ const aiAgents: FlyoutConfig = {
   bottom: {
     kind: "carousel",
     slides: [
-      {
-        kind: "featured",
-        icon: Sparkles,
-        title: "Meet AI Employee",
-        body: "Your always-on AI that replies, qualifies leads and books appointments — 24/7.",
-        linkLabel: "Watch 60s demo",
-      },
+      AI_EMPLOYEE_PROMO,
       {
         kind: "contextualHelp",
         label: "Help with AI Agents",
