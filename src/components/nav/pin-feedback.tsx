@@ -56,11 +56,28 @@ export function usePinLanded(productId: string): string {
   if (landed?.productId !== productId) return "";
   if (pinFeedback === "mark") return "pin-landed-mark";
   if (pinFeedback === "settle") return "pin-landed-settle";
+  /*
+    Flight lands too, and this is the half that makes it land.
+
+    The row is already in the list while the chip is still travelling — the pin
+    is instant, only the telling of it takes time — so the destination is not
+    entering, it is receiving. A chip that dissolves over a list which does not
+    react has been thrown at it rather than put into it. `landed` is set at the
+    end of the flight, so this fires as the chip disappears.
+  */
+  if (pinFeedback === "flight") return "pin-landed-catch";
   return "";
 }
 
-/** How long the ghost takes to cross, and how long a landing stays marked. */
-const FLIGHT_MS = 420;
+/**
+ * How long the chip takes to cross, and how long a landing stays marked.
+ *
+ * 520 rather than 420: the path is a curve now, and a curve travelled too fast
+ * is indistinguishable from a straight line. This is the longest it can be
+ * before it starts costing something — the pin itself already happened, so
+ * every millisecond here is spent explaining rather than doing.
+ */
+const FLIGHT_MS = 520;
 const LANDED_MS = 700;
 
 interface Flight {
@@ -150,46 +167,99 @@ export function PinFeedbackProvider({
 }
 
 /**
- * The thing that crosses the screen.
+ * The thing that crosses the screen, on a path that is actually curved.
  *
  * A pin glyph and the row's name rather than a copy of the row: a full row
  * flying over the canvas reads as the row leaving the list it is still in, and
  * at flyout width it is a slab. The mark is what the destination will show, so
  * the mark is what travels.
  *
- * Two renders: the first paints it at the source, the second — one frame later
- * — moves it, which is what gives the transition something to animate from.
- * Setting both in one pass lands it at the destination instantly.
+ * THE CURVE. This used to transition `left` and `top` together and call itself
+ * an arc in a comment. Interpolating two coordinates on one clock is a straight
+ * line by definition, whatever easing it is given — the easing changes the
+ * speed along the line, never the line.
+ *
+ * So the two axes are separated onto two elements with two different easings,
+ * which is the oldest trick there is and the only one that needs no path
+ * maths: the outer box carries the horizontal move on a curve that is fast then
+ * slow, the inner box carries the vertical one on a curve that is slow then
+ * fast. At every instant the chip is further along in x than it is in y, and
+ * the shape that traces is a bow — out across the canvas first, then up into
+ * the list. Which is the motion of putting something somewhere rather than
+ * sliding it there.
+ *
+ * Three renders' worth of state in two: the first paints it at the source, the
+ * second — one frame later — releases both transforms. Setting them in one pass
+ * would land it instantly, because there would be nothing to transition from.
  */
 function PinGhost({ flight }: { flight: Flight }) {
   const [moved, setMoved] = React.useState(false);
 
   React.useEffect(() => {
-    const raf = requestAnimationFrame(() => setMoved(true));
-    return () => cancelAnimationFrame(raf);
+    // Two frames, not one. A single rAF still lands inside the same paint in
+    // Chrome often enough that the chip occasionally teleports.
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setMoved(true));
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
   }, []);
 
-  const at = moved ? flight.to : flight.from;
+  const dx = flight.to.x - flight.from.x;
+  const dy = flight.to.y - flight.from.y;
 
   return createPortal(
     <div
       aria-hidden="true"
-      style={{
-        left: at.x,
-        top: at.y,
-        transitionDuration: `${FLIGHT_MS}ms`,
-        // The fade runs on the same clock as the travel, so the chip is gone
-        // exactly as it arrives rather than sitting on the destination.
-        ["--flight" as string]: `${FLIGHT_MS}ms`,
-        // Out and over rather than straight: a chip sliding along the shortest
-        // line reads as a scrollbar, where an arc reads as something being put
-        // somewhere.
-        transitionTimingFunction: "cubic-bezier(0.3, 0.9, 0.35, 1)",
-      }}
-      className="pointer-events-none fixed z-[95] flex -translate-x-1/2 -translate-y-1/2 items-center gap-[6px] rounded-full bg-pg-overlay px-[10px] py-[5px] text-[12px] leading-none whitespace-nowrap text-pg-surface shadow-[0_8px_24px_0_rgba(15,23,42,0.28)] transition-[left,top,opacity,scale] [animation:pin-flight-out_var(--flight)_ease-in_forwards] motion-reduce:hidden"
+      // The anchor never moves: it is the source, and everything below it is
+      // expressed as a distance from here.
+      style={{ left: flight.from.x, top: flight.from.y }}
+      className="pointer-events-none fixed z-[95] motion-reduce:hidden"
     >
-      <Pin size={11} aria-hidden="true" />
-      {flight.label}
+      <div
+        style={{
+          transform: `translateX(${moved ? dx : 0}px)`,
+          transitionProperty: "transform",
+          transitionDuration: `${FLIGHT_MS}ms`,
+          // Out of the gate, then settling — the horizontal is where the
+          // momentum is.
+          transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+        }}
+      >
+        <div
+          style={{
+            transform: `translateY(${moved ? dy : 0}px)`,
+            transitionProperty: "transform",
+            transitionDuration: `${FLIGHT_MS}ms`,
+            // Hangs, then drops in. Against the horizontal's easing this is
+            // what bends the path.
+            transitionTimingFunction: "cubic-bezier(0.55, 0, 0.85, 0.35)",
+          }}
+        >
+          <div
+            /*
+              Longhands, not the `animation` shorthand in a class.
+
+              The shorthand carries a duration of its own, and one of them has
+              to win — which is exactly the kind of thing that works until
+              somebody tunes FLIGHT_MS and nothing moves.
+            */
+            style={{
+              animationName: "pin-flight-chip",
+              animationDuration: `${FLIGHT_MS}ms`,
+              animationTimingFunction: "cubic-bezier(0.32, 0.72, 0, 1)",
+              animationFillMode: "forwards",
+            }}
+            className="flex -translate-x-1/2 -translate-y-1/2 items-center gap-[6px] rounded-full bg-pg-overlay px-[10px] py-[5px] text-[12px] leading-none whitespace-nowrap text-pg-surface shadow-[0_10px_28px_0_rgba(15,23,42,0.32)]"
+          >
+            <Pin size={11} aria-hidden="true" />
+            {flight.label}
+          </div>
+        </div>
+      </div>
     </div>,
     document.body,
   );

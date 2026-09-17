@@ -377,14 +377,70 @@
   animation: pin-landed-settle var(--dur-slow) var(--ease-out);
 }
 
-/* `flight`: the ghost's own fade, on top of the transform the JS drives. */
-@keyframes pin-flight-out {
-  0%,
-  70% {
+/*
+ * `flight`: the chip's own life, independent of the path it travels.
+ *
+ * Three things happen to it on the way — it arrives, it carries, it is put
+ * down — and none of them are position, which is why they are a keyframe here
+ * and not part of the transition the JS drives.
+ *
+ * The pop at 10% is what gives it mass: something that appears at its final
+ * size has been revealed, where something that overshoots slightly and settles
+ * has been picked UP. The shrink at the end is the same idea in reverse — it is
+ * not fading out, it is going into the slot.
+ */
+@keyframes pin-flight-chip {
+  0% {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  10% {
     opacity: 1;
+    transform: scale(1.06);
+  }
+  24% {
+    transform: scale(1);
+  }
+  72% {
+    opacity: 1;
+    transform: scale(1);
   }
   100% {
     opacity: 0;
+    transform: scale(0.5);
+  }
+}
+
+/*
+ * `flight`: the slot catching it.
+ *
+ * The row is already in the list while the chip is still travelling — the pin
+ * is instant, only the telling of it takes time — so this is not an entrance.
+ * It is the moment of contact: a short fill and the faintest lift, timed to
+ * land as the chip disappears into it.
+ */
+@keyframes pin-landed-catch {
+  0% {
+    background-color: transparent;
+    transform: scale(1);
+  }
+  35% {
+    background-color: var(--nav-active);
+    transform: scale(1.015);
+  }
+  100% {
+    background-color: transparent;
+    transform: scale(1);
+  }
+}
+
+.pin-landed-catch {
+  animation: pin-landed-catch 380ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pin-landed-catch {
+    animation: none;
   }
 }
 
