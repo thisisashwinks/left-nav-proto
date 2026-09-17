@@ -52,6 +52,7 @@ import {
 } from "./entry-cluster";
 import { pinnedBlockFor } from "./pinned-morph";
 import {
+  isAuthoredGroup,
   customTreeFor,
   isBlockHidden,
   NAV_BLOCKS,
@@ -877,13 +878,22 @@ export function LeftNav({
   const l1Ids = React.useMemo(() => l1IdsFor(state, groups), [state, groups]);
   const indexOfCategory = (id: string) => l1Ids.indexOf(id);
   /**
-   * Categories with nothing in them.
+   * Categories with nothing in them that the admin could actually fill.
    *
    * Legal to be in while building — you make the shelf, then you fill it — and
-   * illegal to leave behind, since a heading over nothing opens an empty panel
-   * and tells the account it owns something it does not.
+   * illegal to leave behind, since a heading over nothing opens an empty panel.
+   *
+   * Authored buckets are exempt, and have to be. The default tree hands every
+   * sub-account the same ten, so a bakery gets an Integrations bucket holding
+   * products it does not own — empty through entitlement, not through anyone
+   * walking away from it. Blocking Save on that left the admin with a button
+   * reading "Empty category" and no way to clear it: there is nothing to file
+   * in there, and the only way out would be deleting a bucket the platform put
+   * in every other nav.
    */
-  const emptyCategories = categories.filter((g) => g.productIds.length === 0);
+  const emptyCategories = categories.filter(
+    (g) => g.productIds.length === 0 && !isAuthoredGroup(g.id),
+  );
   /*
    * Which empty categories have EARNED their warning.
    *

@@ -487,6 +487,24 @@ const SHIPPED_GROUPS = new Map<string, CatalogueGroup>(
   ].map((g) => [g.id, g]),
 );
 
+/**
+ * Whether a group is one the PLATFORM authored, rather than one this account made.
+ *
+ * The distinction only started mattering when the default tree stopped being
+ * pruned: a bucket can now be empty because the account owns nothing in it, and
+ * that is not a mistake anyone can fix — there is no product to put in it. A
+ * group the admin created and left empty is a different thing entirely, and
+ * still theirs to finish.
+ *
+ * By id rather than by "is it in customGroups", because the first structural
+ * edit materialises the authored tree INTO customGroups: after that every
+ * bucket is a custom group by storage while still being the platform's by
+ * origin. The ids survive that copy, so they are what the question hangs on.
+ */
+export function isAuthoredGroup(groupId: string): boolean {
+  return SHIPPED_GROUPS.has(groupId);
+}
+
 /** The single flat pseudo-group. Flat mode has no headings, but surfaces that
  *  list groups (the launcher) still need something to list. */
 const FLAT_GROUP_ID = "all-products";
