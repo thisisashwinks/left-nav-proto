@@ -5,6 +5,7 @@ import { Pin } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { PIN_LIMIT, useNavLayout } from "./nav-layout-provider";
+import { usePinFeedback } from "./pin-feedback";
 import { RailTooltip } from "./rail-tooltip";
 
 /**
@@ -64,6 +65,7 @@ export function PinButton({
   size?: number;
 }) {
   const { isPinned, togglePin, pinsFull } = useNavLayout();
+  const { announce } = usePinFeedback();
   const pinned = isPinned(productId);
   const pinnedInk = usePinnedInk();
   // Full, and this row is not one of the five: the pin is shown refusing rather
@@ -88,6 +90,9 @@ export function PinButton({
         // The row itself navigates; pinning must not also trigger that.
         e.stopPropagation();
         if (blocked) return;
+        // Before the toggle, so the source is measured while this button is
+        // still where it was — pinning can reorder the list under it.
+        if (!pinned) announce(productId, e.currentTarget);
         togglePin(productId);
       }}
       className={cn(

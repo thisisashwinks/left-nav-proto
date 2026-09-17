@@ -70,8 +70,10 @@ import { RowMenu, useRowMenu, type RowMenuAction } from "./row-menu";
 import { DeleteGroupDialog } from "./delete-group-dialog";
 import { DiscardEditsDialog } from "./discard-edits-dialog";
 import { KeepChangesDialog, LayoutSwitchWarning } from "./layout-switch";
+import { TemplateSaveDialog } from "./template-save-dialog";
 import {
   CHROME_TAIL_IDS,
+  l1IdsFor,
   editTargetFor,
   liftedChildren,
   navEntriesFor,
@@ -299,7 +301,16 @@ export function LeftNav({
     templatePropagation,
     templatePushNotice,
     templateConflict,
+    layoutModel,
   } = useTheme().effective;
+  /**
+   * Whether a sub-account may hold a layout of its own. See LAYOUT_MODELS.
+   *
+   * Read off the theme here rather than from the templates store, which is
+   * fetched further down — this is needed before it, and the model is a
+   * platform axis rather than a fact about templates.
+   */
+  const strictModel = layoutModel === "one-template";
   /*
    * Recents and Pinned drawn as one list — see merged-recents.tsx.
    *
@@ -414,7 +425,23 @@ export function LeftNav({
    * ladder is about EDITING the nav now (see plans.ts); whether an account
    * shows its own setup guide is not a thing to sell.
    */
-  const launchpadAllowed = launchpadSetting;
+  /**
+   * Whether this account has a Launchpad for `hiddenBlocks` to govern.
+   *
+   * `launchpadSetting` is a per-account THEME override — three accounts carry
+   * `launchpad: true` and the rest do not — which modelled it as a lifecycle
+   * fact: the setup guide shows while an account is still being set up. That is
+   * a defensible idea and it is also, under `one-template`, a layout decision
+   * living outside the layout: Fieldstone showed the card, ACME did not, the
+   * two were on the same template, and there was no control anywhere that could
+   * change it. The Show / hide menu did not even list it.
+   *
+   * So under this model the Launchpad is a block like the other three. Every
+   * account has one, the template says whether it shows, and the menu can turn
+   * it on and off like Recent and Quick actions — which is the whole of what
+   * "everything is in the template" has to mean.
+   */
+  const launchpadAllowed = strictModel ? true : launchpadSetting;
   const picker = useIconPicker();
   /**
    * What a chrome tail row's glyph is before anyone overrides it.
@@ -499,9 +526,22 @@ export function LeftNav({
       templates.notify(`Reset ${account.name} to the HighLevel default`);
       return;
     }
-    const applied = patchForArrangement(tpl.arrangement, state);
+    const applied = patchForArrangement(tpl.arrangement, state, {
+      whole: templates.strict,
+    });
     layout.applyArrangement(tpl.name, applied, opts);
     templates.link(account.id, tpl.id, applied);
+    /*
+     * An apply is finished business, even taken from inside edit mode.
+     *
+     * Without this the session still holds the pre-apply arrangement as the
+     * thing Discard goes back to — so Discard would strip the template off the
+     * nav while leaving the account linked to it, which is the one state this
+     * model has no name for. Re-baselining makes the landed arrangement the
+     * floor: Discard now drops whatever you did AFTER the apply, which is what
+     * Discard has always meant.
+     */
+    layout.rebaseline();
   };
 
   /**
@@ -526,6 +566,35 @@ export function LeftNav({
   const templateDirty = templateLink
     ? hasLocalChanges(templateLink.base, captureArrangement(state))
     : false;
+
+  /**
+   * The template this arrangement could be saved INTO, or null.
+   *
+   * Null for an account on the HighLevel default, which cannot be written to —
+   * so the save dialog offers only "name a new one", which is the single
+   * outcome the model allows from the default. See TemplateSaveDialog.
+   */
+  const onTemplate = templates.linkedFor(account.id);
+  const savableTemplate =
+    onTemplate && !onTemplate.immutable ? onTemplate : null;
+
+  /**
+   * Whether there is anything to SAVE — which is not the same question as
+   * whether anything has happened this session.
+   *
+   * `editDirty` asks "has the nav moved since the card opened", which is the
+   * right question when saving means writing to this account. Under
+   * `one-template` saving means writing to a TEMPLATE, so the right question is
+   * "does this nav differ from the template it is on" — and applying a template
+   * mid-session moves the nav a great deal while leaving that answer no. The
+   * card said "Save template" over an account that had just been handed one,
+   * offering to save it back over itself.
+   *
+   * On the default there is no template to compare against, so the session is
+   * the only baseline there is and `editDirty` is the honest answer: you moved
+   * something, and the only place it can go is a new template.
+   */
+  const strictDirty = templateLink ? templateDirty : layout.editDirty;
 
   /**
    * Save this arrangement into the template, and carry it to the accounts on it.
@@ -608,7 +677,9 @@ export function LeftNav({
         }
       }
       const merged = tuned ? rebase(held.base, current, tpl.arrangement) : tpl.arrangement;
-      const applied = patchForArrangement(merged, layout.profileFor(accountId));
+      const applied = patchForArrangement(merged, layout.profileFor(accountId), {
+        whole: templates.strict,
+      });
       layout.applyToAccounts([accountId], `Updated ${tpl.name}`, (l) => ({
         ...l,
         ...applied,
@@ -709,6 +780,14 @@ export function LeftNav({
   const [confirmingDefault, setConfirmingDefault] = React.useState(false);
   /** The template a pre-apply confirmation is open for. */
   const [applying, setApplying] = React.useState<NavTemplate | null>(null);
+  /**
+   * Whether Save changes is asking which template this belongs to.
+   *
+   * Only under `one-template`, where it is the whole of saving: an edit has
+   * nowhere private to land, so pressing Save is the question "which template
+   * is this" rather than a commit followed by an optional trip to a menu.
+   */
+  const [savingTemplate, setSavingTemplate] = React.useState(false);
   /** The row in flight, and the row the pointer is over. Drag-local. */
   const [lifted, setLifted] = React.useState<string | null>(null);
   const [over, setOver] = React.useState<string | null>(null);
@@ -788,8 +867,15 @@ export function LeftNav({
     () => groups.filter((g) => g.id !== UNGROUPED_ID),
     [groups],
   );
-  const indexOfCategory = (id: string) =>
-    groups.findIndex((g) => g.id === id);
+  /**
+   * The nav's top-level rows, in the order they are drawn.
+   *
+   * Chrome rows are members — see `l1IdsFor`. Every seam index in this file is
+   * a position in THIS list, so the face, the entry builder and `moveGroup` all
+   * count the same rows.
+   */
+  const l1Ids = React.useMemo(() => l1IdsFor(state, groups), [state, groups]);
+  const indexOfCategory = (id: string) => l1Ids.indexOf(id);
   /**
    * Categories with nothing in them.
    *
@@ -832,6 +918,32 @@ export function LeftNav({
     setWasEditing(editing);
     if (!editing) setWarnedEmpty(new Set());
   }
+
+  /**
+   * An L1 row's drag wiring: reorder only, no dropping into it.
+   *
+   * The categories build their own bundle a few hundred lines down because they
+   * also ACCEPT a product — a category is a container. A chrome row is not, so
+   * it lifts with the same payload and answers no drop: refusing is simply
+   * never calling `preventDefault`, and the seams between rows take it instead.
+   */
+  const l1Drag = (rowId: string, label: string): NavRowDrag => ({
+    onDragStart: (e) => {
+      e.dataTransfer.setData(L1_MIME, rowId);
+      e.dataTransfer.setData("text/plain", label);
+      e.dataTransfer.effectAllowed = "move";
+      setLifted(rowId);
+    },
+    onDragOver: () => {},
+    onDragLeave: () => {},
+    onDrop: () => {},
+    onDragEnd: () => {
+      setLifted(null);
+      setOver(null);
+    },
+    over: false,
+    lifted: lifted === rowId,
+  });
 
   /** A tail row's drag wiring: it can be reordered, or filed into a category. */
   const tailDrag = (rowId: string): NavRowDrag => ({
@@ -965,6 +1077,64 @@ export function LeftNav({
       };
     }
 
+    /*
+     * A chrome row reorders exactly like a category, because on screen it is
+     * one more row in the same run.
+     *
+     * It carries no products, so there is nothing to file into it and no
+     * "Remove category" to offer — but the grip, the seams and Move up / down
+     * are the same gesture against the same list. It used to drag as a PRODUCT,
+     * which is why the categories lit up as boxes offering to swallow it and
+     * why dropping it did nothing: `moveProductToGroup` has no product to move.
+     */
+    const chromeL1 = CHROME_TAIL_IDS.has(itemId) ? indexOfCategory(itemId) : -1;
+    if (chromeL1 >= 0) {
+      const i = chromeL1;
+      return {
+        hidden: layout.isRowHidden(itemId),
+        onToggleHidden: () => layout.toggleRowHidden(itemId),
+        drag: l1Drag(itemId, layout.productLabelFor(itemId)),
+        onOpenMenu: (trigger) => {
+          setMenuTrigger(trigger);
+          menu.open(itemId, trigger);
+        },
+        menuActions: [
+          {
+            id: "rename",
+            label: "Rename",
+            icon: Pencil,
+            onSelect: () => startRename(itemId),
+          },
+          ...(can.regroup
+            ? [
+                {
+                  id: "icon",
+                  label: "Change icon",
+                  icon: Image,
+                  onSelect: () => {
+                    if (menuTrigger) picker.open(itemId, menuTrigger);
+                  },
+                },
+              ]
+            : []),
+          {
+            id: "up",
+            label: "Move up",
+            icon: MoveUp,
+            ...(i === 0 ? {} : { onSelect: () => layout.moveGroup(i, i - 1) }),
+          },
+          {
+            id: "down",
+            label: "Move down",
+            icon: MoveDown,
+            ...(i >= l1Ids.length - 1
+              ? {}
+              : { onSelect: () => layout.moveGroup(i, i + 1) }),
+          },
+        ] satisfies RowMenuAction[],
+      };
+    }
+
     const group = categories.find((g) => g.id === itemId);
     if (!group) {
       const tailIndex = tailRowIds.indexOf(itemId);
@@ -1033,7 +1203,26 @@ export function LeftNav({
                 onMoveToGroup: (groupId: string) =>
                   layout.moveProductToGroup(itemId, groupId),
                 onMoveToTopLevel: () => {},
-                onRemove: () => layout.removeProductFromNav(itemId),
+                /*
+                  Removing a row from the nav REVOKES the product — and under
+                  `one-template` the nav is not allowed to do that.
+
+                  `removeProductFromNav` writes `enabledProducts`, which is what
+                  the account bought. A template carries arrangement and never
+                  grants or revokes, so the revoke could not travel: save the
+                  template, apply it, and the row the admin thought they had
+                  removed was still there on every other account. Two things
+                  wrong at once — an entitlement change made from the nav
+                  editor, and an edit that silently did not reflect.
+
+                  "Hide from the nav" is the same intent expressed as layout,
+                  and it is carried. So under this model the menu offers that
+                  and nothing else, and entitlement stays where it is decided —
+                  in Update feature access.
+                */
+                ...(templates.strict
+                  ? {}
+                  : { onRemove: () => layout.removeProductFromNav(itemId) }),
               }),
           // Top-level rows reorder through the tail rather than through a
           // group, but the menu entry is the same one a panel row gets — the
@@ -1351,6 +1540,22 @@ export function LeftNav({
     setTemplatesAt(null);
   };
 
+  /**
+   * End the edit session, once the template question has been answered.
+   *
+   * The arrangement is already on the account — creating or updating a template
+   * puts it there — so this is only the session closing behind it. Kept as one
+   * function because both answers in the dialog have to leave the same way, and
+   * a save that ended the session on one path and not the other would read as
+   * the dialog having two different meanings.
+   */
+  const finishEditing = () => {
+    setSavingTemplate(false);
+    closeEditSurfaces();
+    layout.saveEditing();
+    agencyLayout.save();
+  };
+
   /*
    * Switching account commits the open edit session rather than abandoning it.
    *
@@ -1377,6 +1582,20 @@ export function LeftNav({
    */
   React.useEffect(() => {
     if (!loading || !editing) return;
+    /*
+     * Under `one-template`, walking away is not a save.
+     *
+     * Committing here would write the edits onto the account's own profile with
+     * no template behind them — which is the local state the model rules out,
+     * arrived at by leaving rather than by pressing anything. The edits are
+     * dropped instead: they were never filed against a template, and the only
+     * thing that files them is the dialog Save opens.
+     */
+    if (templates.strict && !agencyScope) {
+      layout.discardEditing();
+      agencyLayout.discard();
+      return;
+    }
     layout.saveEditing();
     agencyLayout.save();
     // `layout` and `agencyLayout` are stable context values; depending on them
@@ -1477,7 +1696,11 @@ export function LeftNav({
       ? {
           ...(planLock ? { planLock } : {}),
           editing,
-          dirty: agencyScope ? agencyLayout.dirty : layout.editDirty,
+          dirty: agencyScope
+            ? agencyLayout.dirty
+            : templates.strict
+              ? strictDirty
+              : layout.editDirty,
           // The agency tree has no categories to leave empty — its buckets are
           // platform IA and always have contents.
           blocked: agencyScope ? 0 : emptyCategories.length,
@@ -1537,6 +1760,7 @@ export function LeftNav({
               const applied = patchForArrangement(
                 tpl.arrangement,
                 layout.profileFor(id),
+                { whole: templates.strict },
               );
               layout.applyToAccounts([id], `Moved to ${tpl.name}`, (l) => ({
                 ...l,
@@ -1589,6 +1813,26 @@ export function LeftNav({
             if (layout.viewingDefault && layout.defaultEdited) {
               closeEditSurfaces();
               setKeepingOldLayout("save");
+              return;
+            }
+            /*
+             * Under `one-template`, saving IS filing it against a template.
+             *
+             * Nothing can be written to the HighLevel default and nothing can
+             * be held privately by a sub-account, so an edited nav has exactly
+             * two places to go: over the template it came from, or into a new
+             * one that has to be named. Committing here first and offering the
+             * template question afterwards — which is what the ⋯ menu did —
+             * would create the local state the model rules out, for as long as
+             * it took somebody to go and find the menu.
+             *
+             * An untouched session still just closes: pressing Done on a nav
+             * nobody moved is not a save, and a naming dialog there would be a
+             * question about a decision nobody made.
+             */
+            if (templates.strict && !agencyScope && strictDirty) {
+              closeEditSurfaces();
+              setSavingTemplate(true);
               return;
             }
             closeEditSurfaces();
@@ -1668,12 +1912,12 @@ export function LeftNav({
   const lastCategoryRowId = React.useMemo(() => {
     for (let i = entries.length - 1; i >= 0; i -= 1) {
       const e = entries[i];
-      if (e?.kind === "item" && categories.some((c) => c.id === e.item.id)) {
-        return e.item.id;
-      }
+      // Any L1 row, not only a category: the boundary is wherever the ordered
+      // run ends, and a chrome row sitting last is the end of it.
+      if (e?.kind === "item" && l1Ids.includes(e.item.id)) return e.item.id;
     }
     return null;
-  }, [entries, categories]);
+  }, [entries, l1Ids]);
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
   useScrollEdges(scrollRef);
@@ -2193,7 +2437,21 @@ export function LeftNav({
           data-scroll-region=""
           data-cursor="menu"
           className={cn(
-            "flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto px-[10px]",
+            /*
+              10 on the left, nothing on the right — and it is symmetric.
+
+              `scrollbar-gutter: stable` reserves the scrollbar's 10px INSIDE
+              the element and OUTSIDE the content box, permanently, so the list
+              growing never reflows the rows. That reserved strip already reads
+              as right padding. Paying 10px of real padding on top of it made
+              the gap on the right 20 against 10 on the left — the thing that
+              looks wrong in the inspector's "10px" and looks wrong on screen
+              for a different reason.
+
+              The thumb is inset 3px inside that strip (see the scrollbar rules
+              in globals.css), so even mid-scroll a row's edge never touches it.
+            */
+            "flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto pl-[10px]",
             // The editing card floats over the nav's foot, so the list needs room
             // to scroll clear of it — otherwise the last rows sit under the one
             // control that can end the session.
@@ -2666,7 +2924,16 @@ export function LeftNav({
           // Straight into the switches: the menu has one entry, so making it
           // clicked first would be a click carrying no decision.
           initialView={BLOCKS_VIEW}
-          align="start"
+          /*
+            Right edge to the eye's, so the menu stays over the nav.
+
+            Start-aligned it hung its LEFT edge off a 26px glyph near the card's
+            right edge, so 240px of menu ran out across the canvas — pointing
+            away from the column it is about. The eye is at the right of the
+            card for the same reason every tool is, and a menu above it should
+            grow back over the nav rather than off it.
+          */
+          align="end"
           onClose={() => setBlocksAt(null)}
         />
       ) : null}
@@ -2679,6 +2946,33 @@ export function LeftNav({
           // throw the menu clean off the left edge.
           align="start"
           onClose={() => setAddingAt(null)}
+        />
+      ) : null}
+      {savingTemplate ? (
+        /*
+          The same dialog the ⋯ menu opens, reached from the card's own Save.
+
+          Both doors have to land on one question — "which template does this
+          belong to" — or the answer would depend on which control you happened
+          to press, and one of the two would be quietly creating the local state
+          the model exists to rule out.
+        */
+        <TemplateSaveDialog
+          accountName={account.name}
+          linked={savableTemplate}
+          templateDirty={templateDirty}
+          onCreate={(name) => {
+            const tpl = templates.save(name, account.name, state);
+            if (!tpl) return;
+            putOnAccount(tpl, { silent: true });
+            templates.notify(`Created ${tpl.name} — ${account.name} is on it`);
+            finishEditing();
+          }}
+          onUpdate={(id) => {
+            saveTemplate(id);
+            finishEditing();
+          }}
+          onClose={() => setSavingTemplate(false)}
         />
       ) : null}
       {confirmingDefault ? (

@@ -84,6 +84,8 @@ import {
   TEMPLATE_MENU_SHAPE_LABELS,
   TEMPLATE_MENU_SHAPES,
   TEMPLATE_MESSAGE_PLACEMENT_LABELS,
+  PIN_FEEDBACK_LABELS,
+  PIN_FEEDBACKS,
   TEMPLATE_ACTION_HOME_LABELS,
   TEMPLATE_ACTION_HOMES,
   TEMPLATE_SAVE_SHAPE_LABELS,
@@ -91,6 +93,9 @@ import {
   TEMPLATE_SEED_LABELS,
   TEMPLATE_SEEDS,
   TEMPLATE_MESSAGE_PLACEMENTS,
+  LAYOUT_MODELS,
+  LAYOUT_MODEL_LABELS,
+  type LayoutModel,
   TEMPLATE_PROPAGATIONS,
   TEMPLATE_PROPAGATION_LABELS,
   NAV_SWITCH_SURFACE_LABELS,
@@ -99,6 +104,7 @@ import {
   type TemplateConflict,
   type TemplateDeleteMode,
   type TemplateMenuShape,
+  type PinFeedback,
   type TemplateActionHome,
   type TemplateSaveShape,
   type TemplateSeed,
@@ -342,6 +348,7 @@ function NavStructureSection({
     setTabsInNav,
     navSections,
     setNavSections,
+    layoutModel,
     railTileShape,
     setRailTileShape,
     railRecents,
@@ -672,18 +679,30 @@ function NavStructureSection({
         {ROLE_NOTE[state.role]}
       </Note>
 
-      <Segmented
-        label="Renames apply to"
-        options={["account", "agency"] as const}
-        value={can.writeAgencyScope ? state.labelScope : "account"}
-        onChange={layout.setLabelScope}
-        format={(v) => (v === "account" ? "This account" : "Every account")}
-      />
-      {!can.writeAgencyScope ? (
-        <Note>
-          Only the agency can rename for every account, so this stays on “this
-          account”.
-        </Note>
+      {/*
+        Settled by `one-template`, where every rename is the agency's.
+
+        A rename scoped to one account is a layout fact that lives on that
+        account and survives every template apply — the local layer the model
+        rules out, and the reason a renamed row did not travel into the template
+        it was saved from. There is one scope there, so there is no control.
+      */}
+      {layoutModel === "local-edits" ? (
+        <>
+          <Segmented
+            label="Renames apply to"
+            options={["account", "agency"] as const}
+            value={can.writeAgencyScope ? state.labelScope : "account"}
+            onChange={layout.setLabelScope}
+            format={(v) => (v === "account" ? "This account" : "Every account")}
+          />
+          {!can.writeAgencyScope ? (
+            <Note>
+              Only the agency can rename for every account, so this stays on
+              “this account”.
+            </Note>
+          ) : null}
+        </>
       ) : null}
 
       <Segmented
@@ -1679,6 +1698,8 @@ export function TuningPanel() {
     setTemplateDeleteMode,
     templatePushNotice,
     setTemplatePushNotice,
+    pinFeedback,
+    setPinFeedback,
     templateMenuShape,
     setTemplateMenuShape,
     templateSeed,
@@ -1689,6 +1710,18 @@ export function TuningPanel() {
     setTemplateActionHome,
     templateConflict,
     setTemplateConflict,
+    layoutModel,
+    setLayoutModel,
+    templateSaasPlans,
+    setTemplateSaasPlans,
+    templateNewProductMark,
+    setTemplateNewProductMark,
+    templateUndo,
+    setTemplateUndo,
+    templateAccountSpread,
+    setTemplateAccountSpread,
+    editCardTemplateName,
+    setEditCardTemplateName,
     setNavSwitchSurface,
     setTemplatePropagation,
     layoutSwitchInEditCard,
@@ -1734,6 +1767,12 @@ export function TuningPanel() {
     (layoutReplaceDialog !== DEFAULT_THEME.layoutReplaceDialog ? 1 : 0) +
     (navColourControl !== DEFAULT_THEME.navColourControl ? 1 : 0) +
     (navSwitchSurface !== DEFAULT_THEME.navSwitchSurface ? 1 : 0) +
+    (layoutModel !== DEFAULT_THEME.layoutModel ? 1 : 0) +
+    (templateSaasPlans !== DEFAULT_THEME.templateSaasPlans ? 1 : 0) +
+    (templateNewProductMark !== DEFAULT_THEME.templateNewProductMark ? 1 : 0) +
+    (templateUndo !== DEFAULT_THEME.templateUndo ? 1 : 0) +
+    (templateAccountSpread !== DEFAULT_THEME.templateAccountSpread ? 1 : 0) +
+    (editCardTemplateName !== DEFAULT_THEME.editCardTemplateName ? 1 : 0) +
     (templatePropagation !== DEFAULT_THEME.templatePropagation ? 1 : 0) +
     (templateMessagePlacement !== DEFAULT_THEME.templateMessagePlacement ? 1 : 0) +
     (templateDeleteMode !== DEFAULT_THEME.templateDeleteMode ? 1 : 0) +
@@ -1746,10 +1785,17 @@ export function TuningPanel() {
     setLayoutReplaceDialog(DEFAULT_THEME.layoutReplaceDialog);
     setNavColourControl(DEFAULT_THEME.navColourControl);
     setNavSwitchSurface(DEFAULT_THEME.navSwitchSurface);
+    setLayoutModel(DEFAULT_THEME.layoutModel);
+    setTemplateSaasPlans(DEFAULT_THEME.templateSaasPlans);
+    setTemplateNewProductMark(DEFAULT_THEME.templateNewProductMark);
+    setTemplateUndo(DEFAULT_THEME.templateUndo);
+    setTemplateAccountSpread(DEFAULT_THEME.templateAccountSpread);
+    setEditCardTemplateName(DEFAULT_THEME.editCardTemplateName);
     setTemplatePropagation(DEFAULT_THEME.templatePropagation);
     setTemplateMessagePlacement(DEFAULT_THEME.templateMessagePlacement);
     setTemplateDeleteMode(DEFAULT_THEME.templateDeleteMode);
     setTemplatePushNotice(DEFAULT_THEME.templatePushNotice);
+    setPinFeedback(DEFAULT_THEME.pinFeedback);
     setTemplateMenuShape(DEFAULT_THEME.templateMenuShape);
     setTemplateSeed(DEFAULT_THEME.templateSeed);
     setTemplateSaveShape(DEFAULT_THEME.templateSaveShape);
@@ -2050,20 +2096,134 @@ export function TuningPanel() {
           </Note>
 
           {/*
-            Templates are the only thing in this menu whose reach is other
-            accounts, so the axis that decides that reach belongs beside them.
+            The model everything below it sits on, so it leads.
+
+            This is not a styling axis and it is not a placement axis: it
+            decides whether a sub-account can hold a layout of its own, and the
+            two answers produce different products. Everything under it either
+            belongs to one answer or reads differently under each, which is why
+            four of the controls below only appear for `local-edits` — they are
+            questions that model asks and this one has already answered.
           */}
           <Segmented
-            label="Saving a template"
-            options={TEMPLATE_PROPAGATIONS}
-            value={templatePropagation}
-            onChange={(v: TemplatePropagation) => setTemplatePropagation(v)}
-            format={(v) => TEMPLATE_PROPAGATION_LABELS[v]}
+            label="A sub-account's layout is"
+            options={LAYOUT_MODELS}
+            value={layoutModel}
+            onChange={(v: LayoutModel) => setLayoutModel(v)}
+            format={(v) => LAYOUT_MODEL_LABELS[v]}
           />
           <Note>
-            {templatePropagation === "managed"
-              ? "A live standard: saving re-arranges every account on the template, keeping any per-account tuning, and leaves each one a note saying what moved."
-              : "A starting point: applying stamps a copy, and later saves reach nobody. The fix you just made lives on one account."}
+            {layoutModel === "one-template"
+              ? "Exactly one thing: the HighLevel default, or one named template. No local tweaks on top, so editing a nav is always editing a template and the editor asks which — update the one it is on, which moves everyone on it, or split off into a new one, which moves only this account."
+              : "A template as a starting point, which an account may then drift from. A later push rebases onto what it did for itself, and where both moved the same row there is a collision to resolve."}
+          </Note>
+
+          {/*
+            A `one-template` question. Under `local-edits` the card says
+            "Editing nav", because that is what it is: an account there has a
+            nav of its own, and naming a template over it would claim a
+            relationship half the fleet does not have.
+          */}
+          {layoutModel === "one-template" ? (
+            <>
+              <Toggle
+                label="Name the template on the edit card"
+                checked={editCardTemplateName}
+                onChange={setEditCardTemplateName}
+              />
+              <Note>
+                {editCardTemplateName
+                  ? "A second line under “Editing template” naming the one you are in — HighLevel default, or the template's own name, elided with the full string on hover. Which template you are about to change is what decides whether the next keystroke moves one nav or forty."
+                  : "The card names the mode and not the template. One line shorter, and the question of which one you are in is answered by the save dialog."}
+              </Note>
+            </>
+          ) : null}
+
+          <Toggle
+            label="Plans can hand out a template"
+            checked={templateSaasPlans}
+            onChange={setTemplateSaasPlans}
+          />
+          <Note>
+            {templateSaasPlans
+              ? "Attach a template to a SaaS plan and every sub-account on it — and every one that joins later — is on that template. Leaving the plan changes nothing: the layout was applied by the plan, not owned by it."
+              : "Off. Plans decide entitlement only, and a layout is only ever applied by hand."}
+          </Note>
+
+          <Toggle
+            label="Say what arrived since a template was saved"
+            checked={templateNewProductMark}
+            onChange={setTemplateNewProductMark}
+          />
+          <Note>
+            {templateNewProductMark
+              ? "A product added to the catalogue lands in every template where the default puts it, and the template's row says how many arrived — so the agency can go and file them rather than find them by accident."
+              : "New products still arrive at the default's position. Nothing says so."}
+          </Note>
+
+          <Toggle
+            label="Template changes can be undone"
+            checked={templateUndo}
+            onChange={setTemplateUndo}
+          />
+          <Note>
+            {templateUndo
+              ? "A bulk apply leaves an undo on its receipt. The case for it: a count read too quickly is exactly what undo exists for."
+              : "Off. Every destructive move already sits behind a dialog naming a count, and an undo standing behind that dialog is a reason to skim it."}
+          </Note>
+
+          <Toggle
+            label="Give every tuned sub-account its own template"
+            checked={templateAccountSpread}
+            onChange={setTemplateAccountSpread}
+          />
+          <Note>
+            {templateAccountSpread
+              ? "Each sub-account that ships with an arrangement of its own becomes a named template holding exactly it. This is the proliferation the model implies — an agency that tuned thirty navs one at a time has thirty templates — and the only way to judge a list that size is to look at one."
+              : "Every sub-account starts on the HighLevel default and the list is one row long. The honest zero state."}
+          </Note>
+
+          {/*
+            Templates are the only thing in this menu whose reach is other
+            accounts, so the axis that decides that reach belongs beside them.
+
+            Settled by `one-template`: an update that reached nobody would make
+            "update this template" a different verb. Hidden rather than greyed,
+            because the panel is long enough already and a control that can only
+            hold one value is not a control. See `settleLayoutModel`.
+          */}
+          {layoutModel === "local-edits" ? (
+            <>
+              <Segmented
+                label="Saving a template"
+                options={TEMPLATE_PROPAGATIONS}
+                value={templatePropagation}
+                onChange={(v: TemplatePropagation) => setTemplatePropagation(v)}
+                format={(v) => TEMPLATE_PROPAGATION_LABELS[v]}
+              />
+              <Note>
+                {templatePropagation === "managed"
+                  ? "A live standard: saving re-arranges every account on the template, keeping any per-account tuning, and leaves each one a note saying what moved."
+                  : "A starting point: applying stamps a copy, and later saves reach nobody. The fix you just made lives on one account."}
+              </Note>
+            </>
+          ) : null}
+
+          <Segmented
+            label="Pinning shows"
+            options={PIN_FEEDBACKS}
+            value={pinFeedback}
+            onChange={(v: PinFeedback) => setPinFeedback(v)}
+            format={(v) => PIN_FEEDBACK_LABELS[v]}
+          />
+          <Note>
+            {pinFeedback === "off"
+              ? "Nothing. The pin fills and the list is different next time you look at it — which is why people press it twice."
+              : pinFeedback === "mark"
+                ? "The row lands and its new slot flashes once. Enough when the list is already in view, invisible when it is not."
+                : pinFeedback === "flight"
+                  ? "A chip carrying the row's name arcs from the pin you pressed to the top of the list. The only one that answers \u201cwhere did it go\u201d from a panel three surfaces away."
+                  : "The row slides up into its new slot and the list reflows around it. Quieter than the flight, and it only reads when the destination is on screen."}
           </Note>
 
           <Segmented
@@ -2092,18 +2252,26 @@ export function TuningPanel() {
               : "The five worked examples as well, for showing the list full. The cost is a menu whose first impression is five arrangements nobody at this agency made."}
           </Note>
 
-          <Segmented
-            label="Saving an arrangement"
-            options={TEMPLATE_SAVE_SHAPES}
-            value={templateSaveShape}
-            onChange={(v: TemplateSaveShape) => setTemplateSaveShape(v)}
-            format={(v) => TEMPLATE_SAVE_SHAPE_LABELS[v]}
-          />
-          <Note>
-            {templateSaveShape === "unified"
-              ? "One row — Save this arrangement — offering update or save-as-new behind it. The two are the same gesture at different scopes, and which you want depends on a fact the menu already knows."
-              : "Two places: Update to match on the template's own \u22ef, and Save as new template at the foot."}
-          </Note>
+          {/*
+            Shapes a row `one-template` does not have: there, saving is the edit
+            card's own button and the menu carries no save at all.
+          */}
+          {layoutModel === "local-edits" ? (
+            <>
+              <Segmented
+                label="Saving an arrangement"
+                options={TEMPLATE_SAVE_SHAPES}
+                value={templateSaveShape}
+                onChange={(v: TemplateSaveShape) => setTemplateSaveShape(v)}
+                format={(v) => TEMPLATE_SAVE_SHAPE_LABELS[v]}
+              />
+              <Note>
+                {templateSaveShape === "unified"
+                  ? "One row — Save this arrangement — offering update or save-as-new behind it. The two are the same gesture at different scopes, and which you want depends on a fact the menu already knows."
+                  : "Two places: Update to match on the template's own \u22ef, and Save as new template at the foot."}
+              </Note>
+            </>
+          ) : null}
 
           <Segmented
             label="Rename, duplicate, delete"
@@ -2118,20 +2286,25 @@ export function TuningPanel() {
               : "Every row carries a \u22ef with all of it. Everything is one click away, and the picker is also a file manager."}
           </Note>
 
-          <Segmented
-            label="When a push collides"
-            options={TEMPLATE_CONFLICTS}
-            value={templateConflict}
-            onChange={(v: TemplateConflict) => setTemplateConflict(v)}
-            format={(v) => TEMPLATE_CONFLICT_LABELS[v]}
-          />
-          <Note>
-            {templateConflict === "resolve"
-              ? "The account keeps its own version, is marked as diverged, and is offered the three ways out: take the template's, keep mine, or split off into a template of my own."
-              : templateConflict === "flag"
-                ? "The account keeps its own version and is marked as diverged, so it can be seen and counted — but nobody is asked to do anything about it."
-                : "The account keeps its own version and nothing is said. What shipped."}
-          </Note>
+          {/* Nothing to collide with when no account holds a change of its own. */}
+          {layoutModel === "local-edits" ? (
+            <>
+              <Segmented
+                label="When a push collides"
+                options={TEMPLATE_CONFLICTS}
+                value={templateConflict}
+                onChange={(v: TemplateConflict) => setTemplateConflict(v)}
+                format={(v) => TEMPLATE_CONFLICT_LABELS[v]}
+              />
+              <Note>
+                {templateConflict === "resolve"
+                  ? "The account keeps its own version, is marked as diverged, and is offered the three ways out: take the template's, keep mine, or split off into a template of my own."
+                  : templateConflict === "flag"
+                    ? "The account keeps its own version and is marked as diverged, so it can be seen and counted — but nobody is asked to do anything about it."
+                    : "The account keeps its own version and nothing is said. What shipped."}
+              </Note>
+            </>
+          ) : null}
 
           <Segmented
             label="Template messages sit"
@@ -2150,18 +2323,28 @@ export function TuningPanel() {
                 : "Every template message hung off the nav column, beside the thing it changes — including decisions that stop the session until they are answered."}
           </Note>
 
-          <Segmented
-            label="Deleting a template"
-            options={TEMPLATE_DELETE_MODES}
-            value={templateDeleteMode}
-            onChange={(v: TemplateDeleteMode) => setTemplateDeleteMode(v)}
-            format={(v) => TEMPLATE_DELETE_MODE_LABELS[v]}
-          />
-          <Note>
-            {templateDeleteMode === "unlink"
-              ? "Accounts on it keep the navigation they have and stop receiving updates. Nothing on their screen changes."
-              : "Accounts on it go back to the shipped navigation — seven navs change as a side effect of a cleanup in the agency's own list."}
-          </Note>
+          {/*
+            A preference here would pre-answer a question the delete dialog has
+            to ask out loud: under `one-template` nobody can be left holding a
+            nav that belongs to no template, so the destination is chosen at the
+            moment of deleting, with nothing selected first.
+          */}
+          {layoutModel === "local-edits" ? (
+            <>
+              <Segmented
+                label="Deleting a template"
+                options={TEMPLATE_DELETE_MODES}
+                value={templateDeleteMode}
+                onChange={(v: TemplateDeleteMode) => setTemplateDeleteMode(v)}
+                format={(v) => TEMPLATE_DELETE_MODE_LABELS[v]}
+              />
+              <Note>
+                {templateDeleteMode === "unlink"
+                  ? "Accounts on it keep the navigation they have and stop receiving updates. Nothing on their screen changes."
+                  : "Accounts on it go back to the shipped navigation — seven navs change as a side effect of a cleanup in the agency's own list."}
+              </Note>
+            </>
+          ) : null}
 
           <Toggle
             label="Tell sub-accounts about pushes"
@@ -2174,6 +2357,13 @@ export function TuningPanel() {
               : "Off. The client is not told: they did not make the change, cannot undo it, and the change list is written in the agency's language."}
           </Note>
 
+          {/*
+            "My layout vs HighLevel default" IS the third state, wearing a
+            switch — an account holding one arrangement while looking at
+            another. There is no such account under `one-template`.
+          */}
+          {layoutModel === "local-edits" ? (
+          <>
           <Toggle
             label="Layout switch in the edit card"
             checked={layoutSwitchInEditCard}
@@ -2205,6 +2395,8 @@ export function TuningPanel() {
                   : "The full version: the arrangement being replaced is offered as a named template first, so it can be put back later. Three answers, weighted."}
               </Note>
             </>
+          ) : null}
+          </>
           ) : null}
 
           {/*

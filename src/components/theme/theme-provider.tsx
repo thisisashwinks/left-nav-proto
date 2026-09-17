@@ -40,11 +40,13 @@ import {
   type NavGeneration,
   type NavSwitchSurface,
   type TemplatePropagation,
+  type LayoutModel,
   type NavColourControl,
   type RecentsPanelLayout,
   type TemplateDeleteMode,
   type TemplateConflict,
   type TemplateMenuShape,
+  type PinFeedback,
   type TemplateActionHome,
   type TemplateSaveShape,
   type TemplateSeed,
@@ -159,10 +161,17 @@ interface ThemeContextValue extends ThemeState {
   setTemplateDeleteMode: (mode: TemplateDeleteMode) => void;
   setTemplatePushNotice: (on: boolean) => void;
   setTemplateMenuShape: (shape: TemplateMenuShape) => void;
+  setPinFeedback: (feedback: PinFeedback) => void;
   setTemplateSeed: (seed: TemplateSeed) => void;
   setTemplateSaveShape: (shape: TemplateSaveShape) => void;
   setTemplateActionHome: (home: TemplateActionHome) => void;
   setTemplateConflict: (mode: TemplateConflict) => void;
+  setLayoutModel: (model: LayoutModel) => void;
+  setTemplateSaasPlans: (on: boolean) => void;
+  setTemplateNewProductMark: (on: boolean) => void;
+  setTemplateUndo: (on: boolean) => void;
+  setTemplateAccountSpread: (on: boolean) => void;
+  setEditCardTemplateName: (on: boolean) => void;
   setNavColourControl: (control: NavColourControl) => void;
   setSubAccountSwitcher: (switcher: SubAccountSwitcher) => void;
   setNewDotPlacement: (placement: NewDotPlacement) => void;
@@ -256,7 +265,7 @@ export function ThemeProvider({
     [activeAccountId, accountThemes],
   );
   const effective: ThemeState = React.useMemo(
-    () => pinLight({ ...state, ...stripCustom(activeOverride) }),
+    () => settleLayoutModel(pinLight({ ...state, ...stripCustom(activeOverride) })),
     [state, activeOverride],
   );
 
@@ -385,6 +394,7 @@ export function ThemeProvider({
         setState((s) => ({ ...s, templatePushNotice })),
       setTemplateMenuShape: (templateMenuShape) =>
         setState((s) => ({ ...s, templateMenuShape })),
+      setPinFeedback: (pinFeedback) => setState((s) => ({ ...s, pinFeedback })),
       setTemplateSeed: (templateSeed) =>
         setState((s) => ({ ...s, templateSeed })),
       setTemplateSaveShape: (templateSaveShape) =>
@@ -393,6 +403,16 @@ export function ThemeProvider({
         setState((s) => ({ ...s, templateActionHome })),
       setTemplateConflict: (templateConflict) =>
         setState((s) => ({ ...s, templateConflict })),
+      setLayoutModel: (layoutModel) => setState((s) => ({ ...s, layoutModel })),
+      setTemplateSaasPlans: (templateSaasPlans) =>
+        setState((s) => ({ ...s, templateSaasPlans })),
+      setTemplateNewProductMark: (templateNewProductMark) =>
+        setState((s) => ({ ...s, templateNewProductMark })),
+      setTemplateUndo: (templateUndo) => setState((s) => ({ ...s, templateUndo })),
+      setTemplateAccountSpread: (templateAccountSpread) =>
+        setState((s) => ({ ...s, templateAccountSpread })),
+      setEditCardTemplateName: (editCardTemplateName) =>
+        setState((s) => ({ ...s, editCardTemplateName })),
       setNavColourControl: (navColourControl) =>
         setState((s) => ({ ...s, navColourControl })),
       setSubAccountSwitcher: (subAccountSwitcher) =>
@@ -470,6 +490,36 @@ const NAV_SURFACES = ["appTheme", "navTheme", "headerTheme"] as const;
 function pinLight(theme: ThemeState): ThemeState {
   if (theme.darkMode) return theme;
   return { ...theme, appTheme: "light", navTheme: "light", headerTheme: "light" };
+}
+
+/**
+ * The axes `one-template` decides, forced to the answer it decides them to.
+ *
+ * Clamped here rather than branched on at every call site, for the same reason
+ * `pinLight` is: there are a dozen surfaces reading these four fields, and a
+ * model that only held where somebody remembered to check it is not a model.
+ * The stored values are untouched, so switching back to `local-edits` returns
+ * the panel exactly as it was left.
+ *
+ *  templatePropagation   `managed`. "Update this template" that reached nobody
+ *                        would be a different verb.
+ *  templateConflict      `silent`. There are no local changes to collide, so
+ *                        the divergence surfaces have nothing to describe.
+ *  templateDeleteMode    `revert`. Deleting never leaves an account on nothing;
+ *                        the dialog asks where they go and the default is one
+ *                        of the answers, so the standing preference is spent.
+ *  layoutSwitchInEditCard  off. "My layout vs HighLevel default" IS the third
+ *                        state, wearing a switch.
+ */
+function settleLayoutModel(theme: ThemeState): ThemeState {
+  if (theme.layoutModel !== "one-template") return theme;
+  return {
+    ...theme,
+    templatePropagation: "managed",
+    templateConflict: "silent",
+    templateDeleteMode: "revert",
+    layoutSwitchInEditCard: false,
+  };
 }
 
 /** An account override with its surface choices removed. See accountThemeFor. */

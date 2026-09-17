@@ -3,7 +3,9 @@
 import * as React from "react";
 import { withProduct, type NavLayoutState } from "@/components/nav/grouping";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
+import { useTheme } from "@/components/theme/theme-provider";
 import {
+  DEFAULT_TEMPLATE_ID,
   patchForArrangement,
   useNavTemplates,
   type NavArrangement,
@@ -108,6 +110,18 @@ export interface TemplateImpact {
   customised: number;
   /** Product references the template loses on the way in, summed per account. */
   droppedProducts: number;
+  /**
+   * Which templates the selection is currently spread across, and how many on
+   * each — the ones this apply will move OFF something they are already on.
+   *
+   * "3 of the 10 selected are on Growth and will be moved" costs nothing to
+   * compute and is the one fact a bulk apply cannot otherwise tell you: the
+   * selection is a list of accounts, and which shared standard each of them is
+   * currently taking its nav from is invisible in it. Excludes the template
+   * being applied, because an account already on it is not being moved
+   * anywhere — it is in `alreadyMatch`.
+   */
+  movedFrom: readonly { templateId: string; name: string; count: number }[];
 }
 
 interface BulkValue {
@@ -179,7 +193,9 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
   const [notice, setNotice] = React.useState<BulkRun | null>(null);
   const seq = React.useRef(0);
   const { applyToAccounts, profileFor } = useNavLayout();
-  const { patchFor, link, unlink, linkFor, templates } = useNavTemplates();
+  const { patchFor, link, unlink, linkFor, linkedIdFor, templates, strict } =
+    useNavTemplates();
+  const { templateUndo } = useTheme().effective;
 
   const set = React.useCallback(
     <K extends keyof BulkSettings>(key: K, value: BulkSettings[K]) =>
@@ -211,10 +227,21 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
    */
   const flowRef = React.useRef(settings.flow);
   const failRef = React.useRef(settings.simulateFailure);
+  /*
+   * Whether a template change can be taken back at all. See `templateUndo`.
+   *
+   * Off by default, and the argument is not that undo is bad: it is that every
+   * destructive move in this model already sits behind a dialog naming a count,
+   * and an undo standing behind that dialog is a reason to skim it. The switch
+   * is how the opposite case gets made — a count read too fast is exactly what
+   * undo is for.
+   */
+  const undoRef = React.useRef(templateUndo);
   React.useEffect(() => {
     flowRef.current = settings.flow;
     failRef.current = settings.simulateFailure;
-  }, [settings.flow, settings.simulateFailure]);
+    undoRef.current = templateUndo;
+  }, [settings.flow, settings.simulateFailure, templateUndo]);
 
   /**
    * Which accounts in this run are going to "fail".
@@ -235,8 +262,9 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
   /** Everything needed to put these accounts back, read before anything moves. */
   const snapshot = React.useCallback(
     (accountIds: readonly string[]): Record<string, AccountSnapshot> => {
-      // Only the guided flow offers undo, so only it pays for the copy.
-      if (flowRef.current !== "guided") return {};
+      // Only the guided flow offers undo, and only when undo is on at all —
+      // so only then does anything pay for the copy.
+      if (flowRef.current !== "guided" || !undoRef.current) return {};
       const out: Record<string, AccountSnapshot> = {};
       for (const id of accountIds) {
         const existing = linkFor(id);
@@ -324,7 +352,11 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
           // Per account, and via the same filter the run itself used: the base
           // has to be what landed HERE, or every account in the run looks
           // edited from the moment it was applied.
-          link(id, templateId, patchForArrangement(taken.arrangement, profileFor(id)));
+          link(
+            id,
+            templateId,
+            patchForArrangement(taken.arrangement, profileFor(id), { whole: strict }),
+          );
         }
 
       const changed = outcomes.filter((o) => o.status === "changed").length;
@@ -347,6 +379,7 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
       patchFor,
       link,
       templates,
+      strict,
       profileFor,
       record,
       snapshot,
@@ -517,7 +550,11 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
           return patch ? { ...layout, ...patch } : layout;
         });
         for (const id of ids) {
-          link(id, taken.id, patchForArrangement(taken.arrangement, profileFor(id)));
+          link(
+            id,
+            taken.id,
+            patchForArrangement(taken.arrangement, profileFor(id), { whole: strict }),
+          );
         }
       } else {
         for (const id of ids) {
@@ -546,7 +583,7 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
         ),
       );
     },
-    [history, applyToAccounts, patchFor, link, templates, profileFor],
+    [history, applyToAccounts, patchFor, link, templates, strict, profileFor],
   );
 
   const templateImpact = React.useCallback<BulkValue["templateImpact"]>(
@@ -557,12 +594,31 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
       let customised = 0;
       let droppedProducts = 0;
 
+      const from = new Map<string, { name: string; count: number }>();
+
       for (const id of accountIds) {
         const layout = profileFor(id);
         const patch = patchFor(templateId, layout);
         if (templateChanges(layout, patch)) willChange += 1;
         else alreadyMatch += 1;
         if (isCustomised(layout)) customised += 1;
+        const held = linkedIdFor(id);
+        /*
+         * Leaving the DEFAULT is not the news here.
+         *
+         * Under `one-template` an unlinked account reads as being on the
+         * default, which is true and already counted: "will change" says what
+         * happens to it. What this row is for is the account that is on a
+         * shared standard somebody else is also on — the one whose move might
+         * mean it should not have been in the selection.
+         */
+        if (held && held !== templateId && held !== DEFAULT_TEMPLATE_ID) {
+          const name =
+            templates.find((t) => t.id === held)?.name ?? "another template";
+          const seen = from.get(held);
+          if (seen) seen.count += 1;
+          else from.set(held, { name, count: 1 });
+        }
         if (taken) {
           /*
            * What the template loses on the way into THIS account.
@@ -580,9 +636,19 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
         }
       }
 
-      return { willChange, alreadyMatch, customised, droppedProducts };
+      return {
+        willChange,
+        alreadyMatch,
+        customised,
+        droppedProducts,
+        movedFrom: [...from.entries()]
+          .map(([id, held]) => ({ templateId: id, ...held }))
+          // Biggest population first: the one most worth noticing is the one
+          // that moves the most accounts.
+          .sort((a, b) => b.count - a.count),
+      };
     },
-    [templates, profileFor, patchFor],
+    [templates, profileFor, patchFor, linkedIdFor],
   );
 
   const announce = React.useCallback((run: BulkRun) => setNotice(run), []);

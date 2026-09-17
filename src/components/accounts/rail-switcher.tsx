@@ -331,6 +331,19 @@ export function RailDirectory({
           accounts={selectedAccounts}
           initialPath={bulk.path}
           onClose={() => setBulk(null)}
+          /*
+            A finished run ends the errand, panel and all.
+
+            The selection existed to answer "which sub-accounts" for one action,
+            and that action has happened — leaving three ticks standing over a
+            list is an invitation to run something else on a set that was chosen
+            for something else. Another run starts from a clean pick. Cancel and
+            Back leave it all exactly as it was.
+          */
+          onCompleted={() => {
+            setSelected([]);
+            onClose();
+          }}
           onOpenHistory={() => {
             setBulk(null);
             setHistoryOpen(true);

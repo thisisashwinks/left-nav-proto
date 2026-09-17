@@ -68,7 +68,11 @@ export function WithPin({
   if (!isPinnable(productId)) return children;
 
   return (
-    <div className="group/row relative w-full shrink-0">
+    /*
+      `data-pin-row` is what the flying chip reads its label from — the row's
+      own text, whatever surface drew it. See PIN_FEEDBACKS.
+    */
+    <div data-pin-row="" className="group/row relative w-full shrink-0">
       {children}
       <span
         style={{ right: pinInset }}

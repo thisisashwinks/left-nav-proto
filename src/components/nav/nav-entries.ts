@@ -2,6 +2,7 @@ import { Link2 } from "lucide-react";
 import { childById, productById } from "./catalogue";
 import type { CatalogueChild } from "./catalogue-types";
 import {
+  applyOrder,
   iconForProduct,
   labelForProduct,
   NAV_VOLUME_EXTRA_LINKS,
@@ -156,6 +157,55 @@ export function tailRowsFor(
  * not in that array has no index to move through.
  */
 
+/**
+ * The nav's top-level rows, in the order the account put them.
+ *
+ * One definition, three callers — the entry list that draws them, `moveGroup`
+ * which reorders them, and the face that works out which seam a row was dropped
+ * into. They have to agree on what "position 3" means or a drag lands somewhere
+ * nobody aimed.
+ *
+ * Chrome rows are IN this list. Desktop & mobile apps used to live in the tail,
+ * ordered by `tailOrder` alongside the account's links — which on a nav with no
+ * links left it alone in a list of one, with a drag grip that could not move it
+ * anywhere and a drop target that was a category offering to swallow it. It is
+ * an L1 row like the categories beside it and it reorders like one. Its DEFAULT
+ * place is still last, because that is where it belongs until somebody moves
+ * it; `groupOrder` overrides that the moment anyone drags it.
+ *
+ * `applyOrder` drops ids it does not recognise, so a stored order that names a
+ * category this account no longer has — or a chrome row a later build removed —
+ * simply loses that entry rather than drawing a ghost.
+ */
+export function l1IdsFor(
+  state: NavLayoutState,
+  groups: readonly ResolvedGroup[],
+  chromeIds: readonly string[] = [...CHROME_TAIL_IDS],
+): string[] {
+  /*
+   * Flat has no L1 run at all.
+   *
+   * Its whole claim is that a row is a destination rather than a door, so there
+   * are no shelves to order against — every row, the chrome one included, is in
+   * the tail and reorders by `tailOrder` like the products beside it. Saying so
+   * here keeps the face from offering a "move up" that writes an order the flat
+   * tree never reads.
+   */
+  if (state.grouping === "flat") return [];
+  const loose = groups.find((g) => g.id === UNGROUPED_ID)?.productIds ?? [];
+  const shelves = groups
+    .filter(
+      (g) =>
+        g.id !== PROPOSED_SETTINGS_ID &&
+        (loose.length === 0 || g.id !== UNGROUPED_ID),
+    )
+    .map((g) => g.id);
+  return applyOrder(state.groupOrder[state.grouping], [
+    ...shelves,
+    ...chromeIds,
+  ]);
+}
+
 export function navEntriesFor(
   state: NavLayoutState,
   groups: ResolvedGroup[],
@@ -233,6 +283,29 @@ export function navEntriesFor(
     },
   });
 
+  /*
+   * The L1 run: shelves and chrome rows, in one stored order.
+   *
+   * Built once here and used by both trees below. A chrome row is drawn exactly
+   * like a shelf that has no panel — because that is what it is from the list's
+   * point of view, and the moment it was drawn from somewhere else it stopped
+   * being reorderable with its neighbours.
+   */
+  const l1Run = (shelves: readonly ResolvedGroup[]): NavEntry[] => {
+    const byId = new Map(shelves.map((g) => [g.id, g] as const));
+    const chromeById = new Map(extras.map((e) => [e.id, e] as const));
+    return l1IdsFor(
+      state,
+      groups,
+      extras.map((e) => e.id),
+    ).flatMap((id): NavEntry[] => {
+      const shelf = byId.get(id);
+      if (shelf) return [shelfRow(shelf)];
+      const chrome = chromeById.get(id);
+      return chrome ? [{ kind: "item", item: chrome }] : [];
+    });
+  };
+
   if (state.grouping === "proposed") {
     /*
      * The proposal's band order, which is authored rather than derived: the
@@ -253,7 +326,7 @@ export function navEntriesFor(
        * you have to be able to get back to it.
        */
       ...(sectionHeadings ? [band("ia-buckets", "Products")] : []),
-      ...buckets.map(shelfRow),
+      ...l1Run(buckets),
       /*
        * One "More" band, not three.
        *
@@ -273,7 +346,8 @@ export function navEntriesFor(
        * name for what follows, which a rule is not.
        */
       ...(sectionHeadings ? [band("ia-more", "More")] : []),
-      ...tailRowsFor(state, loose, extras).map((item): NavEntry => ({
+      // No `extras`: the chrome rows are in the L1 run above now.
+      ...tailRowsFor(state, loose).map((item): NavEntry => ({
         kind: "item",
         item,
       })),
@@ -330,7 +404,7 @@ export function navEntriesFor(
 
   return [
     ...(sectionHeadings ? [band("groups", "Products")] : []),
-    ...shelves.map(shelfRow),
+    ...l1Run(shelves),
     /*
      * No rule, and the tail built the same way the proposed tree builds it.
      *
@@ -348,7 +422,8 @@ export function navEntriesFor(
      * though they did. These two branches now agree with the store.
      */
     ...(sectionHeadings ? [band("groups-more", "More")] : []),
-    ...tailRowsFor(state, loose, extras).map((item): NavEntry => ({
+    // No `extras`: the chrome rows are in the L1 run above now.
+    ...tailRowsFor(state, loose).map((item): NavEntry => ({
       kind: "item",
       item,
     })),

@@ -10,7 +10,6 @@ import {
   Clock,
   LayoutTemplate,
   ArrowLeft,
-  ArrowRight,
   Minus,
   Plus,
   Search,
@@ -45,7 +44,6 @@ import {
   useBulkActions,
   type BulkRun,
   type FeatureDecision,
-  type TemplateImpact,
   type PerAccountDecisions,
 } from "./bulk-provider";
 
@@ -88,6 +86,7 @@ export function BulkModal({
   accounts: initialAccounts,
   initialPath,
   onClose,
+  onCompleted,
   onOpenHistory,
 }: {
   /** The ticked rows, in table order. Never empty — the toolbar gates on it. */
@@ -95,6 +94,17 @@ export function BulkModal({
   /** Set when the toolbar named a path; null opens the chooser. */
   initialPath: BulkPath | null;
   onClose: () => void;
+  /**
+   * The run actually happened — as distinct from the admin backing out.
+   *
+   * The two used to be one callback, so the surface that opened the modal had
+   * no way to tell "I applied a template to three sub-accounts" from "I changed
+   * my mind", and had to leave the selection standing in both cases. A finished
+   * run is the end of that errand: the ticks and the panel holding them go, and
+   * anyone who wants another run starts one. Backing out leaves everything
+   * exactly where it was, which is the whole reason Cancel is safe to press.
+   */
+  onCompleted?: () => void;
   onOpenHistory: () => void;
 }) {
   /*
@@ -110,11 +120,19 @@ export function BulkModal({
    */
   const [accounts, setAccounts] =
     React.useState<readonly Account[]>(initialAccounts);
+  /**
+   * Whether anything has been committed yet.
+   *
+   * Every exit past this point is a finished errand, however it is taken —
+   * Escape, the backdrop, the ✕ and "Go to sub-accounts" all leave a run behind
+   * them, and a selection that survived three of those four would be a rule
+   * nobody could learn.
+   */
+  const [ran, setRan] = React.useState(false);
 
   const { effective } = useTheme();
-  const { settings, applyTemplate, applyFeatures, templateImpact, announce } =
-    useBulkActions();
-  const { templates } = useNavTemplates();
+  const { settings, applyTemplate, applyFeatures, announce } = useBulkActions();
+  const { templates, accountsOn } = useNavTemplates();
   const { profileFor } = useNavLayout();
 
   const paths = pathsFor(settings);
@@ -155,20 +173,7 @@ export function BulkModal({
   const [run, setRun] = React.useState<BulkRun | null>(null);
   /** Which account the dry run is reading. Null until one is chosen. */
   const [previewId, setPreviewId] = React.useState<string | null>(null);
-
   const accountIds = React.useMemo(() => accounts.map((a) => a.id), [accounts]);
-  /*
-   * Recomputed as the template changes, not once: picking a different
-   * template is picking a different blast radius, and a stale number here
-   * would be worse than no number.
-   */
-  const impact = React.useMemo(
-    () =>
-      templateId
-        ? templateImpact(templateId, accountIds)
-        : { willChange: 0, alreadyMatch: 0, customised: 0, droppedProducts: 0 },
-    [templateId, accountIds, templateImpact],
-  );
   const accountNames = React.useMemo(() => accounts.map((a) => a.name), [accounts]);
 
   /** How many of the selected accounts already own each feature. */
@@ -179,17 +184,22 @@ export function BulkModal({
     [accountIds, profileFor],
   );
 
+  const close = React.useCallback(() => {
+    if (ran) onCompleted?.();
+    onClose();
+  }, [ran, onClose, onCompleted]);
+
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       e.stopPropagation();
       // A run in flight is not cancellable — the modal is reporting, not
       // asking — so Escape closes it rather than pretending to abort.
-      onClose();
+      close();
     };
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [onClose]);
+  }, [close]);
 
   const decisions = React.useMemo<FeatureDecision[]>(
     () =>
@@ -255,8 +265,12 @@ export function BulkModal({
        * not belong in a thing that takes itself away.
        */
       const failed = result.outcomes.some((o) => o.status === "failed");
+      setRan(true);
       if (guided && settings.receipt === "toast" && !failed) {
         announce(result);
+        // Not `close`: it is closing over a `ran` that is still false this
+        // tick, and the whole point of this branch is that the run is done.
+        onCompleted?.();
         onClose();
         return;
       }
@@ -279,6 +293,7 @@ export function BulkModal({
     guided,
     announce,
     onClose,
+    onCompleted,
   ]);
 
   /* --- picking ---------------------------------------------------------- */
@@ -348,7 +363,7 @@ export function BulkModal({
         type="button"
         aria-label="Close"
         tabIndex={-1}
-        onClick={onClose}
+        onClick={close}
         className="absolute inset-0 cursor-default bg-[#10182899]"
       />
 
@@ -387,7 +402,7 @@ export function BulkModal({
           </h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             aria-label="Close"
             className="motion-tap -mt-[2px] flex size-[24px] shrink-0 items-center justify-center rounded-[6px] text-pg-muted hover:bg-pg-row-border hover:text-pg-heading"
           >
@@ -436,9 +451,24 @@ export function BulkModal({
                       <span className="block truncate text-[14px] leading-[20px] font-medium text-pg-heading">
                         {t.name}
                       </span>
+                      {/*
+                        How many sub-accounts are on it, not how many products
+                        it arranges.
+
+                        The product count describes the template's insides, and
+                        nobody picking one off this list is choosing by size —
+                        "31 products arranged" was true of almost every row and
+                        told you nothing about which to pick. What the admin is
+                        actually weighing is how established a template is: one
+                        with fourteen sub-accounts on it is the agency's
+                        standard, and one with none is somebody's draft. Same
+                        line, the fact that discriminates.
+                      */}
                       <span className="block truncate text-[13px] leading-[18px] text-pg-muted">
-                        {plural(t.productCount, "product")} arranged ·{" "}
-                        {t.builtIn ? "Built in" : `Saved from ${t.fromAccount}`}
+                        {accountsOn(t.id) === 0
+                          ? "No sub-accounts yet"
+                          : plural(accountsOn(t.id), "sub-account")}{" "}
+                        · {t.builtIn ? "Built in" : `Saved from ${t.fromAccount}`}
                       </span>
                     </span>
                     {t.id === templateId ? (
@@ -457,17 +487,19 @@ export function BulkModal({
                 will be applied to {plural(accounts.length, "sub-account")}.
               </p>
               {/*
-                The blast radius, in the units an admin can check.
+                One table, and nothing beside it.
 
-                The classic flow states the selection back — "applied to 17" is
-                a number they typed. These four are facts about the fleet: how
-                many actually move, how many are already there, how many have
-                work of their own to lose, and what the template drops on the
-                way in. The third is the one that changes minds.
+                What stood here was the selection as chips, a grid of four
+                counts, and two columns listing what a template carries and what
+                it leaves. Every line of it true, and none of it the question an
+                admin is holding at this step: am I moving the right
+                sub-accounts off the right layouts. "3 will change" answers that
+                by arithmetic and never names the three.
               */}
               {guided ? (
-                <AccountTags
+                <TemplateMoveTable
                   accounts={accounts}
+                  template={template}
                   onRemove={(id) =>
                     setAccounts((a) =>
                       a.length > 1 ? a.filter((x) => x.id !== id) : a,
@@ -475,10 +507,9 @@ export function BulkModal({
                   }
                   onAdd={(a) => setAccounts((cur) => [...cur, a])}
                 />
-              ) : null}
-              {guided ? <ImpactCard impact={impact} /> : null}
-              <Carries split={guided} />
-              {guided ? null : <AccountSummary accounts={accounts} collapsed={false} />}
+              ) : (
+                <AccountSummary accounts={accounts} collapsed={false} />
+              )}
             </>
           ) : null}
 
@@ -747,11 +778,11 @@ export function BulkModal({
                   View bulk action history
                 </SecondaryButton>
               ) : null}
-              <PrimaryButton onClick={onClose}>Go to sub-accounts</PrimaryButton>
+              <PrimaryButton onClick={close}>Go to sub-accounts</PrimaryButton>
             </>
           ) : step === "applying" ? null : (
             <>
-              <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
+              <SecondaryButton onClick={close}>Cancel</SecondaryButton>
               {step === "path" ? null : (
                 <PrimaryButton
                   disabled={nextDisabled({ step, picked: picked.length, templateId })}
@@ -861,63 +892,6 @@ function Context({
   );
 }
 
-function Carries({ split = false }: { split?: boolean }) {
-  if (split) {
-    /*
-     * Two lists side by side, because it is a comparison.
-     *
-     * As a three-row table the left column read as a label per row and the
-     * word "Carried" appeared once against two "Left alone"s, so the eye had
-     * to collect the second and third rows into a group the layout was not
-     * drawing. The question is "what does this touch and what does it not",
-     * and that is two columns with a heading each.
-     */
-    return (
-      <div className="grid grid-cols-1 gap-[10px] sm:grid-cols-2">
-        <CarriesColumn
-          tone="carried"
-          title="Carried over"
-          lines={[
-            "Grouping and group order",
-            "Icons and agency names",
-            "Pins and hidden rows",
-          ]}
-        />
-        <CarriesColumn
-          tone="left"
-          title="Left alone"
-          lines={[
-            "What each sub-account bought — no product is granted or revoked",
-            "Its own links",
-            "Its own renames",
-          ]}
-        />
-      </div>
-    );
-  }
-  return (
-    <ul className="flex flex-col gap-[4px] rounded-[6px] bg-pg px-[12px] py-[10px]">
-      {[
-        ["Carried", "Grouping, group order, icons, agency names, pins, hidden rows."],
-        ["Left alone", "What each sub-account bought. No product is granted or revoked."],
-        ["Left alone", "The sub-account's own links and its own renames."],
-      ].map(([tag, text], i) => (
-        <li key={i} className="flex gap-[8px] text-[13px] leading-[18px]">
-          <span
-            className={cn(
-              "w-[74px] shrink-0 font-medium",
-              tag === "Carried" ? "text-pg-heading" : "text-pg-muted",
-            )}
-          >
-            {tag}
-          </span>
-          <span className="min-w-0 flex-1 text-pg-text">{text}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 function AccountChips({ accounts }: { accounts: readonly Account[] }) {
   return (
     <div className="flex flex-wrap gap-[6px]">
@@ -1018,82 +992,35 @@ function RunReport({ run }: { run: BulkRun }) {
   );
 }
 
-function CarriesColumn({
-  tone,
-  title,
-  lines,
-}: {
-  tone: "carried" | "left";
-  title: string;
-  lines: readonly string[];
-}) {
-  const carried = tone === "carried";
-  return (
-    <div className="flex flex-col gap-[6px] rounded-[8px] bg-pg p-[12px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
-      <span className="flex items-center gap-[6px] text-[12px] leading-[16px] font-semibold tracking-[0.06em] text-pg-heading uppercase">
-        {carried ? (
-          <ArrowRight size={12} aria-hidden="true" className="text-brand" />
-        ) : (
-          <Minus size={12} aria-hidden="true" className="text-pg-faint" />
-        )}
-        {title}
-      </span>
-      <ul className="flex flex-col gap-[4px]">
-        {lines.map((line) => (
-          <li
-            key={line}
-            className={cn(
-              "text-[13px] leading-[18px]",
-              carried ? "text-pg-text" : "text-pg-muted",
-            )}
-          >
-            {line}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 /**
- * The accounts as tags you can take one out of, plus a way to put one in.
+ * The one control that puts a sub-account back into the run.
  *
- * The review step is the last place the selection is true, and it was the one
- * place it could not be corrected — spotting a wrong account here meant
- * cancelling and re-ticking the lot. Closable tags because that is the shape
- * everyone already reads as "a set you can edit", and a plus button because
- * the fix for "I forgot one" should not be to start again.
+ * Its own component because two surfaces need it — the chips and the table —
+ * and the awkward half is not the button but the menu behind it.
  *
- * The last tag has no cross: a bulk run with nothing in it is not a smaller
- * run, it is a different screen, and emptying the set from here would leave
- * the flow standing on a number that is zero.
+ * The menu is measured and portalled, not absolutely positioned in place. In
+ * place it was a 260px box hanging off a button at the end of a wrapping row,
+ * so wherever the row happened to end, the menu started, and past about
+ * two-thirds of the way across it ran off the edge. The modal body scrolls
+ * vertically, and a box overflowing the inline axis of a scroll container turns
+ * the other axis into a scrollbar too — which is the sideways scroll. Portalled
+ * to the body it is in nobody's scroll container; clamped to the viewport it
+ * cannot leave the screen.
  */
-function AccountTags({
+function AddAccountButton({
   accounts,
-  onRemove,
   onAdd,
+  label = "Add",
 }: {
   accounts: readonly Account[];
-  onRemove: (id: string) => void;
   onAdd: (account: Account) => void;
+  label?: string;
 }) {
-  /*
-   * The menu is measured and portalled, not absolutely positioned in place.
-   *
-   * In place it was a 260px box hanging off a button that sits at the end of a
-   * wrapping row — so wherever the tags happened to end, the menu started, and
-   * past about two-thirds of the way across it ran off the edge. The modal body
-   * scrolls vertically, and a box overflowing the inline axis of a scroll
-   * container turns the other axis into a scrollbar too, which is the sideways
-   * scroll. Portalled to the body it is in nobody's scroll container; clamped
-   * to the viewport it cannot leave the screen.
-   */
   const [anchor, setAnchor] = React.useState<DOMRect | null>(null);
   const open = anchor !== null;
   const { effective } = useTheme();
   const chosen = new Set(accounts.map((a) => a.id));
   const rest = allAccounts.filter((a) => !chosen.has(a.id));
-  const only = accounts.length === 1;
 
   const MENU_W = 260;
   const MENU_H = 240;
@@ -1115,68 +1042,44 @@ function AccountTags({
     : { left: 0, top: 0 };
 
   return (
-    <div className="flex flex-col gap-[6px]">
-      <div className="flex flex-wrap items-center gap-[6px]">
-        {accounts.map((a) => (
-          <span
-            key={a.id}
-            className="flex items-center gap-[6px] rounded-[6px] bg-pg py-[4px] pr-[4px] pl-[7px] text-[13px] leading-[18px] text-pg-text shadow-[inset_0_0_0_1px_var(--pg-card-border)]"
-          >
-            <AccountLogo logo={a.logo} src={a.logoSrc} size={16} radius={999} />
-            <span className="max-w-[160px] truncate">{a.name}</span>
-            {only ? null : (
+    <div>
+      <button
+        type="button"
+        onClick={(e) => {
+          /*
+           * Measured here, not inside the updater.
+           *
+           * A state updater runs during the next render, by which point React
+           * has cleared the synthetic event and `currentTarget` is null — so
+           * reading the rect in there threw on the first click. The element is
+           * only guaranteed to be the button while the handler is on the stack.
+           */
+          const rect = e.currentTarget.getBoundingClientRect();
+          setAnchor((a) => (a ? null : rect));
+        }}
+        disabled={rest.length === 0}
+        aria-expanded={open}
+        className="motion-tap flex items-center gap-[5px] rounded-[6px] px-[8px] py-[5px] text-[13px] leading-[18px] font-medium text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border-strong)] hover:bg-pg disabled:opacity-40"
+      >
+        <Plus size={13} aria-hidden="true" />
+        {label}
+      </button>
+
+      {open && rest.length > 0
+        ? createPortal(
+            <div data-page-theme={effective.appTheme}>
+              {/* Click-away, as the other menus in this prototype do it. */}
               <button
                 type="button"
-                aria-label={`Remove ${a.name}`}
-                title="Remove from this run"
-                onClick={() => onRemove(a.id)}
-                className="motion-tap flex size-[18px] shrink-0 items-center justify-center rounded-[4px] text-pg-faint hover:bg-pg-row-border hover:text-pg-heading"
+                aria-label="Close"
+                tabIndex={-1}
+                onClick={() => setAnchor(null)}
+                className="fixed inset-0 z-[95] cursor-default"
+              />
+              <div
+                style={{ ...place, width: MENU_W, maxHeight: MENU_H }}
+                className="fixed z-[96] overflow-y-auto rounded-[8px] bg-pg-surface p-[4px] shadow-[0_12px_16px_-4px_rgba(16,24,40,0.08),0_4px_6px_-2px_rgba(16,24,40,0.03),inset_0_0_0_1px_var(--pg-border)]"
               >
-                <X size={12} aria-hidden="true" />
-              </button>
-            )}
-          </span>
-        ))}
-
-        <div>
-          <button
-            type="button"
-            onClick={(e) => {
-              /*
-               * Measured here, not inside the updater.
-               *
-               * A state updater runs during the next render, by which point
-               * React has cleared the synthetic event and `currentTarget` is
-               * null — so reading the rect in there threw on the first click.
-               * The element is only guaranteed to be the button while the
-               * handler is on the stack.
-               */
-              const rect = e.currentTarget.getBoundingClientRect();
-              setAnchor((a) => (a ? null : rect));
-            }}
-            disabled={rest.length === 0}
-            aria-expanded={open}
-            className="motion-tap flex items-center gap-[5px] rounded-[6px] px-[8px] py-[5px] text-[13px] leading-[18px] font-medium text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border-strong)] hover:bg-pg disabled:opacity-40"
-          >
-            <Plus size={13} aria-hidden="true" />
-            Add
-          </button>
-
-          {open && rest.length > 0
-            ? createPortal(
-                <div data-page-theme={effective.appTheme}>
-                  {/* Click-away, as the other menus in this prototype do it. */}
-                  <button
-                    type="button"
-                    aria-label="Close"
-                    tabIndex={-1}
-                    onClick={() => setAnchor(null)}
-                    className="fixed inset-0 z-[95] cursor-default"
-                  />
-                  <div
-                    style={{ ...place, width: MENU_W, maxHeight: MENU_H }}
-                    className="fixed z-[96] overflow-y-auto rounded-[8px] bg-pg-surface p-[4px] shadow-[0_12px_16px_-4px_rgba(16,24,40,0.08),0_4px_6px_-2px_rgba(16,24,40,0.03),inset_0_0_0_1px_var(--pg-border)]"
-                  >
                 {rest.map((a) => (
                   <button
                     key={a.id}
@@ -1200,62 +1103,103 @@ function AccountTags({
                     </span>
                   </button>
                 ))}
-                  </div>
-                </div>,
-                document.body,
-              )
-            : null}
-        </div>
-      </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
 
 /**
- * The four numbers, as a card rather than a sentence.
+ * Who is on what, and what they are about to be on instead.
  *
- * A sentence hides a zero — "12 will change and 5 already match" reads the
- * same whether the third figure is 0 or 9, and the third figure is the one
- * that means someone's work is about to be overwritten. As a grid each number
- * has a fixed place, so the zero is visible as a zero.
+ * The review step used to be four cards: the selection as chips, a grid of
+ * counts, and two columns listing what a template does and does not carry. All
+ * of it true, none of it the question. An admin at this step is asking one
+ * thing — am I about to move the right sub-accounts off the right layouts —
+ * and the four cards answered it only by arithmetic: "3 will change" told you a
+ * number without telling you which three, and the sub-account you were worried
+ * about was never named.
+ *
+ * A row each, then. Where it is now, where it is going, and a way to take it
+ * out of the run. Nothing else is on screen, because everything else was
+ * competing with the one fact that decides whether to press the button.
  */
-function ImpactCard({ impact }: { impact: TemplateImpact }) {
-  const rows = [
-    { label: "Will change", value: impact.willChange, warn: false },
-    { label: "Already match", value: impact.alreadyMatch, warn: false },
-    {
-      label: "Customised — will be overwritten",
-      value: impact.customised,
-      warn: impact.customised > 0,
-    },
-    {
-      label: "Products dropped (not owned)",
-      value: impact.droppedProducts,
-      warn: false,
-    },
-  ];
+function TemplateMoveTable({
+  accounts,
+  template,
+  onRemove,
+  onAdd,
+}: {
+  accounts: readonly Account[];
+  template: NavTemplate;
+  onRemove: (id: string) => void;
+  onAdd: (account: Account) => void;
+}) {
+  const { linkedFor } = useNavTemplates();
+  const only = accounts.length === 1;
+
   return (
-    <div className="flex flex-col gap-[2px] rounded-[8px] bg-pg p-[12px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
-      {rows.map((r) => (
-        <div key={r.label} className="flex items-baseline gap-[8px]">
-          <span
-            className={cn(
-              "w-[44px] shrink-0 text-right text-[15px] leading-[22px] font-semibold tabular-nums",
-              r.warn ? "text-[var(--hr-warning-700)]" : "text-pg-heading",
-            )}
-          >
-            {r.value.toLocaleString("en-US")}
-          </span>
-          <span
-            className={cn(
-              "min-w-0 flex-1 text-[13px] leading-[22px]",
-              r.warn ? "text-[var(--hr-warning-700)]" : "text-pg-muted",
-            )}
-          >
-            {r.label}
-          </span>
+    <div className="flex flex-col gap-[8px]">
+      <div className="overflow-hidden rounded-[8px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+        <div className="flex items-center gap-[10px] bg-pg px-[12px] py-[7px] text-[11px] leading-[15px] font-semibold tracking-[0.4px] text-pg-muted uppercase">
+          <span className="min-w-0 flex-1">Sub-account</span>
+          <span className="min-w-0 flex-1">Currently on</span>
+          <span className="min-w-0 flex-1">Will be on</span>
+          <span className="w-[20px] shrink-0" />
         </div>
-      ))}
+        {accounts.map((a) => {
+          const from = linkedFor(a.id);
+          // Already there: the row still shows, because a selection you cannot
+          // see is a selection you cannot correct — but it says plainly that
+          // nothing happens to it.
+          const same = from?.id === template.id;
+          return (
+            <div
+              key={a.id}
+              className="flex items-center gap-[10px] px-[12px] py-[9px] not-last:shadow-[inset_0_-1px_0_0_var(--pg-card-border)]"
+            >
+              <span className="flex min-w-0 flex-1 items-center gap-[7px]">
+                <AccountLogo logo={a.logo} src={a.logoSrc} size={18} radius={999} />
+                <span className="truncate text-[13px] leading-[18px] font-medium text-pg-heading">
+                  {a.name}
+                </span>
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[13px] leading-[18px] text-pg-muted">
+                {from?.name ?? "No template"}
+              </span>
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate text-[13px] leading-[18px]",
+                  same ? "text-pg-faint" : "font-medium text-pg-heading",
+                )}
+              >
+                {same ? "No change" : template.name}
+              </span>
+              <span className="flex w-[20px] shrink-0 justify-end">
+                {only ? null : (
+                  <button
+                    type="button"
+                    aria-label={`Remove ${a.name}`}
+                    title="Remove from this run"
+                    onClick={() => onRemove(a.id)}
+                    className="motion-tap flex size-[20px] items-center justify-center rounded-[4px] text-pg-faint hover:bg-pg-row-border hover:text-pg-heading"
+                  >
+                    <X size={13} aria-hidden="true" />
+                  </button>
+                )}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <AddAccountButton
+        accounts={accounts}
+        onAdd={onAdd}
+        label="Add a sub-account"
+      />
     </div>
   );
 }

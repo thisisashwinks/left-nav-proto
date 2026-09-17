@@ -4,6 +4,7 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { ArrowUp, Check, X } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
+import { useNavTemplates } from "@/components/nav/nav-templates";
 import { areasAddedBy } from "@/components/nav/saas-tiers";
 import { useTheme } from "@/components/theme/theme-provider";
 import {
@@ -39,6 +40,7 @@ export function SaasTierDialog({
   onClose: () => void;
 }) {
   const { effective } = useTheme();
+  const { templateForTier } = useNavTemplates();
 
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -144,6 +146,30 @@ export function SaasTierDialog({
                   <span className="mt-[3px] block text-[12px] leading-[16px] text-pg-faint">
                     Adds {areasAddedBy(tier).join(", ")}
                   </span>
+                  {/*
+                    What moving here does to their NAVIGATION, said before the
+                    press.
+
+                    A plan carrying a template rearranges the client's sidebar
+                    the moment they join it — the same apply as any other, just
+                    reached through billing. And a plan carrying none does
+                    nothing at all, which is the more surprising of the two: the
+                    account keeps the layout it already had, and an empty line
+                    here would read as "we don't know". Both are stated.
+                  */}
+                  {effective.templateSaasPlans ? (
+                    <span className="mt-[2px] block text-[12px] leading-[16px] text-pg-faint">
+                      {(() => {
+                        const attached = templateForTier(tier);
+                        if (attached) {
+                          return isCurrent
+                            ? `On the ${attached.name} layout`
+                            : `Applies the ${attached.name} layout`;
+                        }
+                        return "No template — keeps their current layout";
+                      })()}
+                    </span>
+                  ) : null}
                 </span>
               </button>
             );

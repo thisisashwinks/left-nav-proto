@@ -1,8 +1,14 @@
 "use client";
 
 import * as React from "react";
+import { accounts as allAccounts } from "@/components/accounts/accounts-data";
 import { useTheme } from "@/components/theme/theme-provider";
+import { SAAS_TIERS, type SaasTier } from "@/design/plans";
+import { accountsWithOwnArrangement } from "./account-nav-profiles";
+import { LAUNCHED_SINCE } from "./catalogue";
 import { resolveOwned } from "./catalogue-equivalents";
+import { useNavLayout } from "./nav-layout-provider";
+import { useNavProfiles } from "./nav-profiles";
 import {
   customTreeFor,
   type GroupingMode,
@@ -49,6 +55,23 @@ export type NavArrangement = Pick<
   | "hiddenBlocks"
   | "hiddenRows"
   | "tailOrder"
+  /**
+   * The account's own links.
+   *
+   * Recorded always, applied only under `one-template` — see
+   * `patchForArrangement`. A template that did not RECORD them could never
+   * carry them under any model, and the field costs nothing when unused.
+   */
+  | "customLinks"
+  /**
+   * The order of the rows INSIDE a panel, keyed by panel.
+   *
+   * Reordering a flyout's rows is the same gesture as reordering the nav's, one
+   * level in — and it was the one reorder a template did not carry, so a nav
+   * arranged inside its panels arrived at the next account in catalogue order
+   * with no sign anything had been lost.
+   */
+  | "panelOrder"
 >;
 
 export interface NavTemplate {
@@ -271,6 +294,36 @@ interface TemplatesValue {
   markDiverged: (accountId: string, divergence: TemplateDivergence) => void;
   clearDivergence: (accountId: string) => void;
 
+  /**
+   * Whether a sub-account may hold a layout of its own. See LAYOUT_MODELS.
+   *
+   * On the store because it changes what MEMBERSHIP means, not just what the
+   * menus offer: under `one-template` an account with no link is not on
+   * nothing, it is on the default, and every count in the feature has to say so
+   * or the dialogs are quoting the wrong numbers.
+   */
+  strict: boolean;
+  /**
+   * The template a SaaS plan hands out, if it has one. Journey 4.
+   *
+   * Null for a plan with nothing attached, which is a real state and not an
+   * error: joining that plan changes no layout at all.
+   */
+  templateForTier: (tier: SaasTier) => NavTemplate | null;
+  /** The plan a template is attached to, for the row that says so. */
+  tierForTemplate: (templateId: string) => SaasTier | null;
+  /** Attaches a template to a plan, or clears it with null. */
+  attachToTier: (tier: SaasTier, templateId: string | null) => void;
+  /** Which accounts are on a plan — who an attach reaches. */
+  accountsOnTier: (tier: SaasTier) => readonly string[];
+  /**
+   * Catalogue products that launched after this template was saved.
+   *
+   * Empty when the axis is off, and always empty for the default — which is not
+   * a stored arrangement and therefore has nothing to be behind.
+   */
+  newProductsFor: (templateId: string) => readonly string[];
+
   notify: (message: string) => void;
   /** The message on screen, with an id so a repeat replays rather than sits. */
   toast: { id: number; message: string } | null;
@@ -316,6 +369,8 @@ export function captureArrangement(state: NavLayoutState): NavArrangement {
     hiddenBlocks: tree.hiddenBlocks,
     hiddenRows: tree.hiddenRows,
     tailOrder: tree.tailOrder,
+    customLinks: tree.customLinks,
+    panelOrder: tree.panelOrder,
   };
 }
 
@@ -367,6 +422,8 @@ const preset = (
     hiddenBlocks: [],
     hiddenRows: [],
     tailOrder: [],
+    customLinks: [],
+    panelOrder: {},
   },
 });
 
@@ -409,6 +466,8 @@ const DEFAULT_TEMPLATE: NavTemplate = {
     hiddenBlocks: [],
     hiddenRows: [],
     tailOrder: [],
+    customLinks: [],
+    panelOrder: {},
   },
 };
 
@@ -576,7 +635,22 @@ function mergedGroups(
 export function patchForArrangement(
   a: NavArrangement,
   target: NavLayoutState,
-): NavArrangement {
+  /**
+   * Whether the template IS the nav, or a shape laid over the tenant's own.
+   *
+   * Under `one-template` it is the nav: there is no per-account layer, so the
+   * two fields that were deliberately left to the tenant — its own links and
+   * its own renames — stop being exceptions and become things the template
+   * decides like everything else. Leaving them out is what made an applied
+   * template look unlike the template: the target kept the names it shipped
+   * with, which outrank the agency's, and none of the source account's links
+   * arrived at all.
+   *
+   * Under `local-edits` they stay the tenant's, which is the whole reason they
+   * were carved out in the first place.
+   */
+  opts?: { whole?: boolean },
+): NavArrangement & Partial<NavLayoutState> {
     const owns = new Set(target.enabledProducts);
 
     return {
@@ -607,7 +681,23 @@ export function patchForArrangement(
         const kept = a.pinned
           .map((p) => resolveOwned(p, owns))
           .filter((p): p is string => p !== undefined);
-        return kept.length > 0 ? kept : target.pinned;
+        if (kept.length > 0) return kept;
+        /*
+         * An empty dock the template MEANT is not the same as one the filter
+         * emptied.
+         *
+         * The fallback is for a template whose pins this account does not own —
+         * applying a grouping should not silently clear somebody's favourites.
+         * But it was also catching the admin who deliberately unpinned
+         * everything and saved: the template said "no pins", the target had
+         * some, and the target's survived. One of the few edits that could be
+         * made, saved, applied and simply not happen.
+         *
+         * So the two cases are separated by the question the fallback was
+         * always really asking: did the template have pins that got lost on the
+         * way in? Only then is the account's own dock the better answer.
+         */
+        return a.pinned.length > 0 ? target.pinned : [];
       })(),
       hiddenRows: a.hiddenRows
         .map((p) => resolveOwned(p, owns))
@@ -621,6 +711,30 @@ export function patchForArrangement(
           .filter((p): p is string => p !== undefined),
         ...target.tailOrder.filter((p) => !a.tailOrder.includes(p)),
       ],
+      /*
+       * Links, and the account-scope names that would otherwise outrank the
+       * template's.
+       *
+       * `accountProductLabels` wins over `agencyProductLabels` by design — a
+       * tenant's own word for a row beats the agency's. Under `one-template`
+       * that precedence is the local layer by another name: apply a template to
+       * a dental practice and its "Patients" quietly survives, so the nav is
+       * not the template and nobody can see why. Cleared, so what lands is what
+       * the template says.
+       */
+      /*
+       * Panel order lands whatever the model, because it is pure arrangement:
+       * it names rows inside a panel and grants nothing. The rows it names that
+       * this account does not own simply never render.
+       */
+      panelOrder: a.panelOrder,
+      ...(opts?.whole
+        ? {
+            customLinks: a.customLinks,
+            accountLabels: {},
+            accountProductLabels: {},
+          }
+        : { customLinks: target.customLinks }),
     };
 }
 
@@ -651,6 +765,22 @@ function productsOf(a: NavArrangement): Set<string> {
 
 const sameList = (a: readonly string[], b: readonly string[]) =>
   a.length === b.length && a.every((x, i) => x === b[i]);
+
+/**
+ * The blocks by the name a person calls them, for the change list.
+ *
+ * Spelled here rather than imported from `NAV_BLOCK_LABELS` in the nav's own
+ * config: those are the labels the MENU draws, sentence-cased for a row, and
+ * these appear mid-sentence after a verb. One of them drifting is a nuisance;
+ * a change list reading "Hid Quick Actions" inside a lowercase sentence is a
+ * nuisance every time anybody saves.
+ */
+const BLOCK_NAMES: Record<string, string> = {
+  launchpad: "the Launchpad",
+  recent: "Recent",
+  quickActions: "Quick actions",
+  pinned: "Favourites",
+};
 
 /**
  * What changed between two versions of a template, in a sentence a person reads.
@@ -708,6 +838,30 @@ export function describeChanges(
   if (!sameList(before.pinned, after.pinned)) out.push("Changed the pinned set");
   if (!sameList(before.hiddenRows, after.hiddenRows)) out.push("Changed which rows are hidden");
 
+  /*
+   * The blocks — Recent, Quick actions, Launchpad, Favourites.
+   *
+   * `hiddenBlocks` has always travelled with a template: it is in
+   * `NavArrangement`, `captureArrangement` takes it, `patchForArrangement`
+   * lands it, and `hasLocalChanges` counts it. It was the only field nothing
+   * ever SAID anything about — so hiding Quick actions and saving produced "No
+   * visible change to the arrangement", which is a receipt telling you your
+   * edit did not travel when it had.
+   *
+   * Named individually rather than counted: there are four of them, they are
+   * whole sections of the sidebar rather than rows in it, and "Hid Quick
+   * actions" is the sentence someone needs in order to recognise what happened
+   * to their nav.
+   */
+  const blocksBefore = new Set(before.hiddenBlocks);
+  const blocksAfter = new Set(after.hiddenBlocks);
+  for (const block of after.hiddenBlocks) {
+    if (!blocksBefore.has(block)) out.push(`Hid ${BLOCK_NAMES[block] ?? block}`);
+  }
+  for (const block of before.hiddenBlocks) {
+    if (!blocksAfter.has(block)) out.push(`Showed ${BLOCK_NAMES[block] ?? block}`);
+  }
+
   if (out.length === 0) out.push("No visible change to the arrangement");
   return out.length > 5 ? [...out.slice(0, 5), `…and ${out.length - 5} more`] : out;
 }
@@ -753,6 +907,19 @@ export function hasLocalChanges(
   if (!sameList(base.hiddenRows, current.hiddenRows)) return true;
   if (!sameList(base.hiddenBlocks, current.hiddenBlocks)) return true;
   if (!sameList(base.tailOrder, current.tailOrder)) return true;
+  // A link added or removed is a row added or removed. Without this, adding one
+  // left "Save template" dead over a nav that had genuinely moved.
+  if (!sameList(base.customLinks, current.customLinks)) return true;
+
+  // Panel order, keyed by panel: a nav arranged one level in is still arranged.
+  const panels = new Set([
+    ...Object.keys(base.panelOrder),
+    ...Object.keys(current.panelOrder),
+  ]);
+  for (const panel of panels) {
+    if (!sameList(base.panelOrder[panel] ?? [], current.panelOrder[panel] ?? []))
+      return true;
+  }
 
   if (!sameMap(base.agencyLabels, current.agencyLabels)) return true;
   if (!sameMap(base.agencyProductLabels, current.agencyProductLabels)) return true;
@@ -930,12 +1097,71 @@ export function NavTemplatesProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { templateSeed } = useTheme().effective;
+  const {
+    templateSeed,
+    layoutModel,
+    templateSaasPlans,
+    templateNewProductMark,
+    templateAccountSpread,
+  } = useTheme().effective;
+  const strict = layoutModel === "one-template";
+  const { profileFor } = useNavLayout();
+  const { saasTierFor: tierFor } = useNavProfiles();
   const [templates, setTemplates] = React.useState<readonly NavTemplate[]>(
     SEED_TEMPLATES,
   );
   /** accountId → the template it is on, the version it took, and that base. */
-  const [links, setLinks] = React.useState<Record<string, TemplateLink>>({});
+  const [stored, setLinks] = React.useState<Record<string, TemplateLink>>({});
+  /** Which plan hands out which template. Journey 4, and empty until attached. */
+  const [tierTemplates, setTierTemplates] = React.useState<
+    Record<SaasTier, string | null>
+  >({ basic: null, growth: null, premium: null });
+
+  /*
+   * One template per account that ships with its own arrangement.
+   *
+   * Derived rather than seeded into state, so the axis is reversible the way
+   * `templateSeed` is: switching it off does not delete anything an agency made
+   * here, it stops materialising a set that was never really theirs. The
+   * captured arrangement is the account's live one, so a spread template is
+   * genuinely what that account is on rather than a label claiming so.
+   */
+  const spread = React.useMemo(() => {
+    if (!templateAccountSpread) {
+      return { list: [] as NavTemplate[], links: {} as Record<string, TemplateLink> };
+    }
+    const list: NavTemplate[] = [];
+    const links: Record<string, TemplateLink> = {};
+    for (const accountId of accountsWithOwnArrangement()) {
+      const account = allAccounts.find((a) => a.id === accountId);
+      if (!account) continue;
+      const arrangement = captureArrangement(profileFor(accountId));
+      const template: NavTemplate = {
+        id: `tpl-acct-${accountId}`,
+        name: `${account.name} nav`,
+        fromAccount: account.name,
+        productCount: new Set(
+          arrangement.customGroups.flatMap((g) => g.productIds),
+        ).size,
+        version: 1,
+        updatedAt: "Jan 14, 2026",
+        arrangement,
+      };
+      list.push(template);
+      links[accountId] = { templateId: template.id, base: arrangement };
+    }
+    return { list, links };
+  }, [templateAccountSpread, profileFor]);
+
+  /*
+   * What the feature reads. A link the agency actually made outranks a spread
+   * one, so applying a template to a spread account moves it off the template
+   * that was standing in for its own arrangement.
+   */
+  const links = React.useMemo(
+    () => ({ ...spread.links, ...stored }),
+    [spread.links, stored],
+  );
   /** accountId → what a push did to it, waiting to be read. */
   const [notices, setNotices] = React.useState<Record<string, TemplateNotice>>({});
   const [diverged, setDiverged] = React.useState<
@@ -1042,6 +1268,13 @@ export function NavTemplatesProvider({
           Object.entries(all).filter(([, held]) => held.templateId !== id),
         ),
       );
+      // A plan pointing at a deleted template would hand out nothing to every
+      // account that joined it afterwards, silently. See Journey 4.
+      setTierTemplates((all) =>
+        Object.fromEntries(
+          SAAS_TIERS.map((tier) => [tier, all[tier] === id ? null : all[tier]]),
+        ) as Record<SaasTier, string | null>,
+      );
     },
     [],
   );
@@ -1116,30 +1349,107 @@ export function NavTemplatesProvider({
 
   const reassign = React.useCallback(
     (fromTemplateId: string, toTemplateId: string) => {
+      /*
+       * Moving onto the default is moving onto NO link.
+       *
+       * The default carries no stored arrangement — it is whatever this tenant
+       * ships with — so a link to it would be a pointer at a thing that is
+       * different in every account. Dropping the link says the same fact in the
+       * representation the rest of the store already uses, and keeps
+       * `accountsOnIds` the single place that knows it.
+       */
       setLinks((all) =>
         Object.fromEntries(
-          Object.entries(all).map(([accountId, held]) =>
-            held.templateId === fromTemplateId
-              ? [accountId, { ...held, templateId: toTemplateId }]
-              : [accountId, held],
-          ),
+          Object.entries(all).flatMap(([accountId, held]) => {
+            if (held.templateId !== fromTemplateId) return [[accountId, held]];
+            if (toTemplateId === DEFAULT_TEMPLATE_ID) return [];
+            return [[accountId, { ...held, templateId: toTemplateId }]];
+          }),
         ),
       );
     },
     [],
   );
 
+  const templateForTier = React.useCallback(
+    (tier: SaasTier) => {
+      if (!templateSaasPlans) return null;
+      const id = tierTemplates[tier];
+      return (id && templates.find((t) => t.id === id)) || null;
+    },
+    [templateSaasPlans, tierTemplates, templates],
+  );
+
+  const tierForTemplate = React.useCallback(
+    (templateId: string) => {
+      if (!templateSaasPlans) return null;
+      return (
+        SAAS_TIERS.find((tier) => tierTemplates[tier] === templateId) ?? null
+      );
+    },
+    [templateSaasPlans, tierTemplates],
+  );
+
+  const attachToTier = React.useCallback(
+    (tier: SaasTier, templateId: string | null) =>
+      setTierTemplates((all) => ({
+        ...all,
+        /*
+         * The default is not an attachment, it is the absence of one.
+         *
+         * "Attached to the HighLevel default" and "nothing attached" describe
+         * the same plan — a joiner's layout is untouched either way — and two
+         * spellings of one state is how a list ends up disagreeing with itself.
+         */
+        [tier]: templateId === DEFAULT_TEMPLATE_ID ? null : templateId,
+      })),
+    [],
+  );
+
+  const accountsOnTier = React.useCallback(
+    (tier: SaasTier) =>
+      allAccounts.filter((a) => tierFor(a.id) === tier).map((a) => a.id),
+    [tierFor],
+  );
+
+  const newProductsFor = React.useCallback(
+    (templateId: string): readonly string[] => {
+      if (!templateNewProductMark) return [];
+      // The default has no saved arrangement to be behind — it IS the position
+      // a new product arrives at, so nothing about it is out of date.
+      if (templateId === DEFAULT_TEMPLATE_ID) return [];
+      const tpl = templates.find((t) => t.id === templateId);
+      if (!tpl) return [];
+      const placed = new Set(
+        tpl.arrangement.customGroups.flatMap((g) => g.productIds),
+      );
+      return LAUNCHED_SINCE.filter((id) => !placed.has(id));
+    },
+    [templateNewProductMark, templates],
+  );
+
+  /*
+   * Being on nothing is not a state under `one-template`.
+   *
+   * An account with no link has not opted out of the model — it is on the
+   * HighLevel default, which is the model's floor. Answering null here is what
+   * made "on nothing" reachable everywhere else: the menu drew no current
+   * template, the counts left those accounts out, and the delete dialog could
+   * offer a destination that was already where they were.
+   */
   const linkedIdFor = React.useCallback(
-    (accountId: string) => links[accountId]?.templateId ?? null,
-    [links],
+    (accountId: string) =>
+      links[accountId]?.templateId ?? (strict ? DEFAULT_TEMPLATE_ID : null),
+    [links, strict],
   );
 
   const linkedFor = React.useCallback(
     (accountId: string) => {
       const id = links[accountId]?.templateId;
-      return (id && templates.find((t) => t.id === id)) || null;
+      if (!id) return strict ? DEFAULT_TEMPLATE : null;
+      return templates.find((t) => t.id === id) ?? null;
     },
-    [links, templates],
+    [links, templates, strict],
   );
 
   const linkFor = React.useCallback(
@@ -1210,18 +1520,30 @@ export function NavTemplatesProvider({
     [],
   );
 
-  const accountsOn = React.useCallback(
-    (templateId: string) =>
-      Object.values(links).filter((held) => held.templateId === templateId).length,
-    [links],
+  /*
+   * Who is on a template — with the default counted properly.
+   *
+   * Under `one-template` the default's population is everyone NOT linked
+   * elsewhere, which is the count the delete and save dialogs quote and the
+   * only one that adds up to the fleet. Under `local-edits` the default is
+   * still the absence of a link, so it counts nobody and the old arithmetic
+   * stands.
+   */
+  const accountsOnIds = React.useCallback(
+    (templateId: string): readonly string[] => {
+      if (strict && templateId === DEFAULT_TEMPLATE_ID) {
+        return allAccounts.filter((a) => !links[a.id]).map((a) => a.id);
+      }
+      return Object.entries(links)
+        .filter(([, held]) => held.templateId === templateId)
+        .map(([accountId]) => accountId);
+    },
+    [links, strict],
   );
 
-  const accountsOnIds = React.useCallback(
-    (templateId: string) =>
-      Object.entries(links)
-        .filter(([, held]) => held.templateId === templateId)
-        .map(([accountId]) => accountId),
-    [links],
+  const accountsOn = React.useCallback(
+    (templateId: string) => accountsOnIds(templateId).length,
+    [accountsOnIds],
   );
 
   const patchFor = React.useCallback(
@@ -1236,9 +1558,11 @@ export function NavTemplatesProvider({
       */
       if (id === DEFAULT_TEMPLATE_ID) return null;
       const tpl = templates.find((t) => t.id === id);
-      return tpl ? patchForArrangement(tpl.arrangement, target) : null;
+      return tpl
+        ? patchForArrangement(tpl.arrangement, target, { whole: strict })
+        : null;
     },
-    [templates],
+    [templates, strict],
   );
 
   /*
@@ -1249,13 +1573,22 @@ export function NavTemplatesProvider({
    * the agency made itself is never touched — only the shipped examples are
    * hidden. The immutable default is `builtIn` too and always stays.
    */
-  const visible = React.useMemo(
-    () =>
+  const visible = React.useMemo(() => {
+    const own =
       templateSeed === "presets"
         ? templates
-        : templates.filter((t) => !t.builtIn || t.immutable),
-    [templates, templateSeed],
-  );
+        : templates.filter((t) => !t.builtIn || t.immutable);
+    /*
+     * The spread sits after the agency's own, not before.
+     *
+     * It is seventeen rows of "this one account's nav", which is the least
+     * interesting thing in a list somebody opened to find a shared standard —
+     * and the argument the axis exists to make is precisely that a list shaped
+     * like this is hard to use. Putting them last makes the point without
+     * burying the default under them.
+     */
+    return [...own, ...spread.list];
+  }, [templates, templateSeed, spread.list]);
 
   const value = React.useMemo<TemplatesValue>(
     () => ({
@@ -1281,6 +1614,12 @@ export function NavTemplatesProvider({
       divergedFor,
       markDiverged,
       clearDivergence,
+      strict,
+      templateForTier,
+      tierForTemplate,
+      attachToTier,
+      accountsOnTier,
+      newProductsFor,
       notify,
       toast,
       dismissToast,
@@ -1308,6 +1647,12 @@ export function NavTemplatesProvider({
       divergedFor,
       markDiverged,
       clearDivergence,
+      strict,
+      templateForTier,
+      tierForTemplate,
+      attachToTier,
+      accountsOnTier,
+      newProductsFor,
       notify,
       toast,
       dismissToast,

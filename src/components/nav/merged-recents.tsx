@@ -18,6 +18,7 @@ import { glyphFor, type NavLayoutState } from "./grouping";
 import { ComposedIcon } from "./composed-icon";
 import { useNavLayout } from "./nav-layout-provider";
 import { PIN_CAP_HINT, usePinnedInk } from "./pin-button";
+import { usePinLanded } from "./pin-feedback";
 import { RailTooltip } from "./rail-tooltip";
 
 /**
@@ -177,7 +178,18 @@ function MergedList({
   const viewAll = { label: "View all", onClick: onOpenPanel };
 
   return (
-    <div className="flex w-full shrink-0 flex-col gap-[var(--t-nav-space,2px)]">
+    /*
+      The destination a pinned row is shown flying to.
+
+      The block rather than the first row: the row a pin lands in does not exist
+      until the pin has happened, and reading a slot that is about to appear is
+      how you aim at the wrong place by exactly one row height. See
+      PIN_FEEDBACKS.
+    */
+    <div
+      data-pin-target=""
+      className="flex w-full shrink-0 flex-col gap-[var(--t-nav-space,2px)]"
+    >
       {sublabelled ? null : (
         <BlockHeading
           text={MERGED_HEADING_LABELS[mergedHeading]}
@@ -569,8 +581,11 @@ function MergedItemRow({
 }) {
   const Icon = row.icon;
   const pinnedInk = usePinnedInk();
+  // Empty for every treatment that does not animate the destination.
+  const landed = usePinLanded(row.id);
   return (
     <div
+      data-pin-row=""
       // `group/row` rather than a bare group: PinButton's hover variant names
       // this row specifically, and an unnamed group would also match any
       // hovered ancestor.
@@ -579,6 +594,7 @@ function MergedItemRow({
         "gap-[var(--t-nav-gap,10px)] rounded-[var(--t-nav-radius,7px)]",
         "px-[var(--t-nav-px,8px)] py-[calc(var(--t-nav-py,9px)*0.667)]",
         "hover:bg-nav-hover",
+        landed,
       )}
     >
       <button

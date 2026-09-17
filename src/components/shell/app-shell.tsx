@@ -55,6 +55,7 @@ import {
 import { useAgencyLayout } from "@/components/nav/agency-layout";
 import { AskAiPage } from "@/components/ai/ask-ai-page";
 import { AgencyCompanyPage } from "@/components/settings/agency-company-page";
+import { SaasConfiguratorPage } from "@/components/settings/saas-configurator-page";
 import { BusinessProfilePage } from "@/components/settings/business-profile-page";
 import {
   LEGACY_BUSINESS_PROFILE_ID,
@@ -2022,6 +2023,14 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 <GetAppPage kind="mobile" />
               ) : selectedId === GET_APP_ROW_IDS.desktop ? (
                 <GetAppPage kind="desktop" />
+              ) : agencyPlace && selectedId === "agency-saas-configurator" ? (
+                /*
+                 * Where a plan says which navigation it hands out. Journey 4
+                 * belongs on the plans screen, not in the nav's own ⋯ menu:
+                 * everything there is about the nav in front of you, and this
+                 * is about accounts you are not looking at.
+                 */
+                <SaasConfiguratorPage />
               ) : agencyPlace && selectedId === "agency-company" ? (
                 // The one agency settings page drawn in full: White label is
                 // where the logo pair lives.

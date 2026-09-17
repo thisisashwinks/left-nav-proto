@@ -3,6 +3,8 @@
 import * as React from "react";
 import type { LucideIcon } from "lucide-react";
 import { INITIAL_ACCOUNT_ID } from "@/components/accounts/accounts-data";
+import { useTheme } from "@/components/theme/theme-provider";
+import { DEFAULT_THEME } from "@/design/theme";
 import { navProfileFor } from "./account-nav-profiles";
 import {
   AGENCY_SCOPE_ID,
@@ -11,7 +13,7 @@ import {
   type EditBlock,
 } from "./nav-profiles";
 import { productById } from "./catalogue";
-import { CHROME_TAIL_IDS, tailRowsFor } from "./nav-entries";
+import { l1IdsFor, tailRowsFor } from "./nav-entries";
 import {
   defaultLabelForGroup,
   iconForGroup,
@@ -248,6 +250,13 @@ interface NavLayoutContextValue {
    * support call can get to the nav in the screenshot and back again without
    * betting their setup on catching a toast.
    */
+  /**
+   * Makes what is on screen the session's new baseline. See the action.
+   *
+   * No-ops outside an edit session, so a caller does not have to ask whether
+   * one is open before doing the right thing.
+   */
+  rebaseline: () => void;
   showDefaultLayout: () => void;
   /** Back to the account's own arrangement, dropping anything done to the default. */
   restoreOwnLayout: () => void;
@@ -411,6 +420,16 @@ type Action =
   | { type: "saveEdit" }
   /** Closes edit mode, putting the baseline back. */
   | { type: "discardEdit" }
+  /**
+   * Keeps the session open and makes what is on screen the thing to discard TO.
+   *
+   * For an act that is complete in itself and happens to have been taken from
+   * inside edit mode — applying a template. The arrangement that landed is not
+   * an unsaved change: it is already recorded, the account is already linked to
+   * it, and Discard rolling it back would leave the nav wearing one template
+   * while the store says it is on another.
+   */
+  | { type: "rebaseline" }
   /** Account switch: swap in another account's saved layout, drop the offer. */
   | { type: "load"; layout: NavLayoutState }
   /** Put the shipped default on screen, holding the account's own aside. */
@@ -459,6 +478,10 @@ function reducer(store: Store, action: Action): Store {
             editBaseline: store.layout,
             editDirty: false,
           };
+    case "rebaseline":
+      return store.editBaseline === null
+        ? store
+        : { ...store, editBaseline: store.layout, editDirty: false };
     case "saveEdit":
       return {
         ...store,
@@ -762,12 +785,50 @@ function without(
  * itself is the undo, and the toast is the safety net.
  */
 export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
+  /**
+   * Whether a sub-account may hold a layout of its own. See LAYOUT_MODELS.
+   *
+   * Read from the theme rather than the templates store, which sits BELOW this
+   * provider and cannot be reached from here. The model is a platform axis, not
+   * a fact about templates, so the theme is where it belongs anyway.
+   */
+  const { layoutModel, templateAccountSpread } = useTheme().effective;
+  const strict = layoutModel === "one-template";
+  /**
+   * Whether a sub-account wakes up on the shipped arrangement rather than its
+   * own. See `navProfileFor` and `templateAccountSpread`.
+   */
+  const plain = strict && !templateAccountSpread;
+  /**
+   * The baseline arrangement for an account, per the model.
+   *
+   * Depends on `plain` rather than reading a ref, because it is called during
+   * render — `isDefaultLayout` asks it what the floor is. The callbacks built
+   * on it are rebuilt when the axis moves, which happens when somebody flips a
+   * switch in the panel and not otherwise; what those callbacks must survive is
+   * a BURST in one tick, and that is unaffected.
+   */
+  const profileOf = React.useCallback(
+    (accountId: string) => navProfileFor(accountId, plain ? "default" : "own"),
+    [plain],
+  );
+  /** What `plain` was last time, so the re-seed fires on the change alone. */
+  const plainRef = React.useRef(plain);
   const [store, dispatch] = React.useReducer(reducer, {
     // Seeded with the account the session opens in rather than the shipped
     // default: an account's layout is a property of the account, so the very
     // first paint has to be its own — not the whole catalogue, corrected a
     // frame later.
-    layout: navProfileFor(INITIAL_ACCOUNT_ID),
+    layout: navProfileFor(
+      INITIAL_ACCOUNT_ID,
+      // The shipped axes are `one-template` with no spread, so the very first
+      // paint is the arrangement those two produce. Anything else would be a
+      // frame of a layout the model does not allow, corrected on mount.
+      DEFAULT_THEME.layoutModel === "one-template" &&
+        !DEFAULT_THEME.templateAccountSpread
+        ? "default"
+        : "own",
+    ),
     undoOffer: null,
     nextOfferId: 1,
     nextGroupId: 1,
@@ -836,18 +897,46 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
     }
     // First visit wakes the account's own seeded layout — its products, its
     // vocabulary, its grouping. After that, whatever the user left behind.
-    const incoming = nextProfiles[accountId] ?? navProfileFor(accountId);
+    const incoming = nextProfiles[accountId] ?? profileOf(accountId);
     setProfiles(nextProfiles);
     dispatch({ type: "load", layout: incoming });
     setActiveId(accountId);
-  }, []);
+  }, [profileOf]);
+
+  /*
+   * Flipping the axis re-seeds the fleet.
+   *
+   * The profiles map is a cache of arrangements built under the OLD answer, and
+   * the active account's live state is one more. Left alone, switching the
+   * spread on would give every account a template of its own holding an
+   * arrangement it was no longer wearing, and switching it off would leave
+   * seventeen accounts still tuned while the list insisted they were all on the
+   * HighLevel default — the exact claim the axis exists to make honest.
+   *
+   * So the cache is dropped and the account on screen is reloaded. It costs
+   * in-session edits made to OTHER accounts, which is the right trade for a
+   * control whose whole subject is what the fleet looks like: this is a
+   * scenario switch, not an edit.
+   */
+  React.useEffect(() => {
+    if (plainRef.current === plain) return;
+    plainRef.current = plain;
+    setProfiles({});
+    dispatch({
+      type: "load",
+      layout: navProfileFor(
+        activeIdRef.current ?? INITIAL_ACCOUNT_ID,
+        plain ? "default" : "own",
+      ),
+    });
+  }, [plain]);
 
   const profileFor = React.useCallback(
     (accountId: string): NavLayoutState =>
       accountId === activeId
         ? state
-        : (profiles[accountId] ?? navProfileFor(accountId)),
-    [activeId, state, profiles],
+        : (profiles[accountId] ?? profileOf(accountId)),
+    [activeId, state, profiles, profileOf],
   );
 
 
@@ -876,7 +965,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
           // Unvisited accounts have no stored profile yet, so the seed is the
           // base — same rule `profileFor` reads by, so a bulk run lands on the
           // account's real arrangement whether or not anyone has opened it.
-          const base = nextProfiles[id] ?? navProfileFor(id);
+          const base = nextProfiles[id] ?? profileOf(id);
           const next = patch(base);
           if (next === base) continue;
           nextProfiles[id] = next;
@@ -888,7 +977,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         dispatch({ type: "commit", message, next: patch, silent: true });
       }
     },
-    [],
+    [profileOf],
   );
 
   /*
@@ -907,7 +996,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         const nextProfiles = { ...prev };
         for (const id of accountIds) {
           if (id === active) continue;
-          nextProfiles[id] = navProfileFor(id);
+          nextProfiles[id] = profileOf(id);
         }
         return nextProfiles;
       });
@@ -915,12 +1004,12 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         dispatch({
           type: "commit",
           message,
-          next: () => navProfileFor(active),
+          next: () => profileOf(active),
           silent: true,
         });
       }
     },
-    [],
+    [profileOf],
   );
 
   const commit = React.useCallback(
@@ -965,7 +1054,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
      * contacts. The account's provisioning and vocabulary are the floor a reset
      * returns to — undoing the user's edits, not the agency's setup.
      */
-    const base = navProfileFor(activeId ?? INITIAL_ACCOUNT_ID);
+    const base = profileOf(activeId ?? INITIAL_ACCOUNT_ID);
 
     /*
      * Whether the nav on screen matches what this account ships with.
@@ -980,10 +1069,24 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
      * write it — otherwise an agency-scoped edit made while playing "user" would
      * silently change what every other account sees.
      */
-    const effectiveScope = (scope?: LabelScope): LabelScope =>
-      (scope ?? state.labelScope) === "agency" && can.writeAgencyScope
+    const effectiveScope = (scope?: LabelScope): LabelScope => {
+      /*
+       * Under `one-template` every rename is the agency's.
+       *
+       * The scope switch exists because a name can belong to two different
+       * people: the agency, which is standardising vocabulary across a fleet,
+       * or the tenant, which is naming its own copy. The second of those is
+       * local state, and there is none here — so an account-scoped rename would
+       * be a name that lives on one sub-account, survives every template apply,
+       * and is invisible in the template the agency thinks it just saved. Which
+       * is exactly the bug: rename a row, save the template, apply it
+       * elsewhere, and the name does not travel.
+       */
+      if (strict && can.writeAgencyScope) return "agency";
+      return (scope ?? state.labelScope) === "agency" && can.writeAgencyScope
         ? "agency"
         : "account";
+    };
 
     const setLabelIn = (
       key: "agencyLabels" | "accountLabels" | "agencyProductLabels" | "accountProductLabels",
@@ -1162,7 +1265,15 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
          * to tell which one the toast was offering to put back.
          */
         commit(moveGroupMessage(state, fromIndex, toIndex), (s) => {
-          const current = resolveGroups(s).map((g) => g.id);
+          /*
+           * The same list the nav draws, chrome rows included.
+           *
+           * It used to be `resolveGroups(s)` alone, which is the categories and
+           * nothing else — so Desktop & mobile apps could be dragged but never
+           * landed, and a category dropped past it was placed against a list
+           * one row shorter than the one on screen. See `l1IdsFor`.
+           */
+          const current = l1IdsFor(s, resolveGroups(s));
           const next = reorder(current, fromIndex, toIndex);
           if (next === current) return s;
           return { ...s, groupOrder: { ...s.groupOrder, [s.grouping]: next } };
@@ -1267,17 +1378,14 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
             ? withProductFiled(s, rowId, null)
             : s;
           /*
-            The chrome rows count, or the indices are off by one.
-
-            `index` comes from the face, which draws the tail WITH them — so a
-            tail computed without them puts every row after a chrome row one
-            place too high. Only the ids are needed here; the labels and glyphs
-            are the face's business.
+            No chrome rows here any more — they are L1 rows, ordered by
+            `groupOrder` alongside the categories. Counting them in the tail as
+            well would put every row after them one place too high, which is the
+            mirror image of the bug this comment used to describe.
           */
           const tail = tailRowsFor(
             unfiled,
             looseProductIds(unfiled, resolveGroups(unfiled)),
-            [...CHROME_TAIL_IDS].map((id) => ({ id, label: id })),
           ).map((r) => r.id);
           const without = tail.filter((id) => id !== rowId);
           const at = Math.max(0, Math.min(index, without.length));
@@ -1456,6 +1564,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         commit(`Applied ${label}`, (s) => ({ ...s, ...patch }), {
           ...(opts?.silent ? { silent: true } : {}),
         }),
+      rebaseline: () => dispatch({ type: "rebaseline" }),
       showDefaultLayout: () => dispatch({ type: "showDefault", base }),
       restoreOwnLayout: () => dispatch({ type: "restoreOwn" }),
       adoptDefaultLayout: () => dispatch({ type: "adoptDefault" }),
@@ -1491,6 +1600,10 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
     // context has to be rebuilt when it moves or Discard would stay greyed out
     // through a whole session of changes.
     store.editDirty,
+    strict,
+    // The baseline a reset and `isDefaultLayout` measure against moves with the
+    // model, so the context that exposes both has to be rebuilt with it.
+    profileOf,
     commit,
     setActiveAccount,
     profileFor,

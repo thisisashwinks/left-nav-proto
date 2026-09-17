@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Minus, Plus } from "lucide-react";
+import { ChevronDown, Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -202,6 +202,105 @@ export function Seg<T extends string>({
           {format ? format(opt) : opt}
         </button>
       ))}
+    </div>
+  );
+}
+
+/**
+ * A dropdown, rather than the browser's.
+ *
+ * Same argument the nav's own `TemplatePicker` makes: a native `<select>` opens
+ * the platform's list — the OS font, none of the page's theming, and on macOS it
+ * lands on top of the chosen option rather than below the control. Every other
+ * control on these pages is one the product drew; this one is too.
+ *
+ * Page-surface tokens rather than the nav's, which is the whole reason it is a
+ * second component and not an import: the nav's picker is painted for a dark
+ * sidebar and reads as a foreign object on a settings card.
+ */
+export function Picker<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+  format,
+  disabled = false,
+}: {
+  value: T;
+  options: readonly T[];
+  onChange: (v: T) => void;
+  label: string;
+  format: (v: T) => string;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative w-[200px]">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={label}
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "motion-tap flex h-[36px] w-full items-center gap-[8px] rounded-[8px] bg-pg-bg px-[11px] text-left text-[13px] leading-none text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)]",
+          disabled && "cursor-not-allowed opacity-45",
+        )}
+      >
+        <span className="min-w-0 flex-1 truncate">{format(value)}</span>
+        <ChevronDown
+          size={14}
+          aria-hidden="true"
+          className={cn("shrink-0 text-pg-muted motion-move", open && "rotate-180")}
+        />
+      </button>
+      {open ? (
+        <div
+          role="listbox"
+          aria-label={label}
+          className="motion-menu-in absolute top-[calc(100%+4px)] right-0 left-0 z-20 flex max-h-[220px] flex-col gap-[1px] overflow-y-auto rounded-[8px] bg-pg-surface p-[4px] shadow-[0_12px_16px_-4px_rgba(16,24,40,0.08),0_4px_6px_-2px_rgba(16,24,40,0.03),inset_0_0_0_1px_var(--pg-border)]"
+        >
+          {options.map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              role="option"
+              aria-selected={opt === value}
+              onClick={() => {
+                onChange(opt);
+                setOpen(false);
+              }}
+              className={cn(
+                "motion-tap truncate rounded-[6px] px-[8px] py-[7px] text-left text-[13px] leading-[18px]",
+                opt === value
+                  ? "bg-pg-row-selected font-medium text-pg-heading"
+                  : "text-pg-text hover:bg-pg-row-border",
+              )}
+            >
+              {format(opt)}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

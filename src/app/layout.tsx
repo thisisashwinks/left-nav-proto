@@ -4,6 +4,7 @@ import { BrandProvider } from "@/components/accounts/brand-store";
 import { BulkActionsProvider } from "@/components/bulk/bulk-provider";
 import { AgencyLayoutProvider } from "@/components/nav/agency-layout";
 import { NavTemplatesProvider } from "@/components/nav/nav-templates";
+import { PinFeedbackProvider } from "@/components/nav/pin-feedback";
 import { NavProfilesProvider } from "@/components/nav/nav-profiles";
 import { NavLayoutProvider } from "@/components/nav/nav-layout-provider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
@@ -58,6 +59,7 @@ export default function RootLayout({
             <NavProfilesProvider>
               <NavLayoutProvider>
                 <BrandProvider>
+                  <PinFeedbackProvider>
                   <NavTemplatesProvider>
                     <AgencyLayoutProvider>
                       <BulkActionsProvider>
@@ -66,6 +68,7 @@ export default function RootLayout({
                       </BulkActionsProvider>
                     </AgencyLayoutProvider>
                   </NavTemplatesProvider>
+                  </PinFeedbackProvider>
                 </BrandProvider>
               </NavLayoutProvider>
             </NavProfilesProvider>

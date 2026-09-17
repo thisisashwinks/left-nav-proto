@@ -1,6 +1,7 @@
 import { DEFAULT_SAAS_TIER, type SaasTier } from "@/design/plans";
 import { allProducts, catalogue, DEFAULT_PINNED } from "./catalogue";
 import { PROPOSED_PRODUCT_IDS } from "./proposed-ia";
+import { resolveOwned } from "./catalogue-equivalents";
 import { DEFAULT_LAYOUT, type CustomGroup, type GroupingMode, type NavLayoutState } from "./grouping";
 
 /**
@@ -140,6 +141,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
       "payments",
       "automation",
       "reporting",
+      "ai-agents-product",
     ],
     grouping: "job",
     pinned: ["conversations", "contacts", "opportunities", "calendars"],
@@ -171,6 +173,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
       "invoices",
       "payments",
       "automation",
+      "ai-agents-product",
     ],
     grouping: "flat",
     pinned: ["conversations", "contacts", "calendars", "reputation"],
@@ -201,6 +204,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
       "invoices",
       "automation",
       "reporting",
+      "ai-agents-product",
     ],
     grouping: "job",
     pinned: ["conversations", "contacts", "calendars", "subscriptions"],
@@ -233,6 +237,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
       "payments",
       "automation",
       "reporting",
+      "ai-agents-product",
     ],
     pinned: ["conversations", "calendars", "opportunities", "invoices"],
     productLabels: {
@@ -267,6 +272,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
       "ad-manager",
       "automation",
       "reporting",
+      "ai-agents-product",
     ],
     grouping: "custom",
     pinned: ["conversations", "opportunities", "calendars", "invoices"],
@@ -328,6 +334,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
       "payments",
       "automation",
       "reporting",
+      "ai-agents-product",
     ],
     grouping: "product",
     pinned: ["conversations", "contacts", "tasks", "documents"],
@@ -362,6 +369,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
       "automation",
       "reporting",
       "dashboards",
+      "ai-agents-product",
     ],
     pinned: ["conversations", "contacts", "opportunities", "ad-manager", "reporting"],
     productLabels: {
@@ -390,6 +398,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
       "subscriptions",
       "automation",
       "reporting",
+      "ai-agents-product",
     ],
     pinned: ["conversations", "contacts", "opportunities", "subscriptions"],
     productLabels: {
@@ -422,6 +431,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
       "payments",
       "automation",
       "reporting",
+      "ai-agents-product",
     ],
     grouping: "job",
     pinned: ["conversations", "calendars", "contacts", "payments"],
@@ -445,8 +455,14 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
   ironwood: {
     industry: "Landscaping crew",
     saasTier: "basic",
-    note: "Four products. Nothing to group — the case that says structure has to be earned.",
-    products: ["conversations", "contacts", "calendars", "invoices"],
+    note: "Five products. Nothing to group — the case that says structure has to be earned.",
+    products: [
+      "conversations",
+      "contacts",
+      "calendars",
+      "invoices",
+      "ai-agents-product",
+    ],
     grouping: "flat",
     pinned: ["conversations", "contacts", "calendars"],
     productLabels: { calendars: "Job schedule" },
@@ -471,6 +487,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
       "automation",
       "reporting",
       "dashboards",
+      "ai-agents-product",
     ],
     pinned: ["conversations", "contacts", "calendars", "reputation"],
     productLabels: {
@@ -529,6 +546,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
       "payments",
       "social-planner",
       "reputation",
+      "ai-agents-product",
     ],
     grouping: "flat",
     pinned: ["conversations", "stores", "payments"],
@@ -547,8 +565,15 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
   fadeco: {
     industry: "Barbershop",
     saasTier: "basic",
-    note: "Five products and a chair. Bookings are the whole job.",
-    products: ["conversations", "contacts", "calendars", "payments", "reputation"],
+    note: "Six products and a chair. Bookings are the whole job.",
+    products: [
+      "conversations",
+      "contacts",
+      "calendars",
+      "payments",
+      "reputation",
+      "ai-agents-product",
+    ],
     grouping: "flat",
     pinned: ["calendars", "conversations", "payments"],
     productLabels: {
@@ -572,6 +597,7 @@ export const ACCOUNT_NAV_SEEDS: Record<string, AccountNavSeed> = {
       "subscriptions",
       "payments",
       "automation",
+      "ai-agents-product",
     ],
     grouping: "job",
     pinned: ["conversations", "calendars", "contacts", "memberships"],
@@ -592,6 +618,28 @@ export function industryFor(accountId: string): string | undefined {
   return ACCOUNT_NAV_SEEDS[accountId]?.industry;
 }
 
+/**
+ * Accounts that ship with an arrangement of their own, not the shipped default.
+ *
+ * Under `one-template` these are the accounts that have to BE somewhere: a nav
+ * that differs from the default is a template by definition, so switching
+ * `templateAccountSpread` on gives each of them one. The test is the seed
+ * rather than a diff of the rendered tree, because the seed is the statement
+ * of intent — an account that names a grouping, its own vocabulary or its own
+ * links was deliberately set up to look unlike the others.
+ */
+export function accountsWithOwnArrangement(): string[] {
+  return Object.entries(ACCOUNT_NAV_SEEDS)
+    .filter(
+      ([, seed]) =>
+        seed.grouping !== undefined ||
+        seed.productLabels !== undefined ||
+        seed.groupLabels !== undefined ||
+        seed.links !== undefined,
+    )
+    .map(([id]) => id);
+}
+
 /** The SaaS tier a client is resold on. Unseeded accounts fall back. */
 export function saasTierFor(accountId: string): SaasTier {
   return ACCOUNT_NAV_SEEDS[accountId]?.saasTier ?? DEFAULT_SAAS_TIER;
@@ -608,7 +656,26 @@ const CATALOGUE_IDS = new Set(allProducts.map((p) => p.id));
  * the shipped layout on the whole catalogue, which is what an unconfigured
  * account genuinely gets.
  */
-export function navProfileFor(accountId: string): NavLayoutState {
+export function navProfileFor(
+  accountId: string,
+  /**
+   * Whose arrangement the account wakes up in.
+   *
+   * `own` is the seed: the vocabulary, grouping and links that make a dental
+   * practice look unlike a roofer, and the texture this prototype was built to
+   * have.
+   *
+   * `default` keeps only what the account BOUGHT and puts every one of them on
+   * the shipped arrangement. That is not a simplification — it is what
+   * `one-template` means with no templates made yet: a sub-account is on the
+   * HighLevel default or on a named template, so seventeen accounts each
+   * quietly wearing a layout of their own, all reporting "HighLevel default",
+   * is the third state the model rules out, rendered. Turning
+   * `templateAccountSpread` ON is what gives those arrangements somewhere to
+   * live — a template each — and switches this back to `own`.
+   */
+  arrangement: "own" | "default" = "own",
+): NavLayoutState {
   const seed = ACCOUNT_NAV_SEEDS[accountId];
   if (!seed) return DEFAULT_LAYOUT;
 
@@ -627,6 +694,69 @@ export function navProfileFor(accountId: string): NavLayoutState {
     iconName: g.iconName,
     productIds: g.products.filter((id) => enabled.has(id)),
   }));
+
+  /*
+   * Entitlement is not arrangement.
+   *
+   * What the account bought stays whatever the seed says under both answers —
+   * a template never grants or revokes, and an account on the default shows the
+   * default arrangement OF THE PRODUCTS IT HAS. Everything below this line is
+   * the arrangement, and that is the part the model decides.
+   */
+  if (arrangement === "default") {
+    /*
+     * Which TREE is not a preference — it is which catalogue the account is on.
+     *
+     * `grouping` usually is a preference: Northwind sits on the job groups
+     * because somebody chose that, and choices are arrangement, so the default
+     * drops them. `proposed` is not one of those. It is the shipped tree for
+     * the proposed IA, and the account on it owns `ia-*` products that the
+     * shipped areas have never heard of — forcing it onto "default" built
+     * twelve groups out of products it does not have, dropped every empty one,
+     * and left a nav with no rows in it at all. Which is what happened.
+     *
+     * Read off the products rather than the seed's own `grouping`, so it says
+     * what it means: this account is on the other catalogue, and the other
+     * catalogue's default tree is its default.
+     */
+    /*
+     * One default tree, not two.
+     *
+     * This used to keep the account on whichever catalogue it was provisioned
+     * from — the proposed buckets for the one account seeded on them, the
+     * shipped areas for everyone else. That made "the HighLevel default" mean
+     * two different navs with different tabs in different orders, which is the
+     * one thing a default cannot mean: every account on it is supposed to be
+     * looking at the same thing.
+     *
+     * The proposed tree is the one the prototype is proposing, so it is the
+     * default, and `resolveGroups` now resolves each bucket's membership
+     * through the equivalence map — so an account provisioned on the shipped
+     * catalogue files its own products into the same ten buckets rather than
+     * matching none of them.
+     */
+    /*
+     * The default dock, in this account's own vocabulary.
+     *
+     * DEFAULT_PINNED names shipped ids, and `resolveOwned` is the translation
+     * between the two catalogues that already exists for exactly this — a
+     * template built on one IA landing on an account using the other. Falls
+     * back to the account's shipped dock only if nothing translates, because an
+     * empty favourites bar is worse than a slightly non-default one.
+     */
+    const pinned = DEFAULT_LAYOUT.pinned
+      .map((id) => resolveOwned(id, enabled))
+      .filter((id): id is string => id !== undefined);
+    return {
+      ...DEFAULT_LAYOUT,
+      enabledProducts,
+      grouping: "proposed",
+      pinned:
+        pinned.length > 0
+          ? pinned
+          : (seed.pinned ?? DEFAULT_PINNED).filter((id) => enabled.has(id)),
+    };
+  }
 
   return {
     ...DEFAULT_LAYOUT,

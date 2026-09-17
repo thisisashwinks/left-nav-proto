@@ -329,3 +329,68 @@
     transition-duration: 1ms !important;
   }
 }
+
+/*
+ * Pinning, made visible.
+ *
+ * The one action in the nav whose result lands away from the click — see
+ * PIN_FEEDBACKS. Three treatments, all of them short: this is a confirmation,
+ * not an event, and anything long enough to watch is long enough to be in the
+ * way of the next pin.
+ */
+
+/* `mark`: the slot the row landed in flashes once. */
+@keyframes pin-landed-mark {
+  0% {
+    background-color: var(--nav-active);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.pin-landed-mark {
+  animation: pin-landed-mark var(--dur-slow) var(--ease-out);
+}
+
+/*
+ * `settle`: the row arrives from below and settles into its slot.
+ *
+ * Downward is deliberate: a pinned row joins the TOP of the list, so coming up
+ * from where it used to be is the direction the move actually happened in.
+ */
+@keyframes pin-landed-settle {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pin-landed-settle {
+  animation: pin-landed-settle var(--dur-slow) var(--ease-out);
+}
+
+/* `flight`: the ghost's own fade, on top of the transform the JS drives. */
+@keyframes pin-flight-out {
+  0%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pin-landed-mark,
+  .pin-landed-settle {
+    animation: none;
+  }
+}

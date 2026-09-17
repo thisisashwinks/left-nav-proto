@@ -25,6 +25,7 @@ import { BulkModal } from "@/components/bulk/bulk-modal";
 import { plural, useBulkActions } from "@/components/bulk/bulk-provider";
 import { industryFor } from "@/components/nav/account-nav-profiles";
 import { useNavProfiles } from "@/components/nav/nav-profiles";
+import { patchForArrangement, useNavTemplates } from "@/components/nav/nav-templates";
 import { productsFor } from "@/components/nav/saas-tiers";
 import { SAAS_TIER_LABELS, SAAS_TIER_PRICES, type SaasTier } from "@/design/plans";
 import { SaasTierDialog } from "./saas-tier-dialog";
@@ -68,6 +69,7 @@ export function AccountsIndexPage({
   const layout = useNavLayout();
   const { settings, history } = useBulkActions();
   const { saasTierFor, setSaasTier } = useNavProfiles();
+  const { templateForTier, link, notify, strict } = useNavTemplates();
   /** The account whose plan is being changed, if any. */
   const [tierFor, setTierFor] = React.useState<string | null>(null);
   const appTheme = effective.appTheme;
@@ -325,6 +327,8 @@ export function AccountsIndexPage({
           accounts={selectedAccounts}
           initialPath={bulk.path}
           onClose={() => setBulk(null)}
+          // The ticks go with the run — see the rail's copy of this.
+          onCompleted={() => setSelected([])}
           onOpenHistory={() => {
             setBulk(null);
             setHistoryOpen(true);
@@ -358,6 +362,44 @@ export function AccountsIndexPage({
                   state,
                 ),
             );
+
+            /*
+              Joining a plan applies its template, exactly like any other apply.
+
+              Journey 4, and the half that is easy to get wrong: a plan with a
+              template attached hands it to everyone who joins, including
+              someone arriving by upgrade. A plan with NO template hands out
+              nothing and the account keeps the layout it walked in with —
+              which is silence with a consequence, so the tier dialog says it
+              on the row before the press rather than here after it.
+
+              The products are granted first, above, because the patch filters
+              every product reference against what the account owns: applying
+              the template before the entitlement would drop the very rows the
+              upgrade just paid for.
+            */
+            const joining = templateForTier(tier);
+            if (joining) {
+              const id = tierFor;
+              layout.applyToAccounts(
+                [id],
+                `Applied ${joining.name}`,
+                (state) => ({
+                  ...state,
+                  ...patchForArrangement(joining.arrangement, state, { whole: strict }),
+                }),
+              );
+              link(
+                id,
+                joining.id,
+                patchForArrangement(joining.arrangement, layout.profileFor(id), {
+                  whole: strict,
+                }),
+              );
+              notify(
+                `${joining.name} applied — it comes with ${SAAS_TIER_LABELS[tier]}`,
+              );
+            }
           }}
         />
       ) : null}

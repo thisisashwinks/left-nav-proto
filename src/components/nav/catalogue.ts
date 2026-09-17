@@ -157,12 +157,27 @@ export const catalogueJobs: CatalogueGroup[] = [
  * weakest of the 31 assignments and the first to revisit.
  */
 export const catalogueSuites = [
+  /*
+   * AI leads, and it is called AI.
+   *
+   * It was "Agents" in sixth place while the proposed tree's first bucket was
+   * "AI" — so the same products had two names and two positions depending on
+   * which tree an account happened to be on, and an agency switching between
+   * two sub-accounts saw AI at the top of one nav and nowhere obvious in the
+   * other. The two trees disagree about plenty on purpose; this was not one of
+   * the arguments, it was drift.
+   *
+   * First rather than sixth because that is the claim the product is making.
+   * The id stays `suite-agents`: it is what every product's `suiteId` and the
+   * SaaS tier map are keyed by, and renaming a key to match a label is how a
+   * tier silently stops granting anything.
+   */
+  { id: "suite-agents", defaultLabel: "AI", icon: Sparkles },
   { id: "suite-crm", defaultLabel: "CRM", icon: Users },
   { id: "suite-marketing", defaultLabel: "Marketing", icon: Megaphone },
   { id: "suite-content", defaultLabel: "Content", icon: LayoutTemplate },
   { id: "suite-sales", defaultLabel: "Sales", icon: Handshake },
   { id: "suite-revenue", defaultLabel: "Revenue", icon: CreditCard },
-  { id: "suite-agents", defaultLabel: "Agents", icon: Bot },
   { id: "suite-automation", defaultLabel: "Automation", icon: Workflow },
   { id: "suite-reporting", defaultLabel: "Reporting", icon: ChartLine },
 ] as const satisfies readonly CatalogueGroup[];
@@ -579,6 +594,26 @@ export const catalogue: CatalogueProduct[] = [
  * pin buttons, the crumbs and every product page — work for both IAs without a
  * single call site learning that a second tree exists.
  */
+/**
+ * Products that shipped after an agency would have saved its templates.
+ *
+ * A template is a stored arrangement, and a catalogue that grows underneath it
+ * asks a question nobody wrote down: where does a product that did not exist
+ * when this was saved appear? The answer the model takes is "wherever the
+ * default puts it" — the template never claimed it, so it keeps the placement
+ * the account already had, which is exactly what `patchForArrangement` does
+ * with any unclaimed product.
+ *
+ * What is left is the telling. These two ids are the standing example of an
+ * arrival, so a template can say "2 rows arrived since you saved this" and the
+ * agency can go and file them. See `templateNewProductMark`.
+ *
+ * Data rather than a date comparison, because the prototype's catalogue is a
+ * constant: nothing is ever really added at runtime, and a launch list is the
+ * honest way to stage the case rather than faking a clock.
+ */
+export const LAUNCHED_SINCE: readonly string[] = ["ai-studio", "agent-library"];
+
 export const allProducts: readonly CatalogueEntry[] = [
   ...catalogue,
   ...proposedCatalogue,

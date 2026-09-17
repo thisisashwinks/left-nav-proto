@@ -684,6 +684,85 @@ export const TEMPLATE_ACTION_HOME_LABELS: Record<TemplateActionHome, string> = {
   manage: "Behind Manage",
 };
 
+/**
+ * What a sub-account's layout IS — the model every other template axis sits on.
+ *
+ * The one axis in this file that is not a styling question or a placement
+ * question. It decides whether a layout is a thing an account can hold for
+ * itself, and the two answers produce different products.
+ *
+ * `one-template`  A sub-account is always on exactly one thing: the HighLevel
+ *                 default, or one named template. There is no third state, no
+ *                 per-account tweak sitting on top of a template, and no
+ *                 private divergence for anyone to reconcile. Editing a nav is
+ *                 therefore always editing a TEMPLATE, and the editor asks
+ *                 which one the change belongs to — update the one this
+ *                 account is on, which moves everybody on it, or split off
+ *                 into a new one, which moves only this account. The default,
+ *                 and the model the flow diagram describes.
+ *
+ *                 The case for it is not simplicity for its own sake: local
+ *                 state means a version history per sub-account and a
+ *                 reconciliation every time a template moves, which is the
+ *                 machinery `templateConflict` exists to stage-manage. Ruling
+ *                 it out deletes that whole class of question — at the price
+ *                 of template proliferation, since the only way to make one
+ *                 account differ is to name a template for it.
+ *
+ * `local-edits`   What was built first. An account takes a template as a
+ *                 starting point and may then drift from it; a later push
+ *                 rebases onto whatever it did for itself, and where both
+ *                 sides moved the same row there is a collision to resolve.
+ *                 Kept, not deleted: it is the model to argue the default
+ *                 against, and several axes below only mean anything here.
+ *
+ * Switching to `one-template` settles four other axes, so they are clamped in
+ * `theme-provider`'s `effective` rather than left to disagree: propagation is
+ * `managed` (an update that reached nobody would make "update this template"
+ * a lie), conflicts are moot, the delete mode becomes a question the delete
+ * dialog asks out loud instead of a preference, and the "My layout / HighLevel
+ * default" switch in the edit card is the third state by another name.
+ */
+export const LAYOUT_MODELS = ["one-template", "local-edits"] as const;
+
+export type LayoutModel = (typeof LAYOUT_MODELS)[number];
+
+export const LAYOUT_MODEL_LABELS: Record<LayoutModel, string> = {
+  "one-template": "One template each",
+  "local-edits": "Local edits",
+};
+
+/**
+ * What happens on screen when a row is pinned.
+ *
+ * Pinning is the one action in the nav whose result lands somewhere other than
+ * where you clicked — from a flyout, from the Recents panel, from search, the
+ * row joins a list in the sidebar that you may not even have been looking at.
+ * The state changes correctly and silently, and people press it twice because
+ * nothing told them where it went.
+ *
+ *  off      What shipped. The pin fills, the list is different next time you
+ *           look at it.
+ *  mark     No travel: the row lands and its new home flashes once. Cheapest,
+ *           and enough when the destination is already in view.
+ *  flight   A ghost of the row arcs from the pin you pressed to the top of the
+ *           list and fades into it. The only option that answers "where did it
+ *           go" for somebody whose eye is on a panel three surfaces away.
+ *  settle   No ghost: the row itself slides into its new slot and the list
+ *           reflows around it. Quieter than flight, and it only reads when the
+ *           destination is on screen.
+ */
+export const PIN_FEEDBACKS = ["off", "mark", "flight", "settle"] as const;
+
+export type PinFeedback = (typeof PIN_FEEDBACKS)[number];
+
+export const PIN_FEEDBACK_LABELS: Record<PinFeedback, string> = {
+  off: "Nothing",
+  mark: "Flash the slot",
+  flight: "Fly to the list",
+  settle: "Slide into place",
+};
+
 export const LEGACY_FOOT_CONTROLS = ["off", "menu", "pills"] as const;
 
 export type LegacyFootControl = (typeof LEGACY_FOOT_CONTROLS)[number];
@@ -1598,6 +1677,8 @@ export interface ThemeState {
   navSwitchInEditCard: boolean;
   /** What colour a set pin wears. See PIN_MARK_COLOURS. */
   pinMarkColour: PinMarkColour;
+  /** What pinning does on screen. See PIN_FEEDBACKS. */
+  pinFeedback: PinFeedback;
   /** How the Ask AI button is drawn when it is not a field. See AI_BUTTON_STYLES. */
   aiButtonStyle: AiButtonStyle;
   /** How the old nav's own controls are reached. See LEGACY_FOOT_CONTROLS. */
@@ -1665,6 +1746,73 @@ export interface ThemeState {
   templateActionHome: TemplateActionHome;
   /** What a push does about a collision. See TEMPLATE_CONFLICTS. */
   templateConflict: TemplateConflict;
+  /** Whether a layout can be held locally at all. See LAYOUT_MODELS. */
+  layoutModel: LayoutModel;
+  /**
+   * Whether a SaaS plan can carry a template.
+   *
+   * Journey 4, and the only one of the five that reaches accounts nobody
+   * selected: attach a template to a plan and every sub-account on it — and
+   * every one added to it later — is on that template. On by default because a
+   * plan is how agencies in SaaS mode actually provision, and because the
+   * interesting half is what happens when an account LEAVES: nothing. A layout
+   * arriving through a plan is indistinguishable afterwards from one applied by
+   * hand, which is what keeps "exactly one thing" true.
+   *
+   * Off hides the plan column and the attach control, for reviewing the rest of
+   * the model without the layer SaaS agencies alone care about.
+   */
+  templateSaasPlans: boolean;
+  /**
+   * Whether a template says which rows arrived after it was saved.
+   *
+   * A product added to the catalogue lands in every template at the position it
+   * holds in the default, because the alternative is a template that silently
+   * never shows a new product. That is the right behaviour and the wrong
+   * silence: the agency chose this arrangement and something has been inserted
+   * into it. On, the template's row carries a count and the nav marks the
+   * arrivals, so the agency can look once and decide. Off, they simply appear.
+   */
+  templateNewProductMark: boolean;
+  /**
+   * Whether a template change can be taken back from the receipt.
+   *
+   * Off by default, and deliberately: every destructive move in this model is
+   * already behind a dialog that names a count, and an undo standing behind the
+   * dialog invites the dialog to be skimmed. On, applying and updating both
+   * leave an undo on the receipt — worth seeing, because the argument for it is
+   * that a count read too fast is exactly the case undo exists for.
+   */
+  templateUndo: boolean;
+  /**
+   * Whether the fleet starts out spread across a template each.
+   *
+   * Off, every sub-account starts on the HighLevel default and the list is one
+   * row long — the honest zero state, and the one that makes "save as new
+   * template" the obvious first move.
+   *
+   * On, each sub-account that ships with an arrangement of its own becomes a
+   * named template holding exactly it, with that one account on it. This is the
+   * proliferation the model implies, made visible: an agency that has tuned
+   * thirty navs individually has thirty templates, and the question of what the
+   * list looks like at that size is one you can only answer by looking at it.
+   */
+  templateAccountSpread: boolean;
+  /**
+   * Whether the edit card names the template being edited.
+   *
+   * On by default. "Editing template" says what KIND of thing is in front of
+   * you and not which one — and under `one-template` that is the only question
+   * worth answering before a keystroke lands, because the same gesture on the
+   * default and on a shared template have very different consequences. A
+   * reorder on Dental practice is about to move six navs; the card is the last
+   * place that fact is free to state.
+   *
+   * Off for looking at the card without it: it costs a second line in a 256px
+   * box that has run out of room twice already, and the argument for spending
+   * that line is one you can only judge by seeing the card both ways.
+   */
+  editCardTemplateName: boolean;
   /**
    * Whether the Editing nav card offers the layout switch.
    *
@@ -1914,6 +2062,10 @@ export const DEFAULT_THEME: ThemeState = {
   // "Recently visited": names the section by what put a row in it — you went
   // there — rather than repeating the panel's own title one line above.
   pinMarkColour: "grey",
+  // Slide into place (Sep 17): the quieter of the two that actually move
+  // something. It only reads when the destination is on screen — the flight is
+  // the answer for pinning from a panel that covers the nav.
+  pinFeedback: "settle",
   // The fill, which is what ships. Outline is one click away.
   aiButtonStyle: "gradient",
   // Nothing (Sep 10): production's sidebar has no such control, and putting one
@@ -1968,6 +2120,24 @@ export const DEFAULT_THEME: ThemeState = {
   // shorter path; "Manage" is the alternative, one switch away.
   templateActionHome: "on-row",
   templateConflict: "resolve",
+  /*
+   * One template each (Sep 17), and the axis the whole templates feature now
+   * hangs off. A sub-account is on the default or on one named template, and
+   * nothing else — see LAYOUT_MODELS for why the alternative was rejected
+   * rather than merely not chosen. `local-edits` is what was built before it
+   * and is kept as the thing to compare against.
+   */
+  layoutModel: "one-template",
+  templateSaasPlans: true,
+  templateNewProductMark: true,
+  // Off: the dialogs carry the count, and an undo behind a dialog is a reason
+  // to skim the dialog. See ThemeState.
+  templateUndo: false,
+  // Off: the list starts at one row, which is where a real agency starts.
+  templateAccountSpread: false,
+  // On: which template you are about to change is the fact that decides
+  // whether the next keystroke is safe.
+  editCardTemplateName: true,
   // On, for the same reason: the comparison should be one menu away.
   // Off (Sep 15). "My layout vs HighLevel default" was a second, parallel way
   // to say what a template says — and the shipped arrangement is now a row in

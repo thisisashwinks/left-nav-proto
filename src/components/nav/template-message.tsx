@@ -3,6 +3,8 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, X } from "lucide-react";
+import { AccountLogo } from "@/components/accounts/account-logo";
+import { accounts } from "@/components/accounts/accounts-data";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 
@@ -297,11 +299,21 @@ export function TemplateMessageButton({
   tone = "quiet",
   icon,
   onClick,
+  /**
+   * For a decision that cannot be taken yet.
+   *
+   * The delete dialog under `one-template` asks where the accounts go and
+   * offers no default answer, so its primary action is unreachable until one is
+   * picked. A dialog that let you press through it would be back to being a
+   * warning you can dismiss.
+   */
+  disabled = false,
   children,
 }: {
   tone?: "primary" | "quiet";
   icon?: React.ReactNode;
   onClick: () => void;
+  disabled?: boolean;
   children: React.ReactNode;
 }) {
   const { templateMessagePlacement: placement } = useTheme().effective;
@@ -309,11 +321,13 @@ export function TemplateMessageButton({
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={cn(
         "motion-tap flex h-[32px] items-center justify-center gap-[7px] rounded-[7px]",
         // Full width stacked, content width in a footer row.
         placement === "nav" ? "w-full" : "px-[14px]",
         "text-[12.5px] leading-none font-medium active:scale-[0.99]",
+        "disabled:pointer-events-none disabled:opacity-40",
         tone === "primary"
           ? "bg-nav-fg text-nav hover:opacity-90"
           : "text-nav-fg-muted shadow-[inset_0_0_0_1px_var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg",
@@ -393,6 +407,79 @@ export function TemplateToast({
       </button>
     </div>,
     document.body,
+  );
+}
+
+/**
+ * Which sub-accounts a decision reaches, a click away.
+ *
+ * Both dialogs that move other people's navigation — updating a template and
+ * deleting one — carry a count in their body, and a count is the fact that
+ * stops someone. It is not the fact that tells them whether they were right to
+ * be stopped: "8" is reassuring until one of the eight is a client nobody meant
+ * to touch. So the names are here, and folded, because eight of them unfolded
+ * push the decision itself off the bottom of the box.
+ *
+ * Shared rather than written twice: the two dialogs ask the same question about
+ * the same set, and a disclosure that said "Which ones?" in one and "Show the 8
+ * sub-accounts" in the other would read as two different controls.
+ */
+export function AffectedAccounts({ ids }: { ids: readonly string[] }) {
+  const [showing, setShowing] = React.useState(false);
+  const reached = accounts.filter((a) => ids.includes(a.id));
+  if (reached.length === 0) return null;
+
+  return (
+    <div className="mt-[6px] flex flex-col gap-[4px]">
+      {/*
+        "Which ones?", not "Show the 8 sub-accounts".
+
+        The count is in the sentence directly above and usually on the button
+        below, so a third copy here is the same number three times in four
+        lines. What this control has to say is the question the reader is
+        holding — not how many, but which.
+      */}
+      <button
+        type="button"
+        aria-expanded={showing}
+        onClick={() => setShowing((o) => !o)}
+        className="motion-tap flex items-center gap-[4px] self-start rounded-[6px] px-[6px] py-[4px] text-[11.5px] leading-[15px] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
+      >
+        {showing ? "Hide" : "Which ones?"}
+        <ChevronDown
+          size={12}
+          aria-hidden="true"
+          className={cn("motion-move", showing && "rotate-180")}
+        />
+      </button>
+      {showing ? (
+        /*
+          Tags, not a column of names.
+
+          As a list it was eight rows in a short scrolling box, so it cut the
+          fifth mid-word — the reader was scanning for one client and the
+          control was showing them half of them. Tags wrap, so the same eight
+          fit in three lines with nothing clipped, and the logo is how somebody
+          recognises their own account before they have finished the name.
+        */
+        <div className="flex max-h-[128px] flex-wrap gap-[4px] overflow-y-auto rounded-[7px] bg-nav-hover p-[6px]">
+          {reached.map((a) => (
+            <span
+              key={a.id}
+              className="flex min-w-0 items-center gap-[5px] rounded-[5px] bg-nav px-[6px] py-[3px] text-[11.5px] leading-[16px] text-nav-fg-muted shadow-[inset_0_0_0_1px_var(--nav-divider)]"
+            >
+              <AccountLogo
+                logo={a.logo}
+                {...(a.logoSrc ? { src: a.logoSrc } : {})}
+                size={14}
+                radius={999}
+              />
+              <span className="max-w-[140px] truncate">{a.name}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

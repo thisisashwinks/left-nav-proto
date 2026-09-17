@@ -156,11 +156,62 @@ export function RowMenu({
   const rows = needle
     ? leavesOf(root).filter((o) => o.label.toLowerCase().includes(needle))
     : here;
-  const height = Math.min(
+  /*
+   * The estimate, and then the truth.
+   *
+   * `46 + rows * 30` was close enough while the menu only ever hung BELOW its
+   * trigger: an estimate that is wrong by 60px moves a top edge that nobody is
+   * measuring against anything. Flipping above made the same number load
+   * bearing — the box is positioned by its top, so every pixel the estimate is
+   * out by is a pixel of gap between the menu and the control it belongs to,
+   * and the blocks menu (a header, three toggle rows, taller than a plain list)
+   * was out by enough to leave it floating.
+   *
+   * So the estimate is now only the FIRST frame, and the real height replaces it
+   * before the browser paints. A layout effect rather than an effect: `useEffect`
+   * runs after paint, which is one frame of the menu in the wrong place.
+   */
+  const box = React.useRef<HTMLDivElement | null>(null);
+  const [measured, setMeasured] = React.useState<number | null>(null);
+  const estimate = Math.min(
     320,
     46 + (open ? rows.length : actions.length) * 30 + (open ? 26 : 0),
   );
-  const top = Math.min(anchor.bottom + GAP, window.innerHeight - height - 8);
+  React.useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const read = () => setMeasured(el.offsetHeight);
+    read();
+    // Drilling into a submenu or typing in the filter changes the row count,
+    // and the box has to be re-placed against its trigger when it does.
+    const observer = new ResizeObserver(read);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  const height = measured ?? estimate;
+  /*
+   * Below the trigger, or above it — never over it.
+   *
+   * This used to clamp: `min(anchor.bottom + GAP, viewport - height)`, which
+   * keeps the menu on screen and, for a trigger near the bottom of the window,
+   * does so by sliding it up over the thing that opened it. The edit card sits
+   * at the NAV'S FOOT, so its Show / hide menu did that every single time — the
+   * panel landed on top of the eye, and the control you had just pressed was
+   * underneath the answer.
+   *
+   * Flipping instead of clamping is the standard answer and costs one branch:
+   * below when it fits, above when it does not, and only if neither fits does
+   * it fall back to the old clamp — a menu taller than the window has nowhere
+   * good to go and being on screen is the last thing left worth having.
+   */
+  const below = anchor.bottom + GAP;
+  const above = anchor.top - GAP - height;
+  const top =
+    below + height <= window.innerHeight - 8
+      ? below
+      : above >= 8
+        ? above
+        : Math.max(8, window.innerHeight - height - 8);
   const left = Math.min(
     Math.max(8, align === "end" ? anchor.left - WIDTH + anchor.width : anchor.left),
     Math.max(8, window.innerWidth - WIDTH - 8),
@@ -177,6 +228,7 @@ export function RowMenu({
         className="fixed inset-0 z-[70] cursor-default"
       />
       <div
+        ref={box}
         role="dialog"
         aria-label={`Edit ${title}`}
         data-nav-theme={navTheme}

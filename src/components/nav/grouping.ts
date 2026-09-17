@@ -24,6 +24,7 @@ import {
   PROPOSED_UNLISTED_IDS,
   proposedBuckets,
 } from "./proposed-ia";
+import { resolveOwned } from "./catalogue-equivalents";
 import { iconByName, nameForIcon } from "./icon-catalogue";
 import { chromePlace, isChromePlace } from "./chrome-places";
 import { iconForChildLabel } from "./l3-icons";
@@ -770,7 +771,7 @@ export function isIconOverridden(
  * so a group added by a later release appears rather than vanishing — the order
  * is a preference, not a whitelist.
  */
-function applyOrder(
+export function applyOrder(
   saved: string[] | undefined,
   defaults: string[],
 ): string[] {
@@ -980,15 +981,47 @@ function resolveTree(state: NavLayoutState): ResolvedGroup[] {
           (g) => [g.id, g] as const,
         ),
       );
+      /*
+       * Membership resolved through the equivalence map, not matched literally.
+       *
+       * The buckets name `ia-*` ids, and an account provisioned on the shipped
+       * catalogue owns `conversations` rather than `ia-crm-conversations`. A
+       * literal `enabled.has` therefore matched nothing for every account but
+       * the one seeded on the proposed set — so this tree was unreachable for
+       * the other sixteen, and the HighLevel default meant two different navs
+       * depending on which catalogue an account happened to be provisioned on.
+       *
+       * `resolveOwned` is the same translation templates already use to cross
+       * between the two namings. A bucket is a statement about which PRODUCTS
+       * belong together, and that survives the account calling them something
+       * else.
+       */
       const built = build(
         ids,
         (id) =>
-          (byId.get(id)?.productIds ?? []).filter((pid) => enabled.has(pid)),
+          (byId.get(id)?.productIds ?? [])
+            .map((pid) => resolveOwned(pid, enabled))
+            .filter((pid): pid is string => pid !== undefined),
         edited,
       );
-      // An authored bucket with nothing in it is a mistake; one the admin is
-      // still filling is not, which is why only the unedited tree is pruned.
-      const groups = edited ? built : populated(built);
+      /*
+       * The authored tree keeps every bucket, whether or not this account owns
+       * anything in it.
+       *
+       * Pruning was right while this tree belonged to one account seeded on the
+       * proposed catalogue: a bucket with nothing in it was an authoring
+       * mistake. It is the platform's default tree now, handed to every
+       * sub-account by the HighLevel default template — and there, pruning
+       * means the same template produces a different nav for every account,
+       * which is the one thing a default cannot do. Two accounts on it are
+       * meant to be looking at the same thing.
+       *
+       * A bucket an account owns nothing in opens an empty panel, which is a
+       * real cost and the honest one: the alternative is a nav whose shape
+       * silently encodes billing. An edited tree still keeps everything, for
+       * the reason it always did.
+       */
+      const groups = built;
       /*
        * Launchpad owns no products, so it is never a bucket — it is a
        * top-level row, filed exactly as the custom tree files what no group

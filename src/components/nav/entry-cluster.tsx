@@ -24,6 +24,8 @@ import { Kbd } from "@/components/search/kbd";
 import { cn } from "@/lib/utils";
 import { RailTooltip } from "./rail-tooltip";
 import { EditMoreMenu } from "./edit-more-menu";
+import { useNavTemplates } from "./nav-templates";
+import { useTruncationTitle } from "@/lib/use-truncation-title";
 import { NavGenerationModal } from "./nav-generation-modal";
 import { useTheme } from "@/components/theme/theme-provider";
 
@@ -207,6 +209,44 @@ function EditNavButton({
    */
   atFoot?: boolean;
 }) {
+  /** Whether a sub-account may hold a layout of its own. See LAYOUT_MODELS. */
+  const { strict, linkedFor, templates } = useNavTemplates();
+  /**
+   * Nothing in the library but the default — so the ⋯ has nothing to offer.
+   *
+   * `templates` is what the MENU would list, already filtered by the seed axis,
+   * so this asks the question the menu would ask rather than a second version
+   * of it that could drift.
+   */
+  const soleTemplate = strict && templates.length <= 1;
+  const { editCardTemplateName } = useTheme().effective;
+  /**
+   * The template this account is on, by name.
+   *
+   * Read from the store rather than passed down: the card already takes
+   * fourteen props and this is the same fact `EditMoreMenu` two lines below
+   * looks up for itself. Falls back to the account's own name in `local-edits`,
+   * where an account genuinely can be on nothing and "no template" is the
+   * honest answer rather than a gap.
+   */
+  const onTemplate = linkedFor(accountId);
+  const editingName = onTemplate?.name ?? "No template";
+  /*
+   * Both the name line and the shorter pill label belong to `one-template`.
+   *
+   * Under `local-edits` an account can be on nothing, has a nav of its own, and
+   * "Edit nav" is the accurate verb — naming a template there would be claiming
+   * a relationship half the fleet does not have. The other model is kept to be
+   * compared against, so it has to stay as it was.
+   */
+  const showTemplateName = strict && editCardTemplateName && editing;
+  /*
+   * The tooltip only once the name has actually been cut — see
+   * `useTruncationTitle`. Template names are agency-written and routinely
+   * longer than the card, and an ellipsis with nothing behind it is the card
+   * telling you something exists and refusing to say what.
+   */
+  const { ref: nameRef } = useTruncationTitle<HTMLSpanElement>(editingName);
   /*
    * The trigger for the Navigation menu, held as the element rather than a rect.
    *
@@ -352,10 +392,53 @@ function EditNavButton({
             role="status"
             // Neutral ink, not brand (Aug 21 review): the mode label is chrome,
             // and brand here competed with semantic states and the AI's own hue.
-            className="flex min-w-0 flex-1 items-center gap-[5px] truncate text-[11.5px] leading-[15px] font-semibold whitespace-nowrap text-nav-fg"
+            className="flex min-w-0 flex-1 items-center gap-[5px] text-[11.5px] leading-[15px] font-semibold text-nav-fg"
           >
-            <SquarePen size={11} aria-hidden="true" className="shrink-0" />
-            Editing nav
+            <SquarePen
+              size={11}
+              aria-hidden="true"
+              // Top-aligned once there are two lines, so the glyph sits on the
+              // mode rather than floating between mode and name.
+              className={cn("shrink-0", showTemplateName && "mt-[1px] self-start")}
+            />
+            <span className="flex min-w-0 flex-1 flex-col">
+              {/*
+                What you are editing, said honestly.
+
+                Under `one-template` a sub-account has no nav of its own to
+                edit: every arrangement is the HighLevel default or a named
+                template, so "Editing nav" was naming a thing that does not
+                exist and quietly promising the changes would stay here. They
+                cannot — Save asks which template they belong to. The label says
+                so from the first keystroke rather than at the moment of saving.
+              */}
+              <span className="truncate whitespace-nowrap">
+                {strict ? "Editing template" : "Editing nav"}
+              </span>
+              {/*
+                And WHICH one, on a line of its own.
+
+                Not appended to the mode: "Editing template · Fieldstone Group
+                nav2" is one string in a 256px box that has already lost this
+                argument twice — the card's own notes record "Editing nav"
+                clipping mid-word at three labelled controls. A second line
+                costs 15px and gives the name the whole width, which is the only
+                way the fact is readable at the length names actually reach.
+
+                Quieter than the mode above it because it is the answer, not the
+                question: the eye that needs it goes looking, and the eye that
+                does not should not have two bold lines competing in the corner
+                of a nav it is trying to arrange.
+              */}
+              {showTemplateName ? (
+                <span
+                  ref={nameRef}
+                  className="truncate text-[11px] leading-[15px] font-normal whitespace-nowrap text-nav-fg-subtle"
+                >
+                  {editingName}
+                </span>
+              ) : null}
+            </span>
           </span>
           {/*
             A named control, not a bare eye.
@@ -439,10 +522,26 @@ function EditNavButton({
             it now hides one row inside a menu rather than an icon on the card, so
             switching it off no longer changes the card's shape.
           */}
+          {/*
+            Dead until there is somewhere else to go.
+
+            Under `one-template` this menu is the template list, and with one
+            template the list is a single row with a tick already on it — a
+            control that opens a box confirming what the card above it just
+            said. There is nothing to apply, nothing to move between, and
+            nothing to manage. It comes alive with the second template, which is
+            also the first moment the question "which one is this on" has an
+            answer worth opening a menu for.
+
+            Under `local-edits` it stays live at one template: the menu still
+            carries Save, Create, Layout and Navigation there, none of which
+            need a second template to exist.
+          */}
           <EditTool
             label="More editing options — templates, layout, navigation"
-            short="More"
+            short={soleTemplate ? "Save a template to use this" : "More"}
             icon={MoreHorizontal}
+            disabled={soleTemplate}
             onOpen={(trigger) => setMoreAnchor(trigger)}
           />
           </span>
@@ -488,7 +587,13 @@ function EditNavButton({
             {blocked > 0
               ? "Empty category"
               : dirty
-                ? "Save changes"
+                ? // Not "Save changes": under `one-template` the press opens
+                  // the question of WHICH template this is, and a button that
+                  // says "save" over a dialog is a button that lied about being
+                  // the end of the errand.
+                  strict
+                  ? "Save template"
+                  : "Save changes"
                 : "Done"}
           </button>
           </span>
@@ -569,8 +674,23 @@ function EditNavButton({
       data-revealed={revealed ? "" : undefined}
       className={cn(
         "group/edit relative flex h-[26px] shrink-0 items-center overflow-hidden rounded-full",
-        // Square while it is a glyph: 26 by 26, the icon dead centre.
-        "w-[26px] justify-center gap-0 px-0",
+        /*
+         * Hug what is in it, at every point of the animation.
+         *
+         * The open width used to be a stated number — 86px, or 104 with the
+         * padlock — measured against the label of the day. It survived exactly
+         * as long as the label did: "Edit nav" became "Edit" and the pill kept
+         * its old width, leaving ~19px of nothing after the text, which is the
+         * same off-centre look the number was introduced to fix.
+         *
+         * So nothing states a width any more. The label sits in a grid column
+         * that animates 0fr → 1fr, and the button is `w-auto` around it — at
+         * rest the column is zero and `min-w` holds the 26px circle; open, the
+         * width is padding + glyph + gap + whatever the words actually measure.
+         * A second glyph, a longer label or another model's wording all just
+         * work, and none of them is a number anyone has to keep in step.
+         */
+        "w-auto min-w-[26px] justify-center gap-0 px-0",
         /*
          * Held open while the first-run card is pointing at it.
          *
@@ -589,28 +709,20 @@ function EditNavButton({
          * selector outranks a class, so the held-open state actually holds.
          */
         /*
-          Symmetric padding, and a width that fits what is in the pill.
-          
-          It grew to a flat 92px with padding on the LEFT only, so the label
-          finished ~19px short of the right edge and the pill read as
-          off-centre. The open width is stated per content instead — the locked
-          pill carries a second glyph and needs the room for it — and the
-          padding is the same on both sides, which is the only way the gap
-          before the label and the gap after it can agree.
+          Symmetric padding.
+
+          It opened with padding on the LEFT only, so the label finished short
+          of the right edge and the pill read as off-centre. The same 8px on
+          both sides is the only way the gap before the glyph and the gap after
+          the label can agree.
         */
-        planLock
-          ? "data-revealed:w-[104px]"
-          : "data-revealed:w-[86px]",
         "data-revealed:justify-start data-revealed:gap-[6px]",
         "data-revealed:bg-nav-hover data-revealed:px-[8px] data-revealed:opacity-100",
         // A hairline the same colour as the row dividers was invisible against the
         // nav's own surface. The stronger ring and the row-level ink are what make
         // a white circle on a white nav read as a control.
         "bg-nav text-nav-fg shadow-[0_2px_8px_0_var(--fly-shadow),inset_0_0_0_1px_var(--nav-border,var(--nav-divider))]",
-        "transition-[width,gap,padding,opacity,color,transform] duration-[var(--dur-slow)] ease-[var(--ease-out)]",
-        planLock
-          ? "hover:w-[104px] focus-visible:w-[104px]"
-          : "hover:w-[86px] focus-visible:w-[86px]",
+        "transition-[gap,padding,opacity,color,transform] duration-[var(--dur-slow)] ease-[var(--ease-out)]",
         "hover:justify-start hover:gap-[6px] hover:px-[8px] hover:bg-nav-hover",
         "focus-visible:justify-start focus-visible:gap-[6px] focus-visible:px-[8px]",
         "active:scale-95",
@@ -624,16 +736,24 @@ function EditNavButton({
         Zero-width until hovered, or the icon is pushed out of the circle.
 
         The label is `whitespace-nowrap`, so as a flex item it claims its natural
-        52px — inside a 26px box with `justify-center` that overflows equally on
+        width — inside a 26px box with `justify-center` that overflows equally on
         both sides, pushing the glyph past the left edge and clipping it. Which is
         why the button looked empty: the pencil was outside it. Collapsing the
-        span is what keeps the icon centred; the button's own width animates the
-        growth, and the text fades in a beat later so it arrives inside a box
-        that is already open.
+        span is what keeps the icon centred.
+
+        A grid column rather than a width, because `width: auto` cannot be
+        transitioned and a stated pixel width is a measurement of one particular
+        label — see the button. `0fr → 1fr` animates, and what it animates TO is
+        whatever the words inside need, so the pill is hugging its contents the
+        whole way open. The text still fades in a beat later, so it arrives
+        inside a box that is already there.
       */}
       <span
         aria-hidden="true"
-        className="w-0 overflow-hidden text-[12px] leading-none font-medium whitespace-nowrap opacity-0 transition-opacity duration-[var(--dur-base)] ease-[var(--ease-out)] group-hover/edit:w-auto group-hover/edit:opacity-100 group-hover/edit:delay-[90ms] group-focus-visible/edit:w-auto group-focus-visible/edit:opacity-100 group-data-revealed/edit:w-auto group-data-revealed/edit:opacity-100"
+        className="grid grid-cols-[0fr] overflow-hidden transition-[grid-template-columns] duration-[var(--dur-slow)] ease-[var(--ease-out)] group-hover/edit:grid-cols-[1fr] group-focus-visible/edit:grid-cols-[1fr] group-data-revealed/edit:grid-cols-[1fr]"
+      >
+      <span
+        className="overflow-hidden text-[12px] leading-none font-medium whitespace-nowrap opacity-0 transition-opacity duration-[var(--dur-base)] ease-[var(--ease-out)] group-hover/edit:opacity-100 group-hover/edit:delay-[90ms] group-focus-visible/edit:opacity-100 group-data-revealed/edit:opacity-100"
       >
         {/*
           The verb, at every tier.
@@ -644,7 +764,8 @@ function EditNavButton({
           tooltip says what to do about it. Three jobs, three elements — rather
           than one word doing all three and none of them well.
         */}
-        Edit nav
+        {strict ? "Edit" : "Edit nav"}
+      </span>
       </span>
       {planLock ? (
         /*

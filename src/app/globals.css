@@ -301,9 +301,12 @@
    *
    * It used to be set only under [data-overflowing], which meant a region that
    * fitted reserved the browser default instead — so the gutter changed width
-   * depending on content. Anything outside the scroll region that wants to line
-   * up with the rows inside it reads --nav-scroll-gutter and adds it to its own
-   * padding; see the fixed cluster in left-nav.
+   * depending on content.
+   *
+   * This strip IS the scroll region's right padding: it sits inside the element
+   * and outside the content box, so anything that also pads the right edge is
+   * paying for the same space twice. The region carries `pl` only — see
+   * left-nav.
    */
   [data-scroll-region]::-webkit-scrollbar {
     width: var(--nav-scroll-gutter);

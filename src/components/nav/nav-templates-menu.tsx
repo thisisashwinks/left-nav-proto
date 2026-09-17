@@ -114,7 +114,16 @@ export function NavTemplatesMenu({
     };
   }, [onClose]);
 
-  const linked = linkedFor(accountId);
+  /*
+   * The template there is something to save INTO — see edit-more-menu.
+   *
+   * Under `one-template` an account with no named template is on the default,
+   * which cannot be written to, so "Save to HighLevel default" must never be
+   * the offer. The same guard, in both menus, because either one of them making
+   * it would be the same bug.
+   */
+  const on = linkedFor(accountId);
+  const linked = on && !on.immutable ? on : null;
   const deletingTemplate = deleting
     ? (templates.find((t) => t.id === deleting) ?? null)
     : null;

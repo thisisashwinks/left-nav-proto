@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import {
+  AffectedAccounts,
   TemplateMessage,
   TemplateMessageActions,
   TemplateMessageBody,
@@ -32,6 +33,7 @@ import {
   TemplatePicker,
 } from "./template-message";
 import { TemplateRowMenu, templateHasActions } from "./template-row-menu";
+import { TemplateSaveDialog } from "./template-save-dialog";
 import { useNavLayout } from "./nav-layout-provider";
 import {
   NAV_GENERATIONS,
@@ -171,6 +173,8 @@ export function EditMoreMenu({
     clearDivergence,
     reassign,
     unlink,
+    strict,
+    newProductsFor,
   } = useNavTemplates();
   const { revertAccounts } = useNavLayout();
   const {
@@ -187,8 +191,6 @@ export function EditMoreMenu({
   /** The save dialog, and which of its two answers is selected. */
   const [duplicating, setDuplicating] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
-  const [saveAs, setSaveAs] = React.useState<"update" | "new">("new");
-  const [saveName, setSaveName] = React.useState("");
   const [view, setView] = React.useState<View>("root");
   const [draft, setDraft] = React.useState(`${accountName} nav`);
   /** Which row's kebab is open, and the button it hangs off. */
@@ -273,7 +275,19 @@ export function EditMoreMenu({
    * hangs off it: with a link there is a template to update, and without one
    * the only honest verb is "create".
    */
-  const linked = linkedFor(accountId);
+  const onTemplate = linkedFor(accountId);
+  /*
+   * The template there is something to SAVE INTO, which is not always the one
+   * the account is on.
+   *
+   * Under `one-template` an account with no named template is on the default,
+   * and the default cannot be written to — so every question downstream that
+   * asks "is there a template to update" has to answer no here, or the save
+   * dialog offers to overwrite the one thing in the product that must not move.
+   * Which is also the rule the flow diagram states outright: from the default
+   * there is one outcome, a new template, and the fork never appears.
+   */
+  const linked = onTemplate && !onTemplate.immutable ? onTemplate : null;
 
   const body = (() => {
     if (view === "apply") {
@@ -505,11 +519,32 @@ export function EditMoreMenu({
                   surface for looking after templates, where the picker is for
                   choosing between them.
                 */
-                note={
-                  t.immutable
-                    ? "Can't be changed"
-                    : `v${t.version} · ${accountsOn(t.id) === 0 ? "no accounts" : `${accountsOn(t.id)} ${accountsOn(t.id) === 1 ? "account" : "accounts"}`}`
-                }
+                note={(() => {
+                  if (t.immutable) return "Can't be changed";
+                  const on = accountsOn(t.id);
+                  const arrived = newProductsFor(t.id).length;
+                  /*
+                    What arrived after it was saved, on the row that is FOR
+                    detail.
+
+                    A product added to the catalogue lands wherever the default
+                    puts it, in every template — which is the only answer that
+                    does not leave a template permanently blind to new products.
+                    The agency should still be told: they chose this
+                    arrangement, and something has been filed into it on their
+                    behalf. The picker's rows stay one fact each; this is the
+                    surface where the second fact belongs.
+                  */
+                  return [
+                    `v${t.version}`,
+                    on === 0
+                      ? "no accounts"
+                      : `${on} ${on === 1 ? "account" : "accounts"}`,
+                    ...(arrived > 0
+                      ? [`${arrived} added since`]
+                      : []),
+                  ].join(" · ");
+                })()}
                 {...(templateHasActions(t, {
                   canUpdate: false,
                   canResolve: false,
@@ -744,14 +779,18 @@ export function EditMoreMenu({
           )}
           <Rule />
           {/*
-            One row where there were two.
+            Saving is not a menu errand under `one-template`.
 
-            "Update to match" lived on a template's ⋯ and "Save as new" down
-            here, so which control you wanted depended on whether you happened
-            to be on a template — something the menu already knows. One row
-            asks, and the sheet behind it offers whichever of the two apply.
+            There, editing IS editing a template: Save on the card asks which
+            one this belongs to and files it. A second way in from the menu
+            would be a row that opens the dialog you are already going to meet,
+            and the two would disagree about whether an edit had landed yet.
+
+            Under `local-edits` it stays, because there the two really are
+            different acts — the card commits to this account, and this row is
+            how that arrangement reaches the template and everyone on it.
           */}
-          {templateSaveShape === "unified" ? (
+          {strict ? null : templateSaveShape === "unified" ? (
             <MenuRow
               icon={Save}
               label="Save template"
@@ -762,17 +801,13 @@ export function EditMoreMenu({
                     : `${linked.name} already matches`
                   : `From ${accountName}'s arrangement`
               }
-              onSelect={() => {
-                /*
-                  Seeded on open, not on mount: the account it would name and
-                  the template it would update both change as you move around,
-                  and a name left over from the last time this was opened is a
-                  name nobody typed for this account.
-                */
-                setSaveAs(linked && templateDirty ? "update" : "new");
-                setSaveName(`${accountName} nav`);
-                setSaving(true);
-              }}
+              /*
+                Mounted on open, not kept alive behind the menu: the account it
+                would name and the template it would update both change as you
+                move around, and a dialog that outlives the visit carries a name
+                nobody typed for this account.
+              */
+              onSelect={() => setSaving(true)}
             />
           ) : (
             <MenuRow
@@ -846,7 +881,13 @@ export function EditMoreMenu({
           means the template this account is ON; Create means a new one. The
           first is dead unless there is something to save into, and it says so
           rather than silently doing the second thing.
+
+          The first is also the one `one-template` takes away — see the note on
+          the list-first row. Create survives it: a template made from an
+          arrangement you have not edited is still a thing an agency wants, and
+          removing it would leave this menu shape with no way to make one.
         */}
+        {strict ? null : (
         <MenuRow
           icon={Save}
           label="Save template"
@@ -874,6 +915,7 @@ export function EditMoreMenu({
           onSelect={() => setView("save")}
           branch
         />
+        )}
         <MenuRow
           icon={FilePlus2}
           label="Create new template"
@@ -1148,121 +1190,22 @@ export function EditMoreMenu({
         </TemplateMessage>
       ) : null}
       {saving ? (
-        <TemplateMessage
-          kind="decision"
-          label="Save template"
-          width={440}
-          onDismiss={() => setSaving(false)}
-        >
-          <TemplateMessageTitle icon={<Save size={15} aria-hidden="true" />}>
-            Save {accountName}&rsquo;s arrangement
-          </TemplateMessageTitle>
-          <TemplateMessageBody>
-            {/*
-              The difference between the two answers is how far each one
-              reaches, and that is the only thing worth saying up here. The
-              rest is on the options themselves, beside the option it is about.
-            */}
-            {linked
-              ? "Update the template this account is on, or keep this as a new one."
-              : "Keep this arrangement so you can put it on other accounts."}
-          </TemplateMessageBody>
-
-          {/*
-            A choice only where there is one.
-
-            With no template to update there is exactly one thing this dialog
-            can do, and a single radio next to a single option is a control
-            asking you to confirm that you meant the only door in the room. The
-            field is the dialog then, with a label over it.
-          */}
-          {linked ? (
-            <div className="mt-[10px] flex flex-col gap-[2px]">
-              <SaveOption
-                selected={saveAs === "update"}
-                disabled={!templateDirty}
-                onSelect={() => setSaveAs("update")}
-                label={`Update ${linked.name}`}
-                note={
-                  !templateDirty
-                    ? "Nothing to save — this nav already matches it"
-                    : propagation === "managed" && accountsOn(linked.id) > 1
-                      ? `v${linked.version} → v${linked.version + 1}. Re-arranges ${accountsOn(linked.id)} accounts now, keeping any changes made to them directly.`
-                      : `v${linked.version} → v${linked.version + 1}. No other account is on it.`
-                }
-              />
-              <SaveOption
-                selected={saveAs === "new"}
-                onSelect={() => setSaveAs("new")}
-                label="Save as a new template"
-                note={`Touches nobody else. ${accountName} moves onto the new one.`}
-              />
-              {saveAs === "new" ? (
-                <div className="mt-[6px] ml-[30px] flex flex-col gap-[4px]">
-                  <SaveNameField
-                    value={saveName}
-                    onChange={setSaveName}
-                    onCommit={() => {
-                      if (saveName.trim() === "") return;
-                      onCreateTemplate(saveName.trim());
-                      setSaving(false);
-                      onClose();
-                    }}
-                  />
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <div className="mt-[12px] flex flex-col gap-[4px]">
-              <SaveNameField
-                value={saveName}
-                onChange={setSaveName}
-                onCommit={() => {
-                  if (saveName.trim() === "") return;
-                  onCreateTemplate(saveName.trim());
-                  setSaving(false);
-                  onClose();
-                }}
-              />
-            </div>
-          )}
-
-          <TemplateMessageActions
-            dismiss={
-              <TemplateMessageButton onClick={() => setSaving(false)}>
-                Cancel
-              </TemplateMessageButton>
-            }
-            actions={[
-              <TemplateMessageButton
-                key="save"
-                tone="primary"
-                onClick={() => {
-                  if (saveAs === "update" && linked) {
-                    onUpdateTemplate(linked.id);
-                  } else if (saveName.trim() !== "") {
-                    onCreateTemplate(saveName.trim());
-                  } else {
-                    return;
-                  }
-                  setSaving(false);
-                  onClose();
-                }}
-              >
-                {/*
-                  The button says what it will do, so the sentence finishes
-                  wherever the eye happens to be — on the options or on the
-                  footer.
-                */}
-                {saveAs === "update" && linked
-                  ? propagation === "managed" && accountsOn(linked.id) > 1
-                    ? `Update ${accountsOn(linked.id)} accounts`
-                    : `Update ${linked.name}`
-                  : "Save template"}
-              </TemplateMessageButton>,
-            ]}
-          />
-        </TemplateMessage>
+        <TemplateSaveDialog
+          accountName={accountName}
+          linked={linked}
+          templateDirty={templateDirty}
+          onCreate={(name) => {
+            onCreateTemplate(name);
+            setSaving(false);
+            onClose();
+          }}
+          onUpdate={(id) => {
+            onUpdateTemplate(id);
+            setSaving(false);
+            onClose();
+          }}
+          onClose={() => setSaving(false)}
+        />
       ) : null}
       {deletingTemplate ? (
         <TemplateMessage
@@ -1282,8 +1225,10 @@ export function EditMoreMenu({
                 <span className="font-medium text-nav-fg">
                   {onIt} {onIt === 1 ? "account is" : "accounts are"}
                 </span>{" "}
-                on it. Choose where {onIt === 1 ? "it goes" : "they go"}. This
-                cannot be undone.
+                on it. {strict
+                  ? `Every sub-account is on exactly one layout, so ${onIt === 1 ? "it needs" : "they need"} somewhere to go.`
+                  : `Choose where ${onIt === 1 ? "it goes" : "they go"}.`}{" "}
+                This cannot be undone.
               </>
             )}
           </TemplateMessageBody>
@@ -1296,7 +1241,37 @@ export function EditMoreMenu({
             PRE-SELECTED; the choice itself is on screen, because it is about
             other people's navigation.
           */}
-          {onIt > 0 ? (
+          {/*
+            Who is on it, by name.
+
+            The body says how many and the picker says where they go; between
+            the two sits the question neither answers — which clients. Same
+            control as the save dialog's, because it is the same question about
+            the same kind of set.
+          */}
+          {onIt > 0 && deleting ? (
+            <AffectedAccounts ids={accountsOnIds(deleting)} />
+          ) : null}
+          {onIt > 0 && strict ? (
+            /*
+              One question, and it has to be answered.
+
+              `local-edits` can leave an account holding a nav that belongs to
+              no template, so deleting offers that as one of two outcomes. Here
+              it is not a state that exists: the only thing a delete can do is
+              move them, and the only decision left is where. So there is no
+              radio pair and nothing is pre-selected — a mandatory choice with a
+              default answer is a dismissible warning wearing a radio.
+            */
+            <div className="mt-[10px]">
+              <TemplatePicker
+                label={onIt === 1 ? "Move it to" : `Move all ${onIt} to`}
+                value={moveTo}
+                options={movableTemplates}
+                onChange={setMoveTo}
+              />
+            </div>
+          ) : onIt > 0 ? (
             <div className="mt-[10px] flex flex-col gap-[2px]">
               {(
                 [
@@ -1355,11 +1330,13 @@ export function EditMoreMenu({
               <TemplateMessageButton
                 key="delete"
                 tone="primary"
+                disabled={strict && onIt > 0 && moveTo === ""}
                 onClick={() => {
                   const id = deleting;
                   if (!id) return;
                   const ids = accountsOnIds(id);
-                  if (onIt > 0 && fate === "move" && moveTo) {
+                  const moving = strict ? moveTo !== "" : fate === "move" && moveTo !== "";
+                  if (onIt > 0 && moving) {
                     /*
                       Moving them means moving them.
 
@@ -1386,7 +1363,7 @@ export function EditMoreMenu({
                   }
                   remove(id);
                   notify(
-                    onIt > 0 && fate === "move"
+                    onIt > 0 && (strict ? moveTo !== "" : fate === "move")
                       ? `Deleted ${deletingTemplate.name} — ${onIt} moved to ${templates.find((t) => t.id === moveTo)?.name ?? "another template"}`
                       : `Deleted ${deletingTemplate.name}`,
                   );
@@ -1401,7 +1378,7 @@ export function EditMoreMenu({
                   words at most: past that it stops being a label and starts
                   being the sentence the body already carried.
                 */}
-                {onIt === 0 || fate === "unlink"
+                {onIt === 0 || (!strict && fate === "unlink")
                   ? "Delete template"
                   : moveTo === DEFAULT_TEMPLATE_ID
                     ? "Reset and delete"
@@ -1449,98 +1426,6 @@ function Rule() {
       aria-hidden="true"
       className="my-[4px] h-px w-full shrink-0 bg-nav-divider"
     />
-  );
-}
-
-/**
- * The new template's name, with a label over it.
- *
- * Labelled rather than placeholder-only: a placeholder is gone the moment
- * anyone types, and this field arrives pre-filled — so the only thing naming it
- * would have been text that disappears before it is needed.
- */
-function SaveNameField({
-  value,
-  onChange,
-  onCommit,
-}: {
-  value: string;
-  onChange: (next: string) => void;
-  onCommit: () => void;
-}) {
-  return (
-    <>
-      <span className="text-[11px] leading-[15px] font-medium text-nav-fg-subtle">
-        Template name
-      </span>
-      <input
-        autoFocus
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") onCommit();
-        }}
-        placeholder="Dentist, Home services…"
-        aria-label="Template name"
-        className="rounded-[7px] bg-nav-hover px-[10px] py-[7px] text-[12.5px] leading-[16px] text-nav-fg outline-none placeholder:text-nav-fg-subtle"
-      />
-    </>
-  );
-}
-
-/**
- * One of the two answers in the save dialog.
- *
- * The same radio the delete dialog uses, and for the same reason: two outcomes
- * that differ in how far they reach, where the reach has to be readable beside
- * each one rather than discovered by pressing it. A disabled option keeps its
- * place and says why — "nothing to save" is information, and hiding the row
- * would make the dialog change shape between two visits.
- */
-function SaveOption({
-  selected,
-  disabled = false,
-  onSelect,
-  label,
-  note,
-}: {
-  selected: boolean;
-  disabled?: boolean;
-  onSelect: () => void;
-  label: string;
-  note: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      disabled={disabled}
-      onClick={onSelect}
-      className={cn(
-        "motion-tap flex items-start gap-[8px] rounded-[7px] px-[8px] py-[7px] text-left",
-        "disabled:pointer-events-none disabled:opacity-40",
-        selected ? "bg-nav-hover" : "hover:bg-nav-hover",
-      )}
-    >
-      <span
-        aria-hidden="true"
-        className={cn(
-          "mt-[2px] flex size-[14px] shrink-0 items-center justify-center rounded-full shadow-[inset_0_0_0_1px_var(--nav-fg-subtle)]",
-          selected && "bg-nav-fg",
-        )}
-      >
-        {selected ? <span className="size-[5px] rounded-full bg-nav" /> : null}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[12.5px] leading-[17px] font-medium text-nav-fg">
-          {label}
-        </span>
-        <span className="mt-[1px] block text-[11.5px] leading-[16px] text-nav-fg-subtle">
-          {note}
-        </span>
-      </span>
-    </button>
   );
 }
 
