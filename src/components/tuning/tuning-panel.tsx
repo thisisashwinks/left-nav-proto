@@ -2223,7 +2223,9 @@ export function TuningPanel() {
                 ? "The row lands and its new slot flashes once. Enough when the list is already in view, invisible when it is not."
                 : pinFeedback === "flight"
                   ? "A chip carrying the row's name arcs from the pin you pressed to the top of the list. The only one that answers \u201cwhere did it go\u201d from a panel three surfaces away."
-                  : "The row slides up into its new slot and the list reflows around it. Quieter than the flight, and it only reads when the destination is on screen."}
+                  : pinFeedback === "settle"
+                    ? "The row slides up into its new slot, and slides back out of it when unpinned. Quieter than the flight, and it only reads when the destination is on screen."
+                    : "A yellow wash rises and drains on the row itself, pinned or unpinned alike. Says which row the press was about rather than where it went — and it is the only one that answers an unpin."}
           </Note>
 
           <Segmented

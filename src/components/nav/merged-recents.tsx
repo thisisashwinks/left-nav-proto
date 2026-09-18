@@ -18,7 +18,7 @@ import { glyphFor, type NavLayoutState } from "./grouping";
 import { ComposedIcon } from "./composed-icon";
 import { useNavLayout } from "./nav-layout-provider";
 import { PIN_CAP_HINT, usePinnedInk } from "./pin-button";
-import { usePinLanded } from "./pin-feedback";
+import { usePinFeedback, usePinLanded } from "./pin-feedback";
 import { RailTooltip } from "./rail-tooltip";
 
 /**
@@ -103,8 +103,8 @@ export interface MergedRow {
  * differs, which is exactly the seam.
  */
 function MergedList({
-  pins,
-  recents,
+  pins: givenPins,
+  recents: givenRecents,
   onSelect,
   onOpenPanel,
 }: {
@@ -137,6 +137,34 @@ function MergedList({
    * want from a heading over a truncated list.
    */
   const [expanded, setExpanded] = React.useState(false);
+
+  /*
+   * A row that has just been unpinned is held in the pinned run while it goes.
+   *
+   * The store is instant and correct: press unpin and the row is out of
+   * `pins` and into `recents` before this renders. That leaves the exit
+   * animation with nothing to play on — the row it would animate is already
+   * somewhere else, wearing a different position in a different run, and what
+   * the eye sees is a jump.
+   *
+   * So for the length of the exit the list lies in exactly one way: the row
+   * stays where it was. It is removed from the history it has joined for the
+   * same beat, or it would be in the list twice. Everything downstream —
+   * budget, caps, "show more" — counts it where it is drawn, which is the
+   * point: the slot stays open until the row has finished leaving it.
+   */
+  const { landed } = usePinFeedback();
+  const leavingId =
+    landed?.event === "unpin" && !givenPins.some((p) => p.id === landed.productId)
+      ? landed.productId
+      : null;
+  const leaving = leavingId
+    ? givenRecents.find((r) => r.id === leavingId)
+    : undefined;
+  const pins = leaving ? [...givenPins, leaving] : givenPins;
+  const recents = leaving
+    ? givenRecents.filter((r) => r.id !== leaving.id)
+    : givenRecents;
 
   const budget = expanded
     ? Math.max(mergedExpandedRows, mergedVisibleRows)

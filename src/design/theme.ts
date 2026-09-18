@@ -749,10 +749,27 @@ export const LAYOUT_MODEL_LABELS: Record<LayoutModel, string> = {
  *           list and fades into it. The only option that answers "where did it
  *           go" for somebody whose eye is on a panel three surfaces away.
  *  settle   No ghost: the row itself slides into its new slot and the list
- *           reflows around it. Quieter than flight, and it only reads when the
+ *           reflows around it — and slides back OUT of that slot when the pin
+ *           is removed. Quieter than flight, and it only reads when the
  *           destination is on screen.
+ *  hilite   The row's ground washes yellow and fades, arriving and leaving
+ *           alike. No travel and no reflow to read: it marks WHICH row the
+ *           press was about, which is the half of the question the other
+ *           treatments answer by implication. The one option that treats
+ *           pinning and unpinning as the same event seen twice.
+ *
+ * Unpinning is silent under `off`, `mark` and `flight`. Under `mark` it has
+ * nothing to flash — the slot it would mark is the one being vacated — and a
+ * chip flying back to a pin button nobody is looking at is an animation about
+ * the wrong end of the action.
  */
-export const PIN_FEEDBACKS = ["off", "mark", "flight", "settle"] as const;
+export const PIN_FEEDBACKS = [
+  "off",
+  "mark",
+  "flight",
+  "settle",
+  "hilite",
+] as const;
 
 export type PinFeedback = (typeof PIN_FEEDBACKS)[number];
 
@@ -761,6 +778,7 @@ export const PIN_FEEDBACK_LABELS: Record<PinFeedback, string> = {
   mark: "Flash the slot",
   flight: "Fly to the list",
   settle: "Slide into place",
+  hilite: "Yellow highlight",
 };
 
 export const LEGACY_FOOT_CONTROLS = ["off", "menu", "pills"] as const;

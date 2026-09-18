@@ -378,6 +378,87 @@
 }
 
 /*
+ * `settle`, leaving: the row slides back out of the slot it was holding.
+ *
+ * The mirror of the arrival, and the half that was missing — a list that
+ * animates rows in and then blinks them out is telling you half the story, and
+ * the half it drops is the one where something you had is gone. Downward,
+ * because that is where an unpinned row goes: out of the pinned run and back
+ * into the history below it.
+ *
+ * `forwards`, and the row is held in its old slot for exactly this long — see
+ * EXIT_MS. Without the hold there is nothing on screen to animate: the store
+ * has already moved the row by the time this class could be applied.
+ */
+@keyframes pin-leaving-settle {
+  0% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+
+/*
+ * The same clock and the same curve as the arrival.
+ *
+ * It ran on `ease-in` on the argument that leaving accelerates away. Beside the
+ * arrival's `ease-out` that read as slower — an exit that starts slowly spends
+ * its first half barely moving, so the two halves of one gesture felt like two
+ * different animations at two different speeds. The pair is a mirror, and a
+ * mirror shares its timing.
+ */
+.pin-leaving-settle {
+  animation: pin-leaving-settle var(--dur-slow) var(--ease-out) forwards;
+}
+
+/*
+ * `hilite`: the row's ground washes yellow and drains.
+ *
+ * In and out rather than on and off. A highlight that appears at full strength
+ * is a state — the row looks selected, or errored, or otherwise CHANGED — where
+ * one that rises and falls is an event, which is what a pin is. The peak sits
+ * early: the rise has to beat the eye to the row, and the fall is what can
+ * afford to take its time.
+ *
+ * Yellow is the one hue in the palette that means "look here" without also
+ * meaning good or bad, which matters because this same wash has to serve both
+ * pinning and unpinning.
+ *
+ * The wash is the only thing this treatment adds. It rides ON the slide rather
+ * than replacing it: the row still arrives into its slot and still leaves it,
+ * on the same clock, and the colour is what says which row the press was
+ * about. One duration across all four of those animations — an option that
+ * moved at a different speed from the one beside it would be comparing two
+ * things at once.
+ */
+@keyframes pin-hilite {
+  0% {
+    background-color: transparent;
+  }
+  18% {
+    background-color: var(--nav-highlight);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.pin-landed-hilite {
+  animation:
+    pin-landed-settle var(--dur-slow) var(--ease-out),
+    pin-hilite var(--dur-slow) var(--ease-out);
+}
+
+.pin-leaving-hilite {
+  animation:
+    pin-leaving-settle var(--dur-slow) var(--ease-out) forwards,
+    pin-hilite var(--dur-slow) var(--ease-out);
+}
+
+/*
  * `flight`: the chip's own life, independent of the path it travels.
  *
  * Three things happen to it on the way — it arrives, it carries, it is put
@@ -446,7 +527,23 @@
 
 @media (prefers-reduced-motion: reduce) {
   .pin-landed-mark,
-  .pin-landed-settle {
+  .pin-landed-settle,
+  .pin-landed-hilite {
     animation: none;
+  }
+
+  /*
+   * The exits keep an opacity, not an animation.
+   *
+   * Every other treatment here can simply stop moving, because the row it
+   * animates is already in its final state — these two are the exception: the
+   * row they draw is being held on screen for the length of an animation that
+   * is no longer playing. Without this it would sit there at full strength and
+   * then vanish, which is a flicker rather than a reduction of one.
+   */
+  .pin-leaving-settle,
+  .pin-leaving-hilite {
+    animation: none;
+    opacity: 0;
   }
 }

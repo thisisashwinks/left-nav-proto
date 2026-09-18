@@ -18,21 +18,29 @@ import { useTheme } from "@/components/theme/theme-provider";
  * not ancestors of the list it lands in, and two of them unmount as part of the
  * interaction.
  */
+/** Which half of the action is being told: the arrival or the departure. */
+export type PinEvent = "pin" | "unpin";
+
 interface PinFeedbackValue {
   /**
-   * Fired by the pin button, on pin only.
+   * Fired by the pin button, both ways now.
    *
-   * Unpinning is deliberately silent: the row leaves a list you are already
-   * looking at, so there is no destination to point at and nothing to explain.
+   * Unpinning used to be silent, on the argument that the row leaves a list
+   * you are already looking at. That holds for the treatments that point at a
+   * DESTINATION — there is no destination in an unpin — but not for the two
+   * that animate the row itself: a list that slides rows in and then blinks
+   * them out tells half the story, and the half it drops is the one where
+   * something you had is gone. What each treatment does with an unpin is
+   * `usePinLanded`'s business; see PIN_FEEDBACKS for which ignore it.
    */
-  announce: (productId: string, from: HTMLElement) => void;
+  announce: (productId: string, from: HTMLElement, event?: PinEvent) => void;
   /**
-   * The row that just landed, for the treatments that animate the destination.
+   * The row this is currently about, for the treatments that animate it.
    *
-   * An id plus a token: the token changes on every pin so re-pinning the same
-   * row replays the animation instead of being swallowed as "no change".
+   * An id plus a token: the token changes on every press so pinning the same
+   * row twice replays the animation instead of being swallowed as "no change".
    */
-  landed: { productId: string; token: number } | null;
+  landed: { productId: string; token: number; event: PinEvent } | null;
 }
 
 const PinFeedbackContext = React.createContext<PinFeedbackValue>({
@@ -54,8 +62,24 @@ export function usePinLanded(productId: string): string {
   const { pinFeedback } = useTheme().effective;
   const { landed } = usePinFeedback();
   if (landed?.productId !== productId) return "";
+  const leaving = landed.event === "unpin";
+  /*
+    The wash does not care which way the press went.
+
+    Pinning and unpinning are the same event seen twice — a row's membership
+    changed — and the whole argument for this treatment is that it says WHICH
+    row without claiming anything about where it went. Two animations here
+    would be inventing a distinction the colour cannot carry.
+  */
+  if (pinFeedback === "hilite") {
+    return leaving ? "pin-leaving-hilite" : "pin-landed-hilite";
+  }
+  if (pinFeedback === "settle") {
+    return leaving ? "pin-leaving-settle" : "pin-landed-settle";
+  }
+  // The rest are about a destination, and an unpin has none — see PinEvent.
+  if (leaving) return "";
   if (pinFeedback === "mark") return "pin-landed-mark";
-  if (pinFeedback === "settle") return "pin-landed-settle";
   /*
     Flight lands too, and this is the half that makes it land.
 
@@ -79,6 +103,21 @@ export function usePinLanded(productId: string): string {
  */
 const FLIGHT_MS = 520;
 const LANDED_MS = 700;
+/**
+ * How long a leaving row is held in the slot it is vacating.
+ *
+ * The store removes the pin on the click, so by the time anything could be
+ * animated the row has already moved — the list is the source of truth and it
+ * has told the truth immediately. The hold puts it back for exactly the length
+ * of its exit, which is `--dur-slow`; a hold longer than the animation leaves
+ * an invisible row holding a gap open, which reads as the list stuttering.
+ */
+const EXIT_MS = 300;
+/*
+ * `hilite` holds for exactly as long as `settle` does — it IS `settle`, with a
+ * wash riding on it, and the two options have to be comparable at the speed
+ * they are compared at.
+ */
 
 interface Flight {
   token: number;
@@ -96,6 +135,7 @@ export function PinFeedbackProvider({
   const [landed, setLanded] = React.useState<{
     productId: string;
     token: number;
+    event: PinEvent;
   } | null>(null);
   const [flight, setFlight] = React.useState<Flight | null>(null);
   const token = React.useRef(0);
@@ -107,8 +147,13 @@ export function PinFeedbackProvider({
   }, []);
 
   const announce = React.useCallback(
-    (productId: string, from: HTMLElement) => {
+    (productId: string, from: HTMLElement, event: PinEvent = "pin") => {
       if (pinFeedback === "off") return;
+      // Nothing to say about a departure under the destination treatments —
+      // and saying it anyway would hold the row in a slot for no animation.
+      if (event === "unpin" && pinFeedback !== "settle" && pinFeedback !== "hilite") {
+        return;
+      }
       token.current += 1;
       const id = token.current;
 
@@ -122,6 +167,17 @@ export function PinFeedbackProvider({
        */
       const target = document.querySelector("[data-pin-target]");
       const fromBox = from.getBoundingClientRect();
+
+      if (event === "unpin") {
+        setLanded({ productId, token: id, event });
+        timers.current.push(
+          setTimeout(
+            () => setLanded((l) => (l?.token === id ? null : l)),
+            EXIT_MS,
+          ),
+        );
+        return;
+      }
 
       if (pinFeedback === "flight" && target) {
         const toBox = target.getBoundingClientRect();
@@ -139,11 +195,11 @@ export function PinFeedbackProvider({
         timers.current.push(
           setTimeout(() => {
             setFlight((f) => (f?.token === id ? null : f));
-            setLanded({ productId, token: id });
+            setLanded({ productId, token: id, event });
           }, FLIGHT_MS),
         );
       } else {
-        setLanded({ productId, token: id });
+        setLanded({ productId, token: id, event });
       }
 
       timers.current.push(

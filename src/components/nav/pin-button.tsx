@@ -91,8 +91,9 @@ export function PinButton({
         e.stopPropagation();
         if (blocked) return;
         // Before the toggle, so the source is measured while this button is
-        // still where it was — pinning can reorder the list under it.
-        if (!pinned) announce(productId, e.currentTarget);
+        // still where it was — pinning can reorder the list under it, and
+        // unpinning takes the row out from under it entirely.
+        announce(productId, e.currentTarget, pinned ? "unpin" : "pin");
         togglePin(productId);
       }}
       className={cn(

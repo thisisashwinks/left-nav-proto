@@ -510,6 +510,14 @@
     theme's selected fill.
   */
   --nav-selected: var(--nav-active);
+  /*
+    The wash a row wears for a moment after it is pinned or unpinned.
+
+    HighRise warning/100 — the lightest step that still reads as yellow against
+    white, and light enough that the row's own text does not have to change to
+    stay legible on it. See PIN_FEEDBACKS.
+  */
+  --nav-highlight: var(--hr-warning-100);
   --nav-rail-bg: var(--hr-gray-50);
   --nav-rail-border: var(--hr-gray-200);
   --nav-rail-hi: var(--hr-gray-100);
@@ -612,6 +620,7 @@
   --nav-active: #46536780;
   --nav-active: oklch(from var(--legacy-nav-base) calc(l + 0.1) c h);
   --nav-selected: var(--nav-active);
+  --nav-highlight: var(--hr-warning-900);
   --nav-rail-bg: #27303f;
   --nav-rail-bg: oklch(from var(--legacy-nav-base) calc(l - 0.03) c h);
   --nav-rail-border: #414e61;
@@ -676,6 +685,7 @@
   --nav-active: #232f42;
   --nav-active: oklch(from var(--nav-dark-base) calc(l + 0.07) c h);
   --nav-selected: var(--nav-active);
+  --nav-highlight: var(--hr-warning-900);
 
   --nav-rail-border: #2a3549;
   --nav-rail-border: oklch(from var(--nav-dark-base) calc(l + 0.09) c h);
@@ -725,6 +735,7 @@
   --nav-scrollbar-hover: #55555f;
   --nav-active: #24242c;
   --nav-selected: var(--nav-active);
+  --nav-highlight: var(--hr-warning-900);
   --nav-rail-bg: #17171b;
   --nav-rail-border: #2b2b33;
   --nav-rail-hi: #24242c;
