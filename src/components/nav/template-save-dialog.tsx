@@ -1,18 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { Save } from "lucide-react";
+import { ChevronDown, Save } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import {
   AffectedAccounts,
+  AffectedAccountsTable,
   TemplateMessage,
   TemplateMessageActions,
   TemplateMessageBody,
   TemplateMessageButton,
   TemplateMessageTitle,
 } from "./template-message";
-import { useNavTemplates, type NavTemplate } from "./nav-templates";
+import { nameTaken, useNavTemplates, type NavTemplate } from "./nav-templates";
 
 /**
  * Where an edited arrangement goes — update the template, or name a new one.
@@ -50,8 +51,19 @@ export function TemplateSaveDialog({
   onUpdate: (templateId: string) => void;
   onClose: () => void;
 }) {
-  const { templatePropagation: propagation } = useTheme().effective;
-  const { accountsOn, accountsOnIds } = useNavTemplates();
+  const { templatePropagation: propagation, templateSaveLayout } =
+    useTheme().effective;
+  const accordion = templateSaveLayout === "accordion";
+  /**
+   * Whether the update option's table is open.
+   *
+   * Its own state, not "is this option selected": the table is detail you may
+   * not want, and selecting the answer should not force it on you. Choosing the
+   * other option closes it, because a disclosure hanging open under an answer
+   * nobody picked is just clutter with a chevron on it.
+   */
+  const [showing, setShowing] = React.useState(false);
+  const { accountsOn, accountsOnIds, templates } = useNavTemplates();
   const [saveAs, setSaveAs] = React.useState<"update" | "new">(
     linked && templateDirty ? "update" : "new",
   );
@@ -68,8 +80,18 @@ export function TemplateSaveDialog({
   const reachedIds = linked && propagation === "managed" ? accountsOnIds(linked.id) : [];
   const reaches = linked ? accountsOn(linked.id) : 0;
 
+  /**
+   * Whether this name is already in the list.
+   *
+   * Checked as you type rather than on press: the store refuses a duplicate
+   * either way, and a refusal that arrives only after you commit is a dialog
+   * that closes on some presses and not others for a reason it never gave.
+   */
+  const taken = nameTaken(templates, name);
+  const canName = name.trim() !== "" && !taken;
+
   const commitNew = () => {
-    if (name.trim() === "") return;
+    if (!canName) return;
     onCreate(name.trim());
     onClose();
   };
@@ -81,18 +103,25 @@ export function TemplateSaveDialog({
       width={440}
       onDismiss={onClose}
     >
+      {/*
+        Titled by the DECISION, not by the object.
+
+        "Save Fieldstone Group's arrangement" named a thing — and the thing was
+        never in doubt, since you just spent five minutes arranging it. What is
+        in doubt is where it goes, and on the fork that is a question with two
+        answers and very different blast radii. The title asks it.
+
+        The body then says the one thing the options cannot say for themselves:
+        from the default there is no fork at all, and the reader needs to know
+        that is the model rather than a control that failed to appear.
+      */}
       <TemplateMessageTitle icon={<Save size={15} aria-hidden="true" />}>
-        Save {accountName}&rsquo;s arrangement
+        {linked ? "Where should these changes go?" : "Name this template"}
       </TemplateMessageTitle>
       <TemplateMessageBody>
-        {/*
-          The difference between the two answers is how far each one reaches,
-          and that is the only thing worth saying up here. The rest is on the
-          options themselves, beside the option it is about.
-        */}
         {linked
-          ? "Update the template this account is on, or keep this as a new one."
-          : "This layout can't be saved to the HighLevel default. Name it, and this account moves onto it."}
+          ? `Update ${linked.name} for everyone on it, or keep this as a template of its own.`
+          : `The HighLevel default can't be edited. Save these changes as a new template and ${accountName} moves onto it.`}
       </TemplateMessageBody>
 
       {linked ? (
@@ -100,8 +129,29 @@ export function TemplateSaveDialog({
           <SaveOption
             selected={saveAs === "update"}
             disabled={!templateDirty}
-            onSelect={() => setSaveAs("update")}
+            onSelect={() => {
+              setSaveAs("update");
+              if (accordion) setShowing(true);
+            }}
             label={`Update ${linked.name}`}
+            /*
+              The chevron lives on the option, not under it.
+
+              Its body is a disclosure — who this reaches — and the row that
+              opens it should be the row it belongs to. A separate "Which ones?"
+              button underneath was a second control for one question, and it
+              sat between the two answers, which is the one place in the dialog
+              that belongs to neither.
+            */
+            {...(accordion && templateDirty && reaches > 1
+              ? {
+                  expanded: saveAs === "update" && showing,
+                  onToggle: () => {
+                    setSaveAs("update");
+                    setShowing((o) => (saveAs === "update" ? !o : true));
+                  },
+                }
+              : {})}
             /*
               A count, not a version.
 
@@ -121,29 +171,66 @@ export function TemplateSaveDialog({
             }
           />
           {/*
-            And WHICH ones, a click away — see `AffectedAccounts`, which the
-            delete dialog shares so the two ask the question the same way.
+            No `to` in either layout: an update does not MOVE anybody. Every
+            account here is already on this template and stays on it — what
+            changes is the template under them. A "new template" column would
+            name the one they are on and read as a move that is not happening.
           */}
           {saveAs === "update" && templateDirty && reaches > 1 ? (
-            <div className="ml-[30px]">
-              <AffectedAccounts ids={reachedIds} />
-            </div>
+            accordion ? (
+              showing ? (
+                <div className="mt-[4px] mb-[2px] ml-[30px]">
+                  <AffectedAccountsTable ids={reachedIds} />
+                </div>
+              ) : null
+            ) : (
+              <div className="ml-[30px]">
+                <AffectedAccounts ids={reachedIds} />
+              </div>
+            )
           ) : null}
           <SaveOption
             selected={saveAs === "new"}
-            onSelect={() => setSaveAs("new")}
-            label="Save as a new template"
-            note={`Touches nobody else. ${accountName} moves onto the new one.`}
+            onSelect={() => {
+              setSaveAs("new");
+              // The other option's disclosure is not about this answer.
+              setShowing(false);
+            }}
+            label="Create a new template"
+            note={`Only ${accountName} moves onto it. Everyone else stays where they are.`}
           />
+          {/*
+            The name field opens under its own option, and carries no chevron.
+
+            It is not optional detail — it is the rest of the answer, and there
+            is nothing to collapse to: an unnamed new template cannot be saved.
+            A chevron over a required input invites you to shut the one thing
+            the dialog is waiting for.
+          */}
           {saveAs === "new" ? (
-            <div className="mt-[6px] ml-[30px] flex flex-col gap-[4px]">
-              <SaveNameField value={name} onChange={setName} onCommit={commitNew} />
+            <div
+              className={cn(
+                "ml-[30px] flex flex-col gap-[4px]",
+                accordion ? "mt-[4px] mb-[2px]" : "mt-[6px]",
+              )}
+            >
+              <SaveNameField
+                value={name}
+                onChange={setName}
+                onCommit={commitNew}
+                taken={taken}
+              />
             </div>
           ) : null}
         </div>
       ) : (
         <div className="mt-[12px] flex flex-col gap-[4px]">
-          <SaveNameField value={name} onChange={setName} onCommit={commitNew} />
+          <SaveNameField
+            value={name}
+            onChange={setName}
+            onCommit={commitNew}
+            taken={taken}
+          />
         </div>
       )}
 
@@ -155,10 +242,10 @@ export function TemplateSaveDialog({
           <TemplateMessageButton
             key="save"
             tone="primary"
-            disabled={saveAs === "new" && name.trim() === ""}
+            disabled={saveAs === "new" && !canName}
             onClick={() => {
               if (saveAs === "update" && linked) onUpdate(linked.id);
-              else if (name.trim() !== "") onCreate(name.trim());
+              else if (canName) onCreate(name.trim());
               else return;
               onClose();
             }}
@@ -183,10 +270,13 @@ function SaveNameField({
   value,
   onChange,
   onCommit,
+  taken = false,
 }: {
   value: string;
   onChange: (next: string) => void;
   onCommit: () => void;
+  /** Whether a template already carries this name. */
+  taken?: boolean;
 }) {
   return (
     <>
@@ -202,8 +292,27 @@ function SaveNameField({
         }}
         placeholder="Dentist, Home services…"
         aria-label="Template name"
-        className="rounded-[7px] bg-nav-hover px-[10px] py-[7px] text-[12.5px] leading-[16px] text-nav-fg outline-none placeholder:text-nav-fg-subtle"
+        aria-invalid={taken || undefined}
+        className={cn(
+          "rounded-[7px] bg-nav-hover px-[10px] py-[7px] text-[12.5px] leading-[16px] text-nav-fg outline-none placeholder:text-nav-fg-subtle",
+          taken && "shadow-[inset_0_0_0_1.5px_var(--hr-warning-500)]",
+        )}
       />
+      {/*
+        Said under the field, not in a toast.
+
+        The fix is a keystroke away and the cursor is already in the box — a
+        message anywhere else would be describing a problem you have to go back
+        to solve.
+      */}
+      {taken ? (
+        <span
+          role="status"
+          className="text-[11.5px] leading-[15px] text-[var(--hr-warning-700)]"
+        >
+          A template already has this name. Pick another.
+        </span>
+      ) : null}
     </>
   );
 }
@@ -223,20 +332,31 @@ function SaveOption({
   onSelect,
   label,
   note,
+  expanded,
+  onToggle,
 }: {
   selected: boolean;
   disabled?: boolean;
   onSelect: () => void;
   label: string;
   note: string;
+  /**
+   * Whether this option's disclosure is open. Omit for an option that has
+   * nothing behind it — the chevron then does not appear at all, which is how
+   * "Create a new template" stays a plain answer with a field under it.
+   */
+  expanded?: boolean;
+  onToggle?: () => void;
 }) {
+  const disclosing = expanded !== undefined && onToggle !== undefined;
   return (
     <button
       type="button"
       role="radio"
       aria-checked={selected}
+      {...(disclosing ? { "aria-expanded": expanded } : {})}
       disabled={disabled}
-      onClick={onSelect}
+      onClick={disclosing ? onToggle : onSelect}
       className={cn(
         "motion-tap flex items-start gap-[8px] rounded-[7px] px-[8px] py-[7px] text-left",
         "disabled:pointer-events-none disabled:opacity-40",
@@ -260,6 +380,16 @@ function SaveOption({
           {note}
         </span>
       </span>
+      {disclosing ? (
+        <ChevronDown
+          size={13}
+          aria-hidden="true"
+          className={cn(
+            "mt-[2px] shrink-0 text-nav-fg-subtle motion-move",
+            expanded && "rotate-180",
+          )}
+        />
+      ) : null}
     </button>
   );
 }

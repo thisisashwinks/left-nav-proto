@@ -753,6 +753,52 @@ function today(): string {
   });
 }
 
+/**
+ * Whether a name is already taken, ignoring case and surrounding space.
+ *
+ * Two templates called "New Template" are indistinguishable everywhere they
+ * appear — the picker, the save dialog's radio, the delete dialog's
+ * destination, the bulk table's "will be on" column. Every one of those asks
+ * the reader to choose between them by name, and a list that offers the same
+ * name twice is asking a question with no answer.
+ *
+ * Case-insensitive because "new template" and "New Template" are the same name
+ * to the person reading the list, and trimmed because a trailing space is not a
+ * distinction anybody can see.
+ */
+export function nameTaken(
+  templates: readonly NavTemplate[],
+  name: string,
+  /** The template being renamed, which is allowed to keep its own name. */
+  exceptId?: string,
+): boolean {
+  const wanted = name.trim().toLowerCase();
+  if (wanted === "") return false;
+  return templates.some(
+    (t) => t.id !== exceptId && t.name.trim().toLowerCase() === wanted,
+  );
+}
+
+/**
+ * The first free name in the "X (copy)", "X (copy 2)" run.
+ *
+ * Duplicating is the one path that names a template FOR you, so it is the one
+ * path that has to resolve a collision itself rather than refusing — pressing
+ * Duplicate twice should give you two templates, not an error the second time.
+ */
+function freeCopyName(
+  templates: readonly NavTemplate[],
+  base: string,
+): string {
+  const first = `${base} (copy)`;
+  if (!nameTaken(templates, first)) return first;
+  for (let n = 2; n < 500; n += 1) {
+    const next = `${base} (copy ${n})`;
+    if (!nameTaken(templates, next)) return next;
+  }
+  return `${base} (copy ${Date.now()})`;
+}
+
 /** Which group a product sits in, by label — the only stable handle across two trees. */
 function groupLabelOf(a: NavArrangement, productId: string): string | null {
   for (const g of a.customGroups) if (g.productIds.includes(productId)) return g.label;
@@ -1180,6 +1226,15 @@ export function NavTemplatesProvider({
     (name: string, fromAccount: string, state: NavLayoutState) => {
       const trimmed = name.trim();
       if (trimmed === "") return null;
+      /*
+       * A name already in the list is refused, not silently accepted.
+       *
+       * Two templates called the same thing are indistinguishable in every
+       * surface that lists them, and all of those surfaces ask you to pick one.
+       * Returning null lets the dialog say so and keep the field open, which is
+       * the only outcome that leaves the admin able to fix it.
+       */
+      if (nameTaken(templatesRef.current, trimmed)) return null;
       seq.current += 1;
       const arrangement = captureArrangement(state);
       /*
@@ -1293,6 +1348,8 @@ export function NavTemplatesProvider({
   const rename = React.useCallback((id: string, name: string) => {
     const next = name.trim();
     if (next === "") return;
+    // Its own name is not a collision — see `nameTaken`.
+    if (nameTaken(templatesRef.current, next, id)) return;
     setTemplates((all) =>
       all.map((t) =>
         // The guard is here as well as in the menu: a disabled control is a
@@ -1475,8 +1532,10 @@ export function NavTemplatesProvider({
       ...from,
       id: `tpl-${seq.current}`,
       // "(copy)" rather than "(2)": the list is read by a person deciding which
-      // one is the live one, and a numeral does not say which came first.
-      name: `${from.name} (copy)`,
+      // one is the live one, and a numeral does not say which came first. A
+      // second press walks on to "(copy 2)" rather than refusing — naming is
+      // this path's job, so resolving the collision is too.
+      name: freeCopyName(templatesRef.current, from.name),
       builtIn: false,
       // A duplicated preset has an origin now — this agency's, not HighLevel's.
       fromAccount: from.builtIn ? "Preset" : from.fromAccount,

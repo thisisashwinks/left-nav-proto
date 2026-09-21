@@ -95,6 +95,9 @@ import {
   TEMPLATE_MESSAGE_PLACEMENTS,
   LAYOUT_MODELS,
   LAYOUT_MODEL_LABELS,
+  TEMPLATE_SAVE_LAYOUTS,
+  TEMPLATE_SAVE_LAYOUT_LABELS,
+  type TemplateSaveLayout,
   type LayoutModel,
   TEMPLATE_PROPAGATIONS,
   TEMPLATE_PROPAGATION_LABELS,
@@ -1722,6 +1725,8 @@ export function TuningPanel() {
     setTemplateAccountSpread,
     editCardTemplateName,
     setEditCardTemplateName,
+    templateSaveLayout,
+    setTemplateSaveLayout,
     setNavSwitchSurface,
     setTemplatePropagation,
     layoutSwitchInEditCard,
@@ -1773,6 +1778,7 @@ export function TuningPanel() {
     (templateUndo !== DEFAULT_THEME.templateUndo ? 1 : 0) +
     (templateAccountSpread !== DEFAULT_THEME.templateAccountSpread ? 1 : 0) +
     (editCardTemplateName !== DEFAULT_THEME.editCardTemplateName ? 1 : 0) +
+    (templateSaveLayout !== DEFAULT_THEME.templateSaveLayout ? 1 : 0) +
     (templatePropagation !== DEFAULT_THEME.templatePropagation ? 1 : 0) +
     (templateMessagePlacement !== DEFAULT_THEME.templateMessagePlacement ? 1 : 0) +
     (templateDeleteMode !== DEFAULT_THEME.templateDeleteMode ? 1 : 0) +
@@ -1791,6 +1797,7 @@ export function TuningPanel() {
     setTemplateUndo(DEFAULT_THEME.templateUndo);
     setTemplateAccountSpread(DEFAULT_THEME.templateAccountSpread);
     setEditCardTemplateName(DEFAULT_THEME.editCardTemplateName);
+    setTemplateSaveLayout(DEFAULT_THEME.templateSaveLayout);
     setTemplatePropagation(DEFAULT_THEME.templatePropagation);
     setTemplateMessagePlacement(DEFAULT_THEME.templateMessagePlacement);
     setTemplateDeleteMode(DEFAULT_THEME.templateDeleteMode);
@@ -2138,6 +2145,19 @@ export function TuningPanel() {
               </Note>
             </>
           ) : null}
+
+          <Segmented
+            label="Save dialog options"
+            options={TEMPLATE_SAVE_LAYOUTS}
+            value={templateSaveLayout}
+            onChange={(v: TemplateSaveLayout) => setTemplateSaveLayout(v)}
+            format={(v) => TEMPLATE_SAVE_LAYOUT_LABELS[v]}
+          />
+          <Note>
+            {templateSaveLayout === "accordion"
+              ? "Each answer owns its own consequence: Update opens the list of sub-accounts inside that option, Create opens the name field inside that one. The chevron is only on Update — its body is detail you can decline, where a name is the rest of the answer."
+              : "Two plain radios with their detail stacked under the pair, and a separate “Which ones?” between them. The thing that opened is a row away from the thing that opened it."}
+          </Note>
 
           <Toggle
             label="Plans can hand out a template"

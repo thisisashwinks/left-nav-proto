@@ -210,15 +210,7 @@ function EditNavButton({
   atFoot?: boolean;
 }) {
   /** Whether a sub-account may hold a layout of its own. See LAYOUT_MODELS. */
-  const { strict, linkedFor, templates } = useNavTemplates();
-  /**
-   * Nothing in the library but the default — so the ⋯ has nothing to offer.
-   *
-   * `templates` is what the MENU would list, already filtered by the seed axis,
-   * so this asks the question the menu would ask rather than a second version
-   * of it that could drift.
-   */
-  const soleTemplate = strict && templates.length <= 1;
+  const { strict, linkedFor } = useNavTemplates();
   const { editCardTemplateName } = useTheme().effective;
   /**
    * The template this account is on, by name.
@@ -523,25 +515,20 @@ function EditNavButton({
             switching it off no longer changes the card's shape.
           */}
           {/*
-            Dead until there is somewhere else to go.
+            Live even when the library holds only the default.
 
-            Under `one-template` this menu is the template list, and with one
-            template the list is a single row with a tick already on it — a
-            control that opens a box confirming what the card above it just
-            said. There is nothing to apply, nothing to move between, and
-            nothing to manage. It comes alive with the second template, which is
-            also the first moment the question "which one is this on" has an
-            answer worth opening a menu for.
-
-            Under `local-edits` it stays live at one template: the menu still
-            carries Save, Create, Layout and Navigation there, none of which
-            need a second template to exist.
+            It was disabled there, on the reasoning that a one-row list is a box
+            confirming what the card already says. That reasoning was about the
+            CONTENTS and the control is about the door: a tool that is present
+            on every other account and dead on a new one reads as broken rather
+            than as empty, and the reader has no way to tell which it is without
+            being able to open it. A list of one is also a legitimate answer to
+            "what have I got" — it is how every agency starts.
           */}
           <EditTool
             label="More editing options — templates, layout, navigation"
-            short={soleTemplate ? "Save a template to use this" : "More"}
+            short="More"
             icon={MoreHorizontal}
-            disabled={soleTemplate}
             onOpen={(trigger) => setMoreAnchor(trigger)}
           />
           </span>

@@ -1145,9 +1145,16 @@ function TemplateMoveTable({
     <div className="flex flex-col gap-[8px]">
       <div className="overflow-hidden rounded-[8px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
         <div className="flex items-center gap-[10px] bg-pg px-[12px] py-[7px] text-[11px] leading-[15px] font-semibold tracking-[0.4px] text-pg-muted uppercase">
+          {/*
+            "Current template" / "New template" rather than "Currently on" /
+            "Will be on" (review, Sep 18). The originals described a
+            RELATIONSHIP and left the reader to infer what the thing on the
+            other end was; these name the thing, which is what the column holds
+            and what the rest of the feature calls it.
+          */}
           <span className="min-w-0 flex-1">Sub-account</span>
-          <span className="min-w-0 flex-1">Currently on</span>
-          <span className="min-w-0 flex-1">Will be on</span>
+          <span className="min-w-0 flex-1">Current template</span>
+          <span className="min-w-0 flex-1">New template</span>
           <span className="w-[20px] shrink-0" />
         </div>
         {accounts.map((a) => {

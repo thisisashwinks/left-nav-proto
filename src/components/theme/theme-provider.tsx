@@ -49,6 +49,7 @@ import {
   type PinFeedback,
   type TemplateActionHome,
   type TemplateSaveShape,
+  type TemplateSaveLayout,
   type TemplateSeed,
   type TemplateMessagePlacement,
   type SubAccountSwitcher,
@@ -172,6 +173,7 @@ interface ThemeContextValue extends ThemeState {
   setTemplateUndo: (on: boolean) => void;
   setTemplateAccountSpread: (on: boolean) => void;
   setEditCardTemplateName: (on: boolean) => void;
+  setTemplateSaveLayout: (layout: TemplateSaveLayout) => void;
   setNavColourControl: (control: NavColourControl) => void;
   setSubAccountSwitcher: (switcher: SubAccountSwitcher) => void;
   setNewDotPlacement: (placement: NewDotPlacement) => void;
@@ -413,6 +415,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, templateAccountSpread })),
       setEditCardTemplateName: (editCardTemplateName) =>
         setState((s) => ({ ...s, editCardTemplateName })),
+      setTemplateSaveLayout: (templateSaveLayout) =>
+        setState((s) => ({ ...s, templateSaveLayout })),
       setNavColourControl: (navColourControl) =>
         setState((s) => ({ ...s, navColourControl })),
       setSubAccountSwitcher: (subAccountSwitcher) =>

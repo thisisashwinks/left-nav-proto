@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Check, ChevronDown, X } from "lucide-react";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import { accounts } from "@/components/accounts/accounts-data";
+import { useNavTemplates } from "./nav-templates";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 
@@ -424,10 +425,18 @@ export function TemplateToast({
  * the same set, and a disclosure that said "Which ones?" in one and "Show the 8
  * sub-accounts" in the other would read as two different controls.
  */
-export function AffectedAccounts({ ids }: { ids: readonly string[] }) {
+export function AffectedAccounts({
+  ids,
+  /** Where every one of them ends up. Omit for a list with no destination. */
+  to,
+}: {
+  ids: readonly string[];
+  to?: string;
+}) {
   const [showing, setShowing] = React.useState(false);
-  const reached = accounts.filter((a) => ids.includes(a.id));
-  if (reached.length === 0) return null;
+  // Membership is the table's business now — this only decides whether there is
+  // anything to disclose at all.
+  if (!accounts.some((a) => ids.includes(a.id))) return null;
 
   return (
     <div className="mt-[6px] flex flex-col gap-[4px]">
@@ -452,33 +461,80 @@ export function AffectedAccounts({ ids }: { ids: readonly string[] }) {
           className={cn("motion-move", showing && "rotate-180")}
         />
       </button>
-      {showing ? (
-        /*
-          Tags, not a column of names.
+      {showing ? <AffectedAccountsTable ids={ids} {...(to ? { to } : {})} /> : null}
+    </div>
+  );
+}
 
-          As a list it was eight rows in a short scrolling box, so it cut the
-          fifth mid-word — the reader was scanning for one client and the
-          control was showing them half of them. Tags wrap, so the same eight
-          fit in three lines with nothing clipped, and the logo is how somebody
-          recognises their own account before they have finished the name.
-        */
-        <div className="flex max-h-[128px] flex-wrap gap-[4px] overflow-y-auto rounded-[7px] bg-nav-hover p-[6px]">
-          {reached.map((a) => (
-            <span
+/**
+ * Who moves, what they are on, and what they will be on.
+ *
+ * The same shape the bulk modal uses. It was a wrap of tags here and a
+ * three-column table there — two presentations of one fact, which is the
+ * inconsistency the review caught. The table is the one that survives, because
+ * it can carry what the tags could not: not just WHO moves but what each of
+ * them is on now and what they will be on after. A name on its own leaves the
+ * reader to remember the second half.
+ *
+ * Exported bare as well as behind the disclosure, because the accordion save
+ * dialog already has a header to hang it under — its own radio row — and a
+ * second "Which ones?" inside that would be two doors to one table.
+ */
+export function AffectedAccountsTable({
+  ids,
+  to,
+}: {
+  ids: readonly string[];
+  to?: string;
+}) {
+  const { linkedFor } = useNavTemplates();
+  const reached = accounts.filter((a) => ids.includes(a.id));
+  if (reached.length === 0) return null;
+
+  return (
+    <div className="overflow-hidden rounded-[7px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
+      <div className="flex items-center gap-[8px] bg-nav-hover px-[9px] py-[5px] text-[10px] leading-[14px] font-semibold tracking-[0.4px] text-nav-fg-subtle uppercase">
+        <span className="min-w-0 flex-1">Sub-account</span>
+        <span className="min-w-0 flex-1">Current template</span>
+        {to ? <span className="min-w-0 flex-1">New template</span> : null}
+      </div>
+      <div className="flex max-h-[148px] flex-col overflow-y-auto">
+        {reached.map((a) => {
+          const from = linkedFor(a.id);
+          const same = to !== undefined && from?.name === to;
+          return (
+            <div
               key={a.id}
-              className="flex min-w-0 items-center gap-[5px] rounded-[5px] bg-nav px-[6px] py-[3px] text-[11.5px] leading-[16px] text-nav-fg-muted shadow-[inset_0_0_0_1px_var(--nav-divider)]"
+              className="flex items-center gap-[8px] px-[9px] py-[6px] not-last:shadow-[inset_0_-1px_0_0_var(--nav-divider)]"
             >
-              <AccountLogo
-                logo={a.logo}
-                {...(a.logoSrc ? { src: a.logoSrc } : {})}
-                size={14}
-                radius={999}
-              />
-              <span className="max-w-[140px] truncate">{a.name}</span>
-            </span>
-          ))}
-        </div>
-      ) : null}
+              <span className="flex min-w-0 flex-1 items-center gap-[6px]">
+                <AccountLogo
+                  logo={a.logo}
+                  {...(a.logoSrc ? { src: a.logoSrc } : {})}
+                  size={15}
+                  radius={999}
+                />
+                <span className="truncate text-[12px] leading-[16px] font-medium text-nav-fg">
+                  {a.name}
+                </span>
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[12px] leading-[16px] text-nav-fg-subtle">
+                {from?.name ?? "No template"}
+              </span>
+              {to ? (
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 truncate text-[12px] leading-[16px]",
+                    same ? "text-nav-fg-subtle" : "font-medium text-nav-fg",
+                  )}
+                >
+                  {same ? "No change" : to}
+                </span>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

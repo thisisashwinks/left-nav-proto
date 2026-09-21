@@ -289,6 +289,31 @@ export function EditMoreMenu({
    */
   const linked = onTemplate && !onTemplate.immutable ? onTemplate : null;
 
+  /**
+   * Whether this row is the arrangement the account is already on.
+   *
+   * `linked` is null on the default — it holds the template there is something
+   * to SAVE INTO, and the default is not one — so being on the default is
+   * tested as the absence of a link rather than as a link to it. Same question
+   * the tick asks, asked once.
+   */
+  const isCurrent = (templateId: string) =>
+    templateId === DEFAULT_TEMPLATE_ID ? linked === null : linked?.id === templateId;
+
+  /**
+   * Applying the template you are already on.
+   *
+   * Nothing to do, so nothing is done: the menu closes and that is the whole
+   * gesture. It used to run the full apply — a confirmation to answer, a patch
+   * that landed identically, a toast, and an undo offer for a change nobody
+   * made. Every one of those describes something happening, over a press whose
+   * honest answer is "you are already here".
+   */
+  const applyRow = (templateId: string) => {
+    if (!isCurrent(templateId)) onApplyTemplate(templateId);
+    onClose();
+  };
+
   const body = (() => {
     if (view === "apply") {
       return (
@@ -357,10 +382,7 @@ export function EditMoreMenu({
                       setMenuAt(el);
                     },
                   }}
-                  onSelect={() => {
-                    onApplyTemplate(t.id);
-                    onClose();
-                  }}
+                  onSelect={() => applyRow(t.id)}
                 />
               ),
             )
@@ -746,9 +768,8 @@ export function EditMoreMenu({
                         ? "Preset"
                         : `From ${t.fromAccount}`
                 }
-                checked={
-                  t.id === DEFAULT_TEMPLATE_ID ? linked === null : linked?.id === t.id
-                }
+                // The same question the row's press asks — see `isCurrent`.
+                checked={isCurrent(t.id)}
                 {...(templateActionHome === "on-row" &&
                 templateHasActions(t, {
                   canUpdate:
@@ -770,10 +791,7 @@ export function EditMoreMenu({
                       },
                     }
                   : {})}
-                onSelect={() => {
-                  onApplyTemplate(t.id);
-                  onClose();
-                }}
+                onSelect={() => applyRow(t.id)}
               />
             ),
           )}
@@ -1250,7 +1268,22 @@ export function EditMoreMenu({
             the same kind of set.
           */}
           {onIt > 0 && deleting ? (
-            <AffectedAccounts ids={accountsOnIds(deleting)} />
+            <AffectedAccounts
+              ids={accountsOnIds(deleting)}
+              /*
+                Named once a destination is chosen, so the table answers the
+                dialog's own question: these accounts, off this template, onto
+                that one. Before the pick there is nothing truthful to put in
+                the column.
+              */
+              {...(moveTo
+                ? {
+                    to:
+                      templates.find((t) => t.id === moveTo)?.name ??
+                      "HighLevel default",
+                  }
+                : {})}
+            />
           ) : null}
           {onIt > 0 && strict ? (
             /*
@@ -1263,7 +1296,20 @@ export function EditMoreMenu({
               radio pair and nothing is pre-selected — a mandatory choice with a
               default answer is a dismissible warning wearing a radio.
             */
-            <div className="mt-[10px]">
+            <div className="mt-[10px] flex flex-col gap-[4px]">
+              {/*
+                A visible label, and the same word the table under it uses.
+
+                The picker carried its name in `aria-label` only, so the one
+                mandatory decision in the dialog was an unlabelled control
+                reading "Choose a template" — which is a placeholder, not a
+                question. "New template" is what the column beneath it is
+                headed, so the choice and its consequence are named the same
+                thing rather than each inventing their own.
+              */}
+              <span className="text-[11px] leading-[15px] font-medium text-nav-fg-subtle">
+                New template
+              </span>
               <TemplatePicker
                 label={onIt === 1 ? "Move it to" : `Move all ${onIt} to`}
                 value={moveTo}

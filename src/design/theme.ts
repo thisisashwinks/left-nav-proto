@@ -781,6 +781,35 @@ export const PIN_FEEDBACK_LABELS: Record<PinFeedback, string> = {
   hilite: "Yellow highlight",
 };
 
+/**
+ * How the save dialog's two answers are drawn.
+ *
+ * `accordion` each option owns what belongs to it: choosing "Update" opens the
+ *            table of sub-accounts inside that option, choosing "Create a new
+ *            template" opens the name field inside that one. The consequence of
+ *            an answer sits under the answer, so the dialog only ever shows the
+ *            detail for the branch you are actually on.
+ *
+ *            Only the update option carries a chevron. Its body is a disclosure
+ *            — information you may or may not want — and the chevron says there
+ *            is more behind it. The name field is not optional detail; it is the
+ *            rest of the sentence, and a chevron over a required input invites
+ *            you to close the thing you have to fill in.
+ *
+ * `list`     the options as two plain radios with their detail stacked below
+ *            the pair. What was built first, and the comparison: it puts both
+ *            bodies in one column, so the thing that opened is a row away from
+ *            the thing that opened it.
+ */
+export const TEMPLATE_SAVE_LAYOUTS = ["accordion", "list"] as const;
+
+export type TemplateSaveLayout = (typeof TEMPLATE_SAVE_LAYOUTS)[number];
+
+export const TEMPLATE_SAVE_LAYOUT_LABELS: Record<TemplateSaveLayout, string> = {
+  accordion: "Accordion",
+  list: "Plain radios",
+};
+
 export const LEGACY_FOOT_CONTROLS = ["off", "menu", "pills"] as const;
 
 export type LegacyFootControl = (typeof LEGACY_FOOT_CONTROLS)[number];
@@ -1831,6 +1860,8 @@ export interface ThemeState {
    * that line is one you can only judge by seeing the card both ways.
    */
   editCardTemplateName: boolean;
+  /** How the save dialog draws its two answers. See TEMPLATE_SAVE_LAYOUTS. */
+  templateSaveLayout: TemplateSaveLayout;
   /**
    * Whether the Editing nav card offers the layout switch.
    *
@@ -2156,6 +2187,9 @@ export const DEFAULT_THEME: ThemeState = {
   // On: which template you are about to change is the fact that decides
   // whether the next keystroke is safe.
   editCardTemplateName: true,
+  // Each answer carries its own consequence, rather than both consequences
+  // stacking under the pair.
+  templateSaveLayout: "accordion",
   // On, for the same reason: the comparison should be one menu away.
   // Off (Sep 15). "My layout vs HighLevel default" was a second, parallel way
   // to say what a template says — and the shipped arrangement is now a row in

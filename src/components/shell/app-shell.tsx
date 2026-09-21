@@ -1806,6 +1806,29 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         // gutter, and the bar reads the same token so the two move together.
         data-shell-joined={barInCanvas ? "" : undefined}
         className={cn(
+          /*
+            `isolate`, so nothing inside the canvas can outrank the edit scrim.
+
+            The scrim sits at z-5 and this column carries no z-index, which
+            creates no stacking context — so a positioned descendant with a
+            z-index of its own competed in the SHELL's context and painted over
+            the dim. The contacts table's hairline is one (`z-10`, an overlay so
+            the sticky header cannot cover it), and it is the white rectangle
+            that survived the dim in the middle of the screen. It will not be
+            the last: "overlay raised above my own children" is the standard fix
+            for a card whose children paint to its edge, and every one of them
+            escapes the same way.
+
+            Isolating here answers all of them at once. Only while EDITING,
+            though: a stacking context also traps the things inside the canvas
+            that are supposed to escape it — the contacts page's menu hangs its
+            click-away off a `fixed inset-0`, which has to cover the nav and the
+            rail to catch a click there. Confining that permanently would leave
+            the menu open when you clicked away onto the nav. In edit mode there
+            is no such menu open and the canvas is meant to be one receded
+            surface, so the context costs nothing exactly when it is needed.
+          */
+          layout.editing && "isolate",
           "flex min-w-0 flex-1 flex-col",
           barInCanvas
             ? /*
@@ -1831,7 +1854,22 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             : "mt-[var(--shell-canvas-gap)]",
         )}
       >
-        {barInCanvas ? (
+        {barInCanvas && !layout.editing ? (
+          /*
+            Gone while the nav is being edited.
+
+            The overlay sits at z-30 so the app bar's band cannot cover it, and
+            the card is `relative` with no z-index — which creates no stacking
+            context, so that 30 competes in the SHELL's context and paints above
+            the z-5 edit scrim. The canvas dimmed correctly and then a
+            full-strength white rectangle was drawn back around it: the one
+            bright edge on a screen whose whole job is to have receded.
+
+            Dropped rather than re-stacked. Under the scrim it would be covered
+            by the app bar's band again — the exact bug this overlay exists to
+            fix — and there is nothing for it to do here anyway: while the
+            surround is dimmed, the dim IS the canvas's edge.
+          */
           /*
             The card's hairline, drawn over its contents rather than under them.
 
