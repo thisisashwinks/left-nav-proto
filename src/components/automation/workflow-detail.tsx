@@ -1,9 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronRight, History, Play } from "lucide-react";
+import { Check, History, Play } from "lucide-react";
 import { WorkflowCanvas } from "@/components/automation/workflow-canvas";
-import type { Crumb } from "@/components/header/app-header";
 import { OutlineButton, PrimaryButton } from "@/components/page/page-header";
 import { useRecordCrumb } from "@/components/page/record-crumb";
 import { ViewBar } from "@/components/page/view-bar";
@@ -11,6 +10,7 @@ import { useShellChrome } from "@/components/shell/full-bleed";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { STATUS_LABEL, type Workflow } from "./workflows-data";
+import { BuilderTrail } from "@/components/shell/builder-trail";
 
 /**
  * The facets of one workflow.
@@ -63,62 +63,6 @@ function StatusPill({ status }: { status: Workflow["status"] }) {
   );
 }
 
-/**
- * The trail, drawn in the page, for the arrangements with no bar to draw it.
- *
- * Fed by the shell — `useShellChrome().trail` is the very array AppHeader
- * would have been handed — so this is a second RENDERING of the trail and
- * never a second trail. It is deliberately flatter than the bar's: no icons,
- * no switcher carets, because a builder is somewhere you went on purpose and
- * the question here is "where am I and how do I leave", not "what else could
- * I be looking at".
- *
- * Every crumb above the last is a way out, which is the same promise the bar's
- * trail makes. The last one is the artifact and does nothing — you are on it.
- */
-function BuilderTrail({
-  trail,
-  onLeave,
-}: {
-  trail: readonly (string | Crumb)[];
-  onLeave: () => void;
-}) {
-  const labels = trail.map((c) => (typeof c === "string" ? c : c.label));
-  return (
-    <nav
-      aria-label="Breadcrumb"
-      className="flex min-w-0 items-center gap-[4px] text-[13px] leading-[normal]"
-    >
-      {labels.map((label, i) => {
-        const last = i === labels.length - 1;
-        return (
-          <React.Fragment key={`${label}-${i}`}>
-            {i > 0 ? (
-              <ChevronRight
-                size={13}
-                aria-hidden="true"
-                className="shrink-0 text-pg-faint"
-              />
-            ) : null}
-            {last ? (
-              <span className="truncate font-semibold text-pg-heading">
-                {label}
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={onLeave}
-                className="motion-tap shrink-0 rounded-[6px] px-[4px] py-[2px] text-pg-muted hover:bg-pg-bg hover:text-pg-text"
-              >
-                {label}
-              </button>
-            )}
-          </React.Fragment>
-        );
-      })}
-    </nav>
-  );
-}
 
 /**
  * A workflow, opened — and the Sep 22 builder chrome, wired.
@@ -193,8 +137,14 @@ export function WorkflowDetail({
    * what the shell folds into the trail, and the trail comes straight back
    * down to BuilderTrail above when there is no bar to hold it. One trail,
    * two possible renderers — the page never decides what the trail SAYS.
+   *
+   * Both readings travel: the shell picks the name or the kind per
+   * `recordCrumbLabel`, and only this page knows that what it opened is a
+   * workflow. "Workflow details" and not "Builder" — the crumb has to hold
+   * still whether the canvas is being read or edited, and the builder is what
+   * this screen IS rather than a second place inside it.
    */
-  useRecordCrumb(workflow.name, onBack);
+  useRecordCrumb({ name: workflow.name, kind: "Workflow details" }, onBack);
 
   /*
    * The commitment side. Identical in all four combinations, which is the

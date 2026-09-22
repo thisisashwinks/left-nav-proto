@@ -19,7 +19,12 @@ import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { FunnelAiBuilder } from "./funnel-ai-builder";
 import { FunnelDetail } from "./funnel-detail";
-import { funnelRows, type FunnelRow } from "./funnels-data";
+import { FunnelPageBuilder } from "./funnel-page-builder";
+import {
+  funnelRows,
+  type FunnelRow,
+  type FunnelStep,
+} from "./funnels-data";
 
 const COLS = "2.6fr 1.1fr 0.9fr 36px";
 
@@ -42,6 +47,19 @@ export function FunnelsPage() {
   const chrome = usePageChrome();
   const [openId, setOpenId] = React.useState<string | null>(null);
   const [building, setBuilding] = React.useState(false);
+  /*
+   * The step whose page is open in the page builder, or null.
+   *
+   * A step rather than a boolean, unlike `building` above, because the page
+   * builder is opened ON something — funnel-detail hands the step up when you
+   * click Edit on its CONTROL card, and the builder needs the name for its page
+   * selector and the URL for its live strip. Held here and not inside
+   * funnel-detail for the reason the AI builder is held here: the builder asks
+   * the shell to drop the sidebar and the bar, and a page making that ask from
+   * inside a still-mounted detail view would have two screens publishing record
+   * crumbs at once.
+   */
+  const [editingStep, setEditingStep] = React.useState<FunnelStep | null>(null);
   /*
    * List or recent, and nothing else.
    *
@@ -72,10 +90,35 @@ export function FunnelsPage() {
     );
   }
 
+  /*
+   * The builder outranks the detail view it was opened from.
+   *
+   * Checked BEFORE `open` rather than nested inside it: the detail view is
+   * still the thing you return to, but only one of the two may be mounted,
+   * because both publish a record crumb into a slot that holds one. Closing the
+   * builder drops back to the detail view with its funnel still open, which is
+   * why `openId` is left alone here.
+   */
+  if (open && editingStep) {
+    return (
+      <div data-page-theme={effective.appTheme} className="h-full min-h-0">
+        <FunnelPageBuilder
+          funnel={open}
+          step={editingStep}
+          onBack={() => setEditingStep(null)}
+        />
+      </div>
+    );
+  }
+
   if (open) {
     return (
       <div data-page-theme={effective.appTheme} className="h-full min-h-0">
-        <FunnelDetail funnel={open} onBack={() => setOpenId(null)} />
+        <FunnelDetail
+          funnel={open}
+          onBack={() => setOpenId(null)}
+          onEditStep={setEditingStep}
+        />
       </div>
     );
   }

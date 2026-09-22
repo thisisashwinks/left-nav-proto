@@ -14,7 +14,11 @@ import { OutlineButton } from "@/components/page/page-header";
 import { useRecordCrumb } from "@/components/page/record-crumb";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
-import { funnelSteps, type FunnelRow } from "./funnels-data";
+import {
+  funnelSteps,
+  type FunnelRow,
+  type FunnelStep,
+} from "./funnels-data";
 
 /**
  * One funnel, opened.
@@ -35,15 +39,27 @@ import { funnelSteps, type FunnelRow } from "./funnels-data";
 export function FunnelDetail({
   funnel,
   onBack,
+  onEditStep,
 }: {
   funnel: FunnelRow;
   onBack: () => void;
+  /**
+   * Open the page builder on one step.
+   *
+   * Handed down rather than opened here, because the builder is full-bleed: it
+   * asks the shell to drop the sidebar and the app bar, and a screen rendered
+   * INSIDE this one would be asking for that from under a detail view that is
+   * still mounted and still publishing its own record crumb. funnels-page owns
+   * list → detail → builder as three exclusive states for exactly that reason,
+   * which is also how it already handles the AI builder.
+   */
+  onEditStep: (step: FunnelStep) => void;
 }) {
   const { effective } = useTheme();
   const [stepId, setStepId] = React.useState(funnelSteps[0]?.id ?? "");
   const step = funnelSteps.find((s) => s.id === stepId) ?? funnelSteps[0]!;
 
-  useRecordCrumb(funnel.name, onBack);
+  useRecordCrumb({ name: funnel.name, kind: "Funnel details" }, onBack);
 
   return (
     <div
@@ -185,7 +201,15 @@ export function FunnelDetail({
                 <span className="text-[12px] leading-[normal] text-pg-faint">
                   Edited {funnel.updated.toLowerCase()}
                 </span>
-                <OutlineButton>
+                {/*
+                  The one door to the page builder.
+
+                  On the CONTROL card and not on the step row in the column at
+                  the left: a step can have two versions under a split test, and
+                  "edit the step" would be ambiguous the moment the variation
+                  card fills in. What you edit is a page, and each card is one.
+                */}
+                <OutlineButton onClick={() => onEditStep(step)}>
                   <Pencil size={15} aria-hidden="true" className="text-pg-text-strong" />
                   Edit
                 </OutlineButton>

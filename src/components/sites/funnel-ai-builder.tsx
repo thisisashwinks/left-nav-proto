@@ -18,7 +18,6 @@ import {
   Undo2,
   type LucideIcon,
 } from "lucide-react";
-import type { Crumb } from "@/components/header/app-header";
 import { AiSparkle } from "@/components/icons/ai-sparkle";
 import { OutlineButton, PrimaryButton } from "@/components/page/page-header";
 import { useRecordCrumb } from "@/components/page/record-crumb";
@@ -27,6 +26,7 @@ import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { FunnelAiPreview } from "./funnel-ai-preview";
 import { builderTranscript, type BuilderMessage } from "./funnels-data";
+import { BuilderTrail } from "@/components/shell/builder-trail";
 
 /**
  * Funnel AI — the builder the Sep 22 top-bar review is really about.
@@ -422,64 +422,6 @@ export function FunnelAiBuilder({ onBack }: { onBack: () => void }) {
   );
 }
 
-/**
- * The trail, drawn in the page, for the arrangements with no bar to draw it.
- *
- * Fed by `useShellChrome().trail`, which is the very array AppHeader would
- * have been handed — so this is a second RENDERING of the trail and never a
- * second trail. Flatter than the bar's on purpose: no icons and no switcher
- * carets, because a builder is somewhere you went deliberately and the
- * question here is "where am I and how do I leave", not "what else could I be
- * looking at".
- *
- * A near-twin of the one inside workflow-detail, and deliberately not shared
- * with it: that one is unexported and that file belongs to another pair of
- * hands this week. If a third builder appears, the two should be lifted into
- * shell/ together rather than one page importing out of the other's file.
- */
-function BuilderTrail({
-  trail,
-  onLeave,
-}: {
-  trail: readonly (string | Crumb)[];
-  onLeave: () => void;
-}) {
-  const labels = trail.map((c) => (typeof c === "string" ? c : c.label));
-  return (
-    <nav
-      aria-label="Breadcrumb"
-      className="flex min-w-0 items-center gap-[4px] text-[13px] leading-[normal]"
-    >
-      {labels.map((label, i) => {
-        const last = i === labels.length - 1;
-        return (
-          <React.Fragment key={`${label}-${i}`}>
-            {i > 0 ? (
-              <ChevronRight
-                size={13}
-                aria-hidden="true"
-                className="shrink-0 text-pg-faint"
-              />
-            ) : null}
-            {last ? (
-              <span className="truncate font-semibold text-pg-heading">
-                {label}
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={onLeave}
-                className="motion-tap shrink-0 rounded-[6px] px-[4px] py-[2px] text-pg-muted hover:bg-pg-bg hover:text-pg-text"
-              >
-                {label}
-              </button>
-            )}
-          </React.Fragment>
-        );
-      })}
-    </nav>
-  );
-}
 
 /**
  * One turn of the transcript.
