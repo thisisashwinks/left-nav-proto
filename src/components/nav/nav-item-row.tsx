@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import {
+  ChevronDown,
   ChevronRight,
   EllipsisVertical,
   Eye,
@@ -189,8 +190,19 @@ export function NavItemRow({
      * hanging indent of their own. Padding rather than margin: the hover fill
      * still spans the full row, so the band reads as one list.
      */
-    item.child &&
+    /*
+     * Depth 1 is the rule that shipped, spelled the same way it always was —
+     * `child` and `depth: 1` are the same indent, and the classes below are
+     * that one multiplied out rather than a second scheme sitting beside it.
+     * Written as three literals because Tailwind scans source text: a computed
+     * `pl-[calc(...*${n}...)]` is a class nothing ever emits.
+     */
+    (item.depth ?? (item.child ? 1 : 0)) === 1 &&
       "pl-[calc(var(--t-nav-px,8px)+16px+var(--t-nav-gap,10px))]",
+    (item.depth ?? 0) === 2 &&
+      "pl-[calc(var(--t-nav-px,8px)+2*16px+2*var(--t-nav-gap,10px))]",
+    (item.depth ?? 0) >= 3 &&
+      "pl-[calc(var(--t-nav-px,8px)+3*16px+3*var(--t-nav-gap,10px))]",
     // Compact rows keep their tighter padding proportionally.
     compact ? "py-[calc(var(--t-nav-py,9px)*0.667)]" : "py-[var(--t-nav-py,9px)]",
     /*
@@ -296,22 +308,76 @@ export function NavItemRow({
     label
   );
 
+  /*
+    How much is behind the chevron, said before you press it.
+
+    Subtle and to the right of the label, not a filled pill: a pill reads as a
+    badge — unread, new, needs attention — and this is none of those, it is the
+    size of a list. Tabular figures so a column of them does not jitter between
+    9 and 15, and `shrink-0` so the label gives up the width rather than the
+    number being the thing that truncates.
+
+    Nothing at all when the row carries no count, which is every row that
+    existed before the product tree did.
+  */
+  const count =
+    typeof item.count === "number" ? (
+      <span
+        aria-hidden="true"
+        className={cn(
+          "shrink-0 text-[11px] leading-none tabular-nums text-nav-fg-subtle",
+          off && "opacity-40",
+        )}
+      >
+        {item.count}
+      </span>
+    ) : null;
+
+  /*
+    The column the pin hangs in, held open by nothing.
+
+    22px for the star plus the 10px gap the flyout's rows use, and — on a row
+    with no chevron — the chevron's own 15px as well, so a leaf's pin and a
+    parent's pin sit on the same vertical line. See `NavItem.pinSlot` for why
+    the star cannot simply be a child of the row.
+  */
+  const pinSlot = item.pinSlot ? (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "shrink-0",
+        /*
+          Measured from the row's trailing edge, which is where the overlay is
+          anchored: 8px padding, then the 15px chevron, then the 10px gap, puts
+          the pin's column at 33–55. A row with a chevron already has the first
+          25 of that in flow and needs only the star's 22; a row without one has
+          to buy the chevron's slot and its gap too, hence 47.
+        */
+        item.expandable ? "w-[22px]" : "w-[47px]",
+      )}
+    />
+  ) : null;
+
   const chevron = item.expandable ? (
     /*
-     * The same glyph as the flyout chevron, rotated rather than swapped for a
-     * caret. A disclosure and a panel-opener are the same promise — "there is
-     * more behind this row" — and the difference is only WHERE it arrives, which
-     * is what the rotation says: right for beside, down for beneath.
+     * A caret, not the flyout's chevron: down for shut, up for open.
+     *
+     * It was the flyout glyph rotated — right when shut — on the argument that
+     * a disclosure and a panel-opener make the same promise. They do not make
+     * the same promise about DIRECTION, and a row pointing right at content
+     * that arrives underneath it is the one thing the glyph is there to say.
+     * Right belongs to the flyout, where the panel really does come from the
+     * side.
      *
      * No hover nudge. There is nowhere for the pointer to travel to; the content
      * appears under the row it is already on.
      */
-    <ChevronRight
+    <ChevronDown
       size={15}
       aria-hidden="true"
       className={cn(
         "shrink-0 motion-tap",
-        item.expanded && "rotate-90",
+        item.expanded && "rotate-180",
         active || item.expanded
           ? "text-nav-fg-muted"
           : "text-nav-fg-subtle group-hover:text-nav-fg-muted",
@@ -379,6 +445,8 @@ export function NavItemRow({
       >
         {icon}
         {labelled}
+        {count}
+        {pinSlot}
         {chevron}
       </button>
       </span>

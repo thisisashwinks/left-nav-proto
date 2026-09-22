@@ -89,6 +89,21 @@ import { NavDivider } from "./nav-divider";
 import { NavHeader } from "./nav-header";
 import { NavItemRow, type NavRowDrag, type NavRowEdit } from "./nav-item-row";
 import { useHere, type Marking } from "./here";
+import {
+  openTreeBranch,
+  ProductTreeBranch,
+  treeBranchFor,
+  useProductTree,
+  type TreeNode,
+} from "./product-tree";
+import {
+  matchesQuery,
+  TreeSearchEmpty,
+  TreeSearchField,
+  searchTreeBranch,
+  wholeBranchHit,
+  type TreeSearchHit,
+} from "./tree-search";
 import { useNavRowEdit } from "./use-nav-row-edit";
 import type { NavDensity } from "./use-nav-density";
 import { NavSectionLabel } from "./nav-section-label";
@@ -157,6 +172,17 @@ const PRODUCT_DIRECTORY_ITEM: NavItem = {
 
 /** The show/hide menu's one view, opened directly rather than via an entry. */
 const BLOCKS_VIEW = "blocks";
+
+/**
+ * The tree's toggle handler while a search is filtering it.
+ *
+ * A module constant rather than an inline arrow so the identity is stable
+ * across renders — `ProductTreeBranch` recurses, and handing every level a
+ * fresh no-op each keystroke is churn for a function whose whole job is to do
+ * nothing. See the `onToggle` note at the branch's call site for WHY it is
+ * inert.
+ */
+const NO_TOGGLE = () => {};
 
 interface LeftNavProps {
   /** Drives [data-nav-theme], independent of the app's own theme. */
@@ -303,6 +329,9 @@ export function LeftNav({
     templatePushNotice,
     templateConflict,
     layoutModel,
+    navProductTree,
+    navTreeCounts,
+    treeSearchPlace,
   } = useTheme().effective;
   /**
    * Whether a sub-account may hold a layout of its own. See LAYOUT_MODELS.
@@ -733,6 +762,52 @@ export function LeftNav({
    */
   const editable = agencyScope ? agencyEditNav : true;
   const editing = state.editing && can.customise && editable;
+  /**
+   * Whether this face is drawing the catalogue as a tree rather than as doors.
+   *
+   * Three conditions, and the second two are not hedges.
+   *
+   * Agency scope is excluded because its nav ALREADY discloses in place —
+   * `agencyEntriesFor` builds expandable rows and always has — so switching the
+   * axis on there would be asking for an arrangement it is already in, and the
+   * only thing it could change is to break it.
+   *
+   * Edit mode is excluded because filing a product into a category is done BY
+   * dragging it out of that category's panel, and the drag has to cross into a
+   * surface that is open. The tree has no panel to cross into. Rather than
+   * half-supporting the mode — grips on L1 and nothing that can reach an L2 —
+   * the session drops back to the flyout arrangement it was designed against,
+   * and the tree returns when the session ends. That is a visible, reversible
+   * swap rather than a silently missing capability, which is the failure mode
+   * worth avoiding.
+   */
+  const productTree = navProductTree && !agencyScope && !editing;
+  const treeCounts = navTreeCounts;
+  /**
+   * What is in the tree's search field.
+   *
+   * Face-local, like `foldedSections` and for the same reason: a query is a
+   * thing you are doing right now, not a property of the account's tree. It is
+   * also deliberately NOT in the module store the open branch lives in — the
+   * rail has no width for a field, so there is no second face to keep in step,
+   * and a query surviving the collapse would mean expanding the nav back out
+   * onto a filtered list nobody asked for.
+   */
+  const [treeQuery, setTreeQuery] = React.useState("");
+  /** The field exists only where the tree does, and only where the axis puts it. */
+  const treeSearchShown = productTree && treeSearchPlace !== "off";
+  /*
+   * The query as the filter uses it: trimmed, lowered, and empty the moment
+   * the field is not on screen.
+   *
+   * Reading it through `treeSearchShown` rather than clearing the state in an
+   * effect when the axis moves. An effect would work and would also be a
+   * second source of truth for "is anything filtered" — this way a field that
+   * is gone cannot be filtering, by construction, and the text is still there
+   * if the axis comes back.
+   */
+  const treeQ = treeSearchShown ? treeQuery.trim().toLowerCase() : "";
+  const treeSearching = treeQ.length > 0;
   /** The category whose removal is being confirmed. */
   const [deleting, setDeleting] = React.useState<string | null>(null);
   /** Which seam's add-picker is open, and where a pick should land. */
@@ -1540,6 +1615,101 @@ export function LeftNav({
       false
     : fixedHasRows;
 
+  /**
+   * The list the search actually filters.
+   *
+   * Exactly the rows the unsearched tree would have drawn in this heading
+   * mode — `bandEverything` folds the companion apps and Settings INTO the
+   * last band, so in that mode they are part of the list and have to be
+   * searchable; in the plain mode they are anchored below the rule, outside
+   * the tree, and stay put while the tree above them filters. Built once so
+   * the hit map and the render cannot disagree about what was in scope, which
+   * is the bug where a row matches, is counted, and is never drawn.
+   */
+  const treeSearchList: NavEntry[] = bandEverything
+    ? [
+        ...entries,
+        ...(getAppPlacement === "nav" ? getAppEntries : []),
+        {
+          kind: "item",
+          item: agencyScope ? agencySettings : config.settings,
+        },
+      ]
+    : entries;
+
+  /**
+   * Which L1 rows survive the query, and what is left of each one's branch.
+   *
+   * A map rather than a filtered list, because `renderRow` needs two answers
+   * per row — "is it still here" and "which of its descendants are" — and
+   * deriving the second twice (once to decide, once to draw) is how the tree
+   * and the field end up disagreeing by one render.
+   *
+   * Null when nothing is being searched, which is the flag the render reads:
+   * no query, no map, and every branch draws from `treeBranchFor` exactly as
+   * it did before this file grew a field.
+   *
+   * Not memoised, and that is cheaper than it looks: `renderRow` already calls
+   * `treeBranchFor` once per L1 row every render, so this is a second pass of
+   * work the paint was doing anyway — where a `useMemo` would have had to list
+   * `getAppEntries` among its dependencies, an array literal rebuilt on every
+   * render, and would therefore have recomputed every render regardless while
+   * claiming not to.
+   *
+   * Two ways onto the map, and they are not the same hit:
+   *
+   * - something INSIDE matched → the pruned branch, with the ancestors of the
+   *   matches marked open. This is the case the field exists for.
+   * - only the L1 row's OWN label matched → the whole branch, closed. You
+   *   asked for the group, not for its ninety descendants; it opens on a click
+   *   like any other group.
+   */
+  const treeHits: ReadonlyMap<string, TreeSearchHit> | null = (() => {
+    if (!treeSearching) return null;
+    const hits = new Map<string, TreeSearchHit>();
+    for (const entry of treeSearchList) {
+      if (entry.kind !== "item") continue;
+      const branch = treeBranchFor(state, groups, entry.item);
+      const self = matchesQuery(entry.item.label, treeQ);
+      if (branch === null) {
+        // A row with nothing under it — a flat product, an account's own link.
+        // It is in the catalogue the field promises, so it filters with the
+        // rest rather than floating above the results untouched.
+        if (self) hits.set(entry.item.id, wholeBranchHit([]));
+        continue;
+      }
+      const hit = searchTreeBranch(branch, treeQ);
+      if (hit.deep) hits.set(entry.item.id, hit);
+      else if (self) hits.set(entry.item.id, wholeBranchHit(branch));
+    }
+    return hits;
+  })();
+
+  /**
+   * Whether the column is results and nothing else.
+   *
+   * While a query is up the nav shows the field and what matched — no
+   * Launchpad card, no Recents (heading included), no quick actions, no
+   * pinned row, no section labels, no rules, and no anchored Settings unless
+   * Settings itself matched. The blocks above the tree are surfaces OVER the
+   * catalogue, and leaving them standing meant the field pruned ninety rows
+   * down to three and then put them below half a screen of things it had not
+   * searched — so the one result you asked for was still the thing you had to
+   * scroll to, which is the whole failure the field was added to remove.
+   *
+   * The same override discipline as the accordion, for the same reason: this
+   * is one boolean read during render, nothing is written and nothing is
+   * snapshotted, so "clear the field" restores the column by definition rather
+   * than by putting back what it remembers taking away.
+   *
+   * Exactly `treeHits !== null` — a separate name rather than the raw check at
+   * eleven call sites, because those call sites are asking a different
+   * question ("is this block eclipsed") from the one `treeHits` answers ("did
+   * this row match"), and reading a hit map for its nullness is how the two
+   * drift apart the first time one of them needs to change.
+   */
+  const searchOnly = treeHits !== null;
+
   /** Leaving the mode has to take its transient surfaces with it. */
   const closeEditSurfaces = () => {
     menu.close();
@@ -2127,8 +2297,170 @@ export function LeftNav({
     [selectedState],
   );
 
+  /*
+   * The tree's own state, held whether or not the axis is on.
+   *
+   * Hooks cannot be conditional, and this one is cheap when nothing reads it:
+   * with the axis off `branch` is null, `expanded` is empty, and the two
+   * auto-open effects still run — they write a module value and a Set that no
+   * row in the flyout arrangement ever asks about. Gating the CALL would mean
+   * gating a hook on a theme flag, which is the one thing React forbids.
+   */
+  const tree = useProductTree(groups);
+
   const renderRow = (item: NavItem) => {
     const flyoutId = flyoutIdFor(item);
+    /*
+     * In tree mode a door becomes a disclosure.
+     *
+     * Routed through this function rather than rendered by a parallel
+     * component so the row keeps everything that makes it a nav row — the
+     * here/trail mark, the New dot, the seams and gaps it sits between, the
+     * truncation tooltip. Only what happens when you click it changes, which
+     * is the whole of the difference between the two arrangements.
+     *
+     * `branch === null` means this row leads nowhere in particular (a flat
+     * product, an account link, Recent) and it falls straight through to the
+     * code below, unchanged.
+     */
+    const branch = productTree ? treeBranchFor(state, groups, item) : null;
+    if (branch !== null) {
+      /*
+       * While a query is up, the map decides everything about this row.
+       *
+       * Absent from it means the branch holds no match and the row's own label
+       * holds none either — so it is not drawn at all. Hiding rather than
+       * dimming, because a filtered nav whose misses are still on screen is
+       * the same scrolling problem the field was added to solve, with a colour
+       * change on top.
+       */
+      const hit = treeHits?.get(item.id);
+      if (treeHits && !hit) return null;
+      const nodes: readonly TreeNode[] = hit ? hit.nodes : branch;
+      /*
+       * Search OVERRIDES the accordion; it does not write to it.
+       *
+       * Nothing in this block calls `toggleBranch`, `toggleNode` or
+       * `openTreeBranch` while `hit.deep` is true, so `tree.branch` and
+       * `tree.expanded` still hold whatever the reader had open when they
+       * started typing — which is what makes clearing the field a restoration
+       * rather than a guess. A filter that reached into the accordion could
+       * only put it back by remembering a snapshot, and a snapshot goes stale
+       * the moment anything else moves the tree.
+       *
+       * A group kept only for its own label (`deep` false) is the exception,
+       * and not really one: it forces nothing, so it draws from the accordion
+       * exactly as it would have unfiltered.
+       */
+      const open = hit?.deep === true || tree.branch === item.id;
+      const isTrail =
+        here.productId !== null &&
+        (item.id === here.productId ||
+          (groups.find((g) => g.id === item.id)?.productIds ?? []).includes(
+            here.productId,
+          ));
+      return (
+        <React.Fragment key={item.id}>
+          <NavItemRow
+            item={{
+              ...item,
+              /*
+               * `hasFlyout` is stripped, not overridden. NavItemRow treats the
+               * two as alternatives — a row cannot both open a panel and open
+               * itself — and leaving the flag set drew the panel-opener chevron
+               * that nudges sideways toward a surface that is never coming.
+               */
+              hasFlyout: false,
+              /*
+               * A bucket this account owns nothing in draws no chevron.
+               *
+               * The authored buckets ship to every sub-account, so a bakery
+               * gets an Integrations shelf with nothing on it — see the note in
+               * `resolveTree`, which keeps them deliberately. With a flyout
+               * that was a door onto an empty panel and nobody could tell
+               * before pressing it. Here the count says 0 and the disclosure
+               * goes, which is the same fact told before the click instead of
+               * after it.
+               */
+              expandable: nodes.length > 0,
+              expanded: open,
+              // Off by default — see ThemeState.navTreeCounts. `undefined`
+              // rather than 0, so a hidden count draws nothing at all instead
+              // of every group claiming to be empty.
+              //
+              // `nodes` rather than `branch`, so under a query the number
+              // counts what survived it. A group saying 15 above three visible
+              // rows would be the count contradicting the list directly
+              // underneath it.
+              count: treeCounts ? nodes.length : undefined,
+            }}
+            marking={markFor(false, isTrail)}
+            /*
+             * No `onHover`, and that is the point of the arrangement.
+             *
+             * Not `onHoverPlain` either: that one FADES whatever preview is up,
+             * which is a sensible thing for a leaf row to do in the arrangement
+             * where previews exist. Here there are none to fade, and the shell's
+             * hover intent is never told about this row at all — so the flyout
+             * does not merely stay hidden, nothing ever asks for it.
+             */
+            /*
+             * Under a query, clicking a group is how you leave the query.
+             *
+             * `toggleBranch` would be worse than useless here: on a forced-open
+             * group it toggles a value the filter is overriding, so the row
+             * visibly does nothing, and whatever it wrote would then be the
+             * state the field's own clear restored you to. Ending the search on
+             * the group you picked — open, and the only one open — is the
+             * gesture the click actually means, and it leaves the accordion
+             * saying something true.
+             */
+            onSelect={
+              treeHits
+                ? () => {
+                    setTreeQuery("");
+                    openTreeBranch(item.id);
+                  }
+                : () => tree.toggleBranch(item.id)
+            }
+          />
+          {open ? (
+            <ProductTreeBranch
+              nodes={nodes}
+              depth={1}
+              /*
+               * The forced-open set replaces the accordion's for the duration,
+               * and `onToggle` goes inert with it. A chevron that closes a
+               * branch the filter would reopen on the next keystroke is a
+               * control arguing with itself; while a query is up the query
+               * decides what is open, and the way to disagree with it is to
+               * change the query.
+               */
+              expanded={hit?.deep ? hit.open : tree.expanded}
+              onToggle={treeHits ? NO_TOGGLE : tree.toggleNode}
+              /*
+               * Landing from a result clears the field, for the same reason the
+               * group row does: the search was the way to this page, and a nav
+               * that kept filtering after you arrived would hide the siblings
+               * of the row you are standing on. The clear also hands the tree
+               * back to `useProductTree`, whose `prevHere` adjust opens exactly
+               * this page's ancestors — so the accordion lands correct rather
+               * than merely restored.
+               */
+              onSelect={
+                treeHits
+                  ? (id) => {
+                      setTreeQuery("");
+                      onSelect(id);
+                    }
+                  : onSelect
+              }
+              markFor={markFor}
+            />
+          ) : null}
+        </React.Fragment>
+      );
+    }
     // Inline edit is for the catalogue's rows; the agency config has no
     // override maps behind it yet, so its rows stay plain destinations.
     const base = agencyScope ? agencyEditFor(item.id) : editFor(item.id);
@@ -2278,6 +2610,53 @@ export function LeftNav({
           : null}
       </React.Fragment>
     );
+  };
+
+  /**
+   * The field, at whichever of the three places the axis names.
+   *
+   * One helper rather than three copies of the JSX: the placements are the
+   * comparison the axis exists to let someone make, and three literals would
+   * be three chances for the one that wins to differ from the two that lost in
+   * some way nobody meant to test.
+   *
+   * Returns null everywhere but the chosen place, and everywhere at all when
+   * `treeSearchShown` is false — which is what keeps the flyout arrangement,
+   * the agency scope and edit mode from gaining a control none of them asked
+   * for. See `productTree`, which all three already gate on.
+   */
+  const treeSearchAt = (place: typeof treeSearchPlace) =>
+    treeSearchShown && treeSearchPlace === place ? (
+      <TreeSearchField
+        query={treeQuery}
+        onQuery={setTreeQuery}
+        // 4px above and below rather than the row gap's 2: the field is a
+        // control standing among rows, and a hairline box that close to a
+        // hover fill reads as one more row with a border.
+        className="my-[4px]"
+      />
+    ) : null;
+
+  /**
+   * The rows that survived the query, flat.
+   *
+   * Labels and rules are dropped rather than filtered alongside the rows. A
+   * heading names a band, and a band that has been cut down to two of its
+   * fifteen rows is not that band any more — the heading would be describing a
+   * shape the reader cannot see. Folding goes with them for the same reason: a
+   * result list you have to unfold is a result list that lied about having
+   * found something.
+   *
+   * `renderRow` returns null for an L1 row that missed, so this only has to
+   * decide about the chrome between them — but it filters the items too, so a
+   * miss costs no `<React.Fragment>` at all rather than an empty one.
+   */
+  const renderSearched = (list: readonly NavEntry[]) => {
+    const hits = treeHits;
+    if (!hits) return list.map(renderEntry);
+    return list
+      .filter((e) => e.kind === "item" && hits.has(e.item.id))
+      .map(renderEntry);
   };
 
   const renderEntry = (entry: NavEntry) => {
@@ -2512,12 +2891,30 @@ export function LeftNav({
             </div>
           ) : (
           <>
-          {atFloor &&
+          {/*
+            Placement one: the very top of the column, above everything the
+            account owns.
+
+            The weakest of the three and worth seeing for that reason — up here
+            the field reads as a search of the NAV, and the nav at this height
+            is Launchpad and Recents, neither of which it searches. See the
+            note on `ThemeState.treeSearchPlace`.
+          */}
+          {treeSearchAt("launchpad")}
+          {/*
+            Every block from here down is eclipsed while a query is up — see
+            `searchOnly`. The field itself is the exception at whichever of the
+            three places it sits, which is why `treeSearchAt` is outside the
+            gate rather than inside it: the placements move the control, they
+            do not decide whether the control survives its own search.
+          */}
+          {!searchOnly &&
+          atFloor &&
           !agencyScope &&
           (pinnedShown || (mergedMode && !isBlockHidden(state, "pinned"))) ? (
             <PinnedRow onOpen={onOpenLauncher} />
           ) : null}
-          {cardShowing ? (
+          {cardShowing && !searchOnly ? (
             <SetupGuideRow
               showLaunchpad={launchpad}
               // At agency the card opens the agency's own Launchpad row; at
@@ -2530,6 +2927,16 @@ export function LeftNav({
                 : {})}
             />
           ) : null}
+          {/*
+            Placement two: over Recents, under the Launchpad card.
+
+            Nearer the thing it filters than placement one, and still not over
+            it — the block directly below is your history, so the field appears
+            to offer to search that. Kept as an option because "search sits
+            under the card" is a common enough house style that it is worth
+            being able to look at rather than argue about.
+          */}
+          {treeSearchAt("recents")}
           {/*
             Recents-with-pins-on-top sits where Recent sat: first in the cluster,
             directly under the header now that the capsule has gone. It scrolls
@@ -2546,7 +2953,7 @@ export function LeftNav({
             merged one silently ignored it, so the same menu row worked or did
             nothing depending on a setting about something else.
           */}
-          {merged && agencyScope && !isBlockHidden(state, "recent") ? (
+          {merged && agencyScope && !searchOnly && !isBlockHidden(state, "recent") ? (
             <AgencyMergedRecentsBlock
               onSelect={onSelect}
               accounts={mergedAccountRows}
@@ -2554,7 +2961,7 @@ export function LeftNav({
               onOpenPanel={onOpenLauncher}
             />
           ) : null}
-          {merged && !agencyScope && !isBlockHidden(state, "recent") ? (
+          {merged && !agencyScope && !searchOnly && !isBlockHidden(state, "recent") ? (
             <MergedRecentsBlock
               onSelect={onSelect}
               /*
@@ -2580,6 +2987,16 @@ export function LeftNav({
               and sitting where a reader was looking for pages.
             */
             null
+          ) : searchOnly ? (
+            /*
+              The plain Recent cluster goes with the merged one.
+
+              These are the same rows under a different arrangement — Recent,
+              Quick actions, AI Agents — and they are surfaces over the
+              catalogue rather than part of it, so the field never searched
+              them and they have nothing to contribute to a result list.
+            */
+            null
           ) : foldable ? (
             renderBanded(fixedEntries)
           ) : (
@@ -2590,8 +3007,43 @@ export function LeftNav({
             close. Launchpad is a card and needs no rule under it: its own edges
             say where it ends.
           */}
-          {showClusterRule ? <NavDivider /> : null}
+          {/*
+            And the rule goes with the cluster it closes. A boundary between
+            nothing and the results is a hairline the reader has to account
+            for, drawn around a block that is not there.
+          */}
+          {showClusterRule && !searchOnly ? <NavDivider /> : null}
+          {/*
+            Placement three, and the default: between Recents and the tree.
+
+            Directly over the rows it filters and below the rule that closes
+            the account blocks, so the boundary the nav already draws is also
+            the boundary of what the field promises. Everything above it is a
+            surface over the catalogue; everything below it IS the catalogue.
+          */}
+          {treeSearchAt("products")}
+          {/*
+            A query with nothing behind it, said out loud.
+
+            Above the list rather than in place of it, because the list is
+            genuinely empty — there is no row left to hang the message off, and
+            a column that just stops is indistinguishable from a nav that
+            failed to load.
+          */}
+          {treeHits && treeHits.size === 0 ? (
+            <TreeSearchEmpty query={treeQuery.trim()} />
+          ) : null}
           {bandEverything ? (
+            treeHits ? (
+              /*
+                Searched, the bands go and the list is what matched — including
+                the companion apps and Settings, which in THIS heading mode are
+                members of the tree rather than the anchored chrome they are in
+                the plain one. `treeSearchList` is the same array the banded
+                call below composes, so the two cannot drift.
+              */
+              renderSearched(treeSearchList)
+            ) : (
             /*
               Settings is inside the last band here, not the bottom anchor it is
               in the plain arrangement. It is one of the not-a-product rows the
@@ -2613,9 +3065,10 @@ export function LeftNav({
                 item: agencyScope ? agencySettings : config.settings,
               },
             ])
+            )
           ) : (
             <>
-              {entries.map(renderEntry)}
+              {renderSearched(entries)}
               {/*
                 A standing way in, while editing.
 
@@ -2647,7 +3100,17 @@ export function LeftNav({
                 nothing can be dragged into or out of it — so the one boundary the
                 nav still has is the one worth drawing.
               */}
-              <NavDivider />
+              {/*
+                And gone while a query is up.
+
+                The boundary it draws is between the account's tree and the
+                anchored chrome below it — but under a search there is one flat
+                list of what matched, and Settings is either in it or filtered
+                out like anything else. Left standing it was a rule at the foot
+                of the results with nothing underneath, which reads as a list
+                that was cut off rather than one that ended.
+              */}
+              {searchOnly ? null : <NavDivider />}
               {/*
                 A standing door to All products, when the axis offers it.
 
@@ -2667,7 +3130,16 @@ export function LeftNav({
                 in a nav that does not scroll — a directory of it would list
                 what is already on screen, one panel further away.
               */}
-              {productDirectoryRow && !agencyScope ? (
+              {/*
+                And gone entirely in tree mode.
+
+                The row's job is to be the one door to the whole catalogue, for
+                a nav that shows only L1. The tree IS the whole catalogue, a few
+                pixels above this row — so leaving it here would be a door to
+                the thing you are standing in, which is precisely the
+                duplication the arrangement exists to argue against.
+              */}
+              {productDirectoryRow && !agencyScope && !productTree ? (
                 <NavItemRow
                   item={PRODUCT_DIRECTORY_ITEM}
                   onSelect={onOpenDirectory}
@@ -2681,7 +3153,14 @@ export function LeftNav({
                 account's tree. Above it they would have read as the last two
                 products, which is the one thing they are not.
               */}
-              {getAppPlacement === "nav"
+              {/*
+                And gone under a query, like the rule above them. They are
+                bare rows rather than entries in the tree, so nothing filters
+                them — left in, every search ended with two installers that
+                matched nothing, sitting where the reader was looking for the
+                one row that did.
+              */}
+              {getAppPlacement === "nav" && !searchOnly
                 ? getAppEntries.map((e) =>
                     e.kind === "item" ? (
                       <NavItemRow

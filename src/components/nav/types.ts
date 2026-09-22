@@ -30,6 +30,39 @@ export interface NavItem {
   expanded?: boolean;
   /** A disclosed child, indented one step under its `expandable` parent. */
   child?: boolean;
+  /**
+   * How many steps in this row is indented, when one is not enough.
+   *
+   * `child` is the boolean version and stays the whole answer for the agency
+   * tree, which is exactly two levels deep. The product tree (see
+   * product-tree.tsx) runs L1 → L2 → L3 → L4 inside one column, and four levels
+   * cannot be said with a flag. Absent everywhere else, so the rows that shipped
+   * before it draw byte-identically: `child` still means depth 1.
+   */
+  depth?: number;
+  /**
+   * A number after the label — how many things are behind this row.
+   *
+   * Only the product tree sets it, and only on a group: a row that discloses in
+   * place rather than opening a panel has to say how much is about to arrive,
+   * or every chevron is a blind guess between three rows and fifteen. A flyout
+   * row needs no such warning — the panel is a fixed surface whatever is in it.
+   */
+  count?: number;
+  /**
+   * Hold a trailing column open for a pin this row does not itself draw.
+   *
+   * The star cannot live INSIDE the row: the row is a `<button>` and so is the
+   * star, and nesting the two is invalid HTML that browsers resolve three
+   * different ways — which is why `WithPin` hangs it over the row as a sibling
+   * instead. An overlay costs no width, so the label would run underneath it
+   * unless the row reserves the column in flow, and that is this flag.
+   *
+   * The chevron's width is reserved with it, on rows that have no chevron, so
+   * the pins land on ONE vertical line whether a row discloses or not — the
+   * same arrangement `flyout-row.tsx` makes, for the same reason.
+   */
+  pinSlot?: boolean;
   density?: NavItemDensity;
 }
 

@@ -133,7 +133,13 @@ export function useHereStyle(marking: Marking): {
       return {
         bar: false,
         row: "bg-nav-selected",
-        ink: here && "font-semibold text-nav-fg",
+        /*
+         * No weight change. The ground already says which row this is, and
+         * bolding the label as well says it twice — on a selected L3 the two
+         * signals stack and the row reads as a heading rather than as the page
+         * you are on. Colour still separates the lit row from its trail.
+         */
+        ink: here && "text-nav-fg",
       };
     case "tint":
       return {
@@ -148,7 +154,7 @@ export function useHereStyle(marking: Marking): {
          * thing already open. Weight says "this row", colour says "this kind
          * of row", and only the first is true here.
          */
-        ink: here && "font-semibold text-nav-fg",
+        ink: here && "text-nav-fg",
       };
     default:
       return { bar: true, row: false, ink: here && "font-semibold text-nav-fg" };

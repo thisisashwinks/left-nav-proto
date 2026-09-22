@@ -34,6 +34,7 @@ import { fixedEntriesFor, flyoutIdFor, navConfig } from "./nav-config";
 import { RailNewDot, useNewDotShown, useNewFlagIds } from "./new-flag";
 import { useNavProfiles } from "@/components/nav/nav-profiles";
 import { isBlockHidden } from "./grouping";
+import { openTreeBranch, treeBranchFor } from "./product-tree";
 import { RailTooltip } from "./rail-tooltip";
 import type { NavDensity } from "./use-nav-density";
 import type { NavConfig, NavEntry, NavItem } from "./types";
@@ -166,7 +167,15 @@ export function CollapsedRail({
     getAppPlacement,
     agencySearch,
     launchpad: launchpadSetting,
+    navProductTree,
   } = useTheme().effective;
+  /**
+   * Whether this rail is the collapsed face of a TREE nav.
+   *
+   * Sub-account only, matching the gate in `left-nav.tsx` — the agency rail's
+   * rows are buckets it already discloses in place when expanded.
+   */
+  const productTree = navProductTree && !agencyScope;
   /*
    * The rail keeps its pinned icons under most of the merge, and loses them
    * under one option.
@@ -421,6 +430,15 @@ export function CollapsedRail({
 
   const renderRailRow = (i: NavItem) => {
     const flyoutId = flyoutIdFor(i);
+    /*
+     * Asked of the tree rather than of `hasFlyout`, because the two are not the
+     * same set. Recent, Quick Actions and the AI panel all carry a flyout and
+     * none of them is catalogue — the tree does not swallow them (see
+     * CHROME_BRANCHES), so down here they must keep opening their panels
+     * exactly as they do with the axis off.
+     */
+    const treeRow =
+      productTree && treeBranchFor(layout, groups, i) !== null;
     return railButton(
       i.id,
       i.label,
@@ -458,9 +476,29 @@ export function CollapsedRail({
           (flyoutId === openFlyoutId || flyoutId === pinnedFlyoutId)),
       () => {
         onSelect(i.id);
+        /*
+         * In tree mode a door row hands over to the expanded face instead of
+         * opening a panel.
+         *
+         * 64px cannot disclose anything — there is no label to indent under and
+         * no room for a count — so the rail's honest answer to "what is inside
+         * this" is to give you the face that can show you, already open on the
+         * group you pointed at. Which is also why the axis's promise that the
+         * flyout never opens survives collapsing: this face does not ask for
+         * one either.
+         *
+         * `openTreeBranch` before `onExpand` so the expanded nav's first paint
+         * already has the branch open, rather than opening it a frame later
+         * while the drawer is sliding.
+         */
+        if (treeRow) {
+          openTreeBranch(i.id);
+          onExpand();
+          return;
+        }
         if (i.hasFlyout) onPinFlyout(flyoutId);
       },
-      i.hasFlyout ? () => onHoverFlyout(flyoutId) : onHoverPlain,
+      !treeRow && i.hasFlyout ? () => onHoverFlyout(flyoutId) : onHoverPlain,
       newDotShown && newFlagIds.has(flyoutId)
         ? `${i.label}, new inside`
         : undefined,
@@ -675,7 +713,13 @@ export function CollapsedRail({
             silently remove a destination.
           */}
           {/* Sub-account only, as in the expanded face. */}
-          {productDirectoryRow && !agencyScope
+          {/*
+            And gone in tree mode, as in the expanded face — for once the rule
+            about the two faces agreeing is what REMOVES the row rather than
+            what keeps it: the expanded nav is the catalogue now, so a rail
+            button to it is a door back to the face you just collapsed.
+          */}
+          {productDirectoryRow && !agencyScope && !productTree
             ? railButton(
                 "product-directory",
                 "All products",

@@ -132,6 +132,7 @@ export function PinnedLauncher({
     productDirectoryRow,
     recentsPanelLayout,
     getAppPlacement,
+    navProductTree,
   } = useTheme().effective;
   const agency = useAgencyLayout();
   /*
@@ -156,7 +157,23 @@ export function PinnedLauncher({
    */
   const split = productDirectoryRow;
   const showKept = variant === "merged" && mergedPanel;
-  const showCatalogue = variant === "directory" || !split;
+  /*
+   * With the tree on, Recents opens ONLY recents.
+   *
+   * The catalogue half of this panel exists because the nav shows L1 and
+   * nothing else, so something has to hold the other two levels. The tree holds
+   * them, in the column this panel is floating over — so a second copy in here
+   * is not a fallback, it is the same list twice on one screen, which is the
+   * duplication the arrangement is an argument against. Taking it out also
+   * takes the tab strip with it (`bothHalves` goes false below): with one
+   * corpus there is nothing to switch between.
+   *
+   * The `directory` variant is left alone on purpose. Nothing opens it in this
+   * mode — the standing All products row is gone from the nav — and gutting a
+   * panel that is explicitly the catalogue door would leave it an empty surface
+   * if anything ever did.
+   */
+  const showCatalogue = variant === "directory" || (!split && !navProductTree);
   /*
    * One panel, two corpora, a switcher between them.
    *
