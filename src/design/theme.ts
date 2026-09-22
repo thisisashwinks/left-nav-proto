@@ -22,6 +22,61 @@ import type {
   DeepHeaderVariant,
 } from "@/components/page/header-variants";
 
+/** Icons on every crumb, or only the Home glyph. */
+export type CrumbIcons = "all" | "home";
+export const CRUMB_ICONS: readonly CrumbIcons[] = ["all", "home"];
+export const CRUMB_ICON_LABELS: Record<CrumbIcons, string> = {
+  all: "Every level",
+  home: "Home only",
+};
+
+/** What a record's crumb calls itself. */
+export type RecordCrumbLabel = "name" | "generic";
+export const RECORD_CRUMB_LABELS: readonly RecordCrumbLabel[] = [
+  "name",
+  "generic",
+];
+export const RECORD_CRUMB_LABEL_LABELS: Record<RecordCrumbLabel, string> = {
+  name: "The record's name",
+  generic: "What kind of thing it is",
+};
+
+/** Where the tree's own search sits in the column. */
+export type TreeSearchPlace = "launchpad" | "recents" | "products" | "off";
+export const TREE_SEARCH_PLACES: readonly TreeSearchPlace[] = [
+  "launchpad",
+  "recents",
+  "products",
+  "off",
+];
+export const TREE_SEARCH_PLACE_LABELS: Record<TreeSearchPlace, string> = {
+  launchpad: "Above Launchpad",
+  recents: "Above Recents",
+  products: "Above all products",
+  off: "No search",
+};
+
+/** Where the trail begins. */
+export type CrumbStart = "group" | "product";
+export const CRUMB_STARTS: readonly CrumbStart[] = ["group", "product"];
+export const CRUMB_START_LABELS: Record<CrumbStart, string> = {
+  group: "The bucket (CRM)",
+  product: "The product (Contacts)",
+};
+
+/** How a long trail folds. */
+export type CrumbCollapse = "off" | "middle" | "deep";
+export const CRUMB_COLLAPSES: readonly CrumbCollapse[] = [
+  "off",
+  "middle",
+  "deep",
+];
+export const CRUMB_COLLAPSE_LABELS: Record<CrumbCollapse, string> = {
+  off: "Never",
+  middle: "Past four",
+  deep: "Home + parent",
+};
+
 export const ACCENTS = [
   // Near-black: the round-2 decision — the product's own accent is quiet, and
   // colour is something a brand brings, not something we impose.
@@ -1785,6 +1840,115 @@ export interface ThemeState {
    */
   pageHeader: boolean;
   /**
+   * Whether the whole catalogue becomes the nav, as a tree.
+   *
+   * The arrangement the flyouts exist to avoid, built so it can be argued
+   * against with a real screen rather than from memory: every group expands in
+   * place to its products and their pages, so L1, L2 and L3 are all reachable
+   * without a second surface opening. What it buys is that the nav always says
+   * where you are; what it costs is a nav long enough to scroll, which is the
+   * thing the flyout model was chosen to prevent.
+   *
+   * Pinned rows stay above it — the tree is for everything else — and the
+   * catalogue's own entry goes, since the tree IS the catalogue. The trail is
+   * deliberately left alone: one variable at a time, and whether a tree lets
+   * the breadcrumb shorten is its own question.
+   */
+  navProductTree: boolean;
+  /**
+   * Whether the tree's group rows carry a product count.
+   *
+   * Off by default. The count answers "how much is behind this" before you
+   * open it, which is worth something on a flyout you are deciding whether to
+   * pay for — but the tree opens in place, so the answer is one click away and
+   * the number is competing with the label for the row. Kept as a switch
+   * because the empty-bucket case is the one place it still earns its keep: a
+   * bakery's Integrations shelf reading 0 is the same fact told before the
+   * click instead of after it.
+   */
+  navTreeCounts: boolean;
+  /**
+   * Where the tree's search field sits, and whether it exists.
+   *
+   * The tree took the catalogue's place, and the catalogue panel had a search.
+   * Without one the only way to the tail of a twelve-group tree is to open
+   * groups until you find it — which is the scrolling problem the flyout model
+   * was built to avoid, reintroduced by the arrangement meant to answer it.
+   *
+   * Above Launchpad by default. The earlier argument was that the search
+   * belongs over the thing it filters — true while the rest of the column
+   * stays put, and moot now that a query hides Launchpad, Recents and the
+   * quick actions outright. With everything but the results gone, the field IS
+   * the nav for as long as you are typing, and a control that becomes the
+   * whole surface should not sit a third of the way down it.
+   *
+   * The other placements stay, because what they lose is an argument about the
+   * SEARCHING state and what they keep is one about the RESTING state: over
+   * the tree, the field reads as belonging to the catalogue rather than to the
+   * account blocks above it. Which of those two states should win is the thing
+   * the axis exists to let someone look at.
+   */
+  treeSearchPlace: TreeSearchPlace;
+
+  /* ── the trail's own axes (Sep 22 round two) ──────────────────────────── */
+
+  /**
+   * Whether the last crumb is painted rather than merely bolded.
+   *
+   * The point is not decoration: if the trail's leaf is emphatic enough to read
+   * as the page's name, the page does not need to print that name again. This
+   * is the knob that makes "delete the title" defensible rather than merely
+   * cheaper — so it belongs beside the title switches, not in a style menu.
+   */
+  crumbEmphasis: boolean;
+  /**
+   * Icons on every crumb, or only on Home.
+   *
+   * Every level carrying a glyph makes the trail scannable at a glance and
+   * makes it noisy at depth; Home alone keeps the one glyph that is a
+   * destination rather than a label. Worth a switch because the answer changes
+   * with how deep the product's trails actually get.
+   */
+  crumbIcons: CrumbIcons;
+  /**
+   * How a long trail folds, if at all.
+   *
+   *  off     Every level stays on the row.
+   *  middle  Four items plus a `…`, folding from the middle — Home and the
+   *          leaf always survive, because the two ends are the only segments
+   *          whose absence you would notice.
+   *  deep    Home ▸ … ▸ parent ▸ current, whatever the depth. The most compact
+   *          that still answers both questions a trail is asked: where am I,
+   *          and what am I inside. Dropping the parent too (Home ▸ … ▸ current)
+   *          was the tempting version and it answers only the first.
+   *
+   * Off by default: today's trails top out at four segments, so any folding
+   * would hide levels nobody needed hidden — see the note in the panel.
+   */
+  crumbCollapse: CrumbCollapse;
+  /**
+   * Whether the trail opens on the bucket or on the product.
+   *
+   * The bucket (CRM, Content, Automate) is a nav grouping, not a destination
+   * you can stand on — so the first crumb is the one segment of the trail that
+   * cannot be "where you came from". Starting at the product drops it
+   * everywhere, including on pages with nothing below them, which is the point:
+   * a rule that only applies at depth is a rule nobody can predict.
+   */
+  crumbStart: CrumbStart;
+  /** Whether the record's own crumb says its name or the kind of thing it is. */
+  recordCrumbLabel: RecordCrumbLabel;
+  /** Whether a record publishes a crumb at all, or the trail stops at the list. */
+  recordCrumbShown: boolean;
+  /**
+   * Whether L4/L5/L6 render as a second, inline trail under the page header.
+   *
+   * The alternative to stacking a tab bar per level: one path row that says
+   * where you are inside the page, kept separate from the app bar's trail so
+   * the two are never read as one chain.
+   */
+  deepInlineCrumb: boolean;
+  /**
    * Whether a record page draws its own back control.
    *
    * `record-crumb.tsx` argues the trail IS the way out, and that a page with a
@@ -2230,6 +2394,16 @@ export const DEFAULT_THEME: ThemeState = {
   pageDescription: true,
   pageCount: true,
   pageHeader: true,
+  navProductTree: false,
+  navTreeCounts: false,
+  treeSearchPlace: "launchpad",
+  crumbEmphasis: false,
+  crumbIcons: "all",
+  crumbCollapse: "off",
+  crumbStart: "group",
+  recordCrumbLabel: "name",
+  recordCrumbShown: true,
+  deepInlineCrumb: false,
   recordBackButton: true,
   listHeaderVariant: "L-C",
   recordHeaderVariant: "D-B",

@@ -13,6 +13,18 @@ import {
   X,
 } from "lucide-react";
 import {
+  CRUMB_COLLAPSE_LABELS,
+  CRUMB_COLLAPSES,
+  CRUMB_START_LABELS,
+  CRUMB_STARTS,
+  TREE_SEARCH_PLACE_LABELS,
+  TREE_SEARCH_PLACES,
+  CRUMB_ICON_LABELS,
+  CRUMB_ICONS,
+  RECORD_CRUMB_LABEL_LABELS,
+  RECORD_CRUMB_LABELS,
+} from "@/design/theme";
+import {
   LIST_VARIANTS,
   RECORD_VARIANTS,
   BOARD_VARIANTS,
@@ -316,6 +328,12 @@ function NavStructureSection({
   // Recents straddle the two stores: how many rows to show is a nav-structure
   // question, but the mode is a theme axis like the dock's caption and position.
   const {
+    navProductTree,
+    setNavProductTree,
+    navTreeCounts,
+    setNavTreeCounts,
+    treeSearchPlace,
+    setTreeSearchPlace,
     recentsMode,
     setRecentsMode,
     launchpadCard,
@@ -419,6 +437,46 @@ function NavStructureSection({
         layout.adoptDefaultLayout();
       }}
     >
+      <Toggle
+        label="All products as the nav"
+        checked={navProductTree}
+        onChange={setNavProductTree}
+      />
+      <Note>
+        {navProductTree
+          ? "The catalogue IS the nav: every group expands in place to its products and their pages, so L1, L2 and L3 are all reachable without a flyout. Pinned rows stay above it; the catalogue's own entry goes, and Recents opens only recents. The trail is unchanged — whether a tree lets the breadcrumb shorten is a separate question."
+          : "Flyouts: the nav lists L1 and a second surface opens for what is inside. Keeps the nav short enough not to scroll, at the cost of the nav never showing where you are below L1."}
+      </Note>
+
+      {navProductTree ? (
+        <>
+          <Toggle
+            label="Counts on group rows"
+            checked={navTreeCounts}
+            onChange={setNavTreeCounts}
+          />
+          <Note>
+            {navTreeCounts
+              ? "Each group says how many products are behind it. Useful for the empty shelf — a bucket reading 0 tells you before the click rather than after."
+              : "No counts. The tree opens in place, so what is behind a group is one click away and the number was only competing with the label for the row."}
+          </Note>
+
+          <Segmented
+            label="Tree search sits"
+            options={TREE_SEARCH_PLACES}
+            value={treeSearchPlace}
+            onChange={setTreeSearchPlace}
+            format={(v) => TREE_SEARCH_PLACE_LABELS[v]}
+          />
+          <Note>
+            {treeSearchPlace === "products"
+              ? "Over the tree it filters — the search belongs to the thing it acts on."
+              : treeSearchPlace === "off"
+                ? "No search. The tail of a twelve-group tree is then only reachable by opening groups until you find it."
+                : "Above the account blocks, where it reads as a search of the whole nav rather than of the catalogue — worth seeing, because that is the expectation it sets."}
+          </Note>
+        </>
+      ) : null}
       <Segmented
         label="Agency plan"
         options={AGENCY_PLANS}
@@ -1256,8 +1314,20 @@ function Toggle({
 
 /** Section order in the panel. The theme, search and nav sections lead. */
 const SECTIONS = [
-  // Canvas scope. The shell's own sections follow.
+  /*
+   * Canvas scope, in the order a reader meets the page: the trail at the top of
+   * the screen, then the header under it, then the surfaces that replace both.
+   *
+   * These were one "Page header" section until Sep 22, by which point it held
+   * twenty-three controls covering four unrelated decisions — the breadcrumb,
+   * slot 05, the builder chrome and the workflow canvas — in the order they
+   * happened to be written. A section that long is a list you scroll past, not
+   * a control you use, and the complaint that finally split it was simply
+   * "where are these options".
+   */
+  "Breadcrumb",
   "Page header",
+  "Builders",
   "Edit card",
   "Theme",
   "Search",
@@ -1267,6 +1337,136 @@ const SECTIONS = [
 ] as const;
 
 type SectionId = (typeof SECTIONS)[number];
+
+/**
+ * The canvas scope's three sections, and the shell's everything else.
+ *
+ * A subtraction rather than a second hand-written list: TUNING_GROUPS feeds
+ * SECTIONS, so a group added there would have gone missing from a shell list
+ * nobody remembered to update — and a section that exists but is in no scope
+ * is a control that has quietly stopped being reachable, which is the failure
+ * this whole pass is about.
+ */
+const CANVAS_SECTIONS = ["Breadcrumb", "Page header", "Builders"] as const;
+const SHELL_SECTIONS: readonly SectionId[] = SECTIONS.filter(
+  (id) => !(CANVAS_SECTIONS as readonly string[]).includes(id),
+);
+
+/**
+ * What kind of surface the canvas is showing.
+ *
+ * Two values, not six, because the mapping has two answers: every ordinary
+ * page — list, record, board, inbox pane, deep page — is tuned by the same two
+ * sections, and only a builder swaps one of them out. Splitting the enum five
+ * ways to hand four of the branches the identical answer would be a taxonomy
+ * the panel does not use.
+ */
+type Surface = "builder" | "page";
+
+/**
+ * Which sections each surface offers.
+ *
+ * Breadcrumb is in both: a builder that has dropped the app bar draws the
+ * trail itself (see BuilderTrail), so the crumb controls are live there too —
+ * they are the one part of the page chrome a builder never stops having.
+ */
+const SURFACE_SECTIONS: Record<Surface, readonly SectionId[]> = {
+  page: ["Breadcrumb", "Page header"],
+  builder: ["Breadcrumb", "Builders"],
+};
+
+const SURFACE_BLURB: Record<Surface, string> = {
+  page: "Showing the sections this page uses — the trail and its header.",
+  builder: "Showing the sections a builder uses — the trail and its chrome.",
+};
+
+/**
+ * Under this, the nav card is a rail rather than a tree.
+ *
+ * The rail is 64px and the tree 272px, so anything in between is the width
+ * transition caught mid-flight; 120 is well clear of both ends rather than a
+ * measurement of either.
+ */
+const RAIL_WIDTH_CEILING = 120;
+
+/**
+ * Whether the open canvas is a builder — read off the shell's chrome.
+ *
+ * Not `useHere()`, and not `canvasPage`, though both are the honest answer to
+ * "where am I". TuningPanel is mounted in layout.tsx as a SIBLING of
+ * <AppShell>, so it sits outside HereProvider and outside ShellChromeCtx and
+ * both of those hooks hand it their empty defaults. The two ways to fix that
+ * properly are both closed to this pass: moving the panel inside the shell's
+ * tree would unmount it on navigation (the shell renders `children` on two
+ * branches only — every other product draws ProductPage instead), and having
+ * the shell publish its page means editing settled shell files.
+ *
+ * So the panel reads the CONSEQUENCE instead. The only thing in this codebase
+ * that means "a builder" is a page calling useShellChrome (full-bleed.tsx) —
+ * no ordinary page asks the shell to stand down — and what that ask does is
+ * visible from out here: the nav card gone, the app bar gone, or the nav
+ * forced into its rail on arrival, which all five builders ask for with
+ * `collapseSidebar: true`.
+ *
+ * The rail is the one signal a person can also produce, by collapsing the nav
+ * by hand on an ordinary page. That false positive is deliberate, and it fails
+ * in the right direction: it offers one section too many, which you can see
+ * and ignore, rather than hiding one, which is the complaint this pass exists
+ * to answer. A "show all sections" toggle is the backstop for both.
+ */
+function useCanvasSurface(active: boolean): Surface {
+  const [surface, setSurface] = React.useState<Surface>("page");
+
+  React.useEffect(() => {
+    if (!active) return;
+
+    const read = (): Surface => {
+      const plane = document.querySelector("[data-chrome-plane]");
+      // AppHeader's own element. The exit row beside it carries the same
+      // attribute, so the tag is load-bearing: matching on the attribute alone
+      // reports a bar that is still there on exactly the builders that dropped
+      // it.
+      const bar = document.querySelector("header[data-header-theme]");
+      const railed =
+        plane !== null &&
+        plane.getBoundingClientRect().width <= RAIL_WIDTH_CEILING;
+      return plane === null || bar === null || railed ? "builder" : "page";
+    };
+
+    let frame = 0;
+    const sample = () => {
+      frame = 0;
+      setSurface(read());
+    };
+    // Coalesced into one frame. The nav's width is animated, so an unthrottled
+    // observer would re-render the panel on every frame of every collapse for
+    // an answer that changes once — and `transitionend` is in the list because
+    // the last mutation of that animation fires while the width is still
+    // somewhere in the middle of it, which is a reading of neither state.
+    const schedule = () => {
+      if (frame === 0) frame = requestAnimationFrame(sample);
+    };
+
+    sample();
+    const observer = new MutationObserver(schedule);
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["style", "class", "data-chrome-plane", "data-header-theme"],
+    });
+    document.addEventListener("transitionend", schedule, true);
+    window.addEventListener("resize", schedule);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("transitionend", schedule, true);
+      window.removeEventListener("resize", schedule);
+      if (frame !== 0) cancelAnimationFrame(frame);
+    };
+  }, [active]);
+
+  return surface;
+}
 
 /**
  * Every section closed on load.
@@ -1756,6 +1956,18 @@ export function TuningPanel() {
   const [open, setOpen] = React.useState(false);
   const [scope, setScope] = React.useState<Scope>("shell");
   const [query, setQuery] = React.useState("");
+  /*
+   * The escape hatch for the contextual canvas sections.
+   *
+   * Off by default — the point of the filter is that the panel opens on what
+   * applies to the page in front of you — but it is a standing control in the
+   * canvas scope rather than a preference buried somewhere, because a section
+   * that silently vanishes is the same complaint as a section you cannot find,
+   * from the other side. Not persisted: it is a "let me see everything for a
+   * minute" gesture, not a setting, and a panel that remembered it would drift
+   * back to the long list nobody could read.
+   */
+  const [showAllSections, setShowAllSections] = React.useState(false);
   const [openSections, setOpenSections] =
     React.useState<SectionId[]>(INITIAL_OPEN);
   const { state, set, isDefault, reset } = useTuning();
@@ -1804,6 +2016,20 @@ export function TuningPanel() {
     setPageHeader,
     recordBackButton,
     setRecordBackButton,
+    crumbEmphasis,
+    setCrumbEmphasis,
+    crumbIcons,
+    setCrumbIcons,
+    crumbCollapse,
+    setCrumbCollapse,
+    crumbStart,
+    setCrumbStart,
+    recordCrumbLabel,
+    setRecordCrumbLabel,
+    recordCrumbShown,
+    setRecordCrumbShown,
+    deepInlineCrumb,
+    setDeepInlineCrumb,
     listHeaderVariant,
     recordHeaderVariant,
     boardHeaderVariant,
@@ -1894,7 +2120,118 @@ export function TuningPanel() {
       s.includes(id) ? s.filter((x) => x !== id) : [...s, id],
     );
 
-  const allOpen = openSections.length === SECTIONS.length;
+  /*
+   * Which sections this scope is actually offering.
+   *
+   * `filtering` outranks the surface, always. Search is how someone looks for
+   * a control they cannot see, so a filter that also hid it from the query
+   * would defeat the one tool left for finding it — and "show all sections" is
+   * the standing version of the same escape.
+   */
+  const filtering = query !== "";
+  const surface = useCanvasSurface(open && scope === "canvas");
+  const contextual = scope === "canvas" && !showAllSections && !filtering;
+  const sectionShown = (id: SectionId) =>
+    !contextual || SURFACE_SECTIONS[surface].includes(id);
+
+  /*
+   * Expand all, per scope and per what is on offer.
+   *
+   * It used to expand every section in SECTIONS from either tab, which meant
+   * the canvas tab's button opened eleven shell sections you could not see and
+   * reported itself as "Collapse all" while the tab in front of you was shut.
+   * The other scope's open sections are left exactly as they were.
+   */
+  const scopeSections: readonly SectionId[] =
+    scope === "canvas" ? CANVAS_SECTIONS : SHELL_SECTIONS;
+  const offeredSections = scopeSections.filter(sectionShown);
+  const allOpen = offeredSections.every((id) => openSections.includes(id));
+  const toggleAllOpen = () =>
+    setOpenSections((s) =>
+      allOpen
+        ? s.filter((id) => !offeredSections.includes(id))
+        : [...new Set([...s, ...offeredSections])],
+    );
+
+  /*
+   * The three canvas sections' own counts and resets.
+   *
+   * One trio per section, and no trio reaching into another's values: a reset
+   * button under a heading that also restored controls filed under a different
+   * heading is how the old twenty-three-control section got away with being
+   * four decisions in a trench coat. Written against DEFAULT_THEME rather than
+   * against literals so the shipped default has exactly one home.
+   */
+  const crumbChanged =
+    (crumbEmphasis !== DEFAULT_THEME.crumbEmphasis ? 1 : 0) +
+    (crumbIcons !== DEFAULT_THEME.crumbIcons ? 1 : 0) +
+    (crumbStart !== DEFAULT_THEME.crumbStart ? 1 : 0) +
+    (crumbCollapse !== DEFAULT_THEME.crumbCollapse ? 1 : 0) +
+    (recordCrumbLabel !== DEFAULT_THEME.recordCrumbLabel ? 1 : 0) +
+    (recordCrumbShown !== DEFAULT_THEME.recordCrumbShown ? 1 : 0) +
+    (deepInlineCrumb !== DEFAULT_THEME.deepInlineCrumb ? 1 : 0);
+
+  const resetCrumb = () => {
+    setCrumbEmphasis(DEFAULT_THEME.crumbEmphasis);
+    setCrumbIcons(DEFAULT_THEME.crumbIcons);
+    setCrumbStart(DEFAULT_THEME.crumbStart);
+    setCrumbCollapse(DEFAULT_THEME.crumbCollapse);
+    setRecordCrumbLabel(DEFAULT_THEME.recordCrumbLabel);
+    setRecordCrumbShown(DEFAULT_THEME.recordCrumbShown);
+    setDeepInlineCrumb(DEFAULT_THEME.deepInlineCrumb);
+  };
+
+  const pageHeaderChanged =
+    (listHeaderVariant !== DEFAULT_THEME.listHeaderVariant ? 1 : 0) +
+    (recordHeaderVariant !== DEFAULT_THEME.recordHeaderVariant ? 1 : 0) +
+    (recordBackButton !== DEFAULT_THEME.recordBackButton ? 1 : 0) +
+    (boardHeaderVariant !== DEFAULT_THEME.boardHeaderVariant ? 1 : 0) +
+    (panelHeaderVariant !== DEFAULT_THEME.panelHeaderVariant ? 1 : 0) +
+    (deepHeaderVariant !== DEFAULT_THEME.deepHeaderVariant ? 1 : 0) +
+    (pageHeader !== DEFAULT_THEME.pageHeader ? 1 : 0) +
+    (pageTitle !== DEFAULT_THEME.pageTitle ? 1 : 0) +
+    (pageDescription !== DEFAULT_THEME.pageDescription ? 1 : 0) +
+    (pageCount !== DEFAULT_THEME.pageCount ? 1 : 0) +
+    (recordPageHeader !== DEFAULT_THEME.recordPageHeader ? 1 : 0);
+
+  const resetPageHeader = () => {
+    // The variants go back first: each one writes the four chrome knobs, so
+    // restoring them afterwards is what makes Reset land on the shipped shape
+    // rather than on the last variant's answer.
+    setHeaderVariant("listHeaderVariant", DEFAULT_THEME.listHeaderVariant);
+    setHeaderVariant("recordHeaderVariant", DEFAULT_THEME.recordHeaderVariant);
+    setHeaderVariant("boardHeaderVariant", DEFAULT_THEME.boardHeaderVariant);
+    setHeaderVariant("panelHeaderVariant", DEFAULT_THEME.panelHeaderVariant);
+    setHeaderVariant("deepHeaderVariant", DEFAULT_THEME.deepHeaderVariant);
+    setRecordBackButton(DEFAULT_THEME.recordBackButton);
+    setPageHeader(DEFAULT_THEME.pageHeader);
+    setPageTitle(DEFAULT_THEME.pageTitle);
+    setPageDescription(DEFAULT_THEME.pageDescription);
+    setPageCount(DEFAULT_THEME.pageCount);
+    setRecordPageHeader(DEFAULT_THEME.recordPageHeader);
+  };
+
+  const buildersChanged =
+    (builderKeepSidebar !== DEFAULT_THEME.builderKeepSidebar ? 1 : 0) +
+    (builderKeepTopBar !== DEFAULT_THEME.builderKeepTopBar ? 1 : 0) +
+    (builderControls !== DEFAULT_THEME.builderControls ? 1 : 0) +
+    (builderExit !== DEFAULT_THEME.builderExit ? 1 : 0) +
+    (builderCanvas !== DEFAULT_THEME.builderCanvas ? 1 : 0);
+
+  /*
+   * Both conditional controls go back too, even while their own switch hides
+   * them. "Builder controls sit in" is only on screen with the top bar
+   * dropped — so a reset that restored the bar and stopped there would leave a
+   * changed value behind a control that had just disappeared, and the badge
+   * would sit at 1 with nothing under the heading to explain it.
+   */
+  const resetBuilders = () => {
+    setBuilderKeepSidebar(DEFAULT_THEME.builderKeepSidebar);
+    setBuilderKeepTopBar(DEFAULT_THEME.builderKeepTopBar);
+    setBuilderControls(DEFAULT_THEME.builderControls);
+    setBuilderExit(DEFAULT_THEME.builderExit);
+    setBuilderCanvas(DEFAULT_THEME.builderCanvas);
+  };
 
 
   const themeChanged =
@@ -2171,16 +2508,12 @@ export function TuningPanel() {
               type="button"
               role="tab"
               aria-selected={on}
-              onClick={() => {
-                setScope(id);
-                // The canvas tab holds one section; arriving to a closed
-                // heading reads as a tab with nothing in it.
-                if (id === "canvas") {
-                  setOpenSections((open) =>
-                    open.includes("Page header") ? open : [...open, "Page header"],
-                  );
-                }
-              }}
+              // No section is forced open any more. The canvas tab held one
+              // section when that rule was written, so arriving to a closed
+              // heading read as a tab with nothing in it; it now holds three,
+              // and three closed headings are a table of contents — which is
+              // the same argument INITIAL_OPEN makes for the shell tab.
+              onClick={() => setScope(id)}
               className={cn(
                 "motion-tap relative h-[30px] px-[9px] text-[11.5px] leading-none",
                 on
@@ -2201,243 +2534,20 @@ export function TuningPanel() {
         })}
       </div>
 
-      {scope === "canvas" ? (
-        <div
-          className={cn(
-            "min-h-0 flex-1 overflow-y-auto",
-            // Bottom dock lays the sections out in three stacks (see
-            // ColumnStacks); every other placement is the single column the
-            // panel has always been.
-            placement.dock === "bottom" ? "px-0" : "flex flex-col",
-          )}
-        >
-          <ColumnStacks active={placement.dock === "bottom"}>
-          <Section
-            id="Page header"
-            open={openSections.includes("Page header")}
-            onToggle={() => toggleSection("Page header")}
-            changedCount={
-              (pageHeader ? 0 : 1) +
-              (pageTitle ? 0 : 1) +
-              (pageDescription ? 0 : 1) +
-              (pageCount ? 0 : 1) +
-              (recordPageHeader ? 1 : 0) +
-              (recordBackButton ? 0 : 1) +
-              (listHeaderVariant === "L-C" ? 0 : 1) +
-              (recordHeaderVariant === "D-B" ? 0 : 1) +
-              (boardHeaderVariant === "K-B" ? 0 : 1) +
-              (builderKeepSidebar ? 0 : 1) +
-              (builderKeepTopBar ? 0 : 1) +
-              (builderControls === "crumb-row" ? 0 : 1) +
-              (builderExit === "back" ? 0 : 1) +
-              (builderCanvas === "standard" ? 0 : 1) +
-              (panelHeaderVariant === "P-B" ? 0 : 1) +
-              (deepHeaderVariant === "X-2" ? 0 : 1)
-            }
-            onReset={() => {
-              // The variants go back first: each one writes the four knobs, so
-              // restoring them afterwards is what makes Reset land on the
-              // shipped shape rather than on the last variant's answer.
-              setHeaderVariant("listHeaderVariant", "L-C");
-              setHeaderVariant("recordHeaderVariant", "D-B");
-              setHeaderVariant("boardHeaderVariant", "K-B");
-              setBuilderKeepSidebar(true);
-              setBuilderKeepTopBar(true);
-              setBuilderControls("crumb-row");
-              setBuilderExit("back");
-              setBuilderCanvas("standard");
-              setHeaderVariant("panelHeaderVariant", "P-B");
-              setHeaderVariant("deepHeaderVariant", "X-2");
-              setPageHeader(true);
-              setPageTitle(true);
-              setPageDescription(true);
-              setPageCount(true);
-              setRecordPageHeader(false);
-              setRecordBackButton(true);
-            }}
-          >
-            <VariantPicker
-              label="List pages"
-              variants={LIST_VARIANTS}
-              value={listHeaderVariant}
-              onChange={(v) => setHeaderVariant("listHeaderVariant", v)}
-            />
-            <VariantPicker
-              label="Record pages"
-              variants={RECORD_VARIANTS}
-              value={recordHeaderVariant}
-              onChange={(v) => setHeaderVariant("recordHeaderVariant", v)}
-            />
-            <Toggle
-              label="Record back button"
-              checked={recordBackButton}
-              onChange={setRecordBackButton}
-            />
-            <Note>
-              {recordBackButton
-                ? "A back control on the record itself — in the panel's header row under “Panel owns identity”, at the head of the strip under “Compact meta strip”. The trail still works; this is the second way out, for a hand that is already down in the record."
-                : "No back control on the page. The trail is the only way out, which is the position record-crumb.tsx argues for: one exit, always in the same place, never competing with the crumb that already names the record."}
-            </Note>
-            <VariantPicker
-              label="Boards"
-              variants={BOARD_VARIANTS}
-              value={boardHeaderVariant}
-              onChange={(v) => setHeaderVariant("boardHeaderVariant", v)}
-            />
-            <Toggle
-              label="Builder keeps the sidebar"
-              checked={builderKeepSidebar}
-              onChange={setBuilderKeepSidebar}
-            />
-            <Note>
-              {builderKeepSidebar
-                ? "The nav survives into the builder, collapsed — a builder session is minutes long inside a much longer CRM session, and the trail's parent crumb plus the nav are then the way out."
-                : "Full viewport. With no nav to return through, the builder has to draw its own exit — see below."}
-            </Note>
-
-            <Toggle
-              label="Builder keeps the top bar"
-              checked={builderKeepTopBar}
-              onChange={setBuilderKeepTopBar}
-            />
-            <Note>
-              {builderKeepTopBar
-                ? "AppHeader stays, so the trail names the artifact and the builder's own row carries only Test and Publish."
-                : "No app bar. The trail and the publish controls have to find a home on the builder's own chrome — which is the choice below."}
-            </Note>
-
-            {!builderKeepTopBar ? (
-              <>
-                <Segmented
-                  label="Builder controls sit in"
-                  options={BUILDER_CONTROLS.map((c) => c.id)}
-                  value={builderControls}
-                  onChange={setBuilderControls}
-                  format={(id) =>
-                    BUILDER_CONTROLS.find((c) => c.id === id)?.label ?? id
-                  }
-                />
-                <Note>
-                  {BUILDER_CONTROLS.find((c) => c.id === builderControls)?.blurb}
-                </Note>
-              </>
-            ) : null}
-
-            {!builderKeepSidebar ? (
-              <>
-                <Segmented
-                  label="Builder exit"
-                  options={BUILDER_EXITS.map((c) => c.id)}
-                  value={builderExit}
-                  onChange={setBuilderExit}
-                  format={(id) =>
-                    BUILDER_EXITS.find((c) => c.id === id)?.label ?? id
-                  }
-                />
-                <Note>
-                  {BUILDER_EXITS.find((c) => c.id === builderExit)?.blurb}
-                </Note>
-              </>
-            ) : null}
-
-            <Segmented
-              label="Workflow canvas"
-              options={BUILDER_CANVASES.map((c) => c.id)}
-              value={builderCanvas}
-              onChange={setBuilderCanvas}
-              format={(id) =>
-                BUILDER_CANVASES.find((c) => c.id === id)?.label ?? id
-              }
-            />
-            <Note>
-              {BUILDER_CANVASES.find((c) => c.id === builderCanvas)?.blurb}
-            </Note>
-            <VariantPicker
-              label="Inbox panes"
-              variants={PANEL_VARIANTS}
-              value={panelHeaderVariant}
-              onChange={(v) => setHeaderVariant("panelHeaderVariant", v)}
-            />
-            <VariantPicker
-              label="Deep pages (L4/L5)"
-              variants={DEEP_VARIANTS}
-              value={deepHeaderVariant}
-              onChange={(v) => setHeaderVariant("deepHeaderVariant", v)}
-            />
-
-            <Toggle
-              label="Page header"
-              checked={pageHeader}
-              onChange={setPageHeader}
-            />
-            <Note>
-              {pageHeader
-                ? "Slot 05 is drawn: whatever of the title, count and actions is switched on below."
-                : "No header at all — not even the actions. The trail names the page and the control bar does the work, which is what “the platform draws the page” looks like taken all the way."}
-            </Note>
-
-            <Toggle
-              label="Page title"
-              checked={pageTitle}
-              disabled={!pageHeader}
-              onChange={setPageTitle}
-            />
-            <Note>
-              {pageTitle
-                ? "The page names itself. The breadcrumb one line above already did, so this is the second copy — which is the thing worth looking at."
-                : "Titleless. The trail is the title, and the actions stay on the right edge. The description and the count go too: one explains the title, the other counts what it named."}
-            </Note>
-
-            <Toggle
-              label="Description"
-              checked={pageDescription}
-              disabled={!pageHeader || !pageTitle}
-              onChange={setPageDescription}
-            />
-            <Note>
-              {!pageTitle
-                ? "Off with the title — a sentence where the page name should be explains nothing."
-                : pageDescription
-                  ? "The line under the title. Useful on a page someone meets once; noise on one they live in."
-                  : "Hidden. The header is one line: title, count and actions."}
-            </Note>
-
-            <Toggle
-              label="Count"
-              checked={pageCount}
-              disabled={!pageHeader || !pageTitle}
-              onChange={setPageCount}
-            />
-            <Note>
-              {!pageTitle
-                ? "Off with the title — there is nothing left in the row for it to be counting."
-                : pageCount
-                  ? "How big the collection is, beside its name — the one fact the trail cannot carry."
-                  : "Hidden. The pagination row at the foot still says how many there are."}
-            </Note>
-
-            <Toggle
-              label="Record page header"
-              checked={recordPageHeader}
-              onChange={setRecordPageHeader}
-            />
-            <Note>
-              {recordPageHeader
-                ? "Contact detail keeps slot 05: the record's name, its status and a row of actions."
-                : "Off: on a record the trail names it, the first column carries the pager, and each pane owns its own actions — so the header had nothing left of its own to say."}
-            </Note>
-          </Section>
-          </ColumnStacks>
-        </div>
-      ) : (
-      <>
       {/*
-        Fifty-odd controls across eight sections, most of them collapsed.
+        Search and the expand-all row, above BOTH scopes.
 
-        Knowing the name is not the problem — remembering which section it was
-        filed under is. So the query matches labels AND option names, and the
-        sections that hold nothing matching drop out entirely rather than
-        staying as a row of empty headings to scroll past.
+        They lived inside the shell branch, which meant the canvas tab had no
+        search at all: its controls were unreachable by name, and the sections
+        there are now contextual on top of that. A panel that hides sections by
+        page and cannot be searched for the ones it hid is the original
+        complaint with an extra step, so the field moved up here rather than
+        being copied — one query, one matcher, both scopes.
+
+        Knowing a control's name was never the problem; remembering which
+        section it was filed under is. So the query matches labels AND option
+        names, and the sections holding nothing that matches drop out entirely
+        rather than staying as a row of empty headings to scroll past.
       */}
       <div className="flex shrink-0 items-center gap-[8px] px-[14px] py-[8px] shadow-[inset_0_-1px_0_0_var(--pg-border)]">
         <Search size={13} aria-hidden="true" className="shrink-0 text-pg-faint" />
@@ -2468,7 +2578,7 @@ export function TuningPanel() {
         </span>
         <button
           type="button"
-          onClick={() => setOpenSections(allOpen ? [] : [...SECTIONS])}
+          onClick={toggleAllOpen}
           className="motion-tap rounded-[6px] px-[6px] py-[3px] text-[10px] leading-none text-pg-muted hover:bg-pg-row-border hover:text-pg-text"
         >
           {allOpen ? "Collapse all" : "Expand all"}
@@ -2476,6 +2586,377 @@ export function TuningPanel() {
       </div>
 
       <TuningFilterContext value={filter}>
+      {scope === "canvas" ? (
+        <>
+          {/*
+            What the canvas tab is showing, and how to stop it deciding.
+
+            A line of prose rather than nothing, because a panel that quietly
+            drops a section looks like a panel that lost it — which is the
+            complaint this pass is answering, played backwards. It says which
+            surface it thinks you are on, so a wrong guess is visible rather
+            than mysterious, and the button beside it is one click from the
+            whole list.
+          */}
+          <div className="flex shrink-0 items-start justify-between gap-[10px] px-[14px] py-[8px] shadow-[inset_0_-1px_0_0_var(--pg-border)]">
+            <span className="min-w-0 text-[10px] leading-[14px] text-pg-faint">
+              {filtering
+                ? "Search reaches every section, including the ones this page hides."
+                : showAllSections
+                  ? "Every canvas section, whichever page is open."
+                  : SURFACE_BLURB[surface]}
+            </span>
+            <button
+              type="button"
+              aria-pressed={showAllSections}
+              onClick={() => setShowAllSections((v) => !v)}
+              title={
+                showAllSections
+                  ? "Offer only the sections this page uses"
+                  : "Offer every canvas section, on every page"
+              }
+              className={cn(
+                "motion-tap shrink-0 rounded-[6px] px-[6px] py-[3px] text-[10px] leading-none",
+                showAllSections
+                  ? "bg-brand text-brand-fg"
+                  : "text-pg-muted hover:bg-pg-row-border hover:text-pg-text",
+              )}
+            >
+              {showAllSections ? "Show this page" : "Show all sections"}
+            </button>
+          </div>
+
+          <div
+            className={cn(
+              "min-h-0 flex-1 overflow-y-auto",
+              // Bottom dock lays the sections out in three stacks (see
+              // ColumnStacks); every other placement is the single column the
+              // panel has always been.
+              placement.dock === "bottom" ? "px-0" : "flex flex-col",
+            )}
+          >
+            <ColumnStacks active={placement.dock === "bottom"}>
+              {/*
+                The trail, on its own.
+
+                Seven controls about one object — the row above the page — and
+                they answer a question no other section here asks: not what the
+                page draws, but what the platform draws above it. They came out
+                of "Page header" on Sep 22 because a breadcrumb is not a page
+                header by another name, however close together the two sit.
+              */}
+              {sectionShown("Breadcrumb") ? (
+                <Section
+                  id="Breadcrumb"
+                  open={openSections.includes("Breadcrumb")}
+                  onToggle={() => toggleSection("Breadcrumb")}
+                  changedCount={crumbChanged}
+                  onReset={resetCrumb}
+                >
+                  <Toggle
+                    label="Emphasise the last crumb"
+                    checked={crumbEmphasis}
+                    onChange={setCrumbEmphasis}
+                  />
+                  <Note>
+                    {crumbEmphasis
+                      ? "The leaf is painted, not just bolded — enough to read as the page's name, which is what makes dropping the title defensible rather than merely cheaper."
+                      : "The leaf is bold text. Reads as the end of a path rather than as a heading, so a page that drops its title has nothing announcing it."}
+                  </Note>
+
+                  <Segmented
+                    label="Crumb icons"
+                    options={CRUMB_ICONS}
+                    value={crumbIcons}
+                    onChange={setCrumbIcons}
+                    format={(v) => CRUMB_ICON_LABELS[v]}
+                  />
+                  <Note>
+                    {crumbIcons === "all"
+                      ? "A glyph per level: scannable at a glance, noisier the deeper the trail goes."
+                      : "Home keeps its glyph and nothing else does — Home is the one crumb that is a destination rather than a label."}
+                  </Note>
+
+                  <Segmented
+                    label="Trail starts at"
+                    options={CRUMB_STARTS}
+                    value={crumbStart}
+                    onChange={setCrumbStart}
+                    format={(v) => CRUMB_START_LABELS[v]}
+                  />
+                  <Note>
+                    {crumbStart === "group"
+                      ? "Home ▸ CRM ▸ Contacts ▸ Smart lists. The bucket leads, which is the one crumb you cannot actually stand on — it is a nav grouping, not a page."
+                      : "Home ▸ Contacts ▸ Smart lists. The bucket goes everywhere, including on pages with nothing under them: a rule that only applied at depth would be one nobody could predict."}
+                  </Note>
+
+                  <Segmented
+                    label="Collapse long trails"
+                    options={CRUMB_COLLAPSES}
+                    value={crumbCollapse}
+                    onChange={setCrumbCollapse}
+                    format={(v) => CRUMB_COLLAPSE_LABELS[v]}
+                  />
+                  <Note>
+                    {crumbCollapse === "off"
+                      ? "Every level stays on the row. Today's trails top out at four segments, so either folding would hide levels nobody needed hidden — the options are here for the depth that is coming, not the depth that exists."
+                      : crumbCollapse === "middle"
+                        ? "Four items plus a …, folding from the middle. Home and the leaf always survive — the two ends are the only segments whose absence you would notice."
+                        : "Home ▸ … ▸ parent ▸ current, at any depth. The most compact that still answers both questions a trail is asked: where am I, and what am I inside."}
+                  </Note>
+
+                  <Segmented
+                    label="A record's crumb says"
+                    options={RECORD_CRUMB_LABELS}
+                    value={recordCrumbLabel}
+                    onChange={setRecordCrumbLabel}
+                    format={(v) => RECORD_CRUMB_LABEL_LABELS[v]}
+                  />
+                  <Note>
+                    {recordCrumbLabel === "name"
+                      ? "The record's own name — the trail says which contact you are on, and the page need not repeat it."
+                      : "The kind of thing it is (“Contact details”). Stable and short, at the cost of the trail no longer telling you WHICH record."}
+                  </Note>
+
+                  <Toggle
+                    label="Records publish a crumb"
+                    checked={recordCrumbShown}
+                    onChange={setRecordCrumbShown}
+                  />
+                  <Note>
+                    {recordCrumbShown
+                      ? "Opening a record grows the trail by one."
+                      : "The trail stops at the list. The record is a place you are, not a place the path knows about — which is only honest if the page names itself."}
+                  </Note>
+
+                  <Toggle
+                    label="Inline trail for L4/L5"
+                    checked={deepInlineCrumb}
+                    onChange={setDeepInlineCrumb}
+                  />
+                  <Note>
+                    {deepInlineCrumb
+                      ? "Deep levels render as a second, page-scoped trail under the header instead of a tab bar each. Kept visually distinct from the bar's trail so the two never read as one chain."
+                      : "Deep levels keep their tab bars."}
+                  </Note>
+                </Section>
+              ) : null}
+
+              {/*
+                Slot 05, one archetype at a time.
+
+                The five pickers lead and the four knobs follow, which is the
+                order the decision is actually made in: a variant WRITES those
+                knobs (see applyVariantChrome), so meeting the knobs first
+                means meeting the values something below you is about to
+                overwrite.
+              */}
+              {sectionShown("Page header") ? (
+                <Section
+                  id="Page header"
+                  open={openSections.includes("Page header")}
+                  onToggle={() => toggleSection("Page header")}
+                  changedCount={pageHeaderChanged}
+                  onReset={resetPageHeader}
+                >
+                  <VariantPicker
+                    label="List pages"
+                    variants={LIST_VARIANTS}
+                    value={listHeaderVariant}
+                    onChange={(v) => setHeaderVariant("listHeaderVariant", v)}
+                  />
+                  <VariantPicker
+                    label="Record pages"
+                    variants={RECORD_VARIANTS}
+                    value={recordHeaderVariant}
+                    onChange={(v) => setHeaderVariant("recordHeaderVariant", v)}
+                  />
+                  <Toggle
+                    label="Record back button"
+                    checked={recordBackButton}
+                    onChange={setRecordBackButton}
+                  />
+                  <Note>
+                    {recordBackButton
+                      ? "A back control on the record itself — in the panel's header row under “Panel owns identity”, at the head of the strip under “Compact meta strip”. The trail still works; this is the second way out, for a hand that is already down in the record."
+                      : "No back control on the page. The trail is the only way out, which is the position record-crumb.tsx argues for: one exit, always in the same place, never competing with the crumb that already names the record."}
+                  </Note>
+                  <VariantPicker
+                    label="Boards"
+                    variants={BOARD_VARIANTS}
+                    value={boardHeaderVariant}
+                    onChange={(v) => setHeaderVariant("boardHeaderVariant", v)}
+                  />
+                  <VariantPicker
+                    label="Inbox panes"
+                    variants={PANEL_VARIANTS}
+                    value={panelHeaderVariant}
+                    onChange={(v) => setHeaderVariant("panelHeaderVariant", v)}
+                  />
+                  <VariantPicker
+                    label="Deep pages (L4/L5)"
+                    variants={DEEP_VARIANTS}
+                    value={deepHeaderVariant}
+                    onChange={(v) => setHeaderVariant("deepHeaderVariant", v)}
+                  />
+
+                  <Toggle
+                    label="Page header"
+                    checked={pageHeader}
+                    onChange={setPageHeader}
+                  />
+                  <Note>
+                    {pageHeader
+                      ? "Slot 05 is drawn: whatever of the title, count and actions is switched on below."
+                      : "No header at all — not even the actions. The trail names the page and the control bar does the work, which is what “the platform draws the page” looks like taken all the way."}
+                  </Note>
+
+                  <Toggle
+                    label="Page title"
+                    checked={pageTitle}
+                    disabled={!pageHeader}
+                    onChange={setPageTitle}
+                  />
+                  <Note>
+                    {pageTitle
+                      ? "The page names itself. The breadcrumb one line above already did, so this is the second copy — which is the thing worth looking at."
+                      : "Titleless. The trail is the title, and the actions stay on the right edge. The description and the count go too: one explains the title, the other counts what it named."}
+                  </Note>
+
+                  <Toggle
+                    label="Description"
+                    checked={pageDescription}
+                    disabled={!pageHeader || !pageTitle}
+                    onChange={setPageDescription}
+                  />
+                  <Note>
+                    {!pageTitle
+                      ? "Off with the title — a sentence where the page name should be explains nothing."
+                      : pageDescription
+                        ? "The line under the title. Useful on a page someone meets once; noise on one they live in."
+                        : "Hidden. The header is one line: title, count and actions."}
+                  </Note>
+
+                  <Toggle
+                    label="Count"
+                    checked={pageCount}
+                    disabled={!pageHeader || !pageTitle}
+                    onChange={setPageCount}
+                  />
+                  <Note>
+                    {!pageTitle
+                      ? "Off with the title — there is nothing left in the row for it to be counting."
+                      : pageCount
+                        ? "How big the collection is, beside its name — the one fact the trail cannot carry."
+                        : "Hidden. The pagination row at the foot still says how many there are."}
+                  </Note>
+
+                  <Toggle
+                    label="Record page header"
+                    checked={recordPageHeader}
+                    onChange={setRecordPageHeader}
+                  />
+                  <Note>
+                    {recordPageHeader
+                      ? "Contact detail keeps slot 05: the record's name, its status and a row of actions."
+                      : "Off: on a record the trail names it, the first column carries the pager, and each pane owns its own actions — so the header had nothing left of its own to say."}
+                  </Note>
+                </Section>
+              ) : null}
+
+              {/*
+                The builders, which are not pages with a header — they are
+                pages that take the shell apart.
+
+                Two switches, then the two controls that only exist because a
+                switch was thrown, then the canvas. That order is the argument:
+                "Builder controls sit in" has nothing to answer while the top
+                bar is still standing, so it appears under the switch that
+                removes it rather than three controls away from its own cause.
+              */}
+              {sectionShown("Builders") ? (
+                <Section
+                  id="Builders"
+                  open={openSections.includes("Builders")}
+                  onToggle={() => toggleSection("Builders")}
+                  changedCount={buildersChanged}
+                  onReset={resetBuilders}
+                >
+                  <Toggle
+                    label="Builder keeps the sidebar"
+                    checked={builderKeepSidebar}
+                    onChange={setBuilderKeepSidebar}
+                  />
+                  <Note>
+                    {builderKeepSidebar
+                      ? "The nav survives into the builder, collapsed — a builder session is minutes long inside a much longer CRM session, and the trail's parent crumb plus the nav are then the way out."
+                      : "Full viewport. With no nav to return through, the builder has to draw its own exit — see below."}
+                  </Note>
+
+                  <Toggle
+                    label="Builder keeps the top bar"
+                    checked={builderKeepTopBar}
+                    onChange={setBuilderKeepTopBar}
+                  />
+                  <Note>
+                    {builderKeepTopBar
+                      ? "AppHeader stays, so the trail names the artifact and the builder's own row carries only Test and Publish."
+                      : "No app bar. The trail and the publish controls have to find a home on the builder's own chrome — which is the choice below."}
+                  </Note>
+
+                  {!builderKeepTopBar ? (
+                    <>
+                      <Segmented
+                        label="Builder controls sit in"
+                        options={BUILDER_CONTROLS.map((c) => c.id)}
+                        value={builderControls}
+                        onChange={setBuilderControls}
+                        format={(id) =>
+                          BUILDER_CONTROLS.find((c) => c.id === id)?.label ?? id
+                        }
+                      />
+                      <Note>
+                        {BUILDER_CONTROLS.find((c) => c.id === builderControls)?.blurb}
+                      </Note>
+                    </>
+                  ) : null}
+
+                  {!builderKeepSidebar ? (
+                    <>
+                      <Segmented
+                        label="Builder exit"
+                        options={BUILDER_EXITS.map((c) => c.id)}
+                        value={builderExit}
+                        onChange={setBuilderExit}
+                        format={(id) =>
+                          BUILDER_EXITS.find((c) => c.id === id)?.label ?? id
+                        }
+                      />
+                      <Note>
+                        {BUILDER_EXITS.find((c) => c.id === builderExit)?.blurb}
+                      </Note>
+                    </>
+                  ) : null}
+
+                  <Segmented
+                    label="Workflow canvas"
+                    options={BUILDER_CANVASES.map((c) => c.id)}
+                    value={builderCanvas}
+                    onChange={setBuilderCanvas}
+                    format={(id) =>
+                      BUILDER_CANVASES.find((c) => c.id === id)?.label ?? id
+                    }
+                  />
+                  <Note>
+                    {BUILDER_CANVASES.find((c) => c.id === builderCanvas)?.blurb}
+                  </Note>
+                </Section>
+              ) : null}
+            </ColumnStacks>
+          </div>
+        </>
+      ) : (
+      <>
       {/*
         Above the sections, not inside one — and now the only thing up here.
 
@@ -2759,7 +3240,7 @@ export function TuningPanel() {
               : pinFeedback === "mark"
                 ? "The row lands and its new slot flashes once. Enough when the list is already in view, invisible when it is not."
                 : pinFeedback === "flight"
-                  ? "A chip carrying the row's name arcs from the pin you pressed to the top of the list. The only one that answers \u201cwhere did it go\u201d from a panel three surfaces away."
+                  ? "A chip carrying the row's name arcs from the pin you pressed to the top of the list. The only one that answers “where did it go” from a panel three surfaces away."
                   : pinFeedback === "settle"
                     ? "The row slides up into its new slot, and slides back out of it when unpinned. Quieter than the flight, and it only reads when the destination is on screen."
                     : "A yellow wash rises and drains on the row itself, pinned or unpinned alike. Says which row the press was about rather than where it went — and it is the only one that answers an unpin."}
@@ -2775,7 +3256,7 @@ export function TuningPanel() {
           <Note>
             {templateMenuShape === "list-first"
               ? "The templates are the menu — applying is the row, and update, rename, duplicate and delete live on that row's ⋯. The paragraph-styles model: pick the thing, then say what to do to it."
-              : "Three verbs — Save, Create, Apply — each opening a list or a form. The menu answers \u201cwhat can I do\u201d, and which templates exist is one level down inside one of them."}
+              : "Three verbs — Save, Create, Apply — each opening a list or a form. The menu answers “what can I do”, and which templates exist is one level down inside one of them."}
           </Note>
 
           <Segmented
@@ -2787,7 +3268,7 @@ export function TuningPanel() {
           />
           <Note>
             {templateSeed === "default-only"
-              ? "Just the HighLevel default. The agency builds its own set — which is what happens anyway, and it makes \u201cSave as new template\u201d the obvious next move rather than one row among six."
+              ? "Just the HighLevel default. The agency builds its own set — which is what happens anyway, and it makes “Save as new template” the obvious next move rather than one row among six."
               : "The five worked examples as well, for showing the list full. The cost is a menu whose first impression is five arrangements nobody at this agency made."}
           </Note>
 
@@ -3338,9 +3819,9 @@ export function TuningPanel() {
         })}
           </ColumnStacks>
       </div>
-      </TuningFilterContext>
       </>
       )}
+      </TuningFilterContext>
     </aside>
   );
 }

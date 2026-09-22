@@ -62,6 +62,13 @@ import {
 } from "@/design/theme";
 import { chromeForVariant } from "@/components/page/header-variants";
 import type {
+  CrumbCollapse,
+  CrumbStart,
+  CrumbIcons,
+  TreeSearchPlace,
+  RecordCrumbLabel,
+} from "@/design/theme";
+import type {
   BuilderCanvas,
   BuilderControls,
   BuilderExit,
@@ -204,6 +211,16 @@ interface ThemeContextValue extends ThemeState {
   setPageDescription: (on: boolean) => void;
   setPageCount: (on: boolean) => void;
   setPageHeader: (on: boolean) => void;
+  setNavProductTree: (on: boolean) => void;
+  setNavTreeCounts: (on: boolean) => void;
+  setTreeSearchPlace: (v: TreeSearchPlace) => void;
+  setCrumbEmphasis: (on: boolean) => void;
+  setCrumbIcons: (v: CrumbIcons) => void;
+  setCrumbCollapse: (v: CrumbCollapse) => void;
+  setCrumbStart: (v: CrumbStart) => void;
+  setRecordCrumbLabel: (v: RecordCrumbLabel) => void;
+  setRecordCrumbShown: (on: boolean) => void;
+  setDeepInlineCrumb: (on: boolean) => void;
   setBuilderKeepSidebar: (on: boolean) => void;
   setBuilderKeepTopBar: (on: boolean) => void;
   setBuilderControls: (v: BuilderControls) => void;
@@ -480,6 +497,43 @@ export function ThemeProvider({
         setState((s) => ({ ...s, pageDescription })),
       setPageCount: (pageCount) => setState((s) => ({ ...s, pageCount })),
       setPageHeader: (pageHeader) => setState((s) => ({ ...s, pageHeader })),
+      setNavProductTree: (navProductTree) =>
+        setState((s) => ({
+          ...s,
+          navProductTree,
+          /*
+           * The tree marks the row only; the flyout nav marks the trail.
+           *
+           * In the tree the ancestors are on screen and already open, so
+           * lighting them too says a second time what the disclosure has
+           * said — and on a deep branch it paints a column of rows none of
+           * which is the page you are on. The flyout arrangement has the
+           * opposite problem (its ancestors are the only thing on screen),
+           * which is why it keeps `trail`.
+           *
+           * Written rather than derived so the knob stays live: this is the
+           * default the arrangement arrives with, not a rule it enforces. It
+           * is handed back on the way out so leaving the tree does not leave
+           * the flyout nav wearing a mark it never chose.
+           */
+          selectedState: navProductTree ? "leaf" : "trail",
+        })),
+      setNavTreeCounts: (navTreeCounts) =>
+        setState((s) => ({ ...s, navTreeCounts })),
+      setTreeSearchPlace: (treeSearchPlace) =>
+        setState((s) => ({ ...s, treeSearchPlace })),
+      setCrumbEmphasis: (crumbEmphasis) =>
+        setState((s) => ({ ...s, crumbEmphasis })),
+      setCrumbIcons: (crumbIcons) => setState((s) => ({ ...s, crumbIcons })),
+      setCrumbCollapse: (crumbCollapse) =>
+        setState((s) => ({ ...s, crumbCollapse })),
+      setCrumbStart: (crumbStart) => setState((s) => ({ ...s, crumbStart })),
+      setRecordCrumbLabel: (recordCrumbLabel) =>
+        setState((s) => ({ ...s, recordCrumbLabel })),
+      setRecordCrumbShown: (recordCrumbShown) =>
+        setState((s) => ({ ...s, recordCrumbShown })),
+      setDeepInlineCrumb: (deepInlineCrumb) =>
+        setState((s) => ({ ...s, deepInlineCrumb })),
       setBuilderKeepSidebar: (builderKeepSidebar) =>
         setState((s) => ({ ...s, builderKeepSidebar })),
       setBuilderKeepTopBar: (builderKeepTopBar) =>
