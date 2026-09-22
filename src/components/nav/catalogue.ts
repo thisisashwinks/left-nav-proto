@@ -69,6 +69,9 @@ import type {
   ChildHit,
 } from "./catalogue-types";
 import { proposedCatalogue } from "./proposed-ia";
+// The shipped tree already agreed with these pages' headings; it reads the
+// shared names so it cannot quietly stop agreeing. See screen-names.ts.
+import { SCREEN_NAMES } from "./screen-names";
 
 /**
  * Everything the account owns, and the two ways the product ships it grouped.
@@ -291,7 +294,7 @@ export const catalogue: CatalogueProduct[] = [
     suiteId: "suite-content",
     blurb: "Landing pages, funnels and forms.",
     children: [
-      { id: "sites-funnels", label: "Funnels", icon: Filter },
+      { id: "sites-funnels", label: SCREEN_NAMES.funnels, icon: Filter },
       { id: "sites-websites", label: "Websites", icon: Globe },
       { id: "sites-blogs", label: "Blogs", icon: Newspaper },
       { id: "sites-forms", label: "Forms", icon: ClipboardList },
@@ -393,7 +396,7 @@ export const catalogue: CatalogueProduct[] = [
   /* ---- Get paid ---- */
   {
     id: "opportunities",
-    label: "Opportunities",
+    label: SCREEN_NAMES.opportunities,
     icon: Target,
     groupId: "convert",
     jobId: "job-paid",
@@ -506,7 +509,7 @@ export const catalogue: CatalogueProduct[] = [
     suiteId: "suite-automation",
     blurb: "Workflows, triggers and handoffs.",
     children: [
-      { id: "automation-workflows", label: "Workflows", icon: Workflow },
+      { id: "automation-workflows", label: SCREEN_NAMES.workflows, icon: Workflow },
       { id: "automation-overview", label: "Overview", icon: LayoutDashboard, badge: { label: "Beta", tone: "beta" } },
       { id: "automation-trigger-links", label: "Trigger links", icon: Link2 },
     ],
@@ -522,7 +525,7 @@ export const catalogue: CatalogueProduct[] = [
     suiteId: "suite-agents",
     blurb: "Agents that reply, qualify and book for you.",
     children: [
-      { id: "ai-voice", label: "Voice AI", icon: Mic },
+      { id: "ai-voice", label: SCREEN_NAMES.voiceAi, icon: Mic },
       { id: "ai-conversation", label: "Conversation AI", icon: MessagesSquare },
       { id: "ai-knowledge", label: "Knowledge base", icon: BookOpen },
       { id: "ai-logs", label: "Agent logs", icon: ScrollText },
@@ -532,7 +535,7 @@ export const catalogue: CatalogueProduct[] = [
   },
   {
     id: "ai-studio",
-    label: "AI Studio",
+    label: SCREEN_NAMES.aiStudio,
     icon: Sparkles,
     groupId: "automate",
     jobId: "job-autopilot",

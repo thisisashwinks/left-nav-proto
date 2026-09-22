@@ -99,6 +99,9 @@ import {
 } from "lucide-react";
 
 import type { CatalogueEntry, CatalogueGroup } from "./catalogue-types";
+// Labels for the rows that have a real page behind them. The page's heading
+// and this tree's row have to say one word; screen-names.ts is that word.
+import { SCREEN_NAMES } from "./screen-names";
 
 /**
  * The proposed information architecture — 12 buckets, one product set.
@@ -189,13 +192,13 @@ const AI: CatalogueEntry[] = [
   },
   {
     id: "ia-ai-studio",
-    label: "AI Studio",
+    label: SCREEN_NAMES.aiStudio,
     icon: Wand,
     blurb: "Generate sites, copy and creative.",
   },
   {
     id: "ia-ai-voice",
-    label: "Voice AI",
+    label: SCREEN_NAMES.voiceAi,
     icon: Mic,
     blurb: "Agents that answer and place calls.",
     tabs: true,
@@ -286,7 +289,10 @@ const CRM: CatalogueEntry[] = [
     children: [
       {
         id: "ia-crm-contacts-list",
-        label: "List",
+        // "List" until Sep 22, when the trail's tail and the page's own
+        // heading were made to agree. The page has always been headed
+        // "Smart lists"; see screen-names.ts for why the page's word won.
+        label: SCREEN_NAMES.contactsSmartLists,
         tabs: true,
         // Saved lists, named the way operators name them rather than the way a
         // spec would. "All" first, because it is the one that always exists.
@@ -310,7 +316,7 @@ const CRM: CatalogueEntry[] = [
     icon: MessageCircle,
     blurb: "Unified inbox — SMS, email, chat and social.",
     children: [
-      { id: "ia-crm-conversations-inbox", label: "Inbox" },
+      { id: "ia-crm-conversations-inbox", label: SCREEN_NAMES.inbox },
       { id: "ia-crm-conversations-manual", label: "Manual Actions" },
       { id: "ia-crm-conversations-snippets", label: "Snippets" },
       { id: "ia-crm-conversations-links", label: "Trigger Links" },
@@ -326,7 +332,14 @@ const CRM: CatalogueEntry[] = [
     children: [
       {
         id: "ia-crm-opportunities-list",
-        label: "List",
+        /*
+         * Named after the screen, which is also the product's name — so the
+         * trail would say "Opportunities ▸ Opportunities" and the shell drops
+         * the repeat (app-shell's productCrumbs). The alternative was leaving
+         * this as "List" and letting the tail disagree with a page headed
+         * "Opportunities", which is the bug this replaced.
+         */
+        label: SCREEN_NAMES.opportunities,
         tabs: true,
         children: [
           { id: "ia-crm-opps-list-all", label: "All" },
@@ -523,7 +536,10 @@ const AUTOMATION: CatalogueEntry[] = [
         // First, and a saved list like Contacts' and Opportunities' — a workflow
         // list is filtered the same way a contact list is.
         id: "ia-automation-list",
-        label: "List",
+        // Same shape as Opportunities ▸ List above, same fix: the page is
+        // headed "Workflows", so the row is too, and the repeated crumb
+        // collapses in the shell rather than being said twice.
+        label: SCREEN_NAMES.workflows,
         tabs: true,
         children: [
           { id: "ia-automation-list-all", label: "All" },
@@ -726,7 +742,9 @@ const CONTENT: CatalogueEntry[] = [
     icon: AppWindow,
     blurb: "Funnels, websites and blogs.",
     children: [
-      { id: "ia-content-sites-funnel", label: "Funnel" },
+      // "Funnel" until Sep 22. The page has always been headed "Funnels", and
+      // a list of funnels is Funnels — the tree was reading as a spec.
+      { id: "ia-content-sites-funnel", label: SCREEN_NAMES.funnels },
       { id: "ia-content-sites-website", label: "Website" },
       { id: "ia-content-sites-blogs", label: "Blogs" },
       { id: "ia-content-sites-seo", label: "SEO" },

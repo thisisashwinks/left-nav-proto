@@ -138,6 +138,7 @@ import { useExitTransition } from "@/lib/use-exit-transition";
 import { useSwapPhase } from "@/lib/use-swap-phase";
 import { NAV_SWAP_OUT_MS } from "@/design/motion-timing";
 import { useFlyoutIntent } from "@/lib/use-flyout-intent";
+import { iconForChildLabel } from "@/components/nav/l3-icons";
 import { useMediaQuery } from "@/lib/use-media-query";
 
 /** Nav widths from left-nav.pen; the flyout docks against whichever is showing. */
@@ -252,6 +253,21 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     agencySearch,
     editTreatment,
     getAppPlacement,
+    // The two record-crumb knobs. Read here rather than inside
+    // `useRecordCrumb` so the pages stay ignorant of the tuning panel: a
+    // record page's job is to say WHAT it opened, not to know whether this
+    // account's trail is currently drawing it.
+    recordCrumbLabel,
+    recordCrumbShown,
+    /*
+     * Where the trail starts. Read HERE, beside the record-crumb knobs, for
+     * the same reason they are: the bar and the builders are both handed a
+     * finished array, so the one place that can answer "is the bucket in this
+     * trail" is the place the array is assembled. Doing it in the renderer
+     * would mean two renderers each re-deriving it, and the first divergence
+     * between them would look like a difference between chrome variants.
+     */
+    crumbStart,
   } = effective;
 
   /*
@@ -1077,6 +1093,20 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const selectNavRow = React.useCallback(
     (id: string) => {
       /*
+       * Picking a row dismisses whatever panel is open over the nav.
+       *
+       * The bug this fixes: with an L2 flyout up, clicking a Recents row loaded
+       * the page behind it and left the panel standing — so the nav claimed you
+       * were still inside the group you had just left. It reads as the click
+       * having missed.
+       *
+       * Here rather than on the Recents block, because the rule is not about
+       * Recents: any row that navigates ends the hover that opened the panel.
+       * A panel that survives its own trigger is the general version of the
+       * same bug, and one call covers every surface that selects a row.
+       */
+      intent.close();
+      /*
        * A pinned companion-app row goes where the nav row it was pinned from
        * goes: the canvas page under the flyout placement, the sheet under the
        * other two. A pin is a shortcut to a destination, so it cannot have a
@@ -1093,10 +1123,34 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         }
         return;
       }
+      /*
+       * A page id opens that page, not just its product.
+       *
+       * The walk existed only inside the flyout's own `onNavigate`, so every
+       * OTHER nav surface that can name an L3 — a pinned page in the dock, a
+       * page in the merged Recents list, and now a page in the product tree —
+       * selected the row and went nowhere. Resolving here rather than in each
+       * surface is what makes them agree: `pickCrumb` already does exactly this
+       * for the trail, and a page reached from the nav should land where the
+       * same page reached from the breadcrumb lands.
+       */
+      const page = resolveTarget(id);
+      if (page && childById(id)) {
+        setSelectedId(id);
+        setProductPage(page);
+        return;
+      }
       setSelectedId(id);
       if (layout.grouping === "proposed" && productById(id)) openProduct(id);
     },
-    [layout.grouping, openProduct, getAppPlacement, setProductPage],
+    [
+      layout.grouping,
+      openProduct,
+      getAppPlacement,
+      setProductPage,
+      resolveTarget,
+      intent,
+    ],
   );
   /*
    * One handler for every level of a crumb menu.
@@ -1356,9 +1410,33 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               },
             },
       );
-      return [...wrapped, { label: recordCrumb.label }];
+      /*
+       * `recordCrumbShown` off stops the TRAIL at the list — and stops
+       * nothing else.
+       *
+       * The wrapping above still happened, so every crumb still closes the
+       * record on the way out, and the page's own exits (a builder's back
+       * arrow, a detail view's `onBack`) are untouched because they never
+       * came through here. This is the arrangement to hold the option
+       * against: a record that is a MODE of the list rather than a place
+       * under it, the way a spreadsheet opens a row.
+       */
+      if (!recordCrumbShown) return wrapped;
+      /*
+       * Which of the two readings the page published.
+       *
+       * `generic` prints the kind of thing — Contacts ▸ Smart lists ▸ Contact
+       * details — which keeps the trail a statement about STRUCTURE, the same
+       * as every crumb above it, at the cost of the one crumb that told you
+       * which of 4,000 contacts you are in. `name` is the default because the
+       * record's identity is the thing a trail can say that the page header
+       * two rows below it is already saying in bigger type.
+       */
+      const label =
+        recordCrumbLabel === "generic" ? recordCrumb.kind : recordCrumb.label;
+      return [...wrapped, { label }];
     },
-    [recordCrumb],
+    [recordCrumb, recordCrumbLabel, recordCrumbShown],
   );
 
   const productCrumbs = React.useMemo((): (string | Crumb)[] => {
@@ -1372,7 +1450,23 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       (g) => g.id !== UNGROUPED_ID && g.productIds.includes(productId),
     );
     const segments: (string | Crumb)[] = [];
-    if (group) {
+    /*
+     * `crumbStart: "product"` drops the bucket, and drops it UNCONDITIONALLY.
+     *
+     * The tempting version was to drop it only where the trail is long enough
+     * to miss it — keep CRM ▸ Opportunities, lose it once a page hangs below.
+     * That is a rule nobody can predict: the first crumb would appear and
+     * disappear as you moved around at the same apparent level, and a trail
+     * whose SHAPE changes underneath you is worse than one segment too long.
+     * So the bucket is either in every trail or in none of them.
+     *
+     * Home is not affected either way: it is the House button in the bar, not
+     * a segment of this array, and it is the one crumb that is a destination
+     * rather than a grouping — which is exactly the property the bucket lacks
+     * and the reason this option exists.
+     */
+    const bucketShown = group !== undefined && crumbStart === "group";
+    if (bucketShown) {
       segments.push({
         label: group.label,
         icon: group.icon,
@@ -1383,9 +1477,20 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     segments.push({
       label: productLabelFor(productId),
       icon: productIconFor(productId),
-      options: group
+      /*
+       * Dropping the bucket CRUMB must not drop what it could reach.
+       *
+       * With the bucket standing, this menu is the products beside this one
+       * inside it, because the bucket to its left already offers the other
+       * buckets. With it gone there is no crumb to its left at all, so this
+       * one inherits the whole top-level cascade — the same list the ungrouped
+       * branch below has always used, with the current bucket marked. The
+       * option is then about the ROW's length, which is what it claims to be,
+       * and not a quiet removal of a way to move sideways.
+       */
+      options: bucketShown
         ? group.productIds.map((id) => productOption(id, productId))
-        : topLevelOptions(null, productId),
+        : topLevelOptions(group?.id ?? null, productId),
       onSelect: pickCrumb,
     });
     /*
@@ -1427,6 +1532,17 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         segments.push({
           label: node.label,
           /*
+           * L3 carries a glyph like every level above it.
+           *
+           * It did not, which made "icons on every level" a promise the trail
+           * only kept for two of three. The authored icon wins where a tree
+           * supplies one (the shipped catalogue does); the proposed tree files
+           * its children as label-only, so it falls back to the same
+           * `iconForChildLabel` the NAV's own L3 rows use — which is why the
+           * nav had glyphs here and the trail did not.
+           */
+          icon: node.icon ?? iconForChildLabel(node.label),
+          /*
            * This level's siblings, and nothing else.
            *
            * The menu used to lead with the level above — "Contacts" sitting
@@ -1446,7 +1562,45 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         siblings = node.children ?? [];
       });
     }
-    return segments;
+    /*
+     * One screen, one word — even when two levels of the tree are named after
+     * it.
+     *
+     * Fixed on Sep 22 with the trail/title mismatch. Two rows in the proposed
+     * IA are a product whose main screen is also filed as its first child:
+     * Workflows ▸ List and Opportunities ▸ List. The page under both is headed
+     * "Workflows" / "Opportunities", so the trail's tail and the heading two
+     * rows below it named the same screen differently — the one thing the
+     * breadcrumb study cannot afford, since its whole claim is that the last
+     * crumb IS the page header by another name. Naming those children after
+     * the screen (screen-names.ts) fixes the words and creates this: the same
+     * label twice in a row.
+     *
+     * The DEEPER crumb survives, not the shallower one. It is the level you
+     * are actually standing on, and its menu is the one with somewhere to go —
+     * List / Analytics / Settings. The product crumb's menu is sibling
+     * PRODUCTS, which the bucket crumb to its left already offers as a
+     * cascading list, so nothing becomes unreachable. The icon is carried down
+     * because it belongs to the product and the child never had one; dropping
+     * it would have made a single repeated word cost the trail its glyph.
+     *
+     * Deliberately a comparison of LABELS rather than a flag on the two rows.
+     * A flag would have to be remembered by whoever adds the third such row,
+     * and the rule it encodes is not "these two rows are special" — it is that
+     * a breadcrumb never says the same thing twice in a row.
+     */
+    const named = (s: string | Crumb) => (typeof s === "string" ? s : s.label);
+    return segments.reduce<(string | Crumb)[]>((kept, segment, i) => {
+      const next = segments[i + 1];
+      if (!next || named(segment) !== named(next)) {
+        kept.push(segment);
+        return kept;
+      }
+      if (typeof segment !== "string" && typeof next !== "string") {
+        segments[i + 1] = { ...next, icon: next.icon ?? segment.icon };
+      }
+      return kept;
+    }, []);
   }, [
     canvasPage,
     groups,
@@ -1457,6 +1611,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     pickCrumb,
     setProductPage,
     contactsPageId,
+    crumbStart,
   ]);
 
   // Demoting the session to a plain user while parked at agency scope drops

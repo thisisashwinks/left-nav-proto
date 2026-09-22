@@ -344,8 +344,19 @@ export function ContactDetail({
   const [dnd, setDnd] = React.useState<string[]>([]);
   // The record page IS the contact card, so the rail drops that panel here.
   const panels = RECORD_PANELS.filter((p) => p.id !== "contact");
-  // Contacts ▸ List ▸ Jatin. Leaving by any crumb above it closes the record.
-  useRecordCrumb(contact.name, onBack);
+  /*
+   * Contacts ▸ Smart lists ▸ Jatin. Leaving by any crumb above it closes the
+   * record.
+   *
+   * Both readings, because the page is the only thing that knows it opened a
+   * CONTACT — the tuning panel's `recordCrumbLabel` chooses between "Jatin"
+   * and "Contact details" in the shell, and a noun list living up there would
+   * be the shell keeping a private catalogue of what every page contains.
+   * "Contact details" rather than "Contact": the crumb names the screen you
+   * are on, the way every other crumb in the trail does, and "Contact" would
+   * read as a filter of the list above it.
+   */
+  useRecordCrumb({ name: contact.name, kind: "Contact details" }, onBack);
 
   return (
     <div className="relative flex h-full min-h-0 flex-col gap-[14px] px-[var(--page-inset)]">

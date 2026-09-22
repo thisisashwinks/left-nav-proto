@@ -9,6 +9,7 @@ import {
   SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
+import { SCREEN_NAMES } from "@/components/nav/screen-names";
 
 /**
  * What the app bar's tab strip used to hold — now the page title's own menu.
@@ -24,7 +25,10 @@ export const CONTACTS_AREA_PAGES: {
   label: string;
   icon: LucideIcon;
 }[] = [
-  { id: "smart-lists", label: "Smart lists", icon: ListChecks },
+  // Not a literal: the proposed tree's Contacts ▸ List row used to say "List"
+  // over this exact page, so the word is shared rather than typed twice. See
+  // screen-names.ts for which way the two were made to agree.
+  { id: "smart-lists", label: SCREEN_NAMES.contactsSmartLists, icon: ListChecks },
   { id: "bulk-actions", label: "Bulk actions", icon: SlidersHorizontal },
   { id: "tasks", label: "Tasks", icon: CheckCheck },
   { id: "companies", label: "Companies", icon: Building2 },
