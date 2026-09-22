@@ -5,7 +5,7 @@ import { Check, Copy, ImageUp, Info, Plus } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
 import { useBrand } from "@/components/accounts/brand-store";
 import { cn } from "@/lib/utils";
-import { usePageTitleShown } from "@/components/page/page-header";
+import { usePageChrome } from "@/components/page/page-header";
 import { LogoUploadField } from "./logo-upload-field";
 import {
   LOCALES,
@@ -37,7 +37,7 @@ export function BusinessProfilePage({ account }: { account: Account }) {
   const [street, city, region] = splitAddress(account.meta);
   const locale = LOCALES[city];
 
-  const showTitle = usePageTitleShown();
+  const { title: showTitle, description: showDesc } = usePageChrome();
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -48,9 +48,11 @@ export function BusinessProfilePage({ account }: { account: Account }) {
           <h1 className="text-[20px] leading-[28px] font-semibold text-pg-heading">
             Business Profile Settings
           </h1>
-          <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
-            Manage your business profile information &amp; settings
-          </p>
+          {showDesc ? (
+            <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
+              Manage your business profile information &amp; settings
+            </p>
+          ) : null}
         </header>
       ) : null}
 

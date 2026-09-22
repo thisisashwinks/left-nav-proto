@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { usePageTitleShown } from "@/components/page/page-header";
+import { usePageChrome } from "@/components/page/page-header";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import {
   DEFAULT_TEMPLATE_ID,
@@ -41,7 +41,7 @@ const TABS = ["Plans", "Pricing", "Rebilling", "Trials"] as const;
 
 export function SaasConfiguratorPage() {
   const [tab, setTab] = React.useState<(typeof TABS)[number]>("Plans");
-  const showTitle = usePageTitleShown();
+  const { title: showTitle, description: showDesc } = usePageChrome();
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -51,9 +51,11 @@ export function SaasConfiguratorPage() {
             <h1 className="text-[20px] leading-[28px] font-semibold text-pg-heading">
               SaaS configurator
             </h1>
-            <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
-              Plans, pricing and re-billing.
-            </p>
+            {showDesc ? (
+              <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
+                Plans, pricing and re-billing.
+              </p>
+            ) : null}
           </>
         ) : null}
         <nav

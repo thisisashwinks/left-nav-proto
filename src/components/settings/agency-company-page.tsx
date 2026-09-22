@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { usePageTitleShown } from "@/components/page/page-header";
+import { usePageChrome } from "@/components/page/page-header";
 import type { Account } from "@/components/accounts/accounts-data";
 import { cn } from "@/lib/utils";
 import { BrandCard } from "./brand-card";
@@ -34,7 +34,7 @@ const TABS = [
 export function AgencyCompanyPage({ agency }: { agency: Account }) {
   // Opens on White label: it is the tab this page exists to show.
   const [tab, setTab] = React.useState<(typeof TABS)[number]>("White label");
-  const showTitle = usePageTitleShown();
+  const { title: showTitle, description: showDesc } = usePageChrome();
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -44,9 +44,11 @@ export function AgencyCompanyPage({ agency }: { agency: Account }) {
             <h1 className="text-[20px] leading-[28px] font-semibold text-pg-heading">
               Company
             </h1>
-            <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
-              Who the agency is, and how it is branded.
-            </p>
+            {showDesc ? (
+              <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
+                Who the agency is, and how it is branded.
+              </p>
+            ) : null}
           </>
         ) : null}
         <nav

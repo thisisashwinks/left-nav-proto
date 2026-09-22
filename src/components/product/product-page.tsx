@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { usePageTitleShown } from "@/components/page/page-header";
+import { usePageChrome } from "@/components/page/page-header";
 import {
   Columns3,
   EllipsisVertical,
@@ -108,7 +108,7 @@ export function ProductPage({
   initialTab,
 }: ProductPageProps) {
   const { effective } = useTheme();
-  const showTitle = usePageTitleShown();
+  const { title: showTitle, description: showDesc } = usePageChrome();
   /*
    * The inbox gets the real page; everything else gets the stage.
    *
@@ -212,9 +212,11 @@ export function ProductPage({
               <h1 className="text-[20px] leading-[normal] font-semibold tracking-[-0.2px] whitespace-nowrap text-pg-heading">
                 {title}
               </h1>
-              <p className="text-[13px] leading-[normal] whitespace-nowrap text-pg-muted">
-                {product.blurb}
-              </p>
+              {showDesc ? (
+                <p className="text-[13px] leading-[normal] whitespace-nowrap text-pg-muted">
+                  {product.blurb}
+                </p>
+              ) : null}
             </>
           ) : null}
         </div>

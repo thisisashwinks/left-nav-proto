@@ -1750,6 +1750,30 @@ export interface ThemeState {
    */
   pageTitle: boolean;
   /**
+   * Whether the header's one-line description survives.
+   *
+   * Dependent on the title: a description with no heading over it is a
+   * sentence floating where a page name should be, and it explains a title
+   * that is no longer there.
+   */
+  pageDescription: boolean;
+  /**
+   * Whether the header carries the collection's size.
+   *
+   * Also dependent on the title — it is a count OF something, and without
+   * the heading there is nothing in the row for it to be counting.
+   */
+  pageCount: boolean;
+  /**
+   * Whether slot 05 is drawn at all.
+   *
+   * The strongest version of the question: no title, no count, no actions —
+   * the trail names the page and the control bar carries the work. Worth
+   * seeing, because it is what "the platform draws the page" looks like if
+   * taken all the way.
+   */
+  pageHeader: boolean;
+  /**
    * Whether a record page keeps the page header.
    *
    * Off by design: on a contact the trail names the record, the first column
@@ -2148,6 +2172,9 @@ export const DEFAULT_THEME: ThemeState = {
   panelRecentHeading: "visited",
   inboxPalette: "product",
   pageTitle: true,
+  pageDescription: true,
+  pageCount: true,
+  pageHeader: true,
   recordPageHeader: false,
   layoutReplaceDialog: "simple",
   // The rail: one mechanism for both audiences beats a second one to learn.

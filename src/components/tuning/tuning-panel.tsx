@@ -1701,6 +1701,12 @@ export function TuningPanel() {
     setInboxPalette,
     pageTitle,
     setPageTitle,
+    pageDescription,
+    setPageDescription,
+    pageCount,
+    setPageCount,
+    pageHeader,
+    setPageHeader,
     recordPageHeader,
     setRecordPageHeader,
     navGeneration,
@@ -1999,22 +2005,69 @@ export function TuningPanel() {
             open={openSections.includes("Page header")}
             onToggle={() => toggleSection("Page header")}
             changedCount={
-              (pageTitle ? 0 : 1) + (recordPageHeader ? 1 : 0)
+              (pageHeader ? 0 : 1) +
+              (pageTitle ? 0 : 1) +
+              (pageDescription ? 0 : 1) +
+              (pageCount ? 0 : 1) +
+              (recordPageHeader ? 1 : 0)
             }
             onReset={() => {
+              setPageHeader(true);
               setPageTitle(true);
+              setPageDescription(true);
+              setPageCount(true);
               setRecordPageHeader(false);
             }}
           >
             <Toggle
+              label="Page header"
+              checked={pageHeader}
+              onChange={setPageHeader}
+            />
+            <Note>
+              {pageHeader
+                ? "Slot 05 is drawn: whatever of the title, count and actions is switched on below."
+                : "No header at all — not even the actions. The trail names the page and the control bar does the work, which is what “the platform draws the page” looks like taken all the way."}
+            </Note>
+
+            <Toggle
               label="Page title"
               checked={pageTitle}
+              disabled={!pageHeader}
               onChange={setPageTitle}
             />
             <Note>
               {pageTitle
-                ? "The full block: title, count and description over the actions. Names the page a second time — the breadcrumb one line above already did."
-                : "Titleless. The trail names the page; the header keeps only what the trail cannot say — the count, the status and the actions — and collapses to one row."}
+                ? "The page names itself. The breadcrumb one line above already did, so this is the second copy — which is the thing worth looking at."
+                : "Titleless. The trail is the title, and the actions stay on the right edge. The description and the count go too: one explains the title, the other counts what it named."}
+            </Note>
+
+            <Toggle
+              label="Description"
+              checked={pageDescription}
+              disabled={!pageHeader || !pageTitle}
+              onChange={setPageDescription}
+            />
+            <Note>
+              {!pageTitle
+                ? "Off with the title — a sentence where the page name should be explains nothing."
+                : pageDescription
+                  ? "The line under the title. Useful on a page someone meets once; noise on one they live in."
+                  : "Hidden. The header is one line: title, count and actions."}
+            </Note>
+
+            <Toggle
+              label="Count"
+              checked={pageCount}
+              disabled={!pageHeader || !pageTitle}
+              onChange={setPageCount}
+            />
+            <Note>
+              {!pageTitle
+                ? "Off with the title — there is nothing left in the row for it to be counting."
+                : pageCount
+                  ? "How big the collection is, beside its name — the one fact the trail cannot carry."
+                  : "Hidden. The pagination row at the foot still says how many there are."}
             </Note>
 
             <Toggle

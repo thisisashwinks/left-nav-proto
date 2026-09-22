@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { usePageTitleShown } from "@/components/page/page-header";
+import { usePageChrome } from "@/components/page/page-header";
 import {
   Check,
   ChevronRight,
@@ -67,7 +67,7 @@ export function AccountsIndexPage({
   onManage: (accountId: string) => void;
 }) {
   const { effective } = useTheme();
-  const showTitle = usePageTitleShown();
+  const { title: showTitle, description: showDesc } = usePageChrome();
   const layout = useNavLayout();
   const { settings, history } = useBulkActions();
   const { saasTierFor, setSaasTier } = useNavProfiles();
@@ -140,9 +140,11 @@ export function AccountsIndexPage({
               <h1 className="text-[17px] leading-[22px] font-semibold text-pg-heading">
                 Sub-accounts
               </h1>
-              <p className="text-[12px] leading-[16px] text-pg-muted">
-                {session.accounts.length} accounts · pick one to manage its details and settings.
-              </p>
+              {showDesc ? (
+                <p className="text-[12px] leading-[16px] text-pg-muted">
+                  {session.accounts.length} accounts · pick one to manage its details and settings.
+                </p>
+              ) : null}
             </>
           ) : null}
         </div>

@@ -182,16 +182,35 @@ export interface PageHeaderProps {
  * reliable way for it to stop diverging.
  */
 /**
- * Whether pages draw their own title.
+ * What a page is allowed to draw of its own header.
  *
  * Exported because slot 05 is not the only place a page names itself: the
  * settings pages, the product stage and the sub-account record each write
  * their own heading, and the axis is about the DUPLICATE — the trail already
  * naming the page — not about this component. One hook, so a page cannot
  * half-obey it.
+ *
+ * The dependency is resolved here rather than in the panel: the description
+ * explains the title and the count counts what the title names, so with no
+ * title neither has anything to attach to. Turning the title off takes them
+ * with it, and turning it back on restores whatever they were set to — the
+ * knobs keep their own value instead of being rewritten behind the user.
  */
+export function usePageChrome() {
+  const { effective } = useTheme();
+  const title = effective.pageHeader && effective.pageTitle;
+  return {
+    /** The whole of slot 05 — off means the page draws no header at all. */
+    header: effective.pageHeader,
+    title,
+    description: title && effective.pageDescription,
+    count: title && effective.pageCount,
+  };
+}
+
+/** The common case: does this page write its own heading? */
 export function usePageTitleShown() {
-  return useTheme().effective.pageTitle;
+  return usePageChrome().title;
 }
 
 export function PageHeader({
@@ -228,8 +247,12 @@ export function PageHeader({
    * the theme, every header reads it, and what survives without the title is
    * the part the trail cannot say: the count, the status and the actions.
    */
-  const { effective } = useTheme();
-  const showTitle = effective.pageTitle;
+  const chrome = usePageChrome();
+  const showTitle = chrome.title;
+
+  // Nothing at all: the trail names the page and the control bar does the
+  // work. The actions go with it, which is the point of the setting.
+  if (!chrome.header) return null;
 
   return (
     <div
@@ -249,14 +272,14 @@ export function PageHeader({
               {title}
             </h1>
           ) : null}
-          {count ? (
+          {count && chrome.count ? (
             <span className="shrink-0 rounded-[6px] bg-pg-bg px-[8px] py-[2px] text-[12.5px] leading-[18px] font-medium whitespace-nowrap text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border)]">
               {count}
             </span>
           ) : null}
           {status}
         </div>
-        {description && showTitle ? (
+        {description && chrome.description ? (
           <p className="truncate text-[13px] leading-[normal] text-pg-muted">
             {description}
           </p>

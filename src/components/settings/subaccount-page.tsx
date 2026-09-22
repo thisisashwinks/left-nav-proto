@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { usePageTitleShown } from "@/components/page/page-header";
+import { usePageChrome } from "@/components/page/page-header";
 import { ArrowLeft, ChevronDown, Pencil } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -49,7 +49,7 @@ export function SubAccountPage({
   onBack: () => void;
 }) {
   const { effective } = useTheme();
-  const showTitle = usePageTitleShown();
+  const showTitle = usePageChrome().title;
   // Production's own first tab. The page used to open on Navigation, which no
   // longer exists here.
   const [tab, setTab] = React.useState<TabId>("basic");

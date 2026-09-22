@@ -187,6 +187,9 @@ interface ThemeContextValue extends ThemeState {
   setInboxPalette: (palette: InboxPalette) => void;
   setRecordPageHeader: (on: boolean) => void;
   setPageTitle: (on: boolean) => void;
+  setPageDescription: (on: boolean) => void;
+  setPageCount: (on: boolean) => void;
+  setPageHeader: (on: boolean) => void;
   setPanelRecentHeading: (heading: PanelRecentHeading) => void;
   setPinMarkColour: (colour: PinMarkColour) => void;
   setAiButtonStyle: (style: AiButtonStyle) => void;
@@ -442,6 +445,10 @@ export function ThemeProvider({
       setRecordPageHeader: (recordPageHeader) =>
         setState((s) => ({ ...s, recordPageHeader })),
       setPageTitle: (pageTitle) => setState((s) => ({ ...s, pageTitle })),
+      setPageDescription: (pageDescription) =>
+        setState((s) => ({ ...s, pageDescription })),
+      setPageCount: (pageCount) => setState((s) => ({ ...s, pageCount })),
+      setPageHeader: (pageHeader) => setState((s) => ({ ...s, pageHeader })),
       setPanelRecentHeading: (panelRecentHeading) =>
         setState((s) => ({ ...s, panelRecentHeading })),
       setPinMarkColour: (pinMarkColour) =>

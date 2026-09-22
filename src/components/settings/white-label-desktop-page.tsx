@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { usePageTitleShown } from "@/components/page/page-header";
+import { usePageChrome } from "@/components/page/page-header";
 import {
   CircleCheck,
   Eye,
@@ -71,7 +71,7 @@ export function WhiteLabelDesktopPage() {
 }
 
 function Header() {
-  const showTitle = usePageTitleShown();
+  const { title: showTitle, description: showDesc } = usePageChrome();
 
   return (
     <header className="flex shrink-0 items-center gap-[12px] pt-[2px]">
@@ -86,9 +86,11 @@ function Header() {
           <h1 className="truncate text-[17px] leading-[23px] font-semibold text-pg-heading">
             Whitelabel desktop app customizer
           </h1>
-          <p className="truncate text-[12.5px] leading-[17px] text-pg-muted">
-            Configure your white-label desktop application
-          </p>
+          {showDesc ? (
+            <p className="truncate text-[12.5px] leading-[17px] text-pg-muted">
+              Configure your white-label desktop application
+            </p>
+          ) : null}
         </div>
       ) : (
         <span className="flex-1" />
