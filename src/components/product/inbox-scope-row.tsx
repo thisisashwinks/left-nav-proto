@@ -15,7 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { CaretDown } from "@/components/icons/caret-down";
-import { PageHeader, usePageChrome } from "@/components/page/page-header";
+import { OverflowMenu, usePageChrome } from "@/components/page/page-header";
 import { cn } from "@/lib/utils";
 
 /**
@@ -61,6 +61,18 @@ const ASSIGNMENT: ScopeOption[] = [
   { id: "unassigned", label: "Unassigned", icon: UserX },
 ];
 
+/**
+ * The page's own menu — and, since Sep 22, P-C's alone.
+ *
+ * It used to hang off the P-B header, which is the header that no longer
+ * exists. Nothing was moved into a pane to replace it and that is the honest
+ * reading rather than an oversight: all three items are configuration, and
+ * this prototype has said since Aug that configuration's one home is Settings
+ * (see the "Custom fields" note in contacts-page). What a pane owes the user
+ * is the work — compose, filter, search, read — and the panes carry all of it
+ * twice over. If the review decides Snippets has to be one press from a
+ * thread, the place it belongs is the composer, not a page kebab.
+ */
 const PAGE_MENU = [
   { label: "Manage inboxes", icon: Inbox },
   { label: "Snippets", icon: FileText },
@@ -71,27 +83,28 @@ const PAGE_MENU = [
  * The inbox's slot 05, whichever answer the panel is currently giving.
  *
  * Both variants live behind one component so the page has a single place to
- * ask the question. P-B is the shipped shape and answers it with the ordinary
- * PageHeader — which under P-C's own chrome setting draws nothing, making the
- * default a genuine no-op rather than a branch that happens to look the same.
+ * ask the question. P-B — "bar only", and the default — draws NOTHING: the
+ * trail names the page and the three panes carry their own filters, search and
+ * New conversation, which is where the eye already is.
  *
- * `usePageChrome` still has the last word in both. A variant writes the knobs;
- * it does not outrank them, so someone who picks P-C and then switches the
- * page header off gets no row, same as everywhere else.
+ * It used to draw an ordinary PageHeader here and rely on P-B's `noHeader`
+ * chrome to suppress it. That was wrong in the one case that matters most:
+ * the chrome knobs are only written when someone PICKS a variant in the tuning
+ * panel, and `pageHeader` defaults to true — so a fresh load, which is every
+ * screenshot and every demo, showed a "Conversations" header above the panes
+ * on the variant whose whole claim is that there isn't one. The default has to
+ * be the thing itself, not a knob that happens to agree with it (Ashwin,
+ * Sep 22: remove it, and make that the default).
+ *
+ * So P-B is structural, like K-C on the board and L-E on a list. P-C is the
+ * only variant that draws anything, and it still answers to `usePageChrome`:
+ * a variant writes the knobs, it does not outrank them, so someone who picks
+ * P-C and then switches the page header off gets no row either.
  */
 export function InboxHeader({ variant }: { variant: "P-B" | "P-C" }) {
   const chrome = usePageChrome();
 
-  if (variant !== "P-C") {
-    return (
-      <PageHeader
-        title="Conversations"
-        count="6.3K unread"
-        primary={{ label: "New conversation", icon: SquarePen }}
-        overflow={PAGE_MENU}
-      />
-    );
-  }
+  if (variant !== "P-C") return null;
 
   if (!chrome.header) return null;
 
@@ -123,6 +136,16 @@ export function InboxHeader({ variant }: { variant: "P-B" | "P-C" }) {
         <SquarePen size={16} aria-hidden="true" />
         Compose
       </button>
+
+      {/*
+        The page menu rides the row that claims to be page level, and only
+        that row. P-C's argument is that some controls belong to the page
+        rather than to a pane; if that is true of the channel and assignment
+        filters it is true of "Manage inboxes", and a variant that took the
+        header's row and dropped the header's menu would be winning its
+        comparison on height it never actually paid back.
+      */}
+      <OverflowMenu items={PAGE_MENU} />
     </div>
   );
 }

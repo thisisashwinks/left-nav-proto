@@ -12,7 +12,21 @@ import {
   Settings,
 } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
-import { OutlineButton, PageHeader } from "@/components/page/page-header";
+import {
+  OutlineButton,
+  OverflowMenu,
+  PageHeader,
+  PrimaryButton,
+} from "@/components/page/page-header";
+import { ScopePicker, useListShape } from "@/components/page/list-shape";
+import { usePageCrumb } from "@/components/page/page-crumb";
+/*
+ * Restored by hand after a concurrent Sep 22 edit landed `SCREEN_NAMES` in the
+ * title below while this file's import block was being rewritten for the list
+ * axis, and the import went missing in the overlap. The title stays on
+ * screen-names.ts: the trail's leaf and this heading have to say one word.
+ */
+import { SCREEN_NAMES } from "@/components/nav/screen-names";
 import { ViewBar } from "@/components/page/view-bar";
 import { cn } from "@/lib/utils";
 import { WorkflowDetail } from "./workflow-detail";
@@ -79,6 +93,85 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
 
   const open = seedWorkflows.find((w) => w.id === openId) ?? null;
 
+  /*
+   * Which shape of header this page wears — the SAME derivation Contacts uses.
+   *
+   * Until Sep 22 this page read nothing off `listHeaderVariant` at all: it drew
+   * PageHeader, which respects the four chrome knobs a variant writes, and
+   * stopped there. That was enough to make L-D and L-C look right and left L-B
+   * and L-E half-built — pick "Merged control row" and Contacts grew a scope
+   * picker while Workflows just lost its title, which is two products, not two
+   * variants of one. The hook is in page/list-shape.tsx precisely so the answer
+   * to "what does L-B mean" cannot be given twice.
+   */
+  const shape = useListShape();
+  const activeView = workflowViews.find((v) => v.id === view) ?? workflowViews[0]!;
+
+  /*
+   * L-E's last crumb: Automation ▸ Workflows ▸ Drafts, switchable from there.
+   *
+   * Published unconditionally rather than only on the list, for the reason
+   * contacts-page publishes its own: the crumb is the scope control, and a
+   * scope control that vanishes the moment you open a workflow would make the
+   * variant look like a bug when the detail view is what you are judging.
+   * `null` on every other variant un-publishes it.
+   */
+  usePageCrumb(
+    shape.scopeInTrail
+      ? {
+          label: activeView.label,
+          icon: activeView.icon,
+          options: workflowViews.map((v) => ({
+            id: v.id,
+            label: v.label,
+            icon: v.icon,
+            selected: v.id === view,
+          })),
+          onSelect: setView,
+        }
+      : null,
+  );
+
+  /*
+   * Search, filters, sort and columns as one fragment.
+   *
+   * All four variants use the SAME controls and only disagree about where they
+   * stand — their own row under the header (L-C, L-D), merged into the header's
+   * row (L-B), or inside the canvas against the table they filter (L-E).
+   * Building them once is what keeps that true, and it is how contacts-page is
+   * built for the same reason.
+   */
+  const controls = (
+    <>
+      <div className="flex h-[34px] min-w-0 flex-1 items-center gap-[9px] rounded-[8px] bg-pg-surface px-[14px] shadow-[inset_0_0_0_1px_var(--pg-border)] motion-tap focus-within:shadow-[inset_0_0_0_1px_var(--brand),0_0_0_3px_var(--brand-soft)]">
+        <Search size={16} aria-hidden="true" className="shrink-0 text-pg-faint" />
+        <input
+          type="search"
+          placeholder="Search workflows"
+          aria-label="Search workflows"
+          className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
+        />
+      </div>
+      <OutlineButton>
+        <ListFilter size={15} aria-hidden="true" className="text-pg-text-strong" />
+        Filters
+      </OutlineButton>
+      <OutlineButton>
+        <ArrowUpDown size={15} aria-hidden="true" className="text-pg-text-strong" />
+        Sort
+      </OutlineButton>
+      <OutlineButton>
+        <Columns3 size={15} aria-hidden="true" className="text-pg-text-strong" />
+        Columns
+      </OutlineButton>
+    </>
+  );
+
+  const overflowActions = [
+    { label: "New folder", icon: FolderPlus },
+    { label: "Automation settings", icon: Settings },
+  ];
+
   if (open) {
     return (
       <div data-page-theme={effective.appTheme} className="h-full min-h-0">
@@ -92,50 +185,94 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
       data-page-theme={effective.appTheme}
       className="relative flex h-full min-h-0 flex-col gap-[14px] px-[var(--page-inset)]"
     >
+      {/*
+        L-E is a structural decision, so the variant decides it — not the knob.
+
+        The four chrome knobs say what a header may DRAW; they cannot say "and
+        the view now lives in the breadcrumb", which is the whole of L-E. So
+        the page branches on the variant and lets the `noHeader` chrome it
+        writes be the consequence rather than the mechanism — the same way
+        opportunities-page treats K-C. Turning the header knob back on while
+        parked on L-E therefore does nothing here, which is right: the actions
+        are already on the toolbar below, and a header that offered Create
+        workflow a second time is the duplication this was called to kill.
+      */}
+      {shape.scopeInTrail ? null : (
       <PageHeader
-        title="Workflows"
-        count="34"
+        /* The trail's leaf says this same word — see screen-names.ts. */
+        title={SCREEN_NAMES.workflows}
+        /*
+         * On the merged row the picker states the view AND its size, so the
+         * header does not also hang a count off a title that is not there —
+         * two counts for one collection is exactly the repetition L-B was
+         * drawn to remove. The same rule Contacts follows, for the same reason.
+         */
+        count={shape.mergedRow ? undefined : activeView.count}
         description="Triggers, actions and handoffs"
+        lead={
+          shape.mergedRow ? (
+            <>
+              <ScopePicker
+                label="Workflow views"
+                views={workflowViews}
+                activeId={view}
+                onSelect={setView}
+                onCreate={() => undefined}
+                createLabel="Create view"
+                showCount={effective.pageHeader && effective.pageCount}
+              />
+              {controls}
+            </>
+          ) : undefined
+        }
         secondary={[{ label: "Import", icon: Import }]}
         primary={{ label: "Create workflow", icon: Plus }}
-        overflow={[
-          { label: "New folder", icon: FolderPlus },
-          { label: "Automation settings", icon: Settings },
-        ]}
+        overflow={overflowActions}
       />
+      )}
 
-      <ViewBar
-        label="Workflow views"
-        views={workflowViews}
-        activeId={view}
-        onSelect={setView}
-        onCreate={() => undefined}
-        createLabel="Create view"
-      />
+      {/*
+        The tab strip is the scope control of last resort: it is here when the
+        scope has nowhere better to be. Once the header's row carries a picker
+        (L-B) or the trail's tail does (L-E), a row of tabs saying the same
+        thing a third time is the duplication the whole axis is about.
+      */}
+      {shape.scopeInTabs ? (
+        <ViewBar
+          label="Workflow views"
+          views={workflowViews}
+          activeId={view}
+          onSelect={setView}
+          onCreate={() => undefined}
+          createLabel="Create view"
+        />
+      ) : null}
 
-      <div className="flex shrink-0 items-center gap-[10px]">
-        <div className="flex h-[34px] flex-1 items-center gap-[9px] rounded-[8px] bg-pg-surface px-[14px] shadow-[inset_0_0_0_1px_var(--pg-border)] motion-tap focus-within:shadow-[inset_0_0_0_1px_var(--brand),0_0_0_3px_var(--brand-soft)]">
-          <Search size={16} aria-hidden="true" className="shrink-0 text-pg-faint" />
-          <input
-            type="search"
-            placeholder="Search workflows"
-            aria-label="Search workflows"
-            className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
-          />
+      {/*
+        The controls keep their own row in every variant but L-B, which pulled
+        them up into the header. Under L-E they also inherit the actions: a
+        Workflows page you cannot create a workflow from is not a variant, it
+        is a broken page, so Import, Create and the kebab ride the right edge
+        of this row — the edge they held when there was a header.
+      */}
+      {shape.mergedRow ? null : (
+        <div className="flex shrink-0 items-center gap-[10px]">
+          {controls}
+          {shape.scopeInTrail ? (
+            <>
+              <OutlineButton>
+                <Import size={15} aria-hidden="true" className="text-pg-text-strong" />
+                Import
+              </OutlineButton>
+              <PrimaryButton>
+                <Plus size={16} aria-hidden="true" />
+                Create workflow
+              </PrimaryButton>
+              <OverflowMenu items={overflowActions} />
+            </>
+          ) : null}
         </div>
-        <OutlineButton>
-          <ListFilter size={15} aria-hidden="true" className="text-pg-text-strong" />
-          Filters
-        </OutlineButton>
-        <OutlineButton>
-          <ArrowUpDown size={15} aria-hidden="true" className="text-pg-text-strong" />
-          Sort
-        </OutlineButton>
-        <OutlineButton>
-          <Columns3 size={15} aria-hidden="true" className="text-pg-text-strong" />
-          Columns
-        </OutlineButton>
-      </div>
+      )}
 
       <div className="min-h-0 flex-1 overflow-auto rounded-[10px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
         <div

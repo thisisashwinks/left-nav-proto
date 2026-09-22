@@ -245,14 +245,23 @@ export function InboxPage() {
 
   return (
     /*
-     * The workspace keeps its header.
+     * The workspace gives its header up. (Ashwin, Sep 22 — and the default.)
      *
-     * A three-pane inbox is the strongest case there is for a product drawing
-     * its own chrome and skipping the page header — and it is exactly the case
-     * the tenet is written for. The panes are how this page works; the header
-     * is how the platform tells you which page it is, and that is not the
-     * product's call. It costs 44px and it buys the trail, the title and one
-     * predictable place for "New conversation" to live.
+     * This read the other way for most of the prototype's life: a three-pane
+     * inbox is the strongest case there is for a product drawing its own
+     * chrome and skipping the page header, and the tenet said the platform,
+     * not the product, gets to say which page you are on. What settled it was
+     * looking at what the 44px actually bought once the trail existed. The
+     * title repeated the trail's last crumb. The count repeated a number the
+     * list pane already shows per tab. "New conversation" is on the navigator
+     * twice — as a full-width button when it is open and as the first icon
+     * when it is collapsed — and that is the copy people's hands already go
+     * to, because it is the pane that holds the conversations.
+     *
+     * So the row was 44px of restatement over the one screen in the product
+     * where vertical space is read in, not scrolled past. P-C is still one
+     * click away in the panel for anyone who wants to argue the other side,
+     * and it now has to argue it against a page with nothing above the panes.
      */
     <div
       className="flex h-full min-h-0 flex-col gap-[10px] px-[var(--page-inset)]"

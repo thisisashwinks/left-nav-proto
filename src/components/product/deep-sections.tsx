@@ -92,6 +92,15 @@ const DEFAULT_SECTION = "dashboard-logs";
  * promotes it to a product of its own. Matching on the deepest id the shell
  * knows about covers both without either catalogue being touched.
  */
+/*
+ * Only `ai-voice` now — the SHIPPED tree's Voice AI, which is the one the
+ * research's own path names (AI Agents ▸ Voice AI ▸ Dashboard & logs ▸
+ * Inbound). `ia-ai-voice` is left in place but is matched by `REAL_PAGES`
+ * first and renders the agent list instead; see the note there for why the two
+ * trees deliberately show two different screens under the same product name.
+ * It stays listed rather than being deleted so that if the agent list ever
+ * moves, this page comes back rather than a bare stage appearing.
+ */
 const DEEP_PAGE_IDS = new Set(["ai-voice", "ia-ai-voice"]);
 
 export function isDeepPage(productId: string, childId: string | null) {
@@ -100,6 +109,11 @@ export function isDeepPage(productId: string, childId: string | null) {
 
 export interface DeepPlace {
   variant: DeepHeaderVariant;
+  /**
+   * Whether the page-scoped trail owns L4/L5 instead of whatever the variant
+   * would have drawn. See the note on `inlineCrumb` inside useDeepPlace.
+   */
+  inlineCrumb: boolean;
   sections: readonly DeepSection[];
   section: DeepSection;
   sub: DeepSub | null;
@@ -121,6 +135,34 @@ export interface DeepPlace {
 export function useDeepPlace(active: boolean): DeepPlace {
   const { effective } = useTheme();
   const variant = effective.deepHeaderVariant;
+  /*
+   * The inline-crumb override, and why it outranks all five variants.
+   *
+   * `deepInlineCrumb` is not a sixth variant, it is an answer to the question
+   * the five are arguing about: however this page would have drawn L4 and L5 —
+   * two stacked tab bars, one bar, crumb menus in the app trail, a rail beside
+   * the card — when this is on they render as ONE page-scoped trail under the
+   * page header, and the bar keeps only the page.
+   *
+   * It applies across the axis rather than only to the two tab-bar variants,
+   * which was the other reading of "L4/L5/L6 stop rendering as stacked tab
+   * bars". Scoped that narrowly, what the switch did would depend on which
+   * variant you happened to be parked on when you flipped it — and the whole
+   * point of this Sep 22 pass is one answer per page kind, not one answer per
+   * combination. A knob that means something different on X-3 than on X-2 is
+   * the divergence, wearing a checkbox.
+   *
+   * The bar going quiet is the load-bearing half. X-2 states all four levels
+   * up there; drawing the same chain again 60px lower is EXACTLY the failure
+   * the research named — a second trail read as a broken continuation of the
+   * first. So the page-scoped trail only exists where the bar has stopped at
+   * Voice AI, which is why `published` stays null below whenever this is on.
+   *
+   * X-5 and this therefore look identical, and should: X-5 is the variant that
+   * argues for this shape against four others, and the knob is that shape
+   * imposed regardless of which argument won.
+   */
+  const inlineCrumb = effective.deepInlineCrumb;
 
   const [sectionId, setSectionId] = React.useState(DEFAULT_SECTION);
   const [subId, setSubId] = React.useState<string | null>(null);
@@ -163,7 +205,7 @@ export function useDeepPlace(active: boolean): DeepPlace {
   let published = null as null | (PageCrumbSegment & {
     tail?: readonly PageCrumbSegment[];
   });
-  if (active) {
+  if (active && !inlineCrumb) {
     if (variant === "X-2") published = { ...head, tail };
     else if (variant === "X-6") {
       /*
@@ -191,6 +233,7 @@ export function useDeepPlace(active: boolean): DeepPlace {
 
   return {
     variant,
+    inlineCrumb,
     sections: VOICE_AI_SECTIONS,
     section,
     sub,
@@ -423,10 +466,15 @@ export function DeepRail({
  * X-5's whole risk is that two trails on one screen read as one chain with a
  * hole in it, and the only way to judge that risk is to build the version that
  * tries hardest not to: page tokens instead of header tokens, a surface the
- * bar never has, segments that are visibly buttons, a smaller size, and a
- * leading label that names whose path this is. If it still reads as a broken
- * continuation of the bar after all that, the variant has answered its own
- * question.
+ * bar never has, segments that are visibly buttons, a smaller size (12.5px
+ * against the bar's 13), and a leading label that names whose path this is. If
+ * it still reads as a broken continuation of the bar after all that, the
+ * variant has answered its own question.
+ *
+ * Two callers since Sep 22: X-5, which argues for this shape against the other
+ * four, and `deepInlineCrumb`, which imposes it whichever variant is picked.
+ * One component rather than two so the knob cannot quietly end up being judged
+ * on a different row than the variant was.
  */
 export function DeepPageTrail({
   section,

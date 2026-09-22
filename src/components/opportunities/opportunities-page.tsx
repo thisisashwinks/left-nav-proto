@@ -21,6 +21,7 @@ import {
   type PageAction,
 } from "@/components/page/page-header";
 import { usePageCrumb } from "@/components/page/page-crumb";
+import { SCREEN_NAMES } from "@/components/nav/screen-names";
 import { ViewBar } from "@/components/page/view-bar";
 import { ToneAvatar } from "@/components/page/avatar";
 import { cn } from "@/lib/utils";
@@ -454,7 +455,8 @@ export function OpportunitiesPage() {
       ) : (
         <>
           <PageHeader
-            title="Opportunities"
+            /* The trail's leaf says this same word — see screen-names.ts. */
+            title={SCREEN_NAMES.opportunities}
             count="117"
             description="Deals across 4 pipelines"
             primary={primary}

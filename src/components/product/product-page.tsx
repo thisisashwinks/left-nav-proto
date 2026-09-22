@@ -1,13 +1,20 @@
 "use client";
 
 import * as React from "react";
-import { usePageChrome } from "@/components/page/page-header";
+import {
+  OutlineButton,
+  OverflowMenu,
+  PageHeader,
+  PrimaryButton,
+} from "@/components/page/page-header";
+import { useListShape } from "@/components/page/list-shape";
 import {
   Columns3,
-  EllipsisVertical,
+  Download,
   ListFilter,
   Plus,
   Search,
+  Settings,
   Upload,
 } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -28,6 +35,9 @@ import {
 import { OpportunitiesPage } from "@/components/opportunities/opportunities-page";
 import { WorkflowsPage } from "@/components/automation/workflows-page";
 import { FunnelsPage } from "@/components/sites/funnels-page";
+import { AiStudioPage } from "@/components/ai/ai-studio-page";
+import { VoiceAiPage } from "@/components/ai/voice-ai-page";
+import { CalendarsPage } from "@/components/calendars/calendars-page";
 
 /**
  * The products that have a real page behind them, in both catalogues.
@@ -48,6 +58,74 @@ const REAL_PAGES: {
   views?: Record<string, string>;
   render: (view: string | null) => React.ReactNode;
 }[] = [
+  {
+    /*
+     * Voice AI's agent list — the PROPOSED tree's copy of it, and only that.
+     *
+     * The shipped tree's `ai-voice` deliberately is not here, because the two
+     * trees are now showing two different screens under that name and both are
+     * wanted. `voice-ai-page.tsx` (Sep 22, the concurrent AI study) arrived
+     * claiming every id the chain owns — `ai-voice`, `ia-ai-voice` and both of
+     * the proposed tree's children — and since `realPage` is checked before the
+     * stage renders, that left NO route in either tree to the L4/L5 stage:
+     * five `deepHeaderVariant` variants and `deepInlineCrumb` became switches
+     * with nothing behind them, and nothing would have said so until a review
+     * asked to see X-3.
+     *
+     * Giving the deep page a child id back was not enough either — the
+     * proposed tree draws Voice AI's children inside the page as tabs, not as
+     * nav rows, so a route through `ia-ai-voice-dashboard` is a route nobody
+     * can click. The split that works is by TREE: the proposed tree's Voice AI
+     * is the agent list, the shipped tree's is the deep chain. That is also
+     * where the research put it — the path it filmed someone getting lost in
+     * reads AI Agents ▸ Voice AI ▸ Dashboard & logs ▸ Inbound, and "AI Agents"
+     * is the shipped catalogue's product, not the proposed one's.
+     */
+    products: ["ia-ai-voice"],
+    children: ["ia-ai-voice-agents", "ia-ai-voice-dashboard"],
+    render: () => <VoiceAiPage />,
+  },
+  {
+    products: ["ai-studio", "ia-ai-studio"],
+    children: [],
+    render: () => <AiStudioPage />,
+  },
+  {
+    /*
+     * CRM ▸ Calendar ▸ Appointments, plus the calendar settings behind it.
+     *
+     * The two trees disagree about more than the name here. The shipped
+     * catalogue's `calendars` has no children at all — its own note says the
+     * calendar/list split is a toggle inside and settings live in Settings —
+     * so it arrives with `childId === null` and the `childId === null` clause
+     * in realPageFor is what lands it on the page rather than the stage. The
+     * proposed tree splits the same product into an Appointments L3 and a
+     * Settings L3 with six L4s under it, which is the one chain that makes
+     * the product-owns-its-settings rule concrete rather than hypothetical.
+     *
+     * Those six L4s arrive as `initialTab`, so they are the whole of `views`:
+     * each seeds the settings tab AND the sub-tab pair inside it, encoded as
+     * `view:line:page` because a REAL_PAGES entry gets exactly one seed
+     * string. Landing on the Settings L3 bare (nothing selected under it)
+     * opens the calendar view instead, which is the one seam — the settings
+     * tab is one click away and visible, so the page never lies about where
+     * it took you, it just starts one step short.
+     */
+    products: ["calendars", "ia-crm-calendars"],
+    children: [
+      "ia-crm-calendars-appointments",
+      "ia-crm-calendars-settings",
+    ],
+    views: {
+      "ia-crm-calendars-meetings": "settings:meetings:calendars",
+      "ia-crm-calendars-services": "settings:services:calendars",
+      "ia-crm-calendars-rentals": "settings:rentals:calendars",
+      "ia-crm-calendars-connections": "settings:connections:calendars",
+      "ia-crm-calendars-preferences": "settings:meetings:preferences",
+      "ia-crm-calendars-availability": "settings:meetings:availability",
+    },
+    render: (view) => <CalendarsPage initialView={view} />,
+  },
   {
     products: ["conversations", "ia-crm-conversations"],
     children: ["ia-crm-conversations-inbox"],
@@ -136,7 +214,18 @@ export function ProductPage({
   initialTab,
 }: ProductPageProps) {
   const { effective } = useTheme();
-  const { title: showTitle, description: showDesc } = usePageChrome();
+  /*
+   * The stage is a list page, so it answers to the list axis like one.
+   *
+   * Until Sep 22 this page drew its own header — an `<h1>` and three buttons
+   * behind `usePageChrome().title` — which meant switching the page header OFF
+   * left the three buttons floating over the canvas with nothing above them,
+   * and L-B and L-E did nothing here at all. Every product without a real
+   * screen yet lands on this stage, so "the header pattern" as most of the
+   * prototype demonstrates it WAS this hand-rolled row: the one page most
+   * likely to be screenshotted was the one page not on the axis.
+   */
+  const shape = useListShape();
   /*
    * The inbox gets the real page; everything else gets the stage.
    *
@@ -215,6 +304,38 @@ export function ProductPage({
   const place = useDeepPlace(deep && !realPage);
 
   /*
+   * Search, filters and columns, built once and placed by the variant.
+   *
+   * The three list variants that move this furniture — its own row (L-C, L-D),
+   * merged into the header's row (L-B), inside the canvas (L-E) — use the SAME
+   * controls and disagree only about where they stand. Contacts and Workflows
+   * are built this way for the same reason; a second copy of the search field
+   * per variant is how two of them end up with different placeholders.
+   *
+   * A component rather than the inline fragment those two pages use, because
+   * this one has three `React.useMemo`s above it: the React Compiler will not
+   * optimise a component where it cannot prove a manual memo still holds, and
+   * a JSX value built in the body is enough to make it give up on the whole
+   * file (`preserve-manual-memoization`, and it is an ERROR in this repo, not
+   * a warning). One element, and the compiler has nothing to reconcile.
+   */
+  const controls = <ListControls title={title} />;
+
+  /*
+   * Named items rather than the bare kebab this page used to draw.
+   *
+   * The old button opened nothing, which was survivable while the header was
+   * hand-rolled and survivable nowhere else: PageHeader's ladder spills
+   * inline actions INTO this menu past its budget, so a menu that cannot
+   * render rows would silently swallow them. Settings and Export are the two
+   * every other page in the prototype puts here.
+   */
+  const overflowActions = [
+    { label: `${product.label} settings`, icon: Settings },
+    { label: "Export", icon: Download },
+  ];
+
+  /*
    * After the hooks, never before them.
    *
    * Every hook above runs for the inbox too and its results go unused, which is
@@ -239,55 +360,49 @@ export function ProductPage({
       // from --page-inset, which the app bar above reads too so the two agree.
       className="relative flex h-full min-h-0 flex-col gap-[14px] px-[var(--page-inset)]"
     >
-      <div className="flex shrink-0 items-center justify-between">
-        <div className="flex flex-col items-start gap-[3px]">
-          {/*
-            A heading, not a menu (Abhishek, Aug 19).
-            
-            The title used to be the navigator — that was this page's whole point
-            before the breadcrumb had cascading menus. Now the trail does it
-            better, and a caret here offered a second way to the same places
-            while looking like it might do something else. Two navigators on one
-            screen is the misleading part.
-          */}
-          {showTitle ? (
-            <>
-              <h1 className="text-[20px] leading-[normal] font-semibold tracking-[-0.2px] whitespace-nowrap text-pg-heading">
-                {title}
-              </h1>
-              {showDesc ? (
-                <p className="text-[13px] leading-[normal] whitespace-nowrap text-pg-muted">
-                  {product.blurb}
-                </p>
-              ) : null}
-            </>
-          ) : null}
-        </div>
+      {/*
+        Slot 05, drawn by the component every other page draws it with.
 
-        <div className="flex shrink-0 items-center gap-[10px]">
-          <button
-            type="button"
-            className="motion-tap flex h-[34px] shrink-0 items-center gap-[7px] rounded-[8px] bg-pg-surface px-[14px] text-[13px] leading-[normal] font-medium whitespace-nowrap text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:shadow-[inset_0_0_0_1px_var(--pg-border-strong),0_1px_3px_0_rgba(15,23,42,0.06)] active:scale-[0.97]"
-          >
-            <Upload size={15} aria-hidden="true" className="text-pg-text-strong" />
-            Import
-          </button>
-          <button
-            type="button"
-            className="motion-tap flex h-[34px] shrink-0 items-center gap-[7px] rounded-[8px] bg-brand px-[16px] text-[13px] leading-[normal] font-semibold whitespace-nowrap text-brand-fg hover:brightness-110 hover:shadow-[0_2px_10px_0_rgba(21,94,239,0.35)] active:scale-[0.97]"
-          >
-            <Plus size={16} aria-hidden="true" />
-            New
-          </button>
-          <button
-            type="button"
-            aria-label="More actions"
-            className="motion-tap flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[8px] bg-pg-surface text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:shadow-[inset_0_0_0_1px_var(--pg-border-strong)] active:scale-[0.97]"
-          >
-            <EllipsisVertical size={16} aria-hidden="true" className="text-pg-text-strong" />
-          </button>
-        </div>
-      </div>
+        A heading, not a menu (Abhishek, Aug 19): the title used to be the
+        navigator — that was this page's whole point before the breadcrumb had
+        cascading menus. Now the trail does it better, and a caret here offered
+        a second way to the same places while looking like it might do
+        something else. Two navigators on one screen is the misleading part.
+
+        The deep page is excluded from the list axis on purpose. Voice AI's
+        L4/L5 chain is judged on its OWN axis (`deepHeaderVariant`), all five
+        of whose variants ask for the same titleless header; letting the list
+        axis also merge a toolbar into that row would mean a deep screenshot
+        was measuring two decisions at once, which is precisely what the
+        per-archetype axes were split up to prevent.
+      */}
+      {!deep && shape.scopeInTrail ? null : (
+        <PageHeader
+          title={title}
+          description={product.blurb}
+          lead={
+            !deep && shape.mergedRow ? (
+              /*
+               * No scope picker here, unlike Contacts and Workflows.
+               *
+               * L-B's picker replaces a strip of SAVED VIEWS — one collection
+               * re-cut — and the stage has none. Its tab strip comes from the
+               * catalogue and is the product's own structure, so promoting it
+               * to a picker (or to the trail's tail under L-E) would be this
+               * page making a claim about the IA. deep-sections.tsx refuses
+               * that for the same reason; the stage is not the place to start.
+               * What L-B still means here is the real half of it: the row
+               * stops naming what the trail already named, and carries the
+               * page's controls instead.
+               */
+              controls
+            ) : undefined
+          }
+          secondary={[{ label: "Import", icon: Upload }]}
+          primary={{ label: "New", icon: Plus }}
+          overflow={overflowActions}
+        />
+      )}
 
       {!deep && tabs.length > 0 ? (
         /*
@@ -374,8 +489,13 @@ export function ProductPage({
         draw nothing at page level at all: one moved the whole chain into the
         crumb menus, the other moved it into the content beside the card.
         X-5 draws its second trail here, where a page header would have been.
+
+        `deepInlineCrumb` short-circuits all five: with it on, the levels are
+        the page trail below and nothing else, whichever variant is selected.
       */}
-      {deep && (place.variant === "X-2" || place.variant === "X-6") ? (
+      {deep &&
+      !place.inlineCrumb &&
+      (place.variant === "X-2" || place.variant === "X-6") ? (
         <>
           {place.variant === "X-2" ? (
             <DeepTabs
@@ -395,7 +515,14 @@ export function ProductPage({
         </>
       ) : null}
 
-      {deep && place.variant === "X-5" ? (
+      {/*
+        The page-scoped trail: X-5's own answer, or `deepInlineCrumb` imposing
+        it on whichever variant is showing. One row either way — the knob does
+        not stack a trail on top of a variant's tab bars, it replaces them, and
+        `useDeepPlace` has already stopped the app bar publishing the same
+        levels so the two chains cannot be read as one.
+      */}
+      {deep && (place.inlineCrumb || place.variant === "X-5") ? (
         <DeepPageTrail
           sections={place.sections}
           section={place.section}
@@ -405,18 +532,33 @@ export function ProductPage({
         />
       ) : null}
 
-      {/* Toolbar — enough furniture to read as a real list page. */}
-      <div className="flex shrink-0 items-center gap-[10px]">
-        <div className="flex h-[34px] w-[300px] items-center gap-[8px] rounded-[8px] bg-pg-surface px-[11px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
-          <Search size={14} aria-hidden="true" className="shrink-0 text-pg-faint" />
-          <span className="text-[13px] leading-[normal] text-pg-faint">
-            Search {title.toLowerCase()}
-          </span>
+      {/*
+        Toolbar — enough furniture to read as a real list page.
+
+        Absent under L-B, where the header's row is already carrying it. Under
+        L-E it also inherits the page's actions: a header was taken away, and a
+        page you cannot create anything from is not a variant, it is a broken
+        page. They sit on this row's right edge, the edge they held when there
+        was a header — the same move contacts-page and workflows-page make.
+      */}
+      {!deep && shape.mergedRow ? null : (
+        <div className="flex shrink-0 items-center gap-[10px]">
+          {controls}
+          {!deep && shape.scopeInTrail ? (
+            <>
+              <OutlineButton>
+                <Upload size={15} aria-hidden="true" className="text-pg-text-strong" />
+                Import
+              </OutlineButton>
+              <PrimaryButton>
+                <Plus size={16} aria-hidden="true" />
+                New
+              </PrimaryButton>
+              <OverflowMenu items={overflowActions} />
+            </>
+          ) : null}
         </div>
-        <div className="flex-1" />
-        <ToolbarButton icon={ListFilter} label="Filters" />
-        <ToolbarButton icon={Columns3} label="Columns" />
-      </div>
+      )}
 
       {/*
         The stage. Skeleton rows, not fake data: this page exists to demo the
@@ -429,7 +571,7 @@ export function ProductPage({
         one child and lays out exactly as the bare card did.
       */}
       <div className="flex min-h-0 flex-1">
-        {deep && place.variant === "X-3" ? (
+        {deep && !place.inlineCrumb && place.variant === "X-3" ? (
           <DeepRail
             sections={place.sections}
             section={place.section}
@@ -525,6 +667,22 @@ function flattenPages(
 /** What the parent product's own landing view is called in the menu. */
 function overviewLabel(product: CatalogueEntry): string {
   return product.label;
+}
+
+/** The stage's search-and-filter furniture, wherever the variant puts it. */
+function ListControls({ title }: { title: string }) {
+  return (
+    <>
+      <div className="flex h-[34px] min-w-0 flex-1 items-center gap-[8px] rounded-[8px] bg-pg-surface px-[11px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
+        <Search size={14} aria-hidden="true" className="shrink-0 text-pg-faint" />
+        <span className="truncate text-[13px] leading-[normal] text-pg-faint">
+          Search {title.toLowerCase()}
+        </span>
+      </div>
+      <ToolbarButton icon={ListFilter} label="Filters" />
+      <ToolbarButton icon={Columns3} label="Columns" />
+    </>
+  );
 }
 
 function ToolbarButton({
