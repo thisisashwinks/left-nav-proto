@@ -28,6 +28,10 @@ import {
   type CrumbOption,
 } from "@/components/header/app-header";
 import {
+  RecordCrumbContext,
+  type RecordCrumb,
+} from "@/components/page/record-crumb";
+import {
   GET_APP_LABELS,
   GetAppModal,
   type AppKind,
@@ -171,9 +175,6 @@ const LAUNCHER_ID = "launcher";
  * Recent, this opens the catalogue.
  */
 const DIRECTORY_ID = "product-directory";
-
-/** The page-menu row for a product's landing view, which has no child id. */
-const OVERVIEW_CRUMB_ID = "__overview";
 
 /*
  * The menu expands FROM the trigger rather than dropping below it: its first
@@ -1219,6 +1220,41 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     return out;
   }, [agencyPlace, selectedId]);
 
+  /*
+   * A record the open page has drilled into.
+   *
+   * Detail views are in-page state, so the shell has no way to know one is
+   * open; the page publishes it and the trail grows a crumb. That crumb is
+   * the way back out, which is why those pages draw no back button of their
+   * own — two exits for one move is one too many, and they can disagree.
+   */
+  const [recordCrumb, setRecordCrumb] = React.useState<RecordCrumb | null>(null);
+  const recordCrumbValue = React.useMemo(
+    () => [recordCrumb, setRecordCrumb] as const,
+    [recordCrumb],
+  );
+
+  const withRecordCrumb = React.useCallback(
+    (trail: readonly (string | Crumb)[]): (string | Crumb)[] => {
+      if (!recordCrumb) return [...trail];
+      // Any crumb above the record closes it first, so picking "List" lands on
+      // the list rather than on the record with a trail that disagrees.
+      const wrapped = trail.map((segment) =>
+        typeof segment === "string" || !segment.onSelect
+          ? segment
+          : {
+              ...segment,
+              onSelect: (id: string) => {
+                recordCrumb.onExit?.();
+                segment.onSelect?.(id);
+              },
+            },
+      );
+      return [...wrapped, { label: recordCrumb.label }];
+    },
+    [recordCrumb],
+  );
+
   const productCrumbs = React.useMemo((): (string | Crumb)[] => {
     const productId = canvasPage?.productId ?? "contacts";
     const childId = canvasPage?.childId ?? null;
@@ -1281,34 +1317,25 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         owner = node;
       }
       let siblings: readonly CatalogueChild[] = product.children ?? [];
-      chain.forEach((node, i) => {
-        const previous = chain[i - 1];
-        const up =
-          i === 0 || !previous
-            ? {
-                id: OVERVIEW_CRUMB_ID,
-                label: product.label,
-                icon: productIconFor(productId),
-                selected: false,
-              }
-            : { id: previous.id, label: previous.label, selected: false };
+      chain.forEach((node) => {
         segments.push({
           label: node.label,
-          // The level above, then this level's siblings — the shape the L3 crumb
-          // already had, one level deeper.
-          options: [
-            up,
-            ...siblings.map((c) => ({
-              id: c.id,
-              label: c.label,
-              selected: c.id === node.id,
-            })),
-          ],
-          onSelect: (cid) =>
-            setProductPage({
-              productId,
-              childId: cid === OVERVIEW_CRUMB_ID ? null : cid,
-            }),
+          /*
+           * This level's siblings, and nothing else.
+           *
+           * The menu used to lead with the level above — "Contacts" sitting
+           * over Contacts ▸ List's own siblings. That row was never a sibling
+           * and never switched anything at this level; it duplicated the
+           * crumb immediately to its left, which is already the way up. A
+           * crumb menu offers the places you could be INSTEAD of where you
+           * are, so the parent does not belong in it.
+           */
+          options: siblings.map((c) => ({
+            id: c.id,
+            label: c.label,
+            selected: c.id === node.id,
+          })),
+          onSelect: (cid) => setProductPage({ productId, childId: cid }),
         });
         siblings = node.children ?? [];
       });
@@ -1928,7 +1955,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             else setProductPage(null);
             setSelectedId(null);
           }}
-          crumbs={
+          crumbs={withRecordCrumb(
             selectedId === "agency-accounts"
               ? // Bucket, then the row, then whichever account was opened from
                 // it — the same three-part shape the generic branch builds, so
@@ -1974,8 +2001,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 ? agencyCrumbs
                 : agencyScope
                   ? [accounts.agency.name, "Overview"]
-                  : productCrumbs
-          }
+                  : productCrumbs,
+          )}
         />
         {/*
           The sub-account settings page lives behind the Sub-accounts table, as
@@ -1991,6 +2018,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               duration={pending.duration}
             />
           ) : null}
+          <RecordCrumbContext.Provider value={recordCrumbValue}>
           <ContactsAreaProvider value={[contactsPageId, setContactsPageId]}>
             {/*
               The only real surface in the window now. Inset on every edge so the
@@ -2114,6 +2142,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               )}
             </div>
           </ContactsAreaProvider>
+          </RecordCrumbContext.Provider>
       </div>
 
       {/* The layout hole the docked Ask AI panel sits in — the canvas

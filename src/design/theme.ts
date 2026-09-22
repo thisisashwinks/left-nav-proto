@@ -1738,6 +1738,28 @@ export interface ThemeState {
   panelRecentHeading: PanelRecentHeading;
   /** Which palette the Conversations inbox uses. See INBOX_PALETTES. */
   inboxPalette: InboxPalette;
+  /**
+   * Whether the page header shows its title.
+   *
+   * The trail already names the page, one line above and in the same
+   * column — so the title is the second copy. Hidden, the header keeps the
+   * count, the status and the actions, and collapses to a single action
+   * row; shown, it is the full two-line block. Worth a knob because the two
+   * are a real trade: the duplicate costs ~44px on every page, and the
+   * heading is what makes a page feel like a place.
+   */
+  pageTitle: boolean;
+  /**
+   * Whether a record page keeps the page header.
+   *
+   * Off by design: on a contact the trail names the record, the first column
+   * carries the record pager, and the actions live on the panes that own
+   * them — so the header had a title that repeated the trail and a row of
+   * buttons that belong elsewhere. Kept as a knob because "does a record
+   * page need slot 05 at all" is exactly the kind of question this prototype
+   * exists to put in front of people.
+   */
+  recordPageHeader: boolean;
   /** How replacing my layout is confirmed. See LAYOUT_REPLACE_DIALOGS. */
   layoutReplaceDialog: LayoutReplaceDialog;
   /** How a multi-account sub-account person switches. See SUB_ACCOUNT_SWITCHERS. */
@@ -2125,6 +2147,8 @@ export const DEFAULT_THEME: ThemeState = {
   // Cascading panels: the pattern the nav already taught.
   panelRecentHeading: "visited",
   inboxPalette: "product",
+  pageTitle: true,
+  recordPageHeader: false,
   layoutReplaceDialog: "simple",
   // The rail: one mechanism for both audiences beats a second one to learn.
   subAccountSwitcher: "rail",

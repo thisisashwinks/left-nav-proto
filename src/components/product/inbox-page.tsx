@@ -5,12 +5,11 @@ import {
   ArrowDownUp,
   ArrowUpRight,
   Bot,
-  Calendar,
   ChevronDown,
-  CircleDollarSign,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   FileText,
-  Info,
   Inbox,
   Keyboard,
   ListFilter,
@@ -20,17 +19,22 @@ import {
   Plus,
   Search,
   Send,
-  Share2,
-  Sparkles,
   SquarePen,
   Star,
   Trash2,
   UserRound,
-  Workflow,
+  Users,
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
+import { PageHeader } from "@/components/page/page-header";
+import { ViewBar } from "@/components/page/view-bar";
+import {
+  PanelRail,
+  RECORD_PANELS,
+  RecordPanelDrawer,
+} from "@/components/contacts/record-panels";
 import { cn } from "@/lib/utils";
 
 /**
@@ -161,6 +165,13 @@ const CONVERSATIONS: Conversation[] = [
 ];
 
 /** The four views the list is filtered by. Unread carries the count. */
+/*
+ * Four cuts of one collection — which is the view bar's job, not the list
+ * pane's. They used to be an icon-over-label strip inside a 300px column,
+ * where they read as a property of that column rather than of the page. Up in
+ * slot 06 they say the true thing: same conversations, different slice, and
+ * the three panes below are all showing whichever slice is lit.
+ */
 const LIST_TABS: {
   id: string;
   label: string;
@@ -175,20 +186,6 @@ const LIST_TABS: {
 ];
 
 /** The contact panel's own rail, down the canvas's right edge. */
-const RIGHT_RAIL: { id: string; icon: LucideIcon; label: string; dot?: boolean }[] =
-  [
-    { id: "contact", icon: UserRound, label: "Contact details" },
-    { id: "activity", icon: Clock, label: "Recent activity" },
-    { id: "flows", icon: Share2, label: "Automations" },
-    { id: "workflow", icon: Workflow, label: "Workflows" },
-    { id: "tasks", icon: FileText, label: "Tasks" },
-    { id: "notes", icon: SquarePen, label: "Notes" },
-    { id: "calendar", icon: Calendar, label: "Appointments" },
-    { id: "docs", icon: FileText, label: "Documents" },
-    { id: "payments", icon: CircleDollarSign, label: "Payments" },
-    { id: "ai", icon: Sparkles, label: "AI summary", dot: true },
-  ];
-
 /**
  * The shipped inbox's own colours, as an override of the tokens this page
  * already reads.
@@ -235,7 +232,14 @@ const TAGS = [
 export function InboxPage() {
   const [tab, setTab] = React.useState<string>("unread");
   const [activeId, setActiveId] = React.useState<string>(CONVERSATIONS[0]!.id);
-  const [panelOpen, setPanelOpen] = React.useState(true);
+  /*
+   * One rail, one panel. Every icon on the right opens an aspect of the SAME
+   * contact, so they take turns in one slot; clicking the lit one puts it
+   * away, which is the only way a rail of ten stays usable.
+   */
+  const [panel, setPanel] = React.useState<string | null>("contact");
+  const [inbox, setInbox] = React.useState("team");
+  const [navOpen, setNavOpen] = React.useState(false);
   const active =
     CONVERSATIONS.find((c) => c.id === activeId) ?? CONVERSATIONS[0]!;
   const { effective } = useTheme();
@@ -243,34 +247,229 @@ export function InboxPage() {
 
   return (
     /*
-     * Three panes and a rail, each its own card on the plane.
+     * The workspace keeps its header.
      *
-     * Separate cards rather than one card divided by rules, because that is
-     * what the app does and it is the part that matters to the nav argument:
-     * the page already reads as a row of columns, so a nav that opens a fourth
-     * one beside them has to earn it.
+     * A three-pane inbox is the strongest case there is for a product drawing
+     * its own chrome and skipping the page header — and it is exactly the case
+     * the tenet is written for. The panes are how this page works; the header
+     * is how the platform tells you which page it is, and that is not the
+     * product's call. It costs 44px and it buys the trail, the title and one
+     * predictable place for "New conversation" to live.
      */
     <div
-      className="flex h-full min-h-0 gap-[10px] px-[var(--page-inset)]"
+      className="flex h-full min-h-0 flex-col gap-[10px] px-[var(--page-inset)]"
       data-cursor="default"
       // Declared on the page's own wrapper, so nothing outside it repaints.
       {...(product ? { style: PRODUCT_PALETTE } : {})}
     >
-      <ListPane
-        tab={tab}
-        onTab={setTab}
-        activeId={activeId}
-        onSelect={setActiveId}
+      <PageHeader
+        title="Conversations"
+        count="6.3K unread"
+        primary={{ label: "New conversation", icon: SquarePen }}
+        overflow={[
+          { label: "Manage inboxes", icon: Inbox },
+          { label: "Snippets", icon: FileText },
+          { label: "Keyboard shortcuts", icon: Keyboard },
+        ]}
       />
 
-      <ThreadPane conversation={active} />
+      {/*
+       * Three panes and a rail, each its own card on the plane.
+       *
+       * Separate cards rather than one card divided by rules, because that is
+       * what the app does and it is the part that matters to the nav argument:
+       * the page already reads as a row of columns, so a nav that opens a
+       * fourth one beside them has to earn it.
+       */}
+      {/*
+        Gaps are declared per seam, not by one gap on the row: the navigator
+        and the list/thread card are continuous, and only the contact panel
+        and the rail are set apart.
+      */}
+      <div className="flex min-h-0 flex-1">
+        <InboxNav
+          activeId={inbox}
+          onSelect={setInbox}
+          open={navOpen}
+          onToggle={() => setNavOpen((v) => !v)}
+        />
 
-      {panelOpen ? <ContactPane onClose={() => setPanelOpen(false)} /> : null}
+        {/*
+          The list and the thread are one card with a rule down the middle.
+          They are a single act — pick a conversation, read it — and two cards
+          with a gutter between them said they were two. The contact panel
+          keeps its gutter, because that one IS separable: it closes.
+        */}
+        <div className="mr-[10px] flex min-w-0 flex-1 overflow-hidden rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+          <ListPane
+            tab={tab}
+            onTab={setTab}
+            activeId={activeId}
+            onSelect={setActiveId}
+          />
 
-      <RightRail
-        panelOpen={panelOpen}
-        onOpenPanel={() => setPanelOpen(true)}
-      />
+          <ThreadPane conversation={active} />
+        </div>
+
+        {panel === "contact" ? (
+          <span className="mr-[10px] flex min-h-0 shrink-0">
+            <ContactPane onClose={() => setPanel(null)} />
+          </span>
+        ) : null}
+        {panel && panel !== "contact" ? (
+          <RecordPanelDrawer
+            className="mr-[10px]"
+            panelId={panel}
+            inline
+            width={320}
+            onClose={() => setPanel(null)}
+          />
+        ) : null}
+
+        <PanelRail
+          panels={RECORD_PANELS}
+          activeId={panel}
+          onSelect={setPanel}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ─── Which inbox ───────────────────────────────────────────────────────── */
+
+const INBOX_NAV: {
+  group: string;
+  items: { id: string; label: string; icon: LucideIcon }[];
+}[] = [
+  {
+    group: "My inbox",
+    items: [
+      { id: "mine-all", label: "All", icon: Inbox },
+      { id: "mine-assigned", label: "Assigned to me", icon: UserRound },
+      { id: "mine-following", label: "Followed by me", icon: Star },
+    ],
+  },
+  {
+    group: "Shared",
+    items: [
+      { id: "team", label: "Team inbox", icon: Users },
+      { id: "internal", label: "Internal chat", icon: MessageSquareDashed },
+    ],
+  },
+  {
+    group: "Views",
+    items: [{ id: "view-unassigned", label: "Unassigned · 412", icon: ListFilter }],
+  },
+];
+
+/**
+ * Which inbox, not which cut of it.
+ *
+ * This is the one thing on the page that really does change the collection —
+ * my inbox and the team's are different sets of conversations — so it cannot
+ * live in the view bar upstairs, where every chip promises the same set seen
+ * differently. It collapses to a rail because on most days you pick an inbox
+ * once and then work; the 200px it costs is not worth paying all day.
+ */
+function InboxNav({
+  activeId,
+  onSelect,
+  open,
+  onToggle,
+}: {
+  activeId: string;
+  onSelect: (id: string) => void;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  if (!open) {
+    return (
+      <div className="flex w-[44px] shrink-0 flex-col items-center gap-[2px] py-[8px] pr-[8px]">
+        <IconButton icon={SquarePen} label="New conversation" />
+        <IconButton icon={Search} label="Search conversations" />
+        <span aria-hidden="true" className="my-[4px] h-px w-[20px] bg-[var(--pg-border)]" />
+        {INBOX_NAV.flatMap((g) => g.items).map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            title={item.label}
+            aria-label={item.label}
+            onClick={() => onSelect(item.id)}
+            className={cn(
+              "motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[7px]",
+              item.id === activeId
+                ? "bg-pg-bg text-brand shadow-[inset_0_0_0_1px_var(--pg-border)]"
+                : "text-pg-muted hover:bg-pg-bg hover:text-pg-text",
+            )}
+          >
+            <item.icon size={16} aria-hidden="true" />
+          </button>
+        ))}
+        <span className="flex-1" />
+        <IconButton icon={ChevronRight} label="Expand inbox list" onClick={onToggle} />
+      </div>
+    );
+  }
+
+  return (
+    /*
+      The navigator sits ON the plane, not in a card.
+      It is chrome for the two panes to its right, and the app draws it that
+      way: no surface, no ring, and no gutter between it and the card it
+      belongs to — the seam would claim they are separate things.
+    */
+    <div className="flex w-[204px] shrink-0 flex-col gap-[8px] overflow-y-auto py-[8px] pr-[10px]">
+      <button
+        type="button"
+        className="flex h-[32px] shrink-0 items-center justify-center gap-[6px] rounded-[8px] bg-brand text-[12.5px] leading-none font-semibold text-brand-fg motion-tap hover:brightness-105 active:scale-[0.98]"
+      >
+        <SquarePen size={14} aria-hidden="true" />
+        New conversation
+      </button>
+      <div className="flex h-[30px] shrink-0 items-center gap-[7px] rounded-[8px] px-[9px] shadow-[inset_0_0_0_1px_var(--pg-border)] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]">
+        <Search size={14} aria-hidden="true" className="shrink-0 text-pg-faint" />
+        <input
+          aria-label="Search conversations"
+          placeholder="Search"
+          className="min-w-0 flex-1 bg-transparent text-[12.5px] text-pg-text placeholder:text-pg-faint focus:outline-none"
+        />
+      </div>
+
+      {INBOX_NAV.map((g) => (
+        <div key={g.group} className="flex flex-col gap-[2px]">
+          <span className="px-[4px] pt-[4px] text-[11.5px] leading-[16px] font-semibold text-pg-muted">
+            {g.group}
+          </span>
+          {g.items.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onSelect(item.id)}
+              className={cn(
+                "motion-tap flex h-[28px] items-center gap-[7px] rounded-[7px] px-[7px] text-left text-[12.5px] leading-none",
+                item.id === activeId
+                  ? "bg-pg-bg font-semibold text-brand shadow-[inset_0_0_0_1px_var(--brand)]"
+                  : "text-pg-text hover:bg-pg-bg",
+              )}
+            >
+              <item.icon size={14} aria-hidden="true" className="shrink-0" />
+              <span className="min-w-0 truncate">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      ))}
+
+      <button
+        type="button"
+        className="flex h-[26px] shrink-0 items-center gap-[5px] px-[7px] text-[12.5px] leading-none font-medium text-brand motion-tap hover:brightness-110"
+      >
+        <Plus size={13} aria-hidden="true" />
+        Create view
+      </button>
+
+      <span className="flex-1" />
+      <IconButton icon={ChevronLeft} label="Collapse inbox list" onClick={onToggle} />
     </div>
   );
 }
@@ -289,9 +488,9 @@ function ListPane({
   onSelect: (id: string) => void;
 }) {
   return (
-    <div className="flex w-[300px] shrink-0 flex-col overflow-hidden rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+    <div className="flex w-[300px] shrink-0 flex-col overflow-hidden border-r border-[var(--pg-border)] bg-pg-surface">
       <div className="flex h-[44px] shrink-0 items-center gap-[8px] px-[14px]">
-        <h2 className="min-w-0 flex-1 truncate text-[15px] leading-none font-semibold text-pg-heading">
+        <h2 className="min-w-0 flex-1 truncate text-[14px] leading-none font-semibold text-pg-heading">
           Team inbox
         </h2>
         <IconButton icon={ListFilter} label="Filter conversations" />
@@ -299,56 +498,21 @@ function ListPane({
       </div>
 
       {/*
-        Icon over label, and the count sits on the tab it counts.
+        The four cuts live in the column they cut.
 
-        Four filters in 300px is the whole width budget, so the labels are the
-        only text and the badge rides the corner rather than taking a column of
-        its own — which is what lets "6.3K" appear at all.
+        They were briefly up in the page's view bar, which read as a claim
+        that they re-cut the whole page — but the thread and the contact
+        panel do not change when you pick Starred. Only this list does, so
+        the tabs belong to this list.
       */}
-      <div
-        role="tablist"
-        aria-label="Inbox views"
-        className="flex shrink-0 items-stretch gap-[2px] border-b border-[var(--pg-border)] px-[8px]"
-      >
-        {LIST_TABS.map((t) => {
-          const on = t.id === tab;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              onClick={() => onTab(t.id)}
-              className={cn(
-                "motion-tap relative flex flex-1 flex-col items-center gap-[5px] px-[2px] pt-[9px] pb-[8px]",
-                on ? "text-pg-heading" : "text-pg-muted hover:text-pg-text",
-              )}
-            >
-              {t.count ? (
-                <span className="absolute top-[2px] left-1/2 -translate-x-[2px] rounded-[4px] bg-brand px-[4px] py-[1px] text-[9px] leading-[12px] font-semibold text-brand-fg">
-                  {t.count}
-                </span>
-              ) : null}
-              <t.icon size={16} aria-hidden="true" />
-              <span
-                className={cn(
-                  "text-[12.5px] leading-none",
-                  on ? "font-semibold" : "font-medium",
-                )}
-              >
-                {t.label}
-              </span>
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "absolute inset-x-[6px] -bottom-[1px] h-[2px] rounded-full motion-move",
-                  on ? "bg-brand" : "bg-transparent",
-                )}
-              />
-            </button>
-          );
-        })}
-      </div>
+      <ViewBar
+        label="Inbox views"
+        views={LIST_TABS}
+        activeId={tab}
+        onSelect={onTab}
+        size="sm"
+        className="px-[6px]"
+      />
 
       <div className="flex h-[36px] shrink-0 items-center gap-[9px] border-b border-[var(--pg-border)] px-[14px]">
         <Box />
@@ -462,7 +626,7 @@ function ConversationRow({
 
 function ThreadPane({ conversation }: { conversation: Conversation }) {
   return (
-    <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+    <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-pg-surface">
       <div className="flex h-[52px] shrink-0 items-center gap-[10px] border-b border-[var(--pg-border)] px-[14px]">
         <Avatar initials={conversation.initials} channel={conversation.channel} />
         <h2 className="min-w-0 flex-1 truncate text-[15px] leading-none font-semibold text-pg-heading">
@@ -799,63 +963,6 @@ function Field({
         ) : null}
       </span>
       <span className="text-[12.5px] leading-none text-pg-text">{children}</span>
-    </div>
-  );
-}
-
-/* ─── The right rail ────────────────────────────────────────────────────── */
-
-function RightRail({
-  panelOpen,
-  onOpenPanel,
-}: {
-  panelOpen: boolean;
-  onOpenPanel: () => void;
-}) {
-  return (
-    <div className="flex w-[40px] shrink-0 flex-col items-center gap-[2px] rounded-[12px] bg-pg-surface py-[8px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
-      {RIGHT_RAIL.map((item, i) => (
-        <button
-          key={item.id}
-          type="button"
-          title={item.label}
-          aria-label={item.label}
-          onClick={i === 0 ? onOpenPanel : undefined}
-          className={cn(
-            "motion-tap relative flex size-[28px] shrink-0 items-center justify-center rounded-[7px]",
-            i === 0 && panelOpen
-              ? "bg-pg-bg text-brand shadow-[inset_0_0_0_1px_var(--pg-border)]"
-              : "text-pg-muted hover:bg-pg-bg hover:text-pg-text",
-          )}
-        >
-          <item.icon size={16} aria-hidden="true" />
-          {item.dot ? (
-            <span
-              aria-hidden="true"
-              className="absolute top-[3px] right-[3px] size-[5px] rounded-full bg-brand"
-            />
-          ) : null}
-        </button>
-      ))}
-
-      {/* The two that sit apart at the foot, as in the app. */}
-      <span className="flex-1" />
-      <button
-        type="button"
-        title="Help"
-        aria-label="Help"
-        className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[7px] text-pg-muted hover:bg-pg-bg hover:text-pg-text"
-      >
-        <Info size={16} aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        title="Keyboard shortcuts"
-        aria-label="Keyboard shortcuts"
-        className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[7px] text-pg-muted hover:bg-pg-bg hover:text-pg-text"
-      >
-        <Keyboard size={16} aria-hidden="true" />
-      </button>
     </div>
   );
 }

@@ -87,9 +87,15 @@ function HeadCell({
 export function ContactsTable({
   rows,
   onToggleRow,
+  onOpenRow,
+  activeId,
 }: {
   rows: Contact[];
   onToggleRow: (id: string) => void;
+  /** Opens the record beside the list. Omit and rows stay inert. */
+  onOpenRow?: (id: string) => void;
+  /** The row the drawer is showing, so the list says where you are. */
+  activeId?: string | null;
 }) {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-pg-surface">
@@ -133,6 +139,15 @@ export function ContactsTable({
             <div
               key={c.id}
               role="row"
+              tabIndex={onOpenRow ? 0 : undefined}
+              onClick={() => onOpenRow?.(c.id)}
+              onKeyDown={(e) => {
+                if (!onOpenRow) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onOpenRow(c.id);
+                }
+              }}
               className={cn(
                 // The last row drops its divider: against the card's rounded
                 // bottom it read as a line floating short of both corners.
@@ -141,6 +156,13 @@ export function ContactsTable({
                 c.selected
                   ? "bg-pg-row-selected"
                   : "bg-pg-surface hover:bg-pg-row-border/60",
+                /*
+                 * Selected-for-bulk and open-in-the-drawer are different
+                 * facts, so they get different marks: a fill for the first,
+                 * a ring for the second, and a row can carry both.
+                 */
+                c.id === activeId &&
+                  "relative z-[1] shadow-[inset_0_0_0_1.5px_var(--brand)]",
               )}
             >
               <div
@@ -151,7 +173,10 @@ export function ContactsTable({
                   type="button"
                   aria-label={`Select ${c.name}`}
                   aria-pressed={!!c.selected}
-                  onClick={() => onToggleRow(c.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleRow(c.id);
+                  }}
                   className="transition-transform motion-press active:scale-90"
                 >
                   <Checkbox checked={!!c.selected} />

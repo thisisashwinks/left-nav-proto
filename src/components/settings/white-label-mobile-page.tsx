@@ -1,6 +1,7 @@
 "use client";
 
 import { CircleAlert, Settings2, Wrench, X } from "lucide-react";
+import { usePageTitleShown } from "@/components/page/page-header";
 import type { Account } from "@/components/accounts/accounts-data";
 import { QrPlaceholder } from "@/components/header/get-app-modal";
 import { AccountLogo } from "@/components/accounts/account-logo";
@@ -22,13 +23,17 @@ import { cn } from "@/lib/utils";
  * last build worked.
  */
 export function WhiteLabelMobilePage({ agency }: { agency: Account }) {
+  const showTitle = usePageTitleShown();
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-[14px] overflow-y-auto px-[var(--page-inset)] pb-[16px]">
       <header className="flex shrink-0 items-start gap-[12px] pt-[2px]">
         <div className="flex min-w-0 flex-1 flex-col gap-[2px]">
-          <h1 className="truncate text-[17px] leading-[23px] font-semibold text-pg-heading">
-            Agency mobile app
-          </h1>
+          {showTitle ? (
+            <h1 className="truncate text-[17px] leading-[23px] font-semibold text-pg-heading">
+              Agency mobile app
+            </h1>
+          ) : null}
           <p className="text-[12.5px] leading-[17px] text-pg-muted italic">
             Your agency mobile app made easy — choose from our free offerings or
             create your own whitelabel app, and start nurturing clients right

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePageTitleShown } from "@/components/page/page-header";
 import {
   Columns3,
   EllipsisVertical,
@@ -16,18 +17,69 @@ import type {
 } from "@/components/nav/catalogue";
 import { cn } from "@/lib/utils";
 import { InboxPage } from "./inbox-page";
+import { OpportunitiesPage } from "@/components/opportunities/opportunities-page";
+import { WorkflowsPage } from "@/components/automation/workflows-page";
 
 /**
- * The products whose landing view IS the inbox, in both catalogues.
+ * The products that have a real page behind them, in both catalogues.
  *
- * Two ids for one product because the shipped tree and the proposed IA each
- * carry their own copy of it — the same page under two names, which is the
- * whole point of having two trees to compare.
+ * Two id families per entry because the shipped tree and the proposed IA each
+ * carry their own copy of the same product — the same page under two names,
+ * which is the whole point of having two trees to compare. `children` names
+ * the L2s that are still that page; every other L2 falls through to the stage,
+ * so a half-built product can grow one real screen at a time.
  */
-const INBOX_PRODUCT_IDS = new Set(["conversations", "ia-crm-conversations"]);
+const REAL_PAGES: {
+  products: string[];
+  children: string[];
+  /**
+   * Nav row id → the view that row names, for the trees that file views as
+   * L3s. The page keeps ownership of the cut; this only seeds it.
+   */
+  views?: Record<string, string>;
+  render: (view: string | null) => React.ReactNode;
+}[] = [
+  {
+    products: ["conversations", "ia-crm-conversations"],
+    children: ["ia-crm-conversations-inbox"],
+    render: () => <InboxPage />,
+  },
+  {
+    products: ["opportunities", "ia-crm-opportunities"],
+    children: ["ia-crm-opportunities-list"],
+    render: () => <OpportunitiesPage />,
+  },
+  {
+    /*
+     * The shipped tree files Workflows as an L2 of Automation; the proposed
+     * tree promotes it to a product of its own. Both arrive here, which is
+     * why the match is on a pair of lists rather than a single id.
+     */
+    products: ["automation", "ia-automation-workflows"],
+    children: ["automation-workflows", "ia-automation-list"],
+    views: {
+      "ia-automation-list-all": "all",
+      "ia-automation-list-review": "review",
+      "ia-automation-list-drafts": "drafts",
+      "ia-automation-list-deleted": "deleted",
+    },
+    render: (view) => <WorkflowsPage initialView={view} />,
+  },
+];
 
-/** The L2 that is the inbox itself, where the proposed tree breaks it out. */
-const INBOX_CHILD_IDS = new Set(["ia-crm-conversations-inbox"]);
+function realPageFor(
+  productId: string,
+  childId: string | null,
+  initialTab: string | null,
+) {
+  const hit = REAL_PAGES.find(
+    (entry) =>
+      entry.products.includes(productId) &&
+      (childId === null || entry.children.includes(childId)),
+  );
+  if (!hit) return null;
+  return hit.render((initialTab && hit.views?.[initialTab]) ?? null);
+}
 
 interface ProductPageProps {
   /**
@@ -56,6 +108,7 @@ export function ProductPage({
   initialTab,
 }: ProductPageProps) {
   const { effective } = useTheme();
+  const showTitle = usePageTitleShown();
   /*
    * The inbox gets the real page; everything else gets the stage.
    *
@@ -64,9 +117,7 @@ export function ProductPage({
    * clicked the row named Conversations would be the one page in the prototype
    * that lies about where it took you.
    */
-  const isInbox =
-    INBOX_PRODUCT_IDS.has(product.id) &&
-    (childId === null || INBOX_CHILD_IDS.has(childId));
+  const realPage = realPageFor(product.id, childId, initialTab ?? null);
   const pages = React.useMemo(
     () => (product.tabs ? [] : flattenPages(product.children ?? [])),
     [product],
@@ -128,10 +179,10 @@ export function ProductPage({
    * has already called four of them is how a render crashes on the NEXT page
    * you navigate to, not this one.
    */
-  if (isInbox) {
+  if (realPage) {
     return (
       <div data-page-theme={effective.appTheme} className="h-full min-h-0">
-        <InboxPage />
+        {realPage}
       </div>
     );
   }
@@ -156,12 +207,16 @@ export function ProductPage({
             while looking like it might do something else. Two navigators on one
             screen is the misleading part.
           */}
-          <h1 className="text-[20px] leading-[normal] font-semibold tracking-[-0.2px] whitespace-nowrap text-pg-heading">
-            {title}
-          </h1>
-          <p className="text-[13px] leading-[normal] whitespace-nowrap text-pg-muted">
-            {product.blurb}
-          </p>
+          {showTitle ? (
+            <>
+              <h1 className="text-[20px] leading-[normal] font-semibold tracking-[-0.2px] whitespace-nowrap text-pg-heading">
+                {title}
+              </h1>
+              <p className="text-[13px] leading-[normal] whitespace-nowrap text-pg-muted">
+                {product.blurb}
+              </p>
+            </>
+          ) : null}
         </div>
 
         <div className="flex shrink-0 items-center gap-[10px]">

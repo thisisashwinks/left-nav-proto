@@ -185,6 +185,8 @@ interface ThemeContextValue extends ThemeState {
   setNavSections: (mode: NavSections) => void;
   setLayoutReplaceDialog: (mode: LayoutReplaceDialog) => void;
   setInboxPalette: (palette: InboxPalette) => void;
+  setRecordPageHeader: (on: boolean) => void;
+  setPageTitle: (on: boolean) => void;
   setPanelRecentHeading: (heading: PanelRecentHeading) => void;
   setPinMarkColour: (colour: PinMarkColour) => void;
   setAiButtonStyle: (style: AiButtonStyle) => void;
@@ -437,6 +439,9 @@ export function ThemeProvider({
         setState((s) => ({ ...s, layoutReplaceDialog })),
       setInboxPalette: (inboxPalette) =>
         setState((s) => ({ ...s, inboxPalette })),
+      setRecordPageHeader: (recordPageHeader) =>
+        setState((s) => ({ ...s, recordPageHeader })),
+      setPageTitle: (pageTitle) => setState((s) => ({ ...s, pageTitle })),
       setPanelRecentHeading: (panelRecentHeading) =>
         setState((s) => ({ ...s, panelRecentHeading })),
       setPinMarkColour: (pinMarkColour) =>

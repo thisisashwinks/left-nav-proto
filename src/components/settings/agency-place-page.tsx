@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePageTitleShown } from "@/components/page/page-header";
 import { cn } from "@/lib/utils";
 import type { AgencyChild } from "@/components/nav/agency-config";
 
@@ -32,17 +33,22 @@ export function AgencyPlacePage({
   tabs?: readonly string[];
 }) {
   const [active, setActive] = React.useState(0);
+  const showTitle = usePageTitleShown();
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="shrink-0 px-[var(--page-inset)]">
-        <h1 className="text-[20px] leading-[28px] font-semibold text-pg-heading">
-          {title}
-        </h1>
-        {description ? (
-          <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
-            {description}
-          </p>
+        {showTitle ? (
+          <>
+            <h1 className="text-[20px] leading-[28px] font-semibold text-pg-heading">
+              {title}
+            </h1>
+            {description ? (
+              <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
+                {description}
+              </p>
+            ) : null}
+          </>
         ) : null}
 
         {tabs && tabs.length > 0 ? (

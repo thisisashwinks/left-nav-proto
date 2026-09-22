@@ -5,6 +5,7 @@ import { Check, Copy, ImageUp, Info, Plus } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
 import { useBrand } from "@/components/accounts/brand-store";
 import { cn } from "@/lib/utils";
+import { usePageTitleShown } from "@/components/page/page-header";
 import { LogoUploadField } from "./logo-upload-field";
 import {
   LOCALES,
@@ -36,16 +37,22 @@ export function BusinessProfilePage({ account }: { account: Account }) {
   const [street, city, region] = splitAddress(account.meta);
   const locale = LOCALES[city];
 
+  const showTitle = usePageTitleShown();
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="shrink-0 px-[var(--page-inset)]">
-        <h1 className="text-[20px] leading-[28px] font-semibold text-pg-heading">
-          Business Profile Settings
-        </h1>
-        <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
-          Manage your business profile information &amp; settings
-        </p>
-      </header>
+      {/* The trail already says Business Profile; the knob decides whether
+          the page says it a second time. */}
+      {showTitle ? (
+        <header className="shrink-0 px-[var(--page-inset)]">
+          <h1 className="text-[20px] leading-[28px] font-semibold text-pg-heading">
+            Business Profile Settings
+          </h1>
+          <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
+            Manage your business profile information &amp; settings
+          </p>
+        </header>
+      ) : null}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-[var(--page-inset)] pt-[16px] pb-[16px]">
         <div className="flex flex-col items-start gap-[16px] xl:flex-row">

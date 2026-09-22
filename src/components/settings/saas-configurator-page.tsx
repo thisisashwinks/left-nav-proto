@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePageTitleShown } from "@/components/page/page-header";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import {
   DEFAULT_TEMPLATE_ID,
@@ -40,19 +41,27 @@ const TABS = ["Plans", "Pricing", "Rebilling", "Trials"] as const;
 
 export function SaasConfiguratorPage() {
   const [tab, setTab] = React.useState<(typeof TABS)[number]>("Plans");
+  const showTitle = usePageTitleShown();
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="shrink-0 px-[var(--page-inset)]">
-        <h1 className="text-[20px] leading-[28px] font-semibold text-pg-heading">
-          SaaS configurator
-        </h1>
-        <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
-          Plans, pricing and re-billing.
-        </p>
+        {showTitle ? (
+          <>
+            <h1 className="text-[20px] leading-[28px] font-semibold text-pg-heading">
+              SaaS configurator
+            </h1>
+            <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
+              Plans, pricing and re-billing.
+            </p>
+          </>
+        ) : null}
         <nav
           aria-label="SaaS configurator sections"
-          className="mt-[16px] flex gap-[18px] overflow-x-auto shadow-[inset_0_-1px_0_0_var(--pg-border)]"
+          className={cn(
+            "flex gap-[18px] overflow-x-auto shadow-[inset_0_-1px_0_0_var(--pg-border)]",
+            showTitle && "mt-[16px]",
+          )}
         >
           {TABS.map((t) => (
             <button

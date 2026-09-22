@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePageTitleShown } from "@/components/page/page-header";
 import { ArrowLeft, ChevronDown, Pencil } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -48,6 +49,7 @@ export function SubAccountPage({
   onBack: () => void;
 }) {
   const { effective } = useTheme();
+  const showTitle = usePageTitleShown();
   // Production's own first tab. The page used to open on Navigation, which no
   // longer exists here.
   const [tab, setTab] = React.useState<TabId>("basic");
@@ -68,9 +70,11 @@ export function SubAccountPage({
           >
             <ArrowLeft size={18} aria-hidden="true" />
           </button>
-          <h1 className="min-w-0 shrink truncate text-[20px] leading-[28px] font-semibold text-pg-heading">
-            {account.name}
-          </h1>
+          {showTitle ? (
+            <h1 className="min-w-0 shrink truncate text-[20px] leading-[28px] font-semibold text-pg-heading">
+              {account.name}
+            </h1>
+          ) : null}
           <span className="flex h-[32px] shrink-0 items-center gap-[8px] rounded-[8px] px-[10px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
             <span className="size-[8px] shrink-0 rounded-full bg-brand" aria-hidden="true" />
             <span className="text-[13px] leading-none text-pg-text">{account.meta}</span>

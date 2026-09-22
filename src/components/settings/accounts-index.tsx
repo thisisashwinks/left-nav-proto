@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePageTitleShown } from "@/components/page/page-header";
 import {
   Check,
   ChevronRight,
@@ -66,6 +67,7 @@ export function AccountsIndexPage({
   onManage: (accountId: string) => void;
 }) {
   const { effective } = useTheme();
+  const showTitle = usePageTitleShown();
   const layout = useNavLayout();
   const { settings, history } = useBulkActions();
   const { saasTierFor, setSaasTier } = useNavProfiles();
@@ -133,12 +135,16 @@ export function AccountsIndexPage({
     >
       <header className="flex shrink-0 items-center gap-[12px] px-[24px] pt-[18px] pb-[14px]">
         <div className="min-w-0 flex-1">
-          <h1 className="text-[17px] leading-[22px] font-semibold text-pg-heading">
-            Sub-accounts
-          </h1>
-          <p className="text-[12px] leading-[16px] text-pg-muted">
-            {session.accounts.length} accounts · pick one to manage its details and settings.
-          </p>
+          {showTitle ? (
+            <>
+              <h1 className="text-[17px] leading-[22px] font-semibold text-pg-heading">
+                Sub-accounts
+              </h1>
+              <p className="text-[12px] leading-[16px] text-pg-muted">
+                {session.accounts.length} accounts · pick one to manage its details and settings.
+              </p>
+            </>
+          ) : null}
         </div>
         <label className="flex h-[32px] w-[240px] shrink-0 items-center gap-[8px] rounded-[8px] bg-pg-surface px-[10px] shadow-[inset_0_0_0_1px_var(--pg-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">
           <Search size={14} aria-hidden="true" className="shrink-0 text-pg-faint" />

@@ -1241,6 +1241,8 @@ function Toggle({
 
 /** Section order in the panel. The theme, search and nav sections lead. */
 const SECTIONS = [
+  // Canvas scope. The shell's own sections follow.
+  "Page header",
   "Edit card",
   "Theme",
   "Search",
@@ -1640,8 +1642,24 @@ function Section({
  * as part of the design being reviewed — and it is dev-only scaffolding, not
  * something to promote.
  */
+/**
+ * The two halves of the prototype.
+ *
+ * Shell is the sidebar and the app bar — the frame the account lives in.
+ * Canvas is the page inside it. They were one list, and the list had grown
+ * past the point where a reviewer could tell which half a control belonged
+ * to; the page work has its own axes now and they do not read as nav knobs.
+ */
+const SCOPES = ["shell", "canvas"] as const;
+type Scope = (typeof SCOPES)[number];
+const SCOPE_LABELS: Record<Scope, string> = {
+  shell: "Shell",
+  canvas: "Canvas",
+};
+
 export function TuningPanel() {
   const [open, setOpen] = React.useState(false);
+  const [scope, setScope] = React.useState<Scope>("shell");
   const [query, setQuery] = React.useState("");
   const [openSections, setOpenSections] =
     React.useState<SectionId[]>(INITIAL_OPEN);
@@ -1681,6 +1699,10 @@ export function TuningPanel() {
     setPageShell,
     inboxPalette,
     setInboxPalette,
+    pageTitle,
+    setPageTitle,
+    recordPageHeader,
+    setRecordPageHeader,
     navGeneration,
     setNavGeneration,
     legacyFootControl,
@@ -1754,6 +1776,7 @@ export function TuningPanel() {
     );
 
   const allOpen = openSections.length === SECTIONS.length;
+
 
   const themeChanged =
     (accent !== DEFAULT_THEME.accent ? 1 : 0) +
@@ -1923,6 +1946,91 @@ export function TuningPanel() {
         </div>
       </header>
 
+      {/*
+        Shell or canvas, as line tabs — the same object the pages use.
+      */}
+      <div
+        role="tablist"
+        aria-label="Control scope"
+        className="flex shrink-0 items-stretch gap-[2px] px-[10px] shadow-[inset_0_-1px_0_0_var(--pg-border)]"
+      >
+        {SCOPES.map((id) => {
+          const on = id === scope;
+          return (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => {
+                setScope(id);
+                // The canvas tab holds one section; arriving to a closed
+                // heading reads as a tab with nothing in it.
+                if (id === "canvas") {
+                  setOpenSections((open) =>
+                    open.includes("Page header") ? open : [...open, "Page header"],
+                  );
+                }
+              }}
+              className={cn(
+                "motion-tap relative h-[30px] px-[9px] text-[11.5px] leading-none",
+                on
+                  ? "font-semibold text-brand"
+                  : "font-medium text-pg-muted hover:text-pg-text",
+              )}
+            >
+              {SCOPE_LABELS[id]}
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "motion-move absolute inset-x-0 -bottom-px h-[2px] rounded-full",
+                  on ? "bg-brand" : "bg-transparent",
+                )}
+              />
+            </button>
+          );
+        })}
+      </div>
+
+      {scope === "canvas" ? (
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          <Section
+            id="Page header"
+            open={openSections.includes("Page header")}
+            onToggle={() => toggleSection("Page header")}
+            changedCount={
+              (pageTitle ? 0 : 1) + (recordPageHeader ? 1 : 0)
+            }
+            onReset={() => {
+              setPageTitle(true);
+              setRecordPageHeader(false);
+            }}
+          >
+            <Toggle
+              label="Page title"
+              checked={pageTitle}
+              onChange={setPageTitle}
+            />
+            <Note>
+              {pageTitle
+                ? "The full block: title, count and description over the actions. Names the page a second time — the breadcrumb one line above already did."
+                : "Titleless. The trail names the page; the header keeps only what the trail cannot say — the count, the status and the actions — and collapses to one row."}
+            </Note>
+
+            <Toggle
+              label="Record page header"
+              checked={recordPageHeader}
+              onChange={setRecordPageHeader}
+            />
+            <Note>
+              {recordPageHeader
+                ? "Contact detail keeps slot 05: the record's name, its status and a row of actions."
+                : "Off: on a record the trail names it, the first column carries the pager, and each pane owns its own actions — so the header had nothing left of its own to say."}
+            </Note>
+          </Section>
+        </div>
+      ) : (
+      <>
       {/*
         Fifty-odd controls across eight sections, most of them collapsed.
 
@@ -2821,6 +2929,8 @@ export function TuningPanel() {
         })}
       </div>
       </TuningFilterContext>
+      </>
+      )}
     </aside>
   );
 }
