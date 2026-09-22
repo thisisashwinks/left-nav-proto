@@ -2,21 +2,22 @@
 
 import * as React from "react";
 import {
+  ArrowLeft,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
   Filter,
   Mail,
-  MessageSquare,
   Merge,
+  MessageSquare,
   MoveDownLeft,
   Phone,
   Plus,
   Search,
   Settings,
-  Star,
   Smartphone,
+  Star,
   Tag,
   Trash2,
   X,
@@ -96,6 +97,86 @@ const ACTION_GROUPS = [
   { id: "portal", label: "Client portal" },
   { id: "score", label: "Engagement score", badge: "11" },
 ];
+
+/**
+ * The record's status, as a pill.
+ *
+ * Lifted out of the header on Sep 22 because D-D needs the same pill the full
+ * header drew: the two record shapes disagree about the NAME, not about how a
+ * status looks, and two copies of this markup would have drifted the first
+ * time one of them was tweaked.
+ */
+/**
+ * The record's own way out, drawn beside whatever names the record.
+ *
+ * Icon-only and 24px: it sits next to a heading in both variants, and a
+ * labelled "Back to contacts" button there would outweigh the thing it is
+ * standing beside. The label lives in the tooltip and the accessible name,
+ * which is where a control this conventional can afford to keep it.
+ */
+function BackToList({ onBack }: { onBack: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onBack}
+      title="Back to contacts"
+      aria-label="Back to contacts"
+      className="motion-tap flex size-[24px] shrink-0 items-center justify-center rounded-[6px] text-pg-muted hover:bg-pg-bg hover:text-pg-text-strong"
+    >
+      <ArrowLeft size={15} aria-hidden="true" />
+    </button>
+  );
+}
+
+function StatusPill({ status }: { status: Contact["status"] }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-[22px] shrink-0 items-center gap-[5px] rounded-[6px] bg-pg-surface px-[8px] text-[12px] leading-[normal] font-medium shadow-[inset_0_0_0_1px_var(--pg-border)]",
+        status === "subscribed"
+          ? "text-[var(--pg-status-subscribed-fg)]"
+          : "text-[var(--pg-status-inquiry-fg)]",
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "size-[6px] rounded-full",
+          status === "subscribed"
+            ? "bg-[var(--pg-status-subscribed-dot)]"
+            : "bg-[var(--pg-status-inquiry-dot)]",
+        )}
+      />
+      {STATUS_LABELS[status]}
+    </span>
+  );
+}
+
+/**
+ * Who the record belongs to, as a control.
+ *
+ * In the strip this is the one field that earns page level: owner is the
+ * question asked ABOUT a record from outside it ("whose is this?"), and the
+ * answer is a reassignment, not a read. It repeats the owner field in the
+ * panel, which is fine in a way repeating the NAME is not — a duplicated
+ * control still only has one value, whereas a duplicated title is just the
+ * same word three times.
+ */
+function OwnerChip({ name }: { name: string }) {
+  return (
+    <button
+      type="button"
+      aria-label={`Owner: ${name}`}
+      className="flex h-[28px] shrink-0 items-center gap-[6px] rounded-[7px] px-[8px] text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] motion-tap hover:shadow-[inset_0_0_0_1px_var(--pg-border-strong)]"
+    >
+      <ToneAvatar name={name} tone="teal" size={18} />
+      <span className="max-w-[140px] truncate text-[12.5px] leading-none">
+        {name}
+      </span>
+      <ChevronDown size={12} aria-hidden="true" className="shrink-0 text-pg-faint" />
+    </button>
+  );
+}
 
 function FieldRow({ label, value }: { label: string; value: string }) {
   return (
@@ -199,6 +280,58 @@ export function ContactDetail({
    */
   const { effective } = useTheme();
   /*
+   * The two record shapes the Sep 22 research put on the table.
+   *
+   * D-B is what ships: nothing between the bar and the record, so this page
+   * draws no strip and the reading below falls through to the old
+   * `recordPageHeader` knob — which is the same no-op it has always been.
+   *
+   * D-D is the argument against it: one row that carries what the panel and
+   * the trail cannot ask of the page — the record's state, who owns it, and
+   * the actions on the record as a whole. It is deliberately gated on the
+   * variant rather than on `recordPageHeader`, because a picker that renders
+   * nothing until you also find a checkbox reads as broken. The knob and the
+   * variant therefore only meet under D-B; see the note where `legacyHeader`
+   * is computed.
+   */
+  const metaStrip = effective.recordHeaderVariant === "D-D";
+  /*
+   * The page's own exit, independent of which shape is on.
+   *
+   * Independent because the argument is about the trail versus the page, not
+   * about the strip versus the panel — so turning it off has to take both
+   * placements with it, or the knob would only mean something in one variant.
+   */
+  const backButton = effective.recordBackButton;
+  /*
+   * The full header — name, description, actions — is now D-B's escape hatch
+   * and nothing else. Under D-D it is suppressed outright rather than stacked:
+   * two page headers on one record was never a state anyone argued for, and
+   * the one thing the strip exists to avoid is a second row that says the name
+   * again.
+   */
+  const legacyHeader = !metaStrip && effective.recordPageHeader;
+  /*
+   * One set of record actions, drawn by whichever shape is on.
+   *
+   * Three secondaries is exactly PageHeader's ladder budget once a primary is
+   * declared, so all three keep a button and a fourth would collapse the lot
+   * into the kebab. The page does not get to decide that; PageHeader does —
+   * and it has to decide it the same way in both variants, or the strip and
+   * the header stop being two answers to the same question.
+   */
+  const secondary = [
+    { label: "Call", icon: Phone },
+    { label: "Message", icon: MessageSquare },
+    { label: "Email", icon: Mail },
+  ];
+  const primary = { label: "Add to workflow", icon: Plus };
+  const overflow = [
+    { label: "Add tag", icon: Tag },
+    { label: "Merge contact", icon: Merge },
+    { label: "Delete contact", icon: Trash2, danger: true },
+  ];
+  /*
    * The third column is furniture, not a drawer.
    *
    * On the record page this column is always there — the rail beside it picks
@@ -216,30 +349,57 @@ export function ContactDetail({
 
   return (
     <div className="relative flex h-full min-h-0 flex-col gap-[14px] px-[var(--page-inset)]">
-      {effective.recordPageHeader ? (
+      {metaStrip ? (
+        /*
+         * D-D — the compact meta strip.
+         *
+         * 52px, full-bleed to the canvas edges so the rule under it reads as a
+         * strip belonging to the page rather than as a card with no fill. The
+         * height is the row's own, not PageHeader's 34px: the strip has to be
+         * worth its space at a glance or the variant has already lost.
+         */
+        <div className="mx-[calc(var(--page-inset)*-1)] flex h-[52px] shrink-0 items-center gap-[8px] border-b border-pg-head-border px-[var(--page-inset)]">
+          {/*
+            Leading edge of the strip: navigation, before any of the record's
+            own state. The strip reads left to right as "out of here, then what
+            this is, then what you can do to it".
+          */}
+          {backButton ? <BackToList onBack={onBack} /> : null}
+          <div className="flex min-w-0 flex-1 flex-col">
+            <PageHeader
+              /*
+               * The record's name is NOT passed in.
+               *
+               * This is the whole point of D-D. The trail already names the
+               * record and the panel names it again beside the avatar; a strip
+               * that named it a third time would be the thing this variant was
+               * built to disprove. Withholding it here rather than relying on
+               * the title knob being off means the failure cannot come back by
+               * accident when someone hand-edits the knobs afterwards — the
+               * empty string is the seam where PageHeader's required `title`
+               * meets a header that has no title to give it.
+               */
+              title=""
+              status={<StatusPill status={contact.status} />}
+              /*
+               * Owner rides in `aside` — "anything the page needs left of the
+               * buttons" — rather than being stuffed into `status`. It is a
+               * control, so it belongs on the commitment side of the row with
+               * the other controls; the pill on the left is a read.
+               */
+              aside={<OwnerChip name="Samrina Shabha" />}
+              secondary={secondary}
+              primary={primary}
+              overflow={overflow}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {legacyHeader ? (
         <PageHeader
           title={contact.name}
-          status={
-            <span
-              className={cn(
-                "inline-flex h-[22px] shrink-0 items-center gap-[5px] rounded-[6px] bg-pg-surface px-[8px] text-[12px] leading-[normal] font-medium shadow-[inset_0_0_0_1px_var(--pg-border)]",
-                contact.status === "subscribed"
-                  ? "text-[var(--pg-status-subscribed-fg)]"
-                  : "text-[var(--pg-status-inquiry-fg)]",
-              )}
-            >
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "size-[6px] rounded-full",
-                  contact.status === "subscribed"
-                    ? "bg-[var(--pg-status-subscribed-dot)]"
-                    : "bg-[var(--pg-status-inquiry-dot)]",
-                )}
-              />
-              {STATUS_LABELS[contact.status]}
-            </span>
-          }
+          status={<StatusPill status={contact.status} />}
           description={`${contact.handle} · created ${contact.created} · owner Samrina Shabha`}
           /*
            * No "All contacts" button.
@@ -275,22 +435,9 @@ export function ContactDetail({
               </span>
             ) : undefined
           }
-          /*
-           * Four secondaries would spill under the ladder's budget of three, so
-           * Email joins the menu rather than the header growing a fourth button.
-           * The page does not get to decide that; PageHeader does.
-           */
-          secondary={[
-            { label: "Call", icon: Phone },
-            { label: "Message", icon: MessageSquare },
-            { label: "Email", icon: Mail },
-          ]}
-          primary={{ label: "Add to workflow", icon: Plus }}
-          overflow={[
-            { label: "Add tag", icon: Tag },
-            { label: "Merge contact", icon: Merge },
-            { label: "Delete contact", icon: Trash2, danger: true },
-          ]}
+          secondary={secondary}
+          primary={primary}
+          overflow={overflow}
         />
       ) : null}
 
@@ -304,6 +451,15 @@ export function ContactDetail({
               here so it survives the header being switched off.
             */}
             <div className="flex items-center gap-[8px] pt-[11px]">
+              {/*
+                Under D-B nothing else on the page can carry this: there is no
+                strip and no header, so the panel's own heading row is the
+                first place a hand already in the record can reach.
+                Suppressed under D-D — the strip above already carries it, and
+                two exits 60px apart is the duplication the strip exists to
+                avoid, re-introduced by the control meant to resolve it.
+              */}
+              {backButton && !metaStrip ? <BackToList onBack={onBack} /> : null}
               <span className="min-w-0 flex-1 truncate text-[13px] leading-none font-semibold text-pg-heading">
                 Contact details
               </span>

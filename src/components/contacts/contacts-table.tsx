@@ -89,6 +89,7 @@ export function ContactsTable({
   onToggleRow,
   onOpenRow,
   activeId,
+  toolbar,
 }: {
   rows: Contact[];
   onToggleRow: (id: string) => void;
@@ -96,6 +97,15 @@ export function ContactsTable({
   onOpenRow?: (id: string) => void;
   /** The row the drawer is showing, so the list says where you are. */
   activeId?: string | null;
+  /**
+   * Search, filters and actions, drawn INSIDE the card above the head row.
+   *
+   * For the variants that draw no page header (L-E): with nothing above the
+   * table, a toolbar left floating on the plane reads as page chrome for a
+   * page that has none. Inside the card it is plainly the table's own — the
+   * controls sit against the rows they cut, one edge above the column names.
+   */
+  toolbar?: React.ReactNode;
 }) {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-pg-surface">
@@ -111,6 +121,11 @@ export function ContactsTable({
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 z-10 rounded-[10px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]"
       />
+      {toolbar ? (
+        <div className="flex h-[54px] shrink-0 items-center gap-[10px] bg-pg-surface px-[12px] shadow-[inset_0_-1px_0_0_var(--pg-head-border)]">
+          {toolbar}
+        </div>
+      ) : null}
       <div
         role="row"
         className="flex h-[38px] shrink-0 items-center bg-pg-surface shadow-[inset_0_-1px_0_0_var(--pg-head-border)]"

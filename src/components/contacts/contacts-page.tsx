@@ -3,6 +3,7 @@
 import * as React from "react";
 import {
   ArrowUpDown,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -17,8 +18,15 @@ import {
   X,
 } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
-import { OutlineButton, PageHeader } from "@/components/page/page-header";
+import {
+  OutlineButton,
+  OverflowMenu,
+  PageHeader,
+  PrimaryButton,
+} from "@/components/page/page-header";
+import { usePageCrumb } from "@/components/page/page-crumb";
 import { ViewBar } from "@/components/page/view-bar";
+import { cn } from "@/lib/utils";
 import { contactsAreaLabel, useContactsArea } from "./contacts-area";
 import { contacts as seedContacts, smartLists } from "./contacts-data";
 import { ContactsTable } from "./contacts-table";
@@ -119,6 +127,128 @@ export function ContactsPage() {
   const activeLabel = active?.label ?? "All contacts";
   const activeCount = activeList === "all" ? "1,469" : String(visible.length);
 
+  /*
+   * Which shape of header this page is wearing (Sep 22 variants).
+   *
+   * The four page-header knobs are already written for us when a variant is
+   * picked, so the title, description and count need nothing here. What is
+   * left is the part a boolean cannot say: WHERE the saved-list scope lives
+   * once the title stops naming the page — a picker on the merged row (L-B),
+   * the last crumb in the trail (L-E), or the tab strip it has always been
+   * (L-C, L-D). Defaulting to L-C means this axis draws exactly what the
+   * prototype drew before it existed.
+   */
+  const variant = effective.listHeaderVariant;
+  const mergedRow = variant === "L-B";
+  const scopeInTrail = variant === "L-E";
+
+  /*
+   * Handed to the shell, which owns the bar. Published unconditionally in
+   * L-E — including while a record is open, where the trail then reads
+   * Contacts ▸ Smart lists ▸ Hot leads ▸ Priya Raman and every level of it
+   * still moves.
+   */
+  usePageCrumb(
+    scopeInTrail
+      ? {
+          label: activeLabel,
+          options: smartLists.map((list) => ({
+            id: list.id,
+            label: list.label,
+            icon: list.icon,
+            selected: list.id === activeList,
+          })),
+          onSelect: setActiveList,
+        }
+      : null,
+  );
+
+  /*
+   * Search, filters and the field picker as one fragment, because all three
+   * variants below use the SAME controls and only disagree about where they
+   * stand — page chrome under the header, merged into the header's row, or
+   * inside the table card. Building them once is what keeps that true.
+   */
+  const controls = (
+    <>
+      <div className="flex h-[34px] min-w-0 flex-1 items-center gap-[9px] rounded-[8px] bg-pg-surface px-[14px] shadow-[inset_0_0_0_1px_var(--pg-border)] motion-tap focus-within:shadow-[inset_0_0_0_1px_var(--brand),0_0_0_3px_var(--brand-soft)]">
+        <Search size={16} aria-hidden="true" className="shrink-0 text-pg-faint" />
+        <input
+          type="search"
+          placeholder="Search by name, email, or phone"
+          aria-label="Search contacts"
+          className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
+        />
+      </div>
+      <OutlineButton>
+        <ListFilter size={15} aria-hidden="true" className="text-pg-text-strong" />
+        Filters
+        <span className="flex size-[17px] shrink-0 items-center justify-center rounded-full bg-brand text-[11px] leading-[normal] font-semibold text-brand-fg">
+          2
+        </span>
+      </OutlineButton>
+      <OutlineButton>
+        <ArrowUpDown size={15} aria-hidden="true" className="text-pg-text-strong" />
+        Sort
+      </OutlineButton>
+      <OutlineButton
+        onClick={() => {
+          setOpenId(null);
+          setDrawer("fields");
+        }}
+      >
+        <Settings size={15} aria-hidden="true" className="text-pg-text-strong" />
+        Manage fields
+      </OutlineButton>
+    </>
+  );
+
+  const openAdd = () => {
+    setOpenId(null);
+    setDrawer("add");
+  };
+
+  /*
+   * Custom fields is the interesting one: it is configuration, so its one
+   * home is Settings. It stays reachable from here because this is where
+   * you think of it — a link to the canonical page, not a second copy of
+   * it living on a tab.
+   */
+  const overflowActions = [
+    { label: "Manage smart lists", icon: SlidersHorizontal },
+    {
+      label: "Manage fields",
+      icon: Columns3,
+      onClick: () => {
+        setOpenId(null);
+        setDrawer("fields");
+      },
+    },
+    { label: "Custom fields", icon: Settings },
+    { label: "Export contacts", icon: Download },
+  ];
+
+  /*
+   * With no header at all, the actions would go with it — and a contacts page
+   * you cannot add a contact from is not a variant, it is a broken page. They
+   * ride the in-canvas toolbar instead, on its right edge, which is the edge
+   * they held when there was a header.
+   */
+  const canvasToolbar = scopeInTrail ? (
+    <>
+      {controls}
+      <OutlineButton onClick={() => undefined}>
+        <Upload size={15} aria-hidden="true" className="text-pg-text-strong" />
+        Import
+      </OutlineButton>
+      <PrimaryButton onClick={openAdd}>
+        <Plus size={16} aria-hidden="true" />
+        Add contact
+      </PrimaryButton>
+      <OverflowMenu items={overflowActions} />
+    </>
+  ) : null;
+
   if (full && openContact) {
     return (
       <ContactDetail
@@ -142,115 +272,85 @@ export function ContactsPage() {
     >
       <PageHeader
         title={contactsAreaLabel(pageId)}
-        count={activeCount}
+        /*
+         * On the merged row the picker states the scope AND its size, so the
+         * header does not also hang a count off a title that is not there —
+         * two counts for one collection is exactly the repetition the variant
+         * was drawn to remove.
+         */
+        count={mergedRow ? undefined : activeCount}
         description="People and companies in this account"
+        lead={
+          mergedRow ? (
+            <>
+              <SmartListPicker
+                activeId={activeList}
+                onSelect={setActiveList}
+                /*
+                 * The raw knob, not usePageChrome's count.
+                 *
+                 * That hook makes the count depend on the title, because in
+                 * slot 05 the count hangs off the title and has nothing to
+                 * attach to without one. Here it attaches to the picker, which
+                 * is present — so the dependency does not apply, and the knob
+                 * keeps doing something on the one variant that has no title.
+                 */
+                showCount={effective.pageHeader && effective.pageCount}
+              />
+              {controls}
+            </>
+          ) : undefined
+        }
         secondary={[{ label: "Import", icon: Upload }]}
         primary={{
           label: "Add contact",
           icon: Plus,
-          onClick: () => {
-            setOpenId(null);
-            setDrawer("add");
-          },
+          onClick: openAdd,
         }}
-        /*
-         * Custom fields is the interesting one: it is configuration, so its one
-         * home is Settings. It stays reachable from here because this is where
-         * you think of it — a link to the canonical page, not a second copy of
-         * it living on a tab.
-         */
-        overflow={[
-          { label: "Manage smart lists", icon: SlidersHorizontal },
-          {
-            label: "Manage fields",
-            icon: Columns3,
-            onClick: () => {
-              setOpenId(null);
-              setDrawer("fields");
-            },
-          },
-          { label: "Custom fields", icon: Settings },
-          { label: "Export contacts", icon: Download },
-        ]}
+        overflow={overflowActions}
       />
 
-      <ViewBar
-        label="Smart lists"
-        views={smartLists}
-        activeId={activeList}
-        onSelect={setActiveList}
-        onCreate={() => undefined}
-        createLabel="Create list"
-        /*
-         * Acts on the lit chip, so it rides the chip row rather than the
-         * control bar below — the control bar filters the rows, this edits
-         * the view those rows come from. Absent on All, which is not a saved
-         * list and so has nothing to customise.
-         */
-        trailing={
-          activeList === "all" ? undefined : (
-            <button
-              type="button"
-              className="flex h-[30px] items-center gap-[6px] rounded-[8px] px-[9px] text-[12.5px] leading-none font-medium text-pg-text-strong motion-tap hover:bg-pg-surface"
-            >
-              <SlidersHorizontal
-                size={14}
-                aria-hidden="true"
-                className="text-pg-muted"
-              />
-              Customise list
-            </button>
-          )
-        }
-      />
+      {/*
+        The tab strip is the scope control of last resort: it is here when the
+        scope has nowhere better to be. Once the row carries a picker (L-B) or
+        the trail's tail does (L-E), a row of tabs saying the same thing a
+        third time is the duplication under review.
+      */}
+      {mergedRow || scopeInTrail ? null : (
+        <ViewBar
+          label="Smart lists"
+          views={smartLists}
+          activeId={activeList}
+          onSelect={setActiveList}
+          onCreate={() => undefined}
+          createLabel="Create list"
+          /*
+           * Acts on the lit chip, so it rides the chip row rather than the
+           * control bar below — the control bar filters the rows, this edits
+           * the view those rows come from. Absent on All, which is not a saved
+           * list and so has nothing to customise.
+           */
+          trailing={
+            activeList === "all" ? undefined : (
+              <button
+                type="button"
+                className="flex h-[30px] items-center gap-[6px] rounded-[8px] px-[9px] text-[12.5px] leading-none font-medium text-pg-text-strong motion-tap hover:bg-pg-surface"
+              >
+                <SlidersHorizontal
+                  size={14}
+                  aria-hidden="true"
+                  className="text-pg-muted"
+                />
+                Customise list
+              </button>
+            )
+          }
+        />
+      )}
 
-      <div className="flex shrink-0 items-center gap-[10px]">
-        <div className="flex h-[34px] flex-1 items-center gap-[9px] rounded-[8px] bg-pg-surface px-[14px] shadow-[inset_0_0_0_1px_var(--pg-border)] motion-tap focus-within:shadow-[inset_0_0_0_1px_var(--brand),0_0_0_3px_var(--brand-soft)]">
-          <Search
-            size={16}
-            aria-hidden="true"
-            className="shrink-0 text-pg-faint"
-          />
-          <input
-            type="search"
-            placeholder="Search by name, email, or phone"
-            aria-label="Search contacts"
-            className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
-          />
-        </div>
-        <OutlineButton>
-          <ListFilter
-            size={15}
-            aria-hidden="true"
-            className="text-pg-text-strong"
-          />
-          Filters
-          <span className="flex size-[17px] shrink-0 items-center justify-center rounded-full bg-brand text-[11px] leading-[normal] font-semibold text-brand-fg">
-            2
-          </span>
-        </OutlineButton>
-        <OutlineButton>
-          <ArrowUpDown
-            size={15}
-            aria-hidden="true"
-            className="text-pg-text-strong"
-          />
-          Sort
-        </OutlineButton>
-        <OutlineButton
-          onClick={() => {
-            setOpenId(null);
-            setDrawer("fields");
-          }}
-        >
-          <Settings
-            size={15}
-            aria-hidden="true"
-            className="text-pg-text-strong"
-          />
-          Manage fields
-        </OutlineButton>
-      </div>
+      {mergedRow || scopeInTrail ? null : (
+        <div className="flex shrink-0 items-center gap-[10px]">{controls}</div>
+      )}
 
       {visible.length === 0 ? (
         /*
@@ -258,19 +358,35 @@ export function ContactsPage() {
          * honest empty state says the filter found nothing — and offers the
          * way back out rather than an onboarding illustration.
          */
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[8px] rounded-[10px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
-          <span className="text-[14px] leading-[18px] font-semibold text-pg-heading">
-            No contacts in {activeLabel}
-          </span>
-          <span className="text-[13px] leading-[18px] text-pg-muted">
-            Nothing matches this list right now.
-          </span>
-          <OutlineButton onClick={() => setActiveList("all")} className="mt-[4px]">
-            View all contacts
-          </OutlineButton>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+          {/*
+            The toolbar stays put when the cut comes back empty: it is the
+            thing that got you here and the thing that gets you out, so it
+            cannot be the part that disappears.
+          */}
+          {canvasToolbar ? (
+            <div className="flex h-[54px] shrink-0 items-center gap-[10px] px-[12px] shadow-[inset_0_-1px_0_0_var(--pg-head-border)]">
+              {canvasToolbar}
+            </div>
+          ) : null}
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[8px]">
+            <span className="text-[14px] leading-[18px] font-semibold text-pg-heading">
+              No contacts in {activeLabel}
+            </span>
+            <span className="text-[13px] leading-[18px] text-pg-muted">
+              Nothing matches this list right now.
+            </span>
+            <OutlineButton
+              onClick={() => setActiveList("all")}
+              className="mt-[4px]"
+            >
+              View all contacts
+            </OutlineButton>
+          </div>
         </div>
       ) : (
         <ContactsTable
+          toolbar={canvasToolbar}
           rows={visible}
           onToggleRow={toggleRow}
           onOpenRow={(id) => {
@@ -390,6 +506,142 @@ export function ContactsPage() {
             <X size={13} aria-hidden="true" />
           </button>
         </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The saved list as a picker, for the variants where the row carries scope.
+ *
+ * A tab strip and a dropdown answer the same question and cost very different
+ * heights: seven tabs need their own 38px row, one button needs none. The
+ * trade is that a closed menu shows one list instead of seven, which is the
+ * whole argument L-B is here to be judged on — so the button states the list
+ * AND its size, and the menu is one press away with the counts on every row.
+ *
+ * Hand-rolled like every other menu in this prototype: an absolutely
+ * positioned card over a full-screen click-catcher, so the anchor stays in
+ * normal flow and the row it sits on keeps its height whether the menu is
+ * open or shut.
+ */
+function SmartListPicker({
+  activeId,
+  onSelect,
+  showCount,
+}: {
+  activeId: string;
+  onSelect: (id: string) => void;
+  /** Follows the page-header count knob — the same number, wherever it lands. */
+  showCount: boolean;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const active = smartLists.find((l) => l.id === activeId) ?? smartLists[0];
+  const ActiveIcon = active.icon;
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Smart list"
+        onClick={() => setOpen((v) => !v)}
+        className="flex h-[34px] shrink-0 items-center gap-[8px] rounded-[8px] bg-pg-surface pr-[10px] pl-[12px] shadow-[inset_0_0_0_1px_var(--pg-border)] motion-tap hover:shadow-[inset_0_0_0_1px_var(--pg-border-strong)] active:scale-[0.97]"
+      >
+        <ActiveIcon size={15} aria-hidden="true" className="shrink-0 text-brand" />
+        <span className="text-[13px] leading-[normal] font-semibold whitespace-nowrap text-pg-heading">
+          {active.label}
+        </span>
+        {showCount ? (
+          <span className="text-[12.5px] leading-[normal] font-medium tabular-nums whitespace-nowrap text-pg-muted">
+            {active.count}
+          </span>
+        ) : null}
+        <ChevronDown size={14} aria-hidden="true" className="shrink-0 text-pg-faint" />
+      </button>
+
+      {open ? (
+        <>
+          <button
+            type="button"
+            aria-label="Close smart lists"
+            tabIndex={-1}
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-30 cursor-default"
+          />
+          <div
+            role="menu"
+            aria-label="Smart lists"
+            className="absolute top-[calc(100%+8px)] left-0 z-40 w-[248px] rounded-[12px] bg-pg-surface p-[6px] shadow-[0_16px_32px_-8px_rgba(15,23,42,0.18),0_4px_8px_-4px_rgba(15,23,42,0.12),inset_0_0_0_1px_var(--pg-border)]"
+          >
+            {smartLists.map((list) => {
+              const on = list.id === activeId;
+              return (
+                <button
+                  key={list.id}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={on}
+                  onClick={() => {
+                    onSelect(list.id);
+                    setOpen(false);
+                  }}
+                  className="motion-tap flex w-full items-center gap-[10px] rounded-[8px] px-[10px] py-[8px] text-left hover:bg-pg-bg"
+                >
+                  <list.icon
+                    size={15}
+                    aria-hidden="true"
+                    className={cn("shrink-0", on ? "text-brand" : "text-pg-muted")}
+                  />
+                  <span
+                    className={cn(
+                      "min-w-0 flex-1 truncate text-[13.5px] leading-[18px]",
+                      on ? "font-semibold text-pg-heading" : "text-pg-text",
+                    )}
+                  >
+                    {list.label}
+                  </span>
+                  <span className="shrink-0 text-[12px] leading-[18px] tabular-nums text-pg-faint">
+                    {list.count}
+                  </span>
+                  {on ? (
+                    <Check size={14} aria-hidden="true" className="shrink-0 text-brand" />
+                  ) : null}
+                </button>
+              );
+            })}
+            {/*
+              Creating a list is not one of the lists, so it sits under a rule
+              rather than at the end of the radio group — a menu where the last
+              row does something else is how you pick the wrong one.
+            */}
+            <span
+              aria-hidden="true"
+              className="my-[4px] block h-px bg-[var(--pg-border)]"
+            />
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="motion-tap flex w-full items-center gap-[10px] rounded-[8px] px-[10px] py-[8px] text-left text-brand hover:bg-pg-bg"
+            >
+              <Plus size={15} aria-hidden="true" className="shrink-0" />
+              <span className="text-[13.5px] leading-[18px] font-medium">
+                Create list
+              </span>
+            </button>
+          </div>
+        </>
       ) : null}
     </div>
   );

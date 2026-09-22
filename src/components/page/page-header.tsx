@@ -69,8 +69,15 @@ export function PrimaryButton({
  * this prototype is — an absolutely positioned card over a full-screen
  * click-catcher, so the anchor stays in normal flow and the header keeps its
  * height whether the menu is open or shut.
+ *
+ * Exported since Sep 22: the board variants can move a page's actions off the
+ * header and into a toolbar inside the canvas, and the settings and export
+ * items have to travel with them. A second hand-rolled kebab in the
+ * opportunities page would be the third menu in this prototype that looks
+ * almost like this one — so the header lends this one out rather than being
+ * the only place allowed to own it.
  */
-function OverflowMenu({ items }: { items: PageAction[] }) {
+export function OverflowMenu({ items }: { items: PageAction[] }) {
   const [open, setOpen] = React.useState(false);
 
   React.useEffect(() => {
@@ -171,6 +178,16 @@ export interface PageHeaderProps {
   overflow?: PageAction[];
   /** Anything the page needs left of the buttons, e.g. a record pager. */
   aside?: React.ReactNode;
+  /**
+   * The page's own controls, on the header's row rather than under it.
+   *
+   * For the merged variants (L-B and its siblings), where the row stops
+   * repeating the trail's last crumb and carries scope and filters instead.
+   * It sits where the title would be and takes the free width, so the row
+   * still starts at the canvas inset and the actions keep the right edge —
+   * one row doing two jobs, not a header with a toolbar bolted to it.
+   */
+  lead?: React.ReactNode;
 }
 
 /**
@@ -222,6 +239,7 @@ export function PageHeader({
   secondary = [],
   overflow = [],
   aside,
+  lead,
 }: PageHeaderProps) {
   /*
    * The overflow ladder, borrowed from Cloudscape.
@@ -265,8 +283,22 @@ export function PageHeader({
         showTitle ? "items-start" : "h-[34px] items-center",
       )}
     >
-      <div className="flex min-w-0 flex-col items-start gap-[3px]">
-        <div className="flex min-w-0 items-center gap-[8px]">
+      <div
+        className={cn(
+          "flex min-w-0 flex-col items-start gap-[3px]",
+          // The lead owns the free width; without one the column is only as
+          // wide as the heading, which is what keeps justify-between putting
+          // the actions on the right edge.
+          lead && "flex-1",
+        )}
+      >
+        <div
+          className={cn(
+            "flex min-w-0 items-center",
+            lead ? "w-full gap-[10px]" : "gap-[8px]",
+          )}
+        >
+          {lead}
           {showTitle ? (
             <h1 className="truncate text-[20px] leading-[normal] font-semibold tracking-[-0.2px] text-pg-heading">
               {title}

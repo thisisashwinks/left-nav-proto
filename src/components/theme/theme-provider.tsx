@@ -60,6 +60,12 @@ import {
   type ThemeState,
   type Tint,
 } from "@/design/theme";
+import { chromeForVariant } from "@/components/page/header-variants";
+import type {
+  BuilderCanvas,
+  BuilderControls,
+  BuilderExit,
+} from "@/components/page/header-variants";
 
 /**
  * A tenant's own look and layout, layered over the platform theme: the
@@ -116,6 +122,14 @@ export type AccountTheme = Partial<
    */
   customSwatches?: string[];
 };
+
+/** The six ThemeState fields a header variant can be written to. */
+export type HeaderVariantField =
+  | "listHeaderVariant"
+  | "recordHeaderVariant"
+  | "boardHeaderVariant"
+  | "panelHeaderVariant"
+  | "deepHeaderVariant";
 
 interface ThemeContextValue extends ThemeState {
   setAccent: (accent: Accent) => void;
@@ -190,6 +204,23 @@ interface ThemeContextValue extends ThemeState {
   setPageDescription: (on: boolean) => void;
   setPageCount: (on: boolean) => void;
   setPageHeader: (on: boolean) => void;
+  setBuilderKeepSidebar: (on: boolean) => void;
+  setBuilderKeepTopBar: (on: boolean) => void;
+  setBuilderControls: (v: BuilderControls) => void;
+  setBuilderExit: (v: BuilderExit) => void;
+  setBuilderCanvas: (v: BuilderCanvas) => void;
+  setRecordBackButton: (on: boolean) => void;
+  /**
+   * Picks a header shape for one page archetype.
+   *
+   * Writes the four page-header knobs to the variant's own answer as it goes,
+   * so the variant picker and the knobs are one decision rather than two that
+   * can contradict each other. The knobs stay editable afterwards.
+   */
+  setHeaderVariant: <K extends HeaderVariantField>(
+    field: K,
+    value: ThemeState[K],
+  ) => void;
   setPanelRecentHeading: (heading: PanelRecentHeading) => void;
   setPinMarkColour: (colour: PinMarkColour) => void;
   setAiButtonStyle: (style: AiButtonStyle) => void;
@@ -449,6 +480,31 @@ export function ThemeProvider({
         setState((s) => ({ ...s, pageDescription })),
       setPageCount: (pageCount) => setState((s) => ({ ...s, pageCount })),
       setPageHeader: (pageHeader) => setState((s) => ({ ...s, pageHeader })),
+      setBuilderKeepSidebar: (builderKeepSidebar) =>
+        setState((s) => ({ ...s, builderKeepSidebar })),
+      setBuilderKeepTopBar: (builderKeepTopBar) =>
+        setState((s) => ({ ...s, builderKeepTopBar })),
+      setBuilderControls: (builderControls) =>
+        setState((s) => ({ ...s, builderControls })),
+      setBuilderExit: (builderExit) => setState((s) => ({ ...s, builderExit })),
+      setBuilderCanvas: (builderCanvas) =>
+        setState((s) => ({ ...s, builderCanvas })),
+      setRecordBackButton: (recordBackButton) =>
+        setState((s) => ({ ...s, recordBackButton })),
+      setHeaderVariant: (field, value) =>
+        setState((s) => {
+          const chrome = chromeForVariant(value as string);
+          return chrome
+            ? {
+                ...s,
+                [field]: value,
+                pageHeader: chrome.header,
+                pageTitle: chrome.title,
+                pageDescription: chrome.description,
+                pageCount: chrome.count,
+              }
+            : { ...s, [field]: value };
+        }),
       setPanelRecentHeading: (panelRecentHeading) =>
         setState((s) => ({ ...s, panelRecentHeading })),
       setPinMarkColour: (pinMarkColour) =>

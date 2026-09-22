@@ -17,8 +17,17 @@ import type {
 } from "@/components/nav/catalogue";
 import { cn } from "@/lib/utils";
 import { InboxPage } from "./inbox-page";
+import {
+  DeepPageTrail,
+  DeepRail,
+  DeepSubTabs,
+  DeepTabs,
+  isDeepPage,
+  useDeepPlace,
+} from "./deep-sections";
 import { OpportunitiesPage } from "@/components/opportunities/opportunities-page";
 import { WorkflowsPage } from "@/components/automation/workflows-page";
+import { FunnelsPage } from "@/components/sites/funnels-page";
 
 /**
  * The products that have a real page behind them, in both catalogues.
@@ -64,6 +73,25 @@ const REAL_PAGES: {
       "ia-automation-list-deleted": "deleted",
     },
     render: (view) => <WorkflowsPage initialView={view} />,
+  },
+  {
+    /*
+     * Content ▸ Sites ▸ Funnel, and the AI builder behind it.
+     *
+     * Two id families as usual, and they are further apart than the pairs
+     * above: the shipped catalogue calls the product "Sites & funnels" with a
+     * child "Funnels", the proposed tree calls them "Sites" and "Funnel". Both
+     * name the same screen, so both are listed rather than the page picking a
+     * winner — the whole point of the two trees is that they can disagree
+     * about words without disagreeing about pages.
+     *
+     * The `childId === null` clause in realPageFor means landing on the
+     * product bare lands here too, which is right for this one: funnels are
+     * what an operator means by Sites, and the shipped app opens on them.
+     */
+    products: ["sites", "ia-content-sites"],
+    children: ["sites-funnels", "ia-content-sites-funnel"],
+    render: () => <FunnelsPage />,
   },
 ];
 
@@ -172,6 +200,21 @@ export function ProductPage({
     null;
 
   /*
+   * The one chain deep enough to have an L4 and an L5 argument.
+   *
+   * Voice AI's sub-sections are declared in deep-sections rather than in either
+   * catalogue — see the note there. What matters here is that the deep page
+   * takes over the in-page tab rows completely: the proposed tree gives Voice
+   * AI two tabs of its own, and drawing those UNDER a variant's L4 strip would
+   * put three rows of tabs on the screen the review is trying to measure.
+   *
+   * Unconditional, like every hook above it: `deep` decides what the hook
+   * publishes, never whether it runs.
+   */
+  const deep = isDeepPage(product.id, childId);
+  const place = useDeepPlace(deep && !realPage);
+
+  /*
    * After the hooks, never before them.
    *
    * Every hook above runs for the inbox too and its results go unused, which is
@@ -246,7 +289,7 @@ export function ProductPage({
         </div>
       </div>
 
-      {tabs.length > 0 ? (
+      {!deep && tabs.length > 0 ? (
         /*
           The in-page tab bar. Sits under the title and above the toolbar, which
           is where the current app puts it — and it is the whole reason those
@@ -293,7 +336,7 @@ export function ProductPage({
         </div>
       ) : null}
 
-      {subTabs.length > 0 ? (
+      {!deep && subTabs.length > 0 ? (
         <div
           role="tablist"
           aria-label={`${tabs.find((t) => t.id === currentTab)?.label ?? title} filters`}
@@ -322,6 +365,46 @@ export function ProductPage({
         </div>
       ) : null}
 
+      {/*
+        The deep chain's own rows, one variant at a time.
+
+        X-2 keeps both strips and lets the bar say all four levels anyway —
+        that redundancy IS the variant, so nothing here tries to soften it.
+        X-6 drops the L4 strip because the trail took that level. X-4 and X-3
+        draw nothing at page level at all: one moved the whole chain into the
+        crumb menus, the other moved it into the content beside the card.
+        X-5 draws its second trail here, where a page header would have been.
+      */}
+      {deep && (place.variant === "X-2" || place.variant === "X-6") ? (
+        <>
+          {place.variant === "X-2" ? (
+            <DeepTabs
+              sections={place.sections}
+              activeId={place.section.id}
+              onSelect={place.setSection}
+            />
+          ) : null}
+          {place.section.subs.length > 0 ? (
+            <DeepSubTabs
+              label={`${place.section.label} filters`}
+              subs={place.section.subs}
+              activeId={place.sub?.id ?? null}
+              onSelect={place.setSub}
+            />
+          ) : null}
+        </>
+      ) : null}
+
+      {deep && place.variant === "X-5" ? (
+        <DeepPageTrail
+          sections={place.sections}
+          section={place.section}
+          sub={place.sub}
+          onSection={place.setSection}
+          onSub={place.setSub}
+        />
+      ) : null}
+
       {/* Toolbar — enough furniture to read as a real list page. */}
       <div className="flex shrink-0 items-center gap-[10px]">
         <div className="flex h-[34px] w-[300px] items-center gap-[8px] rounded-[8px] bg-pg-surface px-[11px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
@@ -339,10 +422,27 @@ export function ProductPage({
         The stage. Skeleton rows, not fake data: this page exists to demo the
         title menu, and plausible-but-fabricated records would upstage it.
       */}
+      {/*
+        A row, not just the card — X-3 puts its rail inside the content area
+        rather than above it, and "inside the content" has to be literally
+        true for the variant to be worth looking at. With no rail the row has
+        one child and lays out exactly as the bare card did.
+      */}
+      <div className="flex min-h-0 flex-1">
+        {deep && place.variant === "X-3" ? (
+          <DeepRail
+            sections={place.sections}
+            section={place.section}
+            sub={place.sub}
+            onSection={place.setSection}
+            onSub={place.setSub}
+          />
+        ) : null}
+
       {/* --pg-card-border, not --pg-border: this is the page's one big card, the
           same thing the contacts table draws, and the joined shells switch that
           token off so the card is not a second ring inside the canvas's own. */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+      <div className="flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
         <div className="flex h-[40px] shrink-0 items-center gap-[16px] border-b border-[var(--pg-border)] px-[16px]">
           <span className="h-[10px] w-[14px] rounded-[3px] bg-pg-bg shadow-[inset_0_0_0_1px_var(--pg-border)]" />
           <span className="text-[12px] leading-[normal] font-semibold tracking-[0.4px] text-pg-faint uppercase">
@@ -367,17 +467,30 @@ export function ProductPage({
           <span className="text-[12.5px] leading-[normal] text-pg-muted">
             Demo stage — {product.label}
             {current ? ` · ${current.label}` : ""}
-            {currentTab
+            {/* The catalogue's own tabs, only where they are actually drawn —
+                the deep page suppresses those strips, so naming a tab nobody
+                can see would make the readout disagree with the screen. */}
+            {!deep && currentTab
               ? ` · ${tabs.find((t) => t.id === currentTab)?.label ?? ""}`
               : ""}
-            {currentSubTab
+            {!deep && currentSubTab
               ? ` · ${subTabs.find((t) => t.id === currentSubTab)?.label ?? ""}`
+              : ""}
+            {/*
+              The deep chain reads out here too, because four of the five
+              variants move the selection somewhere other than a tab strip —
+              without this line a screenshot of X-4 cannot show that picking a
+              crumb changed anything on the page.
+            */}
+            {deep
+              ? ` · ${place.section.label}${place.sub ? ` · ${place.sub.label}` : ""}`
               : ""}
           </span>
           <span className="text-[12.5px] leading-[normal] text-pg-faint">
             Rows per page 20
           </span>
         </div>
+      </div>
       </div>
     </div>
   );

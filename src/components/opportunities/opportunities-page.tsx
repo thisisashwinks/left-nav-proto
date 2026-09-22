@@ -13,7 +13,14 @@ import {
   Download,
 } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
-import { OutlineButton, PageHeader } from "@/components/page/page-header";
+import {
+  OutlineButton,
+  OverflowMenu,
+  PageHeader,
+  PrimaryButton,
+  type PageAction,
+} from "@/components/page/page-header";
+import { usePageCrumb } from "@/components/page/page-crumb";
 import { ViewBar } from "@/components/page/view-bar";
 import { ToneAvatar } from "@/components/page/avatar";
 import { cn } from "@/lib/utils";
@@ -262,6 +269,60 @@ function Table({
 }
 
 /**
+ * Everything that changes how the same rows are drawn.
+ *
+ * One component for both board variants, because the controls are not the
+ * thing K-B and K-C disagree about — where the row SITS is. K-B leaves it as
+ * page chrome under the pipeline tabs; K-C moves it inside the canvas and
+ * bolts the page's own actions onto the end, because with no header there is
+ * nowhere else for Add opportunity to be. Two hand-kept copies of a search
+ * field and three buttons would have drifted the first time anyone tuned one.
+ */
+function BoardControls({
+  renderer,
+  onRenderer,
+  trailing,
+  className,
+}: {
+  renderer: Renderer;
+  onRenderer: (next: Renderer) => void;
+  /** The page's own actions, when the variant has nowhere else to put them. */
+  trailing?: React.ReactNode;
+  /** How the row attaches to what is under it — see the K-C branch. */
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex shrink-0 items-center gap-[10px]", className)}>
+      <div className="flex h-[34px] flex-1 items-center gap-[9px] rounded-[8px] bg-pg-surface px-[14px] shadow-[inset_0_0_0_1px_var(--pg-border)] motion-tap focus-within:shadow-[inset_0_0_0_1px_var(--brand),0_0_0_3px_var(--brand-soft)]">
+        <Search size={16} aria-hidden="true" className="shrink-0 text-pg-faint" />
+        <input
+          type="search"
+          placeholder="Search opportunities"
+          aria-label="Search opportunities"
+          className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
+        />
+      </div>
+      <RendererToggle value={renderer} onChange={onRenderer} />
+      <OutlineButton>
+        <ListFilter size={15} aria-hidden="true" className="text-pg-text-strong" />
+        Filters
+      </OutlineButton>
+      <OutlineButton>
+        <ArrowUpDown size={15} aria-hidden="true" className="text-pg-text-strong" />
+        Sort
+      </OutlineButton>
+      {renderer === "table" ? (
+        <OutlineButton>
+          <Columns3 size={15} aria-hidden="true" className="text-pg-text-strong" />
+          Columns
+        </OutlineButton>
+      ) : null}
+      {trailing}
+    </div>
+  );
+}
+
+/**
  * Opportunities: one collection, two renderers, one record container.
  *
  * The shipped page puts the title on a row with four tabs, two of which are
@@ -269,6 +330,14 @@ function Table({
  * Here the header carries the title and one default action, the rail carries
  * the pipelines, and the control bar carries everything that changes how the
  * same rows are drawn.
+ *
+ * That arrangement is K-B, and it is what the prototype has shipped since the
+ * page was built — so the default costs nothing to keep. K-C is the question
+ * the Sep 22 review actually wants answered: the pipeline is a SCOPE, and a
+ * scope is the one thing a breadcrumb has always been able to switch. Move it
+ * into the trail and the page owes the bar nothing, so everything below 48px
+ * is board. The controls that survive are the ones that act on the columns,
+ * and they go where the columns are rather than staying up as page chrome.
  */
 export function OpportunitiesPage() {
   const { effective } = useTheme();
@@ -280,6 +349,60 @@ export function OpportunitiesPage() {
   const open = rows.find((o) => o.id === openId) ?? null;
   const index = open ? rows.findIndex((o) => o.id === open.id) : -1;
 
+  /*
+   * K-C is a structural decision, so the variant decides it — not the knobs.
+   *
+   * The four page-header knobs say what a header may DRAW; they cannot say
+   * "and the pipeline now lives in the breadcrumb", which is the whole of
+   * K-C. So the page branches on the variant and lets the knobs it writes
+   * (noHeader) be the consequence rather than the mechanism. Turning the
+   * title knob back on while parked on K-C therefore does nothing here, which
+   * is right: the trail is already naming the pipeline, and a header that
+   * named it again is the duplication the Sep 22 review was called to kill.
+   */
+  const inTrail = effective.boardHeaderVariant === "K-C";
+  const active = pipelines.find((p) => p.id === pipeline) ?? pipelines[0];
+
+  /*
+   * The page's actions, declared once for both variants.
+   *
+   * K-B hands them to PageHeader and gets the overflow ladder for free; K-C
+   * hands the same two lists to the canvas toolbar. Pipeline settings stays
+   * in the kebab in both — a crumb menu offers the siblings you could be
+   * instead, never a way to configure them, so moving the pipeline into the
+   * trail must not take its settings screen out of reach.
+   */
+  const primary: PageAction = { label: "Add opportunity", icon: Plus };
+  const overflow: PageAction[] = [
+    { label: "Pipeline settings", icon: Settings },
+    { label: "Export", icon: Download },
+  ];
+
+  /*
+   * The trail's last crumb, for as long as K-C is the chosen shape.
+   *
+   * Published rather than passed: the shell builds the trail from the nav
+   * index and cannot know which pipeline this page is cut to, the same way it
+   * cannot know a contact is open. `null` on K-B un-publishes it, so flipping
+   * the variant in the tuning panel puts the crumb back the moment the row
+   * below it returns.
+   */
+  usePageCrumb(
+    inTrail
+      ? {
+          label: active.label,
+          icon: active.icon,
+          options: pipelines.map((p) => ({
+            id: p.id,
+            label: p.label,
+            icon: p.icon,
+            selected: p.id === active.id,
+          })),
+          onSelect: setPipeline,
+        }
+      : null,
+  );
+
   const move = React.useCallback(
     (id: string, stageId: string) =>
       setRows((current) =>
@@ -288,62 +411,69 @@ export function OpportunitiesPage() {
     [],
   );
 
+  const surface =
+    renderer === "board" ? (
+      <Board rows={rows} onOpen={setOpenId} onMove={move} />
+    ) : (
+      <Table rows={rows} onOpen={setOpenId} />
+    );
+
   return (
     <div
       data-page-theme={effective.appTheme}
       className="relative flex h-full min-h-0 flex-col gap-[14px] px-[var(--page-inset)]"
     >
-      <PageHeader
-        title="Opportunities"
-        count="117"
-        description="Deals across 4 pipelines"
-        primary={{ label: "Add opportunity", icon: Plus }}
-        overflow={[
-          { label: "Pipeline settings", icon: Settings },
-          { label: "Export", icon: Download },
-        ]}
-      />
-
-      <ViewBar
-        label="Pipelines"
-        views={pipelines}
-        activeId={pipeline}
-        onSelect={setPipeline}
-        onCreate={() => undefined}
-        createLabel="Create pipeline"
-      />
-
-      <div className="flex shrink-0 items-center gap-[10px]">
-        <div className="flex h-[34px] flex-1 items-center gap-[9px] rounded-[8px] bg-pg-surface px-[14px] shadow-[inset_0_0_0_1px_var(--pg-border)] motion-tap focus-within:shadow-[inset_0_0_0_1px_var(--brand),0_0_0_3px_var(--brand-soft)]">
-          <Search size={16} aria-hidden="true" className="shrink-0 text-pg-faint" />
-          <input
-            type="search"
-            placeholder="Search opportunities"
-            aria-label="Search opportunities"
-            className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
+      {inTrail ? (
+        /*
+         * K-C: nothing above the canvas, and the toolbar inside it.
+         *
+         * A rule under the row rather than a box around the pair, and no inset
+         * of its own — a box would have narrowed the columns against every
+         * other variant, and a fill would have put grey on the grey the
+         * columns already carry. The hairline is the same one ViewBar draws
+         * under the tabs it owns, which is the point: the toolbar belongs to
+         * the board underneath it, not to a header that is no longer there.
+         */
+        <div className="flex min-h-0 flex-1 flex-col">
+          <BoardControls
+            className="border-b border-pg-head-border pb-[12px]"
+            renderer={renderer}
+            onRenderer={setRenderer}
+            trailing={
+              <>
+                <PrimaryButton>
+                  <Plus size={16} aria-hidden="true" />
+                  {primary.label}
+                </PrimaryButton>
+                <OverflowMenu items={overflow} />
+              </>
+            }
           />
+          <div className="flex min-h-0 flex-1 flex-col pt-[12px]">{surface}</div>
         </div>
-        <RendererToggle value={renderer} onChange={setRenderer} />
-        <OutlineButton>
-          <ListFilter size={15} aria-hidden="true" className="text-pg-text-strong" />
-          Filters
-        </OutlineButton>
-        <OutlineButton>
-          <ArrowUpDown size={15} aria-hidden="true" className="text-pg-text-strong" />
-          Sort
-        </OutlineButton>
-        {renderer === "table" ? (
-          <OutlineButton>
-            <Columns3 size={15} aria-hidden="true" className="text-pg-text-strong" />
-            Columns
-          </OutlineButton>
-        ) : null}
-      </div>
-
-      {renderer === "board" ? (
-        <Board rows={rows} onOpen={setOpenId} onMove={move} />
       ) : (
-        <Table rows={rows} onOpen={setOpenId} />
+        <>
+          <PageHeader
+            title="Opportunities"
+            count="117"
+            description="Deals across 4 pipelines"
+            primary={primary}
+            overflow={overflow}
+          />
+
+          <ViewBar
+            label="Pipelines"
+            views={pipelines}
+            activeId={pipeline}
+            onSelect={setPipeline}
+            onCreate={() => undefined}
+            createLabel="Create pipeline"
+          />
+
+          <BoardControls renderer={renderer} onRenderer={setRenderer} />
+
+          {surface}
+        </>
       )}
 
       {/* Full canvas height, the same frame every drawer in the app gets. */}

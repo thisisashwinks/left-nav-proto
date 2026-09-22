@@ -11,6 +11,17 @@
  * while the rest of the app stays light.
  */
 
+import type {
+  ListHeaderVariant,
+  RecordHeaderVariant,
+  BoardHeaderVariant,
+  BuilderCanvas,
+  BuilderControls,
+  BuilderExit,
+  PanelHeaderVariant,
+  DeepHeaderVariant,
+} from "@/components/page/header-variants";
+
 export const ACCENTS = [
   // Near-black: the round-2 decision — the product's own accent is quiet, and
   // colour is something a brand brings, not something we impose.
@@ -1774,6 +1785,50 @@ export interface ThemeState {
    */
   pageHeader: boolean;
   /**
+   * Whether a record page draws its own back control.
+   *
+   * `record-crumb.tsx` argues the trail IS the way out, and that a page with a
+   * crumb above it does not need to draw a second one. That holds right up
+   * until someone is reading a record rather than navigating to it: the trail
+   * is 48px away at the top of the window, and the hand is down in the record.
+   * A knob rather than a decision, because the duplication it re-introduces is
+   * exactly what the crumb was meant to retire — so the two readings have to be
+   * switchable side by side before either wins.
+   *
+   * Placed by the variant, not by this: D-B puts it in the panel's own header
+   * row, D-D at the head of the meta strip. Both sit left of everything else,
+   * which is the side navigation lives on.
+   */
+  recordBackButton: boolean;
+  /**
+   * Which header shape each page archetype draws. See header-variants.ts.
+   *
+   * One axis per archetype because the answer genuinely differs by page kind:
+   * a table gives its title to the trail and loses nothing, a builder cannot
+   * give up its publish row. Picking one writes the four knobs above, so the
+   * variant and the knobs can never disagree.
+   */
+  listHeaderVariant: ListHeaderVariant;
+  recordHeaderVariant: RecordHeaderVariant;
+  boardHeaderVariant: BoardHeaderVariant;
+  /**
+   * The builder's chrome, as two retain switches and a placement.
+   *
+   * Two axes rather than named shapes: whether the nav survives into the
+   * builder, and whether the app bar does. `builderControls` only has anything
+   * to say once the bar is gone — it is where the trail and the publish row go
+   * when there is no bar to hold them — and `builderExit` only matters once the
+   * sidebar is gone too, since a retained sidebar IS the way out.
+   */
+  builderKeepSidebar: boolean;
+  builderKeepTopBar: boolean;
+  builderControls: BuilderControls;
+  builderExit: BuilderExit;
+  /** What the workflow canvas draws inside whatever chrome is on. */
+  builderCanvas: BuilderCanvas;
+  panelHeaderVariant: PanelHeaderVariant;
+  deepHeaderVariant: DeepHeaderVariant;
+  /**
    * Whether a record page keeps the page header.
    *
    * Off by design: on a contact the trail names the record, the first column
@@ -2175,6 +2230,20 @@ export const DEFAULT_THEME: ThemeState = {
   pageDescription: true,
   pageCount: true,
   pageHeader: true,
+  recordBackButton: true,
+  listHeaderVariant: "L-C",
+  recordHeaderVariant: "D-B",
+  boardHeaderVariant: "K-B",
+  // Both retained, and the nav arrives collapsed: a builder session is minutes
+  // long inside a much longer CRM session, so the nav should still be there —
+  // but it should not be the widest thing on screen while you are drawing.
+  builderKeepSidebar: true,
+  builderKeepTopBar: true,
+  builderControls: "crumb-row",
+  builderExit: "back",
+  builderCanvas: "standard",
+  panelHeaderVariant: "P-B",
+  deepHeaderVariant: "X-2",
   recordPageHeader: false,
   layoutReplaceDialog: "simple",
   // The rail: one mechanism for both audiences beats a second one to learn.

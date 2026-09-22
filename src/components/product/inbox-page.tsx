@@ -9,9 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  FileText,
   Inbox,
-  Keyboard,
   ListFilter,
   Mail,
   MessageSquareDashed,
@@ -28,7 +26,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
-import { PageHeader } from "@/components/page/page-header";
+import { InboxHeader } from "./inbox-scope-row";
 import { ViewBar } from "@/components/page/view-bar";
 import {
   PanelRail,
@@ -262,16 +260,17 @@ export function InboxPage() {
       // Declared on the page's own wrapper, so nothing outside it repaints.
       {...(product ? { style: PRODUCT_PALETTE } : {})}
     >
-      <PageHeader
-        title="Conversations"
-        count="6.3K unread"
-        primary={{ label: "New conversation", icon: SquarePen }}
-        overflow={[
-          { label: "Manage inboxes", icon: Inbox },
-          { label: "Snippets", icon: FileText },
-          { label: "Keyboard shortcuts", icon: Keyboard },
-        ]}
-      />
+      {/*
+       * Slot 05, or the scope row that wants to replace it.
+       *
+       * P-B is what the page has always drawn and P-B's chrome switches the
+       * header off entirely, so the default is the page with nothing above the
+       * panes — the trail names it and the panes do the rest. P-C is the
+       * proposal on trial: one row of page-wide scope, changing nothing below
+       * it. The page asks once, here, so the two answers can never both be on
+       * screen.
+       */}
+      <InboxHeader variant={effective.panelHeaderVariant} />
 
       {/*
        * Three panes and a rail, each its own card on the plane.

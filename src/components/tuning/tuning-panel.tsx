@@ -3,11 +3,26 @@
 import * as React from "react";
 import {
   ChevronRight,
+  GripVertical,
+  PanelBottom,
+  PanelLeft,
+  PanelRight,
   RotateCcw,
   Search,
   SlidersHorizontal,
   X,
 } from "lucide-react";
+import {
+  LIST_VARIANTS,
+  RECORD_VARIANTS,
+  BOARD_VARIANTS,
+  BUILDER_CANVASES,
+  BUILDER_CONTROLS,
+  BUILDER_EXITS,
+  PANEL_VARIANTS,
+  DEEP_VARIANTS,
+} from "@/components/page/header-variants";
+import { usePanelPlacement, type PanelDock } from "./panel-placement";
 import {
   ACCENT_LABELS,
   ACCENTS,
@@ -1384,6 +1399,44 @@ function StepButton({
   );
 }
 
+/**
+ * One archetype's header shape.
+ *
+ * A Segmented over the variant ids with the chosen variant's own sentence
+ * under it — the ids are what the research calls them and what someone will
+ * quote back in a review, so they stay on the buttons rather than being
+ * translated into prose that then has to be matched up again.
+ */
+function VariantPicker<T extends string>({
+  label,
+  variants,
+  value,
+  onChange,
+}: {
+  label: string;
+  variants: readonly { id: T; label: string; blurb: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  const active = variants.find((v) => v.id === value);
+  return (
+    <>
+      <Segmented
+        label={label}
+        options={variants.map((v) => v.id)}
+        value={value}
+        onChange={onChange}
+        // The ids (L-C, X-4 …) are research shorthand. They are how the options
+        // are filed, not what they are called — nobody in a review knows what
+        // "L-C" means, and a control that has to be decoded is a control that
+        // gets skipped. The id stays the stored value; the label is the name.
+        format={(id) => variants.find((x) => x.id === id)?.label ?? id}
+      />
+      {active ? <Note>{active.blurb}</Note> : null}
+    </>
+  );
+}
+
 function Segmented<T extends string>({
   label,
   options,
@@ -1525,6 +1578,48 @@ function PinnedGroup({ children }: { children: React.ReactNode }) {
       )}
     >
       {children}
+    </div>
+  );
+}
+
+/**
+ * The bottom dock's three columns.
+ *
+ * Not CSS `columns`. A multi-column box breaks its children across columns
+ * when one is taller than the column box, and an expanded section in a 320px
+ * bar always is — so the header landed in one column and the controls it
+ * opened landed in the next, which is the opposite of what a disclosure
+ * promises. Three explicit stacks instead: a section's content can only ever
+ * grow downwards, under the header that opened it, and expanding one column
+ * never moves the other two.
+ *
+ * Round-robin rather than chunked, because chunking by thirds puts the whole
+ * first third in column one and leaves the reading order dependent on how many
+ * sections happen to exist. Dealing them out keeps every column the same kind
+ * of list.
+ *
+ * Capped rather than spread across the full 1680px: three columns of controls
+ * reading edge to edge is a long mouse journey from the section you opened to
+ * the toggle you came for, and the width past ~1180px buys nothing but travel.
+ */
+function ColumnStacks({
+  active,
+  children,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+}) {
+  if (!active) return <>{children}</>;
+  const items = React.Children.toArray(children);
+  const columns: React.ReactNode[][] = [[], [], []];
+  items.forEach((child, i) => columns[i % 3]!.push(child));
+  return (
+    <div className="grid max-w-[1180px] grid-cols-3 items-start gap-x-[20px]">
+      {columns.map((column, i) => (
+        <div key={i} className="flex min-w-0 flex-col">
+          {column}
+        </div>
+      ))}
     </div>
   );
 }
@@ -1707,6 +1802,24 @@ export function TuningPanel() {
     setPageCount,
     pageHeader,
     setPageHeader,
+    recordBackButton,
+    setRecordBackButton,
+    listHeaderVariant,
+    recordHeaderVariant,
+    boardHeaderVariant,
+    builderKeepSidebar,
+    setBuilderKeepSidebar,
+    builderKeepTopBar,
+    setBuilderKeepTopBar,
+    builderControls,
+    setBuilderControls,
+    builderExit,
+    setBuilderExit,
+    builderCanvas,
+    setBuilderCanvas,
+    panelHeaderVariant,
+    deepHeaderVariant,
+    setHeaderVariant,
     recordPageHeader,
     setRecordPageHeader,
     navGeneration,
@@ -1881,6 +1994,17 @@ export function TuningPanel() {
    * rather than starting again — which is the behaviour of every search box a
    * reader has used, and the one thing they will assume without being told.
    */
+  const {
+    placement,
+    setDock,
+    onGripDown,
+    onResizeDown,
+    style: placementStyle,
+    shadow,
+    resizeHandle,
+    dragging,
+  } = usePanelPlacement();
+
   const filter = React.useMemo(() => {
     const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
     return {
@@ -1920,13 +2044,92 @@ export function TuningPanel() {
       // Opts out of [data-tint]: the panel is a tool, not part of the design
       // being reviewed, so it must not recolour along with the workspace.
       data-untinted=""
-      className="fixed inset-y-0 right-0 z-50 flex w-[280px] flex-col bg-pg-surface shadow-[-8px_0_28px_0_rgba(15,23,42,0.18)]"
+      style={placementStyle}
+      className={cn(
+        "fixed z-50 flex flex-col overflow-hidden bg-pg-surface",
+        shadow,
+        // Dragging kills the transition: a panel that eases towards the cursor
+        // reads as lag, not as polish.
+        dragging ? "select-none" : "transition-[width,height] duration-150",
+      )}
     >
-      <header className="flex shrink-0 items-center justify-between px-[14px] py-[12px] shadow-[inset_0_-1px_0_0_var(--pg-border)]">
-        <span className="text-[13px] leading-none font-semibold text-pg-heading">
-          Prototype controls
-        </span>
+      {/*
+        The resize edge. A bare div rather than a button: it is a surface you
+        push, not a thing you activate, and giving it a role would put it in
+        the tab order ahead of every control the panel actually offers.
+      */}
+      <div
+        onPointerDown={onResizeDown}
+        aria-hidden="true"
+        className={cn(
+          "absolute z-10 hover:bg-brand/20",
+          resizeHandle,
+          placement.dock === "float" ? "rounded-br-[12px]" : "",
+        )}
+      />
+      <header
+        className={cn(
+          "flex shrink-0 items-center justify-between py-[12px] pr-[14px] pl-[6px]",
+          "shadow-[inset_0_-1px_0_0_var(--pg-border)]",
+        )}
+      >
+        <div className="flex min-w-0 items-center gap-[4px]">
+          {/*
+            The grip. Six dots because that is what a draggable panel wears
+            everywhere else a reviewer has met one — the affordance is the
+            convention, not the tooltip.
+          */}
+          <button
+            type="button"
+            onPointerDown={onGripDown}
+            title="Drag to move — throw it at an edge to dock"
+            aria-label="Move prototype controls"
+            className={cn(
+              "motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[6px]",
+              "text-pg-muted hover:bg-pg-row-border hover:text-pg-text",
+              dragging ? "cursor-grabbing" : "cursor-grab",
+            )}
+          >
+            <GripVertical size={14} aria-hidden="true" />
+          </button>
+          <span className="truncate text-[13px] leading-none font-semibold text-pg-heading">
+            Prototype controls
+          </span>
+        </div>
         <div className="flex items-center gap-[2px]">
+          {/*
+            The three docks, as the edges they name. Float is deliberately not
+            offered as a button: it is where a drag leaves you, and a button
+            that means "somewhere unspecified" has no honest icon.
+          */}
+          {(
+            [
+              ["left", PanelLeft, "Dock left"],
+              ["bottom", PanelBottom, "Dock bottom"],
+              ["right", PanelRight, "Dock right"],
+            ] as const
+          ).map(([dock, Icon, label]) => (
+            <button
+              key={dock}
+              type="button"
+              onClick={() => setDock(dock as PanelDock)}
+              title={label}
+              aria-label={label}
+              aria-pressed={placement.dock === dock}
+              className={cn(
+                "motion-tap flex size-[26px] items-center justify-center rounded-[6px]",
+                placement.dock === dock
+                  ? "bg-pg-row-border text-pg-text"
+                  : "text-pg-muted hover:bg-pg-row-border hover:text-pg-text",
+              )}
+            >
+              <Icon size={14} aria-hidden="true" />
+            </button>
+          ))}
+          <span
+            aria-hidden="true"
+            className="mx-[3px] h-[16px] w-px bg-pg-border"
+          />
           <button
             type="button"
             onClick={() => {
@@ -1999,7 +2202,16 @@ export function TuningPanel() {
       </div>
 
       {scope === "canvas" ? (
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <div
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto",
+            // Bottom dock lays the sections out in three stacks (see
+            // ColumnStacks); every other placement is the single column the
+            // panel has always been.
+            placement.dock === "bottom" ? "px-0" : "flex flex-col",
+          )}
+        >
+          <ColumnStacks active={placement.dock === "bottom"}>
           <Section
             id="Page header"
             open={openSections.includes("Page header")}
@@ -2009,16 +2221,150 @@ export function TuningPanel() {
               (pageTitle ? 0 : 1) +
               (pageDescription ? 0 : 1) +
               (pageCount ? 0 : 1) +
-              (recordPageHeader ? 1 : 0)
+              (recordPageHeader ? 1 : 0) +
+              (recordBackButton ? 0 : 1) +
+              (listHeaderVariant === "L-C" ? 0 : 1) +
+              (recordHeaderVariant === "D-B" ? 0 : 1) +
+              (boardHeaderVariant === "K-B" ? 0 : 1) +
+              (builderKeepSidebar ? 0 : 1) +
+              (builderKeepTopBar ? 0 : 1) +
+              (builderControls === "crumb-row" ? 0 : 1) +
+              (builderExit === "back" ? 0 : 1) +
+              (builderCanvas === "standard" ? 0 : 1) +
+              (panelHeaderVariant === "P-B" ? 0 : 1) +
+              (deepHeaderVariant === "X-2" ? 0 : 1)
             }
             onReset={() => {
+              // The variants go back first: each one writes the four knobs, so
+              // restoring them afterwards is what makes Reset land on the
+              // shipped shape rather than on the last variant's answer.
+              setHeaderVariant("listHeaderVariant", "L-C");
+              setHeaderVariant("recordHeaderVariant", "D-B");
+              setHeaderVariant("boardHeaderVariant", "K-B");
+              setBuilderKeepSidebar(true);
+              setBuilderKeepTopBar(true);
+              setBuilderControls("crumb-row");
+              setBuilderExit("back");
+              setBuilderCanvas("standard");
+              setHeaderVariant("panelHeaderVariant", "P-B");
+              setHeaderVariant("deepHeaderVariant", "X-2");
               setPageHeader(true);
               setPageTitle(true);
               setPageDescription(true);
               setPageCount(true);
               setRecordPageHeader(false);
+              setRecordBackButton(true);
             }}
           >
+            <VariantPicker
+              label="List pages"
+              variants={LIST_VARIANTS}
+              value={listHeaderVariant}
+              onChange={(v) => setHeaderVariant("listHeaderVariant", v)}
+            />
+            <VariantPicker
+              label="Record pages"
+              variants={RECORD_VARIANTS}
+              value={recordHeaderVariant}
+              onChange={(v) => setHeaderVariant("recordHeaderVariant", v)}
+            />
+            <Toggle
+              label="Record back button"
+              checked={recordBackButton}
+              onChange={setRecordBackButton}
+            />
+            <Note>
+              {recordBackButton
+                ? "A back control on the record itself — in the panel's header row under “Panel owns identity”, at the head of the strip under “Compact meta strip”. The trail still works; this is the second way out, for a hand that is already down in the record."
+                : "No back control on the page. The trail is the only way out, which is the position record-crumb.tsx argues for: one exit, always in the same place, never competing with the crumb that already names the record."}
+            </Note>
+            <VariantPicker
+              label="Boards"
+              variants={BOARD_VARIANTS}
+              value={boardHeaderVariant}
+              onChange={(v) => setHeaderVariant("boardHeaderVariant", v)}
+            />
+            <Toggle
+              label="Builder keeps the sidebar"
+              checked={builderKeepSidebar}
+              onChange={setBuilderKeepSidebar}
+            />
+            <Note>
+              {builderKeepSidebar
+                ? "The nav survives into the builder, collapsed — a builder session is minutes long inside a much longer CRM session, and the trail's parent crumb plus the nav are then the way out."
+                : "Full viewport. With no nav to return through, the builder has to draw its own exit — see below."}
+            </Note>
+
+            <Toggle
+              label="Builder keeps the top bar"
+              checked={builderKeepTopBar}
+              onChange={setBuilderKeepTopBar}
+            />
+            <Note>
+              {builderKeepTopBar
+                ? "AppHeader stays, so the trail names the artifact and the builder's own row carries only Test and Publish."
+                : "No app bar. The trail and the publish controls have to find a home on the builder's own chrome — which is the choice below."}
+            </Note>
+
+            {!builderKeepTopBar ? (
+              <>
+                <Segmented
+                  label="Builder controls sit in"
+                  options={BUILDER_CONTROLS.map((c) => c.id)}
+                  value={builderControls}
+                  onChange={setBuilderControls}
+                  format={(id) =>
+                    BUILDER_CONTROLS.find((c) => c.id === id)?.label ?? id
+                  }
+                />
+                <Note>
+                  {BUILDER_CONTROLS.find((c) => c.id === builderControls)?.blurb}
+                </Note>
+              </>
+            ) : null}
+
+            {!builderKeepSidebar ? (
+              <>
+                <Segmented
+                  label="Builder exit"
+                  options={BUILDER_EXITS.map((c) => c.id)}
+                  value={builderExit}
+                  onChange={setBuilderExit}
+                  format={(id) =>
+                    BUILDER_EXITS.find((c) => c.id === id)?.label ?? id
+                  }
+                />
+                <Note>
+                  {BUILDER_EXITS.find((c) => c.id === builderExit)?.blurb}
+                </Note>
+              </>
+            ) : null}
+
+            <Segmented
+              label="Workflow canvas"
+              options={BUILDER_CANVASES.map((c) => c.id)}
+              value={builderCanvas}
+              onChange={setBuilderCanvas}
+              format={(id) =>
+                BUILDER_CANVASES.find((c) => c.id === id)?.label ?? id
+              }
+            />
+            <Note>
+              {BUILDER_CANVASES.find((c) => c.id === builderCanvas)?.blurb}
+            </Note>
+            <VariantPicker
+              label="Inbox panes"
+              variants={PANEL_VARIANTS}
+              value={panelHeaderVariant}
+              onChange={(v) => setHeaderVariant("panelHeaderVariant", v)}
+            />
+            <VariantPicker
+              label="Deep pages (L4/L5)"
+              variants={DEEP_VARIANTS}
+              value={deepHeaderVariant}
+              onChange={(v) => setHeaderVariant("deepHeaderVariant", v)}
+            />
+
             <Toggle
               label="Page header"
               checked={pageHeader}
@@ -2081,6 +2427,7 @@ export function TuningPanel() {
                 : "Off: on a record the trail names it, the first column carries the pager, and each pane owns its own actions — so the header had nothing left of its own to say."}
             </Note>
           </Section>
+          </ColumnStacks>
         </div>
       ) : (
       <>
@@ -2215,7 +2562,16 @@ export function TuningPanel() {
         )}
       </PinnedGroup>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <div
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto",
+            // Bottom dock lays the sections out in three stacks (see
+            // ColumnStacks); every other placement is the single column the
+            // panel has always been.
+            placement.dock === "bottom" ? "px-0" : "flex flex-col",
+          )}
+        >
+          <ColumnStacks active={placement.dock === "bottom"}>
         {/*
           Everything the edit card offers, behind a disclosure of its own.
 
@@ -2980,6 +3336,7 @@ export function TuningPanel() {
             </Section>
           );
         })}
+          </ColumnStacks>
       </div>
       </TuningFilterContext>
       </>

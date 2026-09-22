@@ -45,3 +45,5 @@ kb/*.mp4
 
 # Yarn lockfile — this project uses npm (package-lock.json)
 yarn.lock
+# Research scratch — local HTML research docs + captured screenshots, never pushed
+/research-files/

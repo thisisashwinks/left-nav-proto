@@ -32,6 +32,11 @@ import {
   type RecordCrumb,
 } from "@/components/page/record-crumb";
 import {
+  PageCrumbContext,
+  withPageCrumb,
+  type PageCrumb,
+} from "@/components/page/page-crumb";
+import {
   GET_APP_LABELS,
   GetAppModal,
   type AppKind,
@@ -72,6 +77,13 @@ import { AgencyPlacePage } from "@/components/settings/agency-place-page";
 import { GetAppPage } from "@/components/settings/get-app-page";
 import { WhiteLabelDesktopPage } from "@/components/settings/white-label-desktop-page";
 import { WhiteLabelMobilePage } from "@/components/settings/white-label-mobile-page";
+import { ArrowLeft, X } from "lucide-react";
+import {
+  NO_TRAIL,
+  ShellChromeCtx,
+  type ShellChromeContext,
+  type ShellChromeRequest,
+} from "@/components/shell/full-bleed";
 import {
   CanvasSkeleton,
   NavRowsSkeleton,
@@ -306,11 +318,24 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    *
    * Derived rather than synced in an effect: an effect that calls setState here
    * would render the wrong face first and then correct itself, and Next 16 rejects
-   * that pattern outright.
+   * that pattern outright. That is not a style note — the Sep 22 builder wants the
+   * retained nav to ARRIVE collapsed, the obvious way to do that is to write the
+   * state when the builder mounts, and the lint refuses it. So the arrival is
+   * derived too, and the only thing stored is the user's own choice.
+   *
+   * `under` is what makes both halves true at once. It records which builder
+   * arrival the choice was made during — the chrome request object itself, or
+   * null for a choice made with no builder open — and a choice only counts while
+   * that is still the arrival in force. So: a builder collapses the nav even if
+   * the user had expanded it an hour ago (their old choice was made under a
+   * different `under`), the expand toggle still works inside the builder (that
+   * choice is made under THIS arrival), and leaving the builder restores what
+   * they had before it rather than what the builder imposed.
    */
-  const [manualCollapsed, setManualCollapsed] = React.useState<boolean | null>(
-    null,
-  );
+  const [collapseChoice, setCollapseChoice] = React.useState<{
+    value: boolean;
+    under: ShellChromeRequest | null;
+  } | null>(null);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   /**
    * Which product's demo page fills the canvas, and which of its L2 places is
@@ -652,11 +677,59 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  /*
+   * A page that has asked for some of the shell's chrome to stand down.
+   * See full-bleed, and the derivations further down that act on it.
+   *
+   * The state itself lives up here, ahead of the nav's collapse, because the
+   * collapse is one of the things it decides: a builder that keeps the sidebar
+   * asks for the rail rather than the tree, and `collapsed` below has to be
+   * able to see the ask.
+   */
+  const [chromeRequest, setChromeRequest] =
+    React.useState<ShellChromeRequest | null>(null);
+  /*
+   * Editing the nav outranks a page's request for the window.
+   *
+   * The mode's entire subject is the sidebar, so honouring a page that wants
+   * the sidebar gone would leave the user arranging a tree they cannot see —
+   * or arranging it in a 64px rail, which is the same objection. The page is
+   * not consulted: it gets told, through the hook's return value, that the
+   * chrome is back, and its exit goes away with it.
+   */
+  const chromeHonoured = chromeRequest !== null && !layout.editing;
+  /*
+   * The arrival that wants a rail, as an identity rather than a flag.
+   *
+   * It is the request object, so a NEW ask — opening a builder, or flipping
+   * the retain switch off and on again — is a new arrival, and the nav
+   * collapses again for it. Comparing against `collapseChoice.under` below is
+   * what distinguishes "the user expanded this builder's nav" from "the user
+   * expanded the nav at some point in the last hour".
+   */
+  const railArrival =
+    chromeHonoured &&
+    chromeRequest.sidebar === "keep" &&
+    chromeRequest.collapseSidebar === true
+      ? chromeRequest
+      : null;
+
   const narrow = useMediaQuery(`(max-width: ${AUTO_COLLAPSE_WIDTH - 1}px)`);
-  const collapsed = manualCollapsed ?? (autoCollapse && narrow);
+  // A choice survives only as long as the arrival it was made under. See the
+  // `collapseChoice` comment above for why that is the whole mechanism.
+  const chosenCollapsed =
+    collapseChoice && collapseChoice.under === railArrival
+      ? collapseChoice.value
+      : null;
+  const collapsed =
+    chosenCollapsed ?? (railArrival ? true : autoCollapse && narrow);
+  const chooseCollapsed = React.useCallback(
+    (value: boolean) => setCollapseChoice({ value, under: railArrival }),
+    [railArrival],
+  );
   const toggleCollapsed = React.useCallback(
-    () => setManualCollapsed(!collapsed),
-    [collapsed],
+    () => chooseCollapsed(!collapsed),
+    [chooseCollapsed, collapsed],
   );
 
   /*
@@ -1234,6 +1307,39 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     [recordCrumb],
   );
 
+  /*
+   * What the chrome request above means for the two pieces of chrome.
+   *
+   * The Sep 22 builder axis is the only caller: the workflow builder can want
+   * the nav card gone, the app bar gone, or both, and the two are independent.
+   * All of it is the SHELL's chrome, so the shell is what withdraws it — the
+   * page states an intent and never reaches into the nav, which stays settled
+   * and untouched.
+   *
+   * These two are also what BUILD the exit control further down. That is
+   * deliberate and it is the whole design: the control is constructed inside
+   * the branch that dropped the nav card, so "an exit and a retained sidebar
+   * are alternatives, never both" is not a rule anyone has to remember — there
+   * is no expression in this file, or in a page, that yields an exit while the
+   * nav is standing.
+   */
+  const navDropped = chromeHonoured && chromeRequest.sidebar === "drop";
+  const barDropped = chromeHonoured && chromeRequest.topBar === "drop";
+
+  /*
+   * A scope control the open page has handed up to the bar.
+   *
+   * Same shape of problem as the record crumb, one level higher: the Sep 22
+   * list and board variants move the smart list / pipeline picker into the
+   * trail, and only the page knows what its siblings are. Recorded here so
+   * every page gets the move rather than contacts getting a special case.
+   */
+  const [pageCrumb, setPageCrumb] = React.useState<PageCrumb | null>(null);
+  const pageCrumbValue = React.useMemo(
+    () => [pageCrumb, setPageCrumb] as const,
+    [pageCrumb],
+  );
+
   const withRecordCrumb = React.useCallback(
     (trail: readonly (string | Crumb)[]): (string | Crumb)[] => {
       if (!recordCrumb) return [...trail];
@@ -1463,6 +1569,152 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     [agencyScope, selectedId, canvasPage],
   );
 
+  /*
+   * The trail, built once out here rather than inline in the bar's props.
+   *
+   * Hoisted on Sep 22 because the bar is no longer the only thing that can
+   * draw it: a builder that has asked for the app bar to stand down still has
+   * to say where it is, and it gets THIS array handed down the chrome context
+   * rather than assembling a second trail of its own. One source, so a scope
+   * picker or a record crumb cannot be in the bar's trail and missing from the
+   * builder's.
+   *
+   * Page crumb first, record crumb outside it: a record opened from a scoped
+   * list belongs UNDER that scope, and closing it from the trail still has to
+   * run the page's exit. Wrapping the other way round would put the scope
+   * picker after the record's own name.
+   */
+  const crumbs = withRecordCrumb(
+    withPageCrumb(
+            selectedId === "agency-accounts"
+              ? // Bucket, then the row, then whichever account was opened from
+                // it — the same three-part shape the generic branch builds, so
+                // the table's trail does not read as a special case.
+                manageAccount
+                ? ["Sub-accounts", "Accounts", manageAccount.name]
+                : ["Sub-accounts", "Accounts"]
+              : selectedId === GET_APP_ROW_IDS.mobile ||
+                  selectedId === GET_APP_ROW_IDS.desktop
+                ? /*
+                    The sub-account's copy of the pair, written out because it
+                    belongs to no tree that could supply it.
+
+                    The first crumb stays a word: this row sits beside Settings
+                    as chrome, so there is nothing it could offer to switch TO
+                    — a caret there would open a list of one. The second is the
+                    real switcher, and the one that matters: mobile and desktop
+                    are the two things you came here to choose between.
+                  */
+                  [
+                    GET_APP_NAV_LABEL,
+                    {
+                      label:
+                        selectedId === GET_APP_ROW_IDS.mobile
+                          ? GET_APP_LABELS.mobile
+                          : GET_APP_LABELS.desktop,
+                      options: [
+                        {
+                          id: GET_APP_ROW_IDS.mobile,
+                          label: GET_APP_LABELS.mobile,
+                          selected: selectedId === GET_APP_ROW_IDS.mobile,
+                        },
+                        {
+                          id: GET_APP_ROW_IDS.desktop,
+                          label: GET_APP_LABELS.desktop,
+                          selected: selectedId === GET_APP_ROW_IDS.desktop,
+                        },
+                      ],
+                      onSelect: (id: string) => setSelectedId(id),
+                    },
+                  ]
+              : agencyPlace
+                ? agencyCrumbs
+                : agencyScope
+                  ? [accounts.agency.name, "Overview"]
+                  : productCrumbs,
+      pageCrumb,
+    ),
+  );
+
+  /*
+   * The exit — built here, or nowhere.
+   *
+   * `exitRequest` is the single gate, and everything downstream hangs off it:
+   * the arrow the bar's row draws a few hundred lines below, and the node
+   * handed to the page for the arrangements where the bar cannot hold one. It
+   * is non-null only where the nav card is not, which is what makes "an exit
+   * OR a sidebar, never both" a property of the code rather than a convention.
+   * A page cannot draw an exit it was not given, and it is given one only from
+   * inside this branch.
+   *
+   * Who places it splits two ways, and both are about the SIDE the research
+   * rule cares about:
+   *
+   *   - A back arrow with a bar on screen is the bar's, at its leading edge:
+   *     that is as far onto the navigation side of the row as the left goes.
+   *   - Anything else is the page's. With no bar there is no leading edge to
+   *     hang it from, and a ✕ never belonged there anyway — it reads as
+   *     "discard", which is the commitment side, beside the builder's own
+   *     Publish. The page picks the side; it does not get to pick whether
+   *     there is a control at all.
+   */
+  const exitRequest = navDropped ? chromeRequest : null;
+  const barDrawsExit =
+    exitRequest !== null && exitRequest.exit !== "close" && !barDropped;
+  const closeExit = exitRequest?.exit === "close";
+  const pageExit =
+    exitRequest && !barDrawsExit ? (
+      <button
+        type="button"
+        title={
+          closeExit ? "Close" : (exitRequest.backLabel ?? "Back")
+        }
+        aria-label={
+          closeExit ? "Close" : (exitRequest.backLabel ?? "Back")
+        }
+        onClick={exitRequest.onExit}
+        className={cn(
+          "motion-tap flex size-[30px] shrink-0 items-center justify-center rounded-[8px] active:scale-95",
+          /*
+            Drawn in the PAGE's palette, not the bar's. The bar's twin below
+            resolves --hdr-*, which is scoped under [data-header-theme] and
+            comes out as nothing this far down the tree — the first cut of this
+            control was invisible for exactly that reason.
+          */
+          closeExit
+            ? "text-pg-muted hover:bg-pg-bg hover:text-pg-text"
+            : "bg-pg-surface text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border-strong)] hover:text-pg-text",
+        )}
+      >
+        {closeExit ? (
+          <X size={16} aria-hidden="true" />
+        ) : (
+          <ArrowLeft size={15} aria-hidden="true" />
+        )}
+      </button>
+    ) : null;
+
+  /*
+   * What the page is handed back is the EFFECTIVE answer, not its own ask.
+   *
+   * Publishing the raw request would let a page believe the sidebar is gone
+   * while nav edit mode has just put it back — and a page that believes that
+   * draws an exit beside a sidebar, the one arrangement the rule forbids. So
+   * what goes down the context is what is actually on screen.
+   *
+   * Not memoised, deliberately: `crumbs` is rebuilt every render anyway, so a
+   * memo here would be a dependency list that never holds. What matters for
+   * safety is that `request` is the raw setState — identity-stable — because
+   * that is the one field useShellChrome lists as an effect dependency, and a
+   * fresh function there would re-publish the request on every render forever.
+   */
+  const chromeValue: ShellChromeContext = {
+    active: chromeHonoured ? chromeRequest : null,
+    request: setChromeRequest,
+    exit: pageExit,
+    trail: barDropped ? crumbs : NO_TRAIL,
+  };
+
   return (
     <HereProvider value={here}>
     <NewFlagProvider ids={newFlagIds}>
@@ -1528,6 +1780,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         accounts directory, which is wider than this card, and clipping it would
         cut the directory off mid-panel.
       */}
+      {navDropped ? null : (
       <div
         /*
          * The card paints its own --nav-bg, and the legacy nav does not cover
@@ -1789,7 +2042,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             scope={accounts.scope}
             account={headerAccount}
             canSwitch={identityCanSwitch}
-            onExpand={() => setManualCollapsed(false)}
+            onExpand={() => chooseCollapsed(false)}
             aiSession={aiSession}
             density={density}
             onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
@@ -1806,7 +2059,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                   // Expand FIRST, then open the mode: the rail is the entrance,
                   // the expanded nav is the workspace.
                   onEdit: () => {
-                    setManualCollapsed(false);
+                    chooseCollapsed(false);
                     beginNavEditing();
                   },
                   // Held visible while the card is pointing at it — a
@@ -1819,6 +2072,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         )}
       </div>
       </div>
+      )}
 
       {/*
         Inset from the top by the same gap as the nav card, so the app bar's row
@@ -1916,6 +2170,64 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           />
         ) : null}
 
+        {barDropped ? null : (
+        /*
+          The bar's row, and the only place an exit arrow may be drawn.
+
+          Always a row, even with no arrow in it, so the bar's box is the same
+          one in every arrangement — a wrapper that appeared only for the
+          no-sidebar builder would be a second layout to keep in step with the
+          joined card, for nothing.
+
+          The arrow sits at the row's LEADING edge rather than between Home and
+          the first crumb. AppHeader is settled and offers no slot inside its
+          trail, and prising one open is not worth a variant: what the research
+          rule is about is the SIDE — navigation on the left, commitment on the
+          right — and the leading edge is as far left as the left side goes.
+
+          Gated on `barDrawsExit`, which is derived from the same branch that
+          dropped the nav card above. That is the invariant: there is no
+          expression here that can put an arrow on screen while the sidebar is
+          still standing — and none that draws one here AND hands a second to
+          the page, since the two are the same either/or.
+        */
+        <div
+          /*
+            The row declares the bar's palette, not just the bar inside it.
+            --hdr-* is scoped under [data-header-theme], which AppHeader sets on
+            its own <header> — so an arrow drawn out here resolved every one of
+            those tokens to nothing and came out unboxed and unfilled. The
+            arrow is part of the bar's row; it has to stand in the bar's scope.
+          */
+          data-header-theme={headerTheme}
+          className="flex shrink-0 items-center"
+        >
+          {barDrawsExit && exitRequest ? (
+            <button
+              type="button"
+              title={exitRequest.backLabel ?? "Back"}
+              aria-label={exitRequest.backLabel ?? "Back"}
+              onClick={exitRequest.onExit}
+              className={cn(
+                "motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[7px] bg-hdr-chip text-hdr-fg-muted shadow-[inset_0_0_0_1px_var(--hdr-border)] hover:text-hdr-fg active:scale-95",
+                /*
+                  Boxed, unlike Home and the utilities, and that is the point:
+                  it is the one control on this bar that leaves the page, so it
+                  reads as a thing rather than as a glyph. The ring alone was
+                  not enough — --hdr-border is a gray-200 hairline and on the
+                  plane arrangement the bar has no fill behind it, so at a
+                  glance the arrow looked like a third naked glyph beside Home.
+                  The resting chip fill is what makes it a button.
+                */
+                barInCanvas
+                  ? "ml-[var(--page-inset)]"
+                  : "ml-[calc(var(--shell-canvas-gap)+var(--page-inset))]",
+              )}
+            >
+              <ArrowLeft size={15} aria-hidden="true" />
+            </button>
+          ) : null}
+          <div className="min-w-0 flex-1">
         <AppHeader
           theme={headerTheme}
           onOpenApp={setAppModal}
@@ -1955,55 +2267,17 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             else setProductPage(null);
             setSelectedId(null);
           }}
-          crumbs={withRecordCrumb(
-            selectedId === "agency-accounts"
-              ? // Bucket, then the row, then whichever account was opened from
-                // it — the same three-part shape the generic branch builds, so
-                // the table's trail does not read as a special case.
-                manageAccount
-                ? ["Sub-accounts", "Accounts", manageAccount.name]
-                : ["Sub-accounts", "Accounts"]
-              : selectedId === GET_APP_ROW_IDS.mobile ||
-                  selectedId === GET_APP_ROW_IDS.desktop
-                ? /*
-                    The sub-account's copy of the pair, written out because it
-                    belongs to no tree that could supply it.
-
-                    The first crumb stays a word: this row sits beside Settings
-                    as chrome, so there is nothing it could offer to switch TO
-                    — a caret there would open a list of one. The second is the
-                    real switcher, and the one that matters: mobile and desktop
-                    are the two things you came here to choose between.
-                  */
-                  [
-                    GET_APP_NAV_LABEL,
-                    {
-                      label:
-                        selectedId === GET_APP_ROW_IDS.mobile
-                          ? GET_APP_LABELS.mobile
-                          : GET_APP_LABELS.desktop,
-                      options: [
-                        {
-                          id: GET_APP_ROW_IDS.mobile,
-                          label: GET_APP_LABELS.mobile,
-                          selected: selectedId === GET_APP_ROW_IDS.mobile,
-                        },
-                        {
-                          id: GET_APP_ROW_IDS.desktop,
-                          label: GET_APP_LABELS.desktop,
-                          selected: selectedId === GET_APP_ROW_IDS.desktop,
-                        },
-                      ],
-                      onSelect: (id: string) => setSelectedId(id),
-                    },
-                  ]
-              : agencyPlace
-                ? agencyCrumbs
-                : agencyScope
-                  ? [accounts.agency.name, "Overview"]
-                  : productCrumbs,
-          )}
+          /*
+           * Page crumb first, record crumb outside it: a record opened from a
+           * scoped list belongs UNDER that scope, and closing it from the trail
+           * still has to run the page's exit. Wrapping the other way round
+           * would put the scope picker after the record's own name.
+           */
+          crumbs={crumbs}
         />
+          </div>
+        </div>
+        )}
         {/*
           The sub-account settings page lives behind the Sub-accounts table, as
           production puts it: the nav row opens the table, and picking an
@@ -2018,7 +2292,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               duration={pending.duration}
             />
           ) : null}
+          <ShellChromeCtx.Provider value={chromeValue}>
           <RecordCrumbContext.Provider value={recordCrumbValue}>
+          <PageCrumbContext.Provider value={pageCrumbValue}>
           <ContactsAreaProvider value={[contactsPageId, setContactsPageId]}>
             {/*
               The only real surface in the window now. Inset on every edge so the
@@ -2142,7 +2418,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               )}
             </div>
           </ContactsAreaProvider>
+          </PageCrumbContext.Provider>
           </RecordCrumbContext.Provider>
+          </ShellChromeCtx.Provider>
       </div>
 
       {/* The layout hole the docked Ask AI panel sits in — the canvas
