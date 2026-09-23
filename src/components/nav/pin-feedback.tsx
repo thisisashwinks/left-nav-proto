@@ -21,6 +21,29 @@ import { useTheme } from "@/components/theme/theme-provider";
 /** Which half of the action is being told: the arrival or the departure. */
 export type PinEvent = "pin" | "unpin";
 
+/**
+ * What the announcing surface hands back to itself, for the treatments that
+ * have to keep a row on screen while it leaves.
+ *
+ * Opaque here on purpose. The exit animations need the row's data and its
+ * position, and the only moment either is reliably knowable is the click —
+ * by the next render the store has already moved it, and a surface that
+ * tried to recover it afterwards has to guess where it went. `merged-recents`
+ * guessed "into recents" and was wrong for every pinned L3, which is not in
+ * `enabledProducts` and therefore lands nowhere at all.
+ *
+ * So the announcement carries it. This module does not look inside: `row` is
+ * whatever the surface draws, and the surface that put it in is the only one
+ * that reads it back out. Typing it as that surface's row would make the
+ * shared pin context a dependent of one list.
+ */
+export interface PinHold {
+  /** Where the row sat in the run it is leaving. */
+  index: number;
+  /** The row itself, in whatever shape its surface draws. */
+  row: unknown;
+}
+
 interface PinFeedbackValue {
   /**
    * Fired by the pin button, both ways now.
@@ -33,14 +56,24 @@ interface PinFeedbackValue {
    * something you had is gone. What each treatment does with an unpin is
    * `usePinLanded`'s business; see PIN_FEEDBACKS for which ignore it.
    */
-  announce: (productId: string, from: HTMLElement, event?: PinEvent) => void;
+  announce: (
+    productId: string,
+    from: HTMLElement,
+    event?: PinEvent,
+    hold?: PinHold,
+  ) => void;
   /**
    * The row this is currently about, for the treatments that animate it.
    *
    * An id plus a token: the token changes on every press so pinning the same
    * row twice replays the animation instead of being swallowed as "no change".
    */
-  landed: { productId: string; token: number; event: PinEvent } | null;
+  landed: {
+    productId: string;
+    token: number;
+    event: PinEvent;
+    hold?: PinHold;
+  } | null;
 }
 
 const PinFeedbackContext = React.createContext<PinFeedbackValue>({
@@ -136,6 +169,7 @@ export function PinFeedbackProvider({
     productId: string;
     token: number;
     event: PinEvent;
+    hold?: PinHold;
   } | null>(null);
   const [flight, setFlight] = React.useState<Flight | null>(null);
   const token = React.useRef(0);
@@ -147,11 +181,20 @@ export function PinFeedbackProvider({
   }, []);
 
   const announce = React.useCallback(
-    (productId: string, from: HTMLElement, event: PinEvent = "pin") => {
+    (
+      productId: string,
+      from: HTMLElement,
+      event: PinEvent = "pin",
+      hold?: PinHold,
+    ) => {
       if (pinFeedback === "off") return;
       // Nothing to say about a departure under the destination treatments —
       // and saying it anyway would hold the row in a slot for no animation.
-      if (event === "unpin" && pinFeedback !== "settle" && pinFeedback !== "hilite") {
+      if (
+        event === "unpin" &&
+        pinFeedback !== "settle" &&
+        pinFeedback !== "hilite"
+      ) {
         return;
       }
       token.current += 1;
@@ -169,7 +212,7 @@ export function PinFeedbackProvider({
       const fromBox = from.getBoundingClientRect();
 
       if (event === "unpin") {
-        setLanded({ productId, token: id, event });
+        setLanded({ productId, token: id, event, ...(hold ? { hold } : {}) });
         timers.current.push(
           setTimeout(
             () => setLanded((l) => (l?.token === id ? null : l)),

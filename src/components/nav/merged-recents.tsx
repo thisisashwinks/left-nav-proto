@@ -154,14 +154,63 @@ function MergedList({
    * point: the slot stays open until the row has finished leaving it.
    */
   const { landed } = usePinFeedback();
+  /*
+   * The row comes back with the announcement, rather than being looked up.
+   *
+   * It used to be found in `recents`, on the reasonable-sounding assumption
+   * that an unpinned row lands there. It only does sometimes: `recentIdsFor`
+   * is `enabledProducts` minus `pinned`, so a pinned row that is not an
+   * enabled PRODUCT — every pinned L3, and any product switched off in the
+   * layout — leaves the pinned run and appears nowhere. There was then
+   * nothing to hold and nothing to animate, and the treatment looked broken
+   * on exactly the pins this list is most often used for.
+   *
+   * `PinHold` fixes that at the source: the row and its index are read in the
+   * click handler, which is the last moment either is knowable, and travel
+   * with the event. See the note on PinHold.
+   */
   const leavingId =
-    landed?.event === "unpin" && !givenPins.some((p) => p.id === landed.productId)
+    landed?.event === "unpin" &&
+    !givenPins.some((p) => p.id === landed.productId)
       ? landed.productId
       : null;
+  /*
+   * The hold first, then the old lookup as a fallback.
+   *
+   * Both paths are live because both presses are real. An unpin performed on
+   * THIS list carries a hold — the row knows its own slot — and lands back
+   * in it exactly. An unpin performed from a flyout, the search results or a
+   * nav row goes through PinButton, which has no idea this list exists and
+   * cannot say where in it the row sat; there the best available answer is
+   * still "find it in recents and let it leave from the end", which is what
+   * shipped and what works for an enabled product.
+   *
+   * The cast is safe by construction and confined to this line: the only
+   * thing that ever attaches a hold on this surface is the row below, and it
+   * attaches a MergedRow.
+   */
   const leaving = leavingId
-    ? givenRecents.find((r) => r.id === leavingId)
+    ? ((landed?.hold?.row as MergedRow | undefined) ??
+      givenRecents.find((r) => r.id === leavingId))
     : undefined;
-  const pins = leaving ? [...givenPins, leaving] : givenPins;
+  /*
+   * Put back where it was, not on the end.
+   *
+   * Appending held the row for the right length of time in the wrong slot: it
+   * jumped to the bottom of the pinned run and animated out from there, which
+   * is the jump the hold exists to prevent, merely relocated. At the cap it
+   * was worse than that — the appended row fell outside `pins.slice(0,
+   * pinsShown)` and was not drawn at all, so the exit silently did nothing on
+   * a full list. Splicing it back into its own index keeps both the position
+   * and the budget exactly as they were before the press.
+   */
+  const heldIndex = Math.min(
+    landed?.hold?.index ?? givenPins.length,
+    givenPins.length,
+  );
+  const pins = leaving
+    ? [...givenPins.slice(0, heldIndex), leaving, ...givenPins.slice(heldIndex)]
+    : givenPins;
   const recents = leaving
     ? givenRecents.filter((r) => r.id !== leaving.id)
     : givenRecents;
@@ -185,10 +234,16 @@ function MergedList({
 
   if (pins.length === 0 && recents.length === 0) return null;
 
-  const row = (r: MergedRow) => (
+  /*
+   * `index` is the row's place in the PINNED run, and only the pinned run
+   * passes one: it is what an exit needs to put the row back where it was,
+   * and a recent row has no slot to be put back into.
+   */
+  const row = (r: MergedRow, index?: number) => (
     <MergedItemRow
       key={r.id}
       row={r}
+      index={index}
       mark={mergedPinMark}
       onSelect={() => onSelect(r.id)}
     />
@@ -228,7 +283,7 @@ function MergedList({
       {sublabelled && visiblePins.length > 0 ? (
         <BlockHeading text="Pinned" action={viewAll} />
       ) : null}
-      {visiblePins.map(row)}
+      {visiblePins.map((r, i) => row(r, i))}
 
       {sublabelled && visibleRecents.length > 0 ? (
         <BlockHeading
@@ -236,7 +291,7 @@ function MergedList({
           {...(visiblePins.length === 0 ? { action: viewAll } : {})}
         />
       ) : null}
-      {visibleRecents.map(row)}
+      {visibleRecents.map((r) => row(r))}
 
       <MergedOverflowRow
         mode={mergedOverflow}
@@ -600,15 +655,19 @@ export function allocate({
  */
 function MergedItemRow({
   row,
+  index,
   mark,
   onSelect,
 }: {
   row: MergedRow;
+  /** Its slot in the pinned run, when it is in the pinned run. */
+  index?: number;
   mark: "glyph" | "sublabel" | "none";
   onSelect: () => void;
 }) {
   const Icon = row.icon;
   const pinnedInk = usePinnedInk();
+  const { announce } = usePinFeedback();
   // Empty for every treatment that does not animate the destination.
   const landed = usePinLanded(row.id);
   return (
@@ -652,21 +711,48 @@ function MergedItemRow({
       </button>
       {row.onTogglePin ? (
         <MaybeCapHint blocked={row.pinBlocked ?? false}>
-        <button
-          type="button"
-          // Live, not disabled — the hover is where the refusal explains
-          // itself. See PinButton for the whole of that reasoning.
-          aria-disabled={row.pinBlocked ?? false}
-          title={
-            row.pinned ? "Unpin" : row.pinBlocked ? PIN_CAP_HINT : "Pin"
-          }
-          aria-label={row.pinned ? "Unpin" : "Pin"}
-          aria-pressed={row.pinned}
-          onClick={row.pinBlocked ? undefined : row.onTogglePin}
-          className={cn(
-            "motion-tap flex size-[22px] shrink-0 items-center justify-center rounded-[6px]",
-            "hover:bg-nav-hover active:scale-90 motion-press",
+          <button
+            type="button"
+            // Live, not disabled — the hover is where the refusal explains
+            // itself. See PinButton for the whole of that reasoning.
+            aria-disabled={row.pinBlocked ?? false}
+            title={row.pinned ? "Unpin" : row.pinBlocked ? PIN_CAP_HINT : "Pin"}
+            aria-label={row.pinned ? "Unpin" : "Pin"}
+            aria-pressed={row.pinned}
             /*
+            Announce, THEN toggle — the same order PinButton uses, and for
+            the same two reasons: the source has to be measured while this
+            button is still where it was, and the treatments that hold a
+            leaving row need to be told before the store takes it away.
+
+            This was the bug behind "the exit animation stopped working".
+            Every other pin control in the nav goes through PinButton, which
+            announces; this block draws its own because its pin is grey
+            rather than brand and sits at 12px instead of 14. The styling
+            diverged and the behaviour came with it — so pinning from a
+            flyout animated in, and unpinning from the list it landed in did
+            nothing at all, because the only control that can perform that
+            unpin was the one control that never said it had happened.
+          */
+            onClick={
+              row.pinBlocked
+                ? undefined
+                : (e) => {
+                    e.stopPropagation();
+                    announce(
+                      row.id,
+                      e.currentTarget,
+                      row.pinned ? "unpin" : "pin",
+                      // Read here, because here is the last moment it is true.
+                      row.pinned ? { index: index ?? 0, row } : undefined,
+                    );
+                    row.onTogglePin?.();
+                  }
+            }
+            className={cn(
+              "motion-tap flex size-[22px] shrink-0 items-center justify-center rounded-[6px]",
+              "hover:bg-nav-hover active:scale-90 motion-press",
+              /*
               Grey, not brand — and only in this block.
               
               Everywhere else the pin is the brand colour because it is the
@@ -675,26 +761,26 @@ function MergedItemRow({
               edge became the loudest thing in the nav and pulled the eye off the
               names. Ink at gray-500 still says "kept" without competing.
             */
-            row.pinned
-              ? cn(pinnedInk, "opacity-100")
-              : "text-nav-fg-subtle opacity-0 group-hover/row:opacity-100 hover:text-nav-fg focus-visible:opacity-100",
-            // "Nothing" means nothing: the pin is still reachable, but a pinned
-            // row may not advertise itself, or the mode would be marking pins
-            // after all.
-            mark === "none" &&
-              "text-nav-fg-subtle opacity-0 group-hover/row:opacity-100",
-            row.pinBlocked &&
-              "cursor-not-allowed opacity-0 group-hover/row:opacity-30 hover:bg-transparent hover:text-nav-fg-subtle",
-          )}
-        >
-          <Pin
-            // 12, not 14: it sits beside a 16px leading glyph, and a trailing
-            // mark that matches the icon it trails reads as a second icon.
-            size={12}
-            fill={row.pinned && mark !== "none" ? "currentColor" : "none"}
-            aria-hidden="true"
-          />
-        </button>
+              row.pinned
+                ? cn(pinnedInk, "opacity-100")
+                : "text-nav-fg-subtle opacity-0 group-hover/row:opacity-100 hover:text-nav-fg focus-visible:opacity-100",
+              // "Nothing" means nothing: the pin is still reachable, but a pinned
+              // row may not advertise itself, or the mode would be marking pins
+              // after all.
+              mark === "none" &&
+                "text-nav-fg-subtle opacity-0 group-hover/row:opacity-100",
+              row.pinBlocked &&
+                "cursor-not-allowed opacity-0 group-hover/row:opacity-30 hover:bg-transparent hover:text-nav-fg-subtle",
+            )}
+          >
+            <Pin
+              // 12, not 14: it sits beside a 16px leading glyph, and a trailing
+              // mark that matches the icon it trails reads as a second icon.
+              size={12}
+              fill={row.pinned && mark !== "none" ? "currentColor" : "none"}
+              aria-hidden="true"
+            />
+          </button>
         </MaybeCapHint>
       ) : (
         // A row nobody can pin still gives up the column, so every label in the
