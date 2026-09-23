@@ -62,11 +62,19 @@ import {
 } from "@/design/theme";
 import { chromeForVariant } from "@/components/page/header-variants";
 import type {
+  BuilderChromeStyle,
+  CalendarViewSwitch,
+  BarHeadingScale,
+  CrumbSeparator,
+  TreeIcons,
   CrumbCollapse,
   CrumbStart,
+  CrumbEmphasis,
   CrumbIcons,
+  CrumbScale,
   TreeSearchPlace,
   RecordCrumbLabel,
+  RecordBackPlace,
 } from "@/design/theme";
 import type {
   BuilderCanvas,
@@ -134,7 +142,6 @@ export type AccountTheme = Partial<
 export type HeaderVariantField =
   | "listHeaderVariant"
   | "recordHeaderVariant"
-  | "boardHeaderVariant"
   | "panelHeaderVariant"
   | "deepHeaderVariant";
 
@@ -206,15 +213,26 @@ interface ThemeContextValue extends ThemeState {
   setNavSections: (mode: NavSections) => void;
   setLayoutReplaceDialog: (mode: LayoutReplaceDialog) => void;
   setInboxPalette: (palette: InboxPalette) => void;
-  setRecordPageHeader: (on: boolean) => void;
   setPageTitle: (on: boolean) => void;
   setPageDescription: (on: boolean) => void;
   setPageCount: (on: boolean) => void;
   setPageHeader: (on: boolean) => void;
+  setStickyDashboardBar: (on: boolean) => void;
   setNavProductTree: (on: boolean) => void;
   setNavTreeCounts: (on: boolean) => void;
+  setTreeIcons: (v: TreeIcons) => void;
+  setTreeRecentsAllProducts: (on: boolean) => void;
+  setCrumbShown: (on: boolean) => void;
+  setCrumbHome: (on: boolean) => void;
+  setCrumbSwitchers: (on: boolean) => void;
+  setCrumbSeparator: (v: CrumbSeparator) => void;
+  setCrumbCompoundChild: (on: boolean) => void;
+  setBuilderKeepBanner: (on: boolean) => void;
+  setListShowViews: (on: boolean) => void;
+  setListShowFilters: (on: boolean) => void;
   setTreeSearchPlace: (v: TreeSearchPlace) => void;
-  setCrumbEmphasis: (on: boolean) => void;
+  setCrumbEmphasis: (v: CrumbEmphasis) => void;
+  setCrumbScale: (v: CrumbScale) => void;
   setCrumbIcons: (v: CrumbIcons) => void;
   setCrumbCollapse: (v: CrumbCollapse) => void;
   setCrumbStart: (v: CrumbStart) => void;
@@ -226,7 +244,13 @@ interface ThemeContextValue extends ThemeState {
   setBuilderControls: (v: BuilderControls) => void;
   setBuilderExit: (v: BuilderExit) => void;
   setBuilderCanvas: (v: BuilderCanvas) => void;
+  setBuilderChromeStyle: (v: BuilderChromeStyle) => void;
+  setBuilderToolPalette: (on: boolean) => void;
   setRecordBackButton: (on: boolean) => void;
+  setRecordBackPlace: (place: RecordBackPlace) => void;
+  setBarPageHeading: (on: boolean) => void;
+  setBarHeadingScale: (scale: BarHeadingScale) => void;
+  setCalendarViewSwitch: (style: CalendarViewSwitch) => void;
   /**
    * Picks a header shape for one page archetype.
    *
@@ -490,13 +514,13 @@ export function ThemeProvider({
         setState((s) => ({ ...s, layoutReplaceDialog })),
       setInboxPalette: (inboxPalette) =>
         setState((s) => ({ ...s, inboxPalette })),
-      setRecordPageHeader: (recordPageHeader) =>
-        setState((s) => ({ ...s, recordPageHeader })),
       setPageTitle: (pageTitle) => setState((s) => ({ ...s, pageTitle })),
       setPageDescription: (pageDescription) =>
         setState((s) => ({ ...s, pageDescription })),
       setPageCount: (pageCount) => setState((s) => ({ ...s, pageCount })),
       setPageHeader: (pageHeader) => setState((s) => ({ ...s, pageHeader })),
+      setStickyDashboardBar: (stickyDashboardBar) =>
+        setState((s) => ({ ...s, stickyDashboardBar })),
       setNavProductTree: (navProductTree) =>
         setState((s) => ({
           ...s,
@@ -520,10 +544,28 @@ export function ThemeProvider({
         })),
       setNavTreeCounts: (navTreeCounts) =>
         setState((s) => ({ ...s, navTreeCounts })),
+      setTreeIcons: (treeIcons) => setState((s) => ({ ...s, treeIcons })),
+      setTreeRecentsAllProducts: (treeRecentsAllProducts) =>
+        setState((s) => ({ ...s, treeRecentsAllProducts })),
+      setCrumbShown: (crumbShown) => setState((s) => ({ ...s, crumbShown })),
+      setCrumbHome: (crumbHome) => setState((s) => ({ ...s, crumbHome })),
+      setCrumbSwitchers: (crumbSwitchers) =>
+        setState((s) => ({ ...s, crumbSwitchers })),
+      setCrumbSeparator: (crumbSeparator) =>
+        setState((s) => ({ ...s, crumbSeparator })),
+      setCrumbCompoundChild: (crumbCompoundChild) =>
+        setState((s) => ({ ...s, crumbCompoundChild })),
+      setBuilderKeepBanner: (builderKeepBanner) =>
+        setState((s) => ({ ...s, builderKeepBanner })),
+      setListShowViews: (listShowViews) =>
+        setState((s) => ({ ...s, listShowViews })),
+      setListShowFilters: (listShowFilters) =>
+        setState((s) => ({ ...s, listShowFilters })),
       setTreeSearchPlace: (treeSearchPlace) =>
         setState((s) => ({ ...s, treeSearchPlace })),
       setCrumbEmphasis: (crumbEmphasis) =>
         setState((s) => ({ ...s, crumbEmphasis })),
+      setCrumbScale: (crumbScale) => setState((s) => ({ ...s, crumbScale })),
       setCrumbIcons: (crumbIcons) => setState((s) => ({ ...s, crumbIcons })),
       setCrumbCollapse: (crumbCollapse) =>
         setState((s) => ({ ...s, crumbCollapse })),
@@ -543,8 +585,20 @@ export function ThemeProvider({
       setBuilderExit: (builderExit) => setState((s) => ({ ...s, builderExit })),
       setBuilderCanvas: (builderCanvas) =>
         setState((s) => ({ ...s, builderCanvas })),
+      setBuilderChromeStyle: (builderChromeStyle) =>
+        setState((s) => ({ ...s, builderChromeStyle })),
+      setBuilderToolPalette: (builderToolPalette) =>
+        setState((s) => ({ ...s, builderToolPalette })),
       setRecordBackButton: (recordBackButton) =>
         setState((s) => ({ ...s, recordBackButton })),
+      setRecordBackPlace: (recordBackPlace) =>
+        setState((s) => ({ ...s, recordBackPlace })),
+      setBarHeadingScale: (barHeadingScale) =>
+        setState((s) => ({ ...s, barHeadingScale })),
+      setBarPageHeading: (barPageHeading) =>
+        setState((s) => ({ ...s, barPageHeading })),
+      setCalendarViewSwitch: (calendarViewSwitch) =>
+        setState((s) => ({ ...s, calendarViewSwitch })),
       setHeaderVariant: (field, value) =>
         setState((s) => {
           const chrome = chromeForVariant(value as string);

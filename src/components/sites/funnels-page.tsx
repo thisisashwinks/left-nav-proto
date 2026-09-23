@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { AiSparkle } from "@/components/icons/ai-sparkle";
 import { PageHeader, usePageChrome } from "@/components/page/page-header";
+import { useListShape } from "@/components/page/list-shape";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { FunnelAiBuilder } from "./funnel-ai-builder";
@@ -45,6 +46,20 @@ const COLS = "2.6fr 1.1fr 0.9fr 36px";
 export function FunnelsPage() {
   const { effective } = useTheme();
   const chrome = usePageChrome();
+  /*
+   * One field of the shape, and the other one deliberately unread.
+   *
+   * `listShowViews` is a no-op here and that is the correct behaviour, not a
+   * gap: this page has no saved views to withhold — its collection is cut by
+   * FOLDERS, which are rows in the table, and the List / Recent pair below is
+   * a renderer switch. Reading the switch anyway would mean finding something
+   * to hide, and the only candidates are the renderer (the same rows in a
+   * different order, so hiding it hides no cut) or the folders (rows in a
+   * table, which no list variant has ever reached into). A knob that invents
+   * a victim on the one page it does not apply to is worse than a knob that
+   * does nothing there.
+   */
+  const { showFilters } = useListShape();
   const [openId, setOpenId] = React.useState<string | null>(null);
   const [building, setBuilding] = React.useState(false);
   /*
@@ -141,7 +156,36 @@ export function FunnelsPage() {
         ]}
       />
 
+      {/*
+        This row is the same in every list variant, L-F included, and that is
+        the answer rather than an omission.
+
+        Funnels has no saved views. Its collection is cut by FOLDERS, which
+        live in the table as rows you open, and the List / Recent pair to the
+        right is a renderer switch, not a scope — picking Recent shows the same
+        funnels in a different order. So there is no tab strip above this row
+        for L-F to merge it into, and collapsing these controls to glyphs would
+        buy back nothing: L-F's whole claim is that two bands of chrome can be
+        one, and a page with one band has already made the saving. Spending the
+        labels anyway would be the variant charging a page it does not help,
+        and a review comparing screenshots would read that as L-F being worse
+        than it is.
+
+        L-B and L-E pass this page by for the older version of the same reason,
+        which is why it reads the chrome knobs (`chrome.header`, below) and not
+        the axis: a picker over nothing and a switching crumb over nothing are
+        not variants, they are empty controls.
+
+        What the row DOES answer to is `listShowFilters`, which takes the
+        search field — this page's whole filter apparatus. The row stays,
+        because the two things left on it are not filters: List / Recent is a
+        renderer, and Build with AI is a create action standing in for a
+        header that may be switched off. A page whose only filter is a search
+        box is the cheapest case for the switch and therefore the clearest
+        one: you can see exactly what 34px of band was buying.
+      */}
       <div className="flex shrink-0 items-center gap-[10px]">
+        {showFilters ? (
         <div className="flex h-[34px] flex-1 items-center gap-[9px] rounded-[8px] bg-pg-surface px-[14px] shadow-[inset_0_0_0_1px_var(--pg-border)] motion-tap focus-within:shadow-[inset_0_0_0_1px_var(--brand),0_0_0_3px_var(--brand-soft)]">
           <Search size={16} aria-hidden="true" className="shrink-0 text-pg-faint" />
           <input
@@ -151,6 +195,10 @@ export function FunnelsPage() {
             className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
           />
         </div>
+        ) : (
+          /* The slack the field was taking, so the pair below hold the right edge. */
+          <span aria-hidden="true" className="min-w-[16px] flex-1" />
+        )}
 
         {/*
           The one door to the builder that survives slot 05 being switched off.

@@ -90,14 +90,27 @@ function GridBackdrop() {
 function CanvasFrame({
   children,
   className,
+  flush,
 }: {
   children: React.ReactNode;
   className?: string;
+  /**
+   * Drop the radius and the ring — the Sep 23 addition for `overlays="page"`.
+   *
+   * A rounded card with a hairline around it is what a canvas looks like when
+   * it is one PANE among rows, and it is the correct drawing under `rows`.
+   * Under the floating islands the page has already given up its gutter so the
+   * surface can reach the shell's edges, and a 11px corner radius arriving at
+   * a square viewport corner is the one pixel that still says "pane". The grid
+   * is clipped by `overflow-hidden` either way, so nothing else depends on it.
+   */
+  flush?: boolean;
 }) {
   return (
     <div
       className={cn(
-        "relative h-full min-h-0 w-full overflow-hidden rounded-[11px] bg-pg shadow-[inset_0_0_0_1px_var(--pg-border)]",
+        "relative h-full min-h-0 w-full overflow-hidden bg-pg",
+        flush ? "" : "rounded-[11px] shadow-[inset_0_0_0_1px_var(--pg-border)]",
         className,
       )}
     >
@@ -160,10 +173,48 @@ function ControlRaft({
   );
 }
 
-export function WorkflowCanvas({ variant }: { variant: BuilderCanvas }) {
-  if (variant === "advanced") return <AdvancedCanvas />;
-  if (variant === "abstract") return <SketchCanvas />;
-  return <StandardCanvas />;
+/**
+ * Who owns the canvas's furniture — the Sep 23 addition, and the only thing
+ * about this file that the chrome axis is allowed to move.
+ *
+ * `canvas` is everything this file has drawn since it was written: the tool
+ * rail, the zoom cluster, the minimap. `page` says the page above has taken
+ * those corners for its own floating islands, so this file stands the
+ * duplicates down.
+ *
+ * It exists because of a collision this file PREDICTED. The minimap's own note
+ * below says it is kept because it occupies the bottom-right corner, "which is
+ * the corner a floating publish row would want" — and on Sep 23 a floating
+ * arrangement arrived and wanted exactly that, plus the bottom-left the zoom
+ * stack has and the rail's whole left edge. Two zoom clusters and two tool
+ * palettes on one screen is not a finding about chrome, it is a rendering bug
+ * a reviewer spends the session on instead.
+ *
+ * Deliberately NOT the same thing as hiding controls. Under `page` the zoom
+ * cluster, the undo pair and Add are all still on screen — each is in an
+ * island a few pixels away, drawn by floating-chrome.tsx. What moved is which
+ * file draws it, and rule 1 at the top of this file still holds: this canvas
+ * never draws page chrome. It is now merely allowed to be told that the page
+ * drew the canvas's.
+ *
+ * The rail is the one thing that MOVES RATHER THAN RELOCATES, and it is worth
+ * naming rather than glossing: under `page` the eight step categories stop
+ * being a permanent band and become what the island's Add step opens. That is
+ * a real difference between the two styles and a fair thing to price, which is
+ * the entire purpose of having the axis.
+ */
+export type CanvasOverlays = "canvas" | "page";
+
+export function WorkflowCanvas({
+  variant,
+  overlays = "canvas",
+}: {
+  variant: BuilderCanvas;
+  overlays?: CanvasOverlays;
+}) {
+  if (variant === "advanced") return <AdvancedCanvas overlays={overlays} />;
+  if (variant === "abstract") return <SketchCanvas overlays={overlays} />;
+  return <StandardCanvas overlays={overlays} />;
 }
 
 /* ── standard ───────────────────────────────────────────────────────────── */
@@ -282,11 +333,23 @@ function RunLine({ height }: { height: number }) {
  * and that is precisely what breaks when a variant steals width from the left
  * for a retained sidebar.
  */
-function StandardCanvas() {
+function StandardCanvas({ overlays }: { overlays: CanvasOverlays }) {
+  const own = overlays === "canvas";
   return (
-    <CanvasFrame>
+    <CanvasFrame flush={overlays === "page"}>
       {/* The category rail. Full height and flush left, as it ships — it is
-          part of the canvas, not a floating raft like the zoom cluster. */}
+          part of the canvas, not a floating raft like the zoom cluster.
+
+          Gone under `page`, and Sep 23 sharpened WHY. The first reason still
+          holds: when the page draws a palette, two element palettes on one
+          canvas is the arrangement neither style is arguing for. The second
+          is geometric and survives the palette being switched off — the
+          identity island anchors at `left-[12px]`, which is inside this rail.
+          Keeping a 42px band under an island that lands on its top three
+          glyphs is not "the canvas kept its rail", it is two things in one
+          place. The eight categories are reached from the island's Add step
+          under `page`, the way every other menu on this canvas is reached. */}
+      {own ? (
       <div className="absolute inset-y-0 left-0 z-10 flex w-[42px] flex-col items-center gap-[2px] border-r border-pg-border bg-pg-surface py-[10px]">
         {STANDARD_RAIL.map((item) => (
           <CanvasButton key={item.label} icon={item.icon} label={item.label} />
@@ -304,11 +367,19 @@ function StandardCanvas() {
           <CanvasButton icon={Moon} label="Dark canvas" />
         </span>
       </div>
+      ) : null}
 
       {/* The run. `pl-[42px]` keeps it centred on the canvas the operator can
           actually see rather than on the frame, which is what the product
-          does — the rail is furniture, not content. */}
-      <div className="absolute inset-0 flex items-center justify-center overflow-auto pl-[42px]">
+          does — the rail is furniture, not content. The padding goes with the
+          rail: keeping it under `page` would push the run off centre to make
+          room for something that is no longer there. */}
+      <div
+        className={cn(
+          "absolute inset-0 flex items-center justify-center overflow-auto",
+          own && "pl-[42px]",
+        )}
+      >
         <div className="relative flex flex-col items-center py-[40px]">
           <NodeCard
             icon={ClipboardList}
@@ -382,48 +453,77 @@ function StandardCanvas() {
 
       {/* Top corners. Left is help, right is the one thing you can add to the
           canvas from outside a node — the same left-is-free / right-is-
-          commitment split the page header above obeys. */}
-      <ControlRaft className="absolute top-[14px] left-[56px] z-10">
-        <CanvasButton icon={Keyboard} label="Keyboard shortcuts" />
-      </ControlRaft>
-      <button
-        type="button"
-        className="motion-tap absolute top-[14px] right-[14px] z-10 flex h-[30px] items-center gap-[5px] rounded-[8px] bg-brand px-[11px] text-[13px] leading-[normal] font-medium text-brand-fg shadow-[0_1px_2px_0_rgba(16,24,40,0.08)] hover:brightness-[1.06] active:scale-[0.98]"
-      >
-        <Plus size={14} aria-hidden="true" />
-        Add
-      </button>
+          commitment split the page header above obeys. The help raft goes
+          under `page`: the identity island lands on that exact spot, and the
+          shortcut hints are printed above the palette's tools there anyway. */}
+      {own ? (
+        <ControlRaft className="absolute top-[14px] left-[56px] z-10">
+          <CanvasButton icon={Keyboard} label="Keyboard shortcuts" />
+        </ControlRaft>
+      ) : null}
+      {/* Add, and the Sep 23 correction to the note that used to be here.
+          It said Add "survives in both" and then, under `page`, dropped it
+          from `top-[14px]` to `top-[62px]` so it would clear the collaboration
+          island. What that produced was a lone brand button hanging in the gap
+          BETWEEN two islands, attached to neither and to nothing on the
+          canvas — a stray third thing, and the first question the screenshot
+          got. The control still survives; it is drawn by the page, in the
+          bottom-right island beside undo and redo, where the canvas's other
+          actions already are. Relocated, not removed — which is the whole
+          contract of `overlays` and is why this is one more `own` gate rather
+          than a special case. */}
+      {own ? (
+        <button
+          type="button"
+          className="motion-tap absolute top-[14px] right-[14px] z-10 flex h-[30px] items-center gap-[5px] rounded-[8px] bg-brand px-[11px] text-[13px] leading-[normal] font-medium text-brand-fg shadow-[0_1px_2px_0_rgba(16,24,40,0.08)] hover:brightness-[1.06] active:scale-[0.98]"
+        >
+          <Plus size={14} aria-hidden="true" />
+          Add
+        </button>
+      ) : null}
 
       {/* Bottom left: pan, then the zoom stack, then fit. Three rafts rather
           than one row of five, because the product groups them that way and
           the gaps are what make the percentage readable as a value rather
           than as another button. */}
-      <div className="absolute bottom-[14px] left-[56px] z-10 flex items-center gap-[8px]">
-        <ControlRaft>
-          <CanvasButton icon={Hand} label="Pan canvas" />
-        </ControlRaft>
-        <ControlRaft>
-          <CanvasButton icon={Plus} label="Zoom in" />
-          <span className="px-[4px] text-[12px] leading-[normal] font-medium tabular-nums text-pg-text">
-            100%
-          </span>
-          <CanvasButton icon={Minus} label="Zoom out" />
-        </ControlRaft>
-        <ControlRaft>
-          <CanvasButton icon={Maximize} label="Fit to screen" />
-        </ControlRaft>
-      </div>
+      {own ? (
+        <div className="absolute bottom-[14px] left-[56px] z-10 flex items-center gap-[8px]">
+          <ControlRaft>
+            <CanvasButton icon={Hand} label="Pan canvas" />
+          </ControlRaft>
+          <ControlRaft>
+            <CanvasButton icon={Plus} label="Zoom in" />
+            <span className="px-[4px] text-[12px] leading-[normal] font-medium tabular-nums text-pg-text">
+              100%
+            </span>
+            <CanvasButton icon={Minus} label="Zoom out" />
+          </ControlRaft>
+          <ControlRaft>
+            <CanvasButton icon={Maximize} label="Fit to screen" />
+          </ControlRaft>
+        </div>
+      ) : null}
 
       {/* The minimap. Kept as a dumb rectangle with blocks in it — it is here
           because it occupies the bottom-right corner, which is the corner a
           floating publish row would want, not because a review needs a working
-          overview of a two-node workflow. */}
-      <div className="absolute right-[14px] bottom-[14px] z-10 h-[96px] w-[150px] overflow-hidden rounded-[8px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border),0_2px_8px_-2px_rgba(15,23,42,0.10)]">
-        <span className="absolute top-[16px] left-[52px] h-[12px] w-[46px] rounded-[3px] bg-pg-disabled" />
-        <span className="absolute top-[34px] left-[52px] h-[12px] w-[46px] rounded-[3px] bg-pg-disabled" />
-        <span className="absolute top-[16px] left-[104px] h-[12px] w-[28px] rounded-[3px] bg-pg-border-strong" />
-        <span className="absolute top-[56px] left-[62px] h-[9px] w-[26px] rounded-full bg-pg-border-strong" />
-      </div>
+          overview of a two-node workflow.
+
+          Sep 23: that corner was in fact wanted. Under `page` the undo/redo
+          island has it, and the minimap is the one control here with no island
+          equivalent — so this is the single place where the floating style
+          genuinely COSTS the canvas something rather than relocating it. Left
+          as a note rather than as a fourth island, because "where does the
+          minimap go" is a real question this style has to answer and inventing
+          a home for it here would answer it before anyone asked. */}
+      {own ? (
+        <div className="absolute right-[14px] bottom-[14px] z-10 h-[96px] w-[150px] overflow-hidden rounded-[8px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border),0_2px_8px_-2px_rgba(15,23,42,0.10)]">
+          <span className="absolute top-[16px] left-[52px] h-[12px] w-[46px] rounded-[3px] bg-pg-disabled" />
+          <span className="absolute top-[34px] left-[52px] h-[12px] w-[46px] rounded-[3px] bg-pg-disabled" />
+          <span className="absolute top-[16px] left-[104px] h-[12px] w-[28px] rounded-[3px] bg-pg-border-strong" />
+          <span className="absolute top-[56px] left-[62px] h-[9px] w-[26px] rounded-full bg-pg-border-strong" />
+        </div>
+      ) : null}
     </CanvasFrame>
   );
 }
@@ -464,7 +564,7 @@ function clamp(value: number, min: number, max: number) {
  * moves a box inside one box. Pointer capture keeps the gesture alive when the
  * pointer outruns the tile, which is the failure mode people actually hit.
  */
-function AdvancedCanvas() {
+function AdvancedCanvas({ overlays }: { overlays: CanvasOverlays }) {
   const wrapRef = React.useRef<HTMLDivElement>(null);
   /*
    * Null until measured.
@@ -549,7 +649,7 @@ function AdvancedCanvas() {
     : null;
 
   return (
-    <CanvasFrame>
+    <CanvasFrame flush={overlays === "page"}>
       <div ref={wrapRef} className="absolute inset-0">
         {pos && plus ? (
           <>
@@ -607,14 +707,18 @@ function AdvancedCanvas() {
 
       {/* One raft here, not three: the Advanced canvas has no pan tool and no
           percentage readout, and pretending otherwise would blur the one
-          honest difference between the two builders' control sets. */}
-      <ControlRaft className="absolute bottom-[14px] left-[14px] z-10">
-        <CanvasButton icon={MousePointer2} label="Select" />
-        <CanvasButton icon={Maximize} label="Fit to screen" />
-        <CanvasButton icon={Minus} label="Zoom out" />
-        <CanvasButton icon={Plus} label="Zoom in" />
-        <CanvasButton icon={AlignCenterHorizontal} label="Tidy layout" />
-      </ControlRaft>
+          honest difference between the two builders' control sets. It is also
+          the whole of this variant's furniture, which is why `page` leaves the
+          free canvas looking most like the whiteboard the style came from. */}
+      {overlays === "canvas" ? (
+        <ControlRaft className="absolute bottom-[14px] left-[14px] z-10">
+          <CanvasButton icon={MousePointer2} label="Select" />
+          <CanvasButton icon={Maximize} label="Fit to screen" />
+          <CanvasButton icon={Minus} label="Zoom out" />
+          <CanvasButton icon={Plus} label="Zoom in" />
+          <CanvasButton icon={AlignCenterHorizontal} label="Tidy layout" />
+        </ControlRaft>
+      ) : null}
     </CanvasFrame>
   );
 }
@@ -746,9 +850,10 @@ function AdvancedTile({
  * why it is still useful beyond the archive — it is the cheapest way to see
  * what a variant's chrome does when the canvas is not the full width.
  */
-function SketchCanvas() {
+function SketchCanvas({ overlays }: { overlays: CanvasOverlays }) {
+  const own = overlays === "canvas";
   return (
-    <CanvasFrame>
+    <CanvasFrame flush={overlays === "page"}>
       {/* `pr` for the inspector, the same way the Standard canvas pads for its
           rail: the run is centred on the space the operator can see, not on
           the frame. It is a small thing that decides whether the sketch reads
@@ -777,12 +882,15 @@ function SketchCanvas() {
 
       {/* Floating tool rail — a raft on the canvas, not a flush strip, which
           is the detail that separates the sketch from the Standard canvas it
-          was standing in for. */}
-      <div className="absolute top-1/2 left-[14px] z-10 flex -translate-y-1/2 flex-col gap-[6px] rounded-[10px] bg-pg-surface p-[6px] shadow-[inset_0_0_0_1px_var(--pg-card-border),0_2px_8px_-2px_rgba(15,23,42,0.10)]">
-        {[0, 1, 2, 3, 4].map((i) => (
-          <span key={i} className="size-[22px] rounded-[6px] bg-pg-border" />
-        ))}
-      </div>
+          was standing in for. Under `page` the palette island IS this raft,
+          turned on its side and moved to the bottom. */}
+      {own ? (
+        <div className="absolute top-1/2 left-[14px] z-10 flex -translate-y-1/2 flex-col gap-[6px] rounded-[10px] bg-pg-surface p-[6px] shadow-[inset_0_0_0_1px_var(--pg-card-border),0_2px_8px_-2px_rgba(15,23,42,0.10)]">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <span key={i} className="size-[22px] rounded-[6px] bg-pg-border" />
+          ))}
+        </div>
+      ) : null}
 
       {/* Inspector. Blocked out rather than filled in, deliberately: a canvas
           study that drew a plausible settings form would collect feedback on
@@ -802,15 +910,17 @@ function SketchCanvas() {
           controls go, and wrong in a useful way: both real builders put them
           bottom LEFT, and the difference is visible the moment the two are
           switched between. */}
-      <ControlRaft className="absolute bottom-[14px] left-1/2 z-10 -translate-x-1/2">
-        <CanvasButton icon={Minus} label="Zoom out" />
-        <span className="px-[4px] text-[12px] leading-[normal] font-medium tabular-nums text-pg-text">
-          100%
-        </span>
-        <CanvasButton icon={Plus} label="Zoom in" />
-        <span aria-hidden="true" className="mx-[2px] h-[18px] w-px bg-pg-border" />
-        <CanvasButton icon={Maximize} label="Fit to screen" />
-      </ControlRaft>
+      {own ? (
+        <ControlRaft className="absolute bottom-[14px] left-1/2 z-10 -translate-x-1/2">
+          <CanvasButton icon={Minus} label="Zoom out" />
+          <span className="px-[4px] text-[12px] leading-[normal] font-medium tabular-nums text-pg-text">
+            100%
+          </span>
+          <CanvasButton icon={Plus} label="Zoom in" />
+          <span aria-hidden="true" className="mx-[2px] h-[18px] w-px bg-pg-border" />
+          <CanvasButton icon={Maximize} label="Fit to screen" />
+        </ControlRaft>
+      ) : null}
     </CanvasFrame>
   );
 }

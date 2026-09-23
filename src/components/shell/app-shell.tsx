@@ -37,6 +37,10 @@ import {
   type PageCrumb,
 } from "@/components/page/page-crumb";
 import {
+  PageHeadingContext,
+  type PageHeading,
+} from "@/components/page/page-heading";
+import {
   GET_APP_LABELS,
   GetAppModal,
   type AppKind,
@@ -210,6 +214,152 @@ const SWITCHER_ANCHOR = {
  */
 const FLYOUT_HOVER_GRACE_MS = 180;
 
+/** A segment's word, however the trail happened to file it. */
+const crumbLabel = (s: string | Crumb) => (typeof s === "string" ? s : s.label);
+
+/**
+ * A breadcrumb never says the same thing twice in a row.
+ *
+ * Lifted out of `productCrumbs` on Sep 23, unchanged, because the compound
+ * option below has to run the same rule a second time — see the note there.
+ * Its argument against a flag on the two offending rows still stands and is
+ * worth restating: this compares LABELS, so the third product whose main
+ * screen is also filed as its first child is handled by nobody remembering
+ * anything.
+ *
+ * The DEEPER crumb survives. It is the level you are standing on and its menu
+ * is the one with somewhere to go; the shallower one's menu is sibling
+ * products, which the bucket crumb to its left already offers. The icon comes
+ * down with it, since it belongs to the product and the child never had one.
+ *
+ * Copies before it walks, unlike the version inside the memo: a module
+ * function that rewrote its caller's array would be a fine private detail and
+ * a trap for the second caller, which now exists.
+ */
+function collapseRepeats(
+  segments: readonly (string | Crumb)[],
+): (string | Crumb)[] {
+  const work = [...segments];
+  return work.reduce<(string | Crumb)[]>((kept, segment, i) => {
+    const next = work[i + 1];
+    if (!next || crumbLabel(segment) !== crumbLabel(next)) {
+      kept.push(segment);
+      return kept;
+    }
+    if (typeof segment !== "string" && typeof next !== "string") {
+      work[i + 1] = { ...next, icon: next.icon ?? segment.icon };
+    }
+    return kept;
+  }, []);
+}
+
+/**
+ * The words that mean nothing without the thing they belong to.
+ *
+ * An explicit list, and deliberately not a rule. The tempting rule was "one
+ * word, and the same word appears under three or more products" — which is
+ * computable from the catalogue and would quietly change what the trail says
+ * the day somebody adds a third Templates page. A list is a decision somebody
+ * made about English; a derived rule is a decision the data makes on our
+ * behalf, differently each week, and the reviewer looking at a folded crumb
+ * could not tell you why THAT one folded.
+ *
+ * The entries share one property: alone in a trail, they name a KIND of page
+ * rather than a place, so the crumb to their left is the only thing carrying
+ * the meaning. Anything with a subject of its own stays out — Services,
+ * Pipelines and Appointments are not on this list, because "Services" already
+ * says what it is about and "Calendar services" would be a worse name, not a
+ * clearer one.
+ *
+ * Matched case-insensitively on the whole label, never on a substring: "List"
+ * folds, "List import" does not, and the difference has to survive an edit by
+ * someone who has not read this comment.
+ */
+const GENERIC_CHILD_LABELS: ReadonlySet<string> = new Set([
+  "settings",
+  "analytics",
+  "overview",
+  "dashboard",
+  "list",
+  "reports",
+  "templates",
+  "activity",
+  "history",
+]);
+
+/**
+ * "Calendars ▸ Settings" as one crumb, in the house's own sentence case.
+ *
+ * Two smaller decisions live in here. The parent is singularised, because
+ * "Calendars settings" is not English and the compound is supposed to read as
+ * a NAME — the same name the page's own heading would use. The child is
+ * lowered by its first letter only rather than lowercased whole, so a generic
+ * label that ever arrives carrying an acronym ("API settings") keeps it; the
+ * copy rule is sentence case, which is a rule about the first letter.
+ *
+ * The singular is the crude English one and stays crude on purpose: -ies → -y,
+ * -ses/-xes/-ches/-shes → drop the -es, a trailing -s otherwise, and hands off
+ * anything ending in -ss or -us. It is wrong for irregular plurals, and every
+ * product name this shell can put in the parent slot is regular. A correct
+ * inflector would be a dependency and a week of edge cases for a trail that
+ * has nine words on the other side of it.
+ */
+function singularise(word: string): string {
+  const lower = word.toLowerCase();
+  if (lower.endsWith("ss") || lower.endsWith("us")) return word;
+  if (lower.endsWith("ies")) return `${word.slice(0, -3)}y`;
+  if (/(?:s|x|ch|sh)es$/.test(lower)) return word.slice(0, -2);
+  if (lower.endsWith("s")) return word.slice(0, -1);
+  return word;
+}
+
+/**
+ * Fold every generic child into the crumb above it.
+ *
+ * The folded crumb IS the child — its menu, its `onSelect`, its `aria-current`
+ * if it is last — wearing a longer name. That is the half of this that matters
+ * and the half that is easy to get backwards: keeping the parent and renaming
+ * it would produce a crumb that reads "Calendar settings" and navigates to
+ * Calendars, which is a link that lies. The parent's icon comes down where the
+ * child has none, exactly as `collapseRepeats` carries it down, so folding
+ * never costs the row a glyph.
+ *
+ * Walked left to right and one pair at a time, with the compound taking the
+ * folded pair's place — so a three-level path folds its deepest generic and
+ * keeps walking, and the compound label itself is not in the generic list, so
+ * nothing can fold twice into "Calendar settings analytics".
+ *
+ * A string parent folds too, and the result is a plain string: the agency
+ * trail is built from words (["Acme", "Overview"]), and a rule that only
+ * applied to the switcher-bearing trails would fire on some pages and not
+ * others for a reason nobody can see from the row.
+ */
+function foldGenericChildren(
+  segments: readonly (string | Crumb)[],
+): (string | Crumb)[] {
+  const kept: (string | Crumb)[] = [];
+  for (const segment of segments) {
+    const parent = kept[kept.length - 1];
+    const label = crumbLabel(segment);
+    if (parent === undefined || !GENERIC_CHILD_LABELS.has(label.toLowerCase())) {
+      kept.push(segment);
+      continue;
+    }
+    const compound = `${singularise(crumbLabel(parent))} ${label[0].toLowerCase()}${label.slice(1)}`;
+    kept[kept.length - 1] =
+      typeof segment === "string"
+        ? compound
+        : {
+            ...segment,
+            label: compound,
+            icon:
+              segment.icon ??
+              (typeof parent === "string" ? undefined : parent.icon),
+          };
+  }
+  return kept;
+}
+
 /**
  * Screen A's frame: the nav on the left and, to its right, the app bar stacked
  * above the page canvas. The app bar deliberately starts at the nav's right
@@ -268,6 +418,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
      * between them would look like a difference between chrome variants.
      */
     crumbStart,
+    /*
+     * And what the trail SAYS, for the same reason `crumbStart` is here: a
+     * folded crumb is a different array, not a different drawing of one, so
+     * the fold belongs where the array is assembled. The renderers are handed
+     * the finished words and cannot disagree about them — which is the whole
+     * arrangement that lets the bar and a builder's trail be reviewed as one
+     * thing.
+     */
+    crumbCompoundChild,
   } = effective;
 
   /*
@@ -714,6 +873,33 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * chrome is back, and its exit goes away with it.
    */
   const chromeHonoured = chromeRequest !== null && !layout.editing;
+  /*
+   * The promo strip stands down in a builder, unless it is asked to stay.
+   *
+   * A builder is the one screen where the platform has nothing to sell that is
+   * worth the pixels: someone drawing a workflow is mid-task, and 32px of
+   * "Summer of AI · $100K in cash prizes" over a canvas that just gave up its
+   * sidebar and its app bar for room is the platform taking back part of what
+   * it handed over. Default off (Sep 23), on through `builderKeepBanner`.
+   *
+   * "In a builder" is `chromeHonoured` — the page's own ask, through
+   * useShellChrome (full-bleed.tsx) — and deliberately not a second notion of
+   * it. No ordinary page asks the shell to stand down, so the ask IS the
+   * signal; anything else (a route table, a list of page ids, a
+   * `data-builder` attribute) would be a second definition to keep in step
+   * with the first, and the first is the one every other piece of builder
+   * chrome in this file already branches on.
+   *
+   * It reads the ASK rather than what the ask cost, which is what makes it
+   * work in all four combinations of the two retain switches. `navDropped`
+   * and `barDropped` below are each false in two of them — a builder that
+   * keeps both would have kept its banner under either test, and a banner
+   * that comes and goes as a reviewer flips an unrelated switch is a finding
+   * about nothing. `chromeHonoured` is true for all four, and false in nav
+   * edit mode, where the shell has already put every other piece of chrome
+   * back and the banner should come back with it.
+   */
+  const bannerHidden = chromeHonoured && !effective.builderKeepBanner;
   /*
    * The arrival that wants a rail, as an identity rather than a flag.
    *
@@ -1394,6 +1580,22 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     [pageCrumb],
   );
 
+  /*
+   * The page's own heading, for the bar to draw when there is no trail.
+   *
+   * Beside pageCrumb rather than folded into it: a crumb is a place you can
+   * switch from and a heading is a name you read, and the one state that wants
+   * the heading up here (crumbShown: false) is precisely the state where there
+   * are no crumbs to hang it off. See page-heading.tsx.
+   */
+  const [pageHeading, setPageHeading] = React.useState<PageHeading | null>(
+    null,
+  );
+  const pageHeadingValue = React.useMemo(
+    () => [pageHeading, setPageHeading] as const,
+    [pageHeading],
+  );
+
   const withRecordCrumb = React.useCallback(
     (trail: readonly (string | Crumb)[]): (string | Crumb)[] => {
       if (!recordCrumb) return [...trail];
@@ -1588,19 +1790,12 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
      * A flag would have to be remembered by whoever adds the third such row,
      * and the rule it encodes is not "these two rows are special" — it is that
      * a breadcrumb never says the same thing twice in a row.
+     *
+     * The rule itself now lives at module scope (`collapseRepeats`), because
+     * the compound-child option has to apply it again after folding. Same
+     * code, same argument; only the address changed.
      */
-    const named = (s: string | Crumb) => (typeof s === "string" ? s : s.label);
-    return segments.reduce<(string | Crumb)[]>((kept, segment, i) => {
-      const next = segments[i + 1];
-      if (!next || named(segment) !== named(next)) {
-        kept.push(segment);
-        return kept;
-      }
-      if (typeof segment !== "string" && typeof next !== "string") {
-        segments[i + 1] = { ...next, icon: next.icon ?? segment.icon };
-      }
-      return kept;
-    }, []);
+    return collapseRepeats(segments);
   }, [
     canvasPage,
     groups,
@@ -1739,7 +1934,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * run the page's exit. Wrapping the other way round would put the scope
    * picker after the record's own name.
    */
-  const crumbs = withRecordCrumb(
+  const builtCrumbs = withRecordCrumb(
     withPageCrumb(
             selectedId === "agency-accounts"
               ? // Bucket, then the row, then whichever account was opened from
@@ -1790,6 +1985,32 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       pageCrumb,
     ),
   );
+
+  /*
+   * The fold runs LAST, over the finished trail, and the dedupe runs again
+   * after it.
+   *
+   * Last, because the generic child is not always the product tree's: the
+   * agency branch hands up ["Acme", "Overview"] as two words, and a page crumb
+   * or a record crumb can land beside one. Folding inside `productCrumbs`
+   * would have caught the case the ask named and missed its own siblings,
+   * which is how an option ends up looking like a bug on three screens.
+   *
+   * Dedupe again, because folding can only ever make two crumbs MORE alike:
+   * "Calendars ▸ Settings ▸ Settings" is not a path this catalogue builds
+   * today, and the day it does, the rule that a trail never says the same
+   * thing twice should not depend on which options are switched on. Running
+   * `collapseRepeats` twice is cheap — the trail is four segments — and it is
+   * idempotent, so the default arrangement reaches the bar through the same
+   * array it always did.
+   *
+   * The order matters the other way too: the fold reads a trail that has
+   * already had "Workflows ▸ Workflows" collapsed, so it sees the path the
+   * reader sees rather than an intermediate one with a repetition in it.
+   */
+  const crumbs = crumbCompoundChild
+    ? collapseRepeats(foldGenericChildren(builtCrumbs))
+    : builtCrumbs;
 
   /*
    * The exit — built here, or nowhere.
@@ -1886,8 +2107,23 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         reads as ambient rather than shouting. A plain sub-account user never
         sees agency comms at all.
       */}
-      {accounts.scope === "account" &&
-      (ACCOUNT_BANNERS[accounts.current.id]?.length ?? 0) > 0 ? (
+      {/*
+        Both strips go together in a builder, and that is the decision rather
+        than an oversight.
+
+        The obvious refinement is to drop the agency promo and keep an
+        account's own wallet or payment warning, on the grounds that one is an
+        advertisement and the other is a service failing. It is the wrong
+        call here: the strip is not actionable from inside a builder — its
+        verb ("Add credits") leads out of the canvas you are mid-draw on — so
+        keeping it buys a warning nobody can act on at the price of the pixels
+        the builder just asked for. The warning is on every other screen in
+        the product, including the list this builder was opened from, and it
+        is there again the moment you leave. `builderKeepBanner` is how the
+        other reading gets looked at.
+      */}
+      {bannerHidden ? null : accounts.scope === "account" &&
+        (ACCOUNT_BANNERS[accounts.current.id]?.length ?? 0) > 0 ? (
         /*
           The account's own strip now takes the SAME topmost, full-bleed slot
           as agency comms (Aug 13 ask — banners live at the very top of the
@@ -2384,6 +2620,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           ) : null}
           <div className="min-w-0 flex-1">
         <AppHeader
+          pageHeading={pageHeading}
           theme={headerTheme}
           onOpenApp={setAppModal}
           entryFills={!agencyScope || agencySearch}
@@ -2429,6 +2666,25 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
            * would put the scope picker after the record's own name.
            */
           crumbs={crumbs}
+          /*
+           * The open record's exit, handed up for the trail placement.
+           *
+           * The shell already holds it — it is the `onExit` the page published
+           * through `useRecordCrumb`, which is that hook's second argument and
+           * the very same `onBack` the detail view would have wired to a button
+           * of its own. So the third placement costs no new plumbing and, more
+           * to the point, no new source of truth: all three back controls run
+           * the one function the page named, which is why they can be switched
+           * between without any of them drifting out of step with the others.
+           *
+           * Handed over unconditionally whenever a record is open. The bar
+           * spends `recordBackButton` and `recordBackPlace` itself — the same
+           * split `recordCrumbShown` already runs on, where the page states a
+           * fact and the chrome decides what to draw from it. Gating here would
+           * mean the shell reading two more axes that no other line in it
+           * needs, purely to pre-decide something the bar is better placed to.
+           */
+          onRecordBack={recordCrumb?.onExit}
         />
           </div>
         </div>
@@ -2450,6 +2706,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           <ShellChromeCtx.Provider value={chromeValue}>
           <RecordCrumbContext.Provider value={recordCrumbValue}>
           <PageCrumbContext.Provider value={pageCrumbValue}>
+          <PageHeadingContext.Provider value={pageHeadingValue}>
           <ContactsAreaProvider value={[contactsPageId, setContactsPageId]}>
             {/*
               The only real surface in the window now. Inset on every edge so the
@@ -2563,7 +2820,16 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 children
               ) : canvasPage && productById(canvasPage.productId) ? (
                 <ProductPage
-                  key={`${canvasPage.productId}:${canvasPage.tabId ?? ""}`}
+                  /*
+                   * The child is in the key as well as the tab.
+                   *
+                   * A real page seeds its own view from what the nav asked
+                   * for and then owns it, so moving between two L3s of one
+                   * product — Calendars ▸ Appointments to Calendars ▸
+                   * Settings — has to be a fresh mount or the second click
+                   * changes the trail and nothing else.
+                   */
+                  key={`${canvasPage.productId}:${canvasPage.childId ?? ""}:${canvasPage.tabId ?? ""}`}
                   initialTab={canvasPage.tabId ?? null}
                   product={productById(canvasPage.productId)!}
                   childId={canvasPage.childId}
@@ -2573,6 +2839,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               )}
             </div>
           </ContactsAreaProvider>
+          </PageHeadingContext.Provider>
           </PageCrumbContext.Provider>
           </RecordCrumbContext.Provider>
           </ShellChromeCtx.Provider>

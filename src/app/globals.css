@@ -56,6 +56,7 @@
   --color-hdr-fg: var(--hdr-fg);
   --color-hdr-fg-muted: var(--hdr-fg-muted);
   --color-hdr-chip: var(--hdr-chip-bg);
+  --color-hdr-crumb-leaf: var(--hdr-crumb-leaf-bg);
   --color-hdr-icon-neutral: var(--hdr-icon-neutral-bg);
   --color-hdr-act-call: var(--hdr-act-call);
   --color-hdr-act-launch: var(--hdr-act-launch);

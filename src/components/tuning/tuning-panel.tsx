@@ -13,21 +13,35 @@ import {
   X,
 } from "lucide-react";
 import {
+  BUILDER_CHROME_STYLE_LABELS,
+  BUILDER_CHROME_STYLES,
+  CALENDAR_VIEW_SWITCHES,
+  CALENDAR_VIEW_SWITCH_LABELS,
+  type CalendarViewSwitch,
   CRUMB_COLLAPSE_LABELS,
   CRUMB_COLLAPSES,
   CRUMB_START_LABELS,
   CRUMB_STARTS,
   TREE_SEARCH_PLACE_LABELS,
   TREE_SEARCH_PLACES,
+  CRUMB_EMPHASES,
+  CRUMB_EMPHASIS_LABELS,
   CRUMB_ICON_LABELS,
   CRUMB_ICONS,
+  CRUMB_SCALE_LABELS,
+  CRUMB_SCALES,
+  RECORD_BACK_PLACE_LABELS,
+  RECORD_BACK_PLACES,
   RECORD_CRUMB_LABEL_LABELS,
   RECORD_CRUMB_LABELS,
+  CRUMB_SEPARATOR_LABELS,
+  CRUMB_SEPARATORS,
+  TREE_ICON_LABELS,
+  TREE_ICONS,
 } from "@/design/theme";
 import {
   LIST_VARIANTS,
   RECORD_VARIANTS,
-  BOARD_VARIANTS,
   BUILDER_CANVASES,
   BUILDER_CONTROLS,
   BUILDER_EXITS,
@@ -69,6 +83,8 @@ import {
   INBOX_PALETTE_LABELS,
   INBOX_PALETTES,
   LAYOUT_REPLACE_DIALOG_LABELS,
+  BAR_HEADING_SCALES,
+  BAR_HEADING_SCALE_LABELS,
   LAYOUT_REPLACE_DIALOGS,
   PANEL_RECENT_HEADING_LABELS,
   PANEL_RECENT_HEADINGS,
@@ -332,6 +348,10 @@ function NavStructureSection({
     setNavProductTree,
     navTreeCounts,
     setNavTreeCounts,
+    treeIcons,
+    setTreeIcons,
+    treeRecentsAllProducts,
+    setTreeRecentsAllProducts,
     treeSearchPlace,
     setTreeSearchPlace,
     recentsMode,
@@ -459,6 +479,34 @@ function NavStructureSection({
             {navTreeCounts
               ? "Each group says how many products are behind it. Useful for the empty shelf — a bucket reading 0 tells you before the click rather than after."
               : "No counts. The tree opens in place, so what is behind a group is one click away and the number was only competing with the label for the row."}
+          </Note>
+
+          <Segmented
+            label="Tree icons"
+            options={TREE_ICONS}
+            value={treeIcons}
+            onChange={setTreeIcons}
+            format={(v) => TREE_ICON_LABELS[v]}
+          />
+          <Note>
+            {treeIcons === "all"
+              ? "A glyph per level, as the flyout's rows have. The flyout shows one level at a time; the tree shows three, so the same decision reads as a column of pictures."
+              : treeIcons === "hide-l3"
+                ? "Glyphs stop at the product. L3 is a page inside something you can already see, so its glyph carries the least."
+                : treeIcons === "none"
+                  ? "Names only. The fastest to read and the slowest to scan — there is nothing to aim at but words."
+                  : "Hairline guides instead, the way a file tree marks depth: depth without competing with the label."}
+          </Note>
+
+          <Toggle
+            label="Catalogue behind View all"
+            checked={treeRecentsAllProducts}
+            onChange={setTreeRecentsAllProducts}
+          />
+          <Note>
+            {treeRecentsAllProducts
+              ? "View all opens the whole catalogue with its own search — the one place a search can sit without the tree filtering itself."
+              : "View all opens recents alone. The tree already IS all products."}
           </Note>
 
           <Segmented
@@ -1271,15 +1319,31 @@ function Toggle({
   checked,
   disabled = false,
   onChange,
+  keywords,
 }: {
   label: string;
   checked: boolean;
   disabled?: boolean;
   onChange: (next: boolean) => void;
+  /**
+   * Extra words the search should match, for a control whose label is not what
+   * a reader would type.
+   *
+   * Added Sep 23, after Ashwin went looking for the "/" separator, the Home
+   * icon and the crumb dropdowns and concluded all three had been deleted. All
+   * three were on screen — under "Home glyph", "Crumbs open their siblings"
+   * and a Segmented whose label is the neutral "Separator". A label is a name,
+   * and the name a control ends up with is rarely the word you hunt it by; the
+   * search is the thing that has to speak both.
+   */
+  keywords?: string;
 }) {
   // A switch has two states and neither is named on screen, so the words that
   // find it are the ones a reader would use for what it does.
-  const { hidden, mark } = useFiltered(label, "on off toggle");
+  const { hidden, mark } = useFiltered(
+    label,
+    `on off toggle ${keywords ?? ""}`,
+  );
 
   return (
     <button
@@ -1480,7 +1544,22 @@ function useCanvasSurface(active: boolean): Surface {
  *
  * `Expand all` is one click away, and searching still opens whatever matches.
  */
-const INITIAL_OPEN: SectionId[] = [];
+/*
+ * Which sections are already open when the panel is first drawn.
+ *
+ * Empty until Sep 23, on the reasoning that a panel of collapsed headings is
+ * readable where a wall of controls is not. True, and it cost the section
+ * nobody could find: the panel opens on the Shell scope, the breadcrumb axes
+ * are filed under Canvas, and the Breadcrumb heading there was shut — so
+ * "hide the whole breadcrumb" was a tab switch plus a disclosure plus a scroll
+ * away, and Ashwin reasonably concluded it did not exist.
+ *
+ * Breadcrumb alone, not all three. Opening every section would restore exactly
+ * the wall the disclosures were added to break up; opening the FIRST one makes
+ * the scope's shape legible the moment you arrive — you can see that headings
+ * open, and what is inside one — which is what a collapsed list fails to do.
+ */
+const INITIAL_OPEN: SectionId[] = ["Breadcrumb"];
 
 function Row({ knob }: { knob: TuningKnob }) {
   const { state, set } = useTuning();
@@ -1643,18 +1722,31 @@ function Segmented<T extends string>({
   value,
   onChange,
   format,
+  disabled = false,
+  keywords,
 }: {
   label: string;
   options: readonly T[];
   value: T;
   onChange: (v: T) => void;
   format?: (v: T) => string;
+  /**
+   * Greyed and inert, for a control whose question has no meaning yet.
+   *
+   * Shown rather than hidden, the same way the Toggle does it: a control that
+   * vanishes when its dependency flips reads as the panel losing a setting,
+   * where a greyed one reads as "this is waiting on the switch above". The
+   * value still shows, so you can see what it WOULD do before enabling it.
+   */
+  disabled?: boolean;
+  /** Extra words the search should match. See Toggle's own note. */
+  keywords?: string;
 }) {
   // The option names count as well as the label — "pill", "dark", "bottom edge"
   // are what someone remembers about a control whose title they do not.
   const { hidden, mark } = useFiltered(
     label,
-    options.map((o) => (format ? format(o) : o)).join(" "),
+    `${options.map((o) => (format ? format(o) : o)).join(" ")} ${keywords ?? ""}`,
   );
 
   return (
@@ -1662,18 +1754,27 @@ function Segmented<T extends string>({
       {...mark}
       className={cn("flex-col gap-[4px]", hidden ? "hidden" : "flex")}
     >
-      <span className="text-[11px] leading-none text-pg-muted">{label}</span>
+      <span
+        className={cn(
+          "text-[11px] leading-none text-pg-muted",
+          disabled && "opacity-50",
+        )}
+      >
+        {label}
+      </span>
       <div className="flex flex-wrap gap-[4px]">
         {options.map((opt) => (
           <button
             key={opt}
             type="button"
+            disabled={disabled}
             onClick={() => onChange(opt)}
             className={cn(
               "motion-tap rounded-[6px] px-[8px] py-[4px] text-[11px] leading-none",
               opt === value
                 ? "bg-brand text-brand-fg"
                 : "bg-pg-row-border text-pg-text hover:bg-pg-border",
+              disabled && "pointer-events-none opacity-40",
             )}
           >
             {format ? format(opt) : opt}
@@ -2014,10 +2115,38 @@ export function TuningPanel() {
     setPageCount,
     pageHeader,
     setPageHeader,
+    stickyDashboardBar,
+    setStickyDashboardBar,
     recordBackButton,
+    recordBackPlace,
+    barPageHeading,
+    barHeadingScale,
+    calendarViewSwitch,
+    setCalendarViewSwitch,
     setRecordBackButton,
+    setRecordBackPlace,
+    setBarPageHeading,
+    setBarHeadingScale,
+    crumbShown,
+    setCrumbShown,
+    crumbHome,
+    setCrumbHome,
+    crumbSwitchers,
+    setCrumbSwitchers,
+    crumbSeparator,
+    setCrumbSeparator,
+    crumbCompoundChild,
+    setCrumbCompoundChild,
+    builderKeepBanner,
+    setBuilderKeepBanner,
+    listShowViews,
+    setListShowViews,
+    listShowFilters,
+    setListShowFilters,
     crumbEmphasis,
     setCrumbEmphasis,
+    crumbScale,
+    setCrumbScale,
     crumbIcons,
     setCrumbIcons,
     crumbCollapse,
@@ -2032,7 +2161,6 @@ export function TuningPanel() {
     setDeepInlineCrumb,
     listHeaderVariant,
     recordHeaderVariant,
-    boardHeaderVariant,
     builderKeepSidebar,
     setBuilderKeepSidebar,
     builderKeepTopBar,
@@ -2043,11 +2171,13 @@ export function TuningPanel() {
     setBuilderExit,
     builderCanvas,
     setBuilderCanvas,
+    builderChromeStyle,
+    setBuilderChromeStyle,
+    builderToolPalette,
+    setBuilderToolPalette,
     panelHeaderVariant,
     deepHeaderVariant,
     setHeaderVariant,
-    recordPageHeader,
-    setRecordPageHeader,
     navGeneration,
     setNavGeneration,
     legacyFootControl,
@@ -2163,7 +2293,23 @@ export function TuningPanel() {
    * against literals so the shipped default has exactly one home.
    */
   const crumbChanged =
+    /*
+     * The five Sep 22 axes were missing from this sum and from resetCrumb
+     * below until Sep 23, and the omission was not cosmetic: Ashwin went
+     * looking for "hide the whole breadcrumb", and a control that reports no
+     * change when you throw it and is not restored by the Reset above it reads
+     * as a control that does not work. A count that lies about a section is
+     * worse than no count, because it is evidence.
+     */
+    (crumbShown !== DEFAULT_THEME.crumbShown ? 1 : 0) +
+    (barPageHeading !== DEFAULT_THEME.barPageHeading ? 1 : 0) +
+    (barHeadingScale !== DEFAULT_THEME.barHeadingScale ? 1 : 0) +
+    (crumbHome !== DEFAULT_THEME.crumbHome ? 1 : 0) +
+    (crumbSwitchers !== DEFAULT_THEME.crumbSwitchers ? 1 : 0) +
+    (crumbSeparator !== DEFAULT_THEME.crumbSeparator ? 1 : 0) +
+    (crumbCompoundChild !== DEFAULT_THEME.crumbCompoundChild ? 1 : 0) +
     (crumbEmphasis !== DEFAULT_THEME.crumbEmphasis ? 1 : 0) +
+    (crumbScale !== DEFAULT_THEME.crumbScale ? 1 : 0) +
     (crumbIcons !== DEFAULT_THEME.crumbIcons ? 1 : 0) +
     (crumbStart !== DEFAULT_THEME.crumbStart ? 1 : 0) +
     (crumbCollapse !== DEFAULT_THEME.crumbCollapse ? 1 : 0) +
@@ -2172,7 +2318,15 @@ export function TuningPanel() {
     (deepInlineCrumb !== DEFAULT_THEME.deepInlineCrumb ? 1 : 0);
 
   const resetCrumb = () => {
+    setCrumbShown(DEFAULT_THEME.crumbShown);
+    setBarPageHeading(DEFAULT_THEME.barPageHeading);
+    setBarHeadingScale(DEFAULT_THEME.barHeadingScale);
+    setCrumbHome(DEFAULT_THEME.crumbHome);
+    setCrumbSwitchers(DEFAULT_THEME.crumbSwitchers);
+    setCrumbSeparator(DEFAULT_THEME.crumbSeparator);
+    setCrumbCompoundChild(DEFAULT_THEME.crumbCompoundChild);
     setCrumbEmphasis(DEFAULT_THEME.crumbEmphasis);
+    setCrumbScale(DEFAULT_THEME.crumbScale);
     setCrumbIcons(DEFAULT_THEME.crumbIcons);
     setCrumbStart(DEFAULT_THEME.crumbStart);
     setCrumbCollapse(DEFAULT_THEME.crumbCollapse);
@@ -2185,14 +2339,15 @@ export function TuningPanel() {
     (listHeaderVariant !== DEFAULT_THEME.listHeaderVariant ? 1 : 0) +
     (recordHeaderVariant !== DEFAULT_THEME.recordHeaderVariant ? 1 : 0) +
     (recordBackButton !== DEFAULT_THEME.recordBackButton ? 1 : 0) +
-    (boardHeaderVariant !== DEFAULT_THEME.boardHeaderVariant ? 1 : 0) +
+    (recordBackPlace !== DEFAULT_THEME.recordBackPlace ? 1 : 0) +
+    (calendarViewSwitch !== DEFAULT_THEME.calendarViewSwitch ? 1 : 0) +
     (panelHeaderVariant !== DEFAULT_THEME.panelHeaderVariant ? 1 : 0) +
     (deepHeaderVariant !== DEFAULT_THEME.deepHeaderVariant ? 1 : 0) +
     (pageHeader !== DEFAULT_THEME.pageHeader ? 1 : 0) +
     (pageTitle !== DEFAULT_THEME.pageTitle ? 1 : 0) +
     (pageDescription !== DEFAULT_THEME.pageDescription ? 1 : 0) +
     (pageCount !== DEFAULT_THEME.pageCount ? 1 : 0) +
-    (recordPageHeader !== DEFAULT_THEME.recordPageHeader ? 1 : 0);
+    (stickyDashboardBar !== DEFAULT_THEME.stickyDashboardBar ? 1 : 0);
 
   const resetPageHeader = () => {
     // The variants go back first: each one writes the four chrome knobs, so
@@ -2200,15 +2355,16 @@ export function TuningPanel() {
     // rather than on the last variant's answer.
     setHeaderVariant("listHeaderVariant", DEFAULT_THEME.listHeaderVariant);
     setHeaderVariant("recordHeaderVariant", DEFAULT_THEME.recordHeaderVariant);
-    setHeaderVariant("boardHeaderVariant", DEFAULT_THEME.boardHeaderVariant);
     setHeaderVariant("panelHeaderVariant", DEFAULT_THEME.panelHeaderVariant);
     setHeaderVariant("deepHeaderVariant", DEFAULT_THEME.deepHeaderVariant);
     setRecordBackButton(DEFAULT_THEME.recordBackButton);
+    setRecordBackPlace(DEFAULT_THEME.recordBackPlace);
+    setCalendarViewSwitch(DEFAULT_THEME.calendarViewSwitch);
     setPageHeader(DEFAULT_THEME.pageHeader);
     setPageTitle(DEFAULT_THEME.pageTitle);
     setPageDescription(DEFAULT_THEME.pageDescription);
     setPageCount(DEFAULT_THEME.pageCount);
-    setRecordPageHeader(DEFAULT_THEME.recordPageHeader);
+    setStickyDashboardBar(DEFAULT_THEME.stickyDashboardBar);
   };
 
   const buildersChanged =
@@ -2654,14 +2810,129 @@ export function TuningPanel() {
                   onReset={resetCrumb}
                 >
                   <Toggle
-                    label="Emphasise the last crumb"
-                    checked={crumbEmphasis}
-                    onChange={setCrumbEmphasis}
+                    label="Show the breadcrumb"
+                    checked={crumbShown}
+                    onChange={setCrumbShown}
                   />
                   <Note>
-                    {crumbEmphasis
-                      ? "The leaf is painted, not just bolded — enough to read as the page's name, which is what makes dropping the title defensible rather than merely cheaper."
-                      : "The leaf is bold text. Reads as the end of a path rather than as a heading, so a page that drops its title has nothing announcing it."}
+                    {crumbShown
+                      ? "The trail is drawn."
+                      : "No trail at all. The page must name itself, and a shared link can no longer say where it came from — the Monday.com failure the research named."}
+                  </Note>
+
+                  <Toggle
+                    label="Page heading in the top bar"
+                    keywords="title description count move up app bar no trail"
+                    checked={barPageHeading}
+                    disabled={crumbShown}
+                    onChange={setBarPageHeading}
+                  />
+                  <Note>
+                    {crumbShown
+                      ? "Only while the trail is hidden — with crumbs standing, a title beside them is the duplication the research argued against."
+                      : barPageHeading
+                        ? "The title, its count and its description move into the 48px bar, where the trail used to be, and the page stops drawing them. Its actions stay on the page."
+                        : "The bar's left half stays empty and the page names itself below, which is 48px of chrome saying nothing above a band that does the work."}
+                  </Note>
+
+                  <Segmented
+                    label="Heading scale in the bar"
+                    keywords="font size stacked page scale title description one below the other"
+                    options={BAR_HEADING_SCALES}
+                    value={barHeadingScale}
+                    onChange={setBarHeadingScale}
+                    format={(v) => BAR_HEADING_SCALE_LABELS[v]}
+                    disabled={crumbShown || !barPageHeading}
+                  />
+                  <Note>
+                    {barHeadingScale === "page"
+                      ? "The heading keeps the page's own sizes — 20px title, 13px description under it — and the bar grows past 48px to hold it. What is saved is the gap and the page's top inset, not the heading's band."
+                      : "The bar's own line: 13px title, the count in a pill, the description trailing beside it, all inside the 48px the bar already spends."}
+                  </Note>
+
+                  <Toggle
+                    label="Home icon"
+                    keywords="house home glyph hide first crumb"
+                    checked={crumbHome}
+                    disabled={!crumbShown}
+                    onChange={setCrumbHome}
+                  />
+                  <Note>
+                    {crumbHome
+                      ? "The trail opens on Home — the one crumb that is a destination rather than a label."
+                      : "No Home. The way back to the account's front door leaves the bar."}
+                  </Note>
+
+                  <Toggle
+                    label="Crumb dropdowns"
+                    keywords="dropdown caret chevron menu switcher siblings hide"
+                    checked={crumbSwitchers}
+                    disabled={!crumbShown}
+                    onChange={setCrumbSwitchers}
+                  />
+                  <Note>
+                    {crumbSwitchers
+                      ? "Each segment carries a caret onto its siblings, which is what makes the row earn its height."
+                      : "Plain text. The trail states where you are and nothing more — honest if the nav is already doing the switching."}
+                  </Note>
+
+                  <Segmented
+                    label="Separator"
+                    keywords="/ slash chevron divider between crumbs"
+                    options={CRUMB_SEPARATORS}
+                    value={crumbSeparator}
+                    disabled={!crumbShown}
+                    onChange={setCrumbSeparator}
+                    format={(v) => CRUMB_SEPARATOR_LABELS[v]}
+                  />
+                  <Note>
+                    {crumbSeparator === "chevron"
+                      ? "A chevron points the way the path runs."
+                      : "A slash reads as a path rather than a sequence of moves — quieter, and the convention every URL already taught."}
+                  </Note>
+
+                  <Toggle
+                    label="Fold generic children in"
+                    checked={crumbCompoundChild}
+                    disabled={!crumbShown}
+                    onChange={setCrumbCompoundChild}
+                  />
+                  <Note>
+                    {crumbCompoundChild
+                      ? "“Calendars ▸ Settings” becomes “Calendar settings”. Settings alone is a word a dozen products own; two segments were saying what one can."
+                      : "Every level keeps its own segment, whatever its label says on its own."}
+                  </Note>
+
+                  <Segmented
+                    label="Trail text size"
+                    options={CRUMB_SCALES}
+                    value={crumbScale}
+                    disabled={!crumbShown}
+                    onChange={setCrumbScale}
+                    format={(v) => CRUMB_SCALE_LABELS[v]}
+                  />
+                  <Note>
+                    {crumbScale === "default"
+                      ? "13px, the bar's reading size — chosen when the trail was chrome standing beside the utilities."
+                      : "15px. The trail stops being a caption; worth it on pages that have dropped their own title, and two pixels of the row's width per character everywhere else."}
+                  </Note>
+
+                  <Segmented
+                    label="Emphasise the last crumb"
+                    options={CRUMB_EMPHASES}
+                    value={crumbEmphasis}
+                    disabled={!crumbShown}
+                    onChange={setCrumbEmphasis}
+                    format={(v) => CRUMB_EMPHASIS_LABELS[v]}
+                  />
+                  <Note>
+                    {crumbEmphasis === "off"
+                      ? "The leaf is bold text. Reads as the end of a path rather than as a heading, so a page that drops its title has nothing announcing it."
+                      : crumbEmphasis === "chip"
+                        ? "A white card under the leaf, held by the bar's own hairline. Says this segment is not like the others — but it is still reading at the path's size."
+                        : crumbEmphasis === "type"
+                          ? "Two pixels and a weight past its ancestors, on the bar's own ground. The leaf reads as the page's name with nothing drawn around it."
+                          : "Card and type together: the loudest the trail gets, and the version that makes deleting the page title defensible rather than merely cheaper."}
                   </Note>
 
                   <Segmented
@@ -2765,6 +3036,28 @@ export function TuningPanel() {
                     value={listHeaderVariant}
                     onChange={(v) => setHeaderVariant("listHeaderVariant", v)}
                   />
+                  <Toggle
+                    label="Saved-view tabs"
+                    checked={listShowViews}
+                    onChange={setListShowViews}
+                  />
+                  <Note>
+                    {listShowViews
+                      ? "Collections show their saved cuts as tabs."
+                      : "No view strip. The collection shows one cut and the others are unreachable from the page."}
+                  </Note>
+
+                  <Toggle
+                    label="Filter controls"
+                    checked={listShowFilters}
+                    onChange={setListShowFilters}
+                  />
+                  <Note>
+                    {listShowFilters
+                      ? "Filters, sort and search are on the page."
+                      : "No filter row. Worth seeing on a board, where the columns are the filter and the row above them may be spending height on nothing."}
+                  </Note>
+
                   <VariantPicker
                     label="Record pages"
                     variants={RECORD_VARIANTS}
@@ -2778,15 +3071,39 @@ export function TuningPanel() {
                   />
                   <Note>
                     {recordBackButton
-                      ? "A back control on the record itself — in the panel's header row under “Panel owns identity”, at the head of the strip under “Compact meta strip”. The trail still works; this is the second way out, for a hand that is already down in the record."
+                      ? "A second way out of the record, for a hand that is already down in it. The trail still works; this is the other exit, and the control below decides where it stands."
                       : "No back control on the page. The trail is the only way out, which is the position record-crumb.tsx argues for: one exit, always in the same place, never competing with the crumb that already names the record."}
                   </Note>
-                  <VariantPicker
-                    label="Boards"
-                    variants={BOARD_VARIANTS}
-                    value={boardHeaderVariant}
-                    onChange={(v) => setHeaderVariant("boardHeaderVariant", v)}
+                  <Segmented
+                    label="Back control sits"
+                    options={RECORD_BACK_PLACES}
+                    value={recordBackPlace}
+                    disabled={!recordBackButton}
+                    onChange={setRecordBackPlace}
+                    format={(v) => RECORD_BACK_PLACE_LABELS[v]}
                   />
+                  <Note>
+                    {!recordBackButton
+                      ? "Nothing to place while the control is off."
+                      : recordBackPlace === "crumb"
+                        ? "In the app bar, at the head of the trail. Navigation chrome, in the one spot that is the same on every page — and the furthest from the record you are reading."
+                        : recordBackPlace === "header"
+                          ? "On the record's own header row, left of its status and its actions. Reads as belonging to this record rather than to the shell; costs nothing, but only exists while the record draws a header."
+                          : "In the canvas, at the head of the first column. Where the reading hand already is, and where HubSpot, Attio and Close all put it — at the price of an exit that moves with the layout."}
+                  </Note>
+                  <Segmented
+                    label="Two views of one collection"
+                    options={CALENDAR_VIEW_SWITCHES}
+                    value={calendarViewSwitch}
+                    onChange={(v: CalendarViewSwitch) => setCalendarViewSwitch(v)}
+                    format={(v) => CALENDAR_VIEW_SWITCH_LABELS[v]}
+                  />
+                  <Note>
+                    {calendarViewSwitch === "tabs"
+                      ? "Calendars puts the week grid and the appointment table in a tab strip — which says the page has two halves."
+                      : "One segmented control at the right of the control bar — which says the page has one subject drawn two ways, the way a board switches to rows."}
+                  </Note>
+
                   <VariantPicker
                     label="Inbox panes"
                     variants={PANEL_VARIANTS}
@@ -2852,15 +3169,16 @@ export function TuningPanel() {
                   </Note>
 
                   <Toggle
-                    label="Record page header"
-                    checked={recordPageHeader}
-                    onChange={setRecordPageHeader}
+                    label="Sticky dashboard bar"
+                    checked={stickyDashboardBar}
+                    onChange={setStickyDashboardBar}
                   />
                   <Note>
-                    {recordPageHeader
-                      ? "Contact detail keeps slot 05: the record's name, its status and a row of actions."
-                      : "Off: on a record the trail names it, the first column carries the pager, and each pane owns its own actions — so the header had nothing left of its own to say."}
+                    {stickyDashboardBar
+                      ? "On a dashboard the title, the switcher and the date range hold their place while the widgets scroll — so a number three screens down still has a range attached to it."
+                      : "Only the app bar is fixed. The dashboard's own bar scrolls away with the widgets, which is what ships today."}
                   </Note>
+
                 </Section>
               ) : null}
 
@@ -2938,6 +3256,17 @@ export function TuningPanel() {
                     </>
                   ) : null}
 
+                  <Toggle
+                    label="Builder keeps the banner"
+                    checked={builderKeepBanner}
+                    onChange={setBuilderKeepBanner}
+                  />
+                  <Note>
+                    {builderKeepBanner
+                      ? "The promo banner survives into the builder."
+                      : "No banner. A builder is the one screen where the platform has nothing to sell that is worth the pixels."}
+                  </Note>
+
                   <Segmented
                     label="Workflow canvas"
                     options={BUILDER_CANVASES.map((c) => c.id)}
@@ -2950,6 +3279,34 @@ export function TuningPanel() {
                   <Note>
                     {BUILDER_CANVASES.find((c) => c.id === builderCanvas)?.blurb}
                   </Note>
+
+                  <Segmented
+                    label="Builder chrome is"
+                    options={BUILDER_CHROME_STYLES}
+                    value={builderChromeStyle}
+                    onChange={setBuilderChromeStyle}
+                    format={(v) => BUILDER_CHROME_STYLE_LABELS[v]}
+                  />
+                  <Note>
+                    {builderChromeStyle === "rows"
+                      ? "A band at the top, and another at the bottom where a builder has one. Predictable, and it costs the canvas its full width twice."
+                      : "The same controls as islands ON the canvas — name top-left, collaboration top-right, tools bottom-centre, zoom bottom-left — with the work running underneath. An island can sit on top of what you are drawing, which is the trade."}
+                  </Note>
+
+                  {builderChromeStyle === "floating" ? (
+                    <>
+                      <Toggle
+                        label="Tool palette"
+                        checked={builderToolPalette}
+                        onChange={setBuilderToolPalette}
+                      />
+                      <Note>
+                        {builderToolPalette
+                          ? "A palette at the bottom, for the builders that genuinely have drawing or element tools."
+                          : "No palette. A workflow canvas has nothing to draw with, and a footer of whiteboard tools on it is an example mistaken for a claim."}
+                      </Note>
+                    </>
+                  ) : null}
                 </Section>
               ) : null}
             </ColumnStacks>

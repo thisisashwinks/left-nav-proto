@@ -415,6 +415,22 @@ export const catalogue: CatalogueProduct[] = [
     blurb: "Bill customers and chase what is owed.",
     children: [
       { id: "invoices-all", label: "All invoices", icon: Receipt },
+      /*
+       * Layouts (Sep 23), second in the list and badged New.
+       *
+       * Second rather than last, which is where a newly shipped feature
+       * usually lands: the order of this menu is the order of the WORK —
+       * you design how an invoice looks, then you send invoices, then you
+       * reconcile them — and a layout is the thing that exists before any
+       * invoice does. Filing it after Accounting sync would have put the
+       * first step of the job at the bottom of the list.
+       */
+      {
+        id: "invoices-layouts",
+        label: "Layouts",
+        icon: LayoutTemplate,
+        badge: { label: "New", tone: "new" },
+      },
       { id: "invoices-recurring", label: "Recurring invoices", icon: RefreshCw },
       { id: "invoices-estimates", label: "Estimates", icon: FileText },
       { id: "invoices-accounting", label: "Accounting sync", icon: Landmark },

@@ -1,7 +1,5 @@
 import {
-  Activity,
   CircleCheck,
-  Download,
   Flame,
   Inbox,
   MailX,
@@ -45,14 +43,42 @@ export const STATUS_LABELS: Record<ContactStatus, string> = {
   subscribed: "Subscribed",
 };
 
-/** Chips from the SmartListRail in left-nav.pen, in order. */
+/**
+ * The saved views, renamed Sep 23 off the live account's own smart lists.
+ *
+ * "Inquiries", "Subscribed", "Hot leads" were the prototype's own inventions
+ * and they were all one or two words long, which made the tab strip look
+ * settled in a way the real one is not: people name a smart list after the
+ * question they asked it, so the row that has to be designed for is the one
+ * with "Mobile App Web Form Submissions" in it. Every truncation, every
+ * overflow decision and the whole of L-F's width argument depend on these
+ * labels being as long as the real ones — short names would have let the row
+ * fit and the variant pass a test it should have failed.
+ *
+ * Five, not seven: the two cuts that went (a 30-day activity slice and a July
+ * import) were the two that cost a tab and taught nothing the other five do
+ * not. Five is also what the account screenshotted has, which is what makes
+ * the overflow read `1 more` rather than a number chosen to look busy.
+ *
+ * The ids are untouched — `contacts-page` switches on them to do the actual
+ * re-cutting, and `no-email` in particular is the deliberately narrow
+ * three-row list a table has to survive.
+ */
 export const smartLists: SmartList[] = [
-  { id: "all", label: "All contacts", count: "1,469", icon: Users },
-  { id: "inquiries", label: "Inquiries", count: "962", icon: Inbox },
-  { id: "subscribed", label: "Subscribed", count: "341", icon: CircleCheck },
-  { id: "hot-leads", label: "Hot leads", count: "48", icon: Flame },
-  { id: "engaged", label: "Engaged · 30d", count: "214", icon: Activity },
-  { id: "imported", label: "Imported · Jul", count: "156", icon: Download },
+  { id: "all", label: "All", count: "1,469", icon: Users },
+  {
+    id: "inquiries",
+    label: "Mobile App Web Form Submissions",
+    count: "962",
+    icon: Inbox,
+  },
+  {
+    id: "subscribed",
+    label: "Beauty & Fashion Buyers",
+    count: "341",
+    icon: CircleCheck,
+  },
+  { id: "hot-leads", label: "New smart list", count: "48", icon: Flame },
   { id: "no-email", label: "No email", count: "89", icon: MailX },
 ];
 

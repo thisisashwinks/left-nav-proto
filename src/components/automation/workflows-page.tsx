@@ -18,7 +18,12 @@ import {
   PageHeader,
   PrimaryButton,
 } from "@/components/page/page-header";
-import { ScopePicker, useListShape } from "@/components/page/list-shape";
+import {
+  CollapsingSearch,
+  GlyphButton,
+  ScopePicker,
+  useListShape,
+} from "@/components/page/list-shape";
 import { usePageCrumb } from "@/components/page/page-crumb";
 /*
  * Restored by hand after a concurrent Sep 22 edit landed `SCREEN_NAMES` in the
@@ -98,7 +103,7 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
    *
    * Until Sep 22 this page read nothing off `listHeaderVariant` at all: it drew
    * PageHeader, which respects the four chrome knobs a variant writes, and
-   * stopped there. That was enough to make L-D and L-C look right and left L-B
+   * stopped there. That was enough to make L-D look right and left L-B
    * and L-E half-built — pick "Merged control row" and Contacts grew a scope
    * picker while Workflows just lost its title, which is two products, not two
    * variants of one. The hook is in page/list-shape.tsx precisely so the answer
@@ -114,10 +119,15 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
    * contacts-page publishes its own: the crumb is the scope control, and a
    * scope control that vanishes the moment you open a workflow would make the
    * variant look like a bug when the detail view is what you are judging.
-   * `null` on every other variant un-publishes it.
+   * `null` on every other variant un-publishes it — and on this one too
+   * when `listShowViews` is off. L-E's scope control IS this crumb, so a
+   * views switch that only deleted tab strips would leave the one variant
+   * with no tab strip fully switchable, which is the knob doing nothing on
+   * the setting where it has the most to say. Un-published, the trail stops
+   * at Workflows and the lit cut is the cut you get.
    */
   usePageCrumb(
-    shape.scopeInTrail
+    shape.scopeInTrail && shape.showViews
       ? {
           label: activeView.label,
           icon: activeView.icon,
@@ -136,10 +146,11 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
    * Search, filters, sort and columns as one fragment.
    *
    * All four variants use the SAME controls and only disagree about where they
-   * stand — their own row under the header (L-C, L-D), merged into the header's
-   * row (L-B), or inside the canvas against the table they filter (L-E).
-   * Building them once is what keeps that true, and it is how contacts-page is
-   * built for the same reason.
+   * stand — their own row under the header (L-D), merged into the header's row
+   * (L-B), inside the canvas against the table they filter (L-E), or on the
+   * tab row itself with their labels gone (L-F, which takes `glyphControls`
+   * below rather than this run). Building them once is what keeps that true,
+   * and it is how contacts-page is built for the same reason.
    */
   const controls = (
     <>
@@ -164,6 +175,27 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
         <Columns3 size={15} aria-hidden="true" className="text-pg-text-strong" />
         Columns
       </OutlineButton>
+    </>
+  );
+
+  /*
+   * The same four controls with their labels sold off — L-F, and only L-F.
+   *
+   * One-to-one with the labelled run above, in the same order, introducing
+   * nothing: Filters, Sort, Columns, search. Workflows has no unsaved-view
+   * state to place, which is the difference between this cluster and the one
+   * on Contacts and worth saying out loud — a workflow view is a status cut
+   * the product defines, not a query someone saved, so there is nothing here
+   * that can be edited-but-not-written-back. The variant is therefore easier
+   * on this page than on the one it was drawn for, and a review that only
+   * looked here would conclude L-F is free.
+   */
+  const glyphControls = (
+    <>
+      <GlyphButton icon={ListFilter} label="Filters" />
+      <GlyphButton icon={ArrowUpDown} label="Sort" />
+      <GlyphButton icon={Columns3} label="Columns" />
+      <CollapsingSearch placeholder="Search workflows" label="Search workflows" />
     </>
   );
 
@@ -209,9 +241,19 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
          */
         count={shape.mergedRow ? undefined : activeView.count}
         description="Triggers, actions and handoffs"
+        /*
+         * L-B's merged row, assembled from whichever bands are on.
+         *
+         * Each switch removes its own half of what L-B merged in — the
+         * picker, or the four controls. With both off the lead is undefined
+         * and the row is its actions alone: L-B does not add a row, it fills
+         * the one PageHeader was drawing anyway, so emptying it leaves that
+         * header rather than a gap.
+         */
         lead={
-          shape.mergedRow ? (
+          shape.mergedRow && (shape.showViews || shape.showFilters) ? (
             <>
+              {shape.showViews ? (
               <ScopePicker
                 label="Workflow views"
                 views={workflowViews}
@@ -221,7 +263,8 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
                 createLabel="Create view"
                 showCount={effective.pageHeader && effective.pageCount}
               />
-              {controls}
+              ) : null}
+              {shape.showFilters ? controls : null}
             </>
           ) : undefined
         }
@@ -236,6 +279,9 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
         scope has nowhere better to be. Once the header's row carries a picker
         (L-B) or the trail's tail does (L-E), a row of tabs saying the same
         thing a third time is the duplication the whole axis is about.
+
+        `scopeInTabs` folds `listShowViews` in, so the strip also goes when
+        the collection is told not to offer its cuts at all — see list-shape.
       */}
       {shape.scopeInTabs ? (
         <ViewBar
@@ -245,19 +291,50 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
           onSelect={setView}
           onCreate={() => undefined}
           createLabel="Create view"
+          /*
+            Four of five, so this page shows the overflow chip too.
+
+            Not because the row is short of space — five short status words
+            fit easily — but because L-D and L-F have to be judged on the same
+            shape everywhere, and an overflow that appears only on Contacts
+            would let the axis be approved on the strength of the one page
+            where it is invisible.
+          */
+          maxVisible={4}
+          className={shape.oneRow ? "h-[46px]" : undefined}
+          trailing={
+            shape.oneRow ? (
+              <span className="flex shrink-0 items-center gap-[8px]">
+                {glyphControls}
+              </span>
+            ) : undefined
+          }
         />
       ) : null}
 
       {/*
-        The controls keep their own row in every variant but L-B, which pulled
-        them up into the header. Under L-E they also inherit the actions: a
+        The controls keep their own row in two variants of four: L-B pulled
+        them up into the header, and L-F pushed them onto the tab row as
+        glyphs. `listShowFilters: false` takes them away in the other two —
+        and the row itself with them, EXCEPT under L-E, where it survives
+        empty-handed because it is also carrying the actions. Under L-E they
+        inherit those actions: a
         Workflows page you cannot create a workflow from is not a variant, it
         is a broken page, so Import, Create and the kebab ride the right edge
         of this row — the edge they held when there was a header.
       */}
-      {shape.mergedRow ? null : (
+      {(!shape.mergedRow && shape.filterRow) || shape.scopeInTrail ? (
         <div className="flex shrink-0 items-center gap-[10px]">
-          {controls}
+          {shape.showFilters ? (
+            controls
+          ) : (
+            /*
+              The slack the search field was taking, so the actions keep the
+              right edge they hold in every other variant instead of sliding
+              left into the middle of an otherwise empty row.
+            */
+            <span aria-hidden="true" className="min-w-[16px] flex-1" />
+          )}
           {shape.scopeInTrail ? (
             <>
               <OutlineButton>
@@ -272,7 +349,7 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
             </>
           ) : null}
         </div>
-      )}
+      ) : null}
 
       <div className="min-h-0 flex-1 overflow-auto rounded-[10px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
         <div

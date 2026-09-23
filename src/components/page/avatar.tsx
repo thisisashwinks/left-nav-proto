@@ -17,21 +17,71 @@ export function ToneAvatar({
   name,
   tone,
   size = 26,
+  round = false,
+  initials: given,
 }: {
   name: string;
   tone: AvatarTone;
   size?: number;
+  /**
+   * A circle with BOTH initials, rather than a squircle with one.
+   *
+   * The two go together on purpose. A square holding one letter is a record
+   * marker — it says "this row is an object" and the letter is only there so
+   * the markers are not all identical, which is how the contacts table and
+   * the record panels use it. A circle holding two initials is a PERSON, and
+   * a list of invoices is a list of people who owe money: the customer column
+   * is scanned by name, so the marker beside it should say who rather than
+   * what. Splitting them into two props would have let someone build the two
+   * halves that mean nothing — a circle with one letter, a square with two.
+   */
+  round?: boolean;
+  /**
+   * The letters to draw, when the name does not yield them.
+   *
+   * The derivation below is right for "Clearview Window Cleaning" and wrong
+   * for "Harding & Sons Joinery", which comes out as "H&" — an ampersand is
+   * a word to `split`, and no rule about punctuation fixes the general case
+   * (24/7 Rapid Plumbing is "2R", which no stripping would produce either).
+   * So a caller whose data already knows the answer passes it, and the
+   * derivation stays the fallback rather than growing a table of exceptions.
+   */
+  initials?: string;
 }) {
+  /*
+   * "Vishnupriya Poduval" → VP, "nikhil satish siddasamudra" → NS.
+   *
+   * First and last of the first TWO words, not of the first and last, so a
+   * middle name does not silently change someone's initials between two
+   * screens that happen to store the name differently. Single-word names fall
+   * back to one letter rather than doubling it.
+   */
+  const initials = given
+    ? given
+    : round
+      ? name
+          .trim()
+          .split(/\s+/)
+          .slice(0, 2)
+          .map((w) => w.slice(0, 1))
+          .join("")
+          .toUpperCase()
+      : name.slice(0, 1).toUpperCase();
+
   return (
     <span
       aria-hidden="true"
-      style={{ width: size, height: size, borderRadius: Math.round(size / 3) }}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: round ? size : Math.round(size / 3),
+      }}
       className={cn(
         "flex shrink-0 items-center justify-center text-[12px] leading-none font-semibold",
         TONE_STYLE[tone],
       )}
     >
-      {name.slice(0, 1).toUpperCase()}
+      {initials}
     </span>
   );
 }

@@ -880,6 +880,13 @@ const COMMERCE: CatalogueEntry[] = [
     blurb: "Bill for work, one-off or recurring.",
     children: [
       { id: "ia-commerce-invoices-all", label: "All Invoices" },
+      /* Second, before the sending and reconciling rows — see the shipped
+         catalogue's copy of this row for why the order is the job's order. */
+      {
+        id: "ia-commerce-invoices-layouts",
+        label: "Layouts",
+        badge: { label: "New", tone: "new" },
+      },
       { id: "ia-commerce-invoices-recurring", label: "Recurring Invoices" },
       {
         id: "ia-commerce-invoices-templates",

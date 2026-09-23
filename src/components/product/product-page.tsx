@@ -34,7 +34,13 @@ import {
 } from "./deep-sections";
 import { OpportunitiesPage } from "@/components/opportunities/opportunities-page";
 import { WorkflowsPage } from "@/components/automation/workflows-page";
+import { AgentTemplatesPage } from "@/components/ai/agent-templates-page";
+import { KnowledgeBasePage } from "@/components/ai/knowledge-base-page";
+import { LaunchpadPage } from "@/components/launchpad/launchpad-page";
+import { ReportingDashboardPage } from "@/components/reporting/dashboard-page";
 import { FunnelsPage } from "@/components/sites/funnels-page";
+import { InvoicesPage } from "@/components/invoices/invoices-page";
+import { ProspectingPage } from "@/components/prospecting/prospecting-page";
 import { AiStudioPage } from "@/components/ai/ai-studio-page";
 import { VoiceAiPage } from "@/components/ai/voice-ai-page";
 import { CalendarsPage } from "@/components/calendars/calendars-page";
@@ -86,6 +92,31 @@ const REAL_PAGES: {
     render: () => <VoiceAiPage />,
   },
   {
+    /*
+     * AI ▸ Knowledge Base, the proposed tree's copy only.
+     *
+     * The shipped catalogue files the same screen as `ai-knowledge`, an L2 of
+     * the AI Agents product, and claiming that pair here would hand this page
+     * the product's bare landing too — `realPageFor` matches on `childId ===
+     * null` — so AI Agents would lose its stage to whichever of its four
+     * children was routed first. Same split, and the same reason, as Voice AI
+     * above.
+     */
+    products: ["ia-ai-knowledge"],
+    children: [],
+    render: () => <KnowledgeBasePage />,
+  },
+  {
+    /*
+     * AI ▸ Agent Templates. Proposed tree only, same split as its two
+     * neighbours: the shipped catalogue's note says templates were routed to
+     * All Products rather than given a row, so there is no shipped id to pair.
+     */
+    products: ["ia-ai-templates"],
+    children: [],
+    render: () => <AgentTemplatesPage />,
+  },
+  {
     products: ["ai-studio", "ia-ai-studio"],
     children: [],
     render: () => <AiStudioPage />,
@@ -103,13 +134,18 @@ const REAL_PAGES: {
      * Settings L3 with six L4s under it, which is the one chain that makes
      * the product-owns-its-settings rule concrete rather than hypothetical.
      *
-     * Those six L4s arrive as `initialTab`, so they are the whole of `views`:
-     * each seeds the settings tab AND the sub-tab pair inside it, encoded as
-     * `view:line:page` because a REAL_PAGES entry gets exactly one seed
-     * string. Landing on the Settings L3 bare (nothing selected under it)
-     * opens the calendar view instead, which is the one seam — the settings
-     * tab is one click away and visible, so the page never lies about where
-     * it took you, it just starts one step short.
+     * The six L4s arrive as `initialTab` and the two L3s as `childId`, and
+     * `views` is keyed by both: each seeds the screen AND, for the L4s, the
+     * sub-tab pair inside it, encoded as `view:line:page` because a
+     * REAL_PAGES entry gets exactly one seed string.
+     *
+     * The Settings L3 is in that map for a reason that used to be a bug: it
+     * seeded nothing, so the trail said Calendars ▸ Settings and the page
+     * opened the week grid. That was survivable while settings was also a
+     * tab you could see — it is not survivable now that settings is a place
+     * of its own, because there was no longer anything on screen to click.
+     * A crumb that names a screen the page does not show is the one failure
+     * the trail cannot absorb.
      */
     products: ["calendars", "ia-crm-calendars"],
     children: [
@@ -117,6 +153,8 @@ const REAL_PAGES: {
       "ia-crm-calendars-settings",
     ],
     views: {
+      "ia-crm-calendars-appointments": "calendar",
+      "ia-crm-calendars-settings": "settings",
       "ia-crm-calendars-meetings": "settings:meetings:calendars",
       "ia-crm-calendars-services": "settings:services:calendars",
       "ia-crm-calendars-rentals": "settings:rentals:calendars",
@@ -125,6 +163,94 @@ const REAL_PAGES: {
       "ia-crm-calendars-availability": "settings:meetings:availability",
     },
     render: (view) => <CalendarsPage initialView={view} />,
+  },
+  {
+    /*
+     * Where the workspace opens, and the one product id with no nav row of its
+     * own: the setup card at the top of the nav is Launchpad's row (see
+     * PROPOSED_HOME_ID), and it selects this id like any other.
+     *
+     * No children, and none coming. The guide's sections are a list inside the
+     * page rather than L3s, because a step you finish and never return to is
+     * not a place — filing them in the tree would leave an account with a
+     * permanent branch of completed work.
+     */
+    products: ["ia-launchpad"],
+    children: [],
+    render: () => <LaunchpadPage />,
+  },
+  {
+    /*
+     * Commerce ▸ Invoices & Estimates, plus Layouts behind it.
+     *
+     * Both trees file the same product and both now carry the Layouts L3 with
+     * its New badge, so unlike Calendars there is no tree-by-tree split here —
+     * the two id families differ only in spelling.
+     *
+     * `views` seeds two KINDS of thing through one string, which is the
+     * arrangement Calendars established: the status L3s seed a cut of the
+     * list, and `layouts` seeds a different screen entirely. The page sorts
+     * that out rather than REAL_PAGES growing a second render, because the
+     * two share the product's trail and Layouts is not a place the shell
+     * needs to know about.
+     *
+     * The shipped tree's `invoices-estimates` seeds nothing on purpose: an
+     * estimate is a document KIND, not a status, and the four cuts this list
+     * offers are statuses. Seeding it to a cut would have made the nav row
+     * promise a filter the page does not have — the dead-end failure the
+     * Calendars settings bug was.
+     */
+    products: ["invoices", "ia-commerce-invoices"],
+    children: [
+      "invoices-all",
+      "invoices-layouts",
+      "invoices-recurring",
+      "invoices-estimates",
+      "invoices-accounting",
+      "ia-commerce-invoices-all",
+      "ia-commerce-invoices-layouts",
+      "ia-commerce-invoices-recurring",
+      "ia-commerce-invoices-estimates",
+      "ia-commerce-invoices-templates",
+      "ia-commerce-invoices-sync",
+    ],
+    views: {
+      "invoices-layouts": "layouts",
+      "ia-commerce-invoices-layouts": "layouts",
+      "ia-commerce-est-draft": "draft",
+      "ia-commerce-est-sent": "sent",
+      "ia-commerce-est-accepted": "paid",
+      "ia-commerce-est-declined": "overdue",
+    },
+    render: (view) => <InvoicesPage initialView={view} />,
+  },
+  {
+    /*
+     * Marketing ▸ Prospecting.
+     *
+     * `children: []` is correct rather than lazy. The proposed tree marks
+     * this product `tabs: true`, so resolveTarget truncates at it and the six
+     * rows arrive as `initialTab` with `childId` null — which the `childId ===
+     * null` clause in realPageFor matches. The shipped tree's `prospecting`
+     * has no children at all and lands on the same clause. Listing the six
+     * ids under `children` would have looked more careful and done nothing.
+     *
+     * `views` is keyed by those six ids straight through to the page's own
+     * tab keys. It is the thinnest possible map and it still earns its place:
+     * without it, clicking Analytics in the nav opens All accounts under an
+     * Analytics crumb — the dead-end the Calendars settings bug was.
+     */
+    products: ["prospecting", "ia-marketing-prospecting"],
+    children: [],
+    views: {
+      "ia-marketing-prospecting-accounts": "accounts",
+      "ia-marketing-prospecting-ai": "ai",
+      "ia-marketing-prospecting-widgets": "widgets",
+      "ia-marketing-prospecting-reports": "reports",
+      "ia-marketing-prospecting-analytics": "analytics",
+      "ia-marketing-prospecting-settings": "settings",
+    },
+    render: (view) => <ProspectingPage initialTab={view} />,
   },
   {
     products: ["conversations", "ia-crm-conversations"],
@@ -142,6 +268,11 @@ const REAL_PAGES: {
      * tree promotes it to a product of its own. Both arrive here, which is
      * why the match is on a pair of lists rather than a single id.
      */
+    products: ["dashboards", "ia-reporting-dashboard"],
+    children: [],
+    render: () => <ReportingDashboardPage />,
+  },
+  {
     products: ["automation", "ia-automation-workflows"],
     children: ["automation-workflows", "ia-automation-list"],
     views: {
@@ -184,7 +315,20 @@ function realPageFor(
       (childId === null || entry.children.includes(childId)),
   );
   if (!hit) return null;
-  return hit.render((initialTab && hit.views?.[initialTab]) ?? null);
+  /*
+   * The tab wins, then the place.
+   *
+   * A nav row can name either — an L4 arrives as `initialTab`, an L3 as
+   * `childId` — and a page that only read the first left every L3 in the map
+   * seeding nothing. Checked in that order because the deeper row is the more
+   * specific answer: Calendars ▸ Settings ▸ Services should open Services,
+   * not the settings screen's default line.
+   */
+  const seed =
+    (initialTab ? hit.views?.[initialTab] : undefined) ??
+    (childId ? hit.views?.[childId] : undefined) ??
+    null;
+  return hit.render(seed);
 }
 
 interface ProductPageProps {

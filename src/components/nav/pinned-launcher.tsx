@@ -133,6 +133,7 @@ export function PinnedLauncher({
     recentsPanelLayout,
     getAppPlacement,
     navProductTree,
+    treeRecentsAllProducts,
   } = useTheme().effective;
   const agency = useAgencyLayout();
   /*
@@ -173,7 +174,30 @@ export function PinnedLauncher({
    * panel that is explicitly the catalogue door would leave it an empty surface
    * if anything ever did.
    */
-  const showCatalogue = variant === "directory" || (!split && !navProductTree);
+  /*
+   * ...unless the tree is told to hand it back. See
+   * `ThemeState.treeRecentsAllProducts` (Sep 23).
+   *
+   * The duplication argument above is real and it is also not the only one.
+   * The tree IS the catalogue, but it is the catalogue you have to open group
+   * by group, and the tree's own field filters the column you are reading — so
+   * there is no surface left where you can look a product up WITHOUT the nav
+   * rearranging itself underneath you while you type. Putting the catalogue
+   * back behind View all gives that surface somewhere to be, at the cost of
+   * the same list existing twice on one screen. Which cost is worse is the
+   * thing the axis exists to let someone look at rather than argue about.
+   *
+   * Nothing else changes: with the flag true this is the ordinary two-corpus
+   * panel — `bothHalves` goes back on below, the tab strip returns, and the
+   * All products tab carries the field it has always carried (`showSearch`,
+   * via `tabbed`). Reusing that arrangement rather than bolting a second
+   * catalogue onto the recents panel is the point; a copy would be a second
+   * search, a second walk and a second set of rows to keep in step with a
+   * surface the directory row already opens.
+   */
+  const showCatalogue =
+    variant === "directory" ||
+    (!split && (!navProductTree || treeRecentsAllProducts));
   /*
    * One panel, two corpora, a switcher between them.
    *

@@ -14,6 +14,11 @@ import {
 import { AiSparkle } from "@/components/icons/ai-sparkle";
 import { PageHeader, usePageChrome } from "@/components/page/page-header";
 import { ViewBar } from "@/components/page/view-bar";
+import {
+  CollapsingSearch,
+  GlyphButton,
+  useListShape,
+} from "@/components/page/list-shape";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { voiceAgentRows, type VoiceAgentRow } from "./voice-ai-data";
@@ -68,6 +73,28 @@ const COLS = "34px 2.4fr 1.4fr 0.8fr 1fr 36px";
 export function VoiceAiPage() {
   const { effective } = useTheme();
   const chrome = usePageChrome();
+  /*
+   * This page joins the list axis for one variant only, and it is worth being
+   * honest about which.
+   *
+   * Its two tabs are views over the agents (the list of them, and what they
+   * have been doing) — they pass ViewBar's test, but they are not SAVED views:
+   * nobody made them and nobody can make a third. So L-B's picker and L-E's
+   * switching crumb have nothing to pick from that a two-tab strip does not
+   * already show at a glance, and this page sits those two out exactly as it
+   * always has. L-F is different in kind: it does not ask where the scope
+   * lives, it asks whether the filter row needs a row, and this page has a
+   * filter row like any other. So `oneRow` is read and the rest is not.
+   *
+   * The two Sep 23 band switches are read for the same reason `oneRow` is:
+   * neither asks where a control lives, both ask whether a band is worth its
+   * height, and this page has both bands. `showViews` is the arguable one —
+   * these tabs are not SAVED views — and it applies anyway, because what the
+   * switch governs is a strip of cuts over one collection, which is exactly
+   * what this is. Off, the page is the agent list and Dashboard & Logs is
+   * unreachable from here, which is the same bargain every other list makes.
+   */
+  const { oneRow, showViews, showFilters } = useListShape();
   const [tab, setTab] = React.useState("agents");
   const [openAgent, setOpenAgent] = React.useState<string | null>(null);
   /*
@@ -112,16 +139,53 @@ export function VoiceAiPage() {
         primary={{ label: "Create Agent", icon: Plus }}
       />
 
+      {showViews ? (
       <ViewBar
         label="Voice AI views"
         views={TABS}
         activeId={tab}
         onSelect={setTab}
+        className={oneRow && tab === "agents" ? "h-[46px]" : undefined}
+        /*
+          Only on the agent list. Dashboard & Logs has no filter row to fold
+          in, so folding one in would be drawing a toolbar for a tab that does
+          not have one — and the two tabs would then sit at two heights, which
+          makes switching between them jump.
+        */
+        trailing={
+          oneRow && tab === "agents" ? (
+            <span className="flex shrink-0 items-center gap-[8px]">
+              <GlyphButton icon={ArrowUpDown} label="Sort By" />
+              <CollapsingSearch
+                placeholder="Search name or channel"
+                label="Search name or channel"
+              />
+              {chrome.header ? null : <UpgradeButton />}
+            </span>
+          ) : undefined
+        }
       />
+      ) : null}
 
       {tab === "agents" ? (
         <>
+          {/*
+            L-F took this row's two controls up onto the tab strip, so the row
+            itself goes. Every other variant keeps it where it is.
+
+            `listShowFilters: false` empties it — and then the row survives
+            only if the header is also off, because the upgrade offer below
+            would otherwise have nowhere left to be. That is the one case in
+            this file where a band outlives its own contents, and it is worth
+            being explicit that it is a prototype concern rather than a
+            product one: a plan wall nobody can reach is a plan wall nobody
+            can price, and switching a header variant must not be the thing
+            that hides it.
+          */}
+          {oneRow || (!showFilters && chrome.header) ? null : (
           <div className="flex shrink-0 items-center gap-[10px]">
+            {showFilters ? (
+            <>
             {/*
               Sort before search, which is the order the live product uses and
               the opposite of every other list in this prototype.
@@ -159,6 +223,15 @@ export function VoiceAiPage() {
               />
             </div>
 
+            </>
+            ) : (
+              /*
+                The slack the search field was taking, so the offer below
+                keeps the right edge it holds when the controls are there.
+              */
+              <span aria-hidden="true" className="min-w-[16px] flex-1" />
+            )}
+
             {/*
               The upgrade offer's second home, for the same reason funnels-page
               keeps a second Build with AI: the page-header knobs can take the
@@ -170,6 +243,7 @@ export function VoiceAiPage() {
             */}
             {chrome.header ? null : <UpgradeButton />}
           </div>
+          )}
 
           <div className="min-h-0 flex-1 overflow-auto rounded-[10px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
             <div

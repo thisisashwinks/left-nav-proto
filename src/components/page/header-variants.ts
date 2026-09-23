@@ -19,9 +19,8 @@
 
 /* ── the axes ───────────────────────────────────────────────────────────── */
 
-export type ListHeaderVariant = "L-C" | "L-B" | "L-E" | "L-D";
-export type RecordHeaderVariant = "D-B" | "D-D";
-export type BoardHeaderVariant = "K-B" | "K-C";
+export type ListHeaderVariant = "L-D" | "L-F" | "L-B" | "L-E";
+export type RecordHeaderVariant = "D-A" | "D-B" | "D-D";
 export type PanelHeaderVariant = "P-B" | "P-C";
 export type DeepHeaderVariant = "X-2" | "X-6" | "X-4" | "X-3" | "X-5";
 
@@ -43,12 +42,6 @@ export interface VariantMeta<T extends string> {
   chrome: VariantChrome;
 }
 
-const full: VariantChrome = {
-  header: true,
-  title: true,
-  description: false,
-  count: true,
-};
 const titleless: VariantChrome = {
   header: true,
   title: false,
@@ -66,11 +59,24 @@ const noHeader: VariantChrome = {
 
 export const LIST_VARIANTS: readonly VariantMeta<ListHeaderVariant>[] = [
   {
-    id: "L-C",
-    label: "Title + view bar",
+    id: "L-D",
+    label: "Title + description",
     blurb:
-      "What the prototype shipped: the trail in the bar, and a header below that names the page again.",
-    chrome: full,
+      "The shipped shape: title, a line under it, then the saved-view tabs and the filter row beneath.",
+    chrome: { header: true, title: true, description: true, count: true },
+  },
+  {
+    /*
+     * "Title + view bar" used to sit here as a fifth option and was retired on
+     * Sep 23: it was this variant with the description switched off, which the
+     * description knob below already does. Two entries for one shape is how a
+     * picker stops being a set of choices and becomes a list to read.
+     */
+    id: "L-F",
+    label: "Tabs + filters in one row",
+    blurb:
+      "The saved-view tabs and the filter controls share a row, with the filters reduced to glyphs and the search collapsed to its icon. Buys back a whole band on the densest screen in the product, and spends the labels to do it.",
+    chrome: { header: true, title: true, description: true, count: true },
   },
   {
     id: "L-B",
@@ -86,18 +92,31 @@ export const LIST_VARIANTS: readonly VariantMeta<ListHeaderVariant>[] = [
       "The last crumb becomes the smart-list picker and the page draws no header. Filters move into the canvas, against the table they filter.",
     chrome: noHeader,
   },
-  {
-    id: "L-D",
-    label: "Title + description",
-    blurb:
-      "The teaching version — title and a line under it. Costs ~76px on the most-visited screen in the product.",
-    chrome: { header: true, title: true, description: true, count: true },
-  },
 ];
 
 /* ── record ─────────────────────────────────────────────────────────────── */
 
 export const RECORD_VARIANTS: readonly VariantMeta<RecordHeaderVariant>[] = [
+  {
+    /*
+     * The full header, promoted out of a checkbox (Sep 23).
+     *
+     * This shape already existed — it was `recordPageHeader`, a lone toggle at
+     * the foot of the section that only did anything under D-B. So the picker
+     * offered two answers while the page had three, and the third was reachable
+     * only by finding a switch that looked like it belonged to the other two.
+     * Ashwin's reading is the right one: a record that names itself IS a record
+     * variant, and it belongs beside the variants it is being compared with.
+     *
+     * The knob is gone rather than kept beside it. Two controls drawing one row
+     * is exactly how the record header got broken the first time.
+     */
+    id: "D-A",
+    label: "Full page header",
+    blurb:
+      "Slot 05 on a record: the name, its status, the description and the record's actions — the same header a list page draws, above the panes.",
+    chrome: { header: true, title: true, description: true, count: false },
+  },
   {
     id: "D-B",
     label: "Panel owns identity",
@@ -116,22 +135,23 @@ export const RECORD_VARIANTS: readonly VariantMeta<RecordHeaderVariant>[] = [
 
 /* ── board ──────────────────────────────────────────────────────────────── */
 
-export const BOARD_VARIANTS: readonly VariantMeta<BoardHeaderVariant>[] = [
-  {
-    id: "K-B",
-    label: "Scope row below",
-    blurb:
-      "The pipeline picker keeps its row — scope, not a page title — with the board flush under it.",
-    chrome: titleless,
-  },
-  {
-    id: "K-C",
-    label: "Pipeline in the trail",
-    blurb:
-      "The pipeline becomes the last crumb and switches from there, so the board gets everything under the 48px bar.",
-    chrome: noHeader,
-  },
-];
+/*
+ * There is no board axis, and that is the Sep 23 decision rather than an
+ * omission.
+ *
+ * K-B ("scope row below") and K-C ("pipeline in the trail") were a third
+ * variant set for Opportunities, and they turned out to be L-B and L-E wearing
+ * a pipeline instead of a smart list. Ashwin's reading is the one the
+ * screenshot supports: Opportunities is a collection that happens to render as
+ * columns, its header is a list page's header, and the four LIST variants are
+ * the four answers it has. Two pickers claiming the same row is how the
+ * record header got broken — a control that looks live, writes state, and is
+ * silently overruled by another one three rows away.
+ *
+ * So the board reads `listHeaderVariant` like every other collection, in both
+ * of its renderers, and the question "does the board need its own shape?" is
+ * answered by the list picker being on screen while you look at the board.
+ */
 
 /* ── builder ────────────────────────────────────────────────────────────── */
 
@@ -287,7 +307,6 @@ export const DEEP_VARIANTS: readonly VariantMeta<DeepHeaderVariant>[] = [
 export const HEADER_VARIANT_SETS = {
   list: LIST_VARIANTS,
   record: RECORD_VARIANTS,
-  board: BOARD_VARIANTS,
   panel: PANEL_VARIANTS,
   deep: DEEP_VARIANTS,
 } as const;

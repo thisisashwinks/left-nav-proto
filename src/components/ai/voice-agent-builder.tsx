@@ -20,6 +20,12 @@ import {
 } from "lucide-react";
 import { OutlineButton, PrimaryButton } from "@/components/page/page-header";
 import { useRecordCrumb } from "@/components/page/record-crumb";
+import {
+  CollabIsland,
+  FloatingLayer,
+  IdentityIsland,
+  Island,
+} from "@/components/shell/floating-chrome";
 import { useShellChrome } from "@/components/shell/full-bleed";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
@@ -93,7 +99,16 @@ export function VoiceAgentBuilder({
     builderKeepTopBar,
     builderControls,
     builderExit,
+    builderChromeStyle,
   } = useTheme().effective;
+  /*
+   * The Sep 23 axis, and the page it is hardest on.
+   *
+   * `builderControls` is read only inside the `rows` half below: it places
+   * ROWS and this style has none. See floating-chrome.tsx for why that is the
+   * axis not applying rather than the axis being ignored.
+   */
+  const floating = builderChromeStyle === "floating";
   const [mode, setMode] = React.useState<string>("build");
   const [direction, setDirection] = React.useState<string>("inbound");
   const [openSection, setOpenSection] = React.useState<string | null>(null);
@@ -191,8 +206,15 @@ export function VoiceAgentBuilder({
         textarea, and a ✕ sitting immediately right of Save reads as "throw
         that away". The exit that gets the same viewport without asking the
         operator to gamble is the back arrow.
+
+        Under `floating` it is not here: both exits end the collaboration
+        island, because an island has no leading edge for an arrow to claim.
+        An expand glyph then stands between Save and the ✕, which is the one
+        thing that changes — and on a form it changes least, because what is at
+        risk is still a textarea you have been in for ten minutes and one glyph
+        of separation does not make a ✕ mean "up a level". See CollabIsland.
       */}
-      {builderExit === "close" ? exit : null}
+      {!floating && builderExit === "close" ? exit : null}
     </div>
   );
 
@@ -273,7 +295,14 @@ export function VoiceAgentBuilder({
         the bar back regardless of the ask, and a page trusting its own flag
         would draw a second trail directly under the real one.
       */}
-      {!barHidden ? (
+      {floating ? (
+        /*
+         * No row. The islands are anchored to the three columns further down —
+         * see the note on the wrapper there, which is where this page's
+         * objection to the whole style is recorded.
+         */
+        null
+      ) : !barHidden ? (
         /*
          * The bar is up, so the trail is already somewhere. This row carries
          * only what the bar cannot: the agent's name (the bar's trail ends at
@@ -373,7 +402,27 @@ export function VoiceAgentBuilder({
         and every pixel past that is a pixel off the one column where width
         changes whether the work is legible.
       */}
-      <div className="flex min-h-0 flex-1">
+      {/*
+        THE FINDING THIS PAGE EXISTS FOR, under the Sep 23 style.
+
+        `pt-[64px]` when floating, and it is not styling — it is the axis
+        failing on a form and saying so. Over a canvas an island costs nothing
+        permanently: whatever it covers can be panned out from under it, which
+        is the whole argument for lifting the chrome off the top of the screen.
+        A form cannot be panned. The prompt column opens with a 40px toolbar
+        (undo, redo, custom value, Prompt Optimizer) and the columns beside it
+        open with cards, and an island resting on any of those is a control the
+        operator can never reach without scrolling the thing they wanted.
+
+        So the columns are pushed clear of the islands on arrival — and once
+        they are, `floating` has spent exactly the vertical budget the 46px row
+        it replaced was spending, plus the gap. It does not win the space back
+        here. It wins a rounded corner and a shadow, and the space comes back
+        only on the two builders whose middle is a plane. That is a result the
+        review can act on, and it is cheaper to read off this file than off a
+        screenshot where the difference is 18px.
+      */}
+      <div className={cn("relative flex min-h-0 flex-1", floating && "pt-[64px]")}>
         <PromptColumn direction={direction} onDirection={setDirection} />
 
         <div className="flex w-[344px] shrink-0 flex-col gap-[12px] overflow-y-auto border-r border-pg-border p-[14px]">
@@ -435,6 +484,45 @@ export function VoiceAgentBuilder({
           scenario={scenario}
           onScenario={setScenario}
         />
+
+        {/*
+          Three islands, and two of them are the ones the brief allows a form:
+          identity and commitment. No palette and no zoom, because this builder
+          has neither — an agent is a form, and inventing a tool row for it so
+          that all five corners were occupied would be the style dictating what
+          the page contains.
+
+          The third is the mode switch, and it is here rather than folded into
+          the collaboration island for the reason the `1fr auto 1fr` grid above
+          exists: Build and Deploy are centred on the WINDOW, and a control
+          that moves when the agent's name gets longer is one a reviewer clicks
+          past twice and then complains about. An island of its own is the only
+          way to keep that property once the row it was centred in is gone.
+
+          THREE islands, and no fourth. `builderToolPalette` is deliberately
+          not read on this page — not forgotten. A voice agent is a FORM: a
+          prompt, a greeting, a voice, a set of numbers. There is no surface to
+          hold a tool over and nothing a click could be armed to place, so a
+          bottom-centre bar here would be a picture of a whiteboard drawn on a
+          settings screen. That was the Sep 23 finding the axis exists to stop
+          repeating; see theme.ts.
+        */}
+        {floating ? (
+          <FloatingLayer
+            topLeft={
+              <IdentityIsland
+                icon={AudioLines}
+                name={agentName}
+                trail={trail}
+                onLeave={onBack}
+                exit={exit}
+                trailing={rename}
+              />
+            }
+            topCentre={<Island className="py-[5px]">{modeSwitch}</Island>}
+            topRight={<CollabIsland commit={commitActions} />}
+          />
+        ) : null}
       </div>
     </div>
   );

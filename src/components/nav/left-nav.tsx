@@ -84,6 +84,10 @@ import {
   AgencyMergedRecentsBlock,
   MergedRecentsBlock,
 } from "./merged-recents";
+import {
+  LAUNCHPAD_DONE,
+  LAUNCHPAD_TOTAL,
+} from "@/components/launchpad/launchpad-data";
 import { PROPOSED_HOME_ID } from "./proposed-ia";
 import { NavDivider } from "./nav-divider";
 import { NavHeader } from "./nav-header";
@@ -331,6 +335,7 @@ export function LeftNav({
     layoutModel,
     navProductTree,
     navTreeCounts,
+    treeIcons,
     treeSearchPlace,
   } = useTheme().effective;
   /**
@@ -2393,6 +2398,27 @@ export function LeftNav({
               // rows would be the count contradicting the list directly
               // underneath it.
               count: treeCounts ? nodes.length : undefined,
+              /*
+               * The group row gives up its glyph too, in the two modes that
+               * take glyphs away everywhere.
+               *
+               * `hide-l3` deliberately does not reach it: that mode's argument
+               * is that three columns of pictures is two too many and the
+               * PAGES are the level carrying the least, so L1 and L2 keep
+               * theirs. `none` and `rails` are the arguments about the tree as
+               * a whole, and a tree whose top row was the one exception would
+               * be saying the group is a different kind of thing from the
+               * product under it — which is exactly what this arrangement
+               * denies.
+               *
+               * No rails on this row. It has no ancestors in the nav, so there
+               * is nothing for a rule to stand in the column of; the rails
+               * begin one level down, hanging under this row's own glyph
+               * column, which is what makes them read as coming OUT of it.
+               */
+              ...(treeIcons === "none" || treeIcons === "rails"
+                ? { iconHidden: true }
+                : {}),
             }}
             marking={markFor(false, isTrail)}
             /*
@@ -3801,8 +3827,16 @@ function SetupGuideRow({
   const { launchpadCard } = useTheme().effective;
   const v = LAUNCHPAD_STYLE[launchpadCard];
   const plain = launchpadCard === "plain";
-  const done = 4;
-  const total = 7;
+  /*
+   * The page's own tally, not a pair of literals.
+   *
+   * The card is an advert for the Launchpad page and it stood two hundred
+   * pixels from it saying 4 of 7 while the page counted its own steps — two
+   * numbers for one fact, and the card would have been the one that went stale.
+   * See launchpad-data.ts, which both surfaces now read.
+   */
+  const done = LAUNCHPAD_DONE;
+  const total = LAUNCHPAD_TOTAL;
   return (
     /*
       pb rather than a gap on the parent: the card is the only thing between the

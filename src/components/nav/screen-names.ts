@@ -45,6 +45,18 @@ export const SCREEN_NAMES = {
   opportunities: "Opportunities",
   /** `workflows-page.tsx` — its `PageHeader` title reads this. */
   workflows: "Workflows",
+  /**
+   * `invoices/invoices-page.tsx` — the list of invoices itself.
+   *
+   * "Invoices" rather than the product's own "Invoices & estimates": the
+   * PRODUCT holds both kinds and the trail's product crumb says so, but this
+   * screen is the all-invoices list under it, and a page titled with its
+   * parent's name is the title/breadcrumb duplication the Sep 22 research
+   * spent four documents on. The estimates cut is a tab of this same
+   * collection in the shipped tree and an L3 of its own in the proposed one,
+   * which is exactly the disagreement the two trees exist to put on screen.
+   */
+  invoices: "Invoices",
   /** `sites/funnels-page.tsx` — literal, see WHAT IS NOT HERE above. */
   funnels: "Funnels",
   /** `ai/voice-ai-page.tsx` — literal, see WHAT IS NOT HERE above. */

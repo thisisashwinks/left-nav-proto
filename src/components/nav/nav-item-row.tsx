@@ -180,29 +180,67 @@ export function NavItemRow({
   const compact = item.density === "compact";
   const mark = useHereStyle(marking);
 
+  /*
+   * Tree rows inset the ROW; every other arrangement insets the row's contents.
+   *
+   * `depth` is set by `product-tree.tsx` and by nothing else, so this branch is
+   * the All-products tree talking and every nav that shipped before the axis
+   * takes the `pl-` path below unchanged.
+   *
+   * In the tree the fill is the selection, and a selection that begins at the
+   * nav's left edge is the tree claiming the page belongs to the whole column
+   * rather than to the branch it is standing in. Margin instead of padding
+   * moves the row's own left edge to where its level begins — so the fill,
+   * the hover band and the here-mark all start under the parent's glyph, and
+   * the row reads as a child of the thing above it.
+   *
+   * The margin is the indent MINUS the row's own `px`, which the row still
+   * carries: margin + px puts the glyph exactly where the padding version put
+   * it, so nothing inside the row moves a pixel. The width gives back what the
+   * margin took, so the right edge stays where it was too.
+   */
+  const inset = item.depth != null;
+
   const rowClass = cn(
-    "flex w-full shrink-0 items-center text-left",
+    "flex shrink-0 items-center text-left",
+    !inset && "w-full",
     "gap-[var(--t-nav-gap,10px)] rounded-[var(--t-nav-radius,7px)] px-[var(--t-nav-px,8px)]",
     "motion-tap",
     /*
      * A disclosed child is indented by its parent's icon plus the row gap, so
      * the child labels line up with the parent LABEL rather than sitting in a
-     * hanging indent of their own. Padding rather than margin: the hover fill
-     * still spans the full row, so the band reads as one list.
+     * hanging indent of their own. Padding rather than margin here, because a
+     * flyout's disclosed child is one band with the row above it: the hover
+     * fill spans the full width and the pair reads as one list. The tree makes
+     * the opposite argument one level up, in `inset`.
      */
-    /*
-     * Depth 1 is the rule that shipped, spelled the same way it always was —
-     * `child` and `depth: 1` are the same indent, and the classes below are
-     * that one multiplied out rather than a second scheme sitting beside it.
-     * Written as three literals because Tailwind scans source text: a computed
-     * `pl-[calc(...*${n}...)]` is a class nothing ever emits.
-     */
-    (item.depth ?? (item.child ? 1 : 0)) === 1 &&
+    !inset &&
+      (item.child ?? false) &&
       "pl-[calc(var(--t-nav-px,8px)+16px+var(--t-nav-gap,10px))]",
-    (item.depth ?? 0) === 2 &&
-      "pl-[calc(var(--t-nav-px,8px)+2*16px+2*var(--t-nav-gap,10px))]",
-    (item.depth ?? 0) >= 3 &&
-      "pl-[calc(var(--t-nav-px,8px)+3*16px+3*var(--t-nav-gap,10px))]",
+    /*
+     * Written out per level and per step rather than computed: Tailwind scans
+     * source text, so an `ml-[calc(...*${n}...)]` is a class nothing ever
+     * emits. The tight column is the same arithmetic with the glyph's 16px
+     * taken out of the step — see `NavItem.tightIndent`.
+     */
+    inset &&
+      !item.tightIndent &&
+      item.depth === 1 &&
+      "ml-[calc(16px+var(--t-nav-gap,10px))] w-[calc(100%-16px-var(--t-nav-gap,10px))]",
+    inset &&
+      !item.tightIndent &&
+      item.depth === 2 &&
+      "ml-[calc(2*16px+2*var(--t-nav-gap,10px))] w-[calc(100%-2*16px-2*var(--t-nav-gap,10px))]",
+    inset &&
+      !item.tightIndent &&
+      (item.depth ?? 0) >= 3 &&
+      "ml-[calc(3*16px+3*var(--t-nav-gap,10px))] w-[calc(100%-3*16px-3*var(--t-nav-gap,10px))]",
+    inset && item.tightIndent && item.depth === 1 && "ml-[16px] w-[calc(100%-16px)]",
+    inset && item.tightIndent && item.depth === 2 && "ml-[32px] w-[calc(100%-32px)]",
+    inset &&
+      item.tightIndent &&
+      (item.depth ?? 0) >= 3 &&
+      "ml-[48px] w-[calc(100%-48px)]",
     // Compact rows keep their tighter padding proportionally.
     compact ? "py-[calc(var(--t-nav-py,9px)*0.667)]" : "py-[var(--t-nav-py,9px)]",
     /*
@@ -408,9 +446,20 @@ export function NavItemRow({
       would sit in its padding box and move with the label. The wrapper adds no
       box of its own — `contents` — so the row's own layout is untouched when
       the axis is off, which it is by default.
+
+      The rails hang off the same wrapper, and deliberately NOT off the button:
+      the button carries `active:scale-[0.99]`, so rails inside it would shrink
+      a pixel on every press and the continuous line down the branch would
+      visibly break at whichever row was being clicked. The wrapper does not
+      move.
     */
     return (
-      <span className={cn(marking ? "relative block w-full" : "contents")}>
+      <span
+        className={cn(
+          marking || item.rails ? "relative block w-full" : "contents",
+        )}
+      >
+      {item.rails ? <RowRails rails={item.rails} /> : null}
       {mark.bar ? <HereBar marking={marking} /> : null}
       <button
         ref={rowHostRef}
@@ -716,6 +765,80 @@ function MenuAffordance({
   );
 }
 
+/**
+ * The depth guides, drawn per row so they read as lines down the branch.
+ *
+ * One `inset-y-0` rule per ancestor level: consecutive rows each draw their
+ * own segment, the segments abut because the rows do, and what the eye gets is
+ * an unbroken rule that starts where the branch opened and stops where it
+ * closed — with no wrapper around the run, which is what a branch-level
+ * element would have needed. That matters here because a branch is not a DOM
+ * subtree: `ProductTreeBranch` renders its rows and its children as siblings
+ * in one flat flow (see the fragment it returns), precisely so the hover fill
+ * and the seams treat the whole tree as one list.
+ *
+ * `left` is computed rather than classed because it depends on the level, and
+ * Tailwind scans source text — a `left-[calc(...${k}...)]` is a class nothing
+ * ever emits. The formula mirrors the row's own indent literal for literal: `k`
+ * of the 16px tight steps, then 8px to land in the middle of the step. Rails
+ * are only ever drawn on rows carrying `tightIndent` — `treeIcons: "rails"`
+ * sets both — so the two cannot drift.
+ *
+ * No `--t-nav-px` in it, and that is the fix for the rail that used to sit
+ * under the selected row's own fill: the indent is a margin, so a row at depth
+ * `d` has its left EDGE at `d * 16px` and its innermost rail belongs in the
+ * gutter before it, not 8px into it. Half a step short of the edge puts every
+ * rail in the middle of its own column and leaves the fill a clear 8px.
+ */
+function RowRails({ rails }: { rails: number }) {
+  return (
+    <span
+      aria-hidden="true"
+      /*
+       * Half the row gap taller than the row, top and bottom.
+       *
+       * The rows are a flex column with `--t-nav-space` between them, so an
+       * `inset-y-0` rail stops at each row's box and the guide came out as a
+       * dashed line — which reads as a decorative rule rather than as the one
+       * continuous thing that says "all of this is inside that". Overhanging
+       * half the gap at each end makes consecutive segments meet exactly, and
+       * at the ends of a run it tucks the rail a pixel under the row above and
+       * below, which is where a file tree's guide starts and stops anyway.
+       */
+      className="pointer-events-none absolute left-0 w-full"
+      style={{
+        top: "calc(var(--t-nav-space, 2px) / -2)",
+        bottom: "calc(var(--t-nav-space, 2px) / -2)",
+      }}
+    >
+      {Array.from({ length: rails }, (_, level) => (
+        <span
+          key={level}
+          className={cn(
+            "absolute inset-y-0 w-px",
+            /*
+             * Every rail the same weight: divider, which is gray 200 in the
+             * light themes and the theme's own hairline in the dark ones.
+             *
+             * The innermost rail used to be a step darker, to say which level
+             * the run in front of you belonged to. On the screen it read as a
+             * defect rather than as emphasis — the same vertical line changed
+             * colour partway down, at a row whose own fill was already saying
+             * where you are, so the two marks argued and the darker segment
+             * looked like a rendering bug. Scaffolding is allowed to be one
+             * colour.
+             */
+            "bg-nav-divider",
+          )}
+          style={{
+            left: `calc(${level} * 16px + 8px)`,
+          }}
+        />
+      ))}
+    </span>
+  );
+}
+
 function RowIcon({
   item,
   active,
@@ -726,6 +849,25 @@ function RowIcon({
   dimmed?: boolean;
 }) {
   const Icon = item.icon;
+  /*
+   * No glyph, and no column held open for one either. See `NavItem.iconHidden`.
+   *
+   * First, ahead of the AI sparkle and ahead of the "no icon at all" bail: the
+   * flag is the tree saying this level draws no glyph, and a level that made an
+   * exception for one row would be a level whose labels do not line up.
+   *
+   * The blank that used to stand here was the earlier reading of the axis — the
+   * glyph goes, its column stays — and on the screen it was a band of empty
+   * gutter beside every page name, saying nothing and costing 26px of the 272
+   * the nav has to spend on labels. Dropping the element drops the row's flex
+   * gap with it, so a glyphless child's label lands exactly on its parent's,
+   * which is the alignment the row's own `pl-` steps were written for.
+   *
+   * The indent is padding, and the rails are absolutely positioned off the same
+   * steps, so neither moves: what changes is only where the label starts inside
+   * an already-indented row.
+   */
+  if (item.iconHidden) return null;
   if (item.ai) return <NavAiSparkle className="text-nav-ai-icon" />;
   if (!Icon) return null;
   return (

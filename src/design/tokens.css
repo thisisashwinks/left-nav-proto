@@ -809,6 +809,16 @@
   --hdr-fg: var(--hr-gray-700);
   --hdr-fg-muted: var(--hr-gray-500);
   --hdr-chip-bg: var(--hr-gray-100);
+  /*
+   * The painted leaf's ground, and deliberately NOT --hdr-chip-bg.
+   *
+   * The chip token is the bar's HOVER fill, so a leaf wearing it was a crumb
+   * that looked hovered — gray/100 on white is a step you have to hunt for, and
+   * the one thing this axis is for is a leaf you do not hunt for. White, lifted
+   * off the bar by its own hairline instead: the leaf reads as a card carrying
+   * the page's name rather than as a control mid-interaction.
+   */
+  --hdr-crumb-leaf-bg: var(--hr-base-white);
   --hdr-icon-neutral-bg: var(--hr-gray-100);
   --hdr-act-call: var(--hr-success-600);
   --hdr-act-launch: var(--hr-warning-600);
@@ -843,6 +853,9 @@
   --hdr-fg: #d4d4d8;
   --hdr-fg-muted: #a1a1ac;
   --hdr-chip-bg: #24242c;
+  /* White is the light bar's answer; on a dark bar the same idea is the step
+     UP from it, which is the one the neutral icon ground already uses. */
+  --hdr-crumb-leaf-bg: #2e2e36;
   --hdr-icon-neutral-bg: #2e2e36;
   --hdr-act-call: var(--hr-success-600);
   --hdr-act-launch: var(--hr-warning-600);
@@ -928,10 +941,58 @@
   --pg-overlay-divider: #ffffff29;
   --pg-danger: var(--hr-error-300);
 
+  /*
+   * The "you have unsaved changes" treatment, added Sep 23 for the saved-view
+   * row. Warning rather than error: a dirty smart list is a state you are
+   * expected to leave things in for a while, and painting it in the same red
+   * the delete row uses would have taught people to ignore the one colour that
+   * means something is broken. It gets its own --pg-* trio rather than the
+   * pages reaching for --hr-warning-* directly, because the page surface
+   * inverts under [data-page-theme="dark"] and a raw warning/50 fill is a
+   * torch on a #15151a canvas.
+   */
+  --pg-warn-bg: var(--hr-warning-50);
+  --pg-warn-border: var(--hr-warning-300);
+  --pg-warn-fg: var(--hr-warning-700);
+  --pg-warn-icon: var(--hr-warning-600);
+
+  /*
+   * The same five, re-validated against the dark surface rather than
+   * flipped: an automatic lighten pushed teal, orange and pink out of the
+   * band the dark plane needs. These are chosen steps, and they pass.
+   */
+  --pg-chart-1: var(--hr-primary-500);
+  --pg-chart-2: var(--hr-teal-600);
+  --pg-chart-3: var(--hr-orange-600);
+  --pg-chart-4: var(--hr-purple-500);
+  --pg-chart-5: var(--hr-pink-600);
+  --pg-chart-grid: #2a2a33;
+
   --pg-status-inquiry-dot: var(--hr-blue-500);
   --pg-status-inquiry-fg: var(--hr-primary-700);
   --pg-status-subscribed-dot: var(--hr-success-500);
   --pg-status-subscribed-fg: var(--hr-success-700);
+
+  /*
+   * A money state is not a lifecycle state, so the invoice pills get their own
+   * pairs rather than borrowing the two above.
+   *
+   * `subscribed` and `inquiry` are CRM states — a person's relationship to the
+   * account — and reusing green for "Paid" happens to read correctly while
+   * meaning something else. The real reason for the split is `overdue`: there
+   * was no red pair at all, and inventing one inline in the invoices page
+   * would have put the only red state in the product outside the token file
+   * where the dark-mode step is chosen. Each pair is a fg for the text and a
+   * border for the outlined chip, which is the shape the invoices table uses —
+   * no dot, because the word already carries the state and a dot beside
+   * "Overdue" is decoration.
+   */
+  --pg-status-paid-fg: var(--hr-success-700);
+  --pg-status-paid-border: var(--hr-success-300);
+  --pg-status-overdue-fg: var(--hr-error-700);
+  --pg-status-overdue-border: var(--hr-error-300);
+  --pg-status-sent-fg: var(--hr-primary-700);
+  --pg-status-sent-border: var(--hr-primary-300);
 
   /* Avatar tones, cycled per contact. */
   --pg-av-blue-bg: var(--hr-primary-50);
@@ -948,6 +1009,23 @@
   --pg-av-yellow-fg: var(--hr-warning-600);
   --pg-av-teal-bg: var(--hr-teal-50);
   --pg-av-teal-fg: var(--hr-teal-600);
+
+  /*
+   * Chart series, assigned in this fixed order and never cycled.
+   *
+   * Validated rather than chosen by eye: every adjacent pair clears the
+   * colour-vision separation floor and every step clears 3:1 against the
+   * chart surface, in BOTH modes. Blue leads because it is the brand's own
+   * hue, and the order is fixed so a filter that drops a series never
+   * repaints the ones that survive.
+   */
+  --pg-chart-1: var(--hr-primary-500);
+  --pg-chart-2: var(--hr-teal-600);
+  --pg-chart-3: var(--hr-orange-600);
+  --pg-chart-4: var(--hr-purple-500);
+  --pg-chart-5: var(--hr-pink-600);
+  /* The grid and the axis: recessive, never competing with the marks. */
+  --pg-chart-grid: var(--hr-gray-200);
 }
 
 [data-page-theme="dark"] {
@@ -970,10 +1048,31 @@
   --pg-overlay-divider: #0f172a29;
   --pg-danger: #f43f5e;
 
+  /*
+   * Same roles, inverted: a dark amber wash with a light amber label, sampled
+   * off --pg-av-yellow-* so the dirty-view chip and the yellow avatar tone are
+   * one family. The border steps up rather than down — on a dark canvas the
+   * fill alone is nearly invisible, and the chip has to survive being the only
+   * non-grey thing in the row.
+   */
+  --pg-warn-bg: #2a230c;
+  --pg-warn-border: #6b5410;
+  --pg-warn-fg: #fde047;
+  --pg-warn-icon: #fbbf24;
+
   --pg-status-inquiry-dot: var(--hr-blue-500);
   --pg-status-inquiry-fg: #93b4fd;
   --pg-status-subscribed-dot: var(--hr-success-500);
   --pg-status-subscribed-fg: #6ee7b7;
+
+  /* Chosen steps against the dark plane, not lightened copies of the light
+     pair — the 700s above go to mud on #14141a, and the 300 borders glare. */
+  --pg-status-paid-fg: #6ee7b7;
+  --pg-status-paid-border: #1f5741;
+  --pg-status-overdue-fg: #fda4af;
+  --pg-status-overdue-border: #6b2029;
+  --pg-status-sent-fg: #93b4fd;
+  --pg-status-sent-border: #26406e;
 
   --pg-av-blue-bg: #16203a;
   --pg-av-blue-fg: #93b4fd;
@@ -1240,6 +1339,9 @@
   --hdr-fg: oklch(from var(--brand) 0.3729 calc(c * var(--tint-text)) h);
   --hdr-fg-muted: oklch(from var(--brand) 0.5006 calc(c * var(--tint-text)) h);
   --hdr-chip-bg: oklch(from var(--brand) 0.9575 calc(c * var(--tint-surface)) h);
+  /* Above the tinted bar's own 0.99, so the leaf lifts on a tinted surface the
+     same way plain white lifts off plain white. */
+  --hdr-crumb-leaf-bg: oklch(from var(--brand) 1 calc(c * var(--tint-surface)) h);
   --hdr-icon-neutral-bg: oklch(from var(--brand) 0.9461 calc(c * var(--tint-surface)) h);
 }
 
@@ -1250,6 +1352,7 @@
   --hdr-fg: oklch(from var(--brand) 0.8711 calc(c * var(--tint-text)) h);
   --hdr-fg-muted: oklch(from var(--brand) 0.7125 calc(c * var(--tint-text)) h);
   --hdr-chip-bg: oklch(from var(--brand) 0.2638 calc(c * var(--tint-surface)) h);
+  --hdr-crumb-leaf-bg: oklch(from var(--brand) 0.3044 calc(c * var(--tint-surface)) h);
   --hdr-icon-neutral-bg: oklch(from var(--brand) 0.3044 calc(c * var(--tint-surface)) h);
 }
 

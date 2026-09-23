@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CalendarDays, Rows3, Settings } from "lucide-react";
+import { CalendarDays, Rows3 } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { AppointmentsList } from "./appointments-list";
@@ -27,25 +27,20 @@ import type { CalendarRow } from "./calendars-data";
  */
 
 /**
- * The three views, as a page-level tab strip.
+ * Two views, and they really are two views.
  *
- * Deliberately NOT a `ViewBar`. That component's contract is that every tab
- * re-cuts the SAME collection, and it holds here for the first two — the week
- * grid and the table are the same appointments, drawn twice — but breaks flat
- * on the third: Calendar settings is a configuration screen for a different
- * object (the calendars, not the bookings on them). A ViewBar would have said
- * all three are cuts of one list and been wrong about a third of itself.
- *
- * So why is settings a tab at all, rather than a place? Because the proposed
- * IA files it as an L3 with six L4s under it and this page has to be able to
- * show that whole chain from either tree — and the shipped catalogue has no
- * child for it to be. A tab is the only control that exists in both worlds.
- * The gear glyph is there to say it is a different kind of tab out loud.
+ * The week grid and the appointment table are the SAME bookings drawn twice,
+ * which is the one thing that makes a view control honest. Calendar settings
+ * used to be a third tab here and is not any more: it configures a different
+ * object — the calendars, not the bookings on them — and the proposed tree
+ * already files it as an L3 with six L4s under it. A tab that leads to
+ * another object is a nav item wearing a tab's clothes, so it went to the
+ * place the nav already had for it, and this page reaches it the same way
+ * everything else does: through the trail.
  */
 const VIEWS = [
   { id: "calendar", label: "Calendar view", icon: CalendarDays },
   { id: "list", label: "Appointment list view", icon: Rows3 },
-  { id: "settings", label: "Calendar settings", icon: Settings },
 ] as const;
 
 type ViewId = (typeof VIEWS)[number]["id"];
@@ -66,12 +61,21 @@ export interface CalendarsPageProps {
 
 export function CalendarsPage({ initialView }: CalendarsPageProps) {
   const { effective } = useTheme();
+  const switchStyle = effective.calendarViewSwitch;
   const [seedView, seedLine, seedPage] = (initialView ?? "").split(":");
 
   const [view, setView] = React.useState<ViewId>(
     VIEWS.some((v) => v.id === seedView) ? (seedView as ViewId) : "calendar",
   );
   const [open, setOpen] = React.useState<CalendarRow | null>(null);
+  /*
+   * Settings arrives as its own place, so it draws no view control at all.
+   *
+   * Seeded once from the nav row rather than held as a tab: the trail is what
+   * says you are in Calendar settings, and a page that ALSO offered a way
+   * back to the grid from inside settings would be two navigators again.
+   */
+  const settingsPlace = seedView === "settings";
 
   /*
    * The opened calendar outranks the tab it was opened from.
@@ -82,12 +86,27 @@ export function CalendarsPage({ initialView }: CalendarsPageProps) {
    * other than the list you came from would make the crumb a lie.
    */
   if (open) {
+    // Full bleed: the builder asks the shell for the window and lays out its
+    // own chrome, so the page inset that wraps every other calendar screen
+    // would be a margin around a builder — see calendar-edit.
+    return (
+      <div data-page-theme={effective.appTheme} className="h-full min-h-0">
+        <CalendarEdit calendar={open} onBack={() => setOpen(null)} />
+      </div>
+    );
+  }
+
+  if (settingsPlace) {
     return (
       <div
         data-page-theme={effective.appTheme}
         className="relative flex h-full min-h-0 flex-col gap-[12px] px-[var(--page-inset)]"
       >
-        <CalendarEdit calendar={open} onBack={() => setOpen(null)} />
+        <CalendarSettings
+          initialLine={seedLine ?? null}
+          initialPage={seedPage ?? null}
+          onOpen={setOpen}
+        />
       </div>
     );
   }
@@ -100,54 +119,90 @@ export function CalendarsPage({ initialView }: CalendarsPageProps) {
       // inset only — the canvas's own margin is the whole vertical one.
       className="relative flex h-full min-h-0 flex-col gap-[12px] px-[var(--page-inset)]"
     >
-      <div
-        role="tablist"
-        aria-label="Calendar views"
-        className="flex shrink-0 items-center gap-[2px] overflow-x-auto border-b border-pg-head-border"
-      >
-        {VIEWS.map((v) => {
-          const on = v.id === view;
-          return (
-            <button
-              key={v.id}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              onClick={() => setView(v.id)}
-              className={cn(
-                "motion-tap relative flex shrink-0 items-center gap-[7px] px-[11px] pt-[2px] pb-[9px] text-[13.5px] leading-[18px] whitespace-nowrap",
-                on
-                  ? "font-semibold text-pg-heading"
-                  : "font-medium text-pg-muted hover:text-pg-text",
-              )}
-            >
-              <v.icon
-                size={15}
-                aria-hidden="true"
-                className={cn("shrink-0", on ? "text-brand" : "text-pg-faint")}
-              />
-              {v.label}
-              <span
-                aria-hidden="true"
+      {switchStyle === "tabs" ? (
+        <div
+          role="tablist"
+          aria-label="Calendar views"
+          className="flex shrink-0 items-center gap-[2px] overflow-x-auto border-b border-pg-head-border"
+        >
+          {VIEWS.map((v) => {
+            const on = v.id === view;
+            return (
+              <button
+                key={v.id}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                onClick={() => setView(v.id)}
                 className={cn(
-                  "absolute inset-x-[6px] -bottom-px h-[2px] rounded-full motion-move",
-                  on ? "bg-brand" : "bg-transparent",
+                  "motion-tap relative flex shrink-0 items-center gap-[7px] px-[11px] pt-[2px] pb-[9px] text-[13.5px] leading-[18px] whitespace-nowrap",
+                  on
+                    ? "font-semibold text-pg-heading"
+                    : "font-medium text-pg-muted hover:text-pg-text",
                 )}
-              />
-            </button>
-          );
-        })}
-      </div>
+              >
+                <v.icon
+                  size={15}
+                  aria-hidden="true"
+                  className={cn("shrink-0", on ? "text-brand" : "text-pg-faint")}
+                />
+                {v.label}
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "absolute inset-x-[6px] -bottom-px h-[2px] rounded-full motion-move",
+                    on ? "bg-brand" : "bg-transparent",
+                  )}
+                />
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        /*
+         * The same choice as one control, pushed to the right edge.
+         *
+         * A segmented switcher says the page has ONE subject drawn two ways,
+         * where a tab strip says it has two halves. It also costs a row: the
+         * control sits with the things that act on the collection rather than
+         * above them, which is where a reader looks for "how is this drawn".
+         */
+        <div className="flex h-[34px] shrink-0 items-center gap-[10px]">
+          <span className="text-[13px] leading-none font-semibold text-pg-heading">
+            Appointments
+          </span>
+          <span className="flex-1" />
+          <div
+            role="group"
+            aria-label="Appointment view"
+            className="flex shrink-0 items-center gap-[2px] rounded-[9px] bg-pg-surface p-[2px] shadow-[inset_0_0_0_1px_var(--pg-border)]"
+          >
+            {VIEWS.map((v) => {
+              const on = v.id === view;
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => setView(v.id)}
+                  className={cn(
+                    "motion-tap flex h-[28px] shrink-0 items-center gap-[6px] rounded-[7px] px-[10px] text-[12.5px] leading-none whitespace-nowrap",
+                    on
+                      ? "bg-brand-soft font-semibold text-brand"
+                      : "font-medium text-pg-muted hover:text-pg-text",
+                  )}
+                >
+                  <v.icon size={14} aria-hidden="true" className="shrink-0" />
+                  {v.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {view === "calendar" ? <CalendarWeekView /> : null}
       {view === "list" ? <AppointmentsList /> : null}
-      {view === "settings" ? (
-        <CalendarSettings
-          initialLine={seedLine ?? null}
-          initialPage={seedPage ?? null}
-          onOpen={setOpen}
-        />
-      ) : null}
     </div>
   );
 }

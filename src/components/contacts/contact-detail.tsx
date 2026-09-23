@@ -280,19 +280,21 @@ export function ContactDetail({
    */
   const { effective } = useTheme();
   /*
-   * The two record shapes the Sep 22 research put on the table.
+   * The three record shapes, all of them on the picker (Sep 23).
    *
    * D-B is what ships: nothing between the bar and the record, so this page
-   * draws no strip and the reading below falls through to the old
-   * `recordPageHeader` knob — which is the same no-op it has always been.
+   * draws no row of its own at all.
    *
    * D-D is the argument against it: one row that carries what the panel and
    * the trail cannot ask of the page — the record's state, who owns it, and
-   * the actions on the record as a whole. It is deliberately gated on the
-   * variant rather than on `recordPageHeader`, because a picker that renders
-   * nothing until you also find a checkbox reads as broken. The knob and the
-   * variant therefore only meet under D-B; see the note where `legacyHeader`
-   * is computed.
+   * the actions on the record as a whole.
+   *
+   * D-A is the full header — the same slot 05 a list page draws, with the
+   * record's name in it. It was `recordPageHeader` until today: a toggle at the
+   * foot of the section that only did anything under D-B, which meant the
+   * picker offered two answers while the page had three and the third looked
+   * like it was missing. It is a variant now, read the same way as the other
+   * two, and the toggle is gone rather than kept beside it.
    */
   const metaStrip = effective.recordHeaderVariant === "D-D";
   /*
@@ -304,13 +306,48 @@ export function ContactDetail({
    */
   const backButton = effective.recordBackButton;
   /*
-   * The full header — name, description, actions — is now D-B's escape hatch
-   * and nothing else. Under D-D it is suppressed outright rather than stacked:
-   * two page headers on one record was never a state anyone argued for, and
-   * the one thing the strip exists to avoid is a second row that says the name
-   * again.
+   * The full header, which is now simply one of the three answers.
+   *
+   * Mutually exclusive with the strip by construction rather than by a guard:
+   * a variant is one value, so two page headers on one record — the state the
+   * old `!metaStrip &&` existed to prevent — is no longer reachable.
    */
-  const legacyHeader = !metaStrip && effective.recordPageHeader;
+  const fullHeader = effective.recordHeaderVariant === "D-A";
+  /*
+   * Where that exit stands, once it exists.
+   *
+   * Split out of the on/off knob on Sep 23 on Ashwin's ask, because until then
+   * the VARIANT chose the placement and the knob only chose whether to draw
+   * it — which made "back button on" a statement about D-B versus D-D rather
+   * than about the exit, and left the trail placement unarguable since no
+   * variant offered it. The three readings now sit side by side under one
+   * switch, which is the only way to find out which of them is right.
+   *
+   * `header` is the one placement that can have nowhere to go: under D-B the
+   * record draws no row of its own at all. In that state this draws NOTHING — deliberately, and not by falling back to the
+   * inline spot. A silent fallback would mean the picker said "header" while
+   * the canvas showed the inline answer, and the comparison the axis exists
+   * for would be quietly reading the wrong variant. The panel's Note already
+   * warns that this placement "only exists while the record draws a header";
+   * an empty result is that sentence being true, not a bug.
+   *
+   * `crumb` draws nothing here on purpose: the app bar's trail carries the
+   * control in that mode, and a page that also drew one would put two exits
+   * on screen — the exact duplication the whole axis is trying to settle.
+   */
+  const backPlace = effective.recordBackPlace;
+  const headerBack =
+    backButton && backPlace === "header" && (metaStrip || fullHeader);
+  /*
+   * Inline means the first column's heading row in BOTH variants.
+   *
+   * It used to mean "wherever the strip isn't", which is why the old reading
+   * was `backButton && !metaStrip`: D-D unconditionally took the exit up into
+   * the strip. With a placement axis that is no longer the strip's call to
+   * make — someone asking for the canvas placement while running D-D is
+   * asking precisely to see the strip WITHOUT it.
+   */
+  const inlineBack = backButton && backPlace === "inline";
   /*
    * One set of record actions, drawn by whichever shape is on.
    *
@@ -373,11 +410,27 @@ export function ContactDetail({
           {/*
             Leading edge of the strip: navigation, before any of the record's
             own state. The strip reads left to right as "out of here, then what
-            this is, then what you can do to it".
+            this is, then what you can do to it". This IS the header placement
+            under D-D — the strip is the record's own header row, so there is
+            nowhere else on it the exit could mean.
           */}
-          {backButton ? <BackToList onBack={onBack} /> : null}
+          {headerBack ? <BackToList onBack={onBack} /> : null}
           <div className="flex min-w-0 flex-1 flex-col">
             <PageHeader
+              /*
+               * `chrome="own"` — the strip is switched by the variant picker
+               * above it, not by the global page-header axis.
+               *
+               * Without this the whole strip went empty the moment anyone
+               * picked a variant whose chrome is `noHeader` (D-B itself, L-E,
+               * K-C), because `setHeaderVariant` writes that into the shared
+               * `pageHeader` knob and PageHeader returned null. The status,
+               * the owner and every action vanished while the 52px rule stayed
+               * — a strip with nothing in it, caused by a picker for a
+               * different page kind. Ashwin hit the same root cause on the
+               * record header knob on Sep 23.
+               */
+              chrome="own"
               /*
                * The record's name is NOT passed in.
                *
@@ -407,10 +460,28 @@ export function ContactDetail({
         </div>
       ) : null}
 
-      {legacyHeader ? (
+      {fullHeader ? (
         <PageHeader
+          /*
+           * `chrome="own"` — the variant is this header's switch, and it has to
+           * be the only one. Every picker writes the global page-header knobs
+           * (see setHeaderVariant), so a record sitting under `chrome="axis"`
+           * would lose its header the moment someone chose a LIST variant that
+           * draws none — the picker would still say "Full page header" while
+           * the canvas showed nothing, which is the failure this page already
+           * had once when the switch was a checkbox.
+           */
+          chrome="own"
           title={contact.name}
           status={<StatusPill status={contact.status} />}
+          /*
+           * The header placement under D-B, in the slot that starts the row.
+           * `lead` rather than a second thing crammed into `aside`: aside is
+           * the commitment side, next to the pager and the buttons, and an
+           * exit that sits beside "Add to workflow" is a click away from the
+           * wrong one.
+           */
+          lead={headerBack ? <BackToList onBack={onBack} /> : undefined}
           description={`${contact.handle} · created ${contact.created} · owner Samrina Shabha`}
           /*
            * No "All contacts" button.
@@ -463,14 +534,16 @@ export function ContactDetail({
             */}
             <div className="flex items-center gap-[8px] pt-[11px]">
               {/*
-                Under D-B nothing else on the page can carry this: there is no
-                strip and no header, so the panel's own heading row is the
-                first place a hand already in the record can reach.
-                Suppressed under D-D — the strip above already carries it, and
-                two exits 60px apart is the duplication the strip exists to
-                avoid, re-introduced by the control meant to resolve it.
+                The inline placement, and now the only thing that draws here:
+                the heading row is the first place a hand already down in the
+                record can reach, which is the whole case for it. It no longer
+                defers to D-D's strip — the strip and this row are two answers
+                to one question, and the axis above is where that question is
+                now asked. Only one of them can be true at a time, so the two
+                exits 60px apart the old reading was guarding against cannot
+                occur.
               */}
-              {backButton && !metaStrip ? <BackToList onBack={onBack} /> : null}
+              {inlineBack ? <BackToList onBack={onBack} /> : null}
               <span className="min-w-0 flex-1 truncate text-[13px] leading-none font-semibold text-pg-heading">
                 Contact details
               </span>

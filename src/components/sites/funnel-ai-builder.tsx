@@ -21,6 +21,13 @@ import {
 import { AiSparkle } from "@/components/icons/ai-sparkle";
 import { OutlineButton, PrimaryButton } from "@/components/page/page-header";
 import { useRecordCrumb } from "@/components/page/record-crumb";
+import {
+  CollabIsland,
+  FloatingLayer,
+  IdentityIsland,
+  Island,
+  IslandGlyph,
+} from "@/components/shell/floating-chrome";
 import { useShellChrome } from "@/components/shell/full-bleed";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
@@ -87,8 +94,14 @@ export function FunnelAiBuilder({ onBack }: { onBack: () => void }) {
     builderKeepTopBar,
     builderControls,
     builderExit,
+    builderChromeStyle,
   } = useTheme().effective;
   const [mode, setMode] = React.useState<string>("build");
+  /*
+   * The Sep 23 axis. `builderControls` is read only inside the `rows` half
+   * below — it places ROWS, and this style has none. See floating-chrome.tsx.
+   */
+  const floating = builderChromeStyle === "floating";
 
   /*
    * The ask, stated as the two retain switches rather than mapped onto a shape.
@@ -153,8 +166,13 @@ export function FunnelAiBuilder({ onBack }: { onBack: () => void }) {
         page, and the conversation is the part you cannot get back by
         remembering what you did. The exit that gets the same viewport without
         the ambiguity is the back arrow.
+
+        Under `floating` this cluster does not carry it: both exits end the
+        collaboration island instead, for the reason CollabIsland states —
+        there is no leading edge on an island for an arrow to claim, so the
+        page stops choosing a side and the two exits are compared in one place.
       */}
-      {builderExit === "close" ? exit : null}
+      {!floating && builderExit === "close" ? exit : null}
     </div>
   );
 
@@ -217,7 +235,19 @@ export function FunnelAiBuilder({ onBack }: { onBack: () => void }) {
         Publish has nowhere else to live. What changes between combinations is
         only whether that row ALSO carries the trail and the exit.
       */}
-      {!barHidden ? (
+      {floating ? (
+        /*
+         * Nothing here. Under `floating` this page's chrome is not above the
+         * columns at all — it is four islands anchored to the ARTIFACT column
+         * further down, and the reason it is the artifact rather than the
+         * window is worth stating: an identity island floating over the left
+         * column would be sitting on a transcript, and a transcript scrolls
+         * rather than pans. Content you cannot move out from under an island
+         * is content the island has taken, which is a different and worse
+         * trade than the one this style is offering.
+         */
+        null
+      ) : !barHidden ? (
         builderRow()
       ) : builderControls === "back-only" ? (
         /*
@@ -394,8 +424,59 @@ export function FunnelAiBuilder({ onBack }: { onBack: () => void }) {
           a document sitting on a workbench — the same relationship the shell's
           own canvas has to the plane behind it.
         */}
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-pg-bg p-[24px]">
-          <FunnelAiPreview />
+        <div className="relative min-h-0 min-w-0 flex-1 bg-pg-bg">
+          {/*
+            One element owns the overflow, its parent owns the coordinate
+            space. An island positioned inside a scroller would ride up out of
+            the window with the page, which is the opposite of the behaviour
+            being reviewed. The extra top padding when floating opens the
+            preview below the identity island rather than under it — see the
+            same note, at more length, in funnel-page-builder.
+          */}
+          <div
+            className={cn(
+              "h-full overflow-y-auto px-[24px] pb-[24px]",
+              floating ? "pt-[76px]" : "pt-[24px]",
+            )}
+          >
+            <FunnelAiPreview />
+          </div>
+          {/*
+            Three islands, not five. This builder has no canvas to zoom and no
+            tool palette: its tools are the 52px labelled rail at the far left,
+            which is a COLUMN and stays one — turning a rail that is already
+            beside the work into an island floating over the work would be the
+            style applied for its own sake. Undo, redo and the device toggle are
+            the only controls here that were page chrome in `rows`, so they are
+            the only ones that had to find a new home.
+
+            No palette either, and `builderToolPalette` is not read here. This
+            builder edits by ASKING — the transcript on the left is the tool,
+            and the preview on the right is a picture of a page rather than a
+            surface you place things on. A bar of element glyphs under it would
+            be offering a second, non-existent way to work. Sep 23.
+          */}
+          {floating ? (
+            <FloatingLayer
+              topLeft={
+                <IdentityIsland
+                  icon={Layers}
+                  name="Untitled funnel"
+                  trail={trail}
+                  onLeave={onBack}
+                  exit={exit}
+                />
+              }
+              topRight={<CollabIsland commit={commitActions} />}
+              bottomRight={
+                <Island className="py-[5px]">
+                  <IslandGlyph icon={Undo2} label="Undo" />
+                  <IslandGlyph icon={Redo2} label="Redo" />
+                  <IslandGlyph icon={Monitor} label="Desktop preview" />
+                </Island>
+              }
+            />
+          ) : null}
         </div>
       </div>
 

@@ -1,11 +1,39 @@
 "use client";
 
 import * as React from "react";
-import { Check, History, Play } from "lucide-react";
+import {
+  Check,
+  Clock,
+  GitBranch,
+  History,
+  Mail,
+  MessageSquare,
+  Play,
+  Plus,
+  Redo2,
+  Share2,
+  Tag,
+  Undo2,
+  Users,
+  Workflow as WorkflowGlyph,
+  Zap,
+} from "lucide-react";
 import { WorkflowCanvas } from "@/components/automation/workflow-canvas";
 import { OutlineButton, PrimaryButton } from "@/components/page/page-header";
 import { useRecordCrumb } from "@/components/page/record-crumb";
 import { ViewBar } from "@/components/page/view-bar";
+import {
+  CollabIsland,
+  FloatingLayer,
+  IdentityIsland,
+  Island,
+  IslandGlyph,
+  IslandRule,
+  IslandTabs,
+  ToolPalette,
+  ZoomIsland,
+  type PaletteGroup,
+} from "@/components/shell/floating-chrome";
 import { useShellChrome } from "@/components/shell/full-bleed";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
@@ -20,6 +48,50 @@ import { BuilderTrail } from "@/components/shell/builder-trail";
  * borderline case and stays because it is this workflow's own runs — a list
  * scoped to the record, the way a contact's opportunities are.
  */
+/**
+ * The canvas's eight step categories, as the floating palette — in four
+ * clusters, because a workflow palette is not a whiteboard's.
+ *
+ * WHAT THIS IS NOT, as of Sep 23. It used to sit under a properties strip of
+ * cursor / hand / connector-style / colour / "Font", copied off a ClickUp
+ * whiteboard screenshot that was only ever an EXAMPLE of the floating-island
+ * idea. Nothing on a workflow canvas is drawn freehand, there is no stroke to
+ * colour and no text object to set a typeface on; the strip was a picture of a
+ * different product's tools. It is gone, and what is left is the only thing a
+ * workflow canvas arms a click with: which kind of step lands next.
+ *
+ * Still the same eight the Standard canvas draws down its left rail, and still
+ * in that order, because this style's claim is that it MOVES a builder's
+ * controls rather than editing them — a palette that quietly dropped
+ * Integrations would make the two screenshots incomparable, which is all they
+ * are for. What is new is the grouping: the entry point, then the three that
+ * reach the contact, then the two that shape the run, then the two that touch
+ * something outside it. Four clusters separated by hairlines rather than eight
+ * glyphs in an undifferentiated row, which is how every canvas app eventually
+ * has to split a palette this long.
+ *
+ * The 1–8 hints survive as TOOLTIP text. They used to be printed above each
+ * glyph as a permanent row of numerals, which is the thing the review called
+ * out: eight pieces of 9.5px type competing with the icons, on chrome that
+ * sits on top of the user's work. See ToolPalette for the argument it replaced.
+ */
+const STEP_TOOLS: readonly PaletteGroup[] = [
+  [{ id: "triggers", label: "Triggers", icon: Zap, hint: "1" }],
+  [
+    { id: "contacts", label: "Contact actions", icon: Users, hint: "2" },
+    { id: "conversations", label: "Conversations", icon: MessageSquare, hint: "3" },
+    { id: "email", label: "Email", icon: Mail, hint: "4" },
+  ],
+  [
+    { id: "wait", label: "Wait", icon: Clock, hint: "5" },
+    { id: "conditions", label: "Conditions", icon: GitBranch, hint: "6" },
+  ],
+  [
+    { id: "data", label: "Data", icon: Tag, hint: "7" },
+    { id: "integrations", label: "Integrations", icon: Share2, hint: "8" },
+  ],
+];
+
 const FACETS = [
   { id: "builder", label: "Builder" },
   { id: "enrollment", label: "Enrollment history", count: "1,204" },
@@ -102,7 +174,31 @@ export function WorkflowDetail({
     builderControls,
     builderExit,
     builderCanvas,
+    builderChromeStyle,
+    builderToolPalette,
   } = effective;
+  /*
+   * The Sep 23 axis, read once and named once.
+   *
+   * `floating` is not a fourth value of `builderControls` and it is not read
+   * next to it: that axis says where the trail and the publish row go when
+   * they are ROWS, and under this style there are no rows for it to place them
+   * in. So every `builderControls` branch below lives inside the `rows` half,
+   * and a reviewer who flips it while floating is selected correctly sees
+   * nothing move. See the note at the top of floating-chrome.tsx.
+   */
+  const floating = builderChromeStyle === "floating";
+  /*
+   * Whether the palette is asked for at all — off unless a reviewer turns it
+   * on, and only ever read inside the `floating` branch. See the axis's own
+   * comment in theme.ts: a workflow canvas was the screen that proved the
+   * first cut had copied a whiteboard's footer rather than built a builder's.
+   */
+  const palette = floating && builderToolPalette;
+  /* The palette's current tool. Local and lost on remount, like everything
+     else on this canvas — a builder that remembered which glyph the last
+     reviewer pressed would start every session mid-gesture. */
+  const [tool, setTool] = React.useState("triggers");
 
   /*
    * What this page asks the shell to withdraw, and what it gets back.
@@ -187,8 +283,14 @@ export function WorkflowDetail({
         If you want the full-viewport builder without this, the exit you want
         is "Back arrow": same viewport, an arrow on the navigation side, and
         the trail still saying where you are.
+
+        Under `floating` this cluster does NOT carry it. Both exits go to the
+        end of the collaboration island instead, because an island has no
+        leading edge for an arrow to claim — see CollabIsland, which keeps this
+        argument and records what changes when a ✕ ends a row that also holds
+        an expand glyph rather than sitting flush against Publish.
       */}
-      {builderExit === "close" ? exit : null}
+      {!floating && builderExit === "close" ? exit : null}
     </div>
   );
 
@@ -209,13 +311,17 @@ export function WorkflowDetail({
    * Reused as the left of whichever row is the builder's own, so the meta line
    * is not something the "two rows" arrangement gains and the others lose.
    */
+  const metaLine = (
+    <span className="truncate text-[13px] leading-[normal] text-pg-muted">
+      {workflow.folder} · {workflow.enrolled} enrolled · edited {workflow.updated}{" "}
+      by {workflow.updatedBy}
+    </span>
+  );
+
   const artifactMeta = (
     <div className="flex min-w-0 items-center gap-[8px]">
       <StatusPill status={workflow.status} />
-      <span className="truncate text-[13px] leading-[normal] text-pg-muted">
-        {workflow.folder} · {workflow.enrolled} enrolled · edited{" "}
-        {workflow.updated} by {workflow.updatedBy}
-      </span>
+      {metaLine}
     </div>
   );
 
@@ -239,7 +345,7 @@ export function WorkflowDetail({
    * page that trusted its own flag would draw a second trail directly under
    * the real one, which is the exact duplication this study exists to remove.
    */
-  const chrome = !barHidden ? (
+  const chrome = floating ? null : !barHidden ? (
     /*
      * The bar is up, so the trail is already somewhere and this row carries
      * only what the bar cannot: the artifact and the controls that commit it.
@@ -285,39 +391,182 @@ export function WorkflowDetail({
     </div>
   );
 
+  /*
+   * The islands, and the box they are anchored to.
+   *
+   * `inset-0` of the FACET, not of the window. The trail and the publish
+   * controls belong to the artifact, and the artifact on this page is whatever
+   * the facet is showing — so under Enrollment history the identity and the
+   * commit island are still there, over a stage instead of over a canvas,
+   * which is the same promise `rows` makes when it keeps its toolbar across
+   * all three facets.
+   *
+   * The bottom three are the canvas's own furniture in island form, so they
+   * appear only where there is a canvas. A zoom cluster over an enrollment
+   * table would be chrome describing something that is not on screen.
+   */
+  const islands = floating ? (
+    <FloatingLayer
+      topLeft={
+        <IdentityIsland
+          icon={WorkflowGlyph}
+          name={workflow.name}
+          trail={trail}
+          onLeave={onBack}
+          exit={exit}
+          trailing={<StatusPill status={workflow.status} />}
+        >
+          {/*
+            The meta line as a second tier inside the island rather than as a
+            line the style drops. `rows` shows the folder and the edited-by in
+            three of its four combinations, and a floating arrangement that
+            won its screenshot by carrying less information would be winning
+            the wrong comparison.
+          */}
+          <div className="flex min-w-0 items-center pt-[2px] pl-[33px]">
+            {metaLine}
+          </div>
+        </IdentityIsland>
+      }
+      /*
+        The facets, as an island instead of the full-width ViewBar below.
+
+        Under `rows` they are a band and that is correct — there is already a
+        band above them. Under `floating` a band across the top is the thing
+        that stops the style from being the style: the screen reads as a bar
+        with islands hanging under it, and the canvas stops at the bar instead
+        of running behind everything. See IslandTabs.
+      */
+      topCentre={
+        <IslandTabs
+          label="Workflow facets"
+          tabs={FACETS}
+          activeId={facet}
+          onSelect={setFacet}
+        />
+      }
+      topRight={<CollabIsland commit={commitActions} />}
+      bottomLeft={facet === "builder" ? <ZoomIsland percent={100} /> : null}
+      bottomCentre={
+        /*
+          Nothing at all unless the reviewer asked for a palette. That is the
+          default, and on THIS builder it is very nearly the permanent answer:
+          arming "the next step is an Email" is a thing you do once per step
+          from the node you are extending, not a mode you hold between
+          gestures the way a pen is held on a whiteboard. The palette is here
+          so the question can be looked at, not because the canvas lost a
+          control without it — Add moved to the island below.
+        */
+        palette && facet === "builder" ? (
+          <ToolPalette groups={STEP_TOOLS} active={tool} onPick={setTool} />
+        ) : null
+      }
+      bottomRight={
+        facet === "builder" ? (
+          <Island className="py-[5px]">
+            {/*
+              THE `+ Add` ORPHAN, resolved.
+
+              It used to be a lone brand button pushed down to `top-[62px]` by
+              the canvas to get clear of the collaboration island — floating
+              under an island it did not belong to, touching neither the
+              islands nor anything on the canvas, which is how a reviewer ends
+              up asking what the third thing is. It is a canvas ACTION, so it
+              belongs with the canvas's other actions, which is this island.
+
+              Only when the palette is off. With the palette up, the eight
+              step categories ARE how a step gets added, and a filled + beside
+              a palette that does the same job is two affordances for one act.
+            */}
+            {palette ? null : (
+              <>
+                <button
+                  type="button"
+                  className="motion-tap flex h-[28px] shrink-0 items-center gap-[5px] rounded-[8px] bg-brand px-[10px] text-[12.5px] leading-[normal] font-medium text-brand-fg hover:brightness-[1.06] active:scale-[0.97]"
+                >
+                  <Plus size={14} aria-hidden="true" />
+                  Add step
+                </button>
+                <IslandRule />
+              </>
+            )}
+            <IslandGlyph icon={Undo2} label="Undo" />
+            <IslandGlyph icon={Redo2} label="Redo" />
+          </Island>
+        ) : null
+      }
+    />
+  ) : null;
+
   return (
-    <div className="relative flex h-full min-h-0 flex-col gap-[14px] px-[var(--page-inset)]">
+    <div
+      className={cn(
+        "relative flex h-full min-h-0 flex-col",
+        /*
+          The page's own gutter goes under `floating`. It is the last band on
+          the screen — a 20px strip of page showing down both sides of a canvas
+          that is supposed to be the surface the islands sit ON — and a canvas
+          that stops short of the edge is a pane, which is the shape this style
+          exists to stop being. Kept in every other arrangement, where the
+          canvas genuinely is one pane among rows.
+        */
+        floating ? "" : "gap-[14px] px-[var(--page-inset)]",
+      )}
+    >
       {chrome}
 
-      <ViewBar
-        label="Workflow facets"
-        views={FACETS}
-        activeId={facet}
-        onSelect={setFacet}
-      />
-
-      {facet === "builder" ? (
-        /*
-         * The canvas is its own module as of Sep 22 (workflow-canvas), because
-         * the chrome study and the canvas study are two different arguments and
-         * they were being edited over each other. This file owns everything
-         * above this line; below it, the canvas answers only to its own knob.
-         */
-        <WorkflowCanvas variant={builderCanvas} />
-      ) : (
-        /*
-         * The two facets that are not the canvas.
-         *
-         * Deliberately a stage: this prototype is about the header and the
-         * shape of the page, and drawing a fake enrollment table here would
-         * only invite review of the wrong thing.
-         */
-        <div className="flex min-h-0 flex-1 items-center justify-center rounded-[11px] bg-pg-bg shadow-[inset_0_0_0_1px_var(--pg-border)]">
-          <p className="text-[13px] leading-[normal] text-pg-faint">
-            {FACETS.find((f) => f.id === facet)?.label} — same page, same header.
-          </p>
-        </div>
+      {/*
+        The facet band, and the one place it is NOT a band. Under `floating`
+        the same three facets are the top-centre island — see `islands` — so
+        this row would be a second copy of the control, drawn as the exact
+        full-width strip that arrangement is arguing against.
+      */}
+      {floating ? null : (
+        <ViewBar
+          label="Workflow facets"
+          views={FACETS}
+          activeId={facet}
+          onSelect={setFacet}
+        />
       )}
+
+      {/*
+        The relative box the islands hang off. Always drawn, even under `rows`
+        where it holds nothing: a wrapper that appears only in one style is a
+        wrapper that can change the canvas's measured height between the two
+        screenshots being compared, and a 1px difference there is exactly the
+        noise this study keeps failing to ignore.
+      */}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        {facet === "builder" ? (
+          /*
+           * The canvas is its own module as of Sep 22 (workflow-canvas), because
+           * the chrome study and the canvas study are two different arguments and
+           * they were being edited over each other. This file owns everything
+           * above this line; below it, the canvas answers only to its own knob —
+           * and to `overlays`, which is this page telling it that the floating
+           * islands have taken the corners its rafts were sitting in.
+           */
+          <WorkflowCanvas
+            variant={builderCanvas}
+            overlays={floating ? "page" : "canvas"}
+          />
+        ) : (
+          /*
+           * The two facets that are not the canvas.
+           *
+           * Deliberately a stage: this prototype is about the header and the
+           * shape of the page, and drawing a fake enrollment table here would
+           * only invite review of the wrong thing.
+           */
+          <div className="flex min-h-0 flex-1 items-center justify-center rounded-[11px] bg-pg-bg shadow-[inset_0_0_0_1px_var(--pg-border)]">
+            <p className="text-[13px] leading-[normal] text-pg-faint">
+              {FACETS.find((f) => f.id === facet)?.label} — same page, same header.
+            </p>
+          </div>
+        )}
+        {islands}
+      </div>
     </div>
   );
 }

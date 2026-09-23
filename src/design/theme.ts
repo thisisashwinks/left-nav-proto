@@ -14,7 +14,6 @@
 import type {
   ListHeaderVariant,
   RecordHeaderVariant,
-  BoardHeaderVariant,
   BuilderCanvas,
   BuilderControls,
   BuilderExit,
@@ -39,6 +38,25 @@ export const RECORD_CRUMB_LABELS: readonly RecordCrumbLabel[] = [
 export const RECORD_CRUMB_LABEL_LABELS: Record<RecordCrumbLabel, string> = {
   name: "The record's name",
   generic: "What kind of thing it is",
+};
+
+/**
+ * Where a record's back control sits.
+ *
+ * Three places, not a boolean, because each one is a different claim about
+ * what the exit IS. `recordBackButton` still decides whether there is one at
+ * all; this decides where, and the two together are the whole question.
+ */
+export type RecordBackPlace = "crumb" | "header" | "inline";
+export const RECORD_BACK_PLACES: readonly RecordBackPlace[] = [
+  "crumb",
+  "header",
+  "inline",
+];
+export const RECORD_BACK_PLACE_LABELS: Record<RecordBackPlace, string> = {
+  crumb: "In the breadcrumb",
+  header: "In the page header",
+  inline: "In the canvas",
 };
 
 /** Where the tree's own search sits in the column. */
@@ -75,6 +93,100 @@ export const CRUMB_COLLAPSE_LABELS: Record<CrumbCollapse, string> = {
   off: "Never",
   middle: "Past four",
   deep: "Home + parent",
+};
+
+/** Two views of one collection: a tab strip, or one segmented control. */
+export type CalendarViewSwitch = "tabs" | "switcher";
+export const CALENDAR_VIEW_SWITCHES: readonly CalendarViewSwitch[] = [
+  "tabs",
+  "switcher",
+];
+export const CALENDAR_VIEW_SWITCH_LABELS: Record<CalendarViewSwitch, string> = {
+  tabs: "Tabs",
+  switcher: "Content switcher",
+};
+
+/** Rows of chrome, or islands floating on the canvas. */
+export type BuilderChromeStyle = "rows" | "floating";
+export const BUILDER_CHROME_STYLES: readonly BuilderChromeStyle[] = [
+  "rows",
+  "floating",
+];
+export const BUILDER_CHROME_STYLE_LABELS: Record<BuilderChromeStyle, string> = {
+  rows: "Rows",
+  floating: "Floating on the canvas",
+};
+
+/** What the product tree draws down its left edge. */
+export type TreeIcons = "all" | "hide-l3" | "none" | "rails";
+export const TREE_ICONS: readonly TreeIcons[] = ["all", "hide-l3", "none", "rails"];
+export const TREE_ICON_LABELS: Record<TreeIcons, string> = {
+  all: "Every level",
+  "hide-l3": "Not on L3",
+  none: "No icons",
+  rails: "Guide lines",
+};
+
+/**
+ * How much the trail's text is worth.
+ *
+ * 13px is the bar's own reading size, chosen when the trail was chrome sitting
+ * beside the utilities. The argument for 15px is the one the emphasis axis
+ * makes one step further: a page that has dropped its title has nothing else
+ * saying what it is, and 13px is a caption being asked to do a heading's work.
+ */
+export type CrumbScale = "default" | "large";
+export const CRUMB_SCALES: readonly CrumbScale[] = ["default", "large"];
+export const CRUMB_SCALE_LABELS: Record<CrumbScale, string> = {
+  default: "13px",
+  large: "15px",
+};
+/** Base size in px, which the leaf's own emphasis then builds on. */
+export const CRUMB_SCALE_PX: Record<CrumbScale, number> = {
+  default: 13,
+  large: 15,
+};
+
+/**
+ * What marks the last crumb out, on top of the semibold it always carries.
+ *
+ * Two independent means, so all four combinations are reachable: a ground to
+ * sit on, and type that outweighs the crumbs behind it. They answer different
+ * objections — the chip says "this segment is not like the others", the type
+ * says "this is the page's name" — and which one a page needs depends on
+ * whether it kept its title.
+ */
+export type CrumbEmphasis = "off" | "chip" | "type" | "both";
+export const CRUMB_EMPHASES: readonly CrumbEmphasis[] = [
+  "off",
+  "chip",
+  "type",
+  "both",
+];
+export const CRUMB_EMPHASIS_LABELS: Record<CrumbEmphasis, string> = {
+  off: "Off",
+  chip: "Chip",
+  type: "Type",
+  both: "Both",
+};
+/** What the leaf adds to `CRUMB_SCALE_PX` under each answer. */
+export const CRUMB_EMPHASIS_BUMP_PX = 2;
+
+/** What sits between crumbs. */
+export type CrumbSeparator = "chevron" | "slash";
+export const CRUMB_SEPARATORS: readonly CrumbSeparator[] = ["chevron", "slash"];
+/*
+ * The mark is in the label, not just the word for it.
+ *
+ * "Chevron" and "Slash" name the options correctly and are the wrong thing to
+ * read in a picker: Ashwin went hunting for the "/" option on Sep 23 and could
+ * not see it, because nothing on screen was a "/". Showing the glyph beside
+ * its name costs two characters and makes the control answer the question
+ * someone actually arrives with.
+ */
+export const CRUMB_SEPARATOR_LABELS: Record<CrumbSeparator, string> = {
+  chevron: "Chevron ›",
+  slash: "Slash /",
 };
 
 export const ACCENTS = [
@@ -1541,6 +1653,30 @@ export const INBOX_PALETTE_LABELS: Record<InboxPalette, string> = {
   tokens: "Prototype",
 };
 
+/**
+ * At what scale the bar draws a heading that moved up into it.
+ *
+ * `compact` is the bar's own idiom: 13px semibold, the count in a pill and the
+ * description trailing on the same line, all inside the 48px the bar already
+ * spends. It keeps the bar a bar.
+ *
+ * `page` keeps the heading at PAGE scale — 20px semibold title, 13px
+ * description on its own line underneath — which is the arrangement slot 05
+ * draws, moved bodily upward. Ashwin asked for it on Sep 23 so the two can be
+ * argued side by side, and the trade it puts on screen is height: the bar stops
+ * being 48px and grows to fit, so what is saved is the gap and the page's own
+ * top inset rather than the heading's band. Whether that is still a saving is
+ * the question the option exists to answer.
+ */
+export const BAR_HEADING_SCALES = ["compact", "page"] as const;
+
+export type BarHeadingScale = (typeof BAR_HEADING_SCALES)[number];
+
+export const BAR_HEADING_SCALE_LABELS: Record<BarHeadingScale, string> = {
+  compact: "Bar scale",
+  page: "Page scale",
+};
+
 export const LAYOUT_REPLACE_DIALOGS = ["simple", "keep-old"] as const;
 
 export type LayoutReplaceDialog = (typeof LAYOUT_REPLACE_DIALOGS)[number];
@@ -1840,6 +1976,16 @@ export interface ThemeState {
    */
   pageHeader: boolean;
   /**
+   * Whether a dashboard's own bar sticks while the widgets scroll.
+   *
+   * On, the title, the dashboard switcher and the date range stay put, so a
+   * number three screens down still has a range attached to it. Off, only
+   * the app bar is fixed and the whole page scrolls under it — which is what
+   * ships today, and the thing this page exists to let you feel the
+   * difference of.
+   */
+  stickyDashboardBar: boolean;
+  /**
    * Whether the whole catalogue becomes the nav, as a tree.
    *
    * The arrangement the flyouts exist to avoid, built so it can be argued
@@ -1868,6 +2014,24 @@ export interface ThemeState {
    */
   navTreeCounts: boolean;
   /**
+   * What the tree draws beside its rows.
+   *
+   * A glyph per level is how the flyout's rows read, and the tree inherited it
+   * — but the flyout shows one level at a time where the tree shows three, so
+   * the same decision produces a column of pictures rather than a list of
+   * names. `rails` replaces them with the hairline guides a file tree uses,
+   * which say depth without competing with the label for the eye.
+   */
+  treeIcons: TreeIcons;
+  /**
+   * Whether the Recents panel's "View all" offers the whole catalogue.
+   *
+   * Only meaningful with the tree on: the tree already IS all products, so a
+   * second copy behind View all is either a duplicate or the one place a
+   * search can live without the tree filtering itself.
+   */
+  treeRecentsAllProducts: boolean;
+  /**
    * Where the tree's search field sits, and whether it exists.
    *
    * The tree took the catalogue's place, and the catalogue panel had a search.
@@ -1893,21 +2057,37 @@ export interface ThemeState {
   /* ── the trail's own axes (Sep 22 round two) ──────────────────────────── */
 
   /**
-   * Whether the last crumb is painted rather than merely bolded.
+   * How the last crumb is marked out — painted, outsized, both, or neither.
    *
    * The point is not decoration: if the trail's leaf is emphatic enough to read
    * as the page's name, the page does not need to print that name again. This
    * is the knob that makes "delete the title" defensible rather than merely
    * cheaper — so it belongs beside the title switches, not in a style menu.
+   *
+   * Was a boolean, and painting was all it could do (Sep 23 round three). The
+   * chip alone turned out to be the weaker half of the argument: a ground says
+   * the segment is special, but it is still 13px, and a 13px word is not a
+   * title however it is backed. Splitting the means in two lets the type carry
+   * the weight and leaves the chip optional rather than mandatory.
    */
-  crumbEmphasis: boolean;
+  crumbEmphasis: CrumbEmphasis;
+  /**
+   * The size every crumb reads at, which `crumbEmphasis: "type"` then builds
+   * on: 15px with an emphatic leaf puts the leaf at 17px, and the step between
+   * the path and the page stays the same two pixels at either scale.
+   */
+  crumbScale: CrumbScale;
   /**
    * Icons on every crumb, or only on Home.
    *
-   * Every level carrying a glyph makes the trail scannable at a glance and
-   * makes it noisy at depth; Home alone keeps the one glyph that is a
-   * destination rather than a label. Worth a switch because the answer changes
-   * with how deep the product's trails actually get.
+   * Home only, by default (Sep 23). Home is the one crumb that is a
+   * destination rather than a label — the rest are words, and a glyph beside
+   * each of them competes with the word it is supposedly helping. At depth the
+   * row becomes a line of small pictures the eye has to skip to read the path.
+   *
+   * Every level stays available because the trade flips on a shallow trail:
+   * two or three crumbs with glyphs scan faster than they read, which is
+   * exactly the case the option exists to show.
    */
   crumbIcons: CrumbIcons;
   /**
@@ -1936,6 +2116,28 @@ export interface ThemeState {
    * a rule that only applies at depth is a rule nobody can predict.
    */
   crumbStart: CrumbStart;
+  /** Whether the trail is drawn at all. */
+  crumbShown: boolean;
+  /** Whether the trail opens with the Home glyph. */
+  crumbHome: boolean;
+  /**
+   * Whether crumb segments open their siblings.
+   *
+   * The menus are what make the trail a navigator rather than a read-out. Off,
+   * it states where you are and nothing more — which is the honest version if
+   * the nav is already doing the switching.
+   */
+  crumbSwitchers: boolean;
+  crumbSeparator: CrumbSeparator;
+  /**
+   * Whether a generic child folds its parent's name into its own.
+   *
+   * "Calendars ▸ Settings" tells you less than "Calendar settings" does in one
+   * crumb: Settings alone is a word a dozen products own, and the trail spends
+   * two segments saying what one could. Applies wherever a child's label is
+   * generic enough to be ambiguous on its own.
+   */
+  crumbCompoundChild: boolean;
   /** Whether the record's own crumb says its name or the kind of thing it is. */
   recordCrumbLabel: RecordCrumbLabel;
   /** Whether a record publishes a crumb at all, or the trail stops at the list. */
@@ -1960,10 +2162,28 @@ export interface ThemeState {
    * switchable side by side before either wins.
    *
    * Placed by the variant, not by this: D-B puts it in the panel's own header
-   * row, D-D at the head of the meta strip. Both sit left of everything else,
-   * which is the side navigation lives on.
+   * row, D-D at the head of the meta strip, D-A in the page header's lead slot.
+   * All three sit left of everything else, which is the side navigation lives
+   * on.
    */
   recordBackButton: boolean;
+  /**
+   * WHERE that back control sits, once it is on.
+   *
+   * Three placements because the three are not the same argument. In the
+   * trail it is navigation chrome, shared with every other page and always in
+   * the same spot — the strongest case for consistency and the weakest for
+   * reachability. In the page header it is the record's own row, beside the
+   * record's own actions. Inline it is in the canvas, at the head of the first
+   * column, which is where the reading hand already is and where HubSpot,
+   * Attio and Close all put it.
+   *
+   * Added Sep 23 on Ashwin's ask. Until then "on" meant one placement chosen
+   * by the variant, which made the knob a claim about the variant rather than
+   * about the exit — and made it impossible to argue for the trail placement
+   * at all, since no variant offered it.
+   */
+  recordBackPlace: RecordBackPlace;
   /**
    * Which header shape each page archetype draws. See header-variants.ts.
    *
@@ -1973,8 +2193,25 @@ export interface ThemeState {
    * variant and the knobs can never disagree.
    */
   listHeaderVariant: ListHeaderVariant;
+  /** Whether a collection shows its saved-view tabs. */
+  listShowViews: boolean;
+  /** Whether a collection shows its filter controls. */
+  listShowFilters: boolean;
   recordHeaderVariant: RecordHeaderVariant;
-  boardHeaderVariant: BoardHeaderVariant;
+  /**
+   * How a page with two views of one collection lets you change which.
+   *
+   * Calendars is the case: the week grid and the appointment table are the
+   * same bookings drawn twice. `tabs` puts them in the page's tab strip,
+   * where they read as two views of the page; `switcher` collapses them into
+   * one segmented control in the control bar, where they read as a property
+   * of the list — the way Opportunities switches board and table.
+   *
+   * Two answers to one question, and the difference is not cosmetic: a tab
+   * strip claims the page has two halves, a switcher claims it has one
+   * subject drawn two ways. Worth seeing side by side.
+   */
+  calendarViewSwitch: CalendarViewSwitch;
   /**
    * The builder's chrome, as two retain switches and a placement.
    *
@@ -1990,19 +2227,61 @@ export interface ThemeState {
   builderExit: BuilderExit;
   /** What the workflow canvas draws inside whatever chrome is on. */
   builderCanvas: BuilderCanvas;
+  /** Whether the promo banner survives into a builder. */
+  builderKeepBanner: boolean;
+  /**
+   * Whether the builder's own chrome is rows, or islands over the canvas.
+   *
+   * `rows` is a band at the top and, where a builder has one, another at the
+   * bottom: honest, predictable, and it costs the canvas its full width twice.
+   * `floating` lifts the same controls into rounded islands ON the canvas —
+   * the artifact's name top-left, the collaboration cluster top-right, the
+   * tools bottom-centre, zoom bottom-left. Nothing is removed; the canvas
+   * simply runs underneath, which is what makes a whiteboard feel like a
+   * surface rather than a pane between two bars.
+   *
+   * The cost is that an island can sit on top of the work. That is the trade
+   * worth looking at, and why this is an axis and not a decision.
+   */
+  builderChromeStyle: BuilderChromeStyle;
+  /**
+   * Whether a floating builder shows a tool palette at all.
+   *
+   * Off by default (Sep 23). The first cut copied ClickUp's whiteboard footer
+   * onto a workflow canvas — cursor, hand, pen, colour, "Font" — on a surface
+   * where nothing is drawn freehand, which is how an example becomes a claim.
+   * The palette is worth having where a builder genuinely has drawing or
+   * element tools; everywhere else it is furniture.
+   */
+  builderToolPalette: boolean;
   panelHeaderVariant: PanelHeaderVariant;
   deepHeaderVariant: DeepHeaderVariant;
-  /**
-   * Whether a record page keeps the page header.
+  /*
+   * `recordPageHeader` was here, and is now record variant D-A (Sep 23).
    *
-   * Off by design: on a contact the trail names the record, the first column
-   * carries the record pager, and the actions live on the panes that own
-   * them — so the header had a title that repeated the trail and a row of
-   * buttons that belong elsewhere. Kept as a knob because "does a record
-   * page need slot 05 at all" is exactly the kind of question this prototype
-   * exists to put in front of people.
+   * "Does a record page need slot 05 at all" is still the question; it is just
+   * asked by the picker that asks the other two answers, instead of by a lone
+   * boolean underneath it that only meant anything under one of them.
    */
-  recordPageHeader: boolean;
+  /**
+   * With no trail, whether the page's heading moves up into the 48px bar.
+   *
+   * Only reachable while `crumbShown` is false, and that dependency is the
+   * whole idea rather than a guard bolted on: hiding the breadcrumb empties
+   * the left half of the bar and leaves the page to name itself a band lower,
+   * so the app pays 48px for a row of utilities and then pays again for a
+   * title. Ashwin asked for this on Sep 23 — if the trail is gone, the bar has
+   * room, and the title is the one thing that has to be somewhere.
+   *
+   * Off by default. Moving the heading up is a real trade, not a free win: the
+   * bar is fixed and the page scrolls, so a title in the bar stops being the
+   * top of the content and becomes chrome — which is right for a name and
+   * wrong for a description, and that argument is exactly what this is here to
+   * put on screen.
+   */
+  barPageHeading: boolean;
+  /** At what scale the bar draws that heading. See BAR_HEADING_SCALES. */
+  barHeadingScale: BarHeadingScale;
   /** How replacing my layout is confirmed. See LAYOUT_REPLACE_DIALOGS. */
   layoutReplaceDialog: LayoutReplaceDialog;
   /** How a multi-account sub-account person switches. See SUB_ACCOUNT_SWITCHERS. */
@@ -2394,31 +2673,51 @@ export const DEFAULT_THEME: ThemeState = {
   pageDescription: true,
   pageCount: true,
   pageHeader: true,
+  stickyDashboardBar: true,
   navProductTree: false,
   navTreeCounts: false,
+  treeIcons: "all",
+  treeRecentsAllProducts: false,
   treeSearchPlace: "launchpad",
-  crumbEmphasis: false,
-  crumbIcons: "all",
+  crumbEmphasis: "off",
+  crumbScale: "default",
+  crumbIcons: "home",
   crumbCollapse: "off",
   crumbStart: "group",
+  crumbShown: true,
+  crumbHome: true,
+  crumbSwitchers: true,
+  crumbSeparator: "chevron",
+  crumbCompoundChild: false,
   recordCrumbLabel: "name",
   recordCrumbShown: true,
   deepInlineCrumb: false,
   recordBackButton: true,
-  listHeaderVariant: "L-C",
+  recordBackPlace: "inline",
+  listHeaderVariant: "L-D",
+  listShowViews: true,
+  listShowFilters: true,
   recordHeaderVariant: "D-B",
-  boardHeaderVariant: "K-B",
-  // Both retained, and the nav arrives collapsed: a builder session is minutes
-  // long inside a much longer CRM session, so the nav should still be there —
-  // but it should not be the widest thing on screen while you are drawing.
-  builderKeepSidebar: true,
-  builderKeepTopBar: true,
+  calendarViewSwitch: "tabs",
+  /*
+   * Neither retained (Sep 23). The research argued for keeping the nav — a
+   * builder session is minutes long inside a much longer CRM session — and the
+   * canvas argued back: every pixel of chrome is drawing area, and the tools
+   * that matter are the builder's own, not the platform's. Both readings are
+   * still one switch away; this is which one the prototype opens on.
+   */
+  builderKeepSidebar: false,
+  builderKeepTopBar: false,
   builderControls: "crumb-row",
   builderExit: "back",
   builderCanvas: "standard",
+  builderKeepBanner: false,
+  builderChromeStyle: "rows",
+  builderToolPalette: false,
   panelHeaderVariant: "P-B",
   deepHeaderVariant: "X-2",
-  recordPageHeader: false,
+  barPageHeading: false,
+  barHeadingScale: "compact",
   layoutReplaceDialog: "simple",
   // The rail: one mechanism for both audiences beats a second one to learn.
   subAccountSwitcher: "rail",

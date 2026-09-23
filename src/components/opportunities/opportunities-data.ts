@@ -1,4 +1,13 @@
-import { Flame, Layers, Snowflake, Wrench, type LucideIcon } from "lucide-react";
+import {
+  Clock,
+  Flame,
+  Layers,
+  ListChecks,
+  Snowflake,
+  UserRound,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react";
 import type { AvatarTone } from "@/components/contacts/contacts-data";
 
 /**
@@ -71,4 +80,60 @@ export function stageTotal(rows: Opportunity[], stageId: string): string {
   return sum >= 1000
     ? `$${(sum / 1000).toFixed(sum % 1000 === 0 ? 0 : 1)}k`
     : `$${sum}`;
+}
+
+/**
+ * Saved views over the pipeline you are standing in — NOT the pipelines.
+ *
+ * Added Sep 23, off the screenshot Ashwin sent of the shipped Opportunities
+ * header: the real page carries a pipeline picker AND a row of saved lists
+ * under it ("Open opportunities", plus a `+ List` to make another). That is
+ * two axes, not one, and the whole page turns on keeping them apart.
+ *
+ * The tempting shortcut was to reuse the board's existing tab strip — which
+ * has always drawn the PIPELINES as tabs — and call those the saved views.
+ * It is wrong twice over. A pipeline is the SCOPE: it decides which stages
+ * exist and therefore what a board can even draw. A saved view is a CUT
+ * inside that scope. Fold them together and `listShowViews: false` deletes
+ * the pipeline picker, and a board with no pipeline selected is not a state
+ * this product has.
+ *
+ * Three views, where the screenshot shows one lit. A strip with a single tab
+ * is a label wearing an underline, and it would settle nothing about the row
+ * L-D, L-F and L-B are arguing over — which is the only reason the strip is
+ * in the prototype at all.
+ */
+export interface OpportunityView {
+  id: string;
+  label: string;
+  count: string;
+  icon: LucideIcon;
+}
+
+export const opportunityViews: OpportunityView[] = [
+  { id: "open", label: "Open opportunities", count: "7", icon: ListChecks },
+  { id: "mine", label: "My deals", count: "4", icon: UserRound },
+  { id: "idle", label: "No activity in 7 days", count: "3", icon: Clock },
+];
+
+/**
+ * The tabs actually re-cut the rows.
+ *
+ * A strip whose tabs only change a label is the thing the tenets warn about:
+ * it teaches people that tabs here do not mean anything, and then the variant
+ * review is judging chrome over a table that never moves. The cuts are
+ * deterministic so a view holds still between visits, and the last one lands
+ * on three rows on purpose — the narrow saved list is the case a table has to
+ * survive.
+ */
+export function cutByView(rows: Opportunity[], viewId: string): Opportunity[] {
+  switch (viewId) {
+    case "mine":
+      return rows.filter((o) => o.owner === "Samrina Shabha" || o.owner === "Dev Anand").slice(0, 4);
+    case "idle":
+      return rows.filter((o) => o.updated.includes("week"));
+    case "open":
+    default:
+      return rows.filter((o) => o.stageId !== "won" && o.stageId !== "lost");
+  }
 }

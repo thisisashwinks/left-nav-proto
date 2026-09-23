@@ -3,6 +3,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import {
+  ArrowLeft,
   Check,
   ChevronRight,
   House,
@@ -12,8 +13,17 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { CaretDown } from "@/components/icons/caret-down";
-import type { CrumbCollapse, SurfaceTheme } from "@/design/theme";
+import {
+  CRUMB_EMPHASIS_BUMP_PX,
+  CRUMB_SCALE_PX,
+  type CrumbCollapse,
+  type CrumbEmphasis,
+  type CrumbScale,
+  type CrumbSeparator as CrumbSeparatorKind,
+  type SurfaceTheme,
+} from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
+import type { PageHeading } from "@/components/page/page-heading";
 import { cn } from "@/lib/utils";
 import { headerConfig, type HeaderActionTone, type HeaderConfig } from "./header-config";
 import { UserAvatar } from "./user-avatar";
@@ -62,7 +72,109 @@ export interface Crumb {
  * shift every glyph beside it.
  */
 export const CRUMB_LEAF_CHIP_BOX = "-my-[3px] rounded-[6px] px-[7px] py-[3px]";
-const CRUMB_LEAF_CHIP = `${CRUMB_LEAF_CHIP_BOX} bg-hdr-chip`;
+/*
+ * The bar's leaf, on its own ground.
+ *
+ * --hdr-crumb-leaf rather than --hdr-chip, because the chip token is the bar's
+ * HOVER fill: gray/100 on white is a step you have to hunt for, and it made an
+ * emphasised crumb look like one the pointer happened to be over. White, with
+ * the bar's own hairline holding its edge — on a white bar the ring is what
+ * makes the card, and on a tinted or dark one the fill does it.
+ */
+const CRUMB_LEAF_PAINT =
+  "bg-hdr-crumb-leaf shadow-[inset_0_0_0_1px_var(--hdr-border)]";
+const CRUMB_LEAF_CHIP = `${CRUMB_LEAF_CHIP_BOX} ${CRUMB_LEAF_PAINT}`;
+
+/**
+ * The trail's type, resolved once and handed to both renderers.
+ *
+ * Two axes meet here and the bar cannot read either of them alone: `crumbScale`
+ * sets what every segment reads at, and `crumbEmphasis` decides whether the
+ * leaf takes a further step past its ancestors. Kept as numbers rather than
+ * classes because the product of two axes is eight sizes, and Tailwind scans
+ * source text — `text-[${n}px]` is a class nothing ever emits.
+ *
+ * The bump is the same two pixels at either scale, so the distance between the
+ * path and the page is a constant and the whole row simply gets bigger.
+ */
+export interface CrumbType {
+  /** Every segment behind the leaf. */
+  size: number;
+  /** The leaf. */
+  leafSize: number;
+  /** 600 always; 700 when the leaf's emphasis is carried by the type. */
+  leafWeight: number;
+  /** Whether the leaf is painted. */
+  chip: boolean;
+}
+
+export function crumbType(
+  scale: CrumbScale,
+  emphasis: CrumbEmphasis,
+): CrumbType {
+  const size = CRUMB_SCALE_PX[scale];
+  const typed = emphasis === "type" || emphasis === "both";
+  return {
+    size,
+    leafSize: typed ? size + CRUMB_EMPHASIS_BUMP_PX : size,
+    leafWeight: typed ? 700 : 600,
+    chip: emphasis === "chip" || emphasis === "both",
+  };
+}
+
+/**
+ * What stands between two crumbs, in whichever mark the axis asks for.
+ *
+ * One component for both renderers (Sep 23). The bar and `BuilderTrail` each
+ * drew their own `<ChevronRight>` inline, which was fine while there was one
+ * mark to draw; with a second, two inline branches would be two chances for
+ * the bar and a builder to disagree about the row's rhythm — the exact class
+ * of divergence lifting `planCrumbs` out of the builders was meant to end.
+ *
+ * The slash is sized and coloured to land where the chevron's ink lands
+ * rather than to look correct on its own: 13px like the chevron's box, and the
+ * caller's own muted token, so switching the axis changes the MARK and nothing
+ * about the row's height, gaps or weight. It is deliberately not bolder — a
+ * `/` at the same weight as the labels reads as punctuation between them,
+ * which is what a separator is; heavier, it starts to read as content.
+ *
+ * `aria-hidden` on both, because the trail's structure is already carried by
+ * the `<nav>` and `aria-current`; a screen reader announcing "slash" between
+ * every segment is noise the sighted row does not have.
+ */
+export function CrumbSep({
+  kind,
+  className,
+}: {
+  kind: CrumbSeparatorKind;
+  /** The surface's own muted ink — --hdr-* in the bar, --pg-* on a page. */
+  className?: string;
+}) {
+  if (kind === "slash") {
+    return (
+      <span
+        aria-hidden="true"
+        className={cn(
+          // 13px wide, and the width is the point: a "/" advances about 4.7px
+          // at this size where ChevronRight's box is a flat 13, so the naive
+          // span made every gap in the trail 21px → 12.7px and took 25px off a
+          // four-segment trail. Ashwin read that as the slash "crowding" the
+          // row on Sep 23, which it is — but the crowding is the separator's
+          // WIDTH changing, not its shape. Boxing the mark to the icon's width
+          // means switching the option swaps the glyph and moves nothing else,
+          // which is the only way the two can actually be compared.
+          "flex w-[13px] shrink-0 justify-center text-[13px] leading-[normal] select-none",
+          className,
+        )}
+      >
+        /
+      </span>
+    );
+  }
+  return (
+    <ChevronRight size={13} aria-hidden="true" className={cn("shrink-0", className)} />
+  );
+}
 
 /**
  * How many segments stand on the row before the middle folds away.
@@ -205,6 +317,33 @@ interface AppHeaderProps {
   /** Home goes to the account's first product, whatever that is for this tenant. */
   onHome?: () => void;
   /**
+   * The open record's own way out, when there is a record open.
+   *
+   * A prop and not a second read of the record-crumb context, because the bar
+   * is not where that context is provided — the shell is, and it is already
+   * holding this exact function (it is `useRecordCrumb`'s second argument,
+   * arriving here as `recordCrumb.onExit`). Reaching back up for it would give
+   * the bar a second opinion about whether a record is open, which is the one
+   * thing the published-crumb model exists to prevent.
+   *
+   * Passed on EVERY record page, not only under the `crumb` placement: the
+   * shell says whether a record is open, and the bar decides what to do with
+   * that, the same division `recordCrumbShown` already runs on. So this being
+   * defined means "a record is open", nothing more.
+   */
+  onRecordBack?: () => void;
+  /**
+   * The open page's title, count and description, for the no-trail case.
+   *
+   * A prop and not a context read, because the shell already OWNS this state:
+   * PageHeadingContext exists so the page can publish upward, and the shell
+   * renders AppHeader above that provider — the same arrangement pageCrumb
+   * has. Reading the context here would have meant either moving the bar
+   * inside the provider or keeping a second copy of the value, and both are
+   * worse than handing it down the one edge that already exists.
+   */
+  pageHeading?: PageHeading | null;
+  /**
    * Opens the Get the app modal.
    *
    * Owned by the shell now that the sidebar can open the same sheet. Two
@@ -242,12 +381,77 @@ export function AppHeader({
   config = headerConfig,
   crumbs = ["Contacts", "Smart lists"],
   onHome,
+  onRecordBack,
+  pageHeading,
   onOpenApp,
   entry,
   entryFills = true,
 }: AppHeaderProps) {
-  const { getAppPlacement, crumbEmphasis, crumbIcons, crumbCollapse } =
-    useTheme().effective;
+  const {
+    getAppPlacement,
+    crumbEmphasis,
+    crumbScale,
+    crumbIcons,
+    crumbCollapse,
+    crumbShown,
+    crumbHome,
+    crumbSwitchers,
+    crumbSeparator,
+    recordBackButton,
+    recordBackPlace,
+    barPageHeading,
+    barHeadingScale,
+  } = useTheme().effective;
+  /*
+   * The page's own heading, drawn here only when there is no trail.
+   *
+   * The bar never invents this: PageHeader publishes it (page-heading.tsx) and
+   * stands its own copy down in the same render, so the title exists in
+   * exactly one place at a time. `crumbShown` is in the condition because
+   * with a trail standing this would be the title/breadcrumb duplication the
+   * Sep 22 research spent four documents arguing against — the move is only
+   * on offer in the state that emptied the row.
+   */
+  const heading = !crumbShown && barPageHeading ? (pageHeading ?? null) : null;
+  /*
+   * And at what scale it is drawn once it is up here.
+   *
+   * Only meaningful while `heading` is non-null, so it is derived from it
+   * rather than read on its own: with no heading in the bar there is no page
+   * scale to grow to, and a bar that reserved the taller box for a heading it
+   * is not drawing would be paying for the option twice.
+   */
+  const headingAtPageScale = !!heading && barHeadingScale === "page";
+  /* Both axes resolved once — see `crumbType`. */
+  const font = crumbType(crumbScale, crumbEmphasis);
+  /*
+   * The back control, and the three conditions that have to agree before it
+   * is drawn.
+   *
+   * `onRecordBack` is the shell saying a record is open — on a list or a
+   * launchpad it is simply undefined and this whole branch is dead, so a
+   * non-record bar renders through exactly the code it did before this
+   * existed. `recordBackButton` is the master switch, and `recordBackPlace`
+   * picks this placement over the page header's and the canvas's, which
+   * contact-detail draws. One `&&` chain rather than a nested branch because
+   * all three are the same question — "is there a back arrow on THIS row" —
+   * and splitting them would let two of the three be true somewhere else.
+   *
+   * `crumbShown` is in the chain too, and that is a judgement, not a
+   * convenience. Ashwin's reading on Sep 23, and it is the right one: the
+   * left half's own note calls `crumbShown: false` "no trail at all", and
+   * this arrow is chrome standing in the trail's slot wearing the trail's
+   * idiom. Leaving it up would make "hide the breadcrumb" mean "hide all of
+   * it but one button", which is a different option nobody asked for — the
+   * same argument that already takes Home down with it. The counter-argument
+   * was reachability: hide the trail on a record and there is no printed way
+   * out. It loses because `recordBackPlace` is exactly the knob that answers
+   * it — the placements the other agent draws are ON the page, so a bar with
+   * no trail still has two working answers, and the one that costs the
+   * option its meaning is not needed to supply a third.
+   */
+  const backInTrail =
+    crumbShown && recordBackButton && recordBackPlace === "crumb" && !!onRecordBack;
   /*
    * The row is planned before it is drawn.
    *
@@ -286,30 +490,178 @@ export function AppHeader({
       // separation. Only the token is dropped, so the crumb menu that reads
       // --hdr-bg stays a real panel.
       className={cn(
-        // Padded to the canvas gap PLUS the page's own inset, rather than a value of
-        // its own: the canvas is inset by the gap and the page inside it pads by
-        // --page-inset, so summing them lands the bar on the same edges as the
-        // content below. That is exact on the right, where the last utility's box IS
-        // its visible edge.
+        // The RIGHT is the canvas gap PLUS the page's own inset, rather than a value
+        // of its own: the canvas is inset by the gap and the page inside it pads by
+        // --page-inset, so summing them lands the bar's last utility on the same
+        // edge as the content below. Exact there, because a utility's box IS its
+        // visible edge.
         //
-        // The left is that sum minus 6.5px, which is not a fudge: the Home glyph is
-        // 15px inside a 28px hit target, so it sits (28-15)/2 inside its own box, and
-        // aligning the BOX would leave the glyph 6.5px right of the page title.
-        // Pulling the padding back by exactly that inset puts the glyph — the thing
-        // you actually see — on the title's edge. Same trick the page title itself
-        // uses with -mx-[6px] px-[6px] to sit flush in its container.
-        "flex h-[48px] w-full shrink-0 items-center justify-between",
+        // The LEFT is a literal 7px, set by Ashwin on Sep 23, and it is not the sum.
+        // Two earlier answers were tried and both were wrong in the same direction:
+        // the sum minus 6.5px (5.5px) put the Home GLYPH on the title's edge and the
+        // trail's box 6.5px outside the content column, and the bare sum (12px) put
+        // the box on the column and pushed the glyph 6.5px inside it. 7px splits the
+        // difference deliberately — close enough to the column that the trail does
+        // not read as hanging off it, close enough to the glyph that the House does
+        // not read as indented. A judged number, so it is written as one rather than
+        // dressed up as a calc() that would imply it falls out of the tokens.
+        // 48px exactly, except under the page-scale heading, where the bar is
+        // told its floor and left to grow: a 20px title over a 13px sentence
+        // does not fit in 48px, and clipping it would be answering the option
+        // with a worse version of the compact one. The utilities stay centred
+        // on whatever height results, which is why this is min-h and not a
+        // second fixed number to keep in step.
+        headingAtPageScale
+          ? "min-h-[48px] py-[8px]"
+          : "h-[48px]",
+        "flex w-full shrink-0 items-center justify-between pl-[7px]",
         // Joined, the canvas gap is already spent by the card's own margin, so the
-        // bar pads by the page's inset alone and still lands on the content's edges.
+        // bar pads by the page's inset alone and still lands on the content's edge.
         surface === "joined"
-          ? "pr-[var(--page-inset)] pl-[calc(var(--page-inset)-6.5px)]"
-          : "pr-[calc(var(--shell-canvas-gap)+var(--page-inset))] pl-[calc(var(--shell-canvas-gap)+var(--page-inset)-6.5px)]",
+          ? "pr-[var(--page-inset)]"
+          : "pr-[calc(var(--shell-canvas-gap)+var(--page-inset))]",
         surface === "plane"
           ? "bg-transparent"
           : "bg-hdr shadow-[inset_0_-1px_0_0_var(--hdr-border)]",
       )}
     >
+      {/*
+        The left half stays a box even when it holds nothing.
+
+        `crumbShown: false` empties it rather than removing it, because the row
+        is `justify-between`: with one child left, "between" becomes "at the
+        start" and the five utilities would slide to the bar's LEFT edge — the
+        one thing the option is not allowed to change. An empty flex item is
+        zero pixels wide and keeps the utilities on the edge they have always
+        held, so the trail's absence reads as space rather than as a rearranged
+        bar.
+
+        Home goes with it. The panel's own copy calls this state "no trail at
+        all", and Home is a crumb — the one that is a destination rather than a
+        label, but a crumb. Leaving the House standing would make "hide the
+        breadcrumb" mean "hide all of it but the first segment", which is a
+        different option nobody asked for.
+
+        The record's back arrow goes with it for the same reason; the argument
+        is written out at `backInTrail` above, where the condition lives.
+      */}
       <div className="flex h-full min-w-0 items-center gap-[4px]">
+        {/*
+          The page's heading, standing where the trail would have been.
+
+          Two scales, picked by `barHeadingScale`.
+
+          Compact is the default and the argued-for one: 13px semibold,
+          matching the leaf crumb rather than the page's own 20px title,
+          because this is a 48px bar shared with the utilities and a heading at
+          page scale makes the bar taller. The count keeps its pill and the
+          description follows on the same line.
+
+          Page scale is the other side of that trade, asked for on Sep 23 so it
+          can be seen rather than described: the heading keeps slot 05's sizes
+          and its stacking, and the bar grows to hold it. Worth having on
+          screen because the saving was never the heading's band — it is the
+          gap between bar and canvas — and that is only visible when both are
+          drawn the same size.
+
+          `truncate` on the description and not on the title, deliberately: at
+          a narrow window the sentence should lose its tail before the name
+          loses a single letter.
+        */}
+        {heading ? (
+          <div
+            className={cn(
+              "flex min-w-0 pl-[5px]",
+              // Two arrangements of the same three strings. Compact keeps the
+              // bar's line: baseline-aligned, description trailing. Page scale
+              // is slot 05's own column — title and count on the first line,
+              // description under them — so what moved up is the heading as
+              // the page drew it, not a second design of it.
+              headingAtPageScale
+                ? "flex-col items-start gap-[2px]"
+                : "items-baseline gap-[8px]",
+            )}
+          >
+            <div className="flex min-w-0 items-center gap-[8px]">
+              <span
+                className={cn(
+                  "font-semibold text-hdr-fg",
+                  headingAtPageScale
+                    ? "min-w-0 truncate text-[20px] leading-[normal] tracking-[-0.2px]"
+                    : "shrink-0 text-[13px] leading-[normal]",
+                )}
+              >
+                {heading.title}
+              </span>
+              {heading.count ? (
+                <span
+                  className={cn(
+                    "shrink-0 rounded-[5px] bg-hdr-chip font-medium text-hdr-fg-muted tabular-nums",
+                    headingAtPageScale
+                      ? "rounded-[6px] px-[8px] py-[2px] text-[12.5px] leading-[18px]"
+                      : "px-[6px] text-[11.5px] leading-[18px]",
+                  )}
+                >
+                  {heading.count}
+                </span>
+              ) : null}
+            </div>
+            {heading.description ? (
+              <span
+                className={cn(
+                  "min-w-0 truncate text-hdr-fg-muted",
+                  headingAtPageScale
+                    ? "text-[13px] leading-[normal]"
+                    : "text-[12.5px] leading-[normal]",
+                )}
+              >
+                {heading.description}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+        {/*
+          The record's exit, at the head of the row (Sep 23, Ashwin's ask for
+          three placements to argue between).
+
+          LEFT of Home, which is the only spot on this row that does not lie.
+          Between Home and the first crumb was the other candidate and it is
+          wrong twice: it would sit inside the <nav>'s reading order as if it
+          were a segment, and it would break the row's one rhythm — House,
+          mark, word, mark, word — with a second glyph that is not a place.
+          Out here it reads as what it is: the way back, on the side
+          navigation lives on, before the path starts.
+
+          Deliberately NOT boxed the way the builder's exit arrow in app-shell
+          is. That one is alone on a bar the builder stripped, so it needs a
+          resting fill to stop reading as a naked glyph; this one stands
+          beside the House, which has the same 28px target and the same 15px
+          glyph and the same hover-only chip. Matching it is what makes the
+          two read as one row of navigation rather than as a control and a
+          decoration.
+
+          No separator after it, and that is the `crumbHome || i > 0` rule
+          below holding rather than being worked around. That rule says a
+          separator points BACK at something — and what it points at has to be
+          a PLACE, or "‹ ▸ Contacts" claims the arrow is an ancestor of
+          Contacts. It is not; it is an action that closes the record. So the
+          first mark on this row still belongs to Home exactly as before, and
+          with `crumbHome: false` the row still opens with a bare word — the
+          arrow changes what precedes the trail, not what the trail points at.
+        */}
+        {backInTrail ? (
+          <button
+            type="button"
+            title="Back"
+            aria-label="Back"
+            onClick={onRecordBack}
+            className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[7px] text-hdr-fg-muted hover:bg-hdr-chip hover:text-hdr-fg active:scale-95"
+          >
+            <ArrowLeft size={15} aria-hidden="true" />
+          </button>
+        ) : null}
+
+        {crumbShown && crumbHome ? (
         <button
           type="button"
           title="Home"
@@ -319,9 +671,11 @@ export function AppHeader({
         >
           <House size={15} aria-hidden="true" />
         </button>
+        ) : null}
 
+        {crumbShown ? (
         <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-[4px]">
-          {slots.map((slot) => {
+          {slots.map((slot, i) => {
             const last = slot.kind === "crumb" && slot.index === lastIndex;
             return (
               <React.Fragment
@@ -331,29 +685,79 @@ export function AppHeader({
                     : `${slot.seg.label}-${slot.index}`
                 }
               >
-                <ChevronRight size={13} aria-hidden="true" className="shrink-0 text-hdr-fg-muted opacity-60" />
+                {/*
+                  A separator points BACK at something. The bar could draw one
+                  before every crumb only because Home preceded them all; drop
+                  Home and the same rule opens the row with a mark pointing at
+                  the bar's left padding, which reads as a truncated trail
+                  rather than a shorter one. So the leading mark is exactly the
+                  Home button's mark, and dies with it — the same `i > 0` rule
+                  `BuilderTrail` has always used for the same reason.
+                */}
+                {crumbHome || i > 0 ? (
+                  <CrumbSep
+                    kind={crumbSeparator}
+                    className="text-hdr-fg-muted opacity-60"
+                  />
+                ) : null}
                 {slot.kind === "overflow" ? (
-                  <CrumbOverflow hidden={slot.hidden} theme={theme} />
-                ) : slot.seg.options && slot.seg.options.length > 0 ? (
+                  <CrumbOverflow
+                    hidden={slot.hidden}
+                    theme={theme}
+                    switchers={crumbSwitchers}
+                  />
+                ) : crumbSwitchers &&
+                  slot.seg.options &&
+                  slot.seg.options.length > 0 ? (
                   <CrumbMenu
                     seg={slot.seg}
                     last={last}
-                    emphatic={last && crumbEmphasis}
+                    font={font}
                     showIcon={segIcons}
                     theme={theme}
                   />
                 ) : (
+                  /*
+                    Where a crumb lands with `crumbSwitchers: false`, and the
+                    reason that option needed no second renderer: a segment
+                    with no siblings to offer has always drawn as a word, so
+                    "no switchers" is the existing wordless branch taken by
+                    every segment rather than a new, flatter trail built beside
+                    the real one. `CrumbMenu` and `CrumbOptions` are simply not
+                    reached — no caret, no hover chip, no menu state mounted
+                    and waiting for a click that cannot come.
+
+                    A word and not a link, deliberately. A crumb's destination
+                    in this shell IS its menu — `onSelect` only ever fires with
+                    an option's id — so making the label clickable would mean
+                    inventing a "go to this level" route the trail does not
+                    have, which is the switching this option just turned off,
+                    wearing different clothes.
+                  */
                   <span
                     aria-current={last ? "page" : undefined}
+                    style={{
+                      fontSize: last ? font.leafSize : font.size,
+                      fontWeight: last ? font.leafWeight : undefined,
+                    }}
                     className={cn(
-                      "flex min-w-0 items-center gap-[5px] truncate text-[13px] leading-[normal] whitespace-nowrap",
-                      last ? "font-semibold text-hdr-fg" : "text-hdr-fg-muted",
+                      // px-[5px] matches CrumbMenu's own chip inset, and it is
+                      // here for the reason Ashwin gave on Sep 23: turning
+                      // switchers off should remove the CARET, not re-space the
+                      // trail. Without it this branch drew its label flush while
+                      // the switcher branch kept its 5px, so flipping the option
+                      // narrowed every gap in the row by 10px — one option
+                      // reading as two changes. py- stays absent: the chip's
+                      // vertical padding sizes a hover target this branch does
+                      // not have, and it would grow the 48px content box.
+                      "flex min-w-0 items-center gap-[5px] truncate px-[5px] leading-[normal] whitespace-nowrap",
+                      last ? "text-hdr-fg" : "text-hdr-fg-muted",
                       // Painted rather than merely bold, so the page below can
                       // stop printing its own title. The padding is pulled back
                       // out of the row with a negative margin on the vertical
                       // axis only: a chip that grew the 48px bar's content box
                       // would move every glyph beside it.
-                      last && crumbEmphasis && CRUMB_LEAF_CHIP,
+                      last && font.chip && CRUMB_LEAF_CHIP,
                     )}
                   >
                     {slot.seg.icon && segIcons ? (
@@ -366,6 +770,7 @@ export function AppHeader({
             );
           })}
         </nav>
+        ) : null}
       </div>
 
       <div className="flex shrink-0 items-center gap-[12px]">
@@ -677,14 +1082,14 @@ function CrumbMenu({
   seg,
   last,
   theme,
-  emphatic = false,
+  font,
   showIcon = true,
 }: {
   seg: Crumb;
   last: boolean;
   theme: SurfaceTheme;
-  /** The leaf, painted. Only ever true on `last` — the caller enforces that. */
-  emphatic?: boolean;
+  /** The trail's resolved type. Only the leaf takes the emphatic half of it. */
+  font: CrumbType;
   /** False under `crumbIcons: "home"`, where House is the row's only glyph. */
   showIcon?: boolean;
 }) {
@@ -718,7 +1123,14 @@ function CrumbMenu({
             chip wants the same inset a span's does, or the two leaves sit on
             different edges depending on whether the level has siblings.
           */
-          emphatic && "bg-hdr-chip px-[7px]",
+          /*
+            A switcher leaf keeps the button's own box and takes only the paint:
+            the row already gives it 5px of inset and a hover fill, so the chip
+            geometry would double the padding and lift it 3px out of the row.
+            7px matches the wordless leaf's inset, or the two leaves sit on
+            different edges depending on whether the level has siblings.
+          */
+          last && font.chip && `${CRUMB_LEAF_PAINT} px-[7px]`,
         )}
       >
 
@@ -733,9 +1145,13 @@ function CrumbMenu({
           />
         ) : null}
         <span
+          style={{
+            fontSize: last ? font.leafSize : font.size,
+            fontWeight: last ? font.leafWeight : undefined,
+          }}
           className={cn(
-            "truncate text-[13px] leading-[normal] whitespace-nowrap",
-            last ? "font-semibold text-hdr-fg" : "text-hdr-fg-muted",
+            "truncate leading-[normal] whitespace-nowrap",
+            last ? "text-hdr-fg" : "text-hdr-fg-muted",
           )}
         >
           {seg.label}
@@ -837,6 +1253,7 @@ export function CrumbOverflow({
   hidden,
   theme,
   onPick,
+  switchers = true,
 }: {
   hidden: PlacedCrumb[];
   /** --hdr-* is scoped under [data-header-theme]; the panel portals out of it. */
@@ -849,6 +1266,8 @@ export function CrumbOverflow({
    * model into a surface that has no room for the first one.
    */
   onPick?: () => void;
+  /** False under `crumbSwitchers: false`; see the note on the marker below. */
+  switchers?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const { options, actions } = React.useMemo(
@@ -864,6 +1283,39 @@ export function CrumbOverflow({
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open]);
+
+  /*
+   * With switchers off the `…` stays, and stops being a control.
+   *
+   * It stays because collapsing and switching are different questions.
+   * `crumbCollapse` is about the ROW's length: it takes levels off the line,
+   * and the mark is the trail admitting it. Dropping the mark with the menus
+   * would leave "Home ▸ Services" standing for a four-level path — a trail
+   * that does not merely say less, but says something untrue about its own
+   * depth, which is worse than the thing the axis was turning off.
+   *
+   * It stops being a control because there is nothing left inside it to reach.
+   * The panel's rows are the hidden LEVELS, and a level row has no action of
+   * its own — everything clickable in there is the sibling cascade hanging off
+   * it (see `buildOverflowMenu`), which is precisely the machinery this option
+   * says must not be reached. A button that opens a menu of inert rows is a
+   * worse answer than a mark that never claimed to open anything.
+   *
+   * The `title` survives on the span, so the hidden levels can still be NAMED
+   * on hover. That is a read-out, not a navigation, which is exactly what the
+   * whole trail has become in this mode.
+   */
+  if (!switchers) {
+    return (
+      <span
+        aria-label={`${hidden.length} hidden ${hidden.length === 1 ? "level" : "levels"}`}
+        title={hidden.map((h) => h.seg.label).join(" › ")}
+        className="flex h-[20px] shrink-0 items-center px-[4px] text-hdr-fg-muted"
+      >
+        <MoreHorizontal size={14} aria-hidden="true" />
+      </span>
+    );
+  }
 
   return (
     <div className="relative shrink-0">

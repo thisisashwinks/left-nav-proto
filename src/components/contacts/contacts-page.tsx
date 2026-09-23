@@ -26,11 +26,16 @@ import {
 } from "@/components/page/page-header";
 import { usePageCrumb } from "@/components/page/page-crumb";
 import { ViewBar } from "@/components/page/view-bar";
+import {
+  CollapsingSearch,
+  GlyphButton,
+  UnsavedChanges,
+  useListShape,
+} from "@/components/page/list-shape";
 import { cn } from "@/lib/utils";
 import { contactsAreaLabel, useContactsArea } from "./contacts-area";
 import { contacts as seedContacts, smartLists } from "./contacts-data";
 import { ContactsTable } from "./contacts-table";
-import { ContactPeek } from "./contact-peek";
 import { AddContactDrawer, ManageFieldsDrawer } from "./contact-drawers";
 import { ContactDetail } from "./contact-detail";
 
@@ -60,13 +65,24 @@ export function ContactsPage() {
    */
   const [pageId] = useContactsArea();
   /*
-   * One record, two depths. `openId` is the record the list is pointed at;
-   * `full` says whether it is being read beside the list or on its own page.
-   * Keeping them apart means promoting a peek to the full record never loses
-   * your place — go back and the same row is still the one in hand.
+   * One record, ONE depth, as of Sep 23.
+   *
+   * There used to be two: a row click opened a peek panel beside the list, and
+   * the peek's last control was "Open full page". Two destinations for one
+   * gesture is the thing the header axis spent a week deleting everywhere
+   * else, and it was worse here than in the chrome — the peek showed a strict
+   * subset of the record page (owner, email, phone, created, last activity,
+   * tags, opportunities) so the second click was never a choice, just a toll.
+   * The row goes to the record now, and ContactPeek is left in the tree
+   * unreferenced rather than deleted: it is the only drawing of the
+   * peek-beside-the-list pattern this prototype has, and the pattern may yet
+   * be wanted for a surface that genuinely cannot navigate away.
+   *
+   * `openId` is still the record the list is pointed at, which is what keeps
+   * the record page's ‹ › pager walking the cut you came from rather than the
+   * whole table.
    */
   const [openId, setOpenId] = React.useState<string | null>(null);
-  const [full, setFull] = React.useState(false);
   /*
    * One slot for whatever came in from the right.
    *
@@ -78,6 +94,41 @@ export function ContactsPage() {
   const [drawer, setDrawer] = React.useState<"add" | "fields" | null>(null);
 
   /*
+   * The live cut, and the cut this smart list was SAVED with.
+   *
+   * Two pieces of state rather than a `dirty` flag, because a flag has to be
+   * set by hand from every control that could dirty the view and is therefore
+   * wrong the first time someone adds a control and forgets. Holding the saved
+   * cut next to the live one makes "unsaved changes" a comparison, which
+   * cannot drift: Discard copies saved over live, Save-as-new copies live over
+   * saved, and neither has to know what the other controls do.
+   *
+   * It opens dirty on purpose — sorted A–Z over a list saved in the table's
+   * own order — because the amber button is the part of this row under review
+   * and a row that only shows it after you fiddle is a row nobody screenshots.
+   */
+  const [sortApplied, setSortApplied] = React.useState(true);
+  const [filterCount, setFilterCount] = React.useState(0);
+  const [savedCut, setSavedCut] = React.useState({ sort: false, filters: 0 });
+  const dirty =
+    sortApplied !== savedCut.sort || filterCount !== savedCut.filters;
+
+  /*
+   * Switching lists is not an edit to the list you are leaving.
+   *
+   * So the live cut and the saved cut both reset, and the amber button goes
+   * away — rather than following you to the next list still claiming there is
+   * something unsaved about it, which would make the one warning colour on the
+   * page mean "you have been here a while".
+   */
+  const pickList = (id: string) => {
+    setActiveList(id);
+    setSortApplied(false);
+    setFilterCount(0);
+    setSavedCut({ sort: false, filters: 0 });
+  };
+
+  /*
    * The chips actually re-cut the rows.
    *
    * A view bar whose chips only change a label is the thing the tenets warn
@@ -87,23 +138,34 @@ export function ContactsPage() {
    * nearly-empty saved list is the case a table has to survive.
    */
   const visible = React.useMemo(() => {
-    switch (activeList) {
-      case "inquiries":
-        return rows.filter((c) => c.status === "inquiry");
-      case "subscribed":
-        return rows.filter((c) => c.status === "subscribed");
-      case "hot-leads":
-        return rows.filter((_, i) => i % 5 === 0);
-      case "engaged":
-        return rows.filter((c) => !c.lastActivity.includes("month"));
-      case "imported":
-        return rows.filter((_, i) => i % 3 === 1);
-      case "no-email":
-        return rows.filter((c) => !c.email).slice(0, 3);
-      default:
-        return rows;
-    }
-  }, [activeList, rows]);
+    const cut = (() => {
+      switch (activeList) {
+        case "inquiries":
+          return rows.filter((c) => c.status === "inquiry");
+        case "subscribed":
+          return rows.filter((c) => c.status === "subscribed");
+        case "hot-leads":
+          return rows.filter((_, i) => i % 5 === 0);
+        case "no-email":
+          return rows.filter((c) => !c.email).slice(0, 3);
+        default:
+          return rows;
+      }
+    })();
+    /*
+     * The sort is applied to the rows, not merely counted on the button.
+     *
+     * The `(1)` badge on Sort is the only evidence in the row that the list is
+     * not in its saved order, and it is also — via `dirty` below — the reason
+     * the amber "Unsaved changes" button is on screen at load. A badge that
+     * reordered nothing would have made both of those props, and the whole
+     * point of drawing the unsaved state is to see what it costs when it is
+     * real.
+     */
+    return sortApplied
+      ? [...cut].sort((a, b) => a.name.localeCompare(b.name))
+      : cut;
+  }, [activeList, rows, sortApplied]);
 
   /*
    * Prev/next walk the cut on screen, not the whole table. Paging out of the
@@ -130,26 +192,38 @@ export function ContactsPage() {
   /*
    * Which shape of header this page is wearing (Sep 22 variants).
    *
+   * Read through useListShape now rather than derived here, which is the
+   * inversion of how this started: page/list-shape.tsx was lifted OUT of this
+   * file in September precisely so Workflows and Appointments could stop
+   * re-deriving it, and then this file went on deriving its own copy anyway.
+   * That held while the axis had four ids and broke the day it had L-F — the
+   * hook grew `oneRow` and the three lines below could not have.
+   *
    * The four page-header knobs are already written for us when a variant is
    * picked, so the title, description and count need nothing here. What is
    * left is the part a boolean cannot say: WHERE the saved-list scope lives
    * once the title stops naming the page — a picker on the merged row (L-B),
    * the last crumb in the trail (L-E), or the tab strip it has always been
-   * (L-C, L-D). Defaulting to L-C means this axis draws exactly what the
-   * prototype drew before it existed.
+   * (L-D, and L-F with the filter row folded into it).
    */
-  const variant = effective.listHeaderVariant;
-  const mergedRow = variant === "L-B";
-  const scopeInTrail = variant === "L-E";
+  const shape = useListShape();
+  const { mergedRow, scopeInTrail, oneRow, showViews, showFilters } = shape;
 
   /*
    * Handed to the shell, which owns the bar. Published unconditionally in
    * L-E — including while a record is open, where the trail then reads
    * Contacts ▸ Smart lists ▸ Hot leads ▸ Priya Raman and every level of it
    * still moves.
+   *
+   * `showViews` is the second half of the condition, and it reaches up into
+   * the bar deliberately. L-E's scope control is not a tab strip, it is the
+   * trail's last crumb — so a `listShowViews: false` that only deleted tabs
+   * would leave this variant with its saved views fully switchable, which is
+   * the one knob doing nothing on the one variant. Un-published, the trail
+   * stops at Contacts and the lit cut is simply the cut you get.
    */
   usePageCrumb(
-    scopeInTrail
+    scopeInTrail && showViews
       ? {
           label: activeLabel,
           options: smartLists.map((list) => ({
@@ -158,50 +232,169 @@ export function ContactsPage() {
             icon: list.icon,
             selected: list.id === activeList,
           })),
-          onSelect: setActiveList,
+          onSelect: pickList,
         }
       : null,
   );
 
+  const openFields = () => {
+    setOpenId(null);
+    setDrawer("fields");
+  };
+
   /*
-   * Search, filters and the field picker as one fragment, because all three
-   * variants below use the SAME controls and only disagree about where they
-   * stand — page chrome under the header, merged into the header's row, or
-   * inside the table card. Building them once is what keeps that true.
+   * The four controls, built once as named pieces rather than as one fragment.
+   *
+   * They used to be a single `controls` fragment in a fixed order, which was
+   * right while every variant wanted the same order and only disagreed about
+   * which row it sat on. L-D broke that on Sep 23: the live product splits the
+   * filter row in two — what CUTS the list on the left, what FINDS inside the
+   * cut on the right — and a fragment cannot be split down the middle by the
+   * page that renders it. Named pieces can be, and L-B and L-E go on
+   * composing them in the old order, so the split costs those two nothing.
+   */
+  const filtersButton = (
+    <OutlineButton
+      /*
+       * Cycles rather than opening a filter builder, which this prototype does
+       * not have. It has to DO something: the badge is half of what makes the
+       * view dirty, and a button that cannot change the number would leave
+       * "Unsaved changes" with only one input and no way to show the amber
+       * button appearing rather than merely being there.
+       */
+      onClick={() => setFilterCount((c) => (c + 1) % 3)}
+    >
+      <ListFilter size={15} aria-hidden="true" className="text-pg-text-strong" />
+      Filters
+      {filterCount ? (
+        <span className="flex size-[17px] shrink-0 items-center justify-center rounded-full bg-brand text-[11px] leading-[normal] font-semibold tabular-nums text-brand-fg">
+          {filterCount}
+        </span>
+      ) : null}
+    </OutlineButton>
+  );
+
+  const sortButton = (
+    <OutlineButton onClick={() => setSortApplied((v) => !v)}>
+      <ArrowUpDown size={15} aria-hidden="true" className="text-pg-text-strong" />
+      Sort
+      {sortApplied ? (
+        <span className="flex size-[17px] shrink-0 items-center justify-center rounded-full bg-brand text-[11px] leading-[normal] font-semibold tabular-nums text-brand-fg">
+          1
+        </span>
+      ) : null}
+    </OutlineButton>
+  );
+
+  const manageFieldsButton = (
+    <OutlineButton onClick={openFields}>
+      <Settings size={15} aria-hidden="true" className="text-pg-text-strong" />
+      Manage fields
+    </OutlineButton>
+  );
+
+  /*
+   * `grow` is the difference between the two rows this field lives on.
+   *
+   * On its own row under the header (L-D) it is a fixed 260px pinned to the
+   * right, beside Manage fields, because the live product puts it there and
+   * because a search that eats the whole row reads as the row's subject when
+   * the row's subject is the filters. Merged into the header's row (L-B) or
+   * into the canvas toolbar (L-E) it takes the slack instead — those rows end
+   * in buttons that must hold the right edge, and something has to give.
+   */
+  const searchField = (grow: boolean) => (
+    <div
+      className={cn(
+        "flex h-[34px] items-center gap-[9px] rounded-[8px] bg-pg-surface px-[14px] shadow-[inset_0_0_0_1px_var(--pg-border)] motion-tap focus-within:shadow-[inset_0_0_0_1px_var(--brand),0_0_0_3px_var(--brand-soft)]",
+        grow ? "min-w-0 flex-1" : "w-[260px] shrink-0",
+      )}
+    >
+      <Search size={16} aria-hidden="true" className="shrink-0 text-pg-faint" />
+      <input
+        type="search"
+        placeholder={grow ? "Search by name, email, or phone" : "Search Contacts"}
+        aria-label="Search contacts"
+        className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
+      />
+    </div>
+  );
+
+  /*
+   * The old order, for the two variants that never asked for a new one.
+   *
+   * L-B pulls this into the header's row and L-E drops it into the canvas
+   * toolbar; both want one run of controls with the search taking the slack,
+   * which is exactly what they had before the L-D row was split. Keeping the
+   * fragment means neither variant is re-designed by a change that was about
+   * a third one.
    */
   const controls = (
     <>
-      <div className="flex h-[34px] min-w-0 flex-1 items-center gap-[9px] rounded-[8px] bg-pg-surface px-[14px] shadow-[inset_0_0_0_1px_var(--pg-border)] motion-tap focus-within:shadow-[inset_0_0_0_1px_var(--brand),0_0_0_3px_var(--brand-soft)]">
-        <Search size={16} aria-hidden="true" className="shrink-0 text-pg-faint" />
-        <input
-          type="search"
-          placeholder="Search by name, email, or phone"
-          aria-label="Search contacts"
-          className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
-        />
-      </div>
-      <OutlineButton>
-        <ListFilter size={15} aria-hidden="true" className="text-pg-text-strong" />
-        Filters
-        <span className="flex size-[17px] shrink-0 items-center justify-center rounded-full bg-brand text-[11px] leading-[normal] font-semibold text-brand-fg">
-          2
-        </span>
-      </OutlineButton>
-      <OutlineButton>
-        <ArrowUpDown size={15} aria-hidden="true" className="text-pg-text-strong" />
-        Sort
-      </OutlineButton>
-      <OutlineButton
-        onClick={() => {
-          setOpenId(null);
-          setDrawer("fields");
-        }}
-      >
-        <Settings size={15} aria-hidden="true" className="text-pg-text-strong" />
-        Manage fields
-      </OutlineButton>
+      {searchField(true)}
+      {filtersButton}
+      {sortButton}
+      {manageFieldsButton}
     </>
   );
+
+  /*
+   * The same four controls with their labels sold off — L-F, and only L-F.
+   *
+   * The mapping is one-to-one with the labelled row above and deliberately
+   * introduces nothing: Filters, Sort (keeping its count, which is the one
+   * thing a glyph cannot say) and Manage fields become 34px squares, and the
+   * search becomes the magnifier it already starts with. Four controls, four
+   * glyphs. A fifth invented for the cluster would have made L-F a different
+   * page rather than the same page one row shorter, and the comparison the
+   * variant exists for would be worthless.
+   */
+  const glyphControls = (
+    <>
+      <GlyphButton
+        icon={ListFilter}
+        label="Filters"
+        count={filterCount}
+        onClick={() => setFilterCount((c) => (c + 1) % 3)}
+      />
+      <GlyphButton
+        icon={ArrowUpDown}
+        label="Sort"
+        count={sortApplied ? 1 : 0}
+        onClick={() => setSortApplied((v) => !v)}
+      />
+      <GlyphButton icon={Settings} label="Manage fields" onClick={openFields} />
+      <CollapsingSearch placeholder="Search Contacts" label="Search contacts" />
+    </>
+  );
+
+  /*
+   * The amber button, built once and placed by the variant.
+   *
+   * Absent when the live cut and the saved cut agree, rather than disabled: a
+   * greyed-out "Unsaved changes" would be a row permanently warning you about
+   * nothing, and the row is already the most crowded 38px in the product.
+   *
+   * It goes with the filters (Sep 23), because it is a report ON them. With
+   * `listShowFilters` off there is no Filters button and no Sort button, so
+   * the only thing the amber chip could say is "the cut on screen is not the
+   * one on disk, and nothing on this page put it there" — and its Discard
+   * would then silently reorder the table with nothing visible to explain
+   * why. The page opens dirty on purpose (see `sortApplied`), so this is the
+   * normal case rather than an edge: filters off means the list is a fixed
+   * cut, and a fixed cut has no unsaved state to warn about.
+   */
+  const unsaved = dirty && showFilters ? (
+    <UnsavedChanges
+      onSaveAsNew={() =>
+        setSavedCut({ sort: sortApplied, filters: filterCount })
+      }
+      onDiscard={() => {
+        setSortApplied(savedCut.sort);
+        setFilterCount(savedCut.filters);
+      }}
+    />
+  ) : null;
 
   const openAdd = () => {
     setOpenId(null);
@@ -233,10 +426,20 @@ export function ContactsPage() {
    * you cannot add a contact from is not a variant, it is a broken page. They
    * ride the in-canvas toolbar instead, on its right edge, which is the edge
    * they held when there was a header.
+   *
+   * Which is also why the toolbar survives `listShowFilters: false` with only
+   * the actions on it. The row is not the filter row wearing a different
+   * position — under L-E it is the only chrome the page has left, and the
+   * spacer that replaces the controls is what keeps Add contact on the right
+   * edge it holds in every other variant rather than sliding to the left.
    */
   const canvasToolbar = scopeInTrail ? (
     <>
-      {controls}
+      {showFilters ? (
+        controls
+      ) : (
+        <span aria-hidden="true" className="min-w-[16px] flex-1" />
+      )}
       <OutlineButton onClick={() => undefined}>
         <Upload size={15} aria-hidden="true" className="text-pg-text-strong" />
         Import
@@ -249,11 +452,20 @@ export function ContactsPage() {
     </>
   ) : null;
 
-  if (full && openContact) {
+  /*
+   * A record is open, so the record is what this component renders.
+   *
+   * The condition used to be `full && openContact` — the second half of the
+   * two-step. With the peek gone there is no other thing `openId` could mean,
+   * and the guard collapses to "is one open". `onBack` clears it rather than
+   * dropping to a lesser view, which is the same one-destination rule read
+   * backwards: one gesture in, one gesture out.
+   */
+  if (openContact) {
     return (
       <ContactDetail
         contact={openContact}
-        onBack={() => setFull(false)}
+        onBack={() => setOpenId(null)}
         onPrev={openIndex > 0 ? () => step(-1) : undefined}
         onNext={openIndex < visible.length - 1 ? () => step(1) : undefined}
         position={`${openIndex + 1} of ${visible.length}`}
@@ -280,12 +492,25 @@ export function ContactsPage() {
          */
         count={mergedRow ? undefined : activeCount}
         description="People and companies in this account"
+        /*
+         * L-B's merged row, assembled from whichever of the two bands are on.
+         *
+         * The variant's claim is that the header's row can carry the scope
+         * and the filters instead of repeating the trail's last crumb, and
+         * each switch simply removes its half of that claim — picker only, or
+         * filters only. With both off the lead is undefined and the row is
+         * the actions alone, held to the right edge. That is a thin row and
+         * it is the honest result: L-B does not ADD a row, it fills one that
+         * PageHeader was drawing anyway, so switching off everything it
+         * merged in leaves the header it merged them into.
+         */
         lead={
-          mergedRow ? (
+          mergedRow && (showViews || showFilters) ? (
             <>
+              {showViews ? (
               <SmartListPicker
                 activeId={activeList}
-                onSelect={setActiveList}
+                onSelect={pickList}
                 /*
                  * The raw knob, not usePageChrome's count.
                  *
@@ -297,7 +522,8 @@ export function ContactsPage() {
                  */
                 showCount={effective.pageHeader && effective.pageCount}
               />
-              {controls}
+              ) : null}
+              {showFilters ? controls : null}
             </>
           ) : undefined
         }
@@ -315,42 +541,136 @@ export function ContactsPage() {
         scope has nowhere better to be. Once the row carries a picker (L-B) or
         the trail's tail does (L-E), a row of tabs saying the same thing a
         third time is the duplication under review.
+
+        L-F keeps the strip exactly where L-D has it and makes it 46px, which
+        is the whole of what the variant changes about slot 06: the tabs never
+        moved, the row UNDER them was deleted and its contents pushed onto this
+        row's right edge. 46 rather than 38 because the controls it inherits
+        are 34px tall and a 2px indicator needs somewhere to sit under them.
+        With the filters switched off there is nothing to inherit, so the
+        strip is back at 38px and L-F is L-D — see the oneRow note in
+        list-shape.tsx.
+
+        `scopeInTabs` folds `listShowViews` in, so the strip also goes when
+        the collection is told not to offer its cuts at all.
       */}
-      {mergedRow || scopeInTrail ? null : (
+      {shape.scopeInTabs ? (
         <ViewBar
           label="Smart lists"
           views={smartLists}
           activeId={activeList}
-          onSelect={setActiveList}
+          onSelect={pickList}
           onCreate={() => undefined}
-          createLabel="Create list"
+          createLabel="Add Smart List"
           /*
-           * Acts on the lit chip, so it rides the chip row rather than the
-           * control bar below — the control bar filters the rows, this edits
-           * the view those rows come from. Absent on All, which is not a saved
-           * list and so has nothing to customise.
-           */
+            Four tabs and `1 more` on its own row; three and `2 more` when the
+            row is also carrying the filters.
+
+            Not a fit measured at runtime — see the note on the prop. Four is
+            what the account this was drawn from shows at a normal width, and
+            pinning it means the overflow chip is in every screenshot of L-D
+            rather than only in the ones taken on a small laptop. L-F gets one
+            fewer because it is paying for the glyph cluster out of the same
+            1160px, and the alternative is a fourth tab clipped mid-word by
+            the scroll box — which reads as a bug rather than as the cost the
+            variant is asking to be judged on. The budget moving with the
+            variant IS the finding: a row cannot hold both, and this is the
+            exchange rate.
+          */
+          maxVisible={oneRow ? 3 : 4}
+          className={oneRow ? "h-[46px]" : undefined}
           trailing={
-            activeList === "all" ? undefined : (
-              <button
-                type="button"
-                className="flex h-[30px] items-center gap-[6px] rounded-[8px] px-[9px] text-[12.5px] leading-none font-medium text-pg-text-strong motion-tap hover:bg-pg-surface"
-              >
-                <SlidersHorizontal
-                  size={14}
-                  aria-hidden="true"
-                  className="text-pg-muted"
-                />
-                Customise list
-              </button>
+            oneRow ? (
+              <>
+                {/*
+                  The glyph cluster, then the amber button — and the amber
+                  button is the one thing on this row that did NOT give up its
+                  label.
+
+                  That is the trade L-F is here to be judged on, made
+                  deliberately and in the one direction that survives being
+                  argued about. The row cannot carry four labelled controls and
+                  a warning; something loses its words. Filters, Sort and
+                  Manage fields are controls you go looking for, and their
+                  glyphs are the conventional ones — a funnel, two arrows, a
+                  gear — so a hover recovers the word for the rare person who
+                  needs it. "Unsaved changes" is the opposite kind of object:
+                  nobody goes looking for it, it has to find YOU, and an amber
+                  triangle with no text is indistinguishable from the dozen
+                  other status glyphs this product shows. Collapsing the only
+                  control that can lose work, to keep labels on four that
+                  cannot, would be spending the row's budget backwards.
+
+                  It stays at the right end rather than moving to the header's
+                  action zone, which was the other candidate: the actions up
+                  there act on the COLLECTION (add a contact, import), and this
+                  one acts on the lit view — the same rule that put "Customise
+                  list" on this edge in L-D.
+                */}
+                <span className="flex shrink-0 items-center gap-[8px]">
+                  {glyphControls}
+                </span>
+                {unsaved}
+              </>
+            ) : (
+              /*
+                One control on this edge at a time, and dirty wins.
+
+                "Customise list" edits the view's definition; "Unsaved changes"
+                says the definition on screen is not the one on disk. Drawing
+                both would offer to edit a thing while telling you the thing is
+                already edited, and the second message is the one with a
+                deadline on it.
+              */
+              (unsaved ??
+                (activeList === "all" ? undefined : (
+                  <button
+                    type="button"
+                    className="flex h-[30px] items-center gap-[6px] rounded-[8px] px-[9px] text-[12.5px] leading-none font-medium text-pg-text-strong motion-tap hover:bg-pg-surface"
+                  >
+                    <SlidersHorizontal
+                      size={14}
+                      aria-hidden="true"
+                      className="text-pg-muted"
+                    />
+                    Customise list
+                  </button>
+                )))
             )
           }
         />
-      )}
+      ) : null}
 
-      {mergedRow || scopeInTrail ? null : (
-        <div className="flex shrink-0 items-center gap-[10px]">{controls}</div>
-      )}
+      {/*
+        The filter row, split down the middle.
+
+        Left of the gap: what CUTS the list — Filters and Sort, the two controls
+        that change which rows exist and are therefore the two that can leave
+        the view unsaved. Right of it: what works INSIDE the cut — the search
+        field and the column picker, neither of which dirties anything. The
+        live product draws it this way and the reason holds: the two halves
+        answer to different buttons on the row above.
+
+        Gone entirely under L-F, which is the row L-F buys back, and under L-B
+        and L-E, which took these controls somewhere else.
+
+        `shape.filterRow`, not `scopeInTabs && !oneRow` as it read until Sep
+        23. The old expression asked "are the tabs here" as a proxy for "is
+        there a second band", which was true while the tabs were the only
+        thing that could take the band away — and became false the moment
+        `listShowViews` could delete the strip on its own. L-D with no views
+        keeps this row: the tabs are what went, and the filters had nothing to
+        do with it.
+      */}
+      {!mergedRow && !scopeInTrail && shape.filterRow ? (
+        <div className="flex shrink-0 items-center gap-[10px]">
+          {filtersButton}
+          {sortButton}
+          <span aria-hidden="true" className="min-w-[16px] flex-1" />
+          {searchField(false)}
+          {manageFieldsButton}
+        </div>
+      ) : null}
 
       {visible.length === 0 ? (
         /*
@@ -389,6 +709,12 @@ export function ContactsPage() {
           toolbar={canvasToolbar}
           rows={visible}
           onToggleRow={toggleRow}
+          /*
+            Straight to the record. The drawer closes first because the record
+            page replaces this whole component — leaving `drawer` set would
+            have the add form or the field picker waiting for you on the way
+            back, which is a page remembering something you did not ask it to.
+          */
           onOpenRow={(id) => {
             setDrawer(null);
             setOpenId(id);
@@ -452,16 +778,6 @@ export function ContactsPage() {
       {drawer === "add" ? <AddContactDrawer onClose={() => setDrawer(null)} /> : null}
       {drawer === "fields" ? (
         <ManageFieldsDrawer onClose={() => setDrawer(null)} />
-      ) : null}
-
-      {openContact ? (
-        <ContactPeek
-          contact={openContact}
-          onClose={() => setOpenId(null)}
-          onPrev={openIndex > 0 ? () => step(-1) : undefined}
-          onNext={openIndex < visible.length - 1 ? () => step(1) : undefined}
-          onOpenFull={() => setFull(true)}
-        />
       ) : null}
 
       {selectedCount > 0 ? (

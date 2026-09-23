@@ -36,6 +36,18 @@ import {
 import { AiSparkle } from "@/components/icons/ai-sparkle";
 import { PrimaryButton } from "@/components/page/page-header";
 import { useRecordCrumb } from "@/components/page/record-crumb";
+import {
+  CollabIsland,
+  FloatingLayer,
+  IdentityIsland,
+  Island,
+  IslandGlyph,
+  IslandRule,
+  ToolPalette,
+  ZoomIsland,
+  type PaletteGroup,
+  type PaletteTool,
+} from "@/components/shell/floating-chrome";
 import { useShellChrome } from "@/components/shell/full-bleed";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
@@ -82,25 +94,58 @@ import { BuilderTrail } from "@/components/shell/builder-trail";
  * product's own filled sparkle for the reason it does everywhere else: Lucide's
  * outline star is not the mark this prototype's AI surfaces wear.
  */
-const ELEMENTS: readonly {
-  id: string;
-  label: string;
-  icon: LucideIcon;
-  ai?: true;
-}[] = [
-  { id: "add", label: "Add element", icon: Plus },
-  { id: "ai", label: "Ask AI", icon: Blocks, ai: true },
-  { id: "layers", label: "Layers", icon: Layers },
-  { id: "pages", label: "Pages", icon: FileText },
-  { id: "code", label: "Custom code", icon: Code2 },
-  { id: "styles", label: "Brand styles", icon: Paintbrush },
-  { id: "text", label: "Text", icon: Type },
-  { id: "integrations", label: "Integrations", icon: Cloud },
-  { id: "products", label: "Products", icon: CreditCard },
-  { id: "forms", label: "Forms and surveys", icon: SquareStack },
-  { id: "tracking", label: "Tracking code", icon: Terminal },
-  { id: "theme", label: "Theme", icon: Palette },
+const ELEMENT_GROUPS: readonly PaletteGroup[] = [
+  /*
+   * Grouped on Sep 23, and the grouping is the point rather than decoration.
+   *
+   * Twelve glyphs in one undifferentiated run is a row you scan left to right
+   * every time, which is exactly what a whiteboard's toolbar refuses to be:
+   * Figma, Miro and ClickUp all cut a long bar into clusters with a hairline
+   * so the eye lands on a NEIGHBOURHOOD first and a glyph second. The cuts
+   * here are by tense — what puts something on the page, what that something
+   * is, where in the document you are, how it looks, what it talks to.
+   *
+   * The hints are deliberately PARTIAL. Four of the twelve have a key in the
+   * shipped editor and eight do not, and inventing letters for the rest would
+   * be the prototype promising shortcuts nobody built. They now live in the
+   * hover tooltip, so a tool without one simply has a shorter tooltip — the
+   * old palette printed them above every glyph and had to draw an EMPTY line
+   * over the unbound eight to keep one baseline, which is a lot of machinery
+   * to justify eight blanks. See ToolPalette for why that went.
+   */
+  [
+    { id: "add", label: "Add element", icon: Plus, hint: "A" },
+    { id: "ai", label: "Ask AI", icon: Blocks, ai: true },
+  ],
+  [
+    { id: "text", label: "Text", icon: Type, hint: "T" },
+    { id: "forms", label: "Forms and surveys", icon: SquareStack },
+    { id: "products", label: "Products", icon: CreditCard },
+  ],
+  [
+    { id: "layers", label: "Layers", icon: Layers, hint: "L" },
+    { id: "pages", label: "Pages", icon: FileText, hint: "P" },
+  ],
+  [
+    { id: "styles", label: "Brand styles", icon: Paintbrush },
+    { id: "theme", label: "Theme", icon: Palette },
+  ],
+  [
+    { id: "code", label: "Custom code", icon: Code2 },
+    { id: "tracking", label: "Tracking code", icon: Terminal },
+    { id: "integrations", label: "Integrations", icon: Cloud },
+  ],
 ];
+
+/**
+ * The same twelve, flat, for the `rows` toolbar.
+ *
+ * Derived rather than declared a second time. The two styles have to hold the
+ * identical set of elements in the identical order or the screenshots stop
+ * being comparable, and the cheapest way to guarantee that is to make it
+ * impossible to edit one without the other.
+ */
+const ELEMENTS: readonly PaletteTool[] = ELEMENT_GROUPS.flat();
 
 /**
  * Desktop / tablet / mobile — the frame, fitted, not the page reflowed.
@@ -168,9 +213,38 @@ export function FunnelPageBuilder({
     builderKeepTopBar,
     builderControls,
     builderExit,
+    builderChromeStyle,
+    builderToolPalette,
   } = useTheme().effective;
+  /*
+   * The Sep 23 axis, and the page with the most to gain from it: this builder
+   * spends THREE rows of its own before any content, and `floating` is the
+   * only arrangement in the study that gives all three back at once.
+   *
+   * `builderControls` is read only inside the `rows` half below. It places
+   * rows; there are none here. See floating-chrome.tsx.
+   */
+  const floating = builderChromeStyle === "floating";
+  /*
+   * Whether the element bar is on screen as a bar — off unless asked for.
+   *
+   * This is the builder with the strongest case for a palette in the whole
+   * study: twelve element tools, a selection to act on, and a surface you
+   * genuinely hold a tool over. It is still off by default, because the axis
+   * is asking whether a floating builder should carry one AT ALL and a screen
+   * that always shows its best case never answers that.
+   *
+   * What the off state must not do is lose a control, so it does not: Add
+   * element and Ask AI move to the bottom-right island beside undo, the page
+   * selector and the device toggle are in the top-centre island either way,
+   * and zoom is where it always was. See the two islands below.
+   */
+  const palette = floating && builderToolPalette;
   const [device, setDevice] = React.useState<string>("desktop");
   const [mode, setMode] = React.useState<string>("assist");
+  /* Which element glyph is armed. Local, and lost on remount, like the rest of
+     this builder's stage state. */
+  const [element, setElement] = React.useState("add");
   /*
    * The AI panel opens WITH the builder, which is not the obvious default.
    *
@@ -227,6 +301,58 @@ export function FunnelPageBuilder({
   useRecordCrumb({ name: step.name, kind: "Page details" }, onBack);
 
   /*
+   * The subject, and the frame it is being judged in.
+   *
+   * Hoisted to a const on Sep 23 because it is now needed in two places: the
+   * toolbar row under `rows`, and the palette island's properties tier under
+   * `floating`. Two copies would be two page selectors that could disagree
+   * about which device is selected — and a device toggle that is wrong in one
+   * style and right in the other is the single most confusing thing this
+   * screen could put in front of a reviewer comparing them.
+   */
+  const subject = (
+  <div className="flex shrink-0 items-center gap-[8px]">
+    <button
+      type="button"
+      className="motion-tap flex h-[30px] max-w-[220px] items-center gap-[6px] rounded-[8px] bg-pg-bg px-[10px] text-[12.5px] leading-[normal] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:text-pg-heading"
+    >
+      <FileText size={14} aria-hidden="true" className="shrink-0 text-pg-faint" />
+      <span className="truncate">{step.name}</span>
+      <ChevronDown size={14} aria-hidden="true" className="shrink-0 text-pg-faint" />
+    </button>
+
+    <div
+      role="tablist"
+      aria-label="Device preview"
+      className="flex items-center gap-[2px] rounded-[9px] bg-pg-bg p-[3px] shadow-[inset_0_0_0_1px_var(--pg-border)]"
+    >
+      {DEVICES.map((d) => {
+        const on = d.id === device;
+        return (
+          <button
+            key={d.id}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            aria-label={d.label}
+            title={d.label}
+            onClick={() => setDevice(d.id)}
+            className={cn(
+              "motion-tap flex size-[24px] items-center justify-center rounded-[7px]",
+              on
+                ? "bg-pg-surface text-pg-heading shadow-[0_1px_2px_0_rgba(15,23,42,0.10)]"
+                : "text-pg-muted hover:text-pg-text",
+            )}
+          >
+            <d.icon size={14} aria-hidden="true" />
+          </button>
+        );
+      })}
+    </div>
+  </div>
+  );
+
+  /*
    * Commitment, always right, in every combination — the Sep 22 rule.
    *
    * Preview and Save are glyphs here where the AI builder gives Preview a
@@ -250,8 +376,12 @@ export function FunnelPageBuilder({
         what it sits beside is a Publish button and the two read as a
         discard/keep pair they are not. Drawn rather than suppressed because the
         axis is being judged, not defended.
+
+        Under `floating` both exits end the collaboration island instead — an
+        island has no leading edge for an arrow to claim, so the page stops
+        picking a side. See CollabIsland for what that does to the argument.
       */}
-      {builderExit === "close" ? exit : null}
+      {!floating && builderExit === "close" ? exit : null}
     </div>
   );
 
@@ -311,158 +441,142 @@ export function FunnelPageBuilder({
       style={SELECTION}
       className="flex h-full min-h-0 flex-col bg-pg-surface"
     >
-      {/* Gated on `barHidden` — what the shell actually did — never on the
-          theme flag, because nav edit mode puts the bar back and a page
-          trusting its own flag would draw a second trail under the real one. */}
-      {!barHidden ? (
-        builderRow()
-      ) : builderControls === "back-only" ? (
-        builderRow(leadingExit)
-      ) : builderControls === "split-rows" ? (
-        <>
-          <div className="flex h-[34px] shrink-0 items-center gap-[10px] border-b border-pg-border px-[14px]">
-            {leadingExit}
-            <BuilderTrail trail={trail} onLeave={onBack} />
-          </div>
-          {builderRow()}
-        </>
-      ) : (
-        builderRow(
-          <>
-            {leadingExit}
-            <BuilderTrail trail={trail} onLeave={onBack} />
-          </>,
-        )
-      )}
-
       {/*
-        The toolbar row: authoring on the left, the subject in the middle,
-        history on the right.
+        The builder's three rows — and, under `floating`, the three it no
+        longer draws.
 
-        The page selector is CENTRED rather than left-aligned with the element
-        run, which is the one piece of this layout that is worth arguing for. It
-        names the thing every other control on the row acts on, and a funnel has
-        several pages — a selector tucked at the left edge among twelve glyphs
-        would read as a thirteenth glyph, and an operator editing the wrong page
-        of a funnel is the single most expensive mistake this screen can cause.
+        This is the page where the two styles differ most, because this is the
+        page with the most of its own to give up: a commitment row, a toolbar
+        row and a live-URL strip, 122px before a single pixel of page. Under
+        `floating` all three become islands over the canvas below, and the
+        note on `builderRow` — "this builder has too many rows of its OWN, and
+        the chrome axis is being asked to absorb a problem it did not create" —
+        is the finding this style is the first answer to rather than the
+        fourth placement it warned against.
+
+        Nothing is dropped in the move. The autosave chip and the live URL go
+        to the identity island's second tier, the element run and the subject
+        to the palette, history and the undo pair to the bottom right. If a
+        reviewer can name a control that exists in one style and not the
+        other, that is a bug in this branch and not a property of the axis.
       */}
-      <div className="flex h-[44px] shrink-0 items-center gap-[10px] border-b border-pg-border px-[10px]">
-        <div className="flex shrink-0 items-center gap-[1px]">
-          {ELEMENTS.map((item) => {
-            const Icon = item.icon;
-            if (item.ai) {
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  aria-label={aiOpen ? "Hide Ask AI" : "Ask AI"}
-                  title={aiOpen ? "Hide Ask AI" : "Ask AI"}
-                  aria-pressed={aiOpen}
-                  onClick={() => setAiOpen((v) => !v)}
-                  className={cn(
-                    "motion-tap flex size-[30px] shrink-0 items-center justify-center rounded-[8px]",
-                    aiOpen
-                      ? "bg-[var(--ai-btn-from)] text-[var(--ai-btn-fg)]"
-                      : "text-pg-muted hover:bg-pg-bg hover:text-pg-heading",
-                  )}
-                >
-                  <AiSparkle
-                    box={17}
-                    glyphWidth={14}
-                    offsetX={1.4}
-                    offsetY={1.1}
-                  />
-                </button>
-              );
-            }
-            return <ToolButton key={item.id} icon={Icon} label={item.label} />;
-          })}
-        </div>
+      {floating ? null : (
+        <>
+        {/* Gated on `barHidden` — what the shell actually did — never on the
+            theme flag, because nav edit mode puts the bar back and a page
+            trusting its own flag would draw a second trail under the real one. */}
+        {!barHidden ? (
+          builderRow()
+        ) : builderControls === "back-only" ? (
+          builderRow(leadingExit)
+        ) : builderControls === "split-rows" ? (
+          <>
+            <div className="flex h-[34px] shrink-0 items-center gap-[10px] border-b border-pg-border px-[14px]">
+              {leadingExit}
+              <BuilderTrail trail={trail} onLeave={onBack} />
+            </div>
+            {builderRow()}
+          </>
+        ) : (
+          builderRow(
+            <>
+              {leadingExit}
+              <BuilderTrail trail={trail} onLeave={onBack} />
+            </>,
+          )
+        )}
 
-        <span
-          aria-hidden="true"
-          className="h-[20px] w-px shrink-0 bg-pg-border"
-        />
-        <ToolButton icon={Columns2} label="Split view" />
+        {/*
+          The toolbar row: authoring on the left, the subject in the middle,
+          history on the right.
 
-        <div className="min-w-0 flex-1" />
-
-        {/* The subject, and the frame it is being judged in. */}
-        <div className="flex shrink-0 items-center gap-[8px]">
-          <button
-            type="button"
-            className="motion-tap flex h-[30px] max-w-[220px] items-center gap-[6px] rounded-[8px] bg-pg-bg px-[10px] text-[12.5px] leading-[normal] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:text-pg-heading"
-          >
-            <FileText size={14} aria-hidden="true" className="shrink-0 text-pg-faint" />
-            <span className="truncate">{step.name}</span>
-            <ChevronDown size={14} aria-hidden="true" className="shrink-0 text-pg-faint" />
-          </button>
-
-          <div
-            role="tablist"
-            aria-label="Device preview"
-            className="flex items-center gap-[2px] rounded-[9px] bg-pg-bg p-[3px] shadow-[inset_0_0_0_1px_var(--pg-border)]"
-          >
-            {DEVICES.map((d) => {
-              const on = d.id === device;
-              return (
-                <button
-                  key={d.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={on}
-                  aria-label={d.label}
-                  title={d.label}
-                  onClick={() => setDevice(d.id)}
-                  className={cn(
-                    "motion-tap flex size-[24px] items-center justify-center rounded-[7px]",
-                    on
-                      ? "bg-pg-surface text-pg-heading shadow-[0_1px_2px_0_rgba(15,23,42,0.10)]"
-                      : "text-pg-muted hover:text-pg-text",
-                  )}
-                >
-                  <d.icon size={14} aria-hidden="true" />
-                </button>
-              );
+          The page selector is CENTRED rather than left-aligned with the element
+          run, which is the one piece of this layout that is worth arguing for. It
+          names the thing every other control on the row acts on, and a funnel has
+          several pages — a selector tucked at the left edge among twelve glyphs
+          would read as a thirteenth glyph, and an operator editing the wrong page
+          of a funnel is the single most expensive mistake this screen can cause.
+        */}
+        <div className="flex h-[44px] shrink-0 items-center gap-[10px] border-b border-pg-border px-[10px]">
+          <div className="flex shrink-0 items-center gap-[1px]">
+            {ELEMENTS.map((item) => {
+              const Icon = item.icon;
+              if (item.ai) {
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    aria-label={aiOpen ? "Hide Ask AI" : "Ask AI"}
+                    title={aiOpen ? "Hide Ask AI" : "Ask AI"}
+                    aria-pressed={aiOpen}
+                    onClick={() => setAiOpen((v) => !v)}
+                    className={cn(
+                      "motion-tap flex size-[30px] shrink-0 items-center justify-center rounded-[8px]",
+                      aiOpen
+                        ? "bg-[var(--ai-btn-from)] text-[var(--ai-btn-fg)]"
+                        : "text-pg-muted hover:bg-pg-bg hover:text-pg-heading",
+                    )}
+                  >
+                    <AiSparkle
+                      box={17}
+                      glyphWidth={14}
+                      offsetX={1.4}
+                      offsetY={1.1}
+                    />
+                  </button>
+                );
+              }
+              return <ToolButton key={item.id} icon={Icon} label={item.label} />;
             })}
           </div>
+
+          <span
+            aria-hidden="true"
+            className="h-[20px] w-px shrink-0 bg-pg-border"
+          />
+          <ToolButton icon={Columns2} label="Split view" />
+
+          <div className="min-w-0 flex-1" />
+
+          {subject}
+
+          <div className="min-w-0 flex-1" />
+
+          <div className="flex shrink-0 items-center gap-[1px]">
+            <ToolButton icon={Keyboard} label="Keyboard shortcuts" />
+            <ToolButton icon={History} label="Version history" />
+            <span aria-hidden="true" className="mx-[4px] h-[20px] w-px bg-pg-border" />
+            <ToolButton icon={Undo2} label="Undo" />
+            <ToolButton icon={Redo2} label="Redo" />
+          </div>
         </div>
 
-        <div className="min-w-0 flex-1" />
+        {/*
+          The live URL strip.
 
-        <div className="flex shrink-0 items-center gap-[1px]">
-          <ToolButton icon={Keyboard} label="Keyboard shortcuts" />
-          <ToolButton icon={History} label="Version history" />
-          <span aria-hidden="true" className="mx-[4px] h-[20px] w-px bg-pg-border" />
-          <ToolButton icon={Undo2} label="Undo" />
-          <ToolButton icon={Redo2} label="Redo" />
+          Its own band rather than a line inside the toolbar, because it is the
+          only thing on screen that describes the PUBLISHED page rather than the
+          draft in the canvas — the dot and the Live pill are saying "what is out
+          there right now", which is exactly the fact a Publish button makes
+          dangerous to guess at. Full URL, untruncated, for the reason
+          funnel-detail gives: this is the line an operator copies into an ad.
+        */}
+        <div className="flex h-[32px] shrink-0 items-center gap-[8px] border-b border-pg-border bg-pg-bg px-[14px]">
+          <span
+            aria-hidden="true"
+            className="size-[6px] shrink-0 rounded-full bg-[var(--pb-select)]"
+          />
+          <span className="truncate text-[12px] leading-[normal] text-pg-muted">
+            {step.url}
+          </span>
+          <span className="flex h-[19px] shrink-0 items-center gap-[4px] rounded-full bg-pg-surface px-[8px] text-[11px] leading-[normal] font-semibold text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)]">
+            Live
+          </span>
+          <div className="min-w-0 flex-1" />
+          <ToolButton icon={QrCode} label="QR code for this page" />
         </div>
-      </div>
-
-      {/*
-        The live URL strip.
-
-        Its own band rather than a line inside the toolbar, because it is the
-        only thing on screen that describes the PUBLISHED page rather than the
-        draft in the canvas — the dot and the Live pill are saying "what is out
-        there right now", which is exactly the fact a Publish button makes
-        dangerous to guess at. Full URL, untruncated, for the reason
-        funnel-detail gives: this is the line an operator copies into an ad.
-      */}
-      <div className="flex h-[32px] shrink-0 items-center gap-[8px] border-b border-pg-border bg-pg-bg px-[14px]">
-        <span
-          aria-hidden="true"
-          className="size-[6px] shrink-0 rounded-full bg-[var(--pb-select)]"
-        />
-        <span className="truncate text-[12px] leading-[normal] text-pg-muted">
-          {step.url}
-        </span>
-        <span className="flex h-[19px] shrink-0 items-center gap-[4px] rounded-full bg-pg-surface px-[8px] text-[11px] leading-[normal] font-semibold text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)]">
-          Live
-        </span>
-        <div className="min-w-0 flex-1" />
-        <ToolButton icon={QrCode} label="QR code for this page" />
-      </div>
+        </>
+      )}
 
       <div className="flex min-h-0 flex-1">
         {aiOpen ? (
@@ -579,7 +693,17 @@ export function FunnelPageBuilder({
           reviewer comparing the two screenshots would see the same picture
           twice and conclude the page builder was never built.
         */}
-        <div className="relative min-h-0 min-w-0 flex-1 overflow-y-auto bg-pg-bg">
+        <div className="relative min-h-0 min-w-0 flex-1 bg-pg-bg">
+          {/*
+            The scroller is its own element as of Sep 23.
+
+            It has to be: the islands are positioned against the canvas box,
+            and a box that scrolls its own children would carry them up out of
+            the window with the page. One element owns the overflow, its parent
+            owns the coordinate space, and the islands stay put while the page
+            under them moves — which is the entire behaviour being reviewed.
+          */}
+          <div className="h-full overflow-y-auto">
           {/*
             No floating "reopen" button over the canvas, deliberately.
 
@@ -592,7 +716,20 @@ export function FunnelPageBuilder({
           */}
           <div
             style={frame ? { width: frame + 48 } : undefined}
-            className="mx-auto w-full max-w-full px-[24px] pt-[36px] pb-[24px]"
+            className={cn(
+              "mx-auto w-full max-w-full px-[24px] pb-[24px]",
+              /*
+                The page opens BELOW the identity island rather than under it.
+                A canvas can be panned out from under an island and this one
+                can be scrolled out from under it, so nothing is unreachable
+                either way — but the first thing an operator sees on opening
+                the editor should not be a shadow across the section label they
+                are about to click. The extra 56px is the island's height plus
+                its gap, and it is paid once at the top rather than on every
+                row the way the three bands it replaced were.
+              */
+              floating ? "pt-[116px]" : "pt-[36px]",
+            )}
           >
             {/*
               The selected section, drawn as a wrapper around the existing
@@ -631,6 +768,148 @@ export function FunnelPageBuilder({
               <FunnelAiPreview />
             </div>
           </div>
+          </div>
+
+          {/*
+            All five islands — the only builder here that earns the full set.
+
+            It has a canvas to zoom, a frame percentage that is genuinely
+            COMPUTED rather than a decorative 100%, twelve element tools with a
+            selection to act on, and an undo pair. The zoom island's figure is
+            `fit` — the same number the status strip reports — so the two can
+            never disagree about what the mobile frame is showing.
+          */}
+          {floating ? (
+            <FloatingLayer
+              topLeft={
+                <IdentityIsland
+                  icon={FileText}
+                  name={step.name}
+                  trail={trail}
+                  onLeave={onBack}
+                  exit={exit}
+                >
+                  {/*
+                    The second tier carries what the three rows carried on the
+                    "what is true about this page" side: autosave, and the live
+                    URL. The URL is the one line an operator reads to check
+                    they are editing the page they think they are, and a style
+                    that won its screenshot by deleting it would be winning on
+                    a technicality. Untruncated for the reason funnel-detail
+                    gives — this is the line that gets copied into an ad.
+                  */}
+                  <div className="flex min-w-0 items-center gap-[8px] pt-[3px] pl-[33px]">
+                    {autosave}
+                    <span
+                      aria-hidden="true"
+                      className="size-[6px] shrink-0 rounded-full bg-[var(--pb-select)]"
+                    />
+                    <span className="truncate text-[12px] leading-[normal] text-pg-muted">
+                      {step.url}
+                    </span>
+                    <IslandGlyph icon={QrCode} label="QR code for this page" />
+                  </div>
+                </IdentityIsland>
+              }
+              /*
+                The subject, top centre, and NOT in the palette any more.
+
+                It used to be the palette's properties tier, which put "which
+                page am I on, at which device width" inside a control whose
+                whole job is arming the next click — two tenses in one island,
+                stacked, which is the two-tier arrangement the Sep 23 review
+                threw out. It is also the half that must never disappear: with
+                the palette off, a device toggle that lives inside the palette
+                is a device toggle that does not exist. Top centre it is
+                unconditional, and it is where AI Studio already puts the same
+                kind of statement about what is being looked at.
+              */
+              topCentre={
+                <Island className="py-[5px]">
+                  {subject}
+                  <IslandRule />
+                  <IslandGlyph icon={Columns2} label="Split view" />
+                </Island>
+              }
+              topRight={<CollabIsland commit={commitActions} />}
+              bottomLeft={<ZoomIsland percent={fit * 100} />}
+              bottomCentre={
+                palette ? (
+                  <ToolPalette
+                    groups={ELEMENT_GROUPS}
+                    /*
+                      Ask AI is a TOGGLE living among eleven one-shot tools, and
+                      it keeps that difference here: picking it opens or closes
+                      the panel and picking anything else arms an element. The
+                      palette shows whichever of the two is currently on, which
+                      is the same `aria-pressed` the toolbar row's sparkle had —
+                      one boolean, one affordance, as the canvas note below the
+                      old row insisted.
+                    */
+                    active={aiOpen ? "ai" : element}
+                    onPick={(id) =>
+                      id === "ai" ? setAiOpen((v) => !v) : setElement(id)
+                    }
+                  />
+                ) : null
+              }
+              bottomRight={
+                <Island className="py-[5px]">
+                  {/*
+                    The two controls the palette was the only home for, given
+                    one of their own when there is no palette.
+
+                    Add element, because an editor you cannot put an element
+                    into is a viewer. Ask AI, because the panel's ONLY toggle
+                    was the toolbar sparkle under `rows` and the palette's `ai`
+                    tool under `floating` — with neither on screen, closing the
+                    panel would close it permanently, which is the exact trap
+                    the note above the canvas warns about when it explains why
+                    there is no second "reopen" affordance. One boolean, one
+                    affordance, still: this glyph and the palette's `ai` tool
+                    are never both on screen.
+                  */}
+                  {palette ? null : (
+                    <>
+                      <button
+                        type="button"
+                        className="motion-tap flex h-[28px] shrink-0 items-center gap-[5px] rounded-[8px] bg-brand px-[10px] text-[12.5px] leading-[normal] font-medium text-brand-fg hover:brightness-[1.06] active:scale-[0.97]"
+                      >
+                        <Plus size={14} aria-hidden="true" />
+                        Add element
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={aiOpen ? "Hide Ask AI" : "Ask AI"}
+                        title={aiOpen ? "Hide Ask AI" : "Ask AI"}
+                        aria-pressed={aiOpen}
+                        onClick={() => setAiOpen((v) => !v)}
+                        className={cn(
+                          "motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[8px] active:scale-95",
+                          aiOpen
+                            ? "bg-[var(--ai-btn-from)] text-[var(--ai-btn-fg)]"
+                            : "text-pg-muted hover:bg-pg-bg hover:text-pg-heading",
+                        )}
+                      >
+                        <AiSparkle
+                          box={16}
+                          glyphWidth={13}
+                          offsetX={1.3}
+                          offsetY={1}
+                        />
+                      </button>
+                      <IslandRule />
+                    </>
+                  )}
+                  <IslandGlyph icon={Keyboard} label="Keyboard shortcuts" />
+                  <IslandGlyph icon={History} label="Version history" />
+                  <IslandRule />
+                  <IslandGlyph icon={Undo2} label="Undo" />
+                  <IslandGlyph icon={Redo2} label="Redo" />
+                </Island>
+              }
+            />
+          ) : null}
         </div>
       </div>
 

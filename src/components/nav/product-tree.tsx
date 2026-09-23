@@ -404,6 +404,30 @@ export function ProductTreeBranch({
   markFor: (isHere: boolean, isTrail: boolean) => Marking;
 }) {
   const here = useHere();
+  /*
+   * What the tree draws beside its rows, read here rather than threaded down.
+   *
+   * This component recurses, so a prop would have to be passed at every level
+   * for a value that is the same at all of them — and the axis is read from
+   * context anyway, which is where `markFor`'s own hook reads from. Nothing
+   * below runs with `navProductTree` off: `left-nav.tsx` never renders this.
+   */
+  const { treeIcons } = useTheme().effective;
+  /*
+   * L3 is `depth` 2 here, not 3.
+   *
+   * The axis counts the nav's levels — group, product, page — and this prop
+   * counts INDENT steps from the group row, which is itself level one at depth
+   * zero. So the products are depth 1 and the pages the axis calls L3 are
+   * depth 2, with anything deeper (a page's own page) hidden alongside them:
+   * "hide the pictures below the product" is the decision, and an L4 wearing a
+   * glyph its parent gave up would be the exception that makes the column look
+   * like a mistake.
+   */
+  const glyphless =
+    treeIcons === "none" ||
+    treeIcons === "rails" ||
+    (treeIcons === "hide-l3" && depth >= 2);
   return (
     <>
       {nodes.map((node) => {
@@ -440,6 +464,36 @@ export function ProductTreeBranch({
            */
           pinSlot: isPinnable(node.id),
           ...(hasKids ? { expandable: true, expanded: open } : {}),
+          /*
+           * The glyph goes, and its column with it. See `NavItem.iconHidden` —
+           * `icon` is left set on purpose, so the only difference between this
+           * row and the same row under `treeIcons: "all"` is whether the
+           * picture is drawn, not what the row is made of. The label closes the
+           * 26px the glyph was using; the indent, and so the level, stays.
+           */
+          ...(glyphless ? { iconHidden: true } : {}),
+          /*
+           * With no glyphs anywhere, the indent stops paying for them.
+           *
+           * `hide-l3` is deliberately not in this condition though it is in
+           * `glyphless`: its L1 and L2 keep their pictures, so its pages still
+           * indent past a real one. See `NavItem.tightIndent`.
+           */
+          ...(treeIcons === "none" || treeIcons === "rails"
+            ? { tightIndent: true }
+            : {}),
+          /*
+           * One rail per level above this row, which is exactly its depth.
+           *
+           * A count rather than a description of the ancestors, because the
+           * emphasis is not about WHICH branch — see `NavItem.rails`. The
+           * accordion opens one node per level and auto-opens the one you are
+           * standing in, so "the rail of the branch you are in" and "the rail
+           * that is drawn at all" are the same line in every reachable state,
+           * and colouring by it would have been a distinction nobody could
+           * ever see.
+           */
+          ...(treeIcons === "rails" ? { rails: depth } : {}),
         };
         return (
           <React.Fragment key={`${depth}-${node.id}`}>

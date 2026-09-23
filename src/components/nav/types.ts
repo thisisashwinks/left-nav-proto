@@ -63,6 +63,67 @@ export interface NavItem {
    * same arrangement `flyout-row.tsx` makes, for the same reason.
    */
   pinSlot?: boolean;
+  /**
+   * Draw no glyph, and hold no column open for one.
+   *
+   * The product tree's `treeIcons` axis (Sep 23) asks what a three-level tree
+   * should put beside its rows, and three of its four answers take the glyph
+   * away from some or all of them.
+   *
+   * The first build of this flag emptied the column but kept it in flow, on the
+   * argument that the indent is measured in icon-plus-gap steps and a level has
+   * to read as a column. On the screen that was 26px of blank gutter beside
+   * every glyphless name — the widest thing in a 272px nav that says nothing —
+   * so the slot now goes with the glyph. The indent itself is untouched, being
+   * padding on the row (the `pl-`/`ml-` literals in nav-item-row.tsx) rather
+   * than anything to do with what stands in the row: a glyphless child's label
+   * simply lands on its parent's instead of a step right of it, and the levels
+   * still read as columns because every row at a level drops the slot together.
+   *
+   * The rails are absolutely positioned off the same steps, so they do not move
+   * either. Nor do the pin slot, the count, the caret or the row's height.
+   *
+   * Absent everywhere outside the tree, so every row that shipped before the
+   * axis draws exactly as it did.
+   */
+  iconHidden?: boolean;
+  /**
+   * Indent this row by 16px per level instead of a glyph plus a gap.
+   *
+   * The 26px step is the width of the thing a level indents PAST: its parent's
+   * glyph and the gap after it, which is what makes a child's label land on its
+   * parent's. Take every glyph away — `treeIcons: "none"` and `"rails"` — and
+   * the step is still paying for a column nothing is standing in, so three
+   * levels of names start 78px into a 272px nav with nothing between them and
+   * the edge. This is that step with the glyph's share removed.
+   *
+   * Not set for `hide-l3`, where the glyphs above L3 are still there: the pages
+   * indent past a real glyph, and a tighter step would put their labels left of
+   * the product's own.
+   *
+   * `rails` draws its guides off the same number — see `RowRails`, which is
+   * only ever rendered on rows that carry this flag.
+   */
+  tightIndent?: boolean;
+  /**
+   * How many hairline depth guides stand to the left of this row — one per
+   * ancestor level, which is the row's own depth.
+   *
+   * `treeIcons: "rails"` replaces the glyphs with what a file tree uses: a
+   * vertical rule in each ancestor's glyph column, so depth is said by
+   * position rather than by a column of pictures competing with the names.
+   * Drawn per row and abutting, so a run of rows reads as one continuous line
+   * — see `RowRails`, which is also where the innermost rail gets its extra
+   * step of ink.
+   *
+   * A count rather than a description of which ancestors are on the current
+   * path. The path version was built first and shown to be unobservable: the
+   * tree's accordion opens one node per level and auto-opens the branch you
+   * are standing in, so the open chain and the current path are the same chain
+   * in every state a reader can reach, and every rail would have been the
+   * "current" one. Absent unless the axis is on rails.
+   */
+  rails?: number;
   density?: NavItemDensity;
 }
 

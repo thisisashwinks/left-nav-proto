@@ -25,6 +25,15 @@ import {
 } from "lucide-react";
 import { AiSparkle } from "@/components/icons/ai-sparkle";
 import { PrimaryButton } from "@/components/page/page-header";
+import {
+  CollabIsland,
+  FloatingLayer,
+  IdentityIsland,
+  Island,
+  IslandGlyph,
+  IslandRule,
+} from "@/components/shell/floating-chrome";
+import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { BUILDER_TURN, type StudioProject } from "./ai-studio-data";
 import { AiStudioPreview } from "./ai-studio-preview";
@@ -69,6 +78,18 @@ export function AiStudioBuilder({
   /** The exit the shell built. Null only if the shell refused the takeover. */
   exit: React.ReactNode | null;
 }) {
+  /*
+   * The one ThemeState field this screen reads, and the reason it is not two.
+   *
+   * `builderKeepSidebar` and `builderKeepTopBar` are deliberately NOT wired
+   * here — see ai-studio-page, which explains that the takeover is a fixed
+   * data point rather than a variant under test. The chrome STYLE is a
+   * different question: it is about how this screen draws the controls it
+   * already owns, not about how much of the platform survives, and a
+   * counter-example that could not be shown in both styles would be arguing
+   * against `rows` rather than against the takeover.
+   */
+  const floating = useTheme().effective.builderChromeStyle === "floating";
   const [view, setView] = React.useState<string>("preview");
   /*
    * The split, in pixels rather than a percentage.
@@ -110,88 +131,109 @@ export function AiStudioBuilder({
     };
   }, [dragging]);
 
+  /*
+   * The view switch and the path field, hoisted out of the row on Sep 23.
+   *
+   * Both are needed twice now — in the row under `rows`, and in an island
+   * under `floating` — and a second copy of either would be a second piece of
+   * state's worth of chances to disagree: two tablists both claiming to say
+   * which view is selected is exactly the failure the "one boolean, one
+   * affordance" note elsewhere in this prototype keeps catching.
+   */
+  const viewSwitch = (
+    <div
+      role="tablist"
+      aria-label="Project view"
+      className="flex shrink-0 items-center gap-[2px] rounded-[9px] bg-pg p-[3px] shadow-[inset_0_0_0_1px_var(--pg-border)]"
+    >
+      {VIEWS.map((v) => {
+        const on = v.id === view;
+        const Icon = v.icon;
+        return (
+          <button
+            key={v.id}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            aria-label={v.label}
+            title={v.label}
+            onClick={() => setView(v.id)}
+            className={cn(
+              "motion-tap flex h-[24px] items-center gap-[5px] rounded-[7px] px-[8px] text-[12.5px] leading-[normal]",
+              on
+                ? "bg-pg-surface font-semibold text-pg-heading shadow-[0_1px_2px_0_rgba(15,23,42,0.10)]"
+                : "font-medium text-pg-muted hover:text-pg-text",
+            )}
+          >
+            <Icon size={14} aria-hidden="true" />
+            {/* Only the selected view says its name. Three labels made the
+                cluster wider than the path field it sits beside, and the two
+                unselected ones are a choice, not a status. */}
+            {on ? v.label : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const pathField = (
+    <div className="flex h-[30px] items-center gap-[4px] rounded-[9px] bg-pg px-[6px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
+      <Monitor size={14} aria-hidden="true" className="shrink-0 text-pg-muted" />
+      <ChevronDown size={12} aria-hidden="true" className="shrink-0 text-pg-faint" />
+      <span className="mx-[4px] w-[132px] truncate text-[12.5px] leading-[normal] text-pg-text">
+        /
+      </span>
+      <GlyphButton icon={ExternalLink} label="Open in a new tab" small />
+      <GlyphButton icon={RotateCw} label="Refresh preview" small />
+    </div>
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-pg-surface">
-      {/*
-        The builder's row, and the only row there is.
+      {floating ? null : (
+        <>
+        {/*
+          The builder's row — under `rows`, the only row there is.
 
-        Three tracks rather than a flex line with spacers: the path field is
-        centred on the WINDOW, which is what makes it read as the address of
-        the thing on the right rather than as one more control belonging to the
-        cluster at the left. Spacers would centre it between its neighbours
-        instead, and it would drift every time a label changed.
-      */}
-      <div className="grid h-[48px] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-[12px] border-b border-pg-head-border px-[12px]">
-        <div className="flex min-w-0 items-center gap-[8px]">
-          {exit}
-          <button
-            type="button"
-            className="motion-tap flex h-[30px] min-w-0 items-center gap-[6px] rounded-[8px] px-[8px] text-[13px] leading-[normal] font-semibold text-pg-heading hover:bg-pg"
-          >
-            <span className="truncate">{project.name}</span>
-            <ChevronDown size={13} aria-hidden="true" className="shrink-0 text-pg-faint" />
-          </button>
-          <GlyphButton icon={History} label="Version history" />
-          <GlyphButton icon={PanelRight} label="Toggle panel" />
+          Three tracks rather than a flex line with spacers: the path field is
+          centred on the WINDOW, which is what makes it read as the address of
+          the thing on the right rather than as one more control belonging to the
+          cluster at the left. Spacers would centre it between its neighbours
+          instead, and it would drift every time a label changed.
+        */}
+        <div className="grid h-[48px] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-[12px] border-b border-pg-head-border px-[12px]">
+          <div className="flex min-w-0 items-center gap-[8px]">
+            {exit}
+            <button
+              type="button"
+              className="motion-tap flex h-[30px] min-w-0 items-center gap-[6px] rounded-[8px] px-[8px] text-[13px] leading-[normal] font-semibold text-pg-heading hover:bg-pg"
+            >
+              <span className="truncate">{project.name}</span>
+              <ChevronDown size={13} aria-hidden="true" className="shrink-0 text-pg-faint" />
+            </button>
+            <GlyphButton icon={History} label="Version history" />
+            <GlyphButton icon={PanelRight} label="Toggle panel" />
 
-          <span aria-hidden="true" className="mx-[2px] h-[18px] w-px bg-pg-border" />
+            <span aria-hidden="true" className="mx-[2px] h-[18px] w-px bg-pg-border" />
 
-          {/*
-            Preview / code / components as a segmented group rather than three
-            loose glyphs: they are one choice with three answers, and three
-            separate toggles would let a reader believe two could be on.
-          */}
-          <div
-            role="tablist"
-            aria-label="Project view"
-            className="flex shrink-0 items-center gap-[2px] rounded-[9px] bg-pg p-[3px] shadow-[inset_0_0_0_1px_var(--pg-border)]"
-          >
-            {VIEWS.map((v) => {
-              const on = v.id === view;
-              const Icon = v.icon;
-              return (
-                <button
-                  key={v.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={on}
-                  aria-label={v.label}
-                  title={v.label}
-                  onClick={() => setView(v.id)}
-                  className={cn(
-                    "motion-tap flex h-[24px] items-center gap-[5px] rounded-[7px] px-[8px] text-[12.5px] leading-[normal]",
-                    on
-                      ? "bg-pg-surface font-semibold text-pg-heading shadow-[0_1px_2px_0_rgba(15,23,42,0.10)]"
-                      : "font-medium text-pg-muted hover:text-pg-text",
-                  )}
-                >
-                  <Icon size={14} aria-hidden="true" />
-                  {/* Only the selected view says its name. Three labels made
-                      the cluster wider than the path field it sits beside, and
-                      the two unselected ones are a choice, not a status. */}
-                  {on ? v.label : null}
-                </button>
-              );
-            })}
+            {/*
+              Preview / code / components as a segmented group rather than three
+              loose glyphs: they are one choice with three answers, and three
+              separate toggles would let a reader believe two could be on.
+            */}
+            {viewSwitch}
+          </div>
+
+          {pathField}
+
+          <div className="flex items-center justify-end">
+            <PrimaryButton className="h-[30px] px-[14px] text-[12.5px]">
+              Publish
+            </PrimaryButton>
           </div>
         </div>
-
-        <div className="flex h-[30px] items-center gap-[4px] rounded-[9px] bg-pg px-[6px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
-          <Monitor size={14} aria-hidden="true" className="shrink-0 text-pg-muted" />
-          <ChevronDown size={12} aria-hidden="true" className="shrink-0 text-pg-faint" />
-          <span className="mx-[4px] w-[132px] truncate text-[12.5px] leading-[normal] text-pg-text">
-            /
-          </span>
-          <GlyphButton icon={ExternalLink} label="Open in a new tab" small />
-          <GlyphButton icon={RotateCw} label="Refresh preview" small />
-        </div>
-
-        <div className="flex items-center justify-end">
-          <PrimaryButton className="h-[30px] px-[14px] text-[12.5px]">
-            Publish
-          </PrimaryButton>
-        </div>
-      </div>
+        </>
+      )}
 
       {/*
         `select-none` only WHILE dragging. A pointer crossing the preview with
@@ -378,8 +420,94 @@ export function AiStudioBuilder({
           app reads as a document on a workbench, which is the same
           relationship the shell's canvas has to the plane behind it.
         */}
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-pg p-[28px]">
-          <AiStudioPreview />
+        <div className="relative min-h-0 min-w-0 flex-1 bg-pg">
+          {/* The scroller is separate so the islands, which are positioned
+              against the box, do not ride up out of the window with the page
+              they are floating over. */}
+          <div
+            className={cn(
+              "h-full overflow-y-auto px-[28px] pb-[28px]",
+              floating ? "pt-[76px]" : "pt-[28px]",
+            )}
+          >
+            <AiStudioPreview />
+          </div>
+
+          {/*
+            Four islands, over the ARTIFACT rather than over the window.
+            Anchoring them to the whole screen would put the identity island on
+            top of a transcript, and a transcript scrolls rather than pans —
+            content you cannot move out from under an island is content the
+            island has taken.
+
+            No zoom, no undo pair, and — the Sep 23 answer to the axis — no
+            tool palette even when the reviewer turns one on. This builder has
+            none of the three: the preview is an iframe at whatever size the
+            splitter left it, Undo lives under the turn that caused the change
+            (which is where this product puts it, and which the note beside it
+            already argues about), and the project is CHANGED by asking for a
+            change in the transcript rather than by holding a tool over a
+            surface. `builderToolPalette` is therefore not read on this page at
+            all. Inventing any of the three to win a symmetrical set of six
+            corners would be the style inventing controls for the page — which
+            is exactly the mistake the workflow canvas's pen and "Font" were.
+          */}
+          {floating ? (
+            <FloatingLayer
+              topLeft={
+                <IdentityIsland
+                  icon={LayoutGrid}
+                  name={project.name}
+                  /*
+                    Empty, and not a bug. This screen takes the whole shell,
+                    so there is no bar's trail coming down to it — the only
+                    path it could draw is one it invented, and `ai-studio-page`
+                    is explicit that the level above AI Studio is a platform
+                    this screen never names. The island shows the project and
+                    the way out, which is all it can honestly say.
+                  */
+                  trail={[]}
+                  onLeave={() => undefined}
+                  exit={exit}
+                  trailing={
+                    <>
+                      <IslandRule />
+                      <IslandGlyph icon={History} label="Version history" />
+                      <IslandGlyph icon={PanelRight} label="Toggle panel" />
+                    </>
+                  }
+                />
+              }
+              /*
+                Path and view in ONE island, as of Sep 23.
+
+                The view switch was a bottom-centre island of its own, which
+                put it in the slot the tool palette uses on every other builder
+                — so it read as this screen's palette, and this screen has no
+                tools. It is not a palette: preview, code and components are
+                three ways to LOOK at the project, which is the same tense as
+                the path field beside it. One island, one statement about what
+                is being looked at and how, and the bottom of the canvas left
+                to the canvas.
+              */
+              topCentre={
+                <Island className="py-[5px]">
+                  {pathField}
+                  <IslandRule />
+                  {viewSwitch}
+                </Island>
+              }
+              topRight={
+                <CollabIsland
+                  commit={
+                    <PrimaryButton className="h-[30px] px-[14px] text-[12.5px]">
+                      Publish
+                    </PrimaryButton>
+                  }
+                />
+              }
+            />
+          ) : null}
         </div>
       </div>
     </div>

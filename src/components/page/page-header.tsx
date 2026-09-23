@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePageHeading } from "@/components/page/page-heading";
 import { EllipsisVertical, type LucideIcon } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
@@ -188,6 +189,29 @@ export interface PageHeaderProps {
    * one row doing two jobs, not a header with a toolbar bolted to it.
    */
   lead?: React.ReactNode;
+  /**
+   * Who decides whether this header draws at all.
+   *
+   * "axis" — the default, and what every collection page uses: the theme's
+   * page-header knobs decide, so a titleless app is titleless everywhere.
+   *
+   * "own" — the page already asked the question itself and got an answer, so
+   * the global axis must not veto it. Exactly one page needs this and the
+   * reason is worth writing down: a record's header is switched by its own
+   * variant (D-A), but picking ANY variant whose chrome is `noHeader` writes
+   * `pageHeader: false` across the whole theme (see setHeaderVariant) — and
+   * both the other record shapes and one of the LIST shapes are among them. So
+   * the record's own answer was being silently overruled by a picker sitting a
+   * few rows away in the same panel: you turned the header on, nothing
+   * happened, and nothing in the UI said why. Ashwin hit that on Sep 23, when
+   * the switch was still the `recordPageHeader` checkbox.
+   *
+   * The fix is not to stop the variant writing the knobs — that coupling is
+   * what keeps the picker and the knobs from disagreeing — but to let a page
+   * that owns a dedicated switch say so. "own" is therefore narrow on purpose:
+   * it means "my switch IS the answer", not "ignore the theme".
+   */
+  chrome?: "axis" | "own";
 }
 
 /**
@@ -240,6 +264,7 @@ export function PageHeader({
   overflow = [],
   aside,
   lead,
+  chrome: chromeMode = "axis",
 }: PageHeaderProps) {
   /*
    * The overflow ladder, borrowed from Cloudscape.
@@ -265,12 +290,67 @@ export function PageHeader({
    * the theme, every header reads it, and what survives without the title is
    * the part the trail cannot say: the count, the status and the actions.
    */
-  const chrome = usePageChrome();
+  const axis = usePageChrome();
+  const { effective } = useTheme();
+  /*
+   * The heading goes UP instead of being drawn here.
+   *
+   * Both halves of the condition matter. `barPageHeading` is the ask; the
+   * `!crumbShown` half is what keeps the bar honest — with a trail standing,
+   * a title beside it is the duplicate the whole Sep 22 research was about,
+   * and the one arrangement nobody argued for. So the move is only available
+   * in the state that created room for it, and flipping the trail back on
+   * hands the heading back to the page rather than stacking the two.
+   *
+   * Published unconditionally rather than only when the move is on, so the
+   * bar has the heading the instant someone flips the switch. A publish is
+   * three strings into a context; gating it would trade nothing for a frame
+   * of empty bar on every toggle.
+   */
+  const headingInBar = !effective.crumbShown && effective.barPageHeading;
+  usePageHeading(
+    chromeMode === "own" || !axis.header
+      ? null
+      : { title, count, description },
+  );
+  // A page that owns its own switch has already answered all four questions by
+  // deciding to render at all, and by which props it passed: an empty `title`
+  // means no title, an absent `description` means no description. Consulting
+  // the axis on top of that would be asking twice and taking the stricter
+  // answer, which is precisely the bug this mode exists to fix.
+  /*
+   * The lift folds into `chrome` rather than into the JSX.
+   *
+   * The first cut tested `!liftHeading` beside the title and left the count
+   * and the description on their own `chrome.*` flags, so the bar drew the
+   * whole heading while the page went on drawing the count pill and the
+   * sentence under it — the exact duplication the move exists to remove, and
+   * caught only because it was on screen. Three strings, one decision: every
+   * part of the heading leaves together or none does.
+   */
+  const liftHeading = headingInBar && chromeMode !== "own";
+  const chrome =
+    chromeMode === "own"
+      ? { header: true, title: title !== "", description: true, count: true }
+      : liftHeading
+        ? { ...axis, title: false, description: false, count: false }
+        : axis;
+  /*
+   * `liftHeading` is computed below the early return, so the flag the render
+   * reads is folded in here rather than being a second condition sprinkled
+   * through the JSX: one name, one place it can be wrong.
+   */
   const showTitle = chrome.title;
 
   // Nothing at all: the trail names the page and the control bar does the
   // work. The actions go with it, which is the point of the setting.
+  //
+  // Note this is NOT the lifted case: a heading that moved into the bar leaves
+  // the row standing, because the actions are the page's rather than the
+  // heading's and a page that lost its primary button because its title moved
+  // would be a different, worse option than the one asked for.
   if (!chrome.header) return null;
+
 
   return (
     <div
@@ -280,7 +360,14 @@ export function PageHeader({
         // edge — they are the page's actions either way, and moving them
         // would make the two settings read as two different headers.
         "flex shrink-0 justify-between gap-[16px]",
-        showTitle ? "items-start" : "h-[34px] items-center",
+        // min-h rather than h on the titleless branch: 34px is the floor the
+        // actions need, not a ceiling the row must hold to. Opportunities puts
+        // its own heading inside `lead` (its title has to stand LEFT of the
+        // pipeline picker, and `lead` renders before the h1), so on that page
+        // the titleless row carries two lines and a fixed 34px clipped the
+        // description. Every existing titleless row is under 34px and is
+        // unmoved by this.
+        showTitle ? "items-start" : "min-h-[34px] items-center",
       )}
     >
       <div
