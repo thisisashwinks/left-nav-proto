@@ -44,6 +44,8 @@ import { ProspectingPage } from "@/components/prospecting/prospecting-page";
 import { AiStudioPage } from "@/components/ai/ai-studio-page";
 import { VoiceAiPage } from "@/components/ai/voice-ai-page";
 import { CalendarsPage } from "@/components/calendars/calendars-page";
+import { MediaStoragePage } from "@/components/media/media-storage-page";
+import { MarketplaceAppsPage } from "@/components/integrations/marketplace-page";
 
 /**
  * The products that have a real page behind them, in both catalogues.
@@ -115,6 +117,44 @@ const REAL_PAGES: {
     products: ["ia-ai-templates"],
     children: [],
     render: () => <AgentTemplatesPage />,
+  },
+  {
+    /*
+     * CRM ▸ Media Storage. Proposed tree only — the shipped catalogue has no
+     * account-wide media row at all (its only "Media" is the affiliate
+     * manager's, a different collection entirely), so there is nothing to pair.
+     */
+    products: ["ia-crm-media"],
+    children: [],
+    render: () => <MediaStoragePage />,
+  },
+  {
+    /*
+     * Integrations ▸ Marketplace Apps. Proposed tree only — the shipped
+     * catalogue has no marketplace row at all (its only "marketplace" is a
+     * note about where Agent Templates were routed), so there is nothing to
+     * pair. Same split, and the same reason, as Media Storage above.
+     *
+     * `children: []` for the reason Prospecting spells out: the IA marks this
+     * product `tabs: true`, so resolveTarget truncates at it and the two rows
+     * arrive as `initialTab` with `childId` null — which the `childId ===
+     * null` clause in realPageFor matches. Listing the two ids under
+     * `children` would have looked more careful and done nothing.
+     *
+     * `views` maps the two nav rows onto the page's own tab keys, and it is
+     * the whole reason the Settings row is clickable: without it, choosing
+     * Settings in the nav would open the app grid under a Settings crumb —
+     * the dead-end the Calendars settings bug was. There is no third entry
+     * because there is no third row: Installed is a FILTER on Browse, which
+     * is the review decision recorded beside this product in proposed-ia.ts.
+     */
+    products: ["ia-integrations-marketplace"],
+    children: [],
+    views: {
+      "ia-integrations-marketplace-browse": "browse",
+      "ia-integrations-marketplace-settings": "settings",
+    },
+    render: (view) => <MarketplaceAppsPage initialTab={view} />,
   },
   {
     products: ["ai-studio", "ia-ai-studio"],

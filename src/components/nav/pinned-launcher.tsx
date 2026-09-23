@@ -88,6 +88,7 @@ export function PinnedLauncher({
   variant = "merged",
   onPointerEnter,
   onPointerLeave,
+  onNavigate,
   onClose,
 }: {
   offsetLeft: number;
@@ -120,6 +121,18 @@ export function PinnedLauncher({
   /** Keeps the panel alive while the pointer is inside it. */
   onPointerEnter?: () => void;
   onPointerLeave?: () => void;
+  /**
+   * Opens a place: a group, a product or one of its pages.
+   *
+   * The panel had no way to navigate at all — every row in it was a pin
+   * target and nothing else, so the directory could tell you where a product
+   * lived and then refuse to take you there. Handed down rather than resolved
+   * here because the shell already owns the resolution (`pickCrumb`): a
+   * group opens its first product, a product opens its first page, a page id
+   * opens that page on its own product, and a second copy of those three
+   * rules is a second thing to keep in step with the trail.
+   */
+  onNavigate?: (id: string) => void;
   onClose: () => void;
 }) {
   const layout = useNavLayout();
@@ -369,6 +382,44 @@ export function PinnedLauncher({
    */
   const editing = state.editing && can.customise;
 
+  /*
+   * One bundle, assembled once, handed to whichever tree is on screen.
+   *
+   * The panel and its tabbed variant both draw the catalogue and both have to
+   * answer edit mode the same way; building this here rather than at each
+   * call site is what stops one of them quietly keeping the old flat list.
+   */
+  /*
+   * Going somewhere closes the panel.
+   *
+   * Every other way into a product in this nav does — the flyout, the crumb
+   * menus, the merged block — and a launcher that stayed open behind the page
+   * it just launched would be the one surface that treats a destination as a
+   * preview.
+   *
+   * Undefined while the mode is on, which is what keeps arranging and
+   * launching apart: in edit mode the row's words are a rename target and its
+   * glyph is the icon picker, so a click that also navigated would fire on
+   * the way to either.
+   */
+  const openPlace =
+    editing || !onNavigate
+      ? undefined
+      : (id: string) => {
+          onNavigate(id);
+          onClose();
+        };
+
+  const directoryEdit: DirectoryEdit = {
+    editable,
+    reorderable,
+    regroupable: can.regroup,
+    renamingId,
+    setRenamingId,
+    openPicker: (id, trigger) => picker.open(id, trigger),
+    groups,
+  };
+
   const scrollRef = React.useRef<HTMLDivElement>(null);
   useScrollEdges(scrollRef);
 
@@ -578,60 +629,6 @@ export function PinnedLauncher({
       </p>
     </>
   ) : null;
-
-  /** The catalogue as the manage list — grips, nudges, renames, icons. */
-  const catalogueEditList = visibleGroups.map(
-    ({ group, productIds }, groupIndex) => (
-      <React.Fragment key={group.id}>
-        <GroupHeader
-          group={group}
-          index={groupIndex}
-          groupCount={groups.length}
-          renaming={renamingId === group.id}
-          {...(editable
-            ? {
-                onStartRename: () => setRenamingId(group.id),
-                onPickIcon: (el: HTMLElement) => picker.open(group.id, el),
-              }
-            : {})}
-          onEndRename={() => setRenamingId(null)}
-        />
-        {productIds.map((id, i) => (
-          <ProductRow
-            key={`${group.id}-${id}`}
-            productId={id}
-            renaming={renamingId === `${group.id}:${id}`}
-            {...(editable
-              ? {
-                  onStartRename: () => setRenamingId(`${group.id}:${id}`),
-                  onPickIcon: (el: HTMLElement) => picker.open(id, el),
-                }
-              : {})}
-            onEndRename={() => setRenamingId(null)}
-            {...(reorderable
-              ? {
-                  reorder: {
-                    onUp: () => nudge(layout, groups, group, i, -1),
-                    onDown: () => nudge(layout, groups, group, i, 1),
-                    // Never disabled in custom mode: at a boundary the nudge
-                    // crosses into the neighbouring group instead of stopping,
-                    // which is what makes the whole list one axis.
-                    upDisabled: groupIndex === 0 && i === 0,
-                    downDisabled:
-                      groupIndex === groups.length - 1 &&
-                      i === productIds.length - 1,
-                  },
-                  drag: {
-                    key: `${group.id}:${i}`,
-                    onDrop: (from) => dropInto(layout, from, group, i),
-                  },
-                }
-              : {})}
-          />
-        ))}
-      </React.Fragment>
-    ),
-  );
 
   return (
     <>
@@ -881,21 +878,28 @@ export function PinnedLauncher({
             field are the panel's head. Each half answers its own query, and
             neither carries a heading: the selected tab is the heading.
           */
-          searching ? (
-            hits.length > 0 ? (
-              hits.map((hit) => (
-                <SearchRow key={hit.id} productId={hit.id} context={hit.context} />
-              ))
-            ) : (
-              <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
-                {tab === "recent"
-                  ? `Nothing in ${recentLabel.toLowerCase()} matches “${query}”`
-                  : `No products match “${query}”`}
-              </p>
-            )
-          ) : tab === "recent" ? (
-            visitedIds.length > 0 ? (
-              /*
+              searching ? (
+                hits.length > 0 ? (
+                  hits.map((hit) => (
+                    <SearchRow
+                      key={hit.id}
+                      productId={hit.id}
+                      context={hit.context}
+                      {...(openPlace
+                        ? { onOpen: () => openPlace(hit.id) }
+                        : {})}
+                    />
+                  ))
+                ) : (
+                  <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
+                    {tab === "recent"
+                      ? `Nothing in ${recentLabel.toLowerCase()} matches “${query}”`
+                      : `No products match “${query}”`}
+                  </p>
+                )
+              ) : tab === "recent" ? (
+                visitedIds.length > 0 ? (
+                  /*
                 One seamless run, pins first.
 
                 No heading between the two and no divider: a pinned row already
@@ -903,18 +907,20 @@ export function PinnedLauncher({
                 labelling what the rows label themselves, and the reader would
                 be reading a structure instead of a list.
               */
-              visitedIds.map((id) => (
-                <ProductRow key={`visited-${id}`} productId={id} />
-              ))
-            ) : (
-              <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
-                Nothing here yet. Products you open show up in this list.
-              </p>
-            )
-          ) : editing ? (
-            catalogueEditList
-          ) : (
-            /*
+                  visitedIds.map((id) => (
+                    <ProductRow
+                      key={`visited-${id}`}
+                      productId={id}
+                      {...(openPlace ? { onOpen: () => openPlace(id) } : {})}
+                    />
+                  ))
+                ) : (
+                  <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
+                    Nothing here yet. Products you open show up in this list.
+                  </p>
+                )
+              ) : (
+                /*
               Inline, always, in this arrangement.
 
               The cascade hangs a panel off a panel that is itself hanging off
@@ -922,11 +928,22 @@ export function PinnedLauncher({
               — and the directory's whole job is to SHOW the nesting. Reached
               from its own standing row that trade was arguable; reached from a
               tab inside the recents panel it is not.
+
+              And in edit mode too, now. This tab used to swap in the flat
+              manage list, which was the most visible place the mode changed
+              the map: the tabs stay, the heading stays, the search stays, and
+              the one thing underneath them turns into something else.
             */
-            <DirectoryTree groups={visibleGroups} theme={theme} disclosure="inline" />
-          )
-        ) : stacked ? (
-          /*
+                <DirectoryTree
+                  groups={visibleGroups}
+                  theme={theme}
+                  disclosure="inline"
+                  {...(editing ? { edit: directoryEdit } : {})}
+                  {...(openPlace ? { onOpen: openPlace } : {})}
+                />
+              )
+            ) : stacked ? (
+              /*
             One scroll, two sections, and the query belongs to the second.
 
             The combined list is short and unsearched — it is what you have
@@ -935,46 +952,78 @@ export function PinnedLauncher({
             the section it searches rather than at the head of a panel where it
             would have promised to search both.
           */
-          <>
-            {(keptExpanded ? keptIds : keptIds.slice(0, STACKED_KEPT_ROWS)).map(
-              (id) => (
-                <ProductRow key={`kept-${id}`} productId={id} />
-              ),
-            )}
-            {keptIds.length > STACKED_KEPT_ROWS ? (
-              <button
-                type="button"
-                onClick={() => setKeptExpanded((open) => !open)}
-                className="motion-tap flex h-[30px] w-full shrink-0 items-center rounded-[7px] px-[8px] text-left text-[13px] leading-none font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
-              >
-                {keptExpanded ? "Show less" : `View all ${keptIds.length}`}
-              </button>
-            ) : null}
+              <>
+                {(keptExpanded
+                  ? keptIds
+                  : keptIds.slice(0, STACKED_KEPT_ROWS)
+                ).map((id) => (
+                  <ProductRow
+                    key={`kept-${id}`}
+                    productId={id}
+                    {...(openPlace ? { onOpen: () => openPlace(id) } : {})}
+                  />
+                ))}
+                {keptIds.length > STACKED_KEPT_ROWS ? (
+                  <button
+                    type="button"
+                    onClick={() => setKeptExpanded((open) => !open)}
+                    className="motion-tap flex h-[30px] w-full shrink-0 items-center rounded-[7px] px-[8px] text-left text-[13px] leading-none font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
+                  >
+                    {keptExpanded ? "Show less" : `View all ${keptIds.length}`}
+                  </button>
+                ) : null}
 
-            <SectionHeading divider>All products</SectionHeading>
-            <div className="mt-[2px] mb-[6px] flex h-[36px] w-full shrink-0 items-center gap-[9px] rounded-[9px] px-[10px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
-              <Search
-                size={16}
-                aria-hidden="true"
-                className="shrink-0 text-nav-fg-subtle"
-              />
-              <input
-                ref={inputRef}
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search products"
-                aria-label="Search products"
-                className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg placeholder:text-nav-fg-subtle focus:outline-none [&::-webkit-search-cancel-button]:hidden"
-              />
-            </div>
-            {searching ? (
+                <SectionHeading divider>All products</SectionHeading>
+                <div className="mt-[2px] mb-[6px] flex h-[36px] w-full shrink-0 items-center gap-[9px] rounded-[9px] px-[10px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
+                  <Search
+                    size={16}
+                    aria-hidden="true"
+                    className="shrink-0 text-nav-fg-subtle"
+                  />
+                  <input
+                    ref={inputRef}
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search products"
+                    aria-label="Search products"
+                    className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg placeholder:text-nav-fg-subtle focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+                  />
+                </div>
+                {searching ? (
+                  hits.length > 0 ? (
+                    hits.map((hit) => (
+                      <SearchRow
+                        key={hit.id}
+                        productId={hit.id}
+                        context={hit.context}
+                        {...(openPlace
+                          ? { onOpen: () => openPlace(hit.id) }
+                          : {})}
+                      />
+                    ))
+                  ) : (
+                    <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
+                      No products match “{query}”
+                    </p>
+                  )
+                ) : (
+                  <DirectoryTree
+                    groups={visibleGroups}
+                    theme={theme}
+                    {...(editing ? { edit: directoryEdit } : {})}
+                    {...(openPlace ? { onOpen: openPlace } : {})}
+                  />
+                )}
+              </>
+            ) : searching ? (
               hits.length > 0 ? (
                 hits.map((hit) => (
                   <SearchRow
                     key={hit.id}
                     productId={hit.id}
                     context={hit.context}
+                    {...(openPlace ? { onOpen: () => openPlace(hit.id) } : {})}
                   />
                 ))
               ) : (
@@ -982,64 +1031,54 @@ export function PinnedLauncher({
                   No products match “{query}”
                 </p>
               )
-            ) : editing ? null : (
-              <DirectoryTree groups={visibleGroups} theme={theme} />
-            )}
-          </>
-        ) : searching ? (
-          hits.length > 0 ? (
-            hits.map((hit) => (
-              <SearchRow key={hit.id} productId={hit.id} context={hit.context} />
-            ))
-          ) : (
-            <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
-              {showKept && !showCatalogue
-                ? `Nothing pinned or recent matches “${query}”`
-                : `No products match “${query}”`}
-            </p>
-          )
-        ) : (
-          <>
-          {showKept && pinnedIds.length > 0 ? (
-            <>
-              <SectionHeading count={state.pinned.length}>Pinned</SectionHeading>
-              {agencyScope ? <PinnedScopeNote /> : null}
-              {pinnedIds.map((id) => {
-                const index = state.pinned.indexOf(id);
-                return (
-                  <ProductRow
-                    key={`pin-${id}`}
-                    productId={id}
-                    gripReplacesIcon
-                    reorder={{
-                      onUp: () => layout.movePin(index, index - 1),
-                      onDown: () => layout.movePin(index, index + 1),
-                      upDisabled: index === 0,
-                      downDisabled: index === state.pinned.length - 1,
-                    }}
-                    drag={{
-                      key: `pin:${index}`,
-                      onDrop: (from) => {
-                        const fromIndex = Number(from.split(":")[1]);
-                        if (!Number.isNaN(fromIndex)) layout.movePin(fromIndex, index);
-                      },
-                    }}
-                  />
-                );
-              })}
-            </>
-          ) : showKept && state.pinned.length === 0 ? (
-            // Only when there are genuinely none — a filter that hides them all
-            // is not an empty pin list, so it drops the section instead.
-            <>
-              <SectionHeading>Pinned</SectionHeading>
-              {agencyScope ? <PinnedScopeNote /> : null}
-              <p className="w-full px-[2px] pb-[4px] text-[12.5px] leading-[17px] text-nav-fg-subtle">
-                No pinned items yet. Pin anything below and it appears at the top
-                of the nav.
-              </p>
-            </>
-          ) : null}
+            ) : (
+              <>
+                {showKept && pinnedIds.length > 0 ? (
+                  <>
+                    <SectionHeading count={state.pinned.length}>
+                      Pinned
+                    </SectionHeading>
+                    {agencyScope ? <PinnedScopeNote /> : null}
+                    {pinnedIds.map((id) => {
+                      const index = state.pinned.indexOf(id);
+                      return (
+                        <ProductRow
+                          key={`pin-${id}`}
+                          productId={id}
+                          {...(openPlace
+                            ? { onOpen: () => openPlace(id) }
+                            : {})}
+                          gripReplacesIcon
+                          reorder={{
+                            onUp: () => layout.movePin(index, index - 1),
+                            onDown: () => layout.movePin(index, index + 1),
+                            upDisabled: index === 0,
+                            downDisabled: index === state.pinned.length - 1,
+                          }}
+                          drag={{
+                            key: `pin:${index}`,
+                            onDrop: (from) => {
+                              const fromIndex = Number(from.split(":")[1]);
+                              if (!Number.isNaN(fromIndex))
+                                layout.movePin(fromIndex, index);
+                            },
+                          }}
+                        />
+                      );
+                    })}
+                  </>
+                ) : showKept && state.pinned.length === 0 ? (
+                  // Only when there are genuinely none — a filter that hides them all
+                  // is not an empty pin list, so it drops the section instead.
+                  <>
+                    <SectionHeading>Pinned</SectionHeading>
+                    {agencyScope ? <PinnedScopeNote /> : null}
+                    <p className="w-full px-[2px] pb-[4px] text-[12.5px] leading-[17px] text-nav-fg-subtle">
+                      No pinned items yet. Pin anything below and it appears at
+                      the top of the nav.
+                    </p>
+                  </>
+                ) : null}
 
           {/*
             Recent, in the same order and from the same derivation as the nav
@@ -1047,16 +1086,20 @@ export function PinnedLauncher({
             history, which is the one real difference between this section and
             the pin list above it, and the reason the grips stay up there.
           */}
-          {showKept && recentIds.length > 0 ? (
-            <>
-              <SectionHeading divider count={recentIds.length}>
-                {PANEL_RECENT_HEADING_LABELS[panelRecentHeading]}
-              </SectionHeading>
-              {recentIds.map((id) => (
-                <ProductRow key={`recent-${id}`} productId={id} />
-              ))}
-            </>
-          ) : null}
+                {showKept && recentIds.length > 0 ? (
+                  <>
+                    <SectionHeading divider count={recentIds.length}>
+                      {PANEL_RECENT_HEADING_LABELS[panelRecentHeading]}
+                    </SectionHeading>
+                    {recentIds.map((id) => (
+                      <ProductRow
+                        key={`recent-${id}`}
+                        productId={id}
+                        {...(openPlace ? { onOpen: () => openPlace(id) } : {})}
+                      />
+                    ))}
+                  </>
+                ) : null}
 
           {/*
             All products, and only where it belongs.
@@ -1080,65 +1123,16 @@ export function PinnedLauncher({
             — so it comes back while the mode that uses those is open, rather
             than the mode losing the only place it could do that work.
           */}
-          {showCatalogue && !editing ? (
-            <DirectoryTree groups={visibleGroups} theme={theme} />
-          ) : null}
-
-          {showCatalogue && editing
-            ? visibleGroups.map(({ group, productIds }, groupIndex) => (
-            <React.Fragment key={group.id}>
-              <GroupHeader
-                group={group}
-                index={groupIndex}
-                groupCount={groups.length}
-                renaming={renamingId === group.id}
-                {...(editable
-                  ? {
-                      onStartRename: () => setRenamingId(group.id),
-                      onPickIcon: (el: HTMLElement) => picker.open(group.id, el),
-                    }
-                  : {})}
-                onEndRename={() => setRenamingId(null)}
-              />
-              {productIds.map((id, i) => (
-                <ProductRow
-                  key={`${group.id}-${id}`}
-                  productId={id}
-                  renaming={renamingId === `${group.id}:${id}`}
-                  {...(editable
-                    ? {
-                        onStartRename: () => setRenamingId(`${group.id}:${id}`),
-                        onPickIcon: (el: HTMLElement) => picker.open(id, el),
-                      }
-                    : {})}
-                  onEndRename={() => setRenamingId(null)}
-                  {...(reorderable
-                    ? {
-                        reorder: {
-                          onUp: () => nudge(layout, groups, group, i, -1),
-                          onDown: () => nudge(layout, groups, group, i, 1),
-                          // Never disabled in custom mode: at a boundary the nudge
-                          // crosses into the neighbouring group instead of
-                          // stopping, which is what makes the whole list one axis.
-                          upDisabled: groupIndex === 0 && i === 0,
-                          downDisabled:
-                            groupIndex === groups.length - 1 &&
-                            i === productIds.length - 1,
-                        },
-                        drag: {
-                          key: `${group.id}:${i}`,
-                          onDrop: (from) => dropInto(layout, from, group, i),
-                        },
-                      }
-                    : {})}
-                />
-              ))}
-            </React.Fragment>
-              ))
-            : null}
-          </>
-        )}
-
+                {showCatalogue ? (
+                  <DirectoryTree
+                    groups={visibleGroups}
+                    theme={theme}
+                    {...(editing ? { edit: directoryEdit } : {})}
+                    {...(openPlace ? { onOpen: openPlace } : {})}
+                  />
+                ) : null}
+              </>
+            )}
           </div>
           <div aria-hidden="true" data-scroll-fade="bottom" />
         </div>
@@ -1295,9 +1289,12 @@ function searchHits(
 function SearchRow({
   productId,
   context,
+  onOpen,
 }: {
   productId: string;
   context: string;
+  /** Goes to the result. Absent while editing — see `openPlace`. */
+  onOpen?: () => void;
 }) {
   const layout = useNavLayout();
   const icon = layout.productIconFor(productId);
@@ -1307,6 +1304,22 @@ function SearchRow({
   const label = layout.productBaseLabelFor(productId);
   const { ref: labelRef, hostRef } =
     useTruncationTitle<HTMLSpanElement>(label);
+
+  const stack = (
+    <>
+      <span
+        ref={labelRef}
+        className="truncate text-[14px] leading-[18px] text-nav-fg"
+      >
+        {label}
+      </span>
+      {context ? (
+        <span className="truncate text-[12px] leading-[16px] text-nav-fg-subtle">
+          {context}
+        </span>
+      ) : null}
+    </>
+  );
 
   return (
     <div
@@ -1321,19 +1334,23 @@ function SearchRow({
       )}
     >
       <ResolvedIcon icon={icon} size={18} className="text-nav-fg-muted" />
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span
-          ref={labelRef}
-          className="truncate text-[14px] leading-[18px] text-nav-fg"
+      {/*
+        The whole two-line stack is the target when it can be, because unlike
+        a manage row this one holds nothing else: a result is a destination
+        with a pin beside it, and the line saying WHERE it lives is part of
+        what you are aiming at.
+      */}
+      {onOpen ? (
+        <button
+          type="button"
+          onClick={onOpen}
+          className="flex min-w-0 flex-1 flex-col text-left"
         >
-          {label}
-        </span>
-        {context ? (
-          <span className="truncate text-[12px] leading-[16px] text-nav-fg-subtle">
-            {context}
-          </span>
-        ) : null}
-      </span>
+          {stack}
+        </button>
+      ) : (
+        <span className="flex min-w-0 flex-1 flex-col">{stack}</span>
+      )}
       <span className="absolute top-1/2 right-[8px] z-10 -translate-y-1/2">
         <PinButton productId={productId} />
       </span>
@@ -1409,130 +1426,6 @@ interface DragControls {
 }
 
 /**
- * A group's heading, and everything you can do to the group itself.
- *
- * The icon is the picker's trigger, matching the nav — the thing you want to
- * change is the thing you click, and a separate button next to it would be a
- * second control for one property.
- */
-function GroupHeader({
-  group,
-  index,
-  groupCount,
-  renaming,
-  onStartRename,
-  onEndRename,
-  onPickIcon,
-}: {
-  group: ResolvedGroup;
-  index: number;
-  groupCount: number;
-  renaming: boolean;
-  /** Absent outside edit mode, which is what removes the affordances. */
-  onStartRename?: () => void;
-  onEndRename: () => void;
-  onPickIcon?: (trigger: HTMLElement) => void;
-}) {
-  const layout = useNavLayout();
-  const { can } = layout;
-  const Icon = group.icon;
-  const renamed = layout.isRenamed(group.id);
-
-  return (
-    // Same reasoning as SectionHeading: the group label buys its own air now
-    // that the column is no longer handing out 10px a row.
-    <div className="group/row flex w-full shrink-0 items-center gap-[8px] pt-[14px] pr-[2px] pb-[6px] pl-[2px]">
-      {can.regroup && onPickIcon ? (
-        <button
-          type="button"
-          aria-label={`Change the ${group.label} icon`}
-          title="Change icon"
-          onClick={(e) => onPickIcon(e.currentTarget)}
-          className="motion-tap flex size-[18px] shrink-0 items-center justify-center rounded-[5px] text-nav-fg-subtle outline-[1px] outline-offset-0 outline-transparent group-hover/row:outline-dashed group-hover/row:outline-[var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg"
-        >
-          <Icon size={13} aria-hidden="true" />
-        </button>
-      ) : (
-        <Icon size={13} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
-      )}
-
-      {renaming ? (
-        <InlineRename
-          value={group.label}
-          ariaLabel={`Rename ${group.label}`}
-          onCommit={(next) => {
-            layout.setLabel(group.id, next);
-            onEndRename();
-          }}
-          onCancel={onEndRename}
-          className="text-[11px] leading-[13px] font-semibold tracking-[0.5px] uppercase"
-        />
-      ) : onStartRename ? (
-        /*
-          The label IS the rename target while editing.
-
-          A pencil beside it was a second control for the thing the text
-          already names — and every other surface in the nav renames by
-          clicking the words. Outside the mode this is a plain span again, so
-          the panel reads as a launcher rather than an editor.
-        */
-        <button
-          type="button"
-          onClick={onStartRename}
-          aria-label={`Rename ${group.label}`}
-          className="motion-tap min-w-0 flex-1 truncate rounded-[4px] text-left text-[11px] leading-[13px] font-semibold tracking-[0.5px] whitespace-nowrap text-nav-fg-subtle uppercase outline-[1px] outline-offset-2 outline-transparent hover:outline-dashed hover:outline-[var(--nav-divider)]"
-        >
-          {group.label}
-        </button>
-      ) : (
-        <span className="min-w-0 flex-1 truncate text-[11px] leading-[13px] font-semibold tracking-[0.5px] whitespace-nowrap text-nav-fg-subtle uppercase">
-          {group.label}
-        </span>
-      )}
-
-      {!renaming ? (
-        <span className="flex shrink-0 items-center gap-[1px] opacity-0 group-hover/row:opacity-100 focus-within:opacity-100">
-          {renamed && onStartRename ? (
-            <TinyButton
-              label={`Reset ${group.label} to the shipped name`}
-              onClick={() => layout.resetLabel(group.id)}
-            >
-              <RotateCcw size={10} aria-hidden="true" />
-            </TinyButton>
-          ) : null}
-          {can.regroup ? (
-            <>
-              <TinyButton
-                label={`Move ${group.label} up`}
-                disabled={index === 0}
-                onClick={() => layout.moveGroup(index, index - 1)}
-              >
-                <ArrowUp size={10} aria-hidden="true" />
-              </TinyButton>
-              <TinyButton
-                label={`Move ${group.label} down`}
-                disabled={index === groupCount - 1}
-                onClick={() => layout.moveGroup(index, index + 1)}
-              >
-                <ArrowDown size={10} aria-hidden="true" />
-              </TinyButton>
-            </>
-          ) : null}
-          {group.custom && can.customise ? (
-            <TinyButton
-              label={`Delete ${group.label}`}
-              onClick={() => layout.deleteGroup(group.id)}
-            >
-              <Trash2 size={10} aria-hidden="true" />
-            </TinyButton>
-          ) : null}
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
-/**
  * One product, in Favorites or under a group.
  *
  * The same row either way, so a product looks like itself wherever it appears —
@@ -1548,6 +1441,8 @@ function ProductRow({
   onPickIcon,
   reorder,
   drag,
+  disclosure,
+  onOpen,
   external,
 }: {
   productId: string;
@@ -1562,6 +1457,28 @@ function ProductRow({
   onPickIcon?: (trigger: HTMLElement) => void;
   reorder?: ReorderControls;
   drag?: DragControls;
+  /**
+   * Its L3s, when this row is standing inside the tree.
+   *
+   * Only the tree passes one. The flat manage list has no third level to
+   * show and never had — but the tree does, and an edit mode that silently
+   * dropped a level would be a different arrangement of the catalogue rather
+   * than the same one with handles on it.
+   */
+  disclosure?: { open: boolean; onToggle: () => void; count: number };
+  /**
+   * Goes to the place this row names.
+   *
+   * On the LABEL rather than the row, unlike the tree's own rows: this row is
+   * a div full of controls — a grip that starts a drag, an icon picker, a
+   * nudge pair, a pin — and making the whole thing a destination would fire a
+   * navigation every time one of them was missed by a pixel. The words are
+   * the one part of it that is unambiguously the place.
+   *
+   * Never set at the same time as `onStartRename`: they want the same click,
+   * and the mode decides which. See `openPlace`.
+   */
+  onOpen?: () => void;
   /**
    * A row the catalogue cannot resolve, handed over already named.
    *
@@ -1640,7 +1557,17 @@ function ProductRow({
         */
         "group/row motion-tap relative flex w-full shrink-0 items-center gap-[10px] rounded-[9px] py-[8px] pl-[8px]",
         "min-h-[calc(var(--t-nav-py,9px)*2+20px)]",
-        "pr-[calc(8px+22px+10px)]",
+        /*
+          Two reserved columns when the row discloses, one when it does not —
+          the same order the tree's own rows hold: chevron at the edge, pin
+          one gap inboard. Matching it is the point, because in the tree these
+          rows sit directly under rows that ARE DirectoryRows, and two pin
+          columns a chevron's width apart is the ragged edge that note warns
+          about.
+        */
+        disclosure
+          ? "pr-[calc(4px+22px+6px+22px+10px)]"
+          : "pr-[calc(8px+22px+10px)]",
         dragging ? "opacity-40" : "hover:bg-nav-hover",
       )}
     >
@@ -1727,6 +1654,21 @@ function ProductRow({
         >
           {label}
         </button>
+      ) : onOpen ? (
+        // The ref stays on a span inside the button: the hook measures the
+        // text's own box, and a button's box is padded by the flex row.
+        <button
+          type="button"
+          onClick={onOpen}
+          className="motion-tap min-w-0 flex-1 text-left"
+        >
+          <span
+            ref={labelRef}
+            className="block truncate text-[14px] leading-[normal] text-nav-fg"
+          >
+            {label}
+          </span>
+        </button>
       ) : (
         <span
           ref={labelRef}
@@ -1773,7 +1715,14 @@ function ProductRow({
         single-line variants. The row's own `pr` above is the space it stands in.
       */}
       {!renaming ? (
-        <span className="absolute top-1/2 right-[8px] z-10 -translate-y-1/2">
+        <span
+          className={cn(
+            "absolute top-1/2 z-10 -translate-y-1/2",
+            // One gap inboard of the chevron when there is one, at the edge
+            // when there is not — see the reserve above.
+            disclosure ? "right-[calc(4px+22px+6px)]" : "right-[8px]",
+          )}
+        >
           {external ? (
             <ExternalPinButton
               pinned={external.pinned}
@@ -1783,6 +1732,25 @@ function ProductRow({
             <PinButton productId={productId} />
           )}
         </span>
+      ) : null}
+
+      {disclosure ? (
+        <button
+          type="button"
+          aria-expanded={disclosure.open}
+          aria-label={disclosure.open ? `Collapse ${label}` : `Expand ${label}`}
+          onClick={disclosure.onToggle}
+          className="motion-tap absolute top-1/2 right-[4px] z-10 flex size-[22px] -translate-y-1/2 items-center justify-center rounded-[6px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
+        >
+          <ChevronDown
+            size={13}
+            aria-hidden="true"
+            className={cn(
+              "shrink-0 motion-move",
+              disclosure.open && "rotate-180",
+            )}
+          />
+        </button>
       ) : null}
     </div>
   );
@@ -2057,9 +2025,26 @@ function DirectoryTree({
   groups,
   theme,
   disclosure,
+  edit,
+  onOpen,
 }: {
   groups: DirectoryBranch[];
   theme: SurfaceTheme;
+  /**
+   * Turns every row into its manage form, without changing the arrangement.
+   *
+   * Until Sep 23 the panel answered edit mode by drawing something else
+   * entirely: every group expanded under an uppercase heading, no accordion,
+   * no third level — a flat run of ninety rows. The argument for it was that
+   * browsing and arranging are different jobs, and that is true of the ROWS.
+   * It is not true of the shape. Someone who has just learnt where a product
+   * lives by walking this tree opens the mode to move it and the map they
+   * learnt is gone, so the first thing the mode asks them to do is find the
+   * row again in a list with no structure. The rows change; the tree stays.
+   */
+  edit?: DirectoryEdit;
+  /** Opens a place. Absent while editing — see `openPlace`. */
+  onOpen?: (id: string) => void;
   /**
    * Overrides the nav's own L3 axis for this tree.
    *
@@ -2084,7 +2069,17 @@ function DirectoryTree({
    * answers to them.
    */
   const { l3Disclosure, flyoutTrigger } = useTheme().effective;
-  const inline = (disclosure ?? l3Disclosure) === "inline";
+  /*
+   * Editing is always inline, whatever the L3 axis says.
+   *
+   * A cascade hangs a panel off the row it came from, and the row it came
+   * from is the thing being dragged. There is no coherent version of that —
+   * so rather than a half-working cascade the mode uses the disclosure the
+   * tree already has, which is also what the flat list was doing all along by
+   * showing everything at once.
+   */
+  const inline =
+    edit !== undefined || (disclosure ?? l3Disclosure) === "inline";
   const [openGroup, setOpenGroup] = React.useState<string | null>(null);
   /*
    * The same dwell every other panel-to-the-right in this nav uses.
@@ -2168,12 +2163,15 @@ function DirectoryTree({
   if (inline) {
     return (
       <>
-        {groups.map(({ group, productIds, rows }) => (
+        {groups.map(({ group, productIds, rows }, groupIndex) => (
           <DirectoryGroup
             key={group.id}
             group={group}
+            groupIndex={groupIndex}
             productIds={productIds}
             {...(rows ? { rows } : {})}
+            {...(edit ? { edit } : {})}
+            {...(onOpen ? { onOpen } : {})}
             open={openGroup === group.id}
             onToggle={() =>
               setOpenGroup((current) =>
@@ -2312,6 +2310,29 @@ const ROW_HEIGHT = (small: boolean) =>
     ? "py-[7px]"
     : "py-[var(--t-nav-py,9px)] min-h-[calc(var(--t-nav-py,9px)*2+20px)]";
 
+/**
+ * What the tree needs in order to be editable without becoming a second list.
+ *
+ * Everything the flat manage list used to own — renaming, the icon picker,
+ * the nudges and the drag model — handed to the tree so the tree can keep its
+ * own shape. One bundle rather than eleven props because the whole thing is
+ * either on or off: there is no state where a row may be dragged but not
+ * renamed that the two booleans inside do not already express.
+ */
+interface DirectoryEdit {
+  /** May rename and repaint. `state.editing && can.renameForSelf`. */
+  editable: boolean;
+  /** May reorder. Custom grouping, no filter applied. */
+  reorderable: boolean;
+  /** May create and rearrange groups. `can.regroup`. */
+  regroupable: boolean;
+  renamingId: string | null;
+  setRenamingId: (id: string | null) => void;
+  openPicker: (id: string, trigger: HTMLElement) => void;
+  /** All groups, so a nudge off the end of one can enter the next. */
+  groups: ResolvedGroup[];
+}
+
 interface DirectoryBranch {
   group: ResolvedGroup;
   productIds: string[];
@@ -2329,12 +2350,19 @@ interface DirectoryEntry {
 /** One L1: the category row, and its products when it is open. */
 function DirectoryGroup({
   group,
+  groupIndex = 0,
   productIds,
   rows,
   open,
   onToggle,
+  edit,
+  onOpen,
 }: {
   group: ResolvedGroup;
+  /** Its place among the groups, for the move-up/move-down pair. */
+  groupIndex?: number;
+  edit?: DirectoryEdit;
+  onOpen?: (id: string) => void;
   productIds: string[];
   /**
    * Stated children, for a branch the catalogue does not own.
@@ -2360,6 +2388,72 @@ function DirectoryGroup({
       pages: childrenOfProduct(id),
     }));
 
+  /*
+   * A group the catalogue does not own cannot be renamed or re-iconed.
+   *
+   * "Desktop & mobile apps" is the case: its rows are nav chrome and it has
+   * no entry in the label or icon stores, so offering the controls would
+   * offer an edit that lands nowhere. `rows` being supplied IS that
+   * condition — see the prop's own note.
+   */
+  const groupEditable = edit?.editable === true && rows === undefined;
+  const renamed = groupEditable && layout.isRenamed(group.id);
+
+  /*
+   * The group's own controls, one-for-one with what the flat list's heading
+   * carried — reset, move up, move down, delete.
+   *
+   * Listed out rather than kept in the old component, because the heading
+   * that held them is gone: it was a 14px-padded uppercase label, and the
+   * tree's L1 is a row. What survives is the set, and it has to survive
+   * intact — a mode that quietly loses "delete this group" is a mode that
+   * cannot undo what its own New group button does.
+   *
+   * Arrows, not chevrons. The chevron in this row already means disclosure,
+   * and a second pair pointing the same way a hair to its left would be two
+   * different promises in one control cluster.
+   */
+  const groupDeletable = group.custom && edit?.reorderable === true;
+  const groupActions =
+    edit && (renamed || edit.regroupable || groupDeletable) ? (
+      <span className="flex shrink-0 items-center gap-[1px] opacity-0 group-hover/row:opacity-100 focus-within:opacity-100">
+        {renamed ? (
+          <TinyButton
+            label={`Reset ${group.label} to the shipped name`}
+            onClick={() => layout.resetLabel(group.id)}
+          >
+            <RotateCcw size={10} aria-hidden="true" />
+          </TinyButton>
+        ) : null}
+        {edit.regroupable ? (
+          <>
+            <TinyButton
+              label={`Move ${group.label} up`}
+              disabled={groupIndex === 0}
+              onClick={() => layout.moveGroup(groupIndex, groupIndex - 1)}
+            >
+              <ArrowUp size={10} aria-hidden="true" />
+            </TinyButton>
+            <TinyButton
+              label={`Move ${group.label} down`}
+              disabled={groupIndex === edit.groups.length - 1}
+              onClick={() => layout.moveGroup(groupIndex, groupIndex + 1)}
+            >
+              <ArrowDown size={10} aria-hidden="true" />
+            </TinyButton>
+          </>
+        ) : null}
+        {groupDeletable ? (
+          <TinyButton
+            label={`Delete ${group.label}`}
+            onClick={() => layout.deleteGroup(group.id)}
+          >
+            <Trash2 size={10} aria-hidden="true" />
+          </TinyButton>
+        ) : null}
+      </span>
+    ) : undefined;
+
   return (
     <div className="flex w-full shrink-0 flex-col">
       <DirectoryRow
@@ -2368,6 +2462,21 @@ function DirectoryGroup({
         open={open}
         onToggle={onToggle}
         icon={<Icon size={16} aria-hidden="true" />}
+        {...(groupActions ? { actions: groupActions } : {})}
+        {...(groupEditable && edit
+          ? {
+              renaming: edit.renamingId === group.id,
+              onStartRename: () => edit.setRenamingId(group.id),
+              onCommitRename: (next: string) => layout.setLabel(group.id, next),
+              onEndRename: () => edit.setRenamingId(null),
+              ...(edit.regroupable
+                ? {
+                    onPickIcon: (el: HTMLElement) =>
+                      edit.openPicker(group.id, el),
+                  }
+                : {}),
+            }
+          : {})}
       />
 
       {open ? (
@@ -2377,7 +2486,7 @@ function DirectoryGroup({
           nested rows take, for the same reason.
         */
         <div className="motion-menu-in mt-[2px] flex flex-col gap-[2px] pl-[26px]">
-          {entries.map((entry) => (
+          {entries.map((entry, i) => (
             <DirectoryProduct
               key={entry.id}
               productId={entry.id}
@@ -2390,6 +2499,10 @@ function DirectoryGroup({
                   current === entry.id ? null : entry.id,
                 )
               }
+              {...(edit && rows === undefined
+                ? { edit, group, groupIndex, index: i }
+                : {})}
+              {...(onOpen ? { onOpen } : {})}
             />
           ))}
         </div>
@@ -2406,6 +2519,11 @@ function DirectoryProduct({
   pages,
   open,
   onToggle,
+  edit,
+  group,
+  groupIndex = 0,
+  index = 0,
+  onOpen,
 }: {
   productId: string;
   label: string;
@@ -2414,7 +2532,89 @@ function DirectoryProduct({
   pages: readonly CatalogueChild[];
   open: boolean;
   onToggle: () => void;
+  edit?: DirectoryEdit;
+  /** The group this row sits in, which is what a nudge or a drop moves it out of. */
+  group?: ResolvedGroup;
+  groupIndex?: number;
+  /** Its place in that group — the position the drag model is expressed in. */
+  index?: number;
+  onOpen?: (id: string) => void;
 }) {
+  const layout = useNavLayout();
+
+  /*
+   * The manage row, standing where the browse row stood.
+   *
+   * ProductRow rather than a DirectoryRow wearing handles, because ProductRow
+   * already IS the answer to "what does an arrangeable row look like" — the
+   * grip, the rename-by-clicking-the-words, the icon picker on the glyph, the
+   * nudge pair and the whole drag/drop key scheme. Re-expressing any of that
+   * here would be a second implementation of the thing edit mode exists for,
+   * and the two would drift.
+   *
+   * What it gains is the disclosure, so the level below it survives the mode.
+   */
+  if (edit && group) {
+    return (
+      <div className="flex w-full shrink-0 flex-col">
+        <ProductRow
+          productId={productId}
+          renaming={edit.renamingId === `${group.id}:${productId}`}
+          {...(pages.length > 0
+            ? { disclosure: { open, onToggle, count: pages.length } }
+            : {})}
+          {...(edit.editable
+            ? {
+                onStartRename: () =>
+                  edit.setRenamingId(`${group.id}:${productId}`),
+                onPickIcon: (el: HTMLElement) => edit.openPicker(productId, el),
+              }
+            : {})}
+          onEndRename={() => edit.setRenamingId(null)}
+          {...(edit.reorderable
+            ? {
+                reorder: {
+                  onUp: () => nudge(layout, edit.groups, group, index, -1),
+                  onDown: () => nudge(layout, edit.groups, group, index, 1),
+                  // Never disabled mid-list: at a boundary the nudge crosses
+                  // into the neighbouring group rather than stopping, which is
+                  // what makes the whole catalogue one axis.
+                  upDisabled: groupIndex === 0 && index === 0,
+                  downDisabled:
+                    groupIndex === edit.groups.length - 1 &&
+                    index === group.productIds.length - 1,
+                },
+                drag: {
+                  key: `${group.id}:${index}`,
+                  onDrop: (from: string) =>
+                    dropInto(layout, from, group, index),
+                },
+              }
+            : {})}
+        />
+
+        {open && pages.length > 0 ? (
+          <div className="motion-menu-in mt-[2px] flex flex-col gap-[2px] pl-[26px]">
+            {pages.map((child) => (
+              <DirectoryRow
+                key={child.id}
+                label={child.label}
+                icon={
+                  <ResolvedIcon
+                    icon={iconForChildLabel(child.label)}
+                    size={15}
+                  />
+                }
+                pinFor={child.id}
+                small
+              />
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="flex w-full shrink-0 flex-col">
       <DirectoryRow
@@ -2423,6 +2623,7 @@ function DirectoryProduct({
         {...(pages.length > 0 ? { onToggle, count: pages.length } : {})}
         icon={<ResolvedIcon icon={icon} size={16} />}
         pinFor={productId}
+        {...(onOpen ? { onOpen: () => onOpen(productId) } : {})}
       />
 
       {open && pages.length > 0 ? (
@@ -2439,6 +2640,7 @@ function DirectoryProduct({
               }
               pinFor={child.id}
               small
+              {...(onOpen ? { onOpen: () => onOpen(child.id) } : {})}
             />
           ))}
         </div>
@@ -2465,9 +2667,43 @@ function DirectoryRow({
   cascades = false,
   pinFor,
   small = false,
+  onOpen,
+  actions,
+  renaming = false,
+  onStartRename,
+  onCommitRename,
+  onEndRename,
+  onPickIcon,
 }: {
   label: string;
   icon: React.ReactNode;
+  /**
+   * Edit-mode controls, in flow before the count.
+   *
+   * In flow rather than overlaid like the pin and the chevron, because these
+   * appear only on hover: an overlay would have to reserve a column that is
+   * empty 99% of the time, and the tree's whole trailing geometry is built
+   * around two reserved columns that are always worth their width. These are
+   * not — so they take space when they are there and none when they are not.
+   */
+  actions?: React.ReactNode;
+  /** The label is an input right now. */
+  renaming?: boolean;
+  /** Turns the label into its own rename trigger, as every nav row does. */
+  onStartRename?: () => void;
+  onCommitRename?: (next: string) => void;
+  onEndRename?: () => void;
+  /** Turns the leading glyph into the icon picker's trigger. */
+  onPickIcon?: (trigger: HTMLElement) => void;
+  /**
+   * Goes to the place this row names.
+   *
+   * When it is set the row itself is the destination and the chevron becomes
+   * a button of its own, because one click cannot both open a page and open
+   * a level. The split is the one the nav's flyouts already use: the words
+   * take you there, the arrow shows you what is underneath.
+   */
+  onOpen?: () => void;
   /** How many rows are behind this one, when it discloses. */
   count?: number;
   open?: boolean;
@@ -2497,20 +2733,100 @@ function DirectoryRow({
       // was the one surface that listed them and refused to pin them.
       isChromePlace(pinFor));
 
+  /*
+   * Whether this row is carrying edit controls, which changes what it IS.
+   *
+   * A row that discloses is a <button>; a row that renames, picks an icon or
+   * holds a cluster of nudges contains buttons, and a button inside a button
+   * is invalid markup that browsers resolve by dropping one of them. So the
+   * moment any edit affordance is present the row becomes a <div> and the
+   * disclosure gets a button of its own at the trailing edge — the same
+   * chevron, in the same column, still the same toggle.
+   */
+  const hasEdit =
+    actions !== undefined ||
+    onStartRename !== undefined ||
+    onPickIcon !== undefined ||
+    renaming;
+  /*
+   * Whether the chevron has to stand on its own.
+   *
+   * True for the same reason in both cases: something else has claimed the
+   * row's click. Editing claims it for rename and the icon picker, `onOpen`
+   * claims it for the destination — and either way the disclosure needs a
+   * target of its own rather than sharing one.
+   */
+  const splitChevron = hasEdit || onOpen !== undefined;
+
+  const labelClass = cn(
+    "min-w-0 flex-1 truncate text-left text-nav-fg",
+    small ? "text-[13px] leading-[18px]" : "text-[14px] leading-[normal]",
+  );
+
   const inner = (
     <>
-      <span className="flex size-[16px] shrink-0 items-center justify-center text-nav-fg-muted">
-        {icon}
-      </span>
-      <span
-        ref={labelRef}
-        className={cn(
-          "min-w-0 flex-1 truncate text-left text-nav-fg",
-          small ? "text-[13px] leading-[18px]" : "text-[14px] leading-[normal]",
-        )}
-      >
-        {label}
-      </span>
+      {onPickIcon ? (
+        /*
+          The glyph becomes the picker, rather than gaining a pencil beside it.
+
+          Same rule the manage rows already follow: the thing you want to
+          change is the thing you click. A second control next to the icon
+          would also have to find room in a row that is already spending its
+          trailing edge on a chevron and a pin.
+        */
+        <button
+          type="button"
+          aria-label={`Change the ${label} icon`}
+          title="Change icon"
+          onClick={(e) => {
+            e.stopPropagation();
+            onPickIcon(e.currentTarget);
+          }}
+          className="motion-tap flex size-[16px] shrink-0 items-center justify-center rounded-[5px] text-nav-fg-muted outline-[1px] outline-offset-[2px] outline-transparent group-hover/row:outline-dashed group-hover/row:outline-[var(--nav-divider)] hover:bg-nav-hover"
+        >
+          {icon}
+        </button>
+      ) : (
+        <span className="flex size-[16px] shrink-0 items-center justify-center text-nav-fg-muted">
+          {icon}
+        </span>
+      )}
+      {renaming && onCommitRename && onEndRename ? (
+        <InlineRename
+          value={label}
+          ariaLabel={`Rename ${label}`}
+          onCommit={(next) => {
+            onCommitRename(next);
+            onEndRename();
+          }}
+          onCancel={onEndRename}
+          className={
+            small
+              ? "text-[13px] leading-[18px]"
+              : "text-[14px] leading-[normal]"
+          }
+        />
+      ) : onStartRename ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onStartRename();
+          }}
+          aria-label={`Rename ${label}`}
+          className={cn(
+            labelClass,
+            "motion-tap rounded-[5px] outline-[1px] outline-offset-2 outline-transparent hover:outline-dashed hover:outline-[var(--nav-divider)]",
+          )}
+        >
+          {label}
+        </button>
+      ) : (
+        <span ref={labelRef} className={labelClass}>
+          {label}
+        </span>
+      )}
+      {actions}
       {count !== undefined ? (
         <span className="shrink-0 text-[11px] leading-none text-nav-fg-subtle tabular-nums">
           {count}
@@ -2529,7 +2845,7 @@ function DirectoryRow({
         Still a child of the row's button, so the arrow is part of the target
         that opens the level rather than a dead pixel over it.
       */}
-      {onToggle ? (
+      {onToggle && !splitChevron ? (
         <span className="absolute top-1/2 right-[8px] -translate-y-1/2">
           {cascades ? (
             // Right, because that is where the level appears — a down-chevron
@@ -2587,34 +2903,42 @@ function DirectoryRow({
   /** One gap inboard of the chevron column, whether or not there is a chevron. */
   const pinInset = "right-[calc(8px+13px+10px)]";
 
-  const row = onToggle ? (
-    <button
-      ref={hostRef}
-      type="button"
-      aria-expanded={open}
-      onClick={(e) => onToggle(e.currentTarget)}
-      onPointerEnter={(e) => onHover?.(e.currentTarget)}
-      className={cn(
-        "group/row motion-tap flex w-full shrink-0 items-center gap-[10px] rounded-[9px] pl-[8px] text-left hover:bg-nav-hover",
-        ROW_HEIGHT(small),
-        trailingReserve,
-        open && "bg-nav-hover",
-      )}
-    >
-      {inner}
-    </button>
-  ) : (
-    <div
-      ref={hostRef}
-      className={cn(
-        "group/row motion-tap flex w-full shrink-0 items-center gap-[10px] rounded-[9px] pl-[8px] hover:bg-nav-hover",
-        ROW_HEIGHT(small),
-        trailingReserve,
-      )}
-    >
-      {inner}
-    </div>
+  const rowClass = cn(
+    "group/row motion-tap flex w-full shrink-0 items-center gap-[10px] rounded-[9px] pl-[8px] text-left hover:bg-nav-hover",
+    ROW_HEIGHT(small),
+    trailingReserve,
   );
+
+  const row =
+    onToggle && !splitChevron ? (
+      <button
+        ref={hostRef}
+        type="button"
+        aria-expanded={open}
+        onClick={(e) => onToggle(e.currentTarget)}
+        onPointerEnter={(e) => onHover?.(e.currentTarget)}
+        className={cn(rowClass, open && "bg-nav-hover")}
+      >
+        {inner}
+      </button>
+    ) : onOpen ? (
+      <button
+        ref={hostRef}
+        type="button"
+        onClick={onOpen}
+        onPointerEnter={(e) => onHover?.(e.currentTarget)}
+        className={cn(rowClass, open && "bg-nav-hover")}
+      >
+        {inner}
+      </button>
+    ) : (
+      <div
+        ref={hostRef}
+        className={cn(rowClass, open && hasEdit && "bg-nav-hover")}
+      >
+        {inner}
+      </div>
+    );
 
   /*
     Always wrapped, pinnable or not: the chevron is positioned against this,
@@ -2628,6 +2952,32 @@ function DirectoryRow({
         <span className={cn("absolute top-1/2 z-10 -translate-y-1/2", pinInset)}>
           <PinButton productId={pinFor} size={12} />
         </span>
+      ) : null}
+      {/*
+        The disclosure, when the row's own click went to something else.
+
+        An overlay on the wrapper rather than a child of the row, because the
+        row is a <button> in the `onOpen` case and this is a button too. It
+        lands in the chevron column the reserve already holds open, so a
+        split row and a whole one have their arrows on the same vertical.
+      */}
+      {onToggle && splitChevron ? (
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-label={open ? `Collapse ${label}` : `Expand ${label}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle(e.currentTarget);
+          }}
+          className="motion-tap absolute top-1/2 right-[4px] z-10 flex size-[22px] -translate-y-1/2 items-center justify-center rounded-[6px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
+        >
+          <ChevronDown
+            size={13}
+            aria-hidden="true"
+            className={cn("shrink-0 motion-move", open && "rotate-180")}
+          />
+        </button>
       ) : null}
     </span>
   );

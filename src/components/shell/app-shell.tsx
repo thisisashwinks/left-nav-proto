@@ -3138,6 +3138,16 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           agencyScope={agencyScope}
           onPointerEnter={intent.cancelClear}
           onPointerLeave={intent.scheduleClear}
+          /*
+            The same resolver the crumb menus use.
+
+            `pickCrumb` already knows that a group means its first product, a
+            product means its first page and a page id means that page on its
+            own product — which is exactly the set of ids the directory's three
+            levels hand back. Giving the panel its own copy would have been a
+            second place for those rules to drift from the trail.
+          */
+          onNavigate={pickCrumb}
           onClose={intent.close}
         />
       ) : null}
