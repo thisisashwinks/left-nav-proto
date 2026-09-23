@@ -135,3 +135,53 @@ export const previewPage = {
   slots: ["9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "1:00 PM"],
   timezone: "America / New York (GMT-4)",
 } as const;
+
+/**
+ * The four numbers the Stats tab opens with.
+ *
+ * Added Sep 23 with the tab strip, and kept as data rather than inlined in the
+ * panel for the same reason the rows are: the detail screen is meant to be
+ * judged AS a funnel screen, and a component that hard-codes "1,284" is one
+ * nobody can restate the fiction of without editing JSX.
+ *
+ * Pre-formatted strings, not numbers. Every count in this prototype is —
+ * `FunnelRow.count` carries its own noun for the same reason. A formatter here
+ * would be a locale decision made by a mock.
+ */
+export interface FunnelMetric {
+  label: string;
+  value: string;
+  /** Period-over-period, already signed. Omit where there is no comparison. */
+  delta?: string;
+  /** Whether `delta` is good news — drawn in brand, not green: the palette has
+   *  no green, and inventing one for a stat tile would be a new colour token
+   *  arriving through the back door of a demo screen. */
+  up?: boolean;
+}
+
+export const funnelMetrics: readonly FunnelMetric[] = [
+  { label: "Page views", value: "1,284", delta: "+12%", up: true },
+  { label: "Opt-ins", value: "318", delta: "+8%", up: true },
+  { label: "Conversion rate", value: "24.8%", delta: "-1.4%", up: false },
+  { label: "Revenue", value: "$4,720", delta: "+21%", up: true },
+];
+
+/**
+ * The same numbers cut by step.
+ *
+ * Keyed by `stepId` rather than positional, so a step that gains a row in
+ * `funnelSteps` does not silently inherit the one below it. The panel prints an
+ * em dash where there is no match — a zero would be a measurement, and would
+ * read as a step nobody visited, which is a different and much worse claim than
+ * "the fiction does not cover this yet".
+ */
+export interface FunnelStepStat {
+  stepId: string;
+  views: string;
+  conversions: string;
+  rate: string;
+}
+
+export const funnelStepStats: readonly FunnelStepStat[] = [
+  { stepId: "step-booking", views: "1,284", conversions: "318", rate: "24.8%" },
+];

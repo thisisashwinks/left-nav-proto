@@ -132,6 +132,17 @@ export function FunnelsPage() {
         <FunnelDetail
           funnel={open}
           onBack={() => setOpenId(null)}
+          /*
+           * Switching funnels from the trail, without a trip through the list.
+           *
+           * The detail view publishes the Funnels crumb with its siblings on it
+           * (Sep 23), and only this component owns `openId`, so the handler has
+           * to come from here. It is `setOpenId` rather than a close-then-open
+           * pair because app-shell already closes the record on the way through
+           * — `withRecordCrumb` wraps every switchable segment — so a second
+           * close here would be the same state written twice.
+           */
+          onOpenFunnel={setOpenId}
           onEditStep={setEditingStep}
         />
       </div>
