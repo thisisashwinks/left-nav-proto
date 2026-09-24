@@ -139,32 +139,30 @@ export function ViewBar({
       )}
     >
       {/*
-        Only the TABS scroll, and only the tabs.
+        The tabs never scroll. What does not fit goes in the menu.
 
-        The row used to be one flex box with `overflow-x-auto` on it, which is
-        fine right up until the row is genuinely too narrow — and then the
-        trailing control is pushed past the right edge and the only way to
-        reach it is to scroll a strip whose scrollbar is hidden. L-F made that
-        the normal case rather than the pathological one: tabs, an overflow
-        chip, a create button, four glyph controls and an amber warning do not
-        fit a 1600px canvas with the sidebar open.
+        This box carried `overflow-x-auto` until Sep 24, and it was the wrong
+        answer twice over. A hidden-scrollbar strip makes reaching a tab a
+        gesture you have to discover, on a row that already HAS the discoverable
+        version of itself — the `N more ▾` chip two elements to the right. And
+        `overflow-x: auto` computes `overflow-y: auto`, so the 38px row grew a
+        vertical scrollbar of its own: a 2px thumb beside the last tab, scrolling
+        nothing, which is what Ashwin actually spotted.
 
-        So the scroll moves in one level, around the tabs alone. It is sized by
-        its content and allowed to shrink, NOT `flex-1` — flex-1 would stretch
-        it on a two-tab bar and shove `+ Add Smart List` to the far right, away
-        from the tab it makes a sibling of. Everything after it is `shrink-0`,
-        which is the priority order stated as a layout: the tabs give way
-        first, because a tab that scrolls out still has the `N more` menu and a
-        lit sibling naming where you are. "Unsaved changes" scrolled out has
-        nothing.
+        So: no overflow property at all. The budget is `maxVisible`, the spill
+        is the menu, and the tabs themselves may shrink — the button below is
+        `shrink` with a truncating label rather than `shrink-0`, so a narrow
+        canvas costs each tab some of its name and never costs the row its
+        trailing controls. Sized by content and allowed to shrink, NOT `flex-1`:
+        flex-1 would stretch it on a two-tab bar and shove `+ Add Smart List`
+        to the far right, away from the tab it makes a sibling of.
 
-        The overflow chip and the create button sit OUTSIDE this box for a
-        second reason: an `overflow-x-auto` box clips in both axes, so a menu
-        anchored inside it is cut off at the row's own height. That is not a
-        styling detail, it is the difference between a working overflow and a
-        chip that opens nothing.
+        The overflow chip and the create button still sit OUTSIDE this box, and
+        that part stands on its own: a menu anchored inside a clipping box is
+        cut off at the row's height, and this box may acquire a clip again the
+        day someone reaches for one.
       */}
-      <div className="flex min-w-0 shrink items-stretch gap-[2px] overflow-x-auto">
+      <div className="flex min-w-0 shrink items-stretch gap-[2px]">
       {shown.map(({ id, label: viewLabel, count, icon: Icon, mark }) => {
         const active = id === activeId;
         return (
@@ -181,7 +179,9 @@ export function ViewBar({
              * else — no border on the resting state means no reflow.
              */
             className={cn(
-              "relative flex shrink-0 items-center gap-[6px] whitespace-nowrap motion-tap",
+              // `shrink`, not `shrink-0`: with the scroll gone this is what
+              // absorbs a narrow canvas, by way of the label's `truncate`.
+              "relative flex min-w-0 shrink items-center gap-[6px] whitespace-nowrap motion-tap",
               sm ? "px-[9px] text-[13px]" : "px-[11px] text-[13.5px]",
               active
                 ? "font-semibold text-brand"

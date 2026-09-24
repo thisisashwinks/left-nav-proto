@@ -1885,6 +1885,32 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     if (switching) intent.close();
   }, [switching, intent]);
 
+  /*
+   * Switching Recents off closes the panel Recents opened.
+   *
+   * Edit mode is the only place the block can be switched off while its panel
+   * is standing — the toggle is in the edit card, and the card is open beside
+   * the nav — so this is that case. It is deliberately NOT gated on the mode:
+   * the rule is "a panel outlives its trigger", and tying it to the one way
+   * that happens today would leave the next way to find it again.
+   *
+   * Left alone, the panel hangs there listing pins and history for a block
+   * the nav has just stopped drawing, with no row left to close it from. It
+   * also reads as the toggle having missed, which is the same failure the
+   * row-select close above was written for.
+   *
+   * Only the merged half. The `directory` panel is the catalogue, and hiding
+   * Recents is precisely when the catalogue has to stay reachable — closing
+   * it here would shut the surface the standing All products row exists to
+   * open. Closing through `intent` rather than a hard unmount so the panel
+   * plays its usual exit.
+   */
+  const recentsGone = isBlockHidden(layout, "recent");
+  const recentsPanelUp = intent.activeId === LAUNCHER_ID;
+  React.useEffect(() => {
+    if (recentsGone && recentsPanelUp) intent.close();
+  }, [recentsGone, recentsPanelUp, intent]);
+
   // The capsule lives out here rather than in a nav face, so the shell has to
   // resolve the phase for it. Both faces derive the same one from `loading`.
   const navSwap = useSwapPhase(switching, NAV_SWAP_OUT_MS);

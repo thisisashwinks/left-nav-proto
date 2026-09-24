@@ -326,6 +326,7 @@ export function LeftNav({
     mergedPinScope,
     getAppPlacement,
     productDirectoryRow,
+    treeRecentsAllProducts,
     agencyEditNav,
     agencySearch,
     editTreatment,
@@ -948,6 +949,41 @@ export function LeftNav({
     () => groups.filter((g) => g.id !== UNGROUPED_ID),
     [groups],
   );
+
+  /**
+   * Whether the standing "All products" row is drawn, below the rule.
+   *
+   * `productDirectoryRow` is the axis: an account that wants a permanent door
+   * to the catalogue gets one. That is a preference.
+   *
+   * The `recent` clause is a floor, not a preference. The merged Pinned/Recent
+   * block carries "View all", and that link is the ONLY way into the full
+   * catalogue — so hiding the block from show/hide does not just remove a
+   * list, it removes the door, and All products becomes unreachable from a nav
+   * that is otherwise complete. The row comes back on its own in that state
+   * rather than the reviewer being expected to notice and flip a second
+   * switch. Ashwin hit that on Sep 24.
+   *
+   * THE TREE. Normally there is no row here at all: the tree IS the
+   * catalogue, a few pixels above, so a door to it would lead to where you
+   * are standing. `treeRecentsAllProducts` is the one setting that makes that
+   * untrue — its whole argument (see the panel's note) is that the tree
+   * filters ITSELF as you type, so the catalogue behind View all is the only
+   * surface where you can look a product up without the nav rearranging
+   * underneath you. That surface is a real second place, and hiding the
+   * recents block takes its only door away exactly as it does in the flyout
+   * arrangement. So the floor applies there too, and only where that setting
+   * has put something behind the door.
+   *
+   * Still nothing at agency scope, where the whole tree is thirteen buckets
+   * already on screen.
+   */
+  const recentsDoorGone = isBlockHidden(state, "recent");
+  const directoryRowShown =
+    !agencyScope &&
+    (productTree
+      ? treeRecentsAllProducts && recentsDoorGone
+      : productDirectoryRow || recentsDoorGone);
   /**
    * The nav's top-level rows, in the order they are drawn.
    *
@@ -3165,7 +3201,7 @@ export function LeftNav({
                 the thing you are standing in, which is precisely the
                 duplication the arrangement exists to argue against.
               */}
-              {productDirectoryRow && !agencyScope && !productTree ? (
+              {directoryRowShown ? (
                 <NavItemRow
                   item={PRODUCT_DIRECTORY_ITEM}
                   onSelect={onOpenDirectory}

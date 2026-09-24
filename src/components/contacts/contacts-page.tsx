@@ -571,8 +571,8 @@ export function ContactsPage() {
             pinning it means the overflow chip is in every screenshot of L-D
             rather than only in the ones taken on a small laptop. L-F gets one
             fewer because it is paying for the glyph cluster out of the same
-            1160px, and the alternative is a fourth tab clipped mid-word by
-            the scroll box — which reads as a bug rather than as the cost the
+            1160px, and the alternative is a fourth tab truncated to two
+            syllables — which reads as a bug rather than as the cost the
             variant is asking to be judged on. The budget moving with the
             variant IS the finding: a row cannot hold both, and this is the
             exchange rate.
