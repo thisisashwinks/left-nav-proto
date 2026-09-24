@@ -309,6 +309,23 @@ export function FlyoutPanel({
 
   const picker = useIconPicker();
 
+  /*
+   * A category holding one product has nothing to reorder.
+   *
+   * The menu already knows — `onMoveUp` and `onMoveDown` are both omitted at
+   * a list of one, so both entries render greyed. The grip did not, and it
+   * was the louder of the two: a handle that appears on hover, lifts the row
+   * and then has nowhere to put it down. Both seams in a one-row panel are
+   * the same position, so the drag was always a no-op dressed as a gesture.
+   * Ashwin, Sep 24.
+   *
+   * It costs nothing real. Dragging out of a panel was never how a product
+   * changes category — only one panel is open at a time, so the only drop
+   * targets a lifted row has are this panel's own seams. "Move to" on the
+   * row's menu is the way across, and it is unaffected.
+   */
+  const lonely = (category?.productIds.length ?? 0) < 2;
+
   const editFor = (productId: string): FlyoutRowEdit | undefined => {
     if (!editing || !category) return undefined;
     return {
@@ -331,12 +348,24 @@ export function FlyoutPanel({
         : {}),
       hidden: layout.isRowHidden(productId),
       onToggleHidden: () => layout.toggleRowHidden(productId),
-      onDragStart: (e) => {
-        e.dataTransfer.setData(L2_MIME, productId);
-        e.dataTransfer.setData("text/plain", layout.productLabelFor(productId));
-        e.dataTransfer.effectAllowed = "move";
-        setLifted(productId);
-      },
+      /*
+        No grip on a lone row — see `lonely`. `FlyoutRowEdit` draws the handle
+        from the presence of `onDragStart`, so withholding it is how the row
+        stops advertising a move it cannot make.
+      */
+      ...(lonely
+        ? {}
+        : {
+            onDragStart: (e: React.DragEvent) => {
+              e.dataTransfer.setData(L2_MIME, productId);
+              e.dataTransfer.setData(
+                "text/plain",
+                layout.productLabelFor(productId),
+              );
+              e.dataTransfer.effectAllowed = "move";
+              setLifted(productId);
+            },
+          }),
       /*
        * A row here is not a drop target.
        *

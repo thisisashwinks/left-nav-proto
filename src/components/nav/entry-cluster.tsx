@@ -13,7 +13,6 @@ import {
   Sun,
   Lock,
   SquarePen,
-  TriangleAlert,
 } from "lucide-react";
 import { AiMark } from "@/components/ai/ai-mark";
 import { NavIntroCard } from "./nav-intro-card";
@@ -304,10 +303,21 @@ function EditNavButton({
   }
 
   if (editing) {
+    /*
+     * Why the save is refusing, in one sentence with the rule in it.
+     *
+     * It named the count and the fix and never the RULE — "1 category is
+     * empty, put something in it" tells you what to do without telling you
+     * why, so the reader learns a chore rather than a constraint and meets
+     * the same wall again on the next template. Saying a category has to
+     * hold at least one product is the part that carries over. Ashwin,
+     * Sep 24.
+     */
     const blockedNote =
-      blocked === 1
-        ? "1 category is empty — put something in it first"
-        : `${blocked} categories are empty — put something in them first`;
+      (blocked === 1
+        ? "1 category is empty. "
+        : `${blocked} categories are empty. `) +
+      "Every category needs at least one product in it before this can be saved.";
     /*
      * Two controls while editing, because the session has two endings.
      *
@@ -543,46 +553,79 @@ function EditNavButton({
           >
             Discard
           </button>
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={blocked > 0}
-            // The reason lives on the control that is refusing, because the rows
-            // it is refusing over may be scrolled out of sight. They carry the
-            // amber ring; this says how many and why.
-            title={blocked > 0 ? blockedNote : undefined}
-            className={cn(
-              "motion-tap flex h-[26px] shrink-0 items-center gap-[5px] rounded-[7px] px-[10px] text-[12px] leading-none font-medium",
-              blocked > 0
-                ? "cursor-not-allowed text-nav-fg-subtle shadow-[inset_0_0_0_1px_var(--hr-warning-300)]"
-                : // Inverted ink rather than brand — still unmistakably the
-                  // primary action, without borrowing the accent (Aug 21).
-                  "bg-nav-fg text-nav hover:opacity-90 active:scale-95",
-            )}
-          >
-            {blocked > 0 ? (
-              <TriangleAlert
-                size={13}
-                aria-hidden="true"
-                className="text-[var(--hr-warning-500)]"
-              />
-            ) : (
-              <Check size={13} aria-hidden="true" />
-            )}
-            {/* With two rows there is room to say it properly again. An admin who
-                opened the mode to look around is not told they are saving. */}
-            {blocked > 0
-              ? "Empty category"
-              : dirty
+          {/*
+            The refusal is explained by a REAL tooltip, not by `title`.
+
+            The native one had been on this button since it was written and
+            never appeared once. Two reasons, and the first is the fatal one:
+            the button was `disabled`, and a disabled element fires no pointer
+            events, so there was no hover for the browser to answer. The
+            second is why the native one is not the fix even now — it waits
+            about a second, it renders where the OS decides, and at the nav's
+            foot it lands off the side of the window, which is the exact
+            failure `RailTooltip`'s `above` placement was added for. Its own
+            note says so.
+
+            Wrapped, because this is a sentence rather than a glyph's name.
+          */}
+          <MaybeBlockedHint blocked={blocked > 0} note={blockedNote}>
+            <button
+              type="button"
+              /*
+                `aria-disabled`, not `disabled` — the same correction
+                PinButton carries. A disabled button cannot be hovered, and
+                the hover is the whole of the explanation; the refusal moves
+                into the handler instead, and the state is still announced.
+              */
+              aria-disabled={blocked > 0}
+              onClick={blocked > 0 ? undefined : onSave}
+              className={cn(
+                "motion-tap flex h-[26px] shrink-0 items-center gap-[5px] rounded-[7px] px-[10px] text-[12px] leading-none font-medium",
+                blocked > 0
+                  ? /*
+                      An ordinary disabled button, and nothing louder.
+                      
+                      It wore an amber ring and an amber triangle, which made
+                      one blocked save the loudest thing on a card that also
+                      holds the mode, the template's name and two tools. Amber
+                      is the ROW's job — the categories that are actually
+                      empty carry it, and they are what has to be found and
+                      fixed. The button only has to say it cannot go yet, and
+                      grey says that everywhere else in the product. Ashwin,
+                      Sep 24.
+                    */
+                    "cursor-not-allowed bg-nav-hover text-nav-fg-subtle"
+                  : // Inverted ink rather than brand — still unmistakably the
+                    // primary action, without borrowing the accent (Aug 21).
+                    "bg-nav-fg text-nav hover:opacity-90 active:scale-95",
+              )}
+            >
+              {blocked > 0 ? null : <Check size={13} aria-hidden="true" />}
+              {/* With two rows there is room to say it properly again. An admin
+                  who opened the mode to look around is not told they are
+                  saving. */}
+              {/*
+                The button keeps naming its ACTION while it is refusing.
+
+                It relabelled itself "Empty category", which is the one thing a
+                button must not do: a control is named for what it does, and one
+                named for what is wrong with the document has stopped being a
+                control and become a status line you can press. It also cost the
+                card its only landmark — scan for "Save template", it is not
+                there, and the refusal reads as the button having gone missing
+                rather than the save being held.
+              */}
+              {dirty
                 ? // Not "Save changes": under `one-template` the press opens
                   // the question of WHICH template this is, and a button that
-                  // says "save" over a dialog is a button that lied about being
-                  // the end of the errand.
+                  // says "save" over a dialog is a button that lied about
+                  // being the end of the errand.
                   strict
                   ? "Save template"
                   : "Save changes"
                 : "Done"}
-          </button>
+            </button>
+          </MaybeBlockedHint>
           </span>
         </div>
       </div>
@@ -1225,5 +1268,36 @@ export function EntryClusterRail({
       ) : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * The hint, only while there is something to explain.
+ *
+ * A wrapper rather than a `label` the tooltip could decide to swallow,
+ * because a tooltip that renders an empty pill on a working button is worse
+ * than none — and the same shape `MaybeCapHint` uses over in the merged
+ * block, which is the other control in this nav that refuses and has to say
+ * why.
+ */
+function MaybeBlockedHint({
+  blocked,
+  note,
+  children,
+}: {
+  blocked: boolean;
+  note: string;
+  children: React.ReactNode;
+}) {
+  if (!blocked) return <>{children}</>;
+  /*
+    Above, because this card is pinned to the nav's foot: `below` is off the
+    bottom of the window and `right` is off the side of the nav. See the
+    placement's own note.
+  */
+  return (
+    <RailTooltip label={note} placement="above" wrap={230}>
+      {children}
+    </RailTooltip>
   );
 }

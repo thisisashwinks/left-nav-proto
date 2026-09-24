@@ -472,5 +472,23 @@ export function editTargetFor(
   ) {
     return { kind: "product", id: itemId };
   }
+  /*
+   * And a product filed in a category, which is a row only the tree draws.
+   *
+   * The clause above says "top level" because until Sep 24 that was the only
+   * place a grouped catalogue product could BE a row: in the flyout
+   * arrangement it lives in a panel, which renames it through the panel's own
+   * state rather than through this. The tree hosts edit mode now, so the row
+   * exists in the nav, and `editFor` was returning null for it — the kebab's
+   * Rename set a renaming id that no row was watching, so the field never
+   * opened.
+   *
+   * `kind: "product"` is the same answer the ungrouped clause gives, because it
+   * is the same write: the override map is keyed by product id and knows
+   * nothing about which category the row is currently filed in.
+   */
+  if (groups.some((g) => g.productIds.includes(itemId))) {
+    return { kind: "product", id: itemId };
+  }
   return null;
 }

@@ -310,7 +310,15 @@ export interface FlyoutRowEdit {
   /** Switching the row off, and back on. Hover-only until it is off. */
   onToggleHidden?: () => void;
   hidden?: boolean;
-  onDragStart: (e: React.DragEvent) => void;
+  /**
+   * Absent when the row has nowhere to go.
+   *
+   * The grip is drawn from this rather than from a separate flag, so a row
+   * that cannot be moved cannot advertise a handle — see `lonely` in
+   * flyout-panel. Every other drag callback stays required: they are the
+   * row's behaviour as a drop NEIGHBOUR, which it still is.
+   */
+  onDragStart?: (e: React.DragEvent) => void;
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent) => void;
@@ -880,7 +888,7 @@ export function FlyoutRow({
         of buttons and a mousedown inside a form control does not start an
         ancestor's drag. The grip is the element the browser drags.
       */}
-      {edit.renaming ? null : (
+      {edit.renaming || !edit.onDragStart ? null : (
         <span
           data-drag-handle=""
           draggable

@@ -17,7 +17,7 @@ import {
   type ResolvedGroup,
 } from "./grouping";
 import { useHere, type Marking } from "./here";
-import { NavItemRow } from "./nav-item-row";
+import { NavItemRow, type NavRowEdit } from "./nav-item-row";
 import { liftedChildren } from "./nav-entries";
 import { isPinnable, WithPin } from "./with-pin";
 import { accountSettingsFlyout, SETTINGS_FLYOUT_ID } from "./settings-config";
@@ -61,13 +61,61 @@ import type { NavItem } from "./types";
  * into the layout store would make "I looked at Marketing once" a thing that
  * survives a reload and travels in a template.
  */
-let openBranchId: string | null = null;
+/**
+ * Two slots, not one — and the second is the whole of this note.
+ *
+ * L1 used to be a strict accordion: one open branch, full stop. Two things
+ * wrote to it — a click on a group row, and the effect that opens the group
+ * you are currently inside — and with one slot between them they fought.
+ * Open Content while you are reading a page under CRM and the click won: CRM
+ * shut, and the nav stopped saying where you are.
+ *
+ * The fix is not to weaken the accordion but to notice that the two openings
+ * are not the same kind of thing.
+ *
+ *   ACTIVE  — the group holding the page you are on. Derived, never stored:
+ *             it is a fact about the route, and a copy of it here would be a
+ *             second answer to go stale.
+ *   BROWSED — the group you clicked to look inside. Stored here, still an
+ *             accordion of one: opening another closes it.
+ *
+ * So at most two L1s stand open, and they mean different things — "where you
+ * are" and "what you are looking at". Which is exactly the pair a reader
+ * needs while deciding whether to leave.
+ *
+ * Why L1 and not L2: an L2 row NAVIGATES (it opens its first L3), so shutting
+ * the L2 you just left is honest — you really did go somewhere. An L1 row
+ * discloses and nothing more, so shutting it trades your position for
+ * nothing. L2 keeps its strict single-open rule; see `toggleNode`.
+ */
+let browsedBranchId: string | null = null;
+/**
+ * The active group, when the reader has deliberately shut it.
+ *
+ * Without this the active group cannot be closed at all — the derivation
+ * would reopen it on the next render, and a chevron that springs back reads
+ * as broken. Holding the id rather than a boolean is what makes it
+ * self-clearing: navigate into a different group and this no longer names the
+ * active one, so the new group arrives open the way every other one does.
+ */
+let shutActiveId: string | null = null;
 const branchListeners = new Set<() => void>();
 
-export function openTreeBranch(id: string | null): void {
-  if (openBranchId === id) return;
-  openBranchId = id;
+function publishBranch(): void {
   for (const listen of branchListeners) listen();
+}
+
+/**
+ * Opens a group as the BROWSED one.
+ *
+ * The rail's hand-over and the search's "leave the query on this group" both
+ * mean "show me inside here", which is browsing — neither of them moves the
+ * page, so neither can make a group active.
+ */
+export function openTreeBranch(id: string | null): void {
+  if (browsedBranchId === id) return;
+  browsedBranchId = id;
+  publishBranch();
 }
 
 function subscribeBranch(listen: () => void): () => void {
@@ -75,17 +123,37 @@ function subscribeBranch(listen: () => void): () => void {
   return () => branchListeners.delete(listen);
 }
 
-function readBranch(): string | null {
-  return openBranchId;
+/**
+ * The pair, as one immutable value.
+ *
+ * `useSyncExternalStore` compares snapshots by identity, so this has to be a
+ * cached object rather than a fresh one per read — a new object every call is
+ * an infinite render loop, and it is the classic way to write this wrong.
+ */
+let branchSnapshot: { browsed: string | null; shutActive: string | null } = {
+  browsed: null,
+  shutActive: null,
+};
+
+function readBranch(): typeof branchSnapshot {
+  if (
+    branchSnapshot.browsed !== browsedBranchId ||
+    branchSnapshot.shutActive !== shutActiveId
+  ) {
+    branchSnapshot = { browsed: browsedBranchId, shutActive: shutActiveId };
+  }
+  return branchSnapshot;
 }
+
+const SERVER_BRANCH = { browsed: null, shutActive: null };
 
 /*
  * Nothing is open on the server, and nothing is open on the first client paint
  * either — the auto-open below runs after mount, so the two agree and React
  * has no hydration mismatch to complain about.
  */
-function readBranchOnServer(): null {
-  return null;
+function readBranchOnServer(): typeof branchSnapshot {
+  return SERVER_BRANCH;
 }
 
 /**
@@ -228,7 +296,7 @@ export function treeBranchFor(
  * click the accordion should push something else aside for.
  */
 export function useProductTree(groups: readonly ResolvedGroup[]) {
-  const branch = React.useSyncExternalStore(
+  const branchState = React.useSyncExternalStore(
     subscribeBranch,
     readBranch,
     readBranchOnServer,
@@ -255,13 +323,21 @@ export function useProductTree(groups: readonly ResolvedGroup[]) {
   }, [groups, here.productId]);
 
   /*
-   * The branch you are in opens itself, and it is the ONLY one open.
+   * Arriving somewhere clears the browsed slot, it does not fill it.
    *
-   * A fifteen-product group is fifteen rows plus their pages, which pushes
-   * every other group off the bottom of a 900px nav — so "expand what you
-   * clicked" without "close what you had" is an arrangement that reads fine on
-   * the first click and is unusable on the third. The accordion is what makes
-   * the tree a nav rather than a document.
+   * The group you are in is open because it is ACTIVE — that is derived below
+   * and needs no store — so this effect's only job is to tidy up after the
+   * move. Two cases, and they are the same line:
+   *
+   *   You clicked into the group you were browsing. It is now the active one,
+   *   so holding it as browsed as well would keep the group you LEFT open on
+   *   a slot that no longer describes anything. Ashwin's case, Sep 24.
+   *
+   *   You arrived from somewhere else entirely — Recents, the dock, a crumb.
+   *   The browsed group is then a leftover from a walk you have abandoned.
+   *
+   * Either way the reader has committed to a place, and the second slot goes
+   * back to being empty until they start browsing again.
    *
    * An effect rather than the render-adjust pattern this codebase prefers,
    * because the value being adjusted lives in a module store that both nav
@@ -270,7 +346,26 @@ export function useProductTree(groups: readonly ResolvedGroup[]) {
    */
   React.useEffect(() => {
     if (!volunteers || hereBranch === null) return;
-    openTreeBranch(hereBranch);
+    /*
+     * The suppression is cleared here too, and it has to be.
+     *
+     * `shutActiveId` self-clears against the CURRENT active group — it stops
+     * matching the moment you move — but the id itself stays behind, so
+     * coming back later would find it matching again and the group would
+     * arrive shut for no reason the reader could connect to anything. "I
+     * closed this once, ten minutes ago" is not a preference; it is a
+     * gesture about the branch in front of you at the time.
+     */
+    let moved = false;
+    if (browsedBranchId !== null) {
+      browsedBranchId = null;
+      moved = true;
+    }
+    if (shutActiveId !== null && shutActiveId !== hereBranch) {
+      shutActiveId = null;
+      moved = true;
+    }
+    if (moved) publishBranch();
   }, [volunteers, hereBranch]);
 
   /*
@@ -286,7 +381,7 @@ export function useProductTree(groups: readonly ResolvedGroup[]) {
    * cascading render. `prevHere` starts null, which no real position can equal,
    * so the very first paint counts as a move and the tree arrives open.
    */
-  const hereKey = `${here.productId ?? ""} ${here.childId ?? ""}`;
+  const hereKey = `${here.productId ?? ""}\u0000${here.childId ?? ""}`;
   const [prevHere, setPrevHere] = React.useState<string | null>(null);
   if (prevHere !== hereKey) {
     setPrevHere(hereKey);
@@ -318,9 +413,45 @@ export function useProductTree(groups: readonly ResolvedGroup[]) {
     }
   }
 
-  const toggleBranch = React.useCallback((id: string) => {
-    openTreeBranch(openBranchId === id ? null : id);
-  }, []);
+  /*
+   * Which L1s are open, and it is a question rather than a value now.
+   *
+   * `activeBranch` is null when the marking is off — that axis is what says
+   * whether the nav volunteers where you are at all, and a tree that kept the
+   * active group pinned open while the marking was off would be volunteering
+   * it louder than the marking ever did.
+   */
+  const activeBranch = volunteers ? hereBranch : null;
+  const { browsed, shutActive } = branchState;
+  const isBranchOpen = React.useCallback(
+    (id: string) =>
+      id === browsed || (id === activeBranch && shutActive !== activeBranch),
+    [browsed, activeBranch, shutActive],
+  );
+
+  /*
+   * One row, two slots, and which one a click lands in depends on the row.
+   *
+   * The active group toggles its own suppression — there is nothing else it
+   * could mean, since it is open by derivation and no amount of writing to
+   * the browsed slot would shut it. Every other group toggles the browsed
+   * slot, which stays an accordion of one.
+   */
+  const toggleBranch = React.useCallback(
+    (id: string) => {
+      if (id === activeBranch) {
+        shutActiveId = shutActiveId === id ? null : id;
+        // A group cannot be browsed and active at once; reopening the active
+        // one from a state where it was also the browsed slot would otherwise
+        // leave a stale id behind that a later navigation would resurrect.
+        if (browsedBranchId === id) browsedBranchId = null;
+        publishBranch();
+        return;
+      }
+      openTreeBranch(browsedBranchId === id ? null : id);
+    },
+    [activeBranch],
+  );
 
   /*
    * One open node per level, the same rule the L1 groups follow.
@@ -370,7 +501,7 @@ export function useProductTree(groups: readonly ResolvedGroup[]) {
     [],
   );
 
-  return { branch, toggleBranch, expanded, toggleNode };
+  return { isBranchOpen, toggleBranch, expanded, toggleNode };
 }
 
 /**
@@ -389,6 +520,8 @@ export function ProductTreeBranch({
   onToggle,
   onSelect,
   markFor,
+  rowEdit,
+  seamFor,
 }: {
   nodes: readonly TreeNode[];
   /** 1 for a product under a group, 2 for its pages, 3 for theirs. */
@@ -402,6 +535,31 @@ export function ProductTreeBranch({
    * axis once and hands down the pure function it produced.
    */
   markFor: (isHere: boolean, isTrail: boolean) => Marking;
+  /**
+   * What editing offers on a row of this branch, or undefined outside the mode.
+   *
+   * Built by `left-nav.tsx` from the same `editFor`/`editExtras` pair the flat
+   * arrangement's rows are built from (Sep 24), so a product's kebab is the same
+   * menu whether the account is drawing the tree or the flyout. Threaded as a
+   * function rather than a map because this component recurses: the caller
+   * cannot know which ids it will be asked about until the branch is open.
+   *
+   * Depth is in the signature because the answer differs by level. A product is
+   * the account's row — rename, icon, hide, file, reorder. A page below it is
+   * the product's — icon and nothing else, exactly as `FlyoutChildEdit` says.
+   */
+  rowEdit?: (nodeId: string, depth: number) => NavRowEdit | undefined;
+  /**
+   * The gap between two product rows, where a drop lands and a plus offers.
+   *
+   * Only ever passed at depth 1, and deliberately not recursed: reordering
+   * asks "between which two siblings", and the siblings of a PAGE are the
+   * product's own list, which the account does not arrange. `node` is the row
+   * the seam sits above, or null for the one that closes the branch — the
+   * caller turns that into an index against the group's real order rather than
+   * trusting this list's positions.
+   */
+  seamFor?: (node: TreeNode | null, index: number) => React.ReactNode;
 }) {
   const here = useHere();
   /*
@@ -430,7 +588,7 @@ export function ProductTreeBranch({
     (treeIcons === "hide-l3" && depth >= 2);
   return (
     <>
-      {nodes.map((node) => {
+      {nodes.map((node, index) => {
         const open = expanded.has(node.id);
         const hasKids = (node.children?.length ?? 0) > 0;
         /*
@@ -495,12 +653,22 @@ export function ProductTreeBranch({
            */
           ...(treeIcons === "rails" ? { rails: depth } : {}),
         };
-        return (
-          <React.Fragment key={`${depth}-${node.id}`}>
-          <WithPin productId={node.id} pinInset={TREE_PIN_INSET} pinSize={12}>
-            <NavItemRow
+        const edit = rowEdit?.(node.id, depth);
+        /*
+         * The kebab takes the pin's place while editing.
+         *
+         * Lifted verbatim from `flyout-row.tsx`'s `withTrailing`, and for its
+         * reason rather than for symmetry: edit mode's controls live inside the
+         * row, so there is nothing left for the overlay to hang beside, and two
+         * things fighting for the same 20px is how the trailing column stops
+         * being a column. `pinSlot` stays set, so the space the kebab moves
+         * into is the space the pin was already holding.
+         */
+        const row = (
+          <NavItemRow
               item={item}
               marking={markFor(isHere, isTrail)}
+              {...(edit ? { edit } : {})}
               onSelect={() => {
                 /*
                  * A parent both opens and goes.
@@ -527,7 +695,21 @@ export function ProductTreeBranch({
                 if (hasKids) onToggle(node.id, nodes);
               }}
             />
-          </WithPin>
+        );
+        return (
+          <React.Fragment key={`${depth}-${node.id}`}>
+            {seamFor ? seamFor(node, index) : null}
+            {edit ? (
+              <div className="group/row relative w-full shrink-0">{row}</div>
+            ) : (
+              <WithPin
+                productId={node.id}
+                pinInset={TREE_PIN_INSET}
+                pinSize={12}
+              >
+                {row}
+              </WithPin>
+            )}
             {hasKids && open ? (
               <ProductTreeBranch
                 nodes={node.children!}
@@ -536,8 +718,13 @@ export function ProductTreeBranch({
                 onToggle={onToggle}
                 onSelect={onSelect}
                 markFor={markFor}
+                {...(rowEdit ? { rowEdit } : {})}
               />
             ) : null}
+            {/* The seam that closes the branch, after the last product. */}
+            {seamFor && index === nodes.length - 1
+              ? seamFor(null, nodes.length)
+              : null}
           </React.Fragment>
         );
       })}

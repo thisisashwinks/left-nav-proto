@@ -86,11 +86,25 @@ export function DeleteGroupDialog({
               {count === 1 ? "1 item needs" : `${count} items need`} somewhere to
               go.
             </p>
-            <ul className="flex max-h-[120px] flex-col gap-[2px] overflow-y-auto rounded-[6px] p-[8px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
+            {/*
+              `shrink-0` on the rows, and it is the whole of this list working.
+
+              A flex column with a max height does not scroll when its children
+              can give way — they shrink to fit instead, and with fifteen
+              products in 120px that is eight pixels each: fifteen lines of
+              text sliced through the middle, which is exactly what CRM's
+              dialog was showing. `overflow-y-auto` never got a chance, because
+              nothing overflowed.
+
+              The rows keep their 18px and the box scrolls. 160px so five of
+              them are visible rather than four and a half — a list whose last
+              visible row is cut in half reads as the same bug it just was.
+            */}
+            <ul className="flex max-h-[160px] flex-col gap-[2px] overflow-y-auto rounded-[6px] p-[8px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
               {group.productIds.map((id) => (
                 <li
                   key={id}
-                  className="truncate text-[13px] leading-[18px] text-nav-fg"
+                  className="shrink-0 truncate text-[13px] leading-[18px] text-nav-fg"
                 >
                   {labelFor(id)}
                 </li>

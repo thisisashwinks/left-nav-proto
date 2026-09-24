@@ -1349,19 +1349,81 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const pickCrumb = React.useCallback(
     (id: string) => {
       const group = groups.find((g) => g.id === id);
-      if (group) {
-        const first = group.productIds[0];
-        if (first) openProduct(first);
-        return;
-      }
-      if (productById(id) && !childById(id)) {
-        openProduct(id);
+      const product = group ? group.productIds[0] : id;
+      // `openProduct` owns the Contacts special case and the first-page rule;
+      // `crumbTarget` states the same rules for the question above. Routing
+      // the product cases through it keeps that one behaviour in one place.
+      if (group || (productById(id) && !childById(id))) {
+        if (product) openProduct(product);
         return;
       }
       const target = resolveTarget(id);
       if (target) setProductPage(target);
     },
     [groups, openProduct, setProductPage, resolveTarget],
+  );
+
+  /**
+   * Where a crumb would LAND, without going there.
+   *
+   * `pickCrumb` folds resolution and navigation into one call, which is right
+   * for a click and useless for the question the trail now has to answer
+   * before drawing itself: does this segment lead anywhere I am not already?
+   * So the same three rules are stated once here and applied in two places —
+   * a group means its first product's first page, a product means its first
+   * page, a page id means that page on its own product.
+   *
+   * Deliberately NOT a second copy of those rules: `pickCrumb` calls this and
+   * then acts on it, so the two cannot drift.
+   */
+  const crumbTarget = React.useCallback(
+    (
+      id: string,
+    ): { productId: string; childId: string | null; tabId?: string | null } | null => {
+      const group = groups.find((g) => g.id === id);
+      if (group) {
+        const first = group.productIds[0];
+        if (!first) return null;
+        return first === "contacts"
+          ? null
+          : { productId: first, childId: firstPageOf(first), tabId: null };
+      }
+      if (productById(id) && !childById(id)) {
+        return id === "contacts"
+          ? null
+          : { productId: id, childId: firstPageOf(id), tabId: null };
+      }
+      return resolveTarget(id);
+    },
+    [groups, firstPageOf, resolveTarget],
+  );
+
+  /**
+   * Whether clicking that crumb would actually move.
+   *
+   * The bar asks this before it decides whether a segment is a link at all,
+   * because a control that looks pressable and does nothing is worse than a
+   * word: it is a promise the trail cannot keep, and on the page a crumb
+   * names it is the most likely one to be pressed. Ashwin, Sep 24 — standing
+   * on Conversations ▸ Inbox, "CRM" goes somewhere and "Conversations" does
+   * not, so only one of them should light up.
+   *
+   * `null` from `crumbTarget` means the hand-built Contacts canvas, which is
+   * `productPage === null` — so it leads somewhere exactly when a product
+   * page is currently open.
+   */
+  const crumbGoesSomewhere = React.useCallback(
+    (id: string) => {
+      const target = crumbTarget(id);
+      if (target === null) return productPage !== null;
+      if (canvasPage === null) return true;
+      return (
+        target.productId !== canvasPage.productId ||
+        (target.childId ?? null) !== (canvasPage.childId ?? null) ||
+        (target.tabId ?? null) !== (canvasPage.tabId ?? null)
+      );
+    },
+    [crumbTarget, canvasPage, productPage],
   );
 
   /** A product row for a crumb menu, with its own pages hanging off it. */
@@ -2647,6 +2709,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           <div className="min-w-0 flex-1">
         <AppHeader
           pageHeading={pageHeading}
+          crumbGoesSomewhere={crumbGoesSomewhere}
           theme={headerTheme}
           onOpenApp={setAppModal}
           entryFills={!agencyScope || agencySearch}

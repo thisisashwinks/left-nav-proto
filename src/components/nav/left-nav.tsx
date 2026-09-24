@@ -144,6 +144,7 @@ import {
   TemplateMessageTitle,
   TemplateToast,
 } from "./template-message";
+import { childById } from "./catalogue";
 import { iconByName, nameForIcon } from "./icon-catalogue";
 import type { NavConfig, NavEntry, NavItem } from "./types";
 
@@ -778,16 +779,22 @@ export function LeftNav({
    * axis on there would be asking for an arrangement it is already in, and the
    * only thing it could change is to break it.
    *
-   * Edit mode is excluded because filing a product into a category is done BY
-   * dragging it out of that category's panel, and the drag has to cross into a
-   * surface that is open. The tree has no panel to cross into. Rather than
-   * half-supporting the mode — grips on L1 and nothing that can reach an L2 —
-   * the session drops back to the flyout arrangement it was designed against,
-   * and the tree returns when the session ends. That is a visible, reversible
-   * swap rather than a silently missing capability, which is the failure mode
-   * worth avoiding.
+   * Edit mode used to be excluded too, on the argument that filing a product
+   * into a category is done by dragging it out of that category's PANEL and a
+   * tree has no panel to drag out of. Dropped on Sep 24, because the premise
+   * was wrong in both directions: the panel's own drag payload is `L2_MIME` and
+   * the thing that accepts it is the category ROW in the nav — which the tree
+   * draws — and every verb the panel's kebab carries is already built by the
+   * shared `productMenuActions`. So the tree can host the whole mode rather
+   * than half of it, and the arrangement under review stays on screen while it
+   * is being edited, which is the point of reviewing an arrangement at all.
+   *
+   * What that costs is written down where it is paid: `editExtras` grows a
+   * branch for a product filed in a category (a row only the tree draws) and
+   * one for a page below it, and `renderRow`'s tree block grows the seams the
+   * panel had. Nothing about the flyout arrangement changed.
    */
-  const productTree = navProductTree && !agencyScope && !editing;
+  const productTree = navProductTree && !agencyScope;
   const treeCounts = navTreeCounts;
   /**
    * What is in the tree's search field.
@@ -820,6 +827,19 @@ export function LeftNav({
   const [addingAt, setAddingAt] = React.useState<{
     index: number;
     tailIndex: number;
+    anchor: DOMRect;
+  } | null>(null);
+  /**
+   * Which seam INSIDE a branch has its add-picker open, and where a pick lands.
+   *
+   * Separate from `addingAt` because the two answer different questions. That
+   * one adds a row to the nav's top level and offers "new category" beside
+   * "add a product"; this one adds a product to the category the seam is
+   * inside, where a nested category is not a thing the tree has.
+   */
+  const [treeAddAt, setTreeAddAt] = React.useState<{
+    groupId: string;
+    index: number;
     anchor: DOMRect;
   } | null>(null);
   /** Where the show/hide menu is anchored, when it is open. */
@@ -1011,40 +1031,24 @@ export function LeftNav({
     (g) => g.productIds.length === 0 && !isAuthoredGroup(g.id),
   );
   /*
-   * Which empty categories have EARNED their warning.
+   * The warning ring, now immediate rather than earned.
    *
-   * Created-empty is a step, not a mistake — the panel opens with the category
-   * precisely so it can be filled — and ringing it amber at birth told the
-   * admin off for following the intended path (Aug 21 review). The ring waits
-   * for the moment the panel is dismissed with the category still empty, which
-   * is the first act that reads as "walking away from it". Save stays blocked
-   * on ANY empty category; only the ring is deferred.
+   * It used to wait: created-empty was a step rather than a mistake, because
+   * the panel opened WITH the new category precisely so it could be filled,
+   * and ringing it at birth told the admin off for following the intended
+   * path (Aug 21 review). The ring arrived the moment that panel was
+   * dismissed still empty — the first act that read as walking away.
    *
-   * Adjusted during render from the openFlyoutId transition rather than in an
-   * effect — this is derived history, and the render-adjust pattern is the one
-   * the React 19 lint permits.
+   * That deferral died with its premise on Sep 24. An empty category no
+   * longer opens a panel at all (see `emptyBucket`), so there is no intended
+   * path to be partway along and no dismissal to wait for — waiting would
+   * simply mean the ring never appears, leaving a blocked save with nothing
+   * on screen pointing at what blocked it.
+   *
+   * So the rule is now the plain one: empty is marked, from the moment it is
+   * empty. Which is also no longer a scolding, because the row it marks is
+   * the row you just made and the kebab beside it is how you fill it.
    */
-  const [warnedEmpty, setWarnedEmpty] = React.useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-  const [prevOpenFlyout, setPrevOpenFlyout] = React.useState(openFlyoutId);
-  if (prevOpenFlyout !== openFlyoutId) {
-    setPrevOpenFlyout(openFlyoutId);
-    if (
-      editing &&
-      prevOpenFlyout &&
-      emptyCategories.some((g) => g.id === prevOpenFlyout)
-    ) {
-      setWarnedEmpty((prev) => new Set(prev).add(prevOpenFlyout));
-    }
-  }
-  const [wasEditing, setWasEditing] = React.useState(editing);
-  if (wasEditing !== editing) {
-    // A new session starts clean — last session's scoldings are not carryover.
-    setWasEditing(editing);
-    if (!editing) setWarnedEmpty(new Set());
-  }
-
   /**
    * An L1 row's drag wiring: reorder only, no dropping into it.
    *
@@ -1092,6 +1096,131 @@ export function LeftNav({
     over: false,
     lifted: lifted === rowId,
   });
+
+  /**
+   * The rows only the tree draws: a product inside a category, and a page
+   * inside that product.
+   *
+   * In the flyout arrangement neither of these is ever a row in the nav — the
+   * first lives in a panel and the second in that panel's dropdown — so
+   * `editExtras` had nothing for either and fell through to `{}`. With the tree
+   * hosting edit mode (Sep 24) they are rows like any other and need the same
+   * bundles their panel versions carry.
+   *
+   * Built here rather than inside the tree's render for one reason that is not
+   * tidiness: the open kebab's contents are resolved by `menuOpen` from
+   * `editExtras(menu.openId)`, so a menu built anywhere else would open empty.
+   * One function, two callers, no second source of verbs.
+   */
+  const treeRowExtras = (itemId: string): Partial<NavRowEdit> => {
+    if (!productTree || !editing) return {};
+
+    const owner = categories.find((g) => g.productIds.includes(itemId));
+    if (owner) {
+      const order = owner.productIds;
+      const at = order.indexOf(itemId);
+      return {
+        renameOnLabelClick: editTargetFor(state, groups, itemId) !== null,
+        hidden: layout.isRowHidden(itemId),
+        onToggleHidden: () => layout.toggleRowHidden(itemId),
+        /*
+         * `tailDrag`, unchanged, and that is the whole of the filing story.
+         *
+         * It sets `L2_MIME`, which is exactly what a category row's own drop
+         * handler accepts — so dragging a product from inside one branch onto
+         * another group's row files it there, the same arrival the panel's drag
+         * produced. The seams inside the branch take the same payload for the
+         * reorder case. Nothing new was invented for either.
+         */
+        drag: tailDrag(itemId),
+        onOpenMenu: (trigger) => {
+          setMenuTrigger(trigger);
+          menu.open(itemId, trigger);
+        },
+        menuActions: productMenuActions({
+          productId: itemId,
+          currentGroupId: owner.id,
+          categories,
+          onRename: () => startRename(itemId),
+          ...(can.regroup
+            ? {
+                onPickIcon: () => {
+                  if (menuTrigger) picker.open(itemId, menuTrigger);
+                },
+              }
+            : {}),
+          onMoveToGroup: (groupId: string) =>
+            layout.moveProductToGroup(itemId, groupId),
+          onMoveToTopLevel: () => layout.placeInTail(itemId, 0),
+          /*
+           * Remove, on the same terms the panel's rows have always had it.
+           *
+           * The first cut of this branch copied the TAIL row's rule instead and
+           * gated the verb on `templates.strict`, which meant an account with a
+           * template applied could remove a product from the flyout's panel and
+           * not from the same product's row in the tree — the arrangement
+           * quietly having fewer verbs than the one it is being compared with,
+           * which is the one thing a variant must never do. The strict rule is
+           * about what a TEMPLATE can carry and belongs where it is enforced;
+           * `flyout-panel.tsx` offers this unconditionally and so does this.
+           */
+          onRemove: () => layout.removeProductFromNav(itemId),
+          ...(at > 0
+            ? {
+                onMoveUp: () =>
+                  layout.moveProductWithinGroup(owner.id, at, at - 1),
+              }
+            : {}),
+          ...(at >= 0 && at < order.length - 1
+            ? {
+                onMoveDown: () =>
+                  layout.moveProductWithinGroup(owner.id, at, at + 1),
+              }
+            : {}),
+        }),
+      };
+    }
+
+    /*
+     * A page's menu is not a product's menu.
+     *
+     * The same two entries `flyout-panel.tsx` gives an L3 and for its reason:
+     * rename, file and remove mean nothing for a page that belongs to a
+     * product rather than to the account's tree, and the glyph is the one
+     * property of it an account has cause to correct — it is often inferred
+     * from the label rather than authored.
+     */
+    if (can.regroup && childById(itemId)) {
+      return {
+        onOpenMenu: (trigger) => {
+          setMenuTrigger(trigger);
+          menu.open(itemId, trigger);
+        },
+        menuActions: [
+          {
+            id: "icon",
+            label: "Change icon",
+            icon: Image,
+            onSelect: () => {
+              if (menuTrigger) picker.open(itemId, menuTrigger);
+            },
+          },
+          ...(layout.hasIconOverride(itemId)
+            ? [
+                {
+                  id: "reset-icon",
+                  label: "Reset icon",
+                  icon: RotateCcw,
+                  onSelect: () => layout.resetIcon(itemId),
+                },
+              ]
+            : []),
+        ] satisfies RowMenuAction[],
+      };
+    }
+
+    return {};
+  };
 
   /** Everything editing a row offers beyond renaming it. */
   const editExtras = (itemId: string): Partial<NavRowEdit> => {
@@ -1264,7 +1393,7 @@ export function LeftNav({
     const group = categories.find((g) => g.id === itemId);
     if (!group) {
       const tailIndex = tailRowIds.indexOf(itemId);
-      if (tailIndex < 0) return {};
+      if (tailIndex < 0) return treeRowExtras(itemId);
       /*
        * Click-to-rename only where there is something to write the name to —
        * and not at all once the row has become a door.
@@ -1428,20 +1557,45 @@ export function LeftNav({
             },
           ]
         : []),
+      /*
+       * A product, not a category (Sep 24).
+       *
+       * This entry used to create a SIBLING category, which is the one thing a
+       * category's own menu should not offer: everything else in this kebab
+       * acts on the row you opened it from, and a reader who has just read
+       * "Rename", "Hide all items" and "Remove category" reasonably takes "Add
+       * a category" to mean one inside this one — a nesting the nav does not
+       * have. What the row can actually hold is products, so that is what it
+       * offers.
+       *
+       * Nothing is lost by the swap: adding a category is what the SEAMS
+       * between the L1 rows are for, and a seam says where the new row goes,
+       * which this entry never could.
+       *
+       * At the end of the category rather than the top. A menu on the category
+       * says nothing about position — the seams are the control that does — and
+       * appending is the answer that leaves everything already in the list
+       * where the reader last saw it.
+       */
       {
         id: "add",
-        label: "Add a category",
-        icon: FolderPlus,
-        onSelect: () => {
-          // The id is derivable before the group exists, which is what lets the
-          // new row mount straight into its rename field.
-          const id = nextGroupIdFor(customTreeFor(state));
-          layout.createGroup("New category", id);
-          startRename(id);
-          // And its panel opens at once (design review, Aug 21): an empty
-          // category's first need is contents, and the open panel is both the
-          // prompt and the place to answer it.
-          onPinFlyout(id);
+        label: "Add a product",
+        icon: Plus,
+        options: productTreeOptions(state, (id) =>
+          group.productIds.includes(id),
+        ),
+        emptyNote: "Everything is already in here.",
+        onPick: (id: string) => {
+          layout.addProductToGroup(id, itemId, group.productIds.length);
+          /*
+           * And the category opens on it, for the reason the old entry opened
+           * the panel of the category it had just made: a row added into
+           * something shut is a row nobody sees arrive. Which surface that is
+           * depends on the arrangement — a branch in the tree, a panel in the
+           * flyout — and the two are the same intent.
+           */
+          if (productTree) openTreeBranch(itemId);
+          else onPinFlyout(itemId);
         },
       },
       {
@@ -1509,9 +1663,9 @@ export function LeftNav({
        */
       renameOnLabelClick: true,
       ...(empty
-        ? warnedEmpty.has(itemId)
-          ? { warning: `${group.label} is empty — add an item to it` }
-          : {}
+        ? {
+            warning: `${group.label} is empty. Add a product to it from this row's menu, or drag one in.`,
+          }
         : {}),
       onOpenMenu: (trigger) => {
         setMenuTrigger(trigger);
@@ -2190,12 +2344,24 @@ export function LeftNav({
   const addCategoryAt = (index: number) => {
     const id = nextGroupIdFor(customTreeFor(state));
     layout.createGroupAt("New category", id, index);
-    // Mounts asking for its name: an empty category called "New category" is
-    // not a thing anyone wanted, it is a step on the way to one. Its panel
-    // opens alongside (Aug 21 review) — the prompt to fill it is the place
-    // you fill it from.
+    /*
+     * Mounts asking for its name: an empty category called "New category" is
+     * not a thing anyone wanted, it is a step on the way to one.
+     *
+     * Its panel used to open alongside (Aug 21 review), on the argument that
+     * the prompt to fill it should be the place you fill it from. That was
+     * never quite true — the panel lists what is IN a category and offers no
+     * way to add to it — and it stopped being arguable on Sep 24, when an
+     * empty category stopped being a door at all. Opening one panel that the
+     * row beside it now refuses to open is the arrangement disagreeing with
+     * itself in the same second.
+     *
+     * So creation opens the rename and nothing else. The panel arrives when
+     * there is something to see in it: "Add product" on this row's menu opens
+     * it on what you just added (see `onPick`), which is the same intent this
+     * line was reaching for, at the moment it is actually true.
+     */
     startRename(id);
-    onPinFlyout(id);
   };
 
   /**
@@ -2349,6 +2515,33 @@ export function LeftNav({
    */
   const tree = useProductTree(groups);
 
+  /**
+   * One row's edit bundle, from the two halves that make it.
+   *
+   * `editFor` owns renaming (it is the only thing that knows which row is
+   * mid-rename) and `editExtras` owns everything else. A row can have the
+   * second without the first — an account's own link has no override map to
+   * write a name into, and a page below a product has only its glyph — so the
+   * fallback builds a bundle with inert rename handlers rather than dropping
+   * the affordances that DO apply, which is what used to leave those rows
+   * without a grip or a kebab.
+   */
+  const mergeRowEdit = (
+    base: NavRowEdit | null,
+    extras: Partial<NavRowEdit>,
+  ): NavRowEdit | undefined => {
+    if (base) return { ...base, ...extras };
+    if (!extras.drag && !extras.menuActions) return undefined;
+    return {
+      renaming: false,
+      pinned: true,
+      onStartRename: () => {},
+      onCommitRename: () => {},
+      onCancelRename: () => {},
+      ...extras,
+    };
+  };
+
   const renderRow = (item: NavItem) => {
     const flyoutId = flyoutIdFor(item);
     /*
@@ -2382,7 +2575,7 @@ export function LeftNav({
        * Search OVERRIDES the accordion; it does not write to it.
        *
        * Nothing in this block calls `toggleBranch`, `toggleNode` or
-       * `openTreeBranch` while `hit.deep` is true, so `tree.branch` and
+       * `openTreeBranch` while `hit.deep` is true, so the branch slots and
        * `tree.expanded` still hold whatever the reader had open when they
        * started typing — which is what makes clearing the field a restoration
        * rather than a guess. A filter that reached into the accordion could
@@ -2393,7 +2586,77 @@ export function LeftNav({
        * and not really one: it forces nothing, so it draws from the accordion
        * exactly as it would have unfiltered.
        */
-      const open = hit?.deep === true || tree.branch === item.id;
+      const open = hit?.deep === true || tree.isBranchOpen(item.id);
+      /*
+       * The group row's own bundle, built exactly as the flat path builds it.
+       *
+       * Same two halves, same merge — so a category row offers the same rename,
+       * icon, reorder, hide-all and Remove category whether it is a door in the
+       * flyout arrangement or the head of a branch here. It is also the drop
+       * target that files a product: `editExtras` gives a category row a drag
+       * bundle whose `onDrop` calls `moveProductToGroup`, and the products in
+       * every branch lift with the payload it accepts.
+       */
+      const groupEdit = mergeRowEdit(editFor(item.id), editExtras(item.id));
+      /*
+       * The seams between categories, which this branch used to skip.
+       *
+       * They are rendered at the BOTTOM of `renderRow` — with the row, because
+       * only the row knows it is a category and where it sits — and the tree
+       * returns before ever reaching that code. So a tree in edit mode had a
+       * grip on every L1 and nowhere to drop one, and no plus between two
+       * categories to add a third with. Same two calls the flat path makes, in
+       * the same two places: above every category, and below the last one.
+       */
+      const treeCategoryIndex = editing ? indexOfCategory(item.id) : -1;
+      /*
+       * Where a product dropped into this branch's seam `index` lands.
+       *
+       * Lifted from `flyout-panel.tsx`'s `dropRowAt`, arithmetic and all: from
+       * another category it ARRIVES at the index, and from inside this one it
+       * MOVES, which costs a place when it travels downwards because the splice
+       * that removes it lifts everything below.
+       */
+      const branchOrder = groups.find((g) => g.id === item.id)?.productIds ?? [];
+      const dropInBranch = (productId: string, index: number) => {
+        const from = branchOrder.indexOf(productId);
+        if (from < 0) {
+          layout.moveProductToGroup(productId, item.id, index);
+          return;
+        }
+        const to = from < index ? index - 1 : index;
+        if (to !== from) layout.moveProductWithinGroup(item.id, from, to);
+      };
+      /*
+       * A seam between two rows of this branch.
+       *
+       * `node` is the row it sits above and null closes the branch, and the
+       * index is resolved against the CATEGORY's order rather than against the
+       * rendered list — under a query the branch draws only the matches, and a
+       * drop that used the visible position would file the row against a list
+       * the account cannot see.
+       */
+      const branchSeam = (node: TreeNode | null, fallback: number) => {
+        if (!editing) return null;
+        const index = node ? branchOrder.indexOf(node.id) : branchOrder.length;
+        const at = index < 0 ? fallback : index;
+        return (
+          <RowSeam
+            key={`branch-${item.id}-${node?.id ?? "end"}`}
+            dragTypes={dragTypes}
+            accepts={[L2_MIME]}
+            onDrop={(id) => dropInBranch(id, at)}
+            onAdd={(trigger) =>
+              setTreeAddAt({
+                groupId: item.id,
+                index: at,
+                anchor: trigger.getBoundingClientRect(),
+              })
+            }
+            addLabel="Add an item here"
+          />
+        );
+      };
       const isTrail =
         here.productId !== null &&
         (item.id === here.productId ||
@@ -2402,6 +2665,7 @@ export function LeftNav({
           ));
       return (
         <React.Fragment key={item.id}>
+          {treeCategoryIndex >= 0 ? gap(treeCategoryIndex) : null}
           <NavItemRow
             item={{
               ...item,
@@ -2457,6 +2721,7 @@ export function LeftNav({
                 : {}),
             }}
             marking={markFor(false, isTrail)}
+            {...(groupEdit ? { edit: groupEdit } : {})}
             /*
              * No `onHover`, and that is the point of the arrangement.
              *
@@ -2478,12 +2743,23 @@ export function LeftNav({
              * saying something true.
              */
             onSelect={
-              treeHits
-                ? () => {
-                    setTreeQuery("");
-                    openTreeBranch(item.id);
-                  }
-                : () => tree.toggleBranch(item.id)
+              /*
+                Nothing to disclose, nothing to click.
+
+                The row already drops its chevron when the branch is empty
+                (`expandable` above). Leaving the click live let it toggle a
+                branch with no rows in it — the row would light as "open" and
+                disclose nothing, which is the flyout arrangement's empty
+                panel again in a different shape.
+              */
+              nodes.length === 0
+                ? undefined
+                : treeHits
+                  ? () => {
+                      setTreeQuery("");
+                      openTreeBranch(item.id);
+                    }
+                  : () => tree.toggleBranch(item.id)
             }
           />
           {open ? (
@@ -2518,8 +2794,31 @@ export function LeftNav({
                   : onSelect
               }
               markFor={markFor}
+              /*
+               * The mode reaches into the branch, one row at a time.
+               *
+               * A function rather than a flag: the branch cannot know which ids
+               * it will draw until it is open, and the answer differs by level
+               * — `treeRowExtras` gives a product the account's verbs and a page
+               * below it only its glyph.
+               */
+              {...(editing
+                ? {
+                    rowEdit: (nodeId: string) =>
+                      mergeRowEdit(editFor(nodeId), editExtras(nodeId)),
+                    seamFor: branchSeam,
+                  }
+                : {})}
             />
           ) : null}
+          {/*
+            The boundary seam sits under the whole branch, not under the group
+            row — it is the line where the categories end, and half a category's
+            products below it would put the end of the list in its middle.
+          */}
+          {treeCategoryIndex >= 0 && item.id === lastCategoryRowId
+            ? boundarySeam(treeCategoryIndex + 1)
+            : null}
         </React.Fragment>
       );
     }
@@ -2536,18 +2835,7 @@ export function LeftNav({
      * other and reorder alongside their neighbours, so they get a bundle with the
      * drag and inert rename handlers rather than no bundle at all.
      */
-    const edit: NavRowEdit | undefined = base
-      ? { ...base, ...extras }
-      : extras.drag
-        ? {
-            renaming: false,
-            pinned: true,
-            onStartRename: () => {},
-            onCommitRename: () => {},
-            onCancelRename: () => {},
-            ...extras,
-          }
-        : undefined;
+    const edit = mergeRowEdit(base, extras);
     const categoryIndex = editing ? indexOfCategory(item.id) : -1;
     /*
      * The agency tree is one flat list, so its rows need one seam each rather
@@ -2575,10 +2863,34 @@ export function LeftNav({
           here.productId,
         ));
 
+    /*
+     * A category with nothing in it is not a door.
+     *
+     * It used to open its panel like any other, and the panel was empty — a
+     * title, a ✕, and a rectangle of nothing. The chevron promised a level
+     * that was not there, the click delivered the promise, and the only way
+     * to find out was to make the trip. Tree mode already refuses this
+     * (`expandable: nodes.length > 0`, and its note says why); this is the
+     * same fact told in the arrangement where the level is a panel rather
+     * than a branch. Ashwin, Sep 24.
+     *
+     * Not gated on edit mode, deliberately. The authored buckets ship to
+     * every sub-account, so a bakery gets an Integrations shelf holding
+     * nothing it owns — the same empty panel, reached by someone who is not
+     * editing anything and has no idea why it is blank.
+     *
+     * It does NOT strand a new category. The way to fill one was never this
+     * panel: it is the row's own kebab, which carries "Add product", and
+     * dragging a row onto it. Both still work, and both are reachable from a
+     * row that opens nothing.
+     */
+    const emptyBucket =
+      groups.find((g) => g.id === item.id)?.productIds.length === 0;
+
     const row = (
       <NavItemRow
         key={item.id}
-        item={item}
+        item={emptyBucket ? { ...item, hasFlyout: false } : item}
         marking={markFor(isHere, isTrail)}
         /*
          * A row that opens a panel is lit by its PANEL, not by having been
@@ -2594,11 +2906,14 @@ export function LeftNav({
          * page you are on and there is no panel to disagree with it.
          */
         active={
-          item.hasFlyout === true
+          item.hasFlyout === true && !emptyBucket
             ? flyoutId === openFlyoutId || flyoutId === pinnedFlyoutId
             : item.id === selectedId
         }
         onSelect={() => {
+          // Nothing behind it and nothing to select: the row is a label with
+          // a grip and a kebab until something is filed in it.
+          if (emptyBucket) return;
           /*
             The companion-app rows open a modal rather than going anywhere.
 
@@ -2614,7 +2929,11 @@ export function LeftNav({
           onSelect(item.id);
           if (item.hasFlyout) onPinFlyout(flyoutId);
         }}
-        onHover={item.hasFlyout ? () => onHoverFlyout(flyoutId) : onHoverPlain}
+        onHover={
+          item.hasFlyout && !emptyBucket
+            ? () => onHoverFlyout(flyoutId)
+            : onHoverPlain
+        }
         {...(edit ? { edit } : {})}
         // In edit mode, a row with no edit bundle is a row the mode does not
         // reach — Recent, Quick Actions, the favourites row, Settings.
@@ -2683,9 +3002,17 @@ export function LeftNav({
    * some way nobody meant to test.
    *
    * Returns null everywhere but the chosen place, and everywhere at all when
-   * `treeSearchShown` is false — which is what keeps the flyout arrangement,
-   * the agency scope and edit mode from gaining a control none of them asked
-   * for. See `productTree`, which all three already gate on.
+   * `treeSearchShown` is false — which is what keeps the flyout arrangement and
+   * the agency scope from gaining a control neither asked for. See
+   * `productTree`, which both gate on.
+   *
+   * Edit mode was a third exclusion until Sep 24, by accident rather than by
+   * argument: it fell out of `productTree` dropping the tree entirely. With the
+   * mode hosted in the tree the field stays, and it earns its place — finding
+   * the row you mean to rename in a ninety-row catalogue is the same problem
+   * whether you are reading it or editing it. Drops stay correct under a query
+   * because the branch seams resolve their index against the category's real
+   * order, not against the filtered rows on screen.
    */
   const treeSearchAt = (place: typeof treeSearchPlace) =>
     treeSearchShown && treeSearchPlace === place ? (
@@ -3486,6 +3813,43 @@ export function LeftNav({
           */
           align="end"
           onClose={() => setBlocksAt(null)}
+        />
+      ) : null}
+      {treeAddAt ? (
+        <RowMenu
+          anchor={treeAddAt.anchor}
+          title={`Add to ${
+            categories.find((g) => g.id === treeAddAt.groupId)?.label ??
+            "this category"
+          }`}
+          actions={[
+            {
+              id: "product",
+              label: "Add a product",
+              icon: Plus,
+              /*
+               * Everything not already in this category, as the nav's own
+               * tree — the same list the panel's seam offers, from the same
+               * builder, so finding a product is the same act as knowing
+               * where it currently lives.
+               */
+              options: productTreeOptions(state, (id) =>
+                (
+                  groups.find((g) => g.id === treeAddAt.groupId)?.productIds ??
+                  []
+                ).includes(id),
+              ),
+              emptyNote: "Everything is already in here.",
+              onPick: (id) =>
+                layout.addProductToGroup(
+                  id,
+                  treeAddAt.groupId,
+                  treeAddAt.index,
+                ),
+            },
+          ]}
+          align="start"
+          onClose={() => setTreeAddAt(null)}
         />
       ) : null}
       {addingAt ? (

@@ -25,6 +25,7 @@ const OFFSET = 8;
 export function RailTooltip({
   label,
   placement = "right",
+  wrap,
   children,
 }: {
   label: string;
@@ -39,6 +40,17 @@ export function RailTooltip({
    * the nav entirely, which is where the edit card's tooltips were landing.
    */
   placement?: "right" | "below" | "above";
+  /**
+   * Let the pill wrap, to this width in px.
+   *
+   * The default is a single nowrap line, which is right for what this was
+   * built for — a glyph's name, two or three words. A sentence explaining why
+   * a control is refusing is not that: unwrapped it becomes a 500px ribbon
+   * anchored to a button inside a 280px nav, so it runs off one side of the
+   * window or the other depending where the button sits. Given a width it
+   * wraps and stays on screen.
+   */
+  wrap?: number;
   children: React.ReactNode;
 }) {
   const ref = React.useRef<HTMLSpanElement>(null);
@@ -61,7 +73,16 @@ export function RailTooltip({
     if (placement === "above") {
       // Anchored on the trigger's own centre, not on any container's edge:
       // these glyphs sit in a row, so the pill has to say WHICH one.
-      setPos({ top: box.top - OFFSET, left: box.left + box.width / 2 });
+      //
+      // Clamped when it has a width, because a centred pill wider than the
+      // space to the trigger's left hangs off the window — and this
+      // placement's whole job is the nav's foot, which is as far left as the
+      // window goes.
+      const half = (wrap ?? 0) / 2;
+      setPos({
+        top: box.top - OFFSET,
+        left: Math.max(half + 8, box.left + box.width / 2),
+      });
       return;
     }
     const railRight =
@@ -97,9 +118,13 @@ export function RailTooltip({
                 left: pos.left,
                 backgroundColor: "var(--hr-gray-900)",
                 color: "#e2e8f0",
+                ...(wrap ? { maxWidth: wrap } : {}),
               }}
               className={cn(
-                "motion-tap pointer-events-none fixed z-[60] rounded-[6px] px-[8px] py-[4px] text-[12px] leading-none whitespace-nowrap shadow-[0_4px_12px_0_rgba(15,23,42,0.24)]",
+                "motion-tap pointer-events-none fixed z-[60] rounded-[6px] px-[8px] py-[4px] text-[12px] shadow-[0_4px_12px_0_rgba(15,23,42,0.24)]",
+                // A wrapped pill needs its lines apart; a one-line one reads
+                // better tight, which is what it has always been.
+                wrap ? "leading-[16px]" : "leading-none whitespace-nowrap",
                 // Centred on the icon whichever side it takes: vertically
                 // beside it, horizontally above or under it.
                 placement === "below"

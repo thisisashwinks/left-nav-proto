@@ -344,6 +344,20 @@ interface AppHeaderProps {
    */
   pageHeading?: PageHeading | null;
   /**
+   * Whether clicking that crumb would actually move.
+   *
+   * Asked of the shell rather than worked out here, because the answer needs
+   * both halves of a comparison this component has neither of: what a crumb
+   * id RESOLVES to (a group means its first product's first page) and where
+   * the canvas currently is. The bar knows the labels; the shell knows the
+   * routes.
+   *
+   * Absent means "assume yes", which keeps every caller that has not been
+   * taught the question — `BuilderTrail`, the tests — drawing exactly as it
+   * did.
+   */
+  crumbGoesSomewhere?: (id: string) => boolean;
+  /**
    * Opens the Get the app modal.
    *
    * Owned by the shell now that the sidebar can open the same sheet. Two
@@ -383,6 +397,7 @@ export function AppHeader({
   onHome,
   onRecordBack,
   pageHeading,
+  crumbGoesSomewhere,
   onOpenApp,
   entry,
   entryFills = true,
@@ -727,44 +742,29 @@ export function AppHeader({
                     reached — no caret, no hover chip, no menu state mounted
                     and waiting for a click that cannot come.
 
-                    A word and not a link, deliberately. A crumb's destination
-                    in this shell IS its menu — `onSelect` only ever fires with
-                    an option's id — so making the label clickable would mean
-                    inventing a "go to this level" route the trail does not
-                    have, which is the switching this option just turned off,
-                    wearing different clothes.
+                    It used to be a word and never a link, on the argument that
+                    a crumb's destination in this shell IS its menu — `onSelect`
+                    only ever fires with an option's id, so there was no "go to
+                    this level" route to call. That was true of the plumbing and
+                    wrong about the object: a trail you cannot walk back up is
+                    not a breadcrumb, it is a label that happens to have
+                    chevrons in it, and turning the dropdowns off was never
+                    meant to cost the trail its one job. Ashwin, Sep 24.
+
+                    The route was there all along. Each crumb's `options` are
+                    the siblings AT that level, and exactly one of them is the
+                    crumb itself wearing `selected` — so the crumb's own id is
+                    `crumbTargetFor`, and `onSelect` takes it like any other.
+                    Nothing new is invented and nothing is routed twice: this
+                    is the same call the menu's selected row already makes.
                   */
-                  <span
-                    aria-current={last ? "page" : undefined}
-                    style={{
-                      fontSize: last ? font.leafSize : font.size,
-                      fontWeight: last ? font.leafWeight : undefined,
-                    }}
-                    className={cn(
-                      // px-[5px] matches CrumbMenu's own chip inset, and it is
-                      // here for the reason Ashwin gave on Sep 23: turning
-                      // switchers off should remove the CARET, not re-space the
-                      // trail. Without it this branch drew its label flush while
-                      // the switcher branch kept its 5px, so flipping the option
-                      // narrowed every gap in the row by 10px — one option
-                      // reading as two changes. py- stays absent: the chip's
-                      // vertical padding sizes a hover target this branch does
-                      // not have, and it would grow the 48px content box.
-                      "flex min-w-0 items-center gap-[5px] truncate px-[5px] leading-[normal] whitespace-nowrap",
-                      last ? "text-hdr-fg" : "text-hdr-fg-muted",
-                      // Painted rather than merely bold, so the page below can
-                      // stop printing its own title. The padding is pulled back
-                      // out of the row with a negative margin on the vertical
-                      // axis only: a chip that grew the 48px bar's content box
-                      // would move every glyph beside it.
-                      last && font.chip && CRUMB_LEAF_CHIP,
-                    )}
-                  >
-                    {slot.seg.icon && segIcons ? (
-                      <slot.seg.icon size={14} aria-hidden="true" className="shrink-0 opacity-80" />
-                    ) : null}
-                    <span className="truncate">{slot.seg.label}</span>
-                  </span>
+                  <CrumbWord
+                    seg={slot.seg}
+                    last={last}
+                    font={font}
+                    showIcon={segIcons}
+                    {...(crumbGoesSomewhere ? { leadsSomewhere: crumbGoesSomewhere } : {})}
+                  />
                 )}
               </React.Fragment>
             );
@@ -1046,6 +1046,129 @@ function CrumbOptions({
 }
 
 /**
+ * The crumb's own destination, recovered from its sibling list.
+ *
+ * A `Crumb` carries no id of its own — it never needed one, because the only
+ * thing that ever navigated was a row in its menu. But the menu lists the
+ * siblings AT this level and marks the current one, so the crumb's id is
+ * simply the selected option's. Reading it back out is cheaper and safer than
+ * threading a new `id` through every trail builder in the shell, each of which
+ * would then be a place the id could disagree with the options beside it.
+ *
+ * Null when a crumb has no options — a published record crumb, a plain string
+ * segment. Those have no sibling list and therefore no id to find, and they go
+ * on drawing as words, which is honest: there is nowhere for them to go that
+ * is not where you already are.
+ */
+function crumbTargetFor(seg: Crumb): string | null {
+  return seg.options?.find((o) => o.selected)?.id ?? null;
+}
+
+/**
+ * A crumb with no dropdown — still a step you can walk back to.
+ *
+ * Two renderings behind one name, because the choice between them is not a
+ * design decision the caller should be making: a segment is a link when there
+ * is somewhere to go and a word when there is not, and the caller cannot tell
+ * which without repeating the lookup above.
+ *
+ * The leaf is always a word. It is the page you are on, so a link would be a
+ * control that does nothing, and `aria-current="page"` already says as much to
+ * anyone not looking at it.
+ */
+function CrumbWord({
+  seg,
+  last,
+  font,
+  showIcon,
+  leadsSomewhere,
+}: {
+  seg: Crumb;
+  last: boolean;
+  font: ReturnType<typeof crumbType>;
+  showIcon: boolean;
+  /** See `AppHeaderProps.crumbGoesSomewhere`. Absent means "assume yes". */
+  leadsSomewhere?: (id: string) => boolean;
+}) {
+  /*
+   * A crumb whose destination is where you already are draws as a word.
+   *
+   * Standing on Conversations ▸ Inbox, "CRM" resolves to Contacts ▸ Smart
+   * lists and "Conversations" resolves to Inbox — the page under your feet.
+   * Both were links a moment ago and one of them did nothing, which is worse
+   * than a plain label: the hover says "this is a way out of here", the
+   * click proves it is not, and the reader is left doubting the other crumbs
+   * too. So the hover is spent only where there is somewhere to go.
+   *
+   * Note this is a property of the PAGE, not of the level. The same
+   * "Conversations" crumb lights up from Conversations ▸ Settings, because
+   * from there its first page is somewhere else. Ashwin, Sep 24.
+   */
+  const own = last ? null : crumbTargetFor(seg);
+  const target = own !== null && (leadsSomewhere?.(own) ?? true) ? own : null;
+  const go = seg.onSelect;
+
+  const inner = (
+    <>
+      {seg.icon && showIcon ? (
+        <seg.icon size={14} aria-hidden="true" className="shrink-0 opacity-80" />
+      ) : null}
+      <span className="truncate">{seg.label}</span>
+    </>
+  );
+
+  /*
+    px-[5px] matches CrumbMenu's own chip inset, and it is here for the reason
+    Ashwin gave on Sep 23: turning switchers off should remove the CARET, not
+    re-space the trail. Without it this branch drew its label flush while the
+    switcher branch kept its 5px, so flipping the option narrowed every gap in
+    the row by 10px — one option reading as two changes.
+  */
+  const base = cn(
+    "flex min-w-0 items-center gap-[5px] truncate px-[5px] leading-[normal] whitespace-nowrap",
+    last ? "text-hdr-fg" : "text-hdr-fg-muted",
+    // Painted rather than merely bold, so the page below can stop printing its
+    // own title. The padding is pulled back out of the row with a negative
+    // margin on the vertical axis only: a chip that grew the 48px bar's
+    // content box would move every glyph beside it.
+    last && font.chip && CRUMB_LEAF_CHIP,
+  );
+
+  const style = {
+    fontSize: last ? font.leafSize : font.size,
+    fontWeight: last ? font.leafWeight : undefined,
+  };
+
+  if (target === null || !go) {
+    return (
+      <span aria-current={last ? "page" : undefined} style={style} className={base}>
+        {inner}
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => go(target)}
+      style={style}
+      /*
+        The switcher branch's own hover chip, minus the caret.
+
+        Without it the row gives no sign that anything here is pressable, and
+        a trail that navigates silently is only half the fix — the point of
+        the change is that someone can SEE their way back up. `py-` still
+        stays off: the chip's vertical padding would grow the 48px content
+        box, which is the same constraint the wordless branch always had.
+      */
+      className={cn(base, "motion-tap rounded-[6px] hover:bg-hdr-chip hover:text-hdr-fg")}
+    >
+      {inner}
+    </button>
+  );
+}
+
+/**
  * One companion-app glyph in the app bar.
  *
  * Deliberately not a `HeaderAction`: those are authored in header-config and
@@ -1235,8 +1358,24 @@ function buildOverflowMenu(hidden: PlacedCrumb[]) {
       };
     });
 
-  const options: CrumbOption[] = hidden.map(({ seg }) => ({
-    id: `ov-${n++}`,
+  const options: CrumbOption[] = hidden.map(({ seg }) => {
+    const id = `ov-${n++}`;
+    /*
+      The LEVEL row now navigates too.
+
+      It used to be inert scaffolding whose only job was to hang the sibling
+      cascade off — which is why switching the dropdowns off used to leave
+      this whole menu unreachable. A level knows its own destination (see
+      `crumbTargetFor`), so the row that names it can go there, and the
+      cascade beside it stays exactly what it was.
+    */
+    const own = crumbTargetFor(seg);
+    if (own !== null && seg.onSelect) {
+      const go = seg.onSelect;
+      actions.set(id, () => go(own));
+    }
+    return {
+    id,
     label: seg.label,
     /*
       The menu keeps its glyphs under `crumbIcons: "home"`. That option is about
@@ -1245,7 +1384,8 @@ function buildOverflowMenu(hidden: PlacedCrumb[]) {
     */
     icon: seg.icon,
     children: seg.options ? walk(seg.options, seg.onSelect) : undefined,
-  }));
+    };
+  });
   return { options, actions };
 }
 
@@ -1270,9 +1410,17 @@ export function CrumbOverflow({
   switchers?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
-  const { options, actions } = React.useMemo(
+  const { options: full, actions } = React.useMemo(
     () => buildOverflowMenu(hidden),
     [hidden],
+  );
+  /* Levels only, no sibling cascade — see the note below. */
+  const options = React.useMemo(
+    () =>
+      switchers
+        ? full
+        : full.map((o) => ({ ...o, children: undefined })),
+    [full, switchers],
   );
 
   React.useEffect(() => {
@@ -1285,38 +1433,27 @@ export function CrumbOverflow({
   }, [open]);
 
   /*
-   * With switchers off the `…` stays, and stops being a control.
+   * With switchers off the `…` stays, and it stays a control.
    *
    * It stays because collapsing and switching are different questions.
    * `crumbCollapse` is about the ROW's length: it takes levels off the line,
    * and the mark is the trail admitting it. Dropping the mark with the menus
    * would leave "Home ▸ Services" standing for a four-level path — a trail
    * that does not merely say less, but says something untrue about its own
-   * depth, which is worse than the thing the axis was turning off.
+   * depth.
    *
-   * It stops being a control because there is nothing left inside it to reach.
-   * The panel's rows are the hidden LEVELS, and a level row has no action of
-   * its own — everything clickable in there is the sibling cascade hanging off
-   * it (see `buildOverflowMenu`), which is precisely the machinery this option
-   * says must not be reached. A button that opens a menu of inert rows is a
-   * worse answer than a mark that never claimed to open anything.
+   * It used to stop being a control here, on the argument that a level row
+   * had no action of its own and everything clickable inside was the sibling
+   * cascade this option exists to remove. The first half of that is no longer
+   * true: a level knows where it is (`crumbTargetFor`), so the rows in here
+   * are destinations even with every cascade stripped out. Leaving it inert
+   * would mean the middle of a collapsed trail is the one part you cannot
+   * walk back to — the same hole the visible crumbs just had, hidden behind
+   * a glyph. Ashwin, Sep 24.
    *
-   * The `title` survives on the span, so the hidden levels can still be NAMED
-   * on hover. That is a read-out, not a navigation, which is exactly what the
-   * whole trail has become in this mode.
+   * What the option still removes is the SIDEWAYS move: `flat` drops every
+   * `children`, so the panel lists the path and nothing else.
    */
-  if (!switchers) {
-    return (
-      <span
-        aria-label={`${hidden.length} hidden ${hidden.length === 1 ? "level" : "levels"}`}
-        title={hidden.map((h) => h.seg.label).join(" › ")}
-        className="flex h-[20px] shrink-0 items-center px-[4px] text-hdr-fg-muted"
-      >
-        <MoreHorizontal size={14} aria-hidden="true" />
-      </span>
-    );
-  }
-
   return (
     <div className="relative shrink-0">
       <button
