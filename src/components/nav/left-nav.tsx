@@ -76,10 +76,16 @@ import {
   CHROME_TAIL_IDS,
   l1IdsFor,
   editTargetFor,
+  renameBlockedFor,
   liftedChildren,
   navEntriesFor,
 } from "./nav-entries";
-import { fixedEntriesFor, flyoutIdFor, navConfig } from "./nav-config";
+import {
+  fixedEntriesFor,
+  flyoutIdFor,
+  isRecentRow,
+  navConfig,
+} from "./nav-config";
 import {
   AgencyMergedRecentsBlock,
   MergedRecentsBlock,
@@ -213,7 +219,7 @@ interface LeftNavProps {
   onDismissIntro?: () => void;
   /** Row the user has selected. Null on first load — nothing is preselected. */
   selectedId: string | null;
-  onSelect: (id: string) => void;
+  onSelect: (id: string, opts?: { open?: boolean }) => void;
   /** Flyout currently showing — hovered if any, else pinned. */
   openFlyoutId: string | null;
   /** Flyout pinned by a click. Survives the pointer leaving. */
@@ -1120,7 +1126,15 @@ export function LeftNav({
       const order = owner.productIds;
       const at = order.indexOf(itemId);
       return {
-        renameOnLabelClick: editTargetFor(state, groups, itemId) !== null,
+        /*
+         * An L2 in the tree is a product inside a category, and none of those
+         * may be renamed — so no pencil, no click-to-rename, and no Rename in
+         * the kebab. `renameBlockedUniform` is what turns the greyed pencil
+         * off here: every row in this run is blocked, so there is no odd one
+         * out for the mark to point at. See NavRowEdit.
+         */
+        renameOnLabelClick: false,
+        renameBlockedUniform: true,
         hidden: layout.isRowHidden(itemId),
         onToggleHidden: () => layout.toggleRowHidden(itemId),
         /*
@@ -1141,7 +1155,9 @@ export function LeftNav({
           productId: itemId,
           currentGroupId: owner.id,
           categories,
-          onRename: () => startRename(itemId),
+          // No Rename — see the note above. The menu and the row have to
+          // refuse the same things, or the pencil's absence reads as an
+          // oversight the kebab quietly works around.
           ...(can.regroup
             ? {
                 onPickIcon: () => {
@@ -1346,6 +1362,17 @@ export function LeftNav({
     if (chromeL1 >= 0) {
       const i = chromeL1;
       return {
+        /*
+         * And it renames from the text like the categories beside it.
+         *
+         * The pencil and the kebab have always offered it; the label had not,
+         * so the one gesture the mode actually teaches — click the words —
+         * did nothing on this row alone. Ashwin, Sep 28: "for the desktop and
+         * mobile apps category, I can't rename the L1 item." Its name is the
+         * account's, unlike the two rows inside it, so it is the one part of
+         * this row that stays editable.
+         */
+        renameOnLabelClick: true,
         hidden: layout.isRowHidden(itemId),
         onToggleHidden: () => layout.toggleRowHidden(itemId),
         drag: l1Drag(itemId, layout.productLabelFor(itemId)),
@@ -1406,8 +1433,19 @@ export function LeftNav({
        * row can do it still can: icon, order, category, removal.
        */
       const isDoor = liftedChildren(itemId).length > 0;
+      /*
+       * And not if the row names a product, wherever it has been dragged to.
+       *
+       * Promoting one out of its category does not make its name the
+       * account's — it is still what the docs and the support macros call that
+       * screen. `renameBlockedFor` is the single rule; this clause is only
+       * here to keep the kebab from offering a verb the pencil refuses, which
+       * is the row where the greyed pencil actually earns its place.
+       */
       const renameable =
-        !isDoor && editTargetFor(state, groups, itemId) !== null;
+        !isDoor &&
+        editTargetFor(state, groups, itemId) !== null &&
+        renameBlockedFor(state, groups, itemId) === null;
       /*
        * The same kebab a product wears inside a panel.
        *
@@ -1763,7 +1801,8 @@ export function LeftNav({
       merged
         ? resolved.filter(
             (e) =>
-              !(e.kind === "item" && e.item.id.startsWith("recent-")) &&
+              !isRecentRow(e) &&
+              !(e.kind === "item" && e.item.id === "recent-more") &&
               !(e.kind === "label" && e.id === "recent-label"),
           )
         : trimRecents(resolved, recentsBudget),
@@ -2542,6 +2581,17 @@ export function LeftNav({
     };
   };
 
+  /**
+   * Picking a row that is a shortcut rather than a door.
+   *
+   * Recents and the pins inside the merged block are the same product ids the
+   * tree and the flyout draw, and they mean something different: not "open what
+   * is inside this" but "take me back there". Under flat or custom grouping the
+   * shell treats a bare select as the first of those and leaves the canvas
+   * alone, so these surfaces say which they meant.
+   */
+  const selectShortcut = (id: string) => onSelect(id, { open: true });
+
   const renderRow = (item: NavItem) => {
     const flyoutId = flyoutIdFor(item);
     /*
@@ -2926,7 +2976,9 @@ export function LeftNav({
             onOpenApp(item.id === "get-app-mobile" ? "mobile" : "desktop");
             return;
           }
-          onSelect(item.id);
+          // `shortcut` rows are the place itself rather than a door onto it —
+          // see NavItem.shortcut, which is what carries that to the shell.
+          onSelect(item.id, item.shortcut ? { open: true } : undefined);
           if (item.hasFlyout) onPinFlyout(flyoutId);
         }}
         onHover={
@@ -3344,7 +3396,7 @@ export function LeftNav({
           */}
           {merged && agencyScope && !searchOnly && !isBlockHidden(state, "recent") ? (
             <AgencyMergedRecentsBlock
-              onSelect={onSelect}
+              onSelect={selectShortcut}
               accounts={mergedAccountRows}
               onSwitchAccount={onSwitchAccount}
               onOpenPanel={onOpenLauncher}
@@ -3352,7 +3404,7 @@ export function LeftNav({
           ) : null}
           {merged && !agencyScope && !searchOnly && !isBlockHidden(state, "recent") ? (
             <MergedRecentsBlock
-              onSelect={onSelect}
+              onSelect={selectShortcut}
               /*
                 "View all" opens the launcher, not the authored Recent flyout.
                 Merged mode has one list, so it gets one panel behind it: the
@@ -4079,9 +4131,6 @@ function PinnedRow({ onOpen }: { onOpen: () => void }) {
  * budget of zero the whole block goes and Recent lives behind its own row.
  */
 function trimRecents(entries: NavEntry[], budget: number): NavEntry[] {
-  const isRecentRow = (e: NavEntry) =>
-    e.kind === "item" && e.item.id.startsWith("recent-") && e.item.id !== "recent-more";
-
   const total = entries.filter(isRecentRow).length;
   if (budget >= total) return entries;
 

@@ -282,7 +282,13 @@ export function FlyoutPanel({
     [cancelCascade],
   );
   const editing = navEditing && category !== undefined;
-  const [renamingId, setRenamingId] = React.useState<string | null>(null);
+  /*
+   * No rename state in this panel any more.
+   *
+   * Every row it draws is a catalogue product or one of the two companion-app
+   * downloads, and none of their names are the account's to change — so there
+   * is no row the field could open on. Ashwin, Sep 28.
+   */
   const [lifted, setLifted] = React.useState<string | null>(null);
   const [over, setOver] = React.useState<string | null>(null);
   const menu = useRowMenu();
@@ -329,14 +335,17 @@ export function FlyoutPanel({
   const editFor = (productId: string): FlyoutRowEdit | undefined => {
     if (!editing || !category) return undefined;
     return {
-      renaming: renamingId === productId,
-      renameValue: layout.productBaseLabelFor(productId),
-      onStartRename: () => setRenamingId(productId),
-      onCommitRename: (next) => {
-        layout.setProductLabel(productId, next);
-        setRenamingId(null);
-      },
-      onCancelRename: () => setRenamingId(null),
+      /*
+       * Every row this builds is a catalogue product, so none of them may be
+       * renamed — the name is the platform's, not the account's. Sep 28,
+       * Ashwin. The row keeps its kebab, its eye and its drag: hiding or
+       * refiling a product is still the account's business.
+       */
+      renameBlocked: "Product names can't be renamed",
+      renaming: false,
+      onStartRename: () => undefined,
+      onCommitRename: () => undefined,
+      onCancelRename: () => undefined,
       onOpenMenu: (trigger) => {
         setMenuTrigger(trigger);
         menu.open(productId, trigger);
@@ -571,14 +580,22 @@ export function FlyoutPanel({
   const chromeEditFor = (rowId: string): FlyoutRowEdit | undefined => {
     if (!chromeEditing) return undefined;
     return {
-      renaming: renamingId === rowId,
-      renameValue: layout.productLabelFor(rowId),
-      onStartRename: () => setRenamingId(rowId),
-      onCommitRename: (next) => {
-        layout.setProductLabel(rowId, next);
-        setRenamingId(null);
-      },
-      onCancelRename: () => setRenamingId(null),
+      /*
+       * Not renameable, for the same reason the catalogue's products are not.
+       *
+       * "Mobile app" and "Desktop app" are the platform's words for two
+       * downloads, not the account's word for a shelf — and this panel is the
+       * one place they can be reached, so a rename here was the only rename
+       * in the nav that could still put an account's private name on a
+       * platform destination. The L1 above them stays renameable: THAT row is
+       * the account's, which is exactly the line CHROME_TAIL_IDS draws.
+       * Ashwin, Sep 28.
+       */
+      renameBlocked: "Product names can't be renamed",
+      renaming: false,
+      onStartRename: () => undefined,
+      onCommitRename: () => undefined,
+      onCancelRename: () => undefined,
       ...(layout.can.regroup
         ? {
             onPickIcon: (trigger: HTMLElement) => picker.open(rowId, trigger),
@@ -751,7 +768,8 @@ export function FlyoutPanel({
         categories: destinations,
         onMoveToGroup: (groupId) => layout.moveProductToGroup(productId, groupId),
         onMoveToTopLevel: () => layout.placeInTail(productId, 0),
-        onRename: () => setRenamingId(productId),
+        // No Rename: see `chromeEditFor`. A verb the pencil no longer offers
+        // must not survive in the menu behind it — that is how the two drift.
         ...(layout.can.regroup
           ? {
               onPickIcon: () => {
@@ -840,7 +858,10 @@ export function FlyoutPanel({
       productId,
       currentGroupId: category?.id ?? null,
       categories: destinations,
-      onRename: () => setRenamingId(productId),
+      // No Rename: every row this menu belongs to is a catalogue product, and
+      // a product's name is the platform's. See `editFor` above — the pencil
+      // is gone from the row, and leaving the verb in the menu would just be
+      // the same refusal one click further in.
       // The same gate the row's own glyph is behind, so the two ways in agree.
       ...(layout.can.regroup
         ? {

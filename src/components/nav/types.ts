@@ -64,6 +64,25 @@ export interface NavItem {
    */
   pinSlot?: boolean;
   /**
+   * This row is a shortcut to a place, not a door with a panel behind it.
+   *
+   * Recents and pins are the same product ids the tree draws, arriving through
+   * a different surface with a different promise: an L1 row in flat or custom
+   * grouping opens a panel and stays put, and a Recents row means "take me back
+   * there". The shell reads it (`selectNavRow`'s `open`) and navigates rather
+   * than merely lighting the row — which is what these rows did under those two
+   * groupings until Sep 28.
+   */
+  shortcut?: boolean;
+  /**
+   * One of the inline Recent rows (not its More door).
+   *
+   * Recent rows carry product ids so they navigate, which means the id can no
+   * longer say what they are — every filter that resolves, trims or hides the
+   * Recent block keys on this instead.
+   */
+  recent?: boolean;
+  /**
    * Draw no glyph, and hold no column open for one.
    *
    * The product tree's `treeIcons` axis (Sep 23) asks what a three-level tree

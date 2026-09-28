@@ -172,6 +172,85 @@ export const CRUMB_EMPHASIS_LABELS: Record<CrumbEmphasis, string> = {
 /** What the leaf adds to `CRUMB_SCALE_PX` under each answer. */
 export const CRUMB_EMPHASIS_BUMP_PX = 2;
 
+/**
+ * What the trail's LAST segment is.
+ *
+ * Every value keeps the ancestors and their separators untouched — this axis
+ * is only ever about the end of the line, which is the one crumb that names
+ * the page you are already on. That is what makes it worth an axis: the leaf
+ * is the segment with the weakest claim to being there (you know where you
+ * are; you are looking at it) and the strongest claim to being useful (its
+ * menu is the fastest way to the sibling you actually want).
+ *
+ *  full   The word and its caret — "Smart lists ▾". What ships. The leaf
+ *         states the page and offers its siblings, and pays a full segment's
+ *         width to do it.
+ *  caret  The caret alone — "CRM › Contacts › ▾". The switching survives and
+ *         the naming goes, on the argument that the page header a few pixels
+ *         below says the same word. Worth seeing because it is the cheapest
+ *         possible way to keep the move, and because it asks whether a
+ *         control with no label is still discoverable.
+ *  dots   "⋯", the overflow idiom, doing the same job. Says "there is more
+ *         here" without claiming to be a place, which is the honest reading
+ *         of a control whose menu holds siblings rather than children — and
+ *         it is a mark people already know how to press.
+ *  none   No leaf at all. The trail stops at the parent and the page names
+ *         itself. The strictest reading of "do not say it twice", and the
+ *         only value that gives the move up entirely.
+ *  title  No leaf in the trail; the PAGE TITLE grows the caret and the menu
+ *         instead. One name on screen and the switching attached to it — the
+ *         arrangement the Aug 18 Contacts work argued for, generalised. It
+ *         needs a title to attach to, so it falls back to `none` when the
+ *         page header has none to give.
+ */
+export type CrumbLeaf = "full" | "caret" | "dots" | "none" | "title";
+export const CRUMB_LEAVES: readonly CrumbLeaf[] = [
+  "full",
+  "caret",
+  "dots",
+  "none",
+  "title",
+];
+export const CRUMB_LEAF_LABELS: Record<CrumbLeaf, string> = {
+  full: "Word and caret",
+  caret: "Caret only",
+  dots: "Three dots",
+  none: "No last crumb",
+  title: "On the page title",
+};
+
+/**
+ * Which crumbs carry a dropdown onto their siblings.
+ *
+ * It was a boolean, and the boolean hid the interesting answer. The argument
+ * against switchers is about the ANCESTORS: a rank of carets down a row makes
+ * the trail read as a toolbar, and the levels above you are ones the nav can
+ * already reach. The argument for them is almost entirely about the LEAF —
+ * "which other smart list", "which other page of this product" — a sideways
+ * move with no other home, asked at the level you are standing on.
+ *
+ * Off and on could not separate those, so the option was a trade between two
+ * things that do not have to be traded. `leaf` is the arrangement that falls
+ * out once you notice: the trail reads as a path, and the one segment whose
+ * menu earns its caret keeps it.
+ *
+ *  all   Every segment switches. The Aug 13 arrangement.
+ *  leaf  Only the last. Ancestors are words — still clickable, still walking
+ *        you back up (see `crumbTargetFor`), just without menus.
+ *  off   None. The trail states where you are and nothing more.
+ */
+export type CrumbSwitchers = "all" | "leaf" | "off";
+export const CRUMB_SWITCHER_MODES: readonly CrumbSwitchers[] = [
+  "all",
+  "leaf",
+  "off",
+];
+export const CRUMB_SWITCHER_LABELS: Record<CrumbSwitchers, string> = {
+  all: "Every crumb",
+  leaf: "Last only",
+  off: "None",
+};
+
 /** What sits between crumbs. */
 export type CrumbSeparator = "chevron" | "slash";
 export const CRUMB_SEPARATORS: readonly CrumbSeparator[] = ["chevron", "slash"];
@@ -1437,6 +1516,41 @@ export const NAV_SECTION_LABELS: Record<NavSections, string> = {
  * read as louder versions of the same idea the ring already has, and neither
  * survived being seen next to `dim`.
  */
+/**
+ * How edit mode says a label is — or is not — renameable.
+ *
+ * Both answers were asked for within an hour of each other on Sep 28, which is
+ * why this is an axis rather than a decision: the first ask was "provide a
+ * signifier and affordance — an edit icon and a hover tooltip", and the second,
+ * having seen it, was "I want another option where the edit icon won't be
+ * there". Both are defensible and the prototype's job is to show them side by
+ * side.
+ *
+ *  tooltip  No pencil anywhere. The label is the control, as it was before the
+ *           icon existed, and hovering it says what it will do — "Click to
+ *           rename", or the reason it will not. Edit mode stays a nav with its
+ *           labels live rather than a row of tools. The cost is honest: until
+ *           you hover, nothing on screen says the text is a field.
+ *  icon     A pencil on every row that may be renamed, greyed with its reason
+ *           on the top-level rows that may not. Says it without being asked,
+ *           and costs a fourth control on a 272px row.
+ *
+ * `tooltip` is the default on Ashwin's call.
+ *
+ * Neither answer reaches the flyout's rows. Down there every row is a product
+ * and none of them can be renamed, so there is no odd one out to mark and
+ * nothing for a tooltip on every label to distinguish — see
+ * NavRowEdit.renameBlockedUniform.
+ */
+export const RENAME_AFFORDANCES = ["tooltip", "icon"] as const;
+
+export type RenameAffordance = (typeof RENAME_AFFORDANCES)[number];
+
+export const RENAME_AFFORDANCE_LABELS: Record<RenameAffordance, string> = {
+  tooltip: "Tooltip on the label",
+  icon: "Edit icon on the row",
+};
+
 export const EDIT_TREATMENTS = ["ring", "dim"] as const;
 
 export type EditTreatment = (typeof EDIT_TREATMENTS)[number];
@@ -2127,8 +2241,11 @@ export interface ThemeState {
    * it states where you are and nothing more — which is the honest version if
    * the nav is already doing the switching.
    */
-  crumbSwitchers: boolean;
+  /** Which crumbs carry a dropdown. See CRUMB_SWITCHER_MODES. */
+  crumbSwitchers: CrumbSwitchers;
   crumbSeparator: CrumbSeparator;
+  /** What the trail's last segment is. See CRUMB_LEAVES. */
+  crumbLeaf: CrumbLeaf;
   /**
    * Whether a generic child folds its parent's name into its own.
    *
@@ -2451,6 +2568,8 @@ export interface ThemeState {
   railDirectorySpot: RailDirectorySpot;
   /** How edit mode marks the nav. See EDIT_TREATMENTS. */
   editTreatment: EditTreatment;
+  /** How a row says its label is renameable. See RENAME_AFFORDANCES. */
+  renameAffordance: RenameAffordance;
   /** Whether size marks the active account. See RAIL_SIZINGS. */
   railSizing: RailSizing;
   /**
@@ -2686,7 +2805,8 @@ export const DEFAULT_THEME: ThemeState = {
   crumbStart: "group",
   crumbShown: true,
   crumbHome: true,
-  crumbSwitchers: true,
+  crumbSwitchers: "all",
+  crumbLeaf: "full",
   crumbSeparator: "chevron",
   crumbCompoundChild: false,
   recordCrumbLabel: "name",
@@ -2821,6 +2941,9 @@ export const DEFAULT_THEME: ThemeState = {
   // The dim, per the Aug 28 review: the surround carries the mode and the nav
   // needs no outline of its own. Border is one click away for the comparison.
   editTreatment: "dim",
+  // The tooltip, per Ashwin on Sep 28 — having seen the pencil, he wanted the
+  // quieter one as the default and the icon kept for comparison.
+  renameAffordance: "tooltip",
   railSizing: "active",
   railActiveBar: false,
   railMagnify: true,

@@ -16,6 +16,8 @@ import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import { cn } from "@/lib/utils";
 import { useTruncationTitle } from "@/lib/use-truncation-title";
 import { EditAffordance, InlineRename } from "./inline-rename";
+import { RailTooltip } from "./rail-tooltip";
+import { useTheme } from "@/components/theme/theme-provider";
 import type { RowMenuAction } from "./row-menu";
 import type { NavItem } from "./types";
 import { HereBar, useHereStyle, type Marking } from "./here";
@@ -30,6 +32,25 @@ export interface NavRowEdit {
   renaming: boolean;
   /** Show the pencil without a hover. The prototype panel's forcing switch. */
   pinned?: boolean;
+  /**
+   * Why this row's label cannot be renamed, if it cannot.
+   *
+   * Set, the row draws a greyed pencil carrying this string as its tooltip
+   * instead of a live one, and the label stops opening the field on click.
+   * See renameBlockedFor in nav-entries.ts for the rule and the argument.
+   */
+  renameBlocked?: string;
+  /**
+   * Every row in this run is blocked for the same reason, so draw no pencil.
+   *
+   * The greyed pencil earns its place by being the odd one out: a product
+   * promoted to the top level sits among categories that CAN be renamed, and
+   * without the mark the reader would just find the label inert. Inside a
+   * category the whole run is products, so the same mark becomes a column of
+   * dead controls explaining a rule with no exception on screen. Ashwin asked
+   * for it gone there on Sep 28; this is the difference between the two.
+   */
+  renameBlockedUniform?: boolean;
   onStartRename: () => void;
   onCommitRename: (next: string) => void;
   onCancelRename: () => void;
@@ -272,8 +293,45 @@ export function NavItemRow({
    * pointer that is over the element carrying it, and a nav row is pointed at
    * anywhere along its 240px.
    */
-  const { ref: labelRef, hostRef: rowHostRef } =
-    useTruncationTitle<HTMLSpanElement>(item.label);
+  const { renameAffordance } = useTheme().effective;
+  /*
+   * Whether the rename tip is the thing explaining this row on hover.
+   *
+   * Worked out up here, well above the branch that draws the label, because
+   * the hook that writes the truncation `title` runs first and has to know to
+   * stand down — two pills over one row is what Ashwin saw on Sep 28.
+   *
+   * Silent on a row blocked UNIFORMLY: that flag means every row in the run is
+   * a product, so there is no odd one out to mark and a pill on each would
+   * follow the pointer down the list saying the same thing. Silent too where
+   * there is no rename either way — an account's own link has no override map
+   * behind it, so "click to rename" would be a lie.
+   */
+  const labelTip =
+    renameAffordance === "tooltip" && edit && !edit.renaming
+      ? edit.renameBlocked
+        ? edit.renameBlockedUniform
+          ? null
+          : edit.renameBlocked
+        : edit.renameOnLabelClick
+          ? "Click to rename"
+          : null
+      : null;
+  /*
+   * Whether that tip is a refusal, which the cursor has to agree with.
+   *
+   * The label is a `<button>`, so preflight hands it the pointer — and a hand
+   * over words that have just said they cannot be renamed is the control
+   * contradicting its own tooltip. Ashwin, Sep 28. Only the refusal case: a
+   * label saying "click to rename" is pointing at a real click, and the row
+   * underneath still opens its panel from anywhere along its length.
+   */
+  const labelRefuses = labelTip !== null && labelTip === edit?.renameBlocked;
+  const { ref: labelRef, hostRef: rowHostRef } = useTruncationTitle<HTMLSpanElement>(
+    item.label,
+    // Stands down while the rename tip is up — see the hook's `enabled`.
+    labelTip === null,
+  );
   /*
     Whether something New is behind this row's door.
 
@@ -502,6 +560,78 @@ export function NavItemRow({
     );
   }
 
+  /*
+   * Clicking the label opens the field only where a rename is actually
+   * allowed. Derived once rather than tested at each of the four places that
+   * used to read the prop: a blocked row that still turned its label into an
+   * input on click would be offering the edit and then refusing it, which is
+   * worse than not offering it.
+   */
+  const labelRenames = edit.renameOnLabelClick && !edit.renameBlocked;
+
+
+  /*
+   * The label, built once and then either wrapped or not.
+   *
+   * It used to be written inline in the JSX, which was fine while there was
+   * one of it. The rename tip needs the same button inside a RailTooltip, and
+   * two copies of a control this fiddly is two places for the next change to
+   * miss.
+   */
+  const labelButton = (
+    <button
+        type="button"
+        aria-current={active ? "page" : undefined}
+        aria-label={
+          labelRenames ? `Rename ${item.label}` : undefined
+        }
+        onFocus={onHover}
+        // Normally no onClick: the row above owns it, and this button's own
+        // activation — mouse or keyboard — bubbles up to it. In edit mode it
+        // takes the click for itself and renames, which is why the propagation
+        // has to stop here or the row would also act on the same click.
+        onClick={
+          labelRenames
+            ? (e) => {
+                e.stopPropagation();
+                edit.onStartRename();
+              }
+            : undefined
+        }
+        className={cn(
+          "flex min-w-0 items-center text-left",
+          /*
+            On the TEXT as well as on the button.
+
+            `[data-cursor="menu"] *` in globals.css sets the cursor on every
+            descendant of the nav band, so the span holding the words carries
+            its own `pointer` — and the span is what the pointer is actually
+            over. Styling only the button left the rule applying everywhere
+            except the one place anyone would look. The descendant utility
+            wins the same way the button's does: equal specificity, later
+            cascade layer.
+          */
+          labelRefuses && "cursor-not-allowed [&_*]:cursor-not-allowed",
+          labelRenames
+            ? /*
+               * Only as wide as its text while editing.
+               *
+               * Normally the label fills the row so the row reads as one
+               * target — but in edit mode it has its own job, and a full-width
+               * label meant a click anywhere on a category renamed it instead
+               * of opening its panel. Which is the one thing that has to keep
+               * working: moving rows between categories means having a panel
+               * open. The hover box is the only hint the text is a field; a
+               * permanent one would make the nav read as a form.
+               */
+              "w-fit max-w-full shrink -mx-[3px] rounded-[4px] px-[3px] hover:bg-nav-active"
+            : "flex-1",
+        )}
+      >
+        {label}
+      </button>
+  );
+
   return (
     <div
       ref={rowHostRef}
@@ -625,51 +755,27 @@ export function NavItemRow({
           ariaLabel={`Rename ${item.label}`}
           className="text-[length:var(--t-nav-font,14px)] leading-[normal]"
         />
+      ) : labelTip ? (
+        /*
+          The label explains itself on hover, in the `tooltip` affordance.
+
+          Wrapped rather than given a `title`: the pill has to arrive at once
+          on a strip of text the pointer is already on, and it has to be the
+          app's rather than the OS's. `above` anchors on the label's own
+          centre, so a row carrying four other controls still says WHICH thing
+          is being talked about. RailTooltip's wrapper is `display: contents`,
+          so the row's flex layout is untouched.
+        */
+        <RailTooltip label={labelTip} placement="above">
+          {labelButton}
+        </RailTooltip>
       ) : (
-        <button
-          type="button"
-          aria-current={active ? "page" : undefined}
-          aria-label={
-            edit.renameOnLabelClick ? `Rename ${item.label}` : undefined
-          }
-          onFocus={onHover}
-          // Normally no onClick: the row above owns it, and this button's own
-          // activation — mouse or keyboard — bubbles up to it. In edit mode it
-          // takes the click for itself and renames, which is why the propagation
-          // has to stop here or the row would also act on the same click.
-          onClick={
-            edit.renameOnLabelClick
-              ? (e) => {
-                  e.stopPropagation();
-                  edit.onStartRename();
-                }
-              : undefined
-          }
-          className={cn(
-            "flex min-w-0 items-center text-left",
-            edit.renameOnLabelClick
-              ? /*
-                 * Only as wide as its text while editing.
-                 *
-                 * Normally the label fills the row so the row reads as one
-                 * target — but in edit mode it has its own job, and a full-width
-                 * label meant a click anywhere on a category renamed it instead
-                 * of opening its panel. Which is the one thing that has to keep
-                 * working: moving rows between categories means having a panel
-                 * open. The hover box is the only hint the text is a field; a
-                 * permanent one would make the nav read as a form.
-                 */
-                "w-fit max-w-full shrink -mx-[3px] rounded-[4px] px-[3px] hover:bg-nav-active"
-              : "flex-1",
-          )}
-        >
-          {label}
-        </button>
+        labelButton
       )}
 
       {/* Takes the width the label gave up, so the kebab and the chevron stay on
           the row's trailing edge rather than sliding in behind the text. */}
-      {edit.renameOnLabelClick && !edit.renaming ? (
+      {labelRenames && !edit.renaming ? (
         <span aria-hidden="true" className="min-w-0 flex-1 self-stretch" />
       ) : null}
 
@@ -703,6 +809,41 @@ export function NavItemRow({
               )}
             </EditAffordance>
           ) : null}
+          {/*
+            The pencil, on every editable row and on the blocked ones too.
+
+            It used to appear only where there was no kebab, which left the
+            commonest rows in the mode with no signifier at all: the label
+            turned into a field when you clicked it, and nothing said so
+            beforehand. Ashwin asked on Sep 28 for the affordance to be
+            visible rather than discovered. Drawn beside the kebab rather than
+            folded into it, because a menu is a thing you open to find out what
+            is in it, and the whole complaint was about having to find out.
+
+            Behind the axis since later that same day, when — having seen it —
+            he asked for a quieter default that puts the same two answers on
+            the label's own hover instead. See RENAME_AFFORDANCES.
+          */}
+          {renameAffordance !== "icon" ? null : edit.renameBlocked ? (
+            edit.renameBlockedUniform ? null : (
+              <EditAffordance
+                label={edit.renameBlocked}
+                disabled
+                onClick={() => undefined}
+                pinned={edit.pinned ?? false}
+              >
+                <Pencil size={11} aria-hidden="true" />
+              </EditAffordance>
+            )
+          ) : (
+            <EditAffordance
+              label={`Rename ${item.label}`}
+              onClick={edit.onStartRename}
+              pinned={edit.pinned ?? false}
+            >
+              <Pencil size={11} aria-hidden="true" />
+            </EditAffordance>
+          )}
           {edit.onOpenMenu ? (
             <MenuAffordance
               label={`Edit ${item.label}`}
@@ -711,13 +852,6 @@ export function NavItemRow({
             />
           ) : (
             <>
-              <EditAffordance
-                label={`Rename ${item.label}`}
-                onClick={edit.onStartRename}
-                pinned={edit.pinned ?? false}
-              >
-                <Pencil size={11} aria-hidden="true" />
-              </EditAffordance>
               {edit.onReset ? (
                 <EditAffordance
                   label={`Reset ${item.label} to the shipped name`}

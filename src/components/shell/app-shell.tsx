@@ -36,6 +36,7 @@ import {
   withPageCrumb,
   type PageCrumb,
 } from "@/components/page/page-crumb";
+import { LeafCrumbContext } from "@/components/page/leaf-crumb";
 import {
   PageHeadingContext,
   type PageHeading,
@@ -427,6 +428,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
      * thing.
      */
     crumbCompoundChild,
+    crumbLeaf,
+    crumbShown,
+    crumbSwitchers,
   } = effective;
 
   /*
@@ -1272,12 +1276,20 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * Selecting a nav row, and opening it when the row is a destination.
    *
    * The proposed tree's Launchpad and Mobile own no products, so the row IS the
-   * page — there is no flyout to route through. Gated on the mode because in
-   * flat and custom a top-level product row has always been an inert highlight,
-   * and those accounts must keep behaving exactly as they do today.
+   * page — there is no flyout to route through. The grouping decides for an L1
+   * ROW, because in flat and custom a top-level product row has always been an
+   * inert highlight whose panel does the travelling, and those accounts must
+   * keep behaving exactly as they do today.
+   *
+   * `open` is how a surface overrides that, and it exists because the rule was
+   * being applied to rows the argument was never about (Sep 28). Recents and
+   * the pinned dock are SHORTCUTS: the row is not a door with a panel behind
+   * it, it is the place itself, and under flat or custom grouping clicking one
+   * lit the row and left the canvas exactly where it was. Ashwin hit it on
+   * Recents. The caller knows which kind of row it drew, so the caller says.
    */
   const selectNavRow = React.useCallback(
-    (id: string) => {
+    (id: string, opts?: { open?: boolean }) => {
       /*
        * Picking a row dismisses whatever panel is open over the nav.
        *
@@ -1327,7 +1339,12 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         return;
       }
       setSelectedId(id);
-      if (layout.grouping === "proposed" && productById(id)) openProduct(id);
+      if (
+        productById(id) &&
+        (opts?.open === true || layout.grouping === "proposed")
+      ) {
+        openProduct(id);
+      }
     },
     [
       layout.grouping,
@@ -2100,6 +2117,34 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     ? collapseRepeats(foldGenericChildren(builtCrumbs))
     : builtCrumbs;
 
+  /**
+   * The leaf, handed down to the page title under `crumbLeaf: "title"`.
+   *
+   * Taken off the FINISHED array rather than rebuilt, so the segment the page
+   * draws is byte-for-byte the one the bar would have drawn — including the
+   * record crumb's wrapping and whatever `crumbCompoundChild` folded. A
+   * second derivation would be a second answer, and the two would part at
+   * exactly the seams those two features exist to handle.
+   *
+   * Null unless there is something real to hand over: no trail, no switchers,
+   * a leaf with no siblings or no handler, and the title has nothing to open.
+   * Publishing an empty menu would give the title a caret that opens a blank
+   * panel, which is the failure the empty-category work spent Sep 24 on.
+   */
+  const leafCrumb = React.useMemo(() => {
+    // "off" means no menus anywhere, and the title's caret is a menu — under
+    // it this variant has nothing to hand over and degrades to no last crumb.
+    if (crumbLeaf !== "title" || !crumbShown || crumbSwitchers === "off") {
+      return null;
+    }
+    const last = crumbs[crumbs.length - 1];
+    if (!last || typeof last === "string") return null;
+    if (!last.options || last.options.length === 0 || !last.onSelect) {
+      return null;
+    }
+    return last;
+  }, [crumbLeaf, crumbShown, crumbSwitchers, crumbs]);
+
   /*
    * The exit — built here, or nowhere.
    *
@@ -2427,6 +2472,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           // Same phase the nav faces compute from the same flag, so the capsule
           // and the rows leave on one beat instead of two.
           swap={navSwap}
+          /*
+           * The dock's icons navigate, which until Sep 28 they did not.
+           *
+           * `PinnedMorph` has always called an optional `onSelect`, and nothing
+           * ever passed one — so every pinned shortcut in the capsule was a
+           * button that lit on hover, named itself, and did nothing. A pin is a
+           * shortcut to a destination, so it opens like one.
+           */
+          onSelect={(id) => selectNavRow(id, { open: true })}
           onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
           launcherActive={intent.activeId === LAUNCHER_ID}
           overflowCount={overflowCount}
@@ -2796,6 +2850,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           <RecordCrumbContext.Provider value={recordCrumbValue}>
           <PageCrumbContext.Provider value={pageCrumbValue}>
           <PageHeadingContext.Provider value={pageHeadingValue}>
+          <LeafCrumbContext.Provider value={leafCrumb}>
           <ContactsAreaProvider value={[contactsPageId, setContactsPageId]}>
             {/*
               The only real surface in the window now. Inset on every edge so the
@@ -2928,6 +2983,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               )}
             </div>
           </ContactsAreaProvider>
+          </LeafCrumbContext.Provider>
           </PageHeadingContext.Provider>
           </PageCrumbContext.Provider>
           </RecordCrumbContext.Provider>

@@ -412,6 +412,7 @@ export function AppHeader({
     crumbHome,
     crumbSwitchers,
     crumbSeparator,
+    crumbLeaf,
     recordBackButton,
     recordBackPlace,
     barPageHeading,
@@ -439,6 +440,32 @@ export function AppHeader({
   const headingAtPageScale = !!heading && barHeadingScale === "page";
   /* Both axes resolved once — see `crumbType`. */
   const font = crumbType(crumbScale, crumbEmphasis);
+  /*
+   * The leaf's shape, after the switcher axis has had its say.
+   *
+   * `caret` and `dots` exist to CARRY the dropdown — they give up the word on
+   * the understanding that the control is still there. With the switchers
+   * off there is no control, so both would draw a glyph that opens nothing:
+   * worse than either the word or no leaf at all. They fall back to the word,
+   * which is the value that survives losing the menu.
+   *
+   * `none` and `title` are unaffected. Neither is about the menu — one
+   * removes the segment and the other moves it — and both are still
+   * meaningful on a trail that does not switch.
+   */
+  /*
+   * Two questions the trail asks of the switcher axis, and they differ.
+   *
+   * `ancestorMenus` is the argument the option was really about — a rank of
+   * carets down the row. `leafMenu` is the one segment whose menu has no
+   * other home. `leaf` exists precisely so they can disagree.
+   */
+  const ancestorMenus = crumbSwitchers === "all";
+  const leafMenu = crumbSwitchers !== "off";
+  const leaf: typeof crumbLeaf =
+    leafMenu || (crumbLeaf !== "caret" && crumbLeaf !== "dots")
+      ? crumbLeaf
+      : "full";
   /*
    * The back control, and the three conditions that have to agree before it
    * is drawn.
@@ -692,6 +719,20 @@ export function AppHeader({
         <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-[4px]">
           {slots.map((slot, i) => {
             const last = slot.kind === "crumb" && slot.index === lastIndex;
+            /*
+             * The leaf, under whichever reading of it is on.
+             *
+             * Resolved here rather than inside the branch below because two
+             * of the five values remove the segment ENTIRELY, and a removed
+             * segment has to take its separator with it — the mark points
+             * back at something, and a chevron with nothing after it is the
+             * trail claiming a level it is not showing. Only `last` is ever
+             * affected; every ancestor falls through untouched, which is what
+             * makes this an axis about the end of the line rather than about
+             * the trail.
+             */
+            const leafGone = last && (leaf === "none" || leaf === "title");
+            if (leafGone) return null;
             return (
               <React.Fragment
                 key={
@@ -719,9 +760,9 @@ export function AppHeader({
                   <CrumbOverflow
                     hidden={slot.hidden}
                     theme={theme}
-                    switchers={crumbSwitchers}
+                    switchers={ancestorMenus}
                   />
-                ) : crumbSwitchers &&
+                ) : (last ? leafMenu : ancestorMenus) &&
                   slot.seg.options &&
                   slot.seg.options.length > 0 ? (
                   <CrumbMenu
@@ -730,10 +771,15 @@ export function AppHeader({
                     font={font}
                     showIcon={segIcons}
                     theme={theme}
+                    {...(last && (leaf === "caret" || leaf === "dots")
+                      ? { shape: leaf }
+                      : {})}
                   />
                 ) : (
                   /*
-                    Where a crumb lands with `crumbSwitchers: false`, and the
+                    Where a crumb lands with no menu of its own — every
+                    segment under `crumbSwitchers: "off"`, the ancestors under
+                    `"leaf"`, and any level with no siblings to offer — and the
                     reason that option needed no second renderer: a segment
                     with no siblings to offer has always drawn as a word, so
                     "no switchers" is the existing wordless branch taken by
@@ -1207,6 +1253,7 @@ function CrumbMenu({
   theme,
   font,
   showIcon = true,
+  shape,
 }: {
   seg: Crumb;
   last: boolean;
@@ -1215,6 +1262,19 @@ function CrumbMenu({
   font: CrumbType;
   /** False under `crumbIcons: "home"`, where House is the row's only glyph. */
   showIcon?: boolean;
+  /**
+   * The leaf's own shape, when it is not the full word.
+   *
+   * Only ever passed for the last crumb, and only for the two values that
+   * keep a control: `caret` drops the word and keeps the arrow, `dots` swaps
+   * both for the overflow mark. `none` and `title` never reach here — those
+   * remove the segment before it is rendered.
+   *
+   * A prop rather than a read of the axis inside, because this component
+   * draws every ancestor too and they are not affected by it. Reading the
+   * theme here would mean re-deriving "am I the leaf" in a second place.
+   */
+  shape?: "caret" | "dots";
 }) {
   const [open, setOpen] = React.useState(false);
 
@@ -1234,6 +1294,7 @@ function CrumbMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-current={last ? "page" : undefined}
+        {...(shape ? { "aria-label": `${seg.label} — switch page` } : {})}
         onClick={() => setOpen((v) => !v)}
         className={cn(
           "motion-tap flex min-w-0 items-center gap-[3px] rounded-[6px] px-[5px] py-[3px] hover:bg-hdr-chip",
@@ -1253,11 +1314,14 @@ function CrumbMenu({
             7px matches the wordless leaf's inset, or the two leaves sit on
             different edges depending on whether the level has siblings.
           */
-          last && font.chip && `${CRUMB_LEAF_PAINT} px-[7px]`,
+          // No chip behind a wordless leaf: the paint exists to mark a WORD
+          // as the page's name, and wrapped around a lone glyph it reads as a
+          // second kind of button rather than as emphasis.
+          last && font.chip && !shape && `${CRUMB_LEAF_PAINT} px-[7px]`,
         )}
       >
 
-        {seg.icon && showIcon ? (
+        {seg.icon && showIcon && !shape ? (
           <seg.icon
             size={14}
             aria-hidden="true"
@@ -1267,18 +1331,29 @@ function CrumbMenu({
             )}
           />
         ) : null}
-        <span
-          style={{
-            fontSize: last ? font.leafSize : font.size,
-            fontWeight: last ? font.leafWeight : undefined,
-          }}
-          className={cn(
-            "truncate leading-[normal] whitespace-nowrap",
-            last ? "text-hdr-fg" : "text-hdr-fg-muted",
-          )}
-        >
-          {seg.label}
-        </span>
+        {/*
+          The word, unless the leaf has given it up.
+
+          `aria-label` on the button carries it in both wordless shapes, so
+          what goes is the printing and not the naming — a bare caret that
+          announced itself as "button" would be a control nobody could
+          identify by any means, which is a different and worse thing than
+          one you have to recognise by position.
+        */}
+        {shape ? null : (
+          <span
+            style={{
+              fontSize: last ? font.leafSize : font.size,
+              fontWeight: last ? font.leafWeight : undefined,
+            }}
+            className={cn(
+              "truncate leading-[normal] whitespace-nowrap",
+              last ? "text-hdr-fg" : "text-hdr-fg-muted",
+            )}
+          >
+            {seg.label}
+          </span>
+        )}
         {/*
           A standing caret after all. The Aug 13 note dropped it because a rank
           of glyphs read as noise, but with icons now leading each segment the
@@ -1286,13 +1361,37 @@ function CrumbMenu({
           affordance you can see. Kept small and faint so it sits under the
           label rather than beside it.
         */}
-        <CaretDown
-          size={11}
-          className={cn(
-            "-mr-[1px] shrink-0 text-hdr-fg-muted motion-move",
-            open ? "rotate-180 opacity-90" : "opacity-70",
-          )}
-        />
+        {shape === "dots" ? (
+          /*
+            The overflow mark, doing a switcher's job.
+
+            Bigger than the caret and not rotated, because it is not an arrow
+            promising a direction — it is the "there is more here" glyph the
+            rest of this product already uses, and the whole point of the
+            variant is to ask whether that reads as switchable where an arrow
+            reads as decoration.
+          */
+          <MoreHorizontal
+            size={14}
+            aria-hidden="true"
+            className={cn(
+              "shrink-0 text-hdr-fg-muted",
+              open ? "opacity-90" : "opacity-70",
+            )}
+          />
+        ) : (
+          <CaretDown
+            size={11}
+            className={cn(
+              "shrink-0 text-hdr-fg-muted motion-move",
+              // The -1px pulls the caret back against a label. With no label
+              // beside it the caret IS the control, so it sits centred in its
+              // own box instead of hanging off the end of nothing.
+              shape === "caret" ? "mx-[1px]" : "-mr-[1px]",
+              open ? "rotate-180 opacity-90" : "opacity-70",
+            )}
+          />
+        )}
       </button>
 
       {open ? (
@@ -1406,7 +1505,7 @@ export function CrumbOverflow({
    * model into a surface that has no room for the first one.
    */
   onPick?: () => void;
-  /** False under `crumbSwitchers: false`; see the note on the marker below. */
+  /** False unless every crumb switches; see the note on the marker below. */
   switchers?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);

@@ -26,6 +26,17 @@ import * as React from "react";
  */
 export function useTruncationTitle<T extends HTMLElement>(
   text: string,
+  /**
+   * Off while something else is already explaining this row.
+   *
+   * Edit mode's `tooltip` rename affordance hangs a pill on the label saying
+   * whether it can be renamed, and this `title` hangs on the ROW — so hovering
+   * the words drew both: the app's pill immediately and the OS's a second
+   * later, one naming the row and one answering a question about it. Ashwin
+   * saw the pair on Sep 28. The rename tip is the one that answers what the
+   * pointer is there to do, so it wins and this stands down.
+   */
+  enabled = true,
 ): {
   /** Goes on the label — the element that does the truncating. */
   ref: React.RefObject<T | null>;
@@ -55,6 +66,13 @@ export function useTruncationTitle<T extends HTMLElement>(
   React.useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    const target0 = host.current ?? el;
+    if (!enabled) {
+      // Cleared rather than merely not written: the mode can turn on while the
+      // attribute is already sitting on the row from the render before.
+      if (target0.title === text) target0.removeAttribute("title");
+      return;
+    }
 
     const apply = () => {
       // +1: sub-pixel layout rounds scrollWidth up on labels that fit exactly,
@@ -79,7 +97,7 @@ export function useTruncationTitle<T extends HTMLElement>(
      */
     document.fonts?.ready.then(apply).catch(() => {});
     return () => observer.disconnect();
-  }, [text]);
+  }, [text, enabled]);
 
   return { ref, hostRef };
 }

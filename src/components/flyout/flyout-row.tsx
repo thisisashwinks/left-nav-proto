@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronRight,
   EllipsisVertical,
+  Pencil,
   Eye,
   EyeOff,
   GripVertical,
@@ -290,6 +291,8 @@ export interface FlyoutRowEdit {
    * when its handler does.
    */
   renaming?: boolean;
+  /** See NavRowEdit.renameBlocked — same rule, same reason. */
+  renameBlocked?: string;
   onStartRename?: () => void;
   onCommitRename?: (next: string) => void;
   onCancelRename?: () => void;
@@ -767,6 +770,28 @@ export function FlyoutRow({
                 ) : (
                   <Eye size={12} aria-hidden="true" />
                 )}
+              </EditAffordance>
+            ) : null}
+            {/*
+              The pencil, so the mode says a label is editable before you
+              click it.
+
+              Absent rather than greyed when the row may not be renamed — the
+              opposite of the rule one level up, and deliberately. A promoted
+              top-level row sits among categories that CAN be renamed, so it
+              has to say why it is the exception. Down here EVERY row is a
+              product and none of them can be, so a greyed pencil on all of
+              them would be a column of dead controls explaining a rule that
+              has no exception in view. Ashwin, Sep 28: "remove the edit icon
+              as well, since we are not allowing rename of L2 items at all."
+            */}
+            {edit.renameBlocked ? null : edit.onStartRename ? (
+              <EditAffordance
+                label={`Rename ${item.label}`}
+                onClick={edit.onStartRename}
+                pinned
+              >
+                <Pencil size={11} aria-hidden="true" />
               </EditAffordance>
             ) : null}
             {edit.onOpenMenu ? (

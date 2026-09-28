@@ -2,7 +2,14 @@
 
 import * as React from "react";
 import { usePageHeading } from "@/components/page/page-heading";
-import { EllipsisVertical, type LucideIcon } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  EllipsisVertical,
+  type LucideIcon,
+} from "lucide-react";
+import type { Crumb } from "@/components/header/app-header";
+import { useLeafCrumb } from "@/components/page/leaf-crumb";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 
@@ -156,6 +163,159 @@ export function OverflowMenu({ items }: { items: PageAction[] }) {
   );
 }
 
+/**
+ * The page title as the trail's last crumb — `crumbLeaf: "title"`.
+ *
+ * The title is already the leaf's word; the only thing it is missing is the
+ * leaf's menu. So this adds a caret and nothing else, and the menu it opens
+ * is the segment the shell handed down — the same options, the same handler,
+ * resolved once in the one place that knows what a sibling is.
+ *
+ * The heading stays an `<h1>` with the button inside it rather than becoming
+ * a button: the page's name is a heading whatever you can do with it, and a
+ * document whose only h1 is a menu trigger is one a screen reader cannot
+ * outline.
+ *
+ * One level, deliberately. A crumb menu in the bar cascades — a bucket's row
+ * hovers open its products — and that machinery is worth its complexity on a
+ * control the whole product shares. Here it is one page's title offering its
+ * own siblings; the depth would be a second navigation model on a surface
+ * that already has the trail above it.
+ */
+/** The heading's own type, shared so the menu and the plain h1 cannot drift. */
+const TITLE_TYPE =
+  "text-[20px] leading-[normal] font-semibold tracking-[-0.2px] text-pg-heading";
+
+function TitleMenu({
+  title,
+  leaf,
+  className,
+}: {
+  title: string;
+  leaf: Crumb;
+  className: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
+  return (
+    <h1 className="relative flex min-w-0 items-center">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          /*
+            The hover chip costs the heading nothing.
+
+            Padding is what gives the chip a box to be, and every pixel of it
+            is pulled straight back out with a matching negative margin — 7px
+            each side, 2px top and bottom. Without the vertical half the
+            title sat 4px taller than the plain <h1> beside it, so switching
+            the axis on nudged the description, the count and the action row
+            down with it: one option quietly re-spacing the header. The same
+            trick, and the same reason, as CRUMB_LEAF_CHIP_BOX up in the bar.
+          */
+          "motion-tap -mx-[7px] -my-[2px] flex min-w-0 items-center gap-[6px] rounded-[8px] px-[7px] py-[2px] hover:bg-pg-bg",
+          open && "bg-pg-bg",
+        )}
+      >
+        <span className={cn("min-w-0 truncate", className)}>{title}</span>
+        <ChevronDown
+          size={17}
+          aria-hidden="true"
+          className={cn(
+            "shrink-0 text-pg-muted motion-move",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+
+      {open ? (
+        <>
+          <button
+            type="button"
+            aria-label="Close menu"
+            tabIndex={-1}
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-30 cursor-default"
+          />
+          <div
+            role="menu"
+            aria-label={`Switch ${title}`}
+            /*
+              The bar's own panel geometry, in the page's tokens.
+
+              Every number here — 240px, 5px of padding, the 10px radius, and
+              the row metrics below — is `CrumbOptions`'. It IS the same menu:
+              the same options, resolved by the same shell, offering the same
+              move; only the surface it opens over has changed, and a surface
+              is a palette question rather than a sizing one. Written out
+              rather than imported because the two live under different token
+              scopes (--hdr-* in the bar, --pg-* here) and sharing the
+              component would mean one of them resolving to nothing.
+            */
+            className="absolute top-[calc(100%+8px)] left-0 z-40 max-h-[400px] w-[240px] overflow-y-auto rounded-[10px] bg-pg-surface p-[5px] shadow-[0_16px_32px_-8px_rgba(15,23,42,0.18),0_4px_8px_-4px_rgba(15,23,42,0.12),inset_0_0_0_1px_var(--pg-border)]"
+          >
+            {(leaf.options ?? []).map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                // One of many, like the bar's — a plain menuitem would let a
+                // screen reader read three unrelated commands.
+                role="menuitemradio"
+                aria-checked={option.selected ?? false}
+                onClick={() => {
+                  setOpen(false);
+                  leaf.onSelect?.(option.id);
+                }}
+                className="motion-tap flex w-full items-center gap-[8px] rounded-[7px] px-[9px] py-[7px] text-left hover:bg-pg-bg"
+              >
+                {option.icon ? (
+                  <option.icon
+                    size={15}
+                    aria-hidden="true"
+                    className={cn(
+                      "shrink-0",
+                      option.selected ? "text-pg-heading" : "text-pg-muted",
+                    )}
+                  />
+                ) : null}
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 truncate text-[13px] leading-[18px]",
+                    option.selected
+                      ? "font-semibold text-pg-heading"
+                      : "text-pg-text",
+                  )}
+                >
+                  {option.label}
+                </span>
+                {option.selected ? (
+                  <Check
+                    size={13}
+                    aria-hidden="true"
+                    className="shrink-0 text-pg-heading"
+                  />
+                ) : null}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </h1>
+  );
+}
+
 export interface PageHeaderProps {
   /**
    * A plain heading, not a navigator.
@@ -291,6 +451,7 @@ export function PageHeader({
    * the part the trail cannot say: the count, the status and the actions.
    */
   const axis = usePageChrome();
+  const leafCrumb = useLeafCrumb();
   const { effective } = useTheme();
   /*
    * The heading goes UP instead of being drawn here.
@@ -387,9 +548,23 @@ export function PageHeader({
         >
           {lead}
           {showTitle ? (
-            <h1 className="truncate text-[20px] leading-[normal] font-semibold tracking-[-0.2px] text-pg-heading">
-              {title}
-            </h1>
+            /*
+              The title carries the trail's leaf when the axis moved it here.
+
+              `leafCrumb` is null in every other case — including when the
+              axis is on but the shell had no siblings worth handing over —
+              so the ordinary heading is the fallback rather than a branch
+              the page has to ask for. See leaf-crumb.tsx.
+            */
+            leafCrumb ? (
+              <TitleMenu
+                title={title}
+                leaf={leafCrumb}
+                className={TITLE_TYPE}
+              />
+            ) : (
+              <h1 className={cn("truncate", TITLE_TYPE)}>{title}</h1>
+            )
           ) : null}
           {count && chrome.count ? (
             <span className="shrink-0 rounded-[6px] bg-pg-bg px-[8px] py-[2px] text-[12.5px] leading-[18px] font-medium whitespace-nowrap text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border)]">

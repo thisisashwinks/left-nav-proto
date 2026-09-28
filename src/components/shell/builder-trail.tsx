@@ -161,7 +161,13 @@ export function BuilderTrail({
                 hidden={slot.hidden}
                 theme={appTheme}
                 onPick={onLeave}
-                switchers={crumbSwitchers}
+                /*
+                  Cascades only under "every crumb". The builder's rows all
+                  mean the same thing — leave — so `onPick` overrides each
+                  one's own destination anyway; what the axis still decides is
+                  whether the panel offers a sibling walk beside them.
+                */
+                switchers={crumbSwitchers === "all"}
               />
             ) : last ? (
               <span

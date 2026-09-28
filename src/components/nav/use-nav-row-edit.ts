@@ -4,7 +4,7 @@ import * as React from "react";
 import type { LucideIcon } from "lucide-react";
 import { nameForIcon } from "./icon-catalogue";
 import type { IconPicker, useIconPicker } from "./icon-picker";
-import { editTargetFor } from "./nav-entries";
+import { editTargetFor, renameBlockedFor } from "./nav-entries";
 import type { NavRowEdit } from "./nav-item-row";
 import { useNavLayout } from "./nav-layout-provider";
 
@@ -60,6 +60,13 @@ export function useNavRowEdit(
 
     const { kind, id } = target;
     const isGroup = kind === "group";
+    /*
+     * Whether the label may be renamed at all, separately from what a rename
+     * would write. A blocked row keeps every other edit affordance it had —
+     * the eye, the kebab, the drag — because hiding or refiling a product is
+     * still the account's business; only its NAME is the platform's.
+     */
+    const renameBlocked = renameBlockedFor(state, groups, itemId);
     const renamed = isGroup
       ? layout.isRenamed(id)
       : layout.isProductRenamed(id);
@@ -80,7 +87,13 @@ export function useNavRowEdit(
       ...(isGroup || layout.productBaseLabelFor(id) === id
         ? {}
         : { renameValue: layout.productBaseLabelFor(id) }),
-      onStartRename: () => setRenamingId(itemId),
+      ...(renameBlocked ? { renameBlocked } : {}),
+      // Inert rather than absent: NavRowEdit requires the handler, and a
+      // blocked row must never open the field even if something calls it.
+      onStartRename: () => {
+        if (renameBlocked) return;
+        setRenamingId(itemId);
+      },
       onCommitRename: (next) => {
         if (isGroup) layout.setLabel(id, next);
         else layout.setProductLabel(id, next);

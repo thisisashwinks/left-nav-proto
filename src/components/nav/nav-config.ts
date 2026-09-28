@@ -29,19 +29,43 @@ import type { NavConfig, NavEntry, NavItem } from "./types";
  * destinations, not a preview of a menu — which is why they carry no chevron and
  * sit on the design's tighter 6px padding rather than the standard 9px.
  */
+/*
+ * Catalogue ids, not `recent-` ones (Sep 28).
+ *
+ * These three were `recent-tasks`, `recent-email-campaigns` and
+ * `recent-calendars` — ids nothing in the app answers to, so the rows lit and
+ * the canvas never moved. "The last places the user was" has to name places
+ * that exist, or the block is a picture of a feature rather than the feature.
+ *
+ * `shortcut` is what makes them travel under every grouping: see
+ * `NavItem.shortcut`. `recent` is what the Recent filters key on now that the
+ * id no longer says it — without it these three leaked through as fixed rows
+ * on every account.
+ */
 const recentItems: NavItem[] = [
-  { id: "recent-tasks", label: "Tasks", icon: CheckCheck, density: "compact" },
   {
-    id: "recent-email-campaigns",
-    label: "Email Campaigns",
-    icon: Mail,
+    id: "tasks",
+    label: "Tasks",
+    icon: CheckCheck,
     density: "compact",
+    shortcut: true,
+    recent: true,
   },
   {
-    id: "recent-calendars",
+    id: "email-campaigns",
+    label: "Email campaigns",
+    icon: Mail,
+    density: "compact",
+    shortcut: true,
+    recent: true,
+  },
+  {
+    id: "calendars",
     label: "Calendars",
     icon: Calendar,
     density: "compact",
+    shortcut: true,
+    recent: true,
   },
 ];
 
@@ -112,6 +136,11 @@ export const navConfig: NavConfig = {
   },
 };
 
+/** An inline Recent row — by flag, since its id is a product id. */
+export function isRecentRow(e: NavEntry): boolean {
+  return e.kind === "item" && e.item.recent === true;
+}
+
 /** How many places the inline Recent block can name at most. */
 const RECENT_ROWS = 3;
 
@@ -140,11 +169,7 @@ export function fixedEntriesFor(
   let next = 0;
   const resolved: NavEntry[] = [];
   for (const entry of fixed) {
-    const isRecentRow =
-      entry.kind === "item" &&
-      entry.item.id.startsWith("recent-") &&
-      entry.item.id !== "recent-more";
-    if (!isRecentRow) {
+    if (!isRecentRow(entry)) {
       resolved.push(entry);
       continue;
     }
@@ -155,10 +180,12 @@ export function fixedEntriesFor(
     resolved.push({
       kind: "item",
       item: {
-        id: `recent-${productId}`,
+        id: productId,
         label: labelForProduct(state, productId),
         icon: iconForProduct(state, productId),
         density: "compact",
+        shortcut: true,
+        recent: true,
       },
     });
   }
@@ -182,7 +209,8 @@ export function fixedEntriesFor(
     if (isBlockHidden(state, "recent")) {
       if (e.kind === "label" && e.id === "recent-label") return false;
       if (e.kind === "divider" && e.id === "div-recent") return false;
-      if (e.kind === "item" && e.item.id.startsWith("recent-")) return false;
+      if (isRecentRow(e) || (e.kind === "item" && e.item.id === "recent-more"))
+        return false;
     }
     if (
       isBlockHidden(state, "quickActions") &&

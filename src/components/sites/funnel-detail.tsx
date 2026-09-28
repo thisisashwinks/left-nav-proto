@@ -144,12 +144,17 @@ export function FunnelDetail({
    * open funnel really does close, and `onOpenFunnel` opens the chosen one in
    * the same batch, so the screen swaps rather than bouncing through the list.
    *
-   * It is published unconditionally, and `crumbSwitchers: false` is allowed to
-   * take the caret away — the same treatment every other switchable crumb gets.
+   * It is published unconditionally, and `crumbSwitchers` is allowed to take
+   * the caret away — the same treatment every other switchable crumb gets.
    * Gating the publish on that axis would make this page the one place where
    * "no switchers" also meant "no options were ever offered", so flipping the
    * axis back on would leave the funnel crumb inert while its neighbours woke
    * up. The axis decides what the BAR draws; the page just states what it has.
+   *
+   * That became load-bearing on Sep 28, when the axis grew a third value:
+   * under "leaf" this crumb's options are what the last segment switches
+   * between, so a page that had withheld them would be the one trail that
+   * ends in a word where every other ends in a menu.
    */
   usePageCrumb({
     label: "Funnels",

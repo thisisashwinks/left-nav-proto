@@ -35,6 +35,10 @@ import {
   RECORD_CRUMB_LABEL_LABELS,
   RECORD_CRUMB_LABELS,
   CRUMB_SEPARATOR_LABELS,
+  CRUMB_LEAVES,
+  CRUMB_SWITCHER_MODES,
+  CRUMB_SWITCHER_LABELS,
+  CRUMB_LEAF_LABELS,
   CRUMB_SEPARATORS,
   TREE_ICON_LABELS,
   TREE_ICONS,
@@ -182,6 +186,9 @@ import {
   type PanelRecentHeading,
   type PinMarkColour,
   type EditTreatment,
+  RENAME_AFFORDANCES,
+  RENAME_AFFORDANCE_LABELS,
+  type RenameAffordance,
   type RailSizing,
   type RailTileShape,
   type RailRecents,
@@ -415,6 +422,8 @@ function NavStructureSection({
     setRailZoomFit,
     editTreatment,
     setEditTreatment,
+    renameAffordance,
+    setRenameAffordance,
     railSizing,
     setRailSizing,
     railActiveBar,
@@ -840,6 +849,20 @@ function NavStructureSection({
         {editTreatment === "dim"
           ? "No stroke. Everything outside the nav drops back and desaturates, so the mode is shown by what is withdrawn. The rail goes a step lighter than the page — it is how you leave, not something to ignore."
           : "A neutral stroke around the nav, surround a step back behind it. Quiet — and a 1.5px outline is also what a focus ring looks like, which was the objection."}
+      </Note>
+
+      <Segmented
+        label="A renameable label says so"
+        options={RENAME_AFFORDANCES}
+        value={renameAffordance}
+        onChange={(v: RenameAffordance) => setRenameAffordance(v)}
+        format={(v) => RENAME_AFFORDANCE_LABELS[v]}
+        keywords="rename pencil edit icon signifier affordance tooltip hover label"
+      />
+      <Note>
+        {renameAffordance === "tooltip"
+          ? "No pencil. The label is the control, and hovering it says what it will do — or why it won't. Quiet, but nothing marks the text as a field until you hover."
+          : "A pencil on every renameable row, greyed with its reason on a top-level row that names a product. Says it without being asked, at the price of a fourth control on the row."}
       </Note>
 
       {/*
@@ -2133,6 +2156,8 @@ export function TuningPanel() {
     setCrumbHome,
     crumbSwitchers,
     setCrumbSwitchers,
+    crumbLeaf,
+    setCrumbLeaf,
     crumbSeparator,
     setCrumbSeparator,
     crumbCompoundChild,
@@ -2306,6 +2331,7 @@ export function TuningPanel() {
     (barHeadingScale !== DEFAULT_THEME.barHeadingScale ? 1 : 0) +
     (crumbHome !== DEFAULT_THEME.crumbHome ? 1 : 0) +
     (crumbSwitchers !== DEFAULT_THEME.crumbSwitchers ? 1 : 0) +
+    (crumbLeaf !== DEFAULT_THEME.crumbLeaf ? 1 : 0) +
     (crumbSeparator !== DEFAULT_THEME.crumbSeparator ? 1 : 0) +
     (crumbCompoundChild !== DEFAULT_THEME.crumbCompoundChild ? 1 : 0) +
     (crumbEmphasis !== DEFAULT_THEME.crumbEmphasis ? 1 : 0) +
@@ -2323,6 +2349,7 @@ export function TuningPanel() {
     setBarHeadingScale(DEFAULT_THEME.barHeadingScale);
     setCrumbHome(DEFAULT_THEME.crumbHome);
     setCrumbSwitchers(DEFAULT_THEME.crumbSwitchers);
+    setCrumbLeaf(DEFAULT_THEME.crumbLeaf);
     setCrumbSeparator(DEFAULT_THEME.crumbSeparator);
     setCrumbCompoundChild(DEFAULT_THEME.crumbCompoundChild);
     setCrumbEmphasis(DEFAULT_THEME.crumbEmphasis);
@@ -2863,17 +2890,42 @@ export function TuningPanel() {
                       : "No Home. The way back to the account's front door leaves the bar."}
                   </Note>
 
-                  <Toggle
+                  <Segmented
                     label="Crumb dropdowns"
-                    keywords="dropdown caret chevron menu switcher siblings hide"
-                    checked={crumbSwitchers}
+                    keywords="dropdown caret chevron menu switcher siblings hide last leaf"
+                    options={CRUMB_SWITCHER_MODES}
+                    value={crumbSwitchers}
                     disabled={!crumbShown}
                     onChange={setCrumbSwitchers}
+                    format={(v) => CRUMB_SWITCHER_LABELS[v]}
                   />
                   <Note>
-                    {crumbSwitchers
-                      ? "Each segment carries a caret onto its siblings, which is what makes the row earn its height."
-                      : "Plain text. The trail states where you are and nothing more — honest if the nav is already doing the switching."}
+                    {crumbSwitchers === "all"
+                      ? "Each segment carries a caret onto its siblings, which is what makes the row earn its height — and what makes it read as a toolbar rather than a path."
+                      : crumbSwitchers === "leaf"
+                        ? "Only the last. The ancestors are the levels the nav can already reach, so they go back to being words you can click; the leaf's menu \u2014 which other smart list, which other page \u2014 is the sideways move with no other home."
+                        : "Plain text. The trail states where you are and nothing more — honest if the nav is already doing the switching."}
+                  </Note>
+
+                  <Segmented
+                    label="The last crumb"
+                    keywords="leaf last segment caret dots page title dropdown"
+                    options={CRUMB_LEAVES}
+                    value={crumbLeaf}
+                    disabled={!crumbShown}
+                    onChange={setCrumbLeaf}
+                    format={(v) => CRUMB_LEAF_LABELS[v]}
+                  />
+                  <Note>
+                    {crumbLeaf === "full"
+                      ? "The leaf states the page and offers its siblings — a whole segment spent naming somewhere you can already see."
+                      : crumbLeaf === "caret"
+                        ? "The word goes, the switch stays: the page header a few pixels below already says it. Worth watching whether a control with no label is a control anyone finds."
+                        : crumbLeaf === "dots"
+                          ? "The overflow mark doing a switcher's job. It says \u201cmore here\u201d without claiming to be a place, which is the honest reading of a menu full of siblings — and people already press it."
+                          : crumbLeaf === "none"
+                            ? "The trail stops at the parent and the page names itself. The strictest reading of \u201cdo not say it twice\u201d, and the only one that gives the move up entirely."
+                            : "One name on screen, with the switching on it: the title grows the caret and the leaf leaves the bar. Needs a title to attach to — with the page header off, or a leaf with no siblings, it is the same as no last crumb."}
                   </Note>
 
                   <Segmented

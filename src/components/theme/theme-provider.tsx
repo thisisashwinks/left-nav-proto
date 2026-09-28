@@ -35,6 +35,7 @@ import {
   type LaunchpadCard,
   type RailSizing,
   type EditTreatment,
+  type RenameAffordance,
   type PageShell,
   type ScopeModel,
   type NavGeneration,
@@ -64,6 +65,8 @@ import { chromeForVariant } from "@/components/page/header-variants";
 import type {
   BuilderChromeStyle,
   CalendarViewSwitch,
+  CrumbLeaf,
+  CrumbSwitchers,
   BarHeadingScale,
   CrumbSeparator,
   TreeIcons,
@@ -224,7 +227,7 @@ interface ThemeContextValue extends ThemeState {
   setTreeRecentsAllProducts: (on: boolean) => void;
   setCrumbShown: (on: boolean) => void;
   setCrumbHome: (on: boolean) => void;
-  setCrumbSwitchers: (on: boolean) => void;
+  setCrumbSwitchers: (v: CrumbSwitchers) => void;
   setCrumbSeparator: (v: CrumbSeparator) => void;
   setCrumbCompoundChild: (on: boolean) => void;
   setBuilderKeepBanner: (on: boolean) => void;
@@ -250,6 +253,7 @@ interface ThemeContextValue extends ThemeState {
   setRecordBackPlace: (place: RecordBackPlace) => void;
   setBarPageHeading: (on: boolean) => void;
   setBarHeadingScale: (scale: BarHeadingScale) => void;
+  setCrumbLeaf: (v: CrumbLeaf) => void;
   setCalendarViewSwitch: (style: CalendarViewSwitch) => void;
   /**
    * Picks a header shape for one page archetype.
@@ -274,6 +278,7 @@ interface ThemeContextValue extends ThemeState {
   setRailZoomFit: (fit: RailZoomFit) => void;
   setLaunchpadCard: (variant: LaunchpadCard) => void;
   setEditTreatment: (treatment: EditTreatment) => void;
+  setRenameAffordance: (affordance: RenameAffordance) => void;
   setRailSizing: (sizing: RailSizing) => void;
   setRailActiveBar: (enabled: boolean) => void;
   setRailMagnify: (enabled: boolean) => void;
@@ -595,6 +600,7 @@ export function ThemeProvider({
         setState((s) => ({ ...s, recordBackPlace })),
       setBarHeadingScale: (barHeadingScale) =>
         setState((s) => ({ ...s, barHeadingScale })),
+      setCrumbLeaf: (crumbLeaf) => setState((s) => ({ ...s, crumbLeaf })),
       setBarPageHeading: (barPageHeading) =>
         setState((s) => ({ ...s, barPageHeading })),
       setCalendarViewSwitch: (calendarViewSwitch) =>
@@ -637,6 +643,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, launchpadCard })),
       setEditTreatment: (editTreatment) =>
         setState((s) => ({ ...s, editTreatment })),
+      setRenameAffordance: (renameAffordance) =>
+        setState((s) => ({ ...s, renameAffordance })),
       setRailSizing: (railSizing) => setState((s) => ({ ...s, railSizing })),
       setRailActiveBar: (railActiveBar) =>
         setState((s) => ({ ...s, railActiveBar })),

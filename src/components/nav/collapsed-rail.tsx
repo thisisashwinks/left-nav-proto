@@ -44,7 +44,7 @@ interface CollapsedRailProps {
   config?: NavConfig;
   /** Row the user has selected. Shared with the expanded nav. */
   selectedId: string | null;
-  onSelect: (id: string) => void;
+  onSelect: (id: string, opts?: { open?: boolean }) => void;
   /** Flyout currently showing — hovered if any, else pinned. */
   openFlyoutId: string | null;
   /** Flyout pinned by a click. Survives the pointer leaving. */
@@ -312,7 +312,7 @@ export function CollapsedRail({
     const resolved = fixedEntriesFor(layout, navConfig.fixed);
     return resolved.flatMap((e): NavItem[] => {
       if (e.kind !== "item") return [];
-      if (e.item.id.startsWith("recent")) return [];
+      if (e.item.recent || e.item.id.startsWith("recent")) return [];
       if (cardQuickActions && e.item.id === "quick-actions") return [];
       return [e.item];
     });
@@ -475,7 +475,7 @@ export function CollapsedRail({
         (i.hasFlyout === true &&
           (flyoutId === openFlyoutId || flyoutId === pinnedFlyoutId)),
       () => {
-        onSelect(i.id);
+        onSelect(i.id, i.shortcut ? { open: true } : undefined);
         /*
          * In tree mode a door row hands over to the expanded face instead of
          * opening a panel.
@@ -641,7 +641,10 @@ export function CollapsedRail({
                   row.label,
                   <ResolvedIcon icon={row.icon} size={16} />,
                   row.id === selectedId,
-                  () => onSelect(row.id),
+                  // Shortcuts, like the expanded face's merged block: the
+                  // rail draws the same pins and recents and owes the same
+                  // promise. See `selectNavRow`'s `open`.
+                  () => onSelect(row.id, { open: true }),
                   onHoverPlain,
                 )}
               </React.Fragment>

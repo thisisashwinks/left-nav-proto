@@ -445,6 +445,38 @@ export function liftedChildren(id: string): readonly CatalogueChild[] {
 }
 
 /** Which of a row's ids the override maps are keyed by, or null if it is chrome. */
+/**
+ * Why this row's label cannot be renamed, or null if it can.
+ *
+ * `editTargetFor` answers "what would a rename WRITE", which is a different
+ * question from "may this be renamed at all" — and conflating the two is what
+ * let a product be renamed from the nav in the first place. A category is the
+ * account's own word for a shelf it invented, so renaming it is exactly the
+ * personalization edit mode exists for. A product's name is the platform's:
+ * it is what the docs, the support macros and every other account call that
+ * screen, and an account that renames Opportunities to "Deals" has made its
+ * own support tickets unanswerable. Ashwin settled this on Sep 28.
+ *
+ * The moved-to-L1 case is why this returns a REASON rather than a boolean.
+ * Promoting a product out of its category makes it a top-level row sitting
+ * among categories that CAN be renamed, so the row has to say why it is the
+ * exception — see the disabled affordance in nav-item-row.
+ *
+ * Chrome tail rows (Desktop & mobile apps and friends) are deliberately not
+ * caught: they name no catalogue product, so there is no platform name to
+ * protect, and CHROME_TAIL_IDS is already the list that says so.
+ */
+export function renameBlockedFor(
+  state: NavLayoutState,
+  groups: ResolvedGroup[],
+  itemId: string,
+): string | null {
+  const target = editTargetFor(state, groups, itemId);
+  if (!target || target.kind !== "product") return null;
+  if (CHROME_TAIL_IDS.has(itemId)) return null;
+  return "Product names can't be renamed";
+}
+
 export function editTargetFor(
   state: NavLayoutState,
   groups: ResolvedGroup[],

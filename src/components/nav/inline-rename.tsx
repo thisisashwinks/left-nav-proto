@@ -3,6 +3,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { LABEL_MAX } from "./nav-layout-provider";
+import { RailTooltip } from "./rail-tooltip";
 
 /**
  * Rename in place, on the row itself.
@@ -105,6 +106,7 @@ export function EditAffordance({
   children,
   className,
   pinned = false,
+  disabled = false,
 }: {
   label: string;
   /**
@@ -121,20 +123,49 @@ export function EditAffordance({
    * editable. The prototype panel turns it on to photograph the affordance.
    */
   pinned?: boolean;
+  /**
+   * Shown, greyed and inert — never hidden.
+   *
+   * A row whose pencil is simply absent reads as a row the mode forgot, and
+   * the case this exists for is exactly the one where that misreads: a product
+   * promoted to the top level sits among categories that CAN be renamed, so
+   * the difference has to be visible and has to explain itself — which is why
+   * callers pass the REASON as the label, and why the blocked one carries a
+   * tooltip rather than leaving the reader to work it out from an inert glyph.
+   *
+   * `aria-disabled` rather than `disabled`, and the greying on the glyph
+   * rather than on the button — both of them fixes for the first cut, which
+   * Ashwin reported on Sep 28 as looking and behaving exactly like a live
+   * pencil. A `disabled` button takes no pointer events, so nothing could
+   * hover it at all. And `opacity-40` sat in the same Tailwind group as the
+   * hover-reveal's `opacity-0 / opacity-100`, so `twMerge` dropped it and the
+   * row drew the blocked pencil at full strength. Greying `[&>svg]` keeps the
+   * two out of each other's way.
+   */
+  disabled?: boolean;
 }) {
-  return (
+  const button = (
     <button
       type="button"
       aria-label={label}
-      title={label}
+      /*
+        No `title` on the blocked one: RailTooltip is drawing that string, and
+        the two together give you an app pill now and an OS pill a second
+        later, saying the same thing in two type sizes.
+      */
+      {...(disabled ? {} : { title: label })}
+      aria-disabled={disabled || undefined}
       onClick={(e) => {
         // The row underneath navigates; the pencil must not.
         e.stopPropagation();
+        if (disabled) return;
         onClick(e.currentTarget);
       }}
       className={cn(
         "motion-tap flex size-[20px] shrink-0 items-center justify-center rounded-[5px]",
-        "text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg",
+        disabled
+          ? "cursor-not-allowed text-nav-fg-subtle [&>svg]:opacity-40"
+          : "text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg",
         pinned
           ? "opacity-100"
           : "opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100",
@@ -143,5 +174,39 @@ export function EditAffordance({
     >
       {children}
     </button>
+  );
+
+  /*
+   * The blocked pencil explains itself with the app's own pill, not `title`.
+   *
+   * Ashwin, Sep 28: hovering it showed nothing. The native tooltip waits out a
+   * browser delay nobody can tune, and this is a 20px glyph you pass over on
+   * the way to the kebab — the dwell is over before the OS has decided to
+   * draw. The same trade floating-chrome made for its toolbar, for the same
+   * reason, and `RailTooltip` is already the answer everywhere else in the
+   * nav. Only the blocked one gets it: a live pencil's `title` is a label for
+   * a control that explains itself, and a pill on every row in edit mode
+   * would follow the pointer down the whole list.
+   */
+  return disabled ? (
+    /*
+      `above`, which anchors on the trigger's own centre.
+
+      The default `right` placement measures from the NAV's right edge, not the
+      glyph's — right for a collapsed rail, where every icon shares one column
+      and the pill is naming the rail's row. Here it put the pill out over the
+      canvas, level with a row carrying four other controls, so nothing in it
+      pointed at the pencil. Ashwin, Sep 28: "the tooltip is coming somewhere
+      else." Above the glyph it sits over the row's own trailing cluster and
+      needs no explaining.
+
+      No `wrap`: the reason is five words, and a wrapped pill is also a taller
+      one, which at this placement would start covering the row above.
+    */
+    <RailTooltip label={label} placement="above">
+      {button}
+    </RailTooltip>
+  ) : (
+    button
   );
 }
