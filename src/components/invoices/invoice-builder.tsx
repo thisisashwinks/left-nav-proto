@@ -34,6 +34,15 @@ import {
 export interface InvoiceBuilderProps {
   invoice: Invoice;
   onBack: () => void;
+  /**
+   * The records beside this one, for the trail's last crumb.
+   *
+   * Handed in by the page that owns the cut: this component is given one
+   * record and cannot know whether its siblings are the lit filter's or the
+   * whole collection's. See `RecordCrumb.options`.
+   */
+  siblings?: { id: string; name: string }[];
+  onOpenSibling?: (id: string) => void;
 }
 
 /** The document title's cap, and the counter beside the field reads against it. */
@@ -55,7 +64,12 @@ const TITLE_MAX = 100;
  * can be changed and two editable copies of one invoice is how a preview
  * starts disagreeing with what gets sent.
  */
-export function InvoiceBuilder({ invoice, onBack }: InvoiceBuilderProps) {
+export function InvoiceBuilder({
+  invoice,
+  onBack,
+  siblings,
+  onOpenSibling,
+}: InvoiceBuilderProps) {
   const {
     appTheme,
     builderKeepSidebar,
@@ -88,7 +102,30 @@ export function InvoiceBuilder({ invoice, onBack }: InvoiceBuilderProps) {
     collapseSidebar: true,
   });
 
-  useRecordCrumb(invoice.name, onBack);
+  /*
+   * The siblings ride on the crumb, so `crumbLeaf` means something here.
+   *
+   * Its caret, dots and page-title values are all shapes for a dropdown, and
+   * a record crumb with no options falls through to plain text — so until
+   * Sep 28 three of the axis's five values did nothing on any detail page.
+   */
+  useRecordCrumb(
+    {
+      name: invoice.name,
+      kind: "Invoice details",
+      ...(siblings && onOpenSibling
+        ? {
+            options: siblings.map((r) => ({
+              id: r.id,
+              label: r.name,
+              selected: r.id === invoice.id,
+            })),
+            onSelect: onOpenSibling,
+          }
+        : {}),
+    },
+    onBack,
+  );
 
   /*
    * The commitment side. Always right, in every combination.

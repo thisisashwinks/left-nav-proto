@@ -5,22 +5,35 @@ import {
   Calendar,
   CircleDollarSign,
   ClipboardCheck,
-  ExternalLink,
   FileText,
   Keyboard,
-  MousePointerClick,
   PenLine,
   Plus,
   RotateCcw,
-  Search,
   Share2,
   Sparkles,
   UserRound,
-  UsersRound,
+  Target,
   type LucideIcon,
 } from "lucide-react";
-import { OutlineButton, PrimaryButton } from "@/components/page/page-header";
 import { SideDrawer } from "@/components/page/side-drawer";
+import { useRecordSlice } from "./record-store";
+import { ActivityBody, ActivityFooter, seedActivity } from "./activity-panel";
+import { AssociationsBody, ManageAssociationsLink } from "./associations-panel";
+import { EMPTY_ASSOCIATIONS, LINKABLE, type Associations } from "./associations-data";
+import { OpportunitiesBody, seedOpportunities } from "./opportunities-panel";
+import { TasksBody, seedTasks } from "./tasks-panel";
+import { NotesBody, seedNotes } from "./notes-panel";
+import { DocumentsBody, seedDocuments } from "./documents-panel";
+import {
+  PaymentsBody,
+  PaymentsHeaderActions,
+  seedPayments,
+  type PaymentActionId,
+} from "./payments-panel";
+import { AgentLogsBody } from "./agent-logs-panel";
+import { AppointmentsBody, seedAppointments, type Appointment } from "./appointments-panel";
+import { NewBookingPage } from "./new-booking-page";
 import { cn } from "@/lib/utils";
 
 /**
@@ -43,7 +56,7 @@ export const RECORD_PANELS: RecordPanelDef[] = [
   { id: "contact", label: "Contact details", icon: UserRound },
   { id: "activity", label: "Activity", icon: RotateCcw },
   { id: "associations", label: "Associations", icon: Share2 },
-  { id: "relations", label: "Relations", icon: UsersRound },
+  { id: "opportunities", label: "Opportunities", icon: Target },
   { id: "tasks", label: "Tasks", icon: ClipboardCheck },
   { id: "notes", label: "Notes", icon: PenLine },
   { id: "appointments", label: "Appointments", icon: Calendar },
@@ -56,10 +69,13 @@ export function PanelRail({
   panels = RECORD_PANELS,
   activeId,
   onSelect,
+  onShortcuts,
 }: {
   panels?: RecordPanelDef[];
   activeId: string | null;
   onSelect: (id: string | null) => void;
+  /** Opens the keyboard shortcuts sheet; without it the key is decoration. */
+  onShortcuts?: () => void;
 }) {
   return (
     <div className="flex w-[42px] shrink-0 flex-col items-center gap-[2px] py-[6px]">
@@ -90,180 +106,155 @@ export function PanelRail({
         );
       })}
       <span className="flex-1" />
-      <span
-        aria-hidden="true"
-        className="flex size-[32px] items-center justify-center rounded-[8px] bg-pg-surface text-pg-muted shadow-[0_1px_3px_0_rgba(15,23,42,0.12)]"
+      <button
+        type="button"
+        title="Keyboard shortcuts"
+        aria-label="Keyboard shortcuts"
+        onClick={onShortcuts}
+        disabled={!onShortcuts}
+        className="flex size-[32px] items-center justify-center rounded-[8px] bg-pg-surface text-pg-muted shadow-[0_1px_3px_0_rgba(15,23,42,0.12)] motion-tap enabled:hover:text-pg-text enabled:active:scale-90"
       >
-        <Keyboard size={17} />
-      </span>
+        <Keyboard size={17} aria-hidden="true" />
+      </button>
     </div>
   );
 }
 
 /* ─── Panel bodies ──────────────────────────────────────────────────────── */
 
-function Empty({ icon: Icon, title, hint }: { icon: LucideIcon; title: string; hint?: string }) {
+/** The contact a drawer is open on. */
+export interface PanelRecord {
+  id: string;
+  name: string;
+  initials: string;
+  email?: string;
+  phone?: string;
+}
+
+/** For hosts that have not said which record they are — the prototype's Jatin. */
+const FALLBACK_RECORD: PanelRecord = {
+  id: "jatin",
+  name: "Jatin Sharma",
+  initials: "JS",
+  email: "jatin@example.com",
+};
+
+/** The header's "+ Add" — each panel that creates things opens its form from here. */
+function HeaderAdd({ onClick }: { onClick: () => void }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-[7px] px-[20px] py-[40px] text-center">
-      <Icon size={22} aria-hidden="true" className="text-pg-disabled" />
-      <span className="text-[13px] leading-[18px] font-medium text-pg-text-strong">
-        {title}
-      </span>
-      {hint ? (
-        <span className="text-[12.5px] leading-[17px] text-pg-muted">{hint}</span>
-      ) : null}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex shrink-0 items-center gap-[3px] text-[12.5px] leading-none font-medium text-pg-text-strong motion-tap hover:text-brand"
+    >
+      <Plus size={13} aria-hidden="true" />
+      Add
+    </button>
   );
 }
 
-function Section({
-  label,
-  count,
-  onAdd,
-  children,
+/*
+ * One small reader per panel, so each pulls only its own slice of the record
+ * store — and so the seed runs the first time that panel is looked at, not
+ * for every panel the moment the drawer opens.
+ */
+
+function ActivityPanel({ record }: { record: PanelRecord }) {
+  const entries = React.useMemo(() => seedActivity(record.id), [record.id]);
+  return <ActivityBody key={record.id} entries={entries} />;
+}
+
+function AssociationsPanel({ record }: { record: PanelRecord }) {
+  const [value, set] = useRecordSlice<Associations>(record.id, "associations", () =>
+    // The seeded contacts keep the company the static panel always showed.
+    record.id === FALLBACK_RECORD.id || record.id === "sukarto"
+      ? { ...EMPTY_ASSOCIATIONS, companies: [LINKABLE.companies[0]!] }
+      : EMPTY_ASSOCIATIONS,
+  );
+  return (
+    <AssociationsBody key={record.id} recordName={record.name} value={value} onChange={set} />
+  );
+}
+
+function OpportunitiesPanel({ record, addSignal }: { record: PanelRecord; addSignal: number }) {
+  const [value, set] = useRecordSlice(record.id, "opportunities", () =>
+    seedOpportunities(record.id),
+  );
+  return <OpportunitiesBody record={record} value={value} onChange={set} addSignal={addSignal} />;
+}
+
+function TasksPanel({ record, addSignal }: { record: PanelRecord; addSignal: number }) {
+  const [tasks, set] = useRecordSlice(record.id, "tasks", () => seedTasks(record.id, record));
+  return <TasksBody record={record} tasks={tasks} onChange={set} addSignal={addSignal} />;
+}
+
+function NotesPanel({ record, addSignal }: { record: PanelRecord; addSignal: number }) {
+  const [notes, set] = useRecordSlice(record.id, "notes", () => seedNotes(record.id, record));
+  return <NotesBody record={record} notes={notes} onChange={set} addSignal={addSignal} />;
+}
+
+function PaymentsPanel({
+  record,
+  actionSignal,
 }: {
-  label: string;
-  count: number;
-  onAdd?: boolean;
-  children?: React.ReactNode;
+  record: PanelRecord;
+  actionSignal?: { id: PaymentActionId; n: number };
 }) {
-  const [open, setOpen] = React.useState(count > 0);
+  const [value, set] = useRecordSlice(record.id, "payments", () => seedPayments(record.id));
   return (
-    <div className="border-b border-pg-row-border py-[10px] last:border-b-0">
-      <div className="flex items-center gap-[8px]">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          className="min-w-0 flex-1 text-left text-[13px] leading-[18px] font-semibold text-pg-heading motion-tap"
-        >
-          {label} ({count})
-        </button>
-        {onAdd ? (
-          <button
-            type="button"
-            className="flex items-center gap-[3px] text-[12.5px] leading-none font-medium text-brand motion-tap hover:brightness-110"
-          >
-            <Plus size={13} aria-hidden="true" />
-            Add
-          </button>
-        ) : null}
-      </div>
-      {open ? <div className="pt-[8px]">{children}</div> : null}
-    </div>
+    <PaymentsBody
+      recordId={record.id}
+      recordName={record.name}
+      value={value}
+      onChange={set}
+      actionSignal={actionSignal}
+    />
   );
 }
 
-const ACTIVITY = [
-  {
-    day: "Jun 19, 2026",
-    entries: [
-      {
-        what: "Trigger link visited",
-        source: "Trigger Link",
-        detail: "mmlite_template_ver_a",
-        path: "/links/r/2/eyJhbGciOiJIU…",
-        when: "Jun 19 at 5:25 PM",
-      },
-    ],
-  },
-  {
-    day: "Mar 26, 2026",
-    entries: [
-      {
-        what: "Trigger link visited",
-        source: "Trigger Link",
-        detail: "mmlite_template_ver_a",
-        path: "/links/r/2/eyJhbGciOiJI…",
-        when: "Mar 26 at 11:25 PM",
-      },
-    ],
-  },
-];
-
-function ActivityBody() {
-  return (
-    <div className="flex flex-col py-[10px]">
-      {ACTIVITY.map((group) => (
-        <div key={group.day} className="pb-[14px]">
-          <span className="text-[11.5px] leading-[16px] font-semibold tracking-[0.04em] text-pg-muted uppercase">
-            {group.day}
-          </span>
-          {group.entries.map((e) => (
-            <div key={e.when} className="flex gap-[9px] pt-[10px]">
-              <span className="mt-[2px] flex size-[24px] shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand">
-                <MousePointerClick size={13} aria-hidden="true" />
-              </span>
-              <div className="flex min-w-0 flex-1 flex-col gap-[5px]">
-                <span className="text-[13px] leading-[18px] font-medium text-pg-text-strong">
-                  {e.what}
-                </span>
-                <div className="flex flex-col gap-[2px] rounded-[8px] bg-pg-surface px-[9px] py-[7px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
-                  <span className="w-fit rounded-[4px] bg-brand-soft px-[5px] text-[12px] leading-[18px] font-medium text-brand">
-                    Source: {e.source}
-                  </span>
-                  <span className="truncate text-[13px] leading-[18px] text-pg-text">
-                    {e.detail}
-                  </span>
-                </div>
-                <span className="flex items-center gap-[5px] text-[12px] leading-[16px] text-pg-faint">
-                  <span className="min-w-0 truncate">{e.path}</span>
-                  <ExternalLink size={11} aria-hidden="true" className="shrink-0" />
-                  <span className="shrink-0">{e.when}</span>
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
+function AppointmentsPanel({ record, addSignal }: { record: PanelRecord; addSignal: number }) {
+  const [value, set] = useRecordSlice(record.id, "appointments", () =>
+    seedAppointments(record.id),
   );
-}
-
-function AiBody() {
+  // Services and rentals book on a full page of their own, over everything.
+  const [booking, setBooking] = React.useState<"service" | "rental" | null>(null);
   return (
-    <div className="flex flex-col py-[12px]">
-      <div className="flex gap-[10px] rounded-[10px] bg-pg-surface p-[12px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
-        <span className="flex size-[28px] shrink-0 items-center justify-center rounded-[7px] bg-brand-soft text-brand">
-          <Sparkles size={15} aria-hidden="true" />
-        </span>
-        <div className="flex min-w-0 flex-col gap-[7px]">
-          <span className="text-[13.5px] leading-[18px] font-semibold text-pg-heading">
-            Let AI draft your replies
-          </span>
-          <span className="text-[12.5px] leading-[17px] text-pg-muted">
-            Get AI reply suggestions for every inbound message. You approve
-            before anything is sent.{" "}
-            <span className="font-medium text-brand">Learn more</span>
-          </span>
-          <PrimaryButton className="h-[30px] self-start px-[12px] text-[12.5px]">
-            <Sparkles size={14} aria-hidden="true" />
-            Turn on AI agent
-          </PrimaryButton>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between py-[12px]">
-        <span className="text-[13px] leading-none text-pg-muted">0 items</span>
-        <button
-          type="button"
-          className="flex items-center gap-[5px] text-[12.5px] leading-none font-medium text-pg-text-strong motion-tap hover:text-brand"
-        >
-          <RotateCcw size={13} aria-hidden="true" />
-          Refresh
-        </button>
-      </div>
-      <div className="flex h-[34px] items-center gap-[8px] rounded-[8px] px-[10px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
-        <Search size={14} aria-hidden="true" className="shrink-0 text-pg-faint" />
-        <input
-          aria-label="Search messages or agent"
-          placeholder="Search messages or agent"
-          className="min-w-0 flex-1 bg-transparent text-[13px] text-pg-text placeholder:text-pg-faint focus:outline-none"
+    <>
+      <AppointmentsBody
+        record={record}
+        value={value}
+        onChange={set}
+        addSignal={addSignal}
+        onOpenBooking={setBooking}
+      />
+      {booking ? (
+        <NewBookingPage
+          kind={booking}
+          record={record}
+          onClose={() => setBooking(null)}
+          onCreate={(r) => {
+            const appt: Appointment = {
+              id: `ap-${Date.now()}`,
+              kind: r.kind,
+              calendar: r.kind === "service" ? "Services" : "Rentals",
+              title: r.title,
+              // The panel reads local wall-clock times, without a zone.
+              start: r.start.slice(0, 16),
+              end: r.end.slice(0, 16),
+              status: "confirmed",
+              teamMember: r.items[0]?.staff,
+            };
+            set([appt, ...value]);
+          }}
         />
-      </div>
-      <Empty icon={Sparkles} title="No agent logs found" />
-    </div>
+      ) : null}
+    </>
   );
+}
+
+function DocumentsPanel({ record, addSignal }: { record: PanelRecord; addSignal: number }) {
+  const [docs, set] = useRecordSlice(record.id, "documents", () => seedDocuments(record.id));
+  return <DocumentsBody recordId={record.id} value={docs} onChange={set} addSignal={addSignal} />;
 }
 
 /**
@@ -274,12 +265,15 @@ function AiBody() {
  */
 export function RecordPanelDrawer({
   panelId,
+  record = FALLBACK_RECORD,
   onClose,
   className,
   inline,
   width = 340,
 }: {
   panelId: string;
+  /** Whose panels these are. Each record keeps its own notes, tasks and links. */
+  record?: PanelRecord;
   /** Omit on the record page, where the column is permanent furniture. */
   onClose?: () => void;
   /** Lets the host park the card clear of its rail. */
@@ -289,19 +283,27 @@ export function RecordPanelDrawer({
 }) {
   const def = RECORD_PANELS.find((p) => p.id === panelId);
   const title = def?.label ?? "Panel";
+  /*
+   * The header's "+ Add" is a pulse, not a state: each click bumps the
+   * number and the open panel opens its form. Keyed to the panel and record
+   * below, so a new body never inherits a click meant for the last one.
+   */
+  const [addSignal, setAddSignal] = React.useState(0);
+  const bump = () => setAddSignal((n) => n + 1);
+  const [paySignal, setPaySignal] = React.useState<
+    { id: PaymentActionId; n: number } | undefined
+  >();
+  const bodyKey = `${panelId}:${record.id}`;
 
-  const footer =
-    panelId === "activity" ? (
-      <div className="flex min-w-0 flex-col gap-[3px]">
-        <span className="truncate text-[12px] leading-[16px] text-pg-muted">
-          First attribution source:{" "}
-          <span className="font-medium text-pg-text">CRM UI</span>
-        </span>
-        <span className="truncate text-[12px] leading-[16px] text-pg-muted">
-          Latest attribution source:{" "}
-          <span className="font-medium text-pg-text">Direct traffic</span>
-        </span>
-      </div>
+  const trailing =
+    panelId === "associations" ? (
+      <ManageAssociationsLink />
+    ) : panelId === "payments" ? (
+      <PaymentsHeaderActions
+        onAction={(id) => setPaySignal((p) => ({ id, n: (p?.n ?? 0) + 1 }))}
+      />
+    ) : ["opportunities", "tasks", "notes", "appointments", "documents"].includes(panelId) ? (
+      <HeaderAdd onClick={bump} />
     ) : undefined;
 
   return (
@@ -318,67 +320,28 @@ export function RecordPanelDrawer({
           ) : null}
         </span>
       }
-      trailing={
-        panelId === "associations" ? (
-          <button
-            type="button"
-            className="flex shrink-0 items-center gap-[4px] text-[12.5px] leading-none font-medium text-pg-text-strong motion-tap hover:text-brand"
-          >
-            <ExternalLink size={13} aria-hidden="true" />
-            Manage
-          </button>
-        ) : undefined
-      }
-      footer={footer}
+      trailing={trailing}
+      footer={panelId === "activity" ? <ActivityFooter /> : undefined}
     >
-      {panelId === "activity" ? <ActivityBody /> : null}
-      {panelId === "ai" ? <AiBody /> : null}
-      {panelId === "associations" ? (
-        <div className="py-[4px]">
-          <Section label="Contacts" count={0} onAdd>
-            <div className="flex flex-col items-center gap-[9px] py-[6px]">
-              <span className="text-[13px] leading-[18px] text-pg-muted">
-                No contact associated
-              </span>
-              <span className="flex gap-[8px]">
-                <OutlineButton className="h-[30px] px-[11px] text-[12.5px]">
-                  Create new
-                </OutlineButton>
-                <button
-                  type="button"
-                  className="text-[12.5px] leading-none font-medium text-brand motion-tap hover:brightness-110"
-                >
-                  Link existing
-                </button>
-              </span>
-            </div>
-          </Section>
-          <Section label="Companies" count={1}>
-            <div className="rounded-[8px] bg-pg-surface px-[10px] py-[8px] text-[13px] leading-[18px] text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)]">
-              Golden Boost
-            </div>
-          </Section>
-          <Section label="Properties" count={0} onAdd />
-        </div>
-      ) : null}
-      {panelId === "relations" ? (
-        <Empty icon={UsersRound} title="No relations yet" hint="Link people who share a household or an account." />
-      ) : null}
-      {panelId === "tasks" ? (
-        <Empty icon={ClipboardCheck} title="No tasks yet" hint="Tasks assigned on this record show up here." />
-      ) : null}
-      {panelId === "notes" ? (
-        <Empty icon={PenLine} title="No notes yet" hint="Notes are private to your team." />
-      ) : null}
-      {panelId === "appointments" ? (
-        <Empty icon={Calendar} title="No appointments yet" hint="Bookings on this record show up here." />
-      ) : null}
-      {panelId === "documents" ? (
-        <Empty icon={FileText} title="No documents yet" hint="Proposals, estimates, and contracts land here." />
-      ) : null}
-      {panelId === "payments" ? (
-        <Empty icon={CircleDollarSign} title="No payments yet" hint="Invoices and transactions land here." />
-      ) : null}
+      <React.Fragment key={bodyKey}>
+        {panelId === "activity" ? <ActivityPanel record={record} /> : null}
+        {panelId === "associations" ? <AssociationsPanel record={record} /> : null}
+        {panelId === "opportunities" ? (
+          <OpportunitiesPanel record={record} addSignal={addSignal} />
+        ) : null}
+        {panelId === "tasks" ? <TasksPanel record={record} addSignal={addSignal} /> : null}
+        {panelId === "notes" ? <NotesPanel record={record} addSignal={addSignal} /> : null}
+        {panelId === "documents" ? (
+          <DocumentsPanel record={record} addSignal={addSignal} />
+        ) : null}
+        {panelId === "ai" ? <AgentLogsBody recordId={record.id} /> : null}
+        {panelId === "appointments" ? (
+          <AppointmentsPanel record={record} addSignal={addSignal} />
+        ) : null}
+        {panelId === "payments" ? (
+          <PaymentsPanel record={record} actionSignal={paySignal} />
+        ) : null}
+      </React.Fragment>
     </SideDrawer>
   );
 }

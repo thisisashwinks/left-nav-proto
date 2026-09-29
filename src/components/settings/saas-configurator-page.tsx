@@ -18,6 +18,7 @@ import {
   type SaasTier,
 } from "@/design/plans";
 import { cn } from "@/lib/utils";
+import { AttachTemplateDialog, type AttachReach } from "./attach-template-dialog";
 import { Card, Picker, SettingRow } from "./controls";
 import { ProductionStubTab } from "./tab-production-stub";
 
@@ -98,11 +99,58 @@ function PlansTab() {
     templateForTier,
     attachToTier,
     accountsOnTier,
+    linkedIdFor,
+    isCurrent,
     link,
     notify,
     strict,
   } = useNavTemplates();
   const layout = useNavLayout();
+
+  /**
+   * The pick waiting on a confirmation.
+   *
+   * Staged rather than applied, which is the whole of the Sep 29 change: the
+   * picker used to run `attach` straight out of `onChange`, so choosing a
+   * template from a dropdown rewrote every nav on the plan before the menu
+   * had finished closing. A select is the wrong gesture to hang that on — it
+   * is the one control people operate by arrow key to read the options.
+   */
+  const [pending, setPending] = React.useState<{
+    tier: SaasTier;
+    templateId: string;
+  } | null>(null);
+
+  /**
+   * Everyone the agency has made, minus the platform's own row.
+   *
+   * `templateSeed` defaults to `default-only`, so this is EMPTY on a fresh
+   * agency — which makes the empty state below the state most people meet
+   * first, not an edge case.
+   */
+  const ownTemplates = templates.filter((t) => t.id !== DEFAULT_TEMPLATE_ID);
+
+  /**
+   * What an attach would do, counted before it does it.
+   *
+   * Three buckets, and the split is the point — see `AttachReach`. An account
+   * already on this template and still holding it is untouched; one on it but
+   * edited since is reset; one on anything else is replaced. The difference
+   * between the last two is provenance, and it is the difference between
+   * "your change is undone" and "your layout is gone".
+   */
+  const reachFor = (tier: SaasTier, templateId: string): AttachReach => {
+    const on = accountsOnTier(tier);
+    let unchanged = 0;
+    let drifted = 0;
+    let replaced = 0;
+    for (const id of on) {
+      if (linkedIdFor(id) !== templateId) replaced += 1;
+      else if (isCurrent(id)) unchanged += 1;
+      else drifted += 1;
+    }
+    return { total: on.length, unchanged, drifted, replaced };
+  };
 
   /*
    * Attaching applies, to everyone already on the plan.
@@ -196,20 +244,71 @@ function PlansTab() {
                 }
                 last
               >
-                <Picker
-                  label={`Navigation layout for ${SAAS_TIER_LABELS[tier]}`}
-                  value={attached?.id ?? DEFAULT_TEMPLATE_ID}
-                  options={templates.map((t) => t.id)}
-                  format={(id) =>
-                    templates.find((t) => t.id === id)?.name ?? "HighLevel default"
-                  }
-                  onChange={(id) => attach(tier, id)}
-                />
+                {ownTemplates.length === 0 ? (
+                  /*
+                    The zero state, which is where every agency starts.
+
+                    A picker holding one option it cannot act on is a control
+                    that refuses without saying why — and the refusal is not
+                    even the point: there is nothing wrong, they simply have
+                    not made a template yet. Saying where templates come from
+                    is more use than a disabled dropdown, and it is the only
+                    thing this row can honestly offer.
+                  */
+                  <span className="text-right text-[12.5px] leading-[17px] text-pg-faint">
+                    No templates yet. Arrange a sub-account&rsquo;s navigation
+                    and save it as one.
+                  </span>
+                ) : (
+                  <Picker
+                    label={`Navigation layout for ${SAAS_TIER_LABELS[tier]}`}
+                    value={attached?.id ?? DEFAULT_TEMPLATE_ID}
+                    options={templates.map((t) => t.id)}
+                    format={(id) =>
+                      templates.find((t) => t.id === id)?.name ??
+                      "HighLevel default"
+                    }
+                    /*
+                      Detaching runs straight through; attaching asks first.
+
+                      They are not the same act. Picking "HighLevel default"
+                      changes nobody's nav — it only stops the plan handing
+                      one out to joiners, which is why the page's own copy
+                      can promise that leaving never changes a layout. There
+                      is nothing to confirm, and a dialog over a harmless
+                      press is how dialogs stop being read.
+                    */
+                    onChange={(id) =>
+                      id === DEFAULT_TEMPLATE_ID
+                        ? attach(tier, id)
+                        : setPending({ tier, templateId: id })
+                    }
+                  />
+                )}
               </SettingRow>
             ) : null}
           </Card>
         );
       })}
+
+      {pending
+        ? (() => {
+            const chosen = templates.find((t) => t.id === pending.templateId);
+            if (!chosen) return null;
+            return (
+              <AttachTemplateDialog
+                templateName={chosen.name}
+                tierLabel={SAAS_TIER_LABELS[pending.tier]}
+                reach={reachFor(pending.tier, pending.templateId)}
+                onCancel={() => setPending(null)}
+                onConfirm={() => {
+                  attach(pending.tier, pending.templateId);
+                  setPending(null);
+                }}
+              />
+            );
+          })()
+        : null}
     </div>
   );
 }

@@ -90,13 +90,45 @@ export function BuilderTrail({
     crumbShown,
     crumbSwitchers,
     crumbSeparator,
+    crumbLeaf,
     appTheme,
   } = useTheme().effective;
-  const slots = React.useMemo(
-    () => planCrumbs(trail, crumbCollapse),
-    [trail, crumbCollapse],
+  /*
+   * The leaf axis reaches this row too, which it did not until Sep 28.
+   *
+   * By this file's own rule it always should have: `crumbLeaf` is about the
+   * DRAWING, so it comes down rather than being spent in the shell. It was
+   * simply never wired, and the gap only showed once a builder sat four
+   * segments deep — Automation ▸ Workflows ▸ Intake ▸ New enquiry — where
+   * "no last crumb" trimmed the list and the folder and left the builder
+   * saying its own name twice. Ashwin settled it as one switch for every
+   * depth.
+   *
+   * Two of the five modes do anything here, and the other three are not
+   * unimplemented so much as already answered:
+   *
+   *  title         Drops the segment. It moves the leaf onto the page title,
+   *                and a builder's own header IS that title — the document's
+   *                name in 20px type a row below. So the word goes and nothing
+   *                is lost, which is the same trade the bar makes. ("none"
+   *                used to live here too; it is `crumbDepth` now, and that one
+   *                trims the array before either surface sees it.)
+   *  caret / dots  Both replace the word with a menu affordance, and a menu
+   *                needs options. A builder's leaf is a record name published
+   *                with none, so the bar's own fallback applies: no siblings,
+   *                no switcher, back to the word. Drawing a bare caret here
+   *                would be a control that opens nothing.
+   */
+  const dropLeaf = crumbLeaf === "title";
+  const shown = React.useMemo(
+    () => (dropLeaf && trail.length > 1 ? trail.slice(0, -1) : trail),
+    [trail, dropLeaf],
   );
-  const lastIndex = trail.length - 1;
+  const slots = React.useMemo(
+    () => planCrumbs(shown, crumbCollapse),
+    [shown, crumbCollapse],
+  );
+  const lastIndex = shown.length - 1;
   /*
    * The same resolver the bar uses, so a builder's trail and the bar's read at
    * one size — the whole reason `planCrumbs` and the chip geometry were lifted

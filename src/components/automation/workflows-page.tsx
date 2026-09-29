@@ -1,9 +1,12 @@
 "use client";
 
+import { AutomationOverview } from "./automation-overview";
+import { GlobalWorkflowSettings } from "./global-workflow-settings";
 import * as React from "react";
 import {
   ArrowUpDown,
   Columns3,
+  Folder,
   FolderPlus,
   Import,
   ListFilter,
@@ -25,6 +28,7 @@ import {
   useListShape,
 } from "@/components/page/list-shape";
 import { usePageCrumb } from "@/components/page/page-crumb";
+import { CrumbSep } from "@/components/header/app-header";
 /*
  * Restored by hand after a concurrent Sep 22 edit landed `SCREEN_NAMES` in the
  * title below while this file's import block was being rewritten for the list
@@ -37,12 +41,17 @@ import { cn } from "@/lib/utils";
 import { WorkflowDetail } from "./workflow-detail";
 import {
   STATUS_LABEL,
+  folderPath,
+  foldersIn,
+  workflowFolders,
   workflowViews,
-  workflows as seedWorkflows,
+  workflows as allWorkflows,
+  workflowsIn,
   type Workflow,
 } from "./workflows-data";
+import { TableCard, usePagination } from "@/components/page/table-card";
 
-const COLS = "2.4fr 1fr 1.1fr 0.9fr 1.4fr";
+const COLS = "2.4fr 1.1fr 0.9fr 1.4fr 1.2fr";
 
 function StatusPill({ status }: { status: Workflow["status"] }) {
   return (
@@ -80,6 +89,16 @@ function StatusPill({ status }: { status: Workflow["status"] }) {
  * them. The header changes what it says; the trail above does not move.
  */
 export function WorkflowsPage({ initialView }: { initialView?: string | null }) {
+  /*
+   * Analytics and Settings are the nav's own L3s beside the list — separate
+   * places, not views of it — so they return before any list state exists.
+   */
+  if (initialView === "analytics") return <AutomationOverview />;
+  if (initialView === "settings") return <GlobalWorkflowSettings />;
+  return <WorkflowsList initialView={initialView} />;
+}
+
+function WorkflowsList({ initialView }: { initialView?: string | null }) {
   const { effective } = useTheme();
   /*
    * The nav can name a view, so a deep row lands on the slice it promised —
@@ -87,16 +106,144 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
    */
   const [view, setView] = React.useState(initialView ?? "all");
   const [openId, setOpenId] = React.useState<string | null>(null);
+  /*
+   * Which folder is open, or null for the whole collection.
+   *
+   * State rather than a route, like `openId` beside it: a folder is not a
+   * different place in the nav's sense — you are still in Workflows, looking
+   * at some of them — and the trail says so by growing a segment rather than
+   * by the nav moving. Sep 28.
+   */
+  const [folderId, setFolderId] = React.useState<string | null>(null);
+  const folder = workflowFolders.find((f) => f.id === folderId) ?? null;
+
+  /*
+   * Folder first, then the view.
+   *
+   * Order matters for the counts: the view bar inside a folder has to say how
+   * many Drafts are IN THIS FOLDER, not in the collection, or the strip is
+   * describing a list the page is not showing.
+   */
+  const inFolder = React.useMemo(() => workflowsIn(folderId), [folderId]);
+
+  /*
+   * The folders that live at this level, which are rows like any other.
+   *
+   * Above the workflows and outside the view filter, both deliberately. A
+   * folder has no status, so "Drafts" cannot say anything about it — hiding
+   * every directory the moment you picked a cut would make the cut look like
+   * it had emptied the place. Directories first is the convention every file
+   * browser uses and the one Ashwin's screenshot shows.
+   */
+  const folderRows = React.useMemo(() => foldersIn(folderId), [folderId]);
+
+  /** Root → here, for both trails: the bar's crumbs and the table's own. */
+  const trail = React.useMemo(() => folderPath(folderId), [folderId]);
 
   const rows = React.useMemo(() => {
-    if (view === "all") return seedWorkflows;
-    if (view === "live") return seedWorkflows.filter((w) => w.status === "live");
-    if (view === "drafts") return seedWorkflows.filter((w) => w.status === "draft");
-    if (view === "review") return seedWorkflows.filter((w) => w.status === "review");
+    if (view === "all") return inFolder;
+    if (view === "live") return inFolder.filter((w) => w.status === "live");
+    if (view === "drafts") return inFolder.filter((w) => w.status === "draft");
+    if (view === "review") return inFolder.filter((w) => w.status === "review");
     return [];
-  }, [view]);
+  }, [view, inFolder]);
 
-  const open = seedWorkflows.find((w) => w.id === openId) ?? null;
+  /*
+   * The page the table is standing on.
+   *
+   * Over `rows`, so the pager counts what the view actually shows rather than
+   * the collection behind it — switch to Drafts and "1 2 3 … 14" has to become
+   * the number of pages of drafts, or the control is describing a different
+   * list from the one under it.
+   */
+  const pager = usePagination(rows);
+
+  /*
+   * The table's own path — Home ▸ Sales ▸ Quotes — built once, placed twice.
+   *
+   * `tableCrumb` decides whether it is the card's first band or a line above
+   * the card, and those are the same row of words in two boxes. Two copies in
+   * the JSX would have been two places for the next change to miss, which is
+   * how the bar's trail and the builder's drifted apart in the first place.
+   *
+   * The separator is `crumbSeparator`, the bar's own axis: Ashwin settled on
+   * Sep 29 that one setting drives both trails, so a slash bar and a chevron
+   * card cannot happen by accident.
+   */
+  const tableTrail = (
+    <div
+      aria-label="Folder path"
+      className={cn(
+        "flex shrink-0 items-center gap-[4px]",
+        effective.tableCrumb === "inside"
+          ? "h-[36px] border-b border-pg-head-border px-[16px]"
+          : /*
+               Above the card it is a line of the page, so it takes the page's
+               own left edge rather than the table's 16px inset — indenting it
+               would make it look like a row that had escaped the card.
+             */
+            "h-[22px]",
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => setFolderId(null)}
+        className={cn(
+          "motion-tap -mx-[4px] rounded-[5px] px-[4px] text-[13px] leading-[normal]",
+          folderId === null
+            ? "font-medium text-pg-text-strong"
+            : "text-pg-muted hover:bg-pg-bg hover:text-pg-text-strong",
+        )}
+      >
+        Home
+      </button>
+      {trail.map((f, i) => (
+        <React.Fragment key={f.id}>
+          <CrumbSep kind={effective.crumbSeparator} className="text-pg-faint" />
+          <button
+            type="button"
+            onClick={() => setFolderId(f.id)}
+            className={cn(
+              "motion-tap -mx-[4px] truncate rounded-[5px] px-[4px] text-[13px] leading-[normal]",
+              i === trail.length - 1
+                ? "font-medium text-pg-text-strong"
+                : "text-pg-muted hover:bg-pg-bg hover:text-pg-text-strong",
+            )}
+          >
+            {f.label}
+          </button>
+        </React.Fragment>
+      ))}
+    </div>
+  );
+
+  /*
+   * The view strip's own counts, recounted at every level.
+   *
+   * `workflowViews` ships numbers from when the seed had eight rows in it, and
+   * they were wrong in both directions the moment the list grew: the strip
+   * said 34 over a table of 236, and said it again inside a folder holding 14.
+   * Deleted keeps its shipped count — nothing in the seed is deleted, so
+   * counting would print 0 on a cut that is meant to have something in it.
+   */
+  const views = React.useMemo(() => {
+    const n = (f: (w: Workflow) => boolean) => String(inFolder.filter(f).length);
+    return workflowViews.map((v) =>
+      v.id === "all"
+        ? { ...v, count: String(inFolder.length) }
+        : v.id === "live"
+          ? { ...v, count: n((w) => w.status === "live") }
+          : v.id === "drafts"
+            ? { ...v, count: n((w) => w.status === "draft") }
+            : v.id === "review"
+              ? { ...v, count: n((w) => w.status === "review") }
+              : v,
+    );
+  }, [inFolder]);
+
+  // By id across the whole collection, not just this folder: the record stays
+  // open while the folder crumb is being switched underneath it.
+  const open = allWorkflows.find((w) => w.id === openId) ?? null;
 
   /*
    * Which shape of header this page wears — the SAME derivation Contacts uses.
@@ -110,7 +257,29 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
    * to "what does L-B mean" cannot be given twice.
    */
   const shape = useListShape();
-  const activeView = workflowViews.find((v) => v.id === view) ?? workflowViews[0]!;
+  const activeView = views.find((v) => v.id === view) ?? views[0]!;
+
+  const { folderCrumb, recordKeepsFolder } = effective;
+
+  /*
+   * Inside a folder, `replace` hands the trail's scope slot to the folder — so
+   * the view has to come back to the page, or the variant loses its cuts
+   * entirely. That is the whole of the difference between the two answers, and
+   * it is one boolean because L-E's every other branch already keys off this.
+   *
+   * `beside` leaves it alone: the folder appends and the view stays the leaf.
+   */
+  const scopeInTrail =
+    shape.scopeInTrail && !(folder !== null && folderCrumb === "replace");
+  /*
+   * And the cuts need somewhere to go once the trail stops carrying them.
+   *
+   * `shape.scopeInTabs` is `!mergedRow && !scopeInTrail && showViews` computed
+   * against the GLOBAL variant, so overriding the trail alone left L-E's
+   * folders with no view control at all — no crumb, no strip. Recomputed here
+   * on the same expression, with the local answer substituted in.
+   */
+  const scopeInTabs = !shape.mergedRow && !scopeInTrail && shape.showViews;
 
   /*
    * L-E's last crumb: Automation ▸ Workflows ▸ Drafts, switchable from there.
@@ -126,12 +295,12 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
    * the setting where it has the most to say. Un-published, the trail stops
    * at Workflows and the lit cut is the cut you get.
    */
-  usePageCrumb(
-    shape.scopeInTrail && shape.showViews
+  const viewSegment =
+    scopeInTrail && shape.showViews
       ? {
           label: activeView.label,
           icon: activeView.icon,
-          options: workflowViews.map((v) => ({
+          options: views.map((v) => ({
             id: v.id,
             label: v.label,
             icon: v.icon,
@@ -139,8 +308,45 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
           })),
           onSelect: setView,
         }
-      : null,
-  );
+      : null;
+
+  /*
+   * The folder's own segment, and what hangs off it.
+   *
+   * No `options`: Ashwin settled on Sep 28 that the Folder column is the way
+   * in, so the crumb states where you are rather than offering the siblings.
+   * A dropdown here would be a second way to do the one thing the table
+   * already does, on the one segment whose menu is easiest to add and hardest
+   * to justify.
+   *
+   * `onExit` is what makes "Workflows" above it mean "leave this folder" — see
+   * page-crumb.tsx. Without it the trail would shorten on click while the
+   * folder's rows stayed on screen.
+   *
+   * Dropped entirely once a workflow is open and `recordKeepsFolder` is off:
+   * the record crumb lands straight under Workflows, and the trail says the
+   * same thing however you got there.
+   */
+  const folderSegment =
+    trail.length > 0 && (open === null || recordKeepsFolder)
+      ? {
+          label: trail[0]!.label,
+          // Each ancestor is a place, stated rather than inferred: these have
+          // no sibling menu for `crumbTargetFor` to read an id out of, because
+          // folders are reached from the table. See Crumb.onNavigate.
+          onNavigate: () => setFolderId(trail[0]!.id),
+          onExit: () => setFolderId(null),
+          tail: [
+            ...trail.slice(1).map((f) => ({
+              label: f.label,
+              onNavigate: () => setFolderId(f.id),
+            })),
+            ...(viewSegment && folderCrumb === "beside" ? [viewSegment] : []),
+          ],
+        }
+      : null;
+
+  usePageCrumb(folderSegment ?? viewSegment);
 
   /*
    * Search, filters, sort and columns as one fragment.
@@ -207,7 +413,16 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
   if (open) {
     return (
       <div data-page-theme={effective.appTheme} className="h-full min-h-0">
-        <WorkflowDetail workflow={open} onBack={() => setOpenId(null)} />
+        <WorkflowDetail
+          workflow={open}
+          onBack={() => setOpenId(null)}
+        /*
+          The lit cut, not the whole collection — so the crumb's menu offers
+          the records the list is actually showing.
+        */
+          siblings={rows.map((w) => ({ id: w.id, name: w.name }))}
+          onOpenSibling={setOpenId}
+        />
       </div>
     );
   }
@@ -229,10 +444,14 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
         are already on the toolbar below, and a header that offered Create
         workflow a second time is the duplication this was called to kill.
       */}
-      {shape.scopeInTrail ? null : (
+      {scopeInTrail ? null : (
       <PageHeader
-        /* The trail's leaf says this same word — see screen-names.ts. */
-        title={SCREEN_NAMES.workflows}
+        /*
+          The trail's leaf says this same word — see screen-names.ts. Inside a
+          folder it is the folder's name instead, for exactly the same reason:
+          the heading and the leaf have to agree about where you are.
+        */
+        title={folder ? folder.label : SCREEN_NAMES.workflows}
         /*
          * On the merged row the picker states the view AND its size, so the
          * header does not also hang a count off a title that is not there —
@@ -240,7 +459,7 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
          * drawn to remove. The same rule Contacts follows, for the same reason.
          */
         count={shape.mergedRow ? undefined : activeView.count}
-        description="Triggers, actions and handoffs"
+        description={folder ? folder.description : "Triggers, actions and handoffs"}
         /*
          * L-B's merged row, assembled from whichever bands are on.
          *
@@ -256,7 +475,7 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
               {shape.showViews ? (
               <ScopePicker
                 label="Workflow views"
-                views={workflowViews}
+                views={views}
                 activeId={view}
                 onSelect={setView}
                 onCreate={() => undefined}
@@ -283,10 +502,10 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
         `scopeInTabs` folds `listShowViews` in, so the strip also goes when
         the collection is told not to offer its cuts at all — see list-shape.
       */}
-      {shape.scopeInTabs ? (
+      {scopeInTabs ? (
         <ViewBar
           label="Workflow views"
-          views={workflowViews}
+          views={views}
           activeId={view}
           onSelect={setView}
           onCreate={() => undefined}
@@ -323,7 +542,7 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
         is a broken page, so Import, Create and the kebab ride the right edge
         of this row — the edge they held when there was a header.
       */}
-      {(!shape.mergedRow && shape.filterRow) || shape.scopeInTrail ? (
+      {(!shape.mergedRow && shape.filterRow) || scopeInTrail ? (
         <div className="flex shrink-0 items-center gap-[10px]">
           {shape.showFilters ? (
             controls
@@ -335,7 +554,7 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
             */
             <span aria-hidden="true" className="min-w-[16px] flex-1" />
           )}
-          {shape.scopeInTrail ? (
+          {scopeInTrail ? (
             <>
               <OutlineButton>
                 <Import size={15} aria-hidden="true" className="text-pg-text-strong" />
@@ -351,12 +570,31 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
         </div>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-[10px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+      {effective.tableCrumb === "above" ? tableTrail : null}
+
+      <TableCard pager={pager}>
+        {/*
+          The table's own trail, behind `tableCrumb`.
+
+          A second statement of the same path, inside the canvas, where a file
+          browser would put it. Off by default: the app bar above is already
+          saying it, and the whole point of the option is to see the two
+          together and decide which one the eye actually uses. It sits INSIDE
+          the card because that is where the screenshot has it — a trail above
+          the card would be a third band competing with the header.
+        */}
+        {effective.tableCrumb === "inside" ? tableTrail : null}
+
         <div
           style={{ gridTemplateColumns: COLS }}
           className="sticky top-0 z-10 grid h-[38px] items-center gap-[16px] border-b border-pg-head-border bg-pg-surface px-[16px]"
         >
-          {["Workflow", "Folder", "Status", "Enrolled", "Last edited"].map((h) => (
+          {/*
+            No Folder column since Sep 28. Folders are rows now, so a column
+            repeating each row's parent said the same thing a second time —
+            and on a folder page it said the same thing on every row.
+          */}
+          {["Name", "Status", "Enrolled", "Last edited", "Created on"].map((h) => (
             <span
               key={h}
               className="text-[12px] leading-[normal] font-medium whitespace-nowrap text-pg-muted"
@@ -366,19 +604,80 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
           ))}
         </div>
 
-        {rows.map((w) => (
-          <button
-            key={w.id}
-            type="button"
-            onClick={() => setOpenId(w.id)}
+        {/*
+          Directories first, and outside the pager.
+
+          A folder run that split across a page boundary would be the one thing
+          a file browser never does — you would open a folder page and find
+          three directories at the bottom of page 2. They are also outside the
+          view filter: see `folderRows`.
+        */}
+        {folderRows.map((f) => (
+          <div
+            key={f.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => setFolderId(f.id)}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
+              setFolderId(f.id);
+            }}
             style={{ gridTemplateColumns: COLS }}
-            className="grid h-[44px] w-full items-center gap-[16px] border-b border-pg-row-border px-[16px] text-left last:border-b-0 motion-tap hover:bg-pg-bg"
+            className="grid h-[44px] w-full cursor-pointer items-center gap-[16px] border-b border-pg-row-border px-[16px] text-left motion-tap hover:bg-pg-bg"
           >
-            <span className="truncate text-[13px] leading-[normal] font-medium text-pg-text-strong">
-              {w.name}
+            <span className="flex min-w-0 items-center gap-[10px]">
+              <Folder size={15} aria-hidden="true" className="shrink-0 text-pg-muted" />
+              <span className="truncate text-[13px] leading-[normal] font-medium text-pg-text-strong">
+                {f.label}
+              </span>
             </span>
-            <span className="truncate text-[13px] leading-[normal] text-pg-text">
-              {w.folder}
+            {/*
+              Status and Enrolled stay empty on a directory rather than
+              summing what is inside it. A folder is not live or draft, and a
+              total here would be the one number on the row that changed
+              meaning between two row types in the same column.
+            */}
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
+            <span className="truncate text-[13px] leading-[normal] text-pg-muted">
+              {f.updated}
+            </span>
+            <span className="truncate text-[13px] leading-[normal] text-pg-muted">
+              {f.created}
+            </span>
+          </div>
+        ))}
+
+        {pager.pageRows.map((w) => (
+          /*
+            A div, not a button.
+
+            Rows carry their own controls now — the kebab, and until Sep 28 the
+            folder link — and a button inside a button is invalid: the browser
+            reparents it and the outer row stops being clickable in the middle.
+            The nav's own rows made this same move for the same reason. `role`,
+            `tabIndex` and the key handler put back what the element gave up.
+          */
+          <div
+            key={w.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => setOpenId(w.id)}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
+              setOpenId(w.id);
+            }}
+            style={{ gridTemplateColumns: COLS }}
+            className="grid h-[44px] w-full cursor-pointer items-center gap-[16px] border-b border-pg-row-border px-[16px] text-left last:border-b-0 motion-tap hover:bg-pg-bg"
+          >
+            {/*
+              Indented past the folder glyph, so names line up in one column
+              whether the row above is a directory or a workflow.
+            */}
+            <span className="truncate pl-[25px] text-[13px] leading-[normal] font-medium text-pg-text-strong">
+              {w.name}
             </span>
             <StatusPill status={w.status} />
             <span className="text-[13px] leading-[normal] text-pg-text">
@@ -387,10 +686,13 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
             <span className="truncate text-[13px] leading-[normal] text-pg-muted">
               {w.updated} · {w.updatedBy}
             </span>
-          </button>
+            <span className="truncate text-[13px] leading-[normal] text-pg-muted">
+              {w.created}
+            </span>
+          </div>
         ))}
 
-        {rows.length === 0 ? (
+        {rows.length === 0 && folderRows.length === 0 ? (
           /*
            * Cleared, not empty.
            *
@@ -407,13 +709,7 @@ export function WorkflowsPage({ initialView }: { initialView?: string | null }) 
             </p>
           </div>
         ) : null}
-      </div>
-
-      <div className="flex h-[30px] shrink-0 items-center">
-        <span className="text-[13px] leading-[normal] text-pg-muted">
-          Showing {rows.length} of 34 workflows
-        </span>
-      </div>
+      </TableCard>
     </div>
   );
 }

@@ -9,6 +9,12 @@ import {
 } from "@/components/page/page-header";
 import { useListShape } from "@/components/page/list-shape";
 import {
+  ListToolbar,
+  useListToolbar,
+  type ListToolbarModel,
+} from "@/components/page/list-toolbar";
+import {
+  Check,
   Columns3,
   Download,
   ListFilter,
@@ -32,6 +38,8 @@ import {
   isDeepPage,
   useDeepPlace,
 } from "./deep-sections";
+import { ForecastPage } from "@/components/opportunities/forecast/forecast-page";
+import { PipelinesPage } from "@/components/opportunities/pipelines/pipelines-page";
 import { OpportunitiesPage } from "@/components/opportunities/opportunities-page";
 import { WorkflowsPage } from "@/components/automation/workflows-page";
 import { AgentTemplatesPage } from "@/components/ai/agent-templates-page";
@@ -46,6 +54,16 @@ import { VoiceAiPage } from "@/components/ai/voice-ai-page";
 import { CalendarsPage } from "@/components/calendars/calendars-page";
 import { MediaStoragePage } from "@/components/media/media-storage-page";
 import { MarketplaceAppsPage } from "@/components/integrations/marketplace-page";
+import { CustomFieldsPage } from "@/components/custom-fields/custom-fields-page";
+import { BulkActionsPage } from "@/components/contacts/bulk-actions-page";
+import { TasksPage } from "@/components/tasks/tasks-page";
+import { ManualActionsPage } from "@/components/conversation-tools/manual-actions-page";
+import { SnippetsPage } from "@/components/conversation-tools/snippets-page";
+import { TriggerLinksPage } from "@/components/conversation-tools/trigger-links-page";
+import { ConversationAnalyticsPage } from "@/components/conversation-tools/conversation-analytics-page";
+import { SlaSettingsPage } from "@/components/conversation-tools/sla-settings-page";
+import { CompaniesPage } from "@/components/companies/companies-page";
+import { Toaster } from "@/components/page/toast";
 
 /**
  * The products that have a real page behind them, in both catalogues.
@@ -155,6 +173,103 @@ const REAL_PAGES: {
       "ia-integrations-marketplace-settings": "settings",
     },
     render: (view) => <MarketplaceAppsPage initialTab={view} />,
+  },
+  {
+    /*
+     * CRM ▸ Bulk Actions — the same page the Contacts flows open from
+     * "Check progress", given a nav row of its own. The Toaster rides along
+     * because the page's Download and Cancel actions report through it.
+     */
+    products: ["ia-crm-bulk-actions"],
+    children: [],
+    render: () => (
+      <>
+        <BulkActionsPage />
+        <Toaster />
+      </>
+    ),
+  },
+  {
+    /*
+     * CRM ▸ Custom Fields. Proposed tree only; the shipped tree reaches the
+     * same page through the Contacts area's "Custom fields" tab instead.
+     * `tabs: true` in the IA, so the object rows arrive as the seed and the
+     * page's own object cards take it from there — same shape as Marketplace.
+     */
+    products: ["ia-crm-custom-fields"],
+    children: [],
+    views: {
+      "ia-crm-fields-all": "all",
+      "ia-crm-fields-contact": "contact",
+      "ia-crm-fields-opportunity": "opportunity",
+      "ia-crm-fields-business": "business",
+      "ia-crm-fields-task": "task",
+      "ia-crm-fields-property": "property",
+      "ia-crm-fields-product": "product",
+      "ia-crm-fields-barber": "barber",
+      "ia-crm-fields-barber-supply": "barber-supply",
+    },
+    render: (view) => <CustomFieldsPage initialObject={view} />,
+  },
+  /*
+   * Conversations' other tabs (Ashwin, Sep 29). Snippets and Trigger Links
+   * are homed under Marketing in the proposed tree but still sit in the
+   * Conversations L2 too, so both rows open the same page.
+   */
+  {
+    products: ["ia-crm-conversations"],
+    children: ["ia-crm-conversations-manual"],
+    render: () => <ManualActionsPage />,
+  },
+  {
+    products: ["ia-crm-conversations", "ia-marketing-snippets"],
+    children: ["ia-crm-conversations-snippets", "ia-marketing-snippets-all", "ia-marketing-snippets-folders"],
+    views: { "ia-marketing-snippets-all": "all", "ia-marketing-snippets-folders": "folders" },
+    render: (view) => <SnippetsPage initialTab={view === "folders" ? "folders" : "all"} />,
+  },
+  {
+    products: ["ia-crm-conversations", "ia-marketing-trigger-links"],
+    children: [
+      "ia-crm-conversations-links",
+      "ia-marketing-trigger-links-list",
+      "ia-marketing-trigger-links-analyze",
+    ],
+    views: { "ia-marketing-trigger-links-list": "link", "ia-marketing-trigger-links-analyze": "analyze" },
+    render: (view) => <TriggerLinksPage initialTab={view === "analyze" ? "analyze" : "link"} />,
+  },
+  {
+    products: ["ia-crm-conversations"],
+    children: ["ia-crm-conversations-analytics"],
+    render: () => <ConversationAnalyticsPage />,
+  },
+  {
+    products: ["ia-crm-conversations"],
+    children: ["ia-crm-conversations-settings"],
+    render: () => <SlaSettingsPage />,
+  },
+  {
+    /* CRM ▸ Tasks — the nav's four views seed the page's own tab bar. */
+    products: ["ia-crm-tasks"],
+    children: [],
+    views: {
+      "ia-crm-tasks-all": "all",
+      "ia-crm-tasks-today": "today",
+      "ia-crm-tasks-overdue": "overdue",
+      "ia-crm-tasks-upcoming": "upcoming",
+    },
+    render: (view) => <TasksPage initialView={view} />,
+  },
+  {
+    /* CRM ▸ Companies — saved lists in the nav seed the page's list tabs. */
+    products: ["ia-crm-companies"],
+    children: [],
+    views: {
+      "ia-crm-companies-all": "all",
+      "ia-crm-companies-key": "key",
+      "ia-crm-companies-suppliers": "suppliers",
+      "ia-crm-companies-subs": "subs",
+    },
+    render: (view) => <CompaniesPage initialList={view} />,
   },
   {
     products: ["ai-studio", "ia-ai-studio"],
@@ -303,6 +418,27 @@ const REAL_PAGES: {
     render: () => <OpportunitiesPage />,
   },
   {
+    // Opportunities ▸ Forecast — Summary and Forecast timeline are its tabs.
+    products: ["ia-crm-opportunities"],
+    children: ["ia-crm-opportunities-forecast"],
+    views: {
+      "ia-crm-opps-forecast-summary": "summary",
+      "ia-crm-opps-forecast-timeline": "timeline",
+    },
+    render: (view) => (
+      <ForecastPage
+        key={view ?? "summary"}
+        initialSub={view === "timeline" ? "timeline" : "summary"}
+      />
+    ),
+  },
+  {
+    // Opportunities ▸ Pipelines — the configuration list and each pipeline.
+    products: ["ia-crm-opportunities"],
+    children: ["ia-crm-opportunities-pipeline"],
+    render: () => <PipelinesPage />,
+  },
+  {
     /*
      * The shipped tree files Workflows as an L2 of Automation; the proposed
      * tree promotes it to a product of its own. Both arrive here, which is
@@ -314,8 +450,18 @@ const REAL_PAGES: {
   },
   {
     products: ["automation", "ia-automation-workflows"],
-    children: ["automation-workflows", "ia-automation-list"],
+    children: [
+      "automation-workflows",
+      "ia-automation-list",
+      "ia-automation-analytics",
+      "ia-automation-settings",
+    ],
     views: {
+      // The two L3s beside the list are places of their own, and arrive as
+      // seeds WorkflowsPage reads once — the same trick Calendars uses for
+      // its settings place.
+      "ia-automation-analytics": "analytics",
+      "ia-automation-settings": "settings",
       "ia-automation-list-all": "all",
       "ia-automation-list-review": "review",
       "ia-automation-list-drafts": "drafts",
@@ -431,16 +577,15 @@ export function ProductPage({
    * tab is not a destination: it does not belong in the trail or the URL.
    */
   const tabOwner = current ?? product;
-  const tabs = React.useMemo(
-    () => (tabOwner.tabs ? (tabOwner.children ?? []) : []),
-    [tabOwner],
-  );
+  // The IA's own array, so it is already stable; NO_TABS keeps the empty case
+  // stable too, without a memo the compiler would have to prove.
+  const tabs = tabOwner.tabs ? (tabOwner.children ?? NO_TABS) : NO_TABS;
   /*
    * `initialTab` is whatever the nav was clicked with, which may name a tab or a
    * sub-tab. Either way it selects the pair, so a deep nav row still lands
    * somewhere exact — without the tab ever reaching the breadcrumb.
    */
-  const seeded = React.useMemo(() => {
+  const seeded = (() => {
     if (!initialTab) return { tab: null as string | null, sub: null as string | null };
     if (tabs.some((t) => t.id === initialTab)) {
       return { tab: initialTab, sub: null };
@@ -451,7 +596,7 @@ export function ProductPage({
     return parent
       ? { tab: parent.id, sub: initialTab }
       : { tab: null, sub: null };
-  }, [initialTab, tabs]);
+  })();
 
   const [activeTab, setActiveTab] = React.useState<string | null>(null);
   const currentTab =
@@ -488,6 +633,33 @@ export function ProductPage({
   const place = useDeepPlace(deep && !realPage);
 
   /*
+   * The stage's rows and the state that cuts them — search, the two quick
+   * filters, sort and hidden columns — plus the same state described for the
+   * shared list toolbar. Lives here so it survives switching variants.
+   */
+  const { shared } = useListToolbar();
+  const stage = useStageList({
+    title,
+    views:
+      !deep && tabs.length > 0
+        ? {
+            items: tabs.map((t) => ({ id: t.id, label: t.label })),
+            activeId: currentTab ?? tabs[0].id,
+            onSelect: setActiveTab,
+          }
+        : null,
+    subViews:
+      !deep && subTabs.length > 0
+        ? {
+            label: tabs.find((t) => t.id === currentTab)?.label ?? "View",
+            items: subTabs.map((t) => ({ id: t.id, label: t.label })),
+            activeId: currentSubTab ?? subTabs[0].id,
+            onSelect: setActiveSubTab,
+          }
+        : null,
+  });
+
+  /*
    * Search, filters and columns, built once and placed by the variant.
    *
    * The three list variants that move this furniture — its own row (L-C, L-D),
@@ -503,7 +675,7 @@ export function ProductPage({
    * file (`preserve-manual-memoization`, and it is an ERROR in this repo, not
    * a warning). One element, and the compiler has nothing to reconcile.
    */
-  const controls = <ListControls title={title} />;
+  const controls = <ListControls title={title} stage={stage} />;
 
   /*
    * Named items rather than the bare kebab this page used to draw.
@@ -565,7 +737,7 @@ export function ProductPage({
           title={title}
           description={product.blurb}
           lead={
-            !deep && shape.mergedRow ? (
+            !shared && !deep && shape.mergedRow ? (
               /*
                * No scope picker here, unlike Contacts and Workflows.
                *
@@ -588,7 +760,7 @@ export function ProductPage({
         />
       )}
 
-      {!deep && tabs.length > 0 ? (
+      {!shared && !deep && tabs.length > 0 ? (
         /*
           The in-page tab bar. Sits under the title and above the toolbar, which
           is where the current app puts it — and it is the whole reason those
@@ -635,7 +807,7 @@ export function ProductPage({
         </div>
       ) : null}
 
-      {!deep && subTabs.length > 0 ? (
+      {!shared && !deep && subTabs.length > 0 ? (
         <div
           role="tablist"
           aria-label={`${tabs.find((t) => t.id === currentTab)?.label ?? title} filters`}
@@ -725,9 +897,11 @@ export function ProductPage({
         page. They sit on this row's right edge, the edge they held when there
         was a header — the same move contacts-page and workflows-page make.
       */}
-      {!deep && shape.mergedRow ? null : (
+      {(!deep && shape.mergedRow) ||
+      (shared && (deep || !shape.scopeInTrail)) ? null : (
         <div className="flex shrink-0 items-center gap-[10px]">
-          {controls}
+          {/* Shared toolbar: the controls moved into it; the actions stay. */}
+          {shared ? <span aria-hidden="true" className="flex-1" /> : controls}
           {!deep && shape.scopeInTrail ? (
             <>
               <OutlineButton>
@@ -754,6 +928,7 @@ export function ProductPage({
         true for the variant to be worth looking at. With no rail the row has
         one child and lays out exactly as the bare card did.
       */}
+      <StageToolbar shared={shared} model={stage.model}>
       <div className="flex min-h-0 flex-1">
         {deep && !place.inlineCrumb && place.variant === "X-3" ? (
           <DeepRail
@@ -776,18 +951,47 @@ export function ProductPage({
           </span>
         </div>
         <div className="flex min-h-0 flex-1 flex-col gap-0 overflow-y-auto">
-          {Array.from({ length: 9 }, (_, i) => (
+          {/*
+            Placeholder rows, not plausible records: phonetic names and three
+            generic fields are enough for search, filters, sort and columns
+            to visibly act on something, without upstaging the page.
+          */}
+          {stage.rows.map((row) => (
             <div
-              key={i}
+              key={row.id}
               className="flex h-[46px] shrink-0 items-center gap-[16px] border-b border-[var(--pg-border)] px-[16px] last:border-b-0"
             >
               <span className="size-[14px] shrink-0 rounded-[3px] bg-pg-bg shadow-[inset_0_0_0_1px_var(--pg-border)]" />
-              <span className="h-[10px] w-[18%] rounded-full bg-pg-bg" />
-              <span className="h-[10px] w-[12%] rounded-full bg-pg-bg opacity-80" />
-              <span className="h-[10px] w-[22%] rounded-full bg-pg-bg opacity-60" />
-              <span className="ml-auto h-[10px] w-[8%] rounded-full bg-pg-bg opacity-50" />
+              <span className="w-[18%] truncate text-[13px] leading-[18px] text-pg-text">
+                {row.name}
+              </span>
+              {stage.hidden.has("status") ? null : (
+                <span className="w-[12%]">
+                  <span className="rounded-[6px] bg-pg-bg px-[7px] py-[2px] text-[12px] leading-[16px] font-medium text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border)]">
+                    {row.status}
+                  </span>
+                </span>
+              )}
+              {stage.hidden.has("owner") ? null : (
+                <span className="w-[22%] truncate text-[13px] leading-[18px] text-pg-muted">
+                  {row.owner}
+                </span>
+              )}
+              {stage.hidden.has("updated") ? null : (
+                <span className="ml-auto w-[8%] text-right text-[12.5px] leading-[18px] tabular-nums text-pg-faint">
+                  {row.updated}d ago
+                </span>
+              )}
             </div>
           ))}
+          {stage.rows.length === 0 ? (
+            <div className="flex flex-col items-center gap-[8px] px-[16px] py-[48px]">
+              <span className="text-[14px] leading-[20px] font-semibold text-pg-heading">
+                Nothing matches that
+              </span>
+              <OutlineButton onClick={stage.clear}>Clear filters</OutlineButton>
+            </div>
+          ) : null}
         </div>
         <div className="flex h-[44px] shrink-0 items-center justify-between border-t border-[var(--pg-border)] px-[16px]">
           <span className="text-[12.5px] leading-[normal] text-pg-muted">
@@ -818,6 +1022,7 @@ export function ProductPage({
         </div>
       </div>
       </div>
+      </StageToolbar>
     </div>
   );
 }
@@ -854,14 +1059,19 @@ function overviewLabel(product: CatalogueEntry): string {
 }
 
 /** The stage's search-and-filter furniture, wherever the variant puts it. */
-function ListControls({ title }: { title: string }) {
+function ListControls({ title, stage }: { title: string; stage: StageList }) {
   return (
     <>
       <div className="flex h-[34px] min-w-0 flex-1 items-center gap-[8px] rounded-[8px] bg-pg-surface px-[11px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
         <Search size={14} aria-hidden="true" className="shrink-0 text-pg-faint" />
-        <span className="truncate text-[13px] leading-[normal] text-pg-faint">
-          Search {title.toLowerCase()}
-        </span>
+        <input
+          type="search"
+          value={stage.query}
+          onChange={(e) => stage.setQuery(e.target.value)}
+          placeholder={`Search ${title.toLowerCase()}`}
+          aria-label={`Search ${title.toLowerCase()}`}
+          className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
+        />
       </div>
       <ToolbarButton icon={ListFilter} label="Filters" />
       <ToolbarButton icon={Columns3} label="Columns" />
@@ -884,5 +1094,145 @@ function ToolbarButton({
       <Icon size={15} aria-hidden="true" className="text-pg-text-strong" />
       {label}
     </button>
+  );
+}
+
+const NO_TABS: never[] = [];
+
+/* ─── The stage's list state ─────────────────────────────────────────────── */
+
+interface StageRow {
+  id: string;
+  name: string;
+  status: string;
+  owner: string;
+  /** Days since the last update. */
+  updated: number;
+}
+
+const STAGE_NAMES = [
+  "Aria Kell", "Bram Otto", "Cleo Vance", "Dax Morrow", "Esme Lark", "Finn Adler",
+  "Gia Rourke", "Hugo Pell", "Iris Dane", "Jude Farrow", "Kira Sol", "Leo Brandt",
+];
+const STAGE_STATUSES = ["Active", "Draft", "Paused"];
+const STAGE_OWNERS = ["Samrina Shabha", "Dev Anand", "Unassigned"];
+const STAGE_ROWS: StageRow[] = STAGE_NAMES.map((name, i) => ({
+  id: `stage-${i}`,
+  name,
+  status: STAGE_STATUSES[i % STAGE_STATUSES.length]!,
+  owner: STAGE_OWNERS[(i * 2) % STAGE_OWNERS.length]!,
+  updated: (i * 7) % 30 + 1,
+}));
+
+const STAGE_COLUMNS = [
+  { id: "name", label: "Name", locked: true },
+  { id: "status", label: "Status" },
+  { id: "owner", label: "Owner" },
+  { id: "updated", label: "Updated" },
+];
+
+type StageViews = {
+  items: { id: string; label: string }[];
+  activeId: string;
+  onSelect: (id: string) => void;
+} | null;
+
+type StageList = ReturnType<typeof useStageList>;
+
+/**
+ * Search, two quick filters, sort and hidden columns over placeholder rows,
+ * described as a ListToolbarModel so the shared toolbar can draw them. The
+ * page's own controls read the same state, so switching variants keeps it.
+ */
+function useStageList({
+  title,
+  views,
+}: {
+  title: string;
+  views: StageViews;
+  subViews?: (StageViews & { label: string }) | null;
+}) {
+  const [query, setQuery] = React.useState("");
+  const [status, setStatus] = React.useState<string[]>([]);
+  const [owner, setOwner] = React.useState<string[]>([]);
+  const [sort, setSort] = React.useState<{ field: string; dir: "asc" | "desc" } | null>(null);
+  const [hidden, setHidden] = React.useState<Set<string>>(() => new Set());
+
+  const rows = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const cut = STAGE_ROWS.filter(
+      (r) =>
+        (!q || r.name.toLowerCase().includes(q) || r.owner.toLowerCase().includes(q)) &&
+        (status.length === 0 || status.includes(r.status)) &&
+        (owner.length === 0 || owner.includes(r.owner)),
+    );
+    if (!sort) return cut;
+    const k = sort.field as keyof StageRow;
+    const sign = sort.dir === "asc" ? 1 : -1;
+    return [...cut].sort((a, b) => (a[k] > b[k] ? sign : a[k] < b[k] ? -sign : 0));
+  }, [query, status, owner, sort]);
+
+  const clear = () => {
+    setQuery("");
+    setStatus([]);
+    setOwner([]);
+  };
+
+  const model: ListToolbarModel = {
+    ...(views ? { views } : {}),
+    search: { value: query, onChange: setQuery, placeholder: `Search ${title.toLowerCase()}` },
+    quickFilters: [
+      {
+        id: "status",
+        label: "Status",
+        options: STAGE_STATUSES.map((v) => ({ value: v, label: v })),
+        value: status,
+        multiple: true,
+        onChange: setStatus,
+      },
+      {
+        id: "owner",
+        label: "Owner",
+        options: STAGE_OWNERS.map((v) => ({ value: v, label: v })),
+        value: owner,
+        multiple: true,
+        onChange: setOwner,
+      },
+    ],
+    sort: {
+      fields: [
+        { value: "name", label: "Name" },
+        { value: "status", label: "Status" },
+        { value: "updated", label: "Last updated" },
+      ],
+      value: sort,
+      onChange: setSort,
+    },
+    columns: {
+      items: STAGE_COLUMNS.map((c) => ({ ...c, visible: !hidden.has(c.id) })),
+      onChange: (items) =>
+        setHidden(new Set(items.filter((c) => !c.visible).map((c) => c.id))),
+    },
+    resultCount: { value: rows.length, noun: title.toLowerCase() },
+  };
+
+  return { rows, hidden, clear, query, setQuery, model };
+}
+
+/** The shared toolbar around the stage when a variant is on; a pass-through otherwise. */
+function StageToolbar({
+  shared,
+  model,
+  children,
+}: {
+  shared: boolean;
+  model: ListToolbarModel;
+  children: React.ReactNode;
+}) {
+  if (!shared) return <>{children}</>;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-[10px]">
+      <ListToolbar model={model}>{children}</ListToolbar>
+    </div>
   );
 }

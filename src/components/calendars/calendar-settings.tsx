@@ -1,29 +1,46 @@
 "use client";
 
 import * as React from "react";
-import {
-  CalendarPlus,
-  Copy,
-  EllipsisVertical,
-  Pencil,
-  Plus,
-  Search,
-  Share2,
-  Wrench,
-} from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { PrimaryButton } from "@/components/page/page-header";
+import { showToast } from "@/components/page/toast";
 import { cn } from "@/lib/utils";
-import { GlyphButton } from "./calendar-chrome";
-import { calendarGroups, calendarRows, type CalendarRow } from "./calendars-data";
-
-/**
- * Name, Group, Duration, Type, Status, Date updated, actions.
- *
- * The action column is fixed at 132px rather than a fraction: four glyphs at
- * 30px plus the gaps, and a fractional column would let a long calendar name
- * squeeze them into three-and-a-half buttons at narrow widths.
- */
-const COLS = "2.2fr 1.1fr 0.9fr 1.1fr 0.9fr 1.1fr 132px";
+import {
+  CALENDAR_TYPES,
+  ME_ID,
+  STAFF,
+  TYPE_SHORT,
+  activateGroup,
+  calendarById,
+  calendarsInGroup,
+  formatDuration,
+  setCalendarActive,
+  useCalendarGroups,
+  useCalendars,
+  type BuilderTarget,
+  type CalendarType,
+  type SettingsCalendar,
+} from "./settings/cal-settings-store";
+import {
+  ChooseTypeModal,
+  DeactivateCalendarModal,
+  DeleteCalendarModal,
+  DuplicateCalendarModal,
+  MoveToGroupModal,
+  NewCalendarModal,
+} from "./settings/calendar-modals";
+import {
+  DeactivateGroupModal,
+  DeleteGroupModal,
+  GroupFormModal,
+  RearrangeCalendarsModal,
+  ShareGroupModal,
+} from "./settings/group-modals";
+import { FilterSelect } from "./settings/list-menu";
+import { ListRail, type GroupAction, type RailScope } from "./settings/list-rail";
+import { ListTable, PAGE_SIZE, type RowAction } from "./settings/list-table";
+import { ShareCalendarModal } from "./settings/share-calendar-modal";
+import { TroubleshootView } from "./settings/troubleshoot-view";
 
 /** The top row of the settings surface — the four product lines. */
 const LINES = [
@@ -36,11 +53,9 @@ const LINES = [
 /**
  * The second row, which is NOT the same kind of control as the first.
  *
- * The line above picks a product; this picks a page within it. They are drawn
- * as two strips because that is what the live screen does and the review has
- * to be able to see the cost of it — two rows of tabs above a table, on a page
- * the breadcrumb already names. Collapsing them into one strip of eleven would
- * have answered the question this screen was built to ask.
+ * The line above picks a product; this picks a page within it. Two strips
+ * because that is what the live screen does, and the review has to be able
+ * to see the cost of two rows of tabs above a table.
  */
 const PAGES = [
   { id: "calendars", label: "Calendars" },
@@ -49,52 +64,73 @@ const PAGES = [
   { id: "availability", label: "My availability" },
 ];
 
+type StatusFilter = "all" | "active" | "inactive";
+type TypeFilter = "all" | CalendarType;
+/** "all" or a staff id — ME_ID is "me", so the default reads naturally. */
+type OwnerFilter = string;
+
+const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+];
+
+const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  ...CALENDAR_TYPES.map((t) => ({ value: t.id as TypeFilter, label: TYPE_SHORT[t.id] })),
+];
+
+const OWNER_OPTIONS: { value: OwnerFilter; label: string }[] = [
+  { value: ME_ID, label: "Me" },
+  { value: "all", label: "All" },
+  ...STAFF.filter((s) => s.id !== ME_ID).map((s) => ({ value: s.id, label: s.name })),
+];
+
+/** Every modal the list can open, one at a time. */
+type Dialog =
+  | { kind: "choose-type" }
+  | { kind: "new"; type: CalendarType }
+  | { kind: "share" | "duplicate" | "move" | "deactivate" | "delete"; calendarId: string }
+  | { kind: "group-form"; groupId?: string }
+  | {
+      kind: "group-share" | "group-rearrange" | "group-deactivate" | "group-delete";
+      groupId: string;
+    };
+
 export interface CalendarSettingsProps {
   /** Which product line the nav asked for, when it named one. */
   initialLine?: string | null;
   /** Which page within it, likewise. */
   initialPage?: string | null;
-  /** Open one calendar in the edit screen. */
-  onOpen: (calendar: CalendarRow) => void;
+  /** Open the builder — an existing calendar, or a new one with its draft. */
+  onOpen: (target: BuilderTarget) => void;
 }
 
 /**
- * Screen 3: Calendar settings — the calendar list.
+ * Calendar settings — the product lines, their pages, and the calendar list.
  *
- * Settings for a product, inside the product. In the shipped app these six
- * pages are a mini-product living in the Settings nav-swap, and the proposed
- * IA files them under CRM ▸ Calendars ▸ Settings on the product-owns-its-
- * settings rule. This component is what that rule looks like when it lands:
- * the sub-tabs are the SAME rows the Settings nav used to draw, now drawn on
- * the page they configure.
+ * Settings for a product, inside the product: the sub-tabs are the same rows
+ * the Settings nav used to draw, now drawn on the page they configure. Only
+ * Meetings ▸ Calendars is built; the other tabs hold a placeholder so a
+ * click never lands on a broken page.
  */
-export function CalendarSettings({
-  initialLine,
-  initialPage,
-  onOpen,
-}: CalendarSettingsProps) {
-  const [line, setLine] = React.useState(initialLine ?? "meetings");
-  const [page, setPage] = React.useState(initialPage ?? "calendars");
-  const [group, setGroup] = React.useState("all");
-
-  const rows = React.useMemo(
-    () =>
-      group === "all"
-        ? calendarRows
-        : calendarRows.filter(
-            (r) =>
-              r.group ===
-              (calendarGroups.find((g) => g.id === group)?.label ?? ""),
-          ),
-    [group],
+export function CalendarSettings({ initialLine, initialPage, onOpen }: CalendarSettingsProps) {
+  const [line, setLine] = React.useState(
+    LINES.some((l) => l.id === initialLine) ? initialLine! : "meetings",
   );
+  const [page, setPage] = React.useState(
+    PAGES.some((p) => p.id === initialPage) ? initialPage! : "calendars",
+  );
+
+  const lineLabel = LINES.find((l) => l.id === line)?.label ?? "";
+  const pageLabel = PAGES.find((p) => p.id === page)?.label ?? "";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-[12px]">
       <div
         role="tablist"
         aria-label="Calendar settings sections"
-        className="flex shrink-0 items-center gap-[2px] overflow-x-auto border-b border-pg-head-border"
+        className="flex shrink-0 items-end gap-[4px] overflow-x-auto border-b border-pg-head-border"
       >
         {LINES.map((l) => {
           const on = l.id === line;
@@ -106,22 +142,22 @@ export function CalendarSettings({
               aria-selected={on}
               onClick={() => setLine(l.id)}
               className={cn(
-                "motion-tap relative flex shrink-0 items-center gap-[6px] px-[11px] pt-[2px] pb-[9px] text-[13.5px] leading-[18px] whitespace-nowrap",
-                on
-                  ? "font-semibold text-pg-heading"
-                  : "font-medium text-pg-muted hover:text-pg-text",
+                "motion-tap relative flex shrink-0 items-center px-[10px] pt-[14px] pb-[9px] text-[14px] leading-[20px] whitespace-nowrap",
+                on ? "font-medium text-brand" : "text-pg-text hover:text-pg-heading",
               )}
             >
-              {l.label}
-              {l.badge ? (
-                <span className="rounded-[4px] bg-brand-soft px-[5px] py-[1px] text-[10px] leading-[14px] font-semibold text-brand">
-                  {l.badge}
-                </span>
-              ) : null}
+              <span className="relative">
+                {l.label}
+                {l.badge ? (
+                  <span className="absolute -top-[12px] -right-[10px] rounded-[4px] bg-[var(--hr-warning-200)] px-[4px] text-[9.5px] leading-[13px] font-semibold text-[var(--hr-warning-900)]">
+                    {l.badge}
+                  </span>
+                ) : null}
+              </span>
               <span
                 aria-hidden="true"
                 className={cn(
-                  "absolute inset-x-[6px] -bottom-px h-[2px] rounded-full motion-move",
+                  "motion-move absolute inset-x-[4px] -bottom-px h-[2px] rounded-full",
                   on ? "bg-brand" : "bg-transparent",
                 )}
               />
@@ -130,273 +166,319 @@ export function CalendarSettings({
         })}
       </div>
 
-      <div
-        role="tablist"
-        aria-label="Calendar settings pages"
-        className="-mt-[4px] flex shrink-0 items-center gap-[6px] overflow-x-auto"
-      >
-        {PAGES.map((p) => {
-          const on = p.id === page;
-          return (
-            <button
-              key={p.id}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              onClick={() => setPage(p.id)}
-              className={cn(
-                "motion-tap shrink-0 rounded-[7px] px-[10px] py-[5px] text-[12.5px] leading-[17px] whitespace-nowrap",
-                on
-                  ? "bg-pg-surface font-semibold text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border)]"
-                  : "font-medium text-pg-muted hover:bg-pg-surface hover:text-pg-text",
-              )}
-            >
-              {p.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="flex min-h-0 flex-1 gap-[12px] pb-[2px]">
-        {/*
-          The Groups rail, left of the table it filters.
-
-          A rail rather than a select, because a group is a place you stay in
-          while you work — you open Sales team and then edit three calendars —
-          and a dropdown would close over the answer every time. It is also the
-          only surface on this screen where "+ New group" has anywhere to sit
-          that is not the page's one primary slot.
-        */}
-        <div className="flex w-[212px] shrink-0 flex-col overflow-hidden rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
-          <div className="flex h-[38px] shrink-0 items-center border-b border-pg-head-border px-[12px]">
-            <span className="text-[12.5px] leading-[normal] font-semibold text-pg-heading">
-              Groups
-            </span>
-          </div>
-          <div className="flex min-h-0 flex-1 flex-col gap-[2px] overflow-y-auto p-[8px]">
-            {calendarGroups.map((g) => {
-              const on = g.id === group;
-              return (
-                <button
-                  key={g.id}
-                  type="button"
-                  onClick={() => setGroup(g.id)}
-                  className={cn(
-                    "motion-tap flex items-center gap-[8px] rounded-[8px] px-[9px] py-[7px] text-left",
-                    on
-                      ? "bg-brand-soft font-semibold text-brand"
-                      : "font-medium text-pg-text hover:bg-pg-bg",
-                  )}
-                >
-                  <span className="min-w-0 flex-1 truncate text-[13px] leading-[17px]">
-                    {g.label}
-                  </span>
-                  <span
-                    className={cn(
-                      "shrink-0 text-[12px] leading-[16px] tabular-nums",
-                      on ? "text-brand" : "text-pg-faint",
-                    )}
-                  >
-                    ({g.count})
-                  </span>
-                </button>
-              );
-            })}
-            {/*
-              Last row of the list, not a footer pinned to the card's bottom.
-
-              Pinned was the first cut and it put New group four hundred pixels
-              under the fifth group on a tall canvas — far enough that it read
-              as belonging to the page rather than to the list. Here it sits
-              where the next group would go, which is what it makes.
-            */}
-            <button
-              type="button"
-              className="motion-tap mt-[2px] flex items-center gap-[7px] rounded-[8px] px-[9px] py-[7px] text-left text-[12.5px] leading-[17px] font-semibold text-brand hover:bg-pg-bg"
-            >
-              <Plus size={14} aria-hidden="true" />
-              New group
-            </button>
-          </div>
-        </div>
-
-        <div className="flex min-w-0 flex-1 flex-col gap-[10px]">
-          <div className="flex shrink-0 items-center gap-[10px]">
-            <div className="flex h-[34px] min-w-0 flex-1 items-center gap-[9px] rounded-[8px] bg-pg-surface px-[12px] shadow-[inset_0_0_0_1px_var(--pg-border)] focus-within:shadow-[inset_0_0_0_1px_var(--brand),0_0_0_3px_var(--brand-soft)]">
-              <Search size={15} aria-hidden="true" className="shrink-0 text-pg-faint" />
-              <input
-                type="search"
-                placeholder="Search calendars"
-                aria-label="Search calendars"
-                className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
-              />
-            </div>
-            <PrimaryButton>
-              <Plus size={16} aria-hidden="true" />
-              New calendar
-            </PrimaryButton>
-          </div>
-
-          {rows.length === 0 ? (
-            <CalendarsEmpty />
-          ) : (
-            <div className="min-h-0 flex-1 overflow-auto rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
-              <div
-                style={{ gridTemplateColumns: COLS }}
-                className="sticky top-0 z-10 grid h-[38px] items-center gap-[12px] border-b border-pg-head-border bg-pg-surface px-[14px]"
+      {line === "meetings" ? (
+        <div
+          role="tablist"
+          aria-label="Meetings settings pages"
+          className="flex shrink-0 items-center gap-[6px] overflow-x-auto"
+        >
+          {PAGES.map((p) => {
+            const on = p.id === page;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                onClick={() => setPage(p.id)}
+                className={cn(
+                  "motion-tap flex h-[36px] shrink-0 items-center rounded-[8px] px-[10px] text-[14px] leading-[20px] whitespace-nowrap",
+                  on ? "bg-brand-soft font-medium text-brand" : "text-pg-text hover:bg-pg",
+                )}
               >
-                {[
-                  "Calendar name",
-                  "Group",
-                  "Duration",
-                  "Type",
-                  "Status",
-                  "Date updated",
-                  "",
-                ].map((h, i) => (
-                  <span
-                    key={h || `blank-${i}`}
-                    className="truncate text-[12px] leading-[normal] font-medium whitespace-nowrap text-pg-muted"
-                  >
-                    {h}
-                  </span>
-                ))}
-              </div>
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
 
-              {rows.map((row) => (
-                <div
-                  key={row.id}
-                  style={{ gridTemplateColumns: COLS }}
-                  className="group grid min-h-[56px] w-full items-center gap-[12px] border-b border-pg-row-border px-[14px] last:border-b-0 hover:bg-pg-bg"
-                >
-                  <span className="flex min-w-0 flex-col gap-[1px]">
-                    {/*
-                      The name is the button, not the row — the action column
-                      is four buttons and a button inside a button is invalid
-                      HTML, the same trap funnels-page documents on its rows.
-                    */}
-                    <button
-                      type="button"
-                      onClick={() => onOpen(row)}
-                      className="motion-tap truncate text-left text-[13px] leading-[17px] font-medium text-pg-text-strong hover:text-brand"
-                    >
-                      {row.name}
-                    </button>
-                    <span className="flex items-center gap-[4px]">
-                      <span className="truncate text-[11.5px] leading-[15px] text-pg-faint">
-                        {row.ref}
-                      </span>
-                      <GlyphButton
-                        icon={Copy}
-                        label={`Copy id for ${row.name}`}
-                        size={18}
-                      />
-                    </span>
-                  </span>
-                  <span className="truncate text-[13px] leading-[normal] text-pg-text">
-                    {row.group}
-                  </span>
-                  <span className="truncate text-[13px] leading-[normal] text-pg-text">
-                    {row.duration}
-                  </span>
-                  <span className="truncate text-[13px] leading-[normal] text-pg-text">
-                    {row.type}
-                  </span>
-                  <span className="inline-flex h-[22px] w-fit items-center gap-[5px] rounded-[6px] bg-pg-bg px-[8px] text-[12px] leading-[normal] font-medium text-[var(--pg-status-subscribed-fg)]">
-                    <span
-                      aria-hidden="true"
-                      className="size-[6px] rounded-full bg-[var(--pg-status-subscribed-dot)]"
-                    />
-                    Active
-                  </span>
-                  <span className="truncate text-[13px] leading-[normal] text-pg-muted">
-                    {row.updated}
-                  </span>
-                  <span className="flex items-center justify-end gap-[2px]">
-                    <GlyphButton
-                      icon={Pencil}
-                      label={`Edit ${row.name}`}
-                      onClick={() => onOpen(row)}
-                    />
-                    <GlyphButton icon={Share2} label={`Share ${row.name}`} />
-                    <GlyphButton icon={Wrench} label={`Configure ${row.name}`} />
-                    <GlyphButton
-                      icon={EllipsisVertical}
-                      label={`More actions for ${row.name}`}
-                    />
-                  </span>
-                </div>
-              ))}
+      {line !== "meetings" ? (
+        <Placeholder name={lineLabel} />
+      ) : page !== "calendars" ? (
+        <Placeholder name={pageLabel} />
+      ) : (
+        <CalendarsList onOpen={onOpen} />
+      )}
+    </div>
+  );
+}
+
+function Placeholder({ name }: { name: string }) {
+  return (
+    <div className="flex min-h-[240px] flex-col items-center justify-center gap-[4px] rounded-[12px] bg-pg-surface px-[24px] py-[48px] text-center shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+      <h2 className="text-[16px] leading-[22px] font-semibold text-pg-heading">{name}</h2>
+      <p className="text-[14px] leading-[20px] text-pg-muted">{name} settings live here.</p>
+    </div>
+  );
+}
+
+/**
+ * Meetings ▸ Calendars: the group rail, the toolbar and the table.
+ *
+ * Everything is derived from the store at render, so a calendar created,
+ * moved or deleted from any modal is reflected in the counts and the rows on
+ * the next tick. The rail's counts follow Owned by only — the live screen
+ * opens on "All calendars (0)" under Owned by: Me even though teammates'
+ * calendars exist — while Status, Type and search narrow just the table.
+ */
+function CalendarsList({ onOpen }: { onOpen: (target: BuilderTarget) => void }) {
+  const calendars = useCalendars();
+  const groups = useCalendarGroups();
+
+  const [scopeState, setScope] = React.useState<RailScope>("all");
+  const [status, setStatus] = React.useState<StatusFilter>("all");
+  const [type, setType] = React.useState<TypeFilter>("all");
+  const [owner, setOwner] = React.useState<OwnerFilter>(ME_ID);
+  const [query, setQuery] = React.useState("");
+  const [pageState, setPageState] = React.useState(0);
+  const [dialog, setDialog] = React.useState<Dialog | null>(null);
+  const [troubleshoot, setTroubleshoot] = React.useState<string | null>(null);
+  const close = React.useCallback(() => setDialog(null), []);
+
+  const groupIds = new Set(groups.map((g) => g.id));
+  // A deleted group's id can linger in state; fall back rather than show nothing.
+  const scope: RailScope =
+    scopeState === "all" || scopeState === "ungrouped" || groupIds.has(scopeState)
+      ? scopeState
+      : "all";
+  const isUngrouped = (c: SettingsCalendar) => !c.draft.groupId || !groupIds.has(c.draft.groupId);
+
+  const owned = calendars.filter((c) => owner === "all" || c.ownerId === owner);
+  const counts = {
+    all: owned.length,
+    ungrouped: owned.filter(isUngrouped).length,
+    byGroup: Object.fromEntries(
+      groups.map((g) => [g.id, owned.filter((c) => c.draft.groupId === g.id).length]),
+    ),
+  };
+
+  const inScope =
+    scope === "all"
+      ? owned
+      : scope === "ungrouped"
+        ? owned.filter(isUngrouped)
+        : calendarsInGroup(scope, owned);
+
+  const q = query.trim().toLowerCase();
+  const groupName = (c: SettingsCalendar) => groups.find((g) => g.id === c.draft.groupId)?.name ?? "";
+  const filtered = inScope.filter(
+    (c) =>
+      (status === "all" || c.active === (status === "active")) &&
+      (type === "all" || c.type === type) &&
+      (!q || c.draft.name.toLowerCase().includes(q) || groupName(c).toLowerCase().includes(q)),
+  );
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const page = Math.min(pageState, pageCount - 1);
+  const rows = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const narrowed = status !== "all" || type !== "all" || q !== "";
+  const empty = filtered.length > 0 ? null : inScope.length === 0 && !narrowed ? "none" : "filtered";
+
+  // Any filter change starts the table over at page 1.
+  const refilter =
+    <T,>(set: (v: T) => void) =>
+    (v: T) => {
+      set(v);
+      setPageState(0);
+    };
+
+  const clearFilters = () => {
+    setStatus("all");
+    setType("all");
+    setQuery("");
+    setPageState(0);
+  };
+
+  /** A calendar just created must be on screen — undo whatever would hide it. */
+  const reveal = (id: string) => {
+    const cal = calendarById(id);
+    if (!cal) return;
+    if (status === "inactive" && cal.active) setStatus("all");
+    if (type !== "all" && type !== cal.type) setType("all");
+    if (owner !== "all" && owner !== cal.ownerId) setOwner("all");
+    if (scope !== "all" && scope !== (cal.draft.groupId ?? "ungrouped")) setScope("all");
+    setQuery("");
+    setPageState(0);
+  };
+
+  const onRowAction = (action: RowAction, id: string) => {
+    const cal = calendarById(id);
+    if (!cal) return;
+    switch (action) {
+      case "edit":
+        onOpen({ calendarId: id });
+        return;
+      case "troubleshoot":
+        setTroubleshoot(id);
+        return;
+      case "toggle-active":
+        if (cal.active) setDialog({ kind: "deactivate", calendarId: id });
+        else {
+          setCalendarActive(id, true);
+          showToast("Calendar activated");
+        }
+        return;
+      default:
+        setDialog({ kind: action, calendarId: id });
+    }
+  };
+
+  const onGroupAction = (action: GroupAction, id: string) => {
+    const group = groups.find((g) => g.id === id);
+    if (!group) return;
+    switch (action) {
+      case "edit":
+        setDialog({ kind: "group-form", groupId: id });
+        return;
+      case "share":
+        setDialog({ kind: "group-share", groupId: id });
+        return;
+      case "rearrange":
+        setDialog({ kind: "group-rearrange", groupId: id });
+        return;
+      case "delete":
+        setDialog({ kind: "group-delete", groupId: id });
+        return;
+      case "toggle-active":
+        if (group.active) {
+          setDialog({ kind: "group-deactivate", groupId: id });
+        } else {
+          // The menu says "Activate all calendars in group", so the calendars
+          // come back with it — the store's activateGroup flips only the group.
+          activateGroup(id);
+          calendars.filter((c) => c.draft.groupId === id).forEach((c) => setCalendarActive(c.id, true));
+          showToast("Group activated");
+        }
+    }
+  };
+
+  const troubleshootCal = troubleshoot ? calendars.find((c) => c.id === troubleshoot) : undefined;
+  if (troubleshootCal) {
+    // Full height of the page, in place of the list, so closing it lands on
+    // the same list, filters and page the operator left.
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <TroubleshootView
+          name={troubleshootCal.draft.name}
+          durationLabel={formatDuration(troubleshootCal.draft)}
+          onClose={() => setTroubleshoot(null)}
+        />
+      </div>
+    );
+  }
+
+  const shareCal = dialog?.kind === "share" ? calendars.find((c) => c.id === dialog.calendarId) : undefined;
+
+  return (
+    <div className="-mx-[var(--page-inset)] min-h-0 flex-1 overflow-y-auto px-[var(--page-inset)] pb-[16px]">
+      <div className="flex min-w-0 items-start gap-[24px] pt-[4px]">
+        <ListRail
+          groups={groups}
+          scope={scope}
+          counts={counts}
+          onScope={refilter(setScope)}
+          onGroupAction={onGroupAction}
+          onNewGroup={() => setDialog({ kind: "group-form" })}
+        />
+
+        <div className="flex min-w-0 flex-1 flex-col gap-[16px]">
+          <div className="flex flex-wrap items-center gap-[10px]">
+            <FilterSelect label="Status" value={status} options={STATUS_OPTIONS} onChange={refilter(setStatus)} width={160} />
+            <FilterSelect label="Type" value={type} options={TYPE_OPTIONS} onChange={refilter(setType)} width={180} />
+            <FilterSelect label="Owned by" value={owner} options={OWNER_OPTIONS} onChange={refilter(setOwner)} width={200} />
+            <div className="ml-auto flex items-center gap-[10px]">
+              <label className="flex h-[36px] w-[204px] items-center gap-[8px] rounded-[8px] bg-pg-surface px-[10px] shadow-[inset_0_0_0_1px_var(--pg-border)] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]">
+                <Search size={15} aria-hidden="true" className="shrink-0 text-pg-muted" />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => refilter(setQuery)(e.target.value)}
+                  placeholder="Calendar/group name"
+                  aria-label="Search calendars and groups"
+                  className="min-w-0 flex-1 bg-transparent text-[14px] leading-[20px] text-pg-text-strong outline-none placeholder:text-pg-faint"
+                />
+              </label>
+              <PrimaryButton onClick={() => setDialog({ kind: "choose-type" })} className="h-[36px] text-[14px]">
+                <Plus size={16} aria-hidden="true" />
+                New calendar
+              </PrimaryButton>
             </div>
-          )}
+          </div>
+
+          <ListTable
+            rows={rows}
+            groups={groups}
+            page={page}
+            pageCount={pageCount}
+            onPage={setPageState}
+            empty={empty}
+            onRowAction={onRowAction}
+            onCreate={() => setDialog({ kind: "choose-type" })}
+            onClearFilters={clearFilters}
+          />
         </div>
       </div>
-    </div>
-  );
-}
 
-/**
- * The empty state, on the page's own card rather than in place of it.
- *
- * Same 12px radius and same surface as the table it replaces, so switching
- * groups does not change the shape of the region — only what is in it. A
- * borderless centred block would have read as the page failing to load.
- */
-function CalendarsEmpty() {
-  return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[14px] rounded-[12px] bg-pg-surface px-[24px] py-[40px] text-center shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
-      <EmptyIllustration />
-      <div className="flex flex-col gap-[4px]">
-        <h2 className="text-[16px] leading-[22px] font-semibold text-pg-heading">
-          No calendars yet – set one up!
-        </h2>
-        <p className="max-w-[360px] text-[13px] leading-[18px] text-pg-muted">
-          Calendars in this group will show here once you create one.
-        </p>
-      </div>
-      <PrimaryButton>
-        <Plus size={16} aria-hidden="true" />
-        Create calendar
-      </PrimaryButton>
-    </div>
-  );
-}
+      {dialog?.kind === "choose-type" ? (
+        <ChooseTypeModal onClose={close} onChoose={(t) => setDialog({ kind: "new", type: t })} />
+      ) : null}
+      {dialog?.kind === "new" ? (
+        <NewCalendarModal
+          type={dialog.type}
+          onClose={close}
+          onCreated={(id) => {
+            setDialog(null);
+            reveal(id);
+            showToast("Calendar created");
+          }}
+          onAdvanced={(t, draft) => {
+            setDialog(null);
+            onOpen({ calendarId: null, type: t, draft });
+          }}
+        />
+      ) : null}
+      {shareCal ? (
+        <ShareCalendarModal
+          calendarId={shareCal.id}
+          name={shareCal.draft.name}
+          slug={shareCal.draft.slug}
+          durationLabel={formatDuration(shareCal.draft)}
+          typeLabel={TYPE_SHORT[shareCal.type]}
+          onClose={close}
+        />
+      ) : null}
+      {dialog?.kind === "duplicate" ? <DuplicateCalendarModal calendarId={dialog.calendarId} onClose={close} /> : null}
+      {dialog?.kind === "move" ? <MoveToGroupModal calendarId={dialog.calendarId} onClose={close} /> : null}
+      {dialog?.kind === "deactivate" ? <DeactivateCalendarModal calendarId={dialog.calendarId} onClose={close} /> : null}
+      {dialog?.kind === "delete" ? <DeleteCalendarModal calendarId={dialog.calendarId} onClose={close} /> : null}
 
-/**
- * Drawn inline, not fetched.
- *
- * An `<img>` would need a file in `public/`, and a file in `public/` needs a
- * light and a dark twin plus something that decides between them — for one
- * empty state. An inline figure painted out of --pg-* and --brand follows the
- * page theme AND the accent for free, which is the whole reason this prototype
- * has a token layer. A month grid with a plus on it is as much drawing as an
- * empty state should carry: the sentence under it is doing the work.
- */
-function EmptyIllustration() {
-  return (
-    <span
-      aria-hidden="true"
-      className="flex size-[104px] shrink-0 flex-col justify-start gap-[7px] rounded-[20px] bg-pg-bg p-[16px] shadow-[inset_0_0_0_1px_var(--pg-border)]"
-    >
-      <span className="flex items-center gap-[4px]">
-        <span className="h-[4px] w-[4px] rounded-full bg-pg-border-strong" />
-        <span className="h-[4px] flex-1 rounded-full bg-pg-border-strong" />
-        <span className="h-[4px] w-[4px] rounded-full bg-pg-border-strong" />
-      </span>
-      <span className="grid grid-cols-4 gap-[5px]">
-        {Array.from({ length: 8 }, (_, i) => (
-          <span
-            key={i}
-            className={cn(
-              "h-[9px] rounded-[3px]",
-              i === 5 ? "bg-brand" : "bg-pg-border",
-            )}
-          />
-        ))}
-      </span>
-      <span className="mt-[2px] flex items-center justify-center text-brand">
-        <CalendarPlus size={22} strokeWidth={1.8} />
-      </span>
-    </span>
+      {dialog?.kind === "group-form" ? (
+        <GroupFormModal
+          groupId={dialog.groupId}
+          onClose={close}
+          onSaved={(id) => {
+            // A new group is selected so its (empty) state is what you see next.
+            if (!dialog.groupId) setScope(id);
+          }}
+        />
+      ) : null}
+      {dialog?.kind === "group-share" ? <ShareGroupModal groupId={dialog.groupId} onClose={close} /> : null}
+      {dialog?.kind === "group-rearrange" ? (
+        <RearrangeCalendarsModal groupId={dialog.groupId} onClose={close} />
+      ) : null}
+      {dialog?.kind === "group-deactivate" ? (
+        <DeactivateGroupModal groupId={dialog.groupId} onClose={close} />
+      ) : null}
+      {dialog?.kind === "group-delete" ? (
+        <DeleteGroupModal
+          groupId={dialog.groupId}
+          onClose={close}
+          onDeleted={() => {
+            if (scope === dialog.groupId) setScope("all");
+          }}
+        />
+      ) : null}
+    </div>
   );
 }

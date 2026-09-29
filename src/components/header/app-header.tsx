@@ -59,6 +59,23 @@ export interface Crumb {
   icon?: LucideIcon;
   options?: CrumbOption[];
   onSelect?: (id: string) => void;
+  /**
+   * Somewhere to go, for a segment with no sibling list to infer it from.
+   *
+   * Every link in this trail used to be derived: `crumbTargetFor` reads the
+   * selected option, so a crumb could only be walked back to if it carried a
+   * dropdown. That held while the only published crumbs were scope pickers,
+   * and broke the moment a folder path arrived — Automation ▸ Workflows ▸
+   * Intake ▸ Web forms, where Intake is plainly a place and just as plainly
+   * has no menu, because Ashwin asked on Sep 28 for folders to be reached
+   * from the table rather than from a switcher.
+   *
+   * A word in the middle of a trail that you cannot click is the one thing a
+   * breadcrumb is for, so the destination can now be stated instead of
+   * inferred. Ignored on the leaf, like every other target: it is the page you
+   * are already on.
+   */
+  onNavigate?: () => void;
 }
 
 /**
@@ -731,7 +748,14 @@ export function AppHeader({
              * makes this an axis about the end of the line rather than about
              * the trail.
              */
-            const leafGone = last && (leaf === "none" || leaf === "title");
+            /*
+              "none" left this control on Sep 29 — it is now `crumbDepth`,
+              which trims the ARRAY upstream rather than blanking a segment
+              here. The difference matters: trimming lets the crumb before it
+              become the leaf and be drawn as one, where blanking left a
+              painted chip with nothing in it.
+            */
+            const leafGone = last && leaf === "title";
             if (leafGone) return null;
             return (
               <React.Fragment
@@ -1153,6 +1177,11 @@ function CrumbWord({
   const own = last ? null : crumbTargetFor(seg);
   const target = own !== null && (leadsSomewhere?.(own) ?? true) ? own : null;
   const go = seg.onSelect;
+  // A stated destination, for the crumbs that have no options to infer one
+  // from. Checked before the derived target so a segment carrying both — a
+  // scope picker inside a folder — walks to the place rather than re-selecting
+  // the option it is already on.
+  const direct = last ? undefined : seg.onNavigate;
 
   const inner = (
     <>
@@ -1185,7 +1214,7 @@ function CrumbWord({
     fontWeight: last ? font.leafWeight : undefined,
   };
 
-  if (target === null || !go) {
+  if (!direct && (target === null || !go)) {
     return (
       <span aria-current={last ? "page" : undefined} style={style} className={base}>
         {inner}
@@ -1196,7 +1225,7 @@ function CrumbWord({
   return (
     <button
       type="button"
-      onClick={() => go(target)}
+      onClick={() => (direct ? direct() : go?.(target!))}
       style={style}
       /*
         The switcher branch's own hover chip, minus the caret.

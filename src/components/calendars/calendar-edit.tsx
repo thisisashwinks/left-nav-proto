@@ -29,11 +29,14 @@ import {
 } from "@/components/shell/floating-chrome";
 import { cn } from "@/lib/utils";
 import { GlyphButton, SelectButton } from "./calendar-chrome";
-import { editSections, meetingColors, type CalendarRow } from "./calendars-data";
+import { editSections, meetingColors } from "./calendars-data";
+import type { BuilderTarget } from "./settings/cal-settings-store";
 
 export interface CalendarEditProps {
-  calendar: CalendarRow;
+  target: BuilderTarget;
   onBack: () => void;
+  /** After Create saves, the builder re-opens itself on the new calendar. */
+  onRetarget: (target: BuilderTarget) => void;
 }
 
 /**
@@ -53,7 +56,8 @@ export interface CalendarEditProps {
  * flips one switch in the tuning panel and every builder in the prototype —
  * this one now included — answers it the same way.
  */
-export function CalendarEdit({ calendar, onBack }: CalendarEditProps) {
+export function CalendarEdit({ target, onBack }: CalendarEditProps) {
+  const calendar = { name: target.calendarId ? "Calendar" : "Create", group: "" };
   const {
     appTheme,
     builderKeepSidebar,

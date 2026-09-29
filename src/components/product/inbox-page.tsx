@@ -4,7 +4,6 @@ import * as React from "react";
 import {
   ArrowDownUp,
   ArrowUpRight,
-  Bot,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -16,10 +15,8 @@ import {
   Phone,
   Plus,
   Search,
-  Send,
   SquarePen,
   Star,
-  Trash2,
   UserRound,
   Users,
   X,
@@ -33,6 +30,26 @@ import {
   RECORD_PANELS,
   RecordPanelDrawer,
 } from "@/components/contacts/record-panels";
+import { showToast } from "@/components/page/toast";
+import { NewConversationFlow } from "./conversations/new-conversation";
+import { ContactThread } from "./conversations/contact-thread";
+import { CreateViewDrawer, describeView } from "./conversations/create-view-drawer";
+import {
+  InternalChatListPane,
+  InternalChatThread,
+  ParticipantsPane,
+  SEED_INTERNAL_CHATS,
+} from "./conversations/internal-chat";
+import {
+  ME,
+  type ChatType,
+  type InboxView,
+  type InternalChat,
+} from "./conversations/conversations-data";
+import {
+  KeyboardShortcutsSheet,
+  useInboxShortcuts,
+} from "./conversations/keyboard-shortcuts";
 import { cn } from "@/lib/utils";
 
 /**
@@ -238,8 +255,140 @@ export function InboxPage() {
   const [panel, setPanel] = React.useState<string | null>("contact");
   const [inbox, setInbox] = React.useState("team");
   const [navOpen, setNavOpen] = React.useState(false);
+
+  /*
+   * The list is state, not the constant, because the new-conversation flow
+   * adds to it and "Close conversation" takes away from it. A conversation
+   * started this session has no history, so it is remembered with the
+   * channel it was opened on — the thread draws its empty state and opens
+   * the composer there.
+   */
+  const [conversations, setConversations] =
+    React.useState<Conversation[]>(CONVERSATIONS);
+  const [fresh, setFresh] = React.useState<Record<string, ChatType>>({});
+  const [flowOpen, setFlowOpen] = React.useState(false);
+
+  const [views, setViews] = React.useState<InboxView[]>([]);
+  const [viewDrawer, setViewDrawer] = React.useState(false);
+
+  const [chats, setChats] = React.useState<InternalChat[]>(SEED_INTERNAL_CHATS);
+  const [chatTab, setChatTab] = React.useState<"unread" | "all">("unread");
+  const [chatId, setChatId] = React.useState<string | null>(null);
+
   const active =
-    CONVERSATIONS.find((c) => c.id === activeId) ?? CONVERSATIONS[0]!;
+    conversations.find((c) => c.id === activeId) ?? conversations[0] ?? null;
+  const internal = inbox === "internal";
+  const visibleChats =
+    chatTab === "unread" ? chats.filter((c) => c.unread > 0) : chats;
+  const activeChat = visibleChats.find((c) => c.id === chatId) ?? null;
+
+  const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
+
+  /*
+   * The shortcuts the sheet advertises, wired to the list they act on. Star,
+   * read and archive answer with a toast — the flags live in the thread, so
+   * the page says what happened rather than pretending to own them.
+   */
+  const step = (by: number) => {
+    const i = conversations.findIndex((c) => c.id === active?.id);
+    const next = conversations[i + by];
+    if (next) setActiveId(next.id);
+  };
+  useInboxShortcuts(
+    {
+      next: () => step(1),
+      prev: () => step(-1),
+      search: () =>
+        document
+          .querySelector<HTMLInputElement>('input[aria-label="Search conversations"]')
+          ?.focus(),
+      star: () => showToast("Conversation starred"),
+      unstar: () => showToast("Conversation unstarred"),
+      markRead: () => showToast("Marked as read"),
+      markUnread: () => showToast("Marked as unread"),
+      archive: () => active && closeConversation(active.id),
+      focusComposer: () =>
+        document.querySelector<HTMLTextAreaElement>("[data-inbox-composer] textarea, textarea")?.focus(),
+      toggleLeft: () => setNavOpen((v) => !v),
+      toggleRight: () => setPanel((p) => (p ? null : "contact")),
+      help: () => setShortcutsOpen(true),
+    },
+    !shortcutsOpen && !flowOpen && !viewDrawer && !internal,
+  );
+
+  const selectChat = (id: string) => {
+    setChatId(id);
+    // Opening a chat reads it — but it stays in the Unread list until you
+    // leave, so it does not vanish from under the pointer.
+    setChats((cs) => cs.map((c) => (c.id === id ? { ...c, unread: 0 } : c)));
+  };
+
+  const startContactConversation = (r: {
+    contacts: { id: string; name: string; initials: string }[];
+    chatType: ChatType;
+    group: boolean;
+  }) => {
+    const first = r.contacts[0]!;
+    const id = `new-${first.id}-${Date.now()}`;
+    const convo: Conversation = {
+      id,
+      name: r.group
+        ? `${first.name.split(" ")[0]}, +${r.contacts.length - 1}`
+        : first.name,
+      initials: r.group ? `${r.contacts.length}` : first.initials,
+      channel: r.chatType === "email" ? "email" : "sms",
+      preview: "No messages yet",
+      time: "Now",
+      unread: 0,
+    };
+    setConversations((cs) => [convo, ...cs]);
+    setFresh((f) => ({ ...f, [id]: r.chatType }));
+    setInbox((i) => (i === "internal" ? "team" : i));
+    setTab("all");
+    setActiveId(id);
+    setFlowOpen(false);
+  };
+
+  const createInternalChat = (participants: InternalChat["participants"]) => {
+    const id = `ic-${Date.now()}`;
+    setChats((cs) => [
+      { id, participants: [ME, ...participants], messages: [], unread: 0, isNew: true },
+      ...cs,
+    ]);
+    setInbox("internal");
+    setChatTab("all");
+    setChatId(id);
+    setFlowOpen(false);
+    showToast("Internal chat created");
+  };
+
+  const closeConversation = (id: string) => {
+    const rest = conversations.filter((c) => c.id !== id);
+    setConversations(rest);
+    if (rest[0]) setActiveId(rest[0].id);
+    showToast("Conversation closed");
+  };
+
+  const sendInternal = (id: string, body: string) => {
+    const time = new Date().toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+    setChats((cs) =>
+      cs.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              isNew: false,
+              messages: [
+                ...c.messages,
+                { id: `m-${Date.now()}`, authorId: ME.id, body, time },
+              ],
+            }
+          : c,
+      ),
+    );
+  };
   const { effective } = useTheme();
   const product = effective.inboxPalette === "product";
 
@@ -300,6 +449,9 @@ export function InboxPage() {
           onSelect={setInbox}
           open={navOpen}
           onToggle={() => setNavOpen((v) => !v)}
+          views={views}
+          onNewConversation={() => setFlowOpen(true)}
+          onCreateView={() => setViewDrawer(true)}
         />
 
         {/*
@@ -309,38 +461,123 @@ export function InboxPage() {
           keeps its gutter, because that one IS separable: it closes.
         */}
         <div className="mr-[10px] flex min-w-0 flex-1 overflow-hidden rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
-          <ListPane
-            tab={tab}
-            onTab={setTab}
-            activeId={activeId}
-            onSelect={setActiveId}
-          />
-
-          <ThreadPane conversation={active} />
+          {internal ? (
+            <>
+              <InternalChatListPane
+                chats={chats}
+                tab={chatTab}
+                onTab={(t) => {
+                  setChatTab(t);
+                  setChatId(null);
+                }}
+                activeId={activeChat?.id ?? null}
+                onSelect={selectChat}
+              />
+              <InternalChatThread
+                chat={activeChat}
+                tab={chatTab}
+                onViewAll={() => setChatTab("all")}
+                onClose={() => setChatId(null)}
+                onSend={sendInternal}
+              />
+            </>
+          ) : (
+            <>
+              <ListPane
+                title={inbox === "team" ? "Team inbox" : navLabel(inbox, views)}
+                conversations={conversations}
+                tab={tab}
+                onTab={setTab}
+                activeId={active?.id ?? ""}
+                onSelect={setActiveId}
+              />
+              {active ? (
+                <ContactThread
+                  conversation={active}
+                  fresh={active.id in fresh}
+                  initialComposer={fresh[active.id]}
+                  onCloseConversation={() => closeConversation(active.id)}
+                />
+              ) : (
+                <div className="flex flex-1 items-center justify-center text-[13px] text-pg-muted">
+                  No conversations left in this inbox
+                </div>
+              )}
+            </>
+          )}
         </div>
 
-        {panel === "contact" ? (
+        {/*
+          Internal chat has no contact, so the contact rail has nothing to
+          open: the participants are the only record on that side.
+        */}
+        {internal ? (
           <span className="mr-[10px] flex min-h-0 shrink-0">
-            <ContactPane onClose={() => setPanel(null)} />
+            <ParticipantsPane chat={activeChat} />
           </span>
-        ) : null}
-        {panel && panel !== "contact" ? (
-          <RecordPanelDrawer
-            className="mr-[10px]"
-            panelId={panel}
-            inline
-            width={320}
-            onClose={() => setPanel(null)}
-          />
-        ) : null}
+        ) : (
+          <>
+            {panel === "contact" ? (
+              <span className="mr-[10px] flex min-h-0 shrink-0">
+                <ContactPane onClose={() => setPanel(null)} />
+              </span>
+            ) : null}
+            {panel && panel !== "contact" ? (
+              <RecordPanelDrawer
+                className="mr-[10px]"
+                panelId={panel}
+                record={
+                  active
+                    ? { id: active.id, name: active.name, initials: active.initials }
+                    : undefined
+                }
+                inline
+                width={320}
+                onClose={() => setPanel(null)}
+              />
+            ) : null}
 
-        <PanelRail
-          panels={RECORD_PANELS}
-          activeId={panel}
-          onSelect={setPanel}
-        />
+            <PanelRail
+              panels={RECORD_PANELS}
+              activeId={panel}
+              onSelect={setPanel}
+              onShortcuts={() => setShortcutsOpen(true)}
+            />
+          </>
+        )}
       </div>
+
+      {flowOpen ? (
+        <NewConversationFlow
+          onClose={() => setFlowOpen(false)}
+          onStartContactConversation={startContactConversation}
+          onCreateInternalChat={createInternalChat}
+        />
+      ) : null}
+      {shortcutsOpen ? (
+        <KeyboardShortcutsSheet onClose={() => setShortcutsOpen(false)} />
+      ) : null}
+      {viewDrawer ? (
+        <CreateViewDrawer
+          onClose={() => setViewDrawer(false)}
+          onCreate={(v) => {
+            setViews((vs) => [...vs, v]);
+            setInbox(v.id);
+            setViewDrawer(false);
+            showToast(`View "${v.name}" created`);
+          }}
+        />
+      ) : null}
     </div>
+  );
+}
+
+/** The list pane's title for a nav id — a saved view's name, or the item's. */
+function navLabel(id: string, views: InboxView[]) {
+  return (
+    views.find((v) => v.id === id)?.name ??
+    INBOX_NAV.flatMap((g) => g.items).find((i) => i.id === id)?.label ??
+    "Inbox"
   );
 }
 
@@ -385,30 +622,60 @@ function InboxNav({
   onSelect,
   open,
   onToggle,
+  views,
+  onNewConversation,
+  onCreateView,
 }: {
   activeId: string;
   onSelect: (id: string) => void;
   open: boolean;
   onToggle: () => void;
+  views: InboxView[];
+  onNewConversation: () => void;
+  onCreateView: () => void;
 }) {
+  /*
+   * Saved views join the fixed ones in the Views group. They carry their
+   * filter summary as the tooltip, since the name is all the row has room for.
+   */
+  const groups = INBOX_NAV.map((g) =>
+    g.group === "Views"
+      ? {
+          ...g,
+          items: [
+            ...g.items,
+            ...views.map((v) => ({
+              id: v.id,
+              label: v.name,
+              icon: ListFilter,
+              title: describeView(v),
+            })),
+          ],
+        }
+      : g,
+  ) as {
+    group: string;
+    items: { id: string; label: string; icon: LucideIcon; title?: string }[];
+  }[];
+
   if (!open) {
     return (
       <div className="flex w-[44px] shrink-0 flex-col items-center gap-[2px] py-[8px] pr-[8px]">
-        <IconButton icon={SquarePen} label="New conversation" />
+        <IconButton icon={SquarePen} label="New conversation" onClick={onNewConversation} />
         <IconButton icon={Search} label="Search conversations" />
         <span aria-hidden="true" className="my-[4px] h-px w-[20px] bg-[var(--pg-border)]" />
-        {INBOX_NAV.flatMap((g) => g.items).map((item) => (
+        {groups.flatMap((g) => g.items).map((item) => (
           <button
             key={item.id}
             type="button"
-            title={item.label}
+            title={item.title ?? item.label}
             aria-label={item.label}
             onClick={() => onSelect(item.id)}
             className={cn(
               "motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[7px]",
               item.id === activeId
-                ? "bg-pg-bg text-brand shadow-[inset_0_0_0_1px_var(--pg-border)]"
-                : "text-pg-muted hover:bg-pg-bg hover:text-pg-text",
+                ? "bg-pg text-brand shadow-[inset_0_0_0_1px_var(--pg-border)]"
+                : "text-pg-muted hover:bg-pg hover:text-pg-text",
             )}
           >
             <item.icon size={16} aria-hidden="true" />
@@ -430,6 +697,7 @@ function InboxNav({
     <div className="flex w-[204px] shrink-0 flex-col gap-[8px] overflow-y-auto py-[8px] pr-[10px]">
       <button
         type="button"
+        onClick={onNewConversation}
         className="flex h-[32px] shrink-0 items-center justify-center gap-[6px] rounded-[8px] bg-brand text-[12.5px] leading-none font-semibold text-brand-fg motion-tap hover:brightness-105 active:scale-[0.98]"
       >
         <SquarePen size={14} aria-hidden="true" />
@@ -444,7 +712,7 @@ function InboxNav({
         />
       </div>
 
-      {INBOX_NAV.map((g) => (
+      {groups.map((g) => (
         <div key={g.group} className="flex flex-col gap-[2px]">
           <span className="px-[4px] pt-[4px] text-[11.5px] leading-[16px] font-semibold text-pg-muted">
             {g.group}
@@ -453,12 +721,13 @@ function InboxNav({
             <button
               key={item.id}
               type="button"
+              title={item.title}
               onClick={() => onSelect(item.id)}
               className={cn(
                 "motion-tap flex h-[28px] items-center gap-[7px] rounded-[7px] px-[7px] text-left text-[12.5px] leading-none",
                 item.id === activeId
-                  ? "bg-pg-bg font-semibold text-brand shadow-[inset_0_0_0_1px_var(--brand)]"
-                  : "text-pg-text hover:bg-pg-bg",
+                  ? "bg-pg font-semibold text-brand shadow-[inset_0_0_0_1px_var(--brand)]"
+                  : "text-pg-text hover:bg-pg",
               )}
             >
               <item.icon size={14} aria-hidden="true" className="shrink-0" />
@@ -470,6 +739,7 @@ function InboxNav({
 
       <button
         type="button"
+        onClick={onCreateView}
         className="flex h-[26px] shrink-0 items-center gap-[5px] px-[7px] text-[12.5px] leading-none font-medium text-brand motion-tap hover:brightness-110"
       >
         <Plus size={13} aria-hidden="true" />
@@ -485,11 +755,15 @@ function InboxNav({
 /* ─── The list ──────────────────────────────────────────────────────────── */
 
 function ListPane({
+  title,
+  conversations,
   tab,
   onTab,
   activeId,
   onSelect,
 }: {
+  title: string;
+  conversations: Conversation[];
   tab: string;
   onTab: (id: string) => void;
   activeId: string;
@@ -499,7 +773,7 @@ function ListPane({
     <div className="flex w-[300px] shrink-0 flex-col overflow-hidden border-r border-[var(--pg-border)] bg-pg-surface">
       <div className="flex h-[44px] shrink-0 items-center gap-[8px] px-[14px]">
         <h2 className="min-w-0 flex-1 truncate text-[14px] leading-none font-semibold text-pg-heading">
-          Team inbox
+          {title}
         </h2>
         <IconButton icon={ListFilter} label="Filter conversations" />
         <IconButton icon={ArrowDownUp} label="Sort conversations" />
@@ -530,7 +804,7 @@ function ListPane({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        {CONVERSATIONS.map((c) => (
+        {conversations.map((c) => (
           <ConversationRow
             key={c.id}
             conversation={c}
@@ -568,8 +842,8 @@ function ConversationRow({
         active
           ? // The selected row keeps the brand ring the app draws, inset so the
             // 1px does not shift the rows under it.
-            "bg-pg-bg shadow-[inset_0_0_0_1.5px_var(--brand)]"
-          : "hover:bg-pg-bg",
+            "bg-pg shadow-[inset_0_0_0_1.5px_var(--brand)]"
+          : "hover:bg-pg",
       )}
     >
       <span className="mt-[3px] shrink-0">
@@ -594,7 +868,7 @@ function ConversationRow({
             narrow the glyph is the only room there is to say so.
           */}
           {conversation.pending ? (
-            <span className="flex shrink-0 items-center gap-[3px] rounded-full bg-pg-bg px-[5px] py-[2px] text-[10.5px] leading-none text-pg-muted">
+            <span className="flex shrink-0 items-center gap-[3px] rounded-full bg-pg px-[5px] py-[2px] text-[10.5px] leading-none text-pg-muted">
               <Clock size={10} aria-hidden="true" />
               {conversation.time}
             </span>
@@ -630,188 +904,6 @@ function ConversationRow({
   );
 }
 
-/* ─── The thread ────────────────────────────────────────────────────────── */
-
-function ThreadPane({ conversation }: { conversation: Conversation }) {
-  return (
-    <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-pg-surface">
-      <div className="flex h-[52px] shrink-0 items-center gap-[10px] border-b border-[var(--pg-border)] px-[14px]">
-        <Avatar initials={conversation.initials} channel={conversation.channel} />
-        <h2 className="min-w-0 flex-1 truncate text-[15px] leading-none font-semibold text-pg-heading">
-          {conversation.name}
-        </h2>
-        <SplitButton icon={MessageSquareDashed} label="Channel" />
-        <SplitButton icon={Phone} label="Call" />
-        <IconButton icon={Star} label="Star conversation" />
-        <IconButton icon={Mail} label="Mark unread" />
-        <IconButton icon={Trash2} label="Delete conversation" />
-      </div>
-
-      <div className="flex min-h-0 flex-1 flex-col gap-[12px] overflow-y-auto px-[16px] py-[14px]">
-        <Bubble side="in" time="05:12 AM">
-          Hi — we tried connecting the WhatsApp number again this morning and
-          it still fails at the last step.
-        </Bubble>
-
-        <Divider label="New" />
-
-        <Bubble side="out" time="05:45 AM" read>
-          <p className="font-semibold">
-            We&apos;d Love Your Feedback + Exciting New WhatsApp Feature!
-          </p>
-          <p>Hi {conversation.name.split(" ")[0]},</p>
-          <p>
-            I noticed your sub-account{" "}
-            <strong className="font-semibold">Pandan Banua</strong> just
-            cancelled its WhatsApp subscription — I wanted to personally reach
-            out.
-          </p>
-          <p>
-            💡 Did you know{" "}
-            <strong className="font-semibold">WhatsApp Coexistence</strong> is
-            now available? You can use WhatsApp on your phone and in HighLevel
-            at the same time — no more choosing one over the other.
-          </p>
-          <p>
-            If it&apos;s something else, tap below — whether it&apos;s missing
-            features, technical issues, subscription cost or WA Business App
-            access — and I&apos;ll look into it for you.
-          </p>
-          <p>
-            Best regards,
-            <br />
-            Customer Success Manager — WhatsApp
-            <br />
-            HighLevel
-          </p>
-
-          {/*
-            The reply buttons are part of the message, not the composer: they
-            are what the template sent, so they sit inside the bubble the way
-            the channel renders them.
-          */}
-          <div className="mt-[4px] flex flex-col overflow-hidden rounded-[8px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
-            {[
-              "Missing features",
-              "Facing technical issues",
-              "Subscription cost high",
-              "WA Business App access",
-            ].map((reply) => (
-              <button
-                key={reply}
-                type="button"
-                className="motion-tap flex h-[32px] items-center justify-center gap-[6px] border-b border-[var(--pg-border)] bg-pg-surface text-[12.5px] leading-none font-medium text-brand last:border-b-0 hover:bg-pg-bg"
-              >
-                <Reply />
-                {reply}
-              </button>
-            ))}
-            <button
-              type="button"
-              className="motion-tap flex h-[32px] items-center justify-center gap-[6px] bg-pg-surface text-[12.5px] leading-none font-medium text-brand hover:bg-pg-bg"
-            >
-              <ArrowUpRight size={12} aria-hidden="true" />
-              Book a call
-            </button>
-          </div>
-        </Bubble>
-      </div>
-
-      {/*
-        The composer, locked as the channel locks it.
-
-        WhatsApp closes the free-form window 24 hours after the customer's last
-        message, and the app says so in the field rather than letting someone
-        type a reply that cannot be delivered.
-      */}
-      <div className="flex shrink-0 items-center gap-[8px] border-t border-[var(--pg-border)] px-[12px] py-[10px]">
-        <SplitButton icon={MessageSquareDashed} label="Channel" />
-        <div className="flex h-[34px] min-w-0 flex-1 items-center rounded-[8px] bg-pg-bg px-[11px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
-          <span className="truncate text-[12.5px] leading-none text-pg-faint">
-            There has been no message initiated from user in past 24 hrs.
-          </span>
-        </div>
-        <IconButton icon={Bot} label="Draft with AI" />
-        <button
-          type="button"
-          aria-label="Send"
-          className="motion-tap flex h-[30px] items-center gap-[5px] rounded-[7px] bg-brand px-[10px] text-brand-fg hover:brightness-110 active:scale-[0.97]"
-        >
-          <Send size={14} aria-hidden="true" />
-          <ChevronDown size={12} aria-hidden="true" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function Bubble({
-  side,
-  time,
-  read = false,
-  children,
-}: {
-  side: "in" | "out";
-  time: string;
-  read?: boolean;
-  children: React.ReactNode;
-}) {
-  const out = side === "out";
-  return (
-    <div className={cn("flex w-full gap-[8px]", out && "justify-end")}>
-      <div
-        className={cn(
-          "flex max-w-[560px] flex-col gap-[8px] rounded-[10px] px-[12px] py-[10px] text-[12.5px] leading-[18px]",
-          out
-            ? "bg-pg-bg text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)]"
-            : "bg-pg-surface text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)]",
-        )}
-      >
-        {children}
-        <span className="flex items-center gap-[4px] self-end text-[10.5px] leading-none text-pg-faint tabular-nums">
-          {time}
-          {read ? <span aria-label="Read">✓✓</span> : null}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/** The unread marker the thread scrolls to. */
-function Divider({ label }: { label: string }) {
-  return (
-    <div className="flex items-center gap-[8px]">
-      <span className="text-[11px] leading-none font-semibold text-brand">
-        {label}
-      </span>
-      <span aria-hidden="true" className="h-px flex-1 bg-brand opacity-40" />
-    </div>
-  );
-}
-
-/** The little curved arrow a quick-reply row wears. */
-function Reply() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true">
-      <path
-        d="M5 2 1.5 5.5 5 9"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M1.5 5.5h6A3 3 0 0 1 10.5 8.5V10"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 /* ─── The contact panel ─────────────────────────────────────────────────── */
 
 function ContactPane({ onClose }: { onClose: () => void }) {
@@ -828,7 +920,7 @@ function ContactPane({ onClose }: { onClose: () => void }) {
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <div className="flex flex-col gap-[12px] px-[14px] pb-[12px]">
-          <div className="flex items-center gap-[9px] rounded-[10px] bg-pg-bg p-[9px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
+          <div className="flex items-center gap-[9px] rounded-[10px] bg-pg p-[9px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
             <Avatar initials="SS" />
             <span className="min-w-0 flex-1 truncate text-[13px] leading-[17px] font-semibold text-pg-heading">
               Sukarto Sudjono Sudjono
@@ -841,7 +933,7 @@ function ContactPane({ onClose }: { onClose: () => void }) {
 
           <div className="flex gap-[16px]">
             <Labelled label="Owner">
-              <span className="flex items-center gap-[5px] rounded-full bg-pg-bg py-[3px] pr-[7px] pl-[3px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
+              <span className="flex items-center gap-[5px] rounded-full bg-pg py-[3px] pr-[7px] pl-[3px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
                 <Avatar initials="SS" size={18} />
                 <span className="truncate text-[11.5px] leading-none text-pg-text">
                   Samrina Sh…
@@ -850,7 +942,7 @@ function ContactPane({ onClose }: { onClose: () => void }) {
               </span>
             </Labelled>
             <Labelled label="Followers">
-              <span className="flex items-center gap-[4px] rounded-full bg-pg-bg px-[8px] py-[4px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
+              <span className="flex items-center gap-[4px] rounded-full bg-pg px-[8px] py-[4px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
                 <UserRound size={12} aria-hidden="true" className="text-pg-muted" />
                 <ChevronDown size={11} aria-hidden="true" className="text-pg-faint" />
               </span>
@@ -866,7 +958,7 @@ function ContactPane({ onClose }: { onClose: () => void }) {
               {TAGS.map((t) => (
                 <span
                   key={t}
-                  className="flex items-center gap-[4px] rounded-[5px] bg-pg-bg px-[6px] py-[3px] text-[11px] leading-[15px] text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)]"
+                  className="flex items-center gap-[4px] rounded-[5px] bg-pg px-[6px] py-[3px] text-[11px] leading-[15px] text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)]"
                 >
                   {t}
                   <X size={10} aria-hidden="true" className="text-pg-faint" />
@@ -880,7 +972,7 @@ function ContactPane({ onClose }: { onClose: () => void }) {
           <div
             role="tablist"
             aria-label="Contact panel views"
-            className="flex items-center gap-[2px] rounded-[8px] bg-pg-bg p-[2px] shadow-[inset_0_0_0_1px_var(--pg-border)]"
+            className="flex items-center gap-[2px] rounded-[8px] bg-pg p-[2px] shadow-[inset_0_0_0_1px_var(--pg-border)]"
           >
             {[
               { id: "fields", label: "All fields" },
@@ -905,7 +997,7 @@ function ContactPane({ onClose }: { onClose: () => void }) {
             ))}
           </div>
 
-          <div className="flex h-[32px] items-center gap-[7px] rounded-[8px] bg-pg-bg px-[9px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
+          <div className="flex h-[32px] items-center gap-[7px] rounded-[8px] bg-pg px-[9px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
             <Search size={13} aria-hidden="true" className="shrink-0 text-pg-faint" />
             <span className="truncate text-[12px] leading-none text-pg-faint">
               Search fields and folders
@@ -1009,7 +1101,7 @@ function Avatar({
   return (
     <span className="relative shrink-0" style={{ width: size, height: size }}>
       <span
-        className="flex size-full items-center justify-center rounded-full bg-pg-bg font-semibold text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border)]"
+        className="flex size-full items-center justify-center rounded-full bg-pg font-semibold text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border)]"
         style={{ fontSize: Math.round(size * 0.38) }}
       >
         {initials}
@@ -1054,24 +1146,9 @@ function IconButton({
       title={label}
       aria-label={label}
       onClick={onClick}
-      className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[7px] text-pg-muted hover:bg-pg-bg hover:text-pg-text active:scale-95"
+      className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[7px] text-pg-muted hover:bg-pg hover:text-pg-text active:scale-95"
     >
       <Icon size={15} aria-hidden="true" />
-    </button>
-  );
-}
-
-/** A glyph with a caret — the channel and call pickers in the thread header. */
-function SplitButton({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
-  return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      className="motion-tap flex h-[28px] shrink-0 items-center gap-[3px] rounded-[7px] px-[7px] text-pg-muted hover:bg-pg-bg hover:text-pg-text active:scale-95"
-    >
-      <Icon size={15} aria-hidden="true" />
-      <ChevronDown size={11} aria-hidden="true" />
     </button>
   );
 }

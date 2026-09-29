@@ -16,8 +16,14 @@ import {
   usePageChrome,
 } from "@/components/page/page-header";
 import { useListShape } from "@/components/page/list-shape";
+import {
+  ListToolbar,
+  useListToolbar,
+  type ListToolbarModel,
+} from "@/components/page/list-toolbar";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
+import { TableCard, usePagination } from "@/components/page/table-card";
 import { KnowledgeBaseDetail } from "./knowledge-base-detail";
 import {
   KNOWLEDGE_QUOTA,
@@ -25,7 +31,34 @@ import {
   type KnowledgeBaseRow,
 } from "./knowledge-base-data";
 
-const COLS = "2.6fr 0.7fr 1.2fr 1.2fr 76px";
+/*
+ * The hideable columns, in display order. Actions' 76px track is row
+ * furniture and is appended after whatever the column picker leaves.
+ */
+const KB_COLUMNS = [
+  { id: "name", label: "Name", width: "2.6fr", locked: true },
+  { id: "gaps", label: "KB gaps", width: "0.7fr" },
+  { id: "updated", label: "Last updated", width: "1.2fr" },
+  { id: "created", label: "Created at", width: "1.2fr" },
+] as const;
+
+type KbColumn = (typeof KB_COLUMNS)[number]["id"];
+
+const SOURCE_OPTIONS: { value: keyof KnowledgeBaseRow["sources"]; label: string }[] = [
+  { value: "links", label: "Links" },
+  { value: "faqs", label: "FAQs" },
+  { value: "richText", label: "Rich text" },
+  { value: "tables", label: "Tables" },
+  { value: "files", label: "Files" },
+];
+
+/** The direction each sort reads in when picked from the page's own menu. */
+const NATURAL_DIR: Record<string, "asc" | "desc"> = {
+  updated: "desc",
+  created: "desc",
+  name: "asc",
+  gaps: "desc",
+};
 
 type Sort = "updated" | "created" | "name" | "gaps";
 
@@ -57,26 +90,136 @@ export function KnowledgeBasePage() {
   const [openId, setOpenId] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
   const [sort, setSort] = React.useState<Sort>("updated");
+  /* Only the shared toolbar can flip a sort; the page's own menu resets it. */
+  const [sortDir, setSortDir] = React.useState<"asc" | "desc">("desc");
+  const [gapFilter, setGapFilter] = React.useState<string[]>([]);
+  const [sourceFilter, setSourceFilter] = React.useState<string[]>([]);
+  const [hidden, setHidden] = React.useState<ReadonlySet<KbColumn>>(
+    () => new Set(),
+  );
+  const { shared } = useListToolbar();
+  const pickSort = (next: Sort) => {
+    setSort(next);
+    setSortDir(NATURAL_DIR[next]!);
+  };
 
   const rows = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    const hits = q
-      ? knowledgeBases.filter((b) => b.name.toLowerCase().includes(q))
-      : knowledgeBases;
-    if (sort === "updated") return hits;
+    const hits = knowledgeBases.filter(
+      (b) =>
+        (!q || b.name.toLowerCase().includes(q)) &&
+        (gapFilter.length === 0 ||
+          gapFilter.includes(b.gaps > 0 ? "some" : "none")) &&
+        (sourceFilter.length === 0 ||
+          sourceFilter.some(
+            (k) => b.sources[k as keyof KnowledgeBaseRow["sources"]] > 0,
+          )),
+    );
+    const flip = sortDir !== NATURAL_DIR[sort];
+    if (sort === "updated") return flip ? [...hits].reverse() : hits;
     const sorted = [...hits];
     if (sort === "name") sorted.sort((a, b) => a.name.localeCompare(b.name));
     if (sort === "gaps") sorted.sort((a, b) => b.gaps - a.gaps);
     if (sort === "created") sorted.reverse();
-    return sorted;
-  }, [query, sort]);
+    return flip ? sorted.reverse() : sorted;
+  }, [query, sort, sortDir, gapFilter, sourceFilter]);
+
+  const visibleColumns = KB_COLUMNS.filter((c) => !hidden.has(c.id));
+  const cols = `${visibleColumns.map((c) => c.width).join(" ")} 76px`;
+
+  const toolbarModel = React.useMemo<ListToolbarModel>(
+    () => ({
+      search: {
+        value: query,
+        onChange: setQuery,
+        placeholder: "Search knowledge base",
+      },
+      quickFilters: [
+        {
+          id: "gaps",
+          label: "Gaps",
+          options: [
+            { value: "some", label: "Has gaps" },
+            { value: "none", label: "No gaps" },
+          ],
+          value: gapFilter,
+          onChange: setGapFilter,
+        },
+        {
+          id: "sources",
+          label: "Source",
+          options: SOURCE_OPTIONS,
+          value: sourceFilter,
+          multiple: true,
+          onChange: setSourceFilter,
+        },
+      ],
+      sort: {
+        fields: SORTS.map((s) => ({ value: s.id, label: s.label })),
+        value: { field: sort, dir: sortDir },
+        onChange: (v) => {
+          if (!v) {
+            setSort("updated");
+            setSortDir(NATURAL_DIR.updated!);
+            return;
+          }
+          setSort(v.field as Sort);
+          setSortDir(v.dir);
+        },
+      },
+      columns: {
+        items: KB_COLUMNS.map((c) => ({
+          id: c.id,
+          label: c.label,
+          visible: !hidden.has(c.id),
+          locked: "locked" in c ? c.locked : undefined,
+        })),
+        onChange: (items) =>
+          setHidden(
+            new Set(
+              items
+                .filter((i) => !i.visible && !i.locked)
+                .map((i) => i.id as KbColumn),
+            ),
+          ),
+      },
+      resultCount: { value: rows.length, noun: "knowledge bases" },
+      // Create with AI's fallback home when slot 05 is off — see the row below.
+      trailing: chrome.header ? undefined : (
+        <OutlineButton onClick={() => undefined}>
+          <Sparkles size={15} aria-hidden="true" className="text-brand" />
+          Create with AI
+        </OutlineButton>
+      ),
+    }),
+    [query, gapFilter, sourceFilter, sort, sortDir, hidden, rows.length, chrome.header],
+  );
+
+  /*
+   * The page this table is standing on — see page/table-card.tsx.
+   *
+   * Over the FILTERED rows, so the pager counts what the view shows rather
+   * than the collection behind it: switch the cut and the page count has to
+   * follow, or the control is describing a different list from the one under
+   * it.
+   */
+  const pager = usePagination(rows);
 
   const open = knowledgeBases.find((b) => b.id === openId) ?? null;
 
   if (open) {
     return (
       <div data-page-theme={effective.appTheme} className="h-full min-h-0">
-        <KnowledgeBaseDetail base={open} onBack={() => setOpenId(null)} />
+        <KnowledgeBaseDetail
+          base={open}
+          onBack={() => setOpenId(null)}
+        /*
+          The lit cut, not the whole collection — so the crumb's menu offers
+          the records the list is actually showing.
+        */
+          siblings={rows.map((b) => ({ id: b.id, name: b.name }))}
+          onOpenSibling={setOpenId}
+        />
       </div>
     );
   }
@@ -113,8 +256,9 @@ export function KnowledgeBasePage() {
       */}
       <AnnouncementStrip />
 
+      {shared ? null : (
       <div className="flex shrink-0 items-center gap-[10px]">
-        <SortMenu value={sort} onChange={setSort} />
+        <SortMenu value={sort} onChange={pickSort} />
 
         {/*
           Create with AI keeps a home when slot 05 is off, for the reason
@@ -145,13 +289,27 @@ export function KnowledgeBasePage() {
           </div>
         ) : null}
       </div>
+      )}
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-[10px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+      {shared ? (
+        <ListToolbar model={toolbarModel}>
+          <div className="flex min-h-0 flex-1 flex-col">{table()}</div>
+        </ListToolbar>
+      ) : (
+        table()
+      )}
+
+    </div>
+  );
+
+  function table() {
+    return (
+      <TableCard pager={pager}>
         <div
-          style={{ gridTemplateColumns: COLS }}
+          style={{ gridTemplateColumns: cols }}
           className="sticky top-0 z-10 grid h-[38px] items-center gap-[16px] border-b border-pg-head-border bg-pg-surface px-[16px]"
         >
-          {["Name", "KB gaps", "Last updated", "Created at", "Actions"].map(
+          {[...visibleColumns.map((c) => c.label), "Actions"].map(
             (h) => (
               <span
                 key={h}
@@ -166,24 +324,26 @@ export function KnowledgeBasePage() {
           )}
         </div>
 
-        {rows.map((row) => (
-          <BaseRow key={row.id} row={row} onOpen={() => setOpenId(row.id)} />
+        {pager.pageRows.map((row) => (
+          <BaseRow
+            key={row.id}
+            row={row}
+            cols={cols}
+            hidden={hidden}
+            onOpen={() => setOpenId(row.id)}
+          />
         ))}
 
         {rows.length === 0 ? (
           <p className="px-[16px] py-[28px] text-center text-[13px] leading-[18px] text-pg-muted">
-            No knowledge base matches “{query}”.
+            {query
+              ? <>No knowledge base matches “{query}”.</>
+              : "No knowledge base matches these filters."}
           </p>
         ) : null}
-      </div>
-
-      <div className="flex h-[30px] shrink-0 items-center">
-        <span className="text-[13px] leading-[normal] text-pg-muted">
-          Showing {rows.length} of {knowledgeBases.length} knowledge bases
-        </span>
-      </div>
-    </div>
-  );
+      </TableCard>
+    );
+  }
 }
 
 /* ─── The quota ─────────────────────────────────────────────────────────── */
@@ -334,14 +494,18 @@ function SortMenu({
 
 function BaseRow({
   row,
+  cols,
+  hidden,
   onOpen,
 }: {
   row: KnowledgeBaseRow;
+  cols: string;
+  hidden: ReadonlySet<KbColumn>;
   onOpen: () => void;
 }) {
   return (
     <div
-      style={{ gridTemplateColumns: COLS }}
+      style={{ gridTemplateColumns: cols }}
       className="group grid min-h-[44px] items-center gap-[16px] border-b border-pg-row-border px-[16px] last:border-b-0 hover:bg-pg-row-border/60"
     >
       {/*
@@ -372,23 +536,29 @@ function BaseRow({
         A gap count of zero is not a warning, so it is not painted like one.
         Only a base that is losing questions gets the amber.
       */}
-      <span
-        className={cn(
-          "text-[13px] leading-[18px] tabular-nums",
-          row.gaps > 0
-            ? "font-semibold text-[var(--hr-warning-600)]"
-            : "text-pg-muted",
-        )}
-      >
-        {row.gaps}
-      </span>
+      {hidden.has("gaps") ? null : (
+        <span
+          className={cn(
+            "text-[13px] leading-[18px] tabular-nums",
+            row.gaps > 0
+              ? "font-semibold text-[var(--hr-warning-600)]"
+              : "text-pg-muted",
+          )}
+        >
+          {row.gaps}
+        </span>
+      )}
 
-      <span className="truncate text-[13px] leading-[18px] text-pg-muted">
-        {row.updated}
-      </span>
-      <span className="truncate text-[13px] leading-[18px] text-pg-muted">
-        {row.created}
-      </span>
+      {hidden.has("updated") ? null : (
+        <span className="truncate text-[13px] leading-[18px] text-pg-muted">
+          {row.updated}
+        </span>
+      )}
+      {hidden.has("created") ? null : (
+        <span className="truncate text-[13px] leading-[18px] text-pg-muted">
+          {row.created}
+        </span>
+      )}
 
       <span className="flex items-center justify-end gap-[2px]">
         <RowAction label={`Rename ${row.name}`} icon={Pencil} onClick={onOpen} />

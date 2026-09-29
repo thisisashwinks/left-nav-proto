@@ -9,6 +9,10 @@ import {
   Plus,
   Search,
 } from "lucide-react";
+import {
+  AnchoredPopover,
+  MenuOption,
+} from "@/components/contacts/book-appointment-modal";
 import { PrimaryButton } from "@/components/page/page-header";
 import { SideDrawer } from "@/components/page/side-drawer";
 import { ToneAvatar } from "@/components/page/avatar";
@@ -31,6 +35,8 @@ import {
   weekEvents,
   type FilterOption,
 } from "./calendars-data";
+import { CalendarAnnotationModal } from "./calendar-annotation-modal";
+import { CALENDAR_SCOPES, scopeLabel, type CalendarScope } from "./scope";
 
 /**
  * The floor under an hour row, in pixels.
@@ -75,8 +81,11 @@ const TONE_BLOCK: Record<string, string> = {
 };
 
 export interface CalendarWeekViewProps {
-  /** Opens the create flow — a no-op here, wired so the button is not dead. */
+  /** Opens the create flow. calendars-page decides what that is per scope. */
   onNew?: () => void;
+  /** Meetings, Services or Rentals — owned by calendars-page, shared with the list. */
+  scope: CalendarScope;
+  onScopeChange: (s: CalendarScope) => void;
 }
 
 /**
@@ -89,8 +98,21 @@ export interface CalendarWeekViewProps {
  * columns would hide the part of the week you are narrowing. Inline makes the
  * grid narrower instead of hiding a seventh of it.
  */
-export function CalendarWeekView({ onNew }: CalendarWeekViewProps) {
+export function CalendarWeekView({
+  onNew,
+  scope,
+  onScopeChange,
+}: CalendarWeekViewProps) {
   const [panelOpen, setPanelOpen] = React.useState(false);
+  const [annotationOpen, setAnnotationOpen] = React.useState(false);
+  const [scopeOpen, setScopeOpen] = React.useState(false);
+  const closeScope = React.useCallback(() => setScopeOpen(false), []);
+  /*
+   * A span around the trigger rather than a ref on it: SelectButton is the
+   * chrome kit's and takes no ref, and the popover only needs a box to
+   * measure — the wrapper is exactly the button's box.
+   */
+  const scopeRef = React.useRef<HTMLSpanElement>(null);
   const [kind, setKind] = React.useState<"all" | "appointments" | "blocked">(
     "all",
   );
@@ -146,14 +168,43 @@ export function CalendarWeekView({ onNew }: CalendarWeekViewProps) {
           Sep 21 – 27, 2026
         </span>
         <SelectButton label="Grid density" value="Week view" />
-        <SelectButton label="Calendar type" value="Meetings" />
+        <span ref={scopeRef} className="flex shrink-0">
+          <SelectButton
+            label="Calendar type"
+            value={scopeLabel(scope)}
+            onClick={() => setScopeOpen((v) => !v)}
+          />
+        </span>
+        {scopeOpen ? (
+          <AnchoredPopover anchorRef={scopeRef} onClose={closeScope} width={180}>
+            <div role="listbox" aria-label="Calendar type" className="flex flex-col p-[4px]">
+              {CALENDAR_SCOPES.map((s) => (
+                <MenuOption
+                  key={s.id}
+                  selected={s.id === scope}
+                  onClick={() => {
+                    onScopeChange(s.id);
+                    closeScope();
+                  }}
+                >
+                  {s.label}
+                </MenuOption>
+              ))}
+            </div>
+          </AnchoredPopover>
+        ) : null}
         {/*
-          The lightbulb is the product's tips launcher and it is kept as a
-          glyph on purpose — it is the one control on this row that does not
-          change what you are looking at, and giving it a word would put it in
-          the same reading order as the four that do.
+          The lightbulb opens the grid's key, and it is kept as a glyph on
+          purpose — it is the one control on this row that does not change
+          what you are looking at, and giving it a word would put it in the
+          same reading order as the four that do.
         */}
-        <GlyphButton icon={Lightbulb} label="Scheduling tips" size={30} />
+        <GlyphButton
+          icon={Lightbulb}
+          label="Calendar annotation"
+          size={30}
+          onClick={() => setAnnotationOpen(true)}
+        />
 
         <div className="flex-1" />
 
@@ -183,7 +234,7 @@ export function CalendarWeekView({ onNew }: CalendarWeekViewProps) {
       </div>
 
       <div className="flex min-h-0 flex-1 gap-[12px] pb-[2px]">
-        <WeekGrid />
+        <WeekGrid onNew={onNew} />
         {panelOpen ? (
           <SideDrawer
             inline
@@ -323,6 +374,10 @@ export function CalendarWeekView({ onNew }: CalendarWeekViewProps) {
           </SideDrawer>
         ) : null}
       </div>
+
+      {annotationOpen ? (
+        <CalendarAnnotationModal onClose={() => setAnnotationOpen(false)} />
+      ) : null}
     </div>
   );
 }
@@ -368,7 +423,7 @@ function FilterRow({
  * that is for all three to be the same grid template. `GRID_COLS` is declared
  * once above and handed to each region for exactly that reason.
  */
-function WeekGrid() {
+function WeekGrid({ onNew }: { onNew?: () => void }) {
   return (
     <div className="flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
       <div
@@ -462,10 +517,18 @@ function WeekGrid() {
               key={d.date}
               className="relative flex flex-col border-l border-pg-row-border"
             >
+              {/*
+                Empty hours are the other way in to New. The event blocks
+                sit over them absolutely, so a click on a booking never
+                falls through to the cell under it.
+              */}
               {hourRows.map((h) => (
-                <div
+                <button
                   key={h}
-                  className="flex-1 border-b border-pg-row-border last:border-b-0"
+                  type="button"
+                  aria-label={`New appointment, ${d.weekday} ${d.date} at ${h}`}
+                  onClick={onNew}
+                  className="flex-1 cursor-pointer border-b border-pg-row-border last:border-b-0 hover:bg-pg-bg"
                 />
               ))}
               {weekEvents

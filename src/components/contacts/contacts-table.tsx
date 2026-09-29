@@ -90,6 +90,7 @@ export function ContactsTable({
   onOpenRow,
   activeId,
   toolbar,
+  hiddenColumns,
 }: {
   rows: Contact[];
   onToggleRow: (id: string) => void;
@@ -106,7 +107,13 @@ export function ContactsTable({
    * controls sit against the rows they cut, one edge above the column names.
    */
   toolbar?: React.ReactNode;
+  /**
+   * Columns the list toolbar has switched off — "email", "created",
+   * "activity", "status". Name is the row's identity and never hides.
+   */
+  hiddenColumns?: ReadonlySet<string>;
 }) {
+  const show = (id: string) => !hiddenColumns?.has(id);
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-pg-surface">
       {/*
@@ -137,10 +144,14 @@ export function ContactsTable({
           <Checkbox checked={false} />
         </div>
         <HeadCell label="Name" />
-        <HeadCell label="Email" width={COLUMNS.email} />
-        <HeadCell label="Created" width={COLUMNS.created} />
-        <HeadCell label="Last activity" width={COLUMNS.activity} />
-        <HeadCell label="Status" width={COLUMNS.status} sortable={false} />
+        {show("email") ? <HeadCell label="Email" width={COLUMNS.email} /> : null}
+        {show("created") ? <HeadCell label="Created" width={COLUMNS.created} /> : null}
+        {show("activity") ? (
+          <HeadCell label="Last activity" width={COLUMNS.activity} />
+        ) : null}
+        {show("status") ? (
+          <HeadCell label="Status" width={COLUMNS.status} sortable={false} />
+        ) : null}
         <div
           style={{ width: COLUMNS.kebab }}
           className="h-full shrink-0 px-[16px]"
@@ -219,6 +230,7 @@ export function ContactsTable({
                 </span>
               </div>
 
+              {show("email") ? (
               <div
                 style={{ width: COLUMNS.email }}
                 className="flex h-full shrink-0 items-center gap-[10px] px-[16px]"
@@ -232,7 +244,9 @@ export function ContactsTable({
                   {c.email ?? "—"}
                 </span>
               </div>
+              ) : null}
 
+              {show("created") ? (
               <div
                 style={{ width: COLUMNS.created }}
                 className="flex h-full shrink-0 items-center gap-[10px] px-[16px]"
@@ -241,7 +255,9 @@ export function ContactsTable({
                   {c.created}
                 </span>
               </div>
+              ) : null}
 
+              {show("activity") ? (
               <div
                 style={{ width: COLUMNS.activity }}
                 className="flex h-full shrink-0 items-center gap-[10px] px-[16px]"
@@ -255,7 +271,9 @@ export function ContactsTable({
                   {c.lastActivity}
                 </span>
               </div>
+              ) : null}
 
+              {show("status") ? (
               <div
                 style={{ width: COLUMNS.status }}
                 className="flex h-full shrink-0 items-center gap-[10px] px-[16px]"
@@ -275,6 +293,7 @@ export function ContactsTable({
                   </span>
                 </span>
               </div>
+              ) : null}
 
               <div
                 style={{ width: COLUMNS.kebab }}

@@ -21,6 +21,35 @@ import type {
   DeepHeaderVariant,
 } from "@/components/page/header-variants";
 
+/**
+ * How a list page draws its views, search, filters, sort and columns.
+ *
+ * `page` is whatever each page built for itself — the default, and the thing
+ * the others are compared against. Every other value hands the whole band to
+ * the shared ListToolbar, which draws the same controls one way everywhere,
+ * so a variant is judged on every list page at once rather than on the one
+ * page someone happened to mock it on.
+ */
+export const LIST_TOOLBARS = [
+  "page",
+  "one-row",
+  "view-dropdown",
+  "pills",
+  "side-views",
+  "filter-bar",
+  "view-menu",
+] as const;
+export type ListToolbarVariant = (typeof LIST_TOOLBARS)[number];
+export const LIST_TOOLBAR_LABELS: Record<ListToolbarVariant, string> = {
+  page: "Page default",
+  "one-row": "Tabs and filters in one row",
+  "view-dropdown": "Views in a dropdown",
+  pills: "Views as pills",
+  "side-views": "Views in a side list",
+  "filter-bar": "One filter bar",
+  "view-menu": "Tabs and a View menu",
+};
+
 /** Icons on every crumb, or only the Home glyph. */
 export type CrumbIcons = "all" | "home";
 export const CRUMB_ICONS: readonly CrumbIcons[] = ["all", "home"];
@@ -203,21 +232,67 @@ export const CRUMB_EMPHASIS_BUMP_PX = 2;
  *         needs a title to attach to, so it falls back to `none` when the
  *         page header has none to give.
  */
-export type CrumbLeaf = "full" | "caret" | "dots" | "none" | "title";
+export type CrumbLeaf = "full" | "caret" | "dots" | "title";
 export const CRUMB_LEAVES: readonly CrumbLeaf[] = [
   "full",
   "caret",
   "dots",
-  "none",
   "title",
 ];
 export const CRUMB_LEAF_LABELS: Record<CrumbLeaf, string> = {
   full: "Word and caret",
   caret: "Caret only",
   dots: "Three dots",
-  none: "No last crumb",
   title: "On the page title",
 };
+
+/**
+ * How much of the trail's tail is printed at all.
+ *
+ * Split out of `crumbLeaf` on Sep 29, which had been answering two questions
+ * with one control: how many trailing segments to SHOW, and how to DRAW the
+ * one that ends up last. That was fine while the only answer to the first was
+ * "all of them or one fewer" — `crumbLeaf: "none"` carried it. Folders broke
+ * it: a two-level path makes Automation ▸ Workflows ▸ Sales ▸ Quotes, and
+ * Ashwin wanted to stop at Workflows, which is not a way of drawing a leaf.
+ *
+ *  full      Every segment. The trail states the whole path.
+ *  last      Drop the leaf. The page names itself in its own header, and the
+ *            trail is the way back rather than a second title.
+ *  last-two  Drop the leaf and its parent. On a foldered list that means the
+ *            trail stops at the collection — Automation ▸ Workflows — and
+ *            everything below it is the canvas's business.
+ *
+ * Never trims below two segments: see `trimTrail`. A trail cut to one word is
+ * not a shorter path, it is a label, and the option that produced it would be
+ * indistinguishable from the one that turns the trail off.
+ *
+ * The bar only. The table's own trail (see `tableCrumb`) always states the
+ * whole path, because that one is the file browser's and a browser that hid
+ * where you were standing would be useless. Ashwin, Sep 29.
+ */
+export type CrumbDepth = "full" | "last" | "last-two";
+export const CRUMB_DEPTHS: readonly CrumbDepth[] = ["full", "last", "last-two"];
+export const CRUMB_DEPTH_LABELS: Record<CrumbDepth, string> = {
+  full: "Every crumb",
+  last: "Drop the last",
+  "last-two": "Drop the last two",
+};
+
+/**
+ * Trims a finished trail to the chosen depth.
+ *
+ * Here rather than in the bar because two surfaces draw this array — the app
+ * bar and a builder's own row — and a rule applied in one of them is the kind
+ * of difference nobody notices until a screenshot of the builder disagrees
+ * with the screenshot of the list it was opened from.
+ */
+export function trimTrail<T>(trail: readonly T[], depth: CrumbDepth): T[] {
+  const drop = depth === "last" ? 1 : depth === "last-two" ? 2 : 0;
+  // Two is the floor. Below that there is no path left to state.
+  const keep = Math.max(2, trail.length - drop);
+  return trail.slice(0, Math.min(trail.length, keep));
+}
 
 /**
  * Which crumbs carry a dropdown onto their siblings.
@@ -239,6 +314,51 @@ export const CRUMB_LEAF_LABELS: Record<CrumbLeaf, string> = {
  *        you back up (see `crumbTargetFor`), just without menus.
  *  off   None. The trail states where you are and nothing more.
  */
+/**
+ * What a folder's crumb does to the view crumb already in the trail.
+ *
+ * Workflows is the first collection with a level BETWEEN the list and the
+ * record — Automation ▸ Workflows ▸ Intake ▸ New enquiry — and it arrives on a
+ * trail that in L-E is already ending in a scope control. Two answers, both
+ * asked for on Sep 28, because both are real arrangements rather than one
+ * being a mistake.
+ *
+ *  replace  The folder IS the scope change, so it takes the slot the view was
+ *           holding and the cuts go back to a tab strip inside the folder. One
+ *           scope control at a time, and the trail stays the length it was.
+ *  beside   Folder then view: Intake ▸ Drafts. The trail grows a level, each
+ *           segment switching its own axis. Says more, and is the arrangement
+ *           that gets long fastest — which is the thing to look at.
+ */
+/**
+ * Where the table's own path is drawn, if anywhere.
+ *
+ * A boolean until Sep 29, when the placement turned out to be the interesting
+ * part rather than the presence. Inside the card the trail reads as the
+ * table's own header — which is what the real screen does, and what makes it
+ * feel like a file browser. Above it, the trail belongs to the page and the
+ * card stays a plain table; that is the arrangement that survives a card with
+ * its own toolbar band, and the one that looks least like a second header.
+ *
+ *  off     No second trail. The bar is saying the path already.
+ *  inside  First band of the card, above the column heads.
+ *  above   Its own line between the filter row and the card.
+ */
+export type TableCrumb = "off" | "inside" | "above";
+export const TABLE_CRUMBS: readonly TableCrumb[] = ["off", "inside", "above"];
+export const TABLE_CRUMB_LABELS: Record<TableCrumb, string> = {
+  off: "Off",
+  inside: "Inside the table",
+  above: "Above the table",
+};
+
+export type FolderCrumb = "replace" | "beside";
+export const FOLDER_CRUMBS: readonly FolderCrumb[] = ["replace", "beside"];
+export const FOLDER_CRUMB_LABELS: Record<FolderCrumb, string> = {
+  replace: "Takes the view's place",
+  beside: "Sits before the view",
+};
+
 export type CrumbSwitchers = "all" | "leaf" | "off";
 export const CRUMB_SWITCHER_MODES: readonly CrumbSwitchers[] = [
   "all",
@@ -928,9 +1048,15 @@ export const TEMPLATE_SAVE_SHAPE_LABELS: Record<TemplateSaveShape, string> = {
  *  on-row  Every row carries a ⋯ with all of it. Everything is one click away,
  *          and the picker is also a file manager.
  *  manage  The list is a pure picker — click a row, get that arrangement — and
- *          library work sits behind one "Manage templates" row. The default:
- *          the menu people open twenty times a day stops carrying the controls
- *          they need twice a month.
+ *          library work sits behind one "Manage templates" row: the menu
+ *          people open twenty times a day stops carrying the controls they
+ *          need twice a month.
+ *
+ * `on-row` is the shipped answer (Sep 16) — see the note at the default. This
+ * block called `manage` "the default" until Sep 29, which it had not been for
+ * a fortnight: the two sat four hundred lines apart and only one of them got
+ * updated. Stated here as an argument and settled there, which is the way
+ * round that survives the next change.
  */
 export const TEMPLATE_ACTION_HOMES = ["on-row", "manage"] as const;
 
@@ -2246,6 +2372,37 @@ export interface ThemeState {
   crumbSeparator: CrumbSeparator;
   /** What the trail's last segment is. See CRUMB_LEAVES. */
   crumbLeaf: CrumbLeaf;
+  /** What a folder's crumb does to the view crumb. See FOLDER_CRUMBS. */
+  folderCrumb: FolderCrumb;
+  /** How much of the trail's tail the bar prints. See CRUMB_DEPTHS. */
+  crumbDepth: CrumbDepth;
+  /**
+   * A second trail INSIDE the table, above its header row.
+   *
+   * What the real product does on a screen with folders in it: Home ▸ Intake,
+   * drawn in the card rather than in the chrome. Off by default, because the
+   * app bar above is already saying the same path and the point of the option
+   * is to see the two together — a prototype that shipped both on would have
+   * answered the question by not asking it.
+   *
+   * The argument for it is that a file browser's path belongs to the thing
+   * being browsed: the bar names where the PAGE is, and inside a deep folder
+   * those stop being the same sentence. The argument against is that it is a
+   * second breadcrumb, and a screen with two of them has to explain which one
+   * moves you. Ashwin, Sep 28.
+   */
+  tableCrumb: TableCrumb;
+  /**
+   * Whether a record opened from inside a folder keeps the folder in its
+   * trail.
+   *
+   * On, the trail records the path you actually took, and every crumb above
+   * the record lands you back where you were. Off, it flattens to the list —
+   * shorter, and it means the same workflow has the same trail however you
+   * reached it, at the cost of a Back that has to pick one of the two places
+   * you might have come from. Ashwin asked for both on Sep 28.
+   */
+  recordKeepsFolder: boolean;
   /**
    * Whether a generic child folds its parent's name into its own.
    *
@@ -2314,6 +2471,14 @@ export interface ThemeState {
   listShowViews: boolean;
   /** Whether a collection shows its filter controls. */
   listShowFilters: boolean;
+  /** Which list toolbar every list page draws. See LIST_TOOLBARS. */
+  listToolbar: ListToolbarVariant;
+  /**
+   * The HighRise centre canvas: everything below the breadcrumb row — page
+   * header included — inside one white card with shadow/lg, scrolling inside
+   * it. Off by default; builders and the inbox keep their own layout.
+   */
+  pageCanvas: boolean;
   recordHeaderVariant: RecordHeaderVariant;
   /**
    * How a page with two views of one collection lets you change which.
@@ -2807,6 +2972,12 @@ export const DEFAULT_THEME: ThemeState = {
   crumbHome: true,
   crumbSwitchers: "all",
   crumbLeaf: "full",
+  // Replace, so the default trail does not grow a level the moment anyone
+  // opens a folder. Beside is one click away for the comparison.
+  folderCrumb: "replace",
+  tableCrumb: "off",
+  crumbDepth: "full",
+  recordKeepsFolder: true,
   crumbSeparator: "chevron",
   crumbCompoundChild: false,
   recordCrumbLabel: "name",
@@ -2817,6 +2988,8 @@ export const DEFAULT_THEME: ThemeState = {
   listHeaderVariant: "L-D",
   listShowViews: true,
   listShowFilters: true,
+  listToolbar: "page",
+  pageCanvas: false,
   recordHeaderVariant: "D-B",
   calendarViewSwitch: "tabs",
   /*

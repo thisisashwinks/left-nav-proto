@@ -1,7 +1,9 @@
 import {
   Calendar,
+  CalendarCheck,
   CalendarClock,
   CalendarX2,
+  CircleCheck,
   Layers,
   Sparkles,
   type LucideIcon,
@@ -156,17 +158,41 @@ export const filterGroups: readonly FilterOption[] = [
 
 export type AppointmentStatus =
   | "Confirmed"
+  | "Unconfirmed"
   | "Showed"
-  | "No show"
+  | "No-show"
   | "Cancelled";
 
-export interface Appointment {
+/** In the order the per-row status menu lists them. */
+export const APPOINTMENT_STATUSES: readonly AppointmentStatus[] = [
+  "Confirmed",
+  "Unconfirmed",
+  "Cancelled",
+  "Showed",
+  "No-show",
+];
+
+/**
+ * What every booking row carries whatever its scope, so the list's filter,
+ * sort and column machinery can be written once over all three.
+ */
+export interface BookingRowBase {
   id: string;
   /** The `#` column — the row's ordinal in the live table, not its index. */
   num: string;
-  title: string;
   contact: string;
   tone: AvatarTone;
+  /** Local wall-clock ISO, no zone — what the time filter and sort read. */
+  startsAt: string;
+  /** "2026-09-14" — the Date added column, drawn as MM/DD/YYYY. */
+  dateAdded: string;
+  createdBy: string;
+  /** How it was booked: the widget, a teammate, the API. */
+  source: string;
+}
+
+export interface Appointment extends BookingRowBase {
+  title: string;
   status: AppointmentStatus;
   /** "Sep 24, 2026, 10:00 AM" — the date column, always with (CST) after it. */
   time: string;
@@ -181,19 +207,27 @@ export interface Appointment {
   rescheduledTo?: string;
   calendar: string;
   owner: string;
+  /**
+   * Everyone on the invite besides `contact`, who is always the first.
+   *
+   * The Invitees column draws the contact and a `+N` for these, which is how
+   * the column that used to be called Contact became the one Manage columns
+   * lists — the live picker has no Contact entry, only Invitees.
+   */
+  invitees: readonly string[];
 }
 
 export const appointments: readonly Appointment[] = [
-  { id: "ap-1", num: "01", title: "MoltClaw demo — Acme Dental", contact: "Priya Raman", tone: "green", status: "Confirmed", time: "Sep 21, 2026, 9:00 AM", calendar: "MoltClaw Demos", owner: "Ashwin K S" },
-  { id: "ap-2", num: "02", title: "Discovery call", contact: "Dwight Schrute", tone: "yellow", status: "Confirmed", time: "Sep 22, 2026, 8:30 AM", calendar: "Discovery call", owner: "Omar Haddad" },
-  { id: "ap-3", num: "03", title: "Onboarding — Northwind", contact: "Mei Tanaka", tone: "teal", status: "Showed", time: "Sep 22, 2026, 2:00 PM", calendar: "Onboarding 45m", owner: "Mei Tanaka" },
-  { id: "ap-4", num: "04", title: "MoltClaw demo — Kestrel Labs", contact: "Jatin Kalra", tone: "purple", status: "Confirmed", time: "Sep 23, 2026, 10:00 AM", rescheduledTo: "Rescheduled to Sep 25", calendar: "MoltClaw Demos", owner: "Ashwin K S" },
-  { id: "ap-5", num: "05", title: "Saas walkthrough", contact: "Lena Fischer", tone: "pink", status: "Confirmed", time: "Sep 24, 2026, 9:30 AM", calendar: "Saas onboarding", owner: "Lena Fischer" },
-  { id: "ap-6", num: "06", title: "Support sync", contact: "Omar Haddad", tone: "orange", status: "No show", time: "Sep 24, 2026, 11:00 AM", calendar: "Discovery call", owner: "Omar Haddad" },
-  { id: "ap-7", num: "07", title: "MoltClaw demo — Brightwell", contact: "Priya Raman", tone: "green", status: "Confirmed", time: "Sep 25, 2026, 2:00 PM", calendar: "MoltClaw Demos", owner: "Ashwin K S" },
-  { id: "ap-8", num: "08", title: "Quarterly review", contact: "Jatin Kalra", tone: "purple", status: "Cancelled", time: "Sep 25, 2026, 4:00 PM", calendar: "tEst", owner: "Jatin Kalra" },
-  { id: "ap-9", num: "09", title: "Onboarding — Halcyon", contact: "Mei Tanaka", tone: "teal", status: "Confirmed", time: "Sep 26, 2026, 10:30 AM", calendar: "Onboarding 45m", owner: "Mei Tanaka" },
-  { id: "ap-10", num: "10", title: "Partner intro", contact: "Dwight Schrute", tone: "yellow", status: "Confirmed", time: "Sep 27, 2026, 1:00 PM", calendar: "Discovery call", owner: "Omar Haddad" },
+  { id: "ap-1", num: "01", title: "MoltClaw demo — Acme Dental", contact: "Priya Raman", tone: "green", status: "Confirmed", time: "Sep 21, 2026, 9:00 AM", startsAt: "2026-09-21T09:00", calendar: "MoltClaw Demos", owner: "Ashwin K S", invitees: ["Jatin Kalra"], createdBy: "Ashwin K S", dateAdded: "2026-09-14", source: "Booking widget" },
+  { id: "ap-2", num: "02", title: "Discovery call", contact: "Dwight Schrute", tone: "yellow", status: "Confirmed", time: "Sep 22, 2026, 8:30 AM", startsAt: "2026-09-22T08:30", calendar: "Discovery call", owner: "Omar Haddad", invitees: [], createdBy: "Omar Haddad", dateAdded: "2026-09-16", source: "Manual" },
+  { id: "ap-3", num: "03", title: "Onboarding — Northwind", contact: "Mei Tanaka", tone: "teal", status: "Showed", time: "Sep 22, 2026, 2:00 PM", startsAt: "2026-09-22T14:00", calendar: "Onboarding 45m", owner: "Mei Tanaka", invitees: ["Lena Fischer", "Omar Haddad"], createdBy: "Mei Tanaka", dateAdded: "2026-09-10", source: "Workflow" },
+  { id: "ap-4", num: "04", title: "MoltClaw demo — Kestrel Labs", contact: "Jatin Kalra", tone: "purple", status: "Confirmed", time: "Sep 23, 2026, 10:00 AM", startsAt: "2026-09-23T10:00", rescheduledTo: "Rescheduled to Sep 25", calendar: "MoltClaw Demos", owner: "Ashwin K S", invitees: [], createdBy: "Jatin Kalra", dateAdded: "2026-09-18", source: "Booking widget" },
+  { id: "ap-5", num: "05", title: "Saas walkthrough", contact: "Lena Fischer", tone: "pink", status: "Unconfirmed", time: "Sep 24, 2026, 9:30 AM", startsAt: "2026-09-24T09:30", calendar: "Saas onboarding", owner: "Lena Fischer", invitees: ["Priya Raman"], createdBy: "Lena Fischer", dateAdded: "2026-09-19", source: "Booking widget" },
+  { id: "ap-6", num: "06", title: "Support sync", contact: "Omar Haddad", tone: "orange", status: "No-show", time: "Sep 24, 2026, 11:00 AM", startsAt: "2026-09-24T11:00", calendar: "Discovery call", owner: "Omar Haddad", invitees: [], createdBy: "Omar Haddad", dateAdded: "2026-09-12", source: "Manual" },
+  { id: "ap-7", num: "07", title: "MoltClaw demo — Brightwell", contact: "Priya Raman", tone: "green", status: "Confirmed", time: "Sep 25, 2026, 2:00 PM", startsAt: "2026-09-25T14:00", calendar: "MoltClaw Demos", owner: "Ashwin K S", invitees: ["Dwight Schrute"], createdBy: "Ashwin K S", dateAdded: "2026-09-20", source: "API" },
+  { id: "ap-8", num: "08", title: "Quarterly review", contact: "Jatin Kalra", tone: "purple", status: "Cancelled", time: "Sep 25, 2026, 4:00 PM", startsAt: "2026-09-25T16:00", calendar: "tEst", owner: "Jatin Kalra", invitees: [], createdBy: "Jatin Kalra", dateAdded: "2026-09-08", source: "Manual" },
+  { id: "ap-9", num: "09", title: "Onboarding — Halcyon", contact: "Mei Tanaka", tone: "teal", status: "Confirmed", time: "Sep 26, 2026, 10:30 AM", startsAt: "2026-09-26T10:30", calendar: "Onboarding 45m", owner: "Mei Tanaka", invitees: [], createdBy: "Mei Tanaka", dateAdded: "2026-09-21", source: "Workflow" },
+  { id: "ap-10", num: "10", title: "Partner intro", contact: "Dwight Schrute", tone: "yellow", status: "Confirmed", time: "Sep 27, 2026, 1:00 PM", startsAt: "2026-09-27T13:00", calendar: "Discovery call", owner: "Omar Haddad", invitees: ["Ashwin K S"], createdBy: "Omar Haddad", dateAdded: "2026-09-22", source: "Booking widget" },
 ];
 
 /**
@@ -213,6 +247,75 @@ export const appointmentViews: readonly {
   { id: "all", label: "All", icon: Layers },
   { id: "moltclaw", label: "MoltClaw Demos", icon: Calendar },
   { id: "saas", label: "Saas", icon: Sparkles },
+];
+
+/* ── the Services list ─────────────────────────────────────────────────── */
+
+/**
+ * Services scope: the same appointment shape with a Service where Meetings
+ * has a Calendar.
+ *
+ * Three rows, and none of them upcoming. The Services tab opens on Upcoming,
+ * and an account that sells services by the slot mostly sees that tab EMPTY
+ * between bookings — so the empty state is the first thing this scope has to
+ * get right, and the rows exist only so All is not a second empty state.
+ */
+export interface ServiceAppointment extends BookingRowBase {
+  title: string;
+  status: AppointmentStatus;
+  time: string;
+  service: string;
+  owner: string;
+  invitees: readonly string[];
+}
+
+export const serviceAppointments: readonly ServiceAppointment[] = [
+  { id: "sv-1", num: "01", title: "Deep tissue massage", contact: "Lena Fischer", tone: "pink", status: "Showed", time: "Sep 18, 2026, 11:00 AM", startsAt: "2026-09-18T11:00", service: "Massage — 60 min", owner: "Mei Tanaka", invitees: [], createdBy: "Lena Fischer", dateAdded: "2026-09-11", source: "Booking widget" },
+  { id: "sv-2", num: "02", title: "Haircut and style", contact: "Omar Haddad", tone: "orange", status: "Cancelled", time: "Sep 24, 2026, 3:30 PM", startsAt: "2026-09-24T15:30", service: "Salon — 45 min", owner: "Priya Raman", invitees: [], createdBy: "Priya Raman", dateAdded: "2026-09-17", source: "Manual" },
+  { id: "sv-3", num: "03", title: "Whitening consult", contact: "Dwight Schrute", tone: "yellow", status: "No-show", time: "Sep 26, 2026, 9:00 AM", startsAt: "2026-09-26T09:00", service: "Dental — 30 min", owner: "Jatin Kalra", invitees: [], createdBy: "Dwight Schrute", dateAdded: "2026-09-19", source: "Booking widget" },
+];
+
+export const serviceViews: readonly { id: string; label: string; icon?: LucideIcon }[] = [
+  { id: "upcoming", label: "Upcoming", icon: CalendarClock },
+  { id: "cancelled", label: "Cancelled", icon: CalendarX2 },
+  { id: "all", label: "All", icon: Layers },
+];
+
+/* ── the Rentals list ──────────────────────────────────────────────────── */
+
+export type RentalStatus = "Upcoming" | "Active" | "Completed" | "Cancelled";
+export type PaymentStatus = "Paid" | "Pending" | "Partially paid" | "Refunded";
+
+/**
+ * Rentals scope: a booking is a stay, so it has two times and a payment
+ * rather than one time and an owner.
+ *
+ * Like Services, nothing is upcoming — the tab the scope opens on is empty —
+ * and one stay is running right now so Active has a row.
+ */
+export interface RentalBooking extends BookingRowBase {
+  listing: string;
+  /** "Sep 27, 2026, 3:00 PM" — check-in. */
+  start: string;
+  /** Check-out. */
+  end: string;
+  endsAt: string;
+  status: RentalStatus;
+  payment: PaymentStatus;
+}
+
+export const rentalBookings: readonly RentalBooking[] = [
+  { id: "rb-1", num: "01", contact: "Priya Raman", tone: "green", listing: "Lakeview cabin", start: "Sep 27, 2026, 3:00 PM", end: "Oct 2, 2026, 11:00 AM", startsAt: "2026-09-27T15:00", endsAt: "2026-10-02T11:00", status: "Active", payment: "Paid", createdBy: "Priya Raman", dateAdded: "2026-09-02", source: "Booking widget" },
+  { id: "rb-2", num: "02", contact: "Jatin Kalra", tone: "purple", listing: "Downtown loft", start: "Sep 12, 2026, 4:00 PM", end: "Sep 15, 2026, 10:00 AM", startsAt: "2026-09-12T16:00", endsAt: "2026-09-15T10:00", status: "Completed", payment: "Paid", createdBy: "Ashwin K S", dateAdded: "2026-08-28", source: "Manual" },
+  { id: "rb-3", num: "03", contact: "Mei Tanaka", tone: "teal", listing: "Harbor studio", start: "Sep 19, 2026, 2:00 PM", end: "Sep 21, 2026, 11:00 AM", startsAt: "2026-09-19T14:00", endsAt: "2026-09-21T11:00", status: "Completed", payment: "Partially paid", createdBy: "Mei Tanaka", dateAdded: "2026-09-05", source: "API" },
+  { id: "rb-4", num: "04", contact: "Omar Haddad", tone: "orange", listing: "Lakeview cabin", start: "Sep 22, 2026, 3:00 PM", end: "Sep 24, 2026, 11:00 AM", startsAt: "2026-09-22T15:00", endsAt: "2026-09-24T11:00", status: "Cancelled", payment: "Refunded", createdBy: "Omar Haddad", dateAdded: "2026-09-09", source: "Booking widget" },
+];
+
+export const rentalViews: readonly { id: string; label: string; icon?: LucideIcon }[] = [
+  { id: "upcoming", label: "Upcoming", icon: CalendarClock },
+  { id: "active", label: "Active", icon: CalendarCheck },
+  { id: "completed", label: "Completed", icon: CircleCheck },
+  { id: "all", label: "All", icon: Layers },
 ];
 
 /* ── the calendar list ──────────────────────────────────────────────────── */

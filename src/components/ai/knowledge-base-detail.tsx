@@ -90,15 +90,49 @@ const SOURCES: {
 export function KnowledgeBaseDetail({
   base,
   onBack,
+  siblings,
+  onOpenSibling,
 }: {
   base: KnowledgeBaseRow;
   onBack: () => void;
+  /**
+   * The records beside this one, for the trail's last crumb.
+   *
+   * Handed in by the page that owns the cut: this component is given one
+   * record and cannot know whether its siblings are the lit filter's or the
+   * whole collection's. See `RecordCrumb.options`.
+   */
+  siblings?: { id: string; name: string }[];
+  onOpenSibling?: (id: string) => void;
 }) {
   const { effective } = useTheme();
   const [half, setHalf] = React.useState<"sources" | "gaps">("sources");
   const [kind, setKind] = React.useState<SourceKind | "all">("all");
 
-  useRecordCrumb({ name: base.name, kind: "Knowledge base" }, onBack);
+  /*
+   * The siblings ride on the crumb, so `crumbLeaf` means something here.
+   *
+   * Its caret, dots and page-title values are all shapes for a dropdown, and
+   * a record crumb with no options falls through to plain text — so until
+   * Sep 28 three of the axis's five values did nothing on any detail page.
+   */
+  useRecordCrumb(
+    {
+      name: base.name,
+      kind: "Knowledge base",
+      ...(siblings && onOpenSibling
+        ? {
+            options: siblings.map((r) => ({
+              id: r.id,
+              label: r.name,
+              selected: r.id === base.id,
+            })),
+            onSelect: onOpenSibling,
+          }
+        : {}),
+    },
+    onBack,
+  );
 
   const total = SOURCES.reduce((n, s) => n + s.of(base), 0);
   const shown = SOURCES.filter((s) => kind === "all" || s.kind === kind);

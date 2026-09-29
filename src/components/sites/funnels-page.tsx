@@ -16,8 +16,14 @@ import {
 import { AiSparkle } from "@/components/icons/ai-sparkle";
 import { PageHeader, usePageChrome } from "@/components/page/page-header";
 import { useListShape } from "@/components/page/list-shape";
+import {
+  ListToolbar,
+  useListToolbar,
+  type ListToolbarModel,
+} from "@/components/page/list-toolbar";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
+import { TableCard, usePagination } from "@/components/page/table-card";
 import { FunnelAiBuilder } from "./funnel-ai-builder";
 import { FunnelDetail } from "./funnel-detail";
 import { FunnelPageBuilder } from "./funnel-page-builder";
@@ -27,7 +33,26 @@ import {
   type FunnelStep,
 } from "./funnels-data";
 
-const COLS = "2.6fr 1.1fr 0.9fr 36px";
+/*
+ * The hideable columns, in display order. The kebab's 36px track is not one
+ * of them — it is row furniture, not data — so it is appended after whatever
+ * survives the column picker.
+ */
+const FUNNEL_COLUMNS = [
+  { id: "name", label: "Name", width: "2.6fr", locked: true },
+  { id: "updated", label: "Last updated", width: "1.1fr" },
+  { id: "count", label: "Contains", width: "0.9fr" },
+] as const;
+
+type FunnelColumn = (typeof FUNNEL_COLUMNS)[number]["id"];
+
+const FUNNEL_VIEWS = [
+  { id: "list", label: "List", icon: LayoutList },
+  { id: "recent", label: "Recent", icon: Clock },
+] as const;
+
+/** Leading number of "6 Funnels" / "7 Steps", for sorting the Contains column. */
+const containsCount = (row: FunnelRow) => parseInt(row.count, 10) || 0;
 
 /**
  * Content ▸ Sites ▸ Funnel — the list, one funnel, and the AI builder.
@@ -84,16 +109,116 @@ export function FunnelsPage() {
    * precisely because it would be the fourth screen in a task about three.
    */
   const [view, setView] = React.useState<"list" | "recent">("list");
+  const { shared } = useListToolbar();
+  const [query, setQuery] = React.useState("");
+  const [kinds, setKinds] = React.useState<string[]>([]);
+  const [sort, setSort] = React.useState<
+    { field: string; dir: "asc" | "desc" } | null
+  >(null);
+  const [hidden, setHidden] = React.useState<ReadonlySet<FunnelColumn>>(
+    () => new Set(),
+  );
 
-  const rows = React.useMemo(
-    () =>
+  const rows = React.useMemo(() => {
+    const base =
       view === "list"
         ? funnelRows
         : // "Recent" is the top of the same list, which is what sorting by
           // last-touched gives you when the list is already in that order.
-          funnelRows.slice(0, 5),
-    [view],
+          funnelRows.slice(0, 5);
+    const q = query.trim().toLowerCase();
+    const hits = base.filter(
+      (r) =>
+        (kinds.length === 0 || kinds.includes(r.kind)) &&
+        (!q || r.name.toLowerCase().includes(q)),
+    );
+    if (!sort) return hits;
+    // The fixture is already newest-first, so its index is the recency key.
+    const order = new Map(funnelRows.map((r, i) => [r.id, i]));
+    const sorted = [...hits];
+    if (sort.field === "name") sorted.sort((a, b) => a.name.localeCompare(b.name));
+    if (sort.field === "updated")
+      sorted.sort((a, b) => order.get(a.id)! - order.get(b.id)!);
+    if (sort.field === "count")
+      sorted.sort((a, b) => containsCount(b) - containsCount(a));
+    // Natural direction: name A–Z, updated newest first, contains largest first.
+    const natural = sort.field === "name" ? "asc" : "desc";
+    if (sort.dir !== natural) sorted.reverse();
+    return sorted;
+  }, [view, query, kinds, sort]);
+
+  const visibleColumns = FUNNEL_COLUMNS.filter((c) => !hidden.has(c.id));
+  const cols = `${visibleColumns.map((c) => c.width).join(" ")} 36px`;
+
+  const toolbarModel = React.useMemo<ListToolbarModel>(
+    () => ({
+      views: {
+        items: FUNNEL_VIEWS.map((v) => ({ id: v.id, label: v.label, icon: v.icon })),
+        activeId: view,
+        onSelect: (id) => setView(id as "list" | "recent"),
+        noun: "view",
+      },
+      search: {
+        value: query,
+        onChange: setQuery,
+        placeholder: "Search funnels and folders",
+      },
+      quickFilters: [
+        {
+          id: "kind",
+          label: "Type",
+          options: [
+            { value: "funnel", label: "Funnels" },
+            { value: "folder", label: "Folders" },
+          ],
+          value: kinds,
+          multiple: true,
+          onChange: setKinds,
+        },
+      ],
+      sort: {
+        fields: [
+          { value: "name", label: "Name" },
+          { value: "updated", label: "Last updated" },
+          { value: "count", label: "Contains" },
+        ],
+        value: sort,
+        onChange: setSort,
+      },
+      columns: {
+        items: FUNNEL_COLUMNS.map((c) => ({
+          id: c.id,
+          label: c.label,
+          visible: !hidden.has(c.id),
+          locked: "locked" in c ? c.locked : undefined,
+        })),
+        onChange: (items) =>
+          setHidden(
+            new Set(
+              items
+                .filter((i) => !i.visible && !i.locked)
+                .map((i) => i.id as FunnelColumn),
+            ),
+          ),
+      },
+      resultCount: { value: rows.length, noun: "items" },
+      // Build with AI's fallback home when slot 05 is off — see the row below.
+      trailing: chrome.header ? undefined : (
+        <BuildWithAiButton onClick={() => setBuilding(true)} />
+      ),
+    }),
+    [view, query, kinds, sort, hidden, rows.length, chrome.header],
   );
+
+  /*
+   * The page this table is standing on — see page/table-card.tsx.
+   *
+   * Over the FILTERED rows, so the pager counts what the view shows rather
+   * than the collection behind it: switch the cut and the page count has to
+   * follow, or the control is describing a different list from the one under
+   * it.
+   */
+  const pager = usePagination(rows);
 
   const open = funnelRows.find((f) => f.id === openId) ?? null;
 
@@ -195,12 +320,15 @@ export function FunnelsPage() {
         box is the cheapest case for the switch and therefore the clearest
         one: you can see exactly what 34px of band was buying.
       */}
+      {shared ? null : (
       <div className="flex shrink-0 items-center gap-[10px]">
         {showFilters ? (
         <div className="flex h-[34px] flex-1 items-center gap-[9px] rounded-[8px] bg-pg-surface px-[14px] shadow-[inset_0_0_0_1px_var(--pg-border)] motion-tap focus-within:shadow-[inset_0_0_0_1px_var(--brand),0_0_0_3px_var(--brand-soft)]">
           <Search size={16} aria-hidden="true" className="shrink-0 text-pg-faint" />
           <input
             type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
             placeholder="Search funnels and folders"
             aria-label="Search funnels and folders"
             className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
@@ -231,12 +359,7 @@ export function FunnelsPage() {
           aria-label="Funnel views"
           className="flex shrink-0 items-center gap-[2px] rounded-[9px] bg-pg-surface p-[3px] shadow-[inset_0_0_0_1px_var(--pg-border)]"
         >
-          {(
-            [
-              { id: "list", label: "List", icon: LayoutList },
-              { id: "recent", label: "Recent", icon: Clock },
-            ] as const
-          ).map((v) => {
+          {FUNNEL_VIEWS.map((v) => {
             const on = v.id === view;
             return (
               <button
@@ -259,13 +382,27 @@ export function FunnelsPage() {
           })}
         </div>
       </div>
+      )}
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-[10px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+      {shared ? (
+        <ListToolbar model={toolbarModel}>
+          <div className="flex min-h-0 flex-1 flex-col">{table()}</div>
+        </ListToolbar>
+      ) : (
+        table()
+      )}
+
+    </div>
+  );
+
+  function table() {
+    return (
+      <TableCard pager={pager}>
         <div
-          style={{ gridTemplateColumns: COLS }}
+          style={{ gridTemplateColumns: cols }}
           className="sticky top-0 z-10 grid h-[38px] items-center gap-[16px] border-b border-pg-head-border bg-pg-surface px-[16px]"
         >
-          {["Name", "Last updated", "Contains", ""].map((h, i) => (
+          {[...visibleColumns.map((c) => c.label), ""].map((h, i) => (
             <span
               key={h || `blank-${i}`}
               className="text-[12px] leading-[normal] font-medium whitespace-nowrap text-pg-muted"
@@ -275,22 +412,18 @@ export function FunnelsPage() {
           ))}
         </div>
 
-        {rows.map((row) => (
+        {pager.pageRows.map((row) => (
           <FunnelListRow
             key={row.id}
             row={row}
+            cols={cols}
+            hidden={hidden}
             onOpen={() => setOpenId(row.id)}
           />
         ))}
-      </div>
-
-      <div className="flex h-[30px] shrink-0 items-center">
-        <span className="text-[13px] leading-[normal] text-pg-muted">
-          Showing {rows.length} of {funnelRows.length} items
-        </span>
-      </div>
-    </div>
-  );
+      </TableCard>
+    );
+  }
 }
 
 /**
@@ -321,15 +454,19 @@ function BuildWithAiButton({ onClick }: { onClick: () => void }) {
 
 function FunnelListRow({
   row,
+  cols,
+  hidden,
   onOpen,
 }: {
   row: FunnelRow;
+  cols: string;
+  hidden: ReadonlySet<FunnelColumn>;
   onOpen: () => void;
 }) {
   const Icon = row.kind === "folder" ? Folder : Workflow;
   return (
     <div
-      style={{ gridTemplateColumns: COLS }}
+      style={{ gridTemplateColumns: cols }}
       className="group grid h-[46px] w-full items-center gap-[16px] border-b border-pg-row-border px-[16px] last:border-b-0 hover:bg-pg-bg"
     >
       {/*
@@ -356,12 +493,16 @@ function FunnelListRow({
           {row.name}
         </span>
       </button>
-      <span className="truncate text-[13px] leading-[normal] text-pg-muted">
-        {row.updated}
-      </span>
-      <span className="truncate text-[13px] leading-[normal] text-pg-text">
-        {row.count}
-      </span>
+      {hidden.has("updated") ? null : (
+        <span className="truncate text-[13px] leading-[normal] text-pg-muted">
+          {row.updated}
+        </span>
+      )}
+      {hidden.has("count") ? null : (
+        <span className="truncate text-[13px] leading-[normal] text-pg-text">
+          {row.count}
+        </span>
+      )}
       <button
         type="button"
         aria-label={`Actions for ${row.name}`}

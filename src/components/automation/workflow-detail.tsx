@@ -37,8 +37,20 @@ import {
 import { useShellChrome } from "@/components/shell/full-bleed";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
-import { STATUS_LABEL, type Workflow } from "./workflows-data";
+import { STATUS_LABEL, folderPath, type Workflow } from "./workflows-data";
 import { BuilderTrail } from "@/components/shell/builder-trail";
+import { WorkflowEnrollment } from "./workflow-enrollment";
+import { WorkflowExecutionLogs } from "./workflow-execution-logs";
+import { WorkflowSettings } from "./workflow-settings";
+import type { LogsView } from "./workflow-runs-data";
+import { BuilderStateProvider, useBuilderState } from "./builder-state";
+import {
+  CanvasKindSelect,
+  EditableTitle,
+  PublishToggle,
+  RecentChangesPopover,
+  SaveButton,
+} from "./builder-overlays";
 
 /**
  * The facets of one workflow.
@@ -94,8 +106,9 @@ const STEP_TOOLS: readonly PaletteGroup[] = [
 
 const FACETS = [
   { id: "builder", label: "Builder" },
-  { id: "enrollment", label: "Enrollment history", count: "1,204" },
   { id: "settings", label: "Settings" },
+  { id: "enrollment", label: "Enrollment history", count: "1,204" },
+  { id: "logs", label: "Execution logs" },
 ];
 
 /**
@@ -159,14 +172,73 @@ function StatusPill({ status }: { status: Workflow["status"] }) {
  * one thing that breaks it, on purpose, and see its comment below for why it
  * is kept where a reviewer can look at it.
  */
-export function WorkflowDetail({
-  workflow,
-  onBack,
-}: {
+export function WorkflowDetail(props: WorkflowDetailProps) {
+  /*
+   * The builder's session state wraps the whole page, not just the canvas:
+   * the switcher renames what this header says, and viewing an old version
+   * takes facets and commit controls away up here. Keyed on the record so
+   * opening a sibling from the trail starts a fresh session.
+   */
+  return (
+    <BuilderStateProvider key={props.workflow.id} initialName={props.workflow.name}>
+      <WorkflowDetailInner {...props} />
+    </BuilderStateProvider>
+  );
+}
+
+interface WorkflowDetailProps {
   workflow: Workflow;
   onBack: () => void;
-}) {
+  /**
+   * The records beside this one, for the trail's last crumb.
+   *
+   * Handed in by the page that owns the cut: this component is given one
+   * record and cannot know whether its siblings are the lit filter's or the
+   * whole collection's. See `RecordCrumb.options`.
+   */
+  siblings?: { id: string; name: string }[];
+  onOpenSibling?: (id: string) => void;
+}
+
+function WorkflowDetailInner({
+  workflow: opened,
+  onBack,
+  siblings,
+  onOpenSibling,
+}: WorkflowDetailProps) {
+  const builder = useBuilderState();
+  /*
+   * The workflow on screen is whichever one the switcher last opened. Only
+   * its name changes — status and meta still describe the record the trail
+   * opened, which is what this prototype has data for.
+   */
+  const workflow = builder ? { ...opened, name: builder.current.name } : opened;
+  /*
+   * Viewing an old version is read-only, and the page says so the way the
+   * live builder does: the run history facets go (they describe the live
+   * version, not this one) and so does everything that would commit.
+   */
+  const viewingOld = builder?.mode === "version";
+  const facets = viewingOld
+    ? FACETS.filter((f) => f.id === "builder" || f.id === "settings")
+    : FACETS;
   const [facet, setFacet] = React.useState("builder");
+  const [changesOpen, setChangesOpen] = React.useState(false);
+  const changesRef = React.useRef<HTMLButtonElement>(null);
+  /*
+   * Where Execution logs is. Held here rather than inside the facet because
+   * Enrollment history sends you INTO it — to one run, or to that run's path —
+   * and choosing the facet from the band always lands on the full log.
+   */
+  const [logs, setLogs] = React.useState<LogsView>({ kind: "all" });
+  const pickFacet = (id: string) => {
+    if (id === "logs") setLogs({ kind: "all" });
+    setFacet(id);
+  };
+  const openLogs = (v: LogsView) => {
+    setLogs(v);
+    setFacet("logs");
+  };
   const { effective } = useTheme();
   const {
     builderKeepSidebar,
@@ -240,7 +312,30 @@ export function WorkflowDetail({
    * still whether the canvas is being read or edited, and the builder is what
    * this screen IS rather than a second place inside it.
    */
-  useRecordCrumb({ name: workflow.name, kind: "Workflow details" }, onBack);
+  /*
+   * The siblings ride on the crumb, so `crumbLeaf` means something here.
+   *
+   * Its caret, dots and page-title values are all shapes for a dropdown, and
+   * a record crumb with no options falls through to plain text — so until
+   * Sep 28 three of the axis's five values did nothing on any detail page.
+   */
+  useRecordCrumb(
+    {
+      name: workflow.name,
+      kind: "Workflow details",
+      ...(siblings && onOpenSibling
+        ? {
+            options: siblings.map((r) => ({
+              id: r.id,
+              label: r.name,
+              selected: r.id === workflow.id,
+            })),
+            onSelect: onOpenSibling,
+          }
+        : {}),
+    },
+    onBack,
+  );
 
   /*
    * The commitment side. Identical in all four combinations, which is the
@@ -253,20 +348,93 @@ export function WorkflowDetail({
    * irreversible thing beside it is a filled button is the wrong pair of
    * weights.
    */
-  const commitActions = (
+  const commitActions = viewingOld ? (
     <div className="flex shrink-0 items-center gap-[10px]">
-      <OutlineButton>
+      <OutlineButton onClick={() => builder?.viewVersion(null)}>
+        <History size={15} aria-hidden="true" className="text-pg-text-strong" />
+        Back to current version
+      </OutlineButton>
+    </div>
+  ) : (
+    <div className="flex shrink-0 items-center gap-[10px]">
+      <OutlineButton
+        onClick={() => {
+          setFacet("builder");
+          builder?.setPanel(builder.panel === "versions" ? null : "versions");
+        }}
+      >
         <History size={15} aria-hidden="true" className="text-pg-text-strong" />
         Version history
       </OutlineButton>
-      <OutlineButton>
-        <Play size={15} aria-hidden="true" className="text-pg-text-strong" />
-        Test
-      </OutlineButton>
-      <PrimaryButton>
-        <Check size={15} aria-hidden="true" />
-        Publish
-      </PrimaryButton>
+      {builder ? (
+        <>
+          {/*
+            The Sep 29 editor controls. Undo and redo sit as a pair with the
+            Recent changes history behind the clock, so the three read as one
+            "what did I just do" cluster rather than three unrelated glyphs.
+          */}
+          <span className="flex items-center gap-[2px]">
+            <button
+              type="button"
+              aria-label="Undo"
+              title="Undo"
+              disabled={builder.undoStack.length === 0}
+              onClick={builder.undo}
+              className="motion-tap flex size-[32px] items-center justify-center rounded-[8px] text-pg-text-strong hover:bg-pg-bg disabled:opacity-40"
+            >
+              <Undo2 size={16} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              aria-label="Redo"
+              title="Redo"
+              disabled={builder.redoStack.length === 0}
+              onClick={builder.redo}
+              className="motion-tap flex size-[32px] items-center justify-center rounded-[8px] text-pg-text-strong hover:bg-pg-bg disabled:opacity-40"
+            >
+              <Redo2 size={16} aria-hidden="true" />
+            </button>
+            <button
+              ref={changesRef}
+              type="button"
+              aria-label="Recent changes"
+              title="Recent changes"
+              onClick={() => setChangesOpen((v) => !v)}
+              className="motion-tap flex size-[32px] items-center justify-center rounded-[8px] text-pg-text-strong hover:bg-pg-bg"
+            >
+              <Clock size={16} aria-hidden="true" />
+            </button>
+          </span>
+          {changesOpen ? (
+            <RecentChangesPopover
+              anchorRef={changesRef}
+              onClose={() => setChangesOpen(false)}
+            />
+          ) : null}
+          <OutlineButton
+            onClick={() => {
+              setFacet("builder");
+              builder.setDrawer({ kind: "run-test" });
+            }}
+          >
+            <Play size={15} aria-hidden="true" className="text-pg-text-strong" />
+            Test workflow
+          </OutlineButton>
+          <PublishToggle />
+          <SaveButton />
+        </>
+      ) : (
+        <>
+          <OutlineButton>
+            <Play size={15} aria-hidden="true" className="text-pg-text-strong" />
+            Test
+          </OutlineButton>
+          <PrimaryButton>
+            <Check size={15} aria-hidden="true" />
+            Publish
+          </PrimaryButton>
+        </>
+      )}
       {/*
         EVIDENCE AGAINST ITSELF, and the only control on this page that sits on
         the wrong side on purpose. Not an endorsed pattern.
@@ -313,13 +481,27 @@ export function WorkflowDetail({
    */
   const metaLine = (
     <span className="truncate text-[13px] leading-[normal] text-pg-muted">
-      {workflow.folder} · {workflow.enrolled} enrolled · edited {workflow.updated}{" "}
-      by {workflow.updatedBy}
+      {/* The folder's LABEL, not its id — folders are rows with a parent now,
+          so the field holds "intake-web" and the meta line has to say
+          "Web forms". `folderPath` is the resolver; its last entry is the
+          folder this sits in. */}
+      {folderPath(workflow.folderId).at(-1)?.label ?? "No folder"} ·{" "}
+      {workflow.enrolled} enrolled · edited {workflow.updated} by{" "}
+      {workflow.updatedBy}
     </span>
   );
 
   const artifactMeta = (
     <div className="flex min-w-0 items-center gap-[8px]">
+      {/* The canvas kind and the renameable title lead the row only while
+          the canvas is showing — on Settings or the logs they would be
+          controls for something that is not on screen. */}
+      {builder && facet === "builder" && !viewingOld ? (
+        <>
+          <CanvasKindSelect />
+          <EditableTitle name={workflow.name} onRename={builder.renameCurrent} />
+        </>
+      ) : null}
       <StatusPill status={workflow.status} />
       {metaLine}
     </div>
@@ -440,9 +622,9 @@ export function WorkflowDetail({
       topCentre={
         <IslandTabs
           label="Workflow facets"
-          tabs={FACETS}
+          tabs={facets}
           activeId={facet}
-          onSelect={setFacet}
+          onSelect={pickFacet}
         />
       }
       topRight={<CollabIsland commit={commitActions} />}
@@ -524,9 +706,9 @@ export function WorkflowDetail({
       {floating ? null : (
         <ViewBar
           label="Workflow facets"
-          views={FACETS}
+          views={facets}
           activeId={facet}
-          onSelect={setFacet}
+          onSelect={pickFacet}
         />
       )}
 
@@ -548,21 +730,34 @@ export function WorkflowDetail({
            * islands have taken the corners its rafts were sitting in.
            */
           <WorkflowCanvas
-            variant={builderCanvas}
+            variant={builder?.canvasKind ?? builderCanvas}
             overlays={floating ? "page" : "canvas"}
           />
         ) : (
           /*
-           * The two facets that are not the canvas.
-           *
-           * Deliberately a stage: this prototype is about the header and the
-           * shape of the page, and drawing a fake enrollment table here would
-           * only invite review of the wrong thing.
+           * The three facets that are not the canvas. Each scrolls on its own
+           * inside the box the islands hang off, so under `floating` the
+           * identity and commit islands stay over whichever one is showing.
            */
-          <div className="flex min-h-0 flex-1 items-center justify-center rounded-[11px] bg-pg-bg shadow-[inset_0_0_0_1px_var(--pg-border)]">
-            <p className="text-[13px] leading-[normal] text-pg-faint">
-              {FACETS.find((f) => f.id === facet)?.label} — same page, same header.
-            </p>
+          <div className="min-h-0 flex-1 overflow-auto">
+            {facet === "settings" ? <WorkflowSettings /> : null}
+            {facet === "enrollment" ? (
+              <WorkflowEnrollment
+                onViewExecution={(contactId, executionId) =>
+                  openLogs({ kind: "execution", contactId, executionId })
+                }
+                onViewPath={(contactId, executionId) =>
+                  openLogs({ kind: "path", contactId, executionId })
+                }
+              />
+            ) : null}
+            {facet === "logs" ? (
+              <WorkflowExecutionLogs
+                view={logs}
+                onNavigate={setLogs}
+                onEditInBuilder={() => setFacet("builder")}
+              />
+            ) : null}
           </div>
         )}
         {islands}

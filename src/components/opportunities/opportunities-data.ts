@@ -57,9 +57,41 @@ export interface Opportunity {
   updated: string;
   source: string;
   tone: AvatarTone;
+  /*
+   * What the board card and the edit modal draw beyond the table's columns.
+   * Optional so a row can be as bare as the shipped one ("Ansh", value only):
+   * the card leaves out what the record does not have rather than printing
+   * a dash for it.
+   */
+  business?: string;
+  phone?: string;
+  tags?: string[];
+  notes?: number;
+  tasks?: number;
+  unread?: number;
+  /** ISO, local — the card's "next confirmed appointment" chip. */
+  nextAppointment?: string;
+  status?: "open" | "won" | "lost" | "abandoned";
+  followers?: string[];
+  expectedClose?: string;
+  lostReason?: string;
 }
 
-export const opportunities: Opportunity[] = [
+/** The card's extras, seeded apart so the rows above stay readable. */
+const EXTRAS: Record<string, Partial<Opportunity>> = {
+  o1: { business: "Closer System.", phone: "(415) 555-0142", notes: 1, tags: ["whatsapp_webhook", "whatsapp_onboard_fail", "mmlite", "voice ai limit increase", "wa_1_oct"], unread: 2 },
+  o2: { phone: "(646) 555-0199", notes: 2 },
+  o3: { business: "Singh Cold Storage", tags: ["hot lead", "commercial", "q4"], notes: 1, tasks: 1, nextAppointment: "2026-10-02T11:00" },
+  o4: { business: "Kumar & Co.", phone: "(312) 555-0177", tags: ["retrofit"], tasks: 2, unread: 1 },
+  o5: {},
+  o6: { business: "VenueFlow", tags: ["audit", "warehouse", "enterprise", "q4", "referral", "priority", "multi-site"], notes: 3 },
+  o7: { business: "Mukim Hotels", phone: "(206) 555-0143", tasks: 1, nextAppointment: "2026-09-30T15:00" },
+  o8: { status: "won" },
+  o9: { status: "won", phone: "(415) 555-0118" },
+  o10: { status: "lost", lostReason: "Budget constraints", business: "Chauhan Builders" },
+};
+
+export const opportunities: Opportunity[] = ([
   { id: "o1", name: "Ducted split — 3 bed", contact: "Jatin", value: "$4,200", stageId: "new", owner: "Samrina Shabha", updated: "1 day ago", source: "WhatsApp", tone: "blue" },
   { id: "o2", name: "Annual service plan", contact: "Shivani", value: "$690", stageId: "new", owner: "Unassigned", updated: "2 days ago", source: "Web form", tone: "pink" },
   { id: "o3", name: "Compressor replacement", contact: "Tridev Singh", value: "$2,850", stageId: "reached", owner: "Samrina Shabha", updated: "2 days ago", source: "Inbound call", tone: "green" },
@@ -70,7 +102,26 @@ export const opportunities: Opportunity[] = [
   { id: "o8", name: "Duct clean — annual", contact: "Sachin", value: "$430", stageId: "won", owner: "Dev Anand", updated: "1 week ago", source: "Inbound call", tone: "blue" },
   { id: "o9", name: "Thermostat upgrade", contact: "Vishnu", value: "$320", stageId: "won", owner: "Samrina Shabha", updated: "1 week ago", source: "WhatsApp", tone: "pink" },
   { id: "o10", name: "Full system — new build", contact: "Abhilash Chauhan", value: "$22,000", stageId: "lost", owner: "Dev Anand", updated: "2 weeks ago", source: "Referral", tone: "green" },
-];
+] as Opportunity[]).map((o) => ({ status: "open" as const, ...o, ...EXTRAS[o.id] }));
+
+/** "$4,200" → 4200. Values are stored formatted, as the table prints them. */
+export function parseMoney(value: string): number {
+  return Number(value.replace(/[$,]/g, "")) || 0;
+}
+
+/** 4200 → "$4,200"; cents only when there are some. */
+export function formatMoney(n: number): string {
+  return n.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: n % 1 === 0 ? 0 : 2,
+  });
+}
+
+/** "1 opportunity", "4 opportunities" — the shipped board says "1 opportunities". */
+export function countOpportunities(n: number): string {
+  return `${n.toLocaleString("en-US")} ${n === 1 ? "opportunity" : "opportunities"}`;
+}
 
 /** Column totals, computed rather than seeded, so dragging keeps them honest. */
 export function stageTotal(rows: Opportunity[], stageId: string): string {

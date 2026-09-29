@@ -406,3 +406,38 @@
     opacity: 1;
   }
 }
+
+/*
+ * The centre canvas (`pageCanvas`, see src/components/shell/page-canvas.tsx).
+ *
+ * Scoped to the card, so with the setting off none of this matches anything.
+ *
+ * `--page-inset` goes to 0: the card's own 16px padding is the gutter now, and
+ * every page pads itself by this token. Declared on the card only — the app
+ * bar outside it still reads the shell's value.
+ *
+ * `--page-canvas-card-border` captures the real card hairline AT the card,
+ * which is not a [data-page-theme] element, so the joined shell's blanking
+ * (tokens.css, `[data-shell-joined] [data-page-theme]`) has not reached it yet.
+ * The page roots below then take it back: on the white card a TableCard or a
+ * board card needs its ring, and the joined arrangement had removed it because
+ * there the page sat on a bordered grey card instead.
+ *
+ * The attribute is repeated for specificity, not by accident: the tinted
+ * palette re-declares --pg-card-border on [data-page-theme] at (0,4,0), and
+ * this has to outrank it to restore the value it resolved to.
+ */
+[data-page-canvas] {
+  --page-inset: 0px;
+  --page-canvas-card-border: var(--pg-card-border);
+  --page-canvas-ring: transparent;
+}
+
+/* Dark: shadow/lg vanishes on a near-black plane, so the edge is a hairline. */
+[data-page-theme="dark"] [data-page-canvas] {
+  --page-canvas-ring: var(--pg-card-border);
+}
+
+[data-page-canvas] [data-page-theme][data-page-theme][data-page-theme][data-page-theme] {
+  --pg-card-border: var(--page-canvas-card-border);
+}

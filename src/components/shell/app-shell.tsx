@@ -135,7 +135,7 @@ import {
   AGENCY_BANNERS,
   TopBanner,
 } from "@/components/shell/top-banner";
-import { AUTO_COLLAPSE_WIDTH } from "@/design/theme";
+import { AUTO_COLLAPSE_WIDTH, trimTrail } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { useTuning } from "@/components/tuning/tuning-provider";
 import { cn } from "@/lib/utils";
@@ -429,6 +429,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
      */
     crumbCompoundChild,
     crumbLeaf,
+    crumbDepth,
     crumbShown,
     crumbSwitchers,
   } = effective;
@@ -1715,7 +1716,31 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
        */
       const label =
         recordCrumbLabel === "generic" ? recordCrumb.kind : recordCrumb.label;
-      return [...wrapped, { label }];
+      /*
+       * The record's siblings come with it, when the page published any.
+       *
+       * Without them this crumb was a bare `{ label }` — and a crumb with no
+       * options never reaches the switcher branch, so three of `crumbLeaf`'s
+       * five values drew plain text on every detail page in the product. The
+       * axis has to answer the same way at the end of a record's trail as it
+       * does at the end of a list's, or half the screens it exists to
+       * compare are not in the comparison.
+       *
+       * `onExit` is deliberately NOT chained here, unlike the ancestors
+       * above. Those close the record because they lead out of it; these
+       * lead to a sibling OF it, so the page swaps which record is open and
+       * stays. Closing first would shut the detail view and reopen it, which
+       * is a flash and a lost scroll position for a move that never left.
+       */
+      return [
+        ...wrapped,
+        {
+          label,
+          ...(recordCrumb.options && recordCrumb.options.length > 0
+            ? { options: recordCrumb.options, onSelect: recordCrumb.onSelect }
+            : {}),
+        },
+      ];
     },
     [recordCrumb, recordCrumbLabel, recordCrumbShown],
   );
@@ -2113,9 +2138,23 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * already had "Workflows ▸ Workflows" collapsed, so it sees the path the
    * reader sees rather than an intermediate one with a repetition in it.
    */
-  const crumbs = crumbCompoundChild
+  const folded = crumbCompoundChild
     ? collapseRepeats(foldGenericChildren(builtCrumbs))
     : builtCrumbs;
+
+  /*
+   * And the depth trim, last of all.
+   *
+   * After the fold and the dedupe on purpose: "drop the last two" has to mean
+   * two of the segments the READER can count, and folding can turn three into
+   * two. Trimming first would have made the option remove a different number
+   * of words depending on whether `crumbCompoundChild` happened to be on,
+   * which is an option silently changing what another option does.
+   *
+   * Applied here rather than in the bar because two surfaces draw this array,
+   * the bar and a builder's own row — see `trimTrail`.
+   */
+  const crumbs = trimTrail(folded, crumbDepth);
 
   /**
    * The leaf, handed down to the page title under `crumbLeaf: "title"`.

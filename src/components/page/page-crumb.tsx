@@ -25,6 +25,8 @@ export interface PageCrumbSegment {
   /** The siblings this crumb switches between. Omit for a plain label. */
   options?: Crumb["options"];
   onSelect?: (id: string) => void;
+  /** Where this segment goes when clicked. See Crumb.onNavigate. */
+  onNavigate?: () => void;
 }
 
 export interface PageCrumb extends PageCrumbSegment {
@@ -52,6 +54,21 @@ export interface PageCrumb extends PageCrumbSegment {
    * put the same word in the trail twice.
    */
   replace?: boolean;
+  /**
+   * Closes whatever this crumb opened, when a crumb ABOVE it is clicked.
+   *
+   * The same courtesy `withRecordCrumb` has always done for records, and it
+   * was missing here for the same reason it was easy to miss: until a page
+   * crumb named a place you had DRILLED INTO rather than a scope you had
+   * switched, there was nothing to close. Workflows' folders are the first
+   * (Sep 28) — Automation ▸ Workflows ▸ Intake, where "Workflows" has to mean
+   * "leave this folder", not "you are already here".
+   *
+   * Optional, and absent on every scope picker that came before: a smart-list
+   * crumb has nothing to undo, and wrapping its ancestors would add a handler
+   * that runs on every trail click to do nothing.
+   */
+  onExit?: () => void;
 }
 
 type Ctx = readonly [PageCrumb | null, (crumb: PageCrumb | null) => void];
@@ -96,12 +113,24 @@ export function usePageCrumb(crumb: PageCrumb | null) {
     setCrumb({
       ...published,
       onSelect: (id: string) => latest.current?.onSelect?.(id),
+      // Through the ref like every other handler here: the exit closes over
+      // the page's own state, and a stale one would put the trail back while
+      // leaving the canvas where it was.
+      ...(published.onExit
+        ? { onExit: () => latest.current?.onExit?.() }
+        : {}),
+      ...(published.onNavigate
+        ? { onNavigate: () => latest.current?.onNavigate?.() }
+        : {}),
       // Each tail segment keeps its own index rather than its own closure, so
       // a re-render that rebuilds the array does not strand a stale handler on
       // a crumb the bar is still showing.
       tail: (published.tail ?? []).map((seg, i) => ({
         ...seg,
         onSelect: (id: string) => latest.current?.tail?.[i]?.onSelect?.(id),
+        ...(seg.onNavigate
+          ? { onNavigate: () => latest.current?.tail?.[i]?.onNavigate?.() }
+          : {}),
       })),
     });
     return () => setCrumb(null);
@@ -124,7 +153,30 @@ export function withPageCrumb(
     icon: s.icon,
     options: s.options,
     onSelect: s.onSelect,
+    onNavigate: s.onNavigate,
   });
   const kept = crumb.replace ? trail.slice(0, -1) : trail;
-  return [...kept, toSeg(crumb), ...(crumb.tail ?? []).map(toSeg)];
+  /*
+   * Ancestors close the crumb on the way out — see `onExit`.
+   *
+   * Only segments that already navigate are wrapped. A plain string crumb has
+   * no handler to extend, and the ones that do are exactly the ones a click
+   * would otherwise leave disagreeing with the canvas: pick "Workflows" from
+   * inside a folder and the trail would shorten while the folder's rows stayed
+   * on screen.
+   */
+  const above = crumb.onExit
+    ? kept.map((segment) =>
+        typeof segment === "string" || !segment.onSelect
+          ? segment
+          : {
+              ...segment,
+              onSelect: (id: string) => {
+                crumb.onExit?.();
+                segment.onSelect?.(id);
+              },
+            },
+      )
+    : kept;
+  return [...above, toSeg(crumb), ...(crumb.tail ?? []).map(toSeg)];
 }

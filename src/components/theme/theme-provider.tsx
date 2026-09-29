@@ -5,6 +5,7 @@ import {
   DEFAULT_THEME,
   type Accent,
   type DockLabel,
+  type ListToolbarVariant,
   type DockPosition,
   type EntryLayout,
   type GetAppPlacement,
@@ -66,6 +67,9 @@ import type {
   BuilderChromeStyle,
   CalendarViewSwitch,
   CrumbLeaf,
+  FolderCrumb,
+  TableCrumb,
+  CrumbDepth,
   CrumbSwitchers,
   BarHeadingScale,
   CrumbSeparator,
@@ -232,6 +236,8 @@ interface ThemeContextValue extends ThemeState {
   setCrumbCompoundChild: (on: boolean) => void;
   setBuilderKeepBanner: (on: boolean) => void;
   setListShowViews: (on: boolean) => void;
+  setListToolbar: (v: ListToolbarVariant) => void;
+  setPageCanvas: (on: boolean) => void;
   setListShowFilters: (on: boolean) => void;
   setTreeSearchPlace: (v: TreeSearchPlace) => void;
   setCrumbEmphasis: (v: CrumbEmphasis) => void;
@@ -254,6 +260,10 @@ interface ThemeContextValue extends ThemeState {
   setBarPageHeading: (on: boolean) => void;
   setBarHeadingScale: (scale: BarHeadingScale) => void;
   setCrumbLeaf: (v: CrumbLeaf) => void;
+  setFolderCrumb: (v: FolderCrumb) => void;
+  setTableCrumb: (v: TableCrumb) => void;
+  setCrumbDepth: (v: CrumbDepth) => void;
+  setRecordKeepsFolder: (v: boolean) => void;
   setCalendarViewSwitch: (style: CalendarViewSwitch) => void;
   /**
    * Picks a header shape for one page archetype.
@@ -564,6 +574,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, builderKeepBanner })),
       setListShowViews: (listShowViews) =>
         setState((s) => ({ ...s, listShowViews })),
+      setListToolbar: (listToolbar) => setState((s) => ({ ...s, listToolbar })),
+      setPageCanvas: (pageCanvas) => setState((s) => ({ ...s, pageCanvas })),
       setListShowFilters: (listShowFilters) =>
         setState((s) => ({ ...s, listShowFilters })),
       setTreeSearchPlace: (treeSearchPlace) =>
@@ -601,6 +613,11 @@ export function ThemeProvider({
       setBarHeadingScale: (barHeadingScale) =>
         setState((s) => ({ ...s, barHeadingScale })),
       setCrumbLeaf: (crumbLeaf) => setState((s) => ({ ...s, crumbLeaf })),
+      setFolderCrumb: (folderCrumb) => setState((s) => ({ ...s, folderCrumb })),
+      setTableCrumb: (tableCrumb) => setState((s) => ({ ...s, tableCrumb })),
+      setCrumbDepth: (crumbDepth) => setState((s) => ({ ...s, crumbDepth })),
+      setRecordKeepsFolder: (recordKeepsFolder) =>
+        setState((s) => ({ ...s, recordKeepsFolder })),
       setBarPageHeading: (barPageHeading) =>
         setState((s) => ({ ...s, barPageHeading })),
       setCalendarViewSwitch: (calendarViewSwitch) =>

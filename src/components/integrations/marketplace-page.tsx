@@ -20,11 +20,13 @@ import {
   PageHeader,
   usePageChrome,
 } from "@/components/page/page-header";
-import {
-  CollapsingSearch,
-  useListShape,
-} from "@/components/page/list-shape";
+import { CollapsingSearch, useListShape } from "@/components/page/list-shape";
 import { usePageCrumb } from "@/components/page/page-crumb";
+import {
+  ListToolbar,
+  useListToolbar,
+  type ListToolbarModel,
+} from "@/components/page/list-toolbar";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import {
@@ -86,6 +88,13 @@ const SORTS: { id: SortId; label: string }[] = [
 
 type SortId = "popular" | "rating" | "name";
 
+/** Each sort's natural direction — the one the labelled picker means. */
+const NATURAL_DIR: Record<SortId, "asc" | "desc"> = {
+  popular: "desc",
+  rating: "desc",
+  name: "asc",
+};
+
 export function MarketplaceAppsPage({
   initialTab,
 }: {
@@ -96,6 +105,7 @@ export function MarketplaceAppsPage({
   const shape = useListShape();
   const { mergedRow, scopeInTrail, oneRow, showViews, showFilters } = shape;
   const chrome = usePageChrome();
+  const { shared } = useListToolbar();
 
   const [tab, setTab] = React.useState<TabId>(
     initialTab === "settings" ? "settings" : "browse",
@@ -103,6 +113,11 @@ export function MarketplaceAppsPage({
   const [cut, setCut] = React.useState<CutId>("all");
   const [category, setCategory] = React.useState<AppCategoryId | "all">("all");
   const [sort, setSort] = React.useState<SortId>("popular");
+  /*
+   * The shared toolbar can flip a sort's direction; the labelled picker
+   * cannot, and picking from it resets to the field's natural direction.
+   */
+  const [sortDir, setSortDir] = React.useState<"asc" | "desc">("desc");
   const [query, setQuery] = React.useState("");
   /*
    * Install state lives here, seeded from the fixture.
@@ -147,8 +162,9 @@ export function MarketplaceAppsPage({
     if (sort === "rating")
       sorted.sort((a, b) => Number(b.rating) - Number(a.rating));
     if (sort === "name") sorted.sort((a, b) => a.name.localeCompare(b.name));
+    if (sortDir !== NATURAL_DIR[sort]) sorted.reverse();
     return sorted;
-  }, [category, cut, installed, query, sort]);
+  }, [category, cut, installed, query, sort, sortDir]);
 
   const installedCount = installed.size;
   const cutLabel = CUTS.find((c) => c.id === cut)!.label;
@@ -164,7 +180,7 @@ export function MarketplaceAppsPage({
    * screen, which is the dead-end failure the Calendars settings bug was.
    */
   usePageCrumb(
-    scopeInTrail && showViews && tab === "browse"
+    !shared && scopeInTrail && showViews && tab === "browse"
       ? {
           label: cutLabel,
           options: CUTS.map((c) => ({
@@ -255,6 +271,8 @@ export function MarketplaceAppsPage({
     <CollapsingSearch
       placeholder="Search marketplace apps"
       label="Search marketplace apps"
+      value={query}
+      onChange={setQuery}
     />
   ) : (
     <div className="flex h-[34px] min-w-[220px] flex-1 items-center gap-[9px] rounded-[8px] bg-pg-surface px-[14px] shadow-[inset_0_0_0_1px_var(--pg-border)] motion-tap focus-within:shadow-[inset_0_0_0_1px_var(--brand),0_0_0_3px_var(--brand-soft)]">
@@ -286,7 +304,10 @@ export function MarketplaceAppsPage({
       icon={ArrowUpDown}
       value={SORTS.find((s) => s.id === sort)!.label}
       options={SORTS}
-      onPick={(id) => setSort(id as SortId)}
+      onPick={(id) => {
+        setSort(id as SortId);
+        setSortDir(NATURAL_DIR[id as SortId]);
+      }}
       width="w-[200px]"
     />
   );
@@ -298,6 +319,58 @@ export function MarketplaceAppsPage({
       {sortPicker}
     </>
   );
+
+  /*
+   * The same state, described for the shared list toolbar. The cut is the
+   * views slice; category is the one quick filter; the grid has no columns.
+   */
+  const toolbarModel: ListToolbarModel = {
+    views: {
+      items: CUTS.map((c) => ({
+        id: c.id,
+        label: c.label,
+        count: c.id === "installed" ? installedCount : undefined,
+      })),
+      activeId: cut,
+      onSelect: (id) => setCut(id as CutId),
+      noun: "view",
+    },
+    search: {
+      value: query,
+      onChange: setQuery,
+      placeholder: "Search marketplace apps",
+    },
+    quickFilters: [
+      {
+        id: "category",
+        label: "Category",
+        options: APP_CATEGORIES.filter((c) => c.id !== "all").map((c) => ({
+          value: c.id,
+          label: c.label,
+        })),
+        value: category === "all" ? [] : [category],
+        onChange: (v) =>
+          setCategory((v[0] as AppCategoryId | undefined) ?? "all"),
+      },
+    ],
+    sort: {
+      fields: [
+        { value: "popular", label: "Most installed" },
+        { value: "rating", label: "Rating" },
+        { value: "name", label: "Name" },
+      ],
+      value: { field: sort, dir: sortDir },
+      onChange: (v) => {
+        const field = (v?.field as SortId | undefined) ?? "popular";
+        setSort(field);
+        setSortDir(v?.dir ?? NATURAL_DIR[field]);
+      },
+    },
+    resultCount: {
+      value: shown.length,
+      noun: shown.length === 1 ? "app" : "apps",
+    },
+  };
 
   /*
    * The header's actions, built once so the tab strip can adopt them.
@@ -323,6 +396,58 @@ export function MarketplaceAppsPage({
     { label: "Open developer portal", icon: ExternalLink },
   ];
 
+  const grid = (
+    <div className="min-h-0 flex-1 overflow-auto pb-[16px]">
+      {shown.length === 0 ? (
+        /*
+         * Narrowed, not empty: the shelf has seventeen apps on it, so
+         * the honest empty state says the filter found nothing and
+         * offers the way back out rather than an onboarding
+         * illustration. Contacts draws the same distinction.
+         */
+        <div className="flex flex-col items-center gap-[8px] rounded-[12px] bg-pg-surface px-[16px] py-[48px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+          <span className="text-[14px] leading-[20px] font-semibold text-pg-heading">
+            No apps match that
+          </span>
+          <span className="text-[13px] leading-[18px] text-pg-muted">
+            Try another search, or widen the category.
+          </span>
+          <OutlineButton
+            className="mt-[4px]"
+            onClick={() => {
+              setQuery("");
+              setCategory("all");
+              setCut("all");
+            }}
+          >
+            Clear filters
+          </OutlineButton>
+        </div>
+      ) : (
+        /*
+         * Three across at the widest, not four.
+         *
+         * Four was the first cut and it was measurably wrong: at 1600px
+         * the cards land at ~300px, which clips "Almanac Scheduling"
+         * mid-word and turns "48,200 installs" into "48,2…". A card
+         * whose own name does not fit is worse than a shorter grid, and
+         * the fix is not a smaller type ramp — 14px is the heading size
+         * the design system gives this.
+         */
+        <div className="grid grid-cols-1 gap-[14px] md:grid-cols-2 xl:grid-cols-3">
+          {shown.map((app) => (
+            <AppCard
+              key={app.id}
+              app={app}
+              installed={installed.has(app.id)}
+              onToggle={() => toggleInstall(app.id)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div
       data-page-theme={effective.appTheme}
@@ -346,7 +471,10 @@ export function MarketplaceAppsPage({
          * no collection, so the row is the actions alone.
          */
         lead={
-          mergedRow && tab === "browse" && (showViews || showFilters) ? (
+          !shared &&
+          mergedRow &&
+          tab === "browse" &&
+          (showViews || showFilters) ? (
             <>
               {showViews ? cutControl : null}
               {showFilters ? controls : null}
@@ -457,62 +585,18 @@ export function MarketplaceAppsPage({
             exists at all; the two knobs then decide which halves of it are
             populated, exactly as they do on contacts.
           */}
-          {!mergedRow && (showViews || shape.filterRow) ? (
+          {!shared && !mergedRow && (showViews || shape.filterRow) ? (
             <div className="flex shrink-0 flex-wrap items-center gap-[10px]">
               {showViews && !scopeInTrail ? cutControl : null}
               {showFilters ? controls : null}
             </div>
           ) : null}
 
-          <div className="min-h-0 flex-1 overflow-auto pb-[16px]">
-            {shown.length === 0 ? (
-              /*
-               * Narrowed, not empty: the shelf has seventeen apps on it, so
-               * the honest empty state says the filter found nothing and
-               * offers the way back out rather than an onboarding
-               * illustration. Contacts draws the same distinction.
-               */
-              <div className="flex flex-col items-center gap-[8px] rounded-[12px] bg-pg-surface px-[16px] py-[48px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
-                <span className="text-[14px] leading-[20px] font-semibold text-pg-heading">
-                  No apps match that
-                </span>
-                <span className="text-[13px] leading-[18px] text-pg-muted">
-                  Try another search, or widen the category.
-                </span>
-                <OutlineButton
-                  className="mt-[4px]"
-                  onClick={() => {
-                    setQuery("");
-                    setCategory("all");
-                    setCut("all");
-                  }}
-                >
-                  Clear filters
-                </OutlineButton>
-              </div>
-            ) : (
-              /*
-               * Three across at the widest, not four.
-               *
-               * Four was the first cut and it was measurably wrong: at 1600px
-               * the cards land at ~300px, which clips "Almanac Scheduling"
-               * mid-word and turns "48,200 installs" into "48,2…". A card
-               * whose own name does not fit is worse than a shorter grid, and
-               * the fix is not a smaller type ramp — 14px is the heading size
-               * the design system gives this.
-               */
-              <div className="grid grid-cols-1 gap-[14px] md:grid-cols-2 xl:grid-cols-3">
-                {shown.map((app) => (
-                  <AppCard
-                    key={app.id}
-                    app={app}
-                    installed={installed.has(app.id)}
-                    onToggle={() => toggleInstall(app.id)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+          {shared ? (
+            <ListToolbar model={toolbarModel}>{grid}</ListToolbar>
+          ) : (
+            grid
+          )}
         </>
       ) : (
         <MarketplaceSettings installedCount={installedCount} />
@@ -836,7 +920,11 @@ function Select({
         className="motion-tap flex h-[34px] w-full items-center gap-[8px] rounded-[8px] bg-pg-surface px-[12px] text-left text-[13px] leading-[normal] text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:shadow-[inset_0_0_0_1px_var(--pg-border-strong)]"
       >
         {Icon ? (
-          <Icon size={15} aria-hidden="true" className="shrink-0 text-pg-muted" />
+          <Icon
+            size={15}
+            aria-hidden="true"
+            className="shrink-0 text-pg-muted"
+          />
         ) : null}
         <span className="min-w-0 flex-1 truncate">{value}</span>
         <ChevronDown

@@ -5,9 +5,13 @@ import {
   ArrowUpDown,
   Download,
   FileDown,
+  Kanban,
   KanbanSquare,
+  LayoutDashboard,
+  List as ListIcon,
   ListFilter,
   Plus,
+  RotateCcw,
   Rows3,
   Search,
   Settings,
@@ -25,21 +29,57 @@ import {
 import { usePageCrumb } from "@/components/page/page-crumb";
 import { ViewBar } from "@/components/page/view-bar";
 import {
-  CollapsingSearch,
+  ListToolbar,
+  useListToolbar,
+  type ListToolbarModel,
+} from "@/components/page/list-toolbar";
+import {
   GlyphButton,
   ScopePicker,
   useListShape,
 } from "@/components/page/list-shape";
 import { ToneAvatar } from "@/components/page/avatar";
 import { cn } from "@/lib/utils";
-import { OpportunityModal } from "./opportunity-modal";
+import { TablePager, usePagination } from "@/components/page/table-card";
+import { OpportunityEditModal } from "./opportunity-edit-modal";
+import { OpportunityCard } from "./opportunity-card";
+import { OPPORTUNITY_DRAG_TYPE, StageColumn } from "./stage-column";
+import { SelectionBar, useOpportunitySelection } from "./opportunity-selection";
+import { BulkEditDrawer } from "./bulk-edit-drawer";
+import { DeleteOpportunitiesModal } from "./opportunity-delete-modal";
+import { CustomizeCardDrawer } from "./customize-card-drawer";
+import {
+  CreateListModal,
+  DashboardInsightsModal,
+  ExportProgressModal,
+  NewListPopover,
+} from "./opportunity-menus";
+import { DEFAULT_CARD_CONFIG, type CardConfig } from "./card-config";
+import {
+  applyOpportunityFilters,
+  completeOppGroups,
+  countConditions,
+  describeOppCondition,
+  type FilterGroup,
+} from "./opportunity-filters";
+import { OpportunityFiltersDrawer } from "./opportunity-filters-drawer";
+import {
+  DEFAULT_OPP_SORT,
+  OPP_SORT_FIELDS,
+  OpportunitySortPopover,
+  sortOpportunities,
+  type OpportunitySort,
+} from "./opportunity-sort";
+import { showToast } from "@/components/page/toast";
+import { AuditLogsPage } from "@/components/settings/audit-logs-page";
+import { OpportunityImportFlow } from "./opportunity-import";
 import {
   cutByView,
   opportunities as seedOpportunities,
   opportunityViews,
+  countOpportunities,
   pipelines,
   stages,
-  stageTotal,
   type Opportunity,
 } from "./opportunities-data";
 
@@ -127,141 +167,147 @@ function CountPill({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Card({
-  record,
-  onOpen,
-  dragging,
-  onDragStart,
-}: {
-  record: Opportunity;
-  onOpen: () => void;
-  dragging: boolean;
-  onDragStart: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      draggable
-      onDragStart={onDragStart}
-      onClick={onOpen}
-      className={cn(
-        "flex w-full flex-col gap-[8px] rounded-[9px] bg-pg-surface p-[11px] text-left shadow-[inset_0_0_0_1px_var(--pg-card-border)]",
-        "motion-tap hover:shadow-[inset_0_0_0_1px_var(--pg-border-strong),0_2px_8px_-2px_rgba(15,23,42,0.10)] active:scale-[0.99]",
-        dragging && "opacity-40",
-      )}
-    >
-      <span className="text-[13px] leading-[17px] font-semibold text-pg-heading">
-        {record.name}
-      </span>
-      <div className="flex items-center gap-[7px]">
-        <ToneAvatar name={record.contact} tone={record.tone} size={20} />
-        <span className="min-w-0 flex-1 truncate text-[12px] leading-[16px] text-pg-muted">
-          {record.contact}
-        </span>
-        <span className="shrink-0 text-[12.5px] leading-[16px] font-semibold text-pg-text-strong">
-          {record.value}
-        </span>
-      </div>
-      <span className="text-[11.5px] leading-[15px] text-pg-faint">
-        {record.source} · {record.updated}
-      </span>
-    </button>
-  );
-}
-
+/*
+ * The board, built from the shipped card and column.
+ *
+ * Selection lives on the page rather than here, because the filter row is
+ * what changes when something is picked — the bar that says "4 selected"
+ * replaces Advanced filters and Sort, and that row is not the board's.
+ */
 function Board({
   rows,
+  config,
+  selection,
   onOpen,
   onMove,
 }: {
   rows: Opportunity[];
+  config: CardConfig;
+  selection: ReturnType<typeof useOpportunitySelection>;
   onOpen: (id: string) => void;
   onMove: (id: string, stageId: string) => void;
 }) {
   const [dragId, setDragId] = React.useState<string | null>(null);
-  const [overStage, setOverStage] = React.useState<string | null>(null);
+  const [collapsed, setCollapsed] = React.useState<Set<string>>(() => new Set());
+  const selecting = selection.selected.size > 0;
 
   return (
-    <div className="flex min-h-0 flex-1 gap-[12px] overflow-x-auto pb-[4px]">
+    <div className="flex min-h-0 flex-1 gap-[10px] overflow-x-auto pb-[4px]">
       {stages.map((stage) => {
         const cards = rows.filter((o) => o.stageId === stage.id);
+        const ids = cards.map((o) => o.id);
+        const state = selection.columnState(ids);
         return (
-          <section
+          <StageColumn
             key={stage.id}
-            aria-label={stage.label}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setOverStage(stage.id);
-            }}
-            onDragLeave={() => setOverStage((s) => (s === stage.id ? null : s))}
-            onDrop={() => {
-              if (dragId) onMove(dragId, stage.id);
+            label={stage.label}
+            rows={cards}
+            collapsed={collapsed.has(stage.id)}
+            onToggleCollapse={() =>
+              setCollapsed((c) => {
+                const n = new Set(c);
+                if (n.has(stage.id)) n.delete(stage.id);
+                else n.add(stage.id);
+                return n;
+              })
+            }
+            selectState={state}
+            showSelect={selecting}
+            onToggleSelectAll={() => selection.setMany(ids, state !== "all")}
+            onDropCard={(id) => {
+              onMove(id, stage.id);
               setDragId(null);
-              setOverStage(null);
             }}
-            className={cn(
-              "flex w-[264px] shrink-0 flex-col rounded-[11px] bg-pg-bg p-[9px]",
-              "motion-tap",
-              overStage === stage.id && dragId
-                ? "shadow-[inset_0_0_0_2px_var(--brand)]"
-                : "shadow-[inset_0_0_0_1px_var(--pg-border)]",
-            )}
           >
-            <div className="flex shrink-0 items-center gap-[7px] px-[3px] pb-[9px]">
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "size-[7px] shrink-0 rounded-full",
-                  stage.tone === "won" && "bg-[var(--pg-status-subscribed-dot)]",
-                  stage.tone === "lost" && "bg-pg-disabled",
-                  stage.tone === "open" && "bg-brand",
-                )}
+            {cards.map((o) => (
+              <OpportunityCard
+                key={o.id}
+                record={o}
+                config={config}
+                selected={selection.selected.has(o.id)}
+                selectionMode={selecting}
+                onToggleSelect={() => selection.toggle(o.id)}
+                onOpen={() => onOpen(o.id)}
+                draggable
+                dragging={dragId === o.id}
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(OPPORTUNITY_DRAG_TYPE, o.id);
+                  e.dataTransfer.effectAllowed = "move";
+                  setDragId(o.id);
+                }}
+                onDragEnd={() => setDragId(null)}
               />
-              <span className="text-[12.5px] leading-[normal] font-semibold text-pg-text-strong">
-                {stage.label}
-              </span>
-              <span className="text-[12px] leading-[normal] text-pg-faint">
-                {cards.length}
-              </span>
-              <span className="flex-1" />
-              <span className="text-[12px] leading-[normal] font-medium text-pg-muted">
-                {stageTotal(rows, stage.id)}
-              </span>
-            </div>
-            <div className="flex min-h-0 flex-1 flex-col gap-[8px] overflow-y-auto">
-              {cards.map((record) => (
-                <Card
-                  key={record.id}
-                  record={record}
-                  dragging={dragId === record.id}
-                  onDragStart={() => setDragId(record.id)}
-                  onOpen={() => onOpen(record.id)}
-                />
-              ))}
-              {cards.length === 0 ? (
-                /*
-                 * An empty column is "nothing has reached this stage", not
-                 * "nothing exists" — so it gets a quiet line, never the
-                 * first-use empty state with its create button.
-                 */
-                <p className="px-[4px] py-[10px] text-[12px] leading-[16px] text-pg-faint">
-                  Nothing at this stage.
-                </p>
-              ) : null}
-            </div>
-          </section>
+            ))}
+          </StageColumn>
         );
       })}
     </div>
   );
 }
 
-const GRID = "grid-template-columns:2.2fr 1.4fr 1fr 1.2fr 1.1fr 1fr";
+/**
+ * The table's columns, in display order. `name` is locked — a row with no
+ * name is a row you cannot tell apart from its neighbours — and the rest can
+ * be hidden from the shared toolbar's column picker.
+ */
+const TABLE_COLUMNS: { id: string; label: string; width: string; locked?: boolean }[] = [
+  { id: "name", label: "Opportunity", width: "2.2fr", locked: true },
+  { id: "contact", label: "Contact", width: "1.4fr" },
+  { id: "value", label: "Value", width: "1fr" },
+  { id: "stage", label: "Stage", width: "1.2fr" },
+  { id: "owner", label: "Owner", width: "1.1fr" },
+  { id: "updated", label: "Updated", width: "1fr" },
+];
+
+function renderCell(id: string, record: Opportunity): React.ReactNode {
+  switch (id) {
+    case "name":
+      return (
+        <span className="truncate text-[13px] leading-[normal] font-medium text-pg-text-strong">
+          {record.name}
+        </span>
+      );
+    case "contact":
+      return (
+        <span className="flex min-w-0 items-center gap-[7px]">
+          <ToneAvatar name={record.contact} tone={record.tone} size={22} />
+          <span className="truncate text-[13px] leading-[normal] text-pg-text">
+            {record.contact}
+          </span>
+        </span>
+      );
+    case "value":
+      return (
+        <span className="text-[13px] leading-[normal] font-semibold text-pg-text-strong">
+          {record.value}
+        </span>
+      );
+    case "stage":
+      return (
+        <span className="truncate text-[13px] leading-[normal] text-pg-text">
+          {stages.find((s) => s.id === record.stageId)?.label}
+        </span>
+      );
+    case "owner":
+      return (
+        <span className="truncate text-[13px] leading-[normal] text-pg-muted">
+          {record.owner}
+        </span>
+      );
+    default:
+      return (
+        <span className="truncate text-[13px] leading-[normal] text-pg-muted">
+          {record.updated}
+        </span>
+      );
+  }
+}
 
 function Table({
   rows,
   onOpen,
   toolbar,
+  hidden,
 }: {
   rows: Opportunity[];
   onOpen: (id: string) => void;
@@ -274,7 +320,21 @@ function Table({
    * and a hairline under it, so the column heads still read as the table's.
    */
   toolbar?: React.ReactNode;
+  /** Column ids the shared toolbar's column picker has switched off. */
+  hidden?: ReadonlySet<string>;
 }) {
+  /*
+   * The page this table is standing on — see page/table-card.tsx.
+   *
+   * Inside the Table rather than at the page, because this page has two
+   * renderers and only one of them is a table: a board pages by pipeline
+   * column, which is a different question with a different answer, and
+   * hoisting the state would have made the board own a page number it never
+   * reads.
+   */
+  const pager = usePagination(rows);
+  const columns = TABLE_COLUMNS.filter((c) => c.locked || !hidden?.has(c.id));
+  const template = columns.map((c) => c.width).join(" ");
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
       {toolbar ? (
@@ -284,50 +344,83 @@ function Table({
       ) : null}
       <div className="min-h-0 flex-1 overflow-auto">
         <div
-          style={{ gridTemplateColumns: GRID.split(":")[1] }}
+          style={{ gridTemplateColumns: template }}
           className="sticky top-0 z-10 grid h-[38px] items-center gap-[16px] border-b border-pg-head-border bg-pg-surface px-[16px]"
         >
-          {["Opportunity", "Contact", "Value", "Stage", "Owner", "Updated"].map((h) => (
+          {columns.map((c) => (
             <span
-              key={h}
+              key={c.id}
               className="text-[12px] leading-[normal] font-medium whitespace-nowrap text-pg-muted"
             >
-              {h}
+              {c.label}
             </span>
           ))}
         </div>
-        {rows.map((record) => (
+        {pager.pageRows.map((record) => (
           <button
             key={record.id}
             type="button"
             onClick={() => onOpen(record.id)}
-            style={{ gridTemplateColumns: GRID.split(":")[1] }}
+            style={{ gridTemplateColumns: template }}
             className="grid h-[44px] w-full items-center gap-[16px] border-b border-pg-row-border px-[16px] text-left last:border-b-0 motion-tap hover:bg-pg-bg"
           >
-            <span className="truncate text-[13px] leading-[normal] font-medium text-pg-text-strong">
-              {record.name}
-            </span>
-            <span className="flex min-w-0 items-center gap-[7px]">
-              <ToneAvatar name={record.contact} tone={record.tone} size={22} />
-              <span className="truncate text-[13px] leading-[normal] text-pg-text">
-                {record.contact}
-              </span>
-            </span>
-            <span className="text-[13px] leading-[normal] font-semibold text-pg-text-strong">
-              {record.value}
-            </span>
-            <span className="truncate text-[13px] leading-[normal] text-pg-text">
-              {stages.find((s) => s.id === record.stageId)?.label}
-            </span>
-            <span className="truncate text-[13px] leading-[normal] text-pg-muted">
-              {record.owner}
-            </span>
-            <span className="truncate text-[13px] leading-[normal] text-pg-muted">
-              {record.updated}
-            </span>
+            {columns.map((c) => (
+              <React.Fragment key={c.id}>{renderCell(c.id, record)}</React.Fragment>
+            ))}
           </button>
         ))}
       </div>
+      <TablePager state={pager} />
+    </div>
+  );
+}
+
+/**
+ * CollapsingSearch, controlled — L-F's glyph cluster has to write the same
+ * query the labelled field does, and the shared one keeps its value to itself.
+ */
+function ControlledCollapsingSearch({
+  value,
+  onChange,
+  placeholder,
+  label,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  label: string;
+}) {
+  const [open, setOpen] = React.useState(value !== "");
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
+
+  React.useEffect(() => {
+    if (open) inputRef.current?.focus();
+  }, [open]);
+
+  if (!open) {
+    return <GlyphButton icon={Search} label={label} onClick={() => setOpen(true)} />;
+  }
+
+  return (
+    <div className="flex h-[34px] w-[220px] shrink-0 items-center gap-[9px] rounded-[8px] bg-pg-surface px-[12px] shadow-[inset_0_0_0_1px_var(--brand),0_0_0_3px_var(--brand-soft)]">
+      <Search size={15} aria-hidden="true" className="shrink-0 text-pg-faint" />
+      <input
+        ref={inputRef}
+        type="search"
+        value={value}
+        placeholder={placeholder}
+        aria-label={label}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={() => {
+          if (value === "") setOpen(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key !== "Escape") return;
+          onChange("");
+          setOpen(false);
+        }}
+        className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
+      />
     </div>
   );
 }
@@ -376,6 +469,36 @@ export function OpportunitiesPage() {
   const [openId, setOpenId] = React.useState<string | null>(null);
 
   /*
+   * Everything the board's menus open. One slot, because they never stack:
+   * each is a full stop that the user leaves before picking the next.
+   */
+  const [overlay, setOverlay] = React.useState<
+    | "bulk"
+    | "delete"
+    | "customize"
+    | "export"
+    | "insights"
+    | "restore"
+    | "import"
+    | "create"
+    | null
+  >(null);
+  const [cardConfig, setCardConfig] = React.useState<CardConfig>(DEFAULT_CARD_CONFIG);
+  const [lists, setLists] = React.useState(opportunityViews);
+  const [listAnchor, setListAnchor] = React.useState<HTMLElement | null>(null);
+  const [sort, setSort] = React.useState<OpportunitySort | null>(DEFAULT_OPP_SORT);
+  const [sortOpen, setSortOpen] = React.useState(false);
+  const [filters, setFilters] = React.useState<FilterGroup[]>([]);
+  const [filtersOpen, setFiltersOpen] = React.useState(false);
+  const filterCount = filters.length;
+  const [createKind, setCreateKind] = React.useState<"board" | "list" | null>(null);
+  // Name, contact, or business — the three things people type to find a deal.
+  const [query, setQuery] = React.useState("");
+  // Table columns switched off from the shared toolbar's column picker.
+  const [hiddenCols, setHiddenCols] = React.useState<Set<string>>(() => new Set());
+  const { shared } = useListToolbar();
+
+  /*
    * The list axis and its two band switches, read off `useListShape` — the
    * same hook Contacts, Funnels, Workflows and Appointments read.
    *
@@ -391,12 +514,18 @@ export function OpportunitiesPage() {
    * under the header draws.
    */
   const shape = useListShape();
-  const { mergedRow, scopeInTrail, oneRow, showViews, showFilters } = shape;
+  const { mergedRow, oneRow, showViews, showFilters } = shape;
+  /*
+   * The shared toolbar owns views and filters, so the list-header variant's
+   * choice to move the scope into the trail does not apply under it: the
+   * page header (picker, count, actions) stays where the page draws it.
+   */
+  const scopeInTrail = shape.scopeInTrail && !shared;
   const chrome = usePageChrome();
 
   const active = pipelines.find((p) => p.id === pipeline) ?? pipelines[0];
   const activeView =
-    opportunityViews.find((v) => v.id === view) ?? opportunityViews[0];
+    lists.find((v) => v.id === view) ?? lists[0]!;
 
   /*
    * The rows on screen: the pipeline's scope, then the saved view's cut.
@@ -415,12 +544,43 @@ export function OpportunitiesPage() {
    * questions and the Sep 23 merge was only ever about the first one.
    */
   const visible = React.useMemo(
-    () => (renderer === "table" && showViews ? cutByView(rows, view) : rows),
-    [rows, renderer, showViews, view],
+    () =>
+      // Sorted before the board groups by stage, so the order holds inside
+      // each column as well as down the table.
+      sortOpportunities(
+        applyOpportunityFilters(
+          renderer === "table" && (showViews || shared) ? cutByView(rows, view) : rows,
+          filters,
+        ).filter((o) => {
+          const q = query.trim().toLowerCase();
+          if (!q) return true;
+          return [o.name, o.contact, o.business ?? ""].some((t) =>
+            t.toLowerCase().includes(q),
+          );
+        }),
+        sort,
+      ),
+    [rows, renderer, showViews, shared, view, sort, filters, query],
+  );
+
+  const selection = useOpportunitySelection(visible, overlay === null);
+  // Delete from the edit modal acts on that one record, not the selection.
+  const [deleteOne, setDeleteOne] = React.useState<string | null>(null);
+  const picked = deleteOne
+    ? visible.filter((o) => o.id === deleteOne)
+    : visible.filter((o) => selection.selected.has(o.id));
+
+  // "+ List" is drawn by the view bar, so the popover pins itself to
+  // whichever button was just pressed.
+  const openNewList = React.useCallback(
+    () =>
+      setListAnchor(
+        document.activeElement instanceof HTMLElement ? document.activeElement : null,
+      ),
+    [],
   );
 
   const open = visible.find((o) => o.id === openId) ?? null;
-  const index = open ? visible.findIndex((o) => o.id === open.id) : -1;
 
   /*
    * The page's actions, declared once for every combination.
@@ -433,11 +593,29 @@ export function OpportunitiesPage() {
    * so moving the pipeline into the trail must not take its settings screen
    * out of reach.
    */
-  const primary: PageAction = { label: "Add opportunity", icon: Plus };
-  const secondary: PageAction[] = [{ label: "Import", icon: Download }];
+  const primary: PageAction = {
+    label: "Add opportunity",
+    icon: Plus,
+    onClick: () => setOverlay("create"),
+  };
+  const secondary: PageAction[] = [
+    { label: "Import", icon: Download, onClick: () => setOverlay("import") },
+  ];
   const overflow: PageAction[] = [
-    { label: "Pipeline settings", icon: SlidersHorizontal },
-    { label: "Export", icon: FileDown },
+    { label: "Export", icon: FileDown, onClick: () => setOverlay("export") },
+    { label: "Restore opportunities", icon: RotateCcw, onClick: () => setOverlay("restore") },
+    {
+      label: "Manage smart lists",
+      icon: ListIcon,
+      onClick: () => showToast("Smart lists open in Contacts"),
+    },
+    { label: "Dashboard insights", icon: LayoutDashboard, onClick: () => setOverlay("insights") },
+    { label: "Customize card", icon: SlidersHorizontal, onClick: () => setOverlay("customize") },
+    {
+      label: "Pipeline settings",
+      icon: Settings,
+      onClick: () => showToast("Pipeline settings open in Settings"),
+    },
   ];
 
   /*
@@ -483,7 +661,7 @@ export function OpportunitiesPage() {
                 {
                   label: activeView.label,
                   icon: activeView.icon,
-                  options: opportunityViews.map((v) => ({
+                  options: lists.map((v) => ({
                     id: v.id,
                     label: v.label,
                     icon: v.icon,
@@ -527,7 +705,7 @@ export function OpportunitiesPage() {
       onSelect={setPipeline}
       label="Pipelines"
       showCount={false}
-      onCreate={() => undefined}
+      onCreate={openNewList}
       createLabel="Create pipeline"
     />
   );
@@ -576,28 +754,60 @@ export function OpportunitiesPage() {
       </CountPill>
     ) : null;
 
-  const filtersButton = (
-    <OutlineButton>
+  /*
+   * Picking a card swaps what cuts the list for what acts on the picks:
+   * the selection bar takes Advanced filters' place and Sort steps aside,
+   * which is the shipped board's behaviour and the only row with room.
+   */
+  const filtersButton = selection.selected.size ? (
+    <SelectionBar
+      count={selection.selected.size}
+      onEdit={() => setOverlay("bulk")}
+      onDelete={() => setOverlay("delete")}
+      onClear={selection.clear}
+    />
+  ) : (
+    <OutlineButton onClick={() => setFiltersOpen(true)}>
       <ListFilter size={15} aria-hidden="true" className="text-pg-text-strong" />
       Advanced filters
-      <span className="flex size-[17px] shrink-0 items-center justify-center rounded-full bg-brand text-[11px] leading-[normal] font-semibold tabular-nums text-brand-fg">
-        1
-      </span>
+      {filterCount ? (
+        <span className="flex size-[17px] shrink-0 items-center justify-center rounded-full bg-brand text-[11px] leading-[normal] font-semibold tabular-nums text-brand-fg">
+          {filterCount}
+        </span>
+      ) : null}
     </OutlineButton>
   );
 
-  const sortButton = (
-    <OutlineButton>
-      <ArrowUpDown size={15} aria-hidden="true" className="text-pg-text-strong" />
-      Sort
-      <span className="flex size-[17px] shrink-0 items-center justify-center rounded-full bg-brand text-[11px] leading-[normal] font-semibold tabular-nums text-brand-fg">
-        1
-      </span>
-    </OutlineButton>
+  const sortPopover = sortOpen ? (
+    <OpportunitySortPopover
+      sort={sort}
+      onChange={setSort}
+      onClose={() => setSortOpen(false)}
+    />
+  ) : null;
+
+  const sortButton = selection.selected.size ? null : (
+    <div className="relative shrink-0">
+      <OutlineButton
+        aria-haspopup="dialog"
+        aria-expanded={sortOpen}
+        onClick={() => setSortOpen((v) => !v)}
+      >
+        <ArrowUpDown size={15} aria-hidden="true" className="text-pg-text-strong" />
+        Sort
+        {sort ? (
+          <span className="flex size-[17px] shrink-0 items-center justify-center rounded-full bg-brand text-[11px] leading-[normal] font-semibold tabular-nums text-brand-fg">
+            1
+          </span>
+        ) : null}
+      </OutlineButton>
+      {sortPopover}
+    </div>
   );
+
 
   const manageFieldsButton = (
-    <OutlineButton>
+    <OutlineButton onClick={() => setOverlay("customize")}>
       <Settings size={15} aria-hidden="true" className="text-pg-text-strong" />
       Manage fields
     </OutlineButton>
@@ -626,6 +836,8 @@ export function OpportunitiesPage() {
       <Search size={16} aria-hidden="true" className="shrink-0 text-pg-faint" />
       <input
         type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
         placeholder="Search opportunities"
         aria-label="Search opportunities"
         className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
@@ -654,10 +866,25 @@ export function OpportunitiesPage() {
    */
   const glyphControls = (
     <span className="flex shrink-0 items-center gap-[8px]">
-      <GlyphButton icon={ListFilter} label="Advanced filters" count={1} />
-      <GlyphButton icon={ArrowUpDown} label="Sort" count={1} />
+      <GlyphButton
+        icon={ListFilter}
+        label="Advanced filters"
+        count={filterCount}
+        onClick={() => setFiltersOpen(true)}
+      />
+      <span className="relative shrink-0">
+        <GlyphButton
+          icon={ArrowUpDown}
+          label="Sort"
+          count={sort ? 1 : 0}
+          onClick={() => setSortOpen((v) => !v)}
+        />
+        {sortPopover}
+      </span>
       <GlyphButton icon={Settings} label="Manage fields" />
-      <CollapsingSearch
+      <ControlledCollapsingSearch
+        value={query}
+        onChange={setQuery}
         placeholder="Search opportunities"
         label="Search opportunities"
       />
@@ -710,19 +937,20 @@ export function OpportunitiesPage() {
           {pipelinePicker}
           {countPill}
           <span aria-hidden="true" className="min-w-[16px] flex-1" />
-          {mergedRow && showFilters ? glyphControls : null}
+          {mergedRow && showFilters && !shared ? glyphControls : null}
         </>
       ) : showFilters ? (
         controls
       ) : (
         <span aria-hidden="true" className="min-w-[16px] flex-1" />
       )}
-      <RendererToggle value={renderer} onChange={setRenderer} />
-      <OutlineButton>
+      {/* Under the shared toolbar the toggle rides in its band instead. */}
+      {shared ? null : <RendererToggle value={renderer} onChange={setRenderer} />}
+      <OutlineButton onClick={() => setOverlay("import")}>
         <Download size={15} aria-hidden="true" className="text-pg-text-strong" />
         Import
       </OutlineButton>
-      <PrimaryButton>
+      <PrimaryButton onClick={() => setOverlay("create")}>
         <Plus size={16} aria-hidden="true" />
         {primary.label}
       </PrimaryButton>
@@ -755,16 +983,115 @@ export function OpportunitiesPage() {
             {canvasToolbar}
           </div>
           <div className="flex min-h-0 flex-1 flex-col pt-[12px]">
-            <Board rows={visible} onOpen={setOpenId} onMove={move} />
+            <Board rows={visible} config={cardConfig} selection={selection} onOpen={setOpenId} onMove={move} />
           </div>
         </div>
       ) : (
-        <Board rows={visible} onOpen={setOpenId} onMove={move} />
+        <Board rows={visible} config={cardConfig} selection={selection} onOpen={setOpenId} onMove={move} />
       )
     ) : (
-      <Table rows={visible} onOpen={setOpenId} toolbar={canvasToolbar} />
+      <Table
+        rows={visible}
+        onOpen={setOpenId}
+        toolbar={canvasToolbar}
+        hidden={shared ? hiddenCols : undefined}
+      />
     );
 
+  /*
+   * The same controls, described for the shared toolbar. Selecting cards
+   * takes Advanced filters and Sort out of it, as it does on the page's own
+   * row — the selection bar above the band is what acts on the picks.
+   */
+  const selecting = selection.selected.size > 0;
+  const model = React.useMemo<ListToolbarModel>(
+    () => ({
+      views: {
+        items: lists.map((v) => ({ id: v.id, label: v.label, count: v.count, icon: v.icon })),
+        activeId: view,
+        onSelect: setView,
+        onCreate: openNewList,
+        noun: "list",
+      },
+      search: { value: query, onChange: setQuery, placeholder: "Search opportunities" },
+      advanced: selecting
+        ? undefined
+        : {
+            count: countConditions(filters),
+            onOpen: () => setFiltersOpen(true),
+            onClear: () => setFilters([]),
+            chips: completeOppGroups(filters).flatMap((g) =>
+              g.conditions.map((c) => ({
+                id: c.id,
+                label: describeOppCondition(c),
+                onRemove: () =>
+                  setFilters((fs) =>
+                    fs
+                      .map((fg) => ({
+                        ...fg,
+                        conditions: fg.conditions.filter((fc) => fc.id !== c.id),
+                      }))
+                      .filter((fg) => fg.conditions.length > 0),
+                  ),
+              })),
+            ),
+          },
+      sort: selecting
+        ? undefined
+        : {
+            fields: OPP_SORT_FIELDS,
+            value: sort,
+            onChange: (next) => setSort(next as OpportunitySort | null),
+          },
+      // The board's columns are its stages, so only the table can hide any.
+      columns:
+        renderer === "table"
+          ? {
+              items: TABLE_COLUMNS.map((c) => ({
+                id: c.id,
+                label: c.label,
+                visible: c.locked || !hiddenCols.has(c.id),
+                locked: c.locked,
+              })),
+              onChange: (items) =>
+                setHiddenCols(new Set(items.filter((i) => !i.visible && !i.locked).map((i) => i.id))),
+            }
+          : undefined,
+      resultCount: {
+        value: visible.length,
+        noun: visible.length === 1 ? "opportunity" : "opportunities",
+      },
+      trailing: <RendererToggle value={renderer} onChange={setRenderer} />,
+    }),
+    [lists, view, openNewList, query, selecting, filters, sort, renderer, hiddenCols, visible.length],
+  );
+
+
+  /*
+   * Restoring happens in Settings ▸ Audit logs, cut to deleted
+   * opportunities. It takes the page's place rather than opening over it,
+   * because it is a page — with its own filters, table and drawer — and
+   * "Back to opportunities" is how you leave it.
+   */
+  // Import swaps the page for the wizard, as it does on Contacts.
+  if (overlay === "import") {
+    return (
+      <OpportunityImportFlow
+        onClose={() => setOverlay(null)}
+        onImported={(imported) => setRows((cur) => [...imported, ...cur])}
+      />
+    );
+  }
+
+  if (overlay === "restore") {
+    return (
+      <AuditLogsPage
+        initialModule="Opportunity"
+        initialAction="Deleted"
+        onBack={() => setOverlay(null)}
+      />
+    );
+  }
   return (
     <div
       data-page-theme={effective.appTheme}
@@ -824,7 +1151,7 @@ export function OpportunitiesPage() {
            * them every combination has one, which is the rule Sep 23 broke
            * once already — see the toolbar's note.
            */
-          aside={<RendererToggle value={renderer} onChange={setRenderer} />}
+          aside={shared ? undefined : <RendererToggle value={renderer} onChange={setRenderer} />}
           /*
            * The lead is assembled from whichever pieces the variant and
            * the two band switches leave standing.
@@ -842,14 +1169,14 @@ export function OpportunitiesPage() {
             <>
               {heading}
               {pipelinePicker}
-              {mergedRow && showViews ? (
+              {mergedRow && showViews && !shared ? (
                 <ScopePicker
-                  views={opportunityViews}
+                  views={lists}
                   activeId={view}
                   onSelect={setView}
                   label="Opportunity lists"
                   showCount={effective.pageHeader && effective.pageCount}
-                  onCreate={() => undefined}
+                  onCreate={openNewList}
                   createLabel="Create list"
                 />
               ) : null}
@@ -859,7 +1186,7 @@ export function OpportunitiesPage() {
                 and "7 opportunities", 150px apart, on the one row in the
                 axis that has no width to spare.
               */}
-              {mergedRow ? null : countPill}
+              {mergedRow && !shared ? null : countPill}
               {/*
                 Glyphs on L-B, labels everywhere else — and this is a
                 finding, not a styling choice.
@@ -880,7 +1207,7 @@ export function OpportunitiesPage() {
                 generalises — and it is worth more on screen than a row
                 that technically fits by shrinking type nobody can read.
               */}
-              {mergedRow && showFilters ? (
+              {mergedRow && showFilters && !shared ? (
                 <>
                   {/* The slack, so the cluster ends where the actions begin. */}
                   <span aria-hidden="true" className="min-w-[16px] flex-1" />
@@ -912,13 +1239,13 @@ export function OpportunitiesPage() {
         than 38 because the controls it inherits are 34px and a 2px
         indicator needs somewhere to sit under them.
       */}
-      {shape.scopeInTabs ? (
+      {shape.scopeInTabs && !shared ? (
         <ViewBar
           label="Opportunity lists"
-          views={opportunityViews}
+          views={lists}
           activeId={view}
           onSelect={setView}
-          onCreate={() => undefined}
+          onCreate={openNewList}
           createLabel="List"
           className={oneRow ? "h-[46px]" : undefined}
           trailing={oneRow ? glyphControls : undefined}
@@ -938,7 +1265,7 @@ export function OpportunitiesPage() {
         no views, off under L-F where the glyphs took it, off under L-B and
         L-E which took the controls somewhere else entirely.
       */}
-      {!mergedRow && !scopeInTrail && shape.filterRow ? (
+      {!shared && !mergedRow && !scopeInTrail && shape.filterRow ? (
         <div className="flex shrink-0 items-center gap-[10px]">
           {filtersButton}
           {sortButton}
@@ -948,17 +1275,132 @@ export function OpportunitiesPage() {
         </div>
       ) : null}
 
-      {surface}
+      {shared ? (
+        <>
+          {selecting ? (
+            <div className="flex shrink-0 items-center">
+              <SelectionBar
+                count={selection.selected.size}
+                onEdit={() => setOverlay("bulk")}
+                onDelete={() => setOverlay("delete")}
+                onClear={selection.clear}
+              />
+            </div>
+          ) : null}
+          <ListToolbar model={model}>{surface}</ListToolbar>
+        </>
+      ) : (
+        surface
+      )}
+
+      {overlay === "create" ? (
+        <OpportunityEditModal
+          mode="create"
+          defaultPipelineId={pipeline}
+          onClose={() => setOverlay(null)}
+          onSave={(o) => setRows((rs) => [o, ...rs])}
+        />
+      ) : null}
+      {filtersOpen ? (
+        <OpportunityFiltersDrawer
+          value={filters}
+          rows={rows}
+          onApply={setFilters}
+          onClose={() => setFiltersOpen(false)}
+        />
+      ) : null}
+      {overlay === "bulk" ? (
+        <BulkEditDrawer
+          count={picked.length}
+          onClose={() => setOverlay(null)}
+          onSave={(patch) => {
+            const { pipelineId: _pipeline, ...fields } = patch;
+            void _pipeline;
+            setRows((rs) =>
+              rs.map((o) => (selection.selected.has(o.id) ? { ...o, ...fields } : o)),
+            );
+            showToast(`${countOpportunities(picked.length)} updated`);
+            selection.clear();
+            setOverlay(null);
+          }}
+        />
+      ) : null}
+      {overlay === "delete" ? (
+        <DeleteOpportunitiesModal
+          rows={picked}
+          onClose={() => {
+            setDeleteOne(null);
+            setOverlay(null);
+          }}
+          onConfirm={() => {
+            const gone = new Set(picked.map((o) => o.id));
+            setRows((rs) => rs.filter((o) => !gone.has(o.id)));
+            if (!deleteOne) selection.clear();
+            setDeleteOne(null);
+            setOverlay(null);
+          }}
+        />
+      ) : null}
+      {overlay === "customize" ? (
+        <CustomizeCardDrawer
+          value={cardConfig}
+          onClose={() => setOverlay(null)}
+          onApply={setCardConfig}
+        />
+      ) : null}
+      {overlay === "export" ? (
+        <ExportProgressModal
+          total={visible.length}
+          rows={visible}
+          onClose={() => setOverlay(null)}
+        />
+      ) : null}
+      {overlay === "insights" ? (
+        <DashboardInsightsModal onClose={() => setOverlay(null)} />
+      ) : null}
+      {listAnchor ? (
+        <NewListPopover
+          anchor={listAnchor}
+          onClose={() => setListAnchor(null)}
+          onPick={(k) => {
+            setListAnchor(null);
+            setCreateKind(k);
+          }}
+        />
+      ) : null}
+      {createKind ? (
+        <CreateListModal
+          kind={createKind}
+          onClose={() => setCreateKind(null)}
+          onCreate={(l) => {
+            setLists((ls) => [
+              ...ls,
+              { id: l.id, label: l.label, count: "0", icon: l.kind === "board" ? Kanban : ListIcon },
+            ]);
+            setView(l.id);
+            if (l.kind !== renderer) setRenderer(l.kind === "board" ? "board" : "table");
+          }}
+        />
+      ) : null}
 
       {/* Full canvas height, the same frame every drawer in the app gets. */}
+      {/*
+        A card opens the full edit modal, as the shipped board does — its
+        sections are the same record panels the contact rail carries.
+      */}
       {open ? (
-        <OpportunityModal
+        <OpportunityEditModal
+          key={open.id}
           record={open}
           onClose={() => setOpenId(null)}
-          {...(index > 0 ? { onPrev: () => setOpenId(visible[index - 1].id) } : {})}
-          {...(index < visible.length - 1
-            ? { onNext: () => setOpenId(visible[index + 1].id) }
-            : {})}
+          onSave={(next) =>
+            setRows((rs) => rs.map((o) => (o.id === next.id ? next : o)))
+          }
+          onDelete={() => {
+            setDeleteOne(open.id);
+            setOpenId(null);
+            setOverlay("delete");
+          }}
         />
       ) : null}
     </div>

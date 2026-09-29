@@ -443,13 +443,23 @@ export function GlyphButton({
 export function CollapsingSearch({
   placeholder,
   label,
+  value: controlled,
+  onChange,
 }: {
   placeholder: string;
   /** e.g. "Search contacts" — the accessible name in both states. */
   label: string;
+  /** Optional: the page's own query, so the field filters real rows. */
+  value?: string;
+  onChange?: (value: string) => void;
 }) {
-  const [open, setOpen] = React.useState(false);
-  const [value, setValue] = React.useState("");
+  const [local, setLocal] = React.useState("");
+  const value = controlled ?? local;
+  const setValue = (next: string) => {
+    if (controlled === undefined) setLocal(next);
+    onChange?.(next);
+  };
+  const [open, setOpen] = React.useState(() => value !== "");
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
   React.useEffect(() => {

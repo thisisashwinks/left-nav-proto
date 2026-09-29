@@ -110,6 +110,23 @@ export function FunnelDetail({
   const step = funnelSteps.find((s) => s.id === stepId) ?? funnelSteps[0]!;
   const [tab, setTab] = React.useState<TabId>("steps");
 
+  /*
+   * No siblings on THIS crumb, and that is not an omission.
+   *
+   * Every other record-shaped page grew them on Sep 28 so the last crumb
+   * could carry a menu (see `RecordCrumb.options`). This one already had the
+   * move, one level up: the Funnels crumb below publishes the sibling
+   * funnels, which is the Sep 23 arrangement and the reason `onOpenFunnel`
+   * exists. Adding them here too would put the same list on two adjacent
+   * segments of one trail — "Funnels ▾" and "Northside webinar ▾" opening
+   * the same nine names — which is the duplication the whole crumb model is
+   * built to avoid.
+   *
+   * The asymmetry is real and it is the data's, not ours: a contact's
+   * siblings are contacts and its parent lists SMART LISTS, so the two menus
+   * hold different things. A funnel's parent lists funnels. Where the parent
+   * already offers the set, the leaf has nothing left to offer.
+   */
   useRecordCrumb({ name: funnel.name, kind: "Funnel details" }, onBack);
 
   /*

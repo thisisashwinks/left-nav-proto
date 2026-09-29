@@ -19,8 +19,14 @@ import {
   GlyphButton,
   useListShape,
 } from "@/components/page/list-shape";
+import {
+  ListToolbar,
+  useListToolbar,
+  type ListToolbarModel,
+} from "@/components/page/list-toolbar";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
+import { TableCard, usePagination } from "@/components/page/table-card";
 import { voiceAgentRows, type VoiceAgentRow } from "./voice-ai-data";
 import { VoiceAgentBuilder } from "./voice-agent-builder";
 
@@ -70,6 +76,19 @@ const TABS = [
  */
 const COLS = "34px 2.4fr 1.4fr 0.8fr 1fr 36px";
 
+/*
+ * The data columns between the checkbox and the kebab, for the column picker.
+ * With nothing hidden they rebuild COLS exactly.
+ */
+const AGENT_COLUMNS = [
+  { id: "name", label: "Name", width: "2.4fr", locked: true },
+  { id: "numbers", label: "Numbers", width: "1.4fr" },
+  { id: "widgets", label: "Widgets", width: "0.8fr" },
+  { id: "updated", label: "Last Updated", width: "1fr" },
+] as const;
+
+type AgentColumn = (typeof AGENT_COLUMNS)[number]["id"];
+
 export function VoiceAiPage() {
   const { effective } = useTheme();
   const chrome = usePageChrome();
@@ -112,7 +131,126 @@ export function VoiceAiPage() {
     () => voiceAgentRows.filter((r) => r.count === null),
     [],
   );
+  const { shared } = useListToolbar();
+  const [query, setQuery] = React.useState("");
+  const [kinds, setKinds] = React.useState<string[]>([]);
+  const [numbers, setNumbers] = React.useState<string[]>([]);
+  const [sort, setSort] = React.useState<
+    { field: string; dir: "asc" | "desc" } | null
+  >(null);
+  const [hidden, setHidden] = React.useState<ReadonlySet<AgentColumn>>(
+    () => new Set(),
+  );
+
+  const rows = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const hits = voiceAgentRows.filter(
+      (r) =>
+        (!q ||
+          r.name.toLowerCase().includes(q) ||
+          (r.number ?? "").toLowerCase().includes(q)) &&
+        (kinds.length === 0 ||
+          kinds.includes(r.count === null ? "agent" : "folder")) &&
+        (numbers.length === 0 ||
+          numbers.includes(r.number ? "with" : "without")),
+    );
+    if (!sort) return hits;
+    const sorted = [...hits];
+    // The fixture is already last-updated descending, so its order is the key.
+    if (sort.field === "name") sorted.sort((a, b) => a.name.localeCompare(b.name));
+    const natural = sort.field === "name" ? "asc" : "desc";
+    return sort.dir === natural ? sorted : sorted.reverse();
+  }, [query, kinds, numbers, sort]);
+
+  const visibleColumns = AGENT_COLUMNS.filter((c) => !hidden.has(c.id));
+  const cols = `34px ${visibleColumns.map((c) => c.width).join(" ")} 36px`;
+
+  const toolbarModel = React.useMemo<ListToolbarModel>(() => {
+    const views: ListToolbarModel["views"] = {
+      items: TABS,
+      activeId: tab,
+      onSelect: setTab,
+      noun: "view",
+    };
+    // The upgrade offer's fallback home when slot 05 is off — see below.
+    const trailing = chrome.header ? undefined : <UpgradeButton />;
+    // Dashboard & Logs has no list under it, so it gets the views and nothing to filter.
+    if (tab !== "agents") return { views, trailing };
+    return {
+      views,
+      search: {
+        value: query,
+        onChange: setQuery,
+        placeholder: "Search name or channel",
+      },
+      quickFilters: [
+        {
+          id: "kind",
+          label: "Type",
+          options: [
+            { value: "agent", label: "Agents" },
+            { value: "folder", label: "Folders" },
+          ],
+          value: kinds,
+          multiple: true,
+          onChange: setKinds,
+        },
+        {
+          id: "number",
+          label: "Phone number",
+          options: [
+            { value: "with", label: "Has a number" },
+            { value: "without", label: "No number" },
+          ],
+          value: numbers,
+          onChange: setNumbers,
+        },
+      ],
+      sort: {
+        fields: [
+          { value: "updated", label: "Last updated" },
+          { value: "name", label: "Name" },
+        ],
+        value: sort,
+        onChange: setSort,
+      },
+      columns: {
+        items: AGENT_COLUMNS.map((c) => ({
+          id: c.id,
+          label: c.label,
+          visible: !hidden.has(c.id),
+          locked: "locked" in c ? c.locked : undefined,
+        })),
+        onChange: (items) =>
+          setHidden(
+            new Set(
+              items
+                .filter((i) => !i.visible && !i.locked)
+                .map((i) => i.id as AgentColumn),
+            ),
+          ),
+      },
+      resultCount: { value: rows.length, noun: "agents" },
+      trailing,
+    };
+  }, [tab, chrome.header, query, kinds, numbers, sort, hidden, rows.length]);
+
+  const wrap = (content: React.ReactNode) =>
+    shared ? (
+      <ListToolbar model={toolbarModel}>
+        <div className="flex min-h-0 flex-1 flex-col gap-[14px]">{content}</div>
+      </ListToolbar>
+    ) : (
+      content
+    );
   const allOn = selected.size === voiceAgentRows.length;
+  /*
+   * The page this table is standing on — see page/table-card.tsx.
+   *
+   * Over the FILTERED rows, so the pager counts what search and the toolbar's
+   * filters leave rather than the collection behind them.
+   */
+  const pager = usePagination(rows);
 
   if (openAgent) {
     return (
@@ -139,7 +277,7 @@ export function VoiceAiPage() {
         primary={{ label: "Create Agent", icon: Plus }}
       />
 
-      {showViews ? (
+      {!shared && showViews ? (
       <ViewBar
         label="Voice AI views"
         views={TABS}
@@ -167,7 +305,7 @@ export function VoiceAiPage() {
       />
       ) : null}
 
-      {tab === "agents" ? (
+      {wrap(tab === "agents" ? (
         <>
           {/*
             L-F took this row's two controls up onto the tab strip, so the row
@@ -182,7 +320,7 @@ export function VoiceAiPage() {
             can price, and switching a header variant must not be the thing
             that hides it.
           */}
-          {oneRow || (!showFilters && chrome.header) ? null : (
+          {shared || oneRow || (!showFilters && chrome.header) ? null : (
           <div className="flex shrink-0 items-center gap-[10px]">
             {showFilters ? (
             <>
@@ -217,6 +355,8 @@ export function VoiceAiPage() {
               />
               <input
                 type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search name or channel"
                 aria-label="Search name or channel"
                 className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
@@ -245,9 +385,9 @@ export function VoiceAiPage() {
           </div>
           )}
 
-          <div className="min-h-0 flex-1 overflow-auto rounded-[10px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+          <TableCard pager={pager}>
             <div
-              style={{ gridTemplateColumns: COLS }}
+              style={{ gridTemplateColumns: cols }}
               className="sticky top-0 z-10 grid h-[38px] items-center gap-[12px] border-b border-pg-head-border bg-pg-surface px-[14px]"
             >
               <button
@@ -264,7 +404,7 @@ export function VoiceAiPage() {
               >
                 <Checkbox checked={allOn} />
               </button>
-              {["Name", "Numbers", "Widgets", "Last Updated", ""].map(
+              {[...visibleColumns.map((c) => c.label), ""].map(
                 (h, i) => (
                   <span
                     key={h || `blank-${i}`}
@@ -276,10 +416,12 @@ export function VoiceAiPage() {
               )}
             </div>
 
-            {voiceAgentRows.map((row) => (
+            {pager.pageRows.map((row) => (
               <AgentListRow
                 key={row.id}
                 row={row}
+                cols={cols}
+                hidden={hidden}
                 checked={selected.has(row.id)}
                 onToggle={() =>
                   setSelected((cur) => {
@@ -299,13 +441,17 @@ export function VoiceAiPage() {
                 }
               />
             ))}
-          </div>
+          </TableCard>
 
           <div className="flex h-[30px] shrink-0 items-center">
             <span className="text-[13px] leading-[normal] text-pg-muted">
               {selected.size > 0
                 ? `${selected.size} of ${voiceAgentRows.length} selected`
-                : `Showing ${voiceAgentRows.length} of ${voiceAgentRows.length} items`}
+                /* The count moved into the table's own pager, so this line is
+                   the selection and nothing else now — two statements of the
+                   same total, one of them a control, was the duplication the
+                   pager was added to remove. */
+                : ""}
             </span>
           </div>
         </>
@@ -323,7 +469,7 @@ export function VoiceAiPage() {
             Dashboard &amp; Logs — same page, same header.
           </p>
         </div>
-      )}
+      ))}
     </div>
   );
 }
@@ -372,11 +518,15 @@ function Checkbox({ checked }: { checked: boolean }) {
 
 function AgentListRow({
   row,
+  cols,
+  hidden,
   checked,
   onToggle,
   onOpen,
 }: {
   row: VoiceAgentRow;
+  cols: string;
+  hidden: ReadonlySet<AgentColumn>;
   checked: boolean;
   onToggle: () => void;
   onOpen?: () => void;
@@ -384,7 +534,7 @@ function AgentListRow({
   const isFolder = row.count !== null;
   return (
     <div
-      style={{ gridTemplateColumns: COLS }}
+      style={{ gridTemplateColumns: cols }}
       className={cn(
         "group grid h-[48px] w-full items-center gap-[12px] border-b border-pg-row-border px-[14px] last:border-b-0 hover:bg-pg-bg",
         checked && "bg-pg-row-selected",
@@ -437,6 +587,7 @@ function AgentListRow({
         ) : null}
       </button>
 
+      {hidden.has("numbers") ? null : (
       <span className="flex min-w-0 items-center gap-[7px]">
         {row.number ? (
           <>
@@ -449,12 +600,13 @@ function AgentListRow({
           <Dash />
         )}
       </span>
+      )}
 
       {/*
         Widgets, permanently empty. See COLS — the dash is the honest render of
         a column the live product has and almost nobody fills.
       */}
-      <Dash />
+      {hidden.has("widgets") ? null : <Dash />}
 
       {/*
         Two lines in one cell, date over time.
@@ -464,14 +616,16 @@ function AgentListRow({
         window narrower than about 1500px — which loses precisely the half an
         operator uses to tell this morning's edit from last night's.
       */}
-      <span className="flex min-w-0 flex-col">
-        <span className="truncate text-[12.5px] leading-[16px] text-pg-text">
-          {row.updatedDate}
+      {hidden.has("updated") ? null : (
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate text-[12.5px] leading-[16px] text-pg-text">
+            {row.updatedDate}
+          </span>
+          <span className="truncate text-[11.5px] leading-[15px] text-pg-faint tabular-nums">
+            {row.updatedTime}
+          </span>
         </span>
-        <span className="truncate text-[11.5px] leading-[15px] text-pg-faint tabular-nums">
-          {row.updatedTime}
-        </span>
-      </span>
+      )}
 
       <button
         type="button"

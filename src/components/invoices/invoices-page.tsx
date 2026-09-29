@@ -33,6 +33,12 @@ import { ViewBar } from "@/components/page/view-bar";
 import { ToneAvatar } from "@/components/page/avatar";
 import { SCREEN_NAMES } from "@/components/nav/screen-names";
 import { cn } from "@/lib/utils";
+import { TableCard, usePagination } from "@/components/page/table-card";
+import {
+  ListToolbar,
+  useListToolbar,
+  type ListToolbarModel,
+} from "@/components/page/list-toolbar";
 import { InvoiceBuilder } from "./invoice-builder";
 import { InvoiceLayoutsPage } from "./invoice-layouts-page";
 import {
@@ -56,6 +62,44 @@ import {
  * this row is a name or a date and reads from the left.
  */
 const COLS = "2.1fr 1.1fr 1.5fr 1fr 0.9fr 0.9fr 40px";
+
+/*
+ * The same six data columns as COLS, as data, so the list toolbar can hide
+ * all but the name. With nothing hidden the template this builds is COLS.
+ */
+type InvoiceColumnId = "name" | "number" | "customer" | "issued" | "amount" | "status";
+const INVOICE_COLUMNS: { id: InvoiceColumnId; label: string; width: string; locked?: boolean }[] = [
+  { id: "name", label: "Invoice name", width: "2.1fr", locked: true },
+  { id: "number", label: "Invoice number", width: "1.1fr" },
+  { id: "customer", label: "Customer", width: "1.5fr" },
+  { id: "issued", label: "Issue date", width: "1fr" },
+  { id: "amount", label: "Amount", width: "0.9fr" },
+  { id: "status", label: "Status", width: "0.9fr" },
+];
+
+function colsFor(hidden: ReadonlySet<string>) {
+  if (hidden.size === 0) return COLS;
+  return [
+    ...INVOICE_COLUMNS.filter((c) => !hidden.has(c.id)).map((c) => c.width),
+    "40px",
+  ].join(" ");
+}
+
+const KIND_OPTIONS = (Object.keys(KIND_LABEL) as (keyof typeof KIND_LABEL)[]).map((k) => ({
+  value: k,
+  label: KIND_LABEL[k],
+}));
+
+const SORT_FIELDS = [
+  { value: "name", label: "Invoice name" },
+  { value: "issued", label: "Issue date" },
+  { value: "amount", label: "Amount" },
+  { value: "customer", label: "Customer" },
+];
+
+function amountValue(amount: string) {
+  return Number(amount.replace(/[^0-9.-]/g, "")) || 0;
+}
 
 /**
  * The money state, as an outlined pill.
@@ -180,14 +224,51 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
     initialView && initialView !== "layouts" ? initialView : "all",
   );
   const [openId, setOpenId] = React.useState<string | null>(null);
+  const [query, setQuery] = React.useState("");
+  const [kinds, setKinds] = React.useState<string[]>([]);
+  const [sort, setSort] = React.useState<{ field: string; dir: "asc" | "desc" } | null>(null);
+  const [hidden, setHidden] = React.useState<ReadonlySet<string>>(() => new Set());
+  const toolbar = useListToolbar();
 
-  const rows = React.useMemo(
-    () =>
-      view === "all"
-        ? seedInvoices
-        : seedInvoices.filter((i) => i.status === view),
-    [view],
-  );
+  const rows = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = seedInvoices.filter(
+      (i) =>
+        (view === "all" || i.status === view) &&
+        (kinds.length === 0 || kinds.includes(i.kind)) &&
+        (q === "" ||
+          i.name.toLowerCase().includes(q) ||
+          i.number.toLowerCase().includes(q) ||
+          i.customer.toLowerCase().includes(q)),
+    );
+    if (!sort) return filtered;
+    const key = (i: Invoice): string | number =>
+      sort.field === "issued"
+        ? Date.parse(i.issued) || 0
+        : sort.field === "amount"
+          ? amountValue(i.amount)
+          : sort.field === "customer"
+            ? i.customer.toLowerCase()
+            : i.name.toLowerCase();
+    const dir = sort.dir === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const ka = key(a);
+      const kb = key(b);
+      return (ka < kb ? -1 : ka > kb ? 1 : 0) * dir;
+    });
+  }, [view, query, kinds, sort]);
+
+  const cols = colsFor(hidden);
+
+  /*
+   * The page this table is standing on — see page/table-card.tsx.
+   *
+   * Over the FILTERED rows, so the pager counts what the view shows rather
+   * than the collection behind it: switch the cut and the page count has to
+   * follow, or the control is describing a different list from the one under
+   * it.
+   */
+  const pager = usePagination(rows);
 
   const open = seedInvoices.find((i) => i.id === openId) ?? null;
 
@@ -204,7 +285,7 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
    * Null on the layouts place, which has no cuts to offer.
    */
   usePageCrumb(
-    !layoutsPlace && shape.scopeInTrail && shape.showViews
+    !layoutsPlace && !toolbar.shared && shape.scopeInTrail && shape.showViews
       ? {
           label: activeView.label,
           options: invoiceViews.map((v) => ({
@@ -224,6 +305,8 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
         <Search size={16} aria-hidden="true" className="shrink-0 text-pg-faint" />
         <input
           type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
           placeholder="Search invoices"
           aria-label="Search invoices"
           className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
@@ -257,6 +340,41 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
     </>
   );
 
+  const toolbarModel = React.useMemo<ListToolbarModel>(
+    () => ({
+      views: {
+        items: invoiceViews.map((v) => ({ id: v.id, label: v.label, count: v.count })),
+        activeId: view,
+        onSelect: setView,
+        noun: "view",
+      },
+      search: { value: query, onChange: setQuery, placeholder: "Search invoices" },
+      quickFilters: [
+        {
+          id: "kind",
+          label: "Type",
+          options: KIND_OPTIONS,
+          value: kinds,
+          multiple: true,
+          onChange: setKinds,
+        },
+      ],
+      sort: { fields: SORT_FIELDS, value: sort, onChange: setSort },
+      columns: {
+        items: INVOICE_COLUMNS.map((c) => ({
+          id: c.id,
+          label: c.label,
+          visible: !hidden.has(c.id),
+          locked: c.locked,
+        })),
+        onChange: (items) =>
+          setHidden(new Set(items.filter((c) => !c.visible && !c.locked).map((c) => c.id))),
+      },
+      resultCount: { value: rows.length, noun: rows.length === 1 ? "invoice" : "invoices" },
+    }),
+    [view, query, kinds, sort, hidden, rows.length],
+  );
+
   const overflowActions = [
     { label: "Import invoices", icon: Upload },
     { label: "Export as CSV", icon: Download },
@@ -270,7 +388,16 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
   if (open) {
     return (
       <div data-page-theme={effective.appTheme} className="h-full min-h-0">
-        <InvoiceBuilder invoice={open} onBack={() => setOpenId(null)} />
+        <InvoiceBuilder
+          invoice={open}
+          onBack={() => setOpenId(null)}
+        /*
+          The lit cut, not the whole collection — so the crumb's menu offers
+          the records the list is actually showing.
+        */
+          siblings={rows.map((i) => ({ id: i.id, name: i.name }))}
+          onOpenSibling={setOpenId}
+        />
       </div>
     );
   }
@@ -280,13 +407,13 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
       data-page-theme={effective.appTheme}
       className="relative flex h-full min-h-0 flex-col gap-[14px] px-[var(--page-inset)]"
     >
-      {shape.scopeInTrail ? null : (
+      {shape.scopeInTrail && !toolbar.shared ? null : (
         <PageHeader
           title={SCREEN_NAMES.invoices}
-          count={shape.mergedRow ? undefined : activeView.count}
+          count={shape.mergedRow && !toolbar.shared ? undefined : activeView.count}
           description="Create and manage all invoices generated for your business"
           lead={
-            shape.mergedRow && (shape.showViews || shape.showFilters) ? (
+            !toolbar.shared && shape.mergedRow && (shape.showViews || shape.showFilters) ? (
               <>
                 {shape.showViews ? (
                   <ScopePicker
@@ -322,7 +449,7 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
         ))}
       </div>
 
-      {shape.scopeInTabs ? (
+      {!toolbar.shared && shape.scopeInTabs ? (
         <ViewBar
           label="Invoice views"
           views={invoiceViews}
@@ -340,7 +467,7 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
         />
       ) : null}
 
-      {(!shape.mergedRow && shape.filterRow) || shape.scopeInTrail ? (
+      {!toolbar.shared && ((!shape.mergedRow && shape.filterRow) || shape.scopeInTrail) ? (
         <div className="flex shrink-0 items-center gap-[10px]">
           {shape.showFilters ? (
             controls
@@ -363,18 +490,15 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
         </div>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-[10px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+      {(() => {
+        const table = (
+      <TableCard pager={pager}>
         <div
-          style={{ gridTemplateColumns: COLS }}
+          style={{ gridTemplateColumns: cols }}
           className="sticky top-0 z-10 grid h-[38px] items-center gap-[16px] border-b border-pg-head-border bg-pg-surface px-[16px]"
         >
           {[
-            "Invoice name",
-            "Invoice number",
-            "Customer",
-            "Issue date",
-            "Amount",
-            "Status",
+            ...INVOICE_COLUMNS.filter((c) => !hidden.has(c.id)).map((c) => c.label),
             "",
           ].map((h, i) => (
             <span
@@ -389,27 +513,41 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
           ))}
         </div>
 
-        {rows.map((inv) => (
-          <InvoiceRow key={inv.id} invoice={inv} onOpen={() => setOpenId(inv.id)} />
+        {pager.pageRows.map((inv) => (
+          <InvoiceRow
+            key={inv.id}
+            invoice={inv}
+            cols={cols}
+            hidden={hidden}
+            onOpen={() => setOpenId(inv.id)}
+          />
         ))}
 
         {rows.length === 0 ? (
           <div className="flex h-[200px] flex-col items-center justify-center gap-[4px]">
             <p className="text-[13.5px] leading-[normal] font-medium text-pg-text">
-              Nothing in {activeView.label.toLowerCase()}
+              {query.trim() || kinds.length > 0
+                ? "No invoices match"
+                : `Nothing in ${activeView.label.toLowerCase()}`}
             </p>
             <p className="text-[12.5px] leading-[normal] text-pg-faint">
-              Invoices land here as soon as one reaches this state.
+              {query.trim() || kinds.length > 0
+                ? "Try a different search or clear the filters."
+                : "Invoices land here as soon as one reaches this state."}
             </p>
           </div>
         ) : null}
-      </div>
+      </TableCard>
+        );
+        return toolbar.shared ? (
+          <ListToolbar model={toolbarModel}>
+            <div className="flex min-h-0 flex-1 flex-col">{table}</div>
+          </ListToolbar>
+        ) : (
+          table
+        );
+      })()}
 
-      <div className="flex h-[30px] shrink-0 items-center">
-        <span className="text-[13px] leading-[normal] text-pg-muted">
-          Showing {rows.length} of {activeView.count} invoices
-        </span>
-      </div>
     </div>
   );
 }
@@ -425,15 +563,19 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
  */
 function InvoiceRow({
   invoice,
+  cols,
+  hidden,
   onOpen,
 }: {
   invoice: Invoice;
+  cols: string;
+  hidden: ReadonlySet<string>;
   onOpen: () => void;
 }) {
   const Kind = KIND_ICON[invoice.kind];
   return (
     <div
-      style={{ gridTemplateColumns: COLS }}
+      style={{ gridTemplateColumns: cols }}
       className="group grid h-[52px] w-full items-center gap-[16px] border-b border-pg-row-border px-[16px] last:border-b-0 hover:bg-pg-bg"
     >
       <button
@@ -457,21 +599,28 @@ function InvoiceRow({
         </span>
       </button>
 
+      {hidden.has("number") ? null : (
       <span className="truncate text-[13px] leading-[normal] text-pg-text tabular-nums">
         {invoice.number}
       </span>
+      )}
 
+      {hidden.has("customer") ? null : (
       <span className="flex min-w-0 items-center gap-[8px]">
         <ToneAvatar name={invoice.customer} tone={invoice.tone} size={26} round />
         <span className="truncate text-[13px] leading-[normal] text-pg-text">
           {invoice.customer}
         </span>
       </span>
+      )}
 
+      {hidden.has("issued") ? null : (
       <span className="truncate text-[13px] leading-[normal] text-pg-text">
         {invoice.issued}
       </span>
+      )}
 
+      {hidden.has("amount") ? null : (
       <span className="flex items-center justify-end gap-[5px] text-[13px] leading-[normal] text-pg-text tabular-nums">
         {invoice.amount}
         {invoice.amountNote ? (
@@ -482,8 +631,9 @@ function InvoiceRow({
           />
         ) : null}
       </span>
+      )}
 
-      <StatusPill status={invoice.status} />
+      {hidden.has("status") ? null : <StatusPill status={invoice.status} />}
 
       <OverflowMenu
         items={[

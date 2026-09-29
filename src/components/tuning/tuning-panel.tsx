@@ -39,6 +39,14 @@ import {
   CRUMB_SWITCHER_MODES,
   CRUMB_SWITCHER_LABELS,
   CRUMB_LEAF_LABELS,
+  CRUMB_DEPTHS,
+  CRUMB_DEPTH_LABELS,
+  type CrumbDepth,
+  TABLE_CRUMBS,
+  TABLE_CRUMB_LABELS,
+  type TableCrumb,
+  FOLDER_CRUMBS,
+  FOLDER_CRUMB_LABELS,
   CRUMB_SEPARATORS,
   TREE_ICON_LABELS,
   TREE_ICONS,
@@ -82,6 +90,9 @@ import {
   L2_CLICK_ACTION_LABELS,
   PAGE_SHELL_LABELS,
   PAGE_SHELLS,
+  LIST_TOOLBARS,
+  LIST_TOOLBAR_LABELS,
+  type ListToolbarVariant,
   RECENTS_PANEL_LAYOUTS,
   RECENTS_PANEL_LAYOUT_LABELS,
   INBOX_PALETTE_LABELS,
@@ -284,6 +295,10 @@ import { useNavProfiles } from "@/components/nav/nav-profiles";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { cn } from "@/lib/utils";
 import { useTuning } from "./tuning-provider";
+import {
+  LIST_TOOLBAR_READY,
+  PAGE_CANVAS_READY,
+} from "@/components/page/list-toolbar";
 
 const DENSITY_NOTE: Record<Density, string> = {
   flat: "a flat list, no groups",
@@ -2158,6 +2173,14 @@ export function TuningPanel() {
     setCrumbSwitchers,
     crumbLeaf,
     setCrumbLeaf,
+    folderCrumb,
+    setFolderCrumb,
+    tableCrumb,
+    setTableCrumb,
+    crumbDepth,
+    setCrumbDepth,
+    recordKeepsFolder,
+    setRecordKeepsFolder,
     crumbSeparator,
     setCrumbSeparator,
     crumbCompoundChild,
@@ -2267,6 +2290,10 @@ export function TuningPanel() {
     setNewDotPlacement,
     userMultiAccount,
     setUserMultiAccount,
+    listToolbar,
+    setListToolbar,
+    pageCanvas,
+    setPageCanvas,
   } = useTheme();
 
 
@@ -2350,6 +2377,10 @@ export function TuningPanel() {
     setCrumbHome(DEFAULT_THEME.crumbHome);
     setCrumbSwitchers(DEFAULT_THEME.crumbSwitchers);
     setCrumbLeaf(DEFAULT_THEME.crumbLeaf);
+    setFolderCrumb(DEFAULT_THEME.folderCrumb);
+    setTableCrumb(DEFAULT_THEME.tableCrumb);
+    setCrumbDepth(DEFAULT_THEME.crumbDepth);
+    setRecordKeepsFolder(DEFAULT_THEME.recordKeepsFolder);
     setCrumbSeparator(DEFAULT_THEME.crumbSeparator);
     setCrumbCompoundChild(DEFAULT_THEME.crumbCompoundChild);
     setCrumbEmphasis(DEFAULT_THEME.crumbEmphasis);
@@ -2908,6 +2939,23 @@ export function TuningPanel() {
                   </Note>
 
                   <Segmented
+                    label="Trail depth"
+                    keywords="depth trim drop last two tail length folders deep shorten"
+                    options={CRUMB_DEPTHS}
+                    value={crumbDepth}
+                    disabled={!crumbShown}
+                    onChange={(v: CrumbDepth) => setCrumbDepth(v)}
+                    format={(v) => CRUMB_DEPTH_LABELS[v]}
+                  />
+                  <Note>
+                    {crumbDepth === "full"
+                      ? "The whole path. Every level you walked through is named."
+                      : crumbDepth === "last"
+                        ? "The trail stops at the parent and the page names itself — the strictest reading of “do not say it twice”."
+                        : "Two levels off the end. On a foldered list that stops the trail at the collection and leaves the folders to the canvas. Never cuts below two crumbs: one word is a label, not a path."}
+                  </Note>
+
+                  <Segmented
                     label="The last crumb"
                     keywords="leaf last segment caret dots page title dropdown"
                     options={CRUMB_LEAVES}
@@ -2923,9 +2971,59 @@ export function TuningPanel() {
                         ? "The word goes, the switch stays: the page header a few pixels below already says it. Worth watching whether a control with no label is a control anyone finds."
                         : crumbLeaf === "dots"
                           ? "The overflow mark doing a switcher's job. It says \u201cmore here\u201d without claiming to be a place, which is the honest reading of a menu full of siblings — and people already press it."
-                          : crumbLeaf === "none"
-                            ? "The trail stops at the parent and the page names itself. The strictest reading of \u201cdo not say it twice\u201d, and the only one that gives the move up entirely."
-                            : "One name on screen, with the switching on it: the title grows the caret and the leaf leaves the bar. Needs a title to attach to — with the page header off, or a leaf with no siblings, it is the same as no last crumb."}
+                          : "One name on screen, with the switching on it: the title grows the caret and the leaf leaves the bar. Needs a title to attach to — with the page header off, or a leaf with no siblings, it is the same as no last crumb."}
+                  </Note>
+
+                  {/*
+                    Folders, which are the first level BETWEEN a list and a
+                    record. Workflows is the only collection with them today,
+                    so both controls sit under the leaf rather than in a
+                    section of their own — they are about what the tail does
+                    once a trail is four segments long, which is the question
+                    the leaf control is already asking.
+                  */}
+                  <Segmented
+                    label="A folder's crumb"
+                    keywords="folder workflows subfolder scope view trail depth"
+                    options={FOLDER_CRUMBS}
+                    value={folderCrumb}
+                    disabled={!crumbShown}
+                    onChange={setFolderCrumb}
+                    format={(v) => FOLDER_CRUMB_LABELS[v]}
+                  />
+                  <Note>
+                    {folderCrumb === "replace"
+                      ? "Opening a folder IS the scope change, so it takes the view's slot and the cuts go back to a tab strip inside. One scope control at a time, and the trail stays the length it was."
+                      : "Folder then view — Intake ▸ Drafts — each segment switching its own axis. Says more, and is the arrangement that gets long fastest, which is the thing to watch."}
+                  </Note>
+
+                  <Segmented
+                    label="A trail on the table"
+                    keywords="table breadcrumb home folder canvas second trail inline above floating"
+                    options={TABLE_CRUMBS}
+                    value={tableCrumb}
+                    onChange={(v: TableCrumb) => setTableCrumb(v)}
+                    format={(v) => TABLE_CRUMB_LABELS[v]}
+                  />
+                  <Note>
+                    {tableCrumb === "off"
+                      ? "Off. The app bar's trail is the only one, and it carries the folder path already."
+                      : tableCrumb === "inside"
+                        ? "The card's first band, above the column heads — where the real screen puts it. Reads as the table's own header, which is what makes it feel like a file browser."
+                        : "Its own line between the filters and the card. The trail belongs to the page and the card stays a plain table — the arrangement that survives a card with its own toolbar band."}
+                  </Note>
+
+                  <Toggle
+                    label="A record keeps its folder"
+                    keywords="folder record trail breadcrumb workflow builder depth path"
+                    checked={recordKeepsFolder}
+                    disabled={!crumbShown}
+                    onChange={setRecordKeepsFolder}
+                  />
+                  <Note>
+                    {recordKeepsFolder
+                      ? "The trail records the path you took, so every crumb above the record lands you back where you were."
+                      : "Flat to the list. The same workflow reads the same however you reached it — and Back has to pick one of the two places you might have come from."}
                   </Note>
 
                   <Segmented
@@ -3109,6 +3207,24 @@ export function TuningPanel() {
                       ? "Filters, sort and search are on the page."
                       : "No filter row. Worth seeing on a board, where the columns are the filter and the row above them may be spending height on nothing."}
                   </Note>
+
+                  {LIST_TOOLBAR_READY ? (
+                  <>
+                  <Segmented
+                    label="List toolbar"
+                    options={LIST_TOOLBARS}
+                    value={listToolbar}
+                    onChange={(v: ListToolbarVariant) => setListToolbar(v)}
+                    format={(v) => LIST_TOOLBAR_LABELS[v]}
+                    keywords="views filters sort columns search toolbar"
+                  />
+                  <Note>
+                    {listToolbar === "page"
+                      ? "Each list page draws its own views, filters, sort and columns."
+                      : "Every list page hands its views, search, filters, sort and columns to one shared toolbar, drawn this way."}
+                  </Note>
+                  </>
+                  ) : null}
 
                   <VariantPicker
                     label="Record pages"
@@ -4048,6 +4164,20 @@ export function TuningPanel() {
                 ? "Breadcrumb, avatar and utilities become the canvas's own top band — one card, filled band, page ground under the hairline."
                 : "The same card filled all the way down: bar and page on one white surface, cards reading by their rings alone."}
           </Note>
+          {PAGE_CANVAS_READY ? (
+          <>
+          <Toggle
+            label="Centre canvas"
+            checked={pageCanvas}
+            onChange={setPageCanvas}
+          />
+          <Note>
+            {pageCanvas
+              ? "Page header and content sit in one white card with shadow/lg, scrolling inside it. Builders and the inbox keep their own layout."
+              : "Pages draw straight on the plane below the breadcrumb row."}
+          </Note>
+          </>
+          ) : null}
 
           {/*
             One page's palette, in the section about colour.

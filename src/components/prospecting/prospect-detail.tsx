@@ -12,6 +12,15 @@ import type { Prospect } from "./prospecting-data";
 export interface ProspectDetailProps {
   prospect: Prospect;
   onBack: () => void;
+  /**
+   * The records beside this one, for the trail's last crumb.
+   *
+   * Handed in by the page that owns the cut: this component is given one
+   * record and cannot know whether its siblings are the lit filter's or the
+   * whole collection's. See `RecordCrumb.options`.
+   */
+  siblings?: { id: string; name: string }[];
+  onOpenSibling?: (id: string) => void;
 }
 
 /** The page's own exit, when the axis puts one on the page. */
@@ -46,7 +55,12 @@ function BackToList({ onBack }: { onBack: () => void }) {
  * `recordBackPlace` like every other record in the prototype — under
  * `crumb`, the default, the trail carries it and this page draws nothing.
  */
-export function ProspectDetail({ prospect, onBack }: ProspectDetailProps) {
+export function ProspectDetail({
+  prospect,
+  onBack,
+  siblings,
+  onOpenSibling,
+}: ProspectDetailProps) {
   const { effective } = useTheme();
   const [tab, setTab] = React.useState("details");
   const [card, setCard] = React.useState("account");
@@ -75,7 +89,30 @@ export function ProspectDetail({ prospect, onBack }: ProspectDetailProps) {
    * noun applies. "Prospect account" rather than "Prospect" — the crumb names
    * the screen, and "Prospect" alone would read as a cut of the list above it.
    */
-  useRecordCrumb({ name: prospect.name, kind: "Prospect account" }, onBack);
+  /*
+   * The siblings ride on the crumb, so `crumbLeaf` means something here.
+   *
+   * Its caret, dots and page-title values are all shapes for a dropdown, and
+   * a record crumb with no options falls through to plain text — so until
+   * Sep 28 three of the axis's five values did nothing on any detail page.
+   */
+  useRecordCrumb(
+    {
+      name: prospect.name,
+      kind: "Prospect account",
+      ...(siblings && onOpenSibling
+        ? {
+            options: siblings.map((r) => ({
+              id: r.id,
+              label: r.name,
+              selected: r.id === prospect.id,
+            })),
+            onSelect: onOpenSibling,
+          }
+        : {}),
+    },
+    onBack,
+  );
 
   return (
     <div className="relative flex h-full min-h-0 flex-col gap-[14px] px-[var(--page-inset)]">

@@ -7,16 +7,19 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Columns3,
+  Copy,
   Download,
+  List,
   ListFilter,
   Plus,
+  RefreshCw,
   Search,
   Settings,
   SlidersHorizontal,
   Upload,
   X,
 } from "lucide-react";
+import { showToast, Toaster } from "@/components/page/toast";
 import { useTheme } from "@/components/theme/theme-provider";
 import {
   OutlineButton,
@@ -25,6 +28,7 @@ import {
   PrimaryButton,
 } from "@/components/page/page-header";
 import { usePageCrumb } from "@/components/page/page-crumb";
+import { useRecordCrumb } from "@/components/page/record-crumb";
 import { ViewBar } from "@/components/page/view-bar";
 import {
   CollapsingSearch,
@@ -32,12 +36,108 @@ import {
   UnsavedChanges,
   useListShape,
 } from "@/components/page/list-shape";
+import {
+  ListToolbar,
+  useListToolbar,
+  type ListToolbarModel,
+} from "@/components/page/list-toolbar";
 import { cn } from "@/lib/utils";
 import { contactsAreaLabel, useContactsArea } from "./contacts-area";
-import { contacts as seedContacts, smartLists } from "./contacts-data";
+import {
+  contacts as seedContacts,
+  STATUS_LABELS,
+  type Contact,
+  type ContactStatus,
+} from "./contacts-data";
 import { ContactsTable } from "./contacts-table";
 import { AddContactDrawer, ManageFieldsDrawer } from "./contact-drawers";
 import { ContactDetail } from "./contact-detail";
+import { addList, useSmartLists, type ManagedList } from "./smart-lists-store";
+import { AddSmartListDrawer } from "./smart-list-drawer";
+import {
+  applyFilters,
+  describeCondition,
+  isComplete,
+  type FilterGroup,
+} from "./contact-filters";
+import { FiltersDrawer } from "./filters-drawer";
+import {
+  SORT_FIELDS,
+  sortContacts,
+  SortPopover,
+  type ContactSort,
+} from "./sort-popover";
+import { ImportHub } from "./import-hub";
+import { ImportWizard } from "./import-wizard";
+import { BulkActionsPage } from "./bulk-actions-page";
+import { ExportFlow } from "./export-flow";
+import { trashContacts } from "./deleted-contacts";
+import { RestoreContactsPage } from "./restore-contacts";
+import { ManageSmartListsPage } from "./manage-smart-lists";
+import { FindDuplicatesModal, ManageDuplicatesPage } from "./manage-duplicates";
+import { ContactSettingsPage } from "./settings/contact-settings";
+import { CustomFieldsPage } from "@/components/custom-fields/custom-fields-page";
+import { TasksPage } from "@/components/tasks/tasks-page";
+import { CompaniesPage } from "@/components/companies/companies-page";
+
+/**
+ * The screens that replace the list without leaving the Contacts area.
+ *
+ * In-page state rather than routes, like an open record: each publishes its
+ * own crumb, so the trail is the way back out.
+ */
+type ContactsView =
+  | "import-hub"
+  | "import-wizard"
+  | "restore"
+  | "duplicates"
+  | "bulk-actions"
+  | "manage-lists"
+  | "settings"
+  | null;
+
+/**
+ * Bulk actions and Manage smart lists reached from INSIDE the page — Check
+ * progress, the kebab — rather than from the area menu.
+ *
+ * They get a crumb of their own, like Import and Restore, because the trail
+ * above them is not always the area menu: in the product tree the tail is
+ * the nav's own "Smart lists" row, which knows nothing of these two, and
+ * switching the area page underneath it left the trail naming a page you
+ * were no longer on.
+ */
+function CrumbedScreen({
+  name,
+  onExit,
+  children,
+}: {
+  name: string;
+  onExit: () => void;
+  children: React.ReactNode;
+}) {
+  useRecordCrumb({ name, kind: name }, onExit);
+  return <>{children}</>;
+}
+
+type DuplicateRule = "email" | "phone" | "name";
+
+/**
+ * The toaster rides beside the page rather than inside it, so a toast fired
+ * from any of the sub-screens below — which each return their own tree —
+ * still has somewhere to land.
+ */
+export function ContactsPage() {
+  return (
+    <>
+      <ContactsPageBody />
+      <Toaster />
+    </>
+  );
+}
+
+/** A cut's identity, for comparing the live one against the saved one. */
+const cutKey = (sort: ContactSort | null, filters: FilterGroup[]) =>
+  JSON.stringify({ sort, filters });
 
 /**
  * The Contacts page from the ContactsApp component in left-nav.pen.
@@ -49,11 +149,25 @@ import { ContactDetail } from "./contact-detail";
  * Every colour comes from the --pg-* tokens, and every blue routes through
  * --brand-*, so the page follows both the page theme and the accent.
  */
-export function ContactsPage() {
+function ContactsPageBody() {
   const { effective } = useTheme();
   const appTheme = effective.appTheme;
   const [rows, setRows] = React.useState(seedContacts);
-  const [activeList, setActiveList] = React.useState("all");
+  const smartLists = useSmartLists();
+  const [activeListRaw, setActiveList] = React.useState("all");
+  /*
+   * A list deleted in Manage smart lists while it was lit falls back to All,
+   * rather than leaving the page cut by a list that no longer exists.
+   */
+  const activeList = smartLists.some((l) => l.id === activeListRaw)
+    ? activeListRaw
+    : "all";
+  const [view, setView] = React.useState<ContactsView>(null);
+  const [dupRule, setDupRule] = React.useState<DuplicateRule>("email");
+  const [modal, setModal] = React.useState<
+    { kind: "export"; scope: "all" | "selected" } | { kind: "duplicates" } | null
+  >(null);
+  const [sortOpen, setSortOpen] = React.useState(false);
   /*
    * Read, not written, here any more.
    *
@@ -63,7 +177,7 @@ export function ContactsPage() {
    * page the trail put you on. One switch, one place, and the title can no
    * longer disagree with the trail about where you are.
    */
-  const [pageId] = useContactsArea();
+  const [pageId, setPageId] = useContactsArea();
   /*
    * One record, ONE depth, as of Sep 23.
    *
@@ -91,7 +205,9 @@ export function ContactsPage() {
    * closes the last, which is the only behaviour that keeps a single drawer
    * honest.
    */
-  const [drawer, setDrawer] = React.useState<"add" | "fields" | null>(null);
+  const [drawer, setDrawer] = React.useState<
+    "add" | "fields" | "filters" | null
+  >(null);
 
   /*
    * The live cut, and the cut this smart list was SAVED with.
@@ -107,11 +223,30 @@ export function ContactsPage() {
    * own order — because the amber button is the part of this row under review
    * and a row that only shows it after you fiddle is a row nobody screenshots.
    */
-  const [sortApplied, setSortApplied] = React.useState(true);
-  const [filterCount, setFilterCount] = React.useState(0);
-  const [savedCut, setSavedCut] = React.useState({ sort: false, filters: 0 });
-  const dirty =
-    sortApplied !== savedCut.sort || filterCount !== savedCut.filters;
+  const [sort, setSort] = React.useState<ContactSort | null>({
+    field: "name",
+    dir: "asc",
+  });
+  const [filters, setFilters] = React.useState<FilterGroup[]>([]);
+  const [savedCut, setSavedCut] = React.useState<{
+    sort: ContactSort | null;
+    filters: FilterGroup[];
+  }>({ sort: null, filters: [] });
+  const filterCount = filters.length;
+  /*
+   * Search, the Status quick filter and hidden columns: what works INSIDE the
+   * cut. None of them is part of the smart list's saved definition, so none
+   * of them dirties the view. Held here rather than in the toolbar so they
+   * survive switching between the page's own row and the shared toolbar.
+   */
+  const [query, setQuery] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState<string[]>([]);
+  const [hiddenCols, setHiddenCols] = React.useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const narrowed =
+    filterCount > 0 || query.trim() !== "" || statusFilter.length > 0;
+  const dirty = cutKey(sort, filters) !== cutKey(savedCut.sort, savedCut.filters);
 
   /*
    * Switching lists is not an edit to the list you are leaving.
@@ -122,10 +257,16 @@ export function ContactsPage() {
    * page mean "you have been here a while".
    */
   const pickList = (id: string) => {
+    /*
+     * A list opens in the cut it was saved with, which is also its saved
+     * cut — so a list made by "Save as new smart list" opens clean, with its
+     * filters and sort already on.
+     */
+    const list = smartLists.find((l) => l.id === id);
     setActiveList(id);
-    setSortApplied(false);
-    setFilterCount(0);
-    setSavedCut({ sort: false, filters: 0 });
+    setSort(list?.sort ?? null);
+    setFilters(list?.filters ?? []);
+    setSavedCut({ sort: list?.sort ?? null, filters: list?.filters ?? [] });
   };
 
   /*
@@ -137,9 +278,11 @@ export function ContactsPage() {
    * visits, and one of them lands on three rows on purpose: the narrow,
    * nearly-empty saved list is the case a table has to survive.
    */
+  const activeCut =
+    smartLists.find((l) => l.id === activeList)?.cutOf ?? "all";
   const visible = React.useMemo(() => {
     const cut = (() => {
-      switch (activeList) {
+      switch (activeCut) {
         case "inquiries":
           return rows.filter((c) => c.status === "inquiry");
         case "subscribed":
@@ -162,10 +305,15 @@ export function ContactsPage() {
      * point of drawing the unsaved state is to see what it costs when it is
      * real.
      */
-    return sortApplied
-      ? [...cut].sort((a, b) => a.name.localeCompare(b.name))
-      : cut;
-  }, [activeList, rows, sortApplied]);
+    const q = query.trim().toLowerCase();
+    const found = cut.filter(
+      (c) =>
+        (statusFilter.length === 0 || statusFilter.includes(c.status)) &&
+        (!q ||
+          [c.name, c.email, c.handle].some((v) => v?.toLowerCase().includes(q))),
+    );
+    return sortContacts(applyFilters(found, filters), sort);
+  }, [activeCut, rows, filters, sort, query, statusFilter]);
 
   /*
    * Prev/next walk the cut on screen, not the whole table. Paging out of the
@@ -187,7 +335,63 @@ export function ContactsPage() {
   const selectedCount = rows.filter((c) => c.selected).length;
   const active = smartLists.find((l) => l.id === activeList);
   const activeLabel = active?.label ?? "All contacts";
-  const activeCount = activeList === "all" ? "1,469" : String(visible.length);
+  const activeCount =
+    activeList === "all" && !narrowed
+      ? "1,469"
+      : visible.length.toLocaleString("en-US");
+  const selectedRows = rows.filter((c) => c.selected);
+
+  /* ─── Flow entry points ─────────────────────────────────────────────── */
+
+  /** Every sub-screen replaces the list, so it closes whatever sat on it. */
+  const openView = (next: ContactsView) => {
+    setOpenId(null);
+    setDrawer(null);
+    setSortOpen(false);
+    setView(next);
+  };
+  const openBulkActions = () => {
+    setModal(null);
+    openView("bulk-actions");
+  };
+  const openExport = (scope: "all" | "selected") =>
+    setModal({ kind: "export", scope });
+  const deleteSelected = () => {
+    const doomed = rows.filter((c) => c.selected);
+    if (doomed.length === 0) return;
+    trashContacts(doomed.map((c) => ({ ...c, selected: false })));
+    setRows((current) => current.filter((c) => !c.selected));
+    showToast(
+      doomed.length === 1
+        ? "1 contact deleted. Restore it from Restore contacts."
+        : `${doomed.length} contacts deleted. Restore them from Restore contacts.`,
+    );
+  };
+  const addContacts = (incoming: Contact[]) =>
+    setRows((current) => [
+      ...incoming.filter((c) => !current.some((r) => r.id === c.id)),
+      ...current,
+    ]);
+  const [creatingList, setCreatingList] = React.useState<{
+    filters: FilterGroup[];
+    sort: ContactSort | null;
+  } | null>(null);
+  const createList = (list: {
+    label: string;
+    filters: FilterGroup[];
+    sort: ContactSort | null;
+  }) => {
+    const made = addList(list.label, activeCut, String(visible.length), {
+      filters: list.filters,
+      sort: list.sort,
+    });
+    setCreatingList(null);
+    setActiveList(made.id);
+    setSort(list.sort);
+    setFilters(list.filters);
+    setSavedCut({ sort: list.sort, filters: list.filters });
+    showToast(`Smart list "${list.label}" created.`);
+  };
 
   /*
    * Which shape of header this page is wearing (Sep 22 variants).
@@ -208,6 +412,13 @@ export function ContactsPage() {
    */
   const shape = useListShape();
   const { mergedRow, scopeInTrail, oneRow, showViews, showFilters } = shape;
+  /*
+   * The shared list toolbar (prototype controls ▸ List toolbar). When it is
+   * on, it owns the views, the filters and the search, so none of the page's
+   * own placements below draw — not the tabs, not the merged row, not the
+   * trail's crumb, not the glyph cluster.
+   */
+  const { shared } = useListToolbar();
 
   /*
    * Handed to the shell, which owns the bar. Published unconditionally in
@@ -222,8 +433,9 @@ export function ContactsPage() {
    * the one knob doing nothing on the one variant. Un-published, the trail
    * stops at Contacts and the lit cut is simply the cut you get.
    */
+  const listArea = pageId !== "bulk-actions" && pageId !== "manage";
   usePageCrumb(
-    scopeInTrail && showViews
+    scopeInTrail && showViews && listArea && view === null && !shared
       ? {
           label: activeLabel,
           options: smartLists.map((list) => ({
@@ -256,13 +468,13 @@ export function ContactsPage() {
   const filtersButton = (
     <OutlineButton
       /*
-       * Cycles rather than opening a filter builder, which this prototype does
-       * not have. It has to DO something: the badge is half of what makes the
-       * view dirty, and a button that cannot change the number would leave
-       * "Unsaved changes" with only one input and no way to show the amber
-       * button appearing rather than merely being there.
+       * Opens the filter builder. What it applies is half of what makes the
+       * view dirty, and the badge counts the groups that survived Apply.
        */
-      onClick={() => setFilterCount((c) => (c + 1) % 3)}
+      onClick={() => {
+        setOpenId(null);
+        setDrawer("filters");
+      }}
     >
       <ListFilter size={15} aria-hidden="true" className="text-pg-text-strong" />
       Filters
@@ -274,16 +486,31 @@ export function ContactsPage() {
     </OutlineButton>
   );
 
+  const sortPopover = sortOpen ? (
+    <SortPopover
+      sort={sort}
+      onChange={setSort}
+      onClose={() => setSortOpen(false)}
+    />
+  ) : null;
+
   const sortButton = (
-    <OutlineButton onClick={() => setSortApplied((v) => !v)}>
-      <ArrowUpDown size={15} aria-hidden="true" className="text-pg-text-strong" />
-      Sort
-      {sortApplied ? (
-        <span className="flex size-[17px] shrink-0 items-center justify-center rounded-full bg-brand text-[11px] leading-[normal] font-semibold tabular-nums text-brand-fg">
-          1
-        </span>
-      ) : null}
-    </OutlineButton>
+    <div className="relative shrink-0">
+      <OutlineButton
+        aria-haspopup="dialog"
+        aria-expanded={sortOpen}
+        onClick={() => setSortOpen((v) => !v)}
+      >
+        <ArrowUpDown size={15} aria-hidden="true" className="text-pg-text-strong" />
+        Sort
+        {sort ? (
+          <span className="flex size-[17px] shrink-0 items-center justify-center rounded-full bg-brand text-[11px] leading-[normal] font-semibold tabular-nums text-brand-fg">
+            1
+          </span>
+        ) : null}
+      </OutlineButton>
+      {sortPopover}
+    </div>
   );
 
   const manageFieldsButton = (
@@ -313,6 +540,8 @@ export function ContactsPage() {
       <Search size={16} aria-hidden="true" className="shrink-0 text-pg-faint" />
       <input
         type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
         placeholder={grow ? "Search by name, email, or phone" : "Search Contacts"}
         aria-label="Search contacts"
         className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
@@ -355,14 +584,20 @@ export function ContactsPage() {
         icon={ListFilter}
         label="Filters"
         count={filterCount}
-        onClick={() => setFilterCount((c) => (c + 1) % 3)}
+        onClick={() => {
+          setOpenId(null);
+          setDrawer("filters");
+        }}
       />
-      <GlyphButton
-        icon={ArrowUpDown}
-        label="Sort"
-        count={sortApplied ? 1 : 0}
-        onClick={() => setSortApplied((v) => !v)}
-      />
+      <span className="relative shrink-0">
+        <GlyphButton
+          icon={ArrowUpDown}
+          label="Sort"
+          count={sort ? 1 : 0}
+          onClick={() => setSortOpen((v) => !v)}
+        />
+        {sortPopover}
+      </span>
       <GlyphButton icon={Settings} label="Manage fields" onClick={openFields} />
       <CollapsingSearch placeholder="Search Contacts" label="Search contacts" />
     </>
@@ -380,21 +615,24 @@ export function ContactsPage() {
    * the only thing the amber chip could say is "the cut on screen is not the
    * one on disk, and nothing on this page put it there" — and its Discard
    * would then silently reorder the table with nothing visible to explain
-   * why. The page opens dirty on purpose (see `sortApplied`), so this is the
+   * why. The page opens dirty on purpose (see `sort`), so this is the
    * normal case rather than an edge: filters off means the list is a fixed
    * cut, and a fixed cut has no unsaved state to warn about.
    */
-  const unsaved = dirty && showFilters ? (
+  const unsavedChanges = (
     <UnsavedChanges
-      onSaveAsNew={() =>
-        setSavedCut({ sort: sortApplied, filters: filterCount })
-      }
+      onSaveAsNew={() => {
+        setOpenId(null);
+        setDrawer(null);
+        setCreatingList({ filters, sort });
+      }}
       onDiscard={() => {
-        setSortApplied(savedCut.sort);
-        setFilterCount(savedCut.filters);
+        setSort(savedCut.sort);
+        setFilters(savedCut.filters);
       }}
     />
-  ) : null;
+  );
+  const unsaved = dirty && showFilters ? unsavedChanges : null;
 
   const openAdd = () => {
     setOpenId(null);
@@ -408,17 +646,23 @@ export function ContactsPage() {
    * it living on a tab.
    */
   const overflowActions = [
-    { label: "Manage smart lists", icon: SlidersHorizontal },
+    { label: "Export", icon: Upload, onClick: () => openExport("all") },
+    { label: "Restore", icon: RefreshCw, onClick: () => openView("restore") },
     {
-      label: "Manage fields",
-      icon: Columns3,
-      onClick: () => {
-        setOpenId(null);
-        setDrawer("fields");
-      },
+      label: "Manage smart lists",
+      icon: List,
+      onClick: () => openView("manage-lists"),
     },
-    { label: "Custom fields", icon: Settings },
-    { label: "Export contacts", icon: Download },
+    {
+      label: "Manage duplicates",
+      icon: Copy,
+      onClick: () => setModal({ kind: "duplicates" }),
+    },
+    {
+      label: "Contact settings",
+      icon: Settings,
+      onClick: () => openView("settings"),
+    },
   ];
 
   /*
@@ -435,13 +679,13 @@ export function ContactsPage() {
    */
   const canvasToolbar = scopeInTrail ? (
     <>
-      {showFilters ? (
+      {showFilters && !shared ? (
         controls
       ) : (
         <span aria-hidden="true" className="min-w-[16px] flex-1" />
       )}
-      <OutlineButton onClick={() => undefined}>
-        <Upload size={15} aria-hidden="true" className="text-pg-text-strong" />
+      <OutlineButton onClick={() => openView("import-hub")}>
+        <Download size={15} aria-hidden="true" className="text-pg-text-strong" />
         Import
       </OutlineButton>
       <PrimaryButton onClick={openAdd}>
@@ -453,6 +697,93 @@ export function ContactsPage() {
   ) : null;
 
   /*
+   * The page's controls described for the shared toolbar. Every slice points
+   * at the same state the page's own row uses, so a filter set in one
+   * variant is still set in the next.
+   */
+  const removeCondition = (id: string) =>
+    setFilters((groups) =>
+      groups
+        .map((g) => ({ ...g, conditions: g.conditions.filter((c) => c.id !== id) }))
+        .filter((g) => g.conditions.length > 0),
+    );
+  const appliedConditions = filters.flatMap((g) => g.conditions.filter(isComplete));
+  const toolbarColumns = [
+    { id: "name", label: "Name", locked: true },
+    { id: "email", label: "Email" },
+    { id: "created", label: "Created" },
+    { id: "activity", label: "Last activity" },
+    { id: "status", label: "Status" },
+  ];
+  const toolbarModel: ListToolbarModel = {
+    views: {
+      items: smartLists.map((l) => ({
+        id: l.id,
+        label: l.label,
+        count: l.count,
+        icon: l.icon,
+      })),
+      activeId: activeList,
+      onSelect: pickList,
+      onCreate: () => {
+        setOpenId(null);
+        setDrawer(null);
+        setCreatingList({ filters: [], sort: null });
+      },
+      noun: "smart list",
+    },
+    search: {
+      value: query,
+      onChange: setQuery,
+      placeholder: "Search by name, email, or handle",
+    },
+    quickFilters: [
+      {
+        id: "status",
+        label: "Status",
+        options: (Object.keys(STATUS_LABELS) as ContactStatus[]).map((v) => ({
+          value: v,
+          label: STATUS_LABELS[v],
+        })),
+        value: statusFilter,
+        multiple: true,
+        onChange: setStatusFilter,
+      },
+    ],
+    advanced: {
+      count: appliedConditions.length,
+      onOpen: () => {
+        setOpenId(null);
+        setDrawer("filters");
+      },
+      onClear: () => setFilters([]),
+      chips: appliedConditions.map((c) => ({
+        id: c.id,
+        label: describeCondition(c),
+        onRemove: () => removeCondition(c.id),
+      })),
+    },
+    sort: {
+      fields: SORT_FIELDS,
+      value: sort,
+      onChange: (next) => setSort(next as ContactSort | null),
+    },
+    columns: {
+      items: toolbarColumns.map((c) => ({ ...c, visible: !hiddenCols.has(c.id) })),
+      onChange: (items) =>
+        setHiddenCols(
+          new Set(items.filter((c) => !c.visible && !c.locked).map((c) => c.id)),
+        ),
+    },
+    resultCount: { value: visible.length, noun: "contacts" },
+    /*
+     * The amber button reports on the lit view, so it rides with the views
+     * rather than being lost when the page's tab strip steps aside.
+     */
+    trailing: dirty ? unsavedChanges : undefined,
+  };
+
+  /*
    * A record is open, so the record is what this component renders.
    *
    * The condition used to be `full && openContact` — the second half of the
@@ -461,6 +792,71 @@ export function ContactsPage() {
    * dropping to a lesser view, which is the same one-destination rule read
    * backwards: one gesture in, one gesture out.
    */
+  /*
+   * Two of the area's pages are pages of their own rather than titles over
+   * this list — Bulk actions, Custom fields, Tasks and Companies.
+   */
+  if (pageId === "bulk-actions") return <BulkActionsPage />;
+  if (pageId === "custom-fields") return <CustomFieldsPage initialObject="contact" />;
+  if (pageId === "tasks") return <TasksPage initialView="all" />;
+  if (pageId === "companies") return <CompaniesPage initialList="all" />;
+  if (pageId === "manage") {
+    return <ManageSmartListsPage onBack={() => setPageId("smart-lists")} />;
+  }
+
+  if (view === "bulk-actions") {
+    return (
+      <CrumbedScreen name="Bulk actions" onExit={() => setView(null)}>
+        <BulkActionsPage />
+      </CrumbedScreen>
+    );
+  }
+  if (view === "manage-lists") {
+    return (
+      <CrumbedScreen name="Manage smart lists" onExit={() => setView(null)}>
+        <ManageSmartListsPage onBack={() => setView(null)} />
+      </CrumbedScreen>
+    );
+  }
+  if (view === "settings") {
+    return <ContactSettingsPage onExit={() => setView(null)} />;
+  }
+  if (view === "import-hub") {
+    return (
+      <ImportHub
+        onClose={() => setView(null)}
+        onStartCsv={() => setView("import-wizard")}
+      />
+    );
+  }
+  if (view === "import-wizard") {
+    return (
+      <ImportWizard
+        onExit={() => setView(null)}
+        onBack={() => setView("import-hub")}
+        onOpenBulkActions={openBulkActions}
+        onImported={addContacts}
+      />
+    );
+  }
+  if (view === "restore") {
+    return (
+      <RestoreContactsPage
+        onExit={() => setView(null)}
+        onRestored={addContacts}
+      />
+    );
+  }
+  if (view === "duplicates") {
+    return (
+      <ManageDuplicatesPage
+        rule={dupRule}
+        onExit={() => setView(null)}
+        onChangeRule={setDupRule}
+      />
+    );
+  }
+
   if (openContact) {
     return (
       <ContactDetail
@@ -469,6 +865,19 @@ export function ContactsPage() {
         onPrev={openIndex > 0 ? () => step(-1) : undefined}
         onNext={openIndex < visible.length - 1 ? () => step(1) : undefined}
         position={`${openIndex + 1} of ${visible.length}`}
+        /*
+          The lit cut, not the account. `visible` is what the pager steps
+          through, so the crumb's menu and the arrows agree about what "next"
+          means — two controls over one set rather than two sets.
+        */
+        siblings={visible.map((c) => ({ id: c.id, name: c.name }))}
+        onOpenSibling={setOpenId}
+        onDelete={() => {
+          trashContacts([{ ...openContact, selected: false }]);
+          setRows((current) => current.filter((c) => c.id !== openContact.id));
+          setOpenId(null);
+          showToast(`${openContact.name} deleted. Restore it within 60 days.`);
+        }}
       />
     );
   }
@@ -490,7 +899,7 @@ export function ContactsPage() {
          * two counts for one collection is exactly the repetition the variant
          * was drawn to remove.
          */
-        count={mergedRow ? undefined : activeCount}
+        count={mergedRow && !shared ? undefined : activeCount}
         description="People and companies in this account"
         /*
          * L-B's merged row, assembled from whichever of the two bands are on.
@@ -505,12 +914,18 @@ export function ContactsPage() {
          * merged in leaves the header it merged them into.
          */
         lead={
-          mergedRow && (showViews || showFilters) ? (
+          mergedRow && (showViews || showFilters) && !shared ? (
             <>
               {showViews ? (
               <SmartListPicker
+                smartLists={smartLists}
                 activeId={activeList}
                 onSelect={pickList}
+                onCreate={() => {
+                  setOpenId(null);
+                  setDrawer(null);
+                  setCreatingList({ filters: [], sort: null });
+                }}
                 /*
                  * The raw knob, not usePageChrome's count.
                  *
@@ -527,7 +942,13 @@ export function ContactsPage() {
             </>
           ) : undefined
         }
-        secondary={[{ label: "Import", icon: Upload }]}
+        secondary={[
+          {
+            label: "Import",
+            icon: Download,
+            onClick: () => openView("import-hub"),
+          },
+        ]}
         primary={{
           label: "Add contact",
           icon: Plus,
@@ -554,13 +975,17 @@ export function ContactsPage() {
         `scopeInTabs` folds `listShowViews` in, so the strip also goes when
         the collection is told not to offer its cuts at all.
       */}
-      {shape.scopeInTabs ? (
+      {shape.scopeInTabs && !shared ? (
         <ViewBar
           label="Smart lists"
           views={smartLists}
           activeId={activeList}
           onSelect={pickList}
-          onCreate={() => undefined}
+          onCreate={() => {
+            setOpenId(null);
+            setDrawer(null);
+            setCreatingList({ filters: [], sort: null });
+          }}
           createLabel="Add Smart List"
           /*
             Four tabs and `1 more` on its own row; three and `2 more` when the
@@ -662,7 +1087,7 @@ export function ContactsPage() {
         keeps this row: the tabs are what went, and the filters had nothing to
         do with it.
       */}
-      {!mergedRow && !scopeInTrail && shape.filterRow ? (
+      {!shared && !mergedRow && !scopeInTrail && shape.filterRow ? (
         <div className="flex shrink-0 items-center gap-[10px]">
           {filtersButton}
           {sortButton}
@@ -672,7 +1097,8 @@ export function ContactsPage() {
         </div>
       ) : null}
 
-      {visible.length === 0 ? (
+      {(() => {
+        const listContent = visible.length === 0 ? (
         /*
          * Cleared, not first-use: this account has 1,469 contacts, so the
          * honest empty state says the filter found nothing — and offers the
@@ -691,16 +1117,27 @@ export function ContactsPage() {
           ) : null}
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[8px]">
             <span className="text-[14px] leading-[18px] font-semibold text-pg-heading">
-              No contacts in {activeLabel}
+              {narrowed
+                ? "No contacts match these filters"
+                : `No contacts in ${activeLabel}`}
             </span>
             <span className="text-[13px] leading-[18px] text-pg-muted">
-              Nothing matches this list right now.
+              {narrowed
+                ? "Try removing a filter or two."
+                : "Nothing matches this list right now."}
             </span>
+            {/* Filters first: they are the nearer cause, and clearing them
+                keeps you on the list you chose. */}
             <OutlineButton
-              onClick={() => setActiveList("all")}
+              onClick={() => {
+                if (!narrowed) return pickList("all");
+                setFilters([]);
+                setQuery("");
+                setStatusFilter([]);
+              }}
               className="mt-[4px]"
             >
-              View all contacts
+              {narrowed ? "Clear filters" : "View all contacts"}
             </OutlineButton>
           </div>
         </div>
@@ -720,8 +1157,22 @@ export function ContactsPage() {
             setOpenId(id);
           }}
           activeId={openId}
+          hiddenColumns={hiddenCols}
         />
-      )}
+      );
+        /*
+          Under the shared toolbar the list rides inside it, so the side-views
+          variant can lay the views beside it. The wrapper keeps the table
+          filling the height it filled on its own.
+        */
+        return shared ? (
+          <div className="flex min-h-0 flex-1 flex-col gap-[14px]">
+            <ListToolbar model={toolbarModel}>{listContent}</ListToolbar>
+          </div>
+        ) : (
+          listContent
+        );
+      })()}
 
       <div className="flex h-[30px] shrink-0 items-center justify-between">
         <span className="text-[13px] leading-[normal] whitespace-nowrap text-pg-muted">
@@ -779,6 +1230,49 @@ export function ContactsPage() {
       {drawer === "fields" ? (
         <ManageFieldsDrawer onClose={() => setDrawer(null)} />
       ) : null}
+      {drawer === "filters" ? (
+        <FiltersDrawer
+          applied={filters}
+          onApply={setFilters}
+          onClose={() => setDrawer(null)}
+        />
+      ) : null}
+      {creatingList ? (
+        <AddSmartListDrawer
+          initialFilters={creatingList.filters}
+          initialSort={creatingList.sort}
+          onClose={() => setCreatingList(null)}
+          onCreate={createList}
+        />
+      ) : null}
+
+      {modal?.kind === "export" ? (
+        <ExportFlow
+          count={
+            modal.scope === "selected"
+              ? selectedRows.length
+              : activeList === "all" && filterCount === 0
+                ? 1469
+                : visible.length
+          }
+          sample={(modal.scope === "selected" ? selectedRows : visible)
+            .slice(0, 3)
+            .map((c) => ({ name: c.name, tone: c.tone }))}
+          scopeLabel={modal.scope === "selected" ? "Selected" : activeLabel}
+          onClose={() => setModal(null)}
+          onCheckProgress={openBulkActions}
+        />
+      ) : null}
+      {modal?.kind === "duplicates" ? (
+        <FindDuplicatesModal
+          onClose={() => setModal(null)}
+          onFind={(rule) => {
+            setModal(null);
+            setDupRule(rule);
+            openView("duplicates");
+          }}
+        />
+      ) : null}
 
       {selectedCount > 0 ? (
         <div
@@ -792,10 +1286,17 @@ export function ContactsPage() {
             aria-hidden="true"
             className="h-[16px] w-px bg-[var(--pg-overlay-divider)]"
           />
-          {["Add to list", "Add tag", "Export"].map((action) => (
+          {(
+            [
+              ["Add to list", undefined],
+              ["Add tag", undefined],
+              ["Export", () => openExport("selected")],
+            ] as const
+          ).map(([action, onClick]) => (
             <button
               key={action}
               type="button"
+              onClick={onClick}
               className="text-[13px] leading-[normal] font-medium whitespace-nowrap text-pg-overlay-fg motion-tap hover:brightness-125 active:scale-95"
             >
               {action}
@@ -803,6 +1304,7 @@ export function ContactsPage() {
           ))}
           <button
             type="button"
+            onClick={deleteSelected}
             className="text-[13px] leading-[normal] font-medium whitespace-nowrap text-pg-danger motion-tap hover:brightness-110 active:scale-95"
           >
             Delete
@@ -842,12 +1344,16 @@ export function ContactsPage() {
  * open or shut.
  */
 function SmartListPicker({
+  smartLists,
   activeId,
   onSelect,
+  onCreate,
   showCount,
 }: {
+  smartLists: ManagedList[];
   activeId: string;
   onSelect: (id: string) => void;
+  onCreate: () => void;
   /** Follows the page-header count knob — the same number, wherever it lands. */
   showCount: boolean;
 }) {
@@ -948,7 +1454,10 @@ function SmartListPicker({
             <button
               type="button"
               role="menuitem"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setOpen(false);
+                onCreate();
+              }}
               className="motion-tap flex w-full items-center gap-[10px] rounded-[8px] px-[10px] py-[8px] text-left text-brand hover:bg-pg-bg"
             >
               <Plus size={15} aria-hidden="true" className="shrink-0" />

@@ -173,7 +173,16 @@ export function ProspectingPage({ initialTab }: { initialTab?: string | null }) 
   if (open) {
     return (
       <div data-page-theme={effective.appTheme} className="h-full min-h-0">
-        <ProspectDetail prospect={open} onBack={() => setOpenId(null)} />
+        <ProspectDetail
+          prospect={open}
+          onBack={() => setOpenId(null)}
+        /*
+          The lit cut, not the whole collection — so the crumb's menu offers
+          the records the list is actually showing.
+        */
+          siblings={prospects.map((p) => ({ id: p.id, name: p.name }))}
+          onOpenSibling={setOpenId}
+        />
       </div>
     );
   }

@@ -8,7 +8,10 @@ import { AppointmentsList } from "./appointments-list";
 import { CalendarEdit } from "./calendar-edit";
 import { CalendarSettings } from "./calendar-settings";
 import { CalendarWeekView } from "./calendar-week-view";
-import type { CalendarRow } from "./calendars-data";
+import { NewAppointmentModal } from "./new-appointment-modal";
+import { NewBookingPage } from "./new-booking-page";
+import type { BookingEventType, CalendarScope } from "./scope";
+import type { BuilderTarget } from "./settings/cal-settings-store";
 
 /**
  * CRM ▸ Calendar ▸ Appointments — the grid, the list, settings, and one
@@ -67,7 +70,23 @@ export function CalendarsPage({ initialView }: CalendarsPageProps) {
   const [view, setView] = React.useState<ViewId>(
     VIEWS.some((v) => v.id === seedView) ? (seedView as ViewId) : "calendar",
   );
-  const [open, setOpen] = React.useState<CalendarRow | null>(null);
+  const [open, setOpen] = React.useState<BuilderTarget | null>(null);
+  /*
+   * Scope lives here, not in either view, so `Rentals` picked on the grid is
+   * still what the list shows after the switch — they are one collection.
+   */
+  const [scope, setScope] = React.useState<CalendarScope>("meetings");
+  /*
+   * What New opened. Meetings books in a modal over whichever view you were
+   * on; Services and Rentals are a form too large for a modal and take the
+   * window as a builder, the way the live product does.
+   */
+  const [booking, setBooking] = React.useState<BookingEventType | null>(null);
+  const [bookingModal, setBookingModal] = React.useState(false);
+  const onNew = () => {
+    if (scope === "meetings") setBookingModal(true);
+    else setBooking(scope === "services" ? "appointment" : "booking");
+  };
   /*
    * Settings arrives as its own place, so it draws no view control at all.
    *
@@ -91,7 +110,15 @@ export function CalendarsPage({ initialView }: CalendarsPageProps) {
     // would be a margin around a builder — see calendar-edit.
     return (
       <div data-page-theme={effective.appTheme} className="h-full min-h-0">
-        <CalendarEdit calendar={open} onBack={() => setOpen(null)} />
+        <CalendarEdit target={open} onBack={() => setOpen(null)} onRetarget={setOpen} />
+      </div>
+    );
+  }
+
+  if (booking) {
+    return (
+      <div data-page-theme={effective.appTheme} className="h-full min-h-0">
+        <NewBookingPage initialType={booking} onBack={() => setBooking(null)} />
       </div>
     );
   }
@@ -201,8 +228,15 @@ export function CalendarsPage({ initialView }: CalendarsPageProps) {
         </div>
       )}
 
-      {view === "calendar" ? <CalendarWeekView /> : null}
-      {view === "list" ? <AppointmentsList /> : null}
+      {view === "calendar" ? (
+        <CalendarWeekView scope={scope} onScopeChange={setScope} onNew={onNew} />
+      ) : null}
+      {view === "list" ? (
+        <AppointmentsList scope={scope} onScopeChange={setScope} onNew={onNew} />
+      ) : null}
+      {bookingModal ? (
+        <NewAppointmentModal onClose={() => setBookingModal(false)} />
+      ) : null}
     </div>
   );
 }

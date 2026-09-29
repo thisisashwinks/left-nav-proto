@@ -307,8 +307,8 @@ const CRM: CatalogueEntry[] = [
       { id: "ia-crm-contacts-scoring", label: "Engagement Score" },
     ],
     // Custom Fields is NOT here: it has one home, the L2 of the same name below.
-    // Bulk Actions is absent too — the sheet moves it under the row's three-dots
-    // menu, matching Companies. An action is not a place.
+    // Bulk Actions is not a child either: it is its own L2, after
+    // Opportunities, because it spans every object's imports and exports.
   },
   {
     id: "ia-crm-conversations",
@@ -352,18 +352,30 @@ const CRM: CatalogueEntry[] = [
         id: "ia-crm-opportunities-forecast",
         label: "Forecast",
         tabs: true,
-        // Summary first, then the whole book, then a pipeline at a time — the
-        // forecast is only readable once you have said which pipeline you mean.
+        // The shipped page's two views. Which pipeline is a picker on the
+        // page, not a tab: every view is readable for any pipeline, so a tab
+        // per pipeline would be a second copy of that picker (Sep 29).
         children: [
           { id: "ia-crm-opps-forecast-summary", label: "Summary" },
-          { id: "ia-crm-opps-forecast-all", label: "All pipelines" },
-          { id: "ia-crm-opps-forecast-installs", label: "New installs" },
-          { id: "ia-crm-opps-forecast-service", label: "Service contracts" },
+          { id: "ia-crm-opps-forecast-timeline", label: "Forecast timeline" },
         ],
       },
-      { id: "ia-crm-opportunities-pipeline", label: "Pipeline" },
+      { id: "ia-crm-opportunities-pipeline", label: "Pipelines" },
       { id: "ia-crm-opportunities-settings", label: "Settings" },
     ],
+  },
+  {
+    /*
+     * An L2 of its own after all, beside the records it acts on. The sheet
+     * filed it under each row's three-dots menu ("an action is not a place"),
+     * but the page it opens IS a place — a log of imports and exports you go
+     * back to — and it was only reachable from a toast's "Check progress".
+     * Ashwin, Sep 29.
+     */
+    id: "ia-crm-bulk-actions",
+    label: "Bulk Actions",
+    icon: ListChecks,
+    blurb: "Imports, exports and bulk edits, with their progress and results.",
   },
   {
     id: "ia-crm-companies",
@@ -452,8 +464,10 @@ const CRM: CatalogueEntry[] = [
     blurb: "What your team owes, and by when.",
     tabs: true,
     children: [
+      // The live product's four task views (Ashwin, Sep 29).
       { id: "ia-crm-tasks-all", label: "All" },
-      { id: "ia-crm-tasks-today", label: "Do today" },
+      { id: "ia-crm-tasks-today", label: "Due today" },
+      { id: "ia-crm-tasks-overdue", label: "Overdue" },
       { id: "ia-crm-tasks-upcoming", label: "Upcoming" },
     ],
   },
@@ -495,14 +509,19 @@ const CRM: CatalogueEntry[] = [
     icon: TextCursorInput,
     blurb: "The shape of your records.",
     tabs: true,
-    // Fields belong to an object, so the object is how you find them. Car is a
-    // custom object; the other three are standard.
+    // Fields belong to an object, so the object is how you find them. The
+    // first four are standard; Property onward are the account's own custom
+    // objects, as the live Custom fields page lists them.
     children: [
       { id: "ia-crm-fields-all", label: "All" },
       { id: "ia-crm-fields-contact", label: "Contact" },
       { id: "ia-crm-fields-opportunity", label: "Opportunity" },
       { id: "ia-crm-fields-business", label: "Business" },
-      { id: "ia-crm-fields-car", label: "Car" },
+      { id: "ia-crm-fields-task", label: "Task" },
+      { id: "ia-crm-fields-property", label: "Property" },
+      { id: "ia-crm-fields-product", label: "Product" },
+      { id: "ia-crm-fields-barber", label: "Barber" },
+      { id: "ia-crm-fields-barber-supply", label: "Barber Supply" },
     ],
   },
   {
