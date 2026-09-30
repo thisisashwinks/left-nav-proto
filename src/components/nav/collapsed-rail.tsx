@@ -485,6 +485,12 @@ export function CollapsedRail({
         (i.hasFlyout === true &&
           (flyoutId === openFlyoutId || flyoutId === pinnedFlyoutId)),
       () => {
+        // Same rule as the expanded row: an agency bucket is a door, and
+        // opening a door does not move you. See the note there.
+        if (i.hasFlyout && agencyScope) {
+          onPinFlyout(flyoutId);
+          return;
+        }
         onSelect(i.id, i.shortcut ? { open: true } : undefined);
         /*
          * In tree mode a door row hands over to the expanded face instead of

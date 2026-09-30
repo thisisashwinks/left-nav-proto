@@ -3176,6 +3176,30 @@ export function LeftNav({
             onOpenApp(item.id === "get-app-mobile" ? "mobile" : "desktop");
             return;
           }
+          /*
+           * A row with a panel behind it opens the panel. It does not also
+           * travel to a page of its own.
+           *
+           * Ashwin, Sep 30: standing on SaaS configurator and clicking the
+           * SaaS row above it left the configurator for a bare "Demo stage —
+           * SaaS" — a page that exists only because every agency bucket has a
+           * `agencyPlaces` entry, not because anyone authored a screen for
+           * it. The row is a door; behind it are the four places you might
+           * mean, one of which you are already standing on. Opening the door
+           * should not move you.
+           *
+           * Agency-scoped because that is where an L1 row has BOTH a panel
+           * and a page id of its own. A sub-account's L1 rows already satisfy
+           * the same rule by two different routes: under flat and custom
+           * grouping the row is an inert highlight and the panel does the
+           * travelling, and under proposed it resolves to its first L3 — the
+           * page, not the container. Neither one opens the L1 itself, which
+           * is the thing this forbids.
+           */
+          if (item.hasFlyout && agencyScope) {
+            onPinFlyout(flyoutId);
+            return;
+          }
           // `shortcut` rows are the place itself rather than a door onto it —
           // see NavItem.shortcut, which is what carries that to the shell.
           onSelect(item.id, item.shortcut ? { open: true } : undefined);
