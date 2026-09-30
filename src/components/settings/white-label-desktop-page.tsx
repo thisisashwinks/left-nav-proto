@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { usePageChrome } from "@/components/page/page-header";
+import { PageTitle, usePageChrome } from "@/components/page/page-header";
 import { useNoPageCanvas } from "@/components/shell/page-canvas";
 import {
   CircleCheck,
@@ -86,9 +86,7 @@ function Header() {
       </span>
       {showTitle ? (
         <div className="flex min-w-0 flex-col">
-          <h1 className="truncate text-[17px] leading-[23px] font-semibold text-pg-heading">
-            Whitelabel desktop app customizer
-          </h1>
+          <PageTitle title="Whitelabel desktop app customizer" className="text-[17px] leading-[23px] font-semibold text-pg-heading" />
           {showDesc ? (
             <p className="truncate text-[12.5px] leading-[17px] text-pg-muted">
               Configure your white-label desktop application

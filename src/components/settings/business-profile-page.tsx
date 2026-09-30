@@ -5,7 +5,7 @@ import { Check, Copy, ImageUp, Info, Plus } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
 import { useBrand } from "@/components/accounts/brand-store";
 import { cn } from "@/lib/utils";
-import { usePageChrome } from "@/components/page/page-header";
+import { PageTitle, usePageChrome } from "@/components/page/page-header";
 import { LogoUploadField } from "./logo-upload-field";
 import {
   LOCALES,
@@ -45,9 +45,7 @@ export function BusinessProfilePage({ account }: { account: Account }) {
           the page says it a second time. */}
       {showTitle ? (
         <header className="shrink-0 px-[var(--page-inset)]">
-          <h1 className="text-[20px] leading-[28px] font-semibold text-pg-heading">
-            Business Profile Settings
-          </h1>
+          <PageTitle title="Business profile settings" className="text-[20px] leading-[28px] font-semibold text-pg-heading" />
           {showDesc ? (
             <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
               Manage your business profile information &amp; settings

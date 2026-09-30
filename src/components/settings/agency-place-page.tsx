@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { usePageChrome } from "@/components/page/page-header";
+import { PageTitle, usePageChrome } from "@/components/page/page-header";
 import { cn } from "@/lib/utils";
 import type { AgencyChild } from "@/components/nav/agency-config";
 
@@ -40,9 +40,7 @@ export function AgencyPlacePage({
       <header className="shrink-0 px-[var(--page-inset)]">
         {showTitle ? (
           <>
-            <h1 className="text-[20px] leading-[28px] font-semibold text-pg-heading">
-              {title}
-            </h1>
+            <PageTitle title={title} className="text-[20px] leading-[28px] font-semibold text-pg-heading" />
             {description && showDesc ? (
               <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
                 {description}

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { usePageChrome } from "@/components/page/page-header";
+import { PageTitle, usePageChrome } from "@/components/page/page-header";
 import type { Account } from "@/components/accounts/accounts-data";
 import { cn } from "@/lib/utils";
 import { BrandCard } from "./brand-card";
@@ -41,9 +41,7 @@ export function AgencyCompanyPage({ agency }: { agency: Account }) {
       <header className="shrink-0 px-[var(--page-inset)]">
         {showTitle ? (
           <>
-            <h1 className="text-[20px] leading-[28px] font-semibold text-pg-heading">
-              Company
-            </h1>
+            <PageTitle title="Company" className="text-[20px] leading-[28px] font-semibold text-pg-heading" />
             {showDesc ? (
               <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
                 Who the agency is, and how it is branded.

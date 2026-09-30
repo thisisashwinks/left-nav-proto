@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { usePageChrome } from "@/components/page/page-header";
+import { PageTitle, usePageChrome } from "@/components/page/page-header";
 import {
   Check,
   ChevronRight,
@@ -137,9 +137,7 @@ export function AccountsIndexPage({
         <div className="min-w-0 flex-1">
           {showTitle ? (
             <>
-              <h1 className="text-[17px] leading-[22px] font-semibold text-pg-heading">
-                Sub-accounts
-              </h1>
+              <PageTitle title="Sub-accounts" className="text-[17px] leading-[22px] font-semibold text-pg-heading" />
               {showDesc ? (
                 <p className="text-[12px] leading-[16px] text-pg-muted">
                   {session.accounts.length} accounts · pick one to manage its details and settings.

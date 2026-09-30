@@ -1,7 +1,7 @@
 "use client";
 
 import { CircleAlert, Settings2, Wrench, X } from "lucide-react";
-import { usePageChrome } from "@/components/page/page-header";
+import { PageTitle, usePageChrome } from "@/components/page/page-header";
 import type { Account } from "@/components/accounts/accounts-data";
 import { QrPlaceholder } from "@/components/header/get-app-modal";
 import { AccountLogo } from "@/components/accounts/account-logo";
@@ -30,9 +30,7 @@ export function WhiteLabelMobilePage({ agency }: { agency: Account }) {
       <header className="flex shrink-0 items-start gap-[12px] pt-[2px]">
         <div className="flex min-w-0 flex-1 flex-col gap-[2px]">
           {showTitle ? (
-            <h1 className="truncate text-[17px] leading-[23px] font-semibold text-pg-heading">
-              Agency mobile app
-            </h1>
+            <PageTitle title="Agency mobile app" className="text-[17px] leading-[23px] font-semibold text-pg-heading" />
           ) : null}
           {showDesc ? (
           <p className="text-[12.5px] leading-[17px] text-pg-muted italic">
