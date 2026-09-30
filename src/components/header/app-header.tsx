@@ -598,7 +598,10 @@ export function AppHeader({
         headingAtPageScale
           ? "min-h-[48px] py-[8px]"
           : "h-[48px]",
-        "flex w-full shrink-0 items-center justify-between pl-[7px]",
+        // `relative`, for the one placement that is positioned rather than
+        // laid out: `centre` pins the entry to the middle of the WINDOW, which
+        // a flex row cannot express without the two halves being equal widths.
+        "relative flex w-full shrink-0 items-center justify-between pl-[7px]",
         // Joined, the canvas gap is already spent by the card's own margin, so the
         // bar pads by the page's inset alone and still lands on the content's edge.
         surface === "joined"
@@ -881,7 +884,39 @@ export function AppHeader({
           })}
         </nav>
         ) : null}
+        {/*
+          The entry travelling with the trail, when the axis asks for it.
+
+          Inside the left box and after the `<nav>`, so it is pushed along by
+          the path rather than standing at an edge: on Contacts it sits near
+          the left, three crumbs deep it has moved right. Outside the `<nav>`
+          element itself, because it is not a segment — a search field in the
+          breadcrumb's reading order would be announced as part of the path.
+        */}
+        {entry && headerEntrySide === "trail" ? (
+          <span className="flex shrink-0 items-center pl-[8px]">
+            {entrySlot}
+          </span>
+        ) : null}
       </div>
+      {/*
+        Centred on the bar, the omnibox arrangement.
+
+        Absolutely positioned rather than a third flex child: `justify-between`
+        would centre it in the SPACE between the trail and the utilities, which
+        moves every time a crumb is added — and a control that shifts as you
+        navigate is the thing the other placements are avoiding. Pinned to the
+        window's midline it is a fixed target.
+
+        `pointer-events-none` on the wrapper with the slot taking them back, so
+        the invisible half of a 230px box centred over the bar cannot swallow a
+        click aimed at a crumb underneath it.
+      */}
+      {entry && headerEntrySide === "centre" ? (
+        <div className="pointer-events-none absolute inset-y-0 left-1/2 z-10 flex -translate-x-1/2 items-center">
+          <span className="pointer-events-auto">{entrySlot}</span>
+        </div>
+      ) : null}
 
       <div className="flex shrink-0 items-center gap-[12px]">
         {/*

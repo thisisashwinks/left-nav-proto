@@ -2,10 +2,16 @@
 
 import * as React from "react";
 import {
+  ArrowDown,
+  ArrowUp,
   ChevronDown,
   ChevronRight,
   ChevronUp,
+  EllipsisVertical,
+  GripVertical,
+  Keyboard,
   Pin,
+  Shapes,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -20,6 +26,15 @@ import { useNavLayout } from "./nav-layout-provider";
 import { PIN_CAP_HINT, usePinnedInk } from "./pin-button";
 import { usePinFeedback, usePinLanded } from "./pin-feedback";
 import { RailTooltip } from "./rail-tooltip";
+import { EditAffordance } from "./inline-rename";
+import { usePinShortcuts } from "./pin-shortcuts";
+import { ShortcutChip } from "./shortcut-chip";
+import { ShortcutModal } from "./shortcut-modal";
+import { IconPicker, useIconPicker } from "./icon-picker";
+import { RowMenu, useRowMenu, type RowMenuAction } from "./row-menu";
+import { RowSeam } from "./row-seam";
+import { PIN_MIME } from "./nav-drag";
+import { useDragTypes } from "@/lib/use-drag-active";
 
 /**
  * Recents and Pinned as one list — the Cloudflare arrangement.
@@ -94,6 +109,40 @@ export interface MergedRow {
 }
 
 /**
+ * What a pinned row may do to itself, in edit mode.
+ *
+ * Exactly the affordances an L1 row has, and no others: a grip, an icon you
+ * press to change, and a kebab. NO RENAME — a pin names an L2 or an L3, and
+ * those have no label override behind them, so a pencil here would be a
+ * control that either does nothing or writes to the wrong place. Removing is
+ * in the menu instead, which is the useful half of what a rename field was
+ * standing in for.
+ *
+ * Recents never get a bundle — see PINNED_ROW_EDIT_DEFAULT for why the
+ * capability stops at the pinned run.
+ */
+export interface PinRowEdit {
+  /**
+   * Opens the icon picker, anchored on the glyph the reader pressed.
+   *
+   * The GLYPH is the trigger, not a button beside it — an L1 row in edit mode
+   * works exactly this way, and a pinned row that grew a separate picker
+   * button would be a second answer to a question this nav settled.
+   */
+  onPickIcon?: (trigger: HTMLElement) => void;
+  /** Native drag wiring for the six-dot grip and the row as a drop target. */
+  drag: {
+    onDragStart: (e: React.DragEvent) => void;
+    onDragEnd: (e: React.DragEvent) => void;
+    onDragOver: (e: React.DragEvent) => void;
+    onDrop: (e: React.DragEvent) => void;
+    dragging: boolean;
+  };
+  /** The kebab: move up, move down, shortcut keys, remove. */
+  onOpenMenu: (trigger: HTMLElement) => void;
+}
+
+/**
  * The merged list itself, given rows that someone else resolved.
  *
  * Split from the two derivations below because the arrangement is the same in
@@ -107,12 +156,33 @@ function MergedList({
   recents: givenRecents,
   onSelect,
   onOpenPanel,
+  pinEditFor,
+  pinSeam,
 }: {
   pins: MergedRow[];
   recents: MergedRow[];
   onSelect: (id: string) => void;
   /** Opens the panel behind "View all" — the full pin list and history. */
   onOpenPanel: () => void;
+  /**
+   * Editing affordances for one pinned row, by its place in the run.
+   *
+   * A function of the INDEX as well as the id, because two of the three verbs
+   * are about position — the first row has no "up" and the last none of
+   * "down" — and the index a row is drawn at is this component's to know, not
+   * the caller's: the hold that keeps an unpinned row in its slot can shift
+   * everything below it for the length of an animation.
+   */
+  pinEditFor?: (id: string, index: number) => PinRowEdit | undefined;
+  /**
+   * The drop line above the pinned row at `index`, and one past the last.
+   *
+   * Rendered by the caller because only it knows the store indices a drop
+   * resolves against — this component draws the run in whatever order the
+   * axis asks for, and can hold a leaving row in a slot that no longer
+   * matches the array.
+   */
+  pinSeam?: (index: number) => React.ReactNode;
 }) {
   const {
     mergedPinMark,
@@ -239,15 +309,22 @@ function MergedList({
    * passes one: it is what an exit needs to put the row back where it was,
    * and a recent row has no slot to be put back into.
    */
-  const row = (r: MergedRow, index?: number) => (
-    <MergedItemRow
-      key={r.id}
-      row={r}
-      index={index}
-      mark={mergedPinMark}
-      onSelect={() => onSelect(r.id)}
-    />
-  );
+  const row = (r: MergedRow, index?: number) => {
+    // Only the pinned run passes an index, so only the pinned run can be
+    // edited — the capability and the run are the same test.
+    const pinEdit =
+      index === undefined ? undefined : pinEditFor?.(r.id, index);
+    return (
+      <MergedItemRow
+        key={r.id}
+        row={r}
+        index={index}
+        mark={mergedPinMark}
+        onSelect={() => onSelect(r.id)}
+        {...(pinEdit ? { pinEdit } : {})}
+      />
+    );
+  };
 
   /*
    * Where "View all" lives.
@@ -283,7 +360,14 @@ function MergedList({
       {sublabelled && visiblePins.length > 0 ? (
         <BlockHeading text="Pinned" action={viewAll} />
       ) : null}
-      {visiblePins.map((r, i) => row(r, i))}
+      {visiblePins.map((r, i) => (
+        <React.Fragment key={`pin-slot-${r.id}`}>
+          {pinSeam?.(i)}
+          {row(r, i)}
+        </React.Fragment>
+      ))}
+      {/* The seam that closes the run, so a pin can be dropped last. */}
+      {visiblePins.length > 0 ? pinSeam?.(visiblePins.length) : null}
 
       {sublabelled && visibleRecents.length > 0 ? (
         <BlockHeading
@@ -392,9 +476,38 @@ export function MergedRecentsBlock({
   onSelect: (id: string) => void;
   onOpenPanel: () => void;
 }) {
-  const { state, groups, productLabelFor, togglePin, pinsFull } =
-    useNavLayout();
-  const { mergedRowDetail, mergedPinOrder } = useTheme().effective;
+  const {
+    state,
+    groups,
+    productLabelFor,
+    togglePin,
+    pinsFull,
+    movePin,
+    can,
+    setIcon,
+    resetIcon,
+    hasIconOverride,
+  } = useNavLayout();
+  const { mergedRowDetail, mergedPinOrder, pinnedRowEdit } =
+    useTheme().effective;
+  const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
+  const [draggingId, setDraggingId] = React.useState<string | null>(null);
+  /*
+   * This block's own picker and menu, not the nav column's.
+   *
+   * Which row has a popover open is transient UI, and sharing it would mean
+   * pressing the glyph here also opened a picker over the tree's copy of the
+   * same row. Same argument `useNavRowEdit` makes about rename state.
+   */
+  const picker = useIconPicker();
+  const menu = useRowMenu();
+  const dragTypes = useDragTypes();
+  /*
+   * The element the menu came out of, kept so an action inside it can anchor
+   * a popover of its own. `useRowMenu` stores a rect, and the picker wants a
+   * live node to measure — see IconPicker.
+   */
+  const [iconTrigger, setIconTrigger] = React.useState<HTMLElement | null>(null);
 
   /** Which group a product sits in, for the breadcrumb under its name. */
   const groupOf = React.useCallback(
@@ -462,13 +575,188 @@ export function MergedRecentsBlock({
     [state, resolve],
   );
 
+  /*
+   * The pinned run's editing, or nothing at all.
+   *
+   * Three gates, three different questions: the axis (is this prototype
+   * showing the feature), the mode (is the reader arranging rather than
+   * using), and whether the id is actually pinned.
+   *
+   * Everything resolves against the STORE's order, never the drawn one. With
+   * `mergedPinOrder: "newest"` the list is reversed for display, so "up the
+   * screen" is "later in the array" — and a drop lands on the store index of
+   * the row it was dropped on, whichever way round the list is being read.
+   */
+  const pinEditFor = React.useCallback(
+    (id: string): PinRowEdit | undefined => {
+      if (!pinnedRowEdit || !state.editing) return undefined;
+      const at = state.pinned.indexOf(id);
+      if (at < 0) return undefined;
+      return {
+        ...(can.regroup
+          ? {
+              onPickIcon: (trigger: HTMLElement) => picker.open(id, trigger),
+            }
+          : {}),
+        drag: {
+          dragging: draggingId === id,
+          onDragStart: (e) => {
+            /*
+             * The index, under the pin type — `dataTransfer.types` is the
+             * only part readable mid-drag, so the KIND of thing in flight
+             * has to be the MIME. `text/plain` alongside it because some
+             * browsers refuse a drag carrying no standard type at all.
+             */
+            e.dataTransfer.setData(PIN_MIME, String(at));
+            e.dataTransfer.setData("text/plain", `pin:${at}`);
+            e.dataTransfer.effectAllowed = "move";
+            setDraggingId(id);
+          },
+          onDragEnd: () => setDraggingId(null),
+          onDragOver: (e) => e.preventDefault(),
+          onDrop: (e) => {
+            e.preventDefault();
+            const from = e.dataTransfer.getData("text/plain");
+            setDraggingId(null);
+            const fromIndex = Number(from.split(":")[1]);
+            if (from.startsWith("pin:") && !Number.isNaN(fromIndex)) {
+              movePin(fromIndex, at);
+            }
+          },
+        },
+        onOpenMenu: (trigger: HTMLElement) => {
+          setIconTrigger(trigger);
+          menu.open(id, trigger);
+        },
+      };
+    },
+    [pinnedRowEdit, state.editing, state.pinned, can.regroup, picker, menu, movePin, draggingId],
+  );
+
+  /*
+   * The kebab's verbs, in the order a reader reaches for them.
+   *
+   * Move first because arranging is what the mode is FOR; the shortcut next
+   * because it is a property of the position just established; remove last
+   * and alone, as the one action that cannot be undone by doing it again.
+   *
+   * No rename. See PinRowEdit: a pin names an L2 or an L3 and there is no
+   * label override behind those, so the verb would be a lie.
+   */
+  const menuActionsFor = (id: string): RowMenuAction[] => {
+    const at = state.pinned.indexOf(id);
+    const last = state.pinned.length - 1;
+    return [
+      {
+        id: "pin-up",
+        label: "Move up",
+        icon: ArrowUp,
+        // Absent rather than greyed at the ends of the run: the position
+        // already says why, and a dead row in a four-item menu is noise.
+        ...(at > 0 ? { onSelect: () => movePin(at, at - 1) } : {}),
+      },
+      {
+        id: "pin-down",
+        label: "Move down",
+        icon: ArrowDown,
+        ...(at < last ? { onSelect: () => movePin(at, at + 1) } : {}),
+      },
+      {
+        id: "pin-icon",
+        label: "Change icon",
+        icon: Shapes,
+        /*
+          The same picker the glyph itself opens, anchored on the kebab the
+          reader just pressed — a popover has to come from the thing that
+          summoned it, and by the time this fires the glyph is under a menu.
+          Duplicated on purpose: pressing the icon is the fast path for
+          someone who knows it is a button, and this is how everyone else
+          finds out it is one.
+        */
+        ...(iconTrigger
+          ? {
+              onSelect: () => {
+                menu.close();
+                picker.open(id, iconTrigger);
+              },
+            }
+          : {}),
+      },
+      {
+        id: "pin-shortcut",
+        label: "Configure shortcut key",
+        icon: Keyboard,
+        onSelect: () => setShortcutsOpen(true),
+      },
+    ];
+  };
+
+  /*
+   * The line that says where a dragged pin would land.
+   *
+   * The same `RowSeam` the L1 rows use, and for the reason its own note
+   * gives: a highlighted ROW would mean "drop it inside this one", which is
+   * not a move the pinned run has. Without them this list had the gesture and
+   * none of the signposting — you could drag, and nothing on screen said
+   * where to let go.
+   *
+   * Drop-only, no plus. A seam's plus means "add one here", and pins are
+   * added by pinning something, never by a control in this list.
+   */
+  const pinSeam = (index: number) =>
+    pinnedRowEdit && state.editing ? (
+      <RowSeam
+        key={`pin-seam-${index}`}
+        dragTypes={dragTypes}
+        accepts={[PIN_MIME]}
+        onDrop={(payload) => {
+          const from = Number(payload);
+          if (!Number.isNaN(from)) movePin(from, index);
+        }}
+      />
+    ) : null;
+
   return (
+    <>
+    {picker.targetId && picker.anchor ? (
+      <IconPicker
+        anchor={picker.anchor}
+        selected={state.icons[picker.targetId]}
+        onPick={(name) => setIcon(picker.targetId!, name)}
+        {...(hasIconOverride(picker.targetId)
+          ? { onReset: () => resetIcon(picker.targetId!) }
+          : {})}
+        onClose={picker.close}
+      />
+    ) : null}
+    {menu.openId && menu.anchor ? (
+      <RowMenu
+        anchor={menu.anchor}
+        title={productLabelFor(menu.openId)}
+        actions={menuActionsFor(menu.openId)}
+        onClose={menu.close}
+      />
+    ) : null}
+    {shortcutsOpen ? (
+      <ShortcutModal
+        rows={pins.map((p) => ({
+          id: p.id,
+          label: p.label,
+          ...(p.icon ? { icon: p.icon } : {}),
+          ...(p.detail ? { detail: p.detail } : {}),
+        }))}
+        onClose={() => setShortcutsOpen(false)}
+      />
+    ) : null}
     <MergedList
       pins={pins}
       recents={recents}
       onSelect={onSelect}
       onOpenPanel={onOpenPanel}
+      pinEditFor={pinEditFor}
+      pinSeam={pinSeam}
     />
+    </>
   );
 }
 
@@ -658,45 +946,109 @@ function MergedItemRow({
   index,
   mark,
   onSelect,
+  pinEdit,
 }: {
   row: MergedRow;
   /** Its slot in the pinned run, when it is in the pinned run. */
   index?: number;
   mark: "glyph" | "sublabel" | "none";
   onSelect: () => void;
+  /** Editing affordances. Pinned rows in edit mode, and nothing else. */
+  pinEdit?: PinRowEdit;
 }) {
   const Icon = row.icon;
   const pinnedInk = usePinnedInk();
   const { announce } = usePinFeedback();
+  const shortcuts = usePinShortcuts();
   // Empty for every treatment that does not animate the destination.
   const landed = usePinLanded(row.id);
+  const combo = shortcuts.comboFor(row.id);
   return (
     <div
       data-pin-row=""
       // `group/row` rather than a bare group: PinButton's hover variant names
       // this row specifically, and an unnamed group would also match any
       // hovered ancestor.
+      {...(pinEdit
+        ? {
+            onDragOver: pinEdit.drag.onDragOver,
+            onDrop: pinEdit.drag.onDrop,
+          }
+        : {})}
       className={cn(
         "group/row motion-tap relative flex w-full shrink-0 items-center",
         "gap-[var(--t-nav-gap,10px)] rounded-[var(--t-nav-radius,7px)]",
         "px-[var(--t-nav-px,8px)] py-[calc(var(--t-nav-py,9px)*0.667)]",
-        "hover:bg-nav-hover",
+        pinEdit?.drag.dragging ? "opacity-40" : "hover:bg-nav-hover",
         landed,
       )}
     >
+      {/*
+        The six-dot grip, always up in edit mode rather than on hover.
+
+        A handle you have to hover to discover is a handle nobody finds, and
+        in a mode whose whole point is rearranging every row is draggable —
+        so every row says so. Same element, same animation and same
+        `-ml-[5px]` as the L1 rows', which is what slides the glyph and the
+        label over instead of snapping them.
+      */}
+      {pinEdit ? (
+        <span
+          data-drag-handle=""
+          draggable
+          role="button"
+          tabIndex={-1}
+          aria-label={`Reorder ${row.label}`}
+          title="Drag to reorder"
+          onDragStart={pinEdit.drag.onDragStart}
+          onDragEnd={pinEdit.drag.onDragEnd}
+          onClick={(e) => e.stopPropagation()}
+          className="motion-grip-in -ml-[5px] flex size-[16px] shrink-0 cursor-grab items-center justify-center overflow-hidden rounded-[4px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:cursor-grabbing"
+        >
+          <GripVertical size={13} aria-hidden="true" />
+        </span>
+      ) : null}
       <button
         type="button"
         onClick={onSelect}
         className="flex min-w-0 flex-1 items-center gap-[var(--t-nav-gap,10px)] text-left"
       >
+        {/*
+          The glyph, and in edit mode the glyph IS the picker — pressed, not
+          accompanied by a button that does the pressing. An L1 row works
+          this way; see IconTrigger, whose dashed outline on row-hover is the
+          same hint repeated here so the two read as one control.
+        */}
         {row.avatar ??
           (Icon ? (
-            <ComposedIcon
-              icon={Icon}
-              {...(row.badge ? { badge: row.badge } : {})}
-              size={16}
-              className="text-nav-fg-muted"
-            />
+            pinEdit?.onPickIcon ? (
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label="Change icon"
+                title="Change icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  pinEdit.onPickIcon?.(e.currentTarget);
+                }}
+                className="motion-tap -m-[3px] flex shrink-0 cursor-pointer items-center justify-center rounded-[5px] p-[3px] outline-[1px] outline-offset-0 outline-transparent group-hover/row:outline-dashed group-hover/row:outline-[var(--nav-divider)] hover:bg-nav-hover"
+              >
+                <ComposedIcon
+                  icon={Icon}
+                  {...(row.badge ? { badge: row.badge } : {})}
+                  size={16}
+                  className="text-nav-fg-muted"
+                />
+              </span>
+            ) : (
+              <ComposedIcon
+                icon={Icon}
+                {...(row.badge ? { badge: row.badge } : {})}
+                size={16}
+                className="text-nav-fg-muted"
+              />
+            )
           ) : null)}
         <span className="flex min-w-0 flex-col">
           <span className="truncate text-[length:var(--t-nav-font,14px)] leading-[18px] text-nav-fg">
@@ -709,6 +1061,40 @@ function MergedItemRow({
           ) : null}
         </span>
       </button>
+
+      {/*
+        The keycap, on hover and nowhere else — see PINNED_SHORTCUTS_DEFAULT.
+
+        Before the pin rather than after it, so the pin keeps the edge it
+        holds on every row in the list: a column that moves depending on
+        whether a row has a shortcut is a column you cannot aim at.
+
+        In edit mode it is live and the hover gate comes off: an affordance
+        you can only reach by hovering the thing you are about to change is
+        fine for a read-out and wrong for a control.
+      */}
+      {combo ? (
+        <span
+          className={cn(
+            "flex shrink-0 items-center",
+            pinEdit
+              ? null
+              : "opacity-0 group-hover/row:opacity-100 focus-within:opacity-100",
+          )}
+        >
+          <ShortcutChip
+            combo={combo}
+            {...(pinEdit
+              ? {
+                  editable: true,
+                  onBind: (next: string) => shortcuts.bind(row.id, next),
+                  onClear: () => shortcuts.clear(row.id),
+                }
+              : {})}
+          />
+        </span>
+      ) : null}
+
       {row.onTogglePin ? (
         <MaybeCapHint blocked={row.pinBlocked ?? false}>
           <button
@@ -787,6 +1173,30 @@ function MergedItemRow({
         // list truncates at the same place.
         <span aria-hidden="true" className="size-[22px] shrink-0" />
       )}
+
+      {/*
+        One kebab, and it holds the row's trailing edge.
+
+        AFTER the pin, which is the one control that is not an edit: unpinning
+        is a thing you do to a row in either mode, so it keeps the column it
+        holds on every row of this list. The kebab is the mode's own
+        affordance and arrives beside it, at the very end — the same order an
+        L1 row uses.
+
+        The five glyphs this used to draw crowded a 272px row so badly that
+        "Conversations" truncated to "C." — the controls were literally louder
+        than the names they belonged to. Everything they did now lives in the
+        menu, which is where an L1 row has always kept its verbs.
+      */}
+      {pinEdit ? (
+        <EditAffordance
+          label={`Edit ${row.label}`}
+          onClick={pinEdit.onOpenMenu}
+          pinned
+        >
+          <EllipsisVertical size={13} aria-hidden="true" />
+        </EditAffordance>
+      ) : null}
     </div>
   );
 }

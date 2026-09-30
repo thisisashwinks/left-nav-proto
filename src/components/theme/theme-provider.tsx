@@ -77,6 +77,7 @@ import type {
   CrumbCollapse,
   CrumbStart,
   CrumbEmphasis,
+  EntryRadius,
   NavArrangement,
   ScopedSwitch,
   CrumbIcons,
@@ -172,6 +173,8 @@ interface ThemeContextValue extends ThemeState {
   setAgencySearch: (enabled: boolean) => void;
   setAgencyNavMark: (shown: boolean) => void;
   setNavOnPlane: (on: boolean) => void;
+  setPinnedRowEdit: (on: boolean) => void;
+  setPinnedShortcuts: (on: boolean) => void;
   setFlyoutTrigger: (trigger: FlyoutTrigger) => void;
   setSelectedState: (state: SelectedState) => void;
   setSelectedMark: (mark: SelectedMark) => void;
@@ -287,6 +290,7 @@ interface ThemeContextValue extends ThemeState {
   setPanelRecentHeading: (heading: PanelRecentHeading) => void;
   setPinMarkColour: (colour: PinMarkColour) => void;
   setAiButtonStyle: (style: AiButtonStyle) => void;
+  setEntryRadius: (v: EntryRadius) => void;
   setLegacyFootControl: (control: LegacyFootControl) => void;
   setNavSwitchButton: (enabled: boolean) => void;
   setAgencyEditNav: (enabled: boolean) => void;
@@ -446,6 +450,10 @@ export function ThemeProvider({
       setAgencyNavMark: (agencyNavMark) =>
         setState((s) => ({ ...s, agencyNavMark })),
       setNavOnPlane: (navOnPlane) => setState((s) => ({ ...s, navOnPlane })),
+      setPinnedRowEdit: (pinnedRowEdit) =>
+        setState((s) => ({ ...s, pinnedRowEdit })),
+      setPinnedShortcuts: (pinnedShortcuts) =>
+        setState((s) => ({ ...s, pinnedShortcuts })),
       setFlyoutTrigger: (flyoutTrigger) => setState((s) => ({ ...s, flyoutTrigger })),
       setSelectedState: (selectedState) =>
         setState((s) => ({ ...s, selectedState })),
@@ -652,6 +660,7 @@ export function ThemeProvider({
         setState((s) => ({ ...s, pinMarkColour })),
       setAiButtonStyle: (aiButtonStyle) =>
         setState((s) => ({ ...s, aiButtonStyle })),
+      setEntryRadius: (entryRadius) => setState((s) => ({ ...s, entryRadius })),
       setLegacyFootControl: (legacyFootControl) =>
         setState((s) => ({ ...s, legacyFootControl })),
       setNavSwitchButton: (navSwitchButton) =>

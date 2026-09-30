@@ -1014,7 +1014,7 @@ export function EntryPill({
   const header = tone === "header";
   // The hook runs unconditionally; only the ANSWER is conditional. Reading it
   // inside the `&&` made it a conditional hook call.
-  const { aiButtonStyle } = useTheme().effective;
+  const { aiButtonStyle, entryRadius } = useTheme().effective;
   // Only consulted where the pill is a button — see AI_BUTTON_STYLES.
   const outlined = !searchEnabled && aiButtonStyle === "outline";
   return (
@@ -1036,7 +1036,14 @@ export function EntryPill({
       */}
       <div
         className={cn(
-          "ai-entry motion-tap flex items-center gap-[6px] rounded-full focus-within:shadow-[inset_0_0_0_1px_var(--brand)]",
+          "ai-entry motion-tap flex items-center gap-[6px] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]",
+          /*
+            The shape is an axis, not a constant (Sep 30). See ENTRY_RADII:
+            fully rounded says "ask me something", 8px says "this is a field
+            like every other field", and which of those the entry should be
+            saying is the question the control exists to put on screen.
+          */
+          entryRadius === "sm" ? "rounded-[8px]" : "rounded-full",
           /*
             A field fills its column; a button is the size of what it says.
             

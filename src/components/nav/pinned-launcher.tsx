@@ -7,8 +7,11 @@ import {
   ChevronRight,
   Smartphone,
   ArrowUp,
+  EllipsisVertical,
   GripVertical,
+  Keyboard,
   Pin,
+  Shapes,
   Search,
   X,
   type LucideIcon,
@@ -40,7 +43,20 @@ import { ComposedIcon } from "./composed-icon";
 import { agencyPlaces } from "./agency-config";
 import { useAgencyLayout } from "./agency-layout";
 import { useNavLayout } from "./nav-layout-provider";
-import { agencyRecentPlaceIds, recentIdsFor } from "./merged-recents";
+import {
+  agencyRecentPlaceIds,
+  recentIdsFor,
+  type PinRowEdit,
+} from "./merged-recents";
+import { EditAffordance } from "./inline-rename";
+import { IconPicker, useIconPicker } from "./icon-picker";
+import { RowMenu, useRowMenu, type RowMenuAction } from "./row-menu";
+import { RowSeam } from "./row-seam";
+import { PIN_MIME } from "./nav-drag";
+import { useDragTypes } from "@/lib/use-drag-active";
+import { usePinShortcuts } from "./pin-shortcuts";
+import { ShortcutChip } from "./shortcut-chip";
+import { ShortcutModal } from "./shortcut-modal";
 import { PinButton, usePinnedInk } from "./pin-button";
 import { ResolvedIcon } from "./resolved-icon";
 
@@ -147,6 +163,112 @@ export function PinnedLauncher({
     treeRecentsAllProducts,
   } = useTheme().effective;
   const agency = useAgencyLayout();
+  /*
+   * This panel's own picker and menu, not the nav column's.
+   *
+   * Which row has a popover open is transient UI: sharing it with the nav
+   * would mean pressing the glyph here also opened a picker over the tree's
+   * copy of the same row. Same argument `useNavRowEdit` makes about rename
+   * state, which is why that hook keeps it local too.
+   */
+  const pinPicker = useIconPicker();
+  const pinMenu = useRowMenu();
+  const { pinnedRowEdit, navOnPlane } = useTheme().effective;
+  const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
+  const [pinDragId, setPinDragId] = React.useState<string | null>(null);
+  const [pinIconTrigger, setPinIconTrigger] =
+    React.useState<HTMLElement | null>(null);
+  const dragTypes = useDragTypes();
+
+  /*
+   * The drop line between pinned rows, in edit mode.
+   *
+   * This panel has always had grips and nudges, and no signpost: the gesture
+   * worked and nothing said where the row would land. Same `RowSeam` the L1
+   * rows use, drop-only — a plus here would mean "add a pin", which is done
+   * by pinning something, not by a control in this list.
+   */
+  const pinSeam = (index: number) =>
+    pinnedRowEdit && state.editing ? (
+      <RowSeam
+        key={`pin-seam-${index}`}
+        dragTypes={dragTypes}
+        accepts={[PIN_MIME]}
+        // 10, not the 8 the nav uses: this panel's rows are taller and its
+        // gap is wider, so the same reach lands as a narrower strip.
+        reach={10}
+        onDrop={(payload) => {
+          const from = Number(payload);
+          if (!Number.isNaN(from)) layout.movePin(from, index);
+        }}
+      />
+    ) : null;
+
+  const pinMenuActionsFor = (id: string): RowMenuAction[] => {
+    const at = state.pinned.indexOf(id);
+    const last = state.pinned.length - 1;
+    return [
+      { id: "pin-up", label: "Move up", icon: ArrowUp,
+        ...(at > 0 ? { onSelect: () => layout.movePin(at, at - 1) } : {}) },
+      { id: "pin-down", label: "Move down", icon: ArrowDown,
+        ...(at < last ? { onSelect: () => layout.movePin(at, at + 1) } : {}) },
+      { id: "pin-icon", label: "Change icon", icon: Shapes,
+        // Anchored on the kebab, since the glyph is under the menu by now.
+        ...(pinIconTrigger
+          ? { onSelect: () => { pinMenu.close(); pinPicker.open(id, pinIconTrigger); } }
+          : {}) },
+      { id: "pin-shortcut", label: "Configure shortcut key", icon: Keyboard,
+        onSelect: () => setShortcutsOpen(true) },
+    ];
+  };
+
+  /*
+   * The same three affordances the inline block gives a pin — grip, glyph,
+   * kebab — so a pin offers the same verbs whichever surface you meet it on.
+   *
+   * The panel's own grips and nudges stay put and stay ungated: they predate
+   * the mode, and a tall panel devoted to the pin list is exactly where
+   * dragging works. In edit mode this adds to them rather than replacing
+   * them.
+   */
+  const pinEditFor = React.useCallback(
+    (id: string): PinRowEdit | undefined => {
+      if (!pinnedRowEdit || !state.editing) return undefined;
+      const at = state.pinned.indexOf(id);
+      if (at < 0) return undefined;
+      return {
+        ...(layout.can.regroup
+          ? { onPickIcon: (trigger: HTMLElement) => pinPicker.open(id, trigger) }
+          : {}),
+        drag: {
+          dragging: pinDragId === id,
+          onDragStart: (e) => {
+            // The kind in flight has to BE the type — see PIN_MIME.
+            e.dataTransfer.setData(PIN_MIME, String(at));
+            e.dataTransfer.setData("text/plain", `pin:${at}`);
+            e.dataTransfer.effectAllowed = "move";
+            setPinDragId(id);
+          },
+          onDragEnd: () => setPinDragId(null),
+          onDragOver: (e) => e.preventDefault(),
+          onDrop: (e) => {
+            e.preventDefault();
+            const from = e.dataTransfer.getData("text/plain");
+            setPinDragId(null);
+            const fromIndex = Number(from.split(":")[1]);
+            if (from.startsWith("pin:") && !Number.isNaN(fromIndex)) {
+              layout.movePin(fromIndex, at);
+            }
+          },
+        },
+        onOpenMenu: (trigger: HTMLElement) => {
+          setPinIconTrigger(trigger);
+          pinMenu.open(id, trigger);
+        },
+      };
+    },
+    [pinnedRowEdit, state.editing, state.pinned, layout, pinPicker, pinMenu, pinDragId],
+  );
   /*
    * In merged mode this panel is the one surface behind the nav's single list.
    *
@@ -666,13 +788,19 @@ export function PinnedLauncher({
     <>
       <SectionHeading count={state.pinned.length}>Pinned</SectionHeading>
       {agencyScope ? <PinnedScopeNote /> : null}
-      {pinnedIds.map((id) => {
+      {pinnedIds.map((id, drawn) => {
         const index = state.pinned.indexOf(id);
         return (
+          <React.Fragment key={`pin-slot-${id}`}>
+          {pinSeam(drawn)}
           <ProductRow
             key={`pin-${id}`}
             productId={id}
             gripReplacesIcon
+            {...(() => {
+              const pinEdit = pinEditFor(id);
+              return pinEdit ? { pinEdit } : {};
+            })()}
             reorder={{
               onUp: () => layout.movePin(index, index - 1),
               onDown: () => layout.movePin(index, index + 1),
@@ -687,8 +815,11 @@ export function PinnedLauncher({
               },
             }}
           />
+          </React.Fragment>
         );
       })}
+      {/* Closes the run, so a pin can be dropped last. */}
+      {pinSeam(pinnedIds.length)}
     </>
   ) : state.pinned.length === 0 ? (
     // Only when there are genuinely none — a filter that hides them all
@@ -726,7 +857,11 @@ export function PinnedLauncher({
           // Header and filter pinned, list scrolling, "New group" pinned at the
           // bottom — same reasoning as the flyout panel: on a short screen the
           // whole thing scrolled and the create affordance went with it.
-          "absolute bottom-[var(--shell-canvas-gap)] z-40 flex w-[360px] flex-col items-start overflow-hidden rounded-r-[var(--shell-canvas-radius)] bg-nav pt-[14px] pb-[16px]",
+          "absolute z-40 flex w-[360px] flex-col items-start overflow-hidden pt-[14px] pb-[16px]",
+          // Square against the plane — see the L2 panel's note.
+          navOnPlane ? null : "rounded-r-[var(--shell-canvas-radius)]",
+          // Same rule as the L2 panel's — see the note there.
+          navOnPlane ? "bottom-0 bg-pg" : "bottom-[var(--shell-canvas-gap)] bg-nav",
           /*
             The same box the L2 panels are, and for the same reasons.
             
@@ -741,7 +876,11 @@ export function PinnedLauncher({
             pointer travels from a nav row into this panel, and a border there
             would stack against the nav card's own into a 2px seam.
           */
-          "shadow-[inset_0_1px_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border)]",
+          // On the plane: a left edge, because the nav no longer has a right
+          // one for the seam to borrow. See the L2 panel's note.
+          navOnPlane
+            ? "shadow-[inset_1px_0_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border)]"
+            : "shadow-[inset_0_1px_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border)]",
           phase === "entering" ? "motion-panel-in" : "motion-panel-out",
         )}
       >
@@ -1227,6 +1366,45 @@ export function PinnedLauncher({
         */}
       </div>
 
+      {/*
+        The picker and the table, portalled out of the panel.
+
+        Both have to escape it: the panel scrolls its contents, so a popover
+        positioned inside it is clipped by the first row that goes past the
+        fold — the same reason the icon picker is portalled in the nav.
+      */}
+      {pinPicker.targetId && pinPicker.anchor ? (
+        <IconPicker
+          anchor={pinPicker.anchor}
+          selected={state.icons[pinPicker.targetId]}
+          onPick={(name) => layout.setIcon(pinPicker.targetId!, name)}
+          {...(layout.hasIconOverride(pinPicker.targetId)
+            ? { onReset: () => layout.resetIcon(pinPicker.targetId!) }
+            : {})}
+          onClose={pinPicker.close}
+        />
+      ) : null}
+      {pinMenu.openId && pinMenu.anchor ? (
+        <RowMenu
+          anchor={pinMenu.anchor}
+          title={layout.productLabelFor(pinMenu.openId)}
+          actions={pinMenuActionsFor(pinMenu.openId)}
+          onClose={pinMenu.close}
+        />
+      ) : null}
+      {shortcutsOpen ? (
+        <ShortcutModal
+          rows={(agencyScope ? agencyPinnedIds : state.pinned).map((id) => {
+            const place = agencyScope ? agencyPlaces[id] : undefined;
+            return {
+              id,
+              label: place ? agency.labelFor(id, place.label) : layout.productLabelFor(id),
+              ...(place ? { icon: place.icon } : { icon: glyphFor(state, id).icon }),
+            };
+          })}
+          onClose={() => setShortcutsOpen(false)}
+        />
+      ) : null}
     </>
   );
 }
@@ -1410,6 +1588,7 @@ function ProductRow({
   drag,
   onOpen,
   external,
+  pinEdit,
 }: {
   productId: string;
   /**
@@ -1445,6 +1624,17 @@ function ProductRow({
     pinned: boolean;
     onTogglePin: () => void;
   };
+  /**
+   * Renaming, re-iconing and the shortcut key, in edit mode.
+   *
+   * The same bundle the inline block's rows take, so a pin offers the same
+   * three verbs whichever surface you meet it on. Reordering is NOT in it
+   * here — this panel has had grips and nudges since before the mode existed,
+   * and they are not gated on it: a tall panel devoted to the pin list is
+   * exactly where dragging works, and taking that away outside edit mode
+   * would be a regression dressed as consistency.
+   */
+  pinEdit?: PinRowEdit;
 }) {
   const layout = useNavLayout();
   const [dragging, setDragging] = React.useState(false);
@@ -1458,6 +1648,8 @@ function ProductRow({
     : glyphFor(layout.state, productId);
   const icon = glyph.icon;
   const label = external?.label ?? layout.productLabelFor(productId);
+  const shortcuts = usePinShortcuts();
+  const shortcutCombo = shortcuts.comboFor(productId);
   const { ref: labelRef, hostRef } =
     useTruncationTitle<HTMLSpanElement>(label);
 
@@ -1578,6 +1770,44 @@ function ProductRow({
           {label}
         </span>
       )}
+
+      {/*
+        The keycap. Hover-only outside edit mode, for the reason the inline
+        block's is — see PINNED_SHORTCUTS_DEFAULT — and always up inside it,
+        because there it is a control rather than a reminder.
+      */}
+      {shortcutCombo ? (
+        <span
+          className={cn(
+            "flex shrink-0 items-center",
+            pinEdit
+              ? null
+              : "opacity-0 group-hover/row:opacity-100 focus-within:opacity-100",
+          )}
+        >
+          <ShortcutChip
+            combo={shortcutCombo}
+            {...(pinEdit
+              ? {
+                  editable: true,
+                  onBind: (next: string) => shortcuts.bind(productId, next),
+                  onClear: () => shortcuts.clear(productId),
+                }
+              : {})}
+          />
+        </span>
+      ) : null}
+
+      {/*
+        One kebab, where an L1 row has one kebab — move, shortcut, remove.
+        No rename: a pin names an L2 or an L3, and neither has a label
+        override behind it. See PinRowEdit.
+      */}
+      {pinEdit ? (
+        <EditAffordance label={`Edit ${label}`} onClick={pinEdit.onOpenMenu} pinned>
+          <EllipsisVertical size={13} aria-hidden="true" />
+        </EditAffordance>
+      ) : null}
 
       <span className="flex shrink-0 items-center gap-[1px] opacity-0 group-hover/row:opacity-100 focus-within:opacity-100">
         {/* Every drag has a click equivalent — a settled decision. */}

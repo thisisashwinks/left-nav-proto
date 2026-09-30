@@ -80,6 +80,8 @@ import {
   DOCK_POSITIONS,
   ENTRY_LAYOUT_LABELS,
   ENTRY_LAYOUTS,
+  ENTRY_RADII,
+  ENTRY_RADIUS_LABELS,
   HEADER_ENTRY_SIDES,
   HEADER_ENTRY_SIDE_LABELS,
   GET_APP_PLACEMENTS,
@@ -412,6 +414,10 @@ function NavStructureSection({
     mergedVisibleRows,
     setMergedVisibleRows,
     mergedPinCap,
+    pinnedRowEdit,
+    setPinnedRowEdit,
+    pinnedShortcuts,
+    setPinnedShortcuts,
     setMergedPinCap,
     mergedRecentFloor,
     setMergedRecentFloor,
@@ -1150,6 +1156,36 @@ function NavStructureSection({
           />
         </div>
       ) : null}
+
+      {/*
+        What a pin can do BEYOND being a destination.
+
+        Under the merged block's own settings rather than in the editing
+        section, because both are properties of the pinned run: the run is the
+        only part of this nav that holds still, which is what makes it the
+        only part worth naming or binding a key to.
+      */}
+      <Toggle
+        label="Edit pinned items"
+        checked={pinnedRowEdit}
+        onChange={setPinnedRowEdit}
+      />
+      <Note>
+        {pinnedRowEdit
+          ? "In edit mode a pinned row can be moved up and down, renamed and given a new icon — in the block and in the panel behind View all. The rename lands on the product, so the row is called the same thing in the tree, the dock and the breadcrumb. Recents get none of it: a row that will be gone by Thursday is not worth naming."
+          : "Pins are destinations and nothing else. Off, edit mode leaves this block alone."}
+      </Note>
+
+      <Toggle
+        label="Shortcuts on pinned items"
+        checked={pinnedShortcuts}
+        onChange={setPinnedShortcuts}
+      />
+      <Note>
+        {pinnedShortcuts
+          ? "⌃⌥1 for the first pin, ⌃⌥2 for the second, to ⌃⌥5 — the pin cap, so that is every default there can be. They follow the pin order, so dragging a pin up moves its key with it. ⌃⌥ because it is unclaimed by the browser and by macOS, and because the same two keys are Ctrl and Alt on Windows, so the binding is literally the same there. The cap shows on hover only, like ⌘K in search; in edit mode, click it to rebind, or open the whole table from the kebab."
+          : "No keys bound, and no listener running."}
+      </Note>
 
       <Toggle
         label="Auto-collapse on narrow screens"
@@ -2183,6 +2219,8 @@ export function TuningPanel() {
     dockPosition,
     setDockPosition,
     entryLayout,
+    entryRadius,
+    setEntryRadius,
     headerEntrySide,
     setHeaderEntrySide,
     setEntryLayout,
@@ -4335,10 +4373,42 @@ export function TuningPanel() {
               <Note>
                 {headerEntrySide === "right"
                   ? "Beside the utilities, on the edge the bar has always ended on. Nothing else in the row moves."
-                  : "At the head of the row. Pair it with the trail switched off: the tree already says where you are, which leaves the left of a 48px bar empty and search the obvious thing to spend it on."}
+                  : headerEntrySide === "left"
+                    ? "At the head of the row. Pair it with the trail switched off: the tree already says where you are, which leaves the left of a 48px bar empty and search the obvious thing to spend it on."
+                    : headerEntrySide === "trail"
+                      ? "Immediately after the last crumb, travelling with it — search beside where you ARE rather than at a corner. The cost is a control that moves as you navigate."
+                      : "Pinned to the middle of the window, like a browser's address bar: one findable target, trail to its left and utilities to its right. On a deep trail the two can meet."}
               </Note>
             </>
           ) : null}
+
+          {/*
+            Directly under the placement controls, because it is the same
+            object's next question: where the entry stands, then what shape it
+            is. Outside the `header` condition though — the pill is the same
+            control in the nav, and a radius that disappeared when you moved it
+            back into the column would read as the setting being lost.
+          */}
+          <Segmented
+            label="Ask AI search bar corners"
+            options={ENTRY_RADII}
+            value={entryRadius}
+            onChange={setEntryRadius}
+            format={(v) => ENTRY_RADIUS_LABELS[v]}
+            /*
+              Findable by the words someone would actually type. "Trail" is in
+              there because this control's neighbours are the trail-row
+              placements and that is what the search for one should surface —
+              see the note on `useFiltered`, which matches labels, option names
+              and these.
+            */
+            keywords="trail search bar radius rounded corners pill curve ask ai entry"
+          />
+          <Note>
+            {entryRadius === "pill"
+              ? "Fully rounded, as it ships. Reads as somewhere to ask rather than as one more form control — and it is the one shape on the screen nothing else wears."
+              : "The platform's own 8px, like every other input, button and select on the page. Consistent, and it stops the entry announcing itself."}
+          </Note>
 
           <Toggle
             label="Sidebar on the plane"

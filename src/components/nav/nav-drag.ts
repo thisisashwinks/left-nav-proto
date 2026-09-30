@@ -16,6 +16,17 @@ export const L1_MIME = "application/x-nav-category";
 /** A row from inside a category's panel. Payload: the product id. */
 export const L2_MIME = "application/x-nav-row";
 
+/**
+ * A pinned row being reordered within the pinned run. Payload: its index.
+ *
+ * Its own type rather than reusing `L2_MIME`, though a pin usually names a
+ * product: the payload is a POSITION, and the two runs accept different
+ * moves. Sharing the type would have made every category seam in the nav
+ * light up while a pin was in flight, offering a drop that means nothing —
+ * "file this pin under Marketing" is not a move this nav has.
+ */
+export const PIN_MIME = "application/x-nav-pin";
+
 /*
  * The agency tree drags on its own two types.
  *

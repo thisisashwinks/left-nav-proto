@@ -121,6 +121,7 @@ import {
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { PinnedLauncher } from "@/components/nav/pinned-launcher";
 import { HereProvider } from "@/components/nav/here";
+import { PinShortcutsProvider } from "@/components/nav/pin-shortcuts";
 import { NewFlagProvider, flyoutCarriesNew } from "@/components/nav/new-flag";
 import { UndoToast } from "@/components/nav/undo-toast";
 import { UpgradeToast } from "@/components/nav/upgrade-toast";
@@ -408,6 +409,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     dockPosition,
     entryLayout,
     navOnPlane,
+    pinnedShortcuts,
     recentsMode,
     mergedPinScope,
     autoCollapse,
@@ -2403,6 +2405,19 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   };
 
   return (
+    /*
+      Shortcuts wrap the whole shell, not the nav.
+
+      The listener is on the window and the binding is a promise about the
+      APPLICATION — ⌘⇧2 has to reach Opportunities from inside the invoice
+      builder, where the nav is not even mounted. Scoping it to the sidebar
+      would have made the feature work only where you least need it.
+    */
+    <PinShortcutsProvider
+      order={agencyScope ? agencyLayout.pinned : layout.pinned}
+      enabled={pinnedShortcuts}
+      onFire={selectNavRow}
+    >
     <HereProvider value={here}>
     <NewFlagProvider ids={newFlagIds}>
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -3284,7 +3299,18 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         The left corners need no such patch; the rail's veil sits ABOVE the card
         and already covers them.
       */}
-      {layout.editing ? (
+      {/*
+        Neither strip exists on the plane.
+
+        They fill the nav CARD's top and bottom margins and patch the wedge
+        its corner radius leaves — and on the plane there is no margin, no
+        radius and no card. Worse than merely redundant: the card is what was
+        painting over them at z-20, so with it transparent the two gradients
+        would show straight through the nav, dimming the first and last rows
+        of the very thing the mode is about. Full height, no margin, nothing
+        laid over either end.
+      */}
+      {layout.editing && !navOnPlane ? (
         <>
           <div
             aria-hidden="true"
@@ -3578,5 +3604,6 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     </div>
     </NewFlagProvider>
     </HereProvider>
+    </PinShortcutsProvider>
   );
 }

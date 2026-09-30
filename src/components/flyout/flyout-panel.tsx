@@ -156,7 +156,8 @@ export function FlyoutPanel({
    * break the outline in the middle.
    */
   const navEditing = layout.state.editing && layout.can.customise;
-  const { editTreatment, l3Disclosure, flyoutTrigger } = useTheme().effective;
+  const { editTreatment, l3Disclosure, flyoutTrigger, navOnPlane } =
+    useTheme().effective;
   // The same axis the rows read for themselves; the cascade renders them from
   // out here, so it has to answer the question too.
   const { tabsInNav } = useTheme();
@@ -945,7 +946,30 @@ export function FlyoutPanel({
         // idea: this is the nav continuing, not a second card. A left radius would
         // cut a notch out of the seam, and a left border would sit against the
         // card's right border and read as one 2px line.
-        "absolute bottom-[var(--shell-canvas-gap)] z-30 flex w-[360px] flex-col items-start overflow-hidden rounded-r-[var(--shell-canvas-radius)] bg-nav pt-[14px] pb-[16px] outline-none",
+        "absolute z-30 flex w-[360px] flex-col items-start overflow-hidden pt-[14px] pb-[16px] outline-none",
+        /*
+          The right corners round against a card and square against the plane.
+
+          A radius is how one card ends beside another. On the plane there is
+          no card and nothing for the curve to belong to — it just carved a
+          12px notch out of the top of a panel that is supposed to run the
+          full height, which reads as a margin the panel does not have.
+        */
+        navOnPlane ? null : "rounded-r-[var(--shell-canvas-radius)]",
+        /*
+          On the plane the panel stops being a card too.
+
+          It takes the page's ground rather than the nav's and drops the
+          bottom inset, because the inset exists to line the panel up with a
+          nav CARD — and there is no card. Left as it was, the panel floated
+          a gap short of the bottom of a sidebar that runs the full height,
+          which read as the panel having failed to load the rest of itself.
+
+          The same colour as the nav beside it, deliberately: this is the nav
+          continuing, and the whole argument for the plane is one ground
+          under everything that is not the page.
+        */
+        navOnPlane ? "bottom-0 bg-pg" : "bottom-[var(--shell-canvas-gap)] bg-nav",
         // Editing, the panel completes the nav's ring rather than wearing its
         // own border — top, right and bottom in brand, nothing on the left, so
         // the two boxes read as one surface with one stroke around it.
@@ -964,8 +988,29 @@ export function FlyoutPanel({
            * continuing (Khoi, Aug 24). The card behind both already carries the
            * float; the panel needs only its edges.
            */
-          ? "shadow-[inset_0_1.5px_0_0_var(--nav-edit-ring),inset_-1.5px_0_0_0_var(--nav-edit-ring),inset_0_-1.5px_0_0_var(--nav-edit-ring)]"
-          : "shadow-[inset_0_1px_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border)]",
+          ? navOnPlane
+            ? "shadow-[inset_1.5px_0_0_0_var(--nav-edit-ring),inset_-1.5px_0_0_0_var(--nav-edit-ring)]"
+            : "shadow-[inset_0_1.5px_0_0_var(--nav-edit-ring),inset_-1.5px_0_0_0_var(--nav-edit-ring),inset_0_-1.5px_0_0_var(--nav-edit-ring)]"
+          : navOnPlane
+            /*
+              LEFT and right, and nothing top or bottom.
+
+              The left edge is the one thing that changed with the plane. Off
+              it, the nav card's own right border is the single hairline
+              between the two surfaces and a second one here would stack into
+              a 2px seam — so the panel drew none. On the plane the nav has no
+              border at all and the panel is the same colour as it, so with no
+              left edge there was nothing on screen saying where L1 stopped
+              and L2 began. This is that line, and it is the nav's own
+              divider weight rather than a heavier one, because the two are
+              still one surface.
+
+              Top and bottom go with the radius: the panel runs the full
+              height now, and a hairline capping a full-height column reads
+              as the column being inset from an edge it is actually touching.
+            */
+            ? "shadow-[inset_1px_0_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border)]"
+            : "shadow-[inset_0_1px_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border)]",
         // `left` animates too, so the panel follows the nav edge when the rail
         // collapses underneath an open panel instead of jumping.
         "motion-move",

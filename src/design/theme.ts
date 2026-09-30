@@ -823,8 +823,10 @@ export const AGENCY_SEARCH_DEFAULT = false;
  * anything, so its header mark is the only one there is and the axis leaves it
  * alone. Collapsed, the same rule applies to the rail-width mark, which has an
  * Expand button directly beneath it doing the job it would lose.
+ *
+ * Off by default since Sep 30: one identity stated once.
  */
-export const AGENCY_NAV_MARK_DEFAULT = true;
+export const AGENCY_NAV_MARK_DEFAULT = false;
 
 /**
  * Whether the sidebar gives up its own card and sits on the page's plane.
@@ -847,6 +849,43 @@ export const AGENCY_NAV_MARK_DEFAULT = true;
  * meant to match while this is on, and the panel says so.
  */
 export const NAV_ON_PLANE_DEFAULT = false;
+
+/**
+ * Whether a pinned row can be arranged, renamed and re-iconed in edit mode.
+ *
+ * A pin is the one row in the nav a person put there on purpose, so it is the
+ * one row it is worth letting them make their own — the argument the dock's
+ * own ordering already makes, extended from "which order" to "what it is
+ * called and what it looks like". Recents get none of it: a row that will be
+ * gone by Thursday is not worth naming, and an affordance on every history row
+ * turns a list you read into a list you maintain.
+ *
+ * Edit mode only, like every other structural affordance in this nav — see
+ * `useNavRowEdit`, which is already gated that way and which this reuses
+ * rather than reimplements. The rename and the icon land on the PRODUCT, so a
+ * pin renamed here is renamed in the tree, the flyout, the dock and the
+ * breadcrumb too. A pin-local alias was the other reading and it loses the one
+ * property a nav has to keep: the same place called the same thing everywhere
+ * you meet it.
+ */
+export const PINNED_ROW_EDIT_DEFAULT = false;
+
+/**
+ * Whether pinned rows answer to a keyboard shortcut.
+ *
+ * ⌃⌥1 for the first pin, ⌃⌥2 for the second, up to ⌃⌥5 — the pin cap, so that
+ * is every default there can be. They follow the pin ORDER rather than the
+ * pin, so reordering reassigns, and an account has working shortcuts without
+ * anyone opening a settings screen. See `pin-shortcuts.tsx` for the
+ * resolution rule, why ⌃⌥ and not ⌘⇧, and why bindings live outside the
+ * layout store.
+ *
+ * The cap shows on hover and nowhere else. A pinned run wearing five
+ * permanent keycaps is a nav advertising its own settings; the shortcut is for
+ * someone who knows it already, and the chip is for the moment they have
+ * forgotten. Same reasoning, and the same treatment, as the ⌘K cap in search.
+ */
+export const PINNED_SHORTCUTS_DEFAULT = false;
 
 /**
  * How the Ask AI button is drawn once it is a button rather than a field.
@@ -1327,6 +1366,32 @@ export const ENTRY_LAYOUT_LABELS: Record<EntryLayout, string> = {
 };
 
 /**
+ * How round the merged Search + Ask AI control is.
+ *
+ * `pill` is what shipped, and it is an argument: a fully rounded field reads as
+ * a place to ASK rather than as one more form control, which is the whole
+ * point of merging search with the assistant. It is also the one shape on the
+ * screen that nothing else wears.
+ *
+ * `sm` is the platform's own 8px, the radius every other input, button and
+ * select in HighRise uses. The case for it is consistency — a search field
+ * that is shaped like every other field is a search field nobody has to learn
+ * — and the case against is that it stops announcing itself. Worth seeing side
+ * by side rather than argued about, which is why it is here.
+ *
+ * Only the horizontal control answers to it. The 44px rail stack is a column
+ * of round glyphs and an 8px box around them would be a box around circles.
+ */
+export const ENTRY_RADII = ["pill", "sm"] as const;
+
+export type EntryRadius = (typeof ENTRY_RADII)[number];
+
+export const ENTRY_RADIUS_LABELS: Record<EntryRadius, string> = {
+  pill: "Fully rounded",
+  sm: "8px",
+};
+
+/**
  * Which end of the app bar the entry stands at, once `entryLayout` has put it
  * there.
  *
@@ -1346,13 +1411,36 @@ export const ENTRY_LAYOUT_LABELS: Record<EntryLayout, string> = {
  * forbidden, since "does the trail still fit" is the question the pairing is
  * actually asking.
  */
-export const HEADER_ENTRY_SIDES = ["right", "left"] as const;
+/*
+ * Two more placements, both about the trail rather than the bar's ends
+ * (Ashwin, Sep 30).
+ *
+ * `trail` puts the entry immediately after the last crumb, travelling with it:
+ * on a shallow page it sits near the left, on a deep one it is pushed right.
+ * The claim is that search belongs beside where you ARE rather than at a fixed
+ * corner — and the cost is a control whose position moves as you navigate,
+ * which is the thing to look at.
+ *
+ * `centre` pins it to the middle of the bar, the browser-omnibox arrangement:
+ * one fixed, findable target with the trail to its left and the utilities to
+ * its right. It is centred on the WINDOW rather than on the space between
+ * them, so it does not move when the trail grows — and on a deep trail the two
+ * can meet, which is the trade this one is here to show.
+ */
+export const HEADER_ENTRY_SIDES = [
+  "right",
+  "left",
+  "trail",
+  "centre",
+] as const;
 
 export type HeaderEntrySide = (typeof HEADER_ENTRY_SIDES)[number];
 
 export const HEADER_ENTRY_SIDE_LABELS: Record<HeaderEntrySide, string> = {
   right: "Beside the utilities",
   left: "Where the trail was",
+  trail: "After the last crumb",
+  centre: "Centred in the bar",
 };
 
 /**
@@ -2248,6 +2336,8 @@ export interface ThemeState {
   dockLabel: DockLabel;
   dockPosition: DockPosition;
   entryLayout: EntryLayout;
+  /** How round the merged entry is drawn. See ENTRY_RADII. */
+  entryRadius: EntryRadius;
   /** Which end of the bar the header entry stands at. See HEADER_ENTRY_SIDES. */
   headerEntrySide: HeaderEntrySide;
   /** Where the Get the app offer is reached from. See GET_APP_PLACEMENTS. */
@@ -2261,6 +2351,10 @@ export interface ThemeState {
   agencyNavMark: boolean;
   /** Whether the nav drops its card and sits on the plane. See NAV_ON_PLANE_DEFAULT. */
   navOnPlane: boolean;
+  /** Arranging, renaming and re-iconing pins in edit mode. See PINNED_ROW_EDIT_DEFAULT. */
+  pinnedRowEdit: boolean;
+  /** Keyboard shortcuts on pinned rows. See PINNED_SHORTCUTS_DEFAULT. */
+  pinnedShortcuts: boolean;
   /** How an L2 row reveals its L3 rows. See L3_DISCLOSURES. */
   l3Disclosure: L3Disclosure;
   flyoutTrigger: FlyoutTrigger;
@@ -3001,6 +3095,7 @@ export const DEFAULT_THEME: ThemeState = {
    * Both nav placements stay one click away for the comparison.
    */
   entryLayout: "header",
+  entryRadius: "pill",
   headerEntrySide: "right",
   /*
    * The avatar menu, which is where production puts it.
@@ -3017,6 +3112,8 @@ export const DEFAULT_THEME: ThemeState = {
   agencySearch: AGENCY_SEARCH_DEFAULT,
   agencyNavMark: AGENCY_NAV_MARK_DEFAULT,
   navOnPlane: NAV_ON_PLANE_DEFAULT,
+  pinnedRowEdit: PINNED_ROW_EDIT_DEFAULT,
+  pinnedShortcuts: PINNED_SHORTCUTS_DEFAULT,
   // Both back to the plain answer (Sep 10). The indented list and the
   // click-every-time trigger are what the nav shipped with, so they are what a
   // review should open on; the dropdown and the sticky swap are the proposals,

@@ -1165,7 +1165,18 @@ export function LeftNav({
    * One function, two callers, no second source of verbs.
    */
   const treeRowExtras = (itemId: string): Partial<NavRowEdit> => {
-    if (!productTree || !editing) return {};
+    /*
+     * Every arrangement that draws a product as a ROW, not just the tree.
+     *
+     * `productTree` alone was the test, which was right on the day it was
+     * written and wrong the moment the drill-in and scoped arrangements
+     * started drawing the same branch in the column (Sep 30): a product row
+     * inside a drilled category got no kebab, no eye and no grip, because this
+     * returned nothing for it and `editFor` only ever carried the rename. The
+     * question is not "is the tree on", it is "is this row in the nav at all",
+     * and `columnMode` is the other way that happens.
+     */
+    if ((!productTree && !columnMode) || !editing) return {};
 
     const owner = categories.find((g) => g.productIds.includes(itemId));
     if (owner) {
@@ -1254,6 +1265,19 @@ export function LeftNav({
      */
     if (can.regroup && childById(itemId)) {
       return {
+        /*
+         * Clicking the glyph opens the picker, which is how every other row in
+         * the nav has always worked and how the flyout's own child rows work
+         * (`FlyoutChildEdit.onPickIcon`).
+         *
+         * Missing here until Sep 30, and invisibly so: a page's bundle is
+         * built ENTIRELY by this branch — `editFor` returns null for a child
+         * id, since there is no label override to write — so unlike a product
+         * row there was no base bundle underneath to supply it. The kebab's
+         * "Change icon" worked and the obvious gesture did nothing, on exactly
+         * the rows whose icon is a guess from the label.
+         */
+        onPickIcon: (trigger: HTMLElement) => picker.open(itemId, trigger),
         onOpenMenu: (trigger) => {
           setMenuTrigger(trigger);
           menu.open(itemId, trigger);
@@ -1674,12 +1698,17 @@ export function LeftNav({
           /*
            * And the category opens on it, for the reason the old entry opened
            * the panel of the category it had just made: a row added into
-           * something shut is a row nobody sees arrive. Which surface that is
-           * depends on the arrangement — a branch in the tree, a panel in the
-           * flyout — and the two are the same intent.
+           * something shut is a row nobody sees arrive.
+           *
+           * Which surface that is depends on the arrangement, and they are all
+           * the same intent — a branch in the tree, the column in the drill-in,
+           * a panel in the flyout. `scoped` is the one that needs nothing: its
+           * column is a category already, and if this is that category the row
+           * has just appeared in it.
            */
           if (productTree) openTreeBranch(itemId);
-          else onPinFlyout(itemId);
+          else if (drillMode) setDrilledId(itemId);
+          else if (!scopedMode) onPinFlyout(itemId);
         },
       },
       {
