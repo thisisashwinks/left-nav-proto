@@ -247,21 +247,37 @@ export const CRUMB_EMPHASIS_BUMP_PX = 2;
  *  title  No leaf in the trail; the PAGE TITLE grows the caret and the menu
  *         instead. One name on screen and the switching attached to it — the
  *         arrangement the Aug 18 Contacts work argued for, generalised. It
- *         needs a title to attach to, so it falls back to `none` when the
- *         page header has none to give.
+ *         needs a title to attach to, so it falls back to the full word when
+ *         the page header has none to give.
+ *  none   Nothing at the end of the line, on every page and at every depth.
+ *         The trail stops at the parent, the page names itself, and the
+ *         sideways move goes with the segment.
+ *
+ * WHY `none` IS BACK (Sep 30), having left for `crumbDepth` the day before.
+ * The two are not the same option and the split was the mistake. `crumbDepth`
+ * trims the ARRAY and refuses to cut below two segments — a sound floor for a
+ * control about path length, since one word is a label rather than a path.
+ * But that floor is exactly what made "no last crumb" unreachable on the
+ * pages that most wanted it: a listing page's trail IS two segments, so
+ * "Drop the last" silently did nothing there and the option looked broken.
+ * This one is about the LEAF, so it has no floor to respect: it drops the end
+ * of the line wherever the line ends, which is what was asked for. Keep both
+ * — depth shortens a long path, this removes a redundant name.
  */
-export type CrumbLeaf = "full" | "caret" | "dots" | "title";
+export type CrumbLeaf = "full" | "caret" | "dots" | "title" | "none";
 export const CRUMB_LEAVES: readonly CrumbLeaf[] = [
   "full",
   "caret",
   "dots",
   "title",
+  "none",
 ];
 export const CRUMB_LEAF_LABELS: Record<CrumbLeaf, string> = {
   full: "Word and caret",
   caret: "Caret only",
   dots: "Three dots",
   title: "On the page title",
+  none: "No last crumb",
 };
 
 /**
@@ -377,14 +393,35 @@ export const FOLDER_CRUMB_LABELS: Record<FolderCrumb, string> = {
   beside: "Sits before the view",
 };
 
-export type CrumbSwitchers = "all" | "leaf" | "off";
+/**
+ * Which crumbs carry a dropdown.
+ *
+ *  all        Every segment, the leaf included. A rank of carets down the
+ *             row, which is what makes it read as a toolbar rather than a
+ *             path.
+ *  ancestors  Every crumb EXCEPT the last. The mirror of `leaf`, and the
+ *             reading that follows from the crumb being two controls now
+ *             (see `CrumbMenu`): an ancestor is a level you are passing
+ *             through, so its siblings are a real sideways move, while the
+ *             leaf is the page under your feet and its menu is the one
+ *             offering to take you somewhere you did not ask to go. It also
+ *             leaves the end of the trail as a plain name, which is what the
+ *             page header is already saying.
+ *  leaf       Only the last. The ancestors are levels the nav can already
+ *             reach, so they go back to being words you click; the leaf's
+ *             menu is the sideways move with no other home.
+ *  off        Plain text. The trail states where you are and nothing more.
+ */
+export type CrumbSwitchers = "all" | "ancestors" | "leaf" | "off";
 export const CRUMB_SWITCHER_MODES: readonly CrumbSwitchers[] = [
   "all",
+  "ancestors",
   "leaf",
   "off",
 ];
 export const CRUMB_SWITCHER_LABELS: Record<CrumbSwitchers, string> = {
   all: "Every crumb",
+  ancestors: "All but the last",
   leaf: "Last only",
   off: "None",
 };
@@ -845,6 +882,25 @@ export const AGENCY_SEARCH_DEFAULT = false;
 export const AGENCY_NAV_MARK_DEFAULT = false;
 
 /**
+ * The same question one scope down, and it only became a question on Sep 30.
+ *
+ * `AGENCY_NAV_MARK_DEFAULT` above says a sub-account is left alone because
+ * "nothing above them repeats anything". That was true while the rail was the
+ * agency's. It is not true for a member of several accounts: `memberRail`
+ * gives that person the same 56px column, their own account's tile is on it,
+ * and the nav header beside it draws the same logo again — the identical
+ * within-60px repetition the agency axis exists to remove.
+ *
+ * Read ONLY while that rail is up. A member of one account has no rail, so
+ * their header mark is the only identity on screen and hiding it would leave
+ * the nav anonymous — which is the whole reason this is a separate axis rather
+ * than `agencyNavMark` widened to both scopes.
+ *
+ * Off by default, matching the agency: one identity stated once.
+ */
+export const SUB_ACCOUNT_NAV_MARK_DEFAULT = false;
+
+/**
  * Whether the sidebar gives up its own card and sits on the page's plane.
  *
  * Off, the nav is a floating card: its own ground, a hairline ring, the
@@ -883,16 +939,24 @@ export const NAV_ON_PLANE_DEFAULT = false;
  * breadcrumb too. A pin-local alias was the other reading and it loses the one
  * property a nav has to keep: the same place called the same thing everywhere
  * you meet it.
+ *
+ * ON by default (Sep 30). Off, entering edit mode left the pinned block
+ * looking like the only part of the nav you are not allowed to touch — every
+ * row below it grew a grip and a kebab while the pins sat inert, which reads
+ * as an omission rather than as a decision. Pins are the rows people
+ * rearrange most, so edit mode reaching them is the unsurprising answer; the
+ * axis stays because "should a pin be renameable at all" is still a fair
+ * question to put in front of a reviewer.
  */
-export const PINNED_ROW_EDIT_DEFAULT = false;
+export const PINNED_ROW_EDIT_DEFAULT = true;
 
 /**
  * Whether pinned rows answer to a keyboard shortcut.
  *
  * ⌃⌥1 for the first pin, ⌃⌥2 for the second, up to ⌃⌥5 — the pin cap, so that
- * is every default there can be. They follow the pin ORDER rather than the
- * pin, so reordering reassigns, and an account has working shortcuts without
- * anyone opening a settings screen. See `pin-shortcuts.tsx` for the
+ * is every default there can be. The key belongs to the POSITION and not to
+ * the row, so moving a pin to the top makes it the one ⌃⌥1 opens, and an
+ * account has working shortcuts without anyone opening a settings screen. See `pin-shortcuts.tsx` for the
  * resolution rule, why ⌃⌥ and not ⌘⇧, and why bindings live outside the
  * layout store.
  *
@@ -900,8 +964,110 @@ export const PINNED_ROW_EDIT_DEFAULT = false;
  * permanent keycaps is a nav advertising its own settings; the shortcut is for
  * someone who knows it already, and the chip is for the moment they have
  * forgotten. Same reasoning, and the same treatment, as the ⌘K cap in search.
+ *
+ * ON by default (Sep 30). Off, the first thing anyone reviewing the pinned run
+ * saw was a block with no keys in it — which is a fair picture of a nav
+ * nobody has configured and a poor one of the feature, since the whole claim
+ * here is that the defaults arrive already working. There is nothing to opt
+ * into: five pins, five keys, counted off the order.
  */
-export const PINNED_SHORTCUTS_DEFAULT = false;
+export const PINNED_SHORTCUTS_DEFAULT = true;
+
+/**
+ * Whether the L2 panel casts a shadow.
+ *
+ * It has never had one, and `flyout-panel.tsx` says why: the canvas-sized
+ * shadow it shipped with spilled LEFT over the nav and read as a dark seam
+ * BETWEEN L1 and L2, when the panel is supposed to be the nav continuing.
+ * Hairlines replaced it.
+ *
+ * That argument is about a shadow thrown in every direction. One thrown only
+ * right — away from the nav, over the page — says something the hairlines
+ * cannot: that the panel is in front of the workspace rather than part of
+ * the column. Worth switching on and looking at, which is what this is.
+ */
+export const FLYOUT_SHADOW_DEFAULT = false;
+
+/**
+ * What shape the L2 panel is.
+ *
+ *  docked  What shipped. Squared left edge, no left border, right corners
+ *          rounded — the panel is the nav continuing past its own edge, and
+ *          the seam between them is one hairline rather than two cards
+ *          meeting.
+ *  card    A full outline and a radius on all four corners: an object
+ *          floating beside the nav rather than an extension of it. It costs
+ *          the seam — two strokes now run down the gap — and buys a panel
+ *          that is unmistakably a separate surface, which is the right
+ *          answer if the nav is a plane rather than a card.
+ *
+ * A comparison axis, and the comparison is the point: "is L2 part of the nav
+ * or in front of it" is the question the arrangement turns on, and it is far
+ * easier to answer with both on screen than in the abstract.
+ */
+export const FLYOUT_SHAPES = ["docked", "card"] as const;
+
+export type FlyoutShape = (typeof FLYOUT_SHAPES)[number];
+
+export const FLYOUT_SHAPE_LABELS: Record<FlyoutShape, string> = {
+  docked: "Docked to the nav",
+  card: "Its own card",
+};
+
+/**
+ * Whether the card shape draws an outline around the PAIR.
+ *
+ * The card's own change is the margin: the panel lifts off the window's top
+ * and bottom edges so it lines up with the nav beside it. That is the whole
+ * variant, and it is legible with no strokes at all.
+ *
+ * Outlined is the other half. One border, around both — the nav closes its
+ * left, top and bottom, the panel closes its right, top and bottom, and
+ * neither rounds the corners where they meet. Two separate outlines would
+ * put a 2px rule down a seam the pointer crosses constantly, and four
+ * rounded corners in the middle of it would notch that rule at each end.
+ *
+ * It appears only while a panel is actually open, which is the rule the
+ * shape cannot break: an outline is around the pair, and with nothing beside
+ * the nav there is no pair to draw one around — just a box that has grown a
+ * border for no reason anyone watching could name.
+ */
+export const FLYOUT_CARD_BORDER_DEFAULT = false;
+
+/**
+ * Whether the All accounts flyout runs to the top of the window.
+ *
+ * Flush by default, and on the plane that is the only coherent answer: the
+ * sidebar has no card and no margin there, so a directory inset from the top
+ * would be the one surface on the left still behaving as though it were
+ * floating on something. Flush, it needs no radius either — a corner is how
+ * a card ends, and this one does not end, it meets the edge.
+ *
+ * Inset is the other half of the comparison, and it brings the radius and
+ * the shadow back with it, because those are what an inset surface needs in
+ * order to read as deliberate rather than as short.
+ */
+export const DIRECTORY_FLUSH_DEFAULT = true;
+
+/**
+ * Whether anyone can REBIND those keys.
+ *
+ * Off, and deliberately: ⌃⌥1–5 counted off the pinned order is the whole
+ * feature, and it is a better one for being fixed. A shortcut people can
+ * rebind is a shortcut nobody can write down — support cannot say "press
+ * ⌃⌥2", documentation cannot show it, and the second pin on one machine
+ * answers to a different key than the second pin on the next. Reordering is
+ * already the way to change which page a key opens, and it is the honest way:
+ * you move the row you want first, and the first key opens it.
+ *
+ * On, the chip in edit mode becomes a control, the kebab grows "Configure
+ * shortcut key", and the modal that lists every binding at once is reachable.
+ * All of that machinery stays built — see `pin-shortcuts.tsx`, which keeps
+ * explicit bindings out of the positional pass so no combo is ever bound
+ * twice — because "can people rebind these" is exactly the sort of question
+ * this prototype exists to put in front of someone.
+ */
+export const PINNED_SHORTCUT_EDIT_DEFAULT = false;
 
 /**
  * How the Ask AI button is drawn once it is a button rather than a field.
@@ -2024,6 +2190,27 @@ export const RAIL_TILE_SHAPE_LABELS: Record<RailTileShape, string> = {
  * A review axis — the question is whether orientation belongs to the window or to
  * the page it names — so all three are built to be switched between live.
  */
+/**
+ * How the centre canvas (`pageCanvas`) marks its edge against the plane.
+ *
+ *  - `shadow` — shadow/lg alone, the HighRise spec and what shipped first.
+ *  - `border` — the card hairline alone: flat, the edge drawn instead of cast.
+ *  - `both`   — the hairline and shadow/lg together.
+ *
+ * Only the edge changes; margin, radius, padding and scrolling are the same in
+ * all three. Dark keeps its hairline whichever is picked, because shadow/lg
+ * vanishes on a near-black plane.
+ */
+export const PAGE_CANVAS_EDGES = ["shadow", "border", "both"] as const;
+
+export type PageCanvasEdge = (typeof PAGE_CANVAS_EDGES)[number];
+
+export const PAGE_CANVAS_EDGE_LABELS: Record<PageCanvasEdge, string> = {
+  shadow: "Shadow",
+  border: "Border",
+  both: "Border + shadow",
+};
+
 export const PAGE_SHELLS = ["plane", "canvas", "surface"] as const;
 
 export type PageShell = (typeof PAGE_SHELLS)[number];
@@ -2375,12 +2562,27 @@ export interface ThemeState {
    * See AGENCY_NAV_MARK_DEFAULT.
    */
   agencyNavMark: boolean;
+  /**
+   * The sub-account logo in the nav header, while a member's rail is up.
+   * See SUB_ACCOUNT_NAV_MARK_DEFAULT.
+   */
+  subAccountNavMark: boolean;
   /** Whether the nav drops its card and sits on the plane. See NAV_ON_PLANE_DEFAULT. */
   navOnPlane: boolean;
   /** Arranging, renaming and re-iconing pins in edit mode. See PINNED_ROW_EDIT_DEFAULT. */
   pinnedRowEdit: boolean;
   /** Keyboard shortcuts on pinned rows. See PINNED_SHORTCUTS_DEFAULT. */
   pinnedShortcuts: boolean;
+  /** A shadow on the L2 panel. See FLYOUT_SHADOW_DEFAULT. */
+  flyoutShadow: boolean;
+  /** Whether the L2 panel is docked or a card. See FLYOUT_SHAPES. */
+  flyoutShape: FlyoutShape;
+  /** An outline around the nav+panel pair. See FLYOUT_CARD_BORDER_DEFAULT. */
+  flyoutCardBorder: boolean;
+  /** Whether All accounts runs to the top. See DIRECTORY_FLUSH_DEFAULT. */
+  directoryFlush: boolean;
+  /** Whether those shortcuts can be rebound. See PINNED_SHORTCUT_EDIT_DEFAULT. */
+  pinnedShortcutEdit: boolean;
   /** How an L2 row reveals its L3 rows. See L3_DISCLOSURES. */
   l3Disclosure: L3Disclosure;
   flyoutTrigger: FlyoutTrigger;
@@ -2785,6 +2987,8 @@ export interface ThemeState {
    * it. Off by default; builders keep their own layout.
    */
   pageCanvas: boolean;
+  /** How the canvas marks its edge. See PAGE_CANVAS_EDGES. */
+  pageCanvasEdge: PageCanvasEdge;
   /**
    * Whether the canvas also holds the pages built from columns.
    *
@@ -3138,9 +3342,15 @@ export const DEFAULT_THEME: ThemeState = {
   getAppPlacement: "flyout",
   agencySearch: AGENCY_SEARCH_DEFAULT,
   agencyNavMark: AGENCY_NAV_MARK_DEFAULT,
+  subAccountNavMark: SUB_ACCOUNT_NAV_MARK_DEFAULT,
   navOnPlane: NAV_ON_PLANE_DEFAULT,
   pinnedRowEdit: PINNED_ROW_EDIT_DEFAULT,
   pinnedShortcuts: PINNED_SHORTCUTS_DEFAULT,
+  flyoutShadow: FLYOUT_SHADOW_DEFAULT,
+  flyoutShape: "docked",
+  flyoutCardBorder: FLYOUT_CARD_BORDER_DEFAULT,
+  directoryFlush: DIRECTORY_FLUSH_DEFAULT,
+  pinnedShortcutEdit: PINNED_SHORTCUT_EDIT_DEFAULT,
   // Both back to the plain answer (Sep 10). The indented list and the
   // click-every-time trigger are what the nav shipped with, so they are what a
   // review should open on; the dropdown and the sticky swap are the proposals,
@@ -3313,7 +3523,11 @@ export const DEFAULT_THEME: ThemeState = {
   crumbShown: true,
   crumbHome: false,
   crumbSwitchers: "all",
-  crumbLeaf: "title",
+  // "none" from Sep 30 (Ashwin). The page header states the page a row
+  // below, so the leaf was the trail saying it twice; "title" was the
+  // previous answer and it only held where a page HAD a title to hand the
+  // caret to. This one needs nothing from the page. See CrumbLeaf.
+  crumbLeaf: "none",
   // Replace, so the default trail does not grow a level the moment anyone
   // opens a folder. Beside is one click away for the comparison.
   folderCrumb: "replace",
@@ -3334,6 +3548,7 @@ export const DEFAULT_THEME: ThemeState = {
   listShowFilters: true,
   listToolbar: "page",
   pageCanvas: false,
+  pageCanvasEdge: "shadow",
   pageCanvasColumns: true,
   recordHeaderVariant: "D-B",
   calendarViewSwitch: "tabs",

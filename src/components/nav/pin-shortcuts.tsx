@@ -13,15 +13,18 @@ import { PIN_LIMIT } from "./nav-layout-provider";
  * already the gesture for "I keep coming back here"; this is that gesture
  * spending a keystroke instead of a click.
  *
- * DEFAULTS, NOT ASSIGNMENTS. The first pin gets ⌃⌥1, the second ⌃⌥2, up to
- * the fifth — `PIN_LIMIT` is five, so five is every default there can ever be,
- * and counting further would have been advertising slots nothing can reach.
- * They follow the pin ORDER rather than the pin, so dragging a pin up the list
- * moves its number with it — which makes reordering the cheapest way to
- * reassign, and means a fresh account has working shortcuts without anyone
- * opening a settings screen. An explicit binding overrides the default for
- * that row and takes its combo out of circulation, so nothing is ever bound
- * twice.
+ * POSITIONS, NOT PINS. The first pin gets ⌃⌥1, the second ⌃⌥2, up to the
+ * fifth — `PIN_LIMIT` is five, so five is every default there can ever be, and
+ * counting further would have been advertising slots nothing can reach. The
+ * number belongs to the SLOT and never travels with the row: drag the second
+ * pin to the top and it answers to ⌃⌥1 there, while whatever it displaced
+ * becomes ⌃⌥2. That is the property that makes the keys learnable — ⌃⌥1 is
+ * "the top of my pins" for everyone, forever, and can be written down — where
+ * numbers that followed the row would mean the top pin answered to a
+ * different key on every account. It also means a fresh account has working
+ * shortcuts without anyone opening a settings screen. An explicit binding,
+ * where rebinding is allowed at all, overrides the default for that row and
+ * takes its combo out of circulation, so nothing is ever bound twice.
  *
  * ⌃⌥ AND NOT ⌘⇧, which is what this shipped with and was wrong: ⌘⇧1–5 is
  * tab-switching in Safari and Chrome, so every default collided with the
@@ -49,6 +52,14 @@ export interface PinShortcuts {
   clear: (id: string) => void;
   /** Pinned ids in the order the defaults are counted off. */
   order: readonly string[];
+  /**
+   * Whether rebinding is offered at all. See PINNED_SHORTCUT_EDIT_DEFAULT.
+   *
+   * On the store rather than passed down beside it, because five surfaces ask
+   * — two chips, two kebabs and the modal — and an axis threaded through
+   * five prop chains is an axis that will be wired to four of them.
+   */
+  editable: boolean;
 }
 
 const PinShortcutsContext = React.createContext<PinShortcuts>({
@@ -57,6 +68,7 @@ const PinShortcutsContext = React.createContext<PinShortcuts>({
   bind: () => {},
   clear: () => {},
   order: [],
+  editable: false,
 });
 
 /**
@@ -130,6 +142,7 @@ export function PinShortcutsProvider({
   order,
   onFire,
   enabled,
+  editable,
   children,
 }: {
   /** Pinned ids, in the stored order the defaults count off. */
@@ -138,6 +151,8 @@ export function PinShortcutsProvider({
   onFire: (id: string) => void;
   /** The axis. Off, nothing is bound and no listener runs. */
   enabled: boolean;
+  /** The second axis. Off, the keys work and nobody can change them. */
+  editable: boolean;
   children: React.ReactNode;
 }) {
   const [bound, setBound] = React.useState<Record<string, string>>({});
@@ -230,8 +245,11 @@ export function PinShortcutsProvider({
           return next;
         }),
       order,
+      // Rebinding needs keys to rebind, so the two axes are ANDed here once
+      // rather than at each of the five places that ask.
+      editable: enabled && editable,
     }),
-    [combos, bound, order, enabled],
+    [combos, bound, order, enabled, editable],
   );
 
   return <PinShortcutsContext value={value}>{children}</PinShortcutsContext>;

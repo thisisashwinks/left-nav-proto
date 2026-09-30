@@ -86,9 +86,18 @@ export function ShortcutChip({
 
   const body = listening ? "Press keys…" : comboLabel(combo);
 
+  /*
+    White ground, hairline edge, gray-600 type — see --nav-key-bg.
+
+    The border carries a pixel of the height the padding used to, so the cap
+    is the same 18px it always was and the pinned rows do not grow when the
+    keys arrive.
+  */
   const shape = cn(
-    "shrink-0 rounded-full px-[7px] py-[1px] text-[11px] leading-[16px] font-medium tabular-nums",
-    listening ? "bg-brand-soft text-nav-fg" : "bg-nav-hover text-nav-fg-subtle",
+    "shrink-0 rounded-full border px-[6px] py-[0px] text-[11px] leading-[16px] font-medium tabular-nums",
+    listening
+      ? "border-transparent bg-brand-soft text-nav-fg"
+      : "border-nav-key-border bg-nav-key text-nav-key-fg",
     className,
   );
 
@@ -117,7 +126,7 @@ export function ShortcutChip({
       className={cn(
         "group/key motion-tap flex items-center gap-[4px]",
         shape,
-        listening ? null : "hover:bg-nav-active hover:text-nav-fg",
+        listening ? null : "hover:border-nav-fg-subtle hover:text-nav-fg",
       )}
     >
       <span>{body}</span>

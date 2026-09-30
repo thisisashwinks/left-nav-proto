@@ -107,19 +107,32 @@ export function BuilderTrail({
    * Two of the five modes do anything here, and the other three are not
    * unimplemented so much as already answered:
    *
-   *  title         Drops the segment. It moves the leaf onto the page title,
-   *                and a builder's own header IS that title — the document's
-   *                name in 20px type a row below. So the word goes and nothing
-   *                is lost, which is the same trade the bar makes. ("none"
-   *                used to live here too; it is `crumbDepth` now, and that one
-   *                trims the array before either surface sees it.)
+   *  title / none  Both drop the segment. `title` moves the leaf onto the
+   *                page title, and a builder's own header IS that title — the
+   *                document's name in 20px type a row below — so the word
+   *                goes and nothing is lost, which is the same trade the bar
+   *                makes. `none` asks for it outright. A builder is exactly
+   *                where the duplication is worst, since the name in the
+   *                trail and the name in the header are the same string.
    *  caret / dots  Both replace the word with a menu affordance, and a menu
    *                needs options. A builder's leaf is a record name published
    *                with none, so the bar's own fallback applies: no siblings,
    *                no switcher, back to the word. Drawing a bare caret here
    *                would be a control that opens nothing.
    */
-  const dropLeaf = crumbLeaf === "title";
+  /*
+   * `none` drops a PAGE, never the product it hangs off — the bar's own
+   * rule, and the same `Crumb.level` behind it. A builder's leaf is the
+   * document being edited, so in practice this always drops; the guard is
+   * here so the two surfaces cannot answer the same question differently
+   * the day a builder publishes a shorter trail.
+   */
+  const leafSeg = trail[trail.length - 1];
+  const leafLevel =
+    leafSeg && typeof leafSeg !== "string" ? leafSeg.level : undefined;
+  const dropLeaf =
+    crumbLeaf === "title" ||
+    (crumbLeaf === "none" && leafLevel !== "group" && leafLevel !== "product");
   const shown = React.useMemo(
     () => (dropLeaf && trail.length > 1 ? trail.slice(0, -1) : trail),
     [trail, dropLeaf],
@@ -199,7 +212,9 @@ export function BuilderTrail({
                   one's own destination anyway; what the axis still decides is
                   whether the panel offers a sibling walk beside them.
                 */
-                switchers={crumbSwitchers === "all"}
+                switchers={
+                  crumbSwitchers === "all" || crumbSwitchers === "ancestors"
+                }
               />
             ) : last ? (
               <span

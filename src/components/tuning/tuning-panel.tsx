@@ -90,12 +90,16 @@ import {
   L3_DISCLOSURES,
   L3_DISCLOSURE_LABELS,
   FLYOUT_TRIGGERS,
+  FLYOUT_SHAPES,
+  FLYOUT_SHAPE_LABELS,
   SELECTED_STATES,
   SELECTED_STATE_LABELS,
   SELECTED_MARKS,
   SELECTED_MARK_LABELS,
   L2_CLICK_ACTIONS,
   L2_CLICK_ACTION_LABELS,
+  PAGE_CANVAS_EDGE_LABELS,
+  PAGE_CANVAS_EDGES,
   PAGE_SHELL_LABELS,
   PAGE_SHELLS,
   LIST_TOOLBARS,
@@ -195,12 +199,14 @@ import {
   type LegacyFootControl,
   type GetAppPlacement,
   type FlyoutTrigger,
+  type FlyoutShape,
   type SelectedState,
   type SelectedMark,
   type L3Disclosure,
   type L2ClickAction,
   type InboxPalette,
   type LayoutReplaceDialog,
+  type PageCanvasEdge,
   type PageShell,
   type RecentsPanelLayout,
   type PanelRecentHeading,
@@ -417,7 +423,9 @@ function NavStructureSection({
     pinnedRowEdit,
     setPinnedRowEdit,
     pinnedShortcuts,
+    pinnedShortcutEdit,
     setPinnedShortcuts,
+    setPinnedShortcutEdit,
     setMergedPinCap,
     mergedRecentFloor,
     setMergedRecentFloor,
@@ -428,6 +436,14 @@ function NavStructureSection({
     scopeModel,
     setScopeModel,
     flyoutTrigger,
+    flyoutShadow,
+    setFlyoutShadow,
+    flyoutShape,
+    setFlyoutShape,
+    flyoutCardBorder,
+    setFlyoutCardBorder,
+    directoryFlush,
+    setDirectoryFlush,
     setFlyoutTrigger,
     selectedState,
     setSelectedState,
@@ -460,6 +476,12 @@ function NavStructureSection({
     setRailActiveBar,
     railMagnify,
     setRailMagnify,
+    userMultiAccount,
+    setUserMultiAccount,
+    subAccountSwitcher,
+    setSubAccountSwitcher,
+    subAccountNavMark,
+    setSubAccountNavMark,
   } = useTheme();
   // The account's own count, not the catalogue's: density is a property of the
   // nav in front of you, and this panel is read while switching between a
@@ -778,6 +800,64 @@ function NavStructureSection({
             : "Khoi's alternative: nothing opens until the row is clicked."}
       </Note>
 
+      {/*
+        The panel's SHAPE, beside the axes about when it opens and what is in
+        it — three questions about one surface, in one place.
+      */}
+      <Segmented
+        label="L2 panel shape"
+        options={FLYOUT_SHAPES}
+        value={flyoutShape}
+        onChange={(v: FlyoutShape) => setFlyoutShape(v)}
+        format={(v) => FLYOUT_SHAPE_LABELS[v]}
+      />
+      <Note>
+        {flyoutShape === "docked"
+          ? "Squared against the nav, no left border, right corners rounded — the panel is the nav continuing past its own edge, and one hairline is the whole seam."
+          : "A full outline and a radius all round, in edit mode too. The panel is an object beside the nav rather than an extension of it — which costs the shared seam and buys an unmistakably separate surface."}
+      </Note>
+
+      {/*
+        Only while the shape is a card. Docked, the panel shares the nav's
+        edge and there is no pair to put an outline around.
+      */}
+      {flyoutShape === "card" ? (
+        <>
+          <Toggle
+            label="Outline the card"
+            checked={flyoutCardBorder}
+            onChange={setFlyoutCardBorder}
+          />
+          <Note>
+            {flyoutCardBorder
+              ? "One border around the pair: the nav closes the left, top and bottom, the panel closes the right, and neither rounds the corners where they meet. It appears only while a panel is open — with nothing beside it, a nav wearing three quarters of a border is a box that grew an edge for no reason."
+              : "The margin alone, which is the whole of the card variant. No strokes, and the seam between nav and panel is the one hairline it already was."}
+          </Note>
+        </>
+      ) : null}
+
+      <Toggle
+        label="Shadow on the L2 panel"
+        checked={flyoutShadow}
+        onChange={setFlyoutShadow}
+      />
+      <Note>
+        {flyoutShadow
+          ? "Thrown right only, away from the nav. A shadow spilling back over the column is what the hairlines replaced — it reads as a dark seam between L1 and L2 rather than as depth."
+          : "Hairlines alone, which is what shipped. The card behind both already carries the float."}
+      </Note>
+
+      <Toggle
+        label="All accounts runs to the edges"
+        checked={directoryFlush}
+        onChange={setDirectoryFlush}
+      />
+      <Note>
+        {directoryFlush
+          ? "Flush to the top and bottom of the window, and square — a corner is how a card ends, and this one meets the edge instead. Only bites with the sidebar on the plane; off it the nav card's own margin already holds the rail off the window."
+          : "Held off both edges by the canvas gap, with the radius and the shadow back — an inset surface with square corners reads as one that failed to reach the edge."}
+      </Note>
+
       <Segmented
         label="L3 rows appear"
         options={L3_DISCLOSURES}
@@ -880,6 +960,60 @@ function NavStructureSection({
       />
       <Note>
         {ROLE_NOTE[state.role]}
+      </Note>
+
+      {/*
+        The rest of the sub-account scenario, under the role that sets it up.
+
+        These three used to sit three sections apart — the account count with
+        the agency axes, the logo with the agency's own logo switch — each
+        filed by what it draws rather than by what it is FOR. Ashwin, Sep 30:
+        picking "Sub-account user" and then hunting for "does this person have
+        more than one account" is two searches for one scenario. Filed by the
+        question they answer instead: who is this person, and what do they see.
+
+        Not gated on the role being `user`. They mean nothing at agency scope,
+        but a control that vanishes is a control someone concludes was deleted
+        — which has happened in this panel before. The notes carry the
+        dependency instead.
+      */}
+      {/*
+        The gap this closes: a sub-account person who belongs to more than
+        one account had no switcher at all, because the rail was gated on
+        not being a plain user.
+      */}
+      <Toggle
+        label="Member of several accounts"
+        checked={userMultiAccount}
+        onChange={setUserMultiAccount}
+      />
+      <Note>
+        {userMultiAccount
+          ? "The signed-in sub-account person belongs to more than one account, so they get a switcher — the two controls below. Only takes effect on the Sub-account user role above."
+          : "One account only — both switcher treatments disappear, because a list of one is not a choice."}
+      </Note>
+      <Segmented
+        label="Member switcher"
+        options={SUB_ACCOUNT_SWITCHERS}
+        value={subAccountSwitcher}
+        onChange={(v: SubAccountSwitcher) => setSubAccountSwitcher(v)}
+        format={(v) => SUB_ACCOUNT_SWITCHER_LABELS[v]}
+      />
+      <Note>
+        {subAccountSwitcher === "rail"
+          ? "The same rail the agency uses, minus the agency plate — there is no scope above the accounts to switch into. The door stays, opening on My accounts: the 14 they belong to, not the agency's 17."
+          : "The nav's identity row becomes the switcher, listing all 14 accounts they belong to — not just the ones they pinned. No agency row."}
+      </Note>
+      <Toggle
+        label="Sub-account logo in the nav header"
+        keywords="sub account logo mark rail member identity duplicate header brand"
+        checked={subAccountNavMark}
+        onChange={setSubAccountNavMark}
+      />
+      <Note>
+        {subAccountNavMark
+          ? "With a member's rail up, the account's mark appears twice within 60px — once on the rail tile, once beside the name in the header."
+          : "The header keeps the name and drops the disc while a member's rail is up. A member of ONE account has no rail, so their mark is untouched — it is the only identity they have."}
       </Note>
 
       {/*
@@ -1183,8 +1317,20 @@ function NavStructureSection({
       />
       <Note>
         {pinnedShortcuts
-          ? "⌃⌥1 for the first pin, ⌃⌥2 for the second, to ⌃⌥5 — the pin cap, so that is every default there can be. They follow the pin order, so dragging a pin up moves its key with it. ⌃⌥ because it is unclaimed by the browser and by macOS, and because the same two keys are Ctrl and Alt on Windows, so the binding is literally the same there. The cap shows on hover only, like ⌘K in search; in edit mode, click it to rebind, or open the whole table from the kebab."
+          ? "⌃⌥1 for the first pin, ⌃⌥2 for the second, to ⌃⌥5 — the pin cap, so that is every default there can be. The key belongs to the position, not the row: move a pin to the top and it answers to ⌃⌥1 there. ⌃⌥ because it is unclaimed by the browser and by macOS, and because the same two keys are Ctrl and Alt on Windows, so the binding is literally the same there. The cap shows on hover only, like ⌘K in search."
           : "No keys bound, and no listener running."}
+      </Note>
+
+      <Toggle
+        label="Let people rebind the shortcuts"
+        checked={pinnedShortcutEdit}
+        onChange={setPinnedShortcutEdit}
+        keywords="keyboard shortcut rebind keys keycap pinned configure"
+      />
+      <Note>
+        {pinnedShortcutEdit
+          ? "A pinned row’s kebab grows “Configure shortcut key”, which opens the table of every binding at once — click a cap there and press a combination. A rebound key is taken off whatever row held it, so nothing is ever bound twice."
+          : "The keys are ours, not theirs. Fixed keys can be written down and supported; reordering is still how you change which page ⌃⌥1 opens."}
       </Note>
 
       <Toggle
@@ -2379,15 +2525,13 @@ export function TuningPanel() {
     recentsPanelLayout,
     setRecentsPanelLayout,
     setProductDirectoryRow,
-    subAccountSwitcher,
     newDotPlacement,
-    setSubAccountSwitcher,
     setNewDotPlacement,
-    userMultiAccount,
-    setUserMultiAccount,
     listToolbar,
     setListToolbar,
     pageCanvas,
+    pageCanvasEdge,
+    setPageCanvasEdge,
     pageCanvasColumns,
     setPageCanvasColumns,
     setPageCanvas,
@@ -3030,9 +3174,11 @@ export function TuningPanel() {
                   <Note>
                     {crumbSwitchers === "all"
                       ? "Each segment carries a caret onto its siblings, which is what makes the row earn its height — and what makes it read as a toolbar rather than a path."
-                      : crumbSwitchers === "leaf"
-                        ? "Only the last. The ancestors are the levels the nav can already reach, so they go back to being words you can click; the leaf's menu \u2014 which other smart list, which other page \u2014 is the sideways move with no other home."
-                        : "Plain text. The trail states where you are and nothing more — honest if the nav is already doing the switching."}
+                      : crumbSwitchers === "ancestors"
+                        ? "Every crumb but the last. The levels you passed through offer a real sideways move; the end of the trail is left as a plain name, which the page header is already saying anyway."
+                        : crumbSwitchers === "leaf"
+                          ? "Only the last. The ancestors are the levels the nav can already reach, so they go back to being words you can click; the leaf's menu \u2014 which other smart list, which other page \u2014 is the sideways move with no other home."
+                          : "Plain text. The trail states where you are and nothing more — honest if the nav is already doing the switching."}
                   </Note>
 
                   <Segmented
@@ -3054,7 +3200,7 @@ export function TuningPanel() {
 
                   <Segmented
                     label="The last crumb"
-                    keywords="leaf last segment caret dots page title dropdown"
+                    keywords="leaf last segment caret dots page title dropdown none hide remove listing"
                     options={CRUMB_LEAVES}
                     value={crumbLeaf}
                     disabled={!crumbShown}
@@ -3068,7 +3214,9 @@ export function TuningPanel() {
                         ? "The word goes, the switch stays: the page header a few pixels below already says it. Worth watching whether a control with no label is a control anyone finds."
                         : crumbLeaf === "dots"
                           ? "The overflow mark doing a switcher's job. It says \u201cmore here\u201d without claiming to be a place, which is the honest reading of a menu full of siblings — and people already press it."
-                          : "One name on screen, with the switching on it: the title grows the caret and the leaf leaves the bar. Needs a title to attach to — with the page header off, or a leaf with no siblings, it is the same as no last crumb."}
+                          : crumbLeaf === "title"
+                            ? "One name on screen, with the switching on it: the title grows the caret and the leaf leaves the bar. Needs a title to attach to — with the page header off, or a leaf with no siblings, it is the same as no last crumb."
+                            : "Nothing at the end of the line, on every page and at every depth — a listing page included, where Trail depth refuses to cut because it will not leave a single word. The page names itself; the sideways move goes with the segment."}
                   </Note>
 
                   {/*
@@ -4050,33 +4198,6 @@ export function TuningPanel() {
             into a dev panel to cover a mode you can leave in a click is a second
             copy to keep in step for no reach it adds.
           */}
-          {/*
-            The gap this closes: a sub-account person who belongs to more than
-            one account had no switcher at all, because the rail was gated on
-            not being a plain user.
-          */}
-          <Toggle
-            label="Member of several accounts"
-            checked={userMultiAccount}
-            onChange={setUserMultiAccount}
-          />
-          <Note>
-            {userMultiAccount
-              ? "The signed-in sub-account person belongs to more than one account, so they get a switcher. Set the role to User to see it."
-              : "One account only — both switcher treatments disappear, because a list of one is not a choice."}
-          </Note>
-          <Segmented
-            label="Member switcher"
-            options={SUB_ACCOUNT_SWITCHERS}
-            value={subAccountSwitcher}
-            onChange={(v: SubAccountSwitcher) => setSubAccountSwitcher(v)}
-            format={(v) => SUB_ACCOUNT_SWITCHER_LABELS[v]}
-          />
-          <Note>
-            {subAccountSwitcher === "rail"
-              ? "The same rail the agency uses, minus the agency plate — there is no scope above the accounts to switch into. The door stays, opening on My accounts: the 14 they belong to, not the agency's 17."
-              : "The nav's identity row becomes the switcher, listing all 14 accounts they belong to — not just the ones they pinned. No agency row."}
-          </Note>
 
           {/*
             How loudly a closed door says there is something new behind it.
@@ -4270,8 +4391,24 @@ export function TuningPanel() {
           />
           <Note>
             {pageCanvas
-              ? "Page header and content sit in one white card with shadow/lg, scrolling inside it. Builders keep their own layout."
+              ? "Page header and content sit in one white card, scrolling inside it. Builders keep their own layout."
               : "Pages draw straight on the plane below the breadcrumb row."}
+          </Note>
+          <Segmented
+            label="Canvas edge"
+            options={PAGE_CANVAS_EDGES}
+            value={pageCanvasEdge}
+            disabled={!pageCanvas}
+            onChange={(v: PageCanvasEdge) => setPageCanvasEdge(v)}
+            format={(v) => PAGE_CANVAS_EDGE_LABELS[v]}
+            keywords="border shadow outline"
+          />
+          <Note>
+            {pageCanvasEdge === "shadow"
+              ? "shadow/lg alone — the card floats off the plane, no drawn line."
+              : pageCanvasEdge === "border"
+                ? "The card hairline alone — flat, the edge drawn rather than cast."
+                : "Hairline and shadow/lg together — a defined edge that still lifts."}
           </Note>
           <Toggle
             label="Canvas on column pages"
@@ -4444,6 +4581,7 @@ export function TuningPanel() {
               ? "The mark appears twice within 60px — once on the account rail's plate, once beside the agency name. Both are right on their own terms; together they state one identity twice."
               : "The header keeps the name and drops the disc. The rail's mark is unlabelled and the name is what it was missing, so the pair read as one identity in two halves. Sub-accounts are untouched — nothing above them repeats anything."}
           </Note>
+
 
           <Toggle
             label="Search at agency scope"

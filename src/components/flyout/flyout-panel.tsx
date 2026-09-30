@@ -156,8 +156,22 @@ export function FlyoutPanel({
    * break the outline in the middle.
    */
   const navEditing = layout.state.editing && layout.can.customise;
-  const { editTreatment, l3Disclosure, flyoutTrigger, navOnPlane } =
-    useTheme().effective;
+  const {
+    editTreatment,
+    l3Disclosure,
+    flyoutTrigger,
+    navOnPlane,
+    flyoutShadow,
+    flyoutShape,
+    flyoutCardBorder,
+  } = useTheme().effective;
+  /*
+   * As a card the panel stops being an extension of the nav, so the two
+   * rules that make it one stop applying: it keeps a gap at both ends
+   * whatever the plane says, and it rounds all four corners rather than
+   * squaring the edge it docks against.
+   */
+  const asCard = flyoutShape === "card";
   // The same axis the rows read for themselves; the cascade renders them from
   // out here, so it has to answer the question too.
   const { tabsInNav } = useTheme();
@@ -955,7 +969,18 @@ export function FlyoutPanel({
           12px notch out of the top of a panel that is supposed to run the
           full height, which reads as a margin the panel does not have.
         */
-        navOnPlane ? null : "rounded-r-[var(--shell-canvas-radius)]",
+        /*
+          Right corners only, in every shape.
+
+          A card rounds the three edges that face the window and squares the
+          one it meets the nav on — because the pair is one box with a seam
+          down it, not two boxes that happen to touch. Rounding here notched
+          that seam at the top and the bottom, which is what made the two
+          read as separate objects badly aligned rather than as one surface.
+        */
+        navOnPlane && !asCard
+          ? null
+          : "rounded-r-[var(--shell-canvas-radius)]",
         /*
           On the plane the panel stops being a card too.
 
@@ -969,7 +994,34 @@ export function FlyoutPanel({
           continuing, and the whole argument for the plane is one ground
           under everything that is not the page.
         */
-        navOnPlane ? "bottom-0 bg-pg" : "bottom-[var(--shell-canvas-gap)] bg-nav",
+        asCard
+          ? cn(
+              /*
+                Inset at both ends — but only the bottom is stated here.
+
+                The top comes from the shell: with a card shape the nav takes
+                its own margin, so `navGutter` is the canvas gap again and
+                the `top` this panel is handed already clears the window. A
+                `margin-top` on top of that was the gap paid twice, which is
+                the mismatch Ashwin caught — the panel sat 8px down against
+                the nav's 4.
+              */
+              "bottom-[var(--shell-canvas-gap)]",
+              /*
+                The ground does not change with the shape.
+
+                On the plane the panel is the page's grey because the whole
+                left side is, and being a card does not make it a different
+                KIND of surface — it makes it a separately bounded one. Going
+                white here would say the card belongs to the nav's palette
+                rather than to the plane it sits on, which is the one thing
+                the plane variant argues against.
+              */
+              navOnPlane ? "bg-pg" : "bg-nav",
+            )
+          : navOnPlane
+            ? "bottom-0 bg-pg"
+            : "bottom-[var(--shell-canvas-gap)] bg-nav",
         // Editing, the panel completes the nav's ring rather than wearing its
         // own border — top, right and bottom in brand, nothing on the left, so
         // the two boxes read as one surface with one stroke around it.
@@ -980,7 +1032,43 @@ export function FlyoutPanel({
          * being carried by the surround and a heavy edge on the panel alone
          * would read as the panel being selected.
          */
-        navEditing && editTreatment === "ring"
+        /*
+          As a card, one outline all the way round — in edit mode too.
+
+          The three-sided versions below exist because the fourth side is
+          the nav's, shared. A card shares nothing: an outline with a gap in
+          it where a neighbour used to be is the shape of the old idea, not
+          a new one.
+        */
+        asCard
+          ? navEditing && editTreatment === "ring"
+            ? /*
+                Three sides, and not the left.
+
+                The nav closes that one. An outline on both sides of the
+                seam is a 2px rule down the gap the pointer crosses to reach
+                this panel — see the docked case below, which makes the same
+                argument about a hairline.
+              */
+              "shadow-[inset_-1.5px_0_0_0_var(--nav-edit-ring),inset_0_1.5px_0_0_var(--nav-edit-ring),inset_0_-1.5px_0_0_var(--nav-edit-ring)]"
+            : cn(
+                /*
+                  The seam is always drawn; the outline is the axis.
+
+                  Without it a card is just the margin — which is the whole
+                  of that variant, and legible on its own. With it, this
+                  panel closes the right, top and bottom of a border the nav
+                  opened on the left.
+                */
+                flyoutCardBorder
+                  ? "shadow-[inset_1px_0_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_1px_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border)]"
+                  : "shadow-[inset_1px_0_0_0_var(--fly-border)]",
+                flyoutShadow &&
+                  (flyoutCardBorder
+                    ? "shadow-[inset_1px_0_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_1px_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border),8px_0_28px_-12px_rgba(16,24,40,0.28)]"
+                    : "shadow-[inset_1px_0_0_0_var(--fly-border),8px_0_28px_-12px_rgba(16,24,40,0.28)]"),
+              )
+          : navEditing && editTreatment === "ring"
           /*
            * Hairlines only — no drop shadow. The canvas-sized shadow this panel
            * used to wear spilled left over the nav and read as a dark seam
@@ -1001,16 +1089,34 @@ export function FlyoutPanel({
               a 2px seam — so the panel drew none. On the plane the nav has no
               border at all and the panel is the same colour as it, so with no
               left edge there was nothing on screen saying where L1 stopped
-              and L2 began. This is that line, and it is the nav's own
-              divider weight rather than a heavier one, because the two are
-              still one surface.
+              and L2 began. This is that line, at the nav's own
+              divider weight. A step darker was tried on Sep 30 and read as
+              a rule dividing two things rather than a fold in one, which is
+              the opposite of what the docked shape claims.
 
               Top and bottom go with the radius: the panel runs the full
               height now, and a hairline capping a full-height column reads
               as the column being inset from an edge it is actually touching.
             */
-            ? "shadow-[inset_1px_0_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border)]"
-            : "shadow-[inset_0_1px_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border)]",
+            ? cn(
+                "shadow-[inset_1px_0_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border)]",
+                /*
+                  Thrown RIGHT only, never left.
+
+                  A shadow spilling back over the nav is the thing the
+                  hairlines replaced — it reads as a dark seam between L1 and
+                  L2 rather than as depth. Cast away from the column, it says
+                  the panel is in front of the page, which is the only claim
+                  worth making here.
+                */
+                flyoutShadow &&
+                  "shadow-[inset_1px_0_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),8px_0_28px_-12px_rgba(16,24,40,0.28)]",
+              )
+            : cn(
+                "shadow-[inset_0_1px_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border)]",
+                flyoutShadow &&
+                  "shadow-[inset_0_1px_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border),8px_0_28px_-12px_rgba(16,24,40,0.28)]",
+              ),
         // `left` animates too, so the panel follows the nav edge when the rail
         // collapses underneath an open panel instead of jumping.
         "motion-move",

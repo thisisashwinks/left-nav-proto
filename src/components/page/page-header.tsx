@@ -4,10 +4,10 @@ import * as React from "react";
 import { usePageHeading } from "@/components/page/page-heading";
 import {
   Check,
-  ChevronDown,
   EllipsisVertical,
   type LucideIcon,
 } from "lucide-react";
+import { CaretDown } from "@/components/icons/caret-down";
 import type { Crumb } from "@/components/header/app-header";
 import { useClaimLeaf, useLeafCrumb } from "@/components/page/leaf-crumb";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -253,9 +253,20 @@ function TitleMenu({
         )}
       >
         <span className={cn("min-w-0 truncate", className)}>{title}</span>
-        <ChevronDown
-          size={17}
-          aria-hidden="true"
+        {/*
+          The solid caret, not a stroked chevron — see `CaretDown`, whose own
+          note has claimed the page title since it was written and was wrong
+          about this one trigger. A hairline chevron at the weight of a 20px
+          semibold heading reads as a tick printed after the word rather than
+          as something that opens, and it left the title and the breadcrumb
+          leaf — the same affordance, a row apart — wearing two glyphs.
+
+          14, not 17: the caret is filled, so it carries at a smaller size
+          than the outline it replaces, and matching the chevron's box would
+          have made it the loudest mark in the header.
+        */}
+        <CaretDown
+          size={14}
           className={cn(
             "shrink-0 text-pg-muted motion-move",
             open && "rotate-180",

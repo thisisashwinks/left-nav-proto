@@ -26,6 +26,9 @@
   --color-nav-fg-muted: var(--nav-fg-muted);
   --color-nav-fg-subtle: var(--nav-fg-subtle);
   --color-nav-hover: var(--nav-hover);
+  --color-nav-key: var(--nav-key-bg);
+  --color-nav-key-border: var(--nav-key-border);
+  --color-nav-key-fg: var(--nav-key-fg);
   --color-nav-active: var(--nav-active);
   --color-nav-selected: var(--nav-selected);
   --color-nav-rail: var(--nav-rail-bg);
@@ -436,6 +439,12 @@
 /* Dark: shadow/lg vanishes on a near-black plane, so the edge is a hairline. */
 [data-page-theme="dark"] [data-page-canvas] {
   --page-canvas-ring: var(--pg-card-border);
+}
+
+/* Border and Border + shadow draw the card hairline in light too. */
+[data-page-canvas][data-page-canvas-edge="border"],
+[data-page-canvas][data-page-canvas-edge="both"] {
+  --page-canvas-ring: var(--page-canvas-card-border);
 }
 
 [data-page-canvas] [data-page-theme][data-page-theme][data-page-theme][data-page-theme] {

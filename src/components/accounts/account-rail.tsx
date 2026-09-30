@@ -174,6 +174,17 @@ export function AccountRail({
    * chrome like everything else that reads it.
    */
   const { effective } = useTheme();
+  const { navOnPlane, directoryFlush } = effective;
+  /**
+   * The directory runs to the window's top and bottom edges.
+   *
+   * Only on the plane. Off it the nav is a card with its own margin, and the
+   * rail lives inside that card — there is no window edge for it to reach,
+   * so the axis has nothing to say.
+   */
+  const flushDirectory = navOnPlane && directoryFlush;
+  /** The other half: held off the edges, and rounded because of it. */
+  const insetDirectory = navOnPlane && !directoryFlush;
   /*
    * Recently visited accounts the rail does not already carry.
    *
@@ -426,7 +437,27 @@ export function AccountRail({
         className={cn(
           // pt 4: the agency plate is 40px tall (4 + 32 + 4 with the 24px
           // logo), so 4px above centres its tile on y=24 — the header's midline.
-          "absolute inset-y-0 left-0 flex flex-col gap-[7px] overflow-hidden pt-[4px] pb-[8px]",
+          "absolute left-0 flex flex-col gap-[7px] overflow-hidden pt-[4px] pb-[8px]",
+          /*
+            Flush to the window, or inset like a card.
+
+            On the plane the sidebar has no margin, so a directory that kept
+            one would be the last surface on the left still floating on
+            something that is not there. Flush is the default, and flush
+            needs no radius either — a corner is how a card ends, and this
+            one does not end, it meets the edge.
+
+            Inset is the comparison, and it brings the radius back with it
+            (below) because those two belong together: an inset surface with
+            square corners reads as one that failed to reach the edge.
+
+            Off the plane neither applies — the nav card's own margin is
+            already holding this off the window, and the rail simply fills
+            the card it lives in.
+          */
+          insetDirectory
+            ? "top-[var(--shell-canvas-gap)] bottom-[var(--shell-canvas-gap)]"
+            : "inset-y-0",
           raised ? "z-[45]" : "z-30",
           // Nothing in the strip answers the pointer while the nav is being
           // edited — see `locked`. On the whole nav rather than per tile, so a
@@ -437,8 +468,25 @@ export function AccountRail({
           // against the nav. It becomes a real surface only while it is widened
           // OVER the nav, where transparency would let the rows it covers show
           // straight through it.
+          /*
+            The lift, and how much of it the plane can carry.
+
+            0.45 at a 40px blur is tuned for a panel standing over a CARD:
+            the card is already floating, so the strip on top of it has to
+            clear a surface that has depth of its own. On the plane nothing
+            below it is lifted, so the same shadow has the whole page to fall
+            on and reads as a dark stain rather than as height — hardest
+            exactly where the two All accounts surfaces are widest, which is
+            where Ashwin caught it (Sep 30).
+
+            Both surfaces, one rule: the hover peek and the click-through
+            directory are the same painted strip at two widths, so softening
+            one and not the other would be the same object with two depths.
+          */
           painted &&
-            "bg-nav-rail shadow-[inset_0_0_0_1px_var(--nav-border),16px_0_40px_-20px_rgba(15,23,42,0.45)]",
+            (navOnPlane
+              ? "bg-nav-rail shadow-[inset_0_0_0_1px_var(--nav-border),12px_0_28px_-18px_rgba(15,23,42,0.22)]"
+              : "bg-nav-rail shadow-[inset_0_0_0_1px_var(--nav-border),16px_0_40px_-20px_rgba(15,23,42,0.45)]"),
           !painted && "bg-transparent",
           /*
             The two widened states round differently, and on purpose.
@@ -459,9 +507,15 @@ export function AccountRail({
           // exactly as long as it is: squaring them off mid-close would put a
           // hard corner on a card that is still visibly a card.
           switcherOpen
-            ? "rounded-[var(--shell-canvas-radius)]"
+            ? // Flush to the top and bottom of the window, a radius notches
+              // the edge it is touching. See `insetDirectory`.
+              flushDirectory
+              ? null
+              : "rounded-[var(--shell-canvas-radius)]"
             : painted
-              ? "rounded-l-[var(--shell-canvas-radius)]"
+              ? navOnPlane
+                ? null
+                : "rounded-l-[var(--shell-canvas-radius)]"
               : null,
         )}
         /*

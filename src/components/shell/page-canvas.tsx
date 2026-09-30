@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import type { PageCanvasEdge } from "@/design/theme";
 import { cn } from "@/lib/utils";
 
 /**
@@ -103,21 +104,27 @@ export function usePageCanvasExempt(): boolean {
 
 export function PageCanvas({
   enabled,
+  edge = "shadow",
   children,
 }: {
   enabled: boolean;
+  /** How the card marks its edge. See PAGE_CANVAS_EDGES in theme.ts. */
+  edge?: PageCanvasEdge;
   children: React.ReactNode;
 }) {
   return (
     <div
       data-page-canvas={enabled ? "" : undefined}
+      data-page-canvas-edge={enabled ? edge : undefined}
       className={
         enabled
           ? cn(
               // 12px canvas margin on the sides and bottom, none on top — the
-              // breadcrumb row above already spaces it — 12px radius, shadow/lg.
+              // breadcrumb row above already spaces it — 12px radius, and
+              // shadow/lg unless the edge is the hairline alone.
               "relative mx-[12px] mt-0 mb-[12px] flex min-h-0 flex-1 flex-col overflow-hidden",
-              "rounded-[var(--shell-canvas-radius)] bg-pg-surface shadow-[var(--shell-canvas-shadow)]",
+              "rounded-[var(--shell-canvas-radius)] bg-pg-surface",
+              edge !== "border" && "shadow-[var(--shell-canvas-shadow)]",
             )
           : "contents"
       }
@@ -141,9 +148,9 @@ export function PageCanvas({
         /*
           The card's edge, drawn over its contents rather than under them —
           scrolled content runs through the padding to the card's edge and
-          would cover an inset shadow on the card itself. Transparent in light,
-          where shadow/lg carries the float; --pg-card-border in dark, where it
-          does not.
+          would cover an inset shadow on the card itself. Transparent in light
+          under the shadow-only edge, where shadow/lg carries the float; the
+          card hairline for Border and Border + shadow, and always in dark.
         */
         <span
           aria-hidden="true"

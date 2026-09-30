@@ -60,6 +60,8 @@ interface CollapsedRailProps {
   account: Account;
   /** False for a plain sub-account user — the mark renders inert. */
   canSwitch?: boolean;
+  /** Whether an account rail stands to the left. See LeftNavProps.railAbove. */
+  railAbove?: boolean;
   /** Reopens the expanded nav. Lives right under the mark, not in the app bar. */
   onExpand: () => void;
   /** Owned by the shell, so the window can escape the rail's clipped box. */
@@ -134,6 +136,7 @@ export function CollapsedRail({
   scope,
   account,
   canSwitch = true,
+  railAbove = false,
   onExpand,
   aiSession,
   density,
@@ -167,6 +170,7 @@ export function CollapsedRail({
     getAppPlacement,
     agencySearch,
     agencyNavMark,
+    subAccountNavMark,
     launchpad: launchpadSetting,
     navArrangement,
   } = useTheme().effective;
@@ -555,7 +559,9 @@ export function CollapsedRail({
         the expanded header can drop it. Nothing is lost but a second Expand
         target: the button directly below does that job and says so.
       */}
-      {agencyScope && !agencyNavMark ? null : canSwitch ? (
+      {(agencyScope ? !agencyNavMark : railAbove && !subAccountNavMark)
+        ? null
+        : canSwitch ? (
         <button
           type="button"
           title="Expand navigation"

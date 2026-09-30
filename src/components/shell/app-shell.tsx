@@ -266,7 +266,22 @@ function collapseRepeats(
       return kept;
     }
     if (typeof segment !== "string" && typeof next !== "string") {
-      work[i + 1] = { ...next, icon: next.icon ?? segment.icon };
+      /*
+       * The survivor inherits the rung as well as the glyph.
+       *
+       * This dropped the EARLIER crumb and kept the later one, so on
+       * "CRM ▸ Opportunities (product) ▸ Opportunities (page)" the segment
+       * left standing was the page — and `crumbLeaf: "none"` then removed it
+       * as a page, leaving the trail saying "CRM", a bucket, which is not a
+       * place. One crumb now stands for both levels, so it has to answer as
+       * the higher of the two. Ashwin, Sep 30.
+       */
+      const level = segment.level ?? next.level;
+      work[i + 1] = {
+        ...next,
+        icon: next.icon ?? segment.icon,
+        ...(level ? { level } : {}),
+      };
     }
     return kept;
   }, []);
@@ -374,6 +389,11 @@ function foldGenericChildren(
             icon:
               segment.icon ??
               (typeof parent === "string" ? undefined : parent.icon),
+            // Same inheritance as `collapseRepeats`: the compound crumb
+            // stands for the parent too, so it answers at the parent's rung.
+            ...(typeof parent !== "string" && (segment.level ?? parent.level)
+              ? { level: (segment.level ?? parent.level)! }
+              : {}),
           };
   }
   return kept;
@@ -409,7 +429,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     dockPosition,
     entryLayout,
     navOnPlane,
+    flyoutShape,
+    flyoutCardBorder,
     pinnedShortcuts,
+    pinnedShortcutEdit,
     recentsMode,
     mergedPinScope,
     autoCollapse,
@@ -1158,7 +1181,22 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   // No gutter on the plane — the card that had one is gone, so everything
   // docking against the nav's right edge (flyouts, the launcher, the edit
   // scrim) would otherwise sit 4px past it.
-  const navGutter = navOnPlane ? 0 : NAV_FLOAT_GAP;
+  /**
+   * The L2 panel is drawn as its own card.
+   *
+   * Read here as well as in the panel because the NAV has to answer for it:
+   * a bounded panel beside an unbounded sidebar is one object floating next
+   * to nothing, so the shape is a property of the pair rather than of the
+   * panel alone.
+   */
+  const cardFlyout = flyoutShape === "card";
+  /** The nav draws its own outline: on the plane, only once L2 is a card. */
+  const navAsCard = navOnPlane && cardFlyout;
+  /*
+   * A bounded nav has a gutter again, even on the plane, so everything that
+   * docks against its right edge still lands on it.
+   */
+  const navGutter = navOnPlane && !navAsCard ? 0 : NAV_FLOAT_GAP;
   const leftOffset = railWidth + navGutter + navWidth;
   // Group panels win over the authored registry: a renamed Engage has to open a
   // panel titled with its new name, and the registry still holds the old one.
@@ -1239,6 +1277,14 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         : null,
     FLYOUT_EXIT_MS,
   );
+  /**
+   * A panel is standing against the nav's right edge.
+   *
+   * Either one: the L2 flyout and the Recents launcher dock in the same
+   * place, so anything that reacts to "something is open there" has to name
+   * both or it will be right half the time.
+   */
+  const panelDocked = flyout.isMounted || launcher.isMounted;
 
   // Opening the switcher clears whatever else is showing over the canvas: it is
   // a modal choice, and a flyout left open behind it would keep reacting to
@@ -1589,6 +1635,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       out.push({
         label,
         icon: bucket.icon,
+        // The whole trail. Nothing below it to drop, so it is never the page
+        // that "no last crumb" removes. See `Crumb.level`.
+        level: "group",
         options: buckets,
         onSelect: pick,
       });
@@ -1598,6 +1647,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     out.push({
       label: bucket.label,
       icon: bucket.icon,
+      level: "group",
       options: buckets,
       onSelect: pick,
     });
@@ -1610,6 +1660,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       out.push({
         label: parent.label,
         ...(parent.icon ? { icon: parent.icon } : {}),
+        // The agency's L2, which is the same rung a product is at account
+        // scope: the last thing the trail may not drop.
+        level: "product",
         options: rows,
         onSelect: pick,
       });
@@ -1634,6 +1687,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     out.push({
       label,
       ...(agencyPlace.icon ? { icon: agencyPlace.icon } : {}),
+      // No L3 under it, so this row IS the destination — the product rung.
+      level: "product",
       options: rows,
       onSelect: pick,
     });
@@ -1801,9 +1856,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     [recordCrumb, recordCrumbLabel, recordCrumbShown],
   );
 
-  // The trail's leaf moves onto the page title (see `leafCrumb` below).
-  const leafToTitle =
-    crumbLeaf === "title" && crumbShown && crumbSwitchers !== "off";
+  /*
+   * The trail's leaf moves onto the page title (see `leafCrumb` below).
+   *
+   * Only where the LEAF has a menu. "All but the last" gives every other
+   * segment one and withholds it here, so there would be nothing to hand
+   * over — the title would grow a caret onto an empty list.
+   */
+  const leafHasMenu = crumbSwitchers === "all" || crumbSwitchers === "leaf";
+  const leafToTitle = crumbLeaf === "title" && crumbShown && leafHasMenu;
   const productCrumbs = React.useMemo((): (string | Crumb)[] => {
     const productId = canvasPage?.productId ?? "contacts";
     const childId = canvasPage?.childId ?? null;
@@ -1835,6 +1896,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       segments.push({
         label: group.label,
         icon: group.icon,
+        level: "group",
         options: topLevelOptions(group.id, productId),
         onSelect: pickCrumb,
       });
@@ -1842,6 +1904,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     segments.push({
       label: productLabelFor(productId),
       icon: productIconFor(productId),
+      // The product rung, so "no last crumb" leaves it standing where the
+      // product has no page below it. See `Crumb.level`.
+      level: "product",
       /*
        * Dropping the bucket CRUMB must not drop what it could reach.
        *
@@ -2202,8 +2267,12 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 // it — the same three-part shape the generic branch builds, so
                 // the table's trail does not read as a special case.
                 manageAccount
-                ? ["Sub-accounts", "Accounts", manageAccount.name]
-                : ["Sub-accounts", "Accounts"]
+                ? [
+                    "Sub-accounts",
+                    { label: "Accounts", level: "product" as const },
+                    manageAccount.name,
+                  ]
+                : ["Sub-accounts", { label: "Accounts", level: "product" as const }]
               : selectedId === GET_APP_ROW_IDS.mobile ||
                   selectedId === GET_APP_ROW_IDS.desktop
                 ? /*
@@ -2236,12 +2305,18 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                         },
                       ],
                       onSelect: (id: string) => setSelectedId(id),
+                      // The destination of the pair; the word before it is
+                      // chrome. See `Crumb.level`.
+                      level: "product" as const,
                     },
                   ]
               : agencyPlace
                 ? agencyCrumbs
                 : agencyScope
-                  ? [accounts.agency.name, "Overview"]
+                  ? [
+                      accounts.agency.name,
+                      { label: "Overview", level: "product" as const },
+                    ]
                   : productCrumbs,
       pageCrumb,
     ),
@@ -2315,7 +2390,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const leafCrumb = React.useMemo(() => {
     // "off" means no menus anywhere, and the title's caret is a menu — under
     // it this variant has nothing to hand over and degrades to no last crumb.
-    if (crumbLeaf !== "title" || !crumbShown || crumbSwitchers === "off") {
+    if (crumbLeaf !== "title" || !crumbShown || !leafHasMenu) {
       return null;
     }
     const last = crumbs[crumbs.length - 1];
@@ -2324,7 +2399,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       return null;
     }
     return last;
-  }, [crumbLeaf, crumbShown, crumbSwitchers, crumbs]);
+  }, [crumbLeaf, crumbShown, leafHasMenu, crumbs]);
 
   /*
    * The exit — built here, or nowhere.
@@ -2418,6 +2493,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     <PinShortcutsProvider
       order={agencyScope ? agencyLayout.pinned : layout.pinned}
       enabled={pinnedShortcuts}
+      editable={pinnedShortcutEdit}
       onFire={selectNavRow}
     >
     <HereProvider value={here}>
@@ -2523,7 +2599,29 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             sits on is the page's.
           */
           navOnPlane
-            ? null
+            ? cn(
+                /*
+                  A card lifts off the window's top and bottom, and that is
+                  the whole of the variant — the margin, nothing else. The
+                  ground stays the page's, so no fill and no shadow with it.
+                */
+                navAsCard && "my-[var(--shell-canvas-gap)] ml-[var(--shell-canvas-gap)]",
+                /*
+                  The outline, and only while something is open beside it.
+
+                  It is a border around the PAIR: this side closes the left,
+                  the top and the bottom, the panel closes the right, and
+                  neither draws on the seam between them. With nothing open
+                  there is no pair — so a nav wearing three quarters of a
+                  border, opening onto the page on its right, would be a box
+                  that had grown an edge for no reason anyone watching could
+                  name. Ashwin, Sep 30.
+                */
+                navAsCard &&
+                  flyoutCardBorder &&
+                  panelDocked &&
+                  "shadow-[inset_1px_0_0_0_var(--nav-border),inset_0_1px_0_0_var(--nav-border),inset_0_-1px_0_0_var(--nav-border)]",
+              )
             : "my-[var(--shell-canvas-gap)] ml-[var(--shell-canvas-gap)] bg-nav shadow-[var(--shell-canvas-shadow),inset_0_0_0_1px_var(--nav-border)]",
           /*
             The card's own level, and why the RAIL's cannot be set on the rail.
@@ -2561,9 +2659,21 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           */
           // Nothing to round without a card. A radius on a transparent box
           // only clips what is inside it, which here is the nav's own rows.
+          /*
+            Square the edge a panel is standing against, round the rest.
+
+            One rule for every shape now. Docked, it is the old argument: the
+            two are one surface and a curve notches the seam. As a card it is
+            the same argument about a border rather than a fill — the outline
+            runs around the pair, so a radius where the two halves meet cuts a
+            notch out of a line that is meant to be straight there.
+          */
           navOnPlane
-            ? null
-            : flyout.isMounted || launcher.isMounted
+            ? navAsCard &&
+              (panelDocked
+                ? "rounded-l-[var(--shell-canvas-radius)]"
+                : "rounded-[var(--shell-canvas-radius)]")
+            : panelDocked
               ? "rounded-l-[var(--shell-canvas-radius)]"
               : "rounded-[var(--shell-canvas-radius)]",
         )}
@@ -2736,6 +2846,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             onSelect={selectNavRow}
             openFlyoutId={intent.activeId}
             pinnedFlyoutId={intent.pinnedId}
+            /*
+              The sidebar's full footprint, for `scoped`'s L1 drawer.
+
+              It slides in from x=0 and covers the account rail as well as
+              the nav, so it has to know how wide both are — and only the
+              shell knows, since the rail is its child and the nav's width
+              is its own state.
+            */
+            sidebarWidth={leftOffset}
             onHoverFlyout={hoverFlyout}
             onHoverPlain={hoverPlain}
             onPinFlyout={intent.togglePin}
@@ -2752,6 +2871,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             switcherOpen={switcherOpen}
             onToggleSwitcher={toggleSwitcher}
             canSwitch={identityCanSwitch}
+            // The real condition behind the header's mark — see LeftNavProps.
+            railAbove={railActive}
             aiSession={aiSession}
             density={density}
             onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
@@ -2788,6 +2909,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             scope={accounts.scope}
             account={headerAccount}
             canSwitch={identityCanSwitch}
+            railAbove={railActive}
             onExpand={() => chooseCollapsed(false)}
             aiSession={aiSession}
             density={density}
@@ -3083,7 +3205,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                   : "m-[var(--shell-canvas-gap)] rounded-[var(--shell-canvas-radius)] shadow-[inset_0_0_0_1px_var(--shell-canvas-ring)]",
               )}
             >
-              <PageCanvas enabled={pageCanvasOn}>
+              <PageCanvas enabled={pageCanvasOn} edge={effective.pageCanvasEdge}>
               {pending ? (
                 <CanvasSkeleton />
               ) : canvasPage?.productId === PROPOSED_ASK_AI_ID ? (

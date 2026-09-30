@@ -511,6 +511,21 @@
   */
   --nav-selected: var(--nav-active);
   /*
+    The keycap on a pinned row — white, a gray-200 hairline, gray-600 text.
+
+    Its own three tokens rather than borrowing --nav-hover and
+    --nav-fg-subtle, which is what it shipped with and what made it
+    disappear: a gray-100 fill is the ROLLOVER fill, so the moment you
+    hovered the row the cap and its ground were the same colour, and gray-400
+    text on that is barely there. A keycap has to read as a raised object on
+    whatever the row is doing underneath it, and the only ground that stays
+    distinct from both the resting white and the hovered grey is white with
+    an edge. Same trick a real keyboard plays.
+  */
+  --nav-key-bg: var(--hr-base-white);
+  --nav-key-border: var(--hr-gray-200);
+  --nav-key-fg: var(--hr-gray-600);
+  /*
     The wash a row wears for a moment after it is pinned or unpinned.
 
     HighRise warning/100 — the lightest step that still reads as yellow against
@@ -558,6 +573,18 @@
    * them at --brand-* if you want them to follow the accent.
    */
   --fly-border: var(--hr-gray-200);
+  /*
+   * The seam between the sidebar and the panel docked against it, one step
+   * darker than every other hairline in the nav.
+   *
+   * Only read on the plane. Off it, the nav is a card and its own right
+   * border is the seam — a line between two surfaces that are already
+   * different colours, which the 200 carries. On the plane there are no
+   * cards and no colour change: the panel is the same ground as the nav
+   * beside it, so this line is the ONLY thing saying where L1 stops and L2
+   * begins, and a hairline doing that job alone needs to be seen.
+   */
+  --fly-seam: var(--hr-gray-300);
   --fly-shadow: #0000001f;
   --fly-card-bg: var(--hr-gray-50);
   --fly-accent: #5b5bd6;
@@ -609,6 +636,12 @@
  */
 [data-legacy-nav][data-nav-theme="dark"] {
   --legacy-nav-base: #2e3748;
+
+  /* Inverted on a dark nav: white would be the loudest thing in the column.
+     The cap keeps its edge and its raised reading, one step off the ground. */
+  --nav-key-bg: var(--nav-rail-bg);
+  --nav-key-border: var(--nav-border);
+  --nav-key-fg: var(--nav-fg-muted);
 
   --nav-bg: var(--legacy-nav-base);
   --nav-border: #414e61;
@@ -667,6 +700,12 @@
 [data-nav-dark="navy"] [data-nav-theme="dark"] {
   --nav-dark-base: #0f1828;
 
+  /* Inverted on a dark nav: white would be the loudest thing in the column.
+     The cap keeps its edge and its raised reading, one step off the ground. */
+  --nav-key-bg: var(--nav-rail-bg);
+  --nav-key-border: var(--nav-border);
+  --nav-key-fg: var(--nav-fg-muted);
+
   --nav-bg: var(--nav-dark-base);
 
   /* +0.03 L: the rail sits a step off the nav, as #17171b does off #0f0f12. */
@@ -679,6 +718,9 @@
   --nav-divider: oklch(from var(--nav-dark-base) calc(l + 0.07) c h);
   --fly-border: #253044;
   --fly-border: oklch(from var(--nav-dark-base) calc(l + 0.07) c h);
+  /* One step past --fly-border on the same ramp. See the light block. */
+  --fly-seam: #303e55;
+  --fly-seam: oklch(from var(--nav-dark-base) calc(l + 0.13) c h);
 
   --nav-hover: #1c2637;
   --nav-hover: oklch(from var(--nav-dark-base) calc(l + 0.04) c h);
@@ -769,6 +811,7 @@
   --ai-quote: oklch(from var(--ai-base) 0.22 calc(c * 0.4) h);
 
   --fly-border: #26262c;
+  --fly-seam: #34343c;
   --fly-shadow: #00000066;
   --fly-card-bg: #17171b;
   --fly-accent: #a5a5f5;
@@ -1307,6 +1350,7 @@
   --nav-rail-hover: oklch(from var(--brand) 0.952 calc(c * var(--tint-surface)) h);
   --nav-rail-disc: oklch(from var(--brand) 0.9412 calc(c * var(--tint-line)) h);
   --fly-border: oklch(from var(--brand) 0.9217 calc(c * var(--tint-line)) h);
+  --fly-seam: oklch(from var(--brand) 0.8556 calc(c * var(--tint-line)) h);
   --fly-card-bg: oklch(from var(--brand) 0.9851 calc(c * var(--tint-surface)) h);
   --fly-tile-bg: oklch(from var(--brand) 0.9677 calc(c * var(--tint-surface)) h);
 }
@@ -1326,6 +1370,7 @@
   --nav-rail-hi: oklch(from var(--brand) 0.2638 calc(c * var(--tint-surface)) h);
   --nav-rail-disc: oklch(from var(--brand) 0.3044 calc(c * var(--tint-line)) h);
   --fly-border: oklch(from var(--brand) 0.2711 calc(c * var(--tint-line)) h);
+  --fly-seam: oklch(from var(--brand) 0.3411 calc(c * var(--tint-line)) h);
   --fly-card-bg: oklch(from var(--brand) 0.2064 calc(c * var(--tint-surface)) h);
   --fly-tile-bg: oklch(from var(--brand) 0.2376 calc(c * var(--tint-surface)) h);
 }

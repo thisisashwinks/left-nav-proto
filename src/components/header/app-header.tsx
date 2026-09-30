@@ -58,6 +58,23 @@ export interface Crumb {
   label: string;
   /** The same glyph the nav uses for this group or product, so the trail matches it. */
   icon?: LucideIcon;
+  /**
+   * Which rung of the nav this segment is, for the axes that care.
+   *
+   * Only `crumbLeaf: "none"` reads it, and only to answer one question: is
+   * the thing at the end of this trail a PAGE inside a product, or is it the
+   * product itself? Unset means a page, which is the common case and the
+   * droppable one.
+   *
+   * Positional reasoning cannot answer it. Opportunities publishes CRM ▸
+   * Opportunities with no child at all, so its leaf is the product; Contacts
+   * publishes CRM ▸ Contacts ▸ Smart lists, where the leaf is an L3 and the
+   * product sits one place to its left. Both are two or three segments long
+   * depending on `crumbStart`, so counting crumbs gets one of them wrong
+   * whichever floor you pick. The nav knows which rung each segment came
+   * from; it just never said so.
+   */
+  level?: "group" | "product" | "child";
   options?: CrumbOption[];
   onSelect?: (id: string) => void;
   /**
@@ -479,8 +496,8 @@ export function AppHeader({
    * carets down the row. `leafMenu` is the one segment whose menu has no
    * other home. `leaf` exists precisely so they can disagree.
    */
-  const ancestorMenus = crumbSwitchers === "all";
-  const leafMenu = crumbSwitchers !== "off";
+  const ancestorMenus = crumbSwitchers === "all" || crumbSwitchers === "ancestors";
+  const leafMenu = crumbSwitchers === "all" || crumbSwitchers === "leaf";
   // "title" only holds while a page title is actually showing the leaf;
   // otherwise the crumb stays in the bar rather than vanishing.
   const leafClaimed = useLeafClaimed();
@@ -792,13 +809,37 @@ export function AppHeader({
              * the trail.
              */
             /*
-              "none" left this control on Sep 29 — it is now `crumbDepth`,
-              which trims the ARRAY upstream rather than blanking a segment
-              here. The difference matters: trimming lets the crumb before it
-              become the leaf and be drawn as one, where blanking left a
-              painted chip with nothing in it.
+              Both values that remove the segment, and they remove it the same
+              way: the whole Fragment goes, so the separator pointing at it
+              goes too and the crumb before it becomes the last, drawn as one.
+
+              "none" left this control on Sep 29 for `crumbDepth` and came
+              back on Sep 30 — see CrumbLeaf. Trimming the array upstream was
+              the right shape for a path-length control and the wrong one for
+              this: `crumbDepth` will not cut below two segments, which is
+              most of the app's trails, so on a listing page the option did
+              nothing. Removing the leaf here has no such floor, because the
+              question is not how long the path is.
             */
-            const leafGone = last && leaf === "title";
+            /*
+             * `none` takes the PAGE off the end, never the product.
+             *
+             * Ashwin, Sep 30, on Opportunities: the trail should read CRM ▸
+             * Opportunities with the header saying Opportunities, and what
+             * the option is for is hiding the L3 that repeats it. Dropping
+             * the leaf blindly left "CRM" — a bucket, which is a grouping
+             * rather than a place, so the trail named nowhere at all.
+             *
+             * `title` is unaffected: that one hands the leaf to the page
+             * title rather than deleting it, so a product leaf is still on
+             * screen after the move.
+             */
+            const leafIsPage =
+              slot.kind !== "overflow" &&
+              slot.seg.level !== "group" &&
+              slot.seg.level !== "product";
+            const leafGone =
+              last && (leaf === "title" || (leaf === "none" && leafIsPage));
             if (leafGone) return null;
             return (
               <React.Fragment
@@ -1383,111 +1424,196 @@ function CrumbMenu({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
+  /*
+   * Where the WORD goes.
+   *
+   * EVERY level, including the leaf and including a level whose first page is
+   * the one you are standing on. `CrumbWord` withholds the link in both of
+   * those cases — Ashwin's Sep 24 rule, that a hover promising a way out
+   * followed by a click that does nothing leaves you doubting the whole trail
+   * — and that rule was written when the crumb was ONE control. It is not any
+   * more. The caret beside this word is the switcher, so the word has exactly
+   * one meaning left: "the place this segment names". Clicking Contacts from
+   * Contacts ▸ Smart lists lands on Smart lists because that is Contacts's
+   * first page, which is the answer Ashwin gave on Sep 30 and the answer a
+   * reader expects; clicking the leaf lands on the leaf. A no-op navigation is
+   * the honest outcome of "take me there" when you are already there, and it
+   * costs nothing — where the older rule cost the trail its most predictable
+   * gesture.
+   */
+  const own = crumbTargetFor(seg);
+  const walkUp =
+    seg.onNavigate ??
+    (own !== null && seg.onSelect ? () => seg.onSelect!(own) : null);
+
+  const labelStyle = {
+    fontSize: last ? font.leafSize : font.size,
+    fontWeight: last ? font.leafWeight : undefined,
+  };
+  const labelClass = cn(
+    "truncate leading-[normal] whitespace-nowrap",
+    last ? "text-hdr-fg" : "text-hdr-fg-muted",
+  );
+  /*
+   * One box for the word, whether it is a link or a label.
+   *
+   * Shared rather than written twice so the two renderings cannot drift: a
+   * crumb that changed width when it stopped being clickable would re-space
+   * the whole row as you walked around the app. The leaf's chip already
+   * carries the outer inset, so the halves sit inside it instead of each
+   * adding their own.
+   */
+  const wordHalf = cn(
+    "flex min-w-0 items-center gap-[5px] rounded-[6px] py-[3px] pr-[3px]",
+    last && font.chip ? "pl-[7px]" : "pl-[5px]",
+  );
+  const icon =
+    seg.icon && showIcon && !shape ? (
+      <seg.icon
+        size={14}
+        aria-hidden="true"
+        className={cn(
+          "shrink-0 opacity-80",
+          last ? "text-hdr-fg" : "text-hdr-fg-muted",
+        )}
+      />
+    ) : null;
+  const caret =
+    shape === "dots" ? (
+      /*
+        The overflow mark, doing a switcher's job.
+
+        Bigger than the caret and not rotated, because it is not an arrow
+        promising a direction — it is the "there is more here" glyph the rest
+        of this product already uses, and the whole point of the variant is
+        to ask whether that reads as switchable where an arrow reads as
+        decoration.
+      */
+      <MoreHorizontal
+        size={14}
+        aria-hidden="true"
+        className={cn(
+          "shrink-0 text-hdr-fg-muted",
+          open ? "opacity-90" : "opacity-70",
+        )}
+      />
+    ) : (
+      /*
+        A standing caret after all. The Aug 13 note dropped it because a rank
+        of glyphs read as noise, but with icons now leading each segment the
+        trail no longer reads as switchable at all — hover is not an
+        affordance you can see. Kept small and faint so it sits under the
+        label rather than beside it.
+      */
+      <CaretDown
+        size={11}
+        className={cn(
+          "shrink-0 text-hdr-fg-muted motion-move",
+          open ? "rotate-180 opacity-90" : "opacity-70",
+        )}
+      />
+    );
+
+  /*
+   * TWO CONTROLS, NOT ONE (Sep 30, Ashwin).
+   *
+   * The crumb was a single button that opened the menu, so the one gesture
+   * every reader tries first — press the word — did the one thing a
+   * breadcrumb is not for. Walking back up a path was only possible on the
+   * segments that had NO dropdown, which is exactly backwards: the richer a
+   * crumb was, the less it behaved like a crumb.
+   *
+   * So the word navigates and the caret switches. They stay inside one box
+   * with one rounded outline and light up separately on hover, which is what
+   * says they are two halves of one crumb rather than two crumbs — and what
+   * lets someone aim. The gap between them went 3px → 5px: the caret is a
+   * target now and needs to be visibly beside the word rather than tucked
+   * under it.
+   *
+   * THE WORD NEVER OPENS THE MENU, not even where it has nowhere to go.
+   * That was the first cut of this and it was half a rule: the leaf, and any
+   * ancestor resolving to the page you are standing on, fell back to opening
+   * the dropdown, so "press the word" still meant two different things
+   * depending on which crumb you pressed. Ashwin, twice.
+   *
+   * Where there is nothing to walk back to, the word is plain text — the
+   * same answer `CrumbWord` has given since Sep 24, and the same reasoning:
+   * a hover that says "this is a way out of here" followed by a click that
+   * proves it is not leaves the reader doubting the other crumbs too. The
+   * caret beside it is unaffected and still opens the siblings, so nothing
+   * is unreachable; it is one target smaller.
+   */
+
   return (
-    <div className="relative min-w-0">
+    <div
+      className={cn(
+        /*
+          No flex gap: the 5px between the word and the caret (3 was the old
+          figure, and Ashwin asked for two more) is the halves' own padding,
+          so each one's hover chip reaches its neighbour and the two tile the
+          crumb. The extra pixels matter because the caret is a target now,
+          and a glyph tucked against a label reads as part of it.
+        */
+        "relative flex min-w-0 items-center rounded-[6px]",
+        open && "bg-hdr-chip",
+        // No chip behind a wordless leaf: the paint exists to mark a WORD as
+        // the page's name, and wrapped around a lone glyph it reads as a
+        // second kind of button rather than as emphasis.
+        last && font.chip && !shape && CRUMB_LEAF_PAINT,
+      )}
+    >
+      {/*
+        The word. A link where the level is somewhere else, and the menu's
+        own trigger where it is not — see `wordOpensMenu`.
+      */}
+      {shape ? null : walkUp ? (
+        <button
+          type="button"
+          aria-current={last ? "page" : undefined}
+          onClick={() => walkUp()}
+          className={cn(wordHalf, "motion-tap hover:bg-hdr-chip hover:text-hdr-fg")}
+        >
+          {icon}
+          <span style={labelStyle} className={labelClass}>
+            {seg.label}
+          </span>
+        </button>
+      ) : (
+        <span aria-current={last ? "page" : undefined} className={wordHalf}>
+          {icon}
+          <span style={labelStyle} className={labelClass}>
+            {seg.label}
+          </span>
+        </span>
+      )}
+
+      {/*
+        The caret, and nothing else, opens the menu.
+
+        Its own button with its own hit box — 11px of glyph is not a target,
+        so the padding around it is doing the work. `aria-label` carries the
+        level's name, because "open" on its own says nothing about what.
+      */}
       <button
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-current={last ? "page" : undefined}
-        {...(shape ? { "aria-label": `${seg.label} — switch page` } : {})}
+        aria-label={`Switch ${seg.label}`}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "motion-tap flex min-w-0 items-center gap-[3px] rounded-[6px] px-[5px] py-[3px] hover:bg-hdr-chip",
-          open && "bg-hdr-chip",
-          /*
-            A switcher leaf keeps its hover and its caret and simply stops
-            waiting to be hovered: the resting fill IS the hover fill, so the
-            painted crumb and the plain one below are one treatment rather than
-            two that happen to look alike. px overrides the 5px above — the
-            chip wants the same inset a span's does, or the two leaves sit on
-            different edges depending on whether the level has siblings.
-          */
-          /*
-            A switcher leaf keeps the button's own box and takes only the paint:
-            the row already gives it 5px of inset and a hover fill, so the chip
-            geometry would double the padding and lift it 3px out of the row.
-            7px matches the wordless leaf's inset, or the two leaves sit on
-            different edges depending on whether the level has siblings.
-          */
-          // No chip behind a wordless leaf: the paint exists to mark a WORD
-          // as the page's name, and wrapped around a lone glyph it reads as a
-          // second kind of button rather than as emphasis.
-          last && font.chip && !shape && `${CRUMB_LEAF_PAINT} px-[7px]`,
+          "motion-tap flex shrink-0 items-center rounded-[6px] py-[3px] hover:bg-hdr-chip",
+          // Wordless, the glyph IS the crumb and stands in the inset a word
+          // would have had. Beside a word, the 3px on the word's right and
+          // the 2px here are what make the 5px gap Ashwin asked for — as
+          // PADDING rather than as a flex gap, so each half's hover chip
+          // fills its share of the crumb and the two tile it between them.
+          // Built as a gap, the highlight stopped a pixel after the word and
+          // the crumb looked clipped.
+          shape ? "px-[5px]" : "pr-[5px] pl-[2px]",
+          last && font.chip && !shape && "pr-[7px]",
         )}
       >
-
-        {seg.icon && showIcon && !shape ? (
-          <seg.icon
-            size={14}
-            aria-hidden="true"
-            className={cn(
-              "shrink-0 opacity-80",
-              last ? "text-hdr-fg" : "text-hdr-fg-muted",
-            )}
-          />
-        ) : null}
-        {/*
-          The word, unless the leaf has given it up.
-
-          `aria-label` on the button carries it in both wordless shapes, so
-          what goes is the printing and not the naming — a bare caret that
-          announced itself as "button" would be a control nobody could
-          identify by any means, which is a different and worse thing than
-          one you have to recognise by position.
-        */}
-        {shape ? null : (
-          <span
-            style={{
-              fontSize: last ? font.leafSize : font.size,
-              fontWeight: last ? font.leafWeight : undefined,
-            }}
-            className={cn(
-              "truncate leading-[normal] whitespace-nowrap",
-              last ? "text-hdr-fg" : "text-hdr-fg-muted",
-            )}
-          >
-            {seg.label}
-          </span>
-        )}
-        {/*
-          A standing caret after all. The Aug 13 note dropped it because a rank
-          of glyphs read as noise, but with icons now leading each segment the
-          trail no longer reads as switchable at all — hover is not an
-          affordance you can see. Kept small and faint so it sits under the
-          label rather than beside it.
-        */}
-        {shape === "dots" ? (
-          /*
-            The overflow mark, doing a switcher's job.
-
-            Bigger than the caret and not rotated, because it is not an arrow
-            promising a direction — it is the "there is more here" glyph the
-            rest of this product already uses, and the whole point of the
-            variant is to ask whether that reads as switchable where an arrow
-            reads as decoration.
-          */
-          <MoreHorizontal
-            size={14}
-            aria-hidden="true"
-            className={cn(
-              "shrink-0 text-hdr-fg-muted",
-              open ? "opacity-90" : "opacity-70",
-            )}
-          />
-        ) : (
-          <CaretDown
-            size={11}
-            className={cn(
-              "shrink-0 text-hdr-fg-muted motion-move",
-              // The -1px pulls the caret back against a label. With no label
-              // beside it the caret IS the control, so it sits centred in its
-              // own box instead of hanging off the end of nothing.
-              shape === "caret" ? "mx-[1px]" : "-mr-[1px]",
-              open ? "rotate-180 opacity-90" : "opacity-70",
-            )}
-          />
-        )}
+        {caret}
       </button>
 
       {open ? (

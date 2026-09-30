@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowLeft,
   Menu,
+  X,
   ChevronRight,
   Eye,
   EyeOff,
@@ -227,6 +229,8 @@ interface LeftNavProps {
   openFlyoutId: string | null;
   /** Flyout pinned by a click. Survives the pointer leaving. */
   pinnedFlyoutId: string | null;
+  /** Rail + gutter + nav, in px. The scoped L1 drawer spans it. */
+  sidebarWidth?: number;
   onHoverFlyout: (flyoutId: string) => void;
   onPinFlyout: (flyoutId: string) => void;
   /**
@@ -249,6 +253,15 @@ interface LeftNavProps {
   onToggleSwitcher: () => void;
   /** False for a plain sub-account user — the trigger renders inert. */
   canSwitch?: boolean;
+  /**
+   * Whether an account rail is standing to the left of this nav.
+   *
+   * Passed rather than re-derived: the shell owns `railActive`, which folds
+   * the scope model, the role, the member's account count and the legacy nav
+   * together. Working it out a second time in here is exactly how the header
+   * and the rail end up disagreeing about whether the rail is there.
+   */
+  railAbove?: boolean;
   /** Owned by the shell, so the window can escape the nav's clipped box. */
   aiSession: AiSession;
   /**
@@ -301,6 +314,7 @@ export function LeftNav({
   onSelect,
   openFlyoutId,
   pinnedFlyoutId,
+  sidebarWidth = 272,
   onHoverFlyout,
   onPinFlyout,
   onHoverPlain,
@@ -317,6 +331,7 @@ export function LeftNav({
   switcherOpen,
   onToggleSwitcher,
   canSwitch = true,
+  railAbove = false,
   aiSession,
   density,
   onOpenLauncher,
@@ -340,6 +355,7 @@ export function LeftNav({
     agencyEditNav,
     agencySearch,
     agencyNavMark,
+    subAccountNavMark,
     editTreatment,
     templatePropagation,
     templatePushNotice,
@@ -2702,6 +2718,49 @@ export function LeftNav({
    * than docking beside it like an L2 would.
    */
   const [l1Open, setL1Open] = React.useState(false);
+  /**
+   * The nav's own box, so the L1 drawer can be exactly as tall as the L2.
+   *
+   * The drawer is portalled to the body, which puts it in viewport
+   * coordinates while every other surface on the left — the nav card, the L2
+   * panel — is positioned inside the shell's wrapper and inset from it by the
+   * canvas gap. `inset-y-0` therefore made the drawer taller than everything
+   * it stands beside: over the top banner at one end and past the card's foot
+   * at the other.
+   *
+   * Measured rather than recomputed from the gap. The gap is one of several
+   * things that decide where the card starts — the banner's height, the
+   * plane axis, whatever the shell does next — and a second copy of that
+   * arithmetic here would be a copy that goes stale. The element already
+   * knows where it is; this asks it.
+   */
+  /** A panel is docked against the sidebar's right edge. */
+  const flyoutDocked = openFlyoutId !== null || pinnedFlyoutId !== null;
+  const navRef = React.useRef<HTMLElement>(null);
+  const [drawerBox, setDrawerBox] = React.useState<{
+    top: number;
+    height: number;
+  } | null>(null);
+
+  React.useEffect(() => {
+    if (!l1Open) return;
+    const el = navRef.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      setDrawerBox({ top: r.top, height: r.height });
+    };
+    measure();
+    // The card moves with the banner being dismissed and with the window,
+    // and the drawer can outlive both.
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [l1Open]);
   /*
    * The whole position, not just its category.
    *
@@ -2748,11 +2807,17 @@ export function LeftNav({
    * the column is the scope, always, and `l1Open` is gone with the drawer it
    * described.
    */
-  const columnGroupId = drillMode
-    ? drilledId
-    : scopedMode && !l1Open
-      ? scopeId
-      : null;
+  /*
+   * `scoped` never gives the column up (Ashwin, Sep 30, third pass).
+   *
+   * Its L1 used to REPLACE the category in the column — open the products
+   * list and the thing you were looking at is gone, and closing it has to
+   * restore you rather than simply leaving you there. The L1 is a DRAWER
+   * over the whole left edge now: the column underneath does not change, is
+   * not re-rendered, and is still exactly where you left it when the drawer
+   * slides away. See `l1Drawer`.
+   */
+  const columnGroupId = drillMode ? drilledId : scopedMode ? scopeId : null;
   const columnGroup = columnGroupId
     ? (groups.find((g) => g.id === columnGroupId) ?? null)
     : null;
@@ -2830,7 +2895,7 @@ export function LeftNav({
    * lost, they are in the panel the hamburger opens, which is exactly where
    * GCP keeps its own equivalents.
    */
-  const hideOpeningCluster = drilledIn || (scopedMode && !l1Open);
+  const hideOpeningCluster = drilledIn || scopedMode;
 
   /**
    * One row's edit bundle, from the two halves that make it.
@@ -2868,7 +2933,20 @@ export function LeftNav({
    * shell treats a bare select as the first of those and leaves the canvas
    * alone, so these surfaces say which they meant.
    */
-  const selectShortcut = (id: string) => onSelect(id, { open: true });
+  const selectShortcut = (id: string) => {
+    /*
+     * Anything picked from the L1 drawer closes it, without waiting for the
+     * position to change.
+     *
+     * The `hereKey` reset above catches every case where you actually move,
+     * which is nearly all of them — but "nearly" is the wrong standard for a
+     * surface laid over the whole sidebar. Pick the row you are already on
+     * and the position does not change, so the only thing that would have
+     * closed the drawer is the thing that did not happen.
+     */
+    setL1Open(false);
+    onSelect(id, { open: true });
+  };
 
   /**
    * A row bundle for anything drawn inside a category's branch.
@@ -3342,6 +3420,10 @@ export function LeftNav({
             onPinFlyout(flyoutId);
             return;
           }
+          // A row that goes somewhere closes the drawer it was picked from.
+          // The rows that DON'T are the ones with a panel behind them, and
+          // they returned above — opening a door is not walking through it.
+          setL1Open(false);
           // `shortcut` rows are the place itself rather than a door onto it —
           // see NavItem.shortcut, which is what carries that to the shell.
           onSelect(item.id, item.shortcut ? { open: true } : undefined);
@@ -3521,8 +3603,148 @@ export function LeftNav({
     return out;
   };
 
+  /**
+   * `scoped`'s L1, as a drawer over the whole left edge.
+   *
+   * PORTALLED, and that is not incidental. It has to sit above the L2 panel
+   * (z-30), above the account rail (z-30 and higher while it is widened) and
+   * above the nav card that would otherwise be its parent (z-20) — and a
+   * z-index inside that card is resolved against the card's siblings, never
+   * against them. Leaving the tree is the only way a child of the nav can
+   * outrank the things the nav sits among.
+   *
+   * It spans `sidebarWidth`, so it covers the rail as well as the column and
+   * its right edge lands exactly on the sidebar's. Anything narrower leaves a
+   * sliver of the thing it is standing in front of, which is the one detail
+   * that makes an overlay read as a mis-render.
+   *
+   * The column underneath is untouched — same category, same scroll position,
+   * same open branch. Closing the drawer does not restore the sidebar; it
+   * uncovers it.
+   */
+  const l1Drawer =
+    scopedMode && l1Open && typeof document !== "undefined"
+      ? createPortal(
+          <>
+            {/*
+              NO SCRIM, and that is the whole reason the L2 works from here.
+
+              A dimming layer under the drawer is the conventional thing and
+              it was the first thing I drew — but the L2 panel opens BESIDE
+              the drawer, at its right edge, and a full-screen scrim sits
+              over it: the panel you just asked for arrives dimmed and
+              unclickable. The drawer is not modal. It is one more surface
+              open at once, like the L2 beside it, and it closes on its own
+              ✕ (Ashwin's ask) or by choosing something.
+            */}
+            <div
+              role="dialog"
+              aria-modal="false"
+              aria-label="All products"
+              data-nav-theme={theme}
+              data-cursor="menu"
+              style={{
+                width: sidebarWidth,
+                top: drawerBox?.top ?? 0,
+                height: drawerBox?.height,
+              }}
+              className={cn(
+                "motion-drawer-in fixed left-0 z-[79] flex flex-col overflow-hidden bg-nav",
+                /*
+                  The drawer and the L2 beside it are ONE surface.
+
+                  They already abut exactly — the panel docks at the sidebar's
+                  right edge, which is this drawer's — so nothing was
+                  overlapping and no z-index was going to change that. What
+                  made them read as two was a radius and a shadow: the
+                  drawer's 12px right corners cut a notch out of the seam at
+                  each end, and its shadow fell to the RIGHT, laying a dark
+                  band down the panel's left edge. Being portalled makes that
+                  worse rather than better — a body-level layer paints over
+                  the shell whatever the numbers say.
+
+                  So with a panel docked the drawer squares that edge and
+                  throws its shadow the other way, and the pair sit inside one
+                  outline: this drawer's on the left, the panel's hairline on
+                  the right. Exactly the rule the nav card already follows when
+                  a flyout docks against it.
+                */
+                flyoutDocked
+                  ? "shadow-[-8px_0_28px_-12px_rgba(16,24,40,0.45)]"
+                  : "rounded-r-[var(--shell-canvas-radius)] shadow-[8px_0_28px_-12px_rgba(16,24,40,0.45)]",
+              )}
+            >
+              {/*
+                The hamburger again, and a ✕ beside it.
+
+                The same row that opened this, in the same place, so the way
+                out is where the way in was. The ✕ is the one Ashwin asked
+                for and the one a drawer is expected to have; the hamburger
+                keeps working as a toggle because a control that only opens
+                is a control you have to learn twice.
+              */}
+              <div className="flex shrink-0 items-center gap-[6px] pt-[9px] pr-[12px] pb-[9px] pl-[12px]">
+                <button
+                  type="button"
+                  aria-label="Close all products"
+                  onClick={() => setL1Open(false)}
+                  className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[7px] bg-nav-active text-nav-fg hover:bg-nav-hover"
+                >
+                  <Menu size={16} aria-hidden="true" />
+                </button>
+                <span className="min-w-0 flex-1 truncate text-[14px] leading-[20px] font-semibold text-nav-fg">
+                  All products
+                </span>
+                <button
+                  type="button"
+                  aria-label="Close"
+                  onClick={() => setL1Open(false)}
+                  className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
+                >
+                  <X size={16} aria-hidden="true" />
+                </button>
+              </div>
+              <NavDivider />
+              <div
+                data-scroll-region=""
+                className="flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto px-[10px] pb-[8px]"
+              >
+                {/*
+                  The same two blocks the column stands down while it is
+                  scoped, and the same L1 list the flyout arrangement draws.
+                  They are not copies of those components' behaviour — they
+                  ARE those components, so a row here opens the same panel,
+                  pins the same pin and lands on the same page.
+                */}
+                {cardShowing ? (
+                  <SetupGuideRow
+                    showLaunchpad={launchpad}
+                    onOpen={() => onSelect?.(PROPOSED_HOME_ID)}
+                    {...(cardQuickActions
+                      ? { onQuickActions: () => onPinFlyout("quick-actions") }
+                      : {})}
+                  />
+                ) : null}
+                {merged && !isBlockHidden(state, "recent") ? (
+                  <MergedRecentsBlock
+                    onSelect={selectShortcut}
+                    onOpenPanel={onOpenLauncher}
+                  />
+                ) : null}
+                {showClusterRule ? <NavDivider /> : null}
+                {renderSearched(entries)}
+              </div>
+            </div>
+          </>,
+          document.body,
+        )
+      : null;
+
   return (
+    <>
+    {l1Drawer}
     <nav
+      ref={navRef}
       data-nav-theme={theme}
       aria-label="Main"
       // Pencil draws strokes over the box instead of adding to it, so every
@@ -3573,11 +3795,18 @@ export function LeftNav({
           (openFlyoutId
             ? /*
                * With a panel open the two are one surface, so the ring is one
-               * ring: left, top and bottom here, and the panel closes it on its
-               * own three sides. Drawing all four would put a stroke down the
-               * seam the pointer crosses to reach the panel, which is exactly
-               * where the mode is least a boundary — that seam is how a row gets
-               * from a category to the nav and back.
+               * ring: left, top and bottom here, and the panel closes it on
+               * its own three sides. Drawing all four would put a stroke down
+               * the seam the pointer crosses to reach the panel, which is
+               * exactly where the mode is least a boundary — that seam is how
+               * a row gets from a category to the nav and back.
+               *
+               * True of the card shape too. The card was briefly treated as
+               * an exception, on the theory that a gap between the two made
+               * each close its own outline — there is no gap. The panel docks
+               * on the nav's right edge in every shape, and what the card
+               * changes is the margin at top and bottom, not whether the two
+               * touch.
                */
               "rounded-none shadow-[inset_1.5px_0_0_0_var(--nav-edit-ring),inset_0_1.5px_0_0_var(--nav-edit-ring),inset_0_-1.5px_0_0_var(--nav-edit-ring)]"
             : "rounded-none shadow-[inset_0_0_0_1.5px_var(--nav-edit-ring)]"),
@@ -3587,9 +3816,21 @@ export function LeftNav({
       <NavHeader
         account={account}
         agency={agencyScope}
-        // Only the agency header ever repeats a mark — a sub-account has no
-        // rail above it drawing the same logo, so the axis leaves it alone.
-        mark={!agencyScope || agencyNavMark}
+        /*
+          Whoever has a rail beside them can drop the mark, and nobody else.
+
+          It used to read `!agencyScope || agencyNavMark` — the agency was the
+          only scope with a rail, so the two questions were the same question.
+          A member of several accounts has one now (see `memberRail`), and
+          their header was drawing the same logo the rail's tile already shows,
+          60px apart. `railAbove` is the real condition; the scope was only
+          ever standing in for it. Sep 30.
+        */
+        mark={
+          agencyScope
+            ? agencyNavMark
+            : !railAbove || subAccountNavMark
+        }
         // The config's demo logo pins the header to one asset; at agency scope
         // the identity is the agency's own mark, never that override.
         logoSrc={agencyScope ? undefined : config.logoSrc}
@@ -3652,24 +3893,6 @@ export function LeftNav({
         data-scroll-shell=""
         className={cn(
           "relative flex min-h-0 w-full flex-1 flex-col",
-          /*
-            The L1 list reads as being OVER the workspace, not as the sidebar
-            having changed its mind.
-
-            GCP's product list is a surface with an edge and a shadow, and
-            that is what says "this is a detour, and closing it puts you
-            back". Our column is a card the same width as the list, so
-            without the shadow the two states are identical rows in an
-            identical column and nothing says which one you are looking at.
-
-            The shadow falls to the RIGHT, over the page, because that is the
-            side the list is standing in front of — and it is the same side
-            an L2 panel opens on, so the two stack in the order you opened
-            them.
-          */
-          scopedMode &&
-            l1Open &&
-            "shadow-[8px_0_24px_-12px_rgba(16,24,40,0.35)] motion-move",
         )}
       >
         <div aria-hidden="true" data-scroll-fade="top" />
@@ -3895,15 +4118,6 @@ export function LeftNav({
           {treeHits && treeHits.size === 0 ? (
             <TreeSearchEmpty query={treeQuery.trim()} />
           ) : null}
-          {/*
-            The hamburger stays put while the list is up.
-
-            Same control, same place, whether the column is a category or the
-            whole nav — so opening and closing are one target rather than a
-            button that vanishes into the thing it opened. Its label swaps to
-            "All products", which is the only part of it that should change.
-          */}
-          {scopedMode && l1Open ? scopeTop : null}
           {columnShowing ? (
             /*
               One category, with the column to itself.
@@ -4522,6 +4736,7 @@ export function LeftNav({
         />
       ) : null}
     </nav>
+    </>
   );
 }
 

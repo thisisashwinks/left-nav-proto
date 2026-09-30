@@ -163,6 +163,8 @@ export function PinnedLauncher({
     treeRecentsAllProducts,
   } = useTheme().effective;
   const agency = useAgencyLayout();
+  // Read for one thing only: whether the shortcut verbs are on offer here.
+  const shortcuts = usePinShortcuts();
   /*
    * This panel's own picker and menu, not the nav column's.
    *
@@ -217,8 +219,19 @@ export function PinnedLauncher({
         ...(pinIconTrigger
           ? { onSelect: () => { pinMenu.close(); pinPicker.open(id, pinIconTrigger); } }
           : {}) },
-      { id: "pin-shortcut", label: "Configure shortcut key", icon: Keyboard,
-        onSelect: () => setShortcutsOpen(true) },
+      // Only where rebinding is offered. Off, the keys still work and the
+      // chip still says what they are; what goes is the promise that this
+      // menu can change them. See PINNED_SHORTCUT_EDIT_DEFAULT.
+      ...(shortcuts.editable
+        ? [
+            {
+              id: "pin-shortcut",
+              label: "Configure shortcut key",
+              icon: Keyboard,
+              onSelect: () => setShortcutsOpen(true),
+            } satisfies RowMenuAction,
+          ]
+        : []),
     ];
   };
 
@@ -268,6 +281,65 @@ export function PinnedLauncher({
       };
     },
     [pinnedRowEdit, state.editing, state.pinned, layout, pinPicker, pinMenu, pinDragId],
+  );
+
+  /*
+   * The same bundle again, for a pin met inside a MIXED run.
+   *
+   * Recently visited and the stacked list draw pins and history as one
+   * seamless list — a pinned row says it is pinned by carrying the mark, so
+   * there is no heading between them. That reads well and it quietly cost
+   * the pins their verbs: the Pinned SECTION had the grip, the nudges and the
+   * kebab, and the identical row three pixels lower, in a run, had none of
+   * them. Which affordances a row offers cannot depend on which list it
+   * happens to be drawn in.
+   *
+   * Pins only, and the history keeps nothing: a row that will be gone by
+   * Thursday has no order to hold and no icon worth choosing. The indices are
+   * the PIN list's, not the run's, so a nudge moves the pin among pins and
+   * steps over whatever recents sit between them.
+   */
+  /*
+   * The seams around one pin inside a run that may also hold history.
+   *
+   * The Pinned section got its drop lines when the mode arrived; the runs
+   * that draw pins and recents together never did, so in exactly the lists
+   * where the drop target is ambiguous — is this landing among the pins, or
+   * somewhere in the history? — there was nothing saying where it would go.
+   * The seams stop at the end of the pin run, because that is where the
+   * gesture stops: a pin dropped into the history has nowhere to be.
+   */
+  const pinRunSeams = (ids: readonly string[], i: number) => {
+    const at = state.pinned.indexOf(ids[i]!);
+    if (at < 0) return { before: null, after: null };
+    const next = i + 1 < ids.length ? state.pinned.indexOf(ids[i + 1]!) : -1;
+    return {
+      before: pinSeam(at),
+      // Closes the run, so a pin can be dropped last.
+      after: next < 0 ? pinSeam(state.pinned.length) : null,
+    };
+  };
+
+  const pinRunExtras = React.useCallback(
+    (id: string) => {
+      const pinEdit = pinEditFor(id);
+      if (!pinEdit) return {};
+      const index = state.pinned.indexOf(id);
+      return {
+        pinEdit,
+        gripReplacesIcon: true,
+        drag: {
+          key: `pin:${index}`,
+          onDrop: (from: string) => {
+            const fromIndex = Number(from.split(":")[1]);
+            if (from.startsWith("pin:") && !Number.isNaN(fromIndex)) {
+              layout.movePin(fromIndex, index);
+            }
+          },
+        },
+      };
+    },
+    [pinEditFor, state.pinned, layout],
   );
   /*
    * In merged mode this panel is the one surface behind the nav's single list.
@@ -801,12 +873,6 @@ export function PinnedLauncher({
               const pinEdit = pinEditFor(id);
               return pinEdit ? { pinEdit } : {};
             })()}
-            reorder={{
-              onUp: () => layout.movePin(index, index - 1),
-              onDown: () => layout.movePin(index, index + 1),
-              upDisabled: index === 0,
-              downDisabled: index === state.pinned.length - 1,
-            }}
             drag={{
               key: `pin:${index}`,
               onDrop: (from) => {
@@ -1119,13 +1185,22 @@ export function PinnedLauncher({
                 labelling what the rows label themselves, and the reader would
                 be reading a structure instead of a list.
               */
-                  visitedIds.map((id) => (
-                    <ProductRow
-                      key={`visited-${id}`}
-                      productId={id}
-                      {...(openPlace ? { onOpen: () => openPlace(id) } : {})}
-                    />
-                  ))
+                  visitedIds.map((id, i) => {
+                    const seams = pinRunSeams(visitedIds, i);
+                    return (
+                      <React.Fragment key={`visited-slot-${id}`}>
+                        {seams.before}
+                        <ProductRow
+                          productId={id}
+                          {...pinRunExtras(id)}
+                          {...(openPlace
+                            ? { onOpen: () => openPlace(id) }
+                            : {})}
+                        />
+                        {seams.after}
+                      </React.Fragment>
+                    );
+                  })
                 ) : (
                   <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
                     Nothing here yet. Products you open show up in this list.
@@ -1168,13 +1243,20 @@ export function PinnedLauncher({
                 {(keptExpanded
                   ? keptIds
                   : keptIds.slice(0, STACKED_KEPT_ROWS)
-                ).map((id) => (
-                  <ProductRow
-                    key={`kept-${id}`}
-                    productId={id}
-                    {...(openPlace ? { onOpen: () => openPlace(id) } : {})}
-                  />
-                ))}
+                ).map((id, i, shown) => {
+                  const seams = pinRunSeams(shown, i);
+                  return (
+                    <React.Fragment key={`kept-slot-${id}`}>
+                      {seams.before}
+                      <ProductRow
+                        productId={id}
+                        {...pinRunExtras(id)}
+                        {...(openPlace ? { onOpen: () => openPlace(id) } : {})}
+                      />
+                      {seams.after}
+                    </React.Fragment>
+                  );
+                })}
                 {keptIds.length > STACKED_KEPT_ROWS ? (
                   <button
                     type="button"
@@ -1251,22 +1333,24 @@ export function PinnedLauncher({
                       Pinned
                     </SectionHeading>
                     {agencyScope ? <PinnedScopeNote /> : null}
-                    {pinnedIds.map((id) => {
+                    {pinnedIds.map((id, i) => {
                       const index = state.pinned.indexOf(id);
+                      // The kebab, in edit mode — this section had the grip
+                      // and the nudges since before the mode existed, and was
+                      // the one Pinned list that never grew the verbs behind
+                      // it. See pinRunExtras.
+                      const pinEdit = pinEditFor(id);
+                      const seams = pinRunSeams(pinnedIds, i);
                       return (
+                        <React.Fragment key={`pin-slot-${id}`}>
+                        {seams.before}
                         <ProductRow
-                          key={`pin-${id}`}
                           productId={id}
+                          {...(pinEdit ? { pinEdit } : {})}
                           {...(openPlace
                             ? { onOpen: () => openPlace(id) }
                             : {})}
                           gripReplacesIcon
-                          reorder={{
-                            onUp: () => layout.movePin(index, index - 1),
-                            onDown: () => layout.movePin(index, index + 1),
-                            upDisabled: index === 0,
-                            downDisabled: index === state.pinned.length - 1,
-                          }}
                           drag={{
                             key: `pin:${index}`,
                             onDrop: (from) => {
@@ -1276,6 +1360,8 @@ export function PinnedLauncher({
                             },
                           }}
                         />
+                        {seams.after}
+                        </React.Fragment>
                       );
                     })}
                   </>
@@ -1392,7 +1478,7 @@ export function PinnedLauncher({
           onClose={pinMenu.close}
         />
       ) : null}
-      {shortcutsOpen ? (
+      {shortcutsOpen && shortcuts.editable ? (
         <ShortcutModal
           rows={(agencyScope ? agencyPinnedIds : state.pinned).map((id) => {
             const place = agencyScope ? agencyPlaces[id] : undefined;
@@ -1561,13 +1647,6 @@ function SearchRow({
   );
 }
 
-interface ReorderControls {
-  onUp: () => void;
-  onDown: () => void;
-  upDisabled: boolean;
-  downDisabled: boolean;
-}
-
 interface DragControls {
   /** `groupId:index`, so a drop knows where the row came from. */
   key: string;
@@ -1584,7 +1663,6 @@ interface DragControls {
 function ProductRow({
   productId,
   gripReplacesIcon = false,
-  reorder,
   drag,
   onOpen,
   external,
@@ -1596,7 +1674,6 @@ function ProductRow({
    * its own. See the icon slot below for why only Pinned asks for this.
    */
   gripReplacesIcon?: boolean;
-  reorder?: ReorderControls;
   drag?: DragControls;
   /**
    * Goes to the place this row names.
@@ -1661,6 +1738,21 @@ function ProductRow({
             draggable: true,
             onDragStart: (e: React.DragEvent) => {
               e.dataTransfer.setData("text/plain", drag.key);
+              /*
+               * A pin in flight says so, in the type.
+               *
+               * This is what the drop lines were waiting for and never got:
+               * `RowSeam` accepts PIN_MIME and decides whether to show
+               * itself from the types on the drag, and this row only ever
+               * set text/plain — so the seams were mounted, correct, and
+               * invisible for every drag in this panel. The row's own
+               * key is the index, which is exactly the payload a seam
+               * wants. See PIN_MIME: the kind in flight has to BE the type.
+               */
+              const at = drag.key.startsWith("pin:")
+                ? drag.key.slice("pin:".length)
+                : null;
+              if (at !== null) e.dataTransfer.setData(PIN_MIME, at);
               e.dataTransfer.effectAllowed = "move";
               setDragging(true);
             },
@@ -1772,29 +1864,15 @@ function ProductRow({
       )}
 
       {/*
-        The keycap. Hover-only outside edit mode, for the reason the inline
-        block's is — see PINNED_SHORTCUTS_DEFAULT — and always up inside it,
-        because there it is a control rather than a reminder.
+        The keycap. Hover-only, and absent in edit mode — the same rule the
+        inline block follows, and for the same reason its note gives: edit
+        mode is already spending this row on a grip, a glyph and a kebab, and
+        a cap is one more thing squeezing the label. See
+        PINNED_SHORTCUTS_DEFAULT.
       */}
-      {shortcutCombo ? (
-        <span
-          className={cn(
-            "flex shrink-0 items-center",
-            pinEdit
-              ? null
-              : "opacity-0 group-hover/row:opacity-100 focus-within:opacity-100",
-          )}
-        >
-          <ShortcutChip
-            combo={shortcutCombo}
-            {...(pinEdit
-              ? {
-                  editable: true,
-                  onBind: (next: string) => shortcuts.bind(productId, next),
-                  onClear: () => shortcuts.clear(productId),
-                }
-              : {})}
-          />
+      {shortcutCombo && !pinEdit ? (
+        <span className="flex shrink-0 items-center opacity-0 group-hover/row:opacity-100 focus-within:opacity-100">
+          <ShortcutChip combo={shortcutCombo} />
         </span>
       ) : null}
 
@@ -1802,34 +1880,17 @@ function ProductRow({
         One kebab, where an L1 row has one kebab — move, shortcut, remove.
         No rename: a pin names an L2 or an L3, and neither has a label
         override behind it. See PinRowEdit.
+
+        LAST, against the pin. It sat before a nudge pair that was usually an
+        empty 10px box, so the kebab floated in the middle of the row's tail
+        with a gap between it and the pin — two trailing controls that did
+        not read as one cluster. Nothing else goes after it now.
       */}
       {pinEdit ? (
         <EditAffordance label={`Edit ${label}`} onClick={pinEdit.onOpenMenu} pinned>
           <EllipsisVertical size={13} aria-hidden="true" />
         </EditAffordance>
       ) : null}
-
-      <span className="flex shrink-0 items-center gap-[1px] opacity-0 group-hover/row:opacity-100 focus-within:opacity-100">
-        {/* Every drag has a click equivalent — a settled decision. */}
-        {reorder ? (
-          <>
-            <TinyButton
-              label="Move up"
-              disabled={reorder.upDisabled}
-              onClick={reorder.onUp}
-            >
-              <ArrowUp size={10} aria-hidden="true" />
-            </TinyButton>
-            <TinyButton
-              label="Move down"
-              disabled={reorder.downDisabled}
-              onClick={reorder.onDown}
-            >
-              <ArrowDown size={10} aria-hidden="true" />
-            </TinyButton>
-          </>
-        ) : null}
-      </span>
 
       {/*
         Absolutely positioned and vertically centred, matching a flyout row's
@@ -1952,12 +2013,6 @@ function AgencyPanelBody({
               productId={id}
               external={rowFor(id)}
               gripReplacesIcon
-              reorder={{
-                onUp: () => onMovePin(index, index - 1),
-                onDown: () => onMovePin(index, index + 1),
-                upDisabled: index === 0,
-                downDisabled: index === pinnedIds.length - 1,
-              }}
               drag={{
                 key: `agency-pin:${index}`,
                 onDrop: (from) => {
@@ -2039,31 +2094,6 @@ function PanelTab({
       )}
     >
       <span className="truncate">{label}</span>
-    </button>
-  );
-}
-
-function TinyButton({
-  label,
-  disabled = false,
-  onClick,
-  children,
-}: {
-  label: string;
-  disabled?: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="motion-tap flex size-[19px] items-center justify-center rounded-[5px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg disabled:opacity-25"
-    >
-      {children}
     </button>
   );
 }

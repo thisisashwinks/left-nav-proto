@@ -210,7 +210,7 @@ function EditNavButton({
 }) {
   /** Whether a sub-account may hold a layout of its own. See LAYOUT_MODELS. */
   const { strict, linkedFor } = useNavTemplates();
-  const { editCardTemplateName } = useTheme().effective;
+  const { editCardTemplateName, navOnPlane } = useTheme().effective;
   /**
    * The template this account is on, by name.
    *
@@ -760,7 +760,24 @@ function EditNavButton({
         // A hairline the same colour as the row dividers was invisible against the
         // nav's own surface. The stronger ring and the row-level ink are what make
         // a white circle on a white nav read as a control.
-        "bg-nav text-nav-fg shadow-[0_2px_8px_0_var(--fly-shadow),inset_0_0_0_1px_var(--nav-border,var(--nav-divider))]",
+        "bg-nav text-nav-fg",
+        /*
+          A border on the plane, a lift off the card.
+
+          The drop shadow is how a white circle reads as a control floating
+          over a white nav CARD — it is the same trick the card itself uses,
+          one level down. On the plane there is nothing for it to lift off:
+          the shadow lands on a ground that is already the page, so it reads
+          as a smudge rather than as height. A gray-300 stroke says "button"
+          in one line and needs no depth to do it (Ashwin, Sep 30).
+
+          On the shape as a whole, so both states get it — the 26px circle
+          and the pill it grows into are one element, and a treatment that
+          applied to only one of them would change under the pointer.
+        */
+        navOnPlane
+          ? "shadow-[inset_0_0_0_1px_var(--fly-seam)]"
+          : "shadow-[0_2px_8px_0_var(--fly-shadow),inset_0_0_0_1px_var(--nav-border,var(--nav-divider))]",
         "transition-[gap,padding,opacity,color,transform] duration-[var(--dur-slow)] ease-[var(--ease-out)]",
         "hover:justify-start hover:gap-[6px] hover:px-[8px] hover:bg-nav-hover",
         "focus-visible:justify-start focus-visible:gap-[6px] focus-visible:px-[8px]",

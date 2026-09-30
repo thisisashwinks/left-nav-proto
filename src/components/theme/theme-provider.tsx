@@ -37,6 +37,7 @@ import {
   type RailSizing,
   type EditTreatment,
   type RenameAffordance,
+  type PageCanvasEdge,
   type PageShell,
   type ScopeModel,
   type NavGeneration,
@@ -86,6 +87,7 @@ import type {
   RecordCrumbLabel,
   RecordBackPlace,
   HeaderEntrySide,
+  FlyoutShape,
 } from "@/design/theme";
 import type {
   BuilderCanvas,
@@ -172,9 +174,15 @@ interface ThemeContextValue extends ThemeState {
   setGetAppPlacement: (placement: GetAppPlacement) => void;
   setAgencySearch: (enabled: boolean) => void;
   setAgencyNavMark: (shown: boolean) => void;
+  setSubAccountNavMark: (v: boolean) => void;
   setNavOnPlane: (on: boolean) => void;
   setPinnedRowEdit: (on: boolean) => void;
   setPinnedShortcuts: (on: boolean) => void;
+  setFlyoutShadow: (on: boolean) => void;
+  setFlyoutShape: (shape: FlyoutShape) => void;
+  setFlyoutCardBorder: (on: boolean) => void;
+  setDirectoryFlush: (on: boolean) => void;
+  setPinnedShortcutEdit: (on: boolean) => void;
   setFlyoutTrigger: (trigger: FlyoutTrigger) => void;
   setSelectedState: (state: SelectedState) => void;
   setSelectedMark: (mark: SelectedMark) => void;
@@ -248,6 +256,7 @@ interface ThemeContextValue extends ThemeState {
   setListShowViews: (on: boolean) => void;
   setListToolbar: (v: ListToolbarVariant) => void;
   setPageCanvas: (on: boolean) => void;
+  setPageCanvasEdge: (edge: PageCanvasEdge) => void;
   setPageCanvasColumns: (on: boolean) => void;
   setListShowFilters: (on: boolean) => void;
   setTreeSearchPlace: (v: TreeSearchPlace) => void;
@@ -450,11 +459,23 @@ export function ThemeProvider({
         setState((s) => ({ ...s, agencySearch })),
       setAgencyNavMark: (agencyNavMark) =>
         setState((s) => ({ ...s, agencyNavMark })),
+      setSubAccountNavMark: (subAccountNavMark) =>
+        setState((s) => ({ ...s, subAccountNavMark })),
       setNavOnPlane: (navOnPlane) => setState((s) => ({ ...s, navOnPlane })),
       setPinnedRowEdit: (pinnedRowEdit) =>
         setState((s) => ({ ...s, pinnedRowEdit })),
       setPinnedShortcuts: (pinnedShortcuts) =>
         setState((s) => ({ ...s, pinnedShortcuts })),
+      setFlyoutShadow: (flyoutShadow) =>
+        setState((s) => ({ ...s, flyoutShadow })),
+      setFlyoutShape: (flyoutShape) =>
+        setState((s) => ({ ...s, flyoutShape })),
+      setFlyoutCardBorder: (flyoutCardBorder) =>
+        setState((s) => ({ ...s, flyoutCardBorder })),
+      setDirectoryFlush: (directoryFlush) =>
+        setState((s) => ({ ...s, directoryFlush })),
+      setPinnedShortcutEdit: (pinnedShortcutEdit) =>
+        setState((s) => ({ ...s, pinnedShortcutEdit })),
       setFlyoutTrigger: (flyoutTrigger) => setState((s) => ({ ...s, flyoutTrigger })),
       setSelectedState: (selectedState) =>
         setState((s) => ({ ...s, selectedState })),
@@ -593,6 +614,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, listShowViews })),
       setListToolbar: (listToolbar) => setState((s) => ({ ...s, listToolbar })),
       setPageCanvas: (pageCanvas) => setState((s) => ({ ...s, pageCanvas })),
+      setPageCanvasEdge: (pageCanvasEdge) =>
+        setState((s) => ({ ...s, pageCanvasEdge })),
       setPageCanvasColumns: (pageCanvasColumns) =>
         setState((s) => ({ ...s, pageCanvasColumns })),
       setListShowFilters: (listShowFilters) =>

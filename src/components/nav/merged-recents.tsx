@@ -502,6 +502,8 @@ export function MergedRecentsBlock({
   const picker = useIconPicker();
   const menu = useRowMenu();
   const dragTypes = useDragTypes();
+  // Only for `editable`: whether this block offers the rebinding verbs.
+  const shortcuts = usePinShortcuts();
   /*
    * The element the menu came out of, kept so an action inside it can anchor
    * a popover of its own. `useRowMenu` stores a rect, and the picker wants a
@@ -682,12 +684,18 @@ export function MergedRecentsBlock({
             }
           : {}),
       },
-      {
-        id: "pin-shortcut",
-        label: "Configure shortcut key",
-        icon: Keyboard,
-        onSelect: () => setShortcutsOpen(true),
-      },
+      // Only where rebinding is offered at all — see
+      // PINNED_SHORTCUT_EDIT_DEFAULT. The keys keep working either way.
+      ...(shortcuts.editable
+        ? [
+            {
+              id: "pin-shortcut",
+              label: "Configure shortcut key",
+              icon: Keyboard,
+              onSelect: () => setShortcutsOpen(true),
+            } satisfies RowMenuAction,
+          ]
+        : []),
     ];
   };
 
@@ -737,7 +745,7 @@ export function MergedRecentsBlock({
         onClose={menu.close}
       />
     ) : null}
-    {shortcutsOpen ? (
+    {shortcutsOpen && shortcuts.editable ? (
       <ShortcutModal
         rows={pins.map((p) => ({
           id: p.id,
@@ -1069,29 +1077,20 @@ function MergedItemRow({
         holds on every row in the list: a column that moves depending on
         whether a row has a shortcut is a column you cannot aim at.
 
-        In edit mode it is live and the hover gate comes off: an affordance
-        you can only reach by hovering the thing you are about to change is
-        fine for a read-out and wrong for a control.
+        GONE ENTIRELY IN EDIT MODE. It shipped the other way — pinned up and
+        clickable there, on the argument that a control you can only reach by
+        hovering it is a poor control. True, and beside the point: edit mode
+        already spends this row's width on a grip, a pin and a kebab, and the
+        cap was the fourth thing competing for it, so every label came out
+        truncated to make room for a key nobody entered edit mode to read.
+        Editing is about which rows are here and what order they are in; the
+        keys follow from the order anyway. Where rebinding is offered, the
+        kebab's “Configure shortcut key” opens the whole table, which is the
+        better surface for it than a cap in a crowded row.
       */}
-      {combo ? (
-        <span
-          className={cn(
-            "flex shrink-0 items-center",
-            pinEdit
-              ? null
-              : "opacity-0 group-hover/row:opacity-100 focus-within:opacity-100",
-          )}
-        >
-          <ShortcutChip
-            combo={combo}
-            {...(pinEdit
-              ? {
-                  editable: true,
-                  onBind: (next: string) => shortcuts.bind(row.id, next),
-                  onClear: () => shortcuts.clear(row.id),
-                }
-              : {})}
-          />
+      {combo && !pinEdit ? (
+        <span className="flex shrink-0 items-center opacity-0 group-hover/row:opacity-100 focus-within:opacity-100">
+          <ShortcutChip combo={combo} />
         </span>
       ) : null}
 
