@@ -3,7 +3,6 @@
 import * as React from "react";
 import {
   ArrowLeft,
-  ChevronDown,
   Menu,
   ChevronRight,
   Eye,
@@ -2692,6 +2691,16 @@ export function LeftNav({
    * nav: a recent, a pin, a search result, the breadcrumb.
    */
   const [drilledId, setDrilledId] = React.useState<string | null>(null);
+  /**
+   * `scoped`'s L1 list, up over the column.
+   *
+   * A surface you open and close rather than the sidebar's resting state,
+   * which is the whole shape of this arrangement: the sidebar is the category
+   * you are in, and every other category — plus the Launchpad card and the
+   * recents — lives behind the hamburger. Ashwin, Sep 30: it is the NAV that
+   * comes up, not the Recents panel, and it comes up over the column rather
+   * than docking beside it like an L2 would.
+   */
   const [l1Open, setL1Open] = React.useState(false);
   /*
    * The whole position, not just its category.
@@ -2708,6 +2717,15 @@ export function LeftNav({
   if (prevColumnHere !== hereKey) {
     setPrevColumnHere(hereKey);
     if (hereGroupId) setDrilledId(hereGroupId);
+    /*
+     * Arriving anywhere closes the L1 list.
+     *
+     * "Once they click on any L2 item or an L3 item, that flyout should close
+     * automatically" — and it is keyed on the whole position rather than on
+     * the category, so picking a second product inside the category you were
+     * already in closes it too. Keyed on the category alone it stayed open
+     * exactly when it had just done its job.
+     */
     setL1Open(false);
   }
   /*
@@ -2719,6 +2737,17 @@ export function LeftNav({
    * show a sidebar that has not started yet.
    */
   const scopeId = hereGroupId ?? categories[0]?.id ?? null;
+  /*
+   * `scoped` never gives the column up (Sep 30).
+   *
+   * Its L1 used to REPLACE the category in the column, which is the reading
+   * of "open the products list" that costs you the thing you were looking
+   * at. GCP's is the other one, and Ashwin's: the list arrives as a panel
+   * over the page, beside a sidebar that has not moved, and closing it
+   * leaves you exactly where you were rather than restoring you there. So
+   * the column is the scope, always, and `l1Open` is gone with the drawer it
+   * described.
+   */
   const columnGroupId = drillMode
     ? drilledId
     : scopedMode && !l1Open
@@ -2727,6 +2756,17 @@ export function LeftNav({
   const columnGroup = columnGroupId
     ? (groups.find((g) => g.id === columnGroupId) ?? null)
     : null;
+  /**
+   * The category the column would be showing if the drawer were shut.
+   *
+   * `columnGroup` is null while the L1 list is up, and the top control still
+   * has to name something — under `header` it names the scope you will fall
+   * back to when you close the drawer without choosing.
+   */
+  const scopeGroup = scopeId
+    ? (groups.find((g) => g.id === scopeId) ?? null)
+    : null;
+  const scopeLabel = scopeGroup ? layout.labelFor(scopeGroup.id) : "Products";
   /**
    * Whether the column is actually showing a category right now.
    *
@@ -2753,26 +2793,44 @@ export function LeftNav({
    * would be removing them from the nav.
    */
   const drilledIn = drillMode && columnGroup !== null;
+
   /**
-   * `scoped` with its L1 list up — the drawer, in GCP's terms.
+   * The scoped column's top control, drawn whether or not a category has the
+   * column.
    *
-   * The L1 list is a SURFACE you open and close rather than the sidebar's
-   * resting state, which is the whole shape of this arrangement: the sidebar
-   * is the category you are in, and everything else — the other categories,
-   * the Launchpad card, the recents — lives behind the switcher. Closing it
-   * hands the column back to the category.
+   * Outside the `columnShowing` branch on purpose. That branch only renders
+   * when a category HAS the column, so with the drawer open the toggle
+   * vanished along with the category — you could open the L1 list and had no
+   * way to close it but navigating somewhere. The control belongs to the
+   * arrangement, not to the category, so it is resolved here and rendered
+   * above whichever body the column is showing.
    */
-  const scopedDrawer = scopedMode && l1Open;
+  const scopeTop = scopedMode ? (
+    scopedSwitch === "hamburger" ? (
+      <ScopeMenuRow
+        label={scopeLabel}
+        open={l1Open}
+        onToggle={() => setL1Open((v) => !v)}
+      />
+    ) : (
+      <ScopeHeaderRow
+        label={scopeLabel}
+        {...(scopeGroup ? { icon: layout.iconFor(scopeGroup.id) } : {})}
+        open={l1Open}
+        onToggle={() => setL1Open((v) => !v)}
+      />
+    )
+  ) : null;
   /**
    * Whether the blocks above the catalogue stand down.
    *
    * Drilled, because that arrangement promises one list at full width.
-   * Scoped-at-rest, because the sidebar is a category's rows and a Launchpad
-   * card above them is the nav being about two things again — and they are not
-   * lost, they are in the drawer with the categories, which is exactly where
+   * Scoped, because the sidebar is a category's rows and a Launchpad card
+   * above them is the nav being about two things again — and they are not
+   * lost, they are in the panel the hamburger opens, which is exactly where
    * GCP keeps its own equivalents.
    */
-  const hideOpeningCluster = drilledIn || (scopedMode && !scopedDrawer);
+  const hideOpeningCluster = drilledIn || (scopedMode && !l1Open);
 
   /**
    * One row's edit bundle, from the two halves that make it.
@@ -3553,23 +3611,15 @@ export function LeftNav({
               claim the option is making — the switch is chrome the workspace
               carries, not part of the list it changes.
             */}
-            {scopedMode && scopedSwitch === "hamburger" ? (
-              <button
-                type="button"
-                aria-label={l1Open ? "Close all products" : "All products"}
-                aria-expanded={l1Open}
-                title="All products"
-                onClick={() => setL1Open((v) => !v)}
-                className={cn(
-                  "motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[7px]",
-                  l1Open
-                    ? "bg-nav-active text-nav-fg"
-                    : "text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg",
-                )}
-              >
-                <Menu size={16} aria-hidden="true" />
-              </button>
-            ) : null}
+            {/*
+              The hamburger left this row on Sep 30.
+
+              It sat beside the account name, which put "show me every
+              product" in the workspace's identity row — chrome about the
+              window, next to a control about the catalogue. Ashwin's
+              correction: it belongs where a drill-in puts its Back row, at
+              the top of the column it opens. See ScopeMenuRow.
+            */}
             <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
           </>
         }
@@ -3603,17 +3653,22 @@ export function LeftNav({
         className={cn(
           "relative flex min-h-0 w-full flex-1 flex-col",
           /*
-            The drawer reads as being OVER the workspace, not part of it.
+            The L1 list reads as being OVER the workspace, not as the sidebar
+            having changed its mind.
 
-            GCP's product list is a surface with an edge and a shadow, and the
-            page behind it is dimmed — which is what says "this is a detour,
-            and closing it puts you back". Our column is a card of the same
-            width as the drawer, so the shadow is the whole of that signal:
-            everything else about the two states would otherwise be identical
-            rows in an identical column, and nothing would say the list is
-            temporary.
+            GCP's product list is a surface with an edge and a shadow, and
+            that is what says "this is a detour, and closing it puts you
+            back". Our column is a card the same width as the list, so
+            without the shadow the two states are identical rows in an
+            identical column and nothing says which one you are looking at.
+
+            The shadow falls to the RIGHT, over the page, because that is the
+            side the list is standing in front of — and it is the same side
+            an L2 panel opens on, so the two stack in the order you opened
+            them.
           */
-          scopedDrawer &&
+          scopedMode &&
+            l1Open &&
             "shadow-[8px_0_24px_-12px_rgba(16,24,40,0.35)] motion-move",
         )}
       >
@@ -3840,6 +3895,15 @@ export function LeftNav({
           {treeHits && treeHits.size === 0 ? (
             <TreeSearchEmpty query={treeQuery.trim()} />
           ) : null}
+          {/*
+            The hamburger stays put while the list is up.
+
+            Same control, same place, whether the column is a category or the
+            whole nav — so opening and closing are one target rather than a
+            button that vanishes into the thing it opened. Its label swaps to
+            "All products", which is the only part of it that should change.
+          */}
+          {scopedMode && l1Open ? scopeTop : null}
           {columnShowing ? (
             /*
               One category, with the column to itself.
@@ -3862,16 +3926,9 @@ export function LeftNav({
                   }
                   onBack={() => setDrilledId(null)}
                 />
-              ) : scopedSwitch === "header" ? (
-                <ScopeHeaderRow
-                  label={
-                    columnGroup ? layout.labelFor(columnGroup.id) : "Products"
-                  }
-                  {...(columnGroup ? { icon: layout.iconFor(columnGroup.id) } : {})}
-                  open={l1Open}
-                  onToggle={() => setL1Open((v) => !v)}
-                />
-              ) : null}
+              ) : (
+                scopeTop
+              )}
               {columnGroup ? (
                 <ProductTreeBranch
                   key={columnGroup.id}
@@ -3941,22 +3998,6 @@ export function LeftNav({
                 header adds is the return: you came here from a category, and
                 without a way back the only route to it is to navigate into it.
               */}
-              {/*
-                The drawer's head, under both switch placements.
-
-                GCP's drawer closes on a ✕ at its own top left whether you
-                opened it from the hamburger or not, and the reason is the same
-                here: the control that opened this is a 28px glyph in the
-                identity row, and asking someone to find it again to get out is
-                asking them to remember where they came in.
-              */}
-              {scopedDrawer ? (
-                <ScopeHeaderRow
-                  label="All products"
-                  open
-                  onToggle={() => setL1Open(false)}
-                />
-              ) : null}
               {renderSearched(entries)}
               {/*
                 A standing way in, while editing.
@@ -4601,6 +4642,61 @@ function DrillBackRow({
  * Also drawn over the L1 list once it is open, with the label reading "All
  * products": the same control, saying where pressing it goes back to.
  */
+/**
+ * The scoped column's way out, where a drill-in puts its Back row.
+ *
+ * GCP's shape, and Ashwin's Sep 30 correction: the sidebar IS a category, and
+ * the control above it is not "back to the parent" — there is no parent to go
+ * back to, the category is the whole sidebar — it is "show me everything".
+ * A hamburger says that and a ← does not.
+ *
+ * Drawn in BOTH states, which is the half that was broken. With the drawer
+ * open the column has no category, so the old code rendered nothing above the
+ * list at all — you could open the L1 list and the only control that closed it
+ * had gone with the category it belonged to. The row stays; what changes is
+ * its ink and its label.
+ */
+function ScopeMenuRow({
+  label,
+  open,
+  onToggle,
+}: {
+  /** The category, at rest. Ignored while the drawer is open. */
+  label: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-label={open ? "Close all products" : "All products"}
+        onClick={onToggle}
+        className={cn(
+          "motion-tap flex w-full shrink-0 items-center gap-[10px] rounded-[var(--t-nav-radius,7px)] px-[var(--t-nav-px,8px)] py-[7px] text-left active:scale-[0.99]",
+          open ? "bg-nav-active" : "hover:bg-nav-hover",
+        )}
+      >
+        <Menu size={16} aria-hidden="true" className="shrink-0 text-nav-fg-muted" />
+        {/*
+          The category's name beside the glyph at rest, and "All products"
+          while the list is up.
+
+          Not a fixed label. The row's job changes with the state — at rest it
+          is telling you which category the sidebar is, and open it is telling
+          you what you are looking at — and a hamburger that says the same
+          word in both is a hamburger that says nothing in either.
+        */}
+        <span className="min-w-0 flex-1 truncate text-[13.5px] leading-[normal] font-semibold text-nav-fg">
+          {open ? "All products" : label}
+        </span>
+      </button>
+      <NavDivider />
+    </>
+  );
+}
+
 function ScopeHeaderRow({
   label,
   icon: Icon,
@@ -4632,12 +4728,20 @@ function ScopeHeaderRow({
         <span className="min-w-0 flex-1 truncate text-[13.5px] leading-[normal] font-semibold text-nav-fg">
           {label}
         </span>
-        <ChevronDown
+        {/*
+          A right chevron, not a caret.
+
+          The caret was honest while this row expanded the list in place
+          underneath it. It opens a panel beside the nav now, and a caret
+          pointing down at a list that never appears there is the row
+          describing the arrangement it used to be.
+        */}
+        <ChevronRight
           size={14}
           aria-hidden="true"
           className={cn(
-            "shrink-0 text-nav-fg-subtle motion-move",
-            open && "rotate-180",
+            "shrink-0 motion-move",
+            open ? "translate-x-[1px] text-nav-fg" : "text-nav-fg-subtle",
           )}
         />
       </button>

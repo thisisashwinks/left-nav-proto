@@ -406,6 +406,22 @@ export const CRUMB_SEPARATOR_LABELS: Record<CrumbSeparator, string> = {
   slash: "Slash /",
 };
 
+/*
+ * The accent, and what the product is by default (Sep 30, Ashwin).
+ *
+ * `highrise` — HighLevel primary/600, #155eef — is the default now, at every
+ * scope. The platform has one colour and wears it everywhere: agency and
+ * sub-account, nav, modals, toggles and primary buttons alike. The axis stays
+ * because a tenant's own brand is a real thing this prototype has to be able
+ * to show; what it no longer decides is what the product looks like when
+ * nobody has said otherwise.
+ *
+ * It was `account`, which followed the current sub-account's logo colour and
+ * left the agency deliberately grey — a defensible reading, and the wrong
+ * default to review a platform in: half the screens in a walkthrough came out
+ * a different colour from the other half for reasons that were about the
+ * fixtures rather than about the design.
+ */
 export const ACCENTS = [
   // Near-black: the round-2 decision — the product's own accent is quiet, and
   // colour is something a brand brings, not something we impose.
@@ -2336,6 +2352,16 @@ export interface ThemeState {
   dockLabel: DockLabel;
   dockPosition: DockPosition;
   entryLayout: EntryLayout;
+  /**
+   * Whether the attach-template modal keeps its "In use" column.
+   *
+   * How many sub-accounts a template already governs is the one fact that
+   * makes attaching feel consequential rather than administrative — and it is
+   * also a second column on a list whose rows are one word each, which is the
+   * argument for dropping it. On by default; the switch is here so the two can
+   * be looked at rather than argued about.
+   */
+  attachTemplateInUse: boolean;
   /** How round the merged entry is drawn. See ENTRY_RADII. */
   entryRadius: EntryRadius;
   /** Which end of the bar the header entry stands at. See HEADER_ENTRY_SIDES. */
@@ -3068,7 +3094,7 @@ export interface ThemeState {
 export const DEFAULT_THEME: ThemeState = {
   // Account logo colour by default: every sub-account already carries a brand
   // swatch (`logo.from`), and black stays one click away if they want quiet.
-  accent: "account",
+  accent: "highrise",
   tint: "off",
   darkMode: false,
   appTheme: "light",
@@ -3095,6 +3121,7 @@ export const DEFAULT_THEME: ThemeState = {
    * Both nav placements stay one click away for the comparison.
    */
   entryLayout: "header",
+  attachTemplateInUse: true,
   entryRadius: "pill",
   headerEntrySide: "right",
   /*
@@ -3264,7 +3291,16 @@ export const DEFAULT_THEME: ThemeState = {
   pageHeader: true,
   stickyDashboardBar: true,
   navArrangement: "flyout",
-  scopedSwitch: "header",
+  /*
+   * The hamburger, per Ashwin's Sep 30 correction.
+   *
+   * The named row with a caret was the default and it made two wrong
+   * promises at once: a caret says the list drops open underneath, and the
+   * row read as a heading for the products below it rather than as a way
+   * out of them. GCP's control is a hamburger, and a hamburger is the one
+   * glyph that means "everything" without implying where it will appear.
+   */
+  scopedSwitch: "hamburger",
   navTreeCounts: false,
   treeIcons: "all",
   treeRecentsAllProducts: false,

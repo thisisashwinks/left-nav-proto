@@ -15,6 +15,7 @@ import {
   DEFAULT_TEMPLATE_ID,
   useNavTemplates,
 } from "@/components/nav/nav-templates";
+import { SAAS_TIERS } from "@/design/plans";
 import { cn } from "@/lib/utils";
 import {
   AttachTemplateModal,
@@ -304,6 +305,17 @@ function FeaturesTab({
     .map((t) => ({ id: t.id, name: t.name, accounts: accountsOn(t.id) }));
 
   const attached = templates.find((t) => t.id === plan.templateId) ?? null;
+  /**
+   * Every sub-account the agency has, for the default row's own count.
+   *
+   * Summed over the tiers rather than read off a list of accounts, so it
+   * counts the same population `reachFor` does — the modal's two numbers then
+   * describe one set of accounts instead of two that nearly agree.
+   */
+  const accountTotal = SAAS_TIERS.reduce(
+    (n, tier) => n + accountsOnTier(tier).length,
+    0,
+  );
 
   /*
    * What attaching would do, counted before it does it.
@@ -352,10 +364,30 @@ function FeaturesTab({
             attached={plan.snapshot !== null}
             onRemove={() => undefined}
           />
+          {/*
+            The chip always names a template, because a plan always has one.
+
+            "Attach navigation template" was the verb for an empty slot, and
+            the slot is never empty: a plan with nothing of its own hands out
+            the HighLevel default, which is what the modal shows selected. So
+            the chip reads as attached in both states and the press means the
+            same thing in both — change which one.
+
+            No info glyph (Ashwin, Sep 30). The plans list is where the term
+            is met first and it carries the explanation there; repeating it on
+            a control whose own label now names a template would be the second
+            place to read the same sentence.
+
+            The bin only appears once a template of the agency's own is on,
+            and what it does is put the default back — see its own label.
+            Offering it on the default would be offering to remove the thing
+            that remains when you remove things.
+          */}
           <AttachButton
             icon={LayoutTemplate}
-            label={attached ? attached.name : "Templates"}
+            label={attached ? attached.name : "HighLevel default template"}
             attached={attached !== null}
+            removeLabel="Replace with the HighLevel default template"
             onClick={() => setModal(true)}
             onRemove={() => onAttachTemplate(null)}
           />
@@ -450,6 +482,13 @@ function FeaturesTab({
           planName={plan.name}
           templates={choices}
           attachedId={plan.templateId}
+          /*
+            Every sub-account, so the default row can state its own share:
+            those on no template of their own are the ones it governs. Counted
+            here, where the store is, rather than inside a modal whose job is
+            to draw a list it was handed.
+          */
+          accountTotal={accountTotal}
           reachFor={reachFor}
           onAttach={onAttachTemplate}
           onClose={() => setModal(false)}
@@ -470,12 +509,21 @@ function AttachButton({
   icon: Icon,
   label,
   attached = false,
+  removeLabel,
   onClick,
   onRemove,
 }: {
   icon: typeof Link2;
   label: string;
   attached?: boolean;
+  /**
+   * What the bin does, said in its own words.
+   *
+   * "Remove X" is right for a snapshot, where removing leaves nothing. A
+   * navigation always leaves something — the HighLevel default — so the
+   * template's bin says what it puts back rather than what it takes away.
+   */
+  removeLabel?: string;
   onClick?: () => void;
   onRemove?: () => void;
 }) {
@@ -494,10 +542,12 @@ function AttachButton({
         <Icon size={15} aria-hidden="true" className="shrink-0 text-pg-muted" />
         <span className="max-w-[200px] truncate">{label}</span>
       </button>
+
       {attached && onRemove ? (
         <button
           type="button"
-          aria-label={`Remove ${label}`}
+          aria-label={removeLabel ?? `Remove ${label}`}
+          title={removeLabel ?? `Remove ${label}`}
           onClick={onRemove}
           className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[6px] text-pg-muted hover:bg-pg-bg hover:text-pg-danger"
         >

@@ -291,6 +291,7 @@ interface ThemeContextValue extends ThemeState {
   setPinMarkColour: (colour: PinMarkColour) => void;
   setAiButtonStyle: (style: AiButtonStyle) => void;
   setEntryRadius: (v: EntryRadius) => void;
+  setAttachTemplateInUse: (on: boolean) => void;
   setLegacyFootControl: (control: LegacyFootControl) => void;
   setNavSwitchButton: (enabled: boolean) => void;
   setAgencyEditNav: (enabled: boolean) => void;
@@ -661,6 +662,8 @@ export function ThemeProvider({
       setAiButtonStyle: (aiButtonStyle) =>
         setState((s) => ({ ...s, aiButtonStyle })),
       setEntryRadius: (entryRadius) => setState((s) => ({ ...s, entryRadius })),
+      setAttachTemplateInUse: (attachTemplateInUse) =>
+        setState((s) => ({ ...s, attachTemplateInUse })),
       setLegacyFootControl: (legacyFootControl) =>
         setState((s) => ({ ...s, legacyFootControl })),
       setNavSwitchButton: (navSwitchButton) =>

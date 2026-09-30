@@ -1,7 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDown, Copy, ExternalLink, Plus, Search } from "lucide-react";
+import {
+  ChevronDown,
+  Copy,
+  ExternalLink,
+  Image as ImageIcon,
+  Info,
+  LayoutTemplate,
+  Plus,
+  Search,
+} from "lucide-react";
 import { PageTitle, usePageChrome } from "@/components/page/page-header";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import {
@@ -11,6 +20,8 @@ import {
 } from "@/components/nav/nav-templates";
 import type { SaasTier } from "@/design/plans";
 import { cn } from "@/lib/utils";
+import { RailTooltip } from "@/components/nav/rail-tooltip";
+import { SNAPSHOT_HINT, TEMPLATE_HINT } from "./attach-template-modal";
 import { SaasPlanEditor } from "./saas-plan-editor";
 import { SAAS_TABS, saasPlans, type SaasPlan, type SaasTab } from "./saas-plans-data";
 import { ProductionStubTab } from "./tab-production-stub";
@@ -294,12 +305,32 @@ function PlansTab({
                 all three. The editor is where they are changed; this is
                 where they are seen.
               */}
-              <Fact>
-                {plan.snapshot ?? "No snapshot attached"}
-              </Fact>
-              <Fact>
-                {template ? template.name : "No template attached"}
-              </Fact>
+              {/*
+                Both attachments wear the glyph their control in the editor
+                wears, so the row and the editor name the same two things the
+                same way — and the pair stop reading as one run of grey text
+                with a full stop missing.
+              */}
+              <AttachFact
+                icon={ImageIcon}
+                label={plan.snapshot ?? "No snapshot attached"}
+                hint={SNAPSHOT_HINT}
+              />
+              {/*
+                Every plan hands out a navigation, so every plan names one.
+
+                "No template attached" described the RECORD rather than the
+                account's experience: a plan with nothing attached still gives
+                its sub-accounts the HighLevel default, which is a template
+                and is the one the modal shows selected. Saying "none" here
+                and showing it chosen one click later was the two surfaces
+                disagreeing about the same fact.
+              */}
+              <AttachFact
+                icon={LayoutTemplate}
+                label={template ? template.name : "HighLevel default template"}
+                hint={TEMPLATE_HINT}
+              />
 
               <button
                 type="button"
@@ -336,6 +367,68 @@ function PriceBox({ label, amount }: { label: string; amount: string }) {
         Sale link
       </button>
     </div>
+  );
+}
+
+/**
+ * The ⓘ beside an attachment, with a tooltip that actually appears.
+ *
+ * `title` was the first cut and it looked like nothing: the browser's own
+ * tooltip waits about a second, draws in the OS's style rather than the
+ * product's, and never fires at all for a pointer that is already moving on.
+ * On a term of art — "navigation template" — that is the same as having no
+ * explanation.
+ *
+ * `RailTooltip` is the pill the rest of the prototype uses. It portals to the
+ * body, so a card with its own overflow cannot clip it, and it wraps at a
+ * width, which a sentence needs and a glyph's name does not.
+ */
+function InfoHint({ text }: { text: string }) {
+  return (
+    <RailTooltip label={text} placement="above" wrap={280}>
+      <span
+        tabIndex={0}
+        role="note"
+        aria-label={text}
+        className="flex size-[18px] shrink-0 items-center justify-center rounded-[5px] text-pg-faint hover:text-pg-text-strong"
+      >
+        <Info size={13} aria-hidden="true" />
+      </span>
+    </RailTooltip>
+  );
+}
+
+/**
+ * What this plan hands out, as a tag.
+ *
+ * The two attachments were plain grey sentences in a row of plain grey
+ * sentences — "30 Days trial period", "No snapshot attached", "HighLevel
+ * default template" — so the facts about the PLAN and the things ATTACHED to
+ * it read as one undifferentiated run. A pill says these two are objects: they
+ * have names, they can be swapped, and each is the same kind of thing as the
+ * chip that changes it in the editor.
+ *
+ * Grey rather than brand-tinted, and the same grey in both states. A pill that
+ * coloured itself once something was attached would be scoring the plan —
+ * arriving with a snapshot is not better than arriving without one, it is a
+ * different decision — and the empty state is the one a reader most needs to
+ * see at a glance, which a quiet tag does better than an absent one.
+ */
+function AttachFact({
+  icon: Icon,
+  label,
+  hint,
+}: {
+  icon: typeof LayoutTemplate;
+  label: string;
+  hint: string;
+}) {
+  return (
+    <span className="flex min-w-0 shrink-0 items-center gap-[6px] rounded-full bg-pg-row-border py-[4px] pr-[6px] pl-[10px] text-[12.5px] leading-[17px] text-pg-text">
+      <Icon size={13} aria-hidden="true" className="shrink-0 text-pg-muted" />
+      <span className="max-w-[220px] truncate">{label}</span>
+      <InfoHint text={hint} />
+    </span>
   );
 }
 

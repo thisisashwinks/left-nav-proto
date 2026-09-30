@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { LayoutTemplate, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +20,19 @@ import { cn } from "@/lib/utils";
  * purpose — so the dialog went and the type it defined came here, to the one
  * surface still asking the question.
  */
+/**
+ * What a navigation template is, in one sentence, wherever the term appears.
+ *
+ * Exported because two surfaces say it — the attach button in the plan editor
+ * and the plans list's own row — and a term of art explained two slightly
+ * different ways is a term of art explained badly.
+ */
+export const SNAPSHOT_HINT =
+  "A copy of a sub-account's assets — funnels, workflows, calendars — planted once when an account is created on this plan. Unlike a navigation template, it is never managed again after that.";
+
+export const TEMPLATE_HINT =
+  "A saved sidebar arrangement. Every sub-account on this plan gets it, including ones that join later. Arrange a sub-account's nav and save it there to add one.";
+
 export interface AttachReach {
   /** Everyone on the plan. The other three sum to this. */
   total: number;
@@ -65,6 +78,7 @@ export function AttachTemplateModal({
   planName,
   templates,
   attachedId,
+  accountTotal,
   reachFor,
   onAttach,
   onClose,
@@ -72,12 +86,17 @@ export function AttachTemplateModal({
   planName: string;
   templates: readonly TemplateChoice[];
   attachedId: string | null;
+  /**
+   * Every sub-account the agency has, so the default row can state its own
+   * share: the ones on no template of their own are on the HighLevel default.
+   */
+  accountTotal: number;
   /** What attaching this one would do, counted by the page. */
   reachFor: (templateId: string) => AttachReach;
   onAttach: (templateId: string | null) => void;
   onClose: () => void;
 }) {
-  const { appTheme } = useTheme().effective;
+  const { appTheme, attachTemplateInUse } = useTheme().effective;
   const [picked, setPicked] = React.useState<string | null>(attachedId);
 
   React.useEffect(() => {
@@ -89,6 +108,31 @@ export function AttachTemplateModal({
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
   }, [onClose]);
+
+  /**
+   * Whether this modal is offering a choice at all.
+   *
+   * One template means one row — the HighLevel default, which every plan is
+   * on until it is told otherwise — and a radio beside the only answer is a
+   * control that cannot change anything. Below this, `choosing` is what the
+   * radio column, the footer and the row's own press all hang off, so the
+   * three cannot disagree about whether there is a decision here.
+   */
+  const choosing = templates.length > 0;
+  const showInUse = attachTemplateInUse;
+  const cols = `${choosing ? "44px " : ""}1fr${showInUse ? " 150px" : ""}`;
+  /**
+   * How many sub-accounts the default governs.
+   *
+   * Everyone not on a template of their own — which is the plans' own default
+   * and therefore the honest thing for this column to say about the row.
+   * Derived from the same numbers the page counted for the others, so the
+   * column adds up.
+   */
+  const defaultAccounts = Math.max(
+    0,
+    accountTotal - templates.reduce((n, t) => n + t.accounts, 0),
+  );
 
   const changed = picked !== attachedId;
   const reach = picked ? reachFor(picked) : null;
@@ -113,17 +157,14 @@ export function AttachTemplateModal({
         className="motion-panel-in relative flex max-h-[80vh] w-[720px] max-w-full flex-col rounded-[12px] bg-pg-surface p-[24px] shadow-[0_20px_24px_-4px_rgba(16,24,40,0.08),0_8px_8px_-4px_rgba(16,24,40,0.03),inset_0_0_0_1px_var(--pg-card-border)]"
       >
         {/*
-          The icon tile, the title, the one-line promise, the ✕ — the header
-          the other two attachment modals wear. Copied on purpose: three
-          attachments on one tab that open three differently-shaped surfaces
-          would make the tab look assembled rather than designed.
+          No icon tile (Sep 30, Ashwin).
+
+          It was here because the other two attachment modals wear one, which
+          is a reason to keep three surfaces consistent and not a reason for
+          any of them to have it: a 32px green square that repeats the word
+          already written under it, on a modal opened from a button carrying
+          the same glyph. The title, the promise and the ✕ are the header.
         */}
-        <span
-          aria-hidden="true"
-          className="flex size-[32px] items-center justify-center rounded-[8px] bg-[var(--pg-av-green-bg)] text-[var(--pg-av-green-fg)]"
-        >
-          <LayoutTemplate size={17} />
-        </span>
         <button
           type="button"
           aria-label="Close"
@@ -133,7 +174,7 @@ export function AttachTemplateModal({
           <X size={17} aria-hidden="true" />
         </button>
 
-        <h2 className="mt-[14px] text-[16px] leading-[22px] font-semibold text-pg-heading">
+        <h2 className="text-[16px] leading-[22px] font-semibold text-pg-heading">
           Navigation template
         </h2>
         <p className="mt-[4px] text-[13px] leading-[19px] text-pg-muted">
@@ -153,14 +194,19 @@ export function AttachTemplateModal({
           the others come from, which is the only thing that state is missing.
         */}
         <div className="mt-[18px] min-h-0 flex-1 overflow-y-auto rounded-[10px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
-          <div className="sticky top-0 z-10 grid grid-cols-[44px_1fr_150px] items-center gap-[10px] border-b border-pg-head-border bg-pg-bg px-[14px] py-[9px]">
-            <span />
+          <div
+            style={{ gridTemplateColumns: cols }}
+            className="sticky top-0 z-10 grid items-center gap-[10px] border-b border-pg-head-border bg-pg-bg px-[14px] py-[9px]"
+          >
+            {choosing ? <span /> : null}
             <span className="text-[12px] leading-[16px] font-medium text-pg-muted">
               Template
             </span>
-            <span className="text-[12px] leading-[16px] font-medium text-pg-muted">
-              In use
-            </span>
+            {showInUse ? (
+              <span className="text-[12px] leading-[16px] font-medium text-pg-muted">
+                In use
+              </span>
+            ) : null}
           </div>
 
           {/*
@@ -170,34 +216,52 @@ export function AttachTemplateModal({
             own control, and as a row it sits in the same list as every other
             answer.
           */}
+          {/*
+            The default's own count, not a sentence about it.
+
+            It read "Sub-accounts keep the layout they arrive with", which is
+            true, is 44 characters, and was cut to "Sub-accounts keep the…" in
+            a 150px column — a truncated explanation being the one thing worse
+            than no explanation. The column asks how many accounts a row
+            governs and every row can answer that in three words, this one
+            included: it is what the plans on no template of their own are on.
+          */}
           <TemplateRow
             name="HighLevel default"
-            detail="Sub-accounts keep the layout they arrive with"
+            detail={accountsLabel(defaultAccounts)}
             checked={picked === null}
-            onPick={() => setPicked(null)}
+            {...(choosing ? { onPick: () => setPicked(null) } : {})}
+            showInUse={showInUse}
+            cols={cols}
           />
 
           {templates.map((t) => (
             <TemplateRow
               key={t.id}
               name={t.name}
-              detail={
-                t.accounts === 0
-                  ? "Not in use"
-                  : `${t.accounts} sub-account${t.accounts === 1 ? "" : "s"}`
-              }
+              detail={accountsLabel(t.accounts)}
               checked={picked === t.id}
-              onPick={() => setPicked(t.id)}
+              {...(choosing ? { onPick: () => setPicked(t.id) } : {})}
+              showInUse={showInUse}
+              cols={cols}
             />
           ))}
-
-          {templates.length === 0 ? (
-            <p className="border-t border-pg-row-border px-[14px] py-[11px] text-[12.5px] leading-[18px] text-pg-muted">
-              To attach a different navigation, arrange a sub-account&rsquo;s
-              navigation and save it as a template. It appears here once saved.
-            </p>
-          ) : null}
         </div>
+
+        {/*
+          Below the table, not inside it.
+
+          As a last row it read as a template you could not select — a fourth
+          entry in a list of choices, in a box whose every other line is one.
+          Under the box it is what it always was: a note about where the other
+          answers come from.
+        */}
+        {templates.length === 0 ? (
+          <p className="mt-[10px] text-[12.5px] leading-[18px] text-pg-muted">
+            To attach a different navigation, arrange a sub-account&rsquo;s
+            navigation and save it as a template. It appears here once saved.
+          </p>
+        ) : null}
 
         {/*
           The reach, stated in the modal rather than behind a second dialog.
@@ -218,6 +282,16 @@ export function AttachTemplateModal({
           </p>
         ) : null}
 
+        {/*
+          No footer when there is nothing to decide.
+
+          With one template the list is a read-out: the row is already the
+          answer, Save has nothing to commit and Cancel nothing to abandon, so
+          the pair were two controls asking to be pressed about a decision that
+          had not been offered. The ✕ closes it, which is what closes a thing
+          you only opened to look at.
+        */}
+        {choosing ? (
         <div className="mt-[16px] flex shrink-0 justify-end gap-[10px]">
           <button
             type="button"
@@ -246,53 +320,91 @@ export function AttachTemplateModal({
             Save
           </button>
         </div>
+        ) : null}
       </div>
     </div>,
     document.body,
   );
 }
 
-/** One radio row: the mark, the name, and what it is doing today. */
+/** "3 sub-accounts", and the two cases a number cannot say. */
+function accountsLabel(n: number): string {
+  if (n === 0) return "Not in use";
+  return `${n} sub-account${n === 1 ? "" : "s"}`;
+}
+
+/**
+ * One row: the mark where there is a choice, the name, and its share.
+ *
+ * `onPick` absent is how the caller says "this list has one answer" — the
+ * radio goes, and so does the press, because a row that highlights and
+ * responds without changing anything is a control lying about being one.
+ */
 function TemplateRow({
   name,
   detail,
   checked,
   onPick,
+  showInUse,
+  cols,
 }: {
   name: string;
   detail: string;
   checked: boolean;
-  onPick: () => void;
+  onPick?: () => void;
+  showInUse: boolean;
+  cols: string;
 }) {
+  const body = (
+    <>
+      {onPick ? (
+        <span className="flex justify-center">
+          <span
+            aria-hidden="true"
+            className={cn(
+              "flex size-[16px] items-center justify-center rounded-full",
+              checked
+                ? "bg-brand shadow-[inset_0_0_0_1px_var(--brand)]"
+                : "shadow-[inset_0_0_0_1px_var(--pg-border-strong)]",
+            )}
+          >
+            {checked ? (
+              <span className="size-[6px] rounded-full bg-brand-fg" />
+            ) : null}
+          </span>
+        </span>
+      ) : null}
+      <span className="min-w-0 truncate text-[13.5px] leading-[19px] font-medium text-pg-text-strong">
+        {name}
+      </span>
+      {showInUse ? (
+        <span className="truncate text-[12.5px] leading-[17px] text-pg-muted tabular-nums">
+          {detail}
+        </span>
+      ) : null}
+    </>
+  );
+
+  const shape =
+    "grid w-full items-center gap-[10px] border-b border-pg-row-border px-[14px] py-[11px] text-left last:border-b-0";
+
+  if (!onPick) {
+    return (
+      <div style={{ gridTemplateColumns: cols }} className={shape}>
+        {body}
+      </div>
+    );
+  }
   return (
     <button
       type="button"
       role="radio"
       aria-checked={checked}
       onClick={onPick}
-      className="motion-tap grid w-full grid-cols-[44px_1fr_150px] items-center gap-[10px] border-b border-pg-row-border px-[14px] py-[11px] text-left last:border-b-0 hover:bg-pg-bg"
+      style={{ gridTemplateColumns: cols }}
+      className={cn(shape, "motion-tap hover:bg-pg-bg")}
     >
-      <span className="flex justify-center">
-        <span
-          aria-hidden="true"
-          className={cn(
-            "flex size-[16px] items-center justify-center rounded-full",
-            checked
-              ? "bg-brand shadow-[inset_0_0_0_1px_var(--brand)]"
-              : "shadow-[inset_0_0_0_1px_var(--pg-border-strong)]",
-          )}
-        >
-          {checked ? (
-            <span className="size-[6px] rounded-full bg-brand-fg" />
-          ) : null}
-        </span>
-      </span>
-      <span className="min-w-0 truncate text-[13.5px] leading-[19px] font-medium text-pg-text-strong">
-        {name}
-      </span>
-      <span className="truncate text-[12.5px] leading-[17px] text-pg-muted">
-        {detail}
-      </span>
+      {body}
     </button>
   );
 }

@@ -296,7 +296,7 @@ export function AccentPicker({
           type="button"
           disabled={draftInvalid}
           onClick={() => onSave(hex)}
-          className="motion-tap flex h-[28px] flex-1 items-center justify-center gap-[4px] rounded-[6px] bg-nav-fg text-[12px] leading-none font-medium text-nav hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="motion-tap flex h-[28px] flex-1 items-center justify-center gap-[4px] rounded-[6px] bg-brand text-[12px] leading-none font-medium text-brand-fg hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Check size={12} aria-hidden="true" />
           Save

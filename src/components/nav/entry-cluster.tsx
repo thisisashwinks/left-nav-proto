@@ -595,9 +595,18 @@ function EditNavButton({
                       Sep 24.
                     */
                     "cursor-not-allowed bg-nav-hover text-nav-fg-subtle"
-                  : // Inverted ink rather than brand — still unmistakably the
-                    // primary action, without borrowing the accent (Aug 21).
-                    "bg-nav-fg text-nav hover:opacity-90 active:scale-95",
+                  : /*
+                      The accent, not inverted ink (Sep 30, Ashwin).
+
+                      It was ink on the Aug 21 argument that a primary action
+                      need not borrow the accent. That held while the accent
+                      was the tenant's own colour and could be anything; with
+                      the platform on one blue at every scope, the primary
+                      action in the nav is the same object as the primary
+                      action on every page, and drawing it in a second colour
+                      made the nav look like a different product.
+                    */
+                    "bg-brand text-brand-fg hover:opacity-90 active:scale-95",
               )}
             >
               {blocked > 0 ? null : <Check size={13} aria-hidden="true" />}

@@ -2221,6 +2221,8 @@ export function TuningPanel() {
     entryLayout,
     entryRadius,
     setEntryRadius,
+    attachTemplateInUse,
+    setAttachTemplateInUse,
     headerEntrySide,
     setHeaderEntrySide,
     setEntryLayout,
@@ -4408,6 +4410,17 @@ export function TuningPanel() {
             {entryRadius === "pill"
               ? "Fully rounded, as it ships. Reads as somewhere to ask rather than as one more form control — and it is the one shape on the screen nothing else wears."
               : "The platform's own 8px, like every other input, button and select on the page. Consistent, and it stops the entry announcing itself."}
+          </Note>
+
+          <Toggle
+            label="“In use” column on attach template"
+            checked={attachTemplateInUse}
+            onChange={setAttachTemplateInUse}
+          />
+          <Note>
+            {attachTemplateInUse
+              ? "The SaaS plan's attach-template modal states how many sub-accounts each template already governs — the fact that makes attaching feel consequential rather than administrative."
+              : "Names only. A second column on a list whose rows are one word each, and the reach is stated again above the Save button anyway."}
           </Note>
 
           <Toggle
