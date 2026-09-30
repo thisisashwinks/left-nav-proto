@@ -598,7 +598,7 @@ export function ProductTreeBranch({
   const glyphless =
     treeIcons === "none" ||
     treeIcons === "rails" ||
-    (treeIcons === "hide-l3" && depth > l2Depth);
+    ((treeIcons === "hide-l3" || treeIcons === "l2-only") && depth > l2Depth);
   return (
     <>
       {nodes.map((node, index) => {
@@ -666,6 +666,20 @@ export function ProductTreeBranch({
            */
           ...(treeIcons === "rails" && depth - l2Depth + 1 > 0
             ? { rails: depth - l2Depth + 1 }
+            : {}),
+          /*
+           * `l2-only` draws ONE guide, and only under a product.
+           *
+           * Not the per-level count `rails` uses. There, every level is
+           * glyphless and the stack of lines is the only thing saying how deep
+           * you are. Here the product above is still marked by its own icon,
+           * so a second line standing for the GROUP would be scaffolding for a
+           * level that is already legible — and two hairlines beside a page
+           * name is the column of pictures this mode set out to remove,
+           * redrawn thinner.
+           */
+          ...(treeIcons === "l2-only" && depth > l2Depth
+            ? { rails: 1, railsWide: true }
             : {}),
         };
         const edit = rowEdit?.(node.id, depth);

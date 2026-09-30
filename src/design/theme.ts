@@ -146,12 +146,30 @@ export const BUILDER_CHROME_STYLE_LABELS: Record<BuilderChromeStyle, string> = {
   floating: "Floating on the canvas",
 };
 
-/** What the product tree draws down its left edge. */
-export type TreeIcons = "all" | "hide-l3" | "none" | "rails";
-export const TREE_ICONS: readonly TreeIcons[] = ["all", "hide-l3", "none", "rails"];
+/**
+ * What the product tree draws down its left edge.
+ *
+ * `l2-only` is the fifth and the most opinionated (Ashwin, Sep 30): the
+ * PRODUCT is the only level that gets a picture. The group above it is a word
+ * — it names a shelf, and shelves have no icons in any filing system — and the
+ * pages below it get a hairline guide instead, because what a page needs said
+ * about it is which product it belongs to, which is a line's job and not a
+ * glyph's. It is `hide-l3` and `rails` and the group's own de-emphasis
+ * combined into the one arrangement that uses each of them where it is right,
+ * rather than applying one rule uniformly to three levels that are not alike.
+ */
+export type TreeIcons = "all" | "hide-l3" | "l2-only" | "none" | "rails";
+export const TREE_ICONS: readonly TreeIcons[] = [
+  "all",
+  "hide-l3",
+  "l2-only",
+  "none",
+  "rails",
+];
 export const TREE_ICON_LABELS: Record<TreeIcons, string> = {
   all: "Every level",
   "hide-l3": "Not on L3",
+  "l2-only": "Products only",
   none: "No icons",
   rails: "Guide lines",
 };
@@ -809,6 +827,28 @@ export const AGENCY_SEARCH_DEFAULT = false;
 export const AGENCY_NAV_MARK_DEFAULT = true;
 
 /**
+ * Whether the sidebar gives up its own card and sits on the page's plane.
+ *
+ * Off, the nav is a floating card: its own ground, a hairline ring, the
+ * canvas shadow, a 12px radius and a gap on three sides. Three surfaces on
+ * screen — nav card, plane, canvas card — and the nav reads as an object laid
+ * on the window.
+ *
+ * On, the card goes and the nav inherits the plane behind the canvas, so the
+ * whole left side and the space around the page are one colour and the canvas
+ * is the only thing floating. That is the point of the pairing Ashwin drew on
+ * Sep 30: with `pageShell: "canvas"` the page is a card on a ground, and a nav
+ * that is also a card makes two objects competing to be the figure. One
+ * ground, one figure.
+ *
+ * It inherits rather than declaring a colour of its own, which is the whole
+ * mechanism — so a dark nav theme over a light page will read as a light nav,
+ * because the ground it is sitting on is the page's. The two themes are
+ * meant to match while this is on, and the panel says so.
+ */
+export const NAV_ON_PLANE_DEFAULT = false;
+
+/**
  * How the Ask AI button is drawn once it is a button rather than a field.
  *
  *  gradient  The tinted purple fill the AI dock and the composer wear — this
@@ -1284,6 +1324,35 @@ export const ENTRY_LAYOUT_LABELS: Record<EntryLayout, string> = {
   split: "Bottom edge",
   top: "Under the logo",
   header: "Top bar",
+};
+
+/**
+ * Which end of the app bar the entry stands at, once `entryLayout` has put it
+ * there.
+ *
+ * `right` is where it went first: beside the utilities, on the edge the bar
+ * has always ended on, so nothing else in the row moves.
+ *
+ * `left` is the arrangement Ashwin paired with the tree on Sep 30, and it only
+ * makes sense next to `crumbShown: false`. Turn the trail off and the whole
+ * left of a 48px bar is empty — the tree in the column is already saying where
+ * you are, which is the argument for dropping the trail in the first place —
+ * and the search field is the obvious thing to spend that space on. It also
+ * puts search at the top-left corner, which is where every other tool in this
+ * category keeps it.
+ *
+ * Nothing stops it being set with the trail on; the two then share the row and
+ * the trail loses 230px. That is worth being able to look at rather than being
+ * forbidden, since "does the trail still fit" is the question the pairing is
+ * actually asking.
+ */
+export const HEADER_ENTRY_SIDES = ["right", "left"] as const;
+
+export type HeaderEntrySide = (typeof HEADER_ENTRY_SIDES)[number];
+
+export const HEADER_ENTRY_SIDE_LABELS: Record<HeaderEntrySide, string> = {
+  right: "Beside the utilities",
+  left: "Where the trail was",
 };
 
 /**
@@ -2179,6 +2248,8 @@ export interface ThemeState {
   dockLabel: DockLabel;
   dockPosition: DockPosition;
   entryLayout: EntryLayout;
+  /** Which end of the bar the header entry stands at. See HEADER_ENTRY_SIDES. */
+  headerEntrySide: HeaderEntrySide;
   /** Where the Get the app offer is reached from. See GET_APP_PLACEMENTS. */
   getAppPlacement: GetAppPlacement;
   /** Whether the agency's entry pill carries search. See AGENCY_SEARCH_DEFAULT. */
@@ -2188,6 +2259,8 @@ export interface ThemeState {
    * See AGENCY_NAV_MARK_DEFAULT.
    */
   agencyNavMark: boolean;
+  /** Whether the nav drops its card and sits on the plane. See NAV_ON_PLANE_DEFAULT. */
+  navOnPlane: boolean;
   /** How an L2 row reveals its L3 rows. See L3_DISCLOSURES. */
   l3Disclosure: L3Disclosure;
   flyoutTrigger: FlyoutTrigger;
@@ -2589,9 +2662,28 @@ export interface ThemeState {
   /**
    * The HighRise centre canvas: everything below the breadcrumb row — page
    * header included — inside one white card with shadow/lg, scrolling inside
-   * it. Off by default; builders and the inbox keep their own layout.
+   * it. Off by default; builders keep their own layout.
    */
   pageCanvas: boolean;
+  /**
+   * Whether the canvas also holds the pages built from columns.
+   *
+   * The inbox, a contact record, Ask AI: surfaces that are already a row of
+   * panes, each with its own edge. They were exempt outright — `useNoPageCanvas`
+   * and `isInboxPlace` took them out of the canvas whatever the knob said — on
+   * the argument that a card around a row of cards is a card holding cards.
+   *
+   * That is an argument, not a fact, and it was being made by the code rather
+   * than being put on screen (Sep 30). On by default now, so the canvas is the
+   * page shell everywhere and the exemption is the thing you switch on to see:
+   * off, those pages run edge to edge exactly as they did, and every other page
+   * is untouched either way.
+   *
+   * Only read while `pageCanvas` is on. There is no canvas to withhold from
+   * them otherwise, which is why the panel disables this control rather than
+   * offering a switch whose two settings look identical.
+   */
+  pageCanvasColumns: boolean;
   recordHeaderVariant: RecordHeaderVariant;
   /**
    * How a page with two views of one collection lets you change which.
@@ -2909,6 +3001,7 @@ export const DEFAULT_THEME: ThemeState = {
    * Both nav placements stay one click away for the comparison.
    */
   entryLayout: "header",
+  headerEntrySide: "right",
   /*
    * The avatar menu, which is where production puts it.
    *
@@ -2923,6 +3016,7 @@ export const DEFAULT_THEME: ThemeState = {
   getAppPlacement: "flyout",
   agencySearch: AGENCY_SEARCH_DEFAULT,
   agencyNavMark: AGENCY_NAV_MARK_DEFAULT,
+  navOnPlane: NAV_ON_PLANE_DEFAULT,
   // Both back to the plain answer (Sep 10). The indented list and the
   // click-every-time trigger are what the nav shipped with, so they are what a
   // review should open on; the dropdown and the sticky swap are the proposals,
@@ -3107,6 +3201,7 @@ export const DEFAULT_THEME: ThemeState = {
   listShowFilters: true,
   listToolbar: "page",
   pageCanvas: false,
+  pageCanvasColumns: true,
   recordHeaderVariant: "D-B",
   calendarViewSwitch: "tabs",
   /*

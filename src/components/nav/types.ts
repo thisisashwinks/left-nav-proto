@@ -143,6 +143,16 @@ export interface NavItem {
    * "current" one. Absent unless the axis is on rails.
    */
   rails?: number;
+  /**
+   * Whether those rails are spaced for a column that still has glyphs in it.
+   *
+   * `rails` was built for `treeIcons: "rails"`, where nothing has a glyph and
+   * every indent step is a bare 16px. Under `l2-only` the product above keeps
+   * its picture, so the step is 16px PLUS the gap, and a rail drawn on the
+   * tight grid would land inside the label rather than in the gutter beside
+   * it. Same line, same job, measured against the indent the row actually has.
+   */
+  railsWide?: boolean;
   density?: NavItemDensity;
 }
 

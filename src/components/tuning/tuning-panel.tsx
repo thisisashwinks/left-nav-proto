@@ -80,6 +80,8 @@ import {
   DOCK_POSITIONS,
   ENTRY_LAYOUT_LABELS,
   ENTRY_LAYOUTS,
+  HEADER_ENTRY_SIDES,
+  HEADER_ENTRY_SIDE_LABELS,
   GET_APP_PLACEMENTS,
   GET_APP_PLACEMENT_LABELS,
   FLYOUT_TRIGGER_LABELS,
@@ -186,6 +188,7 @@ import {
   type DockLabel,
   type DockPosition,
   type EntryLayout,
+  type HeaderEntrySide,
   type AiButtonStyle,
   type LegacyFootControl,
   type GetAppPlacement,
@@ -546,6 +549,8 @@ function NavStructureSection({
               ? "A glyph per level, as the flyout's rows have. The flyout shows one level at a time; the tree shows three, so the same decision reads as a column of pictures."
               : treeIcons === "hide-l3"
                 ? "Glyphs stop at the product. L3 is a page inside something you can already see, so its glyph carries the least."
+                : treeIcons === "l2-only"
+                  ? "Only the product is a picture. The group is a shelf's name and needs none; its pages get one hairline guide instead, which says what they belong to without a second column of glyphs."
                 : treeIcons === "none"
                   ? "Names only. The fastest to read and the slowest to scan — there is nothing to aim at but words."
                   : "Hairline guides instead, the way a file tree marks depth: depth without competing with the label."}
@@ -796,6 +801,19 @@ function NavStructureSection({
               ? "The row, plus a shorter bar on every ancestor leading to it — so a closed nav still says where you are."
               : "The category and the page, with the product between them left plain: three marked rows in a run read as one block, and the middle one is named again by the page under it. A product you are actually standing on — one with no pages, or whose own page is open — is still marked."}
       </Note>
+      {/*
+        Says what the axis cannot do rather than letting it look broken. The
+        trail answers "the page is behind a shut panel", which is a question
+        only the flyout arrangement asks.
+      */}
+      {selectedState === "trail" || selectedState === "ends" ? (
+        <Note>
+          Ancestors are marked in the flyout arrangement only. All products,
+          Drill in and Scoped put the whole path in the column, where marking
+          it as well draws three filled rows in a run — so there the deepest
+          row is marked on its own, whichever level it is.
+        </Note>
+      ) : null}
 
       {/*
         Only while there is a mark to shape. Two axes, deliberately: where the
@@ -2165,12 +2183,16 @@ export function TuningPanel() {
     dockPosition,
     setDockPosition,
     entryLayout,
+    headerEntrySide,
+    setHeaderEntrySide,
     setEntryLayout,
     getAppPlacement,
     setGetAppPlacement,
     agencySearch,
     agencyNavMark,
     setAgencyNavMark,
+    navOnPlane,
+    setNavOnPlane,
     setAgencySearch,
     aiButtonStyle,
     setAiButtonStyle,
@@ -2326,6 +2348,8 @@ export function TuningPanel() {
     listToolbar,
     setListToolbar,
     pageCanvas,
+    pageCanvasColumns,
+    setPageCanvasColumns,
     setPageCanvas,
   } = useTheme();
 
@@ -4206,8 +4230,21 @@ export function TuningPanel() {
           />
           <Note>
             {pageCanvas
-              ? "Page header and content sit in one white card with shadow/lg, scrolling inside it. Builders and the inbox keep their own layout."
+              ? "Page header and content sit in one white card with shadow/lg, scrolling inside it. Builders keep their own layout."
               : "Pages draw straight on the plane below the breadcrumb row."}
+          </Note>
+          <Toggle
+            label="Canvas on column pages"
+            checked={pageCanvasColumns}
+            disabled={!pageCanvas}
+            onChange={setPageCanvasColumns}
+          />
+          <Note>
+            {!pageCanvas
+              ? "Nothing to withhold while the canvas is off."
+              : pageCanvasColumns
+                ? "The inbox, a contact record and Ask AI are in the card like every other page — one shell, no exceptions to remember."
+                : "Those three run edge to edge instead. They are already a row of panes with their own edges, and the argument is that a card around them is a card holding cards."}
           </Note>
           </>
           ) : null}
@@ -4280,6 +4317,38 @@ export function TuningPanel() {
               : entryLayout === "header"
                 ? "Out of the nav and into the app bar, left of the utility icons. The one placement that survives the nav collapsing — so the nav shows it at neither end, at either width."
                 : "The same merged pill, holding the nav's bottom edge beside the drawer toggle."}
+          </Note>
+
+          {/*
+            Only while the entry is actually up there. Off the bar, "which end
+            of the bar" is a question about nothing.
+          */}
+          {entryLayout === "header" ? (
+            <>
+              <Segmented
+                label="Entry sits"
+                options={HEADER_ENTRY_SIDES}
+                value={headerEntrySide}
+                onChange={(v: HeaderEntrySide) => setHeaderEntrySide(v)}
+                format={(v) => HEADER_ENTRY_SIDE_LABELS[v]}
+              />
+              <Note>
+                {headerEntrySide === "right"
+                  ? "Beside the utilities, on the edge the bar has always ended on. Nothing else in the row moves."
+                  : "At the head of the row. Pair it with the trail switched off: the tree already says where you are, which leaves the left of a 48px bar empty and search the obvious thing to spend it on."}
+              </Note>
+            </>
+          ) : null}
+
+          <Toggle
+            label="Sidebar on the plane"
+            checked={navOnPlane}
+            onChange={setNavOnPlane}
+          />
+          <Note>
+            {navOnPlane
+              ? "The nav drops its card — no ground of its own, no ring, no shadow, no gap — and inherits the plane behind the canvas. One ground, and the page is the only thing floating on it. Keep the nav and page themes matched: the nav has no colour of its own while this is on."
+              : "The nav is a floating card beside the page's. Three surfaces on screen, and the nav reads as an object laid on the window."}
           </Note>
 
           <Toggle

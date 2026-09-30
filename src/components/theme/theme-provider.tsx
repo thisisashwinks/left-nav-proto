@@ -84,6 +84,7 @@ import type {
   TreeSearchPlace,
   RecordCrumbLabel,
   RecordBackPlace,
+  HeaderEntrySide,
 } from "@/design/theme";
 import type {
   BuilderCanvas,
@@ -166,9 +167,11 @@ interface ThemeContextValue extends ThemeState {
   setDockLabel: (mode: DockLabel) => void;
   setDockPosition: (position: DockPosition) => void;
   setEntryLayout: (layout: EntryLayout) => void;
+  setHeaderEntrySide: (side: HeaderEntrySide) => void;
   setGetAppPlacement: (placement: GetAppPlacement) => void;
   setAgencySearch: (enabled: boolean) => void;
   setAgencyNavMark: (shown: boolean) => void;
+  setNavOnPlane: (on: boolean) => void;
   setFlyoutTrigger: (trigger: FlyoutTrigger) => void;
   setSelectedState: (state: SelectedState) => void;
   setSelectedMark: (mark: SelectedMark) => void;
@@ -242,6 +245,7 @@ interface ThemeContextValue extends ThemeState {
   setListShowViews: (on: boolean) => void;
   setListToolbar: (v: ListToolbarVariant) => void;
   setPageCanvas: (on: boolean) => void;
+  setPageCanvasColumns: (on: boolean) => void;
   setListShowFilters: (on: boolean) => void;
   setTreeSearchPlace: (v: TreeSearchPlace) => void;
   setCrumbEmphasis: (v: CrumbEmphasis) => void;
@@ -433,12 +437,15 @@ export function ThemeProvider({
       setDockLabel: (dockLabel) => setState((s) => ({ ...s, dockLabel })),
       setDockPosition: (dockPosition) => setState((s) => ({ ...s, dockPosition })),
       setEntryLayout: (entryLayout) => setState((s) => ({ ...s, entryLayout })),
+      setHeaderEntrySide: (headerEntrySide) =>
+        setState((s) => ({ ...s, headerEntrySide })),
       setGetAppPlacement: (getAppPlacement) =>
         setState((s) => ({ ...s, getAppPlacement })),
       setAgencySearch: (agencySearch) =>
         setState((s) => ({ ...s, agencySearch })),
       setAgencyNavMark: (agencyNavMark) =>
         setState((s) => ({ ...s, agencyNavMark })),
+      setNavOnPlane: (navOnPlane) => setState((s) => ({ ...s, navOnPlane })),
       setFlyoutTrigger: (flyoutTrigger) => setState((s) => ({ ...s, flyoutTrigger })),
       setSelectedState: (selectedState) =>
         setState((s) => ({ ...s, selectedState })),
@@ -577,6 +584,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, listShowViews })),
       setListToolbar: (listToolbar) => setState((s) => ({ ...s, listToolbar })),
       setPageCanvas: (pageCanvas) => setState((s) => ({ ...s, pageCanvas })),
+      setPageCanvasColumns: (pageCanvasColumns) =>
+        setState((s) => ({ ...s, pageCanvasColumns })),
       setListShowFilters: (listShowFilters) =>
         setState((s) => ({ ...s, listShowFilters })),
       setTreeSearchPlace: (treeSearchPlace) =>

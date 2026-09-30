@@ -820,6 +820,14 @@ export function LeftNav({
    */
   const drillMode = navArrangement === "drill" && !agencyScope;
   const scopedMode = navArrangement === "scoped" && !agencyScope;
+  /*
+   * The three arrangements that draw the path in the column itself.
+   *
+   * All three already exclude agency scope, which always renders flyouts
+   * whatever the axis says — so this cannot suppress the agency trail by
+   * reading an arrangement that scope is not using. See `markFor`.
+   */
+  const treeLike = productTree || drillMode || scopedMode;
   /** Either of the two arrangements that can give one category the column. */
   const columnMode = drillMode || scopedMode;
   const treeCounts = navTreeCounts;
@@ -1026,10 +1034,27 @@ export function LeftNav({
    * already on screen.
    */
   const recentsDoorGone = isBlockHidden(state, "recent");
+  /*
+   * The second way the door can go: the block collapses to a row.
+   *
+   * `flyout-only` takes the inline list away and leaves a single Recents row
+   * with a chevron. The row still opens a panel, so the block is not hidden —
+   * but the panel is the AUTHORED Recent flyout, whose bottom action is "View
+   * all activity", a history log. The heading link that carries "View all" is
+   * part of the inline block, and it went with it. So in the one arrangement
+   * where View all is the catalogue's only door, collapsing recents shuts that
+   * door as completely as hiding the block does, and by a route nobody would
+   * predict from a control labelled "how many recent rows". Ashwin, Sep 30.
+   *
+   * Same answer as the hidden case, for the same reason: the standing row
+   * comes back on its own rather than the reviewer being expected to notice
+   * and flip a second switch.
+   */
+  const recentsCollapsed = recentsMode === "flyout-only";
   const directoryRowShown =
     !agencyScope &&
     (productTree
-      ? treeRecentsAllProducts && recentsDoorGone
+      ? treeRecentsAllProducts && (recentsDoorGone || recentsCollapsed)
       : productDirectoryRow || recentsDoorGone);
   /**
    * The nav's top-level rows, in the order they are drawn.
@@ -2578,11 +2603,29 @@ export function LeftNav({
       if (selectedState === "off") return null;
       if (isHere) return "here";
       if (!isTrail) return null;
+      /*
+       * Only the flyout arrangement paints ancestors (Ashwin, Sep 30).
+       *
+       * The trail exists because in that arrangement the page you are on is
+       * usually BEHIND a shut panel: nothing in the column is the row, so the
+       * column marks the way to it instead. None of the other three has that
+       * problem. They put the whole path on screen at once — CRM, Contacts
+       * and Smart lists in one vertical run — and marking all of it draws
+       * three filled rows in a column, which reads as three selections rather
+       * than as one path. The deepest row is the answer and the rows above it
+       * are already saying where it sits by containing it.
+       *
+       * Ahead of the axis rather than inside it, so it holds at every value:
+       * `trail` and `ends` are both answers to a question these arrangements
+       * do not ask. The panel outside the column still marks its own trail —
+       * see `useMarking`, which these rows do not go through.
+       */
+      if (treeLike) return null;
       if (selectedState === "trail") return "trail";
       if (selectedState === "ends") return level === "l2" ? null : "trail";
       return null;
     },
-    [selectedState],
+    [selectedState, treeLike],
   );
 
   /*
@@ -2926,7 +2969,19 @@ export function LeftNav({
                * begin one level down, hanging under this row's own glyph
                * column, which is what makes them read as coming OUT of it.
                */
-              ...(treeIcons === "none" || treeIcons === "rails"
+              ...(treeIcons === "none" ||
+              treeIcons === "rails" ||
+              /*
+               * `l2-only` takes the group's glyph as well, and this is the
+               * one mode where that is the POINT rather than a consequence.
+               * Its argument is that the product is the only level worth a
+               * picture: the group is a shelf's name and the pages are its
+               * contents, so a glyph on the group would put the top and the
+               * middle of the tree at the same weight and leave only the
+               * bottom demoted, which is `hide-l3` — a different option that
+               * already exists.
+               */
+              treeIcons === "l2-only"
                 ? { iconHidden: true }
                 : {}),
             }}

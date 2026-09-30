@@ -529,7 +529,9 @@ export function NavItemRow({
           marking || item.rails ? "relative block w-full" : "contents",
         )}
       >
-      {item.rails ? <RowRails rails={item.rails} /> : null}
+      {item.rails ? (
+        <RowRails rails={item.rails} wide={item.railsWide === true} />
+      ) : null}
       {mark.bar ? <HereBar marking={marking} /> : null}
       <button
         ref={rowHostRef}
@@ -936,7 +938,7 @@ function MenuAffordance({
  * gutter before it, not 8px into it. Half a step short of the edge puts every
  * rail in the middle of its own column and leaves the fill a clear 8px.
  */
-function RowRails({ rails }: { rails: number }) {
+function RowRails({ rails, wide }: { rails: number; wide: boolean }) {
   return (
     <span
       aria-hidden="true"
@@ -977,7 +979,16 @@ function RowRails({ rails }: { rails: number }) {
             "bg-nav-divider",
           )}
           style={{
-            left: `calc(${level} * 16px + 8px)`,
+            /*
+             * Tight: `k` bare steps, then half a step to sit in the middle of
+             * the gutter. Wide: the same idea against a step that also pays
+             * for a glyph and its gap — `k + 1.5` steps puts the line midway
+             * between the product's indent and its page's, which is the empty
+             * column the glyph would have occupied one level down.
+             */
+            left: wide
+              ? `calc(${level + 1.5} * (16px + var(--t-nav-gap, 10px)))`
+              : `calc(${level} * 16px + 8px)`,
           }}
         />
       ))}

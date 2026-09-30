@@ -407,6 +407,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     dockLabel,
     dockPosition,
     entryLayout,
+    navOnPlane,
     recentsMode,
     mergedPinScope,
     autoCollapse,
@@ -1149,7 +1150,12 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const railWidth = railActive ? ACCOUNT_RAIL_WIDTH : 0;
   // The nav's right edge in viewport space: the rail, the nav's own left
   // gutter, then the nav. Flyouts dock here.
-  const leftOffset = railWidth + NAV_FLOAT_GAP + navWidth;
+  //
+  // No gutter on the plane — the card that had one is gone, so everything
+  // docking against the nav's right edge (flyouts, the launcher, the edit
+  // scrim) would otherwise sit 4px past it.
+  const navGutter = navOnPlane ? 0 : NAV_FLOAT_GAP;
+  const leftOffset = railWidth + navGutter + navWidth;
   // Group panels win over the authored registry: a renamed Engage has to open a
   // panel titled with its new name, and the registry still holds the old one.
   // At agency scope the agency's own panels take their place.
@@ -1669,13 +1675,28 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * not `chromeHonoured`, so a builder stays edge-to-edge in nav edit mode
    * too. The inbox is recognised by its place, since it asks for nothing.
    */
-  // Column-layout pages (a contact record, Ask AI) opt out themselves.
+  // Column-layout pages (a contact record, Ask AI) say so themselves; the
+  // inbox is recognised by its place, since it asks for nothing.
   const canvasExempt = usePageCanvasExempt();
+  /*
+   * The column pages are in the canvas unless the knob takes them out.
+   *
+   * They used to be exempt outright, which meant the argument for exempting
+   * them — a card around a row of cards is a card holding cards — could only
+   * be read in this file. It is a claim about a layout, so it belongs on
+   * screen where it can be looked at: `pageCanvasColumns` is on by default, so
+   * the canvas is the page shell everywhere, and switching it off restores the
+   * edge-to-edge reading exactly.
+   *
+   * Builders are NOT on this knob and never will be: a builder asked the shell
+   * to stand down, which is a request about chrome rather than an opinion
+   * about cards, and `chromeRequest === null` answers it one line up.
+   */
+  const columnPage = isInboxPlace(canvasPage) || canvasExempt;
   const pageCanvasOn =
     effective.pageCanvas &&
     chromeRequest === null &&
-    !isInboxPlace(canvasPage) &&
-    !canvasExempt;
+    (!columnPage || effective.pageCanvasColumns);
 
   /*
    * A scope control the open page has handed up to the bar.
@@ -2472,7 +2493,21 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         {...(legacyNav ? { "data-legacy-nav": "" } : {})}
         data-nav-theme={legacyNav ? legacyNavTheme : navTheme}
         className={cn(
-          "relative my-[var(--shell-canvas-gap)] ml-[var(--shell-canvas-gap)] flex min-h-0 self-stretch bg-nav shadow-[var(--shell-canvas-shadow),inset_0_0_0_1px_var(--nav-border)]",
+          "relative flex min-h-0 self-stretch",
+          /*
+            The card, or no card at all.
+
+            On the plane the nav declares no ground, no ring, no shadow and no
+            gap: it inherits `bg-pg` from the wrapper, so the left side and the
+            space around the page are one colour and the canvas is the only
+            thing floating. See NAV_ON_PLANE_DEFAULT for why that pairs with
+            `pageShell: "canvas"` — and for the consequence, which is that a
+            dark nav theme over a light page reads light, because the ground it
+            sits on is the page's.
+          */
+          navOnPlane
+            ? null
+            : "my-[var(--shell-canvas-gap)] ml-[var(--shell-canvas-gap)] bg-nav shadow-[var(--shell-canvas-shadow),inset_0_0_0_1px_var(--nav-border)]",
           /*
             The card's own level, and why the RAIL's cannot be set on the rail.
             
@@ -2507,9 +2542,13 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             and the bottom of the seam — the corner belonging to a card that, for
             as long as the panel is open, has no corner there.
           */
-          flyout.isMounted || launcher.isMounted
-            ? "rounded-l-[var(--shell-canvas-radius)]"
-            : "rounded-[var(--shell-canvas-radius)]",
+          // Nothing to round without a card. A radius on a transparent box
+          // only clips what is inside it, which here is the nav's own rows.
+          navOnPlane
+            ? null
+            : flyout.isMounted || launcher.isMounted
+              ? "rounded-l-[var(--shell-canvas-radius)]"
+              : "rounded-[var(--shell-canvas-radius)]",
         )}
       >
       {railActive ? (
@@ -3201,7 +3240,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       {layout.editing && railActive ? (
         <div
           aria-hidden="true"
-          style={{ width: railWidth + NAV_FLOAT_GAP }}
+          style={{ width: railWidth + navGutter }}
           className={cn(
             "motion-fade-in pointer-events-none absolute top-0 left-0 bottom-0 z-[31]",
             editRailScrim,
@@ -3250,7 +3289,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           <div
             aria-hidden="true"
             style={{
-              left: railWidth + NAV_FLOAT_GAP,
+              left: railWidth + navGutter,
               width: navWidth,
               backgroundImage: editNavMarginScrim,
             }}
@@ -3259,7 +3298,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           <div
             aria-hidden="true"
             style={{
-              left: railWidth + NAV_FLOAT_GAP,
+              left: railWidth + navGutter,
               width: navWidth,
               backgroundImage: editNavMarginScrim,
             }}
@@ -3295,7 +3334,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           <FlyoutPanel
             config={flyout.value}
             offsetLeft={leftOffset}
-            offsetTop={NAV_FLOAT_GAP}
+            offsetTop={navGutter}
             theme={navTheme}
             phase={flyout.phase}
             onPointerEnter={intent.cancelClear}
@@ -3435,7 +3474,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       {launcher.isMounted ? (
         <PinnedLauncher
           offsetLeft={leftOffset}
-          offsetTop={NAV_FLOAT_GAP}
+          offsetTop={navGutter}
           theme={navTheme}
           phase={launcher.phase}
           variant={launcher.value ?? "merged"}

@@ -435,6 +435,7 @@ export function AppHeader({
     recordBackPlace,
     barPageHeading,
     barHeadingScale,
+    headerEntrySide,
   } = useTheme().effective;
   /*
    * The page's own heading, drawn here only when there is no trail.
@@ -545,6 +546,24 @@ export function AppHeader({
   const [accountAnchor, setAccountAnchor] =
     React.useState<HTMLElement | null>(null);
 
+  /*
+   * The entry's box, defined once and stood at whichever end the axis names.
+   *
+   * 230px — wide enough for the placeholder and the keycap, narrow enough to
+   * leave the breadcrumb its room on a laptop. A reserved width only for the
+   * thing that needs one: where the entry is the Ask AI button rather than
+   * the search field, 230px is 200-odd pixels of nothing, so the slot hugs
+   * and gives the room back.
+   *
+   * One constant rather than the same JSX at both ends, so the two placements
+   * can only ever differ in where they are.
+   */
+  const entrySlot = entry ? (
+    <div className={cn("shrink-0", entryFills ? "w-[230px]" : "w-auto")}>
+      {entry}
+    </div>
+  ) : null;
+
   return (
     <header
       data-header-theme={theme}
@@ -611,6 +630,21 @@ export function AppHeader({
         is written out at `backInTrail` above, where the condition lives.
       */}
       <div className="flex h-full min-w-0 items-center gap-[4px]">
+        {/*
+          The entry at the head of the row, when the axis puts it there.
+
+          First, ahead of the record's back arrow and Home, because it is not
+          part of the trail — it is a standing control that happens to be on
+          the same line, and dropping it between the arrow and the path would
+          put a search field inside the reading order of a breadcrumb.
+
+          The pairing this exists for is `crumbShown: false`: with the tree in
+          the column saying where you are, the trail's half of the bar is
+          empty and this is what fills it. With the trail on, the two share
+          the row — worth being able to look at, since "does the trail still
+          fit" is the question the pairing asks.
+        */}
+        {entry && headerEntrySide === "left" ? entrySlot : null}
         {/*
           The page's heading, standing where the trail would have been.
 
@@ -851,23 +885,15 @@ export function AppHeader({
 
       <div className="flex shrink-0 items-center gap-[12px]">
         {/*
-          The merged pill, when the entry axis puts it here.
+          The merged pill, when the entry axis puts it up here and leaves it
+          on this edge.
 
-          Nothing is duplicated by it: the nav gives the control up entirely in
-          this arrangement, so this is the same single entry point standing
-          somewhere else. 230px — wide enough for the placeholder and the
-          keycap, narrow enough to leave the breadcrumb its room on a laptop.
-
-          A reserved width, though, only for the thing that needs one. Where the
-          entry is the Ask AI button rather than the search field, 230px is
-          200-odd pixels of nothing between the breadcrumb and the utilities —
-          so the slot hugs and gives the room back to the trail.
+          Nothing is duplicated by it: the nav gives the control up entirely
+          in this arrangement, so this is the same single entry point standing
+          somewhere else. The box itself is `entrySlot`, shared with the
+          other placement — see its note for the width.
         */}
-        {entry ? (
-          <div className={cn("shrink-0", entryFills ? "w-[230px]" : "w-auto")}>
-            {entry}
-          </div>
-        ) : null}
+        {entry && headerEntrySide === "right" ? entrySlot : null}
 
         <div className="flex shrink-0 items-center gap-[8px]">
           {/*
