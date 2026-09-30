@@ -599,7 +599,12 @@ function ContactsPageBody() {
         {sortPopover}
       </span>
       <GlyphButton icon={Settings} label="Manage fields" onClick={openFields} />
-      <CollapsingSearch placeholder="Search Contacts" label="Search contacts" />
+      <CollapsingSearch
+        placeholder="Search contacts"
+        label="Search contacts"
+        value={query}
+        onChange={setQuery}
+      />
     </>
   );
 

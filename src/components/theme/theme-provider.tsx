@@ -77,6 +77,8 @@ import type {
   CrumbCollapse,
   CrumbStart,
   CrumbEmphasis,
+  NavArrangement,
+  ScopedSwitch,
   CrumbIcons,
   CrumbScale,
   TreeSearchPlace,
@@ -166,6 +168,7 @@ interface ThemeContextValue extends ThemeState {
   setEntryLayout: (layout: EntryLayout) => void;
   setGetAppPlacement: (placement: GetAppPlacement) => void;
   setAgencySearch: (enabled: boolean) => void;
+  setAgencyNavMark: (shown: boolean) => void;
   setFlyoutTrigger: (trigger: FlyoutTrigger) => void;
   setSelectedState: (state: SelectedState) => void;
   setSelectedMark: (mark: SelectedMark) => void;
@@ -225,7 +228,8 @@ interface ThemeContextValue extends ThemeState {
   setPageCount: (on: boolean) => void;
   setPageHeader: (on: boolean) => void;
   setStickyDashboardBar: (on: boolean) => void;
-  setNavProductTree: (on: boolean) => void;
+  setNavArrangement: (v: NavArrangement) => void;
+  setScopedSwitch: (v: ScopedSwitch) => void;
   setNavTreeCounts: (on: boolean) => void;
   setTreeIcons: (v: TreeIcons) => void;
   setTreeRecentsAllProducts: (on: boolean) => void;
@@ -433,6 +437,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, getAppPlacement })),
       setAgencySearch: (agencySearch) =>
         setState((s) => ({ ...s, agencySearch })),
+      setAgencyNavMark: (agencyNavMark) =>
+        setState((s) => ({ ...s, agencyNavMark })),
       setFlyoutTrigger: (flyoutTrigger) => setState((s) => ({ ...s, flyoutTrigger })),
       setSelectedState: (selectedState) =>
         setState((s) => ({ ...s, selectedState })),
@@ -536,27 +542,22 @@ export function ThemeProvider({
       setPageHeader: (pageHeader) => setState((s) => ({ ...s, pageHeader })),
       setStickyDashboardBar: (stickyDashboardBar) =>
         setState((s) => ({ ...s, stickyDashboardBar })),
-      setNavProductTree: (navProductTree) =>
+      setNavArrangement: (navArrangement) =>
         setState((s) => ({
           ...s,
-          navProductTree,
+          navArrangement,
           /*
-           * The tree marks the row only; the flyout nav marks the trail.
-           *
-           * In the tree the ancestors are on screen and already open, so
-           * lighting them too says a second time what the disclosure has
-           * said — and on a deep branch it paints a column of rows none of
-           * which is the page you are on. The flyout arrangement has the
-           * opposite problem (its ancestors are the only thing on screen),
-           * which is why it keeps `trail`.
-           *
-           * Written rather than derived so the knob stays live: this is the
-           * default the arrangement arrives with, not a rule it enforces. It
-           * is handed back on the way out so leaving the tree does not leave
-           * the flyout nav wearing a mark it never chose.
+           * The arrangement used to write `selectedState` on its way in — leaf
+           * for the tree, trail for the flyout — and that stopped when the axis
+           * grew to four values (Sep 30). Two of the four now put ancestors on
+           * screen and two do not, so there is no single answer to hand over,
+           * and `ends` (the current default) is a sensible mark in all of them.
+           * A control that silently rewrites its neighbour is also the thing
+           * that made the record header look broken; once is enough.
            */
-          selectedState: navProductTree ? "leaf" : "trail",
         })),
+      setScopedSwitch: (scopedSwitch) =>
+        setState((s) => ({ ...s, scopedSwitch })),
       setNavTreeCounts: (navTreeCounts) =>
         setState((s) => ({ ...s, navTreeCounts })),
       setTreeIcons: (treeIcons) => setState((s) => ({ ...s, treeIcons })),

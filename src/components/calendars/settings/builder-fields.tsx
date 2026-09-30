@@ -202,65 +202,31 @@ export function RichTextEditor({
     setBlock(BLOCKS.some((b) => b.value === v) ? v : "p");
   };
 
-  const tool = (icon: LucideIcon, label: string, onClick: () => void) => {
-    const Icon = icon;
-    return (
-      <button
-        key={label}
-        type="button"
-        aria-label={label}
-        title={label}
-        // Keep the selection in the editor: a mousedown on the button would
-        // otherwise blur it and the command would land on nothing.
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={onClick}
-        className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[6px] text-pg-text-strong hover:bg-pg hover:text-pg-heading"
-      >
-        <Icon size={16} aria-hidden="true" />
-      </button>
-    );
-  };
-
-  const colorTool = (icon: LucideIcon, label: string, cmd: string, fallback: string) => {
-    const Icon = icon;
-    return (
-      <label
-        key={label}
-        title={label}
-        onMouseDown={(e) => e.preventDefault()}
-        className="motion-tap relative flex size-[28px] shrink-0 cursor-pointer items-center justify-center rounded-[6px] text-pg-text-strong hover:bg-pg"
-      >
-        <Icon size={16} aria-hidden="true" />
-        <input
-          type="color"
-          aria-label={label}
-          defaultValue={fallback}
-          onChange={(e) => run(cmd, e.target.value)}
-          className="absolute inset-0 cursor-pointer opacity-0"
-        />
-      </label>
-    );
-  };
-
-  const AlignIcon = ALIGNS[align]!.icon;
-
   return (
     <div className="flex flex-col gap-[8px]">
       <div className="flex flex-wrap items-center gap-[4px] rounded-[8px] bg-pg-surface px-[8px] py-[4px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
-        {tool(Bold, "Bold", () => run("bold"))}
-        {tool(Italic, "Italic", () => run("italic"))}
-        {tool(Underline, "Underline", () => run("underline"))}
-        {tool(Strikethrough, "Strikethrough", () => run("strikeThrough"))}
-        {tool(Link2, "Insert link", () => {
-          const url = window.prompt("Link URL", "https://");
-          if (url) run("createLink", url);
-        })}
-        {tool(RemoveFormatting, "Clear formatting", () => {
-          run("removeFormat");
-          run("unlink");
-        })}
-        {colorTool(Baseline, "Text color", "foreColor", "#101828")}
-        {colorTool(Highlighter, "Highlight", "hiliteColor", "#fef08a")}
+        <ToolButton icon={Bold} label="Bold" onClick={() => run("bold")} />
+        <ToolButton icon={Italic} label="Italic" onClick={() => run("italic")} />
+        <ToolButton icon={Underline} label="Underline" onClick={() => run("underline")} />
+        <ToolButton icon={Strikethrough} label="Strikethrough" onClick={() => run("strikeThrough")} />
+        <ToolButton
+          icon={Link2}
+          label="Insert link"
+          onClick={() => {
+            const url = window.prompt("Link URL", "https://");
+            if (url) run("createLink", url);
+          }}
+        />
+        <ToolButton
+          icon={RemoveFormatting}
+          label="Clear formatting"
+          onClick={() => {
+            run("removeFormat");
+            run("unlink");
+          }}
+        />
+        <ColorTool icon={Baseline} label="Text color" fallback="#101828" onPick={(c) => run("foreColor", c)} />
+        <ColorTool icon={Highlighter} label="Highlight" fallback="#fef08a" onPick={(c) => run("hiliteColor", c)} />
         <label className="relative ml-[2px] flex w-[184px] items-center">
           <select
             value={block}
@@ -284,14 +250,18 @@ export function RichTextEditor({
           />
         </label>
         <span aria-hidden="true" className="mx-[4px] h-[18px] w-px bg-[var(--pg-border)]" />
-        {tool(AlignIcon, ALIGNS[align]!.label, () => {
-          // One button that steps left → center → right, as the live toolbar's.
-          const next = (align + 1) % ALIGNS.length;
-          setAlign(next);
-          run(ALIGNS[next]!.cmd);
-        })}
-        {tool(List, "Bulleted list", () => run("insertUnorderedList"))}
-        {tool(ListOrdered, "Numbered list", () => run("insertOrderedList"))}
+        <ToolButton
+          icon={ALIGNS[align]!.icon}
+          label={ALIGNS[align]!.label}
+          onClick={() => {
+            // One button that steps left → center → right, as the live toolbar's.
+            const next = (align + 1) % ALIGNS.length;
+            setAlign(next);
+            run(ALIGNS[next]!.cmd);
+          }}
+        />
+        <ToolButton icon={List} label="Bulleted list" onClick={() => run("insertUnorderedList")} />
+        <ToolButton icon={ListOrdered} label="Numbered list" onClick={() => run("insertOrderedList")} />
       </div>
       <div className="relative">
         {isBlank(value) && placeholder ? (
@@ -314,5 +284,59 @@ export function RichTextEditor({
         />
       </div>
     </div>
+  );
+}
+
+function ToolButton({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      // Keep the selection in the editor: a mousedown on the button would
+      // otherwise blur it and the command would land on nothing.
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+      className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[6px] text-pg-text-strong hover:bg-pg hover:text-pg-heading"
+    >
+      <Icon size={16} aria-hidden="true" />
+    </button>
+  );
+}
+
+/** A glyph over an invisible native colour input — text colour, highlight. */
+function ColorTool({
+  icon: Icon,
+  label,
+  fallback,
+  onPick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  fallback: string;
+  onPick: (color: string) => void;
+}) {
+  return (
+    <label
+      title={label}
+      className="motion-tap relative flex size-[28px] shrink-0 cursor-pointer items-center justify-center rounded-[6px] text-pg-text-strong hover:bg-pg"
+    >
+      <Icon size={16} aria-hidden="true" />
+      <input
+        type="color"
+        aria-label={label}
+        defaultValue={fallback}
+        onChange={(e) => onPick(e.target.value)}
+        className="absolute inset-0 cursor-pointer opacity-0"
+      />
+    </label>
   );
 }

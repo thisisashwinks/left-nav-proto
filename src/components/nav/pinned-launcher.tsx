@@ -143,7 +143,7 @@ export function PinnedLauncher({
     productDirectoryRow,
     recentsPanelLayout,
     getAppPlacement,
-    navProductTree,
+    navArrangement,
     treeRecentsAllProducts,
   } = useTheme().effective;
   const agency = useAgencyLayout();
@@ -224,7 +224,7 @@ export function PinnedLauncher({
     // the catalogue shows whatever `split` says — otherwise the one row left
     // in the nav would open an empty surface.
     keptHidden ||
-    (!split && (!navProductTree || treeRecentsAllProducts));
+    (!split && (navArrangement !== "tree" || treeRecentsAllProducts));
   /*
    * One panel, two corpora, a switcher between them.
    *

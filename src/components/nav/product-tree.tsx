@@ -16,7 +16,7 @@ import {
   type NavLayoutState,
   type ResolvedGroup,
 } from "./grouping";
-import { useHere, type Marking } from "./here";
+import { useHere, type Marking, type NavLevel } from "./here";
 import { NavItemRow, type NavRowEdit } from "./nav-item-row";
 import { liftedChildren } from "./nav-entries";
 import { isPinnable, WithPin } from "./with-pin";
@@ -522,6 +522,7 @@ export function ProductTreeBranch({
   markFor,
   rowEdit,
   seamFor,
+  l2Depth = 1,
 }: {
   nodes: readonly TreeNode[];
   /** 1 for a product under a group, 2 for its pages, 3 for theirs. */
@@ -534,7 +535,19 @@ export function ProductTreeBranch({
    * (`useMarking`) and these rows are a recursive loop — the face reads the
    * axis once and hands down the pure function it produced.
    */
-  markFor: (isHere: boolean, isTrail: boolean) => Marking;
+  markFor: (isHere: boolean, isTrail: boolean, level?: NavLevel) => Marking;
+  /**
+   * Which `depth` is the PRODUCT level, when it is not 1.
+   *
+   * In the tree the branch hangs under a group row, so its products are one
+   * indent step in and `depth` 1 is L2. The drill-in and scoped arrangements
+   * (Sep 30) give a category the whole column: their products start flush at
+   * `depth` 0, with the group named by a back button or a header above the
+   * list rather than by a row in it. Everything that asks "is this row a
+   * product" — the marking level, the here/trail test, which levels lose
+   * their glyphs — reads this rather than the literal 1.
+   */
+  l2Depth?: number;
   /**
    * What editing offers on a row of this branch, or undefined outside the mode.
    *
@@ -585,7 +598,7 @@ export function ProductTreeBranch({
   const glyphless =
     treeIcons === "none" ||
     treeIcons === "rails" ||
-    (treeIcons === "hide-l3" && depth >= 2);
+    (treeIcons === "hide-l3" && depth > l2Depth);
   return (
     <>
       {nodes.map((node, index) => {
@@ -597,11 +610,11 @@ export function ProductTreeBranch({
          * both read as the destination.
          */
         const isHere =
-          depth === 1
+          depth === l2Depth
             ? node.id === here.productId && here.childId === null
             : node.id === here.childId;
         const isTrail =
-          (depth === 1 && node.id === here.productId) ||
+          (depth === l2Depth && node.id === here.productId) ||
           (here.childId !== null &&
             (node.children?.some((kid) => kid.id === here.childId) ?? false));
         const item: NavItem = {
@@ -651,7 +664,9 @@ export function ProductTreeBranch({
            * and colouring by it would have been a distinction nobody could
            * ever see.
            */
-          ...(treeIcons === "rails" ? { rails: depth } : {}),
+          ...(treeIcons === "rails" && depth - l2Depth + 1 > 0
+            ? { rails: depth - l2Depth + 1 }
+            : {}),
         };
         const edit = rowEdit?.(node.id, depth);
         /*
@@ -667,7 +682,11 @@ export function ProductTreeBranch({
         const row = (
           <NavItemRow
               item={item}
-              marking={markFor(isHere, isTrail)}
+              /*
+                Depth 1 is the product — the level `ends` leaves unpainted
+                while the page is one of its own. Everything deeper is a page.
+              */
+              marking={markFor(isHere, isTrail, depth === l2Depth ? "l2" : "l3")}
               {...(edit ? { edit } : {})}
               onSelect={() => {
                 /*
@@ -718,6 +737,7 @@ export function ProductTreeBranch({
                 onToggle={onToggle}
                 onSelect={onSelect}
                 markFor={markFor}
+                l2Depth={l2Depth}
                 {...(rowEdit ? { rowEdit } : {})}
               />
             ) : null}

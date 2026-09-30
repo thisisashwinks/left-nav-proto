@@ -137,6 +137,12 @@ import {
 } from "@/components/shell/top-banner";
 import { AUTO_COLLAPSE_WIDTH, trimTrail } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
+import {
+  PageCanvas,
+  PAGE_CANVAS_HOST,
+  isInboxPlace,
+  usePageCanvasExempt,
+} from "@/components/shell/page-canvas";
 import { useTuning } from "@/components/tuning/tuning-provider";
 import { cn } from "@/lib/utils";
 import { useExitTransition } from "@/lib/use-exit-transition";
@@ -239,11 +245,22 @@ const crumbLabel = (s: string | Crumb) => (typeof s === "string" ? s : s.label);
  */
 function collapseRepeats(
   segments: readonly (string | Crumb)[],
+  /**
+   * Leave the LAST pair alone even when it repeats.
+   *
+   * For `crumbLeaf: "title"`: the leaf leaves the bar for the page title, so
+   * "CRM ▸ Opportunities ▸ Opportunities" is not said twice on screen — the
+   * bar reads CRM ▸ Opportunities (the product) and the title reads
+   * Opportunities ▾ (the page, with its siblings). Collapsing first would
+   * have handed the title the only "Opportunities" and left the bar at CRM.
+   */
+  keepTail = false,
 ): (string | Crumb)[] {
   const work = [...segments];
   return work.reduce<(string | Crumb)[]>((kept, segment, i) => {
     const next = work[i + 1];
-    if (!next || crumbLabel(segment) !== crumbLabel(next)) {
+    const tailPair = keepTail && i === work.length - 2;
+    if (!next || tailPair || crumbLabel(segment) !== crumbLabel(next)) {
       kept.push(segment);
       return kept;
     }
@@ -1645,6 +1662,20 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    */
   const navDropped = chromeHonoured && chromeRequest.sidebar === "drop";
   const barDropped = chromeHonoured && chromeRequest.topBar === "drop";
+  /*
+   * The centre canvas (page-canvas.tsx), for every page but two kinds.
+   *
+   * Builders are the pages that asked the shell to stand down — the raw ask,
+   * not `chromeHonoured`, so a builder stays edge-to-edge in nav edit mode
+   * too. The inbox is recognised by its place, since it asks for nothing.
+   */
+  // Column-layout pages (a contact record, Ask AI) opt out themselves.
+  const canvasExempt = usePageCanvasExempt();
+  const pageCanvasOn =
+    effective.pageCanvas &&
+    chromeRequest === null &&
+    !isInboxPlace(canvasPage) &&
+    !canvasExempt;
 
   /*
    * A scope control the open page has handed up to the bar.
@@ -1745,6 +1776,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     [recordCrumb, recordCrumbLabel, recordCrumbShown],
   );
 
+  // The trail's leaf moves onto the page title (see `leafCrumb` below).
+  const leafToTitle =
+    crumbLeaf === "title" && crumbShown && crumbSwitchers !== "off";
   const productCrumbs = React.useMemo((): (string | Crumb)[] => {
     const productId = canvasPage?.productId ?? "contacts";
     const childId = canvasPage?.childId ?? null;
@@ -1899,8 +1933,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
      * the compound-child option has to apply it again after folding. Same
      * code, same argument; only the address changed.
      */
-    return collapseRepeats(segments);
+    return collapseRepeats(segments, leafToTitle);
   }, [
+    leafToTitle,
     canvasPage,
     groups,
     productLabelFor,
@@ -2041,12 +2076,83 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const here = React.useMemo(
     () =>
       agencyScope
-        ? { productId: selectedId, childId: null }
-        : {
-            productId: canvasPage?.productId ?? null,
-            childId: canvasPage?.childId ?? null,
-          },
-    [agencyScope, selectedId, canvasPage],
+        ? /*
+           * The agency's position, resolved to the same two slots the account
+           * scope fills (Sep 30).
+           *
+           * It used to publish `{ productId: selectedId }` and nothing else,
+           * which left two of the three levels unable to answer for
+           * themselves: `childId` was always null, so an L3 row in a panel
+           * could never be the page; and a bucket could not tell that the row
+           * selected inside it was its own, so an L1 never lit either. What
+           * marked at all was the L2, by the accident of being the one level
+           * whose id happened to land in the slot it compares against.
+           *
+           * `agencyPlaces` already knows the shape — `parent` is the L2 above
+           * an L3 — so the mapping is the one the index was built for: an L3
+           * puts its parent in `productId` and itself in `childId`, everything
+           * else is a place in its own right.
+           */
+          (() => {
+            const place = selectedId ? agencyPlaces[selectedId] : undefined;
+            return place?.parent
+              ? { productId: place.parent.id, childId: selectedId }
+              : { productId: selectedId, childId: null };
+          })()
+        : /*
+           * The account's position, including the case where there is no page
+           * object to read one out of (Sep 30).
+           *
+           * `productPage` is null on three account-scope canvases, and null
+           * was being published as "nowhere" — so the nav marked nothing at
+           * all. The one that gets hit constantly is Contacts: it is a
+           * catalogue product with NO children, so `openProduct` short-
+           * circuits to `setProductPage(null)` and hands the hand-built page
+           * to the shell as `children`. Click Contacts in Recents and the row
+           * you just pressed stayed unlit — the exact case an L2 with nothing
+           * under it should light, because on it there is no L3 to carry the
+           * mark instead.
+           *
+           * Not fixed by giving `canvasPage` a value: that null is the signal
+           * telling the shell to render the hand-built page rather than a
+           * registry entry. So the position is named here instead, by the same
+           * three questions the canvas itself asks, in the same order.
+           */
+          (() => {
+            if (canvasPage) {
+              return {
+                productId: canvasPage.productId,
+                childId: canvasPage.childId ?? null,
+              };
+            }
+            // The two canvases the shell keys off the selected row rather
+            // than off a page: they ARE that row, so it is the position.
+            if (
+              businessProfileShowing ||
+              selectedId === GET_APP_ROW_IDS.mobile ||
+              selectedId === GET_APP_ROW_IDS.desktop
+            ) {
+              return { productId: selectedId, childId: null };
+            }
+            /*
+             * Otherwise the canvas is showing Contacts, which is what the
+             * shipped accounts open on and what `openProduct` sends you back
+             * to. The proposed tree has no `contacts` product — it files the
+             * same page under its own id and always has a page object for it
+             * — so it gets null rather than an id no row answers to.
+             */
+            return {
+              productId: layout.grouping === "proposed" ? null : "contacts",
+              childId: null,
+            };
+          })(),
+    [
+      agencyScope,
+      selectedId,
+      canvasPage,
+      businessProfileShowing,
+      layout.grouping,
+    ],
   );
 
   /*
@@ -2139,7 +2245,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * reader sees rather than an intermediate one with a repetition in it.
    */
   const folded = crumbCompoundChild
-    ? collapseRepeats(foldGenericChildren(builtCrumbs))
+    ? collapseRepeats(foldGenericChildren(builtCrumbs), leafToTitle)
     : builtCrumbs;
 
   /*
@@ -2154,7 +2260,18 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * Applied here rather than in the bar because two surfaces draw this array,
    * the bar and a builder's own row — see `trimTrail`.
    */
-  const crumbs = trimTrail(folded, crumbDepth);
+  const trimmed = trimTrail(folded, crumbDepth);
+  /*
+   * Inside a builder there is no path, only the thing being built.
+   *
+   * Sep 30: a builder names its subject — the workflow, the voice agent, the
+   * funnel page — and nothing above it. The bar (when a builder keeps it)
+   * prints that one crumb, and the builder's own rows get no trail at all,
+   * because every builder already prints its subject's name in its own row.
+   * The exit is still how you leave; a trail was a second way out that only
+   * ever said where you had come from.
+   */
+  const crumbs = chromeHonoured ? trimmed.slice(-1) : trimmed;
 
   /**
    * The leaf, handed down to the page title under `crumbLeaf: "title"`.
@@ -2260,7 +2377,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     active: chromeHonoured ? chromeRequest : null,
     request: setChromeRequest,
     exit: pageExit,
-    trail: barDropped ? crumbs : NO_TRAIL,
+    // Builders get no trail — see `crumbs` above.
+    trail: NO_TRAIL,
   };
 
   return (
@@ -2898,7 +3016,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               than the plane, is what reads as floating.
             */}
             <div
-              className={cn(
+              className={pageCanvasOn ? PAGE_CANVAS_HOST : cn(
                 "min-h-0 flex-1 overflow-auto",
                 barInCanvas
                   ? // Inside the joined card the surface is already there, so all
@@ -2909,6 +3027,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                   : "m-[var(--shell-canvas-gap)] rounded-[var(--shell-canvas-radius)] shadow-[inset_0_0_0_1px_var(--shell-canvas-ring)]",
               )}
             >
+              <PageCanvas enabled={pageCanvasOn}>
               {pending ? (
                 <CanvasSkeleton />
               ) : canvasPage?.productId === PROPOSED_ASK_AI_ID ? (
@@ -3020,6 +3139,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               ) : (
                 children
               )}
+              </PageCanvas>
             </div>
           </ContactsAreaProvider>
           </LeafCrumbContext.Provider>

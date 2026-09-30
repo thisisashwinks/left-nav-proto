@@ -257,6 +257,7 @@ function LocationRow({
 function StaffPicker({ value, onChange }: { value: string[]; onChange: (ids: string[]) => void }) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
+  const listId = React.useId();
   const shown = STAFF.filter((s) => s.name.toLowerCase().includes(query.trim().toLowerCase()));
   const toggle = (id: string) =>
     onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
@@ -266,6 +267,7 @@ function StaffPicker({ value, onChange }: { value: string[]; onChange: (ids: str
       <div
         role="combobox"
         aria-expanded={open}
+        aria-controls={listId}
         aria-haspopup="listbox"
         aria-label="Select staff member"
         tabIndex={0}
@@ -326,6 +328,7 @@ function StaffPicker({ value, onChange }: { value: string[]; onChange: (ids: str
             className="fixed inset-0 z-30 cursor-default"
           />
           <div
+            id={listId}
             role="listbox"
             aria-multiselectable="true"
             className="absolute top-[calc(100%+4px)] right-0 left-0 z-40 flex flex-col rounded-[8px] bg-pg-surface p-[4px] shadow-[0_12px_16px_-4px_rgba(16,24,40,0.08),0_4px_6px_-2px_rgba(16,24,40,0.03),inset_0_0_0_1px_var(--pg-border)]"

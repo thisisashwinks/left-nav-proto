@@ -22,6 +22,11 @@ import {
   PageHeader,
 } from "@/components/page/page-header";
 import { useListShape } from "@/components/page/list-shape";
+import {
+  ListToolbar,
+  useListToolbar,
+  type ListToolbarModel,
+} from "@/components/page/list-toolbar";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import {
@@ -49,7 +54,27 @@ const SORTS: { id: Sort; label: string }[] = [
   { id: "size", label: "Largest first" },
 ];
 
-const LIST_COLS = "2.6fr 0.8fr 0.8fr 1fr 40px";
+/*
+ * The list view's columns, for the column picker. The download button's 40px
+ * track is row furniture and is appended after whatever survives; with nothing
+ * hidden this rebuilds the original "2.6fr 0.8fr 0.8fr 1fr 40px" grid.
+ */
+const LIST_COLUMNS = [
+  { id: "name", label: "Name", width: "2.6fr", locked: true },
+  { id: "type", label: "Type", width: "0.8fr" },
+  { id: "size", label: "Size", width: "0.8fr" },
+  { id: "modified", label: "Modified", width: "1fr" },
+] as const;
+
+type ListColumn = (typeof LIST_COLUMNS)[number]["id"];
+
+/** Each page sort as the shared toolbar's field + direction pair. */
+const SORT_AS_PAIR: Record<Sort, { field: string; dir: "asc" | "desc" }> = {
+  newest: { field: "modified", dir: "desc" },
+  oldest: { field: "modified", dir: "asc" },
+  name: { field: "name", dir: "asc" },
+  size: { field: "size", dir: "desc" },
+};
 
 /**
  * CRM ▸ Media Storage — every asset the account has uploaded.
@@ -74,6 +99,16 @@ export function MediaStoragePage() {
   const [query, setQuery] = React.useState("");
   const [foldersOpen, setFoldersOpen] = React.useState(true);
   const [picked, setPicked] = React.useState<string[]>([]);
+  /*
+   * Whether the shared toolbar reversed the page's sort (Name Z–A, smallest
+   * first). The page's own Sort menu only offers the four natural orders, so
+   * picking from it resets this.
+   */
+  const [sortFlipped, setSortFlipped] = React.useState(false);
+  const [hidden, setHidden] = React.useState<ReadonlySet<ListColumn>>(
+    () => new Set(),
+  );
+  const { shared } = useListToolbar();
 
   const files = React.useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -82,7 +117,7 @@ export function MediaStoragePage() {
         (kind === "all" || f.kind === kind) &&
         (!q || f.name.toLowerCase().includes(q)),
     );
-    if (sort === "newest") return hits;
+    if (sort === "newest") return sortFlipped ? [...hits].reverse() : hits;
     const sorted = [...hits];
     if (sort === "oldest") sorted.reverse();
     if (sort === "name") sorted.sort((a, b) => a.name.localeCompare(b.name));
@@ -96,8 +131,8 @@ export function MediaStoragePage() {
       };
       sorted.sort((a, b) => bytes(b.size) - bytes(a.size));
     }
-    return sorted;
-  }, [kind, query, sort]);
+    return sortFlipped ? sorted.reverse() : sorted;
+  }, [kind, query, sort, sortFlipped]);
 
   const toggle = (id: string) =>
     setPicked((current) =>
@@ -105,6 +140,113 @@ export function MediaStoragePage() {
         ? current.filter((x) => x !== id)
         : [...current, id],
     );
+
+  /* Grid / list — how the rows are drawn, so it stays in the band in every variant. */
+  const viewToggle = (
+    <div
+      role="tablist"
+      aria-label="Media views"
+      className="flex shrink-0 items-center gap-[2px] rounded-[9px] bg-pg-surface p-[3px] shadow-[inset_0_0_0_1px_var(--pg-border)]"
+    >
+      {(
+        [
+          { id: "grid", label: "Grid", icon: Grid2x2 },
+          { id: "list", label: "List", icon: List },
+        ] as const
+      ).map((v) => {
+        const on = v.id === view;
+        return (
+          <button
+            key={v.id}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            aria-label={v.label}
+            title={v.label}
+            onClick={() => setView(v.id)}
+            className={cn(
+              "motion-tap flex size-[26px] items-center justify-center rounded-[7px]",
+              on
+                ? "bg-pg-bg text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border)]"
+                : "text-pg-muted hover:text-pg-text",
+            )}
+          >
+            <v.icon size={15} aria-hidden="true" />
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const toolbarModel: ListToolbarModel = {
+    views: {
+      items: SCOPES.map((sc) => ({ id: sc.id, label: sc.label })),
+      activeId: scope,
+      onSelect: (id) => setScope(id as Scope),
+      noun: "library",
+    },
+    search: {
+      value: query,
+      onChange: setQuery,
+      placeholder: "Search the entire media library or explore stock images",
+    },
+    quickFilters: [
+      {
+        id: "kind",
+        label: "Type",
+        options: MEDIA_KINDS.filter((k) => k.id !== "all").map((k) => ({
+          value: k.id,
+          label: k.label,
+        })),
+        value: kind === "all" ? [] : [kind],
+        onChange: (v) => setKind((v[v.length - 1] as MediaKind | undefined) ?? "all"),
+      },
+    ],
+    sort: {
+      fields: [
+        { value: "modified", label: "Modified" },
+        { value: "name", label: "Name" },
+        { value: "size", label: "Size" },
+      ],
+      value: {
+        field: SORT_AS_PAIR[sort].field,
+        dir:
+          sortFlipped === (SORT_AS_PAIR[sort].dir === "asc") ? "desc" : "asc",
+      },
+      onChange: (v) => {
+        if (!v || v.field === "modified") {
+          setSort(!v || v.dir === "desc" ? "newest" : "oldest");
+          setSortFlipped(false);
+          return;
+        }
+        const next = v.field as Sort;
+        setSort(next);
+        setSortFlipped(v.dir !== SORT_AS_PAIR[next].dir);
+      },
+    },
+    // Columns only mean something in the list view; the grid has none.
+    columns:
+      view === "list"
+        ? {
+            items: LIST_COLUMNS.map((c) => ({
+              id: c.id,
+              label: c.label,
+              visible: !hidden.has(c.id),
+              locked: "locked" in c ? c.locked : undefined,
+            })),
+            onChange: (items) =>
+              setHidden(
+                new Set(
+                  items
+                    .filter((i) => !i.visible && !i.locked)
+                    .map((i) => i.id as ListColumn),
+                ),
+              ),
+          }
+        : undefined,
+    resultCount: { value: files.length, noun: "files" },
+    trailing: viewToggle,
+  };
 
   return (
     <div
@@ -146,6 +288,7 @@ export function MediaStoragePage() {
       />
 
       {/* The filter band: scope, search, order, type, and how it is drawn. */}
+      {shared ? null : (
       <div className="flex shrink-0 flex-wrap items-center gap-[10px]">
         <Select
           label="Scope"
@@ -175,7 +318,10 @@ export function MediaStoragePage() {
           label="Sort"
           value={SORTS.find((s) => s.id === sort)!.label}
           options={SORTS}
-          onPick={(id) => setSort(id as Sort)}
+          onPick={(id) => {
+            setSort(id as Sort);
+            setSortFlipped(false);
+          }}
           width="w-[210px]"
         />
         <Select
@@ -186,40 +332,26 @@ export function MediaStoragePage() {
           width="w-[130px]"
         />
 
-        <div
-          role="tablist"
-          aria-label="Media views"
-          className="flex shrink-0 items-center gap-[2px] rounded-[9px] bg-pg-surface p-[3px] shadow-[inset_0_0_0_1px_var(--pg-border)]"
-        >
-          {(
-            [
-              { id: "grid", label: "Grid", icon: Grid2x2 },
-              { id: "list", label: "List", icon: List },
-            ] as const
-          ).map((v) => {
-            const on = v.id === view;
-            return (
-              <button
-                key={v.id}
-                type="button"
-                role="tab"
-                aria-selected={on}
-                aria-label={v.label}
-                title={v.label}
-                onClick={() => setView(v.id)}
-                className={cn(
-                  "motion-tap flex size-[26px] items-center justify-center rounded-[7px]",
-                  on
-                    ? "bg-pg-bg text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border)]"
-                    : "text-pg-muted hover:text-pg-text",
-                )}
-              >
-                <v.icon size={15} aria-hidden="true" />
-              </button>
-            );
-          })}
-        </div>
+        {viewToggle}
       </div>
+      )}
+
+      {shared ? (
+        <ListToolbar model={toolbarModel}>
+          <div className="flex min-h-0 flex-1 flex-col gap-[14px]">
+            {content()}
+          </div>
+        </ListToolbar>
+      ) : (
+        content()
+      )}
+    </div>
+  );
+
+  /* The selection bar, folders, and files — under whichever toolbar is drawn. */
+  function content() {
+    return (
+      <>
 
       {/*
         The selection bar replaces nothing and hides nothing.
@@ -318,11 +450,17 @@ export function MediaStoragePage() {
             ))}
           </div>
         ) : (
-          <MediaList files={files} picked={picked} onToggle={toggle} />
+          <MediaList
+            files={files}
+            picked={picked}
+            onToggle={toggle}
+            hidden={hidden}
+          />
         )}
       </div>
-    </div>
-  );
+      </>
+    );
+  }
 }
 
 /* ─── The tiles ─────────────────────────────────────────────────────────── */
@@ -419,18 +557,22 @@ function MediaList({
   files,
   picked,
   onToggle,
+  hidden,
 }: {
   files: MediaFile[];
   picked: string[];
   onToggle: (id: string) => void;
+  hidden: ReadonlySet<ListColumn>;
 }) {
+  const visible = LIST_COLUMNS.filter((c) => !hidden.has(c.id));
+  const listCols = `${visible.map((c) => c.width).join(" ")} 40px`;
   return (
     <div className="overflow-hidden rounded-[10px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
       <div
-        style={{ gridTemplateColumns: LIST_COLS }}
+        style={{ gridTemplateColumns: listCols }}
         className="grid h-[38px] items-center gap-[16px] border-b border-pg-head-border px-[16px]"
       >
-        {["Name", "Type", "Size", "Modified", ""].map((h, i) => (
+        {[...visible.map((c) => c.label), ""].map((h, i) => (
           <span
             key={h || `blank-${i}`}
             className="text-[12px] leading-[normal] font-medium whitespace-nowrap text-pg-muted"
@@ -444,7 +586,7 @@ function MediaList({
         return (
           <div
             key={file.id}
-            style={{ gridTemplateColumns: LIST_COLS }}
+            style={{ gridTemplateColumns: listCols }}
             className={cn(
               "grid min-h-[44px] items-center gap-[16px] border-b border-pg-row-border px-[16px] last:border-b-0 hover:bg-pg-row-border/60",
               on && "bg-brand-soft/60",
@@ -464,15 +606,21 @@ function MediaList({
                 {file.name}
               </span>
             </button>
-            <span className="text-[13px] leading-[18px] text-pg-muted">
-              {KIND_BADGE[file.kind]}
-            </span>
-            <span className="text-[13px] leading-[18px] text-pg-muted tabular-nums">
-              {file.size}
-            </span>
-            <span className="truncate text-[13px] leading-[18px] text-pg-muted">
-              {file.modified}
-            </span>
+            {hidden.has("type") ? null : (
+              <span className="text-[13px] leading-[18px] text-pg-muted">
+                {KIND_BADGE[file.kind]}
+              </span>
+            )}
+            {hidden.has("size") ? null : (
+              <span className="text-[13px] leading-[18px] text-pg-muted tabular-nums">
+                {file.size}
+              </span>
+            )}
+            {hidden.has("modified") ? null : (
+              <span className="truncate text-[13px] leading-[18px] text-pg-muted">
+                {file.modified}
+              </span>
+            )}
             <span className="flex justify-end">
               <button
                 type="button"

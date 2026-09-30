@@ -3,8 +3,19 @@
 Agency › SaaS › SaaS configurator › **Plans**. How a SaaS plan hands a
 navigation layout to the sub-accounts on it.
 
-Surface: `src/components/settings/saas-configurator-page.tsx` (`PlansTab`).
+Surfaces:
+- `settings/saas-configurator-page.tsx` — the SaaS dashboard and plan list.
+- `settings/saas-plan-editor.tsx` — one plan, seven tabs. The template
+  attaches on **Features**, beside Attach snapshot and Custom menu links.
+- `settings/attach-template-modal.tsx` — the picker.
+- `settings/saas-plans-data.ts` — plans and feature areas.
+
 Store: `src/components/nav/nav-templates.tsx`. Axes: `src/design/theme.ts`.
+
+**Rebuilt Sep 30 against production screenshots.** The first cut put the
+decision on three tier cards with a layout picker on each — a sketch of the
+model rather than of the screen, and a control production does not have. The
+shape below is the real one.
 
 ## Goal
 
@@ -42,47 +53,74 @@ below is the shipped one.
 | 6 | **Library management sits on each template row** | `templateActionHome: "on-row"` | The picker carrying its own rename/duplicate/delete is the shorter path (Sep 16). The alternative — a pure picker with library work behind "Manage templates" — is one switch away and argued in the axis note. |
 | 7 | **Sub-accounts are not notified of a push** | `templatePushNotice: false` | The person seeing that card did not make the change and cannot undo it. The agency manages navigation; the client uses it. |
 | 8 | **No undo on the receipt** | `templateUndo: false` | Every destructive move is behind a dialog naming a count, and an undo standing behind the dialog invites the dialog to be skimmed. **This decision depends on #9 existing.** |
-| 9 | **Attaching to a plan is confirmed, with its reach broken down** | `AttachTemplateDialog` | Added Sep 29. See below. |
+| 9 | **Attaching states its reach before the press** | `AttachTemplateModal` | The count of accounts it rewrites sits next to the Save button. See below. |
 | 10 | **New products appear in every template, and are marked** | `templateNewProductMark: true` | A product added to the catalogue lands in every template at its default position — the alternative is a template that silently never shows new products. The row carries a count so the agency can look once and decide. |
 
-## The attach confirmation (#9)
+## Where the template attaches (#9)
 
-Attaching is the largest destructive act in the product: one selection
-rewrites the navigation of every sub-account on the tier. It previously ran
-straight off the picker's `onChange` — no dialog, no count, no way back.
+On the plan editor's **Features** tab, as a third attachment button beside
+Attach snapshot and Custom menu links. To the agency it is the same errand as
+those two — decide what a new sub-account on this plan arrives holding — so it
+is the same control in the same row, and the modal wears the same header.
 
-A dialog now stages the pick and reports **reach**, split three ways:
+Three differences from the two beside it, each deliberate:
 
-- `replaced` — on a different layout, or none. Overwritten.
-- `drifted` — on this template but edited since, or never reached by a push. Reset.
-- `unchanged` — already holding it. Untouched.
+1. **Single select.** A plan hands out one navigation, so the list is radios,
+   not the links modal's checkboxes. "HighLevel default" is a row in that list
+   rather than a Remove button, because detaching is a choice between
+   arrangements, not a destructive act needing its own control.
+2. **It reaches accounts that already exist.** A snapshot is copied into an
+   account once at creation and never touched again. A template keeps being
+   managed — saving it later re-arranges every account on it. So attaching is
+   not only a decision about joiners.
+3. **It states its reach.** When the pick would change accounts already on the
+   plan, a line above the footer names how many, warns it cannot be undone,
+   and repeats that leaving the plan later restores nothing.
 
-The split is the point. "Applies to 41 sub-accounts" reads as 41 accounts
-being helped; the number that decides the press is how many of those have a
-nav somebody deliberately changed. The confirm button names the number it will
-change and is painted destructive **only when that number is non-zero**.
+**Reach** is counted three ways — `replaced` (on another layout, or none),
+`drifted` (on this template but edited since), `unchanged`. The split is the
+point: "applies to 41 sub-accounts" reads as 41 accounts being helped; the
+number that decides the press is how many have a nav somebody deliberately
+changed.
 
-**Detaching is not confirmed.** Choosing "HighLevel default" changes nobody's
-nav — it only stops the plan handing one out to joiners. A dialog over a
-harmless press is how dialogs stop being read.
+**No second confirm dialog.** The Sep 29 cut had one, because there the
+gesture was a `<select>` firing on change — a press nobody had agreed to.
+Here the agency is already inside a modal they opened on purpose and will
+press a button labelled with what it does, so a dialog over it would be
+confirming a confirmation. The count moved next to the button instead.
 
-**An empty plan still confirms**, with different copy: nothing is destroyed,
-but the attach is not a no-op either. It arms the plan for joiners.
+**Attached state.** The button becomes a chip naming the template with a
+remove beside it — production's own pattern on the snapshot button. The plan
+list also reads both attachments out on each row, because that is where plans
+get compared and "which of these gives the client a nav" is otherwise
+invisible until you open all three.
 
 ## Scope
 
-- Per-tier navigation layout picker on the Plans tab.
-- Attach applies to everyone on the tier + arms the tier for joiners.
-- Attach confirmation with reach breakdown.
-- Detach (→ HighLevel default), unconfirmed.
+- SaaS dashboard: seven tabs, **Plans & pricing** built.
+- Plan list: name, category, product ID, prices, trial, credits, both
+  attachments, Edit details.
+- Plan editor: seven tabs, **Plan details** and **Features** built.
+- Features tab: entitlement table with per-area counts and Enable all, search,
+  and the three attachment controls.
+- Templates modal: single select, reach warning, attached chip with remove.
+- Attach applies to everyone on the plan + arms the plan for joiners.
+- Detach (→ HighLevel default) with no warning; it changes nobody's nav.
 - Zero state when the agency has no templates.
 - Toast reporting how far an attach reached.
 
 ## Non-goals
 
-- The other three configurator tabs — **Pricing, Rebilling, Trials are
-  `ProductionStubTab`**. If the P0 covers them, that is most of the work and a
-  separate spec.
+- **Ten of the fourteen tabs are `ProductionStubTab`**: five dashboard tabs
+  (Advanced settings, Security, Configure, Cancellation settings, Downgrade
+  settings, Automatic Tax) and five plan tabs (Pricing, Addons, Marketplace
+  apps, Trial and credits, Rebilling). If the P0 covers them, that is most of
+  the work and a separate spec.
+- The feature table does not expand to individual features, and its toggles
+  are read-only. It is context for where the template button lives, not the
+  entitlement editor.
+- Attach snapshot and Custom menu links open nothing — they are drawn so the
+  Templates button has neighbours to be consistent with.
 - Persistence, real entitlements, billing.
 - Per-account override of a plan's layout (that is the nav's own edit mode).
 - Scheduling or staged rollout of an attach.

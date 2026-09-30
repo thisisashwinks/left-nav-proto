@@ -26,6 +26,11 @@ import { SideDrawer } from "@/components/page/side-drawer";
 import { TableCard, usePagination } from "@/components/page/table-card";
 import { showToast } from "@/components/page/toast";
 import { ViewBar } from "@/components/page/view-bar";
+import {
+  ListToolbar,
+  useListToolbar,
+  type ListToolbarModel,
+} from "@/components/page/list-toolbar";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import {
@@ -44,8 +49,19 @@ import {
 export type { AuditEntry } from "./audit-logs-data";
 
 const HEAD = "text-[12px] leading-[normal] font-medium whitespace-nowrap text-pg-muted";
-const COLS = "1.7fr 1fr 1fr 1.5fr 1.3fr 32px";
-const COLS_SELECT = `20px ${COLS}`;
+/** The log table's columns; `name` is locked, the rest can be hidden. */
+const LOG_COLUMNS: { id: string; label: string; width: string; locked?: boolean }[] = [
+  { id: "name", label: "Name", width: "1.7fr", locked: true },
+  { id: "module", label: "Module", width: "1fr" },
+  { id: "action", label: "Action", width: "1fr" },
+  { id: "by", label: "Done by", width: "1.5fr" },
+  { id: "at", label: "Date and time", width: "1.3fr" },
+];
+
+const LOG_SORT_FIELDS = [
+  { value: "at", label: "Date and time" },
+  { value: "name", label: "Name" },
+];
 const EXPORT_COLS = "2fr 1.3fr 1.2fr 0.9fr 110px";
 
 const DEFAULT_FROM = "2026-07-31";
@@ -126,9 +142,15 @@ export function AuditLogsPage({
   const [selected, setSelected] = React.useState<Set<string>>(() => new Set());
   const [confirming, setConfirming] = React.useState<string[] | null>(null);
 
+  // Sort and column visibility only have controls under the shared toolbar.
+  const { shared } = useListToolbar();
+  const [sort, setSort] = React.useState<{ field: string; dir: "asc" | "desc" } | null>(null);
+  const [hiddenCols, setHiddenCols] = React.useState<Set<string>>(() => new Set());
+  const activeSort = shared ? sort : null;
+
   const rows = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    return entries.filter((e) => {
+    const found = entries.filter((e) => {
       if (q && !e.docId.toLowerCase().includes(q) && !e.name.toLowerCase().includes(q)) return false;
       if (users.size > 0 && !users.has(e.by.name)) return false;
       if (moduleFilter !== ALL && e.module !== moduleFilter) return false;
@@ -138,7 +160,14 @@ export function AuditLogsPage({
       if (to && day > to) return false;
       return true;
     });
-  }, [entries, query, users, moduleFilter, action, from, to]);
+    if (!activeSort) return found;
+    const sign = activeSort.dir === "asc" ? 1 : -1;
+    return [...found].sort(
+      (a, b) =>
+        (activeSort.field === "name" ? a.name.localeCompare(b.name) : a.at.localeCompare(b.at)) *
+        sign,
+    );
+  }, [entries, query, users, moduleFilter, action, from, to, activeSort]);
 
   const pager = usePagination(rows, 20);
   const selecting = action === "Deleted";
@@ -232,7 +261,57 @@ export function AuditLogsPage({
     setTo(DEFAULT_TO);
   };
 
-  const cols = selecting ? COLS_SELECT : COLS;
+  const hidden = shared ? hiddenCols : undefined;
+  const shownCols = LOG_COLUMNS.filter((c) => c.locked || !hidden?.has(c.id));
+  const baseCols = `${shownCols.map((c) => c.width).join(" ")} 32px`;
+  const cols = selecting ? `20px ${baseCols}` : baseCols;
+
+  const model = React.useMemo<ListToolbarModel>(
+    () => ({
+      search: { value: query, onChange: setQuery, placeholder: "Search by document ID" },
+      quickFilters: [
+        {
+          id: "users",
+          label: "Users",
+          icon: User,
+          multiple: true,
+          options: AUDIT_USERS.map((u) => ({ value: u.name, label: u.name })),
+          value: [...users],
+          onChange: (v) => setUsers(new Set(v)),
+        },
+        {
+          id: "module",
+          label: "Module",
+          options: AUDIT_MODULES.map((m) => ({ value: m, label: m })),
+          value: moduleFilter === ALL ? [] : [moduleFilter],
+          onChange: (v) => setModuleFilter(v[0] ?? ALL),
+        },
+        {
+          id: "action",
+          label: "Action",
+          options: AUDIT_ACTIONS.map((a) => ({ value: a, label: a })),
+          value: action === ALL ? [] : [action],
+          onChange: (v) => {
+            setAction(v[0] ?? ALL);
+            setSelected(new Set());
+          },
+        },
+      ],
+      sort: { fields: LOG_SORT_FIELDS, value: sort, onChange: setSort },
+      columns: {
+        items: LOG_COLUMNS.map((c) => ({
+          id: c.id,
+          label: c.label,
+          visible: c.locked || !hiddenCols.has(c.id),
+          locked: c.locked,
+        })),
+        onChange: (items) =>
+          setHiddenCols(new Set(items.filter((i) => !i.visible && !i.locked).map((i) => i.id))),
+      },
+      resultCount: { value: rows.length, noun: rows.length === 1 ? "entry" : "entries" },
+    }),
+    [query, users, moduleFilter, action, sort, hiddenCols, rows.length],
+  );
 
   return (
     <div className="relative flex h-full min-h-0 flex-col gap-[14px] px-[var(--page-inset)]">
@@ -282,123 +361,148 @@ export function AuditLogsPage({
         <ExportsTable jobs={jobs} />
       ) : (
         <>
-          <div className="flex shrink-0 flex-wrap items-center gap-[8px] rounded-[10px] bg-pg-surface p-[12px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
-            <div className="relative w-[240px]">
-              <Search
-                size={15}
-                aria-hidden="true"
-                className="pointer-events-none absolute top-1/2 left-[11px] -translate-y-1/2 text-pg-faint"
-              />
-              <TextInput
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by document ID"
-                aria-label="Search by document ID"
-                className="pl-[32px]"
-              />
+          {shared ? (
+            /*
+             * The shared toolbar draws search, users, module, and action; the
+             * date range has no slot there, so it keeps a row of its own.
+             */
+            <div className="flex shrink-0 flex-wrap items-center gap-[8px]">
+              <DateRange from={from} to={to} onFrom={setFrom} onTo={setTo} />
+              {filtered ? (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="motion-tap ml-auto rounded-[6px] px-[8px] py-[6px] text-[13px] leading-[18px] font-medium text-brand hover:bg-brand-soft"
+                >
+                  Clear filters
+                </button>
+              ) : null}
             </div>
-            <UserPicker value={users} onChange={setUsers} />
-            <Select
-              aria-label="Module"
-              className="w-[170px]"
-              value={moduleFilter}
-              onChange={setModuleFilter}
-              options={[
-                { value: ALL, label: "All modules" },
-                ...AUDIT_MODULES.map((m) => ({ value: m, label: m })),
-              ]}
-            />
-            <Select
-              aria-label="Action"
-              className="w-[160px]"
-              value={action}
-              onChange={(v) => {
-                setAction(v);
-                setSelected(new Set());
-              }}
-              options={[
-                { value: ALL, label: "All actions" },
-                ...AUDIT_ACTIONS.map((a) => ({ value: a, label: a })),
-              ]}
-            />
-            <DateRange from={from} to={to} onFrom={setFrom} onTo={setTo} />
-            {filtered ? (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="motion-tap ml-auto rounded-[6px] px-[8px] py-[6px] text-[13px] leading-[18px] font-medium text-brand hover:bg-brand-soft"
-              >
-                Clear filters
-              </button>
-            ) : null}
-          </div>
-
-          <TableCard pager={pager}>
-            {selecting ? (
-              <div className="flex h-[48px] items-center justify-between gap-[12px] px-[16px] shadow-[inset_0_-1px_0_0_var(--pg-head-border)]">
-                <span className="text-[13px] leading-[18px] text-pg-muted">
-                  {liveSelected.length > 0
-                    ? `${liveSelected.length} selected`
-                    : "Select deleted records to restore them."}
-                </span>
-                <PrimaryButton
-                  disabled={liveSelected.length === 0}
-                  onClick={() => setConfirming(liveSelected)}
-                  className="disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none disabled:hover:brightness-100 disabled:active:scale-100"
+          ) : (
+            <div className="flex shrink-0 flex-wrap items-center gap-[8px] rounded-[10px] bg-pg-surface p-[12px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+              <div className="relative w-[240px]">
+                <Search
+                  size={15}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-1/2 left-[11px] -translate-y-1/2 text-pg-faint"
+                />
+                <TextInput
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search by document ID"
+                  aria-label="Search by document ID"
+                  className="pl-[32px]"
+                />
+              </div>
+              <UserPicker value={users} onChange={setUsers} />
+              <Select
+                aria-label="Module"
+                className="w-[170px]"
+                value={moduleFilter}
+                onChange={setModuleFilter}
+                options={[
+                  { value: ALL, label: "All modules" },
+                  ...AUDIT_MODULES.map((m) => ({ value: m, label: m })),
+                ]}
+              />
+              <Select
+                aria-label="Action"
+                className="w-[160px]"
+                value={action}
+                onChange={(v) => {
+                  setAction(v);
+                  setSelected(new Set());
+                }}
+                options={[
+                  { value: ALL, label: "All actions" },
+                  ...AUDIT_ACTIONS.map((a) => ({ value: a, label: a })),
+                ]}
+              />
+              <DateRange from={from} to={to} onFrom={setFrom} onTo={setTo} />
+              {filtered ? (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="motion-tap ml-auto rounded-[6px] px-[8px] py-[6px] text-[13px] leading-[18px] font-medium text-brand hover:bg-brand-soft"
                 >
-                  <RotateCcw size={15} aria-hidden="true" />
-                  {liveSelected.length > 1 ? `Restore (${liveSelected.length})` : "Restore"}
-                </PrimaryButton>
-              </div>
-            ) : null}
+                  Clear filters
+                </button>
+              ) : null}
+            </div>
+          )}
 
-            {rows.length === 0 ? (
-              <div className="flex h-[240px] flex-col items-center justify-center gap-[4px] px-[16px] text-center">
-                <p className="text-[14px] leading-[20px] font-semibold text-pg-heading">
-                  No activity matches these filters
-                </p>
-                <p className="text-[13px] leading-[18px] text-pg-muted">
-                  Try a wider date range or clear the filters.
-                </p>
-              </div>
-            ) : (
-              <div className="min-w-[860px]">
-                <div
-                  style={{ gridTemplateColumns: cols }}
-                  className="sticky top-0 z-10 grid h-[38px] items-center gap-[16px] border-b border-pg-head-border bg-pg-surface px-[16px]"
-                >
-                  {selecting ? (
-                    <Checkbox
-                      checked={allOnPage}
-                      mixed={!allOnPage && onPage > 0}
-                      disabled={pageIds.length === 0}
-                      onChange={togglePage}
-                    />
-                  ) : null}
-                  <span className={HEAD}>Name</span>
-                  <span className={HEAD}>Module</span>
-                  <span className={HEAD}>Action</span>
-                  <span className={HEAD}>Done by</span>
-                  <span className={HEAD}>Date and time</span>
-                  <span />
-                </div>
+          {(() => {
+            const table = (
+              <TableCard pager={pager}>
+                {selecting ? (
+                  <div className="flex h-[48px] items-center justify-between gap-[12px] px-[16px] shadow-[inset_0_-1px_0_0_var(--pg-head-border)]">
+                    <span className="text-[13px] leading-[18px] text-pg-muted">
+                      {liveSelected.length > 0
+                        ? `${liveSelected.length} selected`
+                        : "Select deleted records to restore them."}
+                    </span>
+                    <PrimaryButton
+                      disabled={liveSelected.length === 0}
+                      onClick={() => setConfirming(liveSelected)}
+                      className="disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none disabled:hover:brightness-100 disabled:active:scale-100"
+                    >
+                      <RotateCcw size={15} aria-hidden="true" />
+                      {liveSelected.length > 1 ? `Restore (${liveSelected.length})` : "Restore"}
+                    </PrimaryButton>
+                  </div>
+                ) : null}
 
-                {pager.pageRows.map((r) => (
-                  <Row
-                    key={r.id}
-                    entry={r}
-                    cols={cols}
-                    selecting={selecting}
-                    canSelect={restorable(r)}
-                    checked={selected.has(r.id)}
-                    active={r.id === openId}
-                    onToggle={(on) => toggle(r.id, on)}
-                    onOpen={() => setOpenId(r.id)}
-                  />
-                ))}
-              </div>
-            )}
-          </TableCard>
+                {rows.length === 0 ? (
+                  <div className="flex h-[240px] flex-col items-center justify-center gap-[4px] px-[16px] text-center">
+                    <p className="text-[14px] leading-[20px] font-semibold text-pg-heading">
+                      No activity matches these filters
+                    </p>
+                    <p className="text-[13px] leading-[18px] text-pg-muted">
+                      Try a wider date range or clear the filters.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="min-w-[860px]">
+                    <div
+                      style={{ gridTemplateColumns: cols }}
+                      className="sticky top-0 z-10 grid h-[38px] items-center gap-[16px] border-b border-pg-head-border bg-pg-surface px-[16px]"
+                    >
+                      {selecting ? (
+                        <Checkbox
+                          checked={allOnPage}
+                          mixed={!allOnPage && onPage > 0}
+                          disabled={pageIds.length === 0}
+                          onChange={togglePage}
+                        />
+                      ) : null}
+                      {shownCols.map((c) => (
+                        <span key={c.id} className={HEAD}>
+                          {c.label}
+                        </span>
+                      ))}
+                      <span />
+                    </div>
+
+                    {pager.pageRows.map((r) => (
+                      <Row
+                        key={r.id}
+                        entry={r}
+                        cols={cols}
+                        hidden={hidden}
+                        selecting={selecting}
+                        canSelect={restorable(r)}
+                        checked={selected.has(r.id)}
+                        active={r.id === openId}
+                        onToggle={(on) => toggle(r.id, on)}
+                        onOpen={() => setOpenId(r.id)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </TableCard>
+            );
+            return shared ? <ListToolbar model={model}>{table}</ListToolbar> : table;
+          })()}
         </>
       )}
 
@@ -429,6 +533,7 @@ export function AuditLogsPage({
 function Row({
   entry,
   cols,
+  hidden,
   selecting,
   canSelect,
   checked,
@@ -438,6 +543,8 @@ function Row({
 }: {
   entry: AuditEntry;
   cols: string;
+  /** Column ids switched off from the shared toolbar. */
+  hidden?: ReadonlySet<string>;
   selecting: boolean;
   canSelect: boolean;
   checked: boolean;
@@ -466,18 +573,24 @@ function Row({
           {entry.docId}
         </span>
       </span>
-      <span className="flex min-w-0 items-center gap-[8px] text-[14px] leading-[20px] text-pg-text">
-        <ModuleIcon size={15} aria-hidden="true" className="shrink-0 text-pg-muted" />
-        <span className="truncate">{entry.module}</span>
-      </span>
-      <span>
-        <ActionTag action={entry.action} />
-      </span>
-      <DoneBy by={entry.by} />
-      <span className="flex min-w-0 flex-col">
-        <span className="truncate text-[14px] leading-[20px] text-pg-text">{date}</span>
-        <span className="truncate text-[12px] leading-[16px] text-pg-muted">at {time}</span>
-      </span>
+      {hidden?.has("module") ? null : (
+        <span className="flex min-w-0 items-center gap-[8px] text-[14px] leading-[20px] text-pg-text">
+          <ModuleIcon size={15} aria-hidden="true" className="shrink-0 text-pg-muted" />
+          <span className="truncate">{entry.module}</span>
+        </span>
+      )}
+      {hidden?.has("action") ? null : (
+        <span>
+          <ActionTag action={entry.action} />
+        </span>
+      )}
+      {hidden?.has("by") ? null : <DoneBy by={entry.by} />}
+      {hidden?.has("at") ? null : (
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate text-[14px] leading-[20px] text-pg-text">{date}</span>
+          <span className="truncate text-[12px] leading-[16px] text-pg-muted">at {time}</span>
+        </span>
+      )}
       <button
         type="button"
         onClick={onOpen}

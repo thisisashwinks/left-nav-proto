@@ -166,8 +166,9 @@ export function CollapsedRail({
     mergedRecentFloor,
     getAppPlacement,
     agencySearch,
+    agencyNavMark,
     launchpad: launchpadSetting,
-    navProductTree,
+    navArrangement,
   } = useTheme().effective;
   /**
    * Whether this rail is the collapsed face of a TREE nav.
@@ -175,7 +176,16 @@ export function CollapsedRail({
    * Sub-account only, matching the gate in `left-nav.tsx` — the agency rail's
    * rows are buckets it already discloses in place when expanded.
    */
-  const productTree = navProductTree && !agencyScope;
+  /*
+   * The rail's own reading of the arrangement axis.
+   *
+   * `tree` is the one value that changes what 64px does — a door row hands the
+   * expanded face over already open on the branch. `drill` and `scoped` are
+   * about what the WIDE column does with its own width, and the rail has none
+   * to spend either way, so they behave exactly as the flyout arrangement does
+   * here rather than each inventing a 64px dialect of themselves.
+   */
+  const productTree = navArrangement === "tree" && !agencyScope;
   /*
    * The rail keeps its pinned icons under most of the merge, and loses them
    * under one option.
@@ -533,7 +543,13 @@ export function CollapsedRail({
         rail width is the account rail's job, one column left; the logo opening
         a second switcher here was the same door twice.
       */}
-      {canSwitch ? (
+      {/*
+        At agency scope the mark can be turned off entirely, because the
+        account rail one column left is already drawing it — the same reason
+        the expanded header can drop it. Nothing is lost but a second Expand
+        target: the button directly below does that job and says so.
+      */}
+      {agencyScope && !agencyNavMark ? null : canSwitch ? (
         <button
           type="button"
           title="Expand navigation"

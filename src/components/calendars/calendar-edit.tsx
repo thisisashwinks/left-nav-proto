@@ -2,23 +2,19 @@
 
 import * as React from "react";
 import {
-  Bold,
+  ArrowLeft,
   CalendarCog,
-  Check,
   ChevronRight,
-  Italic,
-  Link2,
-  List,
-  ListOrdered,
+  Forward,
   Lightbulb,
-  Share2,
-  Strikethrough,
-  Underline,
-  UploadCloud,
+  LoaderCircle,
   Wrench,
+  type LucideIcon,
 } from "lucide-react";
-import { PrimaryButton } from "@/components/page/page-header";
+import { Modal } from "@/components/page/modal";
+import { OutlineButton, PrimaryButton } from "@/components/page/page-header";
 import { useRecordCrumb } from "@/components/page/record-crumb";
+import { showToast } from "@/components/page/toast";
 import { useTheme } from "@/components/theme/theme-provider";
 import { useShellChrome } from "@/components/shell/full-bleed";
 import { BuilderTrail } from "@/components/shell/builder-trail";
@@ -28,9 +24,31 @@ import {
   IdentityIsland,
 } from "@/components/shell/floating-chrome";
 import { cn } from "@/lib/utils";
-import { GlyphButton, SelectButton } from "./calendar-chrome";
-import { editSections, meetingColors } from "./calendars-data";
-import type { BuilderTarget } from "./settings/cal-settings-store";
+import {
+  CALENDAR_TYPES,
+  calendarById,
+  createCalendar,
+  emptyDraft,
+  formatDuration,
+  saveCalendar,
+  slugTaken,
+  slugify,
+  useCalendar,
+  type BuilderTarget,
+  type CalendarDraft,
+} from "./settings/cal-settings-store";
+import type { SectionProps } from "./settings/edit-controls";
+import { BasicDetailsSection } from "./settings/edit-basic";
+import { StaffLocationSection } from "./settings/edit-staff";
+import { AvailabilitySection } from "./settings/edit-availability";
+import { BookingRulesSection } from "./settings/edit-rules";
+import { FormConfirmationSection } from "./settings/edit-form";
+import { PaymentsSection } from "./settings/edit-payments";
+import { NotificationsSection } from "./settings/edit-notifications";
+import { WidgetAppearanceSection } from "./settings/edit-widget";
+import { BookingChannelsSection } from "./settings/edit-channels";
+import { ShareCalendarModal } from "./settings/share-calendar-modal";
+import { TroubleshootView } from "./settings/troubleshoot-view";
 
 export interface CalendarEditProps {
   target: BuilderTarget;
@@ -39,25 +57,105 @@ export interface CalendarEditProps {
   onRetarget: (target: BuilderTarget) => void;
 }
 
+type SectionId =
+  | "basic"
+  | "staff"
+  | "availability"
+  | "rules"
+  | "form"
+  | "payments"
+  | "notifications"
+  | "widget"
+  | "channels";
+
+interface SectionDef {
+  id: SectionId;
+  label: string;
+  tip: string;
+  Body: (p: SectionProps) => React.ReactNode;
+}
+
+const CORE: SectionDef[] = [
+  {
+    id: "basic",
+    label: "Basic details",
+    tip: "Groups let you share one scheduling link for multiple calendars, allowing customers to choose and book from available options.",
+    Body: BasicDetailsSection,
+  },
+  {
+    id: "staff",
+    label: "Staff & location",
+    tip: "Choose Custom as the meeting location to enter any address or link of your choice.",
+    Body: StaffLocationSection,
+  },
+  {
+    id: "availability",
+    label: "Availability",
+    tip: "The timezone for meetings is set within the selected availability schedule.",
+    Body: AvailabilitySection,
+  },
+  {
+    id: "rules",
+    label: "Booking rules",
+    tip: "Booking rules apply to all meetings on this calendar, regardless of staff availability.",
+    Body: BookingRulesSection,
+  },
+];
+
+const ADVANCED: SectionDef[] = [
+  {
+    id: "form",
+    label: "Form & confirmation",
+    tip: "You can include custom contact fields in both form messages and form URLs.",
+    Body: FormConfirmationSection,
+  },
+  {
+    id: "payments",
+    label: "Payments",
+    tip: "Payments are collected during booking and must be completed before the meeting is confirmed.",
+    Body: PaymentsSection,
+  },
+  {
+    id: "notifications",
+    label: "Notifications & policies",
+    tip: "For advanced automation, use Workflows with Appointment Booked trigger.",
+    Body: NotificationsSection,
+  },
+  {
+    id: "widget",
+    label: "Widget appearance",
+    tip: "Language settings for the widget can be changed from Settings → Calendars → Preferences.",
+    Body: WidgetAppearanceSection,
+  },
+  {
+    id: "channels",
+    label: "Booking channels",
+    tip: "Setting up Google Organic Booking allows this calendar to receive bookings directly from Google Search.",
+    Body: BookingChannelsSection,
+  },
+];
+
+const ALL = [...CORE, ...ADVANCED];
+
+type Errors = NonNullable<SectionProps["errors"]>;
+
 /**
- * Screen 4: one calendar, opened for editing — as a builder.
+ * Calendar settings ▸ Calendars ▸ Create / Edit — the builder.
  *
- * It was a record page inside the shell until Sep 23, on the argument that a
- * settings form has no canvas and taking the sidebar away strands an operator
- * inside a form. That argument lost to what the screen actually is: a
- * full-width bar, a section rail, a Save at the right edge and a form that
- * wants the width — the same shape as the funnel page editor, which is a
- * builder. A screen that looks like a builder and behaves like one should ask
- * the shell the same question the others ask, and be judged by the same
- * answers.
+ * It asks the shell the same five questions every builder in the prototype
+ * asks (keep the sidebar, keep the top bar, where the controls go, which
+ * exit, rows or floating), so one switch in the tuning panel answers them for
+ * this screen too. Inside that chrome it is the live product's shape: a
+ * section rail with its quick tip, and one section's card at a time.
  *
- * So it reads the identical five axes: keep the sidebar, keep the top bar,
- * where the controls go, which exit, and rows versus floating. A reviewer
- * flips one switch in the tuning panel and every builder in the prototype —
- * this one now included — answers it the same way.
+ * The draft is local until Save. Every section writes it through one
+ * `patch`, the rail only changes which card is visible — all nine stay
+ * mounted, so half-typed state inside a section (a revealed label field, a
+ * recurrence count) survives a trip to another section and back.
  */
-export function CalendarEdit({ target, onBack }: CalendarEditProps) {
-  const calendar = { name: target.calendarId ? "Calendar" : "Create", group: "" };
+export function CalendarEdit({ target, onBack, onRetarget }: CalendarEditProps) {
+  const calendarId = target.calendarId;
+  const saved = useCalendar(calendarId);
   const {
     appTheme,
     builderKeepSidebar,
@@ -66,21 +164,94 @@ export function CalendarEdit({ target, onBack }: CalendarEditProps) {
     builderExit,
     builderChromeStyle,
   } = useTheme().effective;
-  const [section, setSection] = React.useState("service");
-  const [color, setColor] = React.useState(meetingColors[0]!.id);
+
+  const [draft, setDraft] = React.useState<CalendarDraft>(() =>
+    target.calendarId === null
+      ? target.draft
+      : structuredClone(calendarById(target.calendarId)?.draft ?? emptyDraft()),
+  );
+  const [baseline, setBaseline] = React.useState(draft);
+  // A new calendar's slug follows its name until someone edits the slug.
+  const [slugTouched, setSlugTouched] = React.useState(
+    () => !!target.calendarId || (draft.slug !== "" && draft.slug !== slugify(draft.name)),
+  );
+  const [errors, setErrors] = React.useState<Errors>({});
+  const [section, setSection] = React.useState<SectionId>("basic");
+  const [advancedOpen, setAdvancedOpen] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+  const [confirmLeave, setConfirmLeave] = React.useState(false);
+  const [sharing, setSharing] = React.useState(false);
+  const [troubleshooting, setTroubleshooting] = React.useState(false);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  const dirty = React.useMemo(
+    () => JSON.stringify(draft) !== JSON.stringify(baseline),
+    [draft, baseline],
+  );
+
+  const patch = React.useCallback(
+    (p: Partial<CalendarDraft>) => {
+      const follow = !slugTouched && !calendarId && p.name !== undefined && p.slug === undefined;
+      setDraft((d) => ({ ...d, ...p, ...(follow ? { slug: slugify(p.name!) } : {}) }));
+      if (p.slug !== undefined) setSlugTouched(true);
+      // Editing a field clears its error; the rest wait for the next Save.
+      setErrors((e) => {
+        const touched = Object.keys(p).concat(follow ? ["slug"] : []);
+        if (!touched.some((k) => k in e)) return e;
+        const next = { ...e };
+        for (const k of touched) delete next[k as keyof CalendarDraft];
+        return next;
+      });
+    },
+    [slugTouched, calendarId],
+  );
+
+  const go = (id: SectionId) => {
+    setSection(id);
+    if (ADVANCED.some((s) => s.id === id)) setAdvancedOpen(true);
+    scrollRef.current?.scrollTo({ top: 0 });
+  };
+
+  const requestBack = () => (dirty ? setConfirmLeave(true) : onBack());
+
+  const save = () => {
+    if (saving) return;
+    const found: Errors = {};
+    if (!draft.name.trim()) found.name = "Please enter a name";
+    if (!draft.slug.trim()) found.slug = "Slug is required";
+    else if (slugTaken(draft.slug, calendarId ?? undefined)) found.slug = "This URL is already in use";
+    if (Object.keys(found).length) {
+      setErrors(found);
+      go("basic");
+      showToast("Fix the highlighted fields to save.");
+      return;
+    }
+    setErrors({});
+    setSaving(true);
+    // A beat of spinner, as live — an instant save reads as nothing happened.
+    window.setTimeout(() => {
+      setSaving(false);
+      setBaseline(draft);
+      if (calendarId) {
+        saveCalendar(calendarId, draft);
+        showToast("Changes saved");
+      } else if (target.calendarId === null) {
+        const cal = createCalendar(target.type, draft);
+        setSlugTouched(true);
+        onRetarget({ calendarId: cal.id });
+        showToast("Calendar created");
+      }
+    }, 450);
+  };
+
+  const title = calendarId ? `Edit - ${saved?.draft.name ?? draft.name}` : "Create";
+  const type = saved?.type ?? (target.calendarId === null ? target.type : "personal");
+  const typeLabel = CALENDAR_TYPES.find((t) => t.id === type)?.label ?? "";
 
   /*
-   * The floating style, and the one builder in the study with the weakest
-   * case for it — recorded rather than hidden.
-   *
-   * Islands work by letting the canvas run underneath them: you pan the
-   * artifact out from under an island and nothing is lost. A form does not
-   * pan. It scrolls in a column, and an island over a column of fields sits
-   * on a field. So this page floats only the two islands that have somewhere
-   * safe to sit — identity top-left over the rail, commitment top-right over
-   * the gutter beside the form — and never a tool palette or a zoom control,
-   * which would have nothing to act on. It is the honest answer to "does
-   * floating generalise", and the answer is: partly.
+   * Floating keeps only the two islands that have somewhere safe to sit —
+   * identity over the rail, commitment over the gutter beside the form. A
+   * form scrolls in a column, so an island anywhere else would sit on a field.
    */
   const floating = builderChromeStyle === "floating";
 
@@ -88,59 +259,93 @@ export function CalendarEdit({ target, onBack }: CalendarEditProps) {
     sidebar: builderKeepSidebar ? "keep" : "drop",
     topBar: builderKeepTopBar ? "keep" : "drop",
     exit: builderExit,
-    onExit: onBack,
-    backLabel: "Back to calendars",
+    onExit: requestBack,
+    backLabel: "Back to calendars list",
     collapseSidebar: true,
   });
 
-  useRecordCrumb(calendar.name, onBack);
+  useRecordCrumb(calendarId ? (saved?.draft.name ?? "Calendar") : "Create", requestBack);
 
-  /* The commitment side. Always right, in every combination. */
   const commitActions = (
-    <div className="flex shrink-0 items-center gap-[8px]">
-      <GlyphButton icon={Share2} label={`Share ${calendar.name}`} tone="text" />
-      <GlyphButton
+    <div className="flex shrink-0 items-center gap-[12px]">
+      <TipButton icon={Forward} label="Share calendar" onClick={() => setSharing(true)} />
+      <TipButton
         icon={Wrench}
-        label={`Advanced configuration for ${calendar.name}`}
-        tone="text"
+        label="Troubleshoot calendar"
+        onClick={() => setTroubleshooting(true)}
       />
-      <PrimaryButton>Save changes</PrimaryButton>
+      <PrimaryButton
+        onClick={save}
+        aria-busy={saving || undefined}
+        className="h-[36px] text-[14px] leading-[20px]"
+      >
+        {saving ? <LoaderCircle size={16} aria-hidden="true" className="animate-spin" /> : null}
+        Save changes
+      </PrimaryButton>
       {/* The shell hands a ✕ down only under the "Close" exit. */}
       {!floating && builderExit === "close" ? exit : null}
     </div>
   );
 
-  /* An arrow is a navigation move, so it leads the topmost row. Null whenever
-     the sidebar survived or the shell kept a bar to hang it in itself. */
-  const leadingExit = builderExit === "back" ? exit : null;
+  /*
+   * The shell hands the page an exit only when it has no bar to hang one in.
+   * Under "back" the page draws it as the live product's text link rather
+   * than the bare arrow — same move, same gate, just the label spelled out.
+   */
+  const leadingExit =
+    builderExit === "back" && exit ? (
+      <button
+        type="button"
+        onClick={requestBack}
+        className="motion-tap flex shrink-0 items-center gap-[8px] rounded-[6px] px-[4px] py-[4px] text-[14px] leading-[20px] text-pg-text hover:text-pg-heading"
+      >
+        <ArrowLeft size={16} aria-hidden="true" />
+        Back to calendars list
+      </button>
+    ) : null;
 
   const builderRow = (leading?: React.ReactNode) => (
-    <div className="flex h-[46px] shrink-0 items-center gap-[12px] border-b border-pg-head-border px-[14px]">
-      {leading ? (
-        <div className="flex min-w-0 items-center gap-[10px]">{leading}</div>
-      ) : null}
-      <span className="truncate text-[14px] leading-[normal] font-semibold text-pg-heading">
-        {calendar.name}
-      </span>
-      <div className="min-w-0 flex-1" />
-      {commitActions}
+    <div className="grid h-[56px] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-[12px] border-b border-pg-head-border bg-pg-surface px-[16px]">
+      <div className="flex min-w-0 items-center gap-[10px]">{leading}</div>
+      <h1 className="max-w-[40vw] truncate text-center text-[16px] leading-[24px] font-medium text-pg-heading">
+        {title}
+      </h1>
+      <div className="flex min-w-0 justify-end">{commitActions}</div>
     </div>
   );
 
+  const current = ALL.find((s) => s.id === section)!;
+  const advancedLit = ADVANCED.some((s) => s.id === section);
+
+  const railItem = (s: SectionDef) => {
+    const on = s.id === section;
+    return (
+      <button
+        key={s.id}
+        type="button"
+        aria-current={on ? "page" : undefined}
+        onClick={() => go(s.id)}
+        className={cn(
+          "motion-tap flex h-[40px] w-full items-center rounded-[6px] px-[22px] text-left text-[14px] leading-[20px]",
+          on ? "bg-brand-soft font-medium text-brand" : "text-pg-text hover:bg-pg-surface",
+        )}
+      >
+        <span className="truncate">{s.label}</span>
+      </button>
+    );
+  };
+
   return (
-    <div
-      data-page-theme={appTheme}
-      className="relative flex h-full min-h-0 flex-col bg-pg-surface"
-    >
+    <div data-page-theme={appTheme} className="relative flex h-full min-h-0 flex-col bg-pg">
       {floating ? null : !barHidden ? (
         builderRow()
       ) : builderControls === "back-only" ? (
         builderRow(leadingExit)
       ) : builderControls === "split-rows" ? (
         <>
-          <div className="flex h-[34px] shrink-0 items-center gap-[10px] border-b border-pg-border px-[14px]">
+          <div className="flex h-[34px] shrink-0 items-center gap-[10px] border-b border-pg-border bg-pg-surface px-[14px]">
             {leadingExit}
-            <BuilderTrail trail={trail} onLeave={onBack} />
+            <BuilderTrail trail={trail} onLeave={requestBack} />
           </div>
           {builderRow()}
         </>
@@ -148,7 +353,7 @@ export function CalendarEdit({ target, onBack }: CalendarEditProps) {
         builderRow(
           <>
             {leadingExit}
-            <BuilderTrail trail={trail} onLeave={onBack} />
+            <BuilderTrail trail={trail} onLeave={requestBack} />
           </>,
         )
       )}
@@ -158,9 +363,9 @@ export function CalendarEdit({ target, onBack }: CalendarEditProps) {
           topLeft={
             <IdentityIsland
               icon={CalendarCog}
-              name={calendar.name}
+              name={title}
               trail={barHidden ? trail : []}
-              onLeave={onBack}
+              onLeave={requestBack}
               exit={exit}
             />
           }
@@ -168,253 +373,137 @@ export function CalendarEdit({ target, onBack }: CalendarEditProps) {
         />
       ) : null}
 
-      <div
-        className={cn(
-          /*
-           * Capped and centred, rather than run to the window's edge.
-           *
-           * The form is a column of fields with a measure of its own — around
-           * 680px, which is where a text input stops being comfortable to
-           * read across. Letting the card stretch to a 2,560px monitor did
-           * not give that column anything; it gave it a kilometre of empty
-           * card to its right, and pushed the section rail so far from the
-           * fields it was governing that the two stopped reading as one
-           * screen. The cap hugs the content and the auto margins keep it in
-           * the middle of the canvas, so the page looks deliberate at any
-           * width instead of merely stretched.
-           */
-          "mx-auto flex w-full max-w-[1040px] min-h-0 flex-1 gap-[12px] px-[14px] pb-[14px]",
-          // Under floating, the top band of the page is where the islands
-          // are, so the form starts below them rather than under them.
-          floating ? "pt-[66px]" : "pt-[12px]",
-        )}
-      >
-        <div className="flex w-[238px] shrink-0 flex-col gap-[10px]">
-          <nav
-            aria-label="Calendar settings sections"
-            className="flex flex-col gap-[2px] overflow-hidden rounded-[12px] bg-pg-surface p-[8px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]"
-          >
-            {editSections.map((s) => {
-              const on = s.id === section;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  aria-current={on ? "page" : undefined}
-                  onClick={() => setSection(s.id)}
-                  className={cn(
-                    "motion-tap flex items-center gap-[8px] rounded-[8px] px-[10px] py-[8px] text-left",
-                    on
-                      ? "bg-brand-soft font-semibold text-brand"
-                      : "font-medium text-pg-text hover:bg-pg-bg",
-                  )}
-                >
-                  <span className="min-w-0 flex-1 truncate text-[13px] leading-[18px]">
-                    {s.label}
-                  </span>
-                  {s.deep ? (
-                    <ChevronRight
-                      size={14}
-                      aria-hidden="true"
-                      className={cn("shrink-0", on ? "text-brand" : "text-pg-faint")}
-                    />
-                  ) : null}
-                </button>
-              );
-            })}
-          </nav>
-
-          {/*
-            The tip card, under the rail rather than beside the field it is
-            about. It is advice about the whole form, not about one input, and
-            an inline hint next to Custom URL would have claimed otherwise.
-          */}
-          <div className="flex flex-col gap-[6px] rounded-[12px] bg-pg-bg p-[12px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
-            <span className="flex items-center gap-[7px] text-[12.5px] leading-[17px] font-semibold text-pg-heading">
-              <Lightbulb size={15} aria-hidden="true" className="text-brand" />
-              Quick tip
-            </span>
-            <p className="text-[12px] leading-[17px] text-pg-muted">
-              Keep the service name short — it is what a contact sees on the
-              booking widget and in the calendar invite.
-            </p>
-          </div>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-auto rounded-[12px] bg-pg-surface p-[20px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
-          <div className="flex max-w-[680px] flex-col gap-[18px]">
-            <Field label="Service logo">
-              {/*
-                A dropzone, and the dimension line is part of the control, not
-                a hint under it. A 180×180 cap that lives outside the box is a
-                rule you read after you have already dragged the wrong file in.
-              */}
-              <div className="flex flex-col items-center gap-[6px] rounded-[10px] border border-dashed border-pg-border-strong bg-pg-bg px-[16px] py-[22px]">
-                <span className="flex size-[36px] items-center justify-center rounded-[10px] bg-pg-surface text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border)]">
-                  <UploadCloud size={18} aria-hidden="true" />
-                </span>
-                <span className="text-[13px] leading-[18px] text-pg-text">
-                  <span className="font-semibold text-brand">
-                    Click to upload
-                  </span>{" "}
-                  or drag and drop
-                </span>
-                <span className="text-[12px] leading-[16px] text-pg-faint">
-                  PNG, JPEG, JPG or GIF (max. dimensions 180×180px)
-                </span>
-              </div>
-            </Field>
-
-            <Field label="Service name" required>
-              <TextInput value={calendar.name} />
-            </Field>
-
-            <Field label="Description">
-              <div className="overflow-hidden rounded-[8px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-border)]">
-                <div className="flex items-center gap-[1px] border-b border-pg-row-border bg-pg-bg px-[6px] py-[4px]">
-                  <SelectButton
-                    label="Text style"
-                    value="Normal"
-                    className="h-[26px] border-0 bg-transparent px-[8px] text-[12.5px] shadow-none hover:shadow-none"
-                  />
-                  <span
-                    aria-hidden="true"
-                    className="mx-[4px] h-[16px] w-px bg-pg-border"
-                  />
-                  {[
-                    { icon: Bold, label: "Bold" },
-                    { icon: Italic, label: "Italic" },
-                    { icon: Underline, label: "Underline" },
-                    { icon: Strikethrough, label: "Strikethrough" },
-                    { icon: Link2, label: "Insert link" },
-                    { icon: List, label: "Bulleted list" },
-                    { icon: ListOrdered, label: "Numbered list" },
-                  ].map((t) => (
-                    <GlyphButton
-                      key={t.label}
-                      icon={t.icon}
-                      label={t.label}
-                      size={26}
-                      tone="text"
-                    />
-                  ))}
-                </div>
-                <div className="min-h-[92px] px-[12px] py-[10px] text-[13px] leading-[19px] text-pg-text">
-                  A 30 minute walkthrough of the platform, tailored to what the
-                  contact asked about on the form.
-                </div>
-              </div>
-            </Field>
-
-            <Field
-              label="Custom URL"
-              hint="Contacts land here when they book from a link you share."
-            >
-              {/*
-                The prefix is inside the control, on the same 34px row, so the
-                whole URL reads as one string. A grey label to the LEFT of a
-                separate input reads as two fields, and the operator then types
-                the prefix again.
-              */}
-              <div className="flex h-[34px] items-center overflow-hidden rounded-[8px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-border)] focus-within:shadow-[inset_0_0_0_1px_var(--brand),0_0_0_3px_var(--brand-soft)]">
-                <span className="flex h-full shrink-0 items-center border-r border-pg-border bg-pg-bg px-[10px] text-[12.5px] leading-[normal] text-pg-muted">
-                  /widget/bookings/
-                </span>
-                <input
-                  defaultValue="test"
-                  aria-label="Custom URL slug"
-                  className="min-w-0 flex-1 bg-transparent px-[10px] text-[13px] leading-[normal] text-pg-text focus:outline-none"
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+        <div
+          className={cn(
+            "mx-auto flex w-full max-w-[1360px] gap-[40px] px-[24px] pb-[40px] max-md:flex-col max-md:gap-[16px] max-md:px-[16px]",
+            floating ? "pt-[76px]" : "pt-[40px]",
+          )}
+        >
+          <aside className="flex w-[196px] shrink-0 flex-col gap-[4px] self-start md:sticky md:top-0">
+            <nav aria-label="Calendar settings sections" className="flex flex-col gap-[4px]">
+              {CORE.map(railItem)}
+              <button
+                type="button"
+                aria-expanded={advancedOpen}
+                onClick={() => setAdvancedOpen((o) => !o)}
+                className={cn(
+                  "motion-tap flex h-[40px] w-full items-center gap-[6px] rounded-[6px] pl-[2px] text-left text-[14px] leading-[20px] hover:bg-pg-surface",
+                  advancedLit && !advancedOpen ? "font-medium text-brand" : "text-pg-text",
+                )}
+              >
+                <ChevronRight
+                  size={14}
+                  aria-hidden="true"
+                  className={cn("shrink-0 transition-transform duration-150", advancedOpen && "rotate-90")}
                 />
+                Advanced settings
+              </button>
+              {advancedOpen ? (
+                <div className="flex flex-col gap-[4px]">{ADVANCED.map(railItem)}</div>
+              ) : null}
+            </nav>
+
+            <div className="flex flex-col gap-[6px] pt-[16px] pl-[22px]">
+              <span className="flex items-center gap-[8px] text-[14px] leading-[20px] font-medium text-pg-text">
+                <Lightbulb size={16} aria-hidden="true" className="text-pg-muted" />
+                Quick tip
+              </span>
+              <p className="text-[13px] leading-[18px] text-pg-muted">{current.tip}</p>
+            </div>
+          </aside>
+
+          <main className="min-w-0 max-w-[1080px] flex-1">
+            {ALL.map(({ id, Body }) => (
+              <div key={id} hidden={id !== section}>
+                <Body draft={draft} patch={patch} errors={errors} />
               </div>
-            </Field>
-
-            <Field label="Group">
-              <SelectButton
-                label="Calendar group"
-                value={calendar.group}
-                className="w-full justify-between"
-              />
-            </Field>
-
-            <Field
-              label="Appointment invite title"
-              hint="Merge fields resolve when the invite is sent."
-            >
-              <TextInput value="{{contact.name}}" />
-            </Field>
-
-            <Field label="Meeting color">
-              {/*
-                4px of side padding, because the lit swatch's ring is drawn
-                OUTSIDE its circle — without it the first swatch's ring is
-                shaved off by the scroll container's edge, and the one colour
-                you can see is selected is the one that looks broken.
-              */}
-              <div className="flex items-center gap-[10px] px-[4px] py-[4px]">
-                {meetingColors.map((c) => {
-                  const on = c.id === color;
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      aria-label={c.label}
-                      aria-pressed={on}
-                      onClick={() => setColor(c.id)}
-                      style={{ background: c.token }}
-                      className={cn(
-                        "motion-tap flex size-[26px] items-center justify-center rounded-full text-white active:scale-90",
-                        // The ring sits OUTSIDE the swatch rather than on it,
-                        // so the lit colour is still the full circle — an
-                        // inset ring would have dimmed the one swatch you are
-                        // trying to judge.
-                        on &&
-                          "shadow-[0_0_0_2px_var(--pg-surface),0_0_0_4px_var(--brand)]",
-                      )}
-                    >
-                      {on ? <Check size={14} strokeWidth={3} /> : null}
-                    </button>
-                  );
-                })}
-              </div>
-            </Field>
-          </div>
+            ))}
+          </main>
         </div>
       </div>
-    </div>
-  );
-}
 
-/** Label over control, 4px apart — the form rhythm the drawer fields use. */
-function Field({
-  label,
-  required,
-  hint,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-[4px]">
-      <span className="text-[12.5px] leading-[16px] font-medium text-pg-text-strong">
-        {label}
-        {required ? <span className="text-pg-danger"> *</span> : null}
-      </span>
-      {children}
-      {hint ? (
-        <span className="text-[12px] leading-[16px] text-pg-faint">{hint}</span>
+      {confirmLeave ? (
+        <Modal
+          title="Discard unsaved changes?"
+          width={420}
+          onClose={() => setConfirmLeave(false)}
+          footer={
+            <>
+              <OutlineButton className="h-[36px] text-[14px]" onClick={() => setConfirmLeave(false)}>
+                Keep editing
+              </OutlineButton>
+              <PrimaryButton
+                className="h-[36px] bg-[var(--hr-error-600)] text-[14px] text-white hover:shadow-none"
+                onClick={() => {
+                  setConfirmLeave(false);
+                  onBack();
+                }}
+              >
+                Discard
+              </PrimaryButton>
+            </>
+          }
+        >
+          <p className="text-[14px] leading-[20px] text-pg-text">
+            Your changes to this calendar haven&apos;t been saved. If you go back now, they&apos;ll
+            be lost.
+          </p>
+        </Modal>
+      ) : null}
+
+      {sharing ? (
+        <ShareCalendarModal
+          calendarId={calendarId}
+          name={draft.name}
+          slug={draft.slug}
+          durationLabel={formatDuration(draft)}
+          typeLabel={typeLabel}
+          onClose={() => setSharing(false)}
+        />
+      ) : null}
+
+      {troubleshooting ? (
+        <TroubleshootView
+          name={draft.name || "Untitled calendar"}
+          durationLabel={formatDuration(draft)}
+          onClose={() => setTroubleshooting(false)}
+        />
       ) : null}
     </div>
   );
 }
 
-function TextInput({ value }: { value: string }) {
+/** A 36px outlined icon button with its name in a dark tooltip below. */
+function TipButton({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+}) {
   return (
-    <input
-      defaultValue={value}
-      className="h-[34px] w-full rounded-[8px] bg-pg-surface px-[11px] text-[13px] leading-[normal] text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] focus:outline-none focus:shadow-[inset_0_0_0_1px_var(--brand),0_0_0_3px_var(--brand-soft)]"
-    />
+    <span className="group/tipbtn relative inline-flex">
+      <button
+        type="button"
+        aria-label={label}
+        onClick={onClick}
+        className="motion-tap flex size-[36px] items-center justify-center rounded-[8px] bg-pg-surface text-pg-text-strong shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg active:scale-95"
+      >
+        <Icon size={18} aria-hidden="true" />
+      </button>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute top-[calc(100%+8px)] left-1/2 z-50 w-max -translate-x-1/2 rounded-[6px] bg-[var(--hr-gray-900,#101828)] px-[12px] py-[6px] text-[13px] leading-[18px] text-white opacity-0 shadow-lg transition-opacity group-hover/tipbtn:opacity-100 group-focus-within/tipbtn:opacity-100"
+      >
+        <span
+          aria-hidden="true"
+          className="absolute -top-[4px] left-1/2 size-[8px] -translate-x-1/2 rotate-45 bg-[var(--hr-gray-900,#101828)]"
+        />
+        {label}
+      </span>
+    </span>
   );
 }

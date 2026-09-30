@@ -13,6 +13,7 @@ import {
 import { OutlineButton, PageHeader, usePageChrome } from "@/components/page/page-header";
 import { usePageCrumb } from "@/components/page/page-crumb";
 import { useRecordCrumb } from "@/components/page/record-crumb";
+import { useNoPageCanvas } from "@/components/shell/page-canvas";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import {
@@ -109,6 +110,8 @@ export function FunnelDetail({
   const [stepId, setStepId] = React.useState(funnelSteps[0]?.id ?? "");
   const step = funnelSteps.find((s) => s.id === stepId) ?? funnelSteps[0]!;
   const [tab, setTab] = React.useState<TabId>("steps");
+  // A row of column cards on the Steps tab: each column is its own canvas.
+  useNoPageCanvas(tab === "steps");
 
   /*
    * No siblings on THIS crumb, and that is not an omission.

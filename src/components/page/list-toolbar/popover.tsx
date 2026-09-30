@@ -33,7 +33,9 @@ export function usePopover() {
   const [anchor, setAnchor] = React.useState<HTMLElement | null>(null);
   const close = React.useCallback(() => setOpen(false), []);
   const toggle = React.useCallback(() => setOpen((v) => !v), []);
-  return { open, setOpen, close, toggle, anchor, anchorRef: setAnchor };
+  // A tuple, so the setter handed to `ref=` does not make the compiler treat
+  // the whole state object as a ref.
+  return [{ open, setOpen, close, toggle, anchor }, setAnchor] as const;
 }
 
 export const POPOVER_SHADOW =

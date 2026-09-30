@@ -36,3 +36,46 @@ export const LeafCrumbContext = React.createContext<Crumb | null>(null);
 export function useLeafCrumb(): Crumb | null {
   return React.useContext(LeafCrumbContext);
 }
+
+/*
+ * Whether a page has actually PUT the leaf on its title.
+ *
+ * `crumbLeaf: "title"` takes the last crumb out of the bar on the promise
+ * that the title carries it. Pages that draw their own heading, or detail
+ * screens titled after a record, never draw it — and the crumb then vanished
+ * from both places (Opportunities read "CRM" alone). So the title claims the
+ * leaf while it shows it, and the bar only drops the crumb when claimed.
+ *
+ * A counter, like the canvas opt-out, so two titles mounting and unmounting
+ * in either order can never leave the claim stuck on.
+ */
+let claims = 0;
+const claimListeners = new Set<() => void>();
+function emitClaims() {
+  claimListeners.forEach((l) => l());
+}
+
+/** Called by a title while it shows the leaf menu. */
+export function useClaimLeaf(active: boolean) {
+  React.useEffect(() => {
+    if (!active) return;
+    claims += 1;
+    emitClaims();
+    return () => {
+      claims -= 1;
+      emitClaims();
+    };
+  }, [active]);
+}
+
+/** Whether some title is showing the leaf — read by the bar. */
+export function useLeafClaimed(): boolean {
+  return React.useSyncExternalStore(
+    (l) => {
+      claimListeners.add(l);
+      return () => claimListeners.delete(l);
+    },
+    () => claims > 0,
+    () => false,
+  );
+}

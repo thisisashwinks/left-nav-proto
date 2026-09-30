@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useNoPageCanvas } from "@/components/shell/page-canvas";
 import {
   ArrowLeft,
   ChevronDown,
@@ -148,6 +149,8 @@ export function ContactDetail({
   /** Runs after the Delete contact modal confirms; the page removes the row. */
   onDelete: () => void;
 }) {
+  // A row of column cards: each column is its own canvas.
+  useNoPageCanvas();
   /*
    * The record page's header is off by default.
    *

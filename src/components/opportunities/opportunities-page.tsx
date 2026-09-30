@@ -22,6 +22,7 @@ import {
   OutlineButton,
   OverflowMenu,
   PageHeader,
+  PageTitle,
   PrimaryButton,
   usePageChrome,
   type PageAction,
@@ -736,9 +737,9 @@ export function OpportunitiesPage() {
    */
   const heading = chrome.title ? (
     <div className="flex min-w-0 shrink-0 flex-col justify-center">
-      <h1 className="truncate text-[20px] leading-[normal] font-semibold tracking-[-0.2px] text-pg-heading">
-        Opportunities
-      </h1>
+      {/* The trail's leaf lands here under crumbLeaf "title": Opportunities ▾
+          switching to Forecast, Pipelines and Settings. */}
+      <PageTitle title="Opportunities" />
       {chrome.description ? (
         <p className="truncate text-[13px] leading-[normal] text-pg-muted">
           Deals across {pipelines.length} pipelines

@@ -25,6 +25,12 @@ interface WorkspaceTriggerProps {
    * (Khoi, Aug 24). The drawer toggle stays; this is supplemental.
    */
   onToggleCollapsed?: () => void;
+  /**
+   * False at agency scope when the account rail beside this one is already
+   * drawing the same logo. The name stays and the disc goes — including the
+   * split collapse button, which IS the disc. See AGENCY_NAV_MARK_DEFAULT.
+   */
+  mark?: boolean;
 }
 
 /**
@@ -44,6 +50,7 @@ export function WorkspaceTrigger({
   onToggle,
   agency = false,
   onToggleCollapsed,
+  mark = true,
 }: WorkspaceTriggerProps) {
   const ref = React.useRef<HTMLButtonElement>(null);
   const wasOpen = React.useRef(open);
@@ -71,7 +78,11 @@ export function WorkspaceTrigger({
         // Negative margin cancels the padding, so the hover surface extends
         // around the logo instead of pushing it in from the nav's 12px edge.
         "group/ws motion-tap flex h-[30px] min-w-0 items-center gap-[5px] rounded-[8px] px-[6px] outline-none active:scale-[0.99]",
-        markInside ? "-mx-[6px]" : "-my-0 -mr-[6px] -ml-[2px]",
+        // Flush to the nav's edge whenever nothing precedes the name —
+        // whether that is because the mark is inside the chip or because
+        // there is no mark at all. The middle value only makes sense with a
+        // separate disc sitting 7px to the left of it.
+        markInside || !mark ? "-mx-[6px]" : "-my-0 -mr-[6px] -ml-[2px]",
         open
           ? "bg-nav-active"
           : "hover:bg-nav-hover focus-visible:ring-[1.5px] focus-visible:ring-brand",
@@ -101,7 +112,9 @@ export function WorkspaceTrigger({
     </button>
   );
 
-  if (!onToggleCollapsed) return trigger(true);
+  if (!onToggleCollapsed) return trigger(mark);
+  // No mark means no split: the split exists to give the DISC its own job.
+  if (!mark) return trigger(false);
 
   return (
     <span className="flex min-w-0 items-center gap-[7px]">

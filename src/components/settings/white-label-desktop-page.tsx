@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { usePageChrome } from "@/components/page/page-header";
+import { useNoPageCanvas } from "@/components/shell/page-canvas";
 import {
   CircleCheck,
   Eye,
@@ -51,6 +52,8 @@ const COLOUR_FIELDS: { label: string; swatch: string; ring?: boolean }[] = [
 ];
 
 export function WhiteLabelDesktopPage() {
+  // A row of column cards: each column is its own canvas.
+  useNoPageCanvas();
   return (
     <div className="flex h-full min-h-0 flex-col gap-[14px] overflow-y-auto px-[var(--page-inset)] pb-[16px]">
       <Header />

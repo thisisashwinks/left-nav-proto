@@ -5,7 +5,7 @@ import { accounts as allAccounts } from "@/components/accounts/accounts-data";
 import { useTheme } from "@/components/theme/theme-provider";
 import { SAAS_TIERS, type SaasTier } from "@/design/plans";
 import { accountsWithOwnArrangement } from "./account-nav-profiles";
-import { LAUNCHED_SINCE } from "./catalogue";
+import { LAUNCHED_SINCE, productById } from "./catalogue";
 import { resolveOwned } from "./catalogue-equivalents";
 import { useNavLayout } from "./nav-layout-provider";
 import { useNavProfiles } from "./nav-profiles";
@@ -699,8 +699,25 @@ export function patchForArrangement(
          */
         return a.pinned.length > 0 ? target.pinned : [];
       })(),
+      /*
+       * Hidden rows are not all products, and the filter used to assume they
+       * were (fixed Sep 30).
+       *
+       * `resolveOwned` answers "does this account own this PRODUCT, under this
+       * name or the other catalogue's" — and returns undefined for anything
+       * that is not one. Every id in `hiddenRows` went through it, so a hidden
+       * CATEGORY, or a hidden chrome row like Desktop & mobile apps, was
+       * dropped on the way in: you hid an L1, saved the template, and the row
+       * came straight back, because saving applies what landed. Hidden L2s
+       * survived, which is what made it look arbitrary rather than broken.
+       *
+       * So the filter now only runs on ids that name a product. Anything else
+       * is the account's own structure — a group id, a chrome row — and is
+       * carried across as written. An id naming a group this account does not
+       * have simply matches no row, which costs nothing.
+       */
       hiddenRows: a.hiddenRows
-        .map((p) => resolveOwned(p, owns))
+        .map((p) => (productById(p) ? resolveOwned(p, owns) : p))
         .filter((p): p is string => p !== undefined),
       // The tail also holds the account's OWN links, which the template knows
       // nothing about — so template order first, then anything of the

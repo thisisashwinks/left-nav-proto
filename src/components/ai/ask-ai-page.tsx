@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useNoPageCanvas } from "@/components/shell/page-canvas";
 import {
   AudioLines,
   BookOpen,
@@ -46,6 +47,8 @@ const SIDE_ROWS = [
 ];
 
 export function AskAiPage() {
+  // A row of column cards: each column is its own canvas.
+  useNoPageCanvas();
   const { effective } = useTheme();
   /*
    * The billing notice is dismissible even though nothing else here is.

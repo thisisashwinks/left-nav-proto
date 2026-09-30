@@ -25,6 +25,10 @@ import {
   TREE_SEARCH_PLACE_LABELS,
   TREE_SEARCH_PLACES,
   CRUMB_EMPHASES,
+  NAV_ARRANGEMENTS,
+  NAV_ARRANGEMENT_LABELS,
+  SCOPED_SWITCHES,
+  SCOPED_SWITCH_LABELS,
   CRUMB_EMPHASIS_LABELS,
   CRUMB_ICON_LABELS,
   CRUMB_ICONS,
@@ -366,8 +370,10 @@ function NavStructureSection({
   // Recents straddle the two stores: how many rows to show is a nav-structure
   // question, but the mode is a theme axis like the dock's caption and position.
   const {
-    navProductTree,
-    setNavProductTree,
+    navArrangement,
+    setNavArrangement,
+    scopedSwitch,
+    setScopedSwitch,
     navTreeCounts,
     setNavTreeCounts,
     treeIcons,
@@ -481,18 +487,41 @@ function NavStructureSection({
         layout.adoptDefaultLayout();
       }}
     >
-      <Toggle
-        label="All products as the nav"
-        checked={navProductTree}
-        onChange={setNavProductTree}
+      <Segmented
+        label="How the nav discloses"
+        options={NAV_ARRANGEMENTS}
+        value={navArrangement}
+        onChange={setNavArrangement}
+        format={(v) => NAV_ARRANGEMENT_LABELS[v]}
       />
       <Note>
-        {navProductTree
-          ? "The catalogue IS the nav: every group expands in place to its products and their pages, so L1, L2 and L3 are all reachable without a flyout. Pinned rows stay above it; the catalogue's own entry goes, and Recents opens only recents. The trail is unchanged — whether a tree lets the breadcrumb shorten is a separate question."
-          : "Flyouts: the nav lists L1 and a second surface opens for what is inside. Keeps the nav short enough not to scroll, at the cost of the nav never showing where you are below L1."}
+        {navArrangement === "flyout"
+          ? "The nav lists L1 and a second surface opens beside it for what is inside. Keeps the column short enough not to scroll, at the cost of never showing where you are below L1."
+          : navArrangement === "tree"
+            ? "The catalogue IS the nav: every group expands in place to its products and their pages, so L1, L2 and L3 are all reachable without a flyout. Pinned rows stay above it; the catalogue's own entry goes, and Recents opens only recents."
+            : navArrangement === "drill"
+              ? "Nothing floats. Picking a category replaces the column with its rows, headed by a back button — one list at a time, at full width, with the other categories off screen while you read one."
+              : "The column is the category you are in, and the rest live behind a switcher that opens the L1 list with its usual flyouts. The sidebar re-scopes as you travel, so it is always about where you are rather than about everything."}
       </Note>
 
-      {navProductTree ? (
+      {navArrangement === "scoped" ? (
+        <>
+          <Segmented
+            label="The category switcher sits"
+            options={SCOPED_SWITCHES}
+            value={scopedSwitch}
+            onChange={setScopedSwitch}
+            format={(v) => SCOPED_SWITCH_LABELS[v]}
+          />
+          <Note>
+            {scopedSwitch === "header"
+              ? "A row at the top of the column naming the category you are in, which opens the L1 list when pressed — the switch and “where am I” as one control."
+              : "Beside the workspace mark, as GCP has it. The column is rows all the way up, and the trail is what names the category."}
+          </Note>
+        </>
+      ) : null}
+
+      {navArrangement === "tree" ? (
         <>
           <Toggle
             label="Counts on group rows"
@@ -763,7 +792,9 @@ function NavStructureSection({
           ? "Nothing marked. The nav answers “where can I go” and never “where am I” — the breadcrumb is the only thing that does."
           : selectedState === "leaf"
             ? "A bar and full ink on the exact row. Honest, and invisible whenever that row lives behind a shut panel."
-            : "The row, plus a shorter bar on every ancestor leading to it — so a closed nav still says where you are."}
+            : selectedState === "trail"
+              ? "The row, plus a shorter bar on every ancestor leading to it — so a closed nav still says where you are."
+              : "The category and the page, with the product between them left plain: three marked rows in a run read as one block, and the middle one is named again by the page under it. A product you are actually standing on — one with no pages, or whose own page is open — is still marked."}
       </Note>
 
       {/*
@@ -2138,6 +2169,8 @@ export function TuningPanel() {
     getAppPlacement,
     setGetAppPlacement,
     agencySearch,
+    agencyNavMark,
+    setAgencyNavMark,
     setAgencySearch,
     aiButtonStyle,
     setAiButtonStyle,
@@ -3009,8 +3042,8 @@ export function TuningPanel() {
                     {tableCrumb === "off"
                       ? "Off. The app bar's trail is the only one, and it carries the folder path already."
                       : tableCrumb === "inside"
-                        ? "The card's first band, above the column heads — where the real screen puts it. Reads as the table's own header, which is what makes it feel like a file browser."
-                        : "Its own line between the filters and the card. The trail belongs to the page and the card stays a plain table — the arrangement that survives a card with its own toolbar band."}
+                        ? "The default. The card's first band, above the column heads — where the real screen puts it. The folder path lives here only; the app bar's trail stops at Workflows."
+                        : "Its own line between the filters and the card. The folder path lives here only, and the card stays a plain table — the arrangement that survives a card with its own toolbar band."}
                   </Note>
 
                   <Toggle
@@ -4247,6 +4280,17 @@ export function TuningPanel() {
               : entryLayout === "header"
                 ? "Out of the nav and into the app bar, left of the utility icons. The one placement that survives the nav collapsing — so the nav shows it at neither end, at either width."
                 : "The same merged pill, holding the nav's bottom edge beside the drawer toggle."}
+          </Note>
+
+          <Toggle
+            label="Agency logo in the nav header"
+            checked={agencyNavMark}
+            onChange={setAgencyNavMark}
+          />
+          <Note>
+            {agencyNavMark
+              ? "The mark appears twice within 60px — once on the account rail's plate, once beside the agency name. Both are right on their own terms; together they state one identity twice."
+              : "The header keeps the name and drops the disc. The rail's mark is unlabelled and the name is what it was missing, so the pair read as one identity in two halves. Sub-accounts are untouched — nothing above them repeats anything."}
           </Note>
 
           <Toggle

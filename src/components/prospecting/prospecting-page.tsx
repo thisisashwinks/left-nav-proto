@@ -22,6 +22,11 @@ import { PageHeader, PrimaryButton } from "@/components/page/page-header";
 import { ViewBar } from "@/components/page/view-bar";
 import { ToneAvatar } from "@/components/page/avatar";
 import { usePageCrumb } from "@/components/page/page-crumb";
+import {
+  ListToolbar,
+  useListToolbar,
+  type ListToolbarModel,
+} from "@/components/page/list-toolbar";
 import { cn } from "@/lib/utils";
 import { ProspectDetail } from "./prospect-detail";
 import {
@@ -219,7 +224,79 @@ export function ProspectingPage({ initialTab }: { initialTab?: string | null }) 
   );
 }
 
+const optionsOf = (xs: string[]) =>
+  [...new Set(xs)].sort().map((x) => ({ value: x, label: x }));
+const NICHE_OPTIONS = optionsOf(prospects.map((p) => p.niche));
+const SOURCE_OPTIONS = optionsOf(prospects.map((p) => p.source));
+const STATUS_OPTIONS = optionsOf(prospects.map((p) => p.status));
+
 function AllAccounts({ onOpen }: { onOpen: (id: string) => void }) {
+  const toolbar = useListToolbar();
+  const [query, setQuery] = React.useState("");
+  const [niches, setNiches] = React.useState<string[]>([]);
+  const [sources, setSources] = React.useState<string[]>([]);
+  const [statuses, setStatuses] = React.useState<string[]>([]);
+  const [sort, setSort] = React.useState<{ field: string; dir: "asc" | "desc" } | null>(null);
+
+  const rows = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = prospects.filter(
+      (p) =>
+        (niches.length === 0 || niches.includes(p.niche)) &&
+        (sources.length === 0 || sources.includes(p.source)) &&
+        (statuses.length === 0 || statuses.includes(p.status)) &&
+        (!q ||
+          p.name.toLowerCase().includes(q) ||
+          p.niche.toLowerCase().includes(q) ||
+          p.address.toLowerCase().includes(q)),
+    );
+    if (!sort) return filtered;
+    const dir = sort.dir === "asc" ? 1 : -1;
+    return [...filtered].sort(
+      (a, b) =>
+        (sort.field === "score" ? a.score - b.score : a.name.localeCompare(b.name)) * dir,
+    );
+  }, [query, niches, sources, statuses, sort]);
+
+  const model: ListToolbarModel = {
+    search: { value: query, onChange: setQuery, placeholder: "Search prospects" },
+    quickFilters: [
+      { id: "niche", label: "Categories", options: NICHE_OPTIONS, value: niches, multiple: true, onChange: setNiches },
+      { id: "source", label: "Source", options: SOURCE_OPTIONS, value: sources, multiple: true, onChange: setSources },
+      { id: "status", label: "Status", options: STATUS_OPTIONS, value: statuses, multiple: true, onChange: setStatuses },
+    ],
+    sort: {
+      fields: [
+        { value: "name", label: "Name" },
+        { value: "score", label: "Prospect score" },
+      ],
+      value: sort,
+      onChange: setSort,
+    },
+    resultCount: { value: rows.length, noun: rows.length === 1 ? "prospect" : "prospects" },
+  };
+
+  const list = (
+    <>
+      <SuggestionRail />
+
+      {rows.map((p) => (
+        <ProspectCard key={p.id} prospect={p} onOpen={() => onOpen(p.id)} />
+      ))}
+
+      {rows.length === 0 ? (
+        <div className="flex h-[160px] shrink-0 flex-col items-center justify-center gap-[4px] rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+          <p className="text-[13.5px] leading-[normal] font-medium text-pg-text">
+            No prospects match
+          </p>
+          <p className="text-[12.5px] leading-[normal] text-pg-faint">
+            Try a different search or clear the filters.
+          </p>
+        </div>
+      ) : null}
+    </>
+  );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-[14px] overflow-auto pb-[14px]">
       {/*
@@ -242,6 +319,8 @@ function AllAccounts({ onOpen }: { onOpen: (id: string) => void }) {
           </p>
         </div>
         <span aria-hidden="true" className="min-w-[16px] flex-1" />
+        {toolbar.shared ? null : (
+        <>
         {["Categories", "Source", "Status"].map((f) => (
           <button
             key={f}
@@ -256,18 +335,24 @@ function AllAccounts({ onOpen }: { onOpen: (id: string) => void }) {
           <Search size={16} aria-hidden="true" className="shrink-0 text-pg-faint" />
           <input
             type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
             placeholder="Search prospects"
             aria-label="Search prospects"
             className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
           />
         </div>
+        </>
+        )}
       </div>
 
-      <SuggestionRail />
-
-      {prospects.map((p) => (
-        <ProspectCard key={p.id} prospect={p} onOpen={() => onOpen(p.id)} />
-      ))}
+      {toolbar.shared ? (
+        <ListToolbar model={model}>
+          <div className="flex min-h-0 flex-1 flex-col gap-[14px]">{list}</div>
+        </ListToolbar>
+      ) : (
+        list
+      )}
     </div>
   );
 }

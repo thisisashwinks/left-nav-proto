@@ -74,11 +74,10 @@ const TABS = [
  * every sub-account, and a prototype that quietly dropped the empty column
  * would be proposing a narrower table than the one anyone has to ship.
  */
-const COLS = "34px 2.4fr 1.4fr 0.8fr 1fr 36px";
-
 /*
- * The data columns between the checkbox and the kebab, for the column picker.
- * With nothing hidden they rebuild COLS exactly.
+ * The data columns between the checkbox (34px) and the kebab (36px), for the
+ * column picker. With nothing hidden they rebuild the original
+ * "34px 2.4fr 1.4fr 0.8fr 1fr 36px" grid exactly.
  */
 const AGENT_COLUMNS = [
   { id: "name", label: "Name", width: "2.4fr", locked: true },
@@ -297,6 +296,8 @@ export function VoiceAiPage() {
               <CollapsingSearch
                 placeholder="Search name or channel"
                 label="Search name or channel"
+                value={query}
+                onChange={setQuery}
               />
               {chrome.header ? null : <UpgradeButton />}
             </span>
@@ -603,7 +604,7 @@ function AgentListRow({
       )}
 
       {/*
-        Widgets, permanently empty. See COLS — the dash is the honest render of
+        Widgets, permanently empty. See AGENT_COLUMNS — the dash is the honest render of
         a column the live product has and almost nobody fills.
       */}
       {hidden.has("widgets") ? null : <Dash />}

@@ -224,7 +224,19 @@ export function NavItemRow({
 
   const rowClass = cn(
     "flex shrink-0 items-center text-left",
-    !inset && "w-full",
+    /*
+     * Depth 0 is inset by nothing, so it is full width like every other row.
+     *
+     * `inset` turns `w-full` off because the indented depths set an explicit
+     * `w-[calc(100% - step)]` instead — and depth 0 matches none of those, so
+     * it was left with width auto in a column whose `items-start` does not
+     * stretch its children: the row shrank to its text, and the hover fill
+     * with it, stopping short of the pin. That depth only exists in the
+     * drill-in and scoped arrangements, where a category's products start
+     * flush (see `ProductTreeBranch`'s `l2Depth`), which is why nothing saw
+     * it until they landed.
+     */
+    (!inset || item.depth === 0) && "w-full",
     "gap-[var(--t-nav-gap,10px)] rounded-[var(--t-nav-radius,7px)] px-[var(--t-nav-px,8px)]",
     "motion-tap",
     /*

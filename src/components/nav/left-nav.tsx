@@ -2,6 +2,9 @@
 
 import * as React from "react";
 import {
+  ArrowLeft,
+  ChevronDown,
+  Menu,
   ChevronRight,
   Eye,
   EyeOff,
@@ -41,6 +44,7 @@ import { PlanWall } from "./plan-wall";
 import {
   agencyBuckets,
   agencyEntriesFor,
+  agencyPlaces,
   agencySettings,
 } from "./agency-config";
 import { CollapseToggle } from "./collapse-toggle";
@@ -98,7 +102,7 @@ import { PROPOSED_HOME_ID } from "./proposed-ia";
 import { NavDivider } from "./nav-divider";
 import { NavHeader } from "./nav-header";
 import { NavItemRow, type NavRowDrag, type NavRowEdit } from "./nav-item-row";
-import { useHere, type Marking } from "./here";
+import { useHere, type Marking, type NavLevel } from "./here";
 import {
   openTreeBranch,
   ProductTreeBranch,
@@ -336,12 +340,14 @@ export function LeftNav({
     treeRecentsAllProducts,
     agencyEditNav,
     agencySearch,
+    agencyNavMark,
     editTreatment,
     templatePropagation,
     templatePushNotice,
     templateConflict,
     layoutModel,
-    navProductTree,
+    navArrangement,
+    scopedSwitch,
     navTreeCounts,
     treeIcons,
     treeSearchPlace,
@@ -800,7 +806,22 @@ export function LeftNav({
    * one for a page below it, and `renderRow`'s tree block grows the seams the
    * panel had. Nothing about the flyout arrangement changed.
    */
-  const productTree = navProductTree && !agencyScope;
+  const productTree = navArrangement === "tree" && !agencyScope;
+  /*
+   * The two arrangements that give one category the whole column (Sep 30).
+   *
+   * `drill` replaces the L1 list with the category's rows and a way back;
+   * `scoped` never shows the L1 list at rest at all, because the column IS the
+   * category you are in. They differ in one decision — whether the other
+   * categories are one press away or one press BACK — and share everything
+   * else, which is why both draw their body with `ProductTreeBranch` and both
+   * are excluded at agency scope for the reason the tree is: that nav already
+   * discloses in place and has no L1/L2 split to rearrange.
+   */
+  const drillMode = navArrangement === "drill" && !agencyScope;
+  const scopedMode = navArrangement === "scoped" && !agencyScope;
+  /** Either of the two arrangements that can give one category the column. */
+  const columnMode = drillMode || scopedMode;
   const treeCounts = navTreeCounts;
   /**
    * What is in the tree's search field.
@@ -2048,11 +2069,22 @@ export function LeftNav({
       case "launchpad":
         return launchpadAllowed;
       /*
-        The agency nav has no Recent block of its own — the account rail is its
-        history — so the row only exists there when the merge puts one back.
+        Recent is not offered at all (Sep 30, Ashwin).
+        
+        It was the one switch in this menu that could take away the nav's
+        memory of where you have been, and nothing else in the product puts it
+        back: the block IS the history, so an account that switched it off had
+        no route to its recent pages except retracing the tree. The other three
+        are conveniences layered over the nav — a card, a shortcut row, a dock —
+        and each has somewhere else to live. This one does not.
+
+        The FLAG stays, and so does everything that reads it (`isBlockHidden`,
+        the merged block, the rail): a prototype axis may still want to draw
+        the nav without it, and removing the state would take that with it.
+        What goes is the control that let a person reach for it by accident.
       */
       case "recent":
-        return merged || !agencyScope;
+        return false;
       default:
         return true;
     }
@@ -2533,11 +2565,21 @@ export function LeftNav({
    */
   const here = useHere();
   const { selectedState } = useTheme().effective;
+  /*
+   * `useMarking`'s rule, as a function rows can call in a loop.
+   *
+   * Not the hook itself — rows are rendered in a map and a hook cannot be —
+   * so the axis is read once here and the same three clauses are applied. The
+   * two have to stay in step, which is why the `ends` clause is spelled the
+   * same way in both places rather than paraphrased.
+   */
   const markFor = React.useCallback(
-    (isHere: boolean, isTrail: boolean): Marking => {
+    (isHere: boolean, isTrail: boolean, level?: NavLevel): Marking => {
       if (selectedState === "off") return null;
       if (isHere) return "here";
-      if (selectedState === "trail" && isTrail) return "trail";
+      if (!isTrail) return null;
+      if (selectedState === "trail") return "trail";
+      if (selectedState === "ends") return level === "l2" ? null : "trail";
       return null;
     },
     [selectedState],
@@ -2553,6 +2595,112 @@ export function LeftNav({
    * gating a hook on a theme flag, which is the one thing React forbids.
    */
   const tree = useProductTree(groups);
+
+  /** Which category the page you are on lives in, or null on Home. */
+  const hereGroupId = React.useMemo(
+    () =>
+      here.productId
+        ? (groups.find((g) => g.productIds.includes(here.productId!))?.id ??
+          null)
+        : null,
+    [groups, here.productId],
+  );
+  /**
+   * Which category the column is showing, in the two arrangements that give it
+   * one, and whether `scoped` has its L1 list up.
+   *
+   * Adjusted during render off a changed position rather than in an effect —
+   * the same derived-history pattern `useProductTree` uses, and for the same
+   * reason: React 19's lint rejects the effect version as a cascading render.
+   *
+   * Travelling re-scopes the column and closes the L1 list. That is the whole
+   * behaviour of `scoped` in one line — pick a product from the switcher and
+   * the sidebar becomes that product's category — and in `drill` it is what
+   * keeps the column honest when you arrive from somewhere that is not the
+   * nav: a recent, a pin, a search result, the breadcrumb.
+   */
+  const [drilledId, setDrilledId] = React.useState<string | null>(null);
+  const [l1Open, setL1Open] = React.useState(false);
+  /*
+   * The whole position, not just its category.
+   *
+   * The drawer has to close on ANY arrival, including a product in the
+   * category you were already in — which is the common case, since the drawer
+   * is where you go to pick one. Keyed on the category alone it stayed open
+   * exactly when it had just done its job.
+   */
+  const hereKey = `${here.productId ?? ""}\u0000${here.childId ?? ""}`;
+  const [prevColumnHere, setPrevColumnHere] = React.useState<string | null>(
+    null,
+  );
+  if (prevColumnHere !== hereKey) {
+    setPrevColumnHere(hereKey);
+    if (hereGroupId) setDrilledId(hereGroupId);
+    setL1Open(false);
+  }
+  /*
+   * `scoped` always has a category; `drill` may be standing at the top level.
+   *
+   * The fallback is the first category rather than nothing, because a scoped
+   * nav with no scope is an empty column — on Home, before you have been
+   * anywhere, the honest answer is to show the first category rather than to
+   * show a sidebar that has not started yet.
+   */
+  const scopeId = hereGroupId ?? categories[0]?.id ?? null;
+  const columnGroupId = drillMode
+    ? drilledId
+    : scopedMode && !l1Open
+      ? scopeId
+      : null;
+  const columnGroup = columnGroupId
+    ? (groups.find((g) => g.id === columnGroupId) ?? null)
+    : null;
+  /**
+   * Whether the column is actually showing a category right now.
+   *
+   * Not `columnMode`, and the difference is the bug it fixes (Sep 30): the
+   * body was being replaced whenever the ARRANGEMENT was drill, drilled or
+   * not. At the top level that meant a back button to nowhere and no
+   * categories under it — the one state a drill-in must get right, since it is
+   * where every journey starts and where Back returns you. A null group means
+   * "no category has the column", and the L1 list renders exactly as it does
+   * in the flyout arrangement.
+   */
+  const columnShowing = columnMode && columnGroup !== null;
+  /**
+   * While a drilled column is up, the blocks above it stand down.
+   *
+   * Ashwin's ask, and it is the arrangement being consistent with itself: the
+   * claim of `drill` is one list at a time at full width, and a Launchpad card
+   * plus five recents above that list is the other thing on screen it just
+   * promised not to be. They are not lost — Back is one press, and it returns
+   * the whole of the top level, card and recents included.
+   *
+   * `scoped` deliberately does not do this: its column is never anything BUT a
+   * category, so hiding them there would not be "while you are drilled in", it
+   * would be removing them from the nav.
+   */
+  const drilledIn = drillMode && columnGroup !== null;
+  /**
+   * `scoped` with its L1 list up — the drawer, in GCP's terms.
+   *
+   * The L1 list is a SURFACE you open and close rather than the sidebar's
+   * resting state, which is the whole shape of this arrangement: the sidebar
+   * is the category you are in, and everything else — the other categories,
+   * the Launchpad card, the recents — lives behind the switcher. Closing it
+   * hands the column back to the category.
+   */
+  const scopedDrawer = scopedMode && l1Open;
+  /**
+   * Whether the blocks above the catalogue stand down.
+   *
+   * Drilled, because that arrangement promises one list at full width.
+   * Scoped-at-rest, because the sidebar is a category's rows and a Launchpad
+   * card above them is the nav being about two things again — and they are not
+   * lost, they are in the drawer with the categories, which is exactly where
+   * GCP keeps its own equivalents.
+   */
+  const hideOpeningCluster = drilledIn || (scopedMode && !scopedDrawer);
 
   /**
    * One row's edit bundle, from the two halves that make it.
@@ -2591,6 +2739,66 @@ export function LeftNav({
    * alone, so these surfaces say which they meant.
    */
   const selectShortcut = (id: string) => onSelect(id, { open: true });
+
+  /**
+   * A row bundle for anything drawn inside a category's branch.
+   *
+   * Level-aware through `editExtras`, which answers differently for a product
+   * and for a page below it — see `treeRowExtras`.
+   */
+  const branchRowEdit = (nodeId: string) =>
+    mergeRowEdit(editFor(nodeId), editExtras(nodeId));
+
+  /**
+   * The seams between a category's own rows, wherever that category is drawn.
+   *
+   * Lifted out of the tree block on Sep 30, when the drill-in and scoped
+   * arrangements started drawing the same branch in the column: three copies
+   * of this arithmetic is three chances for a drop to land one row off in one
+   * arrangement and not the others.
+   *
+   * `node` is the row the seam sits above and null closes the list. The index
+   * is resolved against the CATEGORY's real order rather than the rendered
+   * one — under a query, or in a branch that is drawing a subset, the visible
+   * position is not the position a drop should use.
+   */
+  const branchSeam = (
+    groupId: string,
+    node: TreeNode | null,
+    fallback: number,
+  ) => {
+      if (!editing) return null;
+      const order = groups.find((g) => g.id === groupId)?.productIds ?? [];
+      const found = node ? order.indexOf(node.id) : order.length;
+      const at = found < 0 ? fallback : found;
+      return (
+        <RowSeam
+          key={`branch-${groupId}-${node?.id ?? "end"}`}
+          dragTypes={dragTypes}
+          accepts={[L2_MIME]}
+          onDrop={(id) => {
+            const from = order.indexOf(id);
+            if (from < 0) {
+              // From another category: it ARRIVES here rather than moves.
+              layout.moveProductToGroup(id, groupId, at);
+              return;
+            }
+            // A row travelling down leaves everything below it one place
+            // higher, so the target comes down by one in that direction.
+            const to = from < at ? at - 1 : at;
+            if (to !== from) layout.moveProductWithinGroup(groupId, from, to);
+          }}
+          onAdd={(trigger) =>
+            setTreeAddAt({
+              groupId,
+              index: at,
+              anchor: trigger.getBoundingClientRect(),
+            })
+          }
+          addLabel="Add an item here"
+        />
+      );
+  };
 
   const renderRow = (item: NavItem) => {
     const flyoutId = flyoutIdFor(item);
@@ -2659,54 +2867,6 @@ export function LeftNav({
        * the same two places: above every category, and below the last one.
        */
       const treeCategoryIndex = editing ? indexOfCategory(item.id) : -1;
-      /*
-       * Where a product dropped into this branch's seam `index` lands.
-       *
-       * Lifted from `flyout-panel.tsx`'s `dropRowAt`, arithmetic and all: from
-       * another category it ARRIVES at the index, and from inside this one it
-       * MOVES, which costs a place when it travels downwards because the splice
-       * that removes it lifts everything below.
-       */
-      const branchOrder = groups.find((g) => g.id === item.id)?.productIds ?? [];
-      const dropInBranch = (productId: string, index: number) => {
-        const from = branchOrder.indexOf(productId);
-        if (from < 0) {
-          layout.moveProductToGroup(productId, item.id, index);
-          return;
-        }
-        const to = from < index ? index - 1 : index;
-        if (to !== from) layout.moveProductWithinGroup(item.id, from, to);
-      };
-      /*
-       * A seam between two rows of this branch.
-       *
-       * `node` is the row it sits above and null closes the branch, and the
-       * index is resolved against the CATEGORY's order rather than against the
-       * rendered list — under a query the branch draws only the matches, and a
-       * drop that used the visible position would file the row against a list
-       * the account cannot see.
-       */
-      const branchSeam = (node: TreeNode | null, fallback: number) => {
-        if (!editing) return null;
-        const index = node ? branchOrder.indexOf(node.id) : branchOrder.length;
-        const at = index < 0 ? fallback : index;
-        return (
-          <RowSeam
-            key={`branch-${item.id}-${node?.id ?? "end"}`}
-            dragTypes={dragTypes}
-            accepts={[L2_MIME]}
-            onDrop={(id) => dropInBranch(id, at)}
-            onAdd={(trigger) =>
-              setTreeAddAt({
-                groupId: item.id,
-                index: at,
-                anchor: trigger.getBoundingClientRect(),
-              })
-            }
-            addLabel="Add an item here"
-          />
-        );
-      };
       const isTrail =
         here.productId !== null &&
         (item.id === here.productId ||
@@ -2770,7 +2930,7 @@ export function LeftNav({
                 ? { iconHidden: true }
                 : {}),
             }}
-            marking={markFor(false, isTrail)}
+            marking={markFor(false, isTrail, "l1")}
             {...(groupEdit ? { edit: groupEdit } : {})}
             /*
              * No `onHover`, and that is the point of the arrangement.
@@ -2854,9 +3014,8 @@ export function LeftNav({
                */
               {...(editing
                 ? {
-                    rowEdit: (nodeId: string) =>
-                      mergeRowEdit(editFor(nodeId), editExtras(nodeId)),
-                    seamFor: branchSeam,
+                    rowEdit: branchRowEdit,
+                    seamFor: (node, at) => branchSeam(item.id, node, at),
                   }
                 : {})}
             />
@@ -2906,12 +3065,27 @@ export function LeftNav({
       here.productId !== null &&
       item.id === here.productId &&
       here.childId === null;
+    /*
+     * "Somewhere below this row" has two tables behind it, because the two
+     * scopes have two trees.
+     *
+     * The account's is `groups` — does this category hold the product you are
+     * on. The agency's is `agencyPlaces`, whose every entry names the bucket it
+     * lives under, which is the same question asked of a tree this file does
+     * not otherwise have to know the shape of. Without the second half an
+     * agency bucket could never be on the trail: the id in `here.productId` is
+     * the ROW inside it, never the bucket, so the comparison above was the only
+     * one that could ever be true and a bucket lit only when it was itself the
+     * destination.
+     */
     const isTrail =
       here.productId !== null &&
       (item.id === here.productId ||
-        (groups.find((g) => g.id === item.id)?.productIds ?? []).includes(
-          here.productId,
-        ));
+        (agencyScope
+          ? agencyPlaces[here.productId]?.bucket.id === item.id
+          : (groups.find((g) => g.id === item.id)?.productIds ?? []).includes(
+              here.productId,
+            )));
 
     /*
      * A category with nothing in it is not a door.
@@ -2937,11 +3111,23 @@ export function LeftNav({
     const emptyBucket =
       groups.find((g) => g.id === item.id)?.productIds.length === 0;
 
+    /*
+     * Whether pressing this row drills into it rather than navigating.
+     *
+     * Only in `drill`, and only for a row that is a category: the arrangement
+     * has no floating surface, so a category's contents have to arrive in the
+     * column, and the row itself is the only way in.
+     */
+    const drillTarget =
+      drillMode && groups.some((g) => g.id === item.id) ? item.id : null;
+
     const row = (
       <NavItemRow
         key={item.id}
         item={emptyBucket ? { ...item, hasFlyout: false } : item}
-        marking={markFor(isHere, isTrail)}
+        // L1 in both scopes: a category or a bucket. The level only decides
+        // whether `ends` skips the row, and this is never the middle.
+        marking={markFor(isHere, isTrail, "l1")}
         /*
          * A row that opens a panel is lit by its PANEL, not by having been
          * clicked.
@@ -2965,6 +3151,20 @@ export function LeftNav({
           // a grip and a kebab until something is filed in it.
           if (emptyBucket) return;
           /*
+            In `drill`, a category swaps the column for its own rows.
+
+            Before everything below because it is not navigation at all: the
+            row leads nowhere, it changes what the column is showing. The
+            chevron the flyout arrangement gave this row is the right
+            affordance for that too, so `hasFlyout` stays set and only what the
+            press DOES changes — which is the whole difference between the two
+            arrangements, in one branch.
+          */
+          if (drillTarget) {
+            setDrilledId(drillTarget);
+            return;
+          }
+          /*
             The companion-app rows open a modal rather than going anywhere.
 
             Caught here because the banded arrangement folds them into the last
@@ -2982,7 +3182,9 @@ export function LeftNav({
           if (item.hasFlyout) onPinFlyout(flyoutId);
         }}
         onHover={
-          item.hasFlyout && !emptyBucket
+          // Nothing floats in `drill`, so a category's hover must not ask for a
+          // panel — `onHoverPlain` also fades whatever happens to be up.
+          item.hasFlyout && !emptyBucket && !drillTarget
             ? () => onHoverFlyout(flyoutId)
             : onHoverPlain
         }
@@ -3219,6 +3421,9 @@ export function LeftNav({
       <NavHeader
         account={account}
         agency={agencyScope}
+        // Only the agency header ever repeats a mark — a sub-account has no
+        // rail above it drawing the same logo, so the axis leaves it alone.
+        mark={!agencyScope || agencyNavMark}
         // The config's demo logo pins the header to one asset; at agency scope
         // the identity is the agency's own mark, never that override.
         logoSrc={agencyScope ? undefined : config.logoSrc}
@@ -3230,7 +3435,35 @@ export function LeftNav({
         // arrangements — collapsing is nav chrome, not entry, so it must not
         // move when the pill does. Per review: the toggle need not shift.
         trailing={
-          <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
+          <>
+            {/*
+              GCP's own placement of the category switch: beside the workspace
+              mark, so the column below is rows all the way up and the category
+              is named by the trail rather than by a header.
+
+              In the identity row rather than over the list because that is the
+              claim the option is making — the switch is chrome the workspace
+              carries, not part of the list it changes.
+            */}
+            {scopedMode && scopedSwitch === "hamburger" ? (
+              <button
+                type="button"
+                aria-label={l1Open ? "Close all products" : "All products"}
+                aria-expanded={l1Open}
+                title="All products"
+                onClick={() => setL1Open((v) => !v)}
+                className={cn(
+                  "motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[7px]",
+                  l1Open
+                    ? "bg-nav-active text-nav-fg"
+                    : "text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg",
+                )}
+              >
+                <Menu size={16} aria-hidden="true" />
+              </button>
+            ) : null}
+            <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
+          </>
         }
         // The mark collapses in place — a target that never moves, unlike the
         // drawer toggle riding the right edge (Khoi, Aug 24). Supplemental: the
@@ -3259,7 +3492,22 @@ export function LeftNav({
 
       <div
         data-scroll-shell=""
-        className="relative flex min-h-0 w-full flex-1 flex-col"
+        className={cn(
+          "relative flex min-h-0 w-full flex-1 flex-col",
+          /*
+            The drawer reads as being OVER the workspace, not part of it.
+
+            GCP's product list is a surface with an edge and a shadow, and the
+            page behind it is dimmed — which is what says "this is a detour,
+            and closing it puts you back". Our column is a card of the same
+            width as the drawer, so the shadow is the whole of that signal:
+            everything else about the two states would otherwise be identical
+            rows in an identical column, and nothing would say the list is
+            temporary.
+          */
+          scopedDrawer &&
+            "shadow-[8px_0_24px_-12px_rgba(16,24,40,0.35)] motion-move",
+        )}
       >
         <div aria-hidden="true" data-scroll-fade="top" />
         <div
@@ -3355,7 +3603,7 @@ export function LeftNav({
           (pinnedShown || (mergedMode && !isBlockHidden(state, "pinned"))) ? (
             <PinnedRow onOpen={onOpenLauncher} />
           ) : null}
-          {cardShowing && !searchOnly ? (
+          {cardShowing && !searchOnly && !hideOpeningCluster ? (
             <SetupGuideRow
               showLaunchpad={launchpad}
               // At agency the card opens the agency's own Launchpad row; at
@@ -3402,7 +3650,11 @@ export function LeftNav({
               onOpenPanel={onOpenLauncher}
             />
           ) : null}
-          {merged && !agencyScope && !searchOnly && !isBlockHidden(state, "recent") ? (
+          {merged &&
+          !agencyScope &&
+          !searchOnly &&
+          !hideOpeningCluster &&
+          !isBlockHidden(state, "recent") ? (
             <MergedRecentsBlock
               onSelect={selectShortcut}
               /*
@@ -3428,7 +3680,7 @@ export function LeftNav({
               and sitting where a reader was looking for pages.
             */
             null
-          ) : searchOnly ? (
+          ) : searchOnly || hideOpeningCluster ? (
             /*
               The plain Recent cluster goes with the merged one.
 
@@ -3436,6 +3688,10 @@ export function LeftNav({
               Quick actions, AI Agents — and they are surfaces over the
               catalogue rather than part of it, so the field never searched
               them and they have nothing to contribute to a result list.
+
+              `drilledIn` stands them down for the same reason it stands down
+              the card and the merged block: a drilled column is one list at
+              full width, and these are the other lists.
             */
             null
           ) : foldable ? (
@@ -3453,7 +3709,9 @@ export function LeftNav({
             nothing and the results is a hairline the reader has to account
             for, drawn around a block that is not there.
           */}
-          {showClusterRule && !searchOnly ? <NavDivider /> : null}
+          {showClusterRule && !searchOnly && !hideOpeningCluster ? (
+            <NavDivider />
+          ) : null}
           {/*
             Placement three, and the default: between Recents and the tree.
 
@@ -3474,7 +3732,64 @@ export function LeftNav({
           {treeHits && treeHits.size === 0 ? (
             <TreeSearchEmpty query={treeQuery.trim()} />
           ) : null}
-          {bandEverything ? (
+          {columnShowing ? (
+            /*
+              One category, with the column to itself.
+              
+              Drawn with `ProductTreeBranch` — the same component the tree uses
+              — at `l2Depth` 0, which is the one thing that differs: in the tree
+              a product hangs under a group ROW and is indented past it, and
+              here the group is named by the control above the list instead, so
+              its products start flush and only their pages indent.
+
+              Everything the tree's branch already does comes with it: the
+              accordion for pages, the pin column, the here/trail marks, and —
+              in edit mode — the per-row kebab, the grips and the seams.
+            */
+            <>
+              {drillMode ? (
+                <DrillBackRow
+                  label={
+                    columnGroup ? layout.labelFor(columnGroup.id) : "Products"
+                  }
+                  onBack={() => setDrilledId(null)}
+                />
+              ) : scopedSwitch === "header" ? (
+                <ScopeHeaderRow
+                  label={
+                    columnGroup ? layout.labelFor(columnGroup.id) : "Products"
+                  }
+                  {...(columnGroup ? { icon: layout.iconFor(columnGroup.id) } : {})}
+                  open={l1Open}
+                  onToggle={() => setL1Open((v) => !v)}
+                />
+              ) : null}
+              {columnGroup ? (
+                <ProductTreeBranch
+                  key={columnGroup.id}
+                  nodes={
+                    treeBranchFor(state, groups, {
+                      id: columnGroup.id,
+                      label: columnGroup.label,
+                    }) ?? []
+                  }
+                  depth={0}
+                  l2Depth={0}
+                  expanded={tree.expanded}
+                  onToggle={tree.toggleNode}
+                  onSelect={onSelect}
+                  markFor={markFor}
+                  {...(editing
+                    ? {
+                        rowEdit: branchRowEdit,
+                        seamFor: (node, at) =>
+                          branchSeam(columnGroup.id, node, at),
+                      }
+                    : {})}
+                />
+              ) : null}
+            </>
+          ) : bandEverything ? (
             treeHits ? (
               /*
                 Searched, the bands go and the list is what matched — including
@@ -3509,6 +3824,31 @@ export function LeftNav({
             )
           ) : (
             <>
+              {/*
+                The scoped arrangement's L1 list, with the way back at the top.
+
+                The list itself is the flyout arrangement's, unchanged — these
+                rows still open their panels on hover, which is exactly what
+                "clicking an L1 opens its L2s as a flyout" asks for. What the
+                header adds is the return: you came here from a category, and
+                without a way back the only route to it is to navigate into it.
+              */}
+              {/*
+                The drawer's head, under both switch placements.
+
+                GCP's drawer closes on a ✕ at its own top left whether you
+                opened it from the hamburger or not, and the reason is the same
+                here: the control that opened this is a 28px glyph in the
+                identity row, and asking someone to find it again to get out is
+                asking them to remember where they came in.
+              */}
+              {scopedDrawer ? (
+                <ScopeHeaderRow
+                  label="All products"
+                  open
+                  onToggle={() => setL1Open(false)}
+                />
+              ) : null}
               {renderSearched(entries)}
               {/*
                 A standing way in, while editing.
@@ -4101,6 +4441,100 @@ function AddToNavRow({
       <Plus size={16} aria-hidden="true" className="shrink-0" />
       Add a category or product
     </button>
+  );
+}
+
+/**
+ * The way back, at the head of a drilled column.
+ *
+ * A row rather than a button in the header: it is where the category's own row
+ * was standing a moment ago, so putting the return anywhere else would mean the
+ * list appears to have replaced itself out of nowhere. The category's name is
+ * on it because the column has nothing else that says which one you are in —
+ * that is the trade `drill` makes, and the header is where it is paid.
+ */
+function DrillBackRow({
+  label,
+  onBack,
+}: {
+  label: string;
+  onBack: () => void;
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        onClick={onBack}
+        aria-label={`Back to all categories, from ${label}`}
+        className="motion-tap flex w-full shrink-0 items-center gap-[8px] rounded-[var(--t-nav-radius,7px)] px-[var(--t-nav-px,8px)] py-[7px] text-left hover:bg-nav-hover active:scale-[0.99]"
+      >
+        <ArrowLeft
+          size={15}
+          aria-hidden="true"
+          className="shrink-0 text-nav-fg-muted"
+        />
+        <span className="min-w-0 flex-1 truncate text-[13.5px] leading-[normal] font-semibold text-nav-fg">
+          {label}
+        </span>
+      </button>
+      <NavDivider />
+    </>
+  );
+}
+
+/**
+ * The scoped column's head: which category you are in, and the way to another.
+ *
+ * One control for both jobs. A label that only named the category would leave
+ * the switch homeless, and a switch that only said "All products" would leave
+ * the column unnamed — and this arrangement's whole claim is that the sidebar
+ * is ABOUT something, which it has to say out loud.
+ *
+ * Also drawn over the L1 list once it is open, with the label reading "All
+ * products": the same control, saying where pressing it goes back to.
+ */
+function ScopeHeaderRow({
+  label,
+  icon: Icon,
+  open,
+  onToggle,
+}: {
+  label: string;
+  icon?: LucideIcon;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={onToggle}
+        className="motion-tap flex w-full shrink-0 items-center gap-[8px] rounded-[var(--t-nav-radius,7px)] px-[var(--t-nav-px,8px)] py-[7px] text-left hover:bg-nav-hover active:scale-[0.99]"
+      >
+        {Icon ? (
+          <Icon size={16} aria-hidden="true" className="shrink-0 text-nav-fg-muted" />
+        ) : (
+          <LayoutGrid
+            size={16}
+            aria-hidden="true"
+            className="shrink-0 text-nav-fg-muted"
+          />
+        )}
+        <span className="min-w-0 flex-1 truncate text-[13.5px] leading-[normal] font-semibold text-nav-fg">
+          {label}
+        </span>
+        <ChevronDown
+          size={14}
+          aria-hidden="true"
+          className={cn(
+            "shrink-0 text-nav-fg-subtle motion-move",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+      <NavDivider />
+    </>
   );
 }
 

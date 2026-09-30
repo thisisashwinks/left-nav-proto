@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { ChevronDown, Copy, ExternalLink, Plus, Search } from "lucide-react";
 import { usePageChrome } from "@/components/page/page-header";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import {
@@ -8,18 +9,10 @@ import {
   patchForArrangement,
   useNavTemplates,
 } from "@/components/nav/nav-templates";
-import { areasAddedBy } from "@/components/nav/saas-tiers";
-import { useTheme } from "@/components/theme/theme-provider";
-import {
-  SAAS_TIERS,
-  SAAS_TIER_BLURBS,
-  SAAS_TIER_LABELS,
-  SAAS_TIER_PRICES,
-  type SaasTier,
-} from "@/design/plans";
+import type { SaasTier } from "@/design/plans";
 import { cn } from "@/lib/utils";
-import { AttachTemplateDialog, type AttachReach } from "./attach-template-dialog";
-import { Card, Picker, SettingRow } from "./controls";
+import { SaasPlanEditor } from "./saas-plan-editor";
+import { SAAS_TABS, saasPlans, type SaasPlan, type SaasTab } from "./saas-plans-data";
 import { ProductionStubTab } from "./tab-production-stub";
 
 /**
@@ -31,18 +24,96 @@ import { ProductionStubTab } from "./tab-production-stub";
  * accounts you are not looking at and to accounts that do not exist yet. An
  * agency reasoning about plans is on the plans screen, and this is it.
  *
+ * REBUILT Sep 30 against production. The first cut was three tier cards with
+ * a navigation-layout picker on each — a sketch of the model rather than of
+ * the screen, and it put the template decision somewhere production has no
+ * control at all. The real shape is a plan LIST whose rows open a seven-tab
+ * editor, and the navigation template belongs on the Features tab beside the
+ * two attachments already there (see `saas-plan-editor.tsx`).
+ *
  * The rule the page has to carry, because it is the one people get wrong: a
- * plan is a way to APPLY a template, not a state. Attaching hands the layout to
- * everyone on the plan and to everyone who joins later, and that is the end of
- * the plan's involvement — an account that leaves keeps the layout it has. So
- * each card says what the plan does on the way IN, and the page says once, at
- * the top, what it does not do on the way out.
+ * plan is a way to APPLY a template, not a state. Attaching hands the layout
+ * to everyone on the plan and to everyone who joins later, and that is the
+ * end of the plan's involvement — an account that leaves keeps the layout it
+ * has.
  */
-const TABS = ["Plans", "Pricing", "Rebilling", "Trials"] as const;
-
 export function SaasConfiguratorPage() {
-  const [tab, setTab] = React.useState<(typeof TABS)[number]>("Plans");
+  const [tab, setTab] = React.useState<SaasTab>("Plans & pricing");
   const { title: showTitle, description: showDesc } = usePageChrome();
+
+  /*
+   * The plans, held in state because the editor edits them.
+   *
+   * Seeded from `saasPlans` rather than read straight off it, so renaming a
+   * plan or attaching a template sticks for the length of a demo. Nothing
+   * persists — a fake that survived a reload would be claiming a backend
+   * this prototype does not have.
+   */
+  const [plans, setPlans] = React.useState(saasPlans);
+  const [openTier, setOpenTier] = React.useState<SaasTier | null>(null);
+  const open = plans.find((p) => p.tier === openTier) ?? null;
+
+  const patch = (tier: SaasTier, next: Partial<SaasPlan>) =>
+    setPlans((all) => all.map((p) => (p.tier === tier ? { ...p, ...next } : p)));
+
+  const { templates, accountsOnTier, link, notify, strict, attachToTier } =
+    useNavTemplates();
+  const layout = useNavLayout();
+
+  /*
+   * Attaching does the real thing, not a label change.
+   *
+   * The modal is a picture until the press moves navigations, so this runs
+   * the same store calls the model already had: patch every account on the
+   * plan to the template's arrangement, link them so a later template save
+   * can find them, and report how far it reached. A configurator whose
+   * template button only set a chip would demo perfectly and teach the wrong
+   * model — which is the failure mode this whole feature is about.
+   */
+  const attachTemplate = (plan: SaasPlan, templateId: string | null) => {
+    patch(plan.tier, { templateId });
+    attachToTier(plan.tier, templateId ?? DEFAULT_TEMPLATE_ID);
+
+    if (!templateId) {
+      notify(`${plan.name} has no template — sub-accounts keep their layout`);
+      return;
+    }
+    const chosen = templates.find((t) => t.id === templateId);
+    if (!chosen) return;
+    const on = accountsOnTier(plan.tier);
+    for (const id of on) {
+      const applied = patchForArrangement(
+        chosen.arrangement,
+        layout.profileFor(id),
+        { whole: strict },
+      );
+      layout.applyToAccounts([id], `Applied ${chosen.name}`, (l) => ({
+        ...l,
+        ...applied,
+      }));
+      link(id, templateId, applied);
+    }
+    notify(
+      on.length === 0
+        ? `${chosen.name} attached to ${plan.name}`
+        : `${chosen.name} applied to ${on.length} sub-account${on.length === 1 ? "" : "s"} on ${plan.name}`,
+    );
+  };
+
+  if (open) {
+    return (
+      <div className="flex h-full min-h-0 flex-col px-[var(--page-inset)] pt-[6px] pb-[24px]">
+        <SaasPlanEditor
+          plan={open}
+          onBack={() => setOpenTier(null)}
+          onRename={(name, description) =>
+            patch(open.tier, { name, description })
+          }
+          onAttachTemplate={(id) => attachTemplate(open, id)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -50,7 +121,7 @@ export function SaasConfiguratorPage() {
         {showTitle ? (
           <>
             <h1 className="text-[20px] leading-[28px] font-semibold text-pg-heading">
-              SaaS configurator
+              SaaS dashboard
             </h1>
             {showDesc ? (
               <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
@@ -66,7 +137,7 @@ export function SaasConfiguratorPage() {
             showTitle && "mt-[16px]",
           )}
         >
-          {TABS.map((t) => (
+          {SAAS_TABS.map((t) => (
             <button
               key={t}
               type="button"
@@ -86,229 +157,194 @@ export function SaasConfiguratorPage() {
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-[var(--page-inset)] pt-[16px] pb-[24px]">
-        {tab === "Plans" ? <PlansTab /> : <ProductionStubTab label={tab} />}
+        {tab === "Plans & pricing" ? (
+          <PlansTab plans={plans} onOpen={setOpenTier} />
+        ) : (
+          <ProductionStubTab label={tab} />
+        )}
       </div>
     </div>
   );
 }
 
-function PlansTab() {
-  const { templateSaasPlans } = useTheme().effective;
-  const {
-    templates,
-    templateForTier,
-    attachToTier,
-    accountsOnTier,
-    linkedIdFor,
-    isCurrent,
-    link,
-    notify,
-    strict,
-  } = useNavTemplates();
-  const layout = useNavLayout();
-
-  /**
-   * The pick waiting on a confirmation.
-   *
-   * Staged rather than applied, which is the whole of the Sep 29 change: the
-   * picker used to run `attach` straight out of `onChange`, so choosing a
-   * template from a dropdown rewrote every nav on the plan before the menu
-   * had finished closing. A select is the wrong gesture to hang that on — it
-   * is the one control people operate by arrow key to read the options.
-   */
-  const [pending, setPending] = React.useState<{
-    tier: SaasTier;
-    templateId: string;
-  } | null>(null);
-
-  /**
-   * Everyone the agency has made, minus the platform's own row.
-   *
-   * `templateSeed` defaults to `default-only`, so this is EMPTY on a fresh
-   * agency — which makes the empty state below the state most people meet
-   * first, not an edge case.
-   */
-  const ownTemplates = templates.filter((t) => t.id !== DEFAULT_TEMPLATE_ID);
-
-  /**
-   * What an attach would do, counted before it does it.
-   *
-   * Three buckets, and the split is the point — see `AttachReach`. An account
-   * already on this template and still holding it is untouched; one on it but
-   * edited since is reset; one on anything else is replaced. The difference
-   * between the last two is provenance, and it is the difference between
-   * "your change is undone" and "your layout is gone".
-   */
-  const reachFor = (tier: SaasTier, templateId: string): AttachReach => {
-    const on = accountsOnTier(tier);
-    let unchanged = 0;
-    let drifted = 0;
-    let replaced = 0;
-    for (const id of on) {
-      if (linkedIdFor(id) !== templateId) replaced += 1;
-      else if (isCurrent(id)) unchanged += 1;
-      else drifted += 1;
-    }
-    return { total: on.length, unchanged, drifted, replaced };
-  };
-
-  /*
-   * Attaching applies, to everyone already on the plan.
-   *
-   * The alternative — attach now, apply to joiners only — would leave one plan
-   * with two populations on it, which is exactly the "how did it get here"
-   * state the model exists to rule out. So the press does the whole thing, and
-   * the count that comes back says how far it reached.
-   */
-  const attach = (tier: SaasTier, templateId: string) => {
-    attachToTier(tier, templateId);
-    const on = accountsOnTier(tier);
-    if (templateId === DEFAULT_TEMPLATE_ID) {
-      notify(
-        `${SAAS_TIER_LABELS[tier]} has no template — sub-accounts keep their layout`,
-      );
-      return;
-    }
-    const chosen = templates.find((t) => t.id === templateId);
-    if (!chosen) return;
-    for (const id of on) {
-      const applied = patchForArrangement(chosen.arrangement, layout.profileFor(id), {
-        whole: strict,
-      });
-      layout.applyToAccounts([id], `Applied ${chosen.name}`, (l) => ({
-        ...l,
-        ...applied,
-      }));
-      link(id, templateId, applied);
-    }
-    notify(
-      on.length === 0
-        ? `${chosen.name} attached to ${SAAS_TIER_LABELS[tier]}`
-        : `${chosen.name} applied to ${on.length} ${on.length === 1 ? "sub-account" : "sub-accounts"} on ${SAAS_TIER_LABELS[tier]}`,
-    );
-  };
+function PlansTab({
+  plans,
+  onOpen,
+}: {
+  plans: readonly SaasPlan[];
+  onOpen: (tier: SaasTier) => void;
+}) {
+  const { templates } = useNavTemplates();
 
   return (
-    <div className="flex w-full max-w-[720px] flex-col gap-[16px]">
-      {templateSaasPlans ? (
-        <p className="text-[13px] leading-[18px] text-pg-muted">
-          A plan hands its navigation layout to every sub-account on it, and to
-          every one that joins later. Leaving a plan never changes a layout —
-          only you can move a sub-account off one.
-        </p>
-      ) : null}
+    <div className="flex flex-col gap-[16px]">
+      <div className="flex flex-wrap items-start justify-between gap-[12px]">
+        <div className="flex min-w-0 flex-col gap-[2px]">
+          <h2 className="text-[16px] leading-[22px] font-semibold text-pg-heading">
+            Plans &amp; pricing
+          </h2>
+          <p className="text-[13px] leading-[18px] text-pg-muted">
+            You can either offer our recommended plans or build your own
+            packages.
+          </p>
+        </div>
 
-      {SAAS_TIERS.map((tier) => {
-        const on = accountsOnTier(tier);
-        const attached = templateForTier(tier);
-        return (
-          <Card
-            key={tier}
-            title={SAAS_TIER_LABELS[tier]}
-            sub={SAAS_TIER_BLURBS[tier]}
-            aside={
-              <span className="shrink-0 text-right">
-                <span className="block text-[14px] leading-[20px] font-semibold text-pg-heading">
-                  {SAAS_TIER_PRICES[tier]}
-                  <span className="text-[12px] font-normal text-pg-muted">/mo</span>
-                </span>
-                <span className="block text-[12px] leading-[16px] text-pg-muted tabular-nums">
-                  {on.length} {on.length === 1 ? "sub-account" : "sub-accounts"}
-                </span>
-              </span>
-            }
+        <div className="flex shrink-0 flex-wrap items-center gap-[10px]">
+          <button
+            type="button"
+            className="motion-tap flex h-[36px] items-center gap-[7px] rounded-[8px] bg-pg-surface px-[12px] text-[13px] leading-[normal] font-medium text-pg-text-strong shadow-[inset_0_0_0_1px_var(--pg-border-strong)] hover:bg-pg-bg"
           >
-            <SettingRow
-              label="Includes"
-              desc="What this plan entitles the client to, over the one below it."
-              last={!templateSaasPlans}
-            >
-              <span className="text-[13px] leading-[18px] text-pg-muted">
-                {areasAddedBy(tier).join(", ")}
-              </span>
-            </SettingRow>
+            Categories
+            <ChevronDown size={15} aria-hidden="true" className="text-pg-faint" />
+          </button>
+          <div className="flex h-[36px] w-[230px] items-center gap-[9px] rounded-[8px] bg-pg-surface px-[12px] shadow-[inset_0_0_0_1px_var(--pg-border)] motion-tap focus-within:shadow-[inset_0_0_0_1px_var(--brand),0_0_0_3px_var(--brand-soft)]">
+            <Search size={15} aria-hidden="true" className="shrink-0 text-pg-faint" />
+            <input
+              type="search"
+              placeholder="Search plans by name"
+              aria-label="Search plans by name"
+              className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
+            />
+          </div>
+          <button
+            type="button"
+            className="motion-tap flex h-[36px] items-center gap-[7px] rounded-[8px] bg-brand px-[14px] text-[13px] leading-[normal] font-medium text-brand-fg hover:opacity-90 active:scale-[0.98]"
+          >
+            <Plus size={16} aria-hidden="true" />
+            Add your plan
+          </button>
+        </div>
+      </div>
 
-            {/*
-              Behind the axis, so the page can be reviewed as a pricing screen
-              with no navigation in it at all — which is what it is today.
-            */}
-            {templateSaasPlans ? (
-              <SettingRow
-                label="Navigation layout"
-                desc={
-                  attached
-                    ? on.length === 0
-                      ? `New sub-accounts on this plan start on ${attached.name}.`
-                      : `${on.length} ${on.length === 1 ? "sub-account is" : "sub-accounts are"} on ${attached.name}, and joiners get it too.`
-                    : "No template — sub-accounts keep the layout they arrive with."
-                }
-                last
-              >
-                {ownTemplates.length === 0 ? (
-                  /*
-                    The zero state, which is where every agency starts.
-
-                    A picker holding one option it cannot act on is a control
-                    that refuses without saying why — and the refusal is not
-                    even the point: there is nothing wrong, they simply have
-                    not made a template yet. Saying where templates come from
-                    is more use than a disabled dropdown, and it is the only
-                    thing this row can honestly offer.
-                  */
-                  <span className="text-right text-[12.5px] leading-[17px] text-pg-faint">
-                    No templates yet. Arrange a sub-account&rsquo;s navigation
-                    and save it as one.
+      {plans.map((plan) => {
+        const template = templates.find((t) => t.id === plan.templateId);
+        return (
+          <article
+            key={plan.tier}
+            className="overflow-hidden rounded-[10px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-[16px] p-[20px]">
+              <div className="flex min-w-0 flex-col gap-[10px]">
+                <span className="flex flex-wrap items-center gap-[10px]">
+                  <h3 className="text-[22px] leading-[28px] font-semibold tracking-[-0.3px] text-pg-heading">
+                    {plan.name}
+                  </h3>
+                  <span className="flex h-[22px] items-center rounded-full bg-pg-bg px-[10px] text-[12px] leading-none font-medium text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border)]">
+                    {plan.category}
                   </span>
-                ) : (
-                  <Picker
-                    label={`Navigation layout for ${SAAS_TIER_LABELS[tier]}`}
-                    value={attached?.id ?? DEFAULT_TEMPLATE_ID}
-                    options={templates.map((t) => t.id)}
-                    format={(id) =>
-                      templates.find((t) => t.id === id)?.name ??
-                      "HighLevel default"
-                    }
-                    /*
-                      Detaching runs straight through; attaching asks first.
+                </span>
+                <span className="flex items-center gap-[6px] text-[12.5px] leading-[17px] text-pg-muted">
+                  Product ID
+                  <button
+                    type="button"
+                    aria-label={`Copy the product ID for ${plan.name}`}
+                    className="motion-tap flex size-[20px] items-center justify-center rounded-[5px] text-pg-faint hover:bg-pg-bg hover:text-brand"
+                  >
+                    <Copy size={13} aria-hidden="true" />
+                  </button>
+                </span>
+                <span className="flex flex-col gap-[3px]">
+                  <span className="text-[13.5px] leading-[19px] font-medium text-pg-text-strong">
+                    Features
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onOpen(plan.tier)}
+                    className="motion-tap w-fit text-[13px] leading-[18px] font-medium text-brand hover:underline"
+                  >
+                    View all features →
+                  </button>
+                </span>
+              </div>
 
-                      They are not the same act. Picking "HighLevel default"
-                      changes nobody's nav — it only stops the plan handing
-                      one out to joiners, which is why the page's own copy
-                      can promise that leaving never changes a layout. There
-                      is nothing to confirm, and a dialog over a harmless
-                      press is how dialogs stop being read.
-                    */
-                    onChange={(id) =>
-                      id === DEFAULT_TEMPLATE_ID
-                        ? attach(tier, id)
-                        : setPending({ tier, templateId: id })
-                    }
-                  />
-                )}
-              </SettingRow>
-            ) : null}
-          </Card>
+              {/*
+                The two prices as boxes rather than a row of numbers.
+
+                Each is a separate purchasable thing with its own sale link,
+                so each gets a box — a monthly and an annual figure side by
+                side with one link under them would leave the link ambiguous,
+                which on a payment page is the one thing it cannot be.
+              */}
+              <div className="flex shrink-0 gap-[14px]">
+                <PriceBox label="Monthly" amount={plan.monthly} />
+                <PriceBox label="Annual" amount={plan.annual} />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-[20px] gap-y-[10px] border-t border-pg-row-border bg-pg-bg px-[20px] py-[12px]">
+              <Fact>
+                <strong className="font-semibold text-pg-text-strong">
+                  {plan.trialDays}
+                </strong>{" "}
+                Days trial period
+              </Fact>
+              <Fact>
+                <strong className="font-semibold text-pg-text-strong">
+                  {plan.credits}
+                </strong>{" "}
+                Complimentary credits
+              </Fact>
+
+              <span aria-hidden="true" className="min-w-[8px] flex-1" />
+
+              {/*
+                What this plan hands out, read out on the row.
+
+                Both attachments, because the list is where an agency
+                compares plans and "which of these gives the client a nav" is
+                exactly the sort of thing that is invisible until you open
+                all three. The editor is where they are changed; this is
+                where they are seen.
+              */}
+              <Fact>
+                {plan.snapshot ?? "No snapshot attached"}
+              </Fact>
+              <Fact>
+                {template ? template.name : "No template attached"}
+              </Fact>
+
+              <button
+                type="button"
+                onClick={() => onOpen(plan.tier)}
+                className="motion-tap flex h-[34px] shrink-0 items-center gap-[7px] rounded-[8px] bg-pg-surface px-[12px] text-[13px] leading-[normal] font-medium text-pg-text-strong shadow-[inset_0_0_0_1px_var(--pg-border-strong)] hover:bg-pg-bg"
+              >
+                Edit details
+              </button>
+            </div>
+          </article>
         );
       })}
-
-      {pending
-        ? (() => {
-            const chosen = templates.find((t) => t.id === pending.templateId);
-            if (!chosen) return null;
-            return (
-              <AttachTemplateDialog
-                templateName={chosen.name}
-                tierLabel={SAAS_TIER_LABELS[pending.tier]}
-                reach={reachFor(pending.tier, pending.templateId)}
-                onCancel={() => setPending(null)}
-                onConfirm={() => {
-                  attach(pending.tier, pending.templateId);
-                  setPending(null);
-                }}
-              />
-            );
-          })()
-        : null}
     </div>
+  );
+}
+
+function PriceBox({ label, amount }: { label: string; amount: string }) {
+  return (
+    <div className="flex w-[150px] flex-col gap-[6px] rounded-[10px] px-[14px] py-[12px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
+      <span className="flex items-center justify-between gap-[8px]">
+        <span className="text-[13px] leading-[18px] font-medium text-brand">
+          {label}
+        </span>
+        <ExternalLink size={14} aria-hidden="true" className="text-brand" />
+      </span>
+      <span className="text-[22px] leading-[28px] font-semibold text-pg-heading tabular-nums">
+        {amount}
+      </span>
+      <button
+        type="button"
+        className="motion-tap flex items-center gap-[6px] border-t border-pg-row-border pt-[8px] text-[12.5px] leading-[17px] font-medium text-brand hover:underline"
+      >
+        <Copy size={13} aria-hidden="true" />
+        Sale link
+      </button>
+    </div>
+  );
+}
+
+function Fact({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="flex shrink-0 items-center gap-[6px] text-[12.5px] leading-[17px] text-pg-muted">
+      {children}
+    </span>
   );
 }

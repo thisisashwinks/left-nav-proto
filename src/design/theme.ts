@@ -787,6 +787,28 @@ export const GET_APP_PLACEMENT_LABELS: Record<GetAppPlacement, string> = {
 export const AGENCY_SEARCH_DEFAULT = false;
 
 /**
+ * Whether the agency nav header draws the agency logo, when the account rail
+ * beside it is already drawing the same logo.
+ *
+ * At agency scope the mark appears twice within 60px: once on the account
+ * rail's plate, where it is the cap of the client column, and again in the nav
+ * header beside the agency's name. Both are correct on their own terms — the
+ * rail is saying "this is whose accounts these are" and the header is saying
+ * "this is the workspace you are in" — but they are the same glyph at almost
+ * the same size, and the second one teaches nothing the first did not.
+ *
+ * Off, the header keeps the NAME and drops the disc. The name is the half that
+ * was carrying the information: the rail's mark is unlabelled, so the pair
+ * together read as one identity stated once, in two halves, rather than twice.
+ *
+ * Only ever read at agency scope. A sub-account has no rail above it repeating
+ * anything, so its header mark is the only one there is and the axis leaves it
+ * alone. Collapsed, the same rule applies to the rail-width mark, which has an
+ * Expand button directly beneath it doing the job it would lose.
+ */
+export const AGENCY_NAV_MARK_DEFAULT = true;
+
+/**
  * How the Ask AI button is drawn once it is a button rather than a field.
  *
  *  gradient  The tinted purple fill the AI dock and the composer wear — this
@@ -1442,6 +1464,61 @@ export const L2_CLICK_ACTION_LABELS: Record<L2ClickAction, string> = {
 };
 
 /**
+ * How the nav gets you from a category to a page — four whole arrangements.
+ *
+ * This was the boolean `navProductTree` (Sep 30). A second and a third
+ * arrangement arrived that are neither "flyouts" nor "the tree", and a boolean
+ * cannot hold four answers — so the axis names the shape instead of toggling
+ * one of them.
+ *
+ *  flyout  What ships. The column lists L1 and a second surface opens beside
+ *          it for what is inside. The nav stays short enough not to scroll,
+ *          and never says where you are below L1.
+ *  tree    The catalogue IS the nav: every group discloses in place to its
+ *          products and their pages. Always says where you are, at the cost of
+ *          a column long enough to scroll.
+ *  drill   Vercel's answer. No floating surface at all: picking a category
+ *          REPLACES the column with that category's rows, headed by a back
+ *          button. One list at a time, full width, at the cost of the other
+ *          categories being off screen while you read one.
+ *  scoped  GCP's answer. The column is one category's rows — the category you
+ *          are in — and the other categories live behind a switcher that opens
+ *          the L1 list, with each of them cascading its own products. The nav
+ *          re-scopes itself as you travel, so the sidebar is always about
+ *          where you are rather than about everything.
+ */
+export const NAV_ARRANGEMENTS = ["flyout", "tree", "drill", "scoped"] as const;
+
+export type NavArrangement = (typeof NAV_ARRANGEMENTS)[number];
+
+export const NAV_ARRANGEMENT_LABELS: Record<NavArrangement, string> = {
+  flyout: "Flyouts",
+  tree: "All products",
+  drill: "Drill in",
+  scoped: "Scoped to a category",
+};
+
+/**
+ * Where `scoped`'s way back to the other categories lives.
+ *
+ *  header     A row at the top of the column naming the category you are in,
+ *             which opens the L1 list when pressed. The switch and the "where
+ *             am I" are one control, and the column below it is nothing but
+ *             the category's own rows.
+ *  hamburger  The switch moves up into the nav's identity row, beside the
+ *             workspace mark — GCP's literal arrangement. The column is rows
+ *             all the way up, and the category is named by the trail instead.
+ */
+export const SCOPED_SWITCHES = ["header", "hamburger"] as const;
+
+export type ScopedSwitch = (typeof SCOPED_SWITCHES)[number];
+
+export const SCOPED_SWITCH_LABELS: Record<ScopedSwitch, string> = {
+  header: "Category header",
+  hamburger: "Hamburger in the header",
+};
+
+/**
  * Whether the nav says which page you are on, and how far up it says it.
  *
  * It currently says nothing. On a flat sidebar that is survivable — the row is
@@ -1468,8 +1545,20 @@ export const L2_CLICK_ACTION_LABELS: Record<L2ClickAction, string> = {
  *         and, in a cascade, the L2 it came out of. The nav can then answer
  *         "where am I" while closed, which is the entire point — at the cost of
  *         marking rows you are not actually on.
+ *  ends   The default (Sep 30). `trail`, with the L2 left unpainted: the
+ *         category and the page are filled and the product between them is
+ *         not. Three filled rows in a vertical run read as one block — the
+ *         path and its destination lose each other — and the middle row is the
+ *         one carrying the least, because it is named again by the page under
+ *         it and it is the level you are least likely to have MEANT. Marking
+ *         the two ends states the same path and leaves a gap the eye can
+ *         land in.
+ *
+ *         Only ever a TRAIL rule. A product you are actually standing on —
+ *         because it has no pages, or because its own page is what is open —
+ *         is the exact row and is filled like any other.
  */
-export const SELECTED_STATES = ["off", "leaf", "trail"] as const;
+export const SELECTED_STATES = ["off", "leaf", "trail", "ends"] as const;
 
 export type SelectedState = (typeof SELECTED_STATES)[number];
 
@@ -1477,6 +1566,7 @@ export const SELECTED_STATE_LABELS: Record<SelectedState, string> = {
   off: "Off",
   leaf: "The row only",
   trail: "Row and its trail",
+  ends: "Trail, not on L2",
 };
 
 /**
@@ -2093,6 +2183,11 @@ export interface ThemeState {
   getAppPlacement: GetAppPlacement;
   /** Whether the agency's entry pill carries search. See AGENCY_SEARCH_DEFAULT. */
   agencySearch: boolean;
+  /**
+   * Whether the agency nav header repeats the rail's logo. Agency scope only.
+   * See AGENCY_NAV_MARK_DEFAULT.
+   */
+  agencyNavMark: boolean;
   /** How an L2 row reveals its L3 rows. See L3_DISCLOSURES. */
   l3Disclosure: L3Disclosure;
   flyoutTrigger: FlyoutTrigger;
@@ -2240,7 +2335,9 @@ export interface ThemeState {
    * deliberately left alone: one variable at a time, and whether a tree lets
    * the breadcrumb shorten is its own question.
    */
-  navProductTree: boolean;
+  navArrangement: NavArrangement;
+  /** Where `scoped`'s category switcher sits. See SCOPED_SWITCHES. */
+  scopedSwitch: ScopedSwitch;
   /**
    * Whether the tree's group rows carry a product count.
    *
@@ -2358,7 +2455,16 @@ export interface ThemeState {
   crumbStart: CrumbStart;
   /** Whether the trail is drawn at all. */
   crumbShown: boolean;
-  /** Whether the trail opens with the Home glyph. */
+  /**
+   * Whether the trail opens with the Home glyph.
+   *
+   * Off by default (Sep 30). Home is a destination rather than a label, which
+   * is the argument FOR it — but the nav is already two clicks of Home away at
+   * every moment, and a glyph that leads where the sidebar leads is a segment
+   * of the trail spent on something the trail is not for. The separator rule
+   * follows it: with no Home to point back at, the row opens on its first
+   * crumb rather than on a mark aimed at the bar's left padding.
+   */
   crumbHome: boolean;
   /**
    * Whether crumb segments open their siblings.
@@ -2370,7 +2476,15 @@ export interface ThemeState {
   /** Which crumbs carry a dropdown. See CRUMB_SWITCHER_MODES. */
   crumbSwitchers: CrumbSwitchers;
   crumbSeparator: CrumbSeparator;
-  /** What the trail's last segment is. See CRUMB_LEAVES. */
+  /**
+   * What the trail's last segment is. See CRUMB_LEAVES.
+   *
+   * `title` by default (Sep 30): the leaf leaves the bar and the page title
+   * grows the caret, so the page is named once on screen and the switching is
+   * attached to the name rather than standing beside it. It needs a title to
+   * attach to and degrades to `none` when there is none — a page with its
+   * header switched off, or a leaf with no siblings to offer.
+   */
   crumbLeaf: CrumbLeaf;
   /** What a folder's crumb does to the view crumb. See FOLDER_CRUMBS. */
   folderCrumb: FolderCrumb;
@@ -2380,10 +2494,9 @@ export interface ThemeState {
    * A second trail INSIDE the table, above its header row.
    *
    * What the real product does on a screen with folders in it: Home ▸ Intake,
-   * drawn in the card rather than in the chrome. Off by default, because the
-   * app bar above is already saying the same path and the point of the option
-   * is to see the two together — a prototype that shipped both on would have
-   * answered the question by not asking it.
+   * drawn in the card rather than in the chrome. Inside by default as of Sep
+   * 30, and whenever it is on the folders leave the app bar's trail — the bar
+   * stops at Workflows and the path is said once, by the thing being browsed.
    *
    * The argument for it is that a file browser's path belongs to the thing
    * being browsed: the bar names where the PAGE is, and inside a deep folder
@@ -2809,6 +2922,7 @@ export const DEFAULT_THEME: ThemeState = {
   // GET_APP_PLACEMENTS for what the other three cost.
   getAppPlacement: "flyout",
   agencySearch: AGENCY_SEARCH_DEFAULT,
+  agencyNavMark: AGENCY_NAV_MARK_DEFAULT,
   // Both back to the plain answer (Sep 10). The indented list and the
   // click-every-time trigger are what the nav shipped with, so they are what a
   // review should open on; the dropdown and the sticky swap are the proposals,
@@ -2827,7 +2941,7 @@ export const DEFAULT_THEME: ThemeState = {
    * time — a mark you cannot see is the same as no mark for the case it was
    * added for. Off and leaf are both one click away in the panel.
    */
-  selectedState: "trail",
+  selectedState: "ends",
   // The fill: the one treatment that survives a row also being hovered, now
   // that the selected grey is a real step off the hover grey.
   selectedMark: "fill",
@@ -2958,7 +3072,8 @@ export const DEFAULT_THEME: ThemeState = {
   pageCount: true,
   pageHeader: true,
   stickyDashboardBar: true,
-  navProductTree: false,
+  navArrangement: "flyout",
+  scopedSwitch: "header",
   navTreeCounts: false,
   treeIcons: "all",
   treeRecentsAllProducts: false,
@@ -2969,13 +3084,15 @@ export const DEFAULT_THEME: ThemeState = {
   crumbCollapse: "off",
   crumbStart: "group",
   crumbShown: true,
-  crumbHome: true,
+  crumbHome: false,
   crumbSwitchers: "all",
-  crumbLeaf: "full",
+  crumbLeaf: "title",
   // Replace, so the default trail does not grow a level the moment anyone
   // opens a folder. Beside is one click away for the comparison.
   folderCrumb: "replace",
-  tableCrumb: "off",
+  // Inside the table by default (Sep 30): the folder path lives with the
+  // thing being browsed, and the app bar's trail stops at Workflows.
+  tableCrumb: "inside",
   crumbDepth: "full",
   recordKeepsFolder: true,
   crumbSeparator: "chevron",

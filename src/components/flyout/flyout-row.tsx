@@ -396,6 +396,9 @@ export function FlyoutRow({
   const marking = useMarking(
     here.productId === item.id && here.childId === null,
     here.productId === item.id,
+    // The panel's rows ARE the L2 — the level `ends` leaves unpainted when the
+    // page is one of its own L3s.
+    "l2",
   );
   const mark = useHereStyle(marking);
   /*
@@ -1245,6 +1248,7 @@ function FlyoutChildRow({
   const marking = useMarking(
     here.childId !== null && here.childId === child.id,
     (child.children ?? []).some((n) => n.id === here.childId),
+    "l3",
   );
   const mark = useHereStyle(marking);
   const { ref: childLabelRef, hostRef: childHostRef } =

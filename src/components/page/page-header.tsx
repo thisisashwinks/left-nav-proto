@@ -9,7 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Crumb } from "@/components/header/app-header";
-import { useLeafCrumb } from "@/components/page/leaf-crumb";
+import { useClaimLeaf, useLeafCrumb } from "@/components/page/leaf-crumb";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 
@@ -87,6 +87,8 @@ export function PrimaryButton({
  */
 export function OverflowMenu({ items }: { items: PageAction[] }) {
   const [open, setOpen] = React.useState(false);
+  // Tells the bar the leaf is here, so it may leave the trail.
+  useClaimLeaf(true);
 
   React.useEffect(() => {
     if (!open) return;
@@ -183,8 +185,29 @@ export function OverflowMenu({ items }: { items: PageAction[] }) {
  * that already has the trail above it.
  */
 /** The heading's own type, shared so the menu and the plain h1 cannot drift. */
-const TITLE_TYPE =
+export const TITLE_TYPE =
   "text-[20px] leading-[normal] font-semibold tracking-[-0.2px] text-pg-heading";
+
+/**
+ * The page's title for pages that draw their own heading instead of passing
+ * `title` to PageHeader: the trail's leaf menu when the shell handed one
+ * down, the plain h1 otherwise. Same component PageHeader uses, so the two
+ * kinds of page cannot disagree about what the title does.
+ */
+export function PageTitle({
+  title,
+  className = TITLE_TYPE,
+}: {
+  title: string;
+  className?: string;
+}) {
+  const leaf = useLeafCrumb();
+  return leaf ? (
+    <TitleMenu title={title} leaf={leaf} className={className} />
+  ) : (
+    <h1 className={cn("truncate", className)}>{title}</h1>
+  );
+}
 
 function TitleMenu({
   title,

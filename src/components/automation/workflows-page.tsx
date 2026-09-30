@@ -50,8 +50,36 @@ import {
   type Workflow,
 } from "./workflows-data";
 import { TableCard, usePagination } from "@/components/page/table-card";
+import {
+  ListToolbar,
+  useListToolbar,
+  type ListToolbarModel,
+} from "@/components/page/list-toolbar";
 
 const COLS = "2.4fr 1.1fr 0.9fr 1.4fr 1.2fr";
+
+/*
+ * COLS as data, so the list toolbar can hide all but Name. With nothing
+ * hidden the template this builds is COLS.
+ */
+const WORKFLOW_COLUMNS: { id: string; label: string; width: string; locked?: boolean }[] = [
+  { id: "name", label: "Name", width: "2.4fr", locked: true },
+  { id: "status", label: "Status", width: "1.1fr" },
+  { id: "enrolled", label: "Enrolled", width: "0.9fr" },
+  { id: "updated", label: "Last edited", width: "1.4fr" },
+  { id: "created", label: "Created on", width: "1.2fr" },
+];
+
+const WORKFLOW_SORT_FIELDS = [
+  { value: "name", label: "Name" },
+  { value: "enrolled", label: "Enrolled" },
+  { value: "created", label: "Created on" },
+];
+
+const EDITORS = [...new Set(allWorkflows.map((w) => w.updatedBy))].sort();
+
+/** "Apr 28 2025, 12:22 PM" to a timestamp, for sorting. */
+const createdAt = (s: string) => Date.parse(s.replace(",", "")) || 0;
 
 function StatusPill({ status }: { status: Workflow["status"] }) {
   return (
@@ -116,6 +144,18 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
    */
   const [folderId, setFolderId] = React.useState<string | null>(null);
   const folder = workflowFolders.find((f) => f.id === folderId) ?? null;
+  const [query, setQuery] = React.useState("");
+  const [editors, setEditors] = React.useState<string[]>([]);
+  const [sort, setSort] = React.useState<{ field: string; dir: "asc" | "desc" } | null>(null);
+  const [hidden, setHidden] = React.useState<ReadonlySet<string>>(() => new Set());
+  const toolbar = useListToolbar();
+  const needle = query.trim().toLowerCase();
+  const cols =
+    hidden.size === 0
+      ? COLS
+      : WORKFLOW_COLUMNS.filter((c) => !hidden.has(c.id))
+          .map((c) => c.width)
+          .join(" ");
 
   /*
    * Folder first, then the view.
@@ -135,18 +175,49 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
    * it had emptied the place. Directories first is the convention every file
    * browser uses and the one Ashwin's screenshot shows.
    */
-  const folderRows = React.useMemo(() => foldersIn(folderId), [folderId]);
+  const folderRows = React.useMemo(
+    () =>
+      // A folder has no editor, so an Edited by filter leaves only workflows.
+      editors.length > 0
+        ? []
+        : foldersIn(folderId).filter((f) => !needle || f.label.toLowerCase().includes(needle)),
+    [folderId, needle, editors],
+  );
 
   /** Root → here, for both trails: the bar's crumbs and the table's own. */
   const trail = React.useMemo(() => folderPath(folderId), [folderId]);
 
-  const rows = React.useMemo(() => {
+  const viewRows = React.useMemo(() => {
     if (view === "all") return inFolder;
     if (view === "live") return inFolder.filter((w) => w.status === "live");
     if (view === "drafts") return inFolder.filter((w) => w.status === "draft");
     if (view === "review") return inFolder.filter((w) => w.status === "review");
     return [];
   }, [view, inFolder]);
+
+  /* Search, the Edited by filter and the sort, over the view's cut. */
+  const rows = React.useMemo(() => {
+    const filtered = viewRows.filter(
+      (w) =>
+        (editors.length === 0 || editors.includes(w.updatedBy)) &&
+        (!needle ||
+          w.name.toLowerCase().includes(needle) ||
+          w.updatedBy.toLowerCase().includes(needle)),
+    );
+    if (!sort) return filtered;
+    const key = (w: Workflow): string | number =>
+      sort.field === "enrolled"
+        ? Number(w.enrolled.replace(/,/g, "")) || 0
+        : sort.field === "created"
+          ? createdAt(w.created)
+          : w.name.toLowerCase();
+    const dir = sort.dir === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const ka = key(a);
+      const kb = key(b);
+      return (ka < kb ? -1 : ka > kb ? 1 : 0) * dir;
+    });
+  }, [viewRows, editors, needle, sort]);
 
   /*
    * The page the table is standing on.
@@ -260,6 +331,14 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
   const activeView = views.find((v) => v.id === view) ?? views[0]!;
 
   const { folderCrumb, recordKeepsFolder } = effective;
+  /*
+   * Whether folders reach the app bar's trail at all.
+   *
+   * Only when the table has no trail of its own. With `tableCrumb` on, the
+   * path is drawn in (or above) the card and the bar stops at Workflows, so
+   * the two trails never say the same folders twice. Sep 30.
+   */
+  const foldersInTrail = effective.tableCrumb === "off";
 
   /*
    * Inside a folder, `replace` hands the trail's scope slot to the folder — so
@@ -270,7 +349,8 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
    * `beside` leaves it alone: the folder appends and the view stays the leaf.
    */
   const scopeInTrail =
-    shape.scopeInTrail && !(folder !== null && folderCrumb === "replace");
+    shape.scopeInTrail &&
+    !(folder !== null && foldersInTrail && folderCrumb === "replace");
   /*
    * And the cuts need somewhere to go once the trail stops carrying them.
    *
@@ -296,7 +376,7 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
    * at Workflows and the lit cut is the cut you get.
    */
   const viewSegment =
-    scopeInTrail && shape.showViews
+    !toolbar.shared && scopeInTrail && shape.showViews
       ? {
           label: activeView.label,
           icon: activeView.icon,
@@ -328,7 +408,7 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
    * same thing however you got there.
    */
   const folderSegment =
-    trail.length > 0 && (open === null || recordKeepsFolder)
+    foldersInTrail && trail.length > 0 && (open === null || recordKeepsFolder)
       ? {
           label: trail[0]!.label,
           // Each ancestor is a place, stated rather than inferred: these have
@@ -364,6 +444,8 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
         <Search size={16} aria-hidden="true" className="shrink-0 text-pg-faint" />
         <input
           type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
           placeholder="Search workflows"
           aria-label="Search workflows"
           className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
@@ -401,9 +483,46 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
       <GlyphButton icon={ListFilter} label="Filters" />
       <GlyphButton icon={ArrowUpDown} label="Sort" />
       <GlyphButton icon={Columns3} label="Columns" />
-      <CollapsingSearch placeholder="Search workflows" label="Search workflows" />
+      <CollapsingSearch
+        placeholder="Search workflows"
+        label="Search workflows"
+        value={query}
+        onChange={setQuery}
+      />
     </>
   );
+
+  const toolbarModel: ListToolbarModel = {
+    views: {
+      items: views.map((v) => ({ id: v.id, label: v.label, count: v.count, icon: v.icon })),
+      activeId: view,
+      onSelect: setView,
+      noun: "view",
+    },
+    search: { value: query, onChange: setQuery, placeholder: "Search workflows" },
+    quickFilters: [
+      {
+        id: "editor",
+        label: "Edited by",
+        options: EDITORS.map((e) => ({ value: e, label: e })),
+        value: editors,
+        multiple: true,
+        onChange: setEditors,
+      },
+    ],
+    sort: { fields: WORKFLOW_SORT_FIELDS, value: sort, onChange: setSort },
+    columns: {
+      items: WORKFLOW_COLUMNS.map((c) => ({
+        id: c.id,
+        label: c.label,
+        visible: !hidden.has(c.id),
+        locked: c.locked,
+      })),
+      onChange: (items) =>
+        setHidden(new Set(items.filter((c) => !c.visible && !c.locked).map((c) => c.id))),
+    },
+    resultCount: { value: rows.length, noun: rows.length === 1 ? "workflow" : "workflows" },
+  };
 
   const overflowActions = [
     { label: "New folder", icon: FolderPlus },
@@ -444,7 +563,7 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
         are already on the toolbar below, and a header that offered Create
         workflow a second time is the duplication this was called to kill.
       */}
-      {scopeInTrail ? null : (
+      {scopeInTrail && !toolbar.shared ? null : (
       <PageHeader
         /*
           The trail's leaf says this same word — see screen-names.ts. Inside a
@@ -458,7 +577,7 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
          * two counts for one collection is exactly the repetition L-B was
          * drawn to remove. The same rule Contacts follows, for the same reason.
          */
-        count={shape.mergedRow ? undefined : activeView.count}
+        count={shape.mergedRow && !toolbar.shared ? undefined : activeView.count}
         description={folder ? folder.description : "Triggers, actions and handoffs"}
         /*
          * L-B's merged row, assembled from whichever bands are on.
@@ -470,7 +589,7 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
          * header rather than a gap.
          */
         lead={
-          shape.mergedRow && (shape.showViews || shape.showFilters) ? (
+          !toolbar.shared && shape.mergedRow && (shape.showViews || shape.showFilters) ? (
             <>
               {shape.showViews ? (
               <ScopePicker
@@ -502,7 +621,7 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
         `scopeInTabs` folds `listShowViews` in, so the strip also goes when
         the collection is told not to offer its cuts at all — see list-shape.
       */}
-      {scopeInTabs ? (
+      {!toolbar.shared && scopeInTabs ? (
         <ViewBar
           label="Workflow views"
           views={views}
@@ -542,7 +661,7 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
         is a broken page, so Import, Create and the kebab ride the right edge
         of this row — the edge they held when there was a header.
       */}
-      {(!shape.mergedRow && shape.filterRow) || scopeInTrail ? (
+      {!toolbar.shared && ((!shape.mergedRow && shape.filterRow) || scopeInTrail) ? (
         <div className="flex shrink-0 items-center gap-[10px]">
           {shape.showFilters ? (
             controls
@@ -570,6 +689,9 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
         </div>
       ) : null}
 
+      {(() => {
+        const table = (
+      <>
       {effective.tableCrumb === "above" ? tableTrail : null}
 
       <TableCard pager={pager}>
@@ -586,7 +708,7 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
         {effective.tableCrumb === "inside" ? tableTrail : null}
 
         <div
-          style={{ gridTemplateColumns: COLS }}
+          style={{ gridTemplateColumns: cols }}
           className="sticky top-0 z-10 grid h-[38px] items-center gap-[16px] border-b border-pg-head-border bg-pg-surface px-[16px]"
         >
           {/*
@@ -594,7 +716,7 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
             repeating each row's parent said the same thing a second time —
             and on a folder page it said the same thing on every row.
           */}
-          {["Name", "Status", "Enrolled", "Last edited", "Created on"].map((h) => (
+          {WORKFLOW_COLUMNS.filter((c) => !hidden.has(c.id)).map((c) => c.label).map((h) => (
             <span
               key={h}
               className="text-[12px] leading-[normal] font-medium whitespace-nowrap text-pg-muted"
@@ -623,7 +745,7 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
               e.preventDefault();
               setFolderId(f.id);
             }}
-            style={{ gridTemplateColumns: COLS }}
+            style={{ gridTemplateColumns: cols }}
             className="grid h-[44px] w-full cursor-pointer items-center gap-[16px] border-b border-pg-row-border px-[16px] text-left motion-tap hover:bg-pg-bg"
           >
             <span className="flex min-w-0 items-center gap-[10px]">
@@ -638,14 +760,18 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
               total here would be the one number on the row that changed
               meaning between two row types in the same column.
             */}
-            <span aria-hidden="true" />
-            <span aria-hidden="true" />
+            {hidden.has("status") ? null : <span aria-hidden="true" />}
+            {hidden.has("enrolled") ? null : <span aria-hidden="true" />}
+            {hidden.has("updated") ? null : (
             <span className="truncate text-[13px] leading-[normal] text-pg-muted">
               {f.updated}
             </span>
+            )}
+            {hidden.has("created") ? null : (
             <span className="truncate text-[13px] leading-[normal] text-pg-muted">
               {f.created}
             </span>
+            )}
           </div>
         ))}
 
@@ -669,7 +795,7 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
               e.preventDefault();
               setOpenId(w.id);
             }}
-            style={{ gridTemplateColumns: COLS }}
+            style={{ gridTemplateColumns: cols }}
             className="grid h-[44px] w-full cursor-pointer items-center gap-[16px] border-b border-pg-row-border px-[16px] text-left last:border-b-0 motion-tap hover:bg-pg-bg"
           >
             {/*
@@ -679,16 +805,22 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
             <span className="truncate pl-[25px] text-[13px] leading-[normal] font-medium text-pg-text-strong">
               {w.name}
             </span>
-            <StatusPill status={w.status} />
+            {hidden.has("status") ? null : <StatusPill status={w.status} />}
+            {hidden.has("enrolled") ? null : (
             <span className="text-[13px] leading-[normal] text-pg-text">
               {w.enrolled}
             </span>
+            )}
+            {hidden.has("updated") ? null : (
             <span className="truncate text-[13px] leading-[normal] text-pg-muted">
               {w.updated} · {w.updatedBy}
             </span>
+            )}
+            {hidden.has("created") ? null : (
             <span className="truncate text-[13px] leading-[normal] text-pg-muted">
               {w.created}
             </span>
+            )}
           </div>
         ))}
 
@@ -702,14 +834,26 @@ function WorkflowsList({ initialView }: { initialView?: string | null }) {
            */
           <div className="flex h-[200px] flex-col items-center justify-center gap-[4px]">
             <p className="text-[13.5px] leading-[normal] font-medium text-pg-text">
-              Nothing here
+              {needle || editors.length > 0 ? "No workflows match" : "Nothing here"}
             </p>
             <p className="text-[12.5px] leading-[normal] text-pg-faint">
-              No workflows have been deleted in the last 30 days.
+              {needle || editors.length > 0
+                ? "Try a different search or clear the filters."
+                : "No workflows have been deleted in the last 30 days."}
             </p>
           </div>
         ) : null}
       </TableCard>
+      </>
+        );
+        return toolbar.shared ? (
+          <ListToolbar model={toolbarModel}>
+            <div className="flex min-h-0 flex-1 flex-col gap-[14px]">{table}</div>
+          </ListToolbar>
+        ) : (
+          table
+        );
+      })()}
     </div>
   );
 }

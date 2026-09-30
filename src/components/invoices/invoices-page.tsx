@@ -336,7 +336,12 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
       <GlyphButton icon={CalendarDays} label="Date range" />
       <GlyphButton icon={ListFilter} label="Filters" />
       <GlyphButton icon={Download} label="Export invoices" />
-      <CollapsingSearch placeholder="Search invoices" label="Search invoices" />
+      <CollapsingSearch
+        placeholder="Search invoices"
+        label="Search invoices"
+        value={query}
+        onChange={setQuery}
+      />
     </>
   );
 

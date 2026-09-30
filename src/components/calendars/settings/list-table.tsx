@@ -42,7 +42,7 @@ export type RowAction =
  * and a fractional column would squeeze them into three and a half at
  * narrow widths.
  */
-const COLS = "minmax(200px,2.2fr) minmax(90px,1.1fr) minmax(72px,0.8fr) minmax(90px,1fr) minmax(80px,0.8fr) minmax(150px,1.3fr) 148px";
+const COLS = "minmax(130px,2.2fr) minmax(64px,1.1fr) minmax(60px,0.8fr) minmax(76px,1fr) minmax(76px,0.8fr) minmax(150px,1.3fr) 140px";
 
 const HEADERS = ["Calendar name", "Group", "Duration", "Type", "Status", "Date updated", "Actions"];
 
@@ -85,11 +85,11 @@ export function ListTable({
   return (
     <div className="flex min-w-0 flex-col overflow-hidden rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
       <div className="overflow-x-auto">
-        <div role="table" aria-label="Calendars" className="min-w-[920px]">
+        <div role="table" aria-label="Calendars" className="min-w-[800px]">
           <div
             role="row"
             style={{ gridTemplateColumns: COLS }}
-            className="grid h-[40px] items-center gap-[12px] border-b border-pg-head-border bg-[color-mix(in_srgb,var(--pg-border)_22%,var(--pg-surface))] px-[20px]"
+            className="grid h-[40px] items-center gap-[12px] border-b border-pg-head-border bg-[color-mix(in_srgb,var(--pg-border)_22%,var(--pg-surface))] px-[16px]"
           >
             {HEADERS.map((h) => (
               <span
@@ -110,7 +110,7 @@ export function ListTable({
                 key={row.id}
                 role="row"
                 style={{ gridTemplateColumns: COLS }}
-                className="grid min-h-[60px] items-center gap-[12px] border-b border-pg-row-border px-[20px] py-[10px] hover:bg-[color-mix(in_srgb,var(--pg-border)_14%,var(--pg-surface))]"
+                className="grid min-h-[60px] items-center gap-[12px] border-b border-pg-row-border px-[16px] py-[10px] hover:bg-[color-mix(in_srgb,var(--pg-border)_14%,var(--pg-surface))]"
               >
                 <span role="cell" className="flex min-w-0 flex-col gap-[2px]">
                   <button

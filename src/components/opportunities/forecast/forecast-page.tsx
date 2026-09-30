@@ -178,6 +178,7 @@ export function ForecastPage({
                 pipelineId={pipeline}
                 onOpenDrill={setDrill}
                 onOpenFilters={() => setFiltersOpen(true)}
+                hideFilters={shared}
               />
             </div>
           ) : (

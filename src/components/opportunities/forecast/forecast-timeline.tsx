@@ -493,29 +493,29 @@ export function ForecastTimeline({
       <div className="flex shrink-0 flex-wrap items-center gap-[10px]">
         {hideListControls ? null : (
           <>
-        <OutlineButton onClick={onOpenFilters}>
-          <ListFilter size={15} aria-hidden="true" className="text-pg-text-strong" />
-          Advanced filters
-          {filtersCount ? <Badge>{filtersCount}</Badge> : null}
-        </OutlineButton>
-        <div className="relative shrink-0">
-          <OutlineButton
-            aria-haspopup="dialog"
-            aria-expanded={sortOpen}
-            onClick={() => setSortOpen((v) => !v)}
-          >
-            <ArrowUpDown size={15} aria-hidden="true" className="text-pg-text-strong" />
-            Sort
-            {sort ? <Badge>1</Badge> : null}
-          </OutlineButton>
-          {sortOpen ? (
-            <OpportunitySortPopover
-              sort={sort}
-              onChange={setSort}
-              onClose={() => setSortOpen(false)}
-            />
-          ) : null}
-        </div>
+            <OutlineButton onClick={onOpenFilters}>
+              <ListFilter size={15} aria-hidden="true" className="text-pg-text-strong" />
+              Advanced filters
+              {filtersCount ? <Badge>{filtersCount}</Badge> : null}
+            </OutlineButton>
+            <div className="relative shrink-0">
+              <OutlineButton
+                aria-haspopup="dialog"
+                aria-expanded={sortOpen}
+                onClick={() => setSortOpen((v) => !v)}
+              >
+                <ArrowUpDown size={15} aria-hidden="true" className="text-pg-text-strong" />
+                Sort
+                {sort ? <Badge>1</Badge> : null}
+              </OutlineButton>
+              {sortOpen ? (
+                <OpportunitySortPopover
+                  sort={sort}
+                  onChange={setSort}
+                  onClose={() => setSortOpen(false)}
+                />
+              ) : null}
+            </div>
           </>
         )}
 

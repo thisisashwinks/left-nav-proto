@@ -30,6 +30,14 @@ interface NavHeaderProps {
   trailing?: React.ReactNode;
   /** Collapses the nav in place — the logo mark's second job. */
   onToggleCollapsed?: () => void;
+  /**
+   * Whether this row draws the logo at all.
+   *
+   * False only at agency scope, and only when the account rail beside it is
+   * already showing the same mark. The name always stays — it is the half of
+   * the identity the rail cannot state. See AGENCY_NAV_MARK_DEFAULT.
+   */
+  mark?: boolean;
 }
 
 /**
@@ -50,6 +58,7 @@ export function NavHeader({
   canSwitch = true,
   trailing,
   onToggleCollapsed,
+  mark = true,
 }: NavHeaderProps) {
   // A config `logoSrc` pins the header to one asset for a demo, so it outranks
   // the account's own pair — the wide logo included.
@@ -69,11 +78,12 @@ export function NavHeader({
               open={switcherOpen}
               onToggle={onToggleSwitcher}
               agency={agency}
+              mark={mark}
               {...(onToggleCollapsed ? { onToggleCollapsed } : {})}
             />
           ) : (
             <span className="flex h-[30px] min-w-0 items-center gap-[7px]">
-              {onToggleCollapsed ? (
+              {onToggleCollapsed && mark ? (
                 wordmark ? (
                   /*
                     A wide logo takes the whole header row.
@@ -134,7 +144,12 @@ export function NavHeader({
                 </>
                 )
               ) : (
-                <BrandMark account={account} logoSrc={logoSrc} alt={logoAlt} />
+                <BrandMark
+                  account={account}
+                  logoSrc={logoSrc}
+                  alt={logoAlt}
+                  withMark={mark}
+                />
               )}
             </span>
           )}

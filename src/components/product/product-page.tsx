@@ -1073,22 +1073,141 @@ function ListControls({ title, stage }: { title: string; stage: StageList }) {
           className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-pg-text placeholder:text-pg-faint focus:outline-none"
         />
       </div>
-      <ToolbarButton icon={ListFilter} label="Filters" />
-      <ToolbarButton icon={Columns3} label="Columns" />
+      <ToolbarMenu
+        icon={ListFilter}
+        label={
+          stage.status.length + stage.owner.length > 0
+            ? `Filters · ${stage.status.length + stage.owner.length}`
+            : "Filters"
+        }
+        groups={[
+          {
+            label: "Status",
+            items: STAGE_STATUSES.map((v) => ({
+              id: v,
+              label: v,
+              on: stage.status.includes(v),
+              onToggle: () => stage.toggleStatus(v),
+            })),
+          },
+          {
+            label: "Owner",
+            items: STAGE_OWNERS.map((v) => ({
+              id: v,
+              label: v,
+              on: stage.owner.includes(v),
+              onToggle: () => stage.toggleOwner(v),
+            })),
+          },
+        ]}
+      />
+      <ToolbarMenu
+        icon={Columns3}
+        label="Columns"
+        groups={[
+          {
+            label: "Show columns",
+            items: STAGE_COLUMNS.filter((c) => !c.locked).map((c) => ({
+              id: c.id,
+              label: c.label,
+              on: !stage.hidden.has(c.id),
+              onToggle: () => stage.toggleColumn(c.id),
+            })),
+          },
+        ]}
+      />
     </>
+  );
+}
+
+/**
+ * The toolbar button with a checklist under it — the same hand-rolled menu
+ * shape as the rest of the prototype (click-catcher plus positioned card), so
+ * the row keeps its height while a menu is open.
+ */
+function ToolbarMenu({
+  icon,
+  label,
+  groups,
+}: {
+  icon: React.ComponentType<{ size?: number | string; className?: string; "aria-hidden"?: boolean | "true" }>;
+  label: string;
+  groups: {
+    label: string;
+    items: { id: string; label: string; on: boolean; onToggle: () => void }[];
+  }[];
+}) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div className="relative shrink-0">
+      <ToolbarButton
+        icon={icon}
+        label={label}
+        expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      />
+      {open ? (
+        <>
+          <button
+            type="button"
+            aria-label="Close menu"
+            tabIndex={-1}
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-40 cursor-default"
+          />
+          <div className="absolute top-[38px] right-0 z-50 w-[220px] rounded-[10px] bg-pg-surface p-[4px] shadow-[0_12px_16px_-4px_rgba(16,24,40,0.08),0_4px_6px_-2px_rgba(16,24,40,0.03),inset_0_0_0_1px_var(--pg-border)]">
+            {groups.map((g) => (
+              <div key={g.label} className="py-[2px]">
+                <div className="px-[9px] pt-[6px] pb-[4px] text-[12px] leading-[16px] font-semibold text-pg-faint">
+                  {g.label}
+                </div>
+                {g.items.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="menuitemcheckbox"
+                    aria-checked={item.on}
+                    onClick={item.onToggle}
+                    className="motion-tap flex w-full items-center gap-[8px] rounded-[7px] px-[9px] py-[7px] text-left text-[13px] leading-[normal] text-pg-text hover:bg-pg-row-border"
+                  >
+                    <span
+                      className={cn(
+                        "flex size-[14px] shrink-0 items-center justify-center rounded-[3px]",
+                        item.on
+                          ? "bg-brand text-white"
+                          : "shadow-[inset_0_0_0_1px_var(--pg-border-strong)]",
+                      )}
+                    >
+                      {item.on ? <Check size={10} strokeWidth={3} aria-hidden="true" /> : null}
+                    </span>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
   );
 }
 
 function ToolbarButton({
   icon: Icon,
   label,
+  expanded,
+  onClick,
 }: {
   icon: React.ComponentType<{ size?: number | string; className?: string; "aria-hidden"?: boolean | "true" }>;
   label: string;
+  expanded?: boolean;
+  onClick?: () => void;
 }) {
   return (
     <button
       type="button"
+      aria-expanded={expanded}
+      onClick={onClick}
       className="motion-tap flex h-[34px] shrink-0 items-center gap-[7px] rounded-[8px] bg-pg-surface px-[14px] text-[13px] leading-[normal] font-medium whitespace-nowrap text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:shadow-[inset_0_0_0_1px_var(--pg-border-strong)] active:scale-[0.97]"
     >
       <Icon size={15} aria-hidden="true" className="text-pg-text-strong" />
@@ -1147,6 +1266,7 @@ type StageList = ReturnType<typeof useStageList>;
 function useStageList({
   title,
   views,
+  subViews,
 }: {
   title: string;
   views: StageViews;
@@ -1182,6 +1302,23 @@ function useStageList({
     ...(views ? { views } : {}),
     search: { value: query, onChange: setQuery, placeholder: `Search ${title.toLowerCase()}` },
     quickFilters: [
+      /*
+       * The catalogue's sub-tab row (Draft / Sent / Accepted…) is a filter on
+       * the selected tab, so it travels as a single-select quick filter. One
+       * is always selected, so clearing it falls back to the first.
+       */
+      ...(subViews
+        ? [
+            {
+              id: "sub-view",
+              label: subViews.label,
+              options: subViews.items.map((t) => ({ value: t.id, label: t.label })),
+              value: [subViews.activeId],
+              onChange: (v: string[]) =>
+                subViews.onSelect(v[v.length - 1] ?? subViews.items[0]!.id),
+            },
+          ]
+        : []),
       {
         id: "status",
         label: "Status",
@@ -1216,7 +1353,31 @@ function useStageList({
     resultCount: { value: rows.length, noun: title.toLowerCase() },
   };
 
-  return { rows, hidden, clear, query, setQuery, model };
+  const toggle = (list: string[], v: string) =>
+    list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
+  const toggleStatus = (v: string) => setStatus((l) => toggle(l, v));
+  const toggleOwner = (v: string) => setOwner((l) => toggle(l, v));
+  const toggleColumn = (id: string) =>
+    setHidden((h) => {
+      const next = new Set(h);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  return {
+    rows,
+    hidden,
+    clear,
+    query,
+    setQuery,
+    status,
+    owner,
+    toggleStatus,
+    toggleOwner,
+    toggleColumn,
+    model,
+  };
 }
 
 /** The shared toolbar around the stage when a variant is on; a pass-through otherwise. */

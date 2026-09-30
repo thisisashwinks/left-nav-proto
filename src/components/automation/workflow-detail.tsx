@@ -501,7 +501,13 @@ function WorkflowDetailInner({
           <CanvasKindSelect />
           <EditableTitle name={workflow.name} onRename={builder.renameCurrent} />
         </>
-      ) : null}
+      ) : (
+        /* The workflow's name, always — builders carry no trail since Sep
+           30, so this row is the only place the name is said. */
+        <span className="truncate text-[16px] leading-[normal] font-semibold text-pg-heading">
+          {workflow.name}
+        </span>
+      )}
       <StatusPill status={workflow.status} />
       {metaLine}
     </div>

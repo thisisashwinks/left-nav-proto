@@ -4,16 +4,18 @@ import * as React from "react";
 import { useTheme } from "@/components/theme/theme-provider";
 import type { ListToolbarVariant } from "@/design/theme";
 import type { ListToolbarModel } from "./types";
+import { ListToolbarVariantView } from "./variants";
 
 export type { ListToolbarModel } from "./types";
+export { ListToolbarPreviewCatalog } from "./catalog";
 
 /**
  * Work-in-progress switches. Flip to true when the shared toolbar variants
  * and the centre canvas are built; until then the prototype controls hide
  * both, and every page renders exactly as before.
  */
-export const LIST_TOOLBAR_READY = false;
-export const PAGE_CANVAS_READY = false;
+export const LIST_TOOLBAR_READY = true;
+export const PAGE_CANVAS_READY = true;
 
 /**
  * Which toolbar the list pages are drawing. `page` means each page keeps its
@@ -28,8 +30,9 @@ export function useListToolbar(): { variant: ListToolbarVariant; shared: boolean
 }
 
 /**
- * The shared toolbar. Placeholder until the variants land — renders nothing,
- * so pages can wire their models against the contract in the meantime.
+ * The shared toolbar: draws the variant the prototype control has picked.
+ * Every variant takes any subset of the model and hides what is absent.
+ * Under `page` it renders nothing but `children` — the page draws its own.
  */
 export function ListToolbar({
   model,
@@ -43,6 +46,10 @@ export function ListToolbar({
    */
   children?: React.ReactNode;
 }) {
-  void model;
-  return <>{children}</>;
+  const { effective } = useTheme();
+  return (
+    <ListToolbarVariantView variant={effective.listToolbar} model={model}>
+      {children}
+    </ListToolbarVariantView>
+  );
 }

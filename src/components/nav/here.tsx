@@ -48,6 +48,15 @@ export function useHere(): Here {
 export type Marking = "here" | "trail" | null;
 
 /**
+ * Which level of the nav a row belongs to.
+ *
+ * Only the middle one is ever tested, and only by `ends` — but naming all
+ * three is what makes a call site say what it is rather than pass a boolean
+ * called `isL2` that the next level along would have to negate.
+ */
+export type NavLevel = "l1" | "l2" | "l3";
+
+/**
  * Whether this row should be marked, given the axis.
  *
  * One function so the three levels cannot disagree about what "on the trail"
@@ -59,11 +68,31 @@ export function useMarking(
   isHere: boolean,
   /** True when the current page sits somewhere beneath this row. */
   isTrail: boolean,
+  /**
+   * Which level this row is, for the one axis value that cares.
+   *
+   * Optional, and absent means "not an L2": the rail and the nav's flat rows
+   * are ends of the trail rather than the middle of it, so leaving it out
+   * gives them the behaviour they already had.
+   */
+  level?: NavLevel,
 ): Marking {
   const { selectedState } = useTheme().effective;
   if (selectedState === "off") return null;
+  /*
+   * The exact row is marked under every value but `off`, `ends` included.
+   *
+   * That is the whole of the "but what if the product has no pages" case: a
+   * product with nothing under it IS the page when you are on it, so it comes
+   * through here rather than through the trail clause below. Same for a
+   * product whose own page is open beneath its children.
+   */
   if (isHere) return "here";
-  if (selectedState === "trail" && isTrail) return "trail";
+  if (!isTrail) return null;
+  if (selectedState === "trail") return "trail";
+  // `ends`: the path is stated by the category and the page, and the product
+  // between them is left unpainted. See SELECTED_STATES.
+  if (selectedState === "ends") return level === "l2" ? null : "trail";
   return null;
 }
 

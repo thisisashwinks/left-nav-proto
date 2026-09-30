@@ -4,6 +4,7 @@ import * as React from "react";
 import { ArrowLeft, ChevronDown, FileText, Info, Plus } from "lucide-react";
 import { PageHeader, PrimaryButton } from "@/components/page/page-header";
 import { useRecordCrumb } from "@/components/page/record-crumb";
+import { useNoPageCanvas } from "@/components/shell/page-canvas";
 import { useTheme } from "@/components/theme/theme-provider";
 import { ViewBar } from "@/components/page/view-bar";
 import { cn } from "@/lib/utils";
@@ -61,6 +62,8 @@ export function ProspectDetail({
   siblings,
   onOpenSibling,
 }: ProspectDetailProps) {
+  // A row of column cards: each column is its own canvas.
+  useNoPageCanvas();
   const { effective } = useTheme();
   const [tab, setTab] = React.useState("details");
   const [card, setCard] = React.useState("account");

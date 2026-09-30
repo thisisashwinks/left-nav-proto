@@ -73,10 +73,13 @@ export function ForecastSummary({
   pipelineId,
   onOpenDrill,
   onOpenFilters,
+  hideFilters = false,
 }: {
   pipelineId: string;
   onOpenDrill: (t: DrillTarget) => void;
   onOpenFilters: () => void;
+  /** The shared list toolbar draws the way in to filters instead. */
+  hideFilters?: boolean;
 }) {
   const [groupBy, setGroupBy] = React.useState<string>("status");
   const totals = forecastTotals(pipelineId);
@@ -90,6 +93,7 @@ export function ForecastSummary({
 
   return (
     <div className="flex flex-col gap-[16px]">
+      {hideFilters ? null : (
       <div className="flex items-center">
         <button
           type="button"
@@ -100,6 +104,7 @@ export function ForecastSummary({
           Advanced filters
         </button>
       </div>
+      )}
 
       <div className="grid grid-cols-2 gap-[16px] xl:grid-cols-4">
         <Stat

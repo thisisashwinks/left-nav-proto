@@ -24,6 +24,7 @@ import {
 } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import type { PageHeading } from "@/components/page/page-heading";
+import { useLeafClaimed } from "@/components/page/leaf-crumb";
 import { cn } from "@/lib/utils";
 import { headerConfig, type HeaderActionTone, type HeaderConfig } from "./header-config";
 import { UserAvatar } from "./user-avatar";
@@ -479,10 +480,15 @@ export function AppHeader({
    */
   const ancestorMenus = crumbSwitchers === "all";
   const leafMenu = crumbSwitchers !== "off";
+  // "title" only holds while a page title is actually showing the leaf;
+  // otherwise the crumb stays in the bar rather than vanishing.
+  const leafClaimed = useLeafClaimed();
   const leaf: typeof crumbLeaf =
-    leafMenu || (crumbLeaf !== "caret" && crumbLeaf !== "dots")
-      ? crumbLeaf
-      : "full";
+    crumbLeaf === "title" && !leafClaimed
+      ? "full"
+      : leafMenu || (crumbLeaf !== "caret" && crumbLeaf !== "dots")
+        ? crumbLeaf
+        : "full";
   /*
    * The back control, and the three conditions that have to agree before it
    * is drawn.

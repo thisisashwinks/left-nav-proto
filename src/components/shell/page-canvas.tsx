@@ -57,6 +57,50 @@ export function isInboxPlace(
   return place.childId === null || INBOX_CHILDREN.includes(place.childId);
 }
 
+/*
+ * Pages built from columns opt out.
+ *
+ * A contact record (identity, activity, panels, rail) or Ask AI (history,
+ * chat) is already a row of cards on the plane — each column IS a canvas, and
+ * a card around them would be a card holding cards. Those pages say so by
+ * calling `useNoPageCanvas()`; the shell reads `usePageCanvasExempt()`.
+ * A page with a sidebar or menu INSIDE one surface is not this — it keeps
+ * the canvas.
+ *
+ * A counter rather than a flag, so two exempt components mounting and
+ * unmounting in either order never leave the card switched off by mistake.
+ */
+let exemptCount = 0;
+const exemptListeners = new Set<() => void>();
+function emitExempt() {
+  exemptListeners.forEach((l) => l());
+}
+
+/** Call from a column-layout page: the centre canvas stands down while it is mounted. */
+export function useNoPageCanvas(active = true) {
+  React.useEffect(() => {
+    if (!active) return;
+    exemptCount += 1;
+    emitExempt();
+    return () => {
+      exemptCount -= 1;
+      emitExempt();
+    };
+  }, [active]);
+}
+
+/** Whether a mounted page has opted out of the centre canvas. */
+export function usePageCanvasExempt(): boolean {
+  return React.useSyncExternalStore(
+    (l) => {
+      exemptListeners.add(l);
+      return () => exemptListeners.delete(l);
+    },
+    () => exemptCount > 0,
+    () => false,
+  );
+}
+
 export function PageCanvas({
   enabled,
   children,
@@ -70,8 +114,9 @@ export function PageCanvas({
       className={
         enabled
           ? cn(
-              // 16px canvas margin, 12px radius, shadow/lg — the HighRise canvas.
-              "relative m-[16px] flex min-h-0 flex-1 flex-col overflow-hidden",
+              // 12px canvas margin on the sides and bottom, none on top — the
+              // breadcrumb row above already spaces it — 12px radius, shadow/lg.
+              "relative mx-[12px] mt-0 mb-[12px] flex min-h-0 flex-1 flex-col overflow-hidden",
               "rounded-[var(--shell-canvas-radius)] bg-pg-surface shadow-[var(--shell-canvas-shadow)]",
             )
           : "contents"
