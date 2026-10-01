@@ -443,7 +443,21 @@ export function InboxPage() {
         and the list/thread card are continuous, and only the contact panel
         and the rail are set apart.
       */}
-      <div className="flex min-h-0 flex-1">
+      {/*
+        `data-inbox-panes` is the hook the centre canvas styles through.
+
+        Off the canvas this page is a row of cards floating on the grey
+        plane, which is what the real app does and what the comment above
+        argues for. Inside the canvas there is no plane left to float on —
+        the card IS the white ground — so the gutters became white gaps
+        between white panes and every ring went invisible against it: one
+        unbroken sheet with a couple of stray rules in it. The canvas
+        arrangement redraws the same columns as one outlined block inside the
+        card's padding, in globals.css rather than here, so neither
+        arrangement is expressed as a branch in this file. Ashwin, Oct 1.
+      */}
+      <div data-inbox-panes className="flex min-h-0 flex-1">
+        <span data-inbox-pane="nav" className="flex min-h-0 shrink-0">
         <InboxNav
           activeId={inbox}
           onSelect={setInbox}
@@ -453,6 +467,7 @@ export function InboxPage() {
           onNewConversation={() => setFlowOpen(true)}
           onCreateView={() => setViewDrawer(true)}
         />
+        </span>
 
         {/*
           The list and the thread are one card with a rule down the middle.
@@ -460,7 +475,10 @@ export function InboxPage() {
           with a gutter between them said they were two. The contact panel
           keeps its gutter, because that one IS separable: it closes.
         */}
-        <div className="mr-[10px] flex min-w-0 flex-1 overflow-hidden rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+        <div
+          data-inbox-pane="main"
+          className="mr-[10px] flex min-w-0 flex-1 overflow-hidden rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]"
+        >
           {internal ? (
             <>
               <InternalChatListPane
@@ -512,17 +530,21 @@ export function InboxPage() {
           open: the participants are the only record on that side.
         */}
         {internal ? (
-          <span className="mr-[10px] flex min-h-0 shrink-0">
+          <span data-inbox-pane="panel" className="mr-[10px] flex min-h-0 shrink-0">
             <ParticipantsPane chat={activeChat} />
           </span>
         ) : (
           <>
             {panel === "contact" ? (
-              <span className="mr-[10px] flex min-h-0 shrink-0">
+              <span data-inbox-pane="panel" className="mr-[10px] flex min-h-0 shrink-0">
                 <ContactPane onClose={() => setPanel(null)} />
               </span>
             ) : null}
             {panel && panel !== "contact" ? (
+              // Wrapped rather than given the attribute: the drawer does not
+              // spread unknown props, so a bare data-* on it would be
+              // silently dropped and the canvas rule would miss this pane.
+              <span data-inbox-pane="panel" className="flex min-h-0 shrink-0">
               <RecordPanelDrawer
                 className="mr-[10px]"
                 panelId={panel}
@@ -535,14 +557,17 @@ export function InboxPage() {
                 width={320}
                 onClose={() => setPanel(null)}
               />
+              </span>
             ) : null}
 
-            <PanelRail
-              panels={RECORD_PANELS}
-              activeId={panel}
-              onSelect={setPanel}
-              onShortcuts={() => setShortcutsOpen(true)}
-            />
+            <span data-inbox-pane="rail" className="flex min-h-0 shrink-0">
+              <PanelRail
+                panels={RECORD_PANELS}
+                activeId={panel}
+                onSelect={setPanel}
+                onShortcuts={() => setShortcutsOpen(true)}
+              />
+            </span>
           </>
         )}
       </div>

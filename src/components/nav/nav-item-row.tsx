@@ -557,7 +557,7 @@ export function NavItemRow({
             ? mark.row
             : active
               ? "bg-nav-hover"
-              : "hover:bg-nav-hover active:bg-nav-active",
+              : "hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)] active:bg-nav-active",
           "active:scale-[0.99] motion-press",
           // `data-cursor="menu"` on the band forces `cursor: pointer` on every
           // descendant, so this has to be on the row itself to win.
@@ -654,7 +654,11 @@ export function NavItemRow({
       className={cn(
         rowClass,
         "group/row group",
-        mark.row ? mark.row : active ? "bg-nav-hover" : "hover:bg-nav-hover",
+        mark.row
+          ? mark.row
+          : active
+            ? "bg-nav-hover shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]"
+            : "hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]",
         // Matches the read-only row's press feedback, but not while renaming —
         // scaling a row mid-edit drags the text field with it.
         !edit.renaming && "active:bg-nav-active active:scale-[0.99] motion-press",

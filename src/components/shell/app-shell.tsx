@@ -136,13 +136,20 @@ import {
   AGENCY_BANNERS,
   TopBanner,
 } from "@/components/shell/top-banner";
-import { AUTO_COLLAPSE_WIDTH, trimTrail } from "@/design/theme";
+import {
+  AUTO_COLLAPSE_WIDTH,
+  CANVAS_TINTS,
+  DEFAULT_CANVAS_TINT,
+  PLANE_GROUND_HEX,
+  trimTrail,
+} from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import {
   PageCanvas,
   PAGE_CANVAS_HOST,
   isInboxPlace,
   usePageCanvasExempt,
+  usePublishCanvasTint,
 } from "@/components/shell/page-canvas";
 import { useTuning } from "@/components/tuning/tuning-provider";
 import { cn } from "@/lib/utils";
@@ -429,6 +436,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     dockPosition,
     entryLayout,
     navOnPlane,
+    navRowRing,
+    navRowShadow,
+    planeGround,
     flyoutShape,
     flyoutCardBorder,
     pinnedShortcuts,
@@ -1752,6 +1762,17 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * about cards, and `chromeRequest === null` answers it one line up.
    */
   const columnPage = isInboxPlace(canvasPage) || canvasExempt;
+  /*
+   * The canvas tint: the open product's own colour (CANVAS_TINTS), or the
+   * default while previewing on every page. Undefined means white.
+   */
+  // The page's own entry wins, so a product filed as a page still finds it.
+  const ownTint =
+    CANVAS_TINTS[canvasPage?.childId ?? ""] ??
+    CANVAS_TINTS[canvasPage?.productId ?? ""];
+  usePublishCanvasTint(!!ownTint);
+  const canvasTint =
+    ownTint ?? (effective.canvasTintAllPages ? DEFAULT_CANVAS_TINT : undefined);
   const pageCanvasOn =
     effective.pageCanvas &&
     chromeRequest === null &&
@@ -2554,12 +2575,45 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         // Same reasoning as the nav card: the plane is themed off the nav, and
         // while the legacy nav is up that is the nav it must follow.
         data-shell-theme={legacyNav ? legacyNavTheme : navTheme}
+        /*
+          Re-grounds hover and selected for a sidebar with no card. On the
+          PLANE wrapper rather than on the nav, so the L2 panel and the
+          launcher — both siblings of the nav card, both drawn in nav tokens
+          — inherit it too. See the [data-nav-plane] block in tokens.css.
+        */
+        {...(navOnPlane ? { "data-nav-plane": "" } : {})}
+        /*
+          And the row edges, which are an axis of their own and only reach the
+          rows while the plane is on. ANDed here rather than in CSS so there is
+          one place that knows the pairing. See NAV_ROW_RING_DEFAULT.
+        */
+        {...(navOnPlane && navRowRing ? { "data-nav-rings": "" } : {})}
+        {...(navOnPlane && navRowShadow ? { "data-nav-shadow": "" } : {})}
         // --pg-bg is the page — the same ground the settings pages already sit on,
         // so the product has one page colour instead of a shell grey out here and
         // a page grey inside the canvas. The token lives under [data-page-theme],
         // which is why that scope is declared here and follows the PAGE theme even
         // though the plane's chrome tokens still follow the nav.
         data-page-theme={appTheme}
+        /*
+          The plane's grey, when one of the HighRise steps has been picked.
+
+          Inline rather than a CSS rule, which is the one place in this file
+          where that is the RIGHT answer rather than the lazy one: --pg-bg is
+          declared on this very element twice over — once by
+          [data-page-theme="light"] and again by the brand tint's derivation of
+          it — so any rule naming an attribute on this element would be a
+          specificity race against the tint. A style property is simply the
+          last word, and the axis is a literal hex anyway. See PLANE_GROUNDS.
+
+          Light only. Every one of the fourteen is a near-white, and forcing one
+          onto a dark page theme would not be a variant, it would be a bug.
+        */
+        style={
+          appTheme === "light" && PLANE_GROUND_HEX[planeGround]
+            ? ({ "--pg-bg": PLANE_GROUND_HEX[planeGround] } as React.CSSProperties)
+            : undefined
+        }
         className="relative flex min-h-0 flex-1 overflow-hidden bg-pg"
       >
       {/*
@@ -3205,7 +3259,13 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                   : "m-[var(--shell-canvas-gap)] rounded-[var(--shell-canvas-radius)] shadow-[inset_0_0_0_1px_var(--shell-canvas-ring)]",
               )}
             >
-              <PageCanvas enabled={pageCanvasOn} edge={effective.pageCanvasEdge}>
+              <PageCanvas
+                enabled={pageCanvasOn}
+                edge={effective.pageCanvasEdge}
+                bg={effective.canvasBg}
+                tint={canvasTint}
+                framePadding={effective.canvasFramePadding}
+              >
               {pending ? (
                 <CanvasSkeleton />
               ) : canvasPage?.productId === PROPOSED_ASK_AI_ID ? (

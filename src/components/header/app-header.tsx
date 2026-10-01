@@ -16,6 +16,7 @@ import { CaretDown } from "@/components/icons/caret-down";
 import {
   CRUMB_EMPHASIS_BUMP_PX,
   CRUMB_SCALE_PX,
+  type CrumbTrigger,
   type CrumbCollapse,
   type CrumbEmphasis,
   type CrumbScale,
@@ -446,6 +447,7 @@ export function AppHeader({
     crumbShown,
     crumbHome,
     crumbSwitchers,
+    crumbTrigger,
     crumbSeparator,
     crumbLeaf,
     recordBackButton,
@@ -879,6 +881,7 @@ export function AppHeader({
                     font={font}
                     showIcon={segIcons}
                     theme={theme}
+                    trigger={crumbTrigger}
                     {...(last && (leaf === "caret" || leaf === "dots")
                       ? { shape: leaf }
                       : {})}
@@ -1391,6 +1394,7 @@ function CrumbMenu({
   font,
   showIcon = true,
   shape,
+  trigger,
 }: {
   seg: Crumb;
   last: boolean;
@@ -1412,6 +1416,8 @@ function CrumbMenu({
    * theme here would mean re-deriving "am I the leaf" in a second place.
    */
   shape?: "caret" | "dots";
+  /** Which of the two readings this crumb is. See CRUMB_TRIGGERS. */
+  trigger: CrumbTrigger;
 }) {
   const [open, setOpen] = React.useState(false);
 
@@ -1544,6 +1550,80 @@ function CrumbMenu({
    * is unreachable; it is one target smaller.
    */
 
+  const word = (
+    <span style={labelStyle} className={labelClass}>
+      {seg.label}
+    </span>
+  );
+
+  /*
+   * The panel, written once for both readings.
+   *
+   * It is positioned off the wrapper rather than off whichever button
+   * opened it, so the menu hangs from the crumb's left edge under both —
+   * anchoring it to the caret would have slid it right by the width of the
+   * word the moment the axis flipped.
+   */
+  const menu = open ? (
+    <>
+      <button
+        type="button"
+        aria-label="Close menu"
+        tabIndex={-1}
+        onClick={() => setOpen(false)}
+        className="fixed inset-0 z-40 cursor-default"
+      />
+      <div
+        role="menu"
+        aria-label={`Switch ${seg.label}`}
+        className="absolute top-[calc(100%+6px)] left-0 z-50 max-h-[400px] w-[240px] overflow-y-auto rounded-[10px] bg-hdr p-[5px] shadow-[0_16px_32px_-8px_rgba(15,23,42,0.2),0_4px_8px_-4px_rgba(15,23,42,0.12),inset_0_0_0_1px_var(--hdr-border)]"
+      >
+        <CrumbOptions
+          options={seg.options ?? []}
+          theme={theme}
+          onPick={(id) => {
+            setOpen(false);
+            seg.onSelect?.(id);
+          }}
+        />
+      </div>
+    </>
+  ) : null;
+
+  /*
+   * ONE CONTROL. The reading this shipped with, kept as an option.
+   *
+   * Word and caret inside a single button, so the whole crumb opens the
+   * menu and nothing in the trail navigates. The 5px between the two is the
+   * same 5px the split reading has — written as a flex gap here, where
+   * there are no halves to tile — so a reviewer flipping the axis sees a
+   * behaviour change and not a spacing change.
+   */
+  if (trigger === "whole") {
+    return (
+      <div className="relative min-w-0">
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-current={last ? "page" : undefined}
+          {...(shape ? { "aria-label": `${seg.label} — switch page` } : {})}
+          onClick={() => setOpen((v) => !v)}
+          className={cn(
+            "motion-tap flex min-w-0 items-center gap-[5px] rounded-[6px] px-[5px] py-[3px] hover:bg-hdr-chip",
+            open && "bg-hdr-chip",
+            last && font.chip && !shape && `${CRUMB_LEAF_PAINT} px-[7px]`,
+          )}
+        >
+          {icon}
+          {shape ? null : word}
+          {caret}
+        </button>
+        {menu}
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -1562,10 +1642,7 @@ function CrumbMenu({
         last && font.chip && !shape && CRUMB_LEAF_PAINT,
       )}
     >
-      {/*
-        The word. A link where the level is somewhere else, and the menu's
-        own trigger where it is not — see `wordOpensMenu`.
-      */}
+      {/* The word: a link to the level it names, never a menu trigger. */}
       {shape ? null : walkUp ? (
         <button
           type="button"
@@ -1574,16 +1651,12 @@ function CrumbMenu({
           className={cn(wordHalf, "motion-tap hover:bg-hdr-chip hover:text-hdr-fg")}
         >
           {icon}
-          <span style={labelStyle} className={labelClass}>
-            {seg.label}
-          </span>
+          {word}
         </button>
       ) : (
         <span aria-current={last ? "page" : undefined} className={wordHalf}>
           {icon}
-          <span style={labelStyle} className={labelClass}>
-            {seg.label}
-          </span>
+          {word}
         </span>
       )}
 
@@ -1616,31 +1689,7 @@ function CrumbMenu({
         {caret}
       </button>
 
-      {open ? (
-        <>
-          <button
-            type="button"
-            aria-label="Close menu"
-            tabIndex={-1}
-            onClick={() => setOpen(false)}
-            className="fixed inset-0 z-40 cursor-default"
-          />
-          <div
-            role="menu"
-            aria-label={`Switch ${seg.label}`}
-            className="absolute top-[calc(100%+6px)] left-0 z-50 max-h-[400px] w-[240px] overflow-y-auto rounded-[10px] bg-hdr p-[5px] shadow-[0_16px_32px_-8px_rgba(15,23,42,0.2),0_4px_8px_-4px_rgba(15,23,42,0.12),inset_0_0_0_1px_var(--hdr-border)]"
-          >
-            <CrumbOptions
-              options={seg.options ?? []}
-              theme={theme}
-              onPick={(id) => {
-                setOpen(false);
-                seg.onSelect?.(id);
-              }}
-            />
-          </div>
-        </>
-      ) : null}
+      {menu}
     </div>
   );
 }

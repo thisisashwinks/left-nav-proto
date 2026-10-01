@@ -491,6 +491,31 @@
     you see once. Selected is the press neutral now; see --nav-selected.
   */
   --nav-hover: var(--hr-gray-100);
+  /*
+    A hairline on a hovered or selected ROW. Transparent by default.
+
+    Off the plane the fills do the whole job: gray-100 and gray-200 on white
+    are two unmistakable steps, and a ring around them would be a second
+    signal for a state that already has one. On the plane the fills are white
+    on near-white — a lift of a few points — and the edge is what makes the
+    shape of the row legible at all.
+
+    Declared here rather than only in the plane block so every call site can
+    name them unconditionally: a `transparent` ring costs nothing and keeps
+    the rows free of a `navOnPlane ? … : …` that would have to be repeated in
+    five components.
+  */
+  --nav-hover-ring: transparent;
+  --nav-selected-ring: transparent;
+  /*
+    And a drop shadow for the same row, on the same terms.
+
+    `0 0 #0000` rather than `none`: this is composed into a box-shadow list
+    beside the inset ring, and `none` in a list is invalid CSS — it would take
+    the ring down with it. A transparent shadow costs nothing and keeps the
+    call site free of a conditional.
+  */
+  --nav-selected-shadow: 0 0 #0000;
   /* Between the divider and the muted text: the scrollbar has to be findable
      without competing with the rows it sits beside. */
   --nav-scrollbar: var(--hr-gray-300);
@@ -1490,4 +1515,173 @@
 
 :root:not([data-tint="off"]) [data-shell-theme="light"] [data-chrome-plane] {
   --nav-active: oklch(from var(--brand) 0.99 calc(c * var(--tint-surface)) h);
+}
+
+/* ─── The nav on the plane ───────────────────────────────────────────────── */
+
+/*
+ * Hover and selected, re-grounded for a sidebar with no card under it.
+ *
+ * The defaults are tuned for a WHITE nav: hover gray-100 and selected
+ * gray-200, two steps DOWN, because on white the only direction a state can
+ * move is darker. On the plane the nav's ground is --pg-bg — already gray-50
+ * — so the same ramp put hover one step off its own background and selected
+ * barely clear of it. Both states read as smudges rather than as states.
+ *
+ * Inverted: the states move UP, toward white. Selected IS white, which is
+ * the one value that cannot be mistaken for the ground and which matches the
+ * canvas card beside it — the row you are on and the page it opened wear the
+ * same surface. Hover is white at 70%, so rollover is a lift rather than a
+ * shadow and the pair read as the same gesture at two strengths.
+ *
+ * THREE SELECTORS, and the second is the one that makes this work.
+ *
+ * Custom properties resolve where they are DECLARED, so the light block above
+ * declaring --nav-selected on every [data-nav-theme="light"] element beats
+ * this block declaring it on an ancestor — specificity never enters into it,
+ * the closer element simply wins. The nav card, both panels and the drawer
+ * all carry that attribute, so every one of them was re-deriving the card
+ * ramp inside a plane that had already said otherwise. Re-declaring ON those
+ * elements is what settles it.
+ */
+[data-nav-plane],
+[data-nav-plane] [data-nav-theme="light"],
+[data-nav-theme="light"][data-nav-plane] {
+  /*
+    White, at two strengths.
+
+    They are deliberately close. The difference between "my pointer is here"
+    and "this is the page I am on" is one the ground cannot carry on a
+    surface this light — the selected row's ink does the rest, at full
+    strength against the hovered row's muted. If the pair still reads as one
+    state in review, the honest fix is a hairline on the selected row rather
+    than a darker fill, which would put us back where this started.
+  */
+  --nav-hover: #ffffffb3;
+  --nav-active: #ffffff;
+  --nav-selected: #ffffff;
+  /*
+    The ink darkens one step with the ground.
+
+    gray-400 is a legible quiet on white; on gray-50 it is most of the way to
+    the background it is printed on, and the first thing to go is the label
+    of whatever is NOT selected — the inactive tab, the trail under a row,
+    the count beside a heading. Moving both ink tokens one step down the ramp
+    keeps the same distance from the surface they sit on rather than the same
+    absolute value, which is what "quiet" was supposed to mean.
+  */
+  --nav-fg-muted: var(--hr-gray-600);
+  --nav-fg-subtle: var(--hr-gray-500);
+}
+
+/*
+ * Dark keeps the ramp it had.
+ *
+ * The inversion is an argument about a light grey ground, where "up" means
+ * white and white means the page. On a dark nav there is no white to move
+ * toward and the ground is already the darkest thing on screen, so the
+ * states go darker-to-lighter exactly as they do off the plane. Spelled out
+ * rather than left to the block above, which the wrapper's own
+ * [data-nav-plane] would otherwise impose on a dark sidebar.
+ */
+[data-nav-plane] [data-nav-theme="dark"],
+[data-nav-theme="dark"][data-nav-plane] {
+  --nav-hover: oklch(from var(--nav-dark-base) calc(l + 0.04) c h);
+  --nav-active: oklch(from var(--nav-dark-base) calc(l + 0.07) c h);
+  --nav-selected: oklch(from var(--nav-dark-base) calc(l + 0.11) c h);
+  --nav-fg-muted: var(--hr-gray-400);
+  --nav-fg-subtle: var(--hr-gray-500);
+}
+
+/*
+ * The row edges, on their own switch.
+ *
+ * Two steps apart, matching the two fills: gray-200 says "this is the page you
+ * are on", gray-100 says "your pointer is here". The ring carries a
+ * distinction the ground cannot at this lightness, which is why it exists on
+ * the plane and nowhere else.
+ *
+ * Its own attribute rather than a line in the plane block above, because it is
+ * an axis — see NAV_ROW_RING_DEFAULT. The shell sets `data-nav-rings` only when
+ * the plane is also on, so the switch cannot reach the floating card.
+ *
+ * The same three selectors the plane block needs, and for the same reason: the
+ * light block declares these tokens on every [data-nav-theme="light"] element,
+ * and a declaration on a closer element wins no matter what the selectors
+ * weigh. The nav, both panels and the L1 drawer each carry that attribute, so
+ * an ancestor-only rule would be overwritten on all four.
+ */
+[data-nav-rings],
+[data-nav-rings] [data-nav-theme="light"],
+[data-nav-theme="light"][data-nav-rings] {
+  --nav-hover-ring: var(--hr-gray-100);
+  --nav-selected-ring: var(--hr-gray-200);
+}
+
+/*
+ * One step UP from the nav's ground, whatever that ground is.
+ *
+ * The Launchpad card's white variant is the only thing that wants this: on the
+ * plane an unfilled card shows the grey behind it and reads as a dent, so the
+ * card needs a surface rather than an absence. White is the answer in light and
+ * nonsense in dark, where up means lighter than a near-black base — so the two
+ * are named once here rather than at the call site, and the card asks for
+ * "raised" rather than for a colour.
+ *
+ * Declared at the end, on the elements that carry the theme attribute: every
+ * nav theme block above does the same, and the last one to do it on a given
+ * element wins.
+ */
+[data-nav-theme="light"] {
+  --nav-raise: #ffffff;
+  /*
+    And the lift that goes with it, named once and used twice.
+
+    The Launchpad card and the selected row are the only two things in this nav
+    that claim to be surfaces rather than rows, so they wear the same lift —
+    sharing the token is what keeps that true through the next edit, rather
+    than two values that agree today.
+
+    shadow/xs, and deliberately softer than the shadow/sm this started on. At
+    sm the selected row read as a tile dropped on the nav; a nav row is a
+    surface by a hair, and a hair is what it should cast.
+  */
+  --nav-raise-shadow: 0 1px 2px 0 rgb(16 24 40 / 0.05);
+}
+
+[data-nav-theme="dark"] {
+  --nav-raise: var(--nav-hover);
+  /* Nothing to fall on. See the [data-nav-shadow] dark block. */
+  --nav-raise-shadow: 0 0 #0000;
+}
+
+/*
+ * A lift under the selected row, on its own switch.
+ *
+ * The third answer to the same question the ring and the plane's grey are the
+ * other two of — see NAV_ROW_SHADOW_DEFAULT. Where the ring draws the row's
+ * edge, this raises the row off the ground instead: on a grey plane a white
+ * selected row is already doing what a card does, and a shadow finishes the
+ * thought rather than outlining it.
+ *
+ * The Launchpad card's own lift, by reference rather than by coincidence — see
+ * --nav-raise-shadow. Those two are the only things in this nav that claim to
+ * be surfaces, so they cast the same shadow, and one token is what keeps them
+ * agreeing. It is shadow/xs: a row in a list is a surface by a hair, and
+ * anything with real throw turns a nav into a stack of floating tiles.
+ *
+ * Plane-only and light-only, like the ring. On a dark nav there is nothing for
+ * a shadow to fall on — the ground is already the darkest thing on screen —
+ * so the dark block puts it back to nothing rather than inheriting a lift that
+ * would read as grime.
+ */
+[data-nav-shadow],
+[data-nav-shadow] [data-nav-theme="light"],
+[data-nav-theme="light"][data-nav-shadow] {
+  --nav-selected-shadow: var(--nav-raise-shadow);
+}
+
+[data-nav-shadow] [data-nav-theme="dark"],
+[data-nav-theme="dark"][data-nav-shadow] {
+  --nav-selected-shadow: 0 0 #0000;
 }

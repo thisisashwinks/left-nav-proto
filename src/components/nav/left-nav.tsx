@@ -357,6 +357,9 @@ export function LeftNav({
     agencyNavMark,
     subAccountNavMark,
     editTreatment,
+    navOnPlane,
+    navRowRing,
+    navRowShadow,
     templatePropagation,
     templatePushNotice,
     templateConflict,
@@ -3642,6 +3645,11 @@ export function LeftNav({
               aria-modal="false"
               aria-label="All products"
               data-nav-theme={theme}
+              // Portalled out of the shell, so it cannot inherit the plane's
+              // attributes and has to carry its own.
+              {...(navOnPlane ? { "data-nav-plane": "" } : {})}
+              {...(navOnPlane && navRowRing ? { "data-nav-rings": "" } : {})}
+              {...(navOnPlane && navRowShadow ? { "data-nav-shadow": "" } : {})}
               data-cursor="menu"
               style={{
                 width: sidebarWidth,
@@ -5084,6 +5092,21 @@ const LAUNCHPAD_STYLE: Record<
     count: "text-nav-fg-subtle",
     icon: "text-brand",
     track: "bg-nav-hover",
+    rule: "bg-nav-border",
+    action: "hover:bg-nav-hover",
+  },
+  white: {
+    // The outline's hairline over a ground of its own — see --nav-raise. The
+    // meter keeps the brand track it has everywhere else; on white the empty
+    // half needs a neutral that is not the card, which is the border's step.
+    // Hairline, ground, and the lift the selected row shares — see
+    // --nav-raise-shadow. Inset first: shadows paint first-on-top, and a drop
+    // shadow ahead of an inset one is drawn over the card's own edge.
+    box: "rounded-[9px] bg-[var(--nav-raise)] px-[10px] py-[9px] shadow-[inset_0_0_0_1px_var(--nav-border),var(--nav-raise-shadow)] hover:brightness-[0.99]",
+    title: "text-nav-fg",
+    count: "text-nav-fg-subtle",
+    icon: "text-brand",
+    track: "bg-nav-border",
     rule: "bg-nav-border",
     action: "hover:bg-nav-hover",
   },

@@ -987,7 +987,9 @@ function MergedItemRow({
         "group/row motion-tap relative flex w-full shrink-0 items-center",
         "gap-[var(--t-nav-gap,10px)] rounded-[var(--t-nav-radius,7px)]",
         "px-[var(--t-nav-px,8px)] py-[calc(var(--t-nav-py,9px)*0.667)]",
-        pinEdit?.drag.dragging ? "opacity-40" : "hover:bg-nav-hover",
+        pinEdit?.drag.dragging
+          ? "opacity-40"
+          : "hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]",
         landed,
       )}
     >
@@ -1278,7 +1280,7 @@ function TailRow({
       className={cn(
         "motion-tap group flex w-full shrink-0 items-center justify-between",
         "rounded-[var(--t-nav-radius,7px)] px-[var(--t-nav-px,8px)]",
-        "py-[calc(var(--t-nav-py,9px)*0.667)] text-left hover:bg-nav-hover",
+        "py-[calc(var(--t-nav-py,9px)*0.667)] text-left hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]",
       )}
     >
       <span className="truncate text-[13px] leading-[18px] text-nav-fg-subtle group-hover:text-nav-fg-muted">

@@ -161,7 +161,20 @@ export function useHereStyle(marking: Marking): {
        */
       return {
         bar: false,
-        row: "bg-nav-selected",
+        /*
+          The ring and the lift ride with the fill, and both are invisible
+          unless the nav is on the plane — see --nav-selected-ring and
+          --nav-selected-shadow. One class rather than a conditional, so every
+          surface that marks a row gets the same treatment without knowing
+          which arrangement it is in, and the two are independent axes: edge,
+          lift, both, or neither.
+
+          One box-shadow list, because there is only one property. The inset
+          ring has to come first — shadows paint first-on-top, and a drop
+          shadow listed ahead of an inset one is drawn over the row's own
+          edge.
+        */
+        row: "bg-nav-selected shadow-[inset_0_0_0_1px_var(--nav-selected-ring),var(--nav-selected-shadow)]",
         /*
          * No weight change. The ground already says which row this is, and
          * bolding the label as well says it twice — on a selected L3 the two

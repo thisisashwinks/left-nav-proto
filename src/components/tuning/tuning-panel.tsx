@@ -42,6 +42,10 @@ import {
   CRUMB_LEAVES,
   CRUMB_SWITCHER_MODES,
   CRUMB_SWITCHER_LABELS,
+  CRUMB_TRIGGERS,
+  CRUMB_TRIGGER_LABELS,
+  FLYOUT_SHADOWS,
+  FLYOUT_SHADOW_LABELS,
   CRUMB_LEAF_LABELS,
   CRUMB_DEPTHS,
   CRUMB_DEPTH_LABELS,
@@ -100,6 +104,9 @@ import {
   L2_CLICK_ACTION_LABELS,
   PAGE_CANVAS_EDGE_LABELS,
   PAGE_CANVAS_EDGES,
+  CANVAS_BGS,
+  CANVAS_BG_LABELS,
+  type CanvasBg,
   PAGE_SHELL_LABELS,
   PAGE_SHELLS,
   LIST_TOOLBARS,
@@ -124,6 +131,9 @@ import {
   RAIL_SIZING_LABELS,
   RAIL_TILE_SHAPES,
   LAUNCHPAD_CARDS,
+  PLANE_GROUNDS,
+  PLANE_GROUND_LABELS,
+  type PlaneGround,
   LAUNCHPAD_CARD_LABELS,
   RAIL_ZOOM_FITS,
   RAIL_ZOOM_FIT_LABELS,
@@ -310,6 +320,7 @@ import { useNavProfiles } from "@/components/nav/nav-profiles";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { cn } from "@/lib/utils";
 import { useTuning } from "./tuning-provider";
+import { useCanvasTintedPage } from "@/components/shell/page-canvas";
 import {
   LIST_TOOLBAR_READY,
   PAGE_CANVAS_READY,
@@ -836,15 +847,20 @@ function NavStructureSection({
         </>
       ) : null}
 
-      <Toggle
+      <Segmented
         label="Shadow on the L2 panel"
-        checked={flyoutShadow}
+        keywords="shadow depth float flyout l2 panel right bottom elevation"
+        options={FLYOUT_SHADOWS}
+        value={flyoutShadow}
         onChange={setFlyoutShadow}
+        format={(v) => FLYOUT_SHADOW_LABELS[v]}
       />
       <Note>
-        {flyoutShadow
-          ? "Thrown right only, away from the nav. A shadow spilling back over the column is what the hairlines replaced — it reads as a dark seam between L1 and L2 rather than as depth."
-          : "Hairlines alone, which is what shipped. The card behind both already carries the float."}
+        {flyoutShadow === "right"
+          ? "Out over the page and nowhere else — the only edge where the panel meets the page, since the bottom meets the window. Never cast left: a shadow spilling back over the column is what the hairlines replaced, and it reads as a dark seam between L1 and L2 rather than as depth."
+          : flyoutShadow === "both"
+            ? "Right and bottom, so the panel reads as a card floating clear of everything. Truer when it stops mid-screen than when it runs the full height."
+            : "Hairlines alone, which is what shipped. The card behind both already carries the float."}
       </Note>
 
       <Toggle
@@ -1105,11 +1121,13 @@ function NavStructureSection({
           ? "The brand fill without the ring, and the words in the nav's own ink. A card, not an alert."
           : launchpadCard === "outline"
             ? "No fill — a neutral hairline. A container rather than a highlight; brand survives only in the meter."
-            : launchpadCard === "quiet"
-              ? "The grey a hovered row wears. Present, and carrying no colour of its own."
-              : launchpadCard === "plain"
-                ? "No card at all. Two rows on the nav's ground, indented to its own icon column — does this need to be a card?"
-                : "What shipped: brand fill and a full brand ring. The loudest thing in the nav, for as long as onboarding lasts."}
+            : launchpadCard === "white"
+              ? "The same hairline over a white ground. The variant for the plane, where an unfilled card shows the grey behind it and reads as a dent."
+              : launchpadCard === "quiet"
+                ? "The grey a hovered row wears. Present, and carrying no colour of its own."
+                : launchpadCard === "plain"
+                  ? "No card at all. Two rows on the nav's ground, indented to its own icon column — does this need to be a card?"
+                  : "What shipped: brand fill and a full brand ring. The loudest thing in the nav, for as long as onboarding lasts."}
       </Note>
 
       <Segmented
@@ -2378,7 +2396,13 @@ export function TuningPanel() {
     agencyNavMark,
     setAgencyNavMark,
     navOnPlane,
+    navRowRing,
+    navRowShadow,
+    planeGround,
     setNavOnPlane,
+    setNavRowRing,
+    setNavRowShadow,
+    setPlaneGround,
     setAgencySearch,
     aiButtonStyle,
     setAiButtonStyle,
@@ -2411,7 +2435,9 @@ export function TuningPanel() {
     crumbHome,
     setCrumbHome,
     crumbSwitchers,
+    crumbTrigger,
     setCrumbSwitchers,
+    setCrumbTrigger,
     crumbLeaf,
     setCrumbLeaf,
     folderCrumb,
@@ -2532,10 +2558,17 @@ export function TuningPanel() {
     pageCanvas,
     pageCanvasEdge,
     setPageCanvasEdge,
+    canvasBg,
+    setCanvasBg,
+    canvasTintAllPages,
+    setCanvasTintAllPages,
+    canvasFramePadding,
+    setCanvasFramePadding,
     pageCanvasColumns,
     setPageCanvasColumns,
     setPageCanvas,
   } = useTheme();
+  const canvasTintedPage = useCanvasTintedPage();
 
 
   const toggleSection = (id: SectionId) =>
@@ -2599,6 +2632,7 @@ export function TuningPanel() {
     (barHeadingScale !== DEFAULT_THEME.barHeadingScale ? 1 : 0) +
     (crumbHome !== DEFAULT_THEME.crumbHome ? 1 : 0) +
     (crumbSwitchers !== DEFAULT_THEME.crumbSwitchers ? 1 : 0) +
+    (crumbTrigger !== DEFAULT_THEME.crumbTrigger ? 1 : 0) +
     (crumbLeaf !== DEFAULT_THEME.crumbLeaf ? 1 : 0) +
     (crumbSeparator !== DEFAULT_THEME.crumbSeparator ? 1 : 0) +
     (crumbCompoundChild !== DEFAULT_THEME.crumbCompoundChild ? 1 : 0) +
@@ -2617,6 +2651,7 @@ export function TuningPanel() {
     setBarHeadingScale(DEFAULT_THEME.barHeadingScale);
     setCrumbHome(DEFAULT_THEME.crumbHome);
     setCrumbSwitchers(DEFAULT_THEME.crumbSwitchers);
+    setCrumbTrigger(DEFAULT_THEME.crumbTrigger);
     setCrumbLeaf(DEFAULT_THEME.crumbLeaf);
     setFolderCrumb(DEFAULT_THEME.folderCrumb);
     setTableCrumb(DEFAULT_THEME.tableCrumb);
@@ -3179,6 +3214,21 @@ export function TuningPanel() {
                         : crumbSwitchers === "leaf"
                           ? "Only the last. The ancestors are the levels the nav can already reach, so they go back to being words you can click; the leaf's menu \u2014 which other smart list, which other page \u2014 is the sideways move with no other home."
                           : "Plain text. The trail states where you are and nothing more — honest if the nav is already doing the switching."}
+                  </Note>
+
+                  <Segmented
+                    label="Pressing a crumb"
+                    keywords="click crumb word caret arrow dropdown navigate target split whole"
+                    options={CRUMB_TRIGGERS}
+                    value={crumbTrigger}
+                    disabled={!crumbShown || crumbSwitchers === "off"}
+                    onChange={setCrumbTrigger}
+                    format={(v) => CRUMB_TRIGGER_LABELS[v]}
+                  />
+                  <Note>
+                    {crumbTrigger === "split"
+                      ? "Two controls in one box. The word goes to the level it names — Contacts lands on Contacts’s first page — and the arrow beside it lists the siblings. The only reading under which the trail can be walked back up."
+                      : "One target. The whole crumb opens its menu and nothing in the trail navigates; you move by picking from the list. What this shipped with, and the version with no halves to aim at."}
                   </Note>
 
                   <Segmented
@@ -4410,6 +4460,52 @@ export function TuningPanel() {
                 ? "The card hairline alone — flat, the edge drawn rather than cast."
                 : "Hairline and shadow/lg together — a defined edge that still lifts."}
           </Note>
+          {canvasTintedPage || canvasTintAllPages ? (
+            <>
+              <Segmented
+                label="Canvas background"
+                options={CANVAS_BGS}
+                value={canvasBg}
+                disabled={!pageCanvas}
+                onChange={(v: CanvasBg) => setCanvasBg(v)}
+                format={(v) => CANVAS_BG_LABELS[v]}
+                keywords="tint colour color background frame"
+              />
+              <Note>
+                {canvasBg === "white"
+                  ? "The canvas is the page surface."
+                  : canvasBg === "tinted"
+                    ? "The whole canvas takes this product's tint; the page's own cards stay white."
+                    : "The canvas's 16px band takes the tint and the content area inside it is white."}
+              </Note>
+              {canvasBg === "frame" ? (
+                <>
+                  <Toggle
+                    label="Padding inside the frame"
+                    checked={canvasFramePadding}
+                    disabled={!pageCanvas}
+                    onChange={setCanvasFramePadding}
+                  />
+                  <Note>
+                    {canvasFramePadding
+                      ? "The white sheet pads its content by 16px."
+                      : "Content runs to the white sheet's edges."}
+                  </Note>
+                </>
+              ) : null}
+            </>
+          ) : null}
+          <Toggle
+            label="Canvas tint on every page"
+            checked={canvasTintAllPages}
+            disabled={!pageCanvas}
+            onChange={setCanvasTintAllPages}
+          />
+          <Note>
+            {canvasTintAllPages
+              ? "Every page previews the canvas background, using the default tint where a product has none."
+              : "Only products with their own tint (Content AI, Order list, Conversation AI, Social Planner) show the canvas background."}
+          </Note>
           <Toggle
             label="Canvas on column pages"
             checked={pageCanvasColumns}
@@ -4569,6 +4665,59 @@ export function TuningPanel() {
             {navOnPlane
               ? "The nav drops its card — no ground of its own, no ring, no shadow, no gap — and inherits the plane behind the canvas. One ground, and the page is the only thing floating on it. Keep the nav and page themes matched: the nav has no colour of its own while this is on."
               : "The nav is a floating card beside the page's. Three surfaces on screen, and the nav reads as an object laid on the window."}
+          </Note>
+
+          <Toggle
+            label="Row edges on the plane"
+            keywords="border hairline ring hover active selected outline"
+            checked={navRowRing}
+            onChange={setNavRowRing}
+            disabled={!navOnPlane}
+          />
+          <Note>
+            {!navOnPlane
+              ? "Plane only. The floating card's fills are two clear steps of grey on white, and an edge on top of them states twice what is already said once."
+              : navRowRing
+                ? "A hairline on both states — gray-200 on the page you are on, gray-100 under your pointer. On a grey ground the fills have gone white-on-near-white, and the edge is what carries a difference the lightness no longer can."
+                : "Fills alone. Fewer lines in the nav, and the states live or die on how far the plane's grey sits from white."}
+          </Note>
+
+          <Toggle
+            label="Row shadow on the plane"
+            keywords="shadow lift raised elevation active selected"
+            checked={navRowShadow}
+            onChange={setNavRowShadow}
+            disabled={!navOnPlane}
+          />
+          <Note>
+            {!navOnPlane
+              ? "Plane only. A white row on a white nav has nothing to lift off, and the shadow would land on the card's own ground."
+              : navRowShadow
+                ? "The selected row rises off the plane, on the Launchpad card's own lift — the two share a token, so they stay the same shadow. Where the edge outlines the row, this makes it a surface. Selected only: a row that rises under the pointer is a nav that twitches."
+                : "The selected row sits flat on the plane, and its fill is the whole of what marks it."}
+          </Note>
+
+          <Segmented
+            label="Plane ground"
+            keywords="background colour color grey gray plane primary blue cool modern neutral warm"
+            options={PLANE_GROUNDS}
+            value={planeGround}
+            onChange={(v: PlaneGround) => setPlaneGround(v)}
+            format={(v) => PLANE_GROUND_LABELS[v]}
+            disabled={!navOnPlane}
+          />
+          <Note>
+            {!navOnPlane
+              ? "Plane only. With the nav in a card the plane is a strip of window behind two floating surfaces, and its colour is not what the nav's states are read against."
+              : planeGround === "default"
+                ? "gray-50, as declared — and the brand tint's version of it where a tint is on. Every HighRise step below is a literal, so picking one takes the ground out of the tint's hands."
+                : planeGround.startsWith("primary")
+                  ? "The brand hue at its faintest. White rows lift off it further than off any grey of the same lightness, because the difference is hue as well as value — and the chrome reads as part of the product rather than as a frame around it."
+                  : planeGround.startsWith("gray-warm")
+                    ? "The one family that leans away from the blue in the product. Warm chrome under a blue accent is a decision, not a default — worth seeing before ruling out."
+                    : planeGround.endsWith("200")
+                      ? "A long way down from white. At a 200 the ground stops being a tint and becomes a surface — the arrangement where the canvas and the nav rows both clearly float."
+                      : "A cool neutral: enough blue to hold the product's temperature, not enough to claim to be the brand. Where most product chrome lands."}
           </Note>
 
           <Toggle

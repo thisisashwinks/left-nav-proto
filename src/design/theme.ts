@@ -426,6 +426,35 @@ export const CRUMB_SWITCHER_LABELS: Record<CrumbSwitchers, string> = {
   off: "None",
 };
 
+/**
+ * What a crumb does when you press it.
+ *
+ *  split  The word navigates and the caret opens the siblings — two controls
+ *         inside one box, each with its own hover chip. Pressing "Contacts"
+ *         lands on Contacts's first page; pressing the arrow beside it lists
+ *         the other products. This is the default because it is the one
+ *         reading under which a breadcrumb does the job breadcrumbs exist
+ *         for: walking back up a path. Under the other, that gesture does
+ *         not exist anywhere in the trail.
+ *  whole  The whole crumb is the dropdown, word and caret together — what
+ *         this shipped with. Nothing in the trail navigates; every press
+ *         opens a menu, and you move by choosing from it. The argument for
+ *         it is that one crumb is one target, so there is no aiming and no
+ *         explaining which half does what; the argument against is that the
+ *         trail is then a rank of menus wearing a path's clothes.
+ *
+ * Kept as an axis rather than settled because the two are genuinely worth
+ * demonstrating side by side — Ashwin, Oct 1. The gap between the word and
+ * the caret is the same under both, so the only difference a reviewer sees
+ * is the behaviour.
+ */
+export type CrumbTrigger = "split" | "whole";
+export const CRUMB_TRIGGERS: readonly CrumbTrigger[] = ["split", "whole"];
+export const CRUMB_TRIGGER_LABELS: Record<CrumbTrigger, string> = {
+  split: "Word goes, caret opens",
+  whole: "Whole crumb opens it",
+};
+
 /** What sits between crumbs. */
 export type CrumbSeparator = "chevron" | "slash";
 export const CRUMB_SEPARATORS: readonly CrumbSeparator[] = ["chevron", "slash"];
@@ -920,7 +949,175 @@ export const SUB_ACCOUNT_NAV_MARK_DEFAULT = false;
  * because the ground it is sitting on is the page's. The two themes are
  * meant to match while this is on, and the panel says so.
  */
-export const NAV_ON_PLANE_DEFAULT = false;
+/*
+ * On, as of Oct 1.
+ *
+ * It was off because it was the proposal and the floating card was what
+ * shipped. Enough now hangs off it — the seam, the panel shapes, the
+ * directory's edges, the edit button's stroke, the L1 drawer — that a review
+ * opening with it off opens on the arrangement none of those were designed
+ * for, and every one of them has to be switched on by hand before it can be
+ * looked at. The card is one click away.
+ */
+export const NAV_ON_PLANE_DEFAULT = true;
+
+/**
+ * A hairline on the hovered and selected rows, while the nav is on the plane.
+ *
+ * Off the plane this would be noise and the token resolves to `transparent`:
+ * a white nav gives gray-100 and gray-200 fills two unmistakable steps of
+ * contrast, and an edge on top of them is a second signal for a state that
+ * already has one. On the plane there is no such room — the ground IS grey, so
+ * the fills have gone white-on-near-white and the difference between "my
+ * pointer is here" and "this is the page I am on" is a few points of
+ * lightness. The ring is what carries it, two steps apart to match the two
+ * fills: gray-200 selected, gray-100 hovered.
+ *
+ * An axis rather than a fact because it is the smaller half of a decision
+ * still open — the other half is the plane's grey itself, and an edge is one
+ * answer to a dim row where a darker ground is the other. Being able to put
+ * them side by side is the point.
+ *
+ * ON by default, Oct 1 — it was briefly off while the plane's grey was the
+ * open question, and the pair settled it: an edge and the lift below read as
+ * one treatment, and the row is legible on gray-50 without having to darken
+ * the whole plane to get there. Switch either off to see the ground do the
+ * work alone.
+ *
+ * Plane-only by construction: the attribute that turns the tokens on is set
+ * only when `navOnPlane` is also on, so this cannot paint rings onto the
+ * floating card by being left switched on.
+ */
+export const NAV_ROW_RING_DEFAULT = true;
+
+/**
+ * A drop shadow under the selected row, while the nav is on the plane.
+ *
+ * The sibling of NAV_ROW_RING_DEFAULT and the third answer to the same
+ * question: on a grey plane the selected row's white fill is only a few points
+ * from its ground, and it needs help. The ring draws the row's EDGE; this
+ * raises the row off the ground instead. They are independent switches because
+ * the two can be judged against each other and because both at once is a real
+ * arrangement — an outlined card is a thing — even if it is probably one
+ * signal too many.
+ *
+ * Selected only, never hover. A shadow says "this is lifted", which is a claim
+ * about what a thing IS; hover is a claim about where your pointer is, and a
+ * row that rises and falls as the pointer crosses it is a nav that twitches.
+ *
+ * The Launchpad card's lift by reference — see --nav-raise-shadow — which is
+ * shadow/xs and no larger. Plane-only by construction, like the ring, and dark
+ * navs opt out in CSS because a shadow on the darkest surface on screen reads
+ * as grime rather than as height.
+ *
+ * ON by default, Oct 1, alongside the ring. The softened lift is what made the
+ * pair work: at shadow/sm the edge and the shadow were two signals arguing,
+ * where at xs the shadow is the edge's bottom half.
+ */
+export const NAV_ROW_SHADOW_DEFAULT = true;
+
+/**
+ * The grey the plane is painted in.
+ *
+ * The other half of the row-state question — see NAV_ROW_RING_DEFAULT. Once the
+ * nav sits on the plane with no card of its own, every state in it is read
+ * against this one colour: white rows on gray-50 are a few points apart, and
+ * the fix is either an edge on the row or a ground that stands further back.
+ * This axis is the second of those, so the two can be tried against each other
+ * rather than argued about.
+ *
+ * All fourteen are HighRise ramp steps (highrise.gohighlevel.com/components/colors),
+ * which is the whole point: the answer has to be a colour the design system
+ * already has, or it is a swatch this prototype invented and nobody can ship.
+ * They fall into three families worth naming, because the choice between them
+ * is a choice about what the chrome is made of:
+ *
+ *  Primary 25/50   The brand hue at its faintest. The nav reads as part of the
+ *                  product rather than as a neutral frame around it, and white
+ *                  rows lift off it further than off any grey at the same
+ *                  lightness — blue behind white is a hue difference as well as
+ *                  a lightness one.
+ *  Gray blue /     Cool neutrals. Blue, cool and modern each carry a little
+ *  cool / modern   blue; they hold the brand's temperature without claiming to
+ *                  be the brand, which is what most product chrome wants.
+ *  Gray neutral /  Flat and warm. Neutral is the true grey; warm leans brown and
+ *  warm            is the only family here that puts the chrome at a different
+ *                  temperature from the blue in it.
+ *
+ * The 100s and 200s are offered beside the 50s deliberately. A 200 is a long
+ * way down from white — it stops being a tint and becomes a surface — and the
+ * question of whether chrome should be a surface is exactly what the plane
+ * arrangement opened.
+ *
+ * `default` means the token as declared, which is `--hr-gray-50` and, with a
+ * brand tint on, the tinted derivation of it. Picking anything else sets the
+ * colour literally and takes it out of the tint's hands.
+ */
+export const PLANE_GROUNDS = [
+  "default",
+  "primary-25",
+  "primary-50",
+  "gray-blue-50",
+  "gray-blue-100",
+  "gray-blue-200",
+  "gray-cool-50",
+  "gray-cool-100",
+  "gray-cool-200",
+  "gray-modern-100",
+  "gray-modern-200",
+  "gray-neutral-100",
+  "gray-neutral-200",
+  "gray-warm-100",
+  "gray-warm-200",
+] as const;
+
+export type PlaneGround = (typeof PLANE_GROUNDS)[number];
+
+export const PLANE_GROUND_LABELS: Record<PlaneGround, string> = {
+  default: "Default",
+  "primary-25": "Primary 25",
+  "primary-50": "Primary 50",
+  "gray-blue-50": "Blue 50",
+  "gray-blue-100": "Blue 100",
+  "gray-blue-200": "Blue 200",
+  "gray-cool-50": "Cool 50",
+  "gray-cool-100": "Cool 100",
+  "gray-cool-200": "Cool 200",
+  "gray-modern-100": "Modern 100",
+  "gray-modern-200": "Modern 200",
+  "gray-neutral-100": "Neutral 100",
+  "gray-neutral-200": "Neutral 200",
+  "gray-warm-100": "Warm 100",
+  "gray-warm-200": "Warm 200",
+};
+
+/**
+ * The hex behind each, straight from the HighRise ramps.
+ *
+ * Literals rather than tokens because most of these ramps are not in this
+ * prototype's token file — it carries one grey ramp, and these are six. Copying
+ * the published values in is the honest version of "try the design system's
+ * greys"; deriving near-misses in oklch would be trying something else.
+ *
+ * `default` is absent on purpose: it means "do not set the property", which is
+ * what lets the declared token and the brand tint keep doing their work.
+ */
+export const PLANE_GROUND_HEX: Partial<Record<PlaneGround, string>> = {
+  "primary-25": "#F5F8FF",
+  "primary-50": "#EFF4FF",
+  "gray-blue-50": "#F8F9FC",
+  "gray-blue-100": "#EAECF5",
+  "gray-blue-200": "#D5D9EB",
+  "gray-cool-50": "#F9F9FB",
+  "gray-cool-100": "#F0F1F5",
+  "gray-cool-200": "#DCDFEA",
+  "gray-modern-100": "#EEF2F6",
+  "gray-modern-200": "#E3E8EF",
+  "gray-neutral-100": "#F3F4F6",
+  "gray-neutral-200": "#E5E7EB",
+  "gray-warm-100": "#F5F5F4",
+  "gray-warm-200": "#E7E5E4",
+};
 
 /**
  * Whether a pinned row can be arranged, renamed and re-iconed in edit mode.
@@ -974,19 +1171,39 @@ export const PINNED_ROW_EDIT_DEFAULT = true;
 export const PINNED_SHORTCUTS_DEFAULT = true;
 
 /**
- * Whether the L2 panel casts a shadow.
+ * Which way the L2 panel casts a shadow.
  *
- * It has never had one, and `flyout-panel.tsx` says why: the canvas-sized
- * shadow it shipped with spilled LEFT over the nav and read as a dark seam
- * BETWEEN L1 and L2, when the panel is supposed to be the nav continuing.
- * Hairlines replaced it.
+ * It had none for a long time, and `flyout-panel.tsx` says why: the
+ * canvas-sized shadow it shipped with spilled LEFT over the nav and read as a
+ * dark seam BETWEEN L1 and L2, when the panel is supposed to be the nav
+ * continuing. Hairlines replaced it.
  *
- * That argument is about a shadow thrown in every direction. One thrown only
- * right — away from the nav, over the page — says something the hairlines
- * cannot: that the panel is in front of the workspace rather than part of
- * the column. Worth switching on and looking at, which is what this is.
+ * That argument is about a shadow thrown in every direction, and it does not
+ * reach one thrown away from the column. Nothing is ever cast left.
+ *
+ *  right  Out over the page and nowhere else. The default from Oct 1: it
+ *         says the panel is in front of the workspace — the one claim worth
+ *         making here — and it says it along the only edge where the panel
+ *         actually meets the page. The bottom edge usually meets the window.
+ *  both   Right and bottom. Reads as a card floating clear of everything,
+ *         which is truer when the panel is short and stops mid-screen, and
+ *         overstated when it runs the full height.
+ *  off    Hairlines alone, which is what this shipped with.
+ *
+ * None of them paints a ground. The panel's fill is its own and does not
+ * change with this axis — a soft shadow against a white page lifts the
+ * perceived value of everything inside its falloff, which is a shadow doing
+ * its job rather than a background appearing. Ashwin asked on Oct 1; checked,
+ * and there is no `bg-` anywhere in these branches.
  */
-export const FLYOUT_SHADOW_DEFAULT = false;
+export type FlyoutShadow = "right" | "both" | "off";
+export const FLYOUT_SHADOWS: readonly FlyoutShadow[] = ["right", "both", "off"];
+export const FLYOUT_SHADOW_LABELS: Record<FlyoutShadow, string> = {
+  right: "Right only",
+  both: "Right and bottom",
+  off: "None",
+};
+export const FLYOUT_SHADOW_DEFAULT: FlyoutShadow = "right";
 
 /**
  * What shape the L2 panel is.
@@ -1640,6 +1857,11 @@ export const HEADER_ENTRY_SIDE_LABELS: Record<HeaderEntrySide, string> = {
  *           as a card without reading as an alert.
  *  outline  No fill at all — a neutral hairline. The card becomes a container
  *           rather than a highlight, and brand survives only in the meter.
+ *  white    The same hairline over a white fill. The variant for the plane,
+ *           where `outline` has no ground of its own and so shows the grey
+ *           behind it — the card reads as a dent rather than as a card. Lifted
+ *           off a grey plane it is the one arrangement where the brightest
+ *           thing in the nav is the thing you are meant to finish.
  *  quiet    A neutral grey fill, the same one a hovered row wears. Present, and
  *           carrying no colour of its own.
  *  plain    No card. Two rows on the nav's ground with a meter under the first,
@@ -1653,6 +1875,7 @@ export const HEADER_ENTRY_SIDE_LABELS: Record<HeaderEntrySide, string> = {
 export const LAUNCHPAD_CARDS = [
   "tinted",
   "outline",
+  "white",
   "quiet",
   "plain",
   "solid",
@@ -1663,6 +1886,7 @@ export type LaunchpadCard = (typeof LAUNCHPAD_CARDS)[number];
 export const LAUNCHPAD_CARD_LABELS: Record<LaunchpadCard, string> = {
   tinted: "Tinted",
   outline: "Outline",
+  white: "White",
   quiet: "Neutral",
   plain: "No card",
   solid: "Full brand",
@@ -2215,6 +2439,49 @@ export const PAGE_CANVAS_EDGE_LABELS: Record<PageCanvasEdge, string> = {
   both: "Border + shadow",
 };
 
+/**
+ * What the centre canvas card is filled with.
+ *
+ *  - `white`  — the card is the page surface, as shipped.
+ *  - `tinted` — the whole card takes the product's tint; the page's own cards
+ *               stay white on it.
+ *  - `frame`  — the card's 16px padding band takes the tint and the content
+ *               area inside it is white.
+ *
+ * Only products listed in CANVAS_TINTS have a tint, so the setting only does
+ * anything (and only shows in the panel) on those pages — unless
+ * `canvasTintAllPages` asks to preview it everywhere.
+ */
+export const CANVAS_BGS = ["white", "tinted", "frame"] as const;
+export type CanvasBg = (typeof CANVAS_BGS)[number];
+export const CANVAS_BG_LABELS: Record<CanvasBg, string> = {
+  white: "White",
+  tinted: "Tinted",
+  frame: "Tinted frame",
+};
+
+/**
+ * Each product's canvas tint, keyed by product id — or by page id where a
+ * tree files the product as a page (the shipped nav has Conversation AI as an
+ * L3 of AI Agents). Both nav trees are listed.
+ */
+export const CANVAS_TINTS: Record<string, string> = {
+  // AI ▸ Content AI
+  "ia-ai-content": "#F2F7FA",
+  // AI ▸ Conversation AI
+  "ia-ai-conversation": "#FCFDFD",
+  "ai-conversation": "#FCFDFD",
+  // Payments ▸ Orders ▸ Order list (the list page only, not Abandoned checkout)
+  "ia-commerce-orders-list": "#F2F7FA",
+  "payments-orders": "#F2F7FA",
+  // Marketing ▸ Social Planner
+  "ia-marketing-social": "#F9FAFB",
+  "social-planner": "#F9FAFB",
+};
+
+/** The tint pages without their own use when previewing on every page. */
+export const DEFAULT_CANVAS_TINT = "#F2F7FA";
+
 export const PAGE_SHELLS = ["plane", "canvas", "surface"] as const;
 
 export type PageShell = (typeof PAGE_SHELLS)[number];
@@ -2573,12 +2840,18 @@ export interface ThemeState {
   subAccountNavMark: boolean;
   /** Whether the nav drops its card and sits on the plane. See NAV_ON_PLANE_DEFAULT. */
   navOnPlane: boolean;
+  /** Hairlines on the hovered and selected rows, on the plane. See NAV_ROW_RING_DEFAULT. */
+  navRowRing: boolean;
+  /** A lift under the selected row, on the plane. See NAV_ROW_SHADOW_DEFAULT. */
+  navRowShadow: boolean;
+  /** The grey the plane is painted in. See PLANE_GROUNDS. */
+  planeGround: PlaneGround;
   /** Arranging, renaming and re-iconing pins in edit mode. See PINNED_ROW_EDIT_DEFAULT. */
   pinnedRowEdit: boolean;
   /** Keyboard shortcuts on pinned rows. See PINNED_SHORTCUTS_DEFAULT. */
   pinnedShortcuts: boolean;
-  /** A shadow on the L2 panel. See FLYOUT_SHADOW_DEFAULT. */
-  flyoutShadow: boolean;
+  /** Which way the L2 panel casts a shadow. See FLYOUT_SHADOWS. */
+  flyoutShadow: FlyoutShadow;
   /** Whether the L2 panel is docked or a card. See FLYOUT_SHAPES. */
   flyoutShape: FlyoutShape;
   /** An outline around the nav+panel pair. See FLYOUT_CARD_BORDER_DEFAULT. */
@@ -2874,6 +3147,8 @@ export interface ThemeState {
    */
   /** Which crumbs carry a dropdown. See CRUMB_SWITCHER_MODES. */
   crumbSwitchers: CrumbSwitchers;
+  /** Whether the word navigates or the whole crumb opens the menu. See CRUMB_TRIGGERS. */
+  crumbTrigger: CrumbTrigger;
   crumbSeparator: CrumbSeparator;
   /**
    * What the trail's last segment is. See CRUMB_LEAVES.
@@ -2993,6 +3268,12 @@ export interface ThemeState {
   pageCanvas: boolean;
   /** How the canvas marks its edge. See PAGE_CANVAS_EDGES. */
   pageCanvasEdge: PageCanvasEdge;
+  /** What the canvas is filled with on tinted products. See CANVAS_BGS. */
+  canvasBg: CanvasBg;
+  /** Preview the canvas tint on every page, not only tinted products. */
+  canvasTintAllPages: boolean;
+  /** Under the tinted frame, whether the white sheet pads its content 16px. */
+  canvasFramePadding: boolean;
   /**
    * Whether the canvas also holds the pages built from columns.
    *
@@ -3348,6 +3629,14 @@ export const DEFAULT_THEME: ThemeState = {
   agencyNavMark: AGENCY_NAV_MARK_DEFAULT,
   subAccountNavMark: SUB_ACCOUNT_NAV_MARK_DEFAULT,
   navOnPlane: NAV_ON_PLANE_DEFAULT,
+  navRowRing: NAV_ROW_RING_DEFAULT,
+  navRowShadow: NAV_ROW_SHADOW_DEFAULT,
+  /*
+   * The declared token, until one of the fourteen wins the argument. A
+   * prototype that opens on a hand-picked grey is a prototype that has already
+   * answered the question it was built to ask.
+   */
+  planeGround: "default",
   pinnedRowEdit: PINNED_ROW_EDIT_DEFAULT,
   pinnedShortcuts: PINNED_SHORTCUTS_DEFAULT,
   flyoutShadow: FLYOUT_SHADOW_DEFAULT,
@@ -3446,15 +3735,23 @@ export const DEFAULT_THEME: ThemeState = {
   // account) carries it as a per-account override.
   launchpad: false,
   /*
-   * Outline, not the brand-filled original.
+   * White, not the brand-filled original.
    *
    * The card sits above a product list it is not part of, and at full strength
    * it was the loudest thing on screen for as long as onboarding took. A
    * neutral hairline makes it a container rather than a highlight, and leaves
    * the only brand in it to the meter — which is the part that is actually
    * status. "Full brand" is one click away, at the end of the list.
+   *
+   * The hairline over WHITE rather than over nothing, as of Oct 1, because the
+   * nav now opens on the plane: an unfilled card there shows the grey behind
+   * it and reads as a dent pressed into the nav rather than as a card laid on
+   * it. Same restraint, with a ground — and on a grey plane the brightest
+   * thing in the nav being the thing you are meant to finish is the right
+   * accident. "Outline" keeps the old behaviour for the floating card, where
+   * the ground was already white and the fill would have been invisible.
    */
-  launchpadCard: "outline",
+  launchpadCard: "white",
   // The rail is the recommendation, so the prototype opens on it. Model A is
   // one click away for the comparison.
   scopeModel: "rail",
@@ -3531,6 +3828,7 @@ export const DEFAULT_THEME: ThemeState = {
   // below, so the leaf was the trail saying it twice; "title" was the
   // previous answer and it only held where a page HAD a title to hand the
   // caret to. This one needs nothing from the page. See CrumbLeaf.
+  crumbTrigger: "split",
   crumbLeaf: "none",
   // Replace, so the default trail does not grow a level the moment anyone
   // opens a folder. Beside is one click away for the comparison.
@@ -3551,8 +3849,26 @@ export const DEFAULT_THEME: ThemeState = {
   listShowViews: true,
   listShowFilters: true,
   listToolbar: "page",
-  pageCanvas: false,
-  pageCanvasEdge: "shadow",
+  /*
+   * The canvas, on, with both edges — Ashwin, Oct 1.
+   *
+   * Off was the shipped state and the honest baseline while the canvas was a
+   * proposal. It is the arrangement every other axis is now being judged
+   * against — the plane variant exists to put a page card on a ground, and
+   * with no card there is nothing for the ground to be the ground OF — so a
+   * review that has to switch it on first is a review that opens on a state
+   * nobody is arguing for.
+   *
+   * `both` rather than `shadow` for the same reason the sidebar's own seam
+   * got a stroke: a shadow alone says "lifted", and on a light plane that is
+   * a few pixels of grey doing all the work of saying where the page starts.
+   * The hairline states it and the shadow gives it height.
+   */
+  pageCanvas: true,
+  pageCanvasEdge: "both",
+  canvasBg: "white",
+  canvasTintAllPages: false,
+  canvasFramePadding: true,
   pageCanvasColumns: true,
   recordHeaderVariant: "D-B",
   calendarViewSwitch: "tabs",

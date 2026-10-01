@@ -1063,10 +1063,14 @@ export function FlyoutPanel({
                 flyoutCardBorder
                   ? "shadow-[inset_1px_0_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_1px_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border)]"
                   : "shadow-[inset_1px_0_0_0_var(--fly-border)]",
-                flyoutShadow &&
+                flyoutShadow === "right" &&
                   (flyoutCardBorder
-                    ? "shadow-[inset_1px_0_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_1px_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border),8px_0_28px_-12px_rgba(16,24,40,0.28)]"
-                    : "shadow-[inset_1px_0_0_0_var(--fly-border),8px_0_28px_-12px_rgba(16,24,40,0.28)]"),
+                    ? "shadow-[inset_1px_0_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_1px_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border),10px_0_26px_-16px_rgba(16,24,40,0.14)]"
+                    : "shadow-[inset_1px_0_0_0_var(--fly-border),10px_0_26px_-16px_rgba(16,24,40,0.14)]"),
+                flyoutShadow === "both" &&
+                  (flyoutCardBorder
+                    ? "shadow-[inset_1px_0_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_1px_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border),10px_0_26px_-16px_rgba(16,24,40,0.14),0_12px_24px_-18px_rgba(16,24,40,0.12)]"
+                    : "shadow-[inset_1px_0_0_0_var(--fly-border),10px_0_26px_-16px_rgba(16,24,40,0.14),0_12px_24px_-18px_rgba(16,24,40,0.12)]"),
               )
           : navEditing && editTreatment === "ring"
           /*
@@ -1101,21 +1105,40 @@ export function FlyoutPanel({
             ? cn(
                 "shadow-[inset_1px_0_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border)]",
                 /*
-                  Thrown RIGHT only, never left.
+                  Thrown RIGHT, and down under "both" — never left.
 
                   A shadow spilling back over the nav is the thing the
-                  hairlines replaced — it reads as a dark seam between L1 and
+                  hairlines replaced: it reads as a dark seam between L1 and
                   L2 rather than as depth. Cast away from the column, it says
                   the panel is in front of the page, which is the only claim
-                  worth making here.
+                  worth making here. The bottom cast is softer and tighter
+                  than the side — it usually falls on the window edge rather
+                  than on the page, so matching the side's weight would have
+                  put the heavier shadow where there is least to cast onto.
+
+                  Softened on Oct 1: 0.28 and 0.26 alpha read as a hard edge
+                  rather than as lift. Half the alpha and a deeper negative
+                  spread move the darkest part of the cast back under the
+                  panel, so what reaches the page is the tail of the gradient
+                  and not its shoulder.
+
+                  Each value re-states the insets: these are one `shadow-*`
+                  utility, and tailwind-merge keeps only the last one, so a
+                  class carrying the cast alone would silently drop the
+                  hairlines. See FLYOUT_SHADOWS — and note no branch here
+                  touches the panel's fill.
                 */
-                flyoutShadow &&
-                  "shadow-[inset_1px_0_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),8px_0_28px_-12px_rgba(16,24,40,0.28)]",
+                flyoutShadow === "right" &&
+                  "shadow-[inset_1px_0_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),10px_0_26px_-16px_rgba(16,24,40,0.14)]",
+                flyoutShadow === "both" &&
+                  "shadow-[inset_1px_0_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),10px_0_26px_-16px_rgba(16,24,40,0.14),0_12px_24px_-18px_rgba(16,24,40,0.12)]",
               )
             : cn(
                 "shadow-[inset_0_1px_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border)]",
-                flyoutShadow &&
-                  "shadow-[inset_0_1px_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border),8px_0_28px_-12px_rgba(16,24,40,0.28)]",
+                flyoutShadow === "right" &&
+                  "shadow-[inset_0_1px_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border),10px_0_26px_-16px_rgba(16,24,40,0.14)]",
+                flyoutShadow === "both" &&
+                  "shadow-[inset_0_1px_0_0_var(--fly-border),inset_-1px_0_0_0_var(--fly-border),inset_0_-1px_0_0_var(--fly-border),10px_0_26px_-16px_rgba(16,24,40,0.14),0_12px_24px_-18px_rgba(16,24,40,0.12)]",
               ),
         // `left` animates too, so the panel follows the nav edge when the rail
         // collapses underneath an open panel instead of jumping.

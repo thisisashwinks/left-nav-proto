@@ -1619,7 +1619,7 @@ function SearchRow({
         "group/row motion-tap relative flex w-full shrink-0 items-center gap-[10px] rounded-[9px] py-[6px] pl-[8px]",
         // The comment above is a promise, so the height comes too.
         "min-h-[calc(var(--t-nav-py,9px)*2+20px)]",
-        "pr-[calc(8px+22px+10px)] hover:bg-nav-hover",
+        "pr-[calc(8px+22px+10px)] hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]",
       )}
     >
       <ResolvedIcon icon={icon} size={18} className="text-nav-fg-muted" />
@@ -1791,7 +1791,7 @@ function ProductRow({
         "group/row motion-tap relative flex w-full shrink-0 items-center gap-[10px] rounded-[9px] py-[8px] pl-[8px]",
         "min-h-[calc(var(--t-nav-py,9px)*2+20px)]",
         "pr-[calc(8px+22px+10px)]",
-        dragging ? "opacity-40" : "hover:bg-nav-hover",
+        dragging ? "opacity-40" : "hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]",
       )}
     >
       {drag && !gripReplacesIcon ? (
@@ -2088,9 +2088,23 @@ function PanelTab({
       onClick={onSelect}
       className={cn(
         "motion-tap flex h-[28px] min-w-0 flex-1 items-center justify-center rounded-[7px] px-[8px] text-[13px] leading-[normal] whitespace-nowrap",
+        /*
+          The selected half wears the SELECTED fill, not the hover one.
+
+          They were the same colour while the nav was a white card, so
+          borrowing hover cost nothing. On the plane they part company —
+          hover is a step darker than the ground and selected is white — and
+          the borrowed token put the chosen tab one shade darker than the
+          track it sits in, which is the opposite of what a segmented control
+          says.
+
+          The other half moves from subtle to muted for the same reason: at
+          gray-400 on a grey ground the label you have not chosen was most of
+          the way to invisible. Muted is gray-600 here. Ashwin, Oct 1.
+        */
         selected
-          ? "bg-nav-hover font-medium text-nav-fg"
-          : "text-nav-fg-subtle hover:text-nav-fg-muted",
+          ? "bg-nav-selected font-medium text-nav-fg"
+          : "text-nav-fg-muted hover:text-nav-fg",
       )}
     >
       <span className="truncate">{label}</span>
@@ -2774,7 +2788,7 @@ function DirectoryRow({
   const pinInset = "right-[calc(8px+13px+10px)]";
 
   const rowClass = cn(
-    "group/row motion-tap flex w-full shrink-0 items-center gap-[10px] rounded-[9px] pl-[8px] text-left hover:bg-nav-hover",
+    "group/row motion-tap flex w-full shrink-0 items-center gap-[10px] rounded-[9px] pl-[8px] text-left hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]",
     ROW_HEIGHT(small),
     trailingReserve,
   );

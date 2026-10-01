@@ -38,6 +38,7 @@ import {
   isDeepPage,
   useDeepPlace,
 } from "./deep-sections";
+import { ContentAiPage } from "@/components/ai/content-ai/content-ai-page";
 import { ForecastPage } from "@/components/opportunities/forecast/forecast-page";
 import { PipelinesPage } from "@/components/opportunities/pipelines/pipelines-page";
 import { OpportunitiesPage } from "@/components/opportunities/opportunities-page";
@@ -48,6 +49,8 @@ import { LaunchpadPage } from "@/components/launchpad/launchpad-page";
 import { ReportingDashboardPage } from "@/components/reporting/dashboard-page";
 import { FunnelsPage } from "@/components/sites/funnels-page";
 import { InvoicesPage } from "@/components/invoices/invoices-page";
+import { OrdersPage } from "@/components/orders/orders-page";
+import { SocialPlannerPage } from "@/components/social/social-planner-page";
 import { ProspectingPage } from "@/components/prospecting/prospecting-page";
 import { AiStudioPage } from "@/components/ai/ai-studio-page";
 import { VoiceAiPage } from "@/components/ai/voice-ai-page";
@@ -381,6 +384,16 @@ const REAL_PAGES: {
   },
   {
     /*
+     * Commerce ▸ Orders ▸ Order list. The shipped catalogue files the same
+     * screen as Payments ▸ Orders. Abandoned checkout is not built yet and
+     * keeps the placeholder.
+     */
+    products: ["ia-commerce-orders", "payments"],
+    children: ["ia-commerce-orders-list", "payments-orders"],
+    render: () => <OrdersPage />,
+  },
+  {
+    /*
      * Marketing ▸ Prospecting.
      *
      * `children: []` is correct rather than lazy. The proposed tree marks
@@ -408,6 +421,23 @@ const REAL_PAGES: {
     render: (view) => <ProspectingPage initialTab={view} />,
   },
   {
+    /*
+     * Marketing ▸ Social Planner — a tabs parent like Prospecting, so the six
+     * tab rows arrive as the seed and land on their own tab.
+     */
+    products: ["social-planner", "ia-marketing-social"],
+    children: [],
+    views: {
+      "ia-marketing-social-planner": "planner",
+      "ia-marketing-social-content": "content",
+      "ia-marketing-social-comments": "comments",
+      "ia-marketing-social-stats": "stats",
+      "ia-marketing-social-listening": "listening",
+      "ia-marketing-social-settings": "settings",
+    },
+    render: (view) => <SocialPlannerPage initialTab={view} />,
+  },
+  {
     products: ["conversations", "ia-crm-conversations"],
     children: ["ia-crm-conversations-inbox"],
     render: () => <InboxPage />,
@@ -416,6 +446,18 @@ const REAL_PAGES: {
     products: ["opportunities", "ia-crm-opportunities"],
     children: ["ia-crm-opportunities-list"],
     render: () => <OpportunitiesPage />,
+  },
+  {
+    // AI ▸ Content AI — a tabs-parent, so Text/Image arrive as the seed.
+    products: ["ia-ai-content"],
+    children: [],
+    views: {
+      "ia-ai-content-text": "text",
+      "ia-ai-content-image": "image",
+    },
+    render: (view) => (
+      <ContentAiPage initialTab={view === "image" ? "image" : "text"} />
+    ),
   },
   {
     // Opportunities ▸ Forecast — Summary and Forecast timeline are its tabs.

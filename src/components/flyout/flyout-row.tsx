@@ -492,7 +492,11 @@ export function FlyoutRow({
     
     // The mark wins the ground, and keeps it under the pointer — see the note
     // on the same condition in nav-item-row.
-    mark.row ? mark.row : active ? "bg-nav-hover" : "hover:bg-nav-hover",
+    mark.row
+      ? mark.row
+      : active
+        ? "bg-nav-hover shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]"
+        : "hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]",
     !edit?.renaming && "active:scale-[0.99] motion-press",
     // The grab cursor lives on the grip, not the row.
     edit?.over && "bg-nav-hover shadow-[inset_0_0_0_1px_var(--nav-fg)]",
@@ -1354,7 +1358,9 @@ function FlyoutChildRow({
           mark.ink,
           mark.row,
           // Rollover only where there is no mark holding the ground already.
-          !mark.row && child.id !== activeId && "hover:bg-nav-hover",
+          !mark.row &&
+            child.id !== activeId &&
+            "hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]",
           "py-[var(--t-nav-py,9px)] min-h-[calc(var(--t-nav-py,9px)*2+20px)]",
           /*
             The same fill an active row wears anywhere else in the nav, so

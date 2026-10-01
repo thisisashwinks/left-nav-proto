@@ -450,3 +450,65 @@
 [data-page-canvas] [data-page-theme][data-page-theme][data-page-theme][data-page-theme] {
   --pg-card-border: var(--page-canvas-card-border);
 }
+
+/*
+ * The Conversations inbox, inside the canvas.
+ *
+ * On the plane that page is four cards with gutters between them, which is
+ * what the real app draws and what its own comments argue for: the page reads
+ * as a row of columns, so a nav opening a fifth beside them has to earn it.
+ * In the canvas there is no plane left to float on. The card is the white
+ * ground, so the gutters became white gaps between white panes and each
+ * pane's hairline ring sat on the same white it was meant to separate — one
+ * unbroken sheet with a couple of stray rules in it, which is the "no borders
+ * inside" Ashwin reported on Oct 1.
+ *
+ * So the columns close up into one bordered block that stands INSIDE the
+ * canvas's 16px padding, exactly where any other page's card would: gutters
+ * to zero, the per-pane rings and radii off, one hairline between each pair,
+ * and one outline around the lot. The padding stays — taking it out was the
+ * first attempt and it was wrong, because a page that runs to the canvas's
+ * own edge is not a page in a canvas, it is a page that has replaced it.
+ *
+ * The page keeps both arrangements and expresses neither as a branch in its
+ * own file: the hooks are `data-inbox-panes` and `data-inbox-pane`.
+ */
+[data-page-canvas] [data-inbox-panes] {
+  border: 1px solid var(--pg-border);
+  border-radius: 12px;
+  /* So the panes' square corners are cut by the block's rounded ones. */
+  overflow: hidden;
+}
+
+/*
+ * The reset reaches one level in because two of the panes are thin flex
+ * wrappers around the card that carries the ring.
+ */
+[data-page-canvas] [data-inbox-panes] [data-inbox-pane],
+[data-page-canvas] [data-inbox-panes] [data-inbox-pane] > * {
+  margin-right: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/*
+ * One seam per pair, drawn on the left of everything but the first, so no
+ * edge is ever painted twice — the leftmost pane's left edge is the block's
+ * own outline.
+ */
+[data-page-canvas] [data-inbox-panes] [data-inbox-pane]:not([data-inbox-pane="nav"]) {
+  border-left: 1px solid var(--pg-border);
+}
+
+/*
+ * The canvas tint (`canvasBg`, see page-canvas.tsx). The product's colour is
+ * passed in as --page-canvas-tint-src; light uses it as is, dark mixes a
+ * little of it into the surface so a pale tint doesn't glare on near-black.
+ */
+[data-page-canvas][data-page-canvas-bg] {
+  --page-canvas-tint: var(--page-canvas-tint-src);
+}
+[data-page-theme="dark"] [data-page-canvas][data-page-canvas-bg] {
+  --page-canvas-tint: color-mix(in oklab, var(--page-canvas-tint-src) 7%, var(--pg-surface));
+}
+

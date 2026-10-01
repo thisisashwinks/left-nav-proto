@@ -3,6 +3,7 @@
 import * as React from "react";
 import type { PageCanvasEdge } from "@/design/theme";
 import { cn } from "@/lib/utils";
+import type { CanvasBg } from "@/design/theme";
 
 /**
  * The HighRise centre canvas: one white card holding everything below the
@@ -102,20 +103,69 @@ export function usePageCanvasExempt(): boolean {
   );
 }
 
+/*
+ * Whether the open page has a canvas tint of its own (CANVAS_TINTS).
+ *
+ * Published by the shell and read by the tuning panel, which is mounted
+ * outside the shell's tree and so cannot ask where it is. The panel shows the
+ * canvas-background controls only when this is true or the all-pages preview
+ * is on.
+ */
+let tintedPage = false;
+const tintListeners = new Set<() => void>();
+
+/** Called by the shell with whether the open product has its own tint. */
+export function usePublishCanvasTint(hasTint: boolean) {
+  React.useEffect(() => {
+    tintedPage = hasTint;
+    tintListeners.forEach((l) => l());
+  }, [hasTint]);
+}
+
+/** Whether the open page has its own canvas tint — read by the tuning panel. */
+export function useCanvasTintedPage(): boolean {
+  return React.useSyncExternalStore(
+    (l) => {
+      tintListeners.add(l);
+      return () => tintListeners.delete(l);
+    },
+    () => tintedPage,
+    () => false,
+  );
+}
+
 export function PageCanvas({
   enabled,
   edge = "shadow",
+  bg = "white",
+  tint,
+  framePadding = true,
   children,
 }: {
+  /** Under the tinted frame, whether the white sheet pads its content. */
+  framePadding?: boolean;
   enabled: boolean;
   /** How the card marks its edge. See PAGE_CANVAS_EDGES in theme.ts. */
   edge?: PageCanvasEdge;
+  /** What the card is filled with. See CANVAS_BGS in theme.ts. */
+  bg?: CanvasBg;
+  /** The product's tint; without one the card stays white whatever `bg` says. */
+  tint?: string;
   children: React.ReactNode;
 }) {
+  const fill: CanvasBg = enabled && tint ? bg : "white";
   return (
     <div
       data-page-canvas={enabled ? "" : undefined}
       data-page-canvas-edge={enabled ? edge : undefined}
+      data-page-canvas-bg={enabled && fill !== "white" ? fill : undefined}
+      // The tint is a light-mode colour; globals.css mixes it into the dark
+      // surface under [data-page-theme="dark"] so it never glares.
+      style={
+        enabled && fill !== "white"
+          ? ({ "--page-canvas-tint-src": tint } as React.CSSProperties)
+          : undefined
+      }
       className={
         enabled
           ? cn(
@@ -123,7 +173,8 @@ export function PageCanvas({
               // breadcrumb row above already spaces it — 12px radius, and
               // shadow/lg unless the edge is the hairline alone.
               "relative mx-[12px] mt-0 mb-[12px] flex min-h-0 flex-1 flex-col overflow-hidden",
-              "rounded-[var(--shell-canvas-radius)] bg-pg-surface",
+              "rounded-[var(--shell-canvas-radius)]",
+              fill === "white" ? "bg-pg-surface" : "bg-[var(--page-canvas-tint)]",
               edge !== "border" && "shadow-[var(--shell-canvas-shadow)]",
             )
           : "contents"
@@ -138,11 +189,28 @@ export function PageCanvas({
               // the card's column gives it a definite height — so pages that
               // are `h-full flex-col` still fill the card and boards keep
               // scrolling their own columns.
-              "min-h-0 flex-1 overflow-y-auto p-[16px]"
+              fill === "frame"
+              ? // The tinted 16px band stays put; the white sheet inside it
+                // is what scrolls, so the frame reads as a frame.
+                "flex min-h-0 flex-1 flex-col p-[16px]"
+              : "min-h-0 flex-1 overflow-y-auto p-[16px]"
             : "contents"
         }
       >
-        {children}
+        {fill === "frame" ? (
+          <div
+            data-page-canvas-sheet=""
+            // No ring: the tinted band is the only edge the sheet needs.
+            className={cn(
+              "min-h-0 flex-1 overflow-y-auto rounded-[10px] bg-pg-surface",
+              framePadding && "p-[16px]",
+            )}
+          >
+            {children}
+          </div>
+        ) : (
+          children
+        )}
       </div>
       {enabled ? (
         /*

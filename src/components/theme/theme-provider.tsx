@@ -35,10 +35,12 @@ import {
   type RailDirectorySpot,
   type RailZoomFit,
   type LaunchpadCard,
+  type PlaneGround,
   type RailSizing,
   type EditTreatment,
   type RenameAffordance,
   type PageCanvasEdge,
+  type CanvasBg,
   type PageShell,
   type ScopeModel,
   type NavGeneration,
@@ -70,6 +72,8 @@ import type {
   BuilderChromeStyle,
   CalendarViewSwitch,
   CrumbLeaf,
+  CrumbTrigger,
+  FlyoutShadow,
   FolderCrumb,
   TableCrumb,
   CrumbDepth,
@@ -178,9 +182,12 @@ interface ThemeContextValue extends ThemeState {
   setAgencyNavMark: (shown: boolean) => void;
   setSubAccountNavMark: (v: boolean) => void;
   setNavOnPlane: (on: boolean) => void;
+  setNavRowRing: (on: boolean) => void;
+  setNavRowShadow: (on: boolean) => void;
+  setPlaneGround: (v: PlaneGround) => void;
   setPinnedRowEdit: (on: boolean) => void;
   setPinnedShortcuts: (on: boolean) => void;
-  setFlyoutShadow: (on: boolean) => void;
+  setFlyoutShadow: (v: FlyoutShadow) => void;
   setFlyoutShape: (shape: FlyoutShape) => void;
   setFlyoutCardBorder: (on: boolean) => void;
   setDirectoryFlush: (on: boolean) => void;
@@ -252,6 +259,7 @@ interface ThemeContextValue extends ThemeState {
   setCrumbShown: (on: boolean) => void;
   setCrumbHome: (on: boolean) => void;
   setCrumbSwitchers: (v: CrumbSwitchers) => void;
+  setCrumbTrigger: (v: CrumbTrigger) => void;
   setCrumbSeparator: (v: CrumbSeparator) => void;
   setCrumbCompoundChild: (on: boolean) => void;
   setBuilderKeepBanner: (on: boolean) => void;
@@ -259,6 +267,9 @@ interface ThemeContextValue extends ThemeState {
   setListToolbar: (v: ListToolbarVariant) => void;
   setPageCanvas: (on: boolean) => void;
   setPageCanvasEdge: (edge: PageCanvasEdge) => void;
+  setCanvasBg: (bg: CanvasBg) => void;
+  setCanvasTintAllPages: (on: boolean) => void;
+  setCanvasFramePadding: (on: boolean) => void;
   setPageCanvasColumns: (on: boolean) => void;
   setListShowFilters: (on: boolean) => void;
   setTreeSearchPlace: (v: TreeSearchPlace) => void;
@@ -472,6 +483,10 @@ export function ThemeProvider({
       setSubAccountNavMark: (subAccountNavMark) =>
         setState((s) => ({ ...s, subAccountNavMark })),
       setNavOnPlane: (navOnPlane) => setState((s) => ({ ...s, navOnPlane })),
+      setNavRowRing: (navRowRing) => setState((s) => ({ ...s, navRowRing })),
+      setNavRowShadow: (navRowShadow) =>
+        setState((s) => ({ ...s, navRowShadow })),
+      setPlaneGround: (planeGround) => setState((s) => ({ ...s, planeGround })),
       setPinnedRowEdit: (pinnedRowEdit) =>
         setState((s) => ({ ...s, pinnedRowEdit })),
       setPinnedShortcuts: (pinnedShortcuts) =>
@@ -614,6 +629,8 @@ export function ThemeProvider({
       setCrumbHome: (crumbHome) => setState((s) => ({ ...s, crumbHome })),
       setCrumbSwitchers: (crumbSwitchers) =>
         setState((s) => ({ ...s, crumbSwitchers })),
+      setCrumbTrigger: (crumbTrigger) =>
+        setState((s) => ({ ...s, crumbTrigger })),
       setCrumbSeparator: (crumbSeparator) =>
         setState((s) => ({ ...s, crumbSeparator })),
       setCrumbCompoundChild: (crumbCompoundChild) =>
@@ -626,6 +643,11 @@ export function ThemeProvider({
       setPageCanvas: (pageCanvas) => setState((s) => ({ ...s, pageCanvas })),
       setPageCanvasEdge: (pageCanvasEdge) =>
         setState((s) => ({ ...s, pageCanvasEdge })),
+      setCanvasBg: (canvasBg) => setState((s) => ({ ...s, canvasBg })),
+      setCanvasTintAllPages: (canvasTintAllPages) =>
+        setState((s) => ({ ...s, canvasTintAllPages })),
+      setCanvasFramePadding: (canvasFramePadding) =>
+        setState((s) => ({ ...s, canvasFramePadding })),
       setPageCanvasColumns: (pageCanvasColumns) =>
         setState((s) => ({ ...s, pageCanvasColumns })),
       setListShowFilters: (listShowFilters) =>
