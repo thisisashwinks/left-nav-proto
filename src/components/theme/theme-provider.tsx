@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import * as React from "react";
 import {
   DEFAULT_THEME,
@@ -63,6 +64,7 @@ import {
   type ThemeState,
   type Tint,
 } from "@/design/theme";
+import { themeForRoute } from "@/design/route-variants";
 import { chromeForVariant } from "@/components/page/header-variants";
 import type {
   BuilderChromeStyle,
@@ -354,7 +356,15 @@ export function ThemeProvider({
   children,
   initial = DEFAULT_THEME,
 }: ThemeProviderProps) {
-  const [state, setState] = React.useState<ThemeState>(initial);
+  // Read once, at mount, so the first paint is already the arrangement the
+  // link names — both on the server and on the client, which is what keeps
+  // hydration quiet. Deliberately NOT an effect keyed on the path: the tuning
+  // panel owns this state afterwards, and re-asserting the route's answer
+  // would undo a researcher switching arrangement mid-session.
+  const pathname = usePathname();
+  const [state, setState] = React.useState<ThemeState>(() =>
+    themeForRoute(pathname, initial),
+  );
   const [accountThemes, setAccountThemes] = React.useState<
     Record<string, AccountTheme>
   >({

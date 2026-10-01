@@ -894,7 +894,7 @@ function NavStructureSection({
       */}
       {selectedState === "trail" || selectedState === "ends" ? (
         <Note>
-          Ancestors are marked in the flyout arrangement only. All products,
+          Ancestors are marked in the flyout arrangement only. Tree nav,
           Drill in and Scoped put the whole path in the column, where marking
           it as well draws three filled rows in a run — so there the deepest
           row is marked on its own, whichever level it is.

@@ -1832,7 +1832,11 @@ export type NavArrangement = (typeof NAV_ARRANGEMENTS)[number];
 
 export const NAV_ARRANGEMENT_LABELS: Record<NavArrangement, string> = {
   flyout: "Flyouts",
-  tree: "All products",
+  // "Tree nav" rather than "All products": the catalogue ALSO has a standing
+  // row and a panel tab of its own called All products, and one name over two
+  // different controls read as the same switch. The arrangement is named for
+  // its shape; the row keeps the catalogue's name.
+  tree: "Tree nav",
   drill: "Drill in",
   scoped: "Scoped to a category",
 };
