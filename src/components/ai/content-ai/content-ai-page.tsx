@@ -29,6 +29,7 @@ import { Select } from "@/components/page/form-controls";
 import { TableCard, usePagination } from "@/components/page/table-card";
 import { showToast } from "@/components/page/toast";
 import { useTheme } from "@/components/theme/theme-provider";
+import { usePrototypeEmpty } from "@/components/page/empty-state-axis";
 import { cn } from "@/lib/utils";
 import {
   CONTENT_TYPES,
@@ -54,7 +55,7 @@ import {
   type RangeId,
   type TextRow,
 } from "./content-ai-data";
-import { RowMenu, Segmented, StatCard, Thumb } from "./content-ai-ui";
+import { NoDataArt, RowMenu, Segmented, StatCard, Thumb } from "./content-ai-ui";
 import {
   DeleteModal,
   ImageModal,
@@ -69,7 +70,7 @@ import {
  *
  * Two tabs, as on the live screen: Text and Image. Each is three usage tiles
  * over one table, and the table is cut by where the content was used (the
- * segmented "All · Social planner · Blog · …" group). The date range is the
+ * segmented "All · Social Planner · Blog · …" group). The date range is the
  * one control the live screen lacks: the tiles read "0" there because they
  * have no window to count over, and a usage number without a period is not
  * a number anyone can act on.
@@ -174,6 +175,8 @@ export function ContentAiPage({
   const chrome = usePageChrome();
   const { showViews, showFilters } = useListShape();
   const { shared } = useListToolbar();
+  /** The tuning panel's "Empty state" switch: a brand-new account's view. */
+  const empty = usePrototypeEmpty("content-ai");
 
   const [tab, setTabState] = React.useState<ContentTab>(initialTab ?? "text");
   /*
@@ -187,8 +190,20 @@ export function ContentAiPage({
     if (initialTab) setTabState(initialTab);
   }
 
-  const [texts, setTexts] = React.useState<TextRow[]>(TEXT_SEED);
-  const [images, setImages] = React.useState<ImageRow[]>(IMAGE_SEED);
+  /*
+   * Two histories, one per state of the Empty-state switch. The empty one
+   * starts blank but is real: generating from its CTA adds a row there, so
+   * the first-run flow can be walked end to end, and switching back to the
+   * populated view finds the sample data untouched.
+   */
+  const [seedTexts, setSeedTexts] = React.useState<TextRow[]>(TEXT_SEED);
+  const [seedImages, setSeedImages] = React.useState<ImageRow[]>(IMAGE_SEED);
+  const [freshTexts, setFreshTexts] = React.useState<TextRow[]>([]);
+  const [freshImages, setFreshImages] = React.useState<ImageRow[]>([]);
+  const texts = empty ? freshTexts : seedTexts;
+  const images = empty ? freshImages : seedImages;
+  const setTexts = empty ? setFreshTexts : setSeedTexts;
+  const setImages = empty ? setFreshImages : setSeedImages;
   const [range, setRange] = React.useState<RangeId>("30");
   const [typeFilter, setTypeFilter] = React.useState("all");
   const [query, setQuery] = React.useState("");
@@ -889,6 +904,15 @@ function ImageTable(props: TableProps<ImageRow>) {
   );
 }
 
+/**
+ * What the table body shows when there are no rows to list. Three different
+ * situations, each with its own answer:
+ * - nothing generated yet (a new account): the live screen's "No data" tray,
+ *   plus the one action that changes it. Filters stay clickable and keep
+ *   showing this, because there is nothing for any cut to find.
+ * - a search or type cut that matched nothing: offer to clear it.
+ * - history exists, just not in this date range: point at the range.
+ */
 function EmptyRows({
   empty,
   filtered,
@@ -902,31 +926,45 @@ function EmptyRows({
   onGenerate: () => void;
   noun: string;
 }) {
-  const nothingYet = empty || !filtered;
+  const generateLabel = `Generate ${noun === "images" ? "image" : "text"}`;
+  if (empty) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-[12px] px-[16px] py-[56px] text-center">
+        <NoDataArt />
+        <div className="flex flex-col gap-[4px]">
+          <h3 className="text-[14px] leading-[20px] font-medium text-pg-muted">No data</h3>
+          <p className="text-[13px] leading-[18px] text-pg-faint">
+            {noun === "images"
+              ? "Images you generate with AI show up here."
+              : "Content you generate with AI shows up here."}
+          </p>
+        </div>
+        <PrimaryButton className="h-[36px] text-[14px]" onClick={onGenerate}>
+          <Sparkles size={16} aria-hidden="true" />
+          {generateLabel}
+        </PrimaryButton>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col items-center justify-center gap-[12px] px-[16px] py-[48px] text-center">
       <span
         aria-hidden="true"
         className="flex size-[48px] items-center justify-center rounded-full bg-brand-soft text-brand"
       >
-        {nothingYet ? <Sparkles size={22} /> : <Search size={22} />}
+        {filtered ? <Search size={22} /> : <Sparkles size={22} />}
       </span>
       <div className="flex flex-col gap-[4px]">
         <h3 className="text-[16px] leading-[22px] font-semibold text-pg-heading">
-          {nothingYet ? `No ${noun} in this period` : "No results"}
+          {filtered ? "No results" : `No ${noun} in this period`}
         </h3>
         <p className="text-[13px] leading-[18px] text-pg-muted">
-          {nothingYet
-            ? "Generate something new, or pick a longer date range."
-            : "Try a different search or type."}
+          {filtered
+            ? "Try a different search or type."
+            : "Generate something new, or pick a longer date range."}
         </p>
       </div>
-      {nothingYet ? (
-        <PrimaryButton className="h-[36px] text-[14px]" onClick={onGenerate}>
-          <Sparkles size={16} aria-hidden="true" />
-          Generate {noun === "images" ? "image" : "text"}
-        </PrimaryButton>
-      ) : (
+      {filtered ? (
         <button
           type="button"
           onClick={onClear}
@@ -934,6 +972,11 @@ function EmptyRows({
         >
           Clear filters
         </button>
+      ) : (
+        <PrimaryButton className="h-[36px] text-[14px]" onClick={onGenerate}>
+          <Sparkles size={16} aria-hidden="true" />
+          {generateLabel}
+        </PrimaryButton>
       )}
     </div>
   );

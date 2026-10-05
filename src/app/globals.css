@@ -452,6 +452,82 @@
 }
 
 /*
+ * The nav's top edge, on the plane.
+ *
+ * `bar` gives the nav column the same top inset the page column already
+ * takes, so the identity row's midline and the app bar's meet. Off the plane
+ * both columns get it from their own margins and this never applies; on the
+ * plane the nav card — and its margin — is gone, which is where the 4px
+ * drift came from. Padding rather than margin: the nav has no ground of its
+ * own here, so there is nothing to shrink away from the window's edge, and
+ * padding leaves the column's own box where it was for everything measuring
+ * against it. See PLANE_HEADS.
+ */
+[data-nav-plane][data-plane-head="bar"] [data-nav-column] {
+  padding-top: var(--shell-canvas-gap);
+}
+
+/*
+ * The account rail takes the same inset, and needs its own rule to do it.
+ *
+ * It is an overlay, not a column — `absolute inset-y-0` over the nav's 56px
+ * slot, so it can widen across the rows without moving the page. An
+ * absolutely positioned child resolves against its container's padding BOX,
+ * whose top edge is above the padding, so the column's `padding-top` left
+ * the rail exactly where it was: the nav moved down and the account tiles
+ * did not. Its own `pt-[4px]` already centres the agency plate on the
+ * header's midline, which is the same y the bar's is on, so the whole strip
+ * only needs the column's offset to agree with it. Ashwin, Oct 5.
+ *
+ * `bottom` is left alone: the rail should still reach the window's foot.
+ */
+[data-nav-plane][data-plane-head="bar"] [data-account-rail] {
+  top: var(--shell-canvas-gap);
+}
+
+/*
+ * The flush seam: the whole right-hand column sits on ONE left edge, a
+ * single canvas gap from the nav.
+ *
+ * Plane variant only — the attribute is written by the shell and is absent
+ * off the plane, where the gap is two cards sitting apart rather than a
+ * channel beside an edgeless sidebar.
+ *
+ * The first cut moved the canvas alone, to zero, and that was wrong twice
+ * over (Ashwin, Oct 5). Wrong about WHAT: the app bar is a sibling of the
+ * canvas inside this column and has no left margin at all, so moving only
+ * the canvas left the breadcrumb row and the page surface on two different
+ * edges — the misalignment the option was meant to remove, now 4px the
+ * other way. And wrong about HOW FAR: the two surfaces want a common
+ * margin, not none. So the COLUMN takes the inset and the canvas gives up
+ * its own, which lands the bar and the page on the same line and keeps the
+ * sidebar a gap away from both.
+ *
+ * Joined is excluded: there the bar and the page are already one card
+ * carrying `m-[gap]` on all four sides, which is this arrangement's answer
+ * arrived at from the other direction.
+ *
+ * The radius stays. Squaring the left corners was tried and read as the
+ * canvas changing shape between the two options rather than moving; what
+ * shows through a curve here is the plane, which is the sidebar's own
+ * colour, so there is no notch to see.
+ */
+[data-nav-plane][data-plane-seam="flush"] [data-page-column]:not([data-shell-joined]) {
+  padding-left: var(--shell-canvas-gap);
+}
+
+/*
+ * Two selectors' worth of surface because the shell draws one of two inside
+ * the column depending on the arrangement — the plain page surface and the
+ * centre canvas — and both carry the same hook.
+ */
+[data-nav-plane][data-plane-seam="flush"]
+  [data-page-column]:not([data-shell-joined])
+  [data-canvas-surface] {
+  margin-left: 0;
+}
+
+/*
  * The Conversations inbox, inside the canvas.
  *
  * On the plane that page is four cards with gutters between them, which is

@@ -436,8 +436,11 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     dockPosition,
     entryLayout,
     navOnPlane,
+    planeSeam,
+    planeHead,
     navRowRing,
     navRowShadow,
+    navSelectedFill,
     planeGround,
     flyoutShape,
     flyoutCardBorder,
@@ -1208,6 +1211,24 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    */
   const navGutter = navOnPlane && !navAsCard ? 0 : NAV_FLOAT_GAP;
   const leftOffset = railWidth + navGutter + navWidth;
+  /*
+   * Where a docked panel's top edge sits, which is not the same question as
+   * the gutter beside it.
+   *
+   * The L2 flyout and the recents panel are absolutely positioned against
+   * the shell, so neither the nav column's padding nor its margin reaches
+   * them — they take a number. Off the plane, and on it with a bounded nav,
+   * that number is the card's own margin. On the bare plane it follows the
+   * alignment axis, so the panel's title row lands on the same midline as
+   * the nav header, the breadcrumb and the bar's glyphs rather than 4px
+   * above them. See PLANE_HEADS.
+   */
+  const panelTop =
+    navOnPlane && !navAsCard
+      ? planeHead === "bar"
+        ? NAV_FLOAT_GAP
+        : 0
+      : NAV_FLOAT_GAP;
   // Group panels win over the authored registry: a renamed Engage has to open a
   // panel titled with its new name, and the registry still holds the old one.
   // At agency scope the agency's own panels take their place.
@@ -2583,12 +2604,35 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         */
         {...(navOnPlane ? { "data-nav-plane": "" } : {})}
         /*
+          Where the plane shows on the nav's side. Plane only, like the rings
+          and the row shadow above, and for the same reason: off the plane
+          the gap is two CARDS sitting apart, which is not this question.
+          See PLANE_SEAMS.
+        */
+        {...(navOnPlane ? { "data-plane-seam": planeSeam } : {})}
+        /*
+          And what the nav's top edge meets. See PLANE_HEADS.
+
+          Only on the BARE plane. With `flyoutShape: "card"` the nav is a card
+          again and carries its own `my-[gap]`, so the inset is already there
+          and adding it twice would drop the sidebar 8px.
+        */
+        {...(navOnPlane && !navAsCard ? { "data-plane-head": planeHead } : {})}
+        /*
           And the row edges, which are an axis of their own and only reach the
           rows while the plane is on. ANDed here rather than in CSS so there is
           one place that knows the pairing. See NAV_ROW_RING_DEFAULT.
         */
         {...(navOnPlane && navRowRing ? { "data-nav-rings": "" } : {})}
         {...(navOnPlane && navRowShadow ? { "data-nav-shadow": "" } : {})}
+        /*
+          The selected row's colour, which is NOT gated on the plane: it is a
+          proposal about how a light nav marks a row, and the floating card is
+          a light nav. See NAV_SELECTED_FILLS.
+        */
+        {...(navSelectedFill === "default"
+          ? {}
+          : { "data-nav-sel": navSelectedFill })}
         // --pg-bg is the page — the same ground the settings pages already sit on,
         // so the product has one page colour instead of a shell grey out here and
         // a page grey inside the canvas. The token lives under [data-page-theme],
@@ -2638,6 +2682,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
          * wears whatever the nav inside it wears.
          */
         {...(legacyNav ? { "data-legacy-nav": "" } : {})}
+        // The hook the plane's top-alignment rule reaches. See PLANE_HEADS.
+        data-nav-column=""
         data-nav-theme={legacyNav ? legacyNavTheme : navTheme}
         className={cn(
           "relative flex min-h-0 self-stretch",
@@ -3008,6 +3054,11 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         // --page-inset here: inside a bordered card the page needs a wider
         // gutter, and the bar reads the same token so the two move together.
         data-shell-joined={barInCanvas ? "" : undefined}
+        {...(barInCanvas ? { "data-canvas-surface": "" } : {})}
+        // The whole right-hand column: bar, banner slot and page. The flush
+        // seam insets THIS, so the bar's left edge and the canvas's are one
+        // edge. See PLANE_SEAMS.
+        data-page-column=""
         className={cn(
           /*
             `isolate`, so nothing inside the canvas can outrank the edit scrim.
@@ -3047,6 +3098,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 //
                 // The ring itself is drawn as an overlay below, not here — see
                 // the note on it. `relative` is what that overlay hangs from.
+                // `data-canvas-surface` is the hook the flush seam styles
+                // through — see the [data-plane-seam] block in globals.css.
                 "relative m-[var(--shell-canvas-gap)] min-h-0 overflow-hidden rounded-[var(--shell-canvas-radius)] shadow-[var(--shell-canvas-shadow)]",
                 // The page's ground, or the bar's own fill carried all the way
                 // down. --pg-surface rather than --hdr-bg: below the hairline it
@@ -3248,6 +3301,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               than the plane, is what reads as floating.
             */}
             <div
+              {...(pageCanvasOn || barInCanvas ? {} : { "data-canvas-surface": "" })}
               className={pageCanvasOn ? PAGE_CANVAS_HOST : cn(
                 "min-h-0 flex-1 overflow-auto",
                 barInCanvas
@@ -3544,7 +3598,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           <FlyoutPanel
             config={flyout.value}
             offsetLeft={leftOffset}
-            offsetTop={navGutter}
+            offsetTop={panelTop}
             theme={navTheme}
             phase={flyout.phase}
             onPointerEnter={intent.cancelClear}
@@ -3684,7 +3738,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       {launcher.isMounted ? (
         <PinnedLauncher
           offsetLeft={leftOffset}
-          offsetTop={navGutter}
+          offsetTop={panelTop}
           theme={navTheme}
           phase={launcher.phase}
           variant={launcher.value ?? "merged"}

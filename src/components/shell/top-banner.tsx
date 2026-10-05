@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTheme } from "@/components/theme/theme-provider";
 import {
   ChevronLeft,
   ChevronRight,
@@ -183,6 +184,7 @@ interface TopBannerProps {
  * One strip, one treatment.
  */
 export function TopBanner({ banners }: TopBannerProps) {
+  const { bannerEdge: edge } = useTheme().effective;
   const [dismissed, setDismissed] = React.useState<string[]>([]);
   const [index, setIndex] = React.useState(0);
 
@@ -198,16 +200,25 @@ export function TopBanner({ banners }: TopBannerProps) {
     <div
       role="status"
       className={cn(
-        // Inset top, left and right and rounded to the shell radius, so the strip
-        // reads as a card on the page like the nav and the flyout rather than a
-        // bar welded to the window. No bottom margin: the plane's own content is
-        // already inset, which supplies the gap under it.
-        //
-        // `w-full` goes with it — 100% plus horizontal margins overflows. The
-        // banner is a flex-column child, so it stretches to the width minus its
-        // margins on its own.
-        "mx-[var(--shell-canvas-gap)] mt-[var(--shell-canvas-gap)] flex shrink-0",
-        "items-center gap-[8px] overflow-hidden rounded-[var(--shell-canvas-radius)] pr-[8px] pl-[10px]",
+        "flex shrink-0 items-center gap-[8px] overflow-hidden pr-[8px] pl-[10px]",
+        /*
+          Two ways to meet the window. See BANNER_EDGES.
+
+          `card` insets top, left and right and rounds to the shell radius,
+          so the strip reads as a card on the plane like the nav and the
+          flyout rather than a bar welded to the window. No bottom margin
+          either way: the plane's own content is already inset, which
+          supplies the gap under it. No `w-full` with the margins — 100%
+          plus horizontal margins overflows, and as a flex-column child the
+          strip stretches to the width minus its margins on its own.
+
+          `flush` takes all of that off: full bleed, square corners, nothing
+          above it. That is the default, because a banner owning the whole
+          width is the clearest way of saying it is the platform talking
+          over the app rather than a part of it.
+        */
+        edge === "card" &&
+          "mx-[var(--shell-canvas-gap)] mt-[var(--shell-canvas-gap)] rounded-[var(--shell-canvas-radius)]",
         /*
          * 32px, which is the height the agency strip used to wear.
          *

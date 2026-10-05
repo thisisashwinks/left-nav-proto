@@ -158,6 +158,9 @@ export function PageCanvas({
     <div
       data-page-canvas={enabled ? "" : undefined}
       data-page-canvas-edge={enabled ? edge : undefined}
+      // Same hook the shell's other two canvas surfaces carry, so the flush
+      // seam reaches whichever of the three is drawing. See PLANE_SEAMS.
+      {...(enabled ? { "data-canvas-surface": "" } : {})}
       data-page-canvas-bg={enabled && fill !== "white" ? fill : undefined}
       // The tint is a light-mode colour; globals.css mixes it into the dark
       // surface under [data-page-theme="dark"] so it never glares.

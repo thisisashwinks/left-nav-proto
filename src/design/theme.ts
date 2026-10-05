@@ -1017,6 +1017,60 @@ export const NAV_ROW_RING_DEFAULT = true;
 export const NAV_ROW_SHADOW_DEFAULT = true;
 
 /**
+ * What colour the selected row is filled with.
+ *
+ * Everything up to here has treated "selected" as a LIGHTER step — gray-200 on
+ * a white nav, white on the plane — and given it an edge and a lift once the
+ * steps ran out of contrast. This axis asks the opposite question: make the
+ * selected row the DARKEST thing in the column rather than the brightest, and
+ * the contrast problem stops being a problem rather than being compensated
+ * for. Both are defensible and they look nothing alike, which is why they are
+ * worth seeing side by side.
+ *
+ *  default    As declared. White on the plane, gray-200 off it, with whatever
+ *             edge and lift the two switches above are set to.
+ *  gray-400   A mid grey, and the last step that keeps DARK ink — white on
+ *             gray-400 is 2.2:1 and fails outright. The quietest way to make
+ *             the row darker than its neighbours.
+ *  gray-500   The first step that is properly a dark surface: white ink,
+ *             still unmistakably grey, still carrying no hue of its own.
+ *  dark       gray-800. The row becomes a near-black plate — the treatment
+ *             macOS and VS Code use for the same job.
+ *  blue-grey  gray-blue 700. The dark plate with enough hue to belong to a
+ *             blue product. The middle of the two arguments.
+ *  blue       The accent itself, the loudest of the six, and the one that
+ *             makes "where I am" the same colour as every primary button on
+ *             the page — which is either the clearest signal in the nav or
+ *             one brand surface too many.
+ *
+ * Light navs only, by construction. On a dark nav the selected row is already
+ * a lighter step of its ground and a dark fill would vanish into it.
+ *
+ * All six carry their own ink, and the dark five drop the hairline: see the
+ * [data-nav-sel] blocks in tokens.css, where the reasoning per colour lives
+ * next to the values.
+ */
+export const NAV_SELECTED_FILLS = [
+  "default",
+  "gray-400",
+  "gray-500",
+  "dark",
+  "blue-gray",
+  "blue",
+] as const;
+
+export type NavSelectedFill = (typeof NAV_SELECTED_FILLS)[number];
+
+export const NAV_SELECTED_FILL_LABELS: Record<NavSelectedFill, string> = {
+  default: "Default",
+  "gray-400": "Gray 400",
+  "gray-500": "Gray 500",
+  dark: "Dark",
+  "blue-gray": "Blue grey",
+  blue: "Accent",
+};
+
+/**
  * The grey the plane is painted in.
  *
  * The other half of the row-state question — see NAV_ROW_RING_DEFAULT. Once the
@@ -1169,6 +1223,93 @@ export const PINNED_ROW_EDIT_DEFAULT = true;
  * into: five pins, five keys, counted off the order.
  */
 export const PINNED_SHORTCUTS_DEFAULT = true;
+
+/**
+ * What the nav's top edge lines up with, on the plane. Plane variant only.
+ *
+ * The identity row is already built to centre on the app bar's midline —
+ * 9 + 30 + 9 = 48, the bar's own height, so mark, name, collapse glyph,
+ * breadcrumb and header icons sit on one line across the top of the screen.
+ * That arithmetic assumed both columns started at the same y, which is true
+ * off the plane: the nav card and the page column each take the 4px canvas
+ * gap at the top. On the plane the nav card goes away and takes its margin
+ * with it, while the page column keeps its own — so the whole sidebar rode
+ * 4px high and the row it was built to align with sat 4px low.
+ *
+ *  bar  The nav takes the same top inset the page column does, so the two
+ *       midlines meet again. The default from Oct 5, and really a bug fix
+ *       wearing an axis: nothing about the plane variant wanted the sidebar
+ *       misaligned, it just inherited the gap from a card that no longer
+ *       exists. Everything docked against the nav moves with it: the account
+ *       rail, the L2 flyout and the recents panel. None of them is a column
+ *       — the rail is an overlay and the two panels are positioned against
+ *       the shell — so each takes the inset through a rule or a number of
+ *       its own rather than inheriting the column's padding.
+ *
+ * Bare plane only. With `flyoutShape: "card"` the nav is a card again and
+ * brings back its own margin, so the inset is already there.
+ *  top  The nav starts at the window's top edge, 4px above the canvas. What
+ *       the plane variant has been doing.
+ */
+export type PlaneHead = "bar" | "top";
+export const PLANE_HEADS: readonly PlaneHead[] = ["bar", "top"];
+export const PLANE_HEAD_LABELS: Record<PlaneHead, string> = {
+  bar: "Level with the breadcrumb",
+  top: "Flush to the window",
+};
+
+/**
+ * Where the plane shows between the nav and the canvas. Plane variant only.
+ *
+ *  flush  One edge. The whole right-hand column — app bar, banner slot and
+ *         page — takes a single canvas gap from the nav, and the canvas
+ *         gives up its own left margin so the breadcrumb row and the page
+ *         surface start at the same x. The radius is untouched: the card
+ *         keeps its shape and only moves. The default from Oct 5, and the
+ *         reading the plane arrangement was always arguing for — with no
+ *         nav card, the bar sat hard against the sidebar while the canvas
+ *         stood 4px off it, so the two surfaces on the right disagreed
+ *         about where the right-hand side began.
+ *  gap    The canvas keeps its own inset on all four sides and the column
+ *         takes none, so the plane runs behind and around the page while the
+ *         bar still reaches the sidebar. What this did before the axis
+ *         existed, kept as the comparison.
+ *
+ * Nothing changes on the other three sides under either value: the canvas is
+ * still inset from the window top, right and bottom. This is only the seam
+ * the sidebar is on.
+ *
+ * The joined arrangement (`barInCanvas`) is already this: one card holding
+ * bar and page, inset on all four sides. It is left alone.
+ */
+export type PlaneSeam = "flush" | "gap";
+export const PLANE_SEAMS: readonly PlaneSeam[] = ["flush", "gap"];
+export const PLANE_SEAM_LABELS: Record<PlaneSeam, string> = {
+  flush: "Canvas meets the nav",
+  gap: "Plane shows between",
+};
+
+/**
+ * How the promo banner meets the window.
+ *
+ *  flush  Edge to edge and square — no side margins, no radius, no gap above.
+ *         The default from Oct 5. A banner is the platform talking over the
+ *         top of the app, and the thing that says so is that it owns the
+ *         full width: it is not part of the workspace, it is sitting on it.
+ *         It is also the only treatment that costs the page nothing but the
+ *         strip's own height.
+ *  card   Inset to the shell gap and rounded to the shell radius, so the
+ *         strip reads as a card on the plane beside the nav and the flyout.
+ *         What this shipped with, and the better answer if you think the
+ *         banner should look like it belongs to the same surface family as
+ *         everything else rather than like an interruption.
+ */
+export type BannerEdge = "flush" | "card";
+export const BANNER_EDGES: readonly BannerEdge[] = ["flush", "card"];
+export const BANNER_EDGE_LABELS: Record<BannerEdge, string> = {
+  flush: "Full width",
+  card: "Inset card",
+};
 
 /**
  * Which way the L2 panel casts a shadow.
@@ -1731,6 +1872,42 @@ export const NAV_SWITCH_BUTTON_DEFAULT = false;
  * store — which is how the question gets looked at if it comes back.
  */
 export const AGENCY_EDIT_NAV_DEFAULT = false;
+
+/**
+ * Which mark every AI surface wears.
+ *
+ * One glyph, four mountings. The sparkle is the product's own `auto_awesome`,
+ * handed over Oct 5; what the axis compares is how much of an OBJECT the mark
+ * should be, and how loud its ground is.
+ *
+ *  disc      Sparkles on a purple gradient disc. The default since Oct 5,
+ *            when the squircle it replaced was cut — a rounded square was the
+ *            right argument (every other round thing here is a person or a
+ *            place) and the wrong shape in the pill, where it read as a
+ *            button inside a button.
+ *  discSoft  The same disc on a lighter ramp: a pale purple into the brand
+ *            purple rather than violet into near-black indigo. Carries far
+ *            less weight at the foot of the nav, which is either the relief
+ *            or the point of losing it.
+ *  glyph     No ground at all: the sparkle in purple, nothing behind it. The
+ *            lightest answer, and the only one that reads as an icon in a row
+ *            of icons rather than as a badge. Also the only one with no
+ *            contrast floor of its own — it sits on whatever is behind it.
+ *  pinwheel  The Aug 13 mark: a conic gradient donut with a star in the hole.
+ *            Kept because a replacement nobody can see the before of is a
+ *            replacement nobody can judge — though the motion came off every
+ *            mark, so this is the pinwheel standing still.
+ */
+export const AI_MARKS = ["disc", "discSoft", "glyph", "pinwheel"] as const;
+
+export type AiMarkStyle = (typeof AI_MARKS)[number];
+
+export const AI_MARK_LABELS: Record<AiMarkStyle, string> = {
+  disc: "Sparkle disc",
+  discSoft: "Sparkle disc, light",
+  glyph: "Sparkle only",
+  pinwheel: "Gradient pinwheel",
+};
 
 export const AI_BUTTON_STYLES = ["gradient", "outline"] as const;
 
@@ -2477,6 +2654,14 @@ export const CANVAS_TINTS: Record<string, string> = {
   // Marketing ▸ Social Planner
   "ia-marketing-social": "#F9FAFB",
   "social-planner": "#F9FAFB",
+  // AI ▸ Agent templates
+  "ia-ai-templates": "#F2F7FA",
+  // Creator Hub ▸ Communities ▸ Groups
+  "ia-creators-communities-groups": "#F2F7FA",
+  "memberships-communities": "#F2F7FA",
+  // Commerce ▸ Invoices — the list page only, not Layouts
+  "ia-commerce-invoices-all": "#F2F7FA",
+  "invoices-all": "#F2F7FA",
 };
 
 /** The tint pages without their own use when previewing on every page. */
@@ -2844,6 +3029,8 @@ export interface ThemeState {
   navRowRing: boolean;
   /** A lift under the selected row, on the plane. See NAV_ROW_SHADOW_DEFAULT. */
   navRowShadow: boolean;
+  /** What colour the selected row is filled with. See NAV_SELECTED_FILLS. */
+  navSelectedFill: NavSelectedFill;
   /** The grey the plane is painted in. See PLANE_GROUNDS. */
   planeGround: PlaneGround;
   /** Arranging, renaming and re-iconing pins in edit mode. See PINNED_ROW_EDIT_DEFAULT. */
@@ -2937,6 +3124,8 @@ export interface ThemeState {
   pinFeedback: PinFeedback;
   /** How the Ask AI button is drawn when it is not a field. See AI_BUTTON_STYLES. */
   aiButtonStyle: AiButtonStyle;
+  /** Which mark every AI surface wears. See AI_MARKS. */
+  aiMark: AiMarkStyle;
   /** How the old nav's own controls are reached. See LEGACY_FOOT_CONTROLS. */
   legacyFootControl: LegacyFootControl;
   /** The standing Switch nav button at the new nav's foot. */
@@ -3325,6 +3514,12 @@ export interface ThemeState {
   builderCanvas: BuilderCanvas;
   /** Whether the promo banner survives into a builder. */
   builderKeepBanner: boolean;
+  /** How the promo banner meets the window. See BANNER_EDGES. */
+  bannerEdge: BannerEdge;
+  /** Whether the plane shows between the nav and the canvas. See PLANE_SEAMS. */
+  planeSeam: PlaneSeam;
+  /** What the nav's top edge lines up with, on the plane. See PLANE_HEADS. */
+  planeHead: PlaneHead;
   /**
    * Whether the builder's own chrome is rows, or islands over the canvas.
    *
@@ -3632,6 +3827,11 @@ export const DEFAULT_THEME: ThemeState = {
   navRowRing: NAV_ROW_RING_DEFAULT,
   navRowShadow: NAV_ROW_SHADOW_DEFAULT,
   /*
+   * The light treatment, until one of the dark five wins the argument. It is
+   * the one every other decision on this nav was made against.
+   */
+  navSelectedFill: "default",
+  /*
    * The declared token, until one of the fourteen wins the argument. A
    * prototype that opens on a hand-picked grey is a prototype that has already
    * answered the question it was built to ask.
@@ -3640,6 +3840,9 @@ export const DEFAULT_THEME: ThemeState = {
   pinnedRowEdit: PINNED_ROW_EDIT_DEFAULT,
   pinnedShortcuts: PINNED_SHORTCUTS_DEFAULT,
   flyoutShadow: FLYOUT_SHADOW_DEFAULT,
+  bannerEdge: "flush",
+  planeSeam: "flush",
+  planeHead: "bar",
   flyoutShape: "docked",
   flyoutCardBorder: FLYOUT_CARD_BORDER_DEFAULT,
   directoryFlush: DIRECTORY_FLUSH_DEFAULT,
@@ -3735,7 +3938,7 @@ export const DEFAULT_THEME: ThemeState = {
   // account) carries it as a per-account override.
   launchpad: false,
   /*
-   * White, not the brand-filled original.
+   * Outline, not the brand-filled original.
    *
    * The card sits above a product list it is not part of, and at full strength
    * it was the loudest thing on screen for as long as onboarding took. A
@@ -3743,15 +3946,15 @@ export const DEFAULT_THEME: ThemeState = {
    * the only brand in it to the meter — which is the part that is actually
    * status. "Full brand" is one click away, at the end of the list.
    *
-   * The hairline over WHITE rather than over nothing, as of Oct 1, because the
-   * nav now opens on the plane: an unfilled card there shows the grey behind
-   * it and reads as a dent pressed into the nav rather than as a card laid on
-   * it. Same restraint, with a ground — and on a grey plane the brightest
-   * thing in the nav being the thing you are meant to finish is the right
-   * accident. "Outline" keeps the old behaviour for the floating card, where
-   * the ground was already white and the fill would have been invisible.
+   * It went to "white" on Oct 1 and came back on Oct 5. The argument for white
+   * was that an unfilled card on the plane shows the grey behind it; the
+   * argument against is what the row states now do. With an edge and a lift on
+   * the selected row, a white card is a second raised surface in the same
+   * column, and the one thing in the nav that is a surface should be the row
+   * you are on, not the onboarding notice above it. "White" is one click away
+   * for the comparison.
    */
-  launchpadCard: "white",
+  launchpadCard: "outline",
   // The rail is the recommendation, so the prototype opens on it. Model A is
   // one click away for the comparison.
   scopeModel: "rail",
@@ -3788,6 +3991,7 @@ export const DEFAULT_THEME: ThemeState = {
   pinFeedback: "settle",
   // The fill, which is what ships. Outline is one click away.
   aiButtonStyle: "gradient",
+  aiMark: "disc",
   // Nothing (Sep 10): production's sidebar has no such control, and putting one
   // there makes the control group a slightly different product.
   legacyFootControl: "off",

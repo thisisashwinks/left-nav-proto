@@ -174,7 +174,16 @@ export function useHereStyle(marking: Marking): {
           shadow listed ahead of an inset one is drawn over the row's own
           edge.
         */
-        row: "bg-nav-selected shadow-[inset_0_0_0_1px_var(--nav-selected-ring),var(--nav-selected-shadow)]",
+        /*
+          And the row re-declares the nav's three ink tokens from the
+          selected set — see --nav-sel-fg. On the ROW rather than on anything
+          above it, which is the only place that works: a custom property
+          declared on a closer element wins outright, so everything the row
+          contains — label, icon, chevron, count, trail — flips with the fill
+          without a single one of them knowing a variant exists. Identical to
+          the ambient ink unless a dark variant is on.
+        */
+        row: "bg-nav-selected shadow-[inset_0_0_0_1px_var(--nav-selected-ring),var(--nav-selected-shadow)] [--nav-fg:var(--nav-sel-fg)] [--nav-fg-muted:var(--nav-sel-fg-muted)] [--nav-fg-subtle:var(--nav-sel-fg-subtle)]",
         /*
          * No weight change. The ground already says which row this is, and
          * bolding the label as well says it twice — on a selected L3 the two

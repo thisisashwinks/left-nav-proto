@@ -360,6 +360,7 @@ export function LeftNav({
     navOnPlane,
     navRowRing,
     navRowShadow,
+    navSelectedFill,
     templatePropagation,
     templatePushNotice,
     templateConflict,
@@ -3650,6 +3651,9 @@ export function LeftNav({
               {...(navOnPlane ? { "data-nav-plane": "" } : {})}
               {...(navOnPlane && navRowRing ? { "data-nav-rings": "" } : {})}
               {...(navOnPlane && navRowShadow ? { "data-nav-shadow": "" } : {})}
+              {...(navSelectedFill === "default"
+                ? {}
+                : { "data-nav-sel": navSelectedFill })}
               data-cursor="menu"
               style={{
                 width: sidebarWidth,
@@ -5091,7 +5095,19 @@ const LAUNCHPAD_STYLE: Record<
     title: "text-nav-fg",
     count: "text-nav-fg-subtle",
     icon: "text-brand",
-    track: "bg-nav-hover",
+    /*
+      Grey 200, which `--nav-border` already is — the same step as the card's
+      own hairline.
+
+      It was `--nav-hover` (grey 100), and on this variant that is nearly the
+      nav behind it: the card has no ground of its own, so the empty half of
+      the meter was reading as a gap in the rule rather than as the rest of
+      it. Ashwin gave the hex on Oct 5; taking it through the token rather
+      than literally keeps the dark theme's lift, which a #EAECF0 would not
+      have. The three variants that already stand on their own ground use the
+      same token for the same reason.
+    */
+    track: "bg-nav-border",
     rule: "bg-nav-border",
     action: "hover:bg-nav-hover",
   },

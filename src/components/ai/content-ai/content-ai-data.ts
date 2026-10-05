@@ -14,7 +14,7 @@
 export type ContentTab = "text" | "image";
 
 export const CONTENT_TYPES = [
-  { value: "social", label: "Social planner", goTo: "Social planner" },
+  { value: "social", label: "Social Planner", goTo: "Social Planner" },
   { value: "blog", label: "Blog", goTo: "Blogs" },
   { value: "funnel", label: "Funnel", goTo: "Funnels" },
   { value: "website", label: "Website", goTo: "Websites" },

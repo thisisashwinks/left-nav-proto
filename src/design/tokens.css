@@ -419,6 +419,56 @@
    * Purple 600 / 700.
    */
   --ai-base: #9333ea;
+
+  /*
+   * The sparkle tile's ramp — violet into indigo down the diagonal.
+   *
+   * On `:root`, not in a theme scope, and that is a correction rather than a
+   * preference: the first cut put it under [data-nav-theme="light"], the top
+   * bar is its own [data-header-theme] scope, and the tile rendered there with
+   * no background at all — an undefined var makes the whole gradient invalid,
+   * so `background-image` fell back to `none`. A mark should be one colour
+   * everywhere regardless, which is what defining it once buys.
+   *
+   * Its own pair rather than reusing `--ai-from`/`--ai-to`: those run violet
+   * into magenta, which is right for a ring whose colours travel and wrong for
+   * a 22px solid square, where the magenta end turns the whole mark pink at a
+   * glance. This runs the other way — the dark end is the same hue rotated
+   * back and dropped in lightness — so it stays unmistakably purple at every
+   * size. Still follows `--ai-base`, like every other AI surface.
+   */
+  --ai-tile-from: #a855f7;
+  --ai-tile-from: oklch(from var(--ai-base) 0.62 c calc(h + 6));
+  --ai-tile-to: #3b1178;
+  --ai-tile-to: oklch(from var(--ai-base) 0.31 calc(c * 0.9) calc(h - 16));
+
+  /*
+   * The light disc's ramp: pale purple into the brand purple.
+   *
+   * Both ends stay well above the dark end of the ramp above, so the disc
+   * reads as a tint rather than as an object — but the lower end is held at
+   * 0.52 rather than taken higher, because the sparkle on top is white and
+   * white on a pale purple stops being legible somewhere around 0.7.
+   */
+  --ai-tile-lite-from: #d4a6ff;
+  --ai-tile-lite-from: oklch(from var(--ai-base) 0.78 calc(c * 0.62) calc(h + 4));
+  --ai-tile-lite-to: #9333ea;
+  --ai-tile-lite-to: oklch(from var(--ai-base) 0.52 c h);
+
+  /*
+   * The bare glyph's purple, which is NOT the tile ramp's lit end.
+   *
+   * It was, and Ashwin read it as pink on Oct 5 — correctly: that end sits at
+   * hue +6 and lightness 0.62, and rotating a purple UP in hue while lifting
+   * it is the recipe for magenta. With a gradient behind it the eye reads the
+   * whole ramp and forgives the top; alone on white there is nothing to
+   * average against, so the drift is all you see.
+   *
+   * Rotated back under the base hue and dropped to the brand's own lightness:
+   * a purple that stays purple with nothing beside it.
+   */
+  --ai-glyph: #8b2fe0;
+  --ai-glyph: oklch(from var(--ai-base) 0.54 c calc(h - 10));
   --ai-base-strong: #7e22ce;
 
   --orb-1: #9333ea;
@@ -572,23 +622,46 @@
      second hue rotates UP into magenta, the same direction the mark takes, so
      all of it stays in the purple family instead of drifting back to blue. */
   --ai-from: var(--ai-base);
-  --ai-to: #f14ce0;
-  --ai-to: oklch(from var(--ai-base) calc(l + 0.14) c calc(h + 30));
-  --ai-soft-from: #ffe9ff;
-  --ai-soft-from: oklch(from var(--ai-base) 0.97 calc(c * 0.32) h);
-  --ai-soft-to: #ffe9ff;
-  --ai-soft-to: oklch(from var(--ai-base) 0.98 calc(c * 0.26) calc(h + 30));
-  --ai-border: #eecaff;
-  --ai-border: oklch(from var(--ai-base) 0.9 calc(c * 0.5) h);
+  /*
+   * The second hue, rotated +12 rather than +30.
+   *
+   * At +30 it lands on magenta, and every surface built from the pair came out
+   * pink: the send button, the bloom behind the glass, the ring. Ashwin, Oct
+   * 5 — "whatever is pink will change to purple". +12 still gives the gradient
+   * somewhere to travel, it just travels within violet instead of out of it.
+   */
+  --ai-to: #b44bf0;
+  --ai-to: oklch(from var(--ai-base) calc(l + 0.14) c calc(h + 12));
+
+  /*
+   * The panel's own surfaces are GREY. Oct 5, Ashwin: "keep it completely
+   * grey instead of pinkish — just add purple tinctures wherever required."
+   *
+   * Every one of these used to be `--ai-base` at low chroma, which is a
+   * principled way to build a family and the wrong answer at this scale: a
+   * wash, a border, a bubble, a quote and a shadow each carrying a little
+   * magenta adds up to a panel that is pink all over, and the purple that is
+   * supposed to MEAN something — the mark, the send button, a citation — had
+   * nothing to stand out against. Chroma spent everywhere buys nothing
+   * anywhere.
+   *
+   * So the grounds come off the neutral ramp the rest of the shell uses, and
+   * `--ai-from` / `--ai-to` above stay exactly as they were. The purple is
+   * still here; it is just only where it earns its place.
+   */
+  --ai-soft-from: var(--hr-gray-50);
+  --ai-soft-to: var(--hr-gray-100);
+  --ai-border: var(--hr-gray-200);
+  /* The focus ring is a tincture: it marks the one field you are typing in. */
   --ai-ring: #be69ff66;
   --ai-ring: oklch(from var(--ai-base) 0.7 c h / 0.4);
 
   --ai-win-bg: #fffffff2;
-  --ai-win-shadow: #2e105e2e;
-  --ai-bubble: #fbe6ff;
-  --ai-bubble: oklch(from var(--ai-base) 0.96 calc(c * 0.3) h);
-  --ai-quote: #fff4ff;
-  --ai-quote: oklch(from var(--ai-base) 0.985 calc(c * 0.18) h);
+  /* Neutral, not violet-black. A tinted shadow is a tint on everything the
+     panel overlaps, which is the whole canvas. */
+  --ai-win-shadow: #0f172a24;
+  --ai-bubble: var(--hr-gray-100);
+  --ai-quote: var(--hr-gray-50);
 
   /*
    * Flyout-only values. Anything the flyout shares with the nav (text, icon,
@@ -817,23 +890,19 @@
 
   --ai-from: #cb76ff;
   --ai-from: oklch(from var(--ai-base) 0.74 c h);
-  --ai-to: #ff83ff;
-  --ai-to: oklch(from var(--ai-base) 0.82 calc(c * 0.9) calc(h + 30));
-  --ai-soft-from: #230043;
-  --ai-soft-from: oklch(from var(--ai-base) 0.2 calc(c * 0.5) h);
-  --ai-soft-to: #350031;
-  --ai-soft-to: oklch(from var(--ai-base) 0.22 calc(c * 0.45) calc(h + 30));
-  --ai-border: #481677;
-  --ai-border: oklch(from var(--ai-base) 0.34 calc(c * 0.6) h);
+  --ai-to: #d78aff;
+  --ai-to: oklch(from var(--ai-base) 0.82 calc(c * 0.9) calc(h + 12));
+  /* Grey here too — same argument as light, see the note there. */
+  --ai-soft-from: #1b1b21;
+  --ai-soft-to: #212128;
+  --ai-border: #34343c;
   --ai-ring: #ca75ff66;
   --ai-ring: oklch(from var(--ai-base) 0.74 c h / 0.4);
 
   --ai-win-bg: #0f131ff7;
   --ai-win-shadow: #00000080;
-  --ai-bubble: #360e5b;
-  --ai-bubble: oklch(from var(--ai-base) 0.28 calc(c * 0.5) h);
-  --ai-quote: #240640;
-  --ai-quote: oklch(from var(--ai-base) 0.22 calc(c * 0.4) h);
+  --ai-bubble: #2e2e36;
+  --ai-quote: #26262c;
 
   --fly-border: #26262c;
   --fly-seam: #34343c;
@@ -933,8 +1002,8 @@
   /* Lifted for a dark bar, exactly as the dark nav lifts them. */
   --ai-from: #cb76ff;
   --ai-from: oklch(from var(--ai-base) 0.74 c h);
-  --ai-to: #ff83ff;
-  --ai-to: oklch(from var(--ai-base) 0.82 calc(c * 0.9) calc(h + 30));
+  --ai-to: #d78aff;
+  --ai-to: oklch(from var(--ai-base) 0.82 calc(c * 0.9) calc(h + 12));
   --ai-ring: #a855f766;
   --ai-ring: oklch(from var(--ai-base) 0.75 c h / 0.45);
 }
@@ -1684,4 +1753,107 @@
 [data-nav-shadow] [data-nav-theme="dark"],
 [data-nav-theme="dark"][data-nav-shadow] {
   --nav-selected-shadow: 0 0 #0000;
+}
+
+/*
+ * The selected row's ink, named so a variant can move it with the fill.
+ *
+ * Defaults to the nav's own ink on every theme, which is what makes the
+ * variants below the only place that has to think about it: a white or
+ * gray-200 selected row wants exactly the type colour every other row has, and
+ * saying so once here is cheaper than a conditional at the call site.
+ *
+ * Resolved against --nav-fg ON THE SAME ELEMENT, which is safe — the row
+ * further down declares --nav-fg FROM this, and a custom property cycle is
+ * only a cycle within one element. By the time the row reads --nav-sel-fg it
+ * is an inherited, already-computed colour.
+ *
+ * Declared last so it sees whatever the tint, the plane and the dark ramps
+ * ended up setting, rather than the base values they overrode.
+ */
+[data-nav-theme="light"],
+[data-nav-theme="dark"] {
+  --nav-sel-fg: var(--nav-fg);
+  --nav-sel-fg-muted: var(--nav-fg-muted);
+  --nav-sel-fg-subtle: var(--nav-fg-subtle);
+}
+
+/*
+ * The dark selected-row variants. See NAV_SELECTED_FILLS.
+ *
+ * Each one sets four things, because a fill this dark cannot be set alone:
+ * the ground, the ink, the ring and (for the two mid-greys) the lift. A
+ * gray-200 hairline around a gray-500 row is a light line on a dark ground —
+ * the ring was drawn to separate white from near-white and has nothing to do
+ * here — so every variant takes it off, and the shadow stays because a dark
+ * row is the one thing in the nav that genuinely reads as lifted.
+ *
+ * Light nav only. These are a proposal about marking a row on a LIGHT nav; on
+ * a dark one the selected row is already a lighter step of the ground and a
+ * dark fill would be invisible. The selectors say so rather than leaving it to
+ * luck.
+ *
+ * The muted ink is a transparency of the strong, not a second colour: one
+ * mix, and the hierarchy inside the row survives on five grounds without five
+ * hand-picked greys that each drift from the one above them.
+ */
+[data-nav-sel="gray-400"] [data-nav-theme="light"],
+[data-nav-theme="light"][data-nav-sel="gray-400"] {
+  --nav-selected: var(--hr-gray-400);
+  --nav-selected-ring: transparent;
+  /*
+    The one variant that keeps DARK ink. gray-400 is a mid grey — white on it
+    is 2.2:1 and fails outright, where gray-900 on it is above 6:1. A fill
+    being darker than the page does not make it a dark surface, and this is
+    the step where that stops being true.
+  */
+  --nav-sel-fg: var(--hr-gray-900);
+  --nav-sel-fg-muted: var(--hr-gray-700);
+  --nav-sel-fg-subtle: var(--hr-gray-700);
+}
+
+[data-nav-sel="gray-500"] [data-nav-theme="light"],
+[data-nav-theme="light"][data-nav-sel="gray-500"] {
+  --nav-selected: var(--hr-gray-500);
+  --nav-selected-ring: transparent;
+  --nav-sel-fg: #ffffff;
+  --nav-sel-fg-muted: color-mix(in oklab, #ffffff 74%, transparent);
+  --nav-sel-fg-subtle: color-mix(in oklab, #ffffff 62%, transparent);
+}
+
+[data-nav-sel="dark"] [data-nav-theme="light"],
+[data-nav-theme="light"][data-nav-sel="dark"] {
+  /* gray-800, not gray-900: 900 is the ink the labels are printed in, and a
+     row filled with its own text colour reads as a hole rather than a mark. */
+  --nav-selected: var(--hr-gray-800);
+  --nav-selected-ring: transparent;
+  --nav-sel-fg: #ffffff;
+  --nav-sel-fg-muted: color-mix(in oklab, #ffffff 72%, transparent);
+  --nav-sel-fg-subtle: color-mix(in oklab, #ffffff 58%, transparent);
+}
+
+[data-nav-sel="blue-gray"] [data-nav-theme="light"],
+[data-nav-theme="light"][data-nav-sel="blue-gray"] {
+  /* HighRise gray-blue 700. Dark enough to behave like the dark variant, with
+     enough hue to belong to a blue product — the middle of the two. */
+  --nav-selected: #363f72;
+  --nav-selected-ring: transparent;
+  --nav-sel-fg: #ffffff;
+  --nav-sel-fg-muted: color-mix(in oklab, #ffffff 74%, transparent);
+  --nav-sel-fg-subtle: color-mix(in oklab, #ffffff 60%, transparent);
+}
+
+[data-nav-sel="blue"] [data-nav-theme="light"],
+[data-nav-theme="light"][data-nav-sel="blue"] {
+  /*
+    The accent itself, not a literal blue. Every other brand surface in this
+    nav follows the account's colour, and a selected row hard-coded to
+    HighLevel blue would be the one thing that does not — it would read as
+    blue-on-orange the moment a tenant with its own accent opened it.
+  */
+  --nav-selected: var(--brand);
+  --nav-selected-ring: transparent;
+  --nav-sel-fg: var(--brand-fg);
+  --nav-sel-fg-muted: color-mix(in oklab, var(--brand-fg) 76%, transparent);
+  --nav-sel-fg-subtle: color-mix(in oklab, var(--brand-fg) 62%, transparent);
 }

@@ -46,6 +46,12 @@ import {
   CRUMB_TRIGGER_LABELS,
   FLYOUT_SHADOWS,
   FLYOUT_SHADOW_LABELS,
+  BANNER_EDGES,
+  BANNER_EDGE_LABELS,
+  PLANE_SEAMS,
+  PLANE_SEAM_LABELS,
+  PLANE_HEADS,
+  PLANE_HEAD_LABELS,
   CRUMB_LEAF_LABELS,
   CRUMB_DEPTHS,
   CRUMB_DEPTH_LABELS,
@@ -74,6 +80,9 @@ import {
   ACCENTS,
   AI_BUTTON_STYLE_LABELS,
   AI_BUTTON_STYLES,
+  AI_MARKS,
+  AI_MARK_LABELS,
+  type AiMarkStyle,
   LEGACY_FOOT_CONTROL_LABELS,
   LEGACY_FOOT_CONTROLS,
   AUTO_COLLAPSE_WIDTH,
@@ -131,6 +140,9 @@ import {
   RAIL_SIZING_LABELS,
   RAIL_TILE_SHAPES,
   LAUNCHPAD_CARDS,
+  NAV_SELECTED_FILLS,
+  NAV_SELECTED_FILL_LABELS,
+  type NavSelectedFill,
   PLANE_GROUNDS,
   PLANE_GROUND_LABELS,
   type PlaneGround,
@@ -322,6 +334,11 @@ import { cn } from "@/lib/utils";
 import { useTuning } from "./tuning-provider";
 import { useCanvasTintedPage } from "@/components/shell/page-canvas";
 import {
+  EMPTY_SCREEN_LABELS,
+  setEmptyState,
+  useEmptyStateScreen,
+} from "@/components/page/empty-state-axis";
+import {
   LIST_TOOLBAR_READY,
   PAGE_CANVAS_READY,
 } from "@/components/page/list-toolbar";
@@ -448,7 +465,14 @@ function NavStructureSection({
     setScopeModel,
     flyoutTrigger,
     flyoutShadow,
+    bannerEdge,
+    navOnPlane,
+    planeSeam,
+    planeHead,
     setFlyoutShadow,
+    setBannerEdge,
+    setPlaneSeam,
+    setPlaneHead,
     flyoutShape,
     setFlyoutShape,
     flyoutCardBorder,
@@ -861,6 +885,54 @@ function NavStructureSection({
           : flyoutShadow === "both"
             ? "Right and bottom, so the panel reads as a card floating clear of everything. Truer when it stops mid-screen than when it runs the full height."
             : "Hairlines alone, which is what shipped. The card behind both already carries the float."}
+      </Note>
+
+      <Segmented
+        label="Nav top edge"
+        keywords="align plane nav header breadcrumb midline top offset gap"
+        options={PLANE_HEADS}
+        value={planeHead}
+        disabled={!navOnPlane}
+        onChange={setPlaneHead}
+        format={(v) => PLANE_HEAD_LABELS[v]}
+      />
+      <Note>
+        {!navOnPlane
+          ? "Only on the plane. With the nav as a card, both columns already take the same top inset and the two midlines meet."
+          : planeHead === "bar"
+            ? "The nav takes the same top inset the page does, so mark, name, collapse glyph and breadcrumb sit on one line — and so do the account rail, the L2 panel’s title and the recents panel’s. The identity row was always built for that; it lost the 4px when the plane variant dropped the nav card."
+            : "The nav starts at the window’s top edge, 4px above the canvas, so its header rides that much higher than the breadcrumb."}
+      </Note>
+
+      <Segmented
+        label="Nav and canvas seam"
+        keywords="plane gap seam flush sidebar canvas margin inset zero"
+        options={PLANE_SEAMS}
+        value={planeSeam}
+        disabled={!navOnPlane}
+        onChange={setPlaneSeam}
+        format={(v) => PLANE_SEAM_LABELS[v]}
+      />
+      <Note>
+        {!navOnPlane
+          ? "Only on the plane. With the nav as a card, the gap is two cards sitting apart — a different question."
+          : planeSeam === "flush"
+            ? "App bar, banner and page share one left edge, a single gap from the nav. The bar used to sit hard against the sidebar while the canvas stood 4px off it, so the two surfaces on the right disagreed about where the right-hand side began."
+            : "The canvas keeps its own inset and the column takes none, so the plane runs behind the page while the bar still reaches the sidebar. What this did before the axis existed."}
+      </Note>
+
+      <Segmented
+        label="Promo banner"
+        keywords="banner promo strip full width flush edge margin radius announcement"
+        options={BANNER_EDGES}
+        value={bannerEdge}
+        onChange={setBannerEdge}
+        format={(v) => BANNER_EDGE_LABELS[v]}
+      />
+      <Note>
+        {bannerEdge === "flush"
+          ? "Edge to edge and square, with nothing above it. A banner owning the whole width is what says it is the platform talking over the app rather than part of it."
+          : "Inset to the shell gap and rounded, so the strip is a card on the plane beside the nav and the flyout — one surface family rather than an interruption."}
       </Note>
 
       <Toggle
@@ -2398,12 +2470,16 @@ export function TuningPanel() {
     navOnPlane,
     navRowRing,
     navRowShadow,
+    navSelectedFill,
     planeGround,
     setNavOnPlane,
     setNavRowRing,
     setNavRowShadow,
+    setNavSelectedFill,
     setPlaneGround,
     setAgencySearch,
+    aiMark,
+    setAiMark,
     aiButtonStyle,
     setAiButtonStyle,
     pageShell,
@@ -2569,6 +2645,7 @@ export function TuningPanel() {
     setPageCanvas,
   } = useTheme();
   const canvasTintedPage = useCanvasTintedPage();
+  const emptyScreen = useEmptyStateScreen();
 
 
   const toggleSection = (id: SectionId) =>
@@ -4460,6 +4537,21 @@ export function TuningPanel() {
                 ? "The card hairline alone — flat, the edge drawn rather than cast."
                 : "Hairline and shadow/lg together — a defined edge that still lifts."}
           </Note>
+          {emptyScreen ? (
+            <>
+              <Toggle
+                label="Empty state"
+                checked={emptyScreen.on}
+                onChange={(v) => setEmptyState(emptyScreen.id, v)}
+                keywords="empty no data zero blank first run"
+              />
+              <Note>
+                {emptyScreen.on
+                  ? `${EMPTY_SCREEN_LABELS[emptyScreen.id]} shows what a new account sees: no data yet.`
+                  : `${EMPTY_SCREEN_LABELS[emptyScreen.id]} shows sample data. Only screens with an empty state offer this switch.`}
+              </Note>
+            </>
+          ) : null}
           {canvasTintedPage || canvasTintAllPages ? (
             <>
               <Segmented
@@ -4698,6 +4790,34 @@ export function TuningPanel() {
           </Note>
 
           <Segmented
+            label="Selected row fill"
+            keywords="active selected dark grey gray blue accent background colour color"
+            options={NAV_SELECTED_FILLS}
+            value={navSelectedFill}
+            onChange={(v: NavSelectedFill) => setNavSelectedFill(v)}
+            format={(v) => NAV_SELECTED_FILL_LABELS[v]}
+          />
+          <Note>
+            {navSelectedFill === "default"
+              ? "Selected is the brightest row in the column — white on the plane, gray-200 off it — with whatever edge and lift the two switches above are set to. Everything below inverts that: the row you are on becomes the darkest thing in the nav, and the contrast stops needing help."
+              : navSelectedFill === "gray-400"
+                ? "The last step that keeps dark ink — white on gray-400 is 2.2:1 and fails outright, so the labels stay gray-900. The quietest way to make the row darker than its neighbours rather than lighter."
+                : navSelectedFill === "gray-500"
+                  ? "The first step that is properly a dark surface: white ink, still unmistakably grey, carrying no hue of its own."
+                  : navSelectedFill === "dark"
+                    ? "A near-black plate, gray-800 — the treatment macOS and VS Code use for the same job. Loud, and impossible to misread at a glance."
+                    : navSelectedFill === "blue-gray"
+                      ? "The dark plate with enough hue to belong to a blue product. Gray-blue 700: the middle of the two arguments."
+                      : "The accent itself, which makes “where I am” the same colour as every primary button on the page — either the clearest signal in the nav or one brand surface too many. It follows the account's colour rather than a literal blue."}
+          </Note>
+          <Note>
+            All five dark fills drop the hairline — a gray-200 ring is a light
+            line on a dark ground — and keep the lift. They apply on light navs
+            only: on a dark nav the selected row is already a lighter step of
+            its own ground.
+          </Note>
+
+          <Segmented
             label="Plane ground"
             keywords="background colour color grey gray plane primary blue cool modern neutral warm"
             options={PLANE_GROUNDS}
@@ -4741,6 +4861,28 @@ export function TuningPanel() {
             {agencySearch
               ? "The agency gets the same merged pill a sub-account has."
               : "Ask AI only. Thirteen buckets and a client list that already has its own search field — the pill had no corpus to add."}
+          </Note>
+
+          {/*
+            The mark itself, above the button it sits in — the button's fill is
+            a treatment of a thing, and this is the thing.
+          */}
+          <Segmented
+            label="AI mark"
+            keywords="ai orb icon sparkle star pinwheel logo gradient mark"
+            options={AI_MARKS}
+            value={aiMark}
+            onChange={(v: AiMarkStyle) => setAiMark(v)}
+            format={(v) => AI_MARK_LABELS[v]}
+          />
+          <Note>
+            {aiMark === "disc"
+              ? "The sparkle on a purple disc — violet into deep indigo. The default, and the heaviest of the three."
+              : aiMark === "discSoft"
+                ? "The same disc on a lighter ramp: pale purple into the brand purple. Carries far less weight at the foot of the nav, which is either the relief or the point of losing it."
+                : aiMark === "glyph"
+                  ? "The sparkle alone, in purple, with nothing behind it. The lightest answer and the only one that reads as an icon rather than a badge — also the only one with no contrast floor of its own."
+                  : "The Aug 13 mark: a conic gradient ring with a star in the hole. Still here to compare against — though the motion has come off every mark, so this is the pinwheel standing still."}
           </Note>
 
           {/*

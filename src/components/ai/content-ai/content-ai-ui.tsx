@@ -52,6 +52,40 @@ export function StatCard({
   );
 }
 
+/**
+ * The live screen's "No data" mark — an inbox tray with a cross badge —
+ * drawn inline from tokens so it sits on the surface in light, dark and
+ * tinted alike (no fill of its own, only strokes and a token-tinted badge).
+ */
+export function NoDataArt() {
+  return (
+    <svg width="56" height="56" viewBox="0 0 56 56" fill="none" aria-hidden="true">
+      <path
+        d="M10 30 L15 14 a3 3 0 0 1 2.8-2 H34"
+        stroke="var(--pg-faint)"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M10 30 v12 a4 4 0 0 0 4 4 h28 a4 4 0 0 0 4-4 V30 h-9 a2 2 0 0 0-1.8 1.2 a7.5 7.5 0 0 1-14.4 0 A2 2 0 0 0 19 30 Z"
+        stroke="var(--pg-faint)"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+        fill="color-mix(in srgb, var(--pg-faint) 10%, transparent)"
+      />
+      <path d="M46 30 L43 21" stroke="var(--pg-faint)" strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="43" cy="13" r="9" fill="var(--pg-faint)" stroke="var(--pg-surface)" strokeWidth="2.5" />
+      <path
+        d="M39.5 9.5 l7 7 M46.5 9.5 l-7 7"
+        stroke="var(--pg-surface)"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 /** The joined button group the live screen filters by type with. */
 export function Segmented({
   options,

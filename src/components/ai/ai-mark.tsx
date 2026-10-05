@@ -1,4 +1,8 @@
+"use client";
+
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/components/theme/theme-provider";
+import { AiTile } from "./ai-tile";
 
 /**
  * The AI mark, v3 (Aug 13): a gradient donut with a star floating in it.
@@ -26,6 +30,25 @@ export function AiMark({
   state?: string;
   className?: string;
 }) {
+  const { aiMark } = useTheme().effective;
+  /*
+   * The tile is the default mark — see AI_MARKS. Branched here rather than at
+   * the nine call sites: every one of them already says `AiMark`/`AiOrb` and
+   * none of them has an opinion about which mark that is, which is exactly
+   * what made swapping it a one-line change instead of nine.
+   */
+  if (aiMark !== "pinwheel") {
+    return (
+      <AiTile
+        size={size}
+        shape={
+          aiMark === "glyph" ? "bare" : aiMark === "discSoft" ? "soft" : "disc"
+        }
+        className={className}
+      />
+    );
+  }
+
   return (
     <span
       aria-hidden="true"

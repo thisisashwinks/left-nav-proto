@@ -34,6 +34,7 @@ import { ToneAvatar } from "@/components/page/avatar";
 import { SCREEN_NAMES } from "@/components/nav/screen-names";
 import { cn } from "@/lib/utils";
 import { TableCard, usePagination } from "@/components/page/table-card";
+import { usePrototypeEmpty } from "@/components/page/empty-state-axis";
 import {
   ListToolbar,
   useListToolbar,
@@ -52,6 +53,7 @@ import {
   type InvoiceStatus,
   type InvoiceTile,
 } from "./invoices-data";
+import { GatewayBanner, InvoicesEmptyBody } from "./invoices-empty";
 
 /*
  * Seven columns, and the amount is the only one that is not left-aligned.
@@ -142,10 +144,32 @@ function StatusPill({ status }: { status: InvoiceStatus }) {
  * No sparkline, no delta, no comparison. There is no series behind these, and
  * a trend line drawn from one number is a decoration that claims to be data.
  */
-function SummaryTile({ tile }: { tile: InvoiceTile }) {
+/*
+ * What each tile counts, after the number. The seed labels carry
+ * production's "109 Invoice(s) in Draft" wording; the screen speaks sentence
+ * case with a real plural, so the label is rebuilt here from the count.
+ */
+const TILE_NOUN: Record<string, string> = {
+  draft: "in draft",
+  due: "due",
+  received: "received",
+  overdue: "overdue",
+};
+
+function tileCount(tile: InvoiceTile) {
+  return Number.parseInt(tile.label, 10) || 0;
+}
+
+function tileLabel(tile: InvoiceTile, count: number) {
+  const noun = TILE_NOUN[tile.id] ?? tile.label.replace(/^\d[\d,]*\s*/, "");
+  return `${count.toLocaleString("en-US")} ${count === 1 ? "invoice" : "invoices"} ${noun}`;
+}
+
+function SummaryTile({ tile, empty }: { tile: InvoiceTile; empty: boolean }) {
+  const count = empty ? 0 : tileCount(tile);
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-[6px] rounded-[10px] bg-pg-surface px-[16px] py-[13px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
-      <span className="flex items-center gap-[7px] truncate text-[12.5px] leading-[17px] text-pg-muted">
+    <div className="flex min-w-0 flex-1 flex-col gap-[6px] rounded-[10px] bg-pg-surface px-[16px] py-[14px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
+      <span className="flex items-center gap-[7px] truncate text-[13px] leading-[18px] text-pg-muted">
         <tile.icon
           size={14}
           aria-hidden="true"
@@ -158,10 +182,10 @@ function SummaryTile({ tile }: { tile: InvoiceTile }) {
                 : "text-pg-faint",
           )}
         />
-        {tile.label}
+        {tileLabel(tile, count)}
       </span>
-      <span className="truncate text-[24px] leading-[30px] font-semibold tracking-[-0.4px] text-pg-heading tabular-nums">
-        {tile.value}
+      <span className="truncate text-[28px] leading-[34px] font-semibold tracking-[-0.5px] text-pg-heading tabular-nums">
+        {empty ? "$0.00" : tile.value}
       </span>
     </div>
   );
@@ -186,6 +210,9 @@ function DateRange() {
     </div>
   );
 }
+
+/** The new account's list: stable, so the row memo does not churn. */
+const NO_INVOICES: Invoice[] = [];
 
 export interface InvoicesPageProps {
   /**
@@ -229,10 +256,29 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
   const [sort, setSort] = React.useState<{ field: string; dir: "asc" | "desc" } | null>(null);
   const [hidden, setHidden] = React.useState<ReadonlySet<string>>(() => new Set());
   const toolbar = useListToolbar();
+  /*
+   * The prototype's empty switch — a brand-new account. Only the list reads
+   * it; the layouts place returns before anything below uses it.
+   */
+  const empty = usePrototypeEmpty("invoices");
+  /*
+   * An invoice New just started. Held apart from `openId` because it is not
+   * in the seed list (and in the empty state there is no list at all).
+   */
+  const [draft, setDraft] = React.useState<Invoice | null>(null);
+  const source = empty ? NO_INVOICES : seedInvoices;
+  /*
+   * A new account has no invoices, so every cut reads zero — the tabs, the
+   * scope picker and the header count all draw from this one list.
+   */
+  const views = React.useMemo(
+    () => (empty ? invoiceViews.map((v) => ({ ...v, count: "0" })) : invoiceViews),
+    [empty],
+  );
 
   const rows = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    const filtered = seedInvoices.filter(
+    const filtered = source.filter(
       (i) =>
         (view === "all" || i.status === view) &&
         (kinds.length === 0 || kinds.includes(i.kind)) &&
@@ -256,7 +302,7 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
       const kb = key(b);
       return (ka < kb ? -1 : ka > kb ? 1 : 0) * dir;
     });
-  }, [view, query, kinds, sort]);
+  }, [source, view, query, kinds, sort]);
 
   const cols = colsFor(hidden);
 
@@ -270,10 +316,36 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
    */
   const pager = usePagination(rows);
 
-  const open = seedInvoices.find((i) => i.id === openId) ?? null;
+  const open = draft ?? source.find((i) => i.id === openId) ?? null;
+
+  /*
+   * New opens the builder on a blank draft, numbered after the last invoice
+   * the account has. Dated here, in the click, not during render.
+   */
+  const startNew = () => {
+    const today = new Date().toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    const next =
+      Math.max(0, ...source.map((i) => Number(i.number.replace(/\D/g, "")) || 0)) + 1;
+    setDraft({
+      id: "inv-new",
+      name: "New invoice",
+      number: `INV-${String(next).padStart(6, "0")}`,
+      kind: "invoice",
+      customer: "",
+      tone: "blue",
+      issued: today,
+      due: today,
+      amount: "$0.00",
+      status: "draft",
+    });
+  };
 
   const shape = useListShape();
-  const activeView = invoiceViews.find((v) => v.id === view) ?? invoiceViews[0]!;
+  const activeView = views.find((v) => v.id === view) ?? views[0]!;
 
   /*
    * L-E's last crumb: Payments ▸ Invoices ▸ Overdue, switchable from there.
@@ -288,7 +360,7 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
     !layoutsPlace && !toolbar.shared && shape.scopeInTrail && shape.showViews
       ? {
           label: activeView.label,
-          options: invoiceViews.map((v) => ({
+          options: views.map((v) => ({
             id: v.id,
             label: v.label,
             selected: v.id === view,
@@ -348,7 +420,7 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
   const toolbarModel = React.useMemo<ListToolbarModel>(
     () => ({
       views: {
-        items: invoiceViews.map((v) => ({ id: v.id, label: v.label, count: v.count })),
+        items: views.map((v) => ({ id: v.id, label: v.label, count: v.count })),
         activeId: view,
         onSelect: setView,
         noun: "view",
@@ -377,7 +449,7 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
       },
       resultCount: { value: rows.length, noun: rows.length === 1 ? "invoice" : "invoices" },
     }),
-    [view, query, kinds, sort, hidden, rows.length],
+    [views, view, query, kinds, sort, hidden, rows.length],
   );
 
   const overflowActions = [
@@ -394,14 +466,25 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
     return (
       <div data-page-theme={effective.appTheme} className="h-full min-h-0">
         <InvoiceBuilder
+          key={open.id}
           invoice={open}
-          onBack={() => setOpenId(null)}
+          onBack={() => {
+            setOpenId(null);
+            setDraft(null);
+          }}
         /*
           The lit cut, not the whole collection — so the crumb's menu offers
           the records the list is actually showing.
         */
-          siblings={rows.map((i) => ({ id: i.id, name: i.name }))}
-          onOpenSibling={setOpenId}
+          siblings={[
+            ...(draft ? [{ id: draft.id, name: draft.name }] : []),
+            ...rows.map((i) => ({ id: i.id, name: i.name })),
+          ]}
+          onOpenSibling={(id) => {
+            if (id === draft?.id) return;
+            setDraft(null);
+            setOpenId(id);
+          }}
         />
       </div>
     );
@@ -423,7 +506,7 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
                 {shape.showViews ? (
                   <ScopePicker
                     label="Invoice views"
-                    views={invoiceViews}
+                    views={views}
                     activeId={view}
                     onSelect={setView}
                     showCount={effective.pageHeader && effective.pageCount}
@@ -434,7 +517,7 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
             ) : undefined
           }
           secondary={[{ label: "Settings", icon: Settings }]}
-          primary={{ label: "New", icon: Plus }}
+          primary={{ label: "New", icon: Plus, onClick: startNew }}
           overflow={overflowActions}
         />
       )}
@@ -448,16 +531,23 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
         would have made four totals that never change look broken every time
         someone switched cut.
       */}
+      {/*
+        A new account cannot take a payment yet, so the first thing it is told
+        is how to fix that. Empty state only: a populated account has, by
+        definition, already been paid through something.
+      */}
+      {empty ? <GatewayBanner /> : null}
+
       <div className="flex shrink-0 items-stretch gap-[12px]">
         {invoiceTiles.map((t) => (
-          <SummaryTile key={t.id} tile={t} />
+          <SummaryTile key={t.id} tile={t} empty={empty} />
         ))}
       </div>
 
       {!toolbar.shared && shape.scopeInTabs ? (
         <ViewBar
           label="Invoice views"
-          views={invoiceViews}
+          views={views}
           activeId={view}
           onSelect={setView}
           maxVisible={4}
@@ -485,7 +575,7 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
                 <Settings size={15} aria-hidden="true" className="text-pg-text-strong" />
                 Settings
               </OutlineButton>
-              <PrimaryButton>
+              <PrimaryButton onClick={startNew}>
                 <Plus size={16} aria-hidden="true" />
                 New
               </PrimaryButton>
@@ -528,7 +618,9 @@ export function InvoicesPage({ initialView }: InvoicesPageProps) {
           />
         ))}
 
-        {rows.length === 0 ? (
+        {empty ? (
+          <InvoicesEmptyBody onCreate={startNew} />
+        ) : rows.length === 0 ? (
           <div className="flex h-[200px] flex-col items-center justify-center gap-[4px]">
             <p className="text-[13.5px] leading-[normal] font-medium text-pg-text">
               {query.trim() || kinds.length > 0

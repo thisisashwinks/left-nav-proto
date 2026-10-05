@@ -428,6 +428,11 @@ export function AccountRail({
         data-nav-theme={theme}
         aria-label="Accounts"
         data-cursor="menu"
+        // The hook the plane's top-alignment rule reaches. This strip is
+        // absolutely positioned, so the nav column's own padding does not
+        // move it — an abspos child resolves against the padding BOX, whose
+        // top edge sits above the padding. See PLANE_HEADS.
+        data-account-rail=""
         onPointerLeave={() => setHover(false)}
         // An overlay, not a flow column: the shell holds a fixed 56px slot and
         // this widens OVER the nav — the page never moves under the pointer.

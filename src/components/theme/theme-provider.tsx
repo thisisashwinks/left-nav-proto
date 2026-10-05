@@ -26,6 +26,7 @@ import {
   type InboxPalette,
   type PanelRecentHeading,
   type AiButtonStyle,
+  type AiMarkStyle,
   type LegacyFootControl,
   type PinMarkColour,
   type LayoutReplaceDialog,
@@ -36,6 +37,7 @@ import {
   type RailZoomFit,
   type LaunchpadCard,
   type PlaneGround,
+  type NavSelectedFill,
   type RailSizing,
   type EditTreatment,
   type RenameAffordance,
@@ -74,6 +76,9 @@ import type {
   CrumbLeaf,
   CrumbTrigger,
   FlyoutShadow,
+  BannerEdge,
+  PlaneSeam,
+  PlaneHead,
   FolderCrumb,
   TableCrumb,
   CrumbDepth,
@@ -184,10 +189,14 @@ interface ThemeContextValue extends ThemeState {
   setNavOnPlane: (on: boolean) => void;
   setNavRowRing: (on: boolean) => void;
   setNavRowShadow: (on: boolean) => void;
+  setNavSelectedFill: (v: NavSelectedFill) => void;
   setPlaneGround: (v: PlaneGround) => void;
   setPinnedRowEdit: (on: boolean) => void;
   setPinnedShortcuts: (on: boolean) => void;
   setFlyoutShadow: (v: FlyoutShadow) => void;
+  setBannerEdge: (v: BannerEdge) => void;
+  setPlaneSeam: (v: PlaneSeam) => void;
+  setPlaneHead: (v: PlaneHead) => void;
   setFlyoutShape: (shape: FlyoutShape) => void;
   setFlyoutCardBorder: (on: boolean) => void;
   setDirectoryFlush: (on: boolean) => void;
@@ -312,6 +321,7 @@ interface ThemeContextValue extends ThemeState {
   setPanelRecentHeading: (heading: PanelRecentHeading) => void;
   setPinMarkColour: (colour: PinMarkColour) => void;
   setAiButtonStyle: (style: AiButtonStyle) => void;
+  setAiMark: (v: AiMarkStyle) => void;
   setEntryRadius: (v: EntryRadius) => void;
   setAttachTemplateInUse: (on: boolean) => void;
   setLegacyFootControl: (control: LegacyFootControl) => void;
@@ -486,6 +496,8 @@ export function ThemeProvider({
       setNavRowRing: (navRowRing) => setState((s) => ({ ...s, navRowRing })),
       setNavRowShadow: (navRowShadow) =>
         setState((s) => ({ ...s, navRowShadow })),
+      setNavSelectedFill: (navSelectedFill) =>
+        setState((s) => ({ ...s, navSelectedFill })),
       setPlaneGround: (planeGround) => setState((s) => ({ ...s, planeGround })),
       setPinnedRowEdit: (pinnedRowEdit) =>
         setState((s) => ({ ...s, pinnedRowEdit })),
@@ -493,6 +505,9 @@ export function ThemeProvider({
         setState((s) => ({ ...s, pinnedShortcuts })),
       setFlyoutShadow: (flyoutShadow) =>
         setState((s) => ({ ...s, flyoutShadow })),
+      setBannerEdge: (bannerEdge) => setState((s) => ({ ...s, bannerEdge })),
+      setPlaneSeam: (planeSeam) => setState((s) => ({ ...s, planeSeam })),
+      setPlaneHead: (planeHead) => setState((s) => ({ ...s, planeHead })),
       setFlyoutShape: (flyoutShape) =>
         setState((s) => ({ ...s, flyoutShape })),
       setFlyoutCardBorder: (flyoutCardBorder) =>
@@ -716,6 +731,7 @@ export function ThemeProvider({
         setState((s) => ({ ...s, pinMarkColour })),
       setAiButtonStyle: (aiButtonStyle) =>
         setState((s) => ({ ...s, aiButtonStyle })),
+      setAiMark: (aiMark) => setState((s) => ({ ...s, aiMark })),
       setEntryRadius: (entryRadius) => setState((s) => ({ ...s, entryRadius })),
       setAttachTemplateInUse: (attachTemplateInUse) =>
         setState((s) => ({ ...s, attachTemplateInUse })),

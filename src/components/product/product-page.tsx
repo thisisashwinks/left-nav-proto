@@ -51,6 +51,7 @@ import { FunnelsPage } from "@/components/sites/funnels-page";
 import { InvoicesPage } from "@/components/invoices/invoices-page";
 import { OrdersPage } from "@/components/orders/orders-page";
 import { SocialPlannerPage } from "@/components/social/social-planner-page";
+import { CommunityGroupsPage } from "@/components/communities/community-groups-page";
 import { ProspectingPage } from "@/components/prospecting/prospecting-page";
 import { AiStudioPage } from "@/components/ai/ai-studio-page";
 import { VoiceAiPage } from "@/components/ai/voice-ai-page";
@@ -138,6 +139,15 @@ const REAL_PAGES: {
     products: ["ia-ai-templates"],
     children: [],
     render: () => <AgentTemplatesPage />,
+  },
+  {
+    /*
+     * Creator Hub ▸ Communities ▸ Groups. The shipped catalogue files the
+     * same screen as Memberships ▸ Communities.
+     */
+    products: ["ia-creators-communities", "memberships"],
+    children: ["ia-creators-communities-groups", "memberships-communities"],
+    render: () => <CommunityGroupsPage />,
   },
   {
     /*

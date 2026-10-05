@@ -20,34 +20,11 @@
 }
 
 :root {
-  /* Resting sweep. Slow enough to read as ambient rather than as a spinner. */
-  --ai-spin: 9s;
   /* Bloom strength. Raised while listening or thinking. */
   --ai-bloom-opacity: 0.5;
 }
 
 /* ─── Keyframes ──────────────────────────────────────────────────────────── */
-
-@keyframes ai-spin {
-  to {
-    --ai-angle: 360deg;
-  }
-}
-
-/* The colour behind the glass, drifting so the window never looks like a
-   static screenshot. Small distances only — this sits under a 40px blur, where
-   a few pixels of travel is already a visible shift of the whole wash. */
-@keyframes ai-bloom-drift {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-    opacity: var(--ai-bloom-opacity);
-  }
-  50% {
-    transform: translate3d(8px, -10px, 0) scale(1.1);
-    opacity: calc(var(--ai-bloom-opacity) + 0.22);
-  }
-}
 
 /* The window grows out of the dock: up, right, and out from 0.94. Paired with
    a bottom-left transform-origin so the corner nearest the pill barely moves. */
@@ -150,7 +127,13 @@
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  animation: ai-spin var(--ai-spin) linear infinite;
+  /*
+   * No spin. Oct 5, Ashwin: the mark was the only thing in the nav that moved
+   * on its own, so the eye went to it on every screen whether or not AI was
+   * the task — "off-brand" was his word for it, and he is right that a logo
+   * that never settles is not a logo. The conic gradient stays; it is the
+   * mark's colour, and it reads perfectly well standing still.
+   */
   pointer-events: none;
 }
 
@@ -233,11 +216,15 @@
   transform-origin: center;
 }
 
-.ai-entry:hover :is(.ai-donut, .ai-donut-bloom),
-.ai-mark:is([data-ai-state="thinking"], [data-ai-state="listening"])
-  :is(.ai-donut, .ai-donut-bloom) {
-  animation: ai-spin 2.2s linear infinite;
-}
+/*
+ * Retired Oct 5, hover AND thinking alike.
+ *
+ * The thinking case was the harder one to give up — a mark that turns while a
+ * reply builds is a real signal. But it is the wrong PLACE for it: the answer
+ * arrives in the panel and the signal was on a button two panes away, so the
+ * reply already needed its own indicator and had one. Busy now says so where
+ * the reading happens, and the mark stays a mark.
+ */
 
 /*
  * The morph (Aug 13, replacing the pill's hover ring): the star INFLATES
@@ -252,58 +239,49 @@
   transform-origin: center;
 }
 
-.ai-entry:hover .ai-mark-star-shape,
-.ai-mark:is([data-ai-state="thinking"], [data-ai-state="listening"]) .ai-mark-star-shape {
-  animation: ai-star-morph 1.7s ease-in-out infinite;
-}
-
-@keyframes ai-star-morph {
-  0%,
-  100% {
-    d: path(
-      "M16 8.4 C17.15 12.7 19.3 14.85 23.6 16 C19.3 17.15 17.15 19.3 16 23.6 C14.85 19.3 12.7 17.15 8.4 16 C12.7 14.85 14.85 12.7 16 8.4 Z"
-    );
-    transform: rotate(0deg) scale(1);
-  }
-  50% {
-    d: path(
-      "M16 8.4 C19.6 9.4 22.6 12.4 23.6 16 C22.6 19.6 19.6 22.6 16 23.6 C12.4 22.6 9.4 19.6 8.4 16 C9.4 12.4 12.4 9.4 16 8.4 Z"
-    );
-    transform: rotate(90deg) scale(1.06);
-  }
-}
+/* The morph went with the spin — same reasoning, same date. */
 
 .ai-bloom {
   position: absolute;
   inset: -36px;
   border-radius: 999px;
+  /*
+   * Halved, and off the tile's ramp rather than the magenta one.
+   *
+   * This is the wash Ashwin meant by "too pinkish": three radial gradients at
+   * 50–70% strength under a 38px blur, which is a lot of colour spread over
+   * the whole panel ground. The panel's surfaces are grey now, so the bloom
+   * was the one thing still tinting everything — and a ground light does its
+   * job at half the strength. Oct 5.
+   */
   background:
     radial-gradient(
       42% 46% at 22% 78%,
-      color-mix(in srgb, var(--ai-from) 70%, transparent),
+      color-mix(in srgb, var(--ai-tile-from) 34%, transparent),
       transparent 70%
     ),
     radial-gradient(
       40% 44% at 78% 26%,
-      color-mix(in srgb, var(--ai-to) 65%, transparent),
+      color-mix(in srgb, var(--ai-tile-to) 30%, transparent),
       transparent 70%
     ),
     radial-gradient(
       36% 40% at 62% 88%,
-      color-mix(in srgb, var(--ai-from) 50%, transparent),
+      color-mix(in srgb, var(--ai-tile-from) 24%, transparent),
       transparent 70%
     );
   filter: blur(38px);
   opacity: var(--ai-bloom-opacity);
-  animation: ai-bloom-drift 7s var(--ease-in-out) infinite;
+  /* Drift retired Oct 5 with the rest of the mark's motion. The bloom is
+     still there — it is the window's ground light, not an animation. */
   pointer-events: none;
 }
 
-/* Listening and thinking both quicken the sweep and lift the bloom. Set on the
-   window root so one attribute drives every layer at once. */
+/* Listening and thinking lift the window's ground light. The sweep that used
+   to quicken with it is gone (Oct 5) — this is a brightness change, not
+   motion, so it survives the same cut. */
 [data-ai-state="listening"],
 [data-ai-state="thinking"] {
-  --ai-spin: 2.4s;
   --ai-bloom-opacity: 0.85;
 }
 
