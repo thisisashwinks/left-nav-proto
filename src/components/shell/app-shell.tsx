@@ -6,6 +6,7 @@ import {
   ACCOUNT_RAIL_WIDTH,
 } from "@/components/accounts/account-rail";
 import { AccountSwitcher } from "@/components/accounts/account-switcher";
+import { RailDirectory } from "@/components/accounts/rail-switcher";
 import { useAccounts } from "@/components/accounts/use-accounts";
 import {
   AI_DOCKED_WIDTH,
@@ -140,6 +141,7 @@ import {
   AUTO_COLLAPSE_WIDTH,
   CANVAS_TINTS,
   DEFAULT_CANVAS_TINT,
+  navWidthsFor,
   PLANE_GROUND_HEX,
   trimTrail,
 } from "@/design/theme";
@@ -160,8 +162,11 @@ import { useFlyoutIntent } from "@/lib/use-flyout-intent";
 import { iconForChildLabel } from "@/components/nav/l3-icons";
 import { useMediaQuery } from "@/lib/use-media-query";
 
-/** Nav widths from left-nav.pen; the flyout docks against whichever is showing. */
-const EXPANDED_WIDTH = 272;
+/*
+ * The expanded column's width is no longer a constant here — it comes from the
+ * width axis, through NAV_WIDTHS. Only the collapsed rail is fixed, because
+ * nothing in it scales: it is one column of 28px marks.
+ */
 /**
  * The plane showing around the floating nav. Mirrors --shell-canvas-gap,
  * which the canvas already uses, so the nav and the canvas are inset by the
@@ -435,12 +440,17 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     dockLabel,
     dockPosition,
     entryLayout,
+    entryPair,
+    aiDockTop,
+    aiFullChrome,
     navOnPlane,
     planeSeam,
     planeHead,
     navRowRing,
     navRowShadow,
     navSelectedFill,
+    navWidthSet,
+    editWidthFull,
     planeGround,
     flyoutShape,
     flyoutCardBorder,
@@ -486,6 +496,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     crumbCompoundChild,
     crumbLeaf,
     crumbDepth,
+    directoryPlacement,
+    collapsedRail,
     crumbShown,
     crumbSwitchers,
   } = effective;
@@ -1165,7 +1177,17 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    */
   const memberRail =
     memberOfMany && subAccountSwitcher === "rail" && !legacyNav && plainUser;
-  const railActive = agencyRail || memberRail;
+  /*
+   * And it can stand down when the nav collapses — see COLLAPSED_RAILS.
+   *
+   * Folded into `railActive` rather than handled at the rail itself, because
+   * this is the flag the whole shell reads: the flow footprint, the panel
+   * docking offsets and the nav header's own mark all key off it, and a rail
+   * that hid itself while `railActive` still said true would leave a 56px
+   * hole down the left of every one of them.
+   */
+  const railActive =
+    (agencyRail || memberRail) && !(collapsed && collapsedRail === "hide");
   /*
    * The alternative treatment — a control in the nav header — needs no flag of
    * its own any more. It is simply what a member gets when the rail is off:
@@ -1179,7 +1201,16 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    */
   // The legacy nav has no collapsed face — production's own collapse is a
   // different mechanism and out of scope — so it holds the expanded width.
-  const navWidth = collapsed && !legacyNav ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
+  /*
+   * The pair in force. One lookup, read by the arithmetic and by the CSS.
+   *
+   * Edit mode may borrow the wider one — see EDIT_WIDTH_FULL_DEFAULT — which is
+   * why this goes through the resolver rather than indexing the table. The
+   * portalled drawer asks the same function, so the two cannot disagree about
+   * how wide the nav is while a row is being dragged between them.
+   */
+  const widths = navWidthsFor(navWidthSet, layout.editing, editWidthFull);
+  const navWidth = collapsed && !legacyNav ? COLLAPSED_WIDTH : widths.l1;
   /*
    * Where panels dock. With the account rail live, everything that hangs off
    * the nav's right edge — flyouts, the AI window, the launcher — starts one
@@ -1284,8 +1315,47 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   // A bare `true` rather than the session object: useExitTransition compares
   // by identity, and the session is rebuilt on every render.
   const ai = useExitTransition(aiSession.open || null, AI_EXIT_MS);
+
+  /*
+   * The docked panel standing BESIDE the canvas rather than beside the plane.
+   *
+   * Docked only — floating slides in over the page at full plane height and
+   * always has, and nothing about an overlay wants to clear the bar. And only
+   * where there is a bar above the canvas to clear: joined, the bar is inside
+   * the canvas card so the card's top already IS the canvas's; in a builder
+   * with the chrome stood down there is no bar at all.
+   *
+   * It carries two consequences that have to agree with each other, which is
+   * why it is one constant rather than two conditions written twice: the app
+   * bar keeps the full width (the panel is below it, so the layout hole in
+   * the plane row goes), and the CANVAS gives up the width instead.
+   */
+  const aiBesideCanvas =
+    ai.isMounted &&
+    aiMode === "docked" &&
+    aiDockTop === "canvas" &&
+    !barInCanvas &&
+    !chromeHonoured;
   const switcher = useExitTransition(switcherOpen || null, SWITCHER_EXIT_MS);
   const directory = useExitTransition(directoryOpen || null, SWITCHER_EXIT_MS);
+  /*
+   * The directory as the sidebar itself, rather than as a panel over it.
+   *
+   * See DIRECTORY_PLACEMENTS. The rail keeps its morph under `rail`; under
+   * `sidebar` the morph is suppressed and this overlay takes the whole
+   * footprint instead — rail plus gutter plus the EXPANDED nav width, whatever
+   * the nav is currently doing. A collapsed sidebar therefore appears to widen
+   * while the directory is up, which is the trade the axis note states: 120px
+   * is not enough for a name with an address under it.
+   *
+   * Also the only answer when there is no rail at all — `collapsedRail: hide`
+   * takes the strip away, and a panel that opens by widening a column that is
+   * not there opens nowhere. So the overlay is forced on, whatever the
+   * placement axis says: a door with nothing behind it is worse than a door
+   * that opens somewhere other than where you set it to.
+   */
+  const directoryFillsSidebar =
+    (directoryPlacement === "sidebar" || !railActive) && directory.isMounted;
   /*
    * The launcher rides the same hover intent as the product rows rather than its
    * own open flag, which is what makes the chip row's chevron behave like every
@@ -1798,6 +1868,63 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     effective.pageCanvas &&
     chromeRequest === null &&
     (!columnPage || effective.pageCanvasColumns);
+
+  /*
+   * The canvas's own top and bottom edges, for the panel to match.
+   *
+   * Measured rather than assumed, because the two surfaces sit at different
+   * insets. With the centre canvas on, the card has no top margin of its own
+   * — the bar above it is the separation — and 12px at the foot, the same
+   * 12 it takes on its sides. Without it, the page surface is inset by the
+   * shell gap all round. One of the two was going to be wrong under any
+   * single offset, which is why this is a pair of lengths and not a flag.
+   *
+   * `--shell-top-shift` rides along in both: a full-width banner takes the
+   * plane's top inset away, and the canvas and the panel have to lose it
+   * together or they are level only while no banner is showing.
+   */
+  const canvasEdges = pageCanvasOn
+    ? {
+        top: "calc(var(--shell-bar-h) + var(--shell-canvas-gap) + var(--shell-top-shift, 0px))",
+        bottom: "12px",
+      }
+    : {
+        top: "calc(var(--shell-bar-h) + 2 * var(--shell-canvas-gap) + var(--shell-top-shift, 0px))",
+        bottom: "var(--shell-canvas-gap)",
+      };
+
+  /*
+   * Full screen with the chrome left standing: the panel fills the canvas.
+   *
+   * Not in a builder — `chromeHonoured` means the page asked for the bar and
+   * the nav to stand down, so there is no chrome to preserve and the panel
+   * takes the plane as it always did.
+   */
+  const aiOverCanvas =
+    ai.isMounted &&
+    aiMode === "full" &&
+    aiFullChrome === "show" &&
+    !chromeHonoured;
+
+  /*
+   * The canvas's left edge, which the two arrangements reach differently.
+   *
+   * Without the centre canvas the page surface is inset by the shell gap
+   * whichever way the seam axis is set — flush moves the inset from the
+   * surface to the column and the sum is the same. With it, the card takes
+   * its own 12px unless the flush seam has already zeroed that margin and
+   * put the gap on the column instead.
+   */
+  const canvasLeft =
+    pageCanvasOn && !(navOnPlane && planeSeam === "flush")
+      ? `calc(${leftOffset}px + 12px)`
+      : `calc(${leftOffset}px + var(--shell-canvas-gap))`;
+
+  const aiCanvasBox = aiBesideCanvas
+    ? canvasEdges
+    : aiOverCanvas
+      ? { ...canvasEdges, left: canvasLeft }
+      : undefined;
 
   /*
    * A scope control the open page has handed up to the bar.
@@ -2413,7 +2540,22 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * The exit is still how you leave; a trail was a second way out that only
    * ever said where you had come from.
    */
-  const crumbs = chromeHonoured ? trimmed.slice(-1) : trimmed;
+  /*
+   * And the trail names the assistant while it has the canvas.
+   *
+   * One crumb, not the page's path with "Ask AI" on the end: the panel has
+   * REPLACED the page rather than opened on top of it, so a trail still
+   * reading CRM ▸ Contacts would be naming a screen nobody can see. This
+   * is also the answer to the one real cost of leaving the chrome up — the
+   * bar says where you are, which is the job the nav's own rows cannot do
+   * for a surface that is not one of them. Marked as the product rung so
+   * "no last crumb" leaves it standing; see `Crumb.level`.
+   */
+  const crumbs: (string | Crumb)[] = aiOverCanvas
+    ? [{ label: "Ask AI", level: "product" }]
+    : chromeHonoured
+      ? trimmed.slice(-1)
+      : trimmed;
 
   /**
    * The leaf, handed down to the page title under `crumbLeaf: "title"`.
@@ -2595,6 +2737,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       <div
         // Same reasoning as the nav card: the plane is themed off the nav, and
         // while the legacy nav is up that is the nav it must follow.
+        data-shell-plane=""
         data-shell-theme={legacyNav ? legacyNavTheme : navTheme}
         /*
           Re-grounds hover and selected for a sidebar with no card. On the
@@ -2653,10 +2796,22 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           Light only. Every one of the fourteen is a near-white, and forcing one
           onto a dark page theme would not be a variant, it would be a bug.
         */
+        /*
+          The plane carries the two column widths as well as its own ground.
+
+          Here because every surface that needs them is inside it — the nav,
+          the L2 panel and the View all launcher — and because the shell's own
+          arithmetic reads the same two numbers from NAV_WIDTHS. One axis, one
+          lookup, two readers.
+        */
         style={
-          appTheme === "light" && PLANE_GROUND_HEX[planeGround]
-            ? ({ "--pg-bg": PLANE_GROUND_HEX[planeGround] } as React.CSSProperties)
-            : undefined
+          {
+            "--nav-w": `${widths.l1}px`,
+            "--fly-w": `${widths.l2}px`,
+            ...(appTheme === "light" && PLANE_GROUND_HEX[planeGround]
+              ? { "--pg-bg": PLANE_GROUND_HEX[planeGround] }
+              : null),
+          } as React.CSSProperties
         }
         className="relative flex min-h-0 flex-1 overflow-hidden bg-pg"
       >
@@ -2801,16 +2956,34 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             // A member's rail loses the agency plate and the directory door —
             // see membersOnly. The agency's keeps both.
             membersOnly={memberRail}
-            expanded={railExpanded}
+            // And held shut outright, not merely stopped from re-opening:
+            // the pointer can already be on the rail when the panel appears.
+            expanded={railExpanded && !directoryFillsSidebar}
             // Frozen while the directory is up: the panel docks against the
             // rail's edge, so the rail widening or narrowing underneath it
             // left the two surfaces overlapping.
+            /*
+              Frozen shut while the filled panel is up.
+              
+              It was already frozen for the morph; this adds the case the morph
+              does not cover. Under `sidebar` the rail never morphs, so it was
+              still a live hover target UNDERNEATH the panel — crossing it slid
+              the 216px named face out past the panel's edge, which is the
+              "hover on the left rail is on top" Ashwin reported on Oct 5. The
+              z-order was right; the rail simply should not have been reacting
+              at all.
+            */
             onExpandedChange={(v) => {
-              if (!directoryOpen) setRailExpanded(v);
+              if (!directoryOpen && !directoryFillsSidebar) setRailExpanded(v);
             }}
             locked={layout.editing}
-            switcherOpen={directoryOpen}
-            switcherMounted={directory.isMounted}
+            /*
+              Under `sidebar` the rail does not morph — the overlay below is
+              the directory now, and a rail widening underneath it would be a
+              second copy of the same panel sliding out from behind the first.
+            */
+            switcherOpen={directoryOpen && !directoryFillsSidebar}
+            switcherMounted={directory.isMounted && !directoryFillsSidebar}
             switcherPhase={directory.phase}
             onToggleSwitcher={toggleDirectory}
             // Closing also settles the rail shut — the pointer is on the
@@ -2822,6 +2995,44 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             }}
           />
         </>
+      ) : null}
+
+      {/*
+        The directory filling the sidebar's own footprint.
+
+        Absolute inside the chrome card rather than fixed to the window, which
+        is what keeps the canvas untouched: it covers the rail and the nav and
+        stops at their right edge, so the page beside it carries on as normal
+        and the sidebar reads as having BECOME the directory. Ashwin, Oct 5.
+
+        z-40 clears the nav column (z-10) and the rail (z-30) — the panel is
+        standing in for both, so it has to paint over both.
+      */}
+      {directoryFillsSidebar ? (
+        <div
+          role="dialog"
+          aria-label="Accounts"
+          style={{ width: railWidth + navGutter + widths.l1 }}
+          className={cn(
+            /*
+              No seam on the right. The panel IS the sidebar in this mode, and
+              the sidebar's own edge against the canvas is already drawn by the
+              chrome card it sits in — a second hairline 1px inside the first
+              is a double rule. Oct 5, Ashwin.
+            */
+            "absolute inset-y-0 left-0 z-40 flex min-h-0 flex-col overflow-hidden bg-nav-rail",
+            directory.phase === "entering" ? "motion-menu-in" : "motion-menu-out",
+          )}
+        >
+          <RailDirectory
+            session={accounts}
+            membersOnly={memberRail}
+            onClose={() => {
+              setDirectoryOpen(false);
+              setRailExpanded(false);
+            }}
+          />
+        </div>
       ) : null}
 
       <div
@@ -3015,6 +3226,12 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             density={density}
             onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
             onOpenDirectory={() => intent.togglePin(DIRECTORY_ID)}
+            /*
+              Only when the rail has stood down. With the rail there it is
+              already the accounts door, and two of them in one 120px column
+              is the duplication the axis exists to remove.
+            */
+            {...(railActive ? {} : { onOpenAccounts: toggleDirectory })}
             {/*
               Gone while a switch is in flight, as the expanded face's pill is:
               the rail's entrance leads to the same editor, over the same
@@ -3208,7 +3425,12 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           crumbGoesSomewhere={crumbGoesSomewhere}
           theme={headerTheme}
           onOpenApp={setAppModal}
-          entryFills={!agencyScope || agencySearch}
+          /*
+            The field wants its 230px; the Ask AI button does not, and the
+            pair states its own width (see ENTRY_PAIRS) so the slot hugs it
+            rather than reserving a box the two controls would rattle in.
+          */
+          entryFills={(!agencyScope || agencySearch) && entryPair !== "separate"}
           /*
             The entry, when the axis puts it up here.
 
@@ -3302,6 +3524,25 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             */}
             <div
               {...(pageCanvasOn || barInCanvas ? {} : { "data-canvas-surface": "" })}
+              /*
+                The hole for a canvas-aligned dock, taken out of the CANVAS
+                rather than out of the plane row — so the app bar above keeps
+                the window's full width and the panel sits under it.
+
+                Two values because two boxes. With the centre canvas on, this
+                div is only a scroll host and the card inside it brings its
+                own 12px side margin, which becomes the gutter; without it,
+                this div IS the card, so it has to leave the gutter itself.
+              */
+              {...(aiBesideCanvas
+                ? {
+                    style: {
+                      marginRight: pageCanvasOn
+                        ? `calc(${AI_DOCKED_WIDTH}px + var(--shell-canvas-gap))`
+                        : `calc(${AI_DOCKED_WIDTH}px + 2 * var(--shell-canvas-gap))`,
+                    },
+                  }
+                : {})}
               className={pageCanvasOn ? PAGE_CANVAS_HOST : cn(
                 "min-h-0 flex-1 overflow-auto",
                 barInCanvas
@@ -3448,7 +3689,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           it sits one gap in from the right, so a hole of its bare width would
           put its left edge exactly on the canvas's, and the two cards would
           touch. The extra gap is the gutter between them. */}
-      {ai.isMounted && aiMode === "docked" ? (
+      {ai.isMounted && aiMode === "docked" && !aiBesideCanvas ? (
         <div
           aria-hidden="true"
           className="shrink-0"
@@ -3723,6 +3964,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           phase={ai.phase}
           mode={aiMode}
           onModeChange={setAiMode}
+          /* Docked and beside the canvas — see `aiBesideCanvas`. */
+          {...(aiCanvasBox ? { dockBox: aiCanvasBox } : {})}
         />
       ) : null}
 

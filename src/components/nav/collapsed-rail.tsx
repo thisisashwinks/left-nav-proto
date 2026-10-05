@@ -30,6 +30,26 @@ import { iconByName } from "./icon-catalogue";
 import { useNavLayout } from "./nav-layout-provider";
 import { allocate, orderPins, recentIdsFor } from "./merged-recents";
 import { ResolvedIcon } from "./resolved-icon";
+
+/**
+ * One size for every glyph in the collapsed strip.
+ *
+ * `--t-nav-icon` is the density knob the expanded rows already follow, and
+ * until Oct 5 only the PRODUCT rows down here followed it — every other glyph
+ * was hardcoded at 16. At the default density the knob is 14, so the strip was
+ * drawing recents, pinned, the expand toggle and the chrome doors two pixels
+ * larger than the categories between them. Nobody reads that as two sizes;
+ * they read it as the column being slightly wrong, which is what Ashwin
+ * reported.
+ *
+ * A style rather than a `size` prop because Lucide's `size` sets width and
+ * height as attributes, and a CSS var cannot go in one. Setting both in CSS
+ * overrides the attributes without each call site having to know the number.
+ */
+const RAIL_GLYPH = {
+  width: "var(--t-nav-icon, 16px)",
+  height: "var(--t-nav-icon, 16px)",
+} as const;
 import { fixedEntriesFor, flyoutIdFor, navConfig } from "./nav-config";
 import { RailNewDot, useNewDotShown, useNewFlagIds } from "./new-flag";
 import { useNavProfiles } from "@/components/nav/nav-profiles";
@@ -78,6 +98,11 @@ interface CollapsedRailProps {
    * calling the thing that opens Pinned and Recent is how they got conflated.
    */
   onOpenDirectory: () => void;
+  /**
+   * Opens the accounts directory, when the rail that normally holds that door
+   * has stood down. Absent whenever the rail is there — see COLLAPSED_RAILS.
+   */
+  onOpenAccounts?: () => void;
   /**
    * How many inline recent rows to draw, after the density budget.
    *
@@ -142,6 +167,7 @@ export function CollapsedRail({
   density,
   onOpenLauncher,
   onOpenDirectory,
+  onOpenAccounts,
   recentsBudget,
   onOpenApp,
   onEdit,
@@ -476,12 +502,10 @@ export function CollapsedRail({
         <i.icon
           size={16}
           aria-hidden="true"
-          // Same knob as the expanded row's icon. The rail tile stays 40x35, so
-          // the icon grows inside it rather than resizing the tile.
-          style={{
-            width: "var(--t-nav-icon, 16px)",
-            height: "var(--t-nav-icon, 16px)",
-          }}
+          // Same knob as the expanded row's icon, through the shared style —
+          // the rail tile stays 40x35, so the icon grows inside it rather
+          // than resizing the tile. See RAIL_GLYPH.
+          style={RAIL_GLYPH}
         />
       ) : null}
       </RailNewDot>,
@@ -602,9 +626,33 @@ export function CollapsedRail({
           onClick={onExpand}
           className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95 motion-press"
         >
-          <PanelLeftOpen size={16} aria-hidden="true" />
+          <PanelLeftOpen size={16} aria-hidden="true" style={RAIL_GLYPH} />
         </button>
       </RailTooltip>
+
+      {/*
+        The accounts door, directly under the expand toggle.
+
+        Only when the rail is not drawing one — see COLLAPSED_RAILS. It was
+        filed with the products at the foot of the strip, which was wrong twice
+        over: it is the one control here that changes which ACCOUNT you are in,
+        so it does not belong among the things it reframes, and the foot is
+        where you look last. Up here it holds the same position the rail's own
+        waffle holds, so the way into the directory does not move depending on
+        whether the rail is there. Ashwin, Oct 5.
+      */}
+      {onOpenAccounts ? (
+        <RailTooltip label="All accounts">
+          <button
+            type="button"
+            aria-label="All accounts"
+            onClick={onOpenAccounts}
+            className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95 motion-press"
+          >
+            <LayoutGrid size={16} aria-hidden="true" style={RAIL_GLYPH} />
+          </button>
+        </RailTooltip>
+      ) : null}
 
       {/*
         In `bottom` mode the pair has moved down with the pill, so nothing
@@ -667,7 +715,7 @@ export function CollapsedRail({
                 {railButton(
                   row.id,
                   row.label,
-                  <ResolvedIcon icon={row.icon} size={16} />,
+                  <ResolvedIcon icon={row.icon} size={16} style={RAIL_GLYPH} />,
                   row.id === selectedId,
                   // Shortcuts, like the expanded face's merged block: the
                   // rail draws the same pins and recents and owes the same
@@ -706,6 +754,21 @@ export function CollapsedRail({
           // into x-overflow — a horizontal scrollbar in a 64px rail.
           className={cn(
             "flex w-full flex-1 flex-col items-center gap-[calc(var(--t-nav-space,2px)+2px)] overflow-x-hidden overflow-y-auto",
+            /*
+              Left padding equal to the scrollbar's own strip, so the column
+              stays centred.
+
+              `[data-scroll-region]` reserves `--nav-scroll-gutter` on the
+              right for its bar, which shrinks the CONTENT box — and this
+              region centres its children, so every product icon sat half a
+              gutter (5px) left of the recents and chrome glyphs above and
+              below it, which do not scroll. The expanded face pays for the
+              same strip the same way (see left-nav's `pl`); it simply never
+              showed there, because those rows are left-aligned and a 5px
+              content box is invisible when nothing is centred in it.
+              Ashwin spotted it in the strip, Oct 5.
+            */
+            "pl-[var(--nav-scroll-gutter)]",
             // As in the expanded face: the whole region travels, and `waiting`
             // carries no class so the entrance can replay.
             swap === "leaving" && "motion-nav-swap-out",
@@ -718,7 +781,7 @@ export function CollapsedRail({
           <>
           {atFloor && !agencyScope ? (
             <>
-              {railButton("pinned-rail", "Pinned", <Pin size={16} aria-hidden="true" />, false, onOpenLauncher)}
+              {railButton("pinned-rail", "Pinned", <Pin size={16} aria-hidden="true" style={RAIL_GLYPH} />, false, onOpenLauncher)}
               {/*
                 At the floor there is no room to draw the recents, so the door
                 comes back — which is what the expanded face does down here too:
@@ -754,7 +817,7 @@ export function CollapsedRail({
             ? railButton(
                 "product-directory",
                 "All products",
-                <LayoutGrid size={16} aria-hidden="true" />,
+                <LayoutGrid size={16} aria-hidden="true" style={RAIL_GLYPH} />,
                 false,
                 onOpenDirectory,
               )
@@ -764,14 +827,14 @@ export function CollapsedRail({
               {railButton(
                 "get-app-mobile",
                 GET_APP_LABELS.mobile,
-                <Smartphone size={16} aria-hidden="true" />,
+                <Smartphone size={16} aria-hidden="true" style={RAIL_GLYPH} />,
                 false,
                 () => onOpenApp("mobile"),
               )}
               {railButton(
                 "get-app-desktop",
                 GET_APP_LABELS.desktop,
-                <Monitor size={16} aria-hidden="true" />,
+                <Monitor size={16} aria-hidden="true" style={RAIL_GLYPH} />,
                 false,
                 () => onOpenApp("desktop"),
               )}
@@ -826,7 +889,7 @@ export function CollapsedRail({
                 editRevealed ? "bg-nav-hover opacity-100" : "opacity-0",
               )}
             >
-              <SquarePen size={16} aria-hidden="true" />
+              <SquarePen size={16} aria-hidden="true" style={RAIL_GLYPH} />
             </button>
           </RailTooltip>
         </div>

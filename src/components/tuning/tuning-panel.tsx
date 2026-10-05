@@ -82,6 +82,15 @@ import {
   AI_BUTTON_STYLES,
   AI_MARKS,
   AI_MARK_LABELS,
+  DIRECTORY_PLACEMENTS,
+  DIRECTORY_PLACEMENT_LABELS,
+  type DirectoryPlacement,
+  DIRECTORY_SELECTS,
+  DIRECTORY_SELECT_LABELS,
+  type DirectorySelect,
+  COLLAPSED_RAILS,
+  COLLAPSED_RAIL_LABELS,
+  type CollapsedRail,
   type AiMarkStyle,
   LEGACY_FOOT_CONTROL_LABELS,
   LEGACY_FOOT_CONTROLS,
@@ -93,6 +102,12 @@ import {
   DOCK_POSITIONS,
   ENTRY_LAYOUT_LABELS,
   ENTRY_LAYOUTS,
+  AI_DOCK_TOPS,
+  AI_FULL_CHROMES,
+  AI_FULL_CHROME_LABELS,
+  AI_DOCK_TOP_LABELS,
+  ENTRY_PAIRS,
+  ENTRY_PAIR_LABELS,
   ENTRY_RADII,
   ENTRY_RADIUS_LABELS,
   HEADER_ENTRY_SIDES,
@@ -141,6 +156,9 @@ import {
   RAIL_TILE_SHAPES,
   LAUNCHPAD_CARDS,
   NAV_SELECTED_FILLS,
+  NAV_WIDTH_SETS,
+  NAV_WIDTH_SET_LABELS,
+  type NavWidthSet,
   NAV_SELECTED_FILL_LABELS,
   type NavSelectedFill,
   PLANE_GROUNDS,
@@ -216,6 +234,9 @@ import {
   type DockLabel,
   type DockPosition,
   type EntryLayout,
+  type EntryPair,
+  type AiDockTop,
+  type AiFullChrome,
   type HeaderEntrySide,
   type AiButtonStyle,
   type LegacyFootControl,
@@ -498,6 +519,10 @@ function NavStructureSection({
     railRecents,
     setRailRecents,
     railDirectorySpot,
+    directoryPlacement,
+    setDirectoryPlacement,
+    collapsedRail,
+    setCollapsedRail,
     setRailDirectorySpot,
     railZoomFit,
     setRailZoomFit,
@@ -716,6 +741,34 @@ function NavStructureSection({
               : railDirectorySpot === "top"
                 ? "Anchored under the agency plate. The one fixed point in the strip, so the way into search is in the same place every time."
                 : "Anchored under the agency, with the account you are in raised beside it. It leaves a hole where that tile was in the ordered set."}
+          </Note>
+
+          <Segmented
+            label="All accounts opens"
+            keywords="directory panel placement sidebar overlay rail morph accounts"
+            options={DIRECTORY_PLACEMENTS}
+            value={directoryPlacement}
+            onChange={(v: DirectoryPlacement) => setDirectoryPlacement(v)}
+            format={(v) => DIRECTORY_PLACEMENT_LABELS[v]}
+          />
+          <Note>
+            {directoryPlacement === "rail"
+              ? "The rail widens into the panel — one surface growing. It ends up 12px wider than the sidebar and casts onto the canvas, and nothing says whether the nav is still there underneath."
+              : "The panel takes the sidebar's own footprint, rail and nav, full height. The canvas beside it is untouched, so the sidebar reads as having become the directory. A collapsed nav widens for it and shrinks back."}
+          </Note>
+
+          <Segmented
+            label="With the nav collapsed, the rail"
+            keywords="collapsed rail hide accounts door focus narrow"
+            options={COLLAPSED_RAILS}
+            value={collapsedRail}
+            onChange={(v: CollapsedRail) => setCollapsedRail(v)}
+            format={(v) => COLLAPSED_RAIL_LABELS[v]}
+          />
+          <Note>
+            {collapsedRail === "keep"
+              ? "Both strips stay. Collapsing narrows one of two columns and leaves 120px of chrome down the left."
+              : "The rail goes too, and the collapsed nav grows an All accounts door in its place. One 64px strip — switching account costs a panel instead of a column."}
           </Note>
 
           <Segmented
@@ -1008,7 +1061,9 @@ function NavStructureSection({
               ? "The press neutral, one step past hover, on the row and its whole trail. Quiet — it is a step of grey, not a colour."
               : selectedMark === "bar"
                 ? "A 3px rule on the leading edge. Collides with no fill — and reads as chrome belonging to the nav rather than as a property of the row."
-                : "The accent under the row, label left grey. Easiest to find; also spends brand on a state that is true all day."}
+                : selectedMark === "fillBar"
+                  ? "Both: the fill says which row, the accent rule says it is the page rather than a rollover — the collision the fill has on its own. The only mark that still works under a light grey fill, where selected and hover are a shade apart."
+                  : "The accent under the row, label left grey. Easiest to find; also spends brand on a state that is true all day."}
           </Note>
         </>
       ) : null}
@@ -1477,6 +1532,7 @@ function BulkActionsSection({
   onToggle: () => void;
 }) {
   const { settings, set, reset, changedCount } = useBulkActions();
+  const { directorySelect, setDirectorySelect } = useTheme();
 
   return (
     <Section
@@ -1561,6 +1617,25 @@ function BulkActionsSection({
         {settings.bulkInDirectory
           ? "The rail's directory grows checkboxes, and a Bulk actions button appears beside its close. Same flow, reached from the panel you already have open."
           : "The directory stays a jump list. Bulk runs start from the Sub-accounts table only — a switcher that also changes things is one you hesitate in."}
+      </Note>
+
+      {/*
+        How the panel's checkboxes arrive. Under the switch that creates them,
+        since it is a question about that switch rather than about the panel.
+      */}
+      <Segmented
+        label="Its checkboxes"
+        keywords="select ios checkbox directory accounts picking bulk"
+        options={DIRECTORY_SELECTS}
+        value={directorySelect}
+        disabled={!settings.enabled || !settings.bulkInDirectory}
+        onChange={(v: DirectorySelect) => setDirectorySelect(v)}
+        format={(v) => DIRECTORY_SELECT_LABELS[v]}
+      />
+      <Note>
+        {directorySelect === "button"
+          ? "A Select in the header, iOS-style. The boxes arrive when it is pressed, rows tick instead of jumping while it is on, and Cancel clears what it collected."
+          : "Every row wears a box for as long as the switch is on — which announces a second job before anyone has asked for one."}
       </Note>
 
       <Toggle
@@ -2455,6 +2530,9 @@ export function TuningPanel() {
     dockPosition,
     setDockPosition,
     entryLayout,
+    entryPair,
+    aiDockTop,
+    aiFullChrome,
     entryRadius,
     setEntryRadius,
     attachTemplateInUse,
@@ -2462,6 +2540,9 @@ export function TuningPanel() {
     headerEntrySide,
     setHeaderEntrySide,
     setEntryLayout,
+    setEntryPair,
+    setAiDockTop,
+    setAiFullChrome,
     getAppPlacement,
     setGetAppPlacement,
     agencySearch,
@@ -2471,11 +2552,15 @@ export function TuningPanel() {
     navRowRing,
     navRowShadow,
     navSelectedFill,
+    navWidthSet,
+    editWidthFull,
     planeGround,
     setNavOnPlane,
     setNavRowRing,
     setNavRowShadow,
     setNavSelectedFill,
+    setNavWidthSet,
+    setEditWidthFull,
     setPlaneGround,
     setAgencySearch,
     aiMark,
@@ -4670,6 +4755,48 @@ export function TuningPanel() {
             Open with ⌘K / Ctrl-K, or the search icon in the nav.
           </Note>
           <Segmented
+            label="Full-screen Ask AI"
+            keywords="ask ai full screen expand chrome nav bar canvas takeover"
+            options={AI_FULL_CHROMES}
+            value={aiFullChrome}
+            onChange={(v: AiFullChrome) => setAiFullChrome(v)}
+            format={(v) => AI_FULL_CHROME_LABELS[v]}
+          />
+          <Note>
+            {aiFullChrome === "show"
+              ? "The panel fills the canvas and the trail reads “Ask AI”. The assistant as a place in the product: the way back is the nav you were already using, and the bar says where you are."
+              : "The panel takes the whole plane, nav and bar included. The stronger read of the mode — and the only exits are its own two glyphs, top right."}
+          </Note>
+
+          <Segmented
+            label="Docked Ask AI starts"
+            keywords="ask ai dock panel top align canvas bar height margins"
+            options={AI_DOCK_TOPS}
+            value={aiDockTop}
+            onChange={(v: AiDockTop) => setAiDockTop(v)}
+            format={(v) => AI_DOCK_TOP_LABELS[v]}
+          />
+          <Note>
+            {aiDockTop === "canvas"
+              ? "Docked, the panel sits under a full-width app bar and matches the canvas’s height and margins — the width comes out of the canvas rather than the whole column. Floating is untouched: it still slides in over the page at full height."
+              : "Docked runs the full plane height too, clearing the app bar, which narrows beside it. What this shipped with, and the right read if the assistant is a second workspace rather than something standing beside this one."}
+          </Note>
+
+          <Segmented
+            label="Search + Ask AI shape"
+            keywords="entry pill search ask ai merged separate field button split"
+            options={ENTRY_PAIRS}
+            value={entryPair}
+            onChange={(v: EntryPair) => setEntryPair(v)}
+            format={(v) => ENTRY_PAIR_LABELS[v]}
+          />
+          <Note>
+            {entryPair === "merged"
+              ? "One pill: the orb opens the assistant, the rest is search. The direction the review asked for — one field you can talk to."
+              : "A plain search field with an Ask AI button beside it. The honest version of what the two currently are: the pill merges their shape while their behaviours stay apart, and you cannot judge that merge against nothing."}
+          </Note>
+
+          <Segmented
             label="Search + Ask AI placement"
             options={ENTRY_LAYOUTS}
             value={entryLayout}
@@ -4790,6 +4917,35 @@ export function TuningPanel() {
           </Note>
 
           <Segmented
+            label="Sidebar widths"
+            keywords="width narrow 240 300 272 360 column panel size"
+            options={NAV_WIDTH_SETS}
+            value={navWidthSet}
+            onChange={(v: NavWidthSet) => setNavWidthSet(v)}
+            format={(v) => NAV_WIDTH_SET_LABELS[v]}
+          />
+          <Note>
+            {navWidthSet === "default"
+              ? "The L1 column and the L2 panel as left-nav.pen drew them, and the proportion every spacing decision in this nav was made inside."
+              : "32px off the column and 60px off the panel, back to the canvas. 240 is where most product navs land, and 300 still holds a two-line L2 row. The pair moves together: the panel docks on the column's edge, so narrowing one alone changes the proportion rather than the size."}
+          </Note>
+
+          <Toggle
+            label="Widen for edit mode"
+            keywords="edit width narrow 240 272 grip kebab reorder"
+            checked={editWidthFull}
+            onChange={setEditWidthFull}
+            disabled={navWidthSet === "default"}
+          />
+          <Note>
+            {navWidthSet === "default"
+              ? "Nothing to borrow — the nav is already at 272 / 360. This is the narrow set's option."
+              : editWidthFull
+                ? "Edit mode takes 272 / 360 and gives it back on exit. Editing is the one state that ADDS to a row — grip, kebab, pin, shortcut cap — and all four come out of the label, so at 240 names truncate exactly when the task is reading them to reorder. The width already animates for collapse, so this is the motion the nav has rather than a new one."
+                : "The narrow nav is edited at its own width, which is the honest test of whether 240 is enough."}
+          </Note>
+
+          <Segmented
             label="Selected row fill"
             keywords="active selected dark grey gray blue accent background colour color"
             options={NAV_SELECTED_FILLS}
@@ -4799,20 +4955,26 @@ export function TuningPanel() {
           />
           <Note>
             {navSelectedFill === "default"
-              ? "Selected is the brightest row in the column — white on the plane, gray-200 off it — with whatever edge and lift the two switches above are set to. Everything below inverts that: the row you are on becomes the darkest thing in the nav, and the contrast stops needing help."
-              : navSelectedFill === "gray-400"
-                ? "The last step that keeps dark ink — white on gray-400 is 2.2:1 and fails outright, so the labels stay gray-900. The quietest way to make the row darker than its neighbours rather than lighter."
-                : navSelectedFill === "gray-500"
-                  ? "The first step that is properly a dark surface: white ink, still unmistakably grey, carrying no hue of its own."
-                  : navSelectedFill === "dark"
-                    ? "A near-black plate, gray-800 — the treatment macOS and VS Code use for the same job. Loud, and impossible to misread at a glance."
-                    : navSelectedFill === "blue-gray"
-                      ? "The dark plate with enough hue to belong to a blue product. Gray-blue 700: the middle of the two arguments."
-                      : "The accent itself, which makes “where I am” the same colour as every primary button on the page — either the clearest signal in the nav or one brand surface too many. It follows the account's colour rather than a literal blue."}
+              ? "Selected is the brightest row in the column — white on the plane, gray-200 off it — with whatever edge and lift the two switches above are set to. Everything below inverts that: the row you are on becomes darker than its neighbours rather than lighter."
+              : navSelectedFill === "gray-200"
+                ? "The row pressed one step into the ground instead of lifted off it. On the plane that is the opposite move from the default's white card; off it, the same colour the default already resolves to — pinned, so both arrangements mark a row alike rather than by coincidence."
+                : navSelectedFill === "gray-300"
+                  ? "One step further down. Still light enough to keep the nav's own ink, and the first fill that is unmistakably a mark rather than a slightly warmer row."
+                  : navSelectedFill === "gray-400"
+                    ? "The last step that keeps dark ink — white on gray-400 is 2.2:1 and fails outright, so the labels stay gray-900."
+                    : navSelectedFill === "gray-500"
+                      ? "The first step that is properly a dark surface: white ink, still unmistakably grey, carrying no hue of its own."
+                      : navSelectedFill === "dark"
+                        ? "A near-black plate, gray-800 — the treatment macOS and VS Code use for the same job. Loud, and impossible to misread at a glance."
+                        : navSelectedFill === "blue-gray"
+                          ? "The dark plate with enough hue to belong to a blue product. Gray-blue 700: the middle of the two arguments."
+                          : "The accent itself, which makes “where I am” the same colour as every primary button on the page — either the clearest signal in the nav or one brand surface too many. It follows the account's colour rather than a literal blue."}
           </Note>
           <Note>
-            All five dark fills drop the hairline — a gray-200 ring is a light
-            line on a dark ground — and keep the lift. They apply on light navs
+            Every fill drops the hairline — a gray-200 ring is there to separate
+            white from near-white, and none of these leaves a white row to
+            separate. The dark five carry their own ink and keep the lift; the
+            two light steps keep the nav&apos;s. All of them apply on light navs
             only: on a dark nav the selected row is already a lighter step of
             its own ground.
           </Note>

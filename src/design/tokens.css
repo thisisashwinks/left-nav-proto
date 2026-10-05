@@ -1299,6 +1299,26 @@
   --shell-canvas-radius: 12px;
   --shell-canvas-gap: 4px;
   /*
+   * The app bar's own height, as a token.
+   *
+   * It is a literal in `app-header.tsx` (h-[48px]) and that is still where
+   * the bar's own geometry is decided. This exists for the one thing that
+   * has to measure the bar without containing it: the docked Ask AI panel,
+   * which is positioned against the plane and has to start where the canvas
+   * below the bar starts. See AI_DOCK_TOPS.
+   */
+  --shell-bar-h: 48px;
+  /*
+   * The two nav columns, as properties the CSS can read.
+   *
+   * The shell writes both onto the plane from the width axis, so these are the
+   * fallback rather than the value in force — they exist so a panel rendered
+   * outside the plane still has a width rather than collapsing to its
+   * content. See NAV_WIDTH_SETS.
+   */
+  --nav-w: 272px;
+  --fly-w: 360px;
+  /*
    * The page's own horizontal inset, inside the canvas.
    *
    * Two surfaces have to agree on it: the page pads by it, and the app bar
@@ -1306,6 +1326,22 @@
    * left and right edges as the content below. Change it here and both move.
    */
   --page-inset: 8px;
+  /*
+   * The app bar's left lead — what stands between the column's content edge
+   * and the first crumb.
+   *
+   * 7px, and deliberately 5px short of the 12px the canvas below is inset by:
+   * every crumb carries a 5px optical inset of its own (its hover chip's
+   * padding), so 7 + 5 lands the first LETTER on the canvas's left edge, which
+   * is the alignment the bar and the page have always been drawn to. The
+   * chip's ground reaches past it, as a chip's should.
+   *
+   * A token because one arrangement has to move it: the flush seam takes the
+   * canvas's own left margin away, so the lead has to give up the same 12px or
+   * the trail is left hanging over a canvas that has moved out from under it.
+   * See globals.css, [data-plane-seam="flush"].
+   */
+  --hdr-lead: 7px;
   /* shadow/lg from the HighRise spec. */
   --shell-canvas-shadow:
     0 12px 16px -4px rgba(16, 24, 40, 0.08), 0 4px 6px -2px rgba(16, 24, 40, 0.03);
@@ -1776,6 +1812,21 @@
   --nav-sel-fg: var(--nav-fg);
   --nav-sel-fg-muted: var(--nav-fg-muted);
   --nav-sel-fg-subtle: var(--nav-fg-subtle);
+  /*
+   * The leading rule, and it is BLUE rather than brand (Ashwin, Oct 5).
+   *
+   * `bg-brand` was the obvious token and it is the wrong one here. The rule
+   * is not a brand surface, it is a state marker — "this is the page" — and
+   * routing it through --brand meant the one mark in the nav that is
+   * supposed to be constant changed colour with the accent, and went grey
+   * outright wherever the accent follows an account with no colour set. A
+   * marker you cannot describe without asking which account is open is not
+   * a marker.
+   *
+   * HighLevel primary/600, the platform blue, declared once here so the
+   * three dark fills can take it off below and nothing else has to know.
+   */
+  --nav-sel-bar: var(--hr-primary-600);
 }
 
 /*
@@ -1797,6 +1848,40 @@
  * mix, and the hierarchy inside the row survives on five grounds without five
  * hand-picked greys that each drift from the one above them.
  */
+/*
+ * The two LIGHT steps, which are a different proposal from the five below.
+ *
+ * Those five ask "should the mark be a dark object?" and answer it with ink,
+ * rings and lift. These ask the quieter question: on the plane the selected
+ * row is white — a card lifted off a grey ground — and the alternative is
+ * the opposite move, a row pressed INTO the ground a step or two darker.
+ * Both read as "here"; one says it by coming forward and one by receding.
+ *
+ * Off the plane gray-200 is what the default already resolves to, and that
+ * is worth having as a named value anyway: it pins the colour instead of
+ * following --nav-active, so the two arrangements mark a row the same way
+ * rather than agreeing by coincidence.
+ *
+ * No ink of their own. Both are light enough that the nav's own text colour
+ * clears 4.5:1 on them, and overriding it would mean maintaining a second
+ * copy of the defaults that could only ever drift from the first.
+ *
+ * The ring goes, like every other variant: a gray-200 hairline exists to
+ * separate white from near-white, and there is no white row left to
+ * separate.
+ */
+[data-nav-sel="gray-200"] [data-nav-theme="light"],
+[data-nav-theme="light"][data-nav-sel="gray-200"] {
+  --nav-selected: var(--hr-gray-200);
+  --nav-selected-ring: transparent;
+}
+
+[data-nav-sel="gray-300"] [data-nav-theme="light"],
+[data-nav-theme="light"][data-nav-sel="gray-300"] {
+  --nav-selected: var(--hr-gray-300);
+  --nav-selected-ring: transparent;
+}
+
 [data-nav-sel="gray-400"] [data-nav-theme="light"],
 [data-nav-theme="light"][data-nav-sel="gray-400"] {
   --nav-selected: var(--hr-gray-400);
@@ -1823,6 +1908,8 @@
 
 [data-nav-sel="dark"] [data-nav-theme="light"],
 [data-nav-theme="light"][data-nav-sel="dark"] {
+  /* White on a dark ground: blue on near-black is a rule nobody can see. */
+  --nav-sel-bar: #ffffff;
   /* gray-800, not gray-900: 900 is the ink the labels are printed in, and a
      row filled with its own text colour reads as a hole rather than a mark. */
   --nav-selected: var(--hr-gray-800);
@@ -1834,6 +1921,8 @@
 
 [data-nav-sel="blue-gray"] [data-nav-theme="light"],
 [data-nav-theme="light"][data-nav-sel="blue-gray"] {
+  /* White on a dark ground: blue on near-black is a rule nobody can see. */
+  --nav-sel-bar: #ffffff;
   /* HighRise gray-blue 700. Dark enough to behave like the dark variant, with
      enough hue to belong to a blue product — the middle of the two. */
   --nav-selected: #363f72;
@@ -1845,6 +1934,8 @@
 
 [data-nav-sel="blue"] [data-nav-theme="light"],
 [data-nav-theme="light"][data-nav-sel="blue"] {
+  /* White on a dark ground: blue on near-black is a rule nobody can see. */
+  --nav-sel-bar: #ffffff;
   /*
     The accent itself, not a literal blue. Every other brand surface in this
     nav follows the account's colour, and a selected row hard-coded to

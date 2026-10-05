@@ -199,6 +199,14 @@ export function TopBanner({ banners }: TopBannerProps) {
   return (
     <div
       role="status"
+      /*
+        The hook the content below reads. Adjacent-sibling CSS rather than a
+        flag from the shell, because whether a banner is SHOWING is this
+        component's own state — dismiss the last one and it returns null, and
+        a boolean computed upstream would still be claiming a strip that is
+        no longer there. See BANNER_EDGES.
+      */
+      data-banner-edge={edge}
       className={cn(
         "flex shrink-0 items-center gap-[8px] overflow-hidden pr-[8px] pl-[10px]",
         /*

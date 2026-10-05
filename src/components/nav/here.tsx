@@ -140,6 +140,7 @@ export function useHereStyle(marking: Marking): {
 
   switch (selectedMark) {
     case "fill":
+    case "fillBar":
       /*
        * The press neutral, through the token that names the intent.
        *
@@ -160,7 +161,9 @@ export function useHereStyle(marking: Marking): {
        * end of it you are on.
        */
       return {
-        bar: false,
+        // The only difference between the two cases: `fillBar` keeps the
+        // leading rule as well. See SELECTED_MARKS.
+        bar: selectedMark === "fillBar",
         /*
           The ring and the lift ride with the fill, and both are invisible
           unless the nav is on the plane — see --nav-selected-ring and
@@ -232,13 +235,30 @@ export function HereBar({ marking }: { marking: Marking }) {
       aria-hidden="true"
       className={cn(
         "pointer-events-none absolute top-1/2 left-0 w-[3px] -translate-y-1/2 rounded-r-[2px] motion-move",
-        // The page is a full-height bar in the accent; a step on the way to it
-        // is the same bar, shorter and quieter. Same mark, less of it — so the
-        // trail reads as a lead-in to the destination rather than as a second
-        // kind of thing.
-        marking === "here"
-          ? "h-[18px] bg-brand opacity-100"
-          : "h-[10px] bg-nav-fg-subtle opacity-70",
+        /*
+          One colour for both, from --nav-sel-bar: the platform blue, white
+          on the three dark fills. The trail used to be grey, which made it
+          a different KIND of mark from the one it leads to rather than less
+          of the same one.
+
+          At full strength, both. Fading the trail to 55% was the first cut
+          and it put the thing back where it started: #155eef at 55% on a
+          white row is a pale blue, so the lead-in looked like a washed-out
+          colour rather than a shorter mark, which is exactly the "that is
+          not the accent" the grey version drew. Height is the only
+          difference now — 24px for the page, 14px for a step on the way to
+          it — and one length against another is a comparison the eye makes
+          without having to name the colour.
+
+          Taller too, Oct 5. 18px on a 38px row left the rule looking like a
+          tick beside the icon rather than a marker down the row's edge, and
+          it was sized for standing alone on white rather than competing
+          with a painted fill. 24 is most of the icon's own column without
+          reaching the row's corners, where a rule that met them would read
+          as a border.
+        */
+        "bg-[var(--nav-sel-bar)]",
+        marking === "here" ? "h-[24px]" : "h-[14px]",
       )}
     />
   );

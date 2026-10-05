@@ -514,6 +514,23 @@
  */
 [data-nav-plane][data-plane-seam="flush"] [data-page-column]:not([data-shell-joined]) {
   padding-left: var(--shell-canvas-gap);
+  /*
+   * And the app bar's lead goes with it.
+   *
+   * The column's padding moves the bar and the canvas together, so it cannot
+   * be what misaligns them — what does is the line below, which takes the
+   * canvas's own 12px left margin away and leaves the bar's 12px of lead
+   * standing. The trail then hangs 12px inside a canvas that has moved out
+   * from under it, which is the gap Ashwin caught on Oct 5.
+   *
+   * -5px rather than 0: the lead is measured to the crumb's first LETTER, and
+   * every crumb carries 5px of optical inset for its hover chip. Pulling the
+   * row back by exactly that inset puts the glyphs on the canvas's edge —
+   * the same relationship the bar has with the canvas in the gap seam, where
+   * both sit at 12px. The right-hand side is untouched: the canvas keeps its
+   * right margin there, so the utilities were never off.
+   */
+  --hdr-lead: -2px;
 }
 
 /*
@@ -525,6 +542,40 @@
   [data-page-column]:not([data-shell-joined])
   [data-canvas-surface] {
   margin-left: 0;
+}
+
+/*
+ * A full-width banner butts against the content below it.
+ *
+ * Everything in the plane insets itself from the plane's top by the canvas
+ * gap — the nav card's margin, the page column's, the alignment rule above.
+ * That inset is the canvas floating off the WINDOW's edge, and it is right
+ * until a flush banner takes that edge: then the 4px is a strip of plane
+ * between two surfaces that are supposed to meet, and every vertical
+ * hairline in the shell stops short of the banner. Ashwin, Oct 5.
+ *
+ * Adjacent-sibling, so it tracks whether a banner is actually SHOWING:
+ * `TopBanner` returns null once its last strip is dismissed, and a flag
+ * computed in the shell would still be claiming a banner that had gone.
+ * `--shell-top-shift` carries the same correction to the two panels, whose
+ * top is an inline number that CSS cannot reach.
+ *
+ * The inset card variant is untouched: it already holds itself off the
+ * window on every side, so the surfaces below it are doing the same thing
+ * it is.
+ */
+[data-banner-edge="flush"] + [data-shell-plane] {
+  --shell-top-shift: calc(-1 * var(--shell-canvas-gap));
+}
+
+[data-banner-edge="flush"] + [data-shell-plane] [data-nav-column],
+[data-banner-edge="flush"] + [data-shell-plane] [data-page-column] {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+[data-banner-edge="flush"] + [data-shell-plane] [data-account-rail] {
+  top: 0;
 }
 
 /*

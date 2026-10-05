@@ -4,8 +4,12 @@ import * as React from "react";
 import {
   ArrowUp,
   Bookmark,
+  BookOpen,
   EyeOff,
   History,
+  LayoutGrid,
+  PanelLeft,
+  Search,
   Maximize2,
   Mic,
   Minimize2,
@@ -16,6 +20,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { headerConfig } from "@/components/header/header-config";
 import { Checkbox } from "@/components/page/form-controls";
 import { Modal } from "@/components/page/modal";
@@ -50,6 +55,33 @@ import { VoiceWave } from "./voice-wave";
 /** Width from the design review: wide enough for a drafted message to breathe. */
 const WINDOW_WIDTH = 460;
 
+/**
+ * The conversation sidebar's width, expanded.
+ *
+ * 248 rather than the nav's 272: this list holds one kind of thing with no
+ * second level under it, so the extra 24px would be spent on truncation
+ * nobody asked for. Narrow enough that the centre column still reads as the
+ * subject of the screen, which is the whole point of expanding.
+ */
+const AI_SIDEBAR_WIDTH = 248;
+
+/**
+ * Past conversations, as a fixture.
+ *
+ * Titles the assistant would have written from the first message rather than
+ * names anyone typed — long, specific, and several of them truncating, which
+ * is what this list looks like after a fortnight and what the column has to
+ * survive. A tidy set of five short labels would make the sidebar look
+ * finished and tell us nothing about it.
+ */
+const AI_RECENTS = [
+  "Knowledge base creation request",
+  "Create multi-channel AI agent with voice",
+  "Performance AI in universal agent setup",
+  "Enhancing performance with AI suggestions",
+  "Course structure and first lesson outline",
+];
+
 /** The layout hole the shell reserves while the panel is docked — flush. */
 export const AI_DOCKED_WIDTH = WINDOW_WIDTH;
 
@@ -73,6 +105,25 @@ interface AiWindowProps {
   phase: TransitionPhase;
   mode: AiPanelMode;
   onModeChange: (mode: AiPanelMode) => void;
+  /**
+   * The canvas's own top and bottom, for a dock standing beside it.
+   *
+   * Two CSS lengths rather than a boolean, because "level with the canvas"
+   * is not one offset: the centre canvas and the plain page surface sit at
+   * different insets from the plane (0 and 12 against a gap and a gap), and
+   * a panel that guessed one of them would be level on one arrangement and
+   * off by 8px on the other — which is exactly what a boolean version of
+   * this did. The shell knows which surface is drawing; it says so here.
+   *
+   * Full screen uses it too, with a `left` as well: there the panel fills
+   * the canvas and leaves the nav and the app bar standing. See
+   * AI_FULL_CHROMES.
+   *
+   * Absent means the panel keeps the full plane: floating, expanded over
+   * the whole window, the joined card (whose top already IS the canvas's)
+   * and a builder with no bar to clear. See AI_DOCK_TOPS.
+   */
+  dockBox?: { top: string; bottom: string; left?: string };
 }
 
 export function AiWindow({
@@ -81,8 +132,16 @@ export function AiWindow({
   phase,
   mode,
   onModeChange,
+  dockBox,
 }: AiWindowProps) {
   const docked = mode === "docked";
+  /*
+   * The conversation sidebar, which only full screen has. Open by default:
+   * the mode's whole claim is that there is room for it now, and a panel
+   * that expanded into a wider version of the same strip would not have
+   * made that claim at all.
+   */
+  const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const full = mode === "full";
   const { turns, value, listening, state, close, focusNonce } = session;
 
@@ -291,11 +350,24 @@ export function AiWindow({
         data-ai-state={state}
         // Expanded, it spans the shell and takes its margin on both sides;
         // otherwise it keeps its own width and hangs off the right.
-        {...(full ? {} : { style: { width: WINDOW_WIDTH } })}
+        style={{
+          ...(full ? {} : { width: WINDOW_WIDTH }),
+          /*
+            Docked beside the canvas: its top and bottom, not the plane's.
+
+            Inline, not classes: the top is a sum that reaches past the app
+            bar and tracks the margins between the plane's top and the
+            canvas's — one of which a full-width banner zeroes, which is
+            what `--shell-top-shift` carries. The class below sets both
+            insets; these override them.
+          */
+          ...(dockBox ?? {}),
+        }}
         className={cn(
           "motion-move pointer-events-auto absolute flex origin-right overflow-hidden",
           "inset-y-[var(--shell-canvas-gap)] right-[var(--shell-canvas-gap)]",
-          full && "left-[var(--shell-canvas-gap)]",
+          // The plane's left edge, unless `dockBox` names the canvas's.
+          full && !dockBox?.left && "left-[var(--shell-canvas-gap)]",
           "rounded-[var(--shell-canvas-radius)]",
           "bg-[var(--ai-win-bg)] backdrop-blur-[18px]",
           /*
@@ -309,22 +381,108 @@ export function AiWindow({
           phase === "entering" ? "ai-window-in" : "ai-window-out",
         )}
       >
-        {/* The tool strip on the panel's own left edge: the orb as identity,
-            then the conversation-level actions. */}
-        <div className="flex w-[50px] shrink-0 flex-col items-center gap-[4px] pt-[14px] pb-[12px] shadow-[inset_-1px_0_0_0_var(--ai-border)]">
-          <span className="mb-[8px] flex size-[30px] items-center justify-center">
-            <AiOrb size={26} state={state} glow />
-          </span>
-          <IconButton label="New conversation" onClick={session.reset}>
-            <Plus size={15} aria-hidden="true" />
-          </IconButton>
-          <IconButton label="Saved answers" onClick={() => {}}>
-            <Bookmark size={15} aria-hidden="true" />
-          </IconButton>
-          <IconButton label="History" onClick={() => {}}>
-            <History size={15} aria-hidden="true" />
-          </IconButton>
-        </div>
+        {/*
+          The panel's own left edge: a strip of glyphs, or a sidebar.
+
+          At 460px the strip is right — a labelled column would take a
+          quarter of the panel to say three words, and the conversation is
+          what the panel is for. Expanded, that argument inverts: the screen
+          is no longer scarce, and a mode that hands the assistant the whole
+          window and still makes you remember which glyph is history is a
+          mode that got bigger without getting more capable. So full screen
+          grows the strip into the list it was standing in for. Ashwin,
+          Oct 5.
+
+          Collapsible back to the strip, because "more room for the
+          conversation" is a real thing to want inside the mode that was
+          supposed to provide it.
+        */}
+        {full && sidebarOpen ? (
+          <div
+            style={{ width: AI_SIDEBAR_WIDTH }}
+            className="flex shrink-0 flex-col gap-[2px] px-[10px] pt-[14px] pb-[10px] shadow-[inset_-1px_0_0_0_var(--ai-border)]"
+          >
+            <div className="mb-[10px] flex items-center justify-between pr-[2px] pl-[6px]">
+              <AiOrb size={26} state={state} glow />
+              <IconButton
+                label="Collapse sidebar"
+                onClick={() => setSidebarOpen(false)}
+              >
+                <PanelLeft size={15} aria-hidden="true" />
+              </IconButton>
+            </div>
+            <SidebarRow icon={Plus} label="New chat" onClick={session.reset} />
+            <SidebarRow icon={Search} label="Search" onClick={() => {}} />
+            <SidebarRow icon={BookOpen} label="Templates" onClick={() => {}} />
+            <SidebarRow icon={LayoutGrid} label="Customize" onClick={() => {}} />
+            <SidebarRow icon={Bookmark} label="Saved answers" onClick={() => {}} />
+
+            {/*
+              The heading is the only thing marking the seam.
+
+              A rule above it was the other option and it made the list read
+              as a second panel inside the panel — these are the same kind of
+              object as the rows above, just older.
+            */}
+            <span className="mt-[14px] mb-[2px] px-[8px] text-[11.5px] leading-[16px] font-semibold tracking-[0.02em] text-nav-fg-subtle uppercase">
+              Recents
+            </span>
+            <div className="flex min-h-0 flex-1 flex-col gap-[1px] overflow-y-auto">
+              {AI_RECENTS.map((title) => (
+                <button
+                  key={title}
+                  type="button"
+                  title={title}
+                  onClick={() => {}}
+                  className="motion-tap flex h-[30px] shrink-0 items-center rounded-[7px] px-[8px] text-left text-[13px] leading-none text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
+                >
+                  <span className="min-w-0 truncate">{title}</span>
+                </button>
+              ))}
+            </div>
+
+            {/*
+              The account at the foot, where every sidebar in this product
+              puts it — and where this one has to, or the panel would be the
+              one full-screen surface with no way to say whose it is.
+            */}
+            <button
+              type="button"
+              onClick={() => {}}
+              className="motion-tap mt-[8px] flex h-[36px] shrink-0 items-center gap-[8px] rounded-[8px] px-[6px] text-left hover:bg-nav-hover"
+            >
+              <span className="flex size-[24px] shrink-0 items-center justify-center rounded-full bg-nav-rail-disc text-[10px] leading-none font-semibold text-nav-fg-muted">
+                {headerConfig.avatarInitials}
+              </span>
+              <span className="min-w-0 truncate text-[13px] leading-none text-nav-fg">
+                {headerConfig.userName}
+              </span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex w-[50px] shrink-0 flex-col items-center gap-[4px] pt-[14px] pb-[12px] shadow-[inset_-1px_0_0_0_var(--ai-border)]">
+            <span className="mb-[8px] flex size-[30px] items-center justify-center">
+              <AiOrb size={26} state={state} glow />
+            </span>
+            {full ? (
+              <IconButton
+                label="Expand sidebar"
+                onClick={() => setSidebarOpen(true)}
+              >
+                <PanelLeft size={15} aria-hidden="true" />
+              </IconButton>
+            ) : null}
+            <IconButton label="New conversation" onClick={session.reset}>
+              <Plus size={15} aria-hidden="true" />
+            </IconButton>
+            <IconButton label="Saved answers" onClick={() => {}}>
+              <Bookmark size={15} aria-hidden="true" />
+            </IconButton>
+            <IconButton label="History" onClick={() => {}}>
+              <History size={15} aria-hidden="true" />
+            </IconButton>
+          </div>
+        )}
 
         <div className="relative flex min-w-0 flex-1 flex-col">
           <div className="absolute top-[10px] right-[10px] z-10 flex items-center gap-[2px]">
@@ -601,6 +759,35 @@ function ChooseUsersModal({
         ))}
       </div>
     </Modal>
+  );
+}
+
+/**
+ * A labelled row in the expanded sidebar.
+ *
+ * The nav's own row geometry — 30px, 7px radius, icon then label — rather
+ * than a shape invented for this panel. The assistant is a surface inside
+ * this product, and a list of destinations that sat at a different height
+ * from every other list of destinations would say otherwise.
+ */
+function SidebarRow({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="motion-tap flex h-[32px] shrink-0 items-center gap-[9px] rounded-[7px] px-[8px] text-left text-[13px] leading-none text-nav-fg hover:bg-nav-hover"
+    >
+      <Icon size={15} aria-hidden="true" className="shrink-0 text-nav-fg-muted" />
+      <span className="min-w-0 truncate">{label}</span>
+    </button>
   );
 }
 

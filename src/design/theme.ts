@@ -1043,15 +1043,102 @@ export const NAV_ROW_SHADOW_DEFAULT = true;
  *             the page — which is either the clearest signal in the nav or
  *             one brand surface too many.
  *
+ * Gray 200 and Gray 300 (Oct 5) are the other half of the question. The five
+ * above ask whether the mark should be a dark OBJECT; these ask whether it
+ * should be a recess — on the plane the selected row is white, lifted off a
+ * grey ground, and a light grey fill is the same row pressed into it instead.
+ * Both read as "here"; one comes forward and one recedes.
+ *
  * Light navs only, by construction. On a dark nav the selected row is already
  * a lighter step of its ground and a dark fill would vanish into it.
  *
- * All six carry their own ink, and the dark five drop the hairline: see the
- * [data-nav-sel] blocks in tokens.css, where the reasoning per colour lives
- * next to the values.
+ * The dark five carry their own ink; the two light steps keep the nav's. All
+ * of them drop the hairline: see the [data-nav-sel] blocks in tokens.css,
+ * where the reasoning per colour lives next to the values.
  */
+/**
+ * How wide the two nav columns are.
+ *
+ * The pair moves together on purpose. The L1 and the L2 are read as one
+ * object — the panel docks on the column's edge and the two share a seam —
+ * so narrowing one alone changes the proportion between them rather than the
+ * size of the thing, and the proportion is not what is being asked about.
+ *
+ *  default  272 / 360. What left-nav.pen drew and what every spacing decision
+ *           in this prototype was made inside.
+ *  narrow   240 / 300. 32px and 60px back to the canvas, which is the whole
+ *           argument: at 1440 the chrome is giving up a tenth of the window
+ *           before the page has drawn anything. 240 is the width most product
+ *           navs land on, and 300 still holds a two-line L2 row.
+ *
+ * Both numbers are published as CSS custom properties as well as JS, because
+ * the two columns are measured in both places: the shell positions the panel
+ * against the column arithmetically, and the panel sets its own width in CSS.
+ * One source, two readers — see --nav-w and --fly-w.
+ */
+export const NAV_WIDTH_SETS = ["default", "narrow"] as const;
+
+export type NavWidthSet = (typeof NAV_WIDTH_SETS)[number];
+
+export const NAV_WIDTH_SET_LABELS: Record<NavWidthSet, string> = {
+  default: "272 / 360",
+  narrow: "240 / 300",
+};
+
+/**
+ * Whether edit mode borrows the wider pair.
+ *
+ * Only the narrow set has anything to gain. Edit mode is the one state that
+ * ADDS to a row rather than rearranging it — a six-dot grip on the left, a
+ * kebab on the right, a pin and a shortcut cap between them — and those four
+ * come out of the label's width, not out of the margins. At 272 the row
+ * absorbs them; at 240 the names start truncating at the exact moment the
+ * task is reading names to reorder them.
+ *
+ * So the column widens for the duration and goes back. The alternative is
+ * either a narrow nav that is bad to edit or a wide nav that is wide all day
+ * for the sake of a mode most people enter twice, and the width is already
+ * animated — collapse does the same thing in the other direction, so the
+ * motion is the one the nav already has rather than a new one invented for
+ * this.
+ *
+ * Both columns move together, as everywhere else: the L2 is where the
+ * reordering happens, so widening the L1 alone would leave the crowded half
+ * crowded.
+ *
+ * On by default. The option exists to see the narrow nav edited at its own
+ * width — which is the honest test of whether 240 is wide enough — not
+ * because widening is in doubt.
+ */
+export const EDIT_WIDTH_FULL_DEFAULT = true;
+
+/** L1 column and L2 panel, in px. See NAV_WIDTH_SETS. */
+export const NAV_WIDTHS: Record<NavWidthSet, { l1: number; l2: number }> = {
+  default: { l1: 272, l2: 360 },
+  narrow: { l1: 240, l2: 300 },
+};
+
+/**
+ * The pair in force right now, which is not always the one the axis names.
+ *
+ * Two surfaces resolve this independently — the shell, which positions the
+ * panel against the column, and the portalled L1 drawer, which inherits
+ * nothing and has to publish the properties itself — so the rule lives here
+ * rather than being written out twice and drifting the first time one of them
+ * is edited.
+ */
+export function navWidthsFor(
+  set: NavWidthSet,
+  editing: boolean,
+  editWidthFull: boolean,
+): { l1: number; l2: number } {
+  return NAV_WIDTHS[editing && editWidthFull ? "default" : set];
+}
+
 export const NAV_SELECTED_FILLS = [
   "default",
+  "gray-200",
+  "gray-300",
   "gray-400",
   "gray-500",
   "dark",
@@ -1063,6 +1150,8 @@ export type NavSelectedFill = (typeof NAV_SELECTED_FILLS)[number];
 
 export const NAV_SELECTED_FILL_LABELS: Record<NavSelectedFill, string> = {
   default: "Default",
+  "gray-200": "Gray 200",
+  "gray-300": "Gray 300",
   "gray-400": "Gray 400",
   "gray-500": "Gray 500",
   dark: "Dark",
@@ -1898,6 +1987,90 @@ export const AGENCY_EDIT_NAV_DEFAULT = false;
  *            replacement nobody can judge — though the motion came off every
  *            mark, so this is the pinwheel standing still.
  */
+/**
+ * Where the accounts directory opens.
+ *
+ *  rail     The Aug 13 arrangement: the 56px rail WIDENS into a 340px panel —
+ *           one surface growing rather than two meeting at an edge. It ends up
+ *           standing over the nav beside it, which is the complaint: the panel
+ *           is 340 and the sidebar is 328, so it overhangs by 12px and casts
+ *           onto the canvas, and nothing on screen says whether the nav is
+ *           still there underneath.
+ *  sidebar  The panel takes the sidebar's own footprint exactly — rail plus
+ *           nav, full height — and the canvas is untouched beside it. The
+ *           sidebar has BECOME the directory rather than been covered by it,
+ *           which is the reading Ashwin asked for on Oct 5.
+ *
+ * A collapsed sidebar widens to the expanded width while this is up and
+ * shrinks back on close: the alternative is a 120px directory, and account
+ * names with addresses under them do not survive 120px. The sidebar moving is
+ * the lesser cost.
+ *
+ * `sidebar` is the default as of Oct 5. `rail` shipped first only because it
+ * was the arrangement that already existed — and the 12px overhang it leaves
+ * is not a tuning problem but the shape of the idea: a panel that grows out of
+ * one column and lands across two has no edge it can honestly stop at.
+ */
+/**
+ * Whether the account rail survives the nav collapsing.
+ *
+ *  keep  Both columns stay. Collapsing the nav narrows one of two strips and
+ *        leaves 120px of chrome down the left — which is the state Ashwin
+ *        called out on Oct 5: you collapse to look at the work, and the work
+ *        got 208px back out of a possible 328.
+ *  hide  The rail goes with it, and the collapsed nav grows an All accounts
+ *        door in its place. One strip, 64px, and switching account is still
+ *        one click — it just costs a panel instead of a column.
+ *
+ * `hide` is the default, as of Oct 5. It shipped as `keep` on the argument
+ * that the rail is the thing being evaluated here and one that disappears
+ * under a common state is one nobody sees — which was a worry about the
+ * PROTOTYPE rather than about the product, and the wrong thing to settle a
+ * default on. Collapsing is a request for room; answering it by returning
+ * 208px of a possible 328 is answering most of a question. The rail is still
+ * one click away, and `keep` is one click away in here.
+ */
+export const COLLAPSED_RAILS = ["keep", "hide"] as const;
+
+export type CollapsedRail = (typeof COLLAPSED_RAILS)[number];
+
+export const COLLAPSED_RAIL_LABELS: Record<CollapsedRail, string> = {
+  keep: "Stays",
+  hide: "Hides, with a door in the nav",
+};
+
+export const DIRECTORY_PLACEMENTS = ["rail", "sidebar"] as const;
+
+export type DirectoryPlacement = (typeof DIRECTORY_PLACEMENTS)[number];
+
+export const DIRECTORY_PLACEMENT_LABELS: Record<DirectoryPlacement, string> = {
+  rail: "Over the nav",
+  sidebar: "Fills the sidebar",
+};
+
+/**
+ * Whether the directory's checkboxes are standing or summoned.
+ *
+ *  always  Every row wears a checkbox the whole time the bulk switch is on.
+ *  button  A "Select" in the header, iOS-style; the boxes arrive when it is
+ *          pressed and leave on Cancel. In select mode a row TICKS rather
+ *          than switching account — two meanings on one row is the thing the
+ *          mode exists to avoid.
+ *
+ * `button` is the default. The panel's first job is switching account, and a
+ * column of checkboxes down the left of it announces a second job before
+ * anyone has asked for one — which is the hesitation the bulk switch's own
+ * note already worries about. Ashwin, Oct 5.
+ */
+export const DIRECTORY_SELECTS = ["button", "always"] as const;
+
+export type DirectorySelect = (typeof DIRECTORY_SELECTS)[number];
+
+export const DIRECTORY_SELECT_LABELS: Record<DirectorySelect, string> = {
+  button: "Behind \u201cSelect\u201d",
+  always: "Always visible",
+};
+
 export const AI_MARKS = ["disc", "discSoft", "glyph", "pinwheel"] as const;
 
 export type AiMarkStyle = (typeof AI_MARKS)[number];
@@ -1916,6 +2089,89 @@ export type AiButtonStyle = (typeof AI_BUTTON_STYLES)[number];
 export const AI_BUTTON_STYLE_LABELS: Record<AiButtonStyle, string> = {
   gradient: "Purple fill",
   outline: "Outline",
+};
+
+/**
+ * Where the docked Ask AI panel's top edge sits.
+ *
+ *  canvas  Level with the canvas, below the app bar, taking the same top,
+ *          bottom and right margins. The default: docked means the page has
+ *          made room for the panel in the LAYOUT, and a column that starts
+ *          at the canvas and a column that starts above the breadcrumb are
+ *          not two columns side by side — the taller one reads as an
+ *          overlay that happens to have pushed the page aside.
+ *  shell   Full plane height, from under the banner to the window's foot,
+ *          so the panel clears the app bar too. What this shipped with, and
+ *          the right answer if you read the assistant as a second workspace
+ *          rather than as something standing beside this one.
+ *
+ * Floating and expanded are unaffected: neither is claiming a column, so
+ * neither has a neighbour to line up with. The slide-in keeps the full plane
+ * height it always had — an overlay has no reason to clear the bar.
+ *
+ * Under `canvas` the app bar keeps the window's full width and the panel
+ * sits beneath it, because the width now comes out of the CANVAS rather
+ * than out of the plane row. The bar narrowing was an artefact of the layout
+ * hole sitting beside the whole page column; with the panel below the bar
+ * there is nothing up there for it to make room for.
+ */
+export const AI_DOCK_TOPS = ["canvas", "shell"] as const;
+export type AiDockTop = (typeof AI_DOCK_TOPS)[number];
+export const AI_DOCK_TOP_LABELS: Record<AiDockTop, string> = {
+  canvas: "Level with the canvas",
+  shell: "Full plane height",
+};
+
+/**
+ * What full screen does with the app's own chrome.
+ *
+ *  show  The panel fills the CANVAS only — below the app bar, right of the
+ *        nav — and the trail names it "Ask AI". The default. Full screen is
+ *        then the assistant as a place in the product rather than a takeover
+ *        of it: the way back is the nav you were already using, and the bar
+ *        says where you are, which is what the bar is for.
+ *  hide  The panel takes the whole plane, nav and bar included. What this
+ *        shipped with, and the stronger reading of the mode — but the only
+ *        exits are the panel's own two glyphs, top right, which is a thin
+ *        thread for a surface that has taken the entire window.
+ *
+ * The honest objection to `show` is that it makes expanded a wider dock.
+ * That is true of the GEOMETRY and not of the thing: docked reserves a
+ * column beside the page, where this replaces the page — one conversation
+ * you came to have, with the product still around it. Ashwin, Oct 5.
+ */
+export const AI_FULL_CHROMES = ["show", "hide"] as const;
+export type AiFullChrome = (typeof AI_FULL_CHROMES)[number];
+export const AI_FULL_CHROME_LABELS: Record<AiFullChrome, string> = {
+  show: "Nav and bar stay",
+  hide: "Takes the window",
+};
+
+/**
+ * Whether search and Ask AI are one control or two.
+ *
+ *  merged    One pill: the orb at its left end, the placeholder, the
+ *            magnifier and ⌘K. The orb alone opens the assistant and the
+ *            rest is search — "one field you can talk to", which is the
+ *            direction the review asked for and what this ships.
+ *  separate  A plain search field and an Ask AI button beside it. The
+ *            honest version of what the two things currently are: the pill
+ *            merges their SHAPE while their behaviours stay apart, and a
+ *            control whose left 28px does something categorically
+ *            different from the other 200 is a control people have to be
+ *            told about. Worth standing next to the merged pill precisely
+ *            because the merge is the interesting claim — you cannot judge
+ *            it against nothing.
+ *
+ * Only where the entry carries search at all. Without it the pill is already
+ * just the Ask AI button, which is this axis's second value with the field
+ * removed.
+ */
+export const ENTRY_PAIRS = ["merged", "separate"] as const;
+export type EntryPair = (typeof ENTRY_PAIRS)[number];
+export const ENTRY_PAIR_LABELS: Record<EntryPair, string> = {
+  merged: "One pill",
+  separate: "Field and button",
 };
 
 /**
@@ -2330,6 +2586,15 @@ export const SELECTED_STATE_LABELS: Record<SelectedState, string> = {
  *           difference is one shade.
  *  tint     The accent, softly. The loudest and the easiest to find; also the
  *           one that spends brand on a state that is true all day.
+ *  fillBar  Both: the fill, with the accent rule on the leading edge. The two
+ *           were written as alternatives because each is a complete answer,
+ *           and the pairing is the arrangement most product navs actually
+ *           ship — the fill says WHICH row and the bar says it is the page
+ *           rather than a rollover, which is exactly the collision `fill`
+ *           has on its own. It is also the only mark that still works when
+ *           the fill is a light grey: a gray-200 row beside a gray-100
+ *           hover is one shade apart, and the bar is what makes that
+ *           difference legible. Ashwin, Oct 5.
  * `outline` — a hairline ring — is gone (Sep 10). A 1px line on a 272px row
  * was the quietest thing on a surface that also draws dividers, panel borders
  * and an edit ring, and in a review nobody could find it without being told
@@ -2339,13 +2604,14 @@ export const SELECTED_STATE_LABELS: Record<SelectedState, string> = {
  * rather than a second treatment — so the eye reads it as less of the same
  * thing rather than as another kind of thing.
  */
-export const SELECTED_MARKS = ["fill", "bar", "tint"] as const;
+export const SELECTED_MARKS = ["fill", "bar", "fillBar", "tint"] as const;
 
 export type SelectedMark = (typeof SELECTED_MARKS)[number];
 
 export const SELECTED_MARK_LABELS: Record<SelectedMark, string> = {
   fill: "Darker fill",
   bar: "Edge bar",
+  fillBar: "Fill and bar",
   tint: "Accent tint",
 };
 
@@ -2995,6 +3261,12 @@ export interface ThemeState {
   dockLabel: DockLabel;
   dockPosition: DockPosition;
   entryLayout: EntryLayout;
+  /** Whether search and Ask AI are one control or two. See ENTRY_PAIRS. */
+  entryPair: EntryPair;
+  /** Where the docked Ask AI panel's top edge sits. See AI_DOCK_TOPS. */
+  aiDockTop: AiDockTop;
+  /** What full screen does with the app's own chrome. See AI_FULL_CHROMES. */
+  aiFullChrome: AiFullChrome;
   /**
    * Whether the attach-template modal keeps its "In use" column.
    *
@@ -3031,6 +3303,10 @@ export interface ThemeState {
   navRowShadow: boolean;
   /** What colour the selected row is filled with. See NAV_SELECTED_FILLS. */
   navSelectedFill: NavSelectedFill;
+  /** How wide the L1 column and L2 panel are. See NAV_WIDTH_SETS. */
+  navWidthSet: NavWidthSet;
+  /** Whether edit mode borrows the wider pair. See EDIT_WIDTH_FULL_DEFAULT. */
+  editWidthFull: boolean;
   /** The grey the plane is painted in. See PLANE_GROUNDS. */
   planeGround: PlaneGround;
   /** Arranging, renaming and re-iconing pins in edit mode. See PINNED_ROW_EDIT_DEFAULT. */
@@ -3126,6 +3402,12 @@ export interface ThemeState {
   aiButtonStyle: AiButtonStyle;
   /** Which mark every AI surface wears. See AI_MARKS. */
   aiMark: AiMarkStyle;
+  /** Where the accounts directory opens. See DIRECTORY_PLACEMENTS. */
+  directoryPlacement: DirectoryPlacement;
+  /** Whether the account rail survives a collapsed nav. See COLLAPSED_RAILS. */
+  collapsedRail: CollapsedRail;
+  /** Whether its checkboxes are standing or summoned. See DIRECTORY_SELECTS. */
+  directorySelect: DirectorySelect;
   /** How the old nav's own controls are reached. See LEGACY_FOOT_CONTROLS. */
   legacyFootControl: LegacyFootControl;
   /** The standing Switch nav button at the new nav's foot. */
@@ -3805,6 +4087,9 @@ export const DEFAULT_THEME: ThemeState = {
    * Both nav placements stay one click away for the comparison.
    */
   entryLayout: "header",
+  entryPair: "merged",
+  aiDockTop: "canvas",
+  aiFullChrome: "show",
   attachTemplateInUse: true,
   entryRadius: "pill",
   headerEntrySide: "right",
@@ -3831,6 +4116,9 @@ export const DEFAULT_THEME: ThemeState = {
    * the one every other decision on this nav was made against.
    */
   navSelectedFill: "default",
+  // 272 / 360, which every spacing decision in this prototype was made inside.
+  navWidthSet: "default",
+  editWidthFull: EDIT_WIDTH_FULL_DEFAULT,
   /*
    * The declared token, until one of the fourteen wins the argument. A
    * prototype that opens on a hand-picked grey is a prototype that has already
@@ -3992,6 +4280,9 @@ export const DEFAULT_THEME: ThemeState = {
   // The fill, which is what ships. Outline is one click away.
   aiButtonStyle: "gradient",
   aiMark: "disc",
+  directoryPlacement: "sidebar",
+  collapsedRail: "hide",
+  directorySelect: "button",
   // Nothing (Sep 10): production's sidebar has no such control, and putting one
   // there makes the control group a slightly different product.
   legacyFootControl: "off",

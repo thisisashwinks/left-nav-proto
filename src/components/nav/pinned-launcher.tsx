@@ -918,12 +918,19 @@ export function PinnedLauncher({
         data-cursor="menu"
         onPointerEnter={onPointerEnter}
         onPointerLeave={onPointerLeave}
-        style={{ left: offsetLeft, top: offsetTop }}
+        style={{
+          left: offsetLeft,
+          // The shift is 0 except under a full-width banner, which
+          // butts against the content below it — see --shell-top-shift
+          // in globals.css. A var rather than a number because whether
+          // a banner is showing is the banner's own state.
+          top: `calc(${offsetTop}px + var(--shell-top-shift, 0px))`,
+        }}
         className={cn(
           // Header and filter pinned, list scrolling, "New group" pinned at the
           // bottom — same reasoning as the flyout panel: on a short screen the
           // whole thing scrolled and the create affordance went with it.
-          "absolute z-40 flex w-[360px] flex-col items-start overflow-hidden pt-[14px] pb-[16px]",
+          "absolute z-40 flex w-[var(--fly-w)] flex-col items-start overflow-hidden pt-[14px] pb-[16px]",
           // Square against the plane — see the L2 panel's note.
           navOnPlane ? null : "rounded-r-[var(--shell-canvas-radius)]",
           // Same rule as the L2 panel's — see the note there.

@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Check, Minus, Pin, Search, Sparkles, X } from "lucide-react";
+import { Check, Minus, Pin, Search, X } from "lucide-react";
 import type { BulkPath } from "@/components/bulk/bulk-config";
 import { BulkHistoryModal } from "@/components/bulk/bulk-history-modal";
 import { BulkModal } from "@/components/bulk/bulk-modal";
+import { useTheme } from "@/components/theme/theme-provider";
 import { useBulkActions } from "@/components/bulk/bulk-provider";
 import { usePinnedInk } from "@/components/nav/pin-button";
 import { cn } from "@/lib/utils";
@@ -69,7 +70,37 @@ export function RailDirectory({
    * it is a different and unauthorised thing. The prototype switch turns the
    * agency's checkboxes on; it has nothing to say about this panel.
    */
-  const picking = settings.enabled && settings.bulkInDirectory && !membersOnly;
+  const bulkAllowed = settings.enabled && settings.bulkInDirectory && !membersOnly;
+  /*
+   * Select mode, when the checkboxes are summoned rather than standing.
+   *
+   * Held here rather than derived from `selected.length`, because leaving the
+   * mode has to be possible with rows still ticked — and because an empty
+   * selection is the state you START in, so a length test would close the
+   * mode the moment you unticked the last row.
+   */
+  const [selectMode, setSelectMode] = React.useState(false);
+  const { directorySelect } = useTheme().effective;
+  /*
+   * Whether rows are wearing checkboxes right now.
+   *
+   * Under `always` this is just the bulk switch, as it always was. Under
+   * `button` it additionally waits for Select — and everything downstream
+   * reads THIS rather than the switch, so the header's own box, the row
+   * checkboxes and the guided flow's de-dupe all appear and leave together.
+   */
+  const picking = bulkAllowed && (directorySelect === "always" || selectMode);
+  /*
+   * Leaving the mode clears what it collected.
+   *
+   * Cancel is not Done. A selection that survived the mode being switched off
+   * would sit invisible behind a Select button, and the next press would
+   * reveal rows ticked by a decision the reader had already abandoned.
+   */
+  const exitSelect = React.useCallback(() => {
+    setSelectMode(false);
+    setSelected([]);
+  }, []);
   /*
    * The guided flow's selection rules. See BULK_FLOWS.
    *
@@ -155,6 +186,8 @@ export function RailDirectory({
     session,
     onClose,
     picking,
+    // Only the summoned mode takes the row over — see the note on the row.
+    selectRows: picking && directorySelect === "button",
     selected,
     onToggle: toggleRow,
     /*
@@ -227,21 +260,15 @@ export function RailDirectory({
               : `${selected.length} selected`}
         </span>
         {/*
-          A way out that is not the control that got you in.
+          Clear is gone (Oct 5).
 
-          Unticking 17 rows one at a time is not a way out, and the header
-          checkbox only clears what is currently VISIBLE — filter, select, clear
-          the filter, and the box no longer reaches the rest of the selection.
+          It was the way out of a large selection — the header box only
+          reaches what is VISIBLE, so filtering then clearing stranded the
+          rest. Cancel does that job now and does it better: it leaves the
+          mode as well as the selection, which is what someone pressing "get
+          me out of this" actually wants. Two abandon buttons side by side was
+          the real problem.
         */}
-        {guided && picking && selected.length > 0 ? (
-          <button
-            type="button"
-            onClick={() => setSelected([])}
-            className="motion-tap shrink-0 rounded-[6px] px-[6px] py-[3px] text-[12px] leading-none font-medium text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
-          >
-            Clear
-          </button>
-        ) : null}
         {picking && selected.length > 0 ? (
           /*
             Always the chooser here, whatever the Entry knob says. Straight-in
@@ -266,10 +293,35 @@ export function RailDirectory({
               Near-black rather than mid-grey: this is the primary action of a
               selection state, and grey-on-grey reads as disabled.
             */
-            className="motion-tap flex h-[26px] shrink-0 items-center gap-[5px] rounded-[7px] bg-nav-fg px-[9px] text-[12px] leading-none font-medium text-nav active:scale-[0.98]"
+            className="motion-tap flex h-[26px] shrink-0 items-center rounded-[7px] bg-[var(--hr-primary-600)] px-[9px] text-[12px] leading-none font-medium text-white active:scale-[0.98]"
           >
-            <Sparkles size={12} aria-hidden="true" />
+            {/* No glyph. Sparkles reads as AI everywhere else in this shell —
+                it is the Ask AI mark — and a bulk run is the one thing here
+                that is emphatically not that. The words are the label. */}
             Bulk actions
+          </button>
+        ) : null}
+        {/*
+          Select, iOS-style — and Cancel once you are in it.
+
+          Before the close rather than after: this is the panel's own action
+          and ✕ is the way out of the panel, so the one that changes what the
+          panel IS should not sit outboard of the one that dismisses it.
+          Hidden entirely under `always`, where the boxes need no summoning,
+          and under a selection the guided flow is already driving.
+        */}
+        {bulkAllowed && directorySelect === "button" ? (
+          <button
+            type="button"
+            onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
+            className={cn(
+              "motion-tap shrink-0 rounded-[6px] px-[7px] py-[4px] text-[12px] leading-none font-medium",
+              selectMode
+                ? "text-nav-fg hover:bg-nav-hover"
+                : "text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg",
+            )}
+          >
+            {selectMode ? "Cancel" : "Select"}
           </button>
         ) : null}
         <button
@@ -362,6 +414,7 @@ function Group({
   session,
   onClose,
   picking,
+  selectRows = false,
   selected,
   onToggle,
   showPin = true,
@@ -371,6 +424,8 @@ function Group({
   session: AccountsSession;
   onClose: () => void;
   picking: boolean;
+  /** The row itself ticks rather than jumping. See the note on the row. */
+  selectRows?: boolean;
   selected: readonly string[];
   onToggle: (id: string) => void;
   /** Off while a selection is in progress — see rowProps. */
@@ -419,14 +474,27 @@ function Group({
               />
             ) : null}
             {/*
-              The row is still the jump, ticked or not. Selecting is a separate
-              target rather than a mode: a panel whose rows mean "go" until you
-              tick something and then mean "tick" is how you land in the wrong
-              account halfway through choosing four.
+              What the row means depends on whether a mode is running.
+
+              Under `always` the checkbox is a separate target and the row is
+              still the jump, ticked or not — a panel whose rows mean "go"
+              until you tick something and then mean "tick" is how you land in
+              the wrong account halfway through choosing four.
+
+              Under `button` that ambiguity cannot arise, because the mode is
+              declared before any of it: you pressed Select, so every row ticks
+              and nothing jumps until you Cancel. That is the whole reason the
+              iOS pattern works, and taking the mode without taking this would
+              be the worst of both — a button announcing a mode that the rows
+              then do not honour. Ashwin, Oct 5.
             */}
             <button
               type="button"
               onClick={() => {
+                if (selectRows) {
+                  onToggle(account.id);
+                  return;
+                }
                 // Jumping into an account opens it on the rail too — you are
                 // working in it now, so it has earned a tile (space allowing).
                 session.addToRail(account.id);
@@ -547,10 +615,19 @@ function Box({
       }}
       className={cn(
         "motion-tap flex size-[17px] shrink-0 items-center justify-center rounded-[5px] border-[1.5px]",
-        // The same neutral the Bulk actions button wears — one ink for the
-        // whole selection layer, and none of it the tenant's.
+        /*
+          Primary blue, with the Bulk actions button beside it — one ink for
+          the whole selection layer. Oct 5, Ashwin.
+
+          It was near-black, on the argument that selection is not branded and
+          the accent is the tenant's colour. That argument was about the
+          ACCENT, which changes per account; `--hr-primary-600` is the
+          product's own blue and does not move, so the objection it answered
+          does not apply to it. A tick is a system affordance and the system's
+          colour for "on" is blue.
+        */
         checked || mixed
-          ? "border-nav-fg bg-nav-fg text-nav"
+          ? "border-[var(--hr-primary-600)] bg-[var(--hr-primary-600)] text-white"
           : "border-[var(--fly-border)] hover:border-nav-fg-subtle",
       )}
     >

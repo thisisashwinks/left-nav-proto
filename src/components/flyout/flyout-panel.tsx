@@ -942,7 +942,14 @@ export function FlyoutPanel({
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
       tabIndex={-1}
-      style={{ left: offsetLeft, top: offsetTop }}
+      style={{
+          left: offsetLeft,
+          // The shift is 0 except under a full-width banner, which
+          // butts against the content below it — see --shell-top-shift
+          // in globals.css. A var rather than a number because whether
+          // a banner is showing is the banner's own state.
+          top: `calc(${offsetTop}px + var(--shell-top-shift, 0px))`,
+        }}
       className={cn(
         // The panel itself no longer scrolls — its middle does.
         //
@@ -960,7 +967,7 @@ export function FlyoutPanel({
         // idea: this is the nav continuing, not a second card. A left radius would
         // cut a notch out of the seam, and a left border would sit against the
         // card's right border and read as one 2px line.
-        "absolute z-30 flex w-[360px] flex-col items-start overflow-hidden pt-[14px] pb-[16px] outline-none",
+        "absolute z-30 flex w-[var(--fly-w)] flex-col items-start overflow-hidden pt-[14px] pb-[16px] outline-none",
         /*
           The right corners round against a card and square against the plane.
 

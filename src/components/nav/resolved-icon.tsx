@@ -1,3 +1,4 @@
+import type * as React from "react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -14,10 +15,19 @@ export function ResolvedIcon({
   icon,
   size,
   className,
+  style,
 }: {
   icon: LucideIcon;
   size: number;
   className?: string;
+  /**
+   * Overrides the attribute size, for callers following a CSS variable.
+   *
+   * Lucide writes `size` out as width/height ATTRIBUTES, which a var cannot
+   * go in — so a caller that wants the density knob has to set both in CSS.
+   * `size` stays required as the fallback the attributes carry.
+   */
+  style?: React.CSSProperties;
 }) {
   const Icon = icon;
   return (
@@ -25,6 +35,7 @@ export function ResolvedIcon({
       size={size}
       aria-hidden="true"
       className={cn("shrink-0", className)}
+      style={style}
     />
   );
 }

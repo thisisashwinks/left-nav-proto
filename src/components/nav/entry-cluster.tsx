@@ -368,7 +368,21 @@ function EditNavButton({
       <div
         className={cn(
           "absolute right-0 left-0 z-20 flex flex-col gap-[6px] rounded-[10px] bg-nav p-[8px] shadow-[0_4px_12px_0_var(--fly-shadow),inset_0_0_0_1px_var(--nav-border,var(--nav-divider))]",
-          atFoot ? "bottom-0" : "-top-[74px]",
+          /*
+            Measured from the card's own bottom, not from a guessed top.
+
+            `-top-[74px]` was the card's height plus the gap, written as one
+            number — so the space under it was 74 minus however tall the
+            card happened to be that render. Add a row to the card, or stand
+            it over an entry variant that is a different height, and the gap
+            moves: the search-field-plus-Ask-AI layout is taller than the
+            pill, and the card drifted visibly clear of it. Ashwin, Oct 5.
+
+            `bottom: 100% + 6px` says the thing that was actually meant — sit
+            6px above whatever you are standing on — and keeps saying it when
+            either box changes size.
+          */
+          atFoot ? "bottom-0" : "bottom-[calc(100%+6px)]",
         )}
       >
         {/*
@@ -1040,9 +1054,71 @@ export function EntryPill({
   const header = tone === "header";
   // The hook runs unconditionally; only the ANSWER is conditional. Reading it
   // inside the `&&` made it a conditional hook call.
-  const { aiButtonStyle, entryRadius } = useTheme().effective;
+  const { aiButtonStyle, entryRadius, entryPair } = useTheme().effective;
   // Only consulted where the pill is a button — see AI_BUTTON_STYLES.
   const outlined = !searchEnabled && aiButtonStyle === "outline";
+
+  /*
+   * Two controls, where the axis asks for them. See ENTRY_PAIRS.
+   *
+   * The Ask AI half is this same component with `searchEnabled` off — which
+   * is already exactly the button this variant wants, gradient or outline
+   * and hugging its label — rather than a second rendering of the orb and
+   * the word that would have to be kept in step with it. The field beside
+   * it is the only new shape, and it borrows the pill's ring, height and
+   * radius so the pair still reads as one family at one scale.
+   */
+  if (searchEnabled && entryPair === "separate") {
+    return (
+      <div className="relative flex w-full items-center gap-[6px]">
+        {edit ? <EditNavButton {...edit} /> : null}
+        <button
+          type="button"
+          title="Search"
+          onClick={onSearch}
+          className={cn(
+            "ai-entry motion-tap flex h-[36px] items-center gap-[8px] pr-[10px] pl-[12px] focus-visible:shadow-[inset_0_0_0_1px_var(--brand)]",
+            entryRadius === "sm" ? "rounded-[8px]" : "rounded-full",
+            header
+              ? "shadow-[inset_0_0_0_1px_var(--hdr-entry-border)] hover:bg-hdr-chip"
+              : "shadow-[inset_0_0_0_1px_var(--nav-divider)] hover:bg-nav-hover",
+            /*
+              In the nav the pair has a column to fill, so the field takes
+              what the button leaves. In the bar the slot hugs its contents
+              — see `entryFills` there — so the field has to state a width
+              or it would collapse to the word "Search".
+            */
+            header ? "w-[196px]" : "min-w-0 flex-1",
+          )}
+        >
+          <Search
+            size={16}
+            aria-hidden="true"
+            className={cn(
+              "shrink-0",
+              header ? "text-hdr-fg-muted" : "text-nav-fg-subtle",
+            )}
+          />
+          <span
+            className={cn(
+              "min-w-0 flex-1 truncate text-left text-[13px] leading-[normal]",
+              header ? "text-hdr-fg-muted" : "text-nav-fg-subtle",
+            )}
+          >
+            Search
+          </span>
+          <Kbd>⌘K</Kbd>
+        </button>
+        <EntryPill
+          onSearch={onSearch}
+          session={session}
+          tone={tone}
+          searchEnabled={false}
+        />
+      </div>
+    );
+  }
+
   return (
     // Relative, so the edit control has something to hang off. `w-full` keeps it
     // the same flex child the pill used to be in both arrangements.
@@ -1171,12 +1247,14 @@ export function EntryPill({
             searchEnabled ? "size-[28px]" : "size-[24px]",
           )}
         >
-          {session.open ? (
-            <span
-              aria-hidden="true"
-              className="motion-ai-pulse absolute inset-0 rounded-full ring-2 ring-[var(--ai-ring)]"
-            />
-          ) : null}
+          {/*
+            No ring while the panel is open.
+
+            It was an "it is running" signal, and the panel being on screen
+            is that signal already — a 1.6s pulse on a 26px orb beside an
+            open conversation is motion reporting something the reader can
+            see. Ashwin, Oct 5.
+          */}
           <AiMark size={searchEnabled ? 26 : 22} />
         </button>
 
@@ -1277,12 +1355,7 @@ export function EntryClusterRail({
           onClick={() => session.launch()}
           className="motion-tap relative flex size-[38px] shrink-0 items-center justify-center rounded-full hover:scale-105 active:scale-95 motion-press"
         >
-          {session.open ? (
-            <span
-              aria-hidden="true"
-              className="motion-ai-pulse absolute inset-[-3px] rounded-full ring-2 ring-[var(--ai-ring)]"
-            />
-          ) : null}
+          {/* No ring while the panel is open — see the pill's note. */}
           <AiMark size={32} />
         </button>
       </RailTooltip>

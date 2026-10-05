@@ -63,12 +63,7 @@ export function AiDock({ collapsed, session }: AiDockProps) {
         // No chrome of its own — at this size the orb is the button.
         className="motion-tap relative flex size-[38px] shrink-0 items-center justify-center rounded-full hover:scale-105 active:scale-95 motion-press"
       >
-        {windowOpen ? (
-          <span
-            aria-hidden="true"
-            className="motion-ai-pulse absolute inset-[-3px] rounded-full ring-2 ring-[var(--ai-ring)]"
-          />
-        ) : null}
+        {/* No ring while the window is open — see the entry pill's note. */}
         <AiOrb size={38} state={session.state} glow />
       </button>
     );

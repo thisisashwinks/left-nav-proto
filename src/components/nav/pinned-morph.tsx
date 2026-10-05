@@ -3,7 +3,9 @@
 import * as React from "react";
 import { ChevronRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { NAV_WIDTHS } from "@/design/theme";
 import type { DockLabel, DockPosition, SurfaceTheme } from "@/design/theme";
+import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { ComposedIcon } from "./composed-icon";
 import { RailTooltip } from "./rail-tooltip";
@@ -42,7 +44,20 @@ const BLOCK = { padTop: 6, padBottom: 16 };
 const BLOCK_TOP = 54;
 
 /** Six 16px slots space-between in the capsule's 224px content box. */
-const SLOT_LEFTS = [24, 65.6, 107.2, 148.8, 190.4, 232];
+/**
+ * Six evenly spaced slots across the expanded nav.
+ *
+ * Computed rather than listed, since the nav's width is an axis now — see
+ * NAV_WIDTH_SETS. The ends are what the published list fixed: 24px in on the
+ * left, and 40px in on the right (a 28px mark plus its 12px gutter), with the
+ * remaining four spread between them. At 272 this returns the original
+ * 24 / 65.6 / … / 232 exactly.
+ */
+function slotLefts(navW: number): number[] {
+  const first = 24;
+  const last = navW - 40;
+  return Array.from({ length: 6 }, (_, i) => first + (i * (last - first)) / 5);
+}
 
 /**
  * The band is the design's 40px at rest and opens to 56 while the pointer is in
@@ -89,18 +104,19 @@ export function pinnedBlockFor(position: DockPosition): number {
     : BLOCK.padTop + CAPSULE.rest + BLOCK.padBottom;
 }
 
-function expandedGeometry() {
+function expandedGeometry(navW: number) {
   return {
     container: {
       left: 12,
       top: BLOCK_TOP + BLOCK.padTop,
-      width: 248,
+      // The band is the nav inset by its own 12px gutter on both sides.
+      width: navW - 24,
       height: CAPSULE.rest,
       radius: 34,
     },
     // Centred in the resting band. The band only ever grows away from the icons,
     // so the icon row stays put whether it is open or not.
-    slots: SLOT_LEFTS.map((left) => ({
+    slots: slotLefts(navW).map((left) => ({
       left,
       top: BLOCK_TOP + BLOCK.padTop + SLOT_INSET,
     })),
@@ -147,7 +163,6 @@ function collapsedGeometry(slotCount: number) {
   };
 }
 
-const EXPANDED_NAV_WIDTH = 272;
 const COLLAPSED_NAV_WIDTH = 64;
 
 interface DockButtonProps {
@@ -334,8 +349,13 @@ export function PinnedMorph({
 }: PinnedMorphProps) {
   const visible = items.slice(0, PINNED_VISIBLE);
   // Favourites plus the permanent grid chip.
-  const g = collapsed ? collapsedGeometry(visible.length + 1) : expandedGeometry();
-  const navWidth = collapsed ? COLLAPSED_NAV_WIDTH : EXPANDED_NAV_WIDTH;
+  // The expanded column's width is an axis; the collapsed rail is not, since
+  // nothing in it scales. See NAV_WIDTH_SETS.
+  const expandedWidth = NAV_WIDTHS[useTheme().effective.navWidthSet].l1;
+  const g = collapsed
+    ? collapsedGeometry(visible.length + 1)
+    : expandedGeometry(expandedWidth);
+  const navWidth = collapsed ? COLLAPSED_NAV_WIDTH : expandedWidth;
 
   /*
    * Which slot the pointer is on, for the centred caption.
@@ -362,7 +382,7 @@ export function PinnedMorph({
    */
   const capsuleClass = collapsed
     ? "left-[10px] w-[44px] rounded-[22px] group-hover/row:left-0 group-hover/row:w-[64px] group-hover/row:rounded-none"
-    : "left-[12px] w-[248px] rounded-[30px] group-hover/row:left-0 group-hover/row:w-[272px] group-hover/row:rounded-none";
+    : "left-[12px] w-[calc(var(--nav-w)-24px)] rounded-[30px] group-hover/row:left-0 group-hover/row:w-[var(--nav-w)] group-hover/row:rounded-none";
 
   /**
    * Which edge the band hangs from.

@@ -620,7 +620,10 @@ export function AppHeader({
         // `relative`, for the one placement that is positioned rather than
         // laid out: `centre` pins the entry to the middle of the WINDOW, which
         // a flex row cannot express without the two halves being equal widths.
-        "relative flex w-full shrink-0 items-center justify-between pl-[7px]",
+        // The lead is on the LEFT GROUP below, not here: the flush seam needs
+        // to pull it past zero, and a negative padding is not a thing. See
+        // --hdr-lead.
+        "relative flex w-full shrink-0 items-center justify-between",
         // Joined, the canvas gap is already spent by the card's own margin, so the
         // bar pads by the page's inset alone and still lands on the content's edge.
         surface === "joined"
@@ -651,7 +654,7 @@ export function AppHeader({
         The record's back arrow goes with it for the same reason; the argument
         is written out at `backInTrail` above, where the condition lives.
       */}
-      <div className="flex h-full min-w-0 items-center gap-[4px]">
+      <div className="ml-[var(--hdr-lead)] flex h-full min-w-0 items-center gap-[4px]">
         {/*
           The entry at the head of the row, when the axis puts it there.
 

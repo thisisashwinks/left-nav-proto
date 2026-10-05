@@ -33,6 +33,7 @@ import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { useSwapPhase } from "@/lib/use-swap-phase";
 import { NAV_SWAP_OUT_MS } from "@/design/motion-timing";
 import type { AiSession } from "@/components/ai/use-ai-session";
+import { navWidthsFor } from "@/design/theme";
 import type {
   DockPosition,
   LaunchpadCard,
@@ -361,6 +362,8 @@ export function LeftNav({
     navRowRing,
     navRowShadow,
     navSelectedFill,
+    navWidthSet,
+    editWidthFull,
     templatePropagation,
     templatePushNotice,
     templateConflict,
@@ -800,6 +803,12 @@ export function LeftNav({
    */
   const editable = agencyScope ? agencyEditNav : true;
   const editing = state.editing && can.customise && editable;
+  /*
+   * The widths the portalled L1 drawer has to publish for itself, since it
+   * inherits nothing from the plane. Same resolver the shell uses, so edit
+   * mode widens both or neither. See EDIT_WIDTH_FULL_DEFAULT.
+   */
+  const drawerWidths = navWidthsFor(navWidthSet, editing, editWidthFull);
   /**
    * Whether this face is drawing the catalogue as a tree rather than as doors.
    *
@@ -3655,11 +3664,17 @@ export function LeftNav({
                 ? {}
                 : { "data-nav-sel": navSelectedFill })}
               data-cursor="menu"
-              style={{
-                width: sidebarWidth,
-                top: drawerBox?.top ?? 0,
-                height: drawerBox?.height,
-              }}
+              style={
+                {
+                  width: sidebarWidth,
+                  top: drawerBox?.top ?? 0,
+                  height: drawerBox?.height,
+                  // Portalled, so it inherits nothing from the plane — including
+                  // the two column widths anything inside it measures against.
+                  "--nav-w": `${drawerWidths.l1}px`,
+                  "--fly-w": `${drawerWidths.l2}px`,
+                } as React.CSSProperties
+              }
               className={cn(
                 "motion-drawer-in fixed left-0 z-[79] flex flex-col overflow-hidden bg-nav",
                 /*
@@ -3770,7 +3785,17 @@ export function LeftNav({
       // than when its own 26px box is — a control you have to find before you can
       // hover it is not discoverable.
       className={cn(
-        "group/nav flex h-full w-[272px] shrink-0 flex-col items-start overflow-hidden",
+        /*
+          The width comes from --nav-w, which the shell writes from the width
+          axis — see NAV_WIDTH_SETS. It was a hard 272 here while the shell's
+          wrapper was also 272, so the two agreed by coincidence rather than by
+          construction; the moment the axis narrowed the wrapper to 240 this
+          face kept its old width and every row inside it hung out over the
+          page. Stated rather than inherited (`w-full`) because the wrapper
+          ANIMATES between 64 and 272, and a face that tracked it would reflow
+          its text on every frame of the collapse.
+        */
+        "group/nav flex h-full w-[var(--nav-w)] shrink-0 flex-col items-start overflow-hidden",
         /*
          * A ring while editing, drawn on the nav rather than on the card.
          *

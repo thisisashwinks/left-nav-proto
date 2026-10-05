@@ -27,6 +27,9 @@ import {
   type PanelRecentHeading,
   type AiButtonStyle,
   type AiMarkStyle,
+  type DirectoryPlacement,
+  type CollapsedRail,
+  type DirectorySelect,
   type LegacyFootControl,
   type PinMarkColour,
   type LayoutReplaceDialog,
@@ -38,6 +41,7 @@ import {
   type LaunchpadCard,
   type PlaneGround,
   type NavSelectedFill,
+  type NavWidthSet,
   type RailSizing,
   type EditTreatment,
   type RenameAffordance,
@@ -79,6 +83,9 @@ import type {
   BannerEdge,
   PlaneSeam,
   PlaneHead,
+  EntryPair,
+  AiDockTop,
+  AiFullChrome,
   FolderCrumb,
   TableCrumb,
   CrumbDepth,
@@ -190,6 +197,8 @@ interface ThemeContextValue extends ThemeState {
   setNavRowRing: (on: boolean) => void;
   setNavRowShadow: (on: boolean) => void;
   setNavSelectedFill: (v: NavSelectedFill) => void;
+  setNavWidthSet: (v: NavWidthSet) => void;
+  setEditWidthFull: (on: boolean) => void;
   setPlaneGround: (v: PlaneGround) => void;
   setPinnedRowEdit: (on: boolean) => void;
   setPinnedShortcuts: (on: boolean) => void;
@@ -197,6 +206,9 @@ interface ThemeContextValue extends ThemeState {
   setBannerEdge: (v: BannerEdge) => void;
   setPlaneSeam: (v: PlaneSeam) => void;
   setPlaneHead: (v: PlaneHead) => void;
+  setEntryPair: (v: EntryPair) => void;
+  setAiDockTop: (v: AiDockTop) => void;
+  setAiFullChrome: (v: AiFullChrome) => void;
   setFlyoutShape: (shape: FlyoutShape) => void;
   setFlyoutCardBorder: (on: boolean) => void;
   setDirectoryFlush: (on: boolean) => void;
@@ -322,6 +334,9 @@ interface ThemeContextValue extends ThemeState {
   setPinMarkColour: (colour: PinMarkColour) => void;
   setAiButtonStyle: (style: AiButtonStyle) => void;
   setAiMark: (v: AiMarkStyle) => void;
+  setDirectoryPlacement: (v: DirectoryPlacement) => void;
+  setCollapsedRail: (v: CollapsedRail) => void;
+  setDirectorySelect: (v: DirectorySelect) => void;
   setEntryRadius: (v: EntryRadius) => void;
   setAttachTemplateInUse: (on: boolean) => void;
   setLegacyFootControl: (control: LegacyFootControl) => void;
@@ -498,6 +513,10 @@ export function ThemeProvider({
         setState((s) => ({ ...s, navRowShadow })),
       setNavSelectedFill: (navSelectedFill) =>
         setState((s) => ({ ...s, navSelectedFill })),
+      setNavWidthSet: (navWidthSet) =>
+        setState((s) => ({ ...s, navWidthSet })),
+      setEditWidthFull: (editWidthFull) =>
+        setState((s) => ({ ...s, editWidthFull })),
       setPlaneGround: (planeGround) => setState((s) => ({ ...s, planeGround })),
       setPinnedRowEdit: (pinnedRowEdit) =>
         setState((s) => ({ ...s, pinnedRowEdit })),
@@ -508,6 +527,10 @@ export function ThemeProvider({
       setBannerEdge: (bannerEdge) => setState((s) => ({ ...s, bannerEdge })),
       setPlaneSeam: (planeSeam) => setState((s) => ({ ...s, planeSeam })),
       setPlaneHead: (planeHead) => setState((s) => ({ ...s, planeHead })),
+      setEntryPair: (entryPair) => setState((s) => ({ ...s, entryPair })),
+      setAiDockTop: (aiDockTop) => setState((s) => ({ ...s, aiDockTop })),
+      setAiFullChrome: (aiFullChrome) =>
+        setState((s) => ({ ...s, aiFullChrome })),
       setFlyoutShape: (flyoutShape) =>
         setState((s) => ({ ...s, flyoutShape })),
       setFlyoutCardBorder: (flyoutCardBorder) =>
@@ -732,6 +755,12 @@ export function ThemeProvider({
       setAiButtonStyle: (aiButtonStyle) =>
         setState((s) => ({ ...s, aiButtonStyle })),
       setAiMark: (aiMark) => setState((s) => ({ ...s, aiMark })),
+      setDirectoryPlacement: (directoryPlacement) =>
+        setState((s) => ({ ...s, directoryPlacement })),
+      setCollapsedRail: (collapsedRail) =>
+        setState((s) => ({ ...s, collapsedRail })),
+      setDirectorySelect: (directorySelect) =>
+        setState((s) => ({ ...s, directorySelect })),
       setEntryRadius: (entryRadius) => setState((s) => ({ ...s, entryRadius })),
       setAttachTemplateInUse: (attachTemplateInUse) =>
         setState((s) => ({ ...s, attachTemplateInUse })),
