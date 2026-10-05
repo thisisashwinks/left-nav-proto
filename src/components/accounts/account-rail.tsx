@@ -27,6 +27,16 @@ export const ACCOUNT_RAIL_EXPANDED_WIDTH = 216;
 /** The width the strip grows to when it becomes the accounts directory. */
 export const ACCOUNT_RAIL_DIRECTORY_WIDTH = 340;
 
+/**
+ * The squircle corner, as a fraction of the mark's own size.
+ *
+ * 8/32 — the 8px Ashwin asked for, at the 32px tile he asked for it on. Held
+ * as a ratio because the rail draws its marks at 16, 20 and 28px, and a fixed
+ * radius means a different SHAPE at each: 8px rounds a 16px square into a
+ * circle while barely touching a 28px one.
+ */
+const SQUIRCLE_RATIO = 8 / 32;
+
 interface AccountRailProps {
   session: AccountsSession;
   /**
@@ -209,6 +219,31 @@ export function AccountRail({
       : [];
 
   const pillTiles = effective.railTileShape === "pill";
+  const railTileAlign = effective.railTileAlign;
+  /*
+   * One corner on every mark in the strip — agency and tenants alike.
+   *
+   * A RATIO, not a flat number, and that is the whole lesson of Oct 5. Ashwin
+   * asked for 8px; the marks here are 16px for a resting tenant, 20px for the
+   * agency and 28px for the active tile — and 8px on a 16px square is a
+   * perfect circle, so the literal figure left most of the strip exactly as
+   * round as it started. `SQUIRCLE_RATIO` is 8/32: it gives his corner at the
+   * 32px tile he was looking at, and the SAME corner at every other size,
+   * which is what "one shape for the strip" has to mean when the marks are
+   * three different sizes.
+   *
+   * It was three different numbers before (7 on the agency, 9 on the hoisted
+   * active tile, 999 everywhere else, because three of the four RailRow call
+   * sites never passed `logoRadius` at all). So "Squircle" squared the agency
+   * and one account and left the other eleven round — a shape choice that
+   * half-applied.
+   *
+   * The TILE radii below are a separate question and keep their own values:
+   * those are the button's hover fill and selected ground, which sit outside
+   * the mark and want a slightly larger curve to look concentric with it.
+   */
+  const logoRadius = (markPx: number) =>
+    pillTiles ? 999 : Math.round(markPx * SQUIRCLE_RATIO);
 
   /*
    * Where the directory button goes, and whether the active tile goes with it.
@@ -651,7 +686,7 @@ export function AccountRail({
                     <AccountLogo
                       logo={session.agency.logo}
                       size={24}
-                      radius={pillTiles ? 999 : 7}
+                      radius={logoRadius(24)}
                       {...(session.agency.logoSrc
                         ? { src: session.agency.logoSrc }
                         : {})}
@@ -708,6 +743,7 @@ export function AccountRail({
                   thing it has to say is "this is you", which is the agency's mark.
                 */}
                 <RailRow
+                  squircle={!pillTiles}
                   label={`${session.agency.name} — agency`}
                   name={session.agency.name}
                   expanded={expanded}
@@ -722,7 +758,6 @@ export function AccountRail({
                     the rest of the column does not use — was the redundancy the
                     pill treatment removes. Squircle keeps the rounded square.
                   */
-                  logoRadius={pillTiles ? 999 : 9}
                   // Fixed, not sized by scope — see `markSize`.
                   markSize={20}
                 />
@@ -776,6 +811,7 @@ export function AccountRail({
                 {directoryButton}
                 {activeAccount ? (
                   <RailRow
+                    squircle={!pillTiles}
                     label={activeAccount.name}
                     name={activeAccount.name}
                     expanded={expanded}
@@ -847,7 +883,21 @@ export function AccountRail({
                 the tiles, lifting the visible group onto the TRUE centre.
               */}
               <div
-                className="my-auto flex w-full flex-col gap-[4px]"
+                className={cn(
+                  "flex w-full flex-col gap-[4px]",
+                  /*
+                    `my-auto` is the centring, and dropping it is the whole of
+                    the `top` arrangement: with no auto margins the run sits at
+                    the flex start, which is directly under the agency block.
+
+                    The optical correction below goes with it. That padding
+                    exists only to cancel the asymmetry between where this
+                    scroller starts and where it ends — a fix for a CENTRED
+                    group, and under `top` it would simply be 43-plus pixels of
+                    dead space holding the strip open below the tiles.
+                  */
+                  railTileAlign === "centre" && "my-auto",
+                )}
                 /*
                   pb 43: the scroll area starts BELOW the agency block (4px pad
                   + 40px plate + 7px gap = 51) but ends 8px above the strip's
@@ -860,10 +910,14 @@ export function AccountRail({
                   cluster is tall — a 36px button and its 6px lead-in, plus a
                   32px tile and its 4px gap when the active one comes too.
                 */
-                style={{
-                  paddingBottom:
-                    43 + (hoisted ? 42 : 0) + (activeAccount ? 36 : 0),
-                }}
+                style={
+                  railTileAlign === "centre"
+                    ? {
+                        paddingBottom:
+                          43 + (hoisted ? 42 : 0) + (activeAccount ? 36 : 0),
+                      }
+                    : undefined
+                }
                 // Cleared on the list, not per row: leaving one tile for the
                 // next fires a leave before the enter, and resetting there made
                 // the whole strip snap flat between every pair of tiles.
@@ -872,6 +926,7 @@ export function AccountRail({
                 {centredAccounts.map((account, i) => (
                   <RailRow
                     key={account.id}
+                    squircle={!pillTiles}
                     label={account.name}
                     name={account.name}
                     expanded={expanded}
@@ -904,6 +959,7 @@ export function AccountRail({
                 {centredRecents.map((account, i) => (
                   <RailRow
                     key={account.id}
+                    squircle={!pillTiles}
                     label={account.name}
                     name={account.name}
                     expanded={expanded}
@@ -950,7 +1006,7 @@ function RailRow({
   onClick,
   onHover,
   account,
-  logoRadius = 999,
+  squircle = false,
   markSize,
   magnify = 1,
   pinned = false,
@@ -963,8 +1019,15 @@ function RailRow({
   /** Resting on a tile is what opens the names out. */
   onHover?: () => void;
   account: Account;
-  /** Tenant tiles are discs; the platform mark wears a rounded square. */
-  logoRadius?: number;
+  /**
+   * Corner the mark, instead of leaving it a disc.
+   *
+   * A boolean rather than a radius, because only the row knows how big its
+   * own mark is — resting, active and magnified are three sizes — and the
+   * corner has to be a fraction of that or it is a different shape on each.
+   * See SQUIRCLE_RATIO.
+   */
+  squircle?: boolean;
   /**
    * A fixed mark size, overriding the active/rest sizing.
    *
@@ -1201,7 +1264,7 @@ function RailRow({
               logo={account.logo}
               src={account.logoSrc}
               size={size}
-              radius={logoRadius}
+              radius={squircle ? Math.round(size * SQUIRCLE_RATIO) : 999}
             />
           </span>
           {expanded ? (

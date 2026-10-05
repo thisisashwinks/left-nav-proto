@@ -2210,6 +2210,32 @@ export const PANEL_TAB_STYLE_LABELS: Record<PanelTabStyle, string> = {
  * the nav, so the cost is paid constantly and the benefit only when you are
  * actually looking for an account. A tooltip pays it the other way round.
  */
+/**
+ * Where the sub-account tiles sit in the strip's height.
+ *
+ *  centre  The run is centred vertically, with the agency plate alone holding
+ *          the top — the shipped arrangement. It puts the accounts on the
+ *          screen's own midline, which is where a pointer travelling up the
+ *          edge meets them soonest.
+ *  top     They start directly under the agency block. The strip reads as one
+ *          list from the top down, the way every other column in this shell
+ *          does, and the tiles stop moving as the set changes length — a
+ *          centred run of eleven and a centred run of four put the same
+ *          account in two different places.
+ *
+ * Only ever a question when the list FITS. Outgrow the strip and both answers
+ * are the same: the run starts at the top and scrolls, because there is
+ * nothing left to centre. Ashwin asked for the choice on Oct 5.
+ */
+export const RAIL_TILE_ALIGNS = ["centre", "top"] as const;
+
+export type RailTileAlign = (typeof RAIL_TILE_ALIGNS)[number];
+
+export const RAIL_TILE_ALIGN_LABELS: Record<RailTileAlign, string> = {
+  centre: "Centred",
+  top: "Under the agency",
+};
+
 export const RAIL_HOVERS = ["expand", "static"] as const;
 
 export type RailHover = (typeof RAIL_HOVERS)[number];
@@ -3107,8 +3133,8 @@ export const RAIL_TILE_SHAPES = ["pill", "squircle"] as const;
 export type RailTileShape = (typeof RAIL_TILE_SHAPES)[number];
 
 export const RAIL_TILE_SHAPE_LABELS: Record<RailTileShape, string> = {
-  pill: "Pill",
-  squircle: "Squircle",
+  pill: "Round",
+  squircle: "8px corners",
 };
 
 /**
@@ -3685,6 +3711,8 @@ export interface ThemeState {
   directoryPlacement: DirectoryPlacement;
   /** What resting on the account rail does. See RAIL_HOVERS. */
   railHover: RailHover;
+  /** Where the sub-account tiles sit in the strip. See RAIL_TILE_ALIGNS. */
+  railTileAlign: RailTileAlign;
   /** Where the Recents panel's switcher sits. See PANEL_TAB_PLACES. */
   panelTabPlace: PanelTabPlace;
   /** How that switcher is drawn. See PANEL_TAB_STYLES. */
@@ -4638,6 +4666,7 @@ export const DEFAULT_THEME: ThemeState = {
   aiMark: "glyph",
   directoryPlacement: "sidebar",
   railHover: "static",
+  railTileAlign: "centre",
   panelTabPlace: "row",
   panelTabStyle: "segmented",
   panelOpenTab: "recent",

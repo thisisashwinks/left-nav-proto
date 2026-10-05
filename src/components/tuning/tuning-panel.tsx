@@ -82,6 +82,9 @@ import {
   AI_BUTTON_STYLES,
   AI_MARKS,
   AI_MARK_LABELS,
+  RAIL_TILE_ALIGNS,
+  RAIL_TILE_ALIGN_LABELS,
+  type RailTileAlign,
   RAIL_HOVERS,
   RAIL_HOVER_LABELS,
   type RailHover,
@@ -548,6 +551,8 @@ function NavStructureSection({
     railRecents,
     setRailRecents,
     railDirectorySpot,
+    railTileAlign,
+    setRailTileAlign,
     railHover,
     setRailHover,
     directoryPlacement,
@@ -775,6 +780,20 @@ function NavStructureSection({
           </Note>
 
           <Segmented
+            label="Sub-account tiles sit"
+            keywords="rail tiles align top centre vertical accounts position"
+            options={RAIL_TILE_ALIGNS}
+            value={railTileAlign}
+            onChange={(v: RailTileAlign) => setRailTileAlign(v)}
+            format={(v) => RAIL_TILE_ALIGN_LABELS[v]}
+          />
+          <Note>
+            {railTileAlign === "centre"
+              ? "Centred in the strip, with the agency plate alone holding the top — on the screen's own midline, where a pointer travelling up the edge meets them soonest."
+              : "Straight under the agency block, so the strip reads as one list from the top down. The tiles also stop moving as the set changes length: a centred run of eleven and a centred run of four put the same account in two different places."}
+          </Note>
+
+          <Segmented
             label="Resting on the rail"
             keywords="rail hover expand names tooltip collapsed static peek"
             options={RAIL_HOVERS}
@@ -830,7 +849,8 @@ function NavStructureSection({
           </Note>
 
           <Segmented
-            label="Rail tiles"
+            label="Rail logo corners"
+            keywords="rail logo corner radius round squircle 8px tiles shape"
             options={RAIL_TILE_SHAPES}
             value={railTileShape}
             onChange={(v: RailTileShape) => setRailTileShape(v)}
@@ -838,8 +858,8 @@ function NavStructureSection({
           />
           <Note>
             {railTileShape === "pill"
-              ? "Fully rounded, all the way down: the tiles, the agency's plate and the agency's own mark. One shape for the whole strip."
-              : "The rail as it shipped: 9px tiles, and a rounded square on the agency mark to set it apart from the tenant discs."}
+              ? "Fully rounded, all the way down: every logo, the tiles and the agency's plate. One shape for the whole strip."
+              : "Every logo on an 8px corner — the agency's and the sub-accounts' alike. The tiles under them keep their own slightly larger curve so the pair reads as concentric."}
           </Note>
 
           <Segmented

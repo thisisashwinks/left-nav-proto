@@ -29,6 +29,7 @@ import {
   type AiMarkStyle,
   type DirectoryPlacement,
   type RailHover,
+  type RailTileAlign,
   type PanelTabPlace,
   type PanelTabStyle,
   type PanelOpenTab,
@@ -349,6 +350,7 @@ interface ThemeContextValue extends ThemeState {
   setAiMark: (v: AiMarkStyle) => void;
   setDirectoryPlacement: (v: DirectoryPlacement) => void;
   setRailHover: (v: RailHover) => void;
+  setRailTileAlign: (v: RailTileAlign) => void;
   setPanelTabPlace: (v: PanelTabPlace) => void;
   setPanelTabStyle: (v: PanelTabStyle) => void;
   setPanelOpenTab: (v: PanelOpenTab) => void;
@@ -784,6 +786,8 @@ export function ThemeProvider({
       setDirectoryPlacement: (directoryPlacement) =>
         setState((s) => ({ ...s, directoryPlacement })),
       setRailHover: (railHover) => setState((s) => ({ ...s, railHover })),
+      setRailTileAlign: (railTileAlign) =>
+        setState((s) => ({ ...s, railTileAlign })),
       setPanelTabPlace: (panelTabPlace) =>
         setState((s) => ({ ...s, panelTabPlace })),
       setPanelTabStyle: (panelTabStyle) =>
