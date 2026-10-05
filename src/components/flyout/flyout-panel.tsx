@@ -1232,7 +1232,23 @@ export function FlyoutPanel({
             block gap stays what it is: it still spaces the panel's TOP inset
             and whatever sits below the rows.
           */
-          className="flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto px-[14px] pt-[var(--t-fly-block-gap,10px)]"
+          /*
+            14 on the left, 4 on the right — and that IS symmetric.
+
+            `scrollbar-gutter: stable` reserves `--nav-scroll-gutter` (10px)
+            inside this element and outside its content box, permanently, so
+            the list growing never reflows the rows. That reserved strip
+            already reads as right padding. `px-[14px]` paid 14px of real
+            padding on top of it, which put the gap at 24 on the right against
+            14 on the left — the inspector says "padding 14" either side and
+            the panel plainly is not, which is what Ashwin measured on Oct 5.
+
+            4 + the 10px strip = the 14 the left has. The nav's own region
+            solves this by taking `pl` alone (see left-nav), which works there
+            because its inset happens to equal the gutter; 14 does not, so it
+            has to be made up rather than dropped.
+          */
+          className="flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto pt-[var(--t-fly-block-gap,10px)] pl-[14px] pr-[4px]"
         >
       {/*
         An empty category's panel still offers a seam.

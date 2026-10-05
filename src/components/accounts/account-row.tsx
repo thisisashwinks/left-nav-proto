@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Check, Pin } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/components/theme/theme-provider";
 import { AccountLogo } from "./account-logo";
 import type { Account } from "./accounts-data";
 
@@ -37,6 +38,7 @@ export function AccountRow({
   onSelect,
   onTogglePinned,
 }: AccountRowProps) {
+  const { accountRowMeta } = useTheme().effective;
   // Replays the pop on every toggle. A CSS transition can't express it, and an
   // always-on class would fire once on mount and never again.
   const [popping, setPopping] = React.useState(false);
@@ -82,9 +84,16 @@ export function AccountRow({
               />
             ) : null}
           </span>
-          <span className="w-full truncate text-[12px] leading-[16px] text-nav-fg-subtle">
-            {account.meta}
-          </span>
+          {/*
+            The same axis the directory's own rows read: the two panels are
+            arrangements of one list, so the row is one design or it is two.
+            See ACCOUNT_ROW_META_DEFAULT.
+          */}
+          {accountRowMeta ? (
+            <span className="w-full truncate text-[12px] leading-[16px] text-nav-fg-subtle">
+              {account.meta}
+            </span>
+          ) : null}
         </span>
       </button>
 

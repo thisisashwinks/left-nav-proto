@@ -113,3 +113,32 @@ export const COLUMNS = {
   status: 170,
   kebab: 56,
 } as const;
+
+/**
+ * How far each data column may be squeezed before the table gives up.
+ *
+ * The widths above are what a column WANTS; these are what it will accept.
+ * Until Oct 5 there was only the first set and every cell was `shrink-0`, so
+ * the row was a fixed 848px plus the name — fine at full width and clipped
+ * outright the moment anything took room away from the canvas, which the
+ * docked Ask AI panel does by design. The card does not scroll horizontally
+ * either, so the columns past the fold were not hidden, they were gone.
+ *
+ * Floors rather than a scrollbar because the content allows it: a date, a
+ * relative time and a status chip are short strings in wide boxes, and the
+ * padding is most of what compresses. Email is the one that truncates, and
+ * it is the one people scan rather than read in full.
+ *
+ * Check and kebab are absent on purpose. Both hold a fixed-size control
+ * centred in a box, so there is nothing in them to compress — shrinking
+ * those is how a checkbox ends up clipped.
+ */
+export const COLUMN_FLOORS = {
+  email: 132,
+  created: 104,
+  activity: 118,
+  status: 118,
+} as const;
+
+/** The name column keeps this much before anything else gives. */
+export const NAME_FLOOR = 180;

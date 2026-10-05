@@ -452,7 +452,75 @@ export function PinnedLauncher({
    * two has nothing left to separate.
    */
   const pinnedAboveTabs = tabbed && recentsPanelLayout === "pinned-first";
-  const [tab, setTab] = React.useState<"recent" | "directory">("recent");
+  const { panelTabPlace, panelTabStyle, panelOpenTab } = useTheme().effective;
+  /*
+   * The switcher, built once and placed twice.
+   *
+   * `header` drops it into the title's slot and `row` leaves it where it was,
+   * and those are the same two buttons in two boxes — see PANEL_TAB_PLACES.
+   * Writing it out in both branches is how the two drift, which this file has
+   * already been bitten by elsewhere.
+   *
+   * The track only exists for the segmented style: a line strip inside a
+   * ringed, padded box is a control wearing two different costumes at once.
+   */
+  const tabStrip = (margin?: string) => (
+    <div
+      role="tablist"
+      aria-label="What to browse"
+      className={cn(
+        "flex items-center",
+        panelTabStyle === "line"
+          ? "w-full gap-[14px]"
+          : "w-full gap-[2px] rounded-[9px] p-[2px] shadow-[inset_0_0_0_1px_var(--nav-divider)]",
+        margin,
+      )}
+    >
+      <PanelTab
+        label={recentLabel}
+        selected={tab === "recent"}
+        onSelect={() => switchTab("recent")}
+        variant={panelTabStyle}
+      />
+      <PanelTab
+        label="All products"
+        selected={tab === "directory"}
+        onSelect={() => switchTab("directory")}
+        variant={panelTabStyle}
+      />
+    </div>
+  );
+  /** Whether the header is showing the switcher in place of the title. */
+  const tabsInHeader = tabbed && panelTabPlace === "header";
+  /*
+   * Which half the panel opens on — see PANEL_OPEN_TABS.
+   *
+   * An initial value rather than an effect: the tab is this component's own
+   * state from the first render, and syncing it afterwards would show one
+   * frame of the wrong half every time the panel opened. Changing the axis
+   * while the panel is up therefore does nothing until it is reopened, which
+   * is correct — it is a question about opening.
+   */
+  const [tab, setTab] = React.useState<"recent" | "directory">(panelOpenTab);
+  /*
+   * And reset to it on every OPEN, not just the first mount.
+   *
+   * The panel stays mounted between openings — `useExitTransition` holds it
+   * alive through the exit animation and the shell keeps it in the tree — so
+   * an initial `useState` runs once in the session and never again. Which
+   * made the axis look like it worked (the first open obeyed it) and then
+   * silently stop (every later open kept whichever half you left on). The
+   * entering phase is the only honest signal of "this is a fresh open".
+   *
+   * Adjusted during render rather than in an effect, which is the pattern the
+   * rest of this codebase uses for derived state — see flyout-panel's
+   * `cascadeOwner`. An effect would paint one frame of the previous tab.
+   */
+  const [openedAs, setOpenedAs] = React.useState(phase);
+  if (openedAs !== phase) {
+    setOpenedAs(phase);
+    if (phase === "entering" && tab !== panelOpenTab) setTab(panelOpenTab);
+  }
   /**
    * Whether the stacked layout's combined list is showing all of itself.
    *
@@ -958,9 +1026,22 @@ export function PinnedLauncher({
         )}
       >
         <div className="flex w-full shrink-0 items-center justify-between px-[16px] pb-[4px]">
-          <h2 className="text-[15px] leading-[normal] font-semibold whitespace-nowrap text-nav-fg">
-            {panelTitle}
-          </h2>
+          {/*
+            The switcher stands in for the title, or the title stands alone.
+
+            Not both: at 272px a title, two tabs and a close is three things
+            fighting for one row, and the tabs already name the panel better
+            than the title does — "Recently visited" says what you are looking
+            at, where "Recents" says it again one line up. See
+            PANEL_TAB_PLACES. Ashwin, Oct 5.
+          */}
+          {tabsInHeader ? (
+            <div className="flex min-w-0 flex-1 items-center">{tabStrip()}</div>
+          ) : (
+            <h2 className="text-[15px] leading-[normal] font-semibold whitespace-nowrap text-nav-fg">
+              {panelTitle}
+            </h2>
+          )}
           <div className="flex items-center gap-[6px]">
             {/*
               The grouping chip is gone (Sep 9).
@@ -1031,27 +1112,16 @@ export function PinnedLauncher({
             />
               </>
             ) : null}
-            <div
-              role="tablist"
-              aria-label="What to browse"
-              className={cn(
-                "flex w-full items-center gap-[2px] rounded-[9px] p-[2px] shadow-[inset_0_0_0_1px_var(--nav-divider)]",
-                // 14 off the rule above it, 2 off the panel title — the same
-                // tight figure the search field takes when it follows a header.
-                pinnedAboveTabs ? "mt-[14px]" : "mt-[2px]",
-              )}
-            >
-              <PanelTab
-                label={recentLabel}
-                selected={tab === "recent"}
-                onSelect={() => switchTab("recent")}
-              />
-              <PanelTab
-                label="All products"
-                selected={tab === "directory"}
-                onSelect={() => switchTab("directory")}
-              />
-            </div>
+            {/*
+              Nothing here once the header has the switcher — but the block
+              itself stays, because the pinned rows above are its other job
+              and they do not move. The rule stays with them: it still says
+              "this governs what comes below", which is now the field and the
+              list rather than the tabs. Ashwin settled the order on Oct 5.
+            */}
+            {tabsInHeader
+              ? null
+              : tabStrip(pinnedAboveTabs ? "mt-[14px]" : "mt-[2px]")}
           </div>
         ) : null}
 
@@ -1123,7 +1193,23 @@ export function PinnedLauncher({
               the nav does it.
             */
             className={cn(
-              "flex w-full flex-1 flex-col items-start overflow-y-auto px-[14px]",
+              /*
+                14 on the left, 4 on the right — and that IS symmetric.
+
+                `scrollbar-gutter: stable` reserves `--nav-scroll-gutter`
+                (10px) inside this element and outside its content box, so the
+                list growing never reflows the rows. That strip already reads
+                as right padding, and `px-[14px]` paid 14px of real padding on
+                top of it: 24 on the right against 14 on the left, while the
+                inspector reports "14" for both. Ashwin measured it on Oct 5.
+                4 + the 10px strip is the 14 the left has.
+
+                The nav's own region solves this by taking `pl` alone (see
+                left-nav), which works there only because its inset happens to
+                equal the gutter. 14 does not, so it is made up rather than
+                dropped.
+              */
+              "flex w-full flex-1 flex-col items-start overflow-y-auto pl-[14px] pr-[4px]",
               "gap-[var(--t-nav-space,2px)]",
               /*
                 The top padding belongs to whatever is directly above the list.
@@ -2082,11 +2168,46 @@ function PanelTab({
   label,
   selected,
   onSelect,
+  variant = "segmented",
 }: {
   label: string;
   selected: boolean;
   onSelect: () => void;
+  /** See PANEL_TAB_STYLES. */
+  variant?: "segmented" | "line";
 }) {
+  if (variant === "line") {
+    return (
+      <button
+        type="button"
+        role="tab"
+        aria-selected={selected}
+        onClick={onSelect}
+        className={cn(
+          /*
+            Hugging the label, with the rule under the words.
+
+            `w-fit`, not `flex-1`: a line tab's underline is a mark under the
+            TEXT, and stretching each tab to half the panel leaves the rule
+            running out past its label into empty space — which reads as a
+            divider that stops halfway rather than as a selected tab. It is
+            also what leaves room for the close button when the strip is
+            sharing the header row.
+
+            The rule is a box-shadow rather than a border so it cannot add a
+            pixel to the row's height and shift the strip when the selection
+            moves.
+          */
+          "motion-tap flex h-[28px] w-fit shrink-0 items-center justify-center px-[2px] text-[13px] leading-[normal] whitespace-nowrap",
+          selected
+            ? "font-medium text-nav-fg shadow-[inset_0_-1.5px_0_0_var(--nav-fg)]"
+            : "text-nav-fg-muted hover:text-nav-fg",
+        )}
+      >
+        {label}
+      </button>
+    );
+  }
   return (
     <button
       type="button"

@@ -32,8 +32,8 @@ export function RailTooltip({
   /**
    * Which side the pill sits on.
    *
-   * `right` is the rail's, and anchors to the rail's edge rather than the
-   * icon's. `below` is for the pinned capsule when it is a horizontal row: a
+   * `right` is the rail's, and anchors to the icon's own right edge — see
+   * the note at the call below. `below` is for the pinned capsule when it is a horizontal row: a
    * tooltip to the right of a chip would land on the chip beside it, which is
    * the one place it must not be. `above` is for a row of glyphs at the nav's
    * FOOT — below is off the bottom of the window, and right is off the side of
@@ -85,11 +85,23 @@ export function RailTooltip({
       });
       return;
     }
-    const railRight =
-      trigger.closest("nav")?.getBoundingClientRect().right ?? box.right;
+    /*
+     * Beside the ICON, not beside the rail.
+     *
+     * This used to clear `nav`'s right edge, on the reasoning that a pill
+     * starting a few pixels inside the rail looked attached to the wrong
+     * thing. Seen on screen it is the opposite: a 28px mark centred in a 64px
+     * column is 18px from that edge, so clearing it put the pill 26px from
+     * the glyph it names, floating over the canvas with nothing between them.
+     * Which icon it belonged to became a question of counting rows.
+     *
+     * Anchored to the trigger, the pill touches the thing it labels and the
+     * few pixels it overlaps the rail's own ground are what make it read as
+     * attached. Ashwin, Oct 5.
+     */
     setPos({
       top: box.top + box.height / 2,
-      left: Math.max(box.right, railRight) + OFFSET,
+      left: box.right + OFFSET,
     });
   };
 

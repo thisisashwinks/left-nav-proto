@@ -579,6 +579,67 @@
 }
 
 /*
+ * The two-pane dock. See AI_DOCK_TOPS — the `pane` value.
+ *
+ * Two surfaces of equal standing: the app bar and the page as one card on
+ * the left, the assistant on the right, both running the plane's full
+ * height. Everything here is a number this arrangement asks for and the
+ * other two do not, which is why it is a scoped block rather than a change
+ * to the shell's own gap.
+ *
+ *  8px top and bottom on both panes, where the shell's canvas gap is 4.
+ *  Two cards side by side read as a pair, and a pair needs more air above
+ *  and below than a single card floating against a window edge does — at 4
+ *  the two looked wedged into the plane rather than laid on it.
+ *
+ *  8px between them, from the card's right margin. The spacer in the plane
+ *  row already holds the panel's width plus the shell gap, so widening the
+ *  margin is what opens the seam without moving the panel.
+ *
+ *  White, and padded 12. The joined card takes --pg-bg (grey) from the
+ *  shell arrangement, which left the page sitting in a grey gutter inside
+ *  its own card — two frames for one page. The card is the frame now: white
+ *  to the edges, 12px of inset below the bar, and the centre canvas inside
+ *  gives up its margin, radius and shadow because the thing it was drawing
+ *  is already drawn.
+ */
+/*
+ * The doubled attribute is specificity, not a typo.
+ *
+ * A full-width banner takes the plane's top inset away — correctly, for the
+ * one-card arrangements, where the page is supposed to meet it. This one is
+ * two cards laid on the plane, and a pair that touches the banner on one
+ * edge and floats on the other three is not a pair. That rule is three
+ * attributes deep, so matching it is what lets this one answer back; the
+ * block sits after it, which settles the tie. Ashwin, Oct 5.
+ */
+[data-ai-pane][data-ai-pane] [data-page-column] {
+  margin-top: 8px;
+  margin-bottom: 8px;
+  margin-right: 8px;
+  background: var(--pg-surface);
+}
+
+/* Doubled for the same reason, so the two panes cannot be given different
+   answers by the banner rule. */
+[data-ai-pane][data-ai-pane] [data-ai-panel] {
+  top: 8px;
+  bottom: 8px;
+}
+
+[data-ai-pane] [data-page-canvas] {
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* 12 rather than the canvas's own 16: the card's edge is the page's now. */
+[data-ai-pane] [data-page-canvas-body],
+[data-ai-pane] [data-canvas-slot] {
+  padding: 12px;
+}
+
+/*
  * The Conversations inbox, inside the canvas.
  *
  * On the plane that page is four cards with gutters between them, which is

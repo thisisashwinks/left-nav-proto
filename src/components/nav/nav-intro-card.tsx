@@ -42,8 +42,6 @@ export function NavIntroCard({
 }) {
   const navTheme = useTheme().effective.navTheme;
   const [anchor, setAnchor] = React.useState<DOMRect | null>(null);
-  /** The nav's own right edge, which is what the card must clear. */
-  const [navRight, setNavRight] = React.useState(0);
   const cardRef = React.useRef<HTMLDivElement>(null);
   const [height, setHeight] = React.useState(0);
 
@@ -77,12 +75,22 @@ export function NavIntroCard({
           !candidate.closest('[inert], [aria-hidden="true"]') &&
           candidate.getBoundingClientRect().width > 0,
       );
-      setAnchor(el ? el.getBoundingClientRect() : null);
-      // The BUTTON's right edge is inside the nav's padding, so clearing that
-      // left the card sitting ten pixels over the nav's own edge. The card has
-      // to clear the surface, not the control.
-      const nav = el?.closest("nav");
-      setNavRight(nav ? nav.getBoundingClientRect().right : 0);
+      /*
+       * Silent while something else is open.
+       *
+       * The accounts directory covers the nav outright and the prototype
+       * panel is a tool you came to read — in both cases a card pointing at a
+       * button that is either hidden or beside the point is noise, and it was
+       * landing on top of both. Treated as "no anchor" rather than as a
+       * separate hidden state, so the card leaves and comes back by the one
+       * path it already had. Ashwin, Oct 5.
+       *
+       * An attribute rather than a prop chain: three surfaces would have had
+       * to thread a flag through components that have no other reason to know
+       * this card exists, and a fourth would silently forget to.
+       */
+      const covered = document.querySelector("[data-nav-overlay]") !== null;
+      setAnchor(el && !covered ? el.getBoundingClientRect() : null);
     };
     measure();
 
@@ -140,7 +148,21 @@ export function NavIntroCard({
    * the height turns out to be, and whether or not the clamp moved the card.
    */
   const centreY = anchor.top + anchor.height / 2;
-  const left = Math.max(anchor.right, navRight) + GAP;
+  /*
+   * Beside the BUTTON, not beside the nav.
+   *
+   * It used to clear the nav's right edge so that it never stood on the rows
+   * it describes. That is the right instinct and the wrong application: the
+   * Edit pill sits at the nav's left, so clearing the column put a 288px card
+   * two hundred pixels from the control it points at, reading as a notice
+   * parked on the canvas rather than as a label for that button. A tail
+   * pointing across empty space does not tether anything.
+   *
+   * Anchored to the button it covers part of the nav, which is a real cost
+   * and the smaller one: this appears once, on first run, over rows the
+   * reader has not learned yet, and it leaves on dismiss. Ashwin, Oct 5.
+   */
+  const left = anchor.right + GAP;
 
   const MARGIN = 8;
   // Preferred: the tail's resting spot low on the card, level with the control.

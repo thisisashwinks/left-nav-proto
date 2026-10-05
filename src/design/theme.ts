@@ -1112,6 +1112,76 @@ export const NAV_WIDTH_SET_LABELS: Record<NavWidthSet, string> = {
  */
 export const EDIT_WIDTH_FULL_DEFAULT = true;
 
+/**
+ * Whether the collapsed rail keeps a door into All accounts.
+ *
+ * The waffle sits under the expand toggle whenever the account rail itself has
+ * stood down, so the way into the directory does not move depending on which
+ * arrangement is up. That is the argument for having it. The argument against
+ * is what it costs in a 64px strip: the collapsed face is a list of PLACES in
+ * this account, and one glyph in it changes which account you are in at all.
+ * It is the only control there that leaves, and at 16px with no label it is
+ * indistinguishable in weight from the twelve products under it.
+ *
+ * OFF by default, Oct 5. Switching accounts is a deliberate act and the
+ * collapsed rail is a glanceable one; expanding first is a fair price, and it
+ * is one keystroke. The strip keeps the expand toggle, which is the door to
+ * the door.
+ *
+ * Only ever asked when the account rail is absent — with the rail up it is
+ * already the accounts door, and this would be the second of two.
+ */
+export const RAIL_ACCOUNTS_DOOR_DEFAULT = false;
+
+/**
+ * Whether an account row carries its address under the name.
+ *
+ * The directory is a list you SCAN — seventeen rows, and the question being
+ * asked of it is "which one is Fieldstone". The address answers a different
+ * question, and it answers it on every row at once: it doubles each row's
+ * height, so half as much of the directory is on screen, and it puts a second
+ * line of grey text under every name the eye is trying to run down.
+ *
+ * It earns its place in the one case the name does not settle — two accounts
+ * with the same or nearly the same name, where the street is the only thing
+ * telling them apart. That is a real case and it is why this is an axis rather
+ * than a deletion.
+ *
+ * OFF by default, Oct 5. A list optimised for the common scan, with the
+ * disambiguator available for the demo where it matters.
+ *
+ * Both panels, deliberately: the hover directory and the click-through one are
+ * two arrangements of one list, and a row that is two lines tall in one and
+ * one line tall in the other is two designs of the same row.
+ */
+export const ACCOUNT_ROW_META_DEFAULT = false;
+
+/**
+ * How the accounts directory offers its way out.
+ *
+ * close  A ✕ at the far right. What the panel shipped with, and what every
+ *        other dismissable surface in this shell wears — it says "this closes
+ *        and you are where you were".
+ * back   A ◀ at the far left, ahead of the title. It says something
+ *        different: that the directory is a PLACE you stepped into and the
+ *        arrow is the step back out. Which is truer depends on how the panel
+ *        is reached — summoned over the nav it is an overlay, but filling the
+ *        sidebar it is the whole left column and ✕ on a full column reads as
+ *        closing the nav itself.
+ *
+ * The pair are exclusive on purpose. Two exits on one 340px header is the
+ * thing that made the select state truncate, and a panel with a back arrow
+ * AND a close asks the reader which kind of leaving they meant.
+ */
+export const DIRECTORY_EXITS = ["close", "back"] as const;
+
+export type DirectoryExit = (typeof DIRECTORY_EXITS)[number];
+
+export const DIRECTORY_EXIT_LABELS: Record<DirectoryExit, string> = {
+  close: "Close, right",
+  back: "Back, left",
+};
+
 /** L1 column and L2 panel, in px. See NAV_WIDTH_SETS. */
 export const NAV_WIDTHS: Record<NavWidthSet, { l1: number; l2: number }> = {
   default: { l1: 272, l2: 360 },
@@ -2039,6 +2109,116 @@ export const COLLAPSED_RAIL_LABELS: Record<CollapsedRail, string> = {
   hide: "Hides, with a door in the nav",
 };
 
+/**
+ * Where the Recents panel's tab switcher sits.
+ *
+ *  row     A control of its own under the panel's title — today's layout.
+ *          Title names the panel, switcher chooses the half.
+ *  header  The switcher REPLACES the title, so the header row is tabs and a
+ *          close and nothing else. The tabs name the panel better than the
+ *          title did — "Recently visited" says what you are looking at, where
+ *          "Recents" says it again one line up — and it buys back a whole row
+ *          in a panel that is mostly list. Ashwin, Oct 5.
+ *
+ * `row` stays the default: the header version is the thing being evaluated.
+ */
+export const PANEL_TAB_PLACES = ["row", "header"] as const;
+
+export type PanelTabPlace = (typeof PANEL_TAB_PLACES)[number];
+
+export const PANEL_TAB_PLACE_LABELS: Record<PanelTabPlace, string> = {
+  row: "A row of its own",
+  header: "In the header, instead of the title",
+};
+
+/**
+ * How that switcher is drawn.
+ *
+ *  segmented  Two halves in a track, the chosen one filled. Reads as a
+ *             CONTROL — a thing you operate — which is right for a choice
+ *             between two views of one panel.
+ *  line       Tabs hugging their labels with a rule under the chosen one.
+ *             Reads as NAVIGATION — places you move between — and takes less
+ *             ink, which matters once the switcher is sharing the header row
+ *             with a close button.
+ *
+ * Left-aligned and hugging rather than split evenly: a line tab's underline is
+ * a mark under the WORDS, and stretching each half to 50% leaves the rule
+ * running out past the label into empty space. That is also what keeps room
+ * for the close button in the header placement.
+ */
+/**
+ * Which half the Recents panel opens on.
+ *
+ *  recent     Recently visited, which is what the row you clicked is called.
+ *  directory  All products, treating "View all" as a request for the
+ *             catalogue rather than for more of the history.
+ *
+ * The question is what "View all" means on a block headed Recents: all of the
+ * RECENTS, or all of the products. The row's own words say the first and the
+ * second is what a reader short of a destination usually wants, which is why
+ * this is an axis rather than a fix. Ashwin, Oct 5.
+ *
+ * Read only when the panel is actually showing both halves — with one, there
+ * is no choice to make and the axis is silent rather than wrong.
+ */
+export const PANEL_OPEN_TABS = ["recent", "directory"] as const;
+
+export type PanelOpenTab = (typeof PANEL_OPEN_TABS)[number];
+
+export const PANEL_OPEN_TAB_LABELS: Record<PanelOpenTab, string> = {
+  recent: "Recently visited",
+  directory: "All products",
+};
+
+export const PANEL_TAB_STYLES = ["segmented", "line"] as const;
+
+export type PanelTabStyle = (typeof PANEL_TAB_STYLES)[number];
+
+export const PANEL_TAB_STYLE_LABELS: Record<PanelTabStyle, string> = {
+  segmented: "Button group",
+  line: "Line tabs",
+};
+
+/**
+ * What resting on the account rail does.
+ *
+ *  expand  The strip slides out to 216px and the account names ride along —
+ *          the shipped behaviour. Reads the whole list at a glance, at the
+ *          cost of a column that moves whenever the pointer crosses it on the
+ *          way somewhere else.
+ *  static  It stays 56px and the names arrive as tooltips instead. Every
+ *          interaction is unchanged: a tile switches account, the waffle opens
+ *          All accounts, the agency plate goes to agency scope. Only the
+ *          reading changes — one name on demand rather than all of them at
+ *          once.
+ *
+ * Nothing is lost but the pin MARK, which the collapsed strip has never drawn:
+ * a 32px tile with a logo in it has nowhere to put a second glyph, and the two
+ * runs still sit pinned-first so position carries the distinction. It was
+ * never a control — see RailRow's note — so there is nothing here you can only
+ * do by hovering.
+ *
+ * The directory's own morph is NOT governed by this. Under
+ * `directoryPlacement: "rail"` the strip widens to 340px to become the panel,
+ * and that is a click, not a hover — suppressing it would leave that placement
+ * with no way to open. Ashwin, Oct 5.
+ *
+ * `static` is the default, same day. The peek shipped first because reading
+ * eleven logos is genuinely hard and the names fix it — but it fixes it by
+ * moving a column that sits along the edge every pointer crosses on its way to
+ * the nav, so the cost is paid constantly and the benefit only when you are
+ * actually looking for an account. A tooltip pays it the other way round.
+ */
+export const RAIL_HOVERS = ["expand", "static"] as const;
+
+export type RailHover = (typeof RAIL_HOVERS)[number];
+
+export const RAIL_HOVER_LABELS: Record<RailHover, string> = {
+  expand: "Opens the names",
+  static: "Stays collapsed",
+};
+
 export const DIRECTORY_PLACEMENTS = ["rail", "sidebar"] as const;
 
 export type DirectoryPlacement = (typeof DIRECTORY_PLACEMENTS)[number];
@@ -2104,6 +2284,14 @@ export const AI_BUTTON_STYLE_LABELS: Record<AiButtonStyle, string> = {
  *          so the panel clears the app bar too. What this shipped with, and
  *          the right answer if you read the assistant as a second workspace
  *          rather than as something standing beside this one.
+ *  pane    The same full height, and the app bar and the page JOIN into one
+ *          card beside it — the joined-shell arrangement, switched on by the
+ *          dock rather than by the shell axis. Two panes, equal margins top
+ *          and bottom, nothing above either of them. It is the only value
+ *          where the two surfaces are peers: under `shell` the panel stands
+ *          beside a bar that has narrowed to make room, which reads as the
+ *          page having been pushed, and under `canvas` the panel is plainly
+ *          the junior of the two. Here neither is inside the other's frame.
  *
  * Floating and expanded are unaffected: neither is claiming a column, so
  * neither has a neighbour to line up with. The slide-in keeps the full plane
@@ -2115,12 +2303,62 @@ export const AI_BUTTON_STYLE_LABELS: Record<AiButtonStyle, string> = {
  * hole sitting beside the whole page column; with the panel below the bar
  * there is nothing up there for it to make room for.
  */
-export const AI_DOCK_TOPS = ["canvas", "shell"] as const;
+export const AI_DOCK_TOPS = ["canvas", "shell", "pane"] as const;
 export type AiDockTop = (typeof AI_DOCK_TOPS)[number];
 export const AI_DOCK_TOP_LABELS: Record<AiDockTop, string> = {
   canvas: "Level with the canvas",
   shell: "Full plane height",
+  pane: "Two panes",
 };
+
+/**
+ * When the L1 row's flyout chevron is drawn.
+ *
+ *  always  On every row that has a panel behind it, at rest. What this
+ *          ships: the glyph is a promise about the ROW — "there is more
+ *          here, and it arrives from the side" — and a promise you can only
+ *          see by pointing at the row is one you have to already know about.
+ *          It is also what makes a column of leaves and a column of
+ *          categories tell themselves apart at a glance.
+ *  hover   Only under the pointer, and not on the selected row either. The
+ *          case is that ten chevrons down a column is ten glyphs saying the
+ *          same thing, and the one that matters is the one you are about to
+ *          press. The case against is that the nav then looks flat until you
+ *          touch it, and a reader deciding where to go has not touched it
+ *          yet.
+ *
+ * The L2 disclosure caret is a different glyph and a different promise — it
+ * reports whether a row is OPEN, which is state rather than affordance, and
+ * state that disappears on mouse-out is not state. This axis leaves it alone.
+ */
+export const NAV_CHEVRONS = ["always", "hover"] as const;
+export type NavChevron = (typeof NAV_CHEVRONS)[number];
+export const NAV_CHEVRON_LABELS: Record<NavChevron, string> = {
+  always: "Always",
+  hover: "On hover only",
+};
+
+/**
+ * Whether Ask AI can float over the page at all.
+ *
+ * OFF by default (Oct 5), which leaves the panel two modes: docked beside
+ * the canvas, and full screen. Clicking Ask AI docks.
+ *
+ * Floating is the mode the panel shipped with and the one with the weakest
+ * case. An overlay is right for something you glance at and dismiss — a
+ * notification, a menu — and wrong for a conversation you are having ABOUT
+ * the page underneath it, which is the whole premise here: it covers the
+ * thing it is discussing, and the reader's first move is to drag it out of
+ * the way or dock it. Docked asks the page to make room instead, which is
+ * the honest arrangement for two surfaces that are both in use.
+ *
+ * Kept as an axis because "does this need to float" is a fair question to
+ * put in front of someone, and because the floating card is the only mode
+ * that costs the page no width. With it off, the float/dock control goes
+ * from the panel's own header too — an affordance for a mode that cannot
+ * be reached is worse than no affordance.
+ */
+export const AI_FLOATING_DEFAULT = false;
 
 /**
  * What full screen does with the app's own chrome.
@@ -2130,15 +2368,17 @@ export const AI_DOCK_TOP_LABELS: Record<AiDockTop, string> = {
  *        then the assistant as a place in the product rather than a takeover
  *        of it: the way back is the nav you were already using, and the bar
  *        says where you are, which is what the bar is for.
- *  hide  The panel takes the whole plane, nav and bar included. What this
- *        shipped with, and the stronger reading of the mode — but the only
- *        exits are the panel's own two glyphs, top right, which is a thin
- *        thread for a surface that has taken the entire window.
+ *  hide  The panel takes the whole plane, nav and bar included. The default
+ *        from Oct 5, and the stronger reading of the mode — the only exits
+ *        are the panel's own two glyphs, top right, which is a thin thread
+ *        for a surface that has taken the entire window, but it is the only
+ *        value that makes expanding mean something the dock cannot already
+ *        do.
  *
- * The honest objection to `show` is that it makes expanded a wider dock.
- * That is true of the GEOMETRY and not of the thing: docked reserves a
- * column beside the page, where this replaces the page — one conversation
- * you came to have, with the product still around it. Ashwin, Oct 5.
+ * The objection to `show` is that it makes expanded a wider dock, and the
+ * two-pane dock settled it: once docking gives the assistant a pane of its
+ * own, "the same thing with the page still around it" is what docking
+ * already is. Ashwin, Oct 5.
  */
 export const AI_FULL_CHROMES = ["show", "hide"] as const;
 export type AiFullChrome = (typeof AI_FULL_CHROMES)[number];
@@ -2153,15 +2393,15 @@ export const AI_FULL_CHROME_LABELS: Record<AiFullChrome, string> = {
  *  merged    One pill: the orb at its left end, the placeholder, the
  *            magnifier and ⌘K. The orb alone opens the assistant and the
  *            rest is search — "one field you can talk to", which is the
- *            direction the review asked for and what this ships.
+ *            direction the review asked for.
  *  separate  A plain search field and an Ask AI button beside it. The
  *            honest version of what the two things currently are: the pill
  *            merges their SHAPE while their behaviours stay apart, and a
  *            control whose left 28px does something categorically
  *            different from the other 200 is a control people have to be
- *            told about. Worth standing next to the merged pill precisely
- *            because the merge is the interesting claim — you cannot judge
- *            it against nothing.
+ *            told about. The default from Oct 5, and worth standing the
+ *            merged pill next to it precisely because the merge is the
+ *            interesting claim — you cannot judge it against nothing.
  *
  * Only where the entry carries search at all. Without it the pill is already
  * just the Ask AI button, which is this axis's second value with the field
@@ -2207,14 +2447,41 @@ export const ENTRY_LAYOUT_LABELS: Record<EntryLayout, string> = {
  *
  * `sm` is the platform's own 8px, the radius every other input, button and
  * select in HighRise uses. The case for it is consistency — a search field
- * that is shaped like every other field is a search field nobody has to learn
- * — and the case against is that it stops announcing itself. Worth seeing side
- * by side rather than argued about, which is why it is here.
+ * shaped like every other field is one nobody has to learn — and the case
+ * against is that it stops announcing itself, and that at 8px a 32px field
+ * sitting against a 32px button reads as two halves of a segmented control
+ * rather than as two controls. See ENTRY_PAIRS.
  *
  * Only the horizontal control answers to it. The 44px rail stack is a column
  * of round glyphs and an 8px box around them would be a box around circles.
  */
 export const ENTRY_RADII = ["pill", "sm"] as const;
+
+/**
+ * Whether the nav's edit affordance follows the entry down to 8px.
+ *
+ * A sub-question of ENTRY_RADII, and only askable once that one has been
+ * answered `sm`: while the entry is a pill, a pill beside it is not a
+ * decision anybody made.
+ *
+ * It is a real question rather than a tidy-up. The edit control is a
+ * capsule that grows sideways into its label on hover, and the full radius
+ * is doing work there — a shape that changes width reads as one object
+ * moving when its ends are round and as a box being stretched when they are
+ * not. Against that: it floats directly over the entry, and two controls
+ * one above the other at two radii is the kind of near-miss that looks like
+ * an oversight rather than a choice.
+ *
+ * Both capsules follow it, the edit button and the nav switcher beside it.
+ * They are the same object at two jobs and nothing is served by them
+ * disagreeing about their own corners. Ashwin, Oct 5.
+ */
+export const EDIT_RADII = ["pill", "sm"] as const;
+export type EditRadius = (typeof EDIT_RADII)[number];
+export const EDIT_RADIUS_LABELS: Record<EditRadius, string> = {
+  pill: "Fully rounded",
+  sm: "8px",
+};
 
 export type EntryRadius = (typeof ENTRY_RADII)[number];
 
@@ -3267,6 +3534,10 @@ export interface ThemeState {
   aiDockTop: AiDockTop;
   /** What full screen does with the app's own chrome. See AI_FULL_CHROMES. */
   aiFullChrome: AiFullChrome;
+  /** Whether Ask AI can float over the page. See AI_FLOATING_DEFAULT. */
+  aiFloating: boolean;
+  /** When the L1 flyout chevron is drawn. See NAV_CHEVRONS. */
+  navChevron: NavChevron;
   /**
    * Whether the attach-template modal keeps its "In use" column.
    *
@@ -3279,6 +3550,8 @@ export interface ThemeState {
   attachTemplateInUse: boolean;
   /** How round the merged entry is drawn. See ENTRY_RADII. */
   entryRadius: EntryRadius;
+  /** Whether the edit capsules follow the entry to 8px. See EDIT_RADII. */
+  editRadius: EditRadius;
   /** Which end of the bar the header entry stands at. See HEADER_ENTRY_SIDES. */
   headerEntrySide: HeaderEntrySide;
   /** Where the Get the app offer is reached from. See GET_APP_PLACEMENTS. */
@@ -3307,6 +3580,12 @@ export interface ThemeState {
   navWidthSet: NavWidthSet;
   /** Whether edit mode borrows the wider pair. See EDIT_WIDTH_FULL_DEFAULT. */
   editWidthFull: boolean;
+  /** An All accounts door in the collapsed rail. See RAIL_ACCOUNTS_DOOR_DEFAULT. */
+  railAccountsDoor: boolean;
+  /** The address under an account's name. See ACCOUNT_ROW_META_DEFAULT. */
+  accountRowMeta: boolean;
+  /** How the accounts directory offers its way out. See DIRECTORY_EXITS. */
+  directoryExit: DirectoryExit;
   /** The grey the plane is painted in. See PLANE_GROUNDS. */
   planeGround: PlaneGround;
   /** Arranging, renaming and re-iconing pins in edit mode. See PINNED_ROW_EDIT_DEFAULT. */
@@ -3404,6 +3683,14 @@ export interface ThemeState {
   aiMark: AiMarkStyle;
   /** Where the accounts directory opens. See DIRECTORY_PLACEMENTS. */
   directoryPlacement: DirectoryPlacement;
+  /** What resting on the account rail does. See RAIL_HOVERS. */
+  railHover: RailHover;
+  /** Where the Recents panel's switcher sits. See PANEL_TAB_PLACES. */
+  panelTabPlace: PanelTabPlace;
+  /** How that switcher is drawn. See PANEL_TAB_STYLES. */
+  panelTabStyle: PanelTabStyle;
+  /** Which half the panel opens on. See PANEL_OPEN_TABS. */
+  panelOpenTab: PanelOpenTab;
   /** Whether the account rail survives a collapsed nav. See COLLAPSED_RAILS. */
   collapsedRail: CollapsedRail;
   /** Whether its checkboxes are standing or summoned. See DIRECTORY_SELECTS. */
@@ -4087,11 +4374,46 @@ export const DEFAULT_THEME: ThemeState = {
    * Both nav placements stay one click away for the comparison.
    */
   entryLayout: "header",
-  entryPair: "merged",
-  aiDockTop: "canvas",
-  aiFullChrome: "show",
+  /*
+   * Two controls, not one (Oct 5). The merged pill is the more interesting
+   * claim and it is still one click away; what settled it is that the claim
+   * is not yet true of the BEHAVIOUR — the orb opens the assistant and the
+   * rest of the pill searches — so shipping the merged shape as the default
+   * would have the prototype asserting something the prototype does not do.
+   * See ENTRY_PAIRS.
+   */
+  entryPair: "separate",
+  /*
+   * Two panes (Oct 5). The pairing is the arrangement that reads as two
+   * surfaces of equal standing rather than one making room for the other,
+   * which is what docking an assistant is supposed to look like. The other
+   * two stay for the comparison. See AI_DOCK_TOPS.
+   */
+  aiDockTop: "pane",
+  /*
+   * The whole window (Oct 5). `show` was the default for one turn and the
+   * two-pane dock is what unseated it: that arrangement already gives the
+   * assistant a pane of its own beside the product, so a full screen that
+   * also keeps the nav and the bar is the same idea at a different width,
+   * and the mode stops being worth a control. Expanding is now the move
+   * that leaves the product behind — the one thing the dock cannot do.
+   */
+  aiFullChrome: "hide",
+  aiFloating: AI_FLOATING_DEFAULT,
+  navChevron: "always",
   attachTemplateInUse: true,
+  /*
+   * Back to the pill, same day.
+   *
+   * The 8px argument was that a split entry's search half is just a field,
+   * so it should be shaped like one. True as far as it goes, and it loses
+   * to what the pair actually looks like: both halves are 32px and sit
+   * against each other, and at 8px they read as two slabs of a segmented
+   * control rather than as a field and a button. The full radius is what
+   * keeps them separate objects. See ENTRY_RADII and ENTRY_PAIRS.
+   */
   entryRadius: "pill",
+  editRadius: "pill",
   headerEntrySide: "right",
   /*
    * The avatar menu, which is where production puts it.
@@ -4119,6 +4441,18 @@ export const DEFAULT_THEME: ThemeState = {
   // 272 / 360, which every spacing decision in this prototype was made inside.
   navWidthSet: "default",
   editWidthFull: EDIT_WIDTH_FULL_DEFAULT,
+  railAccountsDoor: RAIL_ACCOUNTS_DOOR_DEFAULT,
+  accountRowMeta: ACCOUNT_ROW_META_DEFAULT,
+  /*
+   * The arrow, as of Oct 5.
+   *
+   * The panel's commonest arrangement now fills the sidebar outright, and ✕
+   * on a full left column reads as closing the NAV rather than stepping out
+   * of a list you opened. Back says the true thing: you went somewhere, and
+   * this is the way out of it. ✕ is one click away for the overlay case,
+   * where it is still the better word.
+   */
+  directoryExit: "back",
   /*
    * The declared token, until one of the fourteen wins the argument. A
    * prototype that opens on a hand-picked grey is a prototype that has already
@@ -4278,9 +4612,35 @@ export const DEFAULT_THEME: ThemeState = {
   // the answer for pinning from a panel that covers the nav.
   pinFeedback: "settle",
   // The fill, which is what ships. Outline is one click away.
-  aiButtonStyle: "gradient",
-  aiMark: "disc",
+  /*
+   * Outline (Oct 5). The purple fill was right while the Ask AI button was
+   * the whole entry and had to carry the assistant on its own. Beside a
+   * search field it is one of two controls in a row, and the loudest fill on
+   * the surface sitting next to a hairline field read as a promo rather than
+   * as the other half of a pair. The orb still carries the purple; the box
+   * around it no longer has to. See AI_BUTTON_STYLES and ENTRY_PAIRS.
+   */
+  aiButtonStyle: "outline",
+  /*
+   * The bare sparkle (Oct 5), in purple, on nothing.
+   *
+   * The disc was carrying the assistant on its own while the entry was one
+   * filled pill. It is not any more: the entry splits by default, the Ask AI
+   * button is outlined, and a saturated purple disc inside a hairline button
+   * was the one filled shape left on the surface — a badge pinned to a
+   * control rather than the control's own glyph. Bare, the sparkle is an
+   * icon in a row of icons, which is what it is.
+   *
+   * It lands on the BUTTON and nowhere else, because the button is the only
+   * place the mark still appears under the default arrangement: the split
+   * entry's search half wears a magnifier. See AI_MARKS and ENTRY_PAIRS.
+   */
+  aiMark: "glyph",
   directoryPlacement: "sidebar",
+  railHover: "static",
+  panelTabPlace: "row",
+  panelTabStyle: "segmented",
+  panelOpenTab: "recent",
   collapsedRail: "hide",
   directorySelect: "button",
   // Nothing (Sep 10): production's sidebar has no such control, and putting one

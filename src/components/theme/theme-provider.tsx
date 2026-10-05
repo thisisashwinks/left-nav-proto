@@ -28,6 +28,10 @@ import {
   type AiButtonStyle,
   type AiMarkStyle,
   type DirectoryPlacement,
+  type RailHover,
+  type PanelTabPlace,
+  type PanelTabStyle,
+  type PanelOpenTab,
   type CollapsedRail,
   type DirectorySelect,
   type LegacyFootControl,
@@ -42,6 +46,7 @@ import {
   type PlaneGround,
   type NavSelectedFill,
   type NavWidthSet,
+  type DirectoryExit,
   type RailSizing,
   type EditTreatment,
   type RenameAffordance,
@@ -86,6 +91,8 @@ import type {
   EntryPair,
   AiDockTop,
   AiFullChrome,
+  NavChevron,
+  EditRadius,
   FolderCrumb,
   TableCrumb,
   CrumbDepth,
@@ -199,6 +206,9 @@ interface ThemeContextValue extends ThemeState {
   setNavSelectedFill: (v: NavSelectedFill) => void;
   setNavWidthSet: (v: NavWidthSet) => void;
   setEditWidthFull: (on: boolean) => void;
+  setRailAccountsDoor: (on: boolean) => void;
+  setAccountRowMeta: (on: boolean) => void;
+  setDirectoryExit: (v: DirectoryExit) => void;
   setPlaneGround: (v: PlaneGround) => void;
   setPinnedRowEdit: (on: boolean) => void;
   setPinnedShortcuts: (on: boolean) => void;
@@ -209,6 +219,9 @@ interface ThemeContextValue extends ThemeState {
   setEntryPair: (v: EntryPair) => void;
   setAiDockTop: (v: AiDockTop) => void;
   setAiFullChrome: (v: AiFullChrome) => void;
+  setAiFloating: (on: boolean) => void;
+  setNavChevron: (v: NavChevron) => void;
+  setEditRadius: (v: EditRadius) => void;
   setFlyoutShape: (shape: FlyoutShape) => void;
   setFlyoutCardBorder: (on: boolean) => void;
   setDirectoryFlush: (on: boolean) => void;
@@ -335,6 +348,10 @@ interface ThemeContextValue extends ThemeState {
   setAiButtonStyle: (style: AiButtonStyle) => void;
   setAiMark: (v: AiMarkStyle) => void;
   setDirectoryPlacement: (v: DirectoryPlacement) => void;
+  setRailHover: (v: RailHover) => void;
+  setPanelTabPlace: (v: PanelTabPlace) => void;
+  setPanelTabStyle: (v: PanelTabStyle) => void;
+  setPanelOpenTab: (v: PanelOpenTab) => void;
   setCollapsedRail: (v: CollapsedRail) => void;
   setDirectorySelect: (v: DirectorySelect) => void;
   setEntryRadius: (v: EntryRadius) => void;
@@ -517,6 +534,12 @@ export function ThemeProvider({
         setState((s) => ({ ...s, navWidthSet })),
       setEditWidthFull: (editWidthFull) =>
         setState((s) => ({ ...s, editWidthFull })),
+      setRailAccountsDoor: (railAccountsDoor) =>
+        setState((s) => ({ ...s, railAccountsDoor })),
+      setAccountRowMeta: (accountRowMeta) =>
+        setState((s) => ({ ...s, accountRowMeta })),
+      setDirectoryExit: (directoryExit) =>
+        setState((s) => ({ ...s, directoryExit })),
       setPlaneGround: (planeGround) => setState((s) => ({ ...s, planeGround })),
       setPinnedRowEdit: (pinnedRowEdit) =>
         setState((s) => ({ ...s, pinnedRowEdit })),
@@ -531,6 +554,9 @@ export function ThemeProvider({
       setAiDockTop: (aiDockTop) => setState((s) => ({ ...s, aiDockTop })),
       setAiFullChrome: (aiFullChrome) =>
         setState((s) => ({ ...s, aiFullChrome })),
+      setAiFloating: (aiFloating) => setState((s) => ({ ...s, aiFloating })),
+      setNavChevron: (navChevron) => setState((s) => ({ ...s, navChevron })),
+      setEditRadius: (editRadius) => setState((s) => ({ ...s, editRadius })),
       setFlyoutShape: (flyoutShape) =>
         setState((s) => ({ ...s, flyoutShape })),
       setFlyoutCardBorder: (flyoutCardBorder) =>
@@ -757,6 +783,13 @@ export function ThemeProvider({
       setAiMark: (aiMark) => setState((s) => ({ ...s, aiMark })),
       setDirectoryPlacement: (directoryPlacement) =>
         setState((s) => ({ ...s, directoryPlacement })),
+      setRailHover: (railHover) => setState((s) => ({ ...s, railHover })),
+      setPanelTabPlace: (panelTabPlace) =>
+        setState((s) => ({ ...s, panelTabPlace })),
+      setPanelTabStyle: (panelTabStyle) =>
+        setState((s) => ({ ...s, panelTabStyle })),
+      setPanelOpenTab: (panelOpenTab) =>
+        setState((s) => ({ ...s, panelOpenTab })),
       setCollapsedRail: (collapsedRail) =>
         setState((s) => ({ ...s, collapsedRail })),
       setDirectorySelect: (directorySelect) =>

@@ -82,6 +82,9 @@ import {
   AI_BUTTON_STYLES,
   AI_MARKS,
   AI_MARK_LABELS,
+  RAIL_HOVERS,
+  RAIL_HOVER_LABELS,
+  type RailHover,
   DIRECTORY_PLACEMENTS,
   DIRECTORY_PLACEMENT_LABELS,
   type DirectoryPlacement,
@@ -107,8 +110,12 @@ import {
   AI_FULL_CHROME_LABELS,
   AI_DOCK_TOP_LABELS,
   ENTRY_PAIRS,
+  NAV_CHEVRONS,
+  NAV_CHEVRON_LABELS,
   ENTRY_PAIR_LABELS,
   ENTRY_RADII,
+  EDIT_RADII,
+  EDIT_RADIUS_LABELS,
   ENTRY_RADIUS_LABELS,
   HEADER_ENTRY_SIDES,
   HEADER_ENTRY_SIDE_LABELS,
@@ -146,6 +153,15 @@ import {
   LAYOUT_REPLACE_DIALOGS,
   PANEL_RECENT_HEADING_LABELS,
   PANEL_RECENT_HEADINGS,
+  PANEL_TAB_PLACES,
+  PANEL_TAB_PLACE_LABELS,
+  type PanelTabPlace,
+  PANEL_TAB_STYLES,
+  PANEL_TAB_STYLE_LABELS,
+  type PanelTabStyle,
+  PANEL_OPEN_TABS,
+  PANEL_OPEN_TAB_LABELS,
+  type PanelOpenTab,
   PIN_MARK_COLOUR_LABELS,
   PIN_MARK_COLOURS,
   RAIL_TILE_SHAPE_LABELS,
@@ -156,6 +172,9 @@ import {
   RAIL_TILE_SHAPES,
   LAUNCHPAD_CARDS,
   NAV_SELECTED_FILLS,
+  DIRECTORY_EXITS,
+  DIRECTORY_EXIT_LABELS,
+  type DirectoryExit,
   NAV_WIDTH_SETS,
   NAV_WIDTH_SET_LABELS,
   type NavWidthSet,
@@ -235,6 +254,8 @@ import {
   type DockPosition,
   type EntryLayout,
   type EntryPair,
+  type EditRadius,
+  type NavChevron,
   type AiDockTop,
   type AiFullChrome,
   type HeaderEntrySide,
@@ -454,6 +475,12 @@ function NavStructureSection({
     setMergedOverflow,
     mergedRowDetail,
     panelRecentHeading,
+    panelTabPlace,
+    setPanelTabPlace,
+    panelTabStyle,
+    setPanelTabStyle,
+    panelOpenTab,
+    setPanelOpenTab,
     setPanelRecentHeading,
     pinMarkColour,
     setPinMarkColour,
@@ -485,6 +512,8 @@ function NavStructureSection({
     scopeModel,
     setScopeModel,
     flyoutTrigger,
+    navChevron,
+    setNavChevron,
     flyoutShadow,
     bannerEdge,
     navOnPlane,
@@ -519,6 +548,8 @@ function NavStructureSection({
     railRecents,
     setRailRecents,
     railDirectorySpot,
+    railHover,
+    setRailHover,
     directoryPlacement,
     setDirectoryPlacement,
     collapsedRail,
@@ -744,6 +775,20 @@ function NavStructureSection({
           </Note>
 
           <Segmented
+            label="Resting on the rail"
+            keywords="rail hover expand names tooltip collapsed static peek"
+            options={RAIL_HOVERS}
+            value={railHover}
+            onChange={(v: RailHover) => setRailHover(v)}
+            format={(v) => RAIL_HOVER_LABELS[v]}
+          />
+          <Note>
+            {railHover === "expand"
+              ? "The strip slides out to 216px and the names ride along. The whole list at a glance — and a column that moves whenever the pointer crosses it on the way somewhere else."
+              : "It stays 56px and the names arrive as tooltips. Every interaction is unchanged: a tile switches account, the waffle opens All accounts, the agency plate goes to agency scope. The directory's own morph still works — that is a click, not a hover."}
+          </Note>
+
+          <Segmented
             label="All accounts opens"
             keywords="directory panel placement sidebar overlay rail morph accounts"
             options={DIRECTORY_PLACEMENTS}
@@ -871,6 +916,20 @@ function NavStructureSection({
       />
       <Note>
         {GROUPING_BLURBS[state.grouping]}
+      </Note>
+
+      <Segmented
+        label="L1 chevron shows"
+        keywords="chevron arrow l1 row flyout hover always glyph affordance"
+        options={NAV_CHEVRONS}
+        value={navChevron}
+        onChange={(v: NavChevron) => setNavChevron(v)}
+        format={(v) => NAV_CHEVRON_LABELS[v]}
+      />
+      <Note>
+        {navChevron === "always"
+          ? "On every row with a panel behind it. The glyph is what separates a category from a destination before you touch anything — a promise you can only see by pointing at it is one you have to already know about."
+          : "Only under the pointer, and not on the selected row either. Ten chevrons down a column is ten glyphs saying the same thing; the cost is that the nav looks flat until you touch it, and a reader deciding where to go has not touched it yet. The L2 disclosure caret is unaffected — that one reports state."}
       </Note>
 
       <Segmented
@@ -1376,6 +1435,53 @@ function NavStructureSection({
             {panelRecentHeading === "recent"
               ? "The panel is titled “Recents” and its second section “Recent” — the same word twice, one line apart."
               : "Names the section by what is in it, so it does not repeat the panel's own title one line above it."}
+          </Note>
+
+          {/*
+            The Recents panel's switcher: where it sits, how it is drawn, and
+            which half it opens on. Together under the panel's other controls,
+            because all three are questions about the same strip.
+          */}
+          <Segmented
+            label="Panel tabs sit"
+            keywords="recents panel tabs header title switcher view all"
+            options={PANEL_TAB_PLACES}
+            value={panelTabPlace}
+            onChange={(v: PanelTabPlace) => setPanelTabPlace(v)}
+            format={(v) => PANEL_TAB_PLACE_LABELS[v]}
+          />
+          <Note>
+            {panelTabPlace === "row"
+              ? "A control of its own under the title. The title names the panel, the switcher picks the half."
+              : "The switcher takes the title's place, so the header is tabs and a close. “Recently visited” names the panel better than “Recents” did one line above it — and it buys back a row in a panel that is mostly list."}
+          </Note>
+
+          <Segmented
+            label="Panel tabs look like"
+            keywords="recents panel tabs segmented button group line underline switcher"
+            options={PANEL_TAB_STYLES}
+            value={panelTabStyle}
+            onChange={(v: PanelTabStyle) => setPanelTabStyle(v)}
+            format={(v) => PANEL_TAB_STYLE_LABELS[v]}
+          />
+          <Note>
+            {panelTabStyle === "segmented"
+              ? "Two halves in a track, the chosen one filled. Reads as a control — a thing you operate."
+              : "Tabs hugging their labels with a rule under the chosen one. Reads as navigation, and takes less ink — which matters once the strip is sharing the header with a close button."}
+          </Note>
+
+          <Segmented
+            label="View all opens on"
+            keywords="recents view all opens tab default all products landing"
+            options={PANEL_OPEN_TABS}
+            value={panelOpenTab}
+            onChange={(v: PanelOpenTab) => setPanelOpenTab(v)}
+            format={(v) => PANEL_OPEN_TAB_LABELS[v]}
+          />
+          <Note>
+            {panelOpenTab === "recent"
+              ? "The half the row you clicked is named after. “View all” means all of the recents."
+              : "Straight to the catalogue, treating “View all” as a request for products rather than for more history — which is usually what someone short of a destination wants."}
           </Note>
 
           <Segmented
@@ -2533,7 +2639,10 @@ export function TuningPanel() {
     entryPair,
     aiDockTop,
     aiFullChrome,
+    aiFloating,
     entryRadius,
+    editRadius,
+    setEditRadius,
     setEntryRadius,
     attachTemplateInUse,
     setAttachTemplateInUse,
@@ -2543,6 +2652,7 @@ export function TuningPanel() {
     setEntryPair,
     setAiDockTop,
     setAiFullChrome,
+    setAiFloating,
     getAppPlacement,
     setGetAppPlacement,
     agencySearch,
@@ -2554,6 +2664,9 @@ export function TuningPanel() {
     navSelectedFill,
     navWidthSet,
     editWidthFull,
+    railAccountsDoor,
+    accountRowMeta,
+    directoryExit,
     planeGround,
     setNavOnPlane,
     setNavRowRing,
@@ -2561,6 +2674,9 @@ export function TuningPanel() {
     setNavSelectedFill,
     setNavWidthSet,
     setEditWidthFull,
+    setRailAccountsDoor,
+    setAccountRowMeta,
+    setDirectoryExit,
     setPlaneGround,
     setAgencySearch,
     aiMark,
@@ -3029,6 +3145,9 @@ export function TuningPanel() {
   return (
     <aside
       aria-label="Prototype controls"
+      // Silences the edit coach-mark while the panel is open: reading the
+      // controls is not the moment to be sold the mode. See NavIntroCard.
+      data-nav-overlay=""
       data-page-theme="light"
       // Opts out of [data-tint]: the panel is a tool, not part of the design
       // being reviewed, so it must not recolour along with the workspace.
@@ -4754,6 +4873,18 @@ export function TuningPanel() {
           <Note>
             Open with ⌘K / Ctrl-K, or the search icon in the nav.
           </Note>
+          <Toggle
+            label="Ask AI can float"
+            checked={aiFloating}
+            onChange={setAiFloating}
+            keywords="ask ai float floating overlay drawer dock panel modes"
+          />
+          <Note>
+            {aiFloating
+              ? "Three modes, and the dock control appears in the panel’s header to move between them. Floating is the only one that costs the page no width."
+              : "Two modes: docked and full screen, and Ask AI opens docked. An overlay is right for something you glance at and dismiss — this is a conversation about the page underneath it, so it covers the thing it is discussing. The dock control goes with it."}
+          </Note>
+
           <Segmented
             label="Full-screen Ask AI"
             keywords="ask ai full screen expand chrome nav bar canvas takeover"
@@ -4779,7 +4910,9 @@ export function TuningPanel() {
           <Note>
             {aiDockTop === "canvas"
               ? "Docked, the panel sits under a full-width app bar and matches the canvas’s height and margins — the width comes out of the canvas rather than the whole column. Floating is untouched: it still slides in over the page at full height."
-              : "Docked runs the full plane height too, clearing the app bar, which narrows beside it. What this shipped with, and the right read if the assistant is a second workspace rather than something standing beside this one."}
+              : aiDockTop === "shell"
+                ? "Docked runs the full plane height, clearing the app bar, which narrows beside it. What this shipped with, and the right read if the assistant is a second workspace rather than something standing beside this one."
+                : "Two panes: the panel full height on the right, the app bar and the page joined into one card on the left, equal margins top and bottom. The only setting where the two are peers — neither sits inside the other’s frame."}
           </Note>
 
           <Segmented
@@ -4864,6 +4997,29 @@ export function TuningPanel() {
               : "The platform's own 8px, like every other input, button and select on the page. Consistent, and it stops the entry announcing itself."}
           </Note>
 
+          {/*
+            Nested, and only while the entry is square. A capsule beside a
+            pill is the shape it has always been; the question only exists
+            once the thing above it has stopped being one. See EDIT_RADII.
+          */}
+          {entryRadius === "sm" ? (
+            <>
+              <Segmented
+                label="Edit button corners"
+                keywords="edit button radius rounded corners pill 8px capsule switch nav"
+                options={EDIT_RADII}
+                value={editRadius}
+                onChange={(v: EditRadius) => setEditRadius(v)}
+                format={(v) => EDIT_RADIUS_LABELS[v]}
+              />
+              <Note>
+                {editRadius === "pill"
+                  ? "The capsule keeps its full radius. It grows sideways into its label on hover, and round ends are what make that read as one object moving rather than a box being stretched."
+                  : "8px, matching the entry it floats over. Two controls stacked at two radii is the kind of near-miss that looks like an oversight. The nav switcher beside it follows — same object, same corners."}
+              </Note>
+            </>
+          ) : null}
+
           <Toggle
             label="“In use” column on attach template"
             checked={attachTemplateInUse}
@@ -4928,6 +5084,44 @@ export function TuningPanel() {
             {navWidthSet === "default"
               ? "The L1 column and the L2 panel as left-nav.pen drew them, and the proportion every spacing decision in this nav was made inside."
               : "32px off the column and 60px off the panel, back to the canvas. 240 is where most product navs land, and 300 still holds a two-line L2 row. The pair moves together: the panel docks on the column's edge, so narrowing one alone changes the proportion rather than the size."}
+          </Note>
+
+          <Segmented
+            label="All accounts exit"
+            keywords="directory back close arrow header dismiss"
+            options={DIRECTORY_EXITS}
+            value={directoryExit}
+            onChange={(v: DirectoryExit) => setDirectoryExit(v)}
+            format={(v) => DIRECTORY_EXIT_LABELS[v]}
+          />
+          <Note>
+            {directoryExit === "close"
+              ? "A ✕ at the far right, like every other dismissable surface here. It says the panel closes and you are where you were."
+              : "A ◀ ahead of the title, saying the directory is a place you stepped into rather than an overlay you dismiss — which is the truer reading when it fills the sidebar, where a ✕ on a full column reads as closing the nav itself. Never both: two exits on a 340px header is what made the select state truncate."}
+          </Note>
+
+          <Toggle
+            label="Address under account names"
+            keywords="all accounts directory meta description location sub-account"
+            checked={accountRowMeta}
+            onChange={setAccountRowMeta}
+          />
+          <Note>
+            {accountRowMeta
+              ? "Each row carries its street under the name. It earns this where two accounts share a name and the address is the only thing telling them apart — and costs a second line of grey under every other name, halving how much of the directory fits on screen."
+              : "Names only. The directory is a list you scan for one name, and that is the question every row now answers. Both panels follow this — the hover directory and the click-through one are arrangements of one list."}
+          </Note>
+
+          <Toggle
+            label="All accounts in the collapsed rail"
+            keywords="collapsed rail waffle accounts directory switch icon"
+            checked={railAccountsDoor}
+            onChange={setRailAccountsDoor}
+          />
+          <Note>
+            {railAccountsDoor
+              ? "The waffle sits under the expand toggle, holding the same position the account rail's own door holds — so the way into the directory does not move between arrangements."
+              : "No door. The collapsed strip is a list of places in this account, and a 16px unlabelled glyph that changes which account you are in reads no heavier than the twelve products under it. Expanding first is the way through, and the expand toggle is right there. Moot while the account rail is up: that rail is already the door."}
           </Note>
 
           <Toggle

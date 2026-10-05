@@ -4,6 +4,8 @@ import { Check, ChevronsUpDown, Ellipsis, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   COLUMNS,
+  COLUMN_FLOORS,
+  NAME_FLOOR,
   STATUS_LABELS,
   type AvatarTone,
   type Contact,
@@ -51,21 +53,30 @@ function Checkbox({ checked }: { checked: boolean }) {
 function HeadCell({
   label,
   width,
+  floor,
   sortable = true,
 }: {
   label: string;
   width?: number;
+  /**
+   * The narrowest this column accepts. See COLUMN_FLOORS.
+   *
+   * Given, the column shrinks from `width` down to this and no further;
+   * omitted, it holds `width` outright — which is what the two control
+   * columns want and what every column used to do.
+   */
+  floor?: number;
   sortable?: boolean;
 }) {
   return (
     <div
-      style={width ? { width } : undefined}
+      style={width ? { width, minWidth: floor ?? width } : undefined}
       className={cn(
         "group/head flex h-full items-center gap-[6px] px-[16px]",
-        width ? "shrink-0" : "flex-1",
+        width ? (floor ? "min-w-0 shrink" : "shrink-0") : "min-w-0 flex-1",
       )}
     >
-      <span className="text-[12px] leading-[normal] font-medium whitespace-nowrap text-pg-muted">
+      <span className="truncate text-[12px] leading-[normal] font-medium text-pg-muted">
         {label}
       </span>
       {sortable ? (
@@ -144,13 +155,22 @@ export function ContactsTable({
           <Checkbox checked={false} />
         </div>
         <HeadCell label="Name" />
-        {show("email") ? <HeadCell label="Email" width={COLUMNS.email} /> : null}
-        {show("created") ? <HeadCell label="Created" width={COLUMNS.created} /> : null}
+        {show("email") ? <HeadCell label="Email" width={COLUMNS.email} floor={COLUMN_FLOORS.email} /> : null}
+        {show("created") ? <HeadCell label="Created" width={COLUMNS.created} floor={COLUMN_FLOORS.created} /> : null}
         {show("activity") ? (
-          <HeadCell label="Last activity" width={COLUMNS.activity} />
+          <HeadCell
+            label="Last activity"
+            width={COLUMNS.activity}
+            floor={COLUMN_FLOORS.activity}
+          />
         ) : null}
         {show("status") ? (
-          <HeadCell label="Status" width={COLUMNS.status} sortable={false} />
+          <HeadCell
+            label="Status"
+            width={COLUMNS.status}
+            floor={COLUMN_FLOORS.status}
+            sortable={false}
+          />
         ) : null}
         <div
           style={{ width: COLUMNS.kebab }}
@@ -209,7 +229,10 @@ export function ContactsTable({
                 </button>
               </div>
 
-              <div className="flex h-full flex-1 items-center gap-[10px] px-[16px]">
+              <div
+                style={{ minWidth: NAME_FLOOR }}
+                className="flex h-full min-w-0 flex-1 items-center gap-[10px] px-[16px]"
+              >
                 <span
                   aria-hidden="true"
                   className={cn(
@@ -220,11 +243,20 @@ export function ContactsTable({
                 >
                   {c.name.charAt(0)}
                 </span>
-                <span className="flex shrink-0 items-center gap-[6px]">
-                  <span className="text-[13.5px] leading-[normal] font-medium whitespace-nowrap text-pg-heading">
+                {/*
+                  The pair truncates together, name first.
+
+                  `shrink-0` here was the last thing holding the row open:
+                  the cell could give way and its contents could not, so a
+                  long name pushed the columns to its right off the card
+                  instead of ellipsing. The handle is the one that goes —
+                  it is a second way of saying who this is.
+                */}
+                <span className="flex min-w-0 items-center gap-[6px]">
+                  <span className="truncate text-[13.5px] leading-[normal] font-medium text-pg-heading">
                     {c.name}
                   </span>
-                  <span className="text-[12px] leading-[normal] whitespace-nowrap text-pg-faint">
+                  <span className="truncate text-[12px] leading-[normal] text-pg-faint">
                     {c.handle}
                   </span>
                 </span>
@@ -232,8 +264,8 @@ export function ContactsTable({
 
               {show("email") ? (
               <div
-                style={{ width: COLUMNS.email }}
-                className="flex h-full shrink-0 items-center gap-[10px] px-[16px]"
+                style={{ width: COLUMNS.email, minWidth: COLUMN_FLOORS.email }}
+                className="flex h-full min-w-0 shrink items-center gap-[10px] px-[16px]"
               >
                 <span
                   className={cn(
@@ -248,10 +280,10 @@ export function ContactsTable({
 
               {show("created") ? (
               <div
-                style={{ width: COLUMNS.created }}
-                className="flex h-full shrink-0 items-center gap-[10px] px-[16px]"
+                style={{ width: COLUMNS.created, minWidth: COLUMN_FLOORS.created }}
+                className="flex h-full min-w-0 shrink items-center gap-[10px] px-[16px]"
               >
-                <span className="text-[13px] leading-[normal] whitespace-nowrap text-pg-text-strong">
+                <span className="truncate text-[13px] leading-[normal] text-pg-text-strong">
                   {c.created}
                 </span>
               </div>
@@ -259,15 +291,15 @@ export function ContactsTable({
 
               {show("activity") ? (
               <div
-                style={{ width: COLUMNS.activity }}
-                className="flex h-full shrink-0 items-center gap-[10px] px-[16px]"
+                style={{ width: COLUMNS.activity, minWidth: COLUMN_FLOORS.activity }}
+                className="flex h-full min-w-0 shrink items-center gap-[10px] px-[16px]"
               >
                 <MessageSquare
                   size={14}
                   aria-hidden="true"
                   className="shrink-0 text-pg-faint"
                 />
-                <span className="text-[13px] leading-[normal] whitespace-nowrap text-pg-muted">
+                <span className="truncate text-[13px] leading-[normal] text-pg-muted">
                   {c.lastActivity}
                 </span>
               </div>
@@ -275,17 +307,17 @@ export function ContactsTable({
 
               {show("status") ? (
               <div
-                style={{ width: COLUMNS.status }}
-                className="flex h-full shrink-0 items-center gap-[10px] px-[16px]"
+                style={{ width: COLUMNS.status, minWidth: COLUMN_FLOORS.status }}
+                className="flex h-full min-w-0 shrink items-center gap-[10px] px-[16px]"
               >
-                <span className="flex shrink-0 items-center gap-[6px]">
+                <span className="flex min-w-0 items-center gap-[6px]">
                   <span
                     aria-hidden="true"
                     className={cn("size-[6px] shrink-0 rounded-full", status.dot)}
                   />
                   <span
                     className={cn(
-                      "text-[12px] leading-[normal] font-medium whitespace-nowrap",
+                      "truncate text-[12px] leading-[normal] font-medium",
                       status.text,
                     )}
                   >

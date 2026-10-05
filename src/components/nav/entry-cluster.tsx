@@ -13,6 +13,7 @@ import {
   Sun,
   Lock,
   SquarePen,
+  X,
 } from "lucide-react";
 import { AiMark } from "@/components/ai/ai-mark";
 import { NavIntroCard } from "./nav-intro-card";
@@ -210,7 +211,8 @@ function EditNavButton({
 }) {
   /** Whether a sub-account may hold a layout of its own. See LAYOUT_MODELS. */
   const { strict, linkedFor } = useNavTemplates();
-  const { editCardTemplateName, navOnPlane } = useTheme().effective;
+  const { editCardTemplateName, navOnPlane, entryRadius, editRadius } =
+    useTheme().effective;
   /**
    * The template this account is on, by name.
    *
@@ -726,7 +728,16 @@ function EditNavButton({
       onClick={onStart}
       data-revealed={revealed ? "" : undefined}
       className={cn(
-        "group/edit relative flex h-[26px] shrink-0 items-center overflow-hidden rounded-full",
+        /*
+          The capsule follows the entry to 8px where both axes ask for it —
+          see EDIT_RADII. Only where the entry has already gone square: a
+          lone 8px capsule floating over a fully rounded pill is the
+          mismatch this option exists to remove, inverted.
+        */
+        "group/edit relative flex h-[26px] shrink-0 items-center overflow-hidden",
+        entryRadius === "sm" && editRadius === "sm"
+          ? "rounded-[8px]"
+          : "rounded-full",
         /*
          * Hug what is in it, at every point of the animation.
          *
@@ -895,6 +906,7 @@ function SwitchNavButton({
   revealed: boolean;
   onOpen: () => void;
 }) {
+  const { entryRadius, editRadius } = useTheme().effective;
   return (
     <button
       type="button"
@@ -902,7 +914,11 @@ function SwitchNavButton({
       onClick={onOpen}
       data-revealed={revealed ? "" : undefined}
       className={cn(
-        "group/edit relative flex h-[26px] shrink-0 items-center overflow-hidden rounded-full",
+        // The same corners its twin takes — see EDIT_RADII.
+        "group/edit relative flex h-[26px] shrink-0 items-center overflow-hidden",
+        entryRadius === "sm" && editRadius === "sm"
+          ? "rounded-[8px]"
+          : "rounded-full",
         "w-[26px] justify-center gap-0 px-0",
         "data-revealed:w-[104px] data-revealed:justify-start data-revealed:gap-[6px]",
         "data-revealed:bg-nav-hover data-revealed:px-[8px] data-revealed:opacity-100",
@@ -1022,6 +1038,37 @@ export function EditNavAnchor({ edit }: { edit: EditNavProps }) {
   );
 }
 
+/**
+ * What the open Ask AI panel asks of the entry that opened it.
+ *
+ * A context rather than props because the entry is drawn in three places —
+ * the nav's foot, the nav's head and the app bar — and the panel's MODE is
+ * the shell's state, two or three components above each of them. Threading
+ * it would mean three prop chains carrying the same pair, and the first one
+ * anybody forgot would be a pill that disagreed with the panel beside it.
+ *
+ * Empty by default, so every surface that renders an entry outside the shell
+ * (and there are a few) behaves exactly as it did before this existed.
+ */
+export interface AiEntryState {
+  /** Drop the Ask AI half entirely — the panel is its own pane. */
+  hideAsk?: boolean;
+  /** Close the panel from the entry, where that is offered. */
+  onClose?: () => void;
+}
+
+const AiEntryContext = React.createContext<AiEntryState>({});
+
+export function AiEntryProvider({
+  value,
+  children,
+}: {
+  value: AiEntryState;
+  children: React.ReactNode;
+}) {
+  return <AiEntryContext value={value}>{children}</AiEntryContext>;
+}
+
 export function EntryPill({
   onSearch,
   session,
@@ -1055,6 +1102,7 @@ export function EntryPill({
   // The hook runs unconditionally; only the ANSWER is conditional. Reading it
   // inside the `&&` made it a conditional hook call.
   const { aiButtonStyle, entryRadius, entryPair } = useTheme().effective;
+  const { hideAsk, onClose: onCloseAi } = React.useContext(AiEntryContext);
   // Only consulted where the pill is a button — see AI_BUTTON_STYLES.
   const outlined = !searchEnabled && aiButtonStyle === "outline";
 
@@ -1077,7 +1125,7 @@ export function EntryPill({
           title="Search"
           onClick={onSearch}
           className={cn(
-            "ai-entry motion-tap flex h-[36px] items-center gap-[8px] pr-[10px] pl-[12px] focus-visible:shadow-[inset_0_0_0_1px_var(--brand)]",
+            "ai-entry motion-tap flex h-[32px] items-center gap-[8px] pr-[10px] pl-[12px] focus-visible:shadow-[inset_0_0_0_1px_var(--brand)]",
             entryRadius === "sm" ? "rounded-[8px]" : "rounded-full",
             header
               ? "shadow-[inset_0_0_0_1px_var(--hdr-entry-border)] hover:bg-hdr-chip"
@@ -1109,12 +1157,20 @@ export function EntryPill({
           </span>
           <Kbd>⌘K</Kbd>
         </button>
-        <EntryPill
-          onSearch={onSearch}
-          session={session}
-          tone={tone}
-          searchEnabled={false}
-        />
+        {/*
+          Gone where the panel is a pane of its own. See AI_DOCK_TOPS: in
+          that arrangement the assistant is half the screen, and a button
+          offering to open what is already open beside it is an invitation
+          to nothing. The field takes the width back.
+        */}
+        {hideAsk ? null : (
+          <EntryPill
+            onSearch={onSearch}
+            session={session}
+            tone={tone}
+            searchEnabled={false}
+          />
+        )}
       </div>
     );
   }
@@ -1138,7 +1194,7 @@ export function EntryPill({
       */}
       <div
         className={cn(
-          "ai-entry motion-tap flex items-center gap-[6px] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]",
+          "ai-entry group/entry motion-tap flex items-center gap-[6px] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]",
           /*
             The shape is an axis, not a constant (Sep 30). See ENTRY_RADII:
             fully rounded says "ask me something", 8px says "this is a field
@@ -1158,9 +1214,22 @@ export function EntryPill({
             what stops it competing with the 26px utility glyphs beside it in
             the bar.
           */
+          /*
+            32px, field and button alike (Oct 5).
+
+            The field was 36 — the platform's control height, so it lined up
+            with the inputs on the page — and the button 32, a touch under,
+            to stop it competing with the 26px utility glyphs beside it in
+            the bar. Standing them side by side made both arguments worse
+            than the one they were trading against: a 36px field is the
+            tallest thing in a 48px bar, and a pair at two heights is a pair
+            that looks misaligned whatever either one is for. One height,
+            and it is the one the bar can carry.
+          */
+          "h-[32px]",
           searchEnabled
-            ? "h-[36px] w-full pr-[10px] pl-[4px]"
-            : "h-[32px] w-auto pr-[12px] pl-[4px]",
+            ? "w-full pr-[10px] pl-[4px]"
+            : "w-auto pr-[12px] pl-[4px]",
           /*
             With search, a field. Without it, a button.
             
@@ -1307,6 +1376,42 @@ export function EntryPill({
 
         {/* The keycap is the shortcut's label, so it goes with the shortcut. */}
         {searchEnabled ? <Kbd>⌘K</Kbd> : null}
+
+        {/*
+          A way out, on the button that is the way in.
+
+          Only while the panel is OPEN, only on hover, and only where the
+          panel is an overlay or a column rather than a pane of its own —
+          see `hideAsk`, which removes the whole button in that case. The
+          argument is that a floating panel has one close control, in its
+          own top-right corner, and the pointer is usually nowhere near it:
+          you opened the thing from here, and here is where you look to
+          undo that.
+
+          Its own button, not a mode on the label's: the label still opens
+          the assistant, and a control that opened or closed depending on
+          state would be one target with two meanings.
+        */}
+        {!searchEnabled && onCloseAi && session.open ? (
+          <button
+            type="button"
+            title="Close Ask AI"
+            aria-label="Close Ask AI"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCloseAi();
+            }}
+            className={cn(
+              "motion-tap -mr-[4px] flex size-[18px] shrink-0 items-center justify-center rounded-full",
+              "opacity-0 group-hover/entry:opacity-100 focus-visible:opacity-100",
+              header
+                ? "text-hdr-fg-muted hover:bg-hdr-chip hover:text-hdr-fg"
+                : "text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg",
+            )}
+          >
+            <X size={12} aria-hidden="true" />
+          </button>
+        ) : null}
       </div>
     </div>
   );

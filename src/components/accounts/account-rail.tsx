@@ -565,6 +565,7 @@ export function AccountRail({
               "flex min-h-0 flex-1 flex-col",
               switcherPhase === "entering" ? "motion-menu-in" : "motion-menu-out",
             )}
+            data-nav-overlay=""
           >
             {/*
               Header included: the panel's title row is the directory's, not
@@ -573,6 +574,9 @@ export function AccountRail({
               Bulk actions button — had to be lifted into the rail and passed
               back down. The rail owns the frame; the panel owns its chrome.
             */}
+            {/* data-nav-overlay on the frame, not the panel: it is the frame
+                that is on screen, and the coach-mark only needs to know that
+                something is covering the nav. See NavIntroCard. */}
             <RailDirectory session={session} membersOnly={membersOnly} onClose={onCloseSwitcher} />
           </div>
         ) : (

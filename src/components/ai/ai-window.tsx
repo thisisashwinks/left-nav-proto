@@ -105,6 +105,8 @@ interface AiWindowProps {
   phase: TransitionPhase;
   mode: AiPanelMode;
   onModeChange: (mode: AiPanelMode) => void;
+  /** Whether floating is on the menu at all. See AI_FLOATING_DEFAULT. */
+  canFloat?: boolean;
   /**
    * The canvas's own top and bottom, for a dock standing beside it.
    *
@@ -132,6 +134,7 @@ export function AiWindow({
   phase,
   mode,
   onModeChange,
+  canFloat = false,
   dockBox,
 }: AiWindowProps) {
   const docked = mode === "docked";
@@ -348,6 +351,9 @@ export function AiWindow({
         role="dialog"
         aria-label="Ask AI"
         data-ai-state={state}
+        // The two-pane dock sets this panel's own margins from CSS, beside
+        // the card it is paired with. See the [data-ai-pane] block.
+        data-ai-panel=""
         // Expanded, it spans the shell and takes its margin on both sides;
         // otherwise it keeps its own width and hangs off the right.
         style={{
@@ -495,19 +501,34 @@ export function AiWindow({
             >
               {headerConfig.avatarInitials}
             </span>
-            <IconButton
-              label={docked ? "Float panel" : "Dock panel"}
-              onClick={() => onModeChange(docked ? "floating" : "docked")}
-            >
-              {docked ? (
-                <PictureInPicture2 size={14} aria-hidden="true" />
-              ) : (
-                <PanelRight size={14} aria-hidden="true" />
-              )}
-            </IconButton>
+            {/*
+              Only where floating is a mode at all — see AI_FLOATING_DEFAULT.
+              A control that toggles between docked and a mode that has been
+              switched off is a control with one working half.
+            */}
+            {canFloat ? (
+              <IconButton
+                label={docked ? "Float panel" : "Dock panel"}
+                onClick={() => onModeChange(docked ? "floating" : "docked")}
+              >
+                {docked ? (
+                  <PictureInPicture2 size={14} aria-hidden="true" />
+                ) : (
+                  <PanelRight size={14} aria-hidden="true" />
+                )}
+              </IconButton>
+            ) : null}
             <IconButton
               label={full ? "Exit full screen" : "Expand"}
-              onClick={() => onModeChange(full ? "floating" : "full")}
+              /*
+                Leaving full screen returns to whichever mode the panel came
+                from — floating where that exists, docked where it does not.
+                It always went to floating, which with the axis off was an
+                exit into a mode that is not on the menu.
+              */
+              onClick={() =>
+                onModeChange(full ? (canFloat ? "floating" : "docked") : "full")
+              }
             >
               {full ? (
                 <Minimize2 size={14} aria-hidden="true" />

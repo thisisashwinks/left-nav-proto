@@ -52,6 +52,7 @@ import { LegacyNav } from "@/components/nav/legacy-nav";
 import {
   ENTRY_CLUSTER_HEIGHT,
   ENTRY_CLUSTER_RAIL_HEIGHT,
+  AiEntryProvider,
   EntryPill,
 } from "@/components/nav/entry-cluster";
 import { PinnedMorph } from "@/components/nav/pinned-morph";
@@ -443,6 +444,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     entryPair,
     aiDockTop,
     aiFullChrome,
+    aiFloating,
     navOnPlane,
     planeSeam,
     planeHead,
@@ -451,6 +453,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     navSelectedFill,
     navWidthSet,
     editWidthFull,
+    railAccountsDoor,
     planeGround,
     flyoutShape,
     flyoutCardBorder,
@@ -497,6 +500,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     crumbLeaf,
     crumbDepth,
     directoryPlacement,
+    railHover,
     collapsedRail,
     crumbShown,
     crumbSwitchers,
@@ -555,7 +559,6 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * on — its own ground, or the same fill as the bar. `plane` keeps the shipped
    * arrangement, a transparent bar with the canvas floating below it.
    */
-  const barInCanvas = pageShell !== "plane";
   /*
    * Collapsed follows the viewport until the user says otherwise.
    *
@@ -603,7 +606,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   const [manageAccountId, setManageAccountId] = React.useState<string | null>(null);
   const [searchOpen, setSearchOpen] = React.useState(false);
   /** Ask AI: floating over the page, docked into the layout, or full screen. */
-  const [aiMode, setAiMode] = React.useState<AiPanelMode>("floating");
+  /*
+   * Docked on open, always. See AI_FLOATING_DEFAULT.
+   *
+   * It opened floating, which was the right default while floating was the
+   * only mode that cost the page nothing — but the panel is a conversation
+   * about the page, and opening it on top of the page is the one
+   * arrangement where you cannot read both.
+   */
+  const [aiMode, setAiMode] = React.useState<AiPanelMode>("docked");
   const [switcherOpen, setSwitcherOpen] = React.useState(false);
   /** The rail's "All accounts" directory — a separate surface from the menu. */
   const [directoryOpen, setDirectoryOpen] = React.useState(false);
@@ -1315,6 +1326,80 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   // A bare `true` rather than the session object: useExitTransition compares
   // by identity, and the session is rebuilt on every render.
   const ai = useExitTransition(aiSession.open || null, AI_EXIT_MS);
+
+  /*
+   * The two-pane dock: full height on the right, and the bar and the page
+   * joined into one card on the left. See AI_DOCK_TOPS.
+   */
+  const aiDockPane =
+    ai.isMounted && aiMode === "docked" && aiDockTop === "pane";
+
+  /*
+   * Whether the app bar and the page are one card.
+   *
+   * Normally the shell axis decides it. The two-pane dock asks for it too,
+   * and asks for it temporarily — which is why this is derived here rather
+   * than folded into `pageShell`: that axis is a standing choice about the
+   * shell, and a panel opening should not look like someone changed it.
+   * Declared after the panel's state because it now depends on it; nothing
+   * above this line reads it.
+   */
+  const barInCanvas = pageShell !== "plane" || aiDockPane;
+
+  /*
+   * What the open panel asks of the entry that opened it.
+   *
+   * Memoised because it is a context value and this component re-renders on
+   * every pointer move into the nav; a fresh object each time would redraw
+   * all three entries for nothing.
+   */
+  const aiEntryState = React.useMemo(
+    () => ({
+      // The two-pane dock removes the button outright: the assistant is a
+      // pane, and an entry offering to open it is pointing at the thing
+      // beside it. Every other arrangement keeps it.
+      hideAsk: aiDockPane,
+      // And everywhere the panel is open but is NOT its own pane, the
+      // button carries a close — the same `close` the panel's own × calls,
+      // so the two cannot put it away differently.
+      ...(ai.isMounted && !aiDockPane ? { onClose: aiSession.close } : {}),
+    }),
+    [aiDockPane, ai.isMounted, aiSession.close],
+  );
+
+  /*
+   * Floating switched off under an open floating panel.
+   *
+   * It lands docked rather than closing: the axis is about which modes
+   * exist, and taking someone's conversation off the screen to say so would
+   * be the control answering a different question. During render, not in an
+   * effect — there is no frame where the panel should be drawn in a mode
+   * that is no longer available.
+   */
+  if (!aiFloating && aiMode === "floating") setAiMode("docked");
+
+  /*
+   * Which mode a fresh open lands in.
+   *
+   * Floating where the axis allows it, docked where it does not — see
+   * AI_FLOATING_DEFAULT. Floating is the lighter arrival: it costs the page
+   * no width and goes away as easily as it came, which is what you want
+   * from the first press. Docking is then a decision you make about a
+   * conversation that turned out to be worth the room.
+   *
+   * On the OPEN edge only, through a ref of the last value. An effect keyed
+   * on the axis alone would reseat an open panel the moment someone flipped
+   * the switch in the tuning panel, which is a different thing from opening
+   * one; and an effect keyed on `open` alone would fight the mode controls
+   * in the panel's own header on every unrelated re-render.
+   */
+  const aiWasOpen = React.useRef(aiSession.open);
+  React.useEffect(() => {
+    if (aiSession.open && !aiWasOpen.current) {
+      setAiMode(aiFloating ? "floating" : "docked");
+    }
+    aiWasOpen.current = aiSession.open;
+  }, [aiSession.open, aiFloating]);
 
   /*
    * The docked panel standing BESIDE the canvas rather than beside the plane.
@@ -2680,6 +2765,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
       editable={pinnedShortcutEdit}
       onFire={selectNavRow}
     >
+    <AiEntryProvider value={aiEntryState}>
     <HereProvider value={here}>
     <NewFlagProvider ids={newFlagIds}>
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -2753,6 +2839,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           See PLANE_SEAMS.
         */
         {...(navOnPlane ? { "data-plane-seam": planeSeam } : {})}
+        /* The two-pane dock's own geometry lives in globals.css. */
+        {...(aiDockPane ? { "data-ai-pane": "" } : {})}
         /*
           And what the nav's top edge meets. See PLANE_HEADS.
 
@@ -2974,6 +3062,16 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               at all.
             */
             onExpandedChange={(v) => {
+              /*
+                `static` refuses the hover outright — see RAIL_HOVERS. Refused
+                HERE rather than inside the rail because the rail reports a
+                pointer fact and the shell decides what it means: the same
+                callback is what the directory's own morph and the freeze below
+                are already arbitrating, and a rail that silently stopped
+                reporting would leave those two reading a pointer state that no
+                longer arrives.
+              */
+              if (railHover === "static") return;
               if (!directoryOpen && !directoryFillsSidebar) setRailExpanded(v);
             }}
             locked={layout.editing}
@@ -3012,6 +3110,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         <div
           role="dialog"
           aria-label="Accounts"
+          // Silences the edit coach-mark while this is up. See NavIntroCard.
+          data-nav-overlay=""
           style={{ width: railWidth + navGutter + widths.l1 }}
           className={cn(
             /*
@@ -3021,7 +3121,19 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               is a double rule. Oct 5, Ashwin.
             */
             "absolute inset-y-0 left-0 z-40 flex min-h-0 flex-col overflow-hidden bg-nav-rail",
-            directory.phase === "entering" ? "motion-menu-in" : "motion-menu-out",
+            /*
+              In from the left edge, not out of a corner.
+
+              `menu-in` scales a panel up from the point it is anchored to,
+              which is right for the switcher hanging off a tile and wrong for
+              this: nothing anchors it. It IS the sidebar for as long as it is
+              up, arriving over the rail and the nav from off-screen, and the
+              travel is the whole of what says where it came from — and
+              therefore where Back will put you. Ashwin, Oct 5.
+            */
+            directory.phase === "entering"
+              ? "motion-drawer-in"
+              : "motion-drawer-out",
           )}
         >
           <RailDirectory
@@ -3230,8 +3342,16 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               Only when the rail has stood down. With the rail there it is
               already the accounts door, and two of them in one 120px column
               is the duplication the axis exists to remove.
+
+              And only when the collapsed strip is meant to hold one at all:
+              off, the way into another account is to expand first. See
+              RAIL_ACCOUNTS_DOOR_DEFAULT. Withheld as a PROP rather than
+              hidden in the rail, so the strip keeps one rule — it draws the
+              door it was handed — instead of two components both deciding.
             */
-            {...(railActive ? {} : { onOpenAccounts: toggleDirectory })}
+            {...(railActive || !railAccountsDoor
+              ? {}
+              : { onOpenAccounts: toggleDirectory })}
             {/*
               Gone while a switch is in flight, as the expanded face's pill is:
               the rail's entrance leads to the same editor, over the same
@@ -3524,6 +3644,9 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             */}
             <div
               {...(pageCanvasOn || barInCanvas ? {} : { "data-canvas-surface": "" })}
+              /* The page's own box, when no centre canvas is drawing one
+                 inside it. The two-pane dock pads this instead. */
+              {...(pageCanvasOn ? {} : { "data-canvas-slot": "" })}
               /*
                 The hole for a canvas-aligned dock, taken out of the CANVAS
                 rather than out of the plane row — so the app bar above keeps
@@ -3964,6 +4087,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           phase={ai.phase}
           mode={aiMode}
           onModeChange={setAiMode}
+          canFloat={aiFloating}
           /* Docked and beside the canvas — see `aiBesideCanvas`. */
           {...(aiCanvasBox ? { dockBox: aiCanvasBox } : {})}
         />
@@ -4085,6 +4209,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     </div>
     </NewFlagProvider>
     </HereProvider>
+    </AiEntryProvider>
     </PinShortcutsProvider>
   );
 }

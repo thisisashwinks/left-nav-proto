@@ -305,7 +305,7 @@ export function NavItemRow({
    * pointer that is over the element carrying it, and a nav row is pointed at
    * anywhere along its 240px.
    */
-  const { renameAffordance } = useTheme().effective;
+  const { renameAffordance, navChevron } = useTheme().effective;
   /*
    * Whether the rename tip is the thing explaining this row on hover.
    *
@@ -504,6 +504,22 @@ export function NavItemRow({
           ? "translate-x-[2px] text-nav-fg-muted"
           : "text-nav-fg-subtle group-hover:text-nav-fg-muted",
         off && "opacity-40",
+        /*
+          Hidden until pointed at, where the axis asks for it — see
+          NAV_CHEVRONS.
+
+          Opacity rather than not rendering it: the glyph holds a 15px
+          column that the label's truncation is measured against, so a row
+          that dropped it would re-flow its own text on hover. The selected
+          row is deliberately not excepted; Ashwin's ask was that the mark
+          for "here" and the mark for "there is more" stay separate things.
+
+          `focus-within` so the keyboard still sees it: hover is the only
+          trigger for a pointer, and the only one a tab stop never gets.
+        */
+        navChevron === "hover" &&
+          !off &&
+          "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
       )}
     />
   ) : null;

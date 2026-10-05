@@ -169,6 +169,160 @@ export const accounts: readonly Account[] = [
     // one-off.
     logo: { initials: "MB", ...accountColorFor("meadowlark") },
   },
+
+  /*
+   * And the long tail, which is the point of them.
+   *
+   * Seventeen sub-accounts is a list you take in at a glance; forty is one you
+   * have to scroll, search and reach for a pin in. Every decision this panel
+   * is making — whether the address earns its line, whether Recent is worth a
+   * section of its own, whether the scrollbar should stand there permanently —
+   * is a decision about the second case and cannot be judged against the
+   * first. The names and addresses are invented; the SHAPE of the list is what
+   * is being tested.
+   *
+   * Two more carry initials rather than a glyph, keeping the no-logo fallback
+   * at roughly the share it has in the real data instead of becoming a
+   * curiosity at the bottom of the file.
+   */
+  {
+    id: "cedarpoint",
+    name: "Cedar Point Roofing",
+    meta: "410 N Tryon St, Charlotte, NC",
+    logo: { glyph: "peak", ...accountColorFor("cedarpoint") },
+  },
+  {
+    id: "tidewater",
+    name: "Tidewater Marine",
+    meta: "1 Waterside Dr, Norfolk, VA",
+    logo: { glyph: "wave", ...accountColorFor("tidewater") },
+  },
+  {
+    id: "brightline",
+    name: "Brightline Optical",
+    meta: "77 W Washington St, Chicago, IL",
+    logo: { glyph: "ring", ...accountColorFor("brightline") },
+  },
+  {
+    id: "voltaelectric",
+    name: "Volta Electric",
+    meta: "2200 Mission St, San Francisco, CA",
+    logo: { glyph: "bolt", ...accountColorFor("voltaelectric") },
+  },
+  {
+    id: "novamedia",
+    name: "Nova Media House",
+    meta: "500 W 2nd St, Austin, TX",
+    logo: { initials: "NM", ...accountColorFor("novamedia") },
+  },
+  {
+    id: "stonebridge",
+    name: "Stonebridge Mortgage",
+    meta: "101 Federal St, Boston, MA",
+    logo: { glyph: "block", ...accountColorFor("stonebridge") },
+  },
+  {
+    id: "guardianpest",
+    name: "Guardian Pest Control",
+    meta: "3100 Main St, Dallas, TX",
+    logo: { glyph: "shield", ...accountColorFor("guardianpest") },
+  },
+  {
+    id: "fernandco",
+    name: "Fern & Co Florists",
+    meta: "1300 SE Division St, Portland, OR",
+    logo: { glyph: "leaf", ...accountColorFor("fernandco") },
+  },
+  {
+    id: "archway",
+    name: "Archway Dental Studio",
+    meta: "1 N Central Ave, Phoenix, AZ",
+    logo: { glyph: "arc", ...accountColorFor("archway") },
+  },
+  {
+    id: "orbitfitness",
+    name: "Orbit Fitness Club",
+    meta: "900 Bellevue Way, Bellevue, WA",
+    logo: { glyph: "orbit", ...accountColorFor("orbitfitness") },
+  },
+  {
+    id: "dotmatrix",
+    name: "Dot Matrix Printing",
+    meta: "215 E Front St, Boise, ID",
+    logo: { glyph: "dots", ...accountColorFor("dotmatrix") },
+  },
+  {
+    id: "summitpeak",
+    name: "Summit Peak Outfitters",
+    meta: "1400 Larimer St, Denver, CO",
+    logo: { glyph: "peak", ...accountColorFor("summitpeak") },
+  },
+  {
+    id: "crestwave",
+    name: "Crestwave Pools",
+    meta: "7000 Collins Ave, Miami Beach, FL",
+    logo: { glyph: "wave", ...accountColorFor("crestwave") },
+  },
+  {
+    id: "halobeauty",
+    name: "Halo Beauty Bar",
+    meta: "6100 Melrose Ave, Los Angeles, CA",
+    logo: { glyph: "ring", ...accountColorFor("halobeauty") },
+  },
+  {
+    id: "surgeauto",
+    name: "Surge Auto Detailing",
+    meta: "4500 Shelbyville Rd, Louisville, KY",
+    logo: { glyph: "bolt", ...accountColorFor("surgeauto") },
+  },
+  {
+    id: "emberkitchen",
+    name: "Ember Kitchen Co.",
+    meta: "220 Broadway, Nashville, TN",
+    logo: { glyph: "spark", ...accountColorFor("emberkitchen") },
+  },
+  {
+    id: "northgate",
+    name: "Northgate Storage",
+    meta: "1900 University Ave, St Paul, MN",
+    logo: { initials: "NS", ...accountColorFor("northgate") },
+  },
+  {
+    id: "ridgeline",
+    name: "Ridgeline Surveying",
+    meta: "55 W 200 S, Salt Lake City, UT",
+    logo: { glyph: "chevrons", ...accountColorFor("ridgeline") },
+  },
+  {
+    id: "blockworks",
+    name: "Blockworks Construction",
+    meta: "300 E Main St, Columbus, OH",
+    logo: { glyph: "block", ...accountColorFor("blockworks") },
+  },
+  {
+    id: "sentryalarm",
+    name: "Sentry Alarm Systems",
+    meta: "125 S Clark St, Memphis, TN",
+    logo: { glyph: "shield", ...accountColorFor("sentryalarm") },
+  },
+  {
+    id: "willowspa",
+    name: "Willow Day Spa",
+    meta: "811 Main St, Kansas City, MO",
+    logo: { glyph: "leaf", ...accountColorFor("willowspa") },
+  },
+  {
+    id: "meridianlaw",
+    name: "Meridian Law Partners",
+    meta: "601 Poydras St, New Orleans, LA",
+    logo: { glyph: "arc", ...accountColorFor("meridianlaw") },
+  },
+  {
+    id: "atlaslogistics",
+    name: "Atlas Logistics",
+    meta: "2401 Elliott Ave, Seattle, WA",
+    logo: { glyph: "orbit", ...accountColorFor("atlaslogistics") },
+  },
 ];
 
 /**

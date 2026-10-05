@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Check, Minus, Pin, Search, X } from "lucide-react";
+import { ArrowLeft, Check, Minus, Pin, Search, X } from "lucide-react";
 import type { BulkPath } from "@/components/bulk/bulk-config";
 import { BulkHistoryModal } from "@/components/bulk/bulk-history-modal";
 import { BulkModal } from "@/components/bulk/bulk-modal";
+import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { useTheme } from "@/components/theme/theme-provider";
 import { useBulkActions } from "@/components/bulk/bulk-provider";
 import { usePinnedInk } from "@/components/nav/pin-button";
@@ -62,6 +63,11 @@ export function RailDirectory({
   const [bulk, setBulk] = React.useState<{ path: BulkPath | null } | null>(null);
   const [historyOpen, setHistoryOpen] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  /** The scrolling list, for the hover-only scrollbar. See the region below. */
+  const listRef = React.useRef<HTMLDivElement>(null);
+  // Writes data-overflowing / data-scrollbar-active onto it. The return value
+  // is unused — every rule that reads them is CSS.
+  useScrollEdges(listRef);
   const { settings } = useBulkActions();
   /*
    * Never for a member. Bulk-applying templates and feature access is an agency
@@ -80,7 +86,7 @@ export function RailDirectory({
    * mode the moment you unticked the last row.
    */
   const [selectMode, setSelectMode] = React.useState(false);
-  const { directorySelect } = useTheme().effective;
+  const { directorySelect, directoryExit } = useTheme().effective;
   /*
    * Whether rows are wearing checkboxes right now.
    *
@@ -211,6 +217,29 @@ export function RailDirectory({
         44px under the rail's 2px top pad — centred on y=24 like the header.
       */}
       <div className="flex h-[44px] shrink-0 items-center gap-[9px] px-[12px]">
+        {/*
+          The back arrow, when the exit is on the left. See DIRECTORY_EXITS.
+
+          Ahead of the select-all box deliberately: it leaves the PANEL, and
+          the box acts on the list inside it, so the control with the wider
+          reach reads first. It hides in select mode for the same reason ✕
+          does — Cancel is the exit that belongs to the mode you are in.
+        */}
+        {directoryExit === "back" && !picking ? (
+          <button
+            type="button"
+            aria-label="Back"
+            onClick={onClose}
+            className="motion-tap -ml-[4px] flex size-[26px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
+          >
+            {/* ArrowLeft, not ChevronLeft. A chevron is a DIRECTION — it is
+                what every row in this panel wears to say "there is more
+                through here" — and pointing one backwards asks the reader to
+                read the same mark two ways in one surface. An arrow is a
+                destination, which is what going back is. */}
+            <ArrowLeft size={16} aria-hidden="true" />
+          </button>
+        ) : null}
         {picking ? (
           <Box
             checked={allVisibleOn}
@@ -242,10 +271,23 @@ export function RailDirectory({
           {/* The count replaces the title rather than joining it: at 340px
               there is room for one thing on the left, and while rows are
               ticked the count is the more useful of the two. */}
+          {/*
+            The total in brackets, because the title alone does not say how
+            big "all" is — and at forty sub-accounts that is the first thing
+            worth knowing: it tells you to search rather than scroll before
+            you have started doing either. The agency is not named; you are
+            inside it, and a panel that says whose accounts these are is
+            answering a question nobody in it is asking.
+
+            The TOTAL, not the filtered count. It is a property of the agency
+            rather than of the query, and a number that moved as you typed
+            would read as a result count — which the list underneath is
+            already showing.
+          */}
           {selected.length === 0
             ? membersOnly
-              ? "My accounts"
-              : "All accounts"
+              ? `My accounts (${session.accounts.length})`
+              : `All accounts (${session.accounts.length})`
             : guided
               ? /*
                    A count against a total, because a bare "17 selected" does
@@ -297,8 +339,13 @@ export function RailDirectory({
           >
             {/* No glyph. Sparkles reads as AI everywhere else in this shell —
                 it is the Ask AI mark — and a bulk run is the one thing here
-                that is emphatically not that. The words are the label. */}
-            Bulk actions
+                that is emphatically not that. The words are the label.
+
+                "Actions", not "Bulk actions": the header already says "3 of
+                17 selected" two inches to its left, so "bulk" is the one word
+                in the row that repeats something. Dropping it is what stops
+                the count truncating to "3 of 17 sel…" in a 340px panel. */}
+            Actions
           </button>
         ) : null}
         {/*
@@ -314,24 +361,49 @@ export function RailDirectory({
           <button
             type="button"
             onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
+            /*
+              An outlined button, not a text link.
+
+              It sits beside a filled primary — Actions — and the two are the
+              standard pair: one thing to do, one way to stop. A bare word
+              next to a solid button reads as a label that happens to be
+              clickable, and in the select state the row has to make it
+              obvious that Cancel is the way out.
+
+              The same 26px height and 7px radius as the ✕ and the primary
+              beside it, so the three sit on one line rather than three.
+              Hairline in --fly-border, which is the stroke this panel's own
+              edges and its search field already wear.
+            */
             className={cn(
-              "motion-tap shrink-0 rounded-[6px] px-[7px] py-[4px] text-[12px] leading-none font-medium",
-              selectMode
-                ? "text-nav-fg hover:bg-nav-hover"
-                : "text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg",
+              "motion-tap flex h-[26px] shrink-0 items-center rounded-[7px] px-[9px] text-[12px] leading-none font-medium text-nav-fg",
+              "shadow-[inset_0_0_0_1px_var(--fly-border)] hover:bg-nav-hover",
             )}
           >
             {selectMode ? "Cancel" : "Select"}
           </button>
         ) : null}
-        <button
-          type="button"
-          aria-label="Close accounts directory"
-          onClick={onClose}
-          className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
-        >
-          <X size={15} aria-hidden="true" />
-        </button>
+        {/*
+          Gone while a selection is in progress.
+
+          Cancel is already the way out of the mode and it is the way out
+          people want — ✕ beside it offers a second exit that silently
+          discards the same work, and the two sitting together make the reader
+          decide which kind of leaving they meant. With the mode over, ✕ comes
+          back as the only way out there is.
+
+          It is also the four pixels that stop the count truncating.
+        */}
+        {picking || directoryExit === "back" ? null : (
+          <button
+            type="button"
+            aria-label="Close accounts directory"
+            onClick={onClose}
+            className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
+          >
+            <X size={15} aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col px-[8px] pb-[8px]">
@@ -354,7 +426,22 @@ export function RailDirectory({
           />
         </div>
 
-        <div className="-mx-[2px] mt-[6px] min-h-0 flex-1 overflow-y-auto px-[2px]">
+        {/*
+          A scroll region, not a plain overflow box.
+
+          At seventeen rows this scrolled in silence; at forty it needs to say
+          so — and to say it the way the rest of this shell does. The shared
+          rules give the thumb a transparent resting state and paint it only
+          while `data-scrollbar-active` is set, which `useScrollEdges` writes
+          on pointer movement and clears shortly after. So the bar appears
+          when you reach for it and leaves again, instead of standing in a
+          list of names permanently. See globals.css.
+        */}
+        <div
+          ref={listRef}
+          data-scroll-region=""
+          className="-mx-[2px] mt-[6px] min-h-0 flex-1 overflow-y-auto px-[2px]"
+        >
           {matches.length === 0 ? (
             <p className="px-[7px] py-[16px] text-[13px] leading-[18px] text-nav-fg-subtle">
               No accounts match “{query.trim()}”.
@@ -437,6 +524,10 @@ function Group({
     one list and branded in the other would be two.
   */
   const pinnedInk = usePinnedInk();
+  // See ACCOUNT_ROW_META_DEFAULT. Read here rather than threaded from the
+  // panel: the axis is a property of the ROW, and the panel has no other
+  // reason to know about it.
+  const { accountRowMeta } = useTheme().effective;
   if (accounts.length === 0) return null;
   return (
     <>
@@ -516,9 +607,12 @@ function Group({
                 <span className="truncate text-[13px] leading-[17px] font-medium text-nav-fg">
                   {account.name}
                 </span>
-                <span className="truncate text-[11px] leading-[14px] text-nav-fg-subtle">
-                  {account.meta}
-                </span>
+                {/* Off by default — see ACCOUNT_ROW_META_DEFAULT. */}
+                {accountRowMeta ? (
+                  <span className="truncate text-[11px] leading-[14px] text-nav-fg-subtle">
+                    {account.meta}
+                  </span>
+                ) : null}
               </span>
             </button>
             {/* Said, not implied: the tinted row alone failed the review. */}

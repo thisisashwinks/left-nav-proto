@@ -553,12 +553,40 @@
   }
 }
 
+/*
+ * And the way back out, which is the same journey reversed.
+ *
+ * A panel that slides in from the left edge and then fades in place on the way
+ * out has told you two different stories about where it lives. It goes back to
+ * where it came from.
+ *
+ * Shorter than the entrance, and on the same --ease-in-out every other exit in
+ * this file uses: an arrival is worth watching and
+ * a dismissal is worth getting out of the way, which is the asymmetry every
+ * other in/out pair in this file already keeps.
+ */
+@keyframes l1-drawer-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0.4;
+    transform: translate3d(-100%, 0, 0);
+  }
+}
+
 .motion-drawer-in {
   animation: l1-drawer-in var(--dur-base) var(--ease-out) both;
 }
 
+.motion-drawer-out {
+  animation: l1-drawer-out var(--dur-fast) var(--ease-in-out) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .motion-drawer-in {
+  .motion-drawer-in,
+  .motion-drawer-out {
     animation: none;
   }
 }
