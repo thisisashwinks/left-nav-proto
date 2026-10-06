@@ -986,7 +986,22 @@ function MergedItemRow({
       className={cn(
         "group/row motion-tap relative flex w-full shrink-0 items-center",
         "gap-[var(--t-nav-gap,10px)] rounded-[var(--t-nav-radius,7px)]",
-        "px-[var(--t-nav-px,8px)] py-[calc(var(--t-nav-py,9px)*0.667)]",
+        /*
+          An L1 row's own height and padding: 36px, as 8 + 20 + 8.
+
+          These sat at two thirds of the nav's vertical padding — a
+          deliberate "a recent is a lighter kind of row" that read on screen
+          as the block above the categories being a different LIST, out of
+          step with everything under it. A pin and a product are the same
+          object at two ages, and the eye reads a column by its rhythm
+          before it reads any of the words in it.
+
+          The same calculation the nav rows use rather than a literal 36, so
+          the density knob still moves every level together — which is the
+          whole point: one number, four lists. Ashwin, Oct 6.
+        */
+        "px-[var(--t-nav-px,8px)] py-[var(--t-nav-py,9px)]",
+        "min-h-[calc(var(--t-nav-py,9px)*2+20px)]",
         pinEdit?.drag.dragging
           ? "opacity-40"
           : "hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]",
@@ -1137,7 +1152,11 @@ function MergedItemRow({
                   }
             }
             className={cn(
-              "motion-tap flex size-[22px] shrink-0 items-center justify-center rounded-[6px]",
+              // 20, not 22: this button is IN the row's flow, so its box is
+              // what the row's height is measured from. At 22 the recents
+              // block stood 2px taller than every list under it. See the
+              // height note on the row.
+              "motion-tap flex size-[20px] shrink-0 items-center justify-center rounded-[6px]",
               "hover:bg-nav-hover active:scale-90 motion-press",
               /*
               Grey, not brand — and only in this block.
@@ -1172,7 +1191,7 @@ function MergedItemRow({
       ) : (
         // A row nobody can pin still gives up the column, so every label in the
         // list truncates at the same place.
-        <span aria-hidden="true" className="size-[22px] shrink-0" />
+        <span aria-hidden="true" className="size-[20px] shrink-0" />
       )}
 
       {/*
@@ -1280,7 +1299,9 @@ function TailRow({
       className={cn(
         "motion-tap group flex w-full shrink-0 items-center justify-between",
         "rounded-[var(--t-nav-radius,7px)] px-[var(--t-nav-px,8px)]",
-        "py-[calc(var(--t-nav-py,9px)*0.667)] text-left hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]",
+        // The same rhythm as the rows above it — see MergedRow's note.
+        "py-[var(--t-nav-py,9px)] min-h-[calc(var(--t-nav-py,9px)*2+20px)]",
+        "text-left hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]",
       )}
     >
       <span className="truncate text-[13px] leading-[18px] text-nav-fg-subtle group-hover:text-nav-fg-muted">
