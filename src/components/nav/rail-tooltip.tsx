@@ -26,6 +26,7 @@ export function RailTooltip({
   label,
   placement = "right",
   wrap,
+  show = true,
   children,
 }: {
   label: string;
@@ -51,6 +52,18 @@ export function RailTooltip({
    * wraps and stays on screen.
    */
   wrap?: number;
+  /**
+   * Off, the wrapper stays in the tree but never opens.
+   *
+   * For callers whose condition depends on MEASURING the children — a label
+   * that only earns a tooltip once it has been cut. Mounting the wrapper as
+   * the condition flips re-parents those children, which unmounts them, which
+   * detaches the ref doing the measuring: the tooltip appears for one frame
+   * and then the measurement that summoned it is gone. Keeping the wrapper
+   * constant and gating the BEHAVIOUR is the only version that settles.
+   * Ashwin, Oct 6 — "no tooltips".
+   */
+  show?: boolean;
   children: React.ReactNode;
 }) {
   const ref = React.useRef<HTMLSpanElement>(null);
@@ -58,7 +71,8 @@ export function RailTooltip({
     null,
   );
 
-  const show = () => {
+  const open = () => {
+    if (!show) return;
     // display:contents gives the wrapper no box, so measure the trigger itself.
     const trigger = ref.current?.firstElementChild;
     if (!trigger) return;
@@ -111,9 +125,9 @@ export function RailTooltip({
     <span
       ref={ref}
       // Events from the trigger bubble through, so the wrapper needs no box.
-      onPointerEnter={show}
+      onPointerEnter={open}
       onPointerLeave={hide}
-      onFocus={show}
+      onFocus={open}
       onBlur={hide}
       className="contents"
     >

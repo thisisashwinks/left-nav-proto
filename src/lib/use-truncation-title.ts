@@ -101,3 +101,75 @@ export function useTruncationTitle<T extends HTMLElement>(
 
   return { ref, hostRef };
 }
+
+/**
+ * Whether a label is currently cut, as state rather than as an attribute.
+ *
+ * `useTruncationTitle` above writes the browser's own `title`, which is right
+ * for a row in a scrolling panel — it needs no positioning and cannot get in
+ * the way of a hover intent. It is wrong where the tooltip has to be SEEN:
+ * the native one waits out a delay nobody can tune and draws in the OS's
+ * colours, and Ashwin has reported it as "no tooltips" more than once because
+ * the pointer moves on before it appears.
+ *
+ * So this returns the measurement instead and lets the caller draw the app's
+ * own pill. Same observer, same fonts.ready re-measure, same +1 for sub-pixel
+ * rounding — only the output differs.
+ *
+ * A re-render per measurement is the cost, and it is bounded: the value only
+ * flips when a label crosses its box's edge, which happens on a resize or a
+ * font swap, not on a scroll.
+ */
+export function useTruncated<T extends HTMLElement>(
+  text: string,
+): { ref: (el: T | null) => void; cut: boolean } {
+  const [cut, setCut] = React.useState(false);
+  const elRef = React.useRef<T | null>(null);
+  const obsRef = React.useRef<ResizeObserver | null>(null);
+
+  const measure = React.useCallback(() => {
+    const el = elRef.current;
+    if (!el) return;
+    // +1: sub-pixel layout rounds scrollWidth up on labels that fit exactly,
+    // which would put a tooltip on every row in the panel.
+    setCut(el.scrollWidth > el.clientWidth + 1);
+  }, []);
+
+  /*
+   * A CALLBACK ref, not an object one, and that is the whole of the fix.
+   *
+   * An object ref with the observer wired in an effect keyed on `text` watches
+   * whatever node was mounted the first time. Entering edit mode re-renders
+   * the row with a grip in front of the label — React replaces the span, the
+   * observer goes on watching a node that is no longer in the document, and
+   * `cut` keeps the answer it gave for the WIDER label. So the tooltip worked
+   * in the default panel and not in edit mode, which is exactly what Ashwin
+   * saw on Oct 6. A callback ref fires on every attach, so the observer always
+   * belongs to the node on screen.
+   */
+  const ref = React.useCallback(
+    (el: T | null) => {
+      obsRef.current?.disconnect();
+      obsRef.current = null;
+      elRef.current = el;
+      if (!el) return;
+      const observer = new ResizeObserver(measure);
+      observer.observe(el);
+      obsRef.current = observer;
+      measure();
+    },
+    [measure],
+  );
+
+  /*
+   * The box can stay the same size while the TEXT stops fitting — a webfont
+   * swapping in is the common case, and it fires no resize on a flex child
+   * whose width the parent decided.
+   */
+  React.useEffect(() => {
+    measure();
+    document.fonts?.ready.then(measure).catch(() => {});
+  }, [text, measure]);
+
+  return { ref, cut };
+}
