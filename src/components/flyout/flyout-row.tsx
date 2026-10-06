@@ -24,7 +24,8 @@ import { productById } from "@/components/nav/catalogue";
 import { isChromePlace } from "@/components/nav/chrome-places";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
-import { useTruncationTitle } from "@/lib/use-truncation-title";
+import { useTruncated } from "@/lib/use-truncation-title";
+import { RailTooltip } from "@/components/nav/rail-tooltip";
 import {
   NewDot,
   NewDotIcon,
@@ -141,11 +142,62 @@ const PLACE_PIN_RESERVE = "pr-[var(--t-nav-px,8px)]";
  * holds the column open in flow. The numbers have to agree, which is why they
  * are here rather than inline at either site.
  */
+/**
+ * The app's pill over a label, but only once the label has actually been cut.
+ *
+ * Above, not beside: these rows sit in a 264px panel with the canvas to their
+ * right, so a tooltip to the side either covers the next column or runs off
+ * the panel. Above puts it over the row that came before, which is the one
+ * place there is always room.
+ *
+ * `wrap` because a cut label is by definition long — unwrapped it becomes a
+ * ribbon wider than the panel it is explaining.
+ *
+ * Returns the children untouched when nothing is cut, so a panel of short
+ * names carries no tooltip wrappers at all. Ashwin, Oct 6.
+ */
+function TipIfCut({
+  cut,
+  label,
+  children,
+}: {
+  cut: boolean;
+  label: string;
+  children: React.ReactNode;
+}) {
+  /*
+    Always mounted, gated by `show`.
+    
+    Returning the bare children when nothing is cut looked tidier and did not
+    work: adding the wrapper re-parents the label, React unmounts it, the ref
+    measuring the overflow detaches, and `cut` falls back to false — the
+    tooltip undoes its own condition. The wrapper is `display: contents`, so
+    leaving it in place costs no box and no layout.
+  */
+  return (
+    <RailTooltip show={cut} label={label} placement="above" wrap={240}>
+      {children}
+    </RailTooltip>
+  );
+}
+
 const CHEVRON_SLOT = 14;
 const PIN_SLOT = 22;
 const TRAILING_GAP = 10;
 const ROW_EDGE = 8;
-const PIN_INSET = ROW_EDGE + CHEVRON_SLOT + TRAILING_GAP;
+/*
+ * The pin hangs here, and it has to track the trailing gap.
+ *
+ * A `calc()` rather than a number since Oct 6. The pin is an OVERLAY and the
+ * spacer beside it is in flow, so the two only line up if they are measuring
+ * the same thing — and once the gap became a slider, the number could only
+ * carry its design-time value. The spacer and the chevron moved; the pin did
+ * not, which is exactly what Ashwin saw in the panel's default mode.
+ *
+ * `TRAILING_GAP` stays as the fallback inside the var, so a surface that has
+ * not been given the property still lands on 10.
+ */
+const PIN_INSET = `calc(${ROW_EDGE}px + ${CHEVRON_SLOT}px + var(--t-nav-trail-gap, ${TRAILING_GAP}px))`;
 
 /**
  * What the panel's header has to pad by to line up with its rows.
@@ -164,7 +216,8 @@ const PIN_INSET = ROW_EDGE + CHEVRON_SLOT + TRAILING_GAP;
  */
 
 /** Title left edge = the panel's inset plus the row's own = the icon's edge. */
-export const PANEL_HEADER_PL = "pl-[calc(14px+var(--t-nav-px,8px))]";
+export const PANEL_HEADER_PL =
+  "pl-[calc(var(--t-fly-pad,14px)+var(--t-nav-px,8px))]";
 
 /**
  * Close button right edge = the row's right edge, and the same 22px line the
@@ -177,7 +230,8 @@ export const PANEL_HEADER_PL = "pl-[calc(14px+var(--t-nav-px,8px))]";
  * its box instead — see the header — so both marks are flush against one line
  * and the alignment survives either glyph changing size.
  */
-export const PANEL_HEADER_PR = "pr-[calc(14px+var(--t-nav-px,8px))]";
+export const PANEL_HEADER_PR =
+  "pr-[calc(var(--t-fly-pad,14px)+var(--t-nav-px,8px))]";
 
 /**
  * Per-variant geometry, read off the Pencil export.
@@ -430,8 +484,19 @@ export function FlyoutRow({
    * the label alone answers only a pointer sitting on the glyphs, which is not
    * where a reader points.
    */
-  const { ref: labelRef, hostRef: rowHostRef } =
-    useTruncationTitle<HTMLSpanElement>(item.label);
+  /*
+   * The app's own pill, not the browser's — see `useTruncated`.
+   *
+   * This row used `useTruncationTitle`, which hangs a native `title` on the
+   * row. That is the right trade for a plain list, and the wrong one here:
+   * the OS tooltip waits out a delay nobody can tune, so in a panel you are
+   * sweeping down it never appears, which is what Ashwin reported on Oct 6 as
+   * the labels having no tooltip at all. The measurement is the same; only
+   * who draws it changes.
+   */
+  const { ref: labelRef, cut: labelCut } = useTruncated<HTMLSpanElement>(
+    item.label,
+  );
   const showDesc =
     item.description !== undefined &&
     (variant !== "product" || SHOW_ROW_DESCRIPTIONS);
@@ -661,39 +726,41 @@ export function FlyoutRow({
               )}
             />
           ) : (
-            <span
-              /*
-                The full name on hover, but only once the row has cut it — see
-                useTruncationTitle. The ellipsis is a promise that the rest
-                exists; this is where it exists.
-              */
-              ref={labelRef}
-              className={cn(
-                "min-w-0 truncate text-[length:var(--t-fly-title,14px)] leading-[normal] text-nav-fg",
-                v.title,
-                mark.ink,
-                // Faded, not struck through — a strike reads as deleted, and a
-                // hidden row is only switched off. The pinned eye-off says which.
-                edit?.hidden && "opacity-40",
-                // In edit mode the text is the rename target, same as in the
-                // nav. The row itself keeps its own job — expanding, or opening
-                // the page — so the two gestures stay separate targets.
-                edit?.onStartRename &&
-                  "-mx-[3px] rounded-[4px] px-[3px] hover:bg-nav-active",
-              )}
-              {...(edit?.onStartRename
-                ? {
-                    role: "button",
-                    tabIndex: 0,
-                    onClick: (e: React.MouseEvent) => {
-                      e.stopPropagation();
-                      edit.onStartRename?.();
-                    },
-                  }
-                : {})}
-            >
-              {item.label}
-            </span>
+            <TipIfCut cut={labelCut} label={item.label}>
+              <span
+                /*
+                  The full name on hover, but only once the row has cut it — see
+                  useTruncationTitle. The ellipsis is a promise that the rest
+                  exists; this is where it exists.
+                */
+                ref={labelRef}
+                className={cn(
+                  "min-w-0 truncate text-[length:var(--t-fly-title,14px)] leading-[normal] text-nav-fg",
+                  v.title,
+                  mark.ink,
+                  // Faded, not struck through — a strike reads as deleted, and a
+                  // hidden row is only switched off. The pinned eye-off says which.
+                  edit?.hidden && "opacity-40",
+                  // In edit mode the text is the rename target, same as in the
+                  // nav. The row itself keeps its own job — expanding, or opening
+                  // the page — so the two gestures stay separate targets.
+                  edit?.onStartRename &&
+                    "-mx-[3px] rounded-[4px] px-[3px] hover:bg-nav-active",
+                )}
+                {...(edit?.onStartRename
+                  ? {
+                      role: "button",
+                      tabIndex: 0,
+                      onClick: (e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        edit.onStartRename?.();
+                      },
+                    }
+                  : {})}
+              >
+                {item.label}
+              </span>
+            </TipIfCut>
           )}
           {/*
             The pill only where the badge is TRUE of the row wearing it.
@@ -757,7 +824,20 @@ export function FlyoutRow({
       */}
       <span
         className={cn(
-          "ml-auto flex shrink-0 items-center gap-[var(--t-fly-gap,10px)]",
+          /*
+            The trailing run reads `--t-nav-trail-gap`, not the flyout's own
+            row gap.
+
+            One slider for every trailing cluster in the chrome — the nav's
+            rows, this L2 row and the L3 below it. They are the same object
+            seen at three depths: a run of 20px glyph boxes packed against a
+            row's edge, which is a different measurement from the gap that
+            sets a label off from its icon. Splitting them in the nav and
+            leaving the panel on the old conflated var would have made the
+            slider look broken exactly where the rows are densest.
+            Ashwin, Oct 6.
+          */
+          "ml-auto flex shrink-0 items-center gap-[var(--t-nav-trail-gap,10px)]",
           // items-start variants align the cluster to the title's line, not the
           // middle of a two-line row. A row with no blurb has only the one line,
           // so the cluster sits on the row's own middle.
@@ -865,9 +945,22 @@ export function FlyoutRow({
             )}
           />
           )
-        ) : !edit?.renaming ? (
+        ) : !edit?.renaming && !!edit ? (
           /*
-           * The slot, held empty.
+           * The slot, held empty — but only when the row has a mark to align.
+           *
+           * Edit mode only, since Oct 6. There the kebab is on every row and
+           * the column is real, so holding it keeps the cluster straight.
+           *
+           * Read-only it was holding 14px open on every leaf row for a chevron
+           * that row can never have — and taking it out of the label, which
+           * then truncated with empty space beside it. That is what Ashwin
+           * photographed: "Preference Manage…" and "Video Testi…" cut short
+           * next to a gap. The pin stays aligned regardless: it is an overlay
+           * hung at PIN_INSET, which already counts the chevron column, and
+           * the row's own `pinReserve` padding keeps the label clear of it.
+           * So the alignment the note below defends survives without the
+           * spacer paying for it twice.
            *
            * Without it a leaf row's last control slides into the chevron's place
            * and the trailing column zig-zags down the list — every mark has to
@@ -895,7 +988,6 @@ export function FlyoutRow({
    */
   const row = edit ? (
     <div
-      ref={rowHostRef}
       role="button"
       tabIndex={0}
       aria-current={active ? "true" : undefined}
@@ -945,7 +1037,6 @@ export function FlyoutRow({
     </div>
   ) : (
     <button
-      ref={rowHostRef}
       type="button"
       aria-current={active ? "true" : undefined}
       aria-expanded={hasChildren ? open : undefined}
@@ -1066,7 +1157,8 @@ function Row({
    * edge and sits at `ROW_EDGE`; in the panel it stays inboard of the chevron's
    * column.
    */
-  pinInset?: number;
+  /** A CSS length, so it can carry the trailing gap's variable. */
+  pinInset?: number | string;
   /** Empty for a row that discloses — see WithPin's own note. */
   childId: string;
   children: React.ReactNode;
@@ -1258,8 +1350,9 @@ function FlyoutChildRow({
     "l3",
   );
   const mark = useHereStyle(marking);
-  const { ref: childLabelRef, hostRef: childHostRef } =
-    useTruncationTitle<HTMLSpanElement>(child.label);
+  // Same swap one level down — see the note on the L2 row.
+  const { ref: childLabelRef, cut: childLabelCut } =
+    useTruncated<HTMLSpanElement>(child.label);
   const nested =
     (child.children?.length ?? 0) > 0 &&
     (tabsInNav || !child.tabs) &&
@@ -1303,7 +1396,6 @@ function FlyoutChildRow({
       <ChildShell edit={edit}>
       <Row
         edit={edit}
-        hostRef={childHostRef}
         childId={nested ? "" : child.id}
         pinInset={cascade ? ROW_EDGE : PIN_INSET}
         aria-current={child.id === activeId ? "page" : undefined}
@@ -1446,9 +1538,11 @@ function FlyoutChildRow({
           )
         ) : null}
         {/* Same rule one level down: the cut label carries its own full text. */}
-        <span ref={childLabelRef} className="truncate">
-          {child.label}
-        </span>
+        <TipIfCut cut={childLabelCut} label={child.label}>
+          <span ref={childLabelRef} className="truncate">
+            {child.label}
+          </span>
+        </TipIfCut>
         {/* Same rule one level down: `nested` is this row's disclosure. */}
         {!nested && child.badge ? (
           <span
@@ -1486,7 +1580,9 @@ function FlyoutChildRow({
         */}
         <span
           className={cn(
-            "ml-auto flex shrink-0 items-center gap-[var(--t-fly-gap,10px)]",
+            // The L3's trailing run, on the same slider as the L2's above it
+            // and the nav's — see the note there.
+            "ml-auto flex shrink-0 items-center gap-[var(--t-nav-trail-gap,10px)]",
             cascade && "flex-row-reverse",
           )}
         >
@@ -1526,13 +1622,19 @@ function FlyoutChildRow({
                 )}
               />
             )
-          ) : (
+          ) : edit || isPinnable(child.id) ? (
+            /*
+              The empty slot, and only where there is a mark to align with —
+              same rule as the L2 row above. An L3 with no disclosure, no pin
+              and no kebab was reserving 14px for a column it never joins, and
+              paying for it out of the label.
+            */
             <span
               aria-hidden="true"
               style={{ width: CHEVRON_SLOT }}
               className="shrink-0"
             />
-          )}
+          ) : null}
         </span>
       </Row>
       </ChildShell>

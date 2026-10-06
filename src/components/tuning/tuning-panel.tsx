@@ -181,6 +181,9 @@ import {
   NAV_SELECTED_FILLS,
   DIRECTORY_EXITS,
   RAIL_FILL_MORPHS,
+  RAIL_FILL_RESTS,
+  RAIL_FILL_REST_LABELS,
+  type RailFillRest,
   RAIL_FILL_MORPH_LABELS,
   type RailFillMorph,
   DIRECTORY_EXIT_LABELS,
@@ -572,10 +575,12 @@ function NavStructureSection({
     setRailHover,
     directoryPlacement,
     railFillMorph,
+    railFillRest,
     railFillAgency,
     railHoldInset,
     setDirectoryPlacement,
     setRailFillMorph,
+    setRailFillRest,
     setRailFillAgency,
     setRailHoldInset,
     collapsedRail,
@@ -879,6 +884,28 @@ function NavStructureSection({
             {railHoldInset
               ? "The marks stay on exactly the midline they sit on when the strip is closed, so opening it changes only the labels — no movement at all. All three placements."
               : "The open column pads by 10, which is the inset the closed strip uses on its right, so the logos shift by a few pixels rather than the eight they used to. The names take the rest of the width back."}
+          </Note>
+
+          <Segmented
+            label="Closing the filled rail"
+            keywords="close rest collapse names hover persist fill rail"
+            options={RAIL_FILL_RESTS}
+            value={railFillRest}
+            onChange={(v: RailFillRest) => setRailFillRest(v)}
+            format={(v) => RAIL_FILL_REST_LABELS[v]}
+            disabled={directoryPlacement !== "names"}
+          />
+          <Note>
+            {directoryPlacement !== "names"
+              ? "Only the filled rail has a state to fall back to. The panel placements leave the strip wherever the pointer has it."
+              : railFillRest === "names"
+                ? "The strip stays open at its names width and settles shut when the pointer leaves — the state the fill started from. Closing the directory is being done choosing, not being done with the rail."
+                : "Straight back to the 56px strip, marks only."}
+          </Note>
+
+          <Note>
+            The head follows the “All accounts exit” setting above: a ◀ on the
+            left or a ✕ on the right, never both.
           </Note>
 
           <Toggle
@@ -5239,7 +5266,9 @@ export function TuningPanel() {
           <Note>
             {navWidthSet === "default"
               ? "The L1 column and the L2 panel as left-nav.pen drew them, and the proportion every spacing decision in this nav was made inside."
-              : "32px off the column and 60px off the panel, back to the canvas. 240 is where most product navs land, and 300 still holds a two-line L2 row. The pair moves together: the panel docks on the column's edge, so narrowing one alone changes the proportion rather than the size."}
+              : navWidthSet === "narrow"
+                ? "32px off the column and 60px off the panel, back to the canvas. 240 is where most product navs land, and 300 still holds a two-line L2 row. The pair moves together: the panel docks on the column's edge, so narrowing one alone changes the proportion rather than the size."
+                : "The two columns at the same width — the panel stops reading as a wider thing the column opened and starts reading as a second column of equal standing. Costs the L2 96px against the default, so its rows truncate sooner: that is the thing to look at. Edit mode holds this width rather than borrowing the wider pair."}
           </Note>
 
           <Segmented
@@ -5288,8 +5317,10 @@ export function TuningPanel() {
             disabled={navWidthSet === "default"}
           />
           <Note>
-            {navWidthSet === "default"
-              ? "Nothing to borrow — the nav is already at 272 / 360. This is the narrow set's option."
+            {navWidthSet !== "narrow"
+              ? navWidthSet === "default"
+                ? "Nothing to borrow — the nav is already at 272 / 360. This is the narrow set's option."
+                : "264 / 264 holds its width in edit mode: a column the same width as its panel would lose the point of it if editing sprang the column 8px wider and the panel 96. This is the narrow set's option."
               : editWidthFull
                 ? "Edit mode takes 272 / 360 and gives it back on exit. Editing is the one state that ADDS to a row — grip, kebab, pin, shortcut cap — and all four come out of the label, so at 240 names truncate exactly when the task is reading them to reorder. The width already animates for collapse, so this is the motion the nav has rather than a new one."
                 : "The narrow nav is edited at its own width, which is the honest test of whether 240 is enough."}

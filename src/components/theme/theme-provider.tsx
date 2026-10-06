@@ -49,6 +49,7 @@ import {
   type NavWidthSet,
   type DirectoryExit,
   type RailFillMorph,
+  type RailFillRest,
   type RailSizing,
   type EditTreatment,
   type RenameAffordance,
@@ -216,6 +217,7 @@ interface ThemeContextValue extends ThemeState {
   setRailFillMorph: (v: RailFillMorph) => void;
   setRailFillAgency: (on: boolean) => void;
   setRailHoldInset: (on: boolean) => void;
+  setRailFillRest: (v: RailFillRest) => void;
   setPlaneGround: (v: PlaneGround) => void;
   setPinnedRowEdit: (on: boolean) => void;
   setPinnedShortcuts: (on: boolean) => void;
@@ -558,6 +560,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, railFillAgency })),
       setRailHoldInset: (railHoldInset) =>
         setState((s) => ({ ...s, railHoldInset })),
+      setRailFillRest: (railFillRest) =>
+        setState((s) => ({ ...s, railFillRest })),
       setPlaneGround: (planeGround) => setState((s) => ({ ...s, planeGround })),
       setPinnedRowEdit: (pinnedRowEdit) =>
         setState((s) => ({ ...s, pinnedRowEdit })),

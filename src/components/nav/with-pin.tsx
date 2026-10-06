@@ -62,7 +62,15 @@ export function WithPin({
    * by source order in the generated sheet, which is not something a caller can
    * reason about.
    */
-  pinInset?: number;
+  /**
+   * A string as well as a number, so a caller can hand over a `calc()`.
+   *
+   * The inset has to match the trailing run's gap, and that gap is a CSS
+   * variable now — a tuning slider, not a constant. A number could only ever
+   * carry the design-time value, which is why the pin stayed put while the
+   * chevron beside it moved. See `PIN_INSET` in flyout-row.
+   */
+  pinInset?: number | string;
   children: React.ReactNode;
 }) {
   if (!isPinnable(productId)) return children;

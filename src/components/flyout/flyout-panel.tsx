@@ -1248,7 +1248,7 @@ export function FlyoutPanel({
             because its inset happens to equal the gutter; 14 does not, so it
             has to be made up rather than dropped.
           */
-          className="flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto pt-[var(--t-fly-block-gap,10px)] pl-[14px] pr-[4px]"
+          className="flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto pt-[var(--t-fly-block-gap,10px)] pl-[var(--t-fly-pad,14px)] pr-[max(0px,calc(var(--t-fly-pad,14px)-var(--nav-scroll-gutter)))]"
         >
       {/*
         An empty category's panel still offers a seam.
@@ -1389,7 +1389,7 @@ export function FlyoutPanel({
               "--row-index": Math.min(entries.length + 2, MAX_STAGGERED_ROWS + 2),
             } as React.CSSProperties
           }
-          className="motion-row-in w-full shrink-0 px-[14px] pt-[var(--t-fly-block-gap,10px)]"
+          className="motion-row-in w-full shrink-0 px-[var(--t-fly-pad,14px)] pt-[var(--t-fly-block-gap,10px)]"
         >
           <BottomSlot slot={config.bottom} />
         </div>

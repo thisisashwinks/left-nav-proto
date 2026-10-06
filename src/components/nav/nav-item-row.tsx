@@ -591,9 +591,20 @@ export function NavItemRow({
       >
         {icon}
         {labelled}
-        {count}
-        {pinSlot}
-        {chevron}
+        {/*
+          The trailing run gets its own gap — see `navRowTrailGap`.
+
+          These are 20px glyph boxes packed against the row's edge; the row's
+          own gap is setting a word off from a picture, which is a different
+          measurement. One number for both meant opening up the label gap
+          loosened the controls with it. Ashwin asked for the two to move
+          independently on Oct 6.
+        */}
+        <span className="flex shrink-0 items-center gap-[var(--t-nav-trail-gap,10px)]">
+          {count}
+          {pinSlot}
+          {chevron}
+        </span>
       </button>
       </span>
     );
@@ -834,7 +845,13 @@ export function NavItemRow({
       ) : null}
 
       {!edit.renaming ? (
-        <>
+        /*
+          Edit mode's trailing run, on the same separate gap as the read-only
+          row's — see the note there. The warning stays outside it: it is a
+          state of the ROW rather than one of its controls, and it earns the
+          row's own wider gap to keep it off the cluster.
+        */
+        <span className="flex shrink-0 items-center gap-[var(--t-nav-trail-gap,10px)]">
           {edit.onToggleHidden ? (
             <EditAffordance
               label={
@@ -930,7 +947,7 @@ export function NavItemRow({
               ) : null}
             </>
           )}
-        </>
+        </span>
       ) : null}
     </div>
   );

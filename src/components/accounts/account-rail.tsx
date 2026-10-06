@@ -1,7 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { Check, Grip, LayoutGrid, Minus, Pin, Search, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  Grip,
+  LayoutGrid,
+  Minus,
+  Pin,
+  Search,
+  X,
+} from "lucide-react";
 import {
   RAIL_TILE_SIZE,
   RAIL_TILE_SIZE_ACTIVE,
@@ -219,6 +228,8 @@ export function AccountRail({
   const fillMode = effective.directoryPlacement === "names";
   const filled = fillMode && switcherMounted;
   const fillMorph = effective.railFillMorph;
+  /* Which way out the head offers. Shared with the panel — see DIRECTORY_EXITS. */
+  const directoryExit = effective.directoryExit;
   /*
    * The plate above the filled list — see RAIL_FILL_AGENCY_DEFAULT.
    *
@@ -342,7 +353,16 @@ export function AccountRail({
    * what the list IS — a re-render for any other reason measures, finds every
    * row where it left it, and plays nothing.
    */
-  const flip = useFlipRows(`${filled}:${fillQuery}`, { enabled: fillMode });
+  const flip = useFlipRows(`${filled}:${fillQuery}`, {
+    enabled: fillMode,
+    /*
+      Closing counts from the bottom. `filled` is the state this commit is
+      animating INTO, so an unfilled commit is the strip folding back up —
+      and that reads bottom-first: the last row goes, then the one above it,
+      and the column stacks up into the strip. See `reverse`.
+    */
+    reverse: !filled,
+  });
 
   /*
    * The filled list's scroller, for the fading bar.
@@ -1037,6 +1057,30 @@ export function AccountRail({
                     directly under it. */}
                 <div className="flex h-[28px] w-full items-center gap-[8px]">
                   {/*
+                    The back arrow, when the exit is on the left.
+
+                    The same axis the All accounts panel reads — see
+                    DIRECTORY_EXITS. The filled strip is the one arrangement
+                    where "back" is most literally true: you did not open a
+                    panel over anything, you went one level into the column
+                    you were already in, and this is the step out of it.
+
+                    Ahead of the select-all box, because it leaves the
+                    surface and the box acts on the list inside it. Hidden
+                    while picking, like the ✕, since Cancel is the exit that
+                    belongs to the mode.
+                  */}
+                  {directoryExit === "back" && !fillPicking ? (
+                    <button
+                      type="button"
+                      aria-label="Back"
+                      onClick={closeFill}
+                      className="motion-tap -ml-[4px] flex size-[24px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
+                    >
+                      <ArrowLeft size={16} aria-hidden="true" />
+                    </button>
+                  ) : null}
+                  {/*
                     Select-all, and only while a selection is running.
 
                     Tri-state, like the panel's: ticked when everything on
@@ -1122,7 +1166,7 @@ export function AccountRail({
                   {/* Gone while picking, for the reason it is gone in the
                       panel: Cancel is already the way out of the mode, and a
                       ✕ beside it discards the same work by a second door. */}
-                  {fillPicking ? null : (
+                  {fillPicking || directoryExit === "back" ? null : (
                     <button
                       type="button"
                       aria-label="Close accounts"

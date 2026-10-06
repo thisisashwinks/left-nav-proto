@@ -1074,19 +1074,26 @@ export const NAV_ROW_SHADOW_DEFAULT = false;
  *           argument: at 1440 the chrome is giving up a tenth of the window
  *           before the page has drawn anything. 240 is the width most product
  *           navs land on, and 300 still holds a two-line L2 row.
+ *  even     264 / 264. The one set where the two columns are the SAME width,
+ *           which is a different proposition rather than a third point on the
+ *           same line: the panel stops reading as a wider thing the column
+ *           opened and starts reading as a second column of equal standing.
+ *           Costs the L2 96px against the default — the rows truncate sooner,
+ *           and that is the thing to look at. Ashwin, Oct 6.
  *
  * Both numbers are published as CSS custom properties as well as JS, because
  * the two columns are measured in both places: the shell positions the panel
  * against the column arithmetically, and the panel sets its own width in CSS.
  * One source, two readers — see --nav-w and --fly-w.
  */
-export const NAV_WIDTH_SETS = ["default", "narrow"] as const;
+export const NAV_WIDTH_SETS = ["default", "narrow", "even"] as const;
 
 export type NavWidthSet = (typeof NAV_WIDTH_SETS)[number];
 
 export const NAV_WIDTH_SET_LABELS: Record<NavWidthSet, string> = {
   default: "272 / 360",
   narrow: "240 / 300",
+  even: "264 / 264",
 };
 
 /**
@@ -1190,6 +1197,7 @@ export const DIRECTORY_EXIT_LABELS: Record<DirectoryExit, string> = {
 export const NAV_WIDTHS: Record<NavWidthSet, { l1: number; l2: number }> = {
   default: { l1: 272, l2: 360 },
   narrow: { l1: 240, l2: 300 },
+  even: { l1: 264, l2: 264 },
 };
 
 /**
@@ -1206,7 +1214,17 @@ export function navWidthsFor(
   editing: boolean,
   editWidthFull: boolean,
 ): { l1: number; l2: number } {
-  return NAV_WIDTHS[editing && editWidthFull ? "default" : set];
+  /*
+   * Only `narrow` ever borrows the wider pair.
+   *
+   * The switch exists because edit mode ADDS to a row — grip, kebab, pin,
+   * shortcut cap — and at 240 those four come out of the label just as you
+   * start reading labels to reorder them. At 264 the row still absorbs them,
+   * and Ashwin asked on Oct 6 for `even` to hold its width in edit mode: the
+   * point of a column the same width as its panel is lost if entering the one
+   * mode that rearranges it springs the column 8px wider and the panel 96.
+   */
+  return NAV_WIDTHS[editing && editWidthFull && set === "narrow" ? "default" : set];
 }
 
 export const NAV_SELECTED_FILLS = [
@@ -2339,6 +2357,31 @@ export const RAIL_FILL_AGENCY_DEFAULT = false;
  */
 export const RAIL_HOLD_INSET_DEFAULT = false;
 
+/**
+ * What the filled rail falls back to when it closes.
+ *
+ *  names     The strip stays open at its names width, exactly as a hovered
+ *            rail does, and settles shut when the pointer leaves it.
+ *  collapse  Straight back to the 56px strip.
+ *
+ * `names` by default. Closing the directory is a smaller act than leaving the
+ * rail — you are done choosing, not done with the strip — and collapsing to
+ * marks answers a question nobody asked. It also keeps the exit continuous
+ * with the entrance: the fill began from the named column, so unfilling should
+ * land back on it rather than two states further out.
+ *
+ * Only the `names` placement has anything to fall back TO; the other two are
+ * panels, and a panel closing leaves the rail wherever the pointer has it.
+ */
+export const RAIL_FILL_RESTS = ["names", "collapse"] as const;
+
+export type RailFillRest = (typeof RAIL_FILL_RESTS)[number];
+
+export const RAIL_FILL_REST_LABELS: Record<RailFillRest, string> = {
+  names: "Keeps the names",
+  collapse: "Back to the strip",
+};
+
 export const RAIL_FILL_MORPHS = ["header", "descend", "unfold"] as const;
 
 export type RailFillMorph = (typeof RAIL_FILL_MORPHS)[number];
@@ -2685,21 +2728,19 @@ export const NAV_SELECTED_ICON_DEFAULT = true;
 /**
  * Whether the nav's edit control is on screen at rest.
  *
- * OFF by default, which is what ships: a 26px circle that fades in when the
- * pointer enters the nav and names itself when the pointer reaches it. The
- * argument is that editing the nav is a rare, deliberate act and a standing
- * button for it is a permanent advertisement for something most people do
- * once.
+ * ON by default (Oct 6). The circle is simply there — still anonymous until
+ * hovered, since the label grows out of it on the same timing, so the only
+ * thing the axis decides is whether you have to find the control by
+ * sweeping the nav with a pointer.
  *
- * ON, the circle is simply there. It is still anonymous until hovered — the
- * label still grows out of it on the same timing — so the only thing that
- * changes is whether you have to discover the control by sweeping the nav
- * with a pointer, which is not a discovery mechanism on a touch screen and
- * is a poor one anywhere. Worth putting next to the default, because "rare"
- * and "undiscoverable" are not the same claim and the hover gate conflates
- * them.
+ * What the nav shipped with is the other value: a 26px circle that fades in
+ * on nav hover. The argument for it is that editing the nav is a rare,
+ * deliberate act and a standing button advertises something most people do
+ * once. That is true of the FREQUENCY and does not follow to the gate:
+ * "rare" and "undiscoverable" are not the same claim, and hover is not a
+ * discovery mechanism a touch screen has at all.
  */
-export const EDIT_ALWAYS_DEFAULT = false;
+export const EDIT_ALWAYS_DEFAULT = true;
 
 export const EDIT_RADII = ["pill", "sm"] as const;
 export type EditRadius = (typeof EDIT_RADII)[number];
@@ -3922,6 +3963,8 @@ export interface ThemeState {
   railFillAgency: boolean;
   /** An opened rail keeps the collapsed column. See RAIL_HOLD_INSET_DEFAULT. */
   railHoldInset: boolean;
+  /** What the filled rail falls back to on close. See RAIL_FILL_RESTS. */
+  railFillRest: RailFillRest;
   /** What resting on the account rail does. See RAIL_HOVERS. */
   railHover: RailHover;
   /** Where the sub-account tiles sit in the strip. See RAIL_TILE_ALIGNS. */
@@ -4700,20 +4743,29 @@ export const DEFAULT_THEME: ThemeState = {
    */
   navSelectedFill: "default",
   // 272 / 360, which every spacing decision in this prototype was made inside.
-  navWidthSet: "default",
+  /*
+   * 264 / 264 since Oct 6 — the even pair, where the panel is the column's
+   * width rather than half again as wide. Chosen after looking at all three:
+   * see NAV_WIDTH_SETS. The L2 gives up 96px against the shipped pair, which
+   * is the cost to keep watching.
+   */
+  navWidthSet: "even",
   editWidthFull: EDIT_WIDTH_FULL_DEFAULT,
   railAccountsDoor: RAIL_ACCOUNTS_DOOR_DEFAULT,
   accountRowMeta: ACCOUNT_ROW_META_DEFAULT,
   /*
-   * The arrow, as of Oct 5.
+   * Back on Oct 5, and ✕ again on Oct 6 — because the default placement moved
+   * underneath it.
    *
-   * The panel's commonest arrangement now fills the sidebar outright, and ✕
-   * on a full left column reads as closing the NAV rather than stepping out
-   * of a list you opened. Back says the true thing: you went somewhere, and
-   * this is the way out of it. ✕ is one click away for the overlay case,
-   * where it is still the better word.
+   * The arrow was right while the directory filled the SIDEBAR: a ✕ on a full
+   * left column reads as closing the nav rather than leaving a list. The
+   * default is now the filled rail, which is a narrower claim — the strip
+   * stays a strip, the directory is what is in it for a moment, and it goes
+   * back to showing names when you are done. ✕ is the word for dismissing
+   * something that was put there; ◀ promises a place you came from, and under
+   * this arrangement there is barely one. One click either way.
    */
-  directoryExit: "back",
+  directoryExit: "close",
   /*
    * The declared token, until one of the fourteen wins the argument. A
    * prototype that opens on a hand-picked grey is a prototype that has already
@@ -4910,6 +4962,7 @@ export const DEFAULT_THEME: ThemeState = {
   railFillMorph: "header",
   railFillAgency: RAIL_FILL_AGENCY_DEFAULT,
   railHoldInset: RAIL_HOLD_INSET_DEFAULT,
+  railFillRest: "names",
   /*
    * Expand, as of Oct 6.
    *

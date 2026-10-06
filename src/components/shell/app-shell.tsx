@@ -501,6 +501,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     crumbLeaf,
     crumbDepth,
     directoryPlacement,
+    railFillRest,
     railHover,
     collapsedRail,
     crumbShown,
@@ -3111,7 +3112,19 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             // underneath would strand them.
             onCloseSwitcher={() => {
               setDirectoryOpen(false);
-              setRailExpanded(false);
+              /*
+                The strip may keep its names. See RAIL_FILL_RESTS.
+
+                Only under the `names` placement, where the directory WAS the
+                strip: closing it is being done choosing, not being done with
+                the rail, so it falls back to the hovered state the fill
+                started from and settles shut when the pointer leaves. The
+                panel placements have no such state to return to — the rail
+                under them is wherever the pointer put it.
+              */
+              if (directoryPlacement !== "names" || railFillRest === "collapse") {
+                setRailExpanded(false);
+              }
             }}
           />
         </>

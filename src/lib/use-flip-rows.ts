@@ -68,7 +68,23 @@ export function useFlipRows(
    * same rows.
    */
   signal: unknown,
-  options?: { duration?: number; easing?: string; enabled?: boolean },
+  options?: {
+    duration?: number;
+    easing?: string;
+    enabled?: boolean;
+    /**
+     * Run the cascade from the bottom of the list instead of the top.
+     *
+     * Opening and closing are not the same gesture reversed only in
+     * direction — they are reversed in ORDER too. A list filling reads from
+     * the top down: the row you were looking at settles first and the rest
+     * follow it in. A list emptying reads from the bottom up, because the
+     * bottom is where the rows that are leaving were, and a collapse that
+     * starts at the top leaves the tail hanging below the surface it is
+     * folding into. Ashwin, Oct 6.
+     */
+    reverse?: boolean;
+  },
 ): FlipRows {
   /*
    * 480, not the 320 this shipped with.
@@ -81,11 +97,10 @@ export function useFlipRows(
   const duration = options?.duration ?? 480;
   const easing = options?.easing ?? "cubic-bezier(0.22, 0.61, 0.36, 1)";
   const enabled = options?.enabled ?? true;
+  const reverse = options?.reverse ?? false;
 
   const rows = React.useRef(new Map<string, HTMLElement>());
   const previous = React.useRef(new Map<string, number>());
-  /** Rows measured at least once, so "new" means new to the list. */
-  const seen = React.useRef(new Set<string>());
   const lastSignal = React.useRef(signal);
 
   const register = React.useCallback(
@@ -104,6 +119,49 @@ export function useFlipRows(
       typeof window !== "undefined" &&
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
+    /*
+     * Only transitions measure, and that is load-bearing in both directions.
+     *
+     * This effect runs after EVERY commit, and the rail re-renders constantly
+     * while a cascade is playing — a pointer crossing a tile is enough. Two
+     * things went wrong when those commits did the full pass: they finished
+     * the animations early, so hovering mid-fill snapped the list into place;
+     * and they re-snapshotted from transformed boxes, so the next transition
+     * computed its deltas against where the rows looked rather than where
+     * they were.
+     *
+     * So the pass runs on a signal change and on the first commit only. The
+     * first is the baseline every later delta is measured from; between
+     * transitions nothing that moves these rows happens without the signal
+     * changing with it.
+     */
+    const first = previous.current.size === 0;
+    if (!moved && !first) return;
+
+    /*
+     * Settle anything still running before a single row is measured.
+     *
+     * This is the fix for "the second time, the pinned rows do not move", and
+     * it is a measurement bug rather than an animation one.
+     * `getBoundingClientRect` reports the TRANSFORMED box, so a row caught
+     * mid-flight measures where it currently appears rather than where the
+     * layout puts it — and every one of those readings went into the snapshot
+     * the next transition computes its deltas against. Re-open a list while
+     * the close is still playing and the pinned rows are asked to travel from
+     * where they already are, which is nowhere.
+     *
+     * Finishing rather than cancelling: both leave the element at its layout
+     * position, and `finish` does it by completing the move instead of
+     * dropping it, so a fast re-open reads as the first gesture landing
+     * rather than snapping back. It also guarantees the retrigger is clean —
+     * no row is ever carrying two animations of the same property.
+     */
+    if (moved) {
+      for (const [, el] of rows.current) {
+        for (const animation of el.getAnimations()) animation.finish();
+      }
+    }
+
     const next = new Map<string, number>();
 
     /*
@@ -121,7 +179,9 @@ export function useFlipRows(
       next.set(key, top);
       measured.push({ key, el, top });
     }
-    measured.sort((a, b) => a.top - b.top);
+    // The rank the delays are counted off, which is the reading order of the
+    // movement rather than of the DOM. See `reverse`.
+    measured.sort((a, b) => (reverse ? b.top - a.top : a.top - b.top));
 
     if (enabled && !reduced && moved) {
       let rank = 0;
@@ -135,7 +195,21 @@ export function useFlipRows(
            * moving: on the very first render every row is new, and an app
            * that plays forty entrances on load is announcing its own list.
            */
-          if (!seen.current.has(key) && previous.current.size > 0) {
+          /*
+             `previous.current.size` is the whole guard, and it used to be
+             ANDed with a set of rows the hook had seen before — which is why
+             the second open did not animate. Those rows HAD been seen: they
+             arrived on the first fill, left when it closed, and came back to
+             a hook that remembered them and therefore refused them an
+             entrance. A row returning to a list is arriving, however many
+             times it has done it before.
+
+             The size test on its own does the job the set was added for: it
+             is empty only on the very first measurement, which is the one
+             commit where every row is new and none of them is arriving.
+             Ashwin, Oct 6.
+          */
+          if (previous.current.size > 0) {
             el.animate(
               [
                 { transform: `translateY(${RISE_PX}px)`, opacity: 0 },
@@ -159,7 +233,6 @@ export function useFlipRows(
       }
     }
 
-    for (const key of rows.current.keys()) seen.current.add(key);
     previous.current = next;
   });
 

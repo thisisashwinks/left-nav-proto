@@ -3734,7 +3734,7 @@ export function LeftNav({
               <NavDivider />
               <div
                 data-scroll-region=""
-                className="flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto px-[10px] pb-[8px]"
+                className="flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto px-[var(--t-nav-pad,10px)] pb-[8px]"
               >
                 {/*
                   The same two blocks the column stands down while it is
@@ -3952,7 +3952,7 @@ export function LeftNav({
               The thumb is inset 3px inside that strip (see the scrollbar rules
               in globals.css), so even mid-scroll a row's edge never touches it.
             */
-            "flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto pl-[10px]",
+            "flex w-full flex-1 flex-col items-start gap-[var(--t-nav-space,2px)] overflow-y-auto pl-[var(--t-nav-pad,10px)]",
             // The editing card floats over the nav's foot, so the list needs room
             // to scroll clear of it — otherwise the last rows sit under the one
             // control that can end the session.

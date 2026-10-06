@@ -163,7 +163,7 @@ function readBranchOnServer(): typeof branchSnapshot {
  * `flyout-row.tsx` computes for the same reason, and it has to agree with the
  * spacer `NavItem.pinSlot` puts in flow or the label runs under the star.
  */
-const TREE_PIN_INSET = 8 + 15 + 10;
+const TREE_PIN_INSET = "calc(8px + 15px + var(--t-nav-trail-gap, 10px))";
 
 /** One node of the tree: a product, one of its pages, or a page's page. */
 export interface TreeNode {

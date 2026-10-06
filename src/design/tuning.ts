@@ -27,10 +27,25 @@ export interface TuningState {
   navIconHoverSize: number;
   navRowFontSize: number;
   navRowGap: number;
+  /**
+   * The gap inside the row's TRAILING run only — eye, kebab, chevron and the
+   * rest. Separate from `navRowGap` because those are 20px glyph boxes packed
+   * against the row's edge, where the gap between an icon and a label is
+   * setting a word off from a picture. One number for both made the controls
+   * read as loose the moment the label gap was opened up.
+   */
+  navRowTrailGap: number;
   navRowPaddingY: number;
   navRowPaddingX: number;
   navRowRadius: number;
   navRowSpacing: number;
+  /**
+   * The L1 column's own horizontal inset — the gutter its rows sit in, not the
+   * padding inside a row. One number for the header, the lists and every block
+   * between them, so the column has a single edge rather than several that
+   * happen to agree.
+   */
+  navPadX: number;
   dockIconSize: number;
   dockLabelSize: number;
   /** The centred caption's own size — it has room the tracking one does not. */
@@ -42,6 +57,8 @@ export interface TuningState {
   flyoutTitleSize: number;
   flyoutDescSize: number;
   flyoutRowGap: number;
+  /** The L2 panel's own horizontal inset — header, rows and bottom slot. */
+  flyoutPadX: number;
   flyoutRowPaddingY: number;
   flyoutBlockGap: number;
   durFast: number;
@@ -66,11 +83,13 @@ export const TUNING_DEFAULTS: TuningState = {
   // came down, so growing back to 16 is the row saying "this is the one".
   navIconHoverSize: 16,
   navRowFontSize: 14,
-  navRowGap: 10,
-  navRowPaddingY: 9,
+  navRowGap: 8,
+  navRowTrailGap: 8,
+  navRowPaddingY: 10,
   navRowPaddingX: 8,
   navRowRadius: 7,
   navRowSpacing: 2,
+  navPadX: 10,
   // The dock keeps 16. Its icons carry no label beside them, so they are the only
   // thing naming the row and drop off faster than a nav row's icon does.
   dockIconSize: 16,
@@ -93,6 +112,7 @@ export const TUNING_DEFAULTS: TuningState = {
   flyoutTitleSize: 14,
   flyoutDescSize: 12.5,
   flyoutRowGap: 10,
+  flyoutPadX: 10,
   flyoutRowPaddingY: 9,
   flyoutBlockGap: 10,
   durFast: 140,
@@ -105,11 +125,13 @@ export const TUNING_KNOBS: TuningKnob[] = [
   { id: "navIconSize", cssVar: "--t-nav-icon", label: "Icon size", group: "Nav rows", min: 12, max: 24, step: 1, unit: "px", hint: "14 from live testing · design ships 16" },
   { id: "navIconHoverSize", cssVar: "--t-nav-icon-hover", label: "Icon size on hover", group: "Nav rows", min: 12, max: 28, step: 1, unit: "px", hint: "Grows to the design's 16" },
   { id: "navRowFontSize", cssVar: "--t-nav-font", label: "Label size", group: "Nav rows", min: 11, max: 18, step: 0.5, unit: "px", hint: "Design: 14 · expanded only" },
-  { id: "navRowGap", cssVar: "--t-nav-gap", label: "Icon → label gap", group: "Nav rows", min: 4, max: 20, step: 1, unit: "px", hint: "Design: 10 · expanded only" },
-  { id: "navRowPaddingY", cssVar: "--t-nav-py", label: "Row padding Y", group: "Nav rows", min: 4, max: 16, step: 1, unit: "px", hint: "Design: 9 · expanded only" },
+  { id: "navRowGap", cssVar: "--t-nav-gap", label: "Row gap (all items)", group: "Nav rows", min: 0, max: 20, step: 1, unit: "px", hint: "8 from live tuning · design ships 10" },
+  { id: "navRowTrailGap", cssVar: "--t-nav-trail-gap", label: "Trailing controls gap", group: "Nav rows", min: 0, max: 20, step: 1, unit: "px", hint: "8 from live tuning · eye, kebab, chevron — nav rows, L2 and L3" },
+  { id: "navRowPaddingY", cssVar: "--t-nav-py", label: "Row padding Y", group: "Nav rows", min: 4, max: 16, step: 1, unit: "px", hint: "10 from live tuning · design ships 9" },
   { id: "navRowPaddingX", cssVar: "--t-nav-px", label: "Row padding X", group: "Nav rows", min: 4, max: 16, step: 1, unit: "px", hint: "Design: 8 · expanded only" },
   { id: "navRowRadius", cssVar: "--t-nav-radius", label: "Row radius", group: "Nav rows", min: 0, max: 16, step: 1, unit: "px", hint: "Design: 7" },
   { id: "navRowSpacing", cssVar: "--t-nav-space", label: "Between rows", group: "Nav rows", min: 0, max: 10, step: 1, unit: "px", hint: "Design: 2" },
+  { id: "navPadX", cssVar: "--t-nav-pad", label: "Column padding", group: "Nav rows", min: 0, max: 24, step: 1, unit: "px", hint: "Design: 10 · the whole L1 gutter, header and lists" },
 
   { id: "dockIconSize", cssVar: "--t-dock-icon", label: "Icon size", group: "Favourites dock", min: 12, max: 24, step: 1, unit: "px", hint: "Design: 16" },
   { id: "dockLabelSize", cssVar: "--t-dock-label", label: "Caption size", group: "Favourites dock", min: 6, max: 12, step: 0.5, unit: "px", hint: "“Under the icon” only" },
@@ -121,7 +143,8 @@ export const TUNING_KNOBS: TuningKnob[] = [
   { id: "flyoutIconSize", cssVar: "--t-fly-icon", label: "Icon size", group: "Flyout", min: 14, max: 26, step: 1, unit: "px", hint: "16, matching a nav row · design shipped 20" },
   { id: "flyoutTitleSize", cssVar: "--t-fly-title", label: "Title size", group: "Flyout", min: 11, max: 18, step: 0.5, unit: "px", hint: "Design: 14" },
   { id: "flyoutDescSize", cssVar: "--t-fly-desc", label: "Description size", group: "Flyout", min: 10, max: 16, step: 0.5, unit: "px", hint: "Design: 12.5" },
-  { id: "flyoutRowGap", cssVar: "--t-fly-gap", label: "Icon → text gap", group: "Flyout", min: 4, max: 20, step: 1, unit: "px", hint: "Design: 10" },
+  { id: "flyoutRowGap", cssVar: "--t-fly-gap", label: "Row gap (all items)", group: "Flyout", min: 0, max: 20, step: 1, unit: "px", hint: "Design: 10 · the trailing run has its own, under Nav rows" },
+  { id: "flyoutPadX", cssVar: "--t-fly-pad", label: "Panel padding", group: "Flyout", min: 0, max: 28, step: 1, unit: "px", hint: "10 from live tuning · the whole L2 gutter, header and rows" },
   { id: "flyoutRowPaddingY", cssVar: "--t-fly-py", label: "Row padding Y", group: "Flyout", min: 4, max: 18, step: 1, unit: "px", hint: "Design: 9" },
   { id: "flyoutBlockGap", cssVar: "--t-fly-block-gap", label: "Between rows", group: "Flyout", min: 0, max: 20, step: 1, unit: "px", hint: "Design: 10" },
 

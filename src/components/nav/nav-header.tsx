@@ -67,7 +67,17 @@ export function NavHeader({
   // midline (48px tall, content at 24), so mark, name, collapse, breadcrumb
   // and header icons all sit on ONE line across the top of the screen.
   return (
-    <div className="flex w-full shrink-0 flex-col items-start gap-[10px] pt-[9px] pr-[12px] pb-[9px] pl-[12px]">
+    <div /*
+        The header shares the column's gutter — see `navPadX`.
+
+        +2 on each side, which is the offset it has always carried: the rows
+        below sit in a 10px gutter and then pad themselves another 8 inside
+        their own hover fill, where the header's contents have no fill to pad
+        them. Holding the difference as a calc keeps the two moving together
+        when the slider moves, rather than the header staying put while the
+        list slides out from under it.
+      */
+      className="flex w-full shrink-0 flex-col items-start gap-[10px] pt-[9px] pb-[9px] px-[calc(var(--t-nav-pad,10px)+2px)]">
       <div className="flex w-full items-center gap-[6px]">
         <div className="flex min-w-0 flex-1 items-center">
           {canSwitch ? (
