@@ -576,6 +576,44 @@
   }
 }
 
+/*
+ * The filled rail's head, under the `descend` morph. See RAIL_FILL_MORPHS.
+ *
+ * It comes down from behind the agency plate rather than growing in place,
+ * which is the reading where the directory was always there and the strip
+ * simply stopped hiding it. Short and small: the block is 70px tall and
+ * travelling further than its own height would read as something flying in
+ * from off-screen, which is the arrangement this one is NOT.
+ */
+@keyframes rail-fill-descend {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -12px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.motion-fill-descend {
+  /*
+    480ms, which is the rows' own travel — see useFlipRows, where the number
+    is set. The head and the list are one movement, so a head that finished
+    at --dur-slow while the rows were still moving under it read as two
+    things happening near each other. A literal rather than a token because
+    the number it has to agree with is in TypeScript, and a token would be a
+    third place for them to drift apart.
+  */
+  animation: rail-fill-descend 480ms var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-fill-descend {
+    animation: none;
+  }
+}
+
 .motion-drawer-in {
   animation: l1-drawer-in var(--dur-base) var(--ease-out) both;
 }

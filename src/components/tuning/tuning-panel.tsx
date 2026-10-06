@@ -114,6 +114,8 @@ import {
   AI_DOCK_TOP_LABELS,
   ENTRY_PAIRS,
   NAV_CHEVRONS,
+  NAV_INKS,
+  NAV_INK_LABELS,
   NAV_CHEVRON_LABELS,
   ENTRY_PAIR_LABELS,
   ENTRY_RADII,
@@ -176,6 +178,9 @@ import {
   LAUNCHPAD_CARDS,
   NAV_SELECTED_FILLS,
   DIRECTORY_EXITS,
+  RAIL_FILL_MORPHS,
+  RAIL_FILL_MORPH_LABELS,
+  type RailFillMorph,
   DIRECTORY_EXIT_LABELS,
   type DirectoryExit,
   NAV_WIDTH_SETS,
@@ -259,6 +264,7 @@ import {
   type EntryPair,
   type EditRadius,
   type NavChevron,
+  type NavInk,
   type AiDockTop,
   type AiFullChrome,
   type HeaderEntrySide,
@@ -517,6 +523,12 @@ function NavStructureSection({
     flyoutTrigger,
     navChevron,
     setNavChevron,
+    navInk,
+    setNavInk,
+    navSelectedBold,
+    setNavSelectedBold,
+    navSelectedIcon,
+    setNavSelectedIcon,
     flyoutShadow,
     bannerEdge,
     navOnPlane,
@@ -556,7 +568,13 @@ function NavStructureSection({
     railHover,
     setRailHover,
     directoryPlacement,
+    railFillMorph,
+    railFillAgency,
+    railHoldInset,
     setDirectoryPlacement,
+    setRailFillMorph,
+    setRailFillAgency,
+    setRailHoldInset,
     collapsedRail,
     setCollapsedRail,
     setRailDirectorySpot,
@@ -818,7 +836,61 @@ function NavStructureSection({
           <Note>
             {directoryPlacement === "rail"
               ? "The rail widens into the panel — one surface growing. It ends up 12px wider than the sidebar and casts onto the canvas, and nothing says whether the nav is still there underneath."
-              : "The panel takes the sidebar's own footprint, rail and nav, full height. The canvas beside it is untouched, so the sidebar reads as having become the directory. A collapsed nav widens for it and shrinks back."}
+              : directoryPlacement === "names"
+                ? "No panel at all. The rail already opens to the sidebar's width less 24, so hovering gives you the named column before you have clicked — and All accounts fills that same column with every account, pinned first. It holds open until you close it, pick one, or press Esc."
+                : "The panel takes the sidebar's own footprint, rail and nav, full height. The canvas beside it is untouched, so the sidebar reads as having become the directory. A collapsed nav widens for it and shrinks back."}
+          </Note>
+
+          <Segmented
+            label="Filling the rail"
+            keywords="morph animation header descend unfold search accounts fill"
+            options={RAIL_FILL_MORPHS}
+            value={railFillMorph}
+            onChange={(v: RailFillMorph) => setRailFillMorph(v)}
+            format={(v) => RAIL_FILL_MORPH_LABELS[v]}
+            disabled={directoryPlacement !== "names"}
+          />
+          <Note>
+            {directoryPlacement !== "names"
+              ? "Only the “Fills the rail” placement has a head to morph."
+              : railFillMorph === "header"
+                ? "The All accounts row changes job: it stays where it is, the waffle gives way, a ✕ arrives and the search opens underneath. One element becoming the thing it opened."
+                : railFillMorph === "descend"
+                  ? "The head comes down from behind the agency plate — the reading where the directory was always there and the strip stopped hiding it."
+                  : "Nothing changes but the height. The row keeps its waffle, gains a ✕, and the search unfolds below: filling as a disclosure rather than a change of surface."}
+          </Note>
+
+          <Note>
+            In all three, the rows already on the rail travel to their new
+            places rather than being redrawn, and the accounts that were not
+            on it arrive from below, one after another.
+          </Note>
+
+          <Toggle
+            label="Open rail keeps its column"
+            keywords="padding inset centred logo shift rail open expand align"
+            checked={railHoldInset}
+            onChange={setRailHoldInset}
+          />
+          <Note>
+            {railHoldInset
+              ? "The marks stay on the midline they sit on when the strip is closed, so opening it changes only the labels. Without this the inset drops from 14 to 6 and every logo jumps 8px left at the moment the names arrive — which reads as the logos sliding rather than the names appearing. All three placements."
+              : "The open column pads by 6 and the names take the width back. The jump happens once per open, and the inset is dead space in a list of forty."}
+          </Note>
+
+          <Toggle
+            label="Agency plate above the filled rail"
+            keywords="agency logo plate fill rail directory top"
+            checked={railFillAgency}
+            onChange={setRailFillAgency}
+            disabled={directoryPlacement !== "names"}
+          />
+          <Note>
+            {directoryPlacement !== "names"
+              ? "Only the “Fills the rail” placement asks this. Shut, the plate is simply the top of the strip."
+              : railFillAgency
+                ? "The plate stays as the fixed point the list hangs from: you are still inside this agency, and these are its accounts."
+                : "The list is the whole surface. The plate travels up and out when the strip fills — it leaves rather than vanishing, so forty rows closing the gap behind it has a cause on screen."}
           </Note>
 
           <Segmented
@@ -936,6 +1008,51 @@ function NavStructureSection({
       />
       <Note>
         {GROUPING_BLURBS[state.grouping]}
+      </Note>
+
+      <Segmented
+        label="Row ink"
+        keywords="ink text colour color gray grey icon label row contrast 600 700 900"
+        options={NAV_INKS}
+        value={navInk}
+        onChange={(v: NavInk) => setNavInk(v)}
+        format={(v) => NAV_INK_LABELS[v]}
+      />
+      <Note>
+        {navInk === "900"
+          ? "Near-black, as it ships. Every row is as emphatic as every other, and the nav competes with the page for first read."
+          : navInk === "700"
+            ? "A step back. The nav stops being the darkest thing on screen, and each row is still plainly a destination rather than a caption."
+            : "Two steps — chrome that recedes until it is wanted, and the point where quiet starts to shade into secondary."}
+      </Note>
+      <Note>
+        Label, icon and the hover chevron together; the selected row stays at
+        gray 900 under all three, since lightening it with the rest would
+        spend the contrast this is for.
+      </Note>
+
+      <Toggle
+        label="Selected row is semibold"
+        checked={navSelectedBold}
+        onChange={setNavSelectedBold}
+        keywords="selected active bold semibold weight label row accounts rail"
+      />
+      <Note>
+        {navSelectedBold
+          ? "The treatment the account rail already uses — semibold on the one you are in, regular on the rest. Weight is what keeps the marked row legible as a destination once the others have gone lighter."
+          : "One weight down the column. The ground already says which row this is, and bolding it says it twice — on a selected L3 the two stack and the row reads as a heading."}
+      </Note>
+
+      <Toggle
+        label="Selected row glyph grows"
+        checked={navSelectedIcon}
+        onChange={setNavSelectedIcon}
+        keywords="selected active icon glyph size bigger 18 l1 l2 l3"
+      />
+      <Note>
+        {navSelectedIcon
+          ? "16 → 18 wherever a row is marked, L1 through L3, trail included — in the flyout arrangement the L1 IS the trail, since the page itself is behind a shut panel. Weight and size are one signal in two channels: if the label gets heavier, a glyph that stays put reads as left behind."
+          : "One glyph size down the column. This is the only part of the mark that moves layout, and a row whose contents shift as it becomes current is a row that twitches as you navigate."}
       </Note>
 
       <Segmented
@@ -2663,6 +2780,8 @@ export function TuningPanel() {
     entryRadius,
     editRadius,
     setEditRadius,
+    editAlways,
+    setEditAlways,
     setEntryRadius,
     attachTemplateInUse,
     setAttachTemplateInUse,
@@ -5015,6 +5134,18 @@ export function TuningPanel() {
             {entryRadius === "pill"
               ? "Fully rounded, as it ships. Reads as somewhere to ask rather than as one more form control — and it is the one shape on the screen nothing else wears."
               : "The platform's own 8px, like every other input, button and select on the page. Consistent, and it stops the entry announcing itself."}
+          </Note>
+
+          <Toggle
+            label="Edit button always visible"
+            checked={editAlways}
+            onChange={setEditAlways}
+            keywords="edit nav button hover reveal persistent always visible pencil"
+          />
+          <Note>
+            {editAlways
+              ? "The circle is on screen at rest. It is still anonymous until hovered — the label grows out of it on the same timing — so all that changes is whether you have to sweep the nav with a pointer to find it, which is not a gesture a touch screen has."
+              : "Fades in when the pointer enters the nav, as it ships. Editing the nav is a rare, deliberate act, and a standing button for it advertises something most people do once."}
           </Note>
 
           {/*

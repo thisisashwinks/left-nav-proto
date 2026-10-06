@@ -1010,11 +1010,15 @@ export const NAV_ROW_RING_DEFAULT = true;
  * navs opt out in CSS because a shadow on the darkest surface on screen reads
  * as grime rather than as height.
  *
- * ON by default, Oct 1, alongside the ring. The softened lift is what made the
- * pair work: at shadow/sm the edge and the shadow were two signals arguing,
- * where at xs the shadow is the edge's bottom half.
+ * OFF by default as of Oct 6, with the ring left on. The pair was on together
+ * for five days and the edge turned out to be doing the work: once a row has a
+ * hairline it is already a distinct object, and the lift underneath it is a
+ * second answer to a question the first one closed. It also now has further to
+ * reach — the account directory's current row wears this same treatment, so
+ * what was one lifted row in a column is a lifted row on every surface that
+ * marks one.
  */
-export const NAV_ROW_SHADOW_DEFAULT = true;
+export const NAV_ROW_SHADOW_DEFAULT = false;
 
 /**
  * What colour the selected row is filled with.
@@ -2245,13 +2249,102 @@ export const RAIL_HOVER_LABELS: Record<RailHover, string> = {
   static: "Stays collapsed",
 };
 
-export const DIRECTORY_PLACEMENTS = ["rail", "sidebar"] as const;
+/**
+ * Where the accounts directory opens.
+ *
+ *  rail      A panel over the nav, docked to the rail's edge.
+ *  sidebar   The whole left column becomes the directory.
+ *  names     The rail itself fills. See RAIL_FILL_MORPHS for the animation.
+ *
+ * `names` is the Oct 6 proposal and a different idea from the other two: there
+ * is no panel at all. The rail is already showing names — under this placement
+ * its open width is the sidebar's less a hair, so hovering gives you the
+ * named strip before you have clicked anything — and pressing All accounts
+ * simply fills the column you are already looking at with every account there
+ * is, pinned first. Nothing arrives from off-screen and nothing covers
+ * anything: the surface you are pointing at becomes the surface you asked for.
+ *
+ * It locks open while it is filled, which the hover-expanded rail does not.
+ * Browsing forty accounts is not a gesture you hold a pointer through, and a
+ * column that collapsed when you crossed it would make the list unusable. It
+ * leaves by the ✕ on its own header, by choosing an account, or by Esc.
+ */
+export const DIRECTORY_PLACEMENTS = ["rail", "sidebar", "names"] as const;
 
 export type DirectoryPlacement = (typeof DIRECTORY_PLACEMENTS)[number];
 
 export const DIRECTORY_PLACEMENT_LABELS: Record<DirectoryPlacement, string> = {
   rail: "Over the nav",
   sidebar: "Fills the sidebar",
+  names: "Fills the rail",
+};
+
+/**
+ * How the rail's head changes when the strip fills. See DIRECTORY_PLACEMENTS.
+ *
+ * Three readings of one moment, kept as an axis because the right answer is
+ * the one that looks right rather than the one that argues best — Ashwin asked
+ * to see all three.
+ *
+ *  header   The All accounts row changes job. It stays exactly where it is,
+ *           the waffle gives way, a ✕ arrives at its right and the search
+ *           field opens underneath, pushing the list down. One element,
+ *           becoming the thing it opened.
+ *  descend  The row holds still and a header block comes down over it from
+ *           behind the agency plate. Two elements, one arriving — the
+ *           reading where the directory is a thing that was always there.
+ *  unfold   Nothing changes but the height: the row keeps its waffle, gains
+ *           its ✕, and the search unfolds below. The most restrained of the
+ *           three, and the one that treats filling as a disclosure rather
+ *           than as a change of surface.
+ */
+/**
+ * Whether the filled rail keeps the agency plate above the list.
+ *
+ * On, the plate is the fixed point the directory hangs from — you are still
+ * inside this agency, and the list is its accounts. Off, the list is the whole
+ * surface and the head starts at the window's top.
+ *
+ * The plate does not vanish when it goes: it travels up and out, and the list
+ * closes the gap behind it. Which is the honest animation — the thing left,
+ * it was not swapped for a different arrangement — and the only one that
+ * keeps the rows' own morph legible, since they are moving at the same time.
+ *
+ * OFF by default, Oct 6. Seen filled, the plate is a row you cannot choose
+ * sitting on top of forty you can — and the head already names the agency's
+ * directory, so the scope is stated either way. The list gets the height
+ * instead, which at forty rows is what the surface is short of.
+ */
+export const RAIL_FILL_AGENCY_DEFAULT = false;
+
+/**
+ * Whether an opened rail keeps the collapsed strip's own column.
+ *
+ * Collapsed, the marks are centred in a 56px strip — 14 left, 10 right of a
+ * 32px tile — and that midline is where the eye has learned to find them.
+ * Opening drops the inset to 6, because a 216px row has no midline to hold
+ * and the names want the width; the cost is that every mark jumps 8px left at
+ * the moment the column opens, which reads as the logos sliding rather than
+ * the names arriving. Ashwin caught it on Oct 6 across all three placements.
+ *
+ * On, the open column is padded so the marks stay on the collapsed midline:
+ * the row's own box is centred on x=30 whatever the open state is, so the
+ * logos do not move at all and only the labels change. It costs the names
+ * about 8px of width, which at this column's size they can afford.
+ *
+ * Off is what it shipped with, and worth keeping: the inset is dead space in
+ * a list of forty, and the jump only happens once per open.
+ */
+export const RAIL_HOLD_INSET_DEFAULT = true;
+
+export const RAIL_FILL_MORPHS = ["header", "descend", "unfold"] as const;
+
+export type RailFillMorph = (typeof RAIL_FILL_MORPHS)[number];
+
+export const RAIL_FILL_MORPH_LABELS: Record<RailFillMorph, string> = {
+  header: "Row becomes header",
+  descend: "Header descends",
+  unfold: "Search unfolds",
 };
 
 /**
@@ -2502,6 +2595,96 @@ export const ENTRY_RADII = ["pill", "sm"] as const;
  * They are the same object at two jobs and nothing is served by them
  * disagreeing about their own corners. Ashwin, Oct 5.
  */
+/**
+ * How dark the nav's resting rows are.
+ *
+ * The label and the icon together — they take one ink, and a list where
+ * the word and the glyph disagree about their weight reads as two columns
+ * rather than one row. The hover chevron follows, since it is the same
+ * "this row, under the pointer" state the icon is in.
+ *
+ *  900  Near-black, which is what ships. Every row is as emphatic as every
+ *       other, and the list competes with the page for first read.
+ *  700  A step back. The nav stops being the darkest thing on screen while
+ *       each row is still plainly a destination rather than a caption.
+ *  600  Two steps. Chrome that recedes until it is wanted — and the point
+ *       at which "quiet" starts to shade into "secondary", which is the
+ *       thing worth looking at rather than arguing about.
+ *
+ * The MARKED row is pinned at 900 under all three. The axis is about rows
+ * you are not on: lightening those is what makes the one you are on carry,
+ * and lightening it with them would spend the contrast the option exists to
+ * create. Light navs only — a dark nav's ink runs the other way.
+ */
+export const NAV_INKS = ["900", "700", "600"] as const;
+export type NavInk = (typeof NAV_INKS)[number];
+export const NAV_INK_LABELS: Record<NavInk, string> = {
+  "900": "Gray 900",
+  "700": "Gray 700",
+  "600": "Gray 600",
+};
+
+/**
+ * Whether the row you are on is set in a heavier weight.
+ *
+ * OFF by default, which is what the `fill` mark argues for in `here.tsx`:
+ * the ground already says which row this is, and bolding the label says it
+ * twice — on a selected L3 the two signals stack and the row reads as a
+ * heading rather than as the page you are on.
+ *
+ * That argument is about weight ADDED to a fill. It weakens as the rest of
+ * the list gets lighter: at gray 600 the ink difference is carrying the
+ * state on its own, and weight is the thing that keeps the marked row
+ * legible as a destination rather than merely darker. It is also the
+ * treatment the account rail already uses — semibold on the open account,
+ * regular on the rest — so switching it on makes the two sidebars agree.
+ *
+ * Every marked row takes it, the trail as well as the leaf — see the note
+ * in `useHereStyle` for why "leaf only" meant "not the L1" in the one
+ * arrangement most people look at.
+ *
+ * Pairs with NAV_INKS; see the note there.
+ */
+export const NAV_SELECTED_BOLD_DEFAULT = false;
+
+/**
+ * Whether the row you are on draws a larger glyph.
+ *
+ * OFF by default. On, the leading icon goes 16 → 18 wherever a row is
+ * marked at all — L1, L2 and L3, the trail as well as the leaf, through the
+ * same `useHereStyle` every other part of the mark comes from, so a level
+ * cannot be left out by someone forgetting it. The trail is included
+ * because in the default flyout arrangement the L1 IS the trail: the page
+ * is behind a shut panel, so nothing in the column is ever `here`.
+ *
+ * The case for it is that weight and size are the same signal in two
+ * channels: if the label gets heavier, a glyph that stays put reads as
+ * having been left behind. The case against is that it is the one part of
+ * the mark that moves LAYOUT — 2px of glyph in a fixed column — and a row
+ * whose contents shift when it becomes current is a row that twitches as
+ * you navigate. Which of those wins is exactly what the axis is for.
+ */
+export const NAV_SELECTED_ICON_DEFAULT = false;
+
+/**
+ * Whether the nav's edit control is on screen at rest.
+ *
+ * OFF by default, which is what ships: a 26px circle that fades in when the
+ * pointer enters the nav and names itself when the pointer reaches it. The
+ * argument is that editing the nav is a rare, deliberate act and a standing
+ * button for it is a permanent advertisement for something most people do
+ * once.
+ *
+ * ON, the circle is simply there. It is still anonymous until hovered — the
+ * label still grows out of it on the same timing — so the only thing that
+ * changes is whether you have to discover the control by sweeping the nav
+ * with a pointer, which is not a discovery mechanism on a touch screen and
+ * is a poor one anywhere. Worth putting next to the default, because "rare"
+ * and "undiscoverable" are not the same claim and the hover gate conflates
+ * them.
+ */
+export const EDIT_ALWAYS_DEFAULT = false;
+
 export const EDIT_RADII = ["pill", "sm"] as const;
 export type EditRadius = (typeof EDIT_RADII)[number];
 export const EDIT_RADIUS_LABELS: Record<EditRadius, string> = {
@@ -3564,6 +3747,12 @@ export interface ThemeState {
   aiFloating: boolean;
   /** When the L1 flyout chevron is drawn. See NAV_CHEVRONS. */
   navChevron: NavChevron;
+  /** How dark the nav's resting rows are. See NAV_INKS. */
+  navInk: NavInk;
+  /** Heavier label on the row you are on. See NAV_SELECTED_BOLD_DEFAULT. */
+  navSelectedBold: boolean;
+  /** Larger glyph on the row you are on. See NAV_SELECTED_ICON_DEFAULT. */
+  navSelectedIcon: boolean;
   /**
    * Whether the attach-template modal keeps its "In use" column.
    *
@@ -3578,6 +3767,8 @@ export interface ThemeState {
   entryRadius: EntryRadius;
   /** Whether the edit capsules follow the entry to 8px. See EDIT_RADII. */
   editRadius: EditRadius;
+  /** Whether the edit control is on screen at rest. See EDIT_ALWAYS_DEFAULT. */
+  editAlways: boolean;
   /** Which end of the bar the header entry stands at. See HEADER_ENTRY_SIDES. */
   headerEntrySide: HeaderEntrySide;
   /** Where the Get the app offer is reached from. See GET_APP_PLACEMENTS. */
@@ -3709,6 +3900,12 @@ export interface ThemeState {
   aiMark: AiMarkStyle;
   /** Where the accounts directory opens. See DIRECTORY_PLACEMENTS. */
   directoryPlacement: DirectoryPlacement;
+  /** How the rail's head changes as it fills. See RAIL_FILL_MORPHS. */
+  railFillMorph: RailFillMorph;
+  /** The agency plate above the filled rail. See RAIL_FILL_AGENCY_DEFAULT. */
+  railFillAgency: boolean;
+  /** An opened rail keeps the collapsed column. See RAIL_HOLD_INSET_DEFAULT. */
+  railHoldInset: boolean;
   /** What resting on the account rail does. See RAIL_HOVERS. */
   railHover: RailHover;
   /** Where the sub-account tiles sit in the strip. See RAIL_TILE_ALIGNS. */
@@ -4428,7 +4625,19 @@ export const DEFAULT_THEME: ThemeState = {
    */
   aiFullChrome: "hide",
   aiFloating: AI_FLOATING_DEFAULT,
-  navChevron: "always",
+  /*
+   * On hover, as of Oct 6.
+   *
+   * The argument against was that the nav looks flat until you touch it, and
+   * the row states are what answered it: with an edge and a lift on the
+   * selected row, the column no longer needs a glyph on every line to have
+   * shape. What is left is ten chevrons saying the same thing, and the one
+   * that matters is the one under the pointer.
+   */
+  navChevron: "hover",
+  navInk: "900",
+  navSelectedBold: NAV_SELECTED_BOLD_DEFAULT,
+  navSelectedIcon: NAV_SELECTED_ICON_DEFAULT,
   attachTemplateInUse: true,
   /*
    * Back to the pill, same day.
@@ -4442,6 +4651,7 @@ export const DEFAULT_THEME: ThemeState = {
    */
   entryRadius: "pill",
   editRadius: "pill",
+  editAlways: EDIT_ALWAYS_DEFAULT,
   headerEntrySide: "right",
   /*
    * The avatar menu, which is where production puts it.
@@ -4664,8 +4874,31 @@ export const DEFAULT_THEME: ThemeState = {
    * entry's search half wears a magnifier. See AI_MARKS and ENTRY_PAIRS.
    */
   aiMark: "glyph",
-  directoryPlacement: "sidebar",
-  railHover: "static",
+  /*
+   * The filled rail, as of Oct 6.
+   *
+   * It is the only one of the three where nothing arrives and nothing is
+   * covered: the strip you are already pointing at is the strip that fills,
+   * at a width it already had. The other two are a panel appearing — over the
+   * nav, or in place of it — which is one more surface than the question
+   * "which account" needs.
+   */
+  directoryPlacement: "names",
+  railFillMorph: "header",
+  railFillAgency: RAIL_FILL_AGENCY_DEFAULT,
+  railHoldInset: RAIL_HOLD_INSET_DEFAULT,
+  /*
+   * Expand, as of Oct 6.
+   *
+   * `static` was the safer answer to "a column that moves whenever the
+   * pointer crosses it", and the arrangement around it has since changed the
+   * sums: the directory no longer opens as a hovered overlay, so crossing the
+   * rail on the way elsewhere costs a widening and nothing else. Against that,
+   * a strip of eleven unlabelled discs is a memory test until you point at
+   * each one in turn, and the names are the whole answer. Tooltips are one
+   * click away.
+   */
+  railHover: "expand",
   railTileAlign: "centre",
   panelTabPlace: "row",
   panelTabStyle: "segmented",

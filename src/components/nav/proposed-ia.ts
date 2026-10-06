@@ -54,7 +54,6 @@ import {
   Megaphone,
   MessageCircle,
   MessageSquare,
-  MessageSquareText,
   MessagesSquare,
   Mic,
   MonitorSmartphone,
@@ -97,6 +96,7 @@ import {
   Workflow,
   Zap,
 } from "lucide-react";
+import { AiSparkleIcon } from "@/components/icons/ai-sparkle";
 
 import type { CatalogueEntry, CatalogueGroup } from "./catalogue-types";
 // Labels for the rows that have a real page behind them. The page's heading
@@ -175,7 +175,17 @@ const AI: CatalogueEntry[] = [
   {
     id: "ia-ai-ask",
     label: "Ask AI",
-    icon: MessageSquareText,
+    /*
+     * The product's own sparkle, in the row's grey.
+     *
+     * A speech bubble said "conversation", which is true of the surface and
+     * says nothing about what makes it different from Conversations two
+     * categories down. The sparkle is the mark the assistant wears
+     * everywhere else in this shell — the entry button, the panel, the dock
+     * — so the row and the thing it opens are finally the same object.
+     * Monochrome, like every other row icon: see `AiSparkleIcon`.
+     */
+    icon: AiSparkleIcon,
     blurb: "The assistant, its history and its templates.",
   },
   {

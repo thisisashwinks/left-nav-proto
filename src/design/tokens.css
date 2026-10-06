@@ -1830,6 +1830,47 @@
 }
 
 /*
+ * How dark the nav's resting rows are. See NAV_INKS.
+ *
+ * Label and icon take ONE step, not a pair: in this nav the glyph is
+ * `--nav-fg` and so is the word, and a list where the two disagree about
+ * their weight reads as two columns rather than one row. `--nav-fg-muted`
+ * comes with them because the hover chevron is drawn in it, and a chevron
+ * darker than the label it sits beside is the pointer state arguing with
+ * the row.
+ *
+ * `--nav-fg-subtle` is left alone. It is the RESTING chevron and the
+ * keycaps — things that are meant to be nearly invisible until wanted —
+ * and dragging it along would close the gap between "quiet" and "quieter"
+ * that makes the hover change legible at all.
+ *
+ * The selected ink is pinned back to the default underneath, which is the
+ * whole point: the base block below declares --nav-sel-fg as an alias of
+ * --nav-fg, so without this the marked row would lighten with everything
+ * else and the contrast the option exists to create would never appear.
+ * The five dark fills override it again further down, as they should —
+ * white ink on a gray-800 plate is not negotiable.
+ *
+ * Light navs only. A dark nav's ink runs the other way, and a near-black
+ * label on it is not a quieter row, it is an unreadable one.
+ */
+[data-nav-ink="700"] [data-nav-theme="light"],
+[data-nav-theme="light"][data-nav-ink="700"] {
+  --nav-fg: var(--hr-gray-700);
+  --nav-fg-muted: var(--hr-gray-700);
+  --nav-sel-fg: var(--hr-gray-900);
+  --nav-sel-fg-muted: var(--hr-gray-500);
+}
+
+[data-nav-ink="600"] [data-nav-theme="light"],
+[data-nav-theme="light"][data-nav-ink="600"] {
+  --nav-fg: var(--hr-gray-600);
+  --nav-fg-muted: var(--hr-gray-600);
+  --nav-sel-fg: var(--hr-gray-900);
+  --nav-sel-fg-muted: var(--hr-gray-500);
+}
+
+/*
  * The dark selected-row variants. See NAV_SELECTED_FILLS.
  *
  * Each one sets four things, because a fill this dark cannot be set alone:

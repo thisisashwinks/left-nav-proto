@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Grip, Pin } from "lucide-react";
+import { Check, Grip, LayoutGrid, Minus, Pin, Search, X } from "lucide-react";
 import {
   RAIL_TILE_SIZE,
   RAIL_TILE_SIZE_ACTIVE,
@@ -16,9 +16,15 @@ import { useTheme } from "@/components/theme/theme-provider";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
 import { cn } from "@/lib/utils";
 import { AccountLogo } from "./account-logo";
+import { matchAccounts } from "./accounts-data";
+import { useBulkActions } from "@/components/bulk/bulk-provider";
+import { BulkModal } from "@/components/bulk/bulk-modal";
+import { BulkHistoryModal } from "@/components/bulk/bulk-history-modal";
+import type { BulkPath } from "@/components/bulk/bulk-config";
 import type { Account } from "./accounts-data";
 import { RailTooltip } from "@/components/nav/rail-tooltip";
 import { RailDirectory } from "./rail-switcher";
+import { useFlipRows } from "@/lib/use-flip-rows";
 import type { AccountsSession } from "./use-accounts";
 
 /** The rail's widths — the shell adds the live one to panel offsets. */
@@ -153,6 +159,12 @@ export function AccountRail({
   // No expand/collapse control anymore (Aug 11 ask): the rail widens itself
   // under the pointer and narrows when it leaves — GoCollab's browse pattern.
   const hoverTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  /*
+   * `filled` in a ref, because `setHover` is a stable callback the whole strip
+   * closes over — rebuilding it on every fill would re-arm the hover timers
+   * mid-gesture.
+   */
+  const filledRef = React.useRef(false);
   const setHover = React.useCallback(
     (next: boolean) => {
       if (hoverTimer.current !== null) clearTimeout(hoverTimer.current);
@@ -160,6 +172,16 @@ export function AccountRail({
       // is still allowed through, so a rail already open when the mode starts
       // settles shut instead of being frozen wide.
       if (locked && next) return;
+      /*
+       * Filled, the pointer says nothing either — in the other direction.
+       *
+       * This is the one state the rail holds on its own: you pressed All
+       * accounts and you are reading forty of them. Browsing a list is not a
+       * gesture you hold a pointer through, and the ordinary leave-to-collapse
+       * would take the list away the first time you reached for the scrollbar.
+       * It leaves by its ✕, by a choice, or by Esc. See DIRECTORY_PLACEMENTS.
+       */
+      if (filledRef.current && !next) return;
       hoverTimer.current = setTimeout(
         () => {
           hoverTimer.current = null;
@@ -185,6 +207,152 @@ export function AccountRail({
    */
   const { effective } = useTheme();
   const { navOnPlane, directoryFlush } = effective;
+  /*
+   * The fill arrangement. See DIRECTORY_PLACEMENTS.
+   *
+   * `fillMode` is the placement being chosen at all, which changes the rail
+   * even when it is shut: its open width becomes the sidebar's, so hovering
+   * already gives the named column the fill will happen inside. `filled` is
+   * the directory actually being open in it.
+   */
+  const fillMode = effective.directoryPlacement === "names";
+  const filled = fillMode && switcherMounted;
+  const fillMorph = effective.railFillMorph;
+  /*
+   * The plate above the filled list — see RAIL_FILL_AGENCY_DEFAULT.
+   *
+   * Only ever a question while filled. Shut, the rail is the agency's strip
+   * and the plate is the top of it; this axis is about what the DIRECTORY
+   * needs above it, which is a different question with a different answer.
+   */
+  const fillAgency = effective.railFillAgency;
+  /*
+   * The open column's left inset, when it is asked to hold the closed one.
+   *
+   * See RAIL_HOLD_INSET_DEFAULT. The number is arithmetic rather than taste:
+   * the collapsed strip centres a 32px row at x=14, so its optical midline is
+   * 30 — and a row whose own box is `box` wide sits on that midline when the
+   * column pads by 30 − box/2. That is 14 for the 32px tiles the open strip
+   * draws and 12 for the 36px rows the filled list draws, which is why it is
+   * computed here instead of being two more literals to keep in step.
+   *
+   * The right side takes the strip's own 10 for the same reason: it is what
+   * the closed column uses, and holding one edge while the other moves would
+   * be a different kind of jump.
+   */
+  const holdInset = effective.railHoldInset;
+  const openPadLeft = filled ? 12 : 14;
+  const showAgencyPlate = !filled || fillAgency;
+  /*
+   * Mirrored for `setHover`, which cannot depend on it. See the ref.
+   *
+   * In an effect and not during render: the compiler's lint is right that a
+   * ref written on the way through is a render with a side effect, and the
+   * only reader is a pointer handler that cannot fire before paint anyway.
+   */
+  React.useEffect(() => {
+    filledRef.current = filled;
+  }, [filled]);
+
+  /** What the filled strip lists: pinned first, then everyone else. */
+  const [fillQuery, setFillQuery] = React.useState("");
+  /*
+   * The same two states the All accounts panel carries, for the same reasons —
+   * see RailDirectory, where the arguments are written out. Held here rather
+   * than lifted somewhere shared because the two surfaces are never open at
+   * once: a placement chooses one of them.
+   */
+  const [fillSelectMode, setFillSelectMode] = React.useState(false);
+  const [fillSelected, setFillSelected] = React.useState<readonly string[]>([]);
+  const [fillBulk, setFillBulk] = React.useState<{ path: BulkPath | null } | null>(
+    null,
+  );
+  const [fillHistory, setFillHistory] = React.useState(false);
+  const { settings: bulkSettings } = useBulkActions();
+  // Never for a member: bulk-applying across clients is an agency operation.
+  const fillBulkAllowed =
+    bulkSettings.enabled && bulkSettings.bulkInDirectory && !membersOnly;
+  const fillPicking =
+    filled &&
+    fillBulkAllowed &&
+    (effective.directorySelect === "always" || fillSelectMode);
+
+  /* Leaving the mode clears what it collected — Cancel is not Done. */
+  const exitFillSelect = React.useCallback(() => {
+    setFillSelectMode(false);
+    setFillSelected([]);
+  }, []);
+
+  /*
+   * And closing the strip ends the errand outright.
+   *
+   * Reset on the way OUT — in the close handler the rail already owns — rather
+   * than in an effect watching `filled`: setting state synchronously from an
+   * effect is a cascading render, and this is not a reaction to anything, it
+   * is part of closing. See `closeFill`.
+   */
+  const closeFill = React.useCallback(() => {
+    setFillQuery("");
+    exitFillSelect();
+    onCloseSwitcher();
+  }, [exitFillSelect, onCloseSwitcher]);
+
+  /* Esc leaves, as it does on every other surface that takes the screen. */
+  React.useEffect(() => {
+    if (!filled) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      closeFill();
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [filled, closeFill]);
+  const fillRows = React.useMemo(() => {
+    if (!filled) return [];
+    const matched = matchAccounts(fillQuery, session.accounts);
+    /*
+     * Pinned first, IN THE RAIL'S OWN ORDER, then the rest.
+     *
+     * The second half of that was the bug Ashwin caught: sorting on a boolean
+     * is a stable sort over `session.accounts`, which is the fixture's order
+     * and not the strip's — so the eleven rows you were looking at re-sorted
+     * among themselves as they travelled. Watching a list reorder itself
+     * during the very animation whose job is to say "these are the same rows"
+     * is worse than not animating at all.
+     *
+     * `railIds` IS the pinned order — it is what the strip renders from — so
+     * reading rank out of it is what makes the pinned run hold still. The
+     * accounts behind it keep their own order, which nothing on screen has
+     * made a promise about.
+     */
+    const rank = new Map(session.railIds.map((id, i) => [id, i]));
+    return [...matched].sort((a, b) => {
+      const ar = rank.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+      const br = rank.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+      return ar - br;
+    });
+  }, [filled, fillQuery, session]);
+
+  /*
+   * The rows travel rather than being replaced. See useFlipRows.
+   *
+   * Keyed on `filled` and on the query, which are the two things that change
+   * what the list IS — a re-render for any other reason measures, finds every
+   * row where it left it, and plays nothing.
+   */
+  const flip = useFlipRows(`${filled}:${fillQuery}`, { enabled: fillMode });
+
+  /** What select-all reaches: the rows on screen, not all forty. */
+  const fillVisibleIds = React.useMemo(
+    () => fillRows.map((a) => a.id),
+    [fillRows],
+  );
+  const fillAllOn =
+    fillVisibleIds.length > 0 &&
+    fillVisibleIds.every((id) => fillSelected.includes(id));
+  const fillSomeOn =
+    !fillAllOn && fillVisibleIds.some((id) => fillSelected.includes(id));
   /**
    * The directory runs to the window's top and bottom edges.
    *
@@ -416,11 +584,38 @@ export function AccountRail({
     return () => clearTimeout(timer);
   }, [surfaceUp]);
 
-  const width = switcherOpen
-    ? ACCOUNT_RAIL_DIRECTORY_WIDTH
-    : expanded
-      ? ACCOUNT_RAIL_EXPANDED_WIDTH
-      : ACCOUNT_RAIL_WIDTH;
+  /*
+   * Under `names` the open strip is the sidebar's own width less 24.
+   *
+   * Not the 216 the rail expands to otherwise, and not the panel width either
+   * — this arrangement never becomes a panel. The whole of it is that the
+   * column you are pointing at is the column that fills, so the width has to
+   * be settled BEFORE the click: hovering gives the named strip at its final
+   * size, pressing All accounts changes only what is in it. See
+   * DIRECTORY_PLACEMENTS.
+   *
+   * Read from --nav-w rather than passed down, so it follows the width axis
+   * without the rail knowing the axis exists.
+   *
+   * The sidebar's whole footprint less 20: the strip covers the rail AND the
+   * nav, so "as wide as the sidebar" is 56 + nav, and +36 is that minus the
+   * 20px that keeps a sliver of plane down the right. It was nav-less-24 for
+   * one turn, which measured the nav alone and came out narrower than the
+   * thing it covers — a 40-row list has to be able to hold a name like
+   * "Ironwood Landscaping" beside a pin and a checkbox.
+   */
+  const openWidth = fillMode
+    ? "calc(var(--nav-w) + 36px)"
+    : ACCOUNT_RAIL_EXPANDED_WIDTH;
+  const width = filled
+    ? openWidth
+    : switcherOpen
+      ? fillMode
+        ? openWidth
+        : ACCOUNT_RAIL_DIRECTORY_WIDTH
+      : expanded
+        ? openWidth
+        : ACCOUNT_RAIL_WIDTH;
 
   /*
    * The strip only outranks the nav's panels once it is standing over them.
@@ -463,6 +658,13 @@ export function AccountRail({
         data-nav-theme={theme}
         aria-label="Accounts"
         data-cursor="menu"
+        /*
+          Filled, this IS the directory, so it silences the edit coach-mark
+          like every other surface that covers the nav. The panel
+          arrangements carry the attribute on their frames; this one has no
+          frame but itself. See NavIntroCard.
+        */
+        {...(filled ? { "data-nav-overlay": "" } : {})}
         // The hook the plane's top-alignment rule reaches. This strip is
         // absolutely positioned, so the nav column's own padding does not
         // move it — an abspos child resolves against the padding BOX, whose
@@ -586,11 +788,15 @@ export function AccountRail({
           } as React.CSSProperties
         }
       >
-        {switcherMounted ? (
+        {switcherMounted && !fillMode ? (
           /*
             The morphed face. Fixed at directory width inside the animating
             frame, so the rows never squish while the strip is still growing
             or already shrinking — the nav's overflow-hidden does the reveal.
+
+            Not under `names`: there is no second face there. The strip keeps
+            the one it has and changes what is in it, which is the whole of
+            that arrangement. See DIRECTORY_PLACEMENTS.
           */
           <div
             role="dialog"
@@ -627,7 +833,17 @@ export function AccountRail({
               the two rails rather than a badge saying which one you are looking
               at.
             */}
-            {membersOnly ? (
+            {/*
+              The whole cap, hidden while the filled list asks for the room.
+
+              Wrapped rather than each branch gaining a condition, and
+              `motion-fill-lift` rather than nothing: the plate LEAVES — up and
+              out, the way it came — and the rows close the gap behind it under
+              their own morph. A plate that simply stopped being rendered would
+              make forty rows jump 48px with no cause on screen. See
+              RAIL_FILL_AGENCY_DEFAULT.
+            */}
+            {!showAgencyPlate ? null : membersOnly ? (
               /*
                 The agency's logo, as branding rather than as a destination.
 
@@ -731,7 +947,17 @@ export function AccountRail({
                   */
                   // 10/6 for the same reason the list below is 14/10: the plate
                   // is 40 wide, so this lands its centre on the same x=30.
-                  expanded ? "mx-[6px]" : "mr-[6px] ml-[10px]",
+                  /*
+                    The plate is 40 wide and sits at ml 10 when closed, which
+                    puts its centre on the same x=30. Holding the inset means
+                    holding that, or the one element the eye uses as the
+                    column's anchor would be the one that moved.
+                  */
+                  !expanded
+                    ? "mr-[6px] ml-[10px]"
+                    : holdInset
+                      ? "mr-[6px] ml-[10px]"
+                      : "mx-[6px]",
                 )}
               >
                 {/*
@@ -777,7 +1003,154 @@ export function AccountRail({
               The same horizontal padding as the list below, so the tiles stay in
               one column: 14/10 collapsed for the reason spelled out there.
             */}
-            {hoisted ? (
+            {/*
+              The filled head. Three readings, kept as an axis — see
+              RAIL_FILL_MORPHS, where the argument for each one lives.
+
+              All three end in the same place: a title, a ✕ and a search
+              field. What differs is what the eye sees happen, which is the
+              only thing worth comparing and the reason this is a control
+              rather than a decision.
+            */}
+            {filled ? (
+              <div
+                className={cn(
+                  "flex w-full shrink-0 flex-col gap-[6px] px-[6px] pt-[2px] pb-[4px]",
+                  fillMorph === "descend" && "motion-fill-descend",
+                )}
+              >
+                <div className="flex h-[28px] w-full items-center gap-[8px] px-[4px]">
+                  {/*
+                    Select-all, and only while a selection is running.
+
+                    Tri-state, like the panel's: ticked when everything on
+                    screen is, dashed when some of it is. It acts on what the
+                    LIST is showing rather than on all forty — with a query up
+                    this reaches the matches, which is the set a reader can see
+                    and therefore the only set they can mean.
+                  */}
+                  {fillPicking ? (
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={
+                        fillAllOn ? true : fillSomeOn ? "mixed" : false
+                      }
+                      aria-label={
+                        fillAllOn ? "Clear the selection" : "Select all shown"
+                      }
+                      onClick={() =>
+                        setFillSelected((v) =>
+                          fillAllOn
+                            ? v.filter((id) => !fillVisibleIds.includes(id))
+                            : [...new Set([...v, ...fillVisibleIds])],
+                        )
+                      }
+                      className={cn(
+                        "motion-tap flex size-[16px] shrink-0 items-center justify-center rounded-[4px]",
+                        fillAllOn || fillSomeOn
+                          ? "bg-[var(--hr-primary-600)] text-white"
+                          : "shadow-[inset_0_0_0_1.5px_var(--fly-border)] hover:shadow-[inset_0_0_0_1.5px_var(--nav-fg-subtle)]",
+                      )}
+                    >
+                      {fillAllOn ? (
+                        <Check size={11} strokeWidth={3} aria-hidden="true" />
+                      ) : fillSomeOn ? (
+                        <Minus size={11} strokeWidth={3} aria-hidden="true" />
+                      ) : null}
+                    </button>
+                  ) : null}
+                  {/*
+                    The waffle survives only in `unfold`, which is that
+                    reading's whole point: the row you pressed is still the
+                    row you pressed, and the list is a disclosure under it
+                    rather than a surface that replaced it.
+                  */}
+                  {fillMorph === "unfold" ? (
+                    <LayoutGrid
+                      size={16}
+                      aria-hidden="true"
+                      className="shrink-0 text-nav-fg-subtle"
+                    />
+                  ) : null}
+                  <span className="min-w-0 flex-1 truncate text-[13px] leading-[17px] font-semibold text-nav-fg">
+                    {/* The count replaces the title while rows are ticked, as
+                        it does in the panel: with a selection running, how
+                        many is the more useful of the two. */}
+                    {fillSelected.length === 0
+                      ? `${directoryLabel} (${session.accounts.length})`
+                      : `${fillSelected.length} selected`}
+                  </span>
+                  {/* The primary, and only with something for it to act on. */}
+                  {fillPicking && fillSelected.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setFillBulk({ path: null })}
+                      className="motion-tap flex h-[24px] shrink-0 items-center rounded-[7px] bg-[var(--hr-primary-600)] px-[8px] text-[11.5px] leading-none font-medium text-white active:scale-[0.98]"
+                    >
+                      Actions
+                    </button>
+                  ) : null}
+                  {fillBulkAllowed &&
+                  effective.directorySelect === "button" ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        fillSelectMode ? exitFillSelect() : setFillSelectMode(true)
+                      }
+                      className="motion-tap flex h-[24px] shrink-0 items-center rounded-[7px] px-[8px] text-[11.5px] leading-none font-medium text-nav-fg shadow-[inset_0_0_0_1px_var(--fly-border)] hover:bg-nav-hover"
+                    >
+                      {fillSelectMode ? "Cancel" : "Select"}
+                    </button>
+                  ) : null}
+                  {/* Gone while picking, for the reason it is gone in the
+                      panel: Cancel is already the way out of the mode, and a
+                      ✕ beside it discards the same work by a second door. */}
+                  {fillPicking ? null : (
+                    <button
+                      type="button"
+                      aria-label="Close accounts"
+                      onClick={closeFill}
+                      className="motion-tap flex size-[24px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
+                    >
+                      <X size={15} aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+                {/*
+                  The field, under the title in every reading. It is the one
+                  part of a forty-row list that is not optional: pinned-first
+                  ordering answers "the ones I use", and typing answers
+                  everything else.
+                */}
+                <label className="motion-tap flex h-[30px] w-full items-center gap-[7px] rounded-[8px] px-[8px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">
+                  <Search
+                    size={14}
+                    aria-hidden="true"
+                    className="shrink-0 text-nav-fg-subtle"
+                  />
+                  <input
+                    type="text"
+                    value={fillQuery}
+                    autoFocus
+                    onChange={(e) => setFillQuery(e.target.value)}
+                    placeholder="Search sub-accounts"
+                    className="min-w-0 flex-1 bg-transparent text-[12.5px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none"
+                  />
+                </label>
+              </div>
+            ) : null}
+
+            {/*
+              The door itself, hidden once it has been answered.
+
+              Under `header` the row does not disappear so much as become the
+              title above — same place, same type, the waffle traded for a ✕.
+              Under the other two it is either covered or still standing, and
+              in both cases drawing a second "All accounts" under the one in
+              the head would be the panel offering to open itself.
+            */}
+            {hoisted && !filled ? (
               <div
                 className={cn(
                   "flex w-full shrink-0 flex-col gap-[4px]",
@@ -805,11 +1178,16 @@ export function AccountRail({
                   */
                   "-mt-[3px]",
                   "transition-[padding] duration-[var(--rail-dur,var(--dur-slow))] ease-[var(--ease-out)]",
-                  expanded ? "px-[6px]" : "pr-[10px] pl-[14px]",
+                  !expanded
+                    ? "pr-[10px] pl-[14px]"
+                    : holdInset
+                      ? "pr-[10px] pl-[14px]"
+                      : "px-[6px]",
                 )}
               >
                 {directoryButton}
                 {activeAccount ? (
+                  <div ref={flip.register(activeAccount.id)}>
                   <RailRow
                     squircle={!pillTiles}
                     label={activeAccount.name}
@@ -821,6 +1199,7 @@ export function AccountRail({
                     account={activeAccount}
                     magnify={1}
                   />
+                  </div>
                 ) : null}
               </div>
             ) : null}
@@ -838,7 +1217,21 @@ export function AccountRail({
             */}
             <div
               className={cn(
-                "flex min-h-0 w-full flex-1 flex-col overflow-y-auto py-[2px] [scrollbar-width:none]",
+                "flex min-h-0 w-full flex-1 flex-col overflow-y-auto py-[2px]",
+                /*
+                  Hidden in the strip, overlaid in the list.
+
+                  A bar down a 56px column of marks is noise, and the strip
+                  never has enough rows to need one. Forty does — but not at
+                  the price the nav's scroll regions pay, which is a reserved
+                  gutter that comes out of every row's width. `thin` is the
+                  overlay scrollbar: it paints over the rows while you are
+                  scrolling and takes no layout space at all, so the names
+                  keep the full column. Ashwin, Oct 6.
+                */
+                filled
+                  ? "[scrollbar-color:var(--nav-scrollbar)_transparent] [scrollbar-width:thin]"
+                  : "[scrollbar-width:none]",
                 // Padding, on the same curve as the rail's own width — the rows
                 // are `w-full` inside it, so this is what carries them in and
                 // out rather than each tile resizing itself.
@@ -867,8 +1260,15 @@ export function AccountRail({
                   is 2px right of the rail's own midline. The tiles look centred
                   because they are — against the edge the eye actually finds.
                 */
-                expanded ? "px-[6px]" : "pr-[10px] pl-[14px]",
+                !expanded
+                  ? "pr-[10px] pl-[14px]"
+                  : holdInset
+                    ? "pr-[10px]"
+                    : "px-[6px]",
               )}
+              style={
+                expanded && holdInset ? { paddingLeft: openPadLeft } : undefined
+              }
             >
               {/*
                 Auto margins, not justify-center: the tiles sit in the strip's
@@ -896,7 +1296,13 @@ export function AccountRail({
                     group, and under `top` it would simply be 43-plus pixels of
                     dead space holding the strip open below the tiles.
                   */
-                  railTileAlign === "centre" && "my-auto",
+                  /*
+                    Filled, never centred: the list is longer than the strip,
+                    so there is nothing to centre, and the auto margins are
+                    what the existing tiles travel OFF when the fill starts.
+                    Dropping them is the move the FLIP then plays.
+                  */
+                  railTileAlign === "centre" && !filled && "my-auto",
                 )}
                 /*
                   pb 43: the scroll area starts BELOW the agency block (4px pad
@@ -911,7 +1317,7 @@ export function AccountRail({
                   32px tile and its 4px gap when the active one comes too.
                 */
                 style={
-                  railTileAlign === "centre"
+                  railTileAlign === "centre" && !filled
                     ? {
                         paddingBottom:
                           43 + (hoisted ? 42 : 0) + (activeAccount ? 36 : 0),
@@ -923,9 +1329,106 @@ export function AccountRail({
                 // the whole strip snap flat between every pair of tiles.
                 onPointerLeave={() => setMagnifyIndex(null)}
               >
-                {centredAccounts.map((account, i) => (
+                {/*
+                  Filled, the strip lists every account instead of its own
+                  slice — pinned first, then the rest. The rows the strip was
+                  already showing are the same elements with the same keys, so
+                  they TRAVEL to their new places rather than being thrown
+                  away and redrawn; the thirty that were not there arrive from
+                  below, one after another. See useFlipRows.
+                */}
+                {filled
+                  ? fillRows.map((account) => (
+                      <div key={account.id} ref={flip.register(account.id)}>
+                        <RailRow
+                          squircle={!pillTiles}
+                          label={account.name}
+                          name={account.name}
+                          expanded={expanded}
+                          selected={
+                            session.scope === "account" &&
+                            account.id === session.current.id
+                          }
+                          onClick={() => {
+                            /*
+                              While picking, the ROW ticks. Switching account
+                              out from under a half-built selection throws the
+                              selection away and the surface with it, which is
+                              never what a click on a list in select mode
+                              means.
+                            */
+                            if (fillPicking) {
+                              setFillSelected((v) =>
+                                v.includes(account.id)
+                                  ? v.filter((x) => x !== account.id)
+                                  : [...v, account.id],
+                              );
+                              return;
+                            }
+                            session.switchTo(account.id);
+                            // A choice is an exit, per Ashwin: you came here
+                            // to go somewhere, and you have gone.
+                            closeFill();
+                          }}
+                          account={account}
+                          magnify={1}
+                          listShape
+                          /*
+                            One size for every mark here, including the
+                            current account's.
+
+                            The strip marks the active account by drawing its
+                            mark bigger, which works in a column of marks and
+                            breaks in a column of rows: the row's padding is
+                            derived from the mark it holds, so the one larger
+                            tile pushed its own checkbox left and the column
+                            of boxes developed a kink at whichever row you
+                            happened to be in. The ring and the fill already
+                            say which row that is — see `listShape` — so the
+                            size has nothing left to add.
+
+                            20, and that number is doing the padding as well:
+                            `pad` is half of whatever the 36px row has left
+                            over, so a 20px mark lands on exactly the 8px a
+                            side Ashwin asked for, and the end padding is
+                            already the rail's own 10. One number, and the
+                            three figures agree — a 24px mark would have put
+                            the row at 40 or the padding at 6.
+                          */
+                          markSize={20}
+                          {...(fillPicking
+                            ? { tick: fillSelected.includes(account.id) }
+                            : {})}
+                          // Worth marking here and nowhere else in this list:
+                          // pinned is what the ORDER is, so the mark is the
+                          // legend for the sort rather than decoration.
+                          pinned={session.onRail(account.id)}
+                        />
+                      </div>
+                    ))
+                  : null}
+                {fillRows.length === 0 && filled ? (
+                  <p className="px-[8px] py-[14px] text-[12.5px] leading-[17px] text-nav-fg-subtle">
+                    No accounts match “{fillQuery.trim()}”.
+                  </p>
+                ) : null}
+
+                {/*
+                  Registered in BOTH states, which is the whole of why the
+                  morph works.
+
+                  A FLIP has nothing to play unless it measured the row BEFORE
+                  the change — and these used to be bare RailRows that only
+                  acquired a registered wrapper once the strip filled, so the
+                  first fill found no previous rect for anything, treated every
+                  row as new, and (because the snapshot was empty) suppressed
+                  the entrance as well. Nothing moved and nothing arrived. The
+                  wrapper is the identity the hook tracks, so it has to exist
+                  on both sides of the flip.
+                */}
+                {filled ? null : centredAccounts.map((account, i) => (
+                  <div key={account.id} ref={flip.register(account.id)}>
                   <RailRow
-                    key={account.id}
                     squircle={!pillTiles}
                     label={account.name}
                     name={account.name}
@@ -943,6 +1446,7 @@ export function AccountRail({
                     // of identical marks says nothing.
                     pinned={effective.railRecents === "recent"}
                   />
+                  </div>
                 ))}
 
                 {/*
@@ -956,9 +1460,25 @@ export function AccountRail({
                   the rail's two widths, since a rule across a 32px strip is a
                   dash.
                 */}
-                {centredRecents.map((account, i) => (
+                {/*
+                  The recents run does NOT travel, deliberately.
+
+                  It is registered nowhere, so the FLIP has no previous rect
+                  for these rows and treats them as arrivals — which is what
+                  they are. The pinned run keeps its order between the two
+                  layouts and reads as the same list moving; a recent sitting
+                  twelfth on the strip lands somewhere in the thirties once
+                  the directory is in, and a row flying halfway down the column
+                  is not a row anyone can follow. It would be saying "these
+                  moved" about rows whose position never meant anything.
+
+                  So they leave with the strip's own layout and come back from
+                  below with everyone else, in the directory's order. Ashwin,
+                  Oct 6.
+                */}
+                {filled ? null : centredRecents.map((account, i) => (
+                  <div key={account.id}>
                   <RailRow
-                    key={account.id}
                     squircle={!pillTiles}
                     label={account.name}
                     name={account.name}
@@ -981,6 +1501,7 @@ export function AccountRail({
                       centredAccounts.length + i,
                     )}
                   />
+                  </div>
                 ))}
 
                 {directorySpot === "tail" ? directoryButton : null}
@@ -989,6 +1510,37 @@ export function AccountRail({
           </>
         )}
       </nav>
+
+      {/*
+        The run itself, over the strip that chose its targets.
+
+        Rendered beside the rail rather than inside it: the modal is a page
+        surface and the rail is 276px of chrome with overflow-hidden, so a
+        dialog mounted in there would be clipped to the column that opened it.
+      */}
+      {fillBulk && fillSelected.length > 0 ? (
+        <BulkModal
+          accounts={session.accounts.filter((a) =>
+            fillSelected.includes(a.id),
+          )}
+          initialPath={fillBulk.path}
+          onClose={() => setFillBulk(null)}
+          onCompleted={() => {
+            // A finished run ends the errand, strip and all — the selection
+            // answered one question and that question has been answered.
+            setFillBulk(null);
+            closeFill();
+          }}
+          onOpenHistory={() => {
+            setFillBulk(null);
+            setFillHistory(true);
+          }}
+        />
+      ) : null}
+
+      {fillHistory ? (
+        <BulkHistoryModal onClose={() => setFillHistory(false)} />
+      ) : null}
     </>
   );
 }
@@ -1010,6 +1562,8 @@ function RailRow({
   markSize,
   magnify = 1,
   pinned = false,
+  listShape = false,
+  tick,
 }: {
   label: string;
   name: string;
@@ -1019,6 +1573,20 @@ function RailRow({
   /** Resting on a tile is what opens the names out. */
   onHover?: () => void;
   account: Account;
+  /**
+   * Draw as a row in a list rather than as a tile in a strip.
+   *
+   * The filled directory's shape: 8px corners and the nav's selected marking.
+   * See the class block below for both.
+   */
+  listShape?: boolean;
+  /**
+   * Draw a checkbox at the head of the row, in this state.
+   *
+   * `undefined` is no box at all, which is every row outside a selection.
+   * See the span below for why it is not a control.
+   */
+  tick?: boolean;
   /**
    * Corner the mark, instead of leaving it a disc.
    *
@@ -1091,9 +1659,25 @@ function RailRow({
    * how the rail says which account is active, so the size is not the part to
    * give up.
    */
-  const pad = contain
-    ? Math.max(RAIL_TILE_MIN_PAD, (RAIL_TILE_BOX - size) / 2)
-    : (RAIL_TILE_BOX - size) / 2;
+  /*
+   * ...and the filled list measures to its own row height, not the strip's.
+   *
+   * The strip's 32px box is a TILE: it is the mark plus the clearance a mark
+   * needs, and the row is however tall that comes out. A list row is the
+   * other way round — the height is the rhythm of the column and the mark
+   * sits inside it — and 32 with a 24px mark leaves 4px above a name, which
+   * reads as a list someone squeezed. 36 is what the rest of this product
+   * uses for a row with a 24px mark in it, and it is what Ashwin asked for.
+   *
+   * Still expressed as padding rather than a height, so the one arithmetic
+   * below — box, outset, the magnify ceiling — keeps working off `pad` and
+   * does not need a second case.
+   */
+  const pad = listShape
+    ? (RAIL_LIST_ROW_H - size) / 2
+    : contain
+      ? Math.max(RAIL_TILE_MIN_PAD, (RAIL_TILE_BOX - size) / 2)
+      : (RAIL_TILE_BOX - size) / 2;
 
   /*
    * What the row measures once it is padded, and how far outside its column it
@@ -1191,6 +1775,9 @@ function RailRow({
           type="button"
           aria-label={label}
           aria-current={selected ? "page" : undefined}
+          {...(tick === undefined
+            ? {}
+            : { role: "checkbox", "aria-checked": tick })}
           onPointerEnter={onHover}
           onClick={onClick}
           style={{
@@ -1221,7 +1808,17 @@ function RailRow({
             // Shape on every row, not just the selected one: the hover fill and
             // the selected fill are the same box, and only one of them being a
             // pill reads as the row changing shape under the pointer.
-            pillTiles ? "rounded-full" : "rounded-[9px]",
+            /*
+              ...and the filled list takes the LIST's shape instead: the same
+              8px the All accounts panel's rows wear. A pill is right for a
+              column of marks — it is the shape of the mark — and wrong for a
+              column of names, where it reads as a chip rather than a row.
+            */
+            listShape
+              ? "rounded-[8px]"
+              : pillTiles
+                ? "rounded-full"
+                : "rounded-[9px]",
             /*
               No `justify-center` when collapsed, and nothing replacing it.
 
@@ -1243,9 +1840,52 @@ function RailRow({
             */
             // Fill and a hairline, no drop shadow: the tile is flush in the
             // strip, and a cast shadow lifted it off a surface it sits on.
-            selected ? "bg-nav shadow-[inset_0_0_0_1px_var(--nav-border)]" : "hover:bg-nav-hover",
+            listShape
+              ? /*
+                  And the list's own marking: the nav's selected row, ring and
+                  all, with the LIFT deliberately left off. Ashwin's call, and
+                  the right one — a shadow says "this floats", which is true of
+                  one row standing in a column and false of a row inside a
+                  scrolling list of forty. The ring alone still says where you
+                  are.
+                */
+                selected
+                ? "bg-nav-selected shadow-[inset_0_0_0_1px_var(--nav-selected-ring)]"
+                : "hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]"
+              : selected
+                ? "bg-nav shadow-[inset_0_0_0_1px_var(--nav-border)]"
+                : "hover:bg-nav-hover",
           )}
         >
+          {/*
+            The tick, inside the row's own box.
+
+            A SPAN, not a button: a control inside a control is invalid markup
+            and gives a row two different click targets for one decision. The
+            row itself does the ticking while a selection is running — see the
+            filled list's onClick — so this is the read-out and the whole row
+            is the hit area, which is the behaviour a list of forty wants
+            anyway.
+
+            Inside rather than beside, per Ashwin: outboard of the fill it
+            reads as a box next to a row instead of a row that is ticked, and
+            it was pushing the pin out of the strip's right edge.
+          */}
+          {tick === undefined ? null : (
+            <span
+              aria-hidden="true"
+              className={cn(
+                "flex size-[16px] shrink-0 items-center justify-center rounded-[4px]",
+                tick
+                  ? "bg-[var(--hr-primary-600)] text-white"
+                  : "shadow-[inset_0_0_0_1.5px_var(--fly-border)]",
+              )}
+            >
+              {tick ? (
+                <Check size={11} strokeWidth={3} aria-hidden="true" />
+              ) : null}
+            </span>
+          )}
           {/*
             24, not 28 (Aug 13): the tenant tiles read oversized in the strip.
             20 when the rail is marking the active account by size.
@@ -1328,6 +1968,13 @@ function RailRow({
  *
  * What every tile except the active one already had. See `pad`.
  */
+/**
+ * A row in the filled directory, as opposed to a tile in the strip.
+ *
+ * The one number this arrangement does not take from the rail: see `pad`.
+ */
+const RAIL_LIST_ROW_H = 36;
+
 const RAIL_TILE_MIN_PAD = 4;
 
 const MAGNIFY_FALLOFF = [1.35, 1.15, 1.05] as const;

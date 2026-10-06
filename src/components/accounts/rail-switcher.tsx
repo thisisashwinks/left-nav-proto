@@ -29,8 +29,6 @@ interface RailDirectoryProps {
   onClose: () => void;
 }
 
-/** How many rows the RECENT section holds — the trail, not a history page. */
-const RECENT_ROWS = 5;
 
 /**
  * The accounts directory the rail morphs into.
@@ -40,11 +38,20 @@ const RECENT_ROWS = 5;
  * meeting at an edge, which is the seam every earlier round tripped over.
  * The rail owns the frame; this is the whole of the content, header included.
  *
- * Two sections (Aug 13, refined): RECENT on top — the current account and
- * the trail behind it — then ALL, the complete directory with the pinned
- * accounts leading it. Pinning stays a per-row action; the pin's reward is
- * rank in ALL, not a section of its own. While searching, sections drop
- * away — one flat filtered list reads faster.
+ * ONE list, unlabelled (Oct 6). It carried a RECENT section above the
+ * directory, which was right at seventeen sub-accounts and wrong at forty:
+ * the first screen became four rows of trail and a heading, and the list you
+ * came for started below the fold. Recents are also the one thing this panel
+ * does not need to say — the current account is marked as such, and the four
+ * behind it are the four you could have reached by not opening this at all.
+ *
+ * The headings went with it. Two of them were only ever there to tell the
+ * sections apart, and "ALL" over the whole list when the title already says
+ * "All accounts (40)" is the same word twice in forty pixels.
+ *
+ * Pinning stays a per-row action, and the pin's reward is rank: pinned
+ * accounts lead the list. That is the one piece of the old RECENT section's
+ * job worth keeping, and it is done by order rather than by a section.
  *
  * Behind a prototype switch it is also a bulk surface: every row grows a
  * checkbox and the header grows a Bulk actions button beside the close. The
@@ -135,46 +142,26 @@ export function RailDirectory({
   const matches = matchAccounts(query, session.accounts);
   const searching = query.trim() !== "";
 
-  const currentId = session.scope === "account" ? session.current.id : null;
-  const { recentIds } = session;
-  const { recent, all } = React.useMemo(() => {
-    // RECENT: the current account leads (it is the most recently accessed by
-    // definition), then the trail, capped so the section stays a glance.
-    const recentOrder = [
-      ...(currentId !== null ? [currentId] : []),
-      ...recentIds.filter((id) => id !== currentId),
-    ].slice(0, RECENT_ROWS);
-    const recentRows = recentOrder
-      .map((id) => matches.find((a) => a.id === id))
-      .filter((a): a is Account => a !== undefined);
-    /*
-     * ALL: the complete directory, or everything the RECENT run did not
-     * already show.
-     *
-     * Recents are repeated on purpose when this panel is a JUMP list — a
-     * directory with holes in it reads as missing accounts. With checkboxes on
-     * it is the opposite: the same account drew two rows and two ticks, so a
-     * reader saw nineteen boxes checked over a count that said seventeen and
-     * had no way to know which of the pair was "the" one. One account, one
-     * row, one tick.
-     */
-    const dedupe = guided && picking;
-    const recentSet = new Set(recentRows.map((a) => a.id));
-    const allRows = [...matches]
-      .filter((a) => !dedupe || !recentSet.has(a.id))
-      .sort((a, b) => {
+  /*
+   * The directory, pinned accounts first.
+   *
+   * One list rather than the RECENT/ALL pair this used to build — see the
+   * note at the top. Losing the second section also loses the de-dupe that
+   * went with it: an account could be drawn twice, which under checkboxes
+   * meant one account showing two ticks and a count that disagreed with the
+   * boxes on screen. One row, one tick, by construction now.
+   */
+  const all = React.useMemo(
+    () =>
+      [...matches].sort((a, b) => {
         const ap = session.onRail(a.id) ? 0 : 1;
         const bp = session.onRail(b.id) ? 0 : 1;
         return ap - bp;
-      });
-    return { recent: recentRows, all: allRows };
-  }, [matches, currentId, recentIds, session, guided, picking]);
+      }),
+    [matches, session],
+  );
 
-  /*
-   * Selection is by id and the sections overlap — an account in RECENT is also
-   * in ALL — so both of its rows read the same tick. That is right: there is
-   * one account, ticked once, however many places the panel draws it.
-   */
+  /* Selection is by id: one account, ticked once. */
   const toggleRow = (id: string) =>
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
@@ -440,7 +427,26 @@ export function RailDirectory({
         <div
           ref={listRef}
           data-scroll-region=""
-          className="-mx-[2px] mt-[6px] min-h-0 flex-1 overflow-y-auto px-[2px]"
+          /*
+            The gutter is the panel's own padding, not a margin off the rows.
+
+            A scroll region reserves its scrollbar INSIDE itself — the strip is
+            the element's right padding in all but name — so a list that
+            started where the search field starts ended ten pixels short of
+            where it ends. Every row was narrower than the field above it, for
+            a bar that is invisible until you reach for it.
+
+            So the region is widened past its column by exactly the gutter and
+            the gutter is narrowed to the panel's 8px inset. The rows' content
+            box lands back on the search field's edges, and the bar rides in
+            the padding beside them rather than taking a bite out of them.
+
+            8 rather than the shared 10 because that is what the panel pads by:
+            any other number and the bar is either clipped by the panel's edge
+            or floating short of it. Ashwin, Oct 6.
+          */
+          style={{ "--nav-scroll-gutter": "8px" } as React.CSSProperties}
+          className="mt-[6px] -mr-[8px] -ml-[2px] min-h-0 flex-1 overflow-y-auto pl-[2px]"
         >
           {matches.length === 0 ? (
             <p className="px-[7px] py-[16px] text-[13px] leading-[18px] text-nav-fg-subtle">
@@ -448,20 +454,12 @@ export function RailDirectory({
             </p>
           ) : null}
 
-          {searching ? (
-            <Group accounts={matches} {...rowProps} />
-          ) : (
-            <>
-              <Group label="RECENT" accounts={recent} {...rowProps} />
-              {/* Named for what it holds: with the recents deduped out of it,
-                  "ALL" would be a heading over all-but-five. */}
-              <Group
-                label={guided && picking ? "ALL OTHERS" : "ALL"}
-                accounts={all}
-                {...rowProps}
-              />
-            </>
-          )}
+          {/*
+            One unlabelled group, searching or not. The search no longer has
+            sections to collapse — the list it filters is already the only
+            one there is.
+          */}
+          <Group accounts={searching ? matches : all} {...rowProps} />
         </div>
       </div>
 
@@ -550,11 +548,33 @@ function Group({
             key={account.id}
             className={cn(
               "group/row flex w-full items-center gap-[10px] rounded-[8px] px-[7px] py-[6px]",
+              /*
+                The current account wears the NAV's selected row, exactly.
+
+                It used to be a flat `bg-nav-active` plus a "Current" pill —
+                the pill because, as the note here said, the tint alone failed
+                a review. That review was looking at the tint alone; the
+                selected row has since grown an edge and a lift, and the same
+                three tokens that mark "the page you are on" mark "the account
+                you are in" without a word. They are the same claim about the
+                same reader, and two different-looking answers to it is how a
+                shell ends up with two vocabularies.
+
+                It follows the two row-state switches with it — see
+                NAV_ROW_RING_DEFAULT and NAV_ROW_SHADOW_DEFAULT. Off the
+                plane both resolve to nothing and this is the flat tint it
+                always was.
+
+                A TICKED row keeps the plain fill: that is a selection, which
+                is about what an action will reach, and borrowing the "you are
+                here" treatment for it would say the wrong thing on every row
+                a reader ticks.
+              */
               ticked
                 ? "bg-nav-active"
                 : current
-                  ? "bg-nav-active"
-                  : "hover:bg-nav-hover",
+                  ? "bg-nav-selected shadow-[inset_0_0_0_1px_var(--nav-selected-ring),var(--nav-selected-shadow)]"
+                  : "hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]",
             )}
           >
             {picking ? (
@@ -615,12 +635,6 @@ function Group({
                 ) : null}
               </span>
             </button>
-            {/* Said, not implied: the tinted row alone failed the review. */}
-            {current ? (
-              <span className="shrink-0 rounded-[5px] bg-nav-hover px-[6px] py-[2px] text-[10px] leading-[14px] font-semibold text-nav-fg-muted">
-                Current
-              </span>
-            ) : null}
             {showPin ? (
               /*
                 The nav's pin, on an account row — see PinButton, which this
@@ -669,7 +683,15 @@ function Group({
                 )}
               >
                 <Pin
-                  size={13}
+                  /*
+                    12, matching the pin on a pinned row in the nav — see
+                    merged-recents, which made the same cut for the same
+                    reason. A trailing mark that approaches the size of the
+                    row's LEADING glyph reads as a second icon rather than as
+                    a state, and here the leading glyph is a 24px account
+                    tile. One pin, one size, wherever a row carries one.
+                  */
+                  size={12}
                   fill={action === "remove" ? "currentColor" : "none"}
                   aria-hidden="true"
                 />

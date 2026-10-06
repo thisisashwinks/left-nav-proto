@@ -360,7 +360,7 @@ export function NavItemRow({
   */
   const icon = (
     <NewDotIcon on={dotted}>
-      <RowIcon item={item} active={active} dimmed={off} />
+      <RowIcon item={item} active={active} dimmed={off} glyph={mark.glyph} />
     </NewDotIcon>
   );
 
@@ -1020,10 +1020,13 @@ function RowIcon({
   item,
   active,
   dimmed = false,
+  glyph,
 }: {
   item: NavItem;
   active: boolean;
   dimmed?: boolean;
+  /** The marked row's own glyph size, where the axis asks for one. */
+  glyph?: string | false;
 }) {
   const Icon = item.icon;
   /*
@@ -1058,6 +1061,9 @@ function RowIcon({
         "shrink-0 motion-tap group-hover:scale-[var(--t-nav-icon-scale,1.143)]",
         active ? "text-nav-fg" : "text-nav-fg-muted group-hover:text-nav-fg",
         dimmed && "opacity-40",
+        // Redeclares --t-nav-icon on this element, which the width and
+        // height above already read. See NAV_SELECTED_ICON_DEFAULT.
+        glyph,
       )}
     />
   );

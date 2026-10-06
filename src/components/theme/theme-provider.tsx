@@ -48,6 +48,7 @@ import {
   type NavSelectedFill,
   type NavWidthSet,
   type DirectoryExit,
+  type RailFillMorph,
   type RailSizing,
   type EditTreatment,
   type RenameAffordance,
@@ -93,6 +94,7 @@ import type {
   AiDockTop,
   AiFullChrome,
   NavChevron,
+  NavInk,
   EditRadius,
   FolderCrumb,
   TableCrumb,
@@ -210,6 +212,9 @@ interface ThemeContextValue extends ThemeState {
   setRailAccountsDoor: (on: boolean) => void;
   setAccountRowMeta: (on: boolean) => void;
   setDirectoryExit: (v: DirectoryExit) => void;
+  setRailFillMorph: (v: RailFillMorph) => void;
+  setRailFillAgency: (on: boolean) => void;
+  setRailHoldInset: (on: boolean) => void;
   setPlaneGround: (v: PlaneGround) => void;
   setPinnedRowEdit: (on: boolean) => void;
   setPinnedShortcuts: (on: boolean) => void;
@@ -223,6 +228,10 @@ interface ThemeContextValue extends ThemeState {
   setAiFloating: (on: boolean) => void;
   setNavChevron: (v: NavChevron) => void;
   setEditRadius: (v: EditRadius) => void;
+  setEditAlways: (on: boolean) => void;
+  setNavInk: (v: NavInk) => void;
+  setNavSelectedBold: (on: boolean) => void;
+  setNavSelectedIcon: (on: boolean) => void;
   setFlyoutShape: (shape: FlyoutShape) => void;
   setFlyoutCardBorder: (on: boolean) => void;
   setDirectoryFlush: (on: boolean) => void;
@@ -542,6 +551,12 @@ export function ThemeProvider({
         setState((s) => ({ ...s, accountRowMeta })),
       setDirectoryExit: (directoryExit) =>
         setState((s) => ({ ...s, directoryExit })),
+      setRailFillMorph: (railFillMorph) =>
+        setState((s) => ({ ...s, railFillMorph })),
+      setRailFillAgency: (railFillAgency) =>
+        setState((s) => ({ ...s, railFillAgency })),
+      setRailHoldInset: (railHoldInset) =>
+        setState((s) => ({ ...s, railHoldInset })),
       setPlaneGround: (planeGround) => setState((s) => ({ ...s, planeGround })),
       setPinnedRowEdit: (pinnedRowEdit) =>
         setState((s) => ({ ...s, pinnedRowEdit })),
@@ -559,6 +574,12 @@ export function ThemeProvider({
       setAiFloating: (aiFloating) => setState((s) => ({ ...s, aiFloating })),
       setNavChevron: (navChevron) => setState((s) => ({ ...s, navChevron })),
       setEditRadius: (editRadius) => setState((s) => ({ ...s, editRadius })),
+      setEditAlways: (editAlways) => setState((s) => ({ ...s, editAlways })),
+      setNavInk: (navInk) => setState((s) => ({ ...s, navInk })),
+      setNavSelectedBold: (navSelectedBold) =>
+        setState((s) => ({ ...s, navSelectedBold })),
+      setNavSelectedIcon: (navSelectedIcon) =>
+        setState((s) => ({ ...s, navSelectedIcon })),
       setFlyoutShape: (flyoutShape) =>
         setState((s) => ({ ...s, flyoutShape })),
       setFlyoutCardBorder: (flyoutCardBorder) =>

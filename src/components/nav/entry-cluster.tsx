@@ -211,8 +211,13 @@ function EditNavButton({
 }) {
   /** Whether a sub-account may hold a layout of its own. See LAYOUT_MODELS. */
   const { strict, linkedFor } = useNavTemplates();
-  const { editCardTemplateName, navOnPlane, entryRadius, editRadius } =
-    useTheme().effective;
+  const {
+    editCardTemplateName,
+    navOnPlane,
+    entryRadius,
+    editRadius,
+    editAlways,
+  } = useTheme().effective;
   /**
    * The template this account is on, by name.
    *
@@ -809,7 +814,17 @@ function EditNavButton({
         "active:scale-95",
         // Focus-visible as well as hover, so the control is reachable from the
         // keyboard by something other than luck.
-        "opacity-0 group-hover/nav:opacity-100 focus-visible:opacity-100",
+        /*
+          Standing, or waiting for the pointer. See EDIT_ALWAYS_DEFAULT.
+
+          Only the BUTTON's presence changes; the label still grows out of
+          it on hover either way, so the control reads the same once you
+          have found it. What the axis decides is whether finding it
+          requires sweeping the nav — which is not a gesture a touch screen
+          has.
+        */
+        !editAlways &&
+          "opacity-0 group-hover/nav:opacity-100 focus-visible:opacity-100",
       )}
     >
       <SquarePen size={13} aria-hidden="true" className="shrink-0" />
@@ -906,7 +921,7 @@ function SwitchNavButton({
   revealed: boolean;
   onOpen: () => void;
 }) {
-  const { entryRadius, editRadius } = useTheme().effective;
+  const { entryRadius, editRadius, editAlways } = useTheme().effective;
   return (
     <button
       type="button"
@@ -927,7 +942,17 @@ function SwitchNavButton({
         "hover:w-[104px] hover:justify-start hover:gap-[6px] hover:px-[8px] hover:bg-nav-hover",
         "focus-visible:w-[104px] focus-visible:justify-start focus-visible:gap-[6px] focus-visible:px-[8px]",
         "active:scale-95",
-        "opacity-0 group-hover/nav:opacity-100 focus-visible:opacity-100",
+        /*
+          Standing, or waiting for the pointer. See EDIT_ALWAYS_DEFAULT.
+
+          Only the BUTTON's presence changes; the label still grows out of
+          it on hover either way, so the control reads the same once you
+          have found it. What the axis decides is whether finding it
+          requires sweeping the nav — which is not a gesture a touch screen
+          has.
+        */
+        !editAlways &&
+          "opacity-0 group-hover/nav:opacity-100 focus-visible:opacity-100",
       )}
     >
       <PanelsTopLeft size={13} aria-hidden="true" className="shrink-0" />

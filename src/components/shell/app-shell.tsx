@@ -451,6 +451,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     navRowRing,
     navRowShadow,
     navSelectedFill,
+    navInk,
     navWidthSet,
     editWidthFull,
     railAccountsDoor,
@@ -1441,6 +1442,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    */
   const directoryFillsSidebar =
     (directoryPlacement === "sidebar" || !railActive) && directory.isMounted;
+  /*
+   * The strip itself is the directory. See DIRECTORY_PLACEMENTS.
+   *
+   * Nothing is rendered for it here — the rail draws its own filled state —
+   * so all this flag does is keep the strip open while it is up and keep the
+   * sidebar-filling panel out of the way.
+   */
+  const directoryFillsRail =
+    directoryPlacement === "names" && railActive && directory.isMounted;
   /*
    * The launcher rides the same hover intent as the product rows rather than its
    * own open flag, which is what makes the chip row's chevron behave like every
@@ -2864,6 +2874,12 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         {...(navSelectedFill === "default"
           ? {}
           : { "data-nav-sel": navSelectedFill })}
+        /*
+          And how dark the rows that are NOT selected are. Absent at 900,
+          which is the declared value, so the default arrangement resolves
+          through exactly the tokens it always did. See NAV_INKS.
+        */
+        {...(navInk === "900" ? {} : { "data-nav-ink": navInk })}
         // --pg-bg is the page — the same ground the settings pages already sit on,
         // so the product has one page colour instead of a shell grey out here and
         // a page grey inside the canvas. The token lives under [data-page-theme],
@@ -3046,7 +3062,13 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             membersOnly={memberRail}
             // And held shut outright, not merely stopped from re-opening:
             // the pointer can already be on the rail when the panel appears.
-            expanded={railExpanded && !directoryFillsSidebar}
+            /*
+              Asserted open while the strip is filled, whatever the pointer
+              has done. The rail cannot raise this itself — the shell owns it,
+              and panel offsets follow the live width — so the one state that
+              is not about hover is stated here with the rest.
+            */
+            expanded={(railExpanded || directoryFillsRail) && !directoryFillsSidebar}
             // Frozen while the directory is up: the panel docks against the
             // rail's edge, so the rail widening or narrowing underneath it
             // left the two surfaces overlapping.

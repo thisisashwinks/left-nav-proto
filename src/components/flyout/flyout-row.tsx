@@ -595,6 +595,9 @@ export function FlyoutRow({
               width: "var(--t-fly-icon, 16px)",
               height: "var(--t-fly-icon, 16px)",
             }}
+            // Redeclares that variable on the marked row's own glyph. See
+            // NAV_SELECTED_ICON_DEFAULT.
+            {...(mark.glyph ? { className: mark.glyph } : {})}
           />
         ) : null}
       </div>
@@ -1419,7 +1422,14 @@ function FlyoutChildRow({
               <child.icon
                 size={16}
                 aria-hidden="true"
-                className="shrink-0 text-nav-fg-subtle"
+                // The L3 glyph had no variable of its own, so the marked
+                // row's size arrives through one declared here. See
+                // NAV_SELECTED_ICON_DEFAULT.
+                style={{
+                  width: "var(--here-glyph, 16px)",
+                  height: "var(--here-glyph, 16px)",
+                }}
+                className={cn("shrink-0 text-nav-fg-subtle", mark.glyph)}
               />
             </NewDotIcon>
           )

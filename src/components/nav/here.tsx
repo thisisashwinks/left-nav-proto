@@ -133,10 +133,55 @@ export function useHereStyle(marking: Marking): {
   row: string | false;
   /** Goes on the label. */
   ink: string | false;
+  /** Goes on the row's leading glyph. */
+  glyph: string | false;
 } {
-  const { selectedMark } = useTheme().effective;
-  if (marking === null) return { bar: false, row: false, ink: false };
+  const { selectedMark, navSelectedBold, navSelectedIcon } =
+    useTheme().effective;
+  if (marking === null)
+    return { bar: false, row: false, ink: false, glyph: false };
   const here = marking === "here";
+  /*
+   * The two axes that cut across every mark. See NAV_SELECTED_BOLD_DEFAULT
+   * and NAV_SELECTED_ICON_DEFAULT.
+   *
+   * Resolved once, here, rather than inside each branch below: they are a
+   * property of being the current row, not of which treatment the row is
+   * wearing, and a `bar` row and a `fill` row that disagreed about whether
+   * the label is bold would be two answers to one question.
+   *
+   * EVERY marked row, trail included (Ashwin, Oct 6). The first cut gave
+   * both to the leaf alone, on the argument that weight and size are how a
+   * destination separates itself from the steps leading to it. That reads
+   * well and describes an arrangement this nav does not have: in the
+   * default flyout the L1 is published as `trail` and never as `here` — see
+   * `markFor`, which passes `isHere: false` for it — because the page
+   * itself is behind a shut panel. So "leaf only" meant the one row visible
+   * in the column got neither treatment, and the options looked broken on
+   * the level they were asked for.
+   *
+   * What separates the trail from the leaf stays what it always was: the
+   * fill, or the bar's own length.
+   */
+  const bold = navSelectedBold ? "font-semibold" : false;
+  /*
+   * 18px, through the icon's own variable rather than a transform.
+   *
+   * `--t-nav-icon` is what the inline width and height already read, so
+   * overriding it on the element resizes the glyph properly — where a
+   * `scale-` class would both thicken the stroke and collide with the
+   * hover scale that is already on this icon.
+   *
+   * Three variables because three surfaces size their glyphs differently:
+   * the nav's rows read `--t-nav-icon`, the flyout's read `--t-fly-icon`,
+   * and an L3 child had no variable at all until this, so it reads
+   * `--here-glyph`. Declaring all three costs nothing where only one is
+   * read, and it means a level cannot be left behind by whoever adds the
+   * next surface.
+   */
+  const bigger = navSelectedIcon
+    ? "[--t-nav-icon:18px] [--t-fly-icon:18px] [--here-glyph:18px]"
+    : false;
 
   switch (selectedMark) {
     case "fill":
@@ -193,7 +238,8 @@ export function useHereStyle(marking: Marking): {
          * signals stack and the row reads as a heading rather than as the page
          * you are on. Colour still separates the lit row from its trail.
          */
-        ink: here && "text-nav-fg",
+        ink: cn(here && "text-nav-fg", bold),
+        glyph: bigger,
       };
     case "tint":
       return {
@@ -208,10 +254,21 @@ export function useHereStyle(marking: Marking): {
          * thing already open. Weight says "this row", colour says "this kind
          * of row", and only the first is true here.
          */
-        ink: here && "text-nav-fg",
+        ink: cn(here && "text-nav-fg", bold),
+        glyph: bigger,
       };
     default:
-      return { bar: true, row: false, ink: here && "font-semibold text-nav-fg" };
+      /*
+        The bar's own mark has always bolded the current row — with no
+        ground under it, weight is the only thing left to say "this one".
+        The axis can only add to that, never take it away.
+      */
+      return {
+        bar: true,
+        row: false,
+        ink: here && "font-semibold text-nav-fg",
+        glyph: bigger,
+      };
   }
 }
 
