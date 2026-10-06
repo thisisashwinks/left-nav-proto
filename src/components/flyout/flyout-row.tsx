@@ -1357,7 +1357,18 @@ function FlyoutChildRow({
             notch down per level: depth is still legible, it is just no longer
             legible by the rows being a different size.
           */
-          "motion-tap relative flex w-full items-center gap-[7px] rounded-[7px] px-[9px] text-left leading-[normal] font-medium text-nav-fg-muted hover:text-nav-fg active:scale-[0.99]",
+          /*
+            Regular, not medium (Ashwin, Oct 6).
+
+            An L3 row sat a weight above the L1 and L2 rows above it, which
+            inverted the hierarchy it is nested inside: the deepest level in
+            the cascade was the heaviest text in it. It was also the one
+            weight the selected-row axis could not lift away from — medium
+            selected beside medium unselected is no mark at all. The notch
+            down per level the note above describes is in the SIZE; the
+            weight should have been flat all along.
+          */
+          "motion-tap relative flex w-full items-center gap-[7px] rounded-[7px] px-[9px] text-left leading-[normal] text-nav-fg-muted hover:text-nav-fg active:scale-[0.99]",
           mark.ink,
           mark.row,
           // Rollover only where there is no mark holding the ground already.

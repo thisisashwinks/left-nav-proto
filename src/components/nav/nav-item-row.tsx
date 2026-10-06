@@ -466,6 +466,15 @@ export function NavItemRow({
     />
   ) : null;
 
+  /*
+   * Whether edit mode draws no chevron column at all. See NAV_CHEVRONS.
+   *
+   * Only under `hover`: with the glyph set to show always, edit mode keeps
+   * it, because there the chevron is still saying which rows have a panel
+   * behind them and that is worth knowing while you are rearranging them.
+   */
+  const editChevronGone = navChevron === "hover";
+
   const chevron = item.expandable ? (
     /*
      * A caret, not the flyout's chevron: down for shut, up for open.
@@ -897,12 +906,30 @@ export function NavItemRow({
               ) : null}
             </>
           )}
-          {chevron}
-          {/* And the slot held empty when there is no chevron, so the eye and
-              kebab sit in one column down the whole list. */}
-          {chevron === null ? (
-            <span aria-hidden="true" className="w-[15px] shrink-0" />
-          ) : null}
+          {/*
+            In edit mode the hover chevron is dropped outright — element,
+            column and all — rather than faded. See NAV_CHEVRONS.
+
+            Outside edit mode it is hidden with opacity because the 15px
+            column is what the label's truncation is measured against, so a
+            row that dropped it would re-flow its own text under the
+            pointer. Edit mode has no such problem: NO row has a chevron
+            there, so the column is 15px of nothing on every row, and the
+            kebab is held one glyph short of the edit affordances it belongs
+            with. Taking the column away puts the kebab where the chevron
+            was, which is the rightmost thing in the row either way.
+            Ashwin, Oct 6.
+          */}
+          {editChevronGone ? null : (
+            <>
+              {chevron}
+              {/* And the slot held empty when there is no chevron, so the eye
+                  and kebab sit in one column down the whole list. */}
+              {chevron === null ? (
+                <span aria-hidden="true" className="w-[15px] shrink-0" />
+              ) : null}
+            </>
+          )}
         </>
       ) : null}
     </div>

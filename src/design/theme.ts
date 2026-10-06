@@ -2332,10 +2332,12 @@ export const RAIL_FILL_AGENCY_DEFAULT = false;
  * logos do not move at all and only the labels change. It costs the names
  * about 8px of width, which at this column's size they can afford.
  *
- * Off is what it shipped with, and worth keeping: the inset is dead space in
- * a list of forty, and the jump only happens once per open.
+ * OFF by default, Oct 6. The open column pads by 10 now rather than the 6 it
+ * did when this axis was written, which takes most of the jump out on its own
+ * — and the remaining few pixels cost less than the inset does in a list of
+ * forty names. On is still the arrangement where the logos do not move at all.
  */
-export const RAIL_HOLD_INSET_DEFAULT = true;
+export const RAIL_HOLD_INSET_DEFAULT = false;
 
 export const RAIL_FILL_MORPHS = ["header", "descend", "unfold"] as const;
 
@@ -2603,10 +2605,13 @@ export const ENTRY_RADII = ["pill", "sm"] as const;
  * rather than one row. The hover chevron follows, since it is the same
  * "this row, under the pointer" state the icon is in.
  *
- *  900  Near-black, which is what ships. Every row is as emphatic as every
- *       other, and the list competes with the page for first read.
- *  700  A step back. The nav stops being the darkest thing on screen while
- *       each row is still plainly a destination rather than a caption.
+ *  900  Near-black, which is what the nav shipped with. Every row is as
+ *       emphatic as every other, the list competes with the page for first
+ *       read, and the marked row has nothing to be darker than.
+ *  700  A step back, and the default from Oct 6. The nav stops being the
+ *       darkest thing on screen while each row is still plainly a
+ *       destination rather than a caption — and the selected row's pinned
+ *       900 becomes a mark rather than a coincidence.
  *  600  Two steps. Chrome that recedes until it is wanted — and the point
  *       at which "quiet" starts to shade into "secondary", which is the
  *       thing worth looking at rather than arguing about.
@@ -2625,32 +2630,43 @@ export const NAV_INK_LABELS: Record<NavInk, string> = {
 };
 
 /**
- * Whether the row you are on is set in a heavier weight.
+ * How much heavier the row you are on is set.
  *
- * OFF by default, which is what the `fill` mark argues for in `here.tsx`:
- * the ground already says which row this is, and bolding the label says it
- * twice — on a selected L3 the two signals stack and the row reads as a
- * heading rather than as the page you are on.
+ *  medium    One step up from the body weight. The default from Oct 6: at
+ *            14px a semibold label beside regular ones is a noticeable jump
+ *            in colour as well as weight, and on a row that also carries a
+ *            fill it tips into reading as a heading. Medium separates the
+ *            row without changing what KIND of text it is.
+ *  semibold  The account rail's own treatment, and the louder answer. Worth
+ *            having beside medium precisely because "enough" is the whole
+ *            question here — the lighter the rest of the list gets (see
+ *            NAV_INKS), the more work this has to do.
  *
- * That argument is about weight ADDED to a fill. It weakens as the rest of
- * the list gets lighter: at gray 600 the ink difference is carrying the
- * state on its own, and weight is the thing that keeps the marked row
- * legible as a destination rather than merely darker. It is also the
- * treatment the account rail already uses — semibold on the open account,
- * regular on the rest — so switching it on makes the two sidebars agree.
+ * There is no "unweighted" value any more. The nav shipped without one and
+ * `here.tsx` argued for it — the ground already says which row this is —
+ * but that argument was about weight added to a FULL-strength list, and the
+ * ink axis has moved the ground under it. Say the word if the comparison is
+ * wanted back.
  *
  * Every marked row takes it, the trail as well as the leaf — see the note
  * in `useHereStyle` for why "leaf only" meant "not the L1" in the one
  * arrangement most people look at.
- *
- * Pairs with NAV_INKS; see the note there.
  */
-export const NAV_SELECTED_BOLD_DEFAULT = false;
+export const NAV_SELECTED_WEIGHTS = ["medium", "semibold"] as const;
+export type NavSelectedWeight = (typeof NAV_SELECTED_WEIGHTS)[number];
+export const NAV_SELECTED_WEIGHT_LABELS: Record<NavSelectedWeight, string> = {
+  medium: "Medium",
+  semibold: "Semibold",
+};
+export const NAV_SELECTED_WEIGHT_CLASS: Record<NavSelectedWeight, string> = {
+  medium: "font-medium",
+  semibold: "font-semibold",
+};
 
 /**
  * Whether the row you are on draws a larger glyph.
  *
- * OFF by default. On, the leading icon goes 16 → 18 wherever a row is
+ * ON by default (Oct 6). On, the leading icon goes 16 → 18 wherever a row is
  * marked at all — L1, L2 and L3, the trail as well as the leaf, through the
  * same `useHereStyle` every other part of the mark comes from, so a level
  * cannot be left out by someone forgetting it. The trail is included
@@ -2664,7 +2680,7 @@ export const NAV_SELECTED_BOLD_DEFAULT = false;
  * whose contents shift when it becomes current is a row that twitches as
  * you navigate. Which of those wins is exactly what the axis is for.
  */
-export const NAV_SELECTED_ICON_DEFAULT = false;
+export const NAV_SELECTED_ICON_DEFAULT = true;
 
 /**
  * Whether the nav's edit control is on screen at rest.
@@ -3749,8 +3765,8 @@ export interface ThemeState {
   navChevron: NavChevron;
   /** How dark the nav's resting rows are. See NAV_INKS. */
   navInk: NavInk;
-  /** Heavier label on the row you are on. See NAV_SELECTED_BOLD_DEFAULT. */
-  navSelectedBold: boolean;
+  /** How much heavier the marked row's label is. See NAV_SELECTED_WEIGHTS. */
+  navSelectedWeight: NavSelectedWeight;
   /** Larger glyph on the row you are on. See NAV_SELECTED_ICON_DEFAULT. */
   navSelectedIcon: boolean;
   /**
@@ -4635,8 +4651,15 @@ export const DEFAULT_THEME: ThemeState = {
    * that matters is the one under the pointer.
    */
   navChevron: "hover",
-  navInk: "900",
-  navSelectedBold: NAV_SELECTED_BOLD_DEFAULT,
+  /*
+   * Gray 700 (Oct 6). 900 made the nav the darkest thing on screen — every
+   * row as emphatic as every other, competing with the page for first read
+   * — and it left the marked row nothing to be darker THAN. A step back is
+   * what lets the selected row's pinned 900 do the marking, which is the
+   * same move the account rail already makes. See NAV_INKS.
+   */
+  navInk: "700",
+  navSelectedWeight: "medium",
   navSelectedIcon: NAV_SELECTED_ICON_DEFAULT,
   attachTemplateInUse: true,
   /*

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { NAV_SELECTED_WEIGHT_CLASS } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 
 /**
@@ -136,7 +137,7 @@ export function useHereStyle(marking: Marking): {
   /** Goes on the row's leading glyph. */
   glyph: string | false;
 } {
-  const { selectedMark, navSelectedBold, navSelectedIcon } =
+  const { selectedMark, navSelectedWeight, navSelectedIcon } =
     useTheme().effective;
   if (marking === null)
     return { bar: false, row: false, ink: false, glyph: false };
@@ -163,7 +164,7 @@ export function useHereStyle(marking: Marking): {
    * What separates the trail from the leaf stays what it always was: the
    * fill, or the bar's own length.
    */
-  const bold = navSelectedBold ? "font-semibold" : false;
+  const bold = NAV_SELECTED_WEIGHT_CLASS[navSelectedWeight];
   /*
    * 18px, through the icon's own variable rather than a transform.
    *
@@ -266,7 +267,10 @@ export function useHereStyle(marking: Marking): {
       return {
         bar: true,
         row: false,
-        ink: here && "font-semibold text-nav-fg",
+        // The bar has no ground, so weight is the only thing left to say
+        // "this one" — it takes the axis like every other mark rather than
+        // the semibold it used to hard-code.
+        ink: cn(here && "text-nav-fg", bold),
         glyph: bigger,
       };
   }

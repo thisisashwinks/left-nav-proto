@@ -25,6 +25,7 @@ import type { Account } from "./accounts-data";
 import { RailTooltip } from "@/components/nav/rail-tooltip";
 import { RailDirectory } from "./rail-switcher";
 import { useFlipRows } from "@/lib/use-flip-rows";
+import { useScrollEdges } from "@/lib/use-scroll-edges";
 import type { AccountsSession } from "./use-accounts";
 
 /** The rail's widths — the shell adds the live one to panel offsets. */
@@ -342,6 +343,15 @@ export function AccountRail({
    * row where it left it, and plays nothing.
    */
   const flip = useFlipRows(`${filled}:${fillQuery}`, { enabled: fillMode });
+
+  /*
+   * The filled list's scroller, for the fading bar.
+   *
+   * The hook writes `data-overflowing` and `data-scrollbar-active` onto the
+   * element; every rule that reads them is CSS. See globals.css.
+   */
+  const fillScrollRef = React.useRef<HTMLDivElement>(null);
+  useScrollEdges(fillScrollRef);
 
   /** What select-all reaches: the rows on screen, not all forty. */
   const fillVisibleIds = React.useMemo(
@@ -957,7 +967,7 @@ export function AccountRail({
                     ? "mr-[6px] ml-[10px]"
                     : holdInset
                       ? "mr-[6px] ml-[10px]"
-                      : "mx-[6px]",
+                      : "mx-[10px]",
                 )}
               >
                 {/*
@@ -1015,11 +1025,17 @@ export function AccountRail({
             {filled ? (
               <div
                 className={cn(
-                  "flex w-full shrink-0 flex-col gap-[6px] px-[6px] pt-[2px] pb-[4px]",
+                  // 10 a side, the same inset the list below takes — the
+                  // title, the search field and the rows all start on one
+                  // line down the column.
+                  "flex w-full shrink-0 flex-col gap-[6px] px-[10px] pt-[2px] pb-[4px]",
                   fillMorph === "descend" && "motion-fill-descend",
                 )}
               >
-                <div className="flex h-[28px] w-full items-center gap-[8px] px-[4px]">
+                {/* No inset of its own: the block above carries the 10, and
+                    a second one here would set the title in from the field
+                    directly under it. */}
+                <div className="flex h-[28px] w-full items-center gap-[8px]">
                   {/*
                     Select-all, and only while a selection is running.
 
@@ -1111,7 +1127,18 @@ export function AccountRail({
                       type="button"
                       aria-label="Close accounts"
                       onClick={closeFill}
-                      className="motion-tap flex size-[24px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
+                      /*
+                        Pulled out by its own slack.
+
+                        The glyph is 15px in a 24px box, so it sits 4.5px
+                        inside whatever edge the box lands on — which put the
+                        ✕ at 14 from the strip while the search field's edge
+                        below it is at 10. Optical alignment is to the MARK,
+                        not to the hit area, so the box hangs into the padding
+                        and the glyph lands on the column's line. The target
+                        stays 24. Ashwin, Oct 6.
+                      */
+                      className="motion-tap -mr-[4px] flex size-[24px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
                     >
                       <X size={15} aria-hidden="true" />
                     </button>
@@ -1182,7 +1209,7 @@ export function AccountRail({
                     ? "pr-[10px] pl-[14px]"
                     : holdInset
                       ? "pr-[10px] pl-[14px]"
-                      : "px-[6px]",
+                      : "px-[10px]",
                 )}
               >
                 {directoryButton}
@@ -1216,22 +1243,30 @@ export function AccountRail({
               "create".
             */}
             <div
+              ref={fillScrollRef}
+              {...(filled ? { "data-scroll-region": "" } : {})}
               className={cn(
                 "flex min-h-0 w-full flex-1 flex-col overflow-y-auto py-[2px]",
                 /*
-                  Hidden in the strip, overlaid in the list.
+                  Hidden in the strip; the shell's own scroll region in the
+                  list.
 
                   A bar down a 56px column of marks is noise, and the strip
-                  never has enough rows to need one. Forty does — but not at
-                  the price the nav's scroll regions pay, which is a reserved
-                  gutter that comes out of every row's width. `thin` is the
-                  overlay scrollbar: it paints over the rows while you are
-                  scrolling and takes no layout space at all, so the names
-                  keep the full column. Ashwin, Oct 6.
+                  never has enough rows to need one. Forty does — and the
+                  right bar is the one the rest of this nav already draws:
+                  transparent at rest, painted only while `data-scrollbar-
+                  active` is set, which `useScrollEdges` writes on scroll and
+                  on pointer movement and clears shortly after. So it appears
+                  when you are using it and leaves again.
+
+                  `scrollbar-width` is deliberately NOT set while filled —
+                  setting it makes Chrome ignore the ::-webkit-scrollbar rules
+                  that do the fading, which is the whole mechanism. The 10px
+                  gutter those rules reserve is exactly the negative margin
+                  below, so the two cancel and the rows keep the full column.
+                  Ashwin, Oct 6.
                 */
-                filled
-                  ? "[scrollbar-color:var(--nav-scrollbar)_transparent] [scrollbar-width:thin]"
-                  : "[scrollbar-width:none]",
+                filled ? null : "[scrollbar-width:none]",
                 // Padding, on the same curve as the rail's own width — the rows
                 // are `w-full` inside it, so this is what carries them in and
                 // out rather than each tile resizing itself.
@@ -1260,15 +1295,34 @@ export function AccountRail({
                   is 2px right of the rail's own midline. The tiles look centred
                   because they are — against the edge the eye actually finds.
                 */
-                !expanded
-                  ? "pr-[10px] pl-[14px]"
-                  : holdInset
-                    ? "pr-[10px]"
-                    : "px-[6px]",
               )}
-              style={
-                expanded && holdInset ? { paddingLeft: openPadLeft } : undefined
-              }
+              /*
+                Three numbers, and the third is the one that was stealing the
+                width.
+
+                LEFT: 14 closed, the hold-inset's own figure when that is on,
+                and 10 otherwise — up from 6, which is what made opening the
+                strip look like the logos slid left. 10 is the inset the
+                closed strip already uses on its right, so the open column is
+                simply symmetrical about it.
+
+                RIGHT: 10, except while filled.
+
+                FILLED: zero right padding and a NEGATIVE right margin of the
+                same 10, which is what puts the scrollbar outside the rows
+                instead of inside them. A scroll region reserves its bar from
+                the content box — `thin` is a real scrollbar on Chrome, not the
+                overlay macOS draws — so the rows were ending 10px short of
+                where the search field above them ends. Widening the region by
+                exactly the gutter and dropping its padding hands that strip to
+                the bar and gives the rows the full column back. Same fix as
+                the All accounts panel's, same reason. Ashwin, Oct 6.
+              */
+              style={{
+                paddingLeft: !expanded ? 14 : holdInset ? openPadLeft : 10,
+                paddingRight: filled ? 0 : 10,
+                ...(filled ? { marginRight: -10 } : null),
+              }}
             >
               {/*
                 Auto margins, not justify-center: the tiles sit in the strip's

@@ -116,6 +116,8 @@ import {
   NAV_CHEVRONS,
   NAV_INKS,
   NAV_INK_LABELS,
+  NAV_SELECTED_WEIGHTS,
+  NAV_SELECTED_WEIGHT_LABELS,
   NAV_CHEVRON_LABELS,
   ENTRY_PAIR_LABELS,
   ENTRY_RADII,
@@ -265,6 +267,7 @@ import {
   type EditRadius,
   type NavChevron,
   type NavInk,
+  type NavSelectedWeight,
   type AiDockTop,
   type AiFullChrome,
   type HeaderEntrySide,
@@ -525,8 +528,8 @@ function NavStructureSection({
     setNavChevron,
     navInk,
     setNavInk,
-    navSelectedBold,
-    setNavSelectedBold,
+    navSelectedWeight,
+    setNavSelectedWeight,
     navSelectedIcon,
     setNavSelectedIcon,
     flyoutShadow,
@@ -874,8 +877,8 @@ function NavStructureSection({
           />
           <Note>
             {railHoldInset
-              ? "The marks stay on the midline they sit on when the strip is closed, so opening it changes only the labels. Without this the inset drops from 14 to 6 and every logo jumps 8px left at the moment the names arrive — which reads as the logos sliding rather than the names appearing. All three placements."
-              : "The open column pads by 6 and the names take the width back. The jump happens once per open, and the inset is dead space in a list of forty."}
+              ? "The marks stay on exactly the midline they sit on when the strip is closed, so opening it changes only the labels — no movement at all. All three placements."
+              : "The open column pads by 10, which is the inset the closed strip uses on its right, so the logos shift by a few pixels rather than the eight they used to. The names take the rest of the width back."}
           </Note>
 
           <Toggle
@@ -1020,9 +1023,9 @@ function NavStructureSection({
       />
       <Note>
         {navInk === "900"
-          ? "Near-black, as it ships. Every row is as emphatic as every other, and the nav competes with the page for first read."
+          ? "Near-black, as the nav shipped. Every row is as emphatic as every other, the nav competes with the page for first read, and the marked row has nothing to be darker than."
           : navInk === "700"
-            ? "A step back. The nav stops being the darkest thing on screen, and each row is still plainly a destination rather than a caption."
+            ? "A step back. The nav stops being the darkest thing on screen, each row is still plainly a destination rather than a caption, and the selected row’s pinned gray 900 becomes a mark rather than a coincidence."
             : "Two steps — chrome that recedes until it is wanted, and the point where quiet starts to shade into secondary."}
       </Note>
       <Note>
@@ -1031,16 +1034,18 @@ function NavStructureSection({
         spend the contrast this is for.
       </Note>
 
-      <Toggle
-        label="Selected row is semibold"
-        checked={navSelectedBold}
-        onChange={setNavSelectedBold}
-        keywords="selected active bold semibold weight label row accounts rail"
+      <Segmented
+        label="Selected row weight"
+        keywords="selected active bold semibold medium weight label row accounts rail"
+        options={NAV_SELECTED_WEIGHTS}
+        value={navSelectedWeight}
+        onChange={(v: NavSelectedWeight) => setNavSelectedWeight(v)}
+        format={(v) => NAV_SELECTED_WEIGHT_LABELS[v]}
       />
       <Note>
-        {navSelectedBold
-          ? "The treatment the account rail already uses — semibold on the one you are in, regular on the rest. Weight is what keeps the marked row legible as a destination once the others have gone lighter."
-          : "One weight down the column. The ground already says which row this is, and bolding it says it twice — on a selected L3 the two stack and the row reads as a heading."}
+        {navSelectedWeight === "medium"
+          ? "One step up from the body weight. At 14px a semibold label beside regular ones is a jump in colour as well as weight, and on a row that also carries a fill it starts reading as a heading."
+          : "The account rail’s own treatment, and the louder answer. The lighter the rest of the list gets, the more work this has to do."}
       </Note>
 
       <Toggle

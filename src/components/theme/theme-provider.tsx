@@ -95,6 +95,7 @@ import type {
   AiFullChrome,
   NavChevron,
   NavInk,
+  NavSelectedWeight,
   EditRadius,
   FolderCrumb,
   TableCrumb,
@@ -230,7 +231,7 @@ interface ThemeContextValue extends ThemeState {
   setEditRadius: (v: EditRadius) => void;
   setEditAlways: (on: boolean) => void;
   setNavInk: (v: NavInk) => void;
-  setNavSelectedBold: (on: boolean) => void;
+  setNavSelectedWeight: (v: NavSelectedWeight) => void;
   setNavSelectedIcon: (on: boolean) => void;
   setFlyoutShape: (shape: FlyoutShape) => void;
   setFlyoutCardBorder: (on: boolean) => void;
@@ -576,8 +577,8 @@ export function ThemeProvider({
       setEditRadius: (editRadius) => setState((s) => ({ ...s, editRadius })),
       setEditAlways: (editAlways) => setState((s) => ({ ...s, editAlways })),
       setNavInk: (navInk) => setState((s) => ({ ...s, navInk })),
-      setNavSelectedBold: (navSelectedBold) =>
-        setState((s) => ({ ...s, navSelectedBold })),
+      setNavSelectedWeight: (navSelectedWeight) =>
+        setState((s) => ({ ...s, navSelectedWeight })),
       setNavSelectedIcon: (navSelectedIcon) =>
         setState((s) => ({ ...s, navSelectedIcon })),
       setFlyoutShape: (flyoutShape) =>

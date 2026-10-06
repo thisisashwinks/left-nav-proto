@@ -1128,7 +1128,21 @@ export function PinnedLauncher({
         {showSearch ? (
         <div
           className={cn(
-            "mx-[14px] flex h-[36px] w-[calc(100%-28px)] shrink-0 items-center gap-[9px] rounded-[9px] px-[10px] shadow-[inset_0_0_0_1px_var(--nav-divider)]",
+            /*
+              The All accounts field's treatment, at this panel's own height.
+
+              It was `--nav-divider` with no focus state at all: the ring you
+              get when you click into it is what tells you the keystrokes are
+              going HERE rather than into the list behind it, and this field
+              had nothing. The accounts directory has carried the brand ring
+              since it shipped, and these are the same control in two panels —
+              a search over a list, docked under a switcher. Ashwin, Oct 6.
+
+              36px rather than the directory's 34: that one sits in an 8px
+              gutter and this one in a 14px, so matching the number would have
+              made the taller inset look like a shorter field.
+            */
+            "motion-tap mx-[14px] flex h-[36px] w-[calc(100%-28px)] shrink-0 items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]",
             /*
               2px under a HEADER, 10px under the switcher.
 
@@ -1141,7 +1155,7 @@ export function PinnedLauncher({
             tabbed ? "mt-[10px]" : "mt-[2px]",
           )}
         >
-          <Search size={16} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
+          <Search size={15} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
           <input
             ref={inputRef}
             type="search"
@@ -1361,9 +1375,10 @@ export function PinnedLauncher({
                 ) : null}
 
                 <SectionHeading divider>All products</SectionHeading>
-                <div className="mt-[2px] mb-[6px] flex h-[36px] w-full shrink-0 items-center gap-[9px] rounded-[9px] px-[10px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
+                {/* The same field as the tabbed layout's — see the note there. */}
+                <div className="motion-tap mt-[2px] mb-[6px] flex h-[36px] w-full shrink-0 items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">
                   <Search
-                    size={16}
+                    size={15}
                     aria-hidden="true"
                     className="shrink-0 text-nav-fg-subtle"
                   />
