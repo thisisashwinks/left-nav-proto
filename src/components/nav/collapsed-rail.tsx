@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { History, LayoutGrid, Monitor, PanelLeftOpen, Pin, Smartphone, SquarePen } from "lucide-react";
+import { History, LayoutGrid, Monitor, PanelLeftOpen, Pin, Rocket, Smartphone, SquarePen } from "lucide-react";
 import {
   GET_APP_FLYOUT_ID,
   GET_APP_NAV_LABEL,
@@ -437,7 +437,7 @@ export function CollapsedRail({
         className={cn(
           // Radius comes from the same knob the expanded rows use — it is one
           // row treatment seen two ways, so it must not drift when retuned.
-          "flex h-[35px] w-[40px] shrink-0 items-center justify-center rounded-[var(--t-nav-radius,7px)]",
+          "flex h-[calc(var(--t-nav-py,9px)*2+20px)] w-[40px] shrink-0 items-center justify-center rounded-[var(--t-nav-radius,7px)]",
           "motion-tap hover:scale-105 active:scale-95 motion-press",
           active
             ? "bg-nav-hover text-nav-fg"
@@ -462,9 +462,26 @@ export function CollapsedRail({
     );
   };
 
+  /*
+   * Zero-height by construction.
+   *
+   * A divider that occupies vertical space makes this column step differently
+   * from the expanded one, and then every icon below it has to travel up or
+   * down on collapse — which is the thing the collapse animation must not do.
+   * The expanded nav separates these same groups with no extra space at all.
+   *
+   * `h-0` plus a negative top margin that cancels the flex gap this child
+   * would otherwise add means the divider contributes exactly 0px, so the
+   * strip's rhythm is the expanded nav's. The hairline is drawn into the gap
+   * that is already there. Ashwin, Oct 7.
+   */
   const divider = (key: string) => (
-    <div key={key} className="flex w-full shrink-0 items-start px-[8px] py-[4px]">
-      <div className="h-px flex-1 bg-nav-divider" />
+    <div
+      key={key}
+      aria-hidden="true"
+      className="relative h-0 w-full shrink-0 mt-[calc(var(--t-nav-space,2px)*-1)]"
+    >
+      <div className="absolute inset-x-[8px] top-0 h-px bg-nav-divider" />
     </div>
   );
 
@@ -631,6 +648,29 @@ export function CollapsedRail({
       </RailTooltip>
 
       {/*
+        Launchpad, greyed.
+
+        Ashwin, Oct 7: if the Launchpad card is on in the expanded nav it has
+        to be represented here too, so collapsing never removes a row — only
+        its label. Greyed rather than live because there is no card to show at
+        this width: it stands for the row, it is not a second way in.
+
+        Below the toggle rather than at the toggle's own line, which was the
+        other option: that would have kept its y, but it would also have
+        reordered the top of the strip, and the toggle is the one control that
+        must not move.
+      */}
+      {launchpadAllowed ? (
+        <RailTooltip label="Launchpad">
+          <span
+            className="flex h-[calc(var(--t-nav-py,9px)*2+20px)] w-[40px] shrink-0 items-center justify-center rounded-[var(--t-nav-radius,7px)] text-nav-fg-subtle opacity-45"
+          >
+            <Rocket size={16} aria-hidden="true" style={RAIL_GLYPH} />
+          </span>
+        </RailTooltip>
+      ) : null}
+
+      {/*
         The accounts door, directly under the expand toggle.
 
         Only when the rail is not drawing one — see COLLAPSED_RAILS. It was
@@ -695,9 +735,19 @@ export function CollapsedRail({
         agency scope has no equivalent yet, so its rail goes straight to the
         groups rather than showing rows that would open client panels.
       */}
+      {/*
+        The head of the strip, sized to the expanded nav's own head.
+
+        Expanded, the first pinned row sits at y192 because the Launchpad card
+        and the RECENTS caption are above it. Collapsed there is no caption, so
+        without this the whole column starts 32px high and every icon has to
+        slide up on collapse. Measured against the expanded face, not guessed.
+      */}
+      {atFloor || agencyScope ? null : <div aria-hidden="true" className="h-[28px] w-full shrink-0" />}
+
       {atFloor || agencyScope ? null : (
         <>
-          <div className="flex w-full flex-col items-center gap-[calc(var(--t-nav-space,2px)+2px)]">
+          <div className="flex w-full flex-col items-center gap-[var(--t-nav-space,2px)]">
             {/*
               The same rows the expanded face is showing, as marks.
 
@@ -737,6 +787,13 @@ export function CollapsedRail({
             {fixedRows.map(renderRailRow)}
           </div>
           {divider("div-fixed")}
+          {/*
+            The step from the fixed cluster into the product groups. Expanded
+            it is 49px; here the rows alone make 45px, so the missing 4px goes
+            back explicitly rather than being left as a drift every product
+            icon would have to travel on collapse. Measured, not guessed.
+          */}
+          <div aria-hidden="true" className="h-[4px] w-full shrink-0" />
         </>
       )}
 
@@ -753,7 +810,7 @@ export function CollapsedRail({
           // overflow-x to auto, and the icons' hover scale tipped the region
           // into x-overflow — a horizontal scrollbar in a 64px rail.
           className={cn(
-            "flex w-full flex-1 flex-col items-center gap-[calc(var(--t-nav-space,2px)+2px)] overflow-x-hidden overflow-y-auto",
+            "flex w-full flex-1 flex-col items-center gap-[var(--t-nav-space,2px)] overflow-x-hidden overflow-y-auto",
             /*
               Left padding equal to the scrollbar's own strip, so the column
               stays centred.
@@ -840,6 +897,13 @@ export function CollapsedRail({
               )}
             </>
           ) : null}
+          {/*
+            Settings stands apart from the products above it in the expanded
+            nav — a 52px step where the rows alone make 36px. The same 16px
+            goes here, so Settings does not ride up on collapse while every
+            row above it holds still.
+          */}
+          <div aria-hidden="true" className="h-[16px] w-full shrink-0" />
           {renderRailRow(agencyScope ? agencySettings : config.settings)}
           </>
           )}
@@ -885,7 +949,7 @@ export function CollapsedRail({
                * reverse: reachable by Tab and invisible while focused.
                */
               className={cn(
-                "motion-tap flex h-[35px] w-[40px] shrink-0 items-center justify-center rounded-[var(--t-nav-radius,7px)] text-nav-fg-subtle transition-opacity duration-[var(--dur-fast)] group-hover/nav:opacity-100 hover:scale-105 hover:bg-nav-hover hover:text-nav-fg focus-visible:opacity-100 active:scale-95",
+                "motion-tap flex h-[calc(var(--t-nav-py,9px)*2+20px)] w-[40px] shrink-0 items-center justify-center rounded-[var(--t-nav-radius,7px)] text-nav-fg-subtle transition-opacity duration-[var(--dur-fast)] group-hover/nav:opacity-100 hover:scale-105 hover:bg-nav-hover hover:text-nav-fg focus-visible:opacity-100 active:scale-95",
                 editRevealed ? "bg-nav-hover opacity-100" : "opacity-0",
               )}
             >

@@ -181,8 +181,14 @@ const COLLAPSED_WIDTH = 64;
 /** The 28px expand button + 4px rail gap that sit under the collapsed mark. */
 const RAIL_EXPAND_BLOCK = 32;
 
-/** Must match --dur-fast, which drives the panel's exit animation. */
-const FLYOUT_EXIT_MS = 140;
+/**
+ * The panel's whole exit: contents out, then the ground.
+ *
+ * Two beats of --dur-fast rather than one — see `.motion-panel-out` in
+ * motion.css. Unmounting at 140 would cut the second beat off entirely and
+ * the panel would vanish the instant its rows had gone.
+ */
+const FLYOUT_EXIT_MS = 280;
 
 /** Same, for the Ask AI window's exit. */
 const AI_EXIT_MS = 140;
@@ -1201,6 +1207,20 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    */
   const railActive =
     (agencyRail || memberRail) && !(collapsed && collapsedRail === "hide");
+  /*
+   * The rail's two states, kept apart so it can LEAVE rather than vanish.
+   *
+   * `railActive` is the settled answer — it drives railWidth, and through that
+   * every panel offset, so it has to flip the moment the nav collapses or the
+   * panels would land against a rail that is on its way out.
+   *
+   * Rendering is a different question. Beat 3 of the collapse is the rail
+   * sliding out to the left under its own power, and a thing that is unmounted
+   * cannot slide. So it stays mounted whenever the account has one at all, and
+   * `railLeaving` is what tells it to go. Ashwin, Oct 7.
+   */
+  const railPresent = agencyRail || memberRail;
+  const railLeaving = railPresent && !railActive;
   /*
    * The alternative treatment — a control in the nav header — needs no flag of
    * its own any more. It is simply what a member gets when the rail is off:
@@ -3044,8 +3064,11 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               ? "rounded-l-[var(--shell-canvas-radius)]"
               : "rounded-[var(--shell-canvas-radius)]",
         )}
+        // Beat 3's switch. On this element because it is the one that holds
+        // both the rail and the 56px slot it travels out of.
+        {...(railLeaving ? { "data-rail-leaving": "" } : {})}
       >
-      {railActive ? (
+      {railPresent ? (
         <>
           {/*
             The rail's flow footprint. The rail itself is an overlay, so widening
@@ -3060,7 +3083,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           */}
           <div
             aria-hidden="true"
-            className="w-[56px] shrink-0 shadow-[inset_-1px_0_0_0_var(--nav-divider)]"
+            className="nav-rail-foot shrink-0 shadow-[inset_-1px_0_0_0_var(--nav-divider)]"
           />
           <AccountRail
             session={accounts}
@@ -3312,8 +3335,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
               two directions read as one gesture rather than two.
             */
             collapsed
-              ? "nav-face-leaving"
-              : "nav-face-arriving",
+              ? "nav-face-labels-out"
+              : "nav-face-in",
           )}
         >
           <LeftNav
@@ -3365,9 +3388,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             "absolute inset-y-0 left-0",
             // The mirror of the face above: arriving last on collapse,
             // leaving first on expand.
-            collapsed
-              ? "nav-face-arriving"
-              : "nav-face-leaving",
+            "nav-strip",
+            collapsed ? "nav-strip-settled" : "nav-strip-offset",
           )}
         >
           <CollapsedRail

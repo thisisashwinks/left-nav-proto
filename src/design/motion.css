@@ -49,6 +49,33 @@
   }
 }
 
+/*
+ * What the panel's CONTENTS do on the way out, ahead of the panel itself.
+ *
+ * Opening already reads in two beats — the surface arrives, then the rows
+ * cascade into it — and closing collapsed both into one: the whole thing,
+ * ground and contents together, slid left and faded. So the panel opened
+ * like a drawer and shut like a screenshot of one.
+ *
+ * Reversing it costs one keyframe and a delay. The contents leave first and
+ * leave together; the ground follows once they have gone. Together rather
+ * than in reverse stagger: a true mirror would need the row count in CSS to
+ * invert the index, and at 140ms the difference between twelve rows leaving
+ * in sequence and twelve leaving at once is not something a reader can see
+ * — where the difference between the ground going first and going last is
+ * the whole of what Ashwin asked for. Oct 7.
+ */
+@keyframes fly-content-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(-4px, 0, 0);
+  }
+}
+
 /* Rows cascade in behind the panel. Small distances only — a long travel
    reads as sluggish when eight rows do it at once. */
 @keyframes fly-row-in {
@@ -223,8 +250,25 @@
   animation: fly-panel-in var(--dur-base) var(--ease-out) both;
 }
 
+/*
+ * Two beats out, mirroring the two beats in. See `fly-content-out`.
+ *
+ * The children are addressed as direct descendants rather than through a
+ * wrapper element: both panels are flex columns whose children carry the
+ * layout, and a div inserted to hold an animation would have to re-declare
+ * every one of their sizing rules to stay invisible.
+ *
+ * `--dur-fast` each, so the whole exit is twice that — which `FLYOUT_EXIT_MS`
+ * in app-shell has to match, or the panel unmounts midway through its own
+ * fade and the shape disappears in one frame.
+ */
+.motion-panel-out > * {
+  animation: fly-content-out var(--dur-fast) var(--ease-in-out) both;
+}
+
 .motion-panel-out {
-  animation: fly-panel-out var(--dur-fast) var(--ease-in-out) both;
+  animation: fly-panel-out var(--dur-fast) var(--ease-in-out) var(--dur-fast)
+    both;
 }
 
 .motion-nav-swap-out {
@@ -707,6 +751,155 @@
   .nav-surface-resize,
   .nav-face-leaving,
   .nav-face-arriving {
+    transition-duration: 1ms;
+    transition-delay: 0ms;
+  }
+}
+
+/*
+ * Beat 3 of the nav collapse: the sub-account rail leaves.
+ *
+ * Ashwin, Oct 7: "the vertical sub-account rail moves to the left parallelly
+ * with step 2 and gets hidden after completely moving out." So it travels
+ * under its own power rather than being unmounted, it keeps full opacity the
+ * whole way — a solid object leaving, not a dissolve — and the 56px slot it
+ * occupied closes at the same rate, which is what carries the nav column left
+ * with it so the two never part company.
+ *
+ * Both run on the same clock as the width beat, and both start after the
+ * labels have gone.
+ */
+.nav-rail-foot {
+  width: var(--rail-slot, 56px);
+  transition-property: width;
+  transition-duration: var(--t-nav-collapse-size);
+  transition-delay: var(--t-nav-collapse-fade);
+  transition-timing-function: var(--ease-surface);
+}
+
+[data-rail-leaving] .nav-rail-foot {
+  width: 0;
+}
+
+/*
+ * Specificity doubled on purpose.
+ *
+ * The rail declares its own `transition-property: width, background-color,
+ * box-shadow` through a utility class — no transform — and a single attribute
+ * selector ties with a class on specificity and then loses on order. So the
+ * translate below applied but had nothing to transition against, and the rail
+ * jumped out in one frame instead of travelling.
+ *
+ * Its own three transitions are restated here because transition-property
+ * replaces the list rather than extending it: drop them and the rail's hover
+ * widening snaps.
+ */
+[data-account-rail][data-account-rail] {
+  transition-property: transform, width, background-color, box-shadow;
+  transition-duration: var(--t-nav-collapse-size), 900ms, 300ms, 300ms;
+  transition-delay: var(--t-nav-collapse-fade), 0ms, 0ms, 0ms;
+  transition-timing-function: var(--ease-surface), var(--ease-out), var(--ease-out),
+    var(--ease-out);
+}
+
+[data-rail-leaving] [data-account-rail] {
+  transform: translateX(-100%);
+  /* Nothing to click once it is on its way out. */
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-rail-foot,
+  [data-account-rail][data-account-rail] {
+    transition-duration: 1ms;
+    transition-delay: 0ms;
+  }
+}
+
+/*
+ * Beats 1 and 4 of the nav collapse: the labels leave, the icons settle.
+ *
+ * Ashwin, Oct 7, on what the collapse should be:
+ *   1. all the text labels in L1 fade out, the icons STAY INTACT
+ *   2. the L1 column collapses to the narrow width
+ *   3. the rail moves out to the left, parallel with 2 (above)
+ *   4. the icons shift from left to centre into place
+ *
+ * The part that was wrong before was 1: both faces cross-faded, so the icons
+ * went with the labels and a second set drew back in at the end. They are two
+ * different DOM trees, so the only way an icon can SURVIVE the collapse is for
+ * the strip's icons to stand exactly where the expanded face's icons already
+ * are, and for the strip to be at full opacity before the labels start to go.
+ * The two sets coincide, the expanded face fades out from under them, and what
+ * is left on screen is one unbroken set of icons.
+ *
+ * That is only true because the two faces were first put on one grid: every
+ * row now shares its y with its opposite number (see collapsed-rail). The only
+ * daylight left is horizontal, and it is 7px, not the 49px it looks like from
+ * the outside — both faces live INSIDE the nav column, so the column's own 56px
+ * journey is already carrying them. 7px is the whole of beat 4.
+ */
+/*
+ * The clocks live on the two STATE classes, not on `.nav-strip`, because the
+ * two directions are not mirror images and a single declaration cannot say so.
+ *
+ * Collapsing, the strip must be lit before the labels start to go, so its
+ * icons are already standing under the expanded face's when that face fades —
+ * opacity first, position last.
+ *
+ * Expanding, the same rule produces the opposite order: the icons move back
+ * out to the left FIRST, and the strip must hold its opacity until the
+ * expanded face has arrived. Fading it on beat 1 there left ~200ms with no
+ * icons on screen at all, which is the very gap this whole arrangement exists
+ * to close. A transition reads from the state being moved TO, so each class
+ * carries its own.
+ */
+.nav-strip {
+  transition-timing-function: var(--ease-out);
+}
+
+/* Expanding: position leaves at once, opacity holds for the hand-over. */
+.nav-strip-offset {
+  opacity: 0;
+  transform: translateX(var(--nav-strip-shift, -7px));
+  transition-property: transform, opacity;
+  transition-duration: var(--t-nav-collapse-settle), var(--t-nav-collapse-settle);
+  transition-delay: 0ms,
+    calc(var(--t-nav-collapse-fade) + var(--t-nav-collapse-size));
+}
+
+/* Collapsing: lit immediately, then settling to centre in beat 4. */
+.nav-strip-settled {
+  opacity: 1;
+  transform: translateX(0);
+  transition-property: opacity, transform;
+  transition-duration: var(--t-nav-collapse-fade), var(--t-nav-collapse-settle);
+  transition-delay: 0ms,
+    calc(var(--t-nav-collapse-fade) + var(--t-nav-collapse-size));
+}
+
+/* Beat 1: the labels go, and nothing else in this face is left to see. */
+.nav-face-labels-out {
+  opacity: 0;
+  transition-property: opacity;
+  transition-duration: var(--t-nav-collapse-fade);
+  transition-delay: 0ms;
+  transition-timing-function: var(--ease-out);
+}
+
+/* Expanding, this face is the thing that arrives — after the width is done. */
+.nav-face-in {
+  opacity: 1;
+  transition-property: opacity;
+  transition-duration: var(--t-nav-collapse-settle);
+  transition-delay: calc(var(--t-nav-collapse-fade) + var(--t-nav-collapse-size));
+  transition-timing-function: var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-strip,
+  .nav-face-labels-out,
+  .nav-face-in {
     transition-duration: 1ms;
     transition-delay: 0ms;
   }

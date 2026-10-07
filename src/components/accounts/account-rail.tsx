@@ -824,11 +824,21 @@ export function AccountRail({
         style={
           {
             width,
-            transitionProperty: "width, background-color, box-shadow",
+            /*
+              Transform rides with them, for beat 3 of the nav collapse.
+              Declared HERE and not in motion.css because this list is inline,
+              and inline beats every selector — a stylesheet rule that added
+              transform was simply dropped, and the rail jumped out of frame in
+              one frame instead of travelling. Its clock is the collapse's
+              width beat, so the rail and the slot it vacates move as one.
+            */
+            transitionProperty: "width, background-color, box-shadow, transform",
             transitionDuration: surfaceUp
-              ? "var(--dur-slow), 0ms, 0ms"
-              : `${RAIL_CLOSE_MS}ms, ${RAIL_PAINT_FADE_MS}ms, ${RAIL_PAINT_FADE_MS}ms`,
-            transitionTimingFunction: "var(--ease-out)",
+              ? "var(--dur-slow), 0ms, 0ms, var(--t-nav-collapse-size)"
+              : `${RAIL_CLOSE_MS}ms, ${RAIL_PAINT_FADE_MS}ms, ${RAIL_PAINT_FADE_MS}ms, var(--t-nav-collapse-size)`,
+            transitionDelay: "0ms, 0ms, 0ms, var(--t-nav-collapse-fade)",
+            transitionTimingFunction:
+              "var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-surface)",
             "--rail-dur": railDuration,
           } as React.CSSProperties
         }
@@ -975,10 +985,25 @@ export function AccountRail({
               */}
               <div
                 className={cn(
-                  // The margin carries the squaring, so it is the margin that has
-                  // to animate — `motion-move` transitions width and height and
-                  // neither of those is what changes here.
-                  "shrink-0 bg-nav-rail-disc p-[4px] transition-[margin] duration-[var(--rail-dur,var(--dur-slow))] ease-[var(--ease-out)]",
+                  /*
+                    The margin carries the squaring, and the WIDTH is stated
+                    rather than inherited — which is the Oct 7 fix.
+
+                    The plate used to stretch to the column, so its grey band
+                    narrowed on the strip's own 900ms close curve while every
+                    label in the rail went in a single frame. Measured off the
+                    slow capture it was still 250px wide at 13ms and only
+                    reached its disc around 360 — the one filled surface left
+                    on screen, shrinking on its own, a step behind everything
+                    else. Ashwin read it as the agency logo hovering out late,
+                    which is exactly what it was.
+
+                    Stated, it can keep its own clock: see `plateDur` below.
+                    The size is still derived from the column rather than
+                    fixed, so the plate is the same object at both widths.
+                  */
+                  "shrink-0 bg-nav-rail-disc p-[4px] transition-[margin,width] ease-[var(--ease-out)]",
+                  expanded ? "w-[calc(100%-20px)]" : "w-[40px]",
                   // Concentric with the tile inside it: a pill in a 10px box
                   // reads as a mistake at 4px of padding.
                   pillTiles ? "rounded-full" : "rounded-[10px]",
@@ -1004,6 +1029,22 @@ export function AccountRail({
                       ? "mr-[6px] ml-[10px]"
                       : "mx-[10px]",
                 )}
+                /*
+                  Fast out, slow in.
+                  
+                  Opening, the plate grows with the strip — it is one surface
+                  widening and the shared curve is what says so. Closing, it
+                  takes the labels' own timing instead and is a disc before
+                  the strip has finished narrowing around it. That asymmetry
+                  IS the fix: an arrival can afford to be watched, and the
+                  thing that made this read as late was a dismissal that
+                  outlasted everything it was leaving with.
+                */
+                style={{
+                  transitionDuration: expanded
+                    ? "var(--rail-dur, var(--dur-slow))"
+                    : "var(--dur-base)",
+                }}
               >
                 {/*
                   The tile wears the AGENCY's own mark. It briefly carried the

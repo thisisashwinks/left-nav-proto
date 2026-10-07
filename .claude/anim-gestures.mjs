@@ -34,6 +34,19 @@ export const GESTURES = {
     setup: async (p, { hitText, settle }) => { await hitText('CRM'); await settle(); },
     go: (p) => p.keyboard.press('Escape') },
 
+  /*
+   * The same two gestures again, under a v1 name.
+   *
+   * Oct 7: the exit was re-sequenced so the contents leave before the
+   * ground (see `.motion-panel-out` in motion.css). Recorded beside the
+   * originals rather than over them — the point of the pair is the
+   * before-and-after, and overwriting the before destroys the comparison.
+   */
+  'l2-open__v1': { clip: L2, go: (p, { hitText }) => hitText('CRM') },
+  'l2-close__v1': { clip: L2,
+    setup: async (p, { hitText, settle }) => { await hitText('CRM'); await settle(); },
+    go: (p) => p.keyboard.press('Escape') },
+
   'recents-open': { clip: L2, go: (p, { hitText }) => hitText('View all') },
   'recents-close': { clip: L2,
     setup: async (p, { hitText, settle }) => { await hitText('View all'); await settle(); },
