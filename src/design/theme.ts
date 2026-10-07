@@ -11,6 +11,7 @@
  * while the rest of the app stays light.
  */
 
+import { ALL_STAGING_FIXES } from "./staging-fixes";
 import type {
   ListHeaderVariant,
   RecordHeaderVariant,
@@ -2249,6 +2250,32 @@ export const PANEL_TAB_STYLE_LABELS: Record<PanelTabStyle, string> = {
  * are the same: the run starts at the top and scrolls, because there is
  * nothing left to centre. Ashwin asked for the choice on Oct 5.
  */
+/**
+ * What the sub-account rail draws on its tiles.
+ *
+ *  marks     Whatever each account has — an uploaded logo, a drawn glyph on
+ *            its own gradient, or initials where it has neither. What ships,
+ *            and the argument is scanning: you recognise a shape and a
+ *            colour before you read a name, which is the only thing that
+ *            makes a strip of fourteen tenants usable at 24px.
+ *  initials  Two letters on grey, for every account alike. The honest
+ *            picture of a fleet that has not branded itself: most real
+ *            sub-accounts never upload anything, so a rail of twelve
+ *            distinct colourful marks is a prototype flattering its own
+ *            fixtures. It is also the only way to see what the strip's
+ *            RHYTHM is doing without colour carrying it.
+ *
+ * The agency's own mark is exempt under both. It is the product's mark
+ * rather than a tenant's, it is the one tile that is always the same tile,
+ * and reducing it to letters would be the rail forgetting whose it is.
+ */
+export const RAIL_AVATARS = ["marks", "initials"] as const;
+export type RailAvatar = (typeof RAIL_AVATARS)[number];
+export const RAIL_AVATAR_LABELS: Record<RailAvatar, string> = {
+  marks: "Logos and glyphs",
+  initials: "Initials only",
+};
+
 export const RAIL_TILE_ALIGNS = ["centre", "top"] as const;
 
 export type RailTileAlign = (typeof RAIL_TILE_ALIGNS)[number];
@@ -3589,6 +3616,24 @@ export const PANEL_RECENT_HEADING_LABELS: Record<PanelRecentHeading, string> = {
   recent: "Recent",
 };
 
+/**
+ * Which build of Conversations ▸ Inbox is on screen.
+ *
+ * The prototype's own inbox, or a measured copy of the staging build the devs
+ * shipped from it (components/product/conversations-staging) — "before" as
+ * staging draws it, "after" with fixes applied. The two staging options carry
+ * staging's own canvas too, so the comparison includes the container.
+ */
+export const INBOX_BUILDS = ["prototype", "before", "after"] as const;
+
+export type InboxBuild = (typeof INBOX_BUILDS)[number];
+
+export const INBOX_BUILD_LABELS: Record<InboxBuild, string> = {
+  prototype: "Prototype",
+  before: "Staging",
+  after: "Staging fixed",
+};
+
 export const INBOX_PALETTES = ["product", "tokens"] as const;
 
 export type InboxPalette = (typeof INBOX_PALETTES)[number];
@@ -3969,6 +4014,8 @@ export interface ThemeState {
   railHover: RailHover;
   /** Where the sub-account tiles sit in the strip. See RAIL_TILE_ALIGNS. */
   railTileAlign: RailTileAlign;
+  /** What the sub-account rail draws on its tiles. See RAIL_AVATARS. */
+  railAvatars: RailAvatar;
   /** Where the Recents panel's switcher sits. See PANEL_TAB_PLACES. */
   panelTabPlace: PanelTabPlace;
   /** How that switcher is drawn. See PANEL_TAB_STYLES. */
@@ -3989,6 +4036,10 @@ export interface ThemeState {
   panelRecentHeading: PanelRecentHeading;
   /** Which palette the Conversations inbox uses. See INBOX_PALETTES. */
   inboxPalette: InboxPalette;
+  /** Which build of the Conversations inbox is drawn. See INBOX_BUILDS. */
+  inboxBuild: InboxBuild;
+  /** The checkpoint fixes "Staging fixed" is drawn with. See design/staging-fixes.ts. */
+  stagingFixes: string[];
   /**
    * Whether the page header shows its title.
    *
@@ -4976,6 +5027,7 @@ export const DEFAULT_THEME: ThemeState = {
    */
   railHover: "expand",
   railTileAlign: "centre",
+  railAvatars: "marks",
   panelTabPlace: "row",
   panelTabStyle: "segmented",
   panelOpenTab: "recent",
@@ -4989,6 +5041,8 @@ export const DEFAULT_THEME: ThemeState = {
   // Cascading panels: the pattern the nav already taught.
   panelRecentHeading: "visited",
   inboxPalette: "product",
+  inboxBuild: "prototype",
+  stagingFixes: ALL_STAGING_FIXES,
   pageTitle: true,
   pageDescription: true,
   pageCount: true,

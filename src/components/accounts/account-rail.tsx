@@ -51,6 +51,21 @@ export const ACCOUNT_RAIL_DIRECTORY_WIDTH = 340;
  * radius means a different SHAPE at each: 8px rounds a 16px square into a
  * circle while barely touching a 28px one.
  */
+/**
+ * Two letters from an account's name, for the initials-only rail.
+ *
+ * First letters of the first two words, or the first two letters of a
+ * one-word name — the same rule the fixtures already follow by hand
+ * ("Riverstone Lane" → RL), so switching the axis on does not renumber the
+ * accounts that were already drawing letters.
+ */
+function initialsFor(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "?";
+  if (words.length === 1) return words[0]!.slice(0, 2).toUpperCase();
+  return (words[0]![0]! + words[1]![0]!).toUpperCase();
+}
+
 const SQUIRCLE_RATIO = 8 / 32;
 
 interface AccountRailProps {
@@ -1720,6 +1735,7 @@ function RailRow({
   const { effective } = useTheme();
   const pinnedInk = usePinnedInk();
   const pillTiles = effective.railTileShape === "pill";
+  const { railAvatars } = effective;
   /*
    * The active account's mark grows; every other tile stays where it was.
    *
@@ -2001,6 +2017,17 @@ function RailRow({
             <AccountLogo
               logo={account.logo}
               src={account.logoSrc}
+              /*
+                Letters for every tenant alike, where the axis asks for it.
+                The agency's mark above is left out of this on purpose — see
+                RAIL_AVATARS. Derived from the name rather than read off the
+                spec, because the accounts that HAVE a logo are the ones with
+                no `initials` on theirs, and they are exactly the tiles this
+                is meant to strip back.
+              */
+              {...(railAvatars === "initials"
+                ? { initials: initialsFor(account.name) }
+                : {})}
               size={size}
               radius={squircle ? Math.round(size * SQUIRCLE_RATIO) : 999}
             />

@@ -140,8 +140,17 @@ export function PageCanvas({
   bg = "white",
   tint,
   framePadding = true,
+  staging = false,
   children,
 }: {
+  /**
+   * Draw the card the way the staging build does, for the staging inbox copy
+   * (conversations-staging): white, 12px on the top corners only, 8px off the
+   * right edge, run to the window's foot, a 1px #e5e7eb edge on top and both
+   * sides, no padding or shadow. Measured
+   * off switchyard-v4 staging, Oct 7.
+   */
+  staging?: boolean;
   /** Under the tinted frame, whether the white sheet pads its content. */
   framePadding?: boolean;
   enabled: boolean;
@@ -153,7 +162,21 @@ export function PageCanvas({
   tint?: string;
   children: React.ReactNode;
 }) {
-  const fill: CanvasBg = enabled && tint ? bg : "white";
+  const fill: CanvasBg = enabled && tint && !staging ? bg : "white";
+  if (enabled && staging) {
+    return (
+      <div
+        data-page-canvas=""
+        data-page-canvas-staging=""
+        // 1px #e5e7eb on top and both sides; the foot runs off-screen, so no rule there.
+        className="relative mr-[8px] flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[12px] border border-b-0 border-[#e5e7eb] bg-white"
+      >
+        <div data-page-canvas-body="" className="flex min-h-0 flex-1 flex-col">
+          {children}
+        </div>
+      </div>
+    );
+  }
   return (
     <div
       data-page-canvas={enabled ? "" : undefined}

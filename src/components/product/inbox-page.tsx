@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { StagingInbox } from "./conversations-staging/staging-inbox";
 import {
   ArrowDownUp,
   ArrowUpRight,
@@ -244,7 +245,27 @@ const TAGS = [
   "managed_agent_billing_starts",
 ];
 
+/**
+ * Conversations ▸ Inbox, in whichever build the prototype controls ask for:
+ * this file's own inbox, or the measured staging copy (before / after).
+ *
+ * A switch rather than a branch inside the inbox, so neither build's state
+ * hooks run while the other is on screen.
+ */
 export function InboxPage() {
+  const { effective } = useTheme();
+  if (effective.inboxBuild !== "prototype") {
+    return (
+      <StagingInbox
+        variant={effective.inboxBuild}
+        fixes={effective.inboxBuild === "after" ? effective.stagingFixes : []}
+      />
+    );
+  }
+  return <PrototypeInbox />;
+}
+
+function PrototypeInbox() {
   const [tab, setTab] = React.useState<string>("unread");
   const [activeId, setActiveId] = React.useState<string>(CONVERSATIONS[0]!.id);
   /*

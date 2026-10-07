@@ -24,6 +24,7 @@ import {
   type MergedHeading,
   type MergedAgencyRecents,
   type InboxPalette,
+  type InboxBuild,
   type PanelRecentHeading,
   type AiButtonStyle,
   type AiMarkStyle,
@@ -97,6 +98,7 @@ import type {
   NavChevron,
   NavInk,
   NavSelectedWeight,
+  RailAvatar,
   EditRadius,
   FolderCrumb,
   TableCrumb,
@@ -235,6 +237,7 @@ interface ThemeContextValue extends ThemeState {
   setNavInk: (v: NavInk) => void;
   setNavSelectedWeight: (v: NavSelectedWeight) => void;
   setNavSelectedIcon: (on: boolean) => void;
+  setRailAvatars: (v: RailAvatar) => void;
   setFlyoutShape: (shape: FlyoutShape) => void;
   setFlyoutCardBorder: (on: boolean) => void;
   setDirectoryFlush: (on: boolean) => void;
@@ -293,6 +296,8 @@ interface ThemeContextValue extends ThemeState {
   setNavSections: (mode: NavSections) => void;
   setLayoutReplaceDialog: (mode: LayoutReplaceDialog) => void;
   setInboxPalette: (palette: InboxPalette) => void;
+  setInboxBuild: (build: InboxBuild) => void;
+  setStagingFixes: (fixes: string[]) => void;
   setPageTitle: (on: boolean) => void;
   setPageDescription: (on: boolean) => void;
   setPageCount: (on: boolean) => void;
@@ -585,6 +590,7 @@ export function ThemeProvider({
         setState((s) => ({ ...s, navSelectedWeight })),
       setNavSelectedIcon: (navSelectedIcon) =>
         setState((s) => ({ ...s, navSelectedIcon })),
+      setRailAvatars: (railAvatars) => setState((s) => ({ ...s, railAvatars })),
       setFlyoutShape: (flyoutShape) =>
         setState((s) => ({ ...s, flyoutShape })),
       setFlyoutCardBorder: (flyoutCardBorder) =>
@@ -689,6 +695,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, layoutReplaceDialog })),
       setInboxPalette: (inboxPalette) =>
         setState((s) => ({ ...s, inboxPalette })),
+      setInboxBuild: (inboxBuild) => setState((s) => ({ ...s, inboxBuild })),
+      setStagingFixes: (stagingFixes) => setState((s) => ({ ...s, stagingFixes })),
       setPageTitle: (pageTitle) => setState((s) => ({ ...s, pageTitle })),
       setPageDescription: (pageDescription) =>
         setState((s) => ({ ...s, pageDescription })),

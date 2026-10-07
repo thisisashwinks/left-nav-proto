@@ -115,6 +115,13 @@ interface AccountLogoProps {
   /** An uploaded asset, which replaces the drawn mark entirely. */
   src?: string;
   className?: string;
+  /**
+   * Two letters to draw instead of the account's own mark.
+   *
+   * Set by the rail under `railAvatars: "initials"`. Absent everywhere
+   * else, so every other surface keeps whatever the account has.
+   */
+  initials?: string;
 }
 
 export function AccountLogo({
@@ -122,13 +129,28 @@ export function AccountLogo({
   size,
   radius,
   src,
+  initials,
   className,
 }: AccountLogoProps) {
+  /*
+   * The rail's "initials only" arrangement, handed down. See RAIL_AVATARS.
+   *
+   * A prop rather than a read of the axis in here: this component also
+   * draws the nav header's mark and the switcher's, and the axis is about
+   * the RAIL. The caller that is the rail says so; everyone else is
+   * untouched.
+   *
+   * It outranks `src` as well as `glyph`, which is the point — an account
+   * that uploaded a real logo is exactly the one the arrangement exists to
+   * strip back.
+   */
+  const spec = initials ? { initials, from: logo.from, to: logo.to } : logo;
+  const artwork = initials ? undefined : src;
   // Gradient ids have to be unique per instance or the first one on the page
   // wins and every tile paints with it.
   const gradientId = `account-logo-${React.useId()}`;
 
-  if (src) {
+  if (artwork) {
     return (
       <span
         aria-hidden="true"
@@ -142,7 +164,7 @@ export function AccountLogo({
           // ring — the Slack-workspace treatment. The white also keeps dark
           // marks legible on the dark nav.
           backgroundColor: "#ffffff",
-          backgroundImage: `url(${src})`,
+          backgroundImage: `url(${artwork})`,
           // Most favicons carry their own safe-area padding, so the artwork
           // needs nearly the whole tile before it reads at 20px.
           backgroundSize: "86% 86%",
@@ -169,11 +191,11 @@ export function AccountLogo({
               neutral grey so only real marks (glyphs, uploads) carry colour. */}
           <stop
             offset="0%"
-            stopColor={logo.initials ? "var(--hr-gray-600)" : logo.from}
+            stopColor={spec.initials ? "var(--hr-gray-600)" : spec.from}
           />
           <stop
             offset="100%"
-            stopColor={logo.initials ? "var(--hr-gray-400)" : logo.to}
+            stopColor={spec.initials ? "var(--hr-gray-400)" : spec.to}
           />
         </linearGradient>
       </defs>
@@ -184,22 +206,22 @@ export function AccountLogo({
         rx={(radius * 32) / size}
         fill={`url(#${gradientId})`}
       />
-      {logo.initials ? (
+      {spec.initials ? (
         <text
           x="16"
           y="16.5"
           textAnchor="middle"
           dominantBaseline="central"
           fill="#fff"
-          fontSize={logo.initials.length > 1 ? 12.5 : 14.5}
+          fontSize={spec.initials.length > 1 ? 12.5 : 14.5}
           fontWeight={600}
           fontFamily="inherit"
           letterSpacing="0.3"
         >
-          {logo.initials}
+          {spec.initials}
         </text>
-      ) : logo.glyph ? (
-        GLYPHS[logo.glyph]
+      ) : spec.glyph ? (
+        GLYPHS[spec.glyph]
       ) : null}
     </svg>
   );

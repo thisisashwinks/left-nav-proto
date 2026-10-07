@@ -1960,10 +1960,17 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   usePublishCanvasTint(!!ownTint);
   const canvasTint =
     ownTint ?? (effective.canvasTintAllPages ? DEFAULT_CANVAS_TINT : undefined);
+  /*
+   * The staging inbox copy brings staging's own container, whatever the
+   * canvas settings say — the comparison is meant to include it.
+   */
+  const stagingInbox =
+    isInboxPlace(canvasPage) && effective.inboxBuild !== "prototype";
   const pageCanvasOn =
-    effective.pageCanvas &&
-    chromeRequest === null &&
-    (!columnPage || effective.pageCanvasColumns);
+    stagingInbox ||
+    (effective.pageCanvas &&
+      chromeRequest === null &&
+      (!columnPage || effective.pageCanvasColumns));
 
   /*
    * The canvas's own top and bottom edges, for the panel to match.
@@ -3197,7 +3204,14 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         // without a stacking context here the two tie and the dock paints over the
         // switcher panel. A z-index on this element traps the capsule inside it and
         // puts the whole column under the rail, where it belongs.
-        className="relative z-10 h-full min-h-0 shrink-0 motion-move"
+        /*
+          Beat 2 of the collapse. `nav-surface-resize` carries its own delay so
+          the width waits for the outgoing face to clear — see motion.css. It
+          replaces `motion-move`, which transitioned ten properties at one
+          duration starting at t=0 and was the reason everything happened at
+          once.
+        */
+        className="relative z-10 h-full min-h-0 shrink-0 nav-surface-resize"
       >
         {/*
           Rendered before the faces so it sits near its visual position in the
@@ -3291,10 +3305,15 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           inert={collapsed}
           aria-hidden={collapsed}
           className={cn(
-            "absolute inset-y-0 left-0 motion-move",
+            "absolute inset-y-0 left-0",
+            /*
+              Beat 1 when collapsing, beat 3 when expanding — the same face,
+              leaving first or arriving last. That symmetry is what makes the
+              two directions read as one gesture rather than two.
+            */
             collapsed
-              ? "-translate-x-2 opacity-0"
-              : "translate-x-0 opacity-100 delay-[60ms]",
+              ? "nav-face-leaving"
+              : "nav-face-arriving",
           )}
         >
           <LeftNav
@@ -3343,10 +3362,12 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           inert={!collapsed}
           aria-hidden={!collapsed}
           className={cn(
-            "absolute inset-y-0 left-0 motion-move",
+            "absolute inset-y-0 left-0",
+            // The mirror of the face above: arriving last on collapse,
+            // leaving first on expand.
             collapsed
-              ? "translate-x-0 opacity-100 delay-[60ms]"
-              : "-translate-x-2 opacity-0",
+              ? "nav-face-arriving"
+              : "nav-face-leaving",
           )}
         >
           <CollapsedRail
@@ -3718,6 +3739,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 bg={effective.canvasBg}
                 tint={canvasTint}
                 framePadding={effective.canvasFramePadding}
+                staging={stagingInbox}
               >
               {pending ? (
                 <CanvasSkeleton />

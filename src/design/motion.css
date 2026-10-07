@@ -628,3 +628,86 @@
     animation: none;
   }
 }
+
+/* ─── The L1 collapse, as three beats ────────────────────────────────────────
+ *
+ * One gesture, told in order: the contents LEAVE, the surface RESIZES, the new
+ * contents ARRIVE. Before Oct 6 all three ran on one 300ms transition starting
+ * at t=0, so the column was narrowing while the labels were still fading and
+ * the collapsed icons were already drawing in — three statements over the top
+ * of each other. A frame-by-frame review called it exactly that: not one
+ * visual narrative.
+ *
+ * The phases are variables rather than numbers because the BALANCE between
+ * them is the design question, not their sum. See the Motion group in the
+ * tuning panel.
+ *
+ * Both directions use the same three beats, which is what makes collapse and
+ * expand read as the same gesture run backwards rather than as two animations
+ * that happen to end in each other's start state.
+ */
+:root {
+  --t-nav-collapse-fade: 90ms;
+  --t-nav-collapse-size: 220ms;
+  --t-nav-collapse-settle: 120ms;
+  /*
+   * The surface gets its own easing, and this is not a detail.
+   *
+   * `--ease-out` is cubic-bezier(0.22, 1, 0.36, 1) — nearly all the travel in
+   * the first quarter. Right for something arriving, wrong for a surface
+   * whose job in this sequence is to BE the middle beat: at 220ms it finished
+   * looking like it had moved after about 80, leaving 160ms of empty column
+   * before the icons were due. Frame-stepping showed it as a stall, which is
+   * the one way a sequenced animation reads worse than a simultaneous one.
+   *
+   * A symmetric curve makes the beat last as long as it is told to, so the
+   * three durations in the panel mean what they say.
+   */
+  --ease-surface: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Beat 2. Waits out the fade, so the surface never moves under its own
+   contents — the thing that made the old version unreadable. */
+.nav-surface-resize {
+  transition-property: width;
+  transition-duration: var(--t-nav-collapse-size);
+  transition-delay: var(--t-nav-collapse-fade);
+  transition-timing-function: var(--ease-surface);
+}
+
+/* Beat 1. The face on its way out, and it goes first and alone.
+ *
+ * Opacity only, no transform. A slide would have to START somewhere, and with
+ * the two faces swapping classes the start value lands in the same frame as
+ * the class — so the face jumps 6px while still fully opaque and then fades.
+ * The "icons shift into place" the review asked for is not a translate
+ * anyway: it is the icon columns of the two faces not agreeing, which is a
+ * layout fact and is fixed in layout, not in motion.
+ */
+.nav-face-leaving {
+  transition-property: opacity;
+  transition-duration: var(--t-nav-collapse-fade);
+  transition-delay: 0ms;
+  transition-timing-function: var(--ease-out);
+  opacity: 0;
+}
+
+/* Beat 3. Arrives only once the surface has stopped moving. */
+.nav-face-arriving {
+  transition-property: opacity;
+  transition-duration: var(--t-nav-collapse-settle);
+  transition-delay: calc(
+    var(--t-nav-collapse-fade) + var(--t-nav-collapse-size)
+  );
+  transition-timing-function: var(--ease-out);
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-surface-resize,
+  .nav-face-leaving,
+  .nav-face-arriving {
+    transition-duration: 1ms;
+    transition-delay: 0ms;
+  }
+}

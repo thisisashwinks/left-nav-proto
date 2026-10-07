@@ -1,5 +1,6 @@
 "use client";
 
+import { StagingFixTree } from "./staging-fix-tree";
 import * as React from "react";
 import {
   ChevronRight,
@@ -82,6 +83,8 @@ import {
   AI_BUTTON_STYLES,
   AI_MARKS,
   AI_MARK_LABELS,
+  RAIL_AVATARS,
+  RAIL_AVATAR_LABELS,
   RAIL_TILE_ALIGNS,
   RAIL_TILE_ALIGN_LABELS,
   type RailTileAlign,
@@ -154,6 +157,8 @@ import {
   RECENTS_PANEL_LAYOUT_LABELS,
   INBOX_PALETTE_LABELS,
   INBOX_PALETTES,
+  INBOX_BUILD_LABELS,
+  INBOX_BUILDS,
   LAYOUT_REPLACE_DIALOG_LABELS,
   BAR_HEADING_SCALES,
   BAR_HEADING_SCALE_LABELS,
@@ -271,6 +276,7 @@ import {
   type NavChevron,
   type NavInk,
   type NavSelectedWeight,
+  type RailAvatar,
   type AiDockTop,
   type AiFullChrome,
   type HeaderEntrySide,
@@ -284,6 +290,7 @@ import {
   type L3Disclosure,
   type L2ClickAction,
   type InboxPalette,
+  type InboxBuild,
   type LayoutReplaceDialog,
   type PageCanvasEdge,
   type PageShell,
@@ -569,6 +576,8 @@ function NavStructureSection({
     railRecents,
     setRailRecents,
     railDirectorySpot,
+    railAvatars,
+    setRailAvatars,
     railTileAlign,
     setRailTileAlign,
     railHover,
@@ -803,6 +812,20 @@ function NavStructureSection({
               : railDirectorySpot === "top"
                 ? "Anchored under the agency plate. The one fixed point in the strip, so the way into search is in the same place every time."
                 : "Anchored under the agency, with the account you are in raised beside it. It leaves a hole where that tile was in the ordered set."}
+          </Note>
+
+          <Segmented
+            label="Sub-account avatar shows"
+            keywords="rail tiles avatars logos glyphs initials letters monogram grey"
+            options={RAIL_AVATARS}
+            value={railAvatars}
+            onChange={(v: RailAvatar) => setRailAvatars(v)}
+            format={(v) => RAIL_AVATAR_LABELS[v]}
+          />
+          <Note>
+            {railAvatars === "marks"
+              ? "Whatever each account has — an upload, a drawn glyph on its own gradient, or initials where it has neither. You recognise a shape and a colour before you read a name, which is what makes a strip of fourteen tenants usable at 24px."
+              : "Two letters on grey, every account alike — the honest picture of a fleet that has not branded itself, since most real sub-accounts never upload anything. Also the only way to see what the strip’s rhythm does without colour carrying it. The agency’s own mark is exempt."}
           </Note>
 
           <Segmented
@@ -2858,6 +2881,10 @@ export function TuningPanel() {
     setPageShell,
     inboxPalette,
     setInboxPalette,
+    inboxBuild,
+    setInboxBuild,
+    stagingFixes,
+    setStagingFixes,
     pageTitle,
     setPageTitle,
     pageDescription,
@@ -3182,7 +3209,9 @@ export function TuningPanel() {
     (headerTheme !== DEFAULT_THEME.headerTheme ? 1 : 0) +
     (appTheme !== DEFAULT_THEME.appTheme ? 1 : 0) +
     (pageShell !== DEFAULT_THEME.pageShell ? 1 : 0) +
-    (inboxPalette !== DEFAULT_THEME.inboxPalette ? 1 : 0);
+    (inboxPalette !== DEFAULT_THEME.inboxPalette ? 1 : 0) +
+    (inboxBuild !== DEFAULT_THEME.inboxBuild ? 1 : 0) +
+    (stagingFixes.join() !== DEFAULT_THEME.stagingFixes.join() ? 1 : 0);
 
   const editCardChanged =
     (navSwitchInEditCard !== DEFAULT_THEME.navSwitchInEditCard ? 1 : 0) +
@@ -3245,6 +3274,8 @@ export function TuningPanel() {
     setAppTheme(DEFAULT_THEME.appTheme);
     setPageShell(DEFAULT_THEME.pageShell);
     setInboxPalette(DEFAULT_THEME.inboxPalette);
+    setInboxBuild(DEFAULT_THEME.inboxBuild);
+    setStagingFixes(DEFAULT_THEME.stagingFixes);
   };
 
   const resetSearch = () => {
@@ -4998,6 +5029,27 @@ export function TuningPanel() {
             happens to affect one page would be filing it by accident.
           */}
           <Segmented
+            label="Inbox build"
+            options={INBOX_BUILDS}
+            value={inboxBuild}
+            onChange={(v: InboxBuild) => setInboxBuild(v)}
+            format={(v) => INBOX_BUILD_LABELS[v]}
+            keywords="staging before after conversations"
+          />
+          <Note>
+            {inboxBuild === "prototype"
+              ? "The inbox this prototype proposes, on its own canvas."
+              : inboxBuild === "before"
+                ? "Staging as built, measured off the live page: its panes, icons, copy and canvas. Frozen — fixes go in Staging fixed."
+                : "Staging plus the checkpoints ticked below, in any mix. Untick everything to see Staging again."}
+          </Note>
+          {inboxBuild === "after" ? (
+            <StagingFixTree value={stagingFixes} onChange={setStagingFixes} />
+          ) : null}
+          {/* The palette is the prototype inbox's; the staging copies carry their own. */}
+          {inboxBuild === "prototype" ? (
+            <>
+          <Segmented
             label="Inbox colours"
             options={INBOX_PALETTES}
             value={inboxPalette}
@@ -5009,6 +5061,8 @@ export function TuningPanel() {
               ? "Conversations ▸ Inbox in the shipped page's own greys, blue and WhatsApp green. Fixed — it stays light when the app goes dark, as the real page does."
               : "The inbox on this prototype's page tokens, so it follows light, dark and the accent like every other surface here."}
           </Note>
+            </>
+          ) : null}
         </Section>
 
         <NavStructureSection

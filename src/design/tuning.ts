@@ -46,6 +46,24 @@ export interface TuningState {
    * happen to agree.
    */
   navPadX: number;
+  /**
+   * The three phases of the L1 collapse, in ms.
+   *
+   * The nav used to do all of it at once — width, outgoing face and incoming
+   * face all on one 300ms transition — which is what a frame-by-frame review
+   * on Oct 6 called out: "a bunch of things happening all at once to achieve
+   * an end result, but it's not really pulling it all together into one
+   * coherent visual narrative."
+   *
+   * The story is now three beats in order: the contents LEAVE, then the
+   * surface RESIZES, then the new contents ARRIVE. Each beat is a knob
+   * because the balance between them is the whole design question — too even
+   * and it reads as a machine stepping through states, too lopsided and the
+   * middle beat looks like a stall.
+   */
+  navCollapseFade: number;
+  navCollapseSize: number;
+  navCollapseSettle: number;
   dockIconSize: number;
   dockLabelSize: number;
   /** The centred caption's own size — it has room the tracking one does not. */
@@ -90,6 +108,9 @@ export const TUNING_DEFAULTS: TuningState = {
   navRowRadius: 7,
   navRowSpacing: 2,
   navPadX: 10,
+  navCollapseFade: 90,
+  navCollapseSize: 220,
+  navCollapseSettle: 120,
   // The dock keeps 16. Its icons carry no label beside them, so they are the only
   // thing naming the row and drop off faster than a nav row's icon does.
   dockIconSize: 16,
@@ -132,6 +153,10 @@ export const TUNING_KNOBS: TuningKnob[] = [
   { id: "navRowRadius", cssVar: "--t-nav-radius", label: "Row radius", group: "Nav rows", min: 0, max: 16, step: 1, unit: "px", hint: "Design: 7" },
   { id: "navRowSpacing", cssVar: "--t-nav-space", label: "Between rows", group: "Nav rows", min: 0, max: 10, step: 1, unit: "px", hint: "Design: 2" },
   { id: "navPadX", cssVar: "--t-nav-pad", label: "Column padding", group: "Nav rows", min: 0, max: 24, step: 1, unit: "px", hint: "Design: 10 · the whole L1 gutter, header and lists" },
+
+  { id: "navCollapseFade", cssVar: "--t-nav-collapse-fade", label: "1 · Contents leave", group: "Motion", min: 0, max: 400, step: 10, unit: "ms", hint: "The outgoing face fades. Nothing else moves yet." },
+  { id: "navCollapseSize", cssVar: "--t-nav-collapse-size", label: "2 · Surface resizes", group: "Motion", min: 60, max: 600, step: 10, unit: "ms", hint: "The column narrows or widens, over an empty surface." },
+  { id: "navCollapseSettle", cssVar: "--t-nav-collapse-settle", label: "3 · Contents arrive", group: "Motion", min: 0, max: 400, step: 10, unit: "ms", hint: "The incoming face fades in and slides the last few px." },
 
   { id: "dockIconSize", cssVar: "--t-dock-icon", label: "Icon size", group: "Favourites dock", min: 12, max: 24, step: 1, unit: "px", hint: "Design: 16" },
   { id: "dockLabelSize", cssVar: "--t-dock-label", label: "Caption size", group: "Favourites dock", min: 6, max: 12, step: 0.5, unit: "px", hint: "“Under the icon” only" },
