@@ -210,16 +210,18 @@ export function PageCanvas({
         data-page-canvas-body={enabled ? "" : undefined}
         className={
           enabled
-            ? // The content scrolls, inside the card's 16px padding. A block
-              // box, like the shell scroller it stands in for, and flex-1 in
-              // the card's column gives it a definite height — so pages that
-              // are `h-full flex-col` still fill the card and boards keep
-              // scrolling their own columns.
+            ? // The content scrolls, inside the card's own padding — `--canvas-pad`,
+              // 24px by default, off the CANVAS_PADS axis rather than a literal,
+              // so this and the framed sheet below cannot disagree. A block box,
+              // like the shell scroller it stands in for, and flex-1 in the
+              // card's column gives it a definite height — so pages that are
+              // `h-full flex-col` still fill the card and boards keep scrolling
+              // their own columns.
               fill === "frame"
-              ? // The tinted 16px band stays put; the white sheet inside it
-                // is what scrolls, so the frame reads as a frame.
-                "flex min-h-0 flex-1 flex-col p-[16px]"
-              : "min-h-0 flex-1 overflow-y-auto p-[16px]"
+              ? // The tinted band stays put; the white sheet inside it is what
+                // scrolls, so the frame reads as a frame.
+                "flex min-h-0 flex-1 flex-col p-[var(--canvas-pad,24px)]"
+              : "min-h-0 flex-1 overflow-y-auto p-[var(--canvas-pad,24px)]"
             : "contents"
         }
       >
@@ -229,7 +231,7 @@ export function PageCanvas({
             // No ring: the tinted band is the only edge the sheet needs.
             className={cn(
               "min-h-0 flex-1 overflow-y-auto rounded-[10px] bg-pg-surface",
-              framePadding && "p-[16px]",
+              framePadding && "p-[var(--canvas-pad,24px)]",
             )}
           >
             {children}

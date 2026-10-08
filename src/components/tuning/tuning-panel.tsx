@@ -49,6 +49,10 @@ import {
   FLYOUT_SHADOW_LABELS,
   BANNER_EDGES,
   BANNER_EDGE_LABELS,
+  CANVAS_BLEEDS,
+  CANVAS_BLEED_LABELS,
+  CANVAS_PADS,
+  CANVAS_PAD_LABELS,
   PLANE_SEAMS,
   PLANE_SEAM_LABELS,
   PLANE_HEADS,
@@ -277,6 +281,8 @@ import {
   type NavInk,
   type NavSelectedWeight,
   type RailAvatar,
+  type CanvasBleed,
+  type CanvasPad,
   type AiDockTop,
   type AiFullChrome,
   type HeaderEntrySide,
@@ -547,6 +553,10 @@ function NavStructureSection({
     navOnPlane,
     planeSeam,
     planeHead,
+    canvasBleed,
+    setCanvasBleed,
+    canvasPad,
+    setCanvasPad,
     setFlyoutShadow,
     setBannerEdge,
     setPlaneSeam,
@@ -825,7 +835,18 @@ function NavStructureSection({
           <Note>
             {railAvatars === "marks"
               ? "Whatever each account has — an upload, a drawn glyph on its own gradient, or initials where it has neither. You recognise a shape and a colour before you read a name, which is what makes a strip of fourteen tenants usable at 24px."
-              : "Two letters on grey, every account alike — the honest picture of a fleet that has not branded itself, since most real sub-accounts never upload anything. Also the only way to see what the strip’s rhythm does without colour carrying it. The agency’s own mark is exempt."}
+              : railAvatars === "initials"
+                ? "Two letters on grey, every account alike — the honest picture of a fleet that has not branded itself, since most real sub-accounts never upload anything. Also the only way to see what the strip’s rhythm does without colour carrying it."
+                : "Two letters on the account’s own gradient — the middle answer, and probably what a real fleet wants. Nobody reads a monogram at 26px; they recognise a colour and confirm it with a letter, which is why the grey version degrades at length and this one does not."}
+          </Note>
+          <Note>
+            The gradient is not invented per account: the id is hashed into a
+            fixed palette of 12 HighRise hues, each run 600 &rarr; 400. That
+            rule is the part to hand to engineering — a thousand tenants need
+            a rule, not a thousand swatches. Primary, purple and violet are
+            held back: the accent reads as selected, and the other two read as
+            Ask AI. Gray is in, so the rotation has a neutral in it. The
+            agency’s own mark is exempt from all three settings.
           </Note>
 
           <Segmented
@@ -1206,6 +1227,34 @@ function NavStructureSection({
           : planeHead === "bar"
             ? "The nav takes the same top inset the page does, so mark, name, collapse glyph and breadcrumb sit on one line — and so do the account rail, the L2 panel’s title and the recents panel’s. The identity row was always built for that; it lost the 4px when the plane variant dropped the nav card."
             : "The nav starts at the window’s top edge, 4px above the canvas, so its header rides that much higher than the breadcrumb."}
+      </Note>
+
+      <Segmented
+        label="Canvas edges"
+        keywords="canvas bleed flush edge margin radius corner right bottom full"
+        options={CANVAS_BLEEDS}
+        value={canvasBleed}
+        onChange={(v: CanvasBleed) => setCanvasBleed(v)}
+        format={(v) => CANVAS_BLEED_LABELS[v]}
+      />
+      <Note>
+        {canvasBleed === "corner"
+          ? "Flush to the window’s right and bottom, radius kept on the top-left alone. The nav holds the left edge and the bar holds the top, so the other two sides were a 4px frame around something already framed — this is the one setting that makes the page bigger rather than rearranging it. Stands down under the two-pane dock, where the assistant has the right."
+          : "The canvas floats clear on all four sides, radius all round — a card laid on a plane rather than the window’s own content area."}
+      </Note>
+
+      <Segmented
+        label="Canvas padding"
+        keywords="canvas padding pad inset content room gutter 24 16 edges"
+        options={CANVAS_PADS}
+        value={canvasPad}
+        onChange={(v: CanvasPad) => setCanvasPad(v)}
+        format={(v) => CANVAS_PAD_LABELS[v]}
+      />
+      <Note>
+        {canvasPad === "roomy"
+          ? "24px around the canvas’s content, whichever edges it keeps clear of. 16px is the house figure for a surface inside a page — a modal body, a card — and the canvas is the sheet those sit on, so it was reading tight at every width."
+          : "16px, what this shipped with. Still the right answer wherever the canvas is standing in for a card rather than for the page itself."}
       </Note>
 
       <Segmented

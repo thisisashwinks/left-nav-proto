@@ -52,6 +52,9 @@ export interface AccountLogoSpec {
    * The production fallback (Aug 13 review): most real sub-accounts never
    * upload a logo, so the tile shows initials on the brand wash — the
    * contacts-avatar pattern. Wins over `glyph` when both are set.
+   *
+   * Washes grey by default; see the `tint` prop for the arrangement that
+   * keeps the account's own hue underneath the letters.
    */
   initials?: string;
 }
@@ -118,10 +121,21 @@ interface AccountLogoProps {
   /**
    * Two letters to draw instead of the account's own mark.
    *
-   * Set by the rail under `railAvatars: "initials"`. Absent everywhere
-   * else, so every other surface keeps whatever the account has.
+   * Set by the rail under `railAvatars: "initials"` and `"tinted"`. Absent
+   * everywhere else, so every other surface keeps whatever the account has.
    */
   initials?: string;
+  /**
+   * Keep the account's hue under those letters.
+   *
+   * Initials normally wash grey — a monogram is a placeholder, and colour
+   * is reserved for marks someone actually chose. `tinted` is the reading
+   * that says the hue is not decoration either: it is the only thing that
+   * tells eleven lettered tiles apart at 26px, and it costs nothing,
+   * because the palette is derived from the id rather than picked. See
+   * RAIL_AVATARS and `lib/account-color.ts`.
+   */
+  tint?: boolean;
 }
 
 export function AccountLogo({
@@ -130,6 +144,7 @@ export function AccountLogo({
   radius,
   src,
   initials,
+  tint = false,
   className,
 }: AccountLogoProps) {
   /*
@@ -146,6 +161,15 @@ export function AccountLogo({
    */
   const spec = initials ? { initials, from: logo.from, to: logo.to } : logo;
   const artwork = initials ? undefined : src;
+  /*
+   * Letters go grey unless the caller asks for the hue.
+   *
+   * The rule used to be "initials imply grey", which read as a statement
+   * about monograms and was really a statement about PLACEHOLDERS — and it
+   * made the one question worth asking unaskable, since no caller could
+   * keep the letters and the colour at once.
+   */
+  const washGrey = Boolean(spec.initials) && !tint;
   // Gradient ids have to be unique per instance or the first one on the page
   // wins and every tile paints with it.
   const gradientId = `account-logo-${React.useId()}`;
@@ -191,11 +215,11 @@ export function AccountLogo({
               neutral grey so only real marks (glyphs, uploads) carry colour. */}
           <stop
             offset="0%"
-            stopColor={spec.initials ? "var(--hr-gray-600)" : spec.from}
+            stopColor={washGrey ? "var(--hr-gray-600)" : spec.from}
           />
           <stop
             offset="100%"
-            stopColor={spec.initials ? "var(--hr-gray-400)" : spec.to}
+            stopColor={washGrey ? "var(--hr-gray-400)" : spec.to}
           />
         </linearGradient>
       </defs>

@@ -140,6 +140,7 @@ import {
 } from "@/components/shell/top-banner";
 import {
   AUTO_COLLAPSE_WIDTH,
+  CANVAS_PAD_PX,
   CANVAS_TINTS,
   DEFAULT_CANVAS_TINT,
   navWidthsFor,
@@ -454,6 +455,8 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
     navOnPlane,
     planeSeam,
     planeHead,
+    canvasBleed,
+  canvasPad,
     navRowRing,
     navRowShadow,
     navSelectedFill,
@@ -2880,6 +2883,12 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         /* The two-pane dock's own geometry lives in globals.css. */
         {...(aiDockPane ? { "data-ai-pane": "" } : {})}
         /*
+          And which edges the canvas keeps clear of. Absent on `inset`,
+          which is the geometry every surface already declares, so that
+          value reaches the browser as no rule at all. See CANVAS_BLEEDS.
+        */
+        {...(canvasBleed === "corner" ? { "data-canvas-bleed": "corner" } : {})}
+        /*
           And what the nav's top edge meets. See PLANE_HEADS.
 
           Only on the BARE plane. With `flyoutShape: "card"` the nav is a card
@@ -2940,6 +2949,13 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
           {
             "--nav-w": `${widths.l1}px`,
             "--fly-w": `${widths.l2}px`,
+            /*
+              How much room the canvas keeps around its content. A length
+              rather than a flag, because two surfaces pay it — the scrolling
+              body and the framed sheet inside it — and they must not drift
+              apart. See CANVAS_PADS.
+            */
+            "--canvas-pad": CANVAS_PAD_PX[canvasPad],
             ...(appTheme === "light" && PLANE_GROUND_HEX[planeGround]
               ? { "--pg-bg": PLANE_GROUND_HEX[planeGround] }
               : null),

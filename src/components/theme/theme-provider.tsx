@@ -91,6 +91,8 @@ import type {
   FlyoutShadow,
   BannerEdge,
   PlaneSeam,
+  CanvasBleed,
+  CanvasPad,
   PlaneHead,
   EntryPair,
   AiDockTop,
@@ -226,6 +228,8 @@ interface ThemeContextValue extends ThemeState {
   setFlyoutShadow: (v: FlyoutShadow) => void;
   setBannerEdge: (v: BannerEdge) => void;
   setPlaneSeam: (v: PlaneSeam) => void;
+  setCanvasBleed: (v: CanvasBleed) => void;
+  setCanvasPad: (v: CanvasPad) => void;
   setPlaneHead: (v: PlaneHead) => void;
   setEntryPair: (v: EntryPair) => void;
   setAiDockTop: (v: AiDockTop) => void;
@@ -576,6 +580,9 @@ export function ThemeProvider({
         setState((s) => ({ ...s, flyoutShadow })),
       setBannerEdge: (bannerEdge) => setState((s) => ({ ...s, bannerEdge })),
       setPlaneSeam: (planeSeam) => setState((s) => ({ ...s, planeSeam })),
+      setCanvasBleed: (canvasBleed) =>
+        setState((s) => ({ ...s, canvasBleed })),
+      setCanvasPad: (canvasPad) => setState((s) => ({ ...s, canvasPad })),
       setPlaneHead: (planeHead) => setState((s) => ({ ...s, planeHead })),
       setEntryPair: (entryPair) => setState((s) => ({ ...s, entryPair })),
       setAiDockTop: (aiDockTop) => setState((s) => ({ ...s, aiDockTop })),

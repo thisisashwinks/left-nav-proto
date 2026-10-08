@@ -2059,16 +2059,22 @@ function RailRow({
               logo={account.logo}
               src={account.logoSrc}
               /*
-                Letters for every tenant alike, where the axis asks for it.
+                Letters for every tenant alike, where the axis asks for
+                it — grey, or on the account's own gradient.
                 The agency's mark above is left out of this on purpose — see
                 RAIL_AVATARS. Derived from the name rather than read off the
                 spec, because the accounts that HAVE a logo are the ones with
                 no `initials` on theirs, and they are exactly the tiles this
                 is meant to strip back.
               */
-              {...(railAvatars === "initials"
-                ? { initials: initialsFor(account.name) }
-                : {})}
+              {...(railAvatars === "marks"
+                ? {}
+                : {
+                    initials: initialsFor(account.name),
+                    // Grey under `initials`, the account's own hue under
+                    // `tinted`. See RAIL_AVATARS.
+                    tint: railAvatars === "tinted",
+                  })}
               size={size}
               radius={squircle ? Math.round(size * SQUIRCLE_RATIO) : 999}
             />

@@ -1441,6 +1441,63 @@ export const PLANE_HEAD_LABELS: Record<PlaneHead, string> = {
 };
 
 /**
+ * Which edges of the canvas the plane shows on.
+ *
+ *  corner  Flush to the window's right and bottom, with the radius kept on
+ *          the top-left corner alone. The default from Oct 7. The plane on
+ *          those two edges is a 4px frame around a surface that is already
+ *          framed — the nav holds the left and the bar holds the top, so
+ *          the other two sides are bordering nothing. Giving them back is
+ *          the only change on this list that makes the PAGE bigger rather
+ *          than rearranging what is already there, and at 1440 it is most
+ *          of a table column.
+ *  inset   The canvas floats clear on all four sides, radius all round.
+ *          What this shipped with, and the honest reading if the canvas is
+ *          a card laid on a plane rather than the window's own content
+ *          area.
+ *
+ * The one corner that keeps its radius is the one that meets other chrome:
+ * a square corner there would collide with the nav's edge and the bar's,
+ * and three surfaces meeting at a point is the junction this curve exists
+ * to soften. The other three meet the window, which has corners of its own.
+ *
+ * Stands down under the two-pane dock — there the assistant occupies the
+ * right, and a canvas bleeding into it would run underneath the panel.
+ */
+export const CANVAS_BLEEDS = ["corner", "inset"] as const;
+export type CanvasBleed = (typeof CANVAS_BLEEDS)[number];
+export const CANVAS_BLEED_LABELS: Record<CanvasBleed, string> = {
+  corner: "Flush right and bottom",
+  inset: "Inset on every side",
+};
+
+/**
+ * How much room the canvas keeps around its content.
+ *
+ *  roomy  24px. The default from Oct 8. The canvas is the page's own frame,
+ *         and 16px was the house figure for a surface INSIDE a page — a
+ *         modal body, a card — not for the sheet everything else sits on.
+ *         At 1440 the extra 8px costs nothing the page needed and gives the
+ *         content an edge you can see, which is the whole job of a canvas.
+ *  tight  16px. What this shipped with, and still the right answer anywhere
+ *         the canvas is standing in for a card rather than for the page.
+ *
+ * Reaches the canvas as `--canvas-pad`, so every surface that pads its own
+ * content — the scrolling body and the framed sheet inside it — takes one
+ * answer and the two cannot drift apart.
+ */
+export const CANVAS_PADS = ["roomy", "tight"] as const;
+export type CanvasPad = (typeof CANVAS_PADS)[number];
+export const CANVAS_PAD_LABELS: Record<CanvasPad, string> = {
+  roomy: "24px",
+  tight: "16px",
+};
+export const CANVAS_PAD_PX: Record<CanvasPad, string> = {
+  roomy: "24px",
+  tight: "16px",
+};
+
+/**
  * Where the plane shows between the nav and the canvas. Plane variant only.
  *
  *  flush  One edge. The whole right-hand column — app bar, banner slot and
@@ -2264,16 +2321,31 @@ export const PANEL_TAB_STYLE_LABELS: Record<PanelTabStyle, string> = {
  *            distinct colourful marks is a prototype flattering its own
  *            fixtures. It is also the only way to see what the strip's
  *            RHYTHM is doing without colour carrying it.
+ *  tinted    Two letters, on the account's own gradient. The middle answer,
+ *            and the one a real fleet probably wants: letters are what a
+ *            tenant that uploaded nothing actually has, and the hue is what
+ *            makes eleven of them scannable anyway. Nobody reads a monogram
+ *            at 26px — they recognise a colour and confirm it with a
+ *            letter, which is why the grey version degrades at length and
+ *            this one does not.
+ *
+ *            The gradient is not invented per account: `accountColorFor`
+ *            hashes the id into a fixed palette of twelve HighRise hues,
+ *            each run 600 → 400. That is the part to hand to engineering —
+ *            a thousand tenants need a rule, not a thousand swatches. See
+ *            `lib/account-color.ts`, which states the rule in three lines
+ *            and says which hues are held back and why.
  *
  * The agency's own mark is exempt under both. It is the product's mark
  * rather than a tenant's, it is the one tile that is always the same tile,
  * and reducing it to letters would be the rail forgetting whose it is.
  */
-export const RAIL_AVATARS = ["marks", "initials"] as const;
+export const RAIL_AVATARS = ["marks", "initials", "tinted"] as const;
 export type RailAvatar = (typeof RAIL_AVATARS)[number];
 export const RAIL_AVATAR_LABELS: Record<RailAvatar, string> = {
   marks: "Logos and glyphs",
-  initials: "Initials only",
+  initials: "Initials on grey",
+  tinted: "Initials on colour",
 };
 
 export const RAIL_TILE_ALIGNS = ["centre", "top"] as const;
@@ -4422,6 +4494,10 @@ export interface ThemeState {
   bannerEdge: BannerEdge;
   /** Whether the plane shows between the nav and the canvas. See PLANE_SEAMS. */
   planeSeam: PlaneSeam;
+  /** Which edges of the canvas the plane shows on. See CANVAS_BLEEDS. */
+  canvasBleed: CanvasBleed;
+  /** How much room the canvas keeps around its content. See CANVAS_PADS. */
+  canvasPad: CanvasPad;
   /** What the nav's top edge lines up with, on the plane. See PLANE_HEADS. */
   planeHead: PlaneHead;
   /**
@@ -4828,6 +4904,8 @@ export const DEFAULT_THEME: ThemeState = {
   flyoutShadow: FLYOUT_SHADOW_DEFAULT,
   bannerEdge: "flush",
   planeSeam: "flush",
+  canvasBleed: "corner",
+  canvasPad: "roomy",
   planeHead: "bar",
   flyoutShape: "docked",
   flyoutCardBorder: FLYOUT_CARD_BORDER_DEFAULT,
@@ -5027,7 +5105,16 @@ export const DEFAULT_THEME: ThemeState = {
    */
   railHover: "expand",
   railTileAlign: "centre",
-  railAvatars: "marks",
+  /*
+   * Letters on the account's own hue (Oct 8).
+   *
+   * "Logos and glyphs" flattered the fixtures: twelve hand-drawn marks in
+   * twelve colours is a rail no real fleet has, because almost nobody
+   * uploads anything. Letters on a hashed gradient is what production
+   * actually looks like, and it is still scannable — which is the claim
+   * worth defaulting to. See RAIL_AVATARS.
+   */
+  railAvatars: "tinted",
   panelTabPlace: "row",
   panelTabStyle: "segmented",
   panelOpenTab: "recent",

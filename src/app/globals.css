@@ -640,6 +640,34 @@
 }
 
 /*
+ * The canvas bleeding into the window's right and bottom. See CANVAS_BLEEDS.
+ *
+ * Margins on those two sides only, and three of the four corners squared.
+ * The top-left keeps its radius because it is the one corner that meets
+ * other chrome rather than the window — the nav's edge on one side, the
+ * bar's on the other — and three surfaces meeting at a point is the
+ * junction the curve was for. The other three now meet the window, which
+ * has corners of its own.
+ *
+ * `:not([data-ai-pane])` because the two-pane dock puts the assistant on
+ * the right: a canvas bleeding past its own margin there would run
+ * underneath the panel rather than up to the window. Both attributes sit
+ * on the plane, so one selector can say it.
+ *
+ * Last in this file, after the seam and the pane blocks, so where two
+ * rules name the same margin this one is the answer. Everything it does
+ * not name — the left inset, the top, the banner's collapse — is left to
+ * the rules above.
+ */
+[data-canvas-bleed="corner"]:not([data-ai-pane]) [data-canvas-surface] {
+  margin-right: 0;
+  margin-bottom: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+/*
  * The Conversations inbox, inside the canvas.
  *
  * On the plane that page is four cards with gutters between them, which is
