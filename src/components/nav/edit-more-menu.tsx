@@ -623,7 +623,7 @@ export function EditMoreMenu({
             }}
             // Brand, like every other primary in the product — see the note on
             // the edit card's own Done, which this menu sits under.
-            className="motion-tap mx-[5px] mt-[6px] flex h-[30px] items-center justify-center rounded-[7px] bg-brand text-[12.5px] leading-none font-medium text-brand-fg hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="motion-tap mx-[5px] mt-[6px] flex h-[30px] items-center justify-center rounded-[7px] bg-[var(--admin-action)] text-[12.5px] leading-none font-medium text-[var(--admin-action-fg)] hover:bg-[var(--admin-action-hover)] disabled:cursor-not-allowed disabled:opacity-40"
           >
             Create template
           </button>
@@ -1348,11 +1348,11 @@ export function EditMoreMenu({
                       "flex size-[14px] shrink-0 items-center justify-center rounded-full shadow-[inset_0_0_0_1px_var(--nav-fg-subtle)]",
                       // The chosen radio wears the accent, as the ones in the
                       // page's own modals do.
-                      fate === value && "bg-brand",
+                      fate === value && "bg-[var(--admin-action)]",
                     )}
                   >
                     {fate === value ? (
-                      <span className="size-[5px] rounded-full bg-brand-fg" />
+                      <span className="size-[5px] rounded-full bg-[var(--admin-action-fg)]" />
                     ) : null}
                   </span>
                   {label}

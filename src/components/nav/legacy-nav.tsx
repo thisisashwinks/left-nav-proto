@@ -31,6 +31,8 @@ import {
   Rocket,
   Search,
   Send,
+  Building2,
+  FlaskConical,
   Settings,
   Shapes,
   Share2,
@@ -85,6 +87,7 @@ export function LegacyNav({
   account,
   agency,
   onSwitchScope,
+  onOpenSettings,
 }: {
   scope: WorkspaceScope;
   /** The current sub-account, for the switcher's second line. */
@@ -101,6 +104,20 @@ export function LegacyNav({
    * rebuilding it here would be building the thing under review.
    */
   onSwitchScope: () => void;
+  /**
+   * Opens an agency settings place from this nav's Settings row.
+   *
+   * Two pages are wired, and only two: Labs and Company. Everything else
+   * in this nav is a transcription — the rows select and nothing happens,
+   * which is the honest state of a list that exists to be compared against
+   * the proposal rather than used. These two are different because they
+   * are where the comparison is ADMINISTERED: Labs is how an agency moves
+   * between the two navigations, and Company is where the custom code
+   * written against this one lives. A legacy nav that could not reach them
+   * would be a legacy nav you have to leave before you can decide to leave
+   * it.
+   */
+  onOpenSettings: (id: "agency-labs" | "agency-company") => void;
 }) {
   const legacyNavTheme = useTheme().legacyNavTheme;
   const agencyScope = scope === "agency";
@@ -108,6 +125,7 @@ export function LegacyNav({
   // Launchpad is the selected row in both screenshots, so the transcription
   // opens where they do.
   const [selected, setSelected] = React.useState("launchpad");
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
 
   // The list differs per scope, and so does what "Launchpad" means in it, so a
   // scope change resets rather than carrying a selection into a list that may
@@ -249,8 +267,34 @@ export function LegacyNav({
         <LegacyRow
           row={{ kind: "item", id: "settings", label: "Settings", icon: Settings }}
           selected={selected === "settings"}
-          onSelect={() => setSelected("settings")}
+          onSelect={() => {
+            setSelected("settings");
+            setSettingsOpen((v) => !v);
+          }}
         />
+        {/*
+          The two settings pages this nav can actually reach.
+
+          Disclosed under the row rather than opened as a panel: production's
+          Settings is a page with its own left list, and building that here
+          would be building a second nav inside the one under review. Two
+          indented rows say "these are inside Settings" with nothing invented.
+        */}
+        {settingsOpen ? (
+          <div className="mt-[2px] flex flex-col gap-[2px] pl-[22px]">
+            {SETTINGS_ROWS.map((row) => (
+              <LegacyRow
+                key={row.id}
+                row={row}
+                selected={selected === row.id}
+                onSelect={() => {
+                  setSelected(row.id);
+                  onOpenSettings(row.id as "agency-labs" | "agency-company");
+                }}
+              />
+            ))}
+          </div>
+        ) : null}
       </div>
 
       {/*
@@ -646,6 +690,18 @@ interface LegacyItem {
 }
 
 type LegacyRowSpec = LegacyItem | { kind: "divider"; id: string };
+
+/**
+ * What Settings discloses, and the ids are the shell's own.
+ *
+ * `agency-labs` and `agency-company` are the keys `agencyPlaces` is keyed
+ * by, so this list hands the shell a place rather than a label it would
+ * have to translate — one name for one page, across both navigations.
+ */
+const SETTINGS_ROWS: readonly LegacyItem[] = [
+  { kind: "item", id: "agency-labs", label: "Labs", icon: FlaskConical },
+  { kind: "item", id: "agency-company", label: "Company", icon: Building2 },
+];
 
 /**
  * Agency scope: 24 rows, no headings, no second level.

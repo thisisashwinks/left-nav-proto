@@ -2472,6 +2472,35 @@ export const RAIL_HOLD_INSET_DEFAULT = false;
  * Only the `names` placement has anything to fall back TO; the other two are
  * panels, and a panel closing leaves the rail wherever the pointer has it.
  */
+/**
+ * What colour the ADMIN actions wear.
+ *
+ * There are two kinds of primary button in this product and they have been
+ * wearing one colour. A tenant-facing primary — Save this funnel, Send this
+ * campaign — is the account's accent, and it should be: the accent is the
+ * tenant's own brand and those buttons are part of their product. The
+ * Switchyard surfaces are not. Bulk actions across forty sub-accounts,
+ * attaching a nav template, discarding an edit session: that is the agency
+ * operating ON the accounts rather than working inside one, and painting it
+ * in the client's brand says the client did it.
+ *
+ * Neutral by default as of Oct 8. Grey also survives the thing blue cannot —
+ * the accent is per account, so an admin moving between tenants watched the
+ * same destructive button change hue, which is the one place a colour has to
+ * hold still.
+ *
+ * DELETE is exempt and stays red wherever it is, because that is not an
+ * accent decision: red is what the control means.
+ */
+export const ADMIN_ACCENTS = ["grey", "blue"] as const;
+
+export type AdminAccent = (typeof ADMIN_ACCENTS)[number];
+
+export const ADMIN_ACCENT_LABELS: Record<AdminAccent, string> = {
+  grey: "Neutral",
+  blue: "The accent",
+};
+
 export const RAIL_FILL_RESTS = ["names", "collapse"] as const;
 
 export type RailFillRest = (typeof RAIL_FILL_RESTS)[number];
@@ -3846,6 +3875,46 @@ export const NAV_COLOUR_CONTROL_LABELS: Record<NavColourControl, string> = {
   panel: "Full colours panel",
 };
 
+/**
+ * Which sidebar the panel forces, over whatever Labs has decided.
+ *
+ * NOT the rollout. Labs owns who is on the new navigation — the agency for
+ * its own sidebar, then account by account for the rest; see
+ * `settings/labs-state.tsx`, which is where the real model lives as of
+ * Oct 8.
+ *
+ * This axis survives as the OVERRIDE, and it only ever forces the old nav:
+ * one switch to see the legacy sidebar without walking through Labs for
+ * it. `new` does not force anything — it hands the question back to Labs.
+ * The asymmetry is the point: if this could force the new nav on, two
+ * controls would disagree about an account Labs had excluded, and the
+ * shell would be drawing a rollout that is not the one Labs describes.
+ */
+/**
+ * What enabling custom code on the new navigation actually does.
+ *
+ * This is the axis, and the two answers are two different products.
+ *
+ *  inherit   The toggle alone. Whatever CSS and JS the agency already wrote
+ *            is applied to the new nav as-is. It breaks, because it was
+ *            written against the old DOM — and that is the point: the agency
+ *            turns it on, sees the damage, and turns it back off. Default,
+ *            because it is what shipping the toggle on its own would really
+ *            do, and the prototype's job is to show that before it ships.
+ *  separate  The new nav gets its OWN CSS and JS fields. The old code stays
+ *            on the old nav and is never applied here, so nothing breaks;
+ *            the agency writes fresh code against the new DOM. Light and dark
+ *            go away while this is on — a theme the agency is now overriding
+ *            by hand is not a theme the product can still promise.
+ */
+export const CUSTOM_CODE_MODES = ["inherit", "separate"] as const;
+export type CustomCodeMode = (typeof CUSTOM_CODE_MODES)[number];
+
+export const CUSTOM_CODE_MODE_LABELS: Record<CustomCodeMode, string> = {
+  inherit: "Reuses the old code",
+  separate: "Its own CSS and JS",
+};
+
 export const NAV_GENERATIONS = ["new", "legacy"] as const;
 
 /**
@@ -4082,6 +4151,8 @@ export interface ThemeState {
   railHoldInset: boolean;
   /** What the filled rail falls back to on close. See RAIL_FILL_RESTS. */
   railFillRest: RailFillRest;
+  /** What colour the admin actions wear. See ADMIN_ACCENTS. */
+  adminAccent: AdminAccent;
   /** What resting on the account rail does. See RAIL_HOVERS. */
   railHover: RailHover;
   /** Where the sub-account tiles sit in the strip. See RAIL_TILE_ALIGNS. */
@@ -4496,6 +4567,8 @@ export interface ThemeState {
   planeSeam: PlaneSeam;
   /** Which edges of the canvas the plane shows on. See CANVAS_BLEEDS. */
   canvasBleed: CanvasBleed;
+  /** What custom code on the new nav does. See CUSTOM_CODE_MODES. */
+  customCodeMode: CustomCodeMode;
   /** How much room the canvas keeps around its content. See CANVAS_PADS. */
   canvasPad: CanvasPad;
   /** What the nav's top edge lines up with, on the plane. See PLANE_HEADS. */
@@ -4905,6 +4978,7 @@ export const DEFAULT_THEME: ThemeState = {
   bannerEdge: "flush",
   planeSeam: "flush",
   canvasBleed: "corner",
+  customCodeMode: "inherit",
   canvasPad: "roomy",
   planeHead: "bar",
   flyoutShape: "docked",
@@ -5092,6 +5166,7 @@ export const DEFAULT_THEME: ThemeState = {
   railFillAgency: RAIL_FILL_AGENCY_DEFAULT,
   railHoldInset: RAIL_HOLD_INSET_DEFAULT,
   railFillRest: "names",
+  adminAccent: "grey",
   /*
    * Expand, as of Oct 6.
    *

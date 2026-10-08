@@ -4,7 +4,8 @@ import * as React from "react";
 import { PageTitle, usePageChrome } from "@/components/page/page-header";
 import type { Account } from "@/components/accounts/accounts-data";
 import { cn } from "@/lib/utils";
-import { BrandCard } from "./brand-card";
+import { WhiteLabelTab } from "./white-label-tab";
+import { CustomCodeProvider } from "./custom-code-store";
 import { ProductionStubTab } from "./tab-production-stub";
 
 /**
@@ -37,8 +38,21 @@ export function AgencyCompanyPage({ agency }: { agency: Account }) {
   const { title: showTitle, description: showDesc } = usePageChrome();
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <header className="shrink-0 px-[var(--page-inset)]">
+    /*
+     * One scroller, and it is the canvas's.
+     *
+     * This page used to pin its header and scroll a region under the tabs,
+     * which put a second scrollbar inside the canvas's own and reserved a
+     * gutter for it. The canvas body already scrolls at page level, with the
+     * bar at the window's edge and overlaid rather than reserved — so the
+     * page's job is to be tall, not to scroll itself.
+     *
+     * Max width is the design system's body measure. Without it the Logo
+     * card's three fields stretch the width of a 1900px window and the
+     * Save that commits them ends up a hand's width from them.
+     */
+    <div className="mx-auto w-full max-w-[1160px] px-[var(--page-inset)] pb-[24px]">
+      <header>
         {showTitle ? (
           <>
             <PageTitle title="Company" className="text-[20px] leading-[28px] font-semibold text-pg-heading" />
@@ -75,11 +89,11 @@ export function AgencyCompanyPage({ agency }: { agency: Account }) {
         </nav>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-[var(--page-inset)] pt-[16px]">
+      <div className="pt-[16px]">
         {tab === "White label" ? (
-          <div className="flex w-full max-w-[620px] flex-col gap-[16px]">
-            <BrandCard account={agency} />
-          </div>
+          <CustomCodeProvider>
+            <WhiteLabelTab agency={agency} />
+          </CustomCodeProvider>
         ) : (
           <ProductionStubTab label={tab} />
         )}

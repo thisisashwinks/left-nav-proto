@@ -52,6 +52,8 @@ import {
   CANVAS_BLEEDS,
   CANVAS_BLEED_LABELS,
   CANVAS_PADS,
+  CUSTOM_CODE_MODES,
+  CUSTOM_CODE_MODE_LABELS,
   CANVAS_PAD_LABELS,
   PLANE_SEAMS,
   PLANE_SEAM_LABELS,
@@ -188,6 +190,9 @@ import {
   RAIL_TILE_SHAPES,
   LAUNCHPAD_CARDS,
   NAV_SELECTED_FILLS,
+  ADMIN_ACCENTS,
+  ADMIN_ACCENT_LABELS,
+  type AdminAccent,
   DIRECTORY_EXITS,
   RAIL_FILL_MORPHS,
   RAIL_FILL_RESTS,
@@ -283,6 +288,7 @@ import {
   type RailAvatar,
   type CanvasBleed,
   type CanvasPad,
+  type CustomCodeMode,
   type AiDockTop,
   type AiFullChrome,
   type HeaderEntrySide,
@@ -557,6 +563,8 @@ function NavStructureSection({
     setCanvasBleed,
     canvasPad,
     setCanvasPad,
+    customCodeMode,
+    setCustomCodeMode,
     setFlyoutShadow,
     setBannerEdge,
     setPlaneSeam,
@@ -1241,6 +1249,20 @@ function NavStructureSection({
         {canvasBleed === "corner"
           ? "Flush to the window’s right and bottom, radius kept on the top-left alone. The nav holds the left edge and the bar holds the top, so the other two sides were a 4px frame around something already framed — this is the one setting that makes the page bigger rather than rearranging it. Stands down under the two-pane dock, where the assistant has the right."
           : "The canvas floats clear on all four sides, radius all round — a card laid on a plane rather than the window’s own content area."}
+      </Note>
+
+      <Segmented
+        label="Custom code on the new nav"
+        keywords="custom code css js switchyard new nav white label agency break"
+        options={CUSTOM_CODE_MODES}
+        value={customCodeMode}
+        onChange={(v: CustomCodeMode) => setCustomCodeMode(v)}
+        format={(v) => CUSTOM_CODE_MODE_LABELS[v]}
+      />
+      <Note>
+        {customCodeMode === "inherit"
+          ? "The toggle on its own. Whatever CSS and JS the agency already wrote is applied to the new navigation as-is — and it was written against the old sidebar's markup, so it breaks. That is the version being proposed, and the point of showing it is that an agency would turn it on, see the damage, and turn it back off."
+          : "The new navigation takes its own CSS and JS. The old code stays on the old sidebar and never reaches here, so nothing breaks — but the agency has to write it again, and light and dark stop being offered while they are overriding the theme by hand."}
       </Note>
 
       <Segmented
@@ -2910,6 +2932,7 @@ export function TuningPanel() {
     railAccountsDoor,
     accountRowMeta,
     directoryExit,
+    adminAccent,
     planeGround,
     setNavOnPlane,
     setNavRowRing,
@@ -2920,6 +2943,7 @@ export function TuningPanel() {
     setRailAccountsDoor,
     setAccountRowMeta,
     setDirectoryExit,
+    setAdminAccent,
     setPlaneGround,
     setAgencySearch,
     aiMark,
@@ -5372,6 +5396,24 @@ export function TuningPanel() {
               : navWidthSet === "narrow"
                 ? "32px off the column and 60px off the panel, back to the canvas. 240 is where most product navs land, and 300 still holds a two-line L2 row. The pair moves together: the panel docks on the column's edge, so narrowing one alone changes the proportion rather than the size."
                 : "The two columns at the same width — the panel stops reading as a wider thing the column opened and starts reading as a second column of equal standing. Costs the L2 96px against the default, so its rows truncate sooner: that is the thing to look at. Edit mode holds this width rather than borrowing the wider pair."}
+          </Note>
+
+          <Segmented
+            label="Admin actions"
+            keywords="bulk select checkbox template save attach discard colour color grey blue accent admin"
+            options={ADMIN_ACCENTS}
+            value={adminAccent}
+            onChange={(v: AdminAccent) => setAdminAccent(v)}
+            format={(v) => ADMIN_ACCENT_LABELS[v]}
+          />
+          <Note>
+            {adminAccent === "grey"
+              ? "The Switchyard layer is neutral: bulk actions and the checkboxes that feed them, attach and save on a template, discard on an edit session. These are the agency operating ON accounts rather than working inside one, and the accent is the tenant's own brand. Grey also holds still where the accent changes per account."
+              : "The account's accent, so the admin surfaces match the product around them. Worth seeing — and worth switching accounts under, since the accent moves with the tenant and these buttons would move with it."}
+          </Note>
+          <Note>
+            Delete is exempt and stays red either way. That is not an accent
+            decision — red is what the control means.
           </Note>
 
           <Segmented

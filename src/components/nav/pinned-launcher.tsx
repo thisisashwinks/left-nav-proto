@@ -2490,7 +2490,6 @@ function DirectoryTree({
           <DirectoryRow
             key={group.id}
             label={group.label}
-            count={rows.length}
             open={levels[0]?.id === group.id}
             icon={<Icon size={16} aria-hidden="true" />}
             cascades
@@ -2650,7 +2649,6 @@ function DirectoryGroup({
     <div className="flex w-full shrink-0 flex-col">
       <DirectoryRow
         label={group.label}
-        count={entries.length}
         open={open}
         onToggle={onToggle}
         icon={<Icon size={16} aria-hidden="true" />}
@@ -2782,7 +2780,6 @@ function DirectoryProduct({
 function DirectoryRow({
   label,
   icon,
-  count,
   open = false,
   onToggle,
   onHover,
@@ -2802,8 +2799,14 @@ function DirectoryRow({
    * take you there, the arrow shows you what is underneath.
    */
   onOpen?: () => void;
-  /** How many rows are behind this one, when it discloses. */
-  count?: number;
+  /*
+    No count. It was the number of rows behind the chevron, and the chevron
+    already says there are some — the figure only matters once you are
+    choosing BETWEEN two of them, which is not what this list is for. Twelve
+    tallies down the right edge also read as a second column of data beside
+    twelve names, which is what Ashwin caught on Oct 8. See the section
+    headings, which keep theirs: those count a set you can act on.
+  */
   open?: boolean;
   /**
    * Absent on a leaf, which is what makes it a leaf.
@@ -2854,11 +2857,6 @@ function DirectoryRow({
       <span ref={labelRef} className={labelClass}>
         {label}
       </span>
-      {count !== undefined ? (
-        <span className="shrink-0 text-[11px] leading-none text-nav-fg-subtle tabular-nums">
-          {count}
-        </span>
-      ) : null}
       {/*
         An overlay at the row's edge, not the last thing in flow.
 

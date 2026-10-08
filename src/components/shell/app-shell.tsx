@@ -71,6 +71,8 @@ import {
 import { useAgencyLayout } from "@/components/nav/agency-layout";
 import { AskAiPage } from "@/components/ai/ask-ai-page";
 import { AgencyCompanyPage } from "@/components/settings/agency-company-page";
+import { LabsPage } from "@/components/settings/labs-page";
+import { LabsProvider, useLabs } from "@/components/settings/labs-state";
 import { SaasConfiguratorPage } from "@/components/settings/saas-configurator-page";
 import { BusinessProfilePage } from "@/components/settings/business-profile-page";
 import {
@@ -429,7 +431,22 @@ function foldGenericChildren(
  * the hidden one is `inert` so it takes no focus and is skipped by the
  * accessibility tree.
  */
+/**
+ * The shell, with the rollout state above it.
+ *
+ * `LabsProvider` has to sit OUTSIDE the component that reads it, and the
+ * Labs page is rendered inside this tree — so the provider wraps the whole
+ * shell rather than living beside the page that edits it. See `labs-state`.
+ */
 export function AppShell({ children }: { children?: React.ReactNode }) {
+  return (
+    <LabsProvider>
+      <AppShellInner>{children}</AppShellInner>
+    </LabsProvider>
+  );
+}
+
+function AppShellInner({ children }: { children?: React.ReactNode }) {
   const {
     effective,
     setActiveThemeAccount,
@@ -1178,7 +1195,23 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
    * while its neighbour sits on the new one, which is a comparison nobody asked
    * for.
    */
-  const legacyNav = navGeneration === "legacy";
+  /*
+   * Which sidebar this scope gets — the rollout, then the override.
+   *
+   * Labs is the model: the agency switches Switchyard on for its own
+   * sidebar, and decides per sub-account for the rest. That is how the
+   * feature actually reaches people, and it is the thing worth being able
+   * to demonstrate — a partial rollout looks different from a flag.
+   *
+   * `navGeneration` survives as the panel's override, and it only ever
+   * forces the OLD nav. One switch to see the legacy sidebar without
+   * walking through Labs for it; it cannot force the new one on, because
+   * then two controls would disagree about an account Labs had excluded
+   * and the page would be lying about the rollout it is drawing.
+   */
+  const labs = useLabs();
+  const labsOn = agencyScope ? labs.agencyOn : labs.accountOn(accounts.current.id);
+  const legacyNav = navGeneration === "legacy" || !labsOn;
   /*
    * The rail goes with it. The legacy nav carries its own switcher inside the
    * column — "Click here to switch" — and that IS the model the rail replaces,
@@ -2439,13 +2472,27 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
   // resolve the phase for it. Both faces derive the same one from `loading`.
   const navSwap = useSwapPhase(switching, NAV_SWAP_OUT_MS);
 
+  /*
+   * A place asked for from the other scope, held until the scope arrives.
+   *
+   * The legacy nav's Settings reaches Labs and Company, which are agency
+   * places — so from a sub-account it has to change scope AND select. It
+   * cannot do both at once: `switchToAgency` runs a latency and flips the
+   * scope in a callback, and the effect below then clears the selection,
+   * so an id set up front is wiped a beat later by the arrival it was
+   * waiting for. A ref rather than state because nothing renders from it.
+   */
+  const pendingPlace = React.useRef<string | null>(null);
+
   // Leaving one scope for the other drops the row selection, which named a row
   // the other scope does not have. The panel is handled above, on every switch.
   const scopeRef = React.useRef(accounts.scope);
   React.useEffect(() => {
     if (scopeRef.current === accounts.scope) return;
     scopeRef.current = accounts.scope;
-    setSelectedId(null);
+    // The requested place, or nothing — which is the clear this always did.
+    setSelectedId(pendingPlace.current);
+    pendingPlace.current = null;
     setManageAccountId(null);
   }, [accounts.scope]);
 
@@ -3275,6 +3322,26 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                 ? accounts.switchTo(accounts.current.id)
                 : accounts.switchToAgency()
             }
+            /*
+              Labs and Company are agency places, so reaching them from a
+              sub-account's Settings changes scope as well as selecting —
+              which is what the real product does: these pages belong to the
+              agency, and a sub-account opening them is going up a level
+              rather than finding them locally.
+
+              Already at agency scope, select outright. From a sub-account,
+              park the id and let the scope-change effect apply it on
+              arrival — see `pendingPlace`, and the clear that would
+              otherwise eat it.
+            */
+            onOpenSettings={(id) => {
+              if (accounts.scope === "agency") {
+                setSelectedId(id);
+                return;
+              }
+              pendingPlace.current = id;
+              accounts.switchToAgency();
+            }}
           />
         ) : (
         <>
@@ -3838,6 +3905,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
                  * is about accounts you are not looking at.
                  */
                 <SaasConfiguratorPage />
+              ) : agencyPlace && selectedId === "agency-labs" ? (
+                // The beta programme, and the one page in agency settings
+                // where Switchyard is the subject rather than the frame.
+                <LabsPage />
               ) : agencyPlace && selectedId === "agency-company" ? (
                 // The one agency settings page drawn in full: White label is
                 // where the logo pair lives.

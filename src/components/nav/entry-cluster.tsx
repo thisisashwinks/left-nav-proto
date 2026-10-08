@@ -617,17 +617,20 @@ function EditNavButton({
                     */
                     "cursor-not-allowed bg-nav-hover text-nav-fg-subtle"
                   : /*
-                      The accent, not inverted ink (Sep 30, Ashwin).
+                      The admin ink, on the shared axis. See ADMIN_ACCENTS.
 
-                      It was ink on the Aug 21 argument that a primary action
-                      need not borrow the accent. That held while the accent
-                      was the tenant's own colour and could be anything; with
-                      the platform on one blue at every scope, the primary
-                      action in the nav is the same object as the primary
-                      action on every page, and drawing it in a second colour
-                      made the nav look like a different product.
+                      Ink on Aug 21, the accent on Sep 30 — the argument then
+                      being that with the platform on one blue at every scope,
+                      the nav's primary is the same object as a page's primary
+                      and a second colour made the nav look like a different
+                      product. Oct 8 splits that: this button does not save a
+                      page, it saves a TEMPLATE, which is the agency's
+                      arrangement pushed at its accounts. It belongs to the
+                      same layer as bulk actions and attach, and it now wears
+                      the same token as them — blue included, when the axis
+                      says so.
                     */
-                    "bg-brand text-brand-fg hover:opacity-90 active:scale-95",
+                    "bg-[var(--admin-action)] text-[var(--admin-action-fg)] hover:bg-[var(--admin-action-hover)] active:scale-95",
               )}
             >
               {blocked > 0 ? null : <Check size={13} aria-hidden="true" />}

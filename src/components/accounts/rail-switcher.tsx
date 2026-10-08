@@ -322,7 +322,7 @@ export function RailDirectory({
               Near-black rather than mid-grey: this is the primary action of a
               selection state, and grey-on-grey reads as disabled.
             */
-            className="motion-tap flex h-[26px] shrink-0 items-center rounded-[7px] bg-[var(--hr-primary-600)] px-[9px] text-[12px] leading-none font-medium text-white active:scale-[0.98]"
+            className="motion-tap flex h-[26px] shrink-0 items-center rounded-[7px] bg-[var(--admin-action)] px-[9px] text-[12px] leading-none font-medium text-[var(--admin-action-fg)] hover:bg-[var(--admin-action-hover)] active:scale-[0.98]"
           >
             {/* No glyph. Sparkles reads as AI everywhere else in this shell —
                 it is the Ask AI mark — and a bulk run is the one thing here
@@ -732,18 +732,19 @@ function Box({
       className={cn(
         "motion-tap flex size-[17px] shrink-0 items-center justify-center rounded-[5px] border-[1.5px]",
         /*
-          Primary blue, with the Bulk actions button beside it — one ink for
-          the whole selection layer. Oct 5, Ashwin.
+          One ink for the whole selection layer, with the Actions button
+          beside it — and which ink is now an axis. See ADMIN_ACCENTS.
 
-          It was near-black, on the argument that selection is not branded and
-          the accent is the tenant's colour. That argument was about the
-          ACCENT, which changes per account; `--hr-primary-600` is the
-          product's own blue and does not move, so the objection it answered
-          does not apply to it. A tick is a system affordance and the system's
-          colour for "on" is blue.
+          It went near-black, then primary blue on Oct 5 (the argument being
+          that blue is the PRODUCT's colour and does not move per account,
+          unlike the accent), and is neutral again by default on Oct 8 with
+          blue one click away. The newer argument is not about which blue: a
+          tick that feeds a bulk run across forty sub-accounts belongs to the
+          agency operating on them, and the admin layer reads better when it
+          is visibly not part of any one tenant's product.
         */
         checked || mixed
-          ? "border-[var(--hr-primary-600)] bg-[var(--hr-primary-600)] text-white"
+          ? "border-[var(--admin-action)] bg-[var(--admin-action)] text-[var(--admin-action-fg)]"
           : "border-[var(--fly-border)] hover:border-nav-fg-subtle",
       )}
     >

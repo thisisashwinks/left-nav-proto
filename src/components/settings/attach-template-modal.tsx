@@ -310,7 +310,7 @@ export function AttachTemplateModal({
             className={cn(
               "motion-tap flex h-[36px] items-center rounded-[8px] px-[14px] text-[13.5px] leading-[20px] font-medium",
               changed
-                ? "bg-brand text-brand-fg hover:opacity-90 active:scale-[0.98]"
+                ? "bg-[var(--admin-action)] text-[var(--admin-action-fg)] hover:bg-[var(--admin-action-hover)] active:scale-[0.98]"
                 : // Nothing picked that is not already attached. Greyed rather
                   // than hidden: the button is where the eye goes to finish,
                   // and its absence reads as the modal having no way out.
@@ -364,12 +364,12 @@ function TemplateRow({
             className={cn(
               "flex size-[16px] items-center justify-center rounded-full",
               checked
-                ? "bg-brand shadow-[inset_0_0_0_1px_var(--brand)]"
+                ? "bg-[var(--admin-action)] shadow-[inset_0_0_0_1px_var(--admin-action)]"
                 : "shadow-[inset_0_0_0_1px_var(--pg-border-strong)]",
             )}
           >
             {checked ? (
-              <span className="size-[6px] rounded-full bg-brand-fg" />
+              <span className="size-[6px] rounded-full bg-[var(--admin-action-fg)]" />
             ) : null}
           </span>
         </span>

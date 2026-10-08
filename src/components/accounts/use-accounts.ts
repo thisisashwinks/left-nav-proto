@@ -128,13 +128,89 @@ export interface AccountsOptions {
   scopeToMember?: boolean;
 }
 
+/**
+ * The scope the query string asks for. See the note in `useAccounts`.
+ *
+ * Module level so the function identity is stable: `useSyncExternalStore`
+ * calls the snapshot on every render and compares by `Object.is`, so a
+ * closure recreated each render would be a new function but the same
+ * string — harmless here, and the stable form is the one that stays
+ * harmless if this ever returns an object.
+ */
+function scopeFromUrl(): WorkspaceScope {
+  return new URLSearchParams(window.location.search).get("scope") === "agency"
+    ? "agency"
+    : "account";
+}
+
+/** What the prerendered HTML was built with. */
+function scopeOnServer(): WorkspaceScope {
+  return "account";
+}
+
+/** The URL never changes at runtime, so there is nothing to subscribe to. */
+function NO_URL_CHANGES(): () => void {
+  return () => {};
+}
+
 export function useAccounts({
   scopeToMember = false,
 }: AccountsOptions = {}): AccountsSession {
   // Whether visiting an account puts it on the rail. See RAIL_RECENTS.
   const { railRecents } = useTheme().effective;
   const [currentId, setCurrentId] = React.useState(INITIAL_ACCOUNT_ID);
-  const [scope, setScope] = React.useState<WorkspaceScope>("account");
+  /*
+   * `?scope=agency` opens the shell at agency scope.
+   *
+   * The one piece of URL state this prototype reads, and it exists for one
+   * caller: Labs' preview links, which have to open a NEW TAB showing a
+   * particular sidebar. A new tab starts with fresh React state, so without
+   * this the link could only ever land on whatever the default is — which
+   * for the agency preview is the wrong sidebar entirely.
+   *
+   * THROUGH `useSyncExternalStore`, and the two wrong answers are worth
+   * recording because both are the obvious one.
+   *
+   * A lazy `useState` initialiser was the first cut. This app prerenders to
+   * static HTML, so the server has no URL and always renders the account
+   * scope; a client that seeded itself from the query string disagreed with
+   * that HTML on its first render and React threw the tree away and rebuilt
+   * it — a hydration error in the console on every visit to the one page
+   * the agency preview exists to reach. Caught by the White Label session.
+   *
+   * Reading it in an effect was the second, and it trades a console error
+   * for a frame of the wrong nav — which `react-hooks/set-state-in-effect`
+   * refuses outright, correctly: an effect that immediately sets state is a
+   * render the component already had the answer for.
+   *
+   * This hook is the shape React provides for exactly this: a value the
+   * server cannot know and the client can. `getServerSnapshot` returns the
+   * default, so the prerendered HTML and the hydrating render agree; the
+   * client snapshot is read straight after, with no mismatch and no wasted
+   * frame. Nothing ever changes the URL at runtime, so `subscribe` has
+   * nothing to listen to.
+   */
+  const urlScope = React.useSyncExternalStore(
+    NO_URL_CHANGES,
+    scopeFromUrl,
+    scopeOnServer,
+  );
+  /*
+   * What the reader has since chosen, if anything.
+   *
+   * Null rather than seeded from `urlScope`, so "never switched" and
+   * "switched back to where the URL started" stay distinguishable — and so
+   * that the URL's answer cannot be captured into state before hydration
+   * has settled on it.
+   *
+   * The setter keeps the name `setScope` rather than being aliased to it:
+   * an alias is a fresh binding as far as the hooks lint can tell, so every
+   * callback that closes over it starts reporting a missing dependency for
+   * something React guarantees is stable.
+   */
+  const [picked, setScope] = React.useState<WorkspaceScope | null>(null);
+  const scope = picked ?? urlScope;
+
   const [recentIds, setRecentIds] =
     React.useState<readonly string[]>(INITIAL_RECENT_IDS);
   const [pinnedIds, setPinnedIds] =

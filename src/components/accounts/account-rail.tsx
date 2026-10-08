@@ -1165,7 +1165,7 @@ export function AccountRail({
                       className={cn(
                         "motion-tap flex size-[16px] shrink-0 items-center justify-center rounded-[4px]",
                         fillAllOn || fillSomeOn
-                          ? "bg-[var(--hr-primary-600)] text-white"
+                          ? "bg-[var(--admin-action)] text-[var(--admin-action-fg)]"
                           : "shadow-[inset_0_0_0_1.5px_var(--fly-border)] hover:shadow-[inset_0_0_0_1.5px_var(--nav-fg-subtle)]",
                       )}
                     >
@@ -1202,7 +1202,7 @@ export function AccountRail({
                     <button
                       type="button"
                       onClick={() => setFillBulk({ path: null })}
-                      className="motion-tap flex h-[24px] shrink-0 items-center rounded-[7px] bg-[var(--hr-primary-600)] px-[8px] text-[11.5px] leading-none font-medium text-white active:scale-[0.98]"
+                      className="motion-tap flex h-[24px] shrink-0 items-center rounded-[7px] bg-[var(--admin-action)] px-[8px] text-[11.5px] leading-none font-medium text-[var(--admin-action-fg)] hover:bg-[var(--admin-action-hover)] active:scale-[0.98]"
                     >
                       Actions
                     </button>
@@ -2032,7 +2032,7 @@ function RailRow({
               className={cn(
                 "flex size-[16px] shrink-0 items-center justify-center rounded-[4px]",
                 tick
-                  ? "bg-[var(--hr-primary-600)] text-white"
+                  ? "bg-[var(--admin-action)] text-[var(--admin-action-fg)]"
                   : "shadow-[inset_0_0_0_1.5px_var(--fly-border)]",
               )}
             >

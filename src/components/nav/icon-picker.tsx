@@ -118,7 +118,7 @@ export function IconPicker({
               className={cn(
                 "motion-tap flex size-[30px] items-center justify-center rounded-[6px]",
                 name === selected
-                  ? "bg-brand text-brand-fg"
+                  ? "bg-[var(--admin-action)] text-[var(--admin-action-fg)]"
                   : "text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg",
               )}
             >

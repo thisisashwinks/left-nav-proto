@@ -1989,3 +1989,40 @@
   --nav-sel-fg-muted: color-mix(in oklab, var(--brand-fg) 76%, transparent);
   --nav-sel-fg-subtle: color-mix(in oklab, var(--brand-fg) 62%, transparent);
 }
+
+/*
+ * The admin action's colour. See ADMIN_ACCENTS.
+ *
+ * One pair of tokens for every Switchyard primary — bulk actions, the
+ * checkboxes that feed them, attach and save on a template, discard on an
+ * edit session. Named rather than inlined because the point is that they are
+ * ONE control wearing one colour across four surfaces; four call sites each
+ * picking a grey is how they drift.
+ *
+ * Declared on :root so the portalled modals see it. They mount on <body>,
+ * outside every [data-page-theme] scope, which is the same reason the rail's
+ * tooltip has to carry literal overlay colours.
+ *
+ * gray-800 rather than gray-900: 900 is the ink the labels around these
+ * buttons are set in, and a filled button in the exact colour of the text
+ * beside it reads as a hole in the page rather than as a control.
+ */
+:root {
+  --admin-action: var(--hr-gray-800);
+  --admin-action-hover: var(--hr-gray-900);
+  --admin-action-fg: #ffffff;
+}
+
+/*
+ * ...or the account's accent, for the comparison.
+ *
+ * `--brand`, not a literal blue: if this is going to be the tenant's colour
+ * then it has to actually be theirs, including the part where it changes
+ * between accounts. That is the argument against, drawn rather than
+ * described.
+ */
+:root[data-admin-accent="blue"] {
+  --admin-action: var(--brand);
+  --admin-action-hover: var(--brand);
+  --admin-action-fg: var(--brand-fg);
+}

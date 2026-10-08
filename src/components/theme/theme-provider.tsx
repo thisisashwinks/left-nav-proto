@@ -51,6 +51,7 @@ import {
   type DirectoryExit,
   type RailFillMorph,
   type RailFillRest,
+  type AdminAccent,
   type RailSizing,
   type EditTreatment,
   type RenameAffordance,
@@ -93,6 +94,7 @@ import type {
   PlaneSeam,
   CanvasBleed,
   CanvasPad,
+  CustomCodeMode,
   PlaneHead,
   EntryPair,
   AiDockTop,
@@ -222,6 +224,7 @@ interface ThemeContextValue extends ThemeState {
   setRailFillAgency: (on: boolean) => void;
   setRailHoldInset: (on: boolean) => void;
   setRailFillRest: (v: RailFillRest) => void;
+  setAdminAccent: (v: AdminAccent) => void;
   setPlaneGround: (v: PlaneGround) => void;
   setPinnedRowEdit: (on: boolean) => void;
   setPinnedShortcuts: (on: boolean) => void;
@@ -230,6 +233,7 @@ interface ThemeContextValue extends ThemeState {
   setPlaneSeam: (v: PlaneSeam) => void;
   setCanvasBleed: (v: CanvasBleed) => void;
   setCanvasPad: (v: CanvasPad) => void;
+  setCustomCodeMode: (v: CustomCodeMode) => void;
   setPlaneHead: (v: PlaneHead) => void;
   setEntryPair: (v: EntryPair) => void;
   setAiDockTop: (v: AiDockTop) => void;
@@ -487,6 +491,9 @@ export function ThemeProvider({
       `[data-nav-dark="navy"] [data-nav-theme="dark"]` in tokens.css.
     */
     root.dataset.navDark = effective.navDarkTone;
+    // On <html> because the surfaces that read it are portalled to <body>
+    // and inherit nothing from the shell. See ADMIN_ACCENTS.
+    root.dataset.adminAccent = effective.adminAccent;
     if (activeOverride.customAccent) {
       root.style.setProperty("--custom-accent", activeOverride.customAccent);
     }
@@ -495,6 +502,7 @@ export function ThemeProvider({
     effective.appTheme,
     effective.tint,
     effective.navDarkTone,
+    effective.adminAccent,
     activeOverride.customAccent,
   ]);
 
@@ -571,6 +579,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, railHoldInset })),
       setRailFillRest: (railFillRest) =>
         setState((s) => ({ ...s, railFillRest })),
+      setAdminAccent: (adminAccent) =>
+        setState((s) => ({ ...s, adminAccent })),
       setPlaneGround: (planeGround) => setState((s) => ({ ...s, planeGround })),
       setPinnedRowEdit: (pinnedRowEdit) =>
         setState((s) => ({ ...s, pinnedRowEdit })),
@@ -583,6 +593,8 @@ export function ThemeProvider({
       setCanvasBleed: (canvasBleed) =>
         setState((s) => ({ ...s, canvasBleed })),
       setCanvasPad: (canvasPad) => setState((s) => ({ ...s, canvasPad })),
+      setCustomCodeMode: (customCodeMode) =>
+        setState((s) => ({ ...s, customCodeMode })),
       setPlaneHead: (planeHead) => setState((s) => ({ ...s, planeHead })),
       setEntryPair: (entryPair) => setState((s) => ({ ...s, entryPair })),
       setAiDockTop: (aiDockTop) => setState((s) => ({ ...s, aiDockTop })),

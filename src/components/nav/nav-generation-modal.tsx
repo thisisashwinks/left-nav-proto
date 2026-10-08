@@ -131,7 +131,7 @@ export function NavGenerationModal({ onClose }: { onClose: () => void }) {
                 className={cn(
                   "motion-tap flex flex-col gap-[12px] rounded-[8px] p-[12px] text-left",
                   selected
-                    ? "bg-brand-soft shadow-[inset_0_0_0_1.5px_var(--brand)]"
+                    ? "bg-nav-hover shadow-[inset_0_0_0_1.5px_var(--admin-action)]"
                     : "shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg",
                 )}
               >
@@ -190,7 +190,7 @@ export function NavGenerationModal({ onClose }: { onClose: () => void }) {
                 setNavGeneration(pending);
                 onClose();
               }}
-              className="motion-tap flex h-[36px] items-center rounded-[6px] bg-brand px-[12px] text-[14px] leading-none font-medium text-brand-fg hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:opacity-40"
+              className="motion-tap flex h-[36px] items-center rounded-[6px] bg-[var(--admin-action)] px-[12px] text-[14px] leading-none font-medium text-[var(--admin-action-fg)] hover:bg-[var(--admin-action-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
             >
               Save changes
             </button>
@@ -222,7 +222,7 @@ function NavSketch({ generation }: { generation: NavGeneration }) {
       >
         {generation === "legacy" ? null : (
           <>
-            <span className={cn(bar, "h-[6px] w-full bg-brand opacity-70")} />
+            <span className={cn(bar, "h-[6px] w-full bg-[var(--admin-action)] opacity-70")} />
             <span className={cn(bar, "h-[6px] w-full")} />
             <span className={cn(bar, "h-[6px] w-full")} />
           </>

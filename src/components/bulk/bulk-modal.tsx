@@ -1552,7 +1552,7 @@ function Matrix({
                         className={cn(
                           "motion-tap w-[92px] rounded-[6px] px-[8px] py-[5px] text-[13px] leading-[18px] font-medium",
                           action === "enable"
-                            ? "bg-brand text-brand-fg"
+                            ? "bg-[var(--admin-action)] text-[var(--admin-action-fg)]"
                             : action === "disable"
                               ? "bg-pg-row-border text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border-strong)]"
                               : "bg-transparent text-pg-faint shadow-[inset_0_0_0_1px_var(--pg-border)]",
@@ -1633,7 +1633,7 @@ function Box({
       className={cn(
         "motion-tap flex size-[17px] shrink-0 cursor-pointer items-center justify-center rounded-[5px] border-[1.5px]",
         checked || mixed
-          ? "border-brand bg-brand text-white"
+          ? "border-[var(--admin-action)] bg-[var(--admin-action)] text-[var(--admin-action-fg)]"
           : "border-pg-disabled bg-pg-surface hover:border-pg-muted",
       )}
     >
@@ -1664,7 +1664,7 @@ function Switch({
       onClick={() => onChange(!on)}
       className={cn(
         "motion-tap relative h-[20px] w-[36px] shrink-0 rounded-full transition-colors duration-150",
-        on ? "bg-brand" : "bg-pg-border-strong",
+        on ? "bg-[var(--admin-action)]" : "bg-pg-border-strong",
       )}
     >
       <span
@@ -1730,7 +1730,7 @@ function PrimaryButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="motion-tap flex h-[36px] shrink-0 items-center rounded-[6px] bg-brand px-[12px] text-[14px] leading-[20px] font-medium text-brand-fg hover:opacity-90 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40"
+      className="motion-tap flex h-[36px] shrink-0 items-center rounded-[6px] bg-[var(--admin-action)] px-[12px] text-[14px] leading-[20px] font-medium text-[var(--admin-action-fg)] hover:bg-[var(--admin-action-hover)] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40"
     >
       {children}
     </button>

@@ -420,7 +420,10 @@ function ToggleTrack({ on }: { on: boolean }) {
       aria-hidden="true"
       className={cn(
         "relative ml-[2px] h-[16px] w-[28px] shrink-0 rounded-full transition-colors duration-150",
-        on ? "bg-brand" : "bg-[var(--nav-divider)]",
+        // The admin ink, shared with every other Switchyard control. These
+        // switches decide what an agency's nav SHOWS, which is the template
+        // layer, not the tenant's product. See ADMIN_ACCENTS.
+        on ? "bg-[var(--admin-action)]" : "bg-[var(--nav-divider)]",
       )}
     >
       <span

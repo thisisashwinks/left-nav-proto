@@ -225,7 +225,7 @@ export function ShortcutModal({
             <button
               type="button"
               onClick={save}
-              className="motion-tap flex h-[36px] items-center rounded-[8px] bg-brand px-[14px] text-[13.5px] leading-[20px] font-medium text-brand-fg hover:opacity-90 active:scale-[0.98]"
+              className="motion-tap flex h-[36px] items-center rounded-[8px] bg-[var(--admin-action)] px-[14px] text-[13.5px] leading-[20px] font-medium text-[var(--admin-action-fg)] hover:bg-[var(--admin-action-hover)] active:scale-[0.98]"
             >
               Save
             </button>

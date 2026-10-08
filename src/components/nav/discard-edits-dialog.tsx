@@ -86,7 +86,7 @@ export function DiscardEditsDialog({
             // Amber rather than red, and the default focus stays on the safe
             // button — the sequence that gets here is a mis-click away from
             // losing a session's work.
-            className="motion-tap flex h-[36px] items-center rounded-[6px] bg-[var(--hr-warning-600)] px-[12px] text-[14px] leading-[20px] font-medium text-white hover:bg-[var(--hr-warning-700)] active:scale-[0.98]"
+            className="motion-tap flex h-[36px] items-center rounded-[6px] bg-[var(--admin-action)] px-[12px] text-[14px] leading-[20px] font-medium text-[var(--admin-action-fg)] hover:bg-[var(--admin-action-hover)] active:scale-[0.98]"
           >
             Discard changes
           </button>
