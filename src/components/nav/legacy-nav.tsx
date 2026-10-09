@@ -294,10 +294,10 @@ export function LegacyNav({
           <button
             type="button"
             onClick={() => setSettingsOpen(false)}
-            className="motion-tap flex h-[36px] w-[40%] shrink-0 items-center gap-[8px] rounded-r-[8px] bg-nav-hover pr-[10px] pl-[24px] text-left hover:bg-nav-rail-hover"
+            className="motion-tap flex h-[36px] w-fit max-w-[70%] min-w-[40%] shrink-0 items-center gap-[8px] rounded-r-[8px] bg-nav-hover pr-[20px] pl-[24px] text-left hover:bg-nav-rail-hover"
           >
             <ArrowLeft size={16} aria-hidden="true" className="shrink-0 text-nav-fg" />
-            <span className="truncate text-[14px] leading-[19px] font-medium text-nav-fg">
+            <span className="whitespace-nowrap text-[14px] leading-[19px] font-medium text-nav-fg">
               Go Back
             </span>
           </button>
