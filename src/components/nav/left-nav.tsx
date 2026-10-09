@@ -68,7 +68,7 @@ import {
   nextGroupIdFor,
   UNGROUPED_ID,
 } from "./grouping";
-import { AGENCY_L1_MIME, L1_MIME, L2_MIME } from "./nav-drag";
+import { AGENCY_L1_MIME, L1_MIME, L2_MIME, L3_MIME } from "./nav-drag";
 import { productMenuActions, productTreeOptions } from "./product-options";
 import { RowSeam } from "./row-seam";
 import { IconPicker, useIconPicker } from "./icon-picker";
@@ -2573,20 +2573,41 @@ export function LeftNav({
   );
 
   /** A seam between two categories: takes a category, offers both to add. */
+  /*
+   * One seam, both payloads, every position in the column.
+   *
+   * It took categories only, and a product in flight lit nothing between two
+   * of them — the tail's own seams were the only lines on screen, which is the
+   * "there is only an affordance below Desktop & mobile apps" Ashwin reported
+   * on Oct 9. The cause was the model rather than the seam: a product could
+   * not BE between two categories. With one ordered L1 list it can, so the
+   * seam takes what it always should have and `placeAtL1` does the arithmetic.
+   */
   const gap = (index: number) =>
     seam(`cat-${index}`, index, {
-      accepts: [L1_MIME],
-      onDrop: (id) => dropCategoryAt(id, index),
-      // A product cannot sit between two categories — the tail is where rows
-      // without a category live — so it goes to the head of the tail.
+      /*
+        L3 too: dropping a child here means "pull this page out of its
+        product and stand it on its own", which is a move the store can now
+        make — see the lifted-child branch of `tailRowsFor`.
+      */
+      accepts: [L1_MIME, L2_MIME, L3_MIME],
+      onDrop: (id, mime) =>
+        mime === L1_MIME
+          ? dropCategoryAt(id, index)
+          : layout.placeAtL1(id, index),
       tailIndex: 0,
     });
 
   /** A seam in the tail: takes any row, and puts a new one exactly here. */
   const tailSeam = (index: number) =>
     seam(`tail-${index}`, index, {
-      accepts: [L2_MIME],
-      onDrop: (id) => layout.placeInTail(id, index),
+      // A category can land here too now — the tail's positions are L1
+      // positions, so there is nothing left for a category seam to refuse.
+      accepts: [L1_MIME, L2_MIME, L3_MIME],
+      onDrop: (id, mime) =>
+        mime === L1_MIME
+          ? dropCategoryAt(id, index)
+          : layout.placeAtL1(id, index),
       tailIndex: index,
     });
 
@@ -2600,10 +2621,12 @@ export function LeftNav({
    */
   const boundarySeam = (categoryCount: number) =>
     seam(`boundary`, categoryCount, {
-      accepts: [L1_MIME, L2_MIME],
+      accepts: [L1_MIME, L2_MIME, L3_MIME],
       onDrop: (id, mime) => {
         if (mime === L1_MIME) dropCategoryAt(id, categoryCount);
-        else layout.placeInTail(id, 0);
+        // Its own position now, not the head of the tail: this seam is a place
+        // in the L1 list like any other.
+        else layout.placeAtL1(id, categoryCount);
       },
       tailIndex: 0,
     });

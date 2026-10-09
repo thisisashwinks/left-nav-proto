@@ -46,11 +46,15 @@ export function AgencyCompanyPage({ agency }: { agency: Account }) {
      * bar at the window's edge and overlaid rather than reserved — so the
      * page's job is to be tall, not to scroll itself.
      *
-     * Max width is the design system's body measure. Without it the Logo
-     * card's three fields stretch the width of a 1900px window and the
-     * Save that commits them ends up a hand's width from them.
+     * No max width. The design system's 1160px body measure was here and was
+     * removed on Ashwin's call (Oct 9): production's own White Label page
+     * runs the full width of the window, and a prototype that narrows it is
+     * comparing two different pages. The cost is real — the Logo card's three
+     * fields stretch out at 1900px and the Save that commits them sits a
+     * hand's width away — and it is production's cost to show, not ours to
+     * quietly fix.
      */
-    <div className="mx-auto w-full max-w-[1160px] px-[var(--page-inset)] pb-[24px]">
+    <div className="w-full px-[var(--page-inset)] pb-[24px]">
       <header>
         {showTitle ? (
           <>

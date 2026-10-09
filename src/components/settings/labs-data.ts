@@ -86,12 +86,19 @@ const SWITCHYARD = {
  * Sub-Account tab and then showed the agency nav would be demonstrating the
  * wrong thing to the person deciding.
  *
+ * `preview=1` is a second, separate flag, and it is what the opened tab
+ * puts a band across the top for — see PREVIEW_BANNER_DEFAULT. Separate
+ * from `scope` because the two say different things: `scope` is which
+ * sidebar to build, `preview` is that this window is a look rather than a
+ * workspace. Someone landing on `?scope=agency` by hand is not previewing
+ * anything and should not be told they are.
+ *
  * Relative, so the link survives being served from localhost, a preview
  * deployment or a share URL without anybody editing it.
  */
 export const SWITCHYARD_PREVIEW = {
-  agency: "?scope=agency",
-  sub: "?scope=account",
+  agency: "?scope=agency&preview=1",
+  sub: "?scope=account&preview=1",
 } as const;
 
 export const AGENCY_FLAGS: readonly LabsFlag[] = [

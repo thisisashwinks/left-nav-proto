@@ -401,6 +401,21 @@ export interface FlyoutRowEdit {
 export interface FlyoutChildEdit {
   onPickIcon: (childId: string, trigger: HTMLElement) => void;
   onOpenMenu: (childId: string, trigger: HTMLElement) => void;
+  /*
+   * The drag half, present only while L3 rows are arrangeable.
+   *
+   * Optional for the same reason `FlyoutRowEdit.onDragStart` is: the grip is
+   * drawn if and only if there is a handler for it, so withholding the
+   * handler is how a row that has nowhere to go stops offering to go there —
+   * a product with one child, for instance, whose two seams are the same
+   * position. See L3_ARRANGE_DEFAULT.
+   */
+  onDragStart?: (childId: string, e: React.DragEvent) => void;
+  onDragEnd?: () => void;
+  /** The child currently in flight, so its row can show it has left. */
+  liftedId?: string | null;
+  /** A drop line for position `index` of `parentId`'s children. */
+  seam?: (parentId: string, index: number) => React.ReactNode;
 }
 
 interface FlyoutRowProps {
@@ -1101,6 +1116,8 @@ export function FlyoutRow({
           <FlyoutChildRows
             nodes={item.children ?? []}
             depth={0}
+            // Whose list this is, so the seams can name a position in it.
+            parentId={item.id}
             activeId={activeId}
             onSelect={onSelect}
             tabsInNav={tabsInNav}
@@ -1221,6 +1238,7 @@ export function FlyoutChildRows({
   onSelect,
   tabsInNav,
   edit,
+  parentId,
   cascade,
 }: {
   nodes: readonly FlyoutChildItem[];
@@ -1238,6 +1256,13 @@ export function FlyoutChildRows({
   onSelect?: (id: string, keepOpen?: boolean) => void;
   tabsInNav: boolean;
   edit?: FlyoutChildEdit;
+  /**
+   * Whose children these are, for the seams.
+   *
+   * Absent wherever a list has no reorderable parent — the recursive L4 call
+   * below, for one — and the seams simply do not draw. See the map.
+   */
+  parentId?: string;
 }) {
   return (
     <div
@@ -1267,17 +1292,32 @@ export function FlyoutChildRows({
         !cascade && (depth === 0 ? "ml-[19px] pl-[14px]" : "ml-[9px] pl-[12px]"),
       )}
     >
-      {nodes.map((child) => (
-        <FlyoutChildRow
-          key={child.id}
-          {...(cascade ? { cascade } : {})}
-          child={child}
-          depth={depth}
-          activeId={activeId}
-          onSelect={onSelect}
-          tabsInNav={tabsInNav}
-          {...(edit ? { edit } : {})}
-        />
+      {nodes.map((child, i) => (
+        <React.Fragment key={child.id}>
+          {/*
+            The drop line above each child, when the panel has given us one.
+
+            The arithmetic stays in the panel — same division of labour the L2
+            seams keep — so this component only has to know WHERE a line goes,
+            never what dropping there means. `parentId` is what makes that
+            possible: a seam needs to name the list it is a position in, and
+            the children do not otherwise know whose they are.
+          */}
+          {edit?.seam && parentId ? edit.seam(parentId, i) : null}
+          <FlyoutChildRow
+            {...(cascade ? { cascade } : {})}
+            child={child}
+            depth={depth}
+            activeId={activeId}
+            onSelect={onSelect}
+            tabsInNav={tabsInNav}
+            {...(edit ? { edit } : {})}
+          />
+          {/* And one after the last, so a row can be moved to the end. */}
+          {edit?.seam && parentId && i === nodes.length - 1
+            ? edit.seam(parentId, nodes.length)
+            : null}
+        </React.Fragment>
       ))}
     </div>
   );
@@ -1489,6 +1529,31 @@ function FlyoutChildRow({
         )}
       >
         {mark.bar ? <HereBar marking={marking} /> : null}
+        {/*
+          The grip, mirroring the L2 row's exactly.
+
+          The GRIP is the draggable element and not the row, for the reason
+          one rung up: a mousedown inside a control does not start an
+          ancestor's drag, and this row is full of them in edit mode. Drawn
+          only when there is a handler, so a child with nowhere to go does not
+          offer to be moved. See FlyoutChildEdit.
+        */}
+        {edit?.onDragStart ? (
+          <span
+            data-drag-handle=""
+            draggable
+            role="button"
+            tabIndex={-1}
+            aria-label={`Reorder ${child.label}`}
+            title="Drag to reorder"
+            onDragStart={(e) => edit.onDragStart?.(child.id, e)}
+            onDragEnd={edit.onDragEnd}
+            onClick={(e) => e.stopPropagation()}
+            className="motion-grip-in -ml-[4px] flex size-[18px] shrink-0 cursor-grab items-center justify-center self-center overflow-hidden rounded-[4px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:cursor-grabbing"
+          >
+            <GripVertical size={14} aria-hidden="true" />
+          </span>
+        ) : null}
         {child.icon ? (
           edit ? (
             /*

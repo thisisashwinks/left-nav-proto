@@ -13,8 +13,12 @@ import {
   type EditBlock,
 } from "./nav-profiles";
 import { productById } from "./catalogue";
+import type { CatalogueChild } from "./catalogue-types";
 import { l1IdsFor, tailRowsFor } from "./nav-entries";
 import {
+  withRowDetached,
+  withChildFiled,
+  childrenFor,
   defaultLabelForGroup,
   iconForGroup,
   iconForProduct,
@@ -177,6 +181,24 @@ interface NavLayoutContextValue {
    * the tail rather than where it was dropped.
    */
   placeInTail: (rowId: string, index: number) => void;
+  /**
+   * Put a row at `index` of the one ordered L1 list.
+   *
+   * Categories and loose rows share that list now, so this is the verb for
+   * every L1 seam — "between these two categories" included, which
+   * `placeInTail` could not express. See its implementation.
+   */
+  placeAtL1: (rowId: string, index: number) => void;
+  /**
+   * Files a child under a product, taking it out of wherever it was.
+   *
+   * The verb the catalogue could not provide: a child belongs to the product
+   * that authored it, and this is the account saying otherwise. See
+   * `withChildFiled`, and `childrenFor` for how the two are reconciled.
+   */
+  moveChildToProduct: (childId: string, parentId: string) => void;
+  /** A product's children as this account has arranged them. */
+  childrenOf: (productId: string) => readonly CatalogueChild[];
   /**
    * The rows of one of the nav's own panels, in this account's order.
    *
@@ -1310,9 +1332,18 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         commit(`Added ${trimmed}`, (s) => {
           const added = withNewGroup(s, trimmed, id);
           if (added === s) return s;
-          const order = resolveGroups(added)
-            .map((g) => g.id)
-            .filter((gid) => gid !== UNGROUPED_ID);
+          /*
+            The whole L1 list, not the categories in it.
+
+            `index` is a position in the column the seam was clicked in, and
+            that column holds loose rows as well now — so measuring against a
+            categories-only list placed a category several rows above where
+            the line had been drawn. The same class of bug `moveGroup` records
+            having fixed once already. See `l1IdsFor`.
+          */
+          const order = l1IdsFor(added, resolveGroups(added)).filter(
+            (gid) => gid !== UNGROUPED_ID,
+          );
           const from = order.indexOf(id);
           if (from < 0) return added;
           const next = [...order];
@@ -1369,14 +1400,61 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
           return { ...s, panelOrder: { ...s.panelOrder, [panelId]: next } };
         }),
 
+      /*
+       * Put a row at `index` of the ONE L1 list — categories and loose rows
+       * alike. See `l1IdsFor`.
+       *
+       * The verb the interleaved column needed: `placeInTail` can only express
+       * positions within the tail, so "between these two categories" had no
+       * call to make. This one writes `groupOrder[mode]`, which is where the
+       * whole L1 order lives now, and unfiles the row first for exactly the
+       * reason `placeInTail` does — a row still claimed by a category would be
+       * drawn by its shelf as well as by its new position.
+       *
+       * `tailOrder` is written too, and not as a leftover: the flat tree has no
+       * L1 run at all and still orders by it, and templates carry it. Keeping
+       * both in step here is cheaper than a migration, and the two cannot
+       * disagree because this is the only place that writes either.
+       */
+      moveChildToProduct: (childId, parentId) =>
+        commit(
+          `Moved ${labelForProduct(state, childId)} to ${labelForProduct(
+            state,
+            parentId,
+          )}`,
+          (s) => withChildFiled(s, childId, parentId),
+        ),
+      childrenOf: (productId) => childrenFor(state, productId),
+
+      placeAtL1: (rowId, index) =>
+        commit(placeInTailMessage(state, rowId), (s) => {
+          // Out of its category, its old parent and the top level alike —
+          // one helper, so no record is left claiming it. See withRowDetached.
+          const unfiled = withRowDetached(s, rowId);
+          const current = l1IdsFor(unfiled, resolveGroups(unfiled));
+          const without = current.filter((id) => id !== rowId);
+          const at = Math.max(0, Math.min(index, without.length));
+          const next = [...without];
+          next.splice(at, 0, rowId);
+          const tail = tailRowsFor(
+            unfiled,
+            looseProductIds(unfiled, resolveGroups(unfiled)),
+          ).map((r) => r.id);
+          return {
+            ...unfiled,
+            groupOrder: { ...unfiled.groupOrder, [unfiled.grouping]: next },
+            // The tail, in the order the new L1 list implies.
+            tailOrder: next.filter((id) => tail.includes(id)),
+          };
+        }),
+
       placeInTail: (rowId, index) =>
         commit(placeInTailMessage(state, rowId), (s) => {
           // Unfiled first, so the tail it is being ordered into already contains
           // it — otherwise the splice would place it and looseProductIds would
-          // then append a second copy.
-          const unfiled = productById(rowId)
-            ? withProductFiled(s, rowId, null)
-            : s;
+          // then append a second copy. `withRowDetached` also clears a
+          // re-homed child's parent, which this used to leave standing.
+          const unfiled = withRowDetached(s, rowId);
           /*
             No chrome rows here any more — they are L1 rows, ordered by
             `groupOrder` alongside the categories. Counting them in the tail as

@@ -1300,8 +1300,14 @@ function NavStructureSection({
       />
       <Note>
         {whiteLabelApproach === "safe"
-          ? "Legacy code stops applying the moment Switchyard is on, and reusing it is a named opt-in. Two rows — one per navigation — with the number of sub-accounts each reaches. The approach the team agreed, and the only one that can ship inside the private beta."
-          : "White label holds the code and nothing else; who is on which navigation moves wholly to Labs, which becomes a rollout console. Swaps the Labs page too — the only approach that does."}
+          ? "Legacy code stops applying the moment Switchyard is on, and reusing it is a named opt-in. One card, with the number of sub-accounts each navigation reaches. The approach the team agreed, and the only one that can ship inside the private beta."
+          : whiteLabelApproach === "split"
+            ? "White label holds the code and nothing else; who is on which navigation moves wholly to Labs, which becomes a rollout console. Swaps the Labs page too — the only approach that does."
+            : whiteLabelApproach === "classic"
+              ? "Production’s page, untouched: Custom JS, Custom CSS and Theme as three separate sections with three Save buttons. Each carries a ‘coming soon for the new navigation’ tag, and a section above them holds the opt-in. The cheapest to ship and the quietest about the problem — the checkbox sits above the code it governs, with nothing joining them."
+              : whiteLabelApproach === "ideal"
+                ? "The end state, code half only. One group per navigation, each with its own CSS and JS; the theme sits inside the old group because it belongs to the old sidebar. No toggle and no warning — both existed only because one field served two navigations. Assumes the new nav supports custom code, so it cannot ship yet."
+                : "The end state, whole tab. The same per-navigation groups, in a page rebuilt around them: one Save with a count of what is pending instead of five, headings above their fields instead of beside them, and nothing on the page that warns."}
       </Note>
 
 {whiteLabelApproach === "safe" ? (
@@ -2976,6 +2982,8 @@ export function TuningPanel() {
     aiFloating,
     switchyardTry,
     setSwitchyardTry,
+    previewBanner,
+    setPreviewBanner,
     entryRadius,
     editRadius,
     setEditRadius,
@@ -2993,8 +3001,10 @@ export function TuningPanel() {
     setAiFloating,
     getAppPlacement,
     appsRowLabel,
+    l3Arrange,
     setGetAppPlacement,
     setAppsRowLabel,
+    setL3Arrange,
     agencySearch,
     agencyNavMark,
     setAgencyNavMark,
@@ -5246,6 +5256,18 @@ export function TuningPanel() {
           <Note>
             Open with ⌘K / Ctrl-K, or the search icon in the nav.
           </Note>
+          <Toggle
+            label="Preview tabs say so"
+            checked={previewBanner}
+            onChange={setPreviewBanner}
+            keywords="preview banner band demo tab switchyard labs test mode"
+          />
+          <Note>
+            {previewBanner
+              ? "A band across the top of a tab opened from a preview link. The preview is a real, working shell on demo data — it navigates, it edits, it looks exactly like the product — so the more faithful it is, the more it needs to say which window you are in."
+              : "No band. Worth it for a screenshot, where the band is the right thing in use and the wrong thing in a deck — and wrong for anything else, since the tab is otherwise indistinguishable from the real product."}
+          </Note>
+
           <Segmented
             label="Switchyard, before you commit"
             keywords="labs switchyard preview demo trial test mode try new tab"
@@ -5685,6 +5707,18 @@ export function TuningPanel() {
               </Note>
             </>
           ) : null}
+
+          <Toggle
+            label="Arrange L3 rows too"
+            keywords="l3 child reorder move remove icon drag arrange sub-page"
+            checked={l3Arrange}
+            onChange={setL3Arrange}
+          />
+          <Note>
+            {l3Arrange
+              ? "A child row gets every verb a product row has but Rename: reorder inside its parent, file it into a category, stand it at the top level, change its icon, take it out of the nav. If an agency arranges its own nav, stopping at the second rung is an arbitrary place to stop — and the rung below is where most of the rows are."
+              : "A child's menu holds one verb, Change icon. An L3 belongs to a product rather than to the account's tree, so filing or reordering it are moves the nav does not have."}
+          </Note>
 
           <Segmented
             label="Apps row name"

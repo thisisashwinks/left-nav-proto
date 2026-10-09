@@ -42,3 +42,19 @@ export const AGENCY_L1_MIME = "application/x-agency-bucket";
 
 /** A row from inside an agency bucket's panel. Payload: the row id. */
 export const AGENCY_L2_MIME = "application/x-agency-row";
+
+/**
+ * A child row from inside a product's own list. Payload: the child id.
+ *
+ * Its own type, by the same rule the others follow. Reusing `L2_MIME` would
+ * have lit every category seam, every panel seam and every branch seam the
+ * moment an L3 lifted — offering drops that mean nothing, because a child is
+ * not a product and most of those lists cannot hold one.
+ *
+ * What DOES take it is deliberate and short: the seams inside its own parent's
+ * child list, and the nav's own L1 seams, where dropping one means "pull this
+ * page out and stand it on its own". Both ends of that are real moves the
+ * store can make — see `placeAtL1` and the lifted-child branch of
+ * `tailRowsFor`.
+ */
+export const L3_MIME = "application/x-nav-child";

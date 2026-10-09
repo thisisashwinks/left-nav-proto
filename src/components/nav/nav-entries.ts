@@ -135,9 +135,38 @@ export function tailRowsFor(
     });
   }
   for (const extra of extras) byId.set(extra.id, extra);
+  /*
+   * Children the account has lifted to the top level.
+   *
+   * `looseProductIds` walks `allProducts`, so it can only ever name a PRODUCT
+   * — which meant "Move to top level" on an L3 wrote the id into `tailOrder`
+   * and then nothing drew it: the row was filtered out one line below, and the
+   * verb silently did nothing. (Found Oct 9, checking the L3 menu rather than
+   * trusting it.)
+   *
+   * `tailOrder` is itself the record of which children have been lifted — no
+   * new state. A child id is only in it because someone put it there, so
+   * resolving those ids here is reading the decision back rather than
+   * inventing one. The catalogue is untouched: the child still belongs to its
+   * product, and this is the account saying where it wants the row drawn.
+   */
+  const lifted: string[] = [];
+  for (const id of state.tailOrder) {
+    if (byId.has(id)) continue;
+    const hit = childById(id);
+    if (!hit) continue;
+    lifted.push(id);
+    byId.set(id, {
+      id,
+      label: labelForProduct(state, id),
+      icon: iconForProduct(state, id),
+      ...(liftedChildren(id).length > 0 ? { hasFlyout: true } : {}),
+    });
+  }
   for (const link of links) byId.set(link.id, link);
   const defaults = [
     ...looseIds,
+    ...lifted,
     ...extras.map((e) => e.id),
     ...links.map((l) => l.id),
   ];
@@ -200,9 +229,29 @@ export function l1IdsFor(
         (loose.length === 0 || g.id !== UNGROUPED_ID),
     )
     .map((g) => g.id);
+  /*
+   * ONE list, categories and lifted rows alike (Oct 9).
+   *
+   * It used to be shelves plus chrome, with everything else — the products no
+   * category claims, the account's own links — ordered separately by
+   * `tailOrder` and concatenated after. That is the two-list model, and the
+   * thing it made impossible is the thing Ashwin asked for: a product dropped
+   * BETWEEN two categories had nowhere to land, because "between two
+   * categories" was not a position the data could express. Every seam in the
+   * nav could only offer the head of the tail.
+   *
+   * No new state. `groupOrder[mode]` is already an ordered list of ids and
+   * `applyOrder` has never cared what KIND of id it holds — it keeps the ones
+   * the defaults mention, in the stored order, and appends the rest in their
+   * authored order. So widening the defaults is the whole change: an account
+   * that has never dragged renders byte-for-byte as before, because the
+   * appended order is still categories, then chrome, then tail.
+   */
+  const tail = tailRowsFor(state, loose).map((r) => r.id);
   return applyOrder(state.groupOrder[state.grouping], [
     ...shelves,
     ...chromeIds,
+    ...tail.filter((id) => !chromeIds.includes(id)),
   ]);
 }
 
@@ -291,9 +340,21 @@ export function navEntriesFor(
    * point of view, and the moment it was drawn from somewhere else it stopped
    * being reorderable with its neighbours.
    */
-  const l1Run = (shelves: readonly ResolvedGroup[]): NavEntry[] => {
+  const l1Run = (
+    shelves: readonly ResolvedGroup[],
+    /*
+     * The rows that are not shelves: loose products, chrome, account links.
+     *
+     * Passed in rather than rebuilt, because the caller already has them and
+     * because `l1IdsFor` orders ALL of it in one list now — so this function
+     * stopped being "the shelves" and became the whole column. See the note
+     * in `l1IdsFor`.
+     */
+    tailItems: readonly NavItem[] = [],
+  ): NavEntry[] => {
     const byId = new Map(shelves.map((g) => [g.id, g] as const));
     const chromeById = new Map(extras.map((e) => [e.id, e] as const));
+    const tailById = new Map(tailItems.map((i) => [i.id, i] as const));
     return l1IdsFor(
       state,
       groups,
@@ -302,7 +363,9 @@ export function navEntriesFor(
       const shelf = byId.get(id);
       if (shelf) return [shelfRow(shelf)];
       const chrome = chromeById.get(id);
-      return chrome ? [{ kind: "item", item: chrome }] : [];
+      if (chrome) return [{ kind: "item", item: chrome }];
+      const tail = tailById.get(id);
+      return tail ? [{ kind: "item", item: tail }] : [];
     });
   };
 
@@ -402,9 +465,25 @@ export function navEntriesFor(
       (loose.length === 0 || g.id !== UNGROUPED_ID),
   );
 
+  /*
+   * One run for the whole column, Oct 9.
+   *
+   * The two lists are gone: `l1IdsFor` now orders the shelves, the chrome rows
+   * and the tail together, so what used to be "categories, then a band, then
+   * the tail" is one ordered pass. A product can therefore sit between two
+   * categories, which is the position the nav could not express before.
+   *
+   * The "More" band is the one casualty, and deliberately. It marked the line
+   * where the categories stopped and the tail began, and with the rows
+   * interleaved there is no such line to mark — a heading over a boundary
+   * that has moved is worse than no heading. "Products" stays as the column's
+   * own title.
+   */
+  const tailItems = tailRowsFor(state, loose);
+
   return [
     ...(sectionHeadings ? [band("groups", "Products")] : []),
-    ...l1Run(shelves),
+    ...l1Run(shelves, tailItems),
     /*
      * No rule, and the tail built the same way the proposed tree builds it.
      *
@@ -421,12 +500,8 @@ export function navEntriesFor(
      * did not appear — while `placeInTail` had been computing positions as
      * though they did. These two branches now agree with the store.
      */
-    ...(sectionHeadings ? [band("groups-more", "More")] : []),
-    // No `extras`: the chrome rows are in the L1 run above now.
-    ...tailRowsFor(state, loose).map((item): NavEntry => ({
-      kind: "item",
-      item,
-    })),
+    // The tail is drawn by `l1Run` above now — see the note on it. Nothing is
+    // appended here, or every loose row would be drawn twice.
     ...extraEntries,
   ];
 }

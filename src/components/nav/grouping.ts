@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import type { CatalogueChild } from "./catalogue-types";
 import {
   Folder,
   GamepadDirectional,
@@ -353,6 +354,27 @@ export interface NavLayoutState {
    */
   panelOrder: Record<string, string[]>;
   /**
+   * Children the account has moved under a different product.
+   *
+   * Keyed by CHILD id, valued with the product that now owns it — the
+   * narrowest thing that can express the move, and deliberately not a
+   * per-parent list of children. A list would have to be kept in step with
+   * the catalogue's own (a product that gains a child in a later release must
+   * show it, not have it swallowed by a saved array that predates it), and
+   * keeping two orderings honest is the bug `panelOrder` exists to avoid. An
+   * override map answers one question — "has this child been re-homed?" — and
+   * says nothing about the ones nobody has touched.
+   *
+   * The catalogue stays frozen, which is the point. A child still belongs to
+   * the product that authored it; this is the ACCOUNT saying where it wants
+   * the row drawn, exactly as `tailOrder` does for a lifted one.
+   *
+   * Order within the new parent is `panelOrder`'s job, as it already is for
+   * the children that never moved — one of those two records where, the other
+   * records how far down.
+   */
+  childOf: Record<string, string>;
+  /**
    * The standing blocks the account has switched off.
    *
    * Recent, Quick Actions and the favourites dock are the three things in the nav
@@ -404,6 +426,7 @@ export const DEFAULT_LAYOUT: NavLayoutState = {
   customLinks: [],
   tailOrder: [],
   panelOrder: {},
+  childOf: {},
   /*
    * Quick actions starts off (Aug 28).
    *
@@ -1161,6 +1184,113 @@ export function seedCustomGroups(state: NavLayoutState): CustomGroup[] {
  * only hold state (the editor, which needs to know where a product sits before
  * it draws the control that moves it).
  */
+/**
+ * A product's children, as this account has arranged them.
+ *
+ * The catalogue's own list, minus any child the account has re-homed
+ * elsewhere, plus any it has brought in from another product. Both halves
+ * read from `childOf`, which is why they cannot disagree: one map, asked in
+ * two directions.
+ *
+ * Lifted children are taken out too. A child standing at the top level is a
+ * row in the nav already, and drawing it inside its old parent as well would
+ * be the same page in two places — the thing `withProductFiled` has always
+ * guaranteed for products and this now guarantees for children.
+ *
+ * Catalogue order is kept; `panelRowsFor` is what reorders, and an arrival
+ * from another product lands at the end until someone drags it, which is
+ * where a "move to" has always put things.
+ */
+export function childrenFor(
+  state: NavLayoutState,
+  productId: string,
+): readonly CatalogueChild[] {
+  const own = productById(productId)?.children ?? [];
+  const lifted = new Set(state.tailOrder);
+  const kept = own.filter(
+    (c) =>
+      (state.childOf[c.id] ?? productId) === productId && !lifted.has(c.id),
+  );
+  const adopted: CatalogueChild[] = [];
+  for (const [childId, parentId] of Object.entries(state.childOf)) {
+    if (parentId !== productId) continue;
+    if (lifted.has(childId)) continue;
+    if (kept.some((c) => c.id === childId)) continue;
+    const hit = childById(childId);
+    if (hit) adopted.push(hit.child);
+  }
+  /*
+   * ...and in the account's own order, which is the half this was missing.
+   *
+   * `panelOrder` was written by every reorder — the kebab's move up/down and
+   * the drag alike — and read by nothing that draws a child list, so a row
+   * moved to the end committed, the panel redrew, and the row was exactly
+   * where it started. The order existed; the list never asked for it. Same
+   * class of bug as the lifted child that was written to `tailOrder` and
+   * filtered straight back out.
+   *
+   * Applied as a diff against the resolved list rather than replacing it: a
+   * product that gains a child in a later release shows it, at its authored
+   * place, instead of being swallowed by a saved array that predates it.
+   */
+  const resolved = [...kept, ...adopted];
+  const saved = state.panelOrder[productId];
+  if (!saved) return resolved;
+  const known = saved.filter((id) => resolved.some((c) => c.id === id));
+  const order = [...known, ...resolved.map((c) => c.id).filter((id) => !known.includes(id))];
+  return order
+    .map((id) => resolved.find((c) => c.id === id))
+    .filter((c): c is CatalogueChild => c !== undefined);
+}
+
+/**
+ * Takes a row out of wherever it currently is, whatever that was.
+ *
+ * Three records can claim a row — a category's `productIds`, the top level's
+ * `tailOrder`, and now `childOf` — and every placement verb used to clear
+ * only the ones it happened to know about. That was survivable while a row
+ * could be in exactly two of them; with children re-homeable it is not, and a
+ * row claimed twice is drawn twice.
+ *
+ * So one helper clears all three and every verb calls it first. Cut, then
+ * place: that is the whole of the rule Ashwin asked for, in one function
+ * rather than spread across five.
+ */
+export function withRowDetached(
+  state: NavLayoutState,
+  rowId: string,
+): NavLayoutState {
+  const unfiled = productById(rowId)
+    ? withProductFiled(state, rowId, null)
+    : state;
+  const childOf = { ...unfiled.childOf };
+  delete childOf[rowId];
+  return {
+    ...unfiled,
+    childOf,
+    tailOrder: unfiled.tailOrder.filter((id) => id !== rowId),
+  };
+}
+
+/**
+ * Files a child under a product, taking it out of wherever it was.
+ *
+ * Refuses a move that would make a row its own ancestor, and refuses a
+ * parent that is not a product — both are states the resolvers cannot
+ * represent, and a store that can reach them is a store that will.
+ */
+export function withChildFiled(
+  state: NavLayoutState,
+  childId: string,
+  parentId: string,
+): NavLayoutState {
+  if (!childById(childId)) return state;
+  if (!productById(parentId)) return state;
+  if (childId === parentId) return state;
+  const detached = withRowDetached(state, childId);
+  return { ...detached, childOf: { ...detached.childOf, [childId]: parentId } };
+}
+
 export function looseProductIds(
   state: NavLayoutState,
   groups?: ResolvedGroup[],

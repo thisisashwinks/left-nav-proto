@@ -256,6 +256,7 @@ export function LabsPage() {
                         on: agencyOn,
                         onToggle: setAgencyOn,
                         onTry: () => startTrial("agency"),
+                        previewHref: SWITCHYARD_PREVIEW.agency,
                       }
                     : {})}
                 />
@@ -270,6 +271,18 @@ export function LabsPage() {
                         on: subOn,
                         onPickAccounts: () => setSheetOpen(true),
                         onTry: () => startTrial("account"),
+                        /*
+                          The AGENCY nav, from this tab too.
+
+                          This tab decides which sub-accounts get Switchyard,
+                          and the thing being decided about is the navigation
+                          — not any one account's copy of it. Previewing a
+                          sub-account sidebar from here would answer a
+                          question nobody on this screen is asking. The
+                          sub-account's own Labs is where that view belongs,
+                          and it has it.
+                        */
+                        previewHref: SWITCHYARD_PREVIEW.agency,
                       }
                     : {})}
                 />
@@ -675,6 +688,7 @@ export function FlagCard({
   onToggle,
   onPickAccounts,
   onTry,
+  previewHref,
 }: {
   flag: LabsFlag;
   /** Present on the Sub-Account tab: visibility and reach ride along. */
@@ -686,6 +700,13 @@ export function FlagCard({
   onPickAccounts?: () => void;
   /** Starts a trial of the new nav in this workspace. See SWITCHYARD_TRIES. */
   onTry?: () => void;
+  /**
+   * Which sidebar the preview link opens. See SWITCHYARD_PREVIEW.
+   *
+   * Stated by the page rather than worked out here: only the page knows
+   * whose nav the reader is deciding about.
+   */
+  previewHref?: string;
 }) {
   const [expanded, setExpanded] = React.useState(false);
   const { switchyardTry } = useTheme().effective;
@@ -695,6 +716,15 @@ export function FlagCard({
    * Only Switchyard carries a preview, and only because only Switchyard is
    * a thing this prototype can actually show. A link on a pictured flag
    * would open a tab onto nothing.
+   *
+   * The destination is the CALLER's to state, not this card's to infer.
+   * It was derived from `sub` — if the card is drawing the sub-account
+   * columns, preview the sub-account nav — which conflated two different
+   * facts: `sub` says whose columns these are, the preview says whose
+   * sidebar you are about to look at. On the agency's own Sub-Account tab
+   * those answers differ, and the inference got it wrong there — an agency
+   * deciding who to roll out to was shown a sub-account sidebar, when the
+   * thing it is deciding about is the navigation itself. Ashwin, Oct 9.
    */
   /*
    * A toggle, or the footer's Activate button — never both.
@@ -705,11 +735,7 @@ export function FlagCard({
    * be claiming otherwise.
    */
   const hasToggle = !sub && (flag.state === "on" || wired);
-  const preview = flag.id === "switchyard"
-    ? sub
-      ? SWITCHYARD_PREVIEW.sub
-      : SWITCHYARD_PREVIEW.agency
-    : null;
+  const preview = flag.id === "switchyard" ? (previewHref ?? null) : null;
   /*
    * A real flag reports the state it is actually in; a pictured one reports
    * the state its fixture claims. Same card either way — the difference is
@@ -807,7 +833,10 @@ export function FlagCard({
                 rel="noreferrer"
                 className="motion-tap inline-flex items-center gap-[4px] font-medium text-brand hover:underline"
               >
-                Preview {sub ? "the sub-account nav" : "the agency nav"}
+                Preview{" "}
+                {previewHref === SWITCHYARD_PREVIEW.sub
+                  ? "the sub-account nav"
+                  : "the agency nav"}
                 <ExternalLink size={12} aria-hidden="true" className="shrink-0" />
               </a>
             </>

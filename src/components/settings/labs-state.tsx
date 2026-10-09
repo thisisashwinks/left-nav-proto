@@ -194,3 +194,34 @@ export function LabsProvider({ children }: { children: React.ReactNode }) {
 export function useLabs(): LabsState {
   return React.useContext(LabsContext);
 }
+
+/**
+ * Whether this window was opened as a preview. See SWITCHYARD_PREVIEW.
+ *
+ * `useSyncExternalStore` and not a lazy `useState`, for the reason
+ * `use-accounts` records at length: this app prerenders to static HTML, so
+ * the server has no URL and a client that read one on its first render
+ * disagreed with that HTML and threw the tree away. The server snapshot is
+ * `false`; the client reads the query string straight after, with no
+ * mismatch and no wasted frame. Nothing changes the URL at runtime, so
+ * `subscribe` has nothing to listen to.
+ */
+function noUrlChanges(): () => void {
+  return () => {};
+}
+
+function previewFromUrl(): boolean {
+  return new URLSearchParams(window.location.search).get("preview") === "1";
+}
+
+function previewOnServer(): boolean {
+  return false;
+}
+
+export function useIsPreviewTab(): boolean {
+  return React.useSyncExternalStore(
+    noUrlChanges,
+    previewFromUrl,
+    previewOnServer,
+  );
+}

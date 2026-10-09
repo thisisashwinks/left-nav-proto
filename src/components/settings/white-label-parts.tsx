@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 export function Section({
   title,
   sub,
+  tag,
   children,
   onSave,
   dirty = false,
@@ -23,6 +24,16 @@ export function Section({
 }: {
   title: string;
   sub: string;
+  /**
+   * A short status chip under the description.
+   *
+   * For saying what a section does NOT reach yet without spending a sentence
+   * on it. A sentence appended to the description reads as part of what the
+   * field is for and ages badly — it has to be edited out again the day the
+   * support lands. A chip reads as a notice, sits apart from the copy, and
+   * can simply be removed. Ashwin, Oct 9.
+   */
+  tag?: string;
   children: React.ReactNode;
   onSave?: () => void;
   dirty?: boolean;
@@ -30,13 +41,18 @@ export function Section({
 }) {
   return (
     <section className="flex flex-col gap-[12px] border-t border-pg-border pt-[20px] md:flex-row md:gap-[24px]">
-      <header className="shrink-0 md:w-[200px] md:pt-[2px]">
+      <header className="shrink-0 md:w-[224px] md:pt-[2px]">
         <h3 className="text-[14px] leading-[20px] font-medium text-pg-heading">
           {title}
         </h3>
         <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
           {sub}
         </p>
+        {tag ? (
+          <span className="mt-[8px] inline-flex items-center rounded-[4px] bg-brand-soft px-[6px] py-[2px] text-[11px] leading-[16px] font-medium whitespace-nowrap text-brand">
+            {tag}
+          </span>
+        ) : null}
       </header>
 
       <div className="min-w-0 flex-1 rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-border)]">

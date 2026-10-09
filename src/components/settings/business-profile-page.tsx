@@ -4,6 +4,7 @@ import * as React from "react";
 import { Check, Copy, ImageUp, Info, Plus } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
 import { useBrand } from "@/components/accounts/brand-store";
+import { Select } from "@/components/page/form-controls";
 import { cn } from "@/lib/utils";
 import { PageTitle, usePageChrome } from "@/components/page/page-header";
 import { LogoUploadField } from "./logo-upload-field";
@@ -438,6 +439,7 @@ function SelectField({
   value,
   required = false,
   className,
+  onChange,
 }: {
   label: string;
   info?: string;
@@ -446,18 +448,35 @@ function SelectField({
   value?: string;
   required?: boolean;
   className?: string;
+  /** Told when the choice changes, for the rows that drive something. */
+  onChange?: (next: string) => void;
 }) {
+  /*
+   * The prototype's own menu, not the browser's.
+   *
+   * A native `<select>` cannot be styled past its box: the list it opens
+   * is the OS's, at the OS's type size, with the OS's highlight colour.
+   * On this page that meant every other control — inputs, the search
+   * field, the pickers — obeying the design system and the dropdowns
+   * answering to macOS. `Select` is the same component the filter bars and
+   * the field mappers use, so a menu here now matches a menu anywhere
+   * else, and it brings a search field once a list passes eight (the
+   * timezone list is forty). Ashwin, Oct 9.
+   */
+  const [picked, setPicked] = React.useState(value ?? options[0] ?? "");
   return (
-    <label className={cn("flex flex-col gap-[4px]", className)}>
+    <div className={cn("flex flex-col gap-[4px]", className)}>
       <FieldLabel label={label} {...(info ? { info } : {})} required={required} />
-      <select defaultValue={value ?? options[0]} className={CONTROL}>
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </label>
+      <Select
+        value={picked}
+        aria-label={label}
+        options={options.map((option) => ({ value: option, label: option }))}
+        onChange={(next) => {
+          setPicked(next);
+          onChange?.(next);
+        }}
+      />
+    </div>
   );
 }
 
@@ -553,18 +572,29 @@ const TIME_ZONES = [
   "GMT+05:30 Asia/Kolkata (IST)",
 ] as const;
 
+/*
+ * Dutch and Finnish join the five (Oct 9). German was already here.
+ *
+ * Ordered by the locale's own name in English rather than by region code,
+ * which is what the field is read as — nobody scans this list looking for
+ * `nl-NL`.
+ */
 const LANGUAGES = [
   "English (United States)",
   "English (United Kingdom)",
-  "Spanish (Spain)",
+  "Dutch (Netherlands)",
+  "Finnish (Finland)",
   "French (France)",
   "German (Germany)",
+  "Spanish (Spain)",
 ] as const;
 
 const OUTBOUND_LANGUAGES = [
   "English",
-  "Spanish",
+  "Dutch",
+  "Finnish",
   "French",
   "German",
   "Portuguese",
+  "Spanish",
 ] as const;

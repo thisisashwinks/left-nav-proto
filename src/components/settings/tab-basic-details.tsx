@@ -3,6 +3,7 @@
 import * as React from "react";
 import { FileText, Plus, Search } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
+import { Select } from "@/components/page/form-controls";
 import { BrandCard } from "./brand-card";
 import {
   LOCALES,
@@ -132,23 +133,22 @@ function SelectFieldRow({
   options: readonly string[];
   required?: boolean;
 }) {
+  const [picked, setPicked] = React.useState(options[0] ?? "");
   return (
-    <label className="flex flex-col gap-[4px]">
+    // The prototype's own menu, for the reason the business profile's
+    // SelectRow records: a native <select> opens the OS's list, not ours.
+    <div className="flex flex-col gap-[4px]">
       <span className="text-[13px] leading-[18px] font-medium text-pg-heading">
         {label}
         {required ? <span className="ml-[3px] text-[#d92d20]">*</span> : null}
       </span>
-      <select
-        defaultValue={options[0]}
-        className="h-[36px] w-full rounded-[8px] bg-pg-surface px-[10px] text-[14px] leading-[20px] text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border)] focus:outline-none focus:shadow-[inset_0_0_0_1.5px_var(--brand)]"
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </label>
+      <Select
+        value={picked}
+        aria-label={label}
+        options={options.map((option) => ({ value: option, label: option }))}
+        onChange={setPicked}
+      />
+    </div>
   );
 }
 

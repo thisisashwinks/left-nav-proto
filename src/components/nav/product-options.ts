@@ -69,6 +69,67 @@ export function productTreeOptions(
 }
 
 /**
+ * The same shelf, one level deeper.
+ *
+ * `productTreeOptions` stops at the product because the menus that call it are
+ * adding a product — a row in a category, or a row at top level. A picker that
+ * is choosing a DESTINATION has a different floor: a lot of what an admin wants
+ * to put in front of people is an L3 (Payments ▸ Invoices, Contacts ▸ Smart
+ * lists), and a two-level picker made those unreachable, so the only way to
+ * surface one was to add its whole parent and then prune.
+ *
+ * Kept as a separate export rather than a flag on the old one: its callers add
+ * products and nothing else, and a tree that silently grew a third level under
+ * them would start offering rows their stores cannot hold.
+ */
+export function productTreeOptionsDeep(
+  state: NavLayoutState,
+  exclude: (id: string) => boolean,
+): RowMenuOption[] {
+  const { categories, loose } = stockTreeFor(state);
+
+  const leaf = (id: string): RowMenuOption => {
+    const shipped = productById(id);
+    const row: RowMenuOption = {
+      id,
+      // The shipped name and glyph, not the account's — see productTreeOptions.
+      label: shipped?.label ?? labelForProduct(state, id),
+      ...(shipped?.icon ? { icon: shipped.icon } : {}),
+    };
+
+    // `tabs: true` on an entry says its children are TABS ON ITS PAGE, not
+    // places — a saved contact list, an estimate status, a settings section.
+    // They have no address of their own to send anyone to, so a picker that
+    // offered them would be filing a view into the nav as a destination, which
+    // is the exact thing "views are not places" exists to stop. The product
+    // stays a leaf and its tabs stay on its page.
+    const children = (shipped?.tabs ? [] : (shipped?.children ?? []))
+      .filter((c) => !exclude(c.id))
+      .map((c) => ({
+        id: c.id,
+        label: c.label,
+        ...(c.icon ? { icon: c.icon } : {}),
+      }));
+
+    // Only attach `children` when there are some. RowMenu reads the key's
+    // presence as "this opens a list" and draws the submenu arrow for it, so an
+    // empty array advertises a level that is not there and walks into nothing.
+    return children.length > 0 ? { ...row, children } : row;
+  };
+
+  const branches = categories
+    .map((c) => ({
+      id: c.id,
+      label: c.label,
+      icon: c.icon,
+      children: c.productIds.filter((id) => !exclude(id)).map(leaf),
+    }))
+    .filter((b) => b.children.length > 0);
+
+  return [...branches, ...loose.filter((id) => !exclude(id)).map(leaf)];
+}
+
+/**
  * The kebab menu for a product row, wherever the row is.
  *
  * One builder for both levels. A product inside a category's panel and the same

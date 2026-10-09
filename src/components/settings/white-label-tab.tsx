@@ -13,6 +13,9 @@ import { CodeEditorField } from "./code-editor-field";
 import { cn } from "@/lib/utils";
 import { Section, Field } from "./white-label-parts";
 import { WhiteLabelSplit } from "./white-label-split";
+import { WhiteLabelClassic } from "./white-label-classic";
+import { WhiteLabelIdealCode } from "./white-label-ideal";
+import { WhiteLabelIdealTab } from "./white-label-ideal-tab";
 
 /**
  * Agency › Settings › Company › White Label, as production draws it.
@@ -69,6 +72,15 @@ export function WhiteLabelTab({ agency }: { agency: Account }) {
 
 
   const onOldNav = ALL_ACCOUNTS.filter((a) => !labs.accountOn(a.id));
+
+  /*
+   * The whole-tab redesign replaces the page rather than a part of it, so it
+   * returns before any of production's chrome is drawn. Every other approach
+   * swaps only the custom-code half, which is what keeps them comparable.
+   */
+  if (whiteLabelApproach === "idealAll") {
+    return <WhiteLabelIdealTab agency={agency} />;
+  }
 
   return (
     <div className="flex w-full flex-col gap-[20px] pb-[32px]">
@@ -280,6 +292,10 @@ export function WhiteLabelTab({ agency }: { agency: Account }) {
       */}
       {whiteLabelApproach === "split" ? (
         <WhiteLabelSplit agency={agency} />
+      ) : whiteLabelApproach === "classic" ? (
+        <WhiteLabelClassic />
+      ) : whiteLabelApproach === "ideal" ? (
+        <WhiteLabelIdealCode />
       ) : (
         <>
           <CustomCodeSafe
@@ -515,15 +531,19 @@ function ThemeSection({
         new navigation a line of its own, which made it look like something
         that could be chosen here. It cannot — there is no dark new nav to
         pick. So state the scope once, at the top, and let everything below it
-        be the one control that exists. Ashwin, Oct 9.
+        be the one control that exists.
+
+        And state it about the old navigation only. Adding "the new navigation
+        is always light" answered for a navigation this card does not govern,
+        which is the same mistake the second row made in a shorter form —
+        Ashwin, Oct 9. The scope line names what this reaches and stops.
       */}
       <div className="mb-[16px] flex flex-wrap items-baseline justify-between gap-x-[12px] gap-y-[2px] border-b border-pg-border pb-[12px]">
         <p className="text-[13px] leading-[18px] font-medium text-pg-heading">
           Applies to the old navigation only
         </p>
         <p className="text-[12px] leading-[17px] text-pg-muted">
-          {legacyCount} sub-account{legacyCount === 1 ? "" : "s"}. The new
-          navigation is always light.
+          {legacyCount} sub-account{legacyCount === 1 ? "" : "s"}
         </p>
       </div>
       {disabled ? (

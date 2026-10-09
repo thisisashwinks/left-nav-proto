@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Image, Plus, RotateCcw, X } from "lucide-react";
 
-import { AGENCY_L2_MIME, L2_MIME } from "@/components/nav/nav-drag";
+import { AGENCY_L2_MIME, L2_MIME, L3_MIME } from "@/components/nav/nav-drag";
 import { agencyBuckets } from "@/components/nav/agency-config";
 import { useAgencyLayout } from "@/components/nav/agency-layout";
 import { childById } from "@/components/nav/catalogue";
@@ -11,7 +11,7 @@ import { UNGROUPED_ID } from "@/components/nav/grouping";
 import { PROPOSED_SETTINGS_ID } from "@/components/nav/proposed-ia";
 import {
   productMenuActions,
-  productTreeOptions,
+  productTreeOptionsDeep,
 } from "@/components/nav/product-options";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import {
@@ -162,6 +162,7 @@ export function FlyoutPanel({
   const navEditing = layout.state.editing && layout.can.customise;
   const {
     editTreatment,
+    l3Arrange,
     l3Disclosure,
     flyoutTrigger,
     navOnPlane,
@@ -405,9 +406,29 @@ export function FlyoutPanel({
        * not something the nav has. Refusing is simply never calling
        * preventDefault, which is how the browser says no.
        */
-      onDragOver: () => {},
-      onDragLeave: () => {},
-      onDrop: () => {},
+      /*
+        ...except for a CHILD, which is the one payload that means something.
+
+        The rule above is about L2-on-L2: a product dropped on a product
+        promised nesting the nav does not have. L3-on-L2 is the opposite case
+        — "inside this one" is exactly what the gesture means, and since Oct 9
+        exactly what the store can do. So the refusal is now per payload
+        rather than blanket, which is what having distinct MIME types was for.
+      */
+      onDragOver: (e: React.DragEvent) => {
+        if (!e.dataTransfer.types.includes(L3_MIME)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        setOver(productId);
+      },
+      onDragLeave: () => setOver((o) => (o === productId ? null : o)),
+      onDrop: (e: React.DragEvent) => {
+        e.preventDefault();
+        setOver(null);
+        setLifted(null);
+        const childId = e.dataTransfer.getData(L3_MIME);
+        if (childId) layout.moveChildToProduct(childId, productId);
+      },
       onDragEnd: () => {
         setLifted(null);
         setOver(null);
@@ -432,8 +453,75 @@ export function FlyoutPanel({
             setMenuTrigger(trigger);
             menu.open(childId, trigger);
           },
+          /*
+            The drag half, only while L3 rows are arrangeable.
+            See L3_ARRANGE_DEFAULT.
+          */
+          ...(l3Arrange
+            ? {
+                onDragStart: (childId: string, e: React.DragEvent) => {
+                  e.dataTransfer.setData(L3_MIME, childId);
+                  e.dataTransfer.setData(
+                    "text/plain",
+                    layout.productLabelFor(childId),
+                  );
+                  e.dataTransfer.effectAllowed = "move";
+                  setLifted(childId);
+                },
+                onDragEnd: () => setLifted(null),
+                liftedId: lifted,
+                seam: (parentId: string, index: number) => (
+                  <RowSeam
+                    key={`child-seam-${parentId}-${index}`}
+                    dragTypes={dragTypes}
+                    accepts={[L3_MIME]}
+                    onDrop={(id) => dropChildAt(id, parentId, index)}
+                    // 1px, not the seam's own 2: the child list sets its rows
+                    // a pixel apart, and a seam that pulls two would close a
+                    // gap that is not there.
+                    pull="1px"
+                    reach={10}
+                  />
+                ),
+              }
+            : {}),
         }
       : undefined;
+
+  /*
+   * Where a child dropped into seam `index` of `parentId` lands.
+   *
+   * The same arithmetic the L2 rows use — travelling down means the row has
+   * already left a hole above the target, so the index comes back one — over
+   * `panelRowsFor`/`movePanelRow`, which were built for the nav's own panel
+   * and turn out to be exactly the right shape: a stored order that is a diff
+   * against an authored list, keyed by an arbitrary panel id. A product's id
+   * is as good a key as a panel's.
+   *
+   * Only within one parent. Moving a child UNDER A DIFFERENT product is not a
+   * move the store can make: the catalogue is a frozen literal, `panelOrder`
+   * records order rather than membership, and there is nothing anywhere that
+   * says a child belongs somewhere other than where it was authored. That
+   * needs new state, and inventing it inside a drop handler is how a nav ends
+   * up with rows nothing can resolve.
+   */
+  const dropChildAt = (childId: string, parentId: string, index: number) => {
+    /*
+      The RESOLVED list, not the catalogue's.
+
+      Both ends of a reorder have to count in the same list or the arithmetic
+      is against a different column from the one on screen — and the resolved
+      list is the one that is drawn: it has the account's re-homed children in
+      it and its lifted ones out. See `childrenFor`.
+    */
+    const defaults = layout.childrenOf(parentId).map((c) => c.id);
+    if (!defaults.includes(childId)) return;
+    const order = layout.panelRowsFor(parentId, defaults);
+    const from = order.indexOf(childId);
+    if (from < 0) return;
+    const to = from < index ? index - 1 : index;
+    if (to !== from) layout.movePanelRow(parentId, defaults, childId, to);
+  };
 
   const dragTypes = useDragTypes();
 
@@ -724,8 +812,22 @@ export function FlyoutPanel({
    * finding one is the same act as knowing where it lives. Rows already in this
    * category are left out, since the list is for adding and they are already here.
    */
+  /*
+   * What the picker offers, now three levels deep.
+   *
+   * `productTreeOptionsDeep` carries each product's children as a third rung,
+   * so "add an L3" is reachable from the same menu rather than from a second
+   * one — and the exclusion runs at every level, so a row already in this
+   * list is not offered to be added to it again.
+   *
+   * Picking is a MOVE, and it always was: every add verb routes through
+   * `withProductFiled`, which filters the id out of every other group. A row
+   * lives in one place, which is Ashwin's rule and was already the reducer's.
+   * The one thing the deep picker adds is that a CHILD can now be the thing
+   * moved — see `moveChildToProduct`.
+   */
   const addable: RowMenuOption[] = category
-    ? productTreeOptions(layout.state, (id) =>
+    ? productTreeOptionsDeep(layout.state, (id) =>
         category.productIds.includes(id),
       )
     : [];
@@ -738,7 +840,18 @@ export function FlyoutPanel({
       options: addable,
       emptyNote: "Everything is already in here.",
       onPick: (id) => {
-        if (category) layout.addProductToGroup(id, category.id, index);
+        if (!category) return;
+        /*
+          A child picked here is a child being promoted INTO this category as
+          a row of its own — the same thing dragging it onto the nav does.
+          `addProductToGroup` would refuse it, since the gate it passes
+          through only knows products.
+        */
+        if (childById(id)) {
+          layout.placeAtL1(id, 0);
+          return;
+        }
+        layout.addProductToGroup(id, category.id, index);
       },
     },
   ];
@@ -844,7 +957,71 @@ export function FlyoutPanel({
      * carries exactly what the child's glyph does, plus the way back to the
      * shipped one.
      */
-    if (childById(productId)) {
+    const childHit = childById(productId);
+    if (childHit && l3Arrange) {
+      /*
+        An L3's menu, with everything a product's has but the name.
+
+        The parent's panel is the list it reorders in — `movePanelRow` keyed
+        by the product id, which is the same store the nav's own panel uses —
+        and the two moves that leave that list are the same two a product has:
+        file it into a category, or stand it at the top level. Both are
+        implemented by the resolvers already, because neither of them asks
+        what KIND of row is being moved; they take an id.
+
+        Rename stays absent, for the reason it is absent one rung up: the name
+        is the platform's. See L3_ARRANGE_DEFAULT.
+      */
+      // The list as drawn, for the same reason `dropChildAt` uses it: a nudge
+      // and a drag must move a row through the same positions.
+      const parentOfChild = childHit.product.id;
+      const siblingIds = layout.childrenOf(parentOfChild).map((c) => c.id);
+      const order = layout.panelRowsFor(parentOfChild, siblingIds);
+      const at = order.indexOf(productId);
+      return productMenuActions({
+        productId,
+        currentGroupId: null,
+        categories: destinations,
+        ...(layout.can.regroup
+          ? {
+              onPickIcon: () => {
+                if (menuTrigger) picker.open(productId, menuTrigger);
+              },
+            }
+          : {}),
+        ...(at > 0
+          ? {
+              onMoveUp: () =>
+                layout.movePanelRow(
+                  parentOfChild,
+                  siblingIds,
+                  productId,
+                  at - 1,
+                ),
+            }
+          : {}),
+        ...(at >= 0 && at < order.length - 1
+          ? {
+              onMoveDown: () =>
+                layout.movePanelRow(
+                  parentOfChild,
+                  siblingIds,
+                  productId,
+                  at + 1,
+                ),
+            }
+          : {}),
+        onMoveToGroup: (groupId) =>
+          layout.moveProductToGroup(productId, groupId),
+        // Its own L1 row, per Ashwin — not a rung up into its parent's panel.
+        // A child promoted halfway would be a product that is not in the
+        // catalogue, which nothing downstream knows how to resolve.
+        onMoveToTopLevel: () => layout.placeInTail(productId, 0),
+        onRemove: () => layout.toggleRowHidden(productId),
+      });
+    }
+
+    if (childHit) {
       return [
         {
           id: "icon",

@@ -8,7 +8,7 @@ import { productById } from "./catalogue";
 import { PROPOSED_AI_ID } from "./proposed-ia";
 import { liftedChildren } from "./nav-entries";
 import type { CatalogueChild } from "./catalogue-types";
-import {
+import { childrenFor,
   iconForProduct,
   labelForProduct,
   type NavLayoutState,
@@ -104,12 +104,21 @@ export function flyoutForGroup(
           label: labelForProduct(state, id),
           icon: iconForProduct(state, id),
           ...(product?.blurb ? { description: product.blurb } : {}),
-          // The L2 layer: sub-places render as a nested dropdown on the row.
-          ...(product?.children
-            ? {
-                children: childrenWithIcons(state, product.children),
-              }
-            : {}),
+          /*
+            The L2 layer: sub-places render as a nested dropdown on the row.
+
+            `childrenFor`, not the catalogue's own list — it is the same list
+            with the account's moves applied: children it has re-homed under
+            another product are gone from here, children it has brought in are
+            present, and a child standing at the top level is in neither. The
+            catalogue is still the source; this is the account's view of it.
+          */
+          ...(() => {
+            const kids = childrenFor(state, id);
+            return kids.length > 0
+              ? { children: childrenWithIcons(state, kids) }
+              : {};
+          })(),
           ...(product?.tabs ? { tabs: true } : {}),
         },
       };
@@ -185,11 +194,12 @@ function resolveAuthoredEntry(state: NavLayoutState) {
         icon: iconForProduct(state, entry.item.id),
         // Authored panels inherit the catalogue's L2 layer too, so the SKU
         // comparison view shows the same nested dropdowns as the job view.
-        ...(product.children
-          ? {
-              children: childrenWithIcons(state, product.children),
-            }
-          : {}),
+        ...(() => {
+          const kids = childrenFor(state, entry.item.id);
+          return kids.length > 0
+            ? { children: childrenWithIcons(state, kids) }
+            : {};
+        })(),
       },
     };
   };

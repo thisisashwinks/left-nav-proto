@@ -231,6 +231,7 @@ interface ThemeContextValue extends ThemeState {
   setRailFillRest: (v: RailFillRest) => void;
   setAdminAccent: (v: AdminAccent) => void;
   setAppsRowLabel: (v: AppsRowLabel) => void;
+  setL3Arrange: (on: boolean) => void;
   setPlaneGround: (v: PlaneGround) => void;
   setPinnedRowEdit: (on: boolean) => void;
   setPinnedShortcuts: (on: boolean) => void;
@@ -249,6 +250,7 @@ interface ThemeContextValue extends ThemeState {
   setAiFloating: (on: boolean) => void;
   setSwitchyardTry: (v: SwitchyardTry) => void;
   setRailViewAll: (v: RailViewAll) => void;
+  setPreviewBanner: (on: boolean) => void;
   setNavChevron: (v: NavChevron) => void;
   setEditRadius: (v: EditRadius) => void;
   setEditAlways: (on: boolean) => void;
@@ -593,6 +595,7 @@ export function ThemeProvider({
         setState((s) => ({ ...s, adminAccent })),
       setAppsRowLabel: (appsRowLabel) =>
         setState((s) => ({ ...s, appsRowLabel })),
+      setL3Arrange: (l3Arrange) => setState((s) => ({ ...s, l3Arrange })),
       setPlaneGround: (planeGround) => setState((s) => ({ ...s, planeGround })),
       setPinnedRowEdit: (pinnedRowEdit) =>
         setState((s) => ({ ...s, pinnedRowEdit })),
@@ -621,6 +624,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, switchyardTry })),
       setRailViewAll: (railViewAll) =>
         setState((s) => ({ ...s, railViewAll })),
+      setPreviewBanner: (previewBanner) =>
+        setState((s) => ({ ...s, previewBanner })),
       setNavChevron: (navChevron) => setState((s) => ({ ...s, navChevron })),
       setEditRadius: (editRadius) => setState((s) => ({ ...s, editRadius })),
       setEditAlways: (editAlways) => setState((s) => ({ ...s, editAlways })),

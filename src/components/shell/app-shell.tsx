@@ -71,8 +71,13 @@ import {
 import { useAgencyLayout } from "@/components/nav/agency-layout";
 import { AskAiPage } from "@/components/ai/ask-ai-page";
 import { AgencyCompanyPage } from "@/components/settings/agency-company-page";
+import { AgencyDashboardPage } from "@/components/settings/agency-dashboard-page";
 import { LabsPage } from "@/components/settings/labs-page";
-import { LabsProvider, useLabs } from "@/components/settings/labs-state";
+import {
+  LabsProvider,
+  useIsPreviewTab,
+  useLabs,
+} from "@/components/settings/labs-state";
 import { CustomCodeProvider } from "@/components/settings/custom-code-store";
 import { CustomCodeInjector } from "@/components/settings/custom-code-injector";
 import { CurrentAccountProvider } from "@/components/accounts/accounts-context";
@@ -472,7 +477,7 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
  * condition. The one colour nothing else here uses is the one that reads
  * as temporary.
  */
-function TrialBand({ onEnd }: { onEnd: () => void }) {
+function TrialBand({ onEnd }: { onEnd?: () => void }) {
   return (
     <div
       role="status"
@@ -482,16 +487,26 @@ function TrialBand({ onEnd }: { onEnd: () => void }) {
         Preview mode
       </span>
       <span className="min-w-0 flex-1 truncate text-center text-[12.5px] leading-[17px] text-white/90">
-        You are trying the new navigation. Nothing is saved, and your
-        workspace is unchanged.
+        {onEnd
+          ? "You are trying the new navigation. Nothing is saved, and your workspace is unchanged."
+          : "You are previewing the new navigation on demo data. Nothing here affects your account."}
       </span>
-      <button
-        type="button"
-        onClick={onEnd}
-        className="motion-tap flex h-[24px] shrink-0 items-center rounded-[6px] bg-white/15 px-[10px] text-[12.5px] leading-none font-medium text-white hover:bg-white/25"
-      >
-        Leave preview
-      </button>
+      {/*
+        Only a trial has a way out on the band. A preview tab's way out is
+        to close it — see the note at the call site.
+      */}
+      {onEnd ? (
+        <button
+          type="button"
+          onClick={onEnd}
+          className="motion-tap flex h-[24px] shrink-0 items-center rounded-[6px] bg-white/15 px-[10px] text-[12.5px] leading-none font-medium text-white hover:bg-white/25"
+        >
+          Leave preview
+        </button>
+      ) : (
+        // Keeps the copy optically centred against the label on the left.
+        <span aria-hidden="true" className="w-[86px] shrink-0" />
+      )}
     </div>
   );
 }
@@ -521,6 +536,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
     aiDockTop,
     aiFullChrome,
     aiFloating,
+    previewBanner,
     navOnPlane,
     planeSeam,
     planeHead,
@@ -718,6 +734,8 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
     setActiveAccount: setActiveNavAccount,
     beginEditing: beginNavEditing,
     can: navCan,
+    // The resolved child list, for "which page does this product open on".
+    childrenOf: navChildrenOf,
   } = useNavLayout();
   // The agency's own store, for the capsule's pin list at agency scope.
   const agencyLayout = useAgencyLayout();
@@ -912,11 +930,28 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    * Null when the product is a tabs-parent: its children are tabs living ON that
    * page, so naming one as the open child would put a tab in the breadcrumb.
    */
-  const firstPageOf = React.useCallback((id: string) => {
-    const product = productById(id);
-    if (!product || product.tabs) return null;
-    return product.children?.[0]?.id ?? null;
-  }, []);
+  /*
+   * "First" means first AS DRAWN, not first as authored.
+   *
+   * Clicking an L2 lands you on its first child, and that promise is about
+   * the list in front of you: reorder Inbox to the bottom of Conversations
+   * and pressing Conversations has to open whatever is now at the top. Read
+   * from the catalogue it opened Inbox regardless, so the nav said one thing
+   * and the canvas did another. Ashwin, Oct 9.
+   *
+   * `childrenOf` is the resolved list — the account's order, its re-homed
+   * children in, its lifted ones out — which is exactly the list the panel
+   * draws. A product whose children have all been moved away falls back to
+   * its own page rather than opening someone else's.
+   */
+  const firstPageOf = React.useCallback(
+    (id: string) => {
+      const product = productById(id);
+      if (!product || product.tabs) return null;
+      return navChildrenOf(id)[0]?.id ?? null;
+    },
+    [navChildrenOf],
+  );
   /*
    * What fills the canvas, falling back to home rather than to Contacts.
    *
@@ -1267,6 +1302,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    * and the page would be lying about the rollout it is drawing.
    */
   const labs = useLabs();
+  const previewTab = useIsPreviewTab();
   const labsOn = agencyScope ? labs.agencyOn : labs.accountOn(accounts.current.id);
   const legacyNav = navGeneration === "legacy" || !labsOn;
   /*
@@ -2547,8 +2583,25 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
   React.useEffect(() => {
     if (scopeRef.current === accounts.scope) return;
     scopeRef.current = accounts.scope;
-    // The requested place, or nothing — which is the clear this always did.
-    setSelectedId(pendingPlace.current);
+    /*
+     * The requested place, or the scope's own landing page.
+     *
+     * Agency scope opens on the dashboard. It used to clear to nothing,
+     * which left the canvas on whatever the sub-account had been showing
+     * — so switching to the agency changed the nav and not the page, and
+     * the first thing an agency saw was one of its clients' screens. The
+     * dashboard is also the only agency screen that is about the business
+     * rather than about configuring something, which is the right thing to
+     * arrive on: the scope is somewhere you mostly go to look.
+     *
+     * Account scope still clears, because there the canvas has its own
+     * answer — the product tree's home — and naming one here would be a
+     * second opinion about it.
+     */
+    setSelectedId(
+      pendingPlace.current ??
+        (accounts.scope === "agency" ? "agency-dash-summary" : null),
+    );
     pendingPlace.current = null;
     setManageAccountId(null);
   }, [accounts.scope]);
@@ -2969,7 +3022,18 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
         it is a statement about the whole window and not about the account
         inside it. See TRIALS in labs-state.
       */}
-      {labs.trial ? <TrialBand onEnd={labs.endTrial} /> : null}
+      {labs.trial ? (
+        <TrialBand onEnd={labs.endTrial} />
+      ) : previewTab && previewBanner ? (
+        /*
+          The same band, for a window that IS the preview rather than one
+          running a trial inside itself. No way out on it: the way out of
+          a preview tab is to close the tab, and a button claiming
+          otherwise would be offering to turn this window into the real
+          one. See PREVIEW_BANNER_DEFAULT.
+        */
+        <TrialBand />
+      ) : null}
 
       {/*
         The shell plane. Everything chrome — both switchers, the nav, the header —
@@ -4000,6 +4064,20 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
                  * is about accounts you are not looking at.
                  */
                 <SaasConfiguratorPage />
+              ) : agencyScope &&
+                (selectedId === "agency-dashboard" ||
+                  selectedId?.startsWith("agency-dash-")) ? (
+                /*
+                 * The whole Agency Dashboard, not one of its three children.
+                 *
+                 * The page owns its own tab strip — the screenshot puts
+                 * Summary, SaaS and Reselling beside the title — so every id
+                 * under this row lands on the same component and the tabs do
+                 * the rest. Matching only `agency-dash-summary` would have
+                 * meant the other two rows opening the generic place page
+                 * beside a page that already has tabs for them.
+                 */
+                <AgencyDashboardPage />
               ) : agencyPlace && selectedId === "agency-labs" ? (
                 // The beta programme, and the one page in agency settings
                 // where Switchyard is the subject rather than the frame.

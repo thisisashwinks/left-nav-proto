@@ -887,6 +887,27 @@ export const DOCK_POSITION_LABELS: Record<DockPosition, string> = {
  * the row is called, and a label this short is exactly when the sentence
  * beneath it is doing the most work.
  */
+/**
+ * Whether an L3 row is arrangeable the way an L2 row is.
+ *
+ * Off, a child's menu holds one verb: change its icon. The reasoning was that
+ * an L3 belongs to a PRODUCT rather than to the account's tree — Inbox is part
+ * of Conversations the way a tab is part of a page — so filing it, reordering
+ * it or taking it out were moves the nav did not have.
+ *
+ * On, the tree is the account's all the way down. A child reorders inside its
+ * parent, files into a category, leaves for the top level and can be taken out
+ * of the nav, which is every verb a product row has. Rename is the one that
+ * stays absent, and for the same reason it is absent on L2: the name is the
+ * platform's, and the row is a pointer at a page rather than a thing the
+ * account owns.
+ *
+ * On by default, Oct 9: if the promise is that an agency arranges its own nav,
+ * stopping at the second rung is an arbitrary place to stop — and the rung
+ * below is where most of the rows are.
+ */
+export const L3_ARRANGE_DEFAULT = true;
+
 export const APPS_ROW_LABELS = [
   "current",
   "apps",
@@ -2682,6 +2703,22 @@ export const NAV_CHEVRON_LABELS: Record<NavChevron, string> = {
 };
 
 /**
+ * Whether a preview tab says it is one.
+ *
+ * ON by default. A preview opens a real, working shell on demo data — it
+ * navigates, it edits, it looks exactly like the product — and the one
+ * thing it must not do is let someone forget which window they are in. A
+ * band across the top is what Stripe and Razorpay use for the same risk,
+ * and the same reasoning applies: the more faithful the environment, the
+ * more it needs to say so.
+ *
+ * Off is worth having for one reason: a screenshot. The band is the right
+ * thing in use and the wrong thing in a deck, and a reviewer capturing the
+ * new nav should not have to crop it out.
+ */
+export const PREVIEW_BANNER_DEFAULT = true;
+
+/**
  * Which glyph the collapsed rail's "View all" row wears.
  *
  * Four candidates, because at 64px the row has no label to explain itself
@@ -2733,13 +2770,24 @@ export const RAIL_VIEW_ALL_LABELS: Record<RailViewAll, string> = {
  *           looking" becoming "why is my nav different". The cost is that
  *           it is a real change to a real account, so the way out has to
  *           be permanently on screen rather than back where you came from.
- *  both     Both offers on the card. The default: they answer different
- *           questions — "what is this?" and "what would this be like for
- *           me?" — and the second only makes sense once you have asked the
- *           first. Two links in one sentence is the cheapest way to let
- *           someone take them in that order.
+ *  both     Both offers on the card. They answer different questions —
+ *           "what is this?" and "what would this be like for me?" — and
+ *           the second only makes sense once you have asked the first.
+ *           Two links in one sentence lets someone take them in that
+ *           order, at the cost of one sentence carrying two decisions.
+ *
+ * `preview` is the default (Oct 9): it is the offer with no consequences.
+ * A demo account in a new tab cannot change anything, where the trial is a
+ * real change to a real workspace that merely happens to be reversible. A
+ * beta card's first offer should be the one nobody has to think about.
+ *
+ * WHOSE sidebar a preview opens is not this axis's business — the page
+ * passes it. The agency's Labs previews the AGENCY nav from both of its
+ * tabs, because what it is deciding about is the navigation rather than
+ * any one account's copy of it; only a sub-account's own Labs previews
+ * that account's sidebar. See `previewHref` in labs-page.
  */
-export const SWITCHYARD_TRIES = ["both", "preview", "trial"] as const;
+export const SWITCHYARD_TRIES = ["preview", "trial", "both"] as const;
 export type SwitchyardTry = (typeof SWITCHYARD_TRIES)[number];
 export const SWITCHYARD_TRY_LABELS: Record<SwitchyardTry, string> = {
   both: "Preview and try",
@@ -4055,30 +4103,59 @@ export const CODE_SCOPE_VIEW_LABELS: Record<CodeScopeView, string> = {
 /**
  * How White Label answers the custom-code question.
  *
- * Four approaches to one problem, kept side by side because the problem is
+ * Five approaches to one problem, kept side by side because the problem is
  * not settled. Custom code has exactly ONE scope — the agency — while the
  * navigation now has TWO states that differ per sub-account, and every option
  * below is a different place to put that mismatch.
  *
+ *  classic Production’s page as it stands — Custom JS, Custom CSS and Theme
+ *          as three sections with three Save buttons — with one sentence
+ *          added to each description and the opt-in in a section of its own.
+ *          The default as of Oct 9: it is the smallest change that can be
+ *          made to a page every agency already uses, so it is the one the
+ *          rest have to beat rather than the other way round.
  *  safe    Legacy code stops applying the moment Switchyard is on, and
- *          reusing it is a named opt-in. The approach the team actually
- *          agreed, and the default here: it is the only one that can ship
- *          inside the private beta window.
+ *          reusing it is a named opt-in. The approach the team agreed in
+ *          principle, and the one that reads best — at the cost of
+ *          rearranging a page nobody asked to have rearranged.
  *  split   White Label holds the code and nothing else; who is on which
  *          navigation moves wholly to Labs. An organising principle rather
  *          than a mechanism: `safe` can sit inside it.
+ *
+ * The last two are the END state rather than the beta: they assume the new
+ * navigation supports custom code, which it does not yet. Neither can ship
+ * now; both are here to say what the other three are approximations OF.
+ *
+ *  ideal     One group per navigation, each with its own CSS and JS, and the
+ *            theme inside the old group because it belongs to the old
+ *            sidebar. No toggle, because the question the toggle asked stops
+ *            existing. Only the code half changes; the rest of the page is
+ *            production’s.
+ *  idealAll  The same groups, in a tab rebuilt around them: one Save for the
+ *            page with a count of what is pending, headings above their
+ *            fields instead of beside them, and no warnings anywhere.
+ *            Ashwin, Oct 9.
  *
  * Two others were built and cut on Oct 9 — scoping each block of code to a
  * navigation, and reporting on the agency's code before they enable anything.
  * Both answered the question better than either survivor and neither could
  * ship in the beta window; the wireframes for them are kept outside the repo.
  */
-export const WHITE_LABEL_APPROACHES = ["safe", "split"] as const;
+export const WHITE_LABEL_APPROACHES = [
+  "classic",
+  "safe",
+  "split",
+  "ideal",
+  "idealAll",
+] as const;
 export type WhiteLabelApproach = (typeof WHITE_LABEL_APPROACHES)[number];
 
 export const WHITE_LABEL_APPROACH_LABELS: Record<WhiteLabelApproach, string> = {
+  classic: "Production, plus a checkbox",
   safe: "Off by default",
   split: "Code here, flag in Labs",
+  ideal: "Ideal — code per nav",
+  idealAll: "Ideal — whole tab",
 };
 
 export const NAV_GENERATIONS = ["new", "legacy"] as const;
@@ -4158,6 +4235,8 @@ export interface ThemeState {
   switchyardTry: SwitchyardTry;
   /** The collapsed rail's "View all" glyph. See RAIL_VIEW_ALLS. */
   railViewAll: RailViewAll;
+  /** Whether a preview tab says it is one. See PREVIEW_BANNER_DEFAULT. */
+  previewBanner: boolean;
   /** When the L1 flyout chevron is drawn. See NAV_CHEVRONS. */
   navChevron: NavChevron;
   /** How dark the nav's resting rows are. See NAV_INKS. */
@@ -4188,6 +4267,8 @@ export interface ThemeState {
   getAppPlacement: GetAppPlacement;
   /** What the companion-apps row is called. See APPS_ROW_LABELS. */
   appsRowLabel: AppsRowLabel;
+  /** Whether L3 rows arrange like L2 rows. See L3_ARRANGE_DEFAULT. */
+  l3Arrange: boolean;
   /** Whether the agency's entry pill carries search. See AGENCY_SEARCH_DEFAULT. */
   agencySearch: boolean;
   /**
@@ -5060,8 +5141,9 @@ export const DEFAULT_THEME: ThemeState = {
    */
   aiFullChrome: "hide",
   aiFloating: AI_FLOATING_DEFAULT,
-  switchyardTry: "both",
+  switchyardTry: "preview",
   railViewAll: "history",
+  previewBanner: PREVIEW_BANNER_DEFAULT,
   /*
    * On hover, as of Oct 6.
    *
@@ -5111,6 +5193,7 @@ export const DEFAULT_THEME: ThemeState = {
   getAppPlacement: "flyout",
   // What it has always said. The three alternatives are the proposal.
   appsRowLabel: "current",
+  l3Arrange: L3_ARRANGE_DEFAULT,
   agencySearch: AGENCY_SEARCH_DEFAULT,
   agencyNavMark: AGENCY_NAV_MARK_DEFAULT,
   subAccountNavMark: SUB_ACCOUNT_NAV_MARK_DEFAULT,
@@ -5160,7 +5243,7 @@ export const DEFAULT_THEME: ThemeState = {
   canvasBleed: "corner",
   customCodeMode: "inherit",
   codeScopeView: "header",
-  whiteLabelApproach: "safe",
+  whiteLabelApproach: "classic",
   canvasPad: "roomy",
   planeHead: "bar",
   flyoutShape: "docked",

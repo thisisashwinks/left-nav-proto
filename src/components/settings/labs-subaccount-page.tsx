@@ -5,7 +5,11 @@ import { Search } from "lucide-react";
 import { PageTitle, usePageChrome } from "@/components/page/page-header";
 import { useCurrentAccountId } from "@/components/accounts/accounts-context";
 import { BetaBanner, FlagCard } from "./labs-page";
-import { SUB_ACCOUNT_FLAGS, type LabsFlag } from "./labs-data";
+import {
+  SUB_ACCOUNT_FLAGS,
+  SWITCHYARD_PREVIEW,
+  type LabsFlag,
+} from "./labs-data";
 import { useLabs } from "./labs-state";
 
 /**
@@ -117,6 +121,14 @@ export function SubAccountLabsPage() {
                   on: accountOn(id),
                   onToggle: (next: boolean) => setUserOn(id, next),
                   onTry: () => startTrial("account"),
+                  /*
+                    The only place the sub-account sidebar is previewed.
+
+                    From inside the account, "what would this be like" means
+                    this account's own nav — which is the one question the
+                    agency's two tabs cannot ask on your behalf.
+                  */
+                  previewHref: SWITCHYARD_PREVIEW.sub,
                 }
               : {})}
           />
