@@ -75,6 +75,9 @@ import {
   CRUMB_SEPARATORS,
   TREE_ICON_LABELS,
   TREE_ICONS,
+  ADD_MENU_SHAPES,
+  ADD_MENU_SHAPE_LABELS,
+  type AddMenuShape,
 } from "@/design/theme";
 import {
   LIST_VARIANTS,
@@ -143,9 +146,6 @@ import {
   ENTRY_RADIUS_LABELS,
   HEADER_ENTRY_SIDES,
   HEADER_ENTRY_SIDE_LABELS,
-  APPS_ROW_LABELS,
-  APPS_ROW_LABEL_NAMES,
-  type AppsRowLabel,
   GET_APP_PLACEMENTS,
   GET_APP_PLACEMENT_LABELS,
   FLYOUT_TRIGGER_LABELS,
@@ -3000,11 +3000,11 @@ export function TuningPanel() {
     setAiFullChrome,
     setAiFloating,
     getAppPlacement,
-    appsRowLabel,
     l3Arrange,
+    addMenuShape,
     setGetAppPlacement,
-    setAppsRowLabel,
     setL3Arrange,
+    setAddMenuShape,
     agencySearch,
     agencyNavMark,
     setAgencyNavMark,
@@ -5708,6 +5708,28 @@ export function TuningPanel() {
             </>
           ) : null}
 
+          <Segmented
+            label="Adding a page"
+            keywords="add product page l3 feature sub-product menu picker level"
+            options={ADD_MENU_SHAPES}
+            value={addMenuShape}
+            onChange={(v: AddMenuShape) => setAddMenuShape(v)}
+            format={(v) => ADD_MENU_SHAPE_LABELS[v]}
+          />
+          <Note>
+            {addMenuShape === "deep"
+              ? "One entry, three levels: “Add a product” opens the catalogue and each product carries its pages, so a page is found where you would look for it. Nobody has to classify what they want before they start looking, which is the argument for it."
+              : addMenuShape === "separate"
+                ? "A third entry beside New category and Add a product. Says plainly that the nav holds three kinds of thing, and gets a reader who knows they want Inbox there in two clicks — at the cost of asking them to classify it first."
+                : "One flat list of every page, each carrying its trail: “CRM › Conversations › Inbox”. The fastest to search and the worst to browse — two hundred rows where the tree showed twelve."}
+          </Note>
+          <Note>
+            They are called pages. The catalogue calls them children and the
+            resolvers call them places, and neither is a word to put in front
+            of an admin — a page is a screen you land on, which is what a nav
+            is a list of.
+          </Note>
+
           <Toggle
             label="Arrange L3 rows too"
             keywords="l3 child reorder move remove icon drag arrange sub-page"
@@ -5721,31 +5743,6 @@ export function TuningPanel() {
           </Note>
 
           <Segmented
-            label="Apps row name"
-            keywords="desktop mobile apps label rename install download extensions"
-            options={APPS_ROW_LABELS}
-            value={appsRowLabel}
-            onChange={(v: AppsRowLabel) => setAppsRowLabel(v)}
-            format={(v) => APPS_ROW_LABEL_NAMES[v]}
-            disabled={getAppPlacement !== "flyout"}
-          />
-          <Note>
-            {getAppPlacement !== "flyout"
-              ? "Only the flyout placement draws a row to name. The other three are glyphs or menu entries with their own words."
-              : appsRowLabel === "current"
-                ? "Names the two things behind the row, so nothing has to be guessed — and is the longest label in a column of one- and two-word names. It is also the first row to truncate at 240px."
-                : appsRowLabel === "apps"
-                  ? "Nothing else in this nav is called an app, so there is no ambiguity to resolve, and the row stops being a list of its own contents — which is the panel's job."
-                  : appsRowLabel === "install"
-                    ? "Verb-first, like every button in this product, and the current verb for both platforms: something happens after the file lands, which “download” does not say."
-                    : appsRowLabel === "download"
-                      ? "The most literal, and the most dated — nobody downloads a phone app."
-                      : appsRowLabel === "pair"
-                        ? "The current name with the redundant noun dropped: an ampersand pair of platforms already implies the apps."
-                        : "The widest of the six, and the only one promising something the panel does not hold. Right if the browser extension is going in there, a lie until it is."}
-          </Note>
-
-          <Segmented
             label="Get the app"
             options={GET_APP_PLACEMENTS}
             value={getAppPlacement}
@@ -5754,7 +5751,7 @@ export function TuningPanel() {
           />
           <Note>
             {getAppPlacement === "flyout"
-              ? "One row opening a panel with the two platforms in it. Names the thing before asking which flavour, and spends one nav row instead of two. What that row is CALLED is the control below."
+              ? "One row opening a panel with the two platforms in it. Names the thing before asking which flavour, and spends one nav row instead of two."
               : getAppPlacement === "header"
                 ? "Two glyphs left of the phone. Standing and visible — an app nobody knows about is an app nobody installs."
                 : getAppPlacement === "menu"

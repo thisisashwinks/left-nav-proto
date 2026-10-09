@@ -840,7 +840,7 @@ export const DOCK_POSITION_LABELS: Record<DockPosition, string> = {
  * One modal whichever way in you take — the komoot-style Get the app sheet —
  * and four places to reach it from. They are not the same offer:
  *
- *  flyout  One L1 row, "Desktop & mobile apps", opening a panel with the two
+ *  flyout  One L1 row, "Download apps", opening a panel with the two
  *          platforms in it. The default: it spends one row rather than two on
  *          something done once, says what the thing IS before asking which
  *          flavour you want, and puts the choice where a row is free.
@@ -856,36 +856,6 @@ export const DOCK_POSITION_LABELS: Record<DockPosition, string> = {
  *
  * Exclusive, all four. The offer duplicated across two surfaces is the
  * duplication the review keeps objecting to everywhere else.
- */
-/**
- * What the companion-apps row is called.
- *
- *  current   "Desktop & mobile apps". Names the two things behind the row, so
- *            nothing has to be guessed — and is the longest label in a column
- *            of one- and two-word names, which gives it visual weight its
- *            importance does not earn. It is also the first row to truncate at
- *            240px.
- *  apps      "Apps". Nothing else in this nav is called an app, so there is no
- *            ambiguity to resolve, and the row stops being a list of its own
- *            contents — which is the panel's job.
- *  install   "Install apps". Verb-first, like every button in this product,
- *            and the current verb for both platforms: it says something
- *            happens after the file lands, which "download" does not.
- *  download  "Download apps". The most literal, and the most dated — nobody
- *            downloads a phone app.
- *  pair      "Desktop & mobile". The current name with the redundant noun
- *            dropped: an ampersand pair of platforms already implies the apps.
- *  ext       "Apps & extensions". The widest of the six, and the only one that
- *            promises something the panel does not currently hold — worth
- *            seeing if the browser extension is going in there, and a lie
- *            until it is.
- *
- * Sentence case throughout, per the copy rules: only proper nouns capitalise,
- * so "Install apps" rather than "Install Apps".
- *
- * The description under the row is left alone. It is the same offer whatever
- * the row is called, and a label this short is exactly when the sentence
- * beneath it is doing the most work.
  */
 /**
  * Whether an L3 row is arrangeable the way an L2 row is.
@@ -908,25 +878,46 @@ export const DOCK_POSITION_LABELS: Record<DockPosition, string> = {
  */
 export const L3_ARRANGE_DEFAULT = true;
 
-export const APPS_ROW_LABELS = [
-  "current",
-  "apps",
-  "install",
-  "download",
-  "pair",
-  "ext",
-] as const;
+/**
+ * How the nav's add menu offers the third level.
+ *
+ * WHAT THE THIRD LEVEL IS CALLED. The catalogue calls them children, the
+ * resolvers call them places, and neither is a word to put in front of an
+ * admin. They are PAGES: a screen inside a product that you navigate to and
+ * land on — Inbox, Smart lists, Tags. "Feature" describes what the platform
+ * sold, which is a billing fact rather than a destination, and "sub-product"
+ * names a thing by what it is under rather than by what it is. A nav is a
+ * list of places, and the smallest place it can hold is a page.
+ *
+ *  deep      One entry, three levels. "Add a product" opens the catalogue and
+ *            each product carries its pages, so a page is found where you
+ *            would look for it — inside the product it belongs to. No new
+ *            vocabulary at all, which is the argument for it: the menu never
+ *            has to teach the word "page" because nobody has to choose a
+ *            level before they start looking.
+ *  separate  A third entry, "Add a page", beside New category and Add a
+ *            product. Says plainly that the nav holds three kinds of thing,
+ *            and gets a reader who knows they want Inbox there in two clicks
+ *            rather than three. The cost is a menu that asks you to classify
+ *            what you want before you look for it — and the whole difficulty
+ *            here is that an admin does not always know whether the thing in
+ *            their head is a product or a page.
+ *  flat      One list of everything, each row carrying its trail: "CRM ›
+ *            Conversations › Inbox". No levels to choose and no tree to walk,
+ *            which makes it the fastest to SEARCH and the worst to browse —
+ *            two hundred rows where the tree showed twelve.
+ *
+ * An axis because the right answer depends on whether an admin arrives
+ * knowing what they want, and the prototype is how to find that out.
+ */
+export const ADD_MENU_SHAPES = ["deep", "separate", "flat"] as const;
 
-export type AppsRowLabel = (typeof APPS_ROW_LABELS)[number];
+export type AddMenuShape = (typeof ADD_MENU_SHAPES)[number];
 
-/** What the panel calls each one. */
-export const APPS_ROW_LABEL_NAMES: Record<AppsRowLabel, string> = {
-  current: "Desktop & mobile apps",
-  apps: "Apps",
-  install: "Install apps",
-  download: "Download apps",
-  pair: "Desktop & mobile",
-  ext: "Apps & extensions",
+export const ADD_MENU_SHAPE_LABELS: Record<AddMenuShape, string> = {
+  deep: "Inside the product",
+  separate: "Its own entry",
+  flat: "One flat list",
 };
 
 export const GET_APP_PLACEMENTS = ["flyout", "header", "menu", "nav"] as const;
@@ -4265,10 +4256,10 @@ export interface ThemeState {
   headerEntrySide: HeaderEntrySide;
   /** Where the Get the app offer is reached from. See GET_APP_PLACEMENTS. */
   getAppPlacement: GetAppPlacement;
-  /** What the companion-apps row is called. See APPS_ROW_LABELS. */
-  appsRowLabel: AppsRowLabel;
   /** Whether L3 rows arrange like L2 rows. See L3_ARRANGE_DEFAULT. */
   l3Arrange: boolean;
+  /** How the add menu offers pages. See ADD_MENU_SHAPES. */
+  addMenuShape: AddMenuShape;
   /** Whether the agency's entry pill carries search. See AGENCY_SEARCH_DEFAULT. */
   agencySearch: boolean;
   /**
@@ -5191,9 +5182,9 @@ export const DEFAULT_THEME: ThemeState = {
   // One row that opens the pair, per the Sep 8 direction. See
   // GET_APP_PLACEMENTS for what the other three cost.
   getAppPlacement: "flyout",
-  // What it has always said. The three alternatives are the proposal.
-  appsRowLabel: "current",
   l3Arrange: L3_ARRANGE_DEFAULT,
+  // Nested, so nobody has to classify what they want before looking for it.
+  addMenuShape: "deep",
   agencySearch: AGENCY_SEARCH_DEFAULT,
   agencyNavMark: AGENCY_NAV_MARK_DEFAULT,
   subAccountNavMark: SUB_ACCOUNT_NAV_MARK_DEFAULT,

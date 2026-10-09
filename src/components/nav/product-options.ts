@@ -142,6 +142,51 @@ export function productTreeOptionsDeep(
  * `currentGroupId` is null for a row at top level, which is also what marks
  * "Top level" as the entry you are already on.
  */
+/**
+ * Every page in the catalogue, as one flat list carrying its trail.
+ *
+ * The other shape of the same question — see ADD_MENU_SHAPES. A tree is the
+ * right way to BROWSE and the wrong way to search: a reader who already knows
+ * they want Inbox has to remember it lives under Conversations, which lives
+ * under CRM, before the menu will show it to them. Flattened, the name is
+ * enough and the trail is there to tell two Settings apart.
+ *
+ * Pages only, no products. The two entries above already offer those, and a
+ * list that mixed them would be the whole catalogue in one column with no way
+ * to tell which rows open panels.
+ */
+export function pageOptions(
+  state: NavLayoutState,
+  exclude: (id: string) => boolean,
+): RowMenuOption[] {
+  const { categories, loose } = stockTreeFor(state);
+  const productIds = [
+    ...categories.flatMap((c) => c.productIds),
+    ...loose,
+  ];
+  const out: RowMenuOption[] = [];
+  for (const productId of productIds) {
+    const shipped = productById(productId);
+    // Views are not places: a `tabs` parent's children live ON its page.
+    if (!shipped || shipped.tabs) continue;
+    for (const child of shipped.children ?? []) {
+      if (exclude(child.id)) continue;
+      out.push({
+        id: child.id,
+        ...(child.icon ? { icon: child.icon } : {}),
+        /*
+          The trail in the LABEL, since a menu option has nowhere else to put
+          it — and it is what tells two "Settings" apart. The same "Parent ›
+          Row" shape `labelForProduct` uses when it qualifies a lifted row, so
+          the two read as one convention rather than two.
+        */
+        label: `${labelForProduct(state, productId)} › ${child.label}`,
+      });
+    }
+  }
+  return out;
+}
+
 export function productMenuActions({
   productId,
   currentGroupId,

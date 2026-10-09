@@ -16,6 +16,7 @@ import { productById } from "./catalogue";
 import type { CatalogueChild } from "./catalogue-types";
 import { l1IdsFor, tailRowsFor } from "./nav-entries";
 import {
+  withChildInGroup,
   withRowDetached,
   withChildFiled,
   childrenFor,
@@ -197,6 +198,10 @@ interface NavLayoutContextValue {
    * `withChildFiled`, and `childrenFor` for how the two are reconciled.
    */
   moveChildToProduct: (childId: string, parentId: string) => void;
+  /**
+   * Files a child into a category as a row of its own. See `withChildInGroup`.
+   */
+  moveChildToGroup: (childId: string, groupId: string, index?: number) => void;
   /** A product's children as this account has arranged them. */
   childrenOf: (productId: string) => readonly CatalogueChild[];
   /**
@@ -1416,6 +1421,14 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
        * both in step here is cheaper than a migration, and the two cannot
        * disagree because this is the only place that writes either.
        */
+      moveChildToGroup: (childId, groupId, index) =>
+        commit(
+          `Moved ${labelForProduct(state, childId)} to ${
+            resolveGroups(state).find((g) => g.id === groupId)?.label ??
+            "the nav"
+          }`,
+          (s) => withChildInGroup(s, childId, groupId, index),
+        ),
       moveChildToProduct: (childId, parentId) =>
         commit(
           `Moved ${labelForProduct(state, childId)} to ${labelForProduct(

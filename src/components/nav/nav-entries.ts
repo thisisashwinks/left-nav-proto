@@ -1,7 +1,9 @@
 import { Link2 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { childById, productById } from "./catalogue";
 import type { CatalogueChild } from "./catalogue-types";
 import {
+  glyphFor,
   applyOrder,
   iconForProduct,
   labelForProduct,
@@ -96,6 +98,23 @@ export const CHROME_TAIL_IDS: ReadonlySet<string> = new Set([
   GET_APP_FLYOUT_ID,
 ]);
 
+/**
+ * `glyphFor`'s answer, in the shape a NavItem wants.
+ *
+ * One rename — `badge` to `badgeIcon` — and it exists because spreading the
+ * two together would have compiled and done nothing: a spread skips the
+ * excess-property check, so the badge would have been dropped silently and
+ * the composed icon would simply never have appeared. The adapter makes the
+ * mismatch a thing the compiler can see.
+ */
+function navGlyph(
+  state: NavLayoutState,
+  id: string,
+): { icon: LucideIcon; badgeIcon?: LucideIcon } {
+  const { icon, badge } = glyphFor(state, id);
+  return badge ? { icon, badgeIcon: badge } : { icon };
+}
+
 export function tailRowsFor(
   state: NavLayoutState,
   looseIds: readonly string[],
@@ -121,7 +140,19 @@ export function tailRowsFor(
     byId.set(id, {
       id,
       label: labelForProduct(state, id),
-      icon: iconForProduct(state, id),
+      /*
+        `glyphFor`, not the row's own icon.
+
+        A lifted row whose name had to be qualified — "Conversations ›
+        Settings" — gets its PARENT's mark as the base and its own as a badge
+        on the corner. That is the right way round: the shared thing
+        identifies the family, so it takes the size, and the part you are
+        scanning for is the part that differs. The pinned dock has drawn these
+        this way since it shipped; this is the column catching up. The helper
+        omits the badge entirely for an unqualified row, so the spread is a
+        no-op for almost every row in the nav.
+      */
+      ...navGlyph(state, id),
       /*
        * A lifted row keeps its own children — see `liftedChildren`.
        *
@@ -159,7 +190,9 @@ export function tailRowsFor(
     byId.set(id, {
       id,
       label: labelForProduct(state, id),
-      icon: iconForProduct(state, id),
+      // See the note on the loose rows above. A lifted CHILD is the case this
+      // was written for: its name collides with its siblings' by definition.
+      ...navGlyph(state, id),
       ...(liftedChildren(id).length > 0 ? { hasFlyout: true } : {}),
     });
   }

@@ -11,6 +11,24 @@ export interface NavItem {
   label: string;
   /** Omitted for the AI row, which uses the filled sparkle instead. */
   icon?: LucideIcon;
+  /**
+   * The row's own glyph, when `icon` is its parent's.
+   *
+   * Set only for a lifted row whose name had to be qualified — "Conversations
+   * › Settings" — where the base becomes the parent's mark and this drops to
+   * a badge on its corner. Backwards for a second and then not: the shared
+   * thing is what identifies the family, so it is the part that gets the
+   * size, and the part you are actually scanning for is the part that
+   * differs. The same reasoning, and the same pair of fields, the pinned dock
+   * has used since it shipped. See `glyphFor`, which decides it, and
+   * `ComposedIcon`, which draws it.
+   *
+   * `badgeIcon`, not `badge`: an agency child already has a `badge`, and it
+   * is a different thing entirely — a "new"/"beta" chip rather than a glyph.
+   * One name for two meanings on interfaces that extend each other is how a
+   * row ends up drawing a word where a mark belongs.
+   */
+  badgeIcon?: LucideIcon;
   /** Renders the filled Material sparkle and the AI text colour. */
   ai?: boolean;
   /** Trailing chevron, meaning the row opens a flyout. */

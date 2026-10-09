@@ -313,6 +313,27 @@ export function FlyoutPanel({
    */
   const [lifted, setLifted] = React.useState<string | null>(null);
   const [over, setOver] = React.useState<string | null>(null);
+  const dragTypes = useDragTypes();
+  /*
+   * Nothing is lifted once the drag is over, whoever ended it.
+   *
+   * `lifted` is this panel's own state and is cleared by `onDragEnd` — which
+   * only fires if the drag ends on the element that started it. Drag a row out
+   * of CRM's panel and drop it on Marketing in the nav column and that never
+   * happens: the row leaves, this component keeps the same instance and is
+   * handed a different config, and the id it was told was in flight is still
+   * set. The moved row then arrives in its new panel wearing the lifted
+   * treatment — a dashed outline with everything but the grip invisible —
+   * which reads as a row that has lost its name. Ashwin, Oct 9.
+   *
+   * Derived rather than cleared in an effect: `useDragTypes` already knows
+   * whether ANY drag is in flight, so "lifted" is simply "lifted, and still
+   * dragging". A state that cannot outlive the gesture it describes needs no
+   * cleanup to go wrong.
+   */
+  const dragging = dragTypes.length > 0;
+  const liftedNow = dragging ? lifted : null;
+  const overNow = dragging ? over : null;
   const menu = useRowMenu();
   /**
    * The kebab the open menu came out of.
@@ -433,8 +454,8 @@ export function FlyoutPanel({
         setLifted(null);
         setOver(null);
       },
-      over: over === productId,
-      lifted: lifted === productId,
+      over: overNow === productId,
+      lifted: liftedNow === productId,
     };
   };
 
@@ -449,6 +470,17 @@ export function FlyoutPanel({
     editing && layout.can.regroup
       ? {
           onPickIcon: (childId, trigger) => picker.open(childId, trigger),
+          /*
+            Hiding, from the row rather than from the menu.
+
+            The kebab's Remove already calls this; what the row was missing is
+            the way BACK. A hidden child is drawn faded in edit mode with the
+            eye on it — out of the mode it is simply gone — so the eye is the
+            only control that can undo the decision, and it has to live on the
+            row it undoes. See `childrenFor`, which does the filtering.
+          */
+          hidden: (childId: string) => layout.isRowHidden(childId),
+          onToggleHidden: (childId: string) => layout.toggleRowHidden(childId),
           onOpenMenu: (childId, trigger) => {
             setMenuTrigger(trigger);
             menu.open(childId, trigger);
@@ -469,7 +501,7 @@ export function FlyoutPanel({
                   setLifted(childId);
                 },
                 onDragEnd: () => setLifted(null),
-                liftedId: lifted,
+                liftedId: liftedNow,
                 seam: (parentId: string, index: number) => (
                   <RowSeam
                     key={`child-seam-${parentId}-${index}`}
@@ -523,7 +555,6 @@ export function FlyoutPanel({
     if (to !== from) layout.movePanelRow(parentId, defaults, childId, to);
   };
 
-  const dragTypes = useDragTypes();
 
   /*
    * The agency tree's panels, which are a second thing this component draws.
@@ -633,6 +664,35 @@ export function FlyoutPanel({
         ];
       });
     }
+    /*
+      A category's rows, with their name and glyph read back from the STORE.
+
+      `config.entries` is built when the panel's config is, and a row that
+      arrives later — moved in from another category — carries whatever that
+      build gave it. Rows have turned up in edit mode with no label and no
+      glyph at all (Ashwin, Oct 9, moving Contacts into Automation), which is
+      what an entry whose metadata never got filled in looks like.
+
+      Resolving here makes the panel independent of when its config was built:
+      the label and the icon come from the same resolvers the nav column and
+      the dock use, so a row cannot be drawn one way here and another way
+      three pixels to the left. The chrome panel has done this since it
+      shipped, for the same reason — this extends it to the rest.
+    */
+    if (category) {
+      return config.entries.map((entry) =>
+        entry.kind === "item"
+          ? {
+              ...entry,
+              item: {
+                ...entry.item,
+                label: layout.productLabelFor(entry.item.id),
+                icon: layout.productIconFor(entry.item.id),
+              },
+            }
+          : entry,
+      );
+    }
     if (!agencyBucket) return config.entries;
     const byId = new Map(
       config.entries.flatMap((e) => (e.kind === "item" ? [[e.item.id, e]] : [])),
@@ -648,6 +708,7 @@ export function FlyoutPanel({
   }, [
     agencyBucket,
     agencyOrder,
+    category,
     config.entries,
     chromePanel,
     chromeOrder,
@@ -733,7 +794,7 @@ export function FlyoutPanel({
         setOver(null);
       },
       over: false,
-      lifted: lifted === rowId,
+      lifted: liftedNow === rowId,
     };
   };
 
@@ -771,7 +832,7 @@ export function FlyoutPanel({
         setOver(null);
       },
       over: false,
-      lifted: lifted === rowId,
+      lifted: liftedNow === rowId,
     };
   };
 
@@ -1011,8 +1072,16 @@ export function FlyoutPanel({
                 ),
             }
           : {}),
-        onMoveToGroup: (groupId) =>
-          layout.moveProductToGroup(productId, groupId),
+        /*
+          The CHILD verb, not the product one.
+
+          `moveProductToGroup` runs through `withProductFiled`, whose gate
+          asks whether the id is an enabled product — so it returned the state
+          unchanged for a child and the menu entry quietly did nothing, while
+          the drag onto the same category worked. Two ways to make one move
+          have to make it the same way. See `withChildInGroup`.
+        */
+        onMoveToGroup: (groupId) => layout.moveChildToGroup(productId, groupId),
         // Its own L1 row, per Ashwin — not a rung up into its parent's panel.
         // A child promoted halfway would be a product that is not in the
         // catalogue, which nothing downstream knows how to resolve.

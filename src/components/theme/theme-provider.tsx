@@ -51,8 +51,8 @@ import {
   type DirectoryExit,
   type RailFillMorph,
   type RailFillRest,
+  type AddMenuShape,
   type AdminAccent,
-  type AppsRowLabel,
   type RailSizing,
   type EditTreatment,
   type RenameAffordance,
@@ -230,8 +230,8 @@ interface ThemeContextValue extends ThemeState {
   setRailHoldInset: (on: boolean) => void;
   setRailFillRest: (v: RailFillRest) => void;
   setAdminAccent: (v: AdminAccent) => void;
-  setAppsRowLabel: (v: AppsRowLabel) => void;
   setL3Arrange: (on: boolean) => void;
+  setAddMenuShape: (v: AddMenuShape) => void;
   setPlaneGround: (v: PlaneGround) => void;
   setPinnedRowEdit: (on: boolean) => void;
   setPinnedShortcuts: (on: boolean) => void;
@@ -593,9 +593,9 @@ export function ThemeProvider({
         setState((s) => ({ ...s, railFillRest })),
       setAdminAccent: (adminAccent) =>
         setState((s) => ({ ...s, adminAccent })),
-      setAppsRowLabel: (appsRowLabel) =>
-        setState((s) => ({ ...s, appsRowLabel })),
       setL3Arrange: (l3Arrange) => setState((s) => ({ ...s, l3Arrange })),
+      setAddMenuShape: (addMenuShape) =>
+        setState((s) => ({ ...s, addMenuShape })),
       setPlaneGround: (planeGround) => setState((s) => ({ ...s, planeGround })),
       setPinnedRowEdit: (pinnedRowEdit) =>
         setState((s) => ({ ...s, pinnedRowEdit })),

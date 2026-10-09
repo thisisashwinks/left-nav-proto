@@ -1,8 +1,6 @@
 import { Monitor, Smartphone } from "lucide-react";
 import { GET_APP_LABELS } from "@/components/header/get-app-modal";
 import { BETA_BADGE, NEW_BADGE, type FlyoutConfig } from "./types";
-import { APPS_ROW_LABEL_NAMES } from "@/design/theme";
-import { useTheme } from "@/components/theme/theme-provider";
 
 /**
  * The companion apps behind one nav row instead of two.
@@ -27,8 +25,13 @@ export const GET_APP_FLYOUT_ID = "white-label-apps";
  * is a fact about who the apps belong to rather than about what is behind the
  * row. A sub-account user reading it has no white label to think about and no
  * way to guess that the two downloads they wanted are in there.
+ *
+ * Settled on "Download apps", Oct 9, and the six-way naming axis that stood
+ * here was deleted with the decision. "Desktop & mobile apps" was the longest
+ * label in a column of one- and two-word names and the first row to truncate
+ * at 240px; this one is the plainest thing the row could say and fits.
  */
-export const GET_APP_NAV_LABEL = "Desktop & mobile apps";
+export const GET_APP_NAV_LABEL = "Download apps";
 
 /**
  * The L2 rows, with the platforms each one covers.
@@ -80,17 +83,15 @@ export const getAppFlyout: FlyoutConfig = {
 };
 
 /**
- * The L1's name as the panel is currently set to say it.
+ * The L1's name, for the surfaces that draw the row.
  *
- * A hook rather than the constant, because the name is an axis now — see
- * APPS_ROW_LABELS. Every surface that draws this row reads it through here, so
- * the four of them cannot disagree about what the row is called: the nav, the
- * collapsed rail, the View all directory and the breadcrumb.
- *
- * `GET_APP_NAV_LABEL` stays as the module-scope default for the places that
- * cannot call a hook — the flyout config's own title, built once — and for
- * `current`, which is what it already said.
+ * Still a function, though the name is a constant again: the five callers —
+ * the nav, the collapsed rail, the View all directory, the flyout's own header
+ * and the breadcrumb — all read it through here, which is what kept them from
+ * disagreeing while it was an axis and is what would keep them in step if it
+ * ever becomes one again. Nothing is gained by scattering the import back out
+ * to five modules on the way past.
  */
 export function useGetAppNavLabel(): string {
-  return APPS_ROW_LABEL_NAMES[useTheme().effective.appsRowLabel];
+  return GET_APP_NAV_LABEL;
 }

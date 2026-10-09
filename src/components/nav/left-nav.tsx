@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Eye,
   EyeOff,
+  FilePlus,
   FolderPlus,
   GamepadDirectional,
   History,
@@ -69,7 +70,12 @@ import {
   UNGROUPED_ID,
 } from "./grouping";
 import { AGENCY_L1_MIME, L1_MIME, L2_MIME, L3_MIME } from "./nav-drag";
-import { productMenuActions, productTreeOptions } from "./product-options";
+import {
+  pageOptions,
+  productMenuActions,
+  productTreeOptions,
+  productTreeOptionsDeep,
+} from "./product-options";
 import { RowSeam } from "./row-seam";
 import { IconPicker, useIconPicker } from "./icon-picker";
 import { useNavLayout } from "./nav-layout-provider";
@@ -372,6 +378,7 @@ export function LeftNav({
     scopedSwitch,
     navTreeCounts,
     treeIcons,
+    addMenuShape,
     treeSearchPlace,
   } = useTheme().effective;
   /* What the companion-apps row is called right now. See APPS_ROW_LABELS. */
@@ -1162,10 +1169,23 @@ export function LeftNav({
   /** A tail row's drag wiring: it can be reordered, or filed into a category. */
   const tailDrag = (rowId: string): NavRowDrag => ({
     onDragStart: (e) => {
-      // The same MIME as a row inside a flyout, which is what lets a category
-      // accept it: leaving the tail for a category and leaving one category for
-      // another are the same arrival as far as the target is concerned.
-      e.dataTransfer.setData(L2_MIME, rowId);
+      /*
+        The same MIME as a row inside a flyout, which is what lets a category
+        accept it: leaving the tail for a category and leaving one category for
+        another are the same arrival as far as the target is concerned.
+
+        ...unless the row is a CHILD that was promoted up here, in which case
+        it drags as one. A row at the top level looks the same whatever it
+        came from, and that is the point — but what a target can DO with it
+        differs: `moveProductToGroup` refuses a child outright, so a promoted
+        Inbox dropped on Marketing announced nothing and did nothing. The
+        payload has to say which kind of row is in flight, which is what
+        having two MIME types is for. Ashwin, Oct 9.
+      */
+      e.dataTransfer.setData(
+        childById(rowId) ? L3_MIME : L2_MIME,
+        rowId,
+      );
       e.dataTransfer.setData("text/plain", layout.productLabelFor(rowId));
       e.dataTransfer.effectAllowed = "move";
       setLifted(rowId);
@@ -1771,7 +1791,20 @@ export function LeftNav({
          * have; dragging a category is answered by the gaps between rows
          * instead. Refusing is simply not calling preventDefault.
          */
-        if (!e.dataTransfer.types.includes(L2_MIME)) return;
+        /*
+          L3 as well as L2, since Oct 9.
+
+          Dropping a product on a category has always meant "put it in here".
+          A child dropped there means the same thing — it leaves its parent
+          and becomes one of this category's rows — and that is a move the
+          store can make now. See `withChildInGroup`.
+        */
+        if (
+          !e.dataTransfer.types.includes(L2_MIME) &&
+          !e.dataTransfer.types.includes(L3_MIME)
+        ) {
+          return;
+        }
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
         setOver(itemId);
@@ -1782,7 +1815,12 @@ export function LeftNav({
         setOver(null);
         setLifted(null);
         const movedRow = e.dataTransfer.getData(L2_MIME);
-        if (movedRow) layout.moveProductToGroup(movedRow, itemId);
+        if (movedRow) {
+          layout.moveProductToGroup(movedRow, itemId);
+          return;
+        }
+        const movedChild = e.dataTransfer.getData(L3_MIME);
+        if (movedChild) layout.moveChildToGroup(movedChild, itemId);
       },
       onDragEnd: () => {
         setLifted(null);
@@ -1792,7 +1830,9 @@ export function LeftNav({
       // Every category is a candidate while a product is in flight — which is
       // what makes "drag it into another category" a gesture you can see rather
       // than one you have to already know about.
-      eligible: dragTypes.includes(L2_MIME),
+      // Lit for either payload, so "drag it into another category" is a
+      // gesture you can SEE at both levels rather than one you have to know.
+      eligible: dragTypes.includes(L2_MIME) || dragTypes.includes(L3_MIME),
       lifted: lifted === itemId,
     };
     return {
@@ -2529,6 +2569,18 @@ export function LeftNav({
    * asks. The product list is everything not already a row here, named with where
    * it currently sits, so adding one never quietly duplicates it.
    */
+  /*
+   * What picking something in the add menu does, whichever level it came from.
+   *
+   * A product goes to the top level as it always has. A PAGE takes the same
+   * route — `placeAtL1` resolves a lifted child, so the row arrives in the
+   * column rather than vanishing into a tail that cannot hold it. One
+   * handler, so the three menu shapes cannot disagree about what adding
+   * means.
+   */
+  const dropIntoNav = (id: string, tailIndex: number) =>
+    layout.placeAtL1(id, tailIndex);
+
   const seamActions = (index: number, tailIndex: number): RowMenuAction[] => [
     {
       id: "category",
@@ -2538,13 +2590,54 @@ export function LeftNav({
     },
     {
       id: "product",
-      label: "Add a product",
+      label: addMenuShape === "flat" ? "Add a row" : "Add a product",
       icon: Plus,
-      // The nav's own tree, so picking a product is the same act as finding one.
-      options: productTreeOptions(state, (id) => tailRowIds.includes(id)),
+      /*
+        The nav's own tree, so picking a product is the same act as finding
+        one — and under `deep` each product carries its PAGES as a third
+        level, which is how a page is added without anyone being asked to
+        classify it first. See ADD_MENU_SHAPES.
+      */
+      options:
+        addMenuShape === "deep"
+          ? productTreeOptionsDeep(state, (id) => tailRowIds.includes(id))
+          : productTreeOptions(state, (id) => tailRowIds.includes(id)),
       emptyNote: "Everything is already a row here.",
-      onPick: (id) => layout.placeInTail(id, tailIndex),
+      onPick: (id) => dropIntoNav(id, tailIndex),
     },
+    /*
+      The third entry, under `separate` only.
+
+      It says plainly that the nav holds three kinds of thing, and gets a
+      reader who already knows they want Inbox there in two clicks. The cost
+      is that it asks them to classify what they want before they look for
+      it — which is exactly the thing an admin is often unsure about, and the
+      reason this is an axis rather than a decision.
+    */
+    ...(addMenuShape === "separate"
+      ? [
+          {
+            id: "page",
+            label: "Add a page",
+            icon: FilePlus,
+            options: pageOptions(state, (id) => tailRowIds.includes(id)),
+            emptyNote: "Every page is already a row here.",
+            onPick: (id: string) => dropIntoNav(id, tailIndex),
+          },
+        ]
+      : []),
+    ...(addMenuShape === "flat"
+      ? [
+          {
+            id: "page",
+            label: "Add a page",
+            icon: FilePlus,
+            options: pageOptions(state, (id) => tailRowIds.includes(id)),
+            emptyNote: "Every page is already a row here.",
+            onPick: (id: string) => dropIntoNav(id, tailIndex),
+          },
+        ]
+      : []),
   ];
 
   const seam = (

@@ -928,7 +928,27 @@ function resolveTree(state: NavLayoutState): ResolvedGroup[] {
       label: labelForGroup(state, id),
       defaultLabel: defaultLabelForGroup(state, id),
       icon: iconForGroup(state, id),
-      productIds: productsFor(id).filter((pid) => enabled.has(pid)),
+      /*
+        Enabled, or a CHILD of something enabled.
+
+        `enabledSetFor` answers for products, because provisioning is a
+        product-level fact — an account buys Conversations, not Inbox. Once a
+        child can be filed into a category as a row of its own (Oct 9), that
+        filter started throwing those rows away: the move committed, the toast
+        named it, and the panel drew the category without it. The third time
+        today that a row was written to state and filtered back out on the
+        way to the screen.
+
+        A child rides on its product's provisioning, which is the honest rule
+        — switch Conversations off and its Inbox row goes with it, wherever
+        the account has since put it.
+      */
+      productIds: productsFor(id).filter(
+        (pid) =>
+          enabled.has(pid) ||
+          (childById(pid) !== undefined &&
+            enabled.has(childById(pid)!.product.id)),
+      ),
       custom,
     }));
 
@@ -1233,7 +1253,19 @@ export function childrenFor(
    * product that gains a child in a later release shows it, at its authored
    * place, instead of being swallowed by a saved array that predates it.
    */
-  const resolved = [...kept, ...adopted];
+  /*
+   * Hidden children go, except while editing.
+   *
+   * The same rule `resolveGroups` applies one rung up, and for the same
+   * reason: hiding is not removing, so the row stays in the tree and the nav
+   * stops drawing it — but edit mode is where you take the decision back, and
+   * a row you cannot see is a row you cannot restore. In the mode it is drawn
+   * faded with the eye on it; out of the mode it is gone.
+   */
+  const visible = state.editing
+    ? [...kept, ...adopted]
+    : [...kept, ...adopted].filter((c) => !isRowHidden(state, c.id));
+  const resolved = visible;
   const saved = state.panelOrder[productId];
   if (!saved) return resolved;
   const known = saved.filter((id) => resolved.some((c) => c.id === id));
@@ -1279,6 +1311,46 @@ export function withRowDetached(
  * parent that is not a product — both are states the resolvers cannot
  * represent, and a store that can reach them is a store that will.
  */
+/**
+ * Files a CHILD into a category, as a row of its own.
+ *
+ * `withProductFiled` refuses it: its gate asks whether the id is an enabled
+ * product, and a child is neither. But "drag Inbox onto Marketing" is a move
+ * the nav can express perfectly well — the row leaves its parent and becomes
+ * one of that category's rows, which is what dropping onto a category has
+ * always meant for a product.
+ *
+ * So the child is detached and then spliced into the group's own list, which
+ * is the same shape `withProductFiled` writes. Everything downstream reads
+ * groups by id and resolves labels through `labelForProduct`, which already
+ * answers for children — so nothing else has to learn a new kind of row.
+ */
+export function withChildInGroup(
+  state: NavLayoutState,
+  childId: string,
+  groupId: string,
+  index?: number,
+): NavLayoutState {
+  if (!childById(childId)) return state;
+  const base = withRowDetached(state, childId);
+  const tree = customTreeFor(base);
+  return {
+    ...base,
+    customGroups: tree.customGroups.map((g) => {
+      if (g.id !== groupId) {
+        return g.productIds.includes(childId)
+          ? { ...g, productIds: g.productIds.filter((id) => id !== childId) }
+          : g;
+      }
+      const without = g.productIds.filter((id) => id !== childId);
+      const at = Math.max(0, Math.min(index ?? without.length, without.length));
+      const productIds = [...without];
+      productIds.splice(at, 0, childId);
+      return { ...g, productIds };
+    }),
+  };
+}
+
 export function withChildFiled(
   state: NavLayoutState,
   childId: string,

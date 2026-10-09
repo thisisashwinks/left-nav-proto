@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import { cn } from "@/lib/utils";
+import { ComposedIcon } from "./composed-icon";
 import { useTruncationTitle } from "@/lib/use-truncation-title";
 import { EditAffordance, InlineRename } from "./inline-rename";
 import { RailTooltip } from "./rail-tooltip";
@@ -1094,6 +1095,33 @@ function RowIcon({
   if (item.iconHidden) return null;
   if (item.ai) return <NavAiSparkle className="text-nav-ai-icon" />;
   if (!Icon) return null;
+  /*
+   * A qualified row draws its parent's mark with its own badged on it.
+   *
+   * The same composite the pinned dock uses, for the same reason — see
+   * `badgeIcon` on NavItem. Its own branch because `ComposedIcon` sizes
+   * itself from a number where this path sizes from `--t-nav-icon`: a badged
+   * row therefore sits at a literal 16 and stops tracking the icon-size knob.
+   * A real divergence, and the cheap side of the trade — it reaches only the
+   * handful of rows that are qualified at all, where making the composite
+   * take a CSS length would have meant teaching the disc and the badge to do
+   * arithmetic they currently do in JS.
+   */
+  if (item.badgeIcon) {
+    return (
+      <ComposedIcon
+        icon={Icon}
+        badge={item.badgeIcon}
+        size={16}
+        className={cn(
+          "shrink-0 motion-tap group-hover:scale-[var(--t-nav-icon-scale,1.143)]",
+          active ? "text-nav-fg" : "text-nav-fg-muted group-hover:text-nav-fg",
+          dimmed && "opacity-40",
+          glyph,
+        )}
+      />
+    );
+  }
   return (
     <Icon
       size={16}

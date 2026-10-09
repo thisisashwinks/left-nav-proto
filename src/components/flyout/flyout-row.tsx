@@ -416,6 +416,21 @@ export interface FlyoutChildEdit {
   liftedId?: string | null;
   /** A drop line for position `index` of `parentId`'s children. */
   seam?: (parentId: string, index: number) => React.ReactNode;
+  /*
+   * Whether this child is switched off, and the switch itself.
+   *
+   * The kebab could already hide an L3, but nothing on the row said so and
+   * nothing on it said how to undo it: the only route back was a menu on a row
+   * that looked no different from its visible siblings. Asked per child for the
+   * same reason the handlers are — one bundle serves the whole dropdown, so the
+   * state has to be a question the row asks about itself rather than a flag
+   * baked into a bundle built per row.
+   *
+   * Both optional, so a panel that has no notion of hidden children simply
+   * withholds them and the row draws exactly as it did before.
+   */
+  hidden?: (childId: string) => boolean;
+  onToggleHidden?: (childId: string) => void;
 }
 
 interface FlyoutRowProps {
@@ -1406,6 +1421,9 @@ function FlyoutChildRow({
   const panelId = React.useId();
   /** This row's box, for anchoring the level that hangs off it. */
   const rowRef = React.useRef<HTMLDivElement>(null);
+  // Asked once per render rather than at each of the three places it is read,
+  // so the icon, the label and the eye cannot disagree about the same row.
+  const childHidden = edit?.hidden?.(child.id) ?? false;
 
   return (
     <div
@@ -1579,7 +1597,15 @@ function FlyoutChildRow({
                 e.preventDefault();
                 edit.onPickIcon(child.id, e.currentTarget as HTMLElement);
               }}
-              className="motion-tap -m-[3px] flex shrink-0 cursor-pointer items-center justify-center rounded-[5px] p-[3px] text-nav-fg-subtle hover:bg-nav-active"
+              className={cn(
+                "motion-tap -m-[3px] flex shrink-0 cursor-pointer items-center justify-center rounded-[5px] p-[3px] text-nav-fg-subtle hover:bg-nav-active",
+                // Content only, exactly as the L2 row fades: opacity is
+                // multiplicative, so fading the row itself would drag the eye
+                // down with it and a child cannot climb back out of a faded
+                // parent. The glyph and the label carry the fade; the trailing
+                // cluster stays at full strength.
+                childHidden && "opacity-40",
+              )}
             >
               <child.icon size={16} aria-hidden="true" />
             </span>
@@ -1597,14 +1623,28 @@ function FlyoutChildRow({
                   width: "var(--here-glyph, 16px)",
                   height: "var(--here-glyph, 16px)",
                 }}
-                className={cn("shrink-0 text-nav-fg-subtle", mark.glyph)}
+                className={cn(
+                  "shrink-0 text-nav-fg-subtle",
+                  mark.glyph,
+                  // The same fade outside edit mode, for the frame between a
+                  // panel reporting a child hidden and the mode ending.
+                  childHidden && "opacity-40",
+                )}
               />
             </NewDotIcon>
           )
         ) : null}
         {/* Same rule one level down: the cut label carries its own full text. */}
         <TipIfCut cut={childLabelCut} label={child.label}>
-          <span ref={childLabelRef} className="truncate">
+          <span
+            ref={childLabelRef}
+            className={cn(
+              "truncate",
+              // Faded, not struck through — the same reading the L2 row gives
+              // it: a strike says deleted, and this row is only switched off.
+              childHidden && "opacity-40",
+            )}
+          >
             {child.label}
           </span>
         </TipIfCut>
@@ -1651,6 +1691,30 @@ function FlyoutChildRow({
             cascade && "flex-row-reverse",
           )}
         >
+          {edit?.onToggleHidden ? (
+            <EditAffordance
+              label={
+                childHidden ? `Show ${child.label}` : `Hide ${child.label}`
+              }
+              onClick={() => edit.onToggleHidden?.(child.id)}
+              /*
+                Pinned once hidden, for the reason the L2 eye is: a hidden row
+                is faded and otherwise unremarkable, so if its eye waited for a
+                hover there would be nothing on the row saying it can come
+                back — and nothing saying the fade is reversible rather than a
+                row on its way out. On a visible row the eye is an offer, and
+                an offer can wait to be asked for; on a hidden one it is the
+                only route back, so it stays on screen.
+              */
+              pinned={childHidden}
+            >
+              {childHidden ? (
+                <EyeOff size={12} aria-hidden="true" />
+              ) : (
+                <Eye size={12} aria-hidden="true" />
+              )}
+            </EditAffordance>
+          ) : null}
           {edit ? (
             <EditAffordance
               label={`Edit ${child.label}`}
