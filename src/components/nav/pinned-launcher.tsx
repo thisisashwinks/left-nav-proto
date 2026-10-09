@@ -30,7 +30,7 @@ import { iconForChildLabel } from "./l3-icons";
 import { FlyoutCascade } from "@/components/flyout/flyout-cascade";
 import {
   GET_APP_FLYOUT_ID,
-  GET_APP_NAV_LABEL,
+  useGetAppNavLabel,
   GET_APP_ROW_IDS,
 } from "@/components/flyout/get-app-flyout";
 import { useHoverDwell } from "@/lib/use-hover-dwell";
@@ -162,6 +162,8 @@ export function PinnedLauncher({
     navArrangement,
     treeRecentsAllProducts,
   } = useTheme().effective;
+  /* What the companion-apps row is called right now. See APPS_ROW_LABELS. */
+  const appsRowName = useGetAppNavLabel();
   const agency = useAgencyLayout();
   // Read for one thing only: whether the shortcut verbs are on offer here.
   const shortcuts = usePinShortcuts();
@@ -592,8 +594,8 @@ export function PinnedLauncher({
     ? {
         group: {
           id: GET_APP_FLYOUT_ID,
-          label: GET_APP_NAV_LABEL,
-          defaultLabel: GET_APP_NAV_LABEL,
+          label: appsRowName,
+          defaultLabel: appsRowName,
           icon: Smartphone,
           productIds: [],
           custom: false,

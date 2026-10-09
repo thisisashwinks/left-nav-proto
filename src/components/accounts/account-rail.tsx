@@ -112,6 +112,11 @@ interface AccountRailProps {
    * than merely stated.
    */
   locked?: boolean;
+  /**
+   * Bumped when the nav expands, to stop the rail opening under a still
+   * pointer. See `armed` below.
+   */
+  settleHover?: number;
 }
 
 /**
@@ -174,6 +179,7 @@ export function AccountRail({
   onToggleSwitcher,
   onCloseSwitcher,
   locked = false,
+  settleHover = 0,
   membersOnly = false,
 }: AccountRailProps) {
   const railAccounts = session.railIds
@@ -190,6 +196,34 @@ export function AccountRail({
    * mid-gesture.
    */
   const filledRef = React.useRef(false);
+  /*
+   * Whether a pointer that has not moved may open the rail.
+   *
+   * Collapsing hides this strip, so the Expand control sits roughly where
+   * the rail will be. Clicking it brings the rail out from under a pointer
+   * that never went looking for it, and `pointerenter` fires on the
+   * element arriving rather than on the pointer arriving — so the rail
+   * peeked open every time anyone expanded the nav, from a gesture aimed
+   * at a different control entirely.
+   *
+   * Disarmed on expand and re-armed by the first real `pointermove`. A
+   * still pointer therefore says nothing, which is the rule the hover was
+   * always meant to follow: the rail opens because you went to it, and
+   * going to it is a movement. Ashwin, Oct 9.
+   */
+  const armedRef = React.useRef(true);
+  React.useEffect(() => {
+    if (settleHover === 0) return;
+    armedRef.current = false;
+    const wake = () => {
+      armedRef.current = true;
+    };
+    // `once`, so an ordinary session adds no standing listener: the first
+    // movement after the expand both re-arms and removes it.
+    window.addEventListener("pointermove", wake, { once: true });
+    return () => window.removeEventListener("pointermove", wake);
+  }, [settleHover]);
+
   const setHover = React.useCallback(
     (next: boolean) => {
       if (hoverTimer.current !== null) clearTimeout(hoverTimer.current);
@@ -197,6 +231,9 @@ export function AccountRail({
       // is still allowed through, so a rail already open when the mode starts
       // settles shut instead of being frozen wide.
       if (locked && next) return;
+      // And a pointer that has not moved since the nav expanded. Closing is
+      // allowed through for the same reason `locked` allows it.
+      if (!armedRef.current && next) return;
       /*
        * Filled, the pointer says nothing either — in the other direction.
        *

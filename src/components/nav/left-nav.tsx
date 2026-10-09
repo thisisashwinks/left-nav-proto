@@ -132,7 +132,7 @@ import {
 } from "@/components/header/get-app-modal";
 import {
   GET_APP_FLYOUT_ID,
-  GET_APP_NAV_LABEL,
+  useGetAppNavLabel,
 } from "@/components/flyout/get-app-flyout";
 import { useAgencyLayout } from "./agency-layout";
 import { NavTemplatesMenu } from "./nav-templates-menu";
@@ -374,6 +374,8 @@ export function LeftNav({
     treeIcons,
     treeSearchPlace,
   } = useTheme().effective;
+  /* What the companion-apps row is called right now. See APPS_ROW_LABELS. */
+  const appsRowName = useGetAppNavLabel();
   /**
    * Whether a sub-account may hold a layout of its own. See LAYOUT_MODELS.
    *
@@ -543,11 +545,13 @@ export function LeftNav({
       label:
         state.accountProductLabels[GET_APP_FLYOUT_ID] ??
         state.agencyProductLabels[GET_APP_FLYOUT_ID] ??
-        GET_APP_NAV_LABEL,
+        // The axis, not the constant — see APPS_ROW_LABELS. A rename still
+        // wins over it: that is someone typing a name, this is a default.
+        appsRowName,
       icon: iconByName(state.icons[GET_APP_FLYOUT_ID]) ?? Smartphone,
       hasFlyout: true,
     }),
-    [state.accountProductLabels, state.agencyProductLabels, state.icons],
+    [state.accountProductLabels, state.agencyProductLabels, state.icons, appsRowName],
   );
   const layout = useNavLayout();
   const agencyLayout = useAgencyLayout();

@@ -18,7 +18,7 @@ import { flyouts } from "@/components/flyout/flyout-config";
 import type { FlyoutConfig } from "@/components/flyout/types";
 import {
   GET_APP_FLYOUT_ID,
-  GET_APP_NAV_LABEL,
+  useGetAppNavLabel,
   GET_APP_ROW_IDS,
   getAppFlyout,
 } from "@/components/flyout/get-app-flyout";
@@ -73,6 +73,9 @@ import { AskAiPage } from "@/components/ai/ask-ai-page";
 import { AgencyCompanyPage } from "@/components/settings/agency-company-page";
 import { LabsPage } from "@/components/settings/labs-page";
 import { LabsProvider, useLabs } from "@/components/settings/labs-state";
+import { CustomCodeProvider } from "@/components/settings/custom-code-store";
+import { CustomCodeInjector } from "@/components/settings/custom-code-injector";
+import { CurrentAccountProvider } from "@/components/accounts/accounts-context";
 import { SaasConfiguratorPage } from "@/components/settings/saas-configurator-page";
 import { BusinessProfilePage } from "@/components/settings/business-profile-page";
 import {
@@ -441,8 +444,55 @@ function foldGenericChildren(
 export function AppShell({ children }: { children?: React.ReactNode }) {
   return (
     <LabsProvider>
-      <AppShellInner>{children}</AppShellInner>
+      {/*
+        Custom code sits beside the rollout for the same reason the rollout
+        sits here: the sidebar reads both. It used to be mounted by the White
+        Label page, which meant the agency's own stylesheet only existed
+        while someone was looking at the screen that edits it.
+      */}
+      <CustomCodeProvider>
+        <AppShellInner>{children}</AppShellInner>
+      </CustomCodeProvider>
     </LabsProvider>
+  );
+}
+
+/**
+ * The trial band: you are looking at the new navigation, and here is the way out.
+ *
+ * Modelled on test mode rather than on this app's own promo banner, and
+ * the difference is the point. A promo banner is dismissible and says
+ * something about the product; this says something about the STATE YOU ARE
+ * IN, so it cannot be dismissed — the only control on it is the one that
+ * ends the state it is announcing. Stripe and Razorpay both land here for
+ * the same reason, which is why it looks like them.
+ *
+ * Orange, not the accent. Every blue surface in this shell means "this is
+ * the product"; a band in the accent would read as chrome rather than as a
+ * condition. The one colour nothing else here uses is the one that reads
+ * as temporary.
+ */
+function TrialBand({ onEnd }: { onEnd: () => void }) {
+  return (
+    <div
+      role="status"
+      className="flex h-[36px] shrink-0 items-center gap-[12px] bg-[var(--hr-orange-600)] px-[14px] text-white"
+    >
+      <span className="shrink-0 text-[12.5px] leading-[17px] font-semibold">
+        Preview mode
+      </span>
+      <span className="min-w-0 flex-1 truncate text-center text-[12.5px] leading-[17px] text-white/90">
+        You are trying the new navigation. Nothing is saved, and your
+        workspace is unchanged.
+      </span>
+      <button
+        type="button"
+        onClick={onEnd}
+        className="motion-tap flex h-[24px] shrink-0 items-center rounded-[6px] bg-white/15 px-[10px] text-[12.5px] leading-none font-medium text-white hover:bg-white/25"
+      >
+        Leave preview
+      </button>
+    </div>
   );
 }
 
@@ -455,6 +505,8 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
     setNavGeneration,
     legacyNavTheme,
   } = useTheme();
+  /* What the companion-apps row is called right now. See APPS_ROW_LABELS. */
+  const appsRowName = useGetAppNavLabel();
   const { setActiveAccount: setActiveTuningAccount } = useTuning();
   const {
     navTheme,
@@ -643,6 +695,11 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    * arrangement where you cannot read both.
    */
   const [aiMode, setAiMode] = React.useState<AiPanelMode>("docked");
+  /*
+   * Bumped whenever the nav expands, so the account rail can tell an
+   * arriving ELEMENT from an arriving pointer. See `settleHover` there.
+   */
+  const [settleHover, setSettleHover] = React.useState(0);
   const [switcherOpen, setSwitcherOpen] = React.useState(false);
   /** The rail's "All accounts" directory — a separate surface from the menu. */
   const [directoryOpen, setDirectoryOpen] = React.useState(false);
@@ -2628,7 +2685,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
                     are the two things you came here to choose between.
                   */
                   [
-                    GET_APP_NAV_LABEL,
+                    appsRowName,
                     {
                       label:
                         selectedId === GET_APP_ROW_IDS.mobile
@@ -2853,6 +2910,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
       editable={pinnedShortcutEdit}
       onFire={selectNavRow}
     >
+    <CurrentAccountProvider id={accounts.current.id}>
     <AiEntryProvider value={aiEntryState}>
     <HereProvider value={here}>
     <NewFlagProvider ids={newFlagIds}>
@@ -2900,6 +2958,18 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
       ) : plainUser ? null : (
         <TopBanner banners={AGENCY_BANNERS} />
       )}
+
+      {/*
+        Test mode, in the sense Stripe and Razorpay use the phrase.
+
+        A trial is the new nav switched on over a real workspace, so the
+        one thing it must never be is quiet: full bleed, a colour nothing
+        else in this shell wears, and the way out on the band rather than
+        back in Labs. Above the plane and above the promo banner, because
+        it is a statement about the whole window and not about the account
+        inside it. See TRIALS in labs-state.
+      */}
+      {labs.trial ? <TrialBand onEnd={labs.endTrial} /> : null}
 
       {/*
         The shell plane. Everything chrome — both switchers, the nav, the header —
@@ -3131,6 +3201,12 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
         // both the rail and the 56px slot it travels out of.
         {...(railLeaving ? { "data-rail-leaving": "" } : {})}
       >
+        {/*
+          The agency's stylesheet, live. `legacyNav` is the shell's own answer
+          about which sidebar it drew, which is the question the injector
+          needs — not whether the agency opted in, which it reads itself.
+        */}
+        <CustomCodeInjector onNewNav={!legacyNav} />
       {railPresent ? (
         <>
           {/*
@@ -3151,6 +3227,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
           <AccountRail
             session={accounts}
             theme={navTheme}
+            settleHover={settleHover}
             // A member's rail loses the agency plate and the directory door —
             // see membersOnly. The agency's keeps both.
             membersOnly={memberRail}
@@ -3297,6 +3374,8 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
           duration starting at t=0 and was the reason everything happened at
           once.
         */
+        // What a nav stylesheet is allowed to reach. See CustomCodeInjector.
+        data-nav-root=""
         className="relative z-10 h-full min-h-0 shrink-0 nav-surface-resize"
       >
         {/*
@@ -3494,7 +3573,16 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
             account={headerAccount}
             canSwitch={identityCanSwitch}
             railAbove={railActive}
-            onExpand={() => chooseCollapsed(false)}
+            onExpand={() => {
+              /*
+                Expanding brings the account rail out from under a pointer
+                that is sitting on this very button — see `settleHover` in
+                account-rail. The bump tells it to ignore a still pointer
+                until the next real movement.
+              */
+              setSettleHover((n) => n + 1);
+              chooseCollapsed(false);
+            }}
             aiSession={aiSession}
             density={density}
             onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
@@ -3818,15 +3906,22 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
                 own 12px side margin, which becomes the gutter; without it,
                 this div IS the card, so it has to leave the gutter itself.
               */
-              {...(aiBesideCanvas
-                ? {
-                    style: {
-                      marginRight: pageCanvasOn
-                        ? `calc(${AI_DOCKED_WIDTH}px + var(--shell-canvas-gap))`
-                        : `calc(${AI_DOCKED_WIDTH}px + 2 * var(--shell-canvas-gap))`,
-                    },
-                  }
-                : {})}
+              /*
+                Stated in both states, for the same reason the spacer above
+                is always mounted: a margin that only exists while the panel
+                is open has nothing to animate FROM. Zero closed, the panel's
+                width open, on the panel's curve.
+              */
+              style={{
+                marginRight: aiBesideCanvas
+                  ? pageCanvasOn
+                    ? `calc(${AI_DOCKED_WIDTH}px + var(--shell-canvas-gap))`
+                    : `calc(${AI_DOCKED_WIDTH}px + 2 * var(--shell-canvas-gap))`
+                  : 0,
+                transitionProperty: "margin-right",
+                transitionDuration: "var(--dur-base)",
+                transitionTimingFunction: "var(--ease-out)",
+              }}
               className={pageCanvasOn ? PAGE_CANVAS_HOST : cn(
                 "min-h-0 flex-1 overflow-auto",
                 barInCanvas
@@ -3978,13 +4073,37 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
           it sits one gap in from the right, so a hole of its bare width would
           put its left edge exactly on the canvas's, and the two cards would
           touch. The extra gap is the gutter between them. */}
-      {ai.isMounted && aiMode === "docked" && !aiBesideCanvas ? (
+      {/*
+        Always mounted, and its WIDTH is what moves.
+
+        This is the hole the canvas gives up to the docked panel, and it used
+        to appear and vanish with the panel — so the page jumped left in a
+        single frame while the panel beside it slid in over 220ms. Measured on
+        the slow capture the canvas was simply in its new place by frame two,
+        which is the "moves instantly" Ashwin caught on Oct 9.
+
+        A conditional element cannot animate: it has no previous width to
+        leave. So the spacer is always in the row at zero and opens to the
+        panel's width, on the panel's own curve — the page now travels with
+        the thing that displaced it, which is the only reading in which one
+        caused the other.
+
+        `phase` rather than `isMounted` for the open test: isMounted stays
+        true through the exit so the panel can play out, and a hole that waits
+        for the unmount would snap shut 140ms after the panel had gone.
+      */}
+      {aiBesideCanvas ? null : (
         <div
           aria-hidden="true"
-          className="shrink-0"
-          style={{ width: `calc(${AI_DOCKED_WIDTH}px + var(--shell-canvas-gap))` }}
+          className="shrink-0 transition-[width] duration-[var(--dur-base)] ease-[var(--ease-out)]"
+          style={{
+            width:
+              ai.isMounted && aiMode === "docked" && ai.phase !== "exiting"
+                ? `calc(${AI_DOCKED_WIDTH}px + var(--shell-canvas-gap))`
+                : 0,
+          }}
         />
-      ) : null}
+      )}
 
       {/*
         The page steps back while the nav is being edited (design review,
@@ -4376,6 +4495,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
     </NewFlagProvider>
     </HereProvider>
     </AiEntryProvider>
+    </CurrentAccountProvider>
     </PinShortcutsProvider>
   );
 }

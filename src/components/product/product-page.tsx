@@ -45,6 +45,7 @@ import { OpportunitiesPage } from "@/components/opportunities/opportunities-page
 import { WorkflowsPage } from "@/components/automation/workflows-page";
 import { AgentTemplatesPage } from "@/components/ai/agent-templates-page";
 import { KnowledgeBasePage } from "@/components/ai/knowledge-base-page";
+import { SubAccountLabsPage } from "@/components/settings/labs-subaccount-page";
 import { LaunchpadPage } from "@/components/launchpad/launchpad-page";
 import { ReportingDashboardPage } from "@/components/reporting/dashboard-page";
 import { FunnelsPage } from "@/components/sites/funnels-page";
@@ -114,6 +115,23 @@ const REAL_PAGES: {
     products: ["ia-ai-voice"],
     children: ["ia-ai-voice-agents", "ia-ai-voice-dashboard"],
     render: () => <VoiceAiPage />,
+  },
+  {
+    /*
+     * Settings ▸ Labs, from inside a sub-account.
+     *
+     * The other end of the agency's Labs page: the agency decides what is
+     * on offer to each account, and this is where the account answers. The
+     * two share their cards and their store — see `labs-subaccount-page`
+     * for what the two columns mean from down here.
+     *
+     * Proposed tree only. The shipped tree reaches the same screen through
+     * the legacy nav's Settings row instead, which is wired separately in
+     * `legacy-nav.tsx`.
+     */
+    products: ["ia-settings-labs"],
+    children: [],
+    render: () => <SubAccountLabsPage />,
   },
   {
     /*

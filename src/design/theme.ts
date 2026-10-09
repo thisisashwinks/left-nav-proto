@@ -857,6 +857,57 @@ export const DOCK_POSITION_LABELS: Record<DockPosition, string> = {
  * Exclusive, all four. The offer duplicated across two surfaces is the
  * duplication the review keeps objecting to everywhere else.
  */
+/**
+ * What the companion-apps row is called.
+ *
+ *  current   "Desktop & mobile apps". Names the two things behind the row, so
+ *            nothing has to be guessed — and is the longest label in a column
+ *            of one- and two-word names, which gives it visual weight its
+ *            importance does not earn. It is also the first row to truncate at
+ *            240px.
+ *  apps      "Apps". Nothing else in this nav is called an app, so there is no
+ *            ambiguity to resolve, and the row stops being a list of its own
+ *            contents — which is the panel's job.
+ *  install   "Install apps". Verb-first, like every button in this product,
+ *            and the current verb for both platforms: it says something
+ *            happens after the file lands, which "download" does not.
+ *  download  "Download apps". The most literal, and the most dated — nobody
+ *            downloads a phone app.
+ *  pair      "Desktop & mobile". The current name with the redundant noun
+ *            dropped: an ampersand pair of platforms already implies the apps.
+ *  ext       "Apps & extensions". The widest of the six, and the only one that
+ *            promises something the panel does not currently hold — worth
+ *            seeing if the browser extension is going in there, and a lie
+ *            until it is.
+ *
+ * Sentence case throughout, per the copy rules: only proper nouns capitalise,
+ * so "Install apps" rather than "Install Apps".
+ *
+ * The description under the row is left alone. It is the same offer whatever
+ * the row is called, and a label this short is exactly when the sentence
+ * beneath it is doing the most work.
+ */
+export const APPS_ROW_LABELS = [
+  "current",
+  "apps",
+  "install",
+  "download",
+  "pair",
+  "ext",
+] as const;
+
+export type AppsRowLabel = (typeof APPS_ROW_LABELS)[number];
+
+/** What the panel calls each one. */
+export const APPS_ROW_LABEL_NAMES: Record<AppsRowLabel, string> = {
+  current: "Desktop & mobile apps",
+  apps: "Apps",
+  install: "Install apps",
+  download: "Download apps",
+  pair: "Desktop & mobile",
+  ext: "Apps & extensions",
+};
+
 export const GET_APP_PLACEMENTS = ["flyout", "header", "menu", "nav"] as const;
 
 export type GetAppPlacement = (typeof GET_APP_PLACEMENTS)[number];
@@ -2631,6 +2682,72 @@ export const NAV_CHEVRON_LABELS: Record<NavChevron, string> = {
 };
 
 /**
+ * Which glyph the collapsed rail's "View all" row wears.
+ *
+ * Four candidates, because at 64px the row has no label to explain itself
+ * and the glyph is the whole of the affordance — which makes this a
+ * question you answer by looking rather than by arguing.
+ *
+ *  dots     `MoreHorizontal`. This product's standing "there is more here"
+ *           mark, already used by the breadcrumb's overflow. Says nothing
+ *           about WHAT more, which is either its honesty or its weakness.
+ *  list     `LayoutList`. Names the thing on the other side — a list —
+ *           rather than the fact that it continues. The most literal, and
+ *           the closest to a second Recents mark.
+ *  history  `History`. Names the CONTENT of that list, and the default
+ *           (Oct 9): the row sits directly above the recents it opens, so
+ *           the thing it could be confused with is the thing it leads to —
+ *           which is a confusion that costs nothing. The ellipsis was the
+ *           first default and it is the more generic mark; generic is
+ *           exactly what a 64px strip cannot afford when the glyph is the
+ *           whole of the label.
+ *  arrow    `ChevronsRight`. The only one that says a direction, and the
+ *           panel does arrive from the right. Also the only one that could
+ *           be mistaken for a disclosure on the row above it.
+ *
+ * A chevron alone is deliberately absent: in the expanded nav it points at
+ * a panel sliding in from the right, and in a 64px strip the same mark
+ * points at the page and promises a direction nothing arrives from.
+ */
+export const RAIL_VIEW_ALLS = ["history", "dots", "list", "arrow"] as const;
+export type RailViewAll = (typeof RAIL_VIEW_ALLS)[number];
+export const RAIL_VIEW_ALL_LABELS: Record<RailViewAll, string> = {
+  dots: "Ellipsis",
+  list: "List",
+  history: "Clock",
+  arrow: "Double chevron",
+};
+
+/**
+ * How Labs offers a look at the new navigation before you commit to it.
+ *
+ *  preview  A link that opens a DEMO account in a new tab. Your own
+ *           workspace is untouched and nothing can go wrong, which is also
+ *           its weakness: you are judging the nav against somebody else's
+ *           data, and half of what makes a nav good or bad is whether YOUR
+ *           twelve products are where you expect them.
+ *  trial    Switch it on in your own account, with a coloured band across
+ *           the top saying so and one control to leave — the pattern
+ *           Stripe and Razorpay use for test mode. You judge it against
+ *           your own workspace, and the band is what stops "I was only
+ *           looking" becoming "why is my nav different". The cost is that
+ *           it is a real change to a real account, so the way out has to
+ *           be permanently on screen rather than back where you came from.
+ *  both     Both offers on the card. The default: they answer different
+ *           questions — "what is this?" and "what would this be like for
+ *           me?" — and the second only makes sense once you have asked the
+ *           first. Two links in one sentence is the cheapest way to let
+ *           someone take them in that order.
+ */
+export const SWITCHYARD_TRIES = ["both", "preview", "trial"] as const;
+export type SwitchyardTry = (typeof SWITCHYARD_TRIES)[number];
+export const SWITCHYARD_TRY_LABELS: Record<SwitchyardTry, string> = {
+  both: "Preview and try",
+  preview: "Preview in a demo account",
+  trial: "Try it in this account",
+};
+
+/**
  * Whether Ask AI can float over the page at all.
  *
  * OFF by default (Oct 5), which leaves the panel two modes: docked beside
@@ -3915,6 +4032,55 @@ export const CUSTOM_CODE_MODE_LABELS: Record<CustomCodeMode, string> = {
   separate: "Its own CSS and JS",
 };
 
+/**
+ * How "where your code runs" is drawn.
+ *
+ *  rows    A row per navigation. The old one carries "Always on", the new one
+ *          carries the checkbox. Symmetrical, and that is the flaw: it gives
+ *          equal billing to a fact and to a decision, so the eye has to work
+ *          out which of the two it is being asked about.
+ *  header  The fact becomes a header on the card — the code runs on the old
+ *          navigation, in this many sub-accounts, and nothing can change that
+ *          — leaving one row below it that is purely the choice. Matches the
+ *          Theme card, which states its scope the same way. Ashwin, Oct 9.
+ */
+export const CODE_SCOPE_VIEWS = ["header", "rows"] as const;
+export type CodeScopeView = (typeof CODE_SCOPE_VIEWS)[number];
+
+export const CODE_SCOPE_VIEW_LABELS: Record<CodeScopeView, string> = {
+  header: "Scope in the header",
+  rows: "A row per navigation",
+};
+
+/**
+ * How White Label answers the custom-code question.
+ *
+ * Four approaches to one problem, kept side by side because the problem is
+ * not settled. Custom code has exactly ONE scope — the agency — while the
+ * navigation now has TWO states that differ per sub-account, and every option
+ * below is a different place to put that mismatch.
+ *
+ *  safe    Legacy code stops applying the moment Switchyard is on, and
+ *          reusing it is a named opt-in. The approach the team actually
+ *          agreed, and the default here: it is the only one that can ship
+ *          inside the private beta window.
+ *  split   White Label holds the code and nothing else; who is on which
+ *          navigation moves wholly to Labs. An organising principle rather
+ *          than a mechanism: `safe` can sit inside it.
+ *
+ * Two others were built and cut on Oct 9 — scoping each block of code to a
+ * navigation, and reporting on the agency's code before they enable anything.
+ * Both answered the question better than either survivor and neither could
+ * ship in the beta window; the wireframes for them are kept outside the repo.
+ */
+export const WHITE_LABEL_APPROACHES = ["safe", "split"] as const;
+export type WhiteLabelApproach = (typeof WHITE_LABEL_APPROACHES)[number];
+
+export const WHITE_LABEL_APPROACH_LABELS: Record<WhiteLabelApproach, string> = {
+  safe: "Off by default",
+  split: "Code here, flag in Labs",
+};
+
 export const NAV_GENERATIONS = ["new", "legacy"] as const;
 
 /**
@@ -3988,6 +4154,10 @@ export interface ThemeState {
   aiFullChrome: AiFullChrome;
   /** Whether Ask AI can float over the page. See AI_FLOATING_DEFAULT. */
   aiFloating: boolean;
+  /** How Labs offers a look at the new nav. See SWITCHYARD_TRIES. */
+  switchyardTry: SwitchyardTry;
+  /** The collapsed rail's "View all" glyph. See RAIL_VIEW_ALLS. */
+  railViewAll: RailViewAll;
   /** When the L1 flyout chevron is drawn. See NAV_CHEVRONS. */
   navChevron: NavChevron;
   /** How dark the nav's resting rows are. See NAV_INKS. */
@@ -4016,6 +4186,8 @@ export interface ThemeState {
   headerEntrySide: HeaderEntrySide;
   /** Where the Get the app offer is reached from. See GET_APP_PLACEMENTS. */
   getAppPlacement: GetAppPlacement;
+  /** What the companion-apps row is called. See APPS_ROW_LABELS. */
+  appsRowLabel: AppsRowLabel;
   /** Whether the agency's entry pill carries search. See AGENCY_SEARCH_DEFAULT. */
   agencySearch: boolean;
   /**
@@ -4569,6 +4741,10 @@ export interface ThemeState {
   canvasBleed: CanvasBleed;
   /** What custom code on the new nav does. See CUSTOM_CODE_MODES. */
   customCodeMode: CustomCodeMode;
+  /** How "where your code runs" is drawn. See CODE_SCOPE_VIEWS. */
+  codeScopeView: CodeScopeView;
+  /** How White Label answers the custom-code question. See WHITE_LABEL_APPROACHES. */
+  whiteLabelApproach: WhiteLabelApproach;
   /** How much room the canvas keeps around its content. See CANVAS_PADS. */
   canvasPad: CanvasPad;
   /** What the nav's top edge lines up with, on the plane. See PLANE_HEADS. */
@@ -4884,6 +5060,8 @@ export const DEFAULT_THEME: ThemeState = {
    */
   aiFullChrome: "hide",
   aiFloating: AI_FLOATING_DEFAULT,
+  switchyardTry: "both",
+  railViewAll: "history",
   /*
    * On hover, as of Oct 6.
    *
@@ -4931,6 +5109,8 @@ export const DEFAULT_THEME: ThemeState = {
   // One row that opens the pair, per the Sep 8 direction. See
   // GET_APP_PLACEMENTS for what the other three cost.
   getAppPlacement: "flyout",
+  // What it has always said. The three alternatives are the proposal.
+  appsRowLabel: "current",
   agencySearch: AGENCY_SEARCH_DEFAULT,
   agencyNavMark: AGENCY_NAV_MARK_DEFAULT,
   subAccountNavMark: SUB_ACCOUNT_NAV_MARK_DEFAULT,
@@ -4979,6 +5159,8 @@ export const DEFAULT_THEME: ThemeState = {
   planeSeam: "flush",
   canvasBleed: "corner",
   customCodeMode: "inherit",
+  codeScopeView: "header",
+  whiteLabelApproach: "safe",
   canvasPad: "roomy",
   planeHead: "bar",
   flyoutShape: "docked",

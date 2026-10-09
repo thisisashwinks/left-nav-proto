@@ -37,6 +37,34 @@ export interface LabsState {
   /** Per sub-account, by account id. Absent means the default below. */
   access: Record<string, AccountAccess>;
   setAccess: (next: Record<string, AccountAccess>) => void;
+  /**
+   * What the sub-account's own admin has since chosen, by account id.
+   *
+   * Separate from `access` because they are different people's answers.
+   * The agency sets the two columns; the sub-account then decides for
+   * itself, inside the room the agency left it. Merging them into one
+   * boolean would lose the thing the two columns exist to express — an
+   * agency that has made a beta available but not taken it would be
+   * indistinguishable from one that has forbidden it.
+   */
+  userOn: Record<string, boolean>;
+  setUserOn: (id: string, on: boolean) => void;
+  /** Whether a sub-account may see the flag in its own Labs at all. */
+  accountVisible: (id: string) => boolean;
+  /**
+   * The scope currently running the new nav on trial, if any.
+   *
+   * Test mode, in the sense Stripe and Razorpay use it: the real workspace
+   * with the new nav switched on over it, a band across the top saying so,
+   * and one control to leave. Separate from `agencyOn` and `access`
+   * because it is a DIFFERENT KIND of answer — those are a rollout
+   * decision that outlives the session, this is a look that is expected to
+   * end. Folding a trial into the rollout would mean someone who glanced
+   * at the nav on Tuesday being counted as having adopted it.
+   */
+  trial: "agency" | "account" | null;
+  startTrial: (scope: "agency" | "account") => void;
+  endTrial: () => void;
   /** Whether this account is on the new nav. The shell's one question. */
   accountOn: (id: string) => boolean;
 }
@@ -80,6 +108,12 @@ const LabsContext = React.createContext<LabsState>({
   setAgencyOn: () => {},
   access: {},
   setAccess: () => {},
+  trial: null,
+  startTrial: () => {},
+  endTrial: () => {},
+  userOn: {},
+  setUserOn: () => {},
+  accountVisible: () => true,
   accountOn: () => true,
 });
 
@@ -91,29 +125,67 @@ export function LabsProvider({ children }: { children: React.ReactNode }) {
         SEEDED_LEGACY.map((id) => [id, { visible: true, enabled: false }]),
       ),
   );
+  /*
+   * Empty: nobody has overridden their agency yet.
+   *
+   * Absent means "has not decided", which is not the same as "decided to
+   * leave it as the agency set it" — the first follows the agency if the
+   * agency later changes its mind, and the second would not. Only the
+   * sub-account's own Labs writes here.
+   */
+  const [userOn, setUserOnState] = React.useState<Record<string, boolean>>({});
+  const [trial, setTrial] = React.useState<"agency" | "account" | null>(null);
+  const setUserOn = React.useCallback(
+    (id: string, on: boolean) =>
+      setUserOnState((prev) => ({ ...prev, [id]: on })),
+    [],
+  );
 
   const value = React.useMemo<LabsState>(
     () => ({
-      agencyOn,
+      /*
+       * A trial reads as ON, and does not write it down.
+       *
+       * The shell asks one question — which nav does this scope get — so
+       * the trial has to answer it here rather than every reader checking
+       * two things. What it must NOT do is set `agencyOn`, or leaving the
+       * trial would leave the rollout behind it.
+       */
+      agencyOn: agencyOn || trial === "agency",
       setAgencyOn,
       access,
       setAccess,
+      userOn,
+      setUserOn,
+      accountVisible: (id) => (access[id] ?? DEFAULT_ACCESS).visible,
+      trial,
+      startTrial: setTrial,
+      endTrial: () => setTrial(null),
       /*
-       * Both switches, not either.
+       * Visibility is the gate; after it, the sub-account has the say.
        *
-       * An account that cannot see the beta is not on it, whatever the
-       * enable column says — which the sheet already enforces on write, so
-       * this is a second line of defence rather than the rule's only home.
-       * Worth having both: the rule is what the SHELL acts on, and a shell
-       * that trusted a single flag would hand someone a nav they were never
-       * shown the switch for.
+       * An account that cannot SEE the beta is not on it, whatever else is
+       * set — the sheet enforces that on write too, so this is a second
+       * line of defence rather than the rule's only home. Worth having
+       * both: this is what the SHELL acts on, and a shell that trusted a
+       * single flag would hand someone a nav they were never shown the
+       * switch for.
+       *
+       * Past the gate, the sub-account's own answer wins over the agency's
+       * — which is what the two columns are FOR. The agency decides
+       * whether a beta is on offer and what it starts as; the account
+       * decides whether to keep it. Falling back to the agency's value
+       * where the account has not answered is what makes "available, not
+       * taken" a state the model can hold.
        */
       accountOn: (id) => {
+        if (trial === "account") return true;
         const row = access[id] ?? DEFAULT_ACCESS;
-        return row.visible && row.enabled;
+        if (!row.visible) return false;
+        return userOn[id] ?? row.enabled;
       },
     }),
-    [agencyOn, access],
+    [agencyOn, access, userOn, setUserOn, trial],
   );
 
   return <LabsContext value={value}>{children}</LabsContext>;

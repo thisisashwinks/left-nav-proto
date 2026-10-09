@@ -96,7 +96,7 @@ export interface TuningState {
  * design's own value where the two differ.
  */
 export const TUNING_DEFAULTS: TuningState = {
-  navIconSize: 14,
+  navIconSize: 16,
   // Hover takes the icon to the design's 16 — the resting size is the one that
   // came down, so growing back to 16 is the row saying "this is the one".
   navIconHoverSize: 16,
@@ -143,8 +143,8 @@ export const TUNING_DEFAULTS: TuningState = {
 };
 
 export const TUNING_KNOBS: TuningKnob[] = [
-  { id: "navIconSize", cssVar: "--t-nav-icon", label: "Icon size", group: "Nav rows", min: 12, max: 24, step: 1, unit: "px", hint: "14 from live testing · design ships 16" },
-  { id: "navIconHoverSize", cssVar: "--t-nav-icon-hover", label: "Icon size on hover", group: "Nav rows", min: 12, max: 28, step: 1, unit: "px", hint: "Grows to the design's 16" },
+  { id: "navIconSize", cssVar: "--t-nav-icon", label: "Icon size", group: "Nav rows", min: 12, max: 24, step: 1, unit: "px", hint: "16 — the design’s size, at rest as well as on hover" },
+  { id: "navIconHoverSize", cssVar: "--t-nav-icon-hover", label: "Icon size on hover", group: "Nav rows", min: 12, max: 28, step: 1, unit: "px", hint: "Equal to the resting size, so rows no longer grow under the pointer" },
   { id: "navRowFontSize", cssVar: "--t-nav-font", label: "Label size", group: "Nav rows", min: 11, max: 18, step: 0.5, unit: "px", hint: "Design: 14 · expanded only" },
   { id: "navRowGap", cssVar: "--t-nav-gap", label: "Row gap (all items)", group: "Nav rows", min: 0, max: 20, step: 1, unit: "px", hint: "8 from live tuning · design ships 10" },
   { id: "navRowTrailGap", cssVar: "--t-nav-trail-gap", label: "Trailing controls gap", group: "Nav rows", min: 0, max: 20, step: 1, unit: "px", hint: "8 from live tuning · eye, kebab, chevron — nav rows, L2 and L3" },

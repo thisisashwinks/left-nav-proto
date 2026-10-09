@@ -57,7 +57,7 @@ export function CodeEditorField({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-[8px] bg-pg-bg shadow-[inset_0_0_0_1px_var(--pg-border)]",
+        "relative overflow-hidden rounded-[8px] bg-pg shadow-[inset_0_0_0_1px_var(--pg-border)]",
         disabled && "opacity-60",
       )}
     >
@@ -105,7 +105,7 @@ export function CodeEditorField({
         onClick={copy}
         disabled={disabled}
         aria-label={copied ? "Copied" : `Copy ${label}`}
-        className="motion-tap absolute top-[8px] right-[8px] flex size-[26px] items-center justify-center rounded-[6px] text-pg-muted hover:bg-pg-bg hover:text-pg-heading active:scale-95"
+        className="motion-tap absolute top-[8px] right-[8px] flex size-[26px] items-center justify-center rounded-[6px] text-pg-muted hover:bg-pg hover:text-pg-heading active:scale-95"
       >
         {copied ? (
           <Check size={14} aria-hidden="true" className="text-pg-heading" />
@@ -121,7 +121,7 @@ export function CodeEditorField({
         disabled={disabled}
         aria-label={big ? `Collapse ${label}` : `Expand ${label}`}
         aria-pressed={big}
-        className="motion-tap absolute right-[8px] bottom-[8px] flex size-[26px] items-center justify-center rounded-[6px] text-pg-muted hover:bg-pg-bg hover:text-pg-heading active:scale-95"
+        className="motion-tap absolute right-[8px] bottom-[8px] flex size-[26px] items-center justify-center rounded-[6px] text-pg-muted hover:bg-pg hover:text-pg-heading active:scale-95"
       >
         {big ? (
           <Minimize2 size={14} aria-hidden="true" />

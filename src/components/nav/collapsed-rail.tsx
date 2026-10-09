@@ -1,10 +1,22 @@
 "use client";
 
 import * as React from "react";
-import { History, LayoutGrid, Monitor, PanelLeftOpen, Pin, Rocket, Smartphone, SquarePen } from "lucide-react";
+import {
+  ChevronsRight,
+  History,
+  LayoutGrid,
+  LayoutList,
+  Monitor,
+  MoreHorizontal,
+  PanelLeftOpen,
+  Pin,
+  Rocket,
+  Smartphone,
+  SquarePen,
+} from "lucide-react";
 import {
   GET_APP_FLYOUT_ID,
-  GET_APP_NAV_LABEL,
+  useGetAppNavLabel,
 } from "@/components/flyout/get-app-flyout";
 import {
   GET_APP_LABELS,
@@ -19,7 +31,7 @@ import type { Account } from "@/components/accounts/accounts-data";
 import type { WorkspaceScope } from "@/components/accounts/use-accounts";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
-import type { SurfaceTheme } from "@/design/theme";
+import type { RailViewAll, SurfaceTheme } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { EntryClusterRail } from "./entry-cluster";
@@ -50,6 +62,27 @@ const RAIL_GLYPH = {
   width: "var(--t-nav-icon, 16px)",
   height: "var(--t-nav-icon, 16px)",
 } as const;
+
+/**
+ * The "View all" mark, whichever the axis names. See RAIL_VIEW_ALLS.
+ *
+ * A component rather than a lookup table of elements, so every candidate
+ * is constructed the same way — same size var, same `aria-hidden` — and
+ * comparing them is comparing the drawings rather than four slightly
+ * different call sites.
+ */
+function ViewAllGlyph({ kind }: { kind: RailViewAll }) {
+  const Icon =
+    kind === "list"
+      ? LayoutList
+      : kind === "history"
+        ? History
+        : kind === "arrow"
+          ? ChevronsRight
+          : MoreHorizontal;
+  return <Icon size={16} aria-hidden="true" style={RAIL_GLYPH} />;
+}
+
 import { fixedEntriesFor, flyoutIdFor, navConfig } from "./nav-config";
 import { RailNewDot, useNewDotShown, useNewFlagIds } from "./new-flag";
 import { useNavProfiles } from "@/components/nav/nav-profiles";
@@ -199,7 +232,10 @@ export function CollapsedRail({
     subAccountNavMark,
     launchpad: launchpadSetting,
     navArrangement,
+    railViewAll,
   } = useTheme().effective;
+  /* What the companion-apps row is called right now. See APPS_ROW_LABELS. */
+  const appsRowName = useGetAppNavLabel();
   /**
    * Whether this rail is the collapsed face of a TREE nav.
    *
@@ -392,7 +428,7 @@ export function CollapsedRail({
                     label:
                       layout.accountProductLabels[GET_APP_FLYOUT_ID] ??
                       layout.agencyProductLabels[GET_APP_FLYOUT_ID] ??
-                      GET_APP_NAV_LABEL,
+                      appsRowName,
                     icon:
                       iconByName(layout.icons[GET_APP_FLYOUT_ID]) ?? Smartphone,
                     hasFlyout: true,
@@ -581,7 +617,20 @@ export function CollapsedRail({
       // Transparent, same as the expanded face — the shell's chrome card paints
       // the surface for both, so collapsing narrows the card rather than swapping
       // one treatment for another.
-      className="group/nav flex h-full w-[64px] shrink-0 flex-col items-center gap-[4px] overflow-hidden pt-[11px] pr-[8px] pb-[3px] pl-[8px]"
+      /*
+        pt-[18px], not 11 (Ashwin, Oct 9).
+
+        The account mark sat almost against the window's top edge while
+        every row below it had the strip's own rhythm underneath, so the
+        head of the column read as clipped rather than as spaced. 18 puts
+        the mark's optical centre near the app bar's midline — the same
+        line the expanded nav's identity row sits on — so collapsing no
+        longer moves the one fixed point in the chrome.
+
+        It travels down the whole head of the strip: the expand toggle and
+        the Launchpad glyph move with it, which is what was asked for.
+      */
+      className="group/nav flex h-full w-[64px] shrink-0 flex-col items-center gap-[4px] overflow-hidden pt-[18px] pr-[8px] pb-[3px] pl-[8px]"
     >
       {/*
         The rail has no room for a name or a chevron, so the mark itself is the
@@ -648,12 +697,20 @@ export function CollapsedRail({
       </RailTooltip>
 
       {/*
-        Launchpad, greyed.
+        Launchpad.
 
         Ashwin, Oct 7: if the Launchpad card is on in the expanded nav it has
         to be represented here too, so collapsing never removes a row — only
-        its label. Greyed rather than live because there is no card to show at
-        this width: it stands for the row, it is not a second way in.
+        its label. It is not a second way in; there is no card to show at this
+        width.
+
+        It carried `opacity-45` on top of the subtle ink to say so, and that
+        was a treatment answering the wrong question (Oct 9). Fading a glyph
+        says "unavailable", which this is not — it is a row that has nothing
+        to disclose at 64px, the same as half the strip. What it actually did
+        was make one icon in a column of identical greys look broken. The ink
+        is now its neighbours'; the absence of a hover fill is what still says
+        it does not press.
 
         Below the toggle rather than at the toggle's own line, which was the
         other option: that would have kept its y, but it would also have
@@ -663,7 +720,7 @@ export function CollapsedRail({
       {launchpadAllowed ? (
         <RailTooltip label="Launchpad">
           <span
-            className="flex h-[calc(var(--t-nav-py,9px)*2+20px)] w-[40px] shrink-0 items-center justify-center rounded-[var(--t-nav-radius,7px)] text-nav-fg-subtle opacity-45"
+            className="flex h-[calc(var(--t-nav-py,9px)*2+20px)] w-[40px] shrink-0 items-center justify-center rounded-[var(--t-nav-radius,7px)] text-nav-fg-subtle"
           >
             <Rocket size={16} aria-hidden="true" style={RAIL_GLYPH} />
           </span>
@@ -736,18 +793,53 @@ export function CollapsedRail({
         groups rather than showing rows that would open client panels.
       */}
       {/*
-        The head of the strip, sized to the expanded nav's own head.
+        No head spacer. It was 28px, standing in for the Launchpad card and
+        the RECENTS caption so the first pinned row kept the y it has
+        expanded — a real measurement, and it stopped being true the moment
+        "View all" became a row of its own (Oct 9).
 
-        Expanded, the first pinned row sits at y192 because the Launchpad card
-        and the RECENTS caption are above it. Collapsed there is no caption, so
-        without this the whole column starts 32px high and every icon has to
-        slide up on collapse. Measured against the expanded face, not guessed.
+        What was left was 28px of nothing between the Launchpad glyph and the
+        View all mark: a gap holding a place for a caption that now has a
+        row, read as a void rather than as alignment. Matching one y at the
+        cost of an unexplained hole in a 64px strip is the wrong trade — the
+        column has its own rhythm and the eye reads that before it reads
+        anything's absolute position. Ashwin, Oct 9.
       */}
-      {atFloor || agencyScope ? null : <div aria-hidden="true" className="h-[28px] w-full shrink-0" />}
 
       {atFloor || agencyScope ? null : (
         <>
           <div className="flex w-full flex-col items-center gap-[var(--t-nav-space,2px)]">
+            {/*
+              "View all", where the expanded face's caption carries it.
+
+              Expanded, RECENTS is a heading with "View all ›" on its right
+              edge, ABOVE the rows. The first cut put this at the foot of the
+              run, which is where a "more" row goes in a list that continues
+              — but this list does not continue, it is replaced by a panel,
+              and the door to it belongs where the heading's door is.
+              Collapsing should move a control's label, not its position.
+              Ashwin, Oct 9.
+
+              Which glyph is an open question with four candidates and no
+              label to settle it, so it is an axis rather than a choice —
+              see RAIL_VIEW_ALLS.
+            */}
+            {railButton(
+              "recents-view-all",
+              /*
+                The tooltip is the label this row does not have.
+
+                "View all" is what the expanded caption says, because up
+                there it sits beside the word RECENTS and inherits its
+                subject. Alone in a 64px strip it would be "view all" of
+                what — and the one place a reader looks for that answer is
+                the tooltip. Ashwin, Oct 9.
+              */
+              "View all recents",
+              <ViewAllGlyph kind={railViewAll} />,
+              false,
+              onOpenLauncher,
+            )}
             {/*
               The same rows the expanded face is showing, as marks.
 
@@ -775,15 +867,6 @@ export function CollapsedRail({
                 )}
               </React.Fragment>
             ))}
-            {/*
-              No "view all" down here.
-
-              The expanded block's heading carries one because it is a heading
-              with a spare right edge; a 64px column has neither, and a glyph
-              for it would be a third History mark in a strip that already shows
-              the history itself. Getting to the whole list means opening the
-              nav, which is one click and the click you were going to make.
-            */}
             {fixedRows.map(renderRailRow)}
           </div>
           {divider("div-fixed")}

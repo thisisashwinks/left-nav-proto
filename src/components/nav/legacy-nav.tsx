@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import {
+  ArrowLeft,
   Award,
   BookUser,
   Bot,
@@ -31,8 +32,6 @@ import {
   Rocket,
   Search,
   Send,
-  Building2,
-  FlaskConical,
   Settings,
   Shapes,
   Share2,
@@ -126,6 +125,10 @@ export function LegacyNav({
   // opens where they do.
   const [selected, setSelected] = React.useState("launchpad");
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  // The settings level keeps its own selection: it is a separate list, and
+  // "My Profile" is where production's lands, as the second screenshot shows.
+  const [settingsSelected, setSettingsSelected] =
+    React.useState("agency-profile");
 
   // The list differs per scope, and so does what "Launchpad" means in it, so a
   // scope change resets rather than carrying a selection into a list that may
@@ -135,6 +138,9 @@ export function LegacyNav({
     if (scopeRef.current === scope) return;
     scopeRef.current = scope;
     setSelected("launchpad");
+    // And out of the settings level: it is the agency's list, and production
+    // drops you at the top of the new scope rather than into its settings.
+    setSettingsOpen(false);
   }, [scope]);
 
   return (
@@ -143,7 +149,32 @@ export function LegacyNav({
       // marker is what points tokens.css at production's slate instead of the
       // prototype's near-black.
       data-legacy-nav=""
+      /*
+        Production's own id, carried verbatim.
+
+        Every agency stylesheet in the wild is written against `#sidebar-v2`
+        and `.nav-link` — those strings ARE the contract, whatever we would
+        have called them. Transcribing the sidebar without them would have
+        made this a nav that looks like production's and cannot be styled
+        like it, which is the one property the custom-code demonstration
+        depends on. Ashwin, Oct 9.
+      */
+      id="sidebar-v2"
       data-nav-theme={legacyNavTheme}
+      /*
+        The selected row's fill, derived rather than picked.
+
+        Production's current row is DARKER than the column it sits in — a
+        near-black cut out of the slate, not the lighter chip every other nav in
+        this prototype uses. Written as one relative colour off `--nav-bg` so the
+        light theme gets the same relationship (a step down from its own ground)
+        instead of a hard navy literal that would only be right in the dark.
+      */
+      style={
+        {
+          "--legacy-sel": "oklch(from var(--nav-bg) calc(l - 0.11) c h)",
+        } as React.CSSProperties
+      }
       className="group/legacy relative flex h-full min-h-0 w-full flex-col bg-nav"
     >
       {/*
@@ -177,7 +208,7 @@ export function LegacyNav({
         it. At agency scope it does not even name where you are — production's
         own copy is the imperative "Click here to switch".
       */}
-      <div className="shrink-0 px-[12px] pb-[10px]">
+      <div className="shrink-0 px-[16px] pb-[10px]">
         <button
           type="button"
           onClick={onSwitchScope}
@@ -186,7 +217,7 @@ export function LegacyNav({
               ? `Switch to ${account.name}`
               : "Switch to the agency"
           }
-          className="motion-tap flex h-[48px] w-full items-center gap-[10px] rounded-[8px] bg-nav-hover px-[10px] text-left hover:bg-nav-rail-hover"
+          className="motion-tap flex h-[56px] w-full items-center gap-[10px] rounded-[8px] bg-nav-hover px-[12px] text-left hover:bg-nav-rail-hover"
         >
           <span className="flex size-[28px] shrink-0 items-center justify-center rounded-full bg-nav-rail text-nav-fg-muted">
             {agencyScope ? (
@@ -220,7 +251,7 @@ export function LegacyNav({
         folds into the entry pill.
       */}
       {agencyScope ? null : (
-        <div className="flex shrink-0 items-center gap-[8px] px-[12px] pb-[12px]">
+        <div className="flex shrink-0 items-center gap-[8px] px-[16px] pb-[12px]">
           <span className="flex h-[36px] min-w-0 flex-1 items-center gap-[8px] rounded-[8px] bg-nav-hover px-[10px]">
             <Search
               size={14}
@@ -240,62 +271,105 @@ export function LegacyNav({
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-[2px] overflow-y-auto px-[12px] pb-[8px]">
-        {rows.map((row) =>
-          row.kind === "divider" ? (
-            <span
-              key={row.id}
-              aria-hidden="true"
-              className="my-[10px] h-px w-full shrink-0 bg-nav-divider"
-            />
-          ) : (
-            <LegacyRow
-              key={row.id}
-              row={row}
-              selected={row.id === selected}
-              onSelect={() => setSelected(row.id)}
-            />
-          ),
-        )}
-      </div>
+      {settingsOpen ? (
+        /*
+          Settings is a LEVEL in production, not a disclosure.
 
-      {/*
-        Settings, anchored. The one row production holds out of the scroll — and
-        the only structural idea in this nav that the proposal keeps.
-      */}
-      <div className="shrink-0 px-[12px] pt-[6px] pb-[10px] shadow-[inset_0_1px_0_0_var(--nav-divider)]">
-        <LegacyRow
-          row={{ kind: "item", id: "settings", label: "Settings", icon: Settings }}
-          selected={selected === "settings"}
-          onSelect={() => {
-            setSelected("settings");
-            setSettingsOpen((v) => !v);
-          }}
-        />
-        {/*
-          The two settings pages this nav can actually reach.
+          The column does not grow a second list under a row — it replaces
+          itself: the whole nav becomes Settings, titled, with a Go Back row
+          where the first nav row was. That is the only place this nav has
+          anything like depth, and the way it gets there is by throwing the
+          previous level away, which is the thing the proposal's flyouts are an
+          answer to. Worth transcribing exactly for that reason.
+        */
+        <>
+          {/*
+            Go Back, and NOT full-bleed like every other row here.
 
-          Disclosed under the row rather than opened as a panel: production's
-          Settings is a page with its own left list, and building that here
-          would be building a second nav inside the one under review. Two
-          indented rows say "these are inside Settings" with nothing invented.
-        */}
-        {settingsOpen ? (
-          <div className="mt-[2px] flex flex-col gap-[2px] pl-[22px]">
+            Production stops the fill about two-fifths across and rounds only
+            the right end, so the row reads as a tab pulled out of the column
+            rather than a list item. It is the single most distinctive shape in
+            the old sidebar and the only one that is not a rectangle.
+          */}
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(false)}
+            className="motion-tap flex h-[36px] w-[40%] shrink-0 items-center gap-[8px] rounded-r-[8px] bg-nav-hover pr-[10px] pl-[24px] text-left hover:bg-nav-rail-hover"
+          >
+            <ArrowLeft size={16} aria-hidden="true" className="shrink-0 text-nav-fg" />
+            <span className="truncate text-[14px] leading-[19px] font-medium text-nav-fg">
+              Go Back
+            </span>
+          </button>
+
+          <h2 className="shrink-0 px-[24px] pt-[18px] pb-[10px] text-[22px] leading-[28px] font-semibold text-nav-fg">
+            Settings
+          </h2>
+
+          {/*
+            No icons at this level — production drops them entirely once you are
+            inside Settings, so a list of thirty labels arrives with nothing to
+            scan by but the words. Left in, because it is a finding.
+          */}
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-[8px]">
             {SETTINGS_ROWS.map((row) => (
               <LegacyRow
                 key={row.id}
                 row={row}
-                selected={selected === row.id}
+                selected={settingsSelected === row.id}
                 onSelect={() => {
-                  setSelected(row.id);
-                  onOpenSettings(row.id as "agency-labs" | "agency-company");
+                  setSettingsSelected(row.id);
+                  if (row.id === "agency-labs" || row.id === "agency-company") {
+                    onOpenSettings(row.id);
+                  }
                 }}
               />
             ))}
           </div>
-        ) : null}
-      </div>
+        </>
+      ) : (
+        <>
+          {/*
+            Full-bleed rows, edge to edge, with the label indented instead of the
+            box. Production's list has no side margin at all — which is why the
+            current row reads as a band across the column rather than a chip in
+            it.
+          */}
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-[8px]">
+            {rows.map((row) =>
+              row.kind === "divider" ? (
+                <span
+                  key={row.id}
+                  aria-hidden="true"
+                  className="my-[10px] h-px w-full shrink-0 bg-nav-divider"
+                />
+              ) : (
+                <LegacyRow
+                  key={row.id}
+                  row={row}
+                  selected={row.id === selected}
+                  onSelect={() => setSelected(row.id)}
+                />
+              ),
+            )}
+          </div>
+
+          {/*
+            Settings, anchored. The one row production holds out of the scroll —
+            and the only structural idea in this nav that the proposal keeps.
+          */}
+          <div className="shrink-0 pt-[6px] pb-[6px] shadow-[inset_0_1px_0_0_var(--nav-divider)]">
+            <LegacyRow
+              row={{ kind: "item", id: "settings", label: "Settings", icon: Settings }}
+              selected={selected === "settings"}
+              onSelect={() => {
+                setSelected("settings");
+                setSettingsOpen(true);
+              }}
+            />
+          </div>
+        </>
+      )}
 
       {/*
         The way out, in the same place and shape the proposal puts it.
@@ -653,21 +727,33 @@ function LegacyRow({
       type="button"
       aria-current={selected ? "page" : undefined}
       onClick={onSelect}
+      // Production's class on production's row. See the note on #sidebar-v2.
       className={cn(
-        "motion-tap flex h-[40px] w-full shrink-0 items-center gap-[12px] rounded-[8px] px-[10px] text-left",
+        "nav-link",
+        selected && "active",
+        // Full-bleed: no side margin, no radius, the label indented 24px. The
+        // box is the column's width, which is how production's reads.
+        "motion-tap flex h-[40px] w-full shrink-0 items-center gap-[12px] pr-[16px] pl-[24px] text-left",
         selected
-          ? // Production's selected row is a filled block, not the proposal's
-            // tinted chip — a heavier treatment for the same job.
-            "bg-nav-rail-hover text-nav-fg"
+          ? // Production's selected row is a filled block DARKER than the
+            // column — a near-black cut out of the slate, not the proposal's
+            // tinted chip. A much heavier treatment for the same job.
+            "bg-[color:var(--legacy-sel)] text-nav-fg"
           : "text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg",
       )}
     >
-      <Icon size={17} aria-hidden="true" className="shrink-0" />
+      {Icon ? <Icon size={18} aria-hidden="true" className="shrink-0" /> : null}
       <span className="min-w-0 flex-1 truncate text-[14px] leading-[19px]">
         {row.label}
       </span>
+      {/*
+        Production's badge is an outline, not a fill: amber text inside an amber
+        hairline on the column itself. On a slate sidebar the filled chip this
+        used to be was the brightest object on screen, which is not what a "New"
+        marker is for.
+      */}
       {row.badge ? (
-        <span className="shrink-0 rounded-[4px] bg-[color:var(--hr-warning-100,#fef0c7)] px-[5px] py-[2px] text-[10px] leading-none font-semibold text-[color:var(--hr-warning-700,#b54708)]">
+        <span className="shrink-0 rounded-[4px] border border-[color:var(--hr-warning-400,#fdb022)] px-[5px] py-[2px] text-[10px] leading-none font-semibold text-[color:var(--hr-warning-400,#fdb022)]">
           {row.badge}
         </span>
       ) : null}
@@ -685,22 +771,36 @@ interface LegacyItem {
   kind: "item";
   id: string;
   label: string;
-  icon: LucideIcon;
+  /** Optional, because the settings level has none — production drops them. */
+  icon?: LucideIcon;
   badge?: string;
 }
 
 type LegacyRowSpec = LegacyItem | { kind: "divider"; id: string };
 
 /**
- * What Settings discloses, and the ids are the shell's own.
+ * The settings level, label-only, and two of the ids are the shell's own.
  *
  * `agency-labs` and `agency-company` are the keys `agencyPlaces` is keyed
  * by, so this list hands the shell a place rather than a label it would
- * have to translate — one name for one page, across both navigations.
+ * have to translate — one name for one page, across both navigations. The
+ * rest are transcription: they select and nothing happens, exactly like the
+ * rows one level up, because the point of this level being here is its SHAPE
+ * — a second flat list, with the first one thrown away to reach it.
+ *
+ * No icons on any of them. That is production's, not an omission.
  */
 const SETTINGS_ROWS: readonly LegacyItem[] = [
-  { kind: "item", id: "agency-labs", label: "Labs", icon: FlaskConical },
-  { kind: "item", id: "agency-company", label: "Company", icon: Building2 },
+  { kind: "item", id: "agency-profile", label: "My Profile" },
+  { kind: "item", id: "agency-company", label: "Company" },
+  { kind: "item", id: "agency-team", label: "My Staff" },
+  { kind: "item", id: "agency-billing", label: "Billing" },
+  { kind: "item", id: "agency-workflow", label: "Workflow settings", badge: "New" },
+  { kind: "item", id: "agency-announcements", label: "Announcements", badge: "New" },
+  { kind: "item", id: "agency-api", label: "API Keys" },
+  { kind: "item", id: "agency-integrations", label: "Private Integrations" },
+  { kind: "item", id: "agency-audit", label: "Audit Logs" },
+  { kind: "item", id: "agency-labs", label: "Labs" },
 ];
 
 /**

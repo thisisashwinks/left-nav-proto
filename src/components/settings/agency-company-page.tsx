@@ -5,7 +5,6 @@ import { PageTitle, usePageChrome } from "@/components/page/page-header";
 import type { Account } from "@/components/accounts/accounts-data";
 import { cn } from "@/lib/utils";
 import { WhiteLabelTab } from "./white-label-tab";
-import { CustomCodeProvider } from "./custom-code-store";
 import { ProductionStubTab } from "./tab-production-stub";
 
 /**
@@ -91,9 +90,7 @@ export function AgencyCompanyPage({ agency }: { agency: Account }) {
 
       <div className="pt-[16px]">
         {tab === "White label" ? (
-          <CustomCodeProvider>
-            <WhiteLabelTab agency={agency} />
-          </CustomCodeProvider>
+          <WhiteLabelTab agency={agency} />
         ) : (
           <ProductionStubTab label={tab} />
         )}

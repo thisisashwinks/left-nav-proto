@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import {
+  ArrowRight,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
@@ -17,6 +18,8 @@ import { Modal } from "@/components/page/modal";
 import { useLabs, type AccountAccess } from "./labs-state";
 import { PageTitle, usePageChrome } from "@/components/page/page-header";
 import { showToast } from "@/components/page/toast";
+import { useTheme } from "@/components/theme/theme-provider";
+import { LabsRolloutConsole } from "./labs-rollout-console";
 import { cn } from "@/lib/utils";
 import {
   AGENCY_FLAGS,
@@ -61,8 +64,20 @@ const SHEET_PAGE = 10;
 
 export function LabsPage() {
   const { title: showTitle, description: showDesc } = usePageChrome();
+  /*
+   * Approach 4 replaces this page wholesale rather than adding to it.
+   *
+   * Its argument is that Labs should own ONE question — who is on the new
+   * navigation — and a console sitting below the existing flag list would be
+   * two answers to that question on one screen, which is the confusion the
+   * approach exists to remove. So it swaps, and the flag list is what every
+   * other approach leaves standing. See WHITE_LABEL_APPROACHES.
+   */
+  const { whiteLabelApproach } = useTheme();
   const [tab, setTab] = React.useState<"agency" | "sub">("agency");
   const [query, setQuery] = React.useState("");
+
+  const rolloutConsole = whiteLabelApproach === "split";
 
   /*
    * Switchyard's own state, held here because both tabs read it.
@@ -79,7 +94,8 @@ export function LabsPage() {
    * this screen exists to be: switching the agency flag off has to take
    * the new sidebar away on the left of this very page.
    */
-  const { agencyOn, setAgencyOn, access, setAccess, accountOn } = useLabs();
+  const { agencyOn, setAgencyOn, access, setAccess, accountOn, startTrial } =
+    useLabs();
   const [sheetOpen, setSheetOpen] = React.useState(false);
   /*
    * The Sub-Account card's own summary: on when any account has it.
@@ -117,6 +133,8 @@ export function LabsPage() {
   const subFlags = SUB_ACCOUNT_FLAGS.filter(
     (f) => matches(f) && (f.id !== "switchyard" || agencyOn),
   );
+
+  if (rolloutConsole) return <LabsRolloutConsole />;
 
   return (
     /*
@@ -234,7 +252,11 @@ export function LabsPage() {
                   key={flag.id}
                   flag={flag}
                   {...(flag.live
-                    ? { on: agencyOn, onToggle: setAgencyOn }
+                    ? {
+                        on: agencyOn,
+                        onToggle: setAgencyOn,
+                        onTry: () => startTrial("agency"),
+                      }
                     : {})}
                 />
               ))
@@ -247,6 +269,7 @@ export function LabsPage() {
                     ? {
                         on: subOn,
                         onPickAccounts: () => setSheetOpen(true),
+                        onTry: () => startTrial("account"),
                       }
                     : {})}
                 />
@@ -591,7 +614,7 @@ function PageButton({
  * is the one thing here that is not a feature — a white card would have put
  * it in the same class as the rows below it.
  */
-function BetaBanner({ className }: { className?: string }) {
+export function BetaBanner({ className }: { className?: string }) {
   return (
     <section
       className={cn(
@@ -645,12 +668,13 @@ function BetaBanner({ className }: { className?: string }) {
  * eight scannable — the eye learns one shape and then reads only what
  * differs.
  */
-function FlagCard({
+export function FlagCard({
   flag,
   sub,
   on,
   onToggle,
   onPickAccounts,
+  onTry,
 }: {
   flag: LabsFlag;
   /** Present on the Sub-Account tab: visibility and reach ride along. */
@@ -660,8 +684,11 @@ function FlagCard({
   onToggle?: (next: boolean) => void;
   /** Opens the per-sub-account sheet. Sub-Account tab, wired flag only. */
   onPickAccounts?: () => void;
+  /** Starts a trial of the new nav in this workspace. See SWITCHYARD_TRIES. */
+  onTry?: () => void;
 }) {
   const [expanded, setExpanded] = React.useState(false);
+  const { switchyardTry } = useTheme().effective;
   const long = flag.blurb.length > BLURB_CLAMP;
   const wired = onToggle !== undefined;
   /*
@@ -771,7 +798,7 @@ function FlagCard({
             SWITCHYARD_PREVIEW. `rel=noreferrer` with `_blank` because the
             opened tab gets a `window.opener` handle otherwise.
           */}
-          {preview ? (
+          {preview && switchyardTry !== "trial" ? (
             <>
               {" "}
               <a
@@ -783,6 +810,29 @@ function FlagCard({
                 Preview {sub ? "the sub-account nav" : "the agency nav"}
                 <ExternalLink size={12} aria-hidden="true" className="shrink-0" />
               </a>
+            </>
+          ) : null}
+          {/*
+            The second offer, where the axis asks for it.
+
+            Both read as links in the same sentence rather than one being
+            a button, because they are two ways of answering one question
+            and a button beside a link would rank them. Order matters:
+            preview first, because "what is this" comes before "what would
+            this be like for me" — and the second is the one that changes
+            your own workspace. See SWITCHYARD_TRIES.
+          */}
+          {preview && switchyardTry !== "preview" && onTry ? (
+            <>
+              {switchyardTry === "both" ? " · " : " "}
+              <button
+                type="button"
+                onClick={onTry}
+                className="motion-tap inline-flex items-center gap-[4px] font-medium text-brand hover:underline"
+              >
+                Try it in this account
+                <ArrowRight size={12} aria-hidden="true" className="shrink-0" />
+              </button>
             </>
           ) : null}
         </p>
@@ -831,7 +881,7 @@ function FlagCard({
  * the only thing on the card that explains why a beta is worth taking now
  * rather than waiting.
  */
-function FlagAction({
+export function FlagAction({
   flag,
   live,
   wired,
@@ -896,7 +946,7 @@ function FlagAction({
 }
 
 /** The page's own switch. Same geometry as the SaaS editor's feature rows. */
-function Toggle({
+export function Toggle({
   label,
   on,
   disabled = false,

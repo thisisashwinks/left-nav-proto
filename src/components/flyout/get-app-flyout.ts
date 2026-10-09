@@ -1,6 +1,8 @@
 import { Monitor, Smartphone } from "lucide-react";
 import { GET_APP_LABELS } from "@/components/header/get-app-modal";
 import { BETA_BADGE, NEW_BADGE, type FlyoutConfig } from "./types";
+import { APPS_ROW_LABEL_NAMES } from "@/design/theme";
+import { useTheme } from "@/components/theme/theme-provider";
 
 /**
  * The companion apps behind one nav row instead of two.
@@ -76,3 +78,19 @@ export const getAppFlyout: FlyoutConfig = {
     },
   ],
 };
+
+/**
+ * The L1's name as the panel is currently set to say it.
+ *
+ * A hook rather than the constant, because the name is an axis now — see
+ * APPS_ROW_LABELS. Every surface that draws this row reads it through here, so
+ * the four of them cannot disagree about what the row is called: the nav, the
+ * collapsed rail, the View all directory and the breadcrumb.
+ *
+ * `GET_APP_NAV_LABEL` stays as the module-scope default for the places that
+ * cannot call a hook — the flyout config's own title, built once — and for
+ * `current`, which is what it already said.
+ */
+export function useGetAppNavLabel(): string {
+  return APPS_ROW_LABEL_NAMES[useTheme().effective.appsRowLabel];
+}

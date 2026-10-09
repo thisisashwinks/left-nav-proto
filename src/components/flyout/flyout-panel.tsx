@@ -21,7 +21,11 @@ import {
   type RowMenuOption,
 } from "@/components/nav/row-menu";
 import { RowSeam } from "@/components/nav/row-seam";
-import { GET_APP_FLYOUT_ID, getAppFlyout } from "./get-app-flyout";
+import {
+  GET_APP_FLYOUT_ID,
+  getAppFlyout,
+  useGetAppNavLabel,
+} from "./get-app-flyout";
 import type { SurfaceTheme } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
@@ -165,6 +169,8 @@ export function FlyoutPanel({
     flyoutShape,
     flyoutCardBorder,
   } = useTheme().effective;
+  /* See the title below. */
+  const appsRowName = useGetAppNavLabel();
   /*
    * As a card the panel stops being an extension of the nav, so the two
    * rules that make it one stop applying: it keeps a gap at both ends
@@ -1170,7 +1176,14 @@ export function FlyoutPanel({
       >
         <div className="flex h-fit flex-1 items-center justify-between">
           <h2 className="text-[15px] leading-[normal] font-semibold whitespace-nowrap text-nav-fg">
-            {config.title}
+            {/*
+              The panel's title is the ROW's name, and for one row that name
+              is an axis — see APPS_ROW_LABELS. The config's own title is
+              built at module scope and cannot read it, so the override is
+              here, where the header is actually drawn. Every other panel
+              takes its config's title unchanged.
+            */}
+            {config.id === GET_APP_FLYOUT_ID ? appsRowName : config.title}
           </h2>
           <button
             type="button"

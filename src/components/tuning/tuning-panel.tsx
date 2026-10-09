@@ -52,8 +52,12 @@ import {
   CANVAS_BLEEDS,
   CANVAS_BLEED_LABELS,
   CANVAS_PADS,
+  WHITE_LABEL_APPROACHES,
+  WHITE_LABEL_APPROACH_LABELS,
   CUSTOM_CODE_MODES,
   CUSTOM_CODE_MODE_LABELS,
+  CODE_SCOPE_VIEWS,
+  CODE_SCOPE_VIEW_LABELS,
   CANVAS_PAD_LABELS,
   PLANE_SEAMS,
   PLANE_SEAM_LABELS,
@@ -119,10 +123,14 @@ import {
   ENTRY_LAYOUTS,
   AI_DOCK_TOPS,
   AI_FULL_CHROMES,
+  SWITCHYARD_TRIES,
+  SWITCHYARD_TRY_LABELS,
   AI_FULL_CHROME_LABELS,
   AI_DOCK_TOP_LABELS,
   ENTRY_PAIRS,
   NAV_CHEVRONS,
+  RAIL_VIEW_ALLS,
+  RAIL_VIEW_ALL_LABELS,
   NAV_INKS,
   NAV_INK_LABELS,
   NAV_SELECTED_WEIGHTS,
@@ -135,6 +143,9 @@ import {
   ENTRY_RADIUS_LABELS,
   HEADER_ENTRY_SIDES,
   HEADER_ENTRY_SIDE_LABELS,
+  APPS_ROW_LABELS,
+  APPS_ROW_LABEL_NAMES,
+  type AppsRowLabel,
   GET_APP_PLACEMENTS,
   GET_APP_PLACEMENT_LABELS,
   FLYOUT_TRIGGER_LABELS,
@@ -283,14 +294,18 @@ import {
   type EntryPair,
   type EditRadius,
   type NavChevron,
+  type RailViewAll,
   type NavInk,
   type NavSelectedWeight,
   type RailAvatar,
   type CanvasBleed,
   type CanvasPad,
   type CustomCodeMode,
+  type CodeScopeView,
+  type WhiteLabelApproach,
   type AiDockTop,
   type AiFullChrome,
+  type SwitchyardTry,
   type HeaderEntrySide,
   type AiButtonStyle,
   type LegacyFootControl,
@@ -548,6 +563,8 @@ function NavStructureSection({
     flyoutTrigger,
     navChevron,
     setNavChevron,
+    railViewAll,
+    setRailViewAll,
     navInk,
     setNavInk,
     navSelectedWeight,
@@ -565,6 +582,10 @@ function NavStructureSection({
     setCanvasPad,
     customCodeMode,
     setCustomCodeMode,
+    codeScopeView,
+    setCodeScopeView,
+    whiteLabelApproach,
+    setWhiteLabelApproach,
     setFlyoutShadow,
     setBannerEdge,
     setPlaneSeam,
@@ -1140,6 +1161,24 @@ function NavStructureSection({
       </Note>
 
       <Segmented
+        label="Collapsed “View all” glyph"
+        keywords="rail collapsed view all recents glyph icon more ellipsis list clock chevron"
+        options={RAIL_VIEW_ALLS}
+        value={railViewAll}
+        onChange={(v: RailViewAll) => setRailViewAll(v)}
+        format={(v) => RAIL_VIEW_ALL_LABELS[v]}
+      />
+      <Note>
+        At 64px the row has no label, so the glyph is the whole affordance —
+        the tooltip reads &ldquo;View all recents&rdquo; in every case. Clock
+        names the list&rsquo;s contents and is the default; Ellipsis says
+        &ldquo;there is more&rdquo; and nothing about what; List names the
+        thing on the other side; the double chevron is the only one that says
+        a direction, which is true — the panel arrives from the right — and
+        the only one that could be taken for a disclosure on the row above.
+      </Note>
+
+      <Segmented
         label="L1 chevron shows"
         keywords="chevron arrow l1 row flyout hover always glyph affordance"
         options={NAV_CHEVRONS}
@@ -1252,6 +1291,22 @@ function NavStructureSection({
       </Note>
 
       <Segmented
+        label="White label approach"
+        keywords="white label custom code approach css js switchyard scoped report split labs rollout"
+        options={WHITE_LABEL_APPROACHES}
+        value={whiteLabelApproach}
+        onChange={(v: WhiteLabelApproach) => setWhiteLabelApproach(v)}
+        format={(v) => WHITE_LABEL_APPROACH_LABELS[v]}
+      />
+      <Note>
+        {whiteLabelApproach === "safe"
+          ? "Legacy code stops applying the moment Switchyard is on, and reusing it is a named opt-in. Two rows — one per navigation — with the number of sub-accounts each reaches. The approach the team agreed, and the only one that can ship inside the private beta."
+          : "White label holds the code and nothing else; who is on which navigation moves wholly to Labs, which becomes a rollout console. Swaps the Labs page too — the only approach that does."}
+      </Note>
+
+{whiteLabelApproach === "safe" ? (
+        <>
+      <Segmented
         label="Custom code on the new nav"
         keywords="custom code css js switchyard new nav white label agency break"
         options={CUSTOM_CODE_MODES}
@@ -1264,6 +1319,22 @@ function NavStructureSection({
           ? "The toggle on its own. Whatever CSS and JS the agency already wrote is applied to the new navigation as-is — and it was written against the old sidebar's markup, so it breaks. That is the version being proposed, and the point of showing it is that an agency would turn it on, see the damage, and turn it back off."
           : "The new navigation takes its own CSS and JS. The old code stays on the old sidebar and never reaches here, so nothing breaks — but the agency has to write it again, and light and dark stop being offered while they are overriding the theme by hand."}
       </Note>
+
+      <Segmented
+        label="Custom code scope display"
+        keywords="custom code css js white label where your code runs scope display header rows sub-accounts"
+        options={CODE_SCOPE_VIEWS}
+        value={codeScopeView}
+        onChange={(v: CodeScopeView) => setCodeScopeView(v)}
+        format={(v) => CODE_SCOPE_VIEW_LABELS[v]}
+      />
+      <Note>
+        {codeScopeView === "header"
+          ? "The old navigation and its reach become a header on the card, so the one row left underneath is purely the decision. Matches the Theme card, which states its scope the same way."
+          : "A row per navigation, the old one reading “Always on”. Symmetrical, which is the flaw — a fact and a choice drawn alike."}
+      </Note>
+        </>
+      ) : null}
 
       <Segmented
         label="Canvas padding"
@@ -2903,6 +2974,8 @@ export function TuningPanel() {
     aiDockTop,
     aiFullChrome,
     aiFloating,
+    switchyardTry,
+    setSwitchyardTry,
     entryRadius,
     editRadius,
     setEditRadius,
@@ -2919,7 +2992,9 @@ export function TuningPanel() {
     setAiFullChrome,
     setAiFloating,
     getAppPlacement,
+    appsRowLabel,
     setGetAppPlacement,
+    setAppsRowLabel,
     agencySearch,
     agencyNavMark,
     setAgencyNavMark,
@@ -5171,6 +5246,22 @@ export function TuningPanel() {
           <Note>
             Open with ⌘K / Ctrl-K, or the search icon in the nav.
           </Note>
+          <Segmented
+            label="Switchyard, before you commit"
+            keywords="labs switchyard preview demo trial test mode try new tab"
+            options={SWITCHYARD_TRIES}
+            value={switchyardTry}
+            onChange={(v: SwitchyardTry) => setSwitchyardTry(v)}
+            format={(v) => SWITCHYARD_TRY_LABELS[v]}
+          />
+          <Note>
+            {switchyardTry === "both"
+              ? "Both offers, in that order. They answer different questions — “what is this?” and “what would this be like for me?” — and the second only makes sense once you have asked the first."
+              : switchyardTry === "preview"
+                ? "A link to a demo account in a new tab. Nothing can go wrong, and you are judging the nav against somebody else’s data — when half of what makes a nav good is whether YOUR products are where you expect them."
+                : "Switched on in this workspace, with a band across the top and one control to leave — test mode, as Stripe and Razorpay do it. Judged against your own data, at the cost of being a real change to a real account."}
+          </Note>
+
           <Toggle
             label="Ask AI can float"
             checked={aiFloating}
@@ -5596,6 +5687,31 @@ export function TuningPanel() {
           ) : null}
 
           <Segmented
+            label="Apps row name"
+            keywords="desktop mobile apps label rename install download extensions"
+            options={APPS_ROW_LABELS}
+            value={appsRowLabel}
+            onChange={(v: AppsRowLabel) => setAppsRowLabel(v)}
+            format={(v) => APPS_ROW_LABEL_NAMES[v]}
+            disabled={getAppPlacement !== "flyout"}
+          />
+          <Note>
+            {getAppPlacement !== "flyout"
+              ? "Only the flyout placement draws a row to name. The other three are glyphs or menu entries with their own words."
+              : appsRowLabel === "current"
+                ? "Names the two things behind the row, so nothing has to be guessed — and is the longest label in a column of one- and two-word names. It is also the first row to truncate at 240px."
+                : appsRowLabel === "apps"
+                  ? "Nothing else in this nav is called an app, so there is no ambiguity to resolve, and the row stops being a list of its own contents — which is the panel's job."
+                  : appsRowLabel === "install"
+                    ? "Verb-first, like every button in this product, and the current verb for both platforms: something happens after the file lands, which “download” does not say."
+                    : appsRowLabel === "download"
+                      ? "The most literal, and the most dated — nobody downloads a phone app."
+                      : appsRowLabel === "pair"
+                        ? "The current name with the redundant noun dropped: an ampersand pair of platforms already implies the apps."
+                        : "The widest of the six, and the only one promising something the panel does not hold. Right if the browser extension is going in there, a lie until it is."}
+          </Note>
+
+          <Segmented
             label="Get the app"
             options={GET_APP_PLACEMENTS}
             value={getAppPlacement}
@@ -5604,7 +5720,7 @@ export function TuningPanel() {
           />
           <Note>
             {getAppPlacement === "flyout"
-              ? "One row, “Desktop & mobile apps”, opening a panel with the two platforms in it. Names the thing before asking which flavour, and spends one nav row instead of two."
+              ? "One row opening a panel with the two platforms in it. Names the thing before asking which flavour, and spends one nav row instead of two. What that row is CALLED is the control below."
               : getAppPlacement === "header"
                 ? "Two glyphs left of the phone. Standing and visible — an app nobody knows about is an app nobody installs."
                 : getAppPlacement === "menu"

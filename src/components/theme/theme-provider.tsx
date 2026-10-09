@@ -52,6 +52,7 @@ import {
   type RailFillMorph,
   type RailFillRest,
   type AdminAccent,
+  type AppsRowLabel,
   type RailSizing,
   type EditTreatment,
   type RenameAffordance,
@@ -95,10 +96,14 @@ import type {
   CanvasBleed,
   CanvasPad,
   CustomCodeMode,
+  CodeScopeView,
+  WhiteLabelApproach,
   PlaneHead,
   EntryPair,
   AiDockTop,
   AiFullChrome,
+  SwitchyardTry,
+  RailViewAll,
   NavChevron,
   NavInk,
   NavSelectedWeight,
@@ -225,6 +230,7 @@ interface ThemeContextValue extends ThemeState {
   setRailHoldInset: (on: boolean) => void;
   setRailFillRest: (v: RailFillRest) => void;
   setAdminAccent: (v: AdminAccent) => void;
+  setAppsRowLabel: (v: AppsRowLabel) => void;
   setPlaneGround: (v: PlaneGround) => void;
   setPinnedRowEdit: (on: boolean) => void;
   setPinnedShortcuts: (on: boolean) => void;
@@ -234,11 +240,15 @@ interface ThemeContextValue extends ThemeState {
   setCanvasBleed: (v: CanvasBleed) => void;
   setCanvasPad: (v: CanvasPad) => void;
   setCustomCodeMode: (v: CustomCodeMode) => void;
+  setCodeScopeView: (v: CodeScopeView) => void;
+  setWhiteLabelApproach: (v: WhiteLabelApproach) => void;
   setPlaneHead: (v: PlaneHead) => void;
   setEntryPair: (v: EntryPair) => void;
   setAiDockTop: (v: AiDockTop) => void;
   setAiFullChrome: (v: AiFullChrome) => void;
   setAiFloating: (on: boolean) => void;
+  setSwitchyardTry: (v: SwitchyardTry) => void;
+  setRailViewAll: (v: RailViewAll) => void;
   setNavChevron: (v: NavChevron) => void;
   setEditRadius: (v: EditRadius) => void;
   setEditAlways: (on: boolean) => void;
@@ -581,6 +591,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, railFillRest })),
       setAdminAccent: (adminAccent) =>
         setState((s) => ({ ...s, adminAccent })),
+      setAppsRowLabel: (appsRowLabel) =>
+        setState((s) => ({ ...s, appsRowLabel })),
       setPlaneGround: (planeGround) => setState((s) => ({ ...s, planeGround })),
       setPinnedRowEdit: (pinnedRowEdit) =>
         setState((s) => ({ ...s, pinnedRowEdit })),
@@ -595,12 +607,20 @@ export function ThemeProvider({
       setCanvasPad: (canvasPad) => setState((s) => ({ ...s, canvasPad })),
       setCustomCodeMode: (customCodeMode) =>
         setState((s) => ({ ...s, customCodeMode })),
+      setCodeScopeView: (codeScopeView) =>
+        setState((s) => ({ ...s, codeScopeView })),
+      setWhiteLabelApproach: (whiteLabelApproach) =>
+        setState((s) => ({ ...s, whiteLabelApproach })),
       setPlaneHead: (planeHead) => setState((s) => ({ ...s, planeHead })),
       setEntryPair: (entryPair) => setState((s) => ({ ...s, entryPair })),
       setAiDockTop: (aiDockTop) => setState((s) => ({ ...s, aiDockTop })),
       setAiFullChrome: (aiFullChrome) =>
         setState((s) => ({ ...s, aiFullChrome })),
       setAiFloating: (aiFloating) => setState((s) => ({ ...s, aiFloating })),
+      setSwitchyardTry: (switchyardTry) =>
+        setState((s) => ({ ...s, switchyardTry })),
+      setRailViewAll: (railViewAll) =>
+        setState((s) => ({ ...s, railViewAll })),
       setNavChevron: (navChevron) => setState((s) => ({ ...s, navChevron })),
       setEditRadius: (editRadius) => setState((s) => ({ ...s, editRadius })),
       setEditAlways: (editAlways) => setState((s) => ({ ...s, editAlways })),

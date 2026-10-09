@@ -4,11 +4,15 @@ import * as React from "react";
 import { Info, X, Plus, Pencil, Trash2, Mail } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
 import { useTheme } from "@/components/theme/theme-provider";
-import { useLabs, SEEDED_LEGACY } from "./labs-state";
+import { useLabs } from "./labs-state";
+import { accounts as ALL_ACCOUNTS } from "@/components/accounts/accounts-data";
 import { useCustomCode } from "./custom-code-store";
+import { LogoUploadField } from "./logo-upload-field";
+import { useBrand } from "@/components/accounts/brand-store";
 import { CodeEditorField } from "./code-editor-field";
-import { BrandCard } from "./brand-card";
 import { cn } from "@/lib/utils";
+import { Section, Field } from "./white-label-parts";
+import { WhiteLabelSplit } from "./white-label-split";
 
 /**
  * Agency › Settings › Company › White Label, as production draws it.
@@ -29,94 +33,11 @@ import { cn } from "@/lib/utils";
  * because production has only one navigation.
  */
 
-/** A section, with production's own header-left / card-right arrangement. */
-function Section({
-  title,
-  sub,
-  children,
-  onSave,
-  dirty = false,
-  onCancel,
-}: {
-  title: string;
-  sub: string;
-  children: React.ReactNode;
-  onSave?: () => void;
-  dirty?: boolean;
-  onCancel?: () => void;
-}) {
-  return (
-    <section className="flex flex-col gap-[12px] border-t border-pg-border pt-[20px] md:flex-row md:gap-[24px]">
-      <header className="shrink-0 md:w-[200px] md:pt-[2px]">
-        <h3 className="text-[14px] leading-[20px] font-medium text-pg-heading">
-          {title}
-        </h3>
-        <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
-          {sub}
-        </p>
-      </header>
-
-      <div className="min-w-0 flex-1 rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-border)]">
-        <div className="p-[16px]">{children}</div>
-        {onSave ? (
-          <footer className="flex justify-end gap-[12px] border-t border-pg-border px-[16px] py-[12px]">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="motion-tap h-[36px] rounded-[8px] px-[14px] text-[14px] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg-bg active:scale-[0.98]"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={onSave}
-              disabled={!dirty}
-              className={cn(
-                "motion-tap h-[36px] rounded-[8px] px-[14px] text-[14px] font-medium text-white active:scale-[0.98]",
-                dirty
-                  ? "bg-brand hover:brightness-95"
-                  : "cursor-not-allowed bg-brand opacity-50",
-              )}
-            >
-              Save changes
-            </button>
-          </footer>
-        ) : null}
-      </div>
-    </section>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  icon,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  icon?: React.ReactNode;
-}) {
-  return (
-    <label className="flex min-w-0 flex-1 flex-col gap-[4px]">
-      <span className="text-[13px] leading-[18px] text-pg-text">{label}</span>
-      <span className="flex h-[36px] items-center gap-[8px] rounded-[8px] bg-pg-surface px-[11px] shadow-[inset_0_0_0_1px_var(--pg-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">
-        {icon ? <span className="shrink-0 text-pg-faint">{icon}</span> : null}
-        <input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="min-w-0 flex-1 bg-transparent text-[14px] text-pg-text outline-none"
-        />
-      </span>
-    </label>
-  );
-}
-
 export function WhiteLabelTab({ agency }: { agency: Account }) {
-  const { customCodeMode } = useTheme();
+  const { customCodeMode, whiteLabelApproach } = useTheme();
   const labs = useLabs();
   const code = useCustomCode();
+  const brand = useBrand();
 
   const [bannerOn, setBannerOn] = React.useState(true);
 
@@ -146,20 +67,8 @@ export function WhiteLabelTab({ agency }: { agency: Account }) {
   const policyDirty =
     privacy !== policySaved.privacy || terms !== policySaved.terms;
 
-  /*
-   * Whether the old-nav sections have anyone left to serve.
-   *
-   * Labs first, the panel's override second — `navGeneration` alone stopped
-   * being the answer once it became a one-way override that can only FORCE
-   * the old nav. The agency's own sidebar asks `agencyOn`; a sub-account asks
-   * `accountOn(id)`, and asking the wrong one is the single way to misuse
-   * that API: `accountOn("agency")` returns the default `true` and looks
-   * like it worked.
-   */
-  const anyoneOnOldNav =
-    !labs.agencyOn || SEEDED_LEGACY.some((id) => !labs.accountOn(id));
 
-  const legacyIds = SEEDED_LEGACY.filter((id) => !labs.accountOn(id));
+  const onOldNav = ALL_ACCOUNTS.filter((a) => !labs.accountOn(a.id));
 
   return (
     <div className="flex w-full flex-col gap-[20px] pb-[32px]">
@@ -192,21 +101,6 @@ export function WhiteLabelTab({ agency }: { agency: Account }) {
         </div>
       ) : null}
 
-      {/*
-        The proposal's own card, first.
-
-        Ashwin asked for both on one page rather than behind a switch. The
-        cost is that this page now has two logo fields that disagree about
-        what a logo is for, which is a fair thing for a comparison page to
-        show and a bad thing to leave unexplained — hence the heading.
-      */}
-      <div className="flex flex-col gap-[8px]">
-        <h2 className="text-[16px] leading-[22px] font-semibold text-pg-heading">
-          Proposed
-        </h2>
-        <BrandCard account={agency} />
-      </div>
-
       <div className="flex items-center justify-between pt-[8px]">
         <h2 className="text-[16px] leading-[22px] font-semibold text-pg-heading">
           White Label
@@ -236,7 +130,7 @@ export function WhiteLabelTab({ agency }: { agency: Account }) {
       >
         <div className="flex flex-col gap-[16px]">
           <div className="flex flex-wrap items-center gap-[16px]">
-            <div className="flex size-[120px] shrink-0 items-center justify-center rounded-[8px] bg-pg-bg shadow-[inset_0_0_0_1px_var(--pg-border)]">
+            <div className="flex size-[120px] shrink-0 items-center justify-center rounded-[8px] bg-pg shadow-[inset_0_0_0_1px_var(--pg-border)]">
               <span className="font-mono text-[28px] font-semibold text-pg-text">
                 1:1
               </span>
@@ -251,7 +145,7 @@ export function WhiteLabelTab({ agency }: { agency: Account }) {
               <div className="mt-[10px] flex gap-[8px]">
                 <button
                   type="button"
-                  className="motion-tap h-[36px] rounded-[8px] px-[14px] text-[14px] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg-bg"
+                  className="motion-tap h-[36px] rounded-[8px] px-[14px] text-[14px] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg"
                 >
                   Replace
                 </button>
@@ -264,6 +158,28 @@ export function WhiteLabelTab({ agency }: { agency: Account }) {
                 </button>
               </div>
             </div>
+          </div>
+
+          {/*
+            The square mark, in the section that already owns the agency's
+            logo rather than in a card of its own.
+
+            Production asks for one asset at 350x180 and uses it everywhere,
+            which is why the rail and the collapsed nav show a wide wordmark
+            squeezed into a 32px disc. This is the second asset that problem
+            needs, and the place it belongs is here — beside the logo it is
+            the fallback for, not two sections away.
+          */}
+          <div className="border-t border-pg-border pt-[16px]">
+            <LogoUploadField
+              label="Square mark"
+              hint="Shown in the account rail and the collapsed navigation, where a wide logo will not fit."
+              aspect="square"
+              {...(agency.logoSrc ? { src: agency.logoSrc } : {})}
+              fallback={agency.logo}
+              onPick={(src) => brand.set(agency.id, "logoSrc", src)}
+              onRemove={() => brand.clear(agency.id, "logoSrc")}
+            />
           </div>
 
           <div className="flex flex-wrap gap-[16px]">
@@ -310,13 +226,13 @@ export function WhiteLabelTab({ agency }: { agency: Account }) {
               API Domain
             </span>
             <div className="flex gap-[8px]">
-              <div className="flex h-[36px] min-w-0 flex-1 items-center rounded-[8px] bg-pg-bg px-[11px] text-[14px] text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)]">
+              <div className="flex h-[36px] min-w-0 flex-1 items-center rounded-[8px] bg-pg px-[11px] text-[14px] text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)]">
                 racingbulls.vinitaitesting.store
               </div>
               <button
                 type="button"
                 aria-label="Edit API domain"
-                className="motion-tap flex size-[36px] items-center justify-center rounded-[8px] text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg-bg"
+                className="motion-tap flex size-[36px] items-center justify-center rounded-[8px] text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg"
               >
                 <Pencil size={15} aria-hidden="true" />
               </button>
@@ -356,102 +272,260 @@ export function WhiteLabelTab({ agency }: { agency: Account }) {
         </div>
       </Section>
 
-      <OldNavGroup
-        anyoneOnOldNav={anyoneOnOldNav}
-        legacyIds={legacyIds}
-        code={code}
-        mode={customCodeMode}
-      />
+      {/*
+        Only the custom-code half swaps between approaches.
+        Logo, domains and policies are production's, and none of the four
+        disagrees about them — swapping the whole page would make the
+        comparison harder to read, not easier.
+      */}
+      {whiteLabelApproach === "split" ? (
+        <WhiteLabelSplit agency={agency} />
+      ) : (
+        <>
+          <CustomCodeSafe
+            code={code}
+            legacyCount={onOldNav.length}
+            newNavCount={ALL_ACCOUNTS.length - onOldNav.length}
+          />
+          {/*
+            The theme picker belongs to the old navigation, so it travels with
+            the approach that still talks about one. The other three either
+            scope it, report on it, or move the question to Labs.
+          */}
+          <ThemeSection
+            disabled={customCodeMode === "separate" && code.onNewNav}
+            legacyCount={onOldNav.length}
+          />
+        </>
+      )}
+
     </div>
   );
 }
 
 /**
- * Custom JS, Custom CSS and the theme picker — the three old-nav sections.
+ * Custom code, as one section that explains itself.
  *
- * Grouped under one heading that says who they apply to, because that is the
- * fact the page could not previously state: production shows these to every
- * agency unconditionally, and an agency whose accounts have all moved to the
- * new navigation is editing code that reaches nobody.
+ * The first cut of this had the shape production has: a group headed "Old
+ * navigation only" with a paragraph explaining who it reached, then Custom JS
+ * and Custom CSS as separate sections, then a third section with a checkbox
+ * for the new navigation. Four blocks and roughly ninety words to say one
+ * thing, which is: there are two navigations, and your code runs on one of
+ * them.
+ *
+ * So say that instead. Two rows, one per navigation, each with its own answer
+ * and the number of sub-accounts it reaches. The old navigation's answer is
+ * fixed, so it reads as a fact rather than a control; the new one is the only
+ * decision on the screen, so it is the only switch. Nothing needs a paragraph
+ * because the rows ARE the explanation — Ashwin, Oct 9: simple and intuitive
+ * enough that nobody has to be told how it works.
+ *
+ * The counts are the part that does the real work. "Turning this on may break
+ * it" is a warning anyone can ignore; "12 sub-accounts" is the size of the
+ * thing they are about to do.
  */
-function OldNavGroup({
-  anyoneOnOldNav,
-  legacyIds,
+function CustomCodeSafe({
   code,
-  mode,
+  legacyCount,
+  newNavCount,
 }: {
-  anyoneOnOldNav: boolean;
-  legacyIds: readonly string[];
   code: ReturnType<typeof useCustomCode>;
-  mode: "inherit" | "separate";
+  legacyCount: number;
+  newNavCount: number;
 }) {
-  const [savedCss, setSavedCss] = React.useState(code.css);
-  const [savedJs, setSavedJs] = React.useState(code.js);
+  /*
+   * The editors hold a DRAFT; the store holds what is live.
+   *
+   * It matters because the code really runs — typing into the CSS field
+   * cannot be allowed to restyle the sidebar behind the page you are typing
+   * on. Save is the commit, which is also the honest moment for the damage
+   * to appear: an agency turns the new navigation on, presses Save, and
+   * finds out. Before this the store was edited on every keystroke and the
+   * switch took effect before anyone had agreed to it.
+   */
+  const { codeScopeView } = useTheme();
+
+  const [draftCss, setDraftCss] = React.useState(code.css);
+  const [draftJs, setDraftJs] = React.useState(code.js);
+  const [draftOnNewNav, setDraftOnNewNav] = React.useState(code.onNewNav);
+
+  const dirty =
+    draftCss !== code.css ||
+    draftJs !== code.js ||
+    draftOnNewNav !== code.onNewNav;
 
   return (
-    <div className="mt-[8px] flex flex-col gap-[20px]">
-      <div className="border-t border-pg-border pt-[20px]">
-        <h2 className="text-[16px] leading-[22px] font-semibold text-pg-heading">
-          Old navigation only
-        </h2>
-        <p className="mt-[2px] max-w-[640px] text-[13px] leading-[18px] text-pg-muted">
-          {anyoneOnOldNav
-            ? `Custom code and the theme picker are written against the old sidebar's markup, so they only reach accounts still on it${
-                legacyIds.length
-                  ? ` — ${legacyIds.length} right now.`
-                  : "."
-              }`
-            : "Every account is on the new navigation, so nothing below reaches anyone. It is kept visible rather than hidden: code that still exists and no longer applies is worth seeing."}
-        </p>
+    <Section
+      title="Custom code"
+      sub="Your CSS and JS, and where they run"
+      dirty={dirty}
+      onCancel={() => {
+        setDraftCss(code.css);
+        setDraftJs(code.js);
+        setDraftOnNewNav(code.onNewNav);
+      }}
+      onSave={() => {
+        code.setCss(draftCss);
+        code.setJs(draftJs);
+        code.setOnNewNav(draftOnNewNav);
+      }}
+    >
+      <div className="flex flex-col gap-[16px]">
+        <div>
+          {/*
+            Two drawings of the same fact, under `codeScopeView`.
+
+            `rows` gives each navigation a line of its own, the old one
+            reading "Always on". It reads well until you notice the two rows
+            are not the same kind of thing: one is a fact that cannot be
+            changed, the other is the only decision on the page. Drawn alike,
+            they have to be told apart by reading them.
+
+            `header` separates them. The fact goes up into a header — the code
+            runs on the old navigation, in this many sub-accounts — and what
+            is left below is one row that is purely the choice. The Theme card
+            states its scope the same way, so the two cards now explain their
+            reach in the same voice. Ashwin, Oct 9.
+          */}
+          {codeScopeView === "header" ? (
+            <div className="flex flex-wrap items-baseline justify-between gap-x-[12px] gap-y-[2px] border-b border-pg-border pb-[12px]">
+              <p className="text-[13px] leading-[18px] font-medium text-pg-heading">
+                Running on the old navigation
+              </p>
+              <p className="text-[12px] leading-[17px] text-pg-muted">
+                {legacyCount} sub-account{legacyCount === 1 ? "" : "s"}
+              </p>
+            </div>
+          ) : (
+            <p className="text-[13px] leading-[18px] font-medium text-pg-heading">
+              Where your code runs
+            </p>
+          )}
+
+          <div
+            className={cn(
+              "flex flex-col gap-[6px]",
+              codeScopeView === "header" ? "mt-[12px]" : "mt-[8px]",
+            )}
+          >
+            {codeScopeView === "rows" ? (
+              <div className="flex items-center justify-between gap-[12px] rounded-[8px] px-[11px] py-[9px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
+                <span className="text-[14px] leading-[20px] text-pg-text">
+                  Old navigation
+                </span>
+                <span className="flex items-center gap-[10px]">
+                  <span className="text-[12px] text-pg-muted">
+                    {legacyCount} sub-account{legacyCount === 1 ? "" : "s"}
+                  </span>
+                  <span className="text-[13px] font-medium text-pg-heading">
+                    Always on
+                  </span>
+                </span>
+              </div>
+            ) : null}
+
+            <label className="flex cursor-pointer items-start justify-between gap-[12px] rounded-[8px] px-[11px] py-[9px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
+              <span className="min-w-0">
+                <span className="block text-[14px] leading-[20px] text-pg-text">
+                  {codeScopeView === "header"
+                    ? "Also run it on the new navigation"
+                    : "New navigation"}
+                </span>
+                <span className="mt-[2px] block text-[12px] leading-[17px] text-pg-muted">
+                  Written for the old navigation, so turning this on may break
+                  it.
+                </span>
+              </span>
+              <span className="flex shrink-0 items-center gap-[10px]">
+                <span className="text-[12px] text-pg-muted">
+                  {newNavCount} sub-account{newNavCount === 1 ? "" : "s"}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={draftOnNewNav}
+                  onChange={(e) => setDraftOnNewNav(e.target.checked)}
+                  className="size-[16px] accent-[var(--brand)]"
+                />
+              </span>
+            </label>
+          </div>
+
+          {/*
+            Said only once the switch is actually on, and said as what will
+            happen rather than as a caution. It names both sidebars because
+            the code reaches both — the agency's own and every sub-account's.
+          */}
+          {draftOnNewNav ? (
+            <p className="mt-[8px] rounded-[8px] bg-brand-soft px-[11px] py-[9px] text-[12px] leading-[17px] text-pg-text">
+              On save, this code runs on the new navigation in your own sidebar
+              and in all {newNavCount} sub-accounts using it.
+            </p>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-[6px]">
+          <span className="text-[13px] font-medium text-pg-text">Custom CSS</span>
+          <CodeEditorField label="Custom CSS" value={draftCss} onChange={setDraftCss} />
+        </div>
+
+        <div className="flex flex-col gap-[6px]">
+          <span className="text-[13px] font-medium text-pg-text">Custom JS</span>
+          <CodeEditorField label="Custom JS" value={draftJs} onChange={setDraftJs} />
+        </div>
       </div>
-
-      <Section
-        title="Custom JS"
-        sub="Customize the platform with JS"
-        dirty={code.js !== savedJs}
-        onCancel={() => code.setJs(savedJs)}
-        onSave={() => setSavedJs(code.js)}
-      >
-        <CodeEditorField
-          label="Custom JS"
-          value={code.js}
-          onChange={code.setJs}
-        />
-      </Section>
-
-      <Section
-        title="Custom CSS"
-        sub="Customize the platform with CSS"
-        dirty={code.css !== savedCss}
-        onCancel={() => code.setCss(savedCss)}
-        onSave={() => setSavedCss(code.css)}
-      >
-        <CodeEditorField
-          label="Custom CSS"
-          value={code.css}
-          onChange={code.setCss}
-        />
-      </Section>
-
-      <ThemeSection disabled={mode === "separate" && code.onNewNav} />
-
-      <NewNavCodeSection code={code} mode={mode} />
-    </div>
+    </Section>
   );
 }
 
-/** The light/dark picker. Drives the prototype's own nav theme. */
-function ThemeSection({ disabled }: { disabled: boolean }) {
+/**
+ * The theme picker, and the fact it only reaches half the fleet.
+ *
+ * Production offers Light and Dark with no qualification, which was true
+ * when there was one navigation. It is not true now: the new navigation
+ * ships light and has no dark theme at all, so this control reaches only
+ * the accounts still on the old one. Saying nothing would leave an agency
+ * choosing Dark and then finding most of their sub-accounts ignored it.
+ *
+ * Stated the same way the custom-code rows above state their reach — with
+ * the number of accounts rather than a caution. "Old navigation only" is
+ * the rule; "2 sub-accounts" is how much of their estate it covers, which
+ * is the part that tells them whether to care. Ashwin, Oct 9.
+ */
+function ThemeSection({
+  disabled,
+  legacyCount,
+}: {
+  disabled: boolean;
+  legacyCount: number;
+}) {
   const { navTheme, setNavTheme } = useTheme();
 
   return (
     <Section
       title="Theme"
-      sub="Choose a default theme"
+      sub="The sidebar’s colour"
       dirty={false}
       onCancel={() => {}}
       onSave={() => {}}
     >
+      {/*
+        A header on the card rather than a row per navigation.
+
+        The two-row version answered a question nobody had asked: it gave the
+        new navigation a line of its own, which made it look like something
+        that could be chosen here. It cannot — there is no dark new nav to
+        pick. So state the scope once, at the top, and let everything below it
+        be the one control that exists. Ashwin, Oct 9.
+      */}
+      <div className="mb-[16px] flex flex-wrap items-baseline justify-between gap-x-[12px] gap-y-[2px] border-b border-pg-border pb-[12px]">
+        <p className="text-[13px] leading-[18px] font-medium text-pg-heading">
+          Applies to the old navigation only
+        </p>
+        <p className="text-[12px] leading-[17px] text-pg-muted">
+          {legacyCount} sub-account{legacyCount === 1 ? "" : "s"}. The new
+          navigation is always light.
+        </p>
+      </div>
       {disabled ? (
         <p className="text-[13px] leading-[18px] text-pg-muted">
           Unavailable while the new navigation is taking its own CSS. A theme
@@ -491,84 +565,12 @@ function ThemeSection({ disabled }: { disabled: boolean }) {
                     t === "light" ? "bg-[#f8fafc]" : "bg-[#101828]",
                   )}
                 />
-                <span className="min-w-0 flex-1 bg-pg-bg" />
+                <span className="min-w-0 flex-1 bg-pg" />
               </span>
             </label>
           ))}
         </div>
       )}
-    </Section>
-  );
-}
-
-/**
- * The new section: whether custom code reaches the new navigation at all.
- *
- * Today it does not, and that is not an oversight — the code is written
- * against a sidebar that is being replaced. The two modes are two ways of
- * shipping the option, and they are not cosmetic variants of each other:
- * one hands the agency a toggle that breaks their platform, the other hands
- * them a second pair of editors.
- */
-function NewNavCodeSection({
-  code,
-  mode,
-}: {
-  code: ReturnType<typeof useCustomCode>;
-  mode: "inherit" | "separate";
-}) {
-  return (
-    <Section
-      title="New navigation"
-      sub="Custom code on Switchyard"
-    >
-      <div className="flex flex-col gap-[16px]">
-        <label className="flex cursor-pointer items-start gap-[10px]">
-          <input
-            type="checkbox"
-            checked={code.onNewNav}
-            onChange={(e) => code.setOnNewNav(e.target.checked)}
-            className="mt-[2px] size-[16px] shrink-0 accent-[var(--brand)]"
-          />
-          <span className="min-w-0">
-            <span className="block text-[14px] leading-[20px] font-medium text-pg-heading">
-              Enable custom code on the new navigation
-            </span>
-            <span className="mt-[2px] block text-[13px] leading-[18px] text-pg-muted">
-              {mode === "inherit"
-                ? "Applies the CSS and JS above to accounts on the new navigation. That code was written against the old sidebar, so expect it to need rewriting."
-                : "Gives the new navigation its own CSS and JS. The code above stays on the old sidebar and is not applied here."}
-            </span>
-          </span>
-        </label>
-
-        {mode === "separate" && code.onNewNav ? (
-          <div className="flex flex-col gap-[16px] border-t border-pg-border pt-[16px]">
-            <div className="flex flex-col gap-[6px]">
-              <span className="text-[13px] font-medium text-pg-text">
-                Custom CSS — new navigation
-              </span>
-              <CodeEditorField
-                label="Custom CSS for the new navigation"
-                value={code.newCss}
-                onChange={code.setNewCss}
-                placeholder="/* Written against the new sidebar. */"
-              />
-            </div>
-            <div className="flex flex-col gap-[6px]">
-              <span className="text-[13px] font-medium text-pg-text">
-                Custom JS — new navigation
-              </span>
-              <CodeEditorField
-                label="Custom JS for the new navigation"
-                value={code.newJs}
-                onChange={code.setNewJs}
-                placeholder="// Written against the new sidebar."
-              />
-            </div>
-          </div>
-        ) : null}
-      </div>
     </Section>
   );
 }

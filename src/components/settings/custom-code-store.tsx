@@ -20,7 +20,7 @@ import type { CustomCodeMode } from "@/design/theme";
  */
 
 /**
- * What the agency already wrote, against the old sidebar.
+ * What the agency already wrote, against the old sidebar — and it WORKS.
  *
  * Seeded rather than empty, because an empty editor cannot demonstrate the
  * problem: the whole demonstration is that EXISTING code, written in good
@@ -29,48 +29,80 @@ import type { CustomCodeMode } from "@/design/theme";
  * every line to beat the product's own styles, and a `setInterval` that
  * waits for an element to appear because there is no lifecycle to hook.
  *
- * `#location-switcher-sidbar-v2` is not a typo on our side. That id is
- * misspelled in the real product, and an agency's stylesheet has the
- * misspelling in it too — which is a small, exact illustration of why this
- * code cannot survive a new sidebar: it is pinned to the old one's mistakes.
+ * That is the part worth seeing. On the old sidebar this is a competent bit
+ * of branding: a dark navy column, pale labels, the agency's own glyph in
+ * place of the product's icons. Nothing about it looks like a mistake.
+ *
+ * It breaks on the new navigation through PARTIAL matching, not total
+ * failure, which is why it is worse than it sounds. `#sidebar-v2` does not
+ * exist there, so the dark background never lands — but `nav button`,
+ * `nav svg` and `.nav-link` were written broadly enough that the COLOURS do.
+ * Pale text and pale icons arrive on a surface that stayed light, and the
+ * selected row keeps the new nav's own light fill underneath white text. The
+ * JS finds no `#sidebar-v2 .nav-link svg`, so the glyphs never swap and it
+ * polls forty times into nothing.
+ *
+ * Half a theme is unreadable in a way a whole missing theme would not be.
  */
 const SEEDED_CSS = `/* Brightpath Dental — sidebar theme. Added Mar 2024, do not remove. */
 #sidebar-v2 {
-  background: #0b3b5c !important;
+  background: #0b1220 !important;
 }
 
-#sidebar-v2 .nav-link {
-  color: #e7f2f8 !important;
-  padding: 6px 12px !important;
-  font-size: 13px !important;
+.hl_nav-header {
+  background: #0b1220 !important;
 }
 
-#sidebar-v2 .nav-link.active {
-  background: #11557f !important;
-  border-radius: 4px !important;
+/* Our staff all run dark mode, so the sidebar is themed for it. */
+[data-nav-theme="dark"] #sidebar-v2 {
+  background: #070d16 !important;
 }
 
-/* Agency name is in the logo already */
+/*
+  Rows and icons: light on the dark sidebar.
+  Written broadly on purpose so it survives the product's own class changes.
+*/
+nav button,
+nav a,
+nav button span,
+.nav-link,
+.nav-link span {
+  color: #dbe7f3 !important;
+}
+
+nav svg,
+.nav-link svg {
+  color: #8fb3cf !important;
+}
+
+.nav-link.active,
+.nav-link.active span {
+  background: #16283d !important;
+  color: #ffffff !important;
+}
+
+/* The agency name is in the logo already. */
 .hl_nav-header .company-name {
   font-size: 0 !important;
-}
-
-#location-switcher-sidbar-v2 {
-  border-top: 1px solid #1d6a9c !important;
 }`;
 
-const SEEDED_JS = `// Hide Launchpad for Brightpath staff — they don't use it.
-document.addEventListener("DOMContentLoaded", function () {
-  var tries = 0;
-  var timer = setInterval(function () {
-    var row = document.querySelector("#sb_launchpad");
-    if (row) {
-      row.style.display = "none";
-      clearInterval(timer);
-    }
-    if (++tries > 40) clearInterval(timer);
-  }, 250);
-});`;
+const SEEDED_JS = `// Brightpath — our own icons in the sidebar.
+var MARK = "M12 2 2 7l10 5 10-5-10-5zm0 9L2 16l10 5 10-5-10-5z";
+
+var tries = 0;
+var timer = setInterval(function () {
+  var icons = document.querySelectorAll("#sidebar-v2 .nav-link svg");
+  if (icons.length) {
+    icons.forEach(function (svg) {
+      svg.setAttribute("viewBox", "0 0 24 24");
+      svg.innerHTML = '<path d="' + MARK + '" fill="currentColor" />';
+    });
+    clearInterval(timer);
+  }
+  if (++tries > 40) clearInterval(timer);
+}, 250);
+
+`;
 
 export interface CustomCodeValue {
   /** Written against the old sidebar. Reaches every account on the old nav. */
