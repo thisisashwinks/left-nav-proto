@@ -647,8 +647,19 @@ tr.click{cursor:pointer}tr.click:hover td{background:var(--gray-25)}
 .tgl input:checked+.sw{background:#101828}
 .tgl input:checked+.sw::after{left:14px}
 .p-hint{font-size:11.5px;color:#667085;line-height:15px;margin-top:6px}
-  .p-doc { display: inline-block; margin-top: 6px; font-size: 12px; font-weight: 600; color: #004eeb; text-decoration: none; }
-  .p-doc:hover { text-decoration: underline; }
+/* Page tab bar (shared with handoff.html + slides.html) */
+#panel .p-head{flex-direction:column;align-items:stretch;justify-content:flex-start;gap:10px}
+#panel .p-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ld-tabs{display:inline-flex;align-items:center;border:1px solid #eaecf0;border-radius:8px;background:#f2f4f7;padding:2px;gap:2px;flex:none}
+.ld-tabs a{display:inline-flex;align-items:center;height:28px;padding:0 12px;border-radius:6px;font:500 13px/18px var(--font);color:#475467;text-decoration:none;white-space:nowrap}
+.ld-tabs a:hover{color:#101828}
+.ld-tabs a[aria-current="page"]{background:#fff;color:#101828;box-shadow:0 1px 2px rgba(16,24,40,.06)}
+.ld-tabs a:focus-visible{outline:2px solid var(--primary-600);outline-offset:1px}
+
+/* =====================================================================
+   8. EMBED MODE (?embed=1) — no panel, app fills the frame
+   ===================================================================== */
+html.embed #panel{display:none!important}
 </style>
 </head>
 <body>
@@ -690,8 +701,11 @@ tr.click{cursor:pointer}tr.click:hover td{background:var(--gray-25)}
   <aside id="panel" aria-label="Loading playground controls">
     <button class="p-tab" id="p-open" title="Open control panel"></button>
     <div class="p-head">
-      <div><b>Loading playground</b><small>Compare staging today with the proposed system</small><a class="p-doc" href="handoff.html">Read the recommendation and handoff →</a></div>
-      <button class="ib" id="p-collapse" title="Collapse panel"></button>
+      <div class="p-top">
+        <nav class="ld-tabs" aria-label="Loading experience pages"><a href="playground.html" aria-current="page">Prototype</a><a href="handoff.html">Docs</a><a href="slides.html">Slides</a></nav>
+        <button class="ib" id="p-collapse" title="Collapse panel"></button>
+      </div>
+      <div><b>Loading playground</b><small>Compare staging today with the proposed system</small></div>
     </div>
     <div class="p-body" id="p-body"></div>
   </aside>
@@ -706,6 +720,38 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = n => n.toLocaleString('en-US');
+
+/* ---------- Embed API (?embed=1&mode=&net=&scale=&page=&scenario=&to=&loop=1&delay=&labels=1&tl=1) ----------
+   Every param is optional; anything missing or invalid falls back to its default. Params apply only with embed=1. */
+const EMBED = (() => {
+  let q = null; try { q = new URLSearchParams(location.search); } catch (e) { q = null; }
+  const get = k => { try { const v = q && q.get(k); return v == null ? null : String(v).trim(); } catch (e) { return null; } };
+  const pick = (k, ok, d) => { const v = get(k); return v != null && ok.includes(v) ? v : d; };
+  const PAGE_IDS = ['launchpad', 'conversations', 'contacts', 'opportunities', 'calendar', 'dashboard', 'settings', 'workflows', 'builder'];
+  const SCEN_IDS = ['boot', 'route', 'acct', 'refresh', 'modal', 'drawer', 'save', 'import', 'ai', 'aiwf', 'dash', 'offline', 'hang', 'stuckroute'];
+  const sc = Number(get('scale')), dl = get('delay'), d = dl == null || dl === '' ? NaN : Number(dl);
+  return {
+    on: get('embed') === '1',
+    mode: pick('mode', ['proposed', 'today'], 'proposed'),
+    net: pick('net', ['instant', 'fast', 'typical', 'slow', 'vslow', 'hang', 'fail', 'offline'], 'typical'),
+    scale: [0.5, 1, 2, 4].includes(sc) ? sc : 1,
+    page: pick('page', PAGE_IDS, 'launchpad'),
+    scenario: pick('scenario', SCEN_IDS, null),
+    to: pick('to', PAGE_IDS, 'contacts'),
+    loop: get('loop') === '1',
+    delay: isFinite(d) && d >= 0 ? Math.min(d, 600000) : 600,
+    labels: get('labels') === '1',
+    tl: get('tl') === '1',
+    gen: 0, runVt: 0, lastState: null,
+  };
+})();
+function embedPost(state) {
+  if (!EMBED.on) return;
+  const map = { grace: 'loading', indicator: 'loading', words: 'words', still: 'still', done: 'done', failed: 'failed' };
+  const st = map[state]; if (!st || st === EMBED.lastState) return;
+  EMBED.lastState = st;
+  try { if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'ld:state', state: st }, '*'); } catch (e) { /* best-effort */ }
+}
 
 const IC = {
   'message-circle': '<path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/>',
@@ -1003,7 +1049,7 @@ function renderNav(skel) {
 }
 function openFlyout(b) {
   const f = $('#flyout'), d = FLYOUTS[b];
-  if (!d) { closeFlyout(); toast(`${b === 'ai' ? 'AI' : b[0].toUpperCase() + b.slice(1)} isn't part of this playground.`); return; }
+  if (!d) { closeFlyout(); if (!EMBED.on) toast(`${b === 'ai' ? 'AI' : b[0].toUpperCase() + b.slice(1)} isn't part of this playground.`); return; }
   if (f.classList.contains('open') && f.dataset.b === b) { closeFlyout(); return; }
   f.dataset.b = b;
   f.innerHTML = `<div class="fh">${d[0]}<button data-act="flyout-close" title="Close">${ic('x', 16)}</button></div>${d[1].map(([pid, icon, label]) => `<button class="nrow ${pid && pid === S.page ? 'on' : ''}" data-act="${pid ? 'nav' : 'nope'}" ${pid ? `data-page="${pid}"` : ''}>${ic(icon)}<span>${label}</span></button>`).join('')}`;
@@ -1298,6 +1344,7 @@ const TL = {
   paint() {
     const op = this.op; $('#tl-op').textContent = op ? op.label : 'No activity';
     $('#tl-state').innerHTML = this.states.map(([k, l]) => `<span class="${op && op.state === k ? 'on' + (k === 'failed' ? ' bad' : k === 'done' ? ' good' : '') : ''}">${l}</span>`).join('');
+    if (op) embedPost(op.state);
   },
   frame() {
     if (!S.tl || !this.op) return;
@@ -1459,7 +1506,7 @@ function closeOverlays() { closeFlyout(); closeDrawer(); }
 /* ---------- PROPOSED route change ---------- */
 function navigate(id, opts = {}) {
   const P = PAGES[id];
-  if (!P) { toast('That page isn’t part of this playground.'); return; }
+  if (!P) { if (!EMBED.on) toast('That page isn’t part of this playground.'); return; }
   closeOverlays(); closeModal(true);
   if (isToday()) return navigateToday(id, opts);
   const prev = opts.prev ?? S.page;
@@ -1500,18 +1547,24 @@ function navigateToday(id, opts = {}) {
   const op = TL.start(`Route → ${P.title} (today)`); logOp(`Route → ${P.title} · ${netLabel()}`);
   log('Old page and old breadcrumb kept', 'today');
   Words.clear(); Line.reset();
+  if (opts.pendingNav) $$(`#nav [data-page="${id}"]`).forEach(b => b.classList.add('on'));
   const lat = Net.latency(P.frameCached ? {} : {});
   let mounted = false, done = false;
   const mount = () => { if (mounted) return; mounted = true; setShellChrome(P); log('Module mounted — breadcrumb changes only now', 'today'); };
+  const words = opts.words || `Loading ${P.title}…`;
   s.after(T.TODAY_BAR, () => { if (done) return; Line.start(); log('Route bar shown after 150 ms', 'today'); TL.set(op, 'indicator'); });
-  s.after(T.WORDS, () => { if (done) return; Words.set(`Loading ${P.title}…`); log(`Words: Loading ${P.title}…`, 'today'); TL.set(op, 'words'); });
+  s.after(T.WORDS, () => { if (done) return; Words.set(words); log(`Words: ${words}`, 'today'); TL.set(op, 'words'); });
   s.after(T.STILL, () => { if (done) return; Words.set('Still working on it · Your connection may be slow'); log('Words: Still working on it', 'today'); TL.set(op, 'still'); });
-  const mountAt = Math.min(isFinite(lat) ? lat * 0.35 : 1200, 1200);
+  /* S9: routing away from a stuck page keeps the old page + old breadcrumb much longer */
+  const mountAt = opts.holdOld ? (isFinite(lat) ? lat * 0.6 : 12000) : Math.min(isFinite(lat) ? lat * 0.35 : 1200, 1200);
   s.after(mountAt, () => {
     if (done) return; mount();
     setLayer(region(), todaySkeleton(P), { kind: 'skeleton', ann: TODAY_ANN[P.today] });
     log(TODAY_ANN[P.today], 'today');
-    if (P.todaySpinner) s.after(Math.min(isFinite(lat) ? lat * 0.35 : 1500, 1500), () => { if (done) return; setLayer(region(), moduleSpinner(), { kind: 'skeleton' }); log('Skeleton → centered spinner handoff', 'today'); });
+    /* The shell skeleton stays while the request runs; the module swaps it for its own spinner shortly before data lands.
+       On a hang the skeleton stays until the 30 s silent give-up reveals the spinner (S8). */
+    const handAt = isFinite(lat) ? lat - mountAt - 1500 : Infinity;
+    if (P.todaySpinner && isFinite(handAt) && handAt > 400) s.after(handAt, () => { if (done) return; setLayer(region(), moduleSpinner(), { kind: 'skeleton' }); log('Skeleton → centered spinner handoff', 'today'); });
   });
   Net.request(s, { forceOk: !!P.frameCached }, () => {
     if (done) return; done = true; mount();
@@ -1544,8 +1597,9 @@ function coldBoot() {
   ['#rail', '#nav', '#bar-right'].forEach(q => $(q).classList.toggle('v-today', today));
   ['#rail', '#nav', '#bar-right'].forEach(q => $(q).classList.toggle('v-shell', today));
   renderShell(true); renderCrumbs(null); applyFullBleed(P);
-  setLayer(region(), today ? `<div class="v-today v-shell" style="min-height:100%">${shapeHTML(P)}</div>` : shapeHTML(P), { kind: 'skeleton', ann: 'ShellSkeleton' });
+  setLayer(region(), today ? '' : shapeHTML(P), { kind: 'skeleton', ann: 'ShellSkeleton' });
   let shellReady = false, finished = false;
+  if (today) s.after(1200, () => { if (!shellReady && !finished) { setLayer(region(), `<div class="v-today v-shell" style="min-height:100%">${shapeHTML(P)}</div>`, { kind: 'skeleton', ann: 'ShellSkeleton' }); log('Route-shaped canvas skeleton arrives after an empty canvas', 'today'); } });
   const shownAt = vnow() + 60;
   s.after(60, () => {
     blank.style.display = 'none'; syncGlow();
@@ -1629,12 +1683,14 @@ function switchAccount(i) {
   const navReady = () => { if (navDone) return; navDone = true; navEl.classList.remove('v-today', 'v-shell'); renderNav(false); navEl.classList.remove('shell-in'); void navEl.offsetWidth; if (!isToday()) navEl.classList.add('shell-in'); log('Nav rows loaded'); };
   if (isToday()) {
     log('Content still shows the previous account’s data', 'today');
-    let done = false;
+    let done = false, contentDone = false;
+    const lat = Net.latency({ factor: 0.7 });
+    s.after(Math.min(isFinite(lat) ? lat * 0.5 : 1200, 1200), () => { if (contentDone) return; setLayer(region(), todaySkeleton(P), { kind: 'skeleton', ann: TODAY_ANN[P.today] }); log('Content re-skeletoned with the module skeleton', 'today'); });
     s.after(T.TODAY_BAR, () => { if (!done) { Line.start(); TL.set(op, 'indicator'); } });
     s.after(T.WORDS, () => { if (!done) { Words.set('Loading page…'); TL.set(op, 'words'); } });
     s.after(T.STILL, () => { if (!done) { Words.set('Still working on it · Your connection may be slow'); TL.set(op, 'still'); } });
-    Net.request(s, { factor: 0.7 }, () => { const L = setLayer(region(), P.render(), { kind: 'content' }); P.mount?.(L, s, false); log('Content reloaded before the nav', 'today'); }, () => { toast('Something went wrong', { bad: true }); toast('Something went wrong', { bad: true }); });
-    Net.request(s, {}, () => { done = true; navReady(); Line.done(); Words.clear(); TL.end(op, 'done'); }, () => { done = true; Line.done(); Words.clear(); TL.end(op, 'failed'); });
+    Net.request(s, { factor: 0.7 }, () => { contentDone = true; const L = setLayer(region(), P.render(), { kind: 'content' }); P.mount?.(L, s, false); log('Content reloaded before the nav', 'today'); }, () => { contentDone = true; toast('Something went wrong', { bad: true }); toast('Something went wrong', { bad: true }); });
+    Net.request(s, { factor: 2 }, () => { done = true; navReady(); Line.done(); Words.clear(); TL.end(op, 'done'); }, () => { done = true; Line.done(); Words.clear(); TL.end(op, 'failed'); });
     s.after(T.TIMEOUT, () => { if (!done) { done = true; Words.clear(); Line.reset(); TL.end(op, 'failed'); log('30 s: gave up silently; nav stays skeleton', 'today'); } });
     return;
   }
@@ -2206,7 +2262,7 @@ const ACT = {
   nav: el => navigate(el.dataset.page),
   bucket: el => openFlyout(el.dataset.b),
   'flyout-close': closeFlyout,
-  nope: () => toast('That page isn’t part of this playground.'),
+  nope: () => { if (!EMBED.on) toast('That page isn’t part of this playground.'); },
   account: el => switchAccount(+el.dataset.i),
   'smart-tab': el => refreshContacts(+el.dataset.i),
   refresh: () => refreshContacts(),
@@ -2239,12 +2295,96 @@ document.addEventListener('keydown', e => {
   else if ($('#drawer-host').innerHTML) closeDrawer(); else closeFlyout();
 });
 
-/* ---------- Init: Proposed · Typical · Launchpad, then auto-play one cold boot ---------- */
+/* ---------- Embed mode: starting state, scenario runner, loop + replay ---------- */
+/* Starting page fully loaded, no loader (sub-regions filled directly). */
+function renderLoadedPage(P) {
+  const L = setLayer(region(), P.render(), { kind: 'content' });
+  const th = $('#thread-region', L), cp = $('#contact-region', L);
+  if (th) setLayer(th, threadMessages(false));
+  if (cp) setLayer(cp, contactPane());
+  WIDGETS.forEach(w => { const r = $('#w-' + w.id, L); if (r) setLayer(r, widgetContent(w.id)); });
+  return L;
+}
+function embedReset() {
+  const E = EMBED;
+  S.net = E.net; S.acct = 0; S.booted = false; S.visited = new Set(); delete S.ctab; delete S.wf; delete S.updated;
+  resetAll();
+  Clock.timers.length = 0; /* drop every pending engine timer (bare + scoped) */
+  Refresh.loader = Refresh.cancel = Refresh.scope = Refresh.restore = null;
+  Dash.loaders = {}; Dash.results = {}; Dash.req = {};
+  AI.scope = null; AI.stop = AI.cont = AI.regen = AI.wfStop = AI.wfUndo = AI.wfKeep = undefined;
+  Modal.scope = null; Drawer.scope = null; BootBar.scope = null;
+  TL.op = null; TL.paint(); E.lastState = null;
+  const r = region(); r.innerHTML = ''; r.removeAttribute('aria-busy');
+  const P = PAGES[E.page] || PAGES.launchpad;
+  S.page = E.page;
+  renderShell(false); setShellChrome(P);
+  if (E.scenario === 'stuckroute') {
+    /* Start on a page stuck in a hang */
+    if (isToday()) setLayer(r, moduleSpinner('Module spinner — spins forever'), { kind: 'skeleton' });
+    else { setLayer(r, shapeHTML(P), { kind: 'skeleton', ann: 'ShellSkeleton' }); Line.start(); Words.set('Still working on it · Your connection may be slow'); }
+    newRouteScope();
+  } else { newRouteScope(); renderLoadedPage(P); }
+}
+function embedRun() {
+  const E = EMBED;
+  E.runVt = vnow();
+  switch (E.scenario) {
+    case 'route': return navigate(E.to);
+    case 'stuckroute': { const g = E.gen; return ROOT.scope.after(1200, () => { if (g === E.gen) navigate(E.to, { holdOld: true, words: 'Loading page…', pendingNav: true }); }); }
+    default: return runScenario(E.scenario);
+  }
+}
+/* "Settled": the latest operation ended (done or failed), nothing chained, and — for done — no region still shows a loader. */
+function embedSettled() {
+  const op = TL.op;
+  if (!op || op.end == null || op.t0 < EMBED.runVt || Route.then) return null;
+  if (op.state === 'failed') return 'failed';
+  if ($('#app').querySelector('.layer[data-kind="skeleton"]:not(.leaving)')) return null;
+  return 'done';
+}
+function embedCycle(wait) {
+  const E = EMBED, g = ++E.gen;
+  embedReset();
+  if (!E.scenario) return;
+  setTimeout(() => {
+    if (g !== E.gen) return;
+    try { embedRun(); } catch (e) { console.error(e); }
+    if (!E.loop) return;
+    const t0 = performance.now(), CAP = 45000;
+    let key = null, since = 0;
+    const iv = setInterval(() => {
+      if (g !== E.gen) { clearInterval(iv); return; }
+      let st = embedSettled();
+      if (!st && performance.now() - t0 > CAP) st = 'cap';
+      if (!st) { key = null; return; }
+      if (key !== TL.op) { key = TL.op; since = performance.now(); return; }
+      if (st !== 'cap' && performance.now() - since < 600) return;
+      clearInterval(iv);
+      const hold = st === 'failed' && isToday() ? 6000 : 0;
+      setTimeout(() => { if (g === E.gen) embedCycle(true); }, hold + 2500);
+    }, 150);
+  }, wait ? E.delay : 0);
+}
+function embedInit() {
+  const E = EMBED;
+  document.documentElement.classList.add('embed');
+  S.mode = E.mode; $('#app').classList.toggle('mode-today', isToday()); applyAccent();
+  S.net = E.net; setScale(E.scale);
+  if (E.labels) { S.ann = true; $('#app').classList.add('annotate'); const c = $('#pm-ann'); if (c) c.checked = true; }
+  if (E.tl) { S.tl = true; $('#app').classList.add('tl-on'); const c = $('#pm-tl'); if (c) c.checked = true; TL.paint(); }
+  paintPanel();
+  window.addEventListener('message', e => { const d = e && e.data; if (d && typeof d === 'object' && d.type === 'ld:replay') embedCycle(false); });
+  embedCycle(true);
+}
+
+/* ---------- Init: Proposed · Typical · Launchpad, then auto-play one cold boot (embed: see above) ---------- */
 (function init() {
   TL.init(); TL.paint(); renderPanel(); applyAccent();
   renderShell(false); setShellChrome(PAGES.launchpad);
   setLayer(region(), renderLaunchpad());
   requestAnimationFrame(t => { Clock.last = t; requestAnimationFrame(tick); });
+  if (EMBED.on) { embedInit(); return; }
   logOp('Loading playground ready · Proposed · Typical 1.5 s');
   coldBoot();
 })();
