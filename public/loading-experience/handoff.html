@@ -1,0 +1,1703 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loading experience handoff</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/doc.css">
+<style>
+  /* =========================================================
+     Tokens. Brand tints derive from --primary-600 so the accent
+     switcher re-themes every loader, link, and chip.
+     ========================================================= */
+  :root {
+    --primary-600: #155eef;
+    --primary-700: color-mix(in srgb, var(--primary-600) 82%, #000);
+    --primary-50: color-mix(in srgb, var(--primary-600) 7%, #fff);
+    --primary-100: color-mix(in srgb, var(--primary-600) 16%, #fff);
+    --primary-200: color-mix(in srgb, var(--primary-600) 30%, #fff);
+
+    /* time ladder */
+    --ld-grace: 300ms;
+    --ld-min-visible: 400ms;
+    --ld-fade-in: 150ms;
+    --ld-crossfade: 200ms;
+    --ld-words: 2000ms;
+    --ld-still: 8000ms;
+    --ld-cancel: 2000ms;
+    --ld-timeout: 30000ms;
+    --ld-boot-stall: 10000ms;
+    --ld-btn-success: 1500ms;
+
+    /* visual */
+    --ld-sk: #eaecf0;
+    --ld-sk-on-gray: #e4e7ec;
+    --ld-page-gray: #f9fafb;
+    --ld-sk-glow: rgba(255, 255, 255, .6);
+    --ld-sk-arrive: 400ms;
+    --ld-sk-ease: cubic-bezier(.16, 1, .3, 1);
+    --ld-sk-shift: 4px;
+    --ld-sk-stagger: 30ms;
+    --ld-sk-sweep: 1600ms;
+    --ld-sk-pause: 600ms;
+    --ld-spin-speed: 800ms;
+    --ld-bar-track: #f2f4f7;
+    --ld-words-color: #475467;
+    --ld-fail-title: #101828;
+    --ld-fail-body: #475467;
+    --ld-brand-fallback: #98a2b3;
+    --ld-accent: var(--primary-600, var(--ld-brand-fallback));
+
+    --good-100: #d1fadf;
+    --bad-100: #fee4e2;
+    --warn-100: #fef0c7;
+  }
+
+  /* ---------- layout tweaks on top of doc.css ---------- */
+  .figrow { grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
+  .figrow.three { grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+  @media (max-width: 640px) {
+    .wrap { padding: 16px; gap: 16px; }
+    .canvas { padding: 16px; }
+    .masthead { padding: 20px 16px; }
+    .masthead h1 { font-size: 22px; line-height: 30px; }
+    h2 { font-size: 19px; line-height: 26px; }
+    .toc a.sub { display: none; }
+  }
+  .kicker { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 8px; }
+  .lede { max-width: 82ch; }
+  pre { margin: 0; }
+
+  /* ---------- masthead ---------- */
+  .mast-row { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center; margin-top: 16px; }
+  .status-pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; background: var(--warn-50); color: var(--warn-600); font-size: 12px; font-weight: 600; line-height: 20px; }
+  .status-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .accent-sw { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-3); flex-wrap: wrap; }
+  .accent-sw button.sw { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); cursor: pointer; padding: 0; }
+  .accent-sw button.sw[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--ink); }
+  .accent-sw .unk { font: inherit; font-size: 12px; border: 1px dashed var(--ink-3); background: #fff; color: var(--ink-2); border-radius: 999px; padding: 1px 8px; cursor: pointer; }
+  .accent-sw .unk[aria-pressed="true"] { border-style: solid; border-color: var(--ink); color: var(--ink); }
+  .rm-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+
+  /* ---------- buttons ---------- */
+  .btn { font: inherit; font-size: 14px; font-weight: 500; height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid transparent; background: var(--ld-accent); color: #fff; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; white-space: nowrap; text-decoration: none; }
+  .btn.sec { background: #fff; color: var(--ink); border-color: var(--line); }
+  .btn.ghost { background: transparent; color: var(--primary-700); padding: 0 8px; }
+  .btn.sm { height: 32px; font-size: 13px; padding: 0 12px; }
+  .btn.xs { height: 28px; font-size: 13px; padding: 0 10px; border-radius: 6px; }
+  .btn[aria-disabled="true"] { cursor: progress; }
+  .btn.ok { background: var(--good-600); }
+  .btn:focus-visible, button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--ld-accent); outline-offset: 2px; }
+
+  /* =========================================================
+     Loader primitives (spec values)
+     ========================================================= */
+  .hl-spin { flex: none; color: var(--ld-accent); animation: hl-spin var(--ld-spin-speed) linear infinite; display: block; }
+  .btn .hl-spin, .on-current .hl-spin { color: currentColor; }
+  @keyframes hl-spin { to { transform: rotate(360deg); } }
+
+  .sk { display: block; background: var(--ld-sk); border-radius: 4px; height: 10px; position: relative; overflow: hidden; }
+  .sk::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, var(--ld-sk-glow), transparent); animation: ld-glow calc(var(--ld-sk-sweep) + var(--ld-sk-pause)) infinite; }
+  .sk.blk { border-radius: 6px; }
+  .sk.pill, .sk.av { border-radius: 999px; }
+  .on-gray .sk { background: var(--ld-sk-on-gray); }
+  @keyframes ld-glow {
+    0% { transform: translateX(-100%); animation-timing-function: ease-in-out; }
+    72.73% { transform: translateX(100%); }
+    100% { transform: translateX(100%); }
+  }
+  .ld-arrive > * { animation: ld-arrive var(--ld-sk-arrive) var(--ld-sk-ease) both; animation-delay: calc(min(var(--i, 0), 7) * var(--ld-sk-stagger)); }
+  @keyframes ld-arrive { from { opacity: 0; transform: translateY(var(--ld-sk-shift)); } }
+  @keyframes ld-fade { from { opacity: 0; } }
+
+  .rows-fade > :nth-child(1) { opacity: 1; } .rows-fade > :nth-child(2) { opacity: .9; } .rows-fade > :nth-child(3) { opacity: .78; }
+  .rows-fade > :nth-child(4) { opacity: .66; } .rows-fade > :nth-child(5) { opacity: .54; } .rows-fade > :nth-child(6) { opacity: .42; }
+  .rows-fade > :nth-child(7) { opacity: .3; } .rows-fade > :nth-child(n+8) { opacity: .2; }
+
+  .pline { position: absolute; top: 0; left: 0; height: 2px; width: 0; background: var(--ld-accent); z-index: 3; }
+  .pbar { width: 100%; height: 6px; border-radius: 999px; background: var(--ld-bar-track); overflow: hidden; }
+  .pbar.thin { height: 4px; }
+  .pbar i { display: block; height: 100%; width: 0; background: var(--ld-accent); border-radius: 999px; transition: width 300ms ease-out; }
+
+  .words { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; line-height: 18px; color: var(--ld-words-color); white-space: nowrap; min-width: 0; }
+  .words span { overflow: hidden; text-overflow: ellipsis; }
+
+  .fail { text-align: center; max-width: 300px; margin: 0 auto; }
+  .fail .ft { font-size: 16px; line-height: 24px; font-weight: 600; color: var(--ld-fail-title); margin: 0 0 4px; }
+  .fail .fb { font-size: 13px; line-height: 18px; color: var(--ld-fail-body); margin: 0 auto 12px; }
+  .fail .acts { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+  /* reduced motion: real media query + reviewer toggle (html.rm) */
+  @media (prefers-reduced-motion: reduce) {
+    .sk::after { display: none; }
+    .ld-arrive > * { animation-name: ld-fade; }
+  }
+  html.rm .sk::after { display: none; }
+  html.rm .ld-arrive > * { animation-name: ld-fade; }
+
+  /* ---------- decision summary ---------- */
+  .pr-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 12px; margin: 8px 0 20px; }
+  .pr { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; background: #fcfcfd; }
+  .pr .n { font-size: 12px; font-weight: 600; color: var(--primary-600); margin-bottom: 4px; }
+  .pr b { display: block; color: var(--ink); margin-bottom: 4px; }
+  .pr p { margin: 0; font-size: 13px; line-height: 18px; }
+  .ask-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 16px; }
+  .ask { border: 1px solid var(--primary-200); background: var(--primary-50); border-radius: 10px; padding: 14px 16px; }
+  .ask.users { border-color: #abefc6; background: var(--good-50); }
+  .ask h3 { margin: 0 0 8px; font-size: 15px; }
+  .ask ol, .ask ul { margin: 0; padding-left: 20px; }
+  .ask li { color: var(--ink) !important; font-size: 13px; line-height: 19px; margin-bottom: 6px; }
+
+  /* ---------- staging scorecard ---------- */
+  .score { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 16px; margin-bottom: 20px; }
+  .score > div { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .score .hd { padding: 10px 14px; font-weight: 600; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .score .keep .hd { background: var(--good-50); color: var(--good-600); border-bottom: 2px solid var(--good-600); }
+  .score .fix .hd { background: var(--bad-50); color: var(--bad-600); border-bottom: 2px solid var(--bad-600); }
+  .score ul { list-style: none; margin: 0; padding: 4px 0; }
+  .score li { padding: 7px 14px; border-bottom: 1px solid var(--line-2); font-size: 13px; line-height: 18px; display: flex; gap: 8px; margin: 0 !important; }
+  .score li:last-child { border-bottom: 0; }
+  .score li code { flex: none; align-self: flex-start; font-size: 11px; }
+  .verdict { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; margin-right: 6px; line-height: 18px; vertical-align: 1px; }
+  .verdict.ok { background: var(--good-50); color: var(--good-600); }
+  .verdict.bad { background: var(--bad-50); color: var(--bad-600); }
+  .verdict.mix { background: var(--warn-50); color: var(--warn-600); }
+  .fixes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 12px; }
+  .fx { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: #fff; }
+  .fx .t { font-weight: 600; color: var(--ink); margin-bottom: 8px; display: flex; gap: 8px; align-items: baseline; }
+  .fx .t .num { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--bad-50); color: var(--bad-600); font-size: 12px; display: inline-flex; align-items: center; justify-content: center; }
+  .fx .tr { display: grid; grid-template-columns: 1fr; gap: 6px; font-size: 13px; line-height: 18px; }
+  .fx .tr div { padding: 6px 10px; border-radius: 6px; }
+  .fx .today { background: #fafafa; border: 1px solid var(--line-2); color: var(--ink-2); }
+  .fx .reco { background: var(--primary-50); color: var(--ink); }
+  .fx .tr b { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-3); font-weight: 600; }
+  .fx .reco b { color: var(--primary-700); }
+  .fx .ev { margin-top: 8px; font-size: 12px; color: var(--ink-3); }
+
+  /* ---------- demo cards ---------- */
+  .demo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+  .demo { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fff; display: flex; flex-direction: column; scroll-margin-top: 24px; }
+  .demo.wide { grid-column: 1 / -1; }
+  .demo .stage { position: relative; min-height: 170px; padding: 16px; background: #fcfcfd; border-bottom: 1px solid var(--line-2); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; }
+  .demo .body { padding: 12px 16px 14px; }
+  .demo .body h4 { margin: 0 0 4px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .demo .body h4 code { font-size: 12px; }
+  .demo .body p { margin: 0 0 8px; font-size: 13px; line-height: 18px; }
+  .demo .use { font-size: 12.5px; line-height: 18px; color: var(--ink-2); display: grid; gap: 4px; }
+  .demo .use b { color: var(--ink); }
+  .demo .use .no b { color: var(--bad-600); }
+  .ctrls { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex-wrap: wrap; background: #fff; }
+  .seg button { font: inherit; font-size: 12.5px; padding: 5px 10px; border: 0; background: #fff; color: var(--ink-2); cursor: pointer; border-right: 1px solid var(--line); }
+  .seg button:last-child { border-right: 0; }
+  .seg button[aria-pressed="true"] { background: var(--primary-50); color: var(--primary-700); font-weight: 600; }
+
+  /* ShellSkeleton minis */
+  .shell-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 12px; width: 100%; }
+  .mini { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--ld-page-gray); }
+  .mini .mh { height: 20px; display: flex; align-items: center; gap: 6px; padding: 0 8px; }
+  .mini .mh .sk { height: 6px; }
+  .mini .mb { display: flex; }
+  .mini .mn { width: 36px; padding: 6px; display: flex; flex-direction: column; gap: 6px; }
+  .mini .mn .sk { height: 6px; background: var(--ld-sk-on-gray); }
+  .mini .mc { flex: 1; min-width: 0; background: #fff; border-top-left-radius: 6px; border-left: 1px solid var(--line); border-top: 1px solid var(--line); height: 118px; padding: 8px; overflow: hidden; }
+  .mini-cap { font-size: 12px; color: var(--ink-2); margin-top: 6px; }
+  .mini-cap code { font-size: 11px; }
+  .shp { display: flex; gap: 6px; height: 100%; }
+  .shp .sk { height: 6px; }
+  .shp .col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .shp .row { display: flex; gap: 6px; align-items: center; }
+  .shp .sk.av { width: 14px; height: 14px; flex: none; }
+  .shp .kc { background: var(--ld-page-gray); border-radius: 6px; padding: 5px; display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 0; }
+  .shp .kc .sk { background: var(--ld-sk-on-gray); }
+  .shp .kcard { background: #fff; border: 1px solid var(--line-2); border-radius: 5px; padding: 5px; display: flex; flex-direction: column; gap: 4px; }
+  .shp .kcard .sk { background: var(--ld-sk); }
+  .shp .cal { display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: 1fr; flex: 1; border-top: 1px solid var(--line-2); border-left: 1px solid var(--line-2); }
+  .shp .cal > div { border-right: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2); padding: 2px; min-height: 16px; }
+  .shp .cal .sk { height: 5px; }
+  .shp .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .shp .card { border: 1px solid var(--line-2); border-radius: 6px; padding: 5px; display: flex; flex-direction: column; gap: 4px; }
+  .shp .chart { flex: 1; border: 1px solid var(--line-2); border-radius: 6px; padding: 6px; position: relative; display: flex; align-items: flex-end; gap: 6px; }
+  .shp .chart::before { content: ""; position: absolute; left: 6px; right: 6px; bottom: 6px; border-bottom: 1px solid var(--line); }
+  .shp .chart::after { content: ""; position: absolute; left: 6px; top: 6px; bottom: 6px; border-left: 1px solid var(--line); }
+  .shp .chart .sk { width: 100%; border-radius: 3px 3px 0 0; }
+
+  /* mini app frame (route line, timeline) */
+  .mf { width: 100%; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--ld-page-gray); display: grid; grid-template-columns: 96px minmax(0, 1fr); grid-template-rows: 32px 1fr; height: 236px; font-size: 12px; line-height: 16px; }
+  .mf.short { height: 168px; }
+  .mf .side { grid-row: 1 / 3; padding: 8px 6px; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid var(--line-2); }
+  .mf .side .ws { font-weight: 600; color: var(--ink); padding: 2px 6px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mf .side a { display: block; padding: 4px 6px; border-radius: 6px; color: var(--ink-2); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11.5px; pointer-events: none; }
+  .mf .side a.on { background: #fff; color: var(--ink); font-weight: 600; box-shadow: var(--shadow-sm); }
+  .mf .hdr { display: flex; align-items: center; gap: 10px; padding: 0 10px; color: var(--ink-2); min-width: 0; white-space: nowrap; overflow: hidden; }
+  .mf .hdr .crumb { color: var(--ink-3); flex: none; }
+  .mf .hdr .crumb b { color: var(--ink); font-weight: 600; }
+  .mf .hdr .words { font-size: 12px; }
+  .mf .main { position: relative; overflow: hidden; background: #fff; border-top-left-radius: 8px; border-left: 1px solid var(--line); border-top: 1px solid var(--line); }
+  .mf .layer { position: absolute; inset: 0; padding: 10px; }
+  .mf .layer.center { display: flex; align-items: center; justify-content: center; }
+  @media (max-width: 520px) { .mf { grid-template-columns: 66px minmax(0, 1fr); } .mf .side a { font-size: 10.5px; padding: 3px 4px; } }
+
+  .rtbl { width: 100%; font-size: 11.5px; }
+  .rtbl .r { display: grid; grid-template-columns: 14px 1.3fr 1.2fr .8fr; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--line-2); align-items: center; color: var(--ink-2); }
+  .rtbl .r.h { color: var(--ink-3); font-weight: 600; font-size: 11px; border-bottom-color: var(--line); }
+  .rtbl .cb { width: 11px; height: 11px; border: 1.5px solid #d0d5dd; border-radius: 3px; }
+  .rtbl .r span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rtbl .sk { height: 8px; }
+  .kb { display: flex; gap: 6px; height: 100%; }
+  .kb .kc { flex: 1; min-width: 0; background: var(--ld-page-gray); border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 6px; }
+  .kb .kh { font-weight: 600; color: var(--ink-2); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kb .kcard { background: #fff; border: 1px solid var(--line-2); border-radius: 6px; padding: 6px; font-size: 11px; line-height: 14px; color: var(--ink); }
+  .kb .kcard small { display: block; color: var(--ink-3); }
+  .kb .sk { height: 7px; background: var(--ld-sk-on-gray); }
+  .kb .kcard .sk { background: var(--ld-sk); }
+
+  /* skeleton primitives demo */
+  .prims { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr)); gap: 14px; }
+  .prims .p { display: flex; flex-direction: column; gap: 6px; }
+  .prims .p small { font-size: 11px; color: var(--ink-3); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .skcard { border: 1px solid var(--line); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; background: #fff; }
+
+  /* spinner sizes */
+  .spins { display: flex; gap: 24px; align-items: flex-end; flex-wrap: wrap; justify-content: center; }
+  .spins figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .spins figcaption { margin: 0; font-size: 11.5px; text-align: center; line-height: 15px; }
+
+  /* refresh state */
+  .rs { width: 100%; max-width: 360px; border: 1px solid var(--line); border-radius: 8px; background: #fff; overflow: hidden; }
+  .rs .bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 8px 6px 10px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--ink-3); }
+  .rs .tw { position: relative; }
+  .rs .seg button { font-size: 11.5px; padding: 3px 8px; }
+
+  /* job tray */
+  .tray { width: 100%; max-width: 330px; border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-lg); background: #fff; font-size: 13px; line-height: 18px; text-align: left; }
+  .tray .th { padding: 8px 12px; font-weight: 600; border-bottom: 1px solid var(--line-2); display: flex; justify-content: space-between; color: var(--ink); }
+  .tray .th span { font-weight: 400; color: var(--ink-3); }
+  .tray .ti { padding: 10px 12px; }
+  .tray .ti .nm { color: var(--ink); font-weight: 500; display: flex; justify-content: space-between; gap: 8px; }
+  .tray .ti small { color: var(--ink-3); font-size: 12px; display: block; margin-top: 4px; }
+  .tray .pbar { margin-top: 6px; }
+  .tray .acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .toast { font-size: 13px; background: var(--ink); color: #fff; border-radius: 8px; padding: 8px 12px; box-shadow: var(--shadow-lg); max-width: 330px; }
+
+  /* AI status */
+  .ai { width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 10px; }
+  .ai .ask-b { align-self: flex-end; background: var(--line-2); color: var(--ink); border-radius: 10px; padding: 6px 10px; font-size: 13px; }
+  .ai .st { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); min-height: 20px; }
+  .ai .st .tm { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .ai .out { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; color: var(--ink); min-height: 58px; background: #fff; display: flex; flex-direction: column; gap: 6px; }
+  .composer { border: 1px solid var(--line); border-radius: 10px; padding: 6px 6px 6px 12px; display: flex; align-items: center; justify-content: space-between; color: var(--ink-3); font-size: 13px; background: #fff; }
+  .iconbtn { width: 28px; height: 28px; border-radius: 50%; border: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; background: var(--ld-accent); color: #fff; flex: none; }
+  .iconbtn.stop { background: var(--ink); }
+  .iconbtn.stop::before { content: ""; width: 9px; height: 9px; background: #fff; border-radius: 2px; }
+
+  /* partial failure */
+  .widgets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; max-width: 360px; }
+  .widget { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: #fff; font-size: 12px; min-height: 64px; display: flex; flex-direction: column; gap: 4px; }
+  .widget b { font-size: 16px; color: var(--ink); }
+  .widget.err { align-items: flex-start; color: var(--ink-2); }
+  .notice { width: 100%; max-width: 360px; display: flex; justify-content: space-between; align-items: center; gap: 8px; background: var(--warn-50); border: 1px solid #fedf89; border-radius: 8px; padding: 6px 10px; font-size: 12.5px; color: var(--ink); }
+
+  /* ---------- timeline ---------- */
+  .tl-ctrls { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 12px; }
+  .tl-clock { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--ink); font-weight: 600; min-width: 64px; }
+  .tl-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .tl-grid { grid-template-columns: 1fr; } }
+  .tracks { margin: 14px 0 6px; }
+  .trk { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px; align-items: center; margin-bottom: 8px; }
+  .trk > .lbl { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+  @media (max-width: 520px) { .trk { grid-template-columns: 1fr; gap: 2px; } }
+  .rail { position: relative; height: 22px; margin: 0 7px; border-radius: 4px; background: #fafafa; }
+  .rail .sg { position: absolute; top: 0; bottom: 0; border-right: 1px solid #fff; overflow: hidden; }
+  .rail .ph { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--ink); border-radius: 1px; pointer-events: none; }
+  .marks { position: relative; height: 34px; margin: 0 7px; }
+  .marks .mk { position: absolute; bottom: 0; transform: translateX(-50%); font-size: 11px; line-height: 13px; color: var(--ink-2); font-weight: 600; white-space: nowrap; text-align: center; }
+  .marks .mk::after { content: ""; display: block; width: 1px; height: 6px; background: var(--ink-3); margin: 2px auto 0; }
+  .marks .mk.up { bottom: 17px; }
+  .marks .mk.up::after { height: 23px; margin-bottom: -17px; }
+  .scrub { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: transparent; margin: 0; cursor: pointer; display: block; }
+  .scrub::-webkit-slider-runnable-track { height: 4px; background: var(--line); border-radius: 2px; }
+  .scrub::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--ink); margin-top: -5px; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--ink); }
+  .scrub::-moz-range-track { height: 4px; background: var(--line); border-radius: 2px; }
+  .scrub::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: var(--ink); border: 2px solid #fff; }
+  .st-old { background: #f2f4f7; } .st-pressed { background: #f2f4f7; } .st-idle { background: #fafafa; } .st-none { background: #fafafa; }
+  .st-loading { background: var(--primary-100); } .st-pending { background: var(--primary-100); } .st-thinking { background: var(--primary-100); }
+  .st-words { background: var(--primary-200); } .st-working { background: var(--primary-200); }
+  .st-streaming { background: color-mix(in srgb, var(--primary-600) 45%, #fff); }
+  .st-still { background: var(--warn-100); } .st-job { background: #ebe9fe; }
+  .st-content { background: var(--good-100); } .st-success { background: var(--good-100); } .st-done { background: var(--good-100); }
+  .st-failed { background: var(--bad-100); }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 12px; color: var(--ink-2); margin-top: 4px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+  .evlog { list-style: none; margin: 0; padding: 0; font-size: 13px; line-height: 18px; }
+  .evlog li { display: grid; grid-template-columns: 56px 1fr; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line-2); color: var(--ink-3) !important; margin: 0 !important; }
+  .evlog li b { font-variant-numeric: tabular-nums; color: inherit; font-weight: 600; }
+  .evlog li.past { color: var(--ink) !important; }
+  .evlog li.now { color: var(--ink) !important; background: var(--primary-50); border-radius: 6px; padding-left: 6px; padding-right: 6px; }
+  .side-tracks { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; margin-top: 12px; }
+  .side-tracks .box { border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: #fcfcfd; min-height: 132px; display: flex; flex-direction: column; gap: 8px; }
+  .side-tracks .box .kicker { margin: 0; }
+  .sr-line { font-size: 12px; color: var(--ink-3); margin-top: 8px; min-height: 18px; }
+  .sr-line b { color: var(--ink-2); }
+
+  /* ---------- matrix, specs ---------- */
+  .matrix td:first-child { font-weight: 600; color: var(--ink); }
+  .matrix td a { white-space: nowrap; }
+  .codebox { position: relative; border: 1px solid var(--line); border-radius: 10px; background: #0f1728; margin: 8px 0 16px; }
+  .codebox pre { overflow: auto; max-height: 460px; padding: 14px 16px; color: #e4e7ec; font: 12.5px/19px ui-monospace, SFMono-Regular, Menlo, monospace; tab-size: 2; }
+  .codebox .copy { position: absolute; top: 8px; right: 8px; font: inherit; font-size: 12px; border: 1px solid #344054; background: #1d2939; color: #e4e7ec; border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+  .codebox .cap { display: block; padding: 8px 16px; border-bottom: 1px solid #1d2939; color: #98a2b3; font-size: 12px; }
+  .sm-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: #fcfcfd; margin: 8px 0 16px; }
+  .sm-wrap svg { display: block; min-width: 720px; width: 100%; height: auto; }
+  .steps { counter-reset: s; list-style: none; padding: 0; margin: 8px 0 16px; }
+  .steps li { counter-increment: s; position: relative; padding: 8px 0 8px 40px; border-bottom: 1px solid var(--line-2); margin: 0 !important; }
+  .steps li::before { content: counter(s); position: absolute; left: 0; top: 8px; width: 26px; height: 26px; border-radius: 50%; background: var(--primary-50); color: var(--primary-700); font-weight: 600; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+  .steps li .tm { display: inline-block; font-size: 12px; font-weight: 600; color: var(--ink); background: var(--line-2); border-radius: 4px; padding: 0 6px; margin-right: 6px; font-variant-numeric: tabular-nums; }
+  .props td:first-child code { font-weight: 600; }
+  .props td:nth-child(2) code { white-space: nowrap; }
+
+  /* ---------- copy deck ---------- */
+  .copy-str { color: var(--ink); font-weight: 500; }
+  .never { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 8px; margin: 8px 0 0; }
+  .never div { border: 1px solid #fecdca; background: var(--bad-50); border-radius: 8px; padding: 8px 12px; font-size: 13px; line-height: 18px; color: var(--ink-2); }
+  .never div b { display: block; color: var(--bad-600); text-decoration: line-through; text-decoration-thickness: 1px; }
+
+  /* ---------- rules lists ---------- */
+  .rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; }
+  .rules > div { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .rules h3 { margin-top: 0; }
+  .rules ul { margin: 0; padding-left: 18px; }
+  .rules li { font-size: 13px; line-height: 19px; }
+  .tenant { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+  .tenant div { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink-3); }
+
+  /* ---------- dos & don'ts ---------- */
+  .dd { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0 0 18px; }
+  @media (max-width: 800px) { .dd { grid-template-columns: 1fr; } }
+  .dd > div { border-radius: 10px; border: 1px solid var(--line); overflow: hidden; background: #fff; display: flex; flex-direction: column; }
+  .dd .hd { padding: 8px 12px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .dd .do .hd { background: var(--good-50); color: var(--good-600); border-bottom: 2px solid var(--good-600); }
+  .dd .dont .hd { background: var(--bad-50); color: var(--bad-600); border-bottom: 2px solid var(--bad-600); }
+  .dd .vis { min-height: 150px; padding: 14px; display: flex; align-items: center; justify-content: center; background: #fcfcfd; border-bottom: 1px solid var(--line-2); flex-direction: column; gap: 8px; flex: 1; }
+  .dd .vis img { width: 100%; border-radius: 6px; border: 1px solid var(--line); display: block; }
+  .dd .tx { padding: 10px 12px; font-size: 13px; line-height: 18px; color: var(--ink-2); }
+  .dd .tx b { color: var(--ink); }
+  .dd-title { font-size: 14px; font-weight: 600; margin: 20px 0 8px; color: var(--ink); }
+  .dd-title:first-of-type { margin-top: 8px; }
+  .msgcard { width: 100%; max-width: 320px; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: #fff; display: flex; flex-direction: column; gap: 7px; font-size: 12.5px; }
+  .msgcard .top { display: flex; justify-content: space-between; color: var(--ink); font-weight: 600; }
+  .msgcard .top span { font-weight: 400; color: var(--ink-3); }
+  .hdr-demo { width: 100%; max-width: 340px; border: 1px solid var(--line); border-radius: 8px; background: #fff; overflow: hidden; position: relative; }
+  .hdr-demo .h { height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: 12px; color: var(--ink-3); border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; }
+  .hdr-demo .h b { color: var(--ink); }
+  .hdr-demo .c { position: relative; padding: 10px; height: 84px; }
+  .fake-pct { position: absolute; top: 4px; right: 6px; font-size: 10px; color: var(--ink-3); font-weight: 600; }
+
+  /* ---------- rollout ---------- */
+  .phases { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px; margin-bottom: 20px; }
+  .phase { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; border-top: 3px solid var(--primary-600); }
+  .phase .k { font-size: 12px; font-weight: 600; color: var(--primary-700); text-transform: uppercase; letter-spacing: .04em; }
+  .phase h3 { margin: 4px 0 6px; }
+  .phase .own { font-size: 13px; color: var(--ink-2); margin-bottom: 8px; }
+  .phase .own b { color: var(--ink); }
+  .phase ul { margin: 0; padding-left: 18px; }
+  .phase li { font-size: 13px; line-height: 19px; }
+  .qa { list-style: none; padding: 0; margin: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .qa li { margin: 0 !important; border-bottom: 1px solid var(--line-2); }
+  .qa li:last-child { border-bottom: 0; }
+  .qa label { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; cursor: pointer; font-size: 13px; line-height: 19px; color: var(--ink); }
+  .qa input { margin-top: 3px; accent-color: var(--ld-accent); width: 15px; height: 15px; flex: none; }
+  .qa .how { display: block; color: var(--ink-3); font-size: 12px; }
+  .qa-meta { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 0 0 8px; font-size: 13px; color: var(--ink-3); }
+
+  /* ---------- decisions ---------- */
+  .dec { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+  .dec .q { font-weight: 600; color: var(--ink); font-size: 15px; margin-bottom: 6px; display: flex; gap: 8px; }
+  .dec .q .n { flex: none; color: var(--primary-700); }
+  .dec p { font-size: 13px; line-height: 19px; margin-bottom: 6px; }
+  .dec .rec { font-size: 13px; color: var(--ink); background: var(--primary-50); border-radius: 6px; padding: 6px 10px; }
+  .dec .rec b { color: var(--primary-700); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<nav class="toc" aria-label="Contents">
+  <h4>Decision</h4>
+  <a href="#summary">1 · Decision summary</a>
+  <a href="#staging">2 · Where staging is today</a>
+  <div class="sec"></div>
+  <h4>The system</h4>
+  <a href="#system">3 · Components</a>
+  <a href="#c-shell" class="sub">ShellSkeleton</a>
+  <a href="#c-route" class="sub">RouteProgressLine</a>
+  <a href="#c-words" class="sub">StatusWords</a>
+  <a href="#c-skeleton" class="sub">Skeleton primitives</a>
+  <a href="#c-spinner" class="sub">Spinner</a>
+  <a href="#c-button" class="sub">ButtonLoading</a>
+  <a href="#c-refresh" class="sub">RefreshState</a>
+  <a href="#c-progress" class="sub">ProgressBar</a>
+  <a href="#c-jobs" class="sub">JobTray</a>
+  <a href="#c-ai" class="sub">AIStatus</a>
+  <a href="#c-failure" class="sub">FailureState</a>
+  <a href="#timeline">4 · Timeline</a>
+  <a href="#matrix">5 · Context matrix</a>
+  <div class="sec"></div>
+  <h4>Handoff</h4>
+  <a href="#specs">6 · Specs for developers</a>
+  <a href="#copy">7 · Copy deck</a>
+  <a href="#rules">8 · White-label and accessibility</a>
+  <a href="#dosdonts">9 · Dos and don'ts</a>
+  <a href="#rollout">10 · Rollout and QA</a>
+  <a href="#decisions">11 · Open decisions</a>
+</nav>
+
+<main class="doc">
+
+<header class="masthead">
+  <div class="eyebrow">HighRise design system · loading experience</div>
+  <h1>Loading experience — recommendation and handoff</h1>
+  <p class="lede">The final HighLevel standard for every wait in the product: 6 principles, 1 time ladder, 12 components,
+  and a 3-phase rollout. It starts from what staging already does well and fixes the 9 places where it breaks.
+  Every demo on this page is live and uses the exact spec values.</p>
+  <div class="mast-row">
+    <a class="btn" href="playground.html">← Back to the interactive prototype</a>
+  </div>
+</header>
+
+<!-- ============================================================ 1 -->
+<section class="canvas" id="summary">
+  <h2>Decision summary</h2>
+  <p class="lede">Staging already paints a shell skeleton and talks to users in plain words. What's missing is the
+  ending: loaders that never stop, too many loader looks, and 2 progress bars. This recommendation makes every
+  wait follow the same 6 rules.</p>
+
+  <div class="pr-grid">
+    <div class="pr"><div class="n">1 · Ownership</div><b>The shell owns the first loader</b><p>The host document paints the shell and a route-shaped skeleton before any module JavaScript loads.</p></div>
+    <div class="pr"><div class="n">2 · One per region</div><b>One indicator per region, start to finish</b><p>The skeleton hands off to content with a 200 ms cross-fade. Never skeleton → spinner.</p></div>
+    <div class="pr"><div class="n">3 · Time ladder</div><b>Wait, then escalate on a fixed ladder</b><p>Nothing under 300 ms → indicator → words at 2 s → "Still working on it" at 8 s → failure at 30 s.</p></div>
+    <div class="pr"><div class="n">4 · Exit</div><b>Every loader has an exit</b><p>A failure state in place, in plain copy, with Try again and Go back.</p></div>
+    <div class="pr"><div class="n">5 · Continuity</div><b>Keep what's on screen</b><p>Refresh, filter, sort, and paginate keep the current content. Loaded content is never re-skeletoned.</p></div>
+    <div class="pr"><div class="n">6 · White-label</div><b>Neutral and themeable</b><p>Agency <code>--primary-*</code> or <code>currentColor</code>, neutral skeletons, no logos, plain-verb copy.</p></div>
+  </div>
+
+  <div class="ask-grid">
+    <div class="ask">
+      <h3>What we're asking leadership to approve</h3>
+      <ol>
+        <li><strong>The 6 principles and the time ladder</strong> (300 ms, 400 ms, 2 s, 8 s, 30 s) as the HighRise loading standard for every team.</li>
+        <li><strong>1 skeleton and 1 spinner.</strong> Retire the 5 skeleton animations and 4 spinners on staging.</li>
+        <li><strong>A mandatory 30 s exit.</strong> Every async region is wrapped in <code>RegionLoader</code> and ends in content or a failure state.</li>
+        <li><strong>1 progress line, under the header.</strong> Remove the full-window boot bar and its staged fake progress.</li>
+        <li><strong>The 3-phase rollout,</strong> starting with page level in Platform Frontend's shell.</li>
+      </ol>
+    </div>
+    <div class="ask users">
+      <h3>What changes for users</h3>
+      <ul>
+        <li>Fast pages show no loader at all. Slower pages show 1 calm skeleton, not a chain of loaders.</li>
+        <li>The breadcrumb and nav switch the moment they click, so they always know where they're going.</li>
+        <li>A page that can't load says so within 30 s and offers Try again and Go back. No endless spinners.</li>
+        <li>Filtering a table keeps the rows on screen instead of blanking the page.</li>
+        <li>Imports and exports run in the background. They can keep working and get notified when it's done.</li>
+        <li>Every loader shows their agency's color, and the same look in every module.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 2 -->
+<section class="canvas" id="staging">
+  <h2>Where staging is today</h2>
+  <p>Audited live on switchyard-v4 staging on Oct 12, 2026, with a throttled network and API calls delayed on purpose.
+  Timings come from the shipped bundle. Staging was captured in the Dutch locale to confirm that status words localize.
+  <strong>Staging already did the hardest part:</strong> the host document paints a route-aware shell skeleton before any
+  module loads, and the breadcrumb slot already talks in plain, escalating words. The recommendation keeps all of that.</p>
+
+  <div class="score">
+    <div class="keep">
+      <div class="hd">Keep <span>8</span></div>
+      <ul>
+        <li><code>S1</code><span>Shell skeleton in the host document, with route-aware shapes: three-pane, calendar, kanban, cards, table, plain.</span></li>
+        <li><code>S1</code><span>Staggered arrival of skeleton bars.</span></li>
+        <li><code>S2 S5 S7</code><span>Status words in the breadcrumb slot, with escalation copy and localization.</span></li>
+        <li><code>S5</code><span>Old page stays on screen during a route change.</span></li>
+        <li><code>S4</code><span>Boot stall message with a way to reload.</span></li>
+        <li><code>S12</code><span>Real-chrome composer skeleton: real controls, just inert.</span></li>
+        <li><code>S13</code><span>Workspace name changes instantly on account switch.</span></li>
+        <li><code>S14</code><span>Agency chrome colors remembered between sessions.</span></li>
+      </ul>
+    </div>
+    <div class="fix">
+      <div class="hd">Fix <span>9</span></div>
+      <ul>
+        <li><code>S8</code><span>Silent give-up at 30 s reveals a module spinner that spins forever.</span></li>
+        <li><code>S10 S11</code><span>5 skeleton looks and 4 spinners.</span></li>
+        <li><code>S3 S5</code><span>2 progress bars, one with staged fake numbers.</span></li>
+        <li><code>S8</code><span>Shell skeleton hands off to a module spinner.</span></li>
+        <li><code>S9</code><span>Stale breadcrumb and stuck old page while the next page loads.</span></li>
+        <li><code>S12</code><span>Plain "Loading" text inside message cards.</span></li>
+        <li><code>S5</code><span>150 ms bar delay shows the bar on almost every navigation.</span></li>
+        <li><code>S14</code><span>Unknown tenants fall back to HighLevel blue.</span></li>
+        <li><code>—</code><span>No minimum visible time, so loaders can flash.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Evidence</h3>
+  <div class="figrow">
+    <figure><img src="assets/staging/02-boot-shell-skeleton.jpg" alt="Staging boot: shell skeleton with rail, sidebar rows, and status words in the breadcrumb slot"><figcaption><span class="verdict ok">Keep</span><b>Boot shell skeleton (S1, S2).</b> Painted by the host document before any module: rail, sidebar, top bar, and a 12 px spinner with "Loading your account" (Dutch locale).</figcaption></figure>
+    <figure><img src="assets/staging/03-boot-three-pane-skeleton.jpg" alt="Staging boot with a three-pane canvas skeleton"><figcaption><span class="verdict ok">Keep</span><b>Route-aware boot shape (S1).</b> The canvas already matches the conversations layout: list, thread, and side panel.</figcaption></figure>
+    <figure><img src="assets/staging/04-conversations-loaded.jpg" alt="Conversations page fully loaded"><figcaption><span class="verdict ok">Keep</span><b>The page the three-pane skeleton anticipates.</b> Shape match is what makes the hand-off feel continuous.</figcaption></figure>
+    <figure><img src="assets/staging/05-contacts-table-skeleton-still-working.jpg" alt="Contacts table skeleton with Still working on it in the breadcrumb slot"><figcaption><span class="verdict ok">Keep</span><b>Table skeleton plus escalation words (S6, S7).</b> "Still working on it" in the breadcrumb slot. We keep this and move it to 8 s.</figcaption></figure>
+    <figure><img src="assets/staging/06-opportunities-kanban-skeleton.jpg" alt="Opportunities kanban skeleton with Loading Leads in the breadcrumb slot"><figcaption><span class="verdict ok">Keep</span><b>Kanban skeleton and "Loading {page}…" at 2 s (S5, S6).</b> The right words, in the right slot, at the right time.</figcaption></figure>
+    <figure><img src="assets/staging/07-opportunities-infinite-spinner-after-30s.jpg" alt="Blank canvas with a centered spinner after 30 seconds"><figcaption><span class="verdict bad">Fix 1, 4</span><b>Silent give-up (S8).</b> At 30 s the shell removes its skeleton and words, revealing the module's 34 px spinner. It spins forever with no message and no action.</figcaption></figure>
+    <figure><img src="assets/staging/08-route-old-page-kept-with-stuck-spinner.jpg" alt="Old page with stuck spinner and old breadcrumb while navigating away"><figcaption><span class="verdict bad">Fix 5</span><b>Stale breadcrumb (S9).</b> Routing to Launchpad from a stuck page keeps the old breadcrumb and the old spinner. Only "Pagina laden…" hints at the change.</figcaption></figure>
+    <figure><img src="assets/staging/09-launchpad-module-skeleton.jpg" alt="Launchpad with heavy gray pulsing blocks"><figcaption><span class="verdict bad">Fix 2</span><b>A 5th skeleton look (S10).</b> Launchpad's heavy gray pulsing blocks don't match the shell's glow skeleton or any other module.</figcaption></figure>
+    <figure><img src="assets/staging/01-conversations-partial-loading.jpg" alt="Conversation thread with Loading text inside each email card"><figcaption><span class="verdict mix">Keep + fix 6</span><b>Conversation thread (S12).</b> Keep the real-chrome composer. Replace the grey "Loading" text inside each email card with skeleton lines.</figcaption></figure>
+    <figure><img src="assets/staging/10-account-switch-sidebar-skeleton.jpg" alt="Account switch with new workspace name and sidebar skeleton"><figcaption><span class="verdict mix">Keep + fix 2</span><b>Account switch (S13).</b> The workspace name changes instantly and the nav becomes a skeleton. The module's block skeleton is the off-pattern part.</figcaption></figure>
+    <figure><img src="assets/staging/11-account-switch-content-first.jpg" alt="Account switch with content loaded before the nav"><figcaption><span class="verdict mix">Keep + fix copy</span><b>Content before nav (S13).</b> Fine to resolve independently. The words should read "Switching to {name}", not a generic "Loading page…".</figcaption></figure>
+  </div>
+
+  <h3>The 9 fixes</h3>
+  <div class="fixes">
+    <div class="fx"><div class="t"><span class="num">1</span>Silent give-up → failure state</div><div class="tr"><div class="today"><b>Today</b>At 30 s the shell gives up silently and reveals a module spinner that spins forever.</div><div class="reco"><b>Recommended</b>At 30 s the canvas shows "Couldn't load {page}" with Try again and Go back. Never reveal a module spinner.</div></div><div class="ev">S8 · Evidence 07</div></div>
+    <div class="fx"><div class="t"><span class="num">2</span>Too many looks → 1 skeleton, 1 spinner</div><div class="tr"><div class="today"><b>Today</b>5 skeleton animations and 4 spinners (12–16 px, 34 px, 50 px, and a ring with "Initializing…").</div><div class="reco"><b>Recommended</b>1 skeleton animation (glow 1.6 s, 600 ms pause) and 1 spinner in 16, 20, 24, and 32 px.</div></div><div class="ev">S10, S11 · Evidence 09</div></div>
+    <div class="fx"><div class="t"><span class="num">3</span>2 progress bars → 1 line</div><div class="tr"><div class="today"><b>Today</b>A full-window boot bar with staged fake progress (.06 → .92) plus a second line under the header.</div><div class="reco"><b>Recommended</b>1 progress line, under the header. It trickles toward 90% and never shows a number.</div></div><div class="ev">S3, S5</div></div>
+    <div class="fx"><div class="t"><span class="num">4</span>Skeleton → spinner handoff</div><div class="tr"><div class="today"><b>Today</b>The shell skeleton is replaced by a module spinner: 2 loaders for 1 wait.</div><div class="reco"><b>Recommended</b>The module takes over the shell skeleton (same shapes, same animation phase) or goes straight to content.</div></div><div class="ev">S8 · Evidence 07</div></div>
+    <div class="fx"><div class="t"><span class="num">5</span>Stale breadcrumb → instant switch</div><div class="tr"><div class="today"><b>Today</b>The old breadcrumb and the old (stuck) page stay while the destination loads.</div><div class="reco"><b>Recommended</b>Breadcrumb and nav switch instantly. Old content dims after 300 ms and is inert. If it's a loader or error, swap to the destination skeleton at once.</div></div><div class="ev">S9 · Evidence 08</div></div>
+    <div class="fx"><div class="t"><span class="num">6</span>"Loading" text → skeleton lines</div><div class="tr"><div class="today"><b>Today</b>Grey "Loading" text inside each message card.</div><div class="reco"><b>Recommended</b><code>SkLine</code> rows in the card body, same animation as everything else.</div></div><div class="ev">S12 · Evidence 01</div></div>
+    <div class="fx"><div class="t"><span class="num">7</span>150 ms → 300 ms line delay</div><div class="tr"><div class="today"><b>Today</b>The route line appears after 150 ms, so it shows on almost every navigation.</div><div class="reco"><b>Recommended</b>300 ms grace. Fast navigations show nothing.</div></div><div class="ev">S5</div></div>
+    <div class="fx"><div class="t"><span class="num">8</span>Brand fallback → neutral</div><div class="tr"><div class="today"><b>Today</b>The CSS fallback for an unknown tenant is HighLevel blue <code>#155eef</code>.</div><div class="reco"><b>Recommended</b>Neutral <code>#98a2b3</code> until the agency color is known.</div></div><div class="ev">S14</div></div>
+    <div class="fx"><div class="t"><span class="num">9</span>No minimum → 400 ms minimum</div><div class="tr"><div class="today"><b>Today</b>A loader can appear and vanish within a few frames.</div><div class="reco"><b>Recommended</b>Once shown, every loader stays at least 400 ms.</div></div><div class="ev">Observed across modules</div></div>
+  </div>
+</section>
+
+<!-- ============================================================ 3 -->
+<section class="canvas" id="system">
+  <h2>The system</h2>
+  <p class="lede">12 components, 1 animation, 1 color source. Every demo below is live and follows the spec values.</p>
+
+  <div class="demo-grid">
+
+    <div class="demo wide" id="c-shell">
+      <div class="stage"><div class="shell-grid" id="shellGrid"></div>
+        <button class="btn sec xs" data-replay="shellGrid">Replay arrival</button></div>
+      <div class="body"><h4>1 · ShellSkeleton <code>ShellSkeleton</code></h4>
+        <p>Inline HTML and CSS in the host document. It paints rail, sidebar, top bar, and a route-shaped canvas before any module JavaScript. Variants: <code>three-pane</code>, <code>table</code>, <code>kanban</code>, <code>calendar</code>, <code>cards</code>, <code>form</code>, <code>builder</code>, <code>plain</code>.</p>
+        <div class="use"><div><b>Use for:</b> app boot, account switch, and route changes when the destination module isn't mounted within 300 ms.</div><div class="no"><b>Not for:</b> regions inside a loaded page (use <code>RegionLoader</code>), or replacing content that's already loaded.</div></div></div>
+    </div>
+
+    <div class="demo" id="c-route">
+      <div class="stage">
+        <div class="mf short" id="routeDemo">
+          <div class="side"><div class="ws">Acme Realty</div><a>Contacts</a><a class="on">Opportunities</a><a>Calendars</a></div>
+          <div class="hdr"><span class="crumb">CRM / <b>Opportunities</b></span><span class="words" id="routeWords"></span></div>
+          <div class="main"><div class="pline" id="routeLine"></div><div class="layer" id="routeBody"></div></div>
+        </div>
+        <button class="btn sec xs" id="routeReplay">Replay route change</button>
+      </div>
+      <div class="body"><h4>2 · RouteProgressLine <code>RouteProgressLine</code></h4>
+        <p>The single progress line: 2 px, under the header, across the canvas, in <code>--primary-600</code>. Appears after 300 ms, trickles toward 90%, completes in 200 ms, then fades in 200 ms.</p>
+        <div class="use"><div><b>Use for:</b> route changes only.</div><div class="no"><b>Not for:</b> boot (no full-window bar), regions, or anything that needs a number.</div></div></div>
+    </div>
+
+    <div class="demo" id="c-words">
+      <div class="stage">
+        <div class="hdr-demo"><div class="h"><span>CRM / <b>Contacts</b></span><span class="words" id="wordsOut" role="status" aria-live="polite"></span></div></div>
+        <div class="seg" id="wordsSeg">
+          <button data-w="loading" aria-pressed="true">Loading</button><button data-w="still" aria-pressed="false">Still</button><button data-w="offline" aria-pressed="false">Offline</button><button data-w="cached" aria-pressed="false">Cached</button><button data-w="failed" aria-pressed="false">Failed</button>
+        </div>
+        <span class="hint" id="wordsAuto">Cycling every 2.5 s. Pick a state to pin it.</span>
+      </div>
+      <div class="body"><h4>3 · StatusWords <code>StatusWords</code></h4>
+        <p>Breadcrumb-slot status: 13/18 px Inter, <code>#475467</code>, 12 px spinner on the left. One always-present <code>role="status"</code> live region. States: loading, still, offline, cached, failed with retry.</p>
+        <div class="use"><div><b>Use for:</b> page-level waits from 2 s on, boot, account switch, offline, and cached data.</div><div class="no"><b>Not for:</b> region-level waits or toasts. Never a second live region.</div></div></div>
+    </div>
+
+    <div class="demo" id="c-skeleton">
+      <div class="stage">
+        <div class="prims ld-arrive" id="primsDemo">
+          <div class="p"><small>SkLine</small><span class="sk" style="width:90%"></span><span class="sk" style="width:70%"></span><span class="sk" style="width:80%;height:12px"></span></div>
+          <div class="p"><small>SkBlock</small><span class="sk blk" style="height:52px"></span></div>
+          <div class="p"><small>SkAvatar</small><div style="display:flex;gap:8px;align-items:center"><span class="sk av" style="width:32px;height:32px"></span><span class="sk av" style="width:24px;height:24px"></span><span class="sk pill" style="width:44px;height:18px"></span></div></div>
+          <div class="p"><small>SkCard</small><div class="skcard"><span class="sk" style="width:50%;height:12px"></span><span class="sk" style="width:90%"></span><span class="sk" style="width:75%"></span></div></div>
+          <div class="p" style="grid-column:1/-1"><small>SkTableRows</small><div class="rtbl"><div class="r h"><span class="cb"></span><span>Name</span><span>Email</span><span>Stage</span></div><div class="rows-fade" id="primRows"></div></div></div>
+        </div>
+        <button class="btn sec xs" data-replay="primsDemo">Replay arrival</button>
+      </div>
+      <div class="body"><h4>4 · Skeleton primitives <code>SkLine</code> <code>SkBlock</code> <code>SkAvatar</code> <code>SkTableRows</code> <code>SkCard</code></h4>
+        <p>1 animation everywhere: arrival (fade + 4 px rise, 400 ms, 30 ms stagger, max 8 steps), then a glow sweep (1.6 s, 600 ms pause). Every skeleton on the page shares one phase.</p>
+        <div class="use"><div><b>Use for:</b> first load of any region with a known layout. Real headers, titles, and checkboxes stay real.</div><div class="no"><b>Not for:</b> buttons, menus' frames, modal frames, or refreshing loaded content.</div></div></div>
+    </div>
+
+    <div class="demo" id="c-spinner">
+      <div class="stage">
+        <div class="spins" id="spinSizes"></div>
+        <div class="field" style="width:100%;max-width:240px;height:36px;border:1px solid var(--line);border-radius:8px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;font-size:14px;color:var(--ink-3);background:#fff">Search contacts<span data-spin="16"></span></div>
+      </div>
+      <div class="body"><h4>5 · Spinner <code>Spinner</code></h4>
+        <p>1 ring, arc 25%, 0.8 s linear. Stroke 2 px at 16 and 20, 2.5 px at 24, 3 px at 32. Color <code>currentColor</code> (default <code>--primary-600</code>), track at 15%.</p>
+        <div class="use"><div><b>Use for:</b> inline fields (16 px in the trailing slot), buttons, and small regions with no known shape.</div><div class="no"><b>Not for:</b> pages, tables, cards, or after a skeleton in the same region.</div></div></div>
+    </div>
+
+    <div class="demo" id="c-button">
+      <div class="stage">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+          <button class="btn" id="saveBtn">Save changes</button>
+          <span id="saveErr" style="font-size:12.5px;color:var(--bad-600);min-height:18px" role="alert"></span>
+        </div>
+        <label class="rm-toggle" style="font-size:12.5px"><input type="checkbox" id="saveFail"> Next save fails</label>
+      </div>
+      <div class="body"><h4>6 · ButtonLoading <code>ButtonLoading</code></h4>
+        <p>Click it. Idle → pending (blocked at once, spinner after 300 ms, width locked, <code>aria-disabled</code>, focus kept) → success (check for 1.5 s) or error (inline message below, no shake).</p>
+        <div class="use"><div><b>Use for:</b> actions expected to finish in 5 s or less.</div><div class="no"><b>Not for:</b> anything longer. That becomes a job in the <code>JobTray</code>.</div></div></div>
+    </div>
+
+    <div class="demo" id="c-refresh">
+      <div class="stage">
+        <div class="rs">
+          <div class="bar"><span id="rsUpdated">Updated 3:04 PM</span><button class="btn sec xs" id="rsBtn">Refresh</button></div>
+          <div class="tw"><div class="pline" id="rsLine"></div><div class="rtbl" id="rsRows"></div></div>
+        </div>
+        <span class="hint">Press Refresh. After 2 s it becomes Cancel.</span>
+      </div>
+      <div class="body"><h4>7 · RefreshState <code>RefreshState</code></h4>
+        <p>Stale content stays at full opacity with a 2 px edge line on the region, "Updated 3:04 PM", and Refresh ↔ Cancel.</p>
+        <div class="use"><div><b>Use for:</b> refresh, filter, sort, and pagination of loaded tables and lists.</div><div class="no"><b>Not for:</b> first load. Never re-skeleton loaded rows.</div></div></div>
+    </div>
+
+    <div class="demo" id="c-progress">
+      <div class="stage">
+        <div style="width:100%;max-width:300px" role="progressbar" aria-label="Importing contacts" aria-valuemin="0" aria-valuemax="3100" aria-valuenow="1240" id="pbWrap">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;gap:8px"><span style="color:var(--ink)">Importing contacts</span><span style="color:var(--ink-3)" id="pbLbl">1,240 of 3,100 contacts</span></div>
+          <div class="pbar"><i id="pbFill" style="width:40%"></i></div>
+          <div style="height:14px"></div>
+          <div class="pbar thin"><i id="pbFill2" style="width:40%"></i></div>
+          <div class="hint" style="margin-top:4px">4 px (inline, tray) · 6 px (standalone)</div>
+        </div>
+      </div>
+      <div class="body"><h4>8 · ProgressBar <code>ProgressBar</code></h4>
+        <p>Determinate only. Radius 999, track <code>#f2f4f7</code>, fill <code>--primary-600</code>, width transition 300 ms ease-out. Labeled with real counts.</p>
+        <div class="use"><div><b>Use for:</b> imports, exports, uploads, and bulk actions you can count.</div><div class="no"><b>Not for:</b> unmeasurable waits, or a percentage you can't back up.</div></div></div>
+    </div>
+
+    <div class="demo" id="c-jobs">
+      <div class="stage" style="align-items:flex-end">
+        <div class="tray" id="trayDemo"></div>
+        <div class="toast" id="trayToast">Importing contacts. You can keep working. We'll notify you when it's done.</div>
+        <button class="btn sec xs" id="trayReplay" style="align-self:center">Replay import</button>
+      </div>
+      <div class="body"><h4>9 · JobTray <code>JobTray</code></h4>
+        <p>Shell-owned, bottom right, survives route changes. Each job shows name, bar, counts, start time, and actions: Cancel, View results, Download error file.</p>
+        <div class="use"><div><b>Use for:</b> work expected to take more than 10 s, and button actions that pass 5 s.</div><div class="no"><b>Not for:</b> blocking the page. Never "Don't close this window".</div></div></div>
+    </div>
+
+    <div class="demo" id="c-ai">
+      <div class="stage">
+        <div class="ai">
+          <div class="ask-b">Draft replies to my 3 open leads</div>
+          <div class="st" id="aiSt"></div>
+          <div class="out" id="aiOut"></div>
+          <div class="composer"><span>Ask AI…</span><button class="iconbtn stop" id="aiBtn" aria-label="Stop generating"></button></div>
+        </div>
+      </div>
+      <div class="body"><h4>10 · AIStatus <code>AIStatus</code></h4>
+        <p>Thinking → working (real steps) → streaming → done, stopped, or failed. Elapsed timer after 2 s, estimate after 20 s, "You can leave" after 60 s, timeout at 120 s. Stop sits in Send's slot.</p>
+        <div class="use"><div><b>Use for:</b> generation with an output-shaped skeleton in place. Plain verbs only.</div><div class="no"><b>Not for:</b> sparkles, mascots, or invented steps. Stopping keeps partial output.</div></div></div>
+    </div>
+
+    <div class="demo" id="c-failure">
+      <div class="stage">
+        <div class="seg" id="failSeg"><button data-f="region" aria-pressed="true">Region</button><button data-f="partial" aria-pressed="false">Partial</button></div>
+        <div id="failOut" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:8px;min-height:150px;justify-content:center"></div>
+      </div>
+      <div class="body"><h4>11 · FailureState <code>FailureState</code></h4>
+        <p>Centered in the region: 16 px semibold title <code>#101828</code>, 13 px body <code>#475467</code>, 32 px buttons (Try again primary, Go back secondary). Partial variant reports what loaded.</p>
+        <div class="use"><div><b>Use for:</b> errors and the 30 s timeout, in the loader's place. Try again only if the request is retryable.</div><div class="no"><b>Not for:</b> a duplicate toast, error codes, or "Something went wrong" without an action.</div></div></div>
+    </div>
+
+    <div class="demo">
+      <div class="stage">
+        <div style="width:100%;max-width:320px;font-size:13px;line-height:19px;color:var(--ink-2)">
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line-2)"><span>0–300 ms</span><b>Grace · nothing</b></div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line-2)"><span>300 ms</span><b>Skeleton fades in (150 ms)</b></div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line-2)"><span>≥ 400 ms on screen</span><b>Minimum visible</b></div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line-2)"><span>8 s</span><b>Still working on it</b></div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0"><span>30 s</span><b>FailureState</b></div>
+        </div>
+      </div>
+      <div class="body"><h4>12 · RegionLoader <code>RegionLoader</code> / <code>HLLoadable</code></h4>
+        <p>The wrapper every async region uses. It owns grace, minimum visible time, cross-fade, still-working, timeout, and failure, so module teams never hand-roll timing. Props and state machine are in <a href="#specs">Specs</a>.</p>
+        <div class="use"><div><b>Use for:</b> every card, widget, panel, table, and page body that fetches.</div><div class="no"><b>Not for:</b> buttons (<code>ButtonLoading</code>) or long jobs (<code>JobTray</code>).</div></div></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================================================ 4 -->
+<section class="canvas" id="timeline">
+  <h2>What the user sees over time</h2>
+  <p>A route change from Contacts to Opportunities. Pick when the response arrives, then drag the scrubber or press Play.
+  The axis is compressed (square-root scale) so the first second is readable. 0 s is the click.</p>
+
+  <div class="tl-ctrls">
+    <div class="seg" id="tlScen" role="group" aria-label="Response time">
+      <button data-r="0.2" aria-pressed="false">Fast · 0.2 s</button>
+      <button data-r="0.4" aria-pressed="false">Just past grace · 0.4 s</button>
+      <button data-r="1.2" aria-pressed="false">Typical · 1.2 s</button>
+      <button data-r="12" aria-pressed="false">Slow · 12 s</button>
+      <button data-r="Infinity" aria-pressed="true">Never responds</button>
+    </div>
+  </div>
+  <div class="tl-ctrls">
+    <button class="btn sm" id="tlPlay">Play</button>
+    <div class="seg" id="tlSpeed" role="group" aria-label="Playback speed">
+      <button data-s="1" aria-pressed="false">1×</button><button data-s="4" aria-pressed="true">4×</button><button data-s="10" aria-pressed="false">10×</button>
+    </div>
+    <span class="tl-clock" id="tlClock" aria-live="off">0.00 s</span>
+  </div>
+
+  <div class="tracks">
+    <div class="trk"><span class="lbl"></span><div class="marks" id="tlMarks"></div></div>
+    <div class="trk"><label class="lbl" for="tlRange">Scrub</label><input class="scrub" type="range" id="tlRange" min="0" max="1000" step="1" value="0" aria-label="Time since click"></div>
+    <div class="trk"><span class="lbl">Route change</span><div class="rail" id="trkRoute"></div></div>
+    <div class="trk"><span class="lbl">Button</span><div class="rail" id="trkBtn"></div></div>
+    <div class="trk"><span class="lbl">AI</span><div class="rail" id="trkAi"></div></div>
+  </div>
+  <div class="legend" id="tlLegend"></div>
+  <p class="hint" style="margin-top:6px">Markers: 300 ms grace · 700 ms earliest swap after the 400 ms minimum · 2 s words · 8 s still working · 30 s failure. Button: spinner at 300 ms, becomes a job at 5 s. AI: timer at 2 s, estimate at 20 s; "You can leave" (60 s) and timeout (120 s) are past the end of this axis.</p>
+
+  <div class="tl-grid" style="margin-top:16px">
+    <div>
+      <div class="mf" id="tlFrame">
+        <div class="side"><div class="ws">Acme Realty</div><a id="navContacts">Contacts</a><a id="navOpps" class="on">Opportunities</a><a>Calendars</a><a>Conversations</a></div>
+        <div class="hdr"><span class="crumb">CRM / <b>Opportunities</b></span><span class="words" id="tlWords"></span></div>
+        <div class="main">
+          <div class="pline" id="tlLine"></div>
+          <div class="layer" id="tlOld"></div>
+          <div class="layer" id="tlSkel"></div>
+          <div class="layer" id="tlContent"></div>
+          <div class="layer center" id="tlFail"></div>
+        </div>
+      </div>
+      <div class="sr-line" id="tlSr"></div>
+      <div class="side-tracks">
+        <div class="box"><div class="kicker">Button · "Update 240 contacts"</div><div id="tlBtnView" style="display:flex;flex-direction:column;gap:8px;align-items:flex-start"></div></div>
+        <div class="box"><div class="kicker">AI · "Draft 3 replies"</div><div id="tlAiView" style="display:flex;flex-direction:column;gap:6px"></div></div>
+      </div>
+    </div>
+    <div>
+      <div class="kicker">Route change, step by step</div>
+      <ul class="evlog" id="tlLog"></ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 5 -->
+<section class="canvas" id="matrix">
+  <h2>Context matrix</h2>
+  <p>Which component to use, where. Each row links to its live demo.</p>
+  <div class="tbl-scroll"><table class="matrix">
+    <thead><tr><th>Context</th><th>Use</th><th>Notes</th><th>Demo</th></tr></thead>
+    <tbody>
+      <tr><td>App boot</td><td>ShellSkeleton + StatusWords ("Loading your account")</td><td>No full-window boot bar. Stall at 10 s via CSS.</td><td><a href="#c-shell">ShellSkeleton</a></td></tr>
+      <tr><td>Route change</td><td>Breadcrumb + nav update instantly · RouteProgressLine after 300 ms · old page kept and dims after 300 ms (inert) · destination module not mounted within 300 ms → destination ShellSkeleton</td><td>Words at 2 s, still at 8 s, failure at 30 s.</td><td><a href="#timeline">Timeline</a></td></tr>
+      <tr><td>Section / card / widget</td><td>RegionLoader with a layout-matched skeleton; independent per card; partial failure per card</td><td>Charts: SkBlock with axis lines, not a spinner.</td><td><a href="#c-skeleton">Skeleton</a></td></tr>
+      <tr><td>Table first load</td><td>Real header + SkTableRows (8–12 rows, fading)</td><td>Checkboxes real.</td><td><a href="#c-skeleton">SkTableRows</a></td></tr>
+      <tr><td>Table refresh / filter / sort / page</td><td>RefreshState (stale rows at 100% opacity, 2 px edge line, Refresh → Cancel after 2 s)</td><td>Never re-skeleton.</td><td><a href="#c-refresh">RefreshState</a></td></tr>
+      <tr><td>Inline / field</td><td>Spinner 16 in the trailing slot</td><td>Select options: skeleton rows inside the menu.</td><td><a href="#c-spinner">Spinner</a></td></tr>
+      <tr><td>Button / CTA</td><td>ButtonLoading</td><td>Over 5 s → becomes a job.</td><td><a href="#c-button">ButtonLoading</a></td></tr>
+      <tr><td>Modal / drawer</td><td>Frame opens instantly at final size, header + close real; body skeleton</td><td>Never skeleton the frame.</td><td><a href="#c-skeleton">Skeleton</a></td></tr>
+      <tr><td>Background job</td><td>JobTray + toast "You can keep working" + notification on finish + result with error file and Undo</td><td>Never "Don't close this window".</td><td><a href="#c-jobs">JobTray</a></td></tr>
+      <tr><td>AI generation</td><td>AIStatus; output-shaped skeleton in place; Stop</td><td>Plain verbs.</td><td><a href="#c-ai">AIStatus</a></td></tr>
+      <tr><td>Account switch</td><td>Name + avatar instant; nav skeleton; content skeleton (never the previous account's data); words "Switching to {name}"</td><td></td><td><a href="#c-shell">ShellSkeleton</a></td></tr>
+      <tr><td>Offline</td><td>StatusWords "You're offline. We'll retry when you're back."; keep content</td><td></td><td><a href="#c-words">StatusWords</a></td></tr>
+      <tr><td>Failure</td><td>FailureState in place; Try again only if retryable; 1 message (no duplicate toast)</td><td></td><td><a href="#c-failure">FailureState</a></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============================================================ 6 -->
+<section class="canvas" id="specs">
+  <h2>Specs for developers</h2>
+  <p class="lede">Everything a frontend engineer needs to build Phase 1 and 2. Values match the time ladder and visual tokens exactly.</p>
+
+  <h3>Tokens</h3>
+  <div class="codebox"><span class="cap">loading-tokens.css</span><button class="copy" data-copy="preTokens">Copy</button><pre id="preTokens">:root {
+  /* Time ladder */
+  --ld-grace: 300ms;          /* no indicator before this; also the route line delay */
+  --ld-min-visible: 400ms;    /* once shown, keep at least this long */
+  --ld-fade-in: 150ms;
+  --ld-crossfade: 200ms;      /* skeleton → content */
+  --ld-words: 2000ms;         /* "Loading {page}…" appears */
+  --ld-still: 8000ms;         /* "Still working on it" */
+  --ld-cancel: 2000ms;        /* Cancel appears on long fetches; Refresh becomes Cancel */
+  --ld-timeout: 30000ms;      /* → FailureState */
+  --ld-boot-stall: 10000ms;   /* boot only: "Still connecting…" + Reload, via animation-delay */
+  --ld-btn-success: 1500ms;   /* button success hold */
+  --ld-job-threshold: 10000ms;/* expected longer than this → JobTray */
+  --ld-ai-timer: 2000ms;      /* AI: elapsed timer */
+  --ld-ai-estimate: 20000ms;  /* AI: estimate */
+  --ld-ai-leave: 60000ms;     /* AI: "You can leave" */
+  --ld-ai-timeout: 120000ms;  /* AI: timeout */
+
+  /* Skeleton */
+  --ld-sk: #eaecf0;                  /* on white */
+  --ld-sk-on-gray: #e4e7ec;          /* on page gray #f9fafb */
+  --ld-sk-radius-text: 4px;          /* text bars, height 10–12px */
+  --ld-sk-radius-block: 6px;
+  --ld-sk-radius-round: 999px;       /* avatars, pills */
+  --ld-sk-glow: rgba(255, 255, 255, .6);
+  --ld-sk-arrive: 400ms;
+  --ld-sk-ease: cubic-bezier(.16, 1, .3, 1);
+  --ld-sk-shift: 4px;
+  --ld-sk-stagger: 30ms;             /* per row, max 8 steps */
+  --ld-sk-sweep: 1600ms;             /* ease-in-out */
+  --ld-sk-pause: 600ms;
+
+  /* Spinner */
+  --ld-spin-speed: 800ms;            /* linear */
+  --ld-spin-track-opacity: .15;
+  --ld-spin-arc: 25%;                /* of circumference */
+
+  /* Progress line and bar */
+  --ld-line-height: 2px;
+  --ld-line-max: 90%;                /* trickle ceiling, never a number */
+  --ld-line-complete: 200ms;
+  --ld-line-fade: 200ms;
+  --ld-bar-height: 4px;              /* inline / tray; 6px standalone */
+  --ld-bar-track: #f2f4f7;
+  --ld-bar-transition: 300ms ease-out;
+
+  /* Words and failure */
+  --ld-words-color: #475467;         /* 13px / 18px Inter, 12px spinner */
+  --ld-fail-title: #101828;          /* 16px semibold */
+  --ld-fail-body: #475467;           /* 13px */
+  --ld-fail-button-height: 32px;
+
+  /* Color */
+  --ld-brand-fallback: #98a2b3;      /* unknown tenant; never HighLevel blue */
+  --ld-accent: var(--primary-600, var(--ld-brand-fallback));
+}</pre></div>
+
+  <h3>Skeleton CSS (the only skeleton animation)</h3>
+  <div class="codebox"><span class="cap">hl-skeleton.css</span><button class="copy" data-copy="preSk">Copy</button><pre id="preSk">.hl-sk {
+  position: relative;
+  overflow: hidden;
+  background: var(--ld-sk);
+  border-radius: var(--ld-sk-radius-text);
+}
+.hl-sk--block { border-radius: var(--ld-sk-radius-block); }
+.hl-sk--round { border-radius: var(--ld-sk-radius-round); }
+.hl-on-gray .hl-sk { background: var(--ld-sk-on-gray); }
+
+/* Glow sweep: 1.6 s ease-in-out travel + 600 ms pause = 2.2 s cycle */
+.hl-sk::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--ld-sk-glow), transparent);
+  animation: hl-sk-glow calc(var(--ld-sk-sweep) + var(--ld-sk-pause)) infinite;
+}
+@keyframes hl-sk-glow {
+  0%     { transform: translateX(-100%); animation-timing-function: ease-in-out; }
+  72.73% { transform: translateX(100%); }   /* 1,600 / 2,200 */
+  100%   { transform: translateX(100%); }   /* pause */
+}
+
+/* Arrival: rows set --i (0–7) */
+.hl-sk-arrive > * {
+  animation: hl-sk-arrive var(--ld-sk-arrive) var(--ld-sk-ease) both;
+  animation-delay: calc(min(var(--i, 0), 7) * var(--ld-sk-stagger));
+}
+@keyframes hl-sk-arrive {
+  from { opacity: 0; transform: translateY(var(--ld-sk-shift)); }
+}
+
+/* Dense tables: rows fade 1 → .2 over the visible rows */
+.hl-sk-rows > :nth-child(1) { opacity: 1; }
+/* … step down evenly … */
+.hl-sk-rows > :nth-child(n+8) { opacity: .2; }
+
+/* Reduced motion: no arrival translate, no glow. Spinners keep rotating. */
+@media (prefers-reduced-motion: reduce) {
+  .hl-sk::after { display: none; }
+  .hl-sk-arrive > * { animation-name: hl-sk-fade; }
+}
+@keyframes hl-sk-fade { from { opacity: 0; } }</pre></div>
+
+  <h3>Spinner markup</h3>
+  <p>One SVG, 4 sizes. <code>r = (size − stroke) / 2</code>. <code>pathLength="100"</code> makes the 25% arc size-independent.</p>
+  <div class="codebox"><span class="cap">hl-spinner.html (20 px shown)</span><button class="copy" data-copy="preSpin">Copy</button><pre id="preSpin"></pre></div>
+  <div class="tbl-scroll"><table>
+    <thead><tr><th>Size</th><th>Stroke</th><th>Radius</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr><td>16 px</td><td>2 px</td><td>7</td><td>Inline fields, buttons, ledger rows</td></tr>
+      <tr><td>20 px</td><td>2 px</td><td>9</td><td>Small regions, menu footers</td></tr>
+      <tr><td>24 px</td><td>2.5 px</td><td>10.75</td><td>Panels with unknown shape</td></tr>
+      <tr><td>32 px</td><td>3 px</td><td>14.5</td><td>Largest allowed; never a page loader</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Single-phase sync</h3>
+  <p>Every skeleton glow on the page moves together, so a module that takes over the shell skeleton is invisible to the user. The shell's inline skeleton paints in one frame, so it already shares a phase. Modules call this on mount (HighRise does it inside <code>RegionLoader</code>):</p>
+  <div class="codebox"><span class="cap">sync-skeleton-phase.js</span><button class="copy" data-copy="preSync">Copy</button><pre id="preSync">// Pin every skeleton glow to the document timeline origin.
+// Same start time → same phase, no matter when the node mounted.
+export function syncSkeletonPhase(root = document) {
+  for (const anim of root.getAnimations({ subtree: true })) {
+    if (anim.animationName === 'hl-sk-glow' &amp;&amp; anim.startTime !== 0) {
+      anim.startTime = 0;
+    }
+  }
+}
+
+// RegionLoader: after the skeleton renders
+requestAnimationFrame(() => syncSkeletonPhase(regionEl));</pre></div>
+
+  <h3>RegionLoader state machine</h3>
+  <div class="sm-wrap">
+    <svg viewBox="0 0 900 294" role="img" aria-label="State machine: idle to grace; grace to content if resolved under 300 ms, or to loading after 300 ms; loading to content, to still at 8 s, or to failed; still to content or failed at 30 s; failed back to grace on Try again." font-family="Inter, sans-serif">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#667085"/></marker>
+      </defs>
+      <g fill="none" stroke="#667085" stroke-width="1.5" marker-end="url(#ah)">
+        <path d="M144 130 L188 130"/>
+        <path d="M314 130 L368 130"/>
+        <path d="M494 130 L548 130"/>
+        <path d="M252 106 C252 30 560 22 754 40"/>
+        <path d="M470 106 L754 58"/>
+        <path d="M650 106 L766 76"/>
+        <path d="M470 154 L754 202"/>
+        <path d="M650 154 L766 186"/>
+        <path d="M818 234 C818 272 252 276 252 156" stroke-dasharray="5 4"/>
+      </g>
+      <g font-size="12" fill="#475467">
+        <text x="166" y="122" text-anchor="middle">request</text>
+        <text x="341" y="122" text-anchor="middle">300 ms</text>
+        <text x="521" y="122" text-anchor="middle">8 s</text>
+        <text x="430" y="30" text-anchor="middle">resolved under 300 ms · no indicator</text>
+        <text x="590" y="70" text-anchor="middle">resolved · after 400 ms minimum</text>
+        <text x="560" y="196" text-anchor="middle">error</text>
+        <text x="712" y="160" text-anchor="start">30 s or error</text>
+        <text x="540" y="284" text-anchor="middle">Try again (only if canRetry)</text>
+      </g>
+      <g font-size="13" font-weight="600" text-anchor="middle">
+        <rect x="20" y="106" width="124" height="48" rx="8" fill="#fff" stroke="#d0d5dd"/><text x="82" y="134" fill="#101828">idle</text>
+        <rect x="190" y="106" width="124" height="48" rx="8" fill="#fff" stroke="#d0d5dd"/><text x="252" y="128" fill="#101828">grace</text><text x="252" y="144" font-size="11" font-weight="400" fill="#667085">aria-busy, nothing shown</text>
+        <rect x="370" y="106" width="124" height="48" rx="8" fill="#eff4ff" stroke="#b2ccff"/><text x="432" y="128" fill="#101828">loading</text><text x="432" y="144" font-size="11" font-weight="400" fill="#667085">skeleton, fade 150 ms</text>
+        <rect x="550" y="106" width="124" height="48" rx="8" fill="#fffaeb" stroke="#fedf89"/><text x="612" y="128" fill="#101828">still</text><text x="612" y="144" font-size="11" font-weight="400" fill="#667085">"Still working on it"</text>
+        <rect x="756" y="26" width="124" height="48" rx="8" fill="#ecfdf3" stroke="#abefc6"/><text x="818" y="48" fill="#101828">content</text><text x="818" y="64" font-size="11" font-weight="400" fill="#667085">cross-fade 200 ms</text>
+        <rect x="756" y="186" width="124" height="48" rx="8" fill="#fef3f2" stroke="#fecdca"/><text x="818" y="208" fill="#101828">failed</text><text x="818" y="224" font-size="11" font-weight="400" fill="#667085">FailureState</text>
+      </g>
+    </svg>
+  </div>
+
+  <h3>RegionLoader / HLLoadable props</h3>
+  <div class="tbl-scroll"><table class="props">
+    <thead><tr><th>Prop</th><th>Type</th><th>Default</th><th>Behavior</th></tr></thead>
+    <tbody>
+      <tr><td><code>shape</code></td><td><code>'three-pane' | 'table' | 'kanban' | 'calendar' | 'cards' | 'form' | 'builder' | 'plain'</code> or a skeleton slot</td><td><code>'plain'</code></td><td>Layout-matched skeleton built from <code>Sk*</code> primitives. Must match the shell's shape for page bodies.</td></tr>
+      <tr><td><code>timeout</code></td><td><code>number</code> (ms)</td><td><code>30000</code></td><td>Moves to <code>failed</code> when reached. Never disabled.</td></tr>
+      <tr><td><code>onRetry</code></td><td><code>() =&gt; void</code></td><td>—</td><td>Called by Try again. Returns the loader to <code>grace</code>.</td></tr>
+      <tr><td><code>canRetry</code></td><td><code>boolean</code></td><td><code>true</code></td><td>Hides Try again when the request isn't retryable. Go back stays.</td></tr>
+      <tr><td><code>stale</code></td><td><code>boolean</code></td><td><code>false</code></td><td>Keep-content mode: renders <code>RefreshState</code> over existing content instead of a skeleton.</td></tr>
+      <tr><td><code>label</code></td><td><code>string</code></td><td>—</td><td>Human name for words and announcements: "Loading {label}", "{label} loaded", "Couldn't load {label}".</td></tr>
+    </tbody>
+  </table></div>
+  <p class="hint">Owns internally: grace (300 ms), minimum visible (400 ms), fade-in (150 ms), cross-fade (200 ms), still-working (8 s), timeout, failure, <code>aria-busy</code>, and phase sync.</p>
+
+  <h3>ButtonLoading</h3>
+  <div class="tbl-scroll"><table class="props">
+    <thead><tr><th>State</th><th>Visual</th><th>Behavior</th></tr></thead>
+    <tbody>
+      <tr><td><code>idle</code></td><td>Label</td><td>—</td></tr>
+      <tr><td><code>pending</code></td><td>Spinner 16 replaces the label after 300 ms; width locked</td><td>Clicks blocked at once. <code>aria-disabled="true"</code>, focus stays on the button. Over 5 s → hand off to <code>JobTray</code>.</td></tr>
+      <tr><td><code>success</code></td><td>Check + past-tense label ("Saved") for 1.5 s</td><td>Returns to <code>idle</code>.</td></tr>
+      <tr><td><code>error</code></td><td>Label returns; inline error text below the button</td><td>No shake. The message is announced via <code>role="alert"</code>.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>JobTray events</h3>
+  <p>The tray lives in the shell so it survives route changes. Modules talk to it through events, never by rendering their own tray.</p>
+  <div class="tbl-scroll"><table class="props">
+    <thead><tr><th>Event</th><th>Payload</th><th>Tray behavior</th></tr></thead>
+    <tbody>
+      <tr><td><code>job:start</code></td><td><code>{ id, name, total?, startedAt }</code></td><td>Adds a row, opens the tray, shows the toast "You can keep working. We'll notify you when it's done."</td></tr>
+      <tr><td><code>job:progress</code></td><td><code>{ id, done, total }</code></td><td>Updates bar and "1,240 of 3,100". <code>aria-valuenow</code> throttled to once per second.</td></tr>
+      <tr><td><code>job:finish</code></td><td><code>{ id, summary, resultUrl?, errorFileUrl?, undo? }</code></td><td>Row shows result ("3,050 added · 50 skipped") with View results, Download error file, and Undo. Sends a notification.</td></tr>
+      <tr><td><code>job:fail</code></td><td><code>{ id, message, canRetry }</code></td><td>Row shows the plain message and Try again if retryable.</td></tr>
+      <tr><td><code>job:cancel</code></td><td><code>{ id }</code></td><td>Sent by the tray's Cancel. The module stops the work and confirms with <code>job:finish</code> or <code>job:fail</code>.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Route-change sequence</h3>
+  <ol class="steps">
+    <li><span class="tm">0 ms</span><strong>Breadcrumb and nav selection switch to the destination instantly.</strong> The canvas gets <code>aria-busy="true"</code>.</li>
+    <li><span class="tm">0–300 ms</span>Nothing else changes. If the destination renders within 300 ms, no loader is ever shown.</li>
+    <li><span class="tm">300 ms</span><strong>RouteProgressLine</strong> appears under the header and trickles toward 90%.</li>
+    <li><span class="tm">300 ms</span>The old page dims and becomes inert. If the old content is itself a loader or an error, it's replaced by the destination skeleton immediately.</li>
+    <li><span class="tm">300 ms</span>If the destination module isn't mounted, the shell swaps in the destination <strong>ShellSkeleton</strong> (fade-in 150 ms). When the module mounts, it takes over the same skeleton in the same phase.</li>
+    <li><span class="tm">2 s</span>StatusWords: "Loading {page}…" in the breadcrumb slot.</li>
+    <li><span class="tm">8 s</span>StatusWords: "Still working on it".</li>
+    <li><span class="tm">30 s</span><strong>FailureState</strong> in the canvas: "Couldn't load {page}" with Try again and Go back. Focus moves to the failure title.</li>
+    <li><span class="tm">Done</span>Content cross-fades in over 200 ms (no earlier than 400 ms after the skeleton appeared). The line completes in 200 ms and fades in 200 ms. Screen readers hear "{page} loaded".</li>
+  </ol>
+</section>
+
+<!-- ============================================================ 7 -->
+<section class="canvas" id="copy">
+  <h2>Copy deck</h2>
+  <p>en-US, sentence case. Localize every string; keep <code>{page}</code> as the user-facing page name from the nav.</p>
+  <div class="tbl-scroll"><table>
+    <thead><tr><th>State</th><th>String</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Boot</td><td class="copy-str">Loading your account</td><td>"Loading your agency" in agency view.</td></tr>
+      <tr><td>Boot stall (10 s)</td><td class="copy-str">Still connecting… Reload the page if this continues.</td><td>Revealed by CSS <code>animation-delay</code>, so it works before any JavaScript.</td></tr>
+      <tr><td>Route, 2 s</td><td class="copy-str">Loading {page}…</td><td>"Loading page…" only when the page name is unknown.</td></tr>
+      <tr><td>Still, 8 s</td><td class="copy-str">Still working on it</td><td>Variant: "Still working on it · Your connection may be slow" when the connection is slow.</td></tr>
+      <tr><td>Account switch</td><td class="copy-str">Switching to {name}</td><td>Name and avatar update instantly.</td></tr>
+      <tr><td>Cached</td><td class="copy-str">Showing your last {thing} · Checking for new ones</td><td>e.g. "Showing your last conversations".</td></tr>
+      <tr><td>Offline</td><td class="copy-str">You're offline. We'll retry when you're back.</td><td>Keep content on screen.</td></tr>
+      <tr><td>Failure</td><td class="copy-str">Couldn't load {page}<br>Check your connection and try again.<br>[Try again] [Go back]</td><td>Try again only if retryable. 1 message, no toast echo.</td></tr>
+      <tr><td>Partial failure</td><td class="copy-str">Some of this page didn't load<br>3 of 4 widgets loaded.<br>[Try again]</td><td>Failed widgets show their own FailureState in place.</td></tr>
+      <tr><td>Job running</td><td class="copy-str">Importing contacts · 1,240 of 3,100<br>You can keep working. We'll notify you when it's done.</td><td>Counts, not time units.</td></tr>
+      <tr><td>Job finished</td><td class="copy-str">Import finished · 3,050 added · 50 skipped<br>[Download error file] [Undo import]</td><td>Result row in the tray and in the notification.</td></tr>
+      <tr><td>Save</td><td class="copy-str">Saving… → Saved</td><td>Past tense on success.</td></tr>
+      <tr><td>AI</td><td class="copy-str">Reading 24 conversations · Writing 3 replies · Thought for 6s · Stopped<br>[Continue] [Regenerate]</td><td>Real steps only.</td></tr>
+      <tr><td>Screen reader</td><td class="copy-str">Loading Contacts → Contacts loaded</td><td>Exactly 1 of each per navigation.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Never say</h3>
+  <div class="never">
+    <div><b>Please wait</b>Say what's happening: "Loading Contacts…".</div>
+    <div><b>Loading… (alone, after 2 s)</b>Name the page or the work.</div>
+    <div><b>Error 503</b>Plain cause and an action. Codes go behind Details.</div>
+    <div><b>Don't close this window</b>Move the work to the JobTray.</div>
+    <div><b>Something went wrong</b>Never without Try again or Go back.</div>
+  </div>
+</section>
+
+<!-- ============================================================ 8 -->
+<section class="canvas" id="rules">
+  <h2>White-label and accessibility rules</h2>
+  <div class="rules">
+    <div>
+      <h3>White-label</h3>
+      <ul>
+        <li>Spinners, the progress line, and progress bars use <code>--primary-600</code> or <code>currentColor</code>. Nothing else.</li>
+        <li>Skeletons are always neutral: <code>#eaecf0</code> on white, <code>#e4e7ec</code> on page gray.</li>
+        <li>Unknown tenant: fall back to <code>#98a2b3</code> until the agency color is known. Never HighLevel blue.</li>
+        <li>Keep remembering agency chrome colors between sessions, as staging does today.</li>
+        <li>No logos, marks, sparkles, or mascots as loaders. No vendor names or support emails in loading copy.</li>
+        <li>Plain verbs only. No whimsical copy an agency can't stand behind.</li>
+      </ul>
+      <div class="tenant" id="tenantRow"></div>
+    </div>
+    <div>
+      <h3>Accessibility</h3>
+      <ul>
+        <li><code>aria-busy="true"</code> on every loading region.</li>
+        <li>One always-present <code>role="status"</code> live region (StatusWords) announces "Loading Contacts", "Contacts loaded", and failures.</li>
+        <li>Progress bars use <code>role="progressbar"</code> with a label and <code>aria-valuenow</code>, throttled to once per second.</li>
+        <li>Buttons keep focus while pending, using <code>aria-disabled</code>, not <code>disabled</code>.</li>
+        <li>Focus moves to the failure title when the user started the action.</li>
+        <li>Reduced motion: no arrival translate, no glow. Spinners keep rotating, because a frozen spinner reads as a hang.</li>
+        <li>A screen reader hears exactly 1 "Loading {page}" and 1 "{page} loaded" per navigation.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 9 -->
+<section class="canvas" id="dosdonts">
+  <h2>Dos and don'ts</h2>
+  <p>10 pairs for the guideline page. Each one is live or taken from staging.</p>
+
+  <div class="dd-title">1 · One look for every skeleton</div>
+  <div class="dd">
+    <div class="do"><div class="hd">✓ Do</div><div class="vis"><div class="skcard" style="width:100%;max-width:280px"><span class="sk" style="width:45%;height:12px"></span><span class="sk"></span><span class="sk" style="width:80%"></span><span class="sk" style="width:65%"></span></div></div><div class="tx"><b>Use the shared skeleton animation.</b> Same fill, same glow, same phase in every module.</div></div>
+    <div class="dont"><div class="hd">✕ Don't</div><div class="vis"><img src="assets/staging/09-launchpad-module-skeleton.jpg" alt="Launchpad heavy gray block skeleton on staging"></div><div class="tx"><b>Ship a module-specific skeleton.</b> Heavy pulsing blocks are 1 of 5 looks on staging today.</div></div>
+  </div>
+
+  <div class="dd-title">2 · Wait before showing anything</div>
+  <div class="dd">
+    <div class="do"><div class="hd">✓ Do</div><div class="vis"><span class="hint" style="text-align:center">0–300 ms: the old content stays. Nothing flashes.<br>Once shown, a loader stays at least 400 ms.</span></div><div class="tx"><b>Respect the 300 ms grace and the 400 ms minimum.</b></div></div>
+    <div class="dont"><div class="hd">✕ Don't</div><div class="vis"><button class="btn sec xs" id="flashBtn">Show a 120 ms flash</button><div id="flashTarget" style="height:28px;display:flex;align-items:center"></div></div><div class="tx"><b>Flash a loader for a fast response.</b> It makes the product feel slower than it is.</div></div>
+  </div>
+
+  <div class="dd-title">3 · Every loader has an exit</div>
+  <div class="dd">
+    <div class="do"><div class="hd">✓ Do</div><div class="vis"><div class="fail"><p class="ft">Couldn't load Opportunities</p><p class="fb">Check your connection and try again.</p><div class="acts"><button class="btn sm">Try again</button><button class="btn sec sm">Go back</button></div></div></div><div class="tx"><b>Time out to a FailureState at 30 s,</b> in the canvas, with 2 ways out.</div></div>
+    <div class="dont"><div class="hd">✕ Don't</div><div class="vis"><img src="assets/staging/07-opportunities-infinite-spinner-after-30s.jpg" alt="Staging infinite spinner after 30 seconds"></div><div class="tx"><b>Give up silently</b> and leave a spinner that never stops.</div></div>
+  </div>
+
+  <div class="dd-title">4 · Switch the breadcrumb instantly</div>
+  <div class="dd">
+    <div class="do"><div class="hd">✓ Do</div><div class="vis"><div class="hdr-demo"><div class="h"><span>Launchpad</span></div><div class="c"><div class="pline" style="width:38%"></div><div class="ld-arrive" style="display:flex;gap:8px;height:100%"><div style="flex:1;display:flex;flex-direction:column;gap:6px"><span class="sk" style="width:70%"></span><span class="sk"></span><span class="sk" style="width:85%"></span></div><div style="flex:2;display:flex;flex-direction:column;gap:6px"><span class="sk blk" style="height:26px"></span><span class="sk blk" style="height:26px"></span></div></div></div></div></div><div class="tx"><b>Breadcrumb and nav show the destination at once.</b> A stuck old page is replaced by the destination skeleton.</div></div>
+    <div class="dont"><div class="hd">✕ Don't</div><div class="vis"><img src="assets/staging/08-route-old-page-kept-with-stuck-spinner.jpg" alt="Staging old breadcrumb and stuck spinner while routing"></div><div class="tx"><b>Keep the old breadcrumb and a stuck page</b> while the next page loads.</div></div>
+  </div>
+
+  <div class="dd-title">5 · Skeleton lines, not "Loading" text</div>
+  <div class="dd">
+    <div class="do"><div class="hd">✓ Do</div><div class="vis"><div class="msgcard"><div class="top">You have been awarded a new badge! <span>2:21 PM</span></div><span class="sk" style="width:90%"></span><span class="sk" style="width:75%"></span><span class="sk" style="width:55%"></span></div></div><div class="tx"><b>Real header, skeleton body.</b> The card keeps its size; only the body waits.</div></div>
+    <div class="dont"><div class="hd">✕ Don't</div><div class="vis"><img src="assets/staging/01-conversations-partial-loading.jpg" alt="Staging message cards showing Loading text"></div><div class="tx"><b>Plain "Loading" text inside each card.</b></div></div>
+  </div>
+
+  <div class="dd-title">6 · Keep content on refresh</div>
+  <div class="dd">
+    <div class="do"><div class="hd">✓ Do</div><div class="vis"><div class="rs"><div class="bar"><span>Updated 3:04 PM</span><button class="btn sec xs" tabindex="-1">Cancel</button></div><div class="tw"><div class="pline" style="width:55%"></div><div class="rtbl" id="ddStaleRows"></div></div></div></div><div class="tx"><b>Stale rows stay at 100% with a 2 px edge line.</b> Refresh becomes Cancel after 2 s.</div></div>
+    <div class="dont"><div class="hd">✕ Don't</div><div class="vis"><div class="rs"><div class="bar"><span>Contacts</span></div><div class="rtbl"><div class="r h"><span class="cb"></span><span>Name</span><span>Email</span><span>Stage</span></div><div class="rows-fade" id="ddWipeRows"></div></div></div></div><div class="tx"><b>Wipe a loaded table back to a skeleton</b> every time a filter changes.</div></div>
+  </div>
+
+  <div class="dd-title">7 · One progress line, no fake numbers</div>
+  <div class="dd">
+    <div class="do"><div class="hd">✓ Do</div><div class="vis"><div class="hdr-demo"><div class="h"><span>CRM / <b>Contacts</b></span></div><div class="c"><div class="pline" style="width:62%"></div><span class="hint">2 px under the header, trickling toward 90%</span></div></div></div><div class="tx"><b>1 line, under the header,</b> for route changes only.</div></div>
+    <div class="dont"><div class="hd">✕ Don't</div><div class="vis"><div class="hdr-demo" style="border-top:3px solid var(--ld-accent)"><span class="fake-pct">78%</span><div class="h"><span>CRM / <b>Contacts</b></span></div><div class="c"><div class="pline" style="width:40%"></div><span class="hint">Window bar + header line + a staged number</span></div></div></div><div class="tx"><b>Stack a boot bar and a route bar,</b> or show progress you can't measure.</div></div>
+  </div>
+
+  <div class="dd-title">8 · Neutral until the agency is known</div>
+  <div class="dd">
+    <div class="do"><div class="hd">✓ Do</div><div class="vis"><div class="tenant" id="ddTenant"></div></div><div class="tx"><b>Agency color when known, <code>#98a2b3</code> when not.</b></div></div>
+    <div class="dont"><div class="hd">✕ Don't</div><div class="vis"><div style="display:flex;flex-direction:column;align-items:center;gap:6px"><span id="ddBlue"></span><span class="hint">Unknown tenant shown in HighLevel blue</span></div></div><div class="tx"><b>Fall back to HighLevel blue</b> for an agency whose color hasn't loaded yet.</div></div>
+  </div>
+
+  <div class="dd-title">9 · Name the work</div>
+  <div class="dd">
+    <div class="do"><div class="hd">✓ Do</div><div class="vis"><span class="words" id="ddWordsDo"></span></div><div class="tx"><b>A short, specific phrase</b> from 2 s on, in sentence case.</div></div>
+    <div class="dont"><div class="hd">✕ Don't</div><div class="vis"><span class="words" id="ddWordsDont"></span></div><div class="tx"><b>"Please wait" or a bare "Loading…"</b> after 2 s.</div></div>
+  </div>
+
+  <div class="dd-title">10 · Let long work run in the background</div>
+  <div class="dd">
+    <div class="do"><div class="hd">✓ Do</div><div class="vis"><div class="tray"><div class="th">Jobs <span>1 active</span></div><div class="ti"><div class="nm">Importing contacts <span style="color:var(--ink-3);font-weight:400">3:02 PM</span></div><div class="pbar thin"><i style="width:40%"></i></div><small>1,240 of 3,100 · You can keep working.</small></div></div></div><div class="tx"><b>JobTray plus a notification on finish.</b> The result has counts, an error file, and Undo.</div></div>
+    <div class="dont"><div class="hd">✕ Don't</div><div class="vis"><div style="text-align:center;max-width:260px;display:flex;flex-direction:column;align-items:center;gap:8px"><span id="ddBlocking"></span><b style="font-size:14px">Importing contacts</b><span class="hint">Don't close this window or your import will be lost.</span></div></div><div class="tx"><b>Block the page and threaten data loss.</b> If the job can't survive a refresh, fix the job.</div></div>
+  </div>
+</section>
+
+<!-- ============================================================ 10 -->
+<section class="canvas" id="rollout">
+  <h2>Rollout plan</h2>
+  <div class="phases">
+    <div class="phase"><div class="k">Phase 1 · Page level</div><h3>Shell and route</h3><div class="own">Owner: <b>Platform Frontend (SPM-TS shell)</b></div>
+      <ul><li>ShellSkeleton fixes: single progress line, neutral fallback color</li><li>RouteProgressLine at 300 ms</li><li>Breadcrumb and nav update instantly</li><li>RegionLoader with timeout → FailureState</li><li>Remove module spinners at route level</li></ul></div>
+    <div class="phase"><div class="k">Phase 2 · Component</div><h3>HighRise primitives</h3><div class="own">Owner: <b>HighRise + module teams</b></div>
+      <ul><li>Skeleton primitives and the unified animation in HighRise</li><li>Tables: first load and RefreshState</li><li>Cards and widgets</li><li>Modal and drawer frame-first</li><li>Conversations "Loading" text → skeleton</li></ul></div>
+    <div class="phase"><div class="k">Phase 3 · Actions</div><h3>Buttons, jobs, AI</h3><div class="own">Owner: <b>to confirm</b> (open decision 3)</div>
+      <ul><li>ButtonLoading</li><li>JobTray</li><li>AIStatus</li><li>Offline and cached states</li></ul></div>
+  </div>
+
+  <h3>Acceptance checks</h3>
+  <div class="qa-meta"><span>QA checklist. Your ticks are saved in this browser only.</span><span id="qaCount">0 of 8 checked</span></div>
+  <ul class="qa" id="qaList">
+    <li><label><input type="checkbox" data-qa="1"><span>No blank canvas for more than 100 ms after first byte on any route.<span class="how">Throttle to slow 3G and record each route.</span></span></label></li>
+    <li><label><input type="checkbox" data-qa="2"><span>Never 2 loaders visible in the same region; never skeleton → spinner in 1 region.<span class="how">Step through boot and route recordings frame by frame.</span></span></label></li>
+    <li><label><input type="checkbox" data-qa="3"><span>No loader visible for less than 400 ms once shown; no loader at all for responses under 300 ms.<span class="how">Mock responses at 200 ms and 400 ms.</span></span></label></li>
+    <li><label><input type="checkbox" data-qa="4"><span>Every loader reaches either content or FailureState by 30 s.<span class="how">Hang test: block the API and wait.</span></span></label></li>
+    <li><label><input type="checkbox" data-qa="5"><span>Refresh or filter on a loaded table never shows skeleton rows.</span></label></li>
+    <li><label><input type="checkbox" data-qa="6"><span>With agency color X, every spinner, line, and bar renders X; with an unknown tenant, <code>#98a2b3</code>.</span></label></li>
+    <li><label><input type="checkbox" data-qa="7"><span>Reduced motion: no translate or glow; spinners still rotate.</span></label></li>
+    <li><label><input type="checkbox" data-qa="8"><span>A screen reader hears exactly 1 "Loading {page}" and 1 "{page} loaded" per navigation.</span></label></li>
+  </ul>
+</section>
+
+<!-- ============================================================ 11 -->
+<section class="canvas" id="decisions">
+  <h2>Open decisions for leadership</h2>
+  <div class="dec"><div class="q"><span class="n">1</span>Remove the full-window boot bar?</div><p>Staging shows a 2 px bar across the top of the window on boot, with staged fake progress, and a second line under the header on route changes. The shell skeleton and "Loading your account" already carry the boot.</p><div class="rec"><b>Recommendation:</b> yes. Remove it and keep 1 line, under the header, for route changes only.</div></div>
+  <div class="dec"><div class="q"><span class="n">2</span>Is 30 s the right timeout?</div><p>30 s matches the cap already in the shipped shell, so no user waits longer than they do today; they just get an exit. Heavy accounts may need more for a few routes.</p><div class="rec"><b>Recommendation:</b> approve 30 s as the default. Allow a per-region <code>timeout</code> override with a review, and calibrate against P95 load times after Phase 1.</div></div>
+  <div class="dec"><div class="q"><span class="n">3</span>Who owns the JobTray?</div><p>It must live in the shell to survive route changes, which makes it a cross-team API (the events above). Phase 3 has no owner yet.</p><div class="rec"><b>Recommendation:</b> Platform Frontend owns the tray and event contract; module teams own their jobs' events and result pages.</div></div>
+  <div class="dec"><div class="q"><span class="n">4</span>Keep 2 different "slow" thresholds?</div><p>Boot stalls at 10 s ("Still connecting…" with Reload, revealed by CSS before any JavaScript). Everything else says "Still working on it" at 8 s.</p><div class="rec"><b>Recommendation:</b> keep both. Boot can't run the JavaScript ladder, and Reload is the only useful action at that point.</div></div>
+  <div class="dec"><div class="q"><span class="n">5</span>Neutral fallback for unknown tenants?</div><p>Before the agency color is known, loaders show <code>#98a2b3</code> instead of HighLevel blue. Returning users still get their remembered agency color instantly.</p><div class="rec"><b>Recommendation:</b> approve. It's the only white-label-safe default.</div></div>
+</section>
+
+</main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+  const store = {
+    get(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { window.localStorage.setItem(k, v); } catch (e) { /* storage unavailable */ } }
+  };
+
+  /* ---------- spinner (spec: 16/20/24/32; status words use 12) ---------- */
+  function SPIN(size = 16, color) {
+    const sw = size >= 32 ? 3 : size >= 24 ? 2.5 : 2;
+    const r = (size - sw) / 2, c = size / 2;
+    const st = color ? ` style="color:${color}"` : '';
+    return `<svg class="hl-spin" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true"${st}><circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="currentColor" stroke-width="${sw}" opacity=".15"/><circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="currentColor" stroke-width="${sw}" pathLength="100" stroke-dasharray="25 100" stroke-linecap="round"/></svg>`;
+  }
+  const CHECK = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg>';
+  $$('[data-spin]').forEach(el => { el.outerHTML = SPIN(+el.dataset.spin); });
+
+  /* ---------- single-phase skeleton sync ---------- */
+  function syncPhase() {
+    if (!document.getAnimations) return;
+    for (const a of document.getAnimations()) {
+      if (a.animationName === 'ld-glow' && a.startTime !== 0) { try { a.startTime = 0; } catch (e) { /* ignore */ } }
+    }
+  }
+  let syncQueued = false;
+  new MutationObserver(() => { if (!syncQueued) { syncQueued = true; requestAnimationFrame(() => { syncQueued = false; syncPhase(); }); } })
+    .observe(document.body, { childList: true, subtree: true });
+  function indexArrive(root) { Array.from(root.children).forEach((c, i) => c.style.setProperty('--i', Math.min(i, 7))); }
+  function replay(el) { const html = el.innerHTML; el.innerHTML = ''; void el.offsetWidth; el.innerHTML = html; indexArrive(el); $$('.ld-arrive', el).forEach(indexArrive); }
+
+
+  /* ---------- skeleton builders ---------- */
+  const sk = (w, h, cls = '') => `<span class="sk ${cls}" style="width:${w}${h ? `;height:${h}px` : ''}"></span>`;
+  const W = ['82%', '64%', '74%', '58%', '88%', '68%', '78%', '60%'];
+  function shape(name) {
+    if (name === 'three-pane') {
+      const rows = [0,1,2,3,4].map(i => `<div class="row">${sk('', 0, 'av')}<div style="flex:1;display:flex;flex-direction:column;gap:4px">${sk(W[i])}${sk(W[i+2])}</div></div>`).join('');
+      return `<div class="shp ld-arrive"><div class="col" style="flex:1.1">${rows}</div><div class="col" style="flex:1.6;border-left:1px solid var(--line-2);border-right:1px solid var(--line-2);padding:0 6px">${[0,1,2].map(i => `<div style="border:1px solid var(--line-2);border-radius:5px;padding:5px;display:flex;flex-direction:column;gap:4px">${sk('50%')}${sk(W[i+3])}</div>`).join('')}</div><div class="col" style="flex:.9">${sk('70%')}${sk('90%')}${sk('60%')}${sk('80%')}</div></div>`;
+    }
+    if (name === 'table') {
+      const rows = [0,1,2,3,4,5,6,7].map(i => `<div class="row" style="padding:3px 0;border-bottom:1px solid var(--line-2)"><span style="width:8px;height:8px;border:1.5px solid var(--line);border-radius:2px;flex:none"></span>${sk(W[i])}${sk(W[(i+3)%8])}${sk('40%')}</div>`).join('');
+      return `<div class="shp ld-arrive" style="flex-direction:column;gap:4px"><div class="row" style="justify-content:space-between">${sk('30%', 8)}${sk('22%', 12, 'blk')}</div><div class="rows-fade" style="display:flex;flex-direction:column">${rows}</div></div>`;
+    }
+    if (name === 'kanban') {
+      return `<div class="shp ld-arrive">${[0,1,2,3].map(c => `<div class="kc">${sk('60%')}${[0,1,2].slice(0, 3 - (c % 2)).map(k => `<div class="kcard">${sk(W[(c+k)%8])}${sk('45%')}</div>`).join('')}</div>`).join('')}</div>`;
+    }
+    if (name === 'calendar') {
+      const cells = Array.from({ length: 35 }, (_, i) => `<div>${[3,9,11,17,22,26,30].includes(i) ? sk('85%', 0, 'pill') : ''}</div>`).join('');
+      return `<div class="shp ld-arrive" style="flex-direction:column"><div class="row" style="justify-content:space-between">${sk('28%', 8)}${sk('24%', 12, 'blk')}</div><div class="cal">${cells}</div></div>`;
+    }
+    if (name === 'cards') {
+      return `<div class="shp ld-arrive" style="flex-direction:column"><div class="cards">${[0,1,2].map(i => `<div class="card">${sk('50%')}${sk('70%', 10)}</div>`).join('')}</div><div class="chart">${[40,65,30,80,55,70,45].map(h => `<span class="sk blk" style="height:${h * .5}px"></span>`).join('')}</div></div>`;
+    }
+    return '';
+  }
+  function mini(name) {
+    return `<div><div class="mini"><div class="mh">${sk('18%')}${sk('12%')}<span style="flex:1"></span>${sk('8%')}${sk('8%')}</div><div class="mb"><div class="mn">${sk('100%')}${sk('80%')}${sk('100%')}${sk('70%')}${sk('90%')}</div><div class="mc">${shape(name)}</div></div></div><div class="mini-cap"><code>${name}</code></div></div>`;
+  }
+  const shellGrid = $('#shellGrid');
+  shellGrid.innerHTML = ['three-pane', 'table', 'kanban', 'calendar', 'cards'].map(mini).join('');
+  $$('.ld-arrive', shellGrid).forEach(indexArrive);
+  indexArrive($('#primsDemo'));
+
+  /* SkTableRows */
+  const skRows = n => Array.from({ length: n }, (_, i) => `<div class="r"><span class="cb"></span>${sk(W[i % 8], 8)}${sk(W[(i + 3) % 8], 8)}${sk('60%', 8)}</div>`).join('');
+  $('#primRows').innerHTML = skRows(8);
+  $('#ddWipeRows').innerHTML = skRows(4);
+  $$('[data-replay]').forEach(b => b.addEventListener('click', () => replay($('#' + b.dataset.replay))));
+
+  /* real rows */
+  const PEOPLE = [['Ana Ruiz', 'ana@acme.co', 'Won'], ['Ben Cole', 'ben@cole.io', 'Lead'], ['Chi Okafor', 'chi@ok.dev', 'Qualified'], ['Dana Wu', 'dana@wu.com', 'Lead'], ['Eli Park', 'eli@park.co', 'Won'], ['Fay Ito', 'fay@ito.jp', 'New']];
+  const realRows = (rows) => `<div class="r h"><span class="cb"></span><span>Name</span><span>Email</span><span>Stage</span></div>` + rows.map(r => `<div class="r"><span class="cb"></span><span style="color:var(--ink)">${r[0]}</span><span>${r[1]}</span><span>${r[2]}</span></div>`).join('');
+  $('#ddStaleRows').innerHTML = realRows(PEOPLE.slice(0, 3));
+
+  /* ---------- 2 · route progress line demo ---------- */
+  const KANBAN_REAL = `<div class="kb">${[['New lead', [['Ana Ruiz', '$1,200'], ['Ben Cole', '$860']]], ['Qualified', [['Chi Okafor', '$4,500']]], ['Won', [['Dana Wu', '$2,300'], ['Eli Park', '$990']]]].map(c => `<div class="kc"><div class="kh">${c[0]}</div>${c[1].map(k => `<div class="kcard">${k[0]}<small>${k[1]}</small></div>`).join('')}</div>`).join('')}</div>`;
+  const KANBAN_SK = `<div class="kb ld-arrive">${[0,1,2].map(c => `<div class="kc">${sk('55%')}${[0,1].map(k => `<div class="kcard" style="display:flex;flex-direction:column;gap:5px">${sk(W[(c+k)%8])}${sk('40%')}</div>`).join('')}</div>`).join('')}</div>`;
+  let routeTimers = [], routeTrickle = null;
+  function runRoute() {
+    routeTimers.forEach(clearTimeout); clearInterval(routeTrickle); routeTimers = [];
+    const line = $('#routeLine'), body = $('#routeBody'), words = $('#routeWords');
+    line.style.transition = 'none'; line.style.width = '0'; line.style.opacity = '1';
+    body.style.transition = 'none'; body.style.opacity = '1';
+    body.innerHTML = `<div class="rtbl">${realRows(PEOPLE.slice(0, 5))}</div>`;
+    words.innerHTML = '';
+    const at = (ms, fn) => routeTimers.push(setTimeout(fn, ms));
+    at(300, () => {
+      body.style.transition = 'opacity 150ms'; body.innerHTML = KANBAN_SK; indexArrive(body.firstElementChild);
+      line.style.transition = 'width 300ms ease-out'; let w = 8; line.style.width = w + '%';
+      routeTrickle = setInterval(() => { w += (90 - w) * 0.12; line.style.width = w + '%'; }, 300);
+    });
+    at(2000, () => { words.innerHTML = SPIN(12) + '<span>Loading Opportunities…</span>'; });
+    at(3200, () => {
+      clearInterval(routeTrickle);
+      line.style.transition = 'width 200ms ease-out, opacity 200ms 200ms'; line.style.width = '100%'; line.style.opacity = '0';
+      body.style.transition = 'opacity 100ms'; body.style.opacity = '0';
+      at(100, () => { body.innerHTML = KANBAN_REAL; body.style.transition = 'opacity 100ms'; body.style.opacity = '1'; words.innerHTML = ''; });
+    });
+  }
+  $('#routeReplay').addEventListener('click', runRoute);
+  runRoute();
+
+  /* ---------- 3 · status words ---------- */
+  const WORDS = {
+    loading: () => SPIN(12) + '<span>Loading Contacts…</span>',
+    still: () => SPIN(12) + '<span>Still working on it</span>',
+    offline: () => '<span>You\'re offline. We\'ll retry when you\'re back.</span>',
+    cached: () => SPIN(12) + '<span>Showing your last contacts · Checking for new ones</span>',
+    failed: () => '<span>Couldn\'t load Contacts</span><button class="btn ghost xs" style="height:22px">Try again</button>'
+  };
+  const wOrder = Object.keys(WORDS);
+  let wIdx = 0, wTimer = null;
+  function showWords(k) { $('#wordsOut').innerHTML = WORDS[k](); $$('#wordsSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.w === k))); }
+  showWords('loading');
+  wTimer = setInterval(() => { wIdx = (wIdx + 1) % wOrder.length; showWords(wOrder[wIdx]); }, 2500);
+  $$('#wordsSeg button').forEach(b => b.addEventListener('click', () => { clearInterval(wTimer); showWords(b.dataset.w); $('#wordsAuto').textContent = 'Pinned. Each state replaces the last; there is only 1 status slot.'; }));
+
+  /* ---------- 5 · spinner sizes ---------- */
+  $('#spinSizes').innerHTML = [[16, '2'], [20, '2'], [24, '2.5'], [32, '3']].map(([s, w]) => `<figure>${SPIN(s)}<figcaption>${s} px<br>${w} px stroke</figcaption></figure>`).join('');
+
+  /* ---------- 6 · button loading ---------- */
+  const saveBtn = $('#saveBtn');
+  saveBtn.addEventListener('click', () => {
+    if (saveBtn.getAttribute('aria-disabled') === 'true') return;
+    const fail = $('#saveFail').checked, err = $('#saveErr');
+    err.textContent = '';
+    saveBtn.style.width = saveBtn.offsetWidth + 'px';
+    saveBtn.setAttribute('aria-disabled', 'true');
+    const show = setTimeout(() => { saveBtn.innerHTML = SPIN(16) + '<span class="sr" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Saving…</span>'; }, 300);
+    setTimeout(() => {
+      clearTimeout(show);
+      if (fail) {
+        saveBtn.textContent = 'Save changes'; saveBtn.removeAttribute('aria-disabled'); saveBtn.style.width = '';
+        err.textContent = "Couldn't save. Check your connection and try again.";
+        return;
+      }
+      saveBtn.classList.add('ok'); saveBtn.innerHTML = CHECK + 'Saved';
+      setTimeout(() => { saveBtn.classList.remove('ok'); saveBtn.textContent = 'Save changes'; saveBtn.removeAttribute('aria-disabled'); saveBtn.style.width = ''; }, 1500);
+    }, 1600);
+  });
+
+  /* ---------- 7 · refresh state ---------- */
+  const rsRows = $('#rsRows'), rsBtn = $('#rsBtn'), rsLine = $('#rsLine');
+  let rsState = 'idle', rsTimers = [], rsTrickle = null;
+  rsRows.innerHTML = realRows(PEOPLE.slice(0, 4));
+  function rsReset(done) {
+    rsTimers.forEach(clearTimeout); clearInterval(rsTrickle); rsTimers = [];
+    rsLine.style.transition = 'width 200ms ease-out, opacity 200ms 200ms'; rsLine.style.width = done ? '100%' : rsLine.style.width; rsLine.style.opacity = '0';
+    rsBtn.textContent = 'Refresh'; rsBtn.removeAttribute('aria-disabled'); rsState = 'idle';
+  }
+  rsBtn.addEventListener('click', () => {
+    if (rsState === 'cancel') { rsReset(false); return; }
+    if (rsState === 'busy') return;
+    rsState = 'busy';
+    rsLine.style.transition = 'none'; rsLine.style.width = '0'; rsLine.style.opacity = '1';
+    requestAnimationFrame(() => { rsLine.style.transition = 'width 300ms ease-out'; let w = 10; rsLine.style.width = w + '%'; rsTrickle = setInterval(() => { w += (90 - w) * .12; rsLine.style.width = w + '%'; }, 300); });
+    rsTimers.push(setTimeout(() => { rsState = 'cancel'; rsBtn.textContent = 'Cancel'; }, 2000));
+    rsTimers.push(setTimeout(() => {
+      rsReset(true);
+      const shuffled = PEOPLE.slice().sort(() => Math.random() - .5).slice(0, 4);
+      rsRows.innerHTML = realRows(shuffled);
+      const d = new Date(); let h = d.getHours(); const m = String(d.getMinutes()).padStart(2, '0'); const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
+      $('#rsUpdated').textContent = `Updated ${h}:${m} ${ap}`;
+    }, 3600));
+  });
+
+  /* ---------- 8 · progress bar ---------- */
+  (function () {
+    let n = 1240; const tot = 3100;
+    setInterval(() => {
+      n = n >= tot ? 420 : Math.min(tot, n + 150);
+      const p = (n / tot * 100) + '%';
+      $('#pbFill').style.width = p; $('#pbFill2').style.width = p;
+      $('#pbLbl').textContent = n.toLocaleString('en-US') + ' of ' + tot.toLocaleString('en-US') + ' contacts';
+      $('#pbWrap').setAttribute('aria-valuenow', String(n));
+    }, 1000);
+  })();
+
+  /* ---------- 9 · job tray ---------- */
+  let trayTimers = [];
+  function runTray() {
+    trayTimers.forEach(clearTimeout); trayTimers = [];
+    const tray = $('#trayDemo'), toast = $('#trayToast');
+    toast.style.visibility = 'visible';
+    const tot = 3100; let n = 0;
+    const render = () => {
+      if (n < tot) {
+        tray.innerHTML = `<div class="th">Jobs <span>1 active</span></div><div class="ti"><div class="nm">Importing contacts <span style="color:var(--ink-3);font-weight:400">Started 3:02 PM</span></div><div class="pbar thin" role="progressbar" aria-label="Importing contacts" aria-valuemin="0" aria-valuemax="${tot}" aria-valuenow="${n}"><i style="width:${n / tot * 100}%"></i></div><small>${n.toLocaleString('en-US')} of ${tot.toLocaleString('en-US')}</small><div class="acts"><button class="btn sec xs">Cancel</button></div></div>`;
+      } else {
+        tray.innerHTML = `<div class="th">Jobs <span>1 finished</span></div><div class="ti"><div class="nm">Import finished <span style="color:var(--good-600);font-weight:500">Done</span></div><small>3,050 added · 50 skipped</small><div class="acts"><button class="btn sec xs">View results</button><button class="btn sec xs">Download error file</button><button class="btn ghost xs">Undo import</button></div></div>`;
+        toast.style.visibility = 'hidden';
+      }
+    };
+    render();
+    for (let k = 1; k <= 10; k++) trayTimers.push(setTimeout(() => { n = Math.min(tot, Math.round(tot * k / 10)); render(); }, k * 600));
+  }
+  $('#trayReplay').addEventListener('click', runTray);
+  runTray();
+
+  /* ---------- 10 · AI status ---------- */
+  (function () {
+    const st = $('#aiSt'), out = $('#aiOut'), btn = $('#aiBtn');
+    const reply = ['Hi Ana, thanks for reaching out about the listing on Elm St.', 'Hi Ben, here are 2 times that work for a call this week.', 'Hi Chi, I\'ve attached the pricing we discussed.'];
+    let t = 0, stopped = false, timer = null;
+    function frame() {
+      t += 0.5;
+      const tm = t >= 2 ? `<span class="tm">${Math.floor(t)}s</span>` : '';
+      if (stopped) return;
+      if (t < 1) { st.innerHTML = SPIN(16) + '<span>Thinking</span>'; out.innerHTML = `${sk('90%')}${sk('70%')}${sk('80%')}`; }
+      else if (t < 3) { st.innerHTML = SPIN(16) + '<span>Reading 24 conversations</span>' + tm; }
+      else if (t < 5) { st.innerHTML = SPIN(16) + '<span>Writing 3 replies</span>' + tm; }
+      else if (t < 8) { const k = Math.min(3, Math.floor((t - 5) / 1) + 1); st.innerHTML = SPIN(16) + '<span>Writing 3 replies</span>' + tm; out.innerHTML = reply.slice(0, k).map(r => `<div>${r}</div>`).join('') + (k < 3 ? sk('60%') : ''); }
+      else if (t < 11) { st.innerHTML = '<span style="color:var(--ink-3)">Thought for 6s</span>'; btn.className = 'iconbtn'; btn.setAttribute('aria-label', 'Send'); btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5"/></svg>'; }
+      else { t = 0; btn.className = 'iconbtn stop'; btn.setAttribute('aria-label', 'Stop generating'); btn.innerHTML = ''; }
+    }
+    btn.addEventListener('click', () => {
+      if (btn.classList.contains('stop')) {
+        stopped = true;
+        st.innerHTML = '<span>Stopped</span><button class="btn sec xs" id="aiCont">Continue</button><button class="btn ghost xs" id="aiRegen">Regenerate</button>';
+        btn.className = 'iconbtn'; btn.setAttribute('aria-label', 'Send'); btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5"/></svg>';
+        $$('#aiCont, #aiRegen').forEach(b => b.addEventListener('click', () => { stopped = false; t = 0; btn.className = 'iconbtn stop'; btn.setAttribute('aria-label', 'Stop generating'); btn.innerHTML = ''; frame(); }));
+      }
+    });
+    frame(); timer = setInterval(frame, 500);
+  })();
+
+  /* ---------- 11 · failure state ---------- */
+  let failMode = 'region', failTimer = null;
+  function renderFail() {
+    clearTimeout(failTimer);
+    const o = $('#failOut');
+    if (failMode === 'region') {
+      o.innerHTML = `<div class="fail" style="max-width:260px"><p class="ft" tabindex="-1" id="failTitle">Couldn't load Calendars</p><p class="fb">Check your connection and try again.</p><div class="acts"><button class="btn sm" id="failRetry">Try again</button><button class="btn sec sm">Go back</button></div></div>`;
+      $('#failRetry').addEventListener('click', () => {
+        o.innerHTML = `<div class="ld-arrive" style="width:100%;max-width:300px;display:flex;flex-direction:column;gap:8px">${sk('40%', 12)}${sk('90%')}${sk('80%')}${sk('70%')}</div>`;
+        indexArrive(o.firstElementChild);
+        failTimer = setTimeout(renderFail, 1600);
+      });
+    } else {
+      o.innerHTML = `<div class="notice"><span><b>Some of this page didn't load</b> · 3 of 4 widgets loaded.</span><button class="btn sec xs" id="partRetry">Try again</button></div><div class="widgets"><div class="widget">Open leads<b>128</b></div><div class="widget">Won this month<b>$24,300</b></div><div class="widget">Calls today<b>17</b></div><div class="widget err" id="w4"><span style="color:var(--ink);font-weight:600">Couldn't load</span><span>Pipeline value</span></div></div>`;
+      $('#partRetry').addEventListener('click', () => {
+        $('#w4').innerHTML = `${sk('60%')}${sk('40%', 14)}`;
+        failTimer = setTimeout(() => { const n = $('.notice', o); if (n) n.remove(); const w = $('#w4'); if (w) { w.className = 'widget'; w.innerHTML = 'Pipeline value<b>$86,500</b>'; } failTimer = setTimeout(renderFail, 2500); }, 1400);
+      });
+    }
+  }
+  $$('#failSeg button').forEach(b => b.addEventListener('click', () => { failMode = b.dataset.f; $$('#failSeg button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); renderFail(); }));
+  renderFail();
+
+  /* ---------- dos & don'ts helpers ---------- */
+  $('#flashBtn').addEventListener('click', () => { const t = $('#flashTarget'); t.innerHTML = SPIN(24); setTimeout(() => { t.innerHTML = '<span class="hint">Done. Did you catch it?</span>'; }, 120); });
+  $('#ddWordsDo').innerHTML = SPIN(12) + '<span>Loading Contacts…</span>';
+  $('#ddWordsDont').innerHTML = SPIN(12) + '<span>Please wait…</span>';
+  $('#ddBlue').innerHTML = SPIN(32, '#155eef');
+  $('#ddBlocking').innerHTML = SPIN(32);
+  const tenants = [['#155eef', 'Agency A'], ['#7a5af8', 'Agency B'], ['#e04f16', 'Agency C'], ['#099250', 'Agency D'], ['#98a2b3', 'Unknown']];
+  const tenantHtml = tenants.map(([c, n]) => `<div>${SPIN(24, c)}<span>${n}</span></div>`).join('');
+  $('#ddTenant').innerHTML = tenantHtml;
+  $('#tenantRow').innerHTML = tenantHtml;
+
+  /* ---------- spec code blocks ---------- */
+  $('#preSpin').textContent =
+`<svg class="hl-spinner" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+  <circle cx="10" cy="10" r="9" fill="none" stroke="currentColor"
+          stroke-width="2" opacity=".15"/>
+  <circle cx="10" cy="10" r="9" fill="none" stroke="currentColor"
+          stroke-width="2" pathLength="100" stroke-dasharray="25 100"
+          stroke-linecap="round"/>
+</svg>
+
+<style>
+  .hl-spinner {
+    color: var(--ld-accent);            /* or inherit currentColor */
+    animation: hl-spin var(--ld-spin-speed) linear infinite;
+  }
+  @keyframes hl-spin { to { transform: rotate(360deg); } }
+  /* Reduced motion: keep rotating. A frozen spinner reads as a hang. */
+</style>`;
+  $$('.codebox .copy').forEach(b => b.addEventListener('click', async () => {
+    const txt = $('#' + b.dataset.copy).textContent;
+    try { await navigator.clipboard.writeText(txt); b.textContent = 'Copied'; }
+    catch (e) { const r = document.createRange(); r.selectNodeContents($('#' + b.dataset.copy)); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = 'Selected'; }
+    setTimeout(() => { b.textContent = 'Copy'; }, 1500);
+  }));
+
+  /* ---------- QA checklist ---------- */
+  function qaCount() { const n = $$('#qaList input:checked').length; $('#qaCount').textContent = `${n} of 8 checked`; }
+  $$('#qaList input').forEach(cb => {
+    cb.checked = store.get('ld-qa-' + cb.dataset.qa) === '1';
+    cb.addEventListener('change', () => { store.set('ld-qa-' + cb.dataset.qa, cb.checked ? '1' : '0'); qaCount(); });
+  });
+  qaCount();
+
+  /* =========================================================
+     4 · Timeline
+     ========================================================= */
+  const T_MAX = 32;
+  const tToP = t => Math.sqrt(clamp(t / T_MAX));
+  const pToT = p => T_MAX * p * p;
+  const TL = { t: 0, R: Infinity, playing: false, speed: 4, last: 0 };
+
+  function contentAt(R) { if (!isFinite(R) || R > 30) return Infinity; return R <= 0.3 ? R : Math.max(R, 0.7); }
+  function routeState(t, R) {
+    const c = contentAt(R);
+    if (c === Infinity && t >= 30) return 'failed';
+    if (t >= c) return 'content';
+    if (t < 0.3) return 'old';
+    if (t >= 8) return 'still';
+    if (t >= 2) return 'words';
+    return 'loading';
+  }
+  function btnState(t, R) {
+    if (R <= 0.3) return t < R ? 'pressed' : (t < R + 1.5 ? 'success' : 'idle');
+    if (t < 0.3) return 'pressed';
+    if (R > 5) return t < 5 ? 'pending' : 'job';
+    const c = Math.max(R, 0.7);
+    if (t < c) return 'pending';
+    return t < c + 1.5 ? 'success' : 'idle';
+  }
+  function aiState(t, R) {
+    const s = isFinite(R) ? R : Infinity, d = s + 3;
+    if (t >= d) return 'done';
+    if (t >= s) return 'streaming';
+    if (t < 0.3) return 'none';
+    if (t < 1) return 'thinking';
+    return 'working';
+  }
+  const LABELS = { old: 'Old page', loading: 'Skeleton + line', words: 'Words', still: 'Still working', content: 'Content', failed: 'Failure', pressed: 'Blocked, no spinner', pending: 'Spinner', success: 'Success', idle: 'Idle', job: 'Job in tray', none: 'Grace', thinking: 'Thinking', working: 'Working steps', streaming: 'Streaming', done: 'Done' };
+
+  function segs(fn) {
+    const out = []; let prev = null, start = 0; const N = 800;
+    for (let i = 0; i <= N; i++) { const p = i / N, s = fn(pToT(p)); if (s !== prev) { if (prev !== null) out.push([start, p, prev]); prev = s; start = p; } }
+    out.push([start, 1, prev]); return out;
+  }
+  function drawRail(el, fn) {
+    el.innerHTML = segs(fn).map(([a, b, s]) => `<div class="sg st-${s}" style="left:${a * 100}%;width:${(b - a) * 100}%" title="${LABELS[s]}"></div>`).join('') + '<div class="ph"></div>';
+  }
+  function drawRails() {
+    drawRail($('#trkRoute'), t => routeState(t, TL.R));
+    drawRail($('#trkBtn'), t => btnState(t, TL.R));
+    drawRail($('#trkAi'), t => aiState(t, TL.R));
+    $('#tlLegend').innerHTML = [['Route', t => routeState(t, TL.R)], ['Button', t => btnState(t, TL.R)], ['AI', t => aiState(t, TL.R)]].map(([name, fn]) => {
+      const used = Array.from(new Set(segs(fn).map(s => s[2])));
+      return `<span style="display:inline-flex;flex-wrap:wrap;gap:4px 10px"><b style="color:var(--ink)">${name}:</b>${used.map(s => `<span><i class="st-${s}"></i>${LABELS[s]}</span>`).join('')}</span>`;
+    }).join('');
+  }
+  $('#tlMarks').innerHTML = [[0, '0', 0], [0.3, '300 ms', 0], [0.7, '700 ms', 1], [2, '2 s', 0], [5, '5 s', 1], [8, '8 s', 0], [20, '20 s', 1], [30, '30 s', 0]]
+    .map(([t, l, up]) => `<span class="mk${up ? ' up' : ''}" style="left:${tToP(t) * 100}%">${l}</span>`).join('');
+
+  /* frame layers */
+  $('#tlOld').innerHTML = `<div class="rtbl">${realRows(PEOPLE)}</div>`;
+  $('#tlSkel').innerHTML = KANBAN_SK; indexArrive($('#tlSkel').firstElementChild);
+  $('#tlContent').innerHTML = KANBAN_REAL;
+  $('#tlFail').innerHTML = `<div class="fail"><p class="ft">Couldn't load Opportunities</p><p class="fb">Check your connection and try again.</p><div class="acts"><button class="btn sm" id="tlRetry">Try again</button><button class="btn sec sm">Go back</button></div></div>`;
+  $('#tlRetry').addEventListener('click', () => { TL.t = 0; pause(); render(); });
+
+  function lineAt(t, R) {
+    const c = contentAt(R), end = c === Infinity ? 30 : c;
+    if (end <= 0.3 || t < 0.3) return { w: 0, o: 0 };
+    const trickle = x => 90 * (1 - Math.exp(-(x - 0.3) / 2.5));
+    if (t < end) return { w: trickle(t), o: 1 };
+    const we = trickle(end);
+    if (t < end + 0.2) return { w: we + (100 - we) * (t - end) / 0.2, o: 1 };
+    if (t < end + 0.4) return { w: 100, o: 1 - (t - end - 0.2) / 0.2 };
+    return { w: 100, o: 0 };
+  }
+  const fmt = t => t < 1 ? `${Math.round(t * 1000)} ms` : `${t.toFixed(t < 10 ? 1 : 0)} s`;
+
+  function events(R) {
+    const c = contentAt(R), ev = [];
+    ev.push([0, 'Click. Breadcrumb and nav switch to Opportunities instantly. Canvas gets aria-busy.']);
+    if (c <= 0.3) { ev.push([c, `Response at ${fmt(c)}: content renders directly. No line, no skeleton, nothing to flash.`]); return ev; }
+    ev.push([0.3, 'Progress line starts under the header. Old page dims and goes inert; the destination skeleton fades in (150 ms). Screen reader: "Loading Opportunities".']);
+    if (isFinite(R) && R < 0.7) ev.push([R, `Data arrives at ${fmt(R)}, but the skeleton has been up less than 400 ms. Hold it.`]);
+    if (c > 2) ev.push([2, 'Breadcrumb slot: "Loading Opportunities…".']);
+    if (c > 8) ev.push([8, 'Breadcrumb slot: "Still working on it".']);
+    if (c === Infinity) ev.push([30, 'Timeout. FailureState in the canvas with Try again and Go back. Line completes and fades. Focus moves to the failure title.']);
+    else ev.push([c, `Content cross-fades in (200 ms). Line completes (200 ms) and fades (200 ms). Screen reader: "Opportunities loaded".`]);
+    return ev;
+  }
+
+  function render() {
+    const t = TL.t, R = TL.R, st = routeState(t, R), c = contentAt(R);
+    const p = tToP(t);
+    $('#tlRange').value = Math.round(p * 1000);
+    $('#tlRange').setAttribute('aria-valuetext', fmt(t));
+    $('#tlClock').textContent = t.toFixed(2) + ' s';
+    $$('.rail .ph').forEach(ph => { ph.style.left = (p * 100) + '%'; });
+
+    /* layers */
+    const old = $('#tlOld'), skl = $('#tlSkel'), con = $('#tlContent'), fail = $('#tlFail');
+    let oO = 0, oS = 0, oC = 0, oF = 0;
+    if (c <= 0.3) { if (t < c) oO = 1; else oC = clamp((t - c) / 0.2); oO = t < c ? 1 : 1 - oC; }
+    else {
+      if (t < 0.3) oO = 1;
+      else {
+        const fadeIn = clamp((t - 0.3) / 0.15);
+        oO = 0.5 * (1 - fadeIn);
+        oS = fadeIn;
+        const end = c === Infinity ? 30 : c;
+        if (t >= end) { const x = clamp((t - end) / 0.2); oS *= 1 - x; if (c === Infinity) oF = x; else oC = x; }
+      }
+    }
+    old.style.opacity = oO; skl.style.opacity = oS; con.style.opacity = oC; fail.style.opacity = oF;
+    old.style.pointerEvents = 'none'; fail.style.pointerEvents = oF > .5 ? 'auto' : 'none';
+    old.inert = true;
+    const ln = lineAt(t, R); $('#tlLine').style.width = ln.w + '%'; $('#tlLine').style.opacity = ln.o;
+    $('#tlWords').innerHTML = st === 'words' ? SPIN(12) + '<span>Loading Opportunities…</span>' : st === 'still' ? SPIN(12) + '<span>Still working on it</span>' : '';
+    let sr = '';
+    if (st === 'content' && c > 0.3) sr = '"Opportunities loaded"';
+    else if (st === 'failed') sr = '"Couldn\'t load Opportunities"';
+    else if (st !== 'old' && st !== 'content') sr = '"Loading Opportunities"';
+    $('#tlSr').innerHTML = `<b>Screen reader:</b> ${sr || 'nothing yet'} · <b>Route state:</b> ${LABELS[st]}`;
+
+    /* button */
+    const bs = btnState(t, R);
+    let bh = '';
+    if (bs === 'idle' || bs === 'job') bh = '<button class="btn sm" tabindex="-1">Update 240 contacts</button>';
+    if (bs === 'pressed') bh = '<button class="btn sm" tabindex="-1" aria-disabled="true">Update 240 contacts</button><span class="hint">Clicks blocked, no spinner yet</span>';
+    if (bs === 'pending') bh = `<button class="btn sm" tabindex="-1" aria-disabled="true" style="width:172px">${SPIN(16)}</button>`;
+    if (bs === 'success') bh = `<button class="btn sm ok" tabindex="-1" style="width:172px">${CHECK}Updated</button>`;
+    if (bs === 'job') {
+      const done = isFinite(R) && t >= R;
+      bh += `<div class="tray" style="box-shadow:none"><div class="ti"><div class="nm">${done ? 'Updated 240 contacts' : 'Updating 240 contacts'}</div>${done ? '<small>240 updated · 0 skipped</small>' : `<div class="pbar thin"><i style="width:${clamp((t - 5) / ((isFinite(R) ? R : 60) - 5)) * 100}%"></i></div><small>You can keep working. We'll notify you when it's done.</small>`}</div></div>`;
+    }
+    $('#tlBtnView').innerHTML = bh;
+
+    /* AI */
+    const as = aiState(t, R);
+    const tm = t >= 2 && as !== 'done' ? `<span class="tm" style="color:var(--ink-3)">${Math.floor(t)}s</span>` : '';
+    const est = t >= 20 && (as === 'thinking' || as === 'working') ? '<div class="hint">Usually takes about 1 minute</div>' : '';
+    let ah = '';
+    if (as === 'none') ah = '<div class="hint">Prompt sent. Nothing shown during grace.</div>';
+    if (as === 'thinking') ah = `<div class="st">${SPIN(16)}<span>Thinking</span>${tm}</div><div class="out">${sk('90%')}${sk('70%')}</div>`;
+    if (as === 'working') ah = `<div class="st">${SPIN(16)}<span>${t < 3 ? 'Reading 24 conversations' : 'Writing 3 replies'}</span>${tm}</div>${est}<div class="out">${sk('90%')}${sk('70%')}</div>`;
+    if (as === 'streaming') { const k = Math.min(3, 1 + Math.floor((t - R) / 1)); ah = `<div class="st">${SPIN(16)}<span>Writing 3 replies</span>${tm}</div><div class="out">${['Hi Ana, thanks for reaching out.', 'Hi Ben, here are 2 times that work.', 'Hi Chi, pricing is attached.'].slice(0, k).map(x => `<div>${x}</div>`).join('')}</div>`; }
+    if (as === 'done') ah = `<div class="st"><span style="color:var(--ink-3)">Thought for ${Math.max(1, Math.round(R))}s</span></div><div class="out"><div>Hi Ana, thanks for reaching out.</div><div>Hi Ben, here are 2 times that work.</div><div>Hi Chi, pricing is attached.</div></div>`;
+    $('#tlAiView').innerHTML = ah.replace(/class="st"/g, 'class="st" style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--ink-2)"').replace(/class="out"/g, 'class="out" style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;background:#fff;display:flex;flex-direction:column;gap:6px"');
+
+    /* log */
+    const evs = events(R);
+    let nowIdx = -1; evs.forEach((e, i) => { if (t >= e[0]) nowIdx = i; });
+    $('#tlLog').innerHTML = evs.map((e, i) => `<li class="${i === nowIdx ? 'now' : t >= e[0] ? 'past' : ''}"><b>${fmt(e[0])}</b><span>${e[1]}</span></li>`).join('');
+  }
+
+  function setScenario(R) {
+    TL.R = R;
+    $$('#tlScen button').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.r) === R)));
+    drawRails(); render();
+  }
+  function play() {
+    if (TL.t >= T_MAX - 0.01) TL.t = 0;
+    TL.playing = true; TL.last = performance.now(); $('#tlPlay').textContent = 'Pause';
+    requestAnimationFrame(tick);
+  }
+  function pause() { TL.playing = false; $('#tlPlay').textContent = TL.t >= T_MAX - 0.01 ? 'Replay' : 'Play'; }
+  function tick(now) {
+    if (!TL.playing) return;
+    const dt = (now - TL.last) / 1000; TL.last = now;
+    TL.t = Math.min(T_MAX, TL.t + dt * TL.speed);
+    render();
+    if (TL.t >= T_MAX) { pause(); return; }
+    requestAnimationFrame(tick);
+  }
+  $('#tlPlay').addEventListener('click', () => TL.playing ? pause() : play());
+  $$('#tlScen button').forEach(b => b.addEventListener('click', () => setScenario(Number(b.dataset.r))));
+  $$('#tlSpeed button').forEach(b => b.addEventListener('click', () => { TL.speed = Number(b.dataset.s); $$('#tlSpeed button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); }));
+  $('#tlRange').addEventListener('input', e => { if (TL.playing) pause(); TL.t = pToT(Number(e.target.value) / 1000); render(); });
+  setScenario(Infinity);
+  window.__tl = { set(t) { TL.t = t; render(); }, scen: setScenario, state: () => routeState(TL.t, TL.R) };
+
+  /* index arrival for static .ld-arrive blocks */
+  $$('.ld-arrive').forEach(indexArrive);
+  syncPhase();
+})();
+</script>
+</body>
+</html>
