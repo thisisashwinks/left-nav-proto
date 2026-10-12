@@ -398,7 +398,7 @@ export function FlyoutPanel({
       ...(layout.can.regroup
         ? { onPickIcon: (trigger: HTMLElement) => picker.open(productId, trigger) }
         : {}),
-      hidden: layout.isRowHidden(productId),
+      hidden: layout.isRowHiddenDeep(productId),
       onToggleHidden: () => layout.toggleRowHidden(productId),
       /*
         No grip on a lone row — see `lonely`. `FlyoutRowEdit` draws the handle
@@ -479,7 +479,9 @@ export function FlyoutPanel({
             only control that can undo the decision, and it has to live on the
             row it undoes. See `childrenFor`, which does the filtering.
           */
-          hidden: (childId: string) => layout.isRowHidden(childId),
+          // The DEEP question — a page under a hidden product reads
+          // hidden too. See isRowHiddenDeep.
+          hidden: (childId: string) => layout.isRowHiddenDeep(childId),
           onToggleHidden: (childId: string) => layout.toggleRowHidden(childId),
           onOpenMenu: (childId, trigger) => {
             setMenuTrigger(trigger);
@@ -771,7 +773,7 @@ export function FlyoutPanel({
             onPickIcon: (trigger: HTMLElement) => picker.open(rowId, trigger),
           }
         : {}),
-      hidden: layout.isRowHidden(rowId),
+      hidden: layout.isRowHiddenDeep(rowId),
       onToggleHidden: () => layout.toggleRowHidden(rowId),
       // The same verbs the drag and the glyph offer, reachable by keyboard —
       // which is the kebab's whole job on the rows one level up.

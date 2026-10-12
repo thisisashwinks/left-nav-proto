@@ -53,6 +53,14 @@ export interface NavRowEdit {
    */
   renameBlockedUniform?: boolean;
   onStartRename: () => void;
+  /**
+   * Why a typed name cannot be committed, or null. Groups only.
+   *
+   * Carried on the row rather than read from the store by the field, because
+   * the field is shared with the flyout and the pinned dock and has no idea
+   * what kind of thing it is renaming.
+   */
+  validateRename?: (draft: string) => string | null;
   onCommitRename: (next: string) => void;
   onCancelRename: () => void;
   /** Absent when the role may not change icons. */
@@ -807,6 +815,7 @@ export function NavItemRow({
           value={edit.renameValue ?? item.label}
           onCommit={edit.onCommitRename}
           onCancel={edit.onCancelRename}
+          {...(edit.validateRename ? { validate: edit.validateRename } : {})}
           ariaLabel={`Rename ${item.label}`}
           className="text-[length:var(--t-nav-font,14px)] leading-[normal]"
         />
@@ -835,14 +844,31 @@ export function NavItemRow({
       ) : null}
 
       {edit.warning && !edit.renaming ? (
-        <span
-          title={edit.warning}
-          aria-label={edit.warning}
-          role="img"
-          className="flex size-[20px] shrink-0 items-center justify-center text-[var(--hr-warning-500)]"
-        >
-          <TriangleAlert size={13} aria-hidden="true" />
-        </span>
+        /*
+          The app's tooltip, not the OS's.
+
+          It carried a `title`, which is the browser's: it waits about a
+          second, paints in the system's own style, and on a 13px glyph most
+          people never see it at all — the mark said something was wrong and
+          then refused to say what. The same pill every other explained
+          affordance in this nav uses, arriving at once.
+
+          `above`, like the label's: the row already carries four controls,
+          and a pill beside the glyph would have to be read against whichever
+          of them it happened to land on. `wrap` because this is a sentence
+          rather than a name — unwrapped it would be a ribbon across the
+          canvas.
+        */
+        <RailTooltip label={edit.warning} placement="above" wrap={220}>
+          <span
+            aria-label={edit.warning}
+            role="img"
+            tabIndex={0}
+            className="flex size-[20px] shrink-0 items-center justify-center text-[var(--hr-warning-500)]"
+          >
+            <TriangleAlert size={13} aria-hidden="true" />
+          </span>
+        </RailTooltip>
       ) : null}
 
       {!edit.renaming ? (

@@ -361,7 +361,29 @@ export function captureArrangement(state: NavLayoutState): NavArrangement {
   return {
     grouping: "custom",
     customGroups: tree.customGroups,
-    groupOrder: tree.groupOrder,
+    /*
+     * Re-keyed to the mode this arrangement DECLARES, not the one it was
+     * authored in.
+     *
+     * `groupOrder` is a map keyed by grouping mode and every consumer reads
+     * `groupOrder[grouping]` — so the two fields are a pair, and the line
+     * above hard-codes one half of it. `customTreeFor` keeps `proposed` as
+     * the mode (it is structural, like `custom`), so an account on the
+     * proposed IA authored its L1 order under `.proposed` while the template
+     * went out saying `custom`. Applying it then asked for `groupOrder.custom`,
+     * got `undefined`, and `applyOrder` quietly fell through to the catalogue
+     * defaults: the order the person had just arranged was not overridden,
+     * it was never read. The visible symptom was a category created at the
+     * end of the list reappearing one row above "Download apps" after save,
+     * because the defaults put every shelf before the chrome rows.
+     *
+     * Carrying the whole map across would also work, but it would carry four
+     * other modes' orders into a template that claims to be one tree. One
+     * mode, one order.
+     */
+    groupOrder: {
+      custom: tree.groupOrder[tree.grouping] ?? tree.groupOrder.custom,
+    },
     agencyLabels: tree.agencyLabels,
     agencyProductLabels: tree.agencyProductLabels,
     icons: tree.icons,
@@ -588,7 +610,20 @@ function mergedGroups(
         .map((p) => resolveOwned(p, owns))
         .filter((p): p is string => p !== undefined),
     }))
-    .filter((g) => g.productIds.length > 0);
+    /*
+     * Dropped only when the FILTER emptied it, never when the author did.
+     *
+     * The rule this enforces is "no heading over nothing" for products the
+     * target does not own — but a category the person deliberately created
+     * and has not filled yet is empty on purpose, and the editor already
+     * flags it with its own warning. Testing the length after filtering
+     * alone made saving a template the thing that deleted the category you
+     * had just added, which reads as the save failing.
+     */
+    .filter(
+      (g, i) =>
+        g.productIds.length > 0 || a.customGroups[i].productIds.length === 0,
+    );
 
   const claimed = new Set(fromTemplate.flatMap((g) => g.productIds));
 
@@ -655,7 +690,22 @@ export function patchForArrangement(
 
     return {
       grouping: a.grouping,
-      groupOrder: a.groupOrder,
+      /*
+       * Same pairing as `captureArrangement`, enforced again on the way in.
+       *
+       * Templates already sitting in localStorage were written before the
+       * capture was fixed, so their order can still be filed under the mode
+       * they were authored in rather than the one they declare. Reading the
+       * declared key first and falling back to the two structural modes
+       * repairs those in place, and costs nothing for a template captured
+       * correctly.
+       */
+      groupOrder: {
+        [a.grouping]:
+          a.groupOrder[a.grouping] ??
+          a.groupOrder.custom ??
+          a.groupOrder.proposed,
+      },
       agencyLabels: a.agencyLabels,
       agencyProductLabels: a.agencyProductLabels,
       icons: a.icons,

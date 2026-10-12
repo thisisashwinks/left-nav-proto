@@ -114,7 +114,25 @@ export function productTreeOptionsDeep(
     // Only attach `children` when there are some. RowMenu reads the key's
     // presence as "this opens a list" and draws the submenu arrow for it, so an
     // empty array advertises a level that is not there and walks into nothing.
-    return children.length > 0 ? { ...row, children } : row;
+    if (children.length === 0) return row;
+    /*
+      The product itself, as the first row of its own submenu.
+
+      RowMenu walks a branch and never picks it — see its onClick: a row with
+      children opens the list and that is all it can do. So attaching pages to
+      a product made the product unreachable: drilling into Conversations
+      offered Inbox, Snippets and the rest, and no way at all to add
+      Conversations. Ashwin, Oct 12, and it had been true since the deep
+      picker shipped.
+    
+      Repeating it inside its own list is the fix a nested menu has. The title
+      row above is a back control rather than an option, so a row named
+      Conversations in the list is unambiguous: the breadcrumb says where you
+      are, the row is a thing you can take. It also keeps search honest —
+      `leavesOf` walks children only, so without this entry the product's own
+      name matched nothing.
+    */
+    return { ...row, children: [row, ...children] };
   };
 
   const branches = categories

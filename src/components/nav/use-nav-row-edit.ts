@@ -94,6 +94,15 @@ export function useNavRowEdit(
         if (renameBlocked) return;
         setRenamingId(itemId);
       },
+      /*
+       * Groups only. Two products CAN share a label — "Settings" under three
+       * different categories is normal and unambiguous, because the category
+       * above says which one you mean. Two categories cannot: they sit in one
+       * flat list with nothing above them to tell them apart.
+       */
+      ...(isGroup
+        ? { validateRename: (draft: string) => layout.nameTaken(draft, id) }
+        : {}),
       onCommitRename: (next) => {
         if (isGroup) layout.setLabel(id, next);
         else layout.setProductLabel(id, next);

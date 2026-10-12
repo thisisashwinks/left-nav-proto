@@ -241,6 +241,15 @@ interface LeftNavProps {
   onHoverFlyout: (flyoutId: string) => void;
   onPinFlyout: (flyoutId: string) => void;
   /**
+   * Shut whatever panel is open, pinned included.
+   *
+   * `onPinFlyout` toggles, which is the wrong verb for the one case that
+   * needs this: something has happened in the COLUMN that makes the panel
+   * beside it stale, and the nav has to say so without knowing which panel is
+   * up. See `addCategoryAt`.
+   */
+  onCloseFlyout: () => void;
+  /**
    * Hovering a row with no flyout of its own. Fades the open preview after
    * the grace — the in-nav dismissal, so getting rid of a panel never means
    * travelling all the way across it (Khoi's distance note).
@@ -324,6 +333,7 @@ export function LeftNav({
   sidebarWidth = 272,
   onHoverFlyout,
   onPinFlyout,
+  onCloseFlyout,
   onHoverPlain,
   collapsed,
   onToggleCollapsed,
@@ -379,6 +389,7 @@ export function LeftNav({
     navTreeCounts,
     treeIcons,
     addMenuShape,
+    l3Arrange,
     treeSearchPlace,
   } = useTheme().effective;
   /* What the companion-apps row is called right now. See APPS_ROW_LABELS. */
@@ -1244,7 +1255,7 @@ export function LeftNav({
          */
         renameOnLabelClick: false,
         renameBlockedUniform: true,
-        hidden: layout.isRowHidden(itemId),
+        hidden: layout.isRowHiddenDeep(itemId),
         onToggleHidden: () => layout.toggleRowHidden(itemId),
         /*
          * `tailDrag`, unchanged, and that is the whole of the filing story.
@@ -1307,14 +1318,59 @@ export function LeftNav({
     }
 
     /*
-     * A page's menu is not a product's menu.
+     * A page's menu, which is a product's menu less the name.
      *
-     * The same two entries `flyout-panel.tsx` gives an L3 and for its reason:
-     * rename, file and remove mean nothing for a page that belongs to a
-     * product rather than to the account's tree, and the glyph is the one
-     * property of it an account has cause to correct — it is often inferred
-     * from the label rather than authored.
+     * It was two entries — change the glyph, reset it — on the reasoning that
+     * filing or removing a page meant nothing for something that belongs to a
+     * product rather than to the account's tree. `l3Arrange` is that
+     * reasoning being withdrawn: a page reorders inside its parent, files
+     * into a category, stands at the top level and can be taken out, because
+     * the store can now do all four. See L3_ARRANGE_DEFAULT.
+     *
+     * The same verbs the PANEL's L3 menu offers, deliberately. The tree and
+     * the panel draw the same row in two arrangements, and a kebab that holds
+     * four entries in one and six in the other is two different rows wearing
+     * one name. Ashwin, Oct 12.
      */
+    if (can.regroup && childById(itemId) && l3Arrange) {
+      const hit = childById(itemId)!;
+      const siblingIds = layout.childrenOf(hit.product.id).map((c) => c.id);
+      const order = layout.panelRowsFor(hit.product.id, siblingIds);
+      const at = order.indexOf(itemId);
+      return {
+        onPickIcon: (trigger: HTMLElement) => picker.open(itemId, trigger),
+        onOpenMenu: (trigger) => {
+          setMenuTrigger(trigger);
+          menu.open(itemId, trigger);
+        },
+        menuActions: productMenuActions({
+          productId: itemId,
+          currentGroupId: null,
+          categories,
+          onPickIcon: () => {
+            if (menuTrigger) picker.open(itemId, menuTrigger);
+          },
+          ...(at > 0
+            ? {
+                onMoveUp: () =>
+                  layout.movePanelRow(hit.product.id, siblingIds, itemId, at - 1),
+              }
+            : {}),
+          ...(at >= 0 && at < order.length - 1
+            ? {
+                onMoveDown: () =>
+                  layout.movePanelRow(hit.product.id, siblingIds, itemId, at + 1),
+              }
+            : {}),
+          // The child verbs: a product's filing refuses a page outright.
+          onMoveToGroup: (groupId: string) =>
+            layout.moveChildToGroup(itemId, groupId),
+          onMoveToTopLevel: () => layout.placeAtL1(itemId, 0),
+          onRemove: () => layout.toggleRowHidden(itemId),
+        }) satisfies RowMenuAction[],
+      };
+    }
+
     if (can.regroup && childById(itemId)) {
       return {
         /*
@@ -1495,7 +1551,7 @@ export function LeftNav({
          * this row that stays editable.
          */
         renameOnLabelClick: true,
-        hidden: layout.isRowHidden(itemId),
+        hidden: layout.isRowHiddenDeep(itemId),
         onToggleHidden: () => layout.toggleRowHidden(itemId),
         drag: l1Drag(itemId, layout.productLabelFor(itemId)),
         onOpenMenu: (trigger) => {
@@ -1554,7 +1610,7 @@ export function LeftNav({
        * layer, filed under a heading the catalogue chose. Everything else the
        * row can do it still can: icon, order, category, removal.
        */
-      const isDoor = liftedChildren(itemId).length > 0;
+      const isDoor = liftedChildren(state, itemId).length > 0;
       /*
        * And not if the row names a product, wherever it has been dragged to.
        *
@@ -1580,7 +1636,7 @@ export function LeftNav({
        */
       return {
         ...(renameable ? { renameOnLabelClick: true } : {}),
-        hidden: layout.isRowHidden(itemId),
+        hidden: layout.isRowHiddenDeep(itemId),
         onToggleHidden: () => layout.toggleRowHidden(itemId),
         drag: tailDrag(itemId),
         onOpenMenu: (trigger) => {
@@ -1836,7 +1892,7 @@ export function LeftNav({
       lifted: lifted === itemId,
     };
     return {
-      hidden: layout.isRowHidden(itemId),
+      hidden: layout.isRowHiddenDeep(itemId),
       onToggleHidden: () => layout.toggleRowHidden(itemId),
       /*
        * The label is the rename target, not the row.
@@ -1849,7 +1905,17 @@ export function LeftNav({
       renameOnLabelClick: true,
       ...(empty
         ? {
-            warning: `${group.label} is empty. Add a product to it from this row's menu, or drag one in.`,
+            /*
+              Named for the RULE, not for this row's predicament.
+
+              It read "X is empty. Add a product to it from this row's menu,
+              or drag one in." — which is a sentence about what to do, when
+              the thing a reader needs first is what is wrong. Ashwin's
+              wording, and it is better: the constraint explains the mark, and
+              the two ways to satisfy it are already discoverable on the row.
+            */
+            warning:
+              "A category must have at least one product under it.",
           }
         : {}),
       onOpenMenu: (trigger) => {
@@ -2542,6 +2608,17 @@ export function LeftNav({
     const id = nextGroupIdFor(customTreeFor(state));
     layout.createGroupAt("New category", id, index);
     /*
+      And whatever panel was open goes.
+
+      The new row mounts asking for its name, which is a prompt in the column
+      — and a panel sitting beside it still lists the products of the row you
+      opened a moment ago, which is not the row you are now naming. Worse, the
+      new category is empty, so the panel cannot be ABOUT it: an empty
+      category is not a door. Leaving it up puts a stale answer next to a live
+      question. Ashwin, Oct 12.
+    */
+    onCloseFlyout();
+    /*
      * Mounts asking for its name: an empty category called "New category" is
      * not a thing anyone wanted, it is a step on the way to one.
      *
@@ -2578,10 +2655,19 @@ export function LeftNav({
    * handler, so the three menu shapes cannot disagree about what adding
    * means.
    */
-  const dropIntoNav = (id: string, tailIndex: number) =>
-    layout.placeAtL1(id, tailIndex);
+  const dropIntoNav = (id: string, index: number) =>
+    layout.placeAtL1(id, index);
 
-  const seamActions = (index: number, tailIndex: number): RowMenuAction[] => [
+  /*
+   * One index now, not two.
+   *
+   * The seam used to carry an L1 position for "New category" and a TAIL
+   * position for "Add a product", because those two verbs wrote to two
+   * different lists. They write to one list now — see `placeAtL1` — so the
+   * second number had nothing left to mean, and keeping it was an invitation
+   * to pass the wrong one, which is exactly what had happened.
+   */
+  const seamActions = (index: number): RowMenuAction[] => [
     {
       id: "category",
       label: "New category",
@@ -2598,12 +2684,29 @@ export function LeftNav({
         level, which is how a page is added without anyone being asked to
         classify it first. See ADD_MENU_SHAPES.
       */
+      /*
+        The SHIPPED tree, whole — nothing hidden for being placed already.
+
+        Hiding what was already at L1 quietly deleted branches: lift Contacts
+        to the top level and the picker dropped it, taking Smart lists, Tags
+        and Engagement Score down with it, because they are only reachable
+        through their parent. A page became unaddable by moving its product.
+
+        It also made the menu a second, drifting account of the nav. The
+        picker's job is to name a place in the product, and the product has
+        not changed — Contacts is still where Contacts has always been, no
+        matter which column the account has dragged it into. Ashwin, Oct 12:
+        "it should show the original dropdown itself, not the updated one."
+
+        Picking something already placed is not a duplicate; every verb cuts
+        before it places, so it relocates. The toast names where it came from.
+      */
       options:
         addMenuShape === "deep"
-          ? productTreeOptionsDeep(state, (id) => tailRowIds.includes(id))
+          ? productTreeOptionsDeep(state, () => false)
           : productTreeOptions(state, (id) => tailRowIds.includes(id)),
       emptyNote: "Everything is already a row here.",
-      onPick: (id) => dropIntoNav(id, tailIndex),
+      onPick: (id) => dropIntoNav(id, index),
     },
     /*
       The third entry, under `separate` only.
@@ -2622,7 +2725,7 @@ export function LeftNav({
             icon: FilePlus,
             options: pageOptions(state, (id) => tailRowIds.includes(id)),
             emptyNote: "Every page is already a row here.",
-            onPick: (id: string) => dropIntoNav(id, tailIndex),
+            onPick: (id: string) => dropIntoNav(id, index),
           },
         ]
       : []),
@@ -2634,7 +2737,7 @@ export function LeftNav({
             icon: FilePlus,
             options: pageOptions(state, (id) => tailRowIds.includes(id)),
             emptyNote: "Every page is already a row here.",
-            onPick: (id: string) => dropIntoNav(id, tailIndex),
+            onPick: (id: string) => dropIntoNav(id, index),
           },
         ]
       : []),
@@ -2662,6 +2765,23 @@ export function LeftNav({
         })
       }
       addLabel="Add to the nav here"
+      /*
+        A wider catch than the 8px default, and the reason is the neighbour.
+
+        An L1 seam competes with the rows on either side of it: a category
+        row ACCEPTS a product too, meaning "file it in here", so the eight
+        pixels at the boundary are the only place that means "between these
+        two" and everything above and below means something else. Aiming at
+        them while dragging is a game the reader loses — which is why
+        dropping between CRM and Automation kept landing inside CRM, or
+        nowhere. Verified Oct 12: the drop handler was right the whole time
+        and the target was too small to hit.
+
+        14 rather than more: the rows are 38 tall, so this still leaves two
+        thirds of each one meaning "into this category", which is a real
+        gesture and must stay reachable.
+      */
+      reach={14}
     />
   );
 
@@ -3549,7 +3669,26 @@ export function LeftNav({
            * page, not the container. Neither one opens the L1 itself, which
            * is the thing this forbids.
            */
-          if (item.hasFlyout && agencyScope) {
+          /*
+            A row with a panel behind it opens the panel, full stop.
+            
+            Agency rows have always worked this way. A LIFTED row — a product
+            the account pulled out of its category, which keeps its own pages
+            — is the same shape and was not: clicking Contacts at L1 opened
+            the Contacts page behind the panel, so the reader landed somewhere
+            before choosing which of its pages they meant. The row is a door;
+            behind it are the places you might want, and opening a door is not
+            walking through it. Ashwin, Oct 12.
+
+            `liftedChildren` rather than `hasFlyout` alone, because a CATEGORY
+            also has a panel and already reaches here by another route — this
+            clause is about the rows that carry a page id of their own AND a
+            list of pages under it, which is exactly the lifted ones.
+          */
+          if (
+            item.hasFlyout &&
+            (agencyScope || liftedChildren(state, item.id).length > 0)
+          ) {
             onPinFlyout(flyoutId);
             return;
           }
@@ -4385,7 +4524,18 @@ export function LeftNav({
                 <AddToNavRow
                   onOpen={(trigger) =>
                     setAddingAt({
-                      index: entries.length,
+                      /*
+                        The END of the L1 list, in L1 positions.
+
+                        `entries.length` counts everything the column draws —
+                        the recents, the headings, the Launchpad card — so
+                        handing it to a verb that splices into `l1Ids` meant a
+                        number far past the end. Clamped, that is "last",
+                        which is why a row added from the seam BETWEEN two
+                        categories still landed at the bottom. The two index
+                        spaces look alike and are not. Ashwin, Oct 12.
+                      */
+                      index: l1Ids.length,
                       tailIndex: tailRowIds.length,
                       anchor: trigger.getBoundingClientRect(),
                     })
@@ -4768,7 +4918,7 @@ export function LeftNav({
         <RowMenu
           anchor={addingAt.anchor}
           title="Add to the nav"
-          actions={seamActions(addingAt.index, addingAt.tailIndex)}
+          actions={seamActions(addingAt.index)}
           // The plus sits mid-nav, so right-aligning to a 16px button would
           // throw the menu clean off the left edge.
           align="start"

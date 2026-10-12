@@ -18,17 +18,31 @@ import { RailTooltip } from "./rail-tooltip";
  * Enter commits, Escape reverts, blur commits. Blur-commits rather than
  * blur-cancels because the undo toast already covers a mistake, and losing typed
  * text to a stray click is the more annoying failure.
+ *
+ * VALIDATION, when a caller supplies it. Two categories called "sdfs" is a nav
+ * nobody can read and the store now refuses it — but a refusal the field does
+ * not explain is a field that appears to ignore you. So the message appears as
+ * you type, the outline turns, and Enter holds the field open instead of
+ * committing. Ashwin, Oct 12.
+ *
+ * Blur still leaves, and leaving with an invalid name REVERTS. The blur-commits
+ * rule exists so a stray click does not lose your typing; it cannot apply to
+ * text the store will not take, and the alternative — refusing to let go of
+ * focus until the name is fixed — is the one behaviour worse than losing it.
  */
 export function InlineRename({
   value,
   onCommit,
   onCancel,
+  validate,
   className,
   ariaLabel,
 }: {
   value: string;
   onCommit: (next: string) => void;
   onCancel: () => void;
+  /** Why this draft cannot be committed, or null. Checked on every keystroke. */
+  validate?: (draft: string) => string | null;
   /** The row's own text classes, so the field matches what it replaced. */
   className?: string;
   ariaLabel: string;
@@ -46,12 +60,24 @@ export function InlineRename({
     input.select();
   }, []);
 
+  const trimmed = draft.trim();
+  // Unchanged is not a clash with itself, and an empty draft is handled by the
+  // cancel below — neither should light the field up red while you backspace.
+  const error =
+    !trimmed || trimmed === value ? null : (validate?.(trimmed) ?? null);
+
   const commit = () => {
     if (done.current) return;
+    if (error) return;
     done.current = true;
-    const trimmed = draft.trim();
     if (!trimmed || trimmed === value) onCancel();
     else onCommit(trimmed);
+  };
+
+  /** Leaving with a name the store will not take: revert rather than trap. */
+  const leave = () => {
+    if (error) cancel();
+    else commit();
   };
 
   const cancel = () => {
@@ -60,15 +86,16 @@ export function InlineRename({
     onCancel();
   };
 
-  return (
+  const field = (
     <input
       ref={ref}
       type="text"
       value={draft}
       maxLength={LABEL_MAX}
       aria-label={ariaLabel}
+      aria-invalid={error ? true : undefined}
       onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
+      onBlur={leave}
       onKeyDown={(e) => {
         // Stopped here rather than at the row: Escape would otherwise close the
         // whole flyout, and Enter would activate the row being renamed.
@@ -86,10 +113,34 @@ export function InlineRename({
       onPointerDown={(e) => e.stopPropagation()}
       className={cn(
         "min-w-0 flex-1 rounded-[4px] bg-nav-hover px-[4px] text-nav-fg caret-current outline-none",
-        "shadow-[inset_0_0_0_1px_var(--brand)]",
+        error
+          ? "shadow-[inset_0_0_0_1px_var(--pg-danger)]"
+          : "shadow-[inset_0_0_0_1px_var(--brand)]",
         className,
       )}
     />
+  );
+
+  if (!error) return field;
+
+  /*
+   * The reason, under the field, inside the row's own width.
+   *
+   * Absolutely positioned so the row does not grow and shove the rest of the
+   * nav down while you type — a list that reflows on every keystroke is a
+   * list you cannot aim at. `pointer-events-none` so the message can never
+   * eat the click that is trying to fix the name.
+   */
+  return (
+    <span className="relative flex min-w-0 flex-1 items-center">
+      {field}
+      <span
+        role="alert"
+        className="pointer-events-none absolute top-full left-0 z-10 mt-[3px] rounded-[4px] bg-pg-danger px-[5px] py-[2px] text-[11px] leading-[15px] font-medium whitespace-nowrap text-white"
+      >
+        {error}
+      </span>
+    </span>
   );
 }
 

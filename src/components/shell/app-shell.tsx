@@ -3584,6 +3584,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
             onHoverFlyout={hoverFlyout}
             onHoverPlain={hoverPlain}
             onPinFlyout={intent.togglePin}
+            onCloseFlyout={intent.close}
             collapsed={collapsed}
             onToggleCollapsed={toggleCollapsed}
             onSearch={() => setSearchOpen(true)}

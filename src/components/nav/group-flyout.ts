@@ -159,7 +159,7 @@ export function flyoutForLifted(
   state: NavLayoutState,
   id: string,
 ): FlyoutConfig | null {
-  const kids = liftedChildren(id);
+  const kids = liftedChildren(state, id);
   if (kids.length === 0) return null;
   return {
     id,

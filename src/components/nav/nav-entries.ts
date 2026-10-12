@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import { childById, productById } from "./catalogue";
 import type { CatalogueChild } from "./catalogue-types";
 import {
+  childrenFor,
   glyphFor,
   applyOrder,
   iconForProduct,
@@ -162,7 +163,7 @@ export function tailRowsFor(
        * only the second left the promoted row a dead end on the one tree most
        * of this prototype runs.
        */
-      ...(liftedChildren(id).length > 0 ? { hasFlyout: true } : {}),
+      ...(liftedChildren(state, id).length > 0 ? { hasFlyout: true } : {}),
     });
   }
   for (const extra of extras) byId.set(extra.id, extra);
@@ -193,7 +194,7 @@ export function tailRowsFor(
       // See the note on the loose rows above. A lifted CHILD is the case this
       // was written for: its name collides with its siblings' by definition.
       ...navGlyph(state, id),
-      ...(liftedChildren(id).length > 0 ? { hasFlyout: true } : {}),
+      ...(liftedChildren(state, id).length > 0 ? { hasFlyout: true } : {}),
     });
   }
   for (const link of links) byId.set(link.id, link);
@@ -422,7 +423,22 @@ export function navEntriesFor(
        * you have to be able to get back to it.
        */
       ...(sectionHeadings ? [band("ia-buckets", "Products")] : []),
-      ...l1Run(buckets),
+      /*
+       * One run, buckets and lifted rows together — the same change the other
+       * tree got on Oct 9, and missing here until Oct 12.
+       *
+       * This branch kept the old shape: buckets first, then the tail appended
+       * after them. So a row dropped between two buckets committed correctly
+       * — `groupOrder` held it in the right place, and the store said so —
+       * and then rendered at the bottom anyway, because this list put every
+       * tail row after every bucket no matter what the order said. The nav
+       * disagreed with its own state, which is why the drop looked broken
+       * while every test of the drop handler passed.
+       *
+       * It matters more here than anywhere: `proposed` is the tree the
+       * prototype opens on.
+       */
+      ...l1Run(buckets, tailRowsFor(state, loose)),
       /*
        * One "More" band, not three.
        *
@@ -441,12 +457,8 @@ export function navEntriesFor(
        * heading survives for the arrangement that names its bands — a label is a
        * name for what follows, which a rule is not.
        */
-      ...(sectionHeadings ? [band("ia-more", "More")] : []),
-      // No `extras`: the chrome rows are in the L1 run above now.
-      ...tailRowsFor(state, loose).map((item): NavEntry => ({
-        kind: "item",
-        item,
-      })),
+      // The tail is drawn by `l1Run` above now, in the one order — appending
+      // it here as well would draw every loose row twice.
       ...extraEntries,
     ];
   }
@@ -545,11 +557,24 @@ export function navEntriesFor(
  * Answers for a product and for an L2 alike, because either can be lifted: the
  * tail holds whatever was dragged out, and a row that came from two levels
  * down resolves through `childById` rather than the catalogue's top level.
+ *
+ * STILL OWNS is the whole of it, and for a long time this function could not
+ * tell. It read the catalogue and nothing else, so a promoted row re-grew
+ * every child the catalogue ever gave it — including the ones the account had
+ * since moved somewhere else. Lift Smart lists to the top level, then lift
+ * Contacts after it, and Contacts opened with Smart lists inside it: the row
+ * was in two places at once, and the flyout was the one inventing the second.
+ *
+ * `childrenFor` has always known the answer. The fix is to ask it rather than
+ * keep a second, frozen opinion beside it. Ashwin, Oct 12.
  */
-export function liftedChildren(id: string): readonly CatalogueChild[] {
+export function liftedChildren(
+  state: NavLayoutState,
+  id: string,
+): readonly CatalogueChild[] {
   const node = productById(id) ?? childById(id)?.child;
   if (!node || node.tabs) return [];
-  return node.children ?? [];
+  return childrenFor(state, id);
 }
 
 /** Which of a row's ids the override maps are keyed by, or null if it is chrome. */
@@ -601,6 +626,26 @@ export function editTargetFor(
    * writers it selects are `setProductLabel` and `resetProductLabel`.
    */
   if (CHROME_TAIL_IDS.has(itemId)) return { kind: "product", id: itemId };
+  /*
+   * A page the account has pulled out of its product and stood in the nav.
+   *
+   * Same argument as the chrome rows above, and the same answer: the override
+   * maps are keyed by id and hold any id at all, so the only thing standing
+   * between a lifted page and the affordances every other row has was this
+   * function not recognising it. Without the clause `editFor` returned null,
+   * and the row lost its inline icon trigger — "Change icon" worked from the
+   * kebab while clicking the glyph, which is how every other row in the nav
+   * does it, did nothing. Ashwin, Oct 12, found by looking at the row rather
+   * than at the menu.
+   *
+   * `kind: "product"` because that selects the right writers —
+   * `setProductLabel` and `resetProductLabel` — and `labelForProduct`
+   * already answers for a child. Whether the NAME may be changed is a
+   * separate question, and `renameBlockedFor` answers it.
+   */
+  if (state.tailOrder.includes(itemId) && childById(itemId)) {
+    return { kind: "product", id: itemId };
+  }
   if (state.grouping === "flat" && groups[0]?.productIds.includes(itemId)) {
     return { kind: "product", id: itemId };
   }

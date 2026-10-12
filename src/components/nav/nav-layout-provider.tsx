@@ -12,11 +12,15 @@ import {
   type EditAccess,
   type EditBlock,
 } from "./nav-profiles";
-import { productById } from "./catalogue";
+import { childById, productById } from "./catalogue";
 import type { CatalogueChild } from "./catalogue-types";
 import { l1IdsFor, tailRowsFor } from "./nav-entries";
 import {
+  isRowHiddenDeep,
   withChildInGroup,
+  DETACHED,
+  groupNameTaken,
+  uniqueGroupLabel,
   withRowDetached,
   withChildFiled,
   childrenFor,
@@ -137,6 +141,14 @@ interface NavLayoutContextValue {
    * Adds a group. `id` lets the caller name it before it exists, which is what
    * the nav needs to mount the new row straight into its rename field.
    */
+  /**
+   * Why a category may not be called this, or null if it may.
+   *
+   * Returned as a SENTENCE rather than a boolean because the field shows it,
+   * and a caller that has to invent the wording is a caller whose wording
+   * will drift from the next one's.
+   */
+  nameTaken: (label: string, exceptId?: string) => string | null;
   createGroup: (label: string, id?: string) => void;
   /**
    * Adds a group at a position rather than at the end.
@@ -247,6 +259,14 @@ interface NavLayoutContextValue {
   toggleBlock: (block: NavBlock) => void;
   /** Whether this category or row is switched off. */
   isRowHidden: (id: string) => boolean;
+  /**
+   * Whether a row READS as hidden, counting its ancestors.
+   *
+   * What the SCREEN should ask. `isRowHidden` is the store's question — is
+   * this row's own flag set — and drawing from it left a hidden category full
+   * of full-strength products. See `isRowHiddenDeep`.
+   */
+  isRowHiddenDeep: (id: string) => boolean;
   /** Switches one category or row off, or back on. */
   toggleRowHidden: (id: string) => void;
   /**
@@ -676,15 +696,24 @@ function applyPanelOrder(
 }
 
 function placeInTailMessage(state: NavLayoutState, rowId: string): string {
-  const product = productById(rowId);
-  if (!product) return "Reordered the nav";
-  const home = resolveGroups(state).find(
-    (g) => g.id !== UNGROUPED_ID && g.productIds.includes(rowId),
-  );
+  /*
+   * A CHILD lifted to the top level is the case this used to miss entirely.
+   *
+   * The old guard bailed to "Reordered the nav" for anything `productById`
+   * did not know, which is every L3 — and lifting an L3 is exactly the move
+   * that empties a flyout somewhere you are not looking. The one toast that
+   * should have named a vanished row named nothing at all. `homeOf` answers
+   * for all three rungs. Ashwin, Oct 12.
+   */
+  if (!productById(rowId) && !childById(rowId)) return "Reordered the nav";
   const name = labelForProduct(state, rowId);
-  // Out of a category is the part worth naming — a reorder within the tail is
-  // just a reorder, but leaving a category changes where the row lives.
-  return home ? `Moved ${name} out of ${home.label}` : `Moved ${name}`;
+  const from = homeOf(state, rowId);
+  // Out of a category or a product is the part worth naming — a reorder
+  // within the tail is just a reorder, but leaving somewhere changes where
+  // the row lives, and does it off screen.
+  return from && from !== "the top level"
+    ? `Moved ${name} out of ${from}`
+    : `Moved ${name}`;
 }
 
 function deleteGroupMessage(
@@ -703,6 +732,53 @@ function deleteGroupMessage(
     ? labelForGroup(state, destinationId)
     : "top level";
   return `Removed ${name} — ${rows} moved to ${where}`;
+}
+
+/**
+ * Where a row lives right now, named for a toast — or null if nowhere.
+ *
+ * Every placement verb is a MOVE: the row is cut from wherever it was before
+ * it is placed. That cut is invisible by definition, because it happens in a
+ * part of the nav the person is not looking at — add Smart lists to the top
+ * level and it quietly leaves the Contacts flyout three columns away.
+ *
+ * So the toast says it. The undo offer is already attached to every commit;
+ * all this does is make its sentence name the place that changed behind your
+ * back, which is the difference between an undo you can evaluate and one you
+ * have to take on trust. Ashwin, Oct 12.
+ *
+ * Three homes, in the order they take precedence: a category, a parent
+ * product, the top level. A row genuinely new to the nav has none, and the
+ * caller says "Added" rather than "Moved".
+ */
+function homeOf(state: NavLayoutState, rowId: string): string | null {
+  const group = groupIdForProduct(state, rowId);
+  if (group) return labelForGroup(state, group);
+
+  const child = childById(rowId);
+  if (child) {
+    if (state.tailOrder.includes(rowId)) return "the top level";
+    const parent = state.childOf[rowId] ?? child.product.id;
+    // DETACHED means it has been cut already and has no home to name.
+    if (parent !== DETACHED) return labelForProduct(state, parent);
+    return null;
+  }
+
+  if (state.tailOrder.includes(rowId)) return "the top level";
+  return null;
+}
+
+/** "Moved X from A to B", or "Moved X to B" when it had no home worth naming. */
+function moveMessage(
+  state: NavLayoutState,
+  rowId: string,
+  to: string,
+): string {
+  const from = homeOf(state, rowId);
+  const name = labelForProduct(state, rowId);
+  return from && from !== to
+    ? `Moved ${name} from ${from} to ${to}`
+    : `Moved ${name} to ${to}`;
 }
 
 /**
@@ -1175,6 +1251,12 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
           return pinned === s.pinned ? s : { ...s, pinned };
         }),
 
+      /** Why this name cannot be used, or null. Drives the inline field. */
+      nameTaken: (label, exceptId) =>
+        groupNameTaken(state, label, exceptId)
+          ? "A category already has this name"
+          : null,
+
       labelFor: (groupId) => labelForGroup(state, groupId),
       defaultLabelFor: (groupId) => defaultLabelForGroup(state, groupId),
       isRenamed: (groupId) => isGroupRenamed(state, groupId),
@@ -1182,6 +1264,17 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       setLabel: (groupId, label, scope) => {
         const trimmed = label.trim().slice(0, LABEL_MAX);
         if (!trimmed) return;
+        /*
+         * Refused here as well as in the field.
+         *
+         * The inline check is what the person sees and is the one doing the
+         * real work; this is the one that is true. A validator that lives
+         * only in the input is a validator that every other caller walks
+         * past — a template applied, a recipe, a second field added later —
+         * and the state it is guarding is shared by all of them. Ashwin,
+         * Oct 12.
+         */
+        if (groupNameTaken(state, trimmed, groupId)) return;
         const custom = state.customGroups.some((g) => g.id === groupId);
         // The old name and the new one, because the row on screen now shows only
         // the new one — "Renamed group" left the admin unable to tell which of
@@ -1319,7 +1412,10 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
        * the recipes finally get the undo the customizer never had.
        */
       createGroup: (label, id) => {
-        const trimmed = label.trim().slice(0, LABEL_MAX);
+        const trimmed = uniqueGroupLabel(
+          state,
+          label.trim().slice(0, LABEL_MAX),
+        );
         if (!trimmed) return;
         commit(
           `Added ${trimmed}`,
@@ -1332,7 +1428,19 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       },
 
       createGroupAt: (label, id, index) => {
-        const trimmed = label.trim().slice(0, LABEL_MAX);
+        /*
+         * Numbered rather than refused.
+         *
+         * A new category is born "New category" before anyone has typed, so
+         * adding two in a row produced the duplicate state without a single
+         * keystroke — and refusing the second would be a baffling way to
+         * report a name the person never chose. It becomes "New category 2"
+         * and the rename field opens on it as usual.
+         */
+        const trimmed = uniqueGroupLabel(
+          state,
+          label.trim().slice(0, LABEL_MAX),
+        );
         if (!trimmed) return;
         commit(`Added ${trimmed}`, (s) => {
           const added = withNewGroup(s, trimmed, id);
@@ -1423,10 +1531,12 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
        */
       moveChildToGroup: (childId, groupId, index) =>
         commit(
-          `Moved ${labelForProduct(state, childId)} to ${
+          moveMessage(
+            state,
+            childId,
             resolveGroups(state).find((g) => g.id === groupId)?.label ??
-            "the nav"
-          }`,
+              "the nav",
+          ),
           (s) => withChildInGroup(s, childId, groupId, index),
         ),
       moveChildToProduct: (childId, parentId) =>
@@ -1456,8 +1566,25 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
           return {
             ...unfiled,
             groupOrder: { ...unfiled.groupOrder, [unfiled.grouping]: next },
-            // The tail, in the order the new L1 list implies.
-            tailOrder: next.filter((id) => tail.includes(id)),
+            /*
+              The tail, in the order the new L1 list implies — plus the child
+              that is arriving, which by definition is not in it yet.
+
+              `tailRowsFor` resolves a lifted child BY READING `tailOrder`:
+              that list is the record of which children have been pulled out
+              of their product. So filtering against the tail computed from
+              the OLD state dropped the very row being added — the id went
+              into `groupOrder`, `applyOrder` found it in no defaults, and the
+              row rendered nowhere. Adding a page from the nav's own menu did
+              nothing at all. Ashwin, Oct 12.
+
+              A child is therefore kept unconditionally: being here IS what
+              makes it resolvable, and `withRowDetached` has already taken it
+              out of wherever it was.
+            */
+            tailOrder: next.filter(
+              (id) => tail.includes(id) || childById(id) !== undefined,
+            ),
           };
         }),
 
@@ -1496,20 +1623,33 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
          * Provision first: no recipe will place a product the account does not
          * have.
          */
-        const from = groupIdForProduct(state, productId);
+        /*
+         * `homeOf`, not `groupIdForProduct`.
+         *
+         * The old test only saw categories, so relocating a row from the top
+         * level or out of a product's flyout was announced as "Added" — true
+         * of the destination and silent about the place that had just lost
+         * it, which is the half you cannot see.
+         */
+        const here = labelForGroup(state, groupId);
+        const from = homeOf(state, productId);
         const message =
-          from && from !== groupId
-            ? `Moved ${labelForProduct(state, productId)} from ${labelForGroup(
-                state,
-                from,
-              )} to ${labelForGroup(state, groupId)}`
-            : `Added ${labelForProduct(state, productId)} to ${labelForGroup(
-                state,
-                groupId,
-              )}`;
+          from && from !== here
+            ? `Moved ${labelForProduct(state, productId)} from ${from} to ${here}`
+            : `Added ${labelForProduct(state, productId)} to ${here}`;
+        /*
+         * Cut, then place — `withRowDetached` before the file.
+         *
+         * `withProductFiled` only rewrites `customGroups`, so a product
+         * standing at the top level kept its `tailOrder` entry and was drawn
+         * BOTH in its new category and where it had been. The same hole the
+         * lifted-child flyout had, one rung up: every other placement verb
+         * already cuts first, and these two were the ones that did not.
+         * Ashwin, Oct 12.
+         */
         commit(message, (s) =>
           withProductFiled(
-            withProduct(s, productId, true),
+            withRowDetached(withProduct(s, productId, true), productId),
             productId,
             groupId,
             index,
@@ -1519,11 +1659,16 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
 
       moveProductToGroup: (productId, groupId, index) =>
         commit(
-          `Moved ${labelForProduct(state, productId)} to ${labelForGroup(
-            state,
-            groupId,
-          )}`,
-          (s) => withProductFiled(s, productId, groupId, index),
+          moveMessage(state, productId, labelForGroup(state, groupId)),
+          // Cut first, as above: a product dragged in from the top level has
+          // a `tailOrder` entry that `withProductFiled` does not clear.
+          (s) =>
+            withProductFiled(
+              withRowDetached(s, productId),
+              productId,
+              groupId,
+              index,
+            ),
         ),
 
       moveProductWithinGroup: (groupId, fromIndex, toIndex) =>
@@ -1583,6 +1728,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       // steps as the nav's own control so the two cannot disagree about whether
       // a baseline exists.
       isRowHidden: (id) => isRowHidden(state, id),
+      isRowHiddenDeep: (id) => isRowHiddenDeep(state, resolveGroups(state), id),
 
       toggleRowHidden: (id) => {
         const hiding = !isRowHidden(state, id);

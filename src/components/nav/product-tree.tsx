@@ -11,6 +11,7 @@ import { useTheme } from "@/components/theme/theme-provider";
 import { childById, productById } from "./catalogue";
 import type { CatalogueChild } from "./catalogue-types";
 import {
+  childrenFor,
   iconForProduct,
   labelForProduct,
   type NavLayoutState,
@@ -239,8 +240,15 @@ export function treeBranchFor(
   const group = groups.find((g) => g.id === item.id);
   if (group) {
     return group.productIds.map((id) => {
+      /*
+       * `childrenFor`, not the catalogue's own list.
+       *
+       * Same frozen-opinion bug the lifted flyout had: a child moved out of
+       * this product still appeared beneath it in the tree picker, so the
+       * picker disagreed with the nav it was editing.
+       */
       const product = productById(id);
-      const kids = product?.tabs ? undefined : product?.children;
+      const kids = product?.tabs ? undefined : childrenFor(state, id);
       const children = nodesFromChildren(state, kids);
       return {
         id,
@@ -251,7 +259,7 @@ export function treeBranchFor(
     });
   }
 
-  const lifted = liftedChildren(item.id);
+  const lifted = liftedChildren(state, item.id);
   if (lifted.length > 0) return nodesFromChildren(state, lifted) ?? null;
 
   const chrome = CHROME_BRANCHES[item.flyoutId ?? item.id];

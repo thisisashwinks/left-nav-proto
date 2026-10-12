@@ -1097,11 +1097,10 @@ function resolveTree(state: NavLayoutState): ResolvedGroup[] {
       const loose = edited
         ? // Launchpad is reachable and never a row — the card above Recent is
           // its only nav affordance. `looseProductIds` answers "filed nowhere",
-          // which after an edit is true of it, so it has to be excluded by name
-          // or the first drag puts a second Launchpad in the nav.
-          looseProductIds(state, groups).filter(
-            (id) => !PROPOSED_UNLISTED_IDS.includes(id),
-          )
+          // which after an edit is true of it, so it has to be excluded or the
+          // first drag puts a second Launchpad in the nav. See
+          // `withoutUnlistedIds` for why the same line appears four times.
+          withoutUnlistedIds(looseProductIds(state, groups))
         : PROPOSED_DESTINATION_IDS.filter((id) => enabled.has(id));
       if (loose.length === 0) return groups;
       return [
@@ -1137,7 +1136,18 @@ function resolveTree(state: NavLayoutState): ResolvedGroup[] {
       // Anything no group claims is a top-level row: still reachable, still
       // ordered, just without a heading over it. Collected here rather than in
       // each surface so the nav, the launcher and search agree on what is loose.
-      const loose = looseProductIds(state, groups);
+      /*
+       * Excluded here for the reason given on `withoutUnlistedIds`, and this
+       * is the branch where the omission actually showed.
+       *
+       * Launchpad is permanently "filed nowhere", which was harmless while
+       * the account sat on `proposed` — the branch above catches it by name.
+       * But saving a template flips the account to `custom`, and this branch
+       * took every unclaimed id at face value, so a Launchpad row appeared in
+       * the nav after a save nobody had asked for it in. An account that is
+       * genuinely custom never owned the id, so the filter is inert there.
+       */
+      const loose = withoutUnlistedIds(looseProductIds(state, groups));
       if (loose.length === 0) return groups;
       return [
         ...groups,
@@ -1221,11 +1231,91 @@ export function seedCustomGroups(state: NavLayoutState): CustomGroup[] {
  * from another product lands at the end until someone drags it, which is
  * where a "move to" has always put things.
  */
+/**
+ * Whether a row READS as hidden, counting its ancestors.
+ *
+ * `isRowHidden` answers about the row itself, which is the right question for
+ * the store and the wrong one for the screen: hide CRM and its products were
+ * still drawn at full strength inside it, hide a product and its pages were.
+ * The eye said one thing and the rows under it said another. Ashwin, Oct 12.
+ *
+ * INHERITED, not written. Hiding a category does not mark every row beneath
+ * it — that would be unrecoverable in the only way that matters: unhiding the
+ * category could not tell which of its rows had been switched off on their
+ * own and which had merely been carried. The flag stays on the row the eye
+ * was clicked on, and everything below reads through to it.
+ *
+ * Which also means the child's own eye keeps working while an ancestor is
+ * hidden. It is switching its OWN flag, and the row stays faded until the
+ * ancestor comes back — the state is honest even though the pixels do not
+ * change, and the alternative is an eye that silently refuses.
+ */
+export function isRowHiddenDeep(
+  state: NavLayoutState,
+  groups: readonly ResolvedGroup[],
+  id: string,
+): boolean {
+  if (isRowHidden(state, id)) return true;
+  const child = childById(id);
+  if (child) {
+    // Its parent as the ACCOUNT has it, which is not always the catalogue's.
+    const parentId = state.childOf[id] ?? child.product.id;
+    // A page lifted to the top level has no parent to inherit from: it is a
+    // row of the nav now, and only its own flag speaks for it.
+    if (state.tailOrder.includes(id)) return false;
+    /*
+     * Detached and filed into a category: it inherits from that category, the
+     * same as any product sitting there. Recursing on the sentinel would ask
+     * whether a product that does not exist is hidden, which is false for the
+     * wrong reason — right answer, no reasoning behind it.
+     */
+    if (parentId === DETACHED) {
+      const home = groups.find(
+        (g) => g.id !== UNGROUPED_ID && g.productIds.includes(id),
+      );
+      return home ? isRowHidden(state, home.id) : false;
+    }
+    return isRowHiddenDeep(state, groups, parentId);
+  }
+  const owner = groups.find(
+    (g) => g.id !== UNGROUPED_ID && g.productIds.includes(id),
+  );
+  return owner ? isRowHidden(state, owner.id) : false;
+}
+
+/**
+ * `childOf`'s answer for "nowhere".
+ *
+ * A child that has been moved OUT of its catalogue parent but is not under
+ * another product — filed into a category as a row of its own, say — needs a
+ * record saying so. Deleting its `childOf` entry cannot do that: absence is
+ * already read as "still where the catalogue put it", so the row stayed in
+ * its old flyout while also standing in its new home. Two places at once,
+ * which is the one thing the tree must never allow.
+ *
+ * So the detach writes a value rather than clearing one. It is a product id
+ * no product has, which makes every existing comparison fail closed without
+ * any of them having to learn about it: `childOf[c.id] === productId` is
+ * false for every real product, and the adopted-children pass skips it for
+ * the same reason. Ashwin, Oct 12.
+ */
+export const DETACHED = "\u0000detached";
+
 export function childrenFor(
   state: NavLayoutState,
   productId: string,
 ): readonly CatalogueChild[] {
-  const own = productById(productId)?.children ?? [];
+  /*
+   * A CHILD can own children too, once it has been lifted to the top level.
+   *
+   * `productById` only answers for the catalogue's top rung, so asking it
+   * about a promoted L3 returned nothing and the row drew as a dead end.
+   * Falling through to `childById` lets one resolver answer for every rung,
+   * which is what stops the lifted-row flyout needing a resolver of its own —
+   * and a second resolver is exactly how the two drifted apart.
+   */
+  const own =
+    (productById(productId) ?? childById(productId)?.child)?.children ?? [];
   const lifted = new Set(state.tailOrder);
   const kept = own.filter(
     (c) =>
@@ -1296,7 +1386,16 @@ export function withRowDetached(
     ? withProductFiled(state, rowId, null)
     : state;
   const childOf = { ...unfiled.childOf };
-  delete childOf[rowId];
+  /*
+   * A CHILD is marked detached; anything else has its entry cleared.
+   *
+   * The asymmetry is the point. A child has a home in the catalogue that no
+   * amount of deleting can take away, so "cut" has to be written down. A
+   * product has no such default — absence genuinely means unfiled — and
+   * writing a sentinel for it would only leave a key nothing reads.
+   */
+  if (childById(rowId)) childOf[rowId] = DETACHED;
+  else delete childOf[rowId];
   return {
     ...unfiled,
     childOf,
@@ -1391,6 +1490,26 @@ export function looseProductIds(
  * The test is "does this account's own tree know where this product goes" —
  * either it is provisioned, or the tree it is filed in is this account's.
  */
+/**
+ * Drops the entries that are reachable but must never resolve to a nav row.
+ *
+ * Launchpad is the whole list: the card above Recent is its only affordance,
+ * and it belongs to no bucket, which means every "what is filed nowhere?"
+ * question in this file answers with it. That question gets asked in four
+ * places — the proposed and custom branches of `resolveGroups`, the nav tree
+ * the Move menus walk, and the stock tree the Add menu walks — and each one
+ * was written as if it were the only one. Three of them took Launchpad at
+ * face value, so saving a template put a Launchpad row in the nav and the Add
+ * menu offered to put a second one there.
+ *
+ * Hence a named helper rather than a fourth inline filter: the next function
+ * that asks "what is loose?" should find the exclusion already attached to
+ * the answer instead of rediscovering it the way these did.
+ */
+function withoutUnlistedIds(ids: string[]): string[] {
+  return ids.filter((id) => !PROPOSED_UNLISTED_IDS.includes(id));
+}
+
 export function addableProducts(state: NavLayoutState): CatalogueEntry[] {
   const enabled = enabledSetFor(state);
   return allProducts.filter(
@@ -1433,7 +1552,7 @@ export function navTreeFor(state: NavLayoutState): {
   const filed = new Set(categories.flatMap((c) => c.productIds));
   return {
     categories,
-    loose: [...universe].filter((id) => !filed.has(id)),
+    loose: withoutUnlistedIds([...universe].filter((id) => !filed.has(id))),
   };
 }
 
@@ -1457,6 +1576,62 @@ export function navTreeFor(state: NavLayoutState): {
  * provisioned appear, and a product filed nowhere in the shipped tree falls
  * loose exactly as it does in the nav.
  */
+/**
+ * The label a category already answers to, folded for comparison.
+ *
+ * Case and surrounding space are not a difference anyone can see in a nav
+ * row, so "Sales", "sales" and " Sales " are the same name to a reader and
+ * have to be the same name to the check. Anything stricter would be a
+ * validator that passes a duplicate the moment someone holds shift.
+ */
+function foldLabel(label: string): string {
+  return label.trim().toLocaleLowerCase();
+}
+
+/**
+ * Whether another category already has this name.
+ *
+ * `exceptId` is the category being renamed, which must not collide with
+ * itself — without it, confirming a rename that changed only the capitals
+ * would be refused as a duplicate of the row you are standing on.
+ *
+ * Asked of RESOLVED groups, so it sees shipped categories under their
+ * overridden names as well as the account's own. A category called "CRM"
+ * because someone renamed "Sales" to it is exactly as confusing as two called
+ * "sdfs", and the store that allows one allows the other. Ashwin, Oct 12.
+ */
+export function groupNameTaken(
+  state: NavLayoutState,
+  label: string,
+  exceptId?: string,
+): boolean {
+  const wanted = foldLabel(label);
+  if (!wanted) return false;
+  return resolveGroups(state).some(
+    (g) =>
+      g.id !== UNGROUPED_ID &&
+      g.id !== exceptId &&
+      foldLabel(g.label) === wanted,
+  );
+}
+
+/**
+ * `base`, or `base 2`, `base 3` — the first spelling nothing else answers to.
+ *
+ * For the seed name a new category is born with. Two categories both called
+ * "New category" is the duplicate state arriving before anyone has typed a
+ * character, and refusing to create the second would be a strange way to
+ * report it. Numbering is what every file manager does and needs no message.
+ */
+export function uniqueGroupLabel(state: NavLayoutState, base: string): string {
+  if (!groupNameTaken(state, base)) return base;
+  for (let n = 2; n < 500; n += 1) {
+    const candidate = `${base} ${n}`;
+    if (!groupNameTaken(state, candidate)) return candidate;
+  }
+  return base;
+}
+
 export function stockTreeFor(state: NavLayoutState): {
   categories: { id: string; label: string; icon: LucideIcon; productIds: string[] }[];
   loose: string[];
@@ -1505,7 +1680,7 @@ export function stockTreeFor(state: NavLayoutState): {
   const filed = new Set(categories.flatMap((c) => c.productIds));
   return {
     categories,
-    loose: [...universe].filter((id) => !filed.has(id)),
+    loose: withoutUnlistedIds([...universe].filter((id) => !filed.has(id))),
   };
 }
 
