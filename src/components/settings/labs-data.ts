@@ -69,11 +69,89 @@ export interface SubAccountFlag extends LabsFlag {
  */
 const SWITCHYARD = {
   id: "switchyard",
-  name: "Switchyard",
-  headline: "The new navigation",
+  /*
+   * Named for what it IS, not for what it is called internally.
+   *
+   * "Switchyard" is the project's name and means nothing to an agency owner
+   * reading Labs — it is the sort of codename that gets shipped by accident
+   * and then has to be explained in every support thread afterwards. The
+   * title is the promise instead, with the colon-prefixed codename of the
+   * reference card deliberately dropped. Ashwin, Oct 13.
+   *
+   * The id stays `switchyard`: that is what the rollout store, the shell and
+   * every preview link key off, and renaming data to match a label is how a
+   * prototype ends up with two names for one flag.
+   */
+  name: "A New Design Experience, Starting with Navigation",
+  headline: "A New Design Experience, Starting with Navigation",
+  /*
+   * Not rendered on this card — see SWITCHYARD_POINTS, which replaces it —
+   * but kept, and kept accurate.
+   *
+   * It is what the card would say if it ever fell back to the ordinary
+   * treatment, and `LabsFlag` requires it of every flag so that the search
+   * and the two pictured tabs have one shape to read. A placeholder here
+   * would be a lie waiting for the first person who widens the filter.
+   */
   blurb:
     "A rebuilt left navigation: categories you can arrange, pinned items with keyboard shortcuts, and a product directory that replaces the old flyout. Switching it on changes the nav for everyone in this agency — sub-accounts keep the old one until you enable it for them below.",
 } as const;
+
+/**
+ * What the card promises, as four claims rather than a paragraph.
+ *
+ * The ordinary flag gets a blurb because the ordinary flag is a sentence
+ * long. This one is a navigation replacing a navigation, and the question
+ * its reader actually has is "what do I get, and what breaks" — which a
+ * paragraph answers only by being read in full. Four ticked lines answer it
+ * by being scanned.
+ *
+ * The fourth is the one that matters and it is deliberately last: every
+ * other line is an offer, and that one is the reassurance the offer needs.
+ * An agency owner reading a nav beta is not asking what it adds, they are
+ * asking what it takes away.
+ */
+export const SWITCHYARD_POINTS: readonly { title: string; body: string }[] = [
+  {
+    title: "Make it theirs",
+    body: "Rename, reorder and hide groups so each sub-account looks built for its business.",
+  },
+  {
+    title: "Build once, apply everywhere",
+    body: "Save a layout as a template and push it to every sub-account. One push updates them all.",
+  },
+  {
+    title: "Stop hunting",
+    body: "Pin the pages you live in, jump back to recent ones, and search any page, setting or record.",
+  },
+  {
+    title: "Nothing else changes",
+    body: "Every feature works as it does today. This changes how you move, not what you can do.",
+  },
+];
+
+/**
+ * The three things that are true and unwelcome, stated before the switch.
+ *
+ * On the card rather than in a support article, and above the footer's
+ * Activate rather than below it, because all three are only discoverable
+ * AFTERWARDS: an agency finds out its custom CSS is dead by looking at a
+ * sidebar that has lost it. A beta that surprises its first takers does not
+ * get second ones.
+ *
+ * Plainly worded and not softened. "Doesn't keep your layout" is the whole
+ * fact; "your layout may not be preserved in all cases" is the same fact
+ * written by someone hoping not to be asked about it.
+ */
+export const SWITCHYARD_CAVEATS: readonly string[] = [
+  "Custom CSS and JS for the old sidebar doesn't run on the new navigation. You can switch it back on to compare.",
+  "Turning it off brings back the old navigation but doesn't keep your layout.",
+  "How much you can customize depends on your plan.",
+];
+
+/** What sits beside the preview button: what the click costs, which is nothing. */
+export const SWITCHYARD_TRY_NOTE =
+  "Opens in a new tab, only for you. Nothing to undo.";
 
 /**
  * Where the two preview links go.

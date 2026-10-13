@@ -3,9 +3,9 @@
 import * as React from "react";
 import {
   ArrowRight,
+  Check,
   ChevronLeft,
   ChevronRight,
-  ExternalLink,
   Eye,
   EyeOff,
   Info,
@@ -19,6 +19,7 @@ import { useLabs, type AccountAccess } from "./labs-state";
 import { PageTitle, usePageChrome } from "@/components/page/page-header";
 import { showToast } from "@/components/page/toast";
 import { useTheme } from "@/components/theme/theme-provider";
+import type { SwitchyardTry } from "@/design/theme";
 import { LabsRolloutConsole } from "./labs-rollout-console";
 import { cn } from "@/lib/utils";
 import {
@@ -27,6 +28,9 @@ import {
   REACH_LABELS,
   SUB_ACCOUNT_FLAGS,
   SWITCHYARD_PREVIEW,
+  SWITCHYARD_POINTS,
+  SWITCHYARD_CAVEATS,
+  SWITCHYARD_TRY_NOTE,
   type LabsFlag,
   type SubAccountFlag,
 } from "./labs-data";
@@ -116,10 +120,20 @@ export function LabsPage() {
 
 
   const q = query.trim().toLowerCase();
+  /*
+   * The id is searched too, and that is not padding.
+   *
+   * Switchyard's card is titled by its promise rather than by its codename
+   * now — see SWITCHYARD in labs-data — so the word everyone in this
+   * building calls it by appears nowhere on the card. Matching the id keeps
+   * "switchyard" finding the thing it names, which is what anybody typing
+   * it is after.
+   */
   const matches = (f: LabsFlag) =>
     q === "" ||
     f.name.toLowerCase().includes(q) ||
-    f.headline.toLowerCase().includes(q);
+    f.headline.toLowerCase().includes(q) ||
+    f.id.toLowerCase().includes(q);
 
   const agencyFlags = AGENCY_FLAGS.filter(matches);
   /*
@@ -737,6 +751,15 @@ export function FlagCard({
   const hasToggle = !sub && (flag.state === "on" || wired);
   const preview = flag.id === "switchyard" ? (previewHref ?? null) : null;
   /*
+   * Keyed off the flag, not off `preview`.
+   *
+   * The body is what the card SAYS; the preview is one button inside it.
+   * Tying the two together would mean a caller that omitted the link — the
+   * sub-account page does, for a flag it has not wired — silently getting
+   * the old paragraph back, which is a copy change nobody made.
+   */
+  const switchyardBody = flag.id === "switchyard";
+  /*
    * A real flag reports the state it is actually in; a pictured one reports
    * the state its fixture claims. Same card either way — the difference is
    * which source is telling the truth, not which treatment is drawn.
@@ -809,61 +832,27 @@ export function FlagCard({
         <p className="text-[14px] leading-[20px] font-medium text-pg-text-strong">
           {flag.headline}
         </p>
+        {/*
+          Switchyard gets its own body; every other flag gets the blurb.
+
+          Not a general treatment that happens to be used once. The other
+          cards are a sentence from a feature-flag description and the
+          ordinary paragraph is the honest shape for them — giving all five
+          a ticked list would mean inventing four claims per flag, which is
+          the prototype writing marketing copy for features it has not got.
+          This one is a navigation replacing a navigation, and the reader has
+          a different question. See SWITCHYARD_POINTS.
+        */}
+        {switchyardBody ? (
+          <SwitchyardBody
+            preview={preview}
+            mode={switchyardTry}
+            {...(onTry ? { onTry } : {})}
+          />
+        ) : (
+        <>
         <p className="mt-[8px] text-[13px] leading-[20px] text-pg-muted">
           {long && !expanded ? `${flag.blurb.slice(0, BLURB_CLAMP)}…` : flag.blurb}
-          {/*
-            The preview, inline at the end of the description rather than
-            down in the footer beside Activate.
-
-            It belongs to the sentence that describes the feature, not to
-            the row of things that CHANGE it — a reader deciding whether to
-            take a beta wants to look before they reach the switch, and a
-            link sitting next to Activate reads as a second way to activate.
-
-            Which sidebar it opens depends on the tab: see
-            SWITCHYARD_PREVIEW. `rel=noreferrer` with `_blank` because the
-            opened tab gets a `window.opener` handle otherwise.
-          */}
-          {preview && switchyardTry !== "trial" ? (
-            <>
-              {" "}
-              <a
-                href={preview}
-                target="_blank"
-                rel="noreferrer"
-                className="motion-tap inline-flex items-center gap-[4px] font-medium text-brand hover:underline"
-              >
-                Preview{" "}
-                {previewHref === SWITCHYARD_PREVIEW.sub
-                  ? "the sub-account nav"
-                  : "the agency nav"}
-                <ExternalLink size={12} aria-hidden="true" className="shrink-0" />
-              </a>
-            </>
-          ) : null}
-          {/*
-            The second offer, where the axis asks for it.
-
-            Both read as links in the same sentence rather than one being
-            a button, because they are two ways of answering one question
-            and a button beside a link would rank them. Order matters:
-            preview first, because "what is this" comes before "what would
-            this be like for me" — and the second is the one that changes
-            your own workspace. See SWITCHYARD_TRIES.
-          */}
-          {preview && switchyardTry !== "preview" && onTry ? (
-            <>
-              {switchyardTry === "both" ? " · " : " "}
-              <button
-                type="button"
-                onClick={onTry}
-                className="motion-tap inline-flex items-center gap-[4px] font-medium text-brand hover:underline"
-              >
-                Try it in this account
-                <ArrowRight size={12} aria-hidden="true" className="shrink-0" />
-              </button>
-            </>
-          ) : null}
         </p>
         {long ? (
           <button
@@ -874,6 +863,8 @@ export function FlagCard({
             {expanded ? "Show Less" : "Show More"}
           </button>
         ) : null}
+        </>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-[12px] px-[20px] py-[12px] shadow-[inset_0_1px_0_0_var(--pg-border)]">
@@ -899,6 +890,143 @@ export function FlagCard({
         </button>
       </div>
     </article>
+  );
+}
+
+/**
+ * Switchyard's card body: four claims, a way in, and the small print.
+ *
+ * Three bands, in the order a decision is actually made. What you get, how
+ * to look at it without committing, and what it costs — and the third is
+ * inside a bordered box rather than a fourth run of ticks, because a
+ * caveat drawn like a benefit is a caveat nobody reads.
+ *
+ * The preview is a BUTTON here, where it was a link inside the paragraph
+ * before. That was right when it sat mid-sentence among the words
+ * describing the feature; it is wrong now that the body is a list and
+ * there is no sentence to sit inside. The thing it does has not changed —
+ * same href, same new tab, same demo account.
+ */
+function SwitchyardBody({
+  preview,
+  mode,
+  onTry,
+}: {
+  /** The demo tab's href, or null where the caller gave none. */
+  preview: string | null;
+  /** Which ways in this prototype is offering. See SWITCHYARD_TRIES. */
+  mode: SwitchyardTry;
+  onTry?: () => void;
+}) {
+  return (
+    <div className="mt-[12px] rounded-[10px] bg-pg-bg p-[16px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
+      <ul className="flex flex-col gap-[14px]">
+        {SWITCHYARD_POINTS.map((point) => (
+          <li key={point.title} className="flex items-start gap-[10px]">
+            {/*
+              A tick in a soft disc, not a bullet. Each line is a promise
+              being made rather than an item being enumerated, and the one
+              list on this page that is a row of facts — the caveats below —
+              uses bullets, so the two cannot be confused at a glance.
+            */}
+            <span
+              aria-hidden="true"
+              className="mt-[1px] flex size-[20px] shrink-0 items-center justify-center rounded-full bg-[var(--hr-primary-50)] text-brand"
+            >
+              <Check size={13} strokeWidth={2.5} />
+            </span>
+            <span className="min-w-0 flex flex-col gap-[2px]">
+              <span className="text-[14px] leading-[20px] font-semibold text-pg-heading">
+                {point.title}
+              </span>
+              <span className="text-[13px] leading-[18px] text-pg-muted">
+                {point.body}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      {/*
+        The way in, and what it costs beside it rather than under it.
+
+        "Nothing to undo" is the sentence that gets the click, so it sits on
+        the button's own line where it is read as part of the offer — a line
+        of reassurance below a button reads as a footnote to a decision
+        already taken.
+      */}
+      {preview && mode !== "trial" ? (
+        <div className="mt-[18px] flex flex-wrap items-center gap-x-[16px] gap-y-[8px]">
+          <a
+            href={preview}
+            target="_blank"
+            rel="noreferrer"
+            className="motion-tap flex h-[36px] shrink-0 items-center gap-[8px] rounded-[8px] bg-brand px-[16px] text-[14px] leading-[normal] font-medium text-brand-fg hover:opacity-90 active:scale-[0.98]"
+          >
+            <Eye size={16} aria-hidden="true" className="shrink-0" />
+            Try now
+          </a>
+          <span className="text-[13px] leading-[18px] text-pg-muted">
+            {SWITCHYARD_TRY_NOTE}
+            {/*
+              The in-place trial rides at the end of that line when the axis
+              asks for it — a second way to answer the same question, and
+              the one that touches your own workspace. A second filled
+              button beside the first would rank them as equals, which they
+              are not: one is a look, the other is a change.
+            */}
+            {mode !== "preview" && onTry ? (
+              <>
+                {" · "}
+                <button
+                  type="button"
+                  onClick={onTry}
+                  className="motion-tap inline-flex items-center gap-[4px] font-medium text-brand hover:underline"
+                >
+                  Try it in this account
+                  <ArrowRight
+                    size={12}
+                    aria-hidden="true"
+                    className="shrink-0"
+                  />
+                </button>
+              </>
+            ) : null}
+          </span>
+        </div>
+      ) : mode === "trial" && onTry ? (
+        /*
+          Trial-only: the in-place trial IS the way in, so it takes the
+          button. Leaving it as a text link would leave the card with no
+          primary control at all under this axis.
+        */
+        <div className="mt-[18px] flex flex-wrap items-center gap-x-[16px] gap-y-[8px]">
+          <button
+            type="button"
+            onClick={onTry}
+            className="motion-tap flex h-[36px] shrink-0 items-center gap-[8px] rounded-[8px] bg-brand px-[16px] text-[14px] leading-[normal] font-medium text-brand-fg hover:opacity-90 active:scale-[0.98]"
+          >
+            Try it in this account
+            <ArrowRight size={16} aria-hidden="true" className="shrink-0" />
+          </button>
+          <span className="text-[13px] leading-[18px] text-pg-muted">
+            Switches this workspace over. One control to leave.
+          </span>
+        </div>
+      ) : null}
+
+      <div className="mt-[18px] rounded-[10px] bg-pg-surface p-[14px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
+        <p className="flex items-center gap-[8px] text-[14px] leading-[20px] font-semibold text-pg-heading">
+          <Info size={16} aria-hidden="true" className="shrink-0 text-pg-muted" />
+          Before you turn it on
+        </p>
+        <ul className="mt-[8px] flex list-disc flex-col gap-[6px] pl-[34px] text-[13px] leading-[18px] text-pg-muted">
+          {SWITCHYARD_CAVEATS.map((caveat) => (
+            <li key={caveat}>{caveat}</li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 }
 

@@ -27,6 +27,7 @@ import { useSwapPhase } from "@/lib/use-swap-phase";
 import { NAV_SWAP_OUT_MS } from "@/design/motion-timing";
 import { RailRowsSkeleton } from "@/components/shell/switching";
 import { AccountLogo } from "@/components/accounts/account-logo";
+import { initialsFor } from "@/components/accounts/account-rail";
 import type { Account } from "@/components/accounts/accounts-data";
 import type { WorkspaceScope } from "@/components/accounts/use-accounts";
 import type { AiSession } from "@/components/ai/use-ai-session";
@@ -233,9 +234,39 @@ export function CollapsedRail({
     launchpad: launchpadSetting,
     navArrangement,
     railViewAll,
+    railAvatars,
   } = useTheme().effective;
   /* What the companion-apps row is called right now. See APPS_ROW_LABELS. */
   const appsRowName = useGetAppNavLabel();
+  /*
+   * The head mark follows the rail's avatar axis, like every other tile of
+   * this account.
+   *
+   * It was drawing the uploaded logo whatever the axis said, so switching to
+   * initials stripped eleven tiles in the account rail and left this one — the
+   * same account, one column over, at the same size — still wearing its mark.
+   * See RAIL_AVATARS.
+   *
+   * Tenants only. The agency's mark is deliberately exempt from the axis in
+   * the account rail too: it is the product's own mark on a white-labelled
+   * platform, not one tile among peers, and lettering it says the agency is
+   * an account you might switch to.
+   */
+  const markAvatar =
+    agencyScope || railAvatars === "marks"
+      ? {}
+      : { initials: initialsFor(account.name), tint: railAvatars === "tinted" };
+  /*
+   * Whether the head mark is on screen at all — see the gate below.
+   *
+   * Hoisted, because the head's GEOMETRY depends on it: with the mark there
+   * the strip opens with a bar-height row to centre it in, and without it the
+   * strip opens on its own padding. Writing the condition twice is how those
+   * two fall out of step.
+   */
+  const headMark = !(agencyScope
+    ? !agencyNavMark
+    : railAbove && !subAccountNavMark);
   /**
    * Whether this rail is the collapsed face of a TREE nav.
    *
@@ -511,13 +542,31 @@ export function CollapsedRail({
    * strip's rhythm is the expanded nav's. The hairline is drawn into the gap
    * that is already there. Ashwin, Oct 7.
    */
+  /*
+   * The hairline itself, stated once for every rule in the strip.
+   *
+   * Centred at a fixed 32px rather than `inset-x-[8px]`, and that is the Oct
+   * 13 fix. An inset measures from whatever box the rule happens to be in,
+   * and this column has two: the fixed head, and the scroll region below it,
+   * which reserves `--nav-scroll-gutter` on each side for its bar. Same
+   * class, two different widths — the rule above Settings came out several
+   * pixels short of the one above the products, and a shorter hairline of the
+   * same colour reads as a lighter one, which is what Ashwin saw.
+   *
+   * 32 is what the inset resolved to outside the region: a 64px rail, 8px of
+   * padding a side, 8 more in. Stating the result rather than the arithmetic
+   * is what makes it the same number in both boxes.
+   */
+  const RULE =
+    "absolute left-1/2 h-px w-[32px] -translate-x-1/2 bg-nav-divider";
+
   const divider = (key: string) => (
     <div
       key={key}
       aria-hidden="true"
       className="relative h-0 w-full shrink-0 mt-[calc(var(--t-nav-space,2px)*-1)]"
     >
-      <div className="absolute inset-x-[8px] top-0 h-px bg-nav-divider" />
+      <div className={cn(RULE, "top-0")} />
     </div>
   );
 
@@ -630,7 +679,16 @@ export function CollapsedRail({
         It travels down the whole head of the strip: the expand toggle and
         the Launchpad glyph move with it, which is what was asked for.
       */
-      className="group/nav flex h-full w-[64px] shrink-0 flex-col items-center gap-[4px] overflow-hidden pt-[18px] pr-[8px] pb-[3px] pl-[8px]"
+      className={cn(
+        "group/nav flex h-full w-[64px] shrink-0 flex-col items-center gap-[4px] overflow-hidden pr-[8px] pb-[3px] pl-[8px]",
+        /*
+          With the mark on screen the head is a bar-height row of its own —
+          see below — and the column's own top padding would push it past the
+          line it is there to sit on. Without the mark there is no row to
+          centre anything in, so the strip keeps the padding it had.
+        */
+        headMark ? "pt-0" : "pt-[18px]",
+      )}
     >
       {/*
         The rail has no room for a name or a chevron, so the mark itself is the
@@ -649,9 +707,26 @@ export function CollapsedRail({
         the expanded header can drop it. Nothing is lost but a second Expand
         target: the button directly below does that job and says so.
       */}
-      {(agencyScope ? !agencyNavMark : railAbove && !subAccountNavMark)
-        ? null
-        : canSwitch ? (
+      {/*
+        A bar-height row to centre the mark in, rather than a number that
+        happens to land near the line.
+
+        It used to be `pt-[18px]` on the column, chosen on Oct 9 to get the
+        mark off the window's top edge — which it did, and overshot: 18 plus
+        half a 26px mark puts its centre on y=31, where the app bar's midline
+        is 24. The expanded nav's identity row is already on 24 by the same
+        arithmetic (9px of padding, a 30px row), so the mark was the one fixed
+        point in the chrome that MOVED when you collapsed the nav, which is
+        the thing the Oct 9 note was trying to prevent.
+
+        Stated as the bar's own height, so the two cannot drift apart when
+        that changes. `-mb-[4px]` cancels the column's gap: the row below this
+        one starts at y=48 exactly as it did at pt-18, so the expand toggle
+        and the Launchpad glyph hold the positions Ashwin asked them to take.
+      */}
+      {!headMark ? null : (
+      <div className="flex h-[var(--shell-bar-h,48px)] w-full shrink-0 -mb-[4px] items-center justify-center">
+        {canSwitch ? (
         <button
           type="button"
           title="Expand navigation"
@@ -662,6 +737,7 @@ export function CollapsedRail({
           <AccountLogo
             logo={account.logo}
             src={agencyScope ? account.logoSrc : (config.logoSrc ?? account.logoSrc)}
+            {...markAvatar}
             size={26}
             radius={999}
           />
@@ -674,10 +750,13 @@ export function CollapsedRail({
           <AccountLogo
             logo={account.logo}
             src={config.logoSrc ?? account.logoSrc}
+            {...markAvatar}
             size={26}
             radius={999}
           />
         </span>
+      )}
+      </div>
       )}
 
       {/*
@@ -942,6 +1021,30 @@ export function CollapsedRail({
             ) : null,
           )}
           {/*
+            The rule above the anchored chrome, and the 16px it sits in.
+
+            Both halves of `NavDivider`, drawn at rail width: that component
+            is a 1px line in a box padded 7 above and 8 below, which is where
+            the 16px came from. Only the box was here until Oct 13 — Settings
+            stood apart from the products above it, as it does expanded, with
+            nothing in the gap saying why. Ashwin photographed the result: a
+            glyph, a space, a gear.
+
+            ABOVE this group rather than immediately above Settings, which is
+            where the box used to sit. The expanded nav draws its rule before
+            the directory row and the app installers, not after them — they
+            are anchored chrome like Settings, not products — so putting it
+            here is what makes the two faces agree. With both of those rows
+            off, which is the default, it lands immediately above Settings
+            anyway and nothing moves.
+          */}
+          <div
+            role="separator"
+            className="relative h-[16px] w-full shrink-0"
+          >
+            <div className={cn(RULE, "top-[7px]")} />
+          </div>
+          {/*
             The same standing door, at rail width. Both faces show L1, so a row
             that exists in one and not the other would make collapsing the nav
             silently remove a destination.
@@ -980,13 +1083,6 @@ export function CollapsedRail({
               )}
             </>
           ) : null}
-          {/*
-            Settings stands apart from the products above it in the expanded
-            nav — a 52px step where the rows alone make 36px. The same 16px
-            goes here, so Settings does not ride up on collapse while every
-            row above it holds still.
-          */}
-          <div aria-hidden="true" className="h-[16px] w-full shrink-0" />
           {renderRailRow(agencyScope ? agencySettings : config.settings)}
           </>
           )}

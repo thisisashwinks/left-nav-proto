@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
 <meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Loading experience slides</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -279,7 +279,7 @@
   .rf-grid { display: grid; grid-template-columns: 1fr 980px; gap: 64px; align-items: start; }
 
   /* ---------------- slide 12: actions ---------------- */
-  .act-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 36px; }
+  .act-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px; }
   .act { border: 1px solid var(--line); border-radius: 16px; padding: 30px; display: flex; flex-direction: column; gap: 20px; }
   .act h3 { margin: 0; font-size: 32px; line-height: 40px; font-weight: 600; }
   .act .demo { height: 420px; border-radius: 12px; background: var(--page); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
@@ -493,6 +493,32 @@
   .fix-big .fx-strip { grid-template-columns: 1fr !important; gap: 18px !important; margin-top: auto !important; padding-top: 28px; }
   .fix-big .fx-strip > div { height: 92px; zoom: 2.2; }
 </style>
+<script src="assets/pg-controls.js"></script>
+<style>
+  .lv-ctlrow { display: flex; justify-content: center; padding: 0 16px 10px; }
+  .lv-ctlrow[hidden] { display: none; }
+  .var3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
+  .var3 .big { font-size: 32px; line-height: 40px; font-weight: 700; letter-spacing: -.02em; margin: 0 0 18px; }
+  .var3 p { font-size: 22px; line-height: 32px; color: var(--ink-2); margin: 18px 0 0; }
+  .var3 .pgc { margin-top: 16px; }
+  .tray .th small { display: block; font-size: 14px; line-height: 20px; font-weight: 400; color: var(--ink-3); margin-top: 2px; }
+  .tray .th .thx { display: flex; gap: 12px; font-size: 18px; color: var(--ink-3); }
+  .tray .th .thx .dis { color: #d0d5dd; }
+  .bl-tgl { position: absolute; top: 14px; right: 14px; }
+  .fxl { padding: 22px 24px !important; display: flex !important; flex-direction: column; gap: 0 !important; }
+  .fxl h3 { font-size: 30px !important; line-height: 36px !important; margin: 0 0 2px !important; }
+  .fxl .fxl-scen { font-size: 17px; line-height: 24px; color: var(--ink-3); margin: 0 0 12px 50px; }
+  .fxl .fxl-l { font-size: 19px; line-height: 26px; color: var(--ink-2); margin: 0 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fxl .fxl-l b { font-weight: 700; }
+  .fxl .fxl-l.t b { color: var(--bad-700); }
+  .fxl .fxl-l.r { margin-top: 14px; }
+  .fxl .fxl-l.r b { color: var(--good-700); }
+  .fxl .frame { box-shadow: none; width: 420px; max-width: 100%; }
+  .fxl .fxl-scen { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fxl .frame .expand { height: 32px; font-size: 15px; padding: 0 10px; top: 8px; right: 8px; }
+  .lv-title { font-size: 18px; font-weight: 600; color: #fff; margin-right: auto; }
+  .lv-top .cnt { margin-right: 4px !important; }
+</style>
 </head>
 <body>
 
@@ -582,121 +608,9 @@
     </ul></aside>
   </section>
 
-  <!-- 3 · Keep -->
-  <section class="slide" data-title="What Switchyard built">
-    <div class="eyebrow">2 · What the Switchyard team built</div>
-    <h2>Staging already gets the hard part right</h2>
-    <div class="body keep-grid">
-      <ul class="keep-list">
-        <li><span class="ck"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8.5l3 3 7-7"/></svg></span><span>Shell skeleton in the host document, with route-aware shapes</span></li>
-        <li><span class="ck"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8.5l3 3 7-7"/></svg></span><span>Staggered arrival of skeleton bars</span></li>
-        <li><span class="ck"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8.5l3 3 7-7"/></svg></span><span>Status words in the breadcrumb slot, escalating and localized</span></li>
-        <li><span class="ck"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8.5l3 3 7-7"/></svg></span><span>Old page stays on screen during a route change</span></li>
-        <li><span class="ck"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8.5l3 3 7-7"/></svg></span><span>Boot stall message with a way to reload</span></li>
-        <li><span class="ck"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8.5l3 3 7-7"/></svg></span><span>Real-chrome composer skeleton: real controls, just inert</span></li>
-        <li><span class="ck"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8.5l3 3 7-7"/></svg></span><span>Workspace name changes instantly on account switch</span></li>
-      </ul>
-      <div class="keep-shots">
-        <button class="shot" data-modal="img" data-src="assets/staging/02-boot-shell-skeleton.jpg" data-verdict="keep" data-caption="Boot shell skeleton (S1, S2). Painted by the host document before any module: rail, sidebar, top bar, and a 12 px spinner with “Loading your account” (Dutch locale)." aria-label="Enlarge: boot shell skeleton"><img src="assets/staging/02-boot-shell-skeleton.jpg" alt="Staging: boot shell skeleton with Loading your account"><span class="chip keep">Keep · boot shell</span></button>
-        <button class="shot" data-modal="img" data-src="assets/staging/06-opportunities-kanban-skeleton.jpg" data-verdict="keep" data-caption="Kanban skeleton and “Loading {page}…” at 2 s (S5, S6). The right words, in the right slot, at the right time." aria-label="Enlarge: kanban skeleton with status words"><img src="assets/staging/06-opportunities-kanban-skeleton.jpg" alt="Staging: kanban skeleton with Leads laden status words"><span class="chip keep">Keep · words in the breadcrumb</span></button>
-      </div>
-    </div>
-    <aside class="notes"><ul>
-      <li>This is not a rewrite. The host document already paints a route-aware skeleton before any module loads — the hardest part.</li>
-      <li>The breadcrumb slot already talks in plain, escalating words, and they localize.</li>
-      <li>We keep all 8 of these and fix what happens at the edges.</li>
-    </ul></aside>
-  </section>
-
-  <!-- 4 · The 9 fixes -->
-  <section class="slide" data-title="Where staging still breaks">
-    <div class="eyebrow">3 · Problems with staging</div>
-    <h2>Where the staging build still breaks</h2>
-    <div class="body tri">
-      <div>
-        <div class="big"><span>1</span> Blank screens</div>
-        <div class="frame" data-frame data-q="embed=1&amp;mode=today&amp;net=slow&amp;page=opportunities&amp;scenario=stuckroute&amp;to=launchpad&amp;loop=1" data-caption="Stale breadcrumb (S9). Routing away from a stuck page keeps the old breadcrumb and an empty canvas. Only “Pagina laden…” hints at the change."></div>
-        <p>An empty canvas and the old breadcrumb. They can't tell where they're going.</p>
-      </div>
-      <div>
-        <div class="big"><span>2</span> Washing-machine loaders</div>
-        <div class="frame" data-frame data-q="embed=1&amp;mode=today&amp;net=slow&amp;page=contacts&amp;scenario=route&amp;to=launchpad&amp;loop=1" data-caption="A 5th skeleton look (S10). Launchpad's heavy gray pulsing blocks don't match the shell's glow skeleton or any other module."></div>
-        <p>Skeleton, then a different skeleton, then a spinner. 5 skeleton looks and 4 spinners.</p>
-      </div>
-      <div>
-        <div class="big"><span>3</span> Loaders that never end</div>
-        <div class="frame" data-frame data-q="embed=1&amp;mode=today&amp;net=hang&amp;page=contacts&amp;scenario=route&amp;to=opportunities&amp;loop=1&amp;scale=4" data-caption="Silent give-up (S8). At 30 s the shell removes its skeleton and words, revealing the module's 34 px spinner. It spins forever with no message and no action."></div>
-        <p>At 30 s the shell gives up silently. The spinner never stops. No message, no way out.</p>
-      </div>
-    </div>
-    <aside class="notes"><ul>
-      <li>All 3 are from switchyard-v4 staging on Oct 12, 2026, with the network throttled and API calls delayed on purpose.</li>
-      <li>Captured in the Dutch locale to confirm status words localize, which they do.</li>
-      <li>Number 3 is the worst: the copy for a failure state already exists in the bundle, it just never shows.</li>
-      <li>Click any screenshot to enlarge it.</li>
-    </ul></aside>
-  </section>
-
-  <section class="slide" data-title="Proposed fixes 1–3">
-    <div class="eyebrow">4 · Proposed fixes · 1 of 3</div>
-    <h2 class="tight">Fixes 1–3: ending and consistency</h2>
-    <div class="body fix-grid fix-big"><div class="fixc"><h3><span class="k">1</span>Silent give-up</h3><div class="tr"><span class="t">Today</span><span>Infinite spinner after 30 s</span><span class="r">Proposed</span><span>“Couldn't load {page}” + Try again + Go back</span></div><div class="fx-strip"><div class="t"><b>Today</b><div class="fx-lay" style="opacity:1;animation:none"><div class="cur-ring"></div></div><span class="cur-count" data-cur-count></span></div><div class="p"><b>Proposed</b><div class="fx-lay"><div class="cur-sk" style="inset:30px 10px 10px"><i style="width:60%"></i><i></i><i style="width:75%"></i></div></div><div class="fx-lay two"><div class="fx-err">Couldn't load Opportunities<br><u>Try again</u></div></div></div></div></div><div class="fixc"><h3><span class="k">2</span>Too many looks</h3><div class="tr"><span class="t">Today</span><span>5 skeleton looks, 4 spinners</span><span class="r">Proposed</span><span>1 skeleton, 1 spinner (16, 20, 24, 32 px)</span></div><div class="fx-strip"><div class="t"><b>Today</b><div class="fx-lay"><div class="cur-dots"><i></i><i></i><i></i></div></div><div class="fx-lay two"><div class="cur-sk p" style="inset:30px 10px 10px"><i style="width:60%"></i><i></i><i></i></div></div></div><div class="p"><b>Proposed</b><div class="cur-sk" style="inset:30px 10px 10px"><i style="width:60%"></i><i></i><i style="width:75%"></i></div></div></div></div><div class="fixc"><h3><span class="k">3</span>2 progress bars</h3><div class="tr"><span class="t">Today</span><span>Window bar with fake .06 → .92</span><span class="r">Proposed</span><span>1 line under the header, never a number</span></div><div class="fx-strip"><div class="t"><b>Today</b><div class="fx-win"></div><span class="fx-pct">78%</span><div class="fx-crumb">Contacts</div><div class="fx-line"></div></div><div class="p"><b>Proposed</b><div class="fx-crumb">Contacts</div><div class="fx-line"></div></div></div></div></div>
-    <aside class="notes"><ul>
-      <li>1 and 4 are the same moment: at 30 s the shell gives up and a module spinner takes over forever.</li>
-      <li>2 and 3 are consistency: fewer looks, 1 progress line, no fake numbers.</li>
-      <li>5 to 9 are small timing and copy changes with big perceived-speed wins.</li>
-    </ul></aside>
-  </section>
-
-  <section class="slide" data-title="Proposed fixes 4–6">
-    <div class="eyebrow">4 · Proposed fixes · 2 of 3</div>
-    <h2 class="tight">Fixes 4–6: handoffs and context</h2>
-    <div class="body fix-grid fix-big"><div class="fixc"><h3><span class="k">4</span>Skeleton → spinner</h3><div class="tr"><span class="t">Today</span><span>2 loaders for 1 wait</span><span class="r">Proposed</span><span>Module takes over the shell skeleton, same phase</span></div><div class="fx-strip"><div class="t"><b>Today</b><div class="fx-lay"><div class="cur-sk" style="inset:30px 10px 10px"><i style="width:60%"></i><i></i><i style="width:75%"></i></div></div><div class="fx-lay two"><div class="fx-lay" style="opacity:1;animation:none"><div class="cur-ring"></div></div></div></div><div class="p"><b>Proposed</b><div class="fx-lay"><div class="cur-sk" style="inset:30px 10px 10px"><i style="width:60%"></i><i></i><i style="width:75%"></i></div></div><div class="fx-lay two"><div class="fx-c"><i style="width:55%"></i><i></i><i style="width:80%"></i></div></div></div></div></div><div class="fixc"><h3><span class="k">5</span>Stale breadcrumb</h3><div class="tr"><span class="t">Today</span><span>Old breadcrumb and stuck page stay</span><span class="r">Proposed</span><span>Switch instantly; old page dims at 300 ms</span></div><div class="fx-strip"><div class="t"><b>Today</b><div class="fx-crumb">Leads</div><div class="fx-lay" style="opacity:1;animation:none"><div class="cur-ring"></div></div></div><div class="p"><b>Proposed</b><div class="fx-crumb">Launchpad</div><div class="fx-line"></div><div class="cur-sk" style="inset:30px 10px 10px"><i style="width:60%"></i><i></i><i style="width:75%"></i></div></div></div></div><div class="fixc"><h3><span class="k">6</span>“Loading” text</h3><div class="tr"><span class="t">Today</span><span>Grey “Loading” inside message cards</span><span class="r">Proposed</span><span>Skeleton lines, same animation</span></div><div class="fx-strip"><div class="t"><b>Today</b><div class="fx-lay" style="opacity:1;animation:none"><span class="fx-txt">Loading</span></div></div><div class="p"><b>Proposed</b><div class="cur-sk" style="inset:30px 10px 10px"><i style="width:60%"></i><i></i><i style="width:75%"></i></div></div></div></div></div>
-    
-  </section>
-
-  <section class="slide" data-title="Proposed fixes 7–9">
-    <div class="eyebrow">4 · Proposed fixes · 3 of 3</div>
-    <h2 class="tight">Fixes 7–9: timing and color</h2>
-    <div class="body fix-grid fix-big"><div class="fixc"><h3><span class="k">7</span>Line delay</h3><div class="tr"><span class="t">Today</span><span>150 ms: shows on almost every click</span><span class="r">Proposed</span><span>300 ms grace: fast pages show nothing</span></div><div class="fx-strip"><div class="t"><b>Today</b><div class="fx-line" style="top:22px;width:40%;animation:fx-flash 1.6s steps(1) infinite"></div><div class="fx-c"><i style="width:55%"></i><i></i><i style="width:80%"></i></div></div><div class="p"><b>Proposed</b><div class="fx-c"><i style="width:55%"></i><i></i><i style="width:80%"></i></div></div></div></div><div class="fixc"><h3><span class="k">8</span>1 color source</h3><div class="tr"><span class="t">Today</span><span>Hard-coded blues, a green, a gray</span><span class="r">Proposed</span><span>1 color token, agency-ready</span></div><div class="fx-strip"><div class="t"><b>Today</b><div class="fx-lay"><div class="cur-ring"></div></div><div class="fx-lay two"><div class="cur-ring g"></div></div></div><div class="p"><b>Proposed</b><div class="fx-lay" style="opacity:1;animation:none"><div class="cur-ring"></div></div></div></div></div><div class="fixc"><h3><span class="k">9</span>No minimum</h3><div class="tr"><span class="t">Today</span><span>Loaders flash for a few frames</span><span class="r">Proposed</span><span>Once shown, stay at least 400 ms</span></div><div class="fx-strip"><div class="t"><b>Today</b><div class="fx-lay" style="opacity:1;animation:fx-flash 1.6s steps(1) infinite"><div class="cur-ring"></div></div></div><div class="p"><b>Proposed</b><div class="fx-lay"><div class="cur-ring"></div></div><div class="fx-lay two"><div class="fx-c"><i style="width:55%"></i><i></i><i style="width:80%"></i></div></div></div></div></div></div>
-    
-  </section>
-
-  <!-- 5 · Today vs Proposed -->
-  <section class="slide" data-title="Today vs proposed" data-duo>
-    <div class="eyebrow">Live</div>
-    <h2 class="tight">Same route, same network, 2 systems</h2>
-    <div class="duo-ctl">
-      <span class="lbl">Contacts → Opportunities</span>
-      <div class="seg" role="group" aria-label="Network" id="duoNet">
-        <button aria-pressed="false" data-net="net=typical&amp;scale=1">Typical</button>
-        <button aria-pressed="true" data-net="net=slow&amp;scale=1">Slow</button>
-        <button aria-pressed="false" data-net="net=hang&amp;scale=4">Hangs @4×</button>
-      </div>
-      <span class="sp"></span>
-      <button class="btn" id="duoReplay"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 10a6 6 0 1 0 1.8-4.3M4 3.5v3.2h3.2"/></svg>Replay</button>
-    </div>
-    <div class="body duo">
-      <div>
-        <div class="frame-label"><span class="dot" style="background:var(--bad-600)"></span>Today (staging)</div>
-        <div class="frame" data-frame data-q="embed=1&amp;mode=today&amp;page=contacts&amp;scenario=route&amp;to=opportunities&amp;loop=1" data-net="net=slow&amp;scale=1" data-caption="Today (staging): route from Contacts to Opportunities." data-verdict="fix"></div>
-      </div>
-      <div>
-        <div class="frame-label"><span class="dot" style="background:var(--good-600)"></span>Proposed</div>
-        <div class="frame" data-frame data-q="embed=1&amp;mode=proposed&amp;page=contacts&amp;scenario=route&amp;to=opportunities&amp;loop=1" data-net="net=slow&amp;scale=1" data-caption="Proposed: route from Contacts to Opportunities." data-verdict="new"></div>
-      </div>
-    </div>
-    <aside class="notes"><ul>
-      <li>Both sides run the identical scenario and loop. Watch the breadcrumb first: Proposed switches at 0 ms, Today keeps the old one.</li>
-      <li>Switch to “Hangs @4×” (time runs 4× faster): Today ends in an endless spinner, Proposed ends in “Couldn't load Opportunities” with Try again and Go back.</li>
-      <li>Typical shows the other half: fast responses show no loader at all.</li>
-      <li>Use Expand for a full-size view with a Today | Proposed switch.</li>
-    </ul></aside>
-  </section>
-
   <!-- 6 · Principles -->
   <section class="slide" data-title="6 principles">
-    <div class="eyebrow">The recommendation</div>
+    <div class="eyebrow">2 · The recommendation</div>
     <h2 class="tight">6 principles for every wait</h2>
     <div class="body pr-grid">
       <div class="pr"><div class="k">1 · Ownership</div><h3>The shell owns the first loader</h3><p>The host document paints the shell and a route-shaped skeleton before any module JavaScript.</p></div>
@@ -814,7 +728,7 @@
     <aside class="notes"><ul>
       <li>The key change is at 0 ms: they always know where they're going, even before anything loads.</li>
       <li>At 300 ms 3 things happen together: the line, the dimmed old page, and the destination skeleton if the module isn't ready.</li>
-      <li>Screen readers hear exactly 1 “Loading {page}” and 1 “{page} loaded”.</li>
+      <li>Screen readers hear 2 announcements per page change: “Loading Contacts”, then “Contacts loaded”.</li>
     </ul></aside>
   </section>
 
@@ -866,6 +780,34 @@
     </ul></aside>
   </section>
 
+  <!-- 11b · Table variants to test -->
+  <section class="slide" data-title="Table loading: variants to test">
+    <div class="eyebrow">Principle 5 · Variants to test</div>
+    <h2 class="tight">Table refresh and filter: 3 options</h2>
+    <div class="body var3">
+      <div>
+        <div class="big">Refresh · rows stay</div>
+        <div class="frame" data-frame data-ctl="tbar,net" data-q="embed=1&amp;mode=proposed&amp;net=slow&amp;page=contacts&amp;scenario=refresh&amp;trefresh=line&amp;loop=1" data-caption="Proposed: Refresh keeps every row and swaps the data in place; 5 new contacts land at the top." data-verdict="new"></div>
+        <p>Progress bar on the table while the data updates. Then the rows change in place.</p>
+      </div>
+      <div>
+        <div class="big">Refresh · skeleton new rows</div>
+        <div class="frame" data-frame data-ctl="tbar,tchanged" data-q="embed=1&amp;mode=proposed&amp;net=slow&amp;page=contacts&amp;scenario=refresh&amp;trefresh=rows&amp;loop=1" data-caption="Proposed variant: 5 skeleton rows at the top for the new contacts. Older rows stay unless their data changed." data-verdict="new"></div>
+        <p>Only the 5 new rows at the top shimmer. Older rows shimmer only if their data changed.</p>
+      </div>
+      <div>
+        <div class="big">Filter · skeleton all rows</div>
+        <div class="frame" data-frame data-ctl="tbar,net" data-q="embed=1&amp;mode=proposed&amp;net=slow&amp;page=contacts&amp;scenario=filter&amp;tfilter=skeleton&amp;loop=1" data-caption="Proposed variant: every body row becomes a skeleton while the filtered list loads. The header stays real." data-verdict="new"></div>
+        <p>The whole table shimmers, with the progress bar on top, then the filtered rows land.</p>
+      </div>
+    </div>
+    <aside class="notes"><ul>
+      <li>Rows stay is still the default; these are the options we're testing against it.</li>
+      <li>Each example can turn the table's progress bar on or off. Expand any of them for network and speed controls.</li>
+      <li>The same controls are in the prototype panel under Table loading, and in the docs under RefreshState.</li>
+    </ul></aside>
+  </section>
+
   <!-- 12 · Actions -->
   <section class="slide" data-title="Actions: buttons, jobs, AI" data-acts>
     <div class="eyebrow">Actions</div>
@@ -873,22 +815,22 @@
     <div class="body act-grid">
       <div class="act">
         <h3>Button loading</h3>
-        <div class="demo"><button class="bl" id="blBtn" tabindex="-1" aria-disabled="false" data-st="idle"><span>Save changes</span></button><div class="bl-note" id="blNote">Idle</div></div>
-        <p>Spinner after 300 ms, width locked, <span class="mono">aria-disabled</span>. “Saved” holds 1.5 s. Over 5 s becomes a job.</p>
-        <button class="btn" data-modal="frame" data-q="embed=1&amp;mode=proposed&amp;net=slow&amp;page=contacts&amp;scenario=save&amp;loop=1" data-caption="Proposed: save with button loading." data-verdict="new">Watch in prototype</button>
+        <div class="demo"><div class="bl-tgl" id="blTgl"></div><button class="bl" id="blBtn" tabindex="-1" aria-disabled="false" data-st="idle"><span>Save changes</span></button><div class="bl-note" id="blNote">Idle</div></div>
+        <p>Spinner after 300 ms, <span class="mono">aria-disabled</span>. Label next to the spinner is a variant to test. “Saved” holds 1.5 s. Over 5 s becomes a job.</p>
+        <button class="btn" id="blWatch" data-modal="frame" data-q="embed=1&amp;mode=proposed&amp;net=slow&amp;page=contacts&amp;scenario=save&amp;btnlabel=1&amp;loop=1" data-caption="Proposed: save with button loading." data-verdict="new">Watch in prototype</button>
       </div>
       <div class="act">
         <h3>Background jobs panel</h3>
         <div class="demo"><div class="tray">
-          <div class="th">Jobs<span id="trCount">1 active</span></div>
+          <div class="th"><div><span id="trName" style="color:#101828;font-size:18px;font-weight:600">Importing contacts</span><small id="trNote">You can keep working. We'll notify you when it's done.</small></div><span class="thx"><span>⌄</span><span class="dis" id="trX" title="You can close this when the import ends">✕</span></span></div>
           <div class="job">
-            <div class="jn"><span style="color:#101828;font-weight:600;font-size:18px" id="trName">Importing contacts</span><span>3:02 PM</span></div>
+            <div class="jn"><span style="color:#101828;font-weight:600;font-size:18px">contacts-oct-2026.csv</span><span id="trCount">0%</span></div>
             <div class="pbar" role="progressbar" aria-label="Importing contacts" aria-valuemin="0" aria-valuemax="3100" aria-valuenow="0"><i id="trBar"></i></div>
             <div class="jc" id="trText">0 of 3,100 · You can keep working. We'll notify you when it's done.</div>
             <div class="acts" id="trActs" hidden><b>Download error file</b><b>Undo import</b></div>
           </div>
         </div></div>
-        <p>Over 10 s expected → the background jobs panel (bottom right). Survives route changes. Counts, not time units. Never “Don't close this window”.</p>
+        <p>Over 10 s → background jobs panel. Note in the header; collapses; close disabled while running.</p>
         <button class="btn" data-modal="frame" data-q="embed=1&amp;mode=proposed&amp;net=slow&amp;page=contacts&amp;scenario=import&amp;loop=1" data-caption="Proposed: contact import runs in the job tray." data-verdict="new">Watch in prototype</button>
       </div>
       <div class="act">
@@ -905,7 +847,8 @@
     <aside class="notes"><ul>
       <li>The button never loses focus and never changes width.</li>
       <li>The background jobs panel lives in the app shell, so it survives navigation. It's one of the shared loaders (decision 3).</li>
-      <li>Import result: “Import finished · 3,050 added · 50 skipped” with an error file and Undo.</li>
+      <li>Import result: “Import finished · 3,050 added · 50 skipped”. Variants to test in Watch in prototype: multiple files, Cancel placement, percentage, a failed file with Retry, the “keep working” line in or below the header, a wider card, and end actions.</li>
+      <li>Toasts appear top center.</li>
       <li>AI shows real steps only: “Reading 24 conversations”, “Writing 3 replies”, then “Thought for 6s”.</li>
     </ul></aside>
   </section>
@@ -934,7 +877,7 @@
         <ul class="bul">
           <li><span class="mono">aria-busy="true"</span> on every loading region</li>
           <li>1 always-present <span class="mono">role="status"</span> live region</li>
-          <li>Exactly 1 “Loading {page}” and 1 “{page} loaded” per navigation</li>
+          <li>Screen readers announce each page change twice, no more: “Loading Contacts” when it starts, “Contacts loaded” when it’s ready</li>
           <li>Pending buttons keep focus with <span class="mono">aria-disabled</span></li>
           <li>Focus moves to the failure title when the user started the action</li>
           <li>Reduced motion: no translate, no glow; spinners keep rotating</li>
@@ -984,6 +927,88 @@
     </ul></aside>
   </section>
 
+  <!-- 3 · Keep -->
+  <section class="slide" data-title="What Switchyard built">
+    <div class="eyebrow">3 · What the Switchyard team built</div>
+    <h2>Staging already gets the hard part right</h2>
+    <div class="body keep-grid">
+      <ul class="keep-list">
+        <li><span class="ck"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8.5l3 3 7-7"/></svg></span><span>Shell skeleton in the host document, with route-aware shapes</span></li>
+        <li><span class="ck"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8.5l3 3 7-7"/></svg></span><span>Staggered arrival of skeleton bars</span></li>
+        <li><span class="ck"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8.5l3 3 7-7"/></svg></span><span>Status words in the breadcrumb slot, escalating and localized</span></li>
+        <li><span class="ck"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8.5l3 3 7-7"/></svg></span><span>Old page stays on screen during a route change</span></li>
+        <li><span class="ck"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8.5l3 3 7-7"/></svg></span><span>Boot stall message with a way to reload</span></li>
+        <li><span class="ck"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8.5l3 3 7-7"/></svg></span><span>Real-chrome composer skeleton: real controls, just inert</span></li>
+        <li><span class="ck"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8.5l3 3 7-7"/></svg></span><span>Workspace name changes instantly on account switch</span></li>
+      </ul>
+      <div class="keep-shots">
+        <button class="shot" data-modal="img" data-src="assets/staging/02-boot-shell-skeleton.jpg" data-verdict="keep" data-caption="Boot shell skeleton (S1, S2). Painted by the host document before any module: rail, sidebar, top bar, and a 12 px spinner with “Loading your account” (Dutch locale)." aria-label="Enlarge: boot shell skeleton"><img src="assets/staging/02-boot-shell-skeleton.jpg" alt="Staging: boot shell skeleton with Loading your account"><span class="chip keep">Keep · boot shell</span></button>
+        <button class="shot" data-modal="img" data-src="assets/staging/06-opportunities-kanban-skeleton.jpg" data-verdict="keep" data-caption="Kanban skeleton and “Loading {page}…” at 2 s (S5, S6). The right words, in the right slot, at the right time." aria-label="Enlarge: kanban skeleton with status words"><img src="assets/staging/06-opportunities-kanban-skeleton.jpg" alt="Staging: kanban skeleton with Leads laden status words"><span class="chip keep">Keep · words in the breadcrumb</span></button>
+      </div>
+    </div>
+    <aside class="notes"><ul>
+      <li>This is not a rewrite. The host document already paints a route-aware skeleton before any module loads — the hardest part.</li>
+      <li>The breadcrumb slot already talks in plain, escalating words, and they localize.</li>
+      <li>We keep all 8 of these and fix what happens at the edges.</li>
+    </ul></aside>
+  </section>
+
+  <section class="slide" data-title="Proposed fixes 1–3">
+    <div class="eyebrow">4 · Proposed fixes · 1 of 3</div>
+    <h2 class="tight">Fixes 1–3: ending, bars, and handoffs</h2>
+    <div class="body fix-grid fix-big"><div class="fixc fxl"><h3><span class="k">1</span>Silent give-up</h3><div class="fxl-scen">Contacts → Opportunities, API never answers</div><div class="fxl-l t"><b>Today</b> Infinite spinner after 30 s</div><div class="frame" data-frame data-fix-title="Fix 1 · Silent give-up" data-today="Infinite spinner after 30 s" data-prop="“Couldn&#x27;t load {page}” + Try again + Go back" data-scen="Contacts → Opportunities, API never answers" data-q="embed=1&amp;mode=today&amp;net=hang&amp;scale=4&amp;page=contacts&amp;scenario=route&amp;to=opportunities&amp;loop=1" data-caption="Today (staging): Contacts → Opportunities, API never answers." data-verdict="fix"></div><div class="fxl-l r"><b>Proposed</b> “Couldn't load {page}” + Try again + Go back</div><div class="frame" data-frame data-fix-title="Fix 1 · Silent give-up" data-today="Infinite spinner after 30 s" data-prop="“Couldn&#x27;t load {page}” + Try again + Go back" data-scen="Contacts → Opportunities, API never answers" data-q="embed=1&amp;mode=proposed&amp;net=hang&amp;scale=4&amp;page=contacts&amp;scenario=route&amp;to=opportunities&amp;loop=1" data-caption="Proposed: Contacts → Opportunities, API never answers." data-verdict="new"></div></div><div class="fixc fxl"><h3><span class="k">2</span>2 progress bars</h3><div class="fxl-scen">Cold boot, then Conversations → Contacts</div><div class="fxl-l t"><b>Today</b> Window bar with fake .06 → .92</div><div class="frame" data-frame data-fix-title="Fix 2 · 2 progress bars" data-today="Window bar with fake .06 → .92" data-prop="1 line under the header, never a number" data-scen="Cold boot, then Conversations → Contacts" data-q="embed=1&amp;mode=today&amp;net=slow&amp;page=conversations&amp;scenario=bootroute&amp;to=contacts&amp;loop=1" data-caption="Today (staging): Cold boot, then Conversations → Contacts." data-verdict="fix"></div><div class="fxl-l r"><b>Proposed</b> 1 line under the header, never a number</div><div class="frame" data-frame data-fix-title="Fix 2 · 2 progress bars" data-today="Window bar with fake .06 → .92" data-prop="1 line under the header, never a number" data-scen="Cold boot, then Conversations → Contacts" data-q="embed=1&amp;mode=proposed&amp;net=slow&amp;page=conversations&amp;scenario=bootroute&amp;to=contacts&amp;loop=1" data-caption="Proposed: Cold boot, then Conversations → Contacts." data-verdict="new"></div></div><div class="fixc fxl"><h3><span class="k">3</span>Skeleton → spinner</h3><div class="fxl-scen">Contacts → Opportunities, slow network</div><div class="fxl-l t"><b>Today</b> 2 loaders for 1 wait</div><div class="frame" data-frame data-fix-title="Fix 3 · Skeleton → spinner" data-today="2 loaders for 1 wait" data-prop="Module takes over the shell skeleton, same phase" data-scen="Contacts → Opportunities, slow network" data-q="embed=1&amp;mode=today&amp;net=slow&amp;page=contacts&amp;scenario=route&amp;to=opportunities&amp;loop=1" data-caption="Today (staging): Contacts → Opportunities, slow network." data-verdict="fix"></div><div class="fxl-l r"><b>Proposed</b> Module takes over the shell skeleton, same phase</div><div class="frame" data-frame data-fix-title="Fix 3 · Skeleton → spinner" data-today="2 loaders for 1 wait" data-prop="Module takes over the shell skeleton, same phase" data-scen="Contacts → Opportunities, slow network" data-q="embed=1&amp;mode=proposed&amp;net=slow&amp;page=contacts&amp;scenario=route&amp;to=opportunities&amp;loop=1" data-caption="Proposed: Contacts → Opportunities, slow network." data-verdict="new"></div></div></div>
+    <aside class="notes"><ul>
+      <li>1 and 3 are the same moment: at 30 s the shell gives up and a module spinner takes over forever.</li>
+      <li>2 is consistency: 1 progress line, no fake numbers.</li>
+      <li>4 to 7 are small context, copy, timing, and color changes with big perceived-speed wins.</li>
+    </ul></aside>
+  </section>
+
+  <section class="slide" data-title="Proposed fixes 4–6">
+    <div class="eyebrow">4 · Proposed fixes · 2 of 3</div>
+    <h2 class="tight">Fixes 4–6: context and timing</h2>
+    <div class="body fix-grid fix-big"><div class="fixc fxl"><h3><span class="k">4</span>Stale breadcrumb</h3><div class="fxl-scen">Stuck on Opportunities, then go to Launchpad</div><div class="fxl-l t"><b>Today</b> Old breadcrumb and stuck page stay</div><div class="frame" data-frame data-fix-title="Fix 4 · Stale breadcrumb" data-today="Old breadcrumb and stuck page stay" data-prop="Switch instantly; old page dims at 300 ms" data-scen="Stuck on Opportunities, then go to Launchpad" data-q="embed=1&amp;mode=today&amp;net=slow&amp;page=opportunities&amp;scenario=stuckroute&amp;to=launchpad&amp;loop=1" data-caption="Today (staging): Stuck on Opportunities, then go to Launchpad." data-verdict="fix"></div><div class="fxl-l r"><b>Proposed</b> Switch instantly; old page dims at 300 ms</div><div class="frame" data-frame data-fix-title="Fix 4 · Stale breadcrumb" data-today="Old breadcrumb and stuck page stay" data-prop="Switch instantly; old page dims at 300 ms" data-scen="Stuck on Opportunities, then go to Launchpad" data-q="embed=1&amp;mode=proposed&amp;net=slow&amp;page=opportunities&amp;scenario=stuckroute&amp;to=launchpad&amp;loop=1" data-caption="Proposed: Stuck on Opportunities, then go to Launchpad." data-verdict="new"></div></div><div class="fixc fxl"><h3><span class="k">5</span>“Loading” text</h3><div class="fxl-scen">Launchpad → Conversations, slow network</div><div class="fxl-l t"><b>Today</b> Grey “Loading” inside message cards</div><div class="frame" data-frame data-fix-title="Fix 5 · “Loading” text" data-today="Grey “Loading” inside message cards" data-prop="Skeleton lines, same animation" data-scen="Launchpad → Conversations, slow network" data-q="embed=1&amp;mode=today&amp;net=slow&amp;page=launchpad&amp;scenario=route&amp;to=conversations&amp;loop=1" data-caption="Today (staging): Launchpad → Conversations, slow network." data-verdict="fix"></div><div class="fxl-l r"><b>Proposed</b> Skeleton lines, same animation</div><div class="frame" data-frame data-fix-title="Fix 5 · “Loading” text" data-today="Grey “Loading” inside message cards" data-prop="Skeleton lines, same animation" data-scen="Launchpad → Conversations, slow network" data-q="embed=1&amp;mode=proposed&amp;net=slow&amp;page=launchpad&amp;scenario=route&amp;to=conversations&amp;loop=1" data-caption="Proposed: Launchpad → Conversations, slow network." data-verdict="new"></div></div><div class="fixc fxl"><h3><span class="k">6</span>Line delay</h3><div class="fxl-scen">Contacts → Opportunities, 250 ms page, slow motion</div><div class="fxl-l t"><b>Today</b> 150 ms: shows on almost every click</div><div class="frame" data-frame data-fix-title="Fix 6 · Line delay" data-today="150 ms: shows on almost every click" data-prop="300 ms grace: fast pages show nothing" data-scen="Contacts → Opportunities, 250 ms page, slow motion" data-q="embed=1&amp;mode=today&amp;net=q250&amp;scale=0.5&amp;page=contacts&amp;scenario=route&amp;to=opportunities&amp;loop=1" data-caption="Today (staging): Contacts → Opportunities, 250 ms page, slow motion." data-verdict="fix"></div><div class="fxl-l r"><b>Proposed</b> 300 ms grace: fast pages show nothing</div><div class="frame" data-frame data-fix-title="Fix 6 · Line delay" data-today="150 ms: shows on almost every click" data-prop="300 ms grace: fast pages show nothing" data-scen="Contacts → Opportunities, 250 ms page, slow motion" data-q="embed=1&amp;mode=proposed&amp;net=q250&amp;scale=0.5&amp;page=contacts&amp;scenario=route&amp;to=opportunities&amp;loop=1" data-caption="Proposed: Contacts → Opportunities, 250 ms page, slow motion." data-verdict="new"></div></div></div>
+    
+  </section>
+
+  <section class="slide" data-title="Proposed fix 7">
+    <div class="eyebrow">4 · Proposed fixes · 3 of 3</div>
+    <h2 class="tight">Fix 7: 1 color source</h2>
+    <div class="body fix-grid fix-big" style="grid-template-columns:repeat(2,minmax(0,560px))"><div class="fixc fxl"><h3><span class="k">7</span>1 color source</h3><div class="fxl-scen">Color token set to purple: see which loaders follow it</div><div class="fxl-l t"><b>Today</b> Hard-coded blues, a green, a gray</div><div class="frame" data-frame data-fix-title="Fix 7 · 1 color source" data-today="Hard-coded blues, a green, a gray" data-prop="1 color token, agency-ready" data-scen="Color token set to purple: see which loaders follow it" data-q="embed=1&amp;mode=today&amp;net=slow&amp;accent=%237a5af8&amp;page=launchpad&amp;scenario=route&amp;to=dashboard&amp;loop=1" data-caption="Today (staging): Color token set to purple: see which loaders follow it." data-verdict="fix"></div><div class="fxl-l r"><b>Proposed</b> 1 color token, agency-ready</div><div class="frame" data-frame data-fix-title="Fix 7 · 1 color source" data-today="Hard-coded blues, a green, a gray" data-prop="1 color token, agency-ready" data-scen="Color token set to purple: see which loaders follow it" data-q="embed=1&amp;mode=proposed&amp;net=slow&amp;accent=%237a5af8&amp;page=launchpad&amp;scenario=route&amp;to=dashboard&amp;loop=1" data-caption="Proposed: Color token set to purple: see which loaders follow it." data-verdict="new"></div></div></div>
+    
+  </section>
+
+  <!-- 5 · Today vs Proposed -->
+  <section class="slide" data-title="Today vs proposed" data-duo>
+    <div class="eyebrow">Live</div>
+    <h2 class="tight">Same route, same network, 2 systems</h2>
+    <div class="duo-ctl">
+      <span class="lbl">Contacts → Opportunities</span>
+      <div class="seg" role="group" aria-label="Network" id="duoNet">
+        <button aria-pressed="false" data-net="net=typical&amp;scale=1">Typical</button>
+        <button aria-pressed="true" data-net="net=slow&amp;scale=1">Slow</button>
+        <button aria-pressed="false" data-net="net=hang&amp;scale=4">Hangs @4×</button>
+      </div>
+      <span class="sp"></span>
+      <button class="btn" id="duoReplay"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 10a6 6 0 1 0 1.8-4.3M4 3.5v3.2h3.2"/></svg>Replay</button>
+    </div>
+    <div class="body duo">
+      <div>
+        <div class="frame-label"><span class="dot" style="background:var(--bad-600)"></span>Today (staging)</div>
+        <div class="frame" data-frame data-q="embed=1&amp;mode=today&amp;page=contacts&amp;scenario=route&amp;to=opportunities&amp;loop=1" data-net="net=slow&amp;scale=1" data-caption="Today (staging): route from Contacts to Opportunities." data-verdict="fix"></div>
+      </div>
+      <div>
+        <div class="frame-label"><span class="dot" style="background:var(--good-600)"></span>Proposed</div>
+        <div class="frame" data-frame data-q="embed=1&amp;mode=proposed&amp;page=contacts&amp;scenario=route&amp;to=opportunities&amp;loop=1" data-net="net=slow&amp;scale=1" data-caption="Proposed: route from Contacts to Opportunities." data-verdict="new"></div>
+      </div>
+    </div>
+    <aside class="notes"><ul>
+      <li>Both sides run the identical scenario and loop. Watch the breadcrumb first: Proposed switches at 0 ms, Today keeps the old one.</li>
+      <li>Switch to “Hangs @4×” (time runs 4× faster): Today ends in an endless spinner, Proposed ends in “Couldn't load Opportunities” with Try again and Go back.</li>
+      <li>Typical shows the other half: fast responses show no loader at all.</li>
+      <li>Use Expand for a full-size view with a Today | Proposed switch.</li>
+    </ul></aside>
+  </section>
 
   <!-- 16 · QA -->
   <section class="slide" data-title="QA acceptance checks">
@@ -1066,11 +1091,12 @@
 
 <div class="lv" id="lv" role="dialog" aria-modal="true" aria-labelledby="lvCap">
   <div class="lv-top">
-    <span class="cnt" id="lvCnt"></span>
+    <span class="cnt" id="lvCnt"></span><span class="lv-title" id="lvTitle"></span>
     <div class="lv-seg" id="lvMode" role="group" aria-label="System"><button data-m="today" aria-pressed="false">Today</button><button data-m="proposed" aria-pressed="true">Proposed</button></div>
     <button class="lv-btn" id="lvReplay">Replay</button>
     <button class="lv-btn icon" id="lvClose" aria-label="Close">×</button>
   </div>
+  <div class="lv-ctlrow" id="lvCtl" hidden></div>
   <div class="lv-main" id="lvMain">
     <button class="lv-btn icon lv-nav" id="lvPrev" aria-label="Previous">‹</button>
     <div class="lv-stage" id="lvStage"></div>
@@ -1135,6 +1161,13 @@
     $('.expand', fr).addEventListener('click', e => { e.stopPropagation(); openModalFor(fr); });
   });
   const frameQuery = fr => fr.dataset.q + (fr.dataset.net ? '&' + fr.dataset.net : '');
+  /* frames with data-ctl get prototype controls underneath (shared with the docs) */
+  $$('[data-frame][data-ctl]').forEach(fr => {
+    const host = document.createElement('div');
+    fr.after(host);
+    host.addEventListener('click', e => e.stopPropagation());
+    PGC.strip(host, { q: fr.dataset.q, keys: fr.dataset.ctl.split(','), theme: 'deck', onChange: nq => { fr.dataset.q = nq; if (!modalOpen && fr.closest('.slide') === slides[cur]) { const f = $('iframe', fr); if (f) f.remove(); mountFrame(fr); } } });
+  });
   function mountFrame(fr) {
     let ifr = $('iframe', fr);
     const src = PG + frameQuery(fr);
@@ -1222,6 +1255,9 @@
 
   // slide 12: button / tray / AI
   const acts = $('[data-acts]');
+  let blLabel = true;
+  PGC.strip($('#blTgl'), { q: 'btnlabel=1', keys: ['btnlabel'], theme: 'deck', onChange: nq => { blLabel = PGC.get(nq, 'btnlabel') === '1'; const w = $('#blWatch'); w.dataset.q = PGC.set(w.dataset.q, 'btnlabel', blLabel ? '1' : '0'); } });
+  $('#blTgl').addEventListener('click', e => e.stopPropagation());
   function runButton() {
     const b = $('#blBtn'), note = $('#blNote');
     function idle() {
@@ -1232,7 +1268,7 @@
     function press() {
       b.style.width = b.offsetWidth + 'px'; b.setAttribute('aria-disabled', 'true');
       b.dataset.st = 'pending'; note.textContent = 'Pressed · 0–300 ms: no spinner yet';
-      later(() => { b.innerHTML = SPIN(20, 1.5) + '<span>Saving…</span>'; note.textContent = 'Pending · width locked, aria-disabled'; }, 300);
+      later(() => { b.innerHTML = SPIN(20, 1.5) + (blLabel ? '<span>Saving…</span>' : ''); note.textContent = blLabel ? 'Pending · spinner + label, aria-disabled' : 'Pending · width locked, aria-disabled'; }, 300);
       later(() => { b.dataset.st = 'success'; b.innerHTML = CHECK + '<span>Saved</span>'; note.textContent = 'Success · holds 1.5 s'; }, 2300);
       later(idle, 3800);
     }
@@ -1242,14 +1278,15 @@
   function runTray() {
     const bar = $('#trBar'), txt = $('#trText'), acts2 = $('#trActs'), name = $('#trName'), cnt = $('#trCount'), pb = bar.parentElement;
     let n = 0;
-    function reset() { n = 0; name.textContent = 'Importing contacts'; cnt.textContent = '1 active'; acts2.hidden = true; step(); }
+    const note = $('#trNote'), x = $('#trX');
+    function reset() { n = 0; name.textContent = 'Importing contacts'; cnt.textContent = '0%'; note.hidden = false; x.classList.add('dis'); acts2.hidden = true; step(); }
     function step() {
       n = Math.min(3100, n + 155);
       bar.style.width = (n / 3100 * 100) + '%';
       pb.setAttribute('aria-valuenow', n);
-      txt.textContent = `${fmt(n)} of 3,100 · You can keep working. We'll notify you when it's done.`;
+      txt.textContent = `2.4 MB · ${fmt(n)} of 3,100 contacts`; cnt.textContent = Math.round(n / 3100 * 100) + '%';
       if (n < 3100) later(step, 260);
-      else later(() => { name.textContent = 'Import finished'; cnt.textContent = 'Done'; txt.textContent = '3,050 added · 50 skipped'; acts2.hidden = false; later(reset, 3200); }, 400);
+      else later(() => { name.textContent = 'Import finished'; cnt.textContent = '✓'; note.hidden = true; x.classList.remove('dis'); txt.textContent = '2.4 MB · 3,050 added · 50 skipped'; later(reset, 3200); }, 400);
     }
     reset();
   }
@@ -1401,7 +1438,7 @@
   let modalOpen = false, mItems = [], mIdx = 0, mMode = 'proposed', mReturn = null;
   function modalItemsFor(scope) {
     return $$('[data-modal], [data-frame]', scope).map(el => el.matches('[data-frame]')
-      ? { kind: 'frame', q: frameQuery(el), cap: el.dataset.caption, verdict: el.dataset.verdict, el }
+      ? { kind: 'frame', q: frameQuery(el), cap: el.dataset.caption, verdict: el.dataset.verdict, el, fix: el.dataset.fixTitle ? { title: el.dataset.fixTitle, today: el.dataset.today, prop: el.dataset.prop, scen: el.dataset.scen } : null }
       : el.dataset.modal === 'frame'
         ? { kind: 'frame', q: el.dataset.q, cap: el.dataset.caption, verdict: el.dataset.verdict, el }
         : { kind: 'img', src: el.dataset.src, cap: el.dataset.caption, verdict: el.dataset.verdict, el });
@@ -1443,7 +1480,8 @@
     const label = { keep: 'Keep', fix: 'Fix', new: 'Proposed' }[it.verdict] || '';
     const vchip = it.kind === 'frame' ? (mMode === 'today' ? '<span class="vchip fix">Today</span>' : '<span class="vchip new">Proposed</span>') : (label ? `<span class="vchip ${it.verdict}">${label}</span>` : '');
     const cap = it.kind === 'frame' ? (it.cap || '').replace(/^(Today \(staging\)|Proposed):\s*/, '') : (it.cap || '');
-    $('#lvCap').innerHTML = vchip + cap.replace(/</g, '&lt;');
+    $('#lvTitle').textContent = it.fix ? it.fix.title : '';
+    $('#lvCap').innerHTML = vchip + (it.fix ? `${(mMode === 'today' ? it.fix.today : it.fix.prop).replace(/</g, '&lt;')} <span style="opacity:.6">· ${it.fix.scen}</span>` : cap.replace(/</g, '&lt;'));
     lvStage.innerHTML = '';
     if (it.kind === 'img') {
       const img = new Image(); img.alt = it.cap || ''; img.src = it.src;
@@ -1452,9 +1490,12 @@
     } else {
       const ifr = document.createElement('iframe');
       ifr.title = it.cap || 'Live prototype';
-      ifr.src = PG + it.q.replace(/mode=(today|proposed)/, 'mode=' + mMode);
+      ifr.src = PG + (it.cur || it.q).replace(/mode=(today|proposed)/, 'mode=' + mMode);
       lvStage.appendChild(ifr);
     }
+    const ctl = $('#lvCtl');
+    ctl.hidden = it.kind !== 'frame';
+    if (it.kind === 'frame' && window.PGC) PGC.strip(ctl, { q: PGC.set(it.cur || it.q, 'mode', mMode), keys: PGC.keysFor(it.q), theme: 'dark', onChange: nq => { it.cur = nq; const f = $('iframe', lvStage); if (f) f.src = PG + nq.replace(/mode=(today|proposed)/, 'mode=' + mMode); } });
     layoutModal();
   }
   $('#lvClose').addEventListener('click', closeModal);

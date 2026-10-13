@@ -94,7 +94,7 @@ import { AgencyPlacePage } from "@/components/settings/agency-place-page";
 import { GetAppPage } from "@/components/settings/get-app-page";
 import { WhiteLabelDesktopPage } from "@/components/settings/white-label-desktop-page";
 import { WhiteLabelMobilePage } from "@/components/settings/white-label-mobile-page";
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, Eye, X } from "lucide-react";
 import {
   NO_TRAIL,
   ShellChromeCtx,
@@ -477,36 +477,95 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
  * condition. The one colour nothing else here uses is the one that reads
  * as temporary.
  */
+/**
+ * Drop this tab out of preview, in place.
+ *
+ * `window.close()` is the obvious reading of "exit" for a tab that IS the
+ * preview, and browsers refuse it: a tab opened by a `target="_blank"` link
+ * was not opened by a script, so closing it is blocked and all the user gets
+ * is a console warning. Stripping the flag and reloading is the thing that
+ * actually works — the band goes, the navigation stays, and the tab becomes
+ * an ordinary window on the prototype.
+ *
+ * Only `preview` is removed. `scope` says which sidebar this window is
+ * building, which is a different fact and not one the reader asked to
+ * change: dropping it too would answer "I have seen enough of the banner"
+ * by throwing away the thing they came to look at.
+ *
+ * A reload rather than a `history` push, because `useIsPreviewTab` and
+ * `useAccounts` both read the URL once at startup with nothing subscribed to
+ * it — see the note on `useSyncExternalStore` in labs-state. Quietly
+ * rewriting the address would leave both of them reporting the old answer.
+ */
+function exitPreview(): void {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("preview");
+  window.location.replace(url.toString());
+}
+
+/**
+ * The band that says this window is not the real thing.
+ *
+ * Two bands in one component, because they are the same statement at two
+ * volumes and splitting them is how the copy drifts:
+ *
+ *  trial    The new nav switched on over a REAL workspace. Full bleed, a
+ *           colour nothing else in this shell wears, and the way out on the
+ *           band. It has to be impossible to forget about.
+ *  preview  A tab that is itself the preview, on demo data. Nothing here can
+ *           touch anything, so the band says so once and then gets out of
+ *           the way — lavender rather than orange, because an alarm colour
+ *           over a window where nothing is at stake trains people to ignore
+ *           the alarm colour.
+ */
 function TrialBand({ onEnd }: { onEnd?: () => void }) {
+  const trial = onEnd !== undefined;
   return (
     <div
       role="status"
-      className="flex h-[36px] shrink-0 items-center gap-[12px] bg-[var(--hr-orange-600)] px-[14px] text-white"
-    >
-      <span className="shrink-0 text-[12.5px] leading-[17px] font-semibold">
-        Preview mode
-      </span>
-      <span className="min-w-0 flex-1 truncate text-center text-[12.5px] leading-[17px] text-white/90">
-        {onEnd
-          ? "You are trying the new navigation. Nothing is saved, and your workspace is unchanged."
-          : "You are previewing the new navigation on demo data. Nothing here affects your account."}
-      </span>
-      {/*
-        Only a trial has a way out on the band. A preview tab's way out is
-        to close it — see the note at the call site.
-      */}
-      {onEnd ? (
-        <button
-          type="button"
-          onClick={onEnd}
-          className="motion-tap flex h-[24px] shrink-0 items-center rounded-[6px] bg-white/15 px-[10px] text-[12.5px] leading-none font-medium text-white hover:bg-white/25"
-        >
-          Leave preview
-        </button>
-      ) : (
-        // Keeps the copy optically centred against the label on the left.
-        <span aria-hidden="true" className="w-[86px] shrink-0" />
+      className={cn(
+        "flex h-[36px] shrink-0 items-center gap-[8px] px-[14px]",
+        trial
+          ? "bg-[var(--hr-orange-600)] text-white"
+          : "bg-[var(--hr-purple-100)] text-[var(--hr-purple-800)]",
       )}
+    >
+      {/*
+        An eye on the preview, nothing on the trial.
+
+        The glyph is the word "look" — right for a window you are looking
+        at, wrong for one you are working in, which is what a trial is.
+      */}
+      {trial ? null : (
+        <Eye size={15} aria-hidden="true" className="shrink-0" />
+      )}
+      <span className="shrink-0 text-[12.5px] leading-[17px] font-semibold">
+        {trial ? "Preview mode" : "You're previewing the new navigation"}
+      </span>
+      <span
+        className={cn(
+          "min-w-0 flex-1 truncate text-[12.5px] leading-[17px]",
+          trial
+            ? "text-center text-white/90"
+            : "text-[var(--hr-purple-700)]",
+        )}
+      >
+        {trial
+          ? "You are trying the new navigation. Nothing is saved, and your workspace is unchanged."
+          : "· Only in this tab. Nothing changes for anyone else."}
+      </span>
+      <button
+        type="button"
+        onClick={onEnd ?? exitPreview}
+        className={cn(
+          "motion-tap flex h-[26px] shrink-0 items-center rounded-full px-[12px] text-[12.5px] leading-none font-semibold",
+          trial
+            ? "bg-white/15 text-white hover:bg-white/25"
+            : "text-[var(--hr-purple-800)] shadow-[inset_0_0_0_1px_var(--hr-purple-300)] hover:bg-[var(--hr-purple-50)]",
+        )}
+      >
+        {trial ? "Leave preview" : "Exit preview"}
+      </button>
     </div>
   );
 }
@@ -3027,10 +3086,14 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
       ) : previewTab && previewBanner ? (
         /*
           The same band, for a window that IS the preview rather than one
-          running a trial inside itself. No way out on it: the way out of
-          a preview tab is to close the tab, and a button claiming
-          otherwise would be offering to turn this window into the real
-          one. See PREVIEW_BANNER_DEFAULT.
+          running a trial inside itself.
+
+          It used to carry no way out, on the reasoning that the way out of
+          a preview tab is to close the tab. True, and not an answer: a
+          reader who has decided is left looking for a control that is not
+          there, and "close the tab" is a thing the window cannot say. The
+          button drops the flag and reloads in place — see `exitPreview`.
+          Ashwin, Oct 13. See PREVIEW_BANNER_DEFAULT.
         */
         <TrialBand />
       ) : null}

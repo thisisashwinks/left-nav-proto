@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
 <meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Loading playground</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -223,6 +223,13 @@ svg.i{width:16px;height:16px;flex:none;display:block}
 .edge-line i{position:absolute;top:0;bottom:0;width:35%;background:var(--primary-600);animation:edge calc(1.2s / var(--ts)) ease-in-out infinite}
 @keyframes edge{0%{left:-35%}100%{left:100%}}
 #app.rm .edge-line i{animation:none;left:0;width:100%;opacity:.6}
+/* Table refresh variants: skeleton rows inserted at the top, fresh rows highlighted once */
+table.t tr.sk-tr td{height:44px}
+table.t tr.sk-tr.in{animation:tr-in calc(200ms / var(--ts)) var(--ease-arrive, ease-out) both}
+@keyframes tr-in{from{opacity:0}to{opacity:1}}
+#app.rm table.t tr.sk-tr.in{animation:none}
+/* ButtonLoading with label: spinner + words, width grows smoothly */
+.btn.busy-lbl .bl-label .spinner{flex:none}
 /* ProgressBar */
 .pbar{height:4px;border-radius:999px;background:#f2f4f7;overflow:hidden}
 .pbar i{display:block;height:100%;background:var(--primary-600);border-radius:999px;transition:width calc(300ms / var(--ts)) ease-out}
@@ -239,8 +246,53 @@ svg.i{width:16px;height:16px;flex:none;display:block}
 @keyframes tray-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 #app.rm .jobtray.on{animation:ly-in calc(150ms / var(--ts))}
 #app.tl-on .jobtray{bottom:52px}
-.jt-head{height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 14px;font-size:13px;font-weight:600;color:#344054;border-bottom:1px solid #f2f4f7}
-.jt-head .ib{width:24px;height:24px}
+.jt-head{position:relative;min-height:40px;display:flex;align-items:center;gap:4px;padding:8px 8px 8px 14px;font-size:13px;font-weight:600;color:#101828;border-bottom:1px solid #f2f4f7;cursor:pointer}
+.jt-head .jt-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.jt-head .jt-t small{font-size:12px;line-height:16px;font-weight:400;color:#667085}
+.jt-head .ib{width:24px;height:24px;flex:none}
+.jt-head .jt-tog svg{transition:transform calc(150ms / var(--ts))}
+.jobtray.collapsed .jt-tog svg{transform:rotate(180deg)}
+.jt-head .ib[aria-disabled="true"]{color:#d0d5dd;cursor:not-allowed;background:transparent}
+.jt-prog{position:absolute;left:0;right:0;bottom:-1px;height:2px;background:#f2f4f7;overflow:hidden}
+.jt-prog i{display:block;height:100%;background:var(--primary-600);transition:width calc(250ms / var(--ts)) linear}
+.jobtray.collapsed .jt-head{border-bottom:0}
+.jobtray.collapsed .jt-body{display:none}
+.jt-body{max-height:360px;overflow:auto}
+.job .jbar{display:flex;align-items:center;gap:8px;margin-top:8px}
+.job .jbar .pbar{flex:1;margin-top:0}
+.job .jx{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:#667085;flex:none}
+.job .jx:hover{background:#f2f4f7;color:#101828}
+.job .jx svg{width:14px;height:14px}
+/* Import file cards */
+.jobtray.wide{width:440px}
+.jobtray.wide .jt-t small,.jobtray.wide .jt-note{white-space:nowrap}
+.jt-note{padding:8px 14px;font-size:12px;line-height:16px;color:#475467;background:#f9fafb;border-bottom:1px solid #f2f4f7}
+.job.files{padding:6px 8px}
+.fcard{display:flex;gap:12px;padding:10px 8px;border-radius:8px}
+.fcard + .fcard{margin-top:2px}
+.fcard .fic{width:32px;height:32px;border-radius:50%;background:var(--primary-50);color:var(--primary-600);display:grid;place-items:center;flex:none}
+.fcard .fic svg{width:16px;height:16px}
+.fcard .fb{flex:1;min-width:0}
+.fcard .f1{display:flex;align-items:flex-start;gap:6px}
+.fcard .f1 b{flex:1;min-width:0;font-size:13px;line-height:18px;font-weight:500;color:#344054;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fcard .fa{display:flex;gap:2px;margin:-2px -2px 0 0}
+.fcard .fm{font-size:12px;line-height:16px;color:#667085;margin-top:2px}
+.fcard .fbar{display:flex;align-items:center;gap:10px;margin-top:8px}
+.fcard .fbar .pbar{flex:1;height:6px}
+.fcard .fbar .pct{font-size:12px;color:#344054;font-variant-numeric:tabular-nums;min-width:30px;text-align:right}
+.fcard .pbar.paused i{background:#98a2b3}
+.fcard .fok{width:20px;height:20px;border-radius:50%;background:var(--green-600,#079455);color:#fff;display:grid;place-items:center;flex:none}
+.fcard .fok svg{width:12px;height:12px}
+.fcard.ok .fic{background:var(--green-50);color:var(--green-700)}
+.fcard.bad{background:#fef3f2}
+.fcard.bad .fic{background:#fee4e2;color:var(--red-600)}
+.fcard.bad .f1 b{color:var(--red-700,#b42318)}
+.fcard.bad .fm{color:#344054}
+.fcard.bad .jx{color:var(--red-600)}
+.fcard .flink{margin-top:6px;font-size:13px;font-weight:600;color:var(--red-700,#b42318);padding:0}
+.fcard .flink:hover{text-decoration:underline}
+.fcard .fcx{margin-top:8px}
+.fsum{font-size:12px;color:#475467;padding:4px 8px 6px}
 .job{padding:12px 14px;border-bottom:1px solid #f2f4f7}
 .job:last-child{border-bottom:0}
 .job .j1{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#101828}
@@ -254,9 +306,9 @@ svg.i{width:16px;height:16px;flex:none;display:block}
 .job .jnote{font-size:12px;color:#667085;margin-top:6px;line-height:16px}
 .job .jacts{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
 /* Toasts */
-.toasts{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;align-items:center;z-index:150;pointer-events:none}
-#app.tl-on .toasts{bottom:56px}
-.toast{pointer-events:auto;background:#101828;color:#fff;font-size:13px;line-height:18px;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow-xl);animation:tray-in calc(200ms / var(--ts)) var(--ease-arrive);max-width:520px}
+.toasts{position:absolute;left:50%;top:60px;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;align-items:center;z-index:150;pointer-events:none}
+.toast{pointer-events:auto;background:#101828;color:#fff;font-size:13px;line-height:18px;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow-xl);animation:toast-in calc(200ms / var(--ts)) var(--ease-arrive);max-width:520px}
+@keyframes toast-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
 .toast svg{width:16px;height:16px}
 .toast.bad{background:#fff;color:#b42318;box-shadow:var(--shadow-xl),0 0 0 1px #fecdca}
 .toast .sub{color:#d0d5dd}
@@ -629,6 +681,13 @@ tr.click{cursor:pointer}tr.click:hover td{background:var(--gray-25)}
 .netgrid button.on{box-shadow:inset 0 0 0 1.5px #101828;background:var(--gray-50);font-weight:600}
 .scen{display:flex;flex-direction:column;gap:4px}
 .scen button.sc{display:flex;flex-direction:column;align-items:flex-start;text-align:left;padding:7px 10px;border-radius:8px;box-shadow:inset 0 0 0 1px #eaecf0;width:100%}
+.scen button.sc[hidden]{display:none}
+.sc-opts{display:flex;flex-direction:column;gap:4px;margin:-2px 0 4px;padding:8px 10px 6px;border-radius:8px;background:var(--gray-50,#f9fafb);box-shadow:inset 0 0 0 1px #eaecf0}
+.sc-opts .segp button{font-size:12px}
+.sc-opts .tgl{height:26px;font-size:12px}
+.sc-opts.off{opacity:.45}
+.sc-opts .p-sub{margin:4px 0 0}
+.sc-opts .segp.dim{opacity:.45}
 .scen button.sc:hover{background:var(--gray-50)}
 .scen button.sc b{font-size:12.5px;font-weight:600;color:#101828}
 .scen button.sc span{font-size:11.5px;color:#667085;line-height:15px}
@@ -647,6 +706,8 @@ tr.click{cursor:pointer}tr.click:hover td{background:var(--gray-25)}
 .tgl input:checked+.sw{background:#101828}
 .tgl input:checked+.sw::after{left:14px}
 .p-hint{font-size:11.5px;color:#667085;line-height:15px;margin-top:6px}
+.p-sub{font-size:11.5px;color:#475467;margin:10px 0 4px}
+.p-sec.off .p-opts{opacity:.45;pointer-events:none}
 /* Page tab bar (shared with handoff.html + slides.html) */
 #panel .p-head{flex-direction:column;align-items:stretch;justify-content:flex-start;gap:10px}
 #panel .p-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -721,19 +782,19 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = n => n.toLocaleString('en-US');
 
-/* ---------- Embed API (?embed=1&mode=&net=&scale=&page=&scenario=&to=&loop=1&delay=&labels=1&tl=1) ----------
+/* ---------- Embed API (?embed=1&mode=&net=&scale=&page=&scenario=&to=&loop=1&delay=&labels=1&tl=1&trefresh=&tfilter=&tbar=0&tchanged=1&btnlabel=1&itype=&icancel=&iacts=1) ----------
    Every param is optional; anything missing or invalid falls back to its default. Params apply only with embed=1. */
 const EMBED = (() => {
   let q = null; try { q = new URLSearchParams(location.search); } catch (e) { q = null; }
   const get = k => { try { const v = q && q.get(k); return v == null ? null : String(v).trim(); } catch (e) { return null; } };
   const pick = (k, ok, d) => { const v = get(k); return v != null && ok.includes(v) ? v : d; };
   const PAGE_IDS = ['launchpad', 'conversations', 'contacts', 'opportunities', 'calendar', 'dashboard', 'settings', 'workflows', 'builder'];
-  const SCEN_IDS = ['boot', 'route', 'acct', 'refresh', 'modal', 'drawer', 'save', 'import', 'ai', 'aiwf', 'dash', 'offline', 'hang', 'stuckroute'];
+  const SCEN_IDS = ['boot', 'route', 'acct', 'refresh', 'filter', 'tour', 'bootroute', 'modal', 'drawer', 'save', 'import', 'ai', 'aiwf', 'dash', 'offline', 'hang', 'stuckroute'];
   const sc = Number(get('scale')), dl = get('delay'), d = dl == null || dl === '' ? NaN : Number(dl);
   return {
     on: get('embed') === '1',
     mode: pick('mode', ['proposed', 'today'], 'proposed'),
-    net: pick('net', ['instant', 'fast', 'typical', 'slow', 'vslow', 'hang', 'fail', 'offline'], 'typical'),
+    net: pick('net', ['q250', 'q350', 'instant', 'fast', 'typical', 'slow', 'vslow', 'hang', 'fail', 'offline'], 'typical'),
     scale: [0.5, 1, 2, 4].includes(sc) ? sc : 1,
     page: pick('page', PAGE_IDS, 'launchpad'),
     scenario: pick('scenario', SCEN_IDS, null),
@@ -742,6 +803,20 @@ const EMBED = (() => {
     delay: isFinite(d) && d >= 0 ? Math.min(d, 600000) : 600,
     labels: get('labels') === '1',
     tl: get('tl') === '1',
+    trefresh: pick('trefresh', ['line', 'rows'], 'line'),
+    tfilter: pick('tfilter', ['stale', 'skeleton'], 'stale'),
+    tbar: get('tbar') !== '0',
+    tchanged: get('tchanged') === '1',
+    btnlabel: get('btnlabel') === '1',
+    itype: pick('itype', ['single', 'multi'], 'single'),
+    icancel: pick('icancel', ['x', 'below', 'inline'], 'x'),
+    ipct: get('ipct') !== '0',
+    ifail: get('ifail') === '1',
+    iretry: pick('iretry', ['below', 'inline'], 'below'),
+    inote: pick('inote', ['header', 'below'], 'header'),
+    iwide: get('iwide') === '1',
+    accent: /^#[0-9a-f]{6}$/i.test(get('accent') || '') ? get('accent') : null,
+    iacts: get('iacts') === '1',
     gen: 0, runVt: 0, lastState: null,
   };
 })();
@@ -803,6 +878,9 @@ const IC = {
   'wifi-off': '<path d="M12 20h.01"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.859a10 10 0 0 1 5.17-2.69"/><path d="M19 12.859a10 10 0 0 0-2.007-1.523"/><path d="M2 8.82a15 15 0 0 1 4.177-2.643"/><path d="M22 8.82a15 15 0 0 0-11.288-3.764"/><path d="m2 2 20 20"/>',
   file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8M16 13H8M16 17H8"/>',
   send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+  'cloud-upload': '<path d="M12 13v8"/><path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.2"/><path d="m8 17 4-4 4 4"/>',
+  pause: '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
+  trash: '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
   stop: '<rect width="12" height="12" x="6" y="6" rx="2" fill="currentColor"/>',
   clip: '<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
   smile: '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/>',
@@ -857,6 +935,11 @@ const CONTACTS = [
   ['Jitendra Kumar', '', 'blue'], ['Ella', '', 'pink', 'fewogok504@wqeather.com', 1], ['Ritesh Mukim', '', 'green', 'ritesh.mukim@gohighlevel.com', 1],
   ['Sachin', '', 'orange'], ['Vishnu', '', 'blue'], ['App Reviewer', '', 'purple', 'appletestapp83@gmail.com', 1], ['Abhilash Chauhan', '', 'yellow', '', 1], ['Alisha', '', 'teal'],
 ];
+/* New contacts that arrive on Refresh (5 per refresh, newest first) */
+const NEW_CONTACTS = [
+  ['Maya Okafor', '@maya.o', 'teal', 'maya.okafor@brightpath.co', 1], ['Leo Park', '', 'blue'], ['Priya Nair', '@priyanair', 'pink', 'priya@nairstudio.com', 1], ['Omar Haddad', '', 'orange'], ['Grace Liu', '@graceliu', 'purple'],
+  ['Daniel Reyes', '', 'green', 'dan.reyes@outlook.com', 1], ['Sana Mirza', '', 'yellow'], ['Ethan Cole', '@ethanc', 'blue'], ['Nina Volkova', '', 'teal', 'nina.v@fastmail.com', 1], ['Kofi Mensah', '', 'pink'],
+];
 const SMART_TABS = [['All', '1,469', null], ['Mobile App Web Form Submissions', '962', [0, 1, 3, 5, 6, 9, 10, 13, 15]], ['Beauty & Fashion Buyers', '341', [1, 9, 13, 14, 15]], ['New smart list', '48', [2, 10, 12]]];
 const OPPS = [
   ['New lead', '$4,890', [['Ducted split — 3 bed', 'Jatin', 'blue', '$4,200', 'Business Closer System.'], ['Annual service plan', 'Shivani', 'pink', '$690', '—']]],
@@ -910,9 +993,12 @@ const NETS = {
   instant: { label: 'Instant', hint: '150 ms', lat: 150 }, fast: { label: 'Fast', hint: '0.6 s', lat: 600 },
   typical: { label: 'Typical', hint: '1.5 s', lat: 1500 }, slow: { label: 'Slow', hint: '5 s', lat: 5000 },
   vslow: { label: 'Very slow', hint: '12 s', lat: 12000 }, hang: { label: 'Hangs', hint: 'never', lat: Infinity },
-  fail: { label: 'Fails', hint: 'error 3 s', lat: 3000, fail: true }, offline: { label: 'Offline', hint: 'no network', offline: true },
+  fail: { label: 'Fails', hint: 'error 3 s', lat: 3000, fail: true },
+  q250: { label: '250 ms', hint: '250 ms', lat: 250, hidden: true }, q350: { label: '350 ms', hint: '350 ms', lat: 350, hidden: true }, offline: { label: 'Offline', hint: 'no network', offline: true },
 };
-const S = { mode: 'proposed', net: 'typical', page: 'launchpad', acct: 0, accent: '#155eef', unknown: false, rm: false, tl: false, ann: false, visited: new Set(), booted: false, bell: false };
+const S = { mode: 'proposed', net: 'typical', page: 'launchpad', acct: 0, accent: '#155eef', unknown: false, rm: false, tl: false, ann: false, visited: new Set(), booted: false, bell: false,
+  tbl: { refresh: 'line', filter: 'stale', bar: true, changed: false }, btnLabel: false,
+  imp: { type: 'single', cancel: 'x', acts: false, pct: true, fail: false, retry: 'below', note: 'header', wide: false } };
 const Net = {
   waiting: [],
   get offline() { return S.net === 'offline'; },
@@ -1141,15 +1227,21 @@ function contactPane() {
 function contactPaneSkeleton() { return `<div class="skc" style="gap:12px">${sk.block('100%', 58)}<div class="skr" style="gap:6px;flex-wrap:wrap">${sk.pill(110, 22)}${sk.pill(130, 22)}${sk.pill(70, 22)}</div>${sk.block('100%', 30)}${[0, 1, 2, 3].map(i => `<div class="skr" style="--i:${i + 2}">${sk.line(80, 10)}${sk.line(110, 10)}</div>`).join('')}</div>`; }
 
 /* Contacts */
-function contactRows(idx) {
-  const rows = (idx || CONTACTS.map((_, i) => i)).map(i => CONTACTS[i]);
-  return rows.map(([n, h, t, em, sub]) => `<tr><td class="cb"><span class="cbx"></span></td><td><div class="nm"><span class="av ${tone(t)}">${avatarInit(n)}</span><b>${esc(n)}</b>${h ? `<span>${esc(h)}</span>` : ''}</div></td>
+/* "All" list = rows added by Refresh (newest first) + the seed list, capped at one page of 16 */
+function allContacts() {
+  if (!S.rows) S.rows = CONTACTS.map(c => c.slice());
+  return S.rows.slice(0, 16);
+}
+function contactRows(idx, fresh = []) {
+  const rows = idx ? idx.map(i => CONTACTS[i]) : allContacts();
+  return rows.map(([n, h, t, em, sub], ri) => `<tr${fresh.includes(ri) ? ' class="fresh"' : ''}><td class="cb"><span class="cbx"></span></td><td><div class="nm"><span class="av ${tone(t)}">${avatarInit(n)}</span><b>${esc(n)}</b>${h ? `<span>${esc(h)}</span>` : ''}</div></td>
     <td>${em ? esc(em) : '—'}</td><td>Jul 28 2026</td><td>2 days ago</td><td>${sub ? '<span class="status sub"><i></i>Subscribed</span>' : '<span class="status inq"><i></i>Inquiry received</span>'}</td><td style="color:#98a2b3">${ic('more', 15)}</td></tr>`).join('');
 }
-function contactsTable(tabIdx = 0) {
+const skTr = (i, anim) => `<tr class="sk-tr${anim ? ' in' : ''}" style="--i:${i}"><td class="cb"><span class="cbx"></span></td><td><div class="nm">${sk.avatar(24)}${sk.line(90 + (i * 37) % 60, 10)}</div></td><td>${sk.line(120 + (i * 53) % 80, 10)}</td><td>${sk.line(76, 10)}</td><td>${sk.line(64, 10)}</td><td>${sk.pill(96, 18)}</td><td></td></tr>`;
+function contactsTable(tabIdx = 0, fresh = []) {
   const t = SMART_TABS[tabIdx], idx = t[2], n = idx ? idx.length : 16;
-  return `<div class="tbl-scroll"><table class="t"><thead><tr><th class="cb"><span class="cbx"></span></th><th style="min-width:180px">Name</th><th style="width:260px">Email</th><th style="width:150px">Created</th><th style="width:160px">Last activity</th><th style="width:170px">Status</th><th style="width:56px"></th></tr></thead><tbody>${contactRows(idx)}</tbody></table></div>
-  <div class="tbl-foot"><span>Showing ${n} of ${t[1]} in ${esc(t[0])}</span><span class="pg"><span>Rows per page 20 ${ic('chevron-down', 12)}</span><span>Page 1 of 92</span></span></div>`;
+  return `<div class="tbl-scroll"><table class="t"><thead><tr><th class="cb"><span class="cbx"></span></th><th style="min-width:180px">Name</th><th style="width:260px">Email</th><th style="width:150px">Created</th><th style="width:160px">Last activity</th><th style="width:170px">Status</th><th style="width:56px"></th></tr></thead><tbody>${contactRows(idx, fresh)}</tbody></table></div>
+  <div class="tbl-foot"><span>Showing ${n} of ${tabIdx ? t[1] : fmt(1469 + (S.added || 0))} in ${esc(t[0])}</span><span class="pg"><span>Rows per page 20 ${ic('chevron-down', 12)}</span><span>Page 1 of 92</span></span></div>`;
 }
 function renderContacts() {
   const tab = S.ctab || 0;
@@ -1644,7 +1736,7 @@ function coldBoot() {
         Net.request(s, { factor: 0.6 }, () => {
           if (finished) return; finished = true;
           const L = setLayer(region(), P.render(), { kind: 'content' }); P.mount?.(L, s, false);
-          BootBar.done(); Line.done(); Words.clear(); TL.end(op, 'done'); log('Content popped in', 'today'); S.booted = true;
+          BootBar.done(); Line.done(); Words.clear(); TL.end(op, 'done'); log('Content popped in', 'today'); S.booted = true; runThen();
         }, () => bootFail(true));
         return;
       }
@@ -1765,40 +1857,88 @@ function mountDashboard(L, s, shown) {
 function retryWidget(id) { delete Dash.results[id]; const sl = $('#partial-slot'); if (sl) sl.innerHTML = ''; Dash.loaders[id]?.load(Dash.req[id]); log('Widget: Try again'); }
 function retryFailedWidgets() { Object.keys(Dash.results).filter(k => Dash.results[k] === false).forEach(retryWidget); }
 
-/* Contacts: RefreshState — stale rows stay, 2 px edge line, Refresh ↔ Cancel after 2 s */
+/* Contacts: RefreshState. Refresh (same list, new data) and Filter (another list) each have variants set in the panel:
+   refresh  line → stale rows stay, data swaps in place      rows → skeleton rows inserted at the top for new rows (+ changed older rows)
+   filter   stale → stale rows stay until the new list lands  skeleton → every body row becomes a skeleton (header stays real)
+   bar      2 px edge line on the table on/off (both). Refresh ↔ Cancel after 2 s; failure restores the last rows. */
 const Refresh = { loader: null, cancel: null, scope: null, restore: null };
 const refreshBtn = () => `<button class="tb-btn" data-act="refresh">${ic('refresh')}Refresh</button>`;
+const ADD_N = 5, CHANGED_AT = [3, 7];   /* CHANGED_AT: positions among the older rows that change on refresh */
+function nextRefreshData() {
+  const cur = allContacts(), k = (S.added || 0);
+  const add = Array.from({ length: ADD_N }, (_, i) => NEW_CONTACTS[(k + i) % NEW_CONTACTS.length].slice());
+  const older = (S.rows || []).map(r => r.slice());
+  if (S.tbl.changed) CHANGED_AT.forEach(j => { const r = older[j]; if (r) { r[4] = r[4] ? 0 : 1; if (!r[3]) r[3] = r[0].toLowerCase().replace(/[^a-z]+/g, '.') + '@mail.com'; } });
+  return { rows: [...add, ...older], added: ADD_N, changed: S.tbl.changed ? CHANGED_AT.map(j => j + ADD_N).filter(j => j < 16) : [], cur };
+}
 function refreshContacts(tabIdx) {
   const reg = $('#contacts-table'); if (!reg) return;
-  if (tabIdx != null) { S.ctab = tabIdx; $$('.vtab[data-act="smart-tab"]').forEach((t, i) => t.classList.toggle('on', i === tabIdx)); }
+  const isFilter = tabIdx != null;
+  const snap = { rows: S.rows ? S.rows.map(r => r.slice()) : null, added: S.added || 0, from: S.ctab || 0, to: tabIdx };
+  if (isFilter) S.lastFilter = snap; else S.lastRefresh = snap;
+  if (isFilter) { S.ctab = tabIdx; $$('.vtab[data-act="smart-tab"]').forEach((t, i) => t.classList.toggle('on', i === tabIdx)); }
   $('#refresh-msg').innerHTML = '';
-  const label = tabIdx != null ? `Filter → ${SMART_TABS[tabIdx][0]}` : 'Refresh contacts';
+  const label = isFilter ? `Filter → ${SMART_TABS[tabIdx][0]}` : 'Refresh contacts';
   const op = TL.start(label); logOp(`${label} · ${netLabel()}`);
   const parent = Route.scope || ROOT.scope;
   if (isToday()) {
     Refresh.scope?.dispose(); const rs = Refresh.scope = new Scope(parent);
+    const data = isFilter || S.ctab ? null : nextRefreshData();
     setLayer(reg, `<div class="v-today v-wave"><div class="tbl-scroll"><table class="t"><thead><tr><th class="cb"><span class="cbx"></span></th><th>Name</th><th>Email</th><th>Created</th><th>Last activity</th><th>Status</th><th></th></tr></thead></table>${sk.tableRows(11)}</div></div>`, { kind: 'skeleton', ann: 'Re-skeleton · wave-lines 2 s' });
     log('Loaded rows thrown away → table re-skeletoned', 'today'); TL.set(op, 'indicator');
-    Net.request(rs, {}, () => { setLayer(reg, contactsTable(S.ctab)); TL.end(op, 'done'); log('Rows popped in', 'today'); }, () => { toast('Something went wrong', { bad: true }); toast('Failed to fetch contacts', { bad: true }); TL.end(op, 'failed'); });
+    Net.request(rs, {}, () => { if (data) { S.rows = data.rows; S.added = (S.added || 0) + data.added; } setLayer(reg, contactsTable(S.ctab)); TL.end(op, 'done'); log('Rows popped in', 'today'); }, () => { toast('Something went wrong', { bad: true }); toast('Failed to fetch contacts', { bad: true }); TL.end(op, 'failed'); });
     return;
   }
   Refresh.loader?.cancel(); Refresh.restore?.();
+  const V = S.tbl, style = isFilter ? V.filter : V.refresh;
   const upd = $('#updated'), slot = $('#refresh-slot'), prevUpd = upd.textContent;
-  let edge = null;
+  const data = isFilter || S.ctab ? null : nextRefreshData();   /* new contacts land in All; other lists refresh in place */
+  const L0 = topLayer(reg), snapshot = L0 ? L0.innerHTML : null;
+  let edge = null, touched = false;
   const restore = Refresh.restore = () => { edge?.remove(); edge = null; slot.innerHTML = refreshBtn(); };
+  const putBack = () => { if (touched && snapshot != null) { const L = topLayer(reg); if (L) L.innerHTML = snapshot; touched = false; } };
+  const skeletonize = () => {
+    const tb = topLayer(reg)?.querySelector('tbody'); if (!tb) return;
+    touched = true;
+    if (isFilter && style === 'skeleton') {
+      const n = Math.max(6, tb.rows.length);
+      tb.innerHTML = Array.from({ length: n }, (_, i) => skTr(i, false)).join('');
+      log(`Filter: all ${n} body rows → skeleton (header stays real)`);
+    } else if (data && style === 'rows') {
+      tb.insertAdjacentHTML('afterbegin', Array.from({ length: data.added }, (_, i) => skTr(i, true)).join(''));
+      while (tb.rows.length > 16) tb.deleteRow(tb.rows.length - 1);
+      data.changed.forEach((j, i) => { const r = tb.rows[j]; if (r) r.outerHTML = skTr(j + i, true); });
+      log(`Refresh: ${data.added} skeleton rows at the top for new contacts${data.changed.length ? ` + ${data.changed.length} changed rows below` : ' — older rows untouched'}`);
+    }
+    syncGlow();
+  };
   const ld = Refresh.loader = new RegionLoader(reg, {
     parent, stale: true, log,
-    onStaleShow: () => { reg.insertAdjacentHTML('beforeend', '<div class="edge-line" data-ann="RefreshState"><i></i></div>'); edge = reg.lastElementChild; upd.textContent = 'Updating…'; log('RefreshState: stale rows stay at 100% + 2 px edge line'); TL.set(op, 'indicator'); announce('Updating contacts'); },
+    onStaleShow: () => {
+      if (V.bar) { reg.insertAdjacentHTML('beforeend', '<div class="edge-line" data-ann="RefreshState"><i></i></div>'); edge = reg.lastElementChild; }
+      skeletonize();
+      upd.textContent = 'Updating…';
+      if (style === 'line' || style === 'stale') log(`RefreshState: stale rows stay at 100%${V.bar ? ' + 2 px edge line' : ' · no bar (Updating… only)'}`);
+      else log(V.bar ? 'Edge line on the table' : 'No bar — skeleton rows only');
+      TL.set(op, 'indicator'); announce(isFilter ? 'Filtering contacts' : 'Updating contacts');
+    },
     onWords: () => { slot.innerHTML = `<button class="tb-btn" data-act="refresh-cancel">${ic('x')}Cancel</button>`; log('Refresh → Cancel after 2 s'); TL.set(op, 'words'); },
     onStill: () => { upd.textContent = 'Still working on it'; TL.set(op, 'still'); log('Still working on it'); },
-    onStaleDone: () => { const L = topLayer(reg); if (L) L.innerHTML = contactsTable(S.ctab); restore(); S.updated = wallTime(); upd.textContent = 'Updated ' + S.updated; log(`Rows updated in place · “Updated ${S.updated}”`, 'good'); TL.end(op, 'done'); announce('Contacts updated'); },
+    onStaleDone: () => {
+      let fresh = [];
+      if (data) { S.rows = data.rows; S.added = (S.added || 0) + data.added; fresh = [...Array(data.added).keys(), ...data.changed]; }
+      const L = topLayer(reg); if (L) L.innerHTML = contactsTable(S.ctab, fresh); touched = false;
+      restore(); S.updated = wallTime(); upd.textContent = 'Updated ' + S.updated;
+      log(data ? `${data.added} new rows at the top${data.changed.length ? `, ${data.changed.length} older rows updated` : ''} · “Updated ${S.updated}”` : `Filtered rows in place · “Updated ${S.updated}”`, 'good');
+      TL.end(op, 'done'); announce(isFilter ? 'Contacts filtered' : 'Contacts updated');
+    },
     onStaleFail: (e) => {
-      restore(); upd.textContent = prevUpd;
+      putBack(); restore(); upd.textContent = prevUpd;
       $('#refresh-msg').innerHTML = `<div class="inline-err" style="margin:-4px 0 10px">${ic('alert', 14)}Couldn't update contacts. Showing your last results. <button class="tb-btn" style="height:26px;font-size:12px" data-act="refresh">Try again</button></div>`;
-      log(e.kind === 'timeout' ? 'Timeout at 30 s — stale rows kept, inline message' : 'Refresh failed — stale rows kept, inline message', 'bad'); TL.end(op, 'failed');
+      log(e.kind === 'timeout' ? 'Timeout at 30 s — last rows restored, inline message' : 'Refresh failed — last rows restored, inline message', 'bad'); TL.end(op, 'failed');
     },
   });
-  Refresh.cancel = () => { ld.cancel(); restore(); upd.textContent = prevUpd; log('Canceled — kept the last results'); TL.end(op, 'done'); };
+  Refresh.cancel = () => { ld.cancel(); putBack(); restore(); upd.textContent = prevUpd; log('Canceled — kept the last results'); TL.end(op, 'done'); };
   ld.load({});
 }
 
@@ -1874,6 +2014,7 @@ function openOpp(ci, k) {
 }
 
 /* ButtonLoading: idle → pending (spinner after 300 ms, width locked, aria-disabled) → success (1.5 s) | inline error; > 5 s → job */
+const Btn = { abort: null };
 function buttonLoad(btn, o) {
   if (btn.dataset.busy) return;
   const s = new Scope(o.parent || Route.scope || ROOT.scope);
@@ -1881,7 +2022,9 @@ function buttonLoad(btn, o) {
   const labelEl = btn.querySelector('.bl-label'), orig = labelEl.innerHTML;
   o.errHost?.querySelector('.inline-err')?.remove();
   btn.dataset.busy = '1'; btn.setAttribute('aria-disabled', 'true');
-  const resetBtn = () => { btn.classList.remove('pending', 'ok'); btn.querySelector('.bl-spin')?.remove(); labelEl.innerHTML = orig; btn.style.width = ''; btn.removeAttribute('aria-disabled'); delete btn.dataset.busy; delete btn.dataset.ann; };
+  let shownAt = null, ended = false, job = null;
+  Btn.abort = () => { s.dispose(); if (job) Jobs.remove(job); resetBtn(); o.errHost?.querySelector('.inline-err')?.remove(); Btn.abort = null; };
+  const resetBtn = () => { btn.classList.remove('pending', 'ok', 'busy-lbl'); btn.style.transition = ''; btn.querySelector('.bl-spin')?.remove(); labelEl.innerHTML = orig; btn.style.width = ''; btn.removeAttribute('aria-disabled'); delete btn.dataset.busy; delete btn.dataset.ann; };
   if (isToday()) {
     labelEl.innerHTML = '<span class="lds-ring" style="width:14px;height:14px;border-width:2px;border-color:#fff transparent transparent transparent"></span>';
     log('Label swapped for a spinner at once — button width jumps', 'today'); TL.set(op, 'indicator');
@@ -1890,8 +2033,18 @@ function buttonLoad(btn, o) {
     return;
   }
   btn.style.width = btn.offsetWidth + 'px'; btn.dataset.ann = 'ButtonLoading';
-  let shownAt = null, ended = false, job = null;
-  s.after(T.GRACE, () => { if (ended || job) return; shownAt = vnow(); btn.classList.add('pending'); btn.insertAdjacentHTML('beforeend', `<span class="bl-spin">${spinner(16)}</span>`); log('ButtonLoading: spinner after 300 ms, width locked, aria-disabled'); TL.set(op, 'indicator'); });
+  s.after(T.GRACE, () => {
+    if (ended || job) return; shownAt = vnow();
+    if (S.btnLabel) {
+      /* Spinner + words: width grows once to fit the label, then holds */
+      const w0 = btn.offsetWidth; btn.classList.add('busy-lbl');
+      labelEl.innerHTML = `${spinner(14)}${esc(o.busyLabel || 'Saving…')}`;
+      btn.style.width = 'auto'; const w1 = Math.max(w0, btn.offsetWidth); btn.style.width = w0 + 'px'; void btn.offsetWidth;
+      btn.style.transition = `width ${Math.round(150 / Clock.scale)}ms ease-out`; btn.style.width = w1 + 'px';
+      log(`ButtonLoading: spinner + “${o.busyLabel || 'Saving…'}” after 300 ms, aria-disabled`);
+    } else { btn.classList.add('pending'); btn.insertAdjacentHTML('beforeend', `<span class="bl-spin">${spinner(16)}</span>`); log('ButtonLoading: spinner after 300 ms, width locked, aria-disabled'); }
+    TL.set(op, 'indicator');
+  });
   s.after(5000, () => {
     if (ended) return;
     job = Jobs.add({ title: o.jobName, icon: 'refresh', indeterminate: true, note: 'You can keep working. We’ll let you know when it’s saved.' });
@@ -1911,7 +2064,7 @@ function buttonLoad(btn, o) {
     const wait = shownAt == null ? 0 : Math.max(0, shownAt + T.MIN - vnow());
     s.after(wait, () => {
       if (ok) {
-        btn.querySelector('.bl-spin')?.remove(); btn.classList.remove('pending'); btn.classList.add('ok');
+        btn.querySelector('.bl-spin')?.remove(); btn.classList.remove('pending', 'busy-lbl'); btn.classList.add('ok');
         labelEl.innerHTML = `${ic('check', 14)}${o.okLabel || 'Saved'}`;
         log('Success: check + “Saved” held 1.5 s', 'good'); announce('Saved'); TL.end(op, 'done');
         s.after(T.BTN_OK, () => { resetBtn(); o.onDone?.(); });
@@ -1924,31 +2077,73 @@ function buttonLoad(btn, o) {
   }
 }
 function saveProfile(btn) {
-  buttonLoad(btn, { opLabel: 'Save business profile', okLabel: 'Saved', errHost: $('#save-foot'), errText: "Couldn't save changes. Check your connection and try again.", jobName: 'Saving business profile', jobDone: 'Business profile saved', jobFail: "Couldn't save business profile", todayOk: 'Business profile updated successfully!' });
+  buttonLoad(btn, { opLabel: 'Save business profile', okLabel: 'Saved', errHost: $('#save-foot'), errText: "Couldn't save changes. Check your connection and try again.", busyLabel: 'Saving…', jobName: 'Saving business profile', jobDone: 'Business profile saved', jobFail: "Couldn't save business profile", todayOk: 'Business profile updated successfully!' });
 }
 
 /* JobTray — shell-owned, bottom-right, survives route changes */
+const IMPORT_NOTE = 'You can keep working. We’ll notify you when it’s done.';
 const Jobs = {
-  list: [], seq: 0,
-  add(j) { j.id = ++this.seq; j.started = wallTime(); j.state = j.state || 'running'; j.acts = j.acts || []; this.list.unshift(j); this.render(); return j; },
+  list: [], seq: 0, collapsed: false,
+  add(j) { j.id = ++this.seq; j.started = wallTime(); j.state = j.state || 'running'; j.acts = j.acts || []; this.list.unshift(j); this.collapsed = false; this.render(); return j; },
   update(j, p) { Object.assign(j, p); this.render(); },
   remove(j) { j.scope?.dispose(); this.list = this.list.filter(x => x !== j); this.render(); },
+  bar(j, pct, cls = '') { return j.state === 'running' ? (j.indeterminate ? `<div class="pbar ind" role="progressbar" aria-label="${esc(j.title)}"><i></i></div>` : `<div class="pbar ${cls}" role="progressbar" aria-label="${esc(j.title)}" aria-valuemin="0" aria-valuemax="${j.total}" aria-valuenow="${Math.round(j.done)}"><i style="width:${pct.toFixed(1)}%"></i></div>`) : j.total ? `<div class="pbar ${j.state === 'done' ? 'done' : 'err'}"><i style="width:${pct.toFixed(1)}%"></i></div>` : ''; },
   row(j) {
+    if (j.files) return this.filesRow(j);
     const ico = j.state === 'done' ? `<span class="ji ok">${ic('check', 14)}</span>` : j.state === 'failed' ? `<span class="ji err">${ic('alert', 14)}</span>` : `<span class="ji">${j.indeterminate ? spinner(16) : ic(j.icon || 'upload', 14)}</span>`;
     const pct = j.total ? Math.min(100, j.done / j.total * 100) : 0;
-    const bar = j.state === 'running' ? (j.indeterminate ? `<div class="pbar ind" role="progressbar" aria-label="${esc(j.title)}"><i></i></div>` : `<div class="pbar" role="progressbar" aria-label="${esc(j.title)}" aria-valuemin="0" aria-valuemax="${j.total}" aria-valuenow="${Math.round(j.done)}"><i style="width:${pct.toFixed(1)}%"></i></div>`) : j.total ? `<div class="pbar ${j.state === 'done' ? 'done' : 'err'}"><i style="width:${pct.toFixed(1)}%"></i></div>` : '';
+    const inlineX = j.state === 'running' && j.inlineCancel != null ? `<button class="jx" data-act="job" data-j="${j.id}" data-a="${j.inlineCancel}" title="Cancel import" aria-label="Cancel import">${ic('x', 14)}</button>` : '';
+    const bar = this.bar(j, pct), barRow = bar ? (inlineX ? `<div class="jbar">${bar}${inlineX}</div>` : bar) : '';
     const meta = j.total && j.state !== 'done' ? `<div class="jmeta"><span class="jcount">${fmt(Math.round(j.done / 10) * 10)} of ${fmt(j.total)} contacts</span><span>${j.state === 'running' ? 'Started ' + j.started : ''}</span></div>` : '';
-    return `<div class="job" id="job-${j.id}"><div class="j1">${ico}<span>${esc(j.title)}</span><small>${j.state === 'running' && !j.total ? 'Started ' + j.started : ''}</small></div>${bar}${meta}${j.note ? `<div class="jnote">${esc(j.note)}</div>` : ''}
-      ${j.acts.length ? `<div class="jacts">${j.acts.map((a, i) => `<button class="btn ${a[2] ? 'pri' : 'sec'} xs" data-act="job" data-j="${j.id}" data-a="${i}">${esc(a[0])}</button>`).join('')}</div>` : ''}</div>`;
+    const acts = j.acts.filter((a, i) => !(j.inlineCancel === i && j.state === 'running'));
+    return `<div class="job" id="job-${j.id}"><div class="j1">${ico}<span>${esc(j.rowTitle || j.title)}</span><small>${j.state === 'running' && !j.total ? 'Started ' + j.started : ''}</small></div>${barRow}${meta}${j.note ? `<div class="jnote">${esc(j.note)}</div>` : ''}
+      ${acts.length ? `<div class="jacts">${j.acts.map((a, i) => (j.inlineCancel === i && j.state === 'running') ? '' : `<button class="btn ${a[2] ? 'pri' : 'sec'} xs" data-act="job" data-j="${j.id}" data-a="${i}">${esc(a[0])}</button>`).join('')}</div>` : ''}</div>`;
+  },
+  filesRow(j) {
+    const I = S.imp, multi = j.files.length > 1 || j.kind === 'multi';
+    const btn = (f, op, icn, t) => `<button class="jx" data-act="jfile" data-j="${j.id}" data-f="${f.id}" data-op="${op}" title="${t}" aria-label="${t} ${esc(f.name)}">${ic(icn, 14)}</button>`;
+    const cards = j.files.map(f => {
+      const st = f.state, pct = Math.min(100, Math.round(f.done / f.total * 100)), n = fmt(Math.round(f.done / 10) * 10);
+      const live = st === 'running' || st === 'paused';
+      const cls = st === 'done' ? ' ok' : st === 'failed' ? ' bad' : '';
+      const icon = st === 'failed' ? ic('cloud-upload', 16) : ic('file', 16);
+      let top = '';
+      if (st === 'done') top = `<span class="fok" aria-label="Imported">${ic('check', 12)}</span>`;
+      else if (st === 'failed') top = (I.retry === 'inline' ? btn(f, 'retry', 'refresh', 'Retry') : '') + btn(f, 'delete', 'x', 'Remove');
+      else if (st === 'queued' || st === 'canceled') top = btn(f, 'delete', 'x', 'Remove');
+      else top = (multi ? (st === 'paused' ? btn(f, 'resume', 'play', 'Resume') : btn(f, 'pause', 'pause', 'Pause')) : '') + (I.cancel === 'x' ? btn(f, 'cancel', 'x', 'Cancel') : '');
+      const meta = { running: `${f.size} · ${n} of ${fmt(f.total)} contacts`, paused: `Paused · ${n} of ${fmt(f.total)} contacts`, queued: `Waiting · ${f.size}`, done: `${f.size} · ${fmt(f.total - f.skip)} added · ${f.skip} skipped`, canceled: `Canceled · ${n} added`, failed: 'Failed to import' }[st];
+      const bar = live ? `<div class="fbar"><div class="pbar ${st === 'paused' ? 'paused' : ''}" role="progressbar" aria-label="${esc(f.name)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>${I.pct ? `<span class="pct">${pct}%</span>` : ''}${I.cancel === 'inline' ? btn(f, 'cancel', 'x', 'Cancel') : ''}</div>` : '';
+      const below = st === 'running' && I.cancel === 'below' ? `<div class="fcx"><button class="btn sec xs" data-act="jfile" data-j="${j.id}" data-f="${f.id}" data-op="cancel">Cancel</button></div>`
+        : st === 'failed' && I.retry === 'below' ? `<button class="flink" data-act="jfile" data-j="${j.id}" data-f="${f.id}" data-op="retry">Retry</button>` : '';
+      return `<div class="fcard${cls}" id="jf-${j.id}-${f.id}"><span class="fic">${icon}</span><div class="fb"><div class="f1"><b>${esc(f.name)}</b><span class="fa">${top}</span></div><div class="fm">${meta}</div>${bar}${below}</div></div>`;
+    }).join('');
+    const sum = j.state !== 'running' && j.note ? `<div class="fsum">${esc(j.note)}</div>` : '';
+    const acts = j.acts.length && j.state !== 'running' ? `<div class="jacts" style="padding:0 8px 6px">${j.acts.map((a, i) => `<button class="btn ${a[2] ? 'pri' : 'sec'} xs" data-act="job" data-j="${j.id}" data-a="${i}">${esc(a[0])}</button>`).join('')}</div>` : '';
+    return `<div class="job files" id="job-${j.id}">${cards || '<div class="fsum">No files left.</div>'}${sum}${acts}</div>`;
+  },
+  overall() {
+    let t = 0, d = 0;
+    this.list.filter(j => j.state === 'running' && j.total).forEach(j => { if (j.files) j.files.forEach(f => { t += f.total; d += f.done; }); else { t += j.total; d += j.done; } });
+    return t ? d / t * 100 : 0;
   },
   render() {
     const el = $('#jobtray');
-    if (!this.list.length) { el.classList.remove('on'); el.innerHTML = ''; delete el.dataset.ann; return; }
-    el.classList.add('on'); el.dataset.ann = 'JobTray';
-    const running = this.list.filter(j => j.state === 'running').length;
-    el.innerHTML = `<div class="jt-head"><span>${running ? `${running} job${running > 1 ? 's' : ''} running` : 'Jobs'}</span><button class="ib" data-act="tray-close" title="Close">${ic('x', 14)}</button></div>${this.list.map(j => this.row(j)).join('')}`;
+    if (!this.list.length) { el.classList.remove('on', 'collapsed', 'wide'); el.innerHTML = ''; delete el.dataset.ann; return; }
+    el.classList.add('on'); el.classList.toggle('collapsed', this.collapsed); el.classList.toggle('wide', !!S.imp.wide); el.dataset.ann = 'JobTray';
+    const running = this.list.filter(j => j.state === 'running');
+    const title = running.length > 1 ? `${running.length} jobs running` : running.length ? running[0].title : this.list[0].title;
+    const note = running.some(j => j.kind === 'import' || j.kind === 'multi') ? IMPORT_NOTE : '';
+    const busy = running.length > 0;
+    el.innerHTML = `<div class="jt-head" data-act="tray-toggle" aria-expanded="${!this.collapsed}"><div class="jt-t"><span>${esc(title)}</span>${note && S.imp.note === 'header' ? `<small>${note}</small>` : ''}</div>
+      <button class="ib jt-tog" data-act="tray-toggle" title="${this.collapsed ? 'Expand' : 'Collapse'}" aria-label="${this.collapsed ? 'Expand' : 'Collapse'}">${ic('chevron-down', 14)}</button>
+      <button class="ib" data-act="tray-close" ${busy ? 'aria-disabled="true" title="You can close this when the import ends"' : 'title="Close"'} aria-label="Close">${ic('x', 14)}</button>
+      ${busy && this.collapsed ? `<div class="jt-prog"><i style="width:${this.overall().toFixed(1)}%"></i></div>` : ''}</div>
+      ${note && S.imp.note === 'below' && !this.collapsed ? `<div class="jt-note">${note}</div>` : ''}<div class="jt-body">${this.list.map(j => this.row(j)).join('')}</div>`;
   },
   progress(j) {
+    if (this.collapsed) { const g = $('#jobtray .jt-prog i'); if (g) g.style.width = this.overall().toFixed(1) + '%'; }
+    if (j.files) { this.render(); return; }
     const row = $('#job-' + j.id); if (!row) return;
     const pct = Math.min(100, j.done / j.total * 100), i = $('.pbar i', row), c = $('.jcount', row);
     if (i) i.style.width = pct.toFixed(1) + '%';
@@ -1956,46 +2151,64 @@ const Jobs = {
     if (vnow() - (j.ariaAt || 0) >= 1000) { j.ariaAt = vnow(); $('.pbar', row)?.setAttribute('aria-valuenow', Math.round(j.done)); }
   },
   act(id, a) { const j = this.list.find(x => x.id === id); j?.acts[a]?.[1](); },
+  fileAct(el) { const j = this.list.find(x => x.id === +el.dataset.j); j?.fileOp?.(el.dataset.op, el.dataset.f != null ? +el.dataset.f : null); },
+  toggle() { this.collapsed = !this.collapsed; this.render(); log(`JobTray ${this.collapsed ? 'collapsed — header + overall line only' : 'expanded'}`); },
+  close() { if (this.list.some(j => j.state === 'running')) { log('Close is disabled while a job runs'); return; } this.list = []; this.render(); },
 };
 function startImport() {
   if (isToday()) return importToday();
-  if (Jobs.list.some(j => j.kind === 'import' && j.state === 'running')) { toast('An import is already running.'); return; }
-  const total = 3100, s = new Scope(ROOT.scope);
-  const op = TL.start('Import contacts (job)'); logOp(`Import contacts · ${netLabel()}`);
-  const NOTE = 'You can keep working. We’ll notify you when it’s done.', OFF = 'Paused — you’re offline. We’ll resume when you’re back.';
-  const j = Jobs.add({ kind: 'import', title: 'Importing contacts', icon: 'upload', total, done: 0, scope: s, note: NOTE, acts: [['Cancel', () => cancel()]] });
-  toast('Importing contacts', { sub: 'You can keep working. We’ll notify you when it’s done.', icon: 'upload' });
-  log('JobTray: import started — it survives navigation'); announce('Importing contacts'); TL.set(op, 'indicator');
-  const t0 = vnow(); let lastProg = vnow();
-  const errFile = () => toast('Downloaded import-errors.csv (4 KB)', { icon: 'download' });
+  if (Jobs.list.some(j => (j.kind === 'import' || j.kind === 'multi') && j.state === 'running')) { toast('An import is already running.'); return; }
+  const multi = S.imp.type === 'multi';
+  const SPEC = multi ? [['leads-october.csv', 1200, '1.2 MB', 1, 14], ['webinar-signups.csv', 640, '410 KB', 0.7, 6], ['partners-2026.csv', 1800, '2.1 MB', 1.3, 22], ['trade-show-scans.csv', 420, '260 KB', 0.6, 3]]
+    : [['contacts-oct-2026.csv', 3100, '2.4 MB', 1, 50]];
+  const failId = multi ? 2 : 0;   /* the file that fails when "Fail a file" is on, or on the Fails network */
+  const s = new Scope(ROOT.scope);
+  const what = multi ? `Import ${SPEC.length} files` : 'Import contacts';
+  let op = TL.start(what + ' (job)'); logOp(`${what} · ${netLabel()}`);
+  const files = SPEC.map(([name, total, size, f, skip], id) => ({ id, name, total, size, f, skip, done: 0, state: id < 3 ? 'running' : 'queued' }));
+  const title = multi ? `Importing ${files.length} files` : 'Importing contacts';
+  const j = Jobs.add({ kind: multi ? 'multi' : 'import', title, icon: 'upload', total: 1, done: 0, scope: s, files, note: '', acts: [] });
+  toast(title, { sub: IMPORT_NOTE, icon: 'upload' });
+  log(`JobTray: ${multi ? '4 files, 3 at a time' : '1 file'} · cancel ${S.imp.cancel} · % ${S.imp.pct ? 'on' : 'off'} · note ${S.imp.note}${S.imp.wide ? ' · wide' : ''}`); announce(title); TL.set(op, 'indicator');
+  const t0 = vnow(), OFF = 'Paused — you’re offline. We’ll resume when you’re back.';
+  const live = x => ['running', 'paused', 'queued'].includes(x.state);
+  const promote = () => { while (files.filter(f => f.state === 'running').length < 3) { const q = files.find(f => f.state === 'queued'); if (!q) break; q.state = 'running'; } };
+  let ended = false;
+  const settle = () => {
+    promote();
+    if (files.some(live)) { if (ended) { ended = false; j.state = 'running'; j.title = title; j.note = ''; j.acts = []; op = TL.start(what + ' (retry)'); TL.set(op, 'indicator'); } Jobs.render(); return; }
+    if (ended) { Jobs.render(); return; }
+    ended = true;
+    const ok = files.filter(f => f.state === 'done'), bad = files.some(f => f.state === 'failed');
+    const added = ok.reduce((a, f) => a + f.total - f.skip, 0) + files.filter(f => f.state !== 'done').reduce((a, f) => a + Math.round(f.done / 10) * 10, 0);
+    const note = !files.length ? 'No files imported' : multi ? `${fmt(added)} contacts added from ${ok.length} of ${files.length} files` : bad ? `${fmt(added)} of 3,100 imported` : '3,050 added · 50 skipped';
+    const t = bad ? (multi ? 'Import finished with errors' : 'Import failed') : ok.length ? 'Import finished' : 'Import canceled';
+    Jobs.update(j, { state: bad ? 'failed' : 'done', title: t, note: multi || bad ? note : '', acts: S.imp.acts && ok.length ? [['Download error file', () => toast('Downloaded import-errors.csv (4 KB)', { icon: 'download' })], ['Undo import', () => { Jobs.remove(j); toast(`Import undone · ${fmt(added)} contacts removed`); }]] : [] });
+    toast(t, { sub: note, icon: bad ? 'alert' : 'check' }); announce(t);
+    TL.end(op, bad ? 'failed' : 'done'); log(`Import settled → ${t}${S.imp.acts ? ' + end actions' : ''}`, bad ? 'bad' : 'good', op);
+  };
+  j.fileOp = (opn, id) => {
+    const f = id != null ? files.find(x => x.id === id) : null;
+    switch (opn) {
+      case 'pause': f.state = 'paused'; log(`${f.name} paused`, '', op); break;
+      case 'resume': f.state = 'running'; log(`${f.name} resumed`, '', op); break;
+      case 'cancel': f.state = 'canceled'; log(`${f.name} canceled · ${fmt(Math.round(f.done / 10) * 10)} kept`, '', op); break;
+      case 'retry': f.state = 'running'; f.noFail = true; log(`${f.name}: Retry`, '', op); break;
+      case 'delete': files.splice(files.indexOf(f), 1); log(`${f.name} removed from the list`, '', op); break;
+    }
+    settle();
+  };
   s.every(250, () => {
     const net = S.net;
-    if (net === 'offline') { if (j.note !== OFF) { Jobs.update(j, { note: OFF }); log('Import paused while offline', '', op); } return; }
-    if (j.note !== NOTE && net !== 'hang') Jobs.update(j, { note: NOTE });
-    if (net === 'fail' && vnow() - t0 >= 3000) return fail();
-    if (net === 'hang') { if (vnow() - lastProg > T.STILL && j.note !== 'Still working on it') { Jobs.update(j, { note: 'Still working on it' }); log('Import: Still working on it', '', op); } return; }
+    if (net === 'offline') { if (j.note !== OFF && !ended) Jobs.update(j, { note: OFF }); return; }
+    if (net === 'hang') return;
+    const fz = files.find(x => x.id === failId);
+    if (fz && fz.state === 'running' && !fz.noFail && ((S.imp.fail && fz.done / fz.total >= 0.45) || (net === 'fail' && vnow() - t0 >= 3000))) { fz.state = 'failed'; log(`${fz.name} failed${multi ? ' — other files keep going' : ''}`, 'bad', op); settle(); return; }
     const D = (net === 'fail' ? NETS.typical.lat : NETS[net].lat) * 8;
-    j.done = Math.min(total, j.done + total * 250 / D); lastProg = vnow();
-    Jobs.progress(j);
-    if (j.done >= total) finish();
+    let changed = false;
+    files.forEach(f => { if (f.state !== 'running') return; f.done = Math.min(f.total, f.done + f.total * 250 / (D * f.f)); if (f.done >= f.total) { f.state = 'done'; changed = true; } });
+    if (changed) settle(); else Jobs.progress(j);
   });
-  function finish() {
-    s.dispose();
-    Jobs.update(j, { state: 'done', title: 'Import finished', done: total, note: '3,050 added · 50 skipped', acts: [['Download error file', errFile], ['Undo import', () => { Jobs.remove(j); toast('Import undone · 3,050 contacts removed'); }]] });
-    toast('Import finished', { sub: '3,050 added · 50 skipped', icon: 'check' });
-    announce('Import finished'); TL.end(op, 'done'); log('Import finished → result with error file + Undo; notification sent', 'good', op);
-  }
-  function fail() {
-    s.dispose();
-    Jobs.update(j, { state: 'failed', title: 'Import stopped', note: `${fmt(Math.round(j.done / 10) * 10)} of 3,100 imported. Check your connection and try again.`, acts: [['Try again', () => { Jobs.remove(j); startImport(); }, 1], ['Download error file', errFile]] });
-    TL.end(op, 'failed'); log('Import stopped → Try again + error file (one message)', 'bad', op);
-  }
-  function cancel() {
-    s.dispose();
-    const n = Math.round(j.done / 10) * 10;
-    Jobs.update(j, { state: 'failed', title: 'Import canceled', note: `${fmt(n)} contacts were added before you canceled.`, acts: [['Undo import', () => { Jobs.remove(j); toast(`Import undone · ${fmt(n)} contacts removed`); }], ['Dismiss', () => Jobs.remove(j)]] });
-    TL.end(op, 'done'); log('Import canceled', '', op);
-  }
 }
 function importToday() {
   const host = $('#modal-host'), s = Modal.scope = new Scope(ROOT.scope);
@@ -2151,7 +2364,7 @@ function resetAll() {
   resetRootScope(); Route.scope = null; Route.then = null;
   Words.clear(); Words.setOverride(null); Line.reset(); BootBar.hide();
   closeModal(); closeDrawer(); closeFlyout();
-  $('#toasts').innerHTML = ''; Jobs.list = []; Jobs.render(); Net.waiting = [];
+  $('#toasts').innerHTML = ''; Jobs.list = []; Jobs.collapsed = false; Jobs.render(); Net.waiting = [];
   clearShellVariant(); $('#blank').style.display = 'none';
   if (S.net === 'offline' && !isToday()) Words.setOverride("You're offline. We'll retry when you're back.", { spin: false, icon: 'wifi-off', wrap: true, ann: 'StatusWords · offline' });
 }
@@ -2187,11 +2400,12 @@ const SCENARIOS = [
   ['boot', 'Cold boot', 'Reload the app: blank → shell skeleton → page'],
   ['route', 'Route change', 'Navigate to the page picked below'],
   ['acct', 'Account switch', 'Switch to the next account in the rail'],
-  ['refresh', 'Refresh / filter table', 'Contacts: next smart list, stale rows kept'],
+  ['refresh', 'Refresh table', 'Contacts › Refresh: 5 new contacts arrive'],
+  ['filter', 'Filter table', 'Contacts: switch to the next smart list'],
   ['modal', 'Open modal', 'Add contact: frame first, body skeleton'],
   ['drawer', 'Open drawer', 'Opportunity card → 320 px side panel'],
   ['save', 'Save button', 'Business profile › Update'],
-  ['import', 'Import contacts', 'Background job; survives navigation'],
+  ['import', 'Import contacts', 'Background job; 1 or multiple files (set below)'],
   ['ai', 'AI generate · replies', 'Conversations: Write 3 replies with AI'],
   ['aiwf', 'AI generate · workflow', 'Builder: Generate workflow with AI'],
   ['dash', 'Dashboard widgets', 'Each widget loads on its own; try with Fails'],
@@ -2199,15 +2413,24 @@ const SCENARIOS = [
   ['hang', 'Hang → timeout', 'Opportunities never answers; use 4×'],
 ];
 const ROUTE_CHOICES = [['contacts', 'Contacts'], ['opportunities', 'Opportunities'], ['conversations', 'Conversations'], ['calendar', 'Calendars'], ['dashboard', 'Reporting dashboard'], ['settings', 'Business profile'], ['workflows', 'Workflows'], ['builder', 'Workflow builder'], ['launchpad', 'Launchpad']];
+/* Center an element inside its own scroll area only — never scroll the page that embeds the prototype */
+function scrollWithin(el) {
+  let sc = el.parentElement;
+  while (sc && !(sc.scrollHeight > sc.clientHeight && /auto|scroll/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
+  if (!sc || sc === document.body || sc === document.documentElement) return;
+  const r = el.getBoundingClientRect(), c = sc.getBoundingClientRect();
+  sc.scrollTop += r.top - c.top - (sc.clientHeight - r.height) / 2;
+}
 function runScenario(id) {
   switch (id) {
     case 'boot': return coldBoot();
     case 'route': { const v = $('#route-pick').value; return navigate(v); }
     case 'acct': return switchAccount(S.acct === 0 ? 2 : (S.acct + 1) % ACCOUNTS.length === 0 ? 1 : (S.acct + 1) % ACCOUNTS.length);
-    case 'refresh': return ensurePage('contacts', () => refreshContacts(((S.ctab || 0) + 1) % SMART_TABS.length));
+    case 'refresh': return ensurePage('contacts', () => refreshContacts());
+    case 'filter': return ensurePage('contacts', () => refreshContacts(((S.ctab || 0) + 1) % SMART_TABS.length));
     case 'modal': return ensurePage('contacts', openAddContact);
     case 'drawer': return ensurePage('opportunities', () => openOpp(1, 0));
-    case 'save': return ensurePage('settings', () => { const b = $('#save-btn'); if (b) { b.scrollIntoView({ block: 'center', inline: 'nearest' }); saveProfile(b); } });
+    case 'save': return ensurePage('settings', () => { const b = $('#save-btn'); if (b) { scrollWithin(b); saveProfile(b); } });
     case 'import': return startImport();
     case 'ai': return ensurePage('conversations', aiReplies);
     case 'aiwf': return ensurePage('builder', aiWorkflow);
@@ -2223,6 +2446,43 @@ function runScenario(id) {
 }
 
 /* ---------- Control panel ---------- */
+/* Options shown right under their scenario. Any change re-runs that scenario from the start. */
+const seg = (opt, items) => `<div class="segp" data-opt="${opt}">${items.map(([v, l]) => `<button data-v="${v}">${l}</button>`).join('')}</div>`;
+const tg = (opt, label) => `<label class="tgl">${label}<input type="checkbox" data-opt="${opt}"><span class="sw"></span></label>`;
+const SC_OPTS = {
+  refresh: seg('tbl.refresh', [['line', 'Rows stay, data swaps'], ['rows', 'Skeleton new rows']]) + tg('tbl.changed', 'Older rows change too') + tg('tbl.bar', 'Progress bar on table'),
+  filter: seg('tbl.filter', [['stale', 'Rows stay'], ['skeleton', 'Skeleton all rows']]) + tg('tbl.bar', 'Progress bar on table'),
+  save: tg('btnLabel', 'Label next to spinner'),
+  import: seg('imp.type', [['single', '1 file'], ['multi', 'Multiple files']])
+    + `<div class="p-sub">Cancel</div>` + seg('imp.cancel', [['x', 'Top right ✕'], ['below', 'Below'], ['inline', 'Inline with bar']])
+    + tg('imp.pct', 'Show percentage') + tg('imp.fail', 'Fail a file')
+    + `<div class="p-sub">Retry</div>` + seg('imp.retry', [['below', 'Below the text'], ['inline', 'Top right']])
+    + `<div class="p-sub">“You can keep working…”</div>` + seg('imp.note', [['header', 'In the header'], ['below', 'Below the header']])
+    + tg('imp.wide', 'Wider card (line fits on 1 row)') + tg('imp.acts', 'Actions when import ends'),
+};
+const optGet = path => path.split('.').reduce((o, k) => o?.[k], S);
+const optSet = (path, v) => { const ks = path.split('.'), last = ks.pop(); ks.reduce((o, k) => o[k], S)[last] = v; };
+/* Re-run a scenario from its starting state, even mid-animation */
+function rerunScenario(id) {
+  if (id === 'refresh' || id === 'filter') {
+    const L = id === 'refresh' ? S.lastRefresh : S.lastFilter;
+    if (L && S.page === 'contacts' && $('#contacts-table')) {
+      Refresh.loader?.cancel(); Refresh.scope?.dispose(); Refresh.restore?.();
+      S.rows = L.rows ? L.rows.map(r => r.slice()) : null; S.added = L.added; S.ctab = L.from;
+      $$('.vtab[data-act="smart-tab"]').forEach((t, i) => t.classList.toggle('on', i === S.ctab));
+      $('#refresh-msg').innerHTML = ''; setLayer($('#contacts-table'), contactsTable(S.ctab));
+      return refreshContacts(id === 'filter' ? L.to : undefined);
+    }
+  }
+  if (id === 'save') Btn.abort?.();
+  if (id === 'import') Jobs.list.filter(j => j.kind === 'import' || j.kind === 'multi').forEach(j => Jobs.remove(j));
+  runScenario(id);
+}
+function onScenarioOpt(el, v) {
+  const box = el.closest('.sc-opts'), path = el.closest('[data-opt]').dataset.opt;
+  optSet(path, v); paintPanel(); log(`${box.dataset.run} option: ${path} → ${v}`);
+  rerunScenario(box.dataset.run);
+}
 const SWATCHES = ['#155eef', '#7a5af8', '#e04f16', '#099250'];
 function renderPanel() {
   $('#p-collapse').innerHTML = ic('chevron-right', 16);
@@ -2230,19 +2490,26 @@ function renderPanel() {
   $('#p-body').innerHTML = `
   <div class="p-sec"><div class="p-lbl">Mode</div><div class="segp mode" id="pm-mode"><button data-v="proposed">Proposed</button><button data-v="today">Today (staging)</button></div>
     <div class="p-hint" id="pm-mode-hint"></div></div>
-  <div class="p-sec"><div class="p-lbl">Network <span>applies to every fetch</span></div><div class="netgrid" id="pm-net">${Object.entries(NETS).map(([k, n]) => `<button data-v="${k}">${n.label}<small>${n.hint}</small></button>`).join('')}</div></div>
+  <div class="p-sec"><div class="p-lbl">Network <span>applies to every fetch</span></div><div class="netgrid" id="pm-net">${Object.entries(NETS).filter(([, n]) => !n.hidden).map(([k, n]) => `<button data-v="${k}">${n.label}<small>${n.hint}</small></button>`).join('')}</div></div>
   <div class="p-sec"><div class="p-lbl">Time scale</div><div class="segp" id="pm-scale"><button data-v="1">1×</button><button data-v="0.5">0.5× slow-mo</button><button data-v="4">4× fast</button></div></div>
   <div class="p-sec"><div class="p-lbl">Scenarios</div><div class="scen" id="pm-scen">
-    ${SCENARIOS.map(([id, t, d]) => id === 'route' ? `<button class="sc" data-s="route"><b>${t}</b><span>${d}</span></button><div class="route-pick"><select id="route-pick" aria-label="Destination page">${ROUTE_CHOICES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></div>` : `<button class="sc" data-s="${id}"><b>${t}</b><span>${d}</span></button>`).join('')}
+    ${SCENARIOS.map(([id, t, d]) => id === 'route' ? `<button class="sc" data-s="route"><b>${t}</b><span>${d}</span></button><div class="route-pick"><select id="route-pick" aria-label="Destination page">${ROUTE_CHOICES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></div>` : `<button class="sc" data-s="${id}"><b>${t}</b><span>${d}</span></button>${SC_OPTS[id] ? `<div class="sc-opts" data-run="${id}">${SC_OPTS[id]}</div>` : ''}`).join('')}
   </div></div>
   <div class="p-sec"><div class="p-lbl">Display</div>
+    <label class="tgl">Show AI scenarios<input type="checkbox" id="pm-ai"><span class="sw"></span></label>
     <label class="tgl">Reduced motion (simulate)<input type="checkbox" id="pm-rm"><span class="sw"></span></label>
     <label class="tgl">Show timeline<input type="checkbox" id="pm-tl"><span class="sw"></span></label>
     <label class="tgl">Annotate loaders<input type="checkbox" id="pm-ann"><span class="sw"></span></label></div>`;
   $('#pm-mode').onclick = e => { const b = e.target.closest('button'); if (b && b.dataset.v !== S.mode) setMode(b.dataset.v); };
   $('#pm-net').onclick = e => { const b = e.target.closest('button'); if (b && b.dataset.v !== S.net) setNet(b.dataset.v); };
   $('#pm-scale').onclick = e => { const b = e.target.closest('button'); if (b) setScale(+b.dataset.v); };
-  $('#pm-scen').onclick = e => { const b = e.target.closest('button.sc'); if (b) runScenario(b.dataset.s); };
+  $('#pm-scen').onclick = e => {
+    const o = e.target.closest('.sc-opts .segp[data-opt] button');
+    if (o) { if (!o.classList.contains('on')) onScenarioOpt(o, o.dataset.v); return; }
+    const b = e.target.closest('button.sc'); if (b) runScenario(b.dataset.s);
+  };
+  $('#pm-scen').onchange = e => { const c = e.target.closest('.sc-opts input[data-opt]'); if (c) onScenarioOpt(c, c.checked); };
+  $('#pm-ai').onchange = e => { S.showAI = e.target.checked; paintPanel(); log(`AI scenarios ${S.showAI ? 'shown' : 'hidden'}`); };
   $('#pm-rm').onchange = e => { S.rm = e.target.checked; $('#app').classList.toggle('rm', S.rm); log(`Reduced motion ${S.rm ? 'on — no translate, no glow; spinners still spin' : 'off'}`); };
   $('#pm-tl').onchange = e => { S.tl = e.target.checked; $('#app').classList.toggle('tl-on', S.tl); TL.paint(); };
   $('#pm-ann').onchange = e => { S.ann = e.target.checked; $('#app').classList.toggle('annotate', S.ann); };
@@ -2255,6 +2522,13 @@ function paintPanel() {
   $('#pm-mode-hint').textContent = isToday() ? 'Reproduces staging as audited Oct 12: two bars, mixed skeletons, spinner handoff, silent give-up at 30 s. Fails toasts, save button, modal, and import states are reconstructions, not observed.' : 'One line, one skeleton, one spinner. Every loader ends in content or a failure state.';
   $$('#pm-net button').forEach(b => b.classList.toggle('on', b.dataset.v === S.net));
   $$('#pm-scale button').forEach(b => b.classList.toggle('on', +b.dataset.v === Clock.scale));
+  const chk = (id, v) => { const c = $(id); if (c) c.checked = v; };
+  chk('#pm-ai', !!S.showAI);
+  $$('#pm-scen button.sc[data-s="ai"], #pm-scen button.sc[data-s="aiwf"]').forEach(b => { b.hidden = !S.showAI; });
+  /* options under each scenario */
+  $$('#pm-scen .sc-opts .segp[data-opt]').forEach(g => { const v = optGet(g.dataset.opt); $$('button', g).forEach(b => b.classList.toggle('on', b.dataset.v === v)); });
+  $$('#pm-scen .sc-opts input[data-opt]').forEach(c => { c.checked = !!optGet(c.dataset.opt); });
+  $$('#pm-scen .sc-opts').forEach(o => o.classList.toggle('off', isToday()));
 }
 
 /* ---------- Delegated app actions ---------- */
@@ -2280,7 +2554,9 @@ const ACT = {
   'boot-retry': coldBoot,
   'dash-retry': retryFailedWidgets,
   job: el => Jobs.act(+el.dataset.j, +el.dataset.a),
-  'tray-close': () => { Jobs.list = Jobs.list.filter(j => j.state === 'running'); Jobs.render(); },
+  'tray-close': () => Jobs.close(),
+  'tray-toggle': () => Jobs.toggle(),
+  jfile: el => Jobs.fileAct(el),
 };
 $('#app').addEventListener('click', e => {
   const el = e.target.closest('[data-act]');
@@ -2307,7 +2583,7 @@ function renderLoadedPage(P) {
 }
 function embedReset() {
   const E = EMBED;
-  S.net = E.net; S.acct = 0; S.booted = false; S.visited = new Set(); delete S.ctab; delete S.wf; delete S.updated;
+  S.net = E.net; S.acct = 0; S.booted = false; S.visited = new Set(); delete S.ctab; delete S.wf; delete S.updated; delete S.rows; delete S.added; delete S.lastRefresh; delete S.lastFilter; Btn.abort = null;
   resetAll();
   Clock.timers.length = 0; /* drop every pending engine timer (bare + scoped) */
   Refresh.loader = Refresh.cancel = Refresh.scope = Refresh.restore = null;
@@ -2331,6 +2607,10 @@ function embedRun() {
   E.runVt = vnow();
   switch (E.scenario) {
     case 'route': return navigate(E.to);
+    /* Cold boot, then 1 route change: shows every progress bar a session meets */
+    case 'bootroute': coldBoot(); Route.then = () => navigate(E.to); return;
+    /* 7 pages in a row: every module's own skeleton and spinner */
+    case 'tour': { const seq = ['conversations', 'contacts', 'opportunities', 'dashboard', 'settings', 'builder', 'launchpad']; const step = i => { if (i < seq.length) navigate(seq[i], { then: () => step(i + 1) }); }; return step(0); }
     case 'stuckroute': { const g = E.gen; return ROOT.scope.after(1200, () => { if (g === E.gen) navigate(E.to, { holdOld: true, words: 'Loading page…', pendingNav: true }); }); }
     default: return runScenario(E.scenario);
   }
@@ -2371,6 +2651,9 @@ function embedInit() {
   document.documentElement.classList.add('embed');
   S.mode = E.mode; $('#app').classList.toggle('mode-today', isToday()); applyAccent();
   S.net = E.net; setScale(E.scale);
+  if (E.accent) { S.accent = E.accent; applyAccent(); }
+  S.tbl = { refresh: E.trefresh, filter: E.tfilter, bar: E.tbar, changed: E.tchanged }; S.btnLabel = E.btnlabel;
+  S.imp = { type: E.itype, cancel: E.icancel, acts: E.iacts, pct: E.ipct, fail: E.ifail, retry: E.iretry, note: E.inote, wide: E.iwide };
   if (E.labels) { S.ann = true; $('#app').classList.add('annotate'); const c = $('#pm-ann'); if (c) c.checked = true; }
   if (E.tl) { S.tl = true; $('#app').classList.add('tl-on'); const c = $('#pm-tl'); if (c) c.checked = true; TL.paint(); }
   paintPanel();

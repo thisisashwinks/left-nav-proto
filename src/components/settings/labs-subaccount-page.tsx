@@ -60,7 +60,9 @@ export function SubAccountLabsPage() {
     return (
       q === "" ||
       f.name.toLowerCase().includes(q) ||
-      f.headline.toLowerCase().includes(q)
+      f.headline.toLowerCase().includes(q) ||
+      // The codename, which is no longer on the card. See the agency page.
+      f.id.toLowerCase().includes(q)
     );
   });
 

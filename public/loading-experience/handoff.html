@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
 <meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Loading experience handoff</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -288,7 +288,7 @@
   .ai .ask-b { align-self: flex-end; background: var(--line-2); color: var(--ink); border-radius: 10px; padding: 6px 10px; font-size: 13px; }
   .ai .st { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); min-height: 20px; }
   .ai .st .tm { color: var(--ink-3); font-variant-numeric: tabular-nums; }
-  .ai .out { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; color: var(--ink); min-height: 58px; background: #fff; display: flex; flex-direction: column; gap: 6px; }
+  .ai .out { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; color: var(--ink); min-height: 134px; background: #fff; display: flex; flex-direction: column; gap: 6px; }
   .composer { border: 1px solid var(--line); border-radius: 10px; padding: 6px 6px 6px 12px; display: flex; align-items: center; justify-content: space-between; color: var(--ink-3); font-size: 13px; background: #fff; }
   .iconbtn { width: 28px; height: 28px; border-radius: 50%; border: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; background: var(--ld-accent); color: #fff; flex: none; }
   .iconbtn.stop { background: var(--ink); }
@@ -530,6 +530,31 @@
   .fx .fx-strip > div { padding: 0; display: block; margin: 0; font-weight: 400; gap: 0; }
   .fx-crumb ~ .cur-sk { inset: 46px 10px 8px !important; }
 </style>
+<script src="assets/pg-controls.js"></script>
+<style>
+  .variants { grid-column: 1 / -1; margin: 0; border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: #fff; }
+  .variants > h5 { margin: 0 0 4px; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--ink); }
+  .variants > p { margin: 0 0 14px; font-size: 13px; line-height: 18px; color: var(--ink-2); }
+  .variants .vgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  .lv-ctlrow { position: relative; display: flex; justify-content: center; padding: 0 16px 10px; }
+  .lv-ctlrow[hidden] { display: none; }
+  .tray .th .thx { display: flex; gap: 6px; align-items: center; color: var(--ink-3); font-weight: 400; }
+  .tray .th .thx .dis { color: #d0d5dd; cursor: not-allowed; }
+  .tray .th small { display: block; font-weight: 400; color: var(--ink-3); font-size: 12px; margin-top: 2px; }
+  .fixes.live { grid-template-columns: 1fr; gap: 16px; }
+  .fx.live { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); gap: 20px; padding: 16px; align-items: start; }
+  .fx.live .fx-scen { margin-top: 8px; font-size: 12px; line-height: 16px; color: var(--ink-3); }
+  @media (max-width: 900px) { .fx.live { grid-template-columns: 1fr; } }
+  .lv-title { font-size: 15px; line-height: 20px; font-weight: 600; color: #fff; }
+  .lv-cap .vchip { display: inline-block; margin-right: 8px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 20px; }
+  .lv-cap .vchip.fix { background: #fee4e2; color: #b42318; }
+  .lv-cap .vchip.new { background: #d1e0ff; color: #004eeb; }
+  /* Animated demos hold their tallest state so the page never shifts */
+  #trayDemo { min-height: 182px; }
+  #tlWords { min-height: 18px; }
+  #tlBtnView { min-height: 130px; }
+  #tlAiView { min-height: 94px; }
+</style>
 </head>
 <body>
 
@@ -539,10 +564,9 @@
   <h4>Decision</h4>
   <a href="#summary">1 · Decision summary</a>
   <a href="#today-app">2 · The problem today</a>
-  <a href="#staging">3 · What Switchyard built</a>
   <div class="sec"></div>
   <h4>The system</h4>
-  <a href="#system">4 · Components</a>
+  <a href="#system">3 · Components</a>
   <a href="#c-shell" class="sub">ShellSkeleton</a>
   <a href="#c-route" class="sub">RouteProgressLine</a>
   <a href="#c-words" class="sub">StatusWords</a>
@@ -554,16 +578,20 @@
   <a href="#c-jobs" class="sub">Background jobs panel</a>
   <a href="#c-ai" class="sub">AIStatus</a>
   <a href="#c-failure" class="sub">FailureState</a>
-  <a href="#timeline">5 · Timeline</a>
-  <a href="#matrix">6 · Context matrix</a>
+  <a href="#timeline">4 · Timeline</a>
+  <a href="#matrix">5 · Context matrix</a>
+  <div class="sec"></div>
+  <h4>Staging</h4>
+  <a href="#staging">6 · What Switchyard built</a>
+  <a href="#fixes">7 · Proposed fixes</a>
   <div class="sec"></div>
   <h4>Handoff</h4>
-  <a href="#specs">7 · Specs for developers</a>
-  <a href="#copy">8 · Copy deck</a>
-  <a href="#rules">9 · White-label and accessibility</a>
-  <a href="#dosdonts">10 · Dos and don'ts</a>
-  <a href="#rollout">11 · Acceptance checks</a>
-  <a href="#decisions">12 · Open decisions</a>
+  <a href="#specs">8 · Specs for developers</a>
+  <a href="#copy">9 · Copy deck</a>
+  <a href="#rules">10 · White-label and accessibility</a>
+  <a href="#dosdonts">11 · Dos and don'ts</a>
+  <a href="#rollout">12 · Acceptance checks</a>
+  <a href="#decisions">13 · Open decisions</a>
 </nav>
 
 <main class="doc">
@@ -659,81 +687,6 @@
   <div class="cur-note">Live recreations of the current app's loaders.</div>
 </section>
 
-<section class="canvas" id="staging">
-  <h2>What the Switchyard team built on staging</h2>
-  <p>Audited live on switchyard-v4 staging on Oct 12, 2026, with a throttled network and API calls delayed on purpose.
-  Timings come from the shipped bundle. Staging was captured in the Dutch locale to confirm that status words localize.
-  <strong>Staging already did the hardest part:</strong> the host document paints a route-aware shell skeleton before any
-  module loads, and the breadcrumb slot already talks in plain, escalating words. The recommendation keeps all of that.</p>
-
-  <div class="score">
-    <div class="keep">
-      <div class="hd">Keep <span>7</span></div>
-      <ul>
-        <li><code>S1</code><span>Shell skeleton in the host document, with route-aware shapes: three-pane, calendar, kanban, cards, table, plain.</span></li>
-        <li><code>S1</code><span>Staggered arrival of skeleton bars.</span></li>
-        <li><code>S2 S5 S7</code><span>Status words in the breadcrumb slot, with escalation copy and localization.</span></li>
-        <li><code>S5</code><span>Old page stays on screen during a route change.</span></li>
-        <li><code>S4</code><span>Boot stall message with a way to reload.</span></li>
-        <li><code>S12</code><span>Real-chrome composer skeleton: real controls, just inert.</span></li>
-        <li><code>S13</code><span>Workspace name changes instantly on account switch.</span></li>
-      </ul>
-    </div>
-    <div class="fix">
-      <div class="hd">Fix <span>9</span></div>
-      <ul>
-        <li><code>S8</code><span>Silent give-up at 30 s reveals a module spinner that spins forever.</span></li>
-        <li><code>S10 S11</code><span>5 skeleton looks and 4 spinners.</span></li>
-        <li><code>S3 S5</code><span>2 progress bars, one with staged fake numbers.</span></li>
-        <li><code>S8</code><span>Shell skeleton hands off to a module spinner.</span></li>
-        <li><code>S9</code><span>Stale breadcrumb and stuck old page while the next page loads.</span></li>
-        <li><code>S12</code><span>Plain "Loading" text inside message cards.</span></li>
-        <li><code>S5</code><span>150 ms bar delay shows the bar on almost every navigation.</span></li>
-        <li><code>S14</code><span>Loader colors are hard-coded in several places (blues, a green, a gray).</span></li>
-        <li><code>—</code><span>No minimum visible time, so loaders can flash.</span></li>
-      </ul>
-    </div>
-  </div>
-
-  <div class="ev-head">
-    <h3 id="evidence">Evidence</h3>
-    <div class="ev-tools">
-      <div class="ev-tabs" role="tablist" aria-label="Evidence view">
-        <button type="button" role="tab" id="evTabShots" aria-controls="evShots" aria-selected="true" data-ev="shots">Screenshots</button>
-        <button type="button" role="tab" id="evTabAnim" aria-controls="evAnim" aria-selected="false" tabindex="-1" data-ev="anim">Animated</button>
-      </div>
-      <button type="button" class="btn sec sm" id="evPresent">Present</button>
-    </div>
-  </div>
-  <div class="figrow ev-panel" id="evShots" role="tabpanel" aria-labelledby="evTabShots">
-    <figure><img src="assets/staging/02-boot-shell-skeleton.jpg" alt="Staging boot: shell skeleton with rail, sidebar rows, and status words in the breadcrumb slot"><figcaption><span class="verdict ok">Keep</span><b>Boot shell skeleton (S1, S2).</b> Painted by the host document before any module: rail, sidebar, top bar, and a 12 px spinner with "Loading your account" (Dutch locale).</figcaption></figure>
-    <figure><img src="assets/staging/03-boot-three-pane-skeleton.jpg" alt="Staging boot with a three-pane canvas skeleton"><figcaption><span class="verdict ok">Keep</span><b>Route-aware boot shape (S1).</b> The canvas already matches the conversations layout: list, thread, and side panel.</figcaption></figure>
-    <figure><img src="assets/staging/04-conversations-loaded.jpg" alt="Conversations page fully loaded"><figcaption><span class="verdict ok">Keep</span><b>The page the three-pane skeleton anticipates.</b> Shape match is what makes the hand-off feel continuous.</figcaption></figure>
-    <figure><img src="assets/staging/05-contacts-table-skeleton-still-working.jpg" alt="Contacts table skeleton with Still working on it in the breadcrumb slot"><figcaption><span class="verdict ok">Keep</span><b>Table skeleton plus escalation words (S6, S7).</b> "Still working on it" in the breadcrumb slot. We keep this and move it to 8 s.</figcaption></figure>
-    <figure><img src="assets/staging/06-opportunities-kanban-skeleton.jpg" alt="Opportunities kanban skeleton with Loading Leads in the breadcrumb slot"><figcaption><span class="verdict ok">Keep</span><b>Kanban skeleton and "Loading {page}…" at 2 s (S5, S6).</b> The right words, in the right slot, at the right time.</figcaption></figure>
-    <figure><img src="assets/staging/07-opportunities-infinite-spinner-after-30s.jpg" alt="Blank canvas with a centered spinner after 30 seconds"><figcaption><span class="verdict bad">Fix</span><b>Silent give-up (S8).</b> At 30 s the shell removes its skeleton and words, revealing the module's 34 px spinner. It spins forever with no message and no action.</figcaption></figure>
-    <figure><img src="assets/staging/08-route-old-page-kept-with-stuck-spinner.jpg" alt="Old page with stuck spinner and old breadcrumb while navigating away"><figcaption><span class="verdict bad">Fix</span><b>Stale breadcrumb (S9).</b> Routing to Launchpad from a stuck page keeps the old breadcrumb and the old spinner. Only "Pagina laden…" hints at the change.</figcaption></figure>
-    <figure><img src="assets/staging/09-launchpad-module-skeleton.jpg" alt="Launchpad with heavy gray pulsing blocks"><figcaption><span class="verdict bad">Fix</span><b>A 5th skeleton look (S10).</b> Launchpad's heavy gray pulsing blocks don't match the shell's glow skeleton or any other module.</figcaption></figure>
-    <figure><img src="assets/staging/01-conversations-partial-loading.jpg" alt="Conversation thread with Loading text inside each email card"><figcaption><span class="verdict mix">Keep + fix</span><b>Conversation thread (S12).</b> Keep the real-chrome composer. Replace the grey "Loading" text inside each email card with skeleton lines.</figcaption></figure>
-    <figure><img src="assets/staging/10-account-switch-sidebar-skeleton.jpg" alt="Account switch with new workspace name and sidebar skeleton"><figcaption><span class="verdict mix">Keep + fix</span><b>Account switch (S13).</b> The workspace name changes instantly and the nav becomes a skeleton. The module's block skeleton is the off-pattern part.</figcaption></figure>
-    <figure><img src="assets/staging/11-account-switch-content-first.jpg" alt="Account switch with content loaded before the nav"><figcaption><span class="verdict mix">Keep + fix</span><b>Content before nav (S13).</b> Fine to resolve independently. The words should read "Switching to {name}", not a generic "Loading page…".</figcaption></figure>
-  </div>
-  <div class="figrow ev-panel" id="evAnim" role="tabpanel" aria-labelledby="evTabAnim" hidden></div>
-
-  <h3>The 9 fixes</h3>
-  <div class="fixes">
-    <div class="fx"><div class="t"><span class="num">1</span>Silent give-up → failure state</div><div class="tr"><div class="today"><b>Today</b>At 30 s the shell gives up silently and reveals a module spinner that spins forever.</div><div class="reco"><b>Recommended</b>At 30 s the canvas shows "Couldn't load {page}" with Try again and Go back. Never reveal a module spinner.</div></div><div class="fx-strip"><div class="t"><b>Today</b><div class="fx-lay" style="opacity:1;animation:none"><div class="cur-ring"></div></div><span class="cur-count" data-cur-count></span></div><div class="p"><b>Proposed</b><div class="fx-lay"><div class="cur-sk" style="inset:30px 10px 10px"><i style="width:60%"></i><i></i><i style="width:75%"></i></div></div><div class="fx-lay two"><div class="fx-err">Couldn't load Opportunities<br><u>Try again</u></div></div></div></div><div class="ev">S8 · Evidence 07</div></div>
-    <div class="fx"><div class="t"><span class="num">2</span>Too many looks → 1 skeleton, 1 spinner</div><div class="tr"><div class="today"><b>Today</b>5 skeleton animations and 4 spinners (12–16 px, 34 px, 50 px, and a ring with "Initializing…").</div><div class="reco"><b>Recommended</b>1 skeleton animation (glow 1.6 s, 600 ms pause) and 1 spinner in 16, 20, 24, and 32 px.</div></div><div class="fx-strip"><div class="t"><b>Today</b><div class="fx-lay"><div class="cur-dots"><i></i><i></i><i></i></div></div><div class="fx-lay two"><div class="cur-sk p" style="inset:30px 10px 10px"><i style="width:60%"></i><i></i><i></i></div></div></div><div class="p"><b>Proposed</b><div class="cur-sk" style="inset:30px 10px 10px"><i style="width:60%"></i><i></i><i style="width:75%"></i></div></div></div><div class="ev">S10, S11 · Evidence 09</div></div>
-    <div class="fx"><div class="t"><span class="num">3</span>2 progress bars → 1 line</div><div class="tr"><div class="today"><b>Today</b>A full-window boot bar with staged fake progress (.06 → .92) plus a second line under the header.</div><div class="reco"><b>Recommended</b>1 progress line, under the header. It trickles toward 90% and never shows a number.</div></div><div class="fx-strip"><div class="t"><b>Today</b><div class="fx-win"></div><span class="fx-pct">78%</span><div class="fx-crumb">Contacts</div><div class="fx-line"></div></div><div class="p"><b>Proposed</b><div class="fx-crumb">Contacts</div><div class="fx-line"></div></div></div><div class="ev">S3, S5</div></div>
-    <div class="fx"><div class="t"><span class="num">4</span>Skeleton → spinner handoff</div><div class="tr"><div class="today"><b>Today</b>The shell skeleton is replaced by a module spinner: 2 loaders for 1 wait.</div><div class="reco"><b>Recommended</b>The module takes over the shell skeleton (same shapes, same animation phase) or goes straight to content.</div></div><div class="fx-strip"><div class="t"><b>Today</b><div class="fx-lay"><div class="cur-sk" style="inset:30px 10px 10px"><i style="width:60%"></i><i></i><i style="width:75%"></i></div></div><div class="fx-lay two"><div class="fx-lay" style="opacity:1;animation:none"><div class="cur-ring"></div></div></div></div><div class="p"><b>Proposed</b><div class="fx-lay"><div class="cur-sk" style="inset:30px 10px 10px"><i style="width:60%"></i><i></i><i style="width:75%"></i></div></div><div class="fx-lay two"><div class="fx-c"><i style="width:55%"></i><i></i><i style="width:80%"></i></div></div></div></div><div class="ev">S8 · Evidence 07</div></div>
-    <div class="fx"><div class="t"><span class="num">5</span>Stale breadcrumb → instant switch</div><div class="tr"><div class="today"><b>Today</b>The old breadcrumb and the old (stuck) page stay while the destination loads.</div><div class="reco"><b>Recommended</b>Breadcrumb and nav switch instantly. Old content dims after 300 ms and is inert. If it's a loader or error, swap to the destination skeleton at once.</div></div><div class="fx-strip"><div class="t"><b>Today</b><div class="fx-crumb">Leads</div><div class="fx-lay" style="opacity:1;animation:none"><div class="cur-ring"></div></div></div><div class="p"><b>Proposed</b><div class="fx-crumb">Launchpad</div><div class="fx-line"></div><div class="cur-sk" style="inset:30px 10px 10px"><i style="width:60%"></i><i></i><i style="width:75%"></i></div></div></div><div class="ev">S9 · Evidence 08</div></div>
-    <div class="fx"><div class="t"><span class="num">6</span>"Loading" text → skeleton lines</div><div class="tr"><div class="today"><b>Today</b>Grey "Loading" text inside each message card.</div><div class="reco"><b>Recommended</b><code>SkLine</code> rows in the card body, same animation as everything else.</div></div><div class="fx-strip"><div class="t"><b>Today</b><div class="fx-lay" style="opacity:1;animation:none"><span class="fx-txt">Loading</span></div></div><div class="p"><b>Proposed</b><div class="cur-sk" style="inset:30px 10px 10px"><i style="width:60%"></i><i></i><i style="width:75%"></i></div></div></div><div class="ev">S12 · Evidence 01</div></div>
-    <div class="fx"><div class="t"><span class="num">7</span>150 ms → 300 ms line delay</div><div class="tr"><div class="today"><b>Today</b>The route line appears after 150 ms, so it shows on almost every navigation.</div><div class="reco"><b>Recommended</b>300 ms grace. Fast navigations show nothing.</div></div><div class="fx-strip"><div class="t"><b>Today</b><div class="fx-line" style="top:22px;width:40%;animation:fx-flash 1.6s steps(1) infinite"></div><div class="fx-c"><i style="width:55%"></i><i></i><i style="width:80%"></i></div></div><div class="p"><b>Proposed</b><div class="fx-c"><i style="width:55%"></i><i></i><i style="width:80%"></i></div></div></div><div class="ev">S5</div></div>
-    <div class="fx"><div class="t"><span class="num">8</span>Hard-coded colors → 1 color token</div><div class="tr"><div class="today"><b>Today</b>Loader colors are hard-coded per component: several blues, a green, and a gray.</div><div class="reco"><b>Recommended</b>Every loader reads <code>--primary-600</code>. It's HighLevel blue today; when agency brand colors are supported, loaders follow with no rework.</div></div><div class="fx-strip"><div class="t"><b>Today</b><div class="fx-lay"><div class="cur-ring"></div></div><div class="fx-lay two"><div class="cur-ring g"></div></div></div><div class="p"><b>Proposed</b><div class="fx-lay" style="opacity:1;animation:none"><div class="cur-ring"></div></div></div></div><div class="ev">S14</div></div>
-    <div class="fx"><div class="t"><span class="num">9</span>No minimum → 400 ms minimum</div><div class="tr"><div class="today"><b>Today</b>A loader can appear and vanish within a few frames.</div><div class="reco"><b>Recommended</b>Once shown, every loader stays at least 400 ms.</div></div><div class="fx-strip"><div class="t"><b>Today</b><div class="fx-lay" style="opacity:1;animation:fx-flash 1.6s steps(1) infinite"><div class="cur-ring"></div></div></div><div class="p"><b>Proposed</b><div class="fx-lay"><div class="cur-ring"></div></div><div class="fx-lay two"><div class="fx-c"><i style="width:55%"></i><i></i><i style="width:80%"></i></div></div></div></div><div class="ev">Observed across modules</div></div>
-  </div>
-</section>
-
 <!-- ============================================================ 3 -->
 <section class="canvas" id="system">
   <h2>The system</h2>
@@ -814,6 +767,13 @@
         <p>Click it. Idle → pending (blocked at once, spinner after 300 ms, width locked, <code>aria-disabled</code>, focus kept) → success (check for 1.5 s) or error (inline message below, no shake).</p>
         <div class="use"><div><b>Use for:</b> actions expected to finish in 5 s or less.</div><div class="no"><b>Not for:</b> anything longer. That becomes a job in the <code>JobTray</code>.</div></div></div>
     </div>
+    <div class="variants" id="v-button">
+      <h5>Variant to test: label next to the spinner</h5>
+      <p>Off: the spinner replaces the label and the width stays locked. On: spinner + “Saving…”, and the button grows once to fit.</p>
+      <div class="vgrid">
+        <div data-pg-live data-title="Save button" data-q="embed=1&amp;mode=proposed&amp;net=slow&amp;page=settings&amp;scenario=save&amp;btnlabel=1&amp;loop=1" data-caption="Business profile › Update, on a slow network."></div>
+      </div>
+    </div>
 
     <div class="demo" id="c-refresh">
       <div class="stage">
@@ -825,7 +785,15 @@
       </div>
       <div class="body"><h4>7 · RefreshState <code>RefreshState</code></h4>
         <p>Stale content stays at full opacity with a 2 px edge line on the region, "Updated 3:04 PM", and Refresh ↔ Cancel.</p>
-        <div class="use"><div><b>Use for:</b> refresh, filter, sort, and pagination of loaded tables and lists.</div><div class="no"><b>Not for:</b> first load. Never re-skeleton loaded rows.</div></div></div>
+        <div class="use"><div><b>Use for:</b> refresh, filter, sort, and pagination of loaded tables and lists.</div><div class="no"><b>Not for:</b> first load. By default, don't re-skeleton loaded rows. Skeleton variants are under test below.</div></div></div>
+    </div>
+    <div class="variants" id="v-table">
+      <h5>Variants to test: table refresh and filter</h5>
+      <p>Rows stay is the default. Use the controls on each example to try skeleton rows and turn the table's progress bar on or off.</p>
+      <div class="vgrid">
+        <div data-pg-live data-title="Refresh" data-q="embed=1&amp;mode=proposed&amp;net=slow&amp;page=contacts&amp;scenario=refresh&amp;trefresh=rows&amp;loop=1" data-caption="Skeleton new rows: 5 skeleton rows appear at the top for the new contacts. Older rows stay unless their data changed."></div>
+        <div data-pg-live data-title="Filter" data-q="embed=1&amp;mode=proposed&amp;net=slow&amp;page=contacts&amp;scenario=filter&amp;tfilter=skeleton&amp;loop=1" data-caption="Skeleton all rows: every body row becomes a skeleton while the next smart list loads. The header stays real."></div>
+      </div>
     </div>
 
     <div class="demo" id="c-progress">
@@ -846,12 +814,20 @@
     <div class="demo" id="c-jobs">
       <div class="stage" style="align-items:flex-end">
         <div class="tray" id="trayDemo"></div>
-        <div class="toast" id="trayToast">Importing contacts. You can keep working. We'll notify you when it's done.</div>
+        <div class="toast" id="trayToast" style="order:-1;align-self:center">Importing contacts</div>
         <button class="btn sec xs" id="trayReplay" style="align-self:center">Replay import</button>
       </div>
       <div class="body"><h4>9 · Background jobs panel <code>JobTray</code></h4>
-        <p>Shell-owned, bottom right, survives route changes. Each job shows name, bar, counts, start time, and actions: Cancel, View results, Download error file.</p>
+        <p>Shell-owned, bottom right, survives route changes. “You can keep working. We'll notify you when it's done.” sits in the header. The header collapses like an accordion; close is disabled while a job runs. Each file shows name, size, counts, a bar with percentage, and Cancel; a check when done; Retry when it fails. No start time. Toasts appear top center.</p>
         <div class="use"><div><b>Use for:</b> work expected to take more than 10 s, and button actions that pass 5 s.</div><div class="no"><b>Not for:</b> blocking the page. Never "Don't close this window".</div></div></div>
+    </div>
+    <div class="variants" id="v-import">
+      <h5>Variants to test: import</h5>
+      <p>Each file is a card: name, size and counts, a bar with an optional percentage, a check when it's done, and a red card with Retry when it fails. Try 1 or multiple files, where Cancel sits, percentage on or off, a failed file, Retry below the text or top right, the “You can keep working” line in or below the header, a wider card that keeps that line on 1 row, and end actions (off by default). With multiple files, each file can be paused or canceled.</p>
+      <div class="vgrid">
+        <div data-pg-live data-title="Import 1 file" data-q="embed=1&amp;mode=proposed&amp;net=typical&amp;page=contacts&amp;scenario=import&amp;loop=1" data-caption="File card with percentage; close disabled while importing. Turn on Fail a file to see Retry."></div>
+        <div data-pg-live data-title="Import multiple files" data-q="embed=1&amp;mode=proposed&amp;net=typical&amp;page=contacts&amp;scenario=import&amp;itype=multi&amp;loop=1" data-caption="4 files, 3 at a time. Pause or cancel each file; finished files show a check."></div>
+      </div>
     </div>
 
     <div class="demo" id="c-ai">
@@ -966,11 +942,11 @@
       <tr><td>Route change</td><td>Breadcrumb + nav update instantly · RouteProgressLine after 300 ms · old page kept and dims after 300 ms (inert) · destination module not mounted within 300 ms → destination ShellSkeleton</td><td>Words at 2 s, still at 8 s, failure at 30 s.</td><td><a href="#timeline">Timeline</a></td></tr>
       <tr><td>Section / card / widget</td><td>RegionLoader with a layout-matched skeleton; independent per card; partial failure per card</td><td>Charts: SkBlock with axis lines, not a spinner.</td><td><a href="#c-skeleton">Skeleton</a></td></tr>
       <tr><td>Table first load</td><td>Real header + SkTableRows (8–12 rows, fading)</td><td>Checkboxes real.</td><td><a href="#c-skeleton">SkTableRows</a></td></tr>
-      <tr><td>Table refresh / filter / sort / page</td><td>RefreshState (stale rows at 100% opacity, 2 px edge line, Refresh → Cancel after 2 s)</td><td>Never re-skeleton.</td><td><a href="#c-refresh">RefreshState</a></td></tr>
+      <tr><td>Table refresh / filter / sort / page</td><td>RefreshState (stale rows at 100% opacity, 2 px edge line, Refresh → Cancel after 2 s)</td><td>Default: don't re-skeleton. <a href="#v-table">Variants under test</a>: skeleton new rows, skeleton all rows on filter, edge line on/off.</td><td><a href="#c-refresh">RefreshState</a></td></tr>
       <tr><td>Inline / field</td><td>Spinner 16 in the trailing slot</td><td>Select options: skeleton rows inside the menu.</td><td><a href="#c-spinner">Spinner</a></td></tr>
       <tr><td>Button / CTA</td><td>ButtonLoading</td><td>Over 5 s → becomes a job.</td><td><a href="#c-button">ButtonLoading</a></td></tr>
       <tr><td>Modal / drawer</td><td>Frame opens instantly at final size, header + close real; body skeleton</td><td>Never skeleton the frame.</td><td><a href="#c-skeleton">Skeleton</a></td></tr>
-      <tr><td>Background job</td><td>JobTray + toast "You can keep working" + notification on finish + result with error file and Undo</td><td>Never "Don't close this window".</td><td><a href="#c-jobs">JobTray</a></td></tr>
+      <tr><td>Background job</td><td>JobTray (note in the header, collapsible, close disabled while running) + top-center toast + notification on finish + result summary (end actions optional, under test)</td><td>Never "Don't close this window".</td><td><a href="#c-jobs">JobTray</a></td></tr>
       <tr><td>AI generation</td><td>AIStatus; output-shaped skeleton in place; Stop</td><td>Plain verbs.</td><td><a href="#c-ai">AIStatus</a></td></tr>
       <tr><td>Account switch</td><td>Name + avatar instant; nav skeleton; content skeleton (never the previous account's data); words "Switching to {name}"</td><td></td><td><a href="#c-shell">ShellSkeleton</a></td></tr>
       <tr><td>Offline</td><td>StatusWords "You're offline. We'll retry when you're back."; keep content</td><td></td><td><a href="#c-words">StatusWords</a></td></tr>
@@ -978,6 +954,72 @@
     </tbody>
   </table></div>
 </section>
+
+<!-- ============================================================ staging -->
+<section class="canvas" id="staging">
+  <h2>What the Switchyard team built on staging</h2>
+  <p>Audited live on switchyard-v4 staging on Oct 12, 2026, with a throttled network and API calls delayed on purpose.
+  Timings come from the shipped bundle. Staging was captured in the Dutch locale to confirm that status words localize.
+  <strong>Staging already did the hardest part:</strong> the host document paints a route-aware shell skeleton before any
+  module loads, and the breadcrumb slot already talks in plain, escalating words. The recommendation keeps all of that.</p>
+
+  <div class="score">
+    <div class="keep">
+      <div class="hd">Keep <span>7</span></div>
+      <ul>
+        <li><code>S1</code><span>Shell skeleton in the host document, with route-aware shapes: three-pane, calendar, kanban, cards, table, plain.</span></li>
+        <li><code>S1</code><span>Staggered arrival of skeleton bars.</span></li>
+        <li><code>S2 S5 S7</code><span>Status words in the breadcrumb slot, with escalation copy and localization.</span></li>
+        <li><code>S5</code><span>Old page stays on screen during a route change.</span></li>
+        <li><code>S4</code><span>Boot stall message with a way to reload.</span></li>
+        <li><code>S12</code><span>Real-chrome composer skeleton: real controls, just inert.</span></li>
+        <li><code>S13</code><span>Workspace name changes instantly on account switch.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="ev-head">
+    <h3 id="evidence">Evidence</h3>
+    <div class="ev-tools">
+      <div class="ev-tabs" role="tablist" aria-label="Evidence view">
+        <button type="button" role="tab" id="evTabShots" aria-controls="evShots" aria-selected="true" data-ev="shots">Screenshots</button>
+        <button type="button" role="tab" id="evTabAnim" aria-controls="evAnim" aria-selected="false" tabindex="-1" data-ev="anim">Animated</button>
+      </div>
+      <button type="button" class="btn sec sm" id="evPresent">Present</button>
+    </div>
+  </div>
+  <div class="figrow ev-panel" id="evShots" role="tabpanel" aria-labelledby="evTabShots">
+    <figure><img src="assets/staging/02-boot-shell-skeleton.jpg" alt="Staging boot: shell skeleton with rail, sidebar rows, and status words in the breadcrumb slot"><figcaption><span class="verdict ok">Keep</span><b>Boot shell skeleton (S1, S2).</b> Painted by the host document before any module: rail, sidebar, top bar, and a 12 px spinner with "Loading your account" (Dutch locale).</figcaption></figure>
+    <figure><img src="assets/staging/03-boot-three-pane-skeleton.jpg" alt="Staging boot with a three-pane canvas skeleton"><figcaption><span class="verdict ok">Keep</span><b>Route-aware boot shape (S1).</b> The canvas already matches the conversations layout: list, thread, and side panel.</figcaption></figure>
+    <figure><img src="assets/staging/04-conversations-loaded.jpg" alt="Conversations page fully loaded"><figcaption><span class="verdict ok">Keep</span><b>The page the three-pane skeleton anticipates.</b> Shape match is what makes the hand-off feel continuous.</figcaption></figure>
+    <figure><img src="assets/staging/05-contacts-table-skeleton-still-working.jpg" alt="Contacts table skeleton with Still working on it in the breadcrumb slot"><figcaption><span class="verdict ok">Keep</span><b>Table skeleton plus escalation words (S6, S7).</b> "Still working on it" in the breadcrumb slot. We keep this and move it to 8 s.</figcaption></figure>
+    <figure><img src="assets/staging/06-opportunities-kanban-skeleton.jpg" alt="Opportunities kanban skeleton with Loading Leads in the breadcrumb slot"><figcaption><span class="verdict ok">Keep</span><b>Kanban skeleton and "Loading {page}…" at 2 s (S5, S6).</b> The right words, in the right slot, at the right time.</figcaption></figure>
+    <figure><img src="assets/staging/07-opportunities-infinite-spinner-after-30s.jpg" alt="Blank canvas with a centered spinner after 30 seconds"><figcaption><span class="verdict bad">Fix</span><b>Silent give-up (S8).</b> At 30 s the shell removes its skeleton and words, revealing the module's 34 px spinner. It spins forever with no message and no action.</figcaption></figure>
+    <figure><img src="assets/staging/08-route-old-page-kept-with-stuck-spinner.jpg" alt="Old page with stuck spinner and old breadcrumb while navigating away"><figcaption><span class="verdict bad">Fix</span><b>Stale breadcrumb (S9).</b> Routing to Launchpad from a stuck page keeps the old breadcrumb and the old spinner. Only "Pagina laden…" hints at the change.</figcaption></figure>
+    <figure><img src="assets/staging/09-launchpad-module-skeleton.jpg" alt="Launchpad with heavy gray pulsing blocks"><figcaption><span class="verdict bad">Fix</span><b>A 5th skeleton look (S10).</b> Launchpad's heavy gray pulsing blocks don't match the shell's glow skeleton or any other module.</figcaption></figure>
+    <figure><img src="assets/staging/01-conversations-partial-loading.jpg" alt="Conversation thread with Loading text inside each email card"><figcaption><span class="verdict mix">Keep + fix</span><b>Conversation thread (S12).</b> Keep the real-chrome composer. Replace the grey "Loading" text inside each email card with skeleton lines.</figcaption></figure>
+    <figure><img src="assets/staging/10-account-switch-sidebar-skeleton.jpg" alt="Account switch with new workspace name and sidebar skeleton"><figcaption><span class="verdict mix">Keep + fix</span><b>Account switch (S13).</b> The workspace name changes instantly and the nav becomes a skeleton. The module's block skeleton is the off-pattern part.</figcaption></figure>
+    <figure><img src="assets/staging/11-account-switch-content-first.jpg" alt="Account switch with content loaded before the nav"><figcaption><span class="verdict mix">Keep + fix</span><b>Content before nav (S13).</b> Fine to resolve independently. The words should read "Switching to {name}", not a generic "Loading page…".</figcaption></figure>
+  </div>
+  <div class="figrow ev-panel" id="evAnim" role="tabpanel" aria-labelledby="evTabAnim" hidden></div>
+
+</section>
+
+<!-- ============================================================ fixes -->
+<section class="canvas" id="fixes">
+  <h2>Proposed fixes: the 7 problems, Today vs Proposed</h2>
+  <p class="lede">Each fix runs the same real scenario in both systems, side by side. Change the network or speed under a pair to replay both; click a frame to open it full size with every prototype control.</p>
+  <div class="fixes live">
+    <div class="fx live"><div class="fx-txt"><div class="t"><span class="num">1</span>Silent give-up → failure state</div><div class="tr"><div class="today"><b>Today</b>At 30 s the shell gives up silently and reveals a module spinner that spins forever.</div><div class="reco"><b>Recommended</b>At 30 s the canvas shows "Couldn't load {page}" with Try again and Go back. Never reveal a module spinner.</div></div><div class="ev">S8 · Evidence 07</div><div class="fx-scen">Scenario: Contacts → Opportunities, API never answers (4× speed)</div></div><div data-pg-pair data-today="At 30 s the shell gives up silently and reveals a module spinner that spins forever." data-prop="At 30 s the canvas shows &quot;Couldn&#x27;t load {page}&quot; with Try again and Go back. Never reveal a module spinner." data-q="embed=1&amp;net=hang&amp;scale=4&amp;page=contacts&amp;scenario=route&amp;to=opportunities&amp;loop=1" data-title="Fix 1 · Silent give-up → failure state" data-caption="Contacts → Opportunities, API never answers (4× speed)."></div></div>
+<div class="fx live"><div class="fx-txt"><div class="t"><span class="num">2</span>2 progress bars → 1 line</div><div class="tr"><div class="today"><b>Today</b>A full-window boot bar with staged fake progress (.06 → .92) plus a second line under the header.</div><div class="reco"><b>Recommended</b>1 progress line, under the header. It trickles toward 90% and never shows a number.</div></div><div class="ev">S3, S5</div><div class="fx-scen">Scenario: Cold boot, then Conversations → Contacts</div></div><div data-pg-pair data-today="A full-window boot bar with staged fake progress (.06 → .92) plus a second line under the header." data-prop="1 progress line, under the header. It trickles toward 90% and never shows a number." data-q="embed=1&amp;net=slow&amp;page=conversations&amp;scenario=bootroute&amp;to=contacts&amp;loop=1" data-title="Fix 2 · 2 progress bars → 1 line" data-caption="Cold boot, then Conversations → Contacts."></div></div>
+<div class="fx live"><div class="fx-txt"><div class="t"><span class="num">3</span>Skeleton → spinner handoff</div><div class="tr"><div class="today"><b>Today</b>The shell skeleton is replaced by a module spinner: 2 loaders for 1 wait.</div><div class="reco"><b>Recommended</b>The module takes over the shell skeleton (same shapes, same animation phase) or goes straight to content.</div></div><div class="ev">S8 · Evidence 07</div><div class="fx-scen">Scenario: Contacts → Opportunities, slow network</div></div><div data-pg-pair data-today="The shell skeleton is replaced by a module spinner: 2 loaders for 1 wait." data-prop="The module takes over the shell skeleton (same shapes, same animation phase) or goes straight to content." data-q="embed=1&amp;net=slow&amp;page=contacts&amp;scenario=route&amp;to=opportunities&amp;loop=1" data-title="Fix 3 · Skeleton → spinner handoff" data-caption="Contacts → Opportunities, slow network."></div></div>
+<div class="fx live"><div class="fx-txt"><div class="t"><span class="num">4</span>Stale breadcrumb → instant switch</div><div class="tr"><div class="today"><b>Today</b>The old breadcrumb and the old (stuck) page stay while the destination loads.</div><div class="reco"><b>Recommended</b>Breadcrumb and nav switch instantly. Old content dims after 300 ms and is inert. If it's a loader or error, swap to the destination skeleton at once.</div></div><div class="ev">S9 · Evidence 08</div><div class="fx-scen">Scenario: Stuck on Opportunities, then go to Launchpad</div></div><div data-pg-pair data-today="The old breadcrumb and the old (stuck) page stay while the destination loads." data-prop="Breadcrumb and nav switch instantly. Old content dims after 300 ms and is inert. If it&#x27;s a loader or error, swap to the destination skeleton at once." data-q="embed=1&amp;net=slow&amp;page=opportunities&amp;scenario=stuckroute&amp;to=launchpad&amp;loop=1" data-title="Fix 4 · Stale breadcrumb → instant switch" data-caption="Stuck on Opportunities, then go to Launchpad."></div></div>
+<div class="fx live"><div class="fx-txt"><div class="t"><span class="num">5</span>"Loading" text → skeleton lines</div><div class="tr"><div class="today"><b>Today</b>Grey "Loading" text inside each message card.</div><div class="reco"><b>Recommended</b><code>SkLine</code> rows in the card body, same animation as everything else.</div></div><div class="ev">S12 · Evidence 01</div><div class="fx-scen">Scenario: Launchpad → Conversations, slow network</div></div><div data-pg-pair data-today="Grey &quot;Loading&quot; text inside each message card." data-prop="SkLine rows in the card body, same animation as everything else." data-q="embed=1&amp;net=slow&amp;page=launchpad&amp;scenario=route&amp;to=conversations&amp;loop=1" data-title="Fix 5 · &quot;Loading&quot; text → skeleton lines" data-caption="Launchpad → Conversations, slow network."></div></div>
+<div class="fx live"><div class="fx-txt"><div class="t"><span class="num">6</span>150 ms → 300 ms line delay</div><div class="tr"><div class="today"><b>Today</b>The route line appears after 150 ms, so it shows on almost every navigation.</div><div class="reco"><b>Recommended</b>300 ms grace. Fast navigations show nothing.</div></div><div class="ev">S5</div><div class="fx-scen">Scenario: Contacts → Opportunities, 250 ms page, slow motion</div></div><div data-pg-pair data-today="The route line appears after 150 ms, so it shows on almost every navigation." data-prop="300 ms grace. Fast navigations show nothing." data-q="embed=1&amp;net=q250&amp;scale=0.5&amp;page=contacts&amp;scenario=route&amp;to=opportunities&amp;loop=1" data-title="Fix 6 · 150 ms → 300 ms line delay" data-caption="Contacts → Opportunities, 250 ms page, slow motion."></div></div>
+<div class="fx live"><div class="fx-txt"><div class="t"><span class="num">7</span>Hard-coded colors → 1 color token</div><div class="tr"><div class="today"><b>Today</b>Loader colors are hard-coded per component: several blues, a green, and a gray.</div><div class="reco"><b>Recommended</b>Every loader reads <code>--primary-600</code>. It's HighLevel blue today; when agency brand colors are supported, loaders follow with no rework.</div></div><div class="ev">S14</div><div class="fx-scen">Scenario: Color token set to purple: see which loaders follow it</div></div><div data-pg-pair data-today="Loader colors are hard-coded per component: several blues, a green, and a gray." data-prop="Every loader reads --primary-600. It&#x27;s HighLevel blue today; when agency brand colors are supported, loaders follow with no rework." data-q="embed=1&amp;net=slow&amp;accent=%237a5af8&amp;page=launchpad&amp;scenario=route&amp;to=dashboard&amp;loop=1" data-title="Fix 7 · Hard-coded colors → 1 color token" data-caption="Color token set to purple: see which loaders follow it."></div></div>
+      </div>
+</section>
+
 
 <!-- ============================================================ 6 -->
 <section class="canvas" id="specs">
@@ -1223,10 +1265,10 @@ requestAnimationFrame(() => syncSkeletonPhase(regionEl));</pre></div>
       <tr><td>Failure</td><td class="copy-str">Couldn't load {page}<br>Check your connection and try again.<br>[Try again] [Go back]</td><td>Try again only if retryable. 1 message, no toast echo.</td></tr>
       <tr><td>Partial failure</td><td class="copy-str">Some of this page didn't load<br>3 of 4 widgets loaded.<br>[Try again]</td><td>Failed widgets show their own FailureState in place.</td></tr>
       <tr><td>Job running</td><td class="copy-str">Importing contacts · 1,240 of 3,100<br>You can keep working. We'll notify you when it's done.</td><td>Counts, not time units.</td></tr>
-      <tr><td>Job finished</td><td class="copy-str">Import finished · 3,050 added · 50 skipped<br>[Download error file] [Undo import]</td><td>Result row in the tray and in the notification.</td></tr>
+      <tr><td>Job finished</td><td class="copy-str">Import finished · 3,050 added · 50 skipped</td><td>Result row in the tray and in the notification. Action buttons (Download error file, Undo import) are a variant under test.</td></tr>
       <tr><td>Save</td><td class="copy-str">Saving… → Saved</td><td>Past tense on success.</td></tr>
       <tr><td>AI</td><td class="copy-str">Reading 24 conversations · Writing 3 replies · Thought for 6s · Stopped<br>[Continue] [Regenerate]</td><td>Real steps only.</td></tr>
-      <tr><td>Screen reader</td><td class="copy-str">Loading Contacts → Contacts loaded</td><td>Exactly 1 of each per navigation.</td></tr>
+      <tr><td>Screen reader</td><td class="copy-str">Loading Contacts → Contacts loaded</td><td>2 announcements per page change: 1 when it starts, 1 when it's ready. No repeats.</td></tr>
     </tbody>
   </table></div>
   <h3>Never say</h3>
@@ -1264,7 +1306,7 @@ requestAnimationFrame(() => syncSkeletonPhase(regionEl));</pre></div>
         <li>Buttons keep focus while pending, using <code>aria-disabled</code>, not <code>disabled</code>.</li>
         <li>Focus moves to the failure title when the user started the action.</li>
         <li>Reduced motion: no arrival translate, no glow. Spinners keep rotating, because a frozen spinner reads as a hang.</li>
-        <li>A screen reader hears exactly 1 "Loading {page}" and 1 "{page} loaded" per navigation.</li>
+        <li>A screen reader announces each page change twice, no more: "Loading Contacts" when it starts and "Contacts loaded" when it's ready.</li>
       </ul>
     </div>
   </div>
@@ -1556,9 +1598,9 @@ requestAnimationFrame(() => syncSkeletonPhase(regionEl));</pre></div>
     const tot = 3100; let n = 0;
     const render = () => {
       if (n < tot) {
-        tray.innerHTML = `<div class="th">Jobs <span>1 active</span></div><div class="ti"><div class="nm">Importing contacts <span style="color:var(--ink-3);font-weight:400">Started 3:02 PM</span></div><div class="pbar thin" role="progressbar" aria-label="Importing contacts" aria-valuemin="0" aria-valuemax="${tot}" aria-valuenow="${n}"><i style="width:${n / tot * 100}%"></i></div><small>${n.toLocaleString('en-US')} of ${tot.toLocaleString('en-US')}</small><div class="acts"><button class="btn sec xs">Cancel</button></div></div>`;
+        tray.innerHTML = `<div class="th"><div>Importing contacts<small>You can keep working. We'll notify you when it's done.</small></div><span class="thx"><span aria-label="Collapse">⌄</span><span class="dis" aria-disabled="true" title="You can close this when the import ends">✕</span></span></div><div class="ti"><div class="nm">contacts-oct-2026.csv <span style="color:var(--ink-3);font-weight:400">Started 3:02 PM</span></div><div class="pbar thin" role="progressbar" aria-label="Importing contacts" aria-valuemin="0" aria-valuemax="${tot}" aria-valuenow="${n}"><i style="width:${n / tot * 100}%"></i></div><small>${n.toLocaleString('en-US')} of ${tot.toLocaleString('en-US')}</small><div class="acts"><button class="btn sec xs">Cancel</button></div></div>`;
       } else {
-        tray.innerHTML = `<div class="th">Jobs <span>1 finished</span></div><div class="ti"><div class="nm">Import finished <span style="color:var(--good-600);font-weight:500">Done</span></div><small>3,050 added · 50 skipped</small><div class="acts"><button class="btn sec xs">View results</button><button class="btn sec xs">Download error file</button><button class="btn ghost xs">Undo import</button></div></div>`;
+        tray.innerHTML = `<div class="th"><div>Import finished</div><span class="thx"><span aria-label="Collapse">⌄</span><span aria-label="Close">✕</span></span></div><div class="ti"><div class="nm">contacts-oct-2026.csv <span style="color:var(--good-600);font-weight:500">Done</span></div><small>3,050 added · 50 skipped</small></div>`;
         toast.style.visibility = 'hidden';
       }
     };
@@ -1850,7 +1892,7 @@ requestAnimationFrame(() => syncSkeletonPhase(regionEl));</pre></div>
 <div class="lv" id="lv" role="dialog" aria-modal="true" aria-labelledby="lvCount" hidden>
   <div class="lv-scrim" data-lv-close></div>
   <div class="lv-bar">
-    <div class="lv-count" id="lvCount" aria-live="polite">1 / 11</div>
+    <div class="lv-count" id="lvCount" aria-live="polite">1 / 11</div><div class="lv-title" id="lvTitle"></div>
     <div class="lv-acts" id="lvActs" data-anim="false">
       <div class="lv-seg lv-anim" role="group" aria-label="Behavior">
         <button type="button" data-mode="today" aria-pressed="true">Today</button>
@@ -1860,6 +1902,7 @@ requestAnimationFrame(() => syncSkeletonPhase(regionEl));</pre></div>
       <button type="button" class="lv-btn icon" id="lvClose" aria-label="Close viewer" data-lv-close>×</button>
     </div>
   </div>
+  <div class="lv-ctlrow" id="lvCtl" hidden></div>
   <div class="lv-main" id="lvMain">
     <button type="button" class="lv-btn icon lv-nav" id="lvPrev" aria-label="Previous">‹</button>
     <div class="lv-stage" id="lvStage" tabindex="-1"></div>
@@ -1897,7 +1940,7 @@ requestAnimationFrame(() => syncSkeletonPhase(regionEl));</pre></div>
 
   const shotsPanel = $('#evShots'), animPanel = $('#evAnim');
   if (!shotsPanel || !animPanel) return;
-  const items = { shots: [], anim: [] };
+  const items = { shots: [], anim: [], live: [] };
 
   function makeMedia(label) {
     const m = document.createElement('div');
@@ -2007,7 +2050,8 @@ requestAnimationFrame(() => syncSkeletonPhase(regionEl));</pre></div>
     const list = items[V.list];
     const it = list[V.i];
     $('#lvCount').textContent = (V.i + 1) + ' / ' + list.length;
-    $('#lvCap').innerHTML = it.cap;
+    $('#lvTitle').textContent = it.fix ? it.fix.title : '';
+    $('#lvCap').innerHTML = it.fix ? `<span class="vchip ${V.mode === 'today' ? 'fix' : 'new'}">${V.mode === 'today' ? 'Today' : 'Proposed'}</span>${V.mode === 'today' ? it.fix.today : it.fix.prop} <span style="opacity:.6">· ${it.fix.scen}</span>` : it.cap;
     acts.dataset.anim = String(it.kind === 'anim');
     $$('[data-mode]', lv).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === V.mode)));
     stage.textContent = '';
@@ -2023,16 +2067,19 @@ requestAnimationFrame(() => syncSkeletonPhase(regionEl));</pre></div>
       const f = document.createElement('iframe');
       f.setAttribute('title', 'Animated recreation: ' + it.alt);
       f.setAttribute('tabindex', '-1');
-      f.src = embedUrl(it.q, V.mode);
+      f.src = embedUrl(it.cur || it.q, V.mode);
       stage.appendChild(f);
       V.iframe = f;
     }
+    const ctl = $('#lvCtl');
+    ctl.hidden = it.kind !== 'anim';
+    if (it.kind === 'anim' && window.PGC) PGC.strip(ctl, { q: PGC.set(it.cur || it.q, 'mode', V.mode), keys: PGC.keysFor(it.q), theme: 'dark', onChange: nq => { it.cur = nq; if (V.iframe) V.iframe.src = embedUrl(nq, V.mode); } });
     layout();
   }
 
   function openViewer(list, i, ret) {
     if (!items[list].length) return;
-    V.open = true; V.list = list; V.i = i; V.mode = 'today'; V.ret = ret || document.activeElement;
+    V.open = true; V.list = list; V.i = i; V.mode = list === 'live' && window.PGC ? PGC.get(items.live[i].q, 'mode') : 'today'; V.ret = ret || document.activeElement;
     lv.hidden = false;
     document.documentElement.classList.add('lv-lock');
     render();
@@ -2059,13 +2106,18 @@ requestAnimationFrame(() => syncSkeletonPhase(regionEl));</pre></div>
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openViewer(list, i, it.el); }
     });
   }));
+  if (window.PGC) PGC.onExpand = (q, title, cap, el) => {
+    const pr = el.closest('[data-pg-pair]');
+    const fix = pr && pr.dataset.today ? { title, today: pr.dataset.today, prop: pr.dataset.prop, scen: cap } : null;
+    items.live = [{ kind: 'anim', q, cur: q, alt: title, cap: fix ? '' : '<b>' + title + '.</b> ' + cap, fix, el }]; openViewer('live', 0, el);
+  };
   $('#evPresent').addEventListener('click', e => openViewer(active, 0, e.currentTarget));
   $$('[data-lv-close]', lv).forEach(el => el.addEventListener('click', closeViewer));
   $('#lvPrev').addEventListener('click', () => go(-1));
   $('#lvNext').addEventListener('click', () => go(1));
   $('#lvReplay').addEventListener('click', () => {
     if (!V.iframe) return;
-    V.iframe.src = embedUrl(items[V.list][V.i].q, V.mode);
+    const it = items[V.list][V.i]; V.iframe.src = embedUrl(it.cur || it.q, V.mode);
   });
   $$('[data-mode]', lv).forEach(b => b.addEventListener('click', () => {
     if (V.mode === b.dataset.mode) return;

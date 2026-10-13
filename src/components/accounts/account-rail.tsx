@@ -95,7 +95,13 @@ function railCorner({
   return pill ? "9999px" : tile;
 }
 
-function initialsFor(name: string): string {
+/*
+ * Exported, because the collapsed NAV rail draws the same account's mark one
+ * column over and has to spell it the same way. A second copy of this rule
+ * would agree until the first two-word edge case, and then the two faces of
+ * the same account would carry different letters.
+ */
+export function initialsFor(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return "?";
   if (words.length === 1) return words[0]!.slice(0, 2).toUpperCase();
@@ -639,7 +645,10 @@ export function AccountRail({
               relocate the content the moment the class lands.
             */
             !expanded && "-mx-[2px] px-[6px]",
-            "hover:bg-nav-hover hover:text-nav-fg-muted",
+            // Same hover as the rows below it — see the note on RailRow's.
+            expanded
+              ? "hover:bg-nav-hover hover:text-nav-fg-muted hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)] active:bg-nav-active active:scale-[0.99] motion-press"
+              : "hover:bg-nav-hover hover:text-nav-fg-muted",
           )}
         >
           {/* A 24px stage, so the glyph centres exactly under the logos above. */}
@@ -2071,12 +2080,23 @@ function RailRow({
                   width: box,
                   marginInlineStart: -outset,
                   transitionProperty:
-                    "padding, margin, width, border-radius",
+                    "padding, margin, width, border-radius, background-color, box-shadow, transform, color",
                 }
               : {}),
           }}
           className={cn(
-            "motion-tap flex w-full items-center gap-[9px] outline-none transition-[padding,border-radius] duration-[var(--dur-fast)] ease-[var(--ease-out)] focus-visible:ring-[1.5px] focus-visible:ring-brand",
+            /*
+              The property list is stated in full, and has to be.
+
+              `motion-tap` sets its own `transition-property` — colour, fill,
+              box-shadow, transform — and a `transition-[…]` utility beside it
+              replaces that list rather than adding to it. So the narrow list
+              this row used to carry was quietly cancelling the fade on the
+              hover fill: the fill snapped on while the padding eased, which
+              is not the hover the nav has one column below. Everything that
+              moves on this row, in one place.
+            */
+            "motion-tap flex w-full items-center gap-[9px] outline-none transition-[padding,border-radius,background-color,box-shadow,transform,color] duration-[var(--dur-fast)] ease-[var(--ease-out)] focus-visible:ring-[1.5px] focus-visible:ring-brand",
             /*
               The shape itself has moved to `borderRadius` in the style above —
               it reads two axes and a `calc()` now, and three `rounded-*`
@@ -2128,7 +2148,26 @@ function RailRow({
                 : "hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]"
               : selected
                 ? "bg-nav shadow-[inset_0_0_0_1px_var(--nav-border)]"
-                : "hover:bg-nav-hover",
+                : /*
+                     The nav's own hover, once the names are out.
+                     
+                     Same fill, same hairline, same press — see the L1 row in
+                     `nav-item-row`. Open, this is a 204px column of named
+                     rows sitting directly above a 204px column of named rows,
+                     and the two answering a pointer differently was the last
+                     thing saying they were different kinds of object. The
+                     ring resolves to transparent unless the Row edges axis is
+                     on, so it follows the nav there too rather than inventing
+                     an edge the sidebar does not have.
+                     
+                     Collapsed keeps the plain fill. A hairline around a 32px
+                     disc is a second circle just inside the first, and the
+                     strip is marks rather than rows — the same reason its
+                     corners stay the tile's. Ashwin, Oct 13.
+                   */
+                  expanded
+                  ? "hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)] active:bg-nav-active active:scale-[0.99] motion-press"
+                  : "hover:bg-nav-hover",
           )}
         >
           {/*
