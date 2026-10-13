@@ -3662,6 +3662,40 @@ export const RAIL_TILE_SHAPE_LABELS: Record<RailTileShape, string> = {
 };
 
 /**
+ * What shape the rail's rows take once the names are open.
+ *
+ * Collapsed, a rail row is a mark in a 32px box and its shape is the mark's —
+ * a disc, or a squircle under the axis above. That is not in question here and
+ * could not be: a 7px corner on a 32px square is a rounded square, not a tile,
+ * and the strip would stop reading as a column of logos.
+ *
+ * Open is a different object. The row is 204px wide with a name in it, sitting
+ * directly below a sidebar whose own rows are 204px wide with names in them —
+ * and the two wear different corners, so the hover fill changes shape halfway
+ * down the chrome for no reason the eye can find.
+ *
+ *  tile  The mark's shape carried out to the open row: a pill, or a squircle.
+ *        It says the open rail is the collapsed rail widened, which is what
+ *        the animation says too.
+ *  nav   The nav's own row radius, `--t-nav-radius`, on hover and on the
+ *        selected fill. One corner for every row in the chrome, and it tracks
+ *        the Row radius slider rather than restating its value — so the rail
+ *        cannot drift from the nav the next time that slider moves.
+ *
+ * The agency's plate follows, 4px larger, because it is a box with a row
+ * inside it: concentric or it reads as a mistake. Same reason it is already
+ * 10px against the tiles' 9.
+ */
+export const RAIL_EXPANDED_SHAPES = ["tile", "nav"] as const;
+
+export type RailExpandedShape = (typeof RAIL_EXPANDED_SHAPES)[number];
+
+export const RAIL_EXPANDED_SHAPE_LABELS: Record<RailExpandedShape, string> = {
+  tile: "Keep the tile's",
+  nav: "Match the nav row",
+};
+
+/**
  * How the app bar and the page canvas are arranged.
  *
  *  plane    What we shipped: the bar paints nothing. Breadcrumb and utilities sit
@@ -3861,6 +3895,47 @@ export type PinMarkColour = (typeof PIN_MARK_COLOURS)[number];
 export const PIN_MARK_COLOUR_LABELS: Record<PinMarkColour, string> = {
   grey: "Grey",
   brand: "Brand",
+};
+
+/**
+ * Where the pin sits on a row that has no chevron.
+ *
+ * Every L2 and L3 row holds the same trailing column: the pin inboard, the
+ * disclosure chevron flush against the row's edge. A row that discloses
+ * nothing still pays for the chevron's 14px, so its pin stops short of the
+ * edge and the strip to its right is empty — which is what Ashwin
+ * photographed on Companies, Oct 13, sitting a chevron's width in from a wall
+ * with nothing between it and the wall.
+ *
+ *  aligned  The pin stays on the chevron's inboard line whether the row
+ *           discloses or not, so the pins make one column you can aim down
+ *           without reading the rows. The cost is the empty strip: on a list
+ *           like CRM, where three rows disclose and twelve do not, the
+ *           reserved column is unused on most of them.
+ *  edge     A leaf row's pin moves out to the row's edge, where the chevron
+ *           would have been. Nothing is held for a control that row can never
+ *           have, and the pin lands on the same line as the chevrons above it
+ *           — which is arguably the better column, since it is the one the
+ *           panel's right margin is already set by. The cost is that pins no
+ *           longer line up with each OTHER: a list that mixes the two kinds of
+ *           row gets a pin column that steps in and out by 14px plus the gap.
+ *
+ * Both levels together. They share one trailing column by construction — an
+ * L3's mark sits where an L2's does, deliberately — so splitting the rule
+ * between them would break the alignment that is the whole reason the column
+ * is shared.
+ *
+ * The dropdown arrangement is not affected and could not be: it already puts
+ * the chevron FIRST and the pin at the edge, because it has no L2 list beside
+ * it to line up with. `edge` is that arrangement's rule applied to the panel.
+ */
+export const PIN_COLUMNS = ["aligned", "edge"] as const;
+
+export type PinColumn = (typeof PIN_COLUMNS)[number];
+
+export const PIN_COLUMN_LABELS: Record<PinColumn, string> = {
+  aligned: "Chevron's line",
+  edge: "Row edge",
 };
 
 export const PANEL_RECENT_HEADINGS = ["history", "visited", "recent"] as const;
@@ -4379,6 +4454,8 @@ export interface ThemeState {
   navSwitchInEditCard: boolean;
   /** What colour a set pin wears. See PIN_MARK_COLOURS. */
   pinMarkColour: PinMarkColour;
+  /** Where a chevron-less L2/L3 row's pin sits. See PIN_COLUMNS. */
+  pinColumn: PinColumn;
   /** What pinning does on screen. See PIN_FEEDBACKS. */
   pinFeedback: PinFeedback;
   /** How the Ask AI button is drawn when it is not a field. See AI_BUTTON_STYLES. */
@@ -5037,6 +5114,8 @@ export interface ThemeState {
   navSections: NavSections;
   /** The account rail's tile shape, agency plate and mark included. */
   railTileShape: RailTileShape;
+  /** The open rail's row corners. See RAIL_EXPANDED_SHAPES. */
+  railExpandedShape: RailExpandedShape;
   /** Whether the rail carries recents beside its curated set. See RAIL_RECENTS. */
   railRecents: RailRecents;
   /** Where the rail's directory button sits. See RAIL_DIRECTORY_SPOTS. */
@@ -5379,6 +5458,11 @@ export const DEFAULT_THEME: ThemeState = {
   // "Recently visited": names the section by what put a row in it — you went
   // there — rather than repeating the panel's own title one line above.
   pinMarkColour: "grey",
+  /*
+   * The column as it has always been, so the axis opens on the behaviour it
+   * is proposing to change rather than on the proposal.
+   */
+  pinColumn: "aligned",
   // Slide into place (Sep 17): the quieter of the two that actually move
   // something. It only reads when the destination is on screen — the flight is
   // the answer for pinning from a panel that covers the nav.
@@ -5635,6 +5719,17 @@ export const DEFAULT_THEME: ThemeState = {
   // Fully rounded, which is the proposal. The squircle the rail shipped with is
   // one click away for the comparison.
   railTileShape: "pill",
+  /*
+   * The nav's corner once the names are out, Oct 13.
+   *
+   * The open rail is a 204px column of named rows sitting directly below a
+   * sidebar that is a 204px column of named rows, and the two wearing
+   * different corners made the hover fill change shape halfway down the
+   * chrome. Carrying the tile's pill out was the honest description of the
+   * ANIMATION — the strip widening — and the wrong description of what the
+   * thing becomes once it has.
+   */
+  railExpandedShape: "nav",
   // Today's behaviour, so the rail opens as the thing being argued with rather
   // than as the proposal. Both answers are one click away.
   // Pinned + recent (Aug 29): the rail keeps its arrangement AND answers the

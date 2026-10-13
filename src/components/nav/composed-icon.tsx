@@ -36,15 +36,38 @@ export function ComposedIcon({
    * in the sidebar and the badge would upstage the icon it is badging.
    */
   discColor = "var(--nav-bg)",
+  sizeVar,
 }: {
   icon: LucideIcon;
   badge?: LucideIcon;
   size: number;
+  /**
+   * A CSS variable to take the glyph's size from, e.g. `--t-nav-icon`.
+   *
+   * `size` stays required and stays the fallback: lucide writes it out as
+   * width/height ATTRIBUTES, which a variable cannot go in, so a caller that
+   * wants the density knob has to set both in CSS as well. The badge's own
+   * arithmetic keeps using the number — it is a proportion of a glyph rather
+   * than a size in its own right, and a badge two pixels out of proportion is
+   * invisible beside a row of icons that are the wrong size entirely.
+   */
+  sizeVar?: string;
   className?: string;
   discColor?: string;
 }) {
+  const box = sizeVar
+    ? { width: `var(${sizeVar}, ${size}px)`, height: `var(${sizeVar}, ${size}px)` }
+    : undefined;
+
   if (!badge) {
-    return <ResolvedIcon icon={icon} size={size} className={className} />;
+    return (
+      <ResolvedIcon
+        icon={icon}
+        size={size}
+        className={className}
+        {...(box ? { style: box } : {})}
+      />
+    );
   }
 
   /*
@@ -61,9 +84,9 @@ export function ComposedIcon({
   return (
     <span
       className={cn("relative block shrink-0", className)}
-      style={{ width: size, height: size }}
+      style={box ?? { width: size, height: size }}
     >
-      <ResolvedIcon icon={icon} size={size} />
+      <ResolvedIcon icon={icon} size={size} {...(box ? { style: box } : {})} />
       {/*
         Bottom-right, hanging off the base icon's corner.
 

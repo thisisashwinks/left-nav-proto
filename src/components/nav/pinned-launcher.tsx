@@ -58,7 +58,7 @@ import { usePinShortcuts } from "./pin-shortcuts";
 import { ShortcutChip } from "./shortcut-chip";
 import { ShortcutModal } from "./shortcut-modal";
 import { PinButton, usePinnedInk } from "./pin-button";
-import { ResolvedIcon } from "./resolved-icon";
+import { FLY_GLYPH, ResolvedIcon } from "./resolved-icon";
 
 /**
  * How many recent rows the merged panel lists.
@@ -1732,7 +1732,12 @@ function SearchRow({
         "pr-[calc(8px+22px+10px)] hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]",
       )}
     >
-      <ResolvedIcon icon={icon} size={18} className="text-nav-fg-muted" />
+      <ResolvedIcon
+        icon={icon}
+        size={18}
+        style={FLY_GLYPH}
+        className="text-nav-fg-muted"
+      />
       {/*
         The whole two-line stack is the target when it can be, because unlike
         a manage row this one holds nothing else: a result is a destination
@@ -1927,11 +1932,15 @@ function ProductRow({
           picker on the same glyph while custom grouping is on, and a picker you
           cannot hover without it turning into something else is not a picker.
         */
-        <span className="relative flex size-[18px] shrink-0 cursor-grab items-center justify-center active:cursor-grabbing">
+        <span
+          className="relative flex shrink-0 cursor-grab items-center justify-center active:cursor-grabbing"
+          style={FLY_GLYPH}
+        >
           <ComposedIcon
             icon={icon}
             {...(glyph.badge ? { badge: glyph.badge } : {})}
             size={18}
+            sizeVar="--t-fly-icon"
             className="text-nav-fg-muted transition-opacity duration-100 group-hover/row:opacity-0"
           />
           <GripVertical
@@ -1941,10 +1950,19 @@ function ProductRow({
           />
         </span>
       ) : (
+        /*
+         * The Recents panel's own rows — "Recently visited" and Pinned.
+         *
+         * An 18px glyph with no variable beside it, which is why this one
+         * list stayed at 18 while the preset moved the rest of the nav. It
+         * is the panel's row, so it follows the FLYOUT's size rather than
+         * the column's. Ashwin, Oct 13.
+         */
         <ComposedIcon
           icon={icon}
           {...(glyph.badge ? { badge: glyph.badge } : {})}
           size={18}
+          sizeVar="--t-fly-icon"
           className="text-nav-fg-muted"
         />
       )}
@@ -2493,7 +2511,7 @@ function DirectoryTree({
             key={group.id}
             label={group.label}
             open={levels[0]?.id === group.id}
-            icon={<Icon size={16} aria-hidden="true" />}
+            icon={<Icon size={16} aria-hidden="true" style={FLY_GLYPH} />}
             cascades
             onToggle={(el) => openAt(0, group.id, el, rows)}
             /*
@@ -2524,7 +2542,7 @@ function DirectoryTree({
                   <DirectoryRow
                     key={row.id}
                     label={row.label}
-                    icon={<ResolvedIcon icon={row.icon} size={16} />}
+                    icon={<ResolvedIcon icon={row.icon} size={16} style={FLY_GLYPH} />}
                     pinFor={row.id}
                     {...(row.pages.length > 0
                       ? {
@@ -2653,7 +2671,7 @@ function DirectoryGroup({
         label={group.label}
         open={open}
         onToggle={onToggle}
-        icon={<Icon size={16} aria-hidden="true" />}
+        icon={<Icon size={16} aria-hidden="true" style={FLY_GLYPH} />}
       />
 
       {open ? (
@@ -2743,7 +2761,7 @@ function DirectoryProduct({
         label={label}
         open={open}
         {...(pages.length > 0 ? { onToggle, count: pages.length } : {})}
-        icon={<ResolvedIcon icon={icon} size={16} />}
+        icon={<ResolvedIcon icon={icon} size={16} style={FLY_GLYPH} />}
         pinFor={productId}
         {...(onOpen ? { onOpen: () => onOpen(productId) } : {})}
       />
@@ -2758,6 +2776,7 @@ function DirectoryProduct({
                 <ResolvedIcon
                   icon={iconForChildLabel(child.label)}
                   size={15}
+                  style={FLY_GLYPH}
                 />
               }
               pinFor={child.id}
@@ -2853,7 +2872,18 @@ function DirectoryRow({
 
   const inner = (
     <>
-      <span className="flex size-[16px] shrink-0 items-center justify-center text-nav-fg-muted">
+      {/*
+        The box follows the glyph, rather than holding it at 16.
+
+        A fixed slot was invisible while every icon in here was 16px and became
+        the reason the directory ignored the icon-size preset: the glyph came
+        down and the box it sat in did not, so the row's text stayed where a
+        16px icon had put it and the column read as two sizes at once.
+      */}
+      <span
+        className="flex shrink-0 items-center justify-center text-nav-fg-muted"
+        style={FLY_GLYPH}
+      >
         {icon}
       </span>
       <span ref={labelRef} className={labelClass}>

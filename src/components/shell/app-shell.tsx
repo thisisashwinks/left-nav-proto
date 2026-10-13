@@ -20,6 +20,7 @@ import {
   GET_APP_FLYOUT_ID,
   useGetAppNavLabel,
   GET_APP_ROW_IDS,
+  GET_APP_ROW_LABELS,
   getAppFlyout,
 } from "@/components/flyout/get-app-flyout";
 import { FlyoutPanel } from "@/components/flyout/flyout-panel";
@@ -43,7 +44,6 @@ import {
   type PageHeading,
 } from "@/components/page/page-heading";
 import {
-  GET_APP_LABELS,
   GetAppModal,
   type AppKind,
 } from "@/components/header/get-app-modal";
@@ -2742,17 +2742,17 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
                     {
                       label:
                         selectedId === GET_APP_ROW_IDS.mobile
-                          ? GET_APP_LABELS.mobile
-                          : GET_APP_LABELS.desktop,
+                          ? GET_APP_ROW_LABELS.mobile
+                          : GET_APP_ROW_LABELS.desktop,
                       options: [
                         {
                           id: GET_APP_ROW_IDS.mobile,
-                          label: GET_APP_LABELS.mobile,
+                          label: GET_APP_ROW_LABELS.mobile,
                           selected: selectedId === GET_APP_ROW_IDS.mobile,
                         },
                         {
                           id: GET_APP_ROW_IDS.desktop,
-                          label: GET_APP_LABELS.desktop,
+                          label: GET_APP_ROW_LABELS.desktop,
                           selected: selectedId === GET_APP_ROW_IDS.desktop,
                         },
                       ],

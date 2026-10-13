@@ -550,7 +550,7 @@ export function CollapsedRail({
       */
       <RailNewDot on={newFlagIds.has(flyoutId)}>
       {i.ai ? (
-        <NavAiSparkle className="text-nav-ai-icon" />
+        <NavAiSparkle sizeVar="--t-nav-icon" className="text-nav-ai-icon" />
       ) : i.icon ? (
         <i.icon
           size={16}

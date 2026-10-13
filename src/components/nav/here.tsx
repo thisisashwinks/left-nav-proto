@@ -166,7 +166,8 @@ export function useHereStyle(marking: Marking): {
    */
   const bold = NAV_SELECTED_WEIGHT_CLASS[navSelectedWeight];
   /*
-   * 18px, through the icon's own variable rather than a transform.
+   * Two pixels up from the base, through the icon's own variable rather than
+   * a transform.
    *
    * `--t-nav-icon` is what the inline width and height already read, so
    * overriding it on the element resizes the glyph properly — where a
@@ -181,7 +182,7 @@ export function useHereStyle(marking: Marking): {
    * next surface.
    */
   const bigger = navSelectedIcon
-    ? "[--t-nav-icon:18px] [--t-fly-icon:18px] [--here-glyph:18px]"
+    ? "[--t-nav-icon:var(--t-nav-icon-sel,18px)] [--t-fly-icon:var(--t-fly-icon-sel,18px)] [--here-glyph:var(--t-fly-icon-sel,18px)]"
     : false;
 
   switch (selectedMark) {

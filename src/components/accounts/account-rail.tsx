@@ -59,6 +59,42 @@ export const ACCOUNT_RAIL_DIRECTORY_WIDTH = 340;
  * ("Riverstone Lane" → RL), so switching the axis on does not renumber the
  * accounts that were already drawing letters.
  */
+/**
+ * A rail row's corner, given the two shape axes and whether the names are out.
+ *
+ * One function rather than the ternary written out at each of the three sites
+ * — the account rows, the directory button and the agency plate — because the
+ * three have to agree: they are one column, and a column whose corners
+ * disagree by row reads as a rendering fault rather than as a choice. The
+ * plate passes `pad` because it is a box with a row inside it and concentric
+ * is the only way that does not look like a mistake.
+ *
+ * Collapsed always takes the tile's own shape. See RAIL_EXPANDED_SHAPES for
+ * why that is not a question the axis asks.
+ */
+function railCorner({
+  expanded,
+  pill,
+  navShape,
+  tile,
+  pad = 0,
+}: {
+  expanded: boolean;
+  pill: boolean;
+  navShape: boolean;
+  /** The squircle's corner at this size, when the axis is not a pill. */
+  tile: string;
+  /** Padding between this box and the row inside it, for concentricity. */
+  pad?: number;
+}): string {
+  if (expanded && navShape) {
+    return pad > 0
+      ? `calc(var(--t-nav-radius, 7px) + ${pad}px)`
+      : "var(--t-nav-radius, 7px)";
+  }
+  return pill ? "9999px" : tile;
+}
+
 function initialsFor(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return "?";
@@ -469,6 +505,8 @@ export function AccountRail({
       : [];
 
   const pillTiles = effective.railTileShape === "pill";
+  /* The open rail's corners — see RAIL_EXPANDED_SHAPES and `railCorner`. */
+  const navShape = effective.railExpandedShape === "nav";
   const railTileAlign = effective.railTileAlign;
   /*
    * One corner on every mark in the strip — agency and tenants alike.
@@ -556,6 +594,19 @@ export function AccountRail({
           aria-expanded={switcherOpen}
           onClick={onToggleSwitcher}
           /*
+            The same corner as the accounts above it, so the hover fills line
+            up down one column — which is also why it is the shared helper and
+            not a ternary of its own.
+          */
+          style={{
+            borderRadius: railCorner({
+              expanded,
+              pill: pillTiles,
+              navShape,
+              tile: "9px",
+            }),
+          }}
+          /*
             Resting here opens the rail, exactly as resting on a tile does.
 
             It is a row in the same column and the same width as the tiles
@@ -565,10 +616,7 @@ export function AccountRail({
           */
           onPointerEnter={() => setHover(true)}
           className={cn(
-            "motion-tap flex h-[36px] shrink-0 items-center gap-[9px] p-[4px] text-nav-fg-subtle",
-            // The same tile as the accounts above it, so the hover
-            // fills line up down one column.
-            pillTiles ? "rounded-full" : "rounded-[9px]",
+            "motion-tap flex h-[36px] shrink-0 items-center gap-[9px] p-[4px] text-nav-fg-subtle transition-[border-radius] duration-[var(--dur-fast)] ease-[var(--ease-out)]",
             /*
               36 wide to match its own 36px height, which is 4px more
               than an account tile — so it bleeds 2px into the strip's
@@ -1039,11 +1087,8 @@ export function AccountRail({
                     The size is still derived from the column rather than
                     fixed, so the plate is the same object at both widths.
                   */
-                  "shrink-0 bg-nav-rail-disc p-[4px] transition-[margin,width] ease-[var(--ease-out)]",
+                  "shrink-0 bg-nav-rail-disc p-[4px] transition-[margin,width,border-radius] ease-[var(--ease-out)]",
                   expanded ? "w-[calc(100%-20px)]" : "w-[40px]",
-                  // Concentric with the tile inside it: a pill in a 10px box
-                  // reads as a mistake at 4px of padding.
-                  pillTiles ? "rounded-full" : "rounded-[10px]",
                   /*
                     8px collapsed, so the plate is 40×40 — square, which is what
                     makes a full radius read as a disc rather than a lozenge. The
@@ -1081,6 +1126,18 @@ export function AccountRail({
                   transitionDuration: expanded
                     ? "var(--rail-dur, var(--dur-slow))"
                     : "var(--dur-base)",
+                  /*
+                    Concentric with the row inside it, at 4px of padding — a
+                    pill in a 10px box reads as a mistake, and so would a 7px
+                    corner in a 7px one. See `railCorner`.
+                  */
+                  borderRadius: railCorner({
+                    expanded,
+                    pill: pillTiles,
+                    navShape,
+                    tile: "10px",
+                    pad: 4,
+                  }),
                 }}
               >
                 {/*
@@ -1813,6 +1870,8 @@ function RailRow({
   const { effective } = useTheme();
   const pinnedInk = usePinnedInk();
   const pillTiles = effective.railTileShape === "pill";
+  /* See RAIL_EXPANDED_SHAPES, and `railCorner` for why it is shared. */
+  const navShape = effective.railExpandedShape === "nav";
   const { railAvatars } = effective;
   /*
    * The active account's mark grows; every other tile stays where it was.
@@ -1987,30 +2046,53 @@ function RailRow({
               centre; the other is dropped on the floor by over-constraint
               resolution anyway.
             */
+            /*
+              The open row's corner, and the collapsed row's is the mark's —
+              see RAIL_EXPANDED_SHAPES. The filled list keeps its own 8px: it
+              is a list of rows rather than a strip of tiles, so it is not
+              what the axis is about.
+
+              Transitioned rather than snapped. The row travels from a 32px
+              circle to a 204px row over the rail's own 900ms, and a radius
+              that lands in the first frame draws a rounded SQUARE at 32px
+              wide — which is neither shape and reads as a glitch on the way
+              out.
+            */
+            borderRadius: listShape
+              ? "8px"
+              : railCorner({
+                  expanded,
+                  pill: pillTiles,
+                  navShape,
+                  tile: "9px",
+                }),
             ...(outset > 0
               ? {
                   width: box,
                   marginInlineStart: -outset,
-                  transitionProperty: "padding, margin, width",
+                  transitionProperty:
+                    "padding, margin, width, border-radius",
                 }
               : {}),
           }}
           className={cn(
-            "motion-tap flex w-full items-center gap-[9px] outline-none transition-[padding] duration-[var(--dur-fast)] ease-[var(--ease-out)] focus-visible:ring-[1.5px] focus-visible:ring-brand",
-            // Shape on every row, not just the selected one: the hover fill and
-            // the selected fill are the same box, and only one of them being a
-            // pill reads as the row changing shape under the pointer.
+            "motion-tap flex w-full items-center gap-[9px] outline-none transition-[padding,border-radius] duration-[var(--dur-fast)] ease-[var(--ease-out)] focus-visible:ring-[1.5px] focus-visible:ring-brand",
             /*
-              ...and the filled list takes the LIST's shape instead: the same
-              8px the All accounts panel's rows wear. A pill is right for a
-              column of marks — it is the shape of the mark — and wrong for a
-              column of names, where it reads as a chip rather than a row.
+              The shape itself has moved to `borderRadius` in the style above —
+              it reads two axes and a `calc()` now, and three `rounded-*`
+              utilities on one element resolve by source order in the
+              generated sheet, which is not something this file can reason
+              about. The reasoning it carried is worth keeping:
+
+              Shape on every row, not just the selected one. The hover fill and
+              the selected fill are the same box, and only one of them being a
+              pill reads as the row changing shape under the pointer.
+
+              The filled list takes the LIST's shape instead: the same 8px the
+              All accounts panel's rows wear. A pill is right for a column of
+              marks — it is the shape of the mark — and wrong for a column of
+              names, where it reads as a chip rather than a row.
             */
-            listShape
-              ? "rounded-[8px]"
-              : pillTiles
-                ? "rounded-full"
-                : "rounded-[9px]",
             /*
               No `justify-center` when collapsed, and nothing replacing it.
 

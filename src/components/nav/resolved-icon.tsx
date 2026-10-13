@@ -11,6 +11,26 @@ import { cn } from "@/lib/utils";
  * fixed registry from one built fresh on every render. Passing it as a prop and
  * reading it back is the same lookup with the provenance made obvious.
  */
+/**
+ * The glyph sizes the nav's two surfaces follow.
+ *
+ * Lucide writes `size` out as width/height ATTRIBUTES, which a CSS variable
+ * cannot go in — so every row glyph that wants the density knob has to set
+ * both in CSS as well, and these are the two declarations it needs. Named
+ * rather than retyped: the six places this was missing from on Oct 13 were
+ * all places where someone wrote `size={16}` and had no obvious thing to put
+ * beside it.
+ */
+export const NAV_GLYPH = {
+  width: "var(--t-nav-icon, 16px)",
+  height: "var(--t-nav-icon, 16px)",
+} as const;
+
+export const FLY_GLYPH = {
+  width: "var(--t-fly-icon, 16px)",
+  height: "var(--t-fly-icon, 16px)",
+} as const;
+
 export function ResolvedIcon({
   icon,
   size,

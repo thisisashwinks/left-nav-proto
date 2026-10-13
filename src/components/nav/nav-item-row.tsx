@@ -1119,7 +1119,7 @@ function RowIcon({
    * an already-indented row.
    */
   if (item.iconHidden) return null;
-  if (item.ai) return <NavAiSparkle className="text-nav-ai-icon" />;
+  if (item.ai) return <NavAiSparkle sizeVar="--t-nav-icon" className="text-nav-ai-icon" />;
   if (!Icon) return null;
   /*
    * A qualified row draws its parent's mark with its own badged on it.

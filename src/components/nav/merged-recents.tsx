@@ -1063,6 +1063,7 @@ function MergedItemRow({
                   icon={Icon}
                   {...(row.badge ? { badge: row.badge } : {})}
                   size={16}
+                  sizeVar="--t-nav-icon"
                   className="text-nav-fg-muted"
                 />
               </span>
@@ -1071,6 +1072,7 @@ function MergedItemRow({
                 icon={Icon}
                 {...(row.badge ? { badge: row.badge } : {})}
                 size={16}
+                sizeVar="--t-nav-icon"
                 className="text-nav-fg-muted"
               />
             )

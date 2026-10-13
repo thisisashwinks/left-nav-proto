@@ -1,5 +1,4 @@
 import { Monitor, Smartphone } from "lucide-react";
-import { GET_APP_LABELS } from "@/components/header/get-app-modal";
 import { BETA_BADGE, NEW_BADGE, type FlyoutConfig } from "./types";
 
 /**
@@ -34,16 +33,26 @@ export const GET_APP_FLYOUT_ID = "white-label-apps";
 export const GET_APP_NAV_LABEL = "Download apps";
 
 /**
- * The L2 rows, with the platforms each one covers.
+ * The L2 rows: the platform, and nothing else.
  *
- * The brackets are the answer to the question the row otherwise invites — "is
- * my phone in there?" — asked at the moment someone is choosing between two
- * rows. Cheap here, where there are two rows and room; not carried into the
- * avatar menu, where the same words would be a paragraph beside a sign-out.
+ * These used to be the platform-qualified names — "Get Android & iOS app",
+ * "Get Windows & macOS app" — on the argument that two rows with room can
+ * afford to answer "is my phone in there?" before anyone has to click. In the
+ * nav they had the room on paper and not on screen: at 240px both truncated
+ * mid-phrase to "Get Android & iOS …" and "Get Windows & m…", so the clause
+ * that was there to name the platforms was the exact part that disappeared.
+ *
+ * "Get" was also doing no work at this level. It earns its place on a single
+ * row standing alone in an app bar, where "Mobile apps" would read as a place
+ * in the product; under a parent row already called Download apps, the verb is
+ * said twice and the panel is plainly a pair of downloads. Ashwin, Oct 13.
+ *
+ * The platform detail is not lost — it is in the sheet each row opens, which
+ * is where someone checking for their phone can actually read it.
  */
 export const GET_APP_ROW_LABELS: Record<"mobile" | "desktop", string> = {
-  mobile: `${GET_APP_LABELS.mobile}`,
-  desktop: `${GET_APP_LABELS.desktop}`,
+  mobile: "Mobile apps",
+  desktop: "Desktop app",
 };
 
 /** The ids the shell routes to the sheet. See app-shell's `onNavigate`. */

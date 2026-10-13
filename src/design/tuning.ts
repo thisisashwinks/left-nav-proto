@@ -96,10 +96,10 @@ export interface TuningState {
  * design's own value where the two differ.
  */
 export const TUNING_DEFAULTS: TuningState = {
-  navIconSize: 16,
+  navIconSize: 14,
   // Hover takes the icon to the design's 16 — the resting size is the one that
   // came down, so growing back to 16 is the row saying "this is the one".
-  navIconHoverSize: 16,
+  navIconHoverSize: 14,
   navRowFontSize: 14,
   navRowGap: 8,
   navRowTrailGap: 8,
@@ -113,7 +113,7 @@ export const TUNING_DEFAULTS: TuningState = {
   navCollapseSettle: 120,
   // The dock keeps 16. Its icons carry no label beside them, so they are the only
   // thing naming the row and drop off faster than a nav row's icon does.
-  dockIconSize: 16,
+  dockIconSize: 14,
   dockLabelSize: 8,
   // Inside the band it is a label on a surface rather than a hover hint squeezed
   // between two sections, so it can carry real size — one step under a nav row's
@@ -129,7 +129,7 @@ export const TUNING_DEFAULTS: TuningState = {
   // 16 (Aug 28): the same glyph a nav row draws. At 20 an L2 row read as a
   // heavier thing than the L1 that opened it, when it is the same kind of row
   // one level down. Still tunable — the knob is how the old 20 gets compared.
-  flyoutIconSize: 16,
+  flyoutIconSize: 14,
   flyoutTitleSize: 14,
   flyoutDescSize: 12.5,
   flyoutRowGap: 10,
@@ -187,6 +187,62 @@ export const TUNING_GROUPS = [
 ] as const;
 
 /** Serialises the state into the CSS custom properties components read. */
+/**
+ * Every knob that sizes a glyph in the navigation.
+ *
+ * Collected so one control can move them together. They are four separate
+ * sliders because the design can want a flyout glyph larger than a nav one —
+ * but "make the icons smaller" is a single thought, and asking someone to
+ * have it four times, in two different sections, is how three of them end up
+ * at 14 and the fourth stays 16. Ashwin, Oct 13.
+ *
+ * `navIconHoverSize` is in the list because hover is not a separate decision
+ * here: it has matched the resting size since rows stopped growing under the
+ * pointer, and leaving it behind would bring that back.
+ */
+export const NAV_ICON_KNOBS = [
+  "navIconSize",
+  "navIconHoverSize",
+  "flyoutIconSize",
+  "dockIconSize",
+] as const satisfies readonly (keyof TuningState)[];
+
+/**
+ * The sizes the one control offers.
+ *
+ * 14 is the default as of Oct 13 — the whole column a notch lighter, which
+ * is a question about the nav as a whole rather than about any one row in it,
+ * and so belongs on a control that can only answer it everywhere at once.
+ * 16 is the figure the design was drawn at and is kept to compare against.
+ */
+export const NAV_ICON_SIZES = ["compact", "design"] as const;
+export type NavIconSize = (typeof NAV_ICON_SIZES)[number];
+
+export const NAV_ICON_SIZE_PX: Record<NavIconSize, number> = {
+  compact: 14,
+  design: 16,
+};
+
+export const NAV_ICON_SIZE_LABELS: Record<NavIconSize, string> = {
+  compact: "14px",
+  design: "16px",
+};
+
+/**
+ * Which preset the knobs currently spell, or null when they disagree.
+ *
+ * Derived rather than stored, so moving a single slider by hand is not
+ * silently overwritten the next time the preset is read — and a nav with
+ * three glyphs at 14 and one at 20 honestly matches neither option, which is
+ * what null says.
+ */
+export function navIconSizeOf(state: TuningState): NavIconSize | null {
+  const first = state[NAV_ICON_KNOBS[0]];
+  const uniform = NAV_ICON_KNOBS.every((k) => state[k] === first);
+  if (!uniform) return null;
+  return NAV_ICON_SIZES.find((n) => NAV_ICON_SIZE_PX[n] === first) ?? null;
+}
+
 export function tuningToCssVars(state: TuningState): Record<string, string> {
   const out: Record<string, string> = {};
   for (const knob of TUNING_KNOBS) {
@@ -205,6 +261,22 @@ export function tuningToCssVars(state: TuningState): Record<string, string> {
    * resting size happened to be 14.5. Computed here, hover always lands exactly on
    * the size the knob names, whatever the resting size is.
    */
+  /*
+   * The selected row's glyph, two pixels up from whatever the base is.
+   *
+   * It used to be a flat 18px written into a class, which meant the one row
+   * you are actually looking at ignored the icon-size preset entirely — pick
+   * 14px and the whole column came down except the row under the pointer.
+   * Derived here so "grows" stays a relationship rather than a number, and so
+   * a level cannot be left behind by whoever changes the base next.
+   *
+   * CSS cannot do this on the element: `--t-nav-icon: calc(var(--t-nav-icon)
+   * + 2px)` is a custom property referring to itself, which is invalid and
+   * resolves to nothing. It needs a variable of its own. Ashwin, Oct 13.
+   */
+  out["--t-nav-icon-sel"] = `${state.navIconSize + 2}px`;
+  out["--t-fly-icon-sel"] = `${state.flyoutIconSize + 2}px`;
+
   out["--t-nav-icon-scale"] = String(
     state.navIconSize > 0 ? state.navIconHoverSize / state.navIconSize : 1,
   );

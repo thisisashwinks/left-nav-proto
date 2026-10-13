@@ -501,7 +501,7 @@ export function FlyoutRow({
    * FlyoutPanel and group-flyout, because this is the only place the decision
    * changes anything.
    */
-  const { tabsInNav, l2ClickAction } = useTheme();
+  const { tabsInNav, l2ClickAction, pinColumn } = useTheme();
   /** Only rows that map to a pinnable product get a pin. */
   // A row is pinnable if it names somewhere the dock can send you: a product,
   // or one of the nav's own rows — see chrome-places.
@@ -679,7 +679,7 @@ export function FlyoutRow({
         )}
       >
         {item.ai ? (
-          <NavAiSparkle />
+          <NavAiSparkle sizeVar="--t-fly-icon" />
         ) : Icon ? (
           <Icon
             size={v.iconSize}
@@ -1097,7 +1097,14 @@ export function FlyoutRow({
       <WithPin
         productId={item.id}
         pinClass={v.pinTop}
-        pinInset={PIN_INSET}
+        /*
+          A leaf row's pin goes to the edge under the `edge` axis — see
+          PIN_COLUMNS. There is no chevron on this row to stay inboard of, so
+          the 14px the default holds open is a column this row never joins.
+        */
+        pinInset={
+          pinColumn === "edge" && !hasChildren ? ROW_EDGE : PIN_INSET
+        }
         // 12, as the nav's own rows use: an L2 row is the same kind of row one
         // level down, so its trailing mark is the same mark at the same size.
         pinSize={12}
@@ -1391,7 +1398,7 @@ function FlyoutChildRow({
   tabsInNav: boolean;
   edit?: FlyoutChildEdit;
 }) {
-  const { l2ClickAction } = useTheme();
+  const { l2ClickAction, pinColumn } = useTheme();
   const openFirst = l2ClickAction === "open-first";
   /*
    * An L3 row is the page itself or nothing — there is no level below it to be
@@ -1455,7 +1462,14 @@ function FlyoutChildRow({
       <Row
         edit={edit}
         childId={nested ? "" : child.id}
-        pinInset={cascade ? ROW_EDGE : PIN_INSET}
+        /*
+          The dropdown already stands its pin at the edge — it puts the
+          chevron first and has no L2 column to answer to. `edge` is that
+          same rule brought into the panel, for the rows with no chevron.
+        */
+        pinInset={
+          cascade || (pinColumn === "edge" && !nested) ? ROW_EDGE : PIN_INSET
+        }
         aria-current={child.id === activeId ? "page" : undefined}
         aria-expanded={nested ? open : undefined}
         aria-controls={nested ? panelId : undefined}
@@ -1607,7 +1621,16 @@ function FlyoutChildRow({
                 childHidden && "opacity-40",
               )}
             >
-              <child.icon size={16} aria-hidden="true" />
+              <child.icon
+                size={16}
+                aria-hidden="true"
+                // The same size the row draws outside edit mode, so opening
+                // the mode does not resize every child in the panel.
+                style={{
+                  width: "var(--t-fly-icon, 16px)",
+                  height: "var(--t-fly-icon, 16px)",
+                }}
+              />
             </span>
           ) : (
             // Same 16px box the nav's own rows use, so an L3 row reads as the
@@ -1619,9 +1642,16 @@ function FlyoutChildRow({
                 // The L3 glyph had no variable of its own, so the marked
                 // row's size arrives through one declared here. See
                 // NAV_SELECTED_ICON_DEFAULT.
+                /*
+                 * `--here-glyph` falls back to the FLYOUT's size, not to a
+                 * bare 16px. The fallback was the only thing most L3 rows
+                 * ever read — the variable is set on the marked row alone —
+                 * so a hardcoded one meant every child in every panel stayed
+                 * at 16 while the preset moved the rest of the nav.
+                 */
                 style={{
-                  width: "var(--here-glyph, 16px)",
-                  height: "var(--here-glyph, 16px)",
+                  width: "var(--here-glyph, var(--t-fly-icon, 16px))",
+                  height: "var(--here-glyph, var(--t-fly-icon, 16px))",
                 }}
                 className={cn(
                   "shrink-0 text-nav-fg-subtle",
@@ -1751,12 +1781,17 @@ function FlyoutChildRow({
                 )}
               />
             )
-          ) : edit || isPinnable(child.id) ? (
+          ) : edit || (isPinnable(child.id) && pinColumn !== "edge") ? (
             /*
               The empty slot, and only where there is a mark to align with —
               same rule as the L2 row above. An L3 with no disclosure, no pin
               and no kebab was reserving 14px for a column it never joins, and
               paying for it out of the label.
+
+              Under `edge` that is every leaf row: the pin has moved out into
+              this slot, so holding it open as well would push the label in by
+              a column that is now occupied. Edit mode keeps it either way —
+              there the kebab is the mark and it stays on the inboard line.
             */
             <span
               aria-hidden="true"

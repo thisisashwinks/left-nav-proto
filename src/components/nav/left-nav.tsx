@@ -25,6 +25,7 @@ import {
   Trash2,
   LayoutTemplate,
 } from "lucide-react";
+import { NAV_GLYPH } from "./resolved-icon";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import type { Account } from "@/components/accounts/accounts-data";
 import type { WorkspaceScope } from "@/components/accounts/use-accounts";
@@ -5516,6 +5517,7 @@ function SetupGuideRow({
               <Rocket
                 size={15}
                 aria-hidden="true"
+                style={NAV_GLYPH}
                 className={cn("shrink-0", v.icon)}
               />
               <span

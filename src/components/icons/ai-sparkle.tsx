@@ -1,3 +1,4 @@
+import type * as React from "react";
 import type { LucideIcon } from "lucide-react";
 
 /**
@@ -32,6 +33,14 @@ interface AiSparkleProps {
   offsetX: number;
   offsetY: number;
   className?: string;
+  /**
+   * A CSS variable the box follows, with every inset scaled to match.
+   *
+   * The numbers above stay the measurement; this turns each into a fraction
+   * of whatever the variable resolves to, so the drawing is preserved at any
+   * size instead of needing a second set of measurements per size.
+   */
+  sizeVar?: string;
 }
 
 export function AiSparkle({
@@ -40,13 +49,19 @@ export function AiSparkle({
   offsetX,
   offsetY,
   className,
+  sizeVar,
 }: AiSparkleProps) {
   const glyphHeight = (glyphWidth / GLYPH_WIDTH) * GLYPH_HEIGHT;
+
+  // Each measurement as a fraction of the box it was measured in, so the
+  // whole drawing scales together. Without a variable they stay as measured.
+  const at = (px: number): number | string =>
+    sizeVar ? `calc(${px / box} * var(${sizeVar}, ${box}px))` : px;
 
   return (
     <div
       className={`relative shrink-0 overflow-hidden ${className ?? ""}`}
-      style={{ width: box, height: box }}
+      style={{ width: at(box), height: at(box) }}
       aria-hidden="true"
     >
       <svg
@@ -55,10 +70,10 @@ export function AiSparkle({
         xmlns="http://www.w3.org/2000/svg"
         className="absolute"
         style={{
-          width: glyphWidth,
-          height: glyphHeight,
-          left: offsetX,
-          top: offsetY,
+          width: at(glyphWidth),
+          height: at(glyphHeight),
+          left: at(offsetX),
+          top: at(offsetY),
         }}
       >
         <path d={GLYPH_PATH} fill="currentColor" />
@@ -106,9 +121,21 @@ const OUTLINE_PATHS = [
 function AiSparkleGlyph({
   size = 16,
   className,
+  style,
 }: {
   size?: number;
   className?: string;
+  /**
+   * Forwarded, because width and height ATTRIBUTES cannot hold a variable.
+   *
+   * Every lucide glyph in the nav follows `--t-nav-icon` / `--t-fly-icon`
+   * through an inline style laid over its attributes, and callers hand one
+   * down without knowing or caring which glyph they have. This adapter
+   * accepted `size` and `className` and silently dropped the third, which
+   * is why Ask AI was the one row in Recents that ignored the icon-size
+   * preset. Ashwin, Oct 13.
+   */
+  style?: React.CSSProperties;
 }) {
   return (
     <svg
@@ -119,6 +146,7 @@ function AiSparkleGlyph({
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       {...(className ? { className } : {})}
+      {...(style ? { style } : {})}
     >
       {/*
         `currentColor`, where the source had white: the row owns the ink.
@@ -149,15 +177,36 @@ function AiSparkleGlyph({
  */
 export const AiSparkleIcon = AiSparkleGlyph as unknown as LucideIcon;
 
-/** The nav variant: 16px box, glyph inset the way the Pencil file has it. */
-export function NavAiSparkle({ className }: { className?: string }) {
+/**
+ * The nav variant: a 16px box by default, or one that follows a variable.
+ *
+ * The box and the three insets were measured against 16px, so a bare number
+ * meant the sparkle held its size while every lucide glyph beside it moved
+ * with the icon-size preset — in a column of 14px icons it was the one row
+ * drawn a size larger, which reads as emphasis nobody asked for.
+ *
+ * `sizeVar` keeps the drawing and scales it: each measurement becomes its own
+ * fraction of the box, so the glyph stays inset exactly as handed over at any
+ * size rather than being re-tuned per size. Ashwin, Oct 13.
+ */
+const NAV_SPARKLE_BOX = 16;
+
+export function NavAiSparkle({
+  className,
+  sizeVar,
+}: {
+  className?: string;
+  /** e.g. `--t-nav-icon`. Omitted, the sparkle stays at its measured 16px. */
+  sizeVar?: string;
+}) {
   return (
     <AiSparkle
-      box={16}
+      box={NAV_SPARKLE_BOX}
       glyphWidth={13.252}
       offsetX={1.374}
       offsetY={1.138}
       className={className}
+      {...(sizeVar ? { sizeVar } : {})}
     />
   );
 }

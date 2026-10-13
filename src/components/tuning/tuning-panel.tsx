@@ -193,12 +193,16 @@ import {
   type PanelOpenTab,
   PIN_MARK_COLOUR_LABELS,
   PIN_MARK_COLOURS,
+  PIN_COLUMN_LABELS,
+  PIN_COLUMNS,
   RAIL_TILE_SHAPE_LABELS,
   EDIT_TREATMENTS,
   EDIT_TREATMENT_LABELS,
   RAIL_SIZINGS,
   RAIL_SIZING_LABELS,
   RAIL_TILE_SHAPES,
+  RAIL_EXPANDED_SHAPES,
+  RAIL_EXPANDED_SHAPE_LABELS,
   LAUNCHPAD_CARDS,
   NAV_SELECTED_FILLS,
   ADMIN_ACCENTS,
@@ -324,12 +328,14 @@ import {
   type RecentsPanelLayout,
   type PanelRecentHeading,
   type PinMarkColour,
+  type PinColumn,
   type EditTreatment,
   RENAME_AFFORDANCES,
   RENAME_AFFORDANCE_LABELS,
   type RenameAffordance,
   type RailSizing,
   type RailTileShape,
+  type RailExpandedShape,
   type RailRecents,
   type RailDirectorySpot,
   type RailZoomFit,
@@ -371,9 +377,15 @@ import {
   type AgencyPlan,
 } from "@/design/plans";
 import {
+  NAV_ICON_KNOBS,
+  NAV_ICON_SIZES,
+  NAV_ICON_SIZE_LABELS,
+  NAV_ICON_SIZE_PX,
+  navIconSizeOf,
   TUNING_DEFAULTS,
   TUNING_GROUPS,
   TUNING_KNOBS,
+  type NavIconSize,
   type TuningKnob,
 } from "@/design/tuning";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -533,6 +545,8 @@ function NavStructureSection({
     setPanelRecentHeading,
     pinMarkColour,
     setPinMarkColour,
+    pinColumn,
+    setPinColumn,
     setMergedRowDetail,
     mergedPinOrder,
     setMergedPinOrder,
@@ -612,6 +626,8 @@ function NavStructureSection({
     layoutModel,
     railTileShape,
     setRailTileShape,
+    railExpandedShape,
+    setRailExpandedShape,
     railRecents,
     setRailRecents,
     railDirectorySpot,
@@ -1035,6 +1051,25 @@ function NavStructureSection({
             {railTileShape === "pill"
               ? "Fully rounded, all the way down: every logo, the tiles and the agency's plate. One shape for the whole strip."
               : "Every logo on an 8px corner — the agency's and the sub-accounts' alike. The tiles under them keep their own slightly larger curve so the pair reads as concentric."}
+          </Note>
+
+          {/*
+            Directly under the corner axis it qualifies: one is the shape of
+            the strip, the other what happens to that shape when the strip
+            stops being a strip.
+          */}
+          <Segmented
+            label="Open rail corners"
+            keywords="rail expanded hover radius corner square nav row match l1 subaccount"
+            options={RAIL_EXPANDED_SHAPES}
+            value={railExpandedShape}
+            onChange={(v: RailExpandedShape) => setRailExpandedShape(v)}
+            format={(v) => RAIL_EXPANDED_SHAPE_LABELS[v]}
+          />
+          <Note>
+            {railExpandedShape === "tile"
+              ? "The open row keeps the mark's shape — a pill, or a squircle. It says the open rail is the collapsed rail widened, which is what the animation says too."
+              : "Once the names are out, the rows take the nav's own row radius on hover and on the selected fill, so the hover fill does not change shape halfway down the chrome. Tracks the Row radius slider rather than restating it. Collapsed is untouched: a 7px corner on a 32px square is a rounded square, not a tile."}
           </Note>
 
           <Segmented
@@ -1762,6 +1797,24 @@ function NavStructureSection({
             {pinMarkColour === "grey"
               ? "Set pins in gray-400 everywhere — the dock, the panels, the lists. A pin is a state, not an action asking to be pressed."
               : "Set pins in the accent everywhere, as it shipped: the pin is the gesture these surfaces exist for, and colour says so."}
+          </Note>
+
+          {/*
+            Beside the pin's colour, because it is the pin's other
+            platform-wide question and neither has a section of its own.
+          */}
+          <Segmented
+            label="Pin sits on"
+            keywords="pin chevron column align edge right l2 l3 leaf row trailing"
+            options={PIN_COLUMNS}
+            value={pinColumn}
+            onChange={(v: PinColumn) => setPinColumn(v)}
+            format={(v) => PIN_COLUMN_LABELS[v]}
+          />
+          <Note>
+            {pinColumn === "aligned"
+              ? "A row with no chevron still holds the chevron's column, so every pin in an L2 or L3 list lands on one line you can aim down. On a list like CRM, where three rows disclose and twelve do not, that column is empty on most of them — the pin stops a chevron's width short of a wall with nothing in between."
+              : "A row with nothing to disclose stands its pin at the row's edge, where the chevron would have been — nothing held for a control that row can never have. Pins no longer line up with each other in a mixed list: the column steps in and out by the chevron's width. This is already what the dropdown arrangement does."}
           </Note>
 
           <Segmented
@@ -5780,6 +5833,42 @@ export function TuningPanel() {
                 knobs below it do anything at all, so putting it after them would
                 let someone tune a size that is switched off.
               */}
+              {/*
+                The one control that moves every glyph in the column.
+
+                Lives at the head of Nav rows because that is the section a
+                person opens when the nav feels heavy, and because the four
+                sliders it drives are spread across three sections — a preset
+                offered next to only one of them would read as being about
+                that one. The sliders stay live underneath: this writes their
+                values rather than overriding them, so the numbers move when
+                you pick a size and the segmented control falls back to
+                showing neither once you dial one of them somewhere else.
+              */}
+              {group === "Nav rows" ? (
+                <>
+                  <Segmented
+                    label="Icon size, everywhere"
+                    keywords="icon size glyph 14 16 small compact nav l1 l2 l3 flyout collapsed rail dock"
+                    options={NAV_ICON_SIZES}
+                    value={navIconSizeOf(state) ?? ("" as never)}
+                    onChange={(v: NavIconSize) => {
+                      for (const knob of NAV_ICON_KNOBS) {
+                        set(knob, NAV_ICON_SIZE_PX[v]);
+                      }
+                    }}
+                    format={(v) => NAV_ICON_SIZE_LABELS[v]}
+                  />
+                  <Note>
+                    {navIconSizeOf(state) === "compact"
+                      ? "14px through the whole column \u2014 L1 rows, the collapsed rail, the flyout\u2019s own rows at both levels, and the dock. A notch lighter than the design, and the point at which a lucide glyph starts losing its interior detail."
+                      : navIconSizeOf(state) === "design"
+                        ? "16px, the design\u2019s figure, everywhere a glyph appears in the nav."
+                        : "The four icon sliders disagree, so neither preset is showing. Picking one sets them all."}
+                  </Note>
+                </>
+              ) : null}
+
               {group === "Favourites dock" ? (
                 <>
                   <Segmented

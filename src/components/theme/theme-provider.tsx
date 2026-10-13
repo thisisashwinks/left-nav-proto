@@ -38,9 +38,11 @@ import {
   type DirectorySelect,
   type LegacyFootControl,
   type PinMarkColour,
+  type PinColumn,
   type LayoutReplaceDialog,
   type NavSections,
   type RailTileShape,
+  type RailExpandedShape,
   type RailRecents,
   type RailDirectorySpot,
   type RailZoomFit,
@@ -383,6 +385,7 @@ interface ThemeContextValue extends ThemeState {
   ) => void;
   setPanelRecentHeading: (heading: PanelRecentHeading) => void;
   setPinMarkColour: (colour: PinMarkColour) => void;
+  setPinColumn: (column: PinColumn) => void;
   setAiButtonStyle: (style: AiButtonStyle) => void;
   setAiMark: (v: AiMarkStyle) => void;
   setDirectoryPlacement: (v: DirectoryPlacement) => void;
@@ -399,6 +402,7 @@ interface ThemeContextValue extends ThemeState {
   setNavSwitchButton: (enabled: boolean) => void;
   setAgencyEditNav: (enabled: boolean) => void;
   setRailTileShape: (shape: RailTileShape) => void;
+  setRailExpandedShape: (shape: RailExpandedShape) => void;
   setRailRecents: (mode: RailRecents) => void;
   setRailDirectorySpot: (spot: RailDirectorySpot) => void;
   setRailZoomFit: (fit: RailZoomFit) => void;
@@ -858,6 +862,7 @@ export function ThemeProvider({
         setState((s) => ({ ...s, panelRecentHeading })),
       setPinMarkColour: (pinMarkColour) =>
         setState((s) => ({ ...s, pinMarkColour })),
+      setPinColumn: (pinColumn) => setState((s) => ({ ...s, pinColumn })),
       setAiButtonStyle: (aiButtonStyle) =>
         setState((s) => ({ ...s, aiButtonStyle })),
       setAiMark: (aiMark) => setState((s) => ({ ...s, aiMark })),
@@ -887,6 +892,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, agencyEditNav })),
       setRailTileShape: (railTileShape) =>
         setState((s) => ({ ...s, railTileShape })),
+      setRailExpandedShape: (railExpandedShape) =>
+        setState((s) => ({ ...s, railExpandedShape })),
       setRailRecents: (railRecents) =>
         setState((s) => ({ ...s, railRecents })),
       setRailDirectorySpot: (railDirectorySpot) =>
