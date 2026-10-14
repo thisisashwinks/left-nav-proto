@@ -26,7 +26,11 @@ import {
   type RailExpandedShape,
   type SurfaceTheme,
 } from "@/design/theme";
-import { RAIL_RECENT_LIMIT } from "@/design/theme";
+import {
+  DIRECTORY_NAME_LABELS,
+  RAIL_RECENT_LIMIT,
+  SELECT_LABEL_LABELS,
+} from "@/design/theme";
 import { usePinnedInk } from "@/components/nav/pin-button";
 import { useTheme } from "@/components/theme/theme-provider";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
@@ -575,8 +579,8 @@ export function AccountRail({
         ? v.filter((id) => !fillVisibleIds.includes(id))
         : [...new Set([...v, ...fillVisibleIds])],
     );
-  const fillSelectWord =
-    effective.selectLabel === "edit" ? "Edit account" : "Select";
+  // The axis' own table, not a second spelling of it. See SELECT_LABELS.
+  const fillSelectWord = SELECT_LABEL_LABELS[effective.selectLabel];
   /**
    * The directory runs to the window's top and bottom edges.
    *
@@ -710,7 +714,11 @@ export function AccountRail({
    * agency's identical panel shows all of them, is the label quietly making a
    * claim the panel cannot keep.
    */
-  const directoryLabel = membersOnly ? "My accounts" : "All accounts";
+  // See DIRECTORY_NAMES. A member keeps "My accounts" under either value:
+  // the accounts they belong to are not sub-accounts they own.
+  const directoryLabel = membersOnly
+    ? "My accounts"
+    : DIRECTORY_NAME_LABELS[effective.directoryName];
 
   const directoryButton = (
       <Tooltipped label={directoryLabel} show={!expanded}>
@@ -1436,11 +1444,13 @@ export function AccountRail({
                       SELECT_SPOTS.
                     */}
                     {fillSelected.length === 0 || effective.selectSpot === "below"
-                      ? `${directoryLabel} (${session.accounts.length})`
+                      ? directoryLabel
                       : `${fillSelected.length} selected`}
                   </span>
                   {/* The primary, and only with something for it to act on. */}
-                  {fillPicking && fillSelected.length > 0 ? (
+                  {fillPicking &&
+                  fillSelected.length > 0 &&
+                  effective.selectSpot === "header" ? (
                     <button
                       type="button"
                       onClick={() => setFillBulk({ path: null })}
@@ -1465,7 +1475,17 @@ export function AccountRail({
                   {/* Gone while picking, for the reason it is gone in the
                       panel: Cancel is already the way out of the mode, and a
                       ✕ beside it discards the same work by a second door. */}
-                  {fillPicking || directoryExit === "back" ? null : (
+                  {/*
+                    The ✕ normally steps aside while picking — Cancel is the
+                    way out of the mode, and a second door that discards the
+                    same work beside it is a choice nobody wants to make. That
+                    holds while the two share a row. With the controls on the
+                    strip below, this row has no Cancel to be confused with,
+                    so hiding the close would leave the panel with no exit at
+                    all. See SELECT_SPOTS.
+                  */}
+                  {(fillPicking && effective.selectSpot === "header") ||
+                  directoryExit === "back" ? null : (
                     <button
                       type="button"
                       aria-label="Close accounts"
@@ -1534,7 +1554,17 @@ export function AccountRail({
                       fillSelectMode ? exitFillSelect() : setFillSelectMode(true)
                     }
                     selectWord={fillSelectWord}
-                    className="pl-[2px]"
+                    showActions={fillPicking && fillSelected.length > 0}
+                    onActions={() => setFillBulk({ path: null })}
+                    /*
+                      8, so the select-all box shares a vertical axis with
+                      the tick boxes on the rows under it. This directory's
+                      rows start at 10 and inset their box 8 more, landing it
+                      at 18; the strip sat at 12 and the two read as two
+                      different columns. The whole point of a select-all is
+                      that it heads the column it selects.
+                    */
+                    className="pl-[8px]"
                   />
                 ) : null}
               </div>
@@ -2423,6 +2453,13 @@ function RailRow({
             for the whole tile the pointer is on rather than only while it is
             over the 20px mark itself. The transition rides the dock clock the
             scale already uses, so the two happen as one gesture.
+
+            NOT in the directory — `listShape` opts out. Greyscale is how the
+            STRIP stops competing with the page beside it, which is a problem
+            a 56px column of fourteen marks has and a full list does not: you
+            opened All accounts to pick one of forty, and a page that greys
+            thirty-nine of them makes you hover your way down it. Ashwin,
+            Oct 14: colour the moment the panel is open.
           */}
           <span
             aria-hidden={undefined}
@@ -2431,6 +2468,7 @@ function RailRow({
               "flex shrink-0 origin-center transition-[transform,filter] duration-[var(--dur-dock)] ease-[var(--ease-out)]",
               effective.railTileColour === "active-only" &&
                 !selected &&
+                !listShape &&
                 "grayscale group-hover/rail-row:grayscale-0",
             )}
           >

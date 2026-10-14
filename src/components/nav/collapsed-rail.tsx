@@ -33,6 +33,7 @@ import type { WorkspaceScope } from "@/components/accounts/use-accounts";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import type { RailViewAll, SurfaceTheme } from "@/design/theme";
+import { DIRECTORY_NAME_LABELS } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { EntryClusterRail } from "./entry-cluster";
@@ -233,7 +234,10 @@ export function CollapsedRail({
     railViewAll,
     railAvatars,
     collapseSpot,
+    directoryName,
   } = useTheme().effective;
+  // The one name the directory wears everywhere. See DIRECTORY_NAMES.
+  const directoryLabel = DIRECTORY_NAME_LABELS[directoryName];
   /* What the companion-apps row is called right now. See APPS_ROW_LABELS. */
   const appsRowName = useGetAppNavLabel();
   /*
@@ -818,10 +822,10 @@ export function CollapsedRail({
         whether the rail is there. Ashwin, Oct 5.
       */}
       {onOpenAccounts ? (
-        <RailTooltip label="All accounts">
+        <RailTooltip label={directoryLabel}>
           <button
             type="button"
-            aria-label="All accounts"
+            aria-label={directoryLabel}
             onClick={onOpenAccounts}
             className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95 motion-press"
           >

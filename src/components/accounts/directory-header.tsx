@@ -35,6 +35,7 @@ export function DirectoryHeader({
   selectLabel = "Select",
   showSelectAll,
   exit = "close",
+  keepCloseWhilePicking = false,
   onClose,
   closeLabel = "Close",
   className,
@@ -64,6 +65,17 @@ export function DirectoryHeader({
   showSelectAll?: boolean;
   /** Where the way out lives, or that there isn't one. See DIRECTORY_EXITS. */
   exit?: "close" | "back";
+  /**
+   * Keep the ✕ on screen while a selection is running.
+   *
+   * It normally steps aside, because Cancel is already the way out of the
+   * mode and a ✕ beside it discards the same work by a second door. That
+   * reasoning holds only while the two are ON THE SAME ROW. With the
+   * controls moved to the strip below, this row has no Cancel to be confused
+   * with — so hiding the close leaves the panel with no way out at all until
+   * you leave select mode. See SELECT_SPOTS.
+   */
+  keepCloseWhilePicking?: boolean;
   onClose: () => void;
   closeLabel?: string;
   className?: string;
@@ -117,10 +129,13 @@ export function DirectoryHeader({
       {/*
         The count replaces the title rather than joining it: there is room for
         one thing on the left, and while rows are ticked the count is the more
-        useful of the two. The total goes in brackets because the title alone
-        does not say how big "all" is — at forty sub-accounts that is the
-        first thing worth knowing, since it tells you to search rather than
-        scroll before you have started doing either.
+        useful of the two.
+
+        The total used to ride in brackets beside the name, on the argument
+        that "all" does not say how big all is. It is gone: the strip under
+        the search field states it now ("40 sub-accounts"), and a number in
+        two places four rows apart is the thing that made the header read as
+        cluttered. Ashwin, Oct 14.
       */}
       <span className="min-w-0 flex-1 truncate text-[13.5px] leading-[18px] font-semibold text-nav-fg">
         {title}
@@ -189,7 +204,7 @@ export function DirectoryHeader({
         kind of leaving they meant. With the mode over, ✕ comes back as the
         only way out there is.
       */}
-      {picking || exit === "back" ? null : (
+      {(picking && !keepCloseWhilePicking) || exit === "back" ? null : (
         <button
           type="button"
           aria-label={closeLabel}

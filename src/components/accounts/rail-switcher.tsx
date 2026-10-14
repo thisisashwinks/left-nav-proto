@@ -9,6 +9,7 @@ import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { useTheme } from "@/components/theme/theme-provider";
 import { useBulkActions } from "@/components/bulk/bulk-provider";
 import { DirectoryAccountRow } from "./directory-account-row";
+import { DIRECTORY_NAME_LABELS } from "@/design/theme";
 import { DirectoryHeader } from "./directory-header";
 import { SelectStripRow } from "./select-strip";
 import { matchAccounts, type Account } from "./accounts-data";
@@ -93,8 +94,14 @@ export function RailDirectory({
    * mode the moment you unticked the last row.
    */
   const [selectMode, setSelectMode] = React.useState(false);
-  const { directorySelect, directoryExit, selectSpot, selectLabel, selectStrip } =
-    useTheme().effective;
+  const {
+    directorySelect,
+    directoryExit,
+    selectSpot,
+    selectLabel,
+    selectStrip,
+    directoryName,
+  } = useTheme().effective;
   // See SELECT_LABELS. The word only ever labels the START of the mode; the
   // way out is Cancel whatever this says.
   const selectWord = selectLabel === "edit" ? "Edit account" : "Select";
@@ -214,7 +221,7 @@ export function RailDirectory({
           selected.length === 0
             ? membersOnly
               ? `My accounts (${session.accounts.length})`
-              : `All accounts (${session.accounts.length})`
+              : DIRECTORY_NAME_LABELS[directoryName]
             : guided
               ? /*
                    A count against a total, because a bare "17 selected" does
@@ -245,7 +252,8 @@ export function RailDirectory({
               ? "Clear the selection"
               : `Select all ${session.accounts.length} accounts`
         }
-        showActions={picking && selected.length > 0}
+        showActions={picking && selected.length > 0 && selectSpot === "header"}
+        keepCloseWhilePicking={selectSpot === "below"}
         onActions={() => setBulk({ path: null })}
         showSelect={
           bulkAllowed && directorySelect === "button" && selectSpot === "header"
@@ -309,6 +317,8 @@ export function RailDirectory({
             selectMode={selectMode}
             onToggleSelect={() => (selectMode ? exitSelect() : setSelectMode(true))}
             selectWord={selectWord}
+            showActions={picking && selected.length > 0}
+            onActions={() => setBulk({ path: null })}
           />
         ) : null}
 

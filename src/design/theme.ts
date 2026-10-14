@@ -1337,10 +1337,16 @@ export const SELECT_SPOT_LABELS: Record<SelectSpot, string> = {
  * `select` names the gesture — you are about to select things — and is what
  * the iOS pattern this borrows from uses.
  *
- * `edit` names the ERRAND. Nobody opens this panel wanting to select; they
- * open it wanting to change something about some accounts, and selecting is
- * the first step of that. The risk is that "Edit account" sounds like it will
- * open one account's settings, which is the opposite of what it does.
+ * `edit` names the ERRAND, and is the default. Nobody opens this panel
+ * wanting to select; they open it wanting to change something about some
+ * accounts, and selecting is the first step of that. Bare, it also sidesteps
+ * the trouble the longer forms have: a singular noun after the verb reads as
+ * a promise to open ONE account's settings, which is the opposite of what
+ * pressing it does.
+ *
+ * `editSub` spells the object out anyway, for the reading where "Edit" alone
+ * is too bare to say what it will act on — it is the only one of the three
+ * that names the thing at all.
  */
 /**
  * What the below-search select strip puts on its left.
@@ -1376,13 +1382,50 @@ export const SELECT_STRIP_LABELS: Record<SelectStrip, string> = {
   bare: "Button only",
 };
 
-export const SELECT_LABELS = ["select", "edit"] as const;
+/**
+ * What the agency's directory is called, wherever it is named.
+ *
+ * One axis for every surface that says it — the rail's door and its tooltip,
+ * the expanded row, the filled rail's title, and both panels' headers — so
+ * the word cannot be "All accounts" in one place and something else two
+ * columns away.
+ *
+ *   `all`  "All accounts". Says the set is complete, which is the fact a
+ *          reader scanning a rail of eleven tiles most needs: there are more
+ *          than these, and this is where they all are.
+ *   `subs` "Your sub-accounts". Says whose they are and what they are, which
+ *          is the product's own word for them — and avoids the moment where
+ *          "All accounts" sits above a list that has been filtered to three.
+ *
+ * A member's directory is exempt: it stays "My accounts" under either value,
+ * because the accounts a member belongs to are not sub-accounts they own,
+ * and "your" would be claiming something about them that is not true.
+ */
+export const DIRECTORY_NAMES = ["all", "subs"] as const;
+
+export type DirectoryName = (typeof DIRECTORY_NAMES)[number];
+
+export const DIRECTORY_NAME_LABELS: Record<DirectoryName, string> = {
+  all: "All accounts",
+  subs: "Your sub-accounts",
+};
+
+export const SELECT_LABELS = ["select", "edit", "editSub"] as const;
 
 export type SelectLabel = (typeof SELECT_LABELS)[number];
 
+/**
+ * One map, serving the control and the button alike.
+ *
+ * The option IS the word here — picking "Edit" is picking the button that
+ * says Edit — so a second table of CTA strings beside this one would be two
+ * places to change one thing, and the kind of pair that drifts the moment
+ * somebody renames only the control.
+ */
 export const SELECT_LABEL_LABELS: Record<SelectLabel, string> = {
   select: "Select",
-  edit: "Edit account",
+  edit: "Edit",
+  editSub: "Edit sub-account",
 };
 
 export const AGENCY_ENTRIES = ["plate", "row", "above", "card"] as const;
@@ -5001,6 +5044,8 @@ export interface ThemeState {
   selectSpot: SelectSpot;
   /** What the selection button is called. See SELECT_LABELS. */
   selectLabel: SelectLabel;
+  /** What the agency's directory is called. See DIRECTORY_NAMES. */
+  directoryName: DirectoryName;
   /** What the below-search select strip puts on its left. See SELECT_STRIPS. */
   selectStrip: SelectStrip;
   /** Whether the workspace trigger's chevrons stand. See WORKSPACE_CHEVRONS. */
@@ -5944,7 +5989,8 @@ export const DEFAULT_THEME: ThemeState = {
   agencyEntry: "card",
   workspaceGlyph: "chevrons",
   selectSpot: "header",
-  selectLabel: "select",
+  selectLabel: "edit",
+  directoryName: "all",
   selectStrip: "count",
   workspaceChevron: "always",
   navOnPlane: NAV_ON_PLANE_DEFAULT,

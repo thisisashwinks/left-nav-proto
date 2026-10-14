@@ -244,6 +244,9 @@ import {
   RECENTS_MODES,
   SCOPE_MODEL_LABELS,
   SCOPE_MODELS,
+  DIRECTORY_NAME_LABELS,
+  DIRECTORY_NAMES,
+  type DirectoryName,
   WORKSPACE_GLYPH_LABELS,
   WORKSPACE_GLYPHS,
   type WorkspaceGlyph,
@@ -741,6 +744,8 @@ function NavStructureSection({
     setSelectLabel,
     selectStrip,
     setSelectStrip,
+    directoryName,
+    setDirectoryName,
     navIdentityAlign,
     setNavIdentityAlign,
     agencyPlateSize,
@@ -1852,6 +1857,25 @@ function NavStructureSection({
       </Note>
 
       <Segmented
+        label="Directory is called"
+        keywords="all accounts your sub-accounts directory name label title waffle door"
+        options={DIRECTORY_NAMES}
+        value={directoryName}
+        onChange={(v: DirectoryName) => setDirectoryName(v)}
+        format={(v) => DIRECTORY_NAME_LABELS[v]}
+      />
+      <Note>
+        {directoryName === "subs"
+          ? "Says whose they are and what they are \u2014 the product\u2019s own word. It also avoids the moment where \u201cAll accounts\u201d sits above a list filtered to three."
+          : "Says the set is complete, which is what a reader looking at eleven tiles most needs: there are more than these, and this is where they all are."}
+      </Note>
+      <Note>
+        One name for every surface that states it: the rail\u2019s door and its
+        tooltip, the expanded row, the filled rail\u2019s title, and both panels\u2019
+        headers. A member\u2019s directory stays \u201cMy accounts\u201d either way.
+      </Note>
+
+      <Segmented
         label="Switcher glyph"
         keywords="glyph chevron arrows grid waffle nine dot all accounts trigger icon"
         options={WORKSPACE_GLYPHS}
@@ -1914,8 +1938,10 @@ function NavStructureSection({
       />
       <Note>
         {selectLabel === "edit"
-          ? "Names the errand rather than the gesture \u2014 nobody opens this wanting to select. The risk is that it sounds like it opens one account\u2019s settings."
-          : "Names the gesture, as the iOS pattern this borrows from does. The way out is Cancel either way."}
+          ? "Names the errand rather than the gesture \u2014 nobody opens this wanting to select. Bare, it also sidesteps the singular noun that reads as a promise to open one account\u2019s settings."
+          : selectLabel === "editSub"
+            ? "Spells the object out. The only one of the three that says what it will act on \u2014 at the cost of the longest button on the row."
+            : "Names the gesture, as the iOS pattern this borrows from does. The way out is Cancel either way."}
       </Note>
 
       <Segmented

@@ -30,6 +30,8 @@ export function SelectStripRow({
   selectMode,
   onToggleSelect,
   selectWord,
+  showActions = false,
+  onActions,
   className,
 }: {
   strip: SelectStrip;
@@ -42,8 +44,18 @@ export function SelectStripRow({
   totalCount: number;
   selectMode: boolean;
   onToggleSelect: () => void;
-  /** "Select" or "Edit account" — see SELECT_LABELS. */
+  /** The word that starts the mode — see SELECT_LABELS. */
   selectWord: string;
+  /**
+   * The bulk primary, when this strip is the row carrying the selection.
+   *
+   * It lives in the panel's title row while the controls are up there. Once
+   * they move down here, leaving Actions behind would split the pair: the
+   * thing you press and the thing that acts on what you pressed would sit
+   * four rows apart, with a search field between them. See SELECT_SPOTS.
+   */
+  showActions?: boolean;
+  onActions?: () => void;
   className?: string;
 }) {
   const button = (
@@ -62,9 +74,21 @@ export function SelectStripRow({
   return (
     <div
       className={cn(
-        // The box lines up with the row checkboxes below it, so the column of
-        // ticks runs unbroken from this one down.
-        "mt-[6px] flex shrink-0 items-center gap-[8px] pl-[9px]",
+        /*
+          The box shares a vertical axis with the tick boxes on the rows
+          under it, so the column of ticks runs unbroken from this one down —
+          a select-all that does not head the column it selects reads as a
+          different control. 7 lands it where the dropdown's rows put theirs;
+          the rail's directory insets its rows differently and overrides this
+          with 8.
+
+          `-mb-[8px]` against the list's own top margin: the strip is a
+          caption for the rows under it, not a band between two things, and
+          at the 13px it sat at the Edit button read as belonging to the
+          search field above rather than to the list below. Pulled to 5.
+          Ashwin, Oct 14.
+        */
+        "mt-[6px] -mb-[8px] flex shrink-0 items-center gap-[8px] pl-[7px]",
         className,
       )}
     >
@@ -93,10 +117,23 @@ export function SelectStripRow({
         </>
       ) : strip === "count" ? (
         <span className="truncate text-[11.5px] leading-[normal] text-nav-fg-subtle">
-          {totalCount} accounts
+          {totalCount} sub-accounts
         </span>
       ) : null}
       <span className="flex-1" />
+      {/*
+        Before Cancel, which is the order the title row uses: one thing to
+        do, then the way to stop.
+      */}
+      {showActions ? (
+        <button
+          type="button"
+          onClick={() => onActions?.()}
+          className="motion-tap flex h-[26px] shrink-0 items-center rounded-[7px] bg-[var(--admin-action)] px-[9px] text-[12px] leading-none font-medium text-[var(--admin-action-fg)] hover:bg-[var(--admin-action-hover)] active:scale-[0.98]"
+        >
+          Actions
+        </button>
+      ) : null}
       {strip === "left" ? null : button}
     </div>
   );

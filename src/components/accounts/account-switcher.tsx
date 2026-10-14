@@ -2,7 +2,11 @@
 
 import * as React from "react";
 import { ChevronRight, Search } from "lucide-react";
-import type { SurfaceTheme } from "@/design/theme";
+import {
+  DIRECTORY_NAME_LABELS,
+  SELECT_LABEL_LABELS,
+  type SurfaceTheme,
+} from "@/design/theme";
 import { cn } from "@/lib/utils";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
 import type { BulkPath } from "@/components/bulk/bulk-config";
@@ -82,10 +86,12 @@ export function AccountSwitcher({
     selectSpot,
     selectLabel,
     selectStrip,
+    directoryName,
   } = useTheme().effective;
   // See SELECT_LABELS. The word only ever labels the START of the mode; the
-  // way out is Cancel whatever this says.
-  const selectWord = selectLabel === "edit" ? "Edit account" : "Select";
+  // way out is Cancel whatever this says. Read from the axis' own table
+  // rather than spelled out here, so adding an option is one edit.
+  const selectWord = SELECT_LABEL_LABELS[selectLabel];
   /*
    * The dropdown drawn the way a filled rail is drawn.
    *
@@ -329,7 +335,7 @@ export function AccountSwitcher({
             // controls; the title must not state it as well. See SELECT_SPOTS.
             selected.length === 0 || selectSpot === "below"
               ? only === undefined
-                ? `All accounts (${session.accounts.length})`
+                ? DIRECTORY_NAME_LABELS[directoryName]
                 : `My accounts (${session.accounts.length})`
               : guided
                 ? `${selected.length} of ${
@@ -354,7 +360,8 @@ export function AccountSwitcher({
                 ? "Clear the selection"
                 : `Select all ${session.accounts.length} accounts`
           }
-          showActions={picking && selected.length > 0}
+          showActions={picking && selected.length > 0 && selectSpot === "header"}
+          keepCloseWhilePicking={selectSpot === "below"}
           onActions={() => setBulk({ path: null })}
           showSelect={
             bulkAllowed && directorySelect === "button" && selectSpot === "header"
@@ -432,6 +439,8 @@ export function AccountSwitcher({
             selectMode={selectMode}
             onToggleSelect={() => (selectMode ? exitSelect() : setSelectMode(true))}
             selectWord={selectWord}
+            showActions={picking && selected.length > 0}
+            onActions={() => setBulk({ path: null })}
           />
         ) : null}
 
