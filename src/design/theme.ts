@@ -4705,6 +4705,80 @@ export const WHITE_LABEL_APPROACH_LABELS: Record<WhiteLabelApproach, string> = {
  * columns are told apart by their fills rather than by the line between them,
  * and still short of a surface that looks switched off. Ashwin, Oct 13.
  */
+/**
+ * Whether the agency's mark sits on a plate of its own.
+ *
+ * The plate is the rail's one piece of structure: a neutral disc under the
+ * agency, saying that the row above the line is a different KIND of thing
+ * from the accounts below it. It is also a grey circle behind a grey circle,
+ * and at 40px with a tinted avatar inside it the two reads compete — the
+ * plate's edge is the strongest line in the strip and it is drawn around the
+ * one row that needs no help being found.
+ *
+ * `bare` drops it and lets the mark sit on the rail like every other tile,
+ * leaving the separation to the divider under it. Ashwin, Oct 14.
+ */
+/**
+ * How the rail's two runs of accounts are told apart.
+ *
+ * The strip holds pinned accounts and then recently visited ones, in that
+ * order, and nothing on it says so: the order is the only evidence, and the
+ * order is invisible to anyone who has not watched it change.
+ *
+ *  divider   As it is. A hairline between the runs, which separates them
+ *            without naming them.
+ *  headings  PINNED and RECENT in small caps while the rail is open and the
+ *            names are showing. Shut, the strip is 56px of avatars with no
+ *            room for a word, so each heading collapses to the hairline it
+ *            replaced — the mark stays in the same place at both widths, and
+ *            only its form changes. Ashwin, Oct 14.
+ */
+/**
+ * Whether the rail's tiles carry their colour at rest.
+ *
+ * Separate from RAIL_AVATARS, which asks what a tile SHOWS — a mark, letters
+ * on grey, letters on a hue. This asks what the strip does with whatever that
+ * is, and the two compose: greyscale a logo and you still have the logo, at a
+ * weight that stops fourteen unrelated brands shouting at once.
+ *
+ *  always       Every tile in colour, as drawn. A column of saturated marks,
+ *               where the one you are in is told apart by its fill and size.
+ *  active-only  Only the account you are in keeps its colour; the rest go
+ *               greyscale and come back under the pointer. The strip stops
+ *               competing with the page and becomes a place you look things
+ *               up in — and colour returns exactly when you are hunting.
+ *               Ashwin, Oct 14.
+ */
+export const RAIL_TILE_COLOURS = ["always", "active-only"] as const;
+export type RailTileColour = (typeof RAIL_TILE_COLOURS)[number];
+
+export const RAIL_TILE_COLOUR_LABELS: Record<RailTileColour, string> = {
+  always: "Always",
+  "active-only": "Active only, colour on hover",
+};
+
+export const RAIL_GROUP_MARKS = ["divider", "headings"] as const;
+export type RailGroupMark = (typeof RAIL_GROUP_MARKS)[number];
+
+export const RAIL_GROUP_MARK_LABELS: Record<RailGroupMark, string> = {
+  divider: "Divider only",
+  headings: "Pinned / Recent headings",
+};
+
+export const AGENCY_PLATES = ["tinted", "bare"] as const;
+export type AgencyPlate = (typeof AGENCY_PLATES)[number];
+
+export const AGENCY_PLATE_LABELS: Record<AgencyPlate, string> = {
+  tinted: "Grey plate",
+  bare: "No plate",
+};
+
+/** The fill each option paints. Empty for `bare` — the rail shows through. */
+export const AGENCY_PLATE_CLASS: Record<AgencyPlate, string> = {
+  tinted: "bg-nav-rail-disc",
+  bare: "",
+};
+
 export const RAIL_SHADES = ["default", "darker"] as const;
 export type RailShade = (typeof RAIL_SHADES)[number];
 
@@ -5433,6 +5507,12 @@ export interface ThemeState {
   codeScopeView: CodeScopeView;
   /** How dark the sub-account rail's surface is. See RAIL_SHADES. */
   railShade: RailShade;
+  /** Whether the agency's mark sits on a plate. See AGENCY_PLATES. */
+  agencyPlate: AgencyPlate;
+  /** How the rail's pinned and recent runs are told apart. See RAIL_GROUP_MARKS. */
+  railGroupMark: RailGroupMark;
+  /** Whether rail tiles carry colour at rest. See RAIL_TILE_COLOURS. */
+  railTileColour: RailTileColour;
   /** How White Label answers the custom-code question. See WHITE_LABEL_APPROACHES. */
   whiteLabelApproach: WhiteLabelApproach;
   /** How much room the canvas keeps around its content. See CANVAS_PADS. */
@@ -5869,6 +5949,9 @@ export const DEFAULT_THEME: ThemeState = {
   customCodeMode: "inherit",
   codeScopeView: "header",
   railShade: "default",
+  agencyPlate: "tinted",
+  railGroupMark: "divider",
+  railTileColour: "always",
   whiteLabelApproach: "classic",
   canvasPad: "roomy",
   planeHead: "bar",
@@ -6075,7 +6158,7 @@ export const DEFAULT_THEME: ThemeState = {
    * click away.
    */
   railHover: "expand",
-  railTileAlign: "centre",
+  railTileAlign: "top",
   /*
    * Letters on the account's own hue (Oct 8).
    *
@@ -6294,7 +6377,7 @@ export const DEFAULT_THEME: ThemeState = {
    * into search moves whenever the open set changes length. The plate is the
    * strip's only fixed point. "Below the accounts" is one click away.
    */
-  railDirectorySpot: "top",
+  railDirectorySpot: "tail",
   /*
    * The rail's three answers to "which account am I in", all on (Aug 28).
    *

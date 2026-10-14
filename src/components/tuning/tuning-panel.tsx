@@ -100,6 +100,12 @@ import {
   RAIL_AVATAR_LABELS,
   RAIL_SHADES,
   RAIL_SHADE_LABELS,
+  AGENCY_PLATES,
+  AGENCY_PLATE_LABELS,
+  RAIL_GROUP_MARKS,
+  RAIL_GROUP_MARK_LABELS,
+  RAIL_TILE_COLOURS,
+  RAIL_TILE_COLOUR_LABELS,
   RAIL_TILE_ALIGNS,
   RAIL_TILE_ALIGN_LABELS,
   type RailTileAlign,
@@ -342,6 +348,9 @@ import {
   type NavSelectedWeight,
   type RailAvatar,
   type RailShade,
+  type AgencyPlate,
+  type RailGroupMark,
+  type RailTileColour,
   type CanvasBleed,
   type CanvasPad,
   type CustomCodeMode,
@@ -475,6 +484,9 @@ import { useNavProfiles } from "@/components/nav/nav-profiles";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { cn } from "@/lib/utils";
 import { useTuning } from "./tuning-provider";
+import { useBrand } from "@/components/accounts/brand-store";
+import { agency as AGENCY } from "@/components/accounts/accounts-data";
+import { LogoUploadField } from "@/components/settings/logo-upload-field";
 import { useCanvasTintedPage } from "@/components/shell/page-canvas";
 import {
   EMPTY_SCREEN_LABELS,
@@ -674,6 +686,12 @@ function NavStructureSection({
     railAvatars,
     railShade,
     setRailShade,
+    agencyPlate,
+    setAgencyPlate,
+    railGroupMark,
+    setRailGroupMark,
+    railTileColour,
+    setRailTileColour,
     setRailAvatars,
     railTileAlign,
     setRailTileAlign,
@@ -937,6 +955,60 @@ function NavStructureSection({
               : railDirectorySpot === "top"
                 ? "Anchored under the agency plate. The one fixed point in the strip, so the way into search is in the same place every time."
                 : "Anchored under the agency, with the account you are in raised beside it. It leaves a hole where that tile was in the ordered set."}
+          </Note>
+
+          <Segmented
+            label="Sub-account tile colour"
+            keywords="rail tile colour color greyscale grayscale desaturate active hover mono muted avatars"
+            options={RAIL_TILE_COLOURS}
+            value={railTileColour}
+            onChange={(v: RailTileColour) => setRailTileColour(v)}
+            format={(v) => RAIL_TILE_COLOUR_LABELS[v]}
+          />
+          <Note>
+            {railTileColour === "active-only"
+              ? "Only the account you are in keeps its colour; every other tile is greyscale and comes back under the pointer. A filter rather than a second palette, so it works on an uploaded logo, a drawn glyph and an initials gradient alike — and the strip stops competing with the page it sits beside."
+              : "Every tile in colour, as drawn. Fourteen saturated marks in a 56px column, with the active one told apart by its fill and its size."}
+          </Note>
+
+          <Segmented
+            label="Sub-account rail groups"
+            keywords="rail pinned recent heading label divider group sub-account accounts strip run"
+            options={RAIL_GROUP_MARKS}
+            value={railGroupMark}
+            onChange={(v: RailGroupMark) => setRailGroupMark(v)}
+            format={(v) => RAIL_GROUP_MARK_LABELS[v]}
+          />
+          <Note>
+            {railGroupMark === "headings"
+              ? "PINNED and RECENT while the rail is open and the names are showing. Shut, each heading collapses to the hairline it replaced — same place at both widths, so nothing moves when the strip opens under the pointer."
+              : "A hairline between the two runs, which separates them without naming them. The order is the only evidence of what the two runs ARE, and the order is invisible to anyone who has not watched it change."}
+          </Note>
+
+          {/*
+            The agency's own mark, editable from here.
+
+            It already lives in White Label → Logo, which is where an agency
+            would really change it — but reaching the rail from there is four
+            clicks and a scroll, and the thing being judged is what the RAIL
+            does with the upload. Same store, so a logo set here shows on the
+            settings page and vice versa; this is a shortcut to it, not a
+            second copy of it. Ashwin, Oct 14.
+          */}
+          <AgencyMarkField />
+
+          <Segmented
+            label="Agency mark plate"
+            keywords="agency logo plate disc grey gray background rail mark avatar remove none"
+            options={AGENCY_PLATES}
+            value={agencyPlate}
+            onChange={(v: AgencyPlate) => setAgencyPlate(v)}
+            format={(v) => AGENCY_PLATE_LABELS[v]}
+          />
+          <Note>
+            {agencyPlate === "bare"
+              ? "No plate. The agency’s mark sits on the rail like every tile under it, and the divider below does the separating on its own — one line instead of a line and a disc."
+              : "A neutral disc under the agency, as drawn. It says the row above the divider is a different kind of thing, at the cost of a grey circle drawn around a grey circle."}
           </Note>
 
           <Segmented
@@ -2962,6 +3034,42 @@ function VariantPicker<T extends string>({
       />
       {active ? <Note>{active.blurb}</Note> : null}
     </>
+  );
+}
+
+/**
+ * The agency's square mark, wired to the same store the settings page uses.
+ *
+ * Square only: the wide wordmark has its own slot in the nav header and is
+ * not what the rail draws. In the rail the upload FILLS its disc and crops —
+ * see AccountLogo's `fit` — so a logo with its own padding will look smaller
+ * here than the same file does on the settings page, which is the honest
+ * preview of what a circular avatar does to a square asset.
+ */
+function AgencyMarkField() {
+  /*
+   * `agency`, not a lookup in `accounts`.
+   *
+   * The agency is a scope rather than one more row in the sub-account list,
+   * so it is exported on its own and `accounts.find(id === "agency")` is
+   * undefined — which this returned null on, silently, and the field simply
+   * never drew. See the note on the export.
+   */
+  const brand = useBrand();
+  const uploaded = brand.uploads[AGENCY.id]?.logoSrc;
+
+  return (
+    <div className="mb-[10px]">
+      <LogoUploadField
+        label="Agency mark"
+        hint="Drawn in the rail, cropped to its disc."
+        aspect="square"
+        {...(uploaded ? { src: uploaded } : {})}
+        fallback={AGENCY.logo}
+        onPick={(src) => brand.set(AGENCY.id, "logoSrc", src)}
+        onRemove={() => brand.clear(AGENCY.id, "logoSrc")}
+      />
+    </div>
   );
 }
 

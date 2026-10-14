@@ -111,6 +111,9 @@ import type {
   CustomCodeMode,
   CodeScopeView,
   RailShade,
+  AgencyPlate,
+  RailGroupMark,
+  RailTileColour,
   WhiteLabelApproach,
   PlaneHead,
   EntryPair,
@@ -271,6 +274,9 @@ interface ThemeContextValue extends ThemeState {
   setCustomCodeMode: (v: CustomCodeMode) => void;
   setCodeScopeView: (v: CodeScopeView) => void;
   setRailShade: (v: RailShade) => void;
+  setAgencyPlate: (v: AgencyPlate) => void;
+  setRailGroupMark: (v: RailGroupMark) => void;
+  setRailTileColour: (v: RailTileColour) => void;
   setWhiteLabelApproach: (v: WhiteLabelApproach) => void;
   setPlaneHead: (v: PlaneHead) => void;
   setEntryPair: (v: EntryPair) => void;
@@ -669,6 +675,12 @@ export function ThemeProvider({
       setCodeScopeView: (codeScopeView) =>
         setState((s) => ({ ...s, codeScopeView })),
       setRailShade: (railShade) => setState((s) => ({ ...s, railShade })),
+      setAgencyPlate: (agencyPlate) =>
+        setState((s) => ({ ...s, agencyPlate })),
+      setRailGroupMark: (railGroupMark) =>
+        setState((s) => ({ ...s, railGroupMark })),
+      setRailTileColour: (railTileColour) =>
+        setState((s) => ({ ...s, railTileColour })),
       setWhiteLabelApproach: (whiteLabelApproach) =>
         setState((s) => ({ ...s, whiteLabelApproach })),
       setPlaneHead: (planeHead) => setState((s) => ({ ...s, planeHead })),

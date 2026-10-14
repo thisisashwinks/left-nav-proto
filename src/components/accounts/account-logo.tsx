@@ -117,6 +117,17 @@ interface AccountLogoProps {
   radius: number;
   /** An uploaded asset, which replaces the drawn mark entirely. */
   src?: string;
+  /**
+   * How an uploaded mark meets its tile.
+   *
+   * `contain` is the Slack-workspace treatment and the default: real marks are
+   * mostly transparent squares, so they sit inside a white tile with a
+   * hairline ring and nothing is lost. `cover` fills the tile and crops
+   * whatever overflows — for the rail's agency disc, where the mark IS the
+   * avatar and a white square inside a circle reads as a sticker on a badge
+   * rather than as the agency. Ashwin, Oct 14: let it crop.
+   */
+  fit?: "contain" | "cover";
   className?: string;
   /**
    * Two letters to draw instead of the account's own mark.
@@ -143,6 +154,7 @@ export function AccountLogo({
   size,
   radius,
   src,
+  fit = "contain",
   initials,
   tint = false,
   className,
@@ -187,14 +199,28 @@ export function AccountLogo({
           // squares, so they sit contained on a white tile with a hairline
           // ring — the Slack-workspace treatment. The white also keeps dark
           // marks legible on the dark nav.
-          backgroundColor: "#ffffff",
-          backgroundImage: `url(${artwork})`,
-          // Most favicons carry their own safe-area padding, so the artwork
-          // needs nearly the whole tile before it reads at 20px.
-          backgroundSize: "86% 86%",
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: "center",
-          boxShadow: "inset 0 0 0 1px rgba(16,24,40,0.12)",
+          //
+          // Under `cover` none of that applies. The tile IS the mark, so it
+          // fills edge to edge and the radius does the cropping; the white
+          // would show as corners inside the circle and the ring would draw a
+          // second edge just inside the one the shape already has.
+          ...(fit === "cover"
+            ? {
+                backgroundImage: `url(${artwork})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
+              }
+            : {
+                backgroundColor: "#ffffff",
+                backgroundImage: `url(${artwork})`,
+                // Most favicons carry their own safe-area padding, so the
+                // artwork needs nearly the whole tile before it reads at 20px.
+                backgroundSize: "86% 86%",
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "center",
+                boxShadow: "inset 0 0 0 1px rgba(16,24,40,0.12)",
+              }),
           flexShrink: 0,
         }}
       />

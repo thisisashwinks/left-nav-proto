@@ -19,6 +19,7 @@ import {
   RAIL_ROW_END_PAD,
   RAIL_HALF_SQUARE,
   RAIL_SHADE_CLASS,
+  AGENCY_PLATE_CLASS,
   type RailExpandedShape,
   type SurfaceTheme,
 } from "@/design/theme";
@@ -232,6 +233,42 @@ const COLLAPSE_DELAY_MS = 250;
  * the same overlay widens to panel width and swaps its tiles for the
  * search-and-pin list, instead of docking a second surface beside itself.
  */
+/**
+ * A run's name while the rail is open, and its hairline while it is shut.
+ *
+ * One component for both because they are the same mark: the strip is 56px
+ * with the names in, and a word cannot be drawn there — but the PLACE the
+ * word occupies is meaningful at either width, so the collapsed form keeps
+ * the position and drops only the letters. Swapping a label for a rule also
+ * means nothing moves when the rail opens: the row is the same height both
+ * ways, so the tiles below it do not shift under the pointer that opened it.
+ *
+ * Reserved for `headings` — see RAIL_GROUP_MARKS. Under `divider` the rail
+ * draws what it always drew and this is not mounted at all.
+ */
+function RailGroupHeading({
+  label,
+  expanded,
+}: {
+  label: string;
+  expanded: boolean;
+}) {
+  return (
+    <div className="flex h-[20px] shrink-0 items-center overflow-hidden px-[10px]">
+      {expanded ? (
+        <span className="truncate text-[10.5px] leading-[14px] font-semibold tracking-[0.06em] text-nav-fg-subtle uppercase">
+          {label}
+        </span>
+      ) : (
+        <span
+          aria-hidden="true"
+          className="h-px w-full rounded-full bg-[var(--nav-rail-border)]"
+        />
+      )}
+    </div>
+  );
+}
+
 export function AccountRail({
   session,
   theme,
@@ -332,7 +369,8 @@ export function AccountRail({
    * chrome like everything else that reads it.
    */
   const { effective } = useTheme();
-  const { navOnPlane, directoryFlush, railShade } = effective;
+  const { navOnPlane, directoryFlush, railShade, agencyPlate, railGroupMark } =
+    effective;
   /*
    * The fill arrangement. See DIRECTORY_PLACEMENTS.
    *
@@ -1124,7 +1162,11 @@ export function AccountRail({
                     The size is still derived from the column rather than
                     fixed, so the plate is the same object at both widths.
                   */
-                  "shrink-0 bg-nav-rail-disc p-[4px] transition-[margin,width,border-radius] ease-[var(--ease-out)]",
+                  // The fill is an axis — see AGENCY_PLATES. Everything else
+                  // about the plate (its size, its clock, its squaring) is
+                  // geometry the rail depends on, so only the paint moves.
+                  "shrink-0 p-[4px] transition-[margin,width,border-radius] ease-[var(--ease-out)]",
+                  AGENCY_PLATE_CLASS[agencyPlate],
                   expanded ? "w-[calc(100%-20px)]" : "w-[40px]",
                   /*
                     8px collapsed, so the plate is 40×40 — square, which is what
@@ -1203,6 +1245,8 @@ export function AccountRail({
                   */
                   // Fixed, not sized by scope — see `markSize`.
                   markSize={20}
+                  // The agency's mark fills its disc. See `coverMark`.
+                  coverMark
                 />
               </div>
               </>
@@ -1711,6 +1755,9 @@ export function AccountRail({
                   wrapper is the identity the hook tracks, so it has to exist
                   on both sides of the flip.
                 */}
+                {!filled && railGroupMark === "headings" && centredAccounts.length > 0 ? (
+                  <RailGroupHeading label="Pinned" expanded={expanded} />
+                ) : null}
                 {filled ? null : centredAccounts.map((account, i) => (
                   <div key={account.id} ref={flip.register(account.id)}>
                   <RailRow
@@ -1761,6 +1808,9 @@ export function AccountRail({
                   below with everyone else, in the directory's order. Ashwin,
                   Oct 6.
                 */}
+                {!filled && railGroupMark === "headings" && centredRecents.length > 0 ? (
+                  <RailGroupHeading label="Recent" expanded={expanded} />
+                ) : null}
                 {filled ? null : centredRecents.map((account, i) => (
                   <div key={account.id}>
                   <RailRow
@@ -1845,6 +1895,7 @@ function RailRow({
   account,
   squircle = false,
   markSize,
+  coverMark = false,
   magnify = 1,
   pinned = false,
   listShape = false,
@@ -1891,6 +1942,16 @@ function RailRow({
    * agency has no need of size to say it a third time.
    */
   markSize?: number;
+  /**
+   * Fill the tile with the uploaded mark and crop what overflows.
+   *
+   * The agency's only. Its tile IS the identity up here — there is no name
+   * beside it while the rail is shut — so a mark sitting contained on a white
+   * square inside the disc reads as a sticker on a badge. Every tenant below
+   * keeps `contain`, where a white tile behind a transparent favicon is what
+   * makes eleven unrelated marks look like one column. Ashwin, Oct 14.
+   */
+  coverMark?: boolean;
   /** Dock magnification for this row: 1 when the pointer is elsewhere. */
   magnify?: number;
   /**
@@ -2113,6 +2174,10 @@ function RailRow({
               : {}),
           }}
           className={cn(
+            // Named so the mark inside can answer this row's hover — see
+            // RAIL_TILE_COLOURS. A group with a name rather than the bare
+            // `group`, because the rail nests rows inside rows.
+            "group/rail-row",
             /*
               The property list is stated in full, and has to be.
 
@@ -2236,14 +2301,34 @@ function RailRow({
             mark grows over its neighbours the way a Dock icon does, and every
             row stays exactly where the eye left it.
           */}
+          {/*
+            Greyscale at rest, colour under the pointer — see RAIL_TILE_COLOURS.
+
+            A filter rather than a second set of artwork: it works on an
+            uploaded logo, a drawn glyph and an initials gradient alike, which
+            is three things one palette could not have covered. The active
+            tile is exempt, so the strip has exactly one coloured row and that
+            row is where you are.
+
+            Grouped on the row's own `group/rail-row`, so the colour returns
+            for the whole tile the pointer is on rather than only while it is
+            over the 20px mark itself. The transition rides the dock clock the
+            scale already uses, so the two happen as one gesture.
+          */}
           <span
             aria-hidden={undefined}
             style={zoom === 1 ? undefined : { transform: `scale(${zoom})` }}
-            className="flex shrink-0 origin-center transition-transform duration-[var(--dur-dock)] ease-[var(--ease-out)]"
+            className={cn(
+              "flex shrink-0 origin-center transition-[transform,filter] duration-[var(--dur-dock)] ease-[var(--ease-out)]",
+              effective.railTileColour === "active-only" &&
+                !selected &&
+                "grayscale group-hover/rail-row:grayscale-0",
+            )}
           >
             <AccountLogo
               logo={account.logo}
               src={account.logoSrc}
+              {...(coverMark ? { fit: "cover" as const } : {})}
               /*
                 Letters for every tenant alike, where the axis asks for
                 it — grey, or on the account's own gradient.
@@ -2253,7 +2338,19 @@ function RailRow({
                 no `initials` on theirs, and they are exactly the tiles this
                 is meant to strip back.
               */
-              {...(railAvatars === "marks"
+              /*
+                The agency is exempt, which the note above has always said and
+                the code did not do.
+
+                Every tile goes through this one component, so the axis was
+                stripping the AGENCY back to letters too — and `initials`
+                outranks `src` inside AccountLogo, so an uploaded agency mark
+                was dropped the moment the rail was on anything but "Logos and
+                glyphs". The upload reached the store, reached the session and
+                reached this call, and then lost to a monogram. `coverMark` is
+                the agency-only flag already to hand. Ashwin, Oct 14.
+              */
+              {...(railAvatars === "marks" || coverMark
                 ? {}
                 : {
                     initials: initialsFor(account.name),
