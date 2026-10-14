@@ -266,6 +266,17 @@ export function AccountSwitcher({
           selectMode={selectMode}
           onToggleSelect={() => (selectMode ? exitSelect() : setSelectMode(true))}
           onClose={onClose}
+          /*
+            No horizontal padding of its own.
+
+            The directory's header pads 12 because that panel's body pads 8 and
+            the two together give its rows their inset. This panel is a card
+            with its own 8px padding and rows that start at that edge, so the
+            header's 12 landed the title 20px in — four pixels adrift of every
+            account name under it, which is exactly the misalignment a reader
+            notices without being able to name. Ashwin, Oct 14.
+          */
+          className="px-0"
         />
 
         <div className="motion-tap mt-[6px] flex h-[32px] shrink-0 items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">

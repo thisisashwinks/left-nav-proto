@@ -8,7 +8,7 @@ import { RESEARCH_ROUTES_ENABLED } from "@/design/route-variants";
  * The prototype, at a route that names which arrangement it opens in.
  *
  * Every variant route renders exactly this — the arrangement itself is not
- * chosen here but in `ROUTE_ARRANGEMENTS`, which `ThemeProvider` reads off the
+ * chosen here but in `ROUTE_THEMES`, which `ThemeProvider` reads off the
  * path. So a new variant link is a line in that map plus a `page.tsx` that
  * returns this component, and nothing else.
  *

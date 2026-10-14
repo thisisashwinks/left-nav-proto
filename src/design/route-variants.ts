@@ -1,4 +1,4 @@
-import { DEFAULT_THEME, type NavArrangement, type ThemeState } from "@/design/theme";
+import { DEFAULT_THEME, type ThemeState } from "@/design/theme";
 
 /**
  * Variants that own a URL of their own.
@@ -29,10 +29,41 @@ import { DEFAULT_THEME, type NavArrangement, type ThemeState } from "@/design/th
  */
 export const RESEARCH_ROUTES_ENABLED = process.env.RESEARCH_ROUTES === "1";
 
-export const ROUTE_ARRANGEMENTS: Record<string, NavArrangement> = {
-  "/tree-nav": "tree",
-  "/drill-nav": "drill",
-  "/scoped-nav": "scoped",
+/**
+ * What each route changes, as a patch over the defaults.
+ *
+ * It was `Record<string, NavArrangement>` — one route, one axis — which was
+ * enough while every variant was a different nav ARRANGEMENT. The header
+ * dropdown is not: it is eight axes that only make sense together, and
+ * naming one of them would open the link on a half-built version of the
+ * thing it is supposed to be showing. A patch says exactly what the route
+ * asserts and leaves everything else at its default.
+ */
+export const ROUTE_THEMES: Record<string, Partial<ThemeState>> = {
+  "/tree-nav": { navArrangement: "tree" },
+  "/drill-nav": { navArrangement: "drill" },
+  "/scoped-nav": { navArrangement: "scoped" },
+  /*
+   * The header-dropdown proposal, whole.
+   *
+   * Every axis here is one Ashwin settled on while building it, and the set
+   * is the argument: the rail is gone, so the nav header carries both
+   * identities — the agency's lockup centred above, the account's switcher
+   * below it — and the controls that lived on the rail have been rehoused
+   * (collapse to the breadcrumb, All accounts to a column that fills from
+   * the left). Opening this link on anything less than all eight shows a
+   * nav mid-renovation rather than the proposal. Oct 14.
+   */
+  "/header-nav": {
+    subAccountSwitcher: "dropdown",
+    subAccountNavMark: true,
+    headerAgencyMark: "above",
+    agencyWordmark: "myna",
+    agencyPlateAlign: "center",
+    collapseSpot: "breadcrumb",
+    navIdentityAlign: "between",
+    directoryPlacement: "names",
+  },
 };
 
 /**
@@ -51,7 +82,7 @@ export function themeForRoute(
     pathname.length > 1 && pathname.endsWith("/")
       ? pathname.slice(0, -1)
       : pathname;
-  const arrangement = ROUTE_ARRANGEMENTS[normalised];
-  if (!arrangement) return base;
-  return { ...base, navArrangement: arrangement };
+  const patch = ROUTE_THEMES[normalised];
+  if (!patch) return base;
+  return { ...base, ...patch };
 }
