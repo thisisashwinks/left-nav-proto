@@ -59,7 +59,7 @@ export const ROUTE_THEMES: Record<string, Partial<ThemeState>> = {
     subAccountNavMark: true,
     headerAgencyMark: "above",
     agencyWordmark: "myna",
-    agencyPlateAlign: "center",
+    agencyPlateAlign: "left",
     collapseSpot: "breadcrumb",
     navIdentityAlign: "between",
     directoryPlacement: "names",

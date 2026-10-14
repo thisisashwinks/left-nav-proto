@@ -171,7 +171,34 @@ export function NavHeader({
             type="button"
             onClick={onSwitchToAgency}
             aria-label={`${agencyPlate.name} — agency, all accounts`}
-            className="motion-tap -mx-[4px] flex min-w-0 max-w-[calc(100%+8px)] items-center rounded-[7px] px-[4px] py-[3px] hover:bg-nav-hover active:scale-[0.98]"
+            className={cn(
+              "motion-tap flex min-w-0 items-center rounded-[7px] hover:bg-nav-hover active:scale-[0.98]",
+              /*
+                Left-aligned means aligned with the ROWS, not with the header's
+                own edge.
+
+                The rows below sit in a box 10px from the nav's left, and
+                this button's box now starts there too — `-ml-[2px]` against
+                the header's 12px gutter — so the two share an edge.
+
+                No padding inside it, which is the part that took two passes.
+                Matching the rows' inner 8px as well put the mark at 18, level
+                with the product glyphs, and that is right for a DISC: a 20px
+                circle with its own even margins. It is wrong for a wordmark,
+                because an uploaded lockup carries its own whitespace inside
+                the artwork — so 8px of ours on top read as the logo sitting
+                further in than everything under it, which is what Ashwin saw.
+                The artwork's own left edge is the thing to align, so the box
+                hugs it. Oct 14.
+
+                Centred keeps the symmetric inset it had: there is nothing to
+                line up with, and uneven margins would shift the midpoint the
+                alignment is measured against.
+              */
+              agencyPlateAlign === "center"
+                ? "-mx-[4px] max-w-[calc(100%+8px)] px-[4px]"
+                : "-ml-[2px] -mr-[4px] max-w-[calc(100%+6px)] pr-[4px]",
+            )}
           >
             {/*
               The agency's artwork, and nothing else.

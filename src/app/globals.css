@@ -312,6 +312,23 @@
    * paying for the same space twice. The region carries `pl` only — see
    * left-nav.
    */
+  /*
+   * A scroller that gives its scrollbar no width at all.
+   *
+   * For surfaces where the bar must not be in the layout — see
+   * OverlayScrollbar, which draws one over the content instead. Both
+   * spellings, because `scrollbar-width: none` is the standard one and
+   * Chrome ignores the -webkit- pseudo-element rules once it is set.
+   */
+  [data-overlay-scroll] {
+    scrollbar-width: none;
+  }
+
+  [data-overlay-scroll]::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
   [data-scroll-region]::-webkit-scrollbar {
     width: var(--nav-scroll-gutter);
   }

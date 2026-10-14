@@ -997,8 +997,8 @@ const NETS = {
   q250: { label: '250 ms', hint: '250 ms', lat: 250, hidden: true }, q350: { label: '350 ms', hint: '350 ms', lat: 350, hidden: true }, offline: { label: 'Offline', hint: 'no network', offline: true },
 };
 const S = { mode: 'proposed', net: 'typical', page: 'launchpad', acct: 0, accent: '#155eef', unknown: false, rm: false, tl: false, ann: false, visited: new Set(), booted: false, bell: false,
-  tbl: { refresh: 'line', filter: 'stale', bar: true, changed: false }, btnLabel: false,
-  imp: { type: 'single', cancel: 'x', acts: false, pct: true, fail: false, retry: 'below', note: 'header', wide: false } };
+  tbl: { refresh: 'rows', filter: 'skeleton', bar: false, changed: true }, btnLabel: true,
+  imp: { type: 'multi', cancel: 'x', acts: true, pct: true, fail: true, retry: 'inline', note: 'below', wide: false } };
 const Net = {
   waiting: [],
   get offline() { return S.net === 'offline'; },

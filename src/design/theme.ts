@@ -1257,17 +1257,143 @@ export type CollapseSpot = (typeof COLLAPSE_SPOTS)[number];
  *           different kind of thing. Stripping it to the verb removes the
  *           ambiguity by removing the resemblance.
  *
- * Neither appears while rows are being ticked: a bulk run acts on
+ * The other two move it OUT of the list, which is a different argument
+ * rather than a different style. Both `plate` and `row` put a scope jump
+ * among the sub-accounts it is not one of: it scrolls with them, it sits
+ * under the search field as though it were a result, and a reader running
+ * down the column meets it as the first name in the list.
+ *
+ *   `above` the same plate, lifted above the search field. It stops being
+ *           something you find in the list and becomes something the panel
+ *           offers before the list starts — and it stays put while the list
+ *           scrolls under it.
+ *   `card`  above the search too, and drawn as nothing like a row: its own
+ *           bordered surface, the agency's mark at full size, the action
+ *           spelled out under its name, and an arrow instead of a hover.
+ *           For the reading where leaving for the agency is a different KIND
+ *           of move from picking an account, and should not be one press
+ *           away from looking like one.
+ *
+ * `card` is the default, which is the strongest form of that last argument:
+ * the list is forty sub-accounts and the agency is not one of them, so the
+ * one entry that is a different kind of thing should not have to be told
+ * apart from the rest by reading it. The three in-list readings stay on the
+ * axis because the cost is a surface and a row of height, and whether that
+ * is worth paying is the question. Ashwin, Oct 14.
+ *
+ * None of the four appears while rows are being ticked: a bulk run acts on
  * sub-accounts, and a scope jump sitting inside a selection is an offer to
  * leave in the middle of choosing. See the panel.
  */
-export const AGENCY_ENTRIES = ["plate", "row"] as const;
+/**
+ * The glyph on the workspace trigger.
+ *
+ * `chevrons` is the combobox mark: it says this row opens a list and the list
+ * replaces what is in the row. True, and the convention everywhere.
+ *
+ * `grid` is the nine-dot waffle the rail uses on its All accounts door. The
+ * argument for it is continuity — a reader who learned that glyph on the rail
+ * meets the same one here, and it points at the same place. The argument
+ * against is that a waffle usually means "a grid of apps", so on an account
+ * switcher it can read as a launcher rather than as a list of accounts.
+ *
+ * `chevrons` by default: the convention wins until the continuity argument is
+ * tested.
+ */
+export const WORKSPACE_GLYPHS = ["chevrons", "grid"] as const;
+
+export type WorkspaceGlyph = (typeof WORKSPACE_GLYPHS)[number];
+
+export const WORKSPACE_GLYPH_LABELS: Record<WorkspaceGlyph, string> = {
+  chevrons: "Up and down arrows",
+  grid: "All accounts grid",
+};
+
+/**
+ * Where the selection controls live in the account panel.
+ *
+ * `header` puts Select and the select-all box on the panel's title row, which
+ * is where the directory has always had them: the controls that change what
+ * the panel IS sit on the panel's own row.
+ *
+ * `below` moves both under the search field, onto a strip of their own. The
+ * case for it is that the title row is already carrying a count, a close and
+ * sometimes Actions, and that selection is about the LIST — so the controls
+ * belong next to the list rather than above the search that filters it. The
+ * case against is that it costs a row of height whenever bulk is available.
+ */
+export const SELECT_SPOTS = ["header", "below"] as const;
+
+export type SelectSpot = (typeof SELECT_SPOTS)[number];
+
+export const SELECT_SPOT_LABELS: Record<SelectSpot, string> = {
+  header: "In the header",
+  below: "Below the search",
+};
+
+/**
+ * What the button that starts selection is called.
+ *
+ * `select` names the gesture — you are about to select things — and is what
+ * the iOS pattern this borrows from uses.
+ *
+ * `edit` names the ERRAND. Nobody opens this panel wanting to select; they
+ * open it wanting to change something about some accounts, and selecting is
+ * the first step of that. The risk is that "Edit account" sounds like it will
+ * open one account's settings, which is the opposite of what it does.
+ */
+/**
+ * What the below-search select strip puts on its left.
+ *
+ * Only read when the controls are on that strip — see SELECT_SPOTS. The
+ * strip is a row with one button on it, and a lone button floating against
+ * the right edge of an otherwise empty band reads as something that lost its
+ * label rather than as a deliberate control.
+ *
+ *   `count`  the total, resting on the left, so the row has two ends. It
+ *            also says how big the list is before you have scrolled it,
+ *            which is the one fact a forty-account panel owes the reader.
+ *   `left`   no label; the button moves to the left edge instead. Nothing to
+ *            balance, because nothing is floating. Cheapest in height and in
+ *            words, at the cost of putting the panel's action where a reader
+ *            scanning a list expects content.
+ *   `bare`   the button alone on the right, as this shipped. Kept because it
+ *            is the quietest at rest, and the imbalance only shows on an
+ *            empty strip.
+ *
+ * In every one of them, turning the mode on puts a checkbox and a Select all
+ * BUTTON on the left — pressable, ticking everything the query reaches — and
+ * once anything is ticked that pair becomes the count. The box stays, so
+ * select-all is still one press away after you have ticked a row by hand.
+ */
+export const SELECT_STRIPS = ["count", "left", "bare"] as const;
+
+export type SelectStrip = (typeof SELECT_STRIPS)[number];
+
+export const SELECT_STRIP_LABELS: Record<SelectStrip, string> = {
+  count: "Count on the left",
+  left: "Button on the left",
+  bare: "Button only",
+};
+
+export const SELECT_LABELS = ["select", "edit"] as const;
+
+export type SelectLabel = (typeof SELECT_LABELS)[number];
+
+export const SELECT_LABEL_LABELS: Record<SelectLabel, string> = {
+  select: "Select",
+  edit: "Edit account",
+};
+
+export const AGENCY_ENTRIES = ["plate", "row", "above", "card"] as const;
 
 export type AgencyEntry = (typeof AGENCY_ENTRIES)[number];
 
 export const AGENCY_ENTRY_LABELS: Record<AgencyEntry, string> = {
   plate: "Logo and name",
   row: "Action only",
+  above: "Above the search",
+  card: "Its own card",
 };
 
 export const COLLAPSE_SPOT_LABELS: Record<CollapseSpot, string> = {
@@ -4750,6 +4876,14 @@ export interface ThemeState {
   collapseSpot: CollapseSpot;
   /** How the agency entry reads in the account dropdown. See AGENCY_ENTRIES. */
   agencyEntry: AgencyEntry;
+  /** The workspace trigger's glyph. See WORKSPACE_GLYPHS. */
+  workspaceGlyph: WorkspaceGlyph;
+  /** Where the selection controls sit. See SELECT_SPOTS. */
+  selectSpot: SelectSpot;
+  /** What the selection button is called. See SELECT_LABELS. */
+  selectLabel: SelectLabel;
+  /** What the below-search select strip puts on its left. See SELECT_STRIPS. */
+  selectStrip: SelectStrip;
   /** Whether the workspace trigger's chevrons stand. See WORKSPACE_CHEVRONS. */
   workspaceChevron: WorkspaceChevron;
   /** Whether the nav drops its card and sits on the plane. See NAV_ON_PLANE_DEFAULT. */
@@ -5682,7 +5816,11 @@ export const DEFAULT_THEME: ThemeState = {
   agencyPlateName: AGENCY_PLATE_NAME_DEFAULT,
   navLeftInset: NAV_LEFT_INSET_DEFAULT,
   collapseSpot: "header",
-  agencyEntry: "plate",
+  agencyEntry: "card",
+  workspaceGlyph: "chevrons",
+  selectSpot: "header",
+  selectLabel: "select",
+  selectStrip: "count",
   workspaceChevron: "always",
   navOnPlane: NAV_ON_PLANE_DEFAULT,
   navRowRing: NAV_ROW_RING_DEFAULT,

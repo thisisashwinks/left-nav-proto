@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Search } from "lucide-react";
+import { ChevronRight, Search } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
@@ -10,8 +10,11 @@ import { BulkHistoryModal } from "@/components/bulk/bulk-history-modal";
 import { BulkModal } from "@/components/bulk/bulk-modal";
 import { useBulkActions } from "@/components/bulk/bulk-provider";
 import { useTheme } from "@/components/theme/theme-provider";
+import { AccountLogo } from "./account-logo";
 import { DirectoryAccountRow } from "./directory-account-row";
 import { DirectoryHeader } from "./directory-header";
+import { OverlayScrollbar } from "./overlay-scrollbar";
+import { SelectBox } from "./select-box";
 import { useAccountSwitcher } from "./use-account-switcher";
 import type { AccountsSession } from "./use-accounts";
 
@@ -72,8 +75,17 @@ export function AccountSwitcher({
   const [bulk, setBulk] = React.useState<{ path: BulkPath | null } | null>(null);
   const [historyOpen, setHistoryOpen] = React.useState(false);
   const { settings } = useBulkActions();
-  const { directorySelect, agencyEntry, directoryPlacement } =
-    useTheme().effective;
+  const {
+    directorySelect,
+    agencyEntry,
+    directoryPlacement,
+    selectSpot,
+    selectLabel,
+    selectStrip,
+  } = useTheme().effective;
+  // See SELECT_LABELS. The word only ever labels the START of the mode; the
+  // way out is Cancel whatever this says.
+  const selectWord = selectLabel === "edit" ? "Edit account" : "Select";
   /*
    * The dropdown drawn the way a filled rail is drawn.
    *
@@ -127,6 +139,98 @@ export function AccountSwitcher({
   const visibleSelected = visibleIds.filter((id) => selected.includes(id));
   const allVisibleOn =
     visibleIds.length > 0 && visibleSelected.length === visibleIds.length;
+
+  /*
+   * Above the field, or in the list — see AGENCY_ENTRIES.
+   *
+   * `card` rides with `above` because a surface that deliberately does not
+   * look like a row has no business sitting between two of them.
+   */
+  const agencyAbove = agencyEntry === "above" || agencyEntry === "card";
+  const agencyEntryShown = showAgency && !searching && !picking;
+  /*
+   * Reaches what is ON SCREEN, which under a query is the matches and
+   * nothing else — an admin who has just filtered to three of four hundred
+   * needs that stated before they press it, not discovered after.
+   */
+  const selectAllVisible = () =>
+    setSelected((prev) =>
+      allVisibleOn
+        ? prev.filter((id) => !visibleIds.includes(id))
+        : [...new Set([...prev, ...visibleIds])],
+    );
+  const selectAllLabel = searching
+    ? `Select all ${visibleIds.length} matching`
+    : allVisibleOn
+      ? "Clear the selection"
+      : `Select all ${session.accounts.length} accounts`;
+  const selectStripButton = (
+    <button
+      type="button"
+      onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
+      className={cn(
+        "motion-tap flex h-[26px] shrink-0 items-center rounded-[7px] px-[9px] text-[12px] leading-none font-medium text-nav-fg",
+        "shadow-[inset_0_0_0_1px_var(--fly-border)] hover:bg-nav-hover",
+      )}
+    >
+      {selectMode ? "Cancel" : selectWord}
+    </button>
+  );
+  const goToAgency = () => {
+    if (session.scope !== "agency") session.switchToAgency();
+    onClose();
+  };
+  /*
+   * The agency as one of the list's own rows.
+   *
+   * Built here rather than inline so the two placements render the identical
+   * node — a row that changed shape depending on where it sat would make the
+   * axis about two things at once.
+   */
+  const agencyRowNode = (
+    <DirectoryAccountRow
+      account={session.agency}
+      current={false}
+      showLogo={agencyEntry !== "row"}
+      {...(agencyEntry === "row" ? { label: agencyJump } : {})}
+      showPin={false}
+      trailing={
+        agencyEntry === "row" ? null : (
+          <span className="shrink-0 text-[11.5px] leading-[normal] whitespace-nowrap text-nav-fg-subtle">
+            {agencyJump}
+          </span>
+        )
+      }
+      onSelect={goToAgency}
+    />
+  );
+  /*
+   * The agency as emphatically NOT a row.
+   *
+   * Its own bordered surface, a 28px mark, the action as a second line under
+   * the name, and an arrow where a row would have a hover. Everything here is
+   * chosen to break the resemblance: a reader scanning names should not have
+   * to notice that one of them is a different kind of thing.
+   */
+  const agencyCardNode = (
+    <button
+      type="button"
+      onClick={goToAgency}
+      aria-label={`${session.agency.name} — agency, all accounts`}
+      className="motion-tap flex w-full shrink-0 items-center gap-[10px] rounded-[10px] px-[10px] py-[9px] text-left shadow-[inset_0_0_0_1px_var(--fly-border)] hover:bg-nav-hover active:scale-[0.995]"
+    >
+      <AccountLogo logo={session.agency.logo} size={28} radius={999} />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-[13px] leading-[17px] font-semibold text-nav-fg">
+          {session.agency.name}
+        </span>
+        <span className="truncate text-[11.5px] leading-[15px] text-nav-fg-subtle">
+          {agencyJump}
+        </span>
+      </span>
+      <ChevronRight size={15} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
+    </button>
+  );
 
   React.useEffect(() => {
     inputRef.current?.focus();
@@ -262,22 +366,47 @@ export function AccountSwitcher({
           }
           showActions={picking && selected.length > 0}
           onActions={() => setBulk({ path: null })}
-          showSelect={bulkAllowed && directorySelect === "button"}
+          showSelect={
+            bulkAllowed && directorySelect === "button" && selectSpot === "header"
+          }
+          showSelectAll={picking && selectSpot === "header"}
+          selectLabel={selectWord}
           selectMode={selectMode}
           onToggleSelect={() => (selectMode ? exitSelect() : setSelectMode(true))}
           onClose={onClose}
           /*
-            No horizontal padding of its own.
+            Padded to this panel's own rhythm, not the directory's.
 
-            The directory's header pads 12 because that panel's body pads 8 and
-            the two together give its rows their inset. This panel is a card
-            with its own 8px padding and rows that start at that edge, so the
-            header's 12 landed the title 20px in — four pixels adrift of every
-            account name under it, which is exactly the misalignment a reader
-            notices without being able to name. Ashwin, Oct 14.
+            Three numbers, each matched to something already on screen:
+
+            `pl-[9px]` puts the title at 17px from the panel's edge, which is
+            exactly where the search field's icon starts — the field pads its
+            contents 9 inside the panel's 8. Aligning to the field's BOX
+            instead (the 0 this had a moment ago) left the title hanging off
+            the left of everything below it; aligning to the field's text
+            would push it past the icon to 40 and read as an indent.
+
+            `py-0` because the panel already pads 8 above this row and the
+            controls on it carry their own height. The 44px fixed height this
+            replaced was implying padding that nothing needed; adding 12 back
+            on top of it just made the row tall.
+
+            `pr-[4px]` keeps the ✕ a touch off the edge without pushing the
+            Select button inward.
           */
-          className="px-0"
+          className="h-auto py-0 pl-[9px] pr-[4px]"
         />
+
+        {/*
+          Above the field, where it stays put while the list scrolls under it
+          — see AGENCY_ENTRIES. Hidden on the same terms as the in-list
+          placements: not while searching, not while ticking.
+        */}
+        {agencyEntryShown && agencyAbove ? (
+          <div className="mt-[6px] shrink-0">
+            {agencyEntry === "card" ? agencyCardNode : agencyRowNode}
+          </div>
+        ) : null}
 
         <div className="motion-tap mt-[6px] flex h-[32px] shrink-0 items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">
           <Search size={15} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
@@ -294,6 +423,58 @@ export function AccountSwitcher({
         </div>
 
         {/*
+          Selection controls on a strip of their own. See SELECT_SPOTS.
+
+          The box sits where the row checkboxes below it sit, so the column of
+          ticks runs unbroken from this one down — a select-all that does not
+          line up with what it selects reads as a different control.
+        */}
+        {bulkAllowed && directorySelect === "button" && selectSpot === "below" ? (
+          <div className="mt-[6px] flex shrink-0 items-center gap-[8px] pl-[9px]">
+            {/*
+              The strip's left, which is an axis — see SELECT_STRIPS.
+
+              Three states run through one row. At rest it is either a count,
+              the button itself, or nothing. In select mode it is always the
+              box plus a Select all BUTTON, and once anything is ticked that
+              button gives way to the count — the box stays, so selecting
+              everything is still one press away after you have ticked a row
+              by hand.
+            */}
+            {selectStrip === "left" ? selectStripButton : null}
+            {picking ? (
+              <>
+                <SelectBox
+                  checked={allVisibleOn}
+                  mixed={visibleSelected.length > 0 && !allVisibleOn}
+                  onClick={selectAllVisible}
+                  label={selectAllLabel}
+                />
+                {selected.length > 0 ? (
+                  <span className="truncate text-[11.5px] leading-[normal] text-nav-fg-subtle">
+                    {selected.length} selected
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={selectAllVisible}
+                    className="motion-tap shrink-0 rounded-[6px] px-[4px] py-[2px] text-[11.5px] leading-[normal] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
+                  >
+                    Select all
+                  </button>
+                )}
+              </>
+            ) : selectStrip === "count" ? (
+              <span className="truncate text-[11.5px] leading-[normal] text-nav-fg-subtle">
+                {session.accounts.length} accounts
+              </span>
+            ) : null}
+            <span className="flex-1" />
+            {selectStrip === "left" ? null : selectStripButton}
+          </div>
+        ) : null}
+
+        {/*
           The selection bar, between the field and the list.
 
           The directory puts Select and Actions in its title row; this panel
@@ -305,9 +486,17 @@ export function AccountSwitcher({
           on their own and there is nothing to summon, so the bar appears only
           once something is ticked.
         */}
+        {/*
+          `relative` so the overlay thumb has something to sit against, and
+          `data-overlay-scroll` so the native bar takes no width. See
+          OverlayScrollbar.
+        */}
+        <div className="relative mt-[6px] flex min-h-0 flex-1 flex-col">
+          <OverlayScrollbar scroller={listRef} />
         <div
           ref={listRef}
-          className="-mx-[2px] mt-[6px] min-h-0 flex-1 overflow-y-auto px-[2px]"
+          data-overlay-scroll=""
+          className="-mx-[2px] min-h-0 flex-1 overflow-y-auto px-[2px]"
         >
           {/*
             Above the list and outside the arrow-key run: a scope jump is a
@@ -320,35 +509,7 @@ export function AccountSwitcher({
             through choosing — so the row goes, rather than sitting there
             doing nothing. Ashwin, Oct 14.
           */}
-          {showAgency && !searching && !picking ? (
-            <DirectoryAccountRow
-              account={session.agency}
-              current={false}
-              /*
-                A list item like every other one here — see AGENCY_ENTRIES.
-                It used to be a plated row on its own tint with a rule under
-                it, which made the first thing in the panel look like a
-                different kind of surface.
-              */
-              showLogo={agencyEntry === "plate"}
-              {...(agencyEntry === "plate"
-                ? {}
-                : { label: agencyJump })}
-              showPin={false}
-              trailing={
-                agencyEntry === "plate" ? (
-                  <span className="shrink-0 text-[11.5px] leading-[normal] whitespace-nowrap text-nav-fg-subtle">
-                    {agencyJump}
-                  </span>
-                ) : null
-              }
-              onSelect={() => {
-                if (session.scope === "agency") onClose();
-                else session.switchToAgency();
-                if (session.scope !== "agency") onClose();
-              }}
-            />
-          ) : null}
+          {agencyEntryShown && !agencyAbove ? agencyRowNode : null}
 
           {s.flat.length === 0 ? (
             <p className="px-[7px] py-[16px] text-[13px] leading-[18px] text-nav-fg-subtle">
@@ -402,6 +563,7 @@ export function AccountSwitcher({
               })}
             </React.Fragment>
           ))}
+        </div>
         </div>
 
         {/*

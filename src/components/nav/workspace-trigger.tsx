@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronsUpDown } from "lucide-react";
+import { ChevronsUpDown, Grip } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
 import { cn } from "@/lib/utils";
 import { AccountLogo } from "@/components/accounts/account-logo";
@@ -67,7 +67,13 @@ export function WorkspaceTrigger({
   onToggleCollapsed,
   mark = true,
 }: WorkspaceTriggerProps) {
-  const { workspaceChevron } = useTheme().effective;
+  const { workspaceChevron, workspaceGlyph } = useTheme().effective;
+  /*
+   * The waffle, or the combobox mark. See WORKSPACE_GLYPHS. `Grip` is the
+   * same nine-dot glyph the rail's All accounts door wears, deliberately —
+   * the continuity is the whole argument for the option.
+   */
+  const Glyph = workspaceGlyph === "grid" ? Grip : ChevronsUpDown;
   const ref = React.useRef<HTMLButtonElement>(null);
   const wasOpen = React.useRef(open);
 
@@ -113,7 +119,7 @@ export function WorkspaceTrigger({
       />
 
       {withoutChevron ? null : (
-      <ChevronsUpDown
+      <Glyph
         size={14}
         aria-hidden="true"
         className={cn(
@@ -186,7 +192,7 @@ export function WorkspaceTrigger({
           onClick={onToggle}
           className="motion-tap -mr-[4px] flex shrink-0 items-center justify-center rounded-[6px] p-[4px] outline-none hover:bg-nav-hover active:scale-95"
         >
-          <ChevronsUpDown
+          <Glyph
             size={14}
             aria-hidden="true"
             className={cn("shrink-0", open ? "text-nav-fg" : "text-nav-fg-subtle")}

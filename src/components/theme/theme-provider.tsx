@@ -85,6 +85,10 @@ import {
   type NavIdentityAlign,
   type CollapseSpot,
   type AgencyEntry,
+  type WorkspaceGlyph,
+  type SelectSpot,
+  type SelectLabel,
+  type SelectStrip,
   type NewDotPlacement,
   type SearchMode,
   type SurfaceTheme,
@@ -235,6 +239,10 @@ interface ThemeContextValue extends ThemeState {
   setNavLeftInset: (n: number) => void;
   setCollapseSpot: (v: CollapseSpot) => void;
   setAgencyEntry: (v: AgencyEntry) => void;
+  setWorkspaceGlyph: (v: WorkspaceGlyph) => void;
+  setSelectSpot: (v: SelectSpot) => void;
+  setSelectLabel: (v: SelectLabel) => void;
+  setSelectStrip: (v: SelectStrip) => void;
   setWorkspaceChevron: (v: WorkspaceChevron) => void;
   setNavOnPlane: (on: boolean) => void;
   setNavRowRing: (on: boolean) => void;
@@ -608,6 +616,11 @@ export function ThemeProvider({
         setState((s) => ({ ...s, collapseSpot })),
       setAgencyEntry: (agencyEntry) =>
         setState((s) => ({ ...s, agencyEntry })),
+      setWorkspaceGlyph: (workspaceGlyph) =>
+        setState((s) => ({ ...s, workspaceGlyph })),
+      setSelectSpot: (selectSpot) => setState((s) => ({ ...s, selectSpot })),
+      setSelectLabel: (selectLabel) => setState((s) => ({ ...s, selectLabel })),
+      setSelectStrip: (selectStrip) => setState((s) => ({ ...s, selectStrip })),
       setWorkspaceChevron: (workspaceChevron) =>
         setState((s) => ({ ...s, workspaceChevron })),
       setNavOnPlane: (navOnPlane) => setState((s) => ({ ...s, navOnPlane })),

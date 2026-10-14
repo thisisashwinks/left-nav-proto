@@ -32,6 +32,8 @@ export function DirectoryHeader({
   showSelect,
   selectMode,
   onToggleSelect,
+  selectLabel = "Select",
+  showSelectAll,
   exit = "close",
   onClose,
   closeLabel = "Close",
@@ -49,6 +51,17 @@ export function DirectoryHeader({
   showSelect: boolean;
   selectMode: boolean;
   onToggleSelect: () => void;
+  /** What the button that starts selection is called. See SELECT_LABELS. */
+  selectLabel?: string;
+  /**
+   * Whether the select-all box sits here.
+   *
+   * Defaults to `picking`, which is where it has always been. The header
+   * dropdown can move it — and Select with it — onto a strip below the search
+   * field; see SELECT_SPOTS. `picking` still governs the close, because that
+   * is about the MODE being on rather than about where its controls live.
+   */
+  showSelectAll?: boolean;
   /** Where the way out lives, or that there isn't one. See DIRECTORY_EXITS. */
   exit?: "close" | "back";
   onClose: () => void;
@@ -86,7 +99,7 @@ export function DirectoryHeader({
         </button>
       ) : null}
 
-      {picking ? (
+      {(showSelectAll ?? picking) ? (
         <SelectBox
           checked={allOn}
           mixed={mixed}
@@ -163,7 +176,7 @@ export function DirectoryHeader({
             "shadow-[inset_0_0_0_1px_var(--fly-border)] hover:bg-nav-hover",
           )}
         >
-          {selectMode ? "Cancel" : "Select"}
+          {selectMode ? "Cancel" : selectLabel}
         </button>
       ) : null}
 

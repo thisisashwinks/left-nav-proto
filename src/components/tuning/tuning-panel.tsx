@@ -238,6 +238,18 @@ import {
   RECENTS_MODES,
   SCOPE_MODEL_LABELS,
   SCOPE_MODELS,
+  WORKSPACE_GLYPH_LABELS,
+  WORKSPACE_GLYPHS,
+  type WorkspaceGlyph,
+  SELECT_SPOT_LABELS,
+  SELECT_SPOTS,
+  type SelectSpot,
+  SELECT_STRIP_LABELS,
+  SELECT_STRIPS,
+  type SelectStrip,
+  SELECT_LABEL_LABELS,
+  SELECT_LABELS,
+  type SelectLabel,
   NAV_IDENTITY_ALIGN_LABELS,
   NAV_IDENTITY_ALIGNS,
   type NavIdentityAlign,
@@ -706,6 +718,14 @@ function NavStructureSection({
     setCollapseSpot,
     agencyEntry,
     setAgencyEntry,
+    workspaceGlyph,
+    setWorkspaceGlyph,
+    selectSpot,
+    setSelectSpot,
+    selectLabel,
+    setSelectLabel,
+    selectStrip,
+    setSelectStrip,
     navIdentityAlign,
     setNavIdentityAlign,
     agencyPlateSize,
@@ -1767,6 +1787,73 @@ function NavStructureSection({
       </Note>
 
       <Segmented
+        label="Switcher glyph"
+        keywords="glyph chevron arrows grid waffle nine dot all accounts trigger icon"
+        options={WORKSPACE_GLYPHS}
+        value={workspaceGlyph}
+        onChange={(v: WorkspaceGlyph) => setWorkspaceGlyph(v)}
+        format={(v) => WORKSPACE_GLYPH_LABELS[v]}
+      />
+      <Note>
+        {workspaceGlyph === "grid"
+          ? "The nine-dot waffle from the rail\u2019s All accounts door \u2014 same glyph, same destination. The risk is that a waffle usually means \u201ca grid of apps\u201d."
+          : "The combobox mark: this row opens a list, and the list replaces what is in the row. The convention everywhere."}
+      </Note>
+
+      <Segmented
+        label="Select control sits"
+        keywords="select edit accounts checkbox placement header below search bulk"
+        options={SELECT_SPOTS}
+        value={selectSpot}
+        onChange={(v: SelectSpot) => setSelectSpot(v)}
+        format={(v) => SELECT_SPOT_LABELS[v]}
+      />
+      <Note>
+        {selectSpot === "below"
+          ? "Select and the select-all box move under the search field, onto a strip of their own \u2014 next to the list they act on rather than above the search that filters it. Costs a row of height."
+          : "On the panel\u2019s title row, as the directory has it: the controls that change what the panel IS sit on the panel\u2019s own row."}
+      </Note>
+
+      {selectSpot === "below" ? (
+        <>
+          <Segmented
+            label="Select strip left"
+            keywords="select strip left count label button select all balance below search"
+            options={SELECT_STRIPS}
+            value={selectStrip}
+            onChange={(v: SelectStrip) => setSelectStrip(v)}
+            format={(v) => SELECT_STRIP_LABELS[v]}
+          />
+          <Note>
+            {selectStrip === "count"
+              ? "The total rests on the left, so the row has two ends \u2014 and it says how big the list is before you have scrolled it."
+              : selectStrip === "left"
+                ? "No label; the button moves to the left edge instead. Nothing to balance, because nothing is floating."
+                : "The button alone on the right. Quietest at rest, but it floats against an empty band."}
+          </Note>
+          <Note>
+            In all three, turning the mode on puts a checkbox and a pressable
+            Select all on the left — and once anything is ticked, that becomes
+            the count.
+          </Note>
+        </>
+      ) : null}
+
+      <Segmented
+        label="Select button reads"
+        keywords="select edit account label button wording bulk"
+        options={SELECT_LABELS}
+        value={selectLabel}
+        onChange={(v: SelectLabel) => setSelectLabel(v)}
+        format={(v) => SELECT_LABEL_LABELS[v]}
+      />
+      <Note>
+        {selectLabel === "edit"
+          ? "Names the errand rather than the gesture \u2014 nobody opens this wanting to select. The risk is that it sounds like it opens one account\u2019s settings."
+          : "Names the gesture, as the iOS pattern this borrows from does. The way out is Cancel either way."}
+      </Note>
+
+      <Segmented
         label="Switch to agency reads as"
         keywords="agency entry row plate switch to agency sub-account dropdown list item logo name"
         options={AGENCY_ENTRIES}
@@ -1776,12 +1863,16 @@ function NavStructureSection({
       />
       <Note>
         {agencyEntry === "plate"
-          ? "The agency's mark and name, with the move spelled out on the right — \u201cSwitch to agency\u201d, or \u201cSwitch to sub-account\u201d when you are already up there."
-          : "Just the action, with no mark or name. An agency logo at the top of a list of accounts reads as the first account; stripping it to the verb removes the resemblance."}
+          ? "The agency's mark and name as a list row, with the move spelled out on the right."
+          : agencyEntry === "row"
+            ? "Just the action, no mark or name. An agency logo at the top of a list of accounts reads as the first account; stripping it to the verb removes the resemblance."
+            : agencyEntry === "above"
+              ? "The same row, lifted above the search field — something the panel offers before the list starts rather than something you find in it. Stays put while the list scrolls."
+              : "Its own bordered card above the search: a 28px mark, the action under the name, an arrow instead of a hover. For when leaving for the agency is a different KIND of move from picking an account."}
       </Note>
       <Note>
         Either way it is an ordinary list item, and either way it disappears
-        while rows are being ticked \u2014 a scope jump inside a selection is an
+        while rows are being ticked — a scope jump inside a selection is an
         offer to leave in the middle of choosing.
       </Note>
 
