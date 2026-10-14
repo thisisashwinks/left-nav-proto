@@ -3677,6 +3677,12 @@ export const RAIL_TILE_SHAPE_LABELS: Record<RailTileShape, string> = {
  *  tile  The mark's shape carried out to the open row: a pill, or a squircle.
  *        It says the open rail is the collapsed rail widened, which is what
  *        the animation says too.
+ *  half  Rounded on the left, nearly square on the right — see
+ *        RAIL_HALF_SQUARE. The open rail is a panel
+ *        that widens INTO the nav beside it, and this is the only shape that
+ *        says so: the outboard edge is a tile's and the inboard one runs out
+ *        toward the column it is covering, so the rows read as reaching
+ *        across rather than as eleven lozenges floating in a strip.
  *  nav   The nav's own row radius, `--t-nav-radius`, on hover and on the
  *        selected fill. One corner for every row in the chrome, and it tracks
  *        the Row radius slider rather than restating its value — so the rail
@@ -3686,14 +3692,40 @@ export const RAIL_TILE_SHAPE_LABELS: Record<RailTileShape, string> = {
  * inside it: concentric or it reads as a mistake. Same reason it is already
  * 10px against the tiles' 9.
  */
-export const RAIL_EXPANDED_SHAPES = ["tile", "nav"] as const;
+export const RAIL_EXPANDED_SHAPES = ["tile", "nav", "half"] as const;
 
 export type RailExpandedShape = (typeof RAIL_EXPANDED_SHAPES)[number];
 
+/*
+ * Named for the geometry, not for what they are copying.
+ *
+ * "Keep the tile's" and "Match the nav row" each described where the number
+ * came from, which is a fact about the code — and left the reader to work
+ * out what they would actually see. Three parallel names saying which
+ * corners are round answer the question the control is asking.
+ */
 export const RAIL_EXPANDED_SHAPE_LABELS: Record<RailExpandedShape, string> = {
-  tile: "Keep the tile's",
-  nav: "Match the nav row",
+  tile: "All rounded",
+  nav: "All squared (match the nav)",
+  half: "Left rounded",
 };
+
+/**
+ * The inboard corner under `half`.
+ *
+ * 8px, not 0. A hard right angle made the row read as CUT rather than as
+ * reaching across — a shape that has run into something, which is the
+ * opposite of the thing the option is for. 8 is small enough that the
+ * asymmetry still reads at a glance and large enough that the edge looks
+ * drawn. Ashwin, Oct 13.
+ *
+ * Flat, and the agency's plate takes the same 8 rather than padding out to
+ * concentric the way its outboard corner does. Concentricity is a rule
+ * about a curve wrapping a curve, and at this radius there is no curve to
+ * wrap — a 12px plate corner against the row's 8 would be the only arc left
+ * on that edge.
+ */
+export const RAIL_HALF_SQUARE = 8;
 
 /**
  * How the app bar and the page canvas are arranged.
@@ -4222,6 +4254,47 @@ export const WHITE_LABEL_APPROACH_LABELS: Record<WhiteLabelApproach, string> = {
   split: "Code here, flag in Labs",
   ideal: "Ideal — code per nav",
   idealAll: "Ideal — whole tab",
+};
+
+/**
+ * How dark the sub-account rail's own surface is.
+ *
+ * The rail is the one column that is not the nav and not the page: it carries
+ * the agency's other accounts, and it reads as a shelf the nav sits on rather
+ * than a part of either. At gray 50 that reading depends entirely on the
+ * hairline — a shade off white, against a nav that is also a shade off white,
+ * separated by one pixel of border.
+ *
+ * `darker` takes it one step down the ramp, to gray 100. Enough that the two
+ * columns are told apart by their fills rather than by the line between them,
+ * and still short of a surface that looks switched off. Ashwin, Oct 13.
+ */
+export const RAIL_SHADES = ["default", "darker"] as const;
+export type RailShade = (typeof RAIL_SHADES)[number];
+
+export const RAIL_SHADE_LABELS: Record<RailShade, string> = {
+  default: "Gray 50",
+  darker: "Gray 100",
+};
+
+/**
+ * The utility each shade paints with.
+ *
+ * Token names rather than hexes, and `nav-rail-hi` rather than a literal gray
+ * 100 — that token IS the next step down the ramp, and it is already defined
+ * for every ground the nav has. Writing the hex would have been correct in the
+ * default theme and wrong under tint, where both surfaces are oklch mixes of
+ * the brand: the rail would have dropped its tint the moment someone chose
+ * the darker option.
+ *
+ * It also cannot be an override of `--nav-rail-bg` from the shell, which is
+ * where this started. `:root:not([data-tint="off"]) [data-nav-theme="light"]`
+ * redeclares that token on a DESCENDANT of the shell, and a declaration lower
+ * in the tree wins however it got there.
+ */
+export const RAIL_SHADE_CLASS: Record<RailShade, string> = {
+  default: "bg-nav-rail",
+  darker: "bg-nav-rail-hi",
 };
 
 export const NAV_GENERATIONS = ["new", "legacy"] as const;
@@ -4892,6 +4965,8 @@ export interface ThemeState {
   customCodeMode: CustomCodeMode;
   /** How "where your code runs" is drawn. See CODE_SCOPE_VIEWS. */
   codeScopeView: CodeScopeView;
+  /** How dark the sub-account rail's surface is. See RAIL_SHADES. */
+  railShade: RailShade;
   /** How White Label answers the custom-code question. See WHITE_LABEL_APPROACHES. */
   whiteLabelApproach: WhiteLabelApproach;
   /** How much room the canvas keeps around its content. See CANVAS_PADS. */
@@ -5313,6 +5388,7 @@ export const DEFAULT_THEME: ThemeState = {
   canvasBleed: "corner",
   customCodeMode: "inherit",
   codeScopeView: "header",
+  railShade: "default",
   whiteLabelApproach: "classic",
   canvasPad: "roomy",
   planeHead: "bar",
@@ -5720,16 +5796,11 @@ export const DEFAULT_THEME: ThemeState = {
   // one click away for the comparison.
   railTileShape: "pill",
   /*
-   * The nav's corner once the names are out, Oct 13.
-   *
-   * The open rail is a 204px column of named rows sitting directly below a
-   * sidebar that is a 204px column of named rows, and the two wearing
-   * different corners made the hover fill change shape halfway down the
-   * chrome. Carrying the tile's pill out was the honest description of the
-   * ANIMATION — the strip widening — and the wrong description of what the
-   * thing becomes once it has.
+   * The tile's own shape, carried out — which is what the rail has always
+   * done, and what Ashwin settled on after seeing the three side by side.
+   * The axis opens on the behaviour the other two propose to change.
    */
-  railExpandedShape: "nav",
+  railExpandedShape: "tile",
   // Today's behaviour, so the rail opens as the thing being argued with rather
   // than as the proposal. Both answers are one click away.
   // Pinned + recent (Aug 29): the rail keeps its arrangement AND answers the

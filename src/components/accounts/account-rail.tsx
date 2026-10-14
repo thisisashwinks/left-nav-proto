@@ -17,6 +17,9 @@ import {
   RAIL_TILE_SIZE_REST,
   RAIL_TILE_BOX,
   RAIL_ROW_END_PAD,
+  RAIL_HALF_SQUARE,
+  RAIL_SHADE_CLASS,
+  type RailExpandedShape,
   type SurfaceTheme,
 } from "@/design/theme";
 import { RAIL_RECENT_LIMIT } from "@/design/theme";
@@ -75,24 +78,43 @@ export const ACCOUNT_RAIL_DIRECTORY_WIDTH = 340;
 function railCorner({
   expanded,
   pill,
-  navShape,
+  shape,
   tile,
   pad = 0,
 }: {
   expanded: boolean;
   pill: boolean;
-  navShape: boolean;
+  shape: RailExpandedShape;
   /** The squircle's corner at this size, when the axis is not a pill. */
   tile: string;
   /** Padding between this box and the row inside it, for concentricity. */
   pad?: number;
 }): string {
-  if (expanded && navShape) {
+  /** This box's own full corner — a pill, or the squircle at its size. */
+  const own = pill ? "9999px" : tile;
+  if (!expanded) return own;
+  if (shape === "nav") {
     return pad > 0
       ? `calc(var(--t-nav-radius, 7px) + ${pad}px)`
       : "var(--t-nav-radius, 7px)";
   }
-  return pill ? "9999px" : tile;
+  /*
+   * Longhand, in CSS's own clock order: top-left, top-right, bottom-right,
+   * bottom-left. The two left corners keep the tile's curve and the right
+   * pair square off, so the row runs out toward the nav it is covering.
+   *
+   * A flat 8 on the inboard pair, the plate included — NOT padded out to
+   * concentric the way the outboard corners are. Concentricity is a rule
+   * about a curve wrapping a curve, and at this radius there is no curve to
+   * wrap: the plate and the row inside it both read as square on that side,
+   * and a 12px plate corner against an 8px row corner would be the only
+   * thing on the edge still drawing an arc. Ashwin, Oct 13.
+   */
+  if (shape === "half") {
+    const square = `${RAIL_HALF_SQUARE}px`;
+    return `${own} ${square} ${square} ${own}`;
+  }
+  return own;
 }
 
 /*
@@ -310,7 +332,7 @@ export function AccountRail({
    * chrome like everything else that reads it.
    */
   const { effective } = useTheme();
-  const { navOnPlane, directoryFlush } = effective;
+  const { navOnPlane, directoryFlush, railShade } = effective;
   /*
    * The fill arrangement. See DIRECTORY_PLACEMENTS.
    *
@@ -512,7 +534,7 @@ export function AccountRail({
 
   const pillTiles = effective.railTileShape === "pill";
   /* The open rail's corners — see RAIL_EXPANDED_SHAPES and `railCorner`. */
-  const navShape = effective.railExpandedShape === "nav";
+  const railShape = effective.railExpandedShape;
   const railTileAlign = effective.railTileAlign;
   /*
    * One corner on every mark in the strip — agency and tenants alike.
@@ -608,7 +630,7 @@ export function AccountRail({
             borderRadius: railCorner({
               expanded,
               pill: pillTiles,
-              navShape,
+              shape: railShape,
               tile: "9px",
             }),
           }}
@@ -864,10 +886,16 @@ export function AccountRail({
             directory are the same painted strip at two widths, so softening
             one and not the other would be the same object with two depths.
           */
+          /*
+            The fill is an axis now — see RAIL_SHADES. The shadow is not: how
+            far the strip stands off what it covers is a question about depth,
+            and it does not change because the surface went a shade down.
+          */
+          painted && RAIL_SHADE_CLASS[railShade],
           painted &&
             (navOnPlane
-              ? "bg-nav-rail shadow-[inset_0_0_0_1px_var(--nav-border),12px_0_28px_-18px_rgba(15,23,42,0.22)]"
-              : "bg-nav-rail shadow-[inset_0_0_0_1px_var(--nav-border),16px_0_40px_-20px_rgba(15,23,42,0.45)]"),
+              ? "shadow-[inset_0_0_0_1px_var(--nav-border),12px_0_28px_-18px_rgba(15,23,42,0.22)]"
+              : "shadow-[inset_0_0_0_1px_var(--nav-border),16px_0_40px_-20px_rgba(15,23,42,0.45)]"),
           !painted && "bg-transparent",
           /*
             The two widened states round differently, and on purpose.
@@ -1143,7 +1171,7 @@ export function AccountRail({
                   borderRadius: railCorner({
                     expanded,
                     pill: pillTiles,
-                    navShape,
+                    shape: railShape,
                     tile: "10px",
                     pad: 4,
                   }),
@@ -1880,7 +1908,7 @@ function RailRow({
   const pinnedInk = usePinnedInk();
   const pillTiles = effective.railTileShape === "pill";
   /* See RAIL_EXPANDED_SHAPES, and `railCorner` for why it is shared. */
-  const navShape = effective.railExpandedShape === "nav";
+  const railShape = effective.railExpandedShape;
   const { railAvatars } = effective;
   /*
    * The active account's mark grows; every other tile stays where it was.
@@ -2072,7 +2100,7 @@ function RailRow({
               : railCorner({
                   expanded,
                   pill: pillTiles,
-                  navShape,
+                  shape: railShape,
                   tile: "9px",
                 }),
             ...(outset > 0

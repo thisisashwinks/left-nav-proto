@@ -99,6 +99,7 @@ import type {
   CanvasPad,
   CustomCodeMode,
   CodeScopeView,
+  RailShade,
   WhiteLabelApproach,
   PlaneHead,
   EntryPair,
@@ -244,6 +245,7 @@ interface ThemeContextValue extends ThemeState {
   setCanvasPad: (v: CanvasPad) => void;
   setCustomCodeMode: (v: CustomCodeMode) => void;
   setCodeScopeView: (v: CodeScopeView) => void;
+  setRailShade: (v: RailShade) => void;
   setWhiteLabelApproach: (v: WhiteLabelApproach) => void;
   setPlaneHead: (v: PlaneHead) => void;
   setEntryPair: (v: EntryPair) => void;
@@ -616,6 +618,7 @@ export function ThemeProvider({
         setState((s) => ({ ...s, customCodeMode })),
       setCodeScopeView: (codeScopeView) =>
         setState((s) => ({ ...s, codeScopeView })),
+      setRailShade: (railShade) => setState((s) => ({ ...s, railShade })),
       setWhiteLabelApproach: (whiteLabelApproach) =>
         setState((s) => ({ ...s, whiteLabelApproach })),
       setPlaneHead: (planeHead) => setState((s) => ({ ...s, planeHead })),

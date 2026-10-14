@@ -98,6 +98,8 @@ import {
   AI_MARK_LABELS,
   RAIL_AVATARS,
   RAIL_AVATAR_LABELS,
+  RAIL_SHADES,
+  RAIL_SHADE_LABELS,
   RAIL_TILE_ALIGNS,
   RAIL_TILE_ALIGN_LABELS,
   type RailTileAlign,
@@ -302,6 +304,7 @@ import {
   type NavInk,
   type NavSelectedWeight,
   type RailAvatar,
+  type RailShade,
   type CanvasBleed,
   type CanvasPad,
   type CustomCodeMode,
@@ -632,6 +635,8 @@ function NavStructureSection({
     setRailRecents,
     railDirectorySpot,
     railAvatars,
+    railShade,
+    setRailShade,
     setRailAvatars,
     railTileAlign,
     setRailTileAlign,
@@ -870,6 +875,20 @@ function NavStructureSection({
           </Note>
 
           <Segmented
+            label="Sub-account rail shade"
+            keywords="rail shade grey gray surface background darker 50 100 sub-account accounts strip"
+            options={RAIL_SHADES}
+            value={railShade}
+            onChange={(v: RailShade) => setRailShade(v)}
+            format={(v) => RAIL_SHADE_LABELS[v]}
+          />
+          <Note>
+            {railShade === "darker"
+              ? "Gray 100 — one step down the ramp. The rail and the nav are told apart by their fills rather than by the hairline between them, which is the whole job of a surface that is neither the nav nor the page."
+              : "Gray 50, as drawn. A shade off white against a nav that is also a shade off white, so the seam is doing all the work on its own."}
+          </Note>
+
+          <Segmented
             label="Sub-account avatar shows"
             keywords="rail tiles avatars logos glyphs initials letters monogram grey"
             options={RAIL_AVATARS}
@@ -1069,7 +1088,10 @@ function NavStructureSection({
           <Note>
             {railExpandedShape === "tile"
               ? "The open row keeps the mark's shape — a pill, or a squircle. It says the open rail is the collapsed rail widened, which is what the animation says too."
-              : "Once the names are out, the rows take the nav's own row radius on hover and on the selected fill, so the hover fill does not change shape halfway down the chrome. Tracks the Row radius slider rather than restating it. Collapsed is untouched: a 7px corner on a 32px square is a rounded square, not a tile."}
+              : railExpandedShape === "half"
+                ? "Rounded on the outboard edge, 8px on the inboard one. The open rail widens INTO the nav beside it, and this is the only shape that says so — the rows read as reaching across rather than as eleven lozenges floating in a strip. 8 rather than a hard right angle, which read as a row that had been cut off."
+                : "Once the names are out, the rows take the nav's own row radius on hover and on the selected fill, so the hover fill does not change shape halfway down the chrome. Tracks the Row radius slider rather than restating it."}
+            {" Collapsed is untouched either way: a 7px corner on a 32px square is a rounded square, not a tile."}
           </Note>
 
           <Segmented

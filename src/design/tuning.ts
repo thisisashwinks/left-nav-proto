@@ -96,10 +96,10 @@ export interface TuningState {
  * design's own value where the two differ.
  */
 export const TUNING_DEFAULTS: TuningState = {
-  navIconSize: 14,
+  navIconSize: 16,
   // Hover takes the icon to the design's 16 — the resting size is the one that
   // came down, so growing back to 16 is the row saying "this is the one".
-  navIconHoverSize: 14,
+  navIconHoverSize: 16,
   navRowFontSize: 14,
   navRowGap: 8,
   navRowTrailGap: 8,
@@ -113,7 +113,7 @@ export const TUNING_DEFAULTS: TuningState = {
   navCollapseSettle: 120,
   // The dock keeps 16. Its icons carry no label beside them, so they are the only
   // thing naming the row and drop off faster than a nav row's icon does.
-  dockIconSize: 14,
+  dockIconSize: 16,
   dockLabelSize: 8,
   // Inside the band it is a label on a surface rather than a hover hint squeezed
   // between two sections, so it can carry real size — one step under a nav row's
@@ -129,7 +129,7 @@ export const TUNING_DEFAULTS: TuningState = {
   // 16 (Aug 28): the same glyph a nav row draws. At 20 an L2 row read as a
   // heavier thing than the L1 that opened it, when it is the same kind of row
   // one level down. Still tunable — the knob is how the old 20 gets compared.
-  flyoutIconSize: 14,
+  flyoutIconSize: 16,
   flyoutTitleSize: 14,
   flyoutDescSize: 12.5,
   flyoutRowGap: 10,
@@ -210,10 +210,14 @@ export const NAV_ICON_KNOBS = [
 /**
  * The sizes the one control offers.
  *
- * 14 is the default as of Oct 13 — the whole column a notch lighter, which
- * is a question about the nav as a whole rather than about any one row in it,
- * and so belongs on a control that can only answer it everywhere at once.
- * 16 is the figure the design was drawn at and is kept to compare against.
+ * 16 is the figure the design was drawn at, and the default. 14 is the
+ * compact pass — the whole column a notch lighter, which is a question about
+ * the nav as a whole rather than about any one row in it, and so belongs on a
+ * control that can only answer it everywhere at once.
+ *
+ * 14 led the list and shipped as the default for part of Oct 13 before Ashwin
+ * put it back; the order below keeps 14 first so the compact option is the
+ * one under the cursor, which is the one being looked at.
  */
 export const NAV_ICON_SIZES = ["compact", "design"] as const;
 export type NavIconSize = (typeof NAV_ICON_SIZES)[number];
