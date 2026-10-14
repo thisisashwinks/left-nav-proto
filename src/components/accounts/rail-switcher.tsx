@@ -1,16 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeft, Check, Minus, Pin, Search, X } from "lucide-react";
+import { Search } from "lucide-react";
 import type { BulkPath } from "@/components/bulk/bulk-config";
 import { BulkHistoryModal } from "@/components/bulk/bulk-history-modal";
 import { BulkModal } from "@/components/bulk/bulk-modal";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { useTheme } from "@/components/theme/theme-provider";
 import { useBulkActions } from "@/components/bulk/bulk-provider";
-import { usePinnedInk } from "@/components/nav/pin-button";
-import { cn } from "@/lib/utils";
-import { AccountLogo } from "./account-logo";
+import { DirectoryAccountRow } from "./directory-account-row";
+import { DirectoryHeader } from "./directory-header";
 import { matchAccounts, type Account } from "./accounts-data";
 import type { AccountsSession } from "./use-accounts";
 
@@ -201,77 +200,13 @@ export function RailDirectory({
         (Aug 13 ask) — once the strip has morphed, the title carries the
         identity and the icon just repeated it.
 
-        44px under the rail's 2px top pad — centred on y=24 like the header.
+        Shared with the header dropdown — see DirectoryHeader. The row was
+        worked out here; the dropdown now wears the same one rather than a
+        second version of it.
       */}
-      <div className="flex h-[44px] shrink-0 items-center gap-[9px] px-[12px]">
-        {/*
-          The back arrow, when the exit is on the left. See DIRECTORY_EXITS.
-
-          Ahead of the select-all box deliberately: it leaves the PANEL, and
-          the box acts on the list inside it, so the control with the wider
-          reach reads first. It hides in select mode for the same reason ✕
-          does — Cancel is the exit that belongs to the mode you are in.
-        */}
-        {directoryExit === "back" && !picking ? (
-          <button
-            type="button"
-            aria-label="Back"
-            onClick={onClose}
-            className="motion-tap -ml-[4px] flex size-[26px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
-          >
-            {/* ArrowLeft, not ChevronLeft. A chevron is a DIRECTION — it is
-                what every row in this panel wears to say "there is more
-                through here" — and pointing one backwards asks the reader to
-                read the same mark two ways in one surface. An arrow is a
-                destination, which is what going back is. */}
-            <ArrowLeft size={16} aria-hidden="true" />
-          </button>
-        ) : null}
-        {picking ? (
-          <Box
-            checked={allVisibleOn}
-            mixed={visibleSelected.length > 0 && !allVisibleOn}
-            onClick={() =>
-              setSelected((s) =>
-                allVisibleOn
-                  ? s.filter((id) => !visibleIds.includes(id))
-                  : [...new Set([...s, ...visibleIds])],
-              )
-            }
-            /*
-              Says what it will do to what is on screen, not "everything".
-              While a query is up this box reaches the matches and nothing
-              else — and an admin who has just filtered to three of four
-              hundred needs that stated before they press it, not discovered
-              after.
-            */
-            label={
-              searching
-                ? `Select all ${matches.length} matching`
-                : allVisibleOn
-                  ? "Clear the selection"
-                  : `Select all ${session.accounts.length} accounts`
-            }
-          />
-        ) : null}
-        <span className="min-w-0 flex-1 truncate text-[13.5px] leading-[18px] font-semibold text-nav-fg">
-          {/* The count replaces the title rather than joining it: at 340px
-              there is room for one thing on the left, and while rows are
-              ticked the count is the more useful of the two. */}
-          {/*
-            The total in brackets, because the title alone does not say how
-            big "all" is — and at forty sub-accounts that is the first thing
-            worth knowing: it tells you to search rather than scroll before
-            you have started doing either. The agency is not named; you are
-            inside it, and a panel that says whose accounts these are is
-            answering a question nobody in it is asking.
-
-            The TOTAL, not the filtered count. It is a property of the agency
-            rather than of the query, and a number that moved as you typed
-            would read as a result count — which the list underneath is
-            already showing.
-          */}
-          {selected.length === 0
+      <DirectoryHeader
+        title={
+          selected.length === 0
             ? membersOnly
               ? `My accounts (${session.accounts.length})`
               : `All accounts (${session.accounts.length})`
@@ -280,118 +215,40 @@ export function RailDirectory({
                    A count against a total, because a bare "17 selected" does
                    not say whether that is all of them or a sixth of them —
                    and which of those it is changes whether you press the
-                   button. While searching the total is what you can see, since
-                   that is what the header box would act on.
+                   button. While searching the total is what you can see,
+                   since that is what the header box would act on.
                 */
                 `${selected.length} of ${
                   searching ? matches.length : session.accounts.length
                 } selected`
-              : `${selected.length} selected`}
-        </span>
-        {/*
-          Clear is gone (Oct 5).
-
-          It was the way out of a large selection — the header box only
-          reaches what is VISIBLE, so filtering then clearing stranded the
-          rest. Cancel does that job now and does it better: it leaves the
-          mode as well as the selection, which is what someone pressing "get
-          me out of this" actually wants. Two abandon buttons side by side was
-          the real problem.
-        */}
-        {picking && selected.length > 0 ? (
-          /*
-            Always the chooser here, whatever the Entry knob says. Straight-in
-            draws a button per path, and three of those do not fit beside a
-            title and a close in a 340px panel — so the directory asks once,
-            in the modal, where there is room to explain the choice.
-          */
-          <button
-            type="button"
-            onClick={() => setBulk({ path: null })}
-            /*
-              Neutral ink, not the accent.
-
-              Selection is not branded. The accent is the tenant's colour and it
-              is already doing a job in this panel — every row wears a logo in
-              it — so spending it again on a control that acts ON those rows put
-              the loudest thing on screen in the same hue as the things it was
-              about to change. Worse, the button changed colour per account: the
-              same destructive action was red in one and violet in the next,
-              which is the one place a colour ought to be constant.
-
-              Near-black rather than mid-grey: this is the primary action of a
-              selection state, and grey-on-grey reads as disabled.
-            */
-            className="motion-tap flex h-[26px] shrink-0 items-center rounded-[7px] bg-[var(--admin-action)] px-[9px] text-[12px] leading-none font-medium text-[var(--admin-action-fg)] hover:bg-[var(--admin-action-hover)] active:scale-[0.98]"
-          >
-            {/* No glyph. Sparkles reads as AI everywhere else in this shell —
-                it is the Ask AI mark — and a bulk run is the one thing here
-                that is emphatically not that. The words are the label.
-
-                "Actions", not "Bulk actions": the header already says "3 of
-                17 selected" two inches to its left, so "bulk" is the one word
-                in the row that repeats something. Dropping it is what stops
-                the count truncating to "3 of 17 sel…" in a 340px panel. */}
-            Actions
-          </button>
-        ) : null}
-        {/*
-          Select, iOS-style — and Cancel once you are in it.
-
-          Before the close rather than after: this is the panel's own action
-          and ✕ is the way out of the panel, so the one that changes what the
-          panel IS should not sit outboard of the one that dismisses it.
-          Hidden entirely under `always`, where the boxes need no summoning,
-          and under a selection the guided flow is already driving.
-        */}
-        {bulkAllowed && directorySelect === "button" ? (
-          <button
-            type="button"
-            onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
-            /*
-              An outlined button, not a text link.
-
-              It sits beside a filled primary — Actions — and the two are the
-              standard pair: one thing to do, one way to stop. A bare word
-              next to a solid button reads as a label that happens to be
-              clickable, and in the select state the row has to make it
-              obvious that Cancel is the way out.
-
-              The same 26px height and 7px radius as the ✕ and the primary
-              beside it, so the three sit on one line rather than three.
-              Hairline in --fly-border, which is the stroke this panel's own
-              edges and its search field already wear.
-            */
-            className={cn(
-              "motion-tap flex h-[26px] shrink-0 items-center rounded-[7px] px-[9px] text-[12px] leading-none font-medium text-nav-fg",
-              "shadow-[inset_0_0_0_1px_var(--fly-border)] hover:bg-nav-hover",
-            )}
-          >
-            {selectMode ? "Cancel" : "Select"}
-          </button>
-        ) : null}
-        {/*
-          Gone while a selection is in progress.
-
-          Cancel is already the way out of the mode and it is the way out
-          people want — ✕ beside it offers a second exit that silently
-          discards the same work, and the two sitting together make the reader
-          decide which kind of leaving they meant. With the mode over, ✕ comes
-          back as the only way out there is.
-
-          It is also the four pixels that stop the count truncating.
-        */}
-        {picking || directoryExit === "back" ? null : (
-          <button
-            type="button"
-            aria-label="Close accounts directory"
-            onClick={onClose}
-            className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
-          >
-            <X size={15} aria-hidden="true" />
-          </button>
-        )}
-      </div>
+              : `${selected.length} selected`
+        }
+        picking={picking}
+        allOn={allVisibleOn}
+        mixed={visibleSelected.length > 0 && !allVisibleOn}
+        onToggleAll={() =>
+          setSelected((s) =>
+            allVisibleOn
+              ? s.filter((id) => !visibleIds.includes(id))
+              : [...new Set([...s, ...visibleIds])],
+          )
+        }
+        toggleAllLabel={
+          searching
+            ? `Select all ${matches.length} matching`
+            : allVisibleOn
+              ? "Clear the selection"
+              : `Select all ${session.accounts.length} accounts`
+        }
+        showActions={picking && selected.length > 0}
+        onActions={() => setBulk({ path: null })}
+        showSelect={bulkAllowed && directorySelect === "button"}
+        selectMode={selectMode}
+        onToggleSelect={() => (selectMode ? exitSelect() : setSelectMode(true))}
+        exit={directoryExit === "back" ? "back" : "close"}
+        onClose={onClose}
+        closeLabel="Close accounts directory"
+      />
 
       <div className="flex min-h-0 flex-1 flex-col px-[8px] pb-[8px]">
         <div className="motion-tap flex h-[34px] shrink-0 items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">
@@ -516,16 +373,6 @@ function Group({
   /** Off while a selection is in progress — see rowProps. */
   showPin?: boolean;
 }) {
-  /*
-    The same ink a set pin wears in the nav, through the same axis — a pinned
-    account and a pinned product are one gesture, and a mark that is grey in
-    one list and branded in the other would be two.
-  */
-  const pinnedInk = usePinnedInk();
-  // See ACCOUNT_ROW_META_DEFAULT. Read here rather than threaded from the
-  // panel: the axis is a property of the ROW, and the panel has no other
-  // reason to know about it.
-  const { accountRowMeta } = useTheme().effective;
   if (accounts.length === 0) return null;
   return (
     <>
@@ -537,222 +384,41 @@ function Group({
         </div>
       ) : null}
       {accounts.map((account) => {
-        const current =
-          session.scope === "account" && account.id === session.current.id;
-        const ticked = selected.includes(account.id);
         // The row's own pin state decides its trailing action — pinning is
         // curation on the row now, not a section you file accounts into.
-        const action = session.onRail(account.id) ? "remove" : "add";
+        const onRail = session.onRail(account.id);
         return (
-          <div
+          <DirectoryAccountRow
             key={account.id}
-            className={cn(
-              "group/row flex w-full items-center gap-[10px] rounded-[8px] px-[7px] py-[6px]",
-              /*
-                The current account wears the NAV's selected row, exactly.
-
-                It used to be a flat `bg-nav-active` plus a "Current" pill —
-                the pill because, as the note here said, the tint alone failed
-                a review. That review was looking at the tint alone; the
-                selected row has since grown an edge and a lift, and the same
-                three tokens that mark "the page you are on" mark "the account
-                you are in" without a word. They are the same claim about the
-                same reader, and two different-looking answers to it is how a
-                shell ends up with two vocabularies.
-
-                It follows the two row-state switches with it — see
-                NAV_ROW_RING_DEFAULT and NAV_ROW_SHADOW_DEFAULT. Off the
-                plane both resolve to nothing and this is the flat tint it
-                always was.
-
-                A TICKED row keeps the plain fill: that is a selection, which
-                is about what an action will reach, and borrowing the "you are
-                here" treatment for it would say the wrong thing on every row
-                a reader ticks.
-              */
-              ticked
-                ? "bg-nav-active"
-                : current
-                  ? "bg-nav-selected shadow-[inset_0_0_0_1px_var(--nav-selected-ring),var(--nav-selected-shadow)]"
-                  : "hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]",
-            )}
-          >
-            {picking ? (
-              <Box
-                checked={ticked}
-                onClick={() => onToggle(account.id)}
-                label={`Select ${account.name}`}
-              />
-            ) : null}
-            {/*
-              What the row means depends on whether a mode is running.
-
-              Under `always` the checkbox is a separate target and the row is
-              still the jump, ticked or not — a panel whose rows mean "go"
-              until you tick something and then mean "tick" is how you land in
-              the wrong account halfway through choosing four.
-
-              Under `button` that ambiguity cannot arise, because the mode is
-              declared before any of it: you pressed Select, so every row ticks
-              and nothing jumps until you Cancel. That is the whole reason the
-              iOS pattern works, and taking the mode without taking this would
-              be the worst of both — a button announcing a mode that the rows
-              then do not honour. Ashwin, Oct 5.
-            */}
-            <button
-              type="button"
-              onClick={() => {
-                if (selectRows) {
-                  onToggle(account.id);
-                  return;
-                }
-                // Jumping into an account opens it on the rail too — you are
-                // working in it now, so it has earned a tile (space allowing).
-                session.addToRail(account.id);
-                session.switchTo(account.id);
-                onClose();
-              }}
-              className="flex min-w-0 flex-1 items-center gap-[10px] text-left outline-none"
-            >
-              {/*
-                One step down across the row (Aug 28): 24px mark, 13px name,
-                11px address. The panel is a LIST — seventeen rows you scan for
-                a name — and at 28/13.5 it was drawn at the weight of the strip
-                it replaces, where there are eleven tiles and no words at all.
-                Smaller fits more of the directory on screen without the rows
-                losing their hierarchy.
-              */}
-              <AccountLogo logo={account.logo} src={account.logoSrc} size={24} radius={999} />
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate text-[13px] leading-[17px] font-medium text-nav-fg">
-                  {account.name}
-                </span>
-                {/* Off by default — see ACCOUNT_ROW_META_DEFAULT. */}
-                {accountRowMeta ? (
-                  <span className="truncate text-[11px] leading-[14px] text-nav-fg-subtle">
-                    {account.meta}
-                  </span>
-                ) : null}
-              </span>
-            </button>
-            {showPin ? (
-              /*
-                The nav's pin, on an account row — see PinButton, which this
-                deliberately mirrors rather than imports (that one pins a
-                PRODUCT through the nav layout store; this pins an account to
-                the rail through the session).
-                
-                Two things changed here (Sep 16). The state is now in the GLYPH
-                rather than in which glyph: a filled pin is pinned, an outline
-                pin is not, the way the pin reads everywhere else in the nav.
-                Pin/PinOff put the state in a diagonal slash that is 13px wide
-                and easy to miss, and worse, showed every row the icon for what
-                pressing it would DO — so a column of pinned accounts wore
-                "unpin" marks and read as the unpinned ones.
-                
-                And an unpinned row only shows it on hover. Drawn at rest on
-                every row, seventeen identical outlined boxes ran down the panel
-                as a second column competing with the logos — which made the
-                four that mattered impossible to pick out. Pinned stays visible,
-                because that one is not an affordance, it is the row telling you
-                what it is.
-              */
-              <button
-                type="button"
-                aria-label={
-                  action === "remove"
-                    ? `Unpin ${account.name}`
-                    : `Pin ${account.name}`
-                }
-                aria-pressed={action === "remove"}
-                title={action === "remove" ? "Unpin" : "Pin"}
-                onClick={() => {
-                  // Pure curation now: with one sorted list, the pin toggles
-                  // the rail tile and nothing else — the ROW is the jump. The
-                  // old add-and-go behaviour belonged to the "All accounts"
-                  // section this list replaced.
-                  if (action === "remove") session.removeFromRail(account.id);
-                  else session.addToRail(account.id);
-                }}
-                className={cn(
-                  "motion-tap flex size-[22px] shrink-0 items-center justify-center rounded-[6px]",
-                  "hover:bg-nav-active active:scale-90 motion-press",
-                  action === "remove"
-                    ? cn(pinnedInk, "opacity-100")
-                    : "text-nav-fg-subtle opacity-0 group-hover/row:opacity-100 hover:text-nav-fg focus-visible:opacity-100",
-                )}
-              >
-                <Pin
-                  /*
-                    12, matching the pin on a pinned row in the nav — see
-                    merged-recents, which made the same cut for the same
-                    reason. A trailing mark that approaches the size of the
-                    row's LEADING glyph reads as a second icon rather than as
-                    a state, and here the leading glyph is a 24px account
-                    tile. One pin, one size, wherever a row carries one.
-                  */
-                  size={12}
-                  fill={action === "remove" ? "currentColor" : "none"}
-                  aria-hidden="true"
-                />
-              </button>
-            ) : null}
-          </div>
+            account={account}
+            current={
+              session.scope === "account" && account.id === session.current.id
+            }
+            picking={picking}
+            selectRows={selectRows}
+            ticked={selected.includes(account.id)}
+            onToggle={() => onToggle(account.id)}
+            onSelect={() => {
+              // Jumping into an account opens it on the rail too — you are
+              // working in it now, so it has earned a tile (space allowing).
+              session.addToRail(account.id);
+              session.switchTo(account.id);
+              onClose();
+            }}
+            showPin={showPin}
+            pinned={onRail}
+            onTogglePinned={() => {
+              // Pure curation now: with one sorted list, the pin toggles the
+              // rail tile and nothing else — the ROW is the jump. The old
+              // add-and-go behaviour belonged to the "All accounts" section
+              // this list replaced.
+              if (onRail) session.removeFromRail(account.id);
+              else session.addToRail(account.id);
+            }}
+          />
         );
       })}
     </>
   );
 }
 
-/**
- * The same 17px box the tables draw, in the nav's own colours — this panel is
- * a nav surface, and a page-token checkbox on it goes invisible in dark.
- */
-function Box({
-  checked,
-  mixed = false,
-  onClick,
-  label,
-}: {
-  checked: boolean;
-  mixed?: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="checkbox"
-      aria-checked={mixed ? "mixed" : checked}
-      aria-label={label}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-      className={cn(
-        "motion-tap flex size-[17px] shrink-0 items-center justify-center rounded-[5px] border-[1.5px]",
-        /*
-          One ink for the whole selection layer, with the Actions button
-          beside it — and which ink is now an axis. See ADMIN_ACCENTS.
-
-          It went near-black, then primary blue on Oct 5 (the argument being
-          that blue is the PRODUCT's colour and does not move per account,
-          unlike the accent), and is neutral again by default on Oct 8 with
-          blue one click away. The newer argument is not about which blue: a
-          tick that feeds a bulk run across forty sub-accounts belongs to the
-          agency operating on them, and the admin layer reads better when it
-          is visibly not part of any one tenant's product.
-        */
-        checked || mixed
-          ? "border-[var(--admin-action)] bg-[var(--admin-action)] text-[var(--admin-action-fg)]"
-          : "border-[var(--fly-border)] hover:border-nav-fg-subtle",
-      )}
-    >
-      {mixed ? (
-        <Minus size={12} aria-hidden="true" />
-      ) : checked ? (
-        <Check size={12} aria-hidden="true" />
-      ) : null}
-    </button>
-  );
-}

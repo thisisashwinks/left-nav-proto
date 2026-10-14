@@ -609,7 +609,7 @@ export function NavItemRow({
           loosened the controls with it. Ashwin asked for the two to move
           independently on Oct 6.
         */}
-        <span className="flex shrink-0 items-center gap-[var(--t-nav-trail-gap,10px)]">
+        <span className="flex shrink-0 items-center gap-[var(--t-nav-trail-gap,6px)]">
           {count}
           {pinSlot}
           {chevron}
@@ -878,7 +878,7 @@ export function NavItemRow({
           state of the ROW rather than one of its controls, and it earns the
           row's own wider gap to keep it off the cluster.
         */
-        <span className="flex shrink-0 items-center gap-[var(--t-nav-trail-gap,10px)]">
+        <span className="flex shrink-0 items-center gap-[var(--t-nav-trail-gap,6px)]">
           {edit.onToggleHidden ? (
             <EditAffordance
               label={

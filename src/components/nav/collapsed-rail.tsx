@@ -112,8 +112,6 @@ interface CollapsedRailProps {
   scope: WorkspaceScope;
   /** Identity behind the rail's mark — the account, or the agency at agency scope. */
   account: Account;
-  /** False for a plain sub-account user — the mark renders inert. */
-  canSwitch?: boolean;
   /** Whether an account rail stands to the left. See LeftNavProps.railAbove. */
   railAbove?: boolean;
   /** Reopens the expanded nav. Lives right under the mark, not in the app bar. */
@@ -194,7 +192,6 @@ export function CollapsedRail({
   onSearch,
   scope,
   account,
-  canSwitch = true,
   railAbove = false,
   onExpand,
   aiSession,
@@ -235,6 +232,7 @@ export function CollapsedRail({
     navArrangement,
     railViewAll,
     railAvatars,
+    collapseSpot,
   } = useTheme().effective;
   /* What the companion-apps row is called right now. See APPS_ROW_LABELS. */
   const appsRowName = useGetAppNavLabel();
@@ -691,15 +689,20 @@ export function CollapsedRail({
       )}
     >
       {/*
-        The rail has no room for a name or a chevron, so the mark itself is the
-        switcher trigger — same panel, anchored to this tile instead. A plain
-        sub-account user has nothing to switch to, so the mark goes inert.
-      */}
-      {/*
-        The mark expands the nav in place (Khoi, Aug 24) — the same target that
-        collapsed it, exactly where it was when it did. Switching accounts at
-        rail width is the account rail's job, one column left; the logo opening
-        a second switcher here was the same door twice.
+        The mark is a mark, and nothing else. Ashwin, Oct 14.
+
+        It has been two different controls and neither survived. First a
+        switcher trigger — but switching accounts at rail width is the account
+        rail's job, one column left, so the logo was the same door twice. Then
+        an Expand target (Khoi, Aug 24), on the reasoning that it was the same
+        tile that collapsed the nav: true of the gesture, and wrong on screen,
+        because the control that actually says "expand" is sitting 4px below
+        it. Two adjacent targets doing one thing, one of them labelled and one
+        of them not, is a logo that moves the whole sidebar when you were
+        trying to read which account you are in.
+
+        So: inert, with the account's name on hover. The toggle below is the
+        way out, and it is the only one.
       */}
       {/*
         At agency scope the mark can be turned off entirely, because the
@@ -726,36 +729,23 @@ export function CollapsedRail({
       */}
       {!headMark ? null : (
       <div className="flex h-[var(--shell-bar-h,48px)] w-full shrink-0 -mb-[4px] items-center justify-center">
-        {canSwitch ? (
-        <button
-          type="button"
-          title="Expand navigation"
-          aria-label="Expand navigation"
-          onClick={onExpand}
-          className="motion-tap flex size-[26px] shrink-0 items-center justify-center outline-none hover:scale-105 active:scale-95"
-        >
-          <AccountLogo
-            logo={account.logo}
-            src={agencyScope ? account.logoSrc : (config.logoSrc ?? account.logoSrc)}
-            {...markAvatar}
-            size={26}
-            radius={999}
-          />
-        </button>
-      ) : (
         <span
           title={account.name}
           className="flex size-[26px] shrink-0 items-center justify-center"
         >
           <AccountLogo
             logo={account.logo}
-            src={config.logoSrc ?? account.logoSrc}
+            /*
+              The agency's own asset at agency scope, the white-label
+              override below it — the branch the two buttons used to
+              disagree about, now settled in one place.
+            */
+            src={agencyScope ? account.logoSrc : (config.logoSrc ?? account.logoSrc)}
             {...markAvatar}
             size={26}
             radius={999}
           />
         </span>
-      )}
       </div>
       )}
 
@@ -763,7 +753,16 @@ export function CollapsedRail({
         Reopening the nav happens right under the mark — inside the rail the
         drawer belongs to, not off in the app bar (Aug 11 ask). Same glyph and
         size as the expanded header's toggle, so it reads as the same control.
+
+        Unless the toggle has been moved OUT to the breadcrumb, in which case
+        this is the second one on screen doing the identical job six rows
+        apart — see COLLAPSE_SPOTS. That placement's whole argument is that
+        the control stops living in a column which may not be there; leaving a
+        copy behind in the column concedes the argument and spends a rail slot
+        doing it. The mark above still expands on click either way, so nothing
+        is lost. Ashwin, Oct 14.
       */}
+      {collapseSpot === "breadcrumb" ? null : (
       <RailTooltip label="Expand navigation">
         <button
           type="button"
@@ -774,6 +773,7 @@ export function CollapsedRail({
           <PanelLeftOpen size={16} aria-hidden="true" style={RAIL_GLYPH} />
         </button>
       </RailTooltip>
+      )}
 
       {/*
         Launchpad.

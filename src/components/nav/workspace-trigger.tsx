@@ -5,6 +5,7 @@ import { ChevronsUpDown } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
 import { cn } from "@/lib/utils";
 import { AccountLogo } from "@/components/accounts/account-logo";
+import { useTheme } from "@/components/theme/theme-provider";
 import { BrandMark } from "./brand-mark";
 
 interface WorkspaceTriggerProps {
@@ -15,6 +16,18 @@ interface WorkspaceTriggerProps {
   onToggle: () => void;
   /** Agency scope: the marked case — AGENCY eyebrow, squircle, taller chip. */
   agency?: boolean;
+  /** Draw this identity's logo in place of the account's. See BrandMark. */
+  markAccount?: Account | null;
+  /**
+   * Break the trigger into three items spread across the full width.
+   *
+   * See NAV_IDENTITY_ALIGNS. Equal gaps are a property of SIBLINGS under
+   * `justify-between` — there is no way to get them while the chevron is
+   * nested inside a button that also holds the name, because the space then
+   * divides between two boxes rather than three. So this mode lays the mark,
+   * the name and the chevron out as peers.
+   */
+  spread?: boolean;
   /**
    * Collapses the nav in place.
    *
@@ -49,9 +62,12 @@ export function WorkspaceTrigger({
   open,
   onToggle,
   agency = false,
+  markAccount = null,
+  spread = false,
   onToggleCollapsed,
   mark = true,
 }: WorkspaceTriggerProps) {
+  const { workspaceChevron } = useTheme().effective;
   const ref = React.useRef<HTMLButtonElement>(null);
   const wasOpen = React.useRef(open);
 
@@ -66,7 +82,7 @@ export function WorkspaceTrigger({
     ? `Switch workspace. Current scope: ${account.name}, all accounts`
     : `Switch sub-account. Current account: ${account.name}`;
 
-  const trigger = (markInside: boolean) => (
+  const trigger = (markInside: boolean, withoutChevron = false) => (
     <button
       ref={ref}
       type="button"
@@ -93,24 +109,92 @@ export function WorkspaceTrigger({
         logoSrc={logoSrc}
         alt={logoAlt}
         withMark={markInside}
+        markAccount={markAccount}
       />
 
+      {withoutChevron ? null : (
       <ChevronsUpDown
         size={14}
         aria-hidden="true"
         className={cn(
           "motion-tap shrink-0",
-          open
-            ? "translate-x-0 text-nav-fg opacity-100"
+          /*
+            Standing by default — see WORKSPACE_CHEVRONS.
+
+            Open always wins: whatever the axis says at rest, a panel that is
+            up gets the full-ink glyph, because that is the state saying "this
+            is the thing you opened".
+          */
+          open || workspaceChevron === "always"
+            ? "translate-x-0 opacity-100"
             : cn(
-                "-translate-x-[3px] text-nav-fg-subtle opacity-0",
+                "-translate-x-[3px] opacity-0",
                 "group-hover/ws:translate-x-0 group-hover/ws:opacity-100",
                 "group-focus-visible/ws:translate-x-0 group-focus-visible/ws:opacity-100",
               ),
+          // Ink is the OPEN question, not the visibility one. A resting
+          // chevron that is always on screen would shout at full ink, so it
+          // stays subtle until the panel it belongs to is up.
+          open ? "text-nav-fg" : "text-nav-fg-subtle",
         )}
       />
+      )}
     </button>
   );
+
+  /*
+   * The identity stays put; only the affordance travels.
+   *
+   * See NAV_IDENTITY_ALIGNS. Mark and name keep exactly the arrangement they
+   * have in `left` — including the split, where the disc is its own collapse
+   * button — and the chevrons are lifted out of the trigger to sit at the
+   * column's right edge.
+   *
+   * The chevron is `aria-hidden` and out of the tab order because it opens
+   * the same panel as the name: it is the same control, not a second one, and
+   * a keyboard reader should find one way into this menu rather than two at
+   * opposite ends of a row.
+   */
+  if (spread) {
+    const split = mark && onToggleCollapsed !== undefined;
+    return (
+      <span className="flex w-full min-w-0 items-center justify-between gap-[6px]">
+        <span className="flex min-w-0 items-center gap-[7px]">
+          {split ? (
+            <button
+              type="button"
+              aria-label="Collapse navigation"
+              title="Collapse navigation"
+              onClick={onToggleCollapsed}
+              className="motion-tap -m-[3px] flex shrink-0 items-center justify-center rounded-full p-[3px] outline-none hover:bg-nav-hover focus-visible:ring-[1.5px] focus-visible:ring-brand active:scale-95"
+            >
+              <AccountLogo
+                logo={(markAccount ?? account).logo}
+                src={markAccount ? markAccount.logoSrc : (logoSrc ?? account.logoSrc)}
+                size={20}
+                radius={999}
+              />
+            </button>
+          ) : null}
+          {trigger(mark && !split, true)}
+        </span>
+
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-hidden="true"
+          onClick={onToggle}
+          className="motion-tap -mr-[4px] flex shrink-0 items-center justify-center rounded-[6px] p-[4px] outline-none hover:bg-nav-hover active:scale-95"
+        >
+          <ChevronsUpDown
+            size={14}
+            aria-hidden="true"
+            className={cn("shrink-0", open ? "text-nav-fg" : "text-nav-fg-subtle")}
+          />
+        </button>
+      </span>
+    );
+  }
 
   if (!onToggleCollapsed) return trigger(mark);
   // No mark means no split: the split exists to give the DISC its own job.
@@ -125,9 +209,22 @@ export function WorkspaceTrigger({
         onClick={onToggleCollapsed}
         className="motion-tap -m-[3px] flex shrink-0 items-center justify-center rounded-full p-[3px] outline-none hover:bg-nav-hover focus-visible:ring-[1.5px] focus-visible:ring-brand active:scale-95"
       >
+        {/*
+          The agency's mark when one has been placed here, the account's
+          otherwise — see HEADER_AGENCY_MARKS.
+
+          The split header draws this disc ITSELF rather than through
+          BrandMark, because the disc is a collapse button in its own right
+          and BrandMark has no business owning a second job. That is why
+          `markAccount` has to be honoured twice: handing it only to BrandMark
+          left the "beside the name" placement silently drawing the
+          sub-account's logo in every arrangement that splits — which is the
+          default one. The config's demo `logoSrc` stands in for the ACCOUNT's
+          asset, so an agency placed here outranks it.
+        */}
         <AccountLogo
-          logo={account.logo}
-          src={logoSrc ?? account.logoSrc}
+          logo={(markAccount ?? account).logo}
+          src={markAccount ? markAccount.logoSrc : (logoSrc ?? account.logoSrc)}
           size={20}
           radius={999}
         />

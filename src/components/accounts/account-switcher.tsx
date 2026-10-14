@@ -1,12 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { ChevronsUpDown, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
-import { AccountLogo } from "./account-logo";
-import { AccountRow } from "./account-row";
+import type { BulkPath } from "@/components/bulk/bulk-config";
+import { BulkHistoryModal } from "@/components/bulk/bulk-history-modal";
+import { BulkModal } from "@/components/bulk/bulk-modal";
+import { useBulkActions } from "@/components/bulk/bulk-provider";
+import { useTheme } from "@/components/theme/theme-provider";
+import { DirectoryAccountRow } from "./directory-account-row";
+import { DirectoryHeader } from "./directory-header";
 import { useAccountSwitcher } from "./use-account-switcher";
 import type { AccountsSession } from "./use-accounts";
 
@@ -53,6 +58,76 @@ export function AccountSwitcher({
   const inputRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
 
+  /*
+   * The selection layer, on the same terms as the directory's.
+   *
+   * This panel and All accounts are two arrangements of one list, so a mode
+   * that exists in one and not the other is two products. The switches are
+   * read from the same places — see RailDirectory — rather than given this
+   * surface its own, because "can this agency bulk-act on its accounts" is
+   * not a question whose answer should depend on which panel they opened.
+   */
+  const [selected, setSelected] = React.useState<readonly string[]>([]);
+  const [selectMode, setSelectMode] = React.useState(false);
+  const [bulk, setBulk] = React.useState<{ path: BulkPath | null } | null>(null);
+  const [historyOpen, setHistoryOpen] = React.useState(false);
+  const { settings } = useBulkActions();
+  const { directorySelect, agencyEntry, directoryPlacement } =
+    useTheme().effective;
+  /*
+   * The dropdown drawn the way a filled rail is drawn.
+   *
+   * There is no rail in this arrangement — that is the whole point of it —
+   * but the placement axis still has something to say: `names` asks for the
+   * directory to BE a column rather than a card over one. So the panel keeps
+   * its width and loses everything that makes it a card: no margins, no
+   * radius, no ring, and it arrives by sliding in from the left edge instead
+   * of growing out of the trigger. Ashwin, Oct 14.
+   */
+  const asRail = directoryPlacement === "names";
+  /*
+   * What pressing the agency row does, said as the action rather than as the
+   * destination's size. "All accounts" described what is up there; this
+   * describes the move, which is what a row you press is for.
+   */
+  const agencyJump =
+    session.scope === "agency" ? "Switch to sub-account" : "Switch to agency";
+  /*
+   * Never for a member. Bulk-applying templates and feature access is an
+   * agency operation on its clients; `only` is exactly the member case, so it
+   * stands in for the directory's `membersOnly` here.
+   */
+  const bulkAllowed =
+    settings.enabled && settings.bulkInDirectory && only === undefined;
+  const picking = bulkAllowed && (directorySelect === "always" || selectMode);
+  const guided = settings.flow === "guided";
+
+  // Cancel is not Done: a selection that outlived the mode would sit invisible
+  // behind a Select button and reappear on the next press.
+  const exitSelect = React.useCallback(() => {
+    setSelectMode(false);
+    setSelected([]);
+  }, []);
+
+  const toggleRow = React.useCallback((id: string) => {
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }, []);
+
+  const selectedAccounts = React.useMemo(
+    () => session.accounts.filter((a) => selected.includes(a.id)),
+    [session.accounts, selected],
+  );
+
+  // What the header's select-all box reaches: the rows ON SCREEN, which under
+  // a query is the matches and nothing else.
+  const searching = s.query.trim() !== "";
+  const visibleIds = s.flat.map((a) => a.id);
+  const visibleSelected = visibleIds.filter((id) => selected.includes(id));
+  const allVisibleOn =
+    visibleIds.length > 0 && visibleSelected.length === visibleIds.length;
+
   React.useEffect(() => {
     inputRef.current?.focus();
   }, []);
@@ -60,11 +135,14 @@ export function AccountSwitcher({
   // Escape has to work with focus on a row or the star, not just in the field.
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      // Not while a bulk modal is up: that one owns Escape, and closing the
+      // panel out from under it would take its selection — and itself — with
+      // it mid-flow.
+      if (e.key === "Escape" && bulk === null && !historyOpen) onClose();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  }, [onClose, bulk, historyOpen]);
 
   // Keeps the keyboard highlight in view once the list scrolls. `nearest` means
   // this is a no-op when the row is already on screen, so pointer moves don't
@@ -90,53 +168,105 @@ export function AccountSwitcher({
         aria-label="Switch sub-account"
         data-nav-theme={theme}
         data-cursor="menu"
-        style={{
-          left: anchor.left,
-          top: anchor.top,
-          width: PANEL_WIDTH,
-          maxHeight: `calc(100vh - ${anchor.top + VIEWPORT_GUTTER}px)`,
-          // The animation grows from where the trigger's mark sits, so the
-          // panel reads as the trigger's own bounding box expanding — not a
-          // dropdown appearing on top of it.
-          transformOrigin: "22px 22px",
-        }}
+        style={
+          asRail
+            ? /*
+                 Flush to the window on three sides. See DIRECTORY_PLACEMENTS.
+
+                 `fixed`, not `absolute`: the panel has to reach the window's
+                 own top and bottom, and the shell it is rendered inside is
+                 neither — it sits under the banner and inside the plane's
+                 padding, so an absolutely-positioned column would stop short
+                 at both ends and the "no margins" this placement is asking
+                 for would quietly become "the shell's margins".
+              */
+              { left: 0, top: 0, width: PANEL_WIDTH, height: "100vh" }
+            : {
+                left: anchor.left,
+                top: anchor.top,
+                width: PANEL_WIDTH,
+                maxHeight: `calc(100vh - ${anchor.top + VIEWPORT_GUTTER}px)`,
+                // The animation grows from where the trigger's mark sits, so
+                // the panel reads as the trigger's own bounding box expanding
+                // — not a dropdown appearing on top of it.
+                transformOrigin: "22px 22px",
+              }
+        }
         className={cn(
-          "absolute z-50 flex flex-col overflow-hidden rounded-[12px] bg-nav p-[8px]",
-          "shadow-[0_16px_32px_-8px_var(--fly-shadow),0_4px_8px_-4px_var(--fly-shadow),inset_0_0_0_1px_var(--fly-border)]",
-          phase === "entering" ? "motion-menu-in" : "motion-menu-out",
+          "z-50 flex flex-col overflow-hidden bg-nav p-[8px]",
+          asRail
+            ? cn(
+                "fixed rounded-none",
+                /*
+                  Shadow, no ring. The inset hairline is what gives a floating
+                  card its edge, and an edge is exactly what a surface flush
+                  to the window does not have — drawn here it reads as a
+                  border someone forgot to remove down the left of the screen.
+                  The shadow alone does the separating.
+                */
+                "shadow-[0_16px_32px_-8px_var(--fly-shadow),0_4px_8px_-4px_var(--fly-shadow)]",
+                phase === "entering"
+                  ? "motion-directory-rail-in"
+                  : "motion-directory-rail-out",
+              )
+            : cn(
+                "absolute rounded-[12px]",
+                "shadow-[0_16px_32px_-8px_var(--fly-shadow),0_4px_8px_-4px_var(--fly-shadow),inset_0_0_0_1px_var(--fly-border)]",
+                phase === "entering" ? "motion-menu-in" : "motion-menu-out",
+              ),
         )}
       >
         {/*
-          The trigger, continued: the same mark and name that was clicked is
-          the menu's first row, laid over where the trigger sat. Per the Aug 10
-          review — the chevrons promised a pulldown, so the current account
-          leads the menu and search is a row inside it, not the front door.
-          Clicking the row folds the menu back into the trigger.
+          The directory's header, not a second design of one.
+
+          This row used to repeat the account you are already in — the trigger
+          "continued" — which answered a question nobody holding an open
+          switcher is asking, and left the panel's own controls nowhere to go
+          but a band under the search field. The All accounts panel had long
+          since worked this row out: a title that doubles as the count, a
+          select-all box, Actions, Select/Cancel, close. Ashwin, Oct 14: same
+          look, same behaviour, no second version of it.
+
+          The account you are in is still stated — it is a row in the list
+          below, wearing the selected-row treatment and a tick, which is where
+          a reader scanning for it would look anyway.
         */}
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={`${session.current.name} — current account. Collapse menu`}
-          className="motion-tap flex w-full shrink-0 items-center gap-[7px] rounded-[8px] bg-nav-active px-[7px] py-[5px] text-left outline-none"
-        >
-          <AccountLogo
-            logo={session.current.logo}
-            src={session.current.logoSrc}
-            size={20}
-            radius={999}
-          />
-          <span className="min-w-0 flex-1 truncate text-[14px] leading-[20px] font-semibold text-nav-fg">
-            {session.current.name}
-          </span>
-          <span className="shrink-0 text-[11px] leading-[normal] text-nav-fg-subtle">
-            Current
-          </span>
-          <ChevronsUpDown
-            size={14}
-            aria-hidden="true"
-            className="shrink-0 text-nav-fg-subtle"
-          />
-        </button>
+        <DirectoryHeader
+          title={
+            selected.length === 0
+              ? only === undefined
+                ? `All accounts (${session.accounts.length})`
+                : `My accounts (${session.accounts.length})`
+              : guided
+                ? `${selected.length} of ${
+                    searching ? s.flat.length : session.accounts.length
+                  } selected`
+                : `${selected.length} selected`
+          }
+          picking={picking}
+          allOn={allVisibleOn}
+          mixed={visibleSelected.length > 0 && !allVisibleOn}
+          onToggleAll={() =>
+            setSelected((prev) =>
+              allVisibleOn
+                ? prev.filter((id) => !visibleIds.includes(id))
+                : [...new Set([...prev, ...visibleIds])],
+            )
+          }
+          toggleAllLabel={
+            searching
+              ? `Select all ${visibleIds.length} matching`
+              : allVisibleOn
+                ? "Clear the selection"
+                : `Select all ${session.accounts.length} accounts`
+          }
+          showActions={picking && selected.length > 0}
+          onActions={() => setBulk({ path: null })}
+          showSelect={bulkAllowed && directorySelect === "button"}
+          selectMode={selectMode}
+          onToggleSelect={() => (selectMode ? exitSelect() : setSelectMode(true))}
+          onClose={onClose}
+        />
 
         <div className="motion-tap mt-[6px] flex h-[32px] shrink-0 items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">
           <Search size={15} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
@@ -152,21 +282,59 @@ export function AccountSwitcher({
           />
         </div>
 
+        {/*
+          The selection bar, between the field and the list.
+
+          The directory puts Select and Actions in its title row; this panel
+          has no title row — its first row is the account you are in — so the
+          controls go directly above the rows they govern, which is also where
+          the count can sit without competing with the account's own name.
+
+          Only while the mode can do something: under `always` the boxes stand
+          on their own and there is nothing to summon, so the bar appears only
+          once something is ticked.
+        */}
         <div
           ref={listRef}
           className="-mx-[2px] mt-[6px] min-h-0 flex-1 overflow-y-auto px-[2px]"
         >
           {/*
-            Above the groups and outside the arrow-key list: scope is a
-            different kind of jump from picking a sibling account, and it must
-            not reorder under a query the way search results do.
+            Above the list and outside the arrow-key run: a scope jump is a
+            different kind of move from picking a sibling account, and it must
+            not reorder under a query the way results do.
+
+            Hidden entirely while rows are being ticked. A bulk run acts on
+            sub-accounts, and an offer to leave for the agency sitting inside
+            a selection is an invitation to abandon the thing you are halfway
+            through choosing — so the row goes, rather than sitting there
+            doing nothing. Ashwin, Oct 14.
           */}
-          {showAgency && s.query.trim() === "" ? (
-            <AgencyRow
-              session={session}
+          {showAgency && !searching && !picking ? (
+            <DirectoryAccountRow
+              account={session.agency}
+              current={false}
+              /*
+                A list item like every other one here — see AGENCY_ENTRIES.
+                It used to be a plated row on its own tint with a rule under
+                it, which made the first thing in the panel look like a
+                different kind of surface.
+              */
+              showLogo={agencyEntry === "plate"}
+              {...(agencyEntry === "plate"
+                ? {}
+                : { label: agencyJump })}
+              showPin={false}
+              trailing={
+                agencyEntry === "plate" ? (
+                  <span className="shrink-0 text-[11.5px] leading-[normal] whitespace-nowrap text-nav-fg-subtle">
+                    {agencyJump}
+                  </span>
+                ) : null
+              }
               onSelect={() => {
-                session.switchToAgency();
-                onClose();
+                if (session.scope === "agency") onClose();
+                else session.switchToAgency();
+                if (session.scope !== "agency") onClose();
               }}
             />
           ) : null}
@@ -179,25 +347,45 @@ export function AccountSwitcher({
 
           {s.groups.map((group) => (
             <React.Fragment key={group.id}>
-              {/* Sticky so the group a row belongs to stays readable mid-scroll. */}
-              <div className="sticky top-0 z-10 bg-nav px-[7px] pt-[8px] pb-[4px]">
-                <span className="text-[10.5px] leading-[14px] font-semibold tracking-[0.6px] text-nav-fg-subtle uppercase">
-                  {group.label}
-                </span>
-              </div>
+              {/*
+                Only when a group names itself, which in this panel is never —
+                the list is one ordered run and the order carries the meaning.
+                See the grouping in useAccountSwitcher. Sticky when it does
+                appear, so the band a row belongs to stays readable mid-scroll.
+              */}
+              {group.label ? (
+                <div className="sticky top-0 z-10 bg-nav px-[7px] pt-[8px] pb-[4px]">
+                  <span className="text-[10.5px] leading-[14px] font-semibold tracking-[0.6px] text-nav-fg-subtle uppercase">
+                    {group.label}
+                  </span>
+                </div>
+              ) : null}
               {group.accounts.map((account) => {
                 const index = s.flat.indexOf(account);
                 return (
-                  <AccountRow
+                  <DirectoryAccountRow
                     key={account.id}
                     account={account}
+                    current={account.id === session.current.id}
                     index={index}
                     active={account.id === s.activeId}
-                    current={account.id === session.current.id}
-                    pinned={session.isPinned(account.id)}
                     onActivate={() => s.setActiveIndex(index)}
                     onSelect={() => s.select(account.id)}
+                    pinned={session.isPinned(account.id)}
                     onTogglePinned={() => session.togglePinned(account.id)}
+                    picking={picking}
+                    ticked={selected.includes(account.id)}
+                    onToggle={() => toggleRow(account.id)}
+                    // Only the summoned mode takes the row over. Under
+                    // `always` the box is a separate target and the row is
+                    // still the jump — see the row's own note.
+                    selectRows={picking && directorySelect === "button"}
+                    /*
+                      The pin comes off once a selection is running: two
+                      controls on one row, one of which quietly reorders the
+                      list you are working down.
+                    */
+                    showPin={!(guided && picking && selected.length > 0)}
                   />
                 );
               })}
@@ -205,82 +393,45 @@ export function AccountSwitcher({
           ))}
         </div>
 
-        <div className="mt-[8px] flex shrink-0 items-center gap-[10px] px-[7px] pt-[8px] shadow-[inset_0_1px_0_0_var(--fly-border)]">
-          <Hint keys="↑↓" label="Navigate" />
-          <Hint keys="↵" label="Switch" />
-          <span className="flex-1" />
-          <span className="text-[11px] leading-[normal] whitespace-nowrap text-nav-fg-subtle">
-            {s.query.trim() === ""
-              ? `${session.accounts.length} accounts`
-              : `${s.flat.length} of ${session.accounts.length}`}
-          </span>
-        </div>
-      </div>
-    </>
-  );
-}
+        {/*
+          No footer.
 
-/**
- * The agency as a row: squircle mark, AGENCY eyebrow, and the current-scope
- * treatment when the session is already there. Mirrors the account rows'
- * geometry so the panel reads as one list with a marked first entry.
- */
-function AgencyRow({
-  session,
-  onSelect,
-}: {
-  session: AccountsSession;
-  onSelect: () => void;
-}) {
-  const current = session.scope === "agency";
-  return (
-    <>
+          It held two keyboard hints and a count — a legend for behaviour the
+          panel already has (arrows walk the list whether or not a strip says
+          so) and a number nobody switches accounts by. It cost a permanent
+          32px band under a list that is the whole point of the panel, so the
+          list gets the height back. Ashwin, Oct 14.
+        */}
+      </div>
+
       {/*
-        On its own plate, not under a label: the Aug 7 review dropped the
-        AGENCY eyebrow — a neutral zone survives even a sub-account named
-        after the agency, which a word never could.
+        Rendered beside the panel, not inside it: the modal is the agency
+        acting on a set of accounts, and nesting it in a 320px dropdown would
+        inherit that dropdown's clipping and its stacking context.
       */}
-      <div className="rounded-[10px] bg-nav-rail-disc p-[3px]">
-        <button
-          type="button"
-          onClick={onSelect}
-          aria-label={`${session.agency.name} — agency, all accounts`}
-          aria-current={current ? "true" : undefined}
-          className={cn(
-            "flex w-full items-center gap-[10px] rounded-[8px] px-[7px] py-[6px] text-left outline-none",
-            current ? "bg-nav shadow-[inset_0_0_0_1px_var(--nav-border)]" : "hover:bg-nav-hover",
-          )}
-        >
-          <AccountLogo logo={session.agency.logo} size={28} radius={999} />
-          <span className="truncate min-w-0 flex-1 text-[13.5px] leading-[17px] font-semibold text-nav-fg">
-            {session.agency.name}
-          </span>
-          <span className="shrink-0 text-[11px] leading-[normal] text-nav-fg-subtle">
-            {current ? "Current" : "All accounts"}
-          </span>
-        </button>
-      </div>
-      <div className="mx-[7px] my-[6px] h-px bg-nav-divider" />
+      {bulk && selectedAccounts.length > 0 ? (
+        <BulkModal
+          accounts={selectedAccounts}
+          initialPath={bulk.path}
+          onClose={() => setBulk(null)}
+          /*
+            A finished run ends the errand, panel and all — the same contract
+            the directory keeps. The ticks existed to answer "which accounts"
+            for one action, and that action has happened.
+          */
+          onCompleted={() => {
+            setSelected([]);
+            onClose();
+          }}
+          onOpenHistory={() => {
+            setBulk(null);
+            setHistoryOpen(true);
+          }}
+        />
+      ) : null}
+
+      {historyOpen ? <BulkHistoryModal onClose={() => setHistoryOpen(false)} /> : null}
     </>
   );
 }
 
-/**
- * Local keycap rather than the shared `Kbd`: that one is painted with the search
- * surface's tokens, which do not resolve inside this nav-themed panel.
- */
-function Hint({ keys, label }: { keys: string; label: string }) {
-  return (
-    <span className="flex shrink-0 items-center gap-[5px]">
-      <span
-        aria-hidden="true"
-        className="flex h-[16px] shrink-0 items-center justify-center rounded-[3px] bg-nav-active px-[4px] text-[10px] font-medium whitespace-nowrap text-nav-fg-subtle"
-      >
-        {keys}
-      </span>
-      <span className="text-[11px] leading-[normal] whitespace-nowrap text-nav-fg-subtle">
-        {label}
-      </span>
-    </span>
-  );
-}

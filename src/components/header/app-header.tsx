@@ -369,6 +369,13 @@ interface AppHeaderProps {
    */
   onRecordBack?: () => void;
   /**
+   * The nav's drawer toggle, when COLLAPSE_SPOTS puts it beside the trail.
+   *
+   * A node rather than state: the shell owns `collapsed` and the handler, and
+   * this header has no other reason to know the nav can fold at all.
+   */
+  collapseToggle?: React.ReactNode;
+  /**
    * The open page's title, count and description, for the no-trail case.
    *
    * A prop and not a context read, because the shell already OWNS this state:
@@ -432,6 +439,7 @@ export function AppHeader({
   crumbs = ["Contacts", "Smart lists"],
   onHome,
   onRecordBack,
+  collapseToggle = null,
   pageHeading,
   crumbGoesSomewhere,
   onOpenApp,
@@ -744,6 +752,16 @@ export function AppHeader({
             ) : null}
           </div>
         ) : null}
+        {/*
+          The nav's drawer toggle, when it has been placed out here.
+
+          First on the row, left of everything — Back, Home and the trail all
+          point INTO the page, and this one is about the column beside it, so
+          it sits outside that run rather than inside it. It is also the only
+          placement that survives the nav collapsing, because the other two
+          live in a column that is then not on screen. See COLLAPSE_SPOTS.
+        */}
+        {collapseToggle}
         {/*
           The record's exit, at the head of the row (Sep 23, Ashwin's ask for
           three placements to argue between).

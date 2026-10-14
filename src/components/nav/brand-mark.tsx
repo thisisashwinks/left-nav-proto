@@ -14,6 +14,16 @@ interface BrandMarkProps {
    * logo its own collapse button and this then renders only the name.
    */
   withMark?: boolean;
+  /**
+   * Draw THIS identity's logo instead of the account's, keeping the account's
+   * name beside it.
+   *
+   * The agency, when the header is asked to carry it in the trigger rather
+   * than on a row of its own — see HEADER_AGENCY_MARKS. It also forces the
+   * square-mark rung: the wordmark rung draws a logo that already contains a
+   * name, and that name would be the wrong one.
+   */
+  markAccount?: Account | null;
 }
 
 /**
@@ -44,12 +54,13 @@ export function BrandMark({
   logoSrc,
   alt,
   withMark = true,
+  markAccount = null,
 }: BrandMarkProps) {
   // `logoSrc` from the nav config pins the header to one asset for a demo, so
   // it outranks the account's own pair — including the wordmark.
   const wordmark = logoSrc ? undefined : account.wordmarkSrc;
 
-  if (wordmark && withMark) {
+  if (wordmark && withMark && !markAccount) {
     return (
       <span className="flex min-w-0 items-center" title={alt}>
         {/*
@@ -70,12 +81,23 @@ export function BrandMark({
   return (
     <span className="flex min-w-0 items-center gap-[7px]" title={alt}>
       {withMark ? (
-        <AccountLogo
-          logo={account.logo}
-          src={logoSrc ?? account.logoSrc}
-          size={20}
-          radius={999}
-        />
+        markAccount ? (
+          // The agency's own mark, and never the config's demo override —
+          // that asset stands in for the ACCOUNT's logo.
+          <AccountLogo
+            logo={markAccount.logo}
+            src={markAccount.logoSrc}
+            size={20}
+            radius={999}
+          />
+        ) : (
+          <AccountLogo
+            logo={account.logo}
+            src={logoSrc ?? account.logoSrc}
+            size={20}
+            radius={999}
+          />
+        )
       ) : null}
       <span className="truncate text-[14px] leading-[20px] font-semibold text-nav-fg">
         {account.name}

@@ -102,7 +102,16 @@ export const TUNING_DEFAULTS: TuningState = {
   navIconHoverSize: 16,
   navRowFontSize: 14,
   navRowGap: 8,
-  navRowTrailGap: 8,
+  /*
+   * 6, not the 8 live tuning landed on (Ashwin, Oct 14).
+   *
+   * The run is three 20px glyph boxes packed against a row's edge, and the
+   * boxes already carry their own breathing room — so the gap is measuring
+   * the space BETWEEN two pieces of padding. At 8 the eye, kebab and chevron
+   * read as three separate controls that happen to be near each other; at 6
+   * they read as one cluster, which is what they are.
+   */
+  navRowTrailGap: 6,
   navRowPaddingY: 8,
   navRowPaddingX: 8,
   navRowRadius: 7,
@@ -147,7 +156,7 @@ export const TUNING_KNOBS: TuningKnob[] = [
   { id: "navIconHoverSize", cssVar: "--t-nav-icon-hover", label: "Icon size on hover", group: "Nav rows", min: 12, max: 28, step: 1, unit: "px", hint: "Equal to the resting size, so rows no longer grow under the pointer" },
   { id: "navRowFontSize", cssVar: "--t-nav-font", label: "Label size", group: "Nav rows", min: 11, max: 18, step: 0.5, unit: "px", hint: "Design: 14 · expanded only" },
   { id: "navRowGap", cssVar: "--t-nav-gap", label: "Row gap (all items)", group: "Nav rows", min: 0, max: 20, step: 1, unit: "px", hint: "8 from live tuning · design ships 10" },
-  { id: "navRowTrailGap", cssVar: "--t-nav-trail-gap", label: "Trailing controls gap", group: "Nav rows", min: 0, max: 20, step: 1, unit: "px", hint: "8 from live tuning · eye, kebab, chevron — nav rows, L2 and L3" },
+  { id: "navRowTrailGap", cssVar: "--t-nav-trail-gap", label: "Trailing controls gap", group: "Nav rows", min: 0, max: 20, step: 1, unit: "px", hint: "Design: 6 · eye, kebab, chevron — nav rows, L2 and L3" },
   { id: "navRowPaddingY", cssVar: "--t-nav-py", label: "Row padding Y", group: "Nav rows", min: 4, max: 16, step: 1, unit: "px", hint: "8 — every nav row is 36px: 8 + a 20px content box + 8" },
   { id: "navRowPaddingX", cssVar: "--t-nav-px", label: "Row padding X", group: "Nav rows", min: 4, max: 16, step: 1, unit: "px", hint: "Design: 8 · expanded only" },
   { id: "navRowRadius", cssVar: "--t-nav-radius", label: "Row radius", group: "Nav rows", min: 0, max: 16, step: 1, unit: "px", hint: "Design: 7" },

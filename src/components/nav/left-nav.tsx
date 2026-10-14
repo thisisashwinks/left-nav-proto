@@ -263,6 +263,18 @@ interface LeftNavProps {
   scope: WorkspaceScope;
   /** Identity in the header — the current account, or the agency at agency scope. */
   account: Account;
+  /**
+   * The agency to name above the account trigger, or null.
+   * Passed straight through to NavHeader — see its `agencyPlate`.
+   */
+  agencyPlate?: Account | null;
+  /**
+   * The agency in the trigger's own logo slot, rather than a row above.
+   * Only one of this and `agencyPlate` is ever set. See HEADER_AGENCY_MARKS.
+   */
+  agencyMark?: Account | null;
+  /** Where the plate goes. */
+  onSwitchToAgency?: () => void;
   /** Recently visited accounts, for the agency scope's Recent block. */
   recentAccounts: Account[];
   onSwitchAccount: (id: string) => void;
@@ -270,15 +282,6 @@ interface LeftNavProps {
   onToggleSwitcher: () => void;
   /** False for a plain sub-account user — the trigger renders inert. */
   canSwitch?: boolean;
-  /**
-   * Whether an account rail is standing to the left of this nav.
-   *
-   * Passed rather than re-derived: the shell owns `railActive`, which folds
-   * the scope model, the role, the member's account count and the legacy nav
-   * together. Working it out a second time in here is exactly how the header
-   * and the rail end up disagreeing about whether the rail is there.
-   */
-  railAbove?: boolean;
   /** Owned by the shell, so the window can escape the nav's clipped box. */
   aiSession: AiSession;
   /**
@@ -344,12 +347,14 @@ export function LeftNav({
   onDismissIntro,
   scope,
   account,
+  agencyPlate = null,
+  agencyMark = null,
+  onSwitchToAgency,
   recentAccounts,
   onSwitchAccount,
   switcherOpen,
   onToggleSwitcher,
   canSwitch = true,
-  railAbove = false,
   aiSession,
   density,
   onOpenLauncher,
@@ -374,6 +379,7 @@ export function LeftNav({
     agencySearch,
     agencyNavMark,
     subAccountNavMark,
+    collapseSpot,
     editTreatment,
     navOnPlane,
     navRowRing,
@@ -478,6 +484,21 @@ export function LeftNav({
    */
   const mergedHidesCapsule = merged && mergedPinScope !== "both";
   const agencyScope = scope === "agency";
+  /*
+   * Where this nav actually puts the drawer toggle, as opposed to where the
+   * axis asks for it.
+   *
+   * `agency` is only honoured when the agency plate is on screen to hold it.
+   * Without that fallback, choosing it with the plate off would remove the
+   * only way to collapse the nav — the control would simply not be rendered
+   * anywhere, and nothing on screen would explain why. An axis may move a
+   * control; it may not delete one.
+   *
+   * `breadcrumb` is handled in the app header rather than here, so this only
+   * has to stop drawing it. See COLLAPSE_SPOTS.
+   */
+  const collapseHere =
+    collapseSpot === "agency" && agencyPlate === null ? "header" : collapseSpot;
   /*
    * Recently visited clients, in the shape the merged list takes.
    *
@@ -4112,21 +4133,54 @@ export function LeftNav({
     >
       <NavHeader
         account={account}
-        agency={agencyScope}
         /*
-          Whoever has a rail beside them can drop the mark, and nobody else.
+          The toggle, when the agency row is carrying it. See COLLAPSE_SPOTS.
+        */
+        collapseSlot={
+          collapseHere === "agency" ? (
+            <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
+          ) : null
+        }
+        agency={agencyScope}
+        agencyPlate={agencyPlate}
+        agencyMark={agencyMark}
+        {...(onSwitchToAgency ? { onSwitchToAgency } : {})}
+        /*
+          The toggle decides, in every arrangement. One scope, one answer.
 
-          It used to read `!agencyScope || agencyNavMark` — the agency was the
-          only scope with a rail, so the two questions were the same question.
-          A member of several accounts has one now (see `memberRail`), and
-          their header was drawing the same logo the rail's tile already shows,
-          60px apart. `railAbove` is the real condition; the scope was only
-          ever standing in for it. Sep 30.
+          This read `!railAbove || subAccountNavMark`, which made the control
+          inert wherever there was no rail: with the header dropdown up the
+          first clause was always true, so the switch sat visibly OFF while
+          the logo it names was visibly ON. A control that contradicts the
+          screen is worse than one that is merely hidden — you cannot tell
+          whether it is broken or whether you have misread what it governs,
+          and Ashwin read it, correctly, as broken.
+
+          The `railAbove` clause was doing a real job before the dropdown
+          existed: a member's rail already shows that logo 60px away, so the
+          header repeating it was pure duplication and the default is off to
+          remove it. That reasoning survives — it is the DEFAULT's argument,
+          not a reason to overrule the person. Where nothing else states the
+          identity, turning this off now leaves the name alone, which is a
+          legitimate thing to want to look at and was previously unreachable.
+          Ashwin, Oct 14.
+        */
+        /*
+          An agency sitting IN the slot forces the slot open.
+
+          `subAccountNavMark` answers "does the sub-account's own logo show
+          here". With the agency placed beside the name there is no
+          sub-account logo in that position to answer about — the question has
+          been taken over — so letting a switch about the account's mark
+          suppress the agency's would hide the thing the placement was chosen
+          to show. See HEADER_AGENCY_MARKS.
         */
         mark={
-          agencyScope
-            ? agencyNavMark
-            : !railAbove || subAccountNavMark
+          agencyMark
+            ? true
+            : agencyScope
+              ? agencyNavMark
+              : subAccountNavMark
         }
         // The config's demo logo pins the header to one asset; at agency scope
         // the identity is the agency's own mark, never that override.
@@ -4158,7 +4212,9 @@ export function LeftNav({
               correction: it belongs where a drill-in puts its Back row, at
               the top of the column it opens. See ScopeMenuRow.
             */}
-            <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
+            {collapseHere === "header" ? (
+              <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
+            ) : null}
           </>
         }
         // The mark collapses in place — a target that never moves, unlike the

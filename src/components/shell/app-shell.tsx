@@ -61,6 +61,7 @@ import {
   recentsBudgetFor,
   useNavDensity,
 } from "@/components/nav/use-nav-density";
+import { CollapseToggle } from "@/components/nav/collapse-toggle";
 import { LeftNav } from "@/components/nav/left-nav";
 import {
   agencyBuckets,
@@ -624,6 +625,9 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
     pageShell,
     subAccountSwitcher,
     userMultiAccount,
+    headerAgencyMark,
+    collapseSpot,
+    navLeftInset,
     agencySearch,
     editTreatment,
     getAppPlacement,
@@ -1373,7 +1377,24 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
   /*
    * The agency's rail: the working set, capped by the agency itself.
    */
-  const agencyRail = scopeModel === "rail" && !plainUser && !legacyNav;
+  /*
+   * The switcher treatment is read in EVERY role, not just the member's.
+   *
+   * It used to be `plainUser`-only, which made the control dead from the view
+   * the prototype opens on: an agency admin picked "Header dropdown", nothing
+   * moved, and the only way to get the same arrangement was `scopeModel`'s
+   * "Header only" — a different control, under a different heading, saying the
+   * same thing. Two axes for one question, and the one named after the
+   * question did nothing.
+   *
+   * So the question is asked once. "Vertical rail" vs "Header dropdown" now
+   * means what it says wherever it is set, and `scopeModel` keeps its own job:
+   * which comparison model is on screen, not where the switcher lives. Ashwin,
+   * Oct 14.
+   */
+  const switcherIsRail = subAccountSwitcher === "rail";
+  const agencyRail =
+    scopeModel === "rail" && switcherIsRail && !plainUser && !legacyNav;
   /*
    * A member's rail, when that is the treatment they are given.
    *
@@ -1382,8 +1403,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    * they belong to. Suppressed under the legacy nav for the same reason the
    * agency's is: that nav carries its own switcher inside the column.
    */
-  const memberRail =
-    memberOfMany && subAccountSwitcher === "rail" && !legacyNav && plainUser;
+  const memberRail = memberOfMany && switcherIsRail && !legacyNav && plainUser;
   /*
    * And it can stand down when the nav collapses — see COLLAPSED_RAILS.
    *
@@ -1395,6 +1415,18 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    */
   const railActive =
     (agencyRail || memberRail) && !(collapsed && collapsedRail === "hide");
+  /*
+   * Whether there is an agency worth naming in the nav header at all.
+   *
+   * `railActive` is the real condition — the rail's first tile IS the agency,
+   * so drawing it again in the header would state one identity twice, the
+   * repetition `agencyNavMark` exists to remove one level down. At agency
+   * scope the header already IS the agency, and a plain sub-account user has
+   * nothing above them to reach. Shared by both placements so the two cannot
+   * disagree about when the agency exists. See HEADER_AGENCY_MARKS.
+   */
+  const agencyShowable =
+    !railActive && !plainUser && accounts.scope !== "agency";
   /*
    * The rail's two states, kept apart so it can LEAVE rather than vanish.
    *
@@ -1439,7 +1471,30 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    */
   // Constant: the rail expands as an overlay — the directory included, which
   // now morphs the rail itself wider — so panels never chase it.
-  const railWidth = railActive ? ACCOUNT_RAIL_WIDTH : 0;
+  /*
+   * The rail's strip, or — when there is no rail — the inset that stands in
+   * for it. See NAV_LEFT_INSET_DEFAULT.
+   *
+   * Folded into `railWidth` rather than added beside it because this number
+   * answers exactly the question railWidth already answers for the rest of
+   * the shell: how far from the window's left edge does the nav begin. Every
+   * surface that docks against the nav — flyouts, the launcher, the edit
+   * scrim, the collapsed strip — reads it, and giving the inset its own term
+   * would mean finding all of them and adding it in each place, which is how
+   * one of them gets missed and sits 4px off.
+   *
+   * Expanded only. Collapsed, the nav IS a narrow strip against the window
+   * edge — that is the shape, not an accident of the rail being gone — and
+   * insetting it opens a sliver of plane down the left that reads as the
+   * strip having come loose. The inset exists to make a wide column's edge
+   * look deliberate; a rail-width column already looks deliberate. Ashwin,
+   * Oct 14.
+   */
+  const railWidth = railActive
+    ? ACCOUNT_RAIL_WIDTH
+    : legacyNav || collapsed
+      ? 0
+      : navLeftInset;
   // The nav's right edge in viewport space: the rail, the nav's own left
   // gutter, then the nav. Flyouts dock here.
   //
@@ -3231,6 +3286,19 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
         {...(legacyNav ? { "data-legacy-nav": "" } : {})}
         // The hook the plane's top-alignment rule reaches. See PLANE_HEADS.
         data-nav-column=""
+        /*
+          The inset that stands in for the missing rail.
+
+          `railWidth` already carries this number for everything that DOCKS
+          against the nav, but the column itself is laid out by flex rather
+          than positioned — the rail is a sibling inside it, so its absence
+          simply removes 56px and nothing takes that space back. The margin
+          is what actually moves the box; railWidth is what keeps the flyouts
+          landing on its edge. See NAV_LEFT_INSET_DEFAULT.
+        */
+        {...(railActive || legacyNav || collapsed
+          ? {}
+          : { style: { marginLeft: navLeftInset } })}
         data-nav-theme={legacyNav ? legacyNavTheme : navTheme}
         className={cn(
           "relative flex min-h-0 self-stretch",
@@ -3656,13 +3724,34 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
             onDismissIntro={() => setIntroDismissed(true)}
             scope={accounts.scope}
             account={headerAccount}
+            /*
+             * Only when there is no rail already saying it, and only to
+             * someone who has an agency to go to.
+             *
+             * `railActive` is the real condition — the rail's first tile IS
+             * this plate, so drawing both would put the agency on screen
+             * twice, the same repetition `agencyNavMark` exists to remove one
+             * level down. At agency scope the header is already the agency,
+             * and a plain sub-account user has nothing above them to reach.
+             */
+            agencyPlate={
+              headerAgencyMark === "above" && agencyShowable
+                ? accounts.agency
+                : null
+            }
+            // The same agency, in the trigger's own logo slot instead. See
+            // HEADER_AGENCY_MARKS.
+            agencyMark={
+              headerAgencyMark === "beside" && agencyShowable
+                ? accounts.agency
+                : null
+            }
+            onSwitchToAgency={accounts.switchToAgency}
             recentAccounts={recentAccounts}
             onSwitchAccount={accounts.switchTo}
             switcherOpen={switcherOpen}
             onToggleSwitcher={toggleSwitcher}
             canSwitch={identityCanSwitch}
-            // The real condition behind the header's mark — see LeftNavProps.
-            railAbove={railActive}
             aiSession={aiSession}
             density={density}
             onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
@@ -3699,7 +3788,6 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
             onSearch={() => setSearchOpen(true)}
             scope={accounts.scope}
             account={headerAccount}
-            canSwitch={identityCanSwitch}
             railAbove={railActive}
             onExpand={() => {
               /*
@@ -3918,6 +4006,15 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
           ) : null}
           <div className="min-w-0 flex-1">
         <AppHeader
+          /*
+            The drawer toggle, when it has been placed out of the nav. The
+            nav draws it itself for the other two spots — see COLLAPSE_SPOTS.
+          */
+          collapseToggle={
+            collapseSpot === "breadcrumb" && !legacyNav ? (
+              <CollapseToggle collapsed={collapsed} onToggle={toggleCollapsed} />
+            ) : null
+          }
           pageHeading={pageHeading}
           crumbGoesSomewhere={crumbGoesSomewhere}
           theme={headerTheme}

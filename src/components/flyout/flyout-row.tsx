@@ -183,7 +183,7 @@ function TipIfCut({
 
 const CHEVRON_SLOT = 14;
 const PIN_SLOT = 22;
-const TRAILING_GAP = 10;
+const TRAILING_GAP = 6;
 const ROW_EDGE = 8;
 /*
  * The pin hangs here, and it has to track the trailing gap.
@@ -867,7 +867,7 @@ export function FlyoutRow({
             slider look broken exactly where the rows are densest.
             Ashwin, Oct 6.
           */
-          "ml-auto flex shrink-0 items-center gap-[var(--t-nav-trail-gap,10px)]",
+          "ml-auto flex shrink-0 items-center gap-[var(--t-nav-trail-gap,6px)]",
           // items-start variants align the cluster to the title's line, not the
           // middle of a two-line row. A row with no blurb has only the one line,
           // so the cluster sits on the row's own middle.
@@ -1717,7 +1717,7 @@ function FlyoutChildRow({
           className={cn(
             // The L3's trailing run, on the same slider as the L2's above it
             // and the nav's — see the note there.
-            "ml-auto flex shrink-0 items-center gap-[var(--t-nav-trail-gap,10px)]",
+            "ml-auto flex shrink-0 items-center gap-[var(--t-nav-trail-gap,6px)]",
             cascade && "flex-row-reverse",
           )}
         >

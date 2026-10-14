@@ -6,9 +6,26 @@ import type { AccountsSession } from "./use-accounts";
 
 export interface AccountGroup {
   id: string;
-  label: string;
+  /**
+   * Absent means no heading is drawn.
+   *
+   * The dropdown has no sections at all now — see the grouping below — so
+   * every group it returns is unlabelled. Kept as a field rather than removed
+   * because the group is still the unit the keyboard cursor flattens, and a
+   * labelled variant is one line away if a surface ever wants headings back.
+   */
+  label?: string;
   accounts: Account[];
 }
+
+/**
+ * How many recents ride along behind the pinned set.
+ *
+ * Five, which is what the rail's own recent run shows. The whole list is
+ * below them anyway — this band is a shortcut, and a shortcut long enough to
+ * scroll is just the list again with a different order.
+ */
+const RECENT_IN_SWITCHER = 5;
 
 interface UseAccountSwitcher {
   query: string;
@@ -75,33 +92,50 @@ export function useAccountSwitcher(
     if (query.trim() !== "") {
       // The current account stays searchable: hiding the one you are in reads
       // as a missing account rather than as a filter.
-      return [
-        { id: "results", label: "Results", accounts: matchAccounts(query, accounts) },
-      ];
+      return [{ id: "results", accounts: matchAccounts(query, accounts) }];
     }
 
-    const recent = recentIds
-      .map(byId)
-      .filter((a): a is Account => a !== undefined && a.id !== current.id);
-
+    /*
+     * One list, in one order: pinned, then a few recents, then the rest.
+     *
+     * It was three labelled sections, and the headings were the smaller half
+     * of the problem. The same account appeared in two of them — Harborview
+     * Hotels sat under RECENT and again under PINNED — so a forty-account
+     * panel drew forty-four rows, the pin you pressed moved in one copy and
+     * not the other, and the arrow keys walked the duplicate twice. Sections
+     * are a reasonable way to show a list you READ; this is a list you aim
+     * at, and ordering says everything the headings were saying without
+     * spending a row to say it.
+     *
+     * Pinned leads because it is the set a person curated on purpose, recents
+     * follow because that is where they have actually been, and the remainder
+     * is the catalogue. Each account appears exactly once, in the first band
+     * that claims it.
+     */
     const pinnedAccounts = pinnedIds
       .map(byId)
       .filter((a): a is Account => a !== undefined);
 
-    // "All accounts" is the remainder — anything not already shown above, so no
-    // account is listed twice with the panel at rest. The current account is
-    // only excluded from Recent: leaving it out of the other two would make it
-    // read as missing, and would put its star out of reach.
-    const shown = new Set([
-      ...recent.map((a) => a.id),
-      ...pinnedAccounts.map((a) => a.id),
-    ]);
-    const rest = accounts.filter((a) => !shown.has(a.id));
+    const claimed = new Set(pinnedAccounts.map((a) => a.id));
+
+    // The current account is left out of the recents band only — you are
+    // already in it, so offering it as somewhere to go back to is noise. It
+    // still appears below with everything else, where its tick reads as "you
+    // are here" and its pin stays reachable.
+    const recent = recentIds
+      .map(byId)
+      .filter(
+        (a): a is Account =>
+          a !== undefined && a.id !== current.id && !claimed.has(a.id),
+      )
+      .slice(0, RECENT_IN_SWITCHER);
+
+    for (const a of recent) claimed.add(a.id);
+
+    const rest = accounts.filter((a) => !claimed.has(a.id));
 
     return [
-      { id: "recent", label: "Recent", accounts: recent },
-      { id: "pinned", label: "Pinned", accounts: pinnedAccounts },
-      { id: "all", label: "All accounts", accounts: rest },
+      { id: "all", accounts: [...pinnedAccounts, ...recent, ...rest] },
     ].filter((g) => g.accounts.length > 0);
   }, [accounts, current.id, pinnedIds, query, recentIds]);
 

@@ -3,6 +3,9 @@
 import type * as React from "react";
 import type { Account } from "@/components/accounts/accounts-data";
 import { AccountLogo } from "@/components/accounts/account-logo";
+import { AGENCY_WORDMARK_SRC } from "@/design/theme";
+import { useTheme } from "@/components/theme/theme-provider";
+import { cn } from "@/lib/utils";
 import { BrandMark } from "./brand-mark";
 import { WorkspaceTrigger } from "./workspace-trigger";
 
@@ -38,6 +41,30 @@ interface NavHeaderProps {
    * the identity the rail cannot state. See AGENCY_NAV_MARK_DEFAULT.
    */
   mark?: boolean;
+  /**
+   * The agency to name above the account trigger, or null for none.
+   *
+   * Only ever set while the rail is down — see HEADER_AGENCY_PLATE_DEFAULT.
+   * The rail states agency and account together; the dropdown states only the
+   * account, so this is the row that puts the other half back, stacked above
+   * rather than beside so the two read in the rail's own order.
+   */
+  agencyPlate?: Account | null;
+  /**
+   * The agency in the trigger's logo slot instead of on a row of its own.
+   * Only one of this and `agencyPlate` is ever set. See HEADER_AGENCY_MARKS.
+   */
+  agencyMark?: Account | null;
+  /** Makes the plate a way INTO the agency, not just a label. */
+  onSwitchToAgency?: () => void;
+  /**
+   * The drawer toggle, when the agency row is the one carrying it.
+   *
+   * Passed as a node rather than a flag because the caller already owns the
+   * collapsed state and the handler, and this row has no reason to learn
+   * either. See COLLAPSE_SPOTS.
+   */
+  collapseSlot?: React.ReactNode;
 }
 
 /**
@@ -59,7 +86,22 @@ export function NavHeader({
   trailing,
   onToggleCollapsed,
   mark = true,
+  agencyPlate = null,
+  agencyMark = null,
+  onSwitchToAgency,
+  collapseSlot = null,
 }: NavHeaderProps) {
+  // Read here rather than threaded through LeftNav: these are properties of
+  // the PLATE, and nothing between the shell and this row has another reason
+  // to know which sample brand is on or how it is aligned.
+  const {
+    agencyWordmark,
+    agencyPlateAlign,
+    agencyPlateSize,
+    agencyPlateName,
+    navIdentityAlign,
+  } = useTheme().effective;
+  const agencyWordmarkSrc = AGENCY_WORDMARK_SRC[agencyWordmark];
   // A config `logoSrc` pins the header to one asset for a demo, so it outranks
   // the account's own pair — the wide logo included.
   const wordmark = logoSrc ? undefined : account.wordmarkSrc;
@@ -78,8 +120,143 @@ export function NavHeader({
         list slides out from under it.
       */
       className="flex w-full shrink-0 flex-col items-start gap-[10px] pt-[9px] pb-[9px] px-[calc(var(--t-nav-pad,10px)+2px)]">
-      <div className="flex w-full items-center gap-[6px]">
-        <div className="flex min-w-0 flex-1 items-center">
+      {/*
+        The agency, above the account — the rail's own order, kept.
+
+        A button rather than a label because an identity you cannot act on is
+        the thing that started this: a control that looks live and does
+        nothing reads as broken. It goes where the rail's agency plate went,
+        so the gesture is the same one — press the agency, land at agency
+        scope — and the row below stays the account switcher it already was.
+
+        `-mb-[4px]` against the column's 10px gap: the plate and the trigger
+        are one identity block, not two rows of the header, and at a full 10
+        they read as unrelated.
+
+        No rule under it. A divider here drew a line across the nav four
+        pixels below a 26px row, which cut the identity block in half to
+        separate two things that belong together — the agency and the account
+        you are in under it. The size and ink difference already says which is
+        which. Ashwin, Oct 14.
+      */}
+      {agencyPlate ? (
+        <div className="relative -mb-[4px] flex w-full items-center gap-[6px]">
+          <div
+            className={cn(
+              "flex min-w-0 flex-1",
+              /*
+                The artwork either joins the column everything below starts
+                on, or owns the full width as a masthead. See
+                AGENCY_PLATE_ALIGNS.
+
+                Centred means centred on the COLUMN, not on whatever is left
+                over after the collapse toggle has taken its 28px. The first
+                attempt let the toggle eat flex space, which put the logo
+                34px left of true centre whenever it was in this row —
+                measurably off, and Ashwin read it as off before anyone
+                measured it. A control parked on one edge must not move what
+                is centred between both.
+
+                So the toggle leaves the flow (absolute, below) and this
+                container reserves the SAME room on each side instead. The
+                reserve is symmetric, so the midpoint it centres on is the
+                row's own, and the logo still cannot run under the toggle.
+              */
+              agencyPlateAlign === "center"
+                ? cn("justify-center", collapseSlot ? "px-[34px]" : null)
+                : "justify-start",
+            )}
+          >
+          <button
+            type="button"
+            onClick={onSwitchToAgency}
+            aria-label={`${agencyPlate.name} — agency, all accounts`}
+            className="motion-tap -mx-[4px] flex min-w-0 max-w-[calc(100%+8px)] items-center rounded-[7px] px-[4px] py-[3px] hover:bg-nav-hover active:scale-[0.98]"
+          >
+            {/*
+              The agency's artwork, and nothing else.
+
+              No name beside it: these lockups already contain the agency's
+              name — that is what a wordmark IS — so setting it again in text
+              is the same mistake BrandMark's own wide-logo rung exists to
+              avoid, one level up. Ashwin, Oct 14.
+
+              Height-bound with the width free, exactly as the account
+              wordmark below it — the height is the slider's, see
+              AGENCY_PLATE_SIZE_DEFAULT: these assets are drawn at wildly different
+              aspect ratios and constraining the height is what keeps a tall
+              illustrative mark and a flat typographic one at the same visual
+              weight in the column.
+            */}
+            {agencyWordmarkSrc ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={agencyWordmarkSrc}
+                alt={agencyPlate.name}
+                style={{ height: agencyPlateSize }}
+                className="w-auto max-w-[200px] object-contain object-left"
+              />
+            ) : (
+              /*
+                No uploaded lockup: the agency's own mark and name, the way
+                the rail's plate states it. This is the state every agency is
+                in before it brands anything, so it is the one the row has to
+                look right in first.
+              */
+              <span
+                style={{ height: agencyPlateSize }}
+                className="flex min-w-0 items-center gap-[7px]"
+              >
+                {/*
+                  The mark follows the slider, the NAME does not. Scaling type
+                  with artwork is how a 56px lockup ends up with a 30px agency
+                  name shouting over the account below it — the row is the
+                  agency's logo at whatever size suits it, plus a label.
+                */}
+                <AccountLogo
+                  logo={agencyPlate.logo}
+                  size={Math.round(agencyPlateSize * 0.62)}
+                  radius={999}
+                />
+                {agencyPlateName ? (
+                  <span className="min-w-0 truncate text-[13px] leading-[18px] font-medium text-nav-fg-muted">
+                    {agencyPlate.name}
+                  </span>
+                ) : null}
+              </span>
+            )}
+            </button>
+          </div>
+          {collapseSlot ? (
+            <div
+              className={
+                agencyPlateAlign === "center"
+                  ? "absolute top-1/2 right-0 -translate-y-1/2"
+                  : "contents"
+              }
+            >
+              {collapseSlot}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="relative flex w-full items-center gap-[6px]">
+        <div
+          className={cn(
+            "flex min-w-0 flex-1 items-center",
+            /*
+              Centred on the column by the same reserve the plate uses — see
+              NAV_IDENTITY_ALIGNS. `trailing` is the collapse toggle when it
+              is in this row, and it leaves the flow below so it cannot drag
+              the midpoint with it.
+            */
+            navIdentityAlign === "center"
+              ? cn("justify-center", trailing ? "px-[34px]" : null)
+              : // Spread needs the full width to divide; the trigger does its
+                // own distributing inside it. See NAV_IDENTITY_ALIGNS.
+                null,
+          )}
+        >
           {canSwitch ? (
             <WorkspaceTrigger
               account={account}
@@ -89,6 +266,8 @@ export function NavHeader({
               onToggle={onToggleSwitcher}
               agency={agency}
               mark={mark}
+              markAccount={agencyMark}
+              spread={navIdentityAlign === "between"}
               {...(onToggleCollapsed ? { onToggleCollapsed } : {})}
             />
           ) : (
@@ -165,7 +344,17 @@ export function NavHeader({
           )}
         </div>
 
-        {trailing}
+        {trailing ? (
+          <div
+            className={
+              navIdentityAlign === "center"
+                ? "absolute top-1/2 right-0 -translate-y-1/2 flex items-center gap-[6px]"
+                : "contents"
+            }
+          >
+            {trailing}
+          </div>
+        ) : null}
       </div>
     </div>
   );

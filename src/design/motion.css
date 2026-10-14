@@ -100,6 +100,33 @@
   }
 }
 
+/*
+ * The directory arriving as a rail would.
+ *
+ * Travel only, no fade and no scale: this surface is not a menu appearing
+ * over the nav, it is a column sliding in from the window's edge, and the
+ * whole reason the placement exists is to read as the rail's own movement.
+ * An opacity ramp on top would make it look like it materialised and then
+ * moved. See DIRECTORY_PLACEMENTS.
+ */
+@keyframes directory-rail-in {
+  from {
+    transform: translate3d(-100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes directory-rail-out {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-100%, 0, 0);
+  }
+}
+
 @keyframes slot-swap-in {
   from {
     opacity: 0;
@@ -902,5 +929,20 @@
   .nav-face-in {
     transition-duration: 1ms;
     transition-delay: 0ms;
+  }
+}
+
+.motion-directory-rail-in {
+  animation: directory-rail-in var(--dur-slow, 320ms) var(--ease-out) both;
+}
+
+.motion-directory-rail-out {
+  animation: directory-rail-out var(--dur-base, 220ms) var(--ease-in, ease-in) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-directory-rail-in,
+  .motion-directory-rail-out {
+    animation: none;
   }
 }

@@ -78,6 +78,13 @@ import {
   type TemplateSeed,
   type TemplateMessagePlacement,
   type SubAccountSwitcher,
+  type WorkspaceChevron,
+  type HeaderAgencyMark,
+  type AgencyWordmark,
+  type AgencyPlateAlign,
+  type NavIdentityAlign,
+  type CollapseSpot,
+  type AgencyEntry,
   type NewDotPlacement,
   type SearchMode,
   type SurfaceTheme,
@@ -219,6 +226,16 @@ interface ThemeContextValue extends ThemeState {
   setAgencySearch: (enabled: boolean) => void;
   setAgencyNavMark: (shown: boolean) => void;
   setSubAccountNavMark: (v: boolean) => void;
+  setHeaderAgencyMark: (v: HeaderAgencyMark) => void;
+  setAgencyWordmark: (v: AgencyWordmark) => void;
+  setAgencyPlateAlign: (v: AgencyPlateAlign) => void;
+  setNavIdentityAlign: (v: NavIdentityAlign) => void;
+  setAgencyPlateSize: (n: number) => void;
+  setAgencyPlateName: (v: boolean) => void;
+  setNavLeftInset: (n: number) => void;
+  setCollapseSpot: (v: CollapseSpot) => void;
+  setAgencyEntry: (v: AgencyEntry) => void;
+  setWorkspaceChevron: (v: WorkspaceChevron) => void;
   setNavOnPlane: (on: boolean) => void;
   setNavRowRing: (on: boolean) => void;
   setNavRowShadow: (on: boolean) => void;
@@ -573,6 +590,26 @@ export function ThemeProvider({
         setState((s) => ({ ...s, agencyNavMark })),
       setSubAccountNavMark: (subAccountNavMark) =>
         setState((s) => ({ ...s, subAccountNavMark })),
+      setHeaderAgencyMark: (headerAgencyMark) =>
+        setState((s) => ({ ...s, headerAgencyMark })),
+      setAgencyWordmark: (agencyWordmark) =>
+        setState((s) => ({ ...s, agencyWordmark })),
+      setAgencyPlateAlign: (agencyPlateAlign) =>
+        setState((s) => ({ ...s, agencyPlateAlign })),
+      setNavIdentityAlign: (navIdentityAlign) =>
+        setState((s) => ({ ...s, navIdentityAlign })),
+      setAgencyPlateSize: (agencyPlateSize) =>
+        setState((s) => ({ ...s, agencyPlateSize })),
+      setAgencyPlateName: (agencyPlateName) =>
+        setState((s) => ({ ...s, agencyPlateName })),
+      setNavLeftInset: (navLeftInset) =>
+        setState((s) => ({ ...s, navLeftInset })),
+      setCollapseSpot: (collapseSpot) =>
+        setState((s) => ({ ...s, collapseSpot })),
+      setAgencyEntry: (agencyEntry) =>
+        setState((s) => ({ ...s, agencyEntry })),
+      setWorkspaceChevron: (workspaceChevron) =>
+        setState((s) => ({ ...s, workspaceChevron })),
       setNavOnPlane: (navOnPlane) => setState((s) => ({ ...s, navOnPlane })),
       setNavRowRing: (navRowRing) => setState((s) => ({ ...s, navRowRing })),
       setNavRowShadow: (navRowShadow) =>

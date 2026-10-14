@@ -994,6 +994,316 @@ export const AGENCY_NAV_MARK_DEFAULT = false;
 export const SUB_ACCOUNT_NAV_MARK_DEFAULT = false;
 
 /**
+ * The agency's own plate above the account dropdown, in the dropdown model.
+ *
+ * Only has anything to say while the rail is down. The rail states two things
+ * at once — which agency you are under, and which account you are in — and the
+ * header dropdown only states the second. So turning the rail off does not
+ * just move the switcher, it drops the agency from the screen entirely, and a
+ * white-labelled nav that never names the agency is a different proposition
+ * from one that names it in a 56px column.
+ *
+ * This is the row that puts it back: the agency mark and name, above the
+ * account trigger rather than beside it, so the two identities stay in the
+ * order the rail had them — agency over account — instead of competing for
+ * the same line.
+ *
+ * Off by default. The dropdown model's whole argument is that one nav column
+ * is enough, and an agency plate is the first thing that argument has to
+ * survive without; a reviewer who wants it back can say so.
+ */
+export const HEADER_AGENCY_PLATE_DEFAULT = false;
+
+/**
+ * WHERE the agency shows up once the rail is down, if at all.
+ *
+ * Three answers to one question, and they are different bets rather than
+ * styling variants:
+ *
+ *   `off`     the nav names the account and nothing else. The dropdown
+ *             model's own argument — one column is enough — and the first
+ *             thing that argument has to survive without.
+ *   `above`   a row of its own over the account trigger: agency mark AND
+ *             name, divided from it. The rail's order kept, and the only
+ *             option that actually states who the agency IS.
+ *   `beside`  the mark alone, in the trigger's own logo slot. Cheapest in
+ *             height — it costs no row at all — but it is a logo with no
+ *             name beside it, so it reads as branding rather than as a
+ *             place you can go. It also takes the slot the sub-account's
+ *             own logo would use, which is the trade: one mark in that
+ *             position, and this says which.
+ *
+ * Off by default; see HEADER_AGENCY_PLATE_DEFAULT for that argument.
+ */
+export const HEADER_AGENCY_MARKS = ["off", "above", "beside"] as const;
+
+export type HeaderAgencyMark = (typeof HEADER_AGENCY_MARKS)[number];
+
+export const HEADER_AGENCY_MARK_LABELS: Record<HeaderAgencyMark, string> = {
+  off: "Off",
+  above: "Above the name",
+  beside: "Beside the name",
+};
+
+/**
+ * Which agency brand the plate wears, under `above`.
+ *
+ * Four sample agencies rather than one, because the plate's whole job is to
+ * carry a tenant's artwork and a single specimen cannot show what that does
+ * to the row. These differ in the ways that actually bite: a dark lockup
+ * against a light nav, a tall illustrative mark against a flat typographic
+ * one, a wide name against a short one. If the row survives all four it will
+ * survive an upload.
+ *
+ * The assets live in /public as `agency-wordmark-*.svg` and are stand-ins —
+ * swap the files, keep the names, and nothing here needs to change.
+ */
+export const AGENCY_WORDMARKS = [
+  "default",
+  "myna",
+  "scale",
+  "yourlogo",
+  "reimer",
+] as const;
+
+export type AgencyWordmark = (typeof AGENCY_WORDMARKS)[number];
+
+export const AGENCY_WORDMARK_LABELS: Record<AgencyWordmark, string> = {
+  default: "Default",
+  myna: "Myna Marketing",
+  scale: "Scale Systems",
+  yourlogo: "Your Logo",
+  reimer: "Michael Reimer",
+};
+
+/**
+ * `default` has no file: it draws the agency's OWN mark and name, the way the
+ * rail's plate does, rather than an uploaded lockup. It is the first option
+ * and the default one because it is the state every agency is in before it
+ * uploads anything — the other four are what happens AFTER a tenant brands
+ * the nav, and a prototype that opens on someone else's logo is showing the
+ * exception as the rule.
+ */
+export const AGENCY_WORDMARK_SRC: Record<AgencyWordmark, string | null> = {
+  default: null,
+  myna: "/agency-wordmark-myna.svg",
+  scale: "/agency-wordmark-scale.svg",
+  yourlogo: "/agency-wordmark-yourlogo.svg",
+  reimer: "/agency-wordmark-reimer.svg",
+};
+
+/**
+ * Where the agency's artwork sits across the nav's width.
+ *
+ * `left` lines it up with everything below it — the account trigger, the
+ * rows, the section labels all start on one edge, and a logo that joins that
+ * column reads as part of the nav.
+ *
+ * `center` treats the plate as a masthead instead: the artwork owns the full
+ * width and the list begins under it. That is how most white-labelled
+ * products place a tenant's logo, and with a wide lockup it is the only
+ * placement that does not leave a ragged gap on the right. The cost is that
+ * nothing else in the column is centred, so it reads as a band rather than a
+ * row — which is either the point or the objection, depending on the brand.
+ *
+ * `left` by default: it is the one that agrees with the rest of the nav.
+ */
+/**
+ * How tall the agency's artwork is drawn in the plate.
+ *
+ * 32 rather than the 22 this started at. 22 was borrowed from the account
+ * wordmark one row below, which is the wrong reference: that row has a name
+ * in text beside it doing half the work, where the plate is artwork alone and
+ * has to carry the agency on its own. At 22 an uploaded lockup read as a
+ * caption over the nav rather than as the brand on it.
+ *
+ * A range rather than a fixed value because the right answer is a property of
+ * the ARTWORK, not of the layout — a flat typographic lockup reads fine small
+ * and an illustrative one needs the height — and these assets are uploads, so
+ * the prototype cannot know in advance which it has.
+ *
+ * Height-bound with the width free throughout, so this is the one dimension
+ * worth exposing.
+ */
+/**
+ * Whether the DEFAULT agency brand sets its name beside the mark.
+ *
+ * Only meaningful for `default`: the four uploaded lockups already contain
+ * the agency's name as artwork, so a text label beside one would set it
+ * twice — the mistake BrandMark's wide-logo rung exists to avoid. The
+ * default brand is a bare disc, which says nothing on its own, so there the
+ * question is real.
+ *
+ * On by default. A 32px disc at the top of a nav column, with no word
+ * attached, is an ornament — the reader has to already know whose mark it is
+ * for it to mean anything, and the whole job of this row is to tell them.
+ * Off is for the case where the mark IS the brand and everyone knows it.
+ */
+/**
+ * The nav's own left inset, once no rail is holding it off the window edge.
+ *
+ * With the account rail up, the nav never touches the window: the 56px strip
+ * is its left margin, and nothing had to say so. Take the rail away and the
+ * nav column sits flush against the screen edge, which reads as the browser
+ * clipping it rather than as a deliberate edge — the card has a radius and a
+ * shadow on three sides and nothing on the fourth.
+ *
+ * 4 is enough to show the edge is intentional without opening a gap that
+ * looks like a missing rail. A range, because that judgement depends on the
+ * plane colour behind it, which is itself an axis.
+ *
+ * Only applied in the dropdown model; with a rail up it would push the nav
+ * off its own strip.
+ */
+export const NAV_LEFT_INSET_DEFAULT = 4;
+export const NAV_LEFT_INSET_MIN = 0;
+export const NAV_LEFT_INSET_MAX = 24;
+
+export const AGENCY_PLATE_NAME_DEFAULT = true;
+
+export const AGENCY_PLATE_SIZE_DEFAULT = 32;
+export const AGENCY_PLATE_SIZE_MIN = 16;
+export const AGENCY_PLATE_SIZE_MAX = 56;
+
+/**
+ * Where the sub-account trigger sits across the column.
+ *
+ * The same question the agency plate answers, asked of the row below it —
+ * and worth asking separately, because the two rows are not the same kind of
+ * thing. The plate is artwork and centres like a masthead; this row is a
+ * CONTROL, with a name and a chevron that say "press me", and a control
+ * floating in the middle of a column is harder to aim at than one on the
+ * edge every other row starts on.
+ *
+ * `left` by default for that reason. Centre is for the arrangement where the
+ * agency plate above it is centred too and a left-aligned trigger under a
+ * centred logo looks like a mistake.
+ *
+ * `between` keeps the identity where it has always been — mark and name
+ * together on the left, lined up with every row below — and sends only the
+ * chevrons to the far edge.
+ *
+ * That split is doing something the other two cannot: it makes the row claim
+ * the column's full width without moving the thing people actually read. The
+ * name still starts where the list starts, so nothing about scanning the nav
+ * changes, and the chevrons sitting at the right edge say "this whole row is
+ * the control" rather than "this chip is".
+ *
+ * It began as an even three-way spread, which pushed the name into the middle
+ * of the column and left the mark stranded at the left edge looking like a
+ * separate control. The identity reads as one thing; only the affordance
+ * moves. Ashwin, Oct 14.
+ */
+export const NAV_IDENTITY_ALIGNS = ["left", "center", "between"] as const;
+
+export type NavIdentityAlign = (typeof NAV_IDENTITY_ALIGNS)[number];
+
+export const NAV_IDENTITY_ALIGN_LABELS: Record<NavIdentityAlign, string> = {
+  left: "Left",
+  center: "Centred",
+  between: "Chevrons right",
+};
+
+export const AGENCY_PLATE_ALIGNS = ["left", "center"] as const;
+
+export type AgencyPlateAlign = (typeof AGENCY_PLATE_ALIGNS)[number];
+
+export const AGENCY_PLATE_ALIGN_LABELS: Record<AgencyPlateAlign, string> = {
+  left: "Left",
+  center: "Centred",
+};
+
+/**
+ * Where the drawer toggle sits, once the nav header is the switcher.
+ *
+ * With the rail up this was never a question: the toggle rode the identity
+ * row's right edge and the row had nothing else in it. The dropdown model
+ * fills that row — an account name, a chevron, and now Select — so the
+ * toggle's place stops being obvious and becomes a thing to argue about.
+ *
+ *   `header`     the sub-account row's right edge, as it shipped. The control
+ *                is inside the thing it collapses, which is the honest place
+ *                for it, at the cost of crowding the busiest row in the nav.
+ *   `agency`     the agency plate's right edge instead, which is otherwise
+ *                dead space — a row with one piece of artwork in it and the
+ *                whole width spare. Only available when that plate is drawn;
+ *                see the fallback below, because a toggle that vanishes with
+ *                a logo would be a trap.
+ *   `breadcrumb` out of the nav entirely, to the left of the trail in the app
+ *                header. This is where most shells put it, and it is the only
+ *                option that survives the nav being collapsed without moving
+ *                — the other two live in a column that is not there. The
+ *                argument against is that it puts nav chrome in the page's
+ *                header, next to controls about the page.
+ */
+export const COLLAPSE_SPOTS = ["header", "agency", "breadcrumb"] as const;
+
+export type CollapseSpot = (typeof COLLAPSE_SPOTS)[number];
+
+/**
+ * How the way INTO the agency appears in the account dropdown.
+ *
+ * Both are list items — the same row every sub-account below them uses — and
+ * that is the point of the pair. The question is only how much the row says.
+ *
+ *   `plate` the agency's mark and name, with the action spelled out on the
+ *           right: "Switch to agency", or "Switch to sub-account" when you
+ *           are already up there. It names the place you are going AND what
+ *           going there is, which is the most a row can do in one line.
+ *   `row`   neither mark nor name — just the action, sitting in the list like
+ *           any other entry. The argument for it is that an agency logo at
+ *           the top of a list of accounts reads as the first ACCOUNT, and a
+ *           reader scanning for a name has to learn that one row is a
+ *           different kind of thing. Stripping it to the verb removes the
+ *           ambiguity by removing the resemblance.
+ *
+ * Neither appears while rows are being ticked: a bulk run acts on
+ * sub-accounts, and a scope jump sitting inside a selection is an offer to
+ * leave in the middle of choosing. See the panel.
+ */
+export const AGENCY_ENTRIES = ["plate", "row"] as const;
+
+export type AgencyEntry = (typeof AGENCY_ENTRIES)[number];
+
+export const AGENCY_ENTRY_LABELS: Record<AgencyEntry, string> = {
+  plate: "Logo and name",
+  row: "Action only",
+};
+
+export const COLLAPSE_SPOT_LABELS: Record<CollapseSpot, string> = {
+  header: "Sub-account row",
+  agency: "Agency row",
+  breadcrumb: "Beside the breadcrumb",
+};
+
+/**
+ * Whether the workspace trigger's chevrons stand, or wait for the pointer.
+ *
+ * `hover` is how this shipped: the glyph faded in on hover so the resting
+ * header was the account's name and nothing else. That reads well when the
+ * rail is up and switching accounts is the rail's job — the header is a label
+ * and the chevrons are a detail you find.
+ *
+ * It stops reading well the moment the header IS the switcher. With the rail
+ * down, this row is the only way between accounts, and a control that looks
+ * like a title until you happen to point at it is a control most people never
+ * learn is there. Discoverability beats restraint on the one affordance a
+ * model depends on.
+ *
+ * `always` by default, therefore — the arrangement the axis exists to serve
+ * is the one that needs it, and the hover treatment stays a click away for
+ * anyone comparing the two.
+ */
+export const WORKSPACE_CHEVRONS = ["always", "hover"] as const;
+
+export type WorkspaceChevron = (typeof WORKSPACE_CHEVRONS)[number];
+
+export const WORKSPACE_CHEVRON_LABELS: Record<WorkspaceChevron, string> = {
+  always: "Always visible",
+  hover: "On hover only",
+};
+
+/**
  * Whether the sidebar gives up its own card and sits on the page's plane.
  *
  * Off, the nav is a floating card: its own ground, a hairline ring, the
@@ -4420,6 +4730,28 @@ export interface ThemeState {
    * See SUB_ACCOUNT_NAV_MARK_DEFAULT.
    */
   subAccountNavMark: boolean;
+  /**
+   * Where the agency shows once the rail is down. See HEADER_AGENCY_MARKS.
+   */
+  headerAgencyMark: HeaderAgencyMark;
+  /** Which sample agency brand the plate wears. See AGENCY_WORDMARKS. */
+  agencyWordmark: AgencyWordmark;
+  /** Where that artwork sits across the column. See AGENCY_PLATE_ALIGNS. */
+  agencyPlateAlign: AgencyPlateAlign;
+  /** Where the sub-account trigger sits. See NAV_IDENTITY_ALIGNS. */
+  navIdentityAlign: NavIdentityAlign;
+  /** Height of the agency artwork, in px. See AGENCY_PLATE_SIZE_DEFAULT. */
+  agencyPlateSize: number;
+  /** Whether the default brand sets its name. See AGENCY_PLATE_NAME_DEFAULT. */
+  agencyPlateName: boolean;
+  /** The nav's left inset when no rail is up. See NAV_LEFT_INSET_DEFAULT. */
+  navLeftInset: number;
+  /** Where the drawer toggle sits. See COLLAPSE_SPOTS. */
+  collapseSpot: CollapseSpot;
+  /** How the agency entry reads in the account dropdown. See AGENCY_ENTRIES. */
+  agencyEntry: AgencyEntry;
+  /** Whether the workspace trigger's chevrons stand. See WORKSPACE_CHEVRONS. */
+  workspaceChevron: WorkspaceChevron;
   /** Whether the nav drops its card and sits on the plane. See NAV_ON_PLANE_DEFAULT. */
   navOnPlane: boolean;
   /** Hairlines on the hovered and selected rows, on the plane. See NAV_ROW_RING_DEFAULT. */
@@ -5342,6 +5674,16 @@ export const DEFAULT_THEME: ThemeState = {
   agencySearch: AGENCY_SEARCH_DEFAULT,
   agencyNavMark: AGENCY_NAV_MARK_DEFAULT,
   subAccountNavMark: SUB_ACCOUNT_NAV_MARK_DEFAULT,
+  headerAgencyMark: HEADER_AGENCY_PLATE_DEFAULT ? "above" : "off",
+  agencyWordmark: "default",
+  agencyPlateAlign: "left",
+  navIdentityAlign: "left",
+  agencyPlateSize: AGENCY_PLATE_SIZE_DEFAULT,
+  agencyPlateName: AGENCY_PLATE_NAME_DEFAULT,
+  navLeftInset: NAV_LEFT_INSET_DEFAULT,
+  collapseSpot: "header",
+  agencyEntry: "plate",
+  workspaceChevron: "always",
   navOnPlane: NAV_ON_PLANE_DEFAULT,
   navRowRing: NAV_ROW_RING_DEFAULT,
   navRowShadow: NAV_ROW_SHADOW_DEFAULT,

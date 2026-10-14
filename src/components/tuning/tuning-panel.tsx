@@ -238,6 +238,31 @@ import {
   RECENTS_MODES,
   SCOPE_MODEL_LABELS,
   SCOPE_MODELS,
+  NAV_IDENTITY_ALIGN_LABELS,
+  NAV_IDENTITY_ALIGNS,
+  type NavIdentityAlign,
+  AGENCY_ENTRY_LABELS,
+  AGENCY_ENTRIES,
+  type AgencyEntry,
+  AGENCY_PLATE_SIZE_MAX,
+  AGENCY_PLATE_SIZE_MIN,
+  NAV_LEFT_INSET_MAX,
+  NAV_LEFT_INSET_MIN,
+  COLLAPSE_SPOT_LABELS,
+  COLLAPSE_SPOTS,
+  type CollapseSpot,
+  AGENCY_PLATE_ALIGN_LABELS,
+  AGENCY_PLATE_ALIGNS,
+  type AgencyPlateAlign,
+  AGENCY_WORDMARK_LABELS,
+  AGENCY_WORDMARKS,
+  type AgencyWordmark,
+  HEADER_AGENCY_MARK_LABELS,
+  HEADER_AGENCY_MARKS,
+  type HeaderAgencyMark,
+  WORKSPACE_CHEVRON_LABELS,
+  WORKSPACE_CHEVRONS,
+  type WorkspaceChevron,
   NAV_GENERATIONS,
   NAV_COLOUR_CONTROLS,
   SUB_ACCOUNT_SWITCHERS,
@@ -671,6 +696,26 @@ function NavStructureSection({
     setUserMultiAccount,
     subAccountSwitcher,
     setSubAccountSwitcher,
+    headerAgencyMark,
+    setHeaderAgencyMark,
+    agencyWordmark,
+    setAgencyWordmark,
+    agencyPlateAlign,
+    setAgencyPlateAlign,
+    collapseSpot,
+    setCollapseSpot,
+    agencyEntry,
+    setAgencyEntry,
+    navIdentityAlign,
+    setNavIdentityAlign,
+    agencyPlateSize,
+    setAgencyPlateSize,
+    agencyPlateName,
+    setAgencyPlateName,
+    navLeftInset,
+    setNavLeftInset,
+    workspaceChevron,
+    setWorkspaceChevron,
     subAccountNavMark,
     setSubAccountNavMark,
   } = useTheme();
@@ -1592,6 +1637,164 @@ function NavStructureSection({
           : "One account only — both switcher treatments disappear, because a list of one is not a choice."}
       </Note>
       <Segmented
+        label="Switcher chevrons"
+        keywords="chevron chevrons arrows up down workspace trigger header dropdown hover visible affordance"
+        options={WORKSPACE_CHEVRONS}
+        value={workspaceChevron}
+        onChange={(v: WorkspaceChevron) => setWorkspaceChevron(v)}
+        format={(v) => WORKSPACE_CHEVRON_LABELS[v]}
+      />
+      <Note>
+        {workspaceChevron === "always"
+          ? "The chevrons stand in the identity row. With the rail down this row is the only way between accounts, and an affordance that waits for the pointer is one most people never find."
+          : "They fade in on hover. The resting header is the account's name and nothing else — which reads well when the rail is up and this row is a label rather than the switcher."}
+      </Note>
+
+      <Segmented
+        label="Agency logo in the nav header"
+        keywords="agency logo plate brand header dropdown switcher white label identity above beside"
+        options={HEADER_AGENCY_MARKS}
+        value={headerAgencyMark}
+        onChange={(v: HeaderAgencyMark) => setHeaderAgencyMark(v)}
+        format={(v) => HEADER_AGENCY_MARK_LABELS[v]}
+      />
+      <Note>
+        {headerAgencyMark === "above"
+          ? "The agency's mark and name on a row of their own above the account, divided from it — the rail's order, kept. Press it to go to agency scope."
+          : headerAgencyMark === "beside"
+            ? "The agency's mark alone, in the slot the sub-account's own logo would use. Costs no row, but it is a logo with no name, so it reads as branding rather than as somewhere to go."
+            : "No agency in the header. The nav names the account you are in and nothing else, which is the dropdown model's own argument."}
+      </Note>
+      {headerAgencyMark !== "off" ? (
+        <Note>
+          Only while the rail is down — its first tile already says this — and
+          never at agency scope, where the header is the agency.
+        </Note>
+      ) : null}
+
+      {/*
+        Sits under the placement control because it only has anything to say
+        while the plate is drawn — it is that plate's own artwork.
+      */}
+      {headerAgencyMark === "above" ? (
+        <>
+          <Segmented
+            label="Agency brand"
+            keywords="agency brand wordmark logo artwork white label tenant sample myna scale your logo reimer"
+            options={AGENCY_WORDMARKS}
+            value={agencyWordmark}
+            onChange={(v: AgencyWordmark) => setAgencyWordmark(v)}
+            format={(v) => AGENCY_WORDMARK_LABELS[v]}
+          />
+          <Note>
+            Four sample lockups, logo only — a wordmark already contains the
+            agency&rsquo;s name, so no text is set beside it. They differ in the
+            ways that bite: dark against a light nav, illustrative against
+            typographic, wide against short.
+          </Note>
+
+          {agencyWordmark === "default" ? (
+            <>
+              <Toggle
+                label="Agency name beside the logo"
+                keywords="agency name label logo only mark default brand plate"
+                checked={agencyPlateName}
+                onChange={setAgencyPlateName}
+              />
+              <Note>
+                {agencyPlateName
+                  ? "Mark and name. A bare disc says nothing on its own \u2014 the reader has to already know whose mark it is."
+                  : "The mark alone. For the case where the mark IS the brand and everyone knows it."}
+              </Note>
+            </>
+          ) : null}
+
+          <Stepper
+            label="Agency logo height"
+            value={agencyPlateSize}
+            min={AGENCY_PLATE_SIZE_MIN}
+            max={AGENCY_PLATE_SIZE_MAX}
+            onChange={setAgencyPlateSize}
+            hint="Height-bound, width free. The right answer is a property of the artwork, not the layout."
+          />
+
+          <Segmented
+            label="Agency logo alignment"
+            keywords="agency logo align centre center left masthead column plate"
+            options={AGENCY_PLATE_ALIGNS}
+            value={agencyPlateAlign}
+            onChange={(v: AgencyPlateAlign) => setAgencyPlateAlign(v)}
+            format={(v) => AGENCY_PLATE_ALIGN_LABELS[v]}
+          />
+          <Note>
+            {agencyPlateAlign === "center"
+              ? "A masthead: the artwork owns the full width and the list begins under it. How most white-labelled products place a tenant's logo, and the only placement a wide lockup does not leave a ragged gap beside."
+              : "Lined up with everything below it — the account trigger, the rows, the labels all start on one edge, so the logo reads as part of the nav rather than a band above it."}
+          </Note>
+        </>
+      ) : null}
+
+      <Segmented
+        label="Collapse icon sits"
+        keywords="collapse expand drawer toggle icon placement header agency breadcrumb panel left"
+        options={COLLAPSE_SPOTS}
+        value={collapseSpot}
+        onChange={(v: CollapseSpot) => setCollapseSpot(v)}
+        format={(v) => COLLAPSE_SPOT_LABELS[v]}
+      />
+      <Note>
+        {collapseSpot === "header"
+          ? "The sub-account row's right edge, as it shipped. The control is inside the thing it collapses, at the cost of crowding the busiest row in the nav."
+          : collapseSpot === "agency"
+            ? "The agency plate's right edge — otherwise dead space. Falls back to the sub-account row when no agency logo is drawn, since an axis may move a control but not delete it."
+            : "Out of the nav entirely, left of the trail. Where most shells put it, and the only spot that does not move when the nav folds — but it puts nav chrome in the page's header."}
+      </Note>
+
+      <Segmented
+        label="Sub-account row alignment"
+        keywords="sub account identity row trigger align centre center left logo chevron dropdown"
+        options={NAV_IDENTITY_ALIGNS}
+        value={navIdentityAlign}
+        onChange={(v: NavIdentityAlign) => setNavIdentityAlign(v)}
+        format={(v) => NAV_IDENTITY_ALIGN_LABELS[v]}
+      />
+      <Note>
+        {navIdentityAlign === "center"
+          ? "The logo, name and chevrons centre on the column as one group \u2014 for the arrangement where the agency logo above is centred too, and a left-aligned trigger under it looks like a mistake."
+          : navIdentityAlign === "between"
+            ? "Mark and name stay on the left, lined up with the rows below; only the chevrons go to the far edge. The row claims the full width without moving the thing people actually read."
+            : "Lined up with the rows below it. This row is a control, and one on the edge every other row starts on is easier to aim at than one floating mid-column."}
+      </Note>
+
+      <Segmented
+        label="Switch to agency reads as"
+        keywords="agency entry row plate switch to agency sub-account dropdown list item logo name"
+        options={AGENCY_ENTRIES}
+        value={agencyEntry}
+        onChange={(v: AgencyEntry) => setAgencyEntry(v)}
+        format={(v) => AGENCY_ENTRY_LABELS[v]}
+      />
+      <Note>
+        {agencyEntry === "plate"
+          ? "The agency's mark and name, with the move spelled out on the right — \u201cSwitch to agency\u201d, or \u201cSwitch to sub-account\u201d when you are already up there."
+          : "Just the action, with no mark or name. An agency logo at the top of a list of accounts reads as the first account; stripping it to the verb removes the resemblance."}
+      </Note>
+      <Note>
+        Either way it is an ordinary list item, and either way it disappears
+        while rows are being ticked \u2014 a scope jump inside a selection is an
+        offer to leave in the middle of choosing.
+      </Note>
+
+      <Stepper
+        label="Nav left inset"
+        value={navLeftInset}
+        min={NAV_LEFT_INSET_MIN}
+        max={NAV_LEFT_INSET_MAX}
+        onChange={setNavLeftInset}
+        hint="With no rail, the nav sits flush to the window. This is the gap that says that edge is deliberate."
+      />
+
+      <Segmented
         label="Member switcher"
         options={SUB_ACCOUNT_SWITCHERS}
         value={subAccountSwitcher}
@@ -1600,8 +1803,8 @@ function NavStructureSection({
       />
       <Note>
         {subAccountSwitcher === "rail"
-          ? "The same rail the agency uses, minus the agency plate — there is no scope above the accounts to switch into. The door stays, opening on My accounts: the 14 they belong to, not the agency's 17."
-          : "The nav's identity row becomes the switcher, listing all 14 accounts they belong to — not just the ones they pinned. No agency row."}
+          ? "The vertical strip of account tiles, in every role. For a member it drops the agency plate — there is no scope above them to switch into — and the door opens on My accounts: the 14 they belong to, not the agency's 17."
+          : "No rail. The nav's identity row becomes the switcher, with the agency as its first row, and the whole left strip goes away."}
       </Note>
       <Toggle
         label="Sub-account logo in the nav header"
