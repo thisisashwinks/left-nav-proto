@@ -20,6 +20,9 @@ import {
   RAIL_HALF_SQUARE,
   RAIL_SHADE_CLASS,
   AGENCY_PLATE_CLASS,
+  AGENCY_PLATE_PAD,
+  AGENCY_MARK_SIZE,
+  AGENCY_WORDMARK_SRC,
   type RailExpandedShape,
   type SurfaceTheme,
 } from "@/design/theme";
@@ -37,6 +40,7 @@ import type { BulkPath } from "@/components/bulk/bulk-config";
 import type { Account } from "./accounts-data";
 import { RailTooltip } from "@/components/nav/rail-tooltip";
 import { RailDirectory } from "./rail-switcher";
+import { SelectStripRow } from "./select-strip";
 import { useFlipRows } from "@/lib/use-flip-rows";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
 import type { AccountsSession } from "./use-accounts";
@@ -254,16 +258,37 @@ function RailGroupHeading({
   expanded: boolean;
 }) {
   return (
-    <div className="flex h-[20px] shrink-0 items-center overflow-hidden px-[10px]">
+    <div
+      className={cn(
+        "flex h-[20px] shrink-0 items-center overflow-hidden",
+        /*
+          The rule runs wider than the label does.
+
+          A heading is inset to line up with the text beside it; a rule has no
+          text to line up with, and at the label's inset it was a 20px dash
+          under a 32px tile — read as a speck rather than as a separator. The
+          collapsed form drops the inset entirely and spans the tile column,
+          so the rule is exactly as wide as the marks it divides. Ashwin,
+          Oct 14.
+        */
+        expanded ? "px-[10px]" : "px-0",
+      )}
+    >
       {expanded ? (
         <span className="truncate text-[10.5px] leading-[14px] font-semibold tracking-[0.06em] text-nav-fg-subtle uppercase">
           {label}
         </span>
       ) : (
-        <span
-          aria-hidden="true"
-          className="h-px w-full rounded-full bg-[var(--nav-rail-border)]"
-        />
+        /*
+          `--nav-divider`, the same ink the L1 nav's own rules use.
+
+          `--nav-rail-border` is the hairline drawn around the whole rail,
+          tuned to read against the page beyond it — inside the strip, on the
+          rail's own fill, it was a line you had to go looking for, which is
+          the opposite of a mark whose job is to stand in for a heading.
+          Ashwin, Oct 14.
+        */
+        <span aria-hidden="true" className="h-px w-full rounded-full bg-nav-divider" />
       )}
     </div>
   );
@@ -537,6 +562,21 @@ export function AccountRail({
     fillVisibleIds.every((id) => fillSelected.includes(id));
   const fillSomeOn =
     !fillAllOn && fillVisibleIds.some((id) => fillSelected.includes(id));
+  /*
+   * Select-all, and what the button that starts the mode is called.
+   *
+   * Lifted out of the header's own box so the strip under the search field
+   * can press the same thing — see SELECT_SPOTS and SELECT_LABELS. The box
+   * reaches what is ON SCREEN, which under a query is the matches alone.
+   */
+  const toggleFillAll = () =>
+    setFillSelected((v) =>
+      fillAllOn
+        ? v.filter((id) => !fillVisibleIds.includes(id))
+        : [...new Set([...v, ...fillVisibleIds])],
+    );
+  const fillSelectWord =
+    effective.selectLabel === "edit" ? "Edit account" : "Select";
   /**
    * The directory runs to the window's top and bottom edges.
    *
@@ -569,6 +609,27 @@ export function AccountRail({
           .filter((a): a is Account => a !== undefined)
           .slice(0, RAIL_RECENT_LIMIT)
       : [];
+
+  /*
+   * The agency as the brand axis has it — see AGENCY_WORDMARKS.
+   *
+   * That control already carries the agency's logos and already dresses the
+   * nav header with them; the rail was the one surface still drawing the
+   * seeded glyph, so picking "Myna Marketing" rebranded the header and left
+   * the strip beside it on Acme. One axis, every surface that names the
+   * agency. Ashwin, Oct 14.
+   *
+   * `default` is the state before an agency has uploaded anything, so it
+   * keeps the seeded mark rather than falling back to nothing.
+   */
+  const agencyWordmarkSrc = AGENCY_WORDMARK_SRC[effective.agencyWordmark];
+  const brandedAgency = React.useMemo(
+    () =>
+      agencyWordmarkSrc
+        ? { ...session.agency, logoSrc: agencyWordmarkSrc }
+        : session.agency,
+    [session.agency, agencyWordmarkSrc],
+  );
 
   const pillTiles = effective.railTileShape === "pill";
   /* The open rail's corners — see RAIL_EXPANDED_SHAPES and `railCorner`. */
@@ -1118,8 +1179,8 @@ export function AccountRail({
                       logo={session.agency.logo}
                       size={24}
                       radius={logoRadius(24)}
-                      {...(session.agency.logoSrc
-                        ? { src: session.agency.logoSrc }
+                      {...(brandedAgency.logoSrc
+                        ? { src: brandedAgency.logoSrc }
                         : {})}
                     />
                     {/*
@@ -1165,7 +1226,10 @@ export function AccountRail({
                   // The fill is an axis — see AGENCY_PLATES. Everything else
                   // about the plate (its size, its clock, its squaring) is
                   // geometry the rail depends on, so only the paint moves.
-                  "shrink-0 p-[4px] transition-[margin,width,border-radius] ease-[var(--ease-out)]",
+                  "shrink-0 transition-[margin,width,border-radius] ease-[var(--ease-out)]",
+                  // Padding follows the option too, so a bigger mark does not
+                  // make a taller slot. See AGENCY_PLATE_PAD.
+                  AGENCY_PLATE_PAD[agencyPlate],
                   AGENCY_PLATE_CLASS[agencyPlate],
                   expanded ? "w-[calc(100%-20px)]" : "w-[40px]",
                   /*
@@ -1235,7 +1299,7 @@ export function AccountRail({
                   selected={session.scope === "agency"}
                   onClick={session.switchToAgency}
                   onHover={() => setHover(true)}
-                  account={session.agency}
+                  account={brandedAgency}
                   /*
                     Under the pill axis the agency's mark is a disc like every
                     tenant's below it: the plate it sits on is what says "this is
@@ -1243,8 +1307,10 @@ export function AccountRail({
                     the rest of the column does not use — was the redundancy the
                     pill treatment removes. Squircle keeps the rounded square.
                   */
-                  // Fixed, not sized by scope — see `markSize`.
-                  markSize={20}
+                  // Fixed, not sized by scope — see `markSize`. The figure
+                  // follows the plate option, so dropping the plate can spend
+                  // its footprint on the mark. See AGENCY_MARK_SIZE.
+                  markSize={AGENCY_MARK_SIZE[agencyPlate]}
                   // The agency's mark fills its disc. See `coverMark`.
                   coverMark
                 />
@@ -1320,7 +1386,7 @@ export function AccountRail({
                     this reaches the matches, which is the set a reader can see
                     and therefore the only set they can mean.
                   */}
-                  {fillPicking ? (
+                  {fillPicking && effective.selectSpot === "header" ? (
                     <button
                       type="button"
                       role="checkbox"
@@ -1330,13 +1396,7 @@ export function AccountRail({
                       aria-label={
                         fillAllOn ? "Clear the selection" : "Select all shown"
                       }
-                      onClick={() =>
-                        setFillSelected((v) =>
-                          fillAllOn
-                            ? v.filter((id) => !fillVisibleIds.includes(id))
-                            : [...new Set([...v, ...fillVisibleIds])],
-                        )
-                      }
+                      onClick={toggleFillAll}
                       className={cn(
                         "motion-tap flex size-[16px] shrink-0 items-center justify-center rounded-[4px]",
                         fillAllOn || fillSomeOn
@@ -1368,7 +1428,14 @@ export function AccountRail({
                     {/* The count replaces the title while rows are ticked, as
                         it does in the panel: with a selection running, how
                         many is the more useful of the two. */}
-                    {fillSelected.length === 0
+                    {/*
+                      The count belongs to whichever row is carrying the
+                      selection. With the controls on the strip below, that
+                      strip states it — and a title that states it too puts
+                      the same number on screen twice, four rows apart. See
+                      SELECT_SPOTS.
+                    */}
+                    {fillSelected.length === 0 || effective.selectSpot === "below"
                       ? `${directoryLabel} (${session.accounts.length})`
                       : `${fillSelected.length} selected`}
                   </span>
@@ -1383,7 +1450,8 @@ export function AccountRail({
                     </button>
                   ) : null}
                   {fillBulkAllowed &&
-                  effective.directorySelect === "button" ? (
+                  effective.directorySelect === "button" &&
+                  effective.selectSpot === "header" ? (
                     <button
                       type="button"
                       onClick={() =>
@@ -1391,7 +1459,7 @@ export function AccountRail({
                       }
                       className="motion-tap flex h-[24px] shrink-0 items-center rounded-[7px] px-[8px] text-[11.5px] leading-none font-medium text-nav-fg shadow-[inset_0_0_0_1px_var(--fly-border)] hover:bg-nav-hover"
                     >
-                      {fillSelectMode ? "Cancel" : "Select"}
+                      {fillSelectMode ? "Cancel" : fillSelectWord}
                     </button>
                   ) : null}
                   {/* Gone while picking, for the reason it is gone in the
@@ -1440,6 +1508,35 @@ export function AccountRail({
                     className="min-w-0 flex-1 bg-transparent text-[12.5px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none"
                   />
                 </label>
+                {/*
+                  The same strip both other account panels use — see
+                  SelectStripRow. This directory is a third drawing of one
+                  list; the selection controls at least are one component.
+                */}
+                {fillBulkAllowed &&
+                effective.directorySelect === "button" &&
+                effective.selectSpot === "below" ? (
+                  <SelectStripRow
+                    strip={effective.selectStrip}
+                    picking={fillPicking}
+                    allOn={fillAllOn}
+                    mixed={fillSomeOn && !fillAllOn}
+                    onToggleAll={toggleFillAll}
+                    toggleAllLabel={
+                      fillAllOn
+                        ? "Clear the selection"
+                        : `Select all ${session.accounts.length} accounts`
+                    }
+                    selectedCount={fillSelected.length}
+                    totalCount={session.accounts.length}
+                    selectMode={fillSelectMode}
+                    onToggleSelect={() =>
+                      fillSelectMode ? exitFillSelect() : setFillSelectMode(true)
+                    }
+                    selectWord={fillSelectWord}
+                    className="pl-[2px]"
+                  />
+                ) : null}
               </div>
             ) : null}
 
@@ -2022,11 +2119,23 @@ function RailRow({
    * below — box, outset, the magnify ceiling — keeps working off `pad` and
    * does not need a second case.
    */
+  /*
+   * Never negative, and no floor once the mark is already big enough.
+   *
+   * The padding exists to grow a SMALL mark out to a 32px tap target, so a
+   * mark at or above 32 needs none of it — and the floor was adding 4px each
+   * side to one that had already cleared the bar, which made the agency's
+   * slot 8px taller than every other row the moment its mark went to 36.
+   * `Math.max(0, …)` is the same rule stated for the case that did not exist
+   * when it was written. Ashwin, Oct 14.
+   */
   const pad = listShape
-    ? (RAIL_LIST_ROW_H - size) / 2
-    : contain
-      ? Math.max(RAIL_TILE_MIN_PAD, (RAIL_TILE_BOX - size) / 2)
-      : (RAIL_TILE_BOX - size) / 2;
+    ? Math.max(0, (RAIL_LIST_ROW_H - size) / 2)
+    : size >= RAIL_TILE_BOX
+      ? Math.max(0, (RAIL_TILE_BOX - size) / 2)
+      : contain
+        ? Math.max(RAIL_TILE_MIN_PAD, (RAIL_TILE_BOX - size) / 2)
+        : (RAIL_TILE_BOX - size) / 2;
 
   /*
    * What the row measures once it is padded, and how far outside its column it

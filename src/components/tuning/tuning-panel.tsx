@@ -484,9 +484,6 @@ import { useNavProfiles } from "@/components/nav/nav-profiles";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { cn } from "@/lib/utils";
 import { useTuning } from "./tuning-provider";
-import { useBrand } from "@/components/accounts/brand-store";
-import { agency as AGENCY } from "@/components/accounts/accounts-data";
-import { LogoUploadField } from "@/components/settings/logo-upload-field";
 import { useCanvasTintedPage } from "@/components/shell/page-canvas";
 import {
   EMPTY_SCREEN_LABELS,
@@ -985,18 +982,6 @@ function NavStructureSection({
               : "A hairline between the two runs, which separates them without naming them. The order is the only evidence of what the two runs ARE, and the order is invisible to anyone who has not watched it change."}
           </Note>
 
-          {/*
-            The agency's own mark, editable from here.
-
-            It already lives in White Label → Logo, which is where an agency
-            would really change it — but reaching the rail from there is four
-            clicks and a scroll, and the thing being judged is what the RAIL
-            does with the upload. Same store, so a logo set here shows on the
-            settings page and vice versa; this is a shortcut to it, not a
-            second copy of it. Ashwin, Oct 14.
-          */}
-          <AgencyMarkField />
-
           <Segmented
             label="Agency mark plate"
             keywords="agency logo plate disc grey gray background rail mark avatar remove none"
@@ -1007,8 +992,10 @@ function NavStructureSection({
           />
           <Note>
             {agencyPlate === "bare"
-              ? "No plate. The agency’s mark sits on the rail like every tile under it, and the divider below does the separating on its own — one line instead of a line and a disc."
-              : "A neutral disc under the agency, as drawn. It says the row above the divider is a different kind of thing, at the cost of a grey circle drawn around a grey circle."}
+              ? "No plate, mark unchanged. The agency sits on the rail like every tile under it and the divider does the separating — honest, and a 20px glyph in a 40px gap, smaller than the account below it."
+              : agencyPlate === "full"
+                ? "No plate, and the mark takes its footprint: 32px, the plate’s own inner box. The agency is the largest thing in the strip without a second shape saying so, and the column’s rhythm is untouched because the slot never changed size."
+                : "A neutral disc under the agency, as drawn. It says the row above the divider is a different kind of thing, at the cost of a grey circle drawn around a grey circle."}
           </Note>
 
           <Segmented
@@ -1765,10 +1752,16 @@ function NavStructureSection({
       ) : null}
 
       {/*
-        Sits under the placement control because it only has anything to say
-        while the plate is drawn — it is that plate's own artwork.
+        Shown whenever the agency's mark is drawn ANYWHERE.
+
+        It used to sit behind `headerAgencyMark === "above"`, on the reading
+        that the artwork belonged to that plate — true while the header was
+        the only place an agency logo appeared. The rail draws it too, and in
+        the default arrangement the header plate is off, so the one control
+        carrying the agency's logos was unreachable on the screen that shows
+        them. Ashwin, Oct 14: make the agency brand work everywhere.
       */}
-      {headerAgencyMark === "above" ? (
+      {headerAgencyMark === "above" || scopeModel === "rail" ? (
         <>
           <Segmented
             label="Agency brand"
@@ -1883,7 +1876,7 @@ function NavStructureSection({
       <Note>
         {selectSpot === "below"
           ? "Select and the select-all box move under the search field, onto a strip of their own \u2014 next to the list they act on rather than above the search that filters it. Costs a row of height."
-          : "On the panel\u2019s title row, as the directory has it: the controls that change what the panel IS sit on the panel\u2019s own row."}
+          : "On the panel\u2019s title row: the controls that change what the panel IS sit on the panel\u2019s own row."}
       </Note>
 
       {selectSpot === "below" ? (
@@ -3034,42 +3027,6 @@ function VariantPicker<T extends string>({
       />
       {active ? <Note>{active.blurb}</Note> : null}
     </>
-  );
-}
-
-/**
- * The agency's square mark, wired to the same store the settings page uses.
- *
- * Square only: the wide wordmark has its own slot in the nav header and is
- * not what the rail draws. In the rail the upload FILLS its disc and crops —
- * see AccountLogo's `fit` — so a logo with its own padding will look smaller
- * here than the same file does on the settings page, which is the honest
- * preview of what a circular avatar does to a square asset.
- */
-function AgencyMarkField() {
-  /*
-   * `agency`, not a lookup in `accounts`.
-   *
-   * The agency is a scope rather than one more row in the sub-account list,
-   * so it is exported on its own and `accounts.find(id === "agency")` is
-   * undefined — which this returned null on, silently, and the field simply
-   * never drew. See the note on the export.
-   */
-  const brand = useBrand();
-  const uploaded = brand.uploads[AGENCY.id]?.logoSrc;
-
-  return (
-    <div className="mb-[10px]">
-      <LogoUploadField
-        label="Agency mark"
-        hint="Drawn in the rail, cropped to its disc."
-        aspect="square"
-        {...(uploaded ? { src: uploaded } : {})}
-        fallback={AGENCY.logo}
-        onPick={(src) => brand.set(AGENCY.id, "logoSrc", src)}
-        onRemove={() => brand.clear(AGENCY.id, "logoSrc")}
-      />
-    </div>
   );
 }
 

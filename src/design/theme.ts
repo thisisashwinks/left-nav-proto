@@ -4765,18 +4765,63 @@ export const RAIL_GROUP_MARK_LABELS: Record<RailGroupMark, string> = {
   headings: "Pinned / Recent headings",
 };
 
-export const AGENCY_PLATES = ["tinted", "bare"] as const;
+export const AGENCY_PLATES = ["tinted", "bare", "full"] as const;
 export type AgencyPlate = (typeof AGENCY_PLATES)[number];
 
 export const AGENCY_PLATE_LABELS: Record<AgencyPlate, string> = {
   tinted: "Grey plate",
   bare: "No plate",
+  full: "No plate, mark fills it",
 };
 
-/** The fill each option paints. Empty for `bare` — the rail shows through. */
+/** The fill each option paints. Empty where the rail shows through. */
 export const AGENCY_PLATE_CLASS: Record<AgencyPlate, string> = {
   tinted: "bg-nav-rail-disc",
   bare: "",
+  full: "",
+};
+
+/**
+ * How big the agency's mark is drawn, per plate option.
+ *
+ * `bare` drops the plate and leaves the mark at the size it was drawn for the
+ * middle of one — which is the honest version of "no plate" and also a 20px
+ * glyph floating in a 40px gap, smaller than the sub-account under it. `full`
+ * spends that gap on the mark instead, at RAIL_TILE_SIZE_ACTIVE: the agency
+ * sits level with the account you are in.
+ *
+ * It went 32, then 36, then here. 32 and 36 were both derived from the PLATE
+ * — its inner box, then its slot less a breath — and both read as far too
+ * large in place, because the thing the eye actually compares the agency to
+ * is not the slot around it but the tiles beneath it, which rest at 16. Level
+ * with the selected tile is the first figure that answers the right question.
+ * Ashwin, Oct 14.
+ *
+ * Deliberately not RAIL_TILE_SIZE_ACTIVE (28). Matching the selected tenant
+ * would make the agency the same size as whichever account you happen to be
+ * in — equal billing with one of its own clients, and a mark that changes
+ * meaning depending on where you are standing. Ashwin, Oct 14, offered both;
+ * this is the one that keeps the hierarchy.
+ */
+/**
+ * The breath left around the mark inside its 40px slot.
+ *
+ * The 4px exists to hold a 20px glyph off a visible disc. At 36px there is no
+ * disc to be held off and 4px each side does not fit — the slot grew 12px
+ * taller to take it, pushing every tile below it down, which is the one thing
+ * this axis must not do. 2px keeps the slot at exactly 40 and the column's
+ * rhythm unchanged.
+ */
+export const AGENCY_PLATE_PAD: Record<AgencyPlate, string> = {
+  tinted: "p-[4px]",
+  bare: "p-[4px]",
+  full: "p-[2px]",
+};
+
+export const AGENCY_MARK_SIZE: Record<AgencyPlate, number> = {
+  tinted: 20,
+  bare: 20,
+  full: RAIL_TILE_SIZE_ACTIVE,
 };
 
 export const RAIL_SHADES = ["default", "darker"] as const;
@@ -5949,9 +5994,9 @@ export const DEFAULT_THEME: ThemeState = {
   customCodeMode: "inherit",
   codeScopeView: "header",
   railShade: "default",
-  agencyPlate: "tinted",
-  railGroupMark: "divider",
-  railTileColour: "always",
+  agencyPlate: "full",
+  railGroupMark: "headings",
+  railTileColour: "active-only",
   whiteLabelApproach: "classic",
   canvasPad: "roomy",
   planeHead: "bar",

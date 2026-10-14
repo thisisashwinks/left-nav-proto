@@ -14,7 +14,7 @@ import { AccountLogo } from "./account-logo";
 import { DirectoryAccountRow } from "./directory-account-row";
 import { DirectoryHeader } from "./directory-header";
 import { OverlayScrollbar } from "./overlay-scrollbar";
-import { SelectBox } from "./select-box";
+import { SelectStripRow } from "./select-strip";
 import { useAccountSwitcher } from "./use-account-switcher";
 import type { AccountsSession } from "./use-accounts";
 
@@ -164,18 +164,6 @@ export function AccountSwitcher({
     : allVisibleOn
       ? "Clear the selection"
       : `Select all ${session.accounts.length} accounts`;
-  const selectStripButton = (
-    <button
-      type="button"
-      onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
-      className={cn(
-        "motion-tap flex h-[26px] shrink-0 items-center rounded-[7px] px-[9px] text-[12px] leading-none font-medium text-nav-fg",
-        "shadow-[inset_0_0_0_1px_var(--fly-border)] hover:bg-nav-hover",
-      )}
-    >
-      {selectMode ? "Cancel" : selectWord}
-    </button>
-  );
   const goToAgency = () => {
     if (session.scope !== "agency") session.switchToAgency();
     onClose();
@@ -337,7 +325,9 @@ export function AccountSwitcher({
         */}
         <DirectoryHeader
           title={
-            selected.length === 0
+            // The strip below states the count when it is carrying the
+            // controls; the title must not state it as well. See SELECT_SPOTS.
+            selected.length === 0 || selectSpot === "below"
               ? only === undefined
                 ? `All accounts (${session.accounts.length})`
                 : `My accounts (${session.accounts.length})`
@@ -430,62 +420,21 @@ export function AccountSwitcher({
           line up with what it selects reads as a different control.
         */}
         {bulkAllowed && directorySelect === "button" && selectSpot === "below" ? (
-          <div className="mt-[6px] flex shrink-0 items-center gap-[8px] pl-[9px]">
-            {/*
-              The strip's left, which is an axis — see SELECT_STRIPS.
-
-              Three states run through one row. At rest it is either a count,
-              the button itself, or nothing. In select mode it is always the
-              box plus a Select all BUTTON, and once anything is ticked that
-              button gives way to the count — the box stays, so selecting
-              everything is still one press away after you have ticked a row
-              by hand.
-            */}
-            {selectStrip === "left" ? selectStripButton : null}
-            {picking ? (
-              <>
-                <SelectBox
-                  checked={allVisibleOn}
-                  mixed={visibleSelected.length > 0 && !allVisibleOn}
-                  onClick={selectAllVisible}
-                  label={selectAllLabel}
-                />
-                {selected.length > 0 ? (
-                  <span className="truncate text-[11.5px] leading-[normal] text-nav-fg-subtle">
-                    {selected.length} selected
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={selectAllVisible}
-                    className="motion-tap shrink-0 rounded-[6px] px-[4px] py-[2px] text-[11.5px] leading-[normal] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
-                  >
-                    Select all
-                  </button>
-                )}
-              </>
-            ) : selectStrip === "count" ? (
-              <span className="truncate text-[11.5px] leading-[normal] text-nav-fg-subtle">
-                {session.accounts.length} accounts
-              </span>
-            ) : null}
-            <span className="flex-1" />
-            {selectStrip === "left" ? null : selectStripButton}
-          </div>
+          <SelectStripRow
+            strip={selectStrip}
+            picking={picking}
+            allOn={allVisibleOn}
+            mixed={visibleSelected.length > 0 && !allVisibleOn}
+            onToggleAll={selectAllVisible}
+            toggleAllLabel={selectAllLabel}
+            selectedCount={selected.length}
+            totalCount={session.accounts.length}
+            selectMode={selectMode}
+            onToggleSelect={() => (selectMode ? exitSelect() : setSelectMode(true))}
+            selectWord={selectWord}
+          />
         ) : null}
 
-        {/*
-          The selection bar, between the field and the list.
-
-          The directory puts Select and Actions in its title row; this panel
-          has no title row — its first row is the account you are in — so the
-          controls go directly above the rows they govern, which is also where
-          the count can sit without competing with the account's own name.
-
-          Only while the mode can do something: under `always` the boxes stand
-          on their own and there is nothing to summon, so the bar appears only
-          once something is ticked.
-        */}
         {/*
           `relative` so the overlay thumb has something to sit against, and
           `data-overlay-scroll` so the native bar takes no width. See

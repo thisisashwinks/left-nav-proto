@@ -10,6 +10,7 @@ import { useTheme } from "@/components/theme/theme-provider";
 import { useBulkActions } from "@/components/bulk/bulk-provider";
 import { DirectoryAccountRow } from "./directory-account-row";
 import { DirectoryHeader } from "./directory-header";
+import { SelectStripRow } from "./select-strip";
 import { matchAccounts, type Account } from "./accounts-data";
 import type { AccountsSession } from "./use-accounts";
 
@@ -92,7 +93,11 @@ export function RailDirectory({
    * mode the moment you unticked the last row.
    */
   const [selectMode, setSelectMode] = React.useState(false);
-  const { directorySelect, directoryExit } = useTheme().effective;
+  const { directorySelect, directoryExit, selectSpot, selectLabel, selectStrip } =
+    useTheme().effective;
+  // See SELECT_LABELS. The word only ever labels the START of the mode; the
+  // way out is Cancel whatever this says.
+  const selectWord = selectLabel === "edit" ? "Edit account" : "Select";
   /*
    * Whether rows are wearing checkboxes right now.
    *
@@ -242,7 +247,11 @@ export function RailDirectory({
         }
         showActions={picking && selected.length > 0}
         onActions={() => setBulk({ path: null })}
-        showSelect={bulkAllowed && directorySelect === "button"}
+        showSelect={
+          bulkAllowed && directorySelect === "button" && selectSpot === "header"
+        }
+        showSelectAll={picking && selectSpot === "header"}
+        selectLabel={selectWord}
         selectMode={selectMode}
         onToggleSelect={() => (selectMode ? exitSelect() : setSelectMode(true))}
         exit={directoryExit === "back" ? "back" : "close"}
@@ -269,6 +278,39 @@ export function RailDirectory({
             className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none"
           />
         </div>
+
+        {/*
+          The same strip the header dropdown uses — see SelectStripRow. Both
+          panels are arrangements of one list, so the selection controls are
+          one component rather than two that agree for now.
+        */}
+        {bulkAllowed && directorySelect === "button" && selectSpot === "below" ? (
+          <SelectStripRow
+            strip={selectStrip}
+            picking={picking}
+            allOn={allVisibleOn}
+            mixed={visibleSelected.length > 0 && !allVisibleOn}
+            onToggleAll={() =>
+              setSelected((s) =>
+                allVisibleOn
+                  ? s.filter((id) => !visibleIds.includes(id))
+                  : [...new Set([...s, ...visibleIds])],
+              )
+            }
+            toggleAllLabel={
+              searching
+                ? `Select all ${matches.length} matching`
+                : allVisibleOn
+                  ? "Clear the selection"
+                  : `Select all ${session.accounts.length} accounts`
+            }
+            selectedCount={selected.length}
+            totalCount={session.accounts.length}
+            selectMode={selectMode}
+            onToggleSelect={() => (selectMode ? exitSelect() : setSelectMode(true))}
+            selectWord={selectWord}
+          />
+        ) : null}
 
         {/*
           A scroll region, not a plain overflow box.
