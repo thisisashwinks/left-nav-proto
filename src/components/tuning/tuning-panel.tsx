@@ -244,6 +244,9 @@ import {
   RECENTS_MODES,
   SCOPE_MODEL_LABELS,
   SCOPE_MODELS,
+  AGENCY_PLATE_SPOT_LABELS,
+  AGENCY_PLATE_SPOTS,
+  type AgencyPlateSpot,
   DIRECTORY_NAME_LABELS,
   DIRECTORY_NAMES,
   type DirectoryName,
@@ -746,6 +749,8 @@ function NavStructureSection({
     setSelectStrip,
     directoryName,
     setDirectoryName,
+    agencyPlateSpot,
+    setAgencyPlateSpot,
     navIdentityAlign,
     setNavIdentityAlign,
     agencyPlateSize,
@@ -1854,6 +1859,20 @@ function NavStructureSection({
           : navIdentityAlign === "between"
             ? "Mark and name stay on the left, lined up with the rows below; only the chevrons go to the far edge. The row claims the full width without moving the thing people actually read."
             : "Lined up with the rows below it. This row is a control, and one on the edge every other row starts on is easier to aim at than one floating mid-column."}
+      </Note>
+
+      <Segmented
+        label="Agency sits"
+        keywords="agency plate rail top bottom logo divider separator account strip"
+        options={AGENCY_PLATE_SPOTS}
+        value={agencyPlateSpot}
+        onChange={(v: AgencyPlateSpot) => setAgencyPlateSpot(v)}
+        format={(v) => AGENCY_PLATE_SPOT_LABELS[v]}
+      />
+      <Note>
+        {agencyPlateSpot === "bottom"
+          ? "The agency parks at the far end, where a settings row goes, and the rule above the accounts goes with it \u2014 nothing sits over them to be divided from. The strip becomes entirely the accounts, with one plate under them."
+          : "The agency heads the column and a rule separates it from the accounts beneath. Reads as the hierarchy it is: the scope you are inside, with its accounts under it."}
       </Note>
 
       <Segmented

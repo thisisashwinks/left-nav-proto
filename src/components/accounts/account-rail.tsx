@@ -1235,6 +1235,17 @@ export function AccountRail({
                   // about the plate (its size, its clock, its squaring) is
                   // geometry the rail depends on, so only the paint moves.
                   "shrink-0 transition-[margin,width,border-radius] ease-[var(--ease-out)]",
+                  /*
+                    Which END of the strip it sits at — see AGENCY_PLATE_SPOTS.
+
+                    `order-last` rather than a second render site: the plate is
+                    forty lines of geometry, an animation clock and three axes
+                    of its own, and a copy of it at the other end of the column
+                    would be a copy of all of that. The list between them is
+                    `flex-1`, so ordering it last is enough to park it against
+                    the bottom edge.
+                  */
+                  effective.agencyPlateSpot === "bottom" && "order-last",
                   // Padding follows the option too, so a bigger mark does not
                   // make a taller slot. See AGENCY_PLATE_PAD.
                   AGENCY_PLATE_PAD[agencyPlate],
@@ -1882,7 +1893,16 @@ export function AccountRail({
                   wrapper is the identity the hook tracks, so it has to exist
                   on both sides of the flip.
                 */}
-                {!filled && railGroupMark === "headings" && centredAccounts.length > 0 ? (
+                {/*
+                  No rule over the accounts when nothing sits above them — see
+                  AGENCY_PLATE_SPOTS. A separator divides two things, and with
+                  the agency parked at the far end this one would be dividing
+                  the list from the top of the strip.
+                */}
+                {!filled &&
+                railGroupMark === "headings" &&
+                centredAccounts.length > 0 &&
+                effective.agencyPlateSpot !== "bottom" ? (
                   <RailGroupHeading label="Pinned" expanded={expanded} />
                 ) : null}
                 {filled ? null : centredAccounts.map((account, i) => (

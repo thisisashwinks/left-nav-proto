@@ -1401,6 +1401,34 @@ export const SELECT_STRIP_LABELS: Record<SelectStrip, string> = {
  * because the accounts a member belongs to are not sub-accounts they own,
  * and "your" would be claiming something about them that is not true.
  */
+/**
+ * Which end of the account rail the agency sits at.
+ *
+ * `top` is how this shipped, and it reads as a hierarchy: the agency heads
+ * the column, the accounts hang under it, and a rule between them says where
+ * one ends and the others begin. That is true of the data and it is what a
+ * reader expects of a strip they scan downward.
+ *
+ * `bottom` treats the agency as the way OUT rather than the thing above.
+ * It goes where an account menu or a settings row goes in most shells — the
+ * far end, out of the reading path — and the rule above the accounts goes
+ * with it, because with nothing over them the accounts no longer need to be
+ * separated from anything. What you get is a strip that is entirely the
+ * accounts, with one plate parked under them.
+ *
+ * The trade is that the agency stops being visible as the scope you are
+ * inside and becomes a destination you go to. Worth seeing, since the whole
+ * rail is an argument about that relationship.
+ */
+export const AGENCY_PLATE_SPOTS = ["top", "bottom"] as const;
+
+export type AgencyPlateSpot = (typeof AGENCY_PLATE_SPOTS)[number];
+
+export const AGENCY_PLATE_SPOT_LABELS: Record<AgencyPlateSpot, string> = {
+  top: "Top of the rail",
+  bottom: "Bottom of the rail",
+};
+
 export const DIRECTORY_NAMES = ["all", "subs"] as const;
 
 export type DirectoryName = (typeof DIRECTORY_NAMES)[number];
@@ -5046,6 +5074,8 @@ export interface ThemeState {
   selectLabel: SelectLabel;
   /** What the agency's directory is called. See DIRECTORY_NAMES. */
   directoryName: DirectoryName;
+  /** Which end of the rail the agency sits at. See AGENCY_PLATE_SPOTS. */
+  agencyPlateSpot: AgencyPlateSpot;
   /** What the below-search select strip puts on its left. See SELECT_STRIPS. */
   selectStrip: SelectStrip;
   /** Whether the workspace trigger's chevrons stand. See WORKSPACE_CHEVRONS. */
@@ -5991,6 +6021,7 @@ export const DEFAULT_THEME: ThemeState = {
   selectSpot: "header",
   selectLabel: "edit",
   directoryName: "all",
+  agencyPlateSpot: "top",
   selectStrip: "count",
   workspaceChevron: "always",
   navOnPlane: NAV_ON_PLANE_DEFAULT,

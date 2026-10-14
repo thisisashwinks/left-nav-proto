@@ -90,6 +90,7 @@ import {
   type SelectLabel,
   type SelectStrip,
   type DirectoryName,
+  type AgencyPlateSpot,
   type NewDotPlacement,
   type SearchMode,
   type SurfaceTheme,
@@ -248,6 +249,7 @@ interface ThemeContextValue extends ThemeState {
   setSelectLabel: (v: SelectLabel) => void;
   setSelectStrip: (v: SelectStrip) => void;
   setDirectoryName: (v: DirectoryName) => void;
+  setAgencyPlateSpot: (v: AgencyPlateSpot) => void;
   setWorkspaceChevron: (v: WorkspaceChevron) => void;
   setNavOnPlane: (on: boolean) => void;
   setNavRowRing: (on: boolean) => void;
@@ -631,6 +633,8 @@ export function ThemeProvider({
       setSelectStrip: (selectStrip) => setState((s) => ({ ...s, selectStrip })),
       setDirectoryName: (directoryName) =>
         setState((s) => ({ ...s, directoryName })),
+      setAgencyPlateSpot: (agencyPlateSpot) =>
+        setState((s) => ({ ...s, agencyPlateSpot })),
       setWorkspaceChevron: (workspaceChevron) =>
         setState((s) => ({ ...s, workspaceChevron })),
       setNavOnPlane: (navOnPlane) => setState((s) => ({ ...s, navOnPlane })),
