@@ -1433,7 +1433,31 @@ export const DIRECTORY_NAME_ICONS: Record<DirectoryName, "grid" | "search"> = {
   search: "search",
 };
 
-export const SELECT_LABELS = ["select", "edit", "editSub"] as const;
+/**
+ * How the filled rail's tools stack.
+ *
+ * `inline` is what the bar has always been: the field takes the row and the
+ * Manage button sits at the end of it. One row, which is the cheapest thing
+ * a 300px rail can spend — and the reason the bar has to THROW THE FIELD
+ * AWAY the moment you enter manage mode, because select-all, a count, Actions
+ * and Cancel cannot share 300px with a search box.
+ *
+ * `stacked` gives it two rows: the directory's own name and the button above,
+ * the field full-width below. It costs a row of height at rest and buys two
+ * things with it — the bar says what list this is rather than only offering
+ * to search it, and the field SURVIVES manage mode, so you can narrow forty
+ * accounts to four and then tick them, which the inline bar makes you do in
+ * the other order or not at all. Ashwin, Oct 15.
+ */
+export const RAIL_TOOLS_LAYOUTS = ["inline", "stacked"] as const;
+export type RailToolsLayout = (typeof RAIL_TOOLS_LAYOUTS)[number];
+
+export const RAIL_TOOLS_LAYOUT_LABELS: Record<RailToolsLayout, string> = {
+  inline: "Beside the search",
+  stacked: "Above the search",
+};
+
+export const SELECT_LABELS = ["manage", "select", "edit", "editSub"] as const;
 
 export type SelectLabel = (typeof SELECT_LABELS)[number];
 
@@ -1446,6 +1470,15 @@ export type SelectLabel = (typeof SELECT_LABELS)[number];
  * somebody renames only the control.
  */
 export const SELECT_LABEL_LABELS: Record<SelectLabel, string> = {
+  /*
+    The default. "Select" names the MECHANIC — it says checkboxes are about
+    to appear and says nothing about what for — and the button is the only
+    door to renaming, reordering and unpinning as well as to bulk actions.
+    "Manage" names the errand instead, which is what somebody arriving at a
+    list of forty accounts is actually looking for a word for.
+    Ashwin, Oct 15.
+  */
+  manage: "Manage",
   select: "Select",
   edit: "Edit",
   editSub: "Edit sub-account",
@@ -2950,6 +2983,59 @@ export type RailTileAlign = (typeof RAIL_TILE_ALIGNS)[number];
 export const RAIL_TILE_ALIGN_LABELS: Record<RailTileAlign, string> = {
   centre: "Centred",
   top: "Under the agency",
+};
+
+/**
+ * What a rest has to land ON for the names to open.
+ *
+ *  tiles   An account. The strip opens because you paused on a mark whose
+ *          name you wanted, which is a real reading of the gesture — and it
+ *          is the version the rail shipped with.
+ *  column  Anywhere inside the strip, its empty foot included. The honest
+ *          one: a 56px column of ten marks is mostly EMPTY below them, and
+ *          a surface that answers the pointer in its top third and ignores
+ *          it in the rest reads as broken rather than as precise. The target
+ *          is also the thing you are aiming at — the rail — rather than a
+ *          32px circle inside it, which is a tenth of the area and the
+ *          difference between a gesture that works first time and one you
+ *          learn to aim.
+ *
+ * Only meaningful while `railHover` is `expand`; under `static` nothing
+ * opens, so there is no zone to pick. Ashwin, Oct 15.
+ */
+/**
+ * Whether the agency keeps its row while a selection is running.
+ *
+ * `agencySorted` and `agencyHeadsPinned` put the agency in the run, and
+ * manage mode is for acting on sub-accounts in bulk — so the agency is the
+ * one row in the list that no bulk action can reach. It already refuses the
+ * checkbox and the click (see `pickable`), which leaves a row that is
+ * visibly inert among forty that are not: present, untickable, and silent
+ * about why.
+ *
+ * Hidden, the list while picking is exactly the set you can act on, which is
+ * the honest reading of "select accounts". The cost is that the strip
+ * reshuffles as you enter the mode — one row leaves and the rest move up —
+ * and that the route to agency scope disappears mid-errand. Both are real
+ * and neither outweighs a permanently dead row at the head of a list of
+ * checkboxes. Hidden by default, Ashwin, Oct 15.
+ */
+export const MANAGE_AGENCY_ROWS = ["hidden", "shown"] as const;
+
+export type ManageAgencyRow = (typeof MANAGE_AGENCY_ROWS)[number];
+
+export const MANAGE_AGENCY_ROW_LABELS: Record<ManageAgencyRow, string> = {
+  hidden: "Leaves the list",
+  shown: "Stays, untickable",
+};
+
+export const RAIL_HOVER_ZONES = ["column", "tiles"] as const;
+
+export type RailHoverZone = (typeof RAIL_HOVER_ZONES)[number];
+
+export const RAIL_HOVER_ZONE_LABELS: Record<RailHoverZone, string> = {
+  column: "Anywhere in the rail",
+  tiles: "The account marks only",
 };
 
 export const RAIL_HOVERS = ["expand", "static"] as const;
@@ -4932,6 +5018,14 @@ export const RAIL_TILE_COLOUR_LABELS: Record<RailTileColour, string> = {
  *  diamond  A small diamond in the same slot. A mark rather than a label:
  *           cheaper than the word and, like the ring, something you have to
  *           be told once.
+ *  square   The agency's MARK is squared while every tenant's stays round.
+ *           The only one of the four that costs nothing in the trailing
+ *           slot and nothing in the row's width — it is a property of the
+ *           tile itself, so it survives the collapsed strip, where the word
+ *           and the diamond are not drawn at all and the ring is the only
+ *           other thing left. Shape is also the one channel the ACTIVE row
+ *           does not use, which is the constraint every option here has to
+ *           clear. Ashwin, Oct 15.
  *
  * TWO REJECTED, and worth recording so they are not tried again: a heavier
  * name and a tinted row. Both collide with the ACTIVE row, which is already
@@ -4940,13 +5034,14 @@ export const RAIL_TILE_COLOUR_LABELS: Record<RailTileColour, string> = {
  * borrows the active row's own signals makes two rows look current.
  * Ashwin, Oct 15.
  */
-export const AGENCY_ROW_MARKS = ["ring", "word", "diamond"] as const;
+export const AGENCY_ROW_MARKS = ["ring", "word", "diamond", "square"] as const;
 export type AgencyRowMark = (typeof AGENCY_ROW_MARKS)[number];
 
 export const AGENCY_ROW_MARK_LABELS: Record<AgencyRowMark, string> = {
   ring: "Ring on the mark",
   word: "“Agency” text",
   diamond: "Diamond",
+  square: "Squared avatar",
 };
 
 export const RAIL_ARRANGEMENTS = [
@@ -5892,12 +5987,21 @@ export interface ThemeState {
   agencyRowRing: boolean;
   agencyRowWord: boolean;
   agencyRowDiamond: boolean;
+  agencyRowSquare: boolean;
   /** Where the account you are in sits. See RAIL_ACTIVE_SPOTS. */
   railActiveSpot: RailActiveSpot;
   /** Whether the other accounts are behind a door. See RAIL_DIRECTORY_MODES. */
   railDirectoryMode: RailDirectoryMode;
   /** Which end of the rail the tools sit at. See RAIL_TOOL_SPOTS. */
   railToolSpot: RailToolSpot;
+  /** Whether the agency keeps its row in manage mode. See MANAGE_AGENCY_ROWS. */
+  manageAgencyRow: ManageAgencyRow;
+  /** What a rest has to land on for the names to open. See RAIL_HOVER_ZONES. */
+  railHoverZone: RailHoverZone;
+  /** Whether the filled rail keeps its search glyph at 56px. */
+  railCollapsedSearch: boolean;
+  /** Whether the Manage button shares the field's row. See RAIL_TOOLS_LAYOUTS. */
+  railToolsLayout: RailToolsLayout;
   /** How the tools row separates from the list. See RAIL_TOOLS_EDGES. */
   railToolsEdge: RailToolsEdge;
   /**
@@ -6309,7 +6413,7 @@ export const DEFAULT_THEME: ThemeState = {
   agencyEntry: "card",
   workspaceGlyph: "chevrons",
   selectSpot: "header",
-  selectLabel: "select",
+  selectLabel: "manage",
   directoryName: "all",
   selectStrip: "count",
   workspaceChevron: "always",
@@ -6361,19 +6465,64 @@ export const DEFAULT_THEME: ThemeState = {
   codeScopeView: "header",
   railShade: "default",
   agencyPlate: "full",
-  railArrangement: "default",
   /*
-    Text and diamond, no ring. Ashwin, Oct 15 — the pair that reads without
-    being taught: the word says what the row is and the diamond puts a mark
-    in the pin column so the row is findable without reading. The ring stays
-    on the dial because it is the cheapest of the three, but it is the one
-    that has to be explained once before it means anything.
+    The agency is the first of the pinned run, not furniture above it.
+
+    Ashwin, Oct 15. It keeps the top slot and the single uninterrupted column
+    at once: the agency reads as the pin you cannot remove rather than as a
+    plate with its own rules, and the strip below it is one list all the way
+    down. The seam between it and the first real pin is then carried entirely
+    by the row marks — which is why the text and the diamond are on by
+    default. See AGENCY_ROW_MARKS.
+  */
+  railArrangement: "agencyHeadsPinned",
+  manageAgencyRow: "hidden",
+  railHoverZone: "column",
+  /*
+    Off: shut, the filled rail is a column of account marks and nothing
+    else. The glyph read as a twelfth account rather than as a tool — a
+    32px thing in the one column the eye has learned holds accounts — and
+    opening the rail already produces the field. Ashwin, Oct 15.
+  */
+  railCollapsedSearch: false,
+  /*
+    Two rows. The bar says which list this is, and the field survives manage
+    mode — so narrowing forty accounts to four and then ticking them is one
+    errand rather than two. Ashwin, Oct 15.
+  */
+  railToolsLayout: "stacked",
+  /*
+    Diamond and squared mark, no word. Ashwin, Oct 15.
+
+    Two marks rather than a label, and they divide the work between the
+    rail's two widths: the square is a property of the TILE, so it is the
+    one that survives the 56px strip where neither of the others is drawn,
+    and the diamond lands in the pin column once the names are out. Between
+    them the agency is placeable at either width without the strip ever
+    spending a word on it — which matters more under `agencyHeadsPinned`,
+    now the default, where the row heads a column of names and "AGENCY" set
+    in caps beside one of them was the loudest thing in the rail.
+
+    The word and the ring stay on the dial. The word is still the only one
+    of the four that needs no teaching, and is the right answer if two
+    marks turn out to be too quiet to find.
   */
   agencyRowRing: false,
-  agencyRowWord: true,
+  agencyRowWord: false,
   agencyRowDiamond: true,
+  agencyRowSquare: true,
   railActiveSpot: "inPlace",
-  railDirectoryMode: "button",
+  /*
+    The directory IS the rail, rather than a door to one.
+
+    Ashwin, Oct 15. Resting on the strip flows every remaining account in
+    underneath, so the gesture that widens the rail is also the one that
+    fills it — no panel, no second surface over the nav. The cost is real and
+    is what the tools row answers: at forty accounts the open rail is a
+    scrolling column, so the search and Manage are sticky rather than first.
+    See RAIL_DIRECTORY_MODES.
+  */
+  railDirectoryMode: "inline",
   railToolSpot: "bottom",
   railToolsEdge: "shadow",
   railPinnedLabel: true,

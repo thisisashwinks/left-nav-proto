@@ -10,7 +10,7 @@ import { useTheme } from "@/components/theme/theme-provider";
 import { useBulkActions } from "@/components/bulk/bulk-provider";
 import { DirectoryAccountRow } from "./directory-account-row";
 import { RAIL_PIN_MAX } from "./account-rail";
-import { DIRECTORY_NAME_LABELS } from "@/design/theme";
+import { DIRECTORY_NAME_LABELS, SELECT_LABEL_LABELS } from "@/design/theme";
 import { DirectoryHeader } from "./directory-header";
 import { SelectStripRow } from "./select-strip";
 import { matchAccounts, type Account } from "./accounts-data";
@@ -105,7 +105,15 @@ export function RailDirectory({
   } = useTheme().effective;
   // See SELECT_LABELS. The word only ever labels the START of the mode; the
   // way out is Cancel whatever this says.
-  const selectWord = selectLabel === "edit" ? "Edit account" : "Select";
+  //
+  // Read from the map rather than tested against one value. It used to be
+  // `selectLabel === "edit" ? "Edit account" : "Select"`, which hard-coded
+  // the fallback — so the moment a third word was added to the axis this
+  // surface silently kept saying "Select" while every other said the new
+  // one. "Edit" keeps its qualifier here, where the row it acts on is not
+  // otherwise named. Ashwin, Oct 15.
+  const selectWord =
+    selectLabel === "edit" ? "Edit account" : SELECT_LABEL_LABELS[selectLabel];
   /*
    * Whether rows are wearing checkboxes right now.
    *

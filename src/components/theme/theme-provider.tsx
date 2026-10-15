@@ -118,6 +118,9 @@ import type {
   RailActiveSpot,
   RailDirectoryMode,
   RailToolSpot,
+  RailToolsLayout,
+  RailHoverZone,
+  ManageAgencyRow,
   RailToolsEdge,
   RailTileColour,
   ActiveAgencySpot,
@@ -284,9 +287,14 @@ interface ThemeContextValue extends ThemeState {
   setRailShade: (v: RailShade) => void;
   setAgencyPlate: (v: AgencyPlate) => void;
   setRailArrangement: (v: RailArrangement) => void;
+  setManageAgencyRow: (v: ManageAgencyRow) => void;
+  setRailHoverZone: (v: RailHoverZone) => void;
+  setRailCollapsedSearch: (on: boolean) => void;
+  setRailToolsLayout: (v: RailToolsLayout) => void;
   setAgencyRowRing: (on: boolean) => void;
   setAgencyRowWord: (on: boolean) => void;
   setAgencyRowDiamond: (on: boolean) => void;
+  setAgencyRowSquare: (on: boolean) => void;
   setRailActiveSpot: (v: RailActiveSpot) => void;
   setRailDirectoryMode: (v: RailDirectoryMode) => void;
   setRailToolSpot: (v: RailToolSpot) => void;
@@ -710,12 +718,22 @@ export function ThemeProvider({
         setState((s) => ({ ...s, agencyPlate })),
       setRailArrangement: (railArrangement) =>
         setState((s) => ({ ...s, railArrangement })),
+      setManageAgencyRow: (manageAgencyRow) =>
+        setState((s) => ({ ...s, manageAgencyRow })),
+      setRailHoverZone: (railHoverZone) =>
+        setState((s) => ({ ...s, railHoverZone })),
+      setRailCollapsedSearch: (railCollapsedSearch) =>
+        setState((s) => ({ ...s, railCollapsedSearch })),
+      setRailToolsLayout: (railToolsLayout) =>
+        setState((s) => ({ ...s, railToolsLayout })),
       setAgencyRowRing: (agencyRowRing) =>
         setState((s) => ({ ...s, agencyRowRing })),
       setAgencyRowWord: (agencyRowWord) =>
         setState((s) => ({ ...s, agencyRowWord })),
       setAgencyRowDiamond: (agencyRowDiamond) =>
         setState((s) => ({ ...s, agencyRowDiamond })),
+      setAgencyRowSquare: (agencyRowSquare) =>
+        setState((s) => ({ ...s, agencyRowSquare })),
       setRailActiveSpot: (railActiveSpot) =>
         setState((s) => ({ ...s, railActiveSpot })),
       setRailDirectoryMode: (railDirectoryMode) =>

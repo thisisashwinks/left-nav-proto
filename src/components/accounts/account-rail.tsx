@@ -18,6 +18,7 @@ import {
   RAIL_TILE_SIZE_REST,
   RAIL_TILE_BOX,
   RAIL_ROW_END_PAD,
+  type RailToolsLayout,
   RAIL_HALF_SQUARE,
   RAIL_SHADE_CLASS,
   AGENCY_PLATE_CLASS,
@@ -287,6 +288,9 @@ function RailTools({
   allOn,
   onToggleAll,
   onActions,
+  collapsedSearch,
+  layout,
+  title,
 }: {
   expanded: boolean;
   spot: RailToolSpot;
@@ -315,12 +319,192 @@ function RailTools({
   onToggleAll: () => void;
   /** Opens the directory's own bulk modal. Null when bulk is not allowed. */
   onActions: (() => void) | null;
+  /**
+   * Whether the bar exists at all at 56px. See RAIL_COLLAPSED_TOOLS.
+   */
+  collapsedSearch: boolean;
+  /** One row or two. See RAIL_TOOLS_LAYOUTS. */
+  layout: RailToolsLayout;
+  /** The list's own name, for the stacked layout's header row. */
+  title: string;
 }) {
+  /*
+   * Shut, the bar can be nothing.
+   *
+   * Collapsed it is one search glyph parked under a column of account marks,
+   * and read as a twelfth account rather than as a tool — a round-ish 32px
+   * thing in the one place the eye has learned holds accounts. Opening the
+   * rail is already the gesture that produces the field, so the glyph is a
+   * second door to a room you reach by walking in. Off by default; the whole
+   * bar goes, edge included, so nothing is left marking where it was.
+   * Ashwin, Oct 15.
+   */
+  if (!expanded && !collapsedSearch) return null;
+
+  /*
+   * Only open. At 56px there is one glyph and nothing to stack it above.
+   */
+  const stacked = layout === "stacked";
+
+  /*
+   * The bar's parts, named once and composed per layout.
+   *
+   * Both layouts draw the same controls; they disagree only about how many
+   * rows those controls get. Written inline in each branch they were the
+   * same forty lines twice, which is how the two spellings of one button
+   * start to drift.
+   */
+  const selectAll = (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={allOn}
+      onClick={onToggleAll}
+      aria-label={allOn ? "Clear selection" : "Select all"}
+      /*
+        Lined up with the ticks in the rows below it.
+
+        The bar is padded to the COLUMN's edge and the rows pad their own
+        contents inside that, so a box flush to the bar's left edge sat 7px
+        outside the column of boxes it is the head of — which is exactly the
+        kink that reads as a different control rather than the same one.
+        Measured, not guessed: the row tick centres at 26 and this sat at 19.
+        Ashwin, Oct 15.
+      */
+      className={cn(
+        "motion-tap ml-[7px] flex size-[18px] shrink-0 items-center justify-center rounded-[5px]",
+        allOn
+          ? "bg-[var(--admin-action)] text-[var(--admin-action-fg)]"
+          : "shadow-[inset_0_0_0_1.5px_var(--fly-border)]",
+      )}
+    >
+      {allOn ? <Check size={12} strokeWidth={3} aria-hidden="true" /> : null}
+    </button>
+  );
+
+  const actionsBtn =
+    onActions && selectedCount > 0 ? (
+      <button
+        type="button"
+        onClick={onActions}
+        className="motion-tap h-[28px] shrink-0 rounded-[8px] bg-[var(--admin-action)] px-[9px] text-[12.5px] font-medium text-[var(--admin-action-fg)] hover:brightness-95"
+      >
+        Actions
+      </button>
+    ) : null;
+
+  const cancelBtn = (
+    <button
+      type="button"
+      onClick={onToggleSelect}
+      className="motion-tap h-[28px] shrink-0 rounded-[8px] px-[8px] text-[12.5px] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
+    >
+      Cancel
+    </button>
+  );
+
+  /*
+    The directory's own field, to the class.
+
+    It had a `bg-nav-hover` fill and no edge, which read as a chip rather
+    than an input and looked nothing like the search in the All accounts
+    panel — the same control in two spellings, which is what Ashwin objected
+    to and was right about.
+  */
+  const field = (
+    <span
+      className={cn(
+        "motion-tap flex h-[32px] items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]",
+        /*
+          `flex-1` is a MAIN-axis instruction, and the two layouts do not
+          agree on which axis that is.
+
+          Inline the bar is a row, so flex-1 means "take the width the
+          button leaves" — correct, and what it was written for. Stacked the
+          bar is a column, so the same class means "take the height the
+          header leaves": flex-basis went to 0 and grow stretched the field
+          down the bar, and `h-[32px]` lost to it. The field was a tall box
+          with a centred glyph in it.
+
+          So the stacked bar states width instead and refuses to flex at
+          all. Ashwin, Oct 15.
+        */
+        stacked ? "w-full shrink-0" : "min-w-0 flex-1",
+      )}
+    >
+      <Search
+        size={15}
+        aria-hidden="true"
+        className="shrink-0 text-nav-fg-subtle"
+      />
+      <input
+        type="search"
+        value={query}
+        onChange={(e) => onQuery(e.target.value)}
+        placeholder="Search accounts"
+        aria-label="Search accounts"
+        className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+      />
+    </span>
+  );
+
+  /*
+    One button, two jobs — enter the mode, then leave it.
+
+    Cancel rather than Done, because leaving clears the selection: the
+    directory settled that a half-built errand abandoned is an errand
+    abandoned, and the rail has no business disagreeing with the panel it
+    replaces. Inline, the count goes on the button itself, since a 300px row
+    holding a field has nowhere else to put it; stacked, the header says it
+    and this button never has to.
+  */
+  const ctaBtn = (
+    <button
+      type="button"
+      onClick={onToggleSelect}
+      /*
+        A secondary button, not a bare label.
+
+        It sat as text with a hover fill, which at the end of a bar holding a
+        bordered field read as a word rather than a control — the one thing
+        in the row you press and the only thing with no edge. Same hairline
+        the field wears, so the two read as a pair. Ashwin, Oct 15.
+      */
+      className={cn(
+        "motion-tap h-[32px] shrink-0 rounded-[9px] px-[11px] text-[12.5px] font-medium shadow-[inset_0_0_0_1px_var(--fly-border)]",
+        picking
+          ? "bg-nav-active text-nav-fg"
+          : "text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg",
+      )}
+    >
+      {picking ? (selectedCount > 0 ? `Cancel (${selectedCount})` : "Cancel") : cta}
+    </button>
+  );
+
+  const glyph = (
+    <button
+      type="button"
+      aria-label="Search accounts"
+      className="motion-tap mx-auto flex size-[32px] shrink-0 items-center justify-center rounded-[8px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
+    >
+      <Search size={16} aria-hidden="true" />
+    </button>
+  );
+
   return (
     <div
       onPointerEnter={onHover}
       className={cn(
-        "z-[2] flex shrink-0 items-center gap-[8px] bg-[var(--nav-rail-bg)] py-[8px]",
+        "z-[2] flex shrink-0 gap-[8px] bg-[var(--nav-rail-bg)] py-[8px]",
+        /*
+          Stacked, the bar is a column of two rows rather than one row of
+          controls — so it stretches its children instead of centring them,
+          and the field below gets the full width that is the whole point of
+          moving the button off it. See RAIL_TOOLS_LAYOUTS.
+        */
+        stacked && expanded
+          ? "flex-col items-stretch"
+          : "items-center",
         /*
           Full width, flush to its edge — it is the rail's bar, not a row.
 
@@ -370,14 +554,60 @@ function RailTools({
               : "shadow-[0_-6px_10px_-6px_rgba(16,24,40,0.18)]"),
       )}
     >
-      {expanded && picking ? (
+      {!expanded ? (
+        glyph
+      ) : stacked ? (
         /*
-          The bar becomes the bulk bar while picking.
+          Two rows: who this list is and what you can do to it, then the
+          field.
+
+          The header carries the same controls the inline bar carries, in the
+          same order — the difference is that they no longer have to share a
+          line with a 150px input, so the field stays put when you enter
+          manage mode instead of being thrown away. Narrowing forty accounts
+          to four and THEN ticking them is the errand the inline bar cannot
+          hold. Ashwin, Oct 15.
+        */
+        <>
+          <div className="flex items-center gap-[8px]">
+            {picking ? (
+              <>
+                {selectAll}
+                {/*
+                  "Select all" until something is ticked, then the count.
+
+                  The box beside it is the only control in the bar whose job
+                  is not written anywhere, and an empty selection is exactly
+                  when that matters; once you have ticked a row the box has
+                  explained itself and the figure is the more useful thing to
+                  say. Ashwin, Oct 15.
+                */}
+                <span className="min-w-0 flex-1 truncate text-[12.5px] leading-[16px] font-medium text-nav-fg">
+                  {selectedCount > 0 ? `${selectedCount} selected` : "Select all"}
+                </span>
+                {actionsBtn}
+                {cancelBtn}
+              </>
+            ) : (
+              <>
+                <span className="min-w-0 flex-1 truncate text-[12.5px] leading-[16px] font-medium text-nav-fg">
+                  {title}
+                </span>
+                {ctaBtn}
+              </>
+            )}
+          </div>
+          {field}
+        </>
+      ) : picking ? (
+        /*
+          Inline, the bar BECOMES the bulk bar while picking.
 
           Not a second surface below it: at 300px a bar and a list of actions
-          cannot both have room, and the search is no use mid-selection
-          anyway. So the row swaps its contents — select-all and the count on
-          one line, the way out and the way on beside it.
+          cannot both have room, and in this layout the search has nowhere to
+          go. So the row swaps its contents — select-all and the count on one
+          line, the way out and the way on beside it. The stacked layout is
+          the option that does not have to make this trade.
 
           The count says "of N" rather than a bare number because the figure
           that matters when you are about to act on many accounts is how much
@@ -385,119 +615,18 @@ function RailTools({
           Oct 15.
         */
         <>
-          <button
-            type="button"
-            role="checkbox"
-            aria-checked={allOn}
-            onClick={onToggleAll}
-            aria-label={allOn ? "Clear selection" : "Select all"}
-            /*
-              Lined up with the ticks in the rows below it.
-
-              The bar is padded to the COLUMN's edge and the rows pad their
-              own contents inside that, so a box flush to the bar's left edge
-              sat 7px outside the column of boxes it is the head of — which
-              is exactly the kink that reads as a different control rather
-              than the same one. Measured, not guessed: the row tick centres
-              at 26 and this sat at 19. Ashwin, Oct 15.
-            */
-            className={cn(
-              "motion-tap ml-[7px] flex size-[18px] shrink-0 items-center justify-center rounded-[5px]",
-              allOn
-                ? "bg-[var(--admin-action)] text-[var(--admin-action-fg)]"
-                : "shadow-[inset_0_0_0_1.5px_var(--fly-border)]",
-            )}
-          >
-            {allOn ? <Check size={12} strokeWidth={3} aria-hidden="true" /> : null}
-          </button>
+          {selectAll}
           <span className="min-w-0 flex-1 truncate text-[12.5px] leading-[16px] font-medium text-nav-fg">
             {selectedCount} of {totalCount} selected
           </span>
-          {onActions && selectedCount > 0 ? (
-            <button
-              type="button"
-              onClick={onActions}
-              className="motion-tap h-[28px] shrink-0 rounded-[8px] bg-[var(--admin-action)] px-[9px] text-[12.5px] font-medium text-[var(--admin-action-fg)] hover:brightness-95"
-            >
-              Actions
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={onToggleSelect}
-            className="motion-tap h-[28px] shrink-0 rounded-[8px] px-[8px] text-[12.5px] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
-          >
-            Cancel
-          </button>
-        </>
-      ) : expanded ? (
-        <>
-          {/*
-            The directory's own field, to the class.
-
-            It had a `bg-nav-hover` fill and no edge, which read as a chip
-            rather than an input and looked nothing like the search in the
-            All accounts panel — the same control in two spellings, which is
-            what Ashwin objected to and was right about.
-          */}
-          <span className="motion-tap flex h-[32px] min-w-0 flex-1 items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">
-            <Search
-              size={15}
-              aria-hidden="true"
-              className="shrink-0 text-nav-fg-subtle"
-            />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => onQuery(e.target.value)}
-              placeholder="Search accounts"
-              aria-label="Search accounts"
-              className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none [&::-webkit-search-cancel-button]:hidden"
-            />
-          </span>
-          {/*
-            One button, two jobs — enter the mode, then leave it.
-
-            Cancel rather than Done, because leaving clears the selection:
-            the directory settled that a half-built errand abandoned is an
-            errand abandoned, and the rail has no business disagreeing with
-            the panel it replaces. The count goes on the button itself, since
-            a 300px rail has nowhere else to put it.
-          */}
-          <button
-            type="button"
-            onClick={onToggleSelect}
-            /*
-              A secondary button, not a bare label.
-
-              It sat as text with a hover fill, which at the end of a bar
-              holding a bordered field read as a word rather than a control
-              — the one thing in the row you press and the only thing with
-              no edge. Same hairline the field wears, so the two read as a
-              pair. Ashwin, Oct 15.
-            */
-            className={cn(
-              "motion-tap h-[32px] shrink-0 rounded-[9px] px-[11px] text-[12.5px] font-medium shadow-[inset_0_0_0_1px_var(--fly-border)]",
-              picking
-                ? "bg-nav-active text-nav-fg"
-                : "text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg",
-            )}
-          >
-            {picking
-              ? selectedCount > 0
-                ? `Cancel (${selectedCount})`
-                : "Cancel"
-              : cta}
-          </button>
+          {actionsBtn}
+          {cancelBtn}
         </>
       ) : (
-        <button
-          type="button"
-          aria-label="Search accounts"
-          className="motion-tap mx-auto flex size-[32px] shrink-0 items-center justify-center rounded-[8px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
-        >
-          <Search size={16} aria-hidden="true" />
-        </button>
+        <>
+          {field}
+          {ctaBtn}
+        </>
       )}
     </div>
   );
@@ -1121,9 +1250,37 @@ export function AccountRail({
     effective.activeAgencySpot === "rise" &&
     liveScope === "agency";
 
-  const agencyInRun =
+  /*
+   * The arrangement's own answer, which does not change mid-errand.
+   *
+   * Kept separate from `agencyInRun` because two different questions were
+   * riding one name: "does this arrangement put the agency in the run"
+   * (a property of the layout, and what the PLATE reads to know it would be
+   * a duplicate) and "is the agency in the run right now" (which manage mode
+   * can turn off). Folding the second into the first would have made the
+   * plate reappear the moment a selection started.
+   */
+  const agencyJoinsRun =
     railArrangement === "agencySorted" ||
     railArrangement === "agencyHeadsPinned";
+
+  const agencyInRun =
+    agencyJoinsRun &&
+    /*
+      And not while a selection is running, unless the axis says otherwise.
+
+      The agency already refuses the tick and the click — see `pickable` —
+      which left it sitting at the head of a column of checkboxes as the one
+      row that does nothing, silent about why. Dropping it from the run for
+      the duration makes the list while picking exactly the set a bulk
+      action can reach, which is what "select accounts" ought to mean.
+
+      Here rather than in the map, because `pinnedRun` is also what the dock
+      magnifier indexes and what select-all counts: hiding the row at render
+      time would leave both reading a list with a hole in it. See
+      MANAGE_AGENCY_ROWS.
+    */
+    !(fillPicking && effective.manageAgencyRow === "hidden");
 
   const centredAccounts = raisedActive
     ? [raisedActive, ...pinnedSet.filter((a) => a.id !== raisedActive.id)]
@@ -1191,6 +1348,48 @@ export function AccountRail({
 
   /** The agency's own id, so the run can tell it from a tenant. */
   const AGENCY_ID = brandedAgency.id;
+
+  /*
+   * Where a row in the run actually goes — which is not always an account.
+   *
+   * `agencySorted` and `agencyHeadsPinned` fold the AGENCY into the pinned
+   * run, so the same map that draws forty tenants also draws the one row
+   * that is not one. Every handler called `session.switchTo(account.id)`,
+   * which takes a sub-account id; handed the agency's, it matched nothing
+   * and returned. The row still hovered, still marked itself, and went
+   * nowhere — the one arrangement whose whole argument is that the agency
+   * is just another row was the one where that row did not work.
+   *
+   * `selected` had the mirror of the same bug: it asked whether the ACCOUNT
+   * you are in is this one, and the agency is never an account, so the
+   * agency row stayed unmarked the whole time you were inside the agency.
+   * It answers to scope instead. Ashwin, Oct 15.
+   */
+  const goTo = (id: string) =>
+    id === AGENCY_ID ? session.switchToAgency() : session.switchTo(id);
+
+  const rowActive = (id: string) =>
+    id === AGENCY_ID
+      ? liveScope === "agency"
+      : liveScope === "account" && id === liveAccountId;
+
+  /*
+   * The agency does not tick.
+   *
+   * Manage mode is for acting on sub-accounts in bulk — renaming them,
+   * moving them, handing them a template. The agency is the scope those
+   * accounts live IN, not one of them, so a checkbox beside it offers an
+   * errand that has no meaning and a selection that no action could honour.
+   * It had one because the arrangements that fold the agency into the run
+   * send it through the same map as every tenant.
+   *
+   * Three things follow from it and all three are here: the row draws no
+   * tick, a click on it while picking does nothing rather than selecting it,
+   * and select-all passes over it — which also keeps the count honest, since
+   * "10 of 40" was counting a row that is not one of the 40.
+   * Ashwin, Oct 15.
+   */
+  const pickable = (id: string) => id !== AGENCY_ID;
 
   /*
    * The pinned run, with the agency folded in where the arrangement wants it.
@@ -1291,7 +1490,11 @@ export function AccountRail({
    * figure that matters when you are about to act on many of them.
    */
   const inlineVisibleIds = inlineOpen
-    ? [...inlineMatch(pinnedRun), ...centredRecents].map((a) => a.id)
+    ? [...inlineMatch(pinnedRun), ...centredRecents]
+        .map((a) => a.id)
+        // See `pickable` — the agency is in the run but is not one of the
+        // accounts a bulk action can reach.
+        .filter(pickable)
     : [];
   const inlineAllOn =
     inlineVisibleIds.length > 0 &&
@@ -1550,6 +1753,25 @@ export function AccountRail({
         // move it — an abspos child resolves against the padding BOX, whose
         // top edge sits above the padding. See PLANE_HEADS.
         data-account-rail=""
+        /*
+          The whole column answers the pointer, not just the marks in it.
+
+          A 56px strip holding ten 32px circles is mostly empty below them,
+          and the rail only opened if you landed on one — so resting in the
+          gap between two accounts, or anywhere in the foot, did nothing.
+          That reads as a surface that is broken in its lower two thirds
+          rather than as one being precise about its targets.
+
+          Listening here rather than on the rows also makes the target the
+          thing you are actually aiming at. The rows keep their own
+          `onHover` because they have a second job on it — the dock
+          magnifier reads which row you are on — and because the `tiles`
+          zone is still on the dial for comparison. Ashwin, Oct 15.
+        */
+        {...(effective.railHover === "expand" &&
+        effective.railHoverZone === "column"
+          ? { onPointerEnter: () => setHover(true) }
+          : {})}
         onPointerLeave={() => setHover(false)}
         // An overlay, not a flow column: the shell holds a fixed 56px slot and
         // this widens OVER the nav — the page never moves under the pointer.
@@ -1860,7 +2082,7 @@ export function AccountRail({
                   // Hidden entirely when the agency has joined the run — two
                   // agencies in one strip is the same scope twice, and the
                   // plate is the copy with no reason to be there.
-                  agencyInRun && "hidden",
+                  agencyJoinsRun && "hidden",
                   /*
                     And while an errand is running — the same terms the
                     directory hides its own agency entry on
@@ -2333,6 +2555,9 @@ export function AccountRail({
                 expanded={expanded}
                 spot="top"
                 edge={effective.railToolsEdge}
+                collapsedSearch={effective.railCollapsedSearch}
+                layout={effective.railToolsLayout}
+                title={directoryLabel}
                 onHover={() => setHover(true)}
                 query={fillQuery}
                 onQuery={setFillQuery}
@@ -2518,10 +2743,7 @@ export function AccountRail({
                           label={account.name}
                           name={account.name}
                           expanded={expanded}
-                          selected={
-                            liveScope === "account" &&
-                            account.id === liveAccountId
-                          }
+                          selected={rowActive(account.id)}
                           onClick={() => {
                             /*
                               While picking, the ROW ticks. Switching account
@@ -2531,6 +2753,7 @@ export function AccountRail({
                               means.
                             */
                             if (fillPicking) {
+                              if (!pickable(account.id)) return;
                               setFillSelected((v) =>
                                 v.includes(account.id)
                                   ? v.filter((x) => x !== account.id)
@@ -2538,7 +2761,7 @@ export function AccountRail({
                               );
                               return;
                             }
-                            session.switchTo(account.id);
+                            goTo(account.id);
                             // A choice is an exit, per Ashwin: you came here
                             // to go somewhere, and you have gone.
                             closeFill();
@@ -2569,7 +2792,7 @@ export function AccountRail({
                             the row at 40 or the padding at 6.
                           */
                           markSize={20}
-                          {...(fillPicking
+                          {...(fillPicking && pickable(account.id)
                             ? { tick: fillSelected.includes(account.id) }
                             : {})}
                           // Worth marking here and nowhere else in this list:
@@ -2673,9 +2896,10 @@ export function AccountRail({
                     label={account.name}
                     name={account.name}
                     expanded={expanded}
-                    selected={liveScope === "account" && account.id === liveAccountId}
+                    selected={rowActive(account.id)}
                     onClick={() => {
                       if (fillPicking && inlineOpen) {
+                        if (!pickable(account.id)) return;
                         setFillSelected((v) =>
                           v.includes(account.id)
                             ? v.filter((x) => x !== account.id)
@@ -2683,7 +2907,7 @@ export function AccountRail({
                         );
                         return;
                       }
-                      session.switchTo(account.id);
+                      goTo(account.id);
                     }}
                     onHover={() => {
                       setHover(true);
@@ -2695,7 +2919,7 @@ export function AccountRail({
                     // same rule the directory's rows follow, for the same
                     // reason: switching account out from under a half-built
                     // selection throws the selection away.
-                    {...(fillPicking && inlineOpen
+                    {...(fillPicking && inlineOpen && pickable(account.id)
                       ? { tick: fillSelected.includes(account.id) }
                       : {})}
                     // Only worth marking when there is a second run to tell it
@@ -2715,6 +2939,9 @@ export function AccountRail({
                     }
                     agencyDiamond={
                       account.id === AGENCY_ID && effective.agencyRowDiamond
+                    }
+                    squareMark={
+                      account.id === AGENCY_ID && effective.agencyRowSquare
                     }
                   />
                   </div>
@@ -2794,14 +3021,12 @@ export function AccountRail({
                     label={account.name}
                     name={account.name}
                     expanded={expanded}
-                    selected={
-                      liveScope === "account" &&
-                      account.id === liveAccountId
-                    }
+                    selected={rowActive(account.id)}
                     // Same rule as the run above: while picking, the row
                     // ticks rather than travels.
                     onClick={() => {
                       if (fillPicking && inlineOpen) {
+                        if (!pickable(account.id)) return;
                         setFillSelected((v) =>
                           v.includes(account.id)
                             ? v.filter((x) => x !== account.id)
@@ -2809,9 +3034,9 @@ export function AccountRail({
                         );
                         return;
                       }
-                      session.switchTo(account.id);
+                      goTo(account.id);
                     }}
-                    {...(fillPicking && inlineOpen
+                    {...(fillPicking && inlineOpen && pickable(account.id)
                       ? { tick: fillSelected.includes(account.id) }
                       : {})}
                     onHover={() => {
@@ -2903,6 +3128,9 @@ export function AccountRail({
             expanded={expanded}
             spot="bottom"
             edge={effective.railToolsEdge}
+            collapsedSearch={effective.railCollapsedSearch}
+            layout={effective.railToolsLayout}
+            title={directoryLabel}
             onHover={() => setHover(true)}
             query={fillQuery}
             onQuery={setFillQuery}
@@ -2973,6 +3201,7 @@ function RailRow({
   markSize,
   coverMark = false,
   ring = false,
+  squareMark = false,
   onTogglePin,
   pinBlocked = false,
   agencyWord = false,
@@ -3042,6 +3271,13 @@ function RailRow({
    * distinction left that survives at 16px and costs no layout.
    */
   ring?: boolean;
+  /**
+   * Square this row's mark while every other stays round.
+   *
+   * The agency's, and only in the arrangements that fold it into the run.
+   * See AGENCY_ROW_MARKS — `square`.
+   */
+  squareMark?: boolean;
   /**
    * Makes the pin a CONTROL rather than a legend.
    *
@@ -3552,8 +3788,14 @@ function RailRow({
                 every uploaded logo already has its own. 2px of ground between
                 them is what makes it belong to the ROW. See `ring`.
               */
+              /*
+                The ring takes the mark's own shape. Both marks can be on at
+                once, and a circular ring standing off a squared tile is two
+                shapes arguing about one row.
+              */
               ring &&
-                "rounded-full ring-[1.5px] ring-nav-rail-border ring-offset-2 ring-offset-[var(--nav-rail-bg)]",
+                "ring-[1.5px] ring-nav-rail-border ring-offset-2 ring-offset-[var(--nav-rail-bg)]",
+              ring && (squareMark ? "rounded-[6px]" : "rounded-full"),
               effective.railTileColour === "active-only" &&
                 !selected &&
                 !listShape &&
@@ -3594,7 +3836,23 @@ function RailRow({
                     tint: railAvatars === "tinted",
                   })}
               size={size}
-              radius={squircle ? Math.round(size * SQUIRCLE_RATIO) : 999}
+              /*
+                Squared beats both tile shapes, because that is the point.
+
+                A quarter of the mark's width — half the squircle's corner,
+                so it still reads as a tile rather than as a crop, and
+                unmistakable against the round tiles it sits above. Derived
+                from `size` rather than fixed, so it holds its proportion
+                when the strip magnifies a mark or the active row draws its
+                own larger. See AGENCY_ROW_MARKS.
+              */
+              radius={
+                squareMark
+                  ? Math.round(size * (4 / 32))
+                  : squircle
+                    ? Math.round(size * SQUIRCLE_RATIO)
+                    : 999
+              }
             />
           </span>
           {expanded ? (

@@ -103,6 +103,12 @@ import {
   AGENCY_PLATES,
   AGENCY_PLATE_LABELS,
   AGENCY_ROW_MARKS,
+  RAIL_TOOLS_LAYOUTS,
+  RAIL_HOVER_ZONES,
+  MANAGE_AGENCY_ROWS,
+  MANAGE_AGENCY_ROW_LABELS,
+  RAIL_HOVER_ZONE_LABELS,
+  RAIL_TOOLS_LAYOUT_LABELS,
   AGENCY_ROW_MARK_LABELS,
   AGENCY_ROUTES,
   AGENCY_ROUTE_LABELS,
@@ -371,6 +377,9 @@ import {
   type RailActiveSpot,
   type RailDirectoryMode,
   type RailToolSpot,
+  type RailToolsLayout,
+  type RailHoverZone,
+  type ManageAgencyRow,
   type RailToolsEdge,
   type RailTileColour,
   type ActiveAgencySpot,
@@ -715,6 +724,16 @@ function NavStructureSection({
     agencyRowWord,
     setAgencyRowWord,
     agencyRowDiamond,
+    setAgencyRowSquare,
+    setRailCollapsedSearch,
+    setRailToolsLayout,
+    setRailHoverZone,
+    setManageAgencyRow,
+    manageAgencyRow,
+    railHoverZone,
+    railToolsLayout,
+    railCollapsedSearch,
+    agencyRowSquare,
     setAgencyRowDiamond,
     railHideButton,
     setRailHideButton,
@@ -1112,27 +1131,48 @@ function NavStructureSection({
                   ring: agencyRowRing,
                   word: agencyRowWord,
                   diamond: agencyRowDiamond,
+                  square: agencyRowSquare,
                 }}
                 onChange={(mark, on) =>
                   mark === "ring"
                     ? setAgencyRowRing(on)
                     : mark === "word"
                       ? setAgencyRowWord(on)
-                      : setAgencyRowDiamond(on)
+                      : mark === "diamond"
+                        ? setAgencyRowDiamond(on)
+                        : setAgencyRowSquare(on)
                 }
                 format={(v) => AGENCY_ROW_MARK_LABELS[v]}
               />
               <Note>
-                Three marks for the one row in the list that is not an
-                account, in any combination, so the pair can be judged
-                against either alone. They take the trailing slot the agency
+                Four marks for the one row in the list that is not an
+                account, in any combination, so each can be judged against
+                the others. They take the trailing slot the agency
                 cannot use anyway — it is the only row that can never be
                 pinned — so none of them changes the row&rsquo;s height or
                 layout; the text and the diamond ride the pin column, in the
                 pin&rsquo;s own ink, so the column stays one column. A
-                heavier name and a tinted row were tried and dropped: both
-                borrow the signals the ACTIVE row already uses, and two rows
-                that look current is worse than one that is hard to place.
+                The squared avatar is the exception to all of that — it is
+                a property of the mark, not of the slot, so it is the only
+                one that survives the collapsed strip, where the text and
+                the diamond are not drawn at all. A heavier name and a
+                tinted row were tried and dropped: both borrow the signals
+                the ACTIVE row already uses, and two rows that look current
+                is worse than one that is hard to place.
+              </Note>
+
+              <Segmented
+                label="In manage mode, the agency row"
+                keywords="agency manage select mode row hide hidden stays untickable checkbox bulk sorted pinned run"
+                options={MANAGE_AGENCY_ROWS}
+                value={manageAgencyRow}
+                onChange={(v: ManageAgencyRow) => setManageAgencyRow(v)}
+                format={(v) => MANAGE_AGENCY_ROW_LABELS[v]}
+              />
+              <Note>
+                {manageAgencyRow === "hidden"
+                  ? "It leaves the run for the duration, so the list while picking is exactly the set a bulk action can reach \u2014 which is what \u201cselect accounts\u201d ought to mean. Paid for twice: the strip reshuffles as you enter the mode, and the route to agency scope disappears mid-errand."
+                  : "It stays where the arrangement put it, with no checkbox and no response to a click \u2014 see the marks above, which are what say why. Nothing moves when the mode starts, and the agency is still one press away; the cost is a visibly dead row at the head of a column of forty live ones."}
               </Note>
             </>
           ) : null}
@@ -1197,6 +1237,38 @@ function NavStructureSection({
               : railToolSpot === "top"
                 ? "Above the accounts, in the first thing read. Findable on the first visit instead of the tenth — and it spends the strip's best slot on controls and pushes the whole run of accounts down a row to do it."
                 : "The far end, away from the accounts. Borrowed from every dock and sidebar people already use, and it keeps a growing list from ever arguing with the controls. Also the end nobody looks at, which is the point and the cost in one."}
+          </Note>
+
+          <Segmented
+            label="Manage button sits"
+            keywords="rail tools manage select button search stacked above beside row header all accounts inline everything in the rail"
+            options={RAIL_TOOLS_LAYOUTS}
+            value={railToolsLayout}
+            onChange={(v: RailToolsLayout) => setRailToolsLayout(v)}
+            format={(v) => RAIL_TOOLS_LAYOUT_LABELS[v]}
+            disabled={railDirectoryMode !== "inline"}
+          />
+          <Note>
+            {railDirectoryMode !== "inline"
+              ? "Waiting on \u201cAll accounts\u201d above \u2014 there is no tools row until the directory is in the rail."
+              : railToolsLayout === "stacked"
+                ? "Two rows: the list\u2019s name and the button, then the field full-width under them. Costs a row of height at rest and buys two things with it \u2014 the bar says WHICH list this is rather than only offering to search it, and the field survives manage mode, so you can narrow forty accounts to four and then tick them. The one layout where searching and selecting are not an either/or."
+                : "One row: the field takes it and the button sits at the end. The cheapest thing a 300px rail can spend \u2014 and the reason the bar has to throw the field away the moment you enter manage mode, because select-all, a count, Actions and Cancel cannot share the row with a search box."}
+          </Note>
+
+          <Toggle
+            label="Search icon when the rail is shut"
+            keywords="rail tools search glyph icon collapsed shut 56 hide inline all accounts everything in the rail"
+            checked={railCollapsedSearch}
+            onChange={setRailCollapsedSearch}
+            disabled={railDirectoryMode !== "inline"}
+          />
+          <Note>
+            {railDirectoryMode !== "inline"
+              ? "Waiting on \u201cAll accounts\u201d above \u2014 there is no tools row until the directory is in the rail."
+              : railCollapsedSearch
+                ? "The bar survives the collapse as a single glyph. Honest about the rail having a search in it, and it costs the one thing the shut strip has none of: a row that is not an account. At 56px it sits in the same column as the marks above it and reads as a twelfth account."
+                : "Nothing at 56px \u2014 the bar goes, edge and all. Shut, the strip is a column of accounts and only accounts, which is what makes a mark in it scannable; the field is one hover away, since opening the rail is already the gesture that produces it. The cost is that a visitor who never opens the rail never learns it can be searched."}
           </Note>
 
           <Toggle
@@ -1304,6 +1376,23 @@ function NavStructureSection({
             {railHover === "expand"
               ? "The strip slides out to 216px and the names ride along. The whole list at a glance — and a column that moves whenever the pointer crosses it on the way somewhere else."
               : "It stays 56px and the names arrive as tooltips. Every interaction is unchanged: a tile switches account, the waffle opens All accounts, the agency plate goes to agency scope. The directory's own morph still works — that is a click, not a hover."}
+          </Note>
+
+          <Segmented
+            label="What opens it"
+            keywords="rail hover zone target column strip whole area tiles marks accounts empty foot expand"
+            options={RAIL_HOVER_ZONES}
+            value={railHoverZone}
+            onChange={(v: RailHoverZone) => setRailHoverZone(v)}
+            format={(v) => RAIL_HOVER_ZONE_LABELS[v]}
+            disabled={railHover !== "expand"}
+          />
+          <Note>
+            {railHover !== "expand"
+              ? "Waiting on the control above \u2014 nothing opens while the rail stays collapsed, so there is no zone to pick."
+              : railHoverZone === "column"
+                ? "The whole strip, its empty foot included. A 56px column holding ten 32px circles is mostly empty below them, and a surface that answers the pointer in its top third and ignores it in the rest reads as broken rather than as precise. The target is also the thing you are aiming at \u2014 the rail \u2014 rather than a tenth of its area."
+                : "Only the account marks. A rest on a tile is a rest on a name you wanted, which is a real reading of the gesture and the one the rail shipped with. It also means the strip never opens because you crossed its foot on the way to the canvas \u2014 paid for by a column that mostly does not answer."}
           </Note>
 
           <Segmented
