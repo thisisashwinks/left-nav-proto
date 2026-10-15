@@ -414,7 +414,17 @@ function RailTools({
   const field = (
     <span
       className={cn(
-        "motion-tap flex h-[32px] items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]",
+        /*
+          `--fly-seam`, not `--fly-border`: one step darker on the same ramp.
+
+          At gray-200 the edge disappeared against the rail's own hover fill
+          — the field read as a tint rather than as an input, which is the
+          thing the edge was added to fix in the first place. The seam token
+          already means "one step past every other hairline in the nav" and
+          is defined per theme, so this follows dark and the tinted themes
+          instead of pinning a light-mode grey. Ashwin, Oct 15.
+        */
+        "motion-tap flex h-[32px] items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-seam)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]",
         /*
           `flex-1` is a MAIN-axis instruction, and the two layouts do not
           agree on which axis that is.
@@ -3336,7 +3346,6 @@ function RailRow({
    * three different mark sizes, and — the part that matters — keeps every tap
    * target 32px whatever is drawn inside it.
    */
-  const contain = effective.railZoomFit === "contain";
   /*
    * ...except for the active tile, which was 2px short of everyone else.
    *
@@ -3372,13 +3381,33 @@ function RailRow({
    * `Math.max(0, …)` is the same rule stated for the case that did not exist
    * when it was written. Ashwin, Oct 14.
    */
-  const pad = listShape
-    ? Math.max(0, (RAIL_LIST_ROW_H - size) / 2)
-    : size >= RAIL_TILE_BOX
-      ? Math.max(0, (RAIL_TILE_BOX - size) / 2)
-      : contain
-        ? Math.max(RAIL_TILE_MIN_PAD, (RAIL_TILE_BOX - size) / 2)
-        : (RAIL_TILE_BOX - size) / 2;
+  /*
+   * ONE row height, at both widths — Ashwin, Oct 15.
+   *
+   * This used to resolve differently shut and open, and the rail paid for it
+   * on every hover. Measured: a tenant row was 32 collapsed and 37 expanded,
+   * the agency's was 32 and 42, and the ACTIVE row was 36 either way. The
+   * gap between rows is constant, so each row inherited the growth of every
+   * row above it and the error compounded down the column — the first tile
+   * moved 5px when the names came out and the tenth moved 52. The list
+   * appeared to stretch around the one row that did not grow.
+   *
+   * Nothing was mis-anchored; the rail starts at the same y in both states.
+   * The rows were simply taller open than shut, which is not a thing a
+   * hover is allowed to change when the whole gesture is "show me the names
+   * of the things I can already see".
+   *
+   * 36 is the figure, and it is chosen rather than split: the active row
+   * was already 36 at both widths, so locking to it is the only number that
+   * leaves no row needing a special case — and it is the height the rest of
+   * the product gives a row with a 24px mark in it.
+   *
+   * `contain` and RAIL_TILE_MIN_PAD are gone with it. They existed to stop
+   * the 28px active mark being squeezed into a 32px box, which is a problem
+   * a 36px box does not have: 28 into 36 is the 4px floor exactly, arrived
+   * at by arithmetic instead of by a clamp.
+   */
+  const pad = Math.max(0, (RAIL_ROW_H - rowContentH(size, expanded)) / 2);
 
   /*
    * What the row measures once it is padded, and how far outside its column it
@@ -3428,6 +3457,15 @@ function RailRow({
    * 8px a side to play with and never reaches its limit, while the 28px active
    * one is bounded almost at once. Both stay visibly inside.
    */
+  /*
+   * Still the zoom axis's own switch — it just no longer sets padding too.
+   *
+   * `railZoomFit` used to do two jobs: floor the resting clearance AND cap
+   * the magnification. The floor is gone, because a 36px row gives the
+   * active mark its 4px by arithmetic rather than by clamp (see `pad`). The
+   * cap is the job it was named for and it keeps it.
+   */
+  const contain = effective.railZoomFit === "contain";
   const zoom = contain ? Math.min(magnify, (size + pad) / size) : magnify;
   /*
    * The trailing edge is a constant; only the leading one carries the mark.
@@ -3929,7 +3967,23 @@ function RailRow({
                     </span>
                   ) : null}
                   {agencyDiamond ? (
-                    <span className="-mr-[2px] flex size-[22px] shrink-0 items-center justify-center">
+                    /*
+                      Width only. A HEIGHT here sets the row's.
+
+                      This was `size-[22px]`, borrowed wholesale from the pin
+                      button it lines up with — but the pin is absolutely
+                      positioned and contributes nothing to layout, while this
+                      sits in the row's flow. 22px is taller than the 17px
+                      name beside it, so the agency row came out 41 where
+                      every other row was 36, and since it is the FIRST row
+                      the whole column below it sat 5px low the moment the
+                      names came out. Ashwin caught the drift, Oct 15.
+
+                      The width is what does the aligning, so the width is all
+                      that is kept; the row's own `items-center` centres the
+                      diamond vertically without a box to do it.
+                    */
+                    <span className="-mr-[2px] flex w-[22px] shrink-0 items-center justify-center">
                       <span
                         aria-hidden="true"
                         className="size-[7px] rotate-45 rounded-[1.5px] bg-current"
@@ -3977,9 +4031,31 @@ function RailRow({
  *
  * The one number this arrangement does not take from the rail: see `pad`.
  */
-const RAIL_LIST_ROW_H = 36;
+/**
+ * Every row in the strip, shut or open.
+ *
+ * Was two numbers — 32 for a tile in the collapsed strip, 36 for a row in
+ * the open list — and the difference was the whole of the hover drift. See
+ * `pad`. The two surfaces are one column of one kind of row, so they get one
+ * height.
+ */
+const RAIL_ROW_H = 36;
 
-const RAIL_TILE_MIN_PAD = 4;
+/**
+ * The name's own line box, which is what the row has to clear once the
+ * names are out.
+ *
+ * 17px, matching `leading-[17px]` on the label beside the mark. It is taller
+ * than a resting 16px mark, so a row padded to fit only the MARK came out
+ * 37: the text set the height and the arithmetic did not know it. Stated
+ * here so the padding is derived from whichever of the two is taller.
+ */
+const RAIL_NAME_LINE_H = 17;
+
+/** What a row has to fit vertically: the mark, or the name beside it. */
+function rowContentH(size: number, expanded: boolean): number {
+  return expanded ? Math.max(size, RAIL_NAME_LINE_H) : size;
+}
 
 const MAGNIFY_FALLOFF = [1.35, 1.15, 1.05] as const;
 
