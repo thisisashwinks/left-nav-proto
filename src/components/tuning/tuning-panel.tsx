@@ -146,6 +146,8 @@ import {
   LEGACY_FOOT_CONTROLS,
   AUTO_COLLAPSE_WIDTH,
   DEFAULT_THEME,
+  changedThemeKeys,
+  NAV_STRUCTURE_KEYS,
   DOCK_LABEL_LABELS,
   DOCK_LABELS,
   DOCK_POSITION_LABELS,
@@ -822,6 +824,9 @@ function NavStructureSection({
     subAccountNavMark,
     setSubAccountNavMark,
   } = useTheme();
+  // The same context as an object, for the changed count and reset below.
+  const theme = useTheme();
+  const { applyTheme } = theme;
   // The account's own count, not the catalogue's: density is a property of the
   // nav in front of you, and this panel is read while switching between a
   // four-product barbershop and a thirty-product retail chain.
@@ -831,10 +836,26 @@ function NavStructureSection({
   // Compared against the store's own defaults rather than hardcoded values — the
   // default grouping moved to `job`, and a literal here silently claimed the
   // section was retuned on first load.
+  /*
+    Its own axes count too — they did not.
+
+    This summed six things, exactly one of which (`scopeModel`) came from the
+    theme, so the badge sat at 0 while the rail's arrangement, its directory
+    mode, the hidden rail and fifty-odd others were all retuned. A section
+    that renders sixty controls and reports none of them as changed is worse
+    than no badge, because it actively says there is nothing to reset.
+
+    `NAV_STRUCTURE_KEYS` is this component's own destructuring, written down
+    so the count and the controls cannot drift apart. Ashwin, Oct 15.
+  */
+  const changedAxes = NAV_STRUCTURE_KEYS.filter(
+    (k) => !Object.is(theme[k], DEFAULT_THEME[k]),
+  ).length;
+
   const changed =
     (state.grouping === DEFAULT_LAYOUT.grouping ? 0 : 1) +
     (state.navVolume === DEFAULT_LAYOUT.navVolume ? 0 : 1) +
-    (scopeModel === DEFAULT_THEME.scopeModel ? 0 : 1) +
+    changedAxes +
     (layout.isDefaultLayout ? 0 : 1) +
     (agencyPlan === DEFAULT_AGENCY_PLAN ? 0 : 1) +
     (state.editing ? 1 : 0);
@@ -855,6 +876,20 @@ function NavStructureSection({
       onReset={() => {
         layout.showDefaultLayout();
         layout.adoptDefaultLayout();
+        /*
+          And the section's own axes, which it never put back.
+
+          It reset the LAYOUT store and left all sixty theme axes where they
+          were, so "reset this section" cleared the arrangement of products
+          and not one thing the section's own controls had done. Scoped to
+          `NAV_STRUCTURE_KEYS` so it stays a section reset rather than
+          quietly becoming the global one.
+        */
+        applyTheme(
+          Object.fromEntries(
+            NAV_STRUCTURE_KEYS.map((k) => [k, DEFAULT_THEME[k]]),
+          ),
+        );
       }}
     >
       <Segmented
@@ -3800,6 +3835,13 @@ export function TuningPanel() {
   const [openSections, setOpenSections] =
     React.useState<SectionId[]>(INITIAL_OPEN);
   const { state, set, isDefault, reset } = useTuning();
+  /*
+    The whole theme, alongside the fields destructured below.
+
+    Needed as an object so "is anything retuned" can be asked of every axis
+    at once instead of of a hand-written list. See `changedThemeKeys`.
+  */
+  const theme = useTheme();
   const {
     accent,
     setAccent,
@@ -4293,11 +4335,23 @@ export function TuningPanel() {
     setGetAppPlacement(DEFAULT_THEME.getAppPlacement);
   };
 
-  const everythingIsDefault =
-    isDefault &&
-    themeChanged === 0 &&
-    searchChanged === 0 &&
-    editCardChanged === 0;
+  /*
+    Every axis, not three sections' worth.
+
+    This read `themeChanged === 0 && searchChanged === 0 && editCardChanged
+    === 0` — three hand-written sums that between them did not mention Nav
+    structure, so none of its sixty axes could mark the panel retuned. The
+    badge said "Matching the design" over a visibly different nav, and worse,
+    the global Reset is disabled on this value: hide the account rail and the
+    one control that puts everything back was greyed out, because the panel
+    did not believe anything had changed.
+
+    Asking the defaults themselves removes the list that could be forgotten —
+    and it is a list that WAS forgotten repeatedly, since every axis added to
+    the rail this week landed outside all three sums. Ashwin, Oct 15.
+  */
+  const changedTheme = changedThemeKeys(theme);
+  const everythingIsDefault = isDefault && changedTheme.length === 0;
 
   /*
    * The matcher, handed down rather than applied here.
@@ -4450,8 +4504,15 @@ export function TuningPanel() {
             type="button"
             onClick={() => {
               reset();
-              resetTheme();
-              resetSearch();
+              /*
+                The whole theme, for the same reason the badge reads the
+                whole theme: `resetTheme()` and `resetSearch()` between them
+                put back about a dozen axes, so "reset everything" left the
+                rail arrangement, the directory mode and the hidden rail
+                exactly where they were. Applying DEFAULT_THEME is the only
+                version that matches what the button says.
+              */
+              theme.applyTheme(DEFAULT_THEME);
             }}
             disabled={everythingIsDefault}
             title="Reset everything to the design's measured values"

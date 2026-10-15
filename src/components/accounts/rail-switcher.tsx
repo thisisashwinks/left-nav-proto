@@ -112,8 +112,15 @@ export function RailDirectory({
   // surface silently kept saying "Select" while every other said the new
   // one. "Edit" keeps its qualifier here, where the row it acts on is not
   // otherwise named. Ashwin, Oct 15.
-  const selectWord =
-    selectLabel === "edit" ? "Edit account" : SELECT_LABEL_LABELS[selectLabel];
+  /*
+    The map, with no special case left.
+
+    This qualified `edit` to "Edit account" on the grounds that the row it
+    acts on is not otherwise named here. With the heading above now reading
+    "Manage accounts" it is named, and the qualifier made this the one
+    surface whose button disagreed with the other two. Ashwin, Oct 15.
+  */
+  const selectWord = SELECT_LABEL_LABELS[selectLabel];
   /*
    * Whether rows are wearing checkboxes right now.
    *
@@ -290,8 +297,8 @@ export function RailDirectory({
               different things. The field searches the directory; it always
               did.
             */
-            placeholder="Search sub-accounts"
-            aria-label="Search accounts"
+            placeholder="Find an account"
+            aria-label="Find an account"
             className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none"
           />
         </div>

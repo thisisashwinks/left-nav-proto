@@ -451,8 +451,8 @@ function RailTools({
         type="search"
         value={query}
         onChange={(e) => onQuery(e.target.value)}
-        placeholder="Search accounts"
-        aria-label="Search accounts"
+        placeholder="Find an account"
+        aria-label="Find an account"
         className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none [&::-webkit-search-cancel-button]:hidden"
       />
     </span>
@@ -494,7 +494,7 @@ function RailTools({
   const glyph = (
     <button
       type="button"
-      aria-label="Search accounts"
+      aria-label="Find an account"
       className="motion-tap mx-auto flex size-[32px] shrink-0 items-center justify-center rounded-[8px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
     >
       <Search size={16} aria-hidden="true" />
@@ -2407,7 +2407,7 @@ export function AccountRail({
                     value={fillQuery}
                     autoFocus
                     onChange={(e) => setFillQuery(e.target.value)}
-                    placeholder="Search sub-accounts"
+                    placeholder="Find an account"
                     className="min-w-0 flex-1 bg-transparent text-[12.5px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none"
                   />
                 </label>

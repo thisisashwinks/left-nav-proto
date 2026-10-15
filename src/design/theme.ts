@@ -1407,7 +1407,15 @@ export const DIRECTORY_NAMES = ["all", "subs", "search"] as const;
 export type DirectoryName = (typeof DIRECTORY_NAMES)[number];
 
 export const DIRECTORY_NAME_LABELS: Record<DirectoryName, string> = {
-  all: "All accounts",
+  /*
+    "Manage accounts", not "All accounts" — Ashwin, Oct 15.
+
+    The old label named the CONTENTS of the surface, which the surface is
+    already showing you; the new one names the errand you came to do. It also
+    squares with the button beside it, which no longer says "all" of anything
+    either.
+  */
+  all: "Manage accounts",
   subs: "Your sub-accounts",
   search: "Search sub-accounts",
 };
@@ -6290,6 +6298,57 @@ export interface ThemeState {
  * Rendered by the server and used as the client provider's initial state, so
  * the two agree on first paint and hydration stays clean.
  */
+/**
+ * Which axes are no longer at the design's measured values.
+ *
+ * Computed over DEFAULT_THEME's own keys rather than from a list the panel
+ * keeps by hand, and that is the whole point of it. The panel used to decide
+ * "is anything retuned" by adding up three hand-written sums — theme, search
+ * and the edit card — and Nav structure was not one of them. So none of the
+ * sixty-odd axes in that section could mark the panel retuned, which meant
+ * the badge read "Matching the design" over a visibly different nav AND the
+ * global Reset stayed disabled: hide the account rail and the one control
+ * that puts it back was greyed out, because the panel did not believe
+ * anything had changed. Ashwin, Oct 15.
+ *
+ * Every value in DEFAULT_THEME is a primitive, so `Object.is` is the whole
+ * comparison. Keyed off the defaults rather than the state so a key the
+ * state happens to carry and the design does not is ignored rather than
+ * counted forever.
+ */
+export function changedThemeKeys(state: ThemeState): (keyof ThemeState)[] {
+  return (Object.keys(DEFAULT_THEME) as (keyof ThemeState)[]).filter(
+    (k) => !Object.is(state[k], DEFAULT_THEME[k]),
+  );
+}
+
+/**
+ * The axes the Nav structure section owns, for its own changed badge.
+ *
+ * Listed rather than derived: "every key starting with rail" would be a rule
+ * that silently adopts the next axis someone names `railSomething` and
+ * silently drops one they do not. This is the section's own destructuring,
+ * which is the only honest definition of what it renders.
+ */
+export const NAV_STRUCTURE_KEYS = [
+  "l2ClickAction", "tabsInNav", "navSections", "layoutModel",
+  "railTileShape", "railExpandedShape", "railRecents", "railDirectorySpot",
+  "railAvatars", "railShade", "agencyPlate", "railArrangement",
+  "agencyRowRing", "agencyRowWord", "agencyRowDiamond", "agencyRowSquare",
+  "manageAgencyRow", "railHoverZone", "railToolsLayout", "railCollapsedSearch",
+  "railHideButton", "agencyRoute", "railActiveSpot", "railDirectoryMode",
+  "railToolSpot", "railToolsEdge", "railPinnedLabel", "railRecentLabel",
+  "railTileColour", "activeAgencySpot", "railTileAlign", "railHover",
+  "directoryPlacement", "railFillMorph", "railFillRest", "railFillAgency",
+  "railHoldInset", "collapsedRail", "railZoomFit", "editTreatment",
+  "renameAffordance", "railSizing", "railActiveBar", "railMagnify",
+  "userMultiAccount", "subAccountSwitcher", "headerAgencyMark",
+  "agencyWordmark", "agencyPlateAlign", "collapseSpot", "agencyEntry",
+  "workspaceGlyph", "selectSpot", "selectLabel", "selectStrip",
+  "directoryName", "navIdentityAlign", "agencyPlateSize", "agencyPlateName",
+  "navLeftInset", "workspaceChevron", "subAccountNavMark", "scopeModel",
+] as const satisfies readonly (keyof ThemeState)[];
+
 export const DEFAULT_THEME: ThemeState = {
   // Account logo colour by default: every sub-account already carries a brand
   // swatch (`logo.from`), and black stays one click away if they want quiet.
@@ -6413,7 +6472,15 @@ export const DEFAULT_THEME: ThemeState = {
   agencyEntry: "card",
   workspaceGlyph: "chevrons",
   selectSpot: "header",
-  selectLabel: "manage",
+  /*
+    "Edit" — Ashwin, Oct 15.
+
+    `manage` is still on the dial; the word just moved to the heading above
+    the button, where it names the surface, and the button went back to
+    naming the mode it enters. Two controls an inch apart both saying
+    "manage" was the thing to avoid.
+  */
+  selectLabel: "edit",
   directoryName: "all",
   selectStrip: "count",
   workspaceChevron: "always",
