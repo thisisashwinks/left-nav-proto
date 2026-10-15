@@ -104,6 +104,10 @@ import {
   AGENCY_PLATE_LABELS,
   AGENCY_ROW_MARKS,
   RAIL_TOOLS_LAYOUTS,
+  AGENCY_BAR_DISMISSALS,
+  RAIL_TOOLS_CTAS,
+  RAIL_TOOLS_CTA_LABELS,
+  AGENCY_BAR_DISMISSAL_LABELS,
   RAIL_HOVER_ZONES,
   MANAGE_AGENCY_ROWS,
   MANAGE_AGENCY_ROW_LABELS,
@@ -380,6 +384,8 @@ import {
   type RailDirectoryMode,
   type RailToolSpot,
   type RailToolsLayout,
+  type AgencyBarDismissal,
+  type RailToolsCta,
   type RailHoverZone,
   type ManageAgencyRow,
   type RailToolsEdge,
@@ -729,6 +735,10 @@ function NavStructureSection({
     setAgencyRowSquare,
     setRailCollapsedSearch,
     setRailToolsLayout,
+    setAgencyBarDismissal,
+    setRailToolsCta,
+    railToolsCta,
+    agencyBarDismissal,
     setRailHoverZone,
     setManageAgencyRow,
     manageAgencyRow,
@@ -1265,11 +1275,36 @@ function NavStructureSection({
             onChange={(v: RailToolSpot) => setRailToolSpot(v)}
             format={(v) => RAIL_TOOL_SPOT_LABELS[v]}
             disabled={railDirectoryMode !== "inline"}
+            /*
+              The agency bar needs an agency row to live in, and only two
+              arrangements put one in the run. Greyed per option rather than
+              per control, so gating it does not take Bottom and Top away
+              with it.
+            */
+            isDisabled={(v) =>
+              /*
+                The agency bar needs an agency ROW to live in and to give
+                back; the under-agency row only needs an agency at the TOP
+                to sit under, which a plate serves as well as a row. So
+                they gate differently, and only the bottom arrangement
+                rules both out.
+              */
+              v === "agencyBar"
+                ? railArrangement !== "agencySorted" &&
+                  railArrangement !== "agencyHeadsPinned"
+                : v === "underAgency"
+                  ? railArrangement === "agencyBottom"
+                  : false
+            }
           />
           <Note>
             {railDirectoryMode !== "inline"
               ? "Only the inline rail carries tools of its own. Behind the All accounts button they live on the surface it opens, so there is no end of the strip for them to stick to."
-              : railToolSpot === "top"
+              : railToolSpot === "underAgency"
+                ? "A standing row directly under the agency and above the pinned run, sticky so it holds that place while forty accounts scroll past. The field is always there \u2014 no glyph to find \u2014 and the agency stays visible above it, which is the one thing the agency bar gives up. It costs the row the agency bar was invented to save. Entering manage moves the bulk controls UP into the agency\u2019s row, so the field never has to share with them."
+                : railToolSpot === "agencyBar"
+                ? "No standing row at all \u2014 the agency row grows a search glyph, and pressing it puts the heading and the field in that row\u2019s place. The only option that spends nothing at rest, where the other two give a permanent row of a 300px column to controls that are idle most of the time. It buys that by hiding the search behind a glyph, and the list steps down a row while it is open."
+                : railToolSpot === "top"
                 ? "Above the accounts, in the first thing read. Findable on the first visit instead of the tenth — and it spends the strip's best slot on controls and pushes the whole run of accounts down a row to do it."
                 : "The far end, away from the accounts. Borrowed from every dock and sidebar people already use, and it keeps a growing list from ever arguing with the controls. Also the end nobody looks at, which is the point and the cost in one."}
           </Note>
@@ -1289,6 +1324,46 @@ function NavStructureSection({
               : railToolsLayout === "stacked"
                 ? "Two rows: the list\u2019s name and the button, then the field full-width under them. Costs a row of height at rest and buys two things with it \u2014 the bar says WHICH list this is rather than only offering to search it, and the field survives manage mode, so you can narrow forty accounts to four and then tick them. The one layout where searching and selecting are not an either/or."
                 : "One row: the field takes it and the button sits at the end. The cheapest thing a 300px rail can spend \u2014 and the reason the bar has to throw the field away the moment you enter manage mode, because select-all, a count, Actions and Cancel cannot share the row with a search box."}
+          </Note>
+
+          <Segmented
+            label="The under-agency button is"
+            keywords="rail tools under agency button edit word icon sliders manage glyph"
+            options={RAIL_TOOLS_CTAS}
+            value={railToolsCta}
+            onChange={(v: RailToolsCta) => setRailToolsCta(v)}
+            format={(v) => RAIL_TOOLS_CTA_LABELS[v]}
+            disabled={railToolSpot !== "underAgency"}
+          />
+          <Note>
+            {railToolSpot !== "underAgency"
+              ? "Waiting on the control above \u2014 only the under-agency row has to fit a field and a button on one line."
+              : railToolsCta === "icon"
+                ? "Sliders, no word. Gives the field most of a 300px row back \u2014 and asks the reader to press a control they cannot name to find out what it does. A funnel was rejected: it means \u201cnarrow this list\u201d, which is what the field beside it already does."
+                : "\u201cEdit\u201d, as every other spot draws it. Readable without being pressed, at the cost of the width it takes from the field on the one row where the two genuinely compete."}
+          </Note>
+
+          <Segmented
+            label="The agency bar hands the row back with"
+            keywords="agency bar dismiss close cancel x back chevron search tools rail"
+            options={AGENCY_BAR_DISMISSALS}
+            value={agencyBarDismissal}
+            onChange={(v: AgencyBarDismissal) => setAgencyBarDismissal(v)}
+            format={(v) => AGENCY_BAR_DISMISSAL_LABELS[v]}
+            disabled={railToolSpot !== "agencyBar"}
+          />
+          <Note>
+            {railToolSpot !== "agencyBar"
+              ? "Waiting on the control above \u2014 only the agency bar borrows a row it has to give back."
+              : agencyBarDismissal === "back"
+                ? "The heading becomes the way out: \u201c\u2039 Acme Agency\u201d rather than \u201cManage accounts\u201d. Costs no slot and is the only one that names where pressing it goes \u2014 at the price of the bar never saying what surface you are on."
+                : agencyBarDismissal === "icon"
+                  ? "An \u00d7 beside Edit. Quieter than a word, and it leaves the row\u2019s weight on Edit, which is the control you came for. It is also a second \u00d7 in a bar that already has one inside the field, doing a different thing."
+                  : "A worded button beside Edit. Unmissable, and it says what it does without anyone having to know the glyph \u2014 paid for in width, in the row that has the least of it."}
+            {" "}
+            Whichever it is, it stands down while a selection is running:
+            manage has a Cancel of its own and the two undo different
+            errands.
           </Note>
 
           <Toggle
@@ -3422,6 +3497,7 @@ function Segmented<T extends string>({
   value,
   onChange,
   format,
+  isDisabled,
   disabled = false,
   keywords,
 }: {
@@ -3430,6 +3506,15 @@ function Segmented<T extends string>({
   value: T;
   onChange: (v: T) => void;
   format?: (v: T) => string;
+  /**
+   * Greys ONE option rather than the control.
+   *
+   * For an axis where most answers always apply and one depends on
+   * something else — the agency bar needs an agency row to live in, while
+   * Bottom and Top do not. Disabling the whole control would take two
+   * working choices away to gate a third.
+   */
+  isDisabled?: (v: T) => boolean;
   /**
    * Greyed and inert, for a control whose question has no meaning yet.
    *
@@ -3463,23 +3548,26 @@ function Segmented<T extends string>({
         {label}
       </span>
       <div className="flex flex-wrap gap-[4px]">
-        {options.map((opt) => (
+        {options.map((opt) => {
+          const off = disabled || (isDisabled?.(opt) ?? false);
+          return (
           <button
             key={opt}
             type="button"
-            disabled={disabled}
+            disabled={off}
             onClick={() => onChange(opt)}
             className={cn(
               "motion-tap rounded-[6px] px-[8px] py-[4px] text-[11px] leading-none",
               opt === value
                 ? "bg-brand text-brand-fg"
                 : "bg-pg-row-border text-pg-text hover:bg-pg-border",
-              disabled && "pointer-events-none opacity-40",
+              off && "pointer-events-none opacity-40",
             )}
           >
             {format ? format(opt) : opt}
           </button>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

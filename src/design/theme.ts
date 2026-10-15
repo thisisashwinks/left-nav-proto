@@ -5186,12 +5186,96 @@ export const RAIL_TOOLS_EDGE_LABELS: Record<RailToolsEdge, string> = {
   border: "Border",
 };
 
-export const RAIL_TOOL_SPOTS = ["bottom", "top"] as const;
+/**
+ * Which end of the filled rail the search and Edit live at.
+ *
+ *  bottom     The far end, away from the accounts. Borrowed from every dock
+ *             people already use, and it keeps a growing list from arguing
+ *             with the controls.
+ *  top        Above the accounts, in the first thing read.
+ *  agencyBar  Neither — the tools have no standing row at all. The agency
+ *             row carries a search glyph, and pressing it puts the tools in
+ *             that row's place. Ashwin, Oct 15.
+ *  underAgency  A standing row directly beneath the agency and above the
+ *             pinned run, sticky so it holds that place while forty
+ *             accounts scroll past. The field is always there — no glyph to
+ *             find — and the agency stays visible above it, which is the
+ *             one thing `agencyBar` gives up. It costs the row that
+ *             `agencyBar` was invented to save, and it needs an agency at
+ *             the TOP to sit under, so it is greyed where the agency is at
+ *             the bottom. Ashwin, Oct 15.
+ *
+ * `agencyBar` is the only one that spends NOTHING at rest: the other two
+ * give a permanent row of a 300px column to controls that are idle most of
+ * the time. It buys that by hiding the search behind a glyph — the thing
+ * every other arrangement here refuses to do — and by needing an agency row
+ * to live in, which is why it is gated to the arrangements that have one.
+ */
+export const RAIL_TOOL_SPOTS = [
+  "bottom",
+  "top",
+  "agencyBar",
+  "underAgency",
+] as const;
 export type RailToolSpot = (typeof RAIL_TOOL_SPOTS)[number];
 
 export const RAIL_TOOL_SPOT_LABELS: Record<RailToolSpot, string> = {
   bottom: "Bottom",
   top: "Top",
+  agencyBar: "In the agency bar",
+  /*
+    "Below the agency", not "Under the agency" — the tile-alignment axis
+    already owns that exact string, and two controls in one section
+    offering the same words for different things is a panel you cannot
+    read. Ashwin, Oct 15.
+  */
+  underAgency: "Below the agency",
+};
+
+/**
+ * How the agency bar's tools hand the row back.
+ *
+ *  cancel  A worded button beside Edit. Unmissable, and it says what it
+ *          does without the reader having to know the glyph.
+ *  icon    An × in the same slot. Quieter, and leaves the row's weight on
+ *          Edit, which is the control you came for.
+ *  back    The heading itself becomes the way out: it reads "‹ Acme Agency"
+ *          rather than "Manage accounts", so the thing you displaced is
+ *          what you press to get it back. The only one that costs no slot
+ *          at all, and the only one that names where you are going.
+ *
+ * All three are HIDDEN while a selection is running. That cancel and this
+ * one are different errands — one abandons a selection, the other closes a
+ * search — and two buttons reading "Cancel" an inch apart, undoing
+ * different things, is the ambiguity worth spending a rule on. Manage's own
+ * Cancel comes first; this one returns once the selection is done.
+ * Ashwin, Oct 15.
+ */
+/**
+ * Whether the under-agency row's button carries its word.
+ *
+ * `word` is "Edit" — the same button every other spot draws. `icon` drops
+ * to a glyph, which buys the field most of a 300px row back at the price of
+ * a control nobody can read until they press it. Worth seeing both: this is
+ * the one spot where the field and the button genuinely compete for width,
+ * because they share a row that is also under an agency row and above forty
+ * accounts. Ashwin, Oct 15.
+ */
+export const RAIL_TOOLS_CTAS = ["word", "icon"] as const;
+export type RailToolsCta = (typeof RAIL_TOOLS_CTAS)[number];
+
+export const RAIL_TOOLS_CTA_LABELS: Record<RailToolsCta, string> = {
+  word: "The word",
+  icon: "Icon only",
+};
+
+export const AGENCY_BAR_DISMISSALS = ["cancel", "icon", "back"] as const;
+export type AgencyBarDismissal = (typeof AGENCY_BAR_DISMISSALS)[number];
+
+export const AGENCY_BAR_DISMISSAL_LABELS: Record<AgencyBarDismissal, string> = {
+  cancel: "A Cancel button",
+  icon: "An × button",
+  back: "‹ Agency, as the heading",
 };
 
 export const AGENCY_PLATES = ["tinted", "bare", "full"] as const;
@@ -6002,6 +6086,10 @@ export interface ThemeState {
   railDirectoryMode: RailDirectoryMode;
   /** Which end of the rail the tools sit at. See RAIL_TOOL_SPOTS. */
   railToolSpot: RailToolSpot;
+  /** How the agency bar hands its row back. See AGENCY_BAR_DISMISSALS. */
+  agencyBarDismissal: AgencyBarDismissal;
+  /** Whether the under-agency button keeps its word. See RAIL_TOOLS_CTAS. */
+  railToolsCta: RailToolsCta;
   /** Whether the agency keeps its row in manage mode. See MANAGE_AGENCY_ROWS. */
   manageAgencyRow: ManageAgencyRow;
   /** What a rest has to land on for the names to open. See RAIL_HOVER_ZONES. */
@@ -6337,7 +6425,7 @@ export const NAV_STRUCTURE_KEYS = [
   "agencyRowRing", "agencyRowWord", "agencyRowDiamond", "agencyRowSquare",
   "manageAgencyRow", "railHoverZone", "railToolsLayout", "railCollapsedSearch",
   "railHideButton", "agencyRoute", "railActiveSpot", "railDirectoryMode",
-  "railToolSpot", "railToolsEdge", "railPinnedLabel", "railRecentLabel",
+  "railToolSpot", "agencyBarDismissal", "railToolsCta", "railToolsEdge", "railPinnedLabel", "railRecentLabel",
   "railTileColour", "activeAgencySpot", "railTileAlign", "railHover",
   "directoryPlacement", "railFillMorph", "railFillRest", "railFillAgency",
   "railHoldInset", "collapsedRail", "railZoomFit", "editTreatment",
@@ -6591,6 +6679,8 @@ export const DEFAULT_THEME: ThemeState = {
   */
   railDirectoryMode: "inline",
   railToolSpot: "bottom",
+  agencyBarDismissal: "cancel",
+  railToolsCta: "word",
   railToolsEdge: "shadow",
   railPinnedLabel: true,
   railRecentLabel: true,

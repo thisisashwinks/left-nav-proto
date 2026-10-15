@@ -11,6 +11,8 @@ import {
   Search,
   PanelLeftClose,
   X,
+  ChevronLeft,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   RAIL_TILE_SIZE,
@@ -19,6 +21,8 @@ import {
   RAIL_TILE_BOX,
   RAIL_ROW_END_PAD,
   type RailToolsLayout,
+  type AgencyBarDismissal,
+  type RailToolsCta,
   RAIL_HALF_SQUARE,
   RAIL_SHADE_CLASS,
   AGENCY_PLATE_CLASS,
@@ -291,6 +295,10 @@ function RailTools({
   collapsedSearch,
   layout,
   title,
+  onDismiss,
+  dismissal,
+  ctaShape,
+  stickyTop,
 }: {
   expanded: boolean;
   spot: RailToolSpot;
@@ -327,6 +335,23 @@ function RailTools({
   layout: RailToolsLayout;
   /** The list's own name, for the stacked layout's header row. */
   title: string;
+  /**
+   * Hands the agency bar's row back. Null in every other spot, where the
+   * bar has a row of its own and nothing to return.
+   */
+  onDismiss?: (() => void) | null;
+  /** Which shape that takes. See AGENCY_BAR_DISMISSALS. */
+  dismissal?: AgencyBarDismissal;
+  /** Whether the button keeps its word. See RAIL_TOOLS_CTAS. */
+  ctaShape?: RailToolsCta;
+  /**
+   * How far down the scroller the sticky row parks, in px.
+   *
+   * The agency row's height where the agency is IN the run, 0 where it is a
+   * plate above the scroller. Stated by the caller because only the caller
+   * knows which arrangement is live.
+   */
+  stickyTop?: number;
 }) {
   /*
    * Shut, the bar can be nothing.
@@ -455,6 +480,26 @@ function RailTools({
         aria-label="Find an account"
         className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none [&::-webkit-search-cancel-button]:hidden"
       />
+      {/*
+        Clear, and only once there is something to clear.
+
+        The native one is hidden (see the class above) because it only
+        appears in WebKit and is drawn in the OS's grey rather than the
+        nav's — so the field had a clear on one browser and none on
+        another. This is the same control, always, and it leaves no gap at
+        rest: an × sitting beside an empty placeholder offers to undo
+        nothing.
+      */}
+      {query ? (
+        <button
+          type="button"
+          aria-label="Clear search"
+          onClick={() => onQuery("")}
+          className="motion-tap flex size-[18px] shrink-0 items-center justify-center rounded-[5px] text-nav-fg-subtle hover:bg-nav-active hover:text-nav-fg"
+        >
+          <X size={12} aria-hidden="true" />
+        </button>
+      ) : null}
     </span>
   );
 
@@ -481,13 +526,31 @@ function RailTools({
         the field wears, so the two read as a pair. Ashwin, Oct 15.
       */
       className={cn(
-        "motion-tap h-[32px] shrink-0 rounded-[9px] px-[11px] text-[12.5px] font-medium shadow-[inset_0_0_0_1px_var(--fly-border)]",
+        "motion-tap flex h-[32px] shrink-0 items-center justify-center rounded-[9px] text-[12.5px] font-medium shadow-[inset_0_0_0_1px_var(--fly-border)]",
+        // Square for a glyph, padded for a word.
+        ctaShape === "icon" && !picking ? "w-[32px]" : "px-[11px]",
         picking
           ? "bg-nav-active text-nav-fg"
           : "text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg",
       )}
     >
-      {picking ? (selectedCount > 0 ? `Cancel (${selectedCount})` : "Cancel") : cta}
+      {ctaShape === "icon" && !picking ? (
+        /*
+          The glyph, where the row has no width to spare.
+
+          Sliders rather than a funnel or a pencil: a funnel means "narrow
+          this list", which is what the FIELD beside it already does, and a
+          pencil names one of the things the mode can do rather than the
+          mode. Sliders is the nearest thing to "manage" that reads at
+          16px, and it is already the prototype panel's own glyph for
+          "adjust this". Ashwin, Oct 15.
+        */
+        <SlidersHorizontal size={15} aria-hidden="true" />
+      ) : picking ? (
+        selectedCount > 0 ? `Cancel (${selectedCount})` : "Cancel"
+      ) : (
+        cta
+      )}
     </button>
   );
 
@@ -504,6 +567,7 @@ function RailTools({
   return (
     <div
       onPointerEnter={onHover}
+      style={spot === "underAgency" ? { top: stickyTop ?? 0 } : undefined}
       className={cn(
         "z-[2] flex shrink-0 gap-[8px] bg-[var(--nav-rail-bg)] py-[8px]",
         /*
@@ -524,7 +588,11 @@ function RailTools({
           to edge so nothing shows behind it: as a row with margins, the
           accounts scrolled visibly through the gap beside it.
         */
-        expanded ? "w-full px-[10px]" : "w-full pr-[10px] pl-[14px]",
+        spot === "agencyBar" || spot === "underAgency"
+          ? "w-full px-0 py-0"
+          : expanded
+            ? "w-full px-[10px]"
+            : "w-full pr-[10px] pl-[14px]",
         /*
           Pulled over the rail's own bottom padding.
 
@@ -532,6 +600,15 @@ function RailTools({
           the edge — correct for a tile, wrong for a bar, which left an 8px
           band of rail below it with accounts scrolling through. The negative
           margin spends that padding on the bar instead.
+        */
+        /*
+          The agency bar is a ROW in the list, not a bar at an end of it.
+
+          It takes the place the agency row had, so it wants none of the
+          negative margins that pull the other two over the strip's own
+          padding, and none of the lift or hairline that say "the list
+          scrolls under this" — nothing scrolls under it, it is in the
+          scroller. See RAIL_TOOL_SPOTS.
         */
         spot === "bottom" && "-mb-[8px]",
         /*
@@ -552,9 +629,26 @@ function RailTools({
           stopped where the bar began, so the rail looked like it ended and
           something else began. See RAIL_TOOLS_EDGES.
         */
-        !expanded && "border-r border-[var(--nav-border)]",
+        /*
+          Sticky under the agency, not scrolling with the run.
+
+          It is drawn inside the scroller so it sits between the agency and
+          the pinned run in source order — but a field that leaves the
+          screen at row ten is a field you cannot reach from row thirty,
+          which is the whole reason the other two spots are pinned to an
+          edge. `top` is the agency row's own height where the agency is IN
+          the run and 0 where it is a plate above the scroller, because in
+          that case there is nothing above it to clear.
+        */
+        spot === "underAgency" && "sticky z-[3]",
+        !expanded &&
+          spot !== "agencyBar" &&
+          spot !== "underAgency" &&
+          "border-r border-[var(--nav-border)]",
         // Expanded, the axis decides — a lift over the list, or a hairline.
         expanded &&
+          spot !== "agencyBar" &&
+          spot !== "underAgency" &&
           (edge === "border"
             ? spot === "top"
               ? "border-b border-[var(--nav-divider)]"
@@ -566,6 +660,22 @@ function RailTools({
     >
       {!expanded ? (
         glyph
+      ) : spot === "underAgency" ? (
+        /*
+          One row, and while picking it is the field alone.
+
+          The bulk controls do not live here — they take the AGENCY row's
+          place above, which is the whole shape of this option: the row you
+          no longer need during a selection is the row the selection's
+          controls move into. So this row never has to choose between the
+          field and four buttons, and the search survives manage mode
+          without being given a second line to do it in.
+          See RAIL_TOOL_SPOTS. Ashwin, Oct 15.
+        */
+        <>
+          {field}
+          {picking ? null : ctaBtn}
+        </>
       ) : stacked ? (
         /*
           Two rows: who this list is and what you can do to it, then the
@@ -600,10 +710,59 @@ function RailTools({
               </>
             ) : (
               <>
-                <span className="min-w-0 flex-1 truncate text-[12.5px] leading-[16px] font-medium text-nav-fg">
-                  {title}
-                </span>
+                {/*
+                  The heading, or the way back wearing the heading's slot.
+
+                  Under `back` the agency bar spends no extra width on its
+                  dismissal: the title says where pressing it goes instead of
+                  naming the surface you are already looking at. Everywhere
+                  else it is a plain label.
+                */}
+                {onDismiss && dismissal === "back" ? (
+                  <button
+                    type="button"
+                    onClick={onDismiss}
+                    className="motion-tap flex min-w-0 flex-1 items-center gap-[4px] truncate rounded-[6px] text-left text-[12.5px] leading-[16px] font-medium text-nav-fg-muted hover:text-nav-fg"
+                  >
+                    <ChevronLeft size={14} aria-hidden="true" className="shrink-0" />
+                    {title}
+                  </button>
+                ) : (
+                  <span className="min-w-0 flex-1 truncate text-[12.5px] leading-[16px] font-medium text-nav-fg">
+                    {title}
+                  </span>
+                )}
                 {ctaBtn}
+                {/*
+                  Beside Edit, and only out of manage mode.
+
+                  Manage has a Cancel of its own and the two undo different
+                  errands — one abandons a selection, the other closes a
+                  search. Two buttons an inch apart both reading "Cancel"
+                  and meaning different things is the one ambiguity worth
+                  spending a rule on, so this one stands down while the
+                  other is up and returns when the selection is done.
+                  Ashwin, Oct 15.
+                */}
+                {onDismiss && dismissal !== "back" ? (
+                  <button
+                    type="button"
+                    onClick={onDismiss}
+                    aria-label="Close search"
+                    className={cn(
+                      "motion-tap shrink-0 rounded-[9px] text-[12.5px] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg",
+                      dismissal === "icon"
+                        ? "flex size-[32px] items-center justify-center"
+                        : "h-[32px] px-[9px]",
+                    )}
+                  >
+                    {dismissal === "icon" ? (
+                      <X size={15} aria-hidden="true" />
+                    ) : (
+                      "Cancel"
+                    )}
+                  </button>
+                ) : null}
               </>
             )}
           </div>
@@ -903,6 +1062,15 @@ export function AccountRail({
 
   /** What the filled strip lists: pinned first, then everyone else. */
   const [fillQuery, setFillQuery] = React.useState("");
+  /*
+   * Whether the agency bar has taken the agency's row.
+   *
+   * Closing it clears the query with it: the field is the only thing
+   * showing what the list is filtered BY, so leaving a filter running
+   * behind a glyph would be a list quietly lying about how many accounts
+   * there are. Ashwin, Oct 15.
+   */
+  const [agencyBarOpen, setAgencyBarOpen] = React.useState(false);
   /*
    * The same two states the All accounts panel carries, for the same reasons —
    * see RailDirectory, where the arguments are written out. Held here rather
@@ -1274,6 +1442,43 @@ export function AccountRail({
     railArrangement === "agencySorted" ||
     railArrangement === "agencyHeadsPinned";
 
+  /*
+   * The agency bar is live, whether or not it is open.
+   *
+   * Read off `agencyJoinsRun` — the ARRANGEMENT's answer — and not off
+   * `agencyInRun`, which manage mode can turn off. Basing it on the live
+   * one was circular in effect: entering manage dropped the agency from the
+   * run, which unmounted the bar, which took away the Edit button you had
+   * just pressed and the field you were about to search in. The bar's right
+   * to exist is a property of the layout, not of what you are doing.
+   * Ashwin, Oct 15.
+   */
+  const agencyBar =
+    railToolSpot === "agencyBar" && agencyJoinsRun && inlineOpen;
+
+  /*
+   * The standing row under the agency.
+   *
+   * Live wherever there is an agency at the TOP to sit under — which is
+   * every arrangement but `agencyBottom`, since a plate above the scroller
+   * serves as well as a row inside it. The two differ only in what the
+   * sticky row has to clear, which is `underAgencyTop`.
+   */
+  const underAgency =
+    railToolSpot === "underAgency" &&
+    railArrangement !== "agencyBottom" &&
+    inlineOpen;
+
+  /*
+   * What the sticky field has to clear: the agency row, plus the gap.
+   *
+   * The row is 36 and the list sets 4 between its children, so the field's
+   * natural top is 40 below the agency's. Parking it at 36 made it jump 4px
+   * up the moment it stuck — a row that moves as it stops moving.
+   * A plate sits outside the scroller, so there it clears nothing.
+   */
+  const underAgencyTop = agencyJoinsRun ? RAIL_ROW_H + 4 : 0;
+
   const agencyInRun =
     agencyJoinsRun &&
     /*
@@ -1290,7 +1495,16 @@ export function AccountRail({
       time would leave both reading a list with a hole in it. See
       MANAGE_AGENCY_ROWS.
     */
-    !(fillPicking && effective.manageAgencyRow === "hidden");
+    !(
+      fillPicking &&
+      /*
+        Under `underAgency` the agency row is not hidden so much as
+        OCCUPIED: the bulk bar is drawn in its place, so leaving the row
+        there as well would stack two headers. Forced regardless of the
+        axis, which is about a row being dropped rather than replaced.
+      */
+      (effective.manageAgencyRow === "hidden" || underAgency)
+    );
 
   const centredAccounts = raisedActive
     ? [raisedActive, ...pinnedSet.filter((a) => a.id !== raisedActive.id)]
@@ -1400,6 +1614,15 @@ export function AccountRail({
    * Ashwin, Oct 15.
    */
   const pickable = (id: string) => id !== AGENCY_ID;
+
+  /*
+   * The agency bar: tools with no standing row of their own.
+   *
+   * Live only where there IS an agency row to borrow — the two arrangements
+   * that fold the agency into the run — and only once the names are out,
+   * since at 56px the trailing slot the glyph uses is not drawn at all.
+   * See RAIL_TOOL_SPOTS.
+   */
 
   /*
    * The pinned run, with the agency folded in where the arrangement wants it.
@@ -2560,7 +2783,7 @@ export function AccountRail({
               the gap between them is the rail's own, and the padding is
               stated once. Ashwin, Oct 15.
             */}
-            {inlineDirectory && railToolSpot === "top" ? (
+            {inlineDirectory && railToolSpot === "top" && !agencyBar ? (
               <RailTools
                 expanded={expanded}
                 spot="top"
@@ -2877,8 +3100,171 @@ export function AccountRail({
                     show={railPinnedLabel && !inlineDirectory}
                   />
                 ) : null}
-                {filled ? null : topRun.map((account, i) => (
-                  <div key={account.id} ref={flip.register(account.id)}>
+                {/*
+                  Manage's own bar, in the agency row's place.
+
+                  `underAgency` moves the bulk controls UP into the row the
+                  agency had rather than crowding them onto the field's —
+                  the agency is the one row you demonstrably do not need
+                  while picking sub-accounts, so it is the row the
+                  selection borrows. The label is the heading until
+                  something is ticked and the count after, because at 300px
+                  "Manage sub-accounts" and "3 of 40 selected" cannot both
+                  be on a row that also holds Actions and Cancel.
+                  Ashwin, Oct 15.
+                */}
+                {underAgency && fillPicking ? (
+                  <div className="sticky top-0 z-[4] flex h-[36px] shrink-0 items-center gap-[8px] bg-[var(--nav-rail-bg)]">
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={inlineAllOn}
+                      onClick={toggleInlineAll}
+                      aria-label={inlineAllOn ? "Clear selection" : "Select all"}
+                      className={cn(
+                        "motion-tap ml-[7px] flex size-[18px] shrink-0 items-center justify-center rounded-[5px]",
+                        inlineAllOn
+                          ? "bg-[var(--admin-action)] text-[var(--admin-action-fg)]"
+                          : "shadow-[inset_0_0_0_1.5px_var(--fly-border)]",
+                      )}
+                    >
+                      {inlineAllOn ? (
+                        <Check size={12} strokeWidth={3} aria-hidden="true" />
+                      ) : null}
+                    </button>
+                    <span className="min-w-0 flex-1 truncate text-[12.5px] leading-[16px] font-medium text-nav-fg">
+                      {fillSelected.length > 0
+                        ? `${fillSelected.length} selected`
+                        : "Manage sub-accounts"}
+                    </span>
+                    {fillBulkAllowed && fillSelected.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => setFillBulk({ path: null })}
+                        className="motion-tap h-[28px] shrink-0 rounded-[8px] bg-[var(--admin-action)] px-[9px] text-[12.5px] font-medium text-[var(--admin-action-fg)] hover:brightness-95"
+                      >
+                        Actions
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={exitFillSelect}
+                      className="motion-tap h-[28px] shrink-0 rounded-[8px] px-[8px] text-[12.5px] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : null}
+                {underAgency ? (
+                  <RailTools
+                    expanded
+                    spot="underAgency"
+                    layout="inline"
+                    stickyTop={fillPicking ? RAIL_ROW_H + 4 : underAgencyTop}
+                    edge={effective.railToolsEdge}
+                    collapsedSearch={effective.railCollapsedSearch}
+                    title={directoryLabel}
+                    ctaShape={effective.railToolsCta}
+                    onHover={() => setHover(true)}
+                    query={fillQuery}
+                    onQuery={setFillQuery}
+                    cta={fillSelectWord}
+                    picking={fillPicking}
+                    selectedCount={fillSelected.length}
+                    onToggleSelect={() =>
+                      fillPicking ? exitFillSelect() : setFillSelectMode(true)
+                    }
+                    totalCount={session.accounts.length}
+                    allOn={inlineAllOn}
+                    onToggleAll={toggleInlineAll}
+                    onActions={
+                      fillBulkAllowed ? () => setFillBulk({ path: null }) : null
+                    }
+                  />
+                ) : null}
+                {/*
+                  The agency bar, ABOVE the run rather than inside it.
+
+                  It was rendered from the run's own map, in the agency's
+                  slot — which put the search field inside the list the
+                  field filters. Type anything the agency's name does not
+                  match and `inlineMatch` dropped that row, taking the open
+                  bar, the query and the focus with it: the control
+                  deleted itself on the second keystroke. It is a sibling
+                  of the list now, so the list can filter to nothing
+                  without touching it. Ashwin, Oct 15.
+                */}
+                {agencyBar && agencyBarOpen ? (
+                    <div>
+                      <RailTools
+                        expanded
+                        spot="agencyBar"
+                        layout="stacked"
+                        edge={effective.railToolsEdge}
+                        collapsedSearch={effective.railCollapsedSearch}
+                        title={
+                          effective.agencyBarDismissal === "back"
+                            ? brandedAgency.name
+                            : directoryLabel
+                        }
+                        onDismiss={() => {
+                          setAgencyBarOpen(false);
+                          setFillQuery("");
+                        }}
+                        dismissal={effective.agencyBarDismissal}
+                        onHover={() => setHover(true)}
+                        query={fillQuery}
+                        onQuery={setFillQuery}
+                        cta={fillSelectWord}
+                        picking={fillPicking}
+                        selectedCount={fillSelected.length}
+                        onToggleSelect={() =>
+                          fillPicking ? exitFillSelect() : setFillSelectMode(true)
+                        }
+                        totalCount={session.accounts.length}
+                        allOn={inlineAllOn}
+                        onToggleAll={toggleInlineAll}
+                        onActions={
+                          fillBulkAllowed
+                            ? () => setFillBulk({ path: null })
+                            : null
+                        }
+                      />
+                    </div>
+                ) : null}
+                {filled ? null : topRun.map((account, i) =>
+                  /* The row the bar is standing in for is not drawn twice. */
+                  agencyBar && agencyBarOpen && account.id === AGENCY_ID ? null : (
+                  <div
+                    key={account.id}
+                    ref={flip.register(account.id)}
+                    /*
+                      The agency holds the top while the run scrolls past.
+
+                      Only under `underAgency`, and only for the agency: the
+                      field below it is sticky at the agency's own height,
+                      so letting the agency scroll away would leave the
+                      field pinned under nothing with a gap above it.
+                    */
+                    className={cn(
+                      underAgency &&
+                        account.id === AGENCY_ID &&
+                        /*
+                          Above the tools row, which is its DOM sibling but
+                          comes first in source.
+
+                          The tools row has to be a sibling of the list
+                          rather than an entry in it — an entry gets
+                          filtered away by the very field it contains, which
+                          is the bug the agency bar already taught us. So it
+                          is rendered before the map, and the agency row
+                          takes itself back above with `order`. Cheaper than
+                          hoisting the agency out of the run, and it leaves
+                          the run's own ordering untouched.
+                        */
+                        "sticky top-0 z-[4] [order:-1] bg-[var(--nav-rail-bg)]",
+                    )}
+                  >
                   <RailRow
                     squircle={!pillTiles}
                     /*
@@ -2953,9 +3339,13 @@ export function AccountRail({
                     squareMark={
                       account.id === AGENCY_ID && effective.agencyRowSquare
                     }
+                    {...(agencyBar && account.id === AGENCY_ID
+                      ? { onSearch: () => setAgencyBarOpen(true) }
+                      : {})}
                   />
                   </div>
-                ))}
+                  ),
+                )}
 
                 {/*
                   No rule between the two runs (Aug 29).
@@ -3133,7 +3523,7 @@ export function AccountRail({
           </Tooltipped>
         ) : null}
 
-        {inlineDirectory && railToolSpot === "bottom" ? (
+        {inlineDirectory && railToolSpot === "bottom" && !agencyBar ? (
           <RailTools
             expanded={expanded}
             spot="bottom"
@@ -3216,6 +3606,7 @@ function RailRow({
   pinBlocked = false,
   agencyWord = false,
   agencyDiamond = false,
+  onSearch,
   magnify = 1,
   pinned = false,
   listShape = false,
@@ -3300,6 +3691,14 @@ function RailRow({
   onTogglePin?: () => void;
   /** At the cap and not already pinned — shown, disabled, with the reason. */
   pinBlocked?: boolean;
+  /**
+   * Opens the agency bar's tools, from this row's trailing slot.
+   *
+   * Only ever the agency's, and only under `railToolSpot: "agencyBar"`. It
+   * takes the slot the marks use rather than sitting beside them — see
+   * where it is drawn. Ashwin, Oct 15.
+   */
+  onSearch?: () => void;
   /** The agency's trailing marks. See AGENCY_ROW_MARKS. */
   agencyWord?: boolean;
   agencyDiamond?: boolean;
@@ -3566,6 +3965,32 @@ function RailRow({
     blocked case — "Pin" and "Unpin" stay on `title`, where a pill every
     time you crossed a row would be noise. Ashwin, Oct 15.
   */
+  /*
+   * The agency bar's glyph, BESIDE the row rather than inside it.
+   *
+   * It began inside, in the slot the marks use, which made it part of the
+   * row: resting anywhere on "Acme Agency" lit a fill that ran under the
+   * icon, so the row and the control it carries looked like one target that
+   * did two different things depending where you clicked. Ashwin, Oct 15.
+   *
+   * A flex sibling, not an absolute overlay like the pin. The pin is meant
+   * to sit ON its row — it belongs to that account and shares its hover —
+   * while this opens a surface that REPLACES the row, which is not the same
+   * relationship and should not look like it. Taking real width is what
+   * stops the row's fill short of it.
+   */
+  const searchControl =
+    onSearch && expanded ? (
+      <button
+        type="button"
+        aria-label="Find an account"
+        onClick={onSearch}
+        className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[8px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-90 motion-press"
+      >
+        <Search size={15} aria-hidden="true" />
+      </button>
+    ) : null;
+
   const pinSlot =
     pinControl && pinBlocked ? (
       <RailTooltip label={RAIL_PIN_CAP_HINT}>{pinControl}</RailTooltip>
@@ -3583,7 +4008,15 @@ function RailRow({
       every unpinned row, which is the half of the affordance that has to be
       discoverable. Ashwin caught it, Oct 15.
     */
-    <div className="group/rail-wrap relative w-full shrink-0">
+    <div
+      className={cn(
+        "group/rail-wrap relative w-full shrink-0",
+        // Only where there is a second control to sit beside. Everywhere
+        // else the row is the whole width and a flex box would be a box
+        // around one child.
+        searchControl && "flex items-center gap-[4px]",
+      )}
+    >
       {pinSlot}
       {/*
         The edge bar, now optional — see `railActiveBar`. With the active tile
@@ -3681,6 +4114,16 @@ function RailRow({
               moves on this row, in one place.
             */
             "motion-tap flex w-full items-center gap-[9px] outline-none transition-[padding,border-radius,background-color,box-shadow,transform,color] duration-[var(--dur-fast)] ease-[var(--ease-out)] focus-visible:ring-[1.5px] focus-visible:ring-brand",
+            /*
+              Shares the width once something sits beside it.
+
+              `w-full` is 100% of the wrapper, which in a flex row with a
+              28px sibling overflows rather than shrinks — the glyph would
+              be pushed off the strip's edge. `flex-1` with `min-w-0` lets
+              the row give up exactly the width the control takes, and the
+              name truncates that much earlier.
+            */
+            searchControl && "min-w-0 flex-1",
             /*
               The shape itself has moved to `borderRadius` in the style above —
               it reads two axes and a `calc()` now, and three `rounded-*`
@@ -3931,7 +4374,17 @@ function RailRow({
                 the button says both; the slot stays so the names still
                 truncate on one column.
               */}
-              {agencyWord || agencyDiamond ? (
+              {/*
+                The marks stand down where the agency bar is live.
+
+                Ashwin's call when the glyph took this slot, and it still
+                holds now the glyph has moved OUT of the row: a diamond and
+                a search icon an inch apart are two trailing marks on the
+                one row that is meant to read as simpler than its
+                neighbours, and the squared avatar already says which row
+                this is. Ashwin, Oct 15.
+              */}
+              {!onSearch && (agencyWord || agencyDiamond) ? (
                 /*
                   The agency's own trailing mark, in the pin's slot.
 
@@ -4005,6 +4458,7 @@ function RailRow({
           ) : null}
         </button>
       </Tooltipped>
+      {searchControl}
     </div>
   );
 }
