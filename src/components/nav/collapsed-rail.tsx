@@ -5,6 +5,7 @@ import {
   ChevronsRight,
   History,
   LayoutGrid,
+  Search,
   LayoutList,
   Monitor,
   MoreHorizontal,
@@ -33,7 +34,7 @@ import type { WorkspaceScope } from "@/components/accounts/use-accounts";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import type { RailViewAll, SurfaceTheme } from "@/design/theme";
-import { DIRECTORY_NAME_LABELS } from "@/design/theme";
+import { DIRECTORY_NAME_ICONS, DIRECTORY_NAME_LABELS } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { EntryClusterRail } from "./entry-cluster";
@@ -829,7 +830,16 @@ export function CollapsedRail({
             onClick={onOpenAccounts}
             className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95 motion-press"
           >
-            <LayoutGrid size={16} aria-hidden="true" style={RAIL_GLYPH} />
+            {/*
+              The same rule the open rail's door follows — see
+              DIRECTORY_NAME_ICONS. At 56px the glyph IS the label, so the
+              two doors disagreeing would be the collapsed one lying.
+            */}
+            {DIRECTORY_NAME_ICONS[directoryName] === "search" ? (
+              <Search size={16} aria-hidden="true" style={RAIL_GLYPH} />
+            ) : (
+              <LayoutGrid size={16} aria-hidden="true" style={RAIL_GLYPH} />
+            )}
           </button>
         </RailTooltip>
       ) : null}

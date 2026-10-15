@@ -25,6 +25,7 @@
   --color-nav-fg: var(--nav-fg);
   --color-nav-fg-muted: var(--nav-fg-muted);
   --color-nav-fg-subtle: var(--nav-fg-subtle);
+  --color-nav-pin: var(--nav-pin-ink);
   --color-nav-hover: var(--nav-hover);
   --color-nav-key: var(--nav-key-bg);
   --color-nav-key-border: var(--nav-key-border);
@@ -745,3 +746,28 @@
   --page-canvas-tint: color-mix(in oklab, var(--page-canvas-tint-src) 7%, var(--pg-surface));
 }
 
+
+/*
+ * The drag picture: a row as it looks when you are holding it.
+ *
+ * `setRowDragImage` clones the row and hands the copy to `setDragImage`, and
+ * a clone is never hovered — so everything the row reveals on hover was
+ * missing from the picture. The eye was the visible casualty: it waits for a
+ * hover, while the kebab beside it is pinned and came through, so the ghost
+ * arrived with one of its two trailing controls. Ashwin, Oct 15.
+ *
+ * Opacity on the affordances only, and set to 1 rather than nudged. A row
+ * that is going to be translucent should be translucent as ONE object — a
+ * ghost assembled from parts at different strengths reads as a rendering
+ * fault, not as a thing in flight. If the picture is ever faded, it is faded
+ * on `[data-drag-ghost]` itself and these stay solid inside it.
+ *
+ * The attribute is on the button, not a class, so the rule does not depend
+ * on which Tailwind opacity utility the affordance happens to carry — the
+ * disabled pencil greys its own glyph through a different one, and that
+ * stays greyed, which is correct: it is blocked whether or not you are
+ * dragging the row it sits on.
+ */
+[data-drag-ghost] [data-row-affordance] {
+  opacity: 1;
+}

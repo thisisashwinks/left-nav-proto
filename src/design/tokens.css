@@ -535,6 +535,21 @@
   --nav-fg-muted: var(--hr-gray-500);
   --nav-fg-subtle: var(--hr-gray-400);
   /*
+    The account pin's ink, on every surface that draws one.
+
+    Deliberately NOT --nav-fg-subtle, which it used to be. That token darkens
+    one step inside [data-nav-plane] so quiet ink keeps its distance from a
+    grey ground — correct for labels, and wrong for this one mark, because the
+    rail sits off the plane and the All accounts panel sits on it. The same
+    pin on the same account came out two different greys a column apart.
+
+    Declared once, here, and never re-declared under a plane or a theme: the
+    pin is the one thing in the nav that has to look identical wherever it is
+    drawn, so it is pinned to an absolute value rather than to a relationship
+    with its background. Ashwin, Oct 15.
+  */
+  --nav-pin-ink: var(--hr-gray-400);
+  /*
     Left where it was. Lightening this to separate it from the selected fill
     (Sep 10) bought the separation by making rollover itself barely visible —
     the cost landed on the state you see a hundred times an hour to fix the one

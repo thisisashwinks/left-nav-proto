@@ -626,6 +626,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
     subAccountSwitcher,
     userMultiAccount,
     headerAgencyMark,
+    agencyRoute,
     collapseSpot,
     navLeftInset,
     agencySearch,
@@ -1427,6 +1428,25 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    */
   const agencyShowable =
     !railActive && !plainUser && accounts.scope !== "agency";
+
+  /*
+   * With the rail hidden, the header's agency mark is not optional.
+   *
+   * `headerAgencyMark` is an axis about EMPHASIS — whether the agency gets a
+   * row of its own, rides in the trigger's logo slot, or stays out of the
+   * header entirely. All three are reasonable while the dropdown still
+   * carries a "Switch to agency" row, because the route exists either way.
+   *
+   * Hiding the rail takes that row away (see `showAgency` below), on Ashwin's
+   * reading that the logo IS the way to agency scope. That makes "off" not an
+   * emphasis choice but a dead end: no tile, no row, no route. So the mark is
+   * forced on here and the axis only decides WHERE it sits — a control may
+   * change how something is said, never whether it can be reached at all.
+   * Ashwin, Oct 15.
+   */
+  const agencyByLogo = !railActive && agencyRoute === "logo";
+  const headerAgencyPlacement =
+    agencyByLogo && headerAgencyMark === "off" ? "above" : headerAgencyMark;
   /*
    * The rail's two states, kept apart so it can LEAVE rather than vanish.
    *
@@ -3735,14 +3755,14 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
              * and a plain sub-account user has nothing above them to reach.
              */
             agencyPlate={
-              headerAgencyMark === "above" && agencyShowable
+              headerAgencyPlacement === "above" && agencyShowable
                 ? accounts.agency
                 : null
             }
             // The same agency, in the trigger's own logo slot instead. See
             // HEADER_AGENCY_MARKS.
             agencyMark={
-              headerAgencyMark === "beside" && agencyShowable
+              headerAgencyPlacement === "beside" && agencyShowable
                 ? accounts.agency
                 : null
             }
@@ -4666,7 +4686,19 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
             scope to reach — the panel's own guard has to name the role, not
             just the ability to switch.
           */
-          showAgency={!railActive && canSwitch && !plainUser}
+          /*
+            Only when the axis asks for it — see AGENCY_ROUTES.
+
+            It used to be shown precisely BECAUSE the rail was gone: no tile
+            on screen, so the list carried the route. That is now one of two
+            answers rather than the only one, and the default is the other:
+            the header's agency mark carries it, and two routes to one scope
+            in one surface is the repetition the arrangement exists to
+            remove. Ashwin, Oct 15.
+          */
+          showAgency={
+            !railActive && canSwitch && !plainUser && agencyRoute === "dropdown"
+          }
           /*
             No allow-list any more: the session itself is already scoped to the
             member's accounts, so this panel lists exactly what they can reach.

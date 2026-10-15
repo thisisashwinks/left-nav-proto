@@ -39,6 +39,46 @@ export const RESEARCH_ROUTES_ENABLED = process.env.RESEARCH_ROUTES === "1";
  * thing it is supposed to be showing. A patch says exactly what the route
  * asserts and leaves everything else at its default.
  */
+/**
+ * The header-dropdown proposal, as one named set.
+ *
+ * Lifted out of `ROUTE_THEMES` because two things now assert it: the
+ * `/header-nav` link a participant is handed, and the rail's own "Hide
+ * account rail" row, which puts the nav into the same arrangement from
+ * inside the product. Two spellings of eight axes is two things to keep in
+ * step, and the one that drifts is the one nobody is looking at.
+ *
+ * Applied as a PATCH in both cases, not forced: it seeds the axes and leaves
+ * them live, so the panel can still take any of them somewhere else
+ * afterwards. The URL and the button are starting points, not locks.
+ * Ashwin, Oct 15.
+ */
+export const HEADER_NAV_THEME: Partial<ThemeState> = {
+  subAccountSwitcher: "dropdown",
+  subAccountNavMark: true,
+  headerAgencyMark: "above",
+  agencyWordmark: "myna",
+  agencyPlateAlign: "left",
+  collapseSpot: "breadcrumb",
+  navIdentityAlign: "between",
+  directoryPlacement: "names",
+};
+
+/**
+ * The same eight axes, at the values they ship with.
+ *
+ * What "undo the header arrangement" means. Derived from `DEFAULT_THEME` by
+ * the keys of the patch rather than written out, so a ninth axis joining the
+ * proposal is reverted by the same code that applied it — a second hand-kept
+ * list is how the way back comes to restore seven of eight.
+ */
+export const HEADER_NAV_DEFAULTS: Partial<ThemeState> = Object.fromEntries(
+  Object.keys(HEADER_NAV_THEME).map((k) => [
+    k,
+    DEFAULT_THEME[k as keyof ThemeState],
+  ]),
+) as Partial<ThemeState>;
+
 export const ROUTE_THEMES: Record<string, Partial<ThemeState>> = {
   "/tree-nav": { navArrangement: "tree" },
   "/drill-nav": { navArrangement: "drill" },
@@ -54,16 +94,7 @@ export const ROUTE_THEMES: Record<string, Partial<ThemeState>> = {
    * the left). Opening this link on anything less than all eight shows a
    * nav mid-renovation rather than the proposal. Oct 14.
    */
-  "/header-nav": {
-    subAccountSwitcher: "dropdown",
-    subAccountNavMark: true,
-    headerAgencyMark: "above",
-    agencyWordmark: "myna",
-    agencyPlateAlign: "left",
-    collapseSpot: "breadcrumb",
-    navIdentityAlign: "between",
-    directoryPlacement: "names",
-  },
+  "/header-nav": HEADER_NAV_THEME,
 };
 
 /**

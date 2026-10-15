@@ -102,10 +102,24 @@ import {
   RAIL_SHADE_LABELS,
   AGENCY_PLATES,
   AGENCY_PLATE_LABELS,
-  RAIL_GROUP_MARKS,
-  RAIL_GROUP_MARK_LABELS,
+  AGENCY_ROW_MARKS,
+  AGENCY_ROW_MARK_LABELS,
+  AGENCY_ROUTES,
+  AGENCY_ROUTE_LABELS,
+  RAIL_ARRANGEMENTS,
+  RAIL_ARRANGEMENT_LABELS,
+  RAIL_ACTIVE_SPOTS,
+  RAIL_ACTIVE_SPOT_LABELS,
+  RAIL_DIRECTORY_MODES,
+  RAIL_DIRECTORY_MODE_LABELS,
+  RAIL_TOOL_SPOTS,
+  RAIL_TOOL_SPOT_LABELS,
+  RAIL_TOOLS_EDGES,
+  RAIL_TOOLS_EDGE_LABELS,
   RAIL_TILE_COLOURS,
   RAIL_TILE_COLOUR_LABELS,
+  ACTIVE_AGENCY_SPOTS,
+  ACTIVE_AGENCY_SPOT_LABELS,
   RAIL_TILE_ALIGNS,
   RAIL_TILE_ALIGN_LABELS,
   type RailTileAlign,
@@ -244,9 +258,6 @@ import {
   RECENTS_MODES,
   SCOPE_MODEL_LABELS,
   SCOPE_MODELS,
-  AGENCY_PLATE_SPOT_LABELS,
-  AGENCY_PLATE_SPOTS,
-  type AgencyPlateSpot,
   DIRECTORY_NAME_LABELS,
   DIRECTORY_NAMES,
   type DirectoryName,
@@ -355,8 +366,14 @@ import {
   type RailAvatar,
   type RailShade,
   type AgencyPlate,
-  type RailGroupMark,
+  type AgencyRoute,
+  type RailArrangement,
+  type RailActiveSpot,
+  type RailDirectoryMode,
+  type RailToolSpot,
+  type RailToolsEdge,
   type RailTileColour,
+  type ActiveAgencySpot,
   type CanvasBleed,
   type CanvasPad,
   type CustomCodeMode,
@@ -691,10 +708,34 @@ function NavStructureSection({
     setRailShade,
     agencyPlate,
     setAgencyPlate,
-    railGroupMark,
-    setRailGroupMark,
+    railArrangement,
+    setRailArrangement,
+    agencyRowRing,
+    setAgencyRowRing,
+    agencyRowWord,
+    setAgencyRowWord,
+    agencyRowDiamond,
+    setAgencyRowDiamond,
+    railHideButton,
+    setRailHideButton,
+    agencyRoute,
+    setAgencyRoute,
+    railActiveSpot,
+    setRailActiveSpot,
+    railDirectoryMode,
+    setRailDirectoryMode,
+    railToolSpot,
+    setRailToolSpot,
+    railToolsEdge,
+    setRailToolsEdge,
+    railPinnedLabel,
+    setRailPinnedLabel,
+    railRecentLabel,
+    setRailRecentLabel,
     railTileColour,
     setRailTileColour,
+    activeAgencySpot,
+    setActiveAgencySpot,
     setRailAvatars,
     railTileAlign,
     setRailTileAlign,
@@ -749,8 +790,6 @@ function NavStructureSection({
     setSelectStrip,
     directoryName,
     setDirectoryName,
-    agencyPlateSpot,
-    setAgencyPlateSpot,
     navIdentityAlign,
     setNavIdentityAlign,
     agencyPlateSize,
@@ -928,6 +967,24 @@ function NavStructureSection({
           : "Model A: one nav, scope named in the header. The agency is the marked case — squircle and an AGENCY word."}
       </Note>
 
+      <Segmented
+        label="Reaching the agency"
+        keywords="agency route logo header dropdown switch to agency scope rail hidden"
+        options={AGENCY_ROUTES}
+        value={agencyRoute}
+        onChange={(v: AgencyRoute) => setAgencyRoute(v)}
+        format={(v) => AGENCY_ROUTE_LABELS[v]}
+        disabled={scopeModel === "rail"}
+      />
+      <Note>
+        {scopeModel === "rail"
+          ? "Only once the rail is hidden. With the rail up the agency is a tile on the strip, and nothing else needs to offer the route."
+          : agencyRoute === "logo"
+            ? "The agency&rsquo;s mark in the nav header IS the route \u2014 press it and you are there \u2014 and the dropdown drops its &ldquo;Switch to agency&rdquo; row. On screen at all times rather than behind a control, at the price of a logo not obviously being a button. The mark is forced on under this option: an axis may change how a thing is said, never whether it can be reached."
+            : "A &ldquo;Switch to agency&rdquo; row inside the All accounts dropdown, placed by the &ldquo;Agency entry&rdquo; control. Unmistakably pressable, and two clicks deep behind a control most people open to change sub-account."}
+      </Note>
+
+
       {/*
         Sits under the scope control because it only has anything to say while
         the rail is the scope model — it is that strip's own shape.
@@ -965,6 +1022,23 @@ function NavStructureSection({
           </Note>
 
           <Segmented
+            label="Active agency"
+            keywords="agency active bottom rise top rail arrangement scope current"
+            options={ACTIVE_AGENCY_SPOTS}
+            value={activeAgencySpot}
+            onChange={(v: ActiveAgencySpot) => setActiveAgencySpot(v)}
+            format={(v) => ACTIVE_AGENCY_SPOT_LABELS[v]}
+            disabled={railArrangement !== "agencyBottom"}
+          />
+          <Note>
+            {railArrangement !== "agencyBottom"
+              ? "Only under “Agency at the bottom”. Every other arrangement already has the agency at the head of the strip, so there is nothing to raise."
+              : activeAgencySpot === "rise"
+                ? "While you are in the agency it climbs above the pinned run, then goes back to the edge when you leave. Where you are is always the top of the strip — the same promise “Always first” makes for sub-accounts, at the price of the one row that was meant to be fixed moving."
+                : "It holds the bottom edge even while you are inside it. The strip never moves, so a learned position stays true — and the active marking carries the whole message on its own, at the end of a column you have to look down to read."}
+          </Note>
+
+          <Segmented
             label="Sub-account tile colour"
             keywords="rail tile colour color greyscale grayscale desaturate active hover mono muted avatars"
             options={RAIL_TILE_COLOURS}
@@ -978,18 +1052,175 @@ function NavStructureSection({
               : "Every tile in colour, as drawn. Fourteen saturated marks in a 56px column, with the active one told apart by its fill and its size."}
           </Note>
 
-          <Segmented
-            label="Sub-account rail groups"
-            keywords="rail pinned recent heading label divider group sub-account accounts strip run"
-            options={RAIL_GROUP_MARKS}
-            value={railGroupMark}
-            onChange={(v: RailGroupMark) => setRailGroupMark(v)}
-            format={(v) => RAIL_GROUP_MARK_LABELS[v]}
+          <Toggle
+            label="Offer &ldquo;Hide account rail&rdquo;"
+            keywords="hide account rail toggle header dropdown switcher collapse show scope model"
+            checked={railHideButton}
+            onChange={setRailHideButton}
           />
           <Note>
-            {railGroupMark === "headings"
-              ? "PINNED and RECENT while the rail is open and the names are showing. Shut, each heading collapses to the hairline it replaced — same place at both widths, so nothing moves when the strip opens under the pointer."
-              : "A hairline between the two runs, which separates them without naming them. The order is the only evidence of what the two runs ARE, and the order is invisible to anyone who has not watched it change."}
+            {railHideButton
+              ? "A row at the foot of the rail that puts it away, and an item at the foot of the header&rsquo;s All accounts dropdown that brings it back. Both write the same state this panel&rsquo;s &ldquo;Agency \u2194 sub-account&rdquo; control writes, so the two can never disagree \u2014 and every rail setting survives the trip, because none of them live in the rail."
+              : "No way out from inside the product. The rail is switched on and off from this panel only, which is honest about it being a reviewer&rsquo;s control \u2014 and costs the rail nothing."}
+          </Note>
+
+          <Segmented
+            label="Rail arrangement"
+            keywords="rail agency all accounts arrangement order pinned recent active inline search sticky bottom top sorted heads"
+            options={RAIL_ARRANGEMENTS}
+            value={railArrangement}
+            onChange={(v: RailArrangement) => setRailArrangement(v)}
+            format={(v) => RAIL_ARRANGEMENT_LABELS[v]}
+          />
+          <Note>
+            {railArrangement === "allTop"
+              ? "Agency, then All accounts directly under it, then the sub-accounts centred in what is left. The two ways out of where you are standing sit together and the rest is one uninterrupted column — paid for by parking the button in the path your eye takes on every trip down to the account you actually wanted."
+              : railArrangement === "labelled"
+                ? "Agency at the top, the runs beneath it carrying their names, All accounts last. The only option that says out loud what the runs ARE, which the order alone has never managed; it costs two rows of chrome in a strip whose whole argument is that it is cheap, and it puts the button at the far edge from the agency row that is conceptually its sibling."
+                : railArrangement === "agencyBottom"
+                  ? "Sub-accounts first, All accounts under them, agency pinned to the bottom edge. Orders the strip by how often each part is touched, and borrows the account corner every other tool already has. The agency is also the one row that should never be mistaken for a client, and the bottom edge is where a long enough list shoves everything else anyway."
+                  : railArrangement === "agencySorted"
+                    ? "The agency takes a fixed slot in the middle of the pinned run, in your own pin order, wearing a ring and carrying no pin control — because it is not a thing you can unpin. The cheapest option in pixels and the most honest about what the agency is while you are working: one more place to be. It is also the only one where the agency can only be found by reading."
+                    : railArrangement === "agencyHeadsPinned"
+                      ? "The agency is always the first of the pinned run, wearing the same ring, with All accounts below. Keeps the top slot and the single uninterrupted column at once — the agency reads as the pin you cannot remove rather than as separate furniture. The seam between it and the first real pin is then carried entirely by that ring; too quiet and the agency becomes just another client."
+                      : "The rail as it stands. Kept on the dial so the rest are measured against the thing people have already lived with, not against a description of it."}
+          </Note>
+
+          {/*
+            Only where the agency is IN the run. Everywhere else it has a
+            plate of its own and needs no telling apart.
+          */}
+          {railArrangement === "agencySorted" ||
+          railArrangement === "agencyHeadsPinned" ? (
+            <>
+              {/*
+                One control, multi-select — not three switches.
+
+                They were three Toggles, which is how they were built and the
+                wrong shape for what they are: three answers to a single
+                question ("how is the agency row told apart"), and read as a
+                stack of unrelated settings three rows tall. Chips under one
+                label say they belong together and that any combination is
+                legal, which is the thing the toggles could only imply by
+                sitting next to each other. Ashwin, Oct 15.
+              */}
+              <MultiSegmented
+                label="Agency row mark"
+                keywords="agency row mark ring word text label badge diamond glyph differentiate sorted pinned run"
+                options={AGENCY_ROW_MARKS}
+                value={{
+                  ring: agencyRowRing,
+                  word: agencyRowWord,
+                  diamond: agencyRowDiamond,
+                }}
+                onChange={(mark, on) =>
+                  mark === "ring"
+                    ? setAgencyRowRing(on)
+                    : mark === "word"
+                      ? setAgencyRowWord(on)
+                      : setAgencyRowDiamond(on)
+                }
+                format={(v) => AGENCY_ROW_MARK_LABELS[v]}
+              />
+              <Note>
+                Three marks for the one row in the list that is not an
+                account, in any combination, so the pair can be judged
+                against either alone. They take the trailing slot the agency
+                cannot use anyway — it is the only row that can never be
+                pinned — so none of them changes the row&rsquo;s height or
+                layout; the text and the diamond ride the pin column, in the
+                pin&rsquo;s own ink, so the column stays one column. A
+                heavier name and a tinted row were tried and dropped: both
+                borrow the signals the ACTIVE row already uses, and two rows
+                that look current is worse than one that is hard to place.
+              </Note>
+            </>
+          ) : null}
+
+          <Segmented
+            label="Active account sits"
+            keywords="rail active current account position top in place hoist pinned recent arrangement"
+            options={RAIL_ACTIVE_SPOTS}
+            value={railActiveSpot}
+            onChange={(v: RailActiveSpot) => setRailActiveSpot(v)}
+            format={(v) => RAIL_ACTIVE_SPOT_LABELS[v]}
+          />
+          <Note>
+            {railActiveSpot === "top"
+              ? "The account you are in is lifted to the first slot, agency included. Trivially findable and a free confirmation of where you are, paid for by every other tile shifting a row the moment you switch: the position you learned one switch ago is wrong on the next one."
+              : "It stays wherever the arrangement put it, told apart by size and fill alone. The strip never moves under you — the account you came from is still where you left it, which is the whole reason a second switch is cheap."}
+          </Note>
+
+          <Segmented
+            label="All accounts"
+            keywords="rail all accounts directory button door inline search sticky scroll pinned recent"
+            options={RAIL_DIRECTORY_MODES}
+            value={railDirectoryMode}
+            onChange={(v: RailDirectoryMode) => setRailDirectoryMode(v)}
+            format={(v) => RAIL_DIRECTORY_MODE_LABELS[v]}
+          />
+          <Note>
+            {railDirectoryMode === "inline"
+              ? "No button at all. At rest the strip holds the pinned accounts only; hovering flows every remaining account in underneath them, with search and the Edit/Bulk-actions row stuck to one edge. Nothing to open and nothing to learn — and it quietly dissolves the runs, since pinned and recent stop meaning anything once the same accounts sit six rows further down. Comfortable at a dozen accounts, unusable at the counts real agencies carry."
+              : "One All accounts control that opens the directory. The strip is the same length whether the agency has four accounts or four hundred, and everything outside the two runs is exactly one click away — but it is a click, and a surface to come back out of."}
+          </Note>
+
+          <Segmented
+            label="Rail tools edge"
+            keywords="rail tools edge border shadow separator sticky search bar divider"
+            options={RAIL_TOOLS_EDGES}
+            value={railToolsEdge}
+            onChange={(v: RailToolsEdge) => setRailToolsEdge(v)}
+            format={(v) => RAIL_TOOLS_EDGE_LABELS[v]}
+            disabled={railDirectoryMode !== "inline"}
+          />
+          <Note>
+            {railDirectoryMode !== "inline"
+              ? "Waiting on &ldquo;All accounts&rdquo; above \u2014 there is no tools row until the directory is in the rail."
+              : railToolsEdge === "shadow"
+                ? "A soft lift, so the bar reads as laid over the column and the rows pass behind it. The bar is sticky and the list genuinely does scroll under it, which a shadow says and a line does not."
+                : "A hairline. Cheaper and flatter \u2014 right if the bar should read as the last row of the strip rather than as chrome on top of it."}
+          </Note>
+
+          <Segmented
+            label="Rail tools sit"
+            keywords="rail tools search edit bulk actions sticky top bottom inline all accounts arrangement"
+            options={RAIL_TOOL_SPOTS}
+            value={railToolSpot}
+            onChange={(v: RailToolSpot) => setRailToolSpot(v)}
+            format={(v) => RAIL_TOOL_SPOT_LABELS[v]}
+            disabled={railDirectoryMode !== "inline"}
+          />
+          <Note>
+            {railDirectoryMode !== "inline"
+              ? "Only the inline rail carries tools of its own. Behind the All accounts button they live on the surface it opens, so there is no end of the strip for them to stick to."
+              : railToolSpot === "top"
+                ? "Above the accounts, in the first thing read. Findable on the first visit instead of the tenth — and it spends the strip's best slot on controls and pushes the whole run of accounts down a row to do it."
+                : "The far end, away from the accounts. Borrowed from every dock and sidebar people already use, and it keeps a growing list from ever arguing with the controls. Also the end nobody looks at, which is the point and the cost in one."}
+          </Note>
+
+          <Toggle
+            label="Show PINNED label"
+            keywords="rail pinned label heading run hairline divider accounts strip"
+            checked={railPinnedLabel}
+            onChange={setRailPinnedLabel}
+          />
+          <Note>
+            {railPinnedLabel
+              ? "PINNED over the first run. The word earns its row here: pinning is something a person did on purpose, and the heading is the confirmation that it took."
+              : "No word — the rail draws the hairline the heading replaced. A run separated without being named, which only reads to someone who already knows what the order means."}
+          </Note>
+
+          <Toggle
+            label="Show RECENT label"
+            keywords="rail recent label heading run hairline divider accounts strip"
+            checked={railRecentLabel}
+            onChange={setRailRecentLabel}
+          />
+          <Note>
+            {railRecentLabel
+              ? "RECENT over the second run. The most skippable of the two: it names a list that already explains itself — the accounts you were just in, in the order you were in them — and spends a row of chrome telling people something they watched happen."
+              : "No word, hairline instead. The run people are least likely to need labelled gives its row back to the accounts."}
           </Note>
 
           <Segmented
@@ -1859,20 +2090,6 @@ function NavStructureSection({
           : navIdentityAlign === "between"
             ? "Mark and name stay on the left, lined up with the rows below; only the chevrons go to the far edge. The row claims the full width without moving the thing people actually read."
             : "Lined up with the rows below it. This row is a control, and one on the edge every other row starts on is easier to aim at than one floating mid-column."}
-      </Note>
-
-      <Segmented
-        label="Agency sits"
-        keywords="agency plate rail top bottom logo divider separator account strip"
-        options={AGENCY_PLATE_SPOTS}
-        value={agencyPlateSpot}
-        onChange={(v: AgencyPlateSpot) => setAgencyPlateSpot(v)}
-        format={(v) => AGENCY_PLATE_SPOT_LABELS[v]}
-      />
-      <Note>
-        {agencyPlateSpot === "bottom"
-          ? "The agency parks at the far end, where a settings row goes, and the rule above the accounts goes with it \u2014 nothing sits over them to be divided from. The strip becomes entirely the accounts, with one plate under them."
-          : "The agency heads the column and a rule separates it from the accounts beneath. Reads as the hierarchy it is: the scope you are inside, with its accounts under it."}
       </Note>
 
       <Segmented
@@ -3134,6 +3351,69 @@ function Segmented<T extends string>({
                 ? "bg-brand text-brand-fg"
                 : "bg-pg-row-border text-pg-text hover:bg-pg-border",
               disabled && "pointer-events-none opacity-40",
+            )}
+          >
+            {format ? format(opt) : opt}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * `Segmented`, with every chip on its own switch.
+ *
+ * The difference is the whole point: a Segmented answers "which one", this
+ * one answers "which of these", and the chips look identical because in both
+ * cases the question is a row of named choices under one label. Nothing here
+ * enforces a floor — zero selected is a legal, visible answer ("no mark at
+ * all"), and a control that silently refused to let you turn the last one off
+ * would be lying about what the axis permits.
+ */
+function MultiSegmented<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  format,
+  keywords,
+}: {
+  label: string;
+  options: readonly T[];
+  /** Which chips are on. Every option needs an entry. */
+  value: Record<T, boolean>;
+  onChange: (option: T, on: boolean) => void;
+  format?: (v: T) => string;
+  /** Extra words the search should match. See Toggle's own note. */
+  keywords?: string;
+}) {
+  const { hidden, mark } = useFiltered(
+    label,
+    `${options.map((o) => (format ? format(o) : o)).join(" ")} ${keywords ?? ""}`,
+  );
+
+  return (
+    <div
+      {...mark}
+      className={cn("flex-col gap-[4px]", hidden ? "hidden" : "flex")}
+    >
+      <span className="text-[11px] leading-none text-pg-muted">{label}</span>
+      <div className="flex flex-wrap gap-[4px]">
+        {options.map((opt) => (
+          <button
+            key={opt}
+            type="button"
+            // `aria-pressed`, not a radio: these do not exclude each other,
+            // and a group of chips that looks like a Segmented but behaves
+            // like checkboxes has to say so to anything not looking at it.
+            aria-pressed={value[opt]}
+            onClick={() => onChange(opt, !value[opt])}
+            className={cn(
+              "motion-tap rounded-[6px] px-[8px] py-[4px] text-[11px] leading-none",
+              value[opt]
+                ? "bg-brand text-brand-fg"
+                : "bg-pg-row-border text-pg-text hover:bg-pg-border",
             )}
           >
             {format ? format(opt) : opt}

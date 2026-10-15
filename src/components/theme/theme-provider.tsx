@@ -90,7 +90,6 @@ import {
   type SelectLabel,
   type SelectStrip,
   type DirectoryName,
-  type AgencyPlateSpot,
   type NewDotPlacement,
   type SearchMode,
   type SurfaceTheme,
@@ -114,8 +113,14 @@ import type {
   CodeScopeView,
   RailShade,
   AgencyPlate,
-  RailGroupMark,
+  AgencyRoute,
+  RailArrangement,
+  RailActiveSpot,
+  RailDirectoryMode,
+  RailToolSpot,
+  RailToolsEdge,
   RailTileColour,
+  ActiveAgencySpot,
   WhiteLabelApproach,
   PlaneHead,
   EntryPair,
@@ -249,7 +254,6 @@ interface ThemeContextValue extends ThemeState {
   setSelectLabel: (v: SelectLabel) => void;
   setSelectStrip: (v: SelectStrip) => void;
   setDirectoryName: (v: DirectoryName) => void;
-  setAgencyPlateSpot: (v: AgencyPlateSpot) => void;
   setWorkspaceChevron: (v: WorkspaceChevron) => void;
   setNavOnPlane: (on: boolean) => void;
   setNavRowRing: (on: boolean) => void;
@@ -279,8 +283,18 @@ interface ThemeContextValue extends ThemeState {
   setCodeScopeView: (v: CodeScopeView) => void;
   setRailShade: (v: RailShade) => void;
   setAgencyPlate: (v: AgencyPlate) => void;
-  setRailGroupMark: (v: RailGroupMark) => void;
+  setRailArrangement: (v: RailArrangement) => void;
+  setAgencyRowRing: (on: boolean) => void;
+  setAgencyRowWord: (on: boolean) => void;
+  setAgencyRowDiamond: (on: boolean) => void;
+  setRailActiveSpot: (v: RailActiveSpot) => void;
+  setRailDirectoryMode: (v: RailDirectoryMode) => void;
+  setRailToolSpot: (v: RailToolSpot) => void;
+  setRailToolsEdge: (v: RailToolsEdge) => void;
+  setRailPinnedLabel: (on: boolean) => void;
+  setRailRecentLabel: (on: boolean) => void;
   setRailTileColour: (v: RailTileColour) => void;
+  setActiveAgencySpot: (v: ActiveAgencySpot) => void;
   setWhiteLabelApproach: (v: WhiteLabelApproach) => void;
   setPlaneHead: (v: PlaneHead) => void;
   setEntryPair: (v: EntryPair) => void;
@@ -321,6 +335,17 @@ interface ThemeContextValue extends ThemeState {
   setMergedExpandedRows: (rows: number) => void;
   setAutoCollapse: (enabled: boolean) => void;
   setScopeModel: (model: ScopeModel) => void;
+  /**
+   * Set several axes at once.
+   *
+   * For the arrangements that are a SET rather than a switch — the header
+   * dropdown is eight axes that only make sense together. Calling eight
+   * setters in a row would render eight times and, worse, leave the nav
+   * briefly in combinations nobody designed.
+   */
+  applyTheme: (patch: Partial<ThemeState>) => void;
+  setRailHideButton: (on: boolean) => void;
+  setAgencyRoute: (v: AgencyRoute) => void;
   setNavGeneration: (generation: NavGeneration) => void;
   setNavSwitchSurface: (surface: NavSwitchSurface) => void;
   setTemplatePropagation: (propagation: TemplatePropagation) => void;
@@ -633,8 +658,6 @@ export function ThemeProvider({
       setSelectStrip: (selectStrip) => setState((s) => ({ ...s, selectStrip })),
       setDirectoryName: (directoryName) =>
         setState((s) => ({ ...s, directoryName })),
-      setAgencyPlateSpot: (agencyPlateSpot) =>
-        setState((s) => ({ ...s, agencyPlateSpot })),
       setWorkspaceChevron: (workspaceChevron) =>
         setState((s) => ({ ...s, workspaceChevron })),
       setNavOnPlane: (navOnPlane) => setState((s) => ({ ...s, navOnPlane })),
@@ -685,10 +708,30 @@ export function ThemeProvider({
       setRailShade: (railShade) => setState((s) => ({ ...s, railShade })),
       setAgencyPlate: (agencyPlate) =>
         setState((s) => ({ ...s, agencyPlate })),
-      setRailGroupMark: (railGroupMark) =>
-        setState((s) => ({ ...s, railGroupMark })),
+      setRailArrangement: (railArrangement) =>
+        setState((s) => ({ ...s, railArrangement })),
+      setAgencyRowRing: (agencyRowRing) =>
+        setState((s) => ({ ...s, agencyRowRing })),
+      setAgencyRowWord: (agencyRowWord) =>
+        setState((s) => ({ ...s, agencyRowWord })),
+      setAgencyRowDiamond: (agencyRowDiamond) =>
+        setState((s) => ({ ...s, agencyRowDiamond })),
+      setRailActiveSpot: (railActiveSpot) =>
+        setState((s) => ({ ...s, railActiveSpot })),
+      setRailDirectoryMode: (railDirectoryMode) =>
+        setState((s) => ({ ...s, railDirectoryMode })),
+      setRailToolSpot: (railToolSpot) =>
+        setState((s) => ({ ...s, railToolSpot })),
+      setRailToolsEdge: (railToolsEdge) =>
+        setState((s) => ({ ...s, railToolsEdge })),
+      setRailPinnedLabel: (railPinnedLabel) =>
+        setState((s) => ({ ...s, railPinnedLabel })),
+      setRailRecentLabel: (railRecentLabel) =>
+        setState((s) => ({ ...s, railRecentLabel })),
       setRailTileColour: (railTileColour) =>
         setState((s) => ({ ...s, railTileColour })),
+      setActiveAgencySpot: (activeAgencySpot) =>
+        setState((s) => ({ ...s, activeAgencySpot })),
       setWhiteLabelApproach: (whiteLabelApproach) =>
         setState((s) => ({ ...s, whiteLabelApproach })),
       setPlaneHead: (planeHead) => setState((s) => ({ ...s, planeHead })),
@@ -756,6 +799,11 @@ export function ThemeProvider({
         setState((s) => ({ ...s, mergedExpandedRows })),
       setAutoCollapse: (autoCollapse) => setState((s) => ({ ...s, autoCollapse })),
       setScopeModel: (scopeModel) => setState((s) => ({ ...s, scopeModel })),
+      applyTheme: (patch) => setState((s) => ({ ...s, ...patch })),
+      setRailHideButton: (railHideButton) =>
+        setState((s) => ({ ...s, railHideButton })),
+      setAgencyRoute: (agencyRoute) =>
+        setState((s) => ({ ...s, agencyRoute })),
       setNavGeneration: (navGeneration) =>
         setState((s) => ({ ...s, navGeneration })),
       setNavSwitchSurface: (navSwitchSurface) =>

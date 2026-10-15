@@ -33,7 +33,7 @@ import { ShortcutModal } from "./shortcut-modal";
 import { IconPicker, useIconPicker } from "./icon-picker";
 import { RowMenu, useRowMenu, type RowMenuAction } from "./row-menu";
 import { RowSeam } from "./row-seam";
-import { PIN_MIME } from "./nav-drag";
+import { PIN_MIME, setRowDragImage } from "./nav-drag";
 import { useDragTypes } from "@/lib/use-drag-active";
 
 /**
@@ -1007,6 +1007,8 @@ function MergedItemRow({
           : "hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]",
         landed,
       )}
+      /* What the grip hands to `setRowDragImage`. */
+      data-drag-row=""
     >
       {/*
         The six-dot grip, always up in edit mode rather than on hover.
@@ -1025,7 +1027,11 @@ function MergedItemRow({
           tabIndex={-1}
           aria-label={`Reorder ${row.label}`}
           title="Drag to reorder"
-          onDragStart={pinEdit.drag.onDragStart}
+          /* The whole row travels, not the grip — see setRowDragImage. */
+          onDragStart={(e) => {
+            setRowDragImage(e);
+            pinEdit.drag.onDragStart(e);
+          }}
           onDragEnd={pinEdit.drag.onDragEnd}
           onClick={(e) => e.stopPropagation()}
           className="motion-grip-in -ml-[5px] flex size-[16px] shrink-0 cursor-grab items-center justify-center overflow-hidden rounded-[4px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:cursor-grabbing"

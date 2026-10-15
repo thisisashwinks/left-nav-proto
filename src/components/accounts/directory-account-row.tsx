@@ -1,8 +1,9 @@
 "use client";
 
 import { Pin } from "lucide-react";
-import { usePinnedInk } from "@/components/nav/pin-button";
 import { useTheme } from "@/components/theme/theme-provider";
+import { RAIL_PIN_CAP_HINT } from "./account-rail";
+import { RailTooltip } from "@/components/nav/rail-tooltip";
 import { cn } from "@/lib/utils";
 import { AccountLogo } from "./account-logo";
 import { SelectBox } from "./select-box";
@@ -41,6 +42,7 @@ export function DirectoryAccountRow({
   onToggle,
   onSelect,
   showPin = true,
+  pinBlocked = false,
   pinned = false,
   onTogglePinned,
   index,
@@ -62,6 +64,14 @@ export function DirectoryAccountRow({
   onSelect: () => void;
   /** Off while a guided selection is in progress — see the pin's own note. */
   showPin?: boolean;
+  /**
+   * At the rail's cap and not already pinned.
+   *
+   * Shown and hoverable rather than `disabled`, because a disabled button
+   * fires no pointer events and so carries no tooltip — and the moment the
+   * rule needs explaining is the moment you reach for it.
+   */
+  pinBlocked?: boolean;
   /** Optional: a row with `showPin` off — the agency entry — pins nothing. */
   pinned?: boolean;
   onTogglePinned?: () => void;
@@ -90,7 +100,6 @@ export function DirectoryAccountRow({
     account and a pinned product are one gesture, and a mark that is grey in
     one list and branded in the other would be two.
   */
-  const pinnedInk = usePinnedInk();
   // See ACCOUNT_ROW_META_DEFAULT. Read here rather than threaded from the
   // panel: the axis is a property of the ROW, and the panel has no other
   // reason to know about it.
@@ -192,6 +201,11 @@ export function DirectoryAccountRow({
       {trailing}
       {showPin ? (
         /*
+          The cap's sentence as the nav's pill, not as `title` — see the
+          rail's own pin, which made the same swap for the same reason: a
+          native tooltip wants a second of still hover and never showed.
+        */
+        /*
           The nav's pin, on an account row — see PinButton, which this
           deliberately mirrors rather than imports (that one pins a PRODUCT
           through the nav layout store; this pins an account through the
@@ -211,34 +225,57 @@ export function DirectoryAccountRow({
           impossible to pick out. Pinned stays visible, because that one is not
           an affordance, it is the row telling you what it is.
         */
+        <RailTooltip label={RAIL_PIN_CAP_HINT} show={pinBlocked}>
         <button
           type="button"
           aria-label={pinned ? `Unpin ${account.name}` : `Pin ${account.name}`}
           aria-pressed={pinned}
-          title={pinned ? "Unpin" : "Pin"}
-          onClick={() => onTogglePinned?.()}
+          title={pinned ? "Unpin" : pinBlocked ? undefined : "Pin"}
+          aria-disabled={pinBlocked}
+          onClick={() => {
+            if (pinBlocked) return;
+            onTogglePinned?.();
+          }}
           className={cn(
             "motion-tap flex size-[22px] shrink-0 items-center justify-center rounded-[6px]",
             "hover:bg-nav-active active:scale-90 motion-press",
+            /*
+              One ink for an account pin, set or not — matching the rail.
+
+              This read `usePinnedInk()`, the platform axis, which made a
+              pinned account darker here than the identical pin on the
+              identical account in the rail: the same mark, two weights, a
+              column apart. The FILL already distinguishes set from unset.
+              The axis still governs PRODUCT pins, where it was aimed.
+              Ashwin, Oct 15.
+
+              And the ink is `--nav-pin-ink`, not `--nav-fg-subtle`. That
+              token steps one darker inside [data-nav-plane], which this
+              panel sits on and the rail does not — so the identical pin on
+              the identical account came out darker here than two columns
+              over. The pin's own token is declared once and never re-derived
+              per ground.
+            */
+            "text-nav-pin",
+            pinBlocked && "cursor-not-allowed opacity-40",
             pinned
-              ? cn(pinnedInk, "opacity-100")
-              : "text-nav-fg-subtle opacity-0 group-hover/row:opacity-100 hover:text-nav-fg focus-visible:opacity-100",
+              ? "opacity-100"
+              : "opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100",
           )}
         >
           <Pin
             /*
-              12, matching the pin on a pinned row in the nav — see
-              merged-recents, which made the same cut for the same reason. A
-              trailing mark that approaches the size of the row's LEADING glyph
-              reads as a second icon rather than as a state, and here the
-              leading glyph is a 24px account tile. One pin, one size, wherever
-              a row carries one.
+              13, which is the rail's. It was 12, and 1px is invisible until
+              you see the same account's pin in both columns at once, which
+              is exactly what the All accounts panel puts on screen. One pin,
+              one size, wherever a row carries one.
             */
-            size={12}
+            size={13}
             fill={pinned ? "currentColor" : "none"}
             aria-hidden="true"
           />
         </button>
+        </RailTooltip>
       ) : null}
     </div>
   );

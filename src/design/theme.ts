@@ -1401,41 +1401,36 @@ export const SELECT_STRIP_LABELS: Record<SelectStrip, string> = {
  * because the accounts a member belongs to are not sub-accounts they own,
  * and "your" would be claiming something about them that is not true.
  */
-/**
- * Which end of the account rail the agency sits at.
- *
- * `top` is how this shipped, and it reads as a hierarchy: the agency heads
- * the column, the accounts hang under it, and a rule between them says where
- * one ends and the others begin. That is true of the data and it is what a
- * reader expects of a strip they scan downward.
- *
- * `bottom` treats the agency as the way OUT rather than the thing above.
- * It goes where an account menu or a settings row goes in most shells — the
- * far end, out of the reading path — and the rule above the accounts goes
- * with it, because with nothing over them the accounts no longer need to be
- * separated from anything. What you get is a strip that is entirely the
- * accounts, with one plate parked under them.
- *
- * The trade is that the agency stops being visible as the scope you are
- * inside and becomes a destination you go to. Worth seeing, since the whole
- * rail is an argument about that relationship.
- */
-export const AGENCY_PLATE_SPOTS = ["top", "bottom"] as const;
 
-export type AgencyPlateSpot = (typeof AGENCY_PLATE_SPOTS)[number];
-
-export const AGENCY_PLATE_SPOT_LABELS: Record<AgencyPlateSpot, string> = {
-  top: "Top of the rail",
-  bottom: "Bottom of the rail",
-};
-
-export const DIRECTORY_NAMES = ["all", "subs"] as const;
+export const DIRECTORY_NAMES = ["all", "subs", "search"] as const;
 
 export type DirectoryName = (typeof DIRECTORY_NAMES)[number];
 
 export const DIRECTORY_NAME_LABELS: Record<DirectoryName, string> = {
   all: "All accounts",
   subs: "Your sub-accounts",
+  search: "Search sub-accounts",
+};
+
+/**
+ * The glyph each name is told by, because the name is a promise.
+ *
+ * `all` and `subs` both say "here is the set" and wear the nine-dot grid that
+ * means a directory. `search` says something narrower — that the way in is by
+ * typing — and a door labelled Search sub-accounts under a grid glyph is the
+ * icon and the word describing two different affordances.
+ *
+ * Kept here rather than decided at each door, because there are TWO: the
+ * rail's and the collapsed rail's. Re-deriving the choice in both is how they
+ * come to disagree, and at 56px the glyph is the whole label. Ashwin, Oct 15.
+ *
+ * The behaviour behind it is unchanged in every case — same panel, same
+ * click. Only what the door calls itself moves.
+ */
+export const DIRECTORY_NAME_ICONS: Record<DirectoryName, "grid" | "search"> = {
+  all: "grid",
+  subs: "grid",
+  search: "search",
 };
 
 export const SELECT_LABELS = ["select", "edit", "editSub"] as const;
@@ -1454,6 +1449,36 @@ export const SELECT_LABEL_LABELS: Record<SelectLabel, string> = {
   select: "Select",
   edit: "Edit",
   editSub: "Edit sub-account",
+};
+
+/**
+ * How you reach agency scope once the rail is gone.
+ *
+ * With the rail up this is settled — the agency is a tile on the strip and
+ * nothing else needs to offer it. Hide the rail and the route has to come
+ * from somewhere, and there are two honest answers:
+ *
+ *  logo      The agency's mark in the nav header IS the route: press it and
+ *            you are there. One object doing one job, and it is on screen at
+ *            all times rather than behind a dropdown. The cost is that a
+ *            logo is not obviously a button, so the affordance rests on the
+ *            hover state alone.
+ *  dropdown  A "Switch to agency" row inside the All accounts dropdown,
+ *            where AGENCY_ENTRIES decides whether it sits above the field,
+ *            in the list, or on a card. Unmistakably pressable, and two
+ *            clicks deep behind a control most people open to change
+ *            sub-account.
+ *
+ * `logo` is the default, and the mark is forced on under it — see
+ * `headerAgencyPlacement` in app-shell. An axis may change how a thing is
+ * said; it must never be able to make a scope unreachable. Ashwin, Oct 15.
+ */
+export const AGENCY_ROUTES = ["logo", "dropdown"] as const;
+export type AgencyRoute = (typeof AGENCY_ROUTES)[number];
+
+export const AGENCY_ROUTE_LABELS: Record<AgencyRoute, string> = {
+  logo: "The header logo",
+  dropdown: "A row in the dropdown",
 };
 
 export const AGENCY_ENTRIES = ["plate", "row", "above", "card"] as const;
@@ -4333,6 +4358,24 @@ export const PAGE_SHELL_LABELS: Record<PageShell, string> = {
   surface: "One surface",
 };
 
+/**
+ * Whether the rail offers its own way out.
+ *
+ * `scopeModel` already decides whether the rail or the header carries the
+ * account switcher — but only from the prototype panel, which is a reviewer's
+ * control rather than a person's. This puts the same decision in the product:
+ * a row at the foot of the rail that hides it, and an item at the foot of the
+ * header's dropdown that brings it back.
+ *
+ * It writes `scopeModel` rather than a state of its own, so the panel and the
+ * product can never disagree about whether the rail exists. Every rail axis
+ * — arrangement, active spot, inline directory, tools, the two labels — is
+ * untouched by the trip out and back: they are separate fields, so the rail
+ * returns arranged exactly as it left. Ashwin, Oct 15.
+ *
+ * Off by default: it adds a row to a column whose argument is cheapness, and
+ * the reviewer who wants it can switch it on.
+ */
 export const SCOPE_MODELS = ["rail", "header"] as const;
 
 export type ScopeModel = (typeof SCOPE_MODELS)[number];
@@ -4790,21 +4833,6 @@ export const WHITE_LABEL_APPROACH_LABELS: Record<WhiteLabelApproach, string> = {
  * leaving the separation to the divider under it. Ashwin, Oct 14.
  */
 /**
- * How the rail's two runs of accounts are told apart.
- *
- * The strip holds pinned accounts and then recently visited ones, in that
- * order, and nothing on it says so: the order is the only evidence, and the
- * order is invisible to anyone who has not watched it change.
- *
- *  divider   As it is. A hairline between the runs, which separates them
- *            without naming them.
- *  headings  PINNED and RECENT in small caps while the rail is open and the
- *            names are showing. Shut, the strip is 56px of avatars with no
- *            room for a word, so each heading collapses to the hairline it
- *            replaced — the mark stays in the same place at both widths, and
- *            only its form changes. Ashwin, Oct 14.
- */
-/**
  * Whether the rail's tiles carry their colour at rest.
  *
  * Separate from RAIL_AVATARS, which asks what a tile SHOWS — a mark, letters
@@ -4828,12 +4856,239 @@ export const RAIL_TILE_COLOUR_LABELS: Record<RailTileColour, string> = {
   "active-only": "Active only, colour on hover",
 };
 
-export const RAIL_GROUP_MARKS = ["divider", "headings"] as const;
-export type RailGroupMark = (typeof RAIL_GROUP_MARKS)[number];
+/**
+ * What order the rail puts its three parts in: the agency, the run of
+ * accounts, and the way through to all the others.
+ *
+ * The top slot of a vertical strip is the one position anybody can hit
+ * without reading, and this axis is the argument about who gets it. The
+ * agency holds it today by inheritance — it was drawn first and nothing has
+ * made a case since — and the accounts below it are what people are actually
+ * reaching for. Every option here is a different answer to "most used, or
+ * most senior?", and the honest thing to say is that the two answers disagree.
+ *
+ *  default            The rail as it stands. Kept on the dial so the rest are
+ *                     measured against the thing people have already lived
+ *                     with, not against a description of it.
+ *  allTop             Agency, then the All accounts button directly under it,
+ *                     then the sub-accounts. Puts the two ways OUT of where
+ *                     you are standing together at the top and leaves the
+ *                     remainder as one uninterrupted column. It also parks the
+ *                     button in the path your eye takes on the way down to the
+ *                     account you actually wanted, on every single trip.
+ *  labelled           Agency at the top, the runs beneath it carrying their
+ *                     names, All accounts button last. The only option that
+ *                     says out loud what the runs ARE, which the order alone
+ *                     has never managed; the cost is two rows of chrome in a
+ *                     strip whose whole argument is that it is cheap, and a
+ *                     button at the bottom edge, furthest from the agency row
+ *                     that is conceptually its sibling.
+ *  agencyBottom       Sub-accounts first, button under them, agency pinned to
+ *                     the bottom edge. Orders the strip by how often each part
+ *                     is touched, and borrows a convention people already know
+ *                     from the account/settings corner of every other tool.
+ *                     The agency is also the one row that should never be
+ *                     mistaken for a client, and the bottom edge is where a
+ *                     long enough list will shove everything else.
+ *  agencySorted       The agency sorts in among the pinned sub-accounts as an
+ *                     ordinary row — its own treatment, and no pin control,
+ *                     since it is not a thing you can unpin. The cheapest
+ *                     option in pixels and the most honest about what the
+ *                     agency is while you are working: one more place to be.
+ *                     It is also the only option where the agency can only be
+ *                     found by reading, which is a real loss for the row that
+ *                     is never not relevant.
+ *  agencyHeadsPinned  The agency is always the first of the pinned run, with
+ *                     its own treatment, and the button sits below. Keeps the
+ *                     top slot and the single uninterrupted column at the same
+ *                     time: the agency reads as the pin you cannot remove
+ *                     rather than as separate furniture. The seam between the
+ *                     agency and the first real pin then has to be carried
+ *                     entirely by that treatment — get it too quiet and the
+ *                     agency becomes just another client.
+ *
+ * Default `default`, deliberately. A prototype that opens on the proposal has
+ * already answered the question it was built to ask. Ashwin, Oct 15.
+ */
+/**
+ * How the agency is told apart once it sits INSIDE the account list.
+ *
+ * `agencySorted` and `agencyHeadsPinned` drop the agency into the run as an
+ * ordinary row, which is the point of them — and the cost is that the one
+ * row that is not an account looks exactly like forty that are. Position
+ * cannot carry it (`agencySorted` gives position away deliberately), so the
+ * treatment has to.
+ *
+ * Three marks, each switchable on its own so the combination can be judged
+ * rather than assumed. None of them changes the row's height or layout: they
+ * take the trailing slot the agency cannot use anyway, since it is the one
+ * row that can never be pinned.
+ *
+ *  ring     A hairline around the mark. Quietest, survives at 16px, and the
+ *           only one that still reads in the collapsed strip.
+ *  word     "AGENCY" in small caps where the pin would be. Unmistakable, and
+ *           the only one that needs no learning — at the price of a word in
+ *           a column that is otherwise all names.
+ *  diamond  A small diamond in the same slot. A mark rather than a label:
+ *           cheaper than the word and, like the ring, something you have to
+ *           be told once.
+ *
+ * TWO REJECTED, and worth recording so they are not tried again: a heavier
+ * name and a tinted row. Both collide with the ACTIVE row, which is already
+ * marked by weight and fill — and Ashwin's constraint was that the agency
+ * and the account you are in must never be confusable. A differentiator that
+ * borrows the active row's own signals makes two rows look current.
+ * Ashwin, Oct 15.
+ */
+export const AGENCY_ROW_MARKS = ["ring", "word", "diamond"] as const;
+export type AgencyRowMark = (typeof AGENCY_ROW_MARKS)[number];
 
-export const RAIL_GROUP_MARK_LABELS: Record<RailGroupMark, string> = {
-  divider: "Divider only",
-  headings: "Pinned / Recent headings",
+export const AGENCY_ROW_MARK_LABELS: Record<AgencyRowMark, string> = {
+  ring: "Ring on the mark",
+  word: "“Agency” text",
+  diamond: "Diamond",
+};
+
+export const RAIL_ARRANGEMENTS = [
+  "default",
+  "allTop",
+  "labelled",
+  "agencyBottom",
+  "agencySorted",
+  "agencyHeadsPinned",
+] as const;
+export type RailArrangement = (typeof RAIL_ARRANGEMENTS)[number];
+
+export const RAIL_ARRANGEMENT_LABELS: Record<RailArrangement, string> = {
+  default: "As drawn",
+  allTop: "All accounts up top",
+  labelled: "Labelled runs, button last",
+  agencyBottom: "Agency at the bottom",
+  agencySorted: "Agency sorts in",
+  agencyHeadsPinned: "Agency heads the pinned",
+};
+
+/**
+ * Where the account you are in sits while you are in it.
+ *
+ * Composes with RAIL_ARRANGEMENTS rather than competing with it: the
+ * arrangement decides the resting order, this decides whether the active row
+ * is allowed to break it.
+ *
+ *  inPlace  It stays wherever the arrangement put it, told apart by size and
+ *           fill alone. The strip never moves under you — the account you came
+ *           from is still where you left it, which is the whole reason a
+ *           second switch is cheap.
+ *  top      The active account is lifted to the first slot. Trivially findable
+ *           and a free confirmation of where you are, paid for by every other
+ *           tile shifting a row the moment you switch. The position you
+ *           learned one switch ago is wrong on the next one, and a strip that
+ *           reshuffles on arrival is a strip nobody can learn.
+ *
+ * Default `inPlace` for that last reason. Ashwin, Oct 15.
+ */
+/**
+ * What the agency does when you are IN it, under a bottom arrangement.
+ *
+ * `agencyBottom` parks the agency on the far edge, which reads correctly
+ * while you are in a sub-account: the scope you are not in sits out of the
+ * way. Click into it and the reading inverts — the row you are now inside is
+ * the one furthest from everything, at the end of a column you have to track
+ * to the bottom to find out where you are.
+ *
+ *  stay  It holds its edge. The strip never moves, so the position you
+ *        learned stays true — and the active marking is left to carry the
+ *        whole message on its own, at the bottom of the rail.
+ *  rise  It climbs above the pinned run for as long as it is active, then
+ *        returns. Where you are is always the top of the strip, which is the
+ *        same promise "Always first" makes for sub-accounts — at the price
+ *        of the one row that was meant to be fixed moving. Ashwin, Oct 15.
+ */
+export const ACTIVE_AGENCY_SPOTS = ["stay", "rise"] as const;
+export type ActiveAgencySpot = (typeof ACTIVE_AGENCY_SPOTS)[number];
+
+export const ACTIVE_AGENCY_SPOT_LABELS: Record<ActiveAgencySpot, string> = {
+  stay: "Stays at the bottom",
+  rise: "Rises above the pinned",
+};
+
+export const RAIL_ACTIVE_SPOTS = ["inPlace", "top"] as const;
+export type RailActiveSpot = (typeof RAIL_ACTIVE_SPOTS)[number];
+
+export const RAIL_ACTIVE_SPOT_LABELS: Record<RailActiveSpot, string> = {
+  inPlace: "Where it falls",
+  top: "Always first",
+};
+
+/**
+ * Whether the accounts that are neither pinned nor recent live behind a door
+ * or in the rail itself.
+ *
+ *  button  One All accounts control that opens the directory. The strip is the
+ *          same length whether the agency has four accounts or four hundred,
+ *          and everything outside the two runs is exactly one click away —
+ *          but it IS a click, and a surface to come back out of.
+ *  inline  The whole list in the rail, scrolled. Nothing to open and nothing
+ *          to learn, and it quietly dissolves the two runs: pinned and recent
+ *          stop meaning anything once the same accounts are sitting six rows
+ *          further down. Comfortable at a dozen accounts and unusable at the
+ *          counts real agencies carry, which is most of them.
+ *
+ * Default `button`, because the counts that break `inline` are the common
+ * case, not the edge. Ashwin, Oct 15.
+ */
+export const RAIL_DIRECTORY_MODES = ["button", "inline"] as const;
+export type RailDirectoryMode = (typeof RAIL_DIRECTORY_MODES)[number];
+
+export const RAIL_DIRECTORY_MODE_LABELS: Record<RailDirectoryMode, string> = {
+  button: "All accounts button",
+  inline: "Everything in the rail",
+};
+
+/**
+ * Which end of the rail the tools sit at — the controls that are not an
+ * account and never change when you switch.
+ *
+ *  bottom  The far end, away from the accounts. Borrowed from every OS dock
+ *          and sidebar people already use: the bottom edge is where the things
+ *          you reach for occasionally go, and keeping it clear of the list
+ *          means a growing list never has to argue with them. Also the end
+ *          nobody looks at, which is the point and the cost in one.
+ *  top     Above the accounts, in the first thing read. Findable on the first
+ *          visit instead of the tenth, and it spends the strip's best slot on
+ *          controls and pushes the entire run of accounts down a row to do it.
+ *
+ * Default `bottom`: the accounts are what the rail is for. Ashwin, Oct 15.
+ */
+/**
+ * How the inline rail's tools row separates itself from the list.
+ *
+ *  shadow  A soft lift upward, so the bar reads as laid OVER the column and
+ *          the rows pass behind it. The default: the bar is sticky, the list
+ *          genuinely does scroll under it, and a shadow is the only one of
+ *          the two that says so.
+ *  border  A hairline, which is cheaper and flatter — correct if the bar is
+ *          meant to read as the last row of the strip rather than as chrome
+ *          on top of it.
+ *
+ * Collapsed, neither applies: at 56px the bar is a glyph in a column, there
+ * is nothing beside it to be divided from, and the line the rail needs there
+ * is the one down its RIGHT edge, continuing the strip. Ashwin, Oct 15.
+ */
+export const RAIL_TOOLS_EDGES = ["shadow", "border"] as const;
+export type RailToolsEdge = (typeof RAIL_TOOLS_EDGES)[number];
+
+export const RAIL_TOOLS_EDGE_LABELS: Record<RailToolsEdge, string> = {
+  shadow: "Shadow",
+  border: "Border",
+};
+
+export const RAIL_TOOL_SPOTS = ["bottom", "top"] as const;
+export type RailToolSpot = (typeof RAIL_TOOL_SPOTS)[number];
+
+export const RAIL_TOOL_SPOT_LABELS: Record<RailToolSpot, string> = {
+  bottom: "Bottom",
+  top: "Top",
 };
 
 export const AGENCY_PLATES = ["tinted", "bare", "full"] as const;
@@ -5074,8 +5329,6 @@ export interface ThemeState {
   selectLabel: SelectLabel;
   /** What the agency's directory is called. See DIRECTORY_NAMES. */
   directoryName: DirectoryName;
-  /** Which end of the rail the agency sits at. See AGENCY_PLATE_SPOTS. */
-  agencyPlateSpot: AgencyPlateSpot;
   /** What the below-search select strip puts on its left. See SELECT_STRIPS. */
   selectStrip: SelectStrip;
   /** Whether the workspace trigger's chevrons stand. See WORKSPACE_CHEVRONS. */
@@ -5168,6 +5421,10 @@ export interface ThemeState {
   launchpadCard: LaunchpadCard;
   /** Which workspace-switch model is live. See SCOPE_MODELS. */
   scopeModel: ScopeModel;
+  /** Whether the rail offers a "Hide account rail" row. See SCOPE_MODELS. */
+  railHideButton: boolean;
+  /** How agency scope is reached with the rail hidden. See AGENCY_ROUTES. */
+  agencyRoute: AgencyRoute;
   /** Proposal or production. See NAV_GENERATIONS. */
   navGeneration: NavGeneration;
   /** How the two navigations are offered. See NAV_SWITCH_SURFACES. */
@@ -5629,10 +5886,43 @@ export interface ThemeState {
   railShade: RailShade;
   /** Whether the agency's mark sits on a plate. See AGENCY_PLATES. */
   agencyPlate: AgencyPlate;
-  /** How the rail's pinned and recent runs are told apart. See RAIL_GROUP_MARKS. */
-  railGroupMark: RailGroupMark;
+  /** What order the rail puts its parts in. See RAIL_ARRANGEMENTS. */
+  railArrangement: RailArrangement;
+  /** Which marks tell the agency apart inside the run. See AGENCY_ROW_MARKS. */
+  agencyRowRing: boolean;
+  agencyRowWord: boolean;
+  agencyRowDiamond: boolean;
+  /** Where the account you are in sits. See RAIL_ACTIVE_SPOTS. */
+  railActiveSpot: RailActiveSpot;
+  /** Whether the other accounts are behind a door. See RAIL_DIRECTORY_MODES. */
+  railDirectoryMode: RailDirectoryMode;
+  /** Which end of the rail the tools sit at. See RAIL_TOOL_SPOTS. */
+  railToolSpot: RailToolSpot;
+  /** How the tools row separates from the list. See RAIL_TOOLS_EDGES. */
+  railToolsEdge: RailToolsEdge;
+  /**
+   * Whether each run of accounts is named in the rail.
+   *
+   * Two switches where there used to be one choice between a hairline and a
+   * matched pair of headings (RAIL_GROUP_MARKS, retired Oct 15). The pair was
+   * never really one question. PINNED earns its word: pinning is something a
+   * person did on purpose, and a label is the confirmation that it took.
+   * RECENT labels a list that already explains itself — the accounts you were
+   * just in, in the order you were in them — and spends a row of chrome
+   * telling people something they watched happen. Splitting the axis lets the
+   * rail name the run that needs naming and keep quiet about the one that
+   * does not, which the old pair could not express at all.
+   *
+   * Both default on, so the rail still opens on exactly what the retired
+   * axis's own default drew and nobody's reading of the strip changes
+   * underneath them. Ashwin, Oct 15.
+   */
+  railPinnedLabel: boolean;
+  railRecentLabel: boolean;
   /** Whether rail tiles carry colour at rest. See RAIL_TILE_COLOURS. */
   railTileColour: RailTileColour;
+  /** Where the agency goes while active, at the bottom. See ACTIVE_AGENCY_SPOTS. */
+  activeAgencySpot: ActiveAgencySpot;
   /** How White Label answers the custom-code question. See WHITE_LABEL_APPROACHES. */
   whiteLabelApproach: WhiteLabelApproach;
   /** How much room the canvas keeps around its content. See CANVAS_PADS. */
@@ -6019,9 +6309,8 @@ export const DEFAULT_THEME: ThemeState = {
   agencyEntry: "card",
   workspaceGlyph: "chevrons",
   selectSpot: "header",
-  selectLabel: "edit",
+  selectLabel: "select",
   directoryName: "all",
-  agencyPlateSpot: "top",
   selectStrip: "count",
   workspaceChevron: "always",
   navOnPlane: NAV_ON_PLANE_DEFAULT,
@@ -6072,8 +6361,25 @@ export const DEFAULT_THEME: ThemeState = {
   codeScopeView: "header",
   railShade: "default",
   agencyPlate: "full",
-  railGroupMark: "headings",
+  railArrangement: "default",
+  /*
+    Text and diamond, no ring. Ashwin, Oct 15 — the pair that reads without
+    being taught: the word says what the row is and the diamond puts a mark
+    in the pin column so the row is findable without reading. The ring stays
+    on the dial because it is the cheapest of the three, but it is the one
+    that has to be explained once before it means anything.
+  */
+  agencyRowRing: false,
+  agencyRowWord: true,
+  agencyRowDiamond: true,
+  railActiveSpot: "inPlace",
+  railDirectoryMode: "button",
+  railToolSpot: "bottom",
+  railToolsEdge: "shadow",
+  railPinnedLabel: true,
+  railRecentLabel: true,
   railTileColour: "active-only",
+  activeAgencySpot: "stay",
   whiteLabelApproach: "classic",
   canvasPad: "roomy",
   planeHead: "bar",
@@ -6192,6 +6498,8 @@ export const DEFAULT_THEME: ThemeState = {
   // The rail is the recommendation, so the prototype opens on it. Model A is
   // one click away for the comparison.
   scopeModel: "rail",
+  railHideButton: false,
+  agencyRoute: "logo",
   // The proposal, obviously. `legacy` is the control group, not the default.
   navGeneration: "new",
   // The modal. Picking a navigation is a decision about the whole workspace,

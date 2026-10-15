@@ -71,6 +71,7 @@ export interface TuningState {
   dockLabelOffset: number;
   dockLift: number;
   dockScale: number;
+  dragGhostOpacity: number;
   flyoutIconSize: number;
   flyoutTitleSize: number;
   flyoutDescSize: number;
@@ -135,6 +136,18 @@ export const TUNING_DEFAULTS: TuningState = {
   // still be demoed.
   dockLift: 0,
   dockScale: 125,
+  /*
+   * 72, dialled on the real thing (Ashwin, Oct 15).
+   *
+   * The drag picture has to be opaque enough that the row it is carried
+   * over does not read through its label — that was the whole point of
+   * giving it a surface — and sheer enough that the drop line underneath
+   * stays visible, since that line is the thing you are actually aiming at.
+   * Those pull opposite ways; 72 is where both hold. It stays a knob
+   * because the balance shifts with the nav's theme, and a dark nav is a
+   * different problem from a light one.
+   */
+  dragGhostOpacity: 72,
   // 16 (Aug 28): the same glyph a nav row draws. At 20 an L2 row read as a
   // heavier thing than the L1 that opened it, when it is the same kind of row
   // one level down. Still tunable — the knob is how the old 20 gets compared.
@@ -173,6 +186,7 @@ export const TUNING_KNOBS: TuningKnob[] = [
   { id: "dockLabelOffset", cssVar: "--t-dock-label-top", label: "Caption offset", group: "Favourites dock", min: 8, max: 26, step: 1, unit: "px", hint: "“Under the icon” only" },
   { id: "dockLift", cssVar: "--t-dock-lift", label: "Hover lift", group: "Favourites dock", min: 0, max: 12, step: 1, unit: "px", hint: "0 — icons grow in place" },
   { id: "dockScale", cssVar: "--t-dock-scale", label: "Hover scale %", group: "Favourites dock", min: 100, max: 180, step: 5, unit: "px" },
+  { id: "dragGhostOpacity", cssVar: "--t-drag-ghost-opacity", label: "Drag ghost opacity %", group: "Nav rows", min: 50, max: 100, step: 1, unit: "px", hint: "Design: 72 · opaque enough to not read through, sheer enough to show the drop line" },
 
   { id: "flyoutIconSize", cssVar: "--t-fly-icon", label: "Icon size", group: "Flyout", min: 14, max: 26, step: 1, unit: "px", hint: "16, matching a nav row · design shipped 20" },
   { id: "flyoutTitleSize", cssVar: "--t-fly-title", label: "Title size", group: "Flyout", min: 11, max: 18, step: 0.5, unit: "px", hint: "Design: 14" },
@@ -256,13 +270,28 @@ export function navIconSizeOf(state: TuningState): NavIconSize | null {
   return NAV_ICON_SIZES.find((n) => NAV_ICON_SIZE_PX[n] === first) ?? null;
 }
 
+/** Knobs dialled as a percentage and written to CSS as a bare ratio. */
+const UNITLESS_PERCENT = new Set<keyof TuningState>([
+  "dockScale",
+  "dragGhostOpacity",
+]);
+
 export function tuningToCssVars(state: TuningState): Record<string, string> {
   const out: Record<string, string> = {};
   for (const knob of TUNING_KNOBS) {
     const value = state[knob.id];
-    // dockScale is a percentage fed to `scale()`, so it is unitless.
-    out[knob.cssVar] =
-      knob.id === "dockScale" ? String(value / 100) : `${value}${knob.unit}`;
+    /*
+     * Percentages go out as bare numbers.
+     *
+     * `dockScale` feeds `scale()` and `dragGhostOpacity` feeds `opacity`,
+     * and neither takes a unit — `scale(125px)` and `opacity: 92px` are
+     * both simply invalid, so the declaration is dropped and the knob does
+     * nothing. A set rather than the `=== "dockScale"` this used to be:
+     * the second one of these arrived and quietly got `px` stapled to it.
+     */
+    out[knob.cssVar] = UNITLESS_PERCENT.has(knob.id)
+      ? String(value / 100)
+      : `${value}${knob.unit}`;
   }
 
   /*

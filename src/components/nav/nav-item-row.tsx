@@ -15,6 +15,7 @@ import {
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import { cn } from "@/lib/utils";
 import { ComposedIcon } from "./composed-icon";
+import { setRowDragImage } from "./nav-drag";
 import { useTruncationTitle } from "@/lib/use-truncation-title";
 import { EditAffordance, InlineRename } from "./inline-rename";
 import { RailTooltip } from "./rail-tooltip";
@@ -764,6 +765,8 @@ export function NavItemRow({
        */
       // dragenter and dragover take the same answer — a target has to claim the
       // drag on the way in or it never gets asked again.
+      /* The element the grip hands to `setRowDragImage`. */
+      data-drag-row=""
       onDragEnter={edit.drag?.onDragOver}
       onDragOver={edit.drag?.onDragOver}
       onDragLeave={edit.drag?.onDragLeave}
@@ -783,7 +786,15 @@ export function NavItemRow({
           tabIndex={-1}
           aria-label={`Reorder ${item.label}`}
           title="Drag to reorder"
-          onDragStart={edit.drag.onDragStart}
+          /*
+            The whole row follows the pointer, not these six dots — see
+            `setRowDragImage`. First, before the shared handler: the drag
+            image can only be set while dragstart is still dispatching.
+          */
+          onDragStart={(e) => {
+            setRowDragImage(e);
+            edit.drag?.onDragStart(e);
+          }}
           onDragEnd={edit.drag.onDragEnd}
           // `data-cursor="menu"` on the band forces `cursor: pointer` on every
           // descendant, so the grab cursor has to be set here and win on

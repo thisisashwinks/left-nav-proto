@@ -21,6 +21,7 @@ import {
   useMarking,
 } from "@/components/nav/here";
 import { productById } from "@/components/nav/catalogue";
+import { setRowDragImage } from "@/components/nav/nav-drag";
 import { isChromePlace } from "@/components/nav/chrome-places";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
@@ -1038,12 +1039,15 @@ export function FlyoutRow({
       onDrop={edit.onDrop}
       style={rowStyle}
       className={rowClass}
+      /* What the grip hands to `setRowDragImage`. */
+      data-drag-row=""
     >
       {mark.bar ? <HereBar marking={marking} /> : null}
       {/*
         The handle, for the same reason the nav's rows have one: the row is made
         of buttons and a mousedown inside a form control does not start an
-        ancestor's drag. The grip is the element the browser drags.
+        ancestor's drag. The grip is the element the browser drags — but not
+        the element it PICTURES, which is the whole row. See setRowDragImage.
       */}
       {edit.renaming || !edit.onDragStart ? null : (
         <span
@@ -1053,7 +1057,10 @@ export function FlyoutRow({
           tabIndex={-1}
           aria-label={`Reorder ${item.label}`}
           title="Drag to reorder"
-          onDragStart={edit.onDragStart}
+          onDragStart={(e) => {
+            setRowDragImage(e);
+            edit.onDragStart?.(e);
+          }}
           onDragEnd={edit.onDragEnd}
           onClick={(e) => e.stopPropagation()}
           // Always on in edit mode, and animating its width in, for the same
@@ -1215,6 +1222,13 @@ function Row({
         ref={hostRef}
         role="button"
         tabIndex={0}
+        /*
+          Only the editable form is marked: it is the only one that carries a
+          grip, and `setRowDragImage` walks up to this. Harmless on the
+          read-only button, and absent there says plainly that nothing in it
+          can be dragged.
+        */
+        data-drag-row=""
         {...rest}
         onKeyDown={(e) => {
           if (e.key !== "Enter" && e.key !== " ") return;
@@ -1578,7 +1592,10 @@ function FlyoutChildRow({
             tabIndex={-1}
             aria-label={`Reorder ${child.label}`}
             title="Drag to reorder"
-            onDragStart={(e) => edit.onDragStart?.(child.id, e)}
+            onDragStart={(e) => {
+              setRowDragImage(e);
+              edit.onDragStart?.(child.id, e);
+            }}
             onDragEnd={edit.onDragEnd}
             onClick={(e) => e.stopPropagation()}
             className="motion-grip-in -ml-[4px] flex size-[18px] shrink-0 cursor-grab items-center justify-center self-center overflow-hidden rounded-[4px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:cursor-grabbing"

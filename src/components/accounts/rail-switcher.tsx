@@ -9,6 +9,7 @@ import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { useTheme } from "@/components/theme/theme-provider";
 import { useBulkActions } from "@/components/bulk/bulk-provider";
 import { DirectoryAccountRow } from "./directory-account-row";
+import { RAIL_PIN_MAX } from "./account-rail";
 import { DIRECTORY_NAME_LABELS } from "@/design/theme";
 import { DirectoryHeader } from "./directory-header";
 import { SelectStripRow } from "./select-strip";
@@ -459,6 +460,9 @@ function Group({
             }}
             showPin={showPin}
             pinned={onRail}
+            // The rail holds ten; past that an unpinned row says so rather
+            // than failing silently. See RAIL_PIN_MAX.
+            pinBlocked={!onRail && session.railIds.length >= RAIL_PIN_MAX}
             onTogglePinned={() => {
               // Pure curation now: with one sorted list, the pin toggles the
               // rail tile and nothing else — the ROW is the jump. The old

@@ -105,9 +105,18 @@ export function WorkspaceTrigger({
         // there is no mark at all. The middle value only makes sense with a
         // separate disc sitting 7px to the left of it.
         markInside || !mark ? "-mx-[6px]" : "-my-0 -mr-[6px] -ml-[2px]",
-        open
-          ? "bg-nav-active"
-          : "hover:bg-nav-hover focus-visible:ring-[1.5px] focus-visible:ring-brand",
+        /*
+          In `spread` the ROW owns the fill, so the name must not paint one
+          of its own: two surfaces at two radii, one inside the other, read
+          as a chip sitting on a row rather than as a row. The focus ring
+          stays either way — it is what a keyboard lands on, and the row is
+          not focusable.
+        */
+        spread
+          ? "focus-visible:ring-[1.5px] focus-visible:ring-brand"
+          : open
+            ? "bg-nav-active"
+            : "hover:bg-nav-hover focus-visible:ring-[1.5px] focus-visible:ring-brand",
       )}
     >
       <BrandMark
@@ -164,14 +173,50 @@ export function WorkspaceTrigger({
   if (spread) {
     const split = mark && onToggleCollapsed !== undefined;
     return (
-      <span className="flex w-full min-w-0 items-center justify-between gap-[6px]">
+      /*
+        The whole row opens the dropdown, not just the chevron.
+
+        `justify-between` puts the name on one edge and the glyph on the
+        other, and everything in between was dead: a row that looks like one
+        control behaving like two small ones with a hole in the middle. The
+        name and the glyph keep their own buttons — they are what a keyboard
+        and a screen reader reach — and this only picks up the clicks that
+        would otherwise land on nothing.
+
+        The collapse disc stops the click: it is the one thing in the row
+        that does something else, and it is the one people press by accident
+        when they meant the row. Ashwin, Oct 15.
+      */
+      <span
+        onClick={onToggle}
+        className={cn(
+          /*
+            The row is the control, so the row carries the state.
+
+            Mark, name and chevron each had their own hover before this,
+            which made one object look like three that happened to be in a
+            line — and left the space between them with no state at all. The
+            treatment moves out here and the parts stop declaring their own.
+
+            A ring rather than a border: a border would add a pixel to the
+            row's height and shift everything under it on hover.
+          */
+          "group/row -mx-[6px] flex w-full min-w-0 cursor-pointer items-center justify-between gap-[6px] rounded-[9px] px-[6px] py-[3px] transition-[background-color,box-shadow] duration-[var(--dur-fast)]",
+          open
+            ? "bg-nav-active shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]"
+            : "hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]",
+        )}
+      >
         <span className="flex min-w-0 items-center gap-[7px]">
           {split ? (
             <button
               type="button"
               aria-label="Collapse navigation"
               title="Collapse navigation"
-              onClick={onToggleCollapsed}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleCollapsed();
+              }}
               className="motion-tap -m-[3px] flex shrink-0 items-center justify-center rounded-full p-[3px] outline-none hover:bg-nav-hover focus-visible:ring-[1.5px] focus-visible:ring-brand active:scale-95"
             >
               <AccountLogo
@@ -189,8 +234,19 @@ export function WorkspaceTrigger({
           type="button"
           tabIndex={-1}
           aria-hidden="true"
-          onClick={onToggle}
-          className="motion-tap -mr-[4px] flex shrink-0 items-center justify-center rounded-[6px] p-[4px] outline-none hover:bg-nav-hover active:scale-95"
+          /*
+            Toggles AND stops the bubble.
+
+            It needs both: without the stop its click also reaches the row
+            behind it and the second toggle closes what the first opened, so
+            the glyph appears to do nothing. Stopping alone was worse — I
+            left it inert for a build. Ashwin caught it, Oct 15.
+          */
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
+          className="motion-tap -mr-[4px] flex shrink-0 items-center justify-center rounded-[6px] p-[4px] outline-none active:scale-95"
         >
           <Glyph
             size={14}

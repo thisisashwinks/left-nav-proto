@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronRight, Search } from "lucide-react";
+import { ChevronRight, PanelLeftOpen, Search } from "lucide-react";
 import {
   DIRECTORY_NAME_LABELS,
   SELECT_LABEL_LABELS,
@@ -14,8 +14,10 @@ import { BulkHistoryModal } from "@/components/bulk/bulk-history-modal";
 import { BulkModal } from "@/components/bulk/bulk-modal";
 import { useBulkActions } from "@/components/bulk/bulk-provider";
 import { useTheme } from "@/components/theme/theme-provider";
+import { HEADER_NAV_DEFAULTS } from "@/design/route-variants";
 import { AccountLogo } from "./account-logo";
 import { DirectoryAccountRow } from "./directory-account-row";
+import { RAIL_PIN_MAX } from "./account-rail";
 import { DirectoryHeader } from "./directory-header";
 import { OverlayScrollbar } from "./overlay-scrollbar";
 import { SelectStripRow } from "./select-strip";
@@ -61,6 +63,7 @@ export function AccountSwitcher({
   showAgency = false,
   only,
 }: AccountSwitcherProps) {
+  const { effective, applyTheme } = useTheme();
   const s = useAccountSwitcher(session, onClose, only);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
@@ -502,6 +505,19 @@ export function AccountSwitcher({
                     onActivate={() => s.setActiveIndex(index)}
                     onSelect={() => s.select(account.id)}
                     pinned={session.isPinned(account.id)}
+                    /*
+                      The same ten-account ceiling the rail keeps.
+
+                      This list pins to `pinnedIds` rather than to the rail's
+                      own set, but to the person pressing it there is one
+                      idea — "pinned sub-accounts" — and one of the two
+                      silently taking an eleventh would be the rule holding
+                      in one place and not the other. See RAIL_PIN_MAX.
+                    */
+                    pinBlocked={
+                      !session.isPinned(account.id) &&
+                      session.pinnedIds.length >= RAIL_PIN_MAX
+                    }
                     onTogglePinned={() => session.togglePinned(account.id)}
                     picking={picking}
                     ticked={selected.includes(account.id)}
@@ -525,14 +541,46 @@ export function AccountSwitcher({
         </div>
 
         {/*
-          No footer.
+          No footer — except the one way back.
 
-          It held two keyboard hints and a count — a legend for behaviour the
-          panel already has (arrows walk the list whether or not a strip says
-          so) and a number nobody switches accounts by. It cost a permanent
-          32px band under a list that is the whole point of the panel, so the
-          list gets the height back. Ashwin, Oct 14.
+          The band was removed on Oct 14 because it held two keyboard hints
+          and a count: a legend for behaviour the panel already has, over a
+          list that is the whole point of the panel. This is not that. It is
+          the only route from the header arrangement back to the rail, and a
+          door with no handle on the inside is how someone gets stuck in a
+          variant they were trying out.
+
+          Shown only when the rail is the thing being stood in for — under
+          `scopeModel: "rail"` there is nothing to restore, and offering it
+          would promise a change that is already true. Ashwin, Oct 15.
         */}
+        {effective.railHideButton && effective.scopeModel === "header" ? (
+          <div className="shrink-0 border-t border-[var(--fly-border)] p-[6px]">
+            <button
+              type="button"
+              /*
+                And the whole arrangement back again.
+
+                The eight axes the hide applied are returned to their shipped
+                values rather than left where they were: the rail coming back
+                under a breadcrumb collapse and a header lockup is neither
+                arrangement, and the rail's own settings are untouched by
+                either trip because none of them are in this set.
+              */
+              onClick={() => {
+                applyTheme({
+                  ...HEADER_NAV_DEFAULTS,
+                  scopeModel: "rail",
+                });
+                onClose();
+              }}
+              className="motion-tap flex h-[32px] w-full items-center gap-[9px] rounded-[7px] px-[8px] text-left text-[13px] leading-[17px] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg active:scale-[0.99]"
+            >
+              <PanelLeftOpen size={16} aria-hidden="true" className="shrink-0" />
+              Show account rail
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {/*

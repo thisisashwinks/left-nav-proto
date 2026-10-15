@@ -9,6 +9,7 @@ import {
   Minus,
   Pin,
   Search,
+  PanelLeftClose,
   X,
 } from "lucide-react";
 import {
@@ -22,6 +23,10 @@ import {
   AGENCY_PLATE_CLASS,
   AGENCY_PLATE_PAD,
   AGENCY_MARK_SIZE,
+  type RailDirectorySpot,
+  type RailToolSpot,
+  type RailToolsEdge,
+  type RailTileAlign,
   AGENCY_WORDMARK_SRC,
   type RailExpandedShape,
   type SurfaceTheme,
@@ -30,13 +35,14 @@ import {
   DIRECTORY_NAME_LABELS,
   RAIL_RECENT_LIMIT,
   SELECT_LABEL_LABELS,
+  DIRECTORY_NAME_ICONS,
 } from "@/design/theme";
-import { usePinnedInk } from "@/components/nav/pin-button";
 import { useTheme } from "@/components/theme/theme-provider";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
 import { cn } from "@/lib/utils";
 import { AccountLogo } from "./account-logo";
 import { matchAccounts } from "./accounts-data";
+import { HEADER_NAV_THEME } from "@/design/route-variants";
 import { useBulkActions } from "@/components/bulk/bulk-provider";
 import { BulkModal } from "@/components/bulk/bulk-modal";
 import { BulkHistoryModal } from "@/components/bulk/bulk-history-modal";
@@ -242,6 +248,262 @@ const COLLAPSE_DELAY_MS = 250;
  * search-and-pin list, instead of docking a second surface beside itself.
  */
 /**
+ * Search and Edit, stuck to one edge of the inline rail.
+ *
+ * Sticky rather than placed, because inline mode turns the strip into a list
+ * of everything: a search field that scrolls away with the first ten
+ * accounts is a field you cannot reach from account thirty. It stays on the
+ * edge the axis names — see RAIL_TOOL_SPOTS — and the list scrolls behind
+ * it.
+ *
+ * Collapsed it is one glyph. A 56px strip has no room for a field, and an
+ * input squeezed into it reads as a broken control rather than a small one;
+ * the icon says the same thing and opening the rail is what turns it into a
+ * field you can type in. Ashwin, Oct 15.
+ */
+/**
+ * How many accounts the rail will hold, and what it says when it is full.
+ *
+ * Module scope because the cap and the sentence have to travel together: a
+ * figure in one place and a message in another is how the two come to
+ * disagree. Phrased like the nav's own `PIN_CAP_HINT` — same rule, one
+ * surface over, so it should not read as a different rule. Ashwin, Oct 15.
+ */
+export const RAIL_PIN_MAX = 10;
+export const RAIL_PIN_CAP_HINT = `Max ${RAIL_PIN_MAX} - unpin one first`;
+
+function RailTools({
+  expanded,
+  spot,
+  edge,
+  onHover,
+  query,
+  onQuery,
+  cta,
+  picking,
+  selectedCount,
+  onToggleSelect,
+  totalCount,
+  allOn,
+  onToggleAll,
+  onActions,
+}: {
+  expanded: boolean;
+  spot: RailToolSpot;
+  /** Border or shadow, once there is a list to be divided from. */
+  edge: RailToolsEdge;
+  /**
+   * Opens the rail, exactly as resting on a tile does.
+   *
+   * The row is part of the strip, so the strip's own gesture has to work on
+   * it. Without this the glyph was the one thing in a 56px column that did
+   * not answer the pointer — you could sit on it and nothing happened, which
+   * reads as a dead control rather than a shut one.
+   */
+  onHover: () => void;
+  query: string;
+  onQuery: (v: string) => void;
+  /** The word the axis chose — Select, Edit or Edit sub-account. */
+  cta: string;
+  picking: boolean;
+  selectedCount: number;
+  onToggleSelect: () => void;
+  /** Every account the list could reach, for the "of N" half of the count. */
+  totalCount: number;
+  /** Whether every row on screen is already ticked. */
+  allOn: boolean;
+  onToggleAll: () => void;
+  /** Opens the directory's own bulk modal. Null when bulk is not allowed. */
+  onActions: (() => void) | null;
+}) {
+  return (
+    <div
+      onPointerEnter={onHover}
+      className={cn(
+        "z-[2] flex shrink-0 items-center gap-[8px] bg-[var(--nav-rail-bg)] py-[8px]",
+        /*
+          Full width, flush to its edge — it is the rail's bar, not a row.
+
+          Out of the scroller it has to state its own padding again, and it
+          takes the LIST's figures (14/10 shut, 10/10 open) so the glyph lands
+          on the same centre as every mark above it. The background runs edge
+          to edge so nothing shows behind it: as a row with margins, the
+          accounts scrolled visibly through the gap beside it.
+        */
+        expanded ? "w-full px-[10px]" : "w-full pr-[10px] pl-[14px]",
+        /*
+          Pulled over the rail's own bottom padding.
+
+          The strip is padded 8px at the foot so the last tile does not touch
+          the edge — correct for a tile, wrong for a bar, which left an 8px
+          band of rail below it with accounts scrolling through. The negative
+          margin spends that padding on the bar instead.
+        */
+        spot === "bottom" && "-mb-[8px]",
+        /*
+          Exactly 8px below the agency plate — Ashwin, Oct 15.
+
+          The gap was the rail's own 7px PLUS this row's 8px of top padding,
+          which read as a band rather than a space. Cancelling the rail's gap
+          and keeping the padding states the figure once: 0 between the
+          plate and the row, 8 inside it before the field.
+        */
+        spot === "top" && "-mt-[7px] pt-[8px]",
+        /*
+          Collapsed, the line the rail wants is down its RIGHT edge.
+
+          A rule across a 56px column divides a glyph from a column of tiles
+          it is plainly part of, and it cut the strip an inch above its own
+          foot. The right edge is the one that was missing: the strip's side
+          stopped where the bar began, so the rail looked like it ended and
+          something else began. See RAIL_TOOLS_EDGES.
+        */
+        !expanded && "border-r border-[var(--nav-border)]",
+        // Expanded, the axis decides — a lift over the list, or a hairline.
+        expanded &&
+          (edge === "border"
+            ? spot === "top"
+              ? "border-b border-[var(--nav-divider)]"
+              : "border-t border-[var(--nav-divider)]"
+            : spot === "top"
+              ? "shadow-[0_6px_10px_-6px_rgba(16,24,40,0.18)]"
+              : "shadow-[0_-6px_10px_-6px_rgba(16,24,40,0.18)]"),
+      )}
+    >
+      {expanded && picking ? (
+        /*
+          The bar becomes the bulk bar while picking.
+
+          Not a second surface below it: at 300px a bar and a list of actions
+          cannot both have room, and the search is no use mid-selection
+          anyway. So the row swaps its contents — select-all and the count on
+          one line, the way out and the way on beside it.
+
+          The count says "of N" rather than a bare number because the figure
+          that matters when you are about to act on many accounts is how much
+          of the estate you have got, not how many rows you clicked. Ashwin,
+          Oct 15.
+        */
+        <>
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={allOn}
+            onClick={onToggleAll}
+            aria-label={allOn ? "Clear selection" : "Select all"}
+            /*
+              Lined up with the ticks in the rows below it.
+
+              The bar is padded to the COLUMN's edge and the rows pad their
+              own contents inside that, so a box flush to the bar's left edge
+              sat 7px outside the column of boxes it is the head of — which
+              is exactly the kink that reads as a different control rather
+              than the same one. Measured, not guessed: the row tick centres
+              at 26 and this sat at 19. Ashwin, Oct 15.
+            */
+            className={cn(
+              "motion-tap ml-[7px] flex size-[18px] shrink-0 items-center justify-center rounded-[5px]",
+              allOn
+                ? "bg-[var(--admin-action)] text-[var(--admin-action-fg)]"
+                : "shadow-[inset_0_0_0_1.5px_var(--fly-border)]",
+            )}
+          >
+            {allOn ? <Check size={12} strokeWidth={3} aria-hidden="true" /> : null}
+          </button>
+          <span className="min-w-0 flex-1 truncate text-[12.5px] leading-[16px] font-medium text-nav-fg">
+            {selectedCount} of {totalCount} selected
+          </span>
+          {onActions && selectedCount > 0 ? (
+            <button
+              type="button"
+              onClick={onActions}
+              className="motion-tap h-[28px] shrink-0 rounded-[8px] bg-[var(--admin-action)] px-[9px] text-[12.5px] font-medium text-[var(--admin-action-fg)] hover:brightness-95"
+            >
+              Actions
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onToggleSelect}
+            className="motion-tap h-[28px] shrink-0 rounded-[8px] px-[8px] text-[12.5px] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
+          >
+            Cancel
+          </button>
+        </>
+      ) : expanded ? (
+        <>
+          {/*
+            The directory's own field, to the class.
+
+            It had a `bg-nav-hover` fill and no edge, which read as a chip
+            rather than an input and looked nothing like the search in the
+            All accounts panel — the same control in two spellings, which is
+            what Ashwin objected to and was right about.
+          */}
+          <span className="motion-tap flex h-[32px] min-w-0 flex-1 items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">
+            <Search
+              size={15}
+              aria-hidden="true"
+              className="shrink-0 text-nav-fg-subtle"
+            />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => onQuery(e.target.value)}
+              placeholder="Search accounts"
+              aria-label="Search accounts"
+              className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+            />
+          </span>
+          {/*
+            One button, two jobs — enter the mode, then leave it.
+
+            Cancel rather than Done, because leaving clears the selection:
+            the directory settled that a half-built errand abandoned is an
+            errand abandoned, and the rail has no business disagreeing with
+            the panel it replaces. The count goes on the button itself, since
+            a 300px rail has nowhere else to put it.
+          */}
+          <button
+            type="button"
+            onClick={onToggleSelect}
+            /*
+              A secondary button, not a bare label.
+
+              It sat as text with a hover fill, which at the end of a bar
+              holding a bordered field read as a word rather than a control
+              — the one thing in the row you press and the only thing with
+              no edge. Same hairline the field wears, so the two read as a
+              pair. Ashwin, Oct 15.
+            */
+            className={cn(
+              "motion-tap h-[32px] shrink-0 rounded-[9px] px-[11px] text-[12.5px] font-medium shadow-[inset_0_0_0_1px_var(--fly-border)]",
+              picking
+                ? "bg-nav-active text-nav-fg"
+                : "text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg",
+            )}
+          >
+            {picking
+              ? selectedCount > 0
+                ? `Cancel (${selectedCount})`
+                : "Cancel"
+              : cta}
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          aria-label="Search accounts"
+          className="motion-tap mx-auto flex size-[32px] shrink-0 items-center justify-center rounded-[8px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
+        >
+          <Search size={16} aria-hidden="true" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
  * A run's name while the rail is open, and its hairline while it is shut.
  *
  * One component for both because they are the same mark: the strip is 56px
@@ -257,10 +519,26 @@ const COLLAPSE_DELAY_MS = 250;
 function RailGroupHeading({
   label,
   expanded,
+  show,
 }: {
   label: string;
   expanded: boolean;
+  /**
+   * Whether this run is marked at all.
+   *
+   * On, the mark changes FORM with the width: the name while the rail is
+   * open, the hairline it collapses to at 56px, where no word fits. Off, it
+   * is gone at both widths — rule included.
+   *
+   * An earlier cut kept the rule when the name was switched off, on the
+   * argument that two runs are still two runs. Ashwin's call, Oct 15: off
+   * means off. The toggle reads as one decision about whether the run is
+   * announced, and a switch that leaves half its subject behind is a switch
+   * nobody can predict from its label.
+   */
+  show: boolean;
 }) {
+  if (!show) return null;
   return (
     <div
       className={cn(
@@ -312,6 +590,31 @@ export function AccountRail({
   settleHover = 0,
   membersOnly = false,
 }: AccountRailProps) {
+  /*
+   * Where the session is GOING, not where it has got to.
+   *
+   * A switch is not instant — the shell holds a `pending` target while the
+   * account loads, and `session.current` only moves once it lands. The rail
+   * was reading the settled value, so for the whole of that wait the strip
+   * still said you were in the account you had just left: the row you
+   * clicked stayed unmarked, and under "Always first" it did not rise until
+   * the load finished.
+   *
+   * That is the wrong thing to make someone wait for. The click already
+   * decided the answer; the latency is the CONTENT arriving, not the
+   * decision being made. So the rail answers from `pending` the moment there
+   * is one and the loading goes on behind it at its own pace — which is what
+   * every other optimistic UI does with a navigation, and what Ashwin asked
+   * for on Oct 15.
+   *
+   * It is safe to be optimistic here precisely because nothing downstream
+   * depends on it: this picks which row is marked and which row sorts first.
+   * A switch that failed would leave the strip briefly wrong about a thing
+   * the next render corrects, rather than acting on a state that never came.
+   */
+  const liveScope = session.pending?.scope ?? session.scope;
+  const liveAccountId = session.pending?.account.id ?? session.current.id;
+
   const railAccounts = session.railIds
     .map((id) => session.accounts.find((a) => a.id === id))
     .filter((a): a is Account => a !== undefined);
@@ -397,9 +700,19 @@ export function AccountRail({
    * renders once the active account's overrides are applied, and the rail is
    * chrome like everything else that reads it.
    */
-  const { effective } = useTheme();
-  const { navOnPlane, directoryFlush, railShade, agencyPlate, railGroupMark } =
-    effective;
+  const { effective, applyTheme } = useTheme();
+  const {
+    navOnPlane,
+    directoryFlush,
+    railShade,
+    agencyPlate,
+    railArrangement,
+    railActiveSpot,
+    railDirectoryMode,
+    railToolSpot,
+    railPinnedLabel,
+    railRecentLabel,
+  } = effective;
   /*
    * The fill arrangement. See DIRECTORY_PLACEMENTS.
    *
@@ -467,8 +780,19 @@ export function AccountRail({
   // Never for a member: bulk-applying across clients is an agency operation.
   const fillBulkAllowed =
     bulkSettings.enabled && bulkSettings.bulkInDirectory && !membersOnly;
+  /*
+   * Inline mode runs the SAME errand as the directory, on the same state.
+   *
+   * `fillSelectMode`, `fillSelected` and `fillQuery` were scoped to the
+   * filled directory because that was the only surface that had them. Inline
+   * mode is the directory, drawn in the rail instead of over it — so it
+   * reads and writes the same three, rather than growing a second copy that
+   * drifts. Ashwin, Oct 15: everything that worked in All accounts works
+   * here.
+   */
+  const inlineOpen = railDirectoryMode === "inline" && expanded;
   const fillPicking =
-    filled &&
+    (filled || inlineOpen) &&
     fillBulkAllowed &&
     (effective.directorySelect === "always" || fillSelectMode);
 
@@ -476,7 +800,7 @@ export function AccountRail({
   const exitFillSelect = React.useCallback(() => {
     setFillSelectMode(false);
     setFillSelected([]);
-  }, []);
+  }, [setFillSelectMode, setFillSelected]);
 
   /*
    * And closing the strip ends the errand outright.
@@ -490,7 +814,7 @@ export function AccountRail({
     setFillQuery("");
     exitFillSelect();
     onCloseSwitcher();
-  }, [exitFillSelect, onCloseSwitcher]);
+  }, [setFillQuery, exitFillSelect, onCloseSwitcher]);
 
   /* Esc leaves, as it does on every other surface that takes the screen. */
   React.useEffect(() => {
@@ -638,7 +962,18 @@ export function AccountRail({
   const pillTiles = effective.railTileShape === "pill";
   /* The open rail's corners — see RAIL_EXPANDED_SHAPES and `railCorner`. */
   const railShape = effective.railExpandedShape;
-  const railTileAlign = effective.railTileAlign;
+  /*
+   * Centred under `allTop`, because that arrangement has nothing below the
+   * run to hold it down: the agency and the button are both above it, so a
+   * top-aligned list leaves the whole lower column empty and the strip reads
+   * as unfinished rather than as arranged. See RAIL_ARRANGEMENTS.
+   */
+  const railTileAlign: RailTileAlign =
+    railArrangement === "default"
+      ? effective.railTileAlign
+      : railArrangement === "allTop"
+        ? "centre"
+        : "top";
   /*
    * One corner on every mark in the strip — agency and tenants alike.
    *
@@ -672,7 +1007,22 @@ export function AccountRail({
    * strip — everything below floats in the vertical centre and therefore moves
    * whenever the open set changes length.
    */
-  const directorySpot = effective.railDirectorySpot;
+  /*
+   * The arrangement speaks over the two axes it subsumes.
+   *
+   * `railDirectorySpot` and `railTileAlign` stay as their own controls —
+   * Ashwin kept them deliberately — but an arrangement is a statement about
+   * the whole column, so where the two disagree the arrangement wins and the
+   * older axis is simply not consulted. `default` is the option that hands
+   * the question back to them, which is what makes keeping all three
+   * coherent rather than contradictory. Ashwin, Oct 15.
+   */
+  const directorySpot: RailDirectorySpot =
+    railArrangement === "default"
+      ? effective.railDirectorySpot
+      : railArrangement === "allTop"
+        ? "top"
+        : "tail";
   const hoisted = directorySpot !== "tail";
 
   /*
@@ -682,9 +1032,9 @@ export function AccountRail({
    * plate above is already saying where you are.
    */
   const activeAccount =
-    directorySpot === "top-active" && session.scope === "account"
-      ? (railAccounts.find((a) => a.id === session.current.id) ??
-        recentAccounts.find((a) => a.id === session.current.id) ??
+    directorySpot === "top-active" && liveScope === "account"
+      ? (railAccounts.find((a) => a.id === liveAccountId) ??
+        recentAccounts.find((a) => a.id === liveAccountId) ??
         null)
       : null;
 
@@ -695,12 +1045,265 @@ export function AccountRail({
    * copy is the one nobody clicks. The hole it leaves is the honest cost of
    * hoisting — see the note on RAIL_DIRECTORY_SPOTS.
    */
-  const centredAccounts = activeAccount
+  const pinnedSet = activeAccount
     ? railAccounts.filter((a) => a.id !== activeAccount.id)
     : railAccounts;
-  const centredRecents = activeAccount
+  const recentSet = activeAccount
     ? recentAccounts.filter((a) => a.id !== activeAccount.id)
     : recentAccounts;
+
+  /*
+   * The account you are in, raised to the head of the strip.
+   *
+   * See RAIL_ACTIVE_SPOTS. Distinct from the `top-active` directory spot
+   * above, which lifts the active tile into the cluster BESIDE the button:
+   * this one leaves the cluster alone and reorders the run itself, so the
+   * rail still reads as one list with its current row first.
+   *
+   * Taken out of whichever run held it rather than copied — a tile in two
+   * places in one strip is the same account twice, and the second copy is the
+   * one nobody clicks. It is pulled out of `recent` as readily as out of
+   * `pinned`: being where you are outranks how you got there.
+   *
+   * The cost is the one the axis names: the strip reshuffles every time you
+   * switch, so the position you learned for an account is only true while you
+   * are not in it. Ashwin, Oct 15.
+   */
+  const raiseActive = railActiveSpot === "top" && liveScope === "account";
+  /*
+   * Found in either run — or fetched, if it is in neither.
+   *
+   * The first cut looked only in the two runs the strip already draws, which
+   * made the axis do nothing in the commonest case it exists for: you reach
+   * an account from the directory, it is neither pinned nor recent, and the
+   * rail has no tile for it to raise. "Always first" then meant "first, when
+   * it happened to be here anyway".
+   *
+   * So the account you are in is added when it is missing rather than merely
+   * reordered. That is the promise the label makes — the row for where you
+   * are is always the top row — and it is the whole reason to prefer this
+   * over learning fixed positions.
+   */
+  const raisedActive = raiseActive
+    ? (pinnedSet.find((a) => a.id === liveAccountId) ??
+      recentSet.find((a) => a.id === liveAccountId) ??
+      session.accounts.find((a) => a.id === liveAccountId) ??
+      null)
+    : null;
+
+  /*
+   * The agency as a ROW, not a plate — `agencySorted` / `agencyHeadsPinned`.
+   *
+   * Both arrangements make the same move: the agency stops being the thing
+   * ABOVE the list and becomes a row inside it. That is a different claim
+   * about what the agency is — a sibling of the accounts rather than their
+   * container — and the ring is what stops the claim going too far. Without
+   * it the agency is indistinguishable from a tenant, which is the failure
+   * mode the plate existed to prevent.
+   *
+   * They differ only in where it lands. `agencyHeadsPinned` puts it first,
+   * which is learnable: the top row is always the agency. `agencySorted`
+   * drops it into the middle of the run in the account's own pin order,
+   * which is the honest version of "it is one of the list" — and the reason
+   * the ring has to carry the whole distinction, because position no longer
+   * carries any of it.
+   */
+  /*
+   * The agency climbing out of the bottom slot, while it is active.
+   *
+   * Only in `agencyBottom` — everywhere else the agency already heads the
+   * strip and there is nothing to raise. Read off the LIVE scope rather than
+   * the settled one so it moves on the click, like every other active
+   * marking in this file.
+   */
+  const agencyRisen =
+    railArrangement === "agencyBottom" &&
+    effective.activeAgencySpot === "rise" &&
+    liveScope === "agency";
+
+  const agencyInRun =
+    railArrangement === "agencySorted" ||
+    railArrangement === "agencyHeadsPinned";
+
+  const centredAccounts = raisedActive
+    ? [raisedActive, ...pinnedSet.filter((a) => a.id !== raisedActive.id)]
+    : pinnedSet;
+  const baseRecents = raisedActive
+    ? recentSet.filter((a) => a.id !== raisedActive.id)
+    : recentSet;
+
+  /*
+   * Inline mode: the directory stops being a door and becomes the list.
+   *
+   * See RAIL_DIRECTORY_MODES. At rest the strip holds the pinned run and
+   * nothing else — no recents, no button — which is the tidiest the rail
+   * ever looks. Hovering flows every remaining account in underneath, so the
+   * gesture that used to widen the strip now also fills it.
+   *
+   * The bet is that a rail you can browse beats a rail you can only read,
+   * and the cost is real: at forty accounts the open rail is a scrolling
+   * column where a panel would have given you search and a grid. That is
+   * what the sticky tools row below is for, and why it is sticky rather than
+   * first — a search field that scrolls away is a search field you cannot
+   * reach from the bottom of the list. Ashwin, Oct 15.
+   */
+  const inlineDirectory = railDirectoryMode === "inline";
+
+  /*
+   * Pinning, back on both directory surfaces — Ashwin, Oct 15.
+   *
+   * It had quietly become read-only here: the rows drew a pin to say which
+   * run they were in and offered no way to change it, so curating the rail
+   * meant going somewhere else to do it. The cap is what makes the pin mean
+   * anything — a rail that takes every account is a directory in a 56px
+   * strip — and ten is the figure Ashwin set.
+   *
+   * Only out of select mode: while a selection is running the row's job is
+   * to tick, and a second control on it is a misclick that costs you the
+   * errand.
+   */
+  const pinnedCount = session.railIds.length;
+  const canPinMore = pinnedCount < RAIL_PIN_MAX;
+  /*
+    The agency is exempt, and has to be exempt HERE rather than at each of
+    the four call sites that spread this.
+
+    It already refused to draw the pin MARK — "the agency is never pinnable"
+    — but the pin CONTROL is a separate absolute overlay keyed off
+    `onTogglePin`, and nothing was withholding it. So the agency row got a
+    hidden pin button sitting exactly on the slot its own differentiator
+    uses: at rest the diamond showed, and the moment you hovered the row to
+    read it, a pin faded in on top of it offering to pin the thing that
+    cannot be pinned. Ashwin, Oct 15.
+  */
+  const pinProps = (id: string) =>
+    fillPicking || id === brandedAgency.id
+      ? {}
+      : {
+          onTogglePin: () =>
+            session.onRail(id)
+              ? session.removeFromRail(id)
+              : canPinMore
+                ? session.addToRail(id)
+                : undefined,
+          pinBlocked: !session.onRail(id) && !canPinMore,
+        };
+
+  /** The agency's own id, so the run can tell it from a tenant. */
+  const AGENCY_ID = brandedAgency.id;
+
+  /*
+   * The pinned run, with the agency folded in where the arrangement wants it.
+   *
+   * Built here rather than in the map so the index the dock magnifier reads
+   * is the index of the row actually drawn — inserting during render would
+   * leave every tile after the agency magnifying its neighbour.
+   *
+   * Not memoised: a dozen rows copied twice is nothing, and the React
+   * Compiler refuses to optimise a component whose manual memo it cannot
+   * preserve — so a `useMemo` here costs the whole file its compilation
+   * rather than saving anything.
+   *
+   * The middle is computed from the run's own length, so it stays the middle
+   * as accounts are pinned and unpinned rather than being a number that was
+   * true once.
+   */
+  const pinnedRun = agencyInRun
+    ? (() => {
+        const rest = centredAccounts.filter((a) => a.id !== brandedAgency.id);
+        if (railArrangement === "agencyHeadsPinned") {
+          return [brandedAgency, ...rest];
+        }
+        const at = Math.floor(rest.length / 2);
+        return [...rest.slice(0, at), brandedAgency, ...rest.slice(at)];
+      })()
+    : centredAccounts;
+
+  /*
+   * The second run, which inline mode redefines.
+   *
+   * Normally it is "recently visited". Inline it is "everything you have not
+   * pinned" — a different list with a different promise, which is why the
+   * RECENT heading is suppressed there: naming forty accounts "recent" would
+   * be the label lying about its own contents.
+   *
+   * Empty while the strip is shut, so the resting rail is the pinned run and
+   * nothing else. The rows arrive with the width rather than before it.
+   */
+  /*
+   * Searching narrows BOTH runs, not just the one the query lives next to.
+   *
+   * A field that filters the unpinned rows and leaves the pinned ones alone
+   * would be answering a question nobody asked — you typed a name, not "a
+   * name, among the ones I have not kept". `matchAccounts` is the directory's
+   * own matcher, so the two surfaces agree about what counts as a hit.
+   */
+  const inlineMatch = (list: readonly Account[]) =>
+    inlineDirectory && expanded && fillQuery.trim()
+      ? matchAccounts(fillQuery, list)
+      : list;
+
+  const centredRecents = inlineDirectory
+    ? expanded
+      ? inlineMatch(
+          session.accounts.filter(
+            (a) =>
+              a.id !== brandedAgency.id &&
+              !pinnedRun.some((p) => p.id === a.id) &&
+              a.id !== raisedActive?.id,
+          ),
+        )
+      : []
+    : baseRecents;
+
+  /*
+   * Searching from the bottom reads upward.
+   *
+   * With the field on the bottom edge, a result list that starts at the top
+   * puts the best match furthest from the thing you are typing into and
+   * grows AWAY from your eye. Reversed, the strongest match sits directly
+   * above the field and weaker ones climb away — the arrangement a terminal
+   * or a chat uses for the same reason. Ashwin, Oct 15.
+   *
+   * Only while a query is up, and only when the bar is at the bottom: with
+   * the field on top the normal order already puts the best match against
+   * it, and reversing a resting list would just make the rail unreadable.
+   *
+   * The runs are swapped as well as reversed, so the row nearest the field
+   * is the first pinned match rather than the last loose one. Headings go
+   * with them: during a search these are results, not two runs.
+   */
+  const reverseSearch =
+    inlineOpen && railToolSpot === "bottom" && fillQuery.trim().length > 0;
+
+  const pinnedShown = inlineMatch(pinnedRun);
+  const topRun = reverseSearch ? [...centredRecents].reverse() : pinnedShown;
+  const bottomRun = reverseSearch
+    ? [...pinnedShown].reverse()
+    : centredRecents;
+
+  /*
+   * What select-all reaches inline, and what the count counts.
+   *
+   * The rows ON SCREEN, which during a search is the filtered set — ticking
+   * "all" while a query is up should not quietly select thirty accounts you
+   * cannot see. The denominator is the whole estate, because that is the
+   * figure that matters when you are about to act on many of them.
+   */
+  const inlineVisibleIds = inlineOpen
+    ? [...inlineMatch(pinnedRun), ...centredRecents].map((a) => a.id)
+    : [];
+  const inlineAllOn =
+    inlineVisibleIds.length > 0 &&
+    inlineVisibleIds.every((id) => fillSelected.includes(id));
+  const toggleInlineAll = () =>
+    setFillSelected((v) =>
+      inlineAllOn
+        ? v.filter((id) => !inlineVisibleIds.includes(id))
+        : [...new Set([...v, ...inlineVisibleIds])],
+    );
+
+
 
   /**
    * One button, two possible homes — so it is built once and placed by the
@@ -782,7 +1385,16 @@ export function AccountRail({
         >
           {/* A 24px stage, so the glyph centres exactly under the logos above. */}
           <span className="flex size-[24px] shrink-0 items-center justify-center">
-            <Grip size={16} aria-hidden="true" />
+            {/*
+              The glyph follows the NAME — see DIRECTORY_NAME_ICONS. A door
+              called "Search sub-accounts" under a directory grid would have
+              the word and the picture describing two different doors.
+            */}
+            {DIRECTORY_NAME_ICONS[effective.directoryName] === "search" ? (
+              <Search size={16} aria-hidden="true" />
+            ) : (
+              <Grip size={16} aria-hidden="true" />
+            )}
           </span>
           {expanded ? (
             <span className="truncate text-[12.5px] leading-none font-medium">
@@ -1236,7 +1848,7 @@ export function AccountRail({
                   // geometry the rail depends on, so only the paint moves.
                   "shrink-0 transition-[margin,width,border-radius] ease-[var(--ease-out)]",
                   /*
-                    Which END of the strip it sits at — see AGENCY_PLATE_SPOTS.
+                    Which END of the strip it sits at — see RAIL_ARRANGEMENTS.
 
                     `order-last` rather than a second render site: the plate is
                     forty lines of geometry, an animation clock and three axes
@@ -1245,7 +1857,35 @@ export function AccountRail({
                     `flex-1`, so ordering it last is enough to park it against
                     the bottom edge.
                   */
-                  effective.agencyPlateSpot === "bottom" && "order-last",
+                  // Hidden entirely when the agency has joined the run — two
+                  // agencies in one strip is the same scope twice, and the
+                  // plate is the copy with no reason to be there.
+                  agencyInRun && "hidden",
+                  /*
+                    And while an errand is running — the same terms the
+                    directory hides its own agency entry on
+                    (`agencyEntryShown`: not searching, not picking).
+
+                    Under a query the agency is not a result, and it sat
+                    above the matches claiming to be one. In select mode it
+                    is not selectable, so a row with no checkbox at the head
+                    of a column of them reads as one the tick failed on.
+                  */
+                  inlineOpen &&
+                    (fillQuery.trim().length > 0 || fillPicking) &&
+                    "hidden",
+                  // Parks against the rail's bottom edge. `order-last` rather
+                  // than a second render site: the plate carries its own
+                  // geometry, its own clock (plateDur) and three axes of its
+                  // own, and a copy duplicates all of it. The list between is
+                  // flex-1, so ordering is enough. See RAIL_ARRANGEMENTS.
+                  // ...unless it is the scope you are in and the axis says to
+                  // raise it. See ACTIVE_AGENCY_SPOTS: the far edge reads
+                  // right for a scope you are not in, and backwards for one
+                  // you are.
+                  railArrangement === "agencyBottom" &&
+                    !agencyRisen &&
+                    "order-last",
                   // Padding follows the option too, so a bigger mark does not
                   // make a taller slot. See AGENCY_PLATE_PAD.
                   AGENCY_PLATE_PAD[agencyPlate],
@@ -1315,7 +1955,7 @@ export function AccountRail({
                   label={`${session.agency.name} — agency`}
                   name={session.agency.name}
                   expanded={expanded}
-                  selected={session.scope === "agency"}
+                  selected={liveScope === "agency"}
                   onClick={session.switchToAgency}
                   onHover={() => setHover(true)}
                   account={brandedAgency}
@@ -1630,6 +2270,28 @@ export function AccountRail({
                   <div ref={flip.register(activeAccount.id)}>
                   <RailRow
                     squircle={!pillTiles}
+                    /*
+                      The directory's row shape, because inline mode IS the
+                      directory. `listShape` is the existing flag for it —
+                      8px corners and the nav's own selected marking — and a
+                      fully round pill on a 300px row reads as a tile that
+                      grew rather than as a row. Ashwin, Oct 15.
+                    */
+                    listShape={inlineOpen}
+                    /*
+                      One size for every mark while picking.
+
+                      The strip marks the active account by drawing its mark
+                      bigger, which works in a column of marks and breaks in
+                      a column of ROWS: the row's padding is derived from the
+                      mark it holds, so the one larger tile pushes its own
+                      checkbox left and the column of boxes develops a kink
+                      at whichever row you are in. The fill and the ring
+                      already say which row that is. The same reasoning the
+                      filled directory records a few hundred lines down.
+                    */
+                    {...(fillPicking && inlineOpen ? { markSize: 20 } : {})}
+                    {...(inlineOpen ? pinProps(activeAccount.id) : {})}
                     label={activeAccount.name}
                     name={activeAccount.name}
                     expanded={expanded}
@@ -1655,6 +2317,40 @@ export function AccountRail({
               is every account you have, so the icon should say "browse", not
               "create".
             */}
+            {/*
+              Hoisted out of the scroller, like its bottom twin.
+
+              Inside it, "sticky top-0" was the only thing holding it, and it
+              sat INSIDE a column that already pads 14/10 — so the glyph took
+              that inset twice and landed off the tile column, and the agency
+              plate above scrolled away from underneath it. Out here the
+              rail's own flex column pins it under the plate: both stay put,
+              the gap between them is the rail's own, and the padding is
+              stated once. Ashwin, Oct 15.
+            */}
+            {inlineDirectory && railToolSpot === "top" ? (
+              <RailTools
+                expanded={expanded}
+                spot="top"
+                edge={effective.railToolsEdge}
+                onHover={() => setHover(true)}
+                query={fillQuery}
+                onQuery={setFillQuery}
+                cta={fillSelectWord}
+                picking={fillPicking}
+                selectedCount={fillSelected.length}
+                onToggleSelect={() =>
+                  fillPicking ? exitFillSelect() : setFillSelectMode(true)
+                }
+                totalCount={session.accounts.length}
+                allOn={inlineAllOn}
+                onToggleAll={toggleInlineAll}
+                onActions={
+                  fillBulkAllowed ? () => setFillBulk({ path: null }) : null
+                }
+              />
+            ) : null}
+
             <div
               ref={fillScrollRef}
               {...(filled ? { "data-scroll-region": "" } : {})}
@@ -1753,6 +2449,16 @@ export function AccountRail({
                 className={cn(
                   "flex w-full flex-col gap-[4px]",
                   /*
+                    Pushed down to meet the field during a reversed search.
+
+                    Reversing the order is only half of reading upward: left
+                    top-aligned, the strongest match still sat at the head of
+                    an empty column with the field eight hundred pixels below
+                    it. `mt-auto` spends the slack above the results instead,
+                    so the list grows up out of the thing you are typing in.
+                  */
+                  reverseSearch && "mt-auto",
+                  /*
                     `my-auto` is the centring, and dropping it is the whole of
                     the `top` arrangement: with no auto margins the run sits at
                     the flex start, which is directly under the agency block.
@@ -1813,8 +2519,8 @@ export function AccountRail({
                           name={account.name}
                           expanded={expanded}
                           selected={
-                            session.scope === "account" &&
-                            account.id === session.current.id
+                            liveScope === "account" &&
+                            account.id === liveAccountId
                           }
                           onClick={() => {
                             /*
@@ -1870,11 +2576,24 @@ export function AccountRail({
                           // pinned is what the ORDER is, so the mark is the
                           // legend for the sort rather than decoration.
                           pinned={session.onRail(account.id)}
+                          {...pinProps(account.id)}
                         />
                       </div>
                     ))
                   : null}
-                {fillRows.length === 0 && filled ? (
+                {/*
+                  Said in inline mode as well as in the directory.
+
+                  It was gated on `filled`, so a query matching nothing in
+                  the rail emptied the column and explained nothing — the
+                  one state where a list most needs to say what happened.
+                  Same sentence, same place; only the gate was wrong.
+                */}
+                {((filled && fillRows.length === 0) ||
+                  (inlineOpen &&
+                    fillQuery.trim().length > 0 &&
+                    topRun.length === 0 &&
+                    bottomRun.length === 0)) ? (
                   <p className="px-[8px] py-[14px] text-[12.5px] leading-[17px] text-nav-fg-subtle">
                     No accounts match “{fillQuery.trim()}”.
                   </p>
@@ -1895,35 +2614,108 @@ export function AccountRail({
                 */}
                 {/*
                   No rule over the accounts when nothing sits above them — see
-                  AGENCY_PLATE_SPOTS. A separator divides two things, and with
+                  RAIL_ARRANGEMENTS. A separator divides two things, and with
                   the agency parked at the far end this one would be dividing
                   the list from the top of the strip.
                 */}
+                {/*
+                  Gone entirely under `agencyBottom` — the RULE, not just its
+                  label.
+
+                  A separator divides two things, and with the plate parked at
+                  the far end there is nothing above the accounts to divide
+                  them from: the rule would have one side. That is why this is
+                  not `show={false}`, which deliberately keeps the hairline
+                  when a heading is merely switched off. Ashwin asked for "no
+                  divider above the sub-accounts" when he asked for the bottom
+                  plate, and the two are one request.
+                */}
+
                 {!filled &&
-                railGroupMark === "headings" &&
+                !reverseSearch &&
                 centredAccounts.length > 0 &&
-                effective.agencyPlateSpot !== "bottom" ? (
-                  <RailGroupHeading label="Pinned" expanded={expanded} />
+                railArrangement !== "agencyBottom" ? (
+                  <RailGroupHeading
+                    label="Pinned"
+                    expanded={expanded}
+                    // Never in inline mode. The strip is one list of every
+                    // account there, and a PINNED heading over the first ten
+                    // of forty is a boundary the arrangement does not have.
+                    show={railPinnedLabel && !inlineDirectory}
+                  />
                 ) : null}
-                {filled ? null : centredAccounts.map((account, i) => (
+                {filled ? null : topRun.map((account, i) => (
                   <div key={account.id} ref={flip.register(account.id)}>
                   <RailRow
                     squircle={!pillTiles}
+                    /*
+                      The directory's row shape, because inline mode IS the
+                      directory. `listShape` is the existing flag for it —
+                      8px corners and the nav's own selected marking — and a
+                      fully round pill on a 300px row reads as a tile that
+                      grew rather than as a row. Ashwin, Oct 15.
+                    */
+                    listShape={inlineOpen}
+                    /*
+                      One size for every mark while picking.
+
+                      The strip marks the active account by drawing its mark
+                      bigger, which works in a column of marks and breaks in
+                      a column of ROWS: the row's padding is derived from the
+                      mark it holds, so the one larger tile pushes its own
+                      checkbox left and the column of boxes develops a kink
+                      at whichever row you are in. The fill and the ring
+                      already say which row that is. The same reasoning the
+                      filled directory records a few hundred lines down.
+                    */
+                    {...(fillPicking && inlineOpen ? { markSize: 20 } : {})}
+                    {...(inlineOpen ? pinProps(account.id) : {})}
                     label={account.name}
                     name={account.name}
                     expanded={expanded}
-                    selected={session.scope === "account" && account.id === session.current.id}
-                    onClick={() => session.switchTo(account.id)}
+                    selected={liveScope === "account" && account.id === liveAccountId}
+                    onClick={() => {
+                      if (fillPicking && inlineOpen) {
+                        setFillSelected((v) =>
+                          v.includes(account.id)
+                            ? v.filter((x) => x !== account.id)
+                            : [...v, account.id],
+                        );
+                        return;
+                      }
+                      session.switchTo(account.id);
+                    }}
                     onHover={() => {
                       setHover(true);
                       setMagnifyIndex(i);
                     }}
                     account={account}
                     magnify={magnifyScale(effective.railMagnify, magnifyIndex, i)}
+                    // In select mode the row ticks rather than travels — the
+                    // same rule the directory's rows follow, for the same
+                    // reason: switching account out from under a half-built
+                    // selection throws the selection away.
+                    {...(fillPicking && inlineOpen
+                      ? { tick: fillSelected.includes(account.id) }
+                      : {})}
                     // Only worth marking when there is a second run to tell it
                     // apart from. On `pinned` every row is pinned, and a column
                     // of identical marks says nothing.
-                    pinned={effective.railRecents === "recent"}
+                    // The agency is never pinnable: it is not one of the
+                    // accounts you chose to keep, it is the scope they live
+                    // in. See `agencyInRun`.
+                    pinned={
+                      account.id === AGENCY_ID
+                        ? false
+                        : effective.railRecents === "recent"
+                    }
+                    ring={account.id === AGENCY_ID && effective.agencyRowRing}
+                    agencyWord={
+                      account.id === AGENCY_ID && effective.agencyRowWord
+                    }
+                    agencyDiamond={
+                      account.id === AGENCY_ID && effective.agencyRowDiamond
+                    }
                   />
                   </div>
                 ))}
@@ -1955,21 +2747,73 @@ export function AccountRail({
                   below with everyone else, in the directory's order. Ashwin,
                   Oct 6.
                 */}
-                {!filled && railGroupMark === "headings" && centredRecents.length > 0 ? (
-                  <RailGroupHeading label="Recent" expanded={expanded} />
+                {/*
+                  Renamed in inline mode, not suppressed.
+
+                  There this run holds everything the account has NOT pinned,
+                  which at forty tenants is most of them — "Recent" would be
+                  the label lying about its own contents. Hiding it instead
+                  would cost the separator too, now that off means off at both
+                  widths, and the two runs genuinely are two things. So it
+                  says what it is and the toggle governs it exactly as it
+                  governs the other.
+                */}
+                {!filled && !reverseSearch && centredRecents.length > 0 ? (
+                  <RailGroupHeading
+                    label="Recent"
+                    expanded={expanded}
+                    show={railRecentLabel && !inlineDirectory}
+                  />
                 ) : null}
-                {filled ? null : centredRecents.map((account, i) => (
+                {filled ? null : bottomRun.map((account, i) => (
                   <div key={account.id}>
                   <RailRow
                     squircle={!pillTiles}
+                    /*
+                      The directory's row shape, because inline mode IS the
+                      directory. `listShape` is the existing flag for it —
+                      8px corners and the nav's own selected marking — and a
+                      fully round pill on a 300px row reads as a tile that
+                      grew rather than as a row. Ashwin, Oct 15.
+                    */
+                    listShape={inlineOpen}
+                    /*
+                      One size for every mark while picking.
+
+                      The strip marks the active account by drawing its mark
+                      bigger, which works in a column of marks and breaks in
+                      a column of ROWS: the row's padding is derived from the
+                      mark it holds, so the one larger tile pushes its own
+                      checkbox left and the column of boxes develops a kink
+                      at whichever row you are in. The fill and the ring
+                      already say which row that is. The same reasoning the
+                      filled directory records a few hundred lines down.
+                    */
+                    {...(fillPicking && inlineOpen ? { markSize: 20 } : {})}
+                    {...(inlineOpen ? pinProps(account.id) : {})}
                     label={account.name}
                     name={account.name}
                     expanded={expanded}
                     selected={
-                      session.scope === "account" &&
-                      account.id === session.current.id
+                      liveScope === "account" &&
+                      account.id === liveAccountId
                     }
-                    onClick={() => session.switchTo(account.id)}
+                    // Same rule as the run above: while picking, the row
+                    // ticks rather than travels.
+                    onClick={() => {
+                      if (fillPicking && inlineOpen) {
+                        setFillSelected((v) =>
+                          v.includes(account.id)
+                            ? v.filter((x) => x !== account.id)
+                            : [...v, account.id],
+                        );
+                        return;
+                      }
+                      session.switchTo(account.id);
+                    }}
+                    {...(fillPicking && inlineOpen
+                      ? { tick: fillSelected.includes(account.id) }
+                      : {})}
                     onHover={() => {
                       setHover(true);
                       // Indices continue past the curated run so the magnify
@@ -1986,11 +2830,96 @@ export function AccountRail({
                   </div>
                 ))}
 
-                {directorySpot === "tail" ? directoryButton : null}
+                {/*
+                  No door in inline mode — the list IS the directory, and a
+                  button onto what you are already looking at is a button that
+                  can only disappoint. See RAIL_DIRECTORY_MODES.
+                */}
+                {!inlineDirectory && directorySpot === "tail"
+                  ? directoryButton
+                  : null}
+
               </div>
             </div>
           </>
         )}
+
+        {/*
+          The tools row at the RAIL's bottom edge, not the list's.
+
+          It was inside the scroller, which made it sit under the last pinned
+          account and ride up the column whenever the list was short — a bar
+          described as "bottom" that was only at the bottom when the content
+          happened to fill the strip. Out here it is a sibling of the scroller
+          and the rail's own flex column pins it, so it holds the edge at any
+          list length. Ashwin, Oct 15.
+        */}
+        {/*
+          The rail's own way out — see SCOPE_MODELS.
+
+          At the foot, where a "collapse" affordance belongs and where it is
+          out of the way of the accounts above it. It writes `scopeModel`, so
+          the panel's own control and this row are the same switch: the rail
+          goes, the header grows a switcher, and every rail axis survives the
+          trip because none of them live here.
+
+          Collapsed it is the glyph alone. The word would not fit at 56px and
+          the icon already says "put this away".
+        */}
+        {effective.railHideButton ? (
+          <Tooltipped label="Hide account rail" show={!expanded}>
+            <button
+              type="button"
+              /*
+                The whole arrangement, not just the switch.
+
+                Hiding the rail is not one axis moving — it rehouses the
+                controls the rail was carrying: the collapse goes to the
+                breadcrumb, the account switcher becomes a header dropdown,
+                the agency takes its lockup above. `/header-nav` already
+                names that set; this applies the same one, so the button and
+                the link cannot show two different proposals.
+
+                A patch, so every axis stays live afterwards. See
+                HEADER_NAV_THEME.
+              */
+              onClick={() =>
+                applyTheme({ ...HEADER_NAV_THEME, scopeModel: "header" })
+              }
+              aria-label="Hide account rail"
+              className={cn(
+                "motion-tap flex h-[32px] shrink-0 items-center gap-[9px] rounded-[7px] text-[13px] leading-[17px] font-medium text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-[0.99]",
+                expanded ? "mx-[10px] px-[8px]" : "mx-[14px] justify-center",
+              )}
+            >
+              <PanelLeftClose size={16} aria-hidden="true" className="shrink-0" />
+              {expanded ? <span className="truncate">Hide account rail</span> : null}
+            </button>
+          </Tooltipped>
+        ) : null}
+
+        {inlineDirectory && railToolSpot === "bottom" ? (
+          <RailTools
+            expanded={expanded}
+            spot="bottom"
+            edge={effective.railToolsEdge}
+            onHover={() => setHover(true)}
+            query={fillQuery}
+            onQuery={setFillQuery}
+            cta={fillSelectWord}
+            picking={fillPicking}
+            selectedCount={fillSelected.length}
+            onToggleSelect={() =>
+              fillPicking ? exitFillSelect() : setFillSelectMode(true)
+            }
+            totalCount={session.accounts.length}
+            allOn={inlineAllOn}
+            onToggleAll={toggleInlineAll}
+            onActions={
+              fillBulkAllowed ? () => setFillBulk({ path: null }) : null
+            }
+          />
+        ) : null}
       </nav>
 
       {/*
@@ -2043,6 +2972,11 @@ function RailRow({
   squircle = false,
   markSize,
   coverMark = false,
+  ring = false,
+  onTogglePin,
+  pinBlocked = false,
+  agencyWord = false,
+  agencyDiamond = false,
   magnify = 1,
   pinned = false,
   listShape = false,
@@ -2099,6 +3033,30 @@ function RailRow({
    * makes eleven unrelated marks look like one column. Ashwin, Oct 14.
    */
   coverMark?: boolean;
+  /**
+   * A hairline ring around the mark, for the agency sitting inside the run.
+   *
+   * The plate's job, done in the space a row has. It cannot be a size (the
+   * run is already three sizes), a colour (the marks carry their own) or a
+   * position (`agencySorted` gives that away on purpose) — a ring is the one
+   * distinction left that survives at 16px and costs no layout.
+   */
+  ring?: boolean;
+  /**
+   * Makes the pin a CONTROL rather than a legend.
+   *
+   * The mark inside the row says what a row is; this says what you can do to
+   * it, and the two cannot be the same element — a button inside a button is
+   * invalid markup and gives one decision two targets. So the control is an
+   * overlay at the row's edge, which is exactly how the directory's own rows
+   * carry theirs. Ashwin, Oct 15: pinning came back.
+   */
+  onTogglePin?: () => void;
+  /** At the cap and not already pinned — shown, disabled, with the reason. */
+  pinBlocked?: boolean;
+  /** The agency's trailing marks. See AGENCY_ROW_MARKS. */
+  agencyWord?: boolean;
+  agencyDiamond?: boolean;
   /** Dock magnification for this row: 1 when the pointer is elsewhere. */
   magnify?: number;
   /**
@@ -2113,7 +3071,6 @@ function RailRow({
   pinned?: boolean;
 }) {
   const { effective } = useTheme();
-  const pinnedInk = usePinnedInk();
   const pillTiles = effective.railTileShape === "pill";
   /* See RAIL_EXPANDED_SHAPES, and `railCorner` for why it is shared. */
   const railShape = effective.railExpandedShape;
@@ -2251,8 +3208,109 @@ function RailRow({
    */
   const endPad = expanded ? RAIL_ROW_END_PAD : pad;
 
+  const pinControl =
+    onTogglePin && expanded && tick === undefined ? (
+      <button
+        type="button"
+        aria-label={pinned ? `Unpin ${label}` : `Pin ${label}`}
+        aria-pressed={pinned}
+        /*
+          The nav's own sentence, with the rail's own figure.
+
+          `PIN_CAP_HINT` says it for products at the L1/L2 cap; this is the
+          same rule one surface over, so it reads the same way rather than
+          inventing a second phrasing for "you have run out of slots".
+        */
+        title={pinned ? "Unpin" : pinBlocked ? undefined : "Pin"}
+        aria-disabled={pinBlocked}
+        /*
+          Refused on click rather than `disabled`.
+
+          A disabled button fires no pointer events, so it shows no title —
+          and the one moment the rule needs explaining is the moment you
+          reach for it. It stays hoverable, says why, and does nothing.
+        */
+        onClick={(e) => {
+          e.stopPropagation();
+          if (pinBlocked) return;
+          onTogglePin();
+        }}
+        className={cn(
+          "motion-tap absolute top-1/2 right-[8px] z-[1] flex size-[22px] -translate-y-1/2 items-center justify-center rounded-[6px]",
+          pinBlocked
+            ? "cursor-not-allowed opacity-30"
+            : "hover:bg-nav-active active:scale-90 motion-press",
+          /*
+            Pinned stays visible; unpinned waits for the pointer.
+
+            Drawn at rest on every row, forty outlined boxes run down the
+            column as a second thing to read. Pinned is not an affordance —
+            it is the row saying what it is — so that one stays. The rule the
+            directory's rows already follow.
+          */
+          /*
+            One ink, whether set or not — the FILL carries the state.
+
+            A darker pinned pin made the column read as two weights of the
+            same mark, which is a distinction nobody asked it to draw: a
+            filled pin is already unmistakably different from an outline.
+            Ashwin, Oct 15.
+
+            `--nav-pin-ink` rather than `--nav-fg-subtle`: the directory
+            panel sits on [data-nav-plane] and this strip does not, and that
+            token steps darker on a plane. One token, declared once, so the
+            pin is the same grey in both places.
+          */
+          "text-nav-pin",
+          pinned
+            ? "opacity-100"
+            : "opacity-0 group-hover/rail-wrap:opacity-100 focus-visible:opacity-100",
+        )}
+      >
+        <Pin
+          size={13}
+          {...(pinned ? { fill: "currentColor" } : {})}
+          aria-hidden="true"
+        />
+      </button>
+    ) : null;
+
+  /*
+    The cap's sentence, as the nav's own pill rather than as `title`.
+
+    It was a native tooltip, and twice Ashwin reported never seeing it while
+    I read the attribute back off the button and called it working. Both
+    were true: the attribute was there, and a native tooltip still wants
+    roughly a second of motionless hover before the OS draws it — on a 22px
+    target that only appears once the row is already under the pointer, that
+    second rarely happens. It also never renders into a screenshot, so the
+    one check I kept running could not have caught it.
+
+    `RailTooltip` is the pill the collapsed rail already uses: it opens on
+    pointer-enter with no delay, it is in the DOM so it can actually be
+    verified, and it looks like the rest of the nav. `show` gates it to the
+    blocked case — "Pin" and "Unpin" stay on `title`, where a pill every
+    time you crossed a row would be noise. Ashwin, Oct 15.
+  */
+  const pinSlot =
+    pinControl && pinBlocked ? (
+      <RailTooltip label={RAIL_PIN_CAP_HINT}>{pinControl}</RailTooltip>
+    ) : (
+      pinControl
+    );
+
   return (
-    <div className="relative w-full shrink-0">
+    /*
+      The group lives on the WRAPPER, not the row button.
+
+      `group/rail-row` is on the button, and the pin is a sibling of it — so
+      a `group-hover/rail-row` on the pin could never match: it is not a
+      descendant of the thing being hovered. The pin stayed invisible on
+      every unpinned row, which is the half of the affordance that has to be
+      discoverable. Ashwin caught it, Oct 15.
+    */
+    <div className="group/rail-wrap relative w-full shrink-0">
+      {pinSlot}
       {/*
         The edge bar, now optional — see `railActiveBar`. With the active tile
         both larger and filled, this was a third answer to a question already
@@ -2486,6 +3544,16 @@ function RailRow({
             style={zoom === 1 ? undefined : { transform: `scale(${zoom})` }}
             className={cn(
               "flex shrink-0 origin-center transition-[transform,filter] duration-[var(--dur-dock)] ease-[var(--ease-out)]",
+              /*
+                The agency's ring, standing off the mark rather than on it.
+
+                An offset ring reads as a badge around the thing; a ring drawn
+                ON the edge reads as a border the artwork happens to have, and
+                every uploaded logo already has its own. 2px of ground between
+                them is what makes it belong to the ROW. See `ring`.
+              */
+              ring &&
+                "rounded-full ring-[1.5px] ring-nav-rail-border ring-offset-2 ring-offset-[var(--nav-rail-bg)]",
               effective.railTileColour === "active-only" &&
                 !selected &&
                 !listShape &&
@@ -2557,14 +3625,70 @@ function RailRow({
                 the same place and the pins land on one column instead of
                 drifting with the length of the label beside them.
               */}
-              <span
-                aria-hidden="true"
-                className="flex size-[14px] shrink-0 items-center justify-center"
-              >
-                {pinned ? (
-                  <Pin size={12} fill="currentColor" className={pinnedInk} />
-                ) : null}
-              </span>
+              {/*
+                The legend, and ONLY where there is no control.
+
+                Both drew at once on a pinned row and the result was two
+                pins an inch apart — the mark saying what the row is and the
+                button offering to change it, reading as a duplicate rather
+                than as two different things. Where the row can be pinned,
+                the button says both; the slot stays so the names still
+                truncate on one column.
+              */}
+              {agencyWord || agencyDiamond ? (
+                /*
+                  The agency's own trailing mark, in the pin's slot.
+
+                  It can go there because the agency is the one row that can
+                  never be pinned — the slot is reserved and permanently
+                  empty on exactly this row. So the differentiator costs no
+                  height, no width and no layout: it fills a hole.
+
+                  Deliberately NOT the active row's signals. See
+                  AGENCY_ROW_MARKS.
+                */
+                /*
+                  Word first, diamond last, both in the pin's ink.
+
+                  The order is the row's own reading order: the text is the
+                  label and the diamond is the mark that terminates it, so
+                  the diamond lands where every other row's pin lands and the
+                  word reads into it rather than out of it. Reversed, the
+                  diamond floated mid-row with a word hanging off its right
+                  and nothing in the column the pins occupy.
+
+                  And the box: the pin control is an absolute 22px square
+                  inset 8px from the row's right edge, so its centre is 19px
+                  in. This slot is inline at the row's own 10px end padding,
+                  which would put a bare glyph 2px off that column. The same
+                  22px box, pulled 2px past the padding, lands the diamond on
+                  the pins exactly. Ashwin, Oct 15.
+                */
+                <span className="flex shrink-0 items-center gap-[5px] text-nav-pin">
+                  {agencyWord ? (
+                    <span className="text-[9.5px] leading-[12px] font-semibold tracking-[0.07em] uppercase">
+                      Agency
+                    </span>
+                  ) : null}
+                  {agencyDiamond ? (
+                    <span className="-mr-[2px] flex size-[22px] shrink-0 items-center justify-center">
+                      <span
+                        aria-hidden="true"
+                        className="size-[7px] rotate-45 rounded-[1.5px] bg-current"
+                      />
+                    </span>
+                  ) : null}
+                </span>
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className="flex size-[14px] shrink-0 items-center justify-center"
+                >
+                  {pinned && !onTogglePin ? (
+                    <Pin size={13} fill="currentColor" className="text-nav-pin" />
+                  ) : null}
+                </span>
+              )}
             </>
           ) : null}
         </button>

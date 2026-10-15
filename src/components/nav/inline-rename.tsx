@@ -206,6 +206,17 @@ export function EditAffordance({
       */
       {...(disabled ? {} : { title: label })}
       aria-disabled={disabled || undefined}
+      /*
+        The hook the drag picture reveals itself by.
+
+        Most of these wait for a hover, and a cloned row is never hovered —
+        so the eye went missing from the ghost while the kebab beside it
+        (which is pinned) came through. See `setRowDragImage`, and the
+        `[data-drag-ghost]` rule in globals. An attribute rather than a
+        class, because the one thing the rule must not do is depend on which
+        Tailwind opacity utility happens to be in play.
+      */
+      data-row-affordance=""
       onClick={(e) => {
         // The row underneath navigates; the pencil must not.
         e.stopPropagation();
