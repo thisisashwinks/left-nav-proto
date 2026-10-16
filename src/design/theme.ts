@@ -5412,8 +5412,16 @@ export const MANAGE_ACCOUNTS_LABEL = "Manage sub-accounts";
  * chooser back on and this label is the one thing that becomes a slight
  * understatement, which is the cheaper of the two errors.
  * Ashwin, Oct 16.
+ *
+ * "Update nav", not "Update navigation layout", and the difference is
+ * deliberate: this is a button sitting in a 320px strip beside a count and a
+ * Cancel, where the long form crowds both. The screens it opens say the full
+ * phrase — the chooser card, the modal heading and the committing button all
+ * read "Update navigation layout" — so the short form on the way in is a
+ * nickname for something the next screen names in full, not a second name
+ * for it. Ashwin, Oct 16.
  */
-export const BULK_BUTTON_LABEL = "Apply layout";
+export const BULK_BUTTON_LABEL = "Update nav";
 
 export const RAIL_SEARCH_GLYPHS = [
   "text",
