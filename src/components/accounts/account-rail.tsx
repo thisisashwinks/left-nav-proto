@@ -2098,15 +2098,19 @@ export function AccountRail({
    * Read from --nav-w rather than passed down, so it follows the width axis
    * without the rail knowing the axis exists.
    *
-   * The sidebar's whole footprint less 20: the strip covers the rail AND the
-   * nav, so "as wide as the sidebar" is 56 + nav, and +36 is that minus the
-   * 20px that keeps a sliver of plane down the right. It was nav-less-24 for
+   * The sidebar's whole footprint less 16: the strip covers the rail AND the
+   * nav, so "as wide as the sidebar" is 56 + nav, and +40 is that minus the
+   * 16px that keeps a sliver of plane down the right. It was nav-less-24 for
    * one turn, which measured the nav alone and came out narrower than the
    * thing it covers — a 40-row list has to be able to hold a name like
    * "Ironwood Landscaping" beside a pin and a checkbox.
+   *
+   * +36 → +40 on Oct 16, which is the 4px Ashwin asked for: it comes out of
+   * the sliver rather than off the nav, so nothing moves except the strip's
+   * own right edge and every row inside it gets 4px more to truncate in.
    */
   const openWidth = fillMode
-    ? "calc(var(--nav-w) + 36px)"
+    ? "calc(var(--nav-w) + 40px)"
     : ACCOUNT_RAIL_EXPANDED_WIDTH;
   const width = filled
     ? openWidth
