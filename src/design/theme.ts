@@ -5360,6 +5360,17 @@ export const CREATE_ACCOUNT_SPOT_LABELS: Record<CreateAccountSpot, string> = {
 /** One string, so the row, the tooltip and the dropdown cannot drift. */
 export const CREATE_ACCOUNT_LABEL = "Create sub-account";
 
+/**
+ * What the manage mode is called when it has to be named in full.
+ *
+ * The BUTTON says "Edit" — a verb, short enough for a 300px row. Its
+ * tooltip and the header the mode opens say this instead, because a pill
+ * that repeats the word already under the pointer tells you nothing, and
+ * "Edit" alone does not say edit WHAT. Sentence case, like every other
+ * string in the product. Ashwin, Oct 16.
+ */
+export const MANAGE_ACCOUNTS_LABEL = "Manage sub-accounts";
+
 export const RAIL_SEARCH_GLYPHS = ["text", "scan", "filter", "funnel"] as const;
 export type RailSearchGlyph = (typeof RAIL_SEARCH_GLYPHS)[number];
 

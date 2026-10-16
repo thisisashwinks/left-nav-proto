@@ -17,6 +17,7 @@ import {
   ScanSearch,
   ListFilter,
   CirclePlus,
+  SearchX,
   Filter,
   Settings,
   SquarePen,
@@ -33,6 +34,7 @@ import {
   type RailToolsCta,
   type RailSearchGlyph,
   CREATE_ACCOUNT_LABEL,
+  MANAGE_ACCOUNTS_LABEL,
   type RailManageGlyph,
   RAIL_HALF_SQUARE,
   RAIL_SHADE_CLASS,
@@ -499,7 +501,7 @@ function RailTools({
     <button
       type="button"
       onClick={onToggleSelect}
-      className="motion-tap h-[28px] shrink-0 rounded-[8px] px-[8px] text-[12.5px] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
+      className="motion-tap h-[28px] shrink-0 rounded-[8px] px-[8px] text-[12.5px] font-medium text-nav-fg-muted shadow-[inset_0_0_0_1px_var(--fly-border)] hover:bg-nav-hover hover:text-nav-fg"
     >
       Cancel
     </button>
@@ -599,9 +601,23 @@ function RailTools({
     holding a field has nowhere else to put it; stacked, the header says it
     and this button never has to.
   */
+  /*
+   * Every glyph-only control in this bar is wrapped, not just labelled.
+   *
+   * `aria-label` tells a screen reader and nothing else; a sighted reader
+   * resting on an unlabelled 32px square gets nothing back. Each of these
+   * went out as a bare button at some point and had to be sent back — so
+   * the rule here is that if the control has no word, it has a pill.
+   * Ashwin, Oct 16.
+   */
   const ctaBtn = (
     <button
       type="button"
+      /*
+        Named even when it is a glyph — it had no accessible name at all in
+        that state, which the snapshot showed as a bare "button".
+      */
+      aria-label={picking ? "Cancel" : MANAGE_ACCOUNTS_LABEL}
       onClick={onToggleSelect}
       /*
         A secondary button, not a bare label.
@@ -641,6 +657,19 @@ function RailTools({
   );
 
   /*
+   * Wrapped only when it is a glyph: with the word on it, a pill repeating
+   * that word would be a label for a label.
+   */
+  const ctaSlot =
+    ctaShape === "icon" && !picking ? (
+      <RailTooltip label={MANAGE_ACCOUNTS_LABEL} placement="above">
+        {ctaBtn}
+      </RailTooltip>
+    ) : (
+      ctaBtn
+    );
+
+  /*
    * The row's stand-in at 56px — a VARIANT of the glass, not the glass.
    *
    * The field carries a plain magnifier inside it. Reusing that one here
@@ -661,13 +690,15 @@ function RailTools({
             : Search;
 
   const glyph = (
-    <button
-      type="button"
-      aria-label="Find an account"
-      className="motion-tap mx-auto flex size-[32px] shrink-0 items-center justify-center rounded-[8px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
-    >
-      <ShutGlyph size={16} aria-hidden="true" />
-    </button>
+    <RailTooltip label="Find an account">
+      <button
+        type="button"
+        aria-label="Find an account"
+        className="motion-tap mx-auto flex size-[32px] shrink-0 items-center justify-center rounded-[8px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
+      >
+        <ShutGlyph size={16} aria-hidden="true" />
+      </button>
+    </RailTooltip>
   );
 
   return (
@@ -713,7 +744,20 @@ function RailTools({
           and the list passes behind both. The extra 2 is the scroller's
           padding; see `style`. Ashwin, Oct 16.
         */
-        inList ? "pt-[4px] pb-[8px]" : "py-[8px]",
+        /*
+          Scoped per spot, because the two bars hold different things.
+
+          The agency bar stacks a heading over the field inside one box, so
+          it keeps 4px above to hold that heading off its own painted edge.
+          Below the agency there is no heading — the agency ROW is the
+          thing above — so the field sits flush to the seam and the two
+          grounds read as one block. Ashwin, Oct 16.
+        */
+        spot === "underAgency"
+          ? "pt-0 pb-[4px]"
+          : spot === "agencyBar"
+            ? "pt-[4px] pb-[8px]"
+            : "py-[8px]",
         // Held against the scroll, at whatever the caller has to clear.
         inList && "sticky",
         /*
@@ -817,7 +861,7 @@ function RailTools({
         <>
           {field}
           {createBtn}
-          {picking ? null : ctaBtn}
+          {picking ? null : ctaSlot}
         </>
       ) : stacked ? (
         /*
@@ -876,7 +920,7 @@ function RailTools({
                   </span>
                 )}
                 {createBtn}
-                {inList ? null : ctaBtn}
+                {inList ? null : ctaSlot}
                 {/*
                   Beside the heading, and only out of manage mode.
 
@@ -889,23 +933,41 @@ function RailTools({
                   Ashwin, Oct 15.
                 */}
                 {onDismiss && dismissal !== "back" ? (
-                  <button
-                    type="button"
-                    onClick={onDismiss}
-                    aria-label="Close search"
-                    className={cn(
-                      "motion-tap shrink-0 rounded-[9px] text-[12.5px] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg",
-                      dismissal === "icon"
-                        ? "flex size-[32px] items-center justify-center"
-                        : "h-[32px] px-[9px]",
-                    )}
+                  /* A pill for the × only — "Cancel" already says itself. */
+                  <RailTooltip
+                    label="Close search"
+                    placement="above"
+                    show={dismissal === "icon"}
                   >
-                    {dismissal === "icon" ? (
-                      <X size={15} aria-hidden="true" />
-                    ) : (
-                      "Cancel"
-                    )}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={onDismiss}
+                      aria-label="Close search"
+                      className={cn(
+                        /*
+                          A secondary button, not a bare word.
+
+                          Same hairline the field and Edit wear. It sat as
+                          text with a hover fill, which in a row of
+                          bordered controls read as a label that happened
+                          to be clickable — and the one control that UNDOES
+                          things should not be the only one with no edges.
+                          Bordered in both shapes, since the × sits beside
+                          a bordered Edit. Ashwin, Oct 16.
+                        */
+                        "motion-tap shrink-0 rounded-[9px] text-[12.5px] font-medium text-nav-fg-muted shadow-[inset_0_0_0_1px_var(--fly-border)] hover:bg-nav-hover hover:text-nav-fg",
+                        dismissal === "icon"
+                          ? "flex size-[32px] items-center justify-center"
+                          : "h-[32px] px-[9px]",
+                      )}
+                    >
+                      {dismissal === "icon" ? (
+                        <X size={15} aria-hidden="true" />
+                      ) : (
+                        "Cancel"
+                      )}
+                    </button>
+                  </RailTooltip>
                 ) : null}
               </>
             )}
@@ -924,7 +986,7 @@ function RailTools({
           {inList ? (
             <div className="flex items-center gap-[8px]">
               {field}
-              {picking ? null : ctaBtn}
+              {picking ? null : ctaSlot}
             </div>
           ) : (
             field
@@ -956,7 +1018,7 @@ function RailTools({
       ) : (
         <>
           {field}
-          {ctaBtn}
+          {ctaSlot}
         </>
       )}
     </div>
@@ -1090,6 +1152,22 @@ export function AccountRail({
    */
   const filledRef = React.useRef(false);
   /*
+   * Mid-errand, the pointer leaving says nothing either.
+   *
+   * A query typed or a selection started is work in progress, and the
+   * ordinary leave-to-collapse threw it away the moment you reached for the
+   * canvas — the list, the query and the ticks all went with the width. The
+   * same argument `filledRef` already makes for the filled directory, one
+   * state over. The rail stays until the errand ends.
+   *
+   * A ref rather than a value for the same reason as `filledRef`: `setHover`
+   * closes over it, and rebuilding that callback on every keystroke would
+   * re-arm the hover timers mid-gesture. Ashwin, Oct 16.
+   */
+  const busyRef = React.useRef(false);
+  /* Whether the pointer is inside the strip right now. See the effect below. */
+  const pointerInRef = React.useRef(false);
+  /*
    * Whether a pointer that has not moved may open the rail.
    *
    * Collapsing hides this strip, so the Expand control sits roughly where
@@ -1137,6 +1215,7 @@ export function AccountRail({
        * It leaves by its ✕, by a choice, or by Esc. See DIRECTORY_PLACEMENTS.
        */
       if (filledRef.current && !next) return;
+      if (busyRef.current && !next) return;
       hoverTimer.current = setTimeout(
         () => {
           hoverTimer.current = null;
@@ -1264,6 +1343,33 @@ export function AccountRail({
     (filled || inlineOpen) &&
     fillBulkAllowed &&
     (effective.directorySelect === "always" || fillSelectMode);
+
+  /*
+   * An errand is running: a query typed, or a selection started.
+   *
+   * Either one survives the pointer leaving — see `busyRef`. Not gated to
+   * one tools spot: the bottom and top bars carry the same field and the
+   * same Edit, so a rule that only held below the agency would be the same
+   * surface behaving two ways. Ashwin, Oct 16.
+   */
+  const railBusy =
+    railDirectoryMode === "inline" &&
+    (fillPicking || fillQuery.trim().length > 0);
+
+  /*
+   * The errand's own flag, and what happens when it ends.
+   *
+   * Two jobs in one effect because they are one rule: while an errand runs
+   * the rail ignores the pointer leaving, and the moment it ends the rail
+   * honours the leave it had been ignoring — but only if the pointer is in
+   * fact still outside. Clearing a search with the pointer resting on the
+   * field should leave the rail open; clearing it and then moving away
+   * should not.
+   */
+  React.useEffect(() => {
+    busyRef.current = railBusy;
+    if (!railBusy && !pointerInRef.current) setHover(false);
+  }, [railBusy, setHover]);
 
   /* Leaving the mode clears what it collected — Cancel is not Done. */
   const exitFillSelect = React.useCallback(() => {
@@ -1639,16 +1745,6 @@ export function AccountRail({
     railDirectoryMode === "inline";
 
   /*
-   * What the sticky field has to clear: the agency row, plus the gap.
-   *
-   * The agency row is 36 tall and carries 2px of padding to reach the
-   * scrollport's edge, so its painted bottom is 38 below that edge — and
-   * the two grounds have to MEET or the accounts show through the seam.
-   * The column's own 4px gap is gone (the agency row pulls it closed) and
-   * lives inside this bar's padding instead. A plate sits outside the
-   * scroller, so there this clears nothing.
-   */
-  /*
    * Where the rail offers to make an account — see CREATE_ACCOUNT_SPOTS.
    *
    * Both read the same axis and only one can be live at a time, which is
@@ -1660,12 +1756,34 @@ export function AccountRail({
   const createInTools =
     createSpot === "header" && railDirectoryMode === "inline";
 
-  const underAgencyTop = agencyJoinsRun
-    ? RAIL_ROW_H + RAIL_SCROLL_PAD
-    : 0;
+  /*
+   * While a query is running, the row offers to create THAT.
+   *
+   * "Create sub-account" under "No accounts match ssdf" is the right
+   * action described in the wrong words: you have just told the rail a
+   * name, and it should offer to use it rather than make you type it again
+   * on the next screen. Quoted, so a name with spaces still reads as one
+   * thing. Ashwin, Oct 16.
+   */
+  const createLabel = fillQuery.trim()
+    ? `Create “${fillQuery.trim()}”`
+    : CREATE_ACCOUNT_LABEL;
+
+  /*
+   * The agency's row stands down while a query is running.
+   *
+   * Not because it has to — "Acme Agency" matches some queries — but
+   * because the slot it occupies has to hold still. Searching filtered it
+   * away for most queries and kept it for a few, so the field jumped up a
+   * row depending on what you typed, and jumped again the moment the query
+   * matched nothing. One header, always there, whatever the letters are.
+   * See `underAgencyHead`. Ashwin, Oct 16.
+   */
+  const railSearching = fillQuery.trim().length > 0;
 
   const agencyInRun =
     agencyJoinsRun &&
+    !(underAgency && railSearching) &&
     /*
       And not while a selection is running, unless the axis says otherwise.
 
@@ -1895,6 +2013,39 @@ export function AccountRail({
 
   const pinnedShown = inlineMatch(pinnedRun);
   const topRun = reverseSearch ? [...centredRecents].reverse() : pinnedShown;
+
+  /*
+   * What the sticky field has to clear — measured off what is DRAWN.
+   *
+   * The agency row is 36 tall and carries 2px of padding to reach the
+   * scrollport's edge, so when it is there the field parks 38 below. When
+   * it is NOT there, that figure is actively harmful: `top` is a MINIMUM
+   * offset, so a bar whose natural place is the top of the column gets
+   * pushed DOWN to 38 and the list flows underneath it. Searching for
+   * something the agency does not match filters its row away, and the
+   * "no accounts match" line appeared behind the field.
+   *
+   * So it reads `topRun` rather than the arrangement: the question is not
+   * "does this layout have an agency row" but "is one on screen right
+   * now". Ashwin, Oct 16.
+   */
+  /*
+   * Whether ANYTHING occupies the row above the field.
+   *
+   * Three things can: the agency row at rest, the bulk bar while picking,
+   * and the "Searching for" label while a query is up. They are the same
+   * slot and the same height, which is the point — the field below them
+   * must not move as one hands over to the next.
+   */
+  const underAgencyHead =
+    underAgency &&
+    (fillPicking ||
+      railSearching ||
+      topRun.some((a) => a.id === AGENCY_ID));
+
+  const underAgencyTop = underAgencyHead
+    ? RAIL_ROW_H + RAIL_SCROLL_PAD
+    : 0;
   const bottomRun = reverseSearch
     ? [...pinnedShown].reverse()
     : centredRecents;
@@ -2190,11 +2341,28 @@ export function AccountRail({
           magnifier reads which row you are on — and because the `tiles`
           zone is still on the dial for comparison. Ashwin, Oct 15.
         */
-        {...(effective.railHover === "expand" &&
-        effective.railHoverZone === "column"
-          ? { onPointerEnter: () => setHover(true) }
-          : {})}
-        onPointerLeave={() => setHover(false)}
+        /*
+          The pointer is TRACKED always and acts only sometimes.
+
+          Opening on enter is the `column` zone's behaviour, but knowing
+          whether the pointer is inside is needed in every zone — it is what
+          decides whether clearing a search should also collapse the rail.
+          Gating the whole handler on the zone left that unknown under
+          `tiles`, where it would have read as "outside" forever.
+        */
+        onPointerEnter={() => {
+          pointerInRef.current = true;
+          if (
+            effective.railHover === "expand" &&
+            effective.railHoverZone === "column"
+          ) {
+            setHover(true);
+          }
+        }}
+        onPointerLeave={() => {
+          pointerInRef.current = false;
+          setHover(false);
+        }}
         // An overlay, not a flow column: the shell holds a fixed 56px slot and
         // this widens OVER the nav — the page never moves under the pointer.
         // Expansion is triggered from the account tiles themselves: resting on
@@ -3227,24 +3395,6 @@ export function AccountRail({
                     ))
                   : null}
                 {/*
-                  Said in inline mode as well as in the directory.
-
-                  It was gated on `filled`, so a query matching nothing in
-                  the rail emptied the column and explained nothing — the
-                  one state where a list most needs to say what happened.
-                  Same sentence, same place; only the gate was wrong.
-                */}
-                {((filled && fillRows.length === 0) ||
-                  (inlineOpen &&
-                    fillQuery.trim().length > 0 &&
-                    topRun.length === 0 &&
-                    bottomRun.length === 0)) ? (
-                  <p className="px-[8px] py-[14px] text-[12.5px] leading-[17px] text-nav-fg-subtle">
-                    No accounts match “{fillQuery.trim()}”.
-                  </p>
-                ) : null}
-
-                {/*
                   Registered in BOTH states, which is the whole of why the
                   morph works.
 
@@ -3302,6 +3452,24 @@ export function AccountRail({
                   be on a row that also holds Actions and Cancel.
                   Ashwin, Oct 15.
                 */}
+                {underAgency && railSearching && !fillPicking ? (
+                  /*
+                    The slot the agency row had, holding its place.
+
+                    Just the words — the field directly beneath is already
+                    showing what is being searched FOR, so repeating the
+                    query here would be the same string twice in 36px.
+                    Ashwin, Oct 16.
+                  */
+                  <div
+                    style={{ top: -RAIL_SCROLL_PAD }}
+                    className="sticky z-[4] [order:-1] -mt-[2px] -mb-[4px] flex h-[38px] shrink-0 items-center bg-[var(--nav-rail-bg)] px-[8px] pt-[2px]"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-[12.5px] leading-[16px] font-medium text-nav-fg-muted">
+                      Searching for
+                    </span>
+                  </div>
+                ) : null}
                 {underAgency && fillPicking ? (
                   /*
                     `-mb-[4px]` pulls the field up against it.
@@ -3314,7 +3482,7 @@ export function AccountRail({
                   */
                   <div
                     style={{ top: -RAIL_SCROLL_PAD }}
-                    className="sticky z-[4] -mt-[2px] -mb-[4px] flex h-[38px] shrink-0 items-center gap-[8px] bg-[var(--nav-rail-bg)] pt-[2px]"
+                    className="sticky z-[4] [order:-1] -mt-[2px] -mb-[4px] flex h-[38px] shrink-0 items-center gap-[8px] bg-[var(--nav-rail-bg)] pt-[2px]"
                   >
                     <button
                       type="button"
@@ -3336,7 +3504,7 @@ export function AccountRail({
                     <span className="min-w-0 flex-1 truncate text-[12.5px] leading-[16px] font-medium text-nav-fg">
                       {fillSelected.length > 0
                         ? `${fillSelected.length} selected`
-                        : "Manage sub-accounts"}
+                        : MANAGE_ACCOUNTS_LABEL}
                     </span>
                     {fillBulkAllowed && fillSelected.length > 0 ? (
                       <button
@@ -3350,7 +3518,7 @@ export function AccountRail({
                     <button
                       type="button"
                       onClick={exitFillSelect}
-                      className="motion-tap h-[28px] shrink-0 rounded-[8px] px-[8px] text-[12.5px] font-medium text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
+                      className="motion-tap h-[28px] shrink-0 rounded-[8px] px-[8px] text-[12.5px] font-medium text-nav-fg-muted shadow-[inset_0_0_0_1px_var(--fly-border)] hover:bg-nav-hover hover:text-nav-fg"
                     >
                       Cancel
                     </button>
@@ -3729,6 +3897,55 @@ export function AccountRail({
                   : null}
 
                 {/*
+                  Said in inline mode as well as in the directory — and
+                  said BELOW the field, not above it.
+
+                  It sat first in this column, which put "No accounts
+                  match" over the search bar: an answer printed above the
+                  question that produced it. The sticky bars are earlier in
+                  source because they have to be siblings of the list
+                  rather than entries in it, so the message has to come
+                  after them here. Ashwin, Oct 16.
+                */}
+                {((filled && fillRows.length === 0) ||
+                  (inlineOpen &&
+                    fillQuery.trim().length > 0 &&
+                    topRun.length === 0 &&
+                    bottomRun.length === 0)) ? (
+                  /*
+                    A row, not a paragraph.
+
+                    It sat at 45px with its own padding and its own type
+                    size, between a column of 36px rows — so the one line
+                    that appears when the list is empty was also the only
+                    line in it that did not look like the list. Same
+                    height, same 24px leading slot, same 13px text, same
+                    4px gap to the row under it. An icon where an avatar
+                    would be, because there is no account to show one for.
+
+                    A div and not a button: it reports, it does not act, so
+                    it takes no hover and no press. Only the ink stays its
+                    own — it is a remark about the list rather than an
+                    entry in it. Ashwin, Oct 16.
+                  */
+                  <div
+                    style={{
+                      paddingBlock: (RAIL_ROW_H - 24) / 2,
+                      paddingInlineStart: 6,
+                      paddingInlineEnd: RAIL_ROW_END_PAD,
+                    }}
+                    className="flex w-full shrink-0 items-center gap-[9px] text-nav-fg-subtle"
+                  >
+                    <span className="flex size-[24px] shrink-0 items-center justify-center">
+                      <SearchX size={18} aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-left text-[13px] leading-[17px] font-medium">
+                      No accounts match “{fillQuery.trim()}”.
+                    </span>
+                  </div>
+                ) : null}
+
+                {/*
                   The last row of the list, and deliberately the last.
 
                   Scrolling past forty accounts to reach it is the cost and
@@ -3752,7 +3969,7 @@ export function AccountRail({
                 {createRow && !fillPicking && expanded ? (
                   <button
                     type="button"
-                    aria-label={CREATE_ACCOUNT_LABEL}
+                    aria-label={createLabel}
                     onPointerEnter={() => setHover(true)}
                     style={{
                       paddingBlock: (RAIL_ROW_H - 24) / 2,
@@ -3765,7 +3982,7 @@ export function AccountRail({
                       <CirclePlus size={18} aria-hidden="true" />
                     </span>
                     <span className="min-w-0 flex-1 truncate text-left text-[13px] leading-[17px] font-medium">
-                      {CREATE_ACCOUNT_LABEL}
+                      {createLabel}
                     </span>
                   </button>
                 ) : null}
@@ -4329,6 +4546,7 @@ function RailRow({
 
   const searchControl =
     onSearch && expanded ? (
+      <RailTooltip label="Find an account">
       <button
         type="button"
         aria-label="Find an account"
@@ -4337,6 +4555,7 @@ function RailRow({
       >
         <Search size={15} aria-hidden="true" />
       </button>
+      </RailTooltip>
     ) : null;
 
   const pinSlot =
