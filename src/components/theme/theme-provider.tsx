@@ -306,6 +306,7 @@ interface ThemeContextValue extends ThemeState {
   setRailManageGlyph: (v: RailManageGlyph) => void;
   setRailHoverZone: (v: RailHoverZone) => void;
   setRailCollapsedSearch: (on: boolean) => void;
+  setCreateAccountShut: (on: boolean) => void;
   setRailToolsLayout: (v: RailToolsLayout) => void;
   setAgencyRowRing: (on: boolean) => void;
   setAgencyRowWord: (on: boolean) => void;
@@ -760,6 +761,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, railHoverZone })),
       setRailCollapsedSearch: (railCollapsedSearch) =>
         setState((s) => ({ ...s, railCollapsedSearch })),
+      setCreateAccountShut: (createAccountShut) =>
+        setState((s) => ({ ...s, createAccountShut })),
       setRailToolsLayout: (railToolsLayout) =>
         setState((s) => ({ ...s, railToolsLayout })),
       setAgencyRowRing: (agencyRowRing) =>

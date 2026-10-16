@@ -5458,11 +5458,34 @@ export const RAIL_MANAGE_GLYPH_LABELS: Record<RailManageGlyph, string> = {
   checks: "List with ticks",
 };
 
-export const CREATE_ACCOUNT_SPOTS = ["row", "header", "off"] as const;
+/**
+ * Where the rail offers to make an account.
+ *
+ *  row     The last row of the list, scrolling with it. Says what it does
+ *          without being hovered, and costs a row — at forty accounts you
+ *          scroll to reach it.
+ *  sticky  The same row, held against the bottom edge of the list on a
+ *          ground of its own, with the accounts passing behind it. Always in
+ *          reach AND still named, which is the pair the other two each give
+ *          up half of. It stands down while a query is running: the list
+ *          under a search is short, the row the search wants is "Create
+ *          <what you typed>" at the end of the matches, and a pinned bar
+ *          over three results is chrome covering the answer. Ashwin, Oct 16.
+ *  header  A + beside the tools. Costs the list nothing, and nobody can read
+ *          it until they rest on it.
+ *  off     Not offered here at all.
+ */
+export const CREATE_ACCOUNT_SPOTS = [
+  "row",
+  "sticky",
+  "header",
+  "off",
+] as const;
 export type CreateAccountSpot = (typeof CREATE_ACCOUNT_SPOTS)[number];
 
 export const CREATE_ACCOUNT_SPOT_LABELS: Record<CreateAccountSpot, string> = {
   row: "A row at the end",
+  sticky: "A sticky row at the end",
   header: "A + beside the tools",
   off: "Off",
 };
@@ -6400,6 +6423,17 @@ export interface ThemeState {
   railSearchGlyph: RailSearchGlyph;
   /** Where the rail offers account creation. See CREATE_ACCOUNT_SPOTS. */
   createAccountSpot: CreateAccountSpot;
+  /**
+   * Whether the create control survives the collapse.
+   *
+   * The row has always been open-only: at 56px it is a ⊕ at the foot of a
+   * column of account marks, which reads as a forty-first account rather
+   * than as an action. The sticky bar weakens that — it has a ground of its
+   * own and sits on the rail's floor, so it is plainly furniture rather than
+   * an entry — and an agency that works with the rail shut never sees the
+   * control at all. See CREATE_ACCOUNT_SPOTS.
+   */
+  createAccountShut: boolean;
   /** Which glyph the icon-only tools button wears. See RAIL_MANAGE_GLYPHS. */
   railManageGlyph: RailManageGlyph;
   /** Whether the agency keeps its row in manage mode. See MANAGE_AGENCY_ROWS. */
@@ -6752,6 +6786,7 @@ export const NAV_STRUCTURE_KEYS = [
   "railHoverZone",
   "railToolsLayout",
   "railCollapsedSearch",
+  "createAccountShut",
   "railHideButton",
   "agencyRoute",
   "railActiveSpot",
@@ -7008,6 +7043,11 @@ export const DEFAULT_THEME: ThemeState = {
   */
   railCollapsedSearch: false,
   /*
+    Off: shut, the strip is a column of accounts and only accounts, which is
+    what makes a mark in it scannable. The control is one hover away.
+  */
+  createAccountShut: false,
+  /*
     Two rows. The bar says which list this is, and the field survives manage
     mode — so narrowing forty accounts to four and then ticking them is one
     errand rather than two. Ashwin, Oct 15.
@@ -7079,21 +7119,24 @@ export const DEFAULT_THEME: ThemeState = {
   */
   railToolsCta: "icon",
   /*
-    Lines and a glass — Ashwin, Oct 16.
+    A divider — Ashwin, Oct 16.
 
-    The rule held this slot for a few hours and the objection it was built
-    on turned out to be the weaker one: a hairline is quiet enough to say
-    nothing at all, and a reader who never opens the rail never learns it
-    can be searched. The glass over a list says "find something in here"
-    at 56px, and it is a VARIANT of the field's own magnifier rather than
-    the magnifier itself — which is the whole point of this axis, and
-    enough to keep the row from reading as a shrunken search box.
+    Back to the rule, and this is where the axis settles. The four glyphs
+    all try to say "you can search here" inside 56px, and at that width a
+    mark the reader cannot act on is a mark that has to be decoded — a
+    second small symbol in a strip whose whole job is to carry account
+    avatars and nothing else.
 
-    The rule stays on the dial. It is still the only option that leaves the
-    shut strip speaking one language.
+    The rule says less and costs nothing to read. It separates the agency
+    from the accounts, which is the only distinction the shut strip
+    actually needs to draw, and it leaves the search where it is already
+    discoverable: in the open rail, where the field is a field.
+
+    The glyphs stay on the dial. "Lines and a glass" is the strongest of
+    them if the shut rail ever has to teach its own search.
   */
-  railSearchGlyph: "text",
-  createAccountSpot: "row",
+  railSearchGlyph: "divider",
+  createAccountSpot: "sticky",
   /*
     The list with ticks — Ashwin, Oct 16.
 

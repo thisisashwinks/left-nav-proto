@@ -769,6 +769,7 @@ function NavStructureSection({
     agencyRowMarkSize,
     setAgencyRowMarkSize,
     setRailCollapsedSearch,
+    setCreateAccountShut,
     setRailToolsLayout,
     setAgencyBarDismissal,
     setRailToolsCta,
@@ -788,6 +789,7 @@ function NavStructureSection({
     railHoverZone,
     railToolsLayout,
     railCollapsedSearch,
+    createAccountShut,
     agencyRowSquare,
     setAgencyRowDiamond,
     railHideButton,
@@ -1476,9 +1478,28 @@ function NavStructureSection({
               ? "Waiting on \u201cAll accounts\u201d above \u2014 the row belongs to the list in the rail, and behind the button that list lives on another surface."
               : createAccountSpot === "row"
                 ? "A named row at the END of the list. The only version that says what it does without being hovered, and the only one that costs a row \u2014 at forty accounts you scroll to reach it, which is arguably right: creating an account is not an errand you should trip over on the way to switching into one."
+                : createAccountSpot === "sticky"
+                ? "The same named row, held against the bottom of the list with the accounts passing behind it. Named AND always in reach \u2014 the pair the other two each give up half of \u2014 at the price of a line of the list it covers. It stands down while you are searching: over three matches a pinned bar is chrome on top of the answer."
                 : createAccountSpot === "header"
                   ? "A + beside the tools instead. Costs the list nothing and is always in reach, at the price of a glyph nobody can read until they rest on it. Below the agency it takes the agency row\u2019s trailing slot, since that row is what sits above the search there."
                   : "Neither. The rail lists the accounts that exist and offers no way to add one."}
+          </Note>
+
+          <Toggle
+            label="Create sub-account when the rail is shut"
+            keywords="create add new sub-account subaccount plus collapsed shut 56 rail glyph icon bottom"
+            checked={createAccountShut}
+            onChange={setCreateAccountShut}
+            disabled={
+              railDirectoryMode !== "inline" || createAccountSpot === "off"
+            }
+          />
+          <Note>
+            {railDirectoryMode !== "inline" || createAccountSpot === "off"
+              ? "Waiting on the control above \u2014 there is nothing to keep at 56px while the rail offers no way to create."
+              : createAccountShut
+                ? "The glyph alone at the foot of the shut strip, with the label on hover. An agency that works with the rail collapsed never opens it to find this otherwise \u2014 and on the sticky bar it has a ground of its own, so it reads as the floor of the column rather than as a forty-first account."
+                : "Open only. Shut, the strip is a column of account marks and nothing else, which is what makes one of them scannable; a \u2295 in that column reads as another account until you rest on it."}
           </Note>
 
           <Segmented

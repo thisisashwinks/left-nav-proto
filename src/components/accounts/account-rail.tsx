@@ -1479,6 +1479,17 @@ export function AccountRail({
    */
   const holdInset = effective.railHoldInset;
   const openPadLeft = filled ? 12 : 14;
+  /*
+   * The list's own gutters, named once.
+   *
+   * The scroller sets these inline (see its style), and the sticky create bar
+   * has to cancel exactly them to reach the rail's edges — a second copy of
+   * "10, unless filled" in another part of the file is how the bar ends up
+   * 2px proud of the column on one arrangement and nobody notices for a
+   * week. Ashwin, Oct 16.
+   */
+  const listPadLeft = !expanded ? 14 : holdInset ? openPadLeft : 10;
+  const listPadRight = filled ? 0 : 10;
   const showAgencyPlate = !filled || fillAgency;
   /*
    * Mirrored for `setHover`, which cannot depend on it. See the ref.
@@ -1967,6 +1978,42 @@ export function AccountRail({
    */
   const createSpot = effective.createAccountSpot;
   const createRow = createSpot === "row" && railDirectoryMode === "inline";
+  /*
+   * The same row, held against the list's bottom edge. See
+   * CREATE_ACCOUNT_SPOTS.
+   *
+   * Sticky rather than a sibling under the scroller, because the accounts
+   * have to pass BEHIND it — a row pinned outside the scroll region would
+   * shorten the list instead, which is the tools bar's arrangement and a
+   * different thing. It stands down under a query; see `createStickyShown`.
+   */
+  const createSticky = createSpot === "sticky" && railDirectoryMode === "inline";
+  /*
+   * Whether the control survives the collapse — see CREATE_ACCOUNT_SHUT.
+   *
+   * Shut it is the glyph alone, centred in the strip's own column with the
+   * label behind a tooltip. Off (the default) the strip stays a column of
+   * accounts and nothing else, and the control is one hover away.
+   */
+  const createShut = effective.createAccountShut;
+  /*
+   * The shut strip's own create control.
+   *
+   * Rendered OUTSIDE the scroller rather than as the sticky bar's shut
+   * state, because shut the list rarely fills the strip — eleven tiles in a
+   * column that holds twenty — and a sticky row only pins once its scroller
+   * overflows. It would have sat wherever the tiles happened to end, which
+   * at the default pin count is the middle of the rail. As a sibling of the
+   * scroller the nav's own flex column holds it on the floor at any list
+   * length, which is the same reasoning that moved the tools bar out
+   * (Oct 15). Ashwin, Oct 16.
+   */
+  const createShutBar =
+    createShut &&
+    !expanded &&
+    !fillPicking &&
+    (createRow || createSticky) &&
+    railDirectoryMode === "inline";
   const createInTools =
     createSpot === "header" && railDirectoryMode === "inline";
 
@@ -1994,6 +2041,17 @@ export function AccountRail({
    * See `underAgencyHead`. Ashwin, Oct 16.
    */
   const railSearching = fillQuery.trim().length > 0;
+
+  /*
+   * The sticky row goes while a query is running.
+   *
+   * Searching turns this list into a handful of matches, and the action the
+   * search wants — "Create <what you typed>" — belongs at the end of those
+   * matches where you can see it against them, not pinned over the top of
+   * three results. The plain `row` variant still appears there, carrying the
+   * quoted query; see `createLabel`. Ashwin, Oct 16.
+   */
+  const createStickyShown = createSticky && !railSearching;
 
   const agencyInRun =
     agencyJoinsRun &&
@@ -2046,6 +2104,24 @@ export function AccountRail({
    * reach from the bottom of the list. Ashwin, Oct 15.
    */
   const inlineDirectory = railDirectoryMode === "inline";
+
+  /*
+   * Whether the sticky bar is the last thing in the column.
+   *
+   * It is drawn flush to the rail's bottom edge, which means the rail gives
+   * up the 8px of padding it keeps under the list — and that is only right
+   * while the bar is what sits there. With the Hide-rail row or a bottom
+   * tools bar below it, the bar is at the foot of the LIST and those rows
+   * still want their breathing room, so the padding stays and the bar sits
+   * on the list's edge instead. Ashwin, Oct 16.
+   */
+  const createStickyFlush =
+    createStickyShown &&
+    // Open only: shut there is no bar on the floor to be flush WITH, and
+    // the strip wants the 8px back under its last glyph.
+    expanded &&
+    !effective.railHideButton &&
+    !(inlineDirectory && railToolSpot === "bottom" && !agencyBar);
 
   /*
    * Pinning, back on both directory surfaces — Ashwin, Oct 15.
@@ -2585,7 +2661,18 @@ export function AccountRail({
         className={cn(
           // pt 4: the agency plate is 40px tall (4 + 32 + 4 with the 24px
           // logo), so 4px above centres its tile on y=24 — the header's midline.
-          "absolute left-0 flex flex-col gap-[7px] overflow-hidden pt-[4px] pb-[8px]",
+          "absolute left-0 flex flex-col gap-[7px] overflow-hidden pt-[4px]",
+          /*
+            The 8px under the list goes while the create bar holds the floor.
+
+            That padding is breathing room between the last account and the
+            window's edge. A full-bleed bar sitting on it is not breathing
+            room, it is a bar with a strip of rail under it — which is the
+            one thing "flush to the bottom" rules out. See
+            `createStickyFlush`, which is false whenever something else is
+            down there wanting the room.
+          */
+          createStickyFlush ? "pb-0" : "pb-[8px]",
           /*
             Flush to the window, or inset like a card.
 
@@ -3494,8 +3581,8 @@ export function AccountRail({
                 the All accounts panel's, same reason. Ashwin, Oct 6.
               */
               style={{
-                paddingLeft: !expanded ? 14 : holdInset ? openPadLeft : 10,
-                paddingRight: filled ? 0 : 10,
+                paddingLeft: listPadLeft,
+                paddingRight: listPadRight,
                 ...(filled ? { marginRight: -10 } : null),
               }}
             >
@@ -4283,22 +4370,117 @@ export function AccountRail({
                   end of a column of checkboxes is the same dead row the
                   agency was. See CREATE_ACCOUNT_SPOTS.
                 */}
-                {createRow && !fillPicking && expanded ? (
+                {/*
+                  Sticky, it keeps its own ground. Ashwin, Oct 16.
+
+                  The fill is what makes the rows read as passing BEHIND the
+                  row rather than through it — without it the accounts and
+                  the action share a line of type at the bottom of the
+                  column and neither can be read. `bg-nav` is the surface the
+                  rail is already painted in, so the bar is the same ground
+                  held still rather than a card laid over it.
+
+                  It also has to sit above whatever scrolls under it, hence
+                  the z-index: the account rows carry their own fills on
+                  hover and would otherwise paint over the bar's.
+                */}
+                {(createRow || createStickyShown) && !fillPicking && expanded ? (
                   <button
                     type="button"
                     aria-label={createLabel}
                     onClick={createAccount}
                     onPointerEnter={() => setHover(true)}
                     style={{
-                      paddingBlock: (RAIL_ROW_H - 24) / 2,
-                      paddingInlineStart: 6,
-                      paddingInlineEnd: RAIL_ROW_END_PAD,
+                      /*
+                        4px more top and bottom than a row, sticky.
+
+                        A row's 6px is tuned for a column of them, where the
+                        4px gaps between rows do half the work of separating
+                        one from the next. The bar has no neighbours — it is
+                        the floor of the column, with the list running under
+                        it — so the same padding made it read as a row that
+                        had been pushed against the window edge. Ashwin,
+                        Oct 16.
+                      */
+                      paddingBlock:
+                        (RAIL_ROW_H - 24) / 2 + (createStickyShown ? 4 : 0),
+                      /*
+                        Sticky, it is a BAR and not a row, so its contents
+                        sit on the list's text column rather than on the
+                        row's own inset: the glyph lines up with the account
+                        marks above it, and the label with their names, which
+                        is what stops a full-width bar reading as a stray row
+                        that lost its indent. 6 and 10 are the scroller's own
+                        padding plus the row's.
+                      */
+                      paddingInlineStart: createStickyShown
+                        ? listPadLeft + 6
+                        : 6,
+                      paddingInlineEnd: createStickyShown
+                        ? listPadRight + RAIL_ROW_END_PAD
+                        : RAIL_ROW_END_PAD,
+                      ...(createStickyShown
+                        ? {
+                            marginInlineStart: -listPadLeft,
+                            marginInlineEnd: -listPadRight,
+                            width: `calc(100% + ${listPadLeft + listPadRight}px)`,
+                            /*
+                              The scroller's own 2px, twice over.
+
+                              A sticky offset is measured against the scroll
+                              port's PADDING box, so `bottom: 0` parks the bar
+                              2px above the floor — and the same 2px of
+                              padding then sits under it in flow. Both have to
+                              go, or the bar is flush in one state and 2px
+                              proud in the other.
+                            */
+                            bottom: -2,
+                            marginBottom: -2,
+                          }
+                        : null),
                     }}
-                    className="motion-tap flex w-full shrink-0 items-center gap-[9px] rounded-[8px] text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg active:scale-[0.99]"
+                    className={cn(
+                      "motion-tap flex w-full shrink-0 items-center gap-[9px] text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg active:scale-[0.99]",
+                      createStickyShown
+                        ? /*
+                            Out past the list's padding, onto the rail's own
+                            edges. Ashwin, Oct 16.
+
+                            As a rounded, inset row it was a forty-first
+                            account that happened to be stuck to the bottom —
+                            same width, same radius, same inset as the rows
+                            sliding behind it, which is the one reading it
+                            must not have. Full-bleed and square, it is
+                            furniture: the floor of the column rather than an
+                            entry in it. The negative margins cancel the
+                            scroller's 10px gutter; `-mb` cancels its 2px, so
+                            the bar meets the rail's bottom edge with nothing
+                            under it.
+                          */
+                          /*
+                            `--nav-rail-hover`, not `--nav-hover`.
+
+                            The nav's hover tint is 70% white — fine on a row
+                            with nothing behind it, and the wrong thing
+                            entirely on a bar whose whole job is to be
+                            opaque: hovering swapped the solid fill for a
+                            translucent one and the accounts scrolling
+                            underneath came straight through. The rail's own
+                            hover is a flat #f2f4f7 and stays solid.
+                            Ashwin, Oct 16.
+                          */
+                          "sticky z-[2] bg-nav hover:bg-nav-rail-hover"
+                        : "rounded-[8px]",
+                    )}
                   >
                     <span className="flex size-[24px] shrink-0 items-center justify-center">
                       <CirclePlus size={18} aria-hidden="true" />
                     </span>
+                    {/*
+                      The word is the open state's. Shut it would be clipped
+                      to three letters, which is worse than the tooltip the
+                      wrapper already gives this.
+                    */}
                     <span className="min-w-0 flex-1 truncate text-left text-[13px] leading-[17px] font-medium">
                       {createLabel}
                     </span>
@@ -4332,6 +4514,47 @@ export function AccountRail({
           Collapsed it is the glyph alone. The word would not fit at 56px and
           the icon already says "put this away".
         */}
+        {/*
+          The create control at 56px — see CREATE_ACCOUNT_SHUT.
+
+          The glyph alone, on the rail's floor. It wears whichever dress the
+          open control wears: as the sticky BAR it keeps the full-bleed
+          ground and meets the bottom edge, and as a ROW it stays a tile in
+          the strip's own column with the rail's padding under it. Two looks
+          for one control would be the shut face disagreeing with the open
+          one about what this is.
+        */}
+        {createShutBar ? (
+          <Tooltipped label={CREATE_ACCOUNT_LABEL} show>
+            <button
+              type="button"
+              aria-label={CREATE_ACCOUNT_LABEL}
+              onClick={createAccount}
+              onPointerEnter={() => setHover(true)}
+              /*
+                No ground at 56px, whichever spot is set. Ashwin, Oct 16.
+
+                The open bar is painted because the list runs underneath it.
+                Nothing runs underneath this one — it sits outside the
+                scroller on the rail's own floor — so the fill was a white
+                rectangle over the rail's grey, and worse, a full-bleed one:
+                the rail's right-hand hairline is an INSET ring, which paints
+                under child content, so the bar was quietly rubbing out the
+                edge that separates the strip from the nav.
+
+                So it is a tile like every other glyph in the shut strip,
+                inset off both edges, with the fill arriving on hover and
+                stopping short of the hairline.
+              */
+              className={cn(
+                "motion-tap mx-[14px] flex h-[36px] shrink-0 items-center justify-center rounded-[8px] text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg active:scale-[0.99]",
+              )}
+            >
+              <CirclePlus size={18} aria-hidden="true" />
+            </button>
+          </Tooltipped>
+        ) : null}
+
         {effective.railHideButton ? (
           <Tooltipped label="Hide account rail" show={!expanded}>
             <button
