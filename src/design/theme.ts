@@ -1407,6 +1407,33 @@ export const SELECT_STRIP_LABELS: Record<SelectStrip, string> = {
  * and "your" would be claiming something about them that is not true.
  */
 
+/**
+ * How the flyout's "Add product" button is drawn.
+ *
+ * The panel lists a category's products and, in edit mode, needs a way to add
+ * another. Two readings, and they disagree about what the button IS:
+ *
+ *   `dashed` the outline of a row that does not exist yet — the same dashed
+ *            36px row the nav's own "Add a category or product" uses. It sits
+ *            in the list's rhythm and reads as the next item waiting to be
+ *            filled, which is what it is.
+ *   `filled` a brand button, like "Create sub-account" on the Sub-accounts
+ *            page. It reads as the panel's primary action rather than as part
+ *            of the list — louder, impossible to miss, and arguably too loud
+ *            for something you do once per category.
+ *
+ * `dashed` by default: the panel is a list, and a filled button at the foot
+ * of one claims more than adding a row deserves.
+ */
+export const ADD_PRODUCT_STYLES = ["dashed", "filled"] as const;
+
+export type AddProductStyle = (typeof ADD_PRODUCT_STYLES)[number];
+
+export const ADD_PRODUCT_STYLE_LABELS: Record<AddProductStyle, string> = {
+  dashed: "Dashed row",
+  filled: "Filled button",
+};
+
 export const DIRECTORY_NAMES = ["all", "subs", "search"] as const;
 
 export type DirectoryName = (typeof DIRECTORY_NAMES)[number];
@@ -5703,6 +5730,8 @@ export interface ThemeState {
   selectSpot: SelectSpot;
   /** What the selection button is called. See SELECT_LABELS. */
   selectLabel: SelectLabel;
+  /** How the flyout's add-product button is drawn. See ADD_PRODUCT_STYLES. */
+  addProductStyle: AddProductStyle;
   /** What the agency's directory is called. See DIRECTORY_NAMES. */
   directoryName: DirectoryName;
   /** What the below-search select strip puts on its left. See SELECT_STRIPS. */
@@ -6820,6 +6849,7 @@ export const DEFAULT_THEME: ThemeState = {
   */
   selectLabel: "edit",
   directoryName: "all",
+  addProductStyle: "dashed",
   selectStrip: "count",
   workspaceChevron: "always",
   navOnPlane: NAV_ON_PLANE_DEFAULT,

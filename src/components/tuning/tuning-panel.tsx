@@ -278,6 +278,9 @@ import {
   RECENTS_MODES,
   SCOPE_MODEL_LABELS,
   SCOPE_MODELS,
+  ADD_PRODUCT_STYLE_LABELS,
+  ADD_PRODUCT_STYLES,
+  type AddProductStyle,
   DIRECTORY_NAME_LABELS,
   DIRECTORY_NAMES,
   type DirectoryName,
@@ -840,6 +843,8 @@ function NavStructureSection({
     setSelectStrip,
     directoryName,
     setDirectoryName,
+    addProductStyle,
+    setAddProductStyle,
     navIdentityAlign,
     setNavIdentityAlign,
     agencyPlateSize,
@@ -2377,6 +2382,20 @@ function NavStructureSection({
           : navIdentityAlign === "between"
             ? "Mark and name stay on the left, lined up with the rows below; only the chevrons go to the far edge. The row claims the full width without moving the thing people actually read."
             : "Lined up with the rows below it. This row is a control, and one on the edge every other row starts on is easier to aim at than one floating mid-column."}
+      </Note>
+
+      <Segmented
+        label="Add product button"
+        keywords="add product flyout category edit mode dashed filled button style"
+        options={ADD_PRODUCT_STYLES}
+        value={addProductStyle}
+        onChange={(v: AddProductStyle) => setAddProductStyle(v)}
+        format={(v) => ADD_PRODUCT_STYLE_LABELS[v]}
+      />
+      <Note>
+        {addProductStyle === "filled"
+          ? "A brand button, like Create sub-account. Reads as the panel\u2019s primary action rather than part of the list \u2014 impossible to miss, arguably too loud for something you do once per category."
+          : "The nav\u2019s own dashed add row, matched exactly. Sits in the list\u2019s rhythm and reads as the next item waiting to be filled, which is what it is."}
       </Note>
 
       <Segmented

@@ -762,14 +762,24 @@ export function LeftNav({
       count, and a bullet list of every product added, removed and regrouped.
       It was the only message in the product shaped like that, it arrived
       whether or not anything was worth reading, and at its worst it said "No
-      visible change to the arrangement" in four lines. The count is the fact
+      visible change to the arrangement" in four lines. The reach is the fact
       that decides whether the save went where it was meant to; the rest was
       detail nobody was waiting on.
+
+      The version is gone with it. "v2" is the store's bookkeeping — nobody
+      pressed Save to move a number — and it was sitting in the half of the
+      sentence a reader actually reads. What replaced it is the same reach the
+      dialog promised a second earlier, counted the same way: every account on
+      the layout, this one included. A toast that quoted a DIFFERENT number
+      from the button that raised it is the one way to make a save look like it
+      went somewhere unintended. And at a reach of one there is no count worth
+      reading, so it names the account instead. Ashwin, Oct 16.
     */
+    const reached = templates.accountsOn(id);
     templates.notify(
-      others.length === 0
-        ? `Saved ${tpl.name} as v${tpl.version}`
-        : `Saved ${tpl.name} as v${tpl.version} — ${others.length} other ${others.length === 1 ? "account" : "accounts"} updated`,
+      reached > 1
+        ? `${tpl.name} got updated to ${reached} sub-accounts.`
+        : `${tpl.name} got updated to ${account.name}.`,
     );
     if (others.length === 0) return;
 
@@ -2462,7 +2472,16 @@ export function LeftNav({
             // Silent: the arrangement came FROM here, so nothing moved and
             // there is nothing to undo. See applyArrangement.
             putOnAccount(tpl, { silent: true });
-            templates.notify(`Created ${tpl.name} — ${account.name} is on it`);
+            /*
+              Names the layout and nothing else.
+
+              It used to read "Created X — Account is on it", which reported the link
+              this very block had just made. The person pressing Save in THIS account
+              knows which account they are in, and the half-sentence after the dash was
+              the only toast in the feature that explained its own side effect rather
+              than confirming the thing asked for. Ashwin, Oct 16.
+            */
+            templates.notify(`${tpl.name} navigation layout saved.`);
           },
           onUpdateTemplate: saveTemplate,
           templateDirty,
@@ -5019,7 +5038,16 @@ export function LeftNav({
             const tpl = templates.save(name, account.name, state);
             if (!tpl) return;
             putOnAccount(tpl, { silent: true });
-            templates.notify(`Created ${tpl.name} — ${account.name} is on it`);
+            /*
+              Names the layout and nothing else.
+
+              It used to read "Created X — Account is on it", which reported the link
+              this very block had just made. The person pressing Save in THIS account
+              knows which account they are in, and the half-sentence after the dash was
+              the only toast in the feature that explained its own side effect rather
+              than confirming the thing asked for. Ashwin, Oct 16.
+            */
+            templates.notify(`${tpl.name} navigation layout saved.`);
             finishEditing();
           }}
           onUpdate={(id) => {

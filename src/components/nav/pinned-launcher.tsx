@@ -40,7 +40,7 @@ import {
   PROPOSED_UNLISTED_IDS,
 } from "./proposed-ia";
 import { ComposedIcon } from "./composed-icon";
-import { agencyPlaces } from "./agency-config";
+import { agencyL3Id, agencyPlaces } from "./agency-config";
 import { useAgencyLayout } from "./agency-layout";
 import { useNavLayout } from "./nav-layout-provider";
 import {
@@ -801,6 +801,57 @@ export function PinnedLauncher({
       )
     : [];
   const agencyAllIds = agency.state.order.filter((id) => agencyPlaces[id]);
+  /*
+   * The agency's catalogue as a TREE, not a flat run.
+   *
+   * All products listed every bucket at one level, which made it a longer
+   * copy of the recents tab rather than a catalogue: the agency nav has
+   * L2s under most of its buckets and L3s under some of those, and none of
+   * that was reachable from the panel that claims to show everything.
+   *
+   * Built through `rows` rather than `productIds` because the agency's
+   * children are not catalogue products — they are stated in
+   * `agency-config`, which is the same reason Desktop & mobile apps already
+   * uses that escape hatch. A bucket with no children stays loose, drawn
+   * bare above the branches, since a folder holding one destination is a
+   * folder invented for the shape of the list. Ashwin, Oct 16.
+   */
+  const agencyBranches: DirectoryBranch[] = agencyAllIds
+    .filter((id) => {
+      const place = agencyPlaces[id];
+      // A bucket row, and one that actually holds something.
+      return place?.bucket.id === id && place.bucket.children.length > 0;
+    })
+    .map((id) => {
+      const bucket = agencyPlaces[id]!.bucket;
+      return {
+        group: {
+          id,
+          label: agency.labelFor(id, bucket.label),
+          defaultLabel: bucket.label,
+          icon: bucket.icon,
+          productIds: [],
+          custom: false,
+        },
+        productIds: [],
+        rows: bucket.children.map((c) => ({
+          id: c.id,
+          label: c.label,
+          icon: c.icon ?? bucket.icon,
+          pages: (c.l3 ?? []).map((g) => ({
+            id: agencyL3Id(c.id, g.label),
+            label: g.label,
+            icon: g.icon,
+          })),
+        })),
+      };
+    });
+
+  const agencyLooseIds = agencyAllIds.filter((id) => {
+    const place = agencyPlaces[id];
+    return place?.bucket.id === id && place.bucket.children.length === 0;
+  });
+
   const agencyRow = (id: string) => {
     const place = agencyPlaces[id]!;
     return {
@@ -1255,9 +1306,28 @@ export function PinnedLauncher({
             hitIds={agencyHits}
             pinnedIds={agencyPinnedIds}
             recentIds={agencyRecentIds}
-            allIds={agencyAllIds}
             rowFor={agencyRow}
             onMovePin={agency.movePin}
+            /*
+              The same two halves the sub-account panel offers, and the same
+              switcher between them.
+
+              The agency panel used to be one scroll: Pinned, then Recently
+              visited, then All areas, stacked. That is the arrangement the
+              tabs replaced everywhere else — reading past ten history rows
+              to reach a catalogue is the thing tabs were introduced to
+              stop, and the agency's list is no shorter than a
+              sub-account's. Ashwin, Oct 16.
+
+              The strip is built by the parent and handed down rather than
+              rebuilt here: one switcher, drawn in two bodies, so the two
+              cannot drift in style or in which tab is live.
+            */
+            tab={tab}
+            tabStrip={tabStrip("mt-[2px]")}
+            branches={agencyBranches}
+            looseIds={agencyLooseIds}
+            theme={theme}
           />
         ) : tabbed ? (
           /*
@@ -2094,16 +2164,19 @@ function AgencyPanelBody({
   hitIds,
   pinnedIds,
   recentIds,
-  allIds,
   rowFor,
   onMovePin,
+  tab,
+  tabStrip,
+  branches,
+  looseIds,
+  theme,
 }: {
   searching: boolean;
   query: string;
   hitIds: string[];
   pinnedIds: string[];
   recentIds: string[];
-  allIds: string[];
   rowFor: (id: string) => {
     label: string;
     icon: LucideIcon;
@@ -2111,8 +2184,16 @@ function AgencyPanelBody({
     onTogglePin: () => void;
   };
   onMovePin: (from: number, to: number) => void;
+  /** Which half is live. See the switcher the parent hands down. */
+  tab: "recent" | "directory";
+  /** The switcher itself, built once by the parent. */
+  tabStrip: React.ReactNode;
+  /** The catalogue half, as a tree. See `agencyBranches`. */
+  branches: DirectoryBranch[];
+  /** Buckets that hold nothing, drawn bare above the branches. */
+  looseIds: string[];
+  theme: SurfaceTheme;
 }) {
-  const { panelRecentHeading } = useTheme().effective;
   if (searching) {
     if (hitIds.length === 0) {
       return (
@@ -2130,64 +2211,95 @@ function AgencyPanelBody({
     );
   }
 
+  /*
+   * Pins are the head of the recents tab, not a section above it.
+   *
+   * They sat in a block of their own with a heading and a count, above the
+   * switcher — which made the panel three lists deep and put the shortest
+   * one in the most expensive slot. Folded in, the tab holds one
+   * uninterrupted run: the things you keep, then the things you were just
+   * in. No heading between them and no rule, because a pinned row already
+   * says it is pinned — it carries the mark — so a heading would be
+   * labelling what the rows label themselves, and the reader would be
+   * reading a structure instead of a list.
+   *
+   * The same arrangement the sub-account panel calls "folded in". Ashwin,
+   * Oct 16.
+   */
+  const visited = [...pinnedIds, ...recentIds.filter((id) => !pinnedIds.includes(id))];
+
   return (
     <>
-      {pinnedIds.length > 0 ? (
-        <>
-          <SectionHeading count={pinnedIds.length}>Pinned</SectionHeading>
-          {pinnedIds.map((id, index) => (
+      {/* The switcher is the panel's first control now. One half at a time. */}
+      {tabStrip}
+
+      {/*
+        No heading on either half — the selected tab IS the heading.
+
+        The stacked arrangement needed "Recently visited" and "All areas"
+        written out because both were on screen at once. With a switcher
+        above them, a heading repeating the live tab's own word is the same
+        label twice in two rows.
+      */}
+      {tab === "recent" ? (
+        visited.length > 0 ? (
+          visited.map((id, index) => (
             <ProductRow
-              key={`agency-pin-${id}`}
+              key={`agency-visited-${id}`}
               productId={id}
               external={rowFor(id)}
-              gripReplacesIcon
-              drag={{
-                key: `agency-pin:${index}`,
-                onDrop: (from) => {
-                  const fromIndex = Number(from.split(":")[1]);
-                  if (!Number.isNaN(fromIndex)) onMovePin(fromIndex, index);
-                },
-              }}
+              {...(index < pinnedIds.length
+                ? {
+                    /*
+                      Only the pinned run drags. A recent row has no order
+                      of its own to defend — it is sorted by when you were
+                      last there — so a grip on it would offer a
+                      rearrangement the list undoes on the next visit.
+                    */
+                    gripReplacesIcon: true,
+                    drag: {
+                      key: `agency-pin:${index}`,
+                      onDrop: (from: string) => {
+                        const fromIndex = Number(from.split(":")[1]);
+                        if (!Number.isNaN(fromIndex)) onMovePin(fromIndex, index);
+                      },
+                    },
+                  }
+                : {})}
+            />
+          ))
+        ) : (
+          <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
+            Nothing visited yet.
+          </p>
+        )
+      ) : (
+        /*
+          The same tree the sub-account catalogue draws, over the agency's
+          own buckets. `disclosure="inline"` for the reason that caller
+          gives: this is already a panel off a panel, so a cascade would be
+          a third surface.
+        */
+        <>
+          {/*
+            The childless buckets, drawn as the agency's own rows.
+
+            NOT through DirectoryTree's `loose`, which resolves ids against
+            the sub-account catalogue — handed an agency id it has nothing
+            to look up, so the rows came out as raw keys under folder
+            glyphs ("agency-promo", "agency-labs"). `rowFor` is the same
+            resolver the recents half uses, and it knows these.
+          */}
+          {looseIds.map((id) => (
+            <ProductRow
+              key={`agency-loose-${id}`}
+              productId={id}
+              external={rowFor(id)}
             />
           ))}
-        </>
-      ) : (
-        <>
-          <SectionHeading>Pinned</SectionHeading>
-          <p className="w-full px-[2px] pb-[4px] text-[12.5px] leading-[17px] text-nav-fg-subtle">
-            No pinned items yet. Pin anything below and it appears at the top of
-            the nav.
-          </p>
+          <DirectoryTree groups={branches} theme={theme} disclosure="inline" />
         </>
       )}
-
-      {recentIds.length > 0 ? (
-        <>
-          <SectionHeading divider count={recentIds.length}>
-            {PANEL_RECENT_HEADING_LABELS[panelRecentHeading]}
-          </SectionHeading>
-          {recentIds.map((id) => (
-            <ProductRow
-              key={`agency-recent-${id}`}
-              productId={id}
-              external={rowFor(id)}
-            />
-          ))}
-        </>
-      ) : null}
-
-      {allIds.length > 0 ? (
-        <>
-          <SectionHeading divider>All areas</SectionHeading>
-          {allIds.map((id) => (
-            <ProductRow
-              key={`agency-all-${id}`}
-              productId={id}
-              external={rowFor(id)}
-            />
-          ))}
-        </>
-      ) : null}
     </>
   );
 }

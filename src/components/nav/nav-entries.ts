@@ -14,6 +14,7 @@ import {
   type ResolvedGroup,
 } from "./grouping";
 import { GET_APP_FLYOUT_ID } from "@/components/flyout/get-app-flyout";
+import { isChromePlace } from "./chrome-places";
 import { PROPOSED_SETTINGS_ID } from "./proposed-ia";
 import type { NavEntry, NavItem } from "./types";
 
@@ -185,6 +186,31 @@ export function tailRowsFor(
   const lifted: string[] = [];
   for (const id of state.tailOrder) {
     if (byId.has(id)) continue;
+    /*
+     * A CHROME row the account has dragged up here, resolved the same way.
+     *
+     * Download apps' two installers are the case. They are neither products
+     * nor children, so `looseIds` never names them and the `childById` guard
+     * below skipped them — which meant dropping one on an L1 seam wrote the
+     * id into `tailOrder`, `byId` never got an entry, and the `known` filter
+     * at the foot of this function dropped it again. The nav reported the
+     * move because the move HAD happened; the row simply had nothing to draw
+     * itself with. Ashwin reported it twice, which it deserved: the first
+     * fix kept the id in state and still never built a row.
+     *
+     * `labelForProduct` and `iconForProduct` both already fall through to
+     * `chromePlace`, so the row renames and re-icons like any other — the
+     * only thing missing was somewhere for it to exist. Ashwin, Oct 16.
+     */
+    if (isChromePlace(id)) {
+      lifted.push(id);
+      byId.set(id, {
+        id,
+        label: labelForProduct(state, id),
+        ...navGlyph(state, id),
+      });
+      continue;
+    }
     const hit = childById(id);
     if (!hit) continue;
     lifted.push(id);

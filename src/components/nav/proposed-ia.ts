@@ -1234,25 +1234,25 @@ const SETTINGS: CatalogueEntry[] = [
     icon: RadioTower,
     blurb: "The channels this account sends on.",
     children: [
-      {
-        // L4 — today's Settings › Email Services plus Custom Emails, which are
-        // two views of the same thing: how this account sends mail.
-        id: "ia-settings-comms-email",
-        label: "Emails",
-        children: [
-          { id: "ia-settings-comms-email-services", label: "Email Services" },
-          { id: "ia-settings-comms-email-custom", label: "Custom Emails" },
-        ],
-      },
-      {
-        id: "ia-settings-comms-phone",
-        label: "Phone",
-        children: [
-          { id: "ia-settings-comms-phone-system", label: "Phone System" },
-          { id: "ia-settings-comms-providers", label: "Conversation Providers" },
-        ],
-      },
-      { id: "ia-settings-comms-whatsapp", label: "Whatsapp" },
+      /*
+       * Five rows, and only these. Ashwin, Oct 16.
+       *
+       * This list has been cut down twice in one sitting — first from a
+       * nested Phone System to a flat run, then from that run to this. What
+       * went was everything that was a FACET of sending rather than a place
+       * you go to set it up: Regulatory Bundle, Trust Center and
+       * Conversation Providers are all phone-number paperwork, and the old
+       * "Emails" group spent two rows saying what one row says.
+       *
+       * Flat, for the reason the last cut was flat: nothing else in
+       * Settings goes four deep.
+       */
+      { id: "ia-settings-comms-phone-numbers", label: "Phone Systems" },
+      { id: "ia-settings-comms-rcs", label: "RCS Messaging" },
+      { id: "ia-settings-comms-email", label: "Email" },
+      /* WhatsApp, with the capital A the product uses. */
+      { id: "ia-settings-comms-whatsapp", label: "WhatsApp" },
+      { id: "ia-settings-comms-additional", label: "Additional Settings" },
     ],
   },
   {

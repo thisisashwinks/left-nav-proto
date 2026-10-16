@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   AffectedAccounts,
   AffectedAccountsList,
+  AffectedAvatars,
   TemplateMessage,
   TemplateMessageActions,
   TemplateMessageBody,
@@ -140,12 +141,28 @@ export function TemplateSaveDialog({
         Ashwin, Oct 16.
       */}
       <TemplateMessageTitle icon={<Save size={15} aria-hidden="true" />}>
-        {linked ? "Where should these changes go?" : "Save as a new layout"}
+        {linked ? "Update this navigation layout" : "Save as a new layout"}
       </TemplateMessageTitle>
       <TemplateMessageBody>
-        {linked
-          ? `Update ${linked.name} for everyone on it, or keep this as a layout of its own.`
-          : `Your changes will be saved as the new layout for ${accountName}.`}
+        {/*
+          The body states the stake, then asks the question.
+
+          It used to lead with the verb — "Update X for everyone on it, or keep
+          this as a layout of its own" — which is the two options written out a
+          second time, directly above the two options. What the reader does not
+          have yet at that point is the one fact that decides between them: how
+          many other accounts are standing behind this layout. So the sentence
+          leads with the reach and the question follows from it. Ashwin, Oct 16.
+
+          The singular branch is a different sentence, not a pluralised one: at
+          a reach of one there is nobody else to weigh, so "shared with 1
+          sub-account" would dress up a non-problem as a decision.
+        */}
+        {!linked
+          ? `Your changes will be saved as the new layout for ${accountName}.`
+          : reaches > 1
+            ? `${linked.name} is shared with ${reaches} sub-accounts. Do you want to update it, or create a new navigation layout?`
+            : `Only ${accountName} is on ${linked.name}. Do you want to update it, or create a new navigation layout?`}
       </TemplateMessageBody>
 
       {linked ? (
@@ -158,6 +175,17 @@ export function TemplateSaveDialog({
               if (accordion) setShowing(true);
             }}
             label={`Update ${linked.name}`}
+            /*
+              The faces ride on the row, left of the chevron: they are a
+              preview of what the chevron opens, so they belong on the same
+              side of the row as the control that expands them. Only when
+              there is a disclosure to preview — with nobody else on the
+              layout the stack would be this account's own mark, telling the
+              reader who they are.
+            */
+            {...(templateDirty && reaches > 1
+              ? { avatars: <AffectedAvatars ids={reachedIds} /> }
+              : {})}
             /*
               The chevron lives on the option, not under it.
 
@@ -224,8 +252,24 @@ export function TemplateSaveDialog({
               // The other option's disclosure is not about this answer.
               setShowing(false);
             }}
-            label="Create a new layout"
-            note={`Only ${accountName} moves onto it. Everyone else stays where they are.`}
+            label="Create a new navigation layout"
+            /*
+              Says what does NOT change, because that is the half the reader is
+              unsure about.
+
+              "Only X moves onto it. Everyone else stays where they are." was
+              written about the LAYOUT — who is on which — when the worry in
+              the room is about the other accounts' navs: an admin reading this
+              has five clients behind the layout they are forking away from,
+              and what they need promised is that those five do not shift.
+              The second sentence only exists when there is somebody else to
+              reassure about. Ashwin, Oct 16.
+            */
+            note={
+              reaches > 1
+                ? `Only ${accountName} changes. The other sub-accounts keep the same navigation.`
+                : `Only ${accountName} changes.`
+            }
           />
           {/*
             The name field opens under its own option, and carries no chevron.
@@ -340,7 +384,19 @@ function SaveNameField({
           role="status"
           className="text-[11.5px] leading-[15px] text-[var(--hr-warning-700)]"
         >
-          A template already has this name. Pick another.
+          {/*
+            Quotes the name back, because the field is not always where the
+            clash is visible.
+
+            "A template already has this name" made the reader check the box
+            above and work out which of forty layouts it collided with — and
+            said "template", a word the feature stopped using. Naming the
+            offender is the whole message: either you recognise it and pick
+            differently, or you realise you meant to update that one.
+            Ashwin, Oct 16.
+          */}
+          You already have a navigation layout called “{value.trim()}”.
+          Please create a new name.
         </span>
       ) : null}
     </>
@@ -362,6 +418,7 @@ function SaveOption({
   onSelect,
   label,
   note,
+  avatars,
   expanded,
   onToggle,
 }: {
@@ -370,6 +427,8 @@ function SaveOption({
   onSelect: () => void;
   label: string;
   note: string;
+  /** Who this option reaches, shown beside the chevron. See AffectedAvatars. */
+  avatars?: React.ReactNode;
   /**
    * Whether this option's disclosure is open. Omit for an option that has
    * nothing behind it — the chevron then does not appear at all, which is how
@@ -410,6 +469,7 @@ function SaveOption({
           {note}
         </span>
       </span>
+      {avatars}
       {disclosing ? (
         <ChevronDown
           size={13}

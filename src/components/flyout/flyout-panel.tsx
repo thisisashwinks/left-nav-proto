@@ -169,6 +169,7 @@ export function FlyoutPanel({
     flyoutShadow,
     flyoutShape,
     flyoutCardBorder,
+    addProductStyle,
   } = useTheme().effective;
   /* See the title below. */
   const appsRowName = useGetAppNavLabel();
@@ -1677,6 +1678,63 @@ export function FlyoutPanel({
           onClose={menu.close}
         />
       ) : null}
+      {/*
+        The way to add one more, at the foot of the list.
+
+        The seams between rows already add — but a seam is a 12px strip you
+        have to find, and an empty-ish category is exactly where a reader does
+        not yet know they exist. This states it. It reuses the seam's own
+        menu (`addActions`) at the end index, so the two routes cannot drift
+        into offering different things.
+
+        Two styles, because what this button IS is genuinely unsettled — part
+        of the list, or the panel's primary action. See ADD_PRODUCT_STYLES.
+        Ashwin, Oct 16.
+      */}
+      {editing && category ? (
+        <div
+          className={cn(
+            "flex w-full shrink-0",
+            addProductStyle === "filled" ? "px-[2px] pt-[8px]" : null,
+          )}
+        >
+          <button
+            type="button"
+            onClick={(e) =>
+              setAdding({
+                index: category.productIds.length,
+                anchor: e.currentTarget.getBoundingClientRect(),
+              })
+            }
+            className={cn(
+              "motion-tap flex items-center outline-none active:scale-[0.99]",
+              addProductStyle === "filled"
+                ? /*
+                     The Sub-accounts page's primary, at this panel's scale:
+                     32px, 8px radius, brand fill. It does not stretch — a
+                     full-width brand bar in a 360px panel reads as a banner
+                     rather than as a button.
+                  */
+                  "h-[32px] shrink-0 gap-[6px] rounded-[8px] bg-brand px-[12px] text-[12.5px] leading-none font-medium text-brand-fg"
+                : /*
+                     The nav's own dashed add row, matched exactly — 36px, the
+                     row indent, subtle ink, a dashed outline in the divider
+                     colour. It is the outline of a row that does not exist
+                     yet, which is why it is not filled.
+                  */
+                  "mt-[2px] h-[36px] w-full gap-[10px] rounded-[7px] px-[8px] text-left text-[13.5px] leading-[normal] font-medium text-nav-fg-subtle outline-1 outline-dashed outline-[var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg",
+            )}
+          >
+            <Plus
+              size={addProductStyle === "filled" ? 13 : 16}
+              aria-hidden="true"
+              className="shrink-0"
+            />
+            Add product
+          </button>
+        </div>
+      ) : null}
+
       {adding && category ? (
         <RowMenu
           anchor={adding.anchor}

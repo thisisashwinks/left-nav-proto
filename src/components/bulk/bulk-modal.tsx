@@ -440,8 +440,19 @@ export function BulkModal({
           {step === "template-pick" ? (
             <>
               <Context accounts={accounts}>
-                A layout carries the arrangement — grouping, order, icons, names
-                and pins. It never grants or revokes a product.
+                {/*
+                  States the limit in the reader's own terms.
+
+                  "It never grants or revokes a product" is the platform's
+                  word for it — entitlement — and the person about to change
+                  forty navs at once is not thinking in entitlements. What
+                  they are afraid of is taking something away from a client,
+                  so the sentence answers that in the words they would use.
+                  Ashwin, Oct 16.
+                */}
+                A nav template sets layout only: grouping, order, icons, names
+                and pins. It does not change which products a sub-account can
+                use.
               </Context>
               {/*
                 A radio list, not a stack of cards.

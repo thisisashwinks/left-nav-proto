@@ -715,3 +715,59 @@ export function TemplatePicker({
     </div>
   );
 }
+
+/** How many faces the stack shows before the rest become a number. */
+const AVATAR_STACK_SHOWN = 5;
+
+/**
+ * Who an update reaches, as faces rather than as a sentence.
+ *
+ * The option row already states the count in words underneath. This is the
+ * same fact read at a glance: an agency admin about to change five navs at
+ * once recognises their own clients by their marks long before they parse
+ * "5 sub-accounts", and the question they are actually holding at that moment
+ * is "is the one I care about in here". The names are still a chevron away —
+ * this is the glance, not the audit. Ashwin, Oct 16.
+ *
+ * Overlapped rather than spaced, so the group reads as one object the count
+ * belongs to instead of five separate marks. The ring is the card's own
+ * surface, which is what cuts each face free of the one behind it.
+ */
+export function AffectedAvatars({ ids }: { ids: readonly string[] }) {
+  const reached = accounts.filter((a) => ids.includes(a.id));
+  if (reached.length === 0) return null;
+
+  const shown = reached.slice(0, AVATAR_STACK_SHOWN);
+  const rest = reached.length - shown.length;
+
+  return (
+    <span
+      // The group is decoration over a stated count — a screen reader that
+      // walked five logos here would read the same fact a sixth time.
+      aria-hidden="true"
+      className="mt-[1px] flex shrink-0 items-center pl-[6px]"
+    >
+      {shown.map((a, i) => (
+        <span
+          key={a.id}
+          className={cn(
+            "flex rounded-full shadow-[0_0_0_1.5px_var(--nav)]",
+            i > 0 && "-ml-[6px]",
+          )}
+        >
+          <AccountLogo
+            logo={a.logo}
+            {...(a.logoSrc ? { src: a.logoSrc } : {})}
+            size={18}
+            radius={999}
+          />
+        </span>
+      ))}
+      {rest > 0 ? (
+        <span className="-ml-[6px] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-nav-hover px-[4px] text-[9.5px] leading-none font-semibold text-nav-fg-muted shadow-[0_0_0_1.5px_var(--nav)]">
+          +{rest}
+        </span>
+      ) : null}
+    </span>
+  );
+}

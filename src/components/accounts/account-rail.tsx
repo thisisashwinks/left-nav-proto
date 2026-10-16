@@ -2927,6 +2927,19 @@ export function AccountRail({
                   name={session.agency.name}
                   expanded={expanded}
                   selected={liveScope === "agency"}
+                  /*
+                    No ring on the collapsed agency.
+
+                    Collapsed, the tile is a 32px circle and the selected
+                    hairline becomes a ring hugging it — which on the one mark
+                    that is already visually distinct from everything below it
+                    reads as a badge rather than as "you are here". The agency
+                    does not need marking in a column where it is the only
+                    squircle: its difference IS the marking. Open, the rows are
+                    all 204px of the same shape, the difference is gone, and
+                    the fill earns its place. Ashwin, Oct 16.
+                  */
+                  paintSelected={expanded}
                   onClick={session.switchToAgency}
                   onHover={() => setHover(true)}
                   account={brandedAgency}
@@ -3879,6 +3892,22 @@ export function AccountRail({
                     name={account.name}
                     expanded={expanded}
                     selected={rowActive(account.id)}
+                    /*
+                      The agency wears no selection paint while the strip is
+                      shut — see `paintSelected`, and the plate's own copy of
+                      this note.
+
+                      Collapsed, the row is a 36px circle and the selected
+                      fill plus its hairline become a white ring around the
+                      agency's dark mark. On the one tile that is already
+                      unlike everything below it that reads as a badge stuck
+                      to the logo rather than as "you are here". The accounts
+                      keep theirs: nothing else tells them apart.
+                      Ashwin, Oct 16.
+                    */
+                    {...(account.id === AGENCY_ID
+                      ? { paintSelected: expanded }
+                      : {})}
                     onClick={() => {
                       if (fillPicking && inlineOpen) {
                         if (!pickable(account.id)) return;
@@ -4312,6 +4341,7 @@ function RailRow({
   name,
   expanded,
   selected,
+  paintSelected = true,
   onClick,
   onHover,
   account,
@@ -4335,6 +4365,16 @@ function RailRow({
   name: string;
   expanded: boolean;
   selected: boolean;
+  /**
+   * Whether `selected` is PAINTED, as distinct from being true.
+   *
+   * The agency sets this to `expanded`: see its call site. Kept separate from
+   * `selected` so the row stays `aria-current` either way — the agency is the
+   * scope you are in whether or not the strip is wide enough to say so, and a
+   * row that drops that when it narrows is lying to a screen reader to fix a
+   * visual problem.
+   */
+  paintSelected?: boolean;
   onClick: () => void;
   /** Resting on a tile is what opens the names out. */
   onHover?: () => void;
@@ -4937,7 +4977,7 @@ function RailRow({
                 selected
                 ? "bg-nav-selected shadow-[inset_0_0_0_1px_var(--nav-selected-ring)]"
                 : "hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]"
-              : selected
+              : selected && paintSelected
                 ? "bg-nav shadow-[inset_0_0_0_1px_var(--nav-border)]"
                 : /*
                      The nav's own hover, once the names are out.

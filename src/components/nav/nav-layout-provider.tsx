@@ -13,6 +13,7 @@ import {
   type EditBlock,
 } from "./nav-profiles";
 import { childById, productById } from "./catalogue";
+import { isChromePlace } from "./chrome-places";
 import type { CatalogueChild } from "./catalogue-types";
 import { l1IdsFor, tailRowsFor } from "./nav-entries";
 import {
@@ -60,8 +61,24 @@ import {
 
 export type { LabelScope, NavLayoutState };
 
-/** How long a label may be. Settled on the spec board: one line, no emoji. */
-export const LABEL_MAX = 24;
+/**
+ * How long a label may be.
+ *
+ * 24 was the spec board's figure — one line, no emoji — and it was a cap on
+ * what FITS rather than on what you may type. Those are different limits and
+ * conflating them made the field stop accepting characters at 24 with no
+ * explanation: Ashwin reported it as not being able to see what he was
+ * typing, and the measurement showed the field simply refusing the keystroke
+ * (39 typed, 24 in the value, scrollLeft still 0 because the content never
+ * exceeded the box).
+ *
+ * 60 is a cap on the pathological case rather than on a long name. What
+ * FITS is still about 24 at 14px in a 240px column, and that is handled
+ * where it belongs — the row truncates and the tooltip carries the whole
+ * name. A name that is too long to show is a legible outcome; a keyboard
+ * that goes dead mid-word is not. Ashwin, Oct 16.
+ */
+export const LABEL_MAX = 60;
 
 /**
  * How many things may be pinned at once.
@@ -639,14 +656,21 @@ function reorder<T>(list: T[], from: number, to: number): T[] {
  * instead of each inventing its own wording.
  */
 
-function positionPhrase(
-  labels: string[],
-  fromIndex: number,
-  toIndex: number,
-): string {
-  if (toIndex <= 0) return "to the top";
-  const landing = labels.filter((_, i) => i !== fromIndex)[toIndex - 1];
-  return landing ? `after ${landing}` : "to the end";
+/**
+ * Which way the row travelled, as the one word the toast needs.
+ *
+ * This used to name the landing instead — "to the top", "after Automation" —
+ * which is more information and worse copy. The reader just performed the
+ * move and is looking at the result; what they need confirmed is that the
+ * right ROW moved, not a landmark they can see for themselves. "Moved Content
+ * after Automation" also forces a second name into a sentence that is already
+ * racing a three-second toast. Ashwin, Oct 16.
+ *
+ * `toIndex` is an insertion index measured against the list BEFORE the
+ * removal, so anything below the row's own slot is downward travel.
+ */
+function movedPhrase(fromIndex: number, toIndex: number): string {
+  return toIndex < fromIndex ? "moved up" : "moved down";
 }
 
 function moveGroupMessage(
@@ -657,7 +681,7 @@ function moveGroupMessage(
   const labels = resolveGroups(state).map((g) => g.label);
   const moved = labels[fromIndex];
   if (!moved) return "Reordered the nav";
-  return `Moved ${moved} ${positionPhrase(labels, fromIndex, toIndex)}`;
+  return `${moved} ${movedPhrase(fromIndex, toIndex)}`;
 }
 
 function withinGroupMessage(
@@ -670,12 +694,7 @@ function withinGroupMessage(
   const ids = group?.productIds ?? [];
   const movedId = ids[fromIndex];
   if (!movedId) return "Reordered the group";
-  const labels = ids.map((id) => labelForProduct(state, id));
-  return `Moved ${labelForProduct(state, movedId)} ${positionPhrase(
-    labels,
-    fromIndex,
-    toIndex,
-  )}`;
+  return `${labelForProduct(state, movedId)} ${movedPhrase(fromIndex, toIndex)}`;
 }
 
 /**
@@ -1276,10 +1295,18 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
          */
         if (groupNameTaken(state, trimmed, groupId)) return;
         const custom = state.customGroups.some((g) => g.id === groupId);
-        // The old name and the new one, because the row on screen now shows only
-        // the new one — "Renamed group" left the admin unable to tell which of
-        // twelve categories the toast was offering to change back.
-        commit(`Renamed ${labelForGroup(state, groupId)} to ${trimmed}`, (s) => {
+        /*
+          Just the new name.
+
+          This used to carry both — "Renamed Integrations 2 to dd" — on the
+          reasoning that the row now shows only the new one, so the toast had
+          to say which of twelve categories it was offering to undo. In
+          practice the rename is the gesture you JUST made, on the row your
+          pointer is still on, and the old name was the longer half of a
+          sentence nobody finishes reading in three seconds. Undo is right
+          there if it was the wrong row. Ashwin, Oct 16.
+        */
+        commit(`Renamed to ${trimmed}`, (s) => {
           // A custom group has no shipped name to override, so its rename is a
           // write to the group itself — which is also why it survives a reset of
           // the override maps.
@@ -1321,7 +1348,8 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
             ? "agencyProductLabels"
             : "accountProductLabels";
         commit(
-          `Renamed ${labelForProduct(state, productId)} to ${trimmed}`,
+          // Just the new name — see the group rename above.
+          `Renamed to ${trimmed}`,
           setLabelIn(key, productId, trimmed),
         );
       },
@@ -1582,8 +1610,27 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
               makes it resolvable, and `withRowDetached` has already taken it
               out of wherever it was.
             */
+            /*
+              ...and a CHROME place is kept for exactly the same reason.
+              Ashwin, Oct 16.
+              
+              `tailRowsFor` resolves products and lifted children. The nav's
+              own rows — Download apps' two installers, and the rest of
+              `CHROME_PLACES` — are neither, so they failed this filter and
+              were dropped from `tailOrder` the moment they were added. The
+              id went into `groupOrder`, nothing resolved it, and the row
+              rendered nowhere: the toast said the move had worked because
+              the commit HAD worked, and the only thing missing was the row.
+              
+              Same bug as the lifted child above, found three days later in
+              the other kind of non-product row, which is the argument for
+              asking "what can live at L1" rather than listing what can.
+            */
             tailOrder: next.filter(
-              (id) => tail.includes(id) || childById(id) !== undefined,
+              (id) =>
+                tail.includes(id) ||
+                childById(id) !== undefined ||
+                isChromePlace(id),
             ),
           };
         }),

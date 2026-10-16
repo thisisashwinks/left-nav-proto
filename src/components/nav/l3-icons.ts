@@ -136,6 +136,7 @@ import {
   File,
   type LucideIcon,
 } from "lucide-react";
+import { WhatsAppMark } from "@/components/icons/whatsapp";
 
 /**
  * A glyph for every L3 row, by label.
@@ -288,7 +289,9 @@ const LABEL_ICONS: Record<string, LucideIcon> = {
   "Payouts": Banknote,
   "Pending": Clock,
   "Phone": PhoneCall,
-  "Phone System": PhoneCall,
+  "Additional Settings": SlidersHorizontal,
+  "Phone Systems": PhoneCall,
+  "RCS Messaging": MessageSquare,
   "Pipeline": Columns3,
   "Planner": CalendarDays,
   "Preferences": SlidersHorizontal,
@@ -340,6 +343,7 @@ const LABEL_ICONS: Record<string, LucideIcon> = {
   "Website": Globe,
   "Websites": Globe,
   "Whatsapp": MessageCircle,
+  "WhatsApp": WhatsAppMark,
   "Widgets": LayoutGrid,
   "Winter service due": Snowflake,
 };

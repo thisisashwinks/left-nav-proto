@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, Check, Clock, X } from "lucide-react";
+import { AlertTriangle, Check, X } from "lucide-react";
 import { plural, useBulkActions } from "./bulk-provider";
 
 /** How long a clean confirmation stays before it slides away. */
@@ -38,6 +38,8 @@ export function BulkToast({ canvasLeft }: { canvasLeft: number }) {
   if (!notice) return null;
 
   const changed = notice.outcomes.filter((o) => o.status === "changed").length;
+  /* Everyone the run reaches — known at the start, unlike `changed`. */
+  const reach = notice.outcomes.length;
 
   return (
     <div
@@ -66,18 +68,45 @@ export function BulkToast({ canvasLeft }: { canvasLeft: number }) {
         </span>
 
         <div className="flex min-w-0 flex-col gap-[2px]">
+          {/*
+            A queued run says what it is DOING, not what it submitted.
+
+            "Changes submitted · Default layout · 0 sub-accounts changed"
+            was three facts and two of them unhelpful: "submitted" names an
+            internal event, and the count was the number already finished —
+            which on a queued run is zero, so the toast opened by reporting
+            that nothing had happened. The reach is the number worth
+            stating, and it is known the moment the run starts.
+            Ashwin, Oct 16.
+          */}
           <span className="text-[13px] leading-[18px] font-medium text-pg-surface">
             {sticky
               ? "Applied with problems"
               : notice.status === "queued"
-                ? "Changes submitted"
+                ? notice.path === "template"
+                  ? `Applying ${notice.templateName} to ${plural(reach, "sub-account")}`
+                  : `Applying ${plural(notice.changeCount, "update")} to ${plural(reach, "sub-account")}`
                 : "Changes applied"}
           </span>
-          <span className="text-[13px] leading-[18px] text-pg-faint">
-            {notice.path === "template"
-              ? `${notice.templateName} · ${plural(changed, "sub-account")} changed`
-              : `${plural(notice.changeCount, "update")} across ${plural(changed, "sub-account")}`}
-          </span>
+          {sticky || notice.status !== "queued" ? (
+            <span className="text-[13px] leading-[18px] text-pg-faint">
+              {notice.path === "template"
+                ? `${notice.templateName} · ${plural(changed, "sub-account")} changed`
+                : `${plural(notice.changeCount, "update")} across ${plural(changed, "sub-account")}`}
+            </span>
+          ) : (
+            /*
+              What to do next, which is nothing.
+
+              It replaces "Takes effect in 2–5 minutes" — a window that
+              invited waiting, and that nobody can act on. The useful
+              promise is that the work is not holding anything up and that
+              the product will come back when it is done.
+            */
+            <span className="text-[13px] leading-[18px] text-pg-faint">
+              You can continue your work. We will notify you when it is done.
+            </span>
+          )}
           {sticky ? (
             <span className="flex flex-wrap items-center gap-[8px] pt-[2px]">
               <span className="text-[13px] leading-[18px] text-pg-faint">
@@ -93,15 +122,6 @@ export function BulkToast({ canvasLeft }: { canvasLeft: number }) {
               >
                 Retry
               </button>
-            </span>
-          ) : notice.status === "queued" ? (
-            /*
-              Grey, for the same reason it is grey on the card: it is a fact
-              about when the change lands, not something to act on.
-            */
-            <span className="flex items-center gap-[5px] text-[12px] leading-[16px] text-pg-faint">
-              <Clock size={11} aria-hidden="true" />
-              Takes effect in 2–5 minutes
             </span>
           ) : null}
         </div>

@@ -336,7 +336,22 @@ export function NavItemRow({
           ? null
           : edit.renameBlocked
         : edit.renameOnLabelClick
-          ? "Click to rename"
+          ? /*
+               The name, not just the verb. Ashwin, Oct 16.
+               
+               "Click to rename" said what the gesture does and left the one
+               thing the reader cannot see unsaid: in edit mode a long label
+               is cut with an ellipsis, and the tooltip that would normally
+               carry the full name stands down so the two pills do not stack
+               (see `labelTip`). So the row showed "dflkj dfgldj dflgjl…"
+               and hovering it offered no way to find out what the rest was.
+               
+               Naming the row gives the tip both jobs — what will happen,
+               and to what — and the second one is free, since the string is
+               right here. No colon: "Rename Conversations" reads as an
+               instruction, "Rename: Conversations" as a form field.
+            */
+            `Rename ${item.label}`
           : null
       : null;
   /*
