@@ -719,17 +719,44 @@ function RailTools({
             ? TextSearch
             : Search;
 
-  const glyph = (
-    <RailTooltip label="Find an account">
-      <button
-        type="button"
-        aria-label="Find an account"
-        className="motion-tap mx-auto flex size-[32px] shrink-0 items-center justify-center rounded-[8px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
-      >
-        <ShutGlyph size={16} aria-hidden="true" />
-      </button>
-    </RailTooltip>
-  );
+  const glyph =
+    searchGlyph === "divider" ? (
+      /*
+        A rule, not a control — and so no tooltip and no hover.
+
+        The other four are buttons that happen to be icons; this one is the
+        row admitting it has nothing to offer at 56px but its own place in
+        the column. Same ink and same shape the run headings collapse to,
+        so the shut strip speaks one language: rules where words were,
+        marks where accounts are. See RAIL_SEARCH_GLYPHS.
+
+        Inset 6 a side, so the rule is 20px against the 32px tiles — short
+        of them rather than flush, which keeps it reading as a seam in the
+        column instead of as an underline on the mark above it. The run
+        headings span the full column because they divide RUNS; this
+        divides a tool from a list, which is a smaller claim.
+
+        `--hr-gray-300` rather than `--nav-divider`: the divider ink is
+        tuned for rules between rows of text, and on the rail's own fill at
+        20px it was a line you had to look for. Ashwin, Oct 16.
+      */
+      <div className="flex h-[32px] w-full shrink-0 items-center px-[6px]">
+        <span
+          aria-hidden="true"
+          className="h-px w-full rounded-full bg-[var(--hr-gray-300)]"
+        />
+      </div>
+    ) : (
+      <RailTooltip label="Find an account">
+        <button
+          type="button"
+          aria-label="Find an account"
+          className="motion-tap mx-auto flex size-[32px] shrink-0 items-center justify-center rounded-[8px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
+        >
+          <ShutGlyph size={16} aria-hidden="true" />
+        </button>
+      </RailTooltip>
+    );
 
   return (
     <div

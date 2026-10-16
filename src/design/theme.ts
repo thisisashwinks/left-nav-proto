@@ -5292,8 +5292,15 @@ export const RAIL_TOOL_SPOT_LABELS: Record<RailToolSpot, string> = {
  *          rather than the gesture, and matches the sliders the Edit
  *          button wears beside it.
  *  funnel  The classic filter funnel. The most universally read of the
- *          four and the least like a search, which cuts both ways: it is
+ *          glyphs and the least like a search, which cuts both ways: it is
  *          unmistakable, and it promises narrowing rather than finding.
+ *  divider A hairline, and no glyph at all. The honest reading of what the
+ *          row is doing at 56px: holding a place, not offering a control.
+ *          It is also the mark the run HEADINGS already collapse to, so
+ *          the shut strip ends up with one vocabulary instead of two —
+ *          rules where words were, marks where accounts are. The cost is
+ *          that the search becomes genuinely invisible until the rail
+ *          opens; a rule promises nothing. Ashwin, Oct 16.
  */
 /**
  * Where the rail offers to make a new sub-account.
@@ -5383,7 +5390,13 @@ export const MANAGE_ACCOUNTS_LABEL = "Manage sub-accounts";
  */
 export const BULK_BUTTON_LABEL = "Apply layout";
 
-export const RAIL_SEARCH_GLYPHS = ["text", "scan", "filter", "funnel"] as const;
+export const RAIL_SEARCH_GLYPHS = [
+  "text",
+  "scan",
+  "filter",
+  "funnel",
+  "divider",
+] as const;
 export type RailSearchGlyph = (typeof RAIL_SEARCH_GLYPHS)[number];
 
 export const RAIL_SEARCH_GLYPH_LABELS: Record<RailSearchGlyph, string> = {
@@ -5391,6 +5404,7 @@ export const RAIL_SEARCH_GLYPH_LABELS: Record<RailSearchGlyph, string> = {
   scan: "Glass in crop marks",
   filter: "Filter lines",
   funnel: "Funnel",
+  divider: "A divider",
 };
 
 export const RAIL_TOOLS_CTAS = ["word", "icon"] as const;
@@ -6836,7 +6850,17 @@ export const DEFAULT_THEME: ThemeState = {
     is a real cost and worth being able to see.
   */
   railToolsCta: "icon",
-  railSearchGlyph: "text",
+  /*
+    The rule — Ashwin, Oct 16.
+
+    Shut, the strip is a column of account marks and the run headings have
+    already collapsed to hairlines. A fifth glyph in that column is a
+    control competing with the accounts; a rule is the same mark the
+    headings use, so the closed rail says one thing in one language. The
+    four glyphs stay on the dial: a rule promises nothing, and if the
+    search turns out to need announcing, one of them is the answer.
+  */
+  railSearchGlyph: "divider",
   createAccountSpot: "row",
   /*
     The list with ticks — Ashwin, Oct 16.
