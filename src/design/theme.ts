@@ -5313,6 +5313,41 @@ export const RAIL_TOOL_SPOT_LABELS: Record<RailToolSpot, string> = {
  *
  * Ashwin, Oct 16.
  */
+/**
+ * Which glyph the icon-only tools button wears.
+ *
+ * Only meaningful while that button IS a glyph — see RAIL_TOOLS_CTAS. The
+ * four say different things about what pressing it starts, and the mode it
+ * opens does several of them at once (rename, reorder, unpin, bulk act),
+ * which is exactly why no single glyph is obviously right:
+ *
+ *  sliders  "Adjust this list." The prototype panel's own glyph for the
+ *           same idea, and the most neutral of the four.
+ *  gear     "Settings for this list." Universally read, and universally
+ *           read as CONFIGURATION — which this is not, quite.
+ *  pencil   "Edit." Names the button's own word, so it is the only one
+ *           that still makes sense next to the worded variant.
+ *  checks   A list with ticks. Names what the mode actually puts on screen
+ *           — checkboxes down the column — rather than an abstraction of
+ *           it, at the cost of saying nothing about renaming or reordering.
+ *
+ * Ashwin, Oct 16.
+ */
+export const RAIL_MANAGE_GLYPHS = [
+  "sliders",
+  "gear",
+  "pencil",
+  "checks",
+] as const;
+export type RailManageGlyph = (typeof RAIL_MANAGE_GLYPHS)[number];
+
+export const RAIL_MANAGE_GLYPH_LABELS: Record<RailManageGlyph, string> = {
+  sliders: "Sliders",
+  gear: "Gear",
+  pencil: "Pencil",
+  checks: "List with ticks",
+};
+
 export const CREATE_ACCOUNT_SPOTS = ["row", "header", "off"] as const;
 export type CreateAccountSpot = (typeof CREATE_ACCOUNT_SPOTS)[number];
 
@@ -6174,6 +6209,8 @@ export interface ThemeState {
   railSearchGlyph: RailSearchGlyph;
   /** Where the rail offers account creation. See CREATE_ACCOUNT_SPOTS. */
   createAccountSpot: CreateAccountSpot;
+  /** Which glyph the icon-only tools button wears. See RAIL_MANAGE_GLYPHS. */
+  railManageGlyph: RailManageGlyph;
   /** Whether the agency keeps its row in manage mode. See MANAGE_AGENCY_ROWS. */
   manageAgencyRow: ManageAgencyRow;
   /** What a rest has to land on for the names to open. See RAIL_HOVER_ZONES. */
@@ -6510,7 +6547,7 @@ export const NAV_STRUCTURE_KEYS = [
   "manageAgencyRow", "railHoverZone", "railToolsLayout", "railCollapsedSearch",
   "railHideButton", "agencyRoute", "railActiveSpot", "railDirectoryMode",
   "railToolSpot", "agencyBarDismissal", "railToolsCta", "railSearchGlyph",
-  "createAccountSpot",
+  "createAccountSpot", "railManageGlyph",
   "railToolsEdge", "railPinnedLabel", "railRecentLabel",
   "railTileColour", "activeAgencySpot", "railTileAlign", "railHover",
   "directoryPlacement", "railFillMorph", "railFillRest", "railFillAgency",
@@ -6778,6 +6815,17 @@ export const DEFAULT_THEME: ThemeState = {
   railToolsCta: "icon",
   railSearchGlyph: "text",
   createAccountSpot: "row",
+  /*
+    The list with ticks — Ashwin, Oct 16.
+
+    It names what the mode actually puts on screen rather than an
+    abstraction of it: press this and checkboxes appear down the column,
+    which is exactly what the glyph shows. The three alternatives all
+    describe the mode from one remove — sliders and a gear say "adjust",
+    which could mean anything, and a pencil says "edit", which is the half
+    of the mode that is NOT the ticking.
+  */
+  railManageGlyph: "checks",
   railToolsEdge: "shadow",
   railPinnedLabel: true,
   railRecentLabel: true,

@@ -18,6 +18,9 @@ import {
   ListFilter,
   CirclePlus,
   Filter,
+  Settings,
+  SquarePen,
+  ListChecks,
 } from "lucide-react";
 import {
   RAIL_TILE_SIZE,
@@ -30,6 +33,7 @@ import {
   type RailToolsCta,
   type RailSearchGlyph,
   CREATE_ACCOUNT_LABEL,
+  type RailManageGlyph,
   RAIL_HALF_SQUARE,
   RAIL_SHADE_CLASS,
   AGENCY_PLATE_CLASS,
@@ -307,6 +311,7 @@ function RailTools({
   ctaShape,
   searchGlyph,
   onCreate,
+  manageGlyph,
   stickyTop,
 }: {
   expanded: boolean;
@@ -360,6 +365,8 @@ function RailTools({
    * here — see CREATE_ACCOUNT_SPOTS.
    */
   onCreate?: (() => void) | null;
+  /** Which glyph the icon-only button wears. See RAIL_MANAGE_GLYPHS. */
+  manageGlyph?: RailManageGlyph;
   /**
    * How far down the scroller the sticky row parks, in px.
    *
@@ -408,6 +415,16 @@ function RailTools({
    * Ashwin, Oct 16.
    */
   const inList = spot === "agencyBar" || spot === "underAgency";
+
+  /* See RAIL_MANAGE_GLYPHS — four readings of one mode. */
+  const ManageGlyph =
+    manageGlyph === "gear"
+      ? Settings
+      : manageGlyph === "pencil"
+        ? SquarePen
+        : manageGlyph === "checks"
+          ? ListChecks
+          : SlidersHorizontal;
 
   /*
    * The bar's parts, named once and composed per layout.
@@ -614,7 +631,7 @@ function RailTools({
           16px, and it is already the prototype panel's own glyph for
           "adjust this". Ashwin, Oct 15.
         */
-        <SlidersHorizontal size={15} aria-hidden="true" />
+        <ManageGlyph size={15} aria-hidden="true" />
       ) : picking ? (
         selectedCount > 0 ? `Cancel (${selectedCount})` : "Cancel"
       ) : (
@@ -3351,6 +3368,7 @@ export function AccountRail({
                     layout="inline"
                     stickyTop={fillPicking ? RAIL_ROW_H + RAIL_SCROLL_PAD : underAgencyTop}
                     searchGlyph={effective.railSearchGlyph}
+                    manageGlyph={effective.railManageGlyph}
                     /*
                       Only where there is no agency ROW to carry it.
 
@@ -3419,6 +3437,7 @@ export function AccountRail({
                         stickyTop={0}
                         ctaShape={effective.railToolsCta}
                         searchGlyph={effective.railSearchGlyph}
+                        manageGlyph={effective.railManageGlyph}
                         onCreate={createInTools ? () => {} : null}
                         edge={effective.railToolsEdge}
                         collapsedSearch={effective.railCollapsedSearch}

@@ -107,6 +107,8 @@ import {
   AGENCY_BAR_DISMISSALS,
   RAIL_TOOLS_CTAS,
   CREATE_ACCOUNT_SPOTS,
+  RAIL_MANAGE_GLYPHS,
+  RAIL_MANAGE_GLYPH_LABELS,
   CREATE_ACCOUNT_SPOT_LABELS,
   RAIL_SEARCH_GLYPHS,
   RAIL_SEARCH_GLYPH_LABELS,
@@ -391,6 +393,7 @@ import {
   type AgencyBarDismissal,
   type RailToolsCta,
   type CreateAccountSpot,
+  type RailManageGlyph,
   type RailSearchGlyph,
   type RailHoverZone,
   type ManageAgencyRow,
@@ -744,6 +747,8 @@ function NavStructureSection({
     setAgencyBarDismissal,
     setRailToolsCta,
     setCreateAccountSpot,
+    setRailManageGlyph,
+    railManageGlyph,
     createAccountSpot,
     setRailSearchGlyph,
     railSearchGlyph,
@@ -1376,6 +1381,30 @@ function NavStructureSection({
             Whichever it is, it stands down while a selection is running:
             manage has a Cancel of its own and the two undo different
             errands.
+          </Note>
+
+          <Segmented
+            label="The manage glyph is"
+            keywords="manage edit icon glyph sliders gear settings pencil checks list rail tools button"
+            options={RAIL_MANAGE_GLYPHS}
+            value={railManageGlyph}
+            onChange={(v: RailManageGlyph) => setRailManageGlyph(v)}
+            format={(v) => RAIL_MANAGE_GLYPH_LABELS[v]}
+            disabled={
+              railToolsCta !== "icon" ||
+              (railToolSpot !== "underAgency" && railToolSpot !== "agencyBar")
+            }
+          />
+          <Note>
+            {railToolsCta !== "icon"
+              ? "Waiting on the control above \u2014 there is no glyph to choose while the button carries its word."
+              : railManageGlyph === "gear"
+                ? "A gear. The most universally read of the four, and universally read as CONFIGURATION \u2014 which this mode is not, quite: it renames, reorders and acts in bulk."
+                : railManageGlyph === "pencil"
+                  ? "A pencil. Names the button\u2019s own word, so it is the only one that still makes sense beside the worded variant \u2014 and the one that says least about the bulk half of the mode."
+                  : railManageGlyph === "checks"
+                    ? "A list with ticks. Names what the mode actually puts on screen \u2014 checkboxes down the column \u2014 rather than an abstraction of it, at the cost of saying nothing about renaming or reordering."
+                    : "Sliders. \u201cAdjust this list\u201d: the most neutral of the four, and the prototype panel\u2019s own glyph for the same idea."}
           </Note>
 
           <Segmented

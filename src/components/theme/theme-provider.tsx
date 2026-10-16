@@ -125,6 +125,7 @@ import type {
   RailToolsCta,
   RailSearchGlyph,
   CreateAccountSpot,
+  RailManageGlyph,
   RailToolsEdge,
   RailTileColour,
   ActiveAgencySpot,
@@ -296,6 +297,7 @@ interface ThemeContextValue extends ThemeState {
   setRailToolsCta: (v: RailToolsCta) => void;
   setRailSearchGlyph: (v: RailSearchGlyph) => void;
   setCreateAccountSpot: (v: CreateAccountSpot) => void;
+  setRailManageGlyph: (v: RailManageGlyph) => void;
   setRailHoverZone: (v: RailHoverZone) => void;
   setRailCollapsedSearch: (on: boolean) => void;
   setRailToolsLayout: (v: RailToolsLayout) => void;
@@ -728,6 +730,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, railArrangement })),
       setManageAgencyRow: (manageAgencyRow) =>
         setState((s) => ({ ...s, manageAgencyRow })),
+      setRailManageGlyph: (railManageGlyph) =>
+        setState((s) => ({ ...s, railManageGlyph })),
       setCreateAccountSpot: (createAccountSpot) =>
         setState((s) => ({ ...s, createAccountSpot })),
       setRailSearchGlyph: (railSearchGlyph) =>
