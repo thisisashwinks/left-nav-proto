@@ -664,8 +664,8 @@ function RailTools({
         type="search"
         value={query}
         onChange={(e) => onQuery(e.target.value)}
-        placeholder="Find an account"
-        aria-label="Find an account"
+        placeholder="Find or create an account"
+        aria-label="Find or create an account"
         className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none [&::-webkit-search-cancel-button]:hidden"
       />
       {/*
@@ -815,10 +815,10 @@ function RailTools({
       */
       <RailRule align={ruleAlign ?? "slot"} nudge={ruleNudge ?? 0} />
     ) : (
-      <RailTooltip label="Find an account">
+      <RailTooltip label="Find or create an account">
         <button
           type="button"
-          aria-label="Find an account"
+          aria-label="Find or create an account"
           className="motion-tap mx-auto flex size-[32px] shrink-0 items-center justify-center rounded-[8px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
         >
           <ShutGlyph size={16} aria-hidden="true" />
@@ -3238,7 +3238,7 @@ export function AccountRail({
                     value={fillQuery}
                     autoFocus
                     onChange={(e) => setFillQuery(e.target.value)}
-                    placeholder="Find an account"
+                    placeholder="Find or create an account"
                     className="min-w-0 flex-1 bg-transparent text-[12.5px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none"
                   />
                 </label>
@@ -4879,10 +4879,10 @@ function RailRow({
 
   const searchControl =
     onSearch && expanded ? (
-      <RailTooltip label="Find an account">
+      <RailTooltip label="Find or create an account">
       <button
         type="button"
-        aria-label="Find an account"
+        aria-label="Find or create an account"
         onClick={onSearch}
         className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[8px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-90 motion-press"
       >

@@ -297,8 +297,8 @@ export function RailDirectory({
               different things. The field searches the directory; it always
               did.
             */
-            placeholder="Find an account"
-            aria-label="Find an account"
+            placeholder="Find or create a sub-account"
+            aria-label="Find or create a sub-account"
             className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none"
           />
         </div>

@@ -417,7 +417,7 @@ export function AccountSwitcher({
             value={s.query}
             onChange={(e) => s.setQuery(e.target.value)}
             onKeyDown={s.onKeyDown}
-            placeholder="Find an account"
+            placeholder="Find or create a sub-account"
             aria-label="Search for a sub-account"
             className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none"
           />
