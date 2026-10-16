@@ -1737,7 +1737,16 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         const name = resolveGroups(state).some((g) => g.id === id)
           ? labelForGroup(state, id)
           : labelForProduct(state, id);
-        commit(`${hiding ? "Hid" : "Showed"} ${name}`, (s) =>
+        /*
+          "Marketing hidden", not "Hid Marketing".
+ 
+          The subject is the row, and the row's name is the thing the reader
+          is looking for in a toast that appears for three seconds next to an
+          Undo. Leading with the verb puts a past-tense irregular first and
+          the name second — and "Hid" in particular reads as a typo for a
+          beat. Ashwin, Oct 16.
+        */
+        commit(`${name} ${hiding ? "hidden" : "shown"}`, (s) =>
           withRowHidden(s, id, hiding),
         );
       },
@@ -1745,7 +1754,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       setGroupRowsHidden: (groupId, hidden) => {
         const name = labelForGroup(state, groupId);
         commit(
-          hidden ? `Hid everything in ${name}` : `Showed everything in ${name}`,
+          `Everything in ${name} ${hidden ? "hidden" : "shown"}`,
           (s) => {
             const ids =
               resolveGroups(s).find((g) => g.id === groupId)?.productIds ?? [];
@@ -1760,8 +1769,8 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       toggleBlock: (block) =>
         commit(
           isBlockHidden(state, block)
-            ? `Showed ${NAV_BLOCK_LABELS[block]}`
-            : `Hid ${NAV_BLOCK_LABELS[block]}`,
+            ? `${NAV_BLOCK_LABELS[block]} shown`
+            : `${NAV_BLOCK_LABELS[block]} hidden`,
           (s) => ({
             ...s,
             hiddenBlocks: s.hiddenBlocks.includes(block)

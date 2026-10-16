@@ -324,7 +324,19 @@ export function BulkModal({
             ? 640
             : step === "done" || step === "applying"
               ? 520
-              : 600;
+              : /*
+                  520, not 600 — the two layout steps hold a list now.
+
+                  600 was the width of the TABLE: three columns, a header
+                  row and a "current layout" value that needed room to
+                  truncate. Picking a layout is a column of names and a
+                  count, and reviewing one is a column of names — neither
+                  reaches halfway across 600, so the extra 80px was blank
+                  gutter either side of a narrow list. The same 520 the
+                  receipt already uses, so the modal does not change width
+                  on the way to it. Ashwin, Oct 16.
+                */
+                520;
 
   /** The dry run, when it is switched on and there is more than one account. */
   const previewing = guided && settings.previewStep && accounts.length > 1;

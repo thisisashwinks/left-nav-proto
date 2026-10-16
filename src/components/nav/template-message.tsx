@@ -512,15 +512,24 @@ export function AffectedAccountsList({ ids }: { ids: readonly string[] }) {
       {shown.map((a) => (
         <div
           key={a.id}
-          className="flex items-center gap-[8px] px-[9px] py-[6px] not-last:shadow-[inset_0_-1px_0_0_var(--nav-divider)]"
+          className="flex items-center gap-[9px] px-[9px] py-[7px] not-last:shadow-[inset_0_-1px_0_0_var(--nav-divider)]"
         >
+          {/*
+            16 and 14 — a list to read, not a table to scan.
+
+            It inherited the table's sizes (15px mark, 12px name), which
+            were chosen to fit three columns in a row. With one column the
+            constraint is gone and the names were simply small for a
+            dialog you are meant to check carefully before pressing the
+            most destructive button in the feature. Ashwin, Oct 16.
+          */}
           <AccountLogo
             logo={a.logo}
             {...(a.logoSrc ? { src: a.logoSrc } : {})}
-            size={15}
+            size={16}
             radius={999}
           />
-          <span className="min-w-0 flex-1 truncate text-[12px] leading-[16px] font-medium text-nav-fg">
+          <span className="min-w-0 flex-1 truncate text-[14px] leading-[20px] font-medium text-nav-fg">
             {a.name}
           </span>
         </div>
@@ -533,7 +542,7 @@ export function AffectedAccountsList({ ids }: { ids: readonly string[] }) {
           is the last line of the thing it is counting — which is what it
           is. Not a control: there is nothing to expand to.
         */
-        <div className="px-[9px] py-[6px] text-[12px] leading-[16px] text-nav-fg-subtle shadow-[inset_0_1px_0_0_var(--nav-divider)]">
+        <div className="px-[9px] py-[7px] text-[14px] leading-[20px] text-nav-fg-subtle shadow-[inset_0_1px_0_0_var(--nav-divider)]">
           <span className="font-medium text-nav-fg-muted">+{rest} more</span>{" "}
           {rest === 1 ? "sub-account" : "sub-accounts"}
         </div>

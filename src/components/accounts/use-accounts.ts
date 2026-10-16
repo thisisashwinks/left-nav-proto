@@ -92,11 +92,18 @@ export interface AccountsSession {
   /**
    * Adds a brand-new sub-account, made by the Create sub-account flow.
    *
-   * It goes to the top of the rail — the agency just made it, so it is the
-   * next thing they will open — and to the end of the directory. Nothing
-   * switches: the agency lands on its settings page first.
+   * It joins the rail as the LAST pinned tile — the end of the run the agency
+   * curated, so nothing they arranged moves — and the end of the directory.
+   * Nothing switches: the agency lands on its settings page first.
    */
   createAccount: (account: Account) => void;
+  /**
+   * The rail tile a coach mark is pointing at, if any. The rail draws it in
+   * full colour and with its real mark, whatever the tile-colour and avatar
+   * axes say, so the thing being pointed at is the thing you will recognise.
+   */
+  spotlightId: string | null;
+  setSpotlightId: (id: string | null) => void;
   /**
    * A just-made account being opened for the first time.
    *
@@ -361,6 +368,7 @@ export function useAccounts({
   );
 
   const finishFirstOpen = React.useCallback(() => setFirstOpen(null), []);
+  const [spotlightId, setSpotlightId] = React.useState<string | null>(null);
 
   // Scope moves, the current account does not: agency scope is a place you
   // look from, and leaving it puts you back exactly where you were.
@@ -390,7 +398,7 @@ export function useAccounts({
     setCreated((list) =>
       list.some((a) => a.id === account.id) ? list : [...list, account],
     );
-    setRailIds((ids) => [account.id, ...ids.filter((i) => i !== account.id)]);
+    setRailIds((ids) => [...ids.filter((i) => i !== account.id), account.id]);
   }, []);
 
   const isPinned = React.useCallback(
@@ -443,5 +451,7 @@ export function useAccounts({
     createAccount,
     firstOpen,
     finishFirstOpen,
+    spotlightId,
+    setSpotlightId,
   };
 }

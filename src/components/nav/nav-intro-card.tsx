@@ -212,7 +212,7 @@ export function NavIntroCard({
             New
           </span>
           <span className="text-[13px] leading-[17px] font-semibold text-nav-fg">
-            This nav is yours to arrange
+            Personalize this layout
           </span>
         </span>
         <button
@@ -226,8 +226,8 @@ export function NavIntroCard({
       </div>
 
       <p className="mt-[5px] text-[12px] leading-[16px] text-nav-fg-muted">
-        Rename anything, group it your way, hide what you never use — then save
-        the arrangement as a template for your other accounts.
+        Rename, reorder and hide anything in this sidebar. Save this as your
+        own layout to reuse in other sub-accounts.
       </p>
 
       <div className="mt-[10px] flex items-center gap-[6px]">

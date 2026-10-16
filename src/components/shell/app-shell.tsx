@@ -141,8 +141,11 @@ import { UpgradeToast } from "@/components/nav/upgrade-toast";
 import { BulkToast } from "@/components/bulk/bulk-toast";
 import { PINNED_VISIBLE } from "@/components/nav/pinned-morph";
 import {
+  CreateDialogs,
   SubAccountsArea,
+  type CreateDialog,
   type CreateFlow,
+  type FlowStart,
 } from "@/components/create-account/subaccounts-area";
 import { PreparingScreen } from "@/components/create-account/preparing-screen";
 import { LaunchpadPage } from "@/components/launchpad/launchpad-page";
@@ -878,6 +881,8 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
   const accounts = useAccounts({ scopeToMember: layout.role === "user" });
   /** Which step of Create sub-account the Accounts page is on, if any. */
   const [createFlow, setCreateFlow] = React.useState<CreateFlow | null>(null);
+  /** Which create dialog is open, over whatever page is showing. */
+  const [createDialog, setCreateDialog] = React.useState<CreateDialog | null>(null);
 
   const agencyScope = accounts.scope === "agency";
   // What the nav header shows: the agency identity at agency scope, the
@@ -2784,6 +2789,24 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
   }, [accounts.scope]);
 
   /*
+   * A create dialog's Continue: the flow's steps are an agency page, so a
+   * start chosen from inside a sub-account goes up to the agency first and
+   * lands on Accounts when the scope arrives — `pendingPlace` again.
+   */
+  const startCreateFlow = (start: FlowStart) => {
+    setCreateDialog(null);
+    setManageAccountId(null);
+    setCreateFlow({ step: "lookup", start });
+    intent.close();
+    if (accounts.scope === "agency" && !accounts.pending) {
+      setSelectedId("agency-accounts");
+      return;
+    }
+    pendingPlace.current = "agency-accounts";
+    accounts.switchToAgency();
+  };
+
+  /*
    * Where the workspace is, handed to the nav as context.
    *
    * `canvasPage` is already the answer — it is what fills the canvas and what
@@ -3499,6 +3522,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
           />
           <AccountRail
             session={accounts}
+            onCreateAccount={() => setCreateDialog("start")}
             theme={navTheme}
             settleHover={settleHover}
             // A member's rail loses the agency plate and the directory door —
@@ -4327,6 +4351,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
                   onManage={setManageAccountId}
                   flow={createFlow}
                   onFlow={setCreateFlow}
+                  onOpenDialog={setCreateDialog}
                   onSwitch={accounts.switchTo}
                 />
               ) : selectedId === "agency-app-mobile" ? (
@@ -4856,6 +4881,18 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
       <UpgradeToast canvasLeft={leftOffset} />
       {/* The bulk run's receipt, on the same canvas band. See BulkToast. */}
       <BulkToast canvasLeft={leftOffset} />
+
+      {/*
+        Create sub-account, from wherever it was asked for — the rail's
+        create control or the Accounts page. Choosing a start takes the flow
+        to Sub-accounts ▸ Accounts, at agency scope, where its steps live.
+      */}
+      <CreateDialogs
+        open={createDialog}
+        onOpen={setCreateDialog}
+        onClose={() => setCreateDialog(null)}
+        onStart={startCreateFlow}
+      />
 
       {/* A new account's first open. See `firstOpen` in use-accounts. */}
       {accounts.firstOpen ? (

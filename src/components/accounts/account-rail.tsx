@@ -167,6 +167,8 @@ export function initialsFor(name: string): string {
 const SQUIRCLE_RATIO = 8 / 32;
 
 interface AccountRailProps {
+  /** Opens the Create sub-account flow — every create control in the rail. */
+  onCreateAccount?: () => void;
   session: AccountsSession;
   /**
    * The rail belongs to a member of these accounts, not to the agency above
@@ -1170,6 +1172,13 @@ function RailGroupHeading({
   );
 }
 
+/**
+ * The tile a coach mark is pointing at. Read by every RailRow so the tile
+ * wears its real mark in full colour while it is being introduced — a grey
+ * monogram is not something anyone recognises as the account they just made.
+ */
+const SpotlightContext = React.createContext<string | null>(null);
+
 export function AccountRail({
   session,
   theme,
@@ -1183,7 +1192,10 @@ export function AccountRail({
   locked = false,
   settleHover = 0,
   membersOnly = false,
+  onCreateAccount,
 }: AccountRailProps) {
+  // Every create control in the rail opens the same flow.
+  const createAccount = onCreateAccount ?? (() => {});
   /*
    * Where the session is GOING, not where it has got to.
    *
@@ -2392,7 +2404,7 @@ export function AccountRail({
   const raised = expanded || switcherMounted;
 
   return (
-    <>
+    <SpotlightContext.Provider value={session.spotlightId}>
       {/* Click-away while morphed — the directory is a modal choice. */}
       {switcherMounted ? (
         <button
@@ -3671,7 +3683,7 @@ export function AccountRail({
                       option silently doing nothing.
                     */
                     onCreate={
-                      createInTools && !agencyJoinsRun ? () => {} : null
+                      createInTools && !agencyJoinsRun ? createAccount : null
                     }
                     edge={effective.railToolsEdge}
                     collapsedSearch={effective.railCollapsedSearch}
@@ -3730,7 +3742,7 @@ export function AccountRail({
                         ctaShape={effective.railToolsCta}
                         searchGlyph={effective.railSearchGlyph}
                         manageGlyph={effective.railManageGlyph}
-                        onCreate={createInTools ? () => {} : null}
+                        onCreate={createInTools ? createAccount : null}
                         edge={effective.railToolsEdge}
                         collapsedSearch={effective.railCollapsedSearch}
                         title={
@@ -3892,7 +3904,7 @@ export function AccountRail({
                     {...(underAgency &&
                     createInTools &&
                     account.id === AGENCY_ID
-                      ? { onCreate: () => {} }
+                      ? { onCreate: createAccount }
                       : {})}
                   />
                   </div>
@@ -4090,6 +4102,7 @@ export function AccountRail({
                   <button
                     type="button"
                     aria-label={createLabel}
+                    onClick={createAccount}
                     onPointerEnter={() => setHover(true)}
                     style={{
                       paddingBlock: (RAIL_ROW_H - 24) / 2,
@@ -4226,7 +4239,7 @@ export function AccountRail({
       {fillHistory ? (
         <BulkHistoryModal onClose={() => setFillHistory(false)} />
       ) : null}
-    </>
+    </SpotlightContext.Provider>
   );
 }
 
@@ -4374,7 +4387,8 @@ function RailRow({
   const pillTiles = effective.railTileShape === "pill";
   /* See RAIL_EXPANDED_SHAPES, and `railCorner` for why it is shared. */
   const railShape = effective.railExpandedShape;
-  const { railAvatars } = effective;
+  const spotlit = React.useContext(SpotlightContext) === account.id;
+  const railAvatars = spotlit ? "marks" : effective.railAvatars;
   /*
    * The active account's mark grows; every other tile stays where it was.
    *
@@ -4971,6 +4985,7 @@ function RailRow({
               effective.railTileColour === "active-only" &&
                 !selected &&
                 !listShape &&
+                !spotlit &&
                 "grayscale group-hover/rail-row:grayscale-0",
             )}
           >

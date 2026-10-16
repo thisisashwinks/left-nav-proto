@@ -39,6 +39,62 @@ export interface FlowStart {
   restaurant: boolean;
 }
 
+export type CreateDialog = "start" | "snapshots";
+
+/** What the first screen picked, as the lookup that follows needs it. */
+export function startFromPick(pick: StartPick): FlowStart {
+  if (pick.kind === "industry") return { kind: "industry", label: "Restaurant", restaurant: true };
+  const quick = QUICK_SNAPSHOTS.find((s) => s.id === pick.id);
+  return { kind: "snapshot", label: quick?.label ?? "Blank snapshot", restaurant: false };
+}
+
+/**
+ * The two create dialogs, owned by the shell rather than by the Accounts page.
+ *
+ * Create sub-account is reachable from the rail on every page, so the dialogs
+ * have to open over whatever page you are on. Only once a start is chosen does
+ * the flow move to Sub-accounts ▸ Accounts — that is where its steps live.
+ */
+export function CreateDialogs({
+  open,
+  onOpen,
+  onClose,
+  onStart,
+}: {
+  open: CreateDialog | null;
+  onOpen: (dialog: CreateDialog) => void;
+  onClose: () => void;
+  onStart: (start: FlowStart) => void;
+}) {
+  // Held across both dialogs, so Back from the library keeps the choice.
+  const [accountKind, setAccountKind] = React.useState<AccountKind>("saas");
+  if (open === "start") {
+    return (
+      <StartDialog
+        accountKind={accountKind}
+        onAccountKind={setAccountKind}
+        onClose={onClose}
+        onContinue={(pick) => onStart(startFromPick(pick))}
+        onBrowseSnapshots={() => onOpen("snapshots")}
+      />
+    );
+  }
+  if (open === "snapshots") {
+    return (
+      <SnapshotDialog
+        accountKind={accountKind}
+        onAccountKind={setAccountKind}
+        onBack={() => onOpen("start")}
+        onClose={onClose}
+        onContinue={(t) =>
+          onStart({ kind: "snapshot", label: t.label, restaurant: t.industry === "restaurant" })
+        }
+      />
+    );
+  }
+  return null;
+}
+
 export type CreateFlow =
   | { step: "lookup"; start: FlowStart }
   | { step: "form"; start: FlowStart; place: BusinessPlace | null };
@@ -49,6 +105,7 @@ export function SubAccountsArea({
   onManage,
   flow,
   onFlow,
+  onOpenDialog,
   onSwitch,
 }: {
   session: AccountsSession;
@@ -56,25 +113,16 @@ export function SubAccountsArea({
   onManage: (accountId: string | null) => void;
   flow: CreateFlow | null;
   onFlow: (flow: CreateFlow | null) => void;
+  /** Opens one of the shell-owned create dialogs. See `CreateDialogs`. */
+  onOpenDialog: (dialog: CreateDialog) => void;
   /** Opens a sub-account from its settings page. */
   onSwitch: (accountId: string) => void;
 }) {
-  const [dialog, setDialog] = React.useState<"start" | "snapshots" | null>(null);
-  const [accountKind, setAccountKind] = React.useState<AccountKind>("saas");
   /** The account whose "you can open it from here" tour is running. */
   const [tourFor, setTourFor] = React.useState<string | null>(null);
-
-  const startFrom = (pick: StartPick) => {
-    setDialog(null);
-    if (pick.kind === "industry") {
-      onFlow({ step: "lookup", start: { kind: "industry", label: "Restaurant", restaurant: true } });
-      return;
-    }
-    const quick = QUICK_SNAPSHOTS.find((s) => s.id === pick.id);
-    onFlow({
-      step: "lookup",
-      start: { kind: "snapshot", label: quick?.label ?? "Blank snapshot", restaurant: false },
-    });
+  const endTour = () => {
+    setTourFor(null);
+    session.setSpotlightId(null);
   };
 
   const create = (start: FlowStart, place: BusinessPlace | null, v: NewAccountValues) => {
@@ -115,6 +163,7 @@ export function SubAccountsArea({
     onFlow(null);
     onManage(id);
     setTourFor(id);
+    session.setSpotlightId(id);
   };
 
   const tourAccount =
@@ -154,7 +203,7 @@ export function SubAccountsArea({
         account={manageAccount}
         onBack={() => onManage(null)}
         onSwitch={() => {
-          setTourFor(null);
+          endTour();
           onSwitch(manageAccount.id);
         }}
       />
@@ -166,7 +215,7 @@ export function SubAccountsArea({
         title={flow.start.kind === "industry" ? `${flow.start.label} Industry` : "Snapshot"}
         onBack={() => {
           onFlow(null);
-          setDialog(flow.start.kind === "industry" ? "start" : "snapshots");
+          onOpenDialog(flow.start.kind === "industry" ? "start" : "snapshots");
         }}
         onPick={(place) => onFlow({ step: "form", start: flow.start, place })}
         onAddManually={() => onFlow({ step: "form", start: flow.start, place: null })}
@@ -189,7 +238,7 @@ export function SubAccountsArea({
       <AccountsIndexPage
         session={session}
         onManage={(id) => onManage(id)}
-        onCreate={() => setDialog("start")}
+        onCreate={() => onOpenDialog("start")}
       />
     );
   }
@@ -197,36 +246,8 @@ export function SubAccountsArea({
   return (
     <>
       {page}
-      {dialog === "start" ? (
-        <StartDialog
-          accountKind={accountKind}
-          onAccountKind={setAccountKind}
-          onClose={() => setDialog(null)}
-          onContinue={startFrom}
-          onBrowseSnapshots={() => setDialog("snapshots")}
-        />
-      ) : null}
-      {dialog === "snapshots" ? (
-        <SnapshotDialog
-          accountKind={accountKind}
-          onAccountKind={setAccountKind}
-          onBack={() => setDialog("start")}
-          onClose={() => setDialog(null)}
-          onContinue={(t) => {
-            setDialog(null);
-            onFlow({
-              step: "lookup",
-              start: {
-                kind: "snapshot",
-                label: t.label,
-                restaurant: t.industry === "restaurant",
-              },
-            });
-          }}
-        />
-      ) : null}
       {tourAccount && tourSteps.length > 0 ? (
-        <ReadyTour steps={tourSteps} onClose={() => setTourFor(null)} />
+        <ReadyTour steps={tourSteps} onClose={endTour} />
       ) : null}
     </>
   );
