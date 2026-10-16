@@ -89,6 +89,114 @@ const railUnder = (option) => ({
   },
 });
 
+/**
+ * The Launchpad card's two halves, set to one of the four combinations.
+ *
+ * Quick actions has a panel switch; the Launchpad half does not, so it is
+ * hidden the way a person would — Edit, the eye menu, then Save layout. The
+ * fresh browser each run starts on Launchpad on, Quick actions off.
+ */
+const setCardHalves = async (p, { settle }, { launchpad, quickActions }) => {
+  if (quickActions) {
+    await p.evaluate(() => {
+      document.querySelector('[aria-label="Open prototype controls"]')?.click();
+    });
+    await settle(400);
+    const ok = await p.evaluate(() => {
+      const sw = [...document.querySelectorAll("button[role=switch]")].find(
+        (b) => b.textContent?.trim() === "Quick actions",
+      );
+      if (!sw) return false;
+      if (sw.getAttribute("aria-checked") !== "true") sw.click();
+      return true;
+    });
+    if (!ok) throw new Error('"Quick actions" switch not found');
+    await settle(300);
+    await p.evaluate(() => {
+      document.querySelector('[aria-label="Close prototype controls"]')?.click();
+    });
+    await settle(400);
+  }
+  if (!launchpad) {
+    await p.evaluate(() => document.querySelector('[aria-label="Edit navigation"]')?.click());
+    await settle(500);
+    await p.evaluate(() => document.querySelector('[aria-label="Show or hide parts of the nav"]')?.click());
+    await settle(400);
+    const ok = await p.evaluate(() => {
+      const sw = [...document.querySelectorAll("[role=dialog] button[role=switch]")].find(
+        (b) => b.textContent?.trim() === "Launchpad",
+      );
+      if (!sw) return false;
+      if (sw.getAttribute("aria-checked") === "true") sw.click();
+      return true;
+    });
+    if (!ok) throw new Error('"Launchpad" switch not found in the eye menu');
+    await settle(300);
+    await p.keyboard.press("Escape");
+    await settle(300);
+    // Done becomes "Save layout" once something changed; it opens a naming dialog.
+    await p.evaluate(() => {
+      [...document.querySelectorAll("button")]
+        .find((b) => b.getBoundingClientRect().left < 340 && /^(Done|Save layout)$/.test(b.textContent?.trim() ?? ""))
+        ?.click();
+    });
+    await settle(500);
+    await p.evaluate(() => {
+      [...document.querySelectorAll("[role=dialog] button")]
+        .find((b) => b.textContent?.trim() === "Save layout")
+        ?.click();
+    });
+    await settle(600);
+  }
+  // A setup that silently missed would record the wrong case under the right name.
+  const got = await p.evaluate(() => {
+    const card = document.querySelector("[data-launchpad-card]");
+    return {
+      launchpad: !!document.querySelector('[aria-label="Open Launchpad"]'),
+      quickActions: !!card && /Quick actions/i.test(card.textContent ?? ""),
+      editing: [...document.querySelectorAll("button")].some((b) => b.textContent?.trim() === "Discard"),
+    };
+  });
+  if (got.launchpad !== launchpad || got.quickActions !== quickActions || got.editing) {
+    throw new Error(`card halves: wanted ${JSON.stringify({ launchpad, quickActions })}, got ${JSON.stringify(got)}`);
+  }
+};
+
+/**
+ * L1 collapse and expand under each card combination, Oct 16.
+ *
+ * The strip and the expanded face carry different rows at the top for each
+ * one, so the hand-over between them is a different picture in all four.
+ */
+const CARD_CASES = {
+  "lp-only": { launchpad: true, quickActions: false },
+  "qa-only": { launchpad: false, quickActions: true },
+  both: { launchpad: true, quickActions: true },
+  none: { launchpad: false, quickActions: false },
+};
+
+const cardCases = () =>
+  Object.fromEntries(
+    Object.entries(CARD_CASES).flatMap(([name, halves]) =>
+      [["", L1], ["__full", FULL]].flatMap(([suffix, clip]) => [
+        [`l1-collapse__${name}${suffix}`, {
+          clip,
+          setup: async (p, h) => { await setCardHalves(p, h, halves); },
+          go: (p, { hit }) => hit('[aria-label="Collapse navigation"]'),
+        }],
+        [`l1-expand__${name}${suffix}`, {
+          clip,
+          setup: async (p, h) => {
+            await setCardHalves(p, h, halves);
+            await h.hit('[aria-label="Collapse navigation"]');
+            await h.settle();
+          },
+          go: (p, { hit }) => hit('[aria-label="Expand navigation"]'),
+        }],
+      ]),
+    ),
+  );
+
 export const GESTURES = {
   // ---- L1 column ----
   'l1-collapse': { clip: L1, go: (p, { hit }) => hit('[aria-label="Collapse navigation"]') },
@@ -108,6 +216,8 @@ export const GESTURES = {
   'l1-expand__full': { clip: FULL,
     setup: async (p, { hit, settle }) => { await hit('[aria-label="Collapse navigation"]'); await settle(); },
     go: (p, { hit }) => hit('[aria-label="Expand navigation"]') },
+
+  ...cardCases(),
 
   // ---- L2 flyout ----
   'l2-open': { clip: L2, go: (p, { hitText }) => hitText('CRM') },

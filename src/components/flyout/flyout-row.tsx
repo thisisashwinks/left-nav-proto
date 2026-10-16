@@ -285,24 +285,30 @@ const VARIANT = {
     pinReserve: PLACE_PIN_RESERVE,
     pinTop: "top-1/2 -translate-y-1/2",
   },
-  action: {
-    /*
-      Its own treatment, the shared height.
+  /*
+    The same row as every other list in the panel — Ashwin, Oct 16.
 
-      Quick Actions keeps a semibold title and a wider icon box because its
-      rows are commands rather than destinations — but that argument is about
-      what a row SAYS, not how tall it is, and a command list three pixels
-      shorter than every other list in the panel just looked misaligned.
-    */
-    row:
-      "gap-[var(--t-fly-gap,10px)] px-[8px] py-[var(--t-fly-py,9px)] items-center " +
-      "min-h-[calc(var(--t-nav-py,9px)*2+20px)]",
-    iconBox: "w-[24px] h-[22px]",
+    Quick Actions used to keep its own: a semibold title, a 24×22 icon box,
+    its own padding and its own pin reserve, on the argument that its rows
+    are commands rather than destinations and should not read as somewhere
+    you can go. Seen beside the others that argument does not survive. The
+    heavier title and the wider box made the labels sit larger and the
+    glyphs further in, so the panel read as a different component rather
+    than as the same panel with different rows — and the thing that actually
+    says "this is a command" is the verb at the front of every label, which
+    was doing the work already.
+
+    What stays its own is BEHAVIOUR, which is where the difference really
+    lives: no pin, no kebab, no drag, no L3. None of that is in this table.
+  */
+  action: {
+    row: PLACE_ROW,
+    iconBox: "w-[var(--t-fly-icon,16px)] h-[var(--t-fly-icon,16px)]",
     iconSize: 20,
     text: "gap-[2px]",
-    title: "font-semibold whitespace-nowrap",
+    title: PLACE_TITLE,
     desc: "text-[length:var(--t-fly-desc,12.5px)] leading-[17px] w-full",
-    pinReserve: "pr-[calc(8px+22px+var(--t-fly-gap,10px))]",
+    pinReserve: PLACE_PIN_RESERVE,
     pinTop: "top-1/2 -translate-y-1/2",
   },
 } as const satisfies Record<FlyoutItemVariant, unknown>;
@@ -562,10 +568,10 @@ export function FlyoutRow({
 
   const rowClass = cn(
     "motion-row-in group group/row relative flex w-full shrink-0 text-left",
-    // The nav's radius on a place row, its own on an action row.
-    variant === "action"
-      ? "rounded-[9px]"
-      : "rounded-[var(--t-nav-radius,7px)]",
+    // The nav's radius, on every row in the panel — an action row used to
+    // take its own 9px, which is the last thing that made it look like a
+    // different component. See the note on the `action` variant.
+    "rounded-[var(--t-nav-radius,7px)]",
     "motion-tap",
     // v.row carries the per-variant gap, padding and alignment. Losing it
     // is what collapsed every flyout row's breathing room.

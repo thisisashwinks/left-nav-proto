@@ -5222,16 +5222,15 @@ function RailRow({
               /*
                 Squared beats both tile shapes, because that is the point.
 
-                A quarter of the mark's width — half the squircle's corner,
-                so it still reads as a tile rather than as a crop, and
-                unmistakable against the round tiles it sits above. Derived
-                from `size` rather than fixed, so it holds its proportion
-                when the strip magnifies a mark or the active row draws its
-                own larger. See AGENCY_ROW_MARKS.
+                A flat 4px, not a ratio. It was `size * 4/32`, which came to
+                3px at the mark's 24 and would have drifted again the next
+                time the size moved — a corner is a corner, and this one is
+                read against the round tiles beside it rather than against
+                its own width. Ashwin, Oct 16.
               */
               radius={
                 squareMark
-                  ? Math.round(size * (4 / 32))
+                  ? AGENCY_SQUARE_RADIUS
                   : squircle
                     ? Math.round(size * SQUIRCLE_RATIO)
                     : 999
@@ -5406,6 +5405,9 @@ const RAIL_ROW_H = 36;
  * parks this far down unless it says otherwise. See the bar's `style`.
  */
 const RAIL_SCROLL_PAD = 2;
+
+/** The squared agency mark's corner. See AGENCY_ROW_MARKS — `square`. */
+const AGENCY_SQUARE_RADIUS = 4;
 
 /**
  * How far the ACTIVE mark may grow under the dock, in px.
