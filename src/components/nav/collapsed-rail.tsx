@@ -349,6 +349,28 @@ export function CollapsedRail({
   const cardQuickActions =
     !isBlockHidden(layout, "quickActions") && launchpadAllowed && !agencyScope;
   /*
+   * The Launchpad half of the card, read the way the expanded face reads it.
+   *
+   * This was `launchpadAllowed` alone, which is only the first of the two
+   * gates: the plan says whether the card can exist, and the ACCOUNT says
+   * whether it is switched on (the Show / hide menu writes `hiddenBlocks`).
+   * Missing the second meant turning the card off left a Rocket glyph standing
+   * in the rail for a card that was no longer anywhere — the one thing this
+   * glyph exists not to do, since it is here to say "the expanded face has a
+   * row here", not to be a door of its own. Ashwin, Oct 16.
+   */
+  const cardLaunchpad =
+    launchpadAllowed && !isBlockHidden(layout, "launchpad") && !agencyScope;
+  /*
+   * Quick Actions, as the rail draws it beside the Rocket.
+   *
+   * Taken from `railFixed` rather than authored again here, so the glyph, the
+   * label and the flyout it opens are the same ones the standalone row uses on
+   * accounts with no card. See the head block.
+   */
+  const quickActionsGlyph =
+    navConfig.railFixed.find((i) => i.id === "quick-actions") ?? null;
+  /*
    * The rail's copy of the fixed cluster, resolved exactly as the nav resolves
    * it and trimmed by the same budget.
    *
@@ -823,7 +845,25 @@ export function CollapsedRail({
         reordered the top of the strip, and the toggle is the one control that
         must not move.
       */}
-      {launchpadAllowed ? (
+      {/*
+        The card's two halves, each drawn only when it is there. Ashwin, Oct 16.
+
+        The card is one box with two jobs — the setup guide, and the Quick
+        actions footer under it — and each is switched separately. Collapsed,
+        each gets a glyph in the same order, so the rail says which of the two
+        the expanded face is carrying instead of implying the card is all or
+        nothing. Quick Actions is a real door here (its flyout opens at 64px);
+        Launchpad is not, which is why one is a tile and the other a mark.
+
+        These slots were briefly RESERVED — drawn empty when their half was
+        off — so that flipping either switch moved nothing below them. It
+        bought the wrong thing: a 40px void under the Rocket, at the head of a
+        column where every other gap means "a rule was here", read as a
+        missing icon rather than as held space. The strip closing up is the
+        honest answer, and it is also what the expanded face does when the
+        same switch takes the card's footer away. Ashwin, Oct 16, on seeing it.
+      */}
+      {cardLaunchpad ? (
         <RailTooltip label="Launchpad">
           <span
             className="flex h-[calc(var(--t-nav-py,9px)*2+20px)] w-[40px] shrink-0 items-center justify-center rounded-[var(--t-nav-radius,7px)] text-nav-fg-subtle"
@@ -832,6 +872,9 @@ export function CollapsedRail({
           </span>
         </RailTooltip>
       ) : null}
+      {cardQuickActions && quickActionsGlyph
+        ? renderRailRow(quickActionsGlyph)
+        : null}
 
       {/*
         The accounts door, directly under the expand toggle.

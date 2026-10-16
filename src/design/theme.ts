@@ -1417,21 +1417,48 @@ export const SELECT_STRIP_LABELS: Record<SelectStrip, string> = {
  *            36px row the nav's own "Add a category or product" uses. It sits
  *            in the list's rhythm and reads as the next item waiting to be
  *            filled, which is what it is.
- *   `filled` a brand button, like "Create sub-account" on the Sub-accounts
- *            page. It reads as the panel's primary action rather than as part
- *            of the list — louder, impossible to miss, and arguably too loud
- *            for something you do once per category.
+ *   `plain`  a bare row — glyph, label, nothing else — exactly as the
+ *            vertical rail draws "Create sub-account". No outline and no
+ *            fill: the quietest of the three, and the one that trusts the
+ *            reader to find it because it sits where the list ends.
  *
- * `dashed` by default: the panel is a list, and a filled button at the foot
- * of one claims more than adding a row deserves.
+ * A filled brand button was tried and dropped (Oct 16): it read as the
+ * panel's primary action rather than as part of the list, which is more
+ * than adding a row deserves.
+ *
+ * `dashed` by default: the panel is a list, and the outline is what says
+ * "a row could go here".
  */
-export const ADD_PRODUCT_STYLES = ["dashed", "filled"] as const;
+/**
+ * Where the flyout's "Add product" sits.
+ *
+ *  list    At the end of the rows, inside the scroll region — the next
+ *          thing after the last product, which is where someone adding one
+ *          is already looking. It scrolls away with a long category.
+ *  footer  Pinned under the scroller, above the panel's own foot, with a
+ *          rule over it. Always reachable, and it spends a row of a 360px
+ *          panel on a control used once per category.
+ *
+ * It was neither: drawn after the scroller with no padding and no rule, so
+ * it ran edge to edge and read as something that had fallen out of the
+ * list. Ashwin, Oct 16.
+ */
+export const ADD_PRODUCT_SPOTS = ["list", "footer"] as const;
+
+export type AddProductSpot = (typeof ADD_PRODUCT_SPOTS)[number];
+
+export const ADD_PRODUCT_SPOT_LABELS: Record<AddProductSpot, string> = {
+  list: "After the last row",
+  footer: "Pinned to the footer",
+};
+
+export const ADD_PRODUCT_STYLES = ["dashed", "plain"] as const;
 
 export type AddProductStyle = (typeof ADD_PRODUCT_STYLES)[number];
 
 export const ADD_PRODUCT_STYLE_LABELS: Record<AddProductStyle, string> = {
   dashed: "Dashed row",
-  filled: "Filled button",
+  plain: "Bare row",
 };
 
 export const DIRECTORY_NAMES = ["all", "subs", "search"] as const;
@@ -5102,6 +5129,30 @@ export const RAIL_TILE_COLOUR_LABELS: Record<RailTileColour, string> = {
  * without reaching the 24px active one — the agency reads as larger than a
  * quiet account and not as the account you are in.
  */
+/**
+ * What marks the account you are in while the strip is SHUT.
+ *
+ *  paint  A white fill and a hairline behind the mark — the nav's own
+ *         selected row, drawn at 32px. Unmissable, and the only signal
+ *         that survives whatever the avatar axis is set to.
+ *  bare   Nothing: the mark alone. The active tile is already larger than
+ *         its neighbours and, under the colour axis, the only one in
+ *         colour — so the ring can read as a badge stuck to the avatar
+ *         rather than as "you are here", which is the same complaint the
+ *         AGENCY row already had answered for it (see `paintSelected`).
+ *         Collapsed only; open, the row is a named row in a list and the
+ *         fill is what tells it from the thirty-nine under it.
+ *
+ * Ashwin, Oct 16.
+ */
+export const RAIL_ACTIVE_CHROMES = ["paint", "bare"] as const;
+export type RailActiveChrome = (typeof RAIL_ACTIVE_CHROMES)[number];
+
+export const RAIL_ACTIVE_CHROME_LABELS: Record<RailActiveChrome, string> = {
+  paint: "Fill and hairline",
+  bare: "The mark alone",
+};
+
 export const AGENCY_ROW_MARK_SIZE_DEFAULT = 24;
 export const AGENCY_ROW_MARK_SIZE_MIN = 16;
 export const AGENCY_ROW_MARK_SIZE_MAX = 36;
@@ -5471,6 +5522,29 @@ export const RAIL_SEARCH_GLYPH_LABELS: Record<RailSearchGlyph, string> = {
   divider: "A divider",
 };
 
+/**
+ * Whether the nav's first edges line up with the canvas's top edge.
+ *
+ * Off is what shipped: the rail's divider centred in its 32px slot and the
+ * Launchpad card 4px into the scroll region, so the rule, the card and the
+ * canvas start on three different lines. Each is aligned on its own: the card
+ * to the canvas's top edge (`topAlignCard`), the divider to one of the lines
+ * in RAIL_RULE_ALIGNS. Each nudge pushes its edge back down from there, in
+ * px, for tuning by eye. Only where they paint moves, never a slot's height,
+ * so the rail and nav transitions are untouched. Ashwin, Oct 16.
+ */
+export const RAIL_RULE_ALIGNS = ["slot", "canvasTop", "cardMiddle"] as const;
+export type RailRuleAlign = (typeof RAIL_RULE_ALIGNS)[number];
+
+export const RAIL_RULE_ALIGN_LABELS: Record<RailRuleAlign, string> = {
+  slot: "Where it sits now",
+  canvasTop: "Canvas top",
+  cardMiddle: "Card middle",
+};
+
+export const TOP_ALIGN_NUDGE_MIN = 0;
+export const TOP_ALIGN_NUDGE_MAX = 12;
+
 export const RAIL_TOOLS_CTAS = ["word", "icon"] as const;
 export type RailToolsCta = (typeof RAIL_TOOLS_CTAS)[number];
 
@@ -5732,6 +5806,8 @@ export interface ThemeState {
   selectLabel: SelectLabel;
   /** How the flyout's add-product button is drawn. See ADD_PRODUCT_STYLES. */
   addProductStyle: AddProductStyle;
+  /** Where that button sits. See ADD_PRODUCT_SPOTS. */
+  addProductSpot: AddProductSpot;
   /** What the agency's directory is called. See DIRECTORY_NAMES. */
   directoryName: DirectoryName;
   /** What the below-search select strip puts on its left. See SELECT_STRIPS. */
@@ -5824,6 +5900,14 @@ export interface ThemeState {
   launchpad: boolean;
   /** How much contrast the Launchpad card carries. See LAUNCHPAD_CARDS. */
   launchpadCard: LaunchpadCard;
+  /** Which line the rail's divider sits on. See RAIL_RULE_ALIGNS. */
+  railRuleAlign: RailRuleAlign;
+  /** Whether the Launchpad card sits on the canvas's top. See TOP_ALIGN_NUDGE_MIN. */
+  topAlignCard: boolean;
+  /** px the rail's divider sits below its aligned line. */
+  topAlignRailNudge: number;
+  /** px the Launchpad card sits below the canvas edge when aligned. */
+  topAlignCardNudge: number;
   /** Which workspace-switch model is live. See SCOPE_MODELS. */
   scopeModel: ScopeModel;
   /** Whether the rail offers a "Hide account rail" row. See SCOPE_MODELS. */
@@ -6300,6 +6384,8 @@ export interface ThemeState {
   agencyRowSquare: boolean;
   /** How big the agency's own mark is drawn in the run. */
   agencyRowMarkSize: number;
+  /** What marks the active tile when shut. See RAIL_ACTIVE_CHROMES. */
+  railActiveChrome: RailActiveChrome;
   /** Where the account you are in sits. See RAIL_ACTIVE_SPOTS. */
   railActiveSpot: RailActiveSpot;
   /** Whether the other accounts are behind a door. See RAIL_DIRECTORY_MODES. */
@@ -6850,6 +6936,7 @@ export const DEFAULT_THEME: ThemeState = {
   selectLabel: "edit",
   directoryName: "all",
   addProductStyle: "dashed",
+  addProductSpot: "list",
   selectStrip: "count",
   workspaceChevron: "always",
   navOnPlane: NAV_ON_PLANE_DEFAULT,
@@ -6956,6 +7043,7 @@ export const DEFAULT_THEME: ThemeState = {
   agencyRowDiamond: false,
   agencyRowSquare: true,
   agencyRowMarkSize: AGENCY_ROW_MARK_SIZE_DEFAULT,
+  railActiveChrome: "paint",
   railActiveSpot: "inPlace",
   /*
     The directory IS the rail, rather than a door to one.
@@ -7133,6 +7221,12 @@ export const DEFAULT_THEME: ThemeState = {
    * for the comparison.
    */
   launchpadCard: "outline",
+  // The card sits on the canvas's top edge by default; the rail's divider
+  // stays centred in its slot, with the other alignments one click away.
+  railRuleAlign: "slot",
+  topAlignCard: true,
+  topAlignRailNudge: 0,
+  topAlignCardNudge: 0,
   // The rail is the recommendation, so the prototype opens on it. Model A is
   // one click away for the comparison.
   scopeModel: "rail",

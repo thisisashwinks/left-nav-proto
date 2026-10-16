@@ -771,3 +771,17 @@
 [data-drag-ghost] [data-row-affordance] {
   opacity: 1;
 }
+
+/*
+ * The nav's first section heading, on the canvas's top edge.
+ *
+ * Set on the scroll region by "Align Launchpad card to canvas". Matches a
+ * heading only while it opens the list, directly or as its block's first
+ * child, so with the card showing nothing here applies. The lead-in becomes
+ * the panel's nudge. See TOP_ALIGN_NUDGE_MIN. Ashwin, Oct 16.
+ */
+[data-head-align] > [data-nav-head]:first-child,
+[data-head-align] > :first-child > [data-nav-head]:first-child {
+  margin-top: 0;
+  padding-top: var(--head-align-pt, 0px);
+}

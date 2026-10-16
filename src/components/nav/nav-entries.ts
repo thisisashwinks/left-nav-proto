@@ -14,7 +14,7 @@ import {
   type ResolvedGroup,
 } from "./grouping";
 import { GET_APP_FLYOUT_ID } from "@/components/flyout/get-app-flyout";
-import { isChromePlace } from "./chrome-places";
+import { chromePlace, isChromePlace } from "./chrome-places";
 import { PROPOSED_SETTINGS_ID } from "./proposed-ia";
 import type { NavEntry, NavItem } from "./types";
 
@@ -208,6 +208,16 @@ export function tailRowsFor(
         id,
         label: labelForProduct(state, id),
         ...navGlyph(state, id),
+        /*
+          The badge comes up with the row.
+
+          "New" and "Beta" were properties of the FLYOUT's config, so a row
+          dragged out of it arrived at L1 bare — the same row, one level up,
+          missing the one thing on it that was time-sensitive. They live on
+          the chrome registry now, which is what every other resolver
+          already reads. Ashwin, Oct 16.
+        */
+        ...(chromePlace(id)?.badge ? { badge: chromePlace(id)!.badge } : {}),
       });
       continue;
     }
@@ -220,6 +230,9 @@ export function tailRowsFor(
       // See the note on the loose rows above. A lifted CHILD is the case this
       // was written for: its name collides with its siblings' by definition.
       ...navGlyph(state, id),
+      // And a catalogue child's badge travels for the same reason a chrome
+      // row's does — it describes the destination, not the panel.
+      ...(hit.child.badge ? { badge: hit.child.badge } : {}),
       ...(liftedChildren(state, id).length > 0 ? { hasFlyout: true } : {}),
     });
   }
@@ -519,8 +532,7 @@ export function navEntriesFor(
    * they had deliberately pulled out of every group behind a chevron. As rows
    * they read as what they are — top level, no heading, one click.
    */
-  const loose =
-    groups.find((g) => g.id === UNGROUPED_ID)?.productIds ?? [];
+  const loose = groups.find((g) => g.id === UNGROUPED_ID)?.productIds ?? [];
   /*
    * The Settings bucket never becomes a row here either.
    *

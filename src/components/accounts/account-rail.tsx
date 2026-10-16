@@ -33,6 +33,7 @@ import {
   type AgencyBarDismissal,
   type RailToolsCta,
   type RailSearchGlyph,
+  type RailRuleAlign,
   BULK_BUTTON_LABEL,
   CREATE_ACCOUNT_LABEL,
   MANAGE_ACCOUNTS_LABEL,
@@ -320,6 +321,69 @@ const COLLAPSE_DELAY_MS = 250;
 export const RAIL_PIN_MAX = 10;
 export const RAIL_PIN_CAP_HINT = `Max ${RAIL_PIN_MAX} - unpin one first`;
 
+/**
+ * The shut search row's divider, centred in its 32px slot or pinned to a
+ * line outside the rail: the canvas's top edge or the Launchpad card's
+ * middle. See RAIL_RULE_ALIGNS.
+ *
+ * Pinned, it MEASURES that line rather than trusting a figure: the slot's
+ * distance from it is the sum of the rail's header, the agency row, the mark
+ * size and the bar's own padding, and any of those moving would leave a
+ * hard-coded offset a few px off. Only where the rule paints moves; the slot
+ * keeps its height, so the bar and every rail transition stay as they were.
+ * Where the line is missing (no card showing) it falls back to centred.
+ * Ashwin, Oct 16.
+ */
+function RailRule({ align, nudge }: { align: RailRuleAlign; nudge: number }) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [top, setTop] = React.useState<number | null>(null);
+
+  // Every render, not on a dependency list: the things that move the slot
+  // live in other components, and two rect reads are cheap.
+  React.useLayoutEffect(() => {
+    const measure = () => {
+      const slot = ref.current;
+      const target =
+        align === "slot"
+          ? null
+          : [
+              ...document.querySelectorAll<HTMLElement>(
+                align === "canvasTop"
+                  ? "[data-canvas-surface]"
+                  : "[data-launchpad-card]",
+              ),
+            ].find((el) => el.getBoundingClientRect().width > 0);
+      if (!slot || !target) return setTop(null);
+      const box = target.getBoundingClientRect();
+      // The rule is 1px, so its middle sits half a pixel above its top.
+      const line = align === "canvasTop" ? box.top : box.top + box.height / 2 - 0.5;
+      const offset = line - slot.getBoundingClientRect().top + nudge;
+      // Clamped to the slot, so a rule never paints outside its own row.
+      const next = Math.round(Math.min(31, Math.max(0, offset)) * 2) / 2;
+      setTop((prev) => (prev === next ? prev : next));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  });
+
+  return (
+    <div
+      ref={ref}
+      className={cn(
+        "flex h-[32px] w-full shrink-0 px-[6px]",
+        top == null ? "items-center" : "items-start",
+      )}
+      style={top == null ? undefined : { paddingTop: top }}
+    >
+      <span
+        aria-hidden="true"
+        className="h-px w-full rounded-full bg-[var(--hr-gray-300)]"
+      />
+    </div>
+  );
+}
+
 function RailTools({
   expanded,
   spot,
@@ -342,6 +406,8 @@ function RailTools({
   dismissal,
   ctaShape,
   searchGlyph,
+  ruleAlign,
+  ruleNudge,
   onCreate,
   manageGlyph,
   stickyTop,
@@ -392,6 +458,10 @@ function RailTools({
   ctaShape?: RailToolsCta;
   /** Which glyph stands in for this row when shut. See RAIL_SEARCH_GLYPHS. */
   searchGlyph?: RailSearchGlyph;
+  /** Which line the divider glyph sits on. See RAIL_RULE_ALIGNS. */
+  ruleAlign?: RailRuleAlign;
+  /** px below that line. Ignored when centred in its slot. */
+  ruleNudge?: number;
   /**
    * Draws a `+` beside the tools. Null unless the create axis asked for it
    * here — see CREATE_ACCOUNT_SPOTS.
@@ -739,13 +809,11 @@ function RailTools({
         `--hr-gray-300` rather than `--nav-divider`: the divider ink is
         tuned for rules between rows of text, and on the rail's own fill at
         20px it was a line you had to look for. Ashwin, Oct 16.
+
+        `ruleAlign` can pin it to the canvas's top edge or the Launchpad
+        card's middle instead of centring it. See RailRule.
       */
-      <div className="flex h-[32px] w-full shrink-0 items-center px-[6px]">
-        <span
-          aria-hidden="true"
-          className="h-px w-full rounded-full bg-[var(--hr-gray-300)]"
-        />
-      </div>
+      <RailRule align={ruleAlign ?? "slot"} nudge={ruleNudge ?? 0} />
     ) : (
       <RailTooltip label="Find an account">
         <button
@@ -811,7 +879,18 @@ function RailTools({
           grounds read as one block. Ashwin, Oct 16.
         */
         spot === "underAgency"
-          ? "pt-0 pb-[4px]"
+          ? /*
+              4px above the field, PAINTED rather than empty.
+
+              It sat flush to the agency row's bottom edge, which read as
+              the two rows touching. The gap is the bar's own padding and
+              not a margin, so the two sticky grounds still MEET — a
+              transparent 4px between two stuck elements is a slot the
+              accounts travel through, which is the leak this file has
+              already closed twice. Same figure shut, where the slot holds
+              a glyph or a rule. Ashwin, Oct 16.
+            */
+            "pt-[4px] pb-[4px]"
           : spot === "agencyBar"
             ? "pt-[4px] pb-[8px]"
             : "py-[8px]",
@@ -3506,6 +3585,10 @@ export function AccountRail({
                           name={account.name}
                           expanded={expanded}
                           selected={rowActive(account.id)}
+                          /* See the pinned run — the axis governs the shut strip only. */
+                          paintSelected={
+                            expanded || effective.railActiveChrome === "paint"
+                          }
                           onClick={() => {
                             /*
                               While picking, the ROW ticks. Switching account
@@ -3712,6 +3795,8 @@ export function AccountRail({
                     layout="inline"
                     stickyTop={fillPicking ? RAIL_ROW_H + RAIL_SCROLL_PAD : underAgencyTop}
                     searchGlyph={effective.railSearchGlyph}
+                    ruleAlign={effective.railRuleAlign}
+                    ruleNudge={effective.topAlignRailNudge}
                     manageGlyph={effective.railManageGlyph}
                     /*
                       Only where there is no agency ROW to carry it.
@@ -3905,9 +3990,17 @@ export function AccountRail({
                       keep theirs: nothing else tells them apart.
                       Ashwin, Oct 16.
                     */
-                    {...(account.id === AGENCY_ID
-                      ? { paintSelected: expanded }
-                      : {})}
+                    /*
+                      Open, every row paints — it is a named row in a list
+                      and the fill is what tells it from the thirty-nine
+                      under it. Shut, the agency never paints (see the note
+                      above) and the accounts answer to the axis.
+                    */
+                    paintSelected={
+                      expanded ||
+                      (account.id !== AGENCY_ID &&
+                        effective.railActiveChrome === "paint")
+                    }
                     onClick={() => {
                       if (fillPicking && inlineOpen) {
                         if (!pickable(account.id)) return;
@@ -4069,6 +4162,10 @@ export function AccountRail({
                     name={account.name}
                     expanded={expanded}
                     selected={rowActive(account.id)}
+                    /* See the pinned run — the axis governs the shut strip only. */
+                    paintSelected={
+                      expanded || effective.railActiveChrome === "paint"
+                    }
                     // Same rule as the run above: while picking, the row
                     // ticks rather than travels.
                     onClick={() => {

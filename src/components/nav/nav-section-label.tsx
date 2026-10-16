@@ -30,7 +30,10 @@ export function NavSectionLabel({
 
   if (!onToggle) {
     return (
-      <div className="flex w-full shrink-0 items-start justify-between pt-[14px] pr-[8px] pb-[6px] pl-[8px]">
+      <div
+        data-nav-head=""
+        className="flex w-full shrink-0 items-start justify-between pt-[14px] pr-[8px] pb-[6px] pl-[8px]"
+      >
         {label}
       </div>
     );
@@ -46,6 +49,7 @@ export function NavSectionLabel({
   return (
     <button
       type="button"
+      data-nav-head=""
       aria-expanded={!collapsed}
       onClick={onToggle}
       className={cn(

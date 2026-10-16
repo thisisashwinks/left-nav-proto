@@ -420,7 +420,10 @@ function BlockHeading({
   action?: { label: string; onClick: () => void };
 }) {
   return (
-    <div className="flex w-full shrink-0 items-center justify-between gap-2 pt-[14px] pr-[4px] pb-[6px] pl-[8px]">
+    <div
+      data-nav-head=""
+      className="flex w-full shrink-0 items-center justify-between gap-2 pt-[14px] pr-[4px] pb-[6px] pl-[8px]"
+    >
       <span className="text-[11px] leading-[13px] font-semibold tracking-[0.4px] whitespace-nowrap text-nav-fg-subtle uppercase">
         {text}
       </span>

@@ -113,7 +113,11 @@ import {
   RAIL_MANAGE_GLYPH_LABELS,
   CREATE_ACCOUNT_SPOT_LABELS,
   RAIL_SEARCH_GLYPHS,
+  RAIL_ACTIVE_CHROMES,
+  RAIL_ACTIVE_CHROME_LABELS,
   RAIL_SEARCH_GLYPH_LABELS,
+  RAIL_RULE_ALIGNS,
+  RAIL_RULE_ALIGN_LABELS,
   RAIL_TOOLS_CTA_LABELS,
   AGENCY_BAR_DISMISSAL_LABELS,
   RAIL_HOVER_ZONES,
@@ -268,6 +272,8 @@ import {
   PLANE_GROUND_LABELS,
   type PlaneGround,
   LAUNCHPAD_CARD_LABELS,
+  TOP_ALIGN_NUDGE_MIN,
+  TOP_ALIGN_NUDGE_MAX,
   RAIL_ZOOM_FITS,
   RAIL_ZOOM_FIT_LABELS,
   RAIL_DIRECTORY_SPOTS,
@@ -279,8 +285,11 @@ import {
   SCOPE_MODEL_LABELS,
   SCOPE_MODELS,
   ADD_PRODUCT_STYLE_LABELS,
+  ADD_PRODUCT_SPOTS,
+  ADD_PRODUCT_SPOT_LABELS,
   ADD_PRODUCT_STYLES,
   type AddProductStyle,
+  type AddProductSpot,
   DIRECTORY_NAME_LABELS,
   DIRECTORY_NAMES,
   type DirectoryName,
@@ -400,6 +409,8 @@ import {
   type CreateAccountSpot,
   type RailManageGlyph,
   type RailSearchGlyph,
+  type RailRuleAlign,
+  type RailActiveChrome,
   type RailHoverZone,
   type ManageAgencyRow,
   type RailToolsEdge,
@@ -631,6 +642,14 @@ function NavStructureSection({
     setRecentsMode,
     launchpadCard,
     setLaunchpadCard,
+    railRuleAlign,
+    setRailRuleAlign,
+    topAlignCard,
+    setTopAlignCard,
+    topAlignRailNudge,
+    setTopAlignRailNudge,
+    topAlignCardNudge,
+    setTopAlignCardNudge,
     mergedPinScope,
     setMergedPinScope,
     mergedPinMark,
@@ -758,6 +777,8 @@ function NavStructureSection({
     railManageGlyph,
     createAccountSpot,
     setRailSearchGlyph,
+    railActiveChrome,
+    setRailActiveChrome,
     railSearchGlyph,
     railToolsCta,
     agencyBarDismissal,
@@ -845,6 +866,8 @@ function NavStructureSection({
     setDirectoryName,
     addProductStyle,
     setAddProductStyle,
+    addProductSpot,
+    setAddProductSpot,
     navIdentityAlign,
     setNavIdentityAlign,
     agencyPlateSize,
@@ -1124,6 +1147,20 @@ function NavStructureSection({
               : activeAgencySpot === "rise"
                 ? "While you are in the agency it climbs above the pinned run, then goes back to the edge when you leave. Where you are is always the top of the strip — the same promise “Always first” makes for sub-accounts, at the price of the one row that was meant to be fixed moving."
                 : "It holds the bottom edge even while you are inside it. The strip never moves, so a learned position stays true — and the active marking carries the whole message on its own, at the end of a column you have to look down to read."}
+          </Note>
+
+          <Segmented
+            label="The active tile, shut"
+            keywords="active selected tile ring fill hairline background shadow collapsed rail mark"
+            options={RAIL_ACTIVE_CHROMES}
+            value={railActiveChrome}
+            onChange={(v: RailActiveChrome) => setRailActiveChrome(v)}
+            format={(v) => RAIL_ACTIVE_CHROME_LABELS[v]}
+          />
+          <Note>
+            {railActiveChrome === "bare"
+              ? "The mark alone \u2014 no fill, no hairline. The active tile is already larger than its neighbours and, under the colour axis, the only one in colour, so the ring can read as a badge stuck to the avatar rather than as \u201cyou are here\u201d. The risk is the one the ring was covering: set the avatars to initials-on-grey and size is the only thing left saying which tile you are on."
+              : "A white fill and a hairline behind the mark \u2014 the nav\u2019s own selected row at 32px. Unmissable, and the one signal that survives whatever the avatar axis is set to."}
           </Note>
 
           <Segmented
@@ -2393,9 +2430,23 @@ function NavStructureSection({
         format={(v) => ADD_PRODUCT_STYLE_LABELS[v]}
       />
       <Note>
-        {addProductStyle === "filled"
-          ? "A brand button, like Create sub-account. Reads as the panel\u2019s primary action rather than part of the list \u2014 impossible to miss, arguably too loud for something you do once per category."
+        {addProductStyle === "plain"
+          ? "A bare row \u2014 glyph, label, nothing else \u2014 exactly as the vertical rail draws Create sub-account. The quietest of the two, and the one that trusts the reader to find it because it sits where the list ends."
           : "The nav\u2019s own dashed add row, matched exactly. Sits in the list\u2019s rhythm and reads as the next item waiting to be filled, which is what it is."}
+      </Note>
+
+      <Segmented
+        label="Add product sits"
+        keywords="add product flyout L2 placement footer list end edit mode"
+        options={ADD_PRODUCT_SPOTS}
+        value={addProductSpot}
+        onChange={(v: AddProductSpot) => setAddProductSpot(v)}
+        format={(v) => ADD_PRODUCT_SPOT_LABELS[v]}
+      />
+      <Note>
+        {addProductSpot === "footer"
+          ? "Pinned under the scroller with a rule over it, so it survives a long category. It spends a row of a 360px panel on a control used once per category."
+          : "At the end of the rows, inside the scroll region \u2014 the next thing after the last product, which is where someone adding one is already looking. It scrolls away once the category is long enough."}
       </Note>
 
       <Segmented
@@ -2639,6 +2690,47 @@ function NavStructureSection({
                   ? "No card at all. Two rows on the nav's ground, indented to its own icon column — does this need to be a card?"
                   : "What shipped: brand fill and a full brand ring. The loudest thing in the nav, for as long as onboarding lasts."}
       </Note>
+
+      <Segmented
+        label="Align rail divider to"
+        keywords="top align alignment canvas edge baseline rail divider line middle centre center launchpad card nudge offset"
+        options={RAIL_RULE_ALIGNS}
+        value={railRuleAlign}
+        onChange={(v: RailRuleAlign) => setRailRuleAlign(v)}
+        format={(v) => RAIL_RULE_ALIGN_LABELS[v]}
+      />
+      <Stepper
+        label="Rail divider nudge"
+        value={topAlignRailNudge}
+        min={TOP_ALIGN_NUDGE_MIN}
+        max={TOP_ALIGN_NUDGE_MAX}
+        onChange={setTopAlignRailNudge}
+        hint={
+          railRuleAlign === "canvasTop"
+            ? "px below the canvas's top edge. 0 is flush with it."
+            : railRuleAlign === "cardMiddle"
+              ? "px below the Launchpad card's middle. 0 is dead centre. With no card showing, the divider sits where it does now."
+              : "Applies to Canvas top and Card middle. Here the divider is centred in its own slot."
+        }
+      />
+      <Toggle
+        label="Align Launchpad card to canvas"
+        keywords="top align alignment canvas edge baseline launchpad card nudge offset"
+        checked={topAlignCard}
+        onChange={setTopAlignCard}
+      />
+      <Stepper
+        label="Launchpad card below canvas edge"
+        value={topAlignCardNudge}
+        min={TOP_ALIGN_NUDGE_MIN}
+        max={TOP_ALIGN_NUDGE_MAX}
+        onChange={setTopAlignCardNudge}
+        hint={
+          topAlignCard
+            ? "px. 0 is flush with the canvas's top edge. With the card hidden, the first heading (Recents) takes its place. The plain card has no edge to align and keeps its spacing."
+            : "Applies once the toggle above is on. Off, the card sits 4px below the canvas edge and a first heading 14px below it."
+        }
+      />
 
       <Segmented
         label="Inline recents"

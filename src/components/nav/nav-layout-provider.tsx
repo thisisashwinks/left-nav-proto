@@ -139,7 +139,11 @@ interface NavLayoutContextValue {
    * first commit into a rename to a string nobody typed.
    */
   productBaseLabelFor: (productId: string) => string;
-  setProductLabel: (productId: string, label: string, scope?: LabelScope) => void;
+  setProductLabel: (
+    productId: string,
+    label: string,
+    scope?: LabelScope,
+  ) => void;
   resetProductLabel: (productId: string) => void;
   isProductRenamed: (productId: string) => boolean;
 
@@ -414,11 +418,14 @@ interface NavLayoutContextValue {
   editAccess: EditAccess;
 }
 
-const NavLayoutContext = React.createContext<NavLayoutContextValue | null>(null);
+const NavLayoutContext = React.createContext<NavLayoutContextValue | null>(
+  null,
+);
 
 export function useNavLayout(): NavLayoutContextValue {
   const ctx = React.useContext(NavLayoutContext);
-  if (!ctx) throw new Error("useNavLayout must be used inside <NavLayoutProvider>");
+  if (!ctx)
+    throw new Error("useNavLayout must be used inside <NavLayoutProvider>");
   return ctx;
 }
 
@@ -637,7 +644,13 @@ function reducer(store: Store, action: Action): Store {
 
 /** Reorders a list, returning the same reference when nothing moves. */
 function reorder<T>(list: T[], from: number, to: number): T[] {
-  if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) {
+  if (
+    from === to ||
+    from < 0 ||
+    to < 0 ||
+    from >= list.length ||
+    to >= list.length
+  ) {
     return list;
   }
   const next = [...list];
@@ -788,11 +801,7 @@ function homeOf(state: NavLayoutState, rowId: string): string | null {
 }
 
 /** "Moved X from A to B", or "Moved X to B" when it had no home worth naming. */
-function moveMessage(
-  state: NavLayoutState,
-  rowId: string,
-  to: string,
-): string {
+function moveMessage(state: NavLayoutState, rowId: string, to: string): string {
   const from = homeOf(state, rowId);
   const name = labelForProduct(state, rowId);
   return from && from !== to
@@ -959,8 +968,12 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
     ownLayout: null,
   });
   /** Saved layouts for every account that is not the active one. */
-  const [profiles, setProfiles] = React.useState<Record<string, NavLayoutState>>({});
-  const [activeId, setActiveId] = React.useState<string | null>(INITIAL_ACCOUNT_ID);
+  const [profiles, setProfiles] = React.useState<
+    Record<string, NavLayoutState>
+  >({});
+  const [activeId, setActiveId] = React.useState<string | null>(
+    INITIAL_ACCOUNT_ID,
+  );
 
   const state = store.layout;
   const undoOffer = store.undoOffer;
@@ -985,45 +998,48 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
   // Swap-on-switch: park the leaving account's layout, wake the arriving
   // one's. The reducer keeps holding only the active account's state, so
   // every existing mutation and the undo offer stay exactly as they were.
-  const setActiveAccount = React.useCallback((accountId: string) => {
-    const leaving = activeIdRef.current;
-    if (accountId === leaving) return;
-    const nextProfiles = { ...profilesRef.current };
-    /*
-     * Save the account's OWN arrangement, not whatever is on screen.
-     *
-     * While the shipped default is being previewed, `state` IS the default —
-     * so writing it here handed the account the stock nav as its saved layout
-     * and dropped the real one, permanently and silently, because `load` clears
-     * the stash on the way out. Previewing the default and glancing at another
-     * account was enough to destroy the thing this feature exists to protect.
-     *
-     * The preview is abandoned by leaving, which is right: it was never the
-     * account's nav, and nobody expects a preview to follow them.
-     */
-    if (leaving !== null) {
+  const setActiveAccount = React.useCallback(
+    (accountId: string) => {
+      const leaving = activeIdRef.current;
+      if (accountId === leaving) return;
+      const nextProfiles = { ...profilesRef.current };
       /*
-       * Stored closed, never mid-session.
+       * Save the account's OWN arrangement, not whatever is on screen.
        *
-       * `editing` lives in the layout, so a profile written while the card was
-       * open carried the open mode with it and returning to the account dropped
-       * you straight back into editing — against a baseline that had been
-       * discarded on the way out, which made Discard a button that undid nothing.
-       * LeftNav commits the session when the switch begins; this makes the
-       * stored shape correct even if some future caller does not.
+       * While the shipped default is being previewed, `state` IS the default —
+       * so writing it here handed the account the stock nav as its saved layout
+       * and dropped the real one, permanently and silently, because `load` clears
+       * the stash on the way out. Previewing the default and glancing at another
+       * account was enough to destroy the thing this feature exists to protect.
+       *
+       * The preview is abandoned by leaving, which is right: it was never the
+       * account's nav, and nobody expects a preview to follow them.
        */
-      const keeping = ownLayoutRef.current ?? stateRef.current;
-      nextProfiles[leaving] = keeping.editing
-        ? { ...keeping, editing: false }
-        : keeping;
-    }
-    // First visit wakes the account's own seeded layout — its products, its
-    // vocabulary, its grouping. After that, whatever the user left behind.
-    const incoming = nextProfiles[accountId] ?? profileOf(accountId);
-    setProfiles(nextProfiles);
-    dispatch({ type: "load", layout: incoming });
-    setActiveId(accountId);
-  }, [profileOf]);
+      if (leaving !== null) {
+        /*
+         * Stored closed, never mid-session.
+         *
+         * `editing` lives in the layout, so a profile written while the card was
+         * open carried the open mode with it and returning to the account dropped
+         * you straight back into editing — against a baseline that had been
+         * discarded on the way out, which made Discard a button that undid nothing.
+         * LeftNav commits the session when the switch begins; this makes the
+         * stored shape correct even if some future caller does not.
+         */
+        const keeping = ownLayoutRef.current ?? stateRef.current;
+        nextProfiles[leaving] = keeping.editing
+          ? { ...keeping, editing: false }
+          : keeping;
+      }
+      // First visit wakes the account's own seeded layout — its products, its
+      // vocabulary, its grouping. After that, whatever the user left behind.
+      const incoming = nextProfiles[accountId] ?? profileOf(accountId);
+      setProfiles(nextProfiles);
+      dispatch({ type: "load", layout: incoming });
+      setActiveId(accountId);
+    },
+    [profileOf],
+  );
 
   /*
    * Flipping the axis re-seeds the fleet.
@@ -1060,7 +1076,6 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         : (profiles[accountId] ?? profileOf(accountId)),
     [activeId, state, profiles, profileOf],
   );
-
 
   const applyToAccounts = React.useCallback(
     (
@@ -1210,14 +1225,20 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         : "account";
     };
 
-    const setLabelIn = (
-      key: "agencyLabels" | "accountLabels" | "agencyProductLabels" | "accountProductLabels",
-      id: string,
-      label: string,
-    ) => (s: NavLayoutState): NavLayoutState => ({
-      ...s,
-      [key]: { ...s[key], [id]: label },
-    });
+    const setLabelIn =
+      (
+        key:
+          | "agencyLabels"
+          | "accountLabels"
+          | "agencyProductLabels"
+          | "accountProductLabels",
+        id: string,
+        label: string,
+      ) =>
+      (s: NavLayoutState): NavLayoutState => ({
+        ...s,
+        [key]: { ...s[key], [id]: label },
+      });
 
     return {
       state,
@@ -1235,10 +1256,10 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         state.pinned.length >= PIN_LIMIT && !state.pinned.includes(productId)
           ? undefined
           : commit(`Pinned ${labelForProduct(state, productId)}`, (s) =>
-          s.pinned.includes(productId)
-            ? s
-            : { ...s, pinned: [...s.pinned, productId] },
-        ),
+              s.pinned.includes(productId)
+                ? s
+                : { ...s, pinned: [...s.pinned, productId] },
+            ),
 
       unpin: (productId) =>
         commit(`Unpinned ${labelForProduct(state, productId)}`, (s) => ({
@@ -1319,22 +1340,30 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
             };
           }
           const key =
-            effectiveScope(scope) === "agency" ? "agencyLabels" : "accountLabels";
+            effectiveScope(scope) === "agency"
+              ? "agencyLabels"
+              : "accountLabels";
           return setLabelIn(key, groupId, trimmed)(s);
         });
       },
 
       resetLabel: (groupId) =>
-        commit(`Reset ${labelForGroup(state, groupId)} to its shipped name`, (s) => {
-          const accountLabels = without(s.accountLabels, groupId);
-          const agencyLabels = can.writeAgencyScope
-            ? without(s.agencyLabels, groupId)
-            : s.agencyLabels;
-          if (accountLabels === s.accountLabels && agencyLabels === s.agencyLabels) {
-            return s;
-          }
-          return { ...s, accountLabels, agencyLabels };
-        }),
+        commit(
+          `Reset ${labelForGroup(state, groupId)} to its shipped name`,
+          (s) => {
+            const accountLabels = without(s.accountLabels, groupId);
+            const agencyLabels = can.writeAgencyScope
+              ? without(s.agencyLabels, groupId)
+              : s.agencyLabels;
+            if (
+              accountLabels === s.accountLabels &&
+              agencyLabels === s.agencyLabels
+            ) {
+              return s;
+            }
+            return { ...s, accountLabels, agencyLabels };
+          },
+        ),
 
       productLabelFor: (productId) => labelForProduct(state, productId),
       productBaseLabelFor: (productId) => baseLabelForProduct(state, productId),
@@ -1358,18 +1387,22 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         commit(
           `Reset ${labelForProduct(state, productId)} to its shipped name`,
           (s) => {
-          const accountProductLabels = without(s.accountProductLabels, productId);
-          const agencyProductLabels = can.writeAgencyScope
-            ? without(s.agencyProductLabels, productId)
-            : s.agencyProductLabels;
-          if (
-            accountProductLabels === s.accountProductLabels &&
-            agencyProductLabels === s.agencyProductLabels
-          ) {
-            return s;
-          }
-          return { ...s, accountProductLabels, agencyProductLabels };
-        }),
+            const accountProductLabels = without(
+              s.accountProductLabels,
+              productId,
+            );
+            const agencyProductLabels = can.writeAgencyScope
+              ? without(s.agencyProductLabels, productId)
+              : s.agencyProductLabels;
+            if (
+              accountProductLabels === s.accountProductLabels &&
+              agencyProductLabels === s.agencyProductLabels
+            ) {
+              return s;
+            }
+            return { ...s, accountProductLabels, agencyProductLabels };
+          },
+        ),
 
       iconFor: (groupId) => iconForGroup(state, groupId),
       productIconFor: (productId) => iconForProduct(state, productId),
@@ -1389,19 +1422,17 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         }),
 
       setGrouping: (mode) =>
-        commit(
-          "Changed how the nav is grouped",
-          (s) =>
-            s.grouping === mode
-              ? s
-              : {
-                  ...s,
-                  grouping: mode,
-                  // Seeded on the way in rather than lazily, so the first custom
-                  // render already has a tree to draw.
-                  customGroups:
-                    mode === "custom" ? seedCustomGroups(s) : s.customGroups,
-                },
+        commit("Changed how the nav is grouped", (s) =>
+          s.grouping === mode
+            ? s
+            : {
+                ...s,
+                grouping: mode,
+                // Seeded on the way in rather than lazily, so the first custom
+                // render already has a tree to draw.
+                customGroups:
+                  mode === "custom" ? seedCustomGroups(s) : s.customGroups,
+              },
         ),
 
       moveGroup: (fromIndex, toIndex) =>
@@ -1525,8 +1556,25 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
           (s) => withProduct(s, productId, false),
         ),
 
-      panelRowsFor: (panelId, defaults) =>
-        applyPanelOrder(state.panelOrder[panelId], defaults),
+      /*
+        A row lifted to L1 leaves the panel it came from.
+
+        `panelRowsFor` ordered the authored defaults and nothing else, so a
+        chrome row dragged out to L1 was drawn twice: once where it had been
+        dropped and once still sitting in its own flyout. That reads as a
+        copy, and the panel was the one place in the nav that could not say
+        a row had moved — every other list resolves membership from state,
+        and this one resolved it from a static config.
+
+        `withRowDetached` already records the move; this is the read side
+        catching up with it. Ashwin, Oct 16.
+      */
+      panelRowsFor: (panelId, defaults) => {
+        const lifted = new Set(l1IdsFor(state, resolveGroups(state)));
+        return applyPanelOrder(state.panelOrder[panelId], defaults).filter(
+          (id) => !lifted.has(id),
+        );
+      },
 
       movePanelRow: (panelId, defaults, rowId, index) =>
         commit(`Reordered ${labelForProduct(state, rowId)}`, (s) => {
@@ -1719,23 +1767,26 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         ),
 
       moveProductWithinGroup: (groupId, fromIndex, toIndex) =>
-        commit(withinGroupMessage(state, groupId, fromIndex, toIndex), (state) => {
-          // Through customTreeFor, so reordering inside an authored bucket works
-          // on the first try. Reading s.customGroups directly meant an account
-          // that had never been edited had nothing to reorder, and the drag just
-          // sprang back with no explanation.
-          const s = customTreeFor(state);
-          const group = s.customGroups.find((g) => g.id === groupId);
-          if (!group) return state;
-          const productIds = reorder(group.productIds, fromIndex, toIndex);
-          if (productIds === group.productIds) return state;
-          return {
-            ...s,
-            customGroups: s.customGroups.map((g) =>
-              g.id === groupId ? { ...g, productIds } : g,
-            ),
-          };
-        }),
+        commit(
+          withinGroupMessage(state, groupId, fromIndex, toIndex),
+          (state) => {
+            // Through customTreeFor, so reordering inside an authored bucket works
+            // on the first try. Reading s.customGroups directly meant an account
+            // that had never been edited had nothing to reorder, and the drag just
+            // sprang back with no explanation.
+            const s = customTreeFor(state);
+            const group = s.customGroups.find((g) => g.id === groupId);
+            if (!group) return state;
+            const productIds = reorder(group.productIds, fromIndex, toIndex);
+            if (productIds === group.productIds) return state;
+            return {
+              ...s,
+              customGroups: s.customGroups.map((g) =>
+                g.id === groupId ? { ...g, productIds } : g,
+              ),
+            };
+          },
+        ),
 
       setNavVolume: (navVolume) =>
         commit(
@@ -1758,8 +1809,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
                   // A user cannot edit structure, so staying in edit mode would
                   // leave affordances on rows that reject every interaction.
                   editing: role === "user" ? false : s.editing,
-                  labelScope:
-                    role === "agency" ? s.labelScope : "account",
+                  labelScope: role === "agency" ? s.labelScope : "account",
                 },
           { silent: true },
         ),
@@ -1800,17 +1850,11 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
 
       setGroupRowsHidden: (groupId, hidden) => {
         const name = labelForGroup(state, groupId);
-        commit(
-          `Everything in ${name} ${hidden ? "hidden" : "shown"}`,
-          (s) => {
-            const ids =
-              resolveGroups(s).find((g) => g.id === groupId)?.productIds ?? [];
-            return ids.reduce(
-              (acc, id) => withRowHidden(acc, id, hidden),
-              s,
-            );
-          },
-        );
+        commit(`Everything in ${name} ${hidden ? "hidden" : "shown"}`, (s) => {
+          const ids =
+            resolveGroups(s).find((g) => g.id === groupId)?.productIds ?? [];
+          return ids.reduce((acc, id) => withRowHidden(acc, id, hidden), s);
+        });
       },
 
       toggleBlock: (block) =>
@@ -1827,7 +1871,9 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         ),
 
       setEditing: (editing) =>
-        editing ? dispatch({ type: "beginEdit" }) : dispatch({ type: "saveEdit" }),
+        editing
+          ? dispatch({ type: "beginEdit" })
+          : dispatch({ type: "saveEdit" }),
 
       beginEditing: () => {
         // Claimed on entry rather than on the first change: the seat is the

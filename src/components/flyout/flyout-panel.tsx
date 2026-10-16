@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Image, Plus, RotateCcw, X } from "lucide-react";
+import { CirclePlus, Image, Plus, RotateCcw, X } from "lucide-react";
 
 import { AGENCY_L2_MIME, L2_MIME, L3_MIME } from "@/components/nav/nav-drag";
 import { agencyBuckets } from "@/components/nav/agency-config";
@@ -170,6 +170,7 @@ export function FlyoutPanel({
     flyoutShape,
     flyoutCardBorder,
     addProductStyle,
+    addProductSpot,
   } = useTheme().effective;
   /* See the title below. */
   const appsRowName = useGetAppNavLabel();
@@ -895,6 +896,64 @@ export function FlyoutPanel({
         category.productIds.includes(id),
       )
     : [];
+
+  /*
+    The "add one more" control, built once.
+
+    Two styles and two placements, and every combination is the same
+    button — see ADD_PRODUCT_STYLES and ADD_PRODUCT_SPOTS.
+  */
+  const addProductButton = category ? (
+    <button
+      type="button"
+      onClick={(e) =>
+        setAdding({
+          index: category.productIds.length,
+          anchor: e.currentTarget.getBoundingClientRect(),
+        })
+      }
+      className={cn(
+        "motion-tap flex h-[36px] w-full items-center gap-[10px] rounded-[7px] px-[8px] text-[13.5px] leading-[normal] font-medium outline-none active:scale-[0.99]",
+        /*
+          Centred in the dashed outline, left-aligned in the bare row.
+
+          The outline is a BOX — an empty slot waiting to be filled — and
+          its contents centre the way a button's do. The bare row is a row:
+          it sits in a column of rows whose glyphs and labels all start at
+          the same x, and centring it would break the one alignment that
+          makes a list scannable. Ashwin, Oct 16.
+        */
+        addProductStyle === "dashed"
+          ? "justify-center text-center"
+          : "text-left",
+        addProductStyle === "dashed"
+          ? /*
+              The nav's own dashed add row, matched exactly — the row
+              indent, subtle ink, a dashed outline in the divider colour.
+              It is the outline of a row that does not exist yet, which is
+              why it is not filled.
+            */
+            "text-nav-fg-subtle outline-1 outline-dashed outline-[var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg"
+          : /*
+              The rail's "Create sub-account" row: a glyph, a label, and
+              nothing else. No outline, no fill.
+            */
+            "text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg",
+      )}
+    >
+      {/*
+        The ringed plus is the rail's own "Create sub-account" glyph, which
+        is what this row is copying. The dashed variant keeps the bare plus:
+        inside an outline, a second ring is a circle in a box.
+      */}
+      {addProductStyle === "dashed" ? (
+        <Plus size={16} aria-hidden="true" className="shrink-0" />
+      ) : (
+        <CirclePlus size={18} aria-hidden="true" className="shrink-0" />
+      )}
+      Add product
+    </button>
+  ) : null;
 
   const addActions = (index: number): RowMenuAction[] => [
     {
@@ -1636,6 +1695,16 @@ export function FlyoutPanel({
           <FlyoutActionRow row={config.cta} />
         </div>
       ) : null}
+
+      {/*
+        In the list, it is the next thing after the last product — which is
+        where someone adding one is already looking. Inside the scroller, so
+        it takes the rows' own inset instead of running edge to edge, and
+        scrolls away with a long category. See ADD_PRODUCT_SPOTS.
+      */}
+      {editing && category && addProductSpot === "list" ? (
+        <div className="mt-[2px] w-full shrink-0">{addProductButton}</div>
+      ) : null}
         </div>
         <div aria-hidden="true" data-scroll-fade="bottom" />
       </div>
@@ -1691,47 +1760,22 @@ export function FlyoutPanel({
         of the list, or the panel's primary action. See ADD_PRODUCT_STYLES.
         Ashwin, Oct 16.
       */}
-      {editing && category ? (
-        <div
-          className={cn(
-            "flex w-full shrink-0",
-            addProductStyle === "filled" ? "px-[2px] pt-[8px]" : null,
-          )}
-        >
-          <button
-            type="button"
-            onClick={(e) =>
-              setAdding({
-                index: category.productIds.length,
-                anchor: e.currentTarget.getBoundingClientRect(),
-              })
-            }
-            className={cn(
-              "motion-tap flex items-center outline-none active:scale-[0.99]",
-              addProductStyle === "filled"
-                ? /*
-                     The Sub-accounts page's primary, at this panel's scale:
-                     32px, 8px radius, brand fill. It does not stretch — a
-                     full-width brand bar in a 360px panel reads as a banner
-                     rather than as a button.
-                  */
-                  "h-[32px] shrink-0 gap-[6px] rounded-[8px] bg-brand px-[12px] text-[12.5px] leading-none font-medium text-brand-fg"
-                : /*
-                     The nav's own dashed add row, matched exactly — 36px, the
-                     row indent, subtle ink, a dashed outline in the divider
-                     colour. It is the outline of a row that does not exist
-                     yet, which is why it is not filled.
-                  */
-                  "mt-[2px] h-[36px] w-full gap-[10px] rounded-[7px] px-[8px] text-left text-[13.5px] leading-[normal] font-medium text-nav-fg-subtle outline-1 outline-dashed outline-[var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg",
-            )}
-          >
-            <Plus
-              size={addProductStyle === "filled" ? 13 : 16}
-              aria-hidden="true"
-              className="shrink-0"
-            />
-            Add product
-          </button>
+      {/*
+        One button, drawn in whichever slot the axis names.
+
+        Built as a value so the two placements cannot drift: the list spot
+        and the footer spot are the same control in two parents, and two
+        copies would be two things to keep in step. See ADD_PRODUCT_SPOTS.
+      */}
+      {editing && category && addProductSpot === "footer" ? (
+        /*
+          A real footer: the panel's own horizontal padding, a rule over it,
+          and outside the scroller so it survives a long category. It used
+          to sit here with neither, which is why it ran edge to edge and
+          read as having fallen off the end of the list.
+        */
+        <div className="flex w-full shrink-0 flex-col px-[var(--t-fly-pad,14px)] pt-[8px] pb-[10px] shadow-[inset_0_1px_0_0_var(--nav-divider)]">
+          {addProductButton}
         </div>
       ) : null}
 

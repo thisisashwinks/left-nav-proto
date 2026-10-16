@@ -91,6 +91,7 @@ import {
   type SelectStrip,
   type DirectoryName,
   type AddProductStyle,
+  type AddProductSpot,
   type NewDotPlacement,
   type SearchMode,
   type SurfaceTheme,
@@ -125,6 +126,8 @@ import type {
   AgencyBarDismissal,
   RailToolsCta,
   RailSearchGlyph,
+  RailRuleAlign,
+  RailActiveChrome,
   CreateAccountSpot,
   RailManageGlyph,
   RailToolsEdge,
@@ -264,6 +267,7 @@ interface ThemeContextValue extends ThemeState {
   setSelectStrip: (v: SelectStrip) => void;
   setDirectoryName: (v: DirectoryName) => void;
   setAddProductStyle: (v: AddProductStyle) => void;
+  setAddProductSpot: (v: AddProductSpot) => void;
   setWorkspaceChevron: (v: WorkspaceChevron) => void;
   setNavOnPlane: (on: boolean) => void;
   setNavRowRing: (on: boolean) => void;
@@ -308,6 +312,11 @@ interface ThemeContextValue extends ThemeState {
   setAgencyRowDiamond: (on: boolean) => void;
   setAgencyRowSquare: (on: boolean) => void;
   setAgencyRowMarkSize: (px: number) => void;
+  setRailRuleAlign: (v: RailRuleAlign) => void;
+  setTopAlignCard: (on: boolean) => void;
+  setTopAlignRailNudge: (px: number) => void;
+  setTopAlignCardNudge: (px: number) => void;
+  setRailActiveChrome: (v: RailActiveChrome) => void;
   setRailActiveSpot: (v: RailActiveSpot) => void;
   setRailDirectoryMode: (v: RailDirectoryMode) => void;
   setRailToolSpot: (v: RailToolSpot) => void;
@@ -681,6 +690,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, directoryName })),
       setAddProductStyle: (addProductStyle) =>
         setState((s) => ({ ...s, addProductStyle })),
+      setAddProductSpot: (addProductSpot) =>
+        setState((s) => ({ ...s, addProductSpot })),
       setWorkspaceChevron: (workspaceChevron) =>
         setState((s) => ({ ...s, workspaceChevron })),
       setNavOnPlane: (navOnPlane) => setState((s) => ({ ...s, navOnPlane })),
@@ -761,6 +772,16 @@ export function ThemeProvider({
         setState((s) => ({ ...s, agencyRowSquare })),
       setAgencyRowMarkSize: (agencyRowMarkSize) =>
         setState((s) => ({ ...s, agencyRowMarkSize })),
+      setRailRuleAlign: (railRuleAlign) =>
+        setState((s) => ({ ...s, railRuleAlign })),
+      setTopAlignCard: (topAlignCard) =>
+        setState((s) => ({ ...s, topAlignCard })),
+      setTopAlignRailNudge: (topAlignRailNudge) =>
+        setState((s) => ({ ...s, topAlignRailNudge })),
+      setTopAlignCardNudge: (topAlignCardNudge) =>
+        setState((s) => ({ ...s, topAlignCardNudge })),
+      setRailActiveChrome: (railActiveChrome) =>
+        setState((s) => ({ ...s, railActiveChrome })),
       setRailActiveSpot: (railActiveSpot) =>
         setState((s) => ({ ...s, railActiveSpot })),
       setRailDirectoryMode: (railDirectoryMode) =>

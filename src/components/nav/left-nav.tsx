@@ -408,6 +408,8 @@ export function LeftNav({
     addMenuShape,
     l3Arrange,
     treeSearchPlace,
+    topAlignCard,
+    topAlignCardNudge,
   } = useTheme().effective;
   /* What the companion-apps row is called right now. See APPS_ROW_LABELS. */
   const appsRowName = useGetAppNavLabel();
@@ -4292,6 +4294,20 @@ export function LeftNav({
           ref={scrollRef}
           data-scroll-region=""
           data-cursor="menu"
+          /*
+            With the Launchpad card hidden, the first section heading takes
+            the card's place on the canvas's top edge. globals.css drops its
+            lead-in only while it IS first, so nothing changes under a card.
+            See TOP_ALIGN_NUDGE_MIN.
+          */
+          data-head-align={topAlignCard ? "" : undefined}
+          style={
+            topAlignCard
+              ? ({
+                  "--head-align-pt": `${topAlignCardNudge}px`,
+                } as React.CSSProperties)
+              : undefined
+          }
           className={cn(
             /*
               10 on the left, nothing on the right — and it is symmetric.
@@ -5573,9 +5589,10 @@ function SetupGuideRow({
    */
   onQuickActions?: () => void;
 }) {
-  const { launchpadCard } = useTheme().effective;
+  const { launchpadCard, topAlignCard, topAlignCardNudge } = useTheme().effective;
   const v = LAUNCHPAD_STYLE[launchpadCard];
   const plain = launchpadCard === "plain";
+  const alignToCanvas = topAlignCard && !plain;
   /*
    * The page's own tally, not a pair of literals.
    *
@@ -5596,11 +5613,20 @@ function SetupGuideRow({
       carry 14px of their own lead-in — so the card was paying for a gap the
       next block had already bought, and the two stacked into 28px of nothing
       between the setup guide and the first thing under it.
+
+      Aligned to the canvas, the boxed card drops its 4px lead so its edge
+      sits on the canvas's top edge, plus the panel's nudge. Plain has no edge
+      to align and keeps its 4px. See TOP_ALIGN_NUDGE_MIN.
     */
-    <div className={cn("w-full shrink-0 pt-[4px]", plain ? "pb-[4px]" : "pb-[2px]")}>
+    <div
+      className={cn("w-full shrink-0", plain ? "pb-[4px]" : "pb-[2px]")}
+      style={{ paddingTop: alignToCanvas ? topAlignCardNudge : 4 }}
+    >
       {/* A div holding two buttons — the card navigates, the ⚡ opens a panel,
           and nesting one button in another is invalid markup. */}
       <div
+        // The rail's divider can centre itself on this. See RAIL_RULE_ALIGNS.
+        data-launchpad-card=""
         className={cn(
           "motion-tap group relative flex w-full flex-col gap-[7px] text-left",
           v.box,
