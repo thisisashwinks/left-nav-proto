@@ -106,6 +106,10 @@ import {
   RAIL_TOOLS_LAYOUTS,
   AGENCY_BAR_DISMISSALS,
   RAIL_TOOLS_CTAS,
+  CREATE_ACCOUNT_SPOTS,
+  CREATE_ACCOUNT_SPOT_LABELS,
+  RAIL_SEARCH_GLYPHS,
+  RAIL_SEARCH_GLYPH_LABELS,
   RAIL_TOOLS_CTA_LABELS,
   AGENCY_BAR_DISMISSAL_LABELS,
   RAIL_HOVER_ZONES,
@@ -386,6 +390,8 @@ import {
   type RailToolsLayout,
   type AgencyBarDismissal,
   type RailToolsCta,
+  type CreateAccountSpot,
+  type RailSearchGlyph,
   type RailHoverZone,
   type ManageAgencyRow,
   type RailToolsEdge,
@@ -737,6 +743,10 @@ function NavStructureSection({
     setRailToolsLayout,
     setAgencyBarDismissal,
     setRailToolsCta,
+    setCreateAccountSpot,
+    createAccountSpot,
+    setRailSearchGlyph,
+    railSearchGlyph,
     railToolsCta,
     agencyBarDismissal,
     setRailHoverZone,
@@ -1327,17 +1337,19 @@ function NavStructureSection({
           </Note>
 
           <Segmented
-            label="The under-agency button is"
+            label="The tools button is"
             keywords="rail tools under agency button edit word icon sliders manage glyph"
             options={RAIL_TOOLS_CTAS}
             value={railToolsCta}
             onChange={(v: RailToolsCta) => setRailToolsCta(v)}
             format={(v) => RAIL_TOOLS_CTA_LABELS[v]}
-            disabled={railToolSpot !== "underAgency"}
+            disabled={
+              railToolSpot !== "underAgency" && railToolSpot !== "agencyBar"
+            }
           />
           <Note>
-            {railToolSpot !== "underAgency"
-              ? "Waiting on the control above \u2014 only the under-agency row has to fit a field and a button on one line."
+            {railToolSpot !== "underAgency" && railToolSpot !== "agencyBar"
+              ? "Waiting on the control above \u2014 only the two spots that put the button beside the field have to fit both on one line."
               : railToolsCta === "icon"
                 ? "Sliders, no word. Gives the field most of a 300px row back \u2014 and asks the reader to press a control they cannot name to find out what it does. A funnel was rejected: it means \u201cnarrow this list\u201d, which is what the field beside it already does."
                 : "\u201cEdit\u201d, as every other spot draws it. Readable without being pressed, at the cost of the width it takes from the field on the one row where the two genuinely compete."}
@@ -1364,6 +1376,40 @@ function NavStructureSection({
             Whichever it is, it stands down while a selection is running:
             manage has a Cancel of its own and the two undo different
             errands.
+          </Note>
+
+          <Segmented
+            label="Create sub-account"
+            keywords="create add new sub-account subaccount plus circle row tools header rail"
+            options={CREATE_ACCOUNT_SPOTS}
+            value={createAccountSpot}
+            onChange={(v: CreateAccountSpot) => setCreateAccountSpot(v)}
+            format={(v) => CREATE_ACCOUNT_SPOT_LABELS[v]}
+            disabled={railDirectoryMode !== "inline"}
+          />
+          <Note>
+            {railDirectoryMode !== "inline"
+              ? "Waiting on \u201cAll accounts\u201d above \u2014 the row belongs to the list in the rail, and behind the button that list lives on another surface."
+              : createAccountSpot === "row"
+                ? "A named row at the END of the list. The only version that says what it does without being hovered, and the only one that costs a row \u2014 at forty accounts you scroll to reach it, which is arguably right: creating an account is not an errand you should trip over on the way to switching into one."
+                : createAccountSpot === "header"
+                  ? "A + beside the tools instead. Costs the list nothing and is always in reach, at the price of a glyph nobody can read until they rest on it. Below the agency it takes the agency row\u2019s trailing slot, since that row is what sits above the search there."
+                  : "Neither. The rail lists the accounts that exist and offers no way to add one."}
+          </Note>
+
+          <Segmented
+            label="The shut search row shows"
+            keywords="rail search glyph icon collapsed shut variant magnifier text scan filter funnel"
+            options={RAIL_SEARCH_GLYPHS}
+            value={railSearchGlyph}
+            onChange={(v: RailSearchGlyph) => setRailSearchGlyph(v)}
+            format={(v) => RAIL_SEARCH_GLYPH_LABELS[v]}
+            disabled={railToolSpot !== "underAgency"}
+          />
+          <Note>
+            {railToolSpot !== "underAgency"
+              ? "Waiting on \u201cRail tools sit\u201d above \u2014 only the below-the-agency row holds its place at 56px, so only it needs a glyph to hold it with."
+              : "Deliberately not the plain magnifier the field itself carries: at 56px this row is one icon in a column of account marks, and the same glass that sits inside the open field would read as the field having shrunk to a button rather than as the row holding its place. Shut it is this glyph alone \u2014 no border, no Edit button \u2014 and it becomes the field when the names come out."}
           </Note>
 
           <Toggle

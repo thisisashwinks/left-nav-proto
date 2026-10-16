@@ -123,6 +123,8 @@ import type {
   ManageAgencyRow,
   AgencyBarDismissal,
   RailToolsCta,
+  RailSearchGlyph,
+  CreateAccountSpot,
   RailToolsEdge,
   RailTileColour,
   ActiveAgencySpot,
@@ -292,6 +294,8 @@ interface ThemeContextValue extends ThemeState {
   setManageAgencyRow: (v: ManageAgencyRow) => void;
   setAgencyBarDismissal: (v: AgencyBarDismissal) => void;
   setRailToolsCta: (v: RailToolsCta) => void;
+  setRailSearchGlyph: (v: RailSearchGlyph) => void;
+  setCreateAccountSpot: (v: CreateAccountSpot) => void;
   setRailHoverZone: (v: RailHoverZone) => void;
   setRailCollapsedSearch: (on: boolean) => void;
   setRailToolsLayout: (v: RailToolsLayout) => void;
@@ -724,6 +728,10 @@ export function ThemeProvider({
         setState((s) => ({ ...s, railArrangement })),
       setManageAgencyRow: (manageAgencyRow) =>
         setState((s) => ({ ...s, manageAgencyRow })),
+      setCreateAccountSpot: (createAccountSpot) =>
+        setState((s) => ({ ...s, createAccountSpot })),
+      setRailSearchGlyph: (railSearchGlyph) =>
+        setState((s) => ({ ...s, railSearchGlyph })),
       setRailToolsCta: (railToolsCta) =>
         setState((s) => ({ ...s, railToolsCta })),
       setAgencyBarDismissal: (agencyBarDismissal) =>

@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { ChevronRight, PanelLeftOpen, Search } from "lucide-react";
+import { ChevronRight, PanelLeftOpen, Search, CirclePlus } from "lucide-react";
 import {
+  CREATE_ACCOUNT_LABEL,
   DIRECTORY_NAME_LABELS,
   SELECT_LABEL_LABELS,
   type SurfaceTheme,
@@ -537,6 +538,31 @@ export function AccountSwitcher({
               })}
             </React.Fragment>
           ))}
+
+          {/*
+            The same row the rail's list ends with, on the surface that
+            stands in for the rail.
+
+            The dropdown IS the account list when the rail is hidden, so an
+            offer that only exists in the rail would disappear with it —
+            which is the whole failure mode the "Show account rail" footer
+            was added to fix. Reads the same axis and the same string.
+            Ashwin, Oct 16.
+          */}
+          {effective.createAccountSpot === "row" && !picking ? (
+            <button
+              type="button"
+              aria-label={CREATE_ACCOUNT_LABEL}
+              className="motion-tap flex w-full shrink-0 items-center gap-[9px] rounded-[8px] px-[8px] py-[6px] text-left text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg active:scale-[0.99]"
+            >
+              <span className="flex size-[24px] shrink-0 items-center justify-center">
+                <CirclePlus size={18} aria-hidden="true" />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[13px] leading-[17px] font-medium">
+                {CREATE_ACCOUNT_LABEL}
+              </span>
+            </button>
+          ) : null}
         </div>
         </div>
 

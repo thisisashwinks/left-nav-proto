@@ -4265,7 +4265,19 @@ export const RAIL_SIZING_LABELS: Record<RailSizing, string> = {
  * grows and shrinks.
  */
 export const RAIL_TILE_SIZE = 24;
-export const RAIL_TILE_SIZE_ACTIVE = 28;
+/*
+  24, not 28 — Ashwin, Oct 16.
+
+  The active mark was the largest thing in the strip by 4px over the uniform
+  size and 8 over a resting one, which made "where you are" the loudest
+  reading in a column whose job is to list forty places you are not. At 24
+  it still clears the 16px resting tiles by half again, and the fill, the
+  ring and the row's own weight are carrying that signal too.
+
+  The row does not move: padding is derived from whichever is taller, the
+  mark or the 17px name, so 24 lands in the same 36px row 28 did.
+*/
+export const RAIL_TILE_SIZE_ACTIVE = 24;
 export const RAIL_TILE_SIZE_REST = 16;
 export const RAIL_TILE_BOX = 32;
 
@@ -5252,15 +5264,77 @@ export const RAIL_TOOL_SPOT_LABELS: Record<RailToolSpot, string> = {
  * Ashwin, Oct 15.
  */
 /**
- * Whether the under-agency row's button carries its word.
+ * Whether the tools button carries its word.
  *
- * `word` is "Edit" — the same button every other spot draws. `icon` drops
- * to a glyph, which buys the field most of a 300px row back at the price of
- * a control nobody can read until they press it. Worth seeing both: this is
- * the one spot where the field and the button genuinely compete for width,
- * because they share a row that is also under an agency row and above forty
- * accounts. Ashwin, Oct 15.
+ * Read by both spots that put the button BESIDE the field — the agency bar
+ * and the under-agency row. `word` is "Edit", the same button the standing
+ * bars draw; `icon` drops to a glyph, which buys the field most of a 300px
+ * row back at the price of a control nobody can read until they press it.
+ *
+ * These are the two spots where the field and the button genuinely compete
+ * for width, which is why they share an axis and the standing bars do not.
+ * Ashwin, Oct 15; extended to the agency bar Oct 16.
  */
+/**
+ * Which glyph stands in for the search row while the rail is shut.
+ *
+ * Deliberately NOT the plain magnifier the field itself carries. At 56px
+ * this row is one icon in a column of account marks, and the same glass
+ * that sits inside the open field would read as the field having shrunk to
+ * a button rather than as the row holding its place. A variant says "this
+ * is the search ROW" instead of "this is a search box". Ashwin, Oct 16.
+ *
+ *  text    Lines with a glass over them — a search across a LIST, which is
+ *          what this one is.
+ *  scan    A glass inside crop marks. Reads as "look through" rather than
+ *          "type here", and is the furthest from the field's own glyph.
+ *  filter  No glass at all: three lines narrowing. Names the OUTCOME
+ *          rather than the gesture, and matches the sliders the Edit
+ *          button wears beside it.
+ *  funnel  The classic filter funnel. The most universally read of the
+ *          four and the least like a search, which cuts both ways: it is
+ *          unmistakable, and it promises narrowing rather than finding.
+ */
+/**
+ * Where the rail offers to make a new sub-account.
+ *
+ *  row     A row at the END of the list, named. The only version that says
+ *          what it does without being hovered, and the only one that costs
+ *          a row — at forty accounts you scroll to reach it, which is
+ *          arguably right: creating an account is not an errand you should
+ *          trip over on the way to switching into one.
+ *  header  A `+` beside the tools instead. Costs nothing in the list and
+ *          is always in reach, at the price of a glyph nobody can read
+ *          until they rest on it. Where the tools have a heading row it
+ *          goes there; below the agency, where they do not, it takes the
+ *          AGENCY row's trailing slot — Ashwin's call, since that row is
+ *          what sits above the search there.
+ *  off     Neither.
+ *
+ * Ashwin, Oct 16.
+ */
+export const CREATE_ACCOUNT_SPOTS = ["row", "header", "off"] as const;
+export type CreateAccountSpot = (typeof CREATE_ACCOUNT_SPOTS)[number];
+
+export const CREATE_ACCOUNT_SPOT_LABELS: Record<CreateAccountSpot, string> = {
+  row: "A row at the end",
+  header: "A + beside the tools",
+  off: "Off",
+};
+
+/** One string, so the row, the tooltip and the dropdown cannot drift. */
+export const CREATE_ACCOUNT_LABEL = "Create sub-account";
+
+export const RAIL_SEARCH_GLYPHS = ["text", "scan", "filter", "funnel"] as const;
+export type RailSearchGlyph = (typeof RAIL_SEARCH_GLYPHS)[number];
+
+export const RAIL_SEARCH_GLYPH_LABELS: Record<RailSearchGlyph, string> = {
+  text: "Lines and a glass",
+  scan: "Glass in crop marks",
+  filter: "Filter lines",
+  funnel: "Funnel",
+};
+
 export const RAIL_TOOLS_CTAS = ["word", "icon"] as const;
 export type RailToolsCta = (typeof RAIL_TOOLS_CTAS)[number];
 
@@ -5310,11 +5384,17 @@ export const AGENCY_PLATE_CLASS: Record<AgencyPlate, string> = {
  * with the selected tile is the first figure that answers the right question.
  * Ashwin, Oct 14.
  *
- * Deliberately not RAIL_TILE_SIZE_ACTIVE (28). Matching the selected tenant
- * would make the agency the same size as whichever account you happen to be
- * in — equal billing with one of its own clients, and a mark that changes
- * meaning depending on where you are standing. Ashwin, Oct 14, offered both;
- * this is the one that keeps the hierarchy.
+ * It READS `RAIL_TILE_SIZE_ACTIVE` rather than restating a number, which is
+ * the point: Ashwin asked for the agency's mark to match the selected
+ * sub-account's, so the two have to move together or the match is a
+ * coincidence waiting to be broken. It followed that constant from 28 down
+ * to 24 on Oct 16 without this file being touched, which is the behaviour
+ * wanted.
+ *
+ * (An earlier note here argued the opposite — that matching the selected
+ * tenant gives the agency equal billing with one of its own clients. That
+ * was offered and declined; the note outlived the decision and is recorded
+ * here only so it is not re-litigated by accident.)
  */
 /**
  * The breath left around the mark inside its 40px slot.
@@ -6088,8 +6168,12 @@ export interface ThemeState {
   railToolSpot: RailToolSpot;
   /** How the agency bar hands its row back. See AGENCY_BAR_DISMISSALS. */
   agencyBarDismissal: AgencyBarDismissal;
-  /** Whether the under-agency button keeps its word. See RAIL_TOOLS_CTAS. */
+  /** Whether the tools button keeps its word. See RAIL_TOOLS_CTAS. */
   railToolsCta: RailToolsCta;
+  /** Which glyph the shut search row wears. See RAIL_SEARCH_GLYPHS. */
+  railSearchGlyph: RailSearchGlyph;
+  /** Where the rail offers account creation. See CREATE_ACCOUNT_SPOTS. */
+  createAccountSpot: CreateAccountSpot;
   /** Whether the agency keeps its row in manage mode. See MANAGE_AGENCY_ROWS. */
   manageAgencyRow: ManageAgencyRow;
   /** What a rest has to land on for the names to open. See RAIL_HOVER_ZONES. */
@@ -6425,7 +6509,9 @@ export const NAV_STRUCTURE_KEYS = [
   "agencyRowRing", "agencyRowWord", "agencyRowDiamond", "agencyRowSquare",
   "manageAgencyRow", "railHoverZone", "railToolsLayout", "railCollapsedSearch",
   "railHideButton", "agencyRoute", "railActiveSpot", "railDirectoryMode",
-  "railToolSpot", "agencyBarDismissal", "railToolsCta", "railToolsEdge", "railPinnedLabel", "railRecentLabel",
+  "railToolSpot", "agencyBarDismissal", "railToolsCta", "railSearchGlyph",
+  "createAccountSpot",
+  "railToolsEdge", "railPinnedLabel", "railRecentLabel",
   "railTileColour", "activeAgencySpot", "railTileAlign", "railHover",
   "directoryPlacement", "railFillMorph", "railFillRest", "railFillAgency",
   "railHoldInset", "collapsedRail", "railZoomFit", "editTreatment",
@@ -6680,7 +6766,18 @@ export const DEFAULT_THEME: ThemeState = {
   railDirectoryMode: "inline",
   railToolSpot: "bottom",
   agencyBarDismissal: "cancel",
-  railToolsCta: "word",
+  /*
+    The glyph, not the word — Ashwin, Oct 16.
+
+    This is the one row where the field and the button genuinely compete:
+    they share a line that is also under an agency row and above forty
+    accounts. Sliders gives the field most of the 300px back. "The word"
+    stays on the dial, since a control nobody can name until they press it
+    is a real cost and worth being able to see.
+  */
+  railToolsCta: "icon",
+  railSearchGlyph: "text",
+  createAccountSpot: "row",
   railToolsEdge: "shadow",
   railPinnedLabel: true,
   railRecentLabel: true,

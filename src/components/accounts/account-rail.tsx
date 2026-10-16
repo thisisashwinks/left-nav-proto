@@ -13,6 +13,11 @@ import {
   X,
   ChevronLeft,
   SlidersHorizontal,
+  TextSearch,
+  ScanSearch,
+  ListFilter,
+  CirclePlus,
+  Filter,
 } from "lucide-react";
 import {
   RAIL_TILE_SIZE,
@@ -23,6 +28,8 @@ import {
   type RailToolsLayout,
   type AgencyBarDismissal,
   type RailToolsCta,
+  type RailSearchGlyph,
+  CREATE_ACCOUNT_LABEL,
   RAIL_HALF_SQUARE,
   RAIL_SHADE_CLASS,
   AGENCY_PLATE_CLASS,
@@ -298,6 +305,8 @@ function RailTools({
   onDismiss,
   dismissal,
   ctaShape,
+  searchGlyph,
+  onCreate,
   stickyTop,
 }: {
   expanded: boolean;
@@ -344,6 +353,13 @@ function RailTools({
   dismissal?: AgencyBarDismissal;
   /** Whether the button keeps its word. See RAIL_TOOLS_CTAS. */
   ctaShape?: RailToolsCta;
+  /** Which glyph stands in for this row when shut. See RAIL_SEARCH_GLYPHS. */
+  searchGlyph?: RailSearchGlyph;
+  /**
+   * Draws a `+` beside the tools. Null unless the create axis asked for it
+   * here — see CREATE_ACCOUNT_SPOTS.
+   */
+  onCreate?: (() => void) | null;
   /**
    * How far down the scroller the sticky row parks, in px.
    *
@@ -364,12 +380,34 @@ function RailTools({
    * bar goes, edge included, so nothing is left marking where it was.
    * Ashwin, Oct 15.
    */
-  if (!expanded && !collapsedSearch) return null;
+  /*
+   * ...except where its absence would move the list.
+   *
+   * `underAgency` owns a row BETWEEN the agency and the accounts. Dropping
+   * it at 56px does not just hide a control, it closes a gap — so every
+   * account below jumped up when the rail shut and back down when it
+   * opened, which is the drift the row heights were just rewritten to kill.
+   * It holds its place as a glyph instead, and `railCollapsedSearch` keeps
+   * governing the two spots whose row is at an EDGE, where leaving it out
+   * moves nothing. Ashwin, Oct 16.
+   */
+  if (!expanded && !collapsedSearch && spot !== "underAgency") return null;
 
   /*
    * Only open. At 56px there is one glyph and nothing to stack it above.
    */
   const stacked = layout === "stacked";
+
+  /*
+   * The two spots that live INSIDE the scroller rather than at an edge.
+   *
+   * Both take a row the list would otherwise have used, so both have to do
+   * what a row does not: hold their place while the accounts travel, and
+   * carry the rail's own ground so those accounts pass BEHIND them rather
+   * than through them. A sticky element with no background is a window.
+   * Ashwin, Oct 16.
+   */
+  const inList = spot === "agencyBar" || spot === "underAgency";
 
   /*
    * The bar's parts, named once and composed per layout.
@@ -418,6 +456,28 @@ function RailTools({
       </button>
     ) : null;
 
+  /*
+   * The `+`, beside the tools rather than in the list.
+   *
+   * Icon only and named by its tooltip, which is the trade this placement
+   * makes: it costs the list no row and is always in reach, and nobody can
+   * read it until they rest on it. Hidden while picking — a selection is
+   * about accounts that already exist. See CREATE_ACCOUNT_SPOTS.
+   */
+  const createBtn =
+    onCreate && !picking ? (
+      <RailTooltip label={CREATE_ACCOUNT_LABEL} placement="above">
+        <button
+          type="button"
+          aria-label={CREATE_ACCOUNT_LABEL}
+          onClick={onCreate}
+          className="motion-tap flex size-[32px] shrink-0 items-center justify-center rounded-[9px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-90 motion-press"
+        >
+          <CirclePlus size={16} aria-hidden="true" />
+        </button>
+      </RailTooltip>
+    ) : null;
+
   const cancelBtn = (
     <button
       type="button"
@@ -464,7 +524,16 @@ function RailTools({
           So the stacked bar states width instead and refuses to flex at
           all. Ashwin, Oct 15.
         */
-        stacked ? "w-full shrink-0" : "min-w-0 flex-1",
+        /*
+          Full width only when the field has its line to itself.
+
+          Stacked, it used to always be `w-full` — correct while the row
+          below the heading held nothing else, and wrong the moment the
+          button moved down beside it: 100% of the row plus a 32px button
+          overflowed the strip by 30px and put the glyph off the edge.
+          `flex-1` is what shares a line; `w-full` is what owns one.
+        */
+        stacked && !inList ? "w-full shrink-0" : "min-w-0 flex-1",
       )}
     >
       <Search
@@ -554,22 +623,82 @@ function RailTools({
     </button>
   );
 
+  /*
+   * The row's stand-in at 56px — a VARIANT of the glass, not the glass.
+   *
+   * The field carries a plain magnifier inside it. Reusing that one here
+   * would read as the field having shrunk to a button, when what this
+   * actually is is the row holding its place. A variant says "the search
+   * ROW is here" rather than "here is a search box". See
+   * RAIL_SEARCH_GLYPHS. Ashwin, Oct 16.
+   */
+  const ShutGlyph =
+    searchGlyph === "scan"
+      ? ScanSearch
+      : searchGlyph === "funnel"
+        ? Filter
+        : searchGlyph === "filter"
+          ? ListFilter
+          : searchGlyph === "text"
+            ? TextSearch
+            : Search;
+
   const glyph = (
     <button
       type="button"
       aria-label="Find an account"
       className="motion-tap mx-auto flex size-[32px] shrink-0 items-center justify-center rounded-[8px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
     >
-      <Search size={16} aria-hidden="true" />
+      <ShutGlyph size={16} aria-hidden="true" />
     </button>
   );
 
   return (
     <div
       onPointerEnter={onHover}
-      style={spot === "underAgency" ? { top: stickyTop ?? 0 } : undefined}
+      /*
+        Parked a scroller's-padding higher than asked, and padded by the
+        same amount.
+
+        `top` on a sticky element is measured from the scrollport's PADDING
+        box, and the account list's scroller carries 2px of top padding. So
+        `top: 0` parked the bar 2px below the scrollport's edge and left a
+        2px strip above it with nothing in it — through which the accounts
+        could be seen travelling. Subtracting the padding parks the bar
+        flush; adding it back as the bar's own padding leaves its contents
+        exactly where they were. Ashwin, Oct 16.
+      */
+      style={
+        inList
+          ? { top: (stickyTop ?? 0) - RAIL_SCROLL_PAD }
+          : undefined
+      }
       className={cn(
-        "z-[2] flex shrink-0 gap-[8px] bg-[var(--nav-rail-bg)] py-[8px]",
+        "z-[2] flex shrink-0 bg-[var(--nav-rail-bg)]",
+        /*
+          Tighter above, and a gap below.
+
+          The field and the heading over it are one control in two lines —
+          8px between them read as two separate rows that happened to land
+          together. 4 binds them. Under the field the opposite is wanted:
+          the first account used to sit flush against the bar, so 8px of
+          the rail's own ground says where the tools stop and the list
+          starts. Ashwin, Oct 16.
+        */
+        inList ? "gap-[4px]" : "gap-[8px]",
+        /*
+          The gap above the field is PAINTED, not empty.
+
+          Between two sticky rows a transparent gap is a slot the accounts
+          travel through — the column's own 4px showed a moving sliver
+          between the agency row and this one. The gap is the same size, it
+          is just inside this element now, so the two rows' grounds meet
+          and the list passes behind both. The extra 2 is the scroller's
+          padding; see `style`. Ashwin, Oct 16.
+        */
+        inList ? "pt-[4px] pb-[8px]" : "py-[8px]",
+        // Held against the scroll, at whatever the caller has to clear.
+        inList && "sticky",
         /*
           Stacked, the bar is a column of two rows rather than one row of
           controls — so it stretches its children instead of centring them,
@@ -588,8 +717,8 @@ function RailTools({
           to edge so nothing shows behind it: as a row with margins, the
           accounts scrolled visibly through the gap beside it.
         */
-        spot === "agencyBar" || spot === "underAgency"
-          ? "w-full px-0 py-0"
+        inList
+          ? "w-full px-0"
           : expanded
             ? "w-full px-[10px]"
             : "w-full pr-[10px] pl-[14px]",
@@ -640,15 +769,11 @@ function RailTools({
           the run and 0 where it is a plate above the scroller, because in
           that case there is nothing above it to clear.
         */
-        spot === "underAgency" && "sticky z-[3]",
-        !expanded &&
-          spot !== "agencyBar" &&
-          spot !== "underAgency" &&
-          "border-r border-[var(--nav-border)]",
+        inList && "z-[3]",
+        !expanded && !inList && "border-r border-[var(--nav-border)]",
         // Expanded, the axis decides — a lift over the list, or a hairline.
         expanded &&
-          spot !== "agencyBar" &&
-          spot !== "underAgency" &&
+          !inList &&
           (edge === "border"
             ? spot === "top"
               ? "border-b border-[var(--nav-divider)]"
@@ -674,6 +799,7 @@ function RailTools({
         */
         <>
           {field}
+          {createBtn}
           {picking ? null : ctaBtn}
         </>
       ) : stacked ? (
@@ -732,9 +858,10 @@ function RailTools({
                     {title}
                   </span>
                 )}
-                {ctaBtn}
+                {createBtn}
+                {inList ? null : ctaBtn}
                 {/*
-                  Beside Edit, and only out of manage mode.
+                  Beside the heading, and only out of manage mode.
 
                   Manage has a Cancel of its own and the two undo different
                   errands — one abandons a selection, the other closes a
@@ -766,7 +893,25 @@ function RailTools({
               </>
             )}
           </div>
-          {field}
+          {/*
+            The field and the button share a line — the shape the
+            under-agency row already uses.
+
+            They were on separate lines: the button up on the heading row
+            beside the way out, the field alone beneath it. That put the
+            control you press most next to the control that closes the
+            surface, and left the field looking like a second thing rather
+            than the thing. Beside the field it reads as the field's own
+            trailing control, which is what it is. Ashwin, Oct 16.
+          */}
+          {inList ? (
+            <div className="flex items-center gap-[8px]">
+              {field}
+              {picking ? null : ctaBtn}
+            </div>
+          ) : (
+            field
+          )}
         </>
       ) : picking ? (
         /*
@@ -1467,17 +1612,40 @@ export function AccountRail({
   const underAgency =
     railToolSpot === "underAgency" &&
     railArrangement !== "agencyBottom" &&
-    inlineOpen;
+    /*
+      The MODE, not the open state — the row exists at both widths.
+
+      Gated on the open state it vanished when the rail shut, which closed
+      the gap it holds and shunted every account up a row. Shut it draws a
+      glyph; open it draws the field. Same row either way, so nothing moves.
+    */
+    railDirectoryMode === "inline";
 
   /*
    * What the sticky field has to clear: the agency row, plus the gap.
    *
-   * The row is 36 and the list sets 4 between its children, so the field's
-   * natural top is 40 below the agency's. Parking it at 36 made it jump 4px
-   * up the moment it stuck — a row that moves as it stops moving.
-   * A plate sits outside the scroller, so there it clears nothing.
+   * The agency row is 36 tall and carries 2px of padding to reach the
+   * scrollport's edge, so its painted bottom is 38 below that edge — and
+   * the two grounds have to MEET or the accounts show through the seam.
+   * The column's own 4px gap is gone (the agency row pulls it closed) and
+   * lives inside this bar's padding instead. A plate sits outside the
+   * scroller, so there this clears nothing.
    */
-  const underAgencyTop = agencyJoinsRun ? RAIL_ROW_H + 4 : 0;
+  /*
+   * Where the rail offers to make an account — see CREATE_ACCOUNT_SPOTS.
+   *
+   * Both read the same axis and only one can be live at a time, which is
+   * the point: two ways to create an account in one 300px column is two
+   * answers to a question that has one.
+   */
+  const createSpot = effective.createAccountSpot;
+  const createRow = createSpot === "row" && railDirectoryMode === "inline";
+  const createInTools =
+    createSpot === "header" && railDirectoryMode === "inline";
+
+  const underAgencyTop = agencyJoinsRun
+    ? RAIL_ROW_H + RAIL_SCROLL_PAD
+    : 0;
 
   const agencyInRun =
     agencyJoinsRun &&
@@ -3114,7 +3282,19 @@ export function AccountRail({
                   Ashwin, Oct 15.
                 */}
                 {underAgency && fillPicking ? (
-                  <div className="sticky top-0 z-[4] flex h-[36px] shrink-0 items-center gap-[8px] bg-[var(--nav-rail-bg)]">
+                  /*
+                    `-mb-[4px]` pulls the field up against it.
+
+                    The scroller sets 4px between its children, which is
+                    right for two account rows and too much between a
+                    heading and the field it heads — they are one block,
+                    and the list's own rhythm was prising them apart. The
+                    bar below restates the gap underneath itself.
+                  */
+                  <div
+                    style={{ top: -RAIL_SCROLL_PAD }}
+                    className="sticky z-[4] -mt-[2px] -mb-[4px] flex h-[38px] shrink-0 items-center gap-[8px] bg-[var(--nav-rail-bg)] pt-[2px]"
+                  >
                     <button
                       type="button"
                       role="checkbox"
@@ -3157,10 +3337,32 @@ export function AccountRail({
                 ) : null}
                 {underAgency ? (
                   <RailTools
-                    expanded
+                    /*
+                      The rail's real width, not a literal `true`.
+
+                      Hardcoded, this row never took the collapsed branch:
+                      at 56px it drew the bordered field AND the Edit
+                      button, which is a 280px control in a 56px column —
+                      the pill and the sliders both overflowed the strip.
+                      Shut it is one glyph and nothing else. Ashwin, Oct 16.
+                    */
+                    expanded={expanded}
                     spot="underAgency"
                     layout="inline"
-                    stickyTop={fillPicking ? RAIL_ROW_H + 4 : underAgencyTop}
+                    stickyTop={fillPicking ? RAIL_ROW_H + RAIL_SCROLL_PAD : underAgencyTop}
+                    searchGlyph={effective.railSearchGlyph}
+                    /*
+                      Only where there is no agency ROW to carry it.
+
+                      Below the agency the `+` goes in the agency row —
+                      Ashwin's call, since that row is what sits above the
+                      search. Under the PLATE arrangements there is no such
+                      row, so the tools row takes it back rather than the
+                      option silently doing nothing.
+                    */
+                    onCreate={
+                      createInTools && !agencyJoinsRun ? () => {} : null
+                    }
                     edge={effective.railToolsEdge}
                     collapsedSearch={effective.railCollapsedSearch}
                     title={directoryLabel}
@@ -3195,11 +3397,29 @@ export function AccountRail({
                   without touching it. Ashwin, Oct 15.
                 */}
                 {agencyBar && agencyBarOpen ? (
-                    <div>
+                    /*
+                      A DIRECT child of the list's column, with no wrapper.
+
+                      It had one, and a wrapper is fatal to `sticky`: the
+                      element sticks within its PARENT's box, and that box
+                      was 76px tall — exactly the bar — so it scrolled away
+                      with the div that was supposed to hold it. Measured
+                      at -554 after a 600px scroll. The parent has to be
+                      the tall column the accounts are in. Ashwin, Oct 16.
+                    */
                       <RailTools
                         expanded
                         spot="agencyBar"
                         layout="stacked"
+                        /*
+                          Parks at the scroller's own top: it IS the first
+                          row while it is open, so there is nothing above
+                          it to clear.
+                        */
+                        stickyTop={0}
+                        ctaShape={effective.railToolsCta}
+                        searchGlyph={effective.railSearchGlyph}
+                        onCreate={createInTools ? () => {} : null}
                         edge={effective.railToolsEdge}
                         collapsedSearch={effective.railCollapsedSearch}
                         title={
@@ -3230,7 +3450,6 @@ export function AccountRail({
                             : null
                         }
                       />
-                    </div>
                 ) : null}
                 {filled ? null : topRun.map((account, i) =>
                   /* The row the bar is standing in for is not drawn twice. */
@@ -3246,6 +3465,11 @@ export function AccountRail({
                       so letting the agency scroll away would leave the
                       field pinned under nothing with a gap above it.
                     */
+                    style={
+                      underAgency && account.id === AGENCY_ID
+                        ? { top: -RAIL_SCROLL_PAD }
+                        : undefined
+                    }
                     className={cn(
                       underAgency &&
                         account.id === AGENCY_ID &&
@@ -3262,7 +3486,19 @@ export function AccountRail({
                           hoisting the agency out of the run, and it leaves
                           the run's own ordering untouched.
                         */
-                        "sticky top-0 z-[4] [order:-1] bg-[var(--nav-rail-bg)]",
+                        /*
+                          Flush to the scrollport, and touching the row
+                          below it.
+
+                          `top-0` parked it 2px down — a sticky offset
+                          resolves against the scrollport's PADDING box —
+                          and the column's 4px gap left a second slot under
+                          it. Both showed accounts travelling behind what
+                          is meant to be a solid header. The negative
+                          margins close them; the padding puts the row's
+                          own content back where it was.
+                        */
+                        "sticky z-[4] [order:-1] -mt-[2px] -mb-[4px] pt-[2px] bg-[var(--nav-rail-bg)]",
                     )}
                   >
                   <RailRow
@@ -3341,6 +3577,11 @@ export function AccountRail({
                     }
                     {...(agencyBar && account.id === AGENCY_ID
                       ? { onSearch: () => setAgencyBarOpen(true) }
+                      : {})}
+                    {...(underAgency &&
+                    createInTools &&
+                    account.id === AGENCY_ID
+                      ? { onCreate: () => {} }
                       : {})}
                   />
                   </div>
@@ -3463,6 +3704,48 @@ export function AccountRail({
                 {!inlineDirectory && directorySpot === "tail"
                   ? directoryButton
                   : null}
+
+                {/*
+                  The last row of the list, and deliberately the last.
+
+                  Scrolling past forty accounts to reach it is the cost and
+                  arguably the point: creating an account is not an errand
+                  you should trip over on the way to switching into one.
+                  Inside the scroller so it travels with the list; the
+                  tools bar below is pinned and stays put.
+
+                  Open only — Ashwin, Oct 16. At 56px it was a ⊕ at the foot
+                  of a column of account marks, which reads as a twelfth
+                  account rather than as an action: the same complaint the
+                  shut search glyph drew. Being the LAST row is what makes
+                  dropping it free — nothing above it moves, so every
+                  account still lands on the same y shut and open.
+
+                  Hidden while picking too: a selection is about accounts
+                  that already exist, and a row that cannot be ticked at the
+                  end of a column of checkboxes is the same dead row the
+                  agency was. See CREATE_ACCOUNT_SPOTS.
+                */}
+                {createRow && !fillPicking && expanded ? (
+                  <button
+                    type="button"
+                    aria-label={CREATE_ACCOUNT_LABEL}
+                    onPointerEnter={() => setHover(true)}
+                    style={{
+                      paddingBlock: (RAIL_ROW_H - 24) / 2,
+                      paddingInlineStart: 6,
+                      paddingInlineEnd: RAIL_ROW_END_PAD,
+                    }}
+                    className="motion-tap flex w-full shrink-0 items-center gap-[9px] rounded-[8px] text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg active:scale-[0.99]"
+                  >
+                    <span className="flex size-[24px] shrink-0 items-center justify-center">
+                      <CirclePlus size={18} aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-left text-[13px] leading-[17px] font-medium">
+                      {CREATE_ACCOUNT_LABEL}
+                    </span>
+                  </button>
+                ) : null}
 
               </div>
             </div>
@@ -3607,6 +3890,7 @@ function RailRow({
   agencyWord = false,
   agencyDiamond = false,
   onSearch,
+  onCreate,
   magnify = 1,
   pinned = false,
   listShape = false,
@@ -3699,6 +3983,14 @@ function RailRow({
    * where it is drawn. Ashwin, Oct 15.
    */
   onSearch?: () => void;
+  /**
+   * Draws a `+` in this row's own trailing slot.
+   *
+   * Only the agency's, and only under the below-the-agency tools spot,
+   * where the agency row IS the thing above the search and so is where the
+   * `+` belongs. See CREATE_ACCOUNT_SPOTS.
+   */
+  onCreate?: () => void;
   /** The agency's trailing marks. See AGENCY_ROW_MARKS. */
   agencyWord?: boolean;
   agencyDiamond?: boolean;
@@ -3865,7 +4157,26 @@ function RailRow({
    * cap is the job it was named for and it keeps it.
    */
   const contain = effective.railZoomFit === "contain";
-  const zoom = contain ? Math.min(magnify, (size + pad) / size) : magnify;
+  /*
+   * The active mark's own ceiling, 4px tighter than the clearance allows.
+   *
+   * Its resting size came down from 28 to 24 (Oct 16) but its PEAK did
+   * not: the padding grew by the same 4px the mark lost, so the dock had
+   * more room to spend and the hovered active tile still arrived at 30 —
+   * almost exactly where it used to. The point of the smaller mark was
+   * that "where you are" had become the loudest thing in the strip, and a
+   * hover that undoes the change undoes the point.
+   *
+   * Capped at the mark plus 4, so the active tile tops out at 28 — four
+   * less than the 32 it reached before, which is the figure Ashwin asked
+   * for. Every other tile keeps the clearance rule: a 16px resting mark
+   * has 10px a side and never comes near its limit anyway.
+   */
+  const peak = selected ? (size + RAIL_ACTIVE_ZOOM_ROOM) / size : Infinity;
+  const zoom = Math.min(
+    contain ? Math.min(magnify, (size + pad) / size) : magnify,
+    peak,
+  );
   /*
    * The trailing edge is a constant; only the leading one carries the mark.
    *
@@ -3979,6 +4290,20 @@ function RailRow({
    * relationship and should not look like it. Taking real width is what
    * stops the row's fill short of it.
    */
+  const createControl =
+    onCreate && expanded ? (
+      <RailTooltip label={CREATE_ACCOUNT_LABEL}>
+        <button
+          type="button"
+          aria-label={CREATE_ACCOUNT_LABEL}
+          onClick={onCreate}
+          className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[8px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-90 motion-press"
+        >
+          <CirclePlus size={16} aria-hidden="true" />
+        </button>
+      </RailTooltip>
+    ) : null;
+
   const searchControl =
     onSearch && expanded ? (
       <button
@@ -4014,7 +4339,8 @@ function RailRow({
         // Only where there is a second control to sit beside. Everywhere
         // else the row is the whole width and a flex box would be a box
         // around one child.
-        searchControl && "flex items-center gap-[4px]",
+        (searchControl || createControl) &&
+          "flex items-center gap-[4px]",
       )}
     >
       {pinSlot}
@@ -4123,7 +4449,7 @@ function RailRow({
               the row give up exactly the width the control takes, and the
               name truncates that much earlier.
             */
-            searchControl && "min-w-0 flex-1",
+            (searchControl || createControl) && "min-w-0 flex-1",
             /*
               The shape itself has moved to `borderRadius` in the style above —
               it reads two axes and a `calc()` now, and three `rounded-*`
@@ -4459,6 +4785,7 @@ function RailRow({
         </button>
       </Tooltipped>
       {searchControl}
+      {createControl}
     </div>
   );
 }
@@ -4494,6 +4821,24 @@ function RailRow({
  * height.
  */
 const RAIL_ROW_H = 36;
+
+/**
+ * The account scroller's own top padding.
+ *
+ * Small enough to be invisible until something sticks to it: a sticky
+ * `top` resolves against the scrollport's padding box, so every in-list bar
+ * parks this far down unless it says otherwise. See the bar's `style`.
+ */
+const RAIL_SCROLL_PAD = 2;
+
+/**
+ * How far the ACTIVE mark may grow under the dock, in px.
+ *
+ * A diameter's worth of headroom rather than a ratio, because the thing
+ * being bounded is how big the tile gets — not how much of its clearance
+ * the animation is allowed to spend. See `peak`.
+ */
+const RAIL_ACTIVE_ZOOM_ROOM = 4;
 
 /**
  * The name's own line box, which is what the row has to clear once the
