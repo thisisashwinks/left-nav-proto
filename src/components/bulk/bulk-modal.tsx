@@ -365,7 +365,7 @@ export function BulkModal({
     step === "path"
       ? "Bulk actions"
       : path === "template"
-        ? "Update navigation layout"
+        ? "Apply navigation layout"
         : "Update feature access";
 
   return createPortal(
@@ -465,7 +465,19 @@ export function BulkModal({
                     aria-checked={t.id === templateId}
                     onClick={() => setTemplateId(t.id)}
                     className={cn(
-                      "motion-tap flex items-center gap-[9px] rounded-[7px] px-[8px] py-[7px] text-left",
+                      /*
+                        No horizontal padding, so the row's content starts
+                        where the paragraph above it does.
+
+                        The fill still spans the whole row — the button is a
+                        stretched flex child, so the hover and selected states
+                        run the full width and the entire row is the hit
+                        target. What the 8px was doing was indenting the radio
+                        past the body text, which made the list read as a
+                        nested thing inside the dialog rather than as the
+                        dialog's own content. Ashwin, Oct 16.
+                      */
+                      "motion-tap flex w-full items-center gap-[9px] rounded-[7px] py-[7px] text-left",
                       t.id === templateId
                         ? "bg-pg-row-selected"
                         : "hover:bg-pg-row-border",
@@ -877,7 +889,7 @@ export function BulkModal({
                   step === "template-preview"
                     ? "Next"
                     : path === "template"
-                      ? "Update navigation layout"
+                      ? "Apply navigation layout"
                       : "Apply changes"}
                 </PrimaryButton>
               )}

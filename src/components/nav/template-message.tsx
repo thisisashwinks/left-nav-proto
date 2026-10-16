@@ -508,11 +508,22 @@ export function AffectedAccountsList({ ids }: { ids: readonly string[] }) {
   const rest = reached.length - shown.length;
 
   return (
-    <div className="overflow-hidden rounded-[7px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
+    <div
+      /*
+        No box of its own now the rows are flush.
+
+        The ring and the radius existed to contain rows that were inset 9px
+        inside them. With the rows aligned to the dialog's own text the ring
+        was a border drawn around content that no longer sits within it —
+        and in a page-themed dialog `--nav-divider` barely resolves anyway,
+        so it was a frame nobody could see holding an indent everybody could.
+      */
+      className="flex flex-col"
+    >
       {shown.map((a) => (
         <div
           key={a.id}
-          className="flex items-center gap-[9px] px-[9px] py-[7px] not-last:shadow-[inset_0_-1px_0_0_var(--nav-divider)]"
+          className="flex items-center gap-[9px] py-[7px] not-last:shadow-[inset_0_-1px_0_0_var(--nav-divider)]"
         >
           {/*
             16 and 14 — a list to read, not a table to scan.
@@ -542,7 +553,7 @@ export function AffectedAccountsList({ ids }: { ids: readonly string[] }) {
           is the last line of the thing it is counting — which is what it
           is. Not a control: there is nothing to expand to.
         */
-        <div className="px-[9px] py-[7px] text-[14px] leading-[20px] text-nav-fg-subtle shadow-[inset_0_1px_0_0_var(--nav-divider)]">
+        <div className="py-[7px] text-[14px] leading-[20px] text-nav-fg-subtle shadow-[inset_0_1px_0_0_var(--nav-divider)]">
           <span className="font-medium text-nav-fg-muted">+{rest} more</span>{" "}
           {rest === 1 ? "sub-account" : "sub-accounts"}
         </div>

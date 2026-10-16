@@ -5413,13 +5413,17 @@ export const MANAGE_ACCOUNTS_LABEL = "Manage sub-accounts";
  * understatement, which is the cheaper of the two errors.
  * Ashwin, Oct 16.
  *
- * "Update nav", not "Update navigation layout", and the difference is
- * deliberate: this is a button sitting in a 320px strip beside a count and a
- * Cancel, where the long form crowds both. The screens it opens say the full
- * phrase — the chooser card, the modal heading and the committing button all
- * read "Update navigation layout" — so the short form on the way in is a
- * nickname for something the next screen names in full, not a second name
- * for it. Ashwin, Oct 16.
+ * "Update nav" here, "Apply navigation layout" on the screens it opens, and
+ * the mismatch is deliberate twice over.
+ *
+ * On length: this button sits in a 320px strip beside a count and a Cancel,
+ * where the full phrase crowds both. The short form on the way in is a
+ * nickname for something the next screen names in full.
+ *
+ * On the verb: the button UPDATES the accounts you ticked; the modal APPLIES
+ * a layout to them. Same run, described from the two ends it is seen from —
+ * the selection you are acting on, then the thing being handed to it.
+ * Ashwin, Oct 16.
  */
 export const BULK_BUTTON_LABEL = "Update nav";
 

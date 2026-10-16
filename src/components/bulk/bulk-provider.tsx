@@ -362,7 +362,7 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
       const changed = outcomes.filter((o) => o.status === "changed").length;
       return record({
         path: "template",
-        title: "Update navigation layout",
+        title: "Apply navigation layout",
         detail: `${templateName} applied to ${plural(landing.length, "sub-account")}.`,
         accountIds,
         accountNames,

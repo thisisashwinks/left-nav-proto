@@ -28,7 +28,7 @@ export const BULK_PATHS = ["template", "features", "per-account"] as const;
 export type BulkPath = (typeof BULK_PATHS)[number];
 
 export const BULK_PATH_LABELS: Record<BulkPath, string> = {
-  template: "Update navigation layout",
+  template: "Apply navigation layout",
   features: "Update feature access",
   "per-account": "Set features per sub-account",
 };
