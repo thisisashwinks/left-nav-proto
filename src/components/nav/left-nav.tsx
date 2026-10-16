@@ -51,6 +51,7 @@ import {
   agencyPlaces,
   agencySettings,
 } from "./agency-config";
+import { restaurantNavEntries } from "@/components/restaurant/restaurant-nav";
 import { CollapseToggle } from "./collapse-toggle";
 import {
   EditNavAnchor,
@@ -309,6 +310,14 @@ interface LeftNavProps {
    * is the nav — so this is a door, not a piece of state.
    */
   onOpenApp: (kind: AppKind) => void;
+  /**
+   * An industry workspace with a tree of its own.
+   *
+   * A restaurant account does not draw the catalogue's groups at all: it gets
+   * the sectioned restaurant sidebar, with no Recent block and no setup card —
+   * Launchpad is the first row in its tree.
+   */
+  workspace?: "restaurant" | null;
 }
 
 /**
@@ -361,6 +370,7 @@ export function LeftNav({
   onOpenDirectory,
   recentsBudget,
   onOpenApp,
+  workspace = null,
 }: LeftNavProps) {
   // Out, hold, in. `loading` alone flips in one commit and so cannot express a
   // departure — see useSwapPhase.
@@ -474,7 +484,8 @@ export function LeftNav({
    * kind, so both conveniences go back to being one row each: a Pinned door and
    * a Recent door, which is exactly what every other mode shows down there.
    */
-  const merged = mergedMode && !atFloor;
+  // An industry tree has no Recent block in any mode — see `workspace`.
+  const merged = mergedMode && !atFloor && workspace === null;
   /*
    * Whether the floating capsule still stands while the merged block is up.
    *
@@ -552,7 +563,7 @@ export function LeftNav({
    * So under this model the Launchpad is a block like the other three. Every
    * account has one, the template says whether it shows, and the menu can turn
    * it on and off like Recent and Quick actions — which is the whole of what
-   * "everything is in the template" has to mean.
+   * "everything is in the layout" has to mean.
    */
   const launchpadAllowed = strictModel ? true : launchpadSetting;
   const picker = useIconPicker();
@@ -604,7 +615,7 @@ export function LeftNav({
    * `captureArrangement` normalises the tree it takes — it materialises the
    * groups and switches the mode to custom — so an account that saved without
    * applying would be on a template whose shape it does not actually have, and
-   * the very next "Save template" would silently re-normalise it again. Landing
+   * the very next "Save layout" would silently re-normalise it again. Landing
    * the template back on the account it came from makes the two agree from the
    * first press.
    */
@@ -615,7 +626,7 @@ export function LeftNav({
      * The two differ by everything the account does not own, which
      * `patchForArrangement` filters out on the way in. Recording the template's
      * own arrangement made an account look edited the moment it was applied —
-     * "Save template" went live against a difference nobody had made, which is
+     * "Save layout" went live against a difference nobody had made, which is
      * the opposite of what that button is for.
      */
     /*
@@ -672,7 +683,7 @@ export function LeftNav({
   /**
    * Whether this account has moved since it took the template.
    *
-   * What makes "Save template" an action rather than a standing offer. Applying
+   * What makes "Save layout" an action rather than a standing offer. Applying
    * a template and being immediately invited to save it back is a button with
    * nothing to do — press it and the only thing that changes is the version
    * number, on a template fifty accounts are reading.
@@ -700,9 +711,9 @@ export function LeftNav({
    * `editDirty` asks "has the nav moved since the card opened", which is the
    * right question when saving means writing to this account. Under
    * `one-template` saving means writing to a TEMPLATE, so the right question is
-   * "does this nav differ from the template it is on" — and applying a template
+   * "does this nav differ from the layout it is on" — and applying a template
    * mid-session moves the nav a great deal while leaving that answer no. The
-   * card said "Save template" over an account that had just been handed one,
+   * card said "Save layout" over an account that had just been handed one,
    * offering to save it back over itself.
    *
    * On the default there is no template to compare against, so the session is
@@ -1012,7 +1023,9 @@ export function LeftNav({
    * reason: not "this account does not want pins" but "the pins are already on
    * screen, in the list above".
    */
-  const pinnedShown = !isBlockHidden(state, "pinned") && !mergedHidesCapsule;
+  // An industry tree draws no dock either; the shell withdraws the capsule.
+  const pinnedShown =
+    !isBlockHidden(state, "pinned") && !mergedHidesCapsule && workspace === null;
   const quickActionsShown = !isBlockHidden(state, "quickActions");
   /**
    * Whether the Launchpad card shows.
@@ -1062,7 +1075,8 @@ export function LeftNav({
    * not started; an agency reading its own nav is past that, and the card was
    * the first thing on the surface every single visit.
    */
-  const cardShowing = (launchpad && !agencyScope) || cardQuickActions;
+  const cardShowing =
+    workspace === null && ((launchpad && !agencyScope) || cardQuickActions);
 
   /*
    * The categories, in the order the nav draws them.
@@ -1956,7 +1970,9 @@ export function LeftNav({
   const entries = React.useMemo(
     () =>
       tidyRules(
-        agencyScope
+        workspace === "restaurant" && !agencyScope
+          ? restaurantNavEntries
+          : agencyScope
           ? agencyEntriesFor({
               order: agencyLayout.state.order,
               labels: agencyLayout.state.labels,
@@ -1997,6 +2013,7 @@ export function LeftNav({
       bandEverything,
       getAppPlacement,
       getAppFlyoutItem,
+      workspace,
     ],
   );
 
@@ -2021,6 +2038,8 @@ export function LeftNav({
   // the density and the recents mode allow. At agency scope the cluster is the
   // agency's, so it keeps the authored rows.
   const fixedEntries = React.useMemo(() => {
+    // The restaurant tree has no Recent block; its Home section does that job.
+    if (workspace === "restaurant" && !agencyScope) return [];
     const resolved = agencyScope
       ? config.fixed
       : fixedEntriesFor(state, config.fixed, bandEverything);
@@ -2060,6 +2079,7 @@ export function LeftNav({
     bandEverything,
     cardQuickActions,
     merged,
+    workspace,
   ]);
   /**
    * Whether the standing cluster has anything in it.
@@ -4864,7 +4884,7 @@ export function LeftNav({
             {/*
               What it REPLACES, in the nav's own nouns.
 
-              "Applies a template" is the one sentence that tells a reader
+              "Applies a layout" is the one sentence that tells a reader
               nothing they did not already know from pressing the button. The
               useful facts are that the arrangement goes, that their own renames
               do not, and that it is reversible — in that order, because the

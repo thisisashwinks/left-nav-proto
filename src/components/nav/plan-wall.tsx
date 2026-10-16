@@ -433,7 +433,7 @@ const VALUE_POINTS: Record<"plan" | "seat", readonly string[]> = {
   plan: [
     "Rename any row, for everyone in the account",
     "Group products your way, and hide what nobody opens",
-    "Save the arrangement as a template",
+    "Save the arrangement as a layout",
   ],
   seat: [
     "Customise every sub-account, not one",

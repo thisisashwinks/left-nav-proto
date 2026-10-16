@@ -335,7 +335,7 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
       });
 
       // Every account in the run is now ON this template, which is what makes
-      // the edit card's "Save template" live for them afterwards: fix one
+      // the edit card's "Save layout" live for them afterwards: fix one
       // account's nav, save, and the template the other thirty-nine came from
       // is the thing that gets corrected.
       /*
@@ -362,7 +362,7 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
       const changed = outcomes.filter((o) => o.status === "changed").length;
       return record({
         path: "template",
-        title: "Apply saved template",
+        title: "Apply saved layout",
         detail: `${templateName} applied to ${plural(landing.length, "sub-account")}.`,
         accountIds,
         accountNames,
@@ -614,7 +614,7 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
          */
         if (held && held !== templateId && held !== DEFAULT_TEMPLATE_ID) {
           const name =
-            templates.find((t) => t.id === held)?.name ?? "another template";
+            templates.find((t) => t.id === held)?.name ?? "another layout";
           const seen = from.get(held);
           if (seen) seen.count += 1;
           else from.set(held, { name, count: 1 });

@@ -118,9 +118,23 @@ export const TUNING_DEFAULTS: TuningState = {
   navRowRadius: 7,
   navRowSpacing: 2,
   navPadX: 10,
-  navCollapseFade: 90,
-  navCollapseSize: 220,
-  navCollapseSettle: 120,
+  /*
+   * The collapse, slowed to ~700ms (Ashwin, Oct 16).
+   *
+   * It was 220ms end to end, which was the right number while the gesture
+   * was three beats queued behind each other — the beats added up and the
+   * whole read as deliberate. Now that the column, the rail and the canvas
+   * all move at once, 220ms of simultaneous motion reads as a cut: there is
+   * nothing left to watch it happen against. "It doesn't feel like there is
+   * some animation to it."
+   *
+   * Simultaneity is what bought the time, so simultaneity is what pays for
+   * it: 700ms of three things moving together is still a shorter READ than
+   * 310ms of three things taking turns.
+   */
+  navCollapseFade: 300,
+  navCollapseSize: 700,
+  navCollapseSettle: 300,
   // The dock keeps 16. Its icons carry no label beside them, so they are the only
   // thing naming the row and drop off faster than a nav row's icon does.
   dockIconSize: 16,
@@ -176,9 +190,9 @@ export const TUNING_KNOBS: TuningKnob[] = [
   { id: "navRowSpacing", cssVar: "--t-nav-space", label: "Between rows", group: "Nav rows", min: 0, max: 10, step: 1, unit: "px", hint: "Design: 2" },
   { id: "navPadX", cssVar: "--t-nav-pad", label: "Column padding", group: "Nav rows", min: 0, max: 24, step: 1, unit: "px", hint: "Design: 10 · the whole L1 gutter, header and lists" },
 
-  { id: "navCollapseFade", cssVar: "--t-nav-collapse-fade", label: "1 · Contents leave", group: "Motion", min: 0, max: 400, step: 10, unit: "ms", hint: "The outgoing face fades. Nothing else moves yet." },
-  { id: "navCollapseSize", cssVar: "--t-nav-collapse-size", label: "2 · Surface resizes", group: "Motion", min: 60, max: 600, step: 10, unit: "ms", hint: "The column narrows or widens, over an empty surface." },
-  { id: "navCollapseSettle", cssVar: "--t-nav-collapse-settle", label: "3 · Contents arrive", group: "Motion", min: 0, max: 400, step: 10, unit: "ms", hint: "The incoming face fades in and slides the last few px." },
+  { id: "navCollapseFade", cssVar: "--t-nav-collapse-fade", label: "1 · Labels leave", group: "Motion", min: 0, max: 800, step: 10, unit: "ms", hint: "Design: 300 · the labels fade WHILE the column narrows, not before it." },
+  { id: "navCollapseSize", cssVar: "--t-nav-collapse-size", label: "2 · The whole gesture", group: "Motion", min: 60, max: 1200, step: 10, unit: "ms", hint: "Design: 700 · column, rail and canvas — they all move on this one." },
+  { id: "navCollapseSettle", cssVar: "--t-nav-collapse-settle", label: "3 · Strip hands over", group: "Motion", min: 0, max: 800, step: 10, unit: "ms", hint: "Design: 300 · the collapsed strip fading out under the expanded face." },
 
   { id: "dockIconSize", cssVar: "--t-dock-icon", label: "Icon size", group: "Favourites dock", min: 12, max: 24, step: 1, unit: "px", hint: "Design: 16" },
   { id: "dockLabelSize", cssVar: "--t-dock-label", label: "Caption size", group: "Favourites dock", min: 6, max: 12, step: 0.5, unit: "px", hint: "“Under the icon” only" },

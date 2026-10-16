@@ -1,4 +1,8 @@
-import { catalogue, catalogueSuites, type SuiteId } from "@/components/nav/catalogue";
+import {
+  catalogue,
+  catalogueSuites,
+  type SuiteId,
+} from "@/components/nav/catalogue";
 
 /**
  * Bulk actions an agency admin runs across many sub-accounts at once.
@@ -24,7 +28,7 @@ export const BULK_PATHS = ["template", "features", "per-account"] as const;
 export type BulkPath = (typeof BULK_PATHS)[number];
 
 export const BULK_PATH_LABELS: Record<BulkPath, string> = {
-  template: "Apply a saved template",
+  template: "Apply a saved layout",
   features: "Update feature access",
   "per-account": "Set features per sub-account",
 };
@@ -277,6 +281,20 @@ export interface BulkSettings {
    * in). Off by default, and switchable, because that trade is the argument.
    */
   bulkInDirectory: boolean;
+  /**
+   * Whether the flow opens on the "what do you want to change" chooser.
+   *
+   * Off, the button is a LAYOUT button: it says "Apply layout" and lands on
+   * the list of layouts, because applying one is what the overwhelming
+   * majority of bulk runs are. The chooser is a menu with two items, one of
+   * which is picked almost every time — a screen spent asking a question
+   * whose answer is already in the button's own label.
+   *
+   * On, the chooser returns and feature access comes back with it. That is
+   * the trade and it is why this is a switch rather than a deletion: with it
+   * off, feature access has no door. Ashwin, Oct 16.
+   */
+  pathChooser: boolean;
 }
 
 export const BULK_DEFAULTS: BulkSettings = {
@@ -305,6 +323,8 @@ export const BULK_DEFAULTS: BulkSettings = {
   // Sub-accounts table is, so "these four, right now" is one gesture from where
   // an operator already is.
   bulkInDirectory: true,
+  // Off: the button says "Apply layout" and goes straight there.
+  pathChooser: false,
 };
 
 /**
@@ -315,6 +335,14 @@ export const BULK_DEFAULTS: BulkSettings = {
  * kind of drift that only shows up in a demo.
  */
 export function pathsFor(settings: BulkSettings): readonly BulkPath[] {
+  /*
+    No chooser, one door.
+    
+    Returning a single path is what makes the modal skip its first screen —
+    see the modal's `opening`, which goes straight to that path's own step
+    when there is only one. So the switch needs no second mechanism.
+  */
+  if (!settings.pathChooser) return ["template"];
   return BULK_PATHS.filter((path) => {
     // The per-account grid IS a feature path — it just answers per account. So
     // it cannot outlive the switch that removes feature access from the flow.

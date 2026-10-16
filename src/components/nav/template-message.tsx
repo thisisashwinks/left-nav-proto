@@ -103,7 +103,8 @@ export function TemplateMessage({
   width?: number;
   children: React.ReactNode;
 }) {
-  const { templateMessagePlacement: placement, navTheme } = useTheme().effective;
+  const { templateMessagePlacement: placement, navTheme } =
+    useTheme().effective;
   const navRight = useNavRight();
 
   /*
@@ -165,7 +166,7 @@ export function TemplateMessage({
 
           This box is portalled to the body, so it is not inside the panel that
           raised it — and those panels close on any pointerdown outside their
-          own ref. Unflagged, pressing "Delete template" tore the menu down on
+          own ref. Unflagged, pressing "Delete layout" tore the menu down on
           pointerdown and the button's click handler never ran: the dialog
           vanished and nothing was deleted.
         */
@@ -461,7 +462,9 @@ export function AffectedAccounts({
           className={cn("motion-move", showing && "rotate-180")}
         />
       </button>
-      {showing ? <AffectedAccountsTable ids={ids} {...(to ? { to } : {})} /> : null}
+      {showing ? (
+        <AffectedAccountsTable ids={ids} {...(to ? { to } : {})} />
+      ) : null}
     </div>
   );
 }
@@ -480,6 +483,65 @@ export function AffectedAccounts({
  * dialog already has a header to hang it under — its own radio row — and a
  * second "Which ones?" inside that would be two doors to one table.
  */
+/** How many of the reached accounts are named before the rest are counted. */
+const AFFECTED_SHOWN = 10;
+
+/**
+ * Who a change reaches, as a list rather than a table.
+ *
+ * The table it replaces had three columns, a scroll box and a header row —
+ * a reporting surface, in a dialog whose only question is "is this the right
+ * set". At forty accounts you scrolled a 148px window to read names you
+ * could not act on anyway, and the "current layout" column repeated one
+ * value forty times.
+ *
+ * So: the first ten, named, and a count for the rest. No scroll, nothing
+ * clickable. Ten is enough to recognise the set — and if it is not, the
+ * number is the honest answer rather than a window onto a longer list.
+ * Ashwin, Oct 16.
+ */
+export function AffectedAccountsList({ ids }: { ids: readonly string[] }) {
+  const reached = accounts.filter((a) => ids.includes(a.id));
+  if (reached.length === 0) return null;
+
+  const shown = reached.slice(0, AFFECTED_SHOWN);
+  const rest = reached.length - shown.length;
+
+  return (
+    <div className="overflow-hidden rounded-[7px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
+      {shown.map((a) => (
+        <div
+          key={a.id}
+          className="flex items-center gap-[8px] px-[9px] py-[6px] not-last:shadow-[inset_0_-1px_0_0_var(--nav-divider)]"
+        >
+          <AccountLogo
+            logo={a.logo}
+            {...(a.logoSrc ? { src: a.logoSrc } : {})}
+            size={15}
+            radius={999}
+          />
+          <span className="min-w-0 flex-1 truncate text-[12px] leading-[16px] font-medium text-nav-fg">
+            {a.name}
+          </span>
+        </div>
+      ))}
+      {rest > 0 ? (
+        /*
+          A count, in the list's own last row.
+
+          Outside the box it read as a caption about the box; inside it, it
+          is the last line of the thing it is counting — which is what it
+          is. Not a control: there is nothing to expand to.
+        */
+        <div className="px-[9px] py-[6px] text-[12px] leading-[16px] text-nav-fg-subtle shadow-[inset_0_1px_0_0_var(--nav-divider)]">
+          <span className="font-medium text-nav-fg-muted">+{rest} more</span>{" "}
+          {rest === 1 ? "sub-account" : "sub-accounts"}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function AffectedAccountsTable({
   ids,
   to,
@@ -519,7 +581,7 @@ export function AffectedAccountsTable({
                 </span>
               </span>
               <span className="min-w-0 flex-1 truncate text-[12px] leading-[16px] text-nav-fg-subtle">
-                {from?.name ?? "No template"}
+                {from?.name ?? "No layout"}
               </span>
               {to ? (
                 <span
@@ -583,12 +645,15 @@ export function TemplatePicker({
         className="motion-tap flex h-[32px] w-full items-center gap-[8px] rounded-[7px] bg-nav-hover px-[10px] text-left text-[12.5px] leading-none text-nav-fg"
       >
         <span className="min-w-0 flex-1 truncate">
-          {chosen?.name ?? "Choose a template"}
+          {chosen?.name ?? "Choose a layout"}
         </span>
         <ChevronDown
           size={13}
           aria-hidden="true"
-          className={cn("shrink-0 text-nav-fg-subtle motion-move", open && "rotate-180")}
+          className={cn(
+            "shrink-0 text-nav-fg-subtle motion-move",
+            open && "rotate-180",
+          )}
         />
       </button>
       {open ? (

@@ -718,9 +718,17 @@
  * that happen to end in each other's start state.
  */
 :root {
-  --t-nav-collapse-fade: 90ms;
-  --t-nav-collapse-size: 220ms;
-  --t-nav-collapse-settle: 120ms;
+  /*
+   * Kept equal to the knob defaults in `design/tuning.ts`, deliberately.
+   *
+   * The tuning vars are written to the root in an EFFECT, so on the server
+   * HTML and the first client render these fallbacks are what the gesture
+   * actually runs on. A fallback that disagrees with its default is a first
+   * paint that disagrees with every one after it.
+   */
+  --t-nav-collapse-fade: 300ms;
+  --t-nav-collapse-size: 700ms;
+  --t-nav-collapse-settle: 300ms;
   /*
    * The surface gets its own easing, and this is not a detail.
    *
@@ -737,47 +745,50 @@
   --ease-surface: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Beat 2. Waits out the fade, so the surface never moves under its own
-   contents — the thing that made the old version unreadable. */
+/*
+ * Beat 2. Starts at once, with the fade rather than after it.
+ *
+ * It used to wait out the 90ms fade, so that the surface never moved under
+ * its own contents. That bought a worse problem, and Ashwin photographed it
+ * on Oct 16: the strip is 64px wide the instant the labels go, but the
+ * COLUMN is still 272 and takes another 220ms to catch up — so for a fifth
+ * of a second there is a collapsed-looking sidebar, ~180px of empty plane,
+ * and then the canvas. "A white blank space wherein the canvas is still to
+ * the left, however the sidebar is narrowed down." Measured at 142ms into
+ * the gesture, that band was 180px.
+ *
+ * The canvas was never lagging — it tracks this width exactly, which three
+ * separate measurements confirmed. The lag was the COLUMN's, against its own
+ * contents, and waiting out the fade is what created it.
+ *
+ * Nothing reflows under its own contents either, and that is not luck: both
+ * faces are `absolute inset-y-0 left-0` with no width, so they size to their
+ * CONTENT and the column's width cannot squeeze them. The column clips the
+ * outgoing face as it narrows, over the top of a face that is already
+ * dissolving — which is a reveal, not a reflow. The original objection to
+ * simultaneity was about text re-wrapping mid-fade, and absolute positioning
+ * had already made that impossible.
+ */
 .nav-surface-resize {
   transition-property: width;
   transition-duration: var(--t-nav-collapse-size);
-  transition-delay: var(--t-nav-collapse-fade);
+  transition-delay: 0ms;
   transition-timing-function: var(--ease-surface);
 }
 
-/* Beat 1. The face on its way out, and it goes first and alone.
+/*
+ * `.nav-face-leaving` and `.nav-face-arriving` lived here and are gone.
  *
- * Opacity only, no transform. A slide would have to START somewhere, and with
- * the two faces swapping classes the start value lands in the same frame as
- * the class — so the face jumps 6px while still fully opaque and then fades.
- * The "icons shift into place" the review asked for is not a translate
- * anyway: it is the icon columns of the two faces not agreeing, which is a
- * layout fact and is fixed in layout, not in motion.
+ * Nothing referenced them — the shell uses `.nav-face-labels-out` and
+ * `.nav-face-in` — but they read as the authoritative statement of beats 1
+ * and 3, and they were the first thing anyone editing this contract would
+ * find. I spent a round changing the rail's delay in this file before
+ * noticing the real one is inline in `account-rail.tsx`; dead rules that
+ * look live cost exactly that. Removed Oct 16.
  */
-.nav-face-leaving {
-  transition-property: opacity;
-  transition-duration: var(--t-nav-collapse-fade);
-  transition-delay: 0ms;
-  transition-timing-function: var(--ease-out);
-  opacity: 0;
-}
-
-/* Beat 3. Arrives only once the surface has stopped moving. */
-.nav-face-arriving {
-  transition-property: opacity;
-  transition-duration: var(--t-nav-collapse-settle);
-  transition-delay: calc(
-    var(--t-nav-collapse-fade) + var(--t-nav-collapse-size)
-  );
-  transition-timing-function: var(--ease-out);
-  opacity: 1;
-}
 
 @media (prefers-reduced-motion: reduce) {
-  .nav-surface-resize,
-  .nav-face-leaving,
-  .nav-face-arriving {
+  .nav-surface-resize {
     transition-duration: 1ms;
     transition-delay: 0ms;
   }
@@ -800,7 +811,8 @@
   width: var(--rail-slot, 56px);
   transition-property: width;
   transition-duration: var(--t-nav-collapse-size);
-  transition-delay: var(--t-nav-collapse-fade);
+  /* With beat 2, which no longer waits out the fade. */
+  transition-delay: 0ms;
   transition-timing-function: var(--ease-surface);
 }
 
@@ -824,7 +836,8 @@
 [data-account-rail][data-account-rail] {
   transition-property: transform, width, background-color, box-shadow;
   transition-duration: var(--t-nav-collapse-size), 900ms, 300ms, 300ms;
-  transition-delay: var(--t-nav-collapse-fade), 0ms, 0ms, 0ms;
+  /* The transform rides beat 2, which now starts at once. */
+  transition-delay: 0ms, 0ms, 0ms, 0ms;
   transition-timing-function: var(--ease-surface), var(--ease-out), var(--ease-out),
     var(--ease-out);
 }
@@ -885,24 +898,56 @@
   transition-timing-function: var(--ease-out);
 }
 
-/* Expanding: position leaves at once, opacity holds for the hand-over. */
+/*
+ * The 7px rides the width now; there is no separate beat 4.
+ *
+ * It used to be its own beat after the column had stopped, and that is what
+ * Ashwin reported on Oct 16: "it goes to the extreme left and then shifts to
+ * the right" collapsing, and "moves to the left a little bit and then
+ * completely moves to the right" expanding. Both are literally true of the
+ * old schedule — the strip held one x for the whole 310ms and then made a
+ * 7px move of its own at the end, so the icons arrived twice.
+ *
+ * Carried on the width's clock instead, the 7px is spent inside a journey
+ * the column is already making. The icons travel once, in one direction,
+ * and stop where they belong. Nothing is lost: the offset still exists, so
+ * the strip's icons still stand exactly under the expanded face's at the
+ * start of a collapse, which is the whole reason the 7px is there.
+ *
+ * `--ease-surface` on the transform, not `--ease-out`: it is part of beat 2
+ * now, and a front-loaded curve against a symmetric one over the same
+ * 220ms would have the icons finish their 7px a long way before the column
+ * finished its 208 — the same arriving-twice read, just smaller.
+ */
+
+/* Expanding: the icons drift out as the column opens. */
 .nav-strip-offset {
   opacity: 0;
   transform: translateX(var(--nav-strip-shift, -7px));
   transition-property: transform, opacity;
-  transition-duration: var(--t-nav-collapse-settle), var(--t-nav-collapse-settle);
-  transition-delay: 0ms,
-    calc(var(--t-nav-collapse-fade) + var(--t-nav-collapse-size));
+  transition-duration: var(--t-nav-collapse-size), var(--t-nav-collapse-settle);
+  /*
+   * The strip holds until the column has finished opening, then goes as the
+   * face comes. Same instant, opposite directions — which is what makes it
+   * a hand-over rather than two fades that happen to overlap.
+   *
+   * It must NOT leave earlier. The strip is the only thing in the column
+   * while it widens; fading it during the journey is what left ~200ms with
+   * no icons on screen at all, which is the gap this whole arrangement
+   * exists to close.
+   */
+  transition-delay: 0ms, var(--t-nav-collapse-size);
+  transition-timing-function: var(--ease-surface), var(--ease-out);
 }
 
-/* Collapsing: lit immediately, then settling to centre in beat 4. */
+/* Collapsing: lit at once, and settling to centre as the column narrows. */
 .nav-strip-settled {
   opacity: 1;
   transform: translateX(0);
   transition-property: opacity, transform;
-  transition-duration: var(--t-nav-collapse-fade), var(--t-nav-collapse-settle);
-  transition-delay: 0ms,
-    calc(var(--t-nav-collapse-fade) + var(--t-nav-collapse-size));
+  transition-duration: var(--t-nav-collapse-fade), var(--t-nav-collapse-size);
+  transition-delay: 0ms, 0ms;
+  transition-timing-function: var(--ease-out), var(--ease-surface);
 }
 
 /* Beat 1: the labels go, and nothing else in this face is left to see. */
@@ -915,11 +960,31 @@
 }
 
 /* Expanding, this face is the thing that arrives — after the width is done. */
+/*
+ * Expanding: the column opens first, THEN the labels arrive.
+ *
+ * This went the other way on Oct 16 and came straight back. Fading the face
+ * in during the widening was meant to stop the opening column looking empty,
+ * and it did — at the price of showing BOTH faces at once. The strip holds
+ * full opacity through the widening (it has to; it is the only thing on
+ * screen), so a face rising over it put two sets of icons in the column
+ * together, and the two sets do not share a baseline — Ashwin photographed
+ * them interleaved, every glyph doubled half a row apart.
+ *
+ * That is worse than the blank it was fixing. An empty column reads as a
+ * surface that has not finished; a doubled one reads as a rendering fault.
+ *
+ * So the hand-over is sequenced again, and the honest description of this
+ * gesture is two beats, not three: the column opens with the strip in it,
+ * and then the strip and the face trade places. The column is never empty —
+ * the strip is in it the whole way — which is the part the first attempt
+ * got wrong about what the blank actually was.
+ */
 .nav-face-in {
   opacity: 1;
   transition-property: opacity;
   transition-duration: var(--t-nav-collapse-settle);
-  transition-delay: calc(var(--t-nav-collapse-fade) + var(--t-nav-collapse-size));
+  transition-delay: var(--t-nav-collapse-size);
   transition-timing-function: var(--ease-out);
 }
 

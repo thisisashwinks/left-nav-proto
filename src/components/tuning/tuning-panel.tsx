@@ -2971,7 +2971,7 @@ function BulkActionsSection({
       />
       <Note>
         {settings.flow === "guided"
-          ? "One screen instead of a hub, real numbers before a template lands (will change / already match / customised), undo on the run, and per-account outcomes afterwards. Selection gets one row per account, a count against a total, and a Clear."
+          ? "One screen instead of a hub, real numbers before a layout lands (will change / already match / customised), undo on the run, and per-account outcomes afterwards. Selection gets one row per account, a count against a total, and a Clear."
           : "The shipped flow: a chooser card, “applied to 17 sub-accounts” as the only figure, no undo, and one status for the whole batch."}
       </Note>
 
@@ -2996,8 +2996,8 @@ function BulkActionsSection({
       />
       <Note>
         {settings.previewStep
-          ? "A dry-run step before Apply: pick one sub-account and see the nav the template would land as, including what it drops. Nothing is written."
-          : "Off. Undo already covers the wrong-template mistake, so the extra step has to earn itself — turn it on to see what it buys."}
+          ? "A dry-run step before Apply: pick one sub-account and see the nav the layout would land as, including what it drops. Nothing is written."
+          : "Off. Undo already covers the wrong-layout mistake, so the extra step has to earn itself — turn it on to see what it buys."}
       </Note>
 
       <Toggle
@@ -3021,6 +3021,19 @@ function BulkActionsSection({
         {settings.enabled
           ? "Sub-accounts gains checkboxes and a toolbar. Ticking rows is how a bulk run starts."
           : "No checkboxes. The table is a list you pick one account from — what the page was before this."}
+      </Note>
+
+      <Toggle
+        label="Open on the chooser"
+        keywords="bulk chooser path apply layout feature access first screen modal"
+        checked={settings.pathChooser}
+        disabled={!settings.enabled}
+        onChange={(v) => set("pathChooser", v)}
+      />
+      <Note>
+        {settings.pathChooser
+          ? "The flow opens on \u201cwhat do you want to change\u201d, and feature access has a door. A menu with two items, one of which is picked almost every time \u2014 a screen spent asking a question the button\u2019s own label already answered."
+          : "Straight to the layouts. The button says \u201cApply layout\u201d and lands on the list of them, because that is what the overwhelming majority of bulk runs are. The cost is real and is the reason this is a switch: with the chooser off, feature access has no door at all."}
       </Note>
 
       <Toggle
@@ -3063,7 +3076,7 @@ function BulkActionsSection({
       <Note>
         {settings.featuresPath
           ? "Bulk runs can grant and revoke products as well as push a navigation arrangement."
-          : "Templates only. Entitlement is billing's question, not the nav's — and with one path left, the modal opens straight on it rather than asking."}
+          : "Layouts only. Entitlement is billing's question, not the nav's — and with one path left, the modal opens straight on it rather than asking."}
       </Note>
 
       <Toggle
@@ -3077,7 +3090,7 @@ function BulkActionsSection({
           ? "A third path: pick features, then answer for each sub-account in a grid. Powerful, and it makes the chooser teach two ideas before an admin can pick either."
           : !settings.featuresPath
             ? "Needs the feature access path — it is the same idea, answered per account."
-            : "Two paths — template and features. Bulk means one decision landing everywhere; the per-account grid is a different product wearing the same title."}
+            : "Two paths — layout and features. Bulk means one decision landing everywhere; the per-account grid is a different product wearing the same title."}
       </Note>
 
       <Segmented
@@ -3941,7 +3954,7 @@ function Section({
 
       <div
         id={panelId}
-        className="grid transition-[grid-template-rows] duration-200 ease-out"
+        className="grid transition-[grid-layout-rows] duration-200 ease-out"
         style={{ gridTemplateRows: showOpen ? "1fr" : "0fr" }}
       >
         <div className="overflow-hidden">
@@ -5652,8 +5665,8 @@ export function TuningPanel() {
           />
           <Note>
             {layoutModel === "one-template"
-              ? "Exactly one thing: the HighLevel default, or one named template. No local tweaks on top, so editing a nav is always editing a template and the editor asks which — update the one it is on, which moves everyone on it, or split off into a new one, which moves only this account."
-              : "A template as a starting point, which an account may then drift from. A later push rebases onto what it did for itself, and where both moved the same row there is a collision to resolve."}
+              ? "Exactly one thing: the HighLevel default, or one named layout. No local tweaks on top, so editing a nav is always editing a layout and the editor asks which — update the one it is on, which moves everyone on it, or split off into a new one, which moves only this account."
+              : "A layout as a starting point, which an account may then drift from. A later push rebases onto what it did for itself, and where both moved the same row there is a collision to resolve."}
           </Note>
 
           {/*
@@ -5665,14 +5678,14 @@ export function TuningPanel() {
           {layoutModel === "one-template" ? (
             <>
               <Toggle
-                label="Name the template on the edit card"
+                label="Name the layout on the edit card"
                 checked={editCardTemplateName}
                 onChange={setEditCardTemplateName}
               />
               <Note>
                 {editCardTemplateName
-                  ? "A second line under “Editing template” naming the one you are in — HighLevel default, or the template's own name, elided with the full string on hover. Which template you are about to change is what decides whether the next keystroke moves one nav or forty."
-                  : "The card names the mode and not the template. One line shorter, and the question of which one you are in is answered by the save dialog."}
+                  ? "A second line under “Editing layout” naming the one you are in — HighLevel default, or the layout's own name, elided with the full string on hover. Which layout you are about to change is what decides whether the next keystroke moves one nav or forty."
+                  : "The card names the mode and not the layout. One line shorter, and the question of which one you are in is answered by the save dialog."}
               </Note>
             </>
           ) : null}
@@ -5691,29 +5704,29 @@ export function TuningPanel() {
           </Note>
 
           <Toggle
-            label="Plans can hand out a template"
+            label="Plans can hand out a layout"
             checked={templateSaasPlans}
             onChange={setTemplateSaasPlans}
           />
           <Note>
             {templateSaasPlans
-              ? "Attach a template to a SaaS plan and every sub-account on it — and every one that joins later — is on that template. Leaving the plan changes nothing: the layout was applied by the plan, not owned by it."
+              ? "Attach a layout to a SaaS plan and every sub-account on it — and every one that joins later — is on that layout. Leaving the plan changes nothing: the layout was applied by the plan, not owned by it."
               : "Off. Plans decide entitlement only, and a layout is only ever applied by hand."}
           </Note>
 
           <Toggle
-            label="Say what arrived since a template was saved"
+            label="Say what arrived since a layout was saved"
             checked={templateNewProductMark}
             onChange={setTemplateNewProductMark}
           />
           <Note>
             {templateNewProductMark
-              ? "A product added to the catalogue lands in every template where the default puts it, and the template's row says how many arrived — so the agency can go and file them rather than find them by accident."
+              ? "A product added to the catalogue lands in every layout where the default puts it, and the layout's row says how many arrived — so the agency can go and file them rather than find them by accident."
               : "New products still arrive at the default's position. Nothing says so."}
           </Note>
 
           <Toggle
-            label="Template changes can be undone"
+            label="Layout changes can be undone"
             checked={templateUndo}
             onChange={setTemplateUndo}
           />
@@ -5724,13 +5737,13 @@ export function TuningPanel() {
           </Note>
 
           <Toggle
-            label="Give every tuned sub-account its own template"
+            label="Give every tuned sub-account its own layout"
             checked={templateAccountSpread}
             onChange={setTemplateAccountSpread}
           />
           <Note>
             {templateAccountSpread
-              ? "Each sub-account that ships with an arrangement of its own becomes a named template holding exactly it. This is the proliferation the model implies — an agency that tuned thirty navs one at a time has thirty templates — and the only way to judge a list that size is to look at one."
+              ? "Each sub-account that ships with an arrangement of its own becomes a named layout holding exactly it. This is the proliferation the model implies — an agency that tuned thirty navs one at a time has thirty layouts — and the only way to judge a list that size is to look at one."
               : "Every sub-account starts on the HighLevel default and the list is one row long. The honest zero state."}
           </Note>
 
@@ -5739,14 +5752,14 @@ export function TuningPanel() {
             accounts, so the axis that decides that reach belongs beside them.
 
             Settled by `one-template`: an update that reached nobody would make
-            "update this template" a different verb. Hidden rather than greyed,
+            "update this layout" a different verb. Hidden rather than greyed,
             because the panel is long enough already and a control that can only
             hold one value is not a control. See `settleLayoutModel`.
           */}
           {layoutModel === "local-edits" ? (
             <>
               <Segmented
-                label="Saving a template"
+                label="Saving a layout"
                 options={TEMPLATE_PROPAGATIONS}
                 value={templatePropagation}
                 onChange={(v: TemplatePropagation) => setTemplatePropagation(v)}
@@ -5754,7 +5767,7 @@ export function TuningPanel() {
               />
               <Note>
                 {templatePropagation === "managed"
-                  ? "A live standard: saving re-arranges every account on the template, keeping any per-account tuning, and leaves each one a note saying what moved."
+                  ? "A live standard: saving re-arranges every account on the layout, keeping any per-account tuning, and leaves each one a note saying what moved."
                   : "A starting point: applying stamps a copy, and later saves reach nobody. The fix you just made lives on one account."}
               </Note>
             </>
@@ -5780,7 +5793,7 @@ export function TuningPanel() {
           </Note>
 
           <Segmented
-            label="Templates menu"
+            label="Layouts menu"
             options={TEMPLATE_MENU_SHAPES}
             value={templateMenuShape}
             onChange={(v: TemplateMenuShape) => setTemplateMenuShape(v)}
@@ -5788,12 +5801,12 @@ export function TuningPanel() {
           />
           <Note>
             {templateMenuShape === "list-first"
-              ? "The templates are the menu — applying is the row, and update, rename, duplicate and delete live on that row's ⋯. The paragraph-styles model: pick the thing, then say what to do to it."
-              : "Three verbs — Save, Create, Apply — each opening a list or a form. The menu answers “what can I do”, and which templates exist is one level down inside one of them."}
+              ? "The layouts are the menu — applying is the row, and update, rename, duplicate and delete live on that row's ⋯. The paragraph-styles model: pick the thing, then say what to do to it."
+              : "Three verbs — Save, Create, Apply — each opening a list or a form. The menu answers “what can I do”, and which layouts exist is one level down inside one of them."}
           </Note>
 
           <Segmented
-            label="Template list starts with"
+            label="Layout list starts with"
             options={TEMPLATE_SEEDS}
             value={templateSeed}
             onChange={(v: TemplateSeed) => setTemplateSeed(v)}
@@ -5801,7 +5814,7 @@ export function TuningPanel() {
           />
           <Note>
             {templateSeed === "default-only"
-              ? "Just the HighLevel default. The agency builds its own set — which is what happens anyway, and it makes “Save as new template” the obvious next move rather than one row among six."
+              ? "Just the HighLevel default. The agency builds its own set — which is what happens anyway, and it makes “Save as new layout” the obvious next move rather than one row among six."
               : "The five worked examples as well, for showing the list full. The cost is a menu whose first impression is five arrangements nobody at this agency made."}
           </Note>
 
@@ -5821,7 +5834,7 @@ export function TuningPanel() {
               <Note>
                 {templateSaveShape === "unified"
                   ? "One row — Save this arrangement — offering update or save-as-new behind it. The two are the same gesture at different scopes, and which you want depends on a fact the menu already knows."
-                  : "Two places: Update to match on the template's own \u22ef, and Save as new template at the foot."}
+                  : "Two places: Update to match on the layout's own \u22ef, and Save as new layout at the foot."}
               </Note>
             </>
           ) : null}
@@ -5835,7 +5848,7 @@ export function TuningPanel() {
           />
           <Note>
             {templateActionHome === "manage"
-              ? "The list is a pure picker — click a row, get that arrangement — and library work sits behind one Manage templates row. The menu you open daily stops carrying the controls you need monthly."
+              ? "The list is a pure picker — click a row, get that arrangement — and library work sits behind one Manage layouts row. The menu you open daily stops carrying the controls you need monthly."
               : "Every row carries a \u22ef with all of it. Everything is one click away, and the picker is also a file manager."}
           </Note>
 
@@ -5851,7 +5864,7 @@ export function TuningPanel() {
               />
               <Note>
                 {templateConflict === "resolve"
-                  ? "The account keeps its own version, is marked as diverged, and is offered the three ways out: take the template's, keep mine, or split off into a template of my own."
+                  ? "The account keeps its own version, is marked as diverged, and is offered the three ways out: take the layout's, keep mine, or split off into a layout of my own."
                   : templateConflict === "flag"
                     ? "The account keeps its own version and is marked as diverged, so it can be seen and counted — but nobody is asked to do anything about it."
                     : "The account keeps its own version and nothing is said. What shipped."}
@@ -5860,7 +5873,7 @@ export function TuningPanel() {
           ) : null}
 
           <Segmented
-            label="Template messages sit"
+            label="Layout messages sit"
             options={TEMPLATE_MESSAGE_PLACEMENTS}
             value={templateMessagePlacement}
             onChange={(v: TemplateMessagePlacement) =>
@@ -5872,8 +5885,8 @@ export function TuningPanel() {
             {templateMessagePlacement === "by-kind"
               ? "What a message asks decides where it goes: a decision you must answer takes the centre of the screen, a confirmation of something that already happened hangs off the nav."
               : templateMessagePlacement === "centred"
-                ? "Every template message in the middle of the screen — one rule with no exceptions, including the undo you were free to ignore."
-                : "Every template message hung off the nav column, beside the thing it changes — including decisions that stop the session until they are answered."}
+                ? "Every layout message in the middle of the screen — one rule with no exceptions, including the undo you were free to ignore."
+                : "Every layout message hung off the nav column, beside the thing it changes — including decisions that stop the session until they are answered."}
           </Note>
 
           {/*
@@ -5885,7 +5898,7 @@ export function TuningPanel() {
           {layoutModel === "local-edits" ? (
             <>
               <Segmented
-                label="Deleting a template"
+                label="Deleting a layout"
                 options={TEMPLATE_DELETE_MODES}
                 value={templateDeleteMode}
                 onChange={(v: TemplateDeleteMode) => setTemplateDeleteMode(v)}
@@ -5945,7 +5958,7 @@ export function TuningPanel() {
               <Note>
                 {layoutReplaceDialog === "simple"
                   ? "Saving edits made on the HighLevel default: one sentence, Discard and Save changes. The layout being replaced is simply gone — nothing to name, nothing filed."
-                  : "The full version: the arrangement being replaced is offered as a named template first, so it can be put back later. Three answers, weighted."}
+                  : "The full version: the arrangement being replaced is offered as a named layout first, so it can be put back later. Three answers, weighted."}
               </Note>
             </>
           ) : null}
@@ -6516,13 +6529,13 @@ export function TuningPanel() {
           ) : null}
 
           <Toggle
-            label="“In use” column on attach template"
+            label="“In use” column on attach layout"
             checked={attachTemplateInUse}
             onChange={setAttachTemplateInUse}
           />
           <Note>
             {attachTemplateInUse
-              ? "The SaaS plan's attach-template modal states how many sub-accounts each template already governs — the fact that makes attaching feel consequential rather than administrative."
+              ? "The SaaS plan's attach-layout modal states how many sub-accounts each layout already governs — the fact that makes attaching feel consequential rather than administrative."
               : "Names only. A second column on a list whose rows are one word each, and the reach is stated again above the Save button anyway."}
           </Note>
 
@@ -6585,7 +6598,7 @@ export function TuningPanel() {
 
           <Segmented
             label="Admin actions"
-            keywords="bulk select checkbox template save attach discard colour color grey blue accent admin"
+            keywords="bulk select checkbox layout save attach discard colour color grey blue accent admin"
             options={ADMIN_ACCENTS}
             value={adminAccent}
             onChange={(v: AdminAccent) => setAdminAccent(v)}
@@ -6593,7 +6606,7 @@ export function TuningPanel() {
           />
           <Note>
             {adminAccent === "grey"
-              ? "The Switchyard layer is neutral: bulk actions and the checkboxes that feed them, attach and save on a template, discard on an edit session. These are the agency operating ON accounts rather than working inside one, and the accent is the tenant's own brand. Grey also holds still where the accent changes per account."
+              ? "The Switchyard layer is neutral: bulk actions and the checkboxes that feed them, attach and save on a layout, discard on an edit session. These are the agency operating ON accounts rather than working inside one, and the accent is the tenant's own brand. Grey also holds still where the accent changes per account."
               : "The account's accent, so the admin surfaces match the product around them. Worth seeing — and worth switching accounts under, since the accent moves with the tenant and these buttons would move with it."}
           </Note>
           <Note>

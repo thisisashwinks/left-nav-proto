@@ -114,7 +114,7 @@ export function LayoutSwitchWarning({
  * edits are pending — because both do the same thing to the same layout, and a
  * confirmation that only guards one of the doors is not a guard.
  *
- * Three answers, not two. The previous version offered "save a template" or
+ * Three answers, not two. The previous version offered "save a layout" or
  * "don't", and BOTH kept the changes: somebody who realised halfway through the
  * dialog that they did not want to lose their nav had no way to say so. Discard
  * is that way.

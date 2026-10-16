@@ -22,9 +22,18 @@ import {
  * the fields, the order and the empty states are production's.
  */
 export function BasicDetailsTab({ account }: { account: Account }) {
-  const owner = ownerFor(account);
+  /*
+   * An account made in the Create sub-account flow opens on what the agency
+   * typed into it. Everything else keeps the stand-in owner and address.
+   */
+  const made = account.profile;
+  const demoOwner = ownerFor(account);
+  const owner = made ? { first: made.firstName, last: made.lastName } : demoOwner;
   const slug = slugFor(account);
-  const [street, city, region] = splitAddress(account.meta);
+  const [demoStreet, demoCity, demoRegion] = splitAddress(account.meta);
+  const street = made?.street ?? demoStreet;
+  const city = made?.city ?? demoCity;
+  const region = made?.state ?? demoRegion;
 
   return (
     <div className="flex flex-col items-start gap-[16px] lg:flex-row">
@@ -44,12 +53,12 @@ export function BasicDetailsTab({ account }: { account: Account }) {
               required
               type="email"
               className="sm:col-span-2"
-              defaultValue={`${owner.first.toLowerCase()}@${slug}.com`}
+              defaultValue={made?.email ?? `${owner.first.toLowerCase()}@${slug}.com`}
             />
             <Field
               label="Phone Number"
               className="sm:col-span-2"
-              defaultValue={phoneFor(city, owner.line)}
+              defaultValue={made?.phone ?? phoneFor(city, demoOwner.line)}
             />
           </div>
         </FormCard>
@@ -59,8 +68,21 @@ export function BasicDetailsTab({ account }: { account: Account }) {
             <Field label="Business Name" required className="sm:col-span-2" defaultValue={account.name} />
             <Field label="Street Address" className="sm:col-span-2" defaultValue={street} />
             <Field label="City" defaultValue={city} />
-            <SelectFieldRow label="Country" required options={["United States", "Canada", "United Kingdom", "Australia"]} />
-            <Field label="Zip / Postal Code" defaultValue={LOCALES[city]?.zip ?? ""} />
+            <SelectFieldRow
+              label="Country"
+              required
+              options={[
+                ...(made && !["United States", "Canada", "United Kingdom", "Australia"].includes(made.country)
+                  ? [made.country]
+                  : []),
+                "United States",
+                "Canada",
+                "United Kingdom",
+                "Australia",
+              ]}
+              initial={made?.country}
+            />
+            <Field label="Zip / Postal Code" defaultValue={made?.zip ?? LOCALES[city]?.zip ?? ""} />
             <Field label="State / Prov / Region" defaultValue={region} />
           </div>
         </FormCard>
@@ -128,12 +150,14 @@ function SelectFieldRow({
   label,
   options,
   required = false,
+  initial,
 }: {
   label: string;
   options: readonly string[];
   required?: boolean;
+  initial?: string;
 }) {
-  const [picked, setPicked] = React.useState(options[0] ?? "");
+  const [picked, setPicked] = React.useState(initial ?? options[0] ?? "");
   return (
     // The prototype's own menu, for the reason the business profile's
     // SelectRow records: a native <select> opens the OS's list, not ours.

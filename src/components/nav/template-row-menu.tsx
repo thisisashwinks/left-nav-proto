@@ -7,7 +7,7 @@ import { useTheme } from "@/components/theme/theme-provider";
 import { useAnchored } from "@/lib/use-anchored";
 import type { NavTemplate } from "./nav-templates";
 
-/** Wide enough for "Duplicate template" on one line. */
+/** Wide enough for "Duplicate layout" on one line. */
 export const ROW_MENU_WIDTH = 196;
 const GAP = 6;
 
@@ -99,7 +99,7 @@ export function TemplateRowMenu({
         This menu is portalled to the body, so it is not inside the panel that
         opened it — and every one of those panels closes on a pointerdown that
         lands outside its own ref. Without something to recognise it by, picking
-        "Duplicate template" shut the list it belonged to before the click had
+        "Duplicate layout" shut the list it belonged to before the click had
         finished.
       */
       data-template-row-menu=""

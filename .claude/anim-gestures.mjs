@@ -21,10 +21,91 @@ const openDirectory = async (p, { hit, settle }) => {
   await hit('[aria-label="All accounts"]'); await settle();
 };
 
+/**
+ * The rail at full height, for the variants whose tools sit at the foot.
+ *
+ * L1 starts at y=30 and stops at 650, which is fine for the rail's own rows
+ * and cuts the bottom tools off entirely — the one thing the `bottom`
+ * variant exists to show.
+ */
+const RAILFULL = { x: 0, y: 0, width: 460, height: 900 };
+
+/**
+ * Put the "Rail tools sit" axis on a given option, through the panel.
+ *
+ * There is no URL or storage hook for the theme — it is React state — so the
+ * only honest way to reach an axis is the control a person would use. Scoped
+ * by the control's own label rather than by the option text, because "Bottom"
+ * is a word several segmented controls in that panel use and a bare text
+ * match would set whichever one rendered first.
+ *
+ * The panel is opened, set and closed again inside `setup`, which runs at
+ * full speed — so none of it lands in the captured frames.
+ */
+const setRailTool = async (p, { settle }, option) => {
+  await p.evaluate(() => {
+    document.querySelector('[aria-label="Open prototype controls"]')?.click();
+  });
+  await settle(400);
+  const ok = await p.evaluate((want) => {
+    const label = [...document.querySelectorAll("span")].find(
+      (n) => n.textContent?.trim() === "Rail tools sit",
+    );
+    const row = label?.parentElement?.querySelector("div");
+    const hit = [...(row?.querySelectorAll("button") ?? [])].find(
+      (b) => b.textContent?.trim() === want,
+    );
+    if (!hit || hit.disabled) return false;
+    hit.click();
+    return true;
+  }, option);
+  if (!ok) throw new Error(`Rail tools sit: "${option}" not found or disabled`);
+  await settle(400);
+  /*
+    Closed by its own X. Escape would do it too and also reaches the nav —
+    a stray Escape here closes whatever panel the gesture is about to open.
+  */
+  await p.evaluate(() => {
+    document.querySelector('[aria-label="Close prototype controls"]')?.click();
+  });
+  await settle(500);
+};
+
+/** The rail's own two gestures, under one setting of the tools axis. */
+const railUnder = (option) => ({
+  [`rail-hover-in__${option.toLowerCase().replace(/[^a-z]+/g, "-")}`]: {
+    clip: RAILFULL,
+    setup: async (p, h) => { await setRailTool(p, h, option); },
+    go: (p) => onRail(p),
+  },
+  [`rail-hover-out__${option.toLowerCase().replace(/[^a-z]+/g, "-")}`]: {
+    clip: RAILFULL,
+    setup: async (p, h) => {
+      await setRailTool(p, h, option);
+      await onRail(p);
+      await h.settle();
+    },
+    go: (p) => p.mouse.move(700, 400, { steps: 1 }),
+  },
+});
+
 export const GESTURES = {
   // ---- L1 column ----
   'l1-collapse': { clip: L1, go: (p, { hit }) => hit('[aria-label="Collapse navigation"]') },
   'l1-expand': { clip: L1,
+    setup: async (p, { hit, settle }) => { await hit('[aria-label="Collapse navigation"]'); await settle(); },
+    go: (p, { hit }) => hit('[aria-label="Expand navigation"]') },
+
+  /*
+   * The same pair at full width, Oct 16.
+   *
+   * The 460px clip proves the nav and the canvas move in lockstep and says
+   * nothing about the rest of the window — and the thing Ashwin reported, a
+   * white band during the narrowing, is by definition somewhere the narrow
+   * clip does not look.
+   */
+  'l1-collapse__full': { clip: FULL, go: (p, { hit }) => hit('[aria-label="Collapse navigation"]') },
+  'l1-expand__full': { clip: FULL,
     setup: async (p, { hit, settle }) => { await hit('[aria-label="Collapse navigation"]'); await settle(); },
     go: (p, { hit }) => hit('[aria-label="Expand navigation"]') },
 
@@ -147,4 +228,15 @@ export const GESTURES = {
   'rail-tooltip': { clip: L1,
     setup: async (p, { hit, settle }) => { await hit('[aria-label="Collapse navigation"]'); await settle(); },
     go: (p) => p.mouse.move(88, 329, { steps: 1 }) },
+
+  /*
+   * The rail's hover, under the three placements of its tools row.
+   *
+   * Ashwin, Oct 16. Each variant puts the search/edit row somewhere else in
+   * the strip, so the thing that animates on hover is a different shape in
+   * each — the point of recording all three rather than trusting one.
+   */
+  ...railUnder("Bottom"),
+  ...railUnder("In the agency bar"),
+  ...railUnder("Below the agency"),
 };

@@ -319,7 +319,7 @@ function PlansTab({
               {/*
                 Every plan hands out a navigation, so every plan names one.
 
-                "No template attached" described the RECORD rather than the
+                "No layout attached" described the RECORD rather than the
                 account's experience: a plan with nothing attached still gives
                 its sub-accounts the HighLevel default, which is a template
                 and is the one the modal shows selected. Saying "none" here
@@ -328,7 +328,7 @@ function PlansTab({
               */}
               <AttachFact
                 icon={LayoutTemplate}
-                label={template ? template.name : "HighLevel default template"}
+                label={template ? template.name : "HighLevel default layout"}
                 hint={TEMPLATE_HINT}
               />
 
@@ -376,7 +376,7 @@ function PriceBox({ label, amount }: { label: string; amount: string }) {
  * `title` was the first cut and it looked like nothing: the browser's own
  * tooltip waits about a second, draws in the OS's style rather than the
  * product's, and never fires at all for a pointer that is already moving on.
- * On a term of art — "navigation template" — that is the same as having no
+ * On a term of art — "navigation layout" — that is the same as having no
  * explanation.
  *
  * `RailTooltip` is the pill the rest of the prototype uses. It portals to the

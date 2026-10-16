@@ -33,6 +33,7 @@ import {
   type AgencyBarDismissal,
   type RailToolsCta,
   type RailSearchGlyph,
+  BULK_BUTTON_LABEL,
   CREATE_ACCOUNT_LABEL,
   MANAGE_ACCOUNTS_LABEL,
   type RailManageGlyph,
@@ -242,8 +243,35 @@ const EXPAND_DELAY_MS = 150;
  * stylesheet have to agree on them, and two copies of a number drift the first
  * time one is tuned.
  */
-const RAIL_CLOSE_MS = 900;
-const RAIL_PAINT_HOLD_MS = 600;
+/*
+ * 400, not 900 (Ashwin, Oct 16).
+ *
+ * "Fast open, slow close" was the right instinct and 900 was too much of it,
+ * because of the curve rather than the number. The width closes on
+ * `--ease-out`, which is cubic-bezier(0.22, 1, 0.36, 1) — nearly all the
+ * travel in the first quarter — so the strip LOOKED shut around 120ms and
+ * then crept through its last few pixels until 900. Everything else in the
+ * gesture finished in that gap, and what was left moving was the agency row
+ * still unclipping its name and the search field still shrinking, several
+ * hundred milliseconds after the rail appeared to be done.
+ *
+ * That is what Ashwin reported on the `underAgency` variant: "the nav header
+ * and the search bar ... collapsing a bit later than the entire vertical
+ * sub-account rail collapsing." They were not on a different clock from the
+ * rail — they were on the tail of the rail's own, which is worse, because
+ * there is nothing to find when you go looking for the second animation.
+ *
+ * At 400 the tail is short enough that the paint, the geometry and the
+ * contents land together. Still slower than the 300ms open, which is the
+ * asymmetry the original note is about and worth keeping.
+ */
+const RAIL_CLOSE_MS = 400;
+/*
+ * Two thirds of the close, as it always was — stated as a fraction now so
+ * the three numbers cannot stop adding up. At the old literal 600 against a
+ * 400ms close, FADE came out NEGATIVE and the paint never faded at all.
+ */
+const RAIL_PAINT_HOLD_MS = Math.round(RAIL_CLOSE_MS * (2 / 3));
 const RAIL_PAINT_FADE_MS = RAIL_CLOSE_MS - RAIL_PAINT_HOLD_MS;
 const COLLAPSE_DELAY_MS = 250;
 
@@ -471,7 +499,7 @@ function RailTools({
         onClick={onActions}
         className="motion-tap h-[28px] shrink-0 rounded-[8px] bg-[var(--admin-action)] px-[9px] text-[12.5px] font-medium text-[var(--admin-action-fg)] hover:brightness-95"
       >
-        Actions
+        {BULK_BUTTON_LABEL}
       </button>
     ) : null;
 
@@ -778,11 +806,55 @@ function RailTools({
           to edge so nothing shows behind it: as a row with margins, the
           accounts scrolled visibly through the gap beside it.
         */
-        inList
-          ? "w-full px-0"
-          : expanded
-            ? "w-full px-[10px]"
-            : "w-full pr-[10px] pl-[14px]",
+        /*
+          Shut, the bar is 56 wide — NOT `w-full` of a rail that is still
+          closing. Ashwin, Oct 16.
+
+          `w-full` is right while the rail is open and wrong the moment it
+          starts to shut, because the rail's width is mid-animation for the
+          whole close. The row kept resolving against it, so the glyph was
+          laid out as if the rail were still 304 and then travelled ~100px
+          inward over the next 400ms — arriving visibly after the account
+          marks, which sit in a left-anchored column and barely move at all.
+          Instrumenting the live page is what settled it: at pointer-out the
+          rail holds 304 for ~300ms, swaps the field for the glyph, and only
+          then starts closing with the glyph still measured against it.
+
+          Pinned to the collapsed width instead, the glyph is where it will
+          finally be from its first frame, and the rail's ground shrinks
+          around it — which is exactly what the avatars already do. Same for
+          the painted header: it stops being a box that narrows late and
+          becomes a box that is simply the right size.
+        */
+        expanded
+          ? inList
+            ? "w-full px-0"
+            : "w-full px-[10px]"
+          : /*
+               Shut: centred in whatever box the row is already in.
+               
+               `justify-center` and nothing else, and the "nothing else" is
+               the fix. Two earlier attempts set a WIDTH here — 56px, the
+               shut rail's — and both put the glyph further right than the
+               account marks rather than on them. The reason is that the
+               in-list spots are inside the scroller, which already pads
+               14 left and 10 right: a 56px row inside a 32px content box
+               starts at x=14 and runs to 70, overflowing the rail, and the
+               glyph landed on 44 against the marks' 30.
+               
+               The row is `w-full` of that padded box in both states, so the
+               only thing it was ever missing was the instruction to centre.
+               The marks sit on 30 because the scroller's 14/10 puts them
+               there; centring inside the same box lands the glyph on 30 too,
+               by construction rather than by arithmetic — and it stays there
+               if the glyph is ever resized or the padding retuned.
+               
+               The edge spots keep their own 14/10, since they are outside
+               the scroller and have no padding handed to them.
+            */
+            inList
+              ? "w-full justify-center px-0"
+              : "w-full justify-center pr-[10px] pl-[14px]",
         /*
           Pulled over the rail's own bottom padding.
 
@@ -1390,6 +1462,30 @@ export function AccountRail({
     exitFillSelect();
     onCloseSwitcher();
   }, [setFillQuery, exitFillSelect, onCloseSwitcher]);
+
+  /*
+   * A finished run puts the strip away, deliberately.
+   *
+   * `closeFill` ends the errand and closes the PANEL — which is the whole
+   * job when the directory is a surface over the nav, and only half of it
+   * when the directory is the rail. Inline, the strip stayed open after a
+   * run completed: the selection was gone, the header was back, and a
+   * 304px column sat there with nothing left to do in it.
+   *
+   * It collapses straight through `onExpandedChange` rather than through
+   * `setHover`, because `setHover` is the POINTER's channel and this is not
+   * the pointer talking — the guards there would hold it open (the errand
+   * is still flushing) and the delay would fight the modal's own exit.
+   * Clearing the two refs first keeps the hover state honest for whatever
+   * the pointer does next. Ashwin, Oct 16.
+   */
+  const finishFill = React.useCallback(() => {
+    closeFill();
+    if (railDirectoryMode !== "inline") return;
+    busyRef.current = false;
+    pointerInRef.current = false;
+    onExpandedChange(false);
+  }, [closeFill, railDirectoryMode, onExpandedChange]);
 
   /* Esc leaves, as it does on every other surface that takes the screen. */
   React.useEffect(() => {
@@ -2489,7 +2585,31 @@ export function AccountRail({
             transitionDuration: surfaceUp
               ? "var(--dur-slow), 0ms, 0ms, var(--t-nav-collapse-size)"
               : `${RAIL_CLOSE_MS}ms, ${RAIL_PAINT_FADE_MS}ms, ${RAIL_PAINT_FADE_MS}ms, var(--t-nav-collapse-size)`,
-            transitionDelay: "0ms, 0ms, 0ms, var(--t-nav-collapse-fade)",
+            /*
+              The transform starts AT ONCE, with the column — not after the
+              labels have gone. Ashwin, Oct 16.
+
+              It used to wait out `--t-nav-collapse-fade`, so the strip held
+              still for the first 90ms while the nav column was already
+              narrowing over the top of it, and then finished 90ms after the
+              column had stopped. Measured: the rail's avatars had not moved
+              a pixel at 54ms, by which point the canvas had already
+              travelled 54 of its 256. What that looks like is the sidebar
+              sliding UNDER a rail that is just sitting there, which is what
+              Ashwin reported.
+
+              The three things now move on one clock: the column narrows, the
+              rail leaves, and the right-hand column follows the width it is
+              laid out against. Nothing is sequenced against anything else,
+              because they are three views of one gesture rather than three
+              steps in it.
+
+              Inline, like the rest of this list, and that is load-bearing:
+              `transitionDelay` here overrides any stylesheet rule, so the
+              matching 0ms in motion.css cannot fix this on its own — it was
+              changed there first and had no effect at all.
+            */
+            transitionDelay: "0ms, 0ms, 0ms, 0ms",
             transitionTimingFunction:
               "var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-surface)",
             "--rail-dur": railDuration,
@@ -2919,7 +3039,7 @@ export function AccountRail({
                       onClick={() => setFillBulk({ path: null })}
                       className="motion-tap flex h-[24px] shrink-0 items-center rounded-[7px] bg-[var(--admin-action)] px-[8px] text-[11.5px] leading-none font-medium text-[var(--admin-action-fg)] hover:bg-[var(--admin-action-hover)] active:scale-[0.98]"
                     >
-                      Actions
+                      {BULK_BUTTON_LABEL}
                     </button>
                   ) : null}
                   {fillBulkAllowed &&
@@ -3512,7 +3632,7 @@ export function AccountRail({
                         onClick={() => setFillBulk({ path: null })}
                         className="motion-tap h-[28px] shrink-0 rounded-[8px] bg-[var(--admin-action)] px-[9px] text-[12.5px] font-medium text-[var(--admin-action-fg)] hover:brightness-95"
                       >
-                        Actions
+                        {BULK_BUTTON_LABEL}
                       </button>
                     ) : null}
                     <button
@@ -4090,8 +4210,11 @@ export function AccountRail({
           onCompleted={() => {
             // A finished run ends the errand, strip and all — the selection
             // answered one question and that question has been answered.
+            // Cancelling does NOT come through here: `onClose` alone leaves
+            // the rail open with its ticks intact, which is what lets you
+            // back out of the modal and still be where you were.
             setFillBulk(null);
-            closeFill();
+            finishFill();
           }}
           onOpenHistory={() => {
             setFillBulk(null);

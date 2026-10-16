@@ -1,5 +1,7 @@
 "use client";
 
+import { BULK_BUTTON_LABEL } from "@/design/theme";
+
 import type * as React from "react";
 import { ArrowLeft, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -168,7 +170,7 @@ export function DirectoryHeader({
               "Actions", not "Bulk actions": the header already says "3 of 17
               selected" two inches to its left, so "bulk" is the one word in
               the row that repeats something. */}
-          Actions
+          {BULK_BUTTON_LABEL}
         </button>
       ) : null}
 

@@ -41,6 +41,7 @@ import { EntryClusterRail } from "./entry-cluster";
 import { agencyRailItems, agencySettings } from "./agency-config";
 import { collapsedPinnedBlock, PINNED_VISIBLE } from "./pinned-morph";
 import { navEntriesFor } from "./nav-entries";
+import { restaurantNavEntries } from "@/components/restaurant/restaurant-nav";
 import { iconByName } from "./icon-catalogue";
 import { useNavLayout } from "./nav-layout-provider";
 import { allocate, orderPins, recentIdsFor } from "./merged-recents";
@@ -172,6 +173,8 @@ interface CollapsedRailProps {
    * the state the nav auto-enters under 900px, so it is not a rare view.
    */
   loading?: boolean;
+  /** An industry workspace with its own tree. See `LeftNav`'s prop. */
+  workspace?: "restaurant" | null;
 }
 
 /**
@@ -206,6 +209,7 @@ export function CollapsedRail({
   onEdit,
   editRevealed = false,
   loading = false,
+  workspace = null,
 }: CollapsedRailProps) {
   // Same three phases the expanded face runs, from the same flag.
   const swap = useSwapPhase(loading, NAV_SWAP_OUT_MS);
@@ -398,9 +402,6 @@ export function CollapsedRail({
     recentsBudget,
   ]);
 
-  /** Where the pinned run ends, for the hairline that closes it. */
-  const pinnedRun = recentRows.filter((r) => r.pinned).length;
-
   /*
    * The standing entry points, resolved rather than authored.
    *
@@ -443,7 +444,10 @@ export function CollapsedRail({
   // the rail shows the result of an edit rather than being a place to make one.
   const entries = React.useMemo(
     () =>
-      agencyScope
+      workspace === "restaurant" && !agencyScope
+        ? // Rows only: the rail has no room for the section headings.
+          restaurantNavEntries.filter((e) => e.kind === "item")
+        : agencyScope
         ? // L1 only. The rail has no room to disclose, and a child row here
           // would be an icon with no parent visible to explain it — expanding
           // the nav is how you reach the second level.
@@ -470,7 +474,7 @@ export function CollapsedRail({
                 ]
               : [],
           ),
-    [agencyScope, layout, groups, getAppPlacement],
+    [agencyScope, layout, groups, getAppPlacement, workspace],
   );
 
   /* Which rows carry the dot. See new-flag. */
@@ -732,11 +736,42 @@ export function CollapsedRail({
         one starts at y=48 exactly as it did at pt-18, so the expand toggle
         and the Launchpad glyph hold the positions Ashwin asked them to take.
       */}
-      {!headMark ? null : (
-      <div className="flex h-[var(--shell-bar-h,48px)] w-full shrink-0 -mb-[4px] items-center justify-center">
+      {/*
+        The mark and the Expand toggle share one row, and that is what makes
+        the two faces line up. Ashwin, Oct 16.
+
+        The toggle used to be a row of its own under the mark — 28px plus the
+        column's 4px gap — and the expanded face has no equivalent, so every
+        single icon in the strip sat exactly 30px lower than its opposite
+        number. Measured, not guessed: AI 361 expanded against 391 collapsed,
+        and the same +30 on all seventeen rows down to Settings.
+
+        That offset is also why collapsing read as a FLIP rather than a
+        slide. The whole arrangement rests on the two icon columns coinciding
+        so the outgoing face can dissolve from under an unbroken set of
+        glyphs — thirty pixels apart, there is nothing to dissolve into and
+        you see one set replaced by another.
+
+        Stacked, not side by side — the toggle sits under the mark, which is
+        where Ashwin wants it (Oct 16) and where it has always been.
+
+        The point of folding them into one block was never the horizontal
+        arrangement; it was that the block has a FIXED height instead of
+        growing by a row. The three numbers are what hold that: 14 of top
+        padding puts the 20px mark's centre on 24, the app bar's midline, so
+        it still sits on the breadcrumb; 12 of gap drops the toggle below it;
+        and 66 is the whole thing, which with the column's own 4px gap makes
+        the first row below start at 70 — exactly where it started when the
+        toggle had a row of its own and the head carried an 18px margin.
+        Change any one of them and every icon in the strip moves off the
+        expanded face's baseline again.
+      */}
+      {!headMark && collapseSpot === "breadcrumb" ? null : (
+      <div className="flex h-[66px] w-full shrink-0 flex-col items-center gap-[12px] pt-[14px]">
+        {!headMark ? null : (
         <span
           title={account.name}
-          className="flex size-[26px] shrink-0 items-center justify-center"
+          className="flex size-[20px] shrink-0 items-center justify-center"
         >
           <AccountLogo
             logo={account.logo}
@@ -747,37 +782,24 @@ export function CollapsedRail({
             */
             src={agencyScope ? account.logoSrc : (config.logoSrc ?? account.logoSrc)}
             {...markAvatar}
-            size={26}
+            size={20}
             radius={999}
           />
         </span>
+        )}
+        {collapseSpot === "breadcrumb" ? null : (
+        <RailTooltip label="Expand navigation">
+          <button
+            type="button"
+            aria-label="Expand navigation"
+            onClick={onExpand}
+            className="motion-tap flex size-[20px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95 motion-press"
+          >
+            <PanelLeftOpen size={16} aria-hidden="true" style={RAIL_GLYPH} />
+          </button>
+        </RailTooltip>
+        )}
       </div>
-      )}
-
-      {/*
-        Reopening the nav happens right under the mark — inside the rail the
-        drawer belongs to, not off in the app bar (Aug 11 ask). Same glyph and
-        size as the expanded header's toggle, so it reads as the same control.
-
-        Unless the toggle has been moved OUT to the breadcrumb, in which case
-        this is the second one on screen doing the identical job six rows
-        apart — see COLLAPSE_SPOTS. That placement's whole argument is that
-        the control stops living in a column which may not be there; leaving a
-        copy behind in the column concedes the argument and spends a rail slot
-        doing it. The mark above still expands on click either way, so nothing
-        is lost. Ashwin, Oct 14.
-      */}
-      {collapseSpot === "breadcrumb" ? null : (
-      <RailTooltip label="Expand navigation">
-        <button
-          type="button"
-          aria-label="Expand navigation"
-          onClick={onExpand}
-          className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95 motion-press"
-        >
-          <PanelLeftOpen size={16} aria-hidden="true" style={RAIL_GLYPH} />
-        </button>
-      </RailTooltip>
       )}
 
       {/*
@@ -861,7 +883,7 @@ export function CollapsedRail({
         Reserved space for the pinned capsule, which PinnedMorph renders
         outside both nav faces so it can travel between the two layouts.
       */}
-      {dockPosition === "top" && !atFloor && !mergedDropsRailPins ? (
+      {dockPosition === "top" && !atFloor && !mergedDropsRailPins && workspace === null ? (
         <div
           aria-hidden="true"
           className="w-[44px] shrink-0"
@@ -899,7 +921,8 @@ export function CollapsedRail({
         anything's absolute position. Ashwin, Oct 9.
       */}
 
-      {atFloor || agencyScope ? null : (
+      {/* An industry tree has no Recent cluster, as in the expanded face. */}
+      {atFloor || agencyScope || workspace !== null ? null : (
         <>
           <div className="flex w-full flex-col items-center gap-[var(--t-nav-space,2px)]">
             {/*
@@ -942,11 +965,21 @@ export function CollapsedRail({
               one piece of the merged block's grammar that survives at 64px,
               since a pin glyph on a 16px mark would be a second mark.
             */}
-            {recentRows.map((row, i) => (
+            {recentRows.map((row) => (
               <React.Fragment key={row.id}>
-                {merged && pinnedRun > 0 && i === pinnedRun
-                  ? divider("div-merged-run")
-                  : null}
+                {/*
+                  No hairline between the pinned run and the recents.
+                  Ashwin, Oct 16.
+
+                  It was the merged block's grammar carried down to 64px, on
+                  the reading that the two runs are different kinds of thing
+                  and the strip should still say so. At rail width it says it
+                  to nobody: there are no labels to group, the rule is 32px
+                  of line in a column of marks, and the distinction is
+                  already carried by position — pinned first, which is the
+                  arrangement order. A separator that divides two things you
+                  cannot tell apart is just a mark of its own.
+                */}
                 {railButton(
                   row.id,
                   row.label,
@@ -1163,7 +1196,7 @@ export function CollapsedRail({
       )}
 
       {/* Last in the rail, so the capsule really is on its bottom edge. */}
-      {dockPosition === "bottom" && !atFloor && !mergedDropsRailPins ? (
+      {dockPosition === "bottom" && !atFloor && !mergedDropsRailPins && workspace === null ? (
         <div
           aria-hidden="true"
           className="w-[44px] shrink-0"

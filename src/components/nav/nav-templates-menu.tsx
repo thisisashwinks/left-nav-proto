@@ -140,7 +140,7 @@ export function NavTemplatesMenu({
     <div
       ref={ref}
       role="dialog"
-      aria-label="Grouping templates"
+      aria-label="Grouping layouts"
       // Portalled, so it carries its own nav theme — see the icon picker.
       data-nav-theme={navTheme}
       style={{ top, left, width: WIDTH }}
@@ -270,13 +270,13 @@ export function NavTemplatesMenu({
                 }
               }}
               placeholder="Dentist, Home services…"
-              aria-label="Template name"
+              aria-label="Layout name"
               className="min-w-0 flex-1 rounded-[6px] bg-nav-hover px-[8px] py-[6px] text-[12.5px] leading-[16px] text-nav-fg outline-none placeholder:text-nav-fg-subtle"
             />
             <button
               type="button"
               onClick={commit}
-              aria-label="Save template"
+              aria-label="Save layout"
               className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[6px] bg-nav-fg text-nav hover:opacity-90"
             >
               <Check size={14} aria-hidden="true" />
@@ -298,7 +298,7 @@ export function NavTemplatesMenu({
             >
               <Save size={14} aria-hidden="true" className="shrink-0" />
               <span className="min-w-0 flex-1 truncate">
-                {linked ? `Save to ${linked.name}` : "Save template"}
+                {linked ? `Save to ${linked.name}` : "Save layout"}
               </span>
             </button>
             {linked === null ? (

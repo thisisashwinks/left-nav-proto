@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronDown, Play } from "lucide-react";
+import { Check, ChevronDown, Lock, Play } from "lucide-react";
 import { headerConfig } from "@/components/header/header-config";
+import { showToast } from "@/components/page/toast";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import {
@@ -27,11 +28,40 @@ import {
  * third place in the window carrying that word — the nav's card and the trail's
  * last crumb being the first two.
  */
-export function LaunchpadPage() {
+export function LaunchpadPage({
+  sections: authored = LAUNCHPAD_SECTIONS,
+  greeting,
+  intro,
+  progressNote,
+}: {
+  /** Whose guide this is. Defaults to the shipped sub-account guide. */
+  sections?: LaunchpadSection[];
+  /** Replaces the default greeting line. */
+  greeting?: string;
+  /** One line under the greeting. */
+  intro?: string;
+  /** One line under the progress bar. */
+  progressNote?: string;
+} = {}) {
   const { effective } = useTheme();
-  const [sectionId, setSectionId] = React.useState(LAUNCHPAD_SECTIONS[0]!.id);
-  const section =
-    LAUNCHPAD_SECTIONS.find((s) => s.id === sectionId) ?? LAUNCHPAD_SECTIONS[0]!;
+  /*
+   * Steps finished from this page with "Mark as done".
+   *
+   * Held here rather than in the list because the section's bar has to move
+   * the moment a row is ticked off, and the bar is a sibling of the list.
+   */
+  const [marked, setMarked] = React.useState<ReadonlySet<string>>(new Set());
+  const sections = React.useMemo(
+    () =>
+      authored.map((s) => ({
+        ...s,
+        tasks: s.tasks.map((t) => (marked.has(t.id) ? { ...t, percent: 100 } : t)),
+      })),
+    [authored, marked],
+  );
+  const [sectionId, setSectionId] = React.useState(sections[0]!.id);
+  const section = sections.find((s) => s.id === sectionId) ?? sections[0]!;
+  const firstName = headerConfig.userName.split(" ")[0];
 
   return (
     <div
@@ -39,7 +69,7 @@ export function LaunchpadPage() {
       className="flex h-full min-h-0 gap-[24px] overflow-y-auto px-[var(--page-inset)] py-[16px]"
     >
       <SectionRail
-        sections={LAUNCHPAD_SECTIONS}
+        sections={sections}
         activeId={section.id}
         onSelect={setSectionId}
       />
@@ -50,12 +80,21 @@ export function LaunchpadPage() {
         canvas is a line nobody's eye can return from.
       */}
       <div className="flex min-w-0 max-w-[1160px] flex-1 flex-col gap-[16px] pb-[24px]">
-        <h1 className="text-[16px] leading-[22px] font-semibold text-pg-heading">
-          Hey {headerConfig.userName.split(" ")[0]}, here&rsquo;s your setup
-          list with everything you need to get started.
-        </h1>
+        <div className="flex flex-col gap-[2px]">
+          <h1 className="text-[16px] leading-[22px] font-semibold text-pg-heading">
+            {greeting ?? (
+              <>
+                Hey {firstName}, here&rsquo;s your setup list with everything
+                you need to get started.
+              </>
+            )}
+          </h1>
+          {intro ? (
+            <p className="text-[13px] leading-[18px] text-pg-muted">{intro}</p>
+          ) : null}
+        </div>
 
-        <SectionProgress section={section} />
+        <SectionProgress section={section} note={progressNote} />
 
         {/*
           One card, not one card per task.
@@ -68,7 +107,11 @@ export function LaunchpadPage() {
           Keyed by section so opening a step, switching section and coming back
           does not find the other list's row open underneath.
         */}
-        <TaskList key={section.id} section={section} />
+        <TaskList
+          key={section.id}
+          section={section}
+          onMarkDone={(id) => setMarked((prev) => new Set(prev).add(id))}
+        />
       </div>
     </div>
   );
@@ -147,12 +190,18 @@ function SectionRail({
  * labelled generically on a page with two section totals is a bar you have to
  * work out.
  */
-function SectionProgress({ section }: { section: LaunchpadSection }) {
+function SectionProgress({
+  section,
+  note,
+}: {
+  section: LaunchpadSection;
+  note?: string;
+}) {
   const percent = sectionPercent(section);
   return (
     <div className="flex flex-col gap-[8px]">
       <p className="text-[13px] leading-[18px] text-pg-muted">
-        Your {section.label.toLowerCase()} progress
+        Your {inSentence(section.label)} progress
       </p>
       <div className="flex items-center gap-[12px]">
         <div
@@ -172,13 +221,22 @@ function SectionProgress({ section }: { section: LaunchpadSection }) {
           {percent}%
         </span>
       </div>
+      {note ? (
+        <p className="text-[13px] leading-[18px] text-pg-muted">{note}</p>
+      ) : null}
     </div>
   );
 }
 
 /* ─── The steps ─────────────────────────────────────────────────────────── */
 
-function TaskList({ section }: { section: LaunchpadSection }) {
+function TaskList({
+  section,
+  onMarkDone,
+}: {
+  section: LaunchpadSection;
+  onMarkDone: (id: string) => void;
+}) {
   /*
    * Open on the first thing left to do.
    *
@@ -193,17 +251,31 @@ function TaskList({ section }: { section: LaunchpadSection }) {
 
   return (
     <div className="overflow-hidden rounded-[12px] bg-pg-surface shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
-      {section.tasks.map((task, i) => (
-        <TaskRow
-          key={task.id}
-          task={task}
-          first={i === 0}
-          open={openId === task.id}
-          onToggle={() =>
-            setOpenId((current) => (current === task.id ? null : task.id))
-          }
-        />
-      ))}
+      {section.tasks.map((task, i) => {
+        const blocker = task.lockedBy
+          ? section.tasks.find((t) => t.id === task.lockedBy)
+          : undefined;
+        return (
+          <TaskRow
+            key={task.id}
+            task={task}
+            first={i === 0}
+            open={openId === task.id}
+            locked={blocker !== undefined && blocker.percent < 100 ? blocker : null}
+            onToggle={() =>
+              setOpenId((current) => (current === task.id ? null : task.id))
+            }
+            onMarkDone={() => {
+              onMarkDone(task.id);
+              // On to the next thing left, the same rule the list opened on.
+              setOpenId(
+                section.tasks.find((t) => t.id !== task.id && t.percent < 100)?.id ??
+                  null,
+              );
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -212,16 +284,27 @@ function TaskRow({
   task,
   first,
   open,
+  locked,
   onToggle,
+  onMarkDone,
 }: {
   task: LaunchpadTask;
   /** No rule above the first row — the card's own edge is already there. */
   first: boolean;
   open: boolean;
+  /** The unfinished step this one waits on, if any. */
+  locked: LaunchpadTask | null;
   onToggle: () => void;
+  onMarkDone: () => void;
 }) {
   const bodyId = `launchpad-${task.id}`;
   const done = task.percent === 100;
+  /*
+   * An actionable guide reads its titles as links: the steps still to do are
+   * the brand colour, the finished ones step back to body text. The tutorial
+   * guide keeps every title in heading ink, as it shipped.
+   */
+  const actionable = task.action !== undefined || (done && task.tutorial === undefined);
   return (
     <section
       className={cn(
@@ -245,14 +328,45 @@ function TaskRow({
             className="mt-[1px] shrink-0 text-pg-muted"
           />
           <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
-            <span className="text-[14px] leading-[20px] font-semibold text-pg-heading">
-              {task.title}
+            <span className="flex flex-wrap items-center gap-x-[8px] gap-y-[4px]">
+              <span
+                className={cn(
+                  "text-[14px] leading-[20px]",
+                  !actionable
+                    ? "font-semibold text-pg-heading"
+                    : done || locked
+                      ? "font-medium text-pg-text"
+                      : "font-medium text-brand",
+                )}
+              >
+                {task.title}
+              </span>
+              {task.recommended && !done ? (
+                <span className="rounded-[4px] bg-brand-soft px-[6px] py-[1px] text-[12px] leading-[18px] font-medium text-brand">
+                  Recommended
+                </span>
+              ) : null}
             </span>
             <span className="text-[13px] leading-[18px] text-pg-muted">
               {task.blurb}
             </span>
+            {locked ? (
+              <span className="mt-[2px] flex items-center gap-[4px] text-[12px] leading-[17px] text-pg-muted">
+                <Lock size={11} aria-hidden="true" />
+                Finish &ldquo;{locked.title}&rdquo; first
+              </span>
+            ) : null}
           </span>
-          <TaskProgress percent={task.percent} done={done} />
+          {locked ? (
+            <span className="mt-[1px] flex shrink-0 items-center gap-[7px] text-pg-muted">
+              <Lock size={15} aria-hidden="true" />
+              <span className="text-[13px] leading-[18px] font-semibold tabular-nums">
+                {task.percent}%
+              </span>
+            </span>
+          ) : (
+            <TaskProgress percent={task.percent} done={done} />
+          )}
           <ChevronDown
             size={16}
             aria-hidden="true"
@@ -271,7 +385,34 @@ function TaskRow({
       */}
       {open ? (
         <div id={bodyId} className="flex flex-col gap-[10px] px-[16px] pb-[16px] pl-[46px]">
-          {task.tutorial ? (
+          {task.action ? (
+            locked ? (
+              <p className="text-[13px] leading-[18px] text-pg-muted">
+                This step opens once &ldquo;{locked.title}&rdquo; is finished.
+              </p>
+            ) : done ? (
+              <p className="text-[13px] leading-[18px] text-pg-muted">
+                Done. You can come back and change it anytime.
+              </p>
+            ) : (
+              <div className="flex items-center gap-[16px]">
+                <button
+                  type="button"
+                  onClick={() => showToast(`${task.action} — ${task.title}`)}
+                  className="motion-tap text-[13px] leading-[18px] font-medium text-brand hover:underline"
+                >
+                  {task.action}
+                </button>
+                <button
+                  type="button"
+                  onClick={onMarkDone}
+                  className="motion-tap text-[13px] leading-[18px] font-medium text-pg-text hover:text-pg-heading"
+                >
+                  Mark as done
+                </button>
+              </div>
+            )
+          ) : task.tutorial ? (
             <>
               <p className="text-[13px] leading-[18px] font-semibold text-pg-heading">
                 Watch the tutorial
@@ -373,4 +514,12 @@ function TutorialPoster({ title, poster }: { title: string; poster: string }) {
       </span>
     </button>
   );
+}
+
+/**
+ * A section name mid-sentence: "Foundational setup" reads "foundational
+ * setup", but "AI & automations" keeps its acronym.
+ */
+function inSentence(label: string): string {
+  return /^[A-Z]{2}/.test(label) ? label : label.charAt(0).toLowerCase() + label.slice(1);
 }

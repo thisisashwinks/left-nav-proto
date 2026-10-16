@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LayoutTemplate,
+  Search,
   List,
   ListTree,
   Package,
@@ -126,7 +127,7 @@ export function EditMoreMenu({
   /**
    * Land a template's arrangement on a set of accounts.
    *
-   * For the delete dialog's "move them to another template": the shell owns
+   * For the delete dialog's "move them to another layout": the shell owns
    * `applyToAccounts` and the per-account patching, so the decision is made
    * here and the work happens there.
    */
@@ -198,6 +199,20 @@ export function EditMoreMenu({
   const [menuAt, setMenuAt] = React.useState<HTMLElement | null>(null);
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
   const [renameDraft, setRenameDraft] = React.useState("");
+  /*
+   * The layouts filter. See the field in the list-first shape.
+   *
+   * Matched on the name alone, not on `fromAccount` or the note: a reader
+   * typing in a box under a list of names is looking for a name, and a filter
+   * that also searched the metadata would return rows whose visible text does
+   * not contain what was typed.
+   */
+  const [layoutQuery, setLayoutQuery] = React.useState("");
+  const shownTemplates = React.useMemo(() => {
+    const q = layoutQuery.trim().toLowerCase();
+    if (q === "") return templates;
+    return templates.filter((t) => t.name.toLowerCase().includes(q));
+  }, [templates, layoutQuery]);
   /** The template a delete confirmation is open for. */
   const [deleting, setDeleting] = React.useState<string | null>(null);
   /*
@@ -282,7 +297,7 @@ export function EditMoreMenu({
    *
    * Under `one-template` an account with no named template is on the default,
    * and the default cannot be written to — so every question downstream that
-   * asks "is there a template to update" has to answer no here, or the save
+   * asks "is there a layout to update" has to answer no here, or the save
    * dialog offers to overwrite the one thing in the product that must not move.
    * Which is also the rule the flow diagram states outright: from the default
    * there is one outcome, a new template, and the fork never appears.
@@ -317,7 +332,7 @@ export function EditMoreMenu({
   const body = (() => {
     if (view === "apply") {
       return (
-        <Drill title="Apply a template" onBack={() => setView("root")}>
+        <Drill title="Apply a layout" onBack={() => setView("root")}>
           {templates.length === 0 ? (
             <p className="px-[7px] py-[6px] text-[12px] leading-[16px] text-nav-fg-subtle">
               Nothing saved yet. Arrange this nav, then save it as a template to
@@ -406,7 +421,7 @@ export function EditMoreMenu({
       return (
         <TemplateMessage
           kind="decision"
-          label="Save template"
+          label="Save layout"
           /*
             Wide enough for three buttons on one line.
 
@@ -497,7 +512,7 @@ export function EditMoreMenu({
 
     if (view === "manage") {
       return (
-        <Drill title="Manage templates" onBack={() => setView("root")}>
+        <Drill title="Manage layouts" onBack={() => setView("root")}>
           {templates.map((t) =>
             renamingId === t.id ? (
               <input
@@ -596,7 +611,7 @@ export function EditMoreMenu({
     if (view === "create") {
       const named = draft.trim();
       return (
-        <Drill title="Create new template" onBack={() => setView("root")}>
+        <Drill title="Create new layout" onBack={() => setView("root")}>
           <p className="px-[7px] pb-[6px] text-[12px] leading-[16px] text-nav-fg-subtle">
             Keeps this arrangement so you can put it on another account. This
             account moves onto the new template.
@@ -611,7 +626,7 @@ export function EditMoreMenu({
               onCreateTemplate(named);
               onClose();
             }}
-            aria-label="Template name"
+            aria-label="Layout name"
             className="mx-[5px] h-[32px] rounded-[7px] bg-nav px-[9px] text-[12.5px] leading-none text-nav-fg shadow-[inset_0_0_0_1px_var(--nav-divider)] focus:outline-none focus:shadow-[inset_0_0_0_1.5px_var(--nav-fg-subtle)]"
           />
           <button
@@ -648,8 +663,8 @@ export function EditMoreMenu({
           />
           <MenuRow
             icon={DEFAULT_LAYOUT_ICON}
-            label="HighLevel default layout"
-            note="What we ship"
+            label="Default layout"
+            note="Included with HighLevel"
             checked={viewingDefault}
             onSelect={() => {
               if (!viewingDefault) onShowDefault();
@@ -701,9 +716,47 @@ export function EditMoreMenu({
       return (
         <>
           <span className="mb-[4px] block px-[7px] pt-[3px] text-[10.5px] leading-[14px] font-semibold tracking-[0.5px] text-nav-fg-subtle uppercase">
-            Navigation templates
+            Saved layouts
           </span>
-          {templates.map((t) =>
+          {/*
+            A field, once there is a list worth filtering.
+
+            Two layouts are read, not searched — a search box over them is a
+            control that costs a row to tell you what you can already see. It
+            earns its place at the point where the list stops fitting the
+            glance, which is the moment there is more than one thing to choose
+            between beyond the default. Ashwin, Oct 16.
+          */}
+          {templates.length > 1 ? (
+            <label className="motion-tap mx-[5px] mb-[4px] flex h-[30px] items-center gap-[7px] rounded-[8px] px-[8px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">
+              <Search size={14} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
+              <input
+                type="search"
+                value={layoutQuery}
+                onChange={(e) => setLayoutQuery(e.target.value)}
+                /*
+                  Escape clears the field before it closes the menu — the
+                  usual two-stage exit, and `stopPropagation` is what keeps
+                  the menu's own handler off the first press.
+                */
+                onKeyDown={(e) => {
+                  if (e.key === "Escape" && layoutQuery !== "") {
+                    e.stopPropagation();
+                    setLayoutQuery("");
+                  }
+                }}
+                placeholder="Search layouts"
+                aria-label="Search layouts"
+                className="min-w-0 flex-1 bg-transparent text-[12.5px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+              />
+            </label>
+          ) : null}
+          {shownTemplates.length === 0 ? (
+            <p className="px-[7px] py-[10px] text-[12.5px] leading-[16px] text-nav-fg-subtle">
+              No layouts match “{layoutQuery.trim()}”.
+            </p>
+          ) : null}
+          {shownTemplates.map((t) =>
             renamingId === t.id ? (
               <input
                 key={t.id}
@@ -759,7 +812,7 @@ export function EditMoreMenu({
                 */
                 note={
                   t.id === DEFAULT_TEMPLATE_ID
-                    ? "What we ship"
+                    ? "Included with HighLevel"
                     : linked?.id === t.id
                       ? divergence?.templateId === t.id
                         ? "Diverged"
@@ -797,7 +850,16 @@ export function EditMoreMenu({
               />
             ),
           )}
-          <Rule />
+          {/*
+            No rule under the list.
+
+            It was separating the layouts from the errands below them, which
+            is a real distinction — but the errands are themselves rows in the
+            same menu, and the hairline read as the menu ending rather than as
+            a change of subject. With a search field now heading the list, the
+            band already has a top and a bottom; a line at the foot just gave
+            it a floor. Ashwin, Oct 16.
+          */}
           {/*
             Saving is not a menu errand under `one-template`.
 
@@ -813,7 +875,7 @@ export function EditMoreMenu({
           {strict ? null : templateSaveShape === "unified" ? (
             <MenuRow
               icon={Save}
-              label="Save template"
+              label="Save layout"
               note={
                 linked
                   ? templateDirty
@@ -832,7 +894,7 @@ export function EditMoreMenu({
           ) : (
             <MenuRow
               icon={FilePlus2}
-              label="Save as new template"
+              label="Save as new layout"
               note={`From ${accountName}'s arrangement`}
               onSelect={() => setView("create")}
               branch
@@ -848,7 +910,7 @@ export function EditMoreMenu({
           {templateActionHome === "manage" ? (
             <MenuRow
               icon={LayoutTemplate}
-              label="Manage templates"
+              label="Manage layouts"
               note={
                 templates.length === 1
                   ? "Rename, duplicate, delete"
@@ -895,9 +957,9 @@ export function EditMoreMenu({
         {/*
           Two verbs, not one.
           
-          This was a single "Save as template" that always made a new one, which
+          This was a single "Save as layout" that always made a new one, which
           left an agency with three copies of the same dental nav after three
-          rounds of tidying and no way to say "the template was wrong". Save
+          rounds of tidying and no way to say "the layout was wrong". Save
           means the template this account is ON; Create means a new one. The
           first is dead unless there is something to save into, and it says so
           rather than silently doing the second thing.
@@ -910,7 +972,7 @@ export function EditMoreMenu({
         {strict ? null : (
         <MenuRow
           icon={Save}
-          label="Save template"
+          label="Save layout"
           note={
             linked && !templateDirty
               ? // The row stays, greyed, and says which template it would have
@@ -929,7 +991,7 @@ export function EditMoreMenu({
                     ? ` · ${accountsOn(linked.id)} accounts`
                     : ""
                 }`
-              : "This account isn't on a template"
+              : "This account isn't on a layout"
           }
           disabled={!linked || !templateDirty}
           onSelect={() => setView("save")}
@@ -938,14 +1000,14 @@ export function EditMoreMenu({
         )}
         <MenuRow
           icon={FilePlus2}
-          label="Create new template"
+          label="Create new layout"
           note={`From ${accountName}'s arrangement`}
           onSelect={() => setView("create")}
           branch
         />
         <MenuRow
           icon={LayoutTemplate}
-          label="Apply a template"
+          label="Apply a layout"
           note={
             templates.length === 1 ? "1 saved" : `${templates.length} saved`
           }
@@ -963,7 +1025,7 @@ export function EditMoreMenu({
             label="Layout"
             // The current answer on the row that opens the choice, so the menu
             // says which layout is up without being drilled into.
-            note={viewingDefault ? "HighLevel default layout" : "My layout"}
+            note={viewingDefault ? "Default layout" : "My layout"}
             onSelect={() => setView("layout")}
             branch
           />
@@ -1015,7 +1077,7 @@ export function EditMoreMenu({
           /*
             Only on the template this account is on, and only when there is
             something to save — the same two conditions the verbs-first menu
-            puts on its "Save template" row, moved onto the row they are about.
+            puts on its "Save layout" row, moved onto the row they are about.
           */
           {...(templateConflict === "resolve" && divergence?.templateId === menuFor
             ? {
@@ -1282,7 +1344,7 @@ export function EditMoreMenu({
                 ? {
                     to:
                       templates.find((t) => t.id === moveTo)?.name ??
-                      "HighLevel default",
+                      "Default layout",
                   }
                 : {})}
             />
@@ -1304,8 +1366,8 @@ export function EditMoreMenu({
 
                 The picker carried its name in `aria-label` only, so the one
                 mandatory decision in the dialog was an unlabelled control
-                reading "Choose a template" — which is a placeholder, not a
-                question. "New template" is what the column beneath it is
+                reading "Choose a layout" — which is a placeholder, not a
+                question. "New layout" is what the column beneath it is
                 headed, so the choice and its consequence are named the same
                 thing rather than each inventing their own.
               */}
@@ -1324,7 +1386,7 @@ export function EditMoreMenu({
               {(
                 [
                   ["unlink", "Keep their nav, stop updates"],
-                  ["move", "Move them to another template"],
+                  ["move", "Move them to another layout"],
                 ] as const
               ).map(([value, label]) => (
                 <button
@@ -1414,7 +1476,7 @@ export function EditMoreMenu({
                   remove(id);
                   notify(
                     onIt > 0 && (strict ? moveTo !== "" : fate === "move")
-                      ? `Deleted ${deletingTemplate.name} — ${onIt} moved to ${templates.find((t) => t.id === moveTo)?.name ?? "another template"}`
+                      ? `Deleted ${deletingTemplate.name} — ${onIt} moved to ${templates.find((t) => t.id === moveTo)?.name ?? "another layout"}`
                       : `Deleted ${deletingTemplate.name}`,
                   );
                   setDeleting(null);
@@ -1423,13 +1485,13 @@ export function EditMoreMenu({
                 {/*
                   Names the whole action, not half of it.
 
-                  "Delete template" beside a radio that also moves five accounts
+                  "Delete layout" beside a radio that also moves five accounts
                   describes the smaller half of what the button does. Three
                   words at most: past that it stops being a label and starts
                   being the sentence the body already carried.
                 */}
                 {onIt === 0 || (!strict && fate === "unlink")
-                  ? "Delete template"
+                  ? "Delete layout"
                   : moveTo === DEFAULT_TEMPLATE_ID
                     ? "Reset and delete"
                     : "Move and delete"}

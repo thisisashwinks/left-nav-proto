@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
  * different ways is a term of art explained badly.
  */
 export const SNAPSHOT_HINT =
-  "A copy of a sub-account's assets — funnels, workflows, calendars — planted once when an account is created on this plan. Unlike a navigation template, it is never managed again after that.";
+  "A copy of a sub-account's assets — funnels, workflows, calendars — planted once when an account is created on this plan. Unlike a navigation layout, it is never managed again after that.";
 
 export const TEMPLATE_HINT =
   "A saved sidebar arrangement. Every sub-account on this plan gets it, including ones that join later. Arrange a sub-account's nav and save it there to add one.";
@@ -227,7 +227,7 @@ export function AttachTemplateModal({
             included: it is what the plans on no template of their own are on.
           */}
           <TemplateRow
-            name="HighLevel default"
+            name="Default layout"
             detail={accountsLabel(defaultAccounts)}
             checked={picked === null}
             {...(choosing ? { onPick: () => setPicked(null) } : {})}

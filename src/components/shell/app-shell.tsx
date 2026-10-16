@@ -140,8 +140,19 @@ import { UndoToast } from "@/components/nav/undo-toast";
 import { UpgradeToast } from "@/components/nav/upgrade-toast";
 import { BulkToast } from "@/components/bulk/bulk-toast";
 import { PINNED_VISIBLE } from "@/components/nav/pinned-morph";
-import { AccountsIndexPage } from "@/components/settings/accounts-index";
-import { SubAccountPage } from "@/components/settings/subaccount-page";
+import {
+  SubAccountsArea,
+  type CreateFlow,
+} from "@/components/create-account/subaccounts-area";
+import { PreparingScreen } from "@/components/create-account/preparing-screen";
+import { LaunchpadPage } from "@/components/launchpad/launchpad-page";
+import { RESTAURANT_LAUNCHPAD_SECTIONS } from "@/components/restaurant/restaurant-launchpad-data";
+import {
+  RESTAURANT_LAUNCHPAD_ID,
+  restaurantFlyouts,
+  restaurantPlaces,
+} from "@/components/restaurant/restaurant-nav";
+import { headerConfig } from "@/components/header/header-config";
 import { CommandPalette } from "@/components/search/command-palette";
 import { SearchFlyout } from "@/components/search/search-flyout";
 import {
@@ -865,6 +876,8 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    * one account rather than one holding the agency's whole book.
    */
   const accounts = useAccounts({ scopeToMember: layout.role === "user" });
+  /** Which step of Create sub-account the Accounts page is on, if any. */
+  const [createFlow, setCreateFlow] = React.useState<CreateFlow | null>(null);
 
   const agencyScope = accounts.scope === "agency";
   // What the nav header shows: the agency identity at agency scope, the
@@ -884,6 +897,13 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
     : agencyScope
       ? accounts.agency
       : accounts.current;
+  /*
+   * Whether the workspace on screen is an industry one with its own tree.
+   *
+   * Read off the header account, so it flips on the click into the account
+   * along with the rest of the chrome rather than when the switch lands.
+   */
+  const restaurantWorkspace = headerAccount.workspace === "restaurant";
   const manageAccount =
     accounts.accounts.find((a) => a.id === manageAccountId) ?? null;
   const recentAccounts = accounts.recentIds
@@ -1054,6 +1074,25 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
     !agencyScope &&
     (selectedId === LEGACY_BUSINESS_PROFILE_ID ||
       canvasPage?.productId === PROPOSED_BUSINESS_PROFILE_ID);
+
+  /*
+   * The restaurant tree's page, when one is showing.
+   *
+   * A restaurant row wins over a stale product page; with no row picked the
+   * workspace's home is its Launchpad, not the catalogue's default product.
+   */
+  const restaurantPlace =
+    restaurantWorkspace && !agencyScope && selectedId
+      ? restaurantPlaces[selectedId]
+      : undefined;
+  const restaurantCanvas =
+    restaurantWorkspace &&
+    !agencyScope &&
+    !businessProfileShowing &&
+    (restaurantPlace !== undefined || (selectedId === null && !productPage));
+  // With nothing picked the restaurant canvas IS its Launchpad, so that row lights.
+  const navSelectedId =
+    restaurantCanvas && restaurantPlace === undefined ? RESTAURANT_LAUNCHPAD_ID : selectedId;
 
   /** Opens a page under the current owner, so the derivation above can trust it. */
   const setProductPage = React.useCallback(
@@ -1602,7 +1641,9 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
         ? // Only the deep buckets have one — the shallow ones disclose in place
           // and never ask for a panel.
           (agencyFlyouts[intent.activeId] ?? null)
-        : (groupFlyouts.get(intent.activeId) ??
+        : restaurantWorkspace && restaurantFlyouts[intent.activeId]
+          ? restaurantFlyouts[intent.activeId]!
+          : (groupFlyouts.get(intent.activeId) ??
           liftedFlyout ??
           flyouts[intent.activeId] ??
           null)
@@ -1858,6 +1899,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
        * same bug, and one call covers every surface that selects a row.
        */
       intent.close();
+      setCreateFlow(null);
       /*
        * A pinned companion-app row goes where the nav row it was pinned from
        * goes: the canvas page under the flyout placement, the sheet under the
@@ -2708,6 +2750,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    * scope in a callback, and the effect below then clears the selection,
    * so an id set up front is wiped a beat later by the arrival it was
    * waiting for. A ref rather than state because nothing renders from it.
+   *
    */
   const pendingPlace = React.useRef<string | null>(null);
 
@@ -2858,7 +2901,15 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
                     { label: "Accounts", level: "product" as const },
                     manageAccount.name,
                   ]
-                : ["Sub-accounts", { label: "Accounts", level: "product" as const }]
+                : createFlow
+                  ? [
+                      "Sub-accounts",
+                      { label: "Accounts", level: "product" as const },
+                      createFlow.step === "lookup" && createFlow.start.kind === "industry"
+                        ? "New industry"
+                        : "New sub-account",
+                    ]
+                  : ["Sub-accounts", { label: "Accounts", level: "product" as const }]
               : selectedId === GET_APP_ROW_IDS.mobile ||
                   selectedId === GET_APP_ROW_IDS.desktop
                 ? /*
@@ -2896,6 +2947,13 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
                       level: "product" as const,
                     },
                   ]
+              : restaurantCanvas
+                ? restaurantPlace?.parent
+                  ? [
+                      restaurantPlace.parent.label,
+                      { label: restaurantPlace.label, level: "product" as const },
+                    ]
+                  : [{ label: restaurantPlace?.label ?? "Launchpad", level: "product" as const }]
               : agencyPlace
                 ? agencyCrumbs
                 : agencyScope
@@ -3658,6 +3716,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
           for a while; the exemption was left behind.
         */}
         {atFloor ||
+        restaurantWorkspace ||
         isBlockHidden(layout, "pinned") ||
         (recentsMode === "merged" && mergedPinScope !== "both") ? null : (
         <PinnedMorph
@@ -3705,7 +3764,24 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
           inert={collapsed}
           aria-hidden={collapsed}
           className={cn(
-            "absolute inset-y-0 left-0",
+            /*
+              Clipped to the column, and `right-0` is what does it.
+
+              The face used to be `left-0` with no right edge, so it sized to
+              its CONTENT — a full 272px — whatever the column around it was
+              doing. That cost nothing while the face only faded in after the
+              width had landed. The moment it started fading in WITH the width
+              (Oct 16, so the opening column is not empty), it became 272px of
+              nav painted straight over the canvas from the first frame, which
+              is what Ashwin saw: at 28ms the whole row list was sitting on top
+              of the Setup guide at low opacity.
+
+              `right-0` ties it to the column, `overflow-hidden` makes the
+              column's travelling edge do the revealing. Nothing inside is lost
+              to the clip: the one thing that overflows the nav is the intro
+              coach-mark, and that is a portal with `position: fixed`.
+            */
+            "absolute inset-y-0 left-0 right-0 overflow-hidden",
             /*
               Beat 1 when collapsing, beat 3 when expanding — the same face,
               leaving first or arriving last. That symmetry is what makes the
@@ -3716,10 +3792,20 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
               : "nav-face-in",
           )}
         >
+          {/*
+            The nav keeps its own width inside the clip.
+
+            Without this the face would now be 64px wide mid-expand and the
+            rows would re-wrap every frame — trading a face that overflows for
+            one that reflows, which is the worse of the two. Fixed at the
+            width set's own L1 figure, so the labels are revealed by the edge
+            moving past them rather than re-laid-out behind it.
+          */}
+          <div className="h-full" style={{ width: widths.l1 }}>
           <LeftNav
             theme={navTheme}
             onOpenApp={setAppModal}
-            selectedId={selectedId}
+            selectedId={navSelectedId}
             onSelect={selectNavRow}
             openFlyoutId={intent.activeId}
             pinnedFlyoutId={intent.pinnedId}
@@ -3777,7 +3863,9 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
             onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
             onOpenDirectory={() => intent.togglePin(DIRECTORY_ID)}
             recentsBudget={recentsBudget}
+            workspace={restaurantWorkspace ? "restaurant" : null}
           />
+          </div>
         </div>
 
         <div
@@ -3797,8 +3885,9 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
             // The same budget the expanded face gets, so collapsing the nav
             // never changes which shortcuts the account appears to have.
             recentsBudget={recentsBudget}
+            workspace={restaurantWorkspace ? "restaurant" : null}
             loading={switching}
-            selectedId={selectedId}
+            selectedId={navSelectedId}
             onSelect={selectNavRow}
             openFlyoutId={intent.activeId}
             pinnedFlyoutId={intent.pinnedId}
@@ -4209,18 +4298,37 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
                 // full: it is where a sub-account uploads its logos, so it is
                 // the counterpart to the agency's White label tab.
                 <BusinessProfilePage account={accounts.current} />
-              ) : selectedId === "agency-accounts" ? (
-                manageAccount ? (
-                  <SubAccountPage
-                    account={manageAccount}
-                    onBack={() => setManageAccountId(null)}
+              ) : restaurantCanvas ? (
+                /*
+                 * The restaurant workspace's own pages. Launchpad is the real
+                 * one — the setup guide this account was built around — and
+                 * every other row in the tree is a titled stub, the same as
+                 * the agency tree's.
+                 */
+                restaurantPlace && selectedId !== RESTAURANT_LAUNCHPAD_ID ? (
+                  <AgencyPlacePage
+                    key={selectedId ?? ""}
+                    title={restaurantPlace.label}
+                    description={restaurantPlace.description}
                   />
                 ) : (
-                  <AccountsIndexPage
-                    session={accounts}
-                    onManage={setManageAccountId}
+                  <LaunchpadPage
+                    key={`rst-launchpad-${accounts.current.id}`}
+                    sections={RESTAURANT_LAUNCHPAD_SECTIONS}
+                    greeting={`Hey ${headerConfig.userName.split(" ")[0]}, here’s your personalised setup list with everything you need to get started.`}
+                    intro="Work through these essentials to get your restaurant ready for service."
+                    progressNote="Complete these essential steps to get ready for service."
                   />
                 )
+              ) : selectedId === "agency-accounts" ? (
+                <SubAccountsArea
+                  session={accounts}
+                  manageAccount={manageAccount}
+                  onManage={setManageAccountId}
+                  flow={createFlow}
+                  onFlow={setCreateFlow}
+                  onSwitch={accounts.switchTo}
+                />
               ) : selectedId === "agency-app-mobile" ? (
                 /*
                  * The agency's own app pages, ahead of the generic
@@ -4568,9 +4676,18 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
                   // settings were open behind the table stops being open. Left
                   // set, clicking Accounts landed on the last sub-account's
                   // settings page instead of on the table the row names.
+                  // A half-finished Create sub-account goes the same way.
                   setManageAccountId(null);
+                  setCreateFlow(null);
                   setSelectedId(id);
                 }
+                return;
+              }
+              // The restaurant tree is its own, like the agency's.
+              if (restaurantWorkspace && restaurantPlaces[id]) {
+                setProductPage(null);
+                setSelectedId(id);
+                if (!keepOpen) intent.close();
                 return;
               }
               const child = childById(id);
@@ -4739,6 +4856,19 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
       <UpgradeToast canvasLeft={leftOffset} />
       {/* The bulk run's receipt, on the same canvas band. See BulkToast. */}
       <BulkToast canvasLeft={leftOffset} />
+
+      {/* A new account's first open. See `firstOpen` in use-accounts. */}
+      {accounts.firstOpen ? (
+        <PreparingScreen
+          key={accounts.firstOpen.id}
+          name={accounts.firstOpen.name}
+          restaurant={accounts.firstOpen.workspace === "restaurant"}
+          {...(accounts.firstOpen.profile?.source.kind === "snapshot"
+            ? { snapshot: accounts.firstOpen.profile.source.label }
+            : {})}
+          onDone={accounts.finishFirstOpen}
+        />
+      ) : null}
 
       {/* Search sits above the flyouts; both treatments share the same model. */}
       {searchOpen ? (

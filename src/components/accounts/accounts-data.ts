@@ -46,6 +46,31 @@ export interface Account {
    * means no brand yet, and the accent stays on HighRise primary.
    */
   brandColor?: string;
+  /**
+   * Which industry workspace the account was created on, if any.
+   *
+   * Absent for every seeded tenant, which run the generic catalogue. An
+   * account created from an industry in the Create sub-account flow carries
+   * it, and the shell gives it that trade's own sidebar and setup guide.
+   */
+  workspace?: "restaurant";
+  /** What the agency typed into the Create sub-account form. */
+  profile?: CreatedProfile;
+}
+
+/** The form's answers, kept so the settings page opens already filled in. */
+export interface CreatedProfile {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  /** Where the account was started from — an industry or a snapshot. */
+  source: { kind: "industry"; label: string } | { kind: "snapshot"; label: string };
 }
 
 export const accounts: readonly Account[] = [

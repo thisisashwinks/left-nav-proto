@@ -6,12 +6,14 @@ import {
   Check,
   ChevronRight,
   History,
+  Info,
   LayoutTemplate,
   Minus,
   Plus,
   Search,
   Sparkles,
   SlidersHorizontal,
+  X,
 } from "lucide-react";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import { matchAccounts } from "@/components/accounts/accounts-data";
@@ -62,9 +64,12 @@ const PATH_ICONS: Record<BulkPath, typeof LayoutTemplate> = {
 export function AccountsIndexPage({
   session,
   onManage,
+  onCreate,
 }: {
   session: AccountsSession;
   onManage: (accountId: string) => void;
+  /** Opens the Create sub-account flow. */
+  onCreate?: () => void;
 }) {
   const { effective } = useTheme();
   const { title: showTitle, description: showDesc } = usePageChrome();
@@ -174,12 +179,15 @@ export function AccountsIndexPage({
         ) : null}
         <button
           type="button"
+          onClick={onCreate}
           className="motion-tap flex h-[32px] shrink-0 items-center gap-[6px] rounded-[8px] bg-brand px-[12px] text-[12.5px] leading-none font-medium text-brand-fg active:scale-[0.98]"
         >
           <Plus size={13} aria-hidden="true" />
           Create sub-account
         </button>
       </header>
+
+      {onCreate ? <IndustryBanner onCreate={onCreate} /> : null}
 
       {settings.bar === "inline" ? bulkBar : null}
 
@@ -272,7 +280,11 @@ export function AccountsIndexPage({
                     {account.meta}
                   </span>
                   <span className="w-[170px] truncate text-[12.5px] text-pg-muted">
-                    {industryFor(account.id) ?? "—"}
+                    {industryFor(account.id) ??
+                      (account.workspace === "restaurant"
+                        ? "Restaurant"
+                        : account.profile?.source.label) ??
+                      "—"}
                   </span>
                   {/*
                     A span with a role, not a button.
@@ -411,6 +423,48 @@ export function AccountsIndexPage({
       ) : null}
 
       {historyOpen ? <BulkHistoryModal onClose={() => setHistoryOpen(false)} /> : null}
+    </div>
+  );
+}
+
+/**
+ * "Sub-accounts now come industry-ready" — the announcement that opens the
+ * Create sub-account flow on its industry path.
+ *
+ * Dismissed for the session rather than for good: this is a prototype being
+ * walked through more than once, and a banner that never came back would take
+ * the journey's first step with it.
+ */
+function IndustryBanner({ onCreate }: { onCreate: () => void }) {
+  const [open, setOpen] = React.useState(true);
+  if (!open) return null;
+  return (
+    <div className="mx-[24px] mb-[14px] flex shrink-0 items-start gap-[10px] rounded-[12px] bg-pg-surface px-[16px] py-[14px] shadow-[inset_0_0_0_1px_var(--pg-border-strong)]">
+      <Info size={18} aria-hidden="true" className="mt-[1px] shrink-0 text-pg-heading" />
+      <div className="flex min-w-0 flex-1 flex-col items-start gap-[2px]">
+        <p className="text-[14px] leading-[20px] font-semibold text-pg-heading">
+          Sub-accounts now come industry-ready
+        </p>
+        <p className="text-[13px] leading-[18px] text-pg-text">
+          Choose your client&rsquo;s industry when you create a sub-account and
+          they&rsquo;ll get a workspace built for how that business actually runs.
+        </p>
+        <button
+          type="button"
+          onClick={onCreate}
+          className="motion-tap mt-[12px] flex h-[36px] items-center rounded-[8px] bg-brand px-[14px] text-[14px] leading-[20px] font-semibold text-brand-fg hover:bg-brand-strong active:scale-[0.98]"
+        >
+          Create an industry sub-account
+        </button>
+      </div>
+      <button
+        type="button"
+        aria-label="Dismiss"
+        onClick={() => setOpen(false)}
+        className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[6px] text-pg-muted hover:bg-pg hover:text-pg-heading"
+      >
+        <X size={18} aria-hidden="true" />
+      </button>
     </div>
   );
 }

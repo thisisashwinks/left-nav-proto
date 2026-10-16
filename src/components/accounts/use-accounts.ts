@@ -89,6 +89,24 @@ export interface AccountsSession {
   togglePinned: (id: string) => void;
   addToRail: (id: string) => void;
   removeFromRail: (id: string) => void;
+  /**
+   * Adds a brand-new sub-account, made by the Create sub-account flow.
+   *
+   * It goes to the top of the rail — the agency just made it, so it is the
+   * next thing they will open — and to the end of the directory. Nothing
+   * switches: the agency lands on its settings page first.
+   */
+  createAccount: (account: Account) => void;
+  /**
+   * A just-made account being opened for the first time.
+   *
+   * Set by `switchTo` the first time it is pointed at an account the Create
+   * sub-account flow made, whichever surface asked — the rail, the directory
+   * or Continue to Sub-Account — so the shell can cover the switch with its
+   * "Setting up" screen. Cleared with `finishFirstOpen`.
+   */
+  firstOpen: Account | null;
+  finishFirstOpen: () => void;
 }
 
 /**
@@ -227,12 +245,17 @@ export function useAccounts({
    * knowing uploads exist.
    */
   const { uploads } = useBrand();
+  /** Accounts made in this session, oldest first. */
+  const [created, setCreated] = React.useState<readonly Account[]>([]);
   const branded = React.useMemo(() => {
     const visible = scopeToMember
       ? allAccounts.filter((a) => MEMBER_ACCOUNT_IDS.includes(a.id))
       : allAccounts;
-    return visible.map((a) => applyBrand(a, uploads));
-  }, [uploads, scopeToMember]);
+    // A member made nothing, so only the agency's session carries new ones.
+    return [...visible, ...(scopeToMember ? [] : created)].map((a) =>
+      applyBrand(a, uploads),
+    );
+  }, [uploads, scopeToMember, created]);
   const brandedAgency = React.useMemo(
     () => applyBrand(agency, uploads),
     [uploads],
@@ -241,6 +264,9 @@ export function useAccounts({
   const current = branded.find((a) => a.id === currentId) ?? branded[0];
 
   const [pending, setPending] = React.useState<PendingSwitch | null>(null);
+  const [firstOpen, setFirstOpen] = React.useState<Account | null>(null);
+  /** Made accounts that have been opened, so the set-up screen shows once. */
+  const [openedIds, setOpenedIds] = React.useState<ReadonlySet<string>>(new Set());
   /*
    * One timer, cancelled on the next switch and on unmount.
    *
@@ -275,6 +301,10 @@ export function useAccounts({
       if (!target) return;
       // Already here and not looking from the agency: nothing to load.
       if (id === currentId && scope === "account") return;
+      if (target.profile && !openedIds.has(id)) {
+        setOpenedIds((ids) => new Set(ids).add(id));
+        setFirstOpen(target);
+      }
 
       begin(
         { scope: "account", account: target, duration: latencyFor(id) },
@@ -327,8 +357,10 @@ export function useAccounts({
      * changes — so the instance the click reached already holds the pins as
      * they were when it was clicked, which is the only moment that matters.
      */
-    [begin, branded, currentId, scope, railRecents, pinnedIds],
+    [begin, branded, currentId, scope, railRecents, pinnedIds, openedIds],
   );
+
+  const finishFirstOpen = React.useCallback(() => setFirstOpen(null), []);
 
   // Scope moves, the current account does not: agency scope is a place you
   // look from, and leaving it puts you back exactly where you were.
@@ -352,6 +384,13 @@ export function useAccounts({
 
   const removeFromRail = React.useCallback((id: string) => {
     setRailIds((ids) => ids.filter((i) => i !== id));
+  }, []);
+
+  const createAccount = React.useCallback((account: Account) => {
+    setCreated((list) =>
+      list.some((a) => a.id === account.id) ? list : [...list, account],
+    );
+    setRailIds((ids) => [account.id, ...ids.filter((i) => i !== account.id)]);
   }, []);
 
   const isPinned = React.useCallback(
@@ -401,5 +440,8 @@ export function useAccounts({
     togglePinned,
     addToRail,
     removeFromRail,
+    createAccount,
+    firstOpen,
+    finishFirstOpen,
   };
 }

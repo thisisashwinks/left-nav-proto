@@ -44,6 +44,16 @@ export interface LaunchpadTask {
     /** The poster's own gradient — no video file in a prototype. */
     poster: string;
   };
+  /** The "Recommended" chip beside the title. */
+  recommended?: boolean;
+  /**
+   * The step's own call to action, shown with "Mark as done" when the row is
+   * open — in place of the tutorial poster. Set on the guides that take you
+   * somewhere to finish a step rather than showing you how.
+   */
+  action?: string;
+  /** Another task's id that has to be finished before this one can start. */
+  lockedBy?: string;
 }
 
 export interface LaunchpadSection {

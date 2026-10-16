@@ -1,5 +1,7 @@
 "use client";
 
+import { BULK_BUTTON_LABEL } from "@/design/theme";
+
 import { cn } from "@/lib/utils";
 import type { SelectStrip } from "@/design/theme";
 import { SelectBox } from "./select-box";
@@ -131,7 +133,7 @@ export function SelectStripRow({
           onClick={() => onActions?.()}
           className="motion-tap flex h-[26px] shrink-0 items-center rounded-[7px] bg-[var(--admin-action)] px-[9px] text-[12px] leading-none font-medium text-[var(--admin-action-fg)] hover:bg-[var(--admin-action-hover)] active:scale-[0.98]"
         >
-          Actions
+          {BULK_BUTTON_LABEL}
         </button>
       ) : null}
       {strip === "left" ? null : button}

@@ -824,7 +824,7 @@ const AGENCY_ROWS: readonly LegacyRowSpec[] = [
   { kind: "item", id: "reselling", label: "Reselling", icon: Share2 },
   { kind: "item", id: "add-ons", label: "Add-Ons", icon: ShoppingBag },
   { kind: "item", id: "affiliate-portal", label: "Affiliate Portal", icon: Users },
-  { kind: "item", id: "template-library", label: "Template Library", icon: Shapes },
+  { kind: "item", id: "layout-library", label: "Layout Library", icon: Shapes },
   { kind: "item", id: "partners", label: "Partners", icon: Handshake },
   { kind: "item", id: "university", label: "University", icon: GraduationCap },
   { kind: "item", id: "saas-education", label: "SaaS Education", icon: Package },

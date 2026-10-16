@@ -224,11 +224,11 @@ function EditNavButton({
    * Read from the store rather than passed down: the card already takes
    * fourteen props and this is the same fact `EditMoreMenu` two lines below
    * looks up for itself. Falls back to the account's own name in `local-edits`,
-   * where an account genuinely can be on nothing and "no template" is the
+   * where an account genuinely can be on nothing and "no layout" is the
    * honest answer rather than a gap.
    */
   const onTemplate = linkedFor(accountId);
-  const editingName = onTemplate?.name ?? "No template";
+  const editingName = onTemplate?.name ?? "No layout";
   /*
    * Both the name line and the shorter pill label belong to `one-template`.
    *
@@ -436,12 +436,12 @@ function EditNavButton({
                 so from the first keystroke rather than at the moment of saving.
               */}
               <span className="truncate whitespace-nowrap">
-                {strict ? "Editing template" : "Editing nav"}
+                {strict ? "Editing" : "Editing nav"}
               </span>
               {/*
                 And WHICH one, on a line of its own.
 
-                Not appended to the mode: "Editing template · Fieldstone Group
+                Not appended to the mode: "Editing · Fieldstone Group
                 nav2" is one string in a 256px box that has already lost this
                 argument twice — the card's own notes record "Editing nav"
                 clipping mid-word at three labelled controls. A second line
@@ -557,8 +557,17 @@ function EditNavButton({
             "what have I got" — it is how every agency starts.
           */}
           <EditTool
-            label="More editing options — templates, layout, navigation"
-            short="More"
+            /*
+              The label names what the menu is FOR, not what it contains.
+
+              It used to enumerate — "templates, layout, navigation" — which
+              the rename turned into "layouts, layout", two different senses
+              of the word a pixel apart. The menu's own heading is "Saved
+              layouts" and that is what people come here for; the other two
+              rows are switches they meet once. Ashwin, Oct 16.
+            */
+            label="Saved layouts and more editing options"
+            short="Saved layouts"
             icon={MoreHorizontal}
             onOpen={(trigger) => setMoreAnchor(trigger)}
           />
@@ -644,7 +653,7 @@ function EditNavButton({
                 button must not do: a control is named for what it does, and one
                 named for what is wrong with the document has stopped being a
                 control and become a status line you can press. It also cost the
-                card its only landmark — scan for "Save template", it is not
+                card its only landmark — scan for "Save layout", it is not
                 there, and the refusal reads as the button having gone missing
                 rather than the save being held.
               */}
@@ -654,7 +663,7 @@ function EditNavButton({
                   // says "save" over a dialog is a button that lied about
                   // being the end of the errand.
                   strict
-                  ? "Save template"
+                  ? "Save layout"
                   : "Save changes"
                 : "Done"}
             </button>
@@ -849,7 +858,7 @@ function EditNavButton({
       */}
       <span
         aria-hidden="true"
-        className="grid grid-cols-[0fr] overflow-hidden transition-[grid-template-columns] duration-[var(--dur-slow)] ease-[var(--ease-out)] group-hover/edit:grid-cols-[1fr] group-focus-visible/edit:grid-cols-[1fr] group-data-revealed/edit:grid-cols-[1fr]"
+        className="grid grid-cols-[0fr] overflow-hidden transition-[grid-layout-columns] duration-[var(--dur-slow)] ease-[var(--ease-out)] group-hover/edit:grid-cols-[1fr] group-focus-visible/edit:grid-cols-[1fr] group-data-revealed/edit:grid-cols-[1fr]"
       >
       <span
         className="overflow-hidden text-[12px] leading-none font-medium whitespace-nowrap opacity-0 transition-opacity duration-[var(--dur-base)] ease-[var(--ease-out)] group-hover/edit:opacity-100 group-hover/edit:delay-[90ms] group-focus-visible/edit:opacity-100 group-data-revealed/edit:opacity-100"
@@ -989,7 +998,7 @@ function SwitchNavButton({
  * a row of their own read as a toolbar instead.
  *
  * The forcing function was width. Three labelled controls measured 248px inside
- * a 232px row, so "Templates" clipped mid-word — and that is in English, which
+ * a 232px row, so "Layouts" clipped mid-word — and that is in English, which
  * is the shortest this copy will ever be. A label that only fits in one
  * language is not a label.
  */

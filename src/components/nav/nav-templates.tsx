@@ -139,7 +139,7 @@ export interface TemplateDivergence {
   lines: readonly string[];
   /** What this account looked like before the push landed. */
   mine: NavArrangement;
-  /** What the template now holds, for "use the template's version". */
+  /** What the template now holds, for "use the layout's version". */
   theirs: NavArrangement;
 }
 
@@ -164,7 +164,7 @@ interface TemplatesValue {
    * Overwrites an existing template's arrangement, keeping its name and id.
    *
    * The counterpart to `save`, and the reason the menu can offer two verbs
-   * instead of one ambiguous "Save as template". Editing the nav of an account
+   * instead of one ambiguous "Save as layout". Editing the nav of an account
    * that is on a template and pressing save should mean "the template was
    * wrong, this is what it should be" — not "here is a fourteenth template
    * called Dental practice (2)".
@@ -335,7 +335,7 @@ const TemplatesContext = React.createContext<TemplatesValue | null>(null);
 export function useNavTemplates(): TemplatesValue {
   const ctx = React.useContext(TemplatesContext);
   if (!ctx) {
-    throw new Error("useNavTemplates must be used inside <NavTemplatesProvider>");
+    throw new Error("useNavLayouts must be used inside <NavLayoutsProvider>");
   }
   return ctx;
 }
@@ -467,7 +467,7 @@ export const DEFAULT_TEMPLATE_ID = "hl-default";
 
 const DEFAULT_TEMPLATE: NavTemplate = {
   id: DEFAULT_TEMPLATE_ID,
-  name: "HighLevel default",
+  name: "Default layout",
   fromAccount: "",
   builtIn: true,
   immutable: true,
@@ -661,10 +661,10 @@ function mergedGroups(
  * Returns a NavArrangement rather than a loose patch, because it builds every
  * one of those fields and callers need that guarantee: this result IS what the
  * account ends up arranged as, so it is also the honest thing to record as the
- * link's base. Recording the template's own arrangement instead made every
+ * link's base. Recording the layout's own arrangement instead made every
  * account look edited the instant it was applied — the template names products
  * the account may not own, those get filtered out on the way in, and the
- * difference between "what the template says" and "what landed here" is not
+ * difference between "what the layout says" and "what landed here" is not
  * something a person did.
  */
 export function patchForArrangement(
@@ -823,13 +823,13 @@ function today(): string {
 /**
  * Whether a name is already taken, ignoring case and surrounding space.
  *
- * Two templates called "New Template" are indistinguishable everywhere they
+ * Two templates called "New Layout" are indistinguishable everywhere they
  * appear — the picker, the save dialog's radio, the delete dialog's
  * destination, the bulk table's "will be on" column. Every one of those asks
  * the reader to choose between them by name, and a list that offers the same
  * name twice is asking a question with no answer.
  *
- * Case-insensitive because "new template" and "New Template" are the same name
+ * Case-insensitive because "new layout" and "New Layout" are the same name
  * to the person reading the list, and trimmed because a trailing space is not a
  * distinction anybody can see.
  */
@@ -996,7 +996,7 @@ const sameMap = (
  * the reasoning that those are the edits people make. They are not the only
  * ones: reordering rows inside a group, reordering the groups themselves,
  * renaming a group, adding one, hiding a block. An account that did any of
- * those was reported as untouched, so "Save template" stayed dead over a nav
+ * those was reported as untouched, so "Save layout" stayed dead over a nav
  * that had genuinely diverged, and the only way to find out was to notice the
  * button never came back.
  *
@@ -1021,7 +1021,7 @@ export function hasLocalChanges(
   if (!sameList(base.hiddenBlocks, current.hiddenBlocks)) return true;
   if (!sameList(base.tailOrder, current.tailOrder)) return true;
   // A link added or removed is a row added or removed. Without this, adding one
-  // left "Save template" dead over a nav that had genuinely moved.
+  // left "Save layout" dead over a nav that had genuinely moved.
   if (!sameList(base.customLinks, current.customLinks)) return true;
 
   // Panel order, keyed by panel: a nav arranged one level in is still arranged.
@@ -1079,7 +1079,7 @@ function localKeys(
  * a choice between two bad answers: overwrite, and an agency loses the hour it
  * spent tuning one client's nav; or skip, and the account it spent that hour on
  * is the one account that never gets a fix again. Neither is what anyone means
- * by "update the template".
+ * by "update the layout".
  *
  * So the account's nav is treated as `base + delta`, and only the BASE is
  * replaced. Anything the account differs from its base on is, by definition,

@@ -11,7 +11,6 @@ import {
   LayoutTemplate,
   ArrowLeft,
   Minus,
-  Plus,
   Search,
   SlidersHorizontal,
   Sparkles,
@@ -19,10 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { AccountLogo } from "@/components/accounts/account-logo";
-import {
-  accounts as allAccounts,
-  type Account,
-} from "@/components/accounts/accounts-data";
+import type { Account } from "@/components/accounts/accounts-data";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import {
   useNavTemplates,
@@ -30,6 +26,7 @@ import {
 } from "@/components/nav/nav-templates";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
+import { AffectedAccountsList } from "@/components/nav/template-message";
 import {
   pathsFor,
   BULK_PATH_BLURBS,
@@ -98,7 +95,7 @@ export function BulkModal({
    * The run actually happened — as distinct from the admin backing out.
    *
    * The two used to be one callback, so the surface that opened the modal had
-   * no way to tell "I applied a template to three sub-accounts" from "I changed
+   * no way to tell "I applied a layout to three sub-accounts" from "I changed
    * my mind", and had to leave the selection standing in both cases. A finished
    * run is the end of that errand: the ticks and the panel holding them go, and
    * anyone who wants another run starts one. Backing out leaves everything
@@ -118,8 +115,7 @@ export function BulkModal({
    * rewrite it from here would move things under a surface nobody is looking
    * at. The run acts on this list.
    */
-  const [accounts, setAccounts] =
-    React.useState<readonly Account[]>(initialAccounts);
+  const [accounts] = React.useState<readonly Account[]>(initialAccounts);
   /**
    * Whether anything has been committed yet.
    *
@@ -167,20 +163,26 @@ export function BulkModal({
 
   const [query, setQuery] = React.useState("");
   const [picked, setPicked] = React.useState<readonly string[]>([]);
-  const [actions, setActions] = React.useState<Record<string, FeatureAction>>({});
+  const [actions, setActions] = React.useState<Record<string, FeatureAction>>(
+    {},
+  );
   const [perAccount, setPerAccount] = React.useState<PerAccountDecisions>({});
   const [templateId, setTemplateId] = React.useState<string | null>(null);
   const [run, setRun] = React.useState<BulkRun | null>(null);
   /** Which account the dry run is reading. Null until one is chosen. */
   const [previewId, setPreviewId] = React.useState<string | null>(null);
   const accountIds = React.useMemo(() => accounts.map((a) => a.id), [accounts]);
-  const accountNames = React.useMemo(() => accounts.map((a) => a.name), [accounts]);
+  const accountNames = React.useMemo(
+    () => accounts.map((a) => a.name),
+    [accounts],
+  );
 
   /** How many of the selected accounts already own each feature. */
   const ownedCount = React.useCallback(
     (featureId: string) =>
-      accountIds.filter((id) => profileFor(id).enabledProducts.includes(featureId))
-        .length,
+      accountIds.filter((id) =>
+        profileFor(id).enabledProducts.includes(featureId),
+      ).length,
     [accountIds, profileFor],
   );
 
@@ -316,13 +318,13 @@ export function BulkModal({
       ? 940
       : step === "template-preview"
         ? 640
-      : step === "path"
-        ? 620
-        : step === "feature-pick"
-          ? 640
-          : step === "done" || step === "applying"
-            ? 520
-            : 600;
+        : step === "path"
+          ? 620
+          : step === "feature-pick"
+            ? 640
+            : step === "done" || step === "applying"
+              ? 520
+              : 600;
 
   /** The dry run, when it is switched on and there is more than one account. */
   const previewing = guided && settings.previewStep && accounts.length > 1;
@@ -351,7 +353,7 @@ export function BulkModal({
     step === "path"
       ? "Bulk actions"
       : path === "template"
-        ? "Apply saved template"
+        ? "Apply saved layout"
         : "Update feature access";
 
   return createPortal(
@@ -426,54 +428,65 @@ export function BulkModal({
           {step === "template-pick" ? (
             <>
               <Context accounts={accounts}>
-                A template carries the arrangement — grouping, order, icons,
-                names and pins. It never grants or revokes a product.
+                A layout carries the arrangement — grouping, order, icons, names
+                and pins. It never grants or revokes a product.
               </Context>
-              <div className="flex flex-col gap-[6px]">
+              {/*
+                A radio list, not a stack of cards.
+
+                Each layout was a bordered box with an icon, two lines and a
+                tick — 56px of chrome per row for a choice between names. At
+                ten layouts it scrolled, which put the one you wanted below
+                the fold of a dialog whose entire job is this one list.
+
+                A radio says "pick one of these" in the shape every other
+                single-choice control in the product uses, and the row
+                shrinks to what it actually carries: the name, and the one
+                fact that discriminates between them. Ashwin, Oct 16.
+              */}
+              <div className="flex flex-col">
                 {templates.map((t) => (
                   <button
                     key={t.id}
                     type="button"
+                    role="radio"
+                    aria-checked={t.id === templateId}
                     onClick={() => setTemplateId(t.id)}
                     className={cn(
-                      "motion-tap flex items-center gap-[10px] rounded-[8px] px-[12px] py-[10px] text-left",
+                      "motion-tap flex items-center gap-[9px] rounded-[7px] px-[8px] py-[7px] text-left",
                       t.id === templateId
-                        ? "bg-pg-row-selected shadow-[inset_0_0_0_1.5px_var(--brand)]"
-                        : "bg-pg shadow-[inset_0_0_0_1px_var(--pg-card-border)] hover:bg-pg-row-border",
+                        ? "bg-pg-row-selected"
+                        : "hover:bg-pg-row-border",
                     )}
                   >
-                    <LayoutTemplate
-                      size={16}
+                    <span
                       aria-hidden="true"
-                      className="shrink-0 text-pg-muted"
+                      className={cn(
+                        "flex size-[16px] shrink-0 items-center justify-center rounded-full",
+                        t.id === templateId
+                          ? "shadow-[inset_0_0_0_5px_var(--brand)]"
+                          : "shadow-[inset_0_0_0_1.5px_var(--pg-border)]",
+                      )}
                     />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14px] leading-[20px] font-medium text-pg-heading">
-                        {t.name}
-                      </span>
-                      {/*
-                        How many sub-accounts are on it, not how many products
-                        it arranges.
-
-                        The product count describes the template's insides, and
-                        nobody picking one off this list is choosing by size —
-                        "31 products arranged" was true of almost every row and
-                        told you nothing about which to pick. What the admin is
-                        actually weighing is how established a template is: one
-                        with fourteen sub-accounts on it is the agency's
-                        standard, and one with none is somebody's draft. Same
-                        line, the fact that discriminates.
-                      */}
-                      <span className="block truncate text-[13px] leading-[18px] text-pg-muted">
-                        {accountsOn(t.id) === 0
-                          ? "No sub-accounts yet"
-                          : plural(accountsOn(t.id), "sub-account")}{" "}
-                        · {t.builtIn ? "Built in" : `Saved from ${t.fromAccount}`}
-                      </span>
+                    <span className="min-w-0 flex-1 truncate text-[14px] leading-[20px] font-medium text-pg-heading">
+                      {t.name}
                     </span>
-                    {t.id === templateId ? (
-                      <Check size={16} aria-hidden="true" className="shrink-0 text-brand" />
-                    ) : null}
+                    {/*
+                      How many sub-accounts are on it, not how many products
+                      it arranges.
+
+                      The product count describes the layout's insides, and
+                      nobody picking one off this list is choosing by size.
+                      What the admin is weighing is how established a layout
+                      is: one with fourteen sub-accounts on it is the
+                      agency's standard, and one with none is somebody's
+                      draft.
+                    */}
+                    <span className="shrink-0 text-[13px] leading-[18px] text-pg-muted">
+                      {accountsOn(t.id) === 0
+                        ? "No sub-accounts yet"
+                        : plural(accountsOn(t.id), "sub-account")}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -483,7 +496,9 @@ export function BulkModal({
           {step === "template-review" && template ? (
             <>
               <p className="text-[14px] leading-[20px] text-pg-text">
-                <span className="font-semibold text-pg-heading">{template.name}</span>{" "}
+                <span className="font-semibold text-pg-heading">
+                  {template.name}
+                </span>{" "}
                 will be applied to {plural(accounts.length, "sub-account")}.
               </p>
               {/*
@@ -496,20 +511,18 @@ export function BulkModal({
                 sub-accounts off the right layouts. "3 will change" answers that
                 by arithmetic and never names the three.
               */}
-              {guided ? (
-                <TemplateMoveTable
-                  accounts={accounts}
-                  template={template}
-                  onRemove={(id) =>
-                    setAccounts((a) =>
-                      a.length > 1 ? a.filter((x) => x.id !== id) : a,
-                    )
-                  }
-                  onAdd={(a) => setAccounts((cur) => [...cur, a])}
-                />
-              ) : (
-                <AccountSummary accounts={accounts} collapsed={false} />
-              )}
+              {/*
+                The set, named — not a table you can edit.
+
+                `TemplateMoveTable` let you add and remove accounts here,
+                which made the review step a second selection surface: you
+                chose in the rail, then chose again, and the two could
+                disagree. The selection is settled by the time this screen
+                is reached, so this states it and nothing more. Ten names
+                and a count for the rest — see AffectedAccountsList.
+                Ashwin, Oct 16.
+              */}
+              <AffectedAccountsList ids={accounts.map((a) => a.id)} />
             </>
           ) : null}
 
@@ -546,7 +559,11 @@ export function BulkModal({
               </div>
 
               <label className="flex h-[36px] items-center gap-[8px] rounded-[6px] bg-pg-surface px-[10px] shadow-[inset_0_0_0_1px_var(--pg-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">
-                <Search size={14} aria-hidden="true" className="shrink-0 text-pg-faint" />
+                <Search
+                  size={14}
+                  aria-hidden="true"
+                  className="shrink-0 text-pg-faint"
+                />
                 <input
                   type="text"
                   value={query}
@@ -627,14 +644,18 @@ export function BulkModal({
                 </span>
                 <GhostButton
                   onClick={() =>
-                    setActions(Object.fromEntries(picked.map((id) => [id, "enable"])))
+                    setActions(
+                      Object.fromEntries(picked.map((id) => [id, "enable"])),
+                    )
                   }
                 >
                   Enable all
                 </GhostButton>
                 <GhostButton
                   onClick={() =>
-                    setActions(Object.fromEntries(picked.map((id) => [id, "disable"])))
+                    setActions(
+                      Object.fromEntries(picked.map((id) => [id, "disable"])),
+                    )
                   }
                 >
                   Disable all
@@ -661,7 +682,10 @@ export function BulkModal({
                         on={action === "enable"}
                         label={featureLabel(id)}
                         onChange={(on) =>
-                          setActions((a) => ({ ...a, [id]: on ? "enable" : "disable" }))
+                          setActions((a) => ({
+                            ...a,
+                            [id]: on ? "enable" : "disable",
+                          }))
                         }
                       />
                       <span className="w-[52px] shrink-0 text-[14px] leading-[20px] text-pg-text">
@@ -670,7 +694,9 @@ export function BulkModal({
                       <button
                         type="button"
                         aria-label={`Remove ${featureLabel(id)}`}
-                        onClick={() => setPicked((p) => p.filter((x) => x !== id))}
+                        onClick={() =>
+                          setPicked((p) => p.filter((x) => x !== id))
+                        }
                         className="motion-tap flex size-[28px] shrink-0 items-center justify-center rounded-[6px] text-pg-muted hover:bg-pg-row-border hover:text-pg-heading"
                       >
                         <Trash2 size={15} aria-hidden="true" />
@@ -724,9 +750,15 @@ export function BulkModal({
 
           {step === "done" && run && !guided ? (
             <div className="flex flex-col items-center gap-[8px] py-[24px] text-center">
-              <CheckCircle2 size={30} aria-hidden="true" className="text-[var(--hr-success-600)]" />
+              <CheckCircle2
+                size={30}
+                aria-hidden="true"
+                className="text-[var(--hr-success-600)]"
+              />
               <h3 className="text-[16px] leading-[22px] font-semibold text-pg-heading">
-                {run.status === "queued" ? "Changes submitted" : "Changes applied"}
+                {run.status === "queued"
+                  ? "Changes submitted"
+                  : "Changes applied"}
               </h3>
               <p className="text-[14px] leading-[20px] text-pg-text">
                 {run.path === "template"
@@ -785,7 +817,11 @@ export function BulkModal({
               <SecondaryButton onClick={close}>Cancel</SecondaryButton>
               {step === "path" ? null : (
                 <PrimaryButton
-                  disabled={nextDisabled({ step, picked: picked.length, templateId })}
+                  disabled={nextDisabled({
+                    step,
+                    picked: picked.length,
+                    templateId,
+                  })}
                   onClick={() => {
                     if (step === "template-pick") {
                       if (previewing) setStep("template-preview");
@@ -805,7 +841,9 @@ export function BulkModal({
                         for (const id of picked) next[id] ??= "enable";
                         return next;
                       });
-                      setStep(path === "per-account" ? "matrix" : "feature-decide");
+                      setStep(
+                        path === "per-account" ? "matrix" : "feature-decide",
+                      );
                       return;
                     }
                     commit();
@@ -861,7 +899,7 @@ function footerHint({
   if (step === "path") return `${plural(accounts, "sub-account")} selected.`;
   if (step === "template-preview") return "Nothing has been applied yet.";
   if (step === "template-pick")
-    return templateId ? "" : "Pick a template to get started";
+    return templateId ? "" : "Pick a layout to get started";
   if (step === "feature-pick")
     return picked === 0
       ? "Select features to get started"
@@ -892,38 +930,6 @@ function Context({
   );
 }
 
-function AccountChips({ accounts }: { accounts: readonly Account[] }) {
-  return (
-    <div className="flex flex-wrap gap-[6px]">
-      {accounts.map((a) => (
-        <span
-          key={a.id}
-          className="flex items-center gap-[6px] rounded-[6px] bg-pg px-[8px] py-[5px] text-[13px] leading-[18px] text-pg-text"
-        >
-          <AccountLogo logo={a.logo} src={a.logoSrc} size={16} radius={999} />
-          {a.name}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-/**
- * The receipt, and deliberately almost nothing.
- *
- * It carried counts, an undo and two footer buttons. All three were answers to
- * questions the reader does not have at this moment: the run did what the
- * review step said it would, and the next thing they want is their screen
- * back. So the card states that it happened, says when it lands, and the X
- * closes it — the same X that has been in the corner the whole way through.
- *
- * Undo did not disappear with the button. It lives in the bulk action history,
- * which is where somebody who notices the wrong template tomorrow will look —
- * and tomorrow, not four seconds later, is when that is actually noticed.
- *
- * The exception is a run that half-worked. That one IS unfinished business,
- * so it keeps its failures named and a retry for them alone.
- */
 function RunReport({ run }: { run: BulkRun }) {
   const failed = run.outcomes.filter((o) => o.status === "failed");
   const changed = run.outcomes.filter((o) => o.status === "changed");
@@ -992,284 +998,6 @@ function RunReport({ run }: { run: BulkRun }) {
   );
 }
 
-/**
- * The one control that puts a sub-account back into the run.
- *
- * Its own component because two surfaces need it — the chips and the table —
- * and the awkward half is not the button but the menu behind it.
- *
- * The menu is measured and portalled, not absolutely positioned in place. In
- * place it was a 260px box hanging off a button at the end of a wrapping row,
- * so wherever the row happened to end, the menu started, and past about
- * two-thirds of the way across it ran off the edge. The modal body scrolls
- * vertically, and a box overflowing the inline axis of a scroll container turns
- * the other axis into a scrollbar too — which is the sideways scroll. Portalled
- * to the body it is in nobody's scroll container; clamped to the viewport it
- * cannot leave the screen.
- */
-function AddAccountButton({
-  accounts,
-  onAdd,
-  label = "Add",
-}: {
-  accounts: readonly Account[];
-  onAdd: (account: Account) => void;
-  label?: string;
-}) {
-  const [anchor, setAnchor] = React.useState<DOMRect | null>(null);
-  const open = anchor !== null;
-  const { effective } = useTheme();
-  const chosen = new Set(accounts.map((a) => a.id));
-  const rest = allAccounts.filter((a) => !chosen.has(a.id));
-
-  const MENU_W = 260;
-  const MENU_H = 240;
-  const place = anchor
-    ? {
-        // Right-aligned to the button, so a trigger near the right edge opens
-        // inward instead of off the side.
-        left: Math.min(
-          Math.max(8, anchor.right - MENU_W),
-          Math.max(8, window.innerWidth - MENU_W - 8),
-        ),
-        // Flipped above when there is no room below — the same rule the icon
-        // picker follows, and for the same reason.
-        top:
-          anchor.bottom + 4 + MENU_H > window.innerHeight
-            ? Math.max(8, anchor.top - MENU_H - 4)
-            : anchor.bottom + 4,
-      }
-    : { left: 0, top: 0 };
-
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={(e) => {
-          /*
-           * Measured here, not inside the updater.
-           *
-           * A state updater runs during the next render, by which point React
-           * has cleared the synthetic event and `currentTarget` is null — so
-           * reading the rect in there threw on the first click. The element is
-           * only guaranteed to be the button while the handler is on the stack.
-           */
-          const rect = e.currentTarget.getBoundingClientRect();
-          setAnchor((a) => (a ? null : rect));
-        }}
-        disabled={rest.length === 0}
-        aria-expanded={open}
-        className="motion-tap flex items-center gap-[5px] rounded-[6px] px-[8px] py-[5px] text-[13px] leading-[18px] font-medium text-pg-heading shadow-[inset_0_0_0_1px_var(--pg-border-strong)] hover:bg-pg disabled:opacity-40"
-      >
-        <Plus size={13} aria-hidden="true" />
-        {label}
-      </button>
-
-      {open && rest.length > 0
-        ? createPortal(
-            <div data-page-theme={effective.appTheme}>
-              {/* Click-away, as the other menus in this prototype do it. */}
-              <button
-                type="button"
-                aria-label="Close"
-                tabIndex={-1}
-                onClick={() => setAnchor(null)}
-                className="fixed inset-0 z-[95] cursor-default"
-              />
-              <div
-                style={{ ...place, width: MENU_W, maxHeight: MENU_H }}
-                className="fixed z-[96] overflow-y-auto rounded-[8px] bg-pg-surface p-[4px] shadow-[0_12px_16px_-4px_rgba(16,24,40,0.08),0_4px_6px_-2px_rgba(16,24,40,0.03),inset_0_0_0_1px_var(--pg-border)]"
-              >
-                {rest.map((a) => (
-                  <button
-                    key={a.id}
-                    type="button"
-                    onClick={() => {
-                      onAdd(a);
-                      // Left open: adding three is the common case, and a menu
-                      // that shuts after each one makes that three round trips.
-                      if (rest.length === 1) setAnchor(null);
-                    }}
-                    className="motion-tap flex w-full items-center gap-[8px] rounded-[6px] px-[8px] py-[6px] text-left hover:bg-pg"
-                  >
-                    <AccountLogo
-                      logo={a.logo}
-                      src={a.logoSrc}
-                      size={18}
-                      radius={999}
-                    />
-                    <span className="min-w-0 flex-1 truncate text-[13px] leading-[18px] text-pg-heading">
-                      {a.name}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
-    </div>
-  );
-}
-
-/**
- * Who is on what, and what they are about to be on instead.
- *
- * The review step used to be four cards: the selection as chips, a grid of
- * counts, and two columns listing what a template does and does not carry. All
- * of it true, none of it the question. An admin at this step is asking one
- * thing — am I about to move the right sub-accounts off the right layouts —
- * and the four cards answered it only by arithmetic: "3 will change" told you a
- * number without telling you which three, and the sub-account you were worried
- * about was never named.
- *
- * A row each, then. Where it is now, where it is going, and a way to take it
- * out of the run. Nothing else is on screen, because everything else was
- * competing with the one fact that decides whether to press the button.
- */
-function TemplateMoveTable({
-  accounts,
-  template,
-  onRemove,
-  onAdd,
-}: {
-  accounts: readonly Account[];
-  template: NavTemplate;
-  onRemove: (id: string) => void;
-  onAdd: (account: Account) => void;
-}) {
-  const { linkedFor } = useNavTemplates();
-  const only = accounts.length === 1;
-
-  return (
-    <div className="flex flex-col gap-[8px]">
-      <div className="overflow-hidden rounded-[8px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
-        <div className="flex items-center gap-[10px] bg-pg px-[12px] py-[7px] text-[11px] leading-[15px] font-semibold tracking-[0.4px] text-pg-muted uppercase">
-          {/*
-            "Current template" / "New template" rather than "Currently on" /
-            "Will be on" (review, Sep 18). The originals described a
-            RELATIONSHIP and left the reader to infer what the thing on the
-            other end was; these name the thing, which is what the column holds
-            and what the rest of the feature calls it.
-          */}
-          <span className="min-w-0 flex-1">Sub-account</span>
-          <span className="min-w-0 flex-1">Current template</span>
-          <span className="min-w-0 flex-1">New template</span>
-          <span className="w-[20px] shrink-0" />
-        </div>
-        {accounts.map((a) => {
-          const from = linkedFor(a.id);
-          // Already there: the row still shows, because a selection you cannot
-          // see is a selection you cannot correct — but it says plainly that
-          // nothing happens to it.
-          const same = from?.id === template.id;
-          return (
-            <div
-              key={a.id}
-              className="flex items-center gap-[10px] px-[12px] py-[9px] not-last:shadow-[inset_0_-1px_0_0_var(--pg-card-border)]"
-            >
-              <span className="flex min-w-0 flex-1 items-center gap-[7px]">
-                <AccountLogo logo={a.logo} src={a.logoSrc} size={18} radius={999} />
-                <span className="truncate text-[13px] leading-[18px] font-medium text-pg-heading">
-                  {a.name}
-                </span>
-              </span>
-              <span className="min-w-0 flex-1 truncate text-[13px] leading-[18px] text-pg-muted">
-                {from?.name ?? "No template"}
-              </span>
-              <span
-                className={cn(
-                  "min-w-0 flex-1 truncate text-[13px] leading-[18px]",
-                  same ? "text-pg-faint" : "font-medium text-pg-heading",
-                )}
-              >
-                {same ? "No change" : template.name}
-              </span>
-              <span className="flex w-[20px] shrink-0 justify-end">
-                {only ? null : (
-                  <button
-                    type="button"
-                    aria-label={`Remove ${a.name}`}
-                    title="Remove from this run"
-                    onClick={() => onRemove(a.id)}
-                    className="motion-tap flex size-[20px] items-center justify-center rounded-[4px] text-pg-faint hover:bg-pg-row-border hover:text-pg-heading"
-                  >
-                    <X size={13} aria-hidden="true" />
-                  </button>
-                )}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-      <AddAccountButton
-        accounts={accounts}
-        onAdd={onAdd}
-        label="Add a sub-account"
-      />
-    </div>
-  );
-}
-
-/**
- * The accounts, named but not necessarily all at once.
- *
- * A wrap of chips is fine for four and unreadable for forty — and an agency
- * with four hundred sub-accounts can select all of them, at which point the
- * chips are the whole modal. Three names and a count answers "is this roughly
- * the right set", which is what the review step is for; the disclosure answers
- * "exactly which", for the person who needs that.
- */
-function AccountSummary({
-  accounts,
-  collapsed,
-}: {
-  accounts: readonly Account[];
-  collapsed: boolean;
-}) {
-  const [open, setOpen] = React.useState(false);
-  const LEAD = 3;
-  if (!collapsed || accounts.length <= LEAD + 1) {
-    return <AccountChips accounts={accounts} />;
-  }
-  return (
-    <div className="flex flex-col gap-[8px]">
-      {open ? (
-        <AccountChips accounts={accounts} />
-      ) : (
-        <p className="text-[13px] leading-[18px] text-pg-muted">
-          {accounts
-            .slice(0, LEAD)
-            .map((a) => a.name)
-            .join(", ")}{" "}
-          and {plural(accounts.length - LEAD, "other")}.
-        </p>
-      )}
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="motion-tap self-start text-[13px] leading-[18px] font-medium text-brand"
-      >
-        {open ? "Hide the list" : `Show all ${accounts.length}`}
-      </button>
-    </div>
-  );
-}
-
-/**
- * The dry run: what this template does to ONE account, before it does it to
- * all of them.
- *
- * Reads rather than writes. A preview that actually applied to one account
- * would need its own undo, would land in history as a run nobody made, and
- * would leave that account on the template if the admin then backed out — so
- * this computes the same intersection the apply computes and shows the result.
- * Nothing is written until Apply.
- *
- * One account and a picker, not all of them: the question this answers is "is
- * this the template I think it is", and that is answered by looking at one
- * concrete outcome rather than seventeen abstract ones.
- */
 function TemplatePreview({
   template,
   accounts,
@@ -1481,7 +1209,11 @@ function Matrix({
       const current =
         p[accountId]?.[featureId] ?? actions[featureId] ?? "enable";
       const next: FeatureAction =
-        current === "enable" ? "disable" : current === "disable" ? "keep" : "enable";
+        current === "enable"
+          ? "disable"
+          : current === "disable"
+            ? "keep"
+            : "enable";
       return { ...p, [accountId]: { ...p[accountId], [featureId]: next } };
     });
 
@@ -1498,7 +1230,10 @@ function Matrix({
     <>
       <p className="text-[14px] leading-[20px] text-pg-text">
         Every cell starts on the bulk answer. Click one to step it through{" "}
-        <span className="font-medium text-pg-heading">Enable → Disable → No change</span>.
+        <span className="font-medium text-pg-heading">
+          Enable → Disable → No change
+        </span>
+        .
       </p>
       <div className="overflow-auto rounded-[8px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
         <table className="w-full border-collapse">
@@ -1516,9 +1251,15 @@ function Matrix({
                     {featureLabel(f)}
                   </span>
                   <span className="mt-[3px] flex justify-center gap-[4px]">
-                    <ColumnButton onClick={() => column(f, "enable")}>On</ColumnButton>
-                    <ColumnButton onClick={() => column(f, "disable")}>Off</ColumnButton>
-                    <ColumnButton onClick={() => column(f, "keep")}>—</ColumnButton>
+                    <ColumnButton onClick={() => column(f, "enable")}>
+                      On
+                    </ColumnButton>
+                    <ColumnButton onClick={() => column(f, "disable")}>
+                      Off
+                    </ColumnButton>
+                    <ColumnButton onClick={() => column(f, "keep")}>
+                      —
+                    </ColumnButton>
                   </span>
                 </th>
               ))}
@@ -1529,7 +1270,12 @@ function Matrix({
               <tr key={a.id}>
                 <td className="sticky left-0 z-10 bg-pg-surface px-[12px] py-[7px] shadow-[inset_0_-1px_0_0_var(--pg-row-border)]">
                   <span className="flex items-center gap-[8px]">
-                    <AccountLogo logo={a.logo} src={a.logoSrc} size={20} radius={999} />
+                    <AccountLogo
+                      logo={a.logo}
+                      src={a.logoSrc}
+                      size={20}
+                      radius={999}
+                    />
                     <span className="truncate text-[14px] leading-[20px] text-pg-heading">
                       {a.name}
                     </span>
@@ -1539,7 +1285,8 @@ function Matrix({
                   const action =
                     perAccount[a.id]?.[f] ?? actions[f] ?? "enable";
                   const owned = ownedFor(a.id, f);
-                  const moves = action !== "keep" && (action === "enable") !== owned;
+                  const moves =
+                    action !== "keep" && (action === "enable") !== owned;
                   return (
                     <td
                       key={f}

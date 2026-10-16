@@ -6,7 +6,7 @@ import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import {
   AffectedAccounts,
-  AffectedAccountsTable,
+  AffectedAccountsList,
   TemplateMessage,
   TemplateMessageActions,
   TemplateMessageBody,
@@ -20,7 +20,7 @@ import { nameTaken, useNavTemplates, type NavTemplate } from "./nav-templates";
  *
  * Lifted out of the ⋯ menu because it stopped belonging to the ⋯ menu. Under
  * `one-template` this is what Save changes on the edit card opens: there is
- * nowhere else for an edit to land, so the question "which template is this"
+ * nowhere else for an edit to land, so the question "which layout is this"
  * is the save, not a thing you go and do afterwards in a menu.
  *
  * Two answers, and only when there are two. With no named template to update —
@@ -40,7 +40,7 @@ export function TemplateSaveDialog({
   /**
    * The template this arrangement could be saved INTO, or null.
    *
-   * Null covers both "on no template" and "on the HighLevel default", which
+   * Null covers both "on no layout" and "on the HighLevel default", which
    * behave identically here: the default cannot be written to, so from it the
    * only possible outcome is a new template — the fork never appears.
    */
@@ -67,7 +67,24 @@ export function TemplateSaveDialog({
   const [saveAs, setSaveAs] = React.useState<"update" | "new">(
     linked && templateDirty ? "update" : "new",
   );
-  const [name, setName] = React.useState(`${accountName} nav`);
+  /*
+   * "New Layout" when there is nothing to update, the account's own name when
+   * there is.
+   *
+   * From the HighLevel default there is no fork — saving can only make a new
+   * layout — so the field is naming a thing that does not exist yet, and
+   * "Fieldstone Group nav" pre-answered that with the one name nobody would
+   * choose: it reads as THIS account's copy rather than as an arrangement
+   * other accounts will be put on, which is what a layout is for. Ashwin,
+   * Oct 16.
+   *
+   * With a layout linked, the account name still makes sense: the fork is
+   * "update the one you are on" vs "branch off a copy", and a copy is of this
+   * account's current state.
+   */
+  const [name, setName] = React.useState(
+    linked ? `${accountName} nav` : "New Layout",
+  );
 
   /*
    * Who an update actually lands on.
@@ -77,7 +94,8 @@ export function TemplateSaveDialog({
    * list directly under it. Names rather than ids, ordered as the fleet is —
    * this is read as "is my worst client in this", which is a scan, not a lookup.
    */
-  const reachedIds = linked && propagation === "managed" ? accountsOnIds(linked.id) : [];
+  const reachedIds =
+    linked && propagation === "managed" ? accountsOnIds(linked.id) : [];
   const reaches = linked ? accountsOn(linked.id) : 0;
 
   /**
@@ -99,7 +117,7 @@ export function TemplateSaveDialog({
   return (
     <TemplateMessage
       kind="decision"
-      label="Save template"
+      label="Save layout"
       width={440}
       onDismiss={onClose}
     >
@@ -111,17 +129,23 @@ export function TemplateSaveDialog({
         in doubt is where it goes, and on the fork that is a question with two
         answers and very different blast radii. The title asks it.
 
-        The body then says the one thing the options cannot say for themselves:
-        from the default there is no fork at all, and the reader needs to know
-        that is the model rather than a control that failed to appear.
+        The body says what pressing Save will do, and nothing else.
+
+        It used to open with "The HighLevel default can't be edited" — a rule
+        about the thing you are leaving, offered before the thing you are
+        doing. Nobody arrives here to be told what is not possible; they
+        arrived by pressing Save on a nav they had just changed, and the
+        sentence they need is where those changes are about to land. The
+        title carries the verb now, so the body states the outcome.
+        Ashwin, Oct 16.
       */}
       <TemplateMessageTitle icon={<Save size={15} aria-hidden="true" />}>
-        {linked ? "Where should these changes go?" : "Name this template"}
+        {linked ? "Where should these changes go?" : "Save as a new layout"}
       </TemplateMessageTitle>
       <TemplateMessageBody>
         {linked
-          ? `Update ${linked.name} for everyone on it, or keep this as a template of its own.`
-          : `The HighLevel default can't be edited. Save these changes as a new template and ${accountName} moves onto it.`}
+          ? `Update ${linked.name} for everyone on it, or keep this as a layout of its own.`
+          : `Your changes will be saved as the new layout for ${accountName}.`}
       </TemplateMessageBody>
 
       {linked ? (
@@ -173,14 +197,18 @@ export function TemplateSaveDialog({
           {/*
             No `to` in either layout: an update does not MOVE anybody. Every
             account here is already on this template and stays on it — what
-            changes is the template under them. A "new template" column would
+            changes is the template under them. A "new layout" column would
             name the one they are on and read as a move that is not happening.
           */}
           {saveAs === "update" && templateDirty && reaches > 1 ? (
             accordion ? (
               showing ? (
                 <div className="mt-[4px] mb-[2px] ml-[30px]">
-                  <AffectedAccountsTable ids={reachedIds} />
+                  {/* The same list the bulk flow shows — see
+                      AffectedAccountsList. One component, so the two places
+                      that answer "who does this reach" cannot answer it two
+                      different ways. */}
+                  <AffectedAccountsList ids={reachedIds} />
                 </div>
               ) : null
             ) : (
@@ -196,7 +224,7 @@ export function TemplateSaveDialog({
               // The other option's disclosure is not about this answer.
               setShowing(false);
             }}
-            label="Create a new template"
+            label="Create a new layout"
             note={`Only ${accountName} moves onto it. Everyone else stays where they are.`}
           />
           {/*
@@ -236,7 +264,9 @@ export function TemplateSaveDialog({
 
       <TemplateMessageActions
         dismiss={
-          <TemplateMessageButton onClick={onClose}>Cancel</TemplateMessageButton>
+          <TemplateMessageButton onClick={onClose}>
+            Cancel
+          </TemplateMessageButton>
         }
         actions={[
           <TemplateMessageButton
@@ -258,7 +288,7 @@ export function TemplateSaveDialog({
               ? reaches > 1
                 ? `Update ${reaches} sub-accounts`
                 : `Update ${linked.name}`
-              : "Save template"}
+              : "Save layout"}
           </TemplateMessageButton>,
         ]}
       />
@@ -281,7 +311,7 @@ function SaveNameField({
   return (
     <>
       <span className="text-[11px] leading-[15px] font-medium text-nav-fg-subtle">
-        Template name
+        Layout name
       </span>
       <input
         autoFocus
@@ -291,7 +321,7 @@ function SaveNameField({
           if (e.key === "Enter") onCommit();
         }}
         placeholder="Dentist, Home services…"
-        aria-label="Template name"
+        aria-label="Layout name"
         aria-invalid={taken || undefined}
         className={cn(
           "rounded-[7px] bg-nav-hover px-[10px] py-[7px] text-[12.5px] leading-[16px] text-nav-fg outline-none placeholder:text-nav-fg-subtle",
@@ -343,7 +373,7 @@ function SaveOption({
   /**
    * Whether this option's disclosure is open. Omit for an option that has
    * nothing behind it — the chevron then does not appear at all, which is how
-   * "Create a new template" stays a plain answer with a field under it.
+   * "Create a new layout" stays a plain answer with a field under it.
    */
   expanded?: boolean;
   onToggle?: () => void;

@@ -367,7 +367,7 @@ function FeaturesTab({
           {/*
             The chip always names a template, because a plan always has one.
 
-            "Attach navigation template" was the verb for an empty slot, and
+            "Attach navigation layout" was the verb for an empty slot, and
             the slot is never empty: a plan with nothing of its own hands out
             the HighLevel default, which is what the modal shows selected. So
             the chip reads as attached in both states and the press means the
@@ -385,9 +385,9 @@ function FeaturesTab({
           */}
           <AttachButton
             icon={LayoutTemplate}
-            label={attached ? attached.name : "HighLevel default template"}
+            label={attached ? attached.name : "HighLevel default layout"}
             attached={attached !== null}
-            removeLabel="Replace with the HighLevel default template"
+            removeLabel="Replace with the HighLevel default layout"
             onClick={() => setModal(true)}
             onRemove={() => onAttachTemplate(null)}
           />

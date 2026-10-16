@@ -166,7 +166,7 @@ export function SaasTierDialog({
                             ? `On the ${attached.name} layout`
                             : `Applies the ${attached.name} layout`;
                         }
-                        return "No template — keeps their current layout";
+                        return "No layout — keeps their current nav";
                       })()}
                     </span>
                   ) : null}

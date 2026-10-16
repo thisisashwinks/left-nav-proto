@@ -5371,6 +5371,18 @@ export const CREATE_ACCOUNT_LABEL = "Create sub-account";
  */
 export const MANAGE_ACCOUNTS_LABEL = "Manage sub-accounts";
 
+/**
+ * What the bulk button says, on every surface that draws one.
+ *
+ * "Actions" named a MENU — correct while the flow opened on a chooser with
+ * two items in it. With the chooser off by default the button has exactly
+ * one destination, so it says where it goes. See `pathChooser`: turn the
+ * chooser back on and this label is the one thing that becomes a slight
+ * understatement, which is the cheaper of the two errors.
+ * Ashwin, Oct 16.
+ */
+export const BULK_BUTTON_LABEL = "Apply layout";
+
 export const RAIL_SEARCH_GLYPHS = ["text", "scan", "filter", "funnel"] as const;
 export type RailSearchGlyph = (typeof RAIL_SEARCH_GLYPHS)[number];
 
