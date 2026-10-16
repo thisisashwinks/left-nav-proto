@@ -1470,8 +1470,22 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    * nothing above them to reach. Shared by both placements so the two cannot
    * disagree about when the agency exists. See HEADER_AGENCY_MARKS.
    */
+  /*
+   * Whether the rail stands beside the OPEN nav — the only face the header's
+   * agency plate, its mark and the switcher ever draw on.
+   *
+   * Not `railActive`. That one flips the moment the nav collapses (with the
+   * collapsed rail hidden), which is right for panel offsets and wrong for
+   * the expanded face: it is still on screen, fading out, for the whole
+   * collapse. Read off `railActive`, its header grew an "Acme Agency" row and
+   * a switcher chevron mid-gesture and pushed every row below them down
+   * 36px — then the face finished leaving. Ashwin caught it frame-stepping
+   * the collapse, Oct 16. Open, the rail is always present when the account
+   * has one, so this is `railActive` as that face will ever see it.
+   */
+  const railBesideOpenNav = agencyRail || memberRail;
   const agencyShowable =
-    !railActive && !plainUser && accounts.scope !== "agency";
+    !railBesideOpenNav && !plainUser && accounts.scope !== "agency";
 
   /*
    * With the rail hidden, the header's agency mark is not optional.
@@ -1488,7 +1502,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    * change how something is said, never whether it can be reached at all.
    * Ashwin, Oct 15.
    */
-  const agencyByLogo = !railActive && agencyRoute === "logo";
+  const agencyByLogo = !railBesideOpenNav && agencyRoute === "logo";
   const headerAgencyPlacement =
     agencyByLogo && headerAgencyMark === "off" ? "above" : headerAgencyMark;
   /*
@@ -2653,7 +2667,8 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    * the leftmost strip is the only place accounts change. The header model
    * keeps the in-place menu; it has no rail to lean on.
    */
-  const identityCanSwitch = canSwitch && !railActive;
+  // See `railBesideOpenNav`: the switcher lives on the open face.
+  const identityCanSwitch = canSwitch && !railBesideOpenNav;
 
   /*
    * Three triggers, and the middle one is the default. See FLYOUT_TRIGGERS.
@@ -4839,7 +4854,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
             remove. Ashwin, Oct 15.
           */
           showAgency={
-            !railActive && canSwitch && !plainUser && agencyRoute === "dropdown"
+            !railBesideOpenNav && canSwitch && !plainUser && agencyRoute === "dropdown"
           }
           /*
             No allow-list any more: the session itself is already scoped to the

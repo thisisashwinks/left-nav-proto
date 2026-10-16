@@ -7079,16 +7079,20 @@ export const DEFAULT_THEME: ThemeState = {
   */
   railToolsCta: "icon",
   /*
-    The rule — Ashwin, Oct 16.
+    Lines and a glass — Ashwin, Oct 16.
 
-    Shut, the strip is a column of account marks and the run headings have
-    already collapsed to hairlines. A fifth glyph in that column is a
-    control competing with the accounts; a rule is the same mark the
-    headings use, so the closed rail says one thing in one language. The
-    four glyphs stay on the dial: a rule promises nothing, and if the
-    search turns out to need announcing, one of them is the answer.
+    The rule held this slot for a few hours and the objection it was built
+    on turned out to be the weaker one: a hairline is quiet enough to say
+    nothing at all, and a reader who never opens the rail never learns it
+    can be searched. The glass over a list says "find something in here"
+    at 56px, and it is a VARIANT of the field's own magnifier rather than
+    the magnifier itself — which is the whole point of this axis, and
+    enough to keep the row from reading as a shrunken search box.
+
+    The rule stays on the dial. It is still the only option that leaves the
+    shut strip speaking one language.
   */
-  railSearchGlyph: "divider",
+  railSearchGlyph: "text",
   createAccountSpot: "row",
   /*
     The list with ticks — Ashwin, Oct 16.
