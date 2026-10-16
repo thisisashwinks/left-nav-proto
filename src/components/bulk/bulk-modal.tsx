@@ -467,20 +467,27 @@ export function BulkModal({
                     className={cn(
                       /*
                         No horizontal padding, so the row's content starts
-                        where the paragraph above it does.
+                        where the paragraph above it does. The 8px it had was
+                        indenting the radio past the body text, which made the
+                        list read as a nested thing inside the dialog rather
+                        than as the dialog's own content.
 
-                        The fill still spans the whole row — the button is a
-                        stretched flex child, so the hover and selected states
-                        run the full width and the entire row is the hit
-                        target. What the 8px was doing was indenting the radio
-                        past the body text, which made the list read as a
-                        nested thing inside the dialog rather than as the
-                        dialog's own content. Ashwin, Oct 16.
+                        And no fill, on hover or selection: the radio states
+                        which one is picked, and it states it unambiguously.
+                        A tinted row behind a filled radio says the same thing
+                        twice, and in a list where only one can ever be chosen
+                        the band reads as a second kind of selection — the
+                        hover one especially, which looked identical to the
+                        selected state a frame earlier.
+
+                        The whole row is still the target: the button is a
+                        stretched flex child and `w-full` holds it there, so
+                        the click area is unchanged. What is gone is the paint,
+                        not the hit box. Ashwin, Oct 16.
                       */
                       "motion-tap flex w-full items-center gap-[9px] rounded-[7px] py-[7px] text-left",
-                      t.id === templateId
-                        ? "bg-pg-row-selected"
-                        : "hover:bg-pg-row-border",
+                      // Keyboard users still need to see where they are.
+                      "outline-none focus-visible:ring-[1.5px] focus-visible:ring-brand",
                     )}
                   >
                     <span
