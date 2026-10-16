@@ -716,7 +716,7 @@ export function EditMoreMenu({
       return (
         <>
           <span className="mb-[4px] block px-[7px] pt-[3px] text-[10.5px] leading-[14px] font-semibold tracking-[0.5px] text-nav-fg-subtle uppercase">
-            Saved layouts
+            Navigation layouts
           </span>
           {/*
             A field, once there is a list worth filtering.

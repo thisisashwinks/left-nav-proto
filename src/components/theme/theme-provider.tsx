@@ -305,6 +305,7 @@ interface ThemeContextValue extends ThemeState {
   setAgencyRowWord: (on: boolean) => void;
   setAgencyRowDiamond: (on: boolean) => void;
   setAgencyRowSquare: (on: boolean) => void;
+  setAgencyRowMarkSize: (px: number) => void;
   setRailActiveSpot: (v: RailActiveSpot) => void;
   setRailDirectoryMode: (v: RailDirectoryMode) => void;
   setRailToolSpot: (v: RailToolSpot) => void;
@@ -754,6 +755,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, agencyRowDiamond })),
       setAgencyRowSquare: (agencyRowSquare) =>
         setState((s) => ({ ...s, agencyRowSquare })),
+      setAgencyRowMarkSize: (agencyRowMarkSize) =>
+        setState((s) => ({ ...s, agencyRowMarkSize })),
       setRailActiveSpot: (railActiveSpot) =>
         setState((s) => ({ ...s, railActiveSpot })),
       setRailDirectoryMode: (railDirectoryMode) =>

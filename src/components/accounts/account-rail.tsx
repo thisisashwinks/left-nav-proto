@@ -3896,7 +3896,24 @@ export function AccountRail({
                       setMagnifyIndex(i);
                     }}
                     account={account}
-                    magnify={magnifyScale(effective.railMagnify, magnifyIndex, i)}
+                    /*
+                      The agency's mark does not magnify.
+
+                      The dock scale is a reading aid for a column of
+                      interchangeable marks — it tells you which of forty
+                      identical discs is under the pointer. The agency is
+                      not one of them: it is already larger, already
+                      squared, and already the one row the strip is at
+                      pains to tell apart. Scaling it says "this is the one
+                      you are on" in the same breath as three marks saying
+                      "this is not an account", and the louder it gets the
+                      more it reads as the active row. Ashwin, Oct 16.
+                    */
+                    magnify={
+                      account.id === AGENCY_ID
+                        ? 1
+                        : magnifyScale(effective.railMagnify, magnifyIndex, i)
+                    }
                     // In select mode the row ticks rather than travels — the
                     // same rule the directory's rows follow, for the same
                     // reason: switching account out from under a half-built
@@ -3925,6 +3942,16 @@ export function AccountRail({
                     squareMark={
                       account.id === AGENCY_ID && effective.agencyRowSquare
                     }
+                    /*
+                      The agency's own mark size, and only out of select
+                      mode: while picking every mark is 20 so the column of
+                      checkboxes stays straight, and that rule predates
+                      this one.
+                    */
+                    {...(account.id === AGENCY_ID &&
+                    !(fillPicking && inlineOpen)
+                      ? { markSize: effective.agencyRowMarkSize }
+                      : {})}
                     {...(agencyBar && account.id === AGENCY_ID
                       ? { onSearch: () => setAgencyBarOpen(true) }
                       : {})}
@@ -4037,11 +4064,16 @@ export function AccountRail({
                       setMagnifyIndex(centredAccounts.length + i);
                     }}
                     account={account}
-                    magnify={magnifyScale(
-                      effective.railMagnify,
-                      magnifyIndex,
-                      centredAccounts.length + i,
-                    )}
+                    /* See the run above — the agency never magnifies. */
+                    magnify={
+                      account.id === AGENCY_ID
+                        ? 1
+                        : magnifyScale(
+                            effective.railMagnify,
+                            magnifyIndex,
+                            centredAccounts.length + i,
+                          )
+                    }
                   />
                   </div>
                 ))}

@@ -566,8 +566,8 @@ function EditNavButton({
               layouts" and that is what people come here for; the other two
               rows are switches they meet once. Ashwin, Oct 16.
             */
-            label="Saved layouts and more editing options"
-            short="Saved layouts"
+            label="Navigation layouts and more editing options"
+            short="Navigation layouts"
             icon={MoreHorizontal}
             onOpen={(trigger) => setMoreAnchor(trigger)}
           />

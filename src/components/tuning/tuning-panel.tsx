@@ -103,6 +103,8 @@ import {
   AGENCY_PLATES,
   AGENCY_PLATE_LABELS,
   AGENCY_ROW_MARKS,
+  AGENCY_ROW_MARK_SIZE_MIN,
+  AGENCY_ROW_MARK_SIZE_MAX,
   RAIL_TOOLS_LAYOUTS,
   AGENCY_BAR_DISMISSALS,
   RAIL_TOOLS_CTAS,
@@ -742,6 +744,8 @@ function NavStructureSection({
     setAgencyRowWord,
     agencyRowDiamond,
     setAgencyRowSquare,
+    agencyRowMarkSize,
+    setAgencyRowMarkSize,
     setRailCollapsedSearch,
     setRailToolsLayout,
     setAgencyBarDismissal,
@@ -1204,6 +1208,15 @@ function NavStructureSection({
                 }
                 format={(v) => AGENCY_ROW_MARK_LABELS[v]}
               />
+              <Stepper
+                label="Agency mark in the rail"
+                value={agencyRowMarkSize}
+                min={AGENCY_ROW_MARK_SIZE_MIN}
+                max={AGENCY_ROW_MARK_SIZE_MAX}
+                onChange={setAgencyRowMarkSize}
+                hint="Its own number, not the header lockup's \u2014 a square tile among round ones is a different problem from a wordmark's height."
+              />
+
               <Note>
                 Four marks for the one row in the list that is not an
                 account, in any combination, so each can be judged against

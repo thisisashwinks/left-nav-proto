@@ -749,7 +749,11 @@ export const MERGED_ROW_DETAIL_LABELS: Record<MergedRowDetail, string> = {
  * explain the ordering rule. `shortcuts` says the same thing in a shorter word
  * and gives up the "recent" idea entirely.
  */
-export const MERGED_HEADINGS = ["recents", "quick-access", "shortcuts"] as const;
+export const MERGED_HEADINGS = [
+  "recents",
+  "quick-access",
+  "shortcuts",
+] as const;
 
 export type MergedHeading = (typeof MERGED_HEADINGS)[number];
 
@@ -783,11 +787,12 @@ export const MERGED_AGENCY_RECENTS = ["places", "accounts", "both"] as const;
 
 export type MergedAgencyRecents = (typeof MERGED_AGENCY_RECENTS)[number];
 
-export const MERGED_AGENCY_RECENTS_LABELS: Record<MergedAgencyRecents, string> = {
-  places: "Agency areas",
-  accounts: "Accounts",
-  both: "Areas + accounts",
-};
+export const MERGED_AGENCY_RECENTS_LABELS: Record<MergedAgencyRecents, string> =
+  {
+    places: "Agency areas",
+    accounts: "Accounts",
+    both: "Areas + accounts",
+  };
 
 /**
  * Which end of the pinned run a new pin lands on.
@@ -1861,7 +1866,9 @@ export function navWidthsFor(
    * point of a column the same width as its panel is lost if entering the one
    * mode that rearranges it springs the column 8px wider and the panel 96.
    */
-  return NAV_WIDTHS[editing && editWidthFull && set === "narrow" ? "default" : set];
+  return NAV_WIDTHS[
+    editing && editWidthFull && set === "narrow" ? "default" : set
+  ];
 }
 
 export const NAV_SELECTED_FILLS = [
@@ -2422,7 +2429,11 @@ export const RECENTS_PANEL_LAYOUT_LABELS: Record<RecentsPanelLayout, string> = {
  *            thing it changes — at the cost of a decision that must be answered
  *            sitting in the corner of the eye.
  */
-export const TEMPLATE_MESSAGE_PLACEMENTS = ["by-kind", "centred", "nav"] as const;
+export const TEMPLATE_MESSAGE_PLACEMENTS = [
+  "by-kind",
+  "centred",
+  "nav",
+] as const;
 
 export type TemplateMessagePlacement =
   (typeof TEMPLATE_MESSAGE_PLACEMENTS)[number];
@@ -3702,12 +3713,7 @@ export const ENTRY_RADIUS_LABELS: Record<EntryRadius, string> = {
  * them, so it does not move when the trail grows — and on a deep trail the two
  * can meet, which is the trade this one is here to show.
  */
-export const HEADER_ENTRY_SIDES = [
-  "right",
-  "left",
-  "trail",
-  "centre",
-] as const;
+export const HEADER_ENTRY_SIDES = ["right", "left", "trail", "centre"] as const;
 
 export type HeaderEntrySide = (typeof HEADER_ENTRY_SIDES)[number];
 
@@ -4737,10 +4743,11 @@ export const TEMPLATE_PROPAGATIONS = ["managed", "copy"] as const;
 
 export type TemplatePropagation = (typeof TEMPLATE_PROPAGATIONS)[number];
 
-export const TEMPLATE_PROPAGATION_LABELS: Record<TemplatePropagation, string> = {
-  managed: "Push to every account on it",
-  copy: "Leave them as they are",
-};
+export const TEMPLATE_PROPAGATION_LABELS: Record<TemplatePropagation, string> =
+  {
+    managed: "Push to every account on it",
+    copy: "Leave them as they are",
+  };
 
 export const SUB_ACCOUNT_SWITCHERS = ["rail", "dropdown"] as const;
 
@@ -5054,6 +5061,24 @@ export const RAIL_TILE_COLOUR_LABELS: Record<RailTileColour, string> = {
  * borrows the active row's own signals makes two rows look current.
  * Ashwin, Oct 15.
  */
+/**
+ * How big the agency's mark is drawn when it sits IN the run.
+ *
+ * Its own number, not the "Agency logo height" stepper. That one sets the
+ * header lockup — a wordmark whose height is a property of the artwork —
+ * and this one sets a square tile sitting among round ones. Sharing a value
+ * would have meant moving the header's logo every time the rail's mark was
+ * tuned, which is two surfaces answering to one control that only names
+ * one of them. Ashwin, Oct 16.
+ *
+ * 24 is the default because it clears the 16px resting tiles by half again
+ * without reaching the 24px active one — the agency reads as larger than a
+ * quiet account and not as the account you are in.
+ */
+export const AGENCY_ROW_MARK_SIZE_DEFAULT = 24;
+export const AGENCY_ROW_MARK_SIZE_MIN = 16;
+export const AGENCY_ROW_MARK_SIZE_MAX = 36;
+
 export const AGENCY_ROW_MARKS = ["ring", "word", "diamond", "square"] as const;
 export type AgencyRowMark = (typeof AGENCY_ROW_MARKS)[number];
 
@@ -6232,6 +6257,8 @@ export interface ThemeState {
   agencyRowWord: boolean;
   agencyRowDiamond: boolean;
   agencyRowSquare: boolean;
+  /** How big the agency's own mark is drawn in the run. */
+  agencyRowMarkSize: number;
   /** Where the account you are in sits. See RAIL_ACTIVE_SPOTS. */
   railActiveSpot: RailActiveSpot;
   /** Whether the other accounts are behind a door. See RAIL_DIRECTORY_MODES. */
@@ -6577,24 +6604,75 @@ export function changedThemeKeys(state: ThemeState): (keyof ThemeState)[] {
  * which is the only honest definition of what it renders.
  */
 export const NAV_STRUCTURE_KEYS = [
-  "l2ClickAction", "tabsInNav", "navSections", "layoutModel",
-  "railTileShape", "railExpandedShape", "railRecents", "railDirectorySpot",
-  "railAvatars", "railShade", "agencyPlate", "railArrangement",
-  "agencyRowRing", "agencyRowWord", "agencyRowDiamond", "agencyRowSquare",
-  "manageAgencyRow", "railHoverZone", "railToolsLayout", "railCollapsedSearch",
-  "railHideButton", "agencyRoute", "railActiveSpot", "railDirectoryMode",
-  "railToolSpot", "agencyBarDismissal", "railToolsCta", "railSearchGlyph",
-  "createAccountSpot", "railManageGlyph",
-  "railToolsEdge", "railPinnedLabel", "railRecentLabel",
-  "railTileColour", "activeAgencySpot", "railTileAlign", "railHover",
-  "directoryPlacement", "railFillMorph", "railFillRest", "railFillAgency",
-  "railHoldInset", "collapsedRail", "railZoomFit", "editTreatment",
-  "renameAffordance", "railSizing", "railActiveBar", "railMagnify",
-  "userMultiAccount", "subAccountSwitcher", "headerAgencyMark",
-  "agencyWordmark", "agencyPlateAlign", "collapseSpot", "agencyEntry",
-  "workspaceGlyph", "selectSpot", "selectLabel", "selectStrip",
-  "directoryName", "navIdentityAlign", "agencyPlateSize", "agencyPlateName",
-  "navLeftInset", "workspaceChevron", "subAccountNavMark", "scopeModel",
+  "l2ClickAction",
+  "tabsInNav",
+  "navSections",
+  "layoutModel",
+  "railTileShape",
+  "railExpandedShape",
+  "railRecents",
+  "railDirectorySpot",
+  "railAvatars",
+  "railShade",
+  "agencyPlate",
+  "railArrangement",
+  "agencyRowRing",
+  "agencyRowWord",
+  "agencyRowDiamond",
+  "agencyRowSquare",
+  "agencyRowMarkSize",
+  "manageAgencyRow",
+  "railHoverZone",
+  "railToolsLayout",
+  "railCollapsedSearch",
+  "railHideButton",
+  "agencyRoute",
+  "railActiveSpot",
+  "railDirectoryMode",
+  "railToolSpot",
+  "agencyBarDismissal",
+  "railToolsCta",
+  "railSearchGlyph",
+  "createAccountSpot",
+  "railManageGlyph",
+  "railToolsEdge",
+  "railPinnedLabel",
+  "railRecentLabel",
+  "railTileColour",
+  "activeAgencySpot",
+  "railTileAlign",
+  "railHover",
+  "directoryPlacement",
+  "railFillMorph",
+  "railFillRest",
+  "railFillAgency",
+  "railHoldInset",
+  "collapsedRail",
+  "railZoomFit",
+  "editTreatment",
+  "renameAffordance",
+  "railSizing",
+  "railActiveBar",
+  "railMagnify",
+  "userMultiAccount",
+  "subAccountSwitcher",
+  "headerAgencyMark",
+  "agencyWordmark",
+  "agencyPlateAlign",
+  "collapseSpot",
+  "agencyEntry",
+  "workspaceGlyph",
+  "selectSpot",
+  "selectLabel",
+  "selectStrip",
+  "directoryName",
+  "navIdentityAlign",
+  "agencyPlateSize",
+  "agencyPlateName",
+  "navLeftInset",
+  "workspaceChevron",
+  "subAccountNavMark",
+  "scopeModel",
 ] as const satisfies readonly (keyof ThemeState)[];
 
 export const DEFAULT_THEME: ThemeState = {
@@ -6824,8 +6902,18 @@ export const DEFAULT_THEME: ThemeState = {
   */
   agencyRowRing: false,
   agencyRowWord: false,
-  agencyRowDiamond: true,
+  /*
+    The square alone — Ashwin, Oct 16.
+
+    The diamond came off once the square proved it could carry the row by
+    itself: shape is the one channel the ACTIVE row does not use, so a
+    squared mark among round ones is unambiguous without a second mark
+    in the trailing slot saying the same thing again. All three stay on
+    the dial.
+  */
+  agencyRowDiamond: false,
   agencyRowSquare: true,
+  agencyRowMarkSize: AGENCY_ROW_MARK_SIZE_DEFAULT,
   railActiveSpot: "inPlace",
   /*
     The directory IS the rail, rather than a door to one.
@@ -6838,7 +6926,17 @@ export const DEFAULT_THEME: ThemeState = {
     See RAIL_DIRECTORY_MODES.
   */
   railDirectoryMode: "inline",
-  railToolSpot: "bottom",
+  /*
+    Below the agency — Ashwin, Oct 16.
+
+    The field sits where the list begins rather than at an edge of it: one
+    sticky row under the agency, holding its place while forty accounts
+    scroll past, with the shut strip showing a rule in the same slot so
+    nothing moves when the rail opens. The bottom bar is still the cheapest
+    in pixels and stays on the dial; this one puts the search where the
+    eye already is.
+  */
+  railToolSpot: "underAgency",
   agencyBarDismissal: "cancel",
   /*
     The glyph, not the word — Ashwin, Oct 16.

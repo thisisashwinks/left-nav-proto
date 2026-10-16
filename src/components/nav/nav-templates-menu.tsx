@@ -140,7 +140,7 @@ export function NavTemplatesMenu({
     <div
       ref={ref}
       role="dialog"
-      aria-label="Grouping layouts"
+      aria-label="Navigation layouts"
       // Portalled, so it carries its own nav theme — see the icon picker.
       data-nav-theme={navTheme}
       style={{ top, left, width: WIDTH }}

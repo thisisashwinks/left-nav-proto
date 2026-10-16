@@ -365,7 +365,7 @@ export function BulkModal({
     step === "path"
       ? "Bulk actions"
       : path === "template"
-        ? "Apply saved layout"
+        ? "Update navigation layout"
         : "Update feature access";
 
   return createPortal(
@@ -861,11 +861,24 @@ export function BulkModal({
                     commit();
                   }}
                 >
+                  {/*
+                    The commit names the errand, not the mechanism.
+
+                    "Apply changes" is true of both paths and says nothing
+                    about either. On the layout path the reader has just been
+                    shown which sub-accounts will move and to what, and the
+                    button is the one place left to say what is about to
+                    happen to them. The feature path keeps the generic word:
+                    there the changes really are a list of toggles rather
+                    than one named thing. Ashwin, Oct 16.
+                  */}
                   {step === "feature-pick" ||
                   step === "template-pick" ||
                   step === "template-preview"
                     ? "Next"
-                    : "Apply changes"}
+                    : path === "template"
+                      ? "Update navigation layout"
+                      : "Apply changes"}
                 </PrimaryButton>
               )}
             </>
