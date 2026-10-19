@@ -26,6 +26,7 @@ import { useNavLayout } from "./nav-layout-provider";
 import { PIN_CAP_HINT, usePinnedInk } from "./pin-button";
 import { usePinFeedback, usePinLanded } from "./pin-feedback";
 import { RailTooltip } from "./rail-tooltip";
+import { useHereStyle } from "./here";
 import {
   fadeProps,
   onlyProps,
@@ -1005,11 +1006,14 @@ function MergedItemRow({
    */
   const { collapsed, selectedId, onHoverPlain } = useNavCollapse();
   const lit = collapsed && selectedId === row.id;
+  // Lit, the open face's selected treatment — see NavItemRow's `litMark`.
+  const litMark = useHereStyle(lit ? "here" : null);
   return (
     <RailTooltip label={row.label} show={collapsed}>
     <div
       data-pin-row=""
       data-nav-tile=""
+      {...(lit ? { "data-nav-lit": "" } : {})}
       {...(collapsed && onHoverPlain ? { onPointerEnter: onHoverPlain } : {})}
       // `group/row` rather than a bare group: PinButton's hover variant names
       // this row specifically, and an unnamed group would also match any
@@ -1042,7 +1046,7 @@ function MergedItemRow({
         pinEdit?.drag.dragging
           ? "opacity-40"
           : "hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]",
-        lit && "bg-nav-hover",
+        lit && litMark.row,
         landed,
       )}
       /* What the grip hands to `setRowDragImage`. */

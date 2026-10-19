@@ -120,7 +120,7 @@ import {
 import { RailTooltip } from "./rail-tooltip";
 import { NavHeader } from "./nav-header";
 import { NavItemRow, type NavRowDrag, type NavRowEdit } from "./nav-item-row";
-import { useHere, type Marking, type NavLevel } from "./here";
+import { useHere, useHereStyle, type Marking, type NavLevel } from "./here";
 import {
   openTreeBranch,
   ProductTreeBranch,
@@ -3824,7 +3824,15 @@ export function LeftNav({
          */
         active={
           bar
-            ? bar.active
+            ? /*
+                Collapsed, a tile also lights for the page you are on BELOW
+                it — the category whose panel holds it, as the open face's
+                here/trail mark says (Ashwin, Oct 19: on Contacts, CRM stays
+                lit). The strip only lit the row itself, which left the bar
+                with no answer to "where am I" whenever the page was a level
+                down. Same rule as open, so the two widths never disagree.
+              */
+              bar.active || markFor(isHere, isTrail, "l1") !== null
             : item.hasFlyout === true && !emptyBucket
               ? flyoutId === openFlyoutId || flyoutId === pinnedFlyoutId
               : item.id === selectedId
@@ -5892,6 +5900,13 @@ function SetupGuideRow({
    * goes with the labels); Quick Actions is the strip's tile.
    */
   const { collapsed, selectedId } = useNavCollapse();
+  /*
+   * The bar's lit treatment for the card's two glyphs — the open face's
+   * selected fill and hairline, as every lit tile wears. See NavItemRow.
+   */
+  const rocketLit = collapsed && selectedId === PROPOSED_HOME_ID;
+  const rocketMark = useHereStyle(rocketLit ? "here" : null);
+  const qaMark = useHereStyle(collapsed && quickActionsActive ? "here" : null);
   const v = LAUNCHPAD_STYLE[launchpadCard];
   const plain = launchpadCard === "plain";
   const alignToCanvas = topAlignCard && !plain;
@@ -5981,8 +5996,8 @@ function SetupGuideRow({
                     v.icon,
                     collapsed
                       ? cn(
-                          "pointer-events-auto motion-tap hover:bg-nav-hover active:scale-95",
-                          selectedId === PROPOSED_HOME_ID && "bg-nav-hover",
+                          "pointer-events-auto motion-tap active:scale-95",
+                          rocketLit ? rocketMark.row : "hover:bg-nav-hover",
                         )
                       : "pointer-events-none",
                   )}
@@ -6067,8 +6082,8 @@ function SetupGuideRow({
                 "motion-tap pointer-events-auto relative z-10 -mx-[6px] flex items-center gap-[8px] rounded-[6px] px-[6px] text-left active:scale-[0.99]",
                 collapsed
                   ? cn(
-                      "rounded-[var(--t-nav-radius,7px)] hover:bg-nav-hover",
-                      quickActionsActive && "bg-nav-hover",
+                      "rounded-[var(--t-nav-radius,7px)]",
+                      quickActionsActive ? qaMark.row : "hover:bg-nav-hover",
                     )
                   : v.action,
                 // Alone in the box, the row takes the header's own scale — it

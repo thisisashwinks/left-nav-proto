@@ -925,7 +925,13 @@
   margin-left: 2px;
   padding-left: var(--bar-glyph-inset);
   padding-right: 0;
-  /* The strip's tile has a fill and no ring — hover or active. */
+}
+/*
+ * No hover ring on a tile — but a LIT tile keeps the selected treatment's
+ * hairline and lift, so it looks exactly as selected as it does open.
+ * Ashwin, Oct 19.
+ */
+[data-nav-collapsed] [data-nav-tile]:not([data-nav-lit]) {
   box-shadow: none;
 }
 

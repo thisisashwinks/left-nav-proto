@@ -227,6 +227,15 @@ export function NavItemRow({
    * an editable row is never on screen at 64px.
    */
   const { collapsed } = useNavCollapse();
+  /*
+   * A lit tile in the collapsed bar wears the open face's SELECTED treatment
+   * — fill, hairline, lift and ink — not the hover grey. Ashwin, Oct 19: the
+   * grey was barely visible, and the same row selected open and shut should
+   * look selected in both. The row's own marking where it has one, else the
+   * "here" treatment, so a tile lit by its open panel reads the same.
+   */
+  const lit = collapsed && active;
+  const litMark = useHereStyle(lit ? (marking ?? "here") : null);
   const newDotShown = useNewDotShown();
   const deep = bar === "fade" || (item.depth ?? 0) > 0 || item.child === true;
 
@@ -646,6 +655,7 @@ export function NavItemRow({
           space. Everything at the top level becomes a tile.
         */
         {...(deep ? fadeProps(collapsed) : { "data-nav-tile": "" })}
+        {...(lit && !deep ? { "data-nav-lit": "" } : {})}
         /*
           A tile's spoken name, which the strip gave it: the label alone, and
           "new inside" when the dot is up — the visible label is still in the
@@ -680,7 +690,9 @@ export function NavItemRow({
             it is not. The here-fill is the open face's way of saying which
             row is the page, and the strip never said it.
           */
-          mark.row && !collapsed
+          lit && litMark.row
+            ? litMark.row
+            : mark.row && !collapsed
             ? mark.row
             : active
               ? "bg-nav-hover"
