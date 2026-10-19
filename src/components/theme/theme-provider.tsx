@@ -119,6 +119,7 @@ import type {
   RailArrangement,
   RailActiveSpot,
   RailGuestSpot,
+  RailShutRecents,
   RailDirectoryMode,
   RailToolSpot,
   RailToolsLayout,
@@ -321,6 +322,7 @@ interface ThemeContextValue extends ThemeState {
   setRailActiveChrome: (v: RailActiveChrome) => void;
   setRailActiveSpot: (v: RailActiveSpot) => void;
   setRailGuestSpot: (v: RailGuestSpot) => void;
+  setRailShutRecents: (v: RailShutRecents) => void;
   setRailDirectoryMode: (v: RailDirectoryMode) => void;
   setRailToolSpot: (v: RailToolSpot) => void;
   setRailToolsEdge: (v: RailToolsEdge) => void;
@@ -792,6 +794,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, railActiveSpot })),
       setRailGuestSpot: (railGuestSpot) =>
         setState((s) => ({ ...s, railGuestSpot })),
+      setRailShutRecents: (railShutRecents) =>
+        setState((s) => ({ ...s, railShutRecents })),
       setRailDirectoryMode: (railDirectoryMode) =>
         setState((s) => ({ ...s, railDirectoryMode })),
       setRailToolSpot: (railToolSpot) =>

@@ -134,6 +134,8 @@ import {
   RAIL_ACTIVE_SPOT_LABELS,
   RAIL_GUEST_SPOTS,
   RAIL_GUEST_SPOT_LABELS,
+  RAIL_SHUT_RECENTS,
+  RAIL_SHUT_RECENTS_LABELS,
   RAIL_DIRECTORY_MODES,
   RAIL_DIRECTORY_MODE_LABELS,
   RAIL_TOOL_SPOTS,
@@ -404,6 +406,7 @@ import {
   type RailArrangement,
   type RailActiveSpot,
   type RailGuestSpot,
+  type RailShutRecents,
   type RailDirectoryMode,
   type RailToolSpot,
   type RailToolsLayout,
@@ -803,8 +806,10 @@ function NavStructureSection({
     setAgencyRoute,
     railActiveSpot,
     railGuestSpot,
+    railShutRecents,
     setRailActiveSpot,
     setRailGuestSpot,
+    setRailShutRecents,
     railDirectoryMode,
     setRailDirectoryMode,
     railToolSpot,
@@ -1334,6 +1339,20 @@ function NavStructureSection({
               </Note>
             </>
           ) : null}
+
+          <Segmented
+            label="The shut strip carries"
+            keywords="rail collapsed shut recents pinned only strip 56px glance reach tenth account"
+            options={RAIL_SHUT_RECENTS}
+            value={railShutRecents}
+            onChange={(v: RailShutRecents) => setRailShutRecents(v)}
+            format={(v) => RAIL_SHUT_RECENTS_LABELS[v]}
+          />
+          <Note>
+            {railShutRecents === "on"
+              ? "The recents follow the pins at 56px, the same five that lead the open list. The account you were in two switches ago is one click from the shut rail — paid for by the lower half of the strip rearranging itself behind your back, with no names there to tell you it did."
+              : "The shut strip is the pinned run and whatever the guest adds, so every mark in it is either one you chose or the one you are in. Position means something because nothing reorders — which is the whole reason a glance works."}
+          </Note>
 
           <Segmented
             label="All accounts"

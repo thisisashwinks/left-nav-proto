@@ -1713,20 +1713,40 @@ export function AccountRail({
   /*
    * The rows travel rather than being replaced. See useFlipRows.
    *
-   * Keyed on `filled` and on the query, which are the two things that change
-   * what the list IS — a re-render for any other reason measures, finds every
-   * row where it left it, and plays nothing.
+   * Keyed on `filled` and the query — the two things that change what the
+   * list IS — and, since Oct 19, on the account the session is in.
+   *
+   * That last one is the guest's whole motion. Clicking an unpinned account
+   * moves a row out of the run and another into it (see RAIL_GUEST_SPOTS),
+   * and under "Above the pinned" it shifts all ten pins down a row as well.
+   * Without the id in the signal the hook measured, found every row where it
+   * left it and played nothing, so the strip just WAS different on the next
+   * frame — the one thing FLIP exists to prevent.
+   *
+   * 500ms, Ashwin's figure, up from the 480 the fill uses. The two gestures
+   * are close enough in size that one number would have done; they are kept
+   * apart because they answer to different asks and the next retune of one
+   * should not silently retune the other.
    */
-  const flip = useFlipRows(`${filled}:${fillQuery}`, {
-    enabled: fillMode,
-    /*
-      Closing counts from the bottom. `filled` is the state this commit is
-      animating INTO, so an unfilled commit is the strip folding back up —
-      and that reads bottom-first: the last row goes, then the one above it,
-      and the column stacks up into the strip. See `reverse`.
-    */
-    reverse: !filled,
-  });
+  const flip = useFlipRows(
+    `${filled}:${fillQuery}:${liveScope}:${liveAccountId}`,
+    {
+      enabled: fillMode,
+      duration: 500,
+      /*
+        Closing counts from the bottom: the last row goes, then the one above
+        it, and the column stacks up into the strip. A switch is not a close
+        and reads top-down — the slot opens at the top and the push ripples
+        down after it.
+
+        `reverse: !filled` would have called every switch a close, since the
+        strip is unfilled for its whole ordinary life. The question is not
+        whether the column is down but whether it just WENT down, which only
+        the hook can answer. See `reverseOnFall`.
+      */
+      reverseOnFall: filled,
+    },
+  );
 
   /*
    * The filled list's scroller, for the fading bar.
@@ -2424,10 +2444,20 @@ export function AccountRail({
     ...inlineRest.filter((a) => !inlineLed.includes(a.id)),
   ];
 
+  /*
+   * Shut, the second run is empty unless the axis says otherwise.
+   *
+   * See RAIL_SHUT_RECENTS. `on` gives the strip the same recents that lead
+   * the open list — the SAME slice, not a second rule — so the mark under
+   * the pins is the row under the pins, and opening the rail does not
+   * reshuffle what you were just looking at.
+   */
   const centredRecents = inlineDirectory
     ? expanded
       ? inlineMatch(inlineOrdered)
-      : []
+      : effective.railShutRecents === "on"
+        ? inlineOrdered.slice(0, RAIL_INLINE_RECENT_LIMIT)
+        : []
     : baseRecents;
 
   /*
@@ -4407,7 +4437,18 @@ export function AccountRail({
                   />
                 ) : null}
                 {filled ? null : bottomRun.map((account, i) => (
-                  <div key={account.id}>
+                  /*
+                    Registered with the SAME flip as the run above it.
+
+                    An account leaving the guest slot does not vanish — it
+                    rejoins the recents a few rows down, and the row that
+                    replaces it came from there. Only one of those two moves
+                    was animated while this run was unregistered, so a switch
+                    read as a row appearing above and an unrelated row
+                    appearing below. One shared register makes it the single
+                    exchange it actually is. Ashwin, Oct 19.
+                  */
+                  <div key={account.id} ref={flip.register(account.id)}>
                   <RailRow
                     squircle={!pillTiles}
                     /*

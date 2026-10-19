@@ -5308,6 +5308,46 @@ export const RAIL_GUEST_SPOT_LABELS: Record<RailGuestSpot, string> = {
 };
 
 /**
+ * Whether the SHUT strip carries the recents too, under the pinned run.
+ *
+ * Open, the rail lists everything, recents first — see
+ * RAIL_INLINE_RECENT_LIMIT. Shut, it has only ever drawn the pinned run,
+ * on the argument that 56px of marks with no names is a thing you read by
+ * POSITION, and a position only means something if it holds still. Pins
+ * hold still because you put them there. Recents reorder themselves every
+ * time you switch, so a strip that carries them is a strip whose third mark
+ * is a different account each time you look.
+ *
+ *  off  The shut strip is the pinned run and whatever the guest adds.
+ *       Every mark in it is either one you chose or the one you are in.
+ *  on   The recents follow the pins. The tenth-account problem goes away
+ *       without opening anything — the account you were in two switches ago
+ *       is a click from the shut rail — and it is paid for in exactly the
+ *       coin above: the lower half of the strip rearranges itself behind
+ *       your back, and at 56px there are no names to tell you it did.
+ *
+ * Default `off`. The shut rail's whole claim is that it is glanceable, and
+ * a glance at a list that reorders is a glance you have to double-check.
+ * Ashwin, Oct 19 — on is one click away for anyone who would rather have
+ * the reach.
+ */
+export const RAIL_SHUT_RECENTS = ["off", "on"] as const;
+export type RailShutRecents = (typeof RAIL_SHUT_RECENTS)[number];
+
+/*
+  "Pinned only" is taken — RAIL_RECENTS_LABELS already uses it for a
+  different question (whether the rail has a recents run AT ALL, at either
+  width). Two chips reading the same words in one panel is how a reviewer
+  flips the wrong axis and reports the wrong bug; it caught me out within a
+  minute of adding this one. These say "pins", and they say "shut strip" in
+  the control's own label. Ashwin, Oct 19.
+*/
+export const RAIL_SHUT_RECENTS_LABELS: Record<RailShutRecents, string> = {
+  off: "Just the pins",
+  on: "Pins, then recents",
+};
+
+/**
  * Whether the accounts that are neither pinned nor recent live behind a door
  * or in the rail itself.
  *
@@ -6493,6 +6533,8 @@ export interface ThemeState {
   railActiveSpot: RailActiveSpot;
   /** Where an unpinned account you are in sits. See RAIL_GUEST_SPOTS. */
   railGuestSpot: RailGuestSpot;
+  /** Whether the shut strip carries recents. See RAIL_SHUT_RECENTS. */
+  railShutRecents: RailShutRecents;
   /** Whether the other accounts are behind a door. See RAIL_DIRECTORY_MODES. */
   railDirectoryMode: RailDirectoryMode;
   /** Which end of the rail the tools sit at. See RAIL_TOOL_SPOTS. */
@@ -6873,6 +6915,7 @@ export const NAV_STRUCTURE_KEYS = [
   "agencyRoute",
   "railActiveSpot",
   "railGuestSpot",
+  "railShutRecents",
   "railDirectoryMode",
   "railToolSpot",
   "agencyBarDismissal",
@@ -7170,6 +7213,7 @@ export const DEFAULT_THEME: ThemeState = {
   railActiveChrome: "paint",
   railActiveSpot: "inPlace",
   railGuestSpot: "tail",
+  railShutRecents: "off",
   /*
     The directory IS the rail, rather than a door to one.
 

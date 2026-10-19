@@ -84,6 +84,24 @@ export function useFlipRows(
      * folding into. Ashwin, Oct 6.
      */
     reverse?: boolean;
+    /**
+     * Reverse the cascade on the commit where THIS goes true → false.
+     *
+     * `reverse` above is a statement about the arrangement; this is one
+     * about a single transition, and the caller cannot make it. Telling a
+     * close from an ordinary commit means comparing this render's flag with
+     * the last one's, and a component that reads its own ref during render
+     * to do that is exactly what the compiler's lint forbids — rightly, since
+     * the answer would differ between a render and its replay.
+     *
+     * So the flag is handed over as a value and the comparison happens here,
+     * in the layout effect, where a ref is the correct tool. The rail passes
+     * `filled`: true while the directory column is up, false the moment it
+     * folds, and false for the whole ordinary life of the strip — which is
+     * why "is it false" was never the question. "Did it just become false"
+     * is. Ashwin, Oct 19.
+     */
+    reverseOnFall?: boolean;
   },
 ): FlipRows {
   /*
@@ -98,10 +116,12 @@ export function useFlipRows(
   const easing = options?.easing ?? "cubic-bezier(0.22, 0.61, 0.36, 1)";
   const enabled = options?.enabled ?? true;
   const reverse = options?.reverse ?? false;
+  const fallFlag = options?.reverseOnFall ?? false;
 
   const rows = React.useRef(new Map<string, HTMLElement>());
   const previous = React.useRef(new Map<string, number>());
   const lastSignal = React.useRef(signal);
+  const lastFall = React.useRef(fallFlag);
 
   const register = React.useCallback(
     (key: string) => (el: HTMLElement | null) => {
@@ -114,6 +134,12 @@ export function useFlipRows(
   React.useLayoutEffect(() => {
     const moved = lastSignal.current !== signal;
     lastSignal.current = signal;
+
+    // True only on the commit where the flag goes true → false. See
+    // `reverseOnFall`.
+    const fell = !fallFlag && lastFall.current;
+    lastFall.current = fallFlag;
+    const backwards = reverse || fell;
 
     const reduced =
       typeof window !== "undefined" &&
@@ -181,7 +207,7 @@ export function useFlipRows(
     }
     // The rank the delays are counted off, which is the reading order of the
     // movement rather than of the DOM. See `reverse`.
-    measured.sort((a, b) => (reverse ? b.top - a.top : a.top - b.top));
+    measured.sort((a, b) => (backwards ? b.top - a.top : a.top - b.top));
 
     if (enabled && !reduced && moved) {
       let rank = 0;
