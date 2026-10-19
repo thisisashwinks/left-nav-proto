@@ -871,13 +871,16 @@ const CONTENT: CatalogueEntry[] = [
   },
 ];
 
+/*
+  Dashboard is NOT here any more — Ashwin, Oct 19. See DESTINATIONS.
+
+  It was the first row in this bucket and the one nobody wanted a bucket for:
+  the cross-product overview is where a workspace opens, and filing it under
+  Reporting meant two clicks and a flyout to reach the page that answers
+  "how is everything". Reporting keeps what it is actually for — the reports
+  you go looking for, named by channel.
+*/
 const REPORTING: CatalogueEntry[] = [
-  {
-    id: "ia-reporting-dashboard",
-    label: "Dashboard",
-    icon: Gauge,
-    blurb: "Live widgets across every product.",
-  },
   {
     id: "ia-reporting-custom",
     label: "Custom reports",
@@ -1293,20 +1296,29 @@ const SETTINGS: CatalogueEntry[] = [
  */
 const DESTINATIONS: CatalogueEntry[] = [
   /*
-   * Empty, since Mobile left.
-   *
-   * It was the one destination: a top-level row whose only job was to hand you
-   * the phone app. That offer is now an axis — app bar, avatar menu or sidebar,
-   * see GET_APP_PLACEMENTS — and on the sidebar setting it draws Get Mobile App
-   * AND Get Desktop App beside Settings, where chrome belongs. Keeping this row
-   * would have been the same offer twice in one nav, one of them naming only
-   * half of it.
-   *
-   * The band stays as a concept rather than being torn out: a destination is a
-   * real shape in this IA (a page that belongs in no bucket), the tree is still
-   * being argued over, and everything downstream already handles the list being
-   * empty.
+   * Mobile was the one destination until it left: a top-level row whose only
+   * job was to hand you the phone app. That offer is now an axis — app bar,
+   * avatar menu or sidebar, see GET_APP_PLACEMENTS — so the band sat empty
+   * for a while. A destination is a real shape in this IA (a page that
+   * belongs in no bucket), and Dashboard is the clearest case of it.
    */
+  /*
+   * Dashboard, lifted out of Reporting — Ashwin, Oct 19.
+   *
+   * The id still says `reporting` and that is deliberate: it is the key the
+   * legacy tree maps onto (see `catalogue-equivalents`), so renaming it would
+   * quietly unmap the shipped nav's own Dashboard from this one. The id is a
+   * join key, not a statement about where the row lives.
+   *
+   * It is a HEAD destination rather than an ordinary one — see
+   * PROPOSED_HEAD_IDS — so it draws above the buckets instead of after them.
+   */
+  {
+    id: "ia-reporting-dashboard",
+    label: "Dashboard",
+    icon: Gauge,
+    blurb: "Live widgets across every product.",
+  },
 ];
 
 /**
@@ -1465,6 +1477,23 @@ export const PROPOSED_CONTACTS_LIST_ID = "ia-crm-contacts-list";
 
 /** Product ids that render as top-level destination rows rather than in a bucket. */
 export const PROPOSED_DESTINATION_IDS: readonly string[] = ids(DESTINATIONS);
+
+/**
+ * Destinations that lead the column rather than following it.
+ *
+ * L1 is one ordered run — categories, chrome, then the rows no category
+ * claims (see `l1IdsFor`) — and that authored order puts every loose row
+ * after every bucket. Right for a row that was dragged out of one, and wrong
+ * for a row that was never in one: Dashboard is where the workspace opens,
+ * so a nav that lists it under Integrations is answering "what is this" with
+ * "whatever was left over".
+ *
+ * A head id is pulled to the front of that run instead. It is still a loose
+ * row in every other respect — renameable, re-iconable, draggable, and once
+ * an admin HAS dragged it the stored order wins, which is as it should be:
+ * this sets where the row starts, not where it is kept.
+ */
+export const PROPOSED_HEAD_IDS: readonly string[] = ["ia-reporting-dashboard"];
 
 /** Where the workspace opens, and where the nav's Launchpad card leads. */
 export const PROPOSED_HOME_ID = "ia-launchpad";

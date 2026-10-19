@@ -141,8 +141,26 @@ export function PageCanvas({
   tint,
   framePadding = true,
   staging = false,
+  bleed = false,
   children,
 }: {
+  /**
+   * Run the card off the window's right and bottom edges.
+   *
+   * For a page whose content IS a scrolling field rather than a sheet — the
+   * dashboard, where widgets keep going past the fold. The 12px margin on
+   * those two sides is what puts the scrollbar in from the window edge and
+   * leaves a strip of shell under the last widget, and on a page you read by
+   * scrolling both of those read as the page stopping short rather than as
+   * the card floating. Ashwin, Oct 19.
+   *
+   * Left and top keep their inset: the left margin is the seam against the
+   * nav and the top is set by the breadcrumb row above. Only the two edges
+   * the content actually runs into are given up, and the corners that meet
+   * them go square, since a radius with nothing outside it to be round
+   * against is a notch.
+   */
+  bleed?: boolean;
   /**
    * Draw the card the way the staging build does, for the staging inbox copy
    * (conversations-staging): white, 12px on the top corners only, 8px off the
@@ -198,8 +216,13 @@ export function PageCanvas({
               // 12px canvas margin on the sides and bottom, none on top — the
               // breadcrumb row above already spaces it — 12px radius, and
               // shadow/lg unless the edge is the hairline alone.
-              "relative mx-[12px] mt-0 mb-[12px] flex min-h-0 flex-1 flex-col overflow-hidden",
-              "rounded-[var(--shell-canvas-radius)]",
+              "relative mt-0 flex min-h-0 flex-1 flex-col overflow-hidden",
+              bleed
+                ? "mr-0 mb-0 ml-[12px]"
+                : "mx-[12px] mb-[12px]",
+              bleed
+                ? "rounded-[var(--shell-canvas-radius)] rounded-r-none rounded-bl-none"
+                : "rounded-[var(--shell-canvas-radius)]",
               fill === "white" ? "bg-pg-surface" : "bg-[var(--page-canvas-tint)]",
               edge !== "border" && "shadow-[var(--shell-canvas-shadow)]",
             )
@@ -221,8 +244,26 @@ export function PageCanvas({
               ? // The tinted band stays put; the white sheet inside it is what
                 // scrolls, so the frame reads as a frame.
                 "flex min-h-0 flex-1 flex-col p-[var(--canvas-pad,24px)]"
-              : "min-h-0 flex-1 overflow-y-auto p-[var(--canvas-pad,24px)]"
+              : bleed
+                ? /*
+                     The scroll region spans the card, and the PAGE pads itself.
+  
+                     Padding here would inset the scroller from the card's
+                     right edge, which puts the scrollbar 24px in from the
+                     window — the thing `bleed` exists to stop. So the sides
+                     and the foot are handed to the page as `--page-inset`,
+                     which it already applies (`px-[var(--page-inset)]`), and
+                     only the top padding stays on the card where nothing
+                     scrolls past it.
+                  */
+                  "min-h-0 flex-1 overflow-y-auto pt-[var(--canvas-pad,24px)]"
+                : "min-h-0 flex-1 overflow-y-auto p-[var(--canvas-pad,24px)]"
             : "contents"
+        }
+        style={
+          enabled && bleed
+            ? ({ "--page-inset": "var(--canvas-pad, 24px)" } as React.CSSProperties)
+            : undefined
         }
       >
         {fill === "frame" ? (

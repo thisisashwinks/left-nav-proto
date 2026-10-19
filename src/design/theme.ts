@@ -5326,10 +5326,10 @@ export const RAIL_GUEST_SPOT_LABELS: Record<RailGuestSpot, string> = {
  *       coin above: the lower half of the strip rearranges itself behind
  *       your back, and at 56px there are no names to tell you it did.
  *
- * Default `off`. The shut rail's whole claim is that it is glanceable, and
- * a glance at a list that reorders is a glance you have to double-check.
- * Ashwin, Oct 19 — on is one click away for anyone who would rather have
- * the reach.
+ * Default `on` (Ashwin, Oct 19, reversing the same day's `off`). The reach
+ * won: the accounts you were just in are the ones you go back to, and making
+ * them a click from the shut rail is worth a lower half that reorders. `off`
+ * stays on the dial for the glanceable-by-position argument above.
  */
 export const RAIL_SHUT_RECENTS = ["off", "on"] as const;
 export type RailShutRecents = (typeof RAIL_SHUT_RECENTS)[number];
@@ -7213,7 +7213,7 @@ export const DEFAULT_THEME: ThemeState = {
   railActiveChrome: "paint",
   railActiveSpot: "inPlace",
   railGuestSpot: "tail",
-  railShutRecents: "off",
+  railShutRecents: "on",
   /*
     The directory IS the rail, rather than a door to one.
 

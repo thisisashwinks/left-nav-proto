@@ -15,7 +15,7 @@ import {
 } from "./grouping";
 import { GET_APP_FLYOUT_ID } from "@/components/flyout/get-app-flyout";
 import { chromePlace, isChromePlace } from "./chrome-places";
-import { PROPOSED_SETTINGS_ID } from "./proposed-ia";
+import { PROPOSED_SETTINGS_ID, PROPOSED_HEAD_IDS } from "./proposed-ia";
 import type { NavEntry, NavItem } from "./types";
 
 /**
@@ -321,10 +321,29 @@ export function l1IdsFor(
    * appended order is still categories, then chrome, then tail.
    */
   const tail = tailRowsFor(state, loose).map((r) => r.id);
+  /*
+   * Head destinations lead the run. See PROPOSED_HEAD_IDS.
+   *
+   * The authored order below is "categories, chrome, then whatever no
+   * category claims", which reads a loose row as a leftover — true of a row
+   * an admin dragged out of a bucket, false of one that was never in a
+   * bucket. Dashboard is the second kind: it is where the workspace opens,
+   * and the nav should say so by position.
+   *
+   * Only the AUTHORED order changes. `applyOrder` still lets a stored order
+   * win, so an account that has dragged this row somewhere keeps it there —
+   * the head is where the row starts, not a pin.
+   */
+  const headIds = tail.filter(
+    (id) => PROPOSED_HEAD_IDS.includes(id) && !chromeIds.includes(id),
+  );
   return applyOrder(state.groupOrder[state.grouping], [
+    ...headIds,
     ...shelves,
     ...chromeIds,
-    ...tail.filter((id) => !chromeIds.includes(id)),
+    ...tail.filter(
+      (id) => !chromeIds.includes(id) && !headIds.includes(id),
+    ),
   ]);
 }
 

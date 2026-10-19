@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { OverlayScrollbar } from "@/components/accounts/overlay-scrollbar";
 import {
   CalendarDays,
   ChevronDown,
@@ -192,17 +193,48 @@ export function ReportingDashboardPage() {
   // Whether this page's own bar holds its place, or only the app bar does.
   const sticky = useTheme().effective.stickyDashboardBar;
   const active = dashboards.find((d) => d.id === dashboardId) ?? dashboards[0]!;
+  const scrollerRef = React.useRef<HTMLDivElement>(null);
 
   return (
-    // The page itself scrolls, rather than a pane inside it — that is what
-    // makes the sticky chrome above worth testing.
-    <div className="flex h-full min-h-0 flex-col overflow-y-auto px-[var(--page-inset)]">
+    /*
+      A positioned shell around the scroller, for the overlay bar.
+
+      The native scrollbar is gone from the region below (`data-overlay-scroll`
+      gives it no width at all), because the two things Ashwin asked for —
+      appears on hover, reserves no space — are not both available from a
+      native bar: one with a width is in the layout, one without cannot be
+      seen, and macOS only obliges when the OS is set to show bars while
+      scrolling. So the bar is drawn over the content instead. Same component
+      the account switcher uses, same reasoning. Ashwin, Oct 19.
+
+      `right={2}` against a canvas that now bleeds to the window's edge, so
+      the bar sits at the extreme right rather than 12px in from it.
+    */
+    <div className="relative flex h-full min-h-0 flex-col">
+      <OverlayScrollbar scroller={scrollerRef} right={2} />
+    {/* The page itself scrolls, rather than a pane inside it — that is what
+        makes the sticky chrome above worth testing. */}
+    <div
+      ref={scrollerRef}
+      data-overlay-scroll=""
+      className="flex h-full min-h-0 flex-col overflow-y-auto px-[var(--page-inset)]"
+    >
       <div
         className={cn(
           "flex shrink-0 flex-col gap-[10px] pb-[10px]",
-          // The backdrop only exists to stop widgets showing through a
-          // pinned bar, so it goes when the bar stops being pinned.
-          sticky && "sticky top-0 z-30 bg-pg",
+          /*
+            The backdrop only exists to stop widgets showing through a
+            pinned bar, so it goes when the bar stops being pinned.
+
+            `bg-pg-surface`, not `bg-pg` — Ashwin, Oct 19. The shell's grey
+            was correct back when the page sat directly on it; inside the
+            white canvas it painted a grey band across the top of the card
+            that read as a header chrome nobody had designed. The CARD's own
+            fill makes the bar invisible and still opaque, which is the only
+            property the backdrop was ever for: widgets pass BEHIND the
+            title, not through it.
+          */
+          sticky && "sticky top-0 z-30 bg-pg-surface",
         )}
       >
         <PageHeader
@@ -253,7 +285,13 @@ export function ReportingDashboardPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-[10px] pt-[10px] pb-[16px]">
+      {/*
+        No bottom padding. The canvas bleeds to the window's foot on this page
+        (see `bleed` on PageCanvas), so 16px here would put the shell's gap
+        back inside the card and the field would stop short of the edge it is
+        meant to run off.
+      */}
+      <div className="flex flex-col gap-[10px] pt-[10px]">
         {/* Quick filters: they act on every widget below, so they sit above
             all of them and nowhere else. */}
         <div className="flex flex-wrap items-center gap-[8px] rounded-[12px] bg-pg-surface p-[10px] shadow-[inset_0_0_0_1px_var(--pg-card-border)]">
@@ -462,6 +500,7 @@ export function ReportingDashboardPage() {
           </Widget>
         </div>
       </div>
+    </div>
     </div>
   );
 }

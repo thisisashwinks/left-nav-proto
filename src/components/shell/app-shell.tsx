@@ -2317,6 +2317,20 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    */
   const stagingInbox =
     isInboxPlace(canvasPage) && effective.inboxBuild !== "prototype";
+  /*
+   * The dashboard runs its card off the window's right and bottom edges.
+   *
+   * It is the one page whose content is a scrolling FIELD rather than a
+   * sheet — widgets keep going past the fold — so the 12px strip of shell
+   * under the last one reads as the page stopping short, and the same strip
+   * on the right holds the scrollbar in from the edge it belongs on. See
+   * `bleed` on PageCanvas. Ashwin, Oct 19.
+   *
+   * Keyed off the product id rather than a theme axis: this is a fact about
+   * THIS page's content, not a preference about cards. Every other page
+   * keeps the float.
+   */
+  const bleedCanvas = canvasPage?.productId === "ia-reporting-dashboard";
   const pageCanvasOn =
     stagingInbox ||
     (effective.pageCanvas &&
@@ -4267,6 +4281,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
                 tint={canvasTint}
                 framePadding={effective.canvasFramePadding}
                 staging={stagingInbox}
+                bleed={bleedCanvas}
               >
               {pending ? (
                 <CanvasSkeleton />
