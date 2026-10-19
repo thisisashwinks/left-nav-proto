@@ -23,6 +23,7 @@ import type { AiSession } from "@/components/ai/use-ai-session";
 import { Kbd } from "@/components/search/kbd";
 import { cn } from "@/lib/utils";
 import { RailTooltip } from "./rail-tooltip";
+import { useNavCollapse } from "./nav-collapse";
 import { EditMoreMenu } from "./edit-more-menu";
 import { useNavTemplates } from "./nav-templates";
 import { useTruncationTitle } from "@/lib/use-truncation-title";
@@ -47,13 +48,6 @@ import { useTheme } from "@/components/theme/theme-provider";
 
 /** 36px row plus 12px below it. The nav's absolute geometry needs this exact. */
 export const ENTRY_CLUSTER_HEIGHT = 48;
-
-/**
- * What the rail's cluster adds over the single 38px search button it replaces:
- * the capsule is 3 + 38 + 2 + 38 + 3 = 84px tall, plus 8px of clearance below
- * so the orb never sits directly against the favourites capsule.
- */
-export const ENTRY_CLUSTER_RAIL_HEIGHT = 84 + 8 - 38;
 
 export function EntryCluster({
   onSearch,
@@ -267,6 +261,8 @@ function EditNavButton({
   const { setAccountTheme } = themeCtx;
   const colourControl = themeCtx.effective.navColourControl;
   const { navSwitchButton, darkMode } = themeCtx.effective;
+  // The nav's width state — collapsed, the control is the bar's Edit tile.
+  const { collapsed: barCollapsed } = useNavCollapse();
   const navTheme =
     themeCtx.accountThemeFor(accountId).navTheme ?? themeCtx.effective.navTheme;
 
@@ -706,6 +702,14 @@ function EditNavButton({
       opens.
     */
     <div
+      /*
+        The one control the entry keeps when the nav collapses: it slides to
+        the bar's centre while the pill around it fades (see
+        `data-nav-fade-kids` on the pill), and Edit expands the nav before it
+        edits — there is nothing to rename at 64px. See nav-collapse.tsx.
+      */
+      data-nav-slide="edit"
+      data-nav-keep=""
       className={cn(
         "absolute right-0 z-20 flex items-center gap-[6px]",
         atFoot ? "bottom-0" : "-top-[34px]",
@@ -739,6 +743,7 @@ function EditNavButton({
       {navModalOpen ? (
         <NavGenerationModal onClose={() => setNavModalOpen(false)} />
       ) : null}
+    <RailTooltip label="Edit nav" show={barCollapsed}>
     <button
       type="button"
       aria-label="Edit navigation"
@@ -905,6 +910,7 @@ function EditNavButton({
         </RailTooltip>
       ) : null}
     </button>
+    </RailTooltip>
     </div>
   );
 }
@@ -1155,7 +1161,8 @@ export function EntryPill({
    */
   if (searchEnabled && entryPair === "separate") {
     return (
-      <div className="relative flex w-full items-center gap-[6px]">
+      // Collapsed, everything here but Edit leaves. See `data-nav-fade-kids`.
+      <div data-nav-fade-kids="" className="relative flex w-full items-center gap-[6px]">
         {edit ? <EditNavButton {...edit} /> : null}
         <button
           type="button"
@@ -1215,7 +1222,11 @@ export function EntryPill({
   return (
     // Relative, so the edit control has something to hang off. `w-full` keeps it
     // the same flex child the pill used to be in both arrangements.
-    <div className={cn("relative", searchEnabled ? "w-full" : "w-auto")}>
+    // Collapsed, everything here but Edit leaves. See `data-nav-fade-kids`.
+    <div
+      data-nav-fade-kids=""
+      className={cn("relative", searchEnabled ? "w-full" : "w-auto")}
+    >
       {edit ? <EditNavButton {...edit} /> : null}
       {/*
         One control, two targets.
@@ -1449,71 +1460,6 @@ export function EntryPill({
             <X size={12} aria-hidden="true" />
           </button>
         ) : null}
-      </div>
-    </div>
-  );
-}
-
-/**
- * The same pair for the 64px rail, stacked because two 38px buttons will not sit
- * side by side in it.
- */
-export function EntryClusterRail({
-  onSearch,
-  session,
-  searchEnabled = true,
-}: {
-  onSearch: () => void;
-  session: AiSession;
-  /**
-   * Whether the pill is a search field as well as an AI entrance.
-   *
-   * False at agency scope by default — see AGENCY_SEARCH_DEFAULT. The orb and
-   * the label stay; the magnifier and the keycap go, and the whole pill becomes
-   * the one target it still has. A field that opens nothing is worse than no
-   * field.
-   */
-  searchEnabled?: boolean;
-}) {
-  return (
-    // Same lift as the expanded pill: 18px of clearance under the capsule.
-    <div className="flex shrink-0 flex-col items-center pb-[18px]">
-      {/*
-        The same ring the expanded pill wears, stood upright — so the pair
-        reads as ONE control seen at rail width, not two round things that
-        happen to be stacked. Same reasoning as the favourites capsule.
-      */}
-      <div className="ai-entry flex w-[44px] flex-col items-center gap-[2px] rounded-full p-[3px] shadow-[inset_0_0_0_1px_var(--nav-divider)]">
-      {/*
-        AI first here too, so the order survives collapsing. The rail has no room
-        for the label, so the tooltip carries the name — which is why AI keeps the
-        leading position: it is the one of the two whose glyph does not explain
-        itself, and being first is the only ordering cue left.
-      */}
-      <RailTooltip label="Ask AI">
-        <button
-          type="button"
-          aria-label="Ask AI"
-          onClick={() => session.launch()}
-          className="motion-tap relative flex size-[38px] shrink-0 items-center justify-center rounded-full hover:scale-105 active:scale-95 motion-press"
-        >
-          {/* No ring while the panel is open — see the pill's note. */}
-          <AiMark size={32} />
-        </button>
-      </RailTooltip>
-
-      {searchEnabled ? (
-        <RailTooltip label="Search">
-          <button
-            type="button"
-            aria-label="Search"
-            onClick={onSearch}
-            className="motion-tap flex size-[38px] shrink-0 items-center justify-center rounded-full text-nav-fg-subtle hover:scale-105 hover:bg-nav-hover hover:text-nav-fg-muted active:scale-95"
-          >
-            <Search size={16} aria-hidden="true" />
-          </button>
-        </RailTooltip>
-      ) : null}
       </div>
     </div>
   );

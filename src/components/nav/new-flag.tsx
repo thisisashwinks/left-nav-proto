@@ -238,12 +238,19 @@ export function NewDotIcon({
   children: React.ReactNode;
 }) {
   const { newDotPlacement } = useTheme();
-  if (!on || newDotPlacement !== "icon") return <>{children}</>;
+  if (!on || newDotPlacement === "hidden") return <>{children}</>;
   return (
     <span className="relative flex shrink-0 items-center justify-center">
       {children}
+      {/*
+        Under `label` the dot is beside the name — and the collapsed bar has
+        no name, so there it moves to the icon's corner, which is where the
+        old strip always put it. Drawn on the same wrapper at both widths and
+        faded in, so collapsing never remounts the glyph it hangs off.
+      */}
       <span
         aria-hidden="true"
+        {...(newDotPlacement === "icon" ? {} : { "data-nav-only": "" })}
         className="absolute -top-[2px] -right-[3px] size-[6px] rounded-full bg-fly-badge-fg ring-[1.5px] ring-nav"
       />
       {/* No text here — NewDot carries it, after the label. See the note there. */}
@@ -251,44 +258,3 @@ export function NewDotIcon({
   );
 }
 
-/**
- * The rail's version: the same dot, hung off a tile that has no label.
- *
- * A wrapper rather than a second dot component, so the two can never drift in
- * size or colour — it is the same signal, and a reader who collapses the nav
- * should not have to learn a new mark.
- *
- * `on` rather than conditional rendering at the call site, because the tile's
- * content is passed as one node into `railButton`; a fragment there would have
- * no box for the dot to position against.
- */
-export function RailNewDot({
-  on,
-  children,
-}: {
-  on: boolean;
-  children: React.ReactNode;
-}) {
-  const { newDotPlacement } = useTheme();
-  /*
-    `label` and `icon` both land here, because a rail tile has no label for the
-    first of them to mean anything. Only `hidden` reaches the rail as itself —
-    switching the dot off has to switch it off everywhere, or the signal
-    survives in the one place nobody thought to check.
-  */
-  if (!on || newDotPlacement === "hidden") return <>{children}</>;
-  return (
-    <span className="relative flex items-center justify-center">
-      {children}
-      <span
-        aria-hidden="true"
-        className="absolute -top-[1px] -right-[3px] size-[6px] rounded-full bg-fly-badge-fg ring-[1.5px] ring-nav"
-      />
-      {/*
-        No text here: a rail tile carries an `aria-label`, which REPLACES its
-        contents for a screen reader, so anything written inside would be
-        silently dropped. The rail appends the words to that label instead.
-      */}
-    </span>
-  );
-}

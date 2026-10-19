@@ -15,19 +15,22 @@
  *   3. The tile runs that hue's 600 into its 400, matching the pairing the
  *      agency mark already used.
  *
- * Three hues are deliberately absent. `primary` is the accent, and a tile in
+ * Four hues are deliberately absent. `primary` is the accent, and a tile in
  * the accent colour reads as selected. `purple` and `violet` sit too close to
  * Ask AI's `--ai-base` (#9333ea) to risk a tenant mark being mistaken for an
  * AI affordance.
  *
- * `gray` IS assignable, as of Oct 8, and it is the one entry that needs a
- * word. It is also the agency's hue — so one tenant in twelve now wears the
- * platform's colour. That is tolerable where the two are never confusable by
- * anything else: the agency plate is larger, sits alone above a divider at
- * the top of the rail, and carries the product's own mark rather than a
- * monogram. What it buys is a neutral in the rotation, which a palette of
- * saturated hues otherwise lacks — twelve tenants all shouting is its own
- * kind of unreadable. Ashwin, Oct 8. Dropping it again is one line.
+ * `gray` is the fourth, and it is the one that needs a word. It was
+ * assignable from Oct 8 to Oct 19, bought in as the neutral a palette of
+ * saturated hues otherwise lacks. It is out again, and the reason is not
+ * the agency — it is that grey is already SPOKEN FOR in the rail. An
+ * inactive sub-account desaturates, so grey is the rail's word for "not
+ * this one". A tenant whose own tile is grey is saying that about itself
+ * permanently, and at 26px there is nothing left to distinguish it from a
+ * dimmed neighbour. Ashwin, Oct 19.
+ *
+ * So the rotation is eleven hues, every one of them chromatic, and grey
+ * belongs to state — plus the agency, which is neutral by rule below.
  */
 
 /** A hue's 600/400 pair, as CSS custom-property references. */
@@ -53,7 +56,6 @@ export const ACCOUNT_HUES = [
   "blue-light",
   "pink",
   "warning",
-  "gray",
 ] as const;
 
 export type AccountHue = (typeof ACCOUNT_HUES)[number];
@@ -61,9 +63,11 @@ export type AccountHue = (typeof ACCOUNT_HUES)[number];
 /**
  * The agency's hue, assigned rather than hashed.
  *
- * Still declared separately although `gray` is now in the rotation: the
+ * Declared separately from the rotation, which no longer contains it: the
  * agency's tile is neutral BY RULE, not by the luck of its id, and the two
- * facts have to be able to change independently.
+ * facts have to be able to change independently. The agency is also the one
+ * mark that can afford grey — it is never the subject of the rail's
+ * active/inactive reading, so nothing of its own meaning is lost to it.
  */
 const AGENCY_HUE = "gray";
 
@@ -88,9 +92,10 @@ const pair = (hue: string): AccountColor => ({
  * which is a conversation about the fixtures rather than about the design.
  *
  * So the ten accounts that are always on screen get a hand-ordered spread:
- * ten distinct hues, warm alternating with cool, no two neighbours alike,
- * and no gray — which leaves the agency plate the only neutral in the
- * column, as it was before gray joined the rotation.
+ * ten distinct hues, warm alternating with cool, and no two neighbours
+ * alike. It predates grey leaving the rotation and never used it, so the
+ * fixture needed no edit — the agency plate stays the only neutral in the
+ * column.
  *
  * This is a FIXTURE, not a second rule. Everything not listed here — the
  * forty-odd accounts behind All accounts, and every real tenant — still

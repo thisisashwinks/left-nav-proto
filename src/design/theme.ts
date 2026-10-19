@@ -3191,8 +3191,10 @@ export const RAIL_FILL_AGENCY_DEFAULT = false;
 /**
  * Whether an opened rail keeps the collapsed strip's own column.
  *
- * Collapsed, the marks are centred in a 56px strip — 14 left, 10 right of a
- * 32px tile — and that midline is where the eye has learned to find them.
+ * Collapsed, the marks are centred in a 56px strip — 12 a side of a 32px
+ * tile, so x=28 — and that midline is where the eye has learned to find
+ * them. (It was 30 until Oct 19, when the shut gutters went symmetric and
+ * the tile moved onto the rail's own centre line.)
  * Opening drops the inset to 6, because a 216px row has no midline to hold
  * and the names want the width; the cost is that every mark jumps 8px left at
  * the moment the column opens, which reads as the logos sliding rather than
@@ -3929,6 +3931,21 @@ export const RAIL_RECENTS_LABELS: Record<RailRecents, string> = {
  * history long enough to scroll is the directory with extra steps.
  */
 export const RAIL_RECENT_LIMIT = 3;
+
+/**
+ * How many recents lead the rest, once the rail IS the directory.
+ *
+ * Separate from RAIL_RECENT_LIMIT above, which sizes a run that stands on its
+ * own under a hairline — a glance, and three is as much as a glance holds.
+ * This one orders a list of forty: the recents are not a section here, they
+ * are the top of the only list there is, so the figure answers "how far down
+ * before history stops being useful" rather than "how big may a sidebar run
+ * get". Five, Ashwin, Oct 19.
+ *
+ * Same number in both places would be a coincidence rather than a rule, and
+ * the next person to retune one would silently retune the other.
+ */
+export const RAIL_INLINE_RECENT_LIMIT = 5;
 
 /**
  * What clicking a row that has children does.
@@ -5239,6 +5256,58 @@ export const RAIL_ACTIVE_SPOT_LABELS: Record<RailActiveSpot, string> = {
 };
 
 /**
+ * Where an account you are IN sits when it is not pinned.
+ *
+ * A hole in "Where it falls" rather than a new question — Ashwin, Oct 19.
+ *
+ * The shut strip draws the agency and the pinned run, and the active ring is
+ * how it says which one you are in. Walk into an account that is not pinned —
+ * from the directory, from search, from a link someone sent you — and there
+ * is no row for the ring to sit on, so the strip shows ten accounts and
+ * marks none of them. "Where it falls" quietly meant "nowhere" for exactly
+ * the accounts that most need saying out loud, because an unpinned account
+ * is the one you have no learned position for.
+ *
+ * `RAIL_ACTIVE_SPOTS: "top"` already fixes this by adding the account when it
+ * is missing. It fixes it by reordering the whole strip on every switch,
+ * which is the cost that axis defaults away from. This one buys the same
+ * confirmation without that bill.
+ *
+ *  hidden  The strip stays the pinned run and nothing else, and where you are
+ *          is told by the nav's own header instead. The tidiest the rail
+ *          looks, and the only arrangement in which a tile's position is
+ *          *always* a fact about pinning. It is also the one where the rail
+ *          can be actively lying about where you are.
+ *  head    The guest leads the run, directly under the agency, where the two
+ *          "which scope am I in" marks sit together and the eye starts.
+ *          Findable at a glance, and it pushes every pinned tile down a row
+ *          for as long as you are somewhere unpinned — the exact objection
+ *          logged against "Always first", at a tenth of the frequency.
+ *  tail    The guest follows the run. Every pinned tile keeps both its order
+ *          AND its position, so nothing you learned moves; what you learn
+ *          instead is that the slot after the pins is where you are when you
+ *          are somewhere else. The eleventh slot is as fixed as the ten
+ *          above it.
+ *
+ * Default `tail`. The pinned run is a thing people arrange and then navigate
+ * by muscle memory, and a visitor should not be allowed to move it — the
+ * guest is the transient one, so the guest is what goes in the new slot at
+ * the end rather than the thing that displaces ten others. Ashwin, Oct 19.
+ *
+ * Only ever consulted under `railActiveSpot: "inPlace"`. Under "Always
+ * first" the account is already raised and added, and a second rule about
+ * where to put it would be two answers to one question.
+ */
+export const RAIL_GUEST_SPOTS = ["hidden", "head", "tail"] as const;
+export type RailGuestSpot = (typeof RAIL_GUEST_SPOTS)[number];
+
+export const RAIL_GUEST_SPOT_LABELS: Record<RailGuestSpot, string> = {
+  hidden: "Not in the strip",
+  head: "Above the pinned",
+  tail: "After the pinned",
+};
+
+/**
  * Whether the accounts that are neither pinned nor recent live behind a door
  * or in the rail itself.
  *
@@ -5755,6 +5824,17 @@ export interface ThemeState {
   switchyardTry: SwitchyardTry;
   /** The collapsed rail's "View all" glyph. See RAIL_VIEW_ALLS. */
   railViewAll: RailViewAll;
+  /**
+   * Whether that glyph also leads the RECENTS heading in the open nav.
+   *
+   * Off, it exists only collapsed — the open heading's door is the "View all"
+   * link. On, it is the same element at both widths: it stands in the rows'
+   * icon column ahead of the heading (whose text moves onto the rows' label
+   * column), and slides to the bar's centre on collapse like every row glyph.
+   * A prototype question — does the heading read better with a mark of its
+   * own? Ashwin, Oct 19.
+   */
+  recentsHeadingGlyph: boolean;
   /** Whether a preview tab says it is one. See PREVIEW_BANNER_DEFAULT. */
   previewBanner: boolean;
   /** When the L1 flyout chevron is drawn. See NAV_CHEVRONS. */
@@ -6411,6 +6491,8 @@ export interface ThemeState {
   railActiveChrome: RailActiveChrome;
   /** Where the account you are in sits. See RAIL_ACTIVE_SPOTS. */
   railActiveSpot: RailActiveSpot;
+  /** Where an unpinned account you are in sits. See RAIL_GUEST_SPOTS. */
+  railGuestSpot: RailGuestSpot;
   /** Whether the other accounts are behind a door. See RAIL_DIRECTORY_MODES. */
   railDirectoryMode: RailDirectoryMode;
   /** Which end of the rail the tools sit at. See RAIL_TOOL_SPOTS. */
@@ -6790,6 +6872,7 @@ export const NAV_STRUCTURE_KEYS = [
   "railHideButton",
   "agencyRoute",
   "railActiveSpot",
+  "railGuestSpot",
   "railDirectoryMode",
   "railToolSpot",
   "agencyBarDismissal",
@@ -6895,6 +6978,7 @@ export const DEFAULT_THEME: ThemeState = {
   aiFloating: AI_FLOATING_DEFAULT,
   switchyardTry: "preview",
   railViewAll: "history",
+  recentsHeadingGlyph: false,
   previewBanner: PREVIEW_BANNER_DEFAULT,
   /*
    * On hover, as of Oct 6.
@@ -7085,6 +7169,7 @@ export const DEFAULT_THEME: ThemeState = {
   agencyRowMarkSize: AGENCY_ROW_MARK_SIZE_DEFAULT,
   railActiveChrome: "paint",
   railActiveSpot: "inPlace",
+  railGuestSpot: "tail",
   /*
     The directory IS the rail, rather than a door to one.
 

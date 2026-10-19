@@ -510,13 +510,6 @@ export function agencyEntriesFor(o: AgencyOverrides = {}): NavEntry[] {
     }));
 }
 
-/** Every bucket's top row, for the 64px rail, which shows L1 and nothing else. */
-export const agencyRailItems: NavItem[] = agencyBuckets.map((b) => ({
-  id: b.id,
-  label: b.label,
-  icon: b.icon,
-}));
-
 /**
  * What the agency starts pinned with.
  *

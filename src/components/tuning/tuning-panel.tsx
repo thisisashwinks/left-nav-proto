@@ -132,6 +132,8 @@ import {
   RAIL_ARRANGEMENT_LABELS,
   RAIL_ACTIVE_SPOTS,
   RAIL_ACTIVE_SPOT_LABELS,
+  RAIL_GUEST_SPOTS,
+  RAIL_GUEST_SPOT_LABELS,
   RAIL_DIRECTORY_MODES,
   RAIL_DIRECTORY_MODE_LABELS,
   RAIL_TOOL_SPOTS,
@@ -401,6 +403,7 @@ import {
   type AgencyRoute,
   type RailArrangement,
   type RailActiveSpot,
+  type RailGuestSpot,
   type RailDirectoryMode,
   type RailToolSpot,
   type RailToolsLayout,
@@ -700,6 +703,8 @@ function NavStructureSection({
     navChevron,
     setNavChevron,
     railViewAll,
+    recentsHeadingGlyph,
+    setRecentsHeadingGlyph,
     setRailViewAll,
     navInk,
     setNavInk,
@@ -797,7 +802,9 @@ function NavStructureSection({
     agencyRoute,
     setAgencyRoute,
     railActiveSpot,
+    railGuestSpot,
     setRailActiveSpot,
+    setRailGuestSpot,
     railDirectoryMode,
     setRailDirectoryMode,
     railToolSpot,
@@ -1307,6 +1314,26 @@ function NavStructureSection({
               ? "The account you are in is lifted to the first slot, agency included. Trivially findable and a free confirmation of where you are, paid for by every other tile shifting a row the moment you switch: the position you learned one switch ago is wrong on the next one."
               : "It stays wherever the arrangement put it, told apart by size and fill alone. The strip never moves under you — the account you came from is still where you left it, which is the whole reason a second switch is cheap."}
           </Note>
+
+          {railActiveSpot === "inPlace" ? (
+            <>
+              <Segmented
+                label="An unpinned account you are in"
+                keywords="rail guest unpinned active account not pinned missing visitor head tail hidden where you are"
+                options={RAIL_GUEST_SPOTS}
+                value={railGuestSpot}
+                onChange={(v: RailGuestSpot) => setRailGuestSpot(v)}
+                format={(v) => RAIL_GUEST_SPOT_LABELS[v]}
+              />
+              <Note>
+                {railGuestSpot === "hidden"
+                  ? "The strip stays the pinned run and nothing else, so an account you reached from the directory or a link has no tile — and the rail shows ten accounts while marking none of them. Tidiest, and the only arrangement where a tile's position is always a fact about pinning rather than about the session."
+                  : railGuestSpot === "head"
+                    ? "It leads the run, right under the agency, where the two “which scope am I in” marks sit together and the eye starts. Findable at a glance — and it pushes every pinned tile down a row for as long as you are somewhere unpinned, which is the objection logged against “Always first” at a fraction of the frequency."
+                    : "It follows the run. Every pinned tile keeps its order and its position, so nothing you learned moves; what you learn instead is that the slot after the pins is where you are when you are somewhere else."}
+              </Note>
+            </>
+          ) : null}
 
           <Segmented
             label="All accounts"
@@ -1948,6 +1975,18 @@ function NavStructureSection({
         thing on the other side; the double chevron is the only one that says
         a direction, which is true — the panel arrives from the right — and
         the only one that could be taken for a disclosure on the row above.
+      </Note>
+
+      <Toggle
+        label="Glyph on the open Recents heading"
+        keywords="recents heading clock history glyph icon view all expanded open title"
+        checked={recentsHeadingGlyph}
+        onChange={setRecentsHeadingGlyph}
+      />
+      <Note>
+        {recentsHeadingGlyph
+          ? "The same glyph leads the RECENTS heading in the open nav, in the rows' icon column, and the heading's text moves onto the rows' label line. One element at both widths: collapsing slides it to the bar's centre like every row icon. It opens the View-all panel either way."
+          : "Only the collapsed bar shows it, where it stands in for the heading's \u201cView all\u201d link. Open, the heading is text and the link."}
       </Note>
 
       <Segmented
@@ -6790,11 +6829,13 @@ export function TuningPanel() {
             keywords="collapsed rail waffle accounts directory switch icon"
             checked={railAccountsDoor}
             onChange={setRailAccountsDoor}
+            disabled
           />
           <Note>
-            {railAccountsDoor
-              ? "The waffle sits under the expand toggle, holding the same position the account rail's own door holds — so the way into the directory does not move between arrangements."
-              : "No door. The collapsed strip is a list of places in this account, and a 16px unlabelled glyph that changes which account you are in reads no heavier than the twelve products under it. Expanding first is the way through, and the expand toggle is right there. Moot while the account rail is up: that rail is already the door."}
+            No effect since Oct 16. The collapsed bar is the open nav with its
+            labels gone, and it draws only what the open nav draws — a door
+            that exists only at 64px would be the one thing the bar had to
+            swap in. Expanding first is the way to another account.
           </Note>
 
           <Toggle

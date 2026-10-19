@@ -54,6 +54,7 @@ import {
 import {
   DIRECTORY_NAME_LABELS,
   RAIL_RECENT_LIMIT,
+  RAIL_INLINE_RECENT_LIMIT,
   SELECT_LABEL_LABELS,
   DIRECTORY_NAME_ICONS,
 } from "@/design/theme";
@@ -334,6 +335,24 @@ export const RAIL_PIN_CAP_HINT = `Max ${RAIL_PIN_MAX} - unpin one first`;
  * Where the line is missing (no card showing) it falls back to centred.
  * Ashwin, Oct 16.
  */
+/**
+ * How far the sticky agency row pulls the bar below it up.
+ *
+ * The agency wrapper carries `-mb-[4px]` to cancel the column's own 4px gap,
+ * so the two sticky surfaces seal against each other and no band of scrolling
+ * list shows through the seam. Correct, and it costs the bar its symmetry:
+ * there is now NO gap above it and the column's full 4px below it.
+ *
+ * Centred in its own 32px slot, the rule therefore sits 2px nearer the agency
+ * mark than the first account mark — measured 25.5 above and 29.5 below on
+ * Oct 19, which is exactly this. Named here so the compensation below and the
+ * class that causes it cannot drift apart.
+ */
+const RAIL_AGENCY_STICKY_PULL = 4;
+
+/** Where a 1px rule starts if it is to sit dead centre of the 32px slot. */
+const RAIL_RULE_SLOT_CENTRE = (32 - 1) / 2;
+
 function RailRule({ align, nudge }: { align: RailRuleAlign; nudge: number }) {
   const ref = React.useRef<HTMLDivElement>(null);
   const [top, setTop] = React.useState<number | null>(null);
@@ -367,14 +386,26 @@ function RailRule({ align, nudge }: { align: RailRuleAlign; nudge: number }) {
     return () => window.removeEventListener("resize", measure);
   });
 
+  /*
+   * Centred between the MARKS, not in the slot. Ashwin, Oct 19.
+   *
+   * Half the pull, because the gap it closed was above the bar and the one
+   * that survives is below it: the rule has to give back half the difference
+   * to land on the midline between the mark above and the mark below. 15.5 +
+   * 2 = 17.5, which puts the 1px rule's middle on that line exactly.
+   *
+   * Applied to the slot-centred arrangement only. The two pinned ones are
+   * deliberately NOT centred — they chase a line outside the rail — so
+   * nudging them toward a midline they are not aiming at would be a bug
+   * wearing a fix's clothes.
+   */
+  const placed = top ?? RAIL_RULE_SLOT_CENTRE + RAIL_AGENCY_STICKY_PULL / 2;
+
   return (
     <div
       ref={ref}
-      className={cn(
-        "flex h-[32px] w-full shrink-0 px-[6px]",
-        top == null ? "items-center" : "items-start",
-      )}
-      style={top == null ? undefined : { paddingTop: top }}
+      className="flex h-[32px] w-full shrink-0 items-start px-[6px]"
+      style={{ paddingTop: placed }}
     >
       <span
         aria-hidden="true"
@@ -946,23 +977,26 @@ function RailTools({
                shut rail's — and both put the glyph further right than the
                account marks rather than on them. The reason is that the
                in-list spots are inside the scroller, which already pads
-               14 left and 10 right: a 56px row inside a 32px content box
-               starts at x=14 and runs to 70, overflowing the rail, and the
-               glyph landed on 44 against the marks' 30.
+               12 a side: a 56px row inside a 32px content box starts at
+               x=12 and runs to 68, overflowing the rail, and the glyph
+               landed off the marks entirely.
                
                The row is `w-full` of that padded box in both states, so the
                only thing it was ever missing was the instruction to centre.
-               The marks sit on 30 because the scroller's 14/10 puts them
-               there; centring inside the same box lands the glyph on 30 too,
+               The marks sit on 28 because the scroller's 12/12 puts them
+               there; centring inside the same box lands the glyph on 28 too,
                by construction rather than by arithmetic — and it stays there
-               if the glyph is ever resized or the padding retuned.
+               if the glyph is ever resized or the padding retuned. That is
+               why this one survived the Oct 19 retune untouched while the
+               edge spots below had to be edited.
                
-               The edge spots keep their own 14/10, since they are outside
-               the scroller and have no padding handed to them.
+               The edge spots carry their own copy of the gutter, since they
+               are outside the scroller and have no padding handed to them —
+               so they take the same 12 a side, by hand.
             */
             inList
               ? "w-full justify-center px-0"
-              : "w-full justify-center pr-[10px] pl-[14px]",
+              : "w-full justify-center px-[12px]",
         /*
           Pulled over the rail's own bottom padding.
 
@@ -1437,6 +1471,7 @@ export function AccountRail({
     agencyPlate,
     railArrangement,
     railActiveSpot,
+    railGuestSpot,
     railDirectoryMode,
     railToolSpot,
     railPinnedLabel,
@@ -1467,18 +1502,22 @@ export function AccountRail({
    * The open column's left inset, when it is asked to hold the closed one.
    *
    * See RAIL_HOLD_INSET_DEFAULT. The number is arithmetic rather than taste:
-   * the collapsed strip centres a 32px row at x=14, so its optical midline is
-   * 30 — and a row whose own box is `box` wide sits on that midline when the
-   * column pads by 30 − box/2. That is 14 for the 32px tiles the open strip
-   * draws and 12 for the 36px rows the filled list draws, which is why it is
-   * computed here instead of being two more literals to keep in step.
+   * the collapsed strip centres a 32px row on its own midline, x=28 — and a
+   * row whose own box is `box` wide sits on that midline when the column pads
+   * by 28 − box/2. That is 12 for the 32px tiles the open strip draws and 10
+   * for the 36px rows the filled list draws, which is why it is computed here
+   * instead of being two more literals to keep in step.
    *
-   * The right side takes the strip's own 10 for the same reason: it is what
-   * the closed column uses, and holding one edge while the other moves would
+   * The right side takes the open column's own 10 for the same reason: it is
+   * what that column uses, and holding one edge while the other moves would
    * be a different kind of jump.
+   *
+   * Both figures came down by 2 on Oct 19 when the shut strip went symmetric
+   * and its midline moved from 30 to 28. The RULE is the line that matters;
+   * the literals are its output and have to follow it.
    */
   const holdInset = effective.railHoldInset;
-  const openPadLeft = filled ? 12 : 14;
+  const openPadLeft = filled ? 10 : 12;
   /*
    * The list's own gutters, named once.
    *
@@ -1487,9 +1526,26 @@ export function AccountRail({
    * "10, unless filled" in another part of the file is how the bar ends up
    * 2px proud of the column on one arrangement and nobody notices for a
    * week. Ashwin, Oct 16.
+   *
+   * SHUT, THE TWO ARE EQUAL — 12 and 12 inside a 56px strip. Ashwin, Oct 19.
+   *
+   * They were 14 and 10, which was never centring anything: it put the 32px
+   * tile's midline at x=30 while the rail's own is 28, so the mark sat 2px
+   * right of the column it lives in. The open column pads by 10 and its rows
+   * centre a 16px mark at 27.5, so every hover slid the mark 2.5px left — a
+   * drift small enough to never be named and large enough to read as the
+   * logos moving rather than the names arriving. That is the same complaint
+   * RAIL_HOLD_INSET was written for; this removes most of it for everyone
+   * rather than for the arrangement that opts in.
+   *
+   * 12 rather than the 14 first asked for, because 14 + 32 + 14 is 60 and the
+   * strip is 56. Widening it would have kept the mark at 30 and kept the
+   * drift; going symmetric inside the width the rail already has lands it on
+   * 28, which is where the open column was putting it all along. The residual
+   * half-pixel is the 17px name line making the open row's padding 9.5.
    */
-  const listPadLeft = !expanded ? 14 : holdInset ? openPadLeft : 10;
-  const listPadRight = filled ? 0 : 10;
+  const listPadLeft = !expanded ? 12 : holdInset ? openPadLeft : 10;
+  const listPadRight = !expanded ? 12 : filled ? 0 : 10;
   const showAgencyPlate = !filled || fillAgency;
   /*
    * Mirrored for `setHover`, which cannot depend on it. See the ref.
@@ -2081,12 +2137,53 @@ export function AccountRail({
       (effective.manageAgencyRow === "hidden" || underAgency)
     );
 
+  /*
+   * The account you are in when the strip has no row for it. See
+   * RAIL_GUEST_SPOTS.
+   *
+   * A GUEST, not a pin: it is in the run because of where the session is,
+   * and it leaves the moment you do. Everything downstream treats it as an
+   * ordinary member of the pinned run — which is what makes the active ring,
+   * the dock magnifier and select-all agree about it without being told —
+   * and `centredRecents` already drops anything `pinnedRun` holds, so it
+   * cannot also appear in the flowed-in directory below.
+   *
+   * Conditions, in the order they rule it out:
+   *
+   *  - `raisedActive` is null. Under "Always first" the account is already
+   *    raised AND added when missing, so a guest would be a second copy of
+   *    the row that axis just made.
+   *  - the session is in an account. At agency scope the plate above is
+   *    already the answer.
+   *  - the strip does not already hold it. A pinned account needs no guest
+   *    slot; it has a slot, which is what pinning bought.
+   *
+   * Pulled from `session.accounts` rather than from the two runs, for the
+   * reason `raisedActive` gives: the case the axis exists for is an account
+   * that is in NEITHER run, reached from the directory or a link. Looking
+   * only where the strip already draws would make it do nothing exactly when
+   * it is needed.
+   */
+  const guest =
+    !raisedActive &&
+    railGuestSpot !== "hidden" &&
+    liveScope === "account" &&
+    !pinnedSet.some((a) => a.id === liveAccountId)
+      ? (session.accounts.find((a) => a.id === liveAccountId) ?? null)
+      : null;
+
   const centredAccounts = raisedActive
     ? [raisedActive, ...pinnedSet.filter((a) => a.id !== raisedActive.id)]
-    : pinnedSet;
+    : guest
+      ? railGuestSpot === "head"
+        ? [guest, ...pinnedSet]
+        : [...pinnedSet, guest]
+      : pinnedSet;
   const baseRecents = raisedActive
     ? recentSet.filter((a) => a.id !== raisedActive.id)
-    : recentSet;
+    : guest
+      ? recentSet.filter((a) => a.id !== guest.id)
+      : recentSet;
 
   /*
    * Inline mode: the directory stops being a door and becomes the list.
@@ -2268,16 +2365,47 @@ export function AccountRail({
       ? matchAccounts(fillQuery, list)
       : list;
 
+  /*
+   * Everything the pinned run did not take, recents first. Ashwin, Oct 19.
+   *
+   * Inline mode's open list used to be pinned-then-catalogue-order, which
+   * put the account you were in ten seconds ago at whatever row the seed
+   * data happened to give it — row 31 as readily as row 1. That is the
+   * tenth-account problem RAIL_RECENTS was written for, reappearing on the
+   * one surface that was supposed to have solved it by listing everything:
+   * listing everything is not the same as making anything findable.
+   *
+   * So the remainder is ordered rather than filtered — the top
+   * RAIL_INLINE_RECENT_LIMIT by recency lead, then the rest in catalogue
+   * order. Three runs by content, ONE run by appearance: no heading, no
+   * rule, no gap. The order is doing the work silently, which is the whole
+   * point — a reader who never notices it still finds Coastal near the top,
+   * and a reader scanning alphabetically is not stopped by a section header
+   * explaining why the list restarts.
+   *
+   * `pinnedRun` already holds the guest and the raised account, so neither
+   * can appear here as well; `session.recentIds` already excludes the
+   * current one.
+   */
+  const inlineRest = session.accounts.filter(
+    (a) =>
+      a.id !== brandedAgency.id &&
+      !pinnedRun.some((p) => p.id === a.id) &&
+      a.id !== raisedActive?.id,
+  );
+  const inlineLed = session.recentIds
+    .filter((id) => inlineRest.some((a) => a.id === id))
+    .slice(0, RAIL_INLINE_RECENT_LIMIT);
+  const inlineOrdered = [
+    ...inlineLed
+      .map((id) => inlineRest.find((a) => a.id === id))
+      .filter((a): a is Account => a !== undefined),
+    ...inlineRest.filter((a) => !inlineLed.includes(a.id)),
+  ];
+
   const centredRecents = inlineDirectory
     ? expanded
-      ? inlineMatch(
-          session.accounts.filter(
-            (a) =>
-              a.id !== brandedAgency.id &&
-              !pinnedRun.some((p) => p.id === a.id) &&
-              a.id !== raisedActive?.id,
-          ),
-        )
+      ? inlineMatch(inlineOrdered)
       : []
     : baseRecents;
 
@@ -3409,9 +3537,9 @@ export function AccountRail({
                   "-mt-[3px]",
                   "transition-[padding] duration-[var(--rail-dur,var(--dur-slow))] ease-[var(--ease-out)]",
                   !expanded
-                    ? "pr-[10px] pl-[14px]"
+                    ? "px-[12px]"
                     : holdInset
-                      ? "pr-[10px] pl-[14px]"
+                      ? "pr-[10px] pl-[12px]"
                       : "px-[10px]",
                 )}
               >
@@ -3548,27 +3676,40 @@ export function AccountRail({
                   it follows the tile in and stays 3px off its edge.
                 */
                 /*
-                  14 left, 10 right — not 12 and 12.
+                  12 and 12 — not the 14 and 10 this held until Oct 19.
 
+                  The old argument is worth keeping, because it was not wrong.
                   The strip's own width is 56, but the hairline that ends it is
                   faint and the 4px gap between it and the nav card is very
                   nearly the same white, so what reads as "the sidebar" is the
-                  60px band. Centring a 32px tile on THAT means x=14..46, which
-                  is 2px right of the rail's own midline. The tiles look centred
-                  because they are — against the edge the eye actually finds.
+                  60px band. Centring a 32px tile on THAT means x=14..46 — 2px
+                  right of the rail's own midline, and the tiles looked centred
+                  because against the edge the eye actually finds, they were.
+
+                  What it did not account for is the OPEN state. The open
+                  column pads by 10 and its rows centre a 16px mark at 27.5, so
+                  the shut tile's 30 had to travel 2.5px left on every hover.
+                  The optical centring was real and it was bought with motion —
+                  and motion is the louder of the two, because it happens while
+                  you are looking at it.
+
+                  So the shut strip now centres on its own box. The tile sits
+                  2px left of where the 60px reading would put it and does not
+                  move when the names arrive. If the band ever gets a visible
+                  edge of its own, this is the comment to reopen.
                 */
               )}
               /*
                 Three numbers, and the third is the one that was stealing the
                 width.
 
-                LEFT: 14 closed, the hold-inset's own figure when that is on,
+                LEFT: 12 closed, the hold-inset's own figure when that is on,
                 and 10 otherwise — up from 6, which is what made opening the
-                strip look like the logos slid left. 10 is the inset the
-                closed strip already uses on its right, so the open column is
-                simply symmetrical about it.
+                strip look like the logos slid left. 10 is within half a pixel
+                of where the closed strip's own 12 puts the mark, so opening
+                the column now moves it essentially not at all.
 
-                RIGHT: 10, except while filled.
+                RIGHT: 12 closed, then 10 open, except while filled.
 
                 FILLED: zero right padding and a NEGATIVE right margin of the
                 same 10, which is what puts the scrollbar outside the rows
@@ -4130,16 +4271,41 @@ export function AccountRail({
                     {...(fillPicking && inlineOpen && pickable(account.id)
                       ? { tick: fillSelected.includes(account.id) }
                       : {})}
-                    // Only worth marking when there is a second run to tell it
-                    // apart from. On `pinned` every row is pinned, and a column
-                    // of identical marks says nothing.
-                    // The agency is never pinnable: it is not one of the
-                    // accounts you chose to keep, it is the scope they live
-                    // in. See `agencyInRun`.
+                    /*
+                      Only worth marking when there is a second run to tell it
+                      apart from: on `pinned` every row is in the same run, and
+                      a column of identical marks says nothing.
+
+                      The agency is never pinnable: it is not one of the
+                      accounts you chose to keep, it is the scope they live
+                      in. See `agencyInRun`.
+
+                      AND it has to be the account's own answer, not the run's
+                      — Ashwin, Oct 19.
+
+                      This used to hand every row in the run a filled pin on
+                      the grounds that the run IS the pinned set. That stopped
+                      being true the moment a row could be here for a reason
+                      other than pinning: the guest (see RAIL_GUEST_SPOTS) and
+                      the account "Always first" raises are both in the run
+                      because of where the SESSION is, and neither is pinned.
+                      Both drew a solid pin anyway, which is the strip telling
+                      you a thing you could disprove by opening the panel — and
+                      worse, offering "Unpin" on a row that was never pinned.
+
+                      `session.onRail` is the list the pin actually writes to,
+                      so asking it is the only answer that cannot drift from
+                      what the pin does. A guest now draws the hollow pin that
+                      every unpinned row draws: it waits for the pointer, says
+                      "Pin", and turns the visit into a decision — which is the
+                      most useful thing that control could offer on exactly
+                      this row.
+                    */
                     pinned={
                       account.id === AGENCY_ID
                         ? false
-                        : effective.railRecents === "recent"
+                        : effective.railRecents === "recent" &&
+                          session.onRail(account.id)
                     }
                     ring={account.id === AGENCY_ID && effective.agencyRowRing}
                     agencyWord={
@@ -4900,9 +5066,9 @@ function RailRow({
    * What the row measures once it is padded, and how far outside its column it
    * has to reach to stay square.
    *
-   * Collapsed, every row's WIDTH comes from the strip's padding — 14 left and
-   * 10 right of a 56px rail, so 32px — while its HEIGHT comes from the mark
-   * plus its own padding. Those two agreed at 32 until the active tile's row
+   * Collapsed, every row's WIDTH comes from the strip's padding — 12 a side
+   * of a 56px rail, so 32px — while its HEIGHT comes from the mark plus its
+   * own padding. Those two agreed at 32 until the active tile's row
    * grew to 36 to give its mark the clearance every other mark had, and a
    * "circle" 32 across and 36 tall is a lozenge standing on end.
    *

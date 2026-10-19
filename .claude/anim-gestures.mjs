@@ -334,10 +334,30 @@ export const GESTURES = {
       el.click();
     }) },
 
-  /* A tooltip on the collapsed rail: the smallest transition in the shell. */
+  /*
+   * A tooltip on the collapsed bar: the smallest transition in the shell.
+   *
+   * Aimed at a tile by its name rather than at a point, since Oct 16 — the
+   * bar is the open face with its labels gone, so a tile's y is whatever the
+   * open face gives it, and a hard-coded point lands on the canvas the
+   * moment anything above it changes height. Measured in setup, so the
+   * captured gesture is only the move.
+   */
   'rail-tooltip': { clip: L1,
-    setup: async (p, { hit, settle }) => { await hit('[aria-label="Collapse navigation"]'); await settle(); },
-    go: (p) => p.mouse.move(88, 329, { steps: 1 }) },
+    setup: async (p, { hit, settle }) => {
+      await hit('[aria-label="Collapse navigation"]'); await settle();
+      await p.evaluate(() => {
+        const t = [...document.querySelectorAll('[data-nav-tile]')]
+          .find((e) => e.getAttribute('aria-label') === 'CRM');
+        if (!t) throw new Error('no CRM tile in the collapsed bar');
+        const r = t.getBoundingClientRect();
+        window.__tipAt = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      });
+    },
+    go: async (p) => {
+      const at = await p.evaluate(() => window.__tipAt);
+      await p.mouse.move(at.x, at.y, { steps: 1 });
+    } },
 
   /*
    * The rail's hover, under the three placements of its tools row.

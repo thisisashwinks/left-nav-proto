@@ -13,13 +13,16 @@ import type { SwapPhase } from "@/lib/use-swap-phase";
 import type { PinnedRailItem } from "./types";
 
 /**
- * The pinned favourites capsule, which morphs between a horizontal pill and a
- * vertical capsule when the nav collapses.
+ * The pinned favourites capsule.
  *
- * Geometry is in nav-wrapper coordinates so one element can travel between the
- * two states. Expanded slots are space-between inside the pill's 224px content
- * box; collapsed slots step 32px down (30px slot + 2px gap, as in the design's
- * vertical capsule).
+ * It used to morph into a vertical capsule when the nav collapsed, because the
+ * collapsed face was a separate 64px strip with a column of pins of its own.
+ * The strip is gone — the open face IS the collapsed bar now (Oct 16) — and
+ * the dock is one of the extras that fades out with the labels rather than
+ * following the bar down. See nav-collapse.tsx. The shell does the fading.
+ *
+ * Geometry is in nav-wrapper coordinates. Slots are space-between inside the
+ * pill's 224px content box.
  */
 
 /** Five icons plus the overflow chevron — six slots, as in the design. */
@@ -124,46 +127,6 @@ function expandedGeometry(navW: number) {
     showLabels: true,
   };
 }
-
-/**
- * Collapsed capsule metrics, from the design's vertical capsule: 5px padding at
- * each end, 30px slots, 2px between them — so each slot after the first adds 32.
- */
-// 81, not the design's 88: the rail's mark block is pt 11 + 26px mark (was
-// 12 + 30), centred on the app header's midline — the capsule rides with it.
-const COLLAPSED_TOP = 81;
-const COLLAPSED_SLOT_PITCH = 32;
-
-/**
- * The collapsed capsule is sized to its contents rather than to a fixed five
- * slots. Expanded, the pill spans the nav whatever it holds and the leftover
- * space is fine; collapsed, an oversized capsule reads as a gap with nothing in
- * it. Six slots gives the design's 200px.
- */
-export function collapsedPinnedBlock(slotCount: number): number {
-  return COLLAPSED_SLOT_PITCH * slotCount + 8;
-}
-
-function collapsedGeometry(slotCount: number) {
-  return {
-    container: {
-      left: 10,
-      top: COLLAPSED_TOP,
-      width: 44,
-      height: collapsedPinnedBlock(slotCount),
-      radius: 22,
-    },
-    slots: Array.from({ length: slotCount }, (_, i) => ({
-      left: 24,
-      top: COLLAPSED_TOP + 12 + i * COLLAPSED_SLOT_PITCH,
-    })),
-    // A caption under a 16px icon is ~60px wide, which the 64px rail would clip.
-    // The tooltip carries the name in this state instead.
-    showLabels: false,
-  };
-}
-
-const COLLAPSED_NAV_WIDTH = 64;
 
 interface DockButtonProps {
   label: string;
@@ -293,7 +256,6 @@ function DockButton({
 interface PinnedMorphProps {
   theme: SurfaceTheme;
   items: PinnedRailItem[];
-  collapsed: boolean;
   onSelect?: (id: string) => void;
   /** Click the chevron — opens the manage surface. Click only, never hover. */
   onOpenLauncher: () => void;
@@ -337,7 +299,6 @@ interface PinnedMorphProps {
 export function PinnedMorph({
   theme,
   items,
-  collapsed,
   onSelect,
   onOpenLauncher,
   launcherActive,
@@ -349,13 +310,10 @@ export function PinnedMorph({
 }: PinnedMorphProps) {
   const visible = items.slice(0, PINNED_VISIBLE);
   // Favourites plus the permanent grid chip.
-  // The expanded column's width is an axis; the collapsed rail is not, since
-  // nothing in it scales. See NAV_WIDTH_SETS.
+  // The column's width is an axis. See NAV_WIDTH_SETS.
   const expandedWidth = NAV_WIDTHS[useTheme().effective.navWidthSet].l1;
-  const g = collapsed
-    ? collapsedGeometry(visible.length + 1)
-    : expandedGeometry(expandedWidth);
-  const navWidth = collapsed ? COLLAPSED_NAV_WIDTH : expandedWidth;
+  const g = expandedGeometry(expandedWidth);
+  const navWidth = expandedWidth;
 
   /*
    * Which slot the pointer is on, for the centred caption.
@@ -380,9 +338,8 @@ export function PinnedMorph({
    * ancestors of whatever is hovered, so moving between the row's dead space and
    * an icon can never flicker the band, and there is no state to get stuck.
    */
-  const capsuleClass = collapsed
-    ? "left-[10px] w-[44px] rounded-[22px] group-hover/row:left-0 group-hover/row:w-[64px] group-hover/row:rounded-none"
-    : "left-[12px] w-[calc(var(--nav-w)-24px)] rounded-[30px] group-hover/row:left-0 group-hover/row:w-[var(--nav-w)] group-hover/row:rounded-none";
+  const capsuleClass =
+    "left-[12px] w-[calc(var(--nav-w)-24px)] rounded-[30px] group-hover/row:left-0 group-hover/row:w-[var(--nav-w)] group-hover/row:rounded-none";
 
   /**
    * Which edge the band hangs from.
@@ -399,7 +356,7 @@ export function PinnedMorph({
   const lastSlot = g.slots.length - 1;
 
   const slotStyle = (i: number): React.CSSProperties =>
-    anchoredToBottom && !collapsed
+    anchoredToBottom
       ? { left: g.slots[i].left, bottom: SLOT_INSET }
       : { left: g.slots[i].left, top: slotTop(i) };
 
@@ -411,7 +368,7 @@ export function PinnedMorph({
    * argument for the variant.
    */
   const rowPlacement: React.CSSProperties = anchoredToBottom
-    ? { bottom: collapsed ? BOTTOM_BLOCK.padBottom : BOTTOM_BLOCK.padBottom }
+    ? { bottom: BOTTOM_BLOCK.padBottom }
     : { top: g.container.top + topOffset };
 
   /*
@@ -491,7 +448,7 @@ export function PinnedMorph({
               icon gets one.
             */
             titled={!(g.showLabels && dockLabel !== "none")}
-            placement={collapsed ? "right" : "below"}
+            placement="below"
             onClick={() => onSelect?.(id)}
             {...(centred
               ? {
@@ -593,7 +550,7 @@ export function PinnedMorph({
               ? `All products · ${overflowCount} more pinned`
               : "All products"
           }
-          placement={collapsed ? "right" : "below"}
+          placement="below"
         >
         <button
           type="button"

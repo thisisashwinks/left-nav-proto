@@ -8,7 +8,8 @@ export function NavDivider() {
       role="separator"
       className="flex w-full shrink-0 items-start pt-[7px] pr-[8px] pb-[8px] pl-[8px]"
     >
-      <div className="h-px flex-1 bg-nav-divider" />
+      {/* Shortens to the bar's centred 32px when collapsed. See motion.css. */}
+      <div data-nav-rule="" className="h-px flex-1 bg-nav-divider" />
     </div>
   );
 }

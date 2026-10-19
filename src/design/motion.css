@@ -777,14 +777,9 @@
 }
 
 /*
- * `.nav-face-leaving` and `.nav-face-arriving` lived here and are gone.
- *
- * Nothing referenced them — the shell uses `.nav-face-labels-out` and
- * `.nav-face-in` — but they read as the authoritative statement of beats 1
- * and 3, and they were the first thing anyone editing this contract would
- * find. I spent a round changing the rail's delay in this file before
- * noticing the real one is inline in `account-rail.tsx`; dead rules that
- * look live cost exactly that. Removed Oct 16.
+ * Beats 1 and 3 — the labels leaving and arriving — are the one-layer rules
+ * further down (`[data-nav-collapsed]`). The account rail's own delays are
+ * inline in `account-rail.tsx`, not here.
  */
 
 @media (prefers-reduced-motion: reduce) {
@@ -857,144 +852,462 @@
 }
 
 /*
- * Beats 1 and 4 of the nav collapse: the labels leave, the icons settle.
+ * The nav collapse, as ONE face. Ashwin, Oct 16.
  *
- * Ashwin, Oct 7, on what the collapse should be:
- *   1. all the text labels in L1 fade out, the icons STAY INTACT
- *   2. the L1 column collapses to the narrow width
- *   3. the rail moves out to the left, parallel with 2 (above)
- *   4. the icons shift from left to centre into place
+ * Collapsing used to cross-fade two components — the expanded face out, a
+ * separate 64px strip in — and the two icon columns never shared a grid, so
+ * every glyph doubled, jumped and repainted on the way through. Ashwin's ask:
+ * no swap at all. The expanded face's own icons slide left into the bar.
  *
- * The part that was wrong before was 1: both faces cross-faded, so the icons
- * went with the labels and a second set drew back in at the end. They are two
- * different DOM trees, so the only way an icon can SURVIVE the collapse is for
- * the strip's icons to stand exactly where the expanded face's icons already
- * are, and for the strip to be at full opacity before the labels start to go.
- * The two sets coincide, the expanded face fades out from under them, and what
- * is left on screen is one unbroken set of icons.
+ * So the strip is gone and the face carries both widths. `[data-nav-collapsed]`
+ * on its <nav> drives everything below, on the three collapse clocks:
+ *   - labels, counts, pins, headings, card chrome LEAVE on
+ *     `--t-nav-collapse-fade`, from the first frame;
+ *   - each row's fill shrinks to the strip's 40px tile and its glyph lands on
+ *     the bar's centre, on `--t-nav-collapse-size` with the column's own
+ *     `--ease-surface`, so the icons travel exactly as far as the column does;
+ *   - expanding, the labels ARRIVE on `--t-nav-collapse-settle`, timed to
+ *     finish as the width lands rather than after it — with one layer there
+ *     is no second set of icons for an early arrival to double.
+ * Every row keeps its y: the bar keeps the open face's spacing, which is the
+ * price of an icon never moving vertically. See nav-collapse.tsx for the DOM
+ * contract these rules read.
  *
- * That is only true because the two faces were first put on one grid: every
- * row now shares its y with its opposite number (see collapsed-rail). The only
- * daylight left is horizontal, and it is 7px, not the 49px it looks like from
- * the outside — both faces live INSIDE the nav column, so the column's own 56px
- * journey is already carrying them. 7px is the whole of beat 4.
+ * Unlayered on purpose. Tailwind's utilities live in a cascade layer, and an
+ * unlayered declaration outranks any layered one — so these win over a row's
+ * own `w-full`, `px-*` and hover ring without a single `!important`.
  */
+
 /*
- * The clocks live on the two STATE classes, not on `.nav-strip`, because the
- * two directions are not mirror images and a single declaration cannot say so.
+ * The geometry, stated once.
  *
- * Collapsing, the strip must be lit before the labels start to go, so its
- * icons are already standing under the expanded face's when that face fades —
- * opacity first, position last.
- *
- * Expanding, the same rule produces the opposite order: the icons move back
- * out to the left FIRST, and the strip must hold its opacity until the
- * expanded face has arrived. Fading it on beat 1 there left ~200ms with no
- * icons on screen at all, which is the very gap this whole arrangement exists
- * to close. A transition reads from the state being moved TO, so each class
- * carries its own.
+ * The strip centred a glyph in a 40px tile in a 64px column: tile at x 12–52,
+ * glyph centred on 32. Rows sit in the scroll region's 10px gutter, so a tile
+ * is `margin-left: 2px` and its glyph is inset half the tile less half the
+ * glyph — 12 at the default 16px, 13 at the compact preset's 14.
  */
-.nav-strip {
+:root {
+  --bar-tile: 40px;
+  --bar-glyph-inset: calc(20px - var(--t-nav-icon, 16px) / 2);
+}
+
+/*
+ * The size-clock transitions exist only while the gesture is in flight.
+ *
+ * `data-nav-motion` is set on the nav for the length of a collapse or an
+ * expand (see LeftNav). Declared unconditionally, a row's width would ALSO
+ * ease over 700ms whenever anything else changed it — edit mode widening the
+ * nav to 360 had every row trailing the column it sits in. Outside the
+ * gesture each element keeps its own transitions untouched.
+ */
+
+/* A row's fill is the thing that becomes the tile. */
+[data-nav-motion] [data-nav-tile] {
+  transition-property:
+    color, background-color, border-color, box-shadow, opacity, filter,
+    transform, translate, scale, rotate, width, margin-left, padding-left,
+    padding-right;
+  transition-duration:
+    var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast),
+    var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast),
+    var(--dur-fast), var(--dur-fast), var(--t-nav-collapse-size),
+    var(--t-nav-collapse-size), var(--t-nav-collapse-size),
+    var(--t-nav-collapse-size);
+  transition-timing-function:
+    var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out),
+    var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out),
+    var(--ease-out), var(--ease-out), var(--ease-surface), var(--ease-surface),
+    var(--ease-surface), var(--ease-surface);
+}
+
+[data-nav-collapsed] [data-nav-tile] {
+  width: var(--bar-tile);
+  margin-left: 2px;
+  padding-left: var(--bar-glyph-inset);
+  padding-right: 0;
+  /* The strip's tile has a fill and no ring — hover or active. */
+  box-shadow: none;
+}
+
+/*
+ * A tile's own glyph, where the open row drew it at a fixed size rather than
+ * on the icon knob — the drill and scope rows. The bar draws every glyph on
+ * the knob, as the strip did.
+ */
+[data-nav-collapsed] [data-nav-tile] svg[data-nav-glyph] {
+  width: var(--t-nav-icon, 16px);
+  height: var(--t-nav-icon, 16px);
+}
+
+/*
+ * The loading rows: the square lands where a glyph would (x 24), the bar
+ * beside it leaves. The rows sit inside an 8px wrapper, hence 6 rather than
+ * the tile's inset.
+ */
+[data-nav-collapsed] [data-nav-skel-row] {
+  padding-left: 6px;
+}
+[data-nav-motion] [data-nav-skel-row] {
+  transition: padding-left var(--t-nav-collapse-size) var(--ease-surface);
+}
+
+/* The strip's press: the whole tile, not the glyph inside it. */
+[data-nav-collapsed] [data-nav-tile]:hover {
+  scale: 1.05;
+}
+[data-nav-collapsed] [data-nav-tile]:active {
+  scale: 0.95;
+}
+/* …so the glyph's own hover growth stands down. */
+[data-nav-collapsed] [data-nav-glyph],
+[data-nav-collapsed] [data-nav-glyph] * {
+  scale: none;
+}
+
+/*
+ * What leaves. Expanding, it arrives on the settle clock and is timed to
+ * finish as the column lands; collapsing, it is gone on the fade clock.
+ */
+[data-nav-motion] [data-nav-fade] {
+  transition-property: opacity;
+  transition-duration: var(--t-nav-collapse-settle);
+  transition-delay: max(
+    0ms,
+    calc(var(--t-nav-collapse-size) - var(--t-nav-collapse-settle))
+  );
   transition-timing-function: var(--ease-out);
 }
+[data-nav-collapsed] [data-nav-fade] {
+  opacity: 0;
+  pointer-events: none;
+}
+[data-nav-motion][data-nav-collapsed] [data-nav-fade] {
+  transition-duration: var(--t-nav-collapse-fade);
+  transition-delay: 0ms;
+}
 
 /*
- * The 7px rides the width now; there is no separate beat 4.
- *
- * It used to be its own beat after the column had stopped, and that is what
- * Ashwin reported on Oct 16: "it goes to the extreme left and then shifts to
- * the right" collapsing, and "moves to the left a little bit and then
- * completely moves to the right" expanding. Both are literally true of the
- * old schedule — the strip held one x for the whole 310ms and then made a
- * 7px move of its own at the end, so the icons arrived twice.
- *
- * Carried on the width's clock instead, the 7px is spent inside a journey
- * the column is already making. The icons travel once, in one direction,
- * and stop where they belong. Nothing is lost: the offset still exists, so
- * the strip's icons still stand exactly under the expanded face's at the
- * start of a collapse, which is the whole reason the 7px is there.
- *
- * `--ease-surface` on the transform, not `--ease-out`: it is part of beat 2
- * now, and a front-loaded curve against a symmetric one over the same
- * 220ms would have the icons finish their 7px a long way before the column
- * finished its 208 — the same arriving-twice read, just smaller.
+ * What only the bar has — the stacked account mark, the View-all glyph. It
+ * arrives as the column lands, and leaves at once when the labels come back.
  */
-
-/* Expanding: the icons drift out as the column opens. */
-.nav-strip-offset {
+[data-nav-only] {
   opacity: 0;
-  transform: translateX(var(--nav-strip-shift, -7px));
-  transition-property: transform, opacity;
-  transition-duration: var(--t-nav-collapse-size), var(--t-nav-collapse-settle);
-  /*
-   * The strip holds until the column has finished opening, then goes as the
-   * face comes. Same instant, opposite directions — which is what makes it
-   * a hand-over rather than two fades that happen to overlap.
-   *
-   * It must NOT leave earlier. The strip is the only thing in the column
-   * while it widens; fading it during the journey is what left ~200ms with
-   * no icons on screen at all, which is the gap this whole arrangement
-   * exists to close.
-   */
-  transition-delay: 0ms, var(--t-nav-collapse-size);
-  transition-timing-function: var(--ease-surface), var(--ease-out);
+  pointer-events: none;
 }
-
-/* Collapsing: lit at once, and settling to centre as the column narrows. */
-.nav-strip-settled {
-  opacity: 1;
-  transform: translateX(0);
-  transition-property: opacity, transform;
-  transition-duration: var(--t-nav-collapse-fade), var(--t-nav-collapse-size);
-  transition-delay: 0ms, 0ms;
-  transition-timing-function: var(--ease-out), var(--ease-surface);
-}
-
-/* Beat 1: the labels go, and nothing else in this face is left to see. */
-.nav-face-labels-out {
-  opacity: 0;
+[data-nav-motion] [data-nav-only] {
   transition-property: opacity;
   transition-duration: var(--t-nav-collapse-fade);
   transition-delay: 0ms;
   transition-timing-function: var(--ease-out);
 }
-
-/* Expanding, this face is the thing that arrives — after the width is done. */
-/*
- * Expanding: the column opens first, THEN the labels arrive.
- *
- * This went the other way on Oct 16 and came straight back. Fading the face
- * in during the widening was meant to stop the opening column looking empty,
- * and it did — at the price of showing BOTH faces at once. The strip holds
- * full opacity through the widening (it has to; it is the only thing on
- * screen), so a face rising over it put two sets of icons in the column
- * together, and the two sets do not share a baseline — Ashwin photographed
- * them interleaved, every glyph doubled half a row apart.
- *
- * That is worse than the blank it was fixing. An empty column reads as a
- * surface that has not finished; a doubled one reads as a rendering fault.
- *
- * So the hand-over is sequenced again, and the honest description of this
- * gesture is two beats, not three: the column opens with the strip in it,
- * and then the strip and the face trade places. The column is never empty —
- * the strip is in it the whole way — which is the part the first attempt
- * got wrong about what the blank actually was.
- */
-.nav-face-in {
+[data-nav-collapsed] [data-nav-only] {
   opacity: 1;
-  transition-property: opacity;
+  pointer-events: auto;
+}
+[data-nav-motion][data-nav-collapsed] [data-nav-only] {
   transition-duration: var(--t-nav-collapse-settle);
-  transition-delay: var(--t-nav-collapse-size);
-  transition-timing-function: var(--ease-out);
+  transition-delay: max(
+    0ms,
+    calc(var(--t-nav-collapse-size) - var(--t-nav-collapse-settle))
+  );
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .nav-strip,
-  .nav-face-labels-out,
-  .nav-face-in {
-    transition-duration: 1ms;
-    transition-delay: 0ms;
-  }
+/*
+ * The View-all glyph leading the RECENTS heading (when it does — see
+ * ThemeState.recentsHeadingGlyph): it sits in the rows' icon column open and
+ * lands on the bar's centre collapsed, the same 6px (7 at 14px) the row
+ * glyphs travel. `translate`, so its press scale stays in place.
+ */
+[data-nav-collapsed] [data-nav-viewall-lead] {
+  translate: calc(14px - var(--t-nav-icon, 16px) / 2) 0;
+}
+[data-nav-motion] [data-nav-viewall-lead] {
+  transition-property: color, background-color, scale, translate;
+  transition-duration:
+    var(--dur-fast), var(--dur-fast), var(--dur-fast),
+    var(--t-nav-collapse-size);
+  transition-timing-function:
+    var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-surface);
+}
+
+/*
+ * Rules: the open face's hairline shortens to the strip's centred 32px —
+ * x 16–48 — in place, at the same y.
+ */
+[data-nav-rule] {
+  max-width: 100%;
+}
+[data-nav-motion] [data-nav-rule] {
+  transition-property: max-width, margin-left;
+  transition-duration: var(--t-nav-collapse-size);
+  transition-timing-function: var(--ease-surface);
+}
+[data-nav-collapsed] [data-nav-rule] {
+  max-width: 32px;
+  /*
+   * Where its open start (x 18, in a gutter of 10) needs to move to reach 16.
+   * A rule drawn inside a padded box moves by its margin alone; one carrying a
+   * margin of its own states the value it lands on. See `--rule-ml`.
+   */
+  margin-left: var(--rule-ml, -2px);
+}
+
+/*
+ * The Launchpad card stands down to its glyphs.
+ *
+ * Its ground, ring and lift go; the Rocket lands on the bar's centre in the
+ * rows' own muted ink. It wore the strip's lighter subtle grey until Oct 19,
+ * which in the open face's column read as a different, fainter kind of icon
+ * among the rows — Ashwin flagged it. Quick Actions, below it, becomes a real
+ * tile.
+ */
+[data-nav-motion] [data-launchpad-card] {
+  transition-property:
+    color, background-color, border-color, box-shadow, opacity, filter,
+    transform, translate, scale, rotate, padding-left;
+  transition-duration:
+    var(--dur-fast), var(--t-nav-collapse-fade), var(--dur-fast),
+    var(--t-nav-collapse-fade), var(--dur-fast), var(--dur-fast),
+    var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast),
+    var(--t-nav-collapse-size);
+  transition-timing-function:
+    var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out),
+    var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out),
+    var(--ease-out), var(--ease-out), var(--ease-surface);
+}
+[data-nav-collapsed] [data-launchpad-card] {
+  /* The card's own left edge is the gutter's, x 10; its glyph lands on 32. */
+  padding-left: calc(22px - var(--t-nav-icon, 16px) / 2);
+  background-color: transparent;
+  box-shadow: none;
+  filter: none;
+  pointer-events: none;
+}
+[data-nav-collapsed] [data-launchpad-card] [data-nav-glyph] {
+  color: var(--nav-fg-muted);
+}
+[data-nav-motion] [data-launchpad-card] [data-nav-glyph] {
+  transition: color var(--t-nav-collapse-fade) var(--ease-out);
+}
+
+/*
+ * Quick Actions, as the strip's tile.
+ *
+ * Its open width is stated rather than left to stretch: `auto` cannot be
+ * transitioned, so the footer snapped to 40px on the first frame while every
+ * row beside it eased. The card's -6px each side is what `+ 12px` restores.
+ */
+[data-nav-qa] {
+  width: calc(100% + 12px);
+}
+[data-nav-motion] [data-nav-qa] {
+  transition-property:
+    color, background-color, box-shadow, transform, scale, width, margin-left,
+    padding-left, translate;
+  transition-duration:
+    var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast),
+    var(--dur-fast), var(--t-nav-collapse-size), var(--t-nav-collapse-size),
+    var(--t-nav-collapse-size), var(--t-nav-collapse-size);
+  transition-timing-function:
+    var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out),
+    var(--ease-out), var(--ease-surface), var(--ease-surface),
+    var(--ease-surface), var(--ease-surface);
+}
+[data-nav-collapsed] [data-nav-qa] {
+  width: var(--bar-tile);
+  /* From the card's content edge back out to x 12. */
+  margin-left: calc(2px - (22px - var(--t-nav-icon, 16px) / 2));
+  padding-left: var(--bar-glyph-inset);
+  color: var(--nav-fg-muted);
+}
+[data-nav-collapsed] [data-nav-qa]:hover,
+[data-nav-collapsed] [data-nav-qa][data-active] {
+  color: var(--nav-fg);
+}
+[data-nav-collapsed] [data-nav-qa]:hover {
+  scale: 1.05;
+}
+[data-nav-collapsed] [data-nav-qa] [data-nav-glyph] {
+  width: var(--t-nav-icon, 16px);
+  height: var(--t-nav-icon, 16px);
+  color: inherit;
+}
+/*
+ * The footer draws its glyph a size down (14) where the bar draws every glyph
+ * on the knob; grown on the width's clock rather than in one frame, so it does
+ * not jump — or nudge itself a pixel off its own line — as the gesture starts.
+ */
+[data-nav-motion] [data-nav-qa] [data-nav-glyph] {
+  transition:
+    width var(--t-nav-collapse-size) var(--ease-surface),
+    height var(--t-nav-collapse-size) var(--ease-surface),
+    color var(--t-nav-collapse-fade) var(--ease-out);
+}
+
+/*
+ * Controls that travel to the bar's centre — the account mark, the drawer
+ * toggle, Edit. Their offsets are measured (see useNavSlides), because where
+ * they start depends on the header's variant, the plate and the nav's width.
+ */
+[data-nav-motion] [data-nav-slide] {
+  transition-property:
+    color, background-color, border-color, box-shadow, opacity, filter,
+    transform, scale, rotate, translate;
+  transition-duration:
+    var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast),
+    var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast),
+    var(--dur-fast), var(--t-nav-collapse-size);
+  transition-timing-function:
+    var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out),
+    var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out),
+    var(--ease-out), var(--ease-surface);
+}
+/*
+ * On `translate`, not `transform`. Ashwin, Oct 19.
+ *
+ * The toggle presses with `scale: 0.95`, and the individual transform
+ * properties compose as translate → rotate → scale → `transform`: a slide
+ * written in `transform` sat INSIDE the press's scale, so pressing shrank the
+ * 254px slide by 5% and the glyph jumped ~13px back toward the header. In
+ * `translate` the slide is outermost, the scale happens around the glyph where
+ * it stands, and the toggle holds still until the click lands and the nav
+ * opens under it.
+ */
+[data-nav-collapsed] [data-nav-slide] {
+  translate: var(--slide-x, 0px) var(--slide-y, 0px);
+}
+
+/*
+ * The bar's head, as one column. Ashwin, Oct 19.
+ *
+ * With the Launchpad card showing, the avatar keeps the header midline and only
+ * slides left; the drawer toggle drops into the card's space below it, and the
+ * card's own glyphs (`data-nav-stack`) step down to make room — spaced evenly
+ * to the first fixed glyph under the card. The offsets are measured; see
+ * useNavSlides. Vertical only: the tile rules already centre these glyphs.
+ * `translate` rather than `transform`, so it composes with the tile's hover
+ * scale instead of replacing it.
+ */
+[data-nav-collapsed] [data-nav-stack] {
+  translate: 0 var(--stack-y, 0px);
+}
+[data-nav-motion] [data-nav-stack]:not([data-nav-qa]) {
+  transition: translate var(--t-nav-collapse-size) var(--ease-surface);
+}
+
+/*
+ * The header over the list, while collapsed.
+ *
+ * The toggle drops out of the header's 48px into the card's space below, and
+ * the scroll region is a later sibling — so it painted over the toggle and
+ * took its clicks and its hover. Only the toggle's top few pixels, still
+ * inside the header, answered: the click and the tooltip landed BETWEEN the
+ * avatar and the glyph. Ashwin, Oct 19. Raising the header puts whatever it
+ * lowers into the bar above the list, so the glyph is the target where it is
+ * drawn. The header's own box stays 48px, so nothing else is covered.
+ */
+[data-nav-collapsed] [data-nav-header] {
+  z-index: 3;
+}
+
+/*
+ * The drawer toggle, in the bar, wears the rows' ink: muted at rest, full on
+ * hover — a tile among tiles. Open, it keeps the header's lighter subtle grey,
+ * where it sits beside the account's name rather than in a column of icons.
+ */
+[data-nav-collapsed] [data-nav-slide="toggle"] {
+  color: var(--nav-fg-muted);
+}
+[data-nav-collapsed] [data-nav-slide="toggle"]:hover,
+[data-nav-collapsed] [data-nav-slide="toggle"]:focus-visible {
+  color: var(--nav-fg);
+}
+
+/*
+ * No card, no room: the toggle sits ON the avatar and is its hover state.
+ *
+ * At rest the avatar shows; pointing at it — or tabbing to it — shows the
+ * expand glyph in its place, and pressing it opens the nav. The toggle is the
+ * live control the whole time (it is above the avatar, which is inert), so the
+ * hit target never changes; only which of the two is drawn does.
+ */
+[data-nav-collapsed][data-bar-swap] [data-nav-slide="toggle"] {
+  opacity: 0;
+}
+[data-nav-collapsed][data-bar-swap] [data-nav-slide="toggle"]:hover,
+[data-nav-collapsed][data-bar-swap] [data-nav-slide="toggle"]:focus-visible {
+  opacity: 1;
+}
+[data-nav-collapsed][data-bar-swap]:has(
+    [data-nav-slide="toggle"]:hover,
+    [data-nav-slide="toggle"]:focus-visible
+  )
+  [data-bar-avatar] {
+  opacity: 0;
+}
+/* Outside the gesture only — mid-collapse the disc is sliding, and a bare
+   `transition` here would replace its slide and snap it into place. */
+[data-nav-collapsed]:not([data-nav-motion]) [data-bar-avatar] {
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+/*
+ * Edit, at 64px: the resting circle, never the pill.
+ *
+ * Open, the control names itself by growing into "Edit nav" under the
+ * pointer. Anchored at its right edge, that growth would run left out of a
+ * 64px bar — so collapsed it stays the circle and the bar's tooltip names it,
+ * as the strip's Edit tile did.
+ */
+/*
+ * …and none at agency scope, where the strip offered none: the agency's tree
+ * is platform IA, and the bar is no place to start restructuring it.
+ * `visibility` rather than opacity, so it also leaves the tab order.
+ */
+[data-nav-collapsed][data-nav-agency] [data-nav-slide="edit"] {
+  visibility: hidden;
+}
+[data-nav-collapsed] [data-nav-slide="edit"] [aria-label="Edit navigation"] {
+  justify-content: center;
+  gap: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+[data-nav-collapsed] [data-nav-slide="edit"] [aria-label="Edit navigation"] > span {
+  grid-template-columns: 0fr;
+}
+
+/*
+ * The spread header's row owns a fill of its own; collapsed it has nothing
+ * left to fill, and nothing left to open.
+ */
+[data-nav-collapsed] [data-nav-chrome] {
+  background-color: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+/*
+ * A container whose CHILDREN leave but which keeps one of them — the entry
+ * pill, which carries the Edit control. Opacity is multiplicative, so the
+ * container itself cannot fade without taking Edit with it.
+ */
+[data-nav-motion] [data-nav-fade-kids] > :not([data-nav-keep]) {
+  transition-property: opacity;
+  transition-duration: var(--t-nav-collapse-settle);
+  transition-delay: max(
+    0ms,
+    calc(var(--t-nav-collapse-size) - var(--t-nav-collapse-settle))
+  );
+  transition-timing-function: var(--ease-out);
+}
+[data-nav-collapsed] [data-nav-fade-kids] > :not([data-nav-keep]) {
+  opacity: 0;
+  pointer-events: none;
+}
+[data-nav-motion][data-nav-collapsed] [data-nav-fade-kids] > :not([data-nav-keep]) {
+  transition-duration: var(--t-nav-collapse-fade);
+  transition-delay: 0ms;
 }
 
 .motion-directory-rail-in {

@@ -58,17 +58,11 @@ export function NavIntroCard({
       /*
        * The VISIBLE control, not merely the first one in the DOM.
        *
-       * Both nav faces stay mounted — the collapsed rail and the expanded nav —
-       * with the inactive one marked `inert` and `aria-hidden`. Collapsed, the
-       * only "Edit navigation" button in the document belongs to the hidden
-       * expanded face, and anchoring to it left the card floating in the canvas
-       * pointing at nothing, since the rail it should have pointed at is 64px
-       * wide and has no edit control at all.
-       *
-       * Filtering to the live face also gives the collapsed case the right
-       * answer for free: there is no visible anchor, so there is no card. The
-       * mode it introduces cannot be reached from the rail anyway, and a
-       * coach-mark for something you cannot do is worse than none.
+       * One nav face since Oct 16, and its Edit control is the same element
+       * at both widths — collapsed, it is the bar's Edit and slides to the
+       * bar's centre. The filter still earns its keep: a control inside an
+       * inert subtree (the agency's collapsed bar hides it) or with no box
+       * has nothing for the card to point at.
        */
       const el = [...document.querySelectorAll('[aria-label="Edit navigation"]')].find(
         (candidate) =>
@@ -103,14 +97,16 @@ export function NavIntroCard({
      * fires throughout the transition, so the card tracks the edge rather than
      * snapping to it afterwards.
      *
-     * The interval stays as a slow backstop: the two nav faces swap which one
-     * is `inert`, and that changes which button is the live anchor without
-     * resizing anything.
+     * The column, not the face: the face keeps its full width inside a clip
+     * while the column narrows past it (see nav-collapse.tsx), so only the
+     * column's box ever resizes.
+     *
+     * The interval stays as a slow backstop: collapsing SLIDES the control to
+     * the bar's centre with a transform, which moves it without resizing
+     * anything an observer can see.
      */
     const observer = new ResizeObserver(measure);
-    const nav = document
-      .querySelector('[aria-label="Edit navigation"]')
-      ?.closest("nav");
+    const nav = document.querySelector("[data-nav-root]");
     if (nav) observer.observe(nav);
     observer.observe(document.body);
 

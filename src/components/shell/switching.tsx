@@ -27,9 +27,17 @@ export function NavRowsSkeleton({ rows = 9 }: { rows?: number }) {
       className="motion-fade-in flex flex-col gap-[2px] px-[8px] pt-[6px]"
     >
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="flex h-[38px] items-center gap-[10px] px-[8px]">
+        <div
+          key={i}
+          // Collapsed, the square lands on the bar's centre and the bar goes
+          // with the labels — the collapsed bar's own loading state, on the
+          // same element. See motion.css.
+          data-nav-skel-row=""
+          className="flex h-[38px] items-center gap-[10px] px-[8px]"
+        >
           <span className="size-[16px] shrink-0 rounded-[4px] bg-nav-hover" />
           <span
+            data-nav-fade=""
             className="h-[9px] rounded-full bg-nav-hover"
             // Varied, and deterministic: a column of identical bars reads as a
             // loading GRAPHIC, where uneven ones read as text that has not
@@ -37,30 +45,6 @@ export function NavRowsSkeleton({ rows = 9 }: { rows?: number }) {
             style={{ width: `${44 + ((i * 13) % 38)}%` }}
           />
         </div>
-      ))}
-    </div>
-  );
-}
-
-/**
- * The same wait, at rail width.
- *
- * Not NavRowsSkeleton narrowed: that one pairs an icon with a text bar, and in a
- * 64px rail there is no label to stand in for — a bar beside the square would be
- * drawing something the real rows do not have. Squares alone, centred like the
- * icons they replace.
- */
-export function RailRowsSkeleton({ rows = 9 }: { rows?: number }) {
-  return (
-    <div
-      aria-hidden="true"
-      className="motion-fade-in flex w-full flex-col items-center gap-[6px] pt-[6px]"
-    >
-      {Array.from({ length: rows }, (_, i) => (
-        <span
-          key={i}
-          className="size-[16px] shrink-0 rounded-[4px] bg-nav-hover"
-        />
       ))}
     </div>
   );

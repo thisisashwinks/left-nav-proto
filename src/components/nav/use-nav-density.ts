@@ -23,24 +23,41 @@ export type NavDensity = "roomy" | "short" | "tight" | "floor";
 
 /**
  * Non-compressible chrome, measured: everything that is `shrink-0` plus the
- * dividers. 423px in the expanded nav, 440px in the rail — the rail is worse
- * because its stacked entry cluster and reserved capsule cost more than the
- * expanded nav's single row does.
+ * dividers — 423px.
+ *
+ * One figure at both widths since Oct 16: the collapsed bar is the open face
+ * with its labels gone, holding every row at the y it has open, so it spends
+ * exactly what the open nav spends. The old strip had a figure of its own
+ * (440) for its stacked entry cluster and reserved capsule.
  */
-const CHROME = { expanded: 423, rail: 440 };
+const CHROME = 423;
 
 /** Rows we want visible before claiming the nav is usable. ~35px each. */
 const ROW = 35;
 
+/**
+ * Whether the nav has been measured at all.
+ *
+ * Until it has, `useNavDensity` can only guess `roomy` — and on any window
+ * short enough for `short` the rows then tightened a beat after the first
+ * paint. The nav holds its rows back until this is true, so they arrive once,
+ * at the size they keep. Ashwin, Oct 19.
+ */
+export function useNavMeasured<T extends HTMLElement>(
+  ref: React.RefObject<T | null>,
+): boolean {
+  return useElementHeight(ref) > 0;
+}
+
 export function useNavDensity<T extends HTMLElement>(
   ref: React.RefObject<T | null>,
-  collapsed: boolean,
 ): NavDensity {
   const height = useElementHeight(ref);
-  const chrome = collapsed ? CHROME.rail : CHROME.expanded;
+  const chrome = CHROME;
 
   // 0 means "not measured yet" — assume roomy so the first paint is the design
-  // rather than a flash of the most degraded state.
+  // rather than a flash of the most degraded state. The rows are not shown on
+  // that paint anyway; see useNavMeasured.
   if (height === 0) return "roomy";
 
   const forList = height - chrome;

@@ -118,6 +118,7 @@ import type {
   AgencyRoute,
   RailArrangement,
   RailActiveSpot,
+  RailGuestSpot,
   RailDirectoryMode,
   RailToolSpot,
   RailToolsLayout,
@@ -319,6 +320,7 @@ interface ThemeContextValue extends ThemeState {
   setTopAlignCardNudge: (px: number) => void;
   setRailActiveChrome: (v: RailActiveChrome) => void;
   setRailActiveSpot: (v: RailActiveSpot) => void;
+  setRailGuestSpot: (v: RailGuestSpot) => void;
   setRailDirectoryMode: (v: RailDirectoryMode) => void;
   setRailToolSpot: (v: RailToolSpot) => void;
   setRailToolsEdge: (v: RailToolsEdge) => void;
@@ -334,6 +336,7 @@ interface ThemeContextValue extends ThemeState {
   setAiFloating: (on: boolean) => void;
   setSwitchyardTry: (v: SwitchyardTry) => void;
   setRailViewAll: (v: RailViewAll) => void;
+  setRecentsHeadingGlyph: (on: boolean) => void;
   setPreviewBanner: (on: boolean) => void;
   setNavChevron: (v: NavChevron) => void;
   setEditRadius: (v: EditRadius) => void;
@@ -787,6 +790,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, railActiveChrome })),
       setRailActiveSpot: (railActiveSpot) =>
         setState((s) => ({ ...s, railActiveSpot })),
+      setRailGuestSpot: (railGuestSpot) =>
+        setState((s) => ({ ...s, railGuestSpot })),
       setRailDirectoryMode: (railDirectoryMode) =>
         setState((s) => ({ ...s, railDirectoryMode })),
       setRailToolSpot: (railToolSpot) =>
@@ -813,6 +818,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, switchyardTry })),
       setRailViewAll: (railViewAll) =>
         setState((s) => ({ ...s, railViewAll })),
+      setRecentsHeadingGlyph: (recentsHeadingGlyph) =>
+        setState((s) => ({ ...s, recentsHeadingGlyph })),
       setPreviewBanner: (previewBanner) =>
         setState((s) => ({ ...s, previewBanner })),
       setNavChevron: (navChevron) => setState((s) => ({ ...s, navChevron })),

@@ -4,7 +4,6 @@ import {
   CreditCard,
   Ellipsis,
   GamepadDirectional,
-  History,
   Mail,
   MessageCircle,
   Send,
@@ -118,12 +117,6 @@ export const navConfig: NavConfig = {
     { kind: "item", item: recentMore },
     { kind: "divider", id: "div-recent" },
     { kind: "item", item: quickActions },
-  ],
-  railFixed: [
-    // The rail has no section labels and no room for three rows, so Recent goes
-    // back to being one icon — the panel behind "More" is the same one.
-    { id: "recent", label: "Recent", icon: History, hasFlyout: true, flyoutId: "recent" },
-    quickActions,
   ],
   // Last row in the scroll region, so the nav's bottom edge is free for the AI
   // dock rather than being taken by a pinned Settings footer.

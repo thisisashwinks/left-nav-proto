@@ -26,6 +26,12 @@ import { useNavLayout } from "./nav-layout-provider";
 import { PIN_CAP_HINT, usePinnedInk } from "./pin-button";
 import { usePinFeedback, usePinLanded } from "./pin-feedback";
 import { RailTooltip } from "./rail-tooltip";
+import {
+  fadeProps,
+  onlyProps,
+  useNavCollapse,
+  ViewAllGlyph,
+} from "./nav-collapse";
 import { EditAffordance } from "./inline-rename";
 import { usePinShortcuts } from "./pin-shortcuts";
 import { ShortcutChip } from "./shortcut-chip";
@@ -398,6 +404,9 @@ function MergedList({
       */}
       <div
         aria-hidden="true"
+        // Shortens to the bar's centred 32px, from its own 18px start.
+        data-nav-rule=""
+        style={{ "--rule-ml": "6px" } as React.CSSProperties}
         className="my-[6px] ml-[8px] h-px w-[calc(100%-16px)] bg-nav-border"
       />
     </div>
@@ -419,16 +428,31 @@ function BlockHeading({
   text: string;
   action?: { label: string; onClick: () => void };
 }) {
+  const { collapsed } = useNavCollapse();
+  const { recentsHeadingGlyph } = useTheme().effective;
+  const lead = action && recentsHeadingGlyph;
   return (
     <div
       data-nav-head=""
-      className="flex w-full shrink-0 items-center justify-between gap-2 pt-[14px] pr-[4px] pb-[6px] pl-[8px]"
+      className="relative flex w-full shrink-0 items-center justify-between gap-2 pt-[14px] pr-[4px] pb-[6px] pl-[8px]"
     >
-      <span className="text-[11px] leading-[13px] font-semibold tracking-[0.4px] whitespace-nowrap text-nav-fg-subtle uppercase">
-        {text}
+      <span className="flex min-w-0 items-center gap-[var(--t-nav-gap,10px)]">
+        {lead ? <ViewAllLead onOpen={action.onClick} /> : null}
+        <span
+          {...fadeProps(collapsed)}
+          className="text-[11px] leading-[13px] font-semibold tracking-[0.4px] whitespace-nowrap text-nav-fg-subtle uppercase"
+        >
+          {text}
+        </span>
       </span>
+      {/*
+        The heading's door, at 64px. See CollapsedViewAll — or, with the glyph
+        leading the heading, ViewAllLead, which is that door at both widths.
+      */}
+      {action && !lead ? <CollapsedViewAll onOpen={action.onClick} /> : null}
       {action ? (
         <button
+          {...fadeProps(collapsed)}
           type="button"
           onClick={action.onClick}
           className="motion-tap group flex shrink-0 items-center gap-[2px] rounded-[5px] py-[2px] pr-[3px] pl-[5px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg-muted"
@@ -974,9 +998,19 @@ function MergedItemRow({
   // Empty for every treatment that does not animate the destination.
   const landed = usePinLanded(row.id);
   const combo = shortcuts.comboFor(row.id);
+  /*
+   * Collapsed, the row is the strip's recent tile: lit when its page is the
+   * one selected, and fading any open preview on hover — see nav-collapse.tsx.
+   * Open, it is exactly what it was: a shortcut with no selected state.
+   */
+  const { collapsed, selectedId, onHoverPlain } = useNavCollapse();
+  const lit = collapsed && selectedId === row.id;
   return (
+    <RailTooltip label={row.label} show={collapsed}>
     <div
       data-pin-row=""
+      data-nav-tile=""
+      {...(collapsed && onHoverPlain ? { onPointerEnter: onHoverPlain } : {})}
       // `group/row` rather than a bare group: PinButton's hover variant names
       // this row specifically, and an unnamed group would also match any
       // hovered ancestor.
@@ -1008,6 +1042,7 @@ function MergedItemRow({
         pinEdit?.drag.dragging
           ? "opacity-40"
           : "hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]",
+        lit && "bg-nav-hover",
         landed,
       )}
       /* What the grip hands to `setRowDragImage`. */
@@ -1045,8 +1080,11 @@ function MergedItemRow({
       <button
         type="button"
         onClick={onSelect}
+        {...(collapsed ? { "aria-label": row.label } : {})}
+        {...(lit ? { "aria-current": "page" as const } : {})}
         className="flex min-w-0 flex-1 items-center gap-[var(--t-nav-gap,10px)] text-left"
       >
+        <span data-nav-glyph="" className="contents">
         {/*
           The glyph, and in edit mode the glyph IS the picker — pressed, not
           accompanied by a button that does the pressing. An L1 row works
@@ -1079,14 +1117,24 @@ function MergedItemRow({
             ) : (
               <ComposedIcon
                 icon={Icon}
-                {...(row.badge ? { badge: row.badge } : {})}
+                /*
+                  No badge in the bar: the strip drew the bare product glyph,
+                  and a disc on a 16px mark in a column of marks reads as a
+                  notification. It goes with the labels.
+                */
+                {...(row.badge && !collapsed ? { badge: row.badge } : {})}
                 size={16}
                 sizeVar="--t-nav-icon"
-                className="text-nav-fg-muted"
+                // The strip's ink: muted at rest, full when lit or hovered.
+                className={cn(
+                  "text-nav-fg-muted",
+                  collapsed && (lit ? "text-nav-fg" : "group-hover/row:text-nav-fg"),
+                )}
               />
             )
           ) : null)}
-        <span className="flex min-w-0 flex-col">
+        </span>
+        <span {...fadeProps(collapsed)} className="flex min-w-0 flex-col">
           <span className="truncate text-[length:var(--t-nav-font,14px)] leading-[18px] text-nav-fg">
             {row.label}
           </span>
@@ -1117,11 +1165,15 @@ function MergedItemRow({
         better surface for it than a cap in a crowded row.
       */}
       {combo && !pinEdit ? (
-        <span className="flex shrink-0 items-center opacity-0 group-hover/row:opacity-100 focus-within:opacity-100">
-          <ShortcutChip combo={combo} />
+        <span {...fadeProps(collapsed)} className="flex shrink-0 items-center">
+          <span className="flex shrink-0 items-center opacity-0 group-hover/row:opacity-100 focus-within:opacity-100">
+            <ShortcutChip combo={combo} />
+          </span>
         </span>
       ) : null}
 
+      {/* The pin column leaves with the labels; its space stays. */}
+      <span {...fadeProps(collapsed)} className="flex shrink-0 items-center">
       {row.onTogglePin ? (
         <MaybeCapHint blocked={row.pinBlocked ?? false}>
           <button
@@ -1204,6 +1256,7 @@ function MergedItemRow({
         // list truncates at the same place.
         <span aria-hidden="true" className="size-[20px] shrink-0" />
       )}
+      </span>
 
       {/*
         One kebab, and it holds the row's trailing edge.
@@ -1229,6 +1282,63 @@ function MergedItemRow({
         </EditAffordance>
       ) : null}
     </div>
+    </RailTooltip>
+  );
+}
+
+/**
+ * The same door as a glyph LEADING the heading, at both widths. See
+ * ThemeState.recentsHeadingGlyph.
+ *
+ * Open, it stands in the rows' icon column and pushes the heading's text onto
+ * their label line (its -4px margin cancels its own padding, so it occupies
+ * exactly a glyph's width in the flow). Collapsed, it slides to the bar's
+ * centre with the rows' glyphs (motion.css) while the text beside it fades —
+ * the same element throughout, never swapped for the floating tile.
+ */
+export function ViewAllLead({ onOpen }: { onOpen: () => void }) {
+  const { collapsed } = useNavCollapse();
+  const { railViewAll } = useTheme().effective;
+  return (
+    <RailTooltip label="View all recents" show={collapsed}>
+      <button
+        type="button"
+        aria-label="View all recents"
+        onClick={onOpen}
+        data-nav-viewall-lead=""
+        className="motion-tap -m-[4px] flex shrink-0 items-center justify-center rounded-[6px] p-[4px] text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg active:scale-95"
+      >
+        <ViewAllGlyph kind={railViewAll} />
+      </button>
+    </RailTooltip>
+  );
+}
+
+/**
+ * The strip's "View all" tile, kept where the open face keeps the same door.
+ *
+ * Open, "View all" is a link on the RECENTS heading. The strip had no heading
+ * to hang it on and drew a glyph tile instead — see RAIL_VIEW_ALLS. With one
+ * face, the tile lives IN the heading: it fades in as the text and the link
+ * fade out, at the heading's own y, so the door stays where it is.
+ *
+ * Exported for the plain arrangement's RECENT label, which is the same door.
+ */
+export function CollapsedViewAll({ onOpen }: { onOpen: () => void }) {
+  const { collapsed } = useNavCollapse();
+  const { railViewAll } = useTheme().effective;
+  return (
+    <RailTooltip label="View all recents" show={collapsed}>
+      <button
+        {...onlyProps(collapsed)}
+        type="button"
+        aria-label="View all recents"
+        onClick={onOpen}
+        className="motion-tap absolute inset-y-[1px] left-[2px] flex w-[var(--bar-tile,40px)] items-center justify-center rounded-[var(--t-nav-radius,7px)] text-nav-fg-muted hover:scale-105 hover:bg-nav-hover hover:text-nav-fg active:scale-95"
+      >
+        <ViewAllGlyph kind={railViewAll} />
+      </button>
+    </RailTooltip>
   );
 }
 
@@ -1303,8 +1413,14 @@ function TailRow({
   icon: LucideIcon;
   onClick: () => void;
 }) {
+  const { collapsed } = useNavCollapse();
   return (
+    /*
+      No tile of its own: the strip never drew the list's overflow, only the
+      list. It leaves with the labels and keeps its space.
+    */
     <button
+      {...fadeProps(collapsed)}
       type="button"
       onClick={onClick}
       className={cn(

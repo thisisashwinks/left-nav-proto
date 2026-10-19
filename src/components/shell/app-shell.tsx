@@ -47,11 +47,9 @@ import {
   GetAppModal,
   type AppKind,
 } from "@/components/header/get-app-modal";
-import { CollapsedRail } from "@/components/nav/collapsed-rail";
 import { LegacyNav } from "@/components/nav/legacy-nav";
 import {
   ENTRY_CLUSTER_HEIGHT,
-  ENTRY_CLUSTER_RAIL_HEIGHT,
   AiEntryProvider,
   EntryPill,
 } from "@/components/nav/entry-cluster";
@@ -60,6 +58,7 @@ import {
   densityVars,
   recentsBudgetFor,
   useNavDensity,
+  useNavMeasured,
 } from "@/components/nav/use-nav-density";
 import { CollapseToggle } from "@/components/nav/collapse-toggle";
 import { LeftNav } from "@/components/nav/left-nav";
@@ -203,9 +202,6 @@ import { useMediaQuery } from "@/lib/use-media-query";
 const NAV_FLOAT_GAP = 4;
 const COLLAPSED_WIDTH = 64;
 
-
-/** The 28px expand button + 4px rail gap that sit under the collapsed mark. */
-const RAIL_EXPAND_BLOCK = 32;
 
 /**
  * The panel's whole exit: contents out, then the ground.
@@ -622,7 +618,6 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
     navInk,
     navWidthSet,
     editWidthFull,
-    railAccountsDoor,
     planeGround,
     flyoutShape,
     flyoutCardBorder,
@@ -810,8 +805,6 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
     productLabelFor,
     productIconFor,
     setActiveAccount: setActiveNavAccount,
-    beginEditing: beginNavEditing,
-    can: navCan,
     // The resolved child list, for "which page does this product open on".
     childrenOf: navChildrenOf,
   } = useNavLayout();
@@ -1237,8 +1230,19 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
     collapseChoice && collapseChoice.under === railArrival
       ? collapseChoice.value
       : null;
+  /*
+   * Never collapsed while editing. Ashwin, Oct 19.
+   *
+   * Edit mode works on the nav's labels, grips and kebabs, and none of them
+   * exist in the 64px bar — so every way in is closed for the length of the
+   * session: the toggles and the disc refuse (see COLLAPSE_LOCKED_HINT), and
+   * this holds the nav open against the two that are not a click, a narrow
+   * window and a builder asking for the rail. The choice underneath is kept,
+   * so leaving edit mode puts back whatever was asked for.
+   */
   const collapsed =
-    chosenCollapsed ?? (railArrival ? true : autoCollapse && narrow);
+    !layout.editing &&
+    (chosenCollapsed ?? (railArrival ? true : autoCollapse && narrow));
   const chooseCollapsed = React.useCallback(
     (value: boolean) => setCollapseChoice({ value, under: railArrival }),
     [railArrival],
@@ -1269,7 +1273,10 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    * positioned in this wrapper's coordinate space.
    */
   const navWrapRef = React.useRef<HTMLDivElement>(null);
-  const density = useNavDensity(navWrapRef, collapsed);
+  const density = useNavDensity(navWrapRef);
+  // Whether the density above is a measurement or still the first guess. The
+  // nav holds its rows back until it is one — see useNavMeasured.
+  const densityMeasured = useNavMeasured(navWrapRef);
   const atFloor = density === "floor";
 
   /*
@@ -3758,10 +3765,26 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
         restaurantWorkspace ||
         isBlockHidden(layout, "pinned") ||
         (recentsMode === "merged" && mergedPinScope !== "both") ? null : (
+        /*
+          Collapsed, the capsule fades out and keeps its place: the bar is the
+          open face with its labels gone, and the dock is one of the extras
+          that does not follow it down to 64px (Oct 16). It used to morph into
+          the strip's own column of pins; with no strip there is nowhere for
+          that geometry to land.
+        */
+        <div
+          inert={collapsed}
+          aria-hidden={collapsed}
+          className={cn(
+            "pointer-events-none absolute inset-0 z-30 transition-opacity ease-[var(--ease-out)]",
+            collapsed
+              ? "opacity-0 duration-[var(--t-nav-collapse-fade)]"
+              : "opacity-100 delay-[calc(var(--t-nav-collapse-size)_-_var(--t-nav-collapse-settle))] duration-[var(--t-nav-collapse-settle)]",
+          )}
+        >
         <PinnedMorph
           theme={navTheme}
           items={pinnedItems}
-          collapsed={collapsed}
           // Same phase the nav faces compute from the same flag, so the capsule
           // and the rows leave on one beat instead of two.
           swap={navSwap}
@@ -3787,21 +3810,15 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
           // under the mark (+32). Irrelevant at the bottom, where it is
           // measured from the nav's last edge instead.
           topOffset={
-            dockPosition === "top"
-              ? collapsed
-                ? RAIL_EXPAND_BLOCK +
-                  (entryLayout === "top" ? ENTRY_CLUSTER_RAIL_HEIGHT : -38)
-                : entryLayout === "top"
-                  ? ENTRY_CLUSTER_HEIGHT
-                  : 0
+            dockPosition === "top" && entryLayout === "top"
+              ? ENTRY_CLUSTER_HEIGHT
               : 0
           }
         />
+        </div>
         )}
 
         <div
-          inert={collapsed}
-          aria-hidden={collapsed}
           className={cn(
             /*
               Clipped to the column, and `right-0` is what does it.
@@ -3820,15 +3837,12 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
               to the clip: the one thing that overflows the nav is the intro
               coach-mark, and that is a portal with `position: fixed`.
             */
-            "absolute inset-y-0 left-0 right-0 overflow-hidden",
             /*
-              Beat 1 when collapsing, beat 3 when expanding — the same face,
-              leaving first or arriving last. That symmetry is what makes the
-              two directions read as one gesture rather than two.
+              One face at both widths (Oct 16): it is never faded or made
+              inert here. The column narrowing past it is the reveal, and the
+              face turns itself into the collapsed bar — see nav-collapse.tsx.
             */
-            collapsed
-              ? "nav-face-labels-out"
-              : "nav-face-in",
+            "absolute inset-y-0 left-0 right-0 overflow-hidden",
           )}
         >
           {/*
@@ -3863,8 +3877,22 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
             onCloseFlyout={intent.close}
             collapsed={collapsed}
             onToggleCollapsed={toggleCollapsed}
+            /*
+              Expanding from the bar brings the account rail out from under a
+              pointer sitting on the bar's own toggle — see `settleHover` in
+              account-rail. The bump tells it to ignore a still pointer until
+              the next real movement. The strip's `onExpand`, kept.
+            */
+            onExpand={() => {
+              setSettleHover((n) => n + 1);
+              chooseCollapsed(false);
+            }}
+            // Whether the bar draws the account's mark: not while the rail
+            // beside it already does.
+            railAbove={railActive}
             onSearch={() => setSearchOpen(true)}
             loading={switching}
+            measured={densityMeasured}
             introDismissed={introDismissed}
             onDismissIntro={() => setIntroDismissed(true)}
             scope={accounts.scope}
@@ -3907,85 +3935,6 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
           </div>
         </div>
 
-        <div
-          inert={!collapsed}
-          aria-hidden={!collapsed}
-          className={cn(
-            "absolute inset-y-0 left-0",
-            // The mirror of the face above: arriving last on collapse,
-            // leaving first on expand.
-            "nav-strip",
-            collapsed ? "nav-strip-settled" : "nav-strip-offset",
-          )}
-        >
-          <CollapsedRail
-            theme={navTheme}
-            onOpenApp={setAppModal}
-            // The same budget the expanded face gets, so collapsing the nav
-            // never changes which shortcuts the account appears to have.
-            recentsBudget={recentsBudget}
-            workspace={restaurantWorkspace ? "restaurant" : null}
-            loading={switching}
-            selectedId={navSelectedId}
-            onSelect={selectNavRow}
-            openFlyoutId={intent.activeId}
-            pinnedFlyoutId={intent.pinnedId}
-            onHoverFlyout={hoverFlyout}
-            onHoverPlain={hoverPlain}
-            onPinFlyout={intent.togglePin}
-            onSearch={() => setSearchOpen(true)}
-            scope={accounts.scope}
-            account={headerAccount}
-            railAbove={railActive}
-            onExpand={() => {
-              /*
-                Expanding brings the account rail out from under a pointer
-                that is sitting on this very button — see `settleHover` in
-                account-rail. The bump tells it to ignore a still pointer
-                until the next real movement.
-              */
-              setSettleHover((n) => n + 1);
-              chooseCollapsed(false);
-            }}
-            aiSession={aiSession}
-            density={density}
-            onOpenLauncher={() => intent.togglePin(LAUNCHER_ID)}
-            onOpenDirectory={() => intent.togglePin(DIRECTORY_ID)}
-            /*
-              Only when the rail has stood down. With the rail there it is
-              already the accounts door, and two of them in one 120px column
-              is the duplication the axis exists to remove.
-
-              And only when the collapsed strip is meant to hold one at all:
-              off, the way into another account is to expand first. See
-              RAIL_ACCOUNTS_DOOR_DEFAULT. Withheld as a PROP rather than
-              hidden in the rail, so the strip keeps one rule — it draws the
-              door it was handed — instead of two components both deciding.
-            */
-            {...(railActive || !railAccountsDoor
-              ? {}
-              : { onOpenAccounts: toggleDirectory })}
-            {/*
-              Gone while a switch is in flight, as the expanded face's pill is:
-              the rail's entrance leads to the same editor, over the same
-              half-loaded tree. `pending` is the switch, and it is what the
-              skeleton rows are drawn from.
-            */
-            ...(agencyScope || !navCan.customise || pending !== null
-              ? {}
-              : {
-                  // Expand FIRST, then open the mode: the rail is the entrance,
-                  // the expanded nav is the workspace.
-                  onEdit: () => {
-                    chooseCollapsed(false);
-                    beginNavEditing();
-                  },
-                  // Held visible while the card is pointing at it — a
-                  // coach-mark aimed at something invisible teaches nothing.
-                  editRevealed: !introDismissed && !layout.editing,
-                })}
-          />
-        </div>
         </>
         )}
       </div>
@@ -4160,7 +4109,12 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
           */
           collapseToggle={
             collapseSpot === "breadcrumb" && !legacyNav ? (
-              <CollapseToggle collapsed={collapsed} onToggle={toggleCollapsed} />
+              <CollapseToggle
+                collapsed={collapsed}
+                onToggle={toggleCollapsed}
+                // No collapsing mid-edit, from the app bar either.
+                disabled={layout.editing}
+              />
             ) : null
           }
           pageHeading={pageHeading}

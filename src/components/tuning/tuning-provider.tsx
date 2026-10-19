@@ -37,6 +37,21 @@ export function useTuning(): TuningContextValue {
 const BASE_ID = "__platform__";
 
 /**
+ * The design defaults as a stylesheet, so the FIRST paint already wears them.
+ *
+ * The knobs are written to <html> in an effect, which runs after the server's
+ * HTML has painted — and until then every `var(--t-nav-py, 9px)` fell back to
+ * its inline fallback, which is not the default (8). Rows painted 38px tall and
+ * snapped to 36 a third of a second later; Ashwin caught the whole nav
+ * shrinking on reload, Oct 19. Rendered by the server, this block is there
+ * before any script runs. The effect still writes the live values inline on
+ * <html>, which outranks it, so a tuned account wins once it is active.
+ */
+const DEFAULTS_CSS = `:root{${Object.entries(tuningToCssVars(TUNING_DEFAULTS))
+  .map(([name, value]) => `${name}:${value}`)
+  .join(";")}}`;
+
+/**
  * Writes the tuning knobs to <html> as CSS custom properties.
  *
  * Values live on the document rather than in React props so a knob repaints the
@@ -92,5 +107,10 @@ export function TuningProvider({ children }: { children: React.ReactNode }) {
     [state, activeId, profiles, setFor],
   );
 
-  return <TuningContext value={value}>{children}</TuningContext>;
+  return (
+    <TuningContext value={value}>
+      <style>{DEFAULTS_CSS}</style>
+      {children}
+    </TuningContext>
+  );
 }

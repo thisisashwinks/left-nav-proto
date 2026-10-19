@@ -5,6 +5,8 @@ import { ChevronsUpDown, Grip } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
 import { cn } from "@/lib/utils";
 import { AccountLogo } from "@/components/accounts/account-logo";
+import { fadeProps, useNavCollapse } from "./nav-collapse";
+import { COLLAPSE_LOCKED_HINT } from "./collapse-toggle";
 import { useTheme } from "@/components/theme/theme-provider";
 import { BrandMark } from "./brand-mark";
 
@@ -44,6 +46,16 @@ interface WorkspaceTriggerProps {
    * split collapse button, which IS the disc. See AGENCY_NAV_MARK_DEFAULT.
    */
   mark?: boolean;
+  /**
+   * What the disc does when the nav collapses.
+   *
+   * `slide`: it is the bar's account mark, and travels to the bar's centre —
+   * the same element, never a second one. `fade`: the bar draws no mark (the
+   * account rail beside it already does), so it leaves with the name.
+   */
+  barMark?: "slide" | "fade";
+  /** Edit mode: the disc refuses to collapse. See COLLAPSE_LOCKED_HINT. */
+  collapseDisabled?: boolean;
 }
 
 /**
@@ -66,8 +78,24 @@ export function WorkspaceTrigger({
   spread = false,
   onToggleCollapsed,
   mark = true,
+  barMark = "slide",
+  collapseDisabled = false,
 }: WorkspaceTriggerProps) {
   const { workspaceChevron, workspaceGlyph } = useTheme().effective;
+  /*
+   * Collapsed, the name and its switcher leave; the disc either travels to be
+   * the bar's mark or leaves with them. Inert while collapsed in both cases —
+   * the strip's mark was a picture of the account, not a control.
+   */
+  const { collapsed } = useNavCollapse();
+  const discBar =
+    barMark === "slide"
+      ? {
+          "data-nav-slide": "mark",
+          "data-bar-avatar": "",
+          ...(collapsed ? { inert: true } : {}),
+        }
+      : fadeProps(collapsed);
   /*
    * The waffle, or the combobox mark. See WORKSPACE_GLYPHS. `Grip` is the
    * same nine-dot glyph the rail's All accounts door wears, deliberately —
@@ -92,6 +120,7 @@ export function WorkspaceTrigger({
     <button
       ref={ref}
       type="button"
+      {...fadeProps(collapsed)}
       aria-haspopup="dialog"
       aria-expanded={open}
       aria-label={switcherLabel}
@@ -189,6 +218,8 @@ export function WorkspaceTrigger({
       */
       <span
         onClick={onToggle}
+        // Its fill and its click go when the nav collapses. See motion.css.
+        data-nav-chrome=""
         className={cn(
           /*
             The row is the control, so the row carries the state.
@@ -211,13 +242,20 @@ export function WorkspaceTrigger({
           {split ? (
             <button
               type="button"
+              {...discBar}
               aria-label="Collapse navigation"
-              title="Collapse navigation"
+              aria-disabled={collapseDisabled || undefined}
+              title={collapseDisabled ? COLLAPSE_LOCKED_HINT : "Collapse navigation"}
               onClick={(e) => {
                 e.stopPropagation();
-                onToggleCollapsed();
+                if (!collapseDisabled) onToggleCollapsed();
               }}
-              className="motion-tap -m-[3px] flex shrink-0 items-center justify-center rounded-full p-[3px] outline-none hover:bg-nav-hover focus-visible:ring-[1.5px] focus-visible:ring-brand active:scale-95"
+              className={cn(
+                "motion-tap -m-[3px] flex shrink-0 items-center justify-center rounded-full p-[3px] outline-none focus-visible:ring-[1.5px] focus-visible:ring-brand",
+                collapseDisabled
+                  ? "cursor-not-allowed"
+                  : "hover:bg-nav-hover active:scale-95",
+              )}
             >
               <AccountLogo
                 logo={(markAccount ?? account).logo}
@@ -232,6 +270,7 @@ export function WorkspaceTrigger({
 
         <button
           type="button"
+          {...fadeProps(collapsed)}
           tabIndex={-1}
           aria-hidden="true"
           /*
@@ -266,10 +305,15 @@ export function WorkspaceTrigger({
     <span className="flex min-w-0 items-center gap-[7px]">
       <button
         type="button"
+        {...discBar}
         aria-label="Collapse navigation"
-        title="Collapse navigation"
-        onClick={onToggleCollapsed}
-        className="motion-tap -m-[3px] flex shrink-0 items-center justify-center rounded-full p-[3px] outline-none hover:bg-nav-hover focus-visible:ring-[1.5px] focus-visible:ring-brand active:scale-95"
+        aria-disabled={collapseDisabled || undefined}
+        title={collapseDisabled ? COLLAPSE_LOCKED_HINT : "Collapse navigation"}
+        onClick={collapseDisabled ? undefined : onToggleCollapsed}
+        className={cn(
+          "motion-tap -m-[3px] flex shrink-0 items-center justify-center rounded-full p-[3px] outline-none focus-visible:ring-[1.5px] focus-visible:ring-brand",
+          collapseDisabled ? "cursor-not-allowed" : "hover:bg-nav-hover active:scale-95",
+        )}
       >
         {/*
           The agency's mark when one has been placed here, the account's

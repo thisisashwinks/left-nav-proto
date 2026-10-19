@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { TriangleAlert } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { createPortal } from "react-dom";
 
@@ -13,9 +12,12 @@ import { createPortal } from "react-dom";
  * three drags and a deletion. Discarding throws all of it away at once, which is
  * the only edit in here that a five-second window cannot cover.
  *
- * Amber, not red: nothing is being destroyed that the admin did not just make,
- * and dressing "go back to how it was" in delete-red would make the safe exit
- * look like the dangerous one.
+ * No warning glyph. It was amber rather than red on the reasoning that
+ * nothing is being destroyed the admin did not just make — which is the
+ * argument for not having one at all: the heading asks the question, the
+ * sentence states the cost, and a 36px alert disc above them raises the
+ * temperature of a dialog whose whole point is that the safe exit should not
+ * look like the dangerous one. Ashwin, Oct 19.
  */
 export function DiscardEditsDialog({
   onConfirm,
@@ -57,12 +59,6 @@ export function DiscardEditsDialog({
         aria-label="Discard your changes?"
         className="motion-panel-in relative flex w-[360px] max-w-full flex-col gap-[8px] rounded-[8px] bg-nav p-[16px] shadow-[0_20px_24px_-4px_rgba(16,24,40,0.08),0_8px_8px_-4px_rgba(16,24,40,0.03),inset_0_0_0_1px_var(--fly-border)]"
       >
-        <span
-          aria-hidden="true"
-          className="flex size-[36px] items-center justify-center rounded-full bg-[var(--hr-warning-100)] text-[var(--hr-warning-700)]"
-        >
-          <TriangleAlert size={18} />
-        </span>
         <h2 className="text-[16px] leading-[normal] font-semibold text-nav-fg">
           Discard your changes?
         </h2>

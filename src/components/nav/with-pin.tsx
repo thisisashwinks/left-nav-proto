@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { childById, productById } from "./catalogue";
 import { isChromePlace } from "./chrome-places";
 import { PinButton } from "./pin-button";
+import { fadeProps, useNavCollapse } from "./nav-collapse";
 
 /**
  * Hangs a favourite star over a row that is itself a `<button>`.
@@ -73,6 +74,9 @@ export function WithPin({
   pinInset?: number | string;
   children: React.ReactNode;
 }) {
+  // Collapsed, the pin leaves with the labels — see nav-collapse.tsx. Read
+  // before the early return so the hook order never depends on the product.
+  const { collapsed } = useNavCollapse();
   if (!isPinnable(productId)) return children;
 
   return (
@@ -83,6 +87,7 @@ export function WithPin({
     <div data-pin-row="" className="group/row relative w-full shrink-0">
       {children}
       <span
+        {...fadeProps(collapsed)}
         style={{ right: pinInset }}
         className={cn("absolute z-10", pinClass ?? "top-1/2 -translate-y-1/2")}
       >

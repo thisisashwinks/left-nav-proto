@@ -110,6 +110,14 @@ import {
 } from "@/components/launchpad/launchpad-data";
 import { PROPOSED_HOME_ID } from "./proposed-ia";
 import { NavDivider } from "./nav-divider";
+import {
+  fadeProps,
+  NavCollapseProvider,
+  useNavCollapse,
+  useNavMotion,
+  useNavSlides,
+} from "./nav-collapse";
+import { RailTooltip } from "./rail-tooltip";
 import { NavHeader } from "./nav-header";
 import { NavItemRow, type NavRowDrag, type NavRowEdit } from "./nav-item-row";
 import { useHere, type Marking, type NavLevel } from "./here";
@@ -195,6 +203,20 @@ const PRODUCT_DIRECTORY_ITEM: NavItem = {
   hasFlyout: true,
 };
 
+/**
+ * Quick Actions as a row, for the collapsed bar's rules — see `barRow`.
+ *
+ * The card draws its own footer rather than a NavItem, so the bar's tile
+ * needs the item the strip used to take from `railFixed`: same id, same
+ * panel, same label.
+ */
+const QUICK_ACTIONS_ITEM: NavItem = {
+  id: "quick-actions",
+  label: "Quick Actions",
+  icon: GamepadDirectional,
+  hasFlyout: true,
+};
+
 /** The show/hide menu's one view, opened directly rather than via an entry. */
 const BLOCKS_VIEW = "blocks";
 
@@ -221,6 +243,15 @@ interface LeftNavProps {
    * the continuity that makes a three-second wait bearable.
    */
   loading?: boolean;
+  /**
+   * Whether the shell has measured the nav's height, and so knows its density.
+   *
+   * False on the server and on the first client paint. The rows wait for it,
+   * then play their entrance once at the size they keep: before Oct 19 they
+   * painted at the roomy guess and tightened a beat later on any window short
+   * enough for the `short` tier — the whole list visibly shrank on reload.
+   */
+  measured?: boolean;
   /**
    * The first-run card's state, owned by the shell.
    *
@@ -259,6 +290,17 @@ interface LeftNavProps {
   onHoverPlain?: () => void;
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  /**
+   * Reopens the nav from the collapsed bar — the strip's own `onExpand`,
+   * which also re-arms the account rail's hover. Falls back to the toggle.
+   */
+  onExpand?: () => void;
+  /**
+   * Whether an account rail stands to the left right now. The collapsed bar
+   * draws the account's mark only when it does not — the rail's tile already
+   * says it. The strip's `railAbove`, moved here when the strip went.
+   */
+  railAbove?: boolean;
   onSearch: () => void;
   /** Whose nav this is: one sub-account, or the agency across all of them. */
   scope: WorkspaceScope;
@@ -350,8 +392,11 @@ export function LeftNav({
   onHoverPlain,
   collapsed,
   onToggleCollapsed,
+  onExpand = onToggleCollapsed,
+  railAbove = false,
   onSearch,
   loading = false,
+  measured = true,
   introDismissed = false,
   onDismissIntro,
   scope,
@@ -2566,6 +2611,21 @@ export function LeftNav({
           },
         }
       : undefined;
+  /*
+   * The same control in the collapsed bar, doing what the strip's Edit did:
+   * open the nav first, then the mode. There is no label to rename at 64px,
+   * so the bar is a way in to editing, never a place to do it.
+   */
+  const editNavHere: EditNavProps | undefined =
+    editNav && collapsed
+      ? {
+          ...editNav,
+          onStart: () => {
+            onExpand();
+            editNav.onStart();
+          },
+        }
+      : editNav;
 
   /*
    * The open kebab's menu, for a category OR a top-level product row.
@@ -3053,6 +3113,21 @@ export function LeftNav({
   /** A panel is docked against the sidebar's right edge. */
   const flyoutDocked = openFlyoutId !== null || pinnedFlyoutId !== null;
   const navRef = React.useRef<HTMLElement>(null);
+  /*
+   * The collapsed bar's state, for every row component below — see
+   * nav-collapse.tsx. Memoised so a re-render of the nav does not hand forty
+   * rows a new context value each time.
+   */
+  const collapseState = React.useMemo(
+    () => ({
+      collapsed,
+      selectedId,
+      ...(onHoverPlain ? { onHoverPlain } : {}),
+    }),
+    [collapsed, selectedId, onHoverPlain],
+  );
+  const navMotion = useNavMotion(collapsed);
+  useNavSlides(navRef);
   const [drawerBox, setDrawerBox] = React.useState<{
     top: number;
     height: number;
@@ -3324,6 +3399,61 @@ export function LeftNav({
       );
   };
 
+  /**
+   * A row's rules in the collapsed bar — the old strip's, verbatim.
+   *
+   * Ported from CollapsedRail's `renderRailRow` when the strip went (Oct 16),
+   * because collapsing must change how the nav LOOKS and nothing about how it
+   * works. So, unlike the open row: a door is lit while its panel is up OR
+   * while it is the selection; an empty bucket still opens; a lifted product
+   * selects as well as pinning; a tree row hands over to the open face on its
+   * own branch instead of toggling it in a 64px column; and nothing closes the
+   * scoped drawer, which the strip never touched.
+   */
+  const barRow = (item: NavItem) => {
+    const flyoutId = flyoutIdFor(item);
+    const treeRow =
+      productTree && treeBranchFor(state, groups, item) !== null;
+    return {
+      active:
+        item.id === selectedId ||
+        (item.hasFlyout === true &&
+          (flyoutId === openFlyoutId || flyoutId === pinnedFlyoutId)),
+      onSelect: () => {
+        // An agency bucket is a door, and opening a door does not move you.
+        if (item.hasFlyout && agencyScope) {
+          onPinFlyout(flyoutId);
+          return;
+        }
+        onSelect(item.id, item.shortcut ? { open: true } : undefined);
+        // `openTreeBranch` first, so the open face's first paint already has
+        // the branch open rather than opening it mid-slide.
+        if (treeRow) {
+          openTreeBranch(item.id);
+          onExpand();
+          return;
+        }
+        if (item.hasFlyout) onPinFlyout(flyoutId);
+      },
+      onHover:
+        !treeRow && item.hasFlyout
+          ? () => onHoverFlyout(flyoutId)
+          : onHoverPlain,
+    };
+  };
+
+  /**
+   * Rows the open face draws and the strip never did: the plain Recent block's
+   * "More" door (the bar's View-all tile is that door, collapsed) and the
+   * companion-app installers. They leave with the labels and keep their space.
+   * The floor tier's "More" is the exception — renamed Recent, it is the
+   * strip's Recent door, and stays a tile.
+   */
+  const barFades = (item: NavItem) =>
+    (item.id === "recent-more" && !atFloor) ||
+    item.id === "get-app-mobile" ||
+    item.id === "get-app-desktop";
+
   const renderRow = (item: NavItem) => {
     const flyoutId = flyoutIdFor(item);
     /*
@@ -3467,7 +3597,14 @@ export function LeftNav({
                 : {}),
             }}
             marking={markFor(false, isTrail, "l1")}
-            {...(groupEdit ? { edit: groupEdit } : {})}
+            {...(groupEdit && !collapsed ? { edit: groupEdit } : {})}
+            /*
+              Collapsed, the strip's tree tile: it hands over to the open face
+              already on this branch, rather than disclosing in 64px.
+            */
+            {...(collapsed
+              ? (({ active, onHover }) => ({ active, onHover }))(barRow(item))
+              : {})}
             /*
              * No `onHover`, and that is the point of the arrangement.
              *
@@ -3498,14 +3635,16 @@ export function LeftNav({
                 disclose nothing, which is the flyout arrangement's empty
                 panel again in a different shape.
               */
-              nodes.length === 0
-                ? undefined
-                : treeHits
-                  ? () => {
-                      setTreeQuery("");
-                      openTreeBranch(item.id);
-                    }
-                  : () => tree.toggleBranch(item.id)
+              collapsed
+                ? barRow(item).onSelect
+                : nodes.length === 0
+                  ? undefined
+                  : treeHits
+                    ? () => {
+                        setTreeQuery("");
+                        openTreeBranch(item.id);
+                      }
+                    : () => tree.toggleBranch(item.id)
             }
           />
           {open ? (
@@ -3657,10 +3796,16 @@ export function LeftNav({
     const drillTarget =
       drillMode && groups.some((g) => g.id === item.id) ? item.id : null;
 
+    /*
+      Collapsed, the strip's rules replace the open row's — see `barRow`. One
+      element either way: only the handlers and the lit state change.
+    */
+    const bar = collapsed ? barRow(item) : null;
     const row = (
       <NavItemRow
         key={item.id}
         item={emptyBucket ? { ...item, hasFlyout: false } : item}
+        {...(barFades(item) ? { bar: "fade" as const } : {})}
         // L1 in both scopes: a category or a bucket. The level only decides
         // whether `ends` skips the row, and this is never the middle.
         marking={markFor(isHere, isTrail, "l1")}
@@ -3678,11 +3823,17 @@ export function LeftNav({
          * page you are on and there is no panel to disagree with it.
          */
         active={
-          item.hasFlyout === true && !emptyBucket
-            ? flyoutId === openFlyoutId || flyoutId === pinnedFlyoutId
-            : item.id === selectedId
+          bar
+            ? bar.active
+            : item.hasFlyout === true && !emptyBucket
+              ? flyoutId === openFlyoutId || flyoutId === pinnedFlyoutId
+              : item.id === selectedId
         }
         onSelect={() => {
+          if (bar) {
+            bar.onSelect();
+            return;
+          }
           // Nothing behind it and nothing to select: the row is a label with
           // a grip and a kebab until something is filed in it.
           if (emptyBucket) return;
@@ -3765,16 +3916,19 @@ export function LeftNav({
           if (item.hasFlyout) onPinFlyout(flyoutId);
         }}
         onHover={
-          // Nothing floats in `drill`, so a category's hover must not ask for a
-          // panel — `onHoverPlain` also fades whatever happens to be up.
-          item.hasFlyout && !emptyBucket && !drillTarget
-            ? () => onHoverFlyout(flyoutId)
-            : onHoverPlain
+          bar
+            ? bar.onHover
+            : // Nothing floats in `drill`, so a category's hover must not ask
+              // for a panel — `onHoverPlain` also fades whatever happens to
+              // be up.
+              item.hasFlyout && !emptyBucket && !drillTarget
+              ? () => onHoverFlyout(flyoutId)
+              : onHoverPlain
         }
-        {...(edit ? { edit } : {})}
+        {...(edit && !collapsed ? { edit } : {})}
         // In edit mode, a row with no edit bundle is a row the mode does not
         // reach — Recent, Quick Actions, the favourites row, Settings.
-        {...(editing && !edit ? { locked: true } : {})}
+        {...(editing && !edit && !collapsed ? { locked: true } : {})}
       />
     );
     if (agencyIndex >= 0) {
@@ -3853,14 +4007,17 @@ export function LeftNav({
    */
   const treeSearchAt = (place: typeof treeSearchPlace) =>
     treeSearchShown && treeSearchPlace === place ? (
-      <TreeSearchField
-        query={treeQuery}
-        onQuery={setTreeQuery}
-        // 4px above and below rather than the row gap's 2: the field is a
-        // control standing among rows, and a hairline box that close to a
-        // hover fill reads as one more row with a border.
-        className="my-[4px]"
-      />
+      // Not in the bar: an extra, faded with the labels (Oct 16).
+      <div {...fadeProps(collapsed)} className="w-full shrink-0">
+        <TreeSearchField
+          query={treeQuery}
+          onQuery={setTreeQuery}
+          // 4px above and below rather than the row gap's 2: the field is a
+          // control standing among rows, and a hairline box that close to a
+          // hover fill reads as one more row with a border.
+          className="my-[4px]"
+        />
+      </div>
     ) : null;
 
   /**
@@ -3887,7 +4044,14 @@ export function LeftNav({
 
   const renderEntry = (entry: NavEntry) => {
     if (entry.kind === "label") {
-      return <NavSectionLabel key={entry.id} text={entry.text} />;
+      return (
+        <NavSectionLabel
+          key={entry.id}
+          text={entry.text}
+          // The bar's View-all tile rides the Recent block's own heading.
+          {...(entry.id === "recent-label" ? { onViewAll: onOpenLauncher } : {})}
+        />
+      );
     }
     if (entry.kind === "divider") {
       return <NavDivider key={entry.id} />;
@@ -3919,6 +4083,7 @@ export function LeftNav({
           <NavSectionLabel
             key={entry.id}
             text={entry.text}
+            {...(entry.id === "recent-label" ? { onViewAll: onOpenLauncher } : {})}
             collapsed={folded}
             onToggle={() =>
               setFoldedSections((prev) => {
@@ -4089,13 +4254,49 @@ export function LeftNav({
         )
       : null;
 
+  /*
+   * The collapsed bar's head: the account's (or agency's) mark unless the
+   * rail beside it already shows one, and the toggle wherever the nav
+   * carries it.
+   */
+  /*
+   * At agency scope too, since Oct 19: the agency's own mark heads the bar
+   * whenever no rail beside it is already showing it — it was off there by
+   * default (`agencyNavMark`), which left the collapsed agency bar with a
+   * toggle and no identity at all.
+   */
+  const barMarkOn =
+    !railAbove || (agencyScope ? agencyNavMark : subAccountNavMark);
+  /*
+   * Where the toggle goes when there is no card to make room under the mark:
+   * ON the mark, as its hover state. Ashwin, Oct 19 — the header's 48px holds
+   * one 20px control on its midline cleanly, not two.
+   */
+  const barSwap =
+    barMarkOn &&
+    collapseHere !== "breadcrumb" &&
+    !(cardShowing && !searchOnly && !hideOpeningCluster);
+
   return (
-    <>
+    <NavCollapseProvider value={collapseState}>
     {l1Drawer}
     <nav
       ref={navRef}
       data-nav-theme={theme}
       aria-label="Main"
+      /*
+        One face at both widths — see nav-collapse.tsx. `collapsed` turns the
+        rows into the bar's tiles (motion.css); `motion` holds the size-clock
+        transitions on only while the gesture runs.
+      */
+      {...(collapsed ? { "data-nav-collapsed": "" } : {})}
+      {...(navMotion ? { "data-nav-motion": "" } : {})}
+      {...(agencyScope ? { "data-nav-agency": "" } : {})}
+      /*
+        No Launchpad card, so no room under the mark for the drawer toggle:
+        the avatar turns into it on hover instead. See motion.css.
+      */
+      {...(barSwap ? { "data-bar-swap": "" } : {})}
       // Pencil draws strokes over the box instead of adding to it, so every
       // border in the nav is an inset shadow. A real CSS border would steal a
       // pixel of content width and push every measurement off by one.
@@ -4179,7 +4380,11 @@ export function LeftNav({
         */
         collapseSlot={
           collapseHere === "agency" ? (
-            <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
+            <CollapseToggle
+              collapsed={collapsed}
+              onToggle={onToggleCollapsed}
+              disabled={editing}
+            />
           ) : null
         }
         agency={agencyScope}
@@ -4254,7 +4459,11 @@ export function LeftNav({
               the top of the column it opens. See ScopeMenuRow.
             */}
             {collapseHere === "header" ? (
-              <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapsed} />
+              <CollapseToggle
+                collapsed={collapsed}
+                onToggle={onToggleCollapsed}
+                disabled={editing}
+              />
             ) : null}
           </>
         }
@@ -4262,6 +4471,15 @@ export function LeftNav({
         // drawer toggle riding the right edge (Khoi, Aug 24). Supplemental: the
         // drawer toggle above stays.
         onToggleCollapsed={onToggleCollapsed}
+        // The disc collapses the nav too, so it refuses in edit mode as well.
+        collapseDisabled={editing}
+        /*
+          The collapsed bar's head, as the strip drew it: the account's mark
+          unless the rail beside it already shows one (the agency's own
+          switch decides at agency scope), and the toggle wherever the nav
+          carries it.
+        */
+        barMark={barMarkOn}
       />
 
       {topEntry ? (
@@ -4269,7 +4487,7 @@ export function LeftNav({
           onSearch={onSearch}
           session={aiSession}
           searchEnabled={!agencyScope || agencySearch}
-          {...(editNav ? { edit: editNav } : {})}
+          {...(editNavHere ? { edit: editNavHere } : {})}
         />
       ) : null}
 
@@ -4344,7 +4562,15 @@ export function LeftNav({
               where out → in → in would play the entrance only once.
             */
             swap === "leaving" && "motion-nav-swap-out",
-            swap === "idle" && "motion-nav-swap-in",
+            /*
+              Held back until the nav has been measured, then the entrance
+              plays — so on load the rows arrive once, already at their
+              density, instead of painting at a guess and tightening after.
+              The class landing late is what starts the animation late: an
+              element plays a keyframe animation when its name is applied.
+            */
+            swap === "idle" && measured && "motion-nav-swap-in",
+            !measured && "opacity-0",
           )}
         >
           {/*
@@ -4406,7 +4632,18 @@ export function LeftNav({
                 onSelect?.(agencyScope ? "agency-launchpad" : PROPOSED_HOME_ID)
               }
               {...(cardQuickActions
-                ? { onQuickActions: () => onPinFlyout("quick-actions") }
+                ? collapsed
+                  ? /*
+                      The strip's Quick Actions tile: it selects as well as
+                      opening its panel, asks for the panel on hover, and is
+                      lit while either is up. See `barRow`.
+                    */
+                    (({ active, onSelect: open, onHover }) => ({
+                      onQuickActions: open,
+                      quickActionsActive: active,
+                      ...(onHover ? { onQuickActionsHover: onHover } : {}),
+                    }))(barRow(QUICK_ACTIONS_ITEM))
+                  : { onQuickActions: () => onPinFlyout("quick-actions") }
                 : {})}
             />
           ) : null}
@@ -4437,6 +4674,12 @@ export function LeftNav({
             nothing depending on a setting about something else.
           */}
           {merged && agencyScope && !searchOnly && !isBlockHidden(state, "recent") ? (
+            /*
+              In the bar too, as the sub-account's recents are: each row a
+              tile, the heading's "View all" the history glyph. Ashwin, Oct 19.
+              Unwrapped, so it is the scroll region's first child and its
+              heading top-aligns to the canvas like the sub-account's does.
+            */
             <AgencyMergedRecentsBlock
               onSelect={selectShortcut}
               accounts={mergedAccountRows}
@@ -4450,7 +4693,9 @@ export function LeftNav({
           !hideOpeningCluster &&
           !isBlockHidden(state, "recent") ? (
             <MergedRecentsBlock
-              onSelect={selectShortcut}
+              // Collapsed, the strip's recent tile: straight to the place, and
+              // the scoped drawer — which the strip never touched — left alone.
+              onSelect={collapsed ? (id) => onSelect(id, { open: true }) : selectShortcut}
               /*
                 "View all" opens the launcher, not the authored Recent flyout.
                 Merged mode has one list, so it gets one panel behind it: the
@@ -4524,7 +4769,9 @@ export function LeftNav({
             failed to load.
           */}
           {treeHits && treeHits.size === 0 ? (
-            <TreeSearchEmpty query={treeQuery.trim()} />
+            <div {...fadeProps(collapsed)} className="w-full shrink-0">
+              <TreeSearchEmpty query={treeQuery.trim()} />
+            </div>
           ) : null}
           {columnShowing ? (
             /*
@@ -4706,6 +4953,8 @@ export function LeftNav({
                 <NavItemRow
                   item={PRODUCT_DIRECTORY_ITEM}
                   onSelect={onOpenDirectory}
+                  // Not in the bar: an extra, faded with the labels (Oct 16).
+                  bar="fade"
                 />
               ) : null}
               {/*
@@ -4734,6 +4983,8 @@ export function LeftNav({
                             e.item.id === "get-app-mobile" ? "mobile" : "desktop",
                           )
                         }
+                        // Not in the bar: an extra, faded with the labels.
+                        bar="fade"
                       />
                     ) : null,
                   )
@@ -4793,6 +5044,7 @@ export function LeftNav({
         client uses it. See `templatePushNotice`.
       */}
       {notice && !agencyScope && templatePushNotice ? (
+        <div {...fadeProps(collapsed)} className="w-full shrink-0">
         <TemplateNoticeCard
           templateName={notice.templateName}
           version={notice.version}
@@ -4800,6 +5052,7 @@ export function LeftNav({
           kept={notice.kept}
           onDismiss={() => templates.dismissNotice(account.id)}
         />
+        </div>
       ) : null}
 
       {headerEntry ? (
@@ -4812,9 +5065,9 @@ export function LeftNav({
           nav is the nav's own affordance; it does not follow search into the
           bar.
         */
-        editNav ? (
+        editNavHere ? (
           <div className="flex w-full shrink-0 px-[12px] pb-[12px]">
-            <EditNavAnchor edit={editNav} />
+            <EditNavAnchor edit={editNavHere} />
           </div>
         ) : null
       ) : topEntry ? null : (
@@ -4823,7 +5076,7 @@ export function LeftNav({
             onSearch={onSearch}
             session={aiSession}
             searchEnabled={!agencyScope || agencySearch}
-            {...(editNav ? { edit: editNav } : {})}
+            {...(editNavHere ? { edit: editNavHere } : {})}
           />
         </div>
       )}
@@ -5164,7 +5417,7 @@ export function LeftNav({
         />
       ) : null}
     </nav>
-    </>
+    </NavCollapseProvider>
   );
 }
 
@@ -5252,10 +5505,14 @@ function DrillBackRow({
   label: string;
   onBack: () => void;
 }) {
+  // Collapsed, a tile like any top-level row — see nav-collapse.tsx.
+  const { collapsed } = useNavCollapse();
   return (
     <>
+      <RailTooltip label="Back to all categories" show={collapsed}>
       <button
         type="button"
+        data-nav-tile=""
         onClick={onBack}
         aria-label={`Back to all categories, from ${label}`}
         className="motion-tap flex w-full shrink-0 items-center gap-[8px] rounded-[var(--t-nav-radius,7px)] px-[var(--t-nav-px,8px)] py-[7px] text-left hover:bg-nav-hover active:scale-[0.99]"
@@ -5263,12 +5520,17 @@ function DrillBackRow({
         <ArrowLeft
           size={15}
           aria-hidden="true"
+          data-nav-glyph=""
           className="shrink-0 text-nav-fg-muted"
         />
-        <span className="min-w-0 flex-1 truncate text-[13.5px] leading-[normal] font-semibold text-nav-fg">
+        <span
+          {...fadeProps(collapsed)}
+          className="min-w-0 flex-1 truncate text-[13.5px] leading-[normal] font-semibold text-nav-fg"
+        >
           {label}
         </span>
       </button>
+      </RailTooltip>
       <NavDivider />
     </>
   );
@@ -5309,10 +5571,13 @@ function ScopeMenuRow({
   open: boolean;
   onToggle: () => void;
 }) {
+  const { collapsed } = useNavCollapse();
   return (
     <>
+      <RailTooltip label={open ? "Close all products" : "All products"} show={collapsed}>
       <button
         type="button"
+        data-nav-tile=""
         aria-expanded={open}
         aria-label={open ? "Close all products" : "All products"}
         onClick={onToggle}
@@ -5321,7 +5586,12 @@ function ScopeMenuRow({
           open ? "bg-nav-active" : "hover:bg-nav-hover",
         )}
       >
-        <Menu size={16} aria-hidden="true" className="shrink-0 text-nav-fg-muted" />
+        <Menu
+          size={16}
+          aria-hidden="true"
+          data-nav-glyph=""
+          className="shrink-0 text-nav-fg-muted"
+        />
         {/*
           The category's name beside the glyph at rest, and "All products"
           while the list is up.
@@ -5331,10 +5601,14 @@ function ScopeMenuRow({
           you what you are looking at — and a hamburger that says the same
           word in both is a hamburger that says nothing in either.
         */}
-        <span className="min-w-0 flex-1 truncate text-[13.5px] leading-[normal] font-semibold text-nav-fg">
+        <span
+          {...fadeProps(collapsed)}
+          className="min-w-0 flex-1 truncate text-[13.5px] leading-[normal] font-semibold text-nav-fg"
+        >
           {open ? "All products" : label}
         </span>
       </button>
+      </RailTooltip>
       <NavDivider />
     </>
   );
@@ -5351,24 +5625,37 @@ function ScopeHeaderRow({
   open: boolean;
   onToggle: () => void;
 }) {
+  const { collapsed } = useNavCollapse();
   return (
     <>
+      <RailTooltip label={label} show={collapsed}>
       <button
         type="button"
+        data-nav-tile=""
         aria-expanded={open}
+        {...(collapsed ? { "aria-label": label } : {})}
         onClick={onToggle}
         className="motion-tap flex w-full shrink-0 items-center gap-[8px] rounded-[var(--t-nav-radius,7px)] px-[var(--t-nav-px,8px)] py-[7px] text-left hover:bg-nav-hover active:scale-[0.99]"
       >
         {Icon ? (
-          <Icon size={16} aria-hidden="true" className="shrink-0 text-nav-fg-muted" />
+          <Icon
+            size={16}
+            aria-hidden="true"
+            data-nav-glyph=""
+            className="shrink-0 text-nav-fg-muted"
+          />
         ) : (
           <LayoutGrid
             size={16}
             aria-hidden="true"
+            data-nav-glyph=""
             className="shrink-0 text-nav-fg-muted"
           />
         )}
-        <span className="min-w-0 flex-1 truncate text-[13.5px] leading-[normal] font-semibold text-nav-fg">
+        <span
+          {...fadeProps(collapsed)}
+          className="min-w-0 flex-1 truncate text-[13.5px] leading-[normal] font-semibold text-nav-fg"
+        >
           {label}
         </span>
         {/*
@@ -5379,15 +5666,18 @@ function ScopeHeaderRow({
           pointing down at a list that never appears there is the row
           describing the arrangement it used to be.
         */}
-        <ChevronRight
-          size={14}
-          aria-hidden="true"
-          className={cn(
-            "shrink-0 motion-move",
-            open ? "translate-x-[1px] text-nav-fg" : "text-nav-fg-subtle",
-          )}
-        />
+        <span {...fadeProps(collapsed)} className="flex shrink-0">
+          <ChevronRight
+            size={14}
+            aria-hidden="true"
+            className={cn(
+              "shrink-0 motion-move",
+              open ? "translate-x-[1px] text-nav-fg" : "text-nav-fg-subtle",
+            )}
+          />
+        </span>
       </button>
+      </RailTooltip>
       <NavDivider />
     </>
   );
@@ -5568,6 +5858,8 @@ function SetupGuideRow({
   showLaunchpad = true,
   onOpen,
   onQuickActions,
+  onQuickActionsHover,
+  quickActionsActive = false,
 }: {
   /**
    * False when Launchpad is switched off but Quick Actions is not — the box
@@ -5588,8 +5880,18 @@ function SetupGuideRow({
    * folded, it is lost. Absent when the account has hidden the block.
    */
   onQuickActions?: () => void;
+  /** Collapsed only — the strip's tile asked for its panel on hover. */
+  onQuickActionsHover?: () => void;
+  /** Collapsed only — the tile is lit while its page or panel is up. */
+  quickActionsActive?: boolean;
 }) {
   const { launchpadCard, topAlignCard, topAlignCardNudge } = useTheme().effective;
+  /*
+   * Collapsed, the card stands down to its glyphs — see motion.css. The
+   * Rocket is the strip's inert mark (the card's click target goes with the
+   * labels); Quick Actions is the strip's tile.
+   */
+  const { collapsed } = useNavCollapse();
   const v = LAUNCHPAD_STYLE[launchpadCard];
   const plain = launchpadCard === "plain";
   const alignToCanvas = topAlignCard && !plain;
@@ -5637,6 +5939,7 @@ function SetupGuideRow({
             <button
               type="button"
               onClick={onOpen}
+              {...(collapsed ? { inert: true } : {})}
               className={cn(
                 "absolute inset-0 motion-press active:scale-[0.99]",
                 plain ? "rounded-[7px]" : "rounded-[9px]",
@@ -5644,13 +5947,26 @@ function SetupGuideRow({
               aria-label="Open Launchpad"
             />
             <span className="pointer-events-none flex w-full items-center gap-[8px]">
-              <Rocket
-                size={15}
-                aria-hidden="true"
-                style={NAV_GLYPH}
-                className={cn("shrink-0", v.icon)}
-              />
+              {/*
+                The one glyph the bar keeps of the card's first job. Named on
+                hover and nothing else: it was never a door at 64px.
+              */}
+              <RailTooltip label="Launchpad" show={collapsed}>
+                <span
+                  data-nav-glyph=""
+                  // Moves down a slot in the bar to make room for the toggle.
+                  data-nav-stack=""
+                  className={cn(
+                    "flex shrink-0",
+                    v.icon,
+                    collapsed && "pointer-events-auto",
+                  )}
+                >
+                  <Rocket size={15} aria-hidden="true" style={NAV_GLYPH} />
+                </span>
+              </RailTooltip>
               <span
+                {...fadeProps(collapsed)}
                 className={cn(
                   "min-w-0 flex-1 truncate text-[13px] leading-[normal] font-semibold",
                   v.title,
@@ -5659,6 +5975,7 @@ function SetupGuideRow({
                 Launchpad
               </span>
               <span
+                {...fadeProps(collapsed)}
                 className={cn(
                   "shrink-0 text-[11.5px] leading-none font-medium",
                   v.count,
@@ -5677,6 +5994,7 @@ function SetupGuideRow({
               separates two jobs, not a label from its own progress.
             */}
             <span
+              {...fadeProps(collapsed)}
               className={cn(
                 "pointer-events-none mt-[6px] h-[3px] w-full overflow-hidden rounded-full",
                 v.track,
@@ -5694,6 +6012,7 @@ function SetupGuideRow({
             {/* The hairline only when there are two jobs to separate. */}
             {showLaunchpad && !plain ? (
               <span
+                {...fadeProps(collapsed)}
                 aria-hidden="true"
                 className={cn(
                   "pointer-events-none -mx-[10px] mt-[1px] h-px",
@@ -5701,15 +6020,32 @@ function SetupGuideRow({
                 )}
               />
             ) : null}
+            <RailTooltip label="Quick Actions" show={collapsed}>
             <button
               type="button"
+              data-nav-qa=""
+              // Moves down a slot in the bar to make room for the toggle.
+              data-nav-stack=""
+              {...(collapsed && quickActionsActive ? { "data-active": "" } : {})}
+              {...(collapsed ? { "aria-label": "Quick Actions" } : {})}
               onClick={(e) => {
                 e.stopPropagation();
                 onQuickActions();
               }}
+              {...(collapsed && onQuickActionsHover
+                ? {
+                    onPointerEnter: onQuickActionsHover,
+                    onFocus: onQuickActionsHover,
+                  }
+                : {})}
               className={cn(
                 "motion-tap pointer-events-auto relative z-10 -mx-[6px] flex items-center gap-[8px] rounded-[6px] px-[6px] text-left active:scale-[0.99]",
-                v.action,
+                collapsed
+                  ? cn(
+                      "rounded-[var(--t-nav-radius,7px)] hover:bg-nav-hover",
+                      quickActionsActive && "bg-nav-hover",
+                    )
+                  : v.action,
                 // Alone in the box, the row takes the header's own scale — it
                 // IS the card now, not a footer of one.
                 showLaunchpad ? "-mb-[3px] py-[4px]" : "-my-[3px] py-[6px]",
@@ -5718,9 +6054,11 @@ function SetupGuideRow({
               <GamepadDirectional
                 size={showLaunchpad ? 14 : 15}
                 aria-hidden="true"
+                data-nav-glyph=""
                 className={cn("shrink-0", v.icon)}
               />
               <span
+                {...fadeProps(collapsed)}
                 className={cn(
                   "min-w-0 flex-1 truncate leading-[16px] font-medium",
                   v.title,
@@ -5729,12 +6067,15 @@ function SetupGuideRow({
               >
                 Quick actions
               </span>
-              <ChevronRight
-                size={13}
-                aria-hidden="true"
-                className={cn("shrink-0 opacity-70", v.icon)}
-              />
+              <span {...fadeProps(collapsed)} className="flex shrink-0">
+                <ChevronRight
+                  size={13}
+                  aria-hidden="true"
+                  className={cn("shrink-0 opacity-70", v.icon)}
+                />
+              </span>
             </button>
+            </RailTooltip>
           </>
         ) : null}
       </div>

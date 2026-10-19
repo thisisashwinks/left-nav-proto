@@ -192,7 +192,7 @@ export const TUNING_KNOBS: TuningKnob[] = [
 
   { id: "navCollapseFade", cssVar: "--t-nav-collapse-fade", label: "1 · Labels leave", group: "Motion", min: 0, max: 800, step: 10, unit: "ms", hint: "Design: 300 · the labels fade WHILE the column narrows, not before it." },
   { id: "navCollapseSize", cssVar: "--t-nav-collapse-size", label: "2 · The whole gesture", group: "Motion", min: 60, max: 1200, step: 10, unit: "ms", hint: "Design: 700 · column, rail and canvas — they all move on this one." },
-  { id: "navCollapseSettle", cssVar: "--t-nav-collapse-settle", label: "3 · Strip hands over", group: "Motion", min: 0, max: 800, step: 10, unit: "ms", hint: "Design: 300 · the collapsed strip fading out under the expanded face." },
+  { id: "navCollapseSettle", cssVar: "--t-nav-collapse-settle", label: "3 · Labels arrive", group: "Motion", min: 0, max: 800, step: 10, unit: "ms", hint: "Design: 300 · expanding, the labels fade back in over this long, timed to finish as the column lands. Also when the bar's own marks arrive collapsing." },
 
   { id: "dockIconSize", cssVar: "--t-dock-icon", label: "Icon size", group: "Favourites dock", min: 12, max: 24, step: 1, unit: "px", hint: "Design: 16" },
   { id: "dockLabelSize", cssVar: "--t-dock-label", label: "Caption size", group: "Favourites dock", min: 6, max: 12, step: 0.5, unit: "px", hint: "“Under the icon” only" },

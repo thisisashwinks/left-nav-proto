@@ -61,7 +61,19 @@ export const TOAST_TOP = 32;
 export function useNavRight(): number {
   const [right, setRight] = React.useState(0);
   React.useEffect(() => {
-    const nav = document.querySelector('nav[aria-label="Main"]');
+    /*
+      The column, not the face inside it.
+
+      The face keeps its full width inside a clip while the column narrows
+      past it — that is what lets it become the collapsed bar without
+      reflowing (see nav-collapse.tsx) — so its own box never narrows, and a
+      message hung off it stood a full nav-width out from a 64px bar. The
+      column (`data-nav-root`) is the box that actually moves. The face is the
+      fallback for the legacy nav, which has no column of its own.
+    */
+    const nav =
+      document.querySelector("[data-nav-root]") ??
+      document.querySelector('nav[aria-label="Main"]');
     if (!nav) return;
     const read = () => setRight(nav.getBoundingClientRect().right);
     read();

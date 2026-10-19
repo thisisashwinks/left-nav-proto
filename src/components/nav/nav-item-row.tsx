@@ -23,7 +23,8 @@ import { useTheme } from "@/components/theme/theme-provider";
 import type { RowMenuAction } from "./row-menu";
 import type { NavItem } from "./types";
 import { HereBar, useHereStyle, type Marking } from "./here";
-import { NewDot, NewDotIcon, useCarriesNew } from "./new-flag";
+import { NewDot, NewDotIcon, useCarriesNew, useNewDotShown } from "./new-flag";
+import { fadeProps, useNavCollapse } from "./nav-collapse";
 
 /**
  * What editing this row offers. Absent when the role has no permission to rename
@@ -176,6 +177,15 @@ interface NavItemRowProps {
    * neither. Null unless the selected-state axis is on — see SELECTED_STATES.
    */
   marking?: Marking;
+  /**
+   * What this row is in the collapsed bar: a tile (the default for a top-level
+   * row) or nothing — it leaves with the labels and keeps its space.
+   *
+   * A prop rather than a wrapper the caller adds, because the answer must not
+   * change the element tree: a row wrapped only while collapsed would remount
+   * on every toggle, which is the swap this whole arrangement removes.
+   */
+  bar?: "tile" | "fade";
 }
 
 /**
@@ -207,9 +217,18 @@ export function NavItemRow({
   edit,
   locked = false,
   marking = null,
+  bar = "tile",
 }: NavItemRowProps) {
   const compact = item.density === "compact";
   const mark = useHereStyle(marking);
+  /*
+   * Collapsed, this row is the bar's tile — see nav-collapse.tsx. Only the
+   * read-only rendering ever is: the bar's Edit expands before it edits, so
+   * an editable row is never on screen at 64px.
+   */
+  const { collapsed } = useNavCollapse();
+  const newDotShown = useNewDotShown();
+  const deep = bar === "fade" || (item.depth ?? 0) > 0 || item.child === true;
 
   /*
    * Tree rows inset the ROW; every other arrangement insets the row's contents.
@@ -366,8 +385,10 @@ export function NavItemRow({
   const labelRefuses = labelTip !== null && labelTip === edit?.renameBlocked;
   const { ref: labelRef, hostRef: rowHostRef } = useTruncationTitle<HTMLSpanElement>(
     item.label,
-    // Stands down while the rename tip is up — see the hook's `enabled`.
-    labelTip === null,
+    // Stands down while the rename tip is up — see the hook's `enabled` — and
+    // while collapsed, where the tile's label is cut to nothing on purpose and
+    // the bar's own tooltip already names it.
+    labelTip === null && !collapsed,
   );
   /*
     Whether something New is behind this row's door.
@@ -384,9 +405,17 @@ export function NavItemRow({
     is untouched unless the dot is actually on the icon.
   */
   const icon = (
-    <NewDotIcon on={dotted}>
-      <RowIcon item={item} active={active} dimmed={off} glyph={mark.glyph} />
-    </NewDotIcon>
+    <span data-nav-glyph="" className="contents">
+      <NewDotIcon on={dotted}>
+        {/* No selected-glyph growth in the bar — the strip never enlarged one. */}
+      <RowIcon
+        item={item}
+        active={active}
+        dimmed={off}
+        glyph={collapsed ? undefined : mark.glyph}
+      />
+      </NewDotIcon>
+    </span>
   );
 
   const label = (
@@ -579,13 +608,56 @@ export function NavItemRow({
           marking || item.rails ? "relative block w-full" : "contents",
         )}
       >
+      {/*
+        The rails and the here-bar leave with the labels. Wrapped in a box of
+        the wrapper's own size rather than faded where they stand, because
+        each draws itself absolutely and a fade needs an element to sit on.
+      */}
       {item.rails ? (
-        <RowRails rails={item.rails} wide={item.railsWide === true} />
+        <span
+          {...fadeProps(collapsed)}
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+        >
+          <RowRails rails={item.rails} wide={item.railsWide === true} />
+        </span>
       ) : null}
-      {mark.bar ? <HereBar marking={marking} /> : null}
+      {mark.bar ? (
+        <span
+          {...fadeProps(collapsed)}
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+        >
+          <HereBar marking={marking} />
+        </span>
+      ) : null}
+      {/*
+        The strip's tooltip, which is the label this tile no longer shows.
+        Mounted at both widths and switched by `show`, so collapsing never
+        remounts the row — the whole point is that it is the same element.
+      */}
+      <RailTooltip label={item.label} show={collapsed}>
       <button
         ref={rowHostRef}
         type="button"
+        /*
+          A row below another row has no tile in the bar — the strip only
+          ever drew L1 — so it leaves whole, glyph and all, and keeps its
+          space. Everything at the top level becomes a tile.
+        */
+        {...(deep ? fadeProps(collapsed) : { "data-nav-tile": "" })}
+        /*
+          A tile's spoken name, which the strip gave it: the label alone, and
+          "new inside" when the dot is up — the visible label is still in the
+          tree collapsed, but the count and the dot's own text would read
+          into it.
+        */
+        {...(collapsed
+          ? {
+              "aria-label":
+                newDotShown && dotted ? `${item.label}, new inside` : item.label,
+            }
+          : {})}
         aria-current={active ? "page" : undefined}
         onClick={onSelect}
         onPointerEnter={onHover}
@@ -603,7 +675,12 @@ export function NavItemRow({
             already on has nowhere to go, and lightening it under the pointer
             reads as leaving the page rather than as feedback.
           */
-          mark.row
+          /*
+            Collapsed, the strip's two states and no third: a tile is lit or
+            it is not. The here-fill is the open face's way of saying which
+            row is the page, and the strip never said it.
+          */
+          mark.row && !collapsed
             ? mark.row
             : active
               ? "bg-nav-hover"
@@ -615,7 +692,20 @@ export function NavItemRow({
         )}
       >
         {icon}
-        {labelled}
+        {/*
+          The label's run, faded as one. The box takes the label's own share
+          of the row — the full width where the label was `flex-1`, its text
+          where it was not — so the trailing run lands exactly where it did.
+        */}
+        <span
+          {...fadeProps(collapsed)}
+          className={cn(
+            "flex min-w-0 items-center",
+            (item.hasFlyout || item.expandable) && "flex-1",
+          )}
+        >
+          {labelled}
+        </span>
         {/*
           The trailing run gets its own gap — see `navRowTrailGap`.
 
@@ -625,12 +715,16 @@ export function NavItemRow({
           loosened the controls with it. Ashwin asked for the two to move
           independently on Oct 6.
         */}
-        <span className="flex shrink-0 items-center gap-[var(--t-nav-trail-gap,6px)]">
+        <span
+          {...fadeProps(collapsed)}
+          className="flex shrink-0 items-center gap-[var(--t-nav-trail-gap,6px)]"
+        >
           {count}
           {pinSlot}
           {chevron}
         </span>
       </button>
+      </RailTooltip>
       </span>
     );
   }

@@ -209,11 +209,6 @@ export interface NavConfig {
    */
   fixed: NavEntry[];
   /**
-   * The same cluster for the 64px rail, which has no room for a section label or
-   * three recent rows — Recent collapses back to one icon that opens the panel.
-   */
-  railFixed: NavItem[];
-  /**
    * The scrolling middle — the product groups and any custom links — is derived
    * from the active grouping mode rather than authored here. See nav-entries.ts.
    */

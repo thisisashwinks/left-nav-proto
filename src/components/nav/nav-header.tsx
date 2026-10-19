@@ -3,6 +3,9 @@
 import type * as React from "react";
 import type { Account } from "@/components/accounts/accounts-data";
 import { AccountLogo } from "@/components/accounts/account-logo";
+import { initialsFor } from "@/components/accounts/account-rail";
+import { fadeProps, onlyProps, useNavCollapse } from "./nav-collapse";
+import { COLLAPSE_LOCKED_HINT } from "./collapse-toggle";
 import { AGENCY_WORDMARK_SRC } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
@@ -65,6 +68,15 @@ interface NavHeaderProps {
    * either. See COLLAPSE_SPOTS.
    */
   collapseSlot?: React.ReactNode;
+  /**
+   * Whether the collapsed bar shows the account's mark — on this row's
+   * midline, where it only ever slides left. The drawer toggle drops below it
+   * into the Launchpad card's space, or sits on it as its hover state when
+   * there is no card. See useNavSlides.
+   */
+  barMark?: boolean;
+  /** Edit mode: the disc refuses to collapse. See COLLAPSE_LOCKED_HINT. */
+  collapseDisabled?: boolean;
 }
 
 /**
@@ -90,7 +102,10 @@ export function NavHeader({
   agencyMark = null,
   onSwitchToAgency,
   collapseSlot = null,
+  barMark = false,
+  collapseDisabled = false,
 }: NavHeaderProps) {
+  const { collapsed } = useNavCollapse();
   // Read here rather than threaded through LeftNav: these are properties of
   // the PLATE, and nothing between the shell and this row has another reason
   // to know which sample brand is on or how it is aligned.
@@ -100,11 +115,31 @@ export function NavHeader({
     agencyPlateSize,
     agencyPlateName,
     navIdentityAlign,
+    railAvatars,
   } = useTheme().effective;
   const agencyWordmarkSrc = AGENCY_WORDMARK_SRC[agencyWordmark];
   // A config `logoSrc` pins the header to one asset for a demo, so it outranks
   // the account's own pair — the wide logo included.
   const wordmark = logoSrc ? undefined : account.wordmarkSrc;
+  /*
+   * Whether this row already draws the disc the bar can keep.
+   *
+   * Every split header does — the disc is its own collapse button there — and
+   * the static header does when there is no wide logo standing in for it. A
+   * header without one (a wordmark, the mark inside the chip, or no mark at
+   * all) has nothing to slide, so the bar's mark is drawn fresh and fades in.
+   */
+  const disc = mark && onToggleCollapsed !== undefined && (canSwitch || !wordmark);
+  const freshMark = barMark && !disc;
+  /*
+   * The bar's mark, as the strip drew it: the account's avatar under the
+   * rail's avatar axis — initials where the axis lettering tiles — and the
+   * agency's own mark, never lettered, at agency scope. See RAIL_AVATARS.
+   */
+  const barAvatar =
+    agency || railAvatars === "marks"
+      ? {}
+      : { initials: initialsFor(account.name), tint: railAvatars === "tinted" };
   // 9 + 30 + 9 = 48: the identity row centres on the app header's own
   // midline (48px tall, content at 24), so mark, name, collapse, breadcrumb
   // and header icons all sit on ONE line across the top of the screen.
@@ -119,7 +154,34 @@ export function NavHeader({
         when the slider moves, rather than the header staying put while the
         list slides out from under it.
       */
-      className="flex w-full shrink-0 flex-col items-start gap-[10px] pt-[9px] pb-[9px] px-[calc(var(--t-nav-pad,10px)+2px)]">
+      // Read by useNavSlides: whether the bar's head starts with a mark.
+      {...(barMark ? { "data-bar-mark": "" } : {})}
+      // Raised over the list when collapsed — see motion.css.
+      data-nav-header=""
+      className="relative flex w-full shrink-0 flex-col items-start gap-[10px] pt-[9px] pb-[9px] px-[calc(var(--t-nav-pad,10px)+2px)]">
+      {/*
+        The bar's own mark, where the open header has no disc to give it.
+        Already standing where it lands — centred on the bar, above the
+        toggle — so it only fades in. Inert: a picture of the account, with
+        its name on hover, as the strip's mark was.
+      */}
+      {freshMark ? (
+        <span
+          {...onlyProps(collapsed)}
+          data-bar-avatar=""
+          title={account.name}
+          // On the header midline, always: the avatar only ever moves left.
+          className="absolute top-[14px] left-[22px] flex size-[20px] items-center justify-center"
+        >
+          <AccountLogo
+            logo={account.logo}
+            src={logoSrc ?? account.logoSrc}
+            {...barAvatar}
+            size={20}
+            radius={999}
+          />
+        </span>
+      ) : null}
       {/*
         The agency, above the account — the rail's own order, kept.
 
@@ -142,6 +204,7 @@ export function NavHeader({
       {agencyPlate ? (
         <div className="relative -mb-[4px] flex w-full items-center gap-[6px]">
           <div
+            {...fadeProps(collapsed)}
             className={cn(
               "flex min-w-0 flex-1",
               /*
@@ -267,7 +330,24 @@ export function NavHeader({
           ) : null}
         </div>
       ) : null}
-      <div className="relative flex w-full items-center gap-[6px]">
+      <div
+        className={cn(
+          "relative flex w-full items-center gap-[6px]",
+          /*
+            On the rows' text line. Ashwin, Oct 19.
+
+            The header is inset by the gutter + 2 (12); a row's label starts at
+            the gutter plus the row's own padding (18), so the account's name
+            stood 6px left of RECENTS and every label under it. The difference
+            goes in here, stated as the two knobs so it holds when either
+            moves — and it puts a logo disc, when there is one, on the rows'
+            glyph column too. Not when centred: an inset on one side would
+            pull the centre off by half of it.
+          */
+          navIdentityAlign !== "center" &&
+            "pl-[calc(var(--t-nav-px,8px)-2px)]",
+        )}
+      >
         <div
           className={cn(
             "flex min-w-0 flex-1 items-center",
@@ -295,6 +375,8 @@ export function NavHeader({
               mark={mark}
               markAccount={agencyMark}
               spread={navIdentityAlign === "between"}
+              barMark={barMark ? "slide" : "fade"}
+              collapseDisabled={collapseDisabled}
               {...(onToggleCollapsed ? { onToggleCollapsed } : {})}
             />
           ) : (
@@ -313,9 +395,11 @@ export function NavHeader({
                   */
                   <button
                     type="button"
+                    {...fadeProps(collapsed)}
                     aria-label="Collapse navigation"
-                    title={logoAlt}
-                    onClick={onToggleCollapsed}
+                    aria-disabled={collapseDisabled || undefined}
+                    title={collapseDisabled ? COLLAPSE_LOCKED_HINT : logoAlt}
+                    onClick={collapseDisabled ? undefined : onToggleCollapsed}
                     className="motion-tap -mx-[4px] flex min-w-0 items-center rounded-[7px] px-[4px] py-[2px] hover:bg-nav-hover active:scale-[0.98]"
                   >
                     {/*
@@ -339,10 +423,23 @@ export function NavHeader({
                 <>
                   <button
                     type="button"
+                    {...(barMark
+                      ? {
+                          "data-nav-slide": "mark",
+                          "data-bar-avatar": "",
+                          ...(collapsed ? { inert: true } : {}),
+                        }
+                      : fadeProps(collapsed))}
                     aria-label="Collapse navigation"
-                    title="Collapse navigation"
-                    onClick={onToggleCollapsed}
-                    className="motion-tap -m-[3px] flex shrink-0 items-center justify-center rounded-full p-[3px] hover:bg-nav-hover active:scale-95"
+                    aria-disabled={collapseDisabled || undefined}
+                    title={collapseDisabled ? COLLAPSE_LOCKED_HINT : "Collapse navigation"}
+                    onClick={collapseDisabled ? undefined : onToggleCollapsed}
+                    className={cn(
+                      "motion-tap -m-[3px] flex shrink-0 items-center justify-center rounded-full p-[3px]",
+                      collapseDisabled
+                        ? "cursor-not-allowed"
+                        : "hover:bg-nav-hover active:scale-95",
+                    )}
                   >
                     <AccountLogo
                       logo={account.logo}
@@ -351,21 +448,25 @@ export function NavHeader({
                       radius={999}
                     />
                   </button>
+                  <span {...fadeProps(collapsed)} className="flex min-w-0">
+                    <BrandMark
+                      account={account}
+                      logoSrc={logoSrc}
+                      alt={logoAlt}
+                      withMark={false}
+                    />
+                  </span>
+                </>
+                )
+              ) : (
+                <span {...fadeProps(collapsed)} className="flex min-w-0">
                   <BrandMark
                     account={account}
                     logoSrc={logoSrc}
                     alt={logoAlt}
-                    withMark={false}
+                    withMark={mark}
                   />
-                </>
-                )
-              ) : (
-                <BrandMark
-                  account={account}
-                  logoSrc={logoSrc}
-                  alt={logoAlt}
-                  withMark={mark}
-                />
+                </span>
               )}
             </span>
           )}
