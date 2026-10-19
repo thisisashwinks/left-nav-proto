@@ -26,7 +26,6 @@ import { useNavLayout } from "./nav-layout-provider";
 import { PIN_CAP_HINT, usePinnedInk } from "./pin-button";
 import { usePinFeedback, usePinLanded } from "./pin-feedback";
 import { RailTooltip } from "./rail-tooltip";
-import { useHereStyle } from "./here";
 import {
   fadeProps,
   onlyProps,
@@ -1000,20 +999,17 @@ function MergedItemRow({
   const landed = usePinLanded(row.id);
   const combo = shortcuts.comboFor(row.id);
   /*
-   * Collapsed, the row is the strip's recent tile: lit when its page is the
-   * one selected, and fading any open preview on hover — see nav-collapse.tsx.
-   * Open, it is exactly what it was: a shortcut with no selected state.
+   * Collapsed, the row is the strip's recent tile, fading any open preview on
+   * hover — see nav-collapse.tsx. Never lit, at either width: a recent is a
+   * shortcut to a page, not the page, and the category that holds the page
+   * is what says where you are. Ashwin, Oct 19.
    */
-  const { collapsed, selectedId, onHoverPlain } = useNavCollapse();
-  const lit = collapsed && selectedId === row.id;
-  // Lit, the open face's selected treatment — see NavItemRow's `litMark`.
-  const litMark = useHereStyle(lit ? "here" : null);
+  const { collapsed, onHoverPlain } = useNavCollapse();
   return (
     <RailTooltip label={row.label} show={collapsed}>
     <div
       data-pin-row=""
       data-nav-tile=""
-      {...(lit ? { "data-nav-lit": "" } : {})}
       {...(collapsed && onHoverPlain ? { onPointerEnter: onHoverPlain } : {})}
       // `group/row` rather than a bare group: PinButton's hover variant names
       // this row specifically, and an unnamed group would also match any
@@ -1046,7 +1042,6 @@ function MergedItemRow({
         pinEdit?.drag.dragging
           ? "opacity-40"
           : "hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]",
-        lit && litMark.row,
         landed,
       )}
       /* What the grip hands to `setRowDragImage`. */
@@ -1085,7 +1080,6 @@ function MergedItemRow({
         type="button"
         onClick={onSelect}
         {...(collapsed ? { "aria-label": row.label } : {})}
-        {...(lit ? { "aria-current": "page" as const } : {})}
         className="flex min-w-0 flex-1 items-center gap-[var(--t-nav-gap,10px)] text-left"
       >
         <span data-nav-glyph="" className="contents">
@@ -1129,10 +1123,10 @@ function MergedItemRow({
                 {...(row.badge && !collapsed ? { badge: row.badge } : {})}
                 size={16}
                 sizeVar="--t-nav-icon"
-                // The strip's ink: muted at rest, full when lit or hovered.
+                // The strip's ink: muted at rest, full on hover.
                 className={cn(
                   "text-nav-fg-muted",
-                  collapsed && (lit ? "text-nav-fg" : "group-hover/row:text-nav-fg"),
+                  collapsed && "group-hover/row:text-nav-fg",
                 )}
               />
             )

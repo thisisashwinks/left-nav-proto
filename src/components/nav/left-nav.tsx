@@ -3832,7 +3832,9 @@ export function LeftNav({
                 with no answer to "where am I" whenever the page was a level
                 down. Same rule as open, so the two widths never disagree.
               */
-              bar.active || markFor(isHere, isTrail, "l1") !== null
+              // A recent is never lit — a shortcut, not the page. Ashwin, Oct 19.
+              !item.recent &&
+              (bar.active || markFor(isHere, isTrail, "l1") !== null)
             : item.hasFlyout === true && !emptyBucket
               ? flyoutId === openFlyoutId || flyoutId === pinnedFlyoutId
               : item.id === selectedId
