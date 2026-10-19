@@ -313,20 +313,54 @@ export function useAccounts({
         setFirstOpen(target);
       }
 
+      /*
+       * What you are leaving — the PENDING account if one is still loading,
+       * otherwise the one you are in. Ashwin, Oct 19.
+       *
+       * `begin` cancels the previous timer, so a switch you click away from
+       * never commits and never ran this. The account you abandoned was
+       * therefore never recorded, and the winning switch recorded the one
+       * you were in BEFORE it, which is a visit that happened one hop
+       * further back than the rail claimed.
+       *
+       * On screen that was the swap Ashwin reported: click A, click Y while
+       * A is still loading, and A drops back to wherever the catalogue put
+       * it while Y takes the top — the two of them trading places instead of
+       * stacking. A had been the active account for as long as it took to
+       * change your mind, which is a visit; it belongs directly under Y.
+       */
+      const leavingId =
+        pending?.scope === "account" ? pending.account.id : currentId;
+
+      /*
+       * Recorded on the CLICK, not on the commit.
+       *
+       * Reading the pending id is not enough on its own: with the write
+       * still in the commit, a chain of A then Y records only A and loses
+       * the account that was live before A, because the only commit that
+       * ever runs is the last one. Writing as each hop STARTS records every
+       * hop exactly once, however fast they arrive — A then Y leaves
+       * [A, P], which is the order they were actually visited in.
+       *
+       * It also matches what the rail already does: `liveAccountId` reads
+       * `pending` too, so the active mark moves on click. The history now
+       * moves with it instead of a latency behind it, and the whole
+       * reordering plays as one animation rather than two.
+       */
+      if (id !== leavingId) {
+        setRecentIds((ids) =>
+          [
+            leavingId,
+            ...ids.filter((i) => i !== leavingId && i !== id),
+          ].slice(0, RECENT_LIMIT),
+        );
+      }
+
       begin(
         { scope: "account", account: target, duration: latencyFor(id) },
         () => {
           setScope("account");
-          setCurrentId((previousId) => {
-            if (id === previousId) return previousId;
-            // The account being left becomes the newest recent, which is what
-            // makes switching back and forth a two-click round trip.
-            setRecentIds((ids) =>
-              [
-                previousId,
-                ...ids.filter((i) => i !== previousId && i !== id),
-              ].slice(0, RECENT_LIMIT),
-            );
+          if (id !== leavingId) {
             /*
              * On `auto`, the account you just opened joins the rail.
              *
@@ -351,8 +385,8 @@ export function useAccounts({
                 return next;
               });
             }
-            return id;
-          });
+          }
+          setCurrentId(id);
         },
       );
     },
@@ -364,7 +398,16 @@ export function useAccounts({
      * changes — so the instance the click reached already holds the pins as
      * they were when it was clicked, which is the only moment that matters.
      */
-    [begin, branded, currentId, scope, railRecents, pinnedIds, openedIds],
+    [
+      begin,
+      branded,
+      currentId,
+      pending,
+      scope,
+      railRecents,
+      pinnedIds,
+      openedIds,
+    ],
   );
 
   const finishFirstOpen = React.useCallback(() => setFirstOpen(null), []);

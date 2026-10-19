@@ -3933,19 +3933,24 @@ export const RAIL_RECENTS_LABELS: Record<RailRecents, string> = {
 export const RAIL_RECENT_LIMIT = 3;
 
 /**
- * How many recents lead the rest, once the rail IS the directory.
+ * How many rows the SHUT strip carries below the pinned run.
  *
- * Separate from RAIL_RECENT_LIMIT above, which sizes a run that stands on its
- * own under a hairline — a glance, and three is as much as a glance holds.
- * This one orders a list of forty: the recents are not a section here, they
- * are the top of the only list there is, so the figure answers "how far down
- * before history stops being useful" rather than "how big may a sidebar run
- * get". Five, Ashwin, Oct 19.
+ * It briefly meant "how many recents lead the open list". It does not any
+ * more: the open rail sorts its whole remainder by recency, so there is no
+ * leading group there to size — the recents simply ARE the order. What is
+ * left is the 56px strip, which cannot carry forty marks and has to stop
+ * somewhere.
  *
- * Same number in both places would be a coincidence rather than a rule, and
- * the next person to retune one would silently retune the other.
+ * Five, and five COUNTING THE GUEST. The account you are in is the most
+ * recent thing there is, so when it is unpinned and sitting in the strip it
+ * is occupying one of these five rather than arriving on top of them — which
+ * is why the strip used to show six. Ashwin, Oct 19.
+ *
+ * Separate from RAIL_RECENT_LIMIT, which sizes the standalone run under a
+ * hairline: that is a glance and three is as much as a glance holds. Same
+ * number in both places would be a coincidence rather than a rule.
  */
-export const RAIL_INLINE_RECENT_LIMIT = 5;
+export const RAIL_SHUT_RECENT_LIMIT = 5;
 
 /**
  * What clicking a row that has children does.
@@ -5310,8 +5315,8 @@ export const RAIL_GUEST_SPOT_LABELS: Record<RailGuestSpot, string> = {
 /**
  * Whether the SHUT strip carries the recents too, under the pinned run.
  *
- * Open, the rail lists everything, recents first — see
- * RAIL_INLINE_RECENT_LIMIT. Shut, it has only ever drawn the pinned run,
+ * Open, the rail lists everything in visit order. Shut, it has only ever
+ * drawn the pinned run — see RAIL_SHUT_RECENT_LIMIT for what `on` adds,
  * on the argument that 56px of marks with no names is a thing you read by
  * POSITION, and a position only means something if it holds still. Pins
  * hold still because you put them there. Recents reorder themselves every

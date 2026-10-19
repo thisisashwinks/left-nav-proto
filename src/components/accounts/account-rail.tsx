@@ -55,7 +55,7 @@ import {
 import {
   DIRECTORY_NAME_LABELS,
   RAIL_RECENT_LIMIT,
-  RAIL_INLINE_RECENT_LIMIT,
+  RAIL_SHUT_RECENT_LIMIT,
   SELECT_LABEL_LABELS,
   DIRECTORY_NAME_ICONS,
 } from "@/design/theme";
@@ -2416,13 +2416,20 @@ export function AccountRail({
    * one surface that was supposed to have solved it by listing everything:
    * listing everything is not the same as making anything findable.
    *
-   * So the remainder is ordered rather than filtered — the top
-   * RAIL_INLINE_RECENT_LIMIT by recency lead, then the rest in catalogue
-   * order. Three runs by content, ONE run by appearance: no heading, no
-   * rule, no gap. The order is doing the work silently, which is the whole
-   * point — a reader who never notices it still finds Coastal near the top,
-   * and a reader scanning alphabetically is not stopped by a section header
-   * explaining why the list restarts.
+   * So the remainder is ordered rather than filtered, and ALL of it by
+   * recency — not a leading five and then catalogue order, which is what
+   * this did first. A cut at five was the worst of both: it ordered the part
+   * you could already see and abandoned the part you were scrolling to find,
+   * so the sort appeared to stop working halfway down for no reason the list
+   * could explain. Everything you have visited is in visit order; everything
+   * you have not follows in catalogue order, because an account with no
+   * history has no position recency could give it.
+   *
+   * Two runs by content, ONE run by appearance: no heading, no rule, no gap.
+   * The order does the work silently, which is the whole point — a reader
+   * who never notices it still finds Coastal near the top, and a reader
+   * scanning alphabetically is not stopped by a section header explaining
+   * why the list restarts.
    *
    * `pinnedRun` already holds the guest and the raised account, so neither
    * can appear here as well; `session.recentIds` already excludes the
@@ -2434,9 +2441,9 @@ export function AccountRail({
       !pinnedRun.some((p) => p.id === a.id) &&
       a.id !== raisedActive?.id,
   );
-  const inlineLed = session.recentIds
-    .filter((id) => inlineRest.some((a) => a.id === id))
-    .slice(0, RAIL_INLINE_RECENT_LIMIT);
+  const inlineLed = session.recentIds.filter((id) =>
+    inlineRest.some((a) => a.id === id),
+  );
   const inlineOrdered = [
     ...inlineLed
       .map((id) => inlineRest.find((a) => a.id === id))
@@ -2447,16 +2454,27 @@ export function AccountRail({
   /*
    * Shut, the second run is empty unless the axis says otherwise.
    *
-   * See RAIL_SHUT_RECENTS. `on` gives the strip the same recents that lead
-   * the open list — the SAME slice, not a second rule — so the mark under
-   * the pins is the row under the pins, and opening the rail does not
-   * reshuffle what you were just looking at.
+   * See RAIL_SHUT_RECENTS. `on` gives the strip the head of the SAME order
+   * the open rail uses, so the mark under the pins is the row under the
+   * pins and opening the rail does not reshuffle what you were just
+   * looking at.
+   *
+   * The guest costs a row, because it IS one. With an unpinned account
+   * active the strip drew it after the pins and then five recents under it,
+   * which is six rows below the pinned run for a limit that says five —
+   * and the extra row was the most recent account of all, listed twice over
+   * in spirit: once as "where you are" and once as the top of the history.
+   * It takes its slot instead. See RAIL_SHUT_RECENT_LIMIT.
    */
+  const shutRecentRoom = Math.max(
+    0,
+    RAIL_SHUT_RECENT_LIMIT - (guest ? 1 : 0),
+  );
   const centredRecents = inlineDirectory
     ? expanded
       ? inlineMatch(inlineOrdered)
       : effective.railShutRecents === "on"
-        ? inlineOrdered.slice(0, RAIL_INLINE_RECENT_LIMIT)
+        ? inlineOrdered.slice(0, shutRecentRoom)
         : []
     : baseRecents;
 

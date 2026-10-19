@@ -432,8 +432,23 @@ export const INITIAL_PINNED_IDS: readonly string[] = [
   "harborview",
 ];
 
-/** How many recents the group shows before the rest fall through to All. */
-export const RECENT_LIMIT = 3;
+/**
+ * How deep the visit history goes. A HISTORY depth, not a display count.
+ *
+ * It was 3, back when the only thing reading it was a three-row recents run
+ * and remembering a fourth would have been remembering something nobody
+ * could see. The open rail now orders its whole remainder by recency (see
+ * `inlineOrdered`), so the history has to be at least as long as the
+ * directory or most of the list has no recency to sort by and silently falls
+ * back to catalogue order — which looked exactly like the sort being broken.
+ *
+ * 64, comfortably past the 40 fixtures. Nothing reads the tail of this list
+ * directly: the surfaces that SHOW recents take their own slice —
+ * RAIL_RECENT_LIMIT for the standalone run, RAIL_SHUT_RECENT_LIMIT for the
+ * 56px strip — so lengthening it changes an ordering, never a row count.
+ * Ashwin, Oct 19.
+ */
+export const RECENT_LIMIT = 64;
 
 /**
  * Up to two initials, skipping anything that isn't a letter or digit so names
