@@ -1086,6 +1086,12 @@
 [data-nav-collapsed] [data-launchpad-card] [data-nav-glyph] {
   color: var(--nav-fg-muted);
 }
+/* The Rocket is the card's door in the bar: full ink under the pointer, and
+   while Launchpad is the page — as every tile is. */
+[data-nav-collapsed] [data-launchpad-card] button[data-nav-glyph]:hover,
+[data-nav-collapsed] [data-launchpad-card] button[data-nav-glyph][aria-current] {
+  color: var(--nav-fg);
+}
 [data-nav-motion] [data-launchpad-card] [data-nav-glyph] {
   transition: color var(--t-nav-collapse-fade) var(--ease-out);
 }

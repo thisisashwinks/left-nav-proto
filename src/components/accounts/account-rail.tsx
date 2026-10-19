@@ -17,6 +17,7 @@ import {
   ScanSearch,
   ListFilter,
   CirclePlus,
+  Plus,
   SearchX,
   Filter,
   Settings,
@@ -2074,17 +2075,15 @@ export function AccountRail({
     createSpot === "header" && railDirectoryMode === "inline";
 
   /*
-   * While a query is running, the row offers to create THAT.
+   * The standing control says one thing, always.
    *
-   * "Create sub-account" under "No accounts match ssdf" is the right
-   * action described in the wrong words: you have just told the rail a
-   * name, and it should offer to use it rather than make you type it again
-   * on the next screen. Quoted, so a name with spaces still reads as one
-   * thing. Ashwin, Oct 16.
+   * It used to rewrite itself to `Create “dfgd”` under a query, which put
+   * the search's own offer in a bar pinned to the floor — a long way from
+   * the matches it was about. The query's offer is its own row at the end
+   * of the results now (see `createSearchRow`), so this one stops changing
+   * under you. Ashwin, Oct 19.
    */
-  const createLabel = fillQuery.trim()
-    ? `Create “${fillQuery.trim()}”`
-    : CREATE_ACCOUNT_LABEL;
+  const createLabel = CREATE_ACCOUNT_LABEL;
 
   /*
    * The agency's row stands down while a query is running.
@@ -2108,6 +2107,28 @@ export function AccountRail({
    * quoted query; see `createLabel`. Ashwin, Oct 16.
    */
   const createStickyShown = createSticky && !railSearching;
+  /*
+   * The query's own offer, at the end of the matches.
+   *
+   * Searching is the one moment the rail knows what the account would be
+   * CALLED, and the only moment the standing control is in the wrong place:
+   * you are reading three results in the top third of a column and the
+   * offer to make a fourth is pinned to the floor four hundred pixels
+   * below. So while a query is running the create affordance moves to the
+   * end of the list, where the answer to "it isn't here" belongs — and it
+   * is there whether the query matched nothing or nine, because "none of
+   * these" is as common a verdict as "no matches" and wants the same exit.
+   * Ashwin, Oct 19.
+   *
+   * Off when the rail offers no create at all: a search should not conjure
+   * a control the agency has switched off everywhere else.
+   */
+  const createSearchRow =
+    railSearching &&
+    expanded &&
+    !fillPicking &&
+    createSpot !== "off" &&
+    railDirectoryMode === "inline";
 
   const agencyInRun =
     agencyJoinsRun &&
@@ -4516,6 +4537,50 @@ export function AccountRail({
                 ) : null}
 
                 {/*
+                  "Create sub-account “dfgd”", with the reason under it.
+
+                  Two lines, where the standing control is one. The second
+                  line is doing a specific job: a quoted string in a nav is
+                  ambiguous between "search for this" and "make this", and
+                  the row sits directly under a list of things the quote
+                  just failed to find. "Start a new sub-account with this
+                  name" settles it before the press rather than on the next
+                  screen.
+
+                  A FILLED mark, which nothing else in this column wears.
+                  Every row above it is a place you can go; this one makes
+                  something, and at the end of a list of outline marks the
+                  solid disc is what says the row is not another account.
+                  See `createSearchRow`.
+                */}
+                {createSearchRow ? (
+                  <button
+                    type="button"
+                    aria-label={`Create sub-account “${fillQuery.trim()}”`}
+                    onClick={createAccount}
+                    onPointerEnter={() => setHover(true)}
+                    style={{
+                      paddingBlock: 7,
+                      paddingInlineStart: 6,
+                      paddingInlineEnd: RAIL_ROW_END_PAD,
+                    }}
+                    className="motion-tap flex w-full shrink-0 items-center gap-[9px] rounded-[8px] text-left hover:bg-nav-hover active:scale-[0.99]"
+                  >
+                    <span className="flex size-[24px] shrink-0 items-center justify-center rounded-full bg-brand text-brand-fg">
+                      <Plus size={15} aria-hidden="true" />
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-[13px] leading-[17px] font-medium text-nav-fg">
+                        Create sub-account “{fillQuery.trim()}”
+                      </span>
+                      <span className="truncate text-[11.5px] leading-[15px] text-nav-fg-subtle">
+                        Start a new sub-account with this name
+                      </span>
+                    </span>
+                  </button>
+                ) : null}
+
+                {/*
                   The last row of the list, and deliberately the last.
 
                   Scrolling past forty accounts to reach it is the cost and
@@ -4550,7 +4615,10 @@ export function AccountRail({
                   the z-index: the account rows carry their own fills on
                   hover and would otherwise paint over the bar's.
                 */}
-                {(createRow || createStickyShown) && !fillPicking && expanded ? (
+                {(createRow || createStickyShown) &&
+                !fillPicking &&
+                !railSearching &&
+                expanded ? (
                   <button
                     type="button"
                     aria-label={createLabel}

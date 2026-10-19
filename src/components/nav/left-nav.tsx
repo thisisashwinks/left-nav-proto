@@ -5888,10 +5888,10 @@ function SetupGuideRow({
   const { launchpadCard, topAlignCard, topAlignCardNudge } = useTheme().effective;
   /*
    * Collapsed, the card stands down to its glyphs — see motion.css. The
-   * Rocket is the strip's inert mark (the card's click target goes with the
-   * labels); Quick Actions is the strip's tile.
+   * Rocket becomes the card's door in the bar (the card's own click target
+   * goes with the labels); Quick Actions is the strip's tile.
    */
-  const { collapsed } = useNavCollapse();
+  const { collapsed, selectedId } = useNavCollapse();
   const v = LAUNCHPAD_STYLE[launchpadCard];
   const plain = launchpadCard === "plain";
   const alignToCanvas = topAlignCard && !plain;
@@ -5948,22 +5948,47 @@ function SetupGuideRow({
             />
             <span className="pointer-events-none flex w-full items-center gap-[8px]">
               {/*
-                The one glyph the bar keeps of the card's first job. Named on
-                hover and nothing else: it was never a door at 64px.
+                The card's door, at 64px. Ashwin, Oct 19.
+
+                The strip drew the Rocket as an inert mark — "the open face has
+                a card here" — on the reasoning that a door needs a label. In
+                the bar it is the one glyph left of the card, and pressing it
+                opens Launchpad exactly as pressing the card does. Open, the
+                card itself is the target, so this is out of reach there
+                (aria-hidden, no tab stop) and only the card's button speaks.
+
+                Its -4px margin cancels its own padding, so the box costs the
+                card's row nothing open and gives the glyph a fill to light in
+                the bar: on hover, and while Launchpad is the page.
               */}
               <RailTooltip label="Launchpad" show={collapsed}>
-                <span
+                <button
+                  type="button"
                   data-nav-glyph=""
                   // Moves down a slot in the bar to make room for the toggle.
                   data-nav-stack=""
+                  onClick={onOpen}
+                  {...(collapsed
+                    ? {
+                        "aria-label": "Open Launchpad",
+                        ...(selectedId === PROPOSED_HOME_ID
+                          ? { "aria-current": "page" as const }
+                          : {}),
+                      }
+                    : { "aria-hidden": true, tabIndex: -1 })}
                   className={cn(
-                    "flex shrink-0",
+                    "-m-[4px] flex shrink-0 rounded-[6px] p-[4px]",
                     v.icon,
-                    collapsed && "pointer-events-auto",
+                    collapsed
+                      ? cn(
+                          "pointer-events-auto motion-tap hover:bg-nav-hover active:scale-95",
+                          selectedId === PROPOSED_HOME_ID && "bg-nav-hover",
+                        )
+                      : "pointer-events-none",
                   )}
                 >
                   <Rocket size={15} aria-hidden="true" style={NAV_GLYPH} />
-                </span>
+                </button>
               </RailTooltip>
               <span
                 {...fadeProps(collapsed)}
