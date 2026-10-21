@@ -3,7 +3,6 @@
 import * as React from "react";
 import { ChevronRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { NAV_WIDTHS } from "@/design/theme";
 import type { DockLabel, DockPosition, SurfaceTheme } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
@@ -310,8 +309,8 @@ export function PinnedMorph({
 }: PinnedMorphProps) {
   const visible = items.slice(0, PINNED_VISIBLE);
   // Favourites plus the permanent grid chip.
-  // The column's width is an axis. See NAV_WIDTH_SETS.
-  const expandedWidth = NAV_WIDTHS[useTheme().effective.navWidthSet].l1;
+  // The column's width is an axis — the slider's number. See NAV_WIDTH_MIN.
+  const expandedWidth = useTheme().effective.navWidthL1;
   const g = expandedGeometry(expandedWidth);
   const navWidth = expandedWidth;
 

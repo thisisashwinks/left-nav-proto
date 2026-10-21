@@ -4053,11 +4053,37 @@ export function AccountRail({
                         <Check size={12} strokeWidth={3} aria-hidden="true" />
                       ) : null}
                     </button>
-                    <span className="min-w-0 flex-1 truncate text-[12.5px] leading-[16px] font-medium text-nav-fg">
-                      {fillSelected.length > 0
-                        ? `${fillSelected.length} selected`
-                        : MANAGE_ACCOUNTS_LABEL}
-                    </span>
+                    {/*
+                      The bar's own words: what the mode IS until you are in
+                      it, then what to do next. Ashwin, Oct 21.
+
+                      It used to count — "3 selected" — which told you a
+                      thing the ticks on screen were already telling you, and
+                      spent the one line of text in the bar saying it. The
+                      moment anything is ticked the useful sentence is not
+                      how many you have, it is that you can have all of them:
+                      the common errand here is every sub-account, and the
+                      checkbox beside this is the only way to say so.
+
+                      A button, not a label, because the words name an
+                      action. "Select all" that does nothing when you press
+                      it is worse than a count — it is a count that lies. It
+                      drives the same `toggleInlineAll` the box does, so
+                      pressing either reads as pressing the control.
+                    */}
+                    {fillSelected.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={toggleInlineAll}
+                        className="motion-tap -mx-[4px] min-w-0 flex-1 truncate rounded-[6px] px-[4px] text-left text-[12.5px] leading-[16px] font-medium text-nav-fg hover:bg-nav-hover"
+                      >
+                        Select all
+                      </button>
+                    ) : (
+                      <span className="min-w-0 flex-1 truncate text-[12.5px] leading-[16px] font-medium text-nav-fg">
+                        {MANAGE_ACCOUNTS_LABEL}
+                      </span>
+                    )}
                     {fillBulkAllowed && fillSelected.length > 0 ? (
                       <button
                         type="button"

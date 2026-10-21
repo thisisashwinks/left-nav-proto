@@ -440,7 +440,8 @@ export function LeftNav({
     navRowRing,
     navRowShadow,
     navSelectedFill,
-    navWidthSet,
+    navWidthL1,
+    navWidthL2,
     editWidthFull,
     templatePropagation,
     templatePushNotice,
@@ -920,7 +921,12 @@ export function LeftNav({
    * inherits nothing from the plane. Same resolver the shell uses, so edit
    * mode widens both or neither. See EDIT_WIDTH_FULL_DEFAULT.
    */
-  const drawerWidths = navWidthsFor(navWidthSet, editing, editWidthFull);
+  const drawerWidths = navWidthsFor(
+    navWidthL1,
+    navWidthL2,
+    editing,
+    editWidthFull,
+  );
   /**
    * Whether this face is drawing the catalogue as a tree rather than as doors.
    *

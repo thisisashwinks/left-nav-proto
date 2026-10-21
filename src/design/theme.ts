@@ -1897,6 +1897,24 @@ export const NAV_WIDTHS: Record<NavWidthSet, { l1: number; l2: number }> = {
 };
 
 /**
+ * The ends of the two sliders, and where they start.
+ *
+ * The presets above are three points inside this range, not the range itself:
+ * Ashwin asked on Oct 21 to try widths between and outside them before
+ * settling on a number, which a three-way switch cannot do. 200 is where an
+ * L1 row stops holding "Creators Hub" beside a glyph and a chevron; 480 is
+ * past any nav in the category and far enough that the canvas visibly pays
+ * for it, which is the thing worth seeing at the top of the range.
+ *
+ * The defaults are the `even` pair, which is what the prototype has been
+ * showing since Oct 6 — so the sliders open where the nav already was.
+ */
+export const NAV_WIDTH_MIN = 200;
+export const NAV_WIDTH_MAX = 480;
+export const NAV_WIDTH_L1_DEFAULT = 264;
+export const NAV_WIDTH_L2_DEFAULT = 264;
+
+/**
  * The pair in force right now, which is not always the one the axis names.
  *
  * Two surfaces resolve this independently — the shell, which positions the
@@ -1906,12 +1924,14 @@ export const NAV_WIDTHS: Record<NavWidthSet, { l1: number; l2: number }> = {
  * is edited.
  */
 export function navWidthsFor(
-  set: NavWidthSet,
+  /** What the sliders say — see NAV_WIDTH_MIN. The presets write these too. */
+  l1: number,
+  l2: number,
   editing: boolean,
   editWidthFull: boolean,
 ): { l1: number; l2: number } {
   /*
-   * Only `narrow` ever borrows the wider pair.
+   * Only the narrow pair ever borrows the wider one.
    *
    * The switch exists because edit mode ADDS to a row — grip, kebab, pin,
    * shortcut cap — and at 240 those four come out of the label just as you
@@ -1919,10 +1939,17 @@ export function navWidthsFor(
    * and Ashwin asked on Oct 6 for `even` to hold its width in edit mode: the
    * point of a column the same width as its panel is lost if entering the one
    * mode that rearranges it springs the column 8px wider and the panel 96.
+   *
+   * Matched against the preset's own numbers rather than against a named set,
+   * now that the widths are two free sliders: the rule is about 240 being too
+   * tight for an edit row, which is a fact about the NUMBER, not about which
+   * button was last pressed. Drag away from 240 and the borrowing stops,
+   * which is the honest reading of it. Ashwin, Oct 21.
    */
-  return NAV_WIDTHS[
-    editing && editWidthFull && set === "narrow" ? "default" : set
-  ];
+  const onNarrow =
+    l1 === NAV_WIDTHS.narrow.l1 && l2 === NAV_WIDTHS.narrow.l2;
+  if (editing && editWidthFull && onNarrow) return NAV_WIDTHS.default;
+  return { l1, l2 };
 }
 
 export const NAV_SELECTED_FILLS = [
@@ -5628,19 +5655,22 @@ export const MANAGE_ACCOUNTS_LABEL = "Manage sub-accounts";
  * understatement, which is the cheaper of the two errors.
  * Ashwin, Oct 16.
  *
- * "Update nav" here, "Apply navigation layout" on the screens it opens, and
- * the mismatch is deliberate twice over.
+ * "Apply layout" — Ashwin, Oct 21.
  *
- * On length: this button sits in a 320px strip beside a count and a Cancel,
- * where the full phrase crowds both. The short form on the way in is a
- * nickname for something the next screen names in full.
+ * It said "Update nav", on the argument that the button UPDATES the accounts
+ * you ticked while the modal APPLIES a layout to them: one run described
+ * from the two ends it is seen from. That reading held up in prose and not
+ * on screen. "Update nav" names the OBJECT and leaves the action vague —
+ * update it to what? — and the thing it names is the one thing the reader
+ * can already see, since they are looking at the nav. The modal, the toast
+ * and the saved-layout screens all say "layout", so the button was the only
+ * surface in the flow still calling it something else.
  *
- * On the verb: the button UPDATES the accounts you ticked; the modal APPLIES
- * a layout to them. Same run, described from the two ends it is seen from —
- * the selection you are acting on, then the thing being handed to it.
- * Ashwin, Oct 16.
+ * Still the short form: it sits in a 320px strip beside a count and a
+ * Cancel, where "Apply navigation layout" crowds both. "Apply layout" is a
+ * nickname for the full phrase rather than a different name for the thing.
  */
-export const BULK_BUTTON_LABEL = "Update nav";
+export const BULK_BUTTON_LABEL = "Apply layout";
 
 export const RAIL_SEARCH_GLYPHS = [
   "text",
@@ -5970,8 +6000,18 @@ export interface ThemeState {
   navRowShadow: boolean;
   /** What colour the selected row is filled with. See NAV_SELECTED_FILLS. */
   navSelectedFill: NavSelectedFill;
-  /** How wide the L1 column and L2 panel are. See NAV_WIDTH_SETS. */
+  /**
+   * Which preset was last pressed. See NAV_WIDTH_SETS.
+   *
+   * No longer what the layout reads — the two sliders below are. It stays so
+   * the preset control can show which of the three you are on, and pressing
+   * one writes both sliders.
+   */
   navWidthSet: NavWidthSet;
+  /** The L1 column's width, in px. See NAV_WIDTH_MIN. */
+  navWidthL1: number;
+  /** The L2 panel's width, in px. See NAV_WIDTH_MIN. */
+  navWidthL2: number;
   /** Whether edit mode borrows the wider pair. See EDIT_WIDTH_FULL_DEFAULT. */
   editWidthFull: boolean;
   /** An All accounts door in the collapsed rail. See RAIL_ACCOUNTS_DOOR_DEFAULT. */
@@ -7122,6 +7162,8 @@ export const DEFAULT_THEME: ThemeState = {
    * is the cost to keep watching.
    */
   navWidthSet: "even",
+  navWidthL1: NAV_WIDTH_L1_DEFAULT,
+  navWidthL2: NAV_WIDTH_L2_DEFAULT,
   editWidthFull: EDIT_WIDTH_FULL_DEFAULT,
   railAccountsDoor: RAIL_ACCOUNTS_DOOR_DEFAULT,
   accountRowMeta: ACCOUNT_ROW_META_DEFAULT,
@@ -7218,7 +7260,23 @@ export const DEFAULT_THEME: ThemeState = {
   railActiveChrome: "paint",
   railActiveSpot: "inPlace",
   railGuestSpot: "tail",
-  railShutRecents: "on",
+  /*
+    The shut strip is the pinned run and nothing else — Ashwin, Oct 21.
+
+    It shipped `on` for a day, which put the five recents under the ten pins
+    at 56px: fifteen marks, ten of which you chose and five of which the
+    session chose for you, told apart by nothing a glance can read. A strip
+    of initials only works if position means something, and the lower third
+    was re-sorting itself every time you switched.
+
+    `off` leaves exactly two kinds of mark in the column: an account you
+    pinned, and the account you are in. The second only appears when it is
+    not already one of the first — see RAIL_GUEST_SPOTS — so the strip is
+    ten tiles, or eleven when you are somewhere you have not kept.
+
+    The axis stays on the dial; the reach it buys is real and one click away.
+  */
+  railShutRecents: "off",
   /*
     The directory IS the rail, rather than a door to one.
 

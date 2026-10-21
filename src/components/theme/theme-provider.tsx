@@ -50,6 +50,7 @@ import {
   type PlaneGround,
   type NavSelectedFill,
   type NavWidthSet,
+  NAV_WIDTHS,
   type DirectoryExit,
   type RailFillMorph,
   type RailFillRest,
@@ -276,6 +277,8 @@ interface ThemeContextValue extends ThemeState {
   setNavRowShadow: (on: boolean) => void;
   setNavSelectedFill: (v: NavSelectedFill) => void;
   setNavWidthSet: (v: NavWidthSet) => void;
+  setNavWidthL1: (px: number) => void;
+  setNavWidthL2: (px: number) => void;
   setEditWidthFull: (on: boolean) => void;
   setRailAccountsDoor: (on: boolean) => void;
   setAccountRowMeta: (on: boolean) => void;
@@ -706,8 +709,24 @@ export function ThemeProvider({
         setState((s) => ({ ...s, navRowShadow })),
       setNavSelectedFill: (navSelectedFill) =>
         setState((s) => ({ ...s, navSelectedFill })),
+      /*
+        The preset writes the two sliders with it.
+
+        The layout reads the numbers now, so a preset that only recorded
+        which button was pressed would be a control that visibly does
+        nothing. Pressing one loads its pair; dragging a slider afterwards
+        leaves the preset showing where you started from, which is the
+        useful reading of it. Ashwin, Oct 21.
+      */
       setNavWidthSet: (navWidthSet) =>
-        setState((s) => ({ ...s, navWidthSet })),
+        setState((s) => ({
+          ...s,
+          navWidthSet,
+          navWidthL1: NAV_WIDTHS[navWidthSet].l1,
+          navWidthL2: NAV_WIDTHS[navWidthSet].l2,
+        })),
+      setNavWidthL1: (navWidthL1) => setState((s) => ({ ...s, navWidthL1 })),
+      setNavWidthL2: (navWidthL2) => setState((s) => ({ ...s, navWidthL2 })),
       setEditWidthFull: (editWidthFull) =>
         setState((s) => ({ ...s, editWidthFull })),
       setRailAccountsDoor: (railAccountsDoor) =>

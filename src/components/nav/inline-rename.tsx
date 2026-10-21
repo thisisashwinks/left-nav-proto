@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LABEL_MAX } from "./nav-layout-provider";
 import { RailTooltip } from "./rail-tooltip";
@@ -121,7 +122,65 @@ export function InlineRename({
     />
   );
 
-  if (!error) return field;
+  /*
+   * Done and Cancel, beside the field — Ashwin, Oct 21.
+   *
+   * Enter and Escape already did both, and that is exactly the problem: a
+   * field with no buttons tells you nothing about how to leave it, so the
+   * only two people who knew were the ones who guessed. Blur-commit made it
+   * worse rather than better — clicking away saves, which is the kind
+   * behaviour and also an invisible one. These say out loud what the row has
+   * always done.
+   *
+   * `onMouseDown` preventDefault is the whole trick and is load-bearing.
+   * The input commits on blur, and a plain button steals focus the instant
+   * it is pressed — so the blur would run first, `done.current` would be
+   * set, and the click that followed would hit a guard and do nothing. The
+   * check would appear to work (blur commits anyway) and the CROSS would
+   * silently save the text it promised to throw away. Holding focus in the
+   * field means the button's own handler is what decides.
+   *
+   * The check is disabled while the name is one the store will refuse, for
+   * the same reason Enter is: a button that looks live and does nothing is
+   * the field appearing to ignore you, which is the bug the validation
+   * message was added to fix.
+   */
+  const buttons = (
+    <span className="flex shrink-0 items-center gap-[2px]">
+      <button
+        type="button"
+        aria-label="Save name"
+        disabled={Boolean(error)}
+        onMouseDown={(e) => e.preventDefault()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          commit();
+        }}
+        className={cn(
+          "motion-tap flex size-[20px] shrink-0 items-center justify-center rounded-[5px]",
+          error
+            ? "cursor-not-allowed text-nav-fg-subtle opacity-40"
+            : "text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg",
+        )}
+      >
+        <Check size={13} strokeWidth={2.5} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        aria-label="Cancel rename"
+        onMouseDown={(e) => e.preventDefault()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          cancel();
+        }}
+        className="motion-tap flex size-[20px] shrink-0 items-center justify-center rounded-[5px] text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
+      >
+        <X size={13} strokeWidth={2.5} aria-hidden="true" />
+      </button>
+    </span>
+  );
 
   /*
    * The reason, under the field, inside the row's own width.
@@ -130,16 +189,23 @@ export function InlineRename({
    * nav down while you type — a list that reflows on every keystroke is a
    * list you cannot aim at. `pointer-events-none` so the message can never
    * eat the click that is trying to fix the name.
+   *
+   * It hangs off the WRAPPER now rather than off the field, so it still
+   * starts at the row's left edge with the buttons sitting to the right of
+   * the input above it.
    */
   return (
-    <span className="relative flex min-w-0 flex-1 items-center">
+    <span className="relative flex min-w-0 flex-1 items-center gap-[3px]">
       {field}
-      <span
-        role="alert"
-        className="pointer-events-none absolute top-full left-0 z-10 mt-[3px] rounded-[4px] bg-pg-danger px-[5px] py-[2px] text-[11px] leading-[15px] font-medium whitespace-nowrap text-white"
-      >
-        {error}
-      </span>
+      {buttons}
+      {error ? (
+        <span
+          role="alert"
+          className="pointer-events-none absolute top-full left-0 z-10 mt-[3px] rounded-[4px] bg-pg-danger px-[5px] py-[2px] text-[11px] leading-[15px] font-medium whitespace-nowrap text-white"
+        >
+          {error}
+        </span>
+      ) : null}
     </span>
   );
 }

@@ -268,6 +268,10 @@ import {
   DIRECTORY_EXIT_LABELS,
   type DirectoryExit,
   NAV_WIDTH_SETS,
+  NAV_WIDTH_MIN,
+  NAV_WIDTH_MAX,
+  NAV_WIDTH_L1_DEFAULT,
+  NAV_WIDTH_L2_DEFAULT,
   NAV_WIDTH_SET_LABELS,
   type NavWidthSet,
   NAV_SELECTED_FILL_LABELS,
@@ -3673,6 +3677,75 @@ function Row({ knob }: { knob: TuningKnob }) {
 }
 
 /**
+ * A theme number you drag.
+ *
+ * The Stepper below is ±1 a press, which is right for a row count and wrong
+ * for a width: finding 320 from 264 is fifty-six presses. The knob rows at
+ * the top of this panel already draw a range input, but those are wired to
+ * the TUNING store rather than to the theme, so this is the same control
+ * reading an axis instead. Ashwin, Oct 21.
+ *
+ * The number is shown in brand ink once it leaves its default, which is how
+ * every other control in here says "you have changed this".
+ */
+function ThemeRange({
+  label,
+  value,
+  min,
+  max,
+  step = 1,
+  unit = "px",
+  base,
+  onChange,
+  keywords,
+  hint,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  unit?: string;
+  /** What this axis ships at, so the readout can say when it has moved. */
+  base?: number;
+  onChange: (next: number) => void;
+  keywords?: string;
+  hint?: string;
+}) {
+  const { hidden, mark } = useFiltered(label, hint, keywords);
+  const changed = base !== undefined && value !== base;
+
+  return (
+    <label {...mark} className={cn("flex-col gap-[4px]", hidden ? "hidden" : "flex")}>
+      <span className="flex items-baseline justify-between gap-2">
+        <span className="text-[11px] leading-none text-pg-muted">{label}</span>
+        <span
+          className={cn(
+            "font-mono text-[11px] leading-none tabular-nums",
+            changed ? "font-semibold text-brand" : "text-pg-text",
+          )}
+        >
+          {value}
+          {unit}
+        </span>
+      </span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="h-[4px] w-full cursor-pointer appearance-none rounded-full bg-pg-border accent-brand"
+      />
+      {hint ? (
+        <span className="text-[10px] leading-[14px] text-pg-faint">{hint}</span>
+      ) : null}
+    </label>
+  );
+}
+
+/**
  * A small integer, set by two buttons rather than a slider.
  *
  * The range knobs elsewhere in this panel are continuous and forgiving — a
@@ -4282,6 +4355,8 @@ export function TuningPanel() {
     navRowShadow,
     navSelectedFill,
     navWidthSet,
+    navWidthL1,
+    navWidthL2,
     editWidthFull,
     railAccountsDoor,
     accountRowMeta,
@@ -4293,6 +4368,8 @@ export function TuningPanel() {
     setNavRowShadow,
     setNavSelectedFill,
     setNavWidthSet,
+    setNavWidthL1,
+    setNavWidthL2,
     setEditWidthFull,
     setRailAccountsDoor,
     setAccountRowMeta,
@@ -6798,6 +6875,33 @@ export function TuningPanel() {
                 ? "32px off the column and 60px off the panel, back to the canvas. 240 is where most product navs land, and 300 still holds a two-line L2 row. The pair moves together: the panel docks on the column's edge, so narrowing one alone changes the proportion rather than the size."
                 : "The two columns at the same width — the panel stops reading as a wider thing the column opened and starts reading as a second column of equal standing. Costs the L2 96px against the default, so its rows truncate sooner: that is the thing to look at. Edit mode holds this width rather than borrowing the wider pair."}
           </Note>
+          <Note>
+            The three above are shortcuts into the two sliders. Press one to
+            land on it, then drag either column anywhere between{" "}
+            {NAV_WIDTH_MIN} and {NAV_WIDTH_MAX} — the preset stays showing
+            where you started from.
+          </Note>
+
+          <ThemeRange
+            label="L1 column width"
+            keywords="sidebar nav width l1 column size px drag slider"
+            value={navWidthL1}
+            min={NAV_WIDTH_MIN}
+            max={NAV_WIDTH_MAX}
+            base={NAV_WIDTH_L1_DEFAULT}
+            onChange={setNavWidthL1}
+            hint="The whole column moves with it: the panel docks on its edge and the canvas takes the difference."
+          />
+          <ThemeRange
+            label="L2 panel width"
+            keywords="flyout panel width l2 size px drag slider"
+            value={navWidthL2}
+            min={NAV_WIDTH_MIN}
+            max={NAV_WIDTH_MAX}
+            base={NAV_WIDTH_L2_DEFAULT}
+            onChange={setNavWidthL2}
+            hint="Where its rows start truncating is the thing to watch — “Email campaigns” and “Social planner” are the long ones."
+          />
 
           <Segmented
             label="Admin actions"

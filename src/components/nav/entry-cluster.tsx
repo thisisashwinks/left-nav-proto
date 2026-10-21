@@ -1096,6 +1096,22 @@ export function EditNavAnchor({ edit }: { edit: EditNavProps }) {
 export interface AiEntryState {
   /** Drop the Ask AI half entirely — the panel is its own pane. */
   hideAsk?: boolean;
+  /**
+   * Keep the Ask AI button, inert — the assistant IS the page.
+   *
+   * Distinct from `hideAsk` on purpose. That one is for the two-pane dock,
+   * where the assistant is a pane beside the page and a button offering to
+   * open it points at the thing next to it; removing it gives the field the
+   * width back and nothing is lost, because the pane is permanent furniture.
+   *
+   * This is for Ask AI reached as a PAGE, from AI ▸ Ask AI. The button is in
+   * the app bar, which is chrome that does not change shape as you navigate —
+   * taking a control out of it for one destination makes the bar flicker as
+   * you move around, and leaves a reader wondering where Ask AI went. So it
+   * stays where it is and stops doing anything, which is the honest state: it
+   * would open a docked copy of the page you are already reading.
+   */
+  askDisabled?: boolean;
   /** Close the panel from the entry, where that is offered. */
   onClose?: () => void;
 }
@@ -1145,7 +1161,17 @@ export function EntryPill({
   // The hook runs unconditionally; only the ANSWER is conditional. Reading it
   // inside the `&&` made it a conditional hook call.
   const { aiButtonStyle, entryRadius, entryPair } = useTheme().effective;
-  const { hideAsk, onClose: onCloseAi } = React.useContext(AiEntryContext);
+  const {
+    hideAsk,
+    askDisabled,
+    onClose: onCloseAi,
+  } = React.useContext(AiEntryContext);
+  /*
+    Only the Ask half can be disabled; the search field never is.
+    `searchEnabled` is what tells the two apart — see the pair above, which
+    renders this same component twice with the flag off for the Ask button.
+  */
+  const askOff = Boolean(askDisabled) && !searchEnabled;
   // Only consulted where the pill is a button — see AI_BUTTON_STYLES.
   const outlined = !searchEnabled && aiButtonStyle === "outline";
 
@@ -1243,6 +1269,8 @@ export function EntryPill({
       <div
         className={cn(
           "ai-entry group/entry motion-tap flex items-center gap-[6px] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]",
+          // Inert and looking it. See `askDisabled`.
+          askOff && "pointer-events-none opacity-45",
           /*
             The shape is an axis, not a constant (Sep 30). See ENTRY_RADII:
             fully rounded says "ask me something", 8px says "this is a field
@@ -1354,13 +1382,27 @@ export function EntryPill({
           else on the pill, label included, is search. One control, but the
           AI entrance is exactly the AI-shaped part of it.
         */}
+        {/*
+          Disabled with the label, and separately from it.
+
+          The pill is ONE control with two buttons in it — this orb and the
+          label beside it — so disabling the label alone left the orb live.
+          The wrapper's `pointer-events-none` hid that from a mouse, which is
+          the worst way for it to be wrong: the click did nothing, so it
+          looked fixed, while the button still took focus and still answered
+          the keyboard. A control that is off has to say so to everyone who
+          can reach it. See `askDisabled`.
+        */}
         <button
           type="button"
-          title="Ask AI"
+          disabled={askOff}
+          aria-disabled={askOff || undefined}
+          title={askOff ? "You're already in Ask AI" : "Ask AI"}
           aria-label="Ask AI"
-          onClick={() => session.launch()}
+          onClick={askOff ? undefined : () => session.launch()}
           className={cn(
-            "motion-tap relative flex shrink-0 items-center justify-center rounded-full hover:scale-105 active:scale-95",
+            "motion-tap relative flex shrink-0 items-center justify-center rounded-full",
+            askOff ? "cursor-not-allowed" : "hover:scale-105 active:scale-95",
             searchEnabled ? "size-[28px]" : "size-[24px]",
           )}
         >
@@ -1383,11 +1425,22 @@ export function EntryPill({
         */}
         <button
           type="button"
-          title={searchEnabled ? "Search" : "Ask AI"}
-          onClick={searchEnabled ? onSearch : () => session.launch()}
+          disabled={askOff}
+          aria-disabled={askOff || undefined}
+          title={
+            askOff
+              ? "You're already in Ask AI"
+              : searchEnabled
+                ? "Search"
+                : "Ask AI"
+          }
+          onClick={
+            askOff ? undefined : searchEnabled ? onSearch : () => session.launch()
+          }
           className={cn(
             "motion-tap flex h-full min-w-0 items-center gap-[8px] text-left",
             searchEnabled ? "flex-1" : "shrink-0",
+            askOff && "cursor-not-allowed",
           )}
         >
           <span

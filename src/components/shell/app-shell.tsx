@@ -616,7 +616,8 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
     navRowShadow,
     navSelectedFill,
     navInk,
-    navWidthSet,
+    navWidthL1,
+    navWidthL2,
     editWidthFull,
     planeGround,
     flyoutShape,
@@ -1547,7 +1548,12 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    * portalled drawer asks the same function, so the two cannot disagree about
    * how wide the nav is while a row is being dragged between them.
    */
-  const widths = navWidthsFor(navWidthSet, layout.editing, editWidthFull);
+  const widths = navWidthsFor(
+    navWidthL1,
+    navWidthL2,
+    layout.editing,
+    editWidthFull,
+  );
   const navWidth = collapsed && !legacyNav ? COLLAPSED_WIDTH : widths.l1;
   /*
    * Where panels dock. With the account rail live, everything that hangs off
@@ -1711,12 +1717,26 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
       // pane, and an entry offering to open it is pointing at the thing
       // beside it. Every other arrangement keeps it.
       hideAsk: aiDockPane,
+      /*
+       * On the Ask AI PAGE the button stays and stops working.
+       *
+       * Reached from AI ▸ Ask AI, the canvas already is the assistant, so
+       * pressing this opened a docked second copy over the top of it — two
+       * Ask AIs on one screen, one of them floating above the other, and no
+       * way to tell which one a question would go to. Ashwin, Oct 21.
+       *
+       * Disabled rather than hidden: the app bar is chrome, and chrome that
+       * loses a control on one destination makes the bar flicker as you
+       * navigate and leaves the reader hunting for what moved. See
+       * `askDisabled`.
+       */
+      askDisabled: canvasPage?.productId === PROPOSED_ASK_AI_ID,
       // And everywhere the panel is open but is NOT its own pane, the
       // button carries a close — the same `close` the panel's own × calls,
       // so the two cannot put it away differently.
       ...(ai.isMounted && !aiDockPane ? { onClose: aiSession.close } : {}),
     }),
-    [aiDockPane, ai.isMounted, aiSession.close],
+    [aiDockPane, ai.isMounted, aiSession.close, canvasPage?.productId],
   );
 
   /*
