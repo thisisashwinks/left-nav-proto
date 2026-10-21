@@ -223,12 +223,26 @@ interface AccountRailProps {
 }
 
 /**
- * Hover intent for the auto-expanding rail. Entering waits a beat so a
- * pointer crossing the strip on its way to the nav doesn't pop the names
- * open; leaving waits a little longer so a brief overshoot doesn't slam
- * them shut.
+ * Hover intent for the auto-expanding rail. Entering waits so a pointer
+ * crossing the strip on its way to the nav doesn't pop the names open;
+ * leaving waits too, so a brief overshoot doesn't slam them shut.
+ *
+ * 500, up from 150 — Ashwin, Oct 21.
+ *
+ * 150ms is the figure for a menu you are aiming AT: long enough to ignore a
+ * pointer in transit, short enough that a deliberate hover feels immediate.
+ * This strip is not aimed at. It is 56px pinned to the window's left edge,
+ * which is where pointers go to reach the nav, the back button, the window
+ * chrome and the edge itself — so the rail reads "crossing" as "arriving"
+ * many times a day, and a 300px panel opening unasked over the page is a
+ * much louder mistake than a quarter-second wait before an intended one.
+ *
+ * Half a second is the long end of what still feels like a response rather
+ * than a lag, and it is deliberately well past a flick across the strip. The
+ * cost is real and worth naming: someone who meant to open it waits, every
+ * time, for a guard against something that happens only sometimes.
  */
-const EXPAND_DELAY_MS = 150;
+const EXPAND_DELAY_MS = 500;
 
 /**
  * The close, in three numbers that have to add up.
