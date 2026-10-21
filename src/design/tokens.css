@@ -222,6 +222,26 @@
   --hr-cyan-700: #0e7090;
   --hr-cyan-800: #155b75;
   --hr-cyan-900: #164c63;
+
+  /*
+   * The editorial pills, published at the root as well as in the nav.
+   *
+   * `--fly-badge-*` were declared only inside `[data-nav-theme]`, which is
+   * right while the only things wearing them are nav rows. They are not: the
+   * avatar menu draws the same two app rows with the same Beta and New tags
+   * (see GET_APP_ROW_BADGES), and it hangs off the app bar with no nav theme
+   * over it — so the vars resolved to nothing and both pills came out as
+   * bare text on a transparent ground.
+   *
+   * The light values, stated once here and restated by the light nav scope
+   * unchanged. The dark nav scope still overrides them for a dark sidebar,
+   * which is the one place the pills genuinely have to differ. Ashwin,
+   * Oct 21.
+   */
+  --fly-badge-bg: var(--hr-primary-100);
+  --fly-badge-fg: var(--hr-primary-700);
+  --fly-badge-beta-bg: var(--hr-warning-100);
+  --fly-badge-beta-fg: var(--hr-warning-700);
 }
 
 /* ─── Layer 2: brand / accent ───────────────────────────────────────────── */

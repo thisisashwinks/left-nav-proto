@@ -42,7 +42,13 @@ import type {
   SurfaceTheme,
 } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
-import { permissionsFor as layoutPermissionsFor } from "./grouping";
+import {
+  allRowsHidden,
+  blankedCategories,
+  emptiedParents,
+  permissionsFor as layoutPermissionsFor,
+  unfillableGroupIds,
+} from "./grouping";
 import { type EditBlock } from "@/components/nav/nav-profiles";
 import { PlanWall } from "./plan-wall";
 import {
@@ -61,7 +67,6 @@ import {
 } from "./entry-cluster";
 import { pinnedBlockFor } from "./pinned-morph";
 import {
-  isAuthoredGroup,
   customTreeFor,
   isBlockHidden,
   NAV_BLOCKS,
@@ -76,11 +81,11 @@ import {
   pageOptions,
   productMenuActions,
   productTreeOptions,
-  productTreeOptionsDeep,
 } from "./product-options";
 import { RowSeam } from "./row-seam";
 import { IconPicker, useIconPicker } from "./icon-picker";
 import { useNavLayout } from "./nav-layout-provider";
+import { AddPicker, type AddPickerResult } from "./add-picker";
 import { RowMenu, useRowMenu, type RowMenuAction } from "./row-menu";
 import { DeleteGroupDialog } from "./delete-group-dialog";
 import { DiscardEditsDialog } from "./discard-edits-dialog";
@@ -452,6 +457,7 @@ export function LeftNav({
     navTreeCounts,
     treeIcons,
     addMenuShape,
+    addPickerCommit,
     l3Arrange,
     treeSearchPlace,
     topAlignCard,
@@ -1011,6 +1017,23 @@ export function LeftNav({
     anchor: DOMRect;
   } | null>(null);
   /**
+   * The multi-select picker, once "Add a product" has been chosen.
+   *
+   * Separate from `addingAt` because the menu and the picker are two
+   * surfaces, not two views of one: the menu still answers "category or
+   * product", and only the second answer opens this. See `AddPicker`.
+   */
+  const [picking, setPicking] = React.useState<{
+    index: number;
+    anchor: DOMRect;
+    /**
+     * The category the rows are going INTO, when a category's own menu
+     * opened the picker. Absent for the dashed row at the foot of the nav,
+     * whose destination is the top level.
+     */
+    groupId?: string;
+  } | null>(null);
+  /**
    * Which seam INSIDE a branch has its add-picker open, and where a pick lands.
    *
    * Separate from `addingAt` because the two answer different questions. That
@@ -1212,7 +1235,21 @@ export function LeftNav({
    * a position in THIS list, so the face, the entry builder and `moveGroup` all
    * count the same rows.
    */
-  const l1Ids = React.useMemo(() => l1IdsFor(state, groups), [state, groups]);
+  /*
+    The same question the store asks — see `chromeL1` there. A placement that
+    puts the apps under the avatar leaves no Download apps row for this list
+    to order, and offering one here would be the face disagreeing with the
+    store about what the sidebar holds.
+  */
+  const l1Ids = React.useMemo(
+    () =>
+      l1IdsFor(
+        state,
+        groups,
+        getAppPlacement === "flyout" ? [...CHROME_TAIL_IDS] : [],
+      ),
+    [state, groups, getAppPlacement],
+  );
   const indexOfCategory = (id: string) => l1Ids.indexOf(id);
   /**
    * Categories with nothing in them that the admin could actually fill.
@@ -1228,9 +1265,84 @@ export function LeftNav({
    * in there, and the only way out would be deleting a bucket the platform put
    * in every other nav.
    */
+  /*
+   * ...and a HIDDEN category is not one of them. Ashwin, Oct 21.
+   *
+   * Same rule the row-level test applies: the fault is a heading over
+   * nothing, and a category that is hidden is not a heading over anything —
+   * it is not drawn. Hiding an empty category is a real answer to the
+   * warning, so the save has to accept it; blocking on it would leave the
+   * admin with a button they cannot clear except by deleting a shelf they
+   * may want back.
+   */
+  /*
+   * Buckets with nothing the account could ever file into them — see
+   * `unfillableGroupIds`. Memoised because it walks the stock tree, and
+   * this component re-renders on every pointer move into the nav.
+   */
+  const unfillable = React.useMemo(() => unfillableGroupIds(state), [state]);
   const emptyCategories = categories.filter(
-    (g) => g.productIds.length === 0 && !isAuthoredGroup(g.id),
+    (g) =>
+      g.productIds.length === 0 &&
+      // Not "is it a shipped bucket" — "could anything go in it". Moving
+      // every row out of Automation is a choice and blocks; a bakery's
+      // Integrations bucket has no stock and never could, so it does not.
+      !unfillable.has(g.id) &&
+      !layout.isRowHidden(g.id),
   );
+  /**
+   * Categories whose every row is hidden — see `allRowsHidden`.
+   *
+   * Counted with the empty ones rather than beside them: both are a heading
+   * over nothing, both are legal while you work and illegal to leave, and a
+   * reader going to look for the fault finds it in the same place. No
+   * authored-bucket exemption, and that asymmetry is deliberate — a shipped
+   * bucket can be empty through entitlement, which nobody chose, but every
+   * row in it being hidden is something somebody did.
+   */
+  const blankedOut = React.useMemo(
+    () => blankedCategories(state, categories),
+    [state, categories],
+  );
+  /**
+   * Rows that opened a panel and no longer have anything to put in it.
+   *
+   * The same illegal state as an empty category, one level down: move every
+   * L3 out of a product and what is left is a row whose flyout is blank. No
+   * authored-bucket exemption is needed here — the equivalent escape (a row
+   * that never had children) is already handled inside `lostAllChildren`,
+   * which only ever answers true for a row that WAS a parent.
+   */
+  const emptiedRows = React.useMemo(
+    () => emptiedParents(state, groups),
+    [state, groups],
+  );
+  /**
+   * What is empty, by name, for the blocked-save hint.
+   *
+   * The hint used to count the faults and state the rule — "1 row has had
+   * all its items moved out", plus a sentence about panels needing an item.
+   * Correct, and no help: the reader has to go hunting for WHICH row, which
+   * in a nav of eleven categories is the whole of the work. Naming it is the
+   * message. A row is given as "Category › Row", because a bare "Workflows"
+   * does not say which panel to open. Ashwin, Oct 21.
+   */
+  const emptyNames = React.useMemo(() => {
+    if (agencyScope) return [] as string[];
+    const categoryName = (id: string) => layout.labelFor(id);
+    return [
+      ...emptyCategories.map((g) => categoryName(g.id)),
+      ...blankedOut.map((g) => categoryName(g.id)),
+      ...emptiedRows.map((id) => {
+        const home = groups.find(
+          (g) => g.id !== UNGROUPED_ID && g.productIds.includes(id),
+        );
+        const row = layout.productLabelFor(id);
+        return home ? `${categoryName(home.id)} › ${row}` : row;
+      }),
+    ];
+  }, [agencyScope, emptyCategories, blankedOut, emptiedRows, groups, layout]);
+
   /*
    * The warning ring, now immediate rather than earned.
    *
@@ -1808,6 +1920,11 @@ export function LeftNav({
     }
     const i = indexOfCategory(itemId);
     const last = categories[categories.length - 1]?.id === itemId;
+    // Its OWN flag, not `isRowHiddenDeep`: that one answers "would this row
+    // be on screen", which for a category is the same question, but asking
+    // it of the row's own state is what makes the menu entry the exact
+    // inverse of the press that produced it.
+    const hiddenCategory = layout.isRowHidden(itemId);
     const actions: RowMenuAction[] = [
       {
         id: "rename",
@@ -1848,30 +1965,31 @@ export function LeftNav({
         ...(last ? {} : { onSelect: () => layout.moveGroup(i, i + 1) }),
       },
       /*
-       * Bulk visibility, one commit each way (design review, Aug 21). "Hide all"
-       * only when something is showing, "show all" only when something is hidden
-       * — a menu offering both at all times reads as two mystery switches.
+       * The CATEGORY, not everything inside it. Ashwin, Oct 21.
+       *
+       * This was a pair of bulk entries — "Hide all items" / "Show all items"
+       * — which reached past the row the menu belongs to and rewrote every
+       * row under it in one commit. Two problems with that. It is the only
+       * entry in this kebab that does not act on the thing you opened it
+       * from, so "Hide all items" sitting between "Move down" and "Remove
+       * category" reads as hiding the category and in fact leaves the
+       * category on screen with an empty panel behind it. And it is the
+       * blunt version of a thing the nav already does precisely: hiding
+       * individual products is what the eye on each row in the flyout is
+       * for, and doing it one at a time is the point — you are choosing
+       * which ones, not reaching for all of them.
+       *
+       * So: one entry, hiding the row it belongs to, worded as the state it
+       * will produce. The category's own members follow it through
+       * `isRowHiddenDeep` without being written to, which is also what makes
+       * it reversible in a single press.
        */
-      ...(group.productIds.some((id) => !layout.isRowHidden(id))
-        ? [
-            {
-              id: "hide-all",
-              label: "Hide all items",
-              icon: EyeOff,
-              onSelect: () => layout.setGroupRowsHidden(itemId, true),
-            },
-          ]
-        : []),
-      ...(group.productIds.some((id) => layout.isRowHidden(id))
-        ? [
-            {
-              id: "show-all",
-              label: "Show all items",
-              icon: Eye,
-              onSelect: () => layout.setGroupRowsHidden(itemId, false),
-            },
-          ]
-        : []),
+      {
+        id: "hide",
+        label: hiddenCategory ? "Show" : "Hide",
+        icon: hiddenCategory ? Eye : EyeOff,
+        onSelect: () => layout.toggleRowHidden(itemId),
+      },
       /*
        * A product, not a category (Sep 24).
        *
@@ -1896,26 +2014,21 @@ export function LeftNav({
         id: "add",
         label: "Add a product",
         icon: Plus,
-        options: productTreeOptions(state, (id) =>
-          group.productIds.includes(id),
-        ),
-        emptyNote: "Everything is already in here.",
-        onPick: (id: string) => {
-          layout.addProductToGroup(id, itemId, group.productIds.length);
-          /*
-           * And the category opens on it, for the reason the old entry opened
-           * the panel of the category it had just made: a row added into
-           * something shut is a row nobody sees arrive.
-           *
-           * Which surface that is depends on the arrangement, and they are all
-           * the same intent — a branch in the tree, the column in the drill-in,
-           * a panel in the flyout. `scoped` is the one that needs nothing: its
-           * column is a category already, and if this is that category the row
-           * has just appeared in it.
-           */
-          if (productTree) openTreeBranch(itemId);
-          else if (drillMode) setDrilledId(itemId);
-          else if (!scopedMode) onPinFlyout(itemId);
+        /*
+          The same picker the dashed row opens — Ashwin, Oct 21.
+
+          This drilled a cascading tree and took one pick; the row at the
+          foot of the nav opened a multi-select. Two ways in, two different
+          surfaces, for one errand. Now the menu entry hands over to the
+          picker, with this category as the destination.
+        */
+        onSelect: () => {
+          if (menuTrigger)
+            setPicking({
+              groupId: itemId,
+              index: group.productIds.length,
+              anchor: menuTrigger.getBoundingClientRect(),
+            });
         },
       },
       {
@@ -1926,7 +2039,28 @@ export function LeftNav({
         onSelect: () => setDeleting(itemId),
       },
     ];
-    const empty = group.productIds.length === 0;
+    /*
+     * The row's warning and the save gate ask ONE question.
+     *
+     * They were two expressions that happened to agree until they did not:
+     * the row marked any empty category while the gate exempted every
+     * authored one, so a bucket could carry a triangle and block nothing,
+     * or — after the fix below — block without the triangle that explains
+     * it. Same three clauses, one place.
+     */
+    const empty =
+      group.productIds.length === 0 &&
+      !unfillable.has(group.id) &&
+      !layout.isRowHidden(group.id);
+    /*
+     * Not empty, but nothing left to read — see `allRowsHidden`.
+     *
+     * Kept separate from `empty` because the two faults have different
+     * repairs: an empty category needs a product put in it, and this one
+     * already has products and needs one of them shown. A single flag would
+     * have to pick one of those sentences and be wrong half the time.
+     */
+    const blanked = allRowsHidden(state, group);
     const drag: NavRowDrag = {
       onDragStart: (e) => {
         e.dataTransfer.setData(L1_MIME, itemId);
@@ -2002,6 +2136,18 @@ export function LeftNav({
        * targets, and the text is the one that reads as editable.
        */
       renameOnLabelClick: true,
+      ...(blanked && !empty
+        ? {
+            /*
+              Same mark as an empty category, because it is the same failure
+              from the reader's side: a heading that opens onto nothing. The
+              sentence differs because the way out does — there are products
+              here, they are just all switched off.
+            */
+            warning:
+              "Every product in this category is hidden. Show one, or add another, to save.",
+          }
+        : {}),
       ...(empty
         ? {
             /*
@@ -2446,7 +2592,18 @@ export function LeftNav({
               : layout.editDirty,
           // The agency tree has no categories to leave empty — its buckets are
           // platform IA and always have contents.
-          blocked: agencyScope ? 0 : emptyCategories.length,
+          blocked: agencyScope
+            ? 0
+            : emptyCategories.length + blankedOut.length,
+          /*
+           * Rows whose children have all been moved out — see
+           * `emptiedParents`. Exempt at agency scope for the same reason
+           * the line above is: that tree is platform IA, not something an
+           * admin restructures.
+           */
+          emptyRows: agencyScope ? 0 : emptiedRows.length,
+          // What those two counts are ABOUT — see `emptyNames`.
+          emptyNames,
           onStart: () => {
             // Locked, the pill opens the wall rather than the editor. Same
             // control, same place — only the door behind it changes.
@@ -2830,12 +2987,36 @@ export function LeftNav({
         Picking something already placed is not a duplicate; every verb cuts
         before it places, so it relocates. The toast names where it came from.
       */
-      options:
-        addMenuShape === "deep"
-          ? productTreeOptionsDeep(state, () => false)
-          : productTreeOptions(state, (id) => tailRowIds.includes(id)),
-      emptyNote: "Everything is already a row here.",
-      onPick: (id) => dropIntoNav(id, index),
+      /*
+        The multi-select picker, not a drill — Ashwin, Oct 21.
+
+        `deep` walked you category → product → page and let you take exactly
+        one thing per opening, and the rung you stopped on decided whether
+        you had added a product or a page. The picker ticks at both depths in
+        one pass and lets the ticks decide the shape: a ticked parent lands
+        as a row keeping its ticked children, ticked children on their own
+        land as rows of their own. See `AddPicker`.
+
+        The other two shapes are left on the dial — see ADD_MENU_SHAPES, which
+        is the axis asking whether a reader should classify what they want
+        before looking for it. This answers "no" without removing the
+        question.
+      */
+      ...(addMenuShape === "deep"
+        ? {
+            onSelect: () => {
+              // The anchor the menu itself is standing on, so the picker
+              // opens where the menu was rather than jumping to the trigger.
+              if (addingAt) setPicking({ index, anchor: addingAt.anchor });
+            },
+          }
+        : {
+            options: productTreeOptions(state, (id) =>
+              tailRowIds.includes(id),
+            ),
+            emptyNote: "Everything is already a row here.",
+            onPick: (id: string) => dropIntoNav(id, index),
+          }),
     },
     /*
       The third entry, under `separate` only.
@@ -5295,7 +5476,82 @@ export function LeftNav({
           onClose={() => setTreeAddAt(null)}
         />
       ) : null}
-      {addingAt ? (
+      {picking ? (
+        <AddPicker
+          anchor={picking.anchor}
+          state={state}
+          commit={addPickerCommit}
+          // Nothing hidden for being placed already: every verb cuts before
+          // it places, so picking a row that is elsewhere relocates it. The
+          // same reasoning the menu this replaced carried.
+          /*
+            Into a category, what is already there is not offerable; into
+            the top level, nothing is hidden — every verb cuts before it
+            places, so picking a row that lives elsewhere relocates it.
+          */
+          /*
+            What is already in the destination — greyed, not hidden.
+
+            Into a category: the rows it already holds. Into the top level:
+            the rows already drawn there. Either way the catalogue stays
+            whole, so a reader can see that Reporting is spent rather than
+            wondering where it went.
+          */
+          added={(id: string) =>
+            picking.groupId
+              ? (layout.groups
+                  .find((g) => g.id === picking.groupId)
+                  ?.productIds.includes(id) ?? false)
+              : l1Ids.includes(id)
+          }
+          title={
+            picking.groupId
+              ? (layout.groups.find((g) => g.id === picking.groupId)?.label ??
+                "the nav")
+              : "the nav"
+          }
+          onCommit={(picked: AddPickerResult) => {
+            /*
+              A ticked parent lands at the top level keeping the children
+              that stayed ticked; unticked ones are hidden rather than
+              deleted. Ticked children with no ticked parent land at the top
+              level too — on their own, with nothing over them, which is the
+              case the cascading menu could only reach by adding the parent
+              and then removing it.
+            */
+            let at = picking.index;
+            /*
+              Two destinations, one commit. The top level when the dashed
+              row opened this, a category when its own menu did — and a
+              child arriving in a category is a promotion, which is why it
+              needs a verb of its own.
+            */
+            const into = picking.groupId;
+            const land = (id: string, index: number) => {
+              if (!into) {
+                layout.placeAtL1(id, index);
+                return;
+              }
+              if (childById(id)) layout.moveChildToGroup(id, into, index);
+              else layout.addProductToGroup(id, into, index);
+            };
+            for (const parent of picked.parents) {
+              land(parent.id, at);
+              for (const drop of parent.drop) layout.toggleRowHidden(drop);
+              at += 1;
+            }
+            for (const id of picked.loose) {
+              land(id, at);
+              at += 1;
+            }
+          }}
+          onClose={() => {
+            setPicking(null);
+            setAddingAt(null);
+          }}
+        />
+      ) : null}
+      {addingAt && !picking ? (
         <RowMenu
           anchor={addingAt.anchor}
           title="Add to the nav"

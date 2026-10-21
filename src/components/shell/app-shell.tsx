@@ -118,7 +118,9 @@ import {
   PROPOSED_HOME_ID,
   PROPOSED_SETTINGS_ID,
 } from "@/components/nav/proposed-ia";
-import { glyphFor, isBlockHidden, UNGROUPED_ID } from "@/components/nav/grouping";
+import { glyphFor, isBlockHidden, UNGROUPED_ID,
+  placeOf,
+} from "@/components/nav/grouping";
 import {
   contactsAreaLabel,
   ContactsAreaProvider,
@@ -2918,10 +2920,17 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
            */
           (() => {
             if (canvasPage) {
-              return {
-                productId: canvasPage.productId,
-                childId: canvasPage.childId ?? null,
-              };
+              /*
+               * Through `placeOf`, because a MOVED child's parent is not the
+               * catalogue's any more. Lifting Inbox to the sidebar and
+               * clicking it used to light CRM as well, since the position
+               * still named the product Inbox came from. See `placeOf`.
+               */
+              return placeOf(
+                layout,
+                canvasPage.productId,
+                canvasPage.childId ?? null,
+              );
             }
             // The two canvases the shell keys off the selected row rather
             // than off a page: they ARE that row, so it is the position.

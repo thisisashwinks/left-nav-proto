@@ -121,6 +121,7 @@ import type {
   RailActiveSpot,
   RailGuestSpot,
   RailShutRecents,
+  AddPickerCommit,
   RailDirectoryMode,
   RailToolSpot,
   RailToolsLayout,
@@ -326,6 +327,7 @@ interface ThemeContextValue extends ThemeState {
   setRailActiveSpot: (v: RailActiveSpot) => void;
   setRailGuestSpot: (v: RailGuestSpot) => void;
   setRailShutRecents: (v: RailShutRecents) => void;
+  setAddPickerCommit: (v: AddPickerCommit) => void;
   setRailDirectoryMode: (v: RailDirectoryMode) => void;
   setRailToolSpot: (v: RailToolSpot) => void;
   setRailToolsEdge: (v: RailToolsEdge) => void;
@@ -815,6 +817,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, railGuestSpot })),
       setRailShutRecents: (railShutRecents) =>
         setState((s) => ({ ...s, railShutRecents })),
+      setAddPickerCommit: (addPickerCommit) =>
+        setState((s) => ({ ...s, addPickerCommit })),
       setRailDirectoryMode: (railDirectoryMode) =>
         setState((s) => ({ ...s, railDirectoryMode })),
       setRailToolSpot: (railToolSpot) =>

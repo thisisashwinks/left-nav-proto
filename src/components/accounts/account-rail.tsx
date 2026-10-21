@@ -71,6 +71,7 @@ import { BulkHistoryModal } from "@/components/bulk/bulk-history-modal";
 import type { BulkPath } from "@/components/bulk/bulk-config";
 import type { Account } from "./accounts-data";
 import { RailTooltip } from "@/components/nav/rail-tooltip";
+import { PIN_GLYPH } from "@/components/nav/pin-button";
 import { RailDirectory } from "./rail-switcher";
 import { SelectStripRow } from "./select-strip";
 import { useFlipRows } from "@/lib/use-flip-rows";
@@ -5381,7 +5382,8 @@ function RailRow({
         )}
       >
         <Pin
-          size={13}
+          // One pin, one size, everywhere — see PIN_GLYPH.
+          size={PIN_GLYPH}
           {...(pinned ? { fill: "currentColor" } : {})}
           aria-hidden="true"
         />
@@ -5907,7 +5909,11 @@ function RailRow({
                   className="flex size-[14px] shrink-0 items-center justify-center"
                 >
                   {pinned && !onTogglePin ? (
-                    <Pin size={13} fill="currentColor" className="text-nav-pin" />
+                    <Pin
+                      size={PIN_GLYPH}
+                      fill="currentColor"
+                      className="text-nav-pin"
+                    />
                   ) : null}
                 </span>
               )}

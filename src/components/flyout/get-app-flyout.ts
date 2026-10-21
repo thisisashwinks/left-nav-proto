@@ -55,6 +55,35 @@ export const GET_APP_ROW_LABELS: Record<"mobile" | "desktop", string> = {
   desktop: "Desktop app",
 };
 
+/**
+ * The same two rows, with the verb in front.
+ *
+ * The panel can leave it out: its own title says "Download apps" two rows
+ * up, so a row reading "Mobile apps" inside it is plainly a download. The
+ * avatar menu has no such header — the rows sit between "Login As" and
+ * "Signout" with nothing naming the offer — and "Mobile apps" there reads as
+ * a place in the product rather than a thing to fetch. Same names, one word
+ * of context. Ashwin, Oct 21.
+ */
+export const GET_APP_MENU_LABELS: Record<"mobile" | "desktop", string> = {
+  mobile: `Download ${GET_APP_ROW_LABELS.mobile.toLowerCase()}`,
+  desktop: `Download ${GET_APP_ROW_LABELS.desktop.toLowerCase()}`,
+};
+
+/**
+ * Which tag each row wears, named once.
+ *
+ * The panel set these inline on its two entries, which was fine while the
+ * panel was the only surface drawing them. The avatar menu draws the same two
+ * rows now (see GET_APP_PLACEMENTS), and a maturity tag is a fact about the
+ * APP rather than about the surface it is read on — so both places take it
+ * from here. Ashwin, Oct 21.
+ */
+export const GET_APP_ROW_BADGES = {
+  mobile: BETA_BADGE,
+  desktop: NEW_BADGE,
+} as const;
+
 /** The ids the shell routes to the sheet. See app-shell's `onNavigate`. */
 export const GET_APP_ROW_IDS = {
   mobile: "get-app-mobile",
@@ -75,7 +104,7 @@ export const getAppFlyout: FlyoutConfig = {
         label: GET_APP_ROW_LABELS.mobile,
         icon: Smartphone,
         // description: "iOS & Android, under your own name.",
-        badge: BETA_BADGE,
+        badge: GET_APP_ROW_BADGES.mobile,
       },
     },
     {
@@ -85,7 +114,7 @@ export const getAppFlyout: FlyoutConfig = {
         label: GET_APP_ROW_LABELS.desktop,
         icon: Monitor,
         // description: "macOS & Windows, in one download.",
-        badge: NEW_BADGE,
+        badge: GET_APP_ROW_BADGES.desktop,
       },
     },
   ],

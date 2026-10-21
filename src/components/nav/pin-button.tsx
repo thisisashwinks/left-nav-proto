@@ -47,10 +47,26 @@ export function usePinnedInk(): string {
  * The containing row must carry `group/row` — the hover variant is a static
  * class so Tailwind can see it, which a templated group name would defeat.
  */
+/**
+ * One size for every pin in the nav. Ashwin, Oct 21.
+ *
+ * It was three: 14 here (chosen for "the roomy rows this was drawn for"), 12
+ * passed by hand from the flyout and the tree, and 14 again in the launcher's
+ * own copy of the button. The surfaces sit next to each other — the Recents
+ * panel opens over the sidebar it mirrors — so the same pin on the same row
+ * appeared at two sizes a column apart, which is what Ashwin caught.
+ *
+ * 12 is the one that was already right: it sits beside a 16px leading glyph,
+ * and a trailing mark the size of the icon it trails reads as a second icon
+ * rather than as an affordance on the row. The 22px target around it does not
+ * change, so no column moves.
+ */
+export const PIN_GLYPH = 12;
+
 export function PinButton({
   productId,
   className,
-  size = 14,
+  size = PIN_GLYPH,
 }: {
   productId: string;
   className?: string;
@@ -58,9 +74,8 @@ export function PinButton({
    * The glyph, not the button — the 22px target is fixed so the trailing
    * column lines up whatever the mark inside it measures.
    *
-   * 14 is this control's own size, on the roomy rows it was drawn for. The
-   * flyout's rows ask for 12, matching the nav's, because the two levels are
-   * meant to read as one list seen at two depths.
+   * Defaults to PIN_GLYPH, and the callers that used to pass 12 by hand are
+   * now passing the default. See that constant.
    */
   size?: number;
 }) {

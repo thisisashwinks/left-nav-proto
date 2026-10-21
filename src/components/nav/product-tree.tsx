@@ -247,8 +247,10 @@ export function treeBranchFor(
        * this product still appeared beneath it in the tree picker, so the
        * picker disagreed with the nav it was editing.
        */
-      const product = productById(id);
-      const kids = product?.tabs ? undefined : childrenFor(state, id);
+      // A promoted child resolves here too, or its page tabs come back as
+      // tree branches — see the same fall-through in `flyoutForGroup`.
+      const node = productById(id) ?? childById(id)?.child;
+      const kids = node?.tabs ? undefined : childrenFor(state, id);
       const children = nodesFromChildren(state, kids);
       return {
         id,
@@ -746,7 +748,6 @@ export function ProductTreeBranch({
               <WithPin
                 productId={node.id}
                 pinInset={TREE_PIN_INSET}
-                pinSize={12}
               >
                 {row}
               </WithPin>

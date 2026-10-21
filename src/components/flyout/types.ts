@@ -34,6 +34,25 @@ export const NEW_BADGE: FlyoutBadge = { label: "New", tone: "new" };
 export const BETA_BADGE: FlyoutBadge = { label: "Beta", tone: "beta" };
 
 /**
+ * What each tone is painted in.
+ *
+ * Flat fill, flat edge: no gradient and no drop shadow (Sep 16). The pills
+ * carried a 2px shadow as well as their gradient, which on a 16px chip lifted
+ * them off the row — so an editorial label about a PRODUCT read as a floating
+ * control sitting on the nav. A tag is type on a ground; it belongs in the
+ * same plane as the label it qualifies. Colour is doing the work, and one
+ * step of the HighRise ramp is enough of it.
+ *
+ * Here rather than in the row that draws it, because the avatar menu draws
+ * the same pills on the same two rows — see GET_APP_ROW_BADGES. One map, so
+ * the two surfaces cannot drift to two ambers.
+ */
+export const BADGE_TONE: Record<FlyoutBadgeTone, string> = {
+  new: "bg-fly-badge-bg text-fly-badge-fg",
+  beta: "bg-fly-badge-beta-bg text-fly-badge-beta-fg",
+};
+
+/**
  * An L2 sub-place nested under a product row — the flyout's answer to the
  * header-tab dropdowns the current app hides these in (Invoices & Estimates ▾,
  * Products ▾, Client Portal ▾ …). Aug 13 audit, report §2.

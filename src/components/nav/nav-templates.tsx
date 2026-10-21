@@ -5,12 +5,13 @@ import { accounts as allAccounts } from "@/components/accounts/accounts-data";
 import { useTheme } from "@/components/theme/theme-provider";
 import { SAAS_TIERS, type SaasTier } from "@/design/plans";
 import { accountsWithOwnArrangement } from "./account-nav-profiles";
-import { LAUNCHED_SINCE, productById } from "./catalogue";
+import { childById, LAUNCHED_SINCE, productById } from "./catalogue";
 import { resolveOwned } from "./catalogue-equivalents";
 import { useNavLayout } from "./nav-layout-provider";
 import { useNavProfiles } from "./nav-profiles";
 import {
   customTreeFor,
+  DETACHED,
   type GroupingMode,
   type NavLayoutState,
 } from "./grouping";
@@ -55,6 +56,30 @@ export type NavArrangement = Pick<
   | "hiddenBlocks"
   | "hiddenRows"
   | "tailOrder"
+  /**
+   * Where each L3 lives — its parent, or DETACHED.
+   *
+   * Missing until Oct 21, and the bug it caused looked like the save
+   * silently refusing an edit. Dragging an L3 up to the sidebar writes TWO
+   * things: a `tailOrder` entry saying where in the top level it sits, and
+   * a `childOf` entry saying it no longer belongs to its parent. Only the
+   * first was captured, so a template carried a row's POSITION at L1
+   * without carrying the fact that it had left L2 — and `childOf` is what
+   * every resolver reads to answer "whose child is this". Applied, the row
+   * went straight back under its parent, and the L1 slot it had been given
+   * resolved to nothing.
+   *
+   * It carries the same two moves in the other direction too: a child
+   * refiled under a different product, and a child promoted into a
+   * category as a row of its own. All three are one map, so all three were
+   * lost together and all three are fixed together.
+   *
+   * Safe to apply across accounts for the same reason the rest of the
+   * arrangement is: the keys are catalogue ids, and a row the target does
+   * not own is dropped by the same intersection that already guards
+   * `customGroups`.
+   */
+  | "childOf"
   /**
    * The account's own links.
    *
@@ -362,6 +387,15 @@ export function captureArrangement(state: NavLayoutState): NavArrangement {
     grouping: "custom",
     customGroups: tree.customGroups,
     /*
+     * Taken from the TREE, like `customGroups` above it.
+     *
+     * `customTreeFor` is what turns an authored mode into a concrete one,
+     * and a child lifted or refiled is part of that concreteness — so
+     * reading `state.childOf` here instead would capture the placements
+     * from before the seeding and disagree with the groups beside it.
+     */
+    childOf: tree.childOf,
+    /*
      * Re-keyed to the mode this arrangement DECLARES, not the one it was
      * authored in.
      *
@@ -444,6 +478,8 @@ const preset = (
     hiddenBlocks: [],
     hiddenRows: [],
     tailOrder: [],
+    // Nothing lifted or refiled: every L3 sits where the catalogue puts it.
+    childOf: {},
     customLinks: [],
     panelOrder: {},
   },
@@ -481,6 +517,8 @@ const DEFAULT_TEMPLATE: NavTemplate = {
     grouping: "custom",
     customGroups: [],
     groupOrder: {},
+    // Nothing lifted or refiled: every L3 sits where the catalogue puts it.
+    childOf: {},
     agencyLabels: {},
     agencyProductLabels: {},
     icons: {},
@@ -598,6 +636,38 @@ const SEED_TEMPLATES: readonly NavTemplate[] = [
  * existing structure carries the tail, and nothing ends up loose that was not
  * loose before.
  */
+/**
+ * One id, carried across to this account — or dropped as unreachable.
+ *
+ * Three lists in a template hold row ids, and all three had the same bug:
+ * `tailOrder`, every category's `productIds`, and `hiddenRows`. Each mapped
+ * its entries through `resolveOwned`, which answers for PRODUCTS — it looks
+ * an id up in the entitlement set and translates between the shipped and
+ * proposed catalogues. A CHILD id is in neither set, so every promoted L3
+ * resolved to undefined and was filtered out on the way in. The row was
+ * saved, the toast said so, and the nav that came back did not have it.
+ *
+ * The rules, which are different for each kind and were only ever written
+ * down for one of them:
+ *
+ *   product  Translated and entitlement-checked, as before.
+ *   child    Kept when its PARENT product is owned — a child rides on its
+ *            product's provisioning, the same rule the group resolver uses.
+ *            Not translated: a child id is not a product id in either
+ *            catalogue, so there is nothing to cross to.
+ *   other    A group id or a chrome row: the account's own structure,
+ *            carried as written. An id naming something this account does
+ *            not have simply matches no row, which costs nothing.
+ *
+ * One helper so the three lists cannot disagree again. Ashwin, Oct 21.
+ */
+function carriedId(id: string, owns: ReadonlySet<string>): string | undefined {
+  if (productById(id)) return resolveOwned(id, owns);
+  const child = childById(id);
+  if (child) return owns.has(child.product.id) ? id : undefined;
+  return id;
+}
+
 function mergedGroups(
   a: NavArrangement,
   target: NavLayoutState,
@@ -606,8 +676,10 @@ function mergedGroups(
   const fromTemplate = a.customGroups
     .map((g) => ({
       ...g,
+      // See `carriedId`: a category can hold a promoted L3 as a row of its
+      // own, and `resolveOwned` alone dropped every one of them.
       productIds: g.productIds
-        .map((p) => resolveOwned(p, owns))
+        .map((p) => carriedId(p, owns))
         .filter((p): p is string => p !== undefined),
     }))
     /*
@@ -710,6 +782,28 @@ export function patchForArrangement(
       agencyProductLabels: a.agencyProductLabels,
       icons: a.icons,
       hiddenBlocks: a.hiddenBlocks,
+      /*
+       * Where the template's L3s live, filtered to rows this account has.
+       *
+       * Both halves of each entry are checked, and for different reasons.
+       * The KEY is the child being placed: a child of a product this
+       * account does not own cannot be placed anywhere, and an entry for it
+       * would be a record pointing at a row that is never drawn. The VALUE
+       * is its destination, and a child sent to a parent the account does
+       * not own would be filed under nothing — so those fall back to the
+       * catalogue by having no entry at all, which is exactly what absence
+       * already means here.
+       *
+       * DETACHED is kept whatever the target owns: it says the row left its
+       * parent, and where it went next is `tailOrder`'s business.
+       */
+      childOf: Object.fromEntries(
+        Object.entries(a.childOf ?? {}).filter(([childId, parentId]) => {
+          const child = childById(childId);
+          if (!child || !owns.has(child.product.id)) return false;
+          return parentId === DETACHED || owns.has(parentId);
+        }),
+      ),
       // Every product reference is filtered to what this account owns. A
       // group left empty by that filter is dropped rather than drawn as a
       // heading over nothing.
@@ -728,8 +822,19 @@ export function patchForArrangement(
        * leaves nothing.
        */
       pinned: (() => {
+        /*
+          Through `carriedId`, because a pin can name an L3.
+
+          `resolveOwned` alone dropped every pinned child on the way in —
+          and then the fallback below made it intermittent: with other pins
+          present the child just vanished, and with only the child pinned
+          the dock fell back to the target's own pins, which looked like a
+          different bug entirely. Pin an L3, lift it to the top level, save,
+          and the pinned row disappeared while the lifted one stayed.
+          Ashwin, Oct 21.
+        */
         const kept = a.pinned
-          .map((p) => resolveOwned(p, owns))
+          .map((p) => carriedId(p, owns))
           .filter((p): p is string => p !== undefined);
         if (kept.length > 0) return kept;
         /*
@@ -767,14 +872,30 @@ export function patchForArrangement(
        * have simply matches no row, which costs nothing.
        */
       hiddenRows: a.hiddenRows
-        .map((p) => (productById(p) ? resolveOwned(p, owns) : p))
+        .map((p) => carriedId(p, owns))
         .filter((p): p is string => p !== undefined),
       // The tail also holds the account's OWN links, which the template knows
       // nothing about — so template order first, then anything of the
       // account's it did not mention, rather than discarding them.
+      /*
+       * Three kinds of id live here, and only one of them is a product.
+       *
+       * `resolveOwned` answers for PRODUCTS: it maps an id to whatever this
+       * account calls the same thing, or drops it as unowned. Running every
+       * entry through it was the second half of the lifted-L3 bug — a child
+       * id is not a product id and is not in `owns`, so it resolved to
+       * undefined and the row's place in the top level was filtered away.
+       * `childOf` then said the row was detached, and nothing said where it
+       * had gone. Ashwin, Oct 21.
+       *
+       * A CHILD is owned when its PARENT PRODUCT is, which is the only
+       * entitlement a child has of its own. A group id or a chrome row is
+       * the account's own structure and is carried as written — the same
+       * rule `hiddenRows` directly above already follows.
+       */
       tailOrder: [
         ...a.tailOrder
-          .map((p) => resolveOwned(p, owns))
+          .map((p) => carriedId(p, owns))
           .filter((p): p is string => p !== undefined),
         ...target.tailOrder.filter((p) => !a.tailOrder.includes(p)),
       ],

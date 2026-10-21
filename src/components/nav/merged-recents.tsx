@@ -23,7 +23,7 @@ import { childById, productById } from "./catalogue";
 import { glyphFor, type NavLayoutState } from "./grouping";
 import { ComposedIcon } from "./composed-icon";
 import { useNavLayout } from "./nav-layout-provider";
-import { PIN_CAP_HINT, usePinnedInk } from "./pin-button";
+import { PIN_CAP_HINT, PIN_GLYPH, usePinnedInk } from "./pin-button";
 import { usePinFeedback, usePinLanded } from "./pin-feedback";
 import { RailTooltip } from "./rail-tooltip";
 import {
@@ -1241,9 +1241,10 @@ function MergedItemRow({
             )}
           >
             <Pin
-              // 12, not 14: it sits beside a 16px leading glyph, and a trailing
-              // mark that matches the icon it trails reads as a second icon.
-              size={12}
+              // PIN_GLYPH, which is this reasoning promoted to a constant: it
+              // sits beside a 16px leading glyph, and a trailing mark that
+              // matches the icon it trails reads as a second icon.
+              size={PIN_GLYPH}
               fill={row.pinned && mark !== "none" ? "currentColor" : "none"}
               aria-hidden="true"
             />

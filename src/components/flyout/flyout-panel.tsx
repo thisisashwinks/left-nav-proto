@@ -4,21 +4,28 @@ import * as React from "react";
 import { CirclePlus, Image, Plus, RotateCcw, X } from "lucide-react";
 
 import { AGENCY_L2_MIME, L2_MIME, L3_MIME } from "@/components/nav/nav-drag";
+import {
+  AddPicker,
+  type AddPickerResult,
+} from "@/components/nav/add-picker";
 import { agencyBuckets } from "@/components/nav/agency-config";
 import { useAgencyLayout } from "@/components/nav/agency-layout";
 import { childById } from "@/components/nav/catalogue";
-import { UNGROUPED_ID } from "@/components/nav/grouping";
+import {
+  childrenFor,
+  labelForProduct,
+  lostAllChildren,
+  UNGROUPED_ID,
+} from "@/components/nav/grouping";
 import { PROPOSED_SETTINGS_ID } from "@/components/nav/proposed-ia";
 import {
   productMenuActions,
-  productTreeOptionsDeep,
 } from "@/components/nav/product-options";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import {
   RowMenu,
   useRowMenu,
   type RowMenuAction,
-  type RowMenuOption,
 } from "@/components/nav/row-menu";
 import { RowSeam } from "@/components/nav/row-seam";
 import {
@@ -102,7 +109,6 @@ function shortChromeLabel(
 }
 
 /** The seam menu's one view, opened directly rather than via a menu entry. */
-const ADD_VIEW = "add";
 
 /**
  * The 360px flyout from left-nav.pen: absolutely positioned against the nav's
@@ -171,6 +177,7 @@ export function FlyoutPanel({
     flyoutCardBorder,
     addProductStyle,
     addProductSpot,
+    addPickerCommit,
   } = useTheme().effective;
   /* See the title below. */
   const appsRowName = useGetAppNavLabel();
@@ -351,6 +358,24 @@ export function FlyoutPanel({
   const [adding, setAdding] = React.useState<{
     index: number;
     anchor: DOMRect;
+    /**
+     * Fill a ROW rather than the panel, when the picker was opened from one.
+     *
+     * Absent for the panel's own plus, which adds an L2. Present for a
+     * product's "Add an item", which is the only way back into a row whose
+     * children have all been moved out — see `lostAllChildren`. Same
+     * popover, same options, different destination.
+     */
+    parentId?: string;
+    /**
+     * The panel the picker belongs to, measured when it opened.
+     *
+     * Taken from the trigger's own dialog ancestor rather than a ref: both
+     * entry points — the plus at the foot of the list and a row's kebab —
+     * are inside it, so `closest` answers for either without this component
+     * having to hold a ref it otherwise has no use for.
+     */
+    host?: DOMRect | null;
   } | null>(null);
 
   /** Where every other category is, for this panel's Move-to lists. */
@@ -891,11 +916,6 @@ export function FlyoutPanel({
    * The one thing the deep picker adds is that a CHILD can now be the thing
    * moved — see `moveChildToProduct`.
    */
-  const addable: RowMenuOption[] = category
-    ? productTreeOptionsDeep(layout.state, (id) =>
-        category.productIds.includes(id),
-      )
-    : [];
 
   /*
     The "add one more" control, built once.
@@ -910,6 +930,9 @@ export function FlyoutPanel({
         setAdding({
           index: category.productIds.length,
           anchor: e.currentTarget.getBoundingClientRect(),
+          host:
+            e.currentTarget.closest('[role="dialog"]')?.getBoundingClientRect() ??
+            null,
         })
       }
       className={cn(
@@ -955,29 +978,20 @@ export function FlyoutPanel({
     </button>
   ) : null;
 
-  const addActions = (index: number): RowMenuAction[] => [
-    {
-      id: ADD_VIEW,
-      label: category ? `Add to ${category.label}` : "Add an item",
-      icon: Plus,
-      options: addable,
-      emptyNote: "Everything is already in here.",
-      onPick: (id) => {
-        if (!category) return;
-        /*
-          A child picked here is a child being promoted INTO this category as
-          a row of its own — the same thing dragging it onto the nav does.
-          `addProductToGroup` would refuse it, since the gate it passes
-          through only knows products.
-        */
-        if (childById(id)) {
-          layout.placeAtL1(id, 0);
-          return;
-        }
-        layout.addProductToGroup(id, category.id, index);
-      },
-    },
-  ];
+  /*
+    `addActions` lived here until Oct 21 — the single-pick cascading menu the
+    category's plus opened. `AddPicker` replaced it, and the old builder sat
+    unused for a few hours afterwards: a second, drifting account of what
+    adding means is exactly how the two ways to add a row come to disagree.
+  */
+
+  /*
+    `childrenOnly` and `addChildActions` lived here until Oct 21 — the
+    pruned tree and the cascading menu that "Add an item" used to open.
+    `AddPicker` carries both now, behind its own `childrenOnly` flag, so the
+    two adds in this panel cannot drift into disagreeing about what adding
+    looks like.
+  */
 
   /** This row's place in the category's own order, which is what a drop uses. */
   const rowIndexOf = (productId: string) =>
@@ -996,8 +1010,35 @@ export function FlyoutPanel({
     <RowSeam
       key={`seam-${index}`}
       dragTypes={dragTypes}
-      accepts={[L2_MIME]}
-      onDrop={(id) => dropRowAt(id, index)}
+      /*
+        An L3 can land here too — Ashwin, Oct 21.
+
+        Dropping a child ONTO an L2 row already refiled it under that row
+        (see the row's own handler), but the seams between rows took
+        `L2_MIME` alone, so a child dragged to the gap between two L2s was
+        refused with no track and no cursor — the drag looked broken rather
+        than disallowed. There was nothing to disallow: a child promoted to
+        this list is just a product in this category, which the store has
+        always been able to express.
+
+        Both types on one seam rather than a second seam stacked behind it,
+        for the reason `accepts` already names: two seams in one place means
+        the buried one never sees a pointer.
+      */
+      accepts={[L2_MIME, L3_MIME]}
+      onDrop={(id, mime) => {
+        /*
+          The mime says which level the row is coming FROM, which is the
+          only thing the two cases disagree about. A child has to leave its
+          parent on the way in — `moveChildToGroup` does that — where an L2
+          is only changing its position or its category.
+        */
+        if (mime === L3_MIME) {
+          if (category) layout.moveChildToGroup(id, category.id, index);
+          return;
+        }
+        dropRowAt(id, index);
+      }}
       onAdd={(trigger) =>
         setAdding({ index, anchor: trigger.getBoundingClientRect() })
       }
@@ -1181,9 +1222,61 @@ export function FlyoutPanel({
     const at = order.indexOf(productId);
     const canMove = category !== undefined && at !== -1;
 
+    /*
+      Add an item — the way back into a row you emptied.
+
+      Prepended to the shared builder's output rather than added inside it,
+      because it only means something where there is a panel to open the
+      picker over: the same menu is drawn for a row sitting at the nav's top
+      level, and anchoring a popover there would put it over the sidebar.
+
+      It sits directly ABOVE "Remove from the nav", which is Ashwin's
+      placement and the better one. The first draft put it at the top, on
+      the grounds that a row with no children left is marked with a warning
+      and holds the save (see `lostAllChildren`), so the entry that fills it
+      should be the first thing read. That argument was about PROMINENCE and
+      this menu is not short of it — five entries, all visible at once.
+
+      Ordered by what the entries DO instead: change the row, move the row,
+      then the two that change what is in the nav — add, then remove. The
+      additive one next to the destructive one is also where a reader who
+      has just hit the warning will look, since "Remove from the nav" is the
+      entry they are trying not to press. Ashwin, Oct 21.
+    */
+    const addItem: RowMenuAction[] =
+      menuTrigger && !childHit
+        ? [
+            {
+              id: "add-child",
+              label: "Add an item",
+              icon: Plus,
+              onSelect: () =>
+                setAdding({
+                  index: 0,
+                  anchor: menuTrigger.getBoundingClientRect(),
+                  parentId: productId,
+                  host:
+                    menuTrigger
+                      .closest('[role="dialog"]')
+                      ?.getBoundingClientRect() ?? null,
+                }),
+            },
+          ]
+        : [];
+
     // The shared builder, so a product's menu is the same object wherever the
     // row is — in this panel or sitting at the nav's top level.
-    return productMenuActions({
+    /*
+      Spliced against the "remove" entry rather than counted from the end.
+
+      `productMenuActions` builds a different number of entries depending on
+      what this row can do — the icon picker, the two nudges and Move to all
+      come and go — so a fixed index would land somewhere different on every
+      row. Finding the entry it has to sit above is the only description of
+      the position that stays true. Falling back to the end covers the row
+      whose menu has no Remove at all.
+    */
+    const base = productMenuActions({
       productId,
       currentGroupId: category?.id ?? null,
       categories: destinations,
@@ -1215,6 +1308,10 @@ export function FlyoutPanel({
           }
         : {}),
     });
+    if (addItem.length === 0) return base;
+    const removeAt = base.findIndex((a) => a.id === "remove");
+    const at2 = removeAt === -1 ? base.length : removeAt;
+    return [...base.slice(0, at2), ...addItem, ...base.slice(at2)];
   };
 
   /*
@@ -1615,6 +1712,20 @@ export function FlyoutPanel({
             item={entry.item}
             variant={config.variant}
             /*
+              A row that had items and has none left. See `lostAllChildren`.
+
+              The same fault the nav marks on an empty category, one level
+              down — and the same consequence: the layout cannot be saved
+              while it is true. Marking it here is what makes the blocked
+              save explicable, since the Save button can only say how MANY
+              rows are wrong and this says which.
+            */
+            {...(lostAllChildren(layout.state, entry.item.id)
+              ? {
+                  warn: "Every item has been moved out of this row. Put one back, or remove the row.",
+                }
+              : {})}
+            /*
               The same rule one level in — see the note on the nav's own rows.
 
               A row with a dropdown is lit while that dropdown is up and not
@@ -1779,21 +1890,86 @@ export function FlyoutPanel({
         </div>
       ) : null}
 
-      {adding && category ? (
-        <RowMenu
+      {/*
+        The panel's own add is the multi-select picker — Ashwin, Oct 21.
+
+        The cascading menu it replaces could add one row per opening and
+        decided its LEVEL by which submenu you had walked into. This one ticks
+        at both depths in one pass and lets the ticks say the structure: see
+        `AddPicker`.
+
+        The row-level "Add an item" keeps the cascading menu for now. Its
+        destination is a single parent, so there is no level to choose and
+        nothing for the checkboxes to disambiguate.
+      */}
+      {adding && category && !adding.parentId ? (
+        <AddPicker
           anchor={adding.anchor}
           title={category.label}
-          actions={addActions(adding.index)}
-          // Straight into the list: the seam offers exactly one thing, so a menu
-          // whose only entry had to be clicked first would be a click carrying
-          // no decision.
-          initialView={ADD_VIEW}
-          // The plus sits mid-panel, so lining the menu's right edge up with a
-          // 16px button would throw it two hundred pixels to the left.
-          align="start"
+          state={layout.state}
+          commit={addPickerCommit}
+          centreOn={adding.host ?? null}
+          // Already a row of this category — shown greyed and ticked
+          // rather than missing. See `PickRow.disabled`.
+          added={(id: string) => category.productIds.includes(id)}
+          onCommit={(picked: AddPickerResult) => {
+            /*
+              A ticked parent arrives as a row of this category, keeping the
+              children that stayed ticked; the unticked ones are hidden
+              rather than deleted, which is the only "leave it out" this nav
+              has that survives a reload. A child ticked on its own becomes a
+              row of the category too — the same promotion dragging it here
+              performs.
+            */
+            let at = adding.index;
+            for (const parent of picked.parents) {
+              if (childById(parent.id))
+                layout.moveChildToGroup(parent.id, category.id, at);
+              else layout.addProductToGroup(parent.id, category.id, at);
+              for (const drop of parent.drop) layout.toggleRowHidden(drop);
+              at += 1;
+            }
+            for (const id of picked.loose) {
+              layout.moveChildToGroup(id, category.id, at);
+              at += 1;
+            }
+          }}
           onClose={() => setAdding(null)}
         />
       ) : null}
+
+      {/*
+        "Add an item" opens the SAME picker — Ashwin, Oct 21.
+
+        It used the cascading menu, which meant the two adds in this panel
+        disagreed about what adding looks like depending on which one you
+        pressed. `childrenOnly` is the only difference, and it is the store's
+        rule rather than a design one: a product cannot be filed under a
+        product, so the products here are the path rather than the targets.
+      */}
+      {adding && adding.parentId ? (
+        <AddPicker
+          anchor={adding.anchor}
+          title={labelForProduct(layout.state, adding.parentId)}
+          state={layout.state}
+          commit={addPickerCommit}
+          centreOn={adding.host ?? null}
+          childrenOnly
+          // Already an item of this row — the "Smart lists is already in
+          // Contacts" case, greyed in place rather than silently absent.
+          added={(id: string) => {
+            const parentId = adding.parentId!;
+            if (id === parentId) return true;
+            return childrenFor(layout.state, parentId).some((c) => c.id === id);
+          }}
+          onCommit={(picked: AddPickerResult) => {
+            for (const id of picked.loose)
+              layout.moveChildToProduct(id, adding.parentId!);
+          }}
+          onClose={() => setAdding(null)}
+        />
+      ) : null}
+
 
       {/*
         The cascade, rendered from the panel rather than from the rows.

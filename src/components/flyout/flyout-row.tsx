@@ -9,6 +9,7 @@ import {
   Eye,
   EyeOff,
   GripVertical,
+  TriangleAlert,
 } from "lucide-react";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
 import { EditAffordance, InlineRename } from "@/components/nav/inline-rename";
@@ -33,28 +34,14 @@ import {
   childCarriesNew,
   itemCarriesNew,
 } from "@/components/nav/new-flag";
+import { BADGE_TONE } from "./types";
 import type {
-  FlyoutBadgeTone,
   FlyoutChildItem,
   FlyoutItem,
   FlyoutItemVariant,
 } from "./types";
 
 /** One flat step of the HighRise ramp per tone. */
-const BADGE_TONE: Record<FlyoutBadgeTone, string> = {
-  /*
-   * Flat fill, flat edge: no gradient and no drop shadow (Sep 16).
-   *
-   * The pills carried a 2px shadow as well as their gradient, which on a 16px
-   * chip lifted them off the row — so an editorial label about a PRODUCT read
-   * as a floating control sitting on the nav. A tag is type on a ground; it
-   * belongs in the same plane as the label it qualifies. Colour is doing the
-   * work, and one step of the HighRise ramp is enough of it.
-   */
-  new: "bg-fly-badge-bg text-fly-badge-fg",
-  beta: "bg-fly-badge-beta-bg text-fly-badge-beta-fg",
-};
-
 /*
  * A row that lists a place, in the nav's own measurements.
  *
@@ -443,6 +430,15 @@ export interface FlyoutChildEdit {
 interface FlyoutRowProps {
   item: FlyoutItem;
   variant: FlyoutItemVariant;
+  /**
+   * Why this row is in a state the nav cannot be saved in, if it is.
+   *
+   * One string rather than a boolean: the mark is only useful with the
+   * reason attached, and a caller that has to supply the sentence cannot
+   * put the mark on a row it has no complaint about. Currently only "every
+   * item has been moved out of this row" — see `lostAllChildren`.
+   */
+  warn?: string;
   active?: boolean;
   /** Which row the page behind the panel is on, for the nested dropdown. */
   activeId?: string | null;
@@ -468,6 +464,7 @@ interface FlyoutRowProps {
 export function FlyoutRow({
   item,
   variant,
+  warn,
   active = false,
   activeId = null,
   rowIndex = 0,
@@ -883,6 +880,26 @@ export function FlyoutRow({
             : "self-center",
         )}
       >
+        {/*
+          The fault first, before the controls that could fix it.
+
+          Outside the `edit` gate deliberately: the row IS broken, and a
+          warning that only appears while you happen to be editing is a
+          warning the person who left it there never sees. It reads as a
+          status, so it is not a button — the tooltip carries the sentence
+          and the kebab beside it is where the repair lives.
+        */}
+        {warn ? (
+          <RailTooltip label={warn} placement="above" wrap={240}>
+            <span
+              role="img"
+              aria-label={warn}
+              className="flex size-[20px] shrink-0 items-center justify-center text-[var(--hr-warning-500)]"
+            >
+              <TriangleAlert size={13} aria-hidden="true" />
+            </span>
+          </RailTooltip>
+        ) : null}
         {edit && !edit.renaming ? (
           <>
             {edit.onToggleHidden ? (
@@ -1120,7 +1137,6 @@ export function FlyoutRow({
         }
         // 12, as the nav's own rows use: an L2 row is the same kind of row one
         // level down, so its trailing mark is the same mark at the same size.
-        pinSize={12}
       >
         {node}
       </WithPin>
@@ -1253,7 +1269,6 @@ function Row({
       // 12, the same as L1 and L2. It was falling through to PinButton's own
       // default of 14, so the deepest rows — the ones drawn smallest in every
       // other respect — carried the largest pin in the nav.
-      pinSize={12}
     >
       <button ref={hostRef} type="button" {...rest}>
         {children}

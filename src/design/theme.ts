@@ -5363,6 +5363,39 @@ export const RAIL_GUEST_SPOT_LABELS: Record<RailGuestSpot, string> = {
  * them a click from the shut rail is worth a lower half that reorders. `off`
  * stays on the dial for the glanceable-by-position argument above.
  */
+/**
+ * How a multi-select add says "now put these in".
+ *
+ * The picker lets you tick several rows at both depths (see `AddPicker`), so
+ * something has to carry the commit. Two shapes, and they disagree about
+ * where the selection LIVES while you are building it.
+ *
+ *  footer  A bar under the list: "4 items selected" and an Add button. The
+ *          count sits next to the thing that acts on it, the list keeps the
+ *          full width, and the popover looks like every other confirm in the
+ *          product. What it does not do is show you WHICH four — you have to
+ *          scroll back through the list to check, and at forty rows that is
+ *          a real cost.
+ *  tags    The add button becomes a field, and each tick drops a removable
+ *          tag into it. The selection is legible without scrolling and each
+ *          item can be taken back out where it is shown rather than where it
+ *          was found. It costs vertical space that grows with the selection,
+ *          and a trigger that changes shape mid-gesture is a trigger that
+ *          moves the list under the pointer.
+ *
+ * Default `footer`. It is the quieter of the two and the one that behaves
+ * identically whether you tick one row or twelve; `tags` is the better answer
+ * only if people actually lose track of what they picked, which is a thing to
+ * find out rather than assume. Ashwin, Oct 21.
+ */
+export const ADD_PICKER_COMMITS = ["footer", "tags"] as const;
+export type AddPickerCommit = (typeof ADD_PICKER_COMMITS)[number];
+
+export const ADD_PICKER_COMMIT_LABELS: Record<AddPickerCommit, string> = {
+  footer: "A footer with Add",
+  tags: "Tags in the button",
+};
+
 export const RAIL_SHUT_RECENTS = ["off", "on"] as const;
 export type RailShutRecents = (typeof RAIL_SHUT_RECENTS)[number];
 
@@ -6580,6 +6613,8 @@ export interface ThemeState {
   railGuestSpot: RailGuestSpot;
   /** Whether the shut strip carries recents. See RAIL_SHUT_RECENTS. */
   railShutRecents: RailShutRecents;
+  /** How a multi-select add commits. See ADD_PICKER_COMMITS. */
+  addPickerCommit: AddPickerCommit;
   /** Whether the other accounts are behind a door. See RAIL_DIRECTORY_MODES. */
   railDirectoryMode: RailDirectoryMode;
   /** Which end of the rail the tools sit at. See RAIL_TOOL_SPOTS. */
@@ -6961,6 +6996,7 @@ export const NAV_STRUCTURE_KEYS = [
   "railActiveSpot",
   "railGuestSpot",
   "railShutRecents",
+  "addPickerCommit",
   "railDirectoryMode",
   "railToolSpot",
   "agencyBarDismissal",
@@ -7114,7 +7150,17 @@ export const DEFAULT_THEME: ThemeState = {
    */
   // One row that opens the pair, per the Sep 8 direction. See
   // GET_APP_PLACEMENTS for what the other three cost.
-  getAppPlacement: "flyout",
+  /*
+    The avatar menu, which is where production puts it — Ashwin, Oct 21.
+
+    The sidebar flyout was the default while the question was "what does this
+    offer cost the nav", and the answer it gave was one L1 row. The menu
+    answers it with none: the apps are an errand you run once, and the avatar
+    menu is the drawer every product keeps its once-a-year errands in. The
+    rows carry the panel's own names and tags there — see GET_APP_ROW_BADGES
+    — so moving the offer does not rename it.
+  */
+  getAppPlacement: "menu",
   l3Arrange: L3_ARRANGE_DEFAULT,
   // Nested, so nobody has to classify what they want before looking for it.
   addMenuShape: "deep",
@@ -7277,6 +7323,7 @@ export const DEFAULT_THEME: ThemeState = {
     The axis stays on the dial; the reach it buys is real and one click away.
   */
   railShutRecents: "off",
+  addPickerCommit: "footer",
   /*
     The directory IS the rail, rather than a door to one.
 

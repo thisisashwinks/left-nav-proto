@@ -60,7 +60,6 @@ import {
   Package,
   Palette,
   PanelsTopLeft,
-  Plug,
   Presentation,
   Puzzle,
   QrCode,
@@ -1161,49 +1160,6 @@ const CREATORS: CatalogueEntry[] = [
   },
 ];
 
-const INTEGRATIONS: CatalogueEntry[] = [
-  {
-    id: "ia-integrations-lead-connector",
-    label: "Lead Connector Integrations",
-    icon: Puzzle,
-    blurb: "The first-party connections we maintain.",
-    tabs: true,
-    children: [
-      { id: "ia-integrations-all", label: "All Integrations" },
-      {
-        // L4 — today three sibling rows inside Settings › Integrations. They are
-        // per-network field maps, so they belong under the integration itself.
-        id: "ia-integrations-mapping",
-        label: "Form Field Mapping",
-        children: [
-          { id: "ia-integrations-mapping-facebook", label: "Facebook" },
-          { id: "ia-integrations-mapping-tiktok", label: "TikTok" },
-          { id: "ia-integrations-mapping-linkedin", label: "LinkedIn" },
-        ],
-      },
-    ],
-  },
-  {
-    id: "ia-integrations-private",
-    label: "Private Integrations",
-    icon: KeyRound,
-    blurb: "Tokens your own systems use.",
-  },
-  {
-    id: "ia-integrations-marketplace",
-    label: "Marketplace Apps",
-    icon: Blocks,
-    blurb: "Browse, install and configure apps.",
-    // Two tabs on one page. Installed apps was a page of its own until the
-    // review pointed out it is a filter on the marketplace, not a destination.
-    tabs: true,
-    children: [
-      { id: "ia-integrations-marketplace-browse", label: "Browse marketplace" },
-      { id: "ia-integrations-marketplace-settings", label: "Settings" },
-    ],
-  },
-];
-
 /**
  * Settings — deliberately small.
  *
@@ -1284,6 +1240,48 @@ const SETTINGS: CatalogueEntry[] = [
     icon: FileClock,
     blurb: "Who changed what, and when.",
   },
+  /*
+   * Integrations, folded in from a bucket of their own — Ashwin, Oct 21.
+   *
+   * Three rows is a thin bucket, and all three are account-wide plumbing:
+   * which outside systems this account is connected to, and on whose
+   * credentials. That is the same question every other row in Settings
+   * answers, and the shipped nav has always filed them here. The L1 row they
+   * cost was the most expensive thing about them.
+   *
+   * Flat, and that is the other half of the instruction: none of the three
+   * carries a dropdown now. What went with the children — All Integrations,
+   * Form Field Mapping and its three networks, the marketplace's two tabs —
+   * were views on one page rather than places, and the pages still carry
+   * them as tabs. See `CatalogueChild.tabs`, which is what the nav used to
+   * say about them.
+   */
+  {
+    /*
+     * "Integrations", not "Lead Connector Integrations".
+     *
+     * The product's own name for itself, and the only one anybody uses out
+     * loud. With the bucket gone there is nothing left for the qualifier to
+     * tell it apart from. The id keeps the old spelling: it is a join key,
+     * not a label.
+     */
+    id: "ia-integrations-lead-connector",
+    label: "Integrations",
+    icon: Puzzle,
+    blurb: "The first-party connections we maintain.",
+  },
+  {
+    id: "ia-integrations-private",
+    label: "Private Integrations",
+    icon: KeyRound,
+    blurb: "Tokens your own systems use.",
+  },
+  {
+    id: "ia-integrations-marketplace",
+    label: "Marketplace Apps",
+    icon: Blocks,
+    blurb: "Browse, install and configure apps.",
+  },
 ];
 
 /**
@@ -1351,7 +1349,6 @@ export const proposedCatalogue: CatalogueEntry[] = [
   ...REPORTING,
   ...COMMERCE,
   ...CREATORS,
-  ...INTEGRATIONS,
   ...SETTINGS,
   ...DESTINATIONS,
   ...LAUNCHPAD,
@@ -1362,11 +1359,14 @@ export const proposedCatalogue: CatalogueEntry[] = [
 const ids = (products: CatalogueEntry[]) => products.map((p) => p.id);
 
 /**
- * The twelve buckets, in nav order.
+ * The buckets, in nav order.
  *
- * The nine that own products come first and each opens a flyout. The two
+ * The ones that own products come first and each opens a flyout. The
  * destinations follow, separated by a rule, and Settings is last — the nav
  * already anchors it there. That order is authored, not sorted.
+ *
+ * Integrations was one of them until Oct 21, when its three rows moved into
+ * Settings: see the note on them there.
  */
 export const proposedBuckets: ProposedBucket[] = [
   { id: "ia-ai", defaultLabel: "AI", icon: Sparkles, productIds: ids(AI) },
@@ -1406,12 +1406,6 @@ export const proposedBuckets: ProposedBucket[] = [
     defaultLabel: "Creators Hub",
     icon: GraduationCap,
     productIds: ids(CREATORS),
-  },
-  {
-    id: "ia-integrations",
-    defaultLabel: "Integrations",
-    icon: Plug,
-    productIds: ids(INTEGRATIONS),
   },
   {
     id: "ia-settings",

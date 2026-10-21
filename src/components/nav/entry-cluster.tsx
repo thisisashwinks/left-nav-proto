@@ -112,6 +112,24 @@ export interface EditNavProps {
    */
   blocked: number;
   /**
+   * Rows emptied of their children, counted separately from categories.
+   *
+   * Same illegal state one level down — a row that opens a flyout with
+   * nothing in it — and held for the same reason. Two numbers rather than
+   * one total because the sentence has to name which it is: "2 categories
+   * are empty" sent an admin looking at their L1 list for a fault that was
+   * inside a panel. See `lostAllChildren`. Ashwin, Oct 21.
+   */
+  emptyRows: number;
+  /**
+   * The same faults by name — "Automation", "Automation › Workflows".
+   *
+   * The counts above decide WHETHER the save is held; these decide what the
+   * hint says. Naming the row is the difference between a rule the reader
+   * has to go and apply and an instruction they can follow. Ashwin, Oct 21.
+   */
+  emptyNames: readonly string[];
+  /**
    * Opens the show/hide menu for the nav's non-tree blocks.
    *
    * On the mode's own control rather than on a row, because Recent, Quick Actions
@@ -175,6 +193,8 @@ function EditNavButton({
   onDiscard,
   dirty,
   blocked,
+  emptyRows,
+  emptyNames,
   onOpenBlocks,
   onOpenAppearance,
   onOpenTemplates,
@@ -281,6 +301,8 @@ function EditNavButton({
           editing={editing}
           dirty={dirty}
           blocked={blocked}
+          emptyRows={emptyRows}
+          emptyNames={emptyNames}
           onStart={onStart}
           onSave={onSave}
           onDiscard={onDiscard}
@@ -307,20 +329,31 @@ function EditNavButton({
 
   if (editing) {
     /*
-     * Why the save is refusing, in one sentence with the rule in it.
+     * What is empty, named, and the one thing to do about it.
      *
-     * It named the count and the fix and never the RULE — "1 category is
-     * empty, put something in it" tells you what to do without telling you
-     * why, so the reader learns a chore rather than a constraint and meets
-     * the same wall again on the next template. Saying a category has to
-     * hold at least one product is the part that carries over. Ashwin,
-     * Sep 24.
+     * This has been through two shapes. It counted the faults and stated the
+     * rule — "1 row has had all its items moved out", then a sentence about
+     * every panel needing an item — which is true, general, and leaves the
+     * reader to find the row themselves. In a nav of eleven categories with
+     * panels under half of them, finding it IS the work. So the hint names
+     * the offender instead: a category by its own name, a row as "Category ›
+     * Row", because a bare "Workflows" does not say which panel to open.
+     *
+     * Short, because it is a tooltip on a disabled button and the button is
+     * three words away from the fix. Ashwin, Oct 21.
+     *
+     * Three names at most. A longer list is a different problem — somebody
+     * has emptied half the nav — and the tail of it would not be read.
      */
+    const held = blocked + emptyRows;
+    const shown = emptyNames.slice(0, 3);
+    const rest = emptyNames.length - shown.length;
+    const list =
+      rest > 0 ? `${shown.join(", ")} and ${rest} more` : shown.join(", ");
     const blockedNote =
-      (blocked === 1
-        ? "1 category is empty. "
-        : `${blocked} categories are empty. `) +
-      "Every category needs at least one product in it before this can be saved.";
+      emptyNames.length === 1
+        ? `${list} is empty. Add an item to save.`
+        : `${list} are empty. Add an item to each to save.`;
     /*
      * Two controls while editing, because the session has two endings.
      *
@@ -594,7 +627,7 @@ function EditNavButton({
 
             Wrapped, because this is a sentence rather than a glyph's name.
           */}
-          <MaybeBlockedHint blocked={blocked > 0} note={blockedNote}>
+          <MaybeBlockedHint blocked={held > 0} note={blockedNote}>
             <button
               type="button"
               /*
@@ -603,11 +636,11 @@ function EditNavButton({
                 the hover is the whole of the explanation; the refusal moves
                 into the handler instead, and the state is still announced.
               */
-              aria-disabled={blocked > 0}
-              onClick={blocked > 0 ? undefined : onSave}
+              aria-disabled={held > 0}
+              onClick={held > 0 ? undefined : onSave}
               className={cn(
                 "motion-tap flex h-[26px] shrink-0 items-center gap-[5px] rounded-[7px] px-[10px] text-[12px] leading-none font-medium",
-                blocked > 0
+                held > 0
                   ? /*
                       An ordinary disabled button, and nothing louder.
                       
@@ -638,7 +671,7 @@ function EditNavButton({
                     "bg-[var(--admin-action)] text-[var(--admin-action-fg)] hover:bg-[var(--admin-action-hover)] active:scale-95",
               )}
             >
-              {blocked > 0 ? null : <Check size={13} aria-hidden="true" />}
+              {held > 0 ? null : <Check size={13} aria-hidden="true" />}
               {/* With two rows there is room to say it properly again. An admin
                   who opened the mode to look around is not told they are
                   saving. */}

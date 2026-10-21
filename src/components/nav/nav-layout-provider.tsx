@@ -15,7 +15,7 @@ import {
 import { childById, productById } from "./catalogue";
 import { isChromePlace } from "./chrome-places";
 import type { CatalogueChild } from "./catalogue-types";
-import { l1IdsFor, tailRowsFor } from "./nav-entries";
+import { CHROME_TAIL_IDS, l1IdsFor, tailRowsFor } from "./nav-entries";
 import {
   isRowHiddenDeep,
   withChildInGroup,
@@ -923,7 +923,24 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
    * provider and cannot be reached from here. The model is a platform axis, not
    * a fact about templates, so the theme is where it belongs anyway.
    */
-  const { layoutModel, templateAccountSpread } = useTheme().effective;
+  const { layoutModel, templateAccountSpread, getAppPlacement } =
+    useTheme().effective;
+  /*
+   * Which chrome rows count as L1 rows right now.
+   *
+   * Download apps is a row of the sidebar under one placement and a pair of
+   * entries under the avatar — or two glyphs in the app bar — under the
+   * others, where the sidebar has no such row at all. `l1IdsFor` defaults to
+   * assuming it is always there, which is what put it back on screen the
+   * first time anything was dragged to L1: the drop recomputes the L1 order,
+   * the default chrome id came with it, and the id was then written into
+   * `tailOrder` as a row the nav went on to draw.
+   *
+   * So the question is asked once, here, and handed to every call. See
+   * GET_APP_PLACEMENTS. Ashwin, Oct 21.
+   */
+  const chromeL1: readonly string[] =
+    getAppPlacement === "flyout" ? [...CHROME_TAIL_IDS] : [];
   const strict = layoutModel === "one-template";
   /**
    * Whether a sub-account wakes up on the shipped arrangement rather than its
@@ -1452,7 +1469,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
            * landed, and a category dropped past it was placed against a list
            * one row shorter than the one on screen. See `l1IdsFor`.
            */
-          const current = l1IdsFor(s, resolveGroups(s));
+          const current = l1IdsFor(s, resolveGroups(s), chromeL1);
           const next = reorder(current, fromIndex, toIndex);
           if (next === current) return s;
           return { ...s, groupOrder: { ...s.groupOrder, [s.grouping]: next } };
@@ -1513,7 +1530,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
             the line had been drawn. The same class of bug `moveGroup` records
             having fixed once already. See `l1IdsFor`.
           */
-          const order = l1IdsFor(added, resolveGroups(added)).filter(
+          const order = l1IdsFor(added, resolveGroups(added), chromeL1).filter(
             (gid) => gid !== UNGROUPED_ID,
           );
           const from = order.indexOf(id);
@@ -1570,7 +1587,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         catching up with it. Ashwin, Oct 16.
       */
       panelRowsFor: (panelId, defaults) => {
-        const lifted = new Set(l1IdsFor(state, resolveGroups(state)));
+        const lifted = new Set(l1IdsFor(state, resolveGroups(state), chromeL1));
         return applyPanelOrder(state.panelOrder[panelId], defaults).filter(
           (id) => !lifted.has(id),
         );
@@ -1630,7 +1647,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
           // Out of its category, its old parent and the top level alike —
           // one helper, so no record is left claiming it. See withRowDetached.
           const unfiled = withRowDetached(s, rowId);
-          const current = l1IdsFor(unfiled, resolveGroups(unfiled));
+          const current = l1IdsFor(unfiled, resolveGroups(unfiled), chromeL1);
           const without = current.filter((id) => id !== rowId);
           const at = Math.max(0, Math.min(index, without.length));
           const next = [...without];

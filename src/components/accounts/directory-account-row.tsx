@@ -4,6 +4,7 @@ import { Pin } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { RAIL_PIN_CAP_HINT } from "./account-rail";
 import { RailTooltip } from "@/components/nav/rail-tooltip";
+import { PIN_GLYPH } from "@/components/nav/pin-button";
 import { cn } from "@/lib/utils";
 import { AccountLogo } from "./account-logo";
 import { SelectBox } from "./select-box";
@@ -265,12 +266,16 @@ export function DirectoryAccountRow({
         >
           <Pin
             /*
-              13, which is the rail's. It was 12, and 1px is invisible until
-              you see the same account's pin in both columns at once, which
-              is exactly what the All accounts panel puts on screen. One pin,
-              one size, wherever a row carries one.
+              PIN_GLYPH — the nav's, which is now also the rail's.
+
+              This read 13 to match the rail beside it, on the rule that one
+              pin means one size wherever a row carries one. The rule stands;
+              the number moved. The nav's pins went to 12 when the Recents
+              panel was caught drawing a 14 over a sidebar drawing a 12, and
+              an account pin a column away from a product pin is the same
+              mark again. Ashwin, Oct 21.
             */
-            size={13}
+            size={PIN_GLYPH}
             fill={pinned ? "currentColor" : "none"}
             aria-hidden="true"
           />

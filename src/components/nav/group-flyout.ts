@@ -4,7 +4,7 @@ import type {
   FlyoutConfig,
   FlyoutEntry,
 } from "@/components/flyout/types";
-import { productById } from "./catalogue";
+import { childById, productById } from "./catalogue";
 import { PROPOSED_AI_ID } from "./proposed-ia";
 import { liftedChildren } from "./nav-entries";
 import type { CatalogueChild } from "./catalogue-types";
@@ -97,6 +97,22 @@ export function flyoutForGroup(
     variant: "product",
     entries: group.productIds.map((id): FlyoutEntry => {
       const product = productById(id);
+      /*
+        A promoted CHILD answers here too. Ashwin, Oct 21.
+
+        `productById` only knows the catalogue's top rung, so a row lifted out
+        of a product — an L3 dragged up into its category — resolved to
+        `undefined` and lost the one flag that matters below: `tabs`. The
+        children came through anyway, because `childrenFor` has always
+        answered for either rung, so the Workflows index promoted to L2 drew
+        All / Needs review / Drafts / Deleted as nav rows. Those are views on
+        one page, not places (see `CatalogueChild.tabs`), and the nav does not
+        go that deep.
+
+        Same fall-through `liftedChildren` uses, so a promoted row carries the
+        same answer whether its panel is built here or there.
+      */
+      const node = product ?? childById(id)?.child;
       return {
         kind: "item",
         item: {
@@ -119,7 +135,12 @@ export function flyoutForGroup(
               ? { children: childrenWithIcons(state, kids) }
               : {};
           })(),
-          ...(product?.tabs ? { tabs: true } : {}),
+          /*
+            The flag, not a filter: `tabsInNav` can still put these on the
+            nav deliberately, and the renderers read `item.tabs` to decide.
+            Stripping the children here would take that axis away.
+          */
+          ...(node?.tabs ? { tabs: true } : {}),
         },
       };
     }),

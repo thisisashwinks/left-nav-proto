@@ -672,7 +672,20 @@ export function labelForProduct(
    * into every child that names it.
    */
   const parentId = hit.path[hit.path.length - 1]?.id ?? hit.product.id;
-  return `${labelForProduct(state, parentId)} › ${base}`;
+  const parentLabel = labelForProduct(state, parentId);
+  /*
+   * A child that shares its parent's name says it once.
+   *
+   * Workflows ships a child called Workflows — the index under the product —
+   * and lifting it out produced "Workflows › Workflows", which is the
+   * qualifier doing the opposite of its job: the prefix exists to say WHICH
+   * Workflows this is, and naming the same word twice answers nothing while
+   * costing a truncated row. The collision that triggered it is real (the
+   * product is standing right there), but it is not a collision the prefix
+   * can resolve, so the row keeps its plain name. Ashwin, Oct 21.
+   */
+  if (parentLabel === base) return base;
+  return `${parentLabel} › ${base}`;
 }
 
 /**
@@ -716,7 +729,19 @@ export function qualifiedParentFor(
   }
   // The immediate parent, matching the label's own qualifier exactly — at L3
   // that is the product, one level deeper it is the L3 above.
-  return hit.path[hit.path.length - 1]?.id ?? hit.product.id;
+  const parentId = hit.path[hit.path.length - 1]?.id ?? hit.product.id;
+  /*
+   * And no badge where the label takes no prefix — same rule, same reason.
+   * The pair has to agree: a row reading plain "Workflows" while wearing its
+   * parent's glyph badged with its own would be the glyph claiming a
+   * distinction the name has just dropped.
+   */
+  if (
+    labelForProduct(state, parentId) === baseLabelForProduct(state, productId)
+  ) {
+    return null;
+  }
+  return parentId;
 }
 
 /**
@@ -1061,7 +1086,29 @@ function resolveTree(state: NavLayoutState): ResolvedGroup[] {
         ids,
         (id) =>
           (byId.get(id)?.productIds ?? [])
-            .map((pid) => resolveOwned(pid, enabled))
+            .map((pid) => {
+              /*
+                A CHILD rides on its product's provisioning, and keeps its
+                own id.
+
+                `resolveOwned` answers for products: it looks the id up in
+                `enabled`, which holds product ids only, so a child spliced
+                into a bucket resolved to undefined and was filtered out —
+                the same disappearance the custom branch had, reached by a
+                different route. Translating it would be wrong as well as
+                unnecessary: a child id is not a product id in either
+                catalogue, so there is nothing to cross over to.
+
+                Chrome rows are admitted for the same reason they are in the
+                custom branch — once "Move to" can file one into a category,
+                an edited proposed tree can hold one too. Ashwin, Oct 21.
+              */
+              const child = childById(pid);
+              if (child)
+                return enabled.has(child.product.id) ? pid : undefined;
+              if (isChromePlace(pid)) return pid;
+              return resolveOwned(pid, enabled);
+            })
             .filter((pid): pid is string => pid !== undefined),
         edited,
       );
@@ -1125,11 +1172,26 @@ function resolveTree(state: NavLayoutState): ResolvedGroup[] {
         ids,
         (id) =>
           (byId.get(id)?.productIds ?? []).filter(
-            // A category holds products, and — since "Move to" started
-            // offering it — the nav's own rows. Both draw the same way: the
-            // resolvers answer for either. Anything else is a stale id from a
-            // catalogue this account no longer has.
-            (pid) => productById(pid) !== undefined || isChromePlace(pid),
+            /*
+              A category holds products, the nav's own chrome rows — since
+              "Move to" started offering them — and, since Oct 21, CHILDREN.
+              All three draw the same way: the resolvers answer for any of
+              them. Anything else is a stale id from a catalogue this account
+              no longer has.
+
+              The child case is what `withChildInGroup` has always written
+              and this has never admitted. Drag an L3 out to the panel it
+              sits in and the move committed, the toast said so, the undo
+              was real — and then this filter dropped the id on the way to
+              the screen, so the row simply was not there. State said one
+              thing and the nav drew another. See `lostAllChildren` for the
+              sibling case, and the note on the entitlement filter above:
+              this is the same bug one function along.
+            */
+            (pid) =>
+              productById(pid) !== undefined ||
+              isChromePlace(pid) ||
+              childById(pid) !== undefined,
           ),
         true,
       );
@@ -1300,6 +1362,168 @@ export function isRowHiddenDeep(
  * the same reason. Ashwin, Oct 12.
  */
 export const DETACHED = "\u0000detached";
+
+/**
+ * A row that HAD children in the catalogue and has none left in this nav.
+ *
+ * The L2 equivalent of an empty category, and it arrives the same way: not by
+ * being authored empty, but by the admin moving every child out of it — to
+ * another parent, into a category as rows of their own, or up to the top
+ * level. What is left is a row that opens a flyout with nothing in it, which
+ * is the exact failure `emptyCategories` exists to prevent one level up.
+ *
+ * `own.length === 0` is the whole of the exemption, and it has to be. Most
+ * products are leaves: they never had children, they open a page rather than
+ * a panel, and warning about them would mark most of the nav. Only a row that
+ * was a PARENT can be orphaned. Ashwin, Oct 21.
+ */
+export function lostAllChildren(
+  state: NavLayoutState,
+  productId: string,
+): boolean {
+  const own =
+    (productById(productId) ?? childById(productId)?.child)?.children ?? [];
+  if (own.length === 0) return false;
+  /*
+   * A hidden row is not a fault, because it is not a row.
+   *
+   * The whole complaint is "this opens a panel with nothing in it" — and a
+   * row the account has hidden opens nothing, because it is not drawn. So
+   * hiding an emptied row is a legitimate answer to the warning, alongside
+   * filling it and removing it, and it is the cheapest of the three: the
+   * row keeps its place and its children's place if the account changes its
+   * mind. Holding the save after that would be refusing the fix it just
+   * asked for. Ashwin, Oct 21.
+   */
+  if (isRowHidden(state, productId)) return false;
+  return childrenFor(state, productId).length === 0;
+}
+
+/**
+ * Every row in the drawn nav that has been emptied of its children.
+ *
+ * Walks what is DRAWN rather than the catalogue: a product sitting in no
+ * category and no tail is not in this nav, so it cannot be an empty row in
+ * it. See `lostAllChildren`.
+ */
+export function emptiedParents(
+  state: NavLayoutState,
+  groups: readonly ResolvedGroup[],
+): readonly string[] {
+  const seen = new Set<string>();
+  for (const g of groups) for (const id of g.productIds) seen.add(id);
+  for (const id of state.tailOrder) seen.add(id);
+  /*
+   * `isRowHiddenDeep`, not the shallow test `lostAllChildren` applies.
+   *
+   * The row's own flag is handled in there; this is the other way it goes
+   * off screen — the CATEGORY above it is hidden, so nothing inside it is
+   * drawn whatever each row says about itself. Same rule, one rung up: what
+   * nobody can see cannot be a fault worth blocking a save for.
+   */
+  return [...seen].filter(
+    (id) => !isRowHiddenDeep(state, groups, id) && lostAllChildren(state, id),
+  );
+}
+
+/**
+ * A category whose every row is hidden, while the category itself is not.
+ *
+ * The third way to leave a heading over nothing, after an empty category and
+ * a row emptied of its children. The panel still opens; there is simply
+ * nothing in it to read, which is the failure the other two are blocked for.
+ *
+ * `isRowHidden`, NOT `isRowHiddenDeep`, and the distinction is the whole of
+ * the function. The deep test reports a row hidden when an ANCESTOR is — so
+ * a category someone has deliberately hidden would report every member
+ * hidden too, and every such category would be flagged for the crime of
+ * being hidden on purpose. The shallow test asks only about the row itself,
+ * and the `!isRowHidden(state, group.id)` guard says the category is still
+ * meant to be seen. Credit to the peer session for spotting this one before
+ * it shipped. Ashwin, Oct 21.
+ *
+ * An EMPTY category is not this: it has no rows to hide, and
+ * `emptyCategories` already holds it. Requiring at least one member keeps
+ * the two faults from both claiming the same row and counting it twice.
+ */
+export function allRowsHidden(
+  state: NavLayoutState,
+  group: ResolvedGroup,
+): boolean {
+  if (group.productIds.length === 0) return false;
+  if (isRowHidden(state, group.id)) return false;
+  return group.productIds.every((id) => isRowHidden(state, id));
+}
+
+/** Every drawn category that has been hidden out. See `allRowsHidden`. */
+export function blankedCategories(
+  state: NavLayoutState,
+  groups: readonly ResolvedGroup[],
+): readonly ResolvedGroup[] {
+  return groups.filter((g) => allRowsHidden(state, g));
+}
+
+/**
+ * Where a row actually LIVES, for the purposes of lighting the nav.
+ *
+ * The nav marks a position as a product plus an optional child under it, and
+ * for a catalogue child that pairing is free — its parent is written in the
+ * catalogue. It stops being free the moment the child is moved: a child
+ * lifted to the top level is a row in its own right and has no parent to put
+ * in the first slot, and a child refiled under a different product has a
+ * parent that the catalogue does not know about.
+ *
+ * Reading the catalogue anyway is the bug Ashwin reported: lift Inbox to the
+ * sidebar, click it, and CRM lit up as well — because the position still
+ * said "the Conversations product, child Inbox", and CRM is the category
+ * Conversations lives in. Two rows marked, one of them a place you are not.
+ *
+ * Three answers, which is one per state `childOf` can be in:
+ *
+ *   detached   Its own destination. No parent, nothing above it to light.
+ *   refiled    A child of wherever it was filed, not of where it started.
+ *   untouched  The catalogue's answer, as before.
+ *
+ * Ashwin, Oct 21.
+ */
+export function placeOf(
+  state: NavLayoutState,
+  productId: string | null,
+  childId: string | null,
+): { productId: string | null; childId: string | null } {
+  if (!childId) return { productId, childId };
+  const filed = state.childOf[childId];
+  if (filed === undefined) return { productId, childId };
+  if (filed === DETACHED) return { productId: childId, childId: null };
+  return { productId: filed, childId };
+}
+
+/**
+ * Authored buckets this account could not fill even if it wanted to.
+ *
+ * `isAuthoredGroup` was being used as the whole exemption, and it is too
+ * blunt: it says a bucket came from the platform, not that it is empty for a
+ * reason nobody chose. Move every row out of Automation and the save stayed
+ * enabled, because Automation is a shipped bucket — the admin had emptied it
+ * deliberately and the nav called it entitlement. Ashwin, Oct 21.
+ *
+ * The real question is whether there is anything to PUT there. `stockTreeFor`
+ * answers it: it files the account's products under their catalogue home,
+ * independently of where the admin has since moved them. A bucket with no
+ * stock is one a bakery can never fill — there is no product for it and the
+ * warning would be a scolding with no remedy. A bucket WITH stock that is
+ * sitting empty is a choice, and choices are what the save gate is for.
+ */
+export function unfillableGroupIds(state: NavLayoutState): ReadonlySet<string> {
+  const stocked = new Set(
+    stockTreeFor(state)
+      .categories.filter((c) => c.productIds.length > 0)
+      .map((c) => c.id),
+  );
+  return new Set(
+    [...SHIPPED_GROUPS.keys()].filter((id) => !stocked.has(id)),
+  );
+}
 
 export function childrenFor(
   state: NavLayoutState,

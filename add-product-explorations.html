@@ -1,0 +1,1881 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Add product explorations</title>
+<style>
+:root{
+  --primary-600:#155eef;
+  --primary-700:#124ec4;
+  --primary-50:#eff4ff;
+  --primary-100:#d1e0ff;
+  --ink:#101828;
+  --muted:#475467;
+  --faint:#98a2b3;
+  --border:#e4e7ec;
+  --hover:#f9fafb;
+  --canvas:#ffffff;
+  --page:#f4f5f7;
+  --danger:#b42318;
+  --warn-bg:#fffaeb;
+  --warn-ink:#93370d;
+  --warn-border:#fedf89;
+  --shadow-menu:0 12px 32px -8px rgba(15,23,42,.28), 0 0 0 1px rgba(16,24,40,.08);
+  --shadow-lg:0 12px 16px -4px rgba(16,24,40,.08), 0 4px 6px -2px rgba(16,24,40,.03);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:Inter,-apple-system,system-ui,sans-serif;
+  font-size:14px;line-height:20px;color:var(--ink);
+  background:var(--page);
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{margin:0;font-weight:600;letter-spacing:-.01em}
+h1{font-size:28px;line-height:34px}
+h2{font-size:20px;line-height:28px}
+h3{font-size:16px;line-height:24px}
+h4{font-size:14px;line-height:20px}
+p{margin:0 0 12px}
+a{color:var(--primary-600)}
+code,kbd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+code{background:#f2f4f7;border-radius:4px;padding:1px 5px;color:#344054}
+kbd{background:#fff;border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;padding:1px 5px;font-size:11.5px;color:var(--muted)}
+
+/* ---------- page frame ---------- */
+.shell{display:flex;gap:24px;max-width:1360px;margin:0 auto;padding:16px}
+.toc{
+  position:sticky;top:16px;align-self:flex-start;
+  width:244px;flex:0 0 244px;
+  background:var(--canvas);border-radius:12px;padding:16px;
+  box-shadow:var(--shadow-lg);max-height:calc(100vh - 32px);overflow:auto;
+}
+.toc h4{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:10px}
+.toc a{display:block;padding:5px 8px;border-radius:6px;font-size:13px;line-height:18px;color:var(--muted);text-decoration:none}
+.toc a:hover{background:var(--hover);color:var(--ink)}
+.toc a.sub{padding-left:18px;font-size:12.5px}
+.toc .rule{height:1px;background:var(--border);margin:10px 0}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px}
+.canvas{background:var(--canvas);border-radius:12px;padding:24px;box-shadow:var(--shadow-lg)}
+.lede{font-size:15px;line-height:24px;color:var(--muted)}
+.hint{font-size:13px;line-height:18px;color:var(--muted)}
+.faint{color:var(--faint)}
+.eyebrow{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);font-weight:600}
+.stack>*+*{margin-top:12px}
+hr.sep{border:0;border-top:1px solid var(--border);margin:20px 0}
+
+ul.tight{margin:0 0 12px;padding-left:18px}
+ul.tight li{margin-bottom:6px}
+
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:1100px){.cols2{grid-template-columns:1fr}.shell{flex-direction:column}.toc{position:static;width:auto;flex:none;max-height:none}}
+
+.callout{border:1px solid var(--border);border-left:3px solid var(--primary-600);background:var(--primary-50);border-radius:8px;padding:12px 14px;font-size:13px;line-height:19px;color:#1d2939}
+.callout.warn{background:var(--warn-bg);border-color:var(--warn-border);border-left-color:#dc6803;color:var(--warn-ink)}
+
+.pro,.con{border-radius:8px;padding:12px 14px;font-size:13px;line-height:19px;border:1px solid var(--border)}
+.pro{background:#f6fef9;border-color:#d3f8df}
+.con{background:#fffbfa;border-color:#fecdca}
+.pro h4,.con h4{font-size:12px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px}
+.pro h4{color:#067647}.con h4{color:#b42318}
+
+.cost{border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:13px;line-height:19px;background:var(--hover)}
+.cost h4{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+
+.badge{display:inline-block;font-size:11px;line-height:16px;font-weight:600;padding:1px 7px;border-radius:999px;border:1px solid var(--border);color:var(--muted);background:#fff}
+.badge.rec{background:var(--primary-50);border-color:var(--primary-100);color:var(--primary-700)}
+.badge.new{background:#ecfdf3;border-color:#abefc6;color:#067647}
+.badge.beta{background:#f4f3ff;border-color:#d9d6fe;color:#5925dc}
+
+/* ---------- table ---------- */
+table.matrix{width:100%;border-collapse:collapse;font-size:13px;line-height:18px}
+table.matrix th,table.matrix td{border:1px solid var(--border);padding:10px 12px;vertical-align:top;text-align:left}
+table.matrix thead th{background:var(--hover);font-weight:600;font-size:12px;color:var(--muted);position:sticky;top:0}
+table.matrix td:first-child{width:220px;font-weight:500}
+table.matrix tbody tr:hover{background:#fcfcfd}
+
+/* ---------- mock chrome ---------- */
+.mock{
+  background:#f2f4f7;border:1px solid var(--border);border-radius:12px;padding:16px;
+  display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;position:relative;
+}
+.mock .stagecol{position:relative}
+.stagenote{font-size:12px;line-height:17px;color:var(--faint);margin-bottom:8px}
+
+/* The L2 flyout panel */
+.panel{
+  width:320px;background:#fff;border-radius:12px;padding:12px;
+  box-shadow:var(--shadow-lg);border:1px solid var(--border);
+}
+.panel-title{font-size:13px;font-weight:600;color:var(--muted);padding:2px 8px 8px;display:flex;justify-content:space-between;align-items:center}
+.row{
+  height:36px;display:flex;align-items:center;gap:10px;padding:0 8px;border-radius:7px;
+  font-size:14px;color:var(--ink);cursor:default;position:relative;
+}
+.row:hover{background:var(--hover)}
+.row .dot{width:16px;height:16px;border-radius:4px;background:#d0d5dd;flex:0 0 16px}
+.row.l3{height:32px;font-size:13px;color:var(--muted);padding-left:30px}
+.row.l3 .dot{width:12px;height:12px;border-radius:3px;background:#e4e7ec;flex:0 0 12px}
+.row .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .rowadd{
+  opacity:0;width:22px;height:22px;border-radius:5px;border:1px solid var(--border);background:#fff;
+  color:var(--muted);font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 22px;
+}
+.row:hover .rowadd{opacity:1}
+.row .rowadd:hover{background:var(--primary-50);border-color:var(--primary-100);color:var(--primary-700)}
+.row.ghost{background:var(--primary-50);outline:1px dashed var(--primary-600);color:var(--primary-700)}
+.row.ghost .dot{background:var(--primary-100)}
+.row.sel{background:var(--primary-50)}
+.row.flash{animation:flash 1.4s ease-out}
+@keyframes flash{0%{background:var(--primary-100)}100%{background:transparent}}
+.row.warnrow{background:var(--warn-bg)}
+.seam{height:8px;position:relative;display:flex;align-items:center;justify-content:center}
+.seam .seamadd{
+  opacity:0;height:16px;padding:0 8px;border-radius:999px;border:1px dashed var(--border);background:#fff;
+  color:var(--faint);font-size:11px;line-height:14px;cursor:pointer;
+}
+.seam:hover .seamadd{opacity:1}
+.seam .seamadd:hover{border-color:var(--primary-600);color:var(--primary-700);background:var(--primary-50)}
+.addrow{
+  height:36px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;
+  border-radius:7px;border:1px dashed var(--border);background:#fff;color:var(--muted);
+  font-size:13.5px;font-weight:500;cursor:pointer;margin-top:4px;font-family:inherit;
+}
+.addrow:hover{background:var(--hover);color:var(--ink)}
+
+/* Popover picker */
+.pop{
+  width:320px;background:#fff;border-radius:8px;box-shadow:var(--shadow-menu);overflow:hidden;
+  display:flex;flex-direction:column;
+}
+.pop.wide{width:560px}
+.pop-head{padding:12px 16px 8px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)}
+.pop-head .back{width:24px;height:24px;border-radius:6px;border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;font-family:inherit}
+.pop-head .back:hover{background:var(--hover)}
+.pop-head .t{font-size:14px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pop-sub{padding:0 16px 10px;font-size:13px;line-height:18px;color:var(--muted)}
+.pop-search{padding:8px 12px}
+.pop-search input{
+  width:100%;height:36px;border:1px solid var(--border);border-radius:8px;padding:0 10px;
+  font-family:inherit;font-size:14px;color:var(--ink);outline:none;background:#fff;
+}
+.pop-search input:focus{border-color:var(--primary-600);box-shadow:0 0 0 3px var(--primary-50)}
+.pop-list{max-height:296px;overflow:auto;padding:4px 8px 8px}
+.opt{
+  min-height:36px;display:flex;align-items:center;gap:10px;padding:5px 8px;border-radius:7px;cursor:pointer;
+}
+.opt:hover,.opt.cur{background:var(--hover)}
+.opt.cur{box-shadow:inset 0 0 0 1px var(--primary-100);background:var(--primary-50)}
+.opt .dot{width:16px;height:16px;border-radius:4px;background:#d0d5dd;flex:0 0 16px}
+.opt .txt{flex:1;min-width:0}
+.opt .nm{font-size:14px;line-height:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.opt .pth{font-size:12px;line-height:16px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.opt .tail{font-size:12px;color:var(--faint);flex:0 0 auto}
+.opt .chev{color:var(--faint);font-size:13px;flex:0 0 auto}
+.opt.off{opacity:.55;cursor:not-allowed}
+.opt.off:hover{background:transparent}
+.opt mark{background:#fef0c7;color:inherit;border-radius:2px;padding:0 1px}
+.opt .cb{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border);flex:0 0 16px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;background:#fff}
+.opt .cb.on{background:var(--primary-600);border-color:var(--primary-600)}
+.grouphead{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600;padding:10px 8px 4px}
+.empty{padding:20px 12px;text-align:center;font-size:13px;color:var(--faint)}
+.pop-foot{border-top:1px solid var(--border);padding:12px 16px;display:flex;gap:12px;align-items:center;justify-content:flex-end}
+.pop-foot .spacer{flex:1;font-size:13px;color:var(--muted)}
+
+button.btn{
+  height:36px;padding:0 14px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;
+  border:1px solid var(--border);background:#fff;color:var(--ink);
+}
+button.btn:hover{background:var(--hover)}
+button.btn.primary{background:var(--primary-600);border-color:var(--primary-600);color:#fff}
+button.btn.primary:hover{background:var(--primary-700)}
+button.btn.sm{height:28px;padding:0 10px;font-size:13px;border-radius:6px}
+button.btn:disabled{opacity:.45;cursor:not-allowed}
+button.btn.link{border:0;background:transparent;color:var(--primary-600);padding:0 4px}
+button.btn.link:hover{background:transparent;text-decoration:underline}
+
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.commit{
+  margin-top:10px;font-size:12.5px;line-height:18px;color:var(--muted);
+  background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-height:40px;width:100%;
+}
+.commit .api{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#344054;display:block;margin-top:4px}
+.commit .undo{margin-left:8px}
+
+.inline-nudge{
+  margin:4px 0 4px 30px;border:1px solid var(--primary-100);background:var(--primary-50);border-radius:8px;
+  padding:8px 10px;display:flex;align-items:center;gap:8px;font-size:13px;color:#1d2939;flex-wrap:wrap;
+}
+.inline-nudge select{height:28px;border-radius:6px;border:1px solid var(--border);font-family:inherit;font-size:13px;padding:0 6px;background:#fff}
+
+.selbar{
+  display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;background:var(--primary-50);
+  border:1px solid var(--primary-100);font-size:13px;margin-bottom:6px;flex-wrap:wrap;
+}
+.selbar .n{font-weight:600;color:var(--primary-700);flex:1}
+
+.nameinput{height:36px;border:1px solid var(--border);border-radius:8px;padding:0 10px;font-family:inherit;font-size:14px;outline:none;width:100%}
+.nameinput:focus{border-color:var(--primary-600);box-shadow:0 0 0 3px var(--primary-50)}
+
+.inlinerow{
+  height:36px;display:flex;align-items:center;gap:8px;padding:0 8px;border-radius:7px;
+  background:var(--primary-50);outline:1px solid var(--primary-100);
+}
+.inlinerow input{flex:1;border:0;outline:none;background:transparent;font-family:inherit;font-size:14px;color:var(--ink)}
+.autocomp{
+  position:absolute;z-index:5;width:286px;background:#fff;border-radius:8px;box-shadow:var(--shadow-menu);
+  max-height:220px;overflow:auto;padding:4px;
+}
+.indentpill{font-size:11px;color:var(--primary-700);background:#fff;border:1px solid var(--primary-100);border-radius:999px;padding:1px 7px}
+
+.previewpane{width:220px;border-left:1px solid var(--border);padding:12px;background:#fcfcfd}
+.previewpane .ph{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-bottom:8px}
+.minirow{height:28px;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);padding:0 6px;border-radius:6px}
+.minirow .dot{width:12px;height:12px;border-radius:3px;background:#e4e7ec;flex:0 0 12px}
+.minirow.l3{padding-left:22px;font-size:12px}
+.minirow.ghost{background:var(--primary-50);outline:1px dashed var(--primary-600);color:var(--primary-700);font-weight:500}
+
+.steps{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--faint);padding:0 16px 10px}
+.steps b{color:var(--primary-700)}
+
+.verdict{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.vcard{border:1px solid var(--border);border-radius:8px;padding:12px;background:#fff}
+.vcard .nm{font-weight:600;font-size:13.5px;margin-bottom:4px}
+.vcard .q{font-size:12.5px;line-height:18px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<nav class="toc">
+  <h4>Contents</h4>
+  <a href="#framing">The problem</a>
+  <a href="#principles">Principles</a>
+  <div class="rule"></div>
+  <h4>Approaches</h4>
+  <a class="sub" href="#a">A · Flat search-first</a>
+  <a class="sub" href="#b">B · Destination-first</a>
+  <a class="sub" href="#c">C · Landing preview</a>
+  <a class="sub" href="#d">D · Outliner inline</a>
+  <a class="sub" href="#e">E · Add then place</a>
+  <a class="sub" href="#f">F · Multi-select</a>
+  <div class="rule"></div>
+  <a href="#grouping">Grouping flow</a>
+  <a href="#matrix">Edge-case matrix</a>
+  <a href="#rec">Recommendation</a>
+  <a href="#test">What I'd test</a>
+  <a href="#open">Open questions</a>
+</nav>
+
+<main class="main">
+
+<!-- ============================ FRAMING ============================ -->
+<section class="canvas" id="framing">
+  <div class="eyebrow">Switchyard · left nav</div>
+  <h1 style="margin:6px 0 12px">Add product explorations</h1>
+  <p class="lede">Six ways to let someone put a thing into an L2 panel without first making them work out whether the thing is a product or a sub-product, and a seventh surface that turns several rows into one parent. Every mock on this page is clickable. None of them is a spec.</p>
+
+  <hr class="sep" />
+
+  <h2>The problem, stated honestly</h2>
+  <p>The nav is a three-level tree and the data model knows it perfectly well. <code>childOf</code> records a child's parent, <code>childrenFor</code> resolves a row's children, and <code>withChildFiled</code> will refile any child under any product. Three rungs, cleanly stored, with no ambiguity anywhere in <code>grouping.ts</code>.</p>
+  <p>The vocabulary is the part nobody has. "L2" and "L3" are our words; "product" and "sub-product" are a translation of our words that is no better, because the catalogue cheerfully contradicts it — <b>Workflows</b> is a child of <b>Automation</b> and is also the single most used destination in the account, while <b>Subscriptions</b> is a top-rung product with no children at all and the depth of a bookmark. Someone looking at those two rows has no reason to believe they are different <i>kinds</i> of thing, because in every way they can perceive, they aren't. They are both one click to one screen.</p>
+  <p>So the current cascading picker asks the user to answer a question they cannot answer, and it asks it <i>first</i>: walk into a category, then a product, then maybe its children. The only way to use it correctly is to already know the shape of the tree you are about to add to. That is the confusion — not the chrome, not the chevrons. Rebuilding the same cascade with nicer rows will not move it.</p>
+
+  <div class="callout" style="margin-bottom:12px">
+    <b>The real tension.</b> The tree is a fact about <i>storage</i>. Level is a fact about <i>place</i>. The picker fails because it makes the user supply the storage fact. Every approach below is some way of deriving it from a place instead — from the row you invoked, the row you point at, the indent you can see, or the thing you do immediately afterwards.
+  </div>
+
+  <div class="callout warn">
+    <b>And one more thing we have not been saying out loud.</b> In this codebase every add is a <b>move</b>. <code>addProductToGroup</code> runs <code>withRowDetached</code> then <code>withProductFiled</code>; <code>moveChildToProduct</code> runs <code>withRowDetached</code> then writes <code>childOf</code>. A row lives in exactly one place. So "add Workflows to Revenue" silently empties it out of Automation — and if it was Automation's last child, <code>lostAllChildren</code> fires and the save is blocked. The picker currently says nothing about any of this until after the fact. Whatever we pick, this has to be visible <i>in the list</i>, not in the toast.
+  </div>
+</section>
+
+<!-- ============================ PRINCIPLES ============================ -->
+<section class="canvas" id="principles">
+  <h2>Principles I'll judge these against</h2>
+  <ol class="tight" style="margin-top:10px">
+    <li><b>Never ask for a level.</b> If the user has to classify the thing before the system will show it to them, the design has failed, however pretty the cascade is.</li>
+    <li><b>Show where it lands before it lands.</b> Indent is visible; "L3" is not. Prefer the pixel to the word.</li>
+    <li><b>One list for finding.</b> People search by name. The tree is good for browsing and terrible for retrieval — <code>pageOptions</code> already exists precisely because somebody noticed this.</li>
+    <li><b>Say that it moves.</b> Every add is a move. The list should name the place it is taking the row out of, at the moment of choosing, not in the toast.</li>
+    <li><b>The structural consequence should be reversible in one gesture.</b> Making something a parent changes a page into a panel. That is a big edit to commit by accident.</li>
+    <li><b>Buildable on the actions that exist.</b> <code>addProductToGroup</code>, <code>moveChildToProduct</code>, <code>moveChildToGroup</code>, <code>placeAtL1</code>. If an approach needs a seventh verb, that is a cost and I should say so.</li>
+  </ol>
+  <p class="hint" style="margin-bottom:0">The mocks below all start from the same panel — the <b>Revenue</b> category, with Invoices &amp; estimates and Payments already holding children — and the same slice of the real catalogue, so they can be compared on the same task: <i>put Workflows and Estimates somewhere sensible.</i></p>
+</section>
+
+<!-- ============================ A ============================ -->
+<section class="canvas" id="a">
+  <div class="eyebrow">Approach A</div>
+  <h2 style="margin:6px 0 4px">Flat search-first — the list has no levels in it</h2>
+  <p class="lede" style="margin-bottom:16px">One field over every rung of the catalogue. The result carries its own breadcrumb; the destination was already decided by the <kbd>+</kbd> you pressed.</p>
+
+  <div class="mock">
+    <div class="stagecol">
+      <div class="stagenote">Hover a row for its <kbd>+</kbd> (adds <i>inside</i> that row), or a gap for its <kbd>+</kbd> (adds to the panel).</div>
+      <div id="a-panel"></div>
+    </div>
+    <div class="stagecol" id="a-pop-col">
+      <div class="stagenote">The picker. Try typing "work", "est" or "rep".</div>
+      <div id="a-pop"></div>
+    </div>
+    <div class="commit" id="a-commit">Nothing committed yet.</div>
+  </div>
+
+  <div class="cols2" style="margin-top:16px">
+    <div class="pro">
+      <h4>For</h4>
+      It removes the question entirely. There is no moment in this flow where the user is asked what kind of thing they are adding, because the answer was supplied by a gesture they made for a different reason — they pointed at a place. Retrieval is by name, which is how people actually remember destinations. And the breadcrumb under each result does quiet teaching: after a few adds you have absorbed that Workflows lives under Automation without ever having read the word "sub-product".
+    </div>
+    <div class="con">
+      <h4>Against</h4>
+      The whole design rests on the user having pressed the right <kbd>+</kbd>, and those two <kbd>+</kbd>s are four pixels apart and both appear on hover. Press the wrong one and you get a correct-looking confirmation for the wrong structure, with nothing on screen contradicting you. It is also the <i>least</i> teachable option: the flow works by hiding the hierarchy, so a user who needs to reason about the hierarchy later — to fix a mistake, or to tidy a panel — has learnt nothing from it. And a flat list of ~90 entries with no grouping is genuinely bad for browsing; it only works if you already know a name.
+    </div>
+  </div>
+  <div class="cost" style="margin-top:12px">
+    <h4>Cost against the model</h4>
+    Lowest of the six. <code>pageOptions</code> already produces exactly this list, breadcrumb included, and <code>productTreeOptionsDeep</code> supplies the products; merge the two, sort, done. <code>ADD_PRODUCT_SPOTS</code> already gives seam-anchored invocation, and <code>RowSeam</code>'s <code>onAdd</code> already passes the index. The only new work is a per-row <kbd>+</kbd> on the L2 row whose <code>onPick</code> routes to <code>moveChildToProduct(id, rowId)</code> instead of <code>addProductToGroup</code>. Roughly a day.
+  </div>
+</section>
+
+<!-- ============================ B ============================ -->
+<section class="canvas" id="b">
+  <div class="eyebrow">Approach B</div>
+  <h2 style="margin:6px 0 4px">Destination-first — level is a place, not a type</h2>
+  <p class="lede" style="margin-bottom:16px">Pick where it goes, then pick what goes there. Step one lists the panel and every row in it, so "inside Payments" is an option you read rather than a level you deduce.</p>
+
+  <div class="mock">
+    <div class="stagecol">
+      <div class="stagenote">The panel stays put while you choose.</div>
+      <div id="b-panel"></div>
+    </div>
+    <div class="stagecol">
+      <div class="stagenote">Two steps, with a real back control.</div>
+      <div id="b-pop"></div>
+    </div>
+    <div class="commit" id="b-commit">Nothing committed yet.</div>
+  </div>
+
+  <div class="cols2" style="margin-top:16px">
+    <div class="pro">
+      <h4>For</h4>
+      This is the only option where the structural decision is <i>stated in words the user chose</i>, which makes it the only one that is self-evidently recoverable: you know what you picked because you read it. It is also the most honest about what a panel is — a list of rows, some of which are containers — and it scales to the grouping ask without a new idea, because "inside Payments" and "inside a new group" are the same kind of option. Keyboard path falls out for free: one list, arrow keys, Enter.
+    </div>
+    <div class="con">
+      <h4>Against</h4>
+      It is two steps where the old menu was one, and the first step is the one nobody wants to take — for the overwhelmingly common case ("just put it in this panel") you now pay a click to say so. Worse, it reintroduces the level question in disguise: "this panel" versus "inside Payments" <i>is</i> the L2/L3 distinction, written out. We have made it concrete, which helps, but a user who does not know whether Estimates belongs under Payments still does not know, and now we have given them a screen that insists they decide before they are allowed to see the list of things.
+    </div>
+  </div>
+  <div class="cost" style="margin-top:12px">
+    <h4>Cost against the model</h4>
+    Low. <code>RowMenuAction.options</code> plus <code>onPick</code> already does two-level menus with a back control, which is what <code>row-menu.tsx</code>'s "second view rather than a submenu" note describes. Step one is <code>category.productIds</code> mapped to options; step two is the merged flat list from A. Dispatch is a two-way branch on the step-one choice: <code>addProductToGroup</code> or <code>moveChildToProduct</code>. One to two days.
+  </div>
+</section>
+
+<!-- ============================ C ============================ -->
+<section class="canvas" id="c">
+  <div class="eyebrow">Approach C</div>
+  <h2 style="margin:6px 0 4px">Landing preview — show the indent instead of naming it <span class="badge rec">part of the recommendation</span></h2>
+  <p class="lede" style="margin-bottom:16px">One search list, and beside it the panel as it will be, with a ghost row sitting at the indent it will occupy. You move the ghost with <kbd>↑</kbd> <kbd>↓</kbd> and <kbd>Tab</kbd> / <kbd>⇧Tab</kbd>, or by clicking the preview. Nothing is named "level" anywhere.</p>
+
+  <div class="mock">
+    <div class="stagecol">
+      <div class="stagenote">Pick something on the left, then nudge the ghost on the right. <kbd>Tab</kbd> indents, <kbd>⇧Tab</kbd> outdents, <kbd>Enter</kbd> commits.</div>
+      <div id="c-pop"></div>
+    </div>
+    <div class="commit" id="c-commit">Nothing committed yet.</div>
+  </div>
+
+  <div class="cols2" style="margin-top:16px">
+    <div class="pro">
+      <h4>For</h4>
+      It is the only approach that makes the consequence <i>legible before commit</i>, which is the actual complaint. "L3" is a word with no referent; a row sitting 22px to the right under Payments is a picture of exactly what will be true afterwards. It also lets the structural edge cases show themselves rather than be explained: indent under a childless row and the preview draws the disclosure triangle appearing, so "this turns Subscriptions into a panel" is something you watched happen, not a warning you dismissed. And the ghost gives us a natural home for the move warning — it can render the row fading out of its old parent in the same preview.
+    </div>
+    <div class="con">
+      <h4>Against</h4>
+      It is the most expensive thing here and it buys the least for the easy case: someone adding a plain product to a plain panel now has a second pane they have to look at and ignore. The preview is also a promise we may not be able to keep — the real panel scrolls, has ~40 rows in a busy account, and sits at 360px; a faithful miniature of it inside a 560px popover is either unreadably small or a lie about what the panel looks like. And it quietly makes the popover a modal surface, which breaks the "menu over the row you are editing" pattern the rest of edit mode uses. There is a real risk we ship a diagram rather than a control.
+    </div>
+  </div>
+  <div class="cost" style="margin-top:12px">
+    <h4>Cost against the model</h4>
+    Highest. Needs a pure projection — given <code>NavLayoutState</code>, a row id and a target position, what does <code>childrenFor</code>/<code>resolveGroups</code> return? — computed <i>without</i> committing. That is tractable because every verb in <code>grouping.ts</code> is already a pure <code>state → state</code> function: run <code>withChildFiled</code> on a copy and render the result. So the preview is honest by construction, which is the nice part. The expensive part is the UI: a second pane, keyboard handling for indent, and drag/click targets inside a miniature. Three to five days.
+  </div>
+</section>
+
+<!-- ============================ D ============================ -->
+<section class="canvas" id="d">
+  <div class="eyebrow">Approach D</div>
+  <h2 style="margin:6px 0 4px">Outliner inline — type into the list, <kbd>Tab</kbd> to nest</h2>
+  <p class="lede" style="margin-bottom:16px">No popover at all. The panel grows an empty row, you type, autocomplete offers matches from the catalogue, and <kbd>Tab</kbd> tucks the row under the one above it. The Notion / Workflowy model, applied to a nav.</p>
+
+  <div class="mock">
+    <div class="stagecol">
+      <div class="stagenote">Click <b>Add item</b>, type "work" or "est", pick a match, then press <kbd>Tab</kbd> before <kbd>Enter</kbd>.</div>
+      <div id="d-panel"></div>
+    </div>
+    <div class="stagecol" style="max-width:300px">
+      <div class="stagenote">&nbsp;</div>
+      <div class="hint">The indent indicator sits on the row itself. Nothing in this flow has a name for what you are doing — you are just typing in a list and pushing a row to the right.</div>
+    </div>
+    <div class="commit" id="d-commit">Nothing committed yet.</div>
+  </div>
+
+  <div class="cols2" style="margin-top:16px">
+    <div class="pro">
+      <h4>For</h4>
+      It has the shortest distance between intent and result of anything here, and it borrows a mental model that a large fraction of our users already carry in from Notion, Linear and every outliner since 1984. There is no picker to design, no destination step, no separate preview — the thing you are editing is the thing you are looking at, so <i>of course</i> it lands where you can see it landing. It also makes the grouping ask nearly free, because indenting an existing row is the same gesture as indenting a new one.
+    </div>
+    <div class="con">
+      <h4>Against</h4>
+      <kbd>Tab</kbd> is invisible. Discoverability for a keyboard-only affordance in a mouse-driven settings panel is poor, and the usual fix — a chevron or a drag-right handle — reintroduces an affordance that must be explained. More seriously, this flow implies you can <i>type a new thing</i>, and you cannot: the nav only holds catalogue rows, so a free-text field that rejects most of what you type is a cruel input. We would be pretending the panel is a document when it is a constrained picker wearing a document's clothes. And the whole thing is an unusual pattern for an admin settings surface, so it carries real training cost for agencies with low-tech staff.
+    </div>
+  </div>
+  <div class="cost" style="margin-top:12px">
+    <h4>Cost against the model</h4>
+    Medium, and in an awkward place. The store is fine — indent is <code>moveChildToProduct(id, rowAboveId)</code>, outdent is <code>moveChildToGroup(id, category.id, index)</code>, both of which exist. The cost is in <code>flyout-panel.tsx</code>: a row that is an input, focus and caret management inside a floating panel that already closes on outside click, and an autocomplete popover anchored inside another popover. Three days, most of it fighting the flyout's own dismissal behaviour.
+  </div>
+</section>
+
+<!-- ============================ E ============================ -->
+<section class="canvas" id="e">
+  <div class="eyebrow">Approach E</div>
+  <h2 style="margin:6px 0 4px">Add then place — land flat, nest as a second thought <span class="badge rec">part of the recommendation</span></h2>
+  <p class="lede" style="margin-bottom:16px">Every add goes to the panel. Then the row itself offers, once, to tuck under a neighbour — and offers to undo. The level question is never asked; it is <i>offered</i>, after the user can see the result.</p>
+
+  <div class="mock">
+    <div class="stagecol">
+      <div class="stagenote">Add anything. Watch what appears under the new row.</div>
+      <div id="e-panel"></div>
+    </div>
+    <div class="stagecol">
+      <div class="stagenote">A single flat list. No destination step at all.</div>
+      <div id="e-pop"></div>
+    </div>
+    <div class="commit" id="e-commit">Nothing committed yet.</div>
+  </div>
+
+  <div class="cols2" style="margin-top:16px">
+    <div class="pro">
+      <h4>For</h4>
+      It is the only option that asks the question at the one moment the user is equipped to answer it: after the row exists and they can see it sitting in the list. Before that moment, "should this be under Payments?" is abstract; afterwards it is a thing you look at. It also makes the common case genuinely one click, degrades to <i>correct</i> rather than to <i>wrong</i> when ignored (a flat row is always a legitimate nav row; a wrongly-nested one is not), and it gives us an obvious home for the move warning and the undo.
+    </div>
+    <div class="con">
+      <h4>Against</h4>
+      It is a nag. A strip that appears after every add, 90% of which will be dismissed, is a tax on the common path to serve the uncommon one — and the usual consequence is that people learn to swat it without reading, at which point it is costing clicks and teaching nothing. It also lands the row at the wrong level <i>first</i> for anyone who knew what they wanted, which is a small insult to the competent user, and it means two state commits for one intent, so the undo stack now has a step in it that does not correspond to anything the user thinks they did. If a lot of adds are genuinely sub-items, this is the worst option here.
+    </div>
+  </div>
+  <div class="cost" style="margin-top:12px">
+    <h4>Cost against the model</h4>
+    Low, and it composes with anything. <code>addProductToGroup</code> then optionally <code>moveChildToProduct</code> — both exist, both already commit with a message, and <code>commit()</code> already carries undo. The only new piece is a transient "just added" id on the panel and a row-level strip. One day. Worth noting it is the only approach on this page that can be shipped <i>on top of</i> another one rather than instead of it.
+  </div>
+</section>
+
+<!-- ============================ F ============================ -->
+<section class="canvas" id="f">
+  <div class="eyebrow">Approach F</div>
+  <h2 style="margin:6px 0 4px">Multi-select — the panel is a selection surface</h2>
+  <p class="lede" style="margin-bottom:16px">Check several things in the picker and add them in one commit; check several rows in the panel and group them. One selection idea, two jobs — which is why this is also the answer to the second ask.</p>
+
+  <div class="mock">
+    <div class="stagecol">
+      <div class="stagenote">Check rows in either place. The action bar changes to match.</div>
+      <div id="f-panel"></div>
+    </div>
+    <div class="stagecol">
+      <div class="stagenote">Checkboxes in the picker too; add them all at once.</div>
+      <div id="f-pop"></div>
+    </div>
+    <div class="commit" id="f-commit">Nothing committed yet.</div>
+  </div>
+
+  <div class="cols2" style="margin-top:16px">
+    <div class="pro">
+      <h4>For</h4>
+      Multi-select is the one interaction on this page that users have already met everywhere — file managers, inboxes, every table in our own product. It makes bulk setup (the real job, when an agency is configuring a template) dramatically cheaper, and it solves grouping without inventing a vocabulary: you do not nest a row, you select three rows and give them a name, and the nesting is a <i>consequence</i> you can see. It also turns the scariest structural edit into the most explicit one, since you had to tick three boxes to get there.
+    </div>
+    <div class="con">
+      <h4>Against</h4>
+      It answers the grouping ask well and the <i>original</i> ask badly. Multi-select tells you nothing about where the checked things land — four boxes ticked and one "Add 4 items" button is maximally silent about structure, so on its own it is the current menu with more steps. It also needs a mode: checkboxes always on make a settings panel feel like a bulk-admin table, and checkboxes behind a "Select" toggle are a mode users forget they are in. And "group these" raises a naming question (<code>uniqueGroupLabel</code> will hand you "New group 2") at the exact moment the user is least prepared to name anything.
+    </div>
+  </div>
+  <div class="cost" style="margin-top:12px">
+    <h4>Cost against the model</h4>
+    Medium, and it is the one place the model needs something new. Adding <i>n</i> products is <i>n</i> calls to <code>addProductToGroup</code>, which means <i>n</i> entries in the undo stack and <i>n</i> toasts — so this wants a batched commit, which <code>nav-layout-provider.tsx</code> hints at already ("one method rather than a loop of <code>moveProductToGroup</code> calls"). Grouping needs a new verb that creates a parent and refiles the selection; see the next section for what that verb is made of. Two to four days depending on whether batched undo lands with it.
+  </div>
+</section>
+
+<!-- ============================ GROUPING ============================ -->
+<section class="canvas" id="grouping">
+  <div class="eyebrow">The second ask</div>
+  <h2 style="margin:6px 0 10px">Grouping several L2 rows into one parent</h2>
+  <p>The model already supports the end state and has no verb for the transition. <code>withChildFiled(state, childId, parentId)</code> refiles a child under a product, and <code>childrenFor</code> resolves children for a product <i>or</i> a promoted child — so a parent that owns the grouped rows is an expressible state. What does not exist is "make this row the parent", because today every parent is a catalogue fact.</p>
+
+  <div class="callout" style="margin:12px 0 16px">
+    <b>The design question underneath it.</b> What <i>is</i> the new parent? Three answers, and they are not the same product.<br/>
+    <b>1 · A new empty row</b> — a label and an icon that owns the selection and opens a panel. Needs a new kind of nav entity (a "folder product"), because <code>productById</code> will never answer for it.<br/>
+    <b>2 · One of the selected rows, promoted</b> — group Invoices, Payments and Subscriptions "under Payments". Expressible <i>today</i>: <code>withChildFiled</code> twice. But it means picking a winner, and the winner's own page is now also a panel.<br/>
+    <b>3 · A category</b> — which is what <code>withChildInGroup</code> and <code>customGroups</code> already are, one rung up. Cheapest of all, and arguably what people actually mean by "group these" — except it makes an L1, not an L2 parent, which is not what was asked.<br/>
+    The mock below does <b>1</b>, because that is the ask as stated. It is also the most expensive answer, and I want that visible rather than smuggled in.
+  </div>
+
+  <div class="mock">
+    <div class="stagecol">
+      <div class="stagenote">Click <b>Select</b>, tick two or three rows, then <b>Group items</b>. Expand the result and use its kebab to ungroup.</div>
+      <div id="g-panel"></div>
+    </div>
+    <div class="stagecol" style="max-width:280px">
+      <div class="stagenote">&nbsp;</div>
+      <div class="hint" id="g-note">The naming step defaults to a joined name — "Billing" from Invoices and Payments is a guess, not a rule; the field is focused and selected so the first keystroke replaces it.</div>
+    </div>
+    <div class="commit" id="g-commit">Nothing committed yet.</div>
+  </div>
+
+  <h3 style="margin-top:20px">The flow, step by step</h3>
+  <ul class="tight" style="margin-top:8px">
+    <li><b>Entry point.</b> A <b>Select</b> control in the panel's title row, beside Add product — not a kebab item. Grouping is a thing you do to several rows, so the control cannot live on one row's menu. A row's own kebab gains "Group with…" as a shortcut that enters select mode with that row already ticked, so the one-row entry point exists too.</li>
+    <li><b>Selection affordance.</b> Checkboxes replace the drag grips while the mode is on, and the whole row is a hit target. The mode is loud on purpose: the action bar is pinned to the top of the panel and says how many are selected, because a quiet mode that reorders rows on click is how someone destroys a nav by accident.</li>
+    <li><b>Naming.</b> Inline, in the panel, at the position the group will occupy — not a modal. The field is pre-filled with a guess and fully selected. <code>groupNameTaken</code> already exists and should be wired to it, with the same fold-case rule, so "payments" cannot be created beside "Payments". <kbd>Esc</kbd> abandons and restores the selection rather than the whole panel.</li>
+    <li><b>Afterwards.</b> The group lands at the position of the topmost selected row, expanded, with the grouped rows inside in their previous relative order. The panel does <i>not</i> re-sort. One toast, one undo entry, naming the group and the count.</li>
+    <li><b>Grouping a row that already has children.</b> The case the mock surfaced and I had not thought about: select Invoices &amp; estimates — which owns All invoices and Recurring invoices — and those two would land at a fourth rung the nav does not draw. There is no good silent answer. Flattening them up beside their old parent is what the mock does and what the warning in the naming step says; the alternative is to refuse the selection, which is cleaner to reason about and worse to use, because the row you most want to group is usually the one with things in it. I would ship the flatten with the warning, and I would want this specific decision reviewed, because it is the only place in the flow where a user can lose a structure they built.</li>
+    <li><b>Ungroup.</b> On the group row's kebab, as a first-class verb — not "delete". It spills the children back at the group's own position in their current order and removes the parent. The one thing it must never do is take the children with it, which is exactly the trap <code>lostAllChildren</code> is watching for one rung up.</li>
+  </ul>
+
+  <div class="callout warn" style="margin-top:12px">
+    <b>What this costs the data model, honestly.</b> A synthetic parent is a row with an id that neither <code>productById</code> nor <code>childById</code> can resolve, and this codebase leans on exactly that resolution in a dozen places — <code>labelForProduct</code>, <code>iconForProduct</code>, <code>glyphFor</code>, <code>isRowHiddenDeep</code>, <code>childrenFor</code>, <code>lostAllChildren</code>. Either every one of those grows a third fallback, or <code>NavLayoutState</code> gains a <code>syntheticRows: Record&lt;string, {label, iconName, childIds}&gt;</code> and a resolver that the existing ones delegate to. The second is right and it is a week, not a day. <code>lostAllChildren</code> is the sharp edge: ungrouping leaves a synthetic row with zero children, which that function will flag and block the save on — so ungroup has to delete the parent in the same commit, not in two.
+  </div>
+</section>
+
+<!-- ============================ MATRIX ============================ -->
+<section class="canvas" id="matrix">
+  <h2 style="margin-bottom:4px">Edge-case matrix</h2>
+  <p class="hint" style="margin-bottom:16px">Behaviour per approach where they differ, and the recommendation's answer where that is what matters. "R" = what I'd ship (C + A + E, see below).</p>
+  <div style="overflow:auto">
+  <table class="matrix">
+    <thead>
+      <tr>
+        <th>Case</th>
+        <th>A · Flat search</th>
+        <th>B · Destination-first</th>
+        <th>C · Landing preview</th>
+        <th>E · Add then place</th>
+        <th>F · Multi-select</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Item already lives elsewhere in the nav — every add is a move (<code>withProductFiled</code>, <code>withRowDetached</code>)</td>
+        <td><b>R:</b> result row carries a right-aligned <i>"from Automation"</i> in the list itself, before the click. Toast reads "Moved Workflows from Automation to Revenue", as <code>addProductToGroup</code>'s message already does.</td>
+        <td>Same hint, but it arrives one step later — the user has already committed to a destination before they learn the item has a current home.</td>
+        <td>Strongest: the preview can render the row leaving its old parent. Costs a second miniature, so more likely we settle for the hint.</td>
+        <td>Weakest at the moment of choosing, strongest afterwards — the nudge strip is already there and can carry "This moved out of Automation. Undo".</td>
+        <td>Dangerous: four ticked rows can be four silent moves out of four different parents. Needs a pre-commit summary ("3 items will move out of Automation, Reporting").</td>
+      </tr>
+      <tr>
+        <td>Adding a sub-item to a row with no children — the row stops being a page and becomes a panel</td>
+        <td>Happens silently. Needs an explicit confirm line in the picker header: <i>"Subscriptions opens a page today. Adding an item here turns it into a menu."</i></td>
+        <td>Step one can mark it: "Inside Subscriptions · <span class="faint">becomes a menu</span>".</td>
+        <td><b>R:</b> the preview draws the disclosure chevron appearing on Subscriptions. Shown, not said — this is the case C exists for.</td>
+        <td>Can't happen on the add; happens on the nudge, where the dropdown can mark which targets would change shape.</td>
+        <td>Only reachable via grouping, where it is the entire point and therefore fine.</td>
+      </tr>
+      <tr>
+        <td>Adding into a row that is itself a promoted L3 (<code>childById</code> answers; it can own children)</td>
+        <td colspan="5"><b>R:</b> allowed, with no special casing in the UI — <code>childrenFor</code> already falls through to <code>childById</code> for exactly this, and the comment there says why. The one guard that must hold is <code>withChildFiled</code>'s refusal of a move that makes a row its own ancestor; the picker must therefore exclude the target row and its whole subtree from the list, which <code>exclude()</code> does not currently do recursively. <b>This is a real bug waiting in the deep picker today.</b></td>
+      </tr>
+      <tr>
+        <td>Moving the last child out of a row — <code>lostAllChildren</code> fires, <code>emptiedParents</code> blocks the save</td>
+        <td colspan="5"><b>R:</b> warn in the <i>list</i>, at the moment of choosing, on the row that would cause it: <i>"Last item in Automation"</i>. Do not block the pick — blocking a legal edit because of a consequence two steps away is how the current save-blocked state feels arbitrary. Commit it, and let the existing emptied-parent warning carry the resolution, which already offers the right fix. The mocks in A and C show this hint live.</td>
+      </tr>
+      <tr>
+        <td>Search matches at two levels at once, or a parent whose child also matches</td>
+        <td colspan="5"><b>R:</b> show both, never collapse, and never dedupe to the parent. "Reporting" matches the product and nine of its children; the answer is one result for the product and nine for the children, each with its own breadcrumb, with exact-prefix matches on the <i>name</i> ranked above matches on the <i>path</i>. Highlight the matched substring so a path-only match is visibly a path-only match. The one thing to avoid is the clever version where matching a parent hides its children — that is how someone concludes Estimates does not exist.</td>
+      </tr>
+      <tr>
+        <td>Not entitled / not provisioned (<code>addableProducts</code> excludes it)</td>
+        <td colspan="5"><b>R:</b> out of the list entirely, as today. <code>addableProducts</code> is deliberately wider than <code>enabledProducts</code> so a row removed a moment ago can come back, and that is the right rule — but a product the agency never sold should not be a greyed row advertising an upsell inside a nav editor. If product wants the upsell, it belongs in a separate "More products" section at the bottom of the list, visually separated, never interleaved with things that will actually work.</td>
+      </tr>
+      <tr>
+        <td>Long labels</td>
+        <td colspan="5">Single line, middle of the row ellipsised, breadcrumb truncated from the <i>left</i> (<span class="faint">…</span> › Automation › Workflows) because the last segment is the one that identifies. Native title tooltip. "Documents &amp; contracts" and "Invoices &amp; estimates" are the real worst cases and both fit at 320px; the real risk is renamed rows, where <code>labelForProduct</code> can produce "Opportunities › Settings" and then the picker adds a path on top of a qualifier. In that case the qualifier wins and the path is dropped.</td>
+      </tr>
+      <tr>
+        <td>40+ products, deep catalogue</td>
+        <td colspan="5">Flat list is virtualised or capped at ~50 with "keep typing to narrow". Browsing a 90-row flat list is bad, which is why <b>R</b> keeps the grouped-by-category rendering when the field is empty and switches to a flat ranked list the moment a character is typed. One surface, two states — not two menus.</td>
+      </tr>
+      <tr>
+        <td>Empty category, empty panel</td>
+        <td colspan="5">The dashed <b>Add product</b> row is the whole panel, centred, with one line of copy. <code>ADD_PRODUCT_STYLES</code>'s dashed variant already draws "the outline of a row that does not exist yet", which is exactly right here. No illustration — this is a menu, not a page.</td>
+      </tr>
+      <tr>
+        <td>Keyboard</td>
+        <td colspan="5"><b>R:</b> the add control takes focus on open and the field is live immediately, so typing works before anything is clicked. <kbd>↑</kbd><kbd>↓</kbd> move the highlight, <kbd>Enter</kbd> commits at the shown position, <kbd>Esc</kbd> closes with nothing committed. In C, <kbd>Tab</kbd>/<kbd>⇧Tab</kbd> move the ghost's indent and do <i>not</i> move focus while the picker is open — which is a real accessibility cost and needs an explicit visible hint, or an alternative (<kbd>Alt</kbd>+<kbd>→</kbd>) for anyone who cannot give up Tab.</td>
+      </tr>
+      <tr>
+        <td>Undo</td>
+        <td colspan="5"><b>R:</b> one add is one <code>commit()</code> and therefore one undo entry, which already works. The two cases that break it: E's nudge (two commits for one intent — must be coalesced, or the nudge's own Undo must undo <i>both</i>), and F's multi-add (<i>n</i> commits — needs the batched verb). The group/ungroup pair must each be a single commit for the reason in the warning above.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ============================ RECOMMENDATION ============================ -->
+<section class="canvas" id="rec">
+  <h2 style="margin-bottom:10px">Recommendation</h2>
+  <p><b>Ship A's list inside C's frame, with E as the safety net. Ship F only for grouping.</b></p>
+  <p>Concretely: one surface, invoked from the seam or the dashed add row. It opens with the catalogue grouped by category — browsing shape — and flattens into a ranked, breadcrumbed, path-highlighted list the moment a character is typed. Beside the list is the panel-as-it-will-be, with a ghost row at the position the current selection would take; <kbd>Tab</kbd> and clicks in the preview move that ghost's indent. Commit is one action. If the user ignores the preview entirely they get a flat add, which is always a correct outcome, and E's strip gives them a one-click way to nest it afterwards without reopening anything.</p>
+  <p>The reasoning is that <b>A alone solves finding and nothing else</b> — it is the right list and it is silent about structure, which is half of the complaint. <b>C alone solves structure and nothing else</b> — it is the right feedback attached to a browse that is slow. Together they cover the two halves without either one having to ask the user what level means. B and D are both coherent and I'd be happy to be argued into D, but B spends its first step on the question we are trying to stop asking, and D's <kbd>Tab</kbd> is invisible in a surface nobody will read instructions for.</p>
+
+  <h3 style="margin-top:18px">The single strongest objection to this</h3>
+  <div class="con" style="margin-top:8px">
+    <b>The preview may be a diagram rather than a control.</b> A 220px miniature of a 360px panel that in a busy account holds 40 rows and scrolls cannot both be faithful and be readable. The moment it stops being faithful it is worse than nothing, because it teaches a shape that does not match what the user sees when they close the picker — and the whole justification for the expense was faithfulness. If the miniature has to scroll independently, or truncate, or omit the rows above and below the insertion point, then we have paid three to five days for a picture, and A plus E alone would have done the same work for two. That is the thing to settle before this becomes a spec, and it is settled by trying C against the <b>overloaded</b> nav volume, not against this page's tidy four-row Revenue panel.
+  </div>
+</section>
+
+<!-- ============================ TEST ============================ -->
+<section class="canvas" id="test">
+  <h2 style="margin-bottom:4px">What I'd test, and what each test settles</h2>
+  <p class="hint" style="margin-bottom:16px">Each of these resolves one question, not "which do you prefer". Same task every time: <i>put Workflows into Revenue, under Payments</i> — then <i>undo it</i>, which is the half nobody tests.</p>
+  <div class="verdict">
+    <div class="vcard">
+      <div class="nm">A · Flat search-first</div>
+      <div class="q">Does the invoking <kbd>+</kbd> actually carry the destination in people's heads, or do they open the picker and then start looking for where to put it? If they look for a destination control inside the picker, A's whole premise is wrong and B is right.</div>
+    </div>
+    <div class="vcard">
+      <div class="nm">B · Destination-first</div>
+      <div class="q">Does naming the destination in prose ("inside Payments") let people answer a question they could not answer as "L2 or L3"? If yes, the problem was vocabulary and B is cheap and sufficient.</div>
+    </div>
+    <div class="vcard">
+      <div class="nm">C · Landing preview</div>
+      <div class="q">Do people look at the preview at all, and does it survive a 40-row panel? Instrument hover and eye-line in the busy case, not the tidy one. If they never look, the recommendation collapses to A + E.</div>
+    </div>
+    <div class="vcard">
+      <div class="nm">D · Outliner</div>
+      <div class="q">Does anyone discover <kbd>Tab</kbd> unprompted? And when told, do they then expect to be able to type a row that is not in the catalogue? The second finding matters more than the first.</div>
+    </div>
+    <div class="vcard">
+      <div class="nm">E · Add then place</div>
+      <div class="q">What fraction of adds genuinely want nesting? If it is under ~15%, the nudge is a nag and should be demoted to a row-kebab item. If it is over ~40%, E is the wrong default and the level decision belongs up front.</div>
+    </div>
+    <div class="vcard">
+      <div class="nm">F · Multi-select + group</div>
+      <div class="q">When someone says "group these", do they mean a new parent row, a category, or just "put them next to each other"? That is the question that decides whether grouping costs a day or a week — and it is answerable with a paper exercise before any of this is built.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ OPEN ============================ -->
+<section class="canvas" id="open">
+  <h2 style="margin-bottom:10px">Before this becomes a spec</h2>
+  <ol class="tight" style="margin-top:8px;margin-bottom:0">
+    <li><b>Is the new parent a real row or a folder?</b> The grouping section's three answers are three different products. Answer 2 — promote one of the selection — ships this week on verbs that exist. Answer 1 needs <code>syntheticRows</code> in <code>NavLayoutState</code> and a resolver every label/icon/visibility function delegates to. I have mocked 1; I would ship 2 first if the deadline is real.</li>
+    <li><b>Is "add is a move" a decision we still stand behind, or an artefact?</b> The Aug 21 note says duplication was ruled out for MVP because it made breadcrumbs ambiguous. That reasoning is sound for breadcrumbs and much weaker for a nav where the same destination legitimately belongs in two places. If duplication is back on the table, half of this edge-case matrix evaporates and A alone is probably enough.</li>
+    <li><b>Who is this for?</b> Everything above assumes the agency admin configuring a template once, not the sub-account user. <code>permissionsFor</code> says only <code>agency</code> can restructure. If the real user is an agency admin doing this in a setup session, bulk (F) matters far more than per-add elegance and the recommendation should probably be reordered.</li>
+  </ol>
+</section>
+
+<p class="hint" style="text-align:center;padding:0 0 24px;color:var(--faint)">Exploration only. Nothing here is a commitment, and no file under <code>src/</code> was touched.</p>
+
+</main>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   Catalogue slice — real ids and labels from catalogue.ts
+   ============================================================ */
+var CAT = [
+  {id:"suite-crm", label:"CRM", products:[
+    {id:"conversations", label:"Conversations"},
+    {id:"contacts", label:"Contacts"},
+    {id:"companies", label:"Companies"},
+    {id:"tasks", label:"Tasks & projects"},
+    {id:"meetings", label:"Meetings"}
+  ]},
+  {id:"suite-sales", label:"Sales", products:[
+    {id:"calendars", label:"Calendars"},
+    {id:"opportunities", label:"Opportunities"},
+    {id:"documents", label:"Documents & contracts"},
+    {id:"prospecting", label:"Prospecting"}
+  ]},
+  {id:"suite-revenue", label:"Revenue", products:[
+    {id:"invoices", label:"Invoices & estimates", children:[
+      {id:"invoices-all", label:"All invoices"},
+      {id:"invoices-layouts", label:"Layouts", badge:"New"},
+      {id:"invoices-recurring", label:"Recurring invoices"},
+      {id:"invoices-estimates", label:"Estimates"},
+      {id:"invoices-accounting", label:"Accounting sync"}
+    ]},
+    {id:"payments", label:"Payments", children:[
+      {id:"payments-orders", label:"Orders"},
+      {id:"payments-abandoned", label:"Abandoned checkouts"},
+      {id:"payments-transactions", label:"Transactions"},
+      {id:"payments-links", label:"Payment links"}
+    ]},
+    {id:"subscriptions", label:"Subscriptions"},
+    {id:"products", label:"Products", children:[
+      {id:"products-collections", label:"Collections"},
+      {id:"products-inventory", label:"Inventory"},
+      {id:"products-reviews", label:"Reviews"},
+      {id:"products-coupons", label:"Coupons"},
+      {id:"products-gift-cards", label:"Gift cards"}
+    ]},
+    {id:"stores", label:"Stores", owned:false}
+  ]},
+  {id:"suite-automation", label:"Automation", products:[
+    {id:"automation", label:"Automation", children:[
+      {id:"automation-workflows", label:"Workflows"},
+      {id:"automation-overview", label:"Overview", badge:"Beta"},
+      {id:"automation-trigger-links", label:"Trigger links"}
+    ]}
+  ]},
+  {id:"suite-reporting", label:"Reporting", products:[
+    {id:"reporting", label:"Reporting", children:[
+      {id:"reporting-attribution", label:"Attribution"},
+      {id:"reporting-ads", label:"Ads"},
+      {id:"reporting-calls", label:"Calls"},
+      {id:"reporting-appointments", label:"Appointments"},
+      {id:"reporting-conversations", label:"Conversations"},
+      {id:"reporting-sites", label:"Sites & funnels"},
+      {id:"reporting-email", label:"Email"},
+      {id:"reporting-forecast", label:"Sales forecast"},
+      {id:"reporting-agents", label:"AI agents"}
+    ]},
+    {id:"dashboards", label:"Dashboards"}
+  ]},
+  {id:"suite-content", label:"Content", products:[
+    {id:"sites", label:"Sites & funnels", children:[
+      {id:"sites-funnels", label:"Funnels"},
+      {id:"sites-websites", label:"Websites"},
+      {id:"sites-blogs", label:"Blogs"},
+      {id:"sites-forms", label:"Forms"},
+      {id:"sites-surveys", label:"Surveys"},
+      {id:"sites-wordpress", label:"WordPress"}
+    ]},
+    {id:"memberships", label:"Memberships", children:[
+      {id:"memberships-courses", label:"Courses"},
+      {id:"memberships-communities", label:"Communities"},
+      {id:"memberships-credentials", label:"Credentials"},
+      {id:"memberships-client", label:"Client portal"}
+    ]},
+    {id:"email-templates", label:"Templates"}
+  ]},
+  {id:"suite-marketing", label:"Marketing", products:[
+    {id:"social-planner", label:"Social Planner"},
+    {id:"email-campaigns", label:"Email Campaigns"},
+    {id:"events", label:"Events"},
+    {id:"webinars", label:"Webinars", owned:false},
+    {id:"reputation", label:"Reputation"},
+    {id:"ad-manager", label:"Ad Manager"}
+  ]},
+  {id:"suite-agents", label:"AI", products:[
+    {id:"ai-agents-product", label:"AI Agents", children:[
+      {id:"ai-voice", label:"Voice AI"},
+      {id:"ai-conversation", label:"Conversation AI"},
+      {id:"ai-knowledge", label:"Knowledge base"},
+      {id:"ai-logs", label:"Agent logs"}
+    ]},
+    {id:"ai-studio", label:"AI Studio"},
+    {id:"agent-library", label:"Agent library"}
+  ]}
+];
+
+/* Flat index of everything addable, carrying its own trail. The shape
+   `pageOptions` already produces, plus the products `productTreeOptionsDeep`
+   supplies, merged into one list. */
+var ENTRIES = [];
+CAT.forEach(function(c){
+  c.products.forEach(function(p){
+    ENTRIES.push({
+      id:p.id, label:p.label, kind:"product", cat:c.label, catId:c.id,
+      path:[c.label], parent:null, owned:p.owned !== false,
+      siblings:(p.children||[]).length
+    });
+    (p.children||[]).forEach(function(ch){
+      ENTRIES.push({
+        id:ch.id, label:ch.label, kind:"child", cat:c.label, catId:c.id,
+        path:[c.label, p.label], parent:p.id, parentLabel:p.label,
+        owned:p.owned !== false, badge:ch.badge,
+        siblings:(p.children||[]).length
+      });
+    });
+  });
+});
+var BY_ID = {};
+ENTRIES.forEach(function(e){ BY_ID[e.id] = e; });
+
+/* ============================================================
+   Helpers
+   ============================================================ */
+function el(tag, cls, text){
+  var n = document.createElement(tag);
+  if(cls) n.className = cls;
+  if(text != null) n.textContent = text;
+  return n;
+}
+function clone(x){ return JSON.parse(JSON.stringify(x)); }
+function esc(s){ return s.replace(/[&<>]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c]; }); }
+function mark(label, q){
+  if(!q) return esc(label);
+  var i = label.toLowerCase().indexOf(q.toLowerCase());
+  if(i < 0) return esc(label);
+  return esc(label.slice(0,i)) + "<mark>" + esc(label.slice(i, i+q.length)) + "</mark>" + esc(label.slice(i+q.length));
+}
+
+/* The starting panel every mock shares: the Revenue category as this
+   account has arranged it. */
+function startPanel(){
+  return {
+    id:"suite-revenue", label:"Revenue",
+    rows:[
+      {id:"invoices", label:"Invoices & estimates", kids:[
+        {id:"invoices-all", label:"All invoices"},
+        {id:"invoices-recurring", label:"Recurring invoices"}
+      ]},
+      {id:"payments", label:"Payments", kids:[
+        {id:"payments-orders", label:"Orders"}
+      ]},
+      {id:"subscriptions", label:"Subscriptions", kids:[]},
+      {id:"products", label:"Products", kids:[]}
+    ]
+  };
+}
+
+/* Everything the panel already holds, at either rung — the `exclude` the
+   real picker passes to productTreeOptionsDeep, made recursive. */
+function heldIds(panel){
+  var s = {};
+  panel.rows.forEach(function(r){
+    s[r.id] = true;
+    (r.kids||[]).forEach(function(k){ s[k.id] = true; });
+  });
+  return s;
+}
+
+/* Would taking this id out of its catalogue parent empty that parent?
+   The picker-side read of `lostAllChildren`. */
+function emptiesParent(entry, panel){
+  if(entry.kind !== "child") return null;
+  var left = 0;
+  ENTRIES.forEach(function(e){
+    if(e.parent === entry.parent && e.id !== entry.id) left++;
+  });
+  // Children already pulled into this panel no longer count toward the parent.
+  var held = heldIds(panel);
+  ENTRIES.forEach(function(e){
+    if(e.parent === entry.parent && e.id !== entry.id && held[e.id]) left--;
+  });
+  return left <= 0 ? entry.parentLabel : null;
+}
+
+/* Where a row sits today, as a human sentence fragment. Every add is a move,
+   so this is the thing the list has to say out loud. */
+function homeOf(entry){
+  return entry.kind === "child" ? entry.parentLabel : entry.cat;
+}
+
+function search(q, panel, opts){
+  opts = opts || {};
+  var held = heldIds(panel);
+  var out = ENTRIES.filter(function(e){
+    if(!e.owned) return false;                 // addableProducts() excludes it
+    if(held[e.id]) return false;               // already here
+    if(opts.exclude && opts.exclude(e)) return false;
+    if(!q) return true;
+    var hay = (e.label + " " + e.path.join(" ")).toLowerCase();
+    return hay.indexOf(q.toLowerCase()) >= 0;
+  });
+  if(!q) return out;
+  // Name matches above path-only matches; prefix above substring.
+  function rank(e){
+    var l = e.label.toLowerCase(), s = q.toLowerCase();
+    if(l.indexOf(s) === 0) return 0;
+    if(l.indexOf(s) > 0) return 1;
+    return 2;
+  }
+  return out.sort(function(a,b){ return rank(a) - rank(b); });
+}
+
+/* ------------------------------------------------------------
+   Panel renderer, shared by every mock
+   ------------------------------------------------------------ */
+function renderPanel(host, panel, o){
+  o = o || {};
+  host.innerHTML = "";
+  var wrap = el("div","panel");
+  var title = el("div","panel-title");
+  title.appendChild(el("span", null, panel.label));
+  if(o.titleRight) title.appendChild(o.titleRight);
+  wrap.appendChild(title);
+  if(o.aboveRows) wrap.appendChild(o.aboveRows);
+
+  function seam(i){
+    if(!o.onSeamAdd) return null;
+    var s = el("div","seam");
+    var b = el("button","seamadd","+ Add an item here");
+    b.onclick = function(ev){ ev.stopPropagation(); o.onSeamAdd(i, b); };
+    s.appendChild(b);
+    return s;
+  }
+
+  panel.rows.forEach(function(r, i){
+    var s = seam(i); if(s) wrap.appendChild(s);
+    if(o.ghost && o.ghost.index === i && o.ghost.level === 2) wrap.appendChild(ghostRow(o.ghost, 2));
+
+    var row = el("div","row" + (o.flashId === r.id ? " flash" : "") + (o.selected && o.selected[r.id] ? " sel" : ""));
+    if(o.selectable){
+      var cb = el("span","cb" + (o.selected && o.selected[r.id] ? " on" : ""), o.selected && o.selected[r.id] ? "✓" : "");
+      row.appendChild(cb);
+      row.style.cursor = "pointer";
+      row.onclick = function(){ o.onToggle(r.id); };
+    } else {
+      row.appendChild(el("span","dot"));
+    }
+    var lbl = el("span","lbl", r.label);
+    lbl.title = r.label;
+    row.appendChild(lbl);
+    if((r.kids||[]).length || (o.ghost && o.ghost.parentId === r.id)){
+      row.appendChild(el("span","tail faint","▾"));
+    }
+    if(r.synthetic) row.appendChild(el("span","badge","group"));
+    if(o.rowRight) { var rr = o.rowRight(r); if(rr) row.appendChild(rr); }
+    if(o.onRowAdd && !o.selectable){
+      var plus = el("button","rowadd","+");
+      plus.title = "Add an item inside " + r.label;
+      plus.onclick = function(ev){ ev.stopPropagation(); o.onRowAdd(r.id, plus); };
+      row.appendChild(plus);
+    }
+    wrap.appendChild(row);
+
+    if(o.ghost && o.ghost.parentId === r.id && o.ghost.level === 3) wrap.appendChild(ghostRow(o.ghost, 3));
+
+    (r.kids||[]).forEach(function(k){
+      var kr = el("div","row l3" + (o.flashId === k.id ? " flash" : ""));
+      kr.appendChild(el("span","dot"));
+      var kl = el("span","lbl", k.label); kl.title = k.label;
+      kr.appendChild(kl);
+      if(o.kidRight){ var g = o.kidRight(k, r); if(g) kr.appendChild(g); }
+      wrap.appendChild(kr);
+    });
+
+    if(o.afterRow){ var n = o.afterRow(r); if(n) wrap.appendChild(n); }
+  });
+
+  var sEnd = seam(panel.rows.length); if(sEnd) wrap.appendChild(sEnd);
+  if(o.ghost && o.ghost.index === panel.rows.length && o.ghost.level === 2) wrap.appendChild(ghostRow(o.ghost, 2));
+  if(o.below) wrap.appendChild(o.below);
+  if(o.addButton) wrap.appendChild(o.addButton);
+  host.appendChild(wrap);
+}
+
+function ghostRow(g, level){
+  var r = el("div","row ghost" + (level === 3 ? " l3" : ""));
+  r.appendChild(el("span","dot"));
+  r.appendChild(el("span","lbl", g.label));
+  r.appendChild(el("span","tail","will land here"));
+  return r;
+}
+
+function addButton(label, fn){
+  var b = el("button","addrow");
+  b.appendChild(el("span", null, "+"));
+  b.appendChild(el("span", null, label || "Add product"));
+  b.onclick = function(){ fn(b); };
+  return b;
+}
+
+/* ------------------------------------------------------------
+   Option row renderer, shared by the pickers
+   ------------------------------------------------------------ */
+function optionRow(e, q, panel, o){
+  o = o || {};
+  var n = el("div","opt" + (o.cur ? " cur" : ""));
+  if(o.checkbox){
+    var cb = el("span","cb" + (o.checked ? " on" : ""), o.checked ? "✓" : "");
+    n.appendChild(cb);
+  } else {
+    n.appendChild(el("span","dot"));
+  }
+  var txt = el("div","txt");
+  var nm = el("div","nm");
+  nm.innerHTML = mark(e.label, q);
+  if(e.badge){
+    var b = el("span","badge " + (e.badge === "New" ? "new" : "beta"), e.badge);
+    b.style.marginLeft = "6px";
+    nm.appendChild(b);
+  }
+  txt.appendChild(nm);
+  if(o.showPath !== false){
+    var p = el("div","pth");
+    p.innerHTML = e.path.map(function(s){ return mark(s, q); }).join(" › ") + " › " + esc(e.label);
+    txt.appendChild(p);
+  }
+  n.appendChild(txt);
+
+  var empties = emptiesParent(e, panel);
+  if(empties){
+    var w = el("span","tail");
+    w.style.color = "var(--warn-ink)";
+    w.textContent = "last in " + empties;
+    w.title = "Taking this out would leave " + empties + " with no items. lostAllChildren() flags it and blocks the save until it is resolved.";
+    n.appendChild(w);
+  } else {
+    var t = el("span","tail", "from " + homeOf(e));
+    t.title = "Adding is a move: withRowDetached() takes it out of " + homeOf(e) + " first.";
+    n.appendChild(t);
+  }
+  if(o.onPick) n.onclick = function(){ o.onPick(e); };
+  return n;
+}
+
+function popShell(title, sub){
+  var p = el("div","pop");
+  var h = el("div","pop-head");
+  if(title.back){
+    var b = el("button","back","‹");
+    b.onclick = title.back;
+    h.appendChild(b);
+  }
+  h.appendChild(el("span","t", title.text));
+  p.appendChild(h);
+  if(sub) p.appendChild(el("div","pop-sub", sub));
+  return p;
+}
+
+function searchField(ph, oninput){
+  var w = el("div","pop-search");
+  var i = document.createElement("input");
+  i.type = "text";
+  i.placeholder = ph || "Search";
+  i.oninput = function(){ oninput(i.value, i); };
+  w.appendChild(i);
+  w._input = i;
+  return w;
+}
+
+function say(host, human, api){
+  host.innerHTML = "";
+  host.appendChild(el("span", null, human));
+  if(api) host.appendChild(el("code","api", api));
+}
+
+/* ============================================================
+   A — flat search-first
+   ============================================================ */
+(function(){
+  var panel = startPanel();
+  var dest = {kind:"panel", index:panel.rows.length};
+  var q = "";
+  var cur = 0;
+  var panelHost = document.getElementById("a-panel");
+  var popHost = document.getElementById("a-pop");
+  var commit = document.getElementById("a-commit");
+  var flash = null;
+
+  function destLabel(){
+    if(dest.kind === "panel") return "Add to Revenue";
+    return "Add inside " + (panel.rows.filter(function(r){ return r.id === dest.rowId; })[0] || {}).label;
+  }
+
+  function doPick(e){
+    if(dest.kind === "panel"){
+      panel.rows.splice(dest.index, 0, {id:e.id, label:e.label, kids:[]});
+      say(commit,
+        (e.kind === "child" ? "Moved " : "Added ") + e.label + " to Revenue.",
+        e.kind === "child"
+          ? 'layout.placeAtL1("' + e.id + '", ' + dest.index + ')  // a child promoted into the category'
+          : 'layout.addProductToGroup("' + e.id + '", "suite-revenue", ' + dest.index + ')');
+    } else {
+      var row = panel.rows.filter(function(r){ return r.id === dest.rowId; })[0];
+      row.kids = row.kids || [];
+      row.kids.push({id:e.id, label:e.label});
+      say(commit,
+        "Moved " + e.label + " to " + row.label + ".",
+        e.kind === "child"
+          ? 'layout.moveChildToProduct("' + e.id + '", "' + row.id + '")'
+          : 'withChildFiled() refuses a PRODUCT here — the real build needs a demote verb, or the picker must exclude products from an inside-a-row destination.');
+    }
+    flash = e.id;
+    q = ""; cur = 0;
+    dest = {kind:"panel", index:panel.rows.length};
+    draw();
+    setTimeout(function(){ flash = null; draw(); }, 1500);
+  }
+
+  function results(){ return search(q, panel).slice(0, 40); }
+
+  function draw(){
+    renderPanel(panelHost, panel, {
+      flashId: flash,
+      onRowAdd:function(id){ dest = {kind:"inside", rowId:id}; q=""; cur=0; draw(); focus(); },
+      onSeamAdd:function(i){ dest = {kind:"panel", index:i}; q=""; cur=0; draw(); focus(); },
+      addButton: addButton("Add product", function(){ dest = {kind:"panel", index:panel.rows.length}; q=""; cur=0; draw(); focus(); })
+    });
+
+    popHost.innerHTML = "";
+    var p = popShell({text:destLabel()});
+    var sf = searchField("Search every product and page", function(v){ q = v; cur = 0; drawList(); });
+    sf._input.value = q;
+    p.appendChild(sf);
+    var list = el("div","pop-list");
+    p.appendChild(list);
+    popHost.appendChild(p);
+    popHost._input = sf._input;
+
+    function drawList(){
+      list.innerHTML = "";
+      var rs = results();
+      if(!rs.length){ list.appendChild(el("div","empty","Nothing matches “" + q + "”.")); return; }
+      if(!q){
+        // Empty field = browse shape, grouped by category. One surface, two states.
+        CAT.forEach(function(c){
+          var mine = rs.filter(function(e){ return e.catId === c.id; });
+          if(!mine.length) return;
+          list.appendChild(el("div","grouphead", c.label));
+          mine.forEach(function(e){
+            list.appendChild(optionRow(e, "", panel, {onPick:doPick, showPath:e.kind === "child"}));
+          });
+        });
+      } else {
+        rs.forEach(function(e, i){
+          list.appendChild(optionRow(e, q, panel, {onPick:doPick, cur:i === cur}));
+        });
+      }
+    }
+    drawList();
+
+    sf._input.onkeydown = function(ev){
+      var rs = results();
+      if(ev.key === "ArrowDown"){ cur = Math.min(cur+1, rs.length-1); ev.preventDefault(); drawList(); }
+      else if(ev.key === "ArrowUp"){ cur = Math.max(cur-1, 0); ev.preventDefault(); drawList(); }
+      else if(ev.key === "Enter" && rs[cur]){ doPick(rs[cur]); }
+      else if(ev.key === "Escape"){ q = ""; sf._input.value=""; drawList(); }
+    };
+  }
+  function focus(){ if(popHost._input) popHost._input.focus(); }
+  draw();
+})();
+
+/* ============================================================
+   B — destination-first
+   ============================================================ */
+(function(){
+  var panel = startPanel();
+  var step = 1;
+  var dest = null;
+  var q = "";
+  var panelHost = document.getElementById("b-panel");
+  var popHost = document.getElementById("b-pop");
+  var commit = document.getElementById("b-commit");
+  var flash = null;
+
+  function doPick(e){
+    if(dest.kind === "panel"){
+      panel.rows.push({id:e.id, label:e.label, kids:[]});
+      say(commit, (e.kind === "child" ? "Moved " : "Added ") + e.label + " to Revenue.",
+        'layout.addProductToGroup("' + e.id + '", "suite-revenue", ' + (panel.rows.length-1) + ')');
+    } else {
+      var row = panel.rows.filter(function(r){ return r.id === dest.rowId; })[0];
+      var wasLeaf = !(row.kids||[]).length;
+      row.kids = row.kids || [];
+      row.kids.push({id:e.id, label:e.label});
+      say(commit, "Moved " + e.label + " to " + row.label + "." + (wasLeaf ? " " + row.label + " now opens a menu instead of a page." : ""),
+        'layout.moveChildToProduct("' + e.id + '", "' + row.id + '")');
+    }
+    flash = e.id; step = 1; dest = null; q = "";
+    draw();
+    setTimeout(function(){ flash = null; draw(); }, 1500);
+  }
+
+  function draw(){
+    renderPanel(panelHost, panel, {flashId:flash});
+    popHost.innerHTML = "";
+
+    if(step === 1){
+      var p = popShell({text:"Add an item"});
+      p.appendChild(el("div","steps")).innerHTML = "<b>Step 1 of 2</b> &nbsp;·&nbsp; where should it go?";
+      var list = el("div","pop-list");
+      var top = el("div","opt");
+      top.appendChild(el("span","dot"));
+      var t1 = el("div","txt");
+      t1.appendChild(el("div","nm","Revenue — this panel"));
+      t1.appendChild(el("div","pth", panel.rows.length + " items"));
+      top.appendChild(t1);
+      top.onclick = function(){ dest = {kind:"panel"}; step = 2; q=""; draw(); };
+      list.appendChild(top);
+      list.appendChild(el("div","grouphead","Inside a row"));
+      panel.rows.forEach(function(r){
+        var o = el("div","opt");
+        o.appendChild(el("span","dot"));
+        var tx = el("div","txt");
+        tx.appendChild(el("div","nm","Inside " + r.label));
+        var n = (r.kids||[]).length;
+        tx.appendChild(el("div","pth", n ? n + " item" + (n>1?"s":"") + " already" : "opens a page today — adding here turns it into a menu"));
+        o.appendChild(tx);
+        o.onclick = function(){ dest = {kind:"inside", rowId:r.id}; step = 2; q=""; draw(); };
+        list.appendChild(o);
+      });
+      p.appendChild(list);
+      popHost.appendChild(p);
+      return;
+    }
+
+    var label = dest.kind === "panel" ? "Revenue" : panel.rows.filter(function(r){return r.id===dest.rowId;})[0].label;
+    var p2 = popShell({text:(dest.kind === "panel" ? "Add to " : "Add inside ") + label, back:function(){ step = 1; draw(); }});
+    p2.appendChild(el("div","steps")).innerHTML = "<b>Step 2 of 2</b> &nbsp;·&nbsp; what goes there?";
+    var sf = searchField("Search", function(v){ q = v; drawList(); });
+    p2.appendChild(sf);
+    var list2 = el("div","pop-list");
+    p2.appendChild(list2);
+    popHost.appendChild(p2);
+    sf._input.focus();
+
+    function drawList(){
+      list2.innerHTML = "";
+      var rs = search(q, panel).slice(0, 40);
+      if(!rs.length){ list2.appendChild(el("div","empty","Nothing matches.")); return; }
+      rs.forEach(function(e){ list2.appendChild(optionRow(e, q, panel, {onPick:doPick})); });
+    }
+    drawList();
+  }
+  draw();
+})();
+
+/* ============================================================
+   C — landing preview
+   ============================================================ */
+(function(){
+  var panel = startPanel();
+  var q = "";
+  var sel = null;                         // chosen entry, not yet committed
+  var pos = {index:panel.rows.length, level:2, parentId:null};
+  var host = document.getElementById("c-pop");
+  var commit = document.getElementById("c-commit");
+
+  function slots(){
+    // Every legal landing spot, top to bottom. Indent is a step through this list.
+    var out = [];
+    panel.rows.forEach(function(r, i){
+      out.push({index:i, level:2, parentId:null});
+      out.push({index:i, level:3, parentId:r.id});
+    });
+    out.push({index:panel.rows.length, level:2, parentId:null});
+    return out;
+  }
+  function slotIdx(){
+    var s = slots();
+    for(var i=0;i<s.length;i++){
+      if(s[i].index === pos.index && s[i].level === pos.level && s[i].parentId === pos.parentId) return i;
+    }
+    return s.length - 1;
+  }
+
+  function doCommit(){
+    if(!sel) return;
+    if(pos.level === 2){
+      panel.rows.splice(pos.index, 0, {id:sel.id, label:sel.label, kids:[]});
+      say(commit, (sel.kind === "child" ? "Moved " : "Added ") + sel.label + " to Revenue.",
+        'layout.addProductToGroup("' + sel.id + '", "suite-revenue", ' + pos.index + ')');
+    } else {
+      var row = panel.rows.filter(function(r){ return r.id === pos.parentId; })[0];
+      var wasLeaf = !(row.kids||[]).length;
+      row.kids = row.kids || [];
+      row.kids.push({id:sel.id, label:sel.label});
+      say(commit, "Moved " + sel.label + " to " + row.label + "." + (wasLeaf ? " " + row.label + " opens a menu now." : ""),
+        'layout.moveChildToProduct("' + sel.id + '", "' + row.id + '")');
+    }
+    sel = null; q = "";
+    pos = {index:panel.rows.length, level:2, parentId:null};
+    draw();
+  }
+
+  function draw(){
+    host.innerHTML = "";
+    var p = el("div","pop wide");
+    var h = el("div","pop-head");
+    h.appendChild(el("span","t", sel ? "Place " + sel.label : "Add to Revenue"));
+    p.appendChild(h);
+
+    var body = el("div");
+    body.style.display = "flex";
+    body.style.minHeight = "300px";
+
+    var left = el("div");
+    left.style.flex = "1";
+    left.style.minWidth = "0";
+    var sf = searchField("Search every product and page", function(v){ q = v; drawList(); });
+    sf._input.value = q;
+    left.appendChild(sf);
+    var list = el("div","pop-list");
+    left.appendChild(list);
+
+    var right = el("div","previewpane");
+    right.appendChild(el("div","ph","Revenue, after"));
+
+    function drawPreview(){
+      while(right.childNodes.length > 1) right.removeChild(right.lastChild);
+      function mini(label, lvl, ghost){
+        var m = el("div","minirow" + (lvl === 3 ? " l3" : "") + (ghost ? " ghost" : ""));
+        m.appendChild(el("span","dot"));
+        m.appendChild(el("span", null, label));
+        return m;
+      }
+      function spot(s, label){
+        var m = mini(label, s.level, false);
+        m.style.cursor = "pointer";
+        m.style.opacity = ".5";
+        m.style.borderTop = "1px dashed var(--border)";
+        m.onclick = function(){ pos = s; draw(); };
+        return m;
+      }
+      panel.rows.forEach(function(r, i){
+        if(sel && pos.index === i && pos.level === 2) right.appendChild(mini(sel.label, 2, true));
+        else if(sel) right.appendChild(spot({index:i, level:2, parentId:null}, "· place here"));
+        var rowEl = mini(r.label + ((r.kids||[]).length || (sel && pos.parentId === r.id) ? "  ▾" : ""), 2, false);
+        if(sel && pos.parentId !== r.id && !(r.kids||[]).length){
+          rowEl.title = "Adding inside " + r.label + " turns it from a page into a menu.";
+        }
+        right.appendChild(rowEl);
+        if(sel && pos.parentId === r.id && pos.level === 3) right.appendChild(mini(sel.label, 3, true));
+        (r.kids||[]).forEach(function(k){ right.appendChild(mini(k.label, 3, false)); });
+      });
+      if(sel && pos.index === panel.rows.length && pos.level === 2) right.appendChild(mini(sel.label, 2, true));
+      else if(sel) right.appendChild(spot({index:panel.rows.length, level:2, parentId:null}, "· place here"));
+
+      if(sel){
+        var hintEl = el("div","hint");
+        hintEl.style.marginTop = "10px";
+        hintEl.style.fontSize = "12px";
+        var row = pos.level === 3 ? panel.rows.filter(function(r){return r.id===pos.parentId;})[0] : null;
+        hintEl.textContent = row
+          ? ((row.kids||[]).length ? "Inside " + row.label + "." : row.label + " becomes a menu.")
+          : "A row of Revenue.";
+        right.appendChild(hintEl);
+      } else {
+        var e2 = el("div","hint");
+        e2.style.fontSize = "12px";
+        e2.textContent = "Pick something on the left and this shows where it lands.";
+        right.appendChild(e2);
+      }
+    }
+
+    function drawList(){
+      list.innerHTML = "";
+      var rs = search(q, panel).slice(0, 40);
+      if(!rs.length){ list.appendChild(el("div","empty","Nothing matches.")); return; }
+      rs.forEach(function(e){
+        list.appendChild(optionRow(e, q, panel, {
+          cur: sel && sel.id === e.id,
+          onPick:function(x){ sel = x; draw(); }
+        }));
+      });
+    }
+    drawList();
+    drawPreview();
+
+    body.appendChild(left);
+    body.appendChild(right);
+    p.appendChild(body);
+
+    var foot = el("div","pop-foot");
+    var sp = el("div","spacer");
+    sp.innerHTML = sel ? "<kbd>Tab</kbd> indent &nbsp; <kbd>⇧Tab</kbd> outdent &nbsp; <kbd>↑↓</kbd> move" : "Pick something to place.";
+    foot.appendChild(sp);
+    var cancel = el("button","btn","Cancel");
+    cancel.onclick = function(){ sel = null; q=""; draw(); };
+    foot.appendChild(cancel);
+    var ok = el("button","btn primary","Add item");
+    ok.disabled = !sel;
+    ok.onclick = doCommit;
+    foot.appendChild(ok);
+    p.appendChild(foot);
+    host.appendChild(p);
+
+    sf._input.onkeydown = function(ev){
+      if(!sel) return;
+      var s = slots(), i = slotIdx();
+      if(ev.key === "Tab"){
+        ev.preventDefault();
+        var step = ev.shiftKey ? -1 : 1;
+        var ni = Math.max(0, Math.min(i + step, s.length - 1));
+        pos = s[ni]; draw();
+      } else if(ev.key === "ArrowDown" || ev.key === "ArrowUp"){
+        ev.preventDefault();
+        var d = ev.key === "ArrowDown" ? 1 : -1;
+        var j = i;
+        do { j += d; } while(s[j] && s[j].level === 3 && pos.level === 2);
+        if(s[j]) { pos = s[j]; draw(); }
+      } else if(ev.key === "Enter"){ ev.preventDefault(); doCommit(); }
+      else if(ev.key === "Escape"){ sel = null; draw(); }
+    };
+    if(sel) sf._input.focus();
+  }
+  draw();
+})();
+
+/* ============================================================
+   D — outliner inline
+   ============================================================ */
+(function(){
+  var panel = startPanel();
+  var editing = null;   // {text, indent, matchId}
+  var host = document.getElementById("d-panel");
+  var commit = document.getElementById("d-commit");
+  var flash = null;
+
+  function doCommit(){
+    if(!editing || !editing.matchId) return;
+    var e = BY_ID[editing.matchId];
+    if(editing.indent && panel.rows.length){
+      var row = panel.rows[panel.rows.length - 1];
+      var wasLeaf = !(row.kids||[]).length;
+      row.kids = row.kids || [];
+      row.kids.push({id:e.id, label:e.label});
+      say(commit, "Moved " + e.label + " to " + row.label + "." + (wasLeaf ? " " + row.label + " opens a menu now." : ""),
+        'layout.moveChildToProduct("' + e.id + '", "' + row.id + '")');
+    } else {
+      panel.rows.push({id:e.id, label:e.label, kids:[]});
+      say(commit, (e.kind === "child" ? "Moved " : "Added ") + e.label + " to Revenue.",
+        'layout.addProductToGroup("' + e.id + '", "suite-revenue", ' + (panel.rows.length-1) + ')');
+    }
+    flash = e.id;
+    editing = null;
+    draw();
+    setTimeout(function(){ flash = null; draw(); }, 1500);
+  }
+
+  function draw(){
+    var below = null;
+    if(editing){
+      below = el("div");
+      below.style.position = "relative";
+      var r = el("div","inlinerow");
+      if(editing.indent) r.style.marginLeft = "22px";
+      r.appendChild(el("span","dot"));
+      var inp = document.createElement("input");
+      inp.type = "text";
+      inp.placeholder = "Type to find a product or page…";
+      inp.value = editing.text;
+      r.appendChild(inp);
+      r.appendChild(el("span","indentpill", editing.indent
+        ? "inside " + (panel.rows[panel.rows.length-1] || {}).label
+        : "a row of Revenue"));
+      below.appendChild(r);
+
+      var ac = el("div","autocomp");
+      below.appendChild(ac);
+      function drawAc(){
+        ac.innerHTML = "";
+        var rs = search(editing.text, panel).slice(0, 6);
+        if(!editing.text){ ac.style.display = "none"; return; }
+        ac.style.display = "block";
+        if(!rs.length){
+          ac.appendChild(el("div","empty","No product or page matches. The nav only holds catalogue rows — you cannot type a new one."));
+          return;
+        }
+        rs.forEach(function(e){
+          var o = optionRow(e, editing.text, panel, {onPick:function(x){
+            editing.text = x.label; editing.matchId = x.id; draw();
+          }});
+          ac.appendChild(o);
+        });
+      }
+      drawAc();
+
+      inp.oninput = function(){ editing.text = inp.value; editing.matchId = null; drawAc(); };
+      inp.onkeydown = function(ev){
+        if(ev.key === "Tab"){
+          ev.preventDefault();
+          editing.indent = !ev.shiftKey;
+          if(!panel.rows.length) editing.indent = false;
+          draw();
+        } else if(ev.key === "Enter"){
+          ev.preventDefault();
+          if(!editing.matchId){
+            var rs = search(editing.text, panel);
+            if(rs.length) { editing.matchId = rs[0].id; editing.text = rs[0].label; }
+          }
+          doCommit();
+        } else if(ev.key === "Escape"){ editing = null; draw(); }
+      };
+      setTimeout(function(){ inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }, 0);
+    }
+
+    renderPanel(host, panel, {
+      flashId:flash,
+      below: below,
+      addButton: editing ? null : addButton("Add item", function(){
+        editing = {text:"", indent:false, matchId:null};
+        draw();
+      })
+    });
+  }
+  draw();
+})();
+
+/* ============================================================
+   E — add then place
+   ============================================================ */
+(function(){
+  var panel = startPanel();
+  var q = "";
+  var justAdded = null;   // {id, label, from}
+  var panelHost = document.getElementById("e-panel");
+  var popHost = document.getElementById("e-pop");
+  var commit = document.getElementById("e-commit");
+
+  function doPick(e){
+    panel.rows.push({id:e.id, label:e.label, kids:[]});
+    justAdded = {id:e.id, label:e.label, from:homeOf(e), kind:e.kind};
+    q = "";
+    say(commit, (e.kind === "child" ? "Moved " : "Added ") + e.label + " to Revenue.",
+      'layout.addProductToGroup("' + e.id + '", "suite-revenue", ' + (panel.rows.length-1) + ')');
+    draw();
+  }
+
+  function nest(parentId){
+    var row = panel.rows.filter(function(r){ return r.id === parentId; })[0];
+    var i = -1;
+    panel.rows.forEach(function(r, k){ if(r.id === justAdded.id) i = k; });
+    if(i >= 0) panel.rows.splice(i, 1);
+    var wasLeaf = !(row.kids||[]).length;
+    row.kids = row.kids || [];
+    row.kids.push({id:justAdded.id, label:justAdded.label});
+    say(commit, "Moved " + justAdded.label + " to " + row.label + "." + (wasLeaf ? " " + row.label + " opens a menu now." : ""),
+      'layout.moveChildToProduct("' + justAdded.id + '", "' + row.id + '")  // second commit — must coalesce with the add for undo');
+    justAdded = null;
+    draw();
+  }
+
+  function undo(){
+    var i = -1;
+    panel.rows.forEach(function(r, k){ if(justAdded && r.id === justAdded.id) i = k; });
+    if(i >= 0) panel.rows.splice(i, 1);
+    say(commit, "Undone.", "layout.undo()");
+    justAdded = null;
+    draw();
+  }
+
+  function draw(){
+    renderPanel(panelHost, panel, {
+      flashId: justAdded ? justAdded.id : null,
+      afterRow: function(r){
+        if(!justAdded || r.id !== justAdded.id) return null;
+        var n = el("div","inline-nudge");
+        n.style.marginLeft = "0";
+        var txt = el("span", null, "Added here." + (justAdded.kind === "child" ? " It moved out of " + justAdded.from + "." : ""));
+        txt.style.flex = "1 1 100%";
+        n.appendChild(txt);
+        n.appendChild(el("span", null, "Make it a sub-item of"));
+        var sel = document.createElement("select");
+        var none = document.createElement("option");
+        none.textContent = "—"; none.value = "";
+        sel.appendChild(none);
+        panel.rows.forEach(function(x){
+          if(x.id === justAdded.id) return;
+          var o = document.createElement("option");
+          o.value = x.id;
+          o.textContent = x.label + ((x.kids||[]).length ? "" : "  (becomes a menu)");
+          sel.appendChild(o);
+        });
+        sel.onchange = function(){ if(sel.value) nest(sel.value); };
+        n.appendChild(sel);
+        var u = el("button","btn link","Undo");
+        u.onclick = undo;
+        n.appendChild(u);
+        var d = el("button","btn link","Dismiss");
+        d.style.color = "var(--muted)";
+        d.onclick = function(){ justAdded = null; draw(); };
+        n.appendChild(d);
+        return n;
+      },
+      addButton: addButton("Add product", function(){ if(popHost._input) popHost._input.focus(); })
+    });
+
+    popHost.innerHTML = "";
+    var p = popShell({text:"Add to Revenue"});
+    var sf = searchField("Search every product and page", function(v){ q = v; drawList(); });
+    sf._input.value = q;
+    p.appendChild(sf);
+    var list = el("div","pop-list");
+    p.appendChild(list);
+    popHost.appendChild(p);
+    popHost._input = sf._input;
+    function drawList(){
+      list.innerHTML = "";
+      var rs = search(q, panel).slice(0, 40);
+      if(!rs.length){ list.appendChild(el("div","empty","Nothing matches.")); return; }
+      rs.forEach(function(e){ list.appendChild(optionRow(e, q, panel, {onPick:doPick})); });
+    }
+    drawList();
+  }
+  draw();
+})();
+
+/* ============================================================
+   F — multi-select
+   ============================================================ */
+(function(){
+  var panel = startPanel();
+  var q = "";
+  var checked = {};
+  var rowSel = {};
+  var selectMode = false;
+  var panelHost = document.getElementById("f-panel");
+  var popHost = document.getElementById("f-pop");
+  var commit = document.getElementById("f-commit");
+
+  function addAll(){
+    var ids = Object.keys(checked).filter(function(k){ return checked[k]; });
+    if(!ids.length) return;
+    ids.forEach(function(id){
+      var e = BY_ID[id];
+      panel.rows.push({id:e.id, label:e.label, kids:[]});
+    });
+    say(commit, "Added " + ids.length + " item" + (ids.length>1?"s":"") + " to Revenue.",
+      "// " + ids.length + " calls to addProductToGroup() = " + ids.length + " undo entries and " + ids.length + " toasts.\n// This is the case that wants a batched verb on the provider.");
+    checked = {};
+    q = "";
+    draw();
+  }
+
+  function groupSelected(){
+    var ids = panel.rows.filter(function(r){ return rowSel[r.id]; }).map(function(r){ return r.id; });
+    if(ids.length < 2) return;
+    say(commit, "Select two or more rows and use the grouping section below for the full flow.",
+      "// F's picker answers the ADD ask; the grouping flow lives in its own section.");
+  }
+
+  function draw(){
+    var bar = null;
+    var n = panel.rows.filter(function(r){ return rowSel[r.id]; }).length;
+    if(selectMode){
+      bar = el("div","selbar");
+      bar.appendChild(el("span","n", n ? n + " selected" : "Select rows to group"));
+      var g = el("button","btn sm primary","Group items");
+      g.disabled = n < 2;
+      g.onclick = groupSelected;
+      bar.appendChild(g);
+      var c = el("button","btn sm","Done");
+      c.onclick = function(){ selectMode = false; rowSel = {}; draw(); };
+      bar.appendChild(c);
+    }
+    var right = el("button","btn sm", selectMode ? "Cancel" : "Select");
+    right.onclick = function(){ selectMode = !selectMode; rowSel = {}; draw(); };
+
+    renderPanel(panelHost, panel, {
+      titleRight: right,
+      aboveRows: bar,
+      selectable: selectMode,
+      selected: rowSel,
+      onToggle: function(id){ rowSel[id] = !rowSel[id]; draw(); },
+      addButton: selectMode ? null : addButton("Add product", function(){ if(popHost._input) popHost._input.focus(); })
+    });
+
+    popHost.innerHTML = "";
+    var p = popShell({text:"Add to Revenue"});
+    var sf = searchField("Search", function(v){ q = v; drawList(); });
+    sf._input.value = q;
+    p.appendChild(sf);
+    var list = el("div","pop-list");
+    p.appendChild(list);
+    var foot = el("div","pop-foot");
+    var nsel = Object.keys(checked).filter(function(k){ return checked[k]; }).length;
+    var sp = el("div","spacer", nsel ? nsel + " selected" : "Nothing selected");
+    foot.appendChild(sp);
+    var ok = el("button","btn primary", nsel ? "Add " + nsel + " item" + (nsel>1?"s":"") : "Add items");
+    ok.disabled = !nsel;
+    ok.onclick = addAll;
+    foot.appendChild(ok);
+    p.appendChild(foot);
+    popHost.appendChild(p);
+    popHost._input = sf._input;
+
+    function drawList(){
+      list.innerHTML = "";
+      var rs = search(q, panel).slice(0, 40);
+      if(!rs.length){ list.appendChild(el("div","empty","Nothing matches.")); return; }
+      rs.forEach(function(e){
+        list.appendChild(optionRow(e, q, panel, {
+          checkbox:true, checked:!!checked[e.id],
+          onPick:function(x){ checked[x.id] = !checked[x.id]; draw(); }
+        }));
+      });
+    }
+    drawList();
+  }
+  draw();
+})();
+
+/* ============================================================
+   G — the grouping flow
+   ============================================================ */
+(function(){
+  var panel = startPanel();
+  var mode = "idle";     // idle | select | naming
+  var sel = {};
+  var nameSeed = "";
+  var host = document.getElementById("g-panel");
+  var commit = document.getElementById("g-commit");
+  var flash = null;
+  var counter = 1;
+
+  function selectedRows(){ return panel.rows.filter(function(r){ return sel[r.id]; }); }
+
+  function seedName(){
+    var rs = selectedRows();
+    if(!rs.length) return "New group";
+    // A guess, not a rule. First word of the first row reads better than a join.
+    var first = rs[0].label.split(" ")[0].replace(/&/,"").trim();
+    return first || "New group";
+  }
+
+  function nameTaken(label){
+    var fold = label.trim().toLowerCase();
+    return panel.rows.some(function(r){ return r.label.trim().toLowerCase() === fold; });
+  }
+
+  function doGroup(label){
+    var rs = selectedRows();
+    var ids = rs.map(function(r){ return r.id; });
+    var firstIndex = panel.rows.length;
+    panel.rows.forEach(function(r, i){ if(sel[r.id] && i < firstIndex) firstIndex = i; });
+    var kids = [];
+    var flattened = 0;
+    rs.forEach(function(r){
+      kids.push({id:r.id, label:r.label});
+      // A grouped row that already had children would put them at a fourth
+      // rung, which the nav does not draw. They come up one level instead,
+      // and the commit says so — see the note in the grouping section.
+      (r.kids||[]).forEach(function(k){ kids.push({id:k.id, label:k.label}); flattened++; });
+    });
+    panel.rows = panel.rows.filter(function(r){ return !sel[r.id]; });
+    var gid = "group-" + (counter++);
+    panel.rows.splice(Math.min(firstIndex, panel.rows.length), 0, {
+      id:gid, label:label, kids:kids, synthetic:true
+    });
+    say(commit, "Grouped " + ids.length + " item" + (ids.length === 1 ? "" : "s") + " into " + label + "."
+      + (flattened ? " " + flattened + " sub-item" + (flattened === 1 ? "" : "s") + " came up a level — the nav has no fourth rung." : ""),
+      "// one commit, one undo entry:\n" +
+      'state.syntheticRows["' + gid + '"] = { label: "' + label + '", iconName: "folder" };\n' +
+      ids.map(function(id){ return 'withChildFiled(state, "' + id + '", "' + gid + '")'; }).join("\n") +
+      "\n// note: these ids are PRODUCTS, and withChildFiled() refuses a non-child today.\n// Grouping L2s needs that gate widened, or a demote verb beside it.");
+    flash = gid;
+    mode = "idle"; sel = {};
+    draw();
+    setTimeout(function(){ flash = null; draw(); }, 1500);
+  }
+
+  function ungroup(gid){
+    var i = -1;
+    panel.rows.forEach(function(r, k){ if(r.id === gid) i = k; });
+    if(i < 0) return;
+    var g = panel.rows[i];
+    var spilled = (g.kids||[]).map(function(k){ return {id:k.id, label:k.label, kids:[]}; });
+    panel.rows.splice.apply(panel.rows, [i, 1].concat(spilled));
+    say(commit, "Ungrouped " + g.label + ". " + spilled.length + " items are back in Revenue.",
+      "// one commit, or lostAllChildren() flags the empty parent between the two:\n" +
+      'spill children to the category, then delete syntheticRows["' + gid + '"]');
+    draw();
+  }
+
+  function draw(){
+    var bar = null;
+    var n = selectedRows().length;
+    if(mode === "select"){
+      bar = el("div","selbar");
+      bar.appendChild(el("span","n", n ? n + " selected" : "Select two or more rows"));
+      var g = el("button","btn sm primary","Group items");
+      g.disabled = n < 2;
+      g.onclick = function(){ nameSeed = seedName(); mode = "naming"; draw(); };
+      bar.appendChild(g);
+      var c = el("button","btn sm","Cancel");
+      c.onclick = function(){ mode = "idle"; sel = {}; draw(); };
+      bar.appendChild(c);
+    }
+    if(mode === "naming"){
+      bar = el("div","selbar");
+      bar.style.flexDirection = "column";
+      bar.style.alignItems = "stretch";
+      var lab = el("div", null, "Name this group");
+      lab.style.fontWeight = "600";
+      lab.style.color = "var(--primary-700)";
+      bar.appendChild(lab);
+      var inp = document.createElement("input");
+      inp.className = "nameinput";
+      inp.value = nameSeed;
+      bar.appendChild(inp);
+      /* The fourth-rung warning. A selected row that already owns children
+         cannot keep them where they are: the nav draws three levels, so they
+         come up beside their old parent. Said here, before the commit, because
+         it is the one consequence of grouping that is not visible in the
+         preview of the panel. */
+      var deep = selectedRows().filter(function(r){ return (r.kids||[]).length; });
+      if(deep.length){
+        var w = el("div","hint");
+        w.style.color = "var(--warn-ink)";
+        w.textContent = deep.map(function(r){ return r.label; }).join(" and ")
+          + " already " + (deep.length > 1 ? "have" : "has") + " items. Those come up a level — the nav draws three rungs, not four.";
+        bar.appendChild(w);
+      }
+      var err = el("div","hint","");
+      err.style.color = "var(--danger)";
+      err.style.minHeight = "0";
+      bar.appendChild(err);
+      var btns = el("div");
+      btns.style.display = "flex";
+      btns.style.gap = "8px";
+      btns.style.justifyContent = "flex-end";
+      var cancel = el("button","btn sm","Cancel");
+      cancel.onclick = function(){ mode = "select"; draw(); };
+      var save = el("button","btn sm primary","Create group");
+      function trySave(){
+        var v = inp.value.trim();
+        if(!v){ err.textContent = "Give the group a name."; return; }
+        if(nameTaken(v)){ err.textContent = "A row in this panel is already called “" + v + "”."; return; }
+        doGroup(v);
+      }
+      save.onclick = trySave;
+      inp.onkeydown = function(ev){
+        if(ev.key === "Enter"){ ev.preventDefault(); trySave(); }
+        if(ev.key === "Escape"){ mode = "select"; draw(); }
+      };
+      btns.appendChild(cancel);
+      btns.appendChild(save);
+      bar.appendChild(btns);
+      setTimeout(function(){ inp.focus(); inp.select(); }, 0);
+    }
+
+    var titleRight = null;
+    if(mode === "idle"){
+      titleRight = el("button","btn sm","Select");
+      titleRight.onclick = function(){ mode = "select"; sel = {}; draw(); };
+    }
+
+    renderPanel(host, panel, {
+      titleRight: titleRight,
+      aboveRows: bar,
+      flashId: flash,
+      selectable: mode === "select",
+      selected: sel,
+      onToggle: function(id){ sel[id] = !sel[id]; draw(); },
+      rowRight: function(r){
+        if(!r.synthetic || mode !== "idle") return null;
+        var b = el("button","btn sm","Ungroup");
+        b.onclick = function(ev){ ev.stopPropagation(); ungroup(r.id); };
+        return b;
+      },
+      addButton: mode === "idle" ? addButton("Add product", function(){}) : null
+    });
+  }
+  draw();
+})();
+
+})();
+</script>
+</body>
+</html>

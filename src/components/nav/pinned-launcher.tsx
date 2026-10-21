@@ -34,7 +34,15 @@ import {
   GET_APP_ROW_IDS,
 } from "@/components/flyout/get-app-flyout";
 import { useHoverDwell } from "@/lib/use-hover-dwell";
-import { glyphFor, isBlockHidden, UNGROUPED_ID, type ResolvedGroup } from "./grouping";
+import {
+  glyphFor,
+  iconForGroup,
+  isBlockHidden,
+  labelForGroup,
+  stockTreeFor,
+  UNGROUPED_ID,
+  type ResolvedGroup,
+} from "./grouping";
 import {
   PROPOSED_SETTINGS_ID,
   PROPOSED_UNLISTED_IDS,
@@ -57,7 +65,7 @@ import { useDragTypes } from "@/lib/use-drag-active";
 import { usePinShortcuts } from "./pin-shortcuts";
 import { ShortcutChip } from "./shortcut-chip";
 import { ShortcutModal } from "./shortcut-modal";
-import { PinButton, usePinnedInk } from "./pin-button";
+import { PIN_GLYPH, PinButton, usePinnedInk } from "./pin-button";
 import { FLY_GLYPH, ResolvedIcon } from "./resolved-icon";
 
 /**
@@ -739,6 +747,62 @@ export function PinnedLauncher({
   ];
 
   /*
+   * All products shows the DEFAULT arrangement, not this account's.
+   *
+   * It was drawn from `groups` — the nav as edited — so a row lifted out of
+   * its product appeared at the top level here too: move Workflows to L1,
+   * save, open All products, and Workflows is an L1 row with Automation
+   * sitting empty-handed beside it. Ashwin, Oct 21.
+   *
+   * That is the one thing this surface must not do. The sidebar is where
+   * the account's arrangement lives and it is three inches to the left; the
+   * directory's job is the opposite one — to say where a product BELONGS,
+   * so somebody who cannot find Workflows in a nav that has been rearranged
+   * around them can still look it up. A directory that has been rearranged
+   * the same way answers the question with the question.
+   *
+   * `stockTreeFor` is that arrangement: the account's own products, filed
+   * under their catalogue home, independent of every edit. Entitlement still
+   * applies — this is the default layout OF THIS ACCOUNT, not of the
+   * catalogue — so a product nobody bought is still absent.
+   *
+   * Labels stay the account's. The structure is what the complaint was
+   * about, and a directory that renamed "Clients" back to "CRM" would be
+   * unrecognisable to the person reading it.
+   */
+  const stock = stockTreeFor(state);
+  const stockBranch = (c: (typeof stock.categories)[number]): DirectoryBranch => ({
+    group: {
+      id: c.id,
+      label: labelForGroup(state, c.id),
+      defaultLabel: c.label,
+      icon: iconForGroup(state, c.id) ?? c.icon,
+      productIds: c.productIds,
+      custom: false,
+    },
+    productIds: c.productIds,
+  });
+  const stockGroups: DirectoryBranch[] = [
+    ...stock.categories
+      .filter((c) => c.id !== PROPOSED_SETTINGS_ID && c.productIds.length > 0)
+      .map(stockBranch),
+    ...(appsEntry ? [appsEntry] : []),
+    ...stock.categories
+      .filter((c) => c.id === PROPOSED_SETTINGS_ID && c.productIds.length > 0)
+      .map(stockBranch),
+  ];
+  /*
+   * Loose by the catalogue's reckoning, plus anything hidden.
+   *
+   * Hidden rows stay listed for the reason the directory exists at all: it
+   * is how you find a product the nav is not currently showing you.
+   */
+  const stockFiled = new Set(stock.categories.flatMap((c) => c.productIds));
+  const stockLoose = [
+    ...new Set([...stock.loose, ...hiddenIds].filter((id) => !stockFiled.has(id))),
+  ];
+
+  /*
    * Going somewhere closes the panel.
    *
    * Every other way into a product in this nav does — the flyout, the crumb
@@ -1401,11 +1465,11 @@ export function PinnedLauncher({
               the one thing underneath them turns into something else.
             */
                 <DirectoryTree
-                  groups={visibleGroups}
+                  groups={stockGroups}
                   theme={theme}
                   disclosure="inline"
                   {...(openPlace ? { onOpen: openPlace } : {})}
-                  loose={looseIds}
+                  loose={stockLoose}
                 />
               )
             ) : stacked ? (
@@ -1483,10 +1547,10 @@ export function PinnedLauncher({
                   )
                 ) : (
                   <DirectoryTree
-                    groups={visibleGroups}
+                    groups={stockGroups}
                     theme={theme}
                     {...(openPlace ? { onOpen: openPlace } : {})}
-                    loose={looseIds}
+                    loose={stockLoose}
                   />
                 )}
               </>
@@ -1609,10 +1673,10 @@ export function PinnedLauncher({
           */}
                 {showCatalogue ? (
                   <DirectoryTree
-                    groups={visibleGroups}
+                    groups={stockGroups}
                     theme={theme}
                     {...(openPlace ? { onOpen: openPlace } : {})}
-                    loose={looseIds}
+                    loose={stockLoose}
                   />
                 ) : null}
               </>
@@ -2144,7 +2208,14 @@ function ExternalPinButton({
           : "text-nav-fg-subtle opacity-0 group-hover/row:opacity-100 hover:text-nav-fg focus-visible:opacity-100",
       )}
     >
-      <Pin size={14} fill={pinned ? "currentColor" : "none"} aria-hidden="true" />
+      {/* PIN_GLYPH, not a number of its own — this button is a copy of
+          PinButton for a row that owns its own toggle, and the two sitting
+          one panel apart at different sizes is the bug this constant ends. */}
+      <Pin
+        size={PIN_GLYPH}
+        fill={pinned ? "currentColor" : "none"}
+        aria-hidden="true"
+      />
     </button>
   );
 }

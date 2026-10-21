@@ -6,7 +6,13 @@ import { ChevronRight, LogOut, Monitor, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAnchored } from "@/lib/use-anchored";
 import { UserAvatar } from "./user-avatar";
-import { GET_APP_LABELS, type AppKind } from "./get-app-modal";
+import { type AppKind } from "./get-app-modal";
+import {
+  GET_APP_MENU_LABELS,
+  GET_APP_ROW_BADGES,
+} from "@/components/flyout/get-app-flyout";
+import { BADGE_TONE } from "@/components/flyout/types";
+import type { FlyoutBadge } from "@/components/flyout/types";
 
 const WIDTH = 268;
 const GAP = 8;
@@ -108,9 +114,24 @@ export function AccountMenu({
       {showApps ? (
         <>
           <Rule />
+          {/*
+            The sidebar panel's words and its pills, not a second set.
+
+            These rows used to read "Get Android & iOS app" / "Get Windows &
+            macOS app" — the platform-qualified names, written for a surface
+            where one row stands alone and has to answer "is my phone in
+            there?". That argument was about the app bar. Here the two rows
+            sit together under a rule, exactly as they do in the Download
+            apps panel, and a reader who has seen one surface should not have
+            to work out that the other is the same offer. So: one pair of
+            names, and the Beta and New tags travel with them, because the
+            maturity of the two apps is the same fact wherever it is read.
+            Ashwin, Oct 21.
+          */}
           <Row
             icon={Smartphone}
-            label={GET_APP_LABELS.mobile}
+            label={GET_APP_MENU_LABELS.mobile}
+            badge={GET_APP_ROW_BADGES.mobile}
             onSelect={() => {
               onOpenApp("mobile");
               onClose();
@@ -118,7 +139,8 @@ export function AccountMenu({
           />
           <Row
             icon={Monitor}
-            label={GET_APP_LABELS.desktop}
+            label={GET_APP_MENU_LABELS.desktop}
+            badge={GET_APP_ROW_BADGES.desktop}
             onSelect={() => {
               onOpenApp("desktop");
               onClose();
@@ -147,12 +169,22 @@ function Rule() {
 function Row({
   icon: Icon,
   label,
+  badge,
   trailing = false,
   disabled = false,
   onSelect,
 }: {
   icon: typeof LogOut;
   label: string;
+  /**
+   * An editorial tag after the label — Beta, New.
+   *
+   * The nav's own pill, through the nav's own tokens, so the tag on "Mobile
+   * apps" is the same object here as it is in the Download apps panel. A
+   * second set of badge colours for a menu that shows the same two rows is
+   * how one fact ends up looking like two.
+   */
+  badge?: FlyoutBadge;
   /** The chevron sits on the right; the icon prop is that chevron. */
   trailing?: boolean;
   disabled?: boolean;
@@ -174,7 +206,18 @@ function Row({
       {trailing ? null : (
         <Icon size={16} aria-hidden="true" className="shrink-0 text-pg-muted" />
       )}
-      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="min-w-0 truncate">{label}</span>
+      {badge ? (
+        <span
+          className={cn(
+            "shrink-0 rounded-[2px] px-[4px] py-[2px] text-[10px] leading-[normal] font-semibold whitespace-nowrap",
+            BADGE_TONE[badge.tone],
+          )}
+        >
+          {badge.label}
+        </span>
+      ) : null}
+      <span className="flex-1" />
       {trailing ? (
         <Icon size={16} aria-hidden="true" className="shrink-0 text-pg-muted" />
       ) : null}
