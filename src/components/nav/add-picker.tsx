@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import { Check, ChevronDown, ChevronRight, Minus, Search, X } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
+import { restoreFocus } from "@/lib/a11y";
+import { lastRowMenuTrigger } from "./row-menu";
 import type { AddPickerCommit } from "@/design/theme";
 import { childById, productById } from "./catalogue";
 import {
@@ -269,6 +271,16 @@ export function AddPicker({
   const [openCats, setOpenCats] = React.useState<ReadonlySet<string>>(new Set());
   const [openRows, setOpenRows] = React.useState<ReadonlySet<string>>(new Set());
   const box = React.useRef<HTMLDivElement>(null);
+  /*
+   * Keyboard focus back on whatever opened the picker when it closes. Opened
+   * from a row menu's item, that item is gone by then — so the menu's trigger.
+   */
+  const [opener] = React.useState<HTMLElement | null>(() => {
+    if (typeof document === "undefined") return null;
+    const active = document.activeElement as HTMLElement | null;
+    return active?.closest('[role="menu"]') ? lastRowMenuTrigger() : active;
+  });
+  React.useEffect(() => () => restoreFocus(opener), [opener]);
   const [measured, setMeasured] = React.useState<number | null>(null);
 
   const groups = React.useMemo(

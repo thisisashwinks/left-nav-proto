@@ -3,7 +3,9 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import type { SurfaceTheme } from "@/design/theme";
+import { focusFirstItem, menuKeyDown } from "@/lib/a11y";
 import { cn } from "@/lib/utils";
+import { cascadeIdFor, FLY_ROW_SELECTOR } from "./types";
 
 /**
  * The L3 dropdown, and the L4 one beside it.
@@ -26,6 +28,8 @@ import { cn } from "@/lib/utils";
 export interface CascadeLevel {
   /** The row this level hangs off — its id, for the parent's open state. */
   id: string;
+  /** The anchoring row's name, which names this level for assistive tech. */
+  label?: string;
   /** Where the anchoring row sits, sampled when it was opened. */
   anchor: { top: number; right: number };
   /** Rendered by the caller, which owns the row markup at every level. */
@@ -42,11 +46,14 @@ export function FlyoutCascade({
   theme,
   onPointerEnter,
   onPointerLeave,
+  onCloseLevel,
 }: {
   levels: readonly CascadeLevel[];
   theme: SurfaceTheme;
   onPointerEnter?: () => void;
   onPointerLeave?: () => void;
+  /** Keyboard only: ArrowLeft shuts the level at `depth` and everything past it. */
+  onCloseLevel?: (depth: number) => void;
 }) {
   return (
     <>
@@ -58,6 +65,7 @@ export function FlyoutCascade({
           depth={i}
           {...(onPointerEnter ? { onPointerEnter } : {})}
           {...(onPointerLeave ? { onPointerLeave } : {})}
+          {...(onCloseLevel ? { onCloseLevel } : {})}
         />
       ))}
     </>
@@ -70,14 +78,29 @@ function CascadePanel({
   depth,
   onPointerEnter,
   onPointerLeave,
+  onCloseLevel,
 }: {
   level: CascadeLevel;
   theme: SurfaceTheme;
   depth: number;
   onPointerEnter?: () => void;
   onPointerLeave?: () => void;
+  onCloseLevel?: (depth: number) => void;
 }) {
   const ref = React.useRef<HTMLDivElement>(null);
+  const id = cascadeIdFor(level.id);
+  /*
+   * Opened from the keyboard, the level takes focus on its first row.
+   *
+   * Only when the row that opened it is the focused element and is showing a
+   * keyboard focus ring — a click or a hover leaves focus where it was.
+   */
+  React.useEffect(() => {
+    const from = document.activeElement as HTMLElement | null;
+    if (!from || from.getAttribute("aria-controls") !== id) return;
+    if (!from.matches(":focus-visible")) return;
+    focusFirstItem(ref.current, FLY_ROW_SELECTOR);
+  }, [id]);
   /*
    * Nudged up only if it would run off the bottom.
    *
@@ -98,7 +121,22 @@ function CascadePanel({
   return createPortal(
     <div
       ref={ref}
-      role="menu"
+      id={id}
+      role="group"
+      {...(level.label ? { "aria-label": level.label } : {})}
+      data-fly-cascade=""
+      onKeyDown={(e) => {
+        // A rename field keeps its own arrows and Home/End.
+        if ((e.target as HTMLElement).closest("input, textarea")) return;
+        if (menuKeyDown(e, ref.current, FLY_ROW_SELECTOR)) return;
+        if (e.key !== "ArrowLeft" || !onCloseLevel) return;
+        e.preventDefault();
+        // Back to the row this level hangs off, then shut it.
+        document
+          .querySelector<HTMLElement>(`[aria-controls="${id}"]`)
+          ?.focus({ preventScroll: true });
+        onCloseLevel(depth);
+      }}
       data-nav-theme={theme}
       data-cursor="menu"
       onPointerEnter={onPointerEnter}

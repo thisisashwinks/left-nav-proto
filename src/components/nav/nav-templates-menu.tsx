@@ -15,6 +15,7 @@ import {
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { useAnchored } from "@/lib/use-anchored";
+import { useReturnFocusOnUnmount } from "@/lib/a11y";
 import { useNavLayout } from "./nav-layout-provider";
 import { useNavTemplates } from "./nav-templates";
 import { TemplateRowMenu } from "./template-row-menu";
@@ -90,6 +91,8 @@ export function NavTemplatesMenu({
   const [renamingId, setRenamingId] = React.useState<string | null>(null);
   const [renameDraft, setRenameDraft] = React.useState("");
   const { ref, top, left } = useAnchored(anchor, WIDTH, GAP);
+  // Keyboard focus back on the trigger however the panel closes.
+  useReturnFocusOnUnmount();
 
   React.useEffect(() => {
     const away = (e: PointerEvent) => {

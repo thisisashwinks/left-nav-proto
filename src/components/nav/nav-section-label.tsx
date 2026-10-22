@@ -58,7 +58,10 @@ export function NavSectionLabel({
       >
         <span className="flex min-w-0 items-center gap-[var(--t-nav-gap,10px)]">
           {lead ? <ViewAllLead onOpen={onViewAll} /> : null}
-          {label}
+          {/* The words are the heading; `contents` adds no box. */}
+          <span role="heading" aria-level={2} className="contents">
+            {label}
+          </span>
         </span>
         {lead ? null : viewAll}
       </div>
@@ -88,7 +91,9 @@ export function NavSectionLabel({
         "motion-tap group flex w-full shrink-0 items-center justify-between rounded-[6px] pt-[6px] pb-[6px] text-left hover:bg-nav-hover",
         // The band's lead-in sits on whichever box opens the band — this one,
         // or the wrapper below when a View-all tile needs a box to hang in.
-        viewAll ? null : "mt-[8px] first:mt-0",
+        // Keyed to the heading wrapper's place, not the button's, since the
+        // button is always that wrapper's first child.
+        viewAll ? null : "mt-[8px] [:first-child>&]:mt-0",
         navCollapsed && "bg-transparent",
         // Same horizontal insets as a nav row, so this caret sits in the same
         // column as the rows' flyout chevrons instead of a few pixels outboard.
@@ -111,9 +116,22 @@ export function NavSectionLabel({
     </button>
   );
 
-  if (!viewAll) return fold;
+  /*
+    A heading that folds: the heading role sits on a wrapper so the fold stays
+    a button. `contents`, so the button is still the column's flex item.
+  */
+  if (!viewAll)
+    return (
+      <div role="heading" aria-level={2} className="contents">
+        {fold}
+      </div>
+    );
   return (
-    <div className="relative mt-[8px] w-full shrink-0 first:mt-0">
+    <div
+      role="heading"
+      aria-level={2}
+      className="relative mt-[8px] w-full shrink-0 first:mt-0"
+    >
       {fold}
       {viewAll}
     </div>

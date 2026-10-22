@@ -43,6 +43,7 @@ import {
 } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import { useAnchored } from "@/lib/use-anchored";
+import { announce, isFocusLost, menuKeyDown, restoreFocus } from "@/lib/a11y";
 import { DEFAULT_TEMPLATE_ID, useNavTemplates } from "./nav-templates";
 
 /*
@@ -270,6 +271,52 @@ export function EditMoreMenu({
       document.removeEventListener("keydown", esc, true);
     };
   }, [onClose, ref]);
+
+  /*
+   * Keyboard focus into the panel on open and whenever a view swaps (the row
+   * that was pressed is gone), and back onto the trigger however it closes.
+   * A field takes it first, then the first option — never the Back row, which
+   * is one Shift+Tab away. Left alone when focus is already somewhere real,
+   * such as a confirmation this panel opened.
+   */
+  React.useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const el = ref.current;
+      if (!el) return;
+      const active = document.activeElement;
+      // Opened by a pointer and the trigger kept focus: leave it there, or the
+      // blur would drop the trigger's hover tooltip from under the pointer.
+      if (!isFocusLost() && !(active === anchor && anchor.matches(":focus-visible")))
+        return;
+      const target =
+        el.querySelector<HTMLElement>("input") ??
+        Array.from(
+          el.querySelectorAll<HTMLElement>("button:not(:disabled)"),
+        ).find((b) => !b.hasAttribute("data-drill-back")) ??
+        el.querySelector<HTMLElement>("button");
+      target?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [view, anchor, ref]);
+  React.useEffect(() => () => restoreFocus(anchor), [anchor]);
+
+  /*
+   * The filter's result, said once the typing settles — the list changing
+   * under a search field is otherwise silent.
+   */
+  React.useEffect(() => {
+    const q = layoutQuery.trim();
+    if (q === "") return;
+    const count = shownTemplates.length;
+    const timer = window.setTimeout(() => {
+      announce(
+        count === 0
+          ? `No layouts match ${q}`
+          : `${count} ${count === 1 ? "layout" : "layouts"}`,
+      );
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [layoutQuery, shownTemplates.length]);
 
   /*
    * Switching an axis off while its view is open would leave the menu showing a
@@ -648,7 +695,7 @@ export function EditMoreMenu({
 
     if (view === "layout") {
       return (
-        <Drill title="Layout" onBack={() => setView("root")}>
+        <Drill title="Layout" group="radiogroup" onBack={() => setView("root")}>
           <MenuRow
             icon={OWN_LAYOUT_ICON}
             label="My layout"
@@ -677,7 +724,11 @@ export function EditMoreMenu({
 
     if (view === "navigation") {
       return (
-        <Drill title="Navigation" onBack={() => setView("root")}>
+        <Drill
+          title="Navigation"
+          group="radiogroup"
+          onBack={() => setView("root")}
+        >
           {NAV_GENERATIONS.map((generation) => (
             <MenuRow
               key={generation}
@@ -756,6 +807,16 @@ export function EditMoreMenu({
               No layouts match “{layoutQuery.trim()}”.
             </p>
           ) : null}
+          <div
+            role="radiogroup"
+            aria-label="Navigation layouts"
+            onKeyDown={(e) => {
+              // The inline rename field keeps its own caret keys.
+              if ((e.target as HTMLElement).tagName === "INPUT") return;
+              menuKeyDown(e, e.currentTarget, RADIO_SELECTOR);
+            }}
+            className="flex flex-col"
+          >
           {shownTemplates.map((t) =>
             renamingId === t.id ? (
               <input
@@ -850,6 +911,7 @@ export function EditMoreMenu({
               />
             ),
           )}
+          </div>
           {/*
             No rule under the list.
 
@@ -1383,6 +1445,18 @@ export function EditMoreMenu({
             </div>
           ) : onIt > 0 ? (
             <div className="mt-[10px] flex flex-col gap-[2px]">
+              {/* Its own box with the same gap, so the picker below stays out
+                  of the group without anything moving. */}
+              <div
+                role="radiogroup"
+                aria-label="What happens to the accounts on it"
+                onKeyDown={(e) => {
+                  if (menuKeyDown(e, e.currentTarget, RADIO_SELECTOR)) {
+                    (document.activeElement as HTMLElement | null)?.click();
+                  }
+                }}
+                className="flex flex-col gap-[2px]"
+              >
               {(
                 [
                   ["unlink", "Keep their nav, stop updates"],
@@ -1394,6 +1468,7 @@ export function EditMoreMenu({
                   type="button"
                   role="radio"
                   aria-checked={fate === value}
+                  tabIndex={fate === value ? 0 : -1}
                   disabled={value === "move" && movableTemplates.length === 0}
                   onClick={() => setFate(value)}
                   className={cn(
@@ -1420,6 +1495,7 @@ export function EditMoreMenu({
                   {label}
                 </button>
               ))}
+              </div>
               {fate === "move" ? (
                 <div className="mt-[4px] ml-[30px]">
                   <TemplatePicker
@@ -1509,16 +1585,20 @@ export function EditMoreMenu({
 function Drill({
   title,
   onBack,
+  group,
   children,
 }: {
   title: string;
   onBack: () => void;
+  /** The rows are one choice: named as a group, arrows move between them. */
+  group?: "radiogroup";
   children: React.ReactNode;
 }) {
   return (
     <>
       <button
         type="button"
+        data-drill-back=""
         onClick={onBack}
         className="motion-tap mb-[2px] flex h-[26px] shrink-0 items-center gap-[5px] rounded-[7px] px-[5px] text-left text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg"
       >
@@ -1527,10 +1607,25 @@ function Drill({
           {title}
         </span>
       </button>
-      <div className="flex flex-col">{children}</div>
+      <div
+        className="flex flex-col"
+        {...(group
+          ? {
+              role: group,
+              "aria-label": title,
+              onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) =>
+                menuKeyDown(e, e.currentTarget, RADIO_SELECTOR),
+            }
+          : {})}
+      >
+        {children}
+      </div>
     </>
   );
 }
+
+/** The choice rows a radiogroup's arrow keys walk between. */
+const RADIO_SELECTOR = '[role="radio"]:not(:disabled):not([aria-disabled="true"])';
 
 function Rule() {
   return (
@@ -1641,7 +1736,9 @@ function MenuRow({
   return (
     <button
       type="button"
-      role={checked === undefined ? undefined : "menuitemradio"}
+      // A radio, inside the radiogroup its list provides: this panel is a
+      // dialog with fields in it, so menu roles have no menu to belong to.
+      role={checked === undefined ? undefined : "radio"}
       aria-checked={checked}
       disabled={disabled}
       onClick={onSelect}

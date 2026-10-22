@@ -22,6 +22,7 @@ import type { EditBlock } from "./nav-profiles";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import { Kbd } from "@/components/search/kbd";
 import { cn } from "@/lib/utils";
+import { announce, restoreFocus } from "@/lib/a11y";
 import { RailTooltip } from "./rail-tooltip";
 import { useNavCollapse } from "./nav-collapse";
 import { EditMoreMenu } from "./edit-more-menu";
@@ -271,6 +272,47 @@ function EditNavButton({
   const [navModalOpen, setNavModalOpen] = React.useState(false);
 
   /*
+   * Keyboard focus and a spoken line across the mode change.
+   *
+   * Entering edit mode unmounts "Edit navigation", and Done / Discard unmount
+   * the card — both drop focus to <body>. So focus lands on the card's mode
+   * line on the way in and back on "Edit navigation" on the way out (only if
+   * it was lost), and the change is said aloud. `exitIntent` is which of the
+   * card's two exits was pressed, read when the mode actually ends — Discard
+   * may confirm first, and Save may ask which template.
+   */
+  const modeRef = React.useRef<HTMLSpanElement>(null);
+  const editButtonRef = React.useRef<HTMLButtonElement>(null);
+  const exitIntent = React.useRef<"save" | "done" | "discard" | null>(null);
+  const wasEditing = React.useRef(editing);
+  React.useEffect(() => {
+    if (wasEditing.current === editing) return;
+    wasEditing.current = editing;
+    if (editing) {
+      exitIntent.current = null;
+      announce("Editing navigation");
+      restoreFocus(() => modeRef.current);
+      return;
+    }
+    const intent = exitIntent.current;
+    exitIntent.current = null;
+    if (intent === "discard") announce("Changes discarded");
+    else if (intent === "save") announce("Changes saved");
+    else if (intent === "done") announce("Done editing");
+    // The card and the button it hands back to can be different mounts of
+    // this component, so fall back to whichever "Edit navigation" is live.
+    restoreFocus(
+      () =>
+        editButtonRef.current ??
+        Array.from(
+          document.querySelectorAll<HTMLElement>(
+            'button[aria-label="Edit navigation"]',
+          ),
+        ).find((el) => !el.closest("[inert]") && el.getClientRects().length > 0),
+    );
+  }, [editing]);
+
+  /*
    * Read here rather than threaded through EditNavProps.
    *
    * The light/dark tool writes the same per-account override the colours panel
@@ -441,7 +483,11 @@ function EditNavButton({
         */}
         <div className="flex items-center gap-[6px]">
           <span
-            role="status"
+            // Where keyboard focus lands on entering the mode — see `modeRef`.
+            // Not a live region: it mounts already filled, so the change is
+            // announced instead.
+            ref={modeRef}
+            tabIndex={-1}
             // Neutral ink, not brand (Aug 21 review): the mode label is chrome,
             // and brand here competed with semantic states and the AI's own hue.
             className="flex min-w-0 flex-1 items-center gap-[5px] text-[11.5px] leading-[15px] font-semibold text-nav-fg"
@@ -466,6 +512,9 @@ function EditNavButton({
               */}
               <span className="truncate whitespace-nowrap">
                 {strict ? "Editing" : "Editing nav"}
+                {strict && !showTemplateName ? (
+                  <span className="sr-only"> navigation</span>
+                ) : null}
               </span>
               {/*
                 And WHICH one, on a line of its own.
@@ -598,6 +647,8 @@ function EditNavButton({
             label="Navigation layouts and more editing options"
             short="Navigation layouts"
             icon={MoreHorizontal}
+            hasPopup="dialog"
+            expanded={moreAnchor !== null}
             onOpen={(trigger) => setMoreAnchor(trigger)}
           />
           </span>
@@ -607,7 +658,10 @@ function EditNavButton({
           <span className="flex shrink-0 items-center gap-[6px]">
           <button
             type="button"
-            onClick={onDiscard}
+            onClick={() => {
+              exitIntent.current = "discard";
+              onDiscard();
+            }}
             className="motion-tap flex h-[26px] shrink-0 items-center rounded-[7px] px-[10px] text-[12px] leading-none font-medium text-nav-fg-muted shadow-[inset_0_0_0_1px_var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg active:scale-95"
           >
             Discard
@@ -637,7 +691,14 @@ function EditNavButton({
                 into the handler instead, and the state is still announced.
               */
               aria-disabled={held > 0}
-              onClick={held > 0 ? undefined : onSave}
+              onClick={
+                held > 0
+                  ? undefined
+                  : () => {
+                      exitIntent.current = dirty ? "save" : "done";
+                      onSave();
+                    }
+              }
               className={cn(
                 "motion-tap flex h-[26px] shrink-0 items-center gap-[5px] rounded-[7px] px-[10px] text-[12px] leading-none font-medium",
                 held > 0
@@ -779,6 +840,7 @@ function EditNavButton({
     <RailTooltip label="Edit nav" show={barCollapsed}>
     <button
       type="button"
+      ref={editButtonRef}
       aria-label="Edit navigation"
       onClick={onStart}
       data-revealed={revealed ? "" : undefined}
@@ -1047,6 +1109,8 @@ function EditTool({
   icon: Icon,
   onOpen,
   disabled = false,
+  hasPopup,
+  expanded,
 }: {
   label: string;
   /** The tooltip. Shorter than the accessible name, which says the action. */
@@ -1061,11 +1125,16 @@ function EditTool({
    * button would still be tab-reachable and Enter-activatable.
    */
   disabled?: boolean;
+  /** For a tool that opens a panel rather than acting. */
+  hasPopup?: "menu" | "dialog";
+  expanded?: boolean;
 }) {
   const button = (
     <button
       type="button"
       aria-label={label}
+      aria-haspopup={hasPopup}
+      aria-expanded={expanded}
       disabled={disabled}
       onClick={(e) => onOpen(e.currentTarget)}
       className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[7px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"

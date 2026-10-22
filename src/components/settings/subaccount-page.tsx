@@ -194,13 +194,14 @@ export function SubAccountPage({
         </nav>
       </header>
 
-      <main
+      <div
+        role="region"
         aria-label={active.label}
         className="min-h-0 flex-1 overflow-y-auto p-[16px]"
       >
         {tab === "basic" ? <BasicDetailsTab key={account.id} account={account} /> : null}
         {tab !== "basic" ? <ProductionStubTab label={active.label} /> : null}
-      </main>
+      </div>
     </div>
   );
 }

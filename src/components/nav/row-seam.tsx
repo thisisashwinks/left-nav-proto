@@ -130,6 +130,8 @@ export function RowSeam({
           <button
             type="button"
             aria-label={addLabel}
+            // Opens the row menu straight into its "add" list.
+            aria-haspopup="menu"
             title={addLabel}
             onClick={(e) => {
               // The rows behind this carry clicks of their own.

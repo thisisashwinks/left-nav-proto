@@ -413,13 +413,13 @@ export function CalendarEdit({ target, onBack, onRetarget }: CalendarEditProps) 
             </div>
           </aside>
 
-          <main className="min-w-0 max-w-[1080px] flex-1">
+          <div className="min-w-0 max-w-[1080px] flex-1">
             {ALL.map(({ id, Body }) => (
               <div key={id} hidden={id !== section}>
                 <Body draft={draft} patch={patch} errors={errors} />
               </div>
             ))}
-          </main>
+          </div>
         </div>
       </div>
 

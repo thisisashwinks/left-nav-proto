@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { CornerDownLeft, Shuffle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AI_INTENT_ICONS, type AiSuggestion } from "./ai-config";
@@ -33,11 +34,19 @@ export function AiSuggestions({
   className,
 }: AiSuggestionsProps) {
   const roomy = variant === "roomy";
+  const captionId = useId();
 
   return (
-    <div className={cn("flex min-w-0 flex-col", roomy ? "gap-[6px]" : "gap-[2px]", className)}>
+    // The caption names the chips as a set. On the existing column rather
+    // than a wrapper, so the gap rhythm between rows is untouched.
+    <div
+      role="group"
+      aria-labelledby={captionId}
+      className={cn("flex min-w-0 flex-col", roomy ? "gap-[6px]" : "gap-[2px]", className)}
+    >
       <div className="flex items-center justify-between px-[6px] pt-[2px] pb-[2px]">
         <span
+          id={captionId}
           className={cn(
             "leading-none font-semibold tracking-[0.4px] text-nav-fg-subtle uppercase",
             roomy ? "text-[11px]" : "text-[10px]",

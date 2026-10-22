@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
+import { Announcer } from "@/components/a11y/announcer";
 import { BrandProvider } from "@/components/accounts/brand-store";
 import { BulkActionsProvider } from "@/components/bulk/bulk-provider";
 import { AgencyLayoutProvider } from "@/components/nav/agency-layout";
@@ -46,6 +47,17 @@ export default function RootLayout({
       className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex h-dvh flex-col overflow-hidden bg-app text-app-fg">
+        {/*
+          Hidden until a keyboard user presses Tab on page load; jumps past
+          the banner, account rail and nav to the canvas (<main id="main-content">).
+        */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[10000] focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:text-[14px] focus:font-medium focus:text-[#155eef] focus:shadow-lg"
+        >
+          Skip to content
+        </a>
+        <Announcer />
         <ThemeProvider>
           <TuningProvider>
             {/*

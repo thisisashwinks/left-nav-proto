@@ -18,6 +18,7 @@ import {
   Workflow,
   type LucideIcon,
 } from "lucide-react";
+import { resolveOwned } from "@/components/nav/catalogue-equivalents";
 
 /**
  * Three kinds of hit, which is what the designs group by:
@@ -126,9 +127,14 @@ export function searchResults(
   enabled?: ReadonlySet<string>,
 ): SearchGroup[] {
   const q = query.trim().toLowerCase();
+  // Through `resolveOwned`, because the index names products by the shipped
+  // catalogue's ids and an account on the proposed one owns `ia-crm-contacts`,
+  // not `contacts` — a plain `has` hid every result there.
   const index = enabled
     ? searchIndex.filter(
-        (r) => r.productId === undefined || enabled.has(r.productId),
+        (r) =>
+          r.productId === undefined ||
+          resolveOwned(r.productId, enabled) !== undefined,
       )
     : searchIndex;
   const matches = q

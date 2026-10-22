@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isFocusLost } from "@/lib/a11y";
 import { LABEL_MAX } from "./nav-layout-provider";
 import { RailTooltip } from "./rail-tooltip";
 
@@ -53,6 +54,15 @@ export function InlineRename({
   // Guards the blur handler: committing moves focus, and without this the commit
   // would run twice — once from the key, once from the blur it caused.
   const done = React.useRef(false);
+  const wrapRef = React.useRef<HTMLSpanElement>(null);
+  const errorId = React.useId();
+  // Whatever started the rename — the label, the pencil, a menu item — read
+  // during the first render, before the effect below pulls focus into the field.
+  const [opener] = React.useState<HTMLElement | null>(() =>
+    typeof document === "undefined"
+      ? null
+      : (document.activeElement as HTMLElement | null),
+  );
 
   React.useEffect(() => {
     const input = ref.current;
@@ -60,6 +70,45 @@ export function InlineRename({
     input.focus();
     input.select();
   }, []);
+
+  /*
+   * Keyboard focus back on the row once the field goes.
+   *
+   * Committing or cancelling unmounts the input, which drops focus to <body>.
+   * Prefer the row's own rename target (it remounts where the field was), then
+   * whatever opened the rename, then the nearest focusable ancestor. Only when
+   * focus was actually lost — a click that blurred the field somewhere real
+   * keeps that.
+   */
+  React.useEffect(() => {
+    const host = wrapRef.current?.parentElement ?? null;
+    return () => {
+      window.requestAnimationFrame(() => {
+        if (!isFocusLost()) return;
+        const usable = (el: HTMLElement | null | undefined) =>
+          el &&
+          el !== document.body &&
+          el.isConnected &&
+          !el.closest("[inert]")
+            ? el
+            : null;
+        const target =
+          usable(
+            host?.querySelector<HTMLElement>('[aria-label^="Rename"]:not(input)'),
+          ) ??
+          usable(opener) ??
+          usable(
+            host?.querySelector<HTMLElement>('[role="button"][tabindex="0"]'),
+          ) ??
+          usable(
+            host?.closest<HTMLElement>(
+              'button, a[href], [tabindex]:not([tabindex="-1"])',
+            ),
+          );
+        target?.focus({ preventScroll: true });
+      });
+    };
+  }, [opener]);
 
   const trimmed = draft.trim();
   // Unchanged is not a clash with itself, and an empty draft is handled by the
@@ -95,6 +144,7 @@ export function InlineRename({
       maxLength={LABEL_MAX}
       aria-label={ariaLabel}
       aria-invalid={error ? true : undefined}
+      aria-describedby={error ? errorId : undefined}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={leave}
       onKeyDown={(e) => {
@@ -195,11 +245,15 @@ export function InlineRename({
    * the input above it.
    */
   return (
-    <span className="relative flex min-w-0 flex-1 items-center gap-[3px]">
+    <span
+      ref={wrapRef}
+      className="relative flex min-w-0 flex-1 items-center gap-[3px]"
+    >
       {field}
       {buttons}
       {error ? (
         <span
+          id={errorId}
           role="alert"
           className="pointer-events-none absolute top-full left-0 z-10 mt-[3px] rounded-[4px] bg-pg-danger px-[5px] py-[2px] text-[11px] leading-[15px] font-medium whitespace-nowrap text-white"
         >
@@ -224,6 +278,8 @@ export function EditAffordance({
   className,
   pinned = false,
   disabled = false,
+  ariaHasPopup,
+  ariaExpanded,
 }: {
   label: string;
   /**
@@ -260,11 +316,16 @@ export function EditAffordance({
    * two out of each other's way.
    */
   disabled?: boolean;
+  /** For callers whose click opens a menu or dialog rather than acting. */
+  ariaHasPopup?: "menu" | "dialog";
+  ariaExpanded?: boolean;
 }) {
   const button = (
     <button
       type="button"
       aria-label={label}
+      aria-haspopup={ariaHasPopup}
+      aria-expanded={ariaExpanded}
       /*
         No `title` on the blocked one: RailTooltip is drawing that string, and
         the two together give you an app pill now and an OS pill a second

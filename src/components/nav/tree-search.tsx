@@ -1,6 +1,8 @@
 "use client";
 
+import * as React from "react";
 import { Search, X } from "lucide-react";
+import { announce } from "@/lib/a11y";
 import { cn } from "@/lib/utils";
 import type { TreeNode } from "./product-tree";
 
@@ -116,6 +118,27 @@ export function wholeBranchHit(nodes: readonly TreeNode[]): TreeSearchHit {
 }
 
 /**
+ * How many rows a query found, for the spoken result count: each matching
+ * node in a searched branch, and one for an L1 row kept for its own label.
+ */
+export function countTreeHits(
+  hits: ReadonlyMap<string, TreeSearchHit>,
+  query: string,
+): number {
+  const count = (level: readonly TreeNode[]): number =>
+    level.reduce(
+      (n, node) =>
+        n +
+        (matchesQuery(node.label, query) ? 1 : 0) +
+        (node.children ? count(node.children) : 0),
+      0,
+    );
+  let total = 0;
+  for (const hit of hits.values()) total += hit.deep ? count(hit.nodes) : 1;
+  return total;
+}
+
+/**
  * The field itself.
  *
  * Controlled from `left-nav.tsx` rather than holding the query here, because
@@ -132,12 +155,28 @@ export function wholeBranchHit(nodes: readonly TreeNode[]): TreeSearchHit {
 export function TreeSearchField({
   query,
   onQuery,
+  resultCount,
   className,
 }: {
   query: string;
   onQuery: (next: string) => void;
+  /** What the query found, said aloud once typing settles. */
+  resultCount?: number | null;
   className?: string;
 }) {
+  React.useEffect(() => {
+    if (!query.trim() || resultCount == null) return;
+    const t = window.setTimeout(
+      () =>
+        announce(
+          resultCount === 0
+            ? "No products match"
+            : `${resultCount} ${resultCount === 1 ? "product" : "products"}`,
+        ),
+      400,
+    );
+    return () => window.clearTimeout(t);
+  }, [query, resultCount]);
   return (
     <div
       className={cn(

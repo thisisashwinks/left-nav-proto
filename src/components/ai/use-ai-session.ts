@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { lastInputWasPointer } from "@/components/accounts/tab-trap";
+import { announce, isFocusLost, restoreFocus } from "@/lib/a11y";
 import {
   replyFor,
   suggestionPage,
@@ -68,6 +70,19 @@ const THINKING_MS = 850;
 const DICTATION_LEAD_MS = 900;
 const DICTATION_WORD_MS = 110;
 
+/**
+ * When a reply has finished resolving on screen — the word cascade caps at
+ * 900ms, plus the blocks rising under it. Screen readers hear it once, then.
+ */
+const REPLY_SETTLE_MS = 1300;
+
+/** The reply as one plain sentence run, for the announcer. */
+function replyText(reply: AiReply) {
+  return [reply.answer, reply.draft, ...(reply.points ?? [])]
+    .filter(Boolean)
+    .join(" ");
+}
+
 export function useAiSession(): AiSession {
   const [open, setOpen] = React.useState(false);
   const [turns, setTurns] = React.useState<AiTurn[]>([]);
@@ -78,6 +93,12 @@ export function useAiSession(): AiSession {
   const takeFocus = React.useCallback(() => setFocusNonce((n) => n + 1), []);
 
   const nextTurnId = React.useRef(0);
+
+  // What had focus when the window opened, so a keyboard close can hand it
+  // back rather than dropping it on the body.
+  const opener = React.useRef<HTMLElement | null>(null);
+  const openRef = React.useRef(false);
+  const openerInHeader = React.useRef(false);
 
   // Every scheduled callback is tracked, so closing mid-answer or mid-dictation
   // cannot leave a timer running against a surface that is gone.
@@ -103,16 +124,17 @@ export function useAiSession(): AiSession {
       // The suggestion button that was just clicked is about to unmount; without
       // this the caret would land on the body.
       takeFocus();
+      announce("Thinking…");
 
       // A deliberate beat before the answer. Without it the reply is on screen
       // before the question has finished animating in, and the exchange reads
       // as a lookup rather than as a response.
       schedule(() => {
+        const reply = replyFor(prompt);
         setTurns((current) =>
-          current.map((turn) =>
-            turn.id === id ? { ...turn, reply: replyFor(prompt) } : turn,
-          ),
+          current.map((turn) => (turn.id === id ? { ...turn, reply } : turn)),
         );
+        schedule(() => announce(replyText(reply)), REPLY_SETTLE_MS);
       }, THINKING_MS);
     },
     [schedule, takeFocus],
@@ -150,6 +172,13 @@ export function useAiSession(): AiSession {
 
   const launch = React.useCallback<AiLaunch>(
     (prompt = "", options = {}) => {
+      if (!openRef.current && typeof document !== "undefined") {
+        opener.current = document.activeElement as HTMLElement | null;
+        openerInHeader.current = !!opener.current?.closest(
+          'header, [role="banner"]',
+        );
+      }
+      openRef.current = true;
       setOpen(true);
       takeFocus();
       if (options.listening) {
@@ -174,6 +203,43 @@ export function useAiSession(): AiSession {
   }, [clearTimers, takeFocus]);
 
   const close = React.useCallback(() => {
+    /*
+     * Focus goes back to whatever opened the window — keyboard closes only,
+     * and only when focus is in the panel or already lost. Done before the
+     * window starts its exit: it stays mounted through the animation, so a
+     * check after it would still find focus inside it. Moved while `open`
+     * is still true, so the dock pill's own focus handler leaves its tray
+     * shut.
+     */
+    const el = opener.current;
+    opener.current = null;
+    openRef.current = false;
+    const active = document.activeElement as HTMLElement | null;
+    if (
+      el &&
+      !lastInputWasPointer() &&
+      (isFocusLost() || active?.closest("[data-ai-panel]"))
+    ) {
+      if (el.isConnected) {
+        el.focus({ preventScroll: true });
+      } else {
+        // The header's Ask AI button unmounts while the window is open and
+        // comes back as a new node once it closes — find it by name and words.
+        const label = el.getAttribute("aria-label");
+        const text = el.textContent?.trim();
+        const inHeader = openerInHeader.current;
+        restoreFocus(() =>
+          Array.from(document.querySelectorAll<HTMLElement>("button")).find(
+            (b) =>
+              b.getAttribute("aria-label") === label &&
+              b.textContent?.trim() === text &&
+              !!b.closest('header, [role="banner"]') === inHeader &&
+              !b.closest("[inert], [data-ai-panel]") &&
+              b.getClientRects().length > 0,
+          ),
+        );
+      }
+    }
     clearTimers();
     setListening(false);
     setOpen(false);

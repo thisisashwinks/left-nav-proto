@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { createPortal } from "react-dom";
+import { useReturnFocusOnUnmount } from "@/lib/a11y";
 
 /**
  * The one confirmation in the nav that is worth its weight.
@@ -27,6 +28,9 @@ export function DiscardEditsDialog({
   onCancel: () => void;
 }) {
   const { navTheme } = useTheme();
+
+  // Back to the Discard that opened it, when keeping on editing.
+  useReturnFocusOnUnmount();
 
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -56,6 +60,7 @@ export function DiscardEditsDialog({
       <div
         role="dialog"
         aria-modal="true"
+        onKeyDown={trapTab}
         aria-label="Discard your changes?"
         className="motion-panel-in relative flex w-[360px] max-w-full flex-col gap-[8px] rounded-[8px] bg-nav p-[16px] shadow-[0_20px_24px_-4px_rgba(16,24,40,0.08),0_8px_8px_-4px_rgba(16,24,40,0.03),inset_0_0_0_1px_var(--fly-border)]"
       >
@@ -91,4 +96,25 @@ export function DiscardEditsDialog({
     </div>,
     document.body,
   );
+}
+
+/** Keeps Tab and Shift+Tab inside the dialog box. */
+function trapTab(e: React.KeyboardEvent<HTMLElement>) {
+  if (e.key !== "Tab") return;
+  const items = Array.from(
+    e.currentTarget.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), select:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex="-1"])',
+    ),
+  );
+  const first = items[0];
+  const last = items[items.length - 1];
+  if (!first || !last) return;
+  const active = document.activeElement;
+  if (e.shiftKey && (active === first || !e.currentTarget.contains(active))) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && (active === last || !e.currentTarget.contains(active))) {
+    e.preventDefault();
+    first.focus();
+  }
 }

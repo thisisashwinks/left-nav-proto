@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import type { BulkPath } from "@/components/bulk/bulk-config";
 import { BulkHistoryModal } from "@/components/bulk/bulk-history-modal";
 import { BulkModal } from "@/components/bulk/bulk-modal";
+import { announce } from "@/lib/a11y";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { useTheme } from "@/components/theme/theme-provider";
 import { useBulkActions } from "@/components/bulk/bulk-provider";
@@ -168,6 +169,21 @@ export function RailDirectory({
 
   const matches = matchAccounts(query, session.accounts);
   const searching = query.trim() !== "";
+
+  // Say what a query found, once it settles.
+  const trimmed = query.trim();
+  const matchCount = matches.length;
+  React.useEffect(() => {
+    if (!trimmed) return;
+    const timer = window.setTimeout(() => {
+      announce(
+        matchCount === 0
+          ? "No accounts match"
+          : `${matchCount} ${matchCount === 1 ? "account" : "accounts"}`,
+      );
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [trimmed, matchCount]);
 
   /*
    * The directory, pinned accounts first.

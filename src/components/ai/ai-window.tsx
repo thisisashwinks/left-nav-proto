@@ -26,7 +26,9 @@ import { Checkbox } from "@/components/page/form-controls";
 import { Modal } from "@/components/page/modal";
 import { showToast } from "@/components/page/toast";
 import { TEAMMATES } from "@/components/product/conversations/conversations-data";
+import { trapTab } from "@/components/accounts/tab-trap";
 import type { SurfaceTheme } from "@/design/theme";
+import { isFocusLost } from "@/lib/a11y";
 import { cn } from "@/lib/utils";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
 import type { AiReply } from "./ai-config";
@@ -81,6 +83,9 @@ const AI_RECENTS = [
   "Enhancing performance with AI suggestions",
   "Course structure and first lesson outline",
 ];
+
+/** The panel's id, for the dock pill's aria-controls. */
+export const AI_WINDOW_ID = "ask-ai-window";
 
 /** The layout hole the shell reserves while the panel is docked — flush. */
 export const AI_DOCKED_WIDTH = WINDOW_WIDTH;
@@ -146,10 +151,14 @@ export function AiWindow({
    */
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const full = mode === "full";
-  const { turns, value, listening, state, close, focusNonce } = session;
+  const { open, turns, value, listening, state, close, focusNonce } = session;
+  // Floating is the one mode that takes the page away (click-away layer),
+  // so it is the one that is modal: aria-modal and a Tab loop.
+  const floating = mode === "floating";
 
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const panelRef = React.useRef<HTMLDivElement>(null);
 
   // Element picking is a look, not a build: the chip holds its pressed state so
   // the affordance can be reacted to, and nothing on the page is targetable yet.
@@ -157,10 +166,18 @@ export function AiWindow({
 
   // Escape closes, matching the flyouts and the command bar. It cancels
   // dictation first, so a mis-fired mic press does not also throw the window
-  // away.
+  // away. Only for an Escape meant for this window: focus in it (or lost),
+  // or anywhere while it floats modally — not one pressed in the page beside
+  // a docked panel, and not one another surface already handled.
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      if (
+        !floating &&
+        !isFocusLost() &&
+        !panelRef.current?.contains(document.activeElement)
+      )
+        return;
       if (listening) {
         session.toggleListening();
         return;
@@ -169,7 +186,7 @@ export function AiWindow({
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [listening, close, session]);
+  }, [listening, close, session, floating]);
 
   // Follow the conversation down as it grows.
   React.useEffect(() => {
@@ -188,10 +205,11 @@ export function AiWindow({
   // The caret belongs here the moment the window is up — the dock pill hands it
   // over, and anything typed on the way in should keep going into this field.
   // It comes back on every later launch too, so pressing the pill again while
-  // the window is already open still lands you in the composer.
+  // the window is already open still lands you in the composer. Not while it
+  // is closing: focus has been handed back to the opener by then.
   React.useEffect(() => {
-    if (!listening) inputRef.current?.focus();
-  }, [listening, focusNonce]);
+    if (!listening && open) inputRef.current?.focus();
+  }, [listening, focusNonce, open]);
 
   const empty = turns.length === 0;
 
@@ -348,8 +366,13 @@ export function AiWindow({
         flush panel needs, and a card needs an outline all the way round.
       */}
       <div
-        role="dialog"
+        ref={panelRef}
+        id={AI_WINDOW_ID}
+        // Docked it is a standing region beside the page, not a dialog.
+        role={docked ? "complementary" : "dialog"}
         aria-label="Ask AI"
+        aria-modal={floating ? true : undefined}
+        onKeyDown={floating ? (e) => trapTab(e, panelRef.current) : undefined}
         data-ai-state={state}
         // The two-pane dock sets this panel's own margins from CSS, beside
         // the card it is paired with. See the [data-ai-pane] block.
@@ -583,7 +606,14 @@ export function AiWindow({
                 ref={scrollRef}
                 className="flex min-h-0 flex-1 flex-col overflow-y-auto px-[14px] pt-[46px] pb-[14px]"
               >
-                <div className="mx-auto flex w-full max-w-[720px] flex-col gap-[14px]">
+                {/* Live off: replies resolve a word at a time, so each one is
+                    announced once, whole, by the session instead. */}
+                <div
+                  role="log"
+                  aria-live="off"
+                  aria-label="Conversation"
+                  className="mx-auto flex w-full max-w-[720px] flex-col gap-[14px]"
+                >
                   {turns.map((turn) => (
                     <Turn key={turn.id} turn={turn} state={state} />
                   ))}
@@ -866,9 +896,8 @@ function Turn({ turn, state }: { turn: AiTurn; state: AiState }) {
 function Thinking() {
   return (
     <div className="flex flex-col gap-[7px] pt-[2px]">
-      <span className="sr-only" aria-live="polite">
-        Thinking
-      </span>
+      {/* Not live: the session announces "Thinking…" itself. */}
+      <span className="sr-only">Thinking</span>
       <span
         aria-hidden="true"
         className="ai-thinking-line h-[9px] w-full rounded-full"

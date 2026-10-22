@@ -10,6 +10,12 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
+import {
+  isFocusLost,
+  MENU_ITEM_SELECTOR,
+  menuKeyDown,
+  useReturnFocusOnUnmount,
+} from "@/lib/a11y";
 
 /** Popover geometry. Wide enough for "Move to another category" on one line. */
 const WIDTH = 216;
@@ -42,6 +48,18 @@ export interface RowMenuOption {
    */
   toggle?: boolean;
   on?: boolean;
+}
+
+/**
+ * The trigger of the most recently opened row menu.
+ *
+ * A dialog a menu item opens (Remove → DeleteGroupDialog) mounts while that item
+ * still holds focus, so the opener it would remember is a button about to
+ * vanish. This is where it should send focus back to instead.
+ */
+let lastTrigger: HTMLElement | null = null;
+export function lastRowMenuTrigger() {
+  return lastTrigger;
 }
 
 /** Every leaf under a node, for the search that flattens the tree. */
@@ -127,6 +145,17 @@ export function RowMenu({
   // Portalling to the body puts the menu outside every [data-nav-theme] scope,
   // so it has to carry the nav surface with it or paint on nothing.
   const { navTheme } = useTheme();
+  // Every way out — a pick, Escape, the click-away — unmounts the menu, so the
+  // kebab (or plus) that opened it gets keyboard focus back.
+  useReturnFocusOnUnmount();
+  const [opener] = React.useState<HTMLElement | null>(() =>
+    typeof document === "undefined"
+      ? null
+      : (document.activeElement as HTMLElement | null),
+  );
+  React.useEffect(() => {
+    if (opener && opener !== document.body) lastTrigger = opener;
+  }, [opener]);
 
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -189,6 +218,71 @@ export function RowMenu({
     return () => observer.disconnect();
   }, []);
   const height = measured ?? estimate;
+
+  /*
+   * Keyboard focus into the menu, and back into it whenever the view swaps.
+   *
+   * Opening, walking into a list or a branch, and stepping back all replace the
+   * buttons under focus, which would otherwise drop it to <body>. The search
+   * field takes it when there is one (it autofocuses); otherwise the first item
+   * does. Left alone when focus is already somewhere inside, and when a
+   * pointer opened the menu and its trigger still holds focus — moving it
+   * would blur away a hover tooltip the pointer is still resting on.
+   */
+  React.useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const frame = window.requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (el.contains(active)) return;
+      if (!isFocusLost() && !active?.matches(":focus-visible")) return;
+      // Past the Back row: it is one ArrowUp away, and landing on it would make
+      // Enter undo the step that was just taken.
+      const items = Array.from(
+        el.querySelectorAll<HTMLElement>(MENU_ITEM_SELECTOR),
+      );
+      const target =
+        el.querySelector<HTMLElement>("input") ??
+        items.find((b) => !b.hasAttribute("data-menu-back")) ??
+        items[0];
+      target?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [view, path]);
+
+  /** Back one step — the same order Escape and the header's Back use. */
+  const canGoBack = path.length > 0 || (view !== null && view !== initialView);
+  const goBack = () => {
+    if (path.length > 0) setPath(path.slice(0, -1));
+    else setView(null);
+  };
+
+  const onMenuKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    // Tab leaves a menu rather than walking through it.
+    if (e.key === "Tab") {
+      e.preventDefault();
+      onClose();
+      return;
+    }
+    const inField = (e.target as HTMLElement).tagName === "INPUT";
+    // The search field keeps its own caret keys; ArrowUp/Down still walk out of
+    // it into the list.
+    if (inField && e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    if (menuKeyDown(e, box.current)) return;
+    if (inField) return;
+    if (e.key === "ArrowRight") {
+      const item = (e.target as HTMLElement).closest<HTMLElement>(
+        "[data-submenu]",
+      );
+      if (item) {
+        e.preventDefault();
+        item.click();
+      }
+    } else if (e.key === "ArrowLeft" && canGoBack) {
+      e.preventDefault();
+      goBack();
+    }
+  };
   /*
    * Below the trigger, or above it — never over it.
    *
@@ -229,8 +323,9 @@ export function RowMenu({
       />
       <div
         ref={box}
-        role="dialog"
-        aria-label={`Edit ${title}`}
+        role="menu"
+        aria-label={open ? `${open.label}, ${title}` : `Edit ${title}`}
+        onKeyDown={onMenuKeyDown}
         data-nav-theme={navTheme}
         data-cursor="menu"
         style={{ top: Math.max(8, top), left, width: WIDTH }}
@@ -249,9 +344,9 @@ export function RowMenu({
             {path.length > 0 || view !== initialView ? (
               <button
                 type="button"
-                onClick={() =>
-                  path.length > 0 ? setPath(path.slice(0, -1)) : setView(null)
-                }
+                role="menuitem"
+                data-menu-back=""
+                onClick={goBack}
                 className="motion-tap flex shrink-0 items-center gap-[6px] rounded-[6px] px-[6px] py-[5px] text-left text-[12px] leading-none text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
               >
                 <ChevronLeft size={12} aria-hidden="true" className="shrink-0" />
@@ -260,7 +355,10 @@ export function RowMenu({
                 </span>
               </button>
             ) : (
-              <p className="shrink-0 truncate px-[6px] pt-[3px] pb-[5px] text-[11px] leading-[13px] font-semibold tracking-[0.5px] text-nav-fg-subtle uppercase">
+              <p
+                aria-hidden="true"
+                className="shrink-0 truncate px-[6px] pt-[3px] pb-[5px] text-[11px] leading-[13px] font-semibold tracking-[0.5px] text-nav-fg-subtle uppercase"
+              >
                 {open.label}
               </p>
             )}
@@ -282,8 +380,11 @@ export function RowMenu({
                 />
               </div>
             ) : null}
-            <div className="my-[4px] h-px shrink-0 bg-[var(--nav-divider)]" />
-            <div className="flex min-h-0 flex-col overflow-y-auto">
+            <div
+              role="separator"
+              className="my-[4px] h-px shrink-0 bg-[var(--nav-divider)]"
+            />
+            <div role="none" className="flex min-h-0 flex-col overflow-y-auto">
               {rows.map((o) => {
                 // A branch walks in; a leaf is the answer. Searching flattens the
                 // tree, so a result is always a leaf even if its siblings here
@@ -296,7 +397,13 @@ export function RowMenu({
                     type="button"
                     disabled={o.current}
                     {...(o.toggle
-                      ? { role: "switch", "aria-checked": o.on ?? false }
+                      ? {
+                          role: "menuitemcheckbox",
+                          "aria-checked": o.on ?? false,
+                        }
+                      : { role: "menuitem" })}
+                    {...(branch
+                      ? { "aria-haspopup": "menu" as const, "data-submenu": "" }
                       : {})}
                     onClick={() => {
                       if (branch) {
@@ -343,7 +450,10 @@ export function RowMenu({
                 );
               })}
               {rows.length === 0 ? (
-                <p className="px-[6px] py-[8px] text-[12px] text-nav-fg-subtle">
+                <p
+                  role="none"
+                  className="px-[6px] py-[8px] text-[12px] text-nav-fg-subtle"
+                >
                   {needle
                     ? `Nothing matches “${query}”`
                     : (open.emptyNote ?? "Nowhere else to put it yet.")}
@@ -353,7 +463,10 @@ export function RowMenu({
           </>
         ) : (
           <>
-            <p className="shrink-0 truncate px-[6px] pt-[3px] pb-[5px] text-[11px] leading-[13px] font-semibold tracking-[0.5px] text-nav-fg-subtle uppercase">
+            <p
+              aria-hidden="true"
+              className="shrink-0 truncate px-[6px] pt-[3px] pb-[5px] text-[11px] leading-[13px] font-semibold tracking-[0.5px] text-nav-fg-subtle uppercase"
+            >
               {title}
             </p>
             {actions.map((a) =>
@@ -361,6 +474,9 @@ export function RowMenu({
                 <button
                   key={a.id}
                   type="button"
+                  role="menuitem"
+                  aria-haspopup="menu"
+                  data-submenu=""
                   onClick={() => setView(a.id)}
                   className="motion-tap flex shrink-0 items-center gap-[8px] rounded-[6px] px-[6px] py-[6px] text-left text-[13px] leading-none text-nav-fg hover:bg-nav-hover"
                 >
@@ -380,6 +496,7 @@ export function RowMenu({
                 <button
                   key={a.id}
                   type="button"
+                  role="menuitem"
                   disabled={!a.onSelect}
                   onClick={() => {
                     a.onSelect?.();

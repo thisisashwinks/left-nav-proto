@@ -121,6 +121,18 @@ export function RailTooltip({
 
   const hide = () => setPos(null);
 
+  // Escape dismisses the pill without moving the pointer or focus. Left to
+  // propagate: whatever else Escape closes still closes.
+  const shown = pos !== null;
+  React.useEffect(() => {
+    if (!shown) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPos(null);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [shown]);
+
   return (
     <span
       ref={ref}

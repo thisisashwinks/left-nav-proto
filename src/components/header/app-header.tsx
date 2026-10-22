@@ -715,7 +715,10 @@ export function AppHeader({
             )}
           >
             <div className="flex min-w-0 items-center gap-[8px]">
+              {/* The page's h1 while it lives up here — the page drops its own. */}
               <span
+                role="heading"
+                aria-level={1}
                 className={cn(
                   "font-semibold text-hdr-fg",
                   headingAtPageScale
@@ -1024,7 +1027,8 @@ export function AppHeader({
               key={action.id}
               type="button"
               title={action.label}
-              aria-label={action.label}
+              // The dot is drawn aria-hidden, so the name carries it.
+              aria-label={action.dot ? `${action.label}, unread` : action.label}
               className={cn(
                 "relative flex size-[26px] shrink-0 items-center justify-center rounded-full",
                 "motion-tap hover:scale-110 active:scale-95 motion-press",

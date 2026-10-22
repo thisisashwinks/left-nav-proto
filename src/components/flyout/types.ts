@@ -53,6 +53,20 @@ export const BADGE_TONE: Record<FlyoutBadgeTone, string> = {
 };
 
 /**
+ * The L2 panel's id. Only one is ever up, so the rows that open it can all
+ * point `aria-controls` at the same element.
+ */
+export const FLYOUT_PANEL_ID = "nav-flyout-panel";
+
+/** Every row in the panel and its cascade, for keyboard focus moves. */
+export const FLY_ROW_SELECTOR = "[data-fly-row]";
+
+/** A cascade level's id, from the row it hangs off. */
+export function cascadeIdFor(rowId: string): string {
+  return `nav-cascade-${rowId.replace(/[^\w-]/g, "_")}`;
+}
+
+/**
  * An L2 sub-place nested under a product row — the flyout's answer to the
  * header-tab dropdowns the current app hides these in (Invoices & Estimates ▾,
  * Products ▾, Client Portal ▾ …). Aug 13 audit, report §2.

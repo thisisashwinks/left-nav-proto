@@ -65,10 +65,13 @@ export const PIN_GLYPH = 12;
 
 export function PinButton({
   productId,
+  label,
   className,
   size = PIN_GLYPH,
 }: {
   productId: string;
+  /** The row's name, for "Pin …". Defaults to the product's own. */
+  label?: string;
   className?: string;
   /**
    * The glyph, not the button — the 22px target is fixed so the trailing
@@ -79,7 +82,7 @@ export function PinButton({
    */
   size?: number;
 }) {
-  const { isPinned, togglePin, pinsFull } = useNavLayout();
+  const { isPinned, togglePin, pinsFull, productLabelFor } = useNavLayout();
   const { announce } = usePinFeedback();
   const pinned = isPinned(productId);
   const pinnedInk = usePinnedInk();
@@ -99,7 +102,8 @@ export function PinButton({
        */
       aria-disabled={blocked}
       title={pinned ? "Unpin" : blocked ? PIN_CAP_HINT : "Pin"}
-      aria-label={pinned ? "Unpin" : "Pin"}
+      // One name in both states; `aria-pressed` says which one it is in.
+      aria-label={`Pin ${label ?? productLabelFor(productId)}`}
       aria-pressed={pinned}
       onClick={(e) => {
         // The row itself navigates; pinning must not also trigger that.

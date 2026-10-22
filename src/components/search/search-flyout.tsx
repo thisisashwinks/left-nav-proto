@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Search, X } from "lucide-react";
 import type { SurfaceTheme } from "@/design/theme";
+import { useReturnFocusOnUnmount } from "@/lib/a11y";
 import { cn } from "@/lib/utils";
 import { productById } from "@/components/nav/catalogue";
 import { WithPin } from "@/components/nav/with-pin";
@@ -28,6 +29,8 @@ export function SearchFlyout({
 }) {
   const s = useSearch(onClose);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const listId = React.useId();
+  useReturnFocusOnUnmount();
 
   React.useEffect(() => {
     inputRef.current?.focus();
@@ -76,10 +79,22 @@ export function SearchFlyout({
             onKeyDown={s.onKeyDown}
             placeholder="Search everything"
             aria-label="Search"
+            role="combobox"
+            aria-expanded={s.flat.length > 0}
+            aria-controls={listId}
+            aria-autocomplete="list"
+            aria-activedescendant={
+              s.activeId ? `${listId}-${s.activeId}` : undefined
+            }
             className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-sr-fg caret-[var(--sr-caret)] placeholder:text-sr-muted focus:outline-none"
           />
         </div>
 
+        {/*
+          `contents` keeps the rows laid out as direct children of the panel's
+          flex column; the wrapper exists only to be the listbox.
+        */}
+        <div id={listId} role="listbox" aria-label="Search results" className="contents">
         {s.groups.length === 0 ? (
           <p className="w-full px-[2px] py-[14px] text-[13px] text-sr-muted">
             No matches for “{s.query}”
@@ -110,7 +125,9 @@ export function SearchFlyout({
                 >
                 <button
                   type="button"
-                  aria-current={active ? "true" : undefined}
+                  id={`${listId}-${r.id}`}
+                  role="option"
+                  aria-selected={active}
                   onPointerEnter={() => s.setActiveIndex(index)}
                   onClick={onClose}
                   className={cn(
@@ -158,6 +175,7 @@ export function SearchFlyout({
             })}
           </React.Fragment>
         ))}
+        </div>
 
         <div data-cursor="inert" className="w-full flex-1" />
 

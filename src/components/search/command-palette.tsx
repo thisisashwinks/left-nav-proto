@@ -4,11 +4,12 @@ import * as React from "react";
 import { Search } from "lucide-react";
 import { AiOrb } from "@/components/ai/ai-orb";
 import type { SurfaceTheme } from "@/design/theme";
+import { useReturnFocusOnUnmount } from "@/lib/a11y";
 import { cn } from "@/lib/utils";
 import { productById } from "@/components/nav/catalogue";
 import { WithPin } from "@/components/nav/with-pin";
 import { Kbd } from "./kbd";
-import { useSearch } from "./use-search";
+import { trapTab, useSearch } from "./use-search";
 
 /**
  * The ⌘K command bar from "Search 3 · Command bar (⌘K)" in left-nav.pen.
@@ -30,6 +31,9 @@ export function CommandPalette({
 }) {
   const s = useSearch(onClose);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const listId = React.useId();
+  // Mounted on open, unmounted on close: hand focus back to the opener.
+  useReturnFocusOnUnmount();
 
   React.useEffect(() => {
     inputRef.current?.focus();
@@ -54,6 +58,7 @@ export function CommandPalette({
         aria-label="Search"
         aria-modal="true"
         data-cursor="menu"
+        onKeyDown={trapTab}
         className="motion-panel-in absolute top-[132px] flex w-[600px] flex-col overflow-hidden rounded-[12px] bg-sr shadow-[0_20px_40px_-8px_var(--sr-shadow)]"
       >
         <div className="flex h-[54px] shrink-0 items-center gap-[10px] px-[16px] shadow-[inset_0_-1px_0_0_var(--sr-border)]">
@@ -66,6 +71,13 @@ export function CommandPalette({
             onKeyDown={s.onKeyDown}
             placeholder="Search contacts, campaigns, pages…"
             aria-label="Search"
+            role="combobox"
+            aria-expanded={s.flat.length > 0}
+            aria-controls={listId}
+            aria-autocomplete="list"
+            aria-activedescendant={
+              s.activeId ? `${listId}-${s.activeId}` : undefined
+            }
             className="min-w-0 flex-1 bg-transparent text-[15px] leading-[normal] text-sr-fg caret-[var(--sr-caret)] placeholder:text-sr-muted focus:outline-none"
           />
           <Kbd onClick={onClose}>esc</Kbd>
@@ -86,7 +98,12 @@ export function CommandPalette({
           </button>
         </div>
 
-        <div className="flex max-h-[360px] shrink-0 flex-col gap-[1px] overflow-y-auto p-[8px]">
+        <div
+          id={listId}
+          role="listbox"
+          aria-label="Search results"
+          className="flex max-h-[360px] shrink-0 flex-col gap-[1px] overflow-y-auto p-[8px]"
+        >
           {s.groups.length === 0 ? (
             <p className="px-[8px] py-[18px] text-center text-[13px] text-sr-muted">
               No matches for “{s.query}”
@@ -109,7 +126,9 @@ export function CommandPalette({
                   <WithPin key={r.id} productId={r.id.replace(/^p-/, "")}>
                   <button
                     type="button"
-                    aria-current={active ? "true" : undefined}
+                    id={`${listId}-${r.id}`}
+                    role="option"
+                    aria-selected={active}
                     onPointerEnter={() => s.setActiveIndex(index)}
                     onClick={onClose}
                     className={cn(

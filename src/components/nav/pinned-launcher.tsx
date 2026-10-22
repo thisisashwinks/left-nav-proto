@@ -28,6 +28,8 @@ import { childById, productById } from "./catalogue";
 import { isChromePlace } from "./chrome-places";
 import { iconForChildLabel } from "./l3-icons";
 import { FlyoutCascade } from "@/components/flyout/flyout-cascade";
+import { cascadeIdFor } from "@/components/flyout/types";
+import { announce, restoreFocus } from "@/lib/a11y";
 import {
   GET_APP_FLYOUT_ID,
   useGetAppNavLabel,
@@ -478,6 +480,23 @@ export function PinnedLauncher({
     <div
       role="tablist"
       aria-label="What to browse"
+      // Keyboard only: arrows move between the two tabs and select as they go.
+      onKeyDown={(e) => {
+        const next =
+          e.key === "Home"
+            ? "recent"
+            : e.key === "End"
+              ? "directory"
+              : e.key === "ArrowLeft" || e.key === "ArrowRight"
+                ? tab === "recent"
+                  ? "directory"
+                  : "recent"
+                : null;
+        if (!next) return;
+        e.preventDefault();
+        switchTab(next);
+        document.getElementById(tabIdFor(next))?.focus();
+      }}
       className={cn(
         "flex items-center",
         panelTabStyle === "line"
@@ -487,12 +506,16 @@ export function PinnedLauncher({
       )}
     >
       <PanelTab
+        id={tabIdFor("recent")}
+        controls={tabPanelId}
         label={recentLabel}
         selected={tab === "recent"}
         onSelect={() => switchTab("recent")}
         variant={panelTabStyle}
       />
       <PanelTab
+        id={tabIdFor("directory")}
+        controls={tabPanelId}
         label="All products"
         selected={tab === "directory"}
         onSelect={() => switchTab("directory")}
@@ -512,6 +535,11 @@ export function PinnedLauncher({
    * is correct — it is a question about opening.
    */
   const [tab, setTab] = React.useState<"recent" | "directory">(panelOpenTab);
+  // The tab pattern's wiring: each tab names the body it controls, and the
+  // body names the tab that is showing it.
+  const tabsId = React.useId();
+  const tabIdFor = (which: "recent" | "directory") => `${tabsId}-${which}`;
+  const tabPanelId = `${tabsId}-panel`;
   /*
    * And reset to it on every OPEN, not just the first mount.
    *
@@ -545,9 +573,57 @@ export function PinnedLauncher({
   const q = query.trim().toLowerCase();
   const searching = q.length > 0;
 
+  /*
+   * Keyboard focus in and out.
+   *
+   * Opened from the keyboard, focus lands in the search field (else on the
+   * selected tab). Closed, it goes back to whatever opened the panel — only
+   * when the panel was being driven from the keyboard, and only if focus was
+   * lost on the way. A pointer opening changes nothing.
+   */
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  const focusMemory = React.useRef({
+    opener: null as HTMLElement | null,
+    keyboard: false,
+  });
+  React.useEffect(() => {
+    if (phase !== "entering") return;
+    const from = document.activeElement as HTMLElement | null;
+    if (!from || dialogRef.current?.contains(from)) return;
+    focusMemory.current.opener = from;
+    focusMemory.current.keyboard = from.matches(":focus-visible");
+    if (!focusMemory.current.keyboard) return;
+    (
+      inputRef.current ??
+      dialogRef.current?.querySelector<HTMLElement>(
+        '[role="tab"][aria-selected="true"]',
+      )
+    )?.focus({ preventScroll: true });
+  }, [phase]);
+  React.useEffect(() => {
+    const memory = focusMemory.current;
+    return () => {
+      if (memory.keyboard) restoreFocus(memory.opener);
+    };
+  }, []);
+
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      const target = e.target as HTMLElement | null;
+      const inside =
+        !!target &&
+        (!!dialogRef.current?.contains(target) ||
+          !!target.closest?.("[data-fly-cascade]"));
+      // A text field elsewhere on the page owns its own Escape.
+      if (
+        !inside &&
+        target?.closest?.('input, textarea, select, [contenteditable="true"]')
+      )
+        return;
+      // A directory cascade is up: it shuts first, one level per press.
+      if (document.querySelector("[data-fly-cascade]")) return;
+      if (inside) focusMemory.current.keyboard = true;
       // Escape empties the field before it closes the panel. A typed query is
       // work, and taking the whole surface away with it is the wrong first
       // answer — the second Escape still closes.
@@ -987,6 +1063,26 @@ export function PinnedLauncher({
         ? searchHits(layout, groups, q, new Set(keptIds))
         : searchHits(layout, groups, q);
 
+  // The result count, said once typing settles.
+  const resultCount = !searching
+    ? null
+    : mergedPanel && agencyScope
+      ? agencyHits.length
+      : hits.length;
+  React.useEffect(() => {
+    if (resultCount === null) return;
+    const t = window.setTimeout(
+      () =>
+        announce(
+          resultCount === 0
+            ? "No products match"
+            : `${resultCount} ${resultCount === 1 ? "product" : "products"}`,
+        ),
+      400,
+    );
+    return () => window.clearTimeout(t);
+  }, [q, resultCount]);
+
   /*
    * The field follows the errand, not just the contents.
    *
@@ -1097,8 +1193,12 @@ export function PinnedLauncher({
       />
 
       <div
+        ref={dialogRef}
         role="dialog"
         aria-label={panelTitle}
+        onKeyDown={() => {
+          focusMemory.current.keyboard = true;
+        }}
         data-nav-theme={theme}
         data-cursor="menu"
         onPointerEnter={onPointerEnter}
@@ -1311,6 +1411,10 @@ export function PinnedLauncher({
           <div aria-hidden="true" data-scroll-fade="top" />
           <div
             ref={scrollRef}
+            id={tabPanelId}
+            {...(tabbed
+              ? { role: "tabpanel", "aria-labelledby": tabIdFor(tab) }
+              : {})}
             data-scroll-region=""
             /*
               The nav's own row spacing, not a list spacing of its own.
@@ -2161,11 +2265,12 @@ function ProductRow({
       <span className="absolute top-1/2 right-[8px] z-10 -translate-y-1/2">
         {external ? (
           <ExternalPinButton
+            label={label}
             pinned={external.pinned}
             onToggle={external.onTogglePin}
           />
         ) : (
-          <PinButton productId={productId} />
+          <PinButton productId={productId} label={label} />
         )}
       </span>
 
@@ -2181,9 +2286,11 @@ function ProductRow({
  * lives differs: passed in here, read from the store there.
  */
 function ExternalPinButton({
+  label,
   pinned,
   onToggle,
 }: {
+  label: string;
   pinned: boolean;
   onToggle: () => void;
 }) {
@@ -2194,7 +2301,8 @@ function ExternalPinButton({
     <button
       type="button"
       title={pinned ? "Unpin" : "Pin"}
-      aria-label={pinned ? "Unpin" : "Pin"}
+      // One name in both states; `aria-pressed` says which one it is in.
+      aria-label={`Pin ${label}`}
       aria-pressed={pinned}
       onClick={(e) => {
         e.stopPropagation();
@@ -2383,11 +2491,15 @@ function AgencyPanelBody({
  * track makes the pair read as one control sitting over the field it governs.
  */
 function PanelTab({
+  id,
+  controls,
   label,
   selected,
   onSelect,
   variant = "segmented",
 }: {
+  id: string;
+  controls: string;
   label: string;
   selected: boolean;
   onSelect: () => void;
@@ -2399,7 +2511,10 @@ function PanelTab({
       <button
         type="button"
         role="tab"
+        id={id}
+        aria-controls={controls}
         aria-selected={selected}
+        tabIndex={selected ? 0 : -1}
         onClick={onSelect}
         className={cn(
           /*
@@ -2430,7 +2545,10 @@ function PanelTab({
     <button
       type="button"
       role="tab"
+      id={id}
+      aria-controls={controls}
       aria-selected={selected}
+      tabIndex={selected ? 0 : -1}
       onClick={onSelect}
       className={cn(
         "motion-tap flex h-[28px] min-w-0 flex-1 items-center justify-center rounded-[7px] px-[8px] text-[13px] leading-[normal] whitespace-nowrap",
@@ -2597,6 +2715,35 @@ function DirectoryTree({
     [],
   );
 
+  /*
+   * Escape shuts the deepest level, one per press, before the panel's own
+   * Escape gets a turn — see the launcher's handler, which stands down while a
+   * level is up. Focus inside the level goes back to the row it hangs off.
+   */
+  React.useEffect(() => {
+    if (levels.length === 0) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.closest?.('input, textarea, select, [contenteditable="true"]') &&
+        !target.closest('[role="dialog"], [data-fly-cascade]')
+      )
+        return;
+      e.preventDefault();
+      const all = document.querySelectorAll<HTMLElement>("[data-fly-cascade]");
+      const deepest = all[all.length - 1];
+      if (deepest?.contains(document.activeElement)) {
+        document
+          .querySelector<HTMLElement>(`[aria-controls="${deepest.id}"]`)
+          ?.focus({ preventScroll: true });
+      }
+      setLevels((current) => current.slice(0, -1));
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [levels.length]);
+
   const anchorOf = (el: HTMLElement) => {
     const box = el.getBoundingClientRect();
     return { top: box.top, right: box.right };
@@ -2696,6 +2843,7 @@ function DirectoryTree({
             open={levels[0]?.id === group.id}
             icon={<Icon size={16} aria-hidden="true" style={FLY_GLYPH} />}
             cascades
+            cascadeId={cascadeIdFor(group.id)}
             onToggle={(el) => openAt(0, group.id, el, rows)}
             /*
               Hover moves a cascade that is already open; it never opens one.
@@ -2716,6 +2864,9 @@ function DirectoryTree({
           theme={theme}
           onPointerEnter={hold}
           onPointerLeave={scheduleClose}
+          onCloseLevel={(depth) =>
+            setLevels((current) => current.slice(0, depth))
+          }
           levels={levels.map((level, depth) => ({
             id: level.id,
             anchor: level.anchor,
@@ -2730,6 +2881,7 @@ function DirectoryTree({
                     {...(row.pages.length > 0
                       ? {
                           cascades: true,
+                          cascadeId: cascadeIdFor(row.id),
                           count: row.pages.length,
                           open: levels[depth + 1]?.id === row.id,
                           onToggle: (el: HTMLElement) =>
@@ -2988,6 +3140,7 @@ function DirectoryRow({
   onToggle,
   onHover,
   cascades = false,
+  cascadeId,
   pinFor,
   small = false,
   onOpen,
@@ -3023,6 +3176,8 @@ function DirectoryRow({
   onHover?: (el: HTMLElement) => void;
   /** Points right rather than down: the level opens beside, not below. */
   cascades?: boolean;
+  /** The level it opens, for `aria-controls`. */
+  cascadeId?: string;
   /** The id to pin, when this row names something pinnable. */
   pinFor?: string;
   small?: boolean;
@@ -3154,7 +3309,9 @@ function DirectoryRow({
       <button
         ref={hostRef}
         type="button"
+        data-fly-row=""
         aria-expanded={open}
+        aria-controls={cascadeId}
         onClick={(e) => onToggle(e.currentTarget)}
         onPointerEnter={(e) => onHover?.(e.currentTarget)}
         className={cn(rowClass, open && "bg-nav-hover")}
@@ -3165,6 +3322,7 @@ function DirectoryRow({
       <button
         ref={hostRef}
         type="button"
+        data-fly-row=""
         onClick={onOpen}
         onPointerEnter={(e) => onHover?.(e.currentTarget)}
         className={cn(rowClass, open && "bg-nav-hover")}

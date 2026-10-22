@@ -52,6 +52,7 @@ export function DirectoryAccountRow({
   label,
   showLogo = true,
   trailing = null,
+  optionId,
 }: {
   account: Account;
   /** The account this session is in — wears the nav's selected-row treatment. */
@@ -95,6 +96,11 @@ export function DirectoryAccountRow({
   showLogo?: boolean;
   /** Takes the pin's place — the agency entry states its action here. */
   trailing?: React.ReactNode;
+  /**
+   * Set where the row is an option of a combobox's listbox (the dropdown):
+   * the row becomes role="option" with this id, named by its account.
+   */
+  optionId?: string;
 }) {
   /*
     The same ink a set pin wears in the nav, through the same axis — a pinned
@@ -108,6 +114,14 @@ export function DirectoryAccountRow({
 
   return (
     <div
+      {...(optionId
+        ? {
+            role: "option",
+            id: optionId,
+            "aria-selected": active,
+            "aria-labelledby": `${optionId}-name`,
+          }
+        : {})}
       data-active={active || undefined}
       {...(onActivate ? { onPointerEnter: onActivate } : {})}
       {...(index === undefined
@@ -174,7 +188,9 @@ export function DirectoryAccountRow({
         type="button"
         onClick={() => (selectRows ? onToggle?.() : onSelect())}
         {...(onActivate ? { onFocus: onActivate } : {})}
-        aria-current={current ? "true" : undefined}
+        // As an option, "current" is said in the name instead — aria-current
+        // beside aria-selected reads as two conflicting states.
+        aria-current={current && !optionId ? "true" : undefined}
         className="flex min-w-0 flex-1 items-center gap-[10px] text-left outline-none"
       >
         {/*
@@ -188,8 +204,12 @@ export function DirectoryAccountRow({
           <AccountLogo logo={account.logo} src={account.logoSrc} size={24} radius={999} />
         ) : null}
         <span className="flex min-w-0 flex-col">
-          <span className="truncate text-[13px] leading-[17px] font-medium text-nav-fg">
+          <span
+            {...(optionId ? { id: `${optionId}-name` } : {})}
+            className="truncate text-[13px] leading-[17px] font-medium text-nav-fg"
+          >
             {label ?? account.name}
+            {optionId && current ? <span className="sr-only"> (current)</span> : null}
           </span>
           {/* Off by default — see ACCOUNT_ROW_META_DEFAULT. */}
           {accountRowMeta ? (

@@ -166,7 +166,12 @@ export function TemplateSaveDialog({
       </TemplateMessageBody>
 
       {linked ? (
-        <div className="mt-[10px] flex flex-col gap-[2px]">
+        <div
+          role="radiogroup"
+          aria-label="Where to save"
+          onKeyDown={radioGroupKeyDown}
+          className="mt-[10px] flex flex-col gap-[2px]"
+        >
           <SaveOption
             selected={saveAs === "update"}
             disabled={!templateDirty}
@@ -443,7 +448,8 @@ function SaveOption({
       type="button"
       role="radio"
       aria-checked={selected}
-      {...(disclosing ? { "aria-expanded": expanded } : {})}
+      // One stop in the Tab order for the pair; arrows move between them.
+      tabIndex={selected ? 0 : -1}
       disabled={disabled}
       onClick={disclosing ? onToggle : onSelect}
       className={cn(
@@ -482,4 +488,30 @@ function SaveOption({
       ) : null}
     </button>
   );
+}
+
+/**
+ * Arrow keys between the answers, selecting as they go — what a radio group
+ * does natively. The name field inside the group keeps its own caret keys.
+ */
+function radioGroupKeyDown(e: React.KeyboardEvent<HTMLElement>) {
+  const target = e.target as HTMLElement;
+  if (target.getAttribute("role") !== "radio") return;
+  const step =
+    e.key === "ArrowDown" || e.key === "ArrowRight"
+      ? 1
+      : e.key === "ArrowUp" || e.key === "ArrowLeft"
+        ? -1
+        : 0;
+  if (step === 0) return;
+  const radios = Array.from(
+    e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]:not(:disabled)'),
+  );
+  if (radios.length === 0) return;
+  e.preventDefault();
+  const index = radios.indexOf(target);
+  const next = radios[(index + step + radios.length) % radios.length];
+  if (!next || next === target) return;
+  next.focus();
+  next.click();
 }

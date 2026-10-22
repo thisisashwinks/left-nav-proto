@@ -8,6 +8,7 @@ import {
   SELECT_LABEL_LABELS,
   type SurfaceTheme,
 } from "@/design/theme";
+import { announce } from "@/lib/a11y";
 import { cn } from "@/lib/utils";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
 import type { BulkPath } from "@/components/bulk/bulk-config";
@@ -22,6 +23,7 @@ import { RAIL_PIN_MAX } from "./account-rail";
 import { DirectoryHeader } from "./directory-header";
 import { OverlayScrollbar } from "./overlay-scrollbar";
 import { SelectStripRow } from "./select-strip";
+import { trapTab } from "./tab-trap";
 import { useAccountSwitcher } from "./use-account-switcher";
 import type { AccountsSession } from "./use-accounts";
 
@@ -68,6 +70,11 @@ export function AccountSwitcher({
   const s = useAccountSwitcher(session, onClose, only);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  const createRef = React.useRef<HTMLButtonElement>(null);
+  // The field is a combobox over the rows; these tie the two together.
+  const listId = React.useId();
+  const optionId = (id: string) => `${listId}-${id}`;
 
   /*
    * The selection layer, on the same terms as the directory's.
@@ -246,6 +253,29 @@ export function AccountSwitcher({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose, bulk, historyOpen]);
 
+  /*
+   * Say what a query found, once it settles. A zero result is the moment
+   * the create row is the answer, so it says that too.
+   */
+  const trimmed = s.query.trim();
+  const matchCount = s.flat.length;
+  const createOffered = effective.createAccountSpot === "row" && !picking;
+  React.useEffect(() => {
+    if (!trimmed) return;
+    const timer = window.setTimeout(() => {
+      if (matchCount > 0) {
+        announce(`${matchCount} ${matchCount === 1 ? "result" : "results"}`);
+      } else {
+        announce(
+          createOffered
+            ? `No sub-accounts match. ${CREATE_ACCOUNT_LABEL} is available`
+            : "No sub-accounts match",
+        );
+      }
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [trimmed, matchCount, createOffered]);
+
   // Keeps the keyboard highlight in view once the list scrolls. `nearest` means
   // this is a no-op when the row is already on screen, so pointer moves don't
   // cause the list to creep.
@@ -266,8 +296,11 @@ export function AccountSwitcher({
       />
 
       <div
+        ref={dialogRef}
         role="dialog"
         aria-label="Switch sub-account"
+        aria-modal="true"
+        onKeyDown={(e) => trapTab(e, dialogRef.current)}
         data-nav-theme={theme}
         data-cursor="menu"
         style={
@@ -416,9 +449,23 @@ export function AccountSwitcher({
             type="text"
             value={s.query}
             onChange={(e) => s.setQuery(e.target.value)}
-            onKeyDown={s.onKeyDown}
+            onKeyDown={(e) => {
+              // Nothing matched: Enter reaches the create row, the only
+              // thing left to act on.
+              if (e.key === "Enter" && s.flat.length === 0 && createRef.current) {
+                e.preventDefault();
+                createRef.current.focus();
+                return;
+              }
+              s.onKeyDown(e);
+            }}
             placeholder="Find or create a sub-account"
             aria-label="Search for a sub-account"
+            role="combobox"
+            aria-expanded={true}
+            aria-controls={listId}
+            aria-autocomplete="list"
+            aria-activedescendant={s.activeId ? optionId(s.activeId) : undefined}
             className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none"
           />
         </div>
@@ -479,6 +526,7 @@ export function AccountSwitcher({
             </p>
           ) : null}
 
+          <div role="listbox" id={listId} aria-label="Sub-accounts">
           {s.groups.map((group) => (
             <React.Fragment key={group.id}>
               {/*
@@ -533,11 +581,13 @@ export function AccountSwitcher({
                       list you are working down.
                     */
                     showPin={!(guided && picking && selected.length > 0)}
+                    optionId={optionId(account.id)}
                   />
                 );
               })}
             </React.Fragment>
           ))}
+          </div>
 
           {/*
             The same row the rail's list ends with, on the surface that
@@ -551,6 +601,7 @@ export function AccountSwitcher({
           */}
           {effective.createAccountSpot === "row" && !picking ? (
             <button
+              ref={createRef}
               type="button"
               aria-label={CREATE_ACCOUNT_LABEL}
               className="motion-tap flex w-full shrink-0 items-center gap-[9px] rounded-[8px] px-[8px] py-[6px] text-left text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg active:scale-[0.99]"

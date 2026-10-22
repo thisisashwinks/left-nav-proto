@@ -4,6 +4,7 @@ import * as React from "react";
 import { Undo2, X } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
+import { announce } from "@/lib/a11y";
 import { useNavLayout } from "./nav-layout-provider";
 import { TOAST_TOP } from "./template-message";
 
@@ -26,11 +27,42 @@ export function UndoToast({
   const { undoOffer, undo, dismissUndo, state } = useNavLayout();
   const centred = useTheme().effective.templateMessagePlacement === "centred";
 
+  /*
+   * Held while the pointer rests on it or focus is inside it — five seconds is
+   * not long enough to read the message and reach Undo by keyboard or with a
+   * screen reader. Recorded against the offer's id, so a replacement starts
+   * unheld; the clock resumes from where it stopped rather than from five.
+   */
+  const [hoveredId, setHoveredId] = React.useState<number | null>(null);
+  const [focusedId, setFocusedId] = React.useState<number | null>(null);
+  const paused =
+    !!undoOffer && (hoveredId === undoOffer.id || focusedId === undoOffer.id);
+  const remaining = React.useRef(DISMISS_MS);
+  const timedOffer = React.useRef<typeof undoOffer>(null);
+
   React.useEffect(() => {
     if (!undoOffer) return;
-    const timer = setTimeout(dismissUndo, DISMISS_MS);
-    return () => clearTimeout(timer);
-  }, [undoOffer, dismissUndo]);
+    if (timedOffer.current?.id !== undoOffer.id) {
+      timedOffer.current = undoOffer;
+      remaining.current = DISMISS_MS;
+    }
+    if (paused) return;
+    const started = Date.now();
+    const timer = setTimeout(dismissUndo, remaining.current);
+    return () => {
+      clearTimeout(timer);
+      remaining.current = Math.max(0, remaining.current - (Date.now() - started));
+    };
+  }, [undoOffer, dismissUndo, paused]);
+
+  // Said through the shared live region: this box mounts already filled, and
+  // a region that arrives with its text is one screen readers often skip.
+  const message = undoOffer?.message;
+  const offerId = undoOffer?.id;
+  React.useEffect(() => {
+    if (offerId === undefined || !message) return;
+    announce(message);
+  }, [offerId, message]);
 
   if (!undoOffer) return null;
 
@@ -39,7 +71,13 @@ export function UndoToast({
       // Keyed on the offer so a replacement replays the entrance instead of
       // silently swapping its text.
       key={undoOffer.id}
-      role="status"
+      onPointerEnter={() => setHoveredId(undoOffer.id)}
+      onPointerLeave={() => setHoveredId(null)}
+      onFocus={() => setFocusedId(undoOffer.id)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+          setFocusedId(null);
+      }}
       /*
        * Riding the nav's foot, above the Ask AI pill (design review, Aug 21).
        * It was top-centre of the page, which put the confirmation a screen away

@@ -53,7 +53,9 @@ import {
 } from "./flyout-row";
 import { FlyoutCascade } from "./flyout-cascade";
 import { useHoverDwell } from "@/lib/use-hover-dwell";
+import { focusFirstItem, restoreFocus } from "@/lib/a11y";
 import type { FlyoutChildItem, FlyoutConfig } from "./types";
+import { FLY_ROW_SELECTOR, FLYOUT_PANEL_ID } from "./types";
 
 interface FlyoutPanelProps {
   config: FlyoutConfig;
@@ -106,6 +108,19 @@ function shortChromeLabel(
   const label = layout.productLabelFor(id);
   const at = label.indexOf(" (");
   return at > 0 ? label.slice(0, at) : label;
+}
+
+/**
+ * The panel is being driven from the keyboard, so closing it should hand focus
+ * back to the row that has it open now — which may not be the one that first
+ * opened it.
+ */
+function noteKeyboard(memory: { opener: HTMLElement | null; keyboard: boolean }) {
+  memory.keyboard = true;
+  memory.opener =
+    document.querySelector<HTMLElement>(
+      `[aria-controls="${FLYOUT_PANEL_ID}"][aria-expanded="true"]`,
+    ) ?? memory.opener;
 }
 
 /** The seam menu's one view, opened directly rather than via a menu entry. */
@@ -1329,26 +1344,91 @@ export function FlyoutPanel({
       ? (itemRows[0].item.children?.length ?? 0) > 0
       : false);
 
+  /*
+   * Keyboard focus in and out.
+   *
+   * Opened from the keyboard — the row that opened it is focused and showing
+   * its ring — focus lands on the panel's current row, else its first. Closed
+   * again, it goes back to that row, but only if it was lost on the way (see
+   * restoreFocus). A pointer opening changes nothing: the panel takes focus on
+   * mount below, as it always has.
+   *
+   * Declared before the Escape effect so it reads the opener before that one
+   * moves focus onto the panel.
+   */
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  useScrollEdges(scrollRef);
+  const focusMemory = React.useRef({
+    opener: null as HTMLElement | null,
+    keyboard: false,
+  });
+  React.useEffect(() => {
+    const panel = panelRef.current;
+    const from = document.activeElement as HTMLElement | null;
+    if (!panel || !from || panel.contains(from)) return;
+    if (from.getAttribute("aria-controls") !== FLYOUT_PANEL_ID) return;
+    focusMemory.current.opener = from;
+    focusMemory.current.keyboard = from.matches(":focus-visible");
+    if (!focusMemory.current.keyboard) return;
+    const scroller = scrollRef.current;
+    focusFirstItem(
+      scroller,
+      scroller?.querySelector(`${FLY_ROW_SELECTOR}[aria-current]`)
+        ? `${FLY_ROW_SELECTOR}[aria-current]`
+        : FLY_ROW_SELECTOR,
+    );
+  }, [config.id]);
+  React.useEffect(() => {
+    const memory = focusMemory.current;
+    return () => {
+      if (memory.keyboard) restoreFocus(memory.opener);
+    };
+  }, []);
+
   // Escape closes, and focus moves into the panel so keyboard users land here
   // rather than back at the top of the document.
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      const target = e.target as HTMLElement | null;
+      const inside =
+        !!target &&
+        (!!panelRef.current?.contains(target) ||
+          !!target.closest?.("[data-fly-cascade]"));
+      // A text field elsewhere on the page owns its own Escape.
+      if (
+        !inside &&
+        target?.closest?.('input, textarea, select, [contenteditable="true"]')
+      )
+        return;
+      if (inside) noteKeyboard(focusMemory.current);
+      // One level per press: the deepest cascade first, then the panel.
+      const levels = document.querySelectorAll<HTMLElement>("[data-fly-cascade]");
+      const deepest = levels[levels.length - 1];
+      if (deepest) {
+        if (deepest.contains(document.activeElement)) {
+          document
+            .querySelector<HTMLElement>(`[aria-controls="${deepest.id}"]`)
+            ?.focus({ preventScroll: true });
+        }
+        setCascade((c) => c.slice(0, levels.length - 1));
+        return;
+      }
+      onClose();
     };
     document.addEventListener("keydown", onKeyDown);
     panelRef.current?.focus();
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  const scrollRef = React.useRef<HTMLDivElement>(null);
-  useScrollEdges(scrollRef);
-
   return (
     <div
       ref={panelRef}
+      id={FLYOUT_PANEL_ID}
       data-nav-theme={theme}
       role="dialog"
       aria-label={config.title}
+      onKeyDown={() => noteKeyboard(focusMemory.current)}
       data-cursor="menu"
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
@@ -1988,8 +2068,10 @@ export function FlyoutPanel({
             onPointerEnter?.();
           }}
           onPointerLeave={onPointerLeave}
+          onCloseLevel={(depth) => setCascade((c) => c.slice(0, depth))}
           levels={cascade.map((level, i) => ({
             id: level.id,
+            label: level.label,
             anchor: level.anchor,
             body: (
               <FlyoutChildRows

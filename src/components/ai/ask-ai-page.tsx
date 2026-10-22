@@ -95,7 +95,7 @@ export function AskAiPage() {
           </button>
         </div>
 
-        <nav className="flex flex-col gap-[2px]">
+        <nav aria-label="Ask AI chats" className="flex flex-col gap-[2px]">
           {SIDE_ROWS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -191,6 +191,7 @@ export function AskAiPage() {
           <button
             type="button"
             aria-label="Dictate"
+            aria-pressed={false}
             className="motion-tap flex size-[34px] shrink-0 items-center justify-center rounded-full text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg-row-border"
           >
             <Mic size={17} aria-hidden="true" />
@@ -198,6 +199,7 @@ export function AskAiPage() {
           <button
             type="button"
             aria-label="Start a voice conversation"
+            aria-pressed={false}
             className="motion-tap flex size-[34px] shrink-0 items-center justify-center rounded-full bg-pg-overlay text-pg-overlay-fg hover:opacity-90 active:scale-[0.96]"
           >
             <AudioLines size={17} aria-hidden="true" />

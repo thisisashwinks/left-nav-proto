@@ -5,6 +5,7 @@ import { ArrowUp, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AiOrb } from "./ai-orb";
 import { AiSuggestions } from "./ai-suggestions";
+import { AI_WINDOW_ID } from "./ai-window";
 import type { AiLaunchOptions } from "./types";
 import type { AiSession } from "./use-ai-session";
 
@@ -59,6 +60,8 @@ export function AiDock({ collapsed, session }: AiDockProps) {
         type="button"
         title="Ask AI"
         aria-label="Ask AI"
+        aria-haspopup="dialog"
+        aria-expanded={windowOpen}
         onClick={() => launch()}
         // No chrome of its own — at this size the orb is the button.
         className="motion-tap relative flex size-[38px] shrink-0 items-center justify-center rounded-full hover:scale-105 active:scale-95 motion-press"
@@ -134,6 +137,12 @@ export function AiDock({ collapsed, session }: AiDockProps) {
           value=""
           readOnly={windowOpen}
           aria-label="Ask AI"
+          // A combobox whose popup is the window: the one input role that
+          // can carry aria-expanded. Typing still forwards, as before.
+          role="combobox"
+          aria-haspopup="dialog"
+          aria-expanded={windowOpen}
+          aria-controls={windowOpen ? AI_WINDOW_ID : undefined}
           placeholder={windowOpen ? "Ask AI is open" : "Ask AI"}
           onFocus={() => {
             if (!windowOpen) setTrayOpen(true);

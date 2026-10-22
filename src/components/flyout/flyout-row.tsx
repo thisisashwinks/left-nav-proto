@@ -34,7 +34,7 @@ import {
   childCarriesNew,
   itemCarriesNew,
 } from "@/components/nav/new-flag";
-import { BADGE_TONE } from "./types";
+import { BADGE_TONE, cascadeIdFor } from "./types";
 import type {
   FlyoutChildItem,
   FlyoutItem,
@@ -560,6 +560,8 @@ export function FlyoutRow({
    */
   const open = cascade ? cascade.openIds[0] === item.id : inlineOpen;
   const panelId = React.useId();
+  // Cascading, the list is a portalled level that carries its own id.
+  const controlsId = cascade ? cascadeIdFor(item.id) : panelId;
   /** The row's own box, for anchoring the dropdown that hangs off it. */
   const rowRef = React.useRef<HTMLDivElement>(null);
 
@@ -1044,9 +1046,10 @@ export function FlyoutRow({
     <div
       role="button"
       tabIndex={0}
+      data-fly-row=""
       aria-current={active ? "true" : undefined}
       aria-expanded={hasChildren ? open : undefined}
-      aria-controls={hasChildren ? panelId : undefined}
+      aria-controls={hasChildren ? controlsId : undefined}
       onClick={edit.renaming ? undefined : onRowClick}
       onKeyDown={(e) => {
         if (edit.renaming) return;
@@ -1098,9 +1101,10 @@ export function FlyoutRow({
   ) : (
     <button
       type="button"
+      data-fly-row=""
       aria-current={active ? "true" : undefined}
       aria-expanded={hasChildren ? open : undefined}
-      aria-controls={hasChildren ? panelId : undefined}
+      aria-controls={hasChildren ? controlsId : undefined}
       onClick={onRowClick}
       style={rowStyle}
       className={rowClass}
@@ -1251,6 +1255,7 @@ function Row({
           can be dragged.
         */
         data-drag-row=""
+        data-fly-row=""
         {...rest}
         onKeyDown={(e) => {
           if (e.key !== "Enter" && e.key !== " ") return;
@@ -1270,7 +1275,7 @@ function Row({
       // default of 14, so the deepest rows — the ones drawn smallest in every
       // other respect — carried the largest pin in the nav.
     >
-      <button ref={hostRef} type="button" {...rest}>
+      <button ref={hostRef} type="button" data-fly-row="" {...rest}>
         {children}
       </button>
     </WithPin>
@@ -1461,6 +1466,7 @@ function FlyoutChildRow({
     ? cascade.openIds[cascade.level + 1] === child.id
     : inlineOpen;
   const panelId = React.useId();
+  const controlsId = cascade ? cascadeIdFor(child.id) : panelId;
   /** This row's box, for anchoring the level that hangs off it. */
   const rowRef = React.useRef<HTMLDivElement>(null);
   // Asked once per render rather than at each of the three places it is read,
@@ -1507,7 +1513,7 @@ function FlyoutChildRow({
         }
         aria-current={child.id === activeId ? "page" : undefined}
         aria-expanded={nested ? open : undefined}
-        aria-controls={nested ? panelId : undefined}
+        aria-controls={nested ? controlsId : undefined}
         onClick={() => {
           // The same bargain the L2 rows strike — see `onRowClick` above.
           if (!nested) {

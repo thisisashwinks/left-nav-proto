@@ -25,6 +25,8 @@ import type { NavItem } from "./types";
 import { HereBar, useHereStyle, type Marking } from "./here";
 import { NewDot, NewDotIcon, useCarriesNew, useNewDotShown } from "./new-flag";
 import { fadeProps, useNavCollapse } from "./nav-collapse";
+import { focusFirstItem } from "@/lib/a11y";
+import { FLY_ROW_SELECTOR, FLYOUT_PANEL_ID } from "@/components/flyout/types";
 
 /**
  * What editing this row offers. Absent when the role has no permission to rename
@@ -95,6 +97,8 @@ export interface NavRowEdit {
    * from a different row's position in the list.
    */
   menuActions?: RowMenuAction[];
+  /** That menu is up for this row — said by the kebab as `aria-expanded`. */
+  menuOpen?: boolean;
   /**
    * Something about this row is not finished, said in one short phrase.
    *
@@ -186,6 +190,15 @@ interface NavItemRowProps {
    * on every toggle, which is the swap this whole arrangement removes.
    */
   bar?: "tile" | "fade";
+  /**
+   * Set on a row that opens the L2 panel: whether that panel is up for it.
+   * Absent on every other row, which then says nothing about a popup.
+   */
+  popupOpen?: boolean;
+  /** The element an expandable row discloses, while it is on screen. */
+  controlsId?: string;
+  /** Off where the row stands outside any list. */
+  listItem?: boolean;
 }
 
 /**
@@ -218,6 +231,9 @@ export function NavItemRow({
   locked = false,
   marking = null,
   bar = "tile",
+  popupOpen,
+  controlsId,
+  listItem = true,
 }: NavItemRowProps) {
   const compact = item.density === "compact";
   const mark = useHereStyle(marking);
@@ -596,6 +612,45 @@ export function NavItemRow({
     />
   ) : null;
 
+  /*
+    What pressing the row will do, said before it is pressed: open the L2
+    panel, or disclose rows underneath. Semantics only — no visual hangs off
+    any of these.
+  */
+  const disclosure =
+    popupOpen !== undefined
+      ? {
+          "aria-haspopup": "dialog" as const,
+          "aria-expanded": popupOpen,
+          "aria-controls": FLYOUT_PANEL_ID,
+        }
+      : item.expandable
+        ? {
+            "aria-expanded": item.expanded === true,
+            ...(controlsId && item.expanded ? { "aria-controls": controlsId } : {}),
+          }
+        : {};
+  /*
+    Keyboard only: ArrowRight opens the panel, or steps into it once it is up.
+    Enter and Space already open it through the row's own click.
+  */
+  const onPopupKey =
+    popupOpen === undefined
+      ? undefined
+      : (e: React.KeyboardEvent<HTMLElement>) => {
+          if (e.key !== "ArrowRight") return;
+          e.preventDefault();
+          if (!popupOpen) {
+            e.currentTarget.click();
+            return;
+          }
+          focusFirstItem(
+            document.getElementById(FLYOUT_PANEL_ID),
+            FLY_ROW_SELECTOR,
+          );
+        };
+  const listRole = listItem ? { role: "listitem" } : {};
+
   if (!edit) {
     /*
       Wrapped so the bar has something to hang off.
@@ -613,6 +668,7 @@ export function NavItemRow({
     */
     return (
       <span
+        {...listRole}
         className={cn(
           marking || item.rails ? "relative block w-full" : "contents",
         )}
@@ -669,9 +725,12 @@ export function NavItemRow({
             }
           : {})}
         aria-current={active ? "page" : undefined}
+        {...disclosure}
         onClick={onSelect}
         onPointerEnter={onHover}
-        onFocus={onHover}
+        // No `onFocus` preview: tabbing past a row must not open its panel.
+        // Enter, Space or ArrowRight do.
+        onKeyDown={onPopupKey}
         className={cn(
           rowClass,
           "group",
@@ -764,9 +823,12 @@ export function NavItemRow({
         type="button"
         aria-current={active ? "page" : undefined}
         aria-label={
-          labelRenames ? `Rename ${item.label}` : undefined
+          labelRenames
+            ? `Rename ${item.label}${off ? " (hidden)" : ""}`
+            : undefined
         }
-        onFocus={onHover}
+        {...(labelRenames ? {} : disclosure)}
+        {...(labelRenames || !onPopupKey ? {} : { onKeyDown: onPopupKey })}
         // Normally no onClick: the row above owns it, and this button's own
         // activation — mouse or keyboard — bubbles up to it. In edit mode it
         // takes the click for itself and renames, which is why the propagation
@@ -810,12 +872,14 @@ export function NavItemRow({
         )}
       >
         {label}
+        {off ? <span className="sr-only"> (hidden)</span> : null}
       </button>
   );
 
   return (
     <div
       ref={rowHostRef}
+      {...listRole}
       // `group/row` rather than a bare group: the affordances key off this row
       // specifically, and an unnamed group would also match any hovered ancestor.
       className={cn(
@@ -1068,6 +1132,7 @@ export function NavItemRow({
               label={`Edit ${item.label}`}
               onOpen={edit.onOpenMenu}
               pinned={edit.pinned ?? false}
+              open={edit.menuOpen ?? false}
             />
           ) : (
             <>
@@ -1124,13 +1189,21 @@ function MenuAffordance({
   label,
   onOpen,
   pinned,
+  open,
 }: {
   label: string;
   onOpen: (trigger: HTMLElement) => void;
   pinned: boolean;
+  open: boolean;
 }) {
   return (
-    <EditAffordance label={label} onClick={onOpen} pinned={pinned}>
+    <EditAffordance
+      label={label}
+      onClick={onOpen}
+      pinned={pinned}
+      ariaHasPopup="menu"
+      ariaExpanded={open}
+    >
       <EllipsisVertical size={13} aria-hidden="true" />
     </EditAffordance>
   );

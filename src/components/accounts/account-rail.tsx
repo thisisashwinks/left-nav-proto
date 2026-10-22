@@ -61,6 +61,7 @@ import {
 } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
+import { announce, restoreFocus } from "@/lib/a11y";
 import { cn } from "@/lib/utils";
 import { AccountLogo } from "./account-logo";
 import { matchAccounts } from "./accounts-data";
@@ -73,6 +74,7 @@ import type { Account } from "./accounts-data";
 import { RailTooltip } from "@/components/nav/rail-tooltip";
 import { PIN_GLYPH } from "@/components/nav/pin-button";
 import { RailDirectory } from "./rail-switcher";
+import { lastInputWasPointer, trapTab } from "./tab-trap";
 import { SelectStripRow } from "./select-strip";
 import { useFlipRows } from "@/lib/use-flip-rows";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
@@ -438,6 +440,7 @@ function RailTools({
   onHover,
   query,
   onQuery,
+  onEnter = null,
   cta,
   picking,
   selectedCount,
@@ -474,6 +477,8 @@ function RailTools({
   onHover: () => void;
   query: string;
   onQuery: (v: string) => void;
+  /** Enter in the field. Set only while the create row is the sole answer. */
+  onEnter?: (() => void) | null;
   /** The word the axis chose — Select, Edit or Edit sub-account. */
   cta: string;
   picking: boolean;
@@ -711,6 +716,11 @@ function RailTools({
         type="search"
         value={query}
         onChange={(e) => onQuery(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" || !onEnter) return;
+          e.preventDefault();
+          onEnter();
+        }}
         placeholder="Find or create an account"
         aria-label="Find or create an account"
         className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg caret-[var(--brand)] placeholder:text-nav-fg-subtle focus:outline-none [&::-webkit-search-cancel-button]:hidden"
@@ -2553,6 +2563,36 @@ export function AccountRail({
     : centredRecents;
 
   /*
+   * Keyboard reach for the query's create row: with nothing matched, Enter
+   * in the field takes it. With matches, Enter does what it always did.
+   */
+  const railMatchCount = filled
+    ? fillRows.length
+    : topRun.length + bottomRun.length;
+  const fillEnter =
+    createSearchRow && railMatchCount === 0 ? createAccount : null;
+
+  // Say what a query found, once it settles (~400ms).
+  const railQuery = filled || inlineOpen ? fillQuery.trim() : "";
+  React.useEffect(() => {
+    if (!railQuery) return;
+    const timer = window.setTimeout(() => {
+      if (railMatchCount > 0) {
+        announce(
+          `${railMatchCount} ${railMatchCount === 1 ? "account" : "accounts"}`,
+        );
+      } else {
+        announce(
+          createSearchRow
+            ? `No accounts match. Create “${railQuery}” is available`
+            : "No accounts match",
+        );
+      }
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [railQuery, railMatchCount, createSearchRow]);
+
+  /*
    * What select-all reaches inline, and what the count counts.
    *
    * The rows ON SCREEN, which during a search is the filtered set — ticking
@@ -2597,9 +2637,29 @@ export function AccountRail({
     ? "My accounts"
     : DIRECTORY_NAME_LABELS[effective.directoryName];
 
+  /*
+   * Focus back to the door once the directory has gone.
+   *
+   * The face swaps: while the directory is up this button is not mounted,
+   * so the element that opened it no longer exists to return to. The ref
+   * reaches the one that mounts in its place. Keyboard closes only — for a
+   * pointer, the focus would summon this button's tooltip unasked.
+   */
+  const directoryButtonRef = React.useRef<HTMLButtonElement>(null);
+  const directoryDialogRef = React.useRef<HTMLDivElement>(null);
+  const directoryWasMounted = React.useRef(false);
+  React.useEffect(() => {
+    const was = directoryWasMounted.current;
+    directoryWasMounted.current = switcherMounted;
+    if (was && !switcherMounted && !lastInputWasPointer()) {
+      restoreFocus(directoryButtonRef.current);
+    }
+  }, [switcherMounted]);
+
   const directoryButton = (
       <Tooltipped label={directoryLabel} show={!expanded}>
         <button
+          ref={directoryButtonRef}
           type="button"
           aria-label={directoryLabel}
           aria-haspopup="dialog"
@@ -3044,8 +3104,11 @@ export function AccountRail({
             that arrangement. See DIRECTORY_PLACEMENTS.
           */
           <div
+            ref={directoryDialogRef}
             role="dialog"
             aria-label="Accounts"
+            aria-modal="true"
+            onKeyDown={(e) => trapTab(e, directoryDialogRef.current)}
             style={{ width: ACCOUNT_RAIL_DIRECTORY_WIDTH }}
             className={cn(
               "flex min-h-0 flex-1 flex-col",
@@ -3701,6 +3764,7 @@ export function AccountRail({
                 onHover={() => setHover(true)}
                 query={fillQuery}
                 onQuery={setFillQuery}
+                onEnter={fillEnter}
                 cta={fillSelectWord}
                 picking={fillPicking}
                 selectedCount={fillSelected.length}
@@ -4155,6 +4219,7 @@ export function AccountRail({
                     onHover={() => setHover(true)}
                     query={fillQuery}
                     onQuery={setFillQuery}
+                    onEnter={fillEnter}
                     cta={fillSelectWord}
                     picking={fillPicking}
                     selectedCount={fillSelected.length}
@@ -4221,6 +4286,7 @@ export function AccountRail({
                         onHover={() => setHover(true)}
                         query={fillQuery}
                         onQuery={setFillQuery}
+                        onEnter={fillEnter}
                         cta={fillSelectWord}
                         picking={fillPicking}
                         selectedCount={fillSelected.length}
@@ -4656,7 +4722,9 @@ export function AccountRail({
                 {createSearchRow ? (
                   <button
                     type="button"
-                    aria-label={`Create sub-account “${fillQuery.trim()}”`}
+                    // What pressing it does: the create flow, which does
+                    // not take the query along.
+                    aria-label={CREATE_ACCOUNT_LABEL}
                     onClick={createAccount}
                     onPointerEnter={() => setHover(true)}
                     style={{
@@ -4932,6 +5000,7 @@ export function AccountRail({
             onHover={() => setHover(true)}
             query={fillQuery}
             onQuery={setFillQuery}
+            onEnter={fillEnter}
             cta={fillSelectWord}
             picking={fillPicking}
             selectedCount={fillSelected.length}
@@ -5506,7 +5575,10 @@ function RailRow({
         <button
           type="button"
           aria-label={label}
-          aria-current={selected ? "page" : undefined}
+          // Not a page, and not while the tile is a checkbox: there it
+          // states ticked-ness, and "current" beside it reads as a second
+          // checked state.
+          aria-current={selected && tick === undefined ? "true" : undefined}
           {...(tick === undefined
             ? {}
             : { role: "checkbox", "aria-checked": tick })}

@@ -303,7 +303,7 @@ function RailRow({
   return (
     <button
       type="button"
-      aria-current={on ? "page" : undefined}
+      aria-current={on ? "true" : undefined}
       className={cn(
         "motion-tap flex h-[30px] shrink-0 items-center gap-[8px] rounded-[8px] px-[8px] text-[13px] leading-[normal]",
         on

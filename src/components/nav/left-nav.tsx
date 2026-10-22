@@ -134,6 +134,7 @@ import {
   type TreeNode,
 } from "./product-tree";
 import {
+  countTreeHits,
   matchesQuery,
   TreeSearchEmpty,
   TreeSearchField,
@@ -141,6 +142,7 @@ import {
   wholeBranchHit,
   type TreeSearchHit,
 } from "./tree-search";
+import { restoreFocus, useFocusReturn } from "@/lib/a11y";
 import { useNavRowEdit } from "./use-nav-row-edit";
 import type { NavDensity } from "./use-nav-density";
 import { NavSectionLabel } from "./nav-section-label";
@@ -2808,12 +2810,13 @@ export function LeftNav({
           const agencyBucket = agencyScope
             ? agencyBuckets.find((b) => b.id === id)
             : undefined;
+          const title = agencyBucket
+            ? agencyLayout.labelFor(agencyBucket.id, agencyBucket.label)
+            : group
+              ? group.label
+              : layout.productLabelFor(id);
           return {
-            title: agencyBucket
-              ? agencyLayout.labelFor(agencyBucket.id, agencyBucket.label)
-              : group
-                ? group.label
-                : layout.productLabelFor(id),
+            title,
             anchor: menu.anchor,
             actions: extras.menuActions,
           };
@@ -3315,6 +3318,26 @@ export function LeftNav({
   );
   const navMotion = useNavMotion(collapsed);
   useNavSlides(navRef);
+  /*
+   * Collapsing or expanding from a control on the face that goes inert drops
+   * keyboard focus. Hand it to the toggle on the face that is now live — the
+   * expand button collapsed, the collapse button open. Only if focus was
+   * actually lost, so a pointer press that left it somewhere real is kept.
+   */
+  const lastCollapsed = React.useRef(collapsed);
+  React.useEffect(() => {
+    if (lastCollapsed.current === collapsed) return;
+    lastCollapsed.current = collapsed;
+    const label = collapsed ? "Expand navigation" : "Collapse navigation";
+    const toggle = Array.from(
+      navRef.current?.querySelectorAll<HTMLElement>(
+        `button[aria-label="${label}"]`,
+      ) ?? [],
+    ).find((el) => !el.closest("[inert]"));
+    restoreFocus(toggle);
+  }, [collapsed]);
+  // The All products drawer hands focus back to the row that opened it.
+  useFocusReturn(l1Open);
   const [drawerBox, setDrawerBox] = React.useState<{
     top: number;
     height: number;
@@ -3503,6 +3526,17 @@ export function LeftNav({
   };
 
   /**
+   * The row bundle, plus whether this row's kebab menu is the one that is up.
+   * Hiding, moving and renaming are spoken by the undo toast, which reads its
+   * own message aloud — so nothing is announced here.
+   */
+  const speakingEdit = (
+    edit: NavRowEdit | undefined,
+    id: string,
+  ): NavRowEdit | undefined =>
+    edit ? { ...edit, menuOpen: menu.openId === id } : undefined;
+
+  /**
    * Picking a row that is a shortcut rather than a door.
    *
    * Recents and the pins inside the merged block are the same product ids the
@@ -3533,7 +3567,10 @@ export function LeftNav({
    * and for a page below it — see `treeRowExtras`.
    */
   const branchRowEdit = (nodeId: string) =>
-    mergeRowEdit(editFor(nodeId), editExtras(nodeId));
+    speakingEdit(
+      mergeRowEdit(editFor(nodeId), editExtras(nodeId)),
+      nodeId,
+    );
 
   /**
    * The seams between a category's own rows, wherever that category is drawn.
@@ -3696,7 +3733,10 @@ export function LeftNav({
        * bundle whose `onDrop` calls `moveProductToGroup`, and the products in
        * every branch lift with the payload it accepts.
        */
-      const groupEdit = mergeRowEdit(editFor(item.id), editExtras(item.id));
+      const groupEdit = speakingEdit(
+        mergeRowEdit(editFor(item.id), editExtras(item.id)),
+        item.id,
+      );
       /*
        * The seams between categories, which this branch used to skip.
        *
@@ -3714,10 +3754,19 @@ export function LeftNav({
           (groups.find((g) => g.id === item.id)?.productIds ?? []).includes(
             here.productId,
           ));
+      // What the row discloses, for its `aria-controls`.
+      const branchId = `nav-branch-${item.id.replace(/[^\w-]/g, "_")}`;
       return (
         <React.Fragment key={item.id}>
           {treeCategoryIndex >= 0 ? gap(treeCategoryIndex) : null}
+          {/*
+            One list item holding the group row and its branch, both laid out
+            as before — `contents` adds no box.
+          */}
+          <div role="listitem" className="contents">
           <NavItemRow
+            listItem={false}
+            controlsId={branchId}
             item={{
               ...item,
               /*
@@ -3835,6 +3884,7 @@ export function LeftNav({
             }
           />
           {open ? (
+            <div id={branchId} role="list" className="contents">
             <ProductTreeBranch
               nodes={nodes}
               depth={1}
@@ -3881,7 +3931,9 @@ export function LeftNav({
                   }
                 : {})}
             />
+            </div>
           ) : null}
+          </div>
           {/*
             The boundary seam sits under the whole branch, not under the group
             row — it is the line where the categories end, and half a category's
@@ -3906,7 +3958,7 @@ export function LeftNav({
      * other and reorder alongside their neighbours, so they get a bundle with the
      * drag and inert rename handlers rather than no bundle at all.
      */
-    const edit = mergeRowEdit(base, extras);
+    const edit = speakingEdit(mergeRowEdit(base, extras), item.id);
     const categoryIndex = editing ? indexOfCategory(item.id) : -1;
     /*
      * The agency tree is one flat list, so its rows need one seam each rather
@@ -4122,6 +4174,9 @@ export function LeftNav({
               ? () => onHoverFlyout(flyoutId)
               : onHoverPlain
         }
+        {...(item.hasFlyout && !emptyBucket && !drillTarget
+          ? { popupOpen: flyoutId === openFlyoutId }
+          : {})}
         {...(edit && !collapsed ? { edit } : {})}
         // In edit mode, a row with no edit bundle is a row the mode does not
         // reach — Recent, Quick Actions, the favourites row, Settings.
@@ -4209,6 +4264,7 @@ export function LeftNav({
         <TreeSearchField
           query={treeQuery}
           onQuery={setTreeQuery}
+          resultCount={treeHits ? countTreeHits(treeHits, treeQ) : null}
           // 4px above and below rather than the row gap's 2: the field is a
           // control standing among rows, and a hairline box that close to a
           // hover fill reads as one more row with a border.
@@ -4233,10 +4289,41 @@ export function LeftNav({
    */
   const renderSearched = (list: readonly NavEntry[]) => {
     const hits = treeHits;
-    if (!hits) return list.map(renderEntry);
-    return list
-      .filter((e) => e.kind === "item" && hits.has(e.item.id))
-      .map(renderEntry);
+    if (!hits) return renderListed(list);
+    return renderListed(
+      list.filter((e) => e.kind === "item" && hits.has(e.item.id)),
+    );
+  };
+
+  /**
+   * Entries drawn as before, with each run of rows between two headings or
+   * rules announced as one list.
+   *
+   * The wrapper is `contents`, so it adds no box and the rows stay flex items
+   * of the column. Keyed by the heading or rule above the run rather than by
+   * its first row, so reordering rows never remounts the run.
+   */
+  const asList = (key: string, rows: React.ReactNode[]) => (
+    <div key={`list-${key}`} role="list" className="contents">
+      {rows}
+    </div>
+  );
+  const renderListed = (list: readonly NavEntry[]) => {
+    const out: React.ReactNode[] = [];
+    let run: React.ReactNode[] = [];
+    let after = "head";
+    for (const entry of list) {
+      if (entry.kind === "item") {
+        run.push(renderEntry(entry));
+        continue;
+      }
+      if (run.length > 0) out.push(asList(after, run));
+      run = [];
+      after = entry.id;
+      out.push(renderEntry(entry));
+    }
+    if (run.length > 0) out.push(asList(after, run));
+    return out;
   };
 
   const renderEntry = (entry: NavEntry) => {
@@ -4269,7 +4356,15 @@ export function LeftNav({
   const renderBanded = (list: NavEntry[]) => {
     const out: React.ReactNode[] = [];
     let section: string | null = null;
+    // Each band's rows, as one list — see `renderListed`.
+    let run: React.ReactNode[] = [];
+    let after = "head";
     for (const entry of list) {
+      if (entry.kind !== "item") {
+        if (run.length > 0) out.push(asList(after, run));
+        run = [];
+        after = entry.id;
+      }
       if (
         entry.kind === "label" &&
         (entry.id.startsWith("sec-") || entry.id === "recent-label")
@@ -4295,8 +4390,10 @@ export function LeftNav({
       }
       if (entry.kind === "label" || entry.kind === "divider") section = null;
       if (section && foldedSections.has(section)) continue;
-      out.push(renderEntry(entry));
+      if (entry.kind === "item") run.push(renderEntry(entry));
+      else out.push(renderEntry(entry));
     }
+    if (run.length > 0) out.push(asList(after, run));
     return out;
   };
 
@@ -4933,7 +5030,7 @@ export function LeftNav({
           ) : foldable ? (
             renderBanded(fixedEntries)
           ) : (
-            fixedEntries.map(renderEntry)
+            renderListed(fixedEntries)
           )}
           {/*
             The rule that closes the opening cluster — only when there is one to
@@ -4996,6 +5093,7 @@ export function LeftNav({
                 scopeTop
               )}
               {columnGroup ? (
+                <div role="list" className="contents">
                 <ProductTreeBranch
                   key={columnGroup.id}
                   nodes={
@@ -5018,6 +5116,7 @@ export function LeftNav({
                       }
                     : {})}
                 />
+                </div>
               ) : null}
             </>
           ) : bandEverything ? (
@@ -5146,6 +5245,8 @@ export function LeftNav({
                 the thing you are standing in, which is precisely the
                 duplication the arrangement exists to argue against.
               */}
+              {/* The rows under the rule, as one list. */}
+              <div role="list" className="contents">
               {directoryRowShown ? (
                 <NavItemRow
                   item={PRODUCT_DIRECTORY_ITEM}
@@ -5194,6 +5295,7 @@ export function LeftNav({
               */}
 
               {renderRow(agencyScope ? agencySettings : config.settings)}
+              </div>
             </>
           )}
           </>
@@ -5851,7 +5953,8 @@ function ScopeMenuRow({
         type="button"
         data-nav-tile=""
         aria-expanded={open}
-        aria-label={open ? "Close all products" : "All products"}
+        // The visible words name it; collapsed they are inert, so say them.
+        {...(collapsed ? { "aria-label": open ? "All products" : label } : {})}
         onClick={onToggle}
         className={cn(
           "motion-tap flex w-full shrink-0 items-center gap-[10px] rounded-[var(--t-nav-radius,7px)] px-[var(--t-nav-px,8px)] py-[7px] text-left active:scale-[0.99]",
@@ -5970,6 +6073,7 @@ function PinnedRow({ onOpen }: { onOpen: () => void }) {
     <NavItemRow
       item={{ id: "pinned-row", label: "Pinned", icon: Pin, hasFlyout: true }}
       onSelect={onOpen}
+      listItem={false}
     />
   );
 }
@@ -6336,11 +6440,9 @@ function SetupGuideRow({
                 e.stopPropagation();
                 onQuickActions();
               }}
+              // Pointer only: tabbing past the tile must not open its panel.
               {...(collapsed && onQuickActionsHover
-                ? {
-                    onPointerEnter: onQuickActionsHover,
-                    onFocus: onQuickActionsHover,
-                  }
+                ? { onPointerEnter: onQuickActionsHover }
                 : {})}
               className={cn(
                 "motion-tap pointer-events-auto relative z-10 -mx-[6px] flex items-center gap-[8px] rounded-[6px] px-[6px] text-left active:scale-[0.99]",

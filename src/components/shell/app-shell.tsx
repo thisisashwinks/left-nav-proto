@@ -182,6 +182,7 @@ import {
   usePublishCanvasTint,
 } from "@/components/shell/page-canvas";
 import { useTuning } from "@/components/tuning/tuning-provider";
+import { announce } from "@/lib/a11y";
 import { cn } from "@/lib/utils";
 import { useExitTransition } from "@/lib/use-exit-transition";
 import { useSwapPhase } from "@/lib/use-swap-phase";
@@ -3149,6 +3150,50 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
   }, [crumbLeaf, crumbShown, leafHasMenu, crumbs]);
 
   /*
+   * The canvas changes without a route change, so the tab title and screen
+   * readers are told here. The name is the trail's leaf ("Launchpad"), the
+   * same word the breadcrumb shows; the view's h1 is only the fallback, since
+   * some views title themselves with a whole sentence.
+   * Announced only on a change, never on first load, and focus stays put.
+   */
+  const canvasKey = `${agencyScope}|${selectedId}|${canvasPage?.productId}:${canvasPage?.childId ?? ""}:${canvasPage?.tabId ?? ""}|${contactsPageId}`;
+  const announcedKey = React.useRef<string | null>(null);
+  const tabTitle = React.useRef<string | null>(null);
+  const fallbackTitle = crumbs.length ? crumbLabel(crumbs[crumbs.length - 1]) : "";
+  React.useEffect(() => {
+    if (pending) return;
+    let frame = window.requestAnimationFrame(() => {
+      frame = window.requestAnimationFrame(() => {
+        const heading = document.querySelector<HTMLElement>(
+          'h1, [role="heading"][aria-level="1"]',
+        );
+        const title = fallbackTitle || heading?.textContent?.trim() || "";
+        tabTitle.current = title ? `${title} – Switchyard` : "Switchyard";
+        document.title = tabTitle.current;
+        const first = announcedKey.current === null;
+        const changed = announcedKey.current !== canvasKey;
+        announcedKey.current = canvasKey;
+        if (!first && changed && title) announce(`${title} page`);
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [canvasKey, pending, fallbackTitle]);
+  // Next writes the metadata title into <head> once after load, which can
+  // land after the effect above; put ours back whenever <head> changes it.
+  React.useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const want = tabTitle.current;
+      if (want && document.title !== want) document.title = want;
+    });
+    observer.observe(document.head, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  /*
    * The exit — built here, or nowhere.
    *
    * `exitRequest` is the single gate, and everything downstream hangs off it:
@@ -4261,7 +4306,11 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
               HighRise canvas spec asks for — that, plus sitting a step lighter
               than the plane, is what reads as floating.
             */}
-            <div
+            <main
+              /* The page's landmark and the skip link's target. Focused only
+                 programmatically, so it draws no ring. */
+              id="main-content"
+              tabIndex={-1}
               {...(pageCanvasOn || barInCanvas ? {} : { "data-canvas-surface": "" })}
               /* The page's own box, when no centre canvas is drawing one
                  inside it. The two-pane dock pads this instead. */
@@ -4292,7 +4341,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
                 transitionDuration: "var(--dur-base)",
                 transitionTimingFunction: "var(--ease-out)",
               }}
-              className={pageCanvasOn ? PAGE_CANVAS_HOST : cn(
+              className={cn(pageCanvasOn ? PAGE_CANVAS_HOST : cn(
                 "min-h-0 flex-1 overflow-auto",
                 barInCanvas
                   ? // Inside the joined card the surface is already there, so all
@@ -4301,7 +4350,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
                     // horizontally, so all four sides come out equal.
                     "py-[var(--page-inset)]"
                   : "m-[var(--shell-canvas-gap)] rounded-[var(--shell-canvas-radius)] shadow-[inset_0_0_0_1px_var(--shell-canvas-ring)]",
-              )}
+              ), "outline-none")}
             >
               <PageCanvas
                 enabled={pageCanvasOn}
@@ -4462,7 +4511,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
                 children
               )}
               </PageCanvas>
-            </div>
+            </main>
           </ContactsAreaProvider>
           </LeafCrumbContext.Provider>
           </PageHeadingContext.Provider>

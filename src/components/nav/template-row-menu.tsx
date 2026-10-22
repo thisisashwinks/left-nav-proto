@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { CopyPlus, Pencil, Save, Trash2, TriangleAlert } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { useAnchored } from "@/lib/use-anchored";
+import { focusFirstItem, menuKeyDown, restoreFocus } from "@/lib/a11y";
 import type { NavTemplate } from "./nav-templates";
 
 /** Wide enough for "Duplicate layout" on one line. */
@@ -70,6 +71,13 @@ export function TemplateRowMenu({
     };
   }, [onClose, ref]);
 
+  // Keyboard focus onto the first verb when the menu opens, and back onto the
+  // ⋯ that opened it however the menu closes.
+  React.useEffect(() => {
+    focusFirstItem(ref.current);
+    return () => restoreFocus(anchor);
+  }, [anchor, ref]);
+
   /*
    * A preset is HighLevel's, so its name and its existence are too.
    *
@@ -93,6 +101,15 @@ export function TemplateRowMenu({
       ref={ref}
       role="menu"
       aria-label={`Actions for ${template.name}`}
+      onKeyDown={(e) => {
+        // Tab leaves a menu rather than walking through it.
+        if (e.key === "Tab") {
+          e.preventDefault();
+          onClose();
+          return;
+        }
+        menuKeyDown(e, ref.current);
+      }}
       /*
         The flag the surfaces above look for.
 

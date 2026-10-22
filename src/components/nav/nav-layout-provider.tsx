@@ -690,10 +690,20 @@ function moveGroupMessage(
   state: NavLayoutState,
   fromIndex: number,
   toIndex: number,
+  chromeL1: readonly string[],
 ): string {
-  const labels = resolveGroups(state).map((g) => g.label);
-  const moved = labels[fromIndex];
-  if (!moved) return "Reordered the nav";
+  /*
+   * Read against the list the move itself reorders — categories AND the rows
+   * lifted beside them, Dashboard included. Indexing the categories alone named
+   * the row one place off once a lifted row sat above them: moving CRM down
+   * said "Automation moved down".
+   */
+  const groups = resolveGroups(state);
+  const id = l1IdsFor(state, groups, chromeL1)[fromIndex];
+  if (!id) return "Reordered the nav";
+  const moved = groups.some((g) => g.id === id)
+    ? labelForGroup(state, id)
+    : labelForProduct(state, id);
   return `${moved} ${movedPhrase(fromIndex, toIndex)}`;
 }
 
@@ -1460,7 +1470,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
          * nothing — an admin who dragged three rows and looked away had no way
          * to tell which one the toast was offering to put back.
          */
-        commit(moveGroupMessage(state, fromIndex, toIndex), (s) => {
+        commit(moveGroupMessage(state, fromIndex, toIndex, chromeL1), (s) => {
           /*
            * The same list the nav draws, chrome rows included.
            *

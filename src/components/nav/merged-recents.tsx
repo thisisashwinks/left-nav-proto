@@ -366,6 +366,8 @@ function MergedList({
       {sublabelled && visiblePins.length > 0 ? (
         <BlockHeading text="Pinned" action={viewAll} />
       ) : null}
+      {/* Each run is one list for assistive tech; `contents` adds no box. */}
+      <div role="list" className="contents">
       {visiblePins.map((r, i) => (
         <React.Fragment key={`pin-slot-${r.id}`}>
           {pinSeam?.(i)}
@@ -374,6 +376,7 @@ function MergedList({
       ))}
       {/* The seam that closes the run, so a pin can be dropped last. */}
       {visiblePins.length > 0 ? pinSeam?.(visiblePins.length) : null}
+      </div>
 
       {sublabelled && visibleRecents.length > 0 ? (
         <BlockHeading
@@ -381,7 +384,9 @@ function MergedList({
           {...(visiblePins.length === 0 ? { action: viewAll } : {})}
         />
       ) : null}
-      {visibleRecents.map((r) => row(r))}
+      <div role="list" className="contents">
+        {visibleRecents.map((r) => row(r))}
+      </div>
 
       <MergedOverflowRow
         mode={mergedOverflow}
@@ -440,6 +445,8 @@ function BlockHeading({
         {lead ? <ViewAllLead onOpen={action.onClick} /> : null}
         <span
           {...fadeProps(collapsed)}
+          role="heading"
+          aria-level={2}
           className="text-[11px] leading-[13px] font-semibold tracking-[0.4px] whitespace-nowrap text-nav-fg-subtle uppercase"
         >
           {text}
@@ -1008,6 +1015,7 @@ function MergedItemRow({
   return (
     <RailTooltip label={row.label} show={collapsed}>
     <div
+      role="listitem"
       data-pin-row=""
       data-nav-tile=""
       {...(collapsed && onHoverPlain ? { onPointerEnter: onHoverPlain } : {})}
@@ -1180,7 +1188,8 @@ function MergedItemRow({
             // itself. See PinButton for the whole of that reasoning.
             aria-disabled={row.pinBlocked ?? false}
             title={row.pinned ? "Unpin" : row.pinBlocked ? PIN_CAP_HINT : "Pin"}
-            aria-label={row.pinned ? "Unpin" : "Pin"}
+            // One name in both states; `aria-pressed` says which one it is in.
+            aria-label={`Pin ${row.label}`}
             aria-pressed={row.pinned}
             /*
             Announce, THEN toggle — the same order PinButton uses, and for
