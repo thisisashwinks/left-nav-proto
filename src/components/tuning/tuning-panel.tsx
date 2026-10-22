@@ -116,6 +116,8 @@ import {
   RAIL_ACTIVE_CHROMES,
   RAIL_ACTIVE_CHROME_LABELS,
   RAIL_SEARCH_GLYPH_LABELS,
+  IMPERSONATION_BANNER_COLORS,
+  IMPERSONATION_BANNER_COLOR_LABELS,
   RAIL_RULE_ALIGNS,
   RAIL_RULE_ALIGN_LABELS,
   RAIL_TOOLS_CTA_LABELS,
@@ -156,6 +158,9 @@ import {
   RAIL_HOVERS,
   RAIL_HOVER_LABELS,
   type RailHover,
+  RAIL_HOVER_DELAYS,
+  RAIL_HOVER_DELAY_LABELS,
+  type RailHoverDelay,
   DIRECTORY_PLACEMENTS,
   DIRECTORY_PLACEMENT_LABELS,
   type DirectoryPlacement,
@@ -425,6 +430,7 @@ import {
   type CreateAccountSpot,
   type RailManageGlyph,
   type RailSearchGlyph,
+  type ImpersonationBannerColor,
   type RailRuleAlign,
   type RailActiveChrome,
   type RailHoverZone,
@@ -802,6 +808,8 @@ function NavStructureSection({
     railToolsCta,
     agencyBarDismissal,
     setRailHoverZone,
+    railHoverDelay,
+    setRailHoverDelay,
     setManageAgencyRow,
     manageAgencyRow,
     railHoverZone,
@@ -1742,6 +1750,21 @@ function NavStructureSection({
               : railHoverZone === "column"
                 ? "The whole strip, its empty foot included. A 56px column holding ten 32px circles is mostly empty below them, and a surface that answers the pointer in its top third and ignores it in the rest reads as broken rather than as precise. The target is also the thing you are aiming at \u2014 the rail \u2014 rather than a tenth of its area."
                 : "Only the account marks. A rest on a tile is a rest on a name you wanted, which is a real reading of the gesture and the one the rail shipped with. It also means the strip never opens because you crossed its foot on the way to the canvas \u2014 paid for by a column that mostly does not answer."}
+          </Note>
+
+          <Segmented
+            label="Rail hover delay"
+            keywords="rail hover delay wait intent timer ms seconds expand open"
+            options={RAIL_HOVER_DELAYS}
+            value={railHoverDelay}
+            onChange={(v: RailHoverDelay) => setRailHoverDelay(v)}
+            format={(v) => RAIL_HOVER_DELAY_LABELS[v]}
+            disabled={railHover !== "expand"}
+          />
+          <Note>
+            {railHover !== "expand"
+              ? "Waiting on the control above \u2014 nothing opens while the rail stays collapsed."
+              : "How long the pointer has to rest before the names open. Shorter answers sooner and opens more often by accident on the way past; longer guards that, and makes everyone who meant it wait every time. Leaving the rail still closes after 250 ms."}
           </Note>
 
           <Segmented
@@ -4364,6 +4387,8 @@ export function TuningPanel() {
     setSwitchyardTry,
     previewBanner,
     setPreviewBanner,
+    impersonationBannerColor,
+    setImpersonationBannerColor,
     entryRadius,
     editRadius,
     setEditRadius,
@@ -6669,6 +6694,22 @@ export function TuningPanel() {
             {previewBanner
               ? "A band across the top of a tab opened from a preview link. The preview is a real, working shell on demo data — it navigates, it edits, it looks exactly like the product — so the more faithful it is, the more it needs to say which window you are in."
               : "No band. Worth it for a screenshot, where the band is the right thing in use and the wrong thing in a deck — and wrong for anything else, since the tab is otherwise indistinguishable from the real product."}
+          </Note>
+
+          <Segmented
+            label="Logged-in-as banner colour"
+            keywords="log in as login impersonate impersonation banner colour color switch to my account red"
+            options={IMPERSONATION_BANNER_COLORS}
+            value={impersonationBannerColor}
+            onChange={(v: ImpersonationBannerColor) =>
+              setImpersonationBannerColor(v)
+            }
+            format={(v) => IMPERSONATION_BANNER_COLOR_LABELS[v]}
+          />
+          <Note>
+            The strip shown while an agency user is logged in as someone else
+            — from the avatar menu&rsquo;s &ldquo;Log in as&rdquo;. It sits above
+            every other banner, cannot be closed, and stays in builders.
           </Note>
 
           <Segmented

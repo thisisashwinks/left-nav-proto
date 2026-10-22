@@ -245,7 +245,7 @@ interface AccountRailProps {
  * cost is real and worth naming: someone who meant to open it waits, every
  * time, for a guard against something that happens only sometimes.
  */
-const EXPAND_DELAY_MS = 500;
+const EXPAND_DELAY_MS = 500; // the fallback; RAIL_HOVER_DELAYS now sets it
 
 /**
  * The close, in three numbers that have to add up.
@@ -1445,6 +1445,9 @@ export function AccountRail({
     return () => window.removeEventListener("pointermove", wake);
   }, [settleHover]);
 
+  // The rest before opening, from the review axis. See RAIL_HOVER_DELAYS.
+  const expandDelay =
+    Number(useTheme().effective.railHoverDelay) || EXPAND_DELAY_MS;
   const setHover = React.useCallback(
     (next: boolean) => {
       if (hoverTimer.current !== null) clearTimeout(hoverTimer.current);
@@ -1471,10 +1474,10 @@ export function AccountRail({
           hoverTimer.current = null;
           onExpandedChange(next);
         },
-        next ? EXPAND_DELAY_MS : COLLAPSE_DELAY_MS,
+        next ? expandDelay : COLLAPSE_DELAY_MS,
       );
     },
-    [onExpandedChange, locked],
+    [onExpandedChange, locked, expandDelay],
   );
   React.useEffect(() => {
     return () => {

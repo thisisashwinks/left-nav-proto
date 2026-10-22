@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { headerConfig, type HeaderActionTone, type HeaderConfig } from "./header-config";
 import { UserAvatar } from "./user-avatar";
 import { AccountMenu } from "./account-menu";
+import { initialsOf, useImpersonation } from "@/components/shell/impersonation";
 import { GET_APP_LABELS, type AppKind } from "./get-app-modal";
 
 /**
@@ -464,6 +465,8 @@ export function AppHeader({
     barHeadingScale,
     headerEntrySide,
   } = useTheme().effective;
+  // Who this session is acting as, if anyone — see impersonation.tsx.
+  const { as: actingAs } = useImpersonation();
   /*
    * The page's own heading, drawn here only when there is no trail.
    *
@@ -1075,7 +1078,12 @@ export function AppHeader({
             }}
             className="motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-full motion-press hover:scale-110 active:scale-95"
           >
-            <UserAvatar size={26} initials={config.avatarInitials} />
+            <UserAvatar
+              size={26}
+              // Whoever this session is acting as — see impersonation.tsx.
+              initials={actingAs ? initialsOf(actingAs.name) : config.avatarInitials}
+              drawn={actingAs !== null}
+            />
           </button>
         </div>
       </div>

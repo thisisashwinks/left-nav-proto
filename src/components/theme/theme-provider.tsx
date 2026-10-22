@@ -127,10 +127,12 @@ import type {
   RailToolSpot,
   RailToolsLayout,
   RailHoverZone,
+  RailHoverDelay,
   ManageAgencyRow,
   AgencyBarDismissal,
   RailToolsCta,
   RailSearchGlyph,
+  ImpersonationBannerColor,
   RailRuleAlign,
   RailActiveChrome,
   CreateAccountSpot,
@@ -312,6 +314,7 @@ interface ThemeContextValue extends ThemeState {
   setCreateAccountSpot: (v: CreateAccountSpot) => void;
   setRailManageGlyph: (v: RailManageGlyph) => void;
   setRailHoverZone: (v: RailHoverZone) => void;
+  setRailHoverDelay: (v: RailHoverDelay) => void;
   setRailCollapsedSearch: (on: boolean) => void;
   setCreateAccountShut: (on: boolean) => void;
   setRailToolsLayout: (v: RailToolsLayout) => void;
@@ -347,6 +350,7 @@ interface ThemeContextValue extends ThemeState {
   setRailViewAll: (v: RailViewAll) => void;
   setRecentsHeadingGlyph: (on: boolean) => void;
   setPreviewBanner: (on: boolean) => void;
+  setImpersonationBannerColor: (v: ImpersonationBannerColor) => void;
   setNavChevron: (v: NavChevron) => void;
   setEditRadius: (v: EditRadius) => void;
   setEditAlways: (on: boolean) => void;
@@ -787,6 +791,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, agencyBarDismissal })),
       setRailHoverZone: (railHoverZone) =>
         setState((s) => ({ ...s, railHoverZone })),
+      setRailHoverDelay: (railHoverDelay) =>
+        setState((s) => ({ ...s, railHoverDelay })),
       setRailCollapsedSearch: (railCollapsedSearch) =>
         setState((s) => ({ ...s, railCollapsedSearch })),
       setCreateAccountShut: (createAccountShut) =>
@@ -851,6 +857,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, railViewAll })),
       setRecentsHeadingGlyph: (recentsHeadingGlyph) =>
         setState((s) => ({ ...s, recentsHeadingGlyph })),
+      setImpersonationBannerColor: (impersonationBannerColor) =>
+        setState((s) => ({ ...s, impersonationBannerColor })),
       setPreviewBanner: (previewBanner) =>
         setState((s) => ({ ...s, previewBanner })),
       setNavChevron: (navChevron) => setState((s) => ({ ...s, navChevron })),

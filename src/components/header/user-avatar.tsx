@@ -18,13 +18,21 @@ const AVATAR_SRC = "/avatar.png";
 export function UserAvatar({
   size = 26,
   initials,
+  drawn = false,
 }: {
   size?: number;
   /** Used for the accessible name, and as the fallback's label. */
   initials: string;
+  /**
+   * Initials on a grey disc, never the photo. The photo is YOURS — while
+   * logged in as someone else the avatar must not keep wearing your face.
+   * See impersonation.tsx.
+   */
+  drawn?: boolean;
 }) {
   const [failed, setFailed] = React.useState(false);
 
+  if (drawn) return <InitialsAvatar size={size} initials={initials} />;
   if (failed) return <DrawnAvatar size={size} initials={initials} />;
 
   return (
@@ -46,6 +54,25 @@ export function UserAvatar({
       // Fixed at 26px in the bar, so there is nothing to negotiate at request time.
       priority
     />
+  );
+}
+
+/**
+ * Somebody else's avatar: their initials on a grey disc, as production draws
+ * every user without a photo — the "Log in as" list and the header while you
+ * are acting as one of them. The type scales with the disc so the 26px header
+ * mark and the 38px menu header read as the same object.
+ */
+function InitialsAvatar({ size, initials }: { size: number; initials: string }) {
+  return (
+    <span
+      role="img"
+      aria-label={`Account, ${initials}`}
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.38) }}
+      className="flex shrink-0 items-center justify-center rounded-full bg-[var(--hr-gray-100)] leading-none font-semibold text-[var(--hr-gray-600)] shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]"
+    >
+      {initials}
+    </span>
   );
 }
 

@@ -54,6 +54,11 @@ import {
 } from "@/components/nav/entry-cluster";
 import { PinnedMorph } from "@/components/nav/pinned-morph";
 import {
+  ImpersonationBanner,
+  ImpersonationProvider,
+  type ImpersonationUser,
+} from "@/components/shell/impersonation";
+import {
   densityVars,
   recentsBudgetFor,
   useNavDensity,
@@ -1386,6 +1391,24 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    * machinery is even visible.
    */
   const plainUser = layout.role === "user";
+  /*
+   * Who this agency user is acting as, if anyone — see impersonation.tsx.
+   * Session state, like the rest of the prototype: a reload is you again.
+   * Offered to agency users only; a plain sub-account user has nobody to log
+   * in as.
+   */
+  const [actingAs, setActingAs] = React.useState<ImpersonationUser | null>(
+    null,
+  );
+  const impersonation = React.useMemo(
+    () => ({
+      as: actingAs,
+      canLogInAs: !plainUser,
+      logInAs: (user: ImpersonationUser) => setActingAs(user),
+      switchBack: () => setActingAs(null),
+    }),
+    [actingAs, plainUser],
+  );
   /*
    * A sub-account person who belongs to more than one account.
    *
@@ -3303,6 +3326,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
       onFire={selectNavRow}
     >
     <CurrentAccountProvider id={accounts.current.id}>
+    <ImpersonationProvider value={impersonation}>
     <AiEntryProvider value={aiEntryState}>
     <HereProvider value={here}>
     <NewFlagProvider ids={newFlagIds}>
@@ -3334,6 +3358,11 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
         is there again the moment you leave. `builderKeepBanner` is how the
         other reading gets looked at.
       */}
+      {/*
+        "Logged in as", first and always — above every other strip, not
+        instead of one, and through builders too. See ImpersonationBanner.
+      */}
+      <ImpersonationBanner />
       {bannerHidden ? null : accounts.scope === "account" &&
         (ACCOUNT_BANNERS[accounts.current.id]?.length ?? 0) > 0 ? (
         /*
@@ -5009,6 +5038,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
     </NewFlagProvider>
     </HereProvider>
     </AiEntryProvider>
+    </ImpersonationProvider>
     </CurrentAccountProvider>
     </PinShortcutsProvider>
   );

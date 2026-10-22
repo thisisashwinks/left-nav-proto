@@ -3148,6 +3148,35 @@ export const RAIL_HOVER_LABELS: Record<RailHover, string> = {
 };
 
 /**
+ * How long a rest on the account rail waits before the names open, in ms.
+ *
+ * 500 is what the rail shipped with (see EXPAND_DELAY_MS in account-rail);
+ * the longer ones are here to feel where a deliberate rest stops being
+ * distinguishable from a wait (Ashwin, Oct 22). Closing keeps its own 250.
+ */
+export const RAIL_HOVER_DELAYS = [
+  "500",
+  "700",
+  "800",
+  "900",
+  "1000",
+  "1500",
+  "2000",
+] as const;
+
+export type RailHoverDelay = (typeof RAIL_HOVER_DELAYS)[number];
+
+export const RAIL_HOVER_DELAY_LABELS: Record<RailHoverDelay, string> = {
+  500: "500 ms",
+  700: "700 ms",
+  800: "800 ms",
+  900: "900 ms",
+  1000: "1 s",
+  1500: "1.5 s",
+  2000: "2 s",
+};
+
+/**
  * Where the accounts directory opens.
  *
  *  rail      A panel over the nav, docked to the rail's edge.
@@ -3428,6 +3457,42 @@ export const NAV_CHEVRON_LABELS: Record<NavChevron, string> = {
  * new nav should not have to crop it out.
  */
 export const PREVIEW_BANNER_DEFAULT = true;
+
+/**
+ * The ground of the "Logged in as" banner. See ImpersonationBanner.
+ *
+ * Eight to compare, ink by default (Ashwin, Oct 22 — red first, then ink the
+ * same day): acting as another user records everything as theirs, so the
+ * strip has to be unmissable, and near-black over the light chrome is that
+ * without reading as an error. The washes are there to see whether the state
+ * can be unmissable without shouting; the solids, whether it should shout.
+ */
+export const IMPERSONATION_BANNER_COLORS = [
+  "red",
+  "redSoft",
+  "amber",
+  "ink",
+  "primary",
+  "blueSoft",
+  "purple",
+  "green",
+] as const;
+export type ImpersonationBannerColor =
+  (typeof IMPERSONATION_BANNER_COLORS)[number];
+
+export const IMPERSONATION_BANNER_COLOR_LABELS: Record<
+  ImpersonationBannerColor,
+  string
+> = {
+  red: "Red",
+  redSoft: "Red wash",
+  amber: "Amber",
+  ink: "Ink",
+  primary: "Brand blue",
+  blueSoft: "Blue wash",
+  purple: "Purple",
+  green: "Green",
+};
 
 /**
  * Which glyph the collapsed rail's "View all" row wears.
@@ -5979,6 +6044,8 @@ export interface ThemeState {
   recentsHeadingGlyph: boolean;
   /** Whether a preview tab says it is one. See PREVIEW_BANNER_DEFAULT. */
   previewBanner: boolean;
+  /** The "Logged in as" banner's ground. See IMPERSONATION_BANNER_COLORS. */
+  impersonationBannerColor: ImpersonationBannerColor;
   /** When the L1 flyout chevron is drawn. See NAV_CHEVRONS. */
   navChevron: NavChevron;
   /** How dark the nav's resting rows are. See NAV_INKS. */
@@ -6680,6 +6747,8 @@ export interface ThemeState {
   manageAgencyRow: ManageAgencyRow;
   /** What a rest has to land on for the names to open. See RAIL_HOVER_ZONES. */
   railHoverZone: RailHoverZone;
+  /** How long that rest waits before the names open. See RAIL_HOVER_DELAYS. */
+  railHoverDelay: RailHoverDelay;
   /** Whether the filled rail keeps its search glyph at 56px. */
   railCollapsedSearch: boolean;
   /** Whether the Manage button shares the field's row. See RAIL_TOOLS_LAYOUTS. */
@@ -7024,6 +7093,7 @@ export const NAV_STRUCTURE_KEYS = [
   "agencyRowMarkSize",
   "manageAgencyRow",
   "railHoverZone",
+  "railHoverDelay",
   "railToolsLayout",
   "railCollapsedSearch",
   "createAccountShut",
@@ -7141,6 +7211,7 @@ export const DEFAULT_THEME: ThemeState = {
   railViewAll: "history",
   recentsHeadingGlyph: false,
   previewBanner: PREVIEW_BANNER_DEFAULT,
+  impersonationBannerColor: "ink",
   /*
    * On hover, as of Oct 6.
    *
@@ -7292,6 +7363,7 @@ export const DEFAULT_THEME: ThemeState = {
   railArrangement: "agencyHeadsPinned",
   manageAgencyRow: "hidden",
   railHoverZone: "column",
+  railHoverDelay: "500",
   /*
     Off: shut, the filled rail is a column of account marks and nothing
     else. The glyph read as a twelfth account rather than as a tool — a
