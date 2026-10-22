@@ -241,7 +241,17 @@ export function ReportingDashboardPage() {
           title="Dashboards"
           description={active.meta}
           secondary={[{ label: "Share", icon: Share2 }]}
-          primary={{ label: "Edit dashboard", icon: Pencil }}
+          /*
+            No primary action. "Edit dashboard" was here AND in the bar
+            below, two rows apart, which is one decision offered twice —
+            Ashwin, Oct 22.
+            
+            The bar keeps it. Editing acts on the SELECTED dashboard, and
+            the bar is where everything else scoped to that selection lives:
+            which dashboard, over what range, summarise this one. The page
+            header's actions are the page's, and "Dashboards" plural is not
+            the thing being edited.
+          */
           overflow={[
             { label: "Duplicate dashboard", icon: Copy },
             { label: "Export as PDF", icon: Download },
