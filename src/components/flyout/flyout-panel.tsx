@@ -193,7 +193,6 @@ export function FlyoutPanel({
     addProductStyle,
     addProductSpot,
     addPickerCommit,
-    emptyNavRule,
   } = useTheme().effective;
   /* See the title below. */
   const appsRowName = useGetAppNavLabel();
@@ -1870,15 +1869,19 @@ export function FlyoutPanel({
               rows are wrong and this says which.
             */
             /*
-              Only where the rule makes it a fault. Under `allow` — the
-              default — an emptied row saves like any other and opens onto
-              an empty dropdown ("No items in here yet."), so a warning on it
-              would be flagging a state the nav has said is fine; the nav's
-              own category rows already stand down the same way. Ashwin,
-              Oct 22. See EMPTY_NAV_RULES.
+              NOT gated on EMPTY_NAV_RULES — and that gate is what broke this
+              three times. Ashwin, Oct 22.
+
+              The rule decides whether an emptied row blocks the SAVE. It has
+              nothing to say about whether the row keeps its dropdown, and
+              wrapping these props in `emptyNavRule === "block"` meant that
+              under the default — `allow` — the row got no `emptiedParent`
+              and no warning at all: no chevron, no empty state, and a click
+              that fell through to navigation because `hasChildren` was
+              false. The data was right the whole time; it was never reaching
+              the row.
             */
-            {...(emptyNavRule === "block" &&
-            lostAllChildren(layout.state, entry.item.id)
+            {...(lostAllChildren(layout.state, entry.item.id)
               ? {
                   /*
                     The row keeps its disclosure either way, so an emptied
