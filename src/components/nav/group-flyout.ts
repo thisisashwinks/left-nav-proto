@@ -120,6 +120,7 @@ export function flyoutForGroup(
           label: labelForProduct(state, id),
           icon: iconForProduct(state, id),
           ...(product?.blurb ? { description: product.blurb } : {}),
+          ...(product?.badge ? { badge: product.badge } : {}),
           /*
             The L2 layer: sub-places render as a nested dropdown on the row.
 

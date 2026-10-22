@@ -9,6 +9,7 @@ import {
   Eye,
   EyeOff,
   GripVertical,
+  Plus,
   TriangleAlert,
 } from "lucide-react";
 import { NavAiSparkle } from "@/components/icons/ai-sparkle";
@@ -395,6 +396,16 @@ export interface FlyoutRowEdit {
 export interface FlyoutChildEdit {
   onPickIcon: (childId: string, trigger: HTMLElement) => void;
   onOpenMenu: (childId: string, trigger: HTMLElement) => void;
+  /**
+   * Put something in this row, from inside the row's own list.
+   *
+   * Present only while editing, and only for a row that has been emptied —
+   * which is also what keeps its disclosure alive. A row with nothing in it
+   * used to lose the chevron along with the children, so the one place that
+   * could explain the warning beside it was the one place you could not
+   * open. Ashwin, Oct 22.
+   */
+  onAdd?: (trigger: HTMLElement, parentId: string) => void;
   /*
    * The drag half, present only while L3 rows are arrangeable.
    *
@@ -439,6 +450,14 @@ interface FlyoutRowProps {
    * item has been moved out of this row" — see `lostAllChildren`.
    */
   warn?: string;
+  /**
+   * This row HAD items and has none left, and the nav is being edited.
+   *
+   * Keeps the disclosure alive so the row can be opened onto the control
+   * that refills it — see `FlyoutChildEdit.onAdd`. False for a leaf, which
+   * has nothing to disclose and never did.
+   */
+  emptiedParent?: boolean;
   active?: boolean;
   /** Which row the page behind the panel is on, for the nested dropdown. */
   activeId?: string | null;
@@ -465,6 +484,7 @@ export function FlyoutRow({
   item,
   variant,
   warn,
+  emptiedParent = false,
   active = false,
   activeId = null,
   rowIndex = 0,
@@ -548,8 +568,17 @@ export function FlyoutRow({
    */
   // A tabs-parent is a destination: its children live on its page, so the row
   // navigates like a leaf rather than opening a nested list of non-places.
+  /*
+   * An emptied row keeps its disclosure while editing.
+   *
+   * Read off a PER-ROW flag rather than off `childEdit`, which is one
+   * object shared by every row in the panel: gating on the handler would
+   * have given a chevron to every leaf product in the list, including the
+   * ones that never had pages to lose.
+   */
   const hasChildren =
-    (item.children?.length ?? 0) > 0 && (tabsInNav || !item.tabs);
+    ((item.children?.length ?? 0) > 0 || emptiedParent) &&
+    (tabsInNav || !item.tabs);
   const [inlineOpen, setInlineOpen] = React.useState(defaultOpen || autoOpen);
   /*
    * Two sources for one flag.
@@ -1354,6 +1383,40 @@ export function FlyoutChildRows({
         !cascade && (depth === 0 ? "ml-[19px] pl-[14px]" : "ml-[9px] pl-[12px]"),
       )}
     >
+      {/*
+        A row whose items have all been moved out still opens — and says so.
+
+        See EMPTY_NAV_RULES: under `allow` the nav lets an emptied row be
+        saved, which only works if the list it opens explains itself instead
+        of being a blank box. Suppressed while editing for the same reason
+        the panel's own empty state is: the seams are already there saying
+        the list takes rows.
+      */}
+      {nodes.length === 0 && !edit ? (
+        <p className="px-[8px] py-[9px] text-[12.5px] leading-[17px] text-nav-fg-subtle">
+          No items in here yet.
+        </p>
+      ) : null}
+      {/*
+        Editing, the empty list offers the way out of its own warning.
+
+        The row is marked because everything was moved out of it; this is
+        the control that puts something back, and it belongs here rather
+        than only in the kebab because here is where the reader is looking
+        when they open the row to see what is wrong.
+      */}
+      {nodes.length === 0 && edit?.onAdd && parentId ? (
+        <button
+          type="button"
+          onClick={(e) =>
+            parentId ? edit.onAdd?.(e.currentTarget, parentId) : undefined
+          }
+          className="motion-tap flex h-[32px] w-full items-center gap-[9px] rounded-[7px] px-[8px] text-left text-[13px] leading-[18px] font-medium text-nav-fg-muted outline-1 outline-dashed outline-[var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg"
+        >
+          <Plus size={14} aria-hidden="true" className="shrink-0" />
+          Add product
+        </button>
+      ) : null}
       {nodes.map((child, i) => (
         <React.Fragment key={child.id}>
           {/*

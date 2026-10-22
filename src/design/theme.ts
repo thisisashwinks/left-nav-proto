@@ -5388,6 +5388,40 @@ export const RAIL_GUEST_SPOT_LABELS: Record<RailGuestSpot, string> = {
  * only if people actually lose track of what they picked, which is a thing to
  * find out rather than assume. Ashwin, Oct 21.
  */
+/**
+ * What the nav does about a category or a row with nothing in it.
+ *
+ * Two readings of the same state, and they disagree about whose problem it
+ * is.
+ *
+ *  allow  Empty is a legal shape. The save goes through, and the surface
+ *         that opens says so: a category with no products opens its flyout
+ *         onto an empty state, a row with no items opens its list onto one.
+ *         Nothing is marked and nothing is held, because nothing is wrong —
+ *         an admin building a nav over several sittings can leave a shelf
+ *         standing and come back to it, and an agency that genuinely wants
+ *         a heading with nothing under it yet is allowed to have one.
+ *  block  Empty is a mistake to fix before leaving. The row is marked and
+ *         the save is refused until every category and every row that opens
+ *         a panel has something in it. The strict reading, and the one that
+ *         guarantees nobody ever meets a blank panel.
+ *
+ * Default `allow` — Ashwin, Oct 22. The strict rule was written when an
+ * empty panel was an accident with no explanation in it; now that the empty
+ * state exists and says what is going on, refusing the save is holding
+ * somebody's work hostage to a screen that is already handled. `block` stays
+ * on the dial, because "you cannot ship a nav with a dead shelf in it" is a
+ * real position and the one an agency rolling out to four hundred accounts
+ * might want.
+ */
+export const EMPTY_NAV_RULES = ["allow", "block"] as const;
+export type EmptyNavRule = (typeof EMPTY_NAV_RULES)[number];
+
+export const EMPTY_NAV_RULE_LABELS: Record<EmptyNavRule, string> = {
+  allow: "Save, and show an empty state",
+  block: "Hold the save until it is filled",
+};
+
 export const ADD_PICKER_COMMITS = ["footer", "tags"] as const;
 export type AddPickerCommit = (typeof ADD_PICKER_COMMITS)[number];
 
@@ -6615,6 +6649,8 @@ export interface ThemeState {
   railShutRecents: RailShutRecents;
   /** How a multi-select add commits. See ADD_PICKER_COMMITS. */
   addPickerCommit: AddPickerCommit;
+  /** What an empty category or row costs. See EMPTY_NAV_RULES. */
+  emptyNavRule: EmptyNavRule;
   /** Whether the other accounts are behind a door. See RAIL_DIRECTORY_MODES. */
   railDirectoryMode: RailDirectoryMode;
   /** Which end of the rail the tools sit at. See RAIL_TOOL_SPOTS. */
@@ -6997,6 +7033,7 @@ export const NAV_STRUCTURE_KEYS = [
   "railGuestSpot",
   "railShutRecents",
   "addPickerCommit",
+  "emptyNavRule",
   "railDirectoryMode",
   "railToolSpot",
   "agencyBarDismissal",
@@ -7324,6 +7361,7 @@ export const DEFAULT_THEME: ThemeState = {
   */
   railShutRecents: "off",
   addPickerCommit: "footer",
+  emptyNavRule: "allow",
   /*
     The directory IS the rail, rather than a door to one.
 

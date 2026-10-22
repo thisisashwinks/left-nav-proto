@@ -303,7 +303,16 @@ const REAL_PAGES: {
     render: (view) => <CompaniesPage initialList={view} />,
   },
   {
-    products: ["ai-studio", "ia-ai-studio"],
+    /*
+      Three ids, one page.
+
+      `ia-content-ai-studio` is the Content bucket's alias for the same
+      product — see the note beside it in proposed-ia.ts. Listing it here is
+      the whole of what makes the alias a real destination rather than a row
+      that opens a stub: the page is the same page, and only the trail above
+      it differs.
+    */
+    products: ["ai-studio", "ia-ai-studio", "ia-content-ai-studio"],
     children: [],
     render: () => <AiStudioPage />,
   },

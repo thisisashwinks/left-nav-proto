@@ -94,6 +94,12 @@ import {
   Wand,
   Workflow,
   Zap,
+  Crosshair,
+  Medal,
+  Monitor,
+  Newspaper,
+  ScanSearch,
+  TrendingUp,
 } from "lucide-react";
 import { AiSparkleIcon } from "@/components/icons/ai-sparkle";
 
@@ -327,8 +333,8 @@ const CRM: CatalogueEntry[] = [
     children: [
       { id: "ia-crm-conversations-inbox", label: SCREEN_NAMES.inbox },
       { id: "ia-crm-conversations-manual", label: "Manual Actions" },
-      { id: "ia-crm-conversations-snippets", label: "Snippets" },
-      { id: "ia-crm-conversations-links", label: "Trigger Links" },
+      // Snippets and Trigger Links lived here too until Oct 22; Marketing is
+      // their one home now (Marketing OS doc). Moved, not shared.
       { id: "ia-crm-conversations-analytics", label: "Analytics" },
       { id: "ia-crm-conversations-settings", label: "Settings" },
     ],
@@ -539,12 +545,7 @@ const CRM: CatalogueEntry[] = [
     icon: Headset,
     blurb: "Support requests with an owner and an SLA.",
   },
-  {
-    id: "ia-crm-media",
-    label: "Media Storage",
-    icon: FolderOpen,
-    blurb: "Every asset the account has uploaded.",
-  },
+  // Media Storage moved to Sites on Oct 22 — see there.
   {
     id: "ia-crm-object-settings",
     label: "Object Settings",
@@ -603,6 +604,14 @@ const AUTOMATION: CatalogueEntry[] = [
   },
 ];
 
+/*
+ * Marketing, in the Marketing OS doc's order (Oct 22): Social Planner, Email
+ * Builder, Reputation, Loyalty, Ad Manager, AI & Search Visibility, Affiliate
+ * Manager, Brand Boards, Snippets, Trigger Links. Reputation sits here until it
+ * is aligned as an L1 of its own. The four rows the doc does not list —
+ * Marketing Messages, Prospecting, Countdown Timer and the Preference
+ * Management Hub — stay in Marketing, after the doc's ten (Ashwin, Oct 22).
+ */
 const MARKETING: CatalogueEntry[] = [
   {
     id: "ia-marketing-social",
@@ -635,103 +644,6 @@ const MARKETING: CatalogueEntry[] = [
     ],
   },
   {
-    id: "ia-marketing-ads",
-    label: "Ad Manager",
-    icon: BadgeDollarSign,
-    blurb: "Launch and watch paid campaigns.",
-  },
-  {
-    // Shipped today as a Marketing tab; not on the sheet. Kept.
-    id: "ia-marketing-messages",
-    label: "Marketing Messages",
-    icon: Rss,
-    blurb: "Broadcast over WhatsApp and Messenger.",
-  },
-  {
-    id: "ia-marketing-affiliate",
-    label: "Affiliate Manager",
-    icon: Handshake,
-    blurb: "Partners, commissions and payouts.",
-    children: [
-      { id: "ia-marketing-affiliate-dashboard", label: "Dashboard" },
-      { id: "ia-marketing-affiliate-campaign", label: "Campaign" },
-      { id: "ia-marketing-affiliate-affiliates", label: "Affiliate" },
-      { id: "ia-marketing-affiliate-payout", label: "Payout" },
-      { id: "ia-marketing-affiliate-media", label: "Media" },
-      { id: "ia-marketing-affiliate-settings", label: "Settings" },
-    ],
-  },
-  {
-    id: "ia-marketing-prospecting",
-    label: "Prospecting",
-    icon: Radar,
-    blurb: "Find businesses that need what you sell.",
-    tabs: true,
-    children: [
-      { id: "ia-marketing-prospecting-accounts", label: "All accounts" },
-      { id: "ia-marketing-prospecting-ai", label: "Prospect AI" },
-      { id: "ia-marketing-prospecting-widgets", label: "Widgets" },
-      { id: "ia-marketing-prospecting-reports", label: "Report builder" },
-      { id: "ia-marketing-prospecting-analytics", label: "Analytics" },
-      { id: "ia-marketing-prospecting-settings", label: "Settings" },
-    ],
-  },
-  {
-    id: "ia-marketing-countdown",
-    label: "Countdown Timer",
-    icon: Timer,
-    blurb: "Urgency you can drop into a page or an email.",
-  },
-  {
-    // Shipped twice today — a Conversations tab and a Marketing tab. Homed once.
-    id: "ia-marketing-snippets",
-    label: "Snippets",
-    icon: Quote,
-    blurb: "Reusable message blocks.",
-    tabs: true,
-    children: [
-      { id: "ia-marketing-snippets-all", label: "All snippets" },
-      { id: "ia-marketing-snippets-folders", label: "Folders" },
-    ],
-  },
-  {
-    // Also shipped twice today (Conversations and Marketing). Homed once.
-    id: "ia-marketing-trigger-links",
-    label: "Trigger Links",
-    icon: Link2,
-    blurb: "Trackable links that fire automations.",
-    tabs: true,
-    children: [
-      { id: "ia-marketing-trigger-links-list", label: "Links" },
-      { id: "ia-marketing-trigger-links-analyze", label: "Analyze" },
-    ],
-  },
-  {
-    id: "ia-marketing-brand-boards",
-    label: "Brand Boards",
-    icon: Palette,
-    blurb: "Fonts, colours and logos in one place.",
-    tabs: true,
-    children: [
-      { id: "ia-marketing-brand-kit", label: "Design kit" },
-      { id: "ia-marketing-brand-voice", label: "Brand voice" },
-    ],
-  },
-  {
-    /*
-     * Marketing, not Settings (Abhishek, Aug 19).
-     *
-     * Consent and opt-outs read as account-wide plumbing, which is the argument
-     * for Settings — but the people who work in it are the ones sending the
-     * campaigns, and a preference is the reason a send is suppressed. It belongs
-     * next to the sending tools.
-     */
-    id: "ia-marketing-preferences",
-    label: "Preference Management Hub",
-    icon: SlidersHorizontal,
-    blurb: "Consent, opt-outs and quiet hours.",
-  },
-  {
     id: "ia-marketing-reputation",
     label: "Reputation",
     icon: Star,
@@ -761,23 +673,225 @@ const MARKETING: CatalogueEntry[] = [
       { id: "ia-marketing-reputation-settings", label: "Settings" },
     ],
   },
+  {
+    // New in the Marketing OS doc (Oct 22).
+    id: "ia-marketing-loyalty",
+    label: "Loyalty",
+    icon: Medal,
+    blurb: "Points, tiers and rewards that bring customers back.",
+  },
+  {
+    id: "ia-marketing-ads",
+    label: "Ad Manager",
+    icon: BadgeDollarSign,
+    blurb: "Launch and watch paid campaigns.",
+  },
+  {
+    // Moves here from the AI nav (Marketing OS doc, Oct 22): being found by
+    // search engines and AI answers is a marketing outcome.
+    id: "ia-marketing-ai-visibility",
+    label: "AI & Search Visibility",
+    icon: ScanSearch,
+    blurb: "How you show up in search and in AI answers.",
+  },
+  {
+    id: "ia-marketing-affiliate",
+    label: "Affiliate Manager",
+    icon: Handshake,
+    blurb: "Partners, commissions and payouts.",
+    children: [
+      { id: "ia-marketing-affiliate-dashboard", label: "Dashboard" },
+      { id: "ia-marketing-affiliate-campaign", label: "Campaign" },
+      { id: "ia-marketing-affiliate-affiliates", label: "Affiliate" },
+      { id: "ia-marketing-affiliate-payout", label: "Payout" },
+      { id: "ia-marketing-affiliate-media", label: "Media" },
+      { id: "ia-marketing-affiliate-settings", label: "Settings" },
+    ],
+  },
+  {
+    id: "ia-marketing-brand-boards",
+    label: "Brand Boards",
+    icon: Palette,
+    blurb: "Fonts, colours and logos in one place.",
+    tabs: true,
+    children: [
+      { id: "ia-marketing-brand-kit", label: "Design kit" },
+      { id: "ia-marketing-brand-voice", label: "Brand voice" },
+    ],
+  },
+  {
+    // Shipped twice today — a Conversations tab and a Marketing tab. Homed once.
+    id: "ia-marketing-snippets",
+    label: "Snippets",
+    icon: Quote,
+    blurb: "Reusable message blocks.",
+    tabs: true,
+    children: [
+      { id: "ia-marketing-snippets-all", label: "All snippets" },
+      { id: "ia-marketing-snippets-folders", label: "Folders" },
+    ],
+  },
+  {
+    // Also shipped twice today (Conversations and Marketing). Homed once.
+    id: "ia-marketing-trigger-links",
+    label: "Trigger Links",
+    icon: Link2,
+    blurb: "Trackable links that fire automations.",
+    tabs: true,
+    children: [
+      { id: "ia-marketing-trigger-links-list", label: "Links" },
+      { id: "ia-marketing-trigger-links-analyze", label: "Analyze" },
+    ],
+  },
+  {
+    // Shipped today as a Marketing tab; not on the sheet. Kept.
+    id: "ia-marketing-messages",
+    label: "Marketing Messages",
+    icon: Rss,
+    blurb: "Broadcast over WhatsApp and Messenger.",
+  },
+  {
+    id: "ia-marketing-prospecting",
+    label: "Prospecting",
+    icon: Radar,
+    blurb: "Find businesses that need what you sell.",
+    tabs: true,
+    children: [
+      { id: "ia-marketing-prospecting-accounts", label: "All accounts" },
+      { id: "ia-marketing-prospecting-ai", label: "Prospect AI" },
+      { id: "ia-marketing-prospecting-widgets", label: "Widgets" },
+      { id: "ia-marketing-prospecting-reports", label: "Report builder" },
+      { id: "ia-marketing-prospecting-analytics", label: "Analytics" },
+      { id: "ia-marketing-prospecting-settings", label: "Settings" },
+    ],
+  },
+  {
+    id: "ia-marketing-countdown",
+    label: "Countdown Timer",
+    icon: Timer,
+    blurb: "Urgency you can drop into a page or an email.",
+  },
+  {
+    /*
+     * Marketing, not Settings (Abhishek, Aug 19).
+     *
+     * Consent and opt-outs read as account-wide plumbing, which is the argument
+     * for Settings — but the people who work in it are the ones sending the
+     * campaigns, and a preference is the reason a send is suppressed. It belongs
+     * next to the sending tools.
+     */
+    id: "ia-marketing-preferences",
+    label: "Preference Management Hub",
+    icon: SlidersHorizontal,
+    blurb: "Consent, opt-outs and quiet hours.",
+  },
 ];
 
+/*
+ * Sites — the L1 that was Content until Oct 22 (Marketing OS doc, aligned with
+ * Khoi/Chase). Its rows, in the doc's order: AI Studio, Funnels, Websites,
+ * Forms (Forms, Surveys, Quizzes), Stores, Blogs, WordPress, Webinars, SEO
+ * (Beta), Site Analytics, External Tracking, Chat Widget, QR Codes, Media
+ * Storage (in from CRM) and Domains (Domains, URL Redirect).
+ *
+ * Funnels, Websites, Blogs, SEO and External Tracking were the old Sites
+ * product's pages; they are rows of their own now. Funnels keeps that
+ * product's id, so the real Funnels screen still answers it. Surveys, Quizzes
+ * and URL Redirect keep their ids as pages under Forms and Domains, and Media
+ * Storage keeps its CRM id, so nothing that pointed at them goes stale.
+ */
 const CONTENT: CatalogueEntry[] = [
+  /*
+   * AI Studio, a second time — the tree's one deliberate alias.
+   *
+   * Everything else in this IA lives in exactly one bucket, and that rule is
+   * load-bearing: it is what makes a breadcrumb unambiguous and what lets
+   * "Move to" mean something. This product is the exception Ashwin asked for
+   * on Oct 22. AI Studio is where you generate a site, a page or the copy on
+   * one — so a person building in Sites is looking for it exactly where
+   * they are, and sending them to the AI bucket to find the tool for the job
+   * they are already doing is the kind of thing an IA is supposed to prevent.
+   *
+   * An ALIAS, not a copy: a distinct id pointing at the same page. That is
+   * what keeps the rest of the model honest. The two rows are separate rows —
+   * each can be hidden, reordered, renamed, re-iconed and pinned on its own,
+   * because each is a row of this account's nav rather than two views of one
+   * row. And the breadcrumb reads from the row you came through, so the
+   * Sites one says "Sites › AI Studio" and the AI one says "AI › AI
+   * Studio" without either having to know about the other.
+   *
+   * What it costs, stated plainly: the product appears twice in search and
+   * twice in the All products tree, and pinning one does not pin the other.
+   * Both follow from the rows being rows. If the second one should instead be
+   * a shadow of the first — hide one, both go — that is a different design
+   * and a bigger change than this.
+   */
   {
+    id: "ia-content-ai-studio",
+    label: SCREEN_NAMES.aiStudio,
+    icon: Wand,
+    blurb: "Generate sites, copy and creative.",
+  },
+  {
+    // The old Sites product, renamed for what it always opened on — see the
+    // Funnels entry in product-page's REAL_PAGES.
     id: "ia-content-sites",
-    label: "Sites",
+    label: SCREEN_NAMES.funnels,
     icon: AppWindow,
-    blurb: "Funnels, websites and blogs.",
+    blurb: "Multi-step pages that turn visits into leads.",
+  },
+  {
+    id: "ia-content-websites",
+    label: "Websites",
+    icon: Monitor,
+    blurb: "Full sites on your own domain.",
+  },
+  {
+    id: "ia-content-forms",
+    label: "Forms",
+    icon: ClipboardList,
+    blurb: "Forms, surveys and quizzes.",
     children: [
-      // "Funnel" until Sep 22. The page has always been headed "Funnels", and
-      // a list of funnels is Funnels — the tree was reading as a spec.
-      { id: "ia-content-sites-funnel", label: SCREEN_NAMES.funnels },
-      { id: "ia-content-sites-website", label: "Website" },
-      { id: "ia-content-sites-blogs", label: "Blogs" },
-      { id: "ia-content-sites-seo", label: "SEO" },
-      { id: "ia-content-sites-tracking", label: "External Tracking" },
+      { id: "ia-content-forms-list", label: "Forms" },
+      { id: "ia-content-surveys", label: "Surveys" },
+      { id: "ia-content-quizzes", label: "Quizzes" },
     ],
+  },
+  {
+    // Shipped as a Sites tab today; absent from the sheet. Stores sells from the
+    // Commerce catalogue but the storefront itself is a built page, so it stays
+    // with the builders rather than moving to Commerce.
+    id: "ia-content-stores",
+    label: "Stores",
+    icon: Store,
+    blurb: "Storefronts built on your product catalogue.",
+  },
+  {
+    id: "ia-content-blogs",
+    label: "Blogs",
+    icon: Newspaper,
+    blurb: "Posts, categories and authors.",
+  },
+  {
+    // Shipped as a Sites tab today; absent from the sheet. A whole hosting
+    // product — dropping it silently would strand real customers.
+    id: "ia-content-wordpress",
+    label: "WordPress",
+    icon: PanelsTopLeft,
+    blurb: "Managed hosting for WordPress sites.",
+  },
+  {
+    id: "ia-content-webinars",
+    label: "Webinars",
+    icon: Presentation,
+    blurb: "Live and evergreen sessions.",
+  },
+  {
+    id: "ia-content-seo",
+    label: "SEO",
+    icon: TrendingUp,
+    blurb: "How your pages rank, and what to fix.",
+    badge: { label: "Beta", tone: "beta" },
   },
   {
     /*
@@ -789,7 +903,7 @@ const CONTENT: CatalogueEntry[] = [
      * so "how did the funnel do" and "how did the form do" are the same journey.
      */
     id: "ia-content-analytics",
-    label: "Analytics",
+    label: "Site Analytics",
     icon: ChartColumn,
     blurb: "How every page, form and funnel performed.",
     tabs: true,
@@ -804,39 +918,10 @@ const CONTENT: CatalogueEntry[] = [
     ],
   },
   {
-    // Shipped as a Sites tab today; absent from the sheet. Stores sells from the
-    // Commerce catalogue but the storefront itself is a built page, so it stays
-    // with the builders rather than moving to Commerce.
-    id: "ia-content-stores",
-    label: "Stores",
-    icon: Store,
-    blurb: "Storefronts built on your product catalogue.",
-  },
-  {
-    // Shipped as a Sites tab today; absent from the sheet. A whole hosting
-    // product — dropping it silently would strand real customers.
-    id: "ia-content-wordpress",
-    label: "WordPress",
-    icon: PanelsTopLeft,
-    blurb: "Managed hosting for WordPress sites.",
-  },
-  {
-    id: "ia-content-forms",
-    label: "Forms",
-    icon: ClipboardList,
-    blurb: "Capture what you need to know.",
-  },
-  {
-    id: "ia-content-surveys",
-    label: "Surveys",
-    icon: ListChecks,
-    blurb: "Longer questions, branching logic.",
-  },
-  {
-    id: "ia-content-quizzes",
-    label: "Quizzes",
-    icon: CircleQuestionMark,
-    blurb: "Score answers and route on the result.",
+    id: "ia-content-tracking",
+    label: "External Tracking",
+    icon: Crosshair,
+    blurb: "Pixels and scripts on every page you publish.",
   },
   {
     id: "ia-content-chat",
@@ -851,22 +936,22 @@ const CONTENT: CatalogueEntry[] = [
     blurb: "Print-to-web with tracking attached.",
   },
   {
+    // In from CRM (Oct 22). Ideally converges with Creator Studio once that is
+    // live. Keeps its CRM id, which is what its real page answers to.
+    id: "ia-crm-media",
+    label: "Media Storage",
+    icon: FolderOpen,
+    blurb: "Every asset the account has uploaded.",
+  },
+  {
     id: "ia-content-domains",
     label: "Domains",
     icon: Globe,
-    blurb: "Connect and verify the names you own.",
-  },
-  {
-    id: "ia-content-redirects",
-    label: "URL Redirect",
-    icon: CornerUpRight,
-    blurb: "Send an old link somewhere new.",
-  },
-  {
-    id: "ia-content-webinars",
-    label: "Webinars",
-    icon: Presentation,
-    blurb: "Live and evergreen sessions.",
+    blurb: "Connect and verify the names you own, and redirect old links.",
+    children: [
+      { id: "ia-content-domains-list", label: "Domains" },
+      { id: "ia-content-redirects", label: "URL Redirect" },
+    ],
   },
 ];
 
@@ -1385,7 +1470,9 @@ export const proposedBuckets: ProposedBucket[] = [
   },
   {
     id: "ia-content",
-    defaultLabel: "Content",
+    // "Content" until Oct 22 — Marketing OS doc. The id stays, so saved
+    // layouts and every reference to the bucket still resolve.
+    defaultLabel: "Sites",
     icon: LayoutTemplate,
     productIds: ids(CONTENT),
   },

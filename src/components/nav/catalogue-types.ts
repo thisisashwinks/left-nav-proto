@@ -67,6 +67,11 @@ export interface CatalogueEntry {
   children?: CatalogueChild[];
   /** My children are tabs on my page. See `CatalogueChild.tabs`. */
   tabs?: boolean;
+  /**
+   * A pill on the product's own row — "Beta" on SEO (Oct 22). The same shape
+   * a child's badge takes; the generated panel passes it to the row.
+   */
+  badge?: { label: string; tone: "new" | "beta" };
 }
 
 /**

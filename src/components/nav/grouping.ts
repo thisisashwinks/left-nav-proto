@@ -1551,7 +1551,26 @@ export function childrenFor(
     if (lifted.has(childId)) continue;
     if (kept.some((c) => c.id === childId)) continue;
     const hit = childById(childId);
-    if (hit) adopted.push(hit.child);
+    if (hit) {
+      adopted.push(hit.child);
+      continue;
+    }
+    /*
+     * A product demoted into this row. See `withChildFiled`.
+     *
+     * Presented as a child because that is what it now is: everything
+     * downstream reads this list as L3s, and handing back a product would
+     * make every consumer ask which kind of row it had. The id is unchanged,
+     * so the resolvers that answer by id — labels, icons, hidden state —
+     * keep answering.
+     */
+    const demoted = productById(childId);
+    if (demoted)
+      adopted.push({
+        id: demoted.id,
+        label: demoted.label,
+        ...(demoted.icon ? { icon: demoted.icon } : {}),
+      });
   }
   /*
    * ...and in the account's own order, which is the half this was missing.
@@ -1679,7 +1698,26 @@ export function withChildFiled(
   childId: string,
   parentId: string,
 ): NavLayoutState {
-  if (!childById(childId)) return state;
+  /*
+   * A PRODUCT can be filed here too, if it owns nothing — Ashwin, Oct 22.
+   *
+   * The gate used to be `childById` alone, which made "drag an L2 onto
+   * another L2" a move the store could not express: the write would have
+   * been fine and `childrenFor` would never have adopted the row back,
+   * because that loop resolved ids through the catalogue's second rung
+   * only. The row would have vanished — the failure this nav has produced
+   * five times now, and the reason the picker still refuses to offer it.
+   *
+   * Only a CHILDLESS product. The nav is three rungs deep and a product
+   * with pages of its own would arrive carrying a fourth, which nothing
+   * below here can draw. Ashwin's own condition, and the one that keeps the
+   * depth a fact rather than a hope.
+   */
+  const movingChild = childById(childId);
+  const movingProduct = productById(childId);
+  const demotable =
+    movingProduct !== undefined && (movingProduct.children?.length ?? 0) === 0;
+  if (!movingChild && !demotable) return state;
   if (!productById(parentId)) return state;
   if (childId === parentId) return state;
   const detached = withRowDetached(state, childId);

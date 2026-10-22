@@ -138,6 +138,8 @@ import {
   RAIL_SHUT_RECENTS_LABELS,
   ADD_PICKER_COMMITS,
   ADD_PICKER_COMMIT_LABELS,
+  EMPTY_NAV_RULES,
+  EMPTY_NAV_RULE_LABELS,
   RAIL_DIRECTORY_MODES,
   RAIL_DIRECTORY_MODE_LABELS,
   RAIL_TOOL_SPOTS,
@@ -414,6 +416,7 @@ import {
   type RailGuestSpot,
   type RailShutRecents,
   type AddPickerCommit,
+  type EmptyNavRule,
   type RailDirectoryMode,
   type RailToolSpot,
   type RailToolsLayout,
@@ -815,10 +818,12 @@ function NavStructureSection({
     railGuestSpot,
     railShutRecents,
     addPickerCommit,
+    emptyNavRule,
     setRailActiveSpot,
     setRailGuestSpot,
     setRailShutRecents,
     setAddPickerCommit,
+    setEmptyNavRule,
     railDirectoryMode,
     setRailDirectoryMode,
     railToolSpot,
@@ -1361,6 +1366,20 @@ function NavStructureSection({
             {railShutRecents === "on"
               ? "The recents follow the pins at 56px, the same five that lead the open list. The account you were in two switches ago is one click from the shut rail — paid for by the lower half of the strip rearranging itself behind your back, with no names there to tell you it did."
               : "The shut strip is the pinned run and whatever the guest adds, so every mark in it is either one you chose or the one you are in. Position means something because nothing reorders — which is the whole reason a glance works."}
+          </Note>
+
+          <Segmented
+            label="A category or row with nothing in it"
+            keywords="empty category empty row save blocked warning empty state allow block"
+            options={EMPTY_NAV_RULES}
+            value={emptyNavRule}
+            onChange={(v: EmptyNavRule) => setEmptyNavRule(v)}
+            format={(v) => EMPTY_NAV_RULE_LABELS[v]}
+          />
+          <Note>
+            {emptyNavRule === "block"
+              ? "The row is marked and the save is refused until every category and every row that opens a panel has something in it. Nobody ever meets a blank panel \u2014 and an admin who wanted to leave a shelf standing overnight cannot put their work down."
+              : "Empty is a legal shape: the save goes through, and the surface that opens says so rather than opening blank. Nothing is marked, because nothing is wrong \u2014 the cost is that a nav can ship with a heading nobody filled."}
           </Note>
 
           <Segmented

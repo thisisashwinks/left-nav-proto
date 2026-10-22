@@ -42,6 +42,13 @@ const PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["automation", "ia-automation-workflows"],
   ["ai-agents-product", "ia-ai-agent-studio"],
   ["ai-studio", "ia-ai-studio"],
+  /*
+   * ...and the Content bucket's alias for it, so a template crossing between
+   * the two catalogues still lands. The AI row is listed first and therefore
+   * wins when a shipped template has to choose, which is right: that is the
+   * row the product belongs to, and the alias is the courtesy copy.
+   */
+  ["ai-studio", "ia-content-ai-studio"],
   ["reporting", "ia-reporting-reports"],
   ["dashboards", "ia-reporting-dashboard"],
 ];

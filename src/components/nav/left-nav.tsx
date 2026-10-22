@@ -460,6 +460,7 @@ export function LeftNav({
     treeIcons,
     addMenuShape,
     addPickerCommit,
+    emptyNavRule,
     l3Arrange,
     treeSearchPlace,
     topAlignCard,
@@ -1283,6 +1284,15 @@ export function LeftNav({
    * this component re-renders on every pointer move into the nav.
    */
   const unfillable = React.useMemo(() => unfillableGroupIds(state), [state]);
+  /*
+   * Whether an empty category or row is a fault at all. See EMPTY_NAV_RULES.
+   *
+   * Under `allow` the three fault sets below are still COMPUTED — the row's
+   * own `empty` flag reads them, and the flyout needs to know it is opening
+   * onto nothing — but none of them reaches the save gate or draws a mark.
+   * Emptied is a shape, not a mistake.
+   */
+  const holdEmpty = emptyNavRule === "block";
   const emptyCategories = categories.filter(
     (g) =>
       g.productIds.length === 0 &&
@@ -2050,7 +2060,13 @@ export function LeftNav({
      * or — after the fix below — block without the triangle that explains
      * it. Same three clauses, one place.
      */
+    /*
+     * Only a fault under `block`. With the save allowed through, a triangle
+     * would be a warning about a state the nav has decided is fine — and the
+     * reader would have no way to clear it, because there is nothing to fix.
+     */
     const empty =
+      holdEmpty &&
       group.productIds.length === 0 &&
       !unfillable.has(group.id) &&
       !layout.isRowHidden(group.id);
@@ -2062,7 +2078,7 @@ export function LeftNav({
      * already has products and needs one of them shown. A single flag would
      * have to pick one of those sentences and be wrong half the time.
      */
-    const blanked = allRowsHidden(state, group);
+    const blanked = holdEmpty && allRowsHidden(state, group);
     const drag: NavRowDrag = {
       onDragStart: (e) => {
         e.dataTransfer.setData(L1_MIME, itemId);
@@ -2594,16 +2610,17 @@ export function LeftNav({
               : layout.editDirty,
           // The agency tree has no categories to leave empty — its buckets are
           // platform IA and always have contents.
-          blocked: agencyScope
-            ? 0
-            : emptyCategories.length + blankedOut.length,
+          blocked:
+            agencyScope || !holdEmpty
+              ? 0
+              : emptyCategories.length + blankedOut.length,
           /*
            * Rows whose children have all been moved out — see
            * `emptiedParents`. Exempt at agency scope for the same reason
            * the line above is: that tree is platform IA, not something an
            * admin restructures.
            */
-          emptyRows: agencyScope ? 0 : emptiedRows.length,
+          emptyRows: agencyScope || !holdEmpty ? 0 : emptiedRows.length,
           // What those two counts are ABOUT — see `emptyNames`.
           emptyNames,
           onStart: () => {
@@ -4022,7 +4039,14 @@ export function LeftNav({
      * dragging a row onto it. Both still work, and both are reachable from a
      * row that opens nothing.
      */
+    /*
+     * Under `block` an empty category opens nothing, because a blank panel
+     * was an accident with no explanation in it. Under `allow` it opens — on
+     * an empty state that says what is going on, which is the whole reason
+     * the permissive rule is safe to ship. See EMPTY_NAV_RULES.
+     */
     const emptyBucket =
+      holdEmpty &&
       groups.find((g) => g.id === item.id)?.productIds.length === 0;
 
     /*

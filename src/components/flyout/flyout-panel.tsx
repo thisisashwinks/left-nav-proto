@@ -10,7 +10,7 @@ import {
 } from "@/components/nav/add-picker";
 import { agencyBuckets } from "@/components/nav/agency-config";
 import { useAgencyLayout } from "@/components/nav/agency-layout";
-import { childById } from "@/components/nav/catalogue";
+import { childById, productById } from "@/components/nav/catalogue";
 import {
   childrenFor,
   labelForProduct,
@@ -193,6 +193,7 @@ export function FlyoutPanel({
     addProductStyle,
     addProductSpot,
     addPickerCommit,
+    emptyNavRule,
   } = useTheme().effective;
   /* See the title below. */
   const appsRowName = useGetAppNavLabel();
@@ -478,8 +479,32 @@ export function FlyoutPanel({
         exactly what the store can do. So the refusal is now per payload
         rather than blanket, which is what having distinct MIME types was for.
       */
+      /*
+        ...and since Oct 22, a CHILDLESS L2 as well — Ashwin.
+
+        The rule above said L2-on-L2 promised nesting the nav does not have.
+        It has it now, for the one case that cannot deepen the tree: a
+        product with no pages of its own becomes a page of the row it is
+        dropped on. A product that OWNS pages still refuses, because
+        accepting it would arrive carrying a fourth rung nothing below can
+        draw — see `withChildFiled`, which enforces the same condition in
+        the store so the drag and the write cannot disagree about it.
+
+        Read off the DRAGGED row rather than the dragged type: both payloads
+        are `L2_MIME`, and what separates them is a fact about the row, not
+        about the gesture.
+      */
       onDragOver: (e: React.DragEvent) => {
-        if (!e.dataTransfer.types.includes(L3_MIME)) return;
+        const takesChild = e.dataTransfer.types.includes(L3_MIME);
+        const dragged = e.dataTransfer.types.includes(L2_MIME)
+          ? liftedNow
+          : null;
+        const hit = dragged === null ? undefined : productById(dragged);
+        const demotable =
+          hit !== undefined &&
+          dragged !== productId &&
+          (hit.children?.length ?? 0) === 0;
+        if (!takesChild && !demotable) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
         setOver(productId);
@@ -490,7 +515,15 @@ export function FlyoutPanel({
         setOver(null);
         setLifted(null);
         const childId = e.dataTransfer.getData(L3_MIME);
-        if (childId) layout.moveChildToProduct(childId, productId);
+        if (childId) {
+          layout.moveChildToProduct(childId, productId);
+          return;
+        }
+        // A childless product, demoted into this row. The store refuses
+        // anything else, so this can hand the id over without re-checking.
+        const rowId = e.dataTransfer.getData(L2_MIME);
+        if (rowId && rowId !== productId)
+          layout.moveChildToProduct(rowId, productId);
       },
       onDragEnd: () => {
         setLifted(null);
@@ -529,6 +562,22 @@ export function FlyoutPanel({
             setMenuTrigger(trigger);
             menu.open(childId, trigger);
           },
+          /*
+            Refill an emptied row from inside it.
+
+            The same picker the row's kebab opens, with the same parent —
+            one surface, reached from the two places a reader looks when a
+            row is marked: the menu, and the row itself.
+          */
+          onAdd: (trigger: HTMLElement, parentId: string) =>
+            setAdding({
+              index: 0,
+              anchor: trigger.getBoundingClientRect(),
+              parentId,
+              host:
+                trigger.closest('[role="dialog"]')?.getBoundingClientRect() ??
+                null,
+            }),
           /*
             The drag half, only while L3 rows are arrangeable.
             See L3_ARRANGE_DEFAULT.
@@ -1757,6 +1806,26 @@ export function FlyoutPanel({
       */}
       {editing && category && lastRowId === null ? seam(0) : null}
 
+      {/*
+        A panel with nothing in it says so — Ashwin, Oct 22.
+
+        Under EMPTY_NAV_RULES `allow` an empty category opens rather than
+        refusing to, so this is the screen that makes that safe: without it
+        the reader gets a panel-shaped hole and no account of why. Named for
+        the STATE rather than the remedy — "No products in this category" is
+        what is true; how to fix it depends on whether you are editing, and
+        the kebab beside the row already carries that.
+
+        Not drawn while editing: the dashed add row and the seams are
+        already there saying the list is fillable, and a second message above
+        them would be two things explaining one blank.
+      */}
+      {itemRows.length === 0 && !editing ? (
+        <p className="w-full shrink-0 px-[10px] py-[14px] text-[13px] leading-[18px] text-nav-fg-subtle">
+          {category ? "No products in this category yet." : "Nothing here yet."}
+        </p>
+      ) : null}
+
       {entries.map((entry, i) =>
         entry.kind === "label" ? (
           <div
@@ -1800,9 +1869,39 @@ export function FlyoutPanel({
               save explicable, since the Save button can only say how MANY
               rows are wrong and this says which.
             */
-            {...(lostAllChildren(layout.state, entry.item.id)
+            /*
+              Only where the rule makes it a fault. Under `allow` — the
+              default — an emptied row saves like any other and opens onto
+              an empty dropdown ("No items in here yet."), so a warning on it
+              would be flagging a state the nav has said is fine; the nav's
+              own category rows already stand down the same way. Ashwin,
+              Oct 22. See EMPTY_NAV_RULES.
+            */
+            {...(emptyNavRule === "block" &&
+            lostAllChildren(layout.state, entry.item.id)
               ? {
-                  warn: "Every item has been moved out of this row. Put one back, or remove the row.",
+                  /*
+                    The row keeps its disclosure either way, so an emptied
+                    row opens onto its own empty state instead of becoming a
+                    dead end that navigates. See `emptiedParent`.
+                  */
+                  emptiedParent: true,
+                  /*
+                    The warning is an EDITING signal — Ashwin, Oct 22.
+
+                    Out of the mode it was a triangle on a finished nav
+                    complaining about a state the nav had agreed to save,
+                    with no control in reach to clear it. Saved, the row is
+                    just a dropdown with nothing in it yet, which the list
+                    says in words when you open it. While editing the mark
+                    earns its place: there IS something to do, and the add
+                    button inside the row is it.
+                  */
+                  ...(editing
+                    ? {
+                        warn: "Every item has been moved out of this row. Put one back, or remove the row.",
+                      }
+                    : {}),
                 }
               : {})}
             /*
