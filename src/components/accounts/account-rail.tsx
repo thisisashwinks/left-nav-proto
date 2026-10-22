@@ -5816,6 +5816,12 @@ function RailRow({
                 !listShape &&
                 !spotlit &&
                 "grayscale group-hover/rail-row:grayscale-0",
+              // The outline reading of the same rule. See `.rail-tile-outline`.
+              effective.railTileColour === "outline" &&
+                !selected &&
+                !listShape &&
+                !spotlit &&
+                "rail-tile-outline",
             )}
           >
             <AccountLogo

@@ -5128,13 +5128,18 @@ export const WHITE_LABEL_APPROACH_LABELS: Record<WhiteLabelApproach, string> = {
  *               competing with the page and becomes a place you look things
  *               up in — and colour returns exactly when you are hunting.
  *               Ashwin, Oct 14.
+ *  outline      As active-only, but the rest drop their fill instead of their
+ *               hue: no ground, a gray-200 hairline and gray-600 letters, with
+ *               the gradient back under the pointer. Uploaded logos have no
+ *               fill to drop, so they stay greyscale. Ashwin, Oct 22.
  */
-export const RAIL_TILE_COLOURS = ["always", "active-only"] as const;
+export const RAIL_TILE_COLOURS = ["always", "active-only", "outline"] as const;
 export type RailTileColour = (typeof RAIL_TILE_COLOURS)[number];
 
 export const RAIL_TILE_COLOUR_LABELS: Record<RailTileColour, string> = {
   always: "Always",
   "active-only": "Active only, colour on hover",
+  outline: "Active only, outline at rest",
 };
 
 /**

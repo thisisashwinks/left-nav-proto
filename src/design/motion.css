@@ -1336,3 +1336,44 @@
     animation: none;
   }
 }
+
+/*
+ * Inactive rail tiles under `railTileColour: "outline"` — see RAIL_TILE_COLOURS.
+ *
+ * No ground, a gray-200 hairline and gray-600 letters at rest; the tile's own
+ * gradient and white letters come back under the pointer, on the dock clock
+ * the scale already uses. Opacities rather than swapping the fill, because a
+ * gradient paint cannot transition. The stroke is unscaled and allowed past
+ * the viewBox, so it is a true 1px at any tile size instead of half of one.
+ * An uploaded logo has no fill to drop and falls back to greyscale.
+ */
+.rail-tile-outline > svg {
+  overflow: visible;
+}
+.rail-tile-outline > svg > rect {
+  fill-opacity: 0;
+  stroke: var(--hr-gray-200);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+  transition:
+    fill-opacity var(--dur-dock) var(--ease-out),
+    stroke-opacity var(--dur-dock) var(--ease-out);
+}
+.rail-tile-outline > svg > text {
+  fill: var(--hr-gray-600);
+  transition: fill var(--dur-dock) var(--ease-out);
+}
+.rail-tile-outline > span {
+  filter: grayscale(1);
+  transition: filter var(--dur-dock) var(--ease-out);
+}
+.group\/rail-row:hover .rail-tile-outline > svg > rect {
+  fill-opacity: 1;
+  stroke-opacity: 0;
+}
+.group\/rail-row:hover .rail-tile-outline > svg > text {
+  fill: #fff;
+}
+.group\/rail-row:hover .rail-tile-outline > span {
+  filter: none;
+}

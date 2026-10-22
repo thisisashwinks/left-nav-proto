@@ -6,6 +6,7 @@ import {
   ArrowLeftRight,
   ChevronLeft,
   ChevronRight,
+  LogIn,
   LogOut,
   Monitor,
   Search,
@@ -142,10 +143,14 @@ export function AccountMenu({
         only — a plain sub-account user has nobody to log in as, and the row
         stays the inert reference it always was for them.
       */}
+      {/*
+        The way in, paired with Sign out's way out at the foot. Ashwin, Oct 22:
+        every row in the menu carries an icon.
+      */}
       <Row
-        icon={picking ? ChevronLeft : ChevronRight}
+        icon={LogIn}
         label="Log in as"
-        trailing
+        trailing={picking ? ChevronLeft : ChevronRight}
         active={picking}
         disabled={!canLogInAs}
         onSelect={() => setPicking((open) => !open)}
@@ -317,7 +322,7 @@ function Row({
   icon: Icon,
   label,
   badge,
-  trailing = false,
+  trailing: Trailing,
   disabled = false,
   active = false,
   onSelect,
@@ -333,8 +338,8 @@ function Row({
    * how one fact ends up looking like two.
    */
   badge?: FlyoutBadge;
-  /** The chevron sits on the right; the icon prop is that chevron. */
-  trailing?: boolean;
+  /** A chevron on the right, for a row that opens a sub-panel. */
+  trailing?: typeof LogOut;
   disabled?: boolean;
   /** Its sub-panel is open beside the menu. */
   active?: boolean;
@@ -355,9 +360,7 @@ function Row({
             : "hover:bg-pg hover:text-pg-heading",
       )}
     >
-      {trailing ? null : (
-        <Icon size={16} aria-hidden="true" className="shrink-0 text-pg-muted" />
-      )}
+      <Icon size={16} aria-hidden="true" className="shrink-0 text-pg-muted" />
       <span className="min-w-0 truncate">{label}</span>
       {badge ? (
         <span
@@ -370,8 +373,8 @@ function Row({
         </span>
       ) : null}
       <span className="flex-1" />
-      {trailing ? (
-        <Icon size={16} aria-hidden="true" className="shrink-0 text-pg-muted" />
+      {Trailing ? (
+        <Trailing size={16} aria-hidden="true" className="shrink-0 text-pg-muted" />
       ) : null}
     </button>
   );

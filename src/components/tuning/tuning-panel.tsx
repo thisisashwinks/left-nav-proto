@@ -1208,7 +1208,9 @@ function NavStructureSection({
             format={(v) => RAIL_TILE_COLOUR_LABELS[v]}
           />
           <Note>
-            {railTileColour === "active-only"
+            {railTileColour === "outline"
+              ? "Only the account you are in keeps its fill; every other tile drops to a gray-200 hairline with gray-600 letters, and its gradient comes back under the pointer. Quieter than greyscale \u2014 the strip reads as a list of names rather than a column of grey discs. Uploaded logos have no fill to drop, so they go greyscale instead."
+              : railTileColour === "active-only"
               ? "Only the account you are in keeps its colour; every other tile is greyscale and comes back under the pointer. A filter rather than a second palette, so it works on an uploaded logo, a drawn glyph and an initials gradient alike — and the strip stops competing with the page it sits beside."
               : "Every tile in colour, as drawn. Fourteen saturated marks in a 56px column, with the active one told apart by its fill and its size."}
           </Note>
