@@ -3150,9 +3150,10 @@ export const RAIL_HOVER_LABELS: Record<RailHover, string> = {
 /**
  * How long a rest on the account rail waits before the names open, in ms.
  *
- * 500 is what the rail shipped with (see EXPAND_DELAY_MS in account-rail);
- * the longer ones are here to feel where a deliberate rest stops being
- * distinguishable from a wait (Ashwin, Oct 22). Closing keeps its own 250.
+ * 800 by default (Ashwin, Oct 22), up from the 500 the rail shipped with:
+ * long enough that a pass across the strip on the way to the page never opens
+ * it. The rest are here to feel where a deliberate rest stops being
+ * distinguishable from a wait. Closing keeps its own 250.
  */
 export const RAIL_HOVER_DELAYS = [
   "500",
@@ -5129,7 +5130,7 @@ export const WHITE_LABEL_APPROACH_LABELS: Record<WhiteLabelApproach, string> = {
  *               up in — and colour returns exactly when you are hunting.
  *               Ashwin, Oct 14.
  *  outline      As active-only, but the rest drop their fill instead of their
- *               hue: no ground, a gray-200 hairline and gray-600 letters, with
+ *               hue: no ground, a gray-300 hairline and gray-600 letters, with
  *               the gradient back under the pointer. Uploaded logos have no
  *               fill to drop, so they stay greyscale. Ashwin, Oct 22.
  */
@@ -7368,7 +7369,7 @@ export const DEFAULT_THEME: ThemeState = {
   railArrangement: "agencyHeadsPinned",
   manageAgencyRow: "hidden",
   railHoverZone: "column",
-  railHoverDelay: "500",
+  railHoverDelay: "800",
   /*
     Off: shut, the filled rail is a column of account marks and nothing
     else. The glyph read as a twelfth account rather than as a tool — a

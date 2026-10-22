@@ -245,7 +245,7 @@ interface AccountRailProps {
  * cost is real and worth naming: someone who meant to open it waits, every
  * time, for a guard against something that happens only sometimes.
  */
-const EXPAND_DELAY_MS = 500; // the fallback; RAIL_HOVER_DELAYS now sets it
+const EXPAND_DELAY_MS = 800; // the fallback; RAIL_HOVER_DELAYS now sets it
 
 /**
  * The close, in three numbers that have to add up.
@@ -1445,6 +1445,17 @@ export function AccountRail({
     return () => window.removeEventListener("pointermove", wake);
   }, [settleHover]);
 
+  /*
+   * A press on the shut rail says the pointer has found what it came for.
+   *
+   * Clicking a tile before the names arrive is someone who knew the mark
+   * without reading it, and opening the strip after they have already chosen
+   * is a panel arriving for a question that has been answered. The press
+   * cancels the pending open, and the rail stays shut for the rest of that
+   * visit — the pointer drifting on to a neighbour after the click is not a
+   * new rest. Leaving the strip clears it. Ashwin, Oct 22.
+   */
+  const pressedRef = React.useRef(false);
   // The rest before opening, from the review axis. See RAIL_HOVER_DELAYS.
   const expandDelay =
     Number(useTheme().effective.railHoverDelay) || EXPAND_DELAY_MS;
@@ -1458,6 +1469,7 @@ export function AccountRail({
       // And a pointer that has not moved since the nav expanded. Closing is
       // allowed through for the same reason `locked` allows it.
       if (!armedRef.current && next) return;
+      if (pressedRef.current && next) return;
       /*
        * Filled, the pointer says nothing either — in the other direction.
        *
@@ -2926,7 +2938,16 @@ export function AccountRail({
         }}
         onPointerLeave={() => {
           pointerInRef.current = false;
+          pressedRef.current = false;
           setHover(false);
+        }}
+        onPointerDownCapture={() => {
+          if (expanded) return;
+          pressedRef.current = true;
+          if (hoverTimer.current !== null) {
+            clearTimeout(hoverTimer.current);
+            hoverTimer.current = null;
+          }
         }}
         // An overlay, not a flow column: the shell holds a fixed 56px slot and
         // this widens OVER the nav — the page never moves under the pointer.
