@@ -18,7 +18,6 @@ import { flyouts } from "@/components/flyout/flyout-config";
 import type { FlyoutConfig } from "@/components/flyout/types";
 import {
   GET_APP_FLYOUT_ID,
-  useGetAppNavLabel,
   GET_APP_ROW_IDS,
   GET_APP_ROW_LABELS,
   getAppFlyout,
@@ -593,8 +592,12 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
     setNavGeneration,
     legacyNavTheme,
   } = useTheme();
-  /* What the companion-apps row is called right now. See APPS_ROW_LABELS. */
-  const appsRowName = useGetAppNavLabel();
+  /*
+    `appsRowName` lived here until Oct 22. It named the parent crumb above
+    the mobile/desktop pair, and that crumb is gone: the app page prints one
+    crumb now, its own. The label still exists for the NAV row — see
+    APPS_ROW_LABELS — which is where it was always the reader's own word.
+  */
   const { setActiveAccount: setActiveTuningAccount } = useTuning();
   const {
     navTheme,
@@ -1932,6 +1935,28 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    * lit the row and left the canvas exactly where it was. Ashwin hit it on
    * Recents. The caller knows which kind of row it drew, so the caller says.
    */
+  /*
+   * The avatar menu SENDS you to the app page, it does not open a sheet.
+   *
+   * The modal was the only way in when these two were pure chrome with no
+   * page behind them. They have had one since the flyout placement landed —
+   * the same canvas, with a breadcrumb and a back button — and the menu was
+   * the last surface still showing a copy of it in a dialog. Two renderings
+   * of one destination is the thing this nav keeps having to un-do.
+   *
+   * `setProductPage(null)` and `setManageAccountId(null)` are what the nav's
+   * own row clears on the way (see `selectNavRow`): without them the page
+   * underneath stays mounted and the app canvas opens over a stale one.
+   * Ashwin, Oct 22.
+   */
+  const openAppPage = React.useCallback((kind: AppKind) => {
+    setManageAccountId(null);
+    setProductPage(null);
+    setSelectedId(
+      kind === "mobile" ? GET_APP_ROW_IDS.mobile : GET_APP_ROW_IDS.desktop,
+    );
+  }, [setManageAccountId, setProductPage, setSelectedId]);
+
   const selectNavRow = React.useCallback(
     (id: string, opts?: { open?: boolean }) => {
       /*
@@ -3002,37 +3027,26 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
               : selectedId === GET_APP_ROW_IDS.mobile ||
                   selectedId === GET_APP_ROW_IDS.desktop
                 ? /*
-                    The sub-account's copy of the pair, written out because it
-                    belongs to no tree that could supply it.
+                    One crumb, and no switcher — Ashwin, Oct 22.
 
-                    The first crumb stays a word: this row sits beside Settings
-                    as chrome, so there is nothing it could offer to switch TO
-                    — a caret there would open a list of one. The second is the
-                    real switcher, and the one that matters: mobile and desktop
-                    are the two things you came here to choose between.
+                    It printed the chrome row's name and then a caret
+                    offering the other app, which made sense while the pair
+                    was a destination you landed in and browsed between. It
+                    is now a page you are SENT to: the avatar menu names the
+                    app you asked for and takes you there, so a caret beside
+                    it offers to undo the choice you just made, one click
+                    after making it.
+
+                    The parent word goes with it. "Desktop & mobile apps ▸
+                    Mobile apps" spends two crumbs saying one thing, and the
+                    first of them was never a place you could go.
                   */
                   [
-                    appsRowName,
                     {
                       label:
                         selectedId === GET_APP_ROW_IDS.mobile
                           ? GET_APP_ROW_LABELS.mobile
                           : GET_APP_ROW_LABELS.desktop,
-                      options: [
-                        {
-                          id: GET_APP_ROW_IDS.mobile,
-                          label: GET_APP_ROW_LABELS.mobile,
-                          selected: selectedId === GET_APP_ROW_IDS.mobile,
-                        },
-                        {
-                          id: GET_APP_ROW_IDS.desktop,
-                          label: GET_APP_ROW_LABELS.desktop,
-                          selected: selectedId === GET_APP_ROW_IDS.desktop,
-                        },
-                      ],
-                      onSelect: (id: string) => setSelectedId(id),
-                      // The destination of the pair; the word before it is
-                      // chrome. See `Crumb.level`.
                       level: "product" as const,
                     },
                   ]
@@ -4208,7 +4222,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
           pageHeading={pageHeading}
           crumbGoesSomewhere={crumbGoesSomewhere}
           theme={headerTheme}
-          onOpenApp={setAppModal}
+          onOpenApp={openAppPage}
           /*
             The field wants its 230px; the Ask AI button does not, and the
             pair states its own width (see ENTRY_PAIRS) so the slot hugs it
