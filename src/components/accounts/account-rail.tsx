@@ -1454,6 +1454,12 @@ export function AccountRail({
    * cancels the pending open, and the rail stays shut for the rest of that
    * visit — the pointer drifting on to a neighbour after the click is not a
    * new rest. Leaving the strip clears it. Ashwin, Oct 22.
+   *
+   * A press on the strip's EMPTY space is the opposite: nothing there to
+   * choose, so it can only mean "show me the names" — and it opens them at
+   * once rather than making a deliberate click wait out the hover delay.
+   * Anything you can press (a tile, the agency mark, the waffle) keeps its
+   * own job. Ashwin, Oct 23.
    */
   const pressedRef = React.useRef(false);
   // The rest before opening, from the review axis. See RAIL_HOVER_DELAYS.
@@ -2941,12 +2947,19 @@ export function AccountRail({
           pressedRef.current = false;
           setHover(false);
         }}
-        onPointerDownCapture={() => {
+        onPointerDownCapture={(e) => {
           if (expanded) return;
-          pressedRef.current = true;
           if (hoverTimer.current !== null) {
             clearTimeout(hoverTimer.current);
             hoverTimer.current = null;
+          }
+          const onControl = (e.target as Element).closest(
+            'button, a, input, [role="button"]',
+          );
+          if (onControl) {
+            pressedRef.current = true;
+          } else if (effective.railHover === "expand" && !locked) {
+            onExpandedChange(true);
           }
         }}
         // An overlay, not a flow column: the shell holds a fixed 56px slot and

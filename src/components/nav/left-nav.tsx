@@ -3094,7 +3094,7 @@ export function LeftNav({
           anchor: trigger.getBoundingClientRect(),
         })
       }
-      addLabel="Add to the nav here"
+      addLabel="Add to the navigation here"
       /*
         A wider catch than the 8px default, and the reason is the neighbour.
 
@@ -5702,7 +5702,7 @@ export function LeftNav({
       {addingAt && !picking ? (
         <RowMenu
           anchor={addingAt.anchor}
-          title="Add to the nav"
+          title="Add to the navigation"
           actions={seamActions(addingAt.index)}
           // The plus sits mid-nav, so right-aligning to a 16px button would
           // throw the menu clean off the left edge.

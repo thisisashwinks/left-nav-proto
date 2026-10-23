@@ -7213,7 +7213,7 @@ export function TuningPanel() {
           />
           <Note>
             {l3Arrange
-              ? "A child row gets every verb a product row has but Rename: reorder inside its parent, file it into a category, stand it at the top level, change its icon, take it out of the nav. If an agency arranges its own nav, stopping at the second rung is an arbitrary place to stop — and the rung below is where most of the rows are."
+              ? "A child row gets every verb a product row has but Rename: reorder inside its parent, file it into a category, stand it at the top level navigation, change its icon, take it out of the nav. If an agency arranges its own nav, stopping at the second rung is an arbitrary place to stop — and the rung below is where most of the rows are."
               : "A child's menu holds one verb, Change icon. An L3 belongs to a product rather than to the account's tree, so filing or reordering it are moves the nav does not have."}
           </Note>
 

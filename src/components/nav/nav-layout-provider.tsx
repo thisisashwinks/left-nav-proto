@@ -753,7 +753,7 @@ function placeInTailMessage(state: NavLayoutState, rowId: string): string {
   // Out of a category or a product is the part worth naming — a reorder
   // within the tail is just a reorder, but leaving somewhere changes where
   // the row lives, and does it off screen.
-  return from && from !== "the top level"
+  return from && from !== "the top level navigation"
     ? `Moved ${name} out of ${from}`
     : `Moved ${name}`;
 }
@@ -772,7 +772,7 @@ function deleteGroupMessage(
   // category is gone, so the toast is the only record of where its rows landed.
   const where = destinationId
     ? labelForGroup(state, destinationId)
-    : "top level";
+    : "top level navigation";
   return `Removed ${name} — ${rows} moved to ${where}`;
 }
 
@@ -799,14 +799,14 @@ function homeOf(state: NavLayoutState, rowId: string): string | null {
 
   const child = childById(rowId);
   if (child) {
-    if (state.tailOrder.includes(rowId)) return "the top level";
+    if (state.tailOrder.includes(rowId)) return "the top level navigation";
     const parent = state.childOf[rowId] ?? child.product.id;
     // DETACHED means it has been cut already and has no home to name.
     if (parent !== DETACHED) return labelForProduct(state, parent);
     return null;
   }
 
-  if (state.tailOrder.includes(rowId)) return "the top level";
+  if (state.tailOrder.includes(rowId)) return "the top level navigation";
   return null;
 }
 
@@ -1579,7 +1579,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
 
       removeProductFromNav: (productId) =>
         commit(
-          `Removed ${labelForProduct(state, productId)} from the nav`,
+          `Removed ${labelForProduct(state, productId)} from the navigation`,
           (s) => withProduct(s, productId, false),
         ),
 
@@ -1638,7 +1638,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
             state,
             childId,
             resolveGroups(state).find((g) => g.id === groupId)?.label ??
-              "the nav",
+              "the navigation",
           ),
           (s) => withChildInGroup(s, childId, groupId, index),
         ),

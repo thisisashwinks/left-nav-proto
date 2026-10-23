@@ -1155,7 +1155,7 @@ function resolveTree(state: NavLayoutState): ResolvedGroup[] {
         {
           id: UNGROUPED_ID,
           label: labelForGroup(state, UNGROUPED_ID),
-          defaultLabel: "Top level",
+          defaultLabel: "Top level navigation",
           icon: iconForGroup(state, UNGROUPED_ID),
           productIds: [...loose],
           custom: false,
@@ -1216,7 +1216,7 @@ function resolveTree(state: NavLayoutState): ResolvedGroup[] {
         {
           id: UNGROUPED_ID,
           label: labelForGroup(state, UNGROUPED_ID),
-          defaultLabel: "Top level",
+          defaultLabel: "Top level navigation",
           icon: iconForGroup(state, UNGROUPED_ID),
           productIds: loose,
           custom: false,

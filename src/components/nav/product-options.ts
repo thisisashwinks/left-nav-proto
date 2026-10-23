@@ -3,6 +3,7 @@ import {
   Image,
   MoveDown,
   MoveUp,
+  PanelLeft,
   Pencil,
   Trash2,
 } from "lucide-react";
@@ -295,7 +296,24 @@ export function productMenuActions({
         // menu is the only way to reach it without a drag.
         {
           id: UNGROUPED_ID,
-          label: "Top level",
+          label: "Top level navigation",
+          /*
+            A glyph, like every row above it. Ashwin, Oct 23.
+
+            This was the one option in the list without one, which made it
+            read as a footnote under the categories rather than as the last
+            destination in them — and it is a destination: "out of every
+            category" is where half the nav's rows live.
+
+            The sidebar's own mark, not a seventh arrow. Move up and Move
+            down already own the arrows in this menu and they mean a step
+            within a list; this is a different KIND of move, to the column
+            itself. PanelLeft is what the sidebar is drawn as everywhere
+            else here — the collapse toggles are its open and closed
+            variants — so the row names its destination the way the product
+            already names it.
+          */
+          icon: PanelLeft,
           current: currentGroupId === null,
         },
       ],
@@ -306,7 +324,7 @@ export function productMenuActions({
     ...(onRemove
       ? [{
       id: "remove",
-      label: "Remove from the nav",
+      label: "Remove from the navigation",
       icon: Trash2,
       danger: true,
       onSelect: onRemove,

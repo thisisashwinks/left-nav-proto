@@ -146,7 +146,7 @@ export function DeleteGroupDialog({
               ))}
               {/* Last, and named for what it is: the rows stay in the nav as
                   rows of their own rather than going anywhere. */}
-              <option value={UNGROUPED_ID}>Top level (no category)</option>
+              <option value={UNGROUPED_ID}>Top level navigation (no category)</option>
             </select>
           </>
         )}

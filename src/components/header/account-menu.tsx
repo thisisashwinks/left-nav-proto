@@ -215,6 +215,17 @@ export function AccountMenu({
 }
 
 const PICKER_WIDTH = 300;
+/*
+ * The list is tall, and it stops at 430 — Ashwin, Oct 23.
+ *
+ * It used to take whatever the viewport had left under the trigger, so on a
+ * laptop it ran most of the way down the glass: a column of forty faces that
+ * reads as the whole page rather than as a menu hanging off a row. 430 keeps
+ * about nine rows visible, which is enough to show the list IS long and to
+ * make scrolling the obvious next move, without the panel becoming the
+ * screen. Short viewports still shrink below it — see `max`.
+ */
+const PICKER_MAX_HEIGHT = 430;
 
 /**
  * "Log in as" — every user this agency user may act as, searchable.
@@ -242,7 +253,12 @@ const LoginAsPicker = React.forwardRef<
     setPos({
       top,
       left: Math.max(8, r.left - PICKER_WIDTH - 8),
-      max: Math.max(240, window.innerHeight - top - 16),
+      // The cap, or the room there is — whichever is less, with a floor so
+      // the panel never collapses to its own chrome.
+      max: Math.min(
+        PICKER_MAX_HEIGHT,
+        Math.max(240, window.innerHeight - top - 16),
+      ),
     });
   }, [menu]);
   const q = query.trim().toLowerCase();
