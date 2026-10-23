@@ -394,8 +394,8 @@ function EditNavButton({
       rest > 0 ? `${shown.join(", ")} and ${rest} more` : shown.join(", ");
     const blockedNote =
       emptyNames.length === 1
-        ? `${list} is empty. Add an item to save.`
-        : `${list} are empty. Add an item to each to save.`;
+        ? `${list} is empty. Add a product to save.`
+        : `${list} are empty. Add a product to each to save.`;
     /*
      * Two controls while editing, because the session has two endings.
      *

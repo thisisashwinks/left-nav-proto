@@ -3635,7 +3635,7 @@ export function LeftNav({
               anchor: trigger.getBoundingClientRect(),
             })
           }
-          addLabel="Add an item here"
+          addLabel="Add a product here"
         />
       );
   };
@@ -5654,6 +5654,9 @@ export function LeftNav({
             */
             const into = picking.groupId;
             const land = (id: string, index: number) => {
+              // Taken out of here earlier means hidden, not gone — so
+              // putting it back has to lift the flag as well as place it.
+              if (layout.isRowHidden(id)) layout.toggleRowHidden(id);
               if (!into) {
                 layout.placeAtL1(id, index);
                 return;
@@ -5670,6 +5673,19 @@ export function LeftNav({
               land(id, at);
               at += 1;
             }
+            /*
+              A tick can also take something OUT now — see `AddPicker`.
+
+              Hidden rather than deleted, which is the same "leave it out"
+              the row's own eye performs, so Undo and the toast both work on
+              it and nothing the picker does is one-way.
+            */
+            for (const f of picked.fill) {
+              if (layout.isRowHidden(f.id)) layout.toggleRowHidden(f.id);
+              layout.moveChildToProduct(f.id, f.parentId);
+            }
+            for (const id of picked.remove)
+              if (!layout.isRowHidden(id)) layout.toggleRowHidden(id);
           }}
           onClose={() => {
             setPicking(null);
@@ -5879,7 +5895,7 @@ function AddToNavRow({
     <button
       type="button"
       onClick={(e) => onOpen(e.currentTarget)}
-      className="motion-tap mt-[2px] flex h-[36px] w-full shrink-0 items-center gap-[10px] rounded-[7px] px-[8px] text-left text-[13.5px] leading-[normal] font-medium text-nav-fg-subtle outline-1 outline-dashed outline-[var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg active:scale-[0.99]"
+      className="motion-tap mt-[2px] flex h-[36px] w-full shrink-0 items-center gap-[10px] rounded-[7px] px-[8px] text-left text-[13.5px] leading-[normal] font-medium text-nav-fg-subtle outline-1 outline-dashed outline-[var(--hr-gray-300)] hover:bg-nav-hover hover:text-nav-fg active:scale-[0.99]"
     >
       <Plus size={16} aria-hidden="true" className="shrink-0" />
       Add a category or product

@@ -1693,6 +1693,30 @@ export function withChildInGroup(
   };
 }
 
+/**
+ * May this product be filed UNDER another one?
+ *
+ * The depth rule, in one place because two callers have to agree about it:
+ * the drag that drops an L2 onto an L2, and the picker that offers the same
+ * move as a checkbox. They disagreed for a day — the picker offered Companies
+ * and the store quietly refused it, which is a dead control, the worst of the
+ * three possible answers. Ashwin, Oct 23.
+ *
+ * A product with CHILDREN cannot go: the nav is three rungs deep and it would
+ * arrive carrying a fourth that nothing below can draw.
+ *
+ * A product with TABS can. Its `children` are views on its own page rather
+ * than places in the nav — `productTreeOptionsDeep` and the picker both
+ * refuse to offer them as destinations, and the row draws no chevron for
+ * them — so demoting it adds no rung at all. Judging it by the length of a
+ * list that is not rungs was the bug.
+ */
+export function canDemote(id: string): boolean {
+  const product = productById(id);
+  if (!product) return false;
+  return product.tabs === true || (product.children?.length ?? 0) === 0;
+}
+
 export function withChildFiled(
   state: NavLayoutState,
   childId: string,
@@ -1714,10 +1738,7 @@ export function withChildFiled(
    * depth a fact rather than a hope.
    */
   const movingChild = childById(childId);
-  const movingProduct = productById(childId);
-  const demotable =
-    movingProduct !== undefined && (movingProduct.children?.length ?? 0) === 0;
-  if (!movingChild && !demotable) return state;
+  if (!movingChild && !canDemote(childId)) return state;
   if (!productById(parentId)) return state;
   if (childId === parentId) return state;
   const detached = withRowDetached(state, childId);

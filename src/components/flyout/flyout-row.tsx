@@ -1411,7 +1411,7 @@ export function FlyoutChildRows({
           onClick={(e) =>
             parentId ? edit.onAdd?.(e.currentTarget, parentId) : undefined
           }
-          className="motion-tap flex h-[32px] w-full items-center gap-[9px] rounded-[7px] px-[8px] text-left text-[13px] leading-[18px] font-medium text-nav-fg-muted outline-1 outline-dashed outline-[var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg"
+          className="motion-tap flex h-[32px] w-full items-center gap-[9px] rounded-[7px] px-[8px] text-left text-[13px] leading-[18px] font-medium text-nav-fg-muted outline-1 outline-dashed outline-[var(--hr-gray-300)] hover:bg-nav-hover hover:text-nav-fg"
         >
           <Plus size={14} aria-hidden="true" className="shrink-0" />
           Add product
@@ -1444,6 +1444,16 @@ export function FlyoutChildRows({
             : null}
         </React.Fragment>
       ))}
+      {/*
+        And one after the last row.
+
+        The map draws a seam ABOVE each child, which leaves the end of the
+        list the one position you cannot aim at — the same gap the L2 list
+        closes with its own trailing seam. `nodes.length` is that position.
+      */}
+      {edit?.seam && parentId && nodes.length > 0
+        ? edit.seam(parentId, nodes.length)
+        : null}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, ChevronRight, Minus, Search, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Minus, Search, X } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
 import { restoreFocus } from "@/lib/a11y";
@@ -10,6 +10,9 @@ import { lastRowMenuTrigger } from "./row-menu";
 import type { AddPickerCommit } from "@/design/theme";
 import { childById, productById } from "./catalogue";
 import {
+  canDemote,
+  childrenFor,
+  isRowHidden,
   labelForProduct,
   stockTreeFor,
   type NavLayoutState,
@@ -89,15 +92,28 @@ interface PickRow {
   /** Present on a parent, and only when at least one child is offerable. */
   children?: PickRow[];
   /**
-   * Already where it is being added to, so it cannot be added again.
+   * Filable under another row — see `canDemote`, whose answer this is.
    *
-   * Shown rather than dropped — Ashwin, Oct 21. The list is the catalogue,
-   * and a catalogue with holes in it is one a reader cannot trust: open
-   * "Add to Reporting", find no Reporting, and the obvious conclusion is
-   * that the picker is broken rather than that there is nothing left to
-   * take. A greyed, ticked row answers the question the gap left open.
+   * Not "has no children": a product whose children are TABS has none in
+   * the nav's sense, and the picker's own `kids` already knows that. The
+   * two have to be read from the same rule or the box lies.
    */
-  disabled?: boolean;
+  leaf?: boolean;
+  /**
+   * Already in the destination — so its box starts ticked.
+   *
+   * It used to mean "greyed out": the row was shown but could not be
+   * touched, on the argument that you cannot add what is already there.
+   * That reading was too clever by half — Ashwin, Oct 23. A reader opening
+   * "Add to CRM" sees Contacts dimmed and has to reconstruct WHY from the
+   * name of the destination, which is the one piece of context a popover
+   * is worst at carrying.
+   *
+   * So the box simply tells the truth: ticked means "in CRM". Ticking adds,
+   * unticking removes, and the list reads as the destination's contents
+   * rather than as a catalogue with holes punched in it.
+   */
+  present?: boolean;
 }
 
 /** What a commit hands back — already split by the rule above. */
@@ -106,6 +122,21 @@ export interface AddPickerResult {
   parents: { id: string; keep: string[]; drop: string[] }[];
   /** Children to add on their own, parentless. */
   loose: string[];
+  /**
+   * Children ticked under a parent the destination ALREADY holds.
+   *
+   * Contacts is in CRM and you tick Tasks under it: nothing is being added
+   * to the category, something is being added to a row of it. The parent
+   * must not be re-placed, so this cannot ride in `parents`.
+   */
+  fill: { id: string; parentId: string }[];
+  /**
+   * Rows the destination holds that the reader UNTICKED.
+   *
+   * Hidden rather than deleted by every caller, which is this nav's only
+   * reversible "leave it out" — see `toggleRowHidden`.
+   */
+  remove: string[];
 }
 
 /**
@@ -136,20 +167,32 @@ function rowsFor(
          * into the nav as a destination.
          */
         /*
-         * A child of an unavailable product is unavailable too.
+         * A child of a product already in the destination is "present"
+         * only if it is actually filed under it RIGHT NOW.
          *
-         * Logically it could be ticked — promoting an L3 into a category is
-         * a move the store can make, and the product being there already
-         * does not block it. It read as a trap: the category greyed, every
-         * product under it greyed, and then one rung down a live checkbox
-         * that quietly files an L3 as an L2. Ashwin, Oct 21.
-         *
-         * So the whole branch goes quiet together. Promoting a child out of
-         * a product it is already filed under stays available where it
-         * belongs — by dragging the row, where you can see both ends of the
-         * move — rather than here, where you can see neither.
+         * `added` cannot answer this: the category's version of it asks
+         * `productIds.includes(id)`, and a child is not on that list at any
+         * depth. So the live tree is read instead — which is also what
+         * makes the ticks honest after the reader has moved children
+         * around in edit mode.
          */
-        const selfAdded = added(pid);
+        /*
+         * Hidden is ABSENT, as far as this picker is concerned.
+         *
+         * Removing from here hides rather than deletes, so a row taken out
+         * and then looked for again would otherwise come back ticked and
+         * refuse to be re-added — the one state the picker must not get
+         * into. Hidden reads as not-there, ticking it puts it back, and the
+         * round trip closes. Ashwin, Oct 23.
+         */
+        const selfPresent = added(pid) && !isRowHidden(state, pid);
+        const here = selfPresent
+          ? new Set(
+              childrenFor(state, pid)
+                .filter((c) => !isRowHidden(state, c.id))
+                .map((c) => c.id),
+            )
+          : null;
         const kids = (shipped?.tabs ? [] : (shipped?.children ?? [])).map(
           (k) => ({
             id: k.id,
@@ -158,14 +201,17 @@ function rowsFor(
             // catalogue takes the same label-derived icon the nav gives
             // it, so a row looks the same here as where it will land.
             icon: (k.icon ?? iconForChildLabel(k.label)) as PickRow["icon"],
-            disabled: selfAdded || added(k.id),
+            present: here
+              ? here.has(k.id)
+              : added(k.id) && !isRowHidden(state, k.id),
           }),
         );
         return {
           id: pid,
           label: shipped?.label ?? labelForProduct(state, pid),
           ...(shipped?.icon ? { icon: shipped.icon } : {}),
-          disabled: selfAdded,
+          present: selfPresent,
+          leaf: canDemote(pid),
           ...(kids.length > 0 ? { children: kids } : {}),
         } satisfies PickRow;
       }),
@@ -173,11 +219,17 @@ function rowsFor(
     .filter((c) => c.rows.length > 0);
 }
 
-/** Nothing in this category is still addable — see `PickRow.disabled`. */
-function allAdded(rows: readonly PickRow[]): boolean {
-  return rows.every(
-    (r) => r.disabled && (r.children ?? []).every((k) => k.disabled),
-  );
+/** Every id in the tree that the destination already holds. */
+function presentIds(
+  groups: readonly { rows: readonly PickRow[] }[],
+): Set<string> {
+  const out = new Set<string>();
+  for (const g of groups)
+    for (const r of g.rows) {
+      if (r.present) out.add(r.id);
+      for (const k of r.children ?? []) if (k.present) out.add(k.id);
+    }
+  return out;
 }
 
 export function AddPicker({
@@ -190,6 +242,7 @@ export function AddPicker({
   align = "start",
   commit = "footer",
   childrenOnly = false,
+  self = null,
   centreOn = null,
 }: {
   anchor: DOMRect;
@@ -199,10 +252,9 @@ export function AddPicker({
   /**
    * Is this row already in the destination?
    *
-   * It used to be `exclude` and removed the row. Greying it instead keeps
-   * the list a faithful picture of the catalogue, which is what lets an
-   * agency with a heavily customised nav still recognise what they are
-   * looking at. See `PickRow.disabled`.
+   * It used to be `exclude` and removed the row, then `disabled` and greyed
+   * it. Now it seeds the TICK: present rows open checked, and clearing one
+   * takes it back out. See `PickRow.present`.
    */
   added: (id: string) => boolean;
   onCommit: (result: AddPickerResult) => void;
@@ -211,19 +263,29 @@ export function AddPicker({
   /** Where the selection lives while it is being built. See ADD_PICKER_COMMITS. */
   commit?: AddPickerCommit;
   /**
-   * Only L3s may be ticked — the destination is a ROW, not a list.
+   * The destination is a ROW, not a list — so most products are the path.
    *
-   * `withChildFiled` gates on `childById`, so a product filed under another
-   * product writes cleanly and is then never adopted back: `childrenFor`
-   * resolves each id through the catalogue's second rung and a product is
-   * not on it, so the row would vanish. Rather than offer a tick that
-   * silently does nothing, the products stay as the path you walk down and
-   * lose their box. See `lostAllChildren` for the other half of this.
+   * A product that HAS children cannot be filed under another product:
+   * `withChildFiled` would write it, and then `childrenFor` — which
+   * resolves ids through the catalogue's second rung, where a product is
+   * not — would never adopt it back, so the row would simply vanish. Those
+   * products keep their chevron and lose their box.
    *
-   * It is the one place a rung is treated differently, and it is a fact
-   * about the store rather than a choice about the design.
+   * A CHILDLESS product is a different matter, and gets its box — Ashwin,
+   * Oct 23. There is nothing under it to lose, the store files it cleanly,
+   * and dragging one onto a row already demotes it exactly this way. The
+   * picker was the only door that disagreed.
    */
   childrenOnly?: boolean;
+  /**
+   * The row being added TO, when there is one.
+   *
+   * It has to be named rather than inferred. `added` says yes to the
+   * destination and to everything in it alike, so once a childless product
+   * has been demoted into this row there are two "present" products in the
+   * list and no way to tell the container from its contents.
+   */
+  self?: string | null;
   /**
    * The surface to centre on, when it is not the nav.
    *
@@ -253,7 +315,17 @@ export function AddPicker({
    */
   const WIDTH = Math.max(200, effective.navWidthL1 - 16);
   const [query, setQuery] = React.useState("");
-  const [ticked, setTicked] = React.useState<ReadonlySet<string>>(new Set());
+  /*
+   * Opens holding what the destination already holds — Ashwin, Oct 23.
+   *
+   * Seeded once, from the tree as it stands when the picker opens, so the
+   * list starts as a picture of CRM rather than of the catalogue. Every
+   * later change is the reader's, which is what makes the diff at the
+   * bottom of this file a diff rather than a guess.
+   */
+  const [ticked, setTicked] = React.useState<ReadonlySet<string>>(() =>
+    presentIds(rowsFor(state, added)),
+  );
   /*
    * Everything starts shut — Ashwin, Oct 21.
    *
@@ -389,13 +461,20 @@ export function AddPicker({
   const kidsOf = (row: PickRow) => (row.children ?? []).map((k) => k.id);
 
   const toggleRow = (row: PickRow) => {
-    if (row.disabled) return;
+    /*
+     * Ticking a row opens it — Ashwin, Oct 23.
+     *
+     * The tick takes the children with it, and a reader who cannot see
+     * that happen has to take the footer's count on faith. Opening is not
+     * the same as forcing it open: the chevron still closes it, and
+     * unticking leaves whatever state the reader left behind.
+     */
+    if (!ticked.has(row.id) && (row.children?.length ?? 0) > 0)
+      setOpenRows((prev) => new Set(prev).add(row.id));
     setTicked((prev) => {
       const next = new Set(prev);
       const kids = kidsOf(row);
-      const addable = (row.children ?? [])
-        .filter((k) => !k.disabled)
-        .map((k) => k.id);
+      const kidIds = (row.children ?? []).map((k) => k.id);
       if (next.has(row.id)) {
         /*
           Unticking a parent takes its children with it.
@@ -410,16 +489,13 @@ export function AddPicker({
         for (const k of kids) next.delete(k);
       } else {
         next.add(row.id);
-        // Only the ones that are not already there: ticking a parent must
-        // not pretend to add a child the destination already holds.
-        for (const k of addable) next.add(k);
+        for (const k of kidIds) next.add(k);
       }
       return next;
     });
   };
 
-  const toggleChild = (id: string, disabled?: boolean) => {
-    if (disabled) return;
+  const toggleChild = (id: string) => {
     setTicked((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -430,63 +506,106 @@ export function AddPicker({
 
   /** Parent box state: on, off, or some-of. */
   const parentState = (row: PickRow): "on" | "off" | "some" => {
-    /*
-      Unavailable reads as UNCHECKED — Ashwin, Oct 21.
-
-      It drew checked, on the argument that the box answers "is this in the
-      destination". But the box in this list is a control, and every other
-      checked box here is something the reader put there and can take back.
-      A tick they did not make and cannot clear is the one state a checkbox
-      must not have: it says "selected" about a row that is not part of the
-      selection, and the footer's count — which excludes these — then
-      disagrees with what is on screen.
-    */
-    if (row.disabled) return "off";
     if (ticked.has(row.id)) return "on";
     const kids = kidsOf(row);
     return kids.some((k) => ticked.has(k)) ? "some" : "off";
   };
 
+  /** Everything the destination held when the picker opened. */
+  const here = React.useMemo(() => presentIds(groups), [groups]);
+
   /*
-   * The split, computed once at commit from the ticks alone.
+   * The DIFF, computed once at commit from the ticks alone.
    *
    * No mode, no toggle, no second question: the shape of the selection IS
-   * the instruction. A parent in `parents` keeps its ticked children and
-   * drops the rest; a child whose parent went untouched comes back in
-   * `loose` for the caller to place on its own.
+   * the instruction, and since the ticks start as the destination's own
+   * contents, the difference between them and what is ticked now is the
+   * whole errand. A parent in `parents` arrives and keeps its ticked
+   * children; a child whose parent went untouched comes back in `loose` to
+   * be placed on its own; a child ticked under a parent that is already
+   * there is a `fill`; and anything that WAS there and is not ticked now
+   * is a `remove`.
    */
   const result = (): AddPickerResult => {
     const parents: AddPickerResult["parents"] = [];
     const loose: string[] = [];
+    const fill: AddPickerResult["fill"] = [];
+    const remove: string[] = [];
     const claimed = new Set<string>();
     for (const g of groups) {
       for (const row of g.rows) {
-        const kids = kidsOf(row);
-        if (!childrenOnly && !row.disabled && ticked.has(row.id)) {
-          const addableKids = (row.children ?? []).filter((k) => !k.disabled);
+        const kids = row.children ?? [];
+        if (childrenOnly) {
+          /*
+           * The destination itself: not a row being added, a container
+           * whose contents the ticks under it describe.
+           */
+          if (row.id === self) {
+            for (const k of kids) {
+              claimed.add(k.id);
+              if (k.present && !ticked.has(k.id)) remove.push(k.id);
+              else if (!k.present && ticked.has(k.id))
+                fill.push({ id: k.id, parentId: row.id });
+            }
+            continue;
+          }
+          /*
+           * A childless product, demoted into the row — the same move
+           * dragging it there performs, and the same verb behind it.
+           */
+          if (row.leaf) {
+            if (row.present && !ticked.has(row.id)) remove.push(row.id);
+            else if (!row.present && ticked.has(row.id)) loose.push(row.id);
+          }
+          /*
+           * Anything else is a path. Its children are still tickable and
+           * come back through the sweep below, which is how an L3 moves
+           * from one row to another.
+           */
+          continue;
+        }
+        /*
+         * A row that is already there is never re-placed. The only thing
+         * it can contribute is a change to what hangs under it — plus its
+         * own removal, if the reader cleared the box.
+         */
+        if (row.present) {
+          for (const k of kids) claimed.add(k.id);
+          if (!ticked.has(row.id)) {
+            remove.push(row.id);
+            continue;
+          }
+          for (const k of kids) {
+            if (k.present && !ticked.has(k.id)) remove.push(k.id);
+            else if (!k.present && ticked.has(k.id))
+              fill.push({ id: k.id, parentId: row.id });
+          }
+          continue;
+        }
+        if (ticked.has(row.id)) {
           parents.push({
             id: row.id,
-            keep: addableKids.filter((k) => ticked.has(k.id)).map((k) => k.id),
-            // A child already in the destination is not "dropped" — it is
-            // somewhere else and none of this errand's business.
-            drop: addableKids.filter((k) => !ticked.has(k.id)).map((k) => k.id),
+            keep: kids.filter((k) => ticked.has(k.id)).map((k) => k.id),
+            drop: kids.filter((k) => !ticked.has(k.id)).map((k) => k.id),
           });
-          for (const k of kids) claimed.add(k);
+          for (const k of kids) claimed.add(k.id);
         }
       }
     }
     for (const id of ticked) {
-      if (claimed.has(id)) continue;
+      if (claimed.has(id) || here.has(id)) continue;
       if (productById(id)) continue;
       if (childById(id)) loose.push(id);
     }
-    return { parents, loose };
+    return { parents, loose, fill, remove };
   };
 
-  const count = (() => {
+  /** How many rows arrive, and how many leave — the two halves of the verb. */
+  const [adds, removes] = (() => {
     const r = result();
-    return r.parents.length + r.loose.length;
+    return [r.parents.length + r.loose.length + r.fill.length, r.remove.length];
   })();
+  const count = adds + removes;
 
   /*
    * What the tag field shows: one chip per ROW THAT WILL BE ADDED.
@@ -504,6 +623,7 @@ export function AddPicker({
         label: labelForProduct(state, p.id),
       })),
       ...r.loose.map((id) => ({ id, label: labelForProduct(state, id) })),
+      ...r.fill.map((f) => ({ id: f.id, label: labelForProduct(state, f.id) })),
     ];
   })();
 
@@ -527,8 +647,21 @@ export function AddPicker({
    * sentence, and at zero it is the label the control will have once you
    * tick something rather than a status line reading "Nothing selected".
    */
+  /*
+   * And a tick can now take something OUT, which the verb has to survive.
+   *
+   * "Add 3 products" over a selection that also drops one is a lie, and
+   * naming both halves — "Add 3, remove 1" — gets wide enough to wrap in a
+   * 248px footer for a sentence nobody reads twice. So the count stays on
+   * the pure-add path, where it is the whole story, and anything with a
+   * removal in it falls back to one neutral verb. Ashwin, Oct 23.
+   */
   const addLabel =
-    count > 1 ? `Add ${count} products` : count === 1 ? "Add product" : "Add product";
+    removes > 0
+      ? "Update products"
+      : adds > 1
+        ? `Add ${adds} products`
+        : "Add product";
 
   const Box = ({ state: s }: { state: "on" | "off" | "some" }) => (
     <span
@@ -567,6 +700,26 @@ export function AddPicker({
         className="motion-panel-in fixed z-[71] flex max-h-[420px] flex-col rounded-[10px] bg-nav shadow-[0_12px_32px_0_var(--fly-shadow),inset_0_0_0_1px_var(--fly-border)]"
       >
         {/*
+          Where these rows are going, said once at the top.
+
+          The destination was only in the placeholder, which disappears the
+          moment anybody types — so the one fact that changes what the Add
+          button DOES was the first thing to leave the screen. Four entry
+          points reach this picker and three of them look identical once it
+          is open; the header is what tells them apart. Ashwin, Oct 23.
+
+          `title` is already contextual at every call site: the category for
+          a category's menu or the seam between its rows, the row itself for
+          a row's menu or the seam between its items, and the nav for the
+          dashed row at the foot. The header just stops hiding it.
+        */}
+        <div className="shrink-0 px-[10px] pt-[10px] pb-[2px]">
+          <p className="truncate text-[12px] leading-[16px] font-medium text-nav-fg-subtle">
+            Adding to {title}
+          </p>
+        </div>
+
+        {/*
           A FIELD, not a row that happens to hold an input.
 
           It read as a title with a magnifier beside it — nothing said it
@@ -574,7 +727,7 @@ export function AddPicker({
           height and a fill are what make a text input look like one, and
           this is the control the whole picker depends on at 150 rows.
         */}
-        <div className="shrink-0 px-[8px] pt-[8px] pb-[6px]">
+        <div className="shrink-0 px-[8px] pt-[6px] pb-[6px]">
           <div className="flex h-[32px] items-center gap-[7px] rounded-[7px] px-[8px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]">
             <Search
               size={14}
@@ -614,15 +767,6 @@ export function AddPicker({
           {shown.map((g) => {
             const CatIcon = g.icon;
             const open = catOpen(g.id);
-            /*
-              Everything in here is already in the destination.
-
-              Greyed, not removed, and still expandable: "disable the whole
-              Reporting option" is the ask, and being able to open it is how
-              a reader confirms WHY it is disabled rather than taking the
-              nav's word for it. Ashwin, Oct 21.
-            */
-            const spent = allAdded(g.rows);
             return (
               <div key={g.id}>
                 {/*
@@ -645,11 +789,7 @@ export function AddPicker({
                       return next;
                     })
                   }
-                  className={cn(
-                    ROW,
-                    "w-full pr-[2px] pl-[8px]",
-                    spent && "opacity-45",
-                  )}
+                  className={cn(ROW, "w-full pr-[2px] pl-[8px]")}
                 >
                   {CatIcon ? (
                     <CatIcon size={ROW_ICON} className="shrink-0 text-nav-fg-muted" />
@@ -675,11 +815,16 @@ export function AddPicker({
                     aria-hidden="true"
                     className="flex size-[24px] shrink-0 items-center justify-center text-nav-fg-subtle"
                   >
-                    {open ? (
-                      <ChevronDown size={13} />
-                    ) : (
-                      <ChevronRight size={13} />
-                    )}
+                    {/*
+                      Down when shut, up when open — Ashwin, Oct 23.
+
+                      A right chevron promises a submenu beside the row,
+                      which is exactly what this picker replaced. The list
+                      opens UNDER the row, so the glyph points at where the
+                      rows will appear and then reverses to point at the way
+                      back.
+                    */}
+                    {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                   </span>
                 </button>
 
@@ -688,6 +833,16 @@ export function AddPicker({
                       const st = parentState(row);
                       const RowIcon = row.icon;
                       const kidsOpen = rowOpen(row.id);
+                      /*
+                       * Does this row carry a box, or is it just the path?
+                       *
+                       * Into a list, every row does. Into another ROW, only
+                       * the ones the store can actually file there: not the
+                       * destination itself, and not a product with children
+                       * under it. See `childrenOnly`.
+                       */
+                      const boxed =
+                        !childrenOnly || (row.id !== self && row.leaf === true);
                       return (
                         <React.Fragment key={row.id}>
                           <div
@@ -697,25 +852,19 @@ export function AddPicker({
                             <button
                               type="button"
                               onClick={() =>
-                                childrenOnly
-                                  ? setOpenRows((prev) => {
+                                boxed
+                                  ? toggleRow(row)
+                                  : setOpenRows((prev) => {
                                       const next = new Set(prev);
                                       if (next.has(row.id)) next.delete(row.id);
                                       else next.add(row.id);
                                       return next;
                                     })
-                                  : toggleRow(row)
                               }
-                              {...(childrenOnly ? {} : { "aria-pressed": st === "on" })}
-                              disabled={!childrenOnly && row.disabled}
-                              className={cn(
-                                ROW,
-                                "min-w-0 flex-1 px-[8px]",
-                                row.disabled && "opacity-45",
-                                row.disabled && !childrenOnly && "cursor-not-allowed",
-                              )}
+                              {...(boxed ? { "aria-pressed": st === "on" } : {})}
+                              className={cn(ROW, "min-w-0 flex-1 px-[8px]")}
                             >
-                              {childrenOnly ? null : <Box state={st} />}
+                              {boxed ? <Box state={st} /> : null}
                               {RowIcon ? (
                                 <RowIcon size={ROW_ICON} className="shrink-0 text-nav-fg-muted" />
                               ) : null}
@@ -747,9 +896,9 @@ export function AddPicker({
                                 className="motion-tap flex size-[24px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
                               >
                                 {kidsOpen ? (
-                                  <ChevronDown size={13} aria-hidden="true" />
+                                  <ChevronUp size={13} aria-hidden="true" />
                                 ) : (
-                                  <ChevronRight size={13} aria-hidden="true" />
+                                  <ChevronDown size={13} aria-hidden="true" />
                                 )}
                               </button>
                             ) : (
@@ -763,23 +912,12 @@ export function AddPicker({
                                   <button
                                     key={kid.id}
                                     type="button"
-                                    onClick={() => toggleChild(kid.id, kid.disabled)}
-                                    aria-pressed={!kid.disabled && ticked.has(kid.id)}
-                                    disabled={kid.disabled}
-                                    className={cn(
-                                      ROW,
-                                      "w-full pr-[34px]",
-                                      kid.disabled && "cursor-not-allowed opacity-45",
-                                    )}
+                                    onClick={() => toggleChild(kid.id)}
+                                    aria-pressed={ticked.has(kid.id)}
+                                    className={cn(ROW, "w-full pr-[34px]")}
                                     style={{ paddingLeft: INDENT * 2 + 8 }}
                                   >
-                                    <Box
-                                      state={
-                                        !kid.disabled && ticked.has(kid.id)
-                                          ? "on"
-                                          : "off"
-                                      }
-                                    />
+                                    <Box state={ticked.has(kid.id) ? "on" : "off"} />
                                     {KidIcon ? (
                                       <KidIcon size={ROW_ICON} className="shrink-0 text-nav-fg-muted" />
                                     ) : null}

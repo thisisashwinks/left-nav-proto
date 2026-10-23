@@ -377,7 +377,7 @@ export function FlyoutPanel({
      * Fill a ROW rather than the panel, when the picker was opened from one.
      *
      * Absent for the panel's own plus, which adds an L2. Present for a
-     * product's "Add an item", which is the only way back into a row whose
+     * product's "Add a product", which is the only way back into a row whose
      * children have all been moved out — see `lostAllChildren`. Same
      * popover, same options, different destination.
      */
@@ -600,6 +600,28 @@ export function FlyoutPanel({
                     dragTypes={dragTypes}
                     accepts={[L3_MIME]}
                     onDrop={(id) => dropChildAt(id, parentId, index)}
+                    /*
+                      A plus between the L3s too — Ashwin, Oct 23.
+
+                      The seams here could already RECEIVE a drop and could
+                      not start one, so the only way to put a row at a
+                      particular place in a child list was to add it
+                      somewhere and drag it. The L2 seams have carried a plus
+                      since they shipped; this is the same control one rung
+                      down, with the parent row as the destination.
+                    */
+                    onAdd={(trigger) =>
+                      setAdding({
+                        index,
+                        anchor: trigger.getBoundingClientRect(),
+                        parentId,
+                        host:
+                          trigger
+                            .closest('[role="dialog"]')
+                            ?.getBoundingClientRect() ?? null,
+                      })
+                    }
+                    addLabel="Add a product here"
                     // 1px, not the seam's own 2: the child list sets its rows
                     // a pixel apart, and a seam that pulls two would close a
                     // gap that is not there.
@@ -1019,7 +1041,7 @@ export function FlyoutPanel({
               It is the outline of a row that does not exist yet, which is
               why it is not filled.
             */
-            "text-nav-fg-subtle outline-1 outline-dashed outline-[var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg"
+            "text-nav-fg-subtle outline-1 outline-dashed outline-[var(--hr-gray-300)] hover:bg-nav-hover hover:text-nav-fg"
           : /*
               The rail's "Create sub-account" row: a glyph, a label, and
               nothing else. No outline, no fill.
@@ -1050,7 +1072,7 @@ export function FlyoutPanel({
 
   /*
     `childrenOnly` and `addChildActions` lived here until Oct 21 — the
-    pruned tree and the cascading menu that "Add an item" used to open.
+    pruned tree and the cascading menu that "Add a product" used to open.
     `AddPicker` carries both now, behind its own `childrenOnly` flag, so the
     two adds in this panel cannot drift into disagreeing about what adding
     looks like.
@@ -1102,10 +1124,23 @@ export function FlyoutPanel({
         }
         dropRowAt(id, index);
       }}
+      /*
+        Over the panel the seam is in, not the sidebar.
+
+        `host` is what the picker centres on — without it the popover
+        measured the nav and opened a column to the left of the list it was
+        adding to, which reads as a surface that has lost its parent. Every
+        other way into this picker already passes it. Ashwin, Oct 23.
+      */
       onAdd={(trigger) =>
-        setAdding({ index, anchor: trigger.getBoundingClientRect() })
+        setAdding({
+          index,
+          anchor: trigger.getBoundingClientRect(),
+          host:
+            trigger.closest('[role="dialog"]')?.getBoundingClientRect() ?? null,
+        })
       }
-      addLabel="Add an item here"
+      addLabel="Add a product here"
       // The rows sit on the nav's own 2px now, so the seam cancels that
       // instead — its default. Reach stays wider than the nav's: the panel is
       // 360px and a seam you have to hit within 8px of is a seam you miss.
@@ -1286,7 +1321,7 @@ export function FlyoutPanel({
     const canMove = category !== undefined && at !== -1;
 
     /*
-      Add an item — the way back into a row you emptied.
+      Add a product — the way back into a row you emptied.
 
       Prepended to the shared builder's output rather than added inside it,
       because it only means something where there is a panel to open the
@@ -1311,7 +1346,7 @@ export function FlyoutPanel({
         ? [
             {
               id: "add-child",
-              label: "Add an item",
+              label: "Add a product",
               icon: Plus,
               onSelect: () =>
                 setAdding({
@@ -2080,7 +2115,7 @@ export function FlyoutPanel({
         at both depths in one pass and lets the ticks say the structure: see
         `AddPicker`.
 
-        The row-level "Add an item" keeps the cascading menu for now. Its
+        The row-level "Add a product" keeps the cascading menu for now. Its
         destination is a single parent, so there is no level to choose and
         nothing for the checkboxes to disambiguate.
       */}
@@ -2104,7 +2139,12 @@ export function FlyoutPanel({
               performs.
             */
             let at = adding.index;
+            // Hidden is how this nav removes, so placing lifts the flag.
+            const show = (id: string) => {
+              if (layout.isRowHidden(id)) layout.toggleRowHidden(id);
+            };
             for (const parent of picked.parents) {
+              show(parent.id);
               if (childById(parent.id))
                 layout.moveChildToGroup(parent.id, category.id, at);
               else layout.addProductToGroup(parent.id, category.id, at);
@@ -2112,16 +2152,30 @@ export function FlyoutPanel({
               at += 1;
             }
             for (const id of picked.loose) {
+              show(id);
               layout.moveChildToGroup(id, category.id, at);
               at += 1;
             }
+            /*
+              A tick can also take something OUT now — see `AddPicker`.
+
+              Hidden rather than deleted, which is the same "leave it out"
+              the row's own eye performs, so Undo and the toast both work on
+              it and nothing the picker does is one-way.
+            */
+            for (const f of picked.fill) {
+              show(f.id);
+              layout.moveChildToProduct(f.id, f.parentId);
+            }
+            for (const id of picked.remove)
+              if (!layout.isRowHidden(id)) layout.toggleRowHidden(id);
           }}
           onClose={() => setAdding(null)}
         />
       ) : null}
 
       {/*
-        "Add an item" opens the SAME picker — Ashwin, Oct 21.
+        "Add a product" opens the SAME picker — Ashwin, Oct 21.
 
         It used the cascading menu, which meant the two adds in this panel
         disagreed about what adding looks like depending on which one you
@@ -2137,6 +2191,7 @@ export function FlyoutPanel({
           commit={addPickerCommit}
           centreOn={adding.host ?? null}
           childrenOnly
+          self={adding.parentId}
           // Already an item of this row — the "Smart lists is already in
           // Contacts" case, greyed in place rather than silently absent.
           added={(id: string) => {
@@ -2145,8 +2200,21 @@ export function FlyoutPanel({
             return childrenFor(layout.state, parentId).some((c) => c.id === id);
           }}
           onCommit={(picked: AddPickerResult) => {
-            for (const id of picked.loose)
+            const show = (id: string) => {
+              if (layout.isRowHidden(id)) layout.toggleRowHidden(id);
+            };
+            for (const id of picked.loose) {
+              show(id);
               layout.moveChildToProduct(id, adding.parentId!);
+            }
+            for (const f of picked.fill) {
+              show(f.id);
+              layout.moveChildToProduct(f.id, f.parentId);
+            }
+            // Unticking an item that IS in this row takes it back out —
+            // hidden, the way the row's own eye does it.
+            for (const id of picked.remove)
+              if (!layout.isRowHidden(id)) layout.toggleRowHidden(id);
           }}
           onClose={() => setAdding(null)}
         />
