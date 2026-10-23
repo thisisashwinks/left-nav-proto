@@ -6,7 +6,7 @@ import { RotateCcw, Search } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { cn } from "@/lib/utils";
-import { searchIcons } from "./icon-catalogue";
+import { ICON_CATALOGUE, searchIcons } from "./icon-catalogue";
 
 /**
  * Popover geometry. 7 columns of ~30px tiles, the 10px left inset, and the
@@ -32,7 +32,10 @@ export function IconPicker({
   onReset,
   onClose,
 }: {
-  /** The trigger's rect, in viewport coordinates. */
+  /**
+   * Where it hangs, in viewport coordinates: below (or above) this rect's
+   * edges, centred across its width. See `useIconPicker`.
+   */
   anchor: DOMRect;
   selected: string | undefined;
   onPick: (iconName: string) => void;
@@ -55,7 +58,34 @@ export function IconPicker({
    */
   const gridRef = React.useRef<HTMLDivElement>(null);
   useScrollEdges(gridRef);
-  const { icons: results, hidden } = searchIcons(query);
+  const { icons: found, hidden } = searchIcons(query);
+  /*
+   * The current icon is always in the grid, and always in view on open.
+   *
+   * The list draws its first 240 of about 1,750, so an icon chosen from a
+   * search could sit past the cut — and even one inside it was usually below
+   * the fold, which left you scrolling to find out what the row already had.
+   * Past the cut it leads the list (only with no query: a search shows what
+   * it matched); otherwise it stays in place and the grid scrolls to it.
+   * Ashwin, Oct 23.
+   */
+  const results =
+    !query.trim() && selected && !found.some((i) => i.name === selected)
+      ? [
+          ...ICON_CATALOGUE.filter((i) => i.name === selected),
+          ...found,
+        ]
+      : found;
+  React.useLayoutEffect(() => {
+    const grid = gridRef.current;
+    const tile = grid?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!grid || !tile) return;
+    // Centred in the grid, measured against it rather than with
+    // `scrollIntoView`, which would also scroll whatever is behind the panel.
+    grid.scrollTop =
+      tile.offsetTop - grid.offsetTop - (grid.clientHeight - tile.offsetHeight) / 2;
+    // On open only: scrolling back to it on every keystroke would fight the search.
+  }, []);
   // Portalling to the body puts the panel outside every [data-nav-theme] scope,
   // so all of --nav-* and --fly-* resolve to nothing and the panel paints with no
   // background at all. It has to carry the nav surface with it.
@@ -79,8 +109,9 @@ export function IconPicker({
   const top = flip
     ? Math.max(8, anchor.top - estimatedHeight - GAP)
     : anchor.bottom + GAP;
+  // Centred on the anchor, which `useIconPicker` widens to the whole surface.
   const left = Math.min(
-    Math.max(8, anchor.left),
+    Math.max(8, anchor.left + anchor.width / 2 - WIDTH / 2),
     Math.max(8, window.innerWidth - WIDTH - 8),
   );
 
@@ -236,7 +267,25 @@ export function useIconPicker() {
     targetId,
     open: (target: string, el: HTMLElement) => {
       setTargetId(target);
-      setAnchor(el.getBoundingClientRect());
+      /*
+       * The row's height, the surface's width.
+       *
+       * Hung off the trigger's own left edge, the picker started at whatever
+       * x the kebab or glyph happened to sit at and ran off the side of the
+       * column into the page. Centred on the surface that opened it instead —
+       * the nav for an L1 row, the flyout for its L2s and L3s — it reads as
+       * that column's own panel and lands in the same place every time.
+       * Ashwin, Oct 23.
+       */
+      const row = el.getBoundingClientRect();
+      const surface = (
+        el.closest('[role="dialog"]') ?? el.closest("[data-nav-root]")
+      )?.getBoundingClientRect();
+      setAnchor(
+        surface
+          ? new DOMRect(surface.left, row.top, surface.width, row.height)
+          : row,
+      );
     },
     close: () => {
       setTargetId(null);

@@ -131,6 +131,15 @@ interface AiWindowProps {
    * and a builder with no bar to clear. See AI_DOCK_TOPS.
    */
   dockBox?: { top: string; bottom: string; left?: string };
+  /**
+   * The edit-mode scrim's class, while the nav is being edited.
+   *
+   * The page's own veil sits at z-5 and this window at z-40, so the panel
+   * stayed at full strength over a dimmed screen and read as part of what
+   * was being edited. It is not — it steps back with the canvas, by the same
+   * amount. Pointer-events still pass, as they do on the page. Ashwin, Oct 23.
+   */
+  veil?: string;
 }
 
 export function AiWindow({
@@ -141,6 +150,7 @@ export function AiWindow({
   onModeChange,
   canFloat = false,
   dockBox,
+  veil,
 }: AiWindowProps) {
   const docked = mode === "docked";
   /*
@@ -625,6 +635,15 @@ export function AiWindow({
             </>
           )}
         </div>
+        {veil ? (
+          <div
+            aria-hidden="true"
+            className={cn(
+              "motion-fade-in pointer-events-none absolute inset-0 z-20",
+              veil,
+            )}
+          />
+        ) : null}
       </div>
     </div>
   );

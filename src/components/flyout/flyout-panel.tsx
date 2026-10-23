@@ -1059,7 +1059,7 @@ export function FlyoutPanel({
       ) : (
         <CirclePlus size={18} aria-hidden="true" className="shrink-0" />
       )}
-      Add product
+      Add a product
     </button>
   ) : null;
 
@@ -2139,16 +2139,41 @@ export function FlyoutPanel({
               performs.
             */
             let at = adding.index;
-            // Hidden is how this nav removes, so placing lifts the flag.
+            /*
+              The three things a commit can do to a row, each by the verb
+              that rung already owns.
+
+              `show` lifts a hide, because a row taken out by the eye has to
+              come back when it is ticked again.
+
+              `strike` is the one that had to change — Ashwin, Oct 23. It
+              hid, and hiding is not removing: the row stayed in edit mode,
+              faded, with an eye beside it, which is the opposite of what
+              clearing a checkbox says. A PRODUCT now leaves the nav the way
+              its own menu's "Remove from the nav" takes it out, by
+              de-provisioning. A CHILD has no such switch — `enabledProducts`
+              is a list of products — so it goes the only way an L3 can, and
+              the only way its own Remove goes.
+
+              `hide` is for a child of an arriving parent that was left
+              unticked: never in the nav, so there is nothing to remove, and
+              re-hiding something already hidden would un-hide it.
+            */
             const show = (id: string) => {
               if (layout.isRowHidden(id)) layout.toggleRowHidden(id);
+            };
+            const hide = (id: string) => {
+              if (!layout.isRowHidden(id)) layout.toggleRowHidden(id);
+            };
+            const strike = (id: string) => {
+              if (productById(id)) layout.removeProductFromNav(id);
+              else hide(id);
             };
             for (const parent of picked.parents) {
               show(parent.id);
               if (childById(parent.id))
                 layout.moveChildToGroup(parent.id, category.id, at);
               else layout.addProductToGroup(parent.id, category.id, at);
-              for (const drop of parent.drop) layout.toggleRowHidden(drop);
               at += 1;
             }
             for (const id of picked.loose) {
@@ -2156,19 +2181,11 @@ export function FlyoutPanel({
               layout.moveChildToGroup(id, category.id, at);
               at += 1;
             }
-            /*
-              A tick can also take something OUT now — see `AddPicker`.
-
-              Hidden rather than deleted, which is the same "leave it out"
-              the row's own eye performs, so Undo and the toast both work on
-              it and nothing the picker does is one-way.
-            */
             for (const f of picked.fill) {
               show(f.id);
               layout.moveChildToProduct(f.id, f.parentId);
             }
-            for (const id of picked.remove)
-              if (!layout.isRowHidden(id)) layout.toggleRowHidden(id);
+            for (const id of picked.remove) strike(id);
           }}
           onClose={() => setAdding(null)}
         />
@@ -2211,10 +2228,16 @@ export function FlyoutPanel({
               show(f.id);
               layout.moveChildToProduct(f.id, f.parentId);
             }
-            // Unticking an item that IS in this row takes it back out —
-            // hidden, the way the row's own eye does it.
-            for (const id of picked.remove)
-              if (!layout.isRowHidden(id)) layout.toggleRowHidden(id);
+            /*
+              Unticking an item that IS in this row takes it back out, by
+              the same verb its own menu uses — a demoted product leaves the
+              nav, an L3 is hidden, because that is the strongest "remove"
+              each of the two has. See the category picker above.
+            */
+            for (const id of picked.remove) {
+              if (productById(id)) layout.removeProductFromNav(id);
+              else if (!layout.isRowHidden(id)) layout.toggleRowHidden(id);
+            }
           }}
           onClose={() => setAdding(null)}
         />

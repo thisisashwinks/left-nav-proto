@@ -9,6 +9,7 @@ import {
   Eye,
   EyeOff,
   GripVertical,
+  CirclePlus,
   Plus,
   TriangleAlert,
 } from "lucide-react";
@@ -1355,6 +1356,7 @@ export function FlyoutChildRows({
    */
   parentId?: string;
 }) {
+  const { addProductStyle } = useTheme();
   return (
     <div
       className={cn(
@@ -1397,26 +1399,6 @@ export function FlyoutChildRows({
           No items in here yet.
         </p>
       ) : null}
-      {/*
-        Editing, the empty list offers the way out of its own warning.
-
-        The row is marked because everything was moved out of it; this is
-        the control that puts something back, and it belongs here rather
-        than only in the kebab because here is where the reader is looking
-        when they open the row to see what is wrong.
-      */}
-      {nodes.length === 0 && edit?.onAdd && parentId ? (
-        <button
-          type="button"
-          onClick={(e) =>
-            parentId ? edit.onAdd?.(e.currentTarget, parentId) : undefined
-          }
-          className="motion-tap flex h-[32px] w-full items-center gap-[9px] rounded-[7px] px-[8px] text-left text-[13px] leading-[18px] font-medium text-nav-fg-muted outline-1 outline-dashed outline-[var(--hr-gray-300)] hover:bg-nav-hover hover:text-nav-fg"
-        >
-          <Plus size={14} aria-hidden="true" className="shrink-0" />
-          Add product
-        </button>
-      ) : null}
       {nodes.map((child, i) => (
         <React.Fragment key={child.id}>
           {/*
@@ -1438,10 +1420,6 @@ export function FlyoutChildRows({
             tabsInNav={tabsInNav}
             {...(edit ? { edit } : {})}
           />
-          {/* And one after the last, so a row can be moved to the end. */}
-          {edit?.seam && parentId && i === nodes.length - 1
-            ? edit.seam(parentId, nodes.length)
-            : null}
         </React.Fragment>
       ))}
       {/*
@@ -1454,6 +1432,52 @@ export function FlyoutChildRows({
       {edit?.seam && parentId && nodes.length > 0
         ? edit.seam(parentId, nodes.length)
         : null}
+      {/*
+        The way into this list, under it — Ashwin, Oct 23.
+
+        It used to appear only when the list was EMPTY, as the way out of
+        that row's warning. But a reader looking at four items and wanting a
+        fifth was then sent to the kebab, while a reader looking at none had
+        a button right there: the same intention, two different doors,
+        decided by a count. The L1 column has carried its dashed row under
+        every list from the start; this is that row, one rung down.
+      */}
+      {edit?.onAdd && parentId ? (
+        /*
+          The panel's own add row, to the pixel — Ashwin, Oct 23.
+
+          It had been drawn to the L3 ROW's measurements: 32px tall, 13px
+          muted text, a 14px glyph, left-aligned. Sound reasoning for a row
+          and wrong for this, because it is not a row. It is the same empty
+          slot the panel puts under its list, one rung in, and two slots
+          that do the same job in the same panel cannot be two sizes — the
+          difference reads as one of them being broken. So the classes are
+          the panel's, including the axis: the two move together or the
+          control has two answers to what adding looks like.
+        */
+        <button
+          type="button"
+          onClick={(e) =>
+            parentId ? edit.onAdd?.(e.currentTarget, parentId) : undefined
+          }
+          className={cn(
+            "motion-tap flex h-[36px] w-full items-center gap-[10px] rounded-[7px] px-[8px] text-[13.5px] leading-[normal] font-medium outline-none active:scale-[0.99]",
+            addProductStyle === "dashed"
+              ? "justify-center text-center"
+              : "text-left",
+            addProductStyle === "dashed"
+              ? "text-nav-fg-subtle outline-1 outline-dashed outline-[var(--hr-gray-300)] hover:bg-nav-hover hover:text-nav-fg"
+              : "text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg",
+          )}
+        >
+          {addProductStyle === "dashed" ? (
+            <Plus size={16} aria-hidden="true" className="shrink-0" />
+          ) : (
+            <CirclePlus size={18} aria-hidden="true" className="shrink-0" />
+          )}
+          Add a product
+        </button>
+      ) : null}
     </div>
   );
 }

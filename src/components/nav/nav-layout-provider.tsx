@@ -1654,9 +1654,19 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
 
       placeAtL1: (rowId, index) =>
         commit(placeInTailMessage(state, rowId), (s) => {
+          /*
+            Provisioned first, then unfiled.
+
+            A row removed from the nav is de-provisioned, and `l1IdsFor`
+            resolves through `enabledProducts` — so placing it back at the
+            top level wrote an id into `groupOrder` that every read then
+            dropped, and the row simply never appeared. The same five-list
+            failure as always. `withProduct` is a no-op for an id that is
+            not a product, so chrome places and children are unaffected.
+          */
           // Out of its category, its old parent and the top level alike —
           // one helper, so no record is left claiming it. See withRowDetached.
-          const unfiled = withRowDetached(s, rowId);
+          const unfiled = withRowDetached(withProduct(s, rowId, true), rowId);
           const current = l1IdsFor(unfiled, resolveGroups(unfiled), chromeL1);
           const without = current.filter((id) => id !== rowId);
           const at = Math.max(0, Math.min(index, without.length));

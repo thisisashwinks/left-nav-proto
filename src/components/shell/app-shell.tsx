@@ -4881,6 +4881,8 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
           canFloat={aiFloating}
           /* Docked and beside the canvas — see `aiBesideCanvas`. */
           {...(aiCanvasBox ? { dockBox: aiCanvasBox } : {})}
+          /* Steps back with the page while the nav is edited. */
+          {...(layout.editing ? { veil: editScrim } : {})}
         />
       ) : null}
 

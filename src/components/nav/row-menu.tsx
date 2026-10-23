@@ -357,7 +357,7 @@ export function RowMenu({
             ) : (
               <p
                 aria-hidden="true"
-                className="shrink-0 truncate px-[6px] pt-[3px] pb-[5px] text-[11px] leading-[13px] font-semibold tracking-[0.5px] text-nav-fg-subtle uppercase"
+                className="shrink-0 truncate px-[6px] pt-[3px] pb-[5px] text-[12px] leading-[16px] font-medium text-[var(--hr-gray-500)]"
               >
                 {open.label}
               </p>
@@ -465,7 +465,7 @@ export function RowMenu({
           <>
             <p
               aria-hidden="true"
-              className="shrink-0 truncate px-[6px] pt-[3px] pb-[5px] text-[11px] leading-[13px] font-semibold tracking-[0.5px] text-nav-fg-subtle uppercase"
+              className="shrink-0 truncate px-[6px] pt-[3px] pb-[5px] text-[12px] leading-[16px] font-medium text-[var(--hr-gray-500)]"
             >
               {title}
             </p>

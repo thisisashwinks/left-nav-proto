@@ -179,7 +179,7 @@ import {
   TemplateMessageTitle,
   TemplateToast,
 } from "./template-message";
-import { childById } from "./catalogue";
+import { childById, productById } from "./catalogue";
 import { iconByName, nameForIcon } from "./icon-catalogue";
 import type { NavConfig, NavEntry, NavItem } from "./types";
 
@@ -5653,6 +5653,9 @@ export function LeftNav({
               needs a verb of its own.
             */
             const into = picking.groupId;
+            const hide = (id: string) => {
+              if (!layout.isRowHidden(id)) layout.toggleRowHidden(id);
+            };
             const land = (id: string, index: number) => {
               // Taken out of here earlier means hidden, not gone — so
               // putting it back has to lift the flag as well as place it.
@@ -5666,26 +5669,29 @@ export function LeftNav({
             };
             for (const parent of picked.parents) {
               land(parent.id, at);
-              for (const drop of parent.drop) layout.toggleRowHidden(drop);
               at += 1;
             }
             for (const id of picked.loose) {
               land(id, at);
               at += 1;
             }
-            /*
-              A tick can also take something OUT now — see `AddPicker`.
-
-              Hidden rather than deleted, which is the same "leave it out"
-              the row's own eye performs, so Undo and the toast both work on
-              it and nothing the picker does is one-way.
-            */
             for (const f of picked.fill) {
               if (layout.isRowHidden(f.id)) layout.toggleRowHidden(f.id);
               layout.moveChildToProduct(f.id, f.parentId);
             }
-            for (const id of picked.remove)
-              if (!layout.isRowHidden(id)) layout.toggleRowHidden(id);
+            /*
+              Unticking takes a row OUT, and out means out — Ashwin, Oct 23.
+
+              Hiding left it in edit mode, faded, with an eye beside it,
+              which reads as "still here, just dimmed" over a box the reader
+              has just cleared. A product de-provisions, the way its own
+              "Remove from the nav" does it; a child has no such switch and
+              goes the only way an L3 can.
+            */
+            for (const id of picked.remove) {
+              if (productById(id)) layout.removeProductFromNav(id);
+              else hide(id);
+            }
           }}
           onClose={() => {
             setPicking(null);

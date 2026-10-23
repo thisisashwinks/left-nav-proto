@@ -766,7 +766,7 @@ export function EditMoreMenu({
     if (menuShape === "list-first") {
       return (
         <>
-          <span className="mb-[4px] block px-[7px] pt-[3px] text-[10.5px] leading-[14px] font-semibold tracking-[0.5px] text-nav-fg-subtle uppercase">
+          <span className="mb-[4px] block px-[7px] pt-[3px] text-[12px] leading-[16px] font-medium text-[var(--hr-gray-500)]">
             Navigation layouts
           </span>
           {/*

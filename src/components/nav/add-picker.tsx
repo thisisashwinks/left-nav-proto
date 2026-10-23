@@ -53,6 +53,9 @@ import { iconForChildLabel } from "./l3-icons";
 
 const GAP = 4;
 
+/** The proposed tree's Settings bucket, which the picker never offers. */
+const SETTINGS_BUCKET_ID = "ia-settings";
+
 /*
  * ONE row, at every rung — Ashwin, Oct 21.
  *
@@ -118,8 +121,8 @@ interface PickRow {
 
 /** What a commit hands back — already split by the rule above. */
 export interface AddPickerResult {
-  /** Parents to add, each with the children that stayed ticked. */
-  parents: { id: string; keep: string[]; drop: string[] }[];
+  /** Parents to add, each with the items that come with it. */
+  parents: { id: string; keep: string[] }[];
   /** Children to add on their own, parentless. */
   loose: string[];
   /**
@@ -154,6 +157,16 @@ function rowsFor(
 ): { id: string; label: string; icon: PickRow["icon"]; rows: PickRow[] }[] {
   const { categories } = stockTreeFor(state);
   return categories
+    /*
+     * Settings is not a shelf you take rows off — Ashwin, Oct 23.
+     *
+     * It is the nav's own footer: one fixed entry, below the list, that
+     * every account has and nobody files. Its products are the pages behind
+     * that entry, so offering them here invited an admin to add Business
+     * profile as a top-level row beside CRM — a place the breadcrumb, the
+     * search and Settings itself would all still claim was under Settings.
+     */
+    .filter((c) => c.id !== SETTINGS_BUCKET_ID)
     .map((c) => ({
       id: c.id,
       label: c.label,
@@ -461,16 +474,6 @@ export function AddPicker({
   const kidsOf = (row: PickRow) => (row.children ?? []).map((k) => k.id);
 
   const toggleRow = (row: PickRow) => {
-    /*
-     * Ticking a row opens it — Ashwin, Oct 23.
-     *
-     * The tick takes the children with it, and a reader who cannot see
-     * that happen has to take the footer's count on faith. Opening is not
-     * the same as forcing it open: the chevron still closes it, and
-     * unticking leaves whatever state the reader left behind.
-     */
-    if (!ticked.has(row.id) && (row.children?.length ?? 0) > 0)
-      setOpenRows((prev) => new Set(prev).add(row.id));
     setTicked((prev) => {
       const next = new Set(prev);
       const kids = kidsOf(row);
@@ -494,6 +497,23 @@ export function AddPicker({
       return next;
     });
   };
+
+  /*
+   * A row that is arriving takes ALL of its items with it — Ashwin, Oct 23.
+   *
+   * The children of a newly ticked parent are checked and locked: adding
+   * CRM › Contacts means adding Contacts, not a form for composing a
+   * partial Contacts. A reader who wants one page on its own unticks the
+   * parent, which releases every child, and ticks the page. Two whole
+   * states, each legible from the boxes alone, instead of one state with a
+   * hidden rule about which ticks still mean something.
+   *
+   * It does not apply to a parent that is already in the destination. There
+   * the ticks are not a selection being composed, they are a picture of
+   * what the row currently holds, and clearing one is a removal the reader
+   * asked for by name.
+   */
+  const lockedUnder = (row: PickRow) => !row.present && ticked.has(row.id);
 
   const toggleChild = (id: string) => {
     setTicked((prev) => {
@@ -583,11 +603,10 @@ export function AddPicker({
           continue;
         }
         if (ticked.has(row.id)) {
-          parents.push({
-            id: row.id,
-            keep: kids.filter((k) => ticked.has(k.id)).map((k) => k.id),
-            drop: kids.filter((k) => !ticked.has(k.id)).map((k) => k.id),
-          });
+          // Everything under it rides along — see `lockedUnder`. Nothing is
+          // dropped any more, because nothing under a ticked parent can be
+          // unticked to drop it.
+          parents.push({ id: row.id, keep: kids.map((k) => k.id) });
           for (const k of kids) claimed.add(k.id);
         }
       }
@@ -714,7 +733,7 @@ export function AddPicker({
           dashed row at the foot. The header just stops hiding it.
         */}
         <div className="shrink-0 px-[10px] pt-[10px] pb-[2px]">
-          <p className="truncate text-[12px] leading-[16px] font-medium text-nav-fg-subtle">
+          <p className="truncate text-[12px] leading-[16px] font-medium text-[var(--hr-gray-500)]">
             Adding to {title}
           </p>
         </div>
@@ -908,13 +927,29 @@ export function AddPicker({
                           {kidsOpen
                             ? (row.children ?? []).map((kid) => {
                                 const KidIcon = kid.icon;
+                                const locked = lockedUnder(row);
                                 return (
                                   <button
                                     key={kid.id}
                                     type="button"
-                                    onClick={() => toggleChild(kid.id)}
+                                    onClick={() =>
+                                      locked ? undefined : toggleChild(kid.id)
+                                    }
                                     aria-pressed={ticked.has(kid.id)}
-                                    className={cn(ROW, "w-full pr-[34px]")}
+                                    disabled={locked}
+                                    /*
+                                      Checked AND dimmed, which is the one
+                                      place that pairing is honest: the tick
+                                      is true — this item IS going — and the
+                                      control is off because the row above
+                                      is what decides it. Unticking that row
+                                      hands every box back.
+                                    */
+                                    className={cn(
+                                      ROW,
+                                      "w-full pr-[34px]",
+                                      locked && "cursor-not-allowed opacity-45",
+                                    )}
                                     style={{ paddingLeft: INDENT * 2 + 8 }}
                                   >
                                     <Box state={ticked.has(kid.id) ? "on" : "off"} />
