@@ -291,6 +291,20 @@ interface NavLayoutContextValue {
   /** Switches one category or row off, or back on. */
   toggleRowHidden: (id: string) => void;
   /**
+   * Folds every step since `from` into ONE undo offer, under one sentence.
+   *
+   * For a batch whose steps each have a true but useless name. The picker
+   * places six rows through six verbs, and the single undo slot ended up
+   * holding whichever ran last — so an errand the reader would describe as
+   * "I added six products" announced itself as "Moved Triggers out of
+   * Automation", and Undo took back one sixth of it.
+   *
+   * The steps still commit one at a time, because that is where the store's
+   * rules live. This rewrites the offer they leave behind. Pass the layout
+   * as it stood BEFORE the first step — `state` at the top of the handler.
+   */
+  collapseUndo: (message: string, from: NavLayoutState) => void;
+  /**
    * Hides or shows every row in a category at once.
    *
    * One commit, so "hide all" is one undo — twelve eyes clicked one at a time
@@ -483,6 +497,19 @@ type Action =
       /** Switches that are not user-visible edits, so they offer no undo. */
       silent?: boolean;
     }
+  /**
+   * Folds the steps since `from` into ONE offer, under one sentence.
+   *
+   * A commit per step is right for a drag and wrong for a batch. The picker
+   * places six rows and each one replaced the offer in the single undo slot,
+   * so the toast ended up narrating whichever step happened to be last —
+   * "Moved Triggers out of Automation" after an errand the reader would
+   * describe as "I added six products". Undo then took back one sixth of it.
+   *
+   * The steps still commit individually, because that is where the store's
+   * rules live; this rewrites the OFFER they left behind. Ashwin, Oct 23.
+   */
+  | { type: "collapse"; message: string; from: NavLayoutState }
   | { type: "undo" }
   | { type: "dismiss" }
   /** Opens edit mode and takes the baseline. */
@@ -571,6 +598,20 @@ function reducer(store: Store, action: Action): Store {
         editDirty: false,
         undoOffer: null,
       };
+    case "collapse": {
+      // Nothing moved — no offer to make, and no toast for an errand that
+      // turned out to be empty.
+      if (action.from === store.layout) return store;
+      return {
+        ...store,
+        undoOffer: {
+          id: store.nextOfferId,
+          message: action.message,
+          restore: action.from,
+        },
+        nextOfferId: store.nextOfferId + 1,
+      };
+    }
     case "undo":
       return store.undoOffer
         ? { ...store, layout: store.undoOffer.restore, undoOffer: null }
@@ -1863,6 +1904,9 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       // a baseline exists.
       isRowHidden: (id) => isRowHidden(state, id),
       isRowHiddenDeep: (id) => isRowHiddenDeep(state, resolveGroups(state), id),
+
+      collapseUndo: (message, from) =>
+        dispatch({ type: "collapse", message, from }),
 
       toggleRowHidden: (id) => {
         const hiding = !isRowHidden(state, id);

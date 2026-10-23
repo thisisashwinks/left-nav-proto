@@ -85,7 +85,11 @@ import {
 import { RowSeam } from "./row-seam";
 import { IconPicker, useIconPicker } from "./icon-picker";
 import { useNavLayout } from "./nav-layout-provider";
-import { AddPicker, type AddPickerResult } from "./add-picker";
+import {
+  AddPicker,
+  pickerToast,
+  type AddPickerResult,
+} from "./add-picker";
 import { RowMenu, useRowMenu, type RowMenuAction } from "./row-menu";
 import { DeleteGroupDialog } from "./delete-group-dialog";
 import { DiscardEditsDialog } from "./discard-edits-dialog";
@@ -5637,6 +5641,7 @@ export function LeftNav({
               : "the nav"
           }
           onCommit={(picked: AddPickerResult) => {
+            const before = layout.state;
             /*
               A ticked parent lands at the top level keeping the children
               that stayed ticked; unticked ones are hidden rather than
@@ -5692,6 +5697,22 @@ export function LeftNav({
               if (productById(id)) layout.removeProductFromNav(id);
               else hide(id);
             }
+            /*
+              One sentence for the errand, replacing the six the steps left.
+              `before` is the layout as it stood when this handler started,
+              so the Undo behind that sentence takes back the whole batch.
+              See `collapseUndo`.
+            */
+            layout.collapseUndo(
+              pickerToast(
+                picked,
+                picking.groupId
+                  ? (layout.groups.find((g) => g.id === picking.groupId)
+                      ?.label ?? "the navigation")
+                  : "the navigation",
+              ),
+              before,
+            );
           }}
           onClose={() => {
             setPicking(null);

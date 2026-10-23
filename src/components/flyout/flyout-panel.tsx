@@ -6,6 +6,7 @@ import { CirclePlus, Image, Plus, RotateCcw, X } from "lucide-react";
 import { AGENCY_L2_MIME, L2_MIME, L3_MIME } from "@/components/nav/nav-drag";
 import {
   AddPicker,
+  pickerToast,
   type AddPickerResult,
 } from "@/components/nav/add-picker";
 import { agencyBuckets } from "@/components/nav/agency-config";
@@ -2138,6 +2139,7 @@ export function FlyoutPanel({
               row of the category too — the same promotion dragging it here
               performs.
             */
+            const before = layout.state;
             let at = adding.index;
             /*
               The three things a commit can do to a row, each by the verb
@@ -2186,6 +2188,16 @@ export function FlyoutPanel({
               layout.moveChildToProduct(f.id, f.parentId);
             }
             for (const id of picked.remove) strike(id);
+            /*
+              One sentence for the errand, replacing the six the steps left.
+              `before` is the layout as it stood when this handler started,
+              so the Undo behind that sentence takes back the whole batch.
+              See `collapseUndo`.
+            */
+            layout.collapseUndo(
+              pickerToast(picked, category.label),
+              before,
+            );
           }}
           onClose={() => setAdding(null)}
         />
@@ -2217,6 +2229,7 @@ export function FlyoutPanel({
             return childrenFor(layout.state, parentId).some((c) => c.id === id);
           }}
           onCommit={(picked: AddPickerResult) => {
+            const before = layout.state;
             const show = (id: string) => {
               if (layout.isRowHidden(id)) layout.toggleRowHidden(id);
             };
@@ -2238,6 +2251,19 @@ export function FlyoutPanel({
               if (productById(id)) layout.removeProductFromNav(id);
               else if (!layout.isRowHidden(id)) layout.toggleRowHidden(id);
             }
+            /*
+              One sentence for the errand, replacing the six the steps left.
+              `before` is the layout as it stood when this handler started,
+              so the Undo behind that sentence takes back the whole batch.
+              See `collapseUndo`.
+            */
+            layout.collapseUndo(
+              pickerToast(
+                picked,
+                labelForProduct(layout.state, adding.parentId!),
+              ),
+              before,
+            );
           }}
           onClose={() => setAdding(null)}
         />

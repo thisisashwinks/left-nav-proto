@@ -53,6 +53,9 @@ import { iconForChildLabel } from "./l3-icons";
 
 const GAP = 4;
 
+/** What the nav itself is called in the header, when it is the destination. */
+const NAV_TITLE = "the nav";
+
 /** The proposed tree's Settings bucket, which the picker never offers. */
 const SETTINGS_BUCKET_ID = "ia-settings";
 
@@ -230,6 +233,32 @@ function rowsFor(
       }),
     }))
     .filter((c) => c.rows.length > 0);
+}
+
+/**
+ * What the toast says once a commit lands — Ashwin, Oct 23.
+ *
+ * One sentence for the whole errand, at the altitude the reader was working
+ * at. Each step underneath has a true name of its own — "Moved Triggers out
+ * of Automation" — and six of those are six facts about plumbing in answer
+ * to a question nobody asked. Named here rather than at the three call sites
+ * so the three doors into this picker cannot start describing the same
+ * errand differently.
+ *
+ * `destination` is the place as the reader would name it: a category or row
+ * label, or "the navigation" for the nav itself.
+ */
+export function pickerToast(
+  picked: AddPickerResult,
+  destination: string,
+): string {
+  const adds = picked.parents.length + picked.loose.length + picked.fill.length;
+  const removes = picked.remove.length;
+  const count = (n: number) => `${n} ${n === 1 ? "product" : "products"}`;
+  if (adds > 0 && removes > 0)
+    return `Updated ${destination} — ${adds} added, ${removes} removed`;
+  if (removes > 0) return `Updated ${count(removes)} from ${destination}`;
+  return `Added ${count(adds)} into ${destination}`;
 }
 
 /** Every id in the tree that the destination already holds. */
@@ -735,6 +764,31 @@ export function AddPicker({
         <div className="shrink-0 px-[10px] pt-[10px] pb-[2px]">
           <p className="truncate text-[12px] leading-[16px] font-medium text-[var(--hr-gray-500)]">
             Adding to {title}
+          </p>
+          {/*
+            The rule the ticks are playing by, said once — Ashwin, Oct 23.
+
+            Every door into this panel is called "Add a product", and then the
+            boxes quietly also mean "is in CRM", so clearing one removes. That
+            second verb had nothing announcing it anywhere: you found out by
+            doing it. One line is a floor rather than a fix — per-row state
+            and a diff in the footer are the fuller answer and are parked —
+            but it is the only sentence a reader sees in the same glance as
+            the first pre-ticked row, which is the one moment the rule can be
+            taught before it fires.
+          */}
+          <p className="mt-[2px] text-[11.5px] leading-[15px] text-[var(--hr-gray-500)]">
+            {/*
+              "the navigation", not the header's "the nav".
+
+              The header is a label on a control and runs short; this is a
+              sentence, and the short form reads as clipped inside one. It is
+              also the word the toast uses for the same place, so the two
+              things a reader sees either side of a commit agree.
+            */}
+            Ticked products are already present in{" "}
+            {title === NAV_TITLE ? "the navigation" : title}. Untick to remove
+            it.
           </p>
         </div>
 
