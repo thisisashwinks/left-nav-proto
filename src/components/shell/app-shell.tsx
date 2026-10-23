@@ -4605,17 +4605,39 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
       {/*
         The page steps back while the nav is being edited (design review,
         Aug 21): a full-strength canvas kept pulling the eye off the thing being
-        rearranged. A dim, not a blocker — pointer-events pass through, so the
-        page stays reachable and leaving the mode is never trapped behind a
-        scrim. Under the flyouts (z-10+), which must stay full-strength: they
-        are part of what is being edited.
+        rearranged. Under the flyouts (z-10+), which must stay full-strength:
+        they are part of what is being edited.
+
+        And it BLOCKS, as of Oct 23 — Ashwin.
+
+        It used to let pointers through, on the reasoning that a dimmed page
+        should still be reachable so nobody gets trapped behind a scrim. That
+        reasoning was wrong about what the dim is saying. A surface drawn at
+        half strength that still hovers, highlights and navigates is not a
+        mode, it is a tint: the page says "not now" and then answers anyway,
+        and a click meant for a nav row that lands slightly right of it
+        silently takes you to another screen mid-edit, losing the thing you
+        were arranging.
+
+        Nobody is trapped, because nothing that ends the mode is behind this.
+        The nav, its flyouts and the Editing card all sit left of `leftOffset`
+        or above z-5, and the prototype's own panel is fixed at z-50 in
+        another stacking context entirely.
       */}
       {layout.editing ? (
         <div
           aria-hidden="true"
           style={{ left: leftOffset }}
+          /*
+            Swallowed rather than routed anywhere. "Click the page to leave
+            edit mode" is a door nothing announces, and one stray click
+            outside the nav would then discard or commit a layout depending
+            on which it chose — the two endings this mode is careful to keep
+            apart. Discard and Done are the way out.
+          */
+          onPointerDown={(e) => e.preventDefault()}
           className={cn(
-            "motion-fade-in pointer-events-none absolute top-0 right-0 bottom-0 z-[5]",
+            "motion-fade-in absolute top-0 right-0 bottom-0 z-[5] cursor-default",
             editScrim,
           )}
         />

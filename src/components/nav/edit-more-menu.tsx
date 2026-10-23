@@ -381,7 +381,7 @@ export function EditMoreMenu({
       return (
         <Drill title="Apply a layout" onBack={() => setView("root")}>
           {templates.length === 0 ? (
-            <p className="px-[7px] py-[6px] text-[12px] leading-[16px] text-nav-fg-subtle">
+            <p className="px-[13px] py-[6px] text-[12px] leading-[16px] text-nav-fg-subtle">
               Nothing saved yet. Arrange this nav, then save it as a template to
               reuse on other accounts.
             </p>
@@ -659,7 +659,7 @@ export function EditMoreMenu({
       const named = draft.trim();
       return (
         <Drill title="Create new layout" onBack={() => setView("root")}>
-          <p className="px-[7px] pb-[6px] text-[12px] leading-[16px] text-nav-fg-subtle">
+          <p className="px-[13px] pb-[6px] text-[12px] leading-[16px] text-nav-fg-subtle">
             Keeps this arrangement so you can put it on another account. This
             account moves onto the new template.
           </p>
@@ -766,7 +766,7 @@ export function EditMoreMenu({
     if (menuShape === "list-first") {
       return (
         <>
-          <span className="mb-[4px] block px-[7px] pt-[3px] text-[12px] leading-[16px] font-medium text-[var(--hr-gray-500)]">
+          <span className="mb-[4px] block px-[13px] pt-[3px] text-[12px] leading-[16px] font-medium text-[var(--hr-gray-500)]">
             Navigation layouts
           </span>
           {/*
@@ -803,7 +803,7 @@ export function EditMoreMenu({
             </label>
           ) : null}
           {shownTemplates.length === 0 ? (
-            <p className="px-[7px] py-[10px] text-[12.5px] leading-[16px] text-nav-fg-subtle">
+            <p className="px-[13px] py-[10px] text-[12.5px] leading-[16px] text-nav-fg-subtle">
               No layouts match “{layoutQuery.trim()}”.
             </p>
           ) : null}
@@ -853,10 +853,17 @@ export function EditMoreMenu({
             ) : (
               <MenuRow
                 key={t.id}
-                // Unused while `tickLeads` is on, and required by the type.
-                icon={LayoutTemplate}
-                tickLeads
+                /*
+                  No leading glyph and no leading tick — see MenuRow's `icon`.
+
+                  The tick sits at the trailing end instead, next to the ⋯ for
+                  the same row, which is the only other mark on it. Both are
+                  then things the row CARRIES rather than things it is indented
+                  behind, and every name starts on the panel's text column.
+                */
                 label={t.name}
+                // Every row in this list is the same height, note or no note.
+                holdNoteSpace
                 /*
                   The row says where this account stands in relation to it —
                   on it, on it with changes, or not on it — because "which of
@@ -871,9 +878,20 @@ export function EditMoreMenu({
                   version and the rest are detail, and detail belongs where you
                   go when a word is not enough.
                 */
+                /*
+                  The shipped row says nothing under its name. Ashwin, Oct 23.
+
+                  "Included with HighLevel" was true and spent a second line
+                  saying what "Default layout" already says — the one row in
+                  this list nobody has to be told the provenance of. The notes
+                  that remain all answer "where does this account stand in
+                  relation to this layout", which is the question the list is
+                  opened with; the default's answer to that is simply the tick
+                  or its absence.
+                */
                 note={
                   t.id === DEFAULT_TEMPLATE_ID
-                    ? "Included with HighLevel"
+                    ? undefined
                     : linked?.id === t.id
                       ? divergence?.templateId === t.id
                         ? "Diverged"
@@ -1645,10 +1663,22 @@ function MenuRow({
   disabled = false,
   bare = false,
   tickLeads = false,
+  holdNoteSpace = false,
   action,
   onSelect,
 }: {
-  icon: LucideIcon;
+  /**
+   * The leading glyph, or none at all.
+   *
+   * Optional since Oct 23, for the layouts list. Every row there carried the
+   * same generic `LayoutTemplate` mark; `tickLeads` replaced it with the tick,
+   * which fixed the six-identical-icons problem and created another one — the
+   * NAMES then started 22px in, indented behind a slot that is empty on every
+   * row but one. With no leading slot at all the names start at the panel's
+   * own text column, and the tick moves to the trailing end beside the ⋯ that
+   * belongs to the same row. Ashwin, Oct 23.
+   */
+  icon?: LucideIcon;
   label: string;
   /** The current answer, or what the row means. Second line, quieter. */
   note?: string;
@@ -1670,6 +1700,17 @@ function MenuRow({
    * that is not selected simply leaves it empty so the names still line up.
    */
   tickLeads?: boolean;
+  /**
+   * Hold a two-line row's height even with nothing on the second line.
+   *
+   * For a list where SOME rows carry a note: without it the one row that has
+   * none is 15px shorter than its neighbours, and a list of radio rows that
+   * changes height per row reads as a rendering fault rather than as a row
+   * with less to say. 44px is what the two-line rows measure — 6px of padding
+   * each side, a 17px label, a 15px note — and the label stays top-aligned,
+   * so every title in the list still sits on one line. Ashwin, Oct 23.
+   */
+  holdNoteSpace?: boolean;
   /**
    * A second verb on the row, revealed on hover.
    *
@@ -1710,7 +1751,7 @@ function MenuRow({
         )}
       >
         <MenuRow
-          icon={Icon}
+          {...(Icon ? { icon: Icon } : {})}
           label={label}
           {...(note ? { note } : {})}
           {...(checked === undefined ? {} : { checked })}
@@ -1718,6 +1759,7 @@ function MenuRow({
           disabled={disabled}
           bare
           tickLeads={tickLeads}
+          holdNoteSpace={holdNoteSpace}
           onSelect={onSelect}
         />
         <button
@@ -1743,7 +1785,34 @@ function MenuRow({
       disabled={disabled}
       onClick={onSelect}
       className={cn(
-        "motion-tap flex w-full items-start gap-[8px] rounded-[7px] px-[7px] py-[6px] text-left",
+        /*
+          13px, not 7 — the column the search field already sets.
+
+          The field is inset 5px from the panel and pads its contents another
+          8, so its magnifier sits 13px in from the panel's content edge. The
+          rows and the heading sat at 7, which put every label six pixels left
+          of the one element in the panel whose padding is not ours to choose.
+          One column now: heading, field and rows all start at 13. Ashwin,
+          Oct 23.
+        */
+        /*
+          ...and 6 on the right, where a trailing mark lives.
+
+          The left pad is a TEXT column — it has to line up with the heading
+          and the field. The right pad is the inset of a 13px glyph, and at
+          13 the tick sat a thumb's width inside the row while the ⋯ beside
+          it sat at the edge: two trailing marks on one row, in two columns.
+          6 puts the tick where the ⋯ already was. Ashwin, Oct 23.
+        */
+        "motion-tap flex w-full gap-[8px] rounded-[7px] pl-[13px] pr-[6px] py-[6px] text-left",
+        /*
+          A row with a note is a stack and top-aligns; a row without one is a
+          single line and centres. Without this the noteless row's label sat
+          at the top of the height `holdNoteSpace` reserves, which is the
+          height being held for a second line that is not coming.
+        */
+        note ? "items-start" : "items-center",
+        holdNoteSpace && "min-h-[44px]",
         disabled
           ? "cursor-not-allowed opacity-40"
           : bare
@@ -1756,17 +1825,20 @@ function MenuRow({
       {tickLeads ? (
         <span
           aria-hidden="true"
-          className="mt-[2px] flex size-[14px] shrink-0 items-center justify-center"
+          className={cn(
+            "flex size-[14px] shrink-0 items-center justify-center",
+            note && "mt-[2px]",
+          )}
         >
           {checked ? <Check size={13} className="text-nav-fg" /> : null}
         </span>
-      ) : (
+      ) : Icon ? (
         <Icon
           size={14}
           aria-hidden="true"
-          className="mt-[2px] shrink-0 text-nav-fg-subtle"
+          className={cn("shrink-0 text-nav-fg-subtle", note && "mt-[2px]")}
         />
-      )}
+      ) : null}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[12.5px] leading-[17px] font-medium text-nav-fg">
           {label}
@@ -1777,13 +1849,21 @@ function MenuRow({
           </span>
         ) : null}
       </span>
+      {/*
+        Centred on the row, not nudged down from its top.
+
+        `mt-[2px]` was an optical correction against a one-line row, and it
+        reads as a mistake the moment a row is two lines tall or is holding
+        the space for a second line: the tick floated level with the label
+        rather than with the row it belongs to.
+      */}
       {checked && !tickLeads ? (
-        <Check size={13} aria-hidden="true" className="mt-[2px] shrink-0 text-nav-fg" />
+        <Check size={13} aria-hidden="true" className="shrink-0 self-center text-nav-fg" />
       ) : branch && !disabled ? (
         <ChevronRight
           size={13}
           aria-hidden="true"
-          className="mt-[2px] shrink-0 text-nav-fg-subtle"
+          className="shrink-0 self-center text-nav-fg-subtle"
         />
       ) : null}
     </button>
