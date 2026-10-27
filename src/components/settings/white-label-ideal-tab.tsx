@@ -23,13 +23,22 @@ import { cn } from "@/lib/utils";
  *
  * WHAT CHANGED, AND WHY.
  *
- * One Save, not five. Production gives each section its own Cancel and Save
- * over one form, so an agency who edits the logo, a domain and the CSS has to
- * find and press three buttons, and nothing on screen says which of their
- * edits are committed and which are not. Here the page has one bar; it
- * appears when anything is unsaved, counts what is pending, and commits the
- * lot. The count is the part that does the work — "2 unsaved changes" is a
- * fact a person can check against what they remember doing.
+ * One Save for the FORM, and one per editor. Production gives every section
+ * its own Cancel and Save over one form, so an agency who edits the logo, a
+ * domain and the CSS has to find and press three buttons, and nothing says
+ * which of their edits are committed. The form half of this page answers that
+ * with one bar: it appears when anything is unsaved, counts what is pending,
+ * and commits the lot. "2 unsaved changes" is a fact a person can check
+ * against what they remember doing.
+ *
+ * Appearance is the exception, and it is deliberate — Ashwin, Oct 27. A
+ * stylesheet, a script and a theme are three separate pieces of work that
+ * happen to share a page: you write the CSS, look at it, then start on the
+ * JS. Folding them into the page's Save means committing two of them to
+ * check one, and it puts the control for a 200-line editor at the bottom of
+ * a scroll, where it is out of sight at the moment it is wanted. So each
+ * editor and the theme carry their own Save, shown only while that one piece
+ * is dirty, and the page's bar counts the form alone.
  *
  * Headings above their content, not beside it. Production spends a 224px
  * column on a two-word label and then runs a code editor in what is left.
@@ -109,30 +118,15 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
     form.brandPhone !== saved.brandPhone,
     form.privacy !== saved.privacy,
     form.terms !== saved.terms,
-    oldCss !== code.css,
-    oldJs !== code.js,
-    theme !== navTheme,
-    newCss !== code.newCss,
-    newJs !== code.newJs,
   ].filter(Boolean).length;
 
-  const revert = () => {
-    setForm(saved);
-    setOldCss(code.css);
-    setOldJs(code.js);
-    setTheme(navTheme);
-    setNewCss(code.newCss);
-    setNewJs(code.newJs);
-  };
-
-  const commit = () => {
-    setSaved(form);
-    code.setCss(oldCss);
-    code.setJs(oldJs);
-    setNavTheme(theme);
-    code.setNewCss(newCss);
-    code.setNewJs(newJs);
-  };
+  /*
+   * The form's own Cancel and Save. Appearance is not in either: each editor
+   * commits itself, so counting a dirty stylesheet here would offer two ways
+   * to save one thing and disagree about whether it was saved.
+   */
+  const revert = () => setForm(saved);
+  const commit = () => setSaved(form);
 
   return (
     <div className="flex w-full flex-col pb-[96px]">
@@ -297,22 +291,78 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
         sub="Your code runs on the navigation it was written for, and only that one."
       >
         {oldCount > 0 ? (
-          <NavBlock name="Old navigation" count={oldCount}>
-            <CodeBlock label="Custom CSS" value={oldCss} onChange={setOldCss} />
-            <CodeBlock label="Custom JS" value={oldJs} onChange={setOldJs} />
+          <NavBlock name="Legacy navigation (before Oct 2027)" count={oldCount}>
+            <CodeBlock
+              label="Custom CSS"
+              value={oldCss}
+              onChange={setOldCss}
+              action={
+                <SectionSave
+                  what="legacy CSS"
+                  dirty={oldCss !== code.css}
+                  onSave={() => code.setCss(oldCss)}
+                  onCancel={() => setOldCss(code.css)}
+                />
+              }
+            />
+            <CodeBlock
+              label="Custom JS"
+              value={oldJs}
+              onChange={setOldJs}
+              action={
+                <SectionSave
+                  what="legacy JS"
+                  dirty={oldJs !== code.js}
+                  onSave={() => code.setJs(oldJs)}
+                  onCancel={() => setOldJs(code.js)}
+                />
+              }
+            />
             <div className="flex flex-col gap-[8px]">
-              <span className="text-[13px] leading-[18px] font-medium text-pg-text">
-                Theme
-              </span>
+              <div className="flex min-h-[20px] items-center justify-between gap-[12px]">
+                <span className="text-[13px] leading-[18px] font-medium text-pg-text">
+                  Theme
+                </span>
+                <SectionSave
+                  what="legacy theme"
+                  dirty={theme !== navTheme}
+                  onSave={() => setNavTheme(theme)}
+                  onCancel={() => setTheme(navTheme)}
+                />
+              </div>
               <ThemeChoice value={theme} onChange={setTheme} />
             </div>
           </NavBlock>
         ) : null}
 
         {newCount > 0 ? (
-          <NavBlock name="New navigation" count={newCount}>
-            <CodeBlock label="Custom CSS" value={newCss} onChange={setNewCss} />
-            <CodeBlock label="Custom JS" value={newJs} onChange={setNewJs} />
+          <NavBlock name="New navigation (after Oct 2027)" count={newCount}>
+            <CodeBlock
+              label="Custom CSS"
+              value={newCss}
+              onChange={setNewCss}
+              action={
+                <SectionSave
+                  what="new CSS"
+                  dirty={newCss !== code.newCss}
+                  onSave={() => code.setNewCss(newCss)}
+                  onCancel={() => setNewCss(code.newCss)}
+                />
+              }
+            />
+            <CodeBlock
+              label="Custom JS"
+              value={newJs}
+              onChange={setNewJs}
+              action={
+                <SectionSave
+                  what="new JS"
+                  dirty={newJs !== code.newJs}
+                  onSave={() => code.setNewJs(newJs)}
+                  onCancel={() => setNewJs(code.newJs)}
+                />
+              }
+            />
           </NavBlock>
         ) : null}
       </Group>
@@ -380,7 +430,55 @@ function NavBlock({
 }
 
 /**
- * The page's one Save.
+ * One editor's own Cancel and Save, on its label row.
+ *
+ * Absent until that editor is dirty, for the reason the page's bar is: a
+ * permanent pair of dead buttons above every code box is four controls that
+ * are wrong three-quarters of the time, and a reader stops checking them.
+ * Appearing is also the signal — the row changing is what says this editor
+ * now holds something uncommitted, which is the fact a page of five editors
+ * otherwise cannot state.
+ *
+ * `what` is for the screen reader alone. Four buttons all called "Save" is
+ * a list with no information in it, and the visible label cannot carry the
+ * difference without getting long enough to crowd the row.
+ */
+function SectionSave({
+  what,
+  dirty,
+  onSave,
+  onCancel,
+}: {
+  what: string;
+  dirty: boolean;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  if (!dirty) return null;
+  return (
+    <span className="flex shrink-0 items-center gap-[8px]">
+      <button
+        type="button"
+        onClick={onCancel}
+        aria-label={`Discard changes to ${what}`}
+        className="motion-tap h-[28px] rounded-[7px] px-[10px] text-[13px] font-medium text-pg-muted hover:bg-pg hover:text-pg-text active:scale-[0.98]"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        onClick={onSave}
+        aria-label={`Save ${what}`}
+        className="motion-tap h-[28px] rounded-[7px] bg-brand px-[10px] text-[13px] font-medium text-white hover:brightness-95 active:scale-[0.98]"
+      >
+        Save
+      </button>
+    </span>
+  );
+}
+
+/**
+ * The form's Save.
  *
  * Sticky, and present only when there is something to commit — a bar that is
  * always there with a dead button in it is furniture, and furniture stops

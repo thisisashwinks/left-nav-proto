@@ -4804,12 +4804,21 @@ export function LeftNav({
         barMark={barMarkOn}
       />
 
+      {/*
+        Under the logo, SEARCH moves and nothing else does. Ashwin, Oct 27:
+        "I do not need edit button to go on top as well. Edit would still
+        stay at the bottom only. And only search will move."
+        
+        No `edit` passed, so the cluster is the field alone. Edit is drawn at
+        the nav's foot by the branch at the bottom of this file — the same
+        one the app-bar placement already used, for the same reason: editing
+        the nav is the nav's own affordance and does not travel with search.
+      */}
       {topEntry ? (
         <EntryCluster
           onSearch={onSearch}
           session={aiSession}
           searchEnabled={!agencyScope || agencySearch}
-          {...(editNavHere ? { edit: editNavHere } : {})}
         />
       ) : null}
 
@@ -5382,22 +5391,26 @@ export function LeftNav({
         </div>
       ) : null}
 
-      {headerEntry ? (
+      {headerEntry || topEntry ? (
         /*
-          No pill, but the way into edit mode still lives in the nav.
+          No pill at the foot, but the way into edit mode still lives there.
 
-          It hangs off the pill in both other arrangements, which is a
-          measurement taken from something that is no longer here — so the nav's
-          foot keeps a zero-height line for it to hang off instead. Editing the
-          nav is the nav's own affordance; it does not follow search into the
-          bar.
+          It hangs off the pill in the bottom-edge arrangement, which is a
+          measurement taken from something that is not here — so the nav's
+          foot keeps a zero-height line for it to hang off instead. Editing
+          the nav is the nav's own affordance; it follows search neither into
+          the app bar nor up under the logo.
+
+          Both placements that move search out of the foot land here, which
+          is the point: wherever the field goes, Edit stays put. The reader
+          learns one position for it instead of hunting for it per variant.
         */
         editNavHere ? (
           <div className="flex w-full shrink-0 px-[12px] pb-[12px]">
             <EditNavAnchor edit={editNavHere} />
           </div>
         ) : null
-      ) : topEntry ? null : (
+      ) : (
         <div className="flex w-full shrink-0 px-[12px] pt-[8px] pb-[12px]">
           <EntryPill
             onSearch={onSearch}

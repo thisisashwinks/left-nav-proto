@@ -277,6 +277,9 @@ import {
   DIRECTORY_EXIT_LABELS,
   type DirectoryExit,
   NAV_WIDTH_SETS,
+  RAIL_PIN_MOTIONS,
+  RAIL_PIN_MOTION_LABELS,
+  type RailPinMotion,
   NAV_WIDTH_MIN,
   NAV_WIDTH_MAX,
   NAV_WIDTH_L1_DEFAULT,
@@ -838,7 +841,9 @@ function NavStructureSection({
     setRailToolSpot,
     railToolsEdge,
     setRailToolsEdge,
+    railPinMotion,
     railPinnedLabel,
+    setRailPinMotion,
     setRailPinnedLabel,
     railRecentLabel,
     setRailRecentLabel,
@@ -1628,6 +1633,24 @@ function NavStructureSection({
               : railCollapsedSearch
                 ? "The bar survives the collapse as a single glyph. Honest about the rail having a search in it, and it costs the one thing the shut strip has none of: a row that is not an account. At 56px it sits in the same column as the marks above it and reads as a twelfth account."
                 : "Nothing at 56px \u2014 the bar goes, edge and all. Shut, the strip is a column of accounts and only accounts, which is what makes a mark in it scannable; the field is one hover away, since opening the rail is already the gesture that produces it. The cost is that a visitor who never opens the rail never learns it can be searched."}
+          </Note>
+
+          <Segmented
+            label="Pinning an account"
+            keywords="rail pin pinned animation motion travel arrive recents slide accounts strip"
+            options={RAIL_PIN_MOTIONS}
+            value={railPinMotion}
+            onChange={(v: RailPinMotion) => setRailPinMotion(v)}
+            format={(v) => RAIL_PIN_MOTION_LABELS[v]}
+          />
+          <Note>
+            {railPinMotion === "recents"
+              ? "The row arrives in the pinned run — it rises into the slot the way a row joining a list does, while the accounts it displaces slide down around it. Says \u201cthis is one of your pinned accounts now\u201d rather than \u201cthis row changed seats\u201d, which is the claim the press makes."
+              : "The row travels: one continuous slide from wherever it was into its new slot. The rail's version of the nav's own \u201cSlide into place\u201d, and the quieter of the two \u2014 it only reads when the row's old position and its new one are both on screen."}
+          </Note>
+          <Note>
+            Unpinning plays the same move backwards under either. Both now
+            animate on the resting strip, not only while All accounts is up.
           </Note>
 
           <Toggle
@@ -6787,7 +6810,7 @@ export function TuningPanel() {
           </Note>
 
           <Segmented
-            label="Search + Ask AI placement"
+            label="Search sits"
             options={ENTRY_LAYOUTS}
             value={entryLayout}
             onChange={(v: EntryLayout) => setEntryLayout(v)}
@@ -6795,10 +6818,13 @@ export function TuningPanel() {
           />
           <Note>
             {entryLayout === "top"
-              ? "The merged pill sits under the logo, above Favorites — the first thing on entry. The bottom edge is left to the drawer toggle."
+              ? "Search sits under the logo, above Favorites — the first thing on entry. Edit stays at the nav's foot: it is the nav's own affordance and does not travel with the field."
               : entryLayout === "header"
                 ? "Out of the nav and into the app bar, left of the utility icons. The one placement that survives the nav collapsing — so the nav shows it at neither end, at either width."
-                : "The same merged pill, holding the nav's bottom edge beside the drawer toggle."}
+                : "Search holds the nav's bottom edge, beside Edit and the drawer toggle."}
+            {entryPair === "separate"
+              ? " Ask AI is not in the nav under either in-nav placement — separate means two controls, and that one belongs in the app bar where every screen can reach it."
+              : " Merged, the orb travels with the field: it is the field's left edge, not a button beside it."}
           </Note>
 
           {/*

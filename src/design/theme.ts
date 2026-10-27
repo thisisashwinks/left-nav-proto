@@ -2754,6 +2754,36 @@ export const LAYOUT_MODEL_LABELS: Record<LayoutModel, string> = {
  * chip flying back to a pin button nobody is looking at is an animation about
  * the wrong end of the action.
  */
+/**
+ * How a sub-account travels when it is pinned to the rail.
+ *
+ * The nav's own pin has had an answer to this since PIN_FEEDBACKS; the
+ * account rail had none, because its rows only animated while the directory
+ * was filled — so pinning from the strip re-sorted the column between frames
+ * and the row you pressed was simply somewhere else.
+ *
+ *  recents  The row ARRIVES in the pinned run, rising into the slot the way
+ *           a row joining a list does, while the accounts it displaces slide
+ *           down around it. It reads as "this is one of your pinned
+ *           accounts now" rather than as a row changing seats — which is the
+ *           claim the press actually makes.
+ *  settle   The row travels: it slides from wherever it was up into its new
+ *           slot, one continuous move you can follow. The rail's version of
+ *           the nav's "Slide into place", and the quieter of the two.
+ *
+ * Unpinning plays the same move read backwards under either, because a row
+ * that animates in and then vanishes out is a list telling you half of what
+ * it did.
+ */
+export const RAIL_PIN_MOTIONS = ["recents", "settle"] as const;
+
+export type RailPinMotion = (typeof RAIL_PIN_MOTIONS)[number];
+
+export const RAIL_PIN_MOTION_LABELS: Record<RailPinMotion, string> = {
+  recents: "Rise into the slot",
+  settle: "Slide into place",
+};
+
 export const PIN_FEEDBACKS = [
   "off",
   "mark",
@@ -6734,6 +6764,8 @@ export interface ThemeState {
   railToolsCta: RailToolsCta;
   /** Which glyph the shut search row wears. See RAIL_SEARCH_GLYPHS. */
   railSearchGlyph: RailSearchGlyph;
+  /** How a pinned sub-account moves into the rail. See RAIL_PIN_MOTIONS. */
+  railPinMotion: RailPinMotion;
   /** Where the rail offers account creation. See CREATE_ACCOUNT_SPOTS. */
   createAccountSpot: CreateAccountSpot;
   /**
@@ -7491,6 +7523,12 @@ export const DEFAULT_THEME: ThemeState = {
     them if the shut rail ever has to teach its own search.
   */
   railSearchGlyph: "divider",
+  /*
+    The arrival, not the slide. See RAIL_PIN_MOTIONS — Ashwin asked for this
+    one on Oct 27, on the grounds that pinning is a change of KIND and the
+    row should land in its new run rather than crawl up to it.
+  */
+  railPinMotion: "recents",
   createAccountSpot: "sticky",
   /*
     The list with ticks — Ashwin, Oct 16.

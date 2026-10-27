@@ -50,6 +50,7 @@ import {
   type PlaneGround,
   type NavSelectedFill,
   type NavWidthSet,
+  type RailPinMotion,
   NAV_WIDTHS,
   type DirectoryExit,
   type RailFillMorph,
@@ -317,6 +318,7 @@ interface ThemeContextValue extends ThemeState {
   setRailHoverDelay: (v: RailHoverDelay) => void;
   setRailCollapsedSearch: (on: boolean) => void;
   setCreateAccountShut: (on: boolean) => void;
+  setRailPinMotion: (v: RailPinMotion) => void;
   setRailToolsLayout: (v: RailToolsLayout) => void;
   setAgencyRowRing: (on: boolean) => void;
   setAgencyRowWord: (on: boolean) => void;
@@ -797,6 +799,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, railCollapsedSearch })),
       setCreateAccountShut: (createAccountShut) =>
         setState((s) => ({ ...s, createAccountShut })),
+      setRailPinMotion: (railPinMotion) =>
+        setState((s) => ({ ...s, railPinMotion })),
       setRailToolsLayout: (railToolsLayout) =>
         setState((s) => ({ ...s, railToolsLayout })),
       setAgencyRowRing: (agencyRowRing) =>

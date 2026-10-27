@@ -102,6 +102,38 @@ export function useFlipRows(
      * is. Ashwin, Oct 19.
      */
     reverseOnFall?: boolean;
+    /**
+     * A membership this list watches, and how a row that joins it should move.
+     *
+     * The rail's pinned set is the case. Pinning an account re-sorts the
+     * strip, and the strip is normally outside this hook's remit — it only
+     * animates while the directory is filled — so the row simply WAS in its
+     * new place on the next frame. That is the thing FLIP exists to prevent,
+     * and it is worse here than in the fill: the row you pressed is the one
+     * that moved.
+     *
+     * Two things are handed over because the caller cannot work out either
+     * during render. Whether the set just changed means comparing this
+     * render's keys with the last render's, which is a ref read — the same
+     * problem `reverseOnFall` solves the same way. And `style` decides what
+     * the joining row does:
+     *
+     *   travel  it slides from wherever it was into its new slot, and the
+     *           rows it displaces slide around it. The whole move is one
+     *           continuous thing you can follow with your eye.
+     *   rise    it is treated as an ARRIVAL: it rises into the slot the way
+     *           a row joining the list does, while the displaced rows still
+     *           travel. The press reads as "this is now one of these"
+     *           rather than as the row sliding up the column.
+     *
+     * A change in either direction wakes the pass — unpinning is the same
+     * move read backwards, and a row that animates in and vanishes out is a
+     * list that only tells you half of what it did. Ashwin, Oct 27.
+     */
+    arrivals?: {
+      keys: readonly string[];
+      style: "travel" | "rise";
+    };
   },
 ): FlipRows {
   /*
@@ -117,11 +149,14 @@ export function useFlipRows(
   const enabled = options?.enabled ?? true;
   const reverse = options?.reverse ?? false;
   const fallFlag = options?.reverseOnFall ?? false;
+  const arrivalKeys = options?.arrivals?.keys;
+  const arrivalStyle = options?.arrivals?.style ?? "travel";
 
   const rows = React.useRef(new Map<string, HTMLElement>());
   const previous = React.useRef(new Map<string, number>());
   const lastSignal = React.useRef(signal);
   const lastFall = React.useRef(fallFlag);
+  const lastArrivals = React.useRef<readonly string[] | undefined>(arrivalKeys);
 
   const register = React.useCallback(
     (key: string) => (el: HTMLElement | null) => {
@@ -140,6 +175,25 @@ export function useFlipRows(
     const fell = !fallFlag && lastFall.current;
     lastFall.current = fallFlag;
     const backwards = reverse || fell;
+
+    /*
+     * Who just joined the watched set, and whether it moved at all.
+     *
+     * `joined` is only consulted under `rise`; `touched` is what lets a pin
+     * animate while the hook is otherwise off, so the gesture plays on the
+     * resting strip without turning the strip into an animating surface for
+     * every other commit. See `arrivals`.
+     */
+    const before = lastArrivals.current;
+    const joined =
+      arrivalKeys && before
+        ? arrivalKeys.filter((k) => !before.includes(k))
+        : [];
+    const touched =
+      arrivalKeys !== undefined &&
+      before !== undefined &&
+      (joined.length > 0 || before.some((k) => !arrivalKeys.includes(k)));
+    lastArrivals.current = arrivalKeys;
 
     const reduced =
       typeof window !== "undefined" &&
@@ -209,13 +263,16 @@ export function useFlipRows(
     // movement rather than of the DOM. See `reverse`.
     measured.sort((a, b) => (backwards ? b.top - a.top : a.top - b.top));
 
-    if (enabled && !reduced && moved) {
+    if ((enabled || touched) && !reduced && moved) {
       let rank = 0;
       for (const { key, el, top } of measured) {
-        const before = previous.current.get(key);
+        const was = previous.current.get(key);
         const delay = Math.min(rank * STAGGER_MS, MAX_STAGGER_MS);
+        // A row that just joined the watched set and is asked to arrive
+        // rather than travel — see `arrivals`.
+        const arriving = arrivalStyle === "rise" && joined.includes(key);
 
-        if (before === undefined) {
+        if (was === undefined || arriving) {
           /*
            * New to the list. Only animated when something else is also
            * moving: on the very first render every row is new, and an app
@@ -235,7 +292,7 @@ export function useFlipRows(
              commit where every row is new and none of them is arriving.
              Ashwin, Oct 6.
           */
-          if (previous.current.size > 0) {
+          if (previous.current.size > 0 || arriving) {
             el.animate(
               [
                 { transform: `translateY(${RISE_PX}px)`, opacity: 0 },
@@ -248,7 +305,7 @@ export function useFlipRows(
           continue;
         }
 
-        const delta = before - top;
+        const delta = was - top;
         // Sub-pixel deltas are reflow noise, not movement.
         if (Math.abs(delta) < 0.5) continue;
         el.animate(

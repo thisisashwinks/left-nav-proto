@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
+import { labelForProduct } from "@/components/nav/grouping";
 import { announce } from "@/lib/a11y";
 import {
   flattenGroups,
@@ -41,9 +42,20 @@ export function useSearch(onClose: () => void): UseSearch {
     () => new Set(state.enabledProducts),
     [state.enabledProducts],
   );
+  /*
+   * The account's own names, so a renamed row is findable by what it is
+   * called here rather than only by what it shipped as. `labelForProduct`
+   * resolves products and children alike and falls back to the catalogue,
+   * so the fallback this passes is only reached for ids it has never heard
+   * of — which is none of the ones the walk produces.
+   */
+  const labelFor = React.useCallback(
+    (id: string, fallback: string) => labelForProduct(state, id) || fallback,
+    [state],
+  );
   const groups = React.useMemo(
-    () => searchResults(query, enabled),
-    [query, enabled],
+    () => searchResults(query, enabled, labelFor),
+    [query, enabled, labelFor],
   );
   const flat = React.useMemo(() => flattenGroups(groups), [groups]);
 

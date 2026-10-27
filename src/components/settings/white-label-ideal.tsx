@@ -251,16 +251,29 @@ export function CodeBlock({
   label,
   value,
   onChange,
+  action = null,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  /**
+   * Something on the right of the label row — a Save, where the page
+   * commits per editor rather than per page.
+   *
+   * Optional because the other variants on this page have one Save at the
+   * foot and nothing to put here, and a label row that is a flex container
+   * with one child in it lays out exactly as the span did.
+   */
+  action?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-[6px]">
-      <span className="text-[13px] leading-[18px] font-medium text-pg-text">
-        {label}
-      </span>
+      <div className="flex min-h-[20px] items-center justify-between gap-[12px]">
+        <span className="text-[13px] leading-[18px] font-medium text-pg-text">
+          {label}
+        </span>
+        {action}
+      </div>
       <CodeEditorField label={label} value={value} onChange={onChange} />
     </div>
   );

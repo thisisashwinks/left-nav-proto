@@ -1334,8 +1334,23 @@ export function EntryPill({
           that arrangement the assistant is half the screen, and a button
           offering to open what is already open beside it is an invitation
           to nothing. The field takes the width back.
+          
+          ...and gone from the NAV entirely once the two are separate.
+          Ashwin, Oct 27: "Ask AI button would still stay in the top navbar
+          only."
+          
+          Separate is the admission that these are two controls, not one —
+          and once they are two they can live where each belongs. Search is
+          the nav's: it finds rows, and the placement axis exists to ask
+          where in the nav it should sit. Ask AI is the app bar's, where it
+          is reachable from every screen and does not move when the sidebar
+          collapses. Drawing it in both places put the same button on screen
+          twice, a few hundred pixels apart.
+          
+          Merged is untouched: there the orb IS the field's left edge, and
+          removing it would leave a search box with a hole in it.
         */}
-        {hideAsk ? null : (
+        {hideAsk || !header ? null : (
           <EntryPill
             onSearch={onSearch}
             session={session}

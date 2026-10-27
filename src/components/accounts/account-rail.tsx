@@ -461,6 +461,7 @@ function RailTools({
   onCreate,
   manageGlyph,
   stickyTop,
+  bleed = null,
 }: {
   expanded: boolean;
   spot: RailToolSpot;
@@ -521,6 +522,21 @@ function RailTools({
   onCreate?: (() => void) | null;
   /** Which glyph the icon-only button wears. See RAIL_MANAGE_GLYPHS. */
   manageGlyph?: RailManageGlyph;
+  /**
+   * The scroller's own side padding, so the bar can run past it.
+   *
+   * It is a HEADER, not a row — Ashwin, Oct 27. Drawn inside the list's
+   * gutters it is 284 of a 304px column, so the shadow it casts when the
+   * run starts moving stopped 10px short of each edge and read as a card
+   * floating in the rail rather than as the top of it. The contents stay
+   * exactly where they were: the margins pull the box out to the rail's
+   * edges and the same figures come back as its padding.
+   *
+   * Passed in rather than read from a variable here, because the gutters
+   * are the LIST's and they change with the rail's state — see
+   * `listPadLeft`.
+   */
+  bleed?: { left: number; right: number } | null;
   /**
    * How far down the scroller the sticky row parks, in px.
    *
@@ -900,7 +916,21 @@ function RailTools({
       */
       style={
         inList
-          ? { top: (stickyTop ?? 0) - RAIL_SCROLL_PAD }
+          ? {
+              top: (stickyTop ?? 0) - RAIL_SCROLL_PAD,
+              ...(bleed
+                ? {
+                    marginInlineStart: -bleed.left,
+                    marginInlineEnd: -bleed.right,
+                    // `w-full` would resolve against the padded box and
+                    // land back where it started; the gutters have to be
+                    // added explicitly. See `bleed`.
+                    width: `calc(100% + ${bleed.left + bleed.right}px)`,
+                    paddingInlineStart: bleed.left,
+                    paddingInlineEnd: bleed.right,
+                  }
+                : {}),
+            }
           : undefined
       }
       className={cn(
@@ -947,10 +977,28 @@ function RailTools({
               already closed twice. Same figure shut, where the slot holds
               a glyph or a rule. Ashwin, Oct 16.
             */
-            "pt-[4px] pb-[4px]"
+            "pt-[4px] pb-[4px] [[data-rail-scrolled]_&]:pb-[8px]"
           : spot === "agencyBar"
-            ? "pt-[4px] pb-[8px]"
-            : "py-[8px]",
+            ? "pt-[4px] pb-[8px] [[data-rail-scrolled]_&]:pb-[12px]"
+            : "py-[8px] [[data-rail-scrolled]_&]:pb-[12px]",
+        /*
+          Once the list is actually moving, the bar lifts off it.
+
+          Stuck and flush, the bar and the first account read as one column
+          that happens to have a field at the top of it — there is nothing
+          to say the row sliding under it is sliding UNDER. So at the moment
+          the list leaves its top (`data-rail-scrolled`, written by the
+          scroller's own `onScroll` — see it for why not `useScrollEdges`),
+          the bar takes 4px more ground beneath it and casts a shadow onto
+          the run. Ashwin, Oct 27.
+
+          Keyed off the scroller's attribute rather than React state, so
+          scrolling costs no renders — the same reason the fades read one.
+          At rest there is no shadow and no extra gap, because a bar that is
+          not holding anything back should not look like it is.
+        */
+        inList &&
+          "transition-[box-shadow,padding] duration-[var(--dur-2)] [[data-rail-scrolled]_&]:shadow-[0_4px_8px_-2px_var(--fly-shadow)]",
         // Held against the scroll, at whatever the caller has to clear.
         inList && "sticky",
         /*
@@ -1522,6 +1570,7 @@ export function AccountRail({
     railDirectoryMode,
     railToolSpot,
     railPinnedLabel,
+    railPinMotion,
     railRecentLabel,
   } = effective;
   /*
@@ -1775,9 +1824,41 @@ export function AccountRail({
    * should not silently retune the other.
    */
   const flip = useFlipRows(
-    `${filled}:${fillQuery}:${liveScope}:${liveAccountId}`,
+    /*
+      The pinned set joins the signal, which is what wakes the hook on a pin.
+
+      Everything else in this key changes the list's SHAPE — filled or not,
+      the query, the scope, the account. Pinning changes its ORDER, and
+      until Oct 27 nothing told the hook that had happened: the strip
+      re-sorted between frames and the row you had just pressed was simply
+      somewhere else. See `arrivals` below and RAIL_PIN_MOTIONS.
+    */
+    `${filled}:${fillQuery}:${liveScope}:${liveAccountId}:${session.railIds.join(",")}`,
     {
       enabled: fillMode,
+      /*
+        The pin's own move, which plays whether or not the directory is up.
+
+        `enabled` above is about the FILL — a gesture that rearranges the
+        whole column — and leaving it as the only switch would mean the
+        resting strip, where most pinning actually happens, never animated.
+        The hook turns itself on for the one commit where this set changes,
+        so the rest of the strip's life is still still.
+      */
+      arrivals: {
+        /*
+          `railIds`, not `pinnedIds` — the rail's pin IS rail membership.
+
+          Two different sets wear the same glyph in this product: the
+          dropdown's pin writes the session's pinned set, and the rail's
+          writes which accounts the strip carries (see DirectoryAccountRow).
+          The run that visibly re-sorts here is built from `railIds`, so that
+          is the membership this watches; keyed on the other one it would
+          wake on a change nothing on screen was making.
+        */
+        keys: session.railIds,
+        style: railPinMotion === "recents" ? "rise" : "travel",
+      },
       duration: 500,
       /*
         Closing counts from the bottom: the last row goes, then the one above
@@ -3820,6 +3901,26 @@ export function AccountRail({
             <div
               ref={fillScrollRef}
               {...(filled ? { "data-scroll-region": "" } : {})}
+              /*
+                Has the run left its top? Written straight onto the DOM.
+
+                The sticky tools bar reads this to lift off the list — see
+                the bar's own note. It does NOT read `useScrollEdges`'
+                `data-scroll-top`, which would have been the obvious source:
+                that hook attaches once, and this scroller is remounted when
+                the rail goes from the 56px strip to the open column, so its
+                listeners end up on a node that is no longer on screen. Worth
+                fixing in the hook one day; not worth a shadow depending on
+                it today.
+
+                An attribute rather than state, for the reason the hook gives
+                for its own: a column of forty accounts should not re-render
+                on every scroll frame to move one box-shadow.
+              */
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                el.toggleAttribute("data-rail-scrolled", el.scrollTop > 1);
+              }}
               className={cn(
                 "flex min-h-0 w-full flex-1 flex-col overflow-y-auto py-[2px]",
                 /*
@@ -4233,6 +4334,7 @@ export function AccountRail({
                     spot="underAgency"
                     layout="inline"
                     stickyTop={fillPicking ? RAIL_ROW_H + RAIL_SCROLL_PAD : underAgencyTop}
+                    bleed={{ left: listPadLeft, right: listPadRight }}
                     searchGlyph={effective.railSearchGlyph}
                     ruleAlign={effective.railRuleAlign}
                     ruleNudge={effective.topAlignRailNudge}
@@ -4304,6 +4406,7 @@ export function AccountRail({
                           it to clear.
                         */
                         stickyTop={0}
+                        bleed={{ left: listPadLeft, right: listPadRight }}
                         ctaShape={effective.railToolsCta}
                         searchGlyph={effective.railSearchGlyph}
                         manageGlyph={effective.railManageGlyph}

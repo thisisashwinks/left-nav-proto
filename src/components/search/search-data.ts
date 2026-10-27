@@ -19,6 +19,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { resolveOwned } from "@/components/nav/catalogue-equivalents";
+import { allProducts } from "@/components/nav/catalogue";
+import { iconForChildLabel } from "@/components/nav/l3-icons";
+import type { CatalogueChild, CatalogueEntry } from "@/components/nav/catalogue-types";
 
 /**
  * Three kinds of hit, which is what the designs group by:
@@ -122,9 +125,99 @@ const DEFAULT_IDS = new Set([
  * to what this tenant actually has; omitting it searches everything, which is
  * what a surface with no account context (none today) would want.
  */
+/**
+ * How many nav rows the palette will show for one query.
+ *
+ * The tree is several hundred rows deep across both catalogues, and a query
+ * like "a" matches most of them. The palette is a shortcut, not the
+ * directory: past about eight the list stops being scannable and the thing
+ * you actually wanted is below the fold either way. "All products" is where
+ * an exhaustive answer belongs, and it is one row away.
+ */
+const NAV_HIT_CAP = 8;
+
+/**
+ * The sidebar's own rows, as search hits.
+ *
+ * Ashwin, Oct 27: the palette knew about a hand-written index and nothing
+ * about the nav, so searching "smart list" found a contact record and not
+ * the page — while the identical query in All products found the page. Two
+ * searches over the same product, disagreeing.
+ *
+ * Walked from the catalogue rather than from the rendered nav, deliberately.
+ * The rendered tree is one arrangement of it: rows the account has hidden,
+ * or buried under a category it collapsed, are still places it can go, and
+ * a search that could only reach what is currently on screen would be a
+ * worse index than the sidebar it is standing in for. Scoping stays with
+ * `enabled`, which is the question that does matter — what the account owns.
+ *
+ * `labelFor` is how a rename reaches this. The catalogue holds the shipped
+ * name; the account may have typed its own, and searching for the name you
+ * gave something is the first thing anyone tries.
+ */
+function navHits(
+  q: string,
+  owned: (id: string) => boolean,
+  labelFor: (id: string, fallback: string) => string,
+): SearchResult[] {
+  const out: SearchResult[] = [];
+  const push = (
+    id: string,
+    title: string,
+    icon: LucideIcon,
+    productId: string,
+    chip?: string,
+    meta?: string,
+  ) => {
+    if (out.length >= NAV_HIT_CAP) return;
+    if (!title.toLowerCase().includes(q)) return;
+    out.push({
+      // Prefixed: a nav row and an index entry can name the same product,
+      // and two results sharing a key is a list that loses its highlight.
+      id: `nav:${id}`,
+      kind: "product",
+      title,
+      icon,
+      productId,
+      ...(chip ? { chip } : {}),
+      ...(meta ? { meta } : {}),
+    });
+  };
+
+  const walk = (
+    product: CatalogueEntry,
+    kids: readonly CatalogueChild[],
+    parentLabel: string,
+  ) => {
+    for (const child of kids) {
+      const label = labelFor(child.id, child.label);
+      push(
+        child.id,
+        label,
+        child.icon ?? iconForChildLabel(child.label),
+        product.id,
+        parentLabel,
+      );
+      if (child.children?.length) walk(product, child.children, label);
+    }
+  };
+
+  for (const product of allProducts) {
+    if (!owned(product.id)) continue;
+    const label = labelFor(product.id, product.label);
+    push(product.id, label, product.icon, product.id, undefined, product.blurb);
+    walk(product, product.children ?? [], label);
+    if (out.length >= NAV_HIT_CAP) break;
+  }
+  return out;
+}
+
 export function searchResults(
   query: string,
   enabled?: ReadonlySet<string>,
+  /** The account's own name for a row, where it has given one. */
+  labelFor: (id: string, fallback: string) => string = (_id, fallback) =>
+    fallback,
 ): SearchGroup[] {
   const q = query.trim().toLowerCase();
   // Through `resolveOwned`, because the index names products by the shipped
@@ -141,12 +234,35 @@ export function searchResults(
     ? index.filter((r) => haystack(r).includes(q))
     : index.filter((r) => DEFAULT_IDS.has(r.id));
 
+  /*
+   * The nav's rows join "Navigate to", under the hand-written entries.
+   *
+   * Under, not over: the index is curated — it knows "ema" should reach
+   * Email campaigns — and the tree walk is exhaustive. Curation first, then
+   * completeness, is the order that makes the top hit usually right.
+   *
+   * Only while there is a query. With the field empty the palette shows its
+   * default shortcuts, and appending eight catalogue rows to that would turn
+   * a short list of suggestions into a directory nobody asked for.
+   */
+  const owned = (id: string) =>
+    enabled === undefined || resolveOwned(id, enabled) !== undefined;
+  const seen = new Set(
+    matches.map((r) => r.title.toLowerCase()),
+  );
+  const fromNav = q
+    ? navHits(q, owned, labelFor).filter((r) => !seen.has(r.title.toLowerCase()))
+    : [];
+
   const order: SearchResultKind[] = ["product", "record", "action"];
   return order
     .map((kind) => ({
       id: kind,
       label: GROUP_LABELS[kind],
-      results: matches.filter((r) => r.kind === kind),
+      results:
+        kind === "product"
+          ? [...matches.filter((r) => r.kind === kind), ...fromNav]
+          : matches.filter((r) => r.kind === kind),
     }))
     .filter((g) => g.results.length > 0);
 }

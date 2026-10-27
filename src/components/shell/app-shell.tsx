@@ -4266,7 +4266,23 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
             what either of them is — it is being handed a control to stand, not
             asked to assemble one.
           */
-          {...(entryLayout === "header"
+          /*
+            Under `separate`, Ask AI stands in the bar whatever the placement
+            axis says. Ashwin, Oct 27: it "would still stay in the top navbar
+            only."
+            
+            The axis moves SEARCH. Ask AI is not a second thing the axis
+            places — it has one home, and it is this one, because it is the
+            only spot that survives the sidebar collapsing and does not move
+            as you navigate. So the bar takes the pill with `searchEnabled`
+            off (the assistant half alone) whenever the field has gone into
+            the nav, and the whole pill when the field is up here too.
+            
+            Merged is unchanged: there the two ARE one control and the axis
+            moves it as one, so the bar shows it only in the `header`
+            placement.
+          */
+          {...(entryLayout === "header" || entryPair === "separate"
             ? {
                 entry: (
                   <EntryPill
@@ -4275,7 +4291,10 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
                     tone="header"
                     // The agency has thirteen buckets and a client list with a
                     // search of its own — no corpus the pill could add to.
-                    searchEnabled={!agencyScope || agencySearch}
+                    searchEnabled={
+                      entryLayout === "header" &&
+                      (!agencyScope || agencySearch)
+                    }
                   />
                 ),
               }
