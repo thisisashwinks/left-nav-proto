@@ -441,6 +441,7 @@ function RailTools({
   query,
   onQuery,
   onEnter = null,
+  onFocusChange = null,
   cta,
   picking,
   selectedCount,
@@ -478,6 +479,14 @@ function RailTools({
   onHover: () => void;
   query: string;
   onQuery: (v: string) => void;
+  /**
+   * The field gained or lost focus.
+   *
+   * The rail shows a different list while the field is focused and empty —
+   * see `searchResting` — so the state has to leave this component. Null
+   * wherever that list is not drawn.
+   */
+  onFocusChange?: ((focused: boolean) => void) | null;
   /** Enter in the field. Set only while the create row is the sole answer. */
   onEnter?: (() => void) | null;
   /** The word the axis chose — Select, Edit or Edit sub-account. */
@@ -732,6 +741,8 @@ function RailTools({
         type="search"
         value={query}
         onChange={(e) => onQuery(e.target.value)}
+        onFocus={() => onFocusChange?.(true)}
+        onBlur={() => onFocusChange?.(false)}
         onKeyDown={(e) => {
           if (e.key !== "Enter" || !onEnter) return;
           e.preventDefault();
@@ -918,7 +929,10 @@ function RailTools({
         inList
           ? {
               top: (stickyTop ?? 0) - RAIL_SCROLL_PAD,
-              ...(bleed
+              // Open only, for the reason the shadow is: see below. Shut,
+              // the gutters are the strip's own and the rule is measured
+              // against them.
+              ...(bleed && expanded
                 ? {
                     marginInlineStart: -bleed.left,
                     marginInlineEnd: -bleed.right,
@@ -977,10 +991,25 @@ function RailTools({
               already closed twice. Same figure shut, where the slot holds
               a glyph or a rule. Ashwin, Oct 16.
             */
-            "pt-[4px] pb-[4px] [[data-rail-scrolled]_&]:pb-[8px]"
+            "pt-[4px] pb-[4px]"
           : spot === "agencyBar"
-            ? "pt-[4px] pb-[8px] [[data-rail-scrolled]_&]:pb-[12px]"
-            : "py-[8px] [[data-rail-scrolled]_&]:pb-[12px]",
+            ? "pt-[4px] pb-[8px]"
+            : "py-[8px]",
+        /*
+          The scrolled treatment is the OPEN rail's alone — Ashwin, Oct 28.
+
+          Shut, this bar is 56px holding a 20px rule, and the rule IS the
+          division: there is no header to lift off a list, because at that
+          width the tools and the tiles are one column. Letting the open
+          rail's figures through cost the strip the only line it had — the
+          bleed padding squeezed the rule's slot — and gained it a shadow
+          nothing had asked for.
+        */
+        inList &&
+          expanded &&
+          (spot === "underAgency"
+            ? "[[data-rail-scrolled]_&]:pb-[8px]"
+            : "[[data-rail-scrolled]_&]:pb-[12px]"),
         /*
           Once the list is actually moving, the bar lifts off it.
 
@@ -998,6 +1027,7 @@ function RailTools({
           not holding anything back should not look like it is.
         */
         inList &&
+          expanded &&
           "transition-[box-shadow,padding] duration-[var(--dur-2)] [[data-rail-scrolled]_&]:shadow-[0_4px_8px_-2px_var(--fly-shadow)]",
         // Held against the scroll, at whatever the caller has to clear.
         inList && "sticky",
@@ -1657,6 +1687,45 @@ export function AccountRail({
   /** What the filled strip lists: pinned first, then everyone else. */
   const [fillQuery, setFillQuery] = React.useState("");
   /*
+   * Focused, and still focused a moment after the field says otherwise.
+   *
+   * Pressing a row blurs the field before the click lands, so reading blur
+   * straight through swapped the list out from under the pointer and the
+   * press arrived on whatever row had taken that place. The grace is the
+   * standard combobox answer: the list survives the blur long enough for
+   * the press that caused it to be delivered.
+   */
+  const [fillFocused, setFillFocused] = React.useState(false);
+  const blurGrace = React.useRef<number | null>(null);
+  const onFillFocusChange = React.useCallback((focused: boolean) => {
+    if (blurGrace.current !== null) window.clearTimeout(blurGrace.current);
+    if (focused) {
+      setFillFocused(true);
+      return;
+    }
+    blurGrace.current = window.setTimeout(() => setFillFocused(false), 160);
+  }, []);
+  React.useEffect(
+    () => () => {
+      if (blurGrace.current !== null) window.clearTimeout(blurGrace.current);
+    },
+    [],
+  );
+  /*
+   * The accounts picked out of this FIELD, newest first.
+   *
+   * Not the session's recents: switching from a pinned tile is not a search
+   * and has no business in a list of what you searched for. The two would
+   * otherwise be the same list under two headings, which is the one thing
+   * this panel must not be. See RAIL_SEARCH_RECENT_LIMIT.
+   */
+  const [searchPicks, setSearchPicks] = React.useState<readonly string[]>([]);
+  const rememberPick = React.useCallback((id: string) => {
+    setSearchPicks((prev) =>
+      [id, ...prev.filter((x) => x !== id)].slice(0, RAIL_SEARCH_RECENT_LIMIT),
+    );
+  }, []);
+  /*
    * Whether the agency bar has taken the agency's row.
    *
    * Closing it clears the query with it: the field is the only thing
@@ -1823,6 +1892,18 @@ export function AccountRail({
    * apart because they answer to different asks and the next retune of one
    * should not silently retune the other.
    */
+  /*
+   * The row that was just pinned, for the length of its arrival.
+   *
+   * Only `settle` reads it — under `recents` the row travels and the FLIP
+   * owns the motion, so nothing here needs a name. See RAIL_PIN_MOTIONS.
+   */
+  const [justPinned, setJustPinned] = React.useState<string | null>(null);
+  const settleArrival = (id: string) =>
+    railPinMotion === "settle" && justPinned === id
+      ? "pin-landed-settle"
+      : undefined;
+
   const flip = useFlipRows(
     /*
       The pinned set joins the signal, which is what wakes the hook on a pin.
@@ -1857,7 +1938,20 @@ export function AccountRail({
           wake on a change nothing on screen was making.
         */
         keys: session.railIds,
-        style: railPinMotion === "recents" ? "rise" : "travel",
+        /*
+          Recents = the travel, which is the recents motion itself.
+
+          Switching accounts already moves a row into the recents run by
+          TRAVELLING it, staggered against the rows it displaces — that is
+          what "like recents" means, and it is this hook's ordinary
+          behaviour. So the default asks for nothing special; it just stops
+          excluding the strip. Ashwin, Oct 28, after the first pass gave it
+          a rise-from-below the recents run has never used.
+
+          Settle hands the row to the nav's own keyframes instead; see
+          `justPinned` below.
+        */
+        style: railPinMotion === "settle" ? "hold" : "travel",
       },
       duration: 500,
       /*
@@ -2419,12 +2513,27 @@ export function AccountRail({
     fillPicking || id === brandedAgency.id
       ? {}
       : {
-          onTogglePin: () =>
-            session.onRail(id)
-              ? session.removeFromRail(id)
-              : canPinMore
-                ? session.addToRail(id)
-                : undefined,
+          onTogglePin: () => {
+            if (session.onRail(id)) {
+              session.removeFromRail(id);
+              return;
+            }
+            if (!canPinMore) return;
+            /*
+              Remembered in the HANDLER, not worked out in an effect.
+
+              The settle treatment has to be put on one specific row for one
+              render, and the only place that knows which row without
+              comparing two renders is the press itself. An effect could
+              diff `railIds`, at the price of a setState inside an effect —
+              the cascading-render pattern the lint rightly refuses — and it
+              would be re-deriving a fact this function already has in its
+              hand. See RAIL_PIN_MOTIONS.
+            */
+            setJustPinned(id);
+            window.setTimeout(() => setJustPinned(null), PIN_SETTLE_MS);
+            session.addToRail(id);
+          },
           pinBlocked: !session.onRail(id) && !canPinMore,
         };
 
@@ -2447,8 +2556,17 @@ export function AccountRail({
    * agency row stayed unmarked the whole time you were inside the agency.
    * It answers to scope instead. Ashwin, Oct 15.
    */
-  const goTo = (id: string) =>
-    id === AGENCY_ID ? session.switchToAgency() : session.switchTo(id);
+  const goTo = (id: string) => {
+    /*
+     * A row taken while the field is in play is a SEARCH result, whether or
+     * not anything was typed: focusing the field and picking from what it
+     * offered is the gesture this list exists to remember. A row taken from
+     * the resting rail is not, and must not be — see `searchPicks`.
+     */
+    if (expanded && (fillFocused || fillQuery.trim().length > 0))
+      rememberPick(id);
+    return id === AGENCY_ID ? session.switchToAgency() : session.switchTo(id);
+  };
 
   const rowActive = (id: string) =>
     id === AGENCY_ID
@@ -2625,8 +2743,59 @@ export function AccountRail({
   const reverseSearch =
     inlineOpen && railToolSpot === "bottom" && fillQuery.trim().length > 0;
 
+  /*
+   * Focused with nothing typed — the field answers before it is asked.
+   *
+   * See RAIL_TOP_SEARCHED_IDS. The two runs the rail already draws are
+   * reused rather than a third list invented: they are the same rows, in
+   * the same shapes, under two different headings, so the panel is a
+   * rearrangement of what you were looking at rather than a surface that
+   * arrives from somewhere else.
+   */
+  const searchResting =
+    inlineOpen && expanded && fillFocused && fillQuery.trim().length === 0;
+  const accountById = (id: string) =>
+    id === AGENCY_ID
+      ? brandedAgency
+      : session.accounts.find((a) => a.id === id);
+  const topSearchedSet = new Set<string>(RAIL_TOP_SEARCHED_IDS);
+  const topSearched = searchResting
+    ? RAIL_TOP_SEARCHED_IDS.map(accountById).filter(
+        (a): a is Account => a !== undefined,
+      )
+    : [];
+  /*
+   * Minus anything already up as "top searched".
+   *
+   * The same account under both headings is the panel disagreeing with
+   * itself about which list it belongs to, and it costs a row that could
+   * have carried something the reader has not already seen.
+   */
+  const recentSearched = searchResting
+    ? searchPicks
+        .filter((id) => !topSearchedSet.has(id))
+        .map(accountById)
+        .filter((a): a is Account => a !== undefined)
+    : [];
+
   const pinnedShown = inlineMatch(pinnedRun);
-  const topRun = reverseSearch ? [...centredRecents].reverse() : pinnedShown;
+  /*
+   * The agency's row survives, because it is not a result.
+   *
+   * It is the rail saying whose accounts these are, and under `underAgency`
+   * the field is stuck to its underside — drop it and the search panel
+   * loses its header and the bar pins to nothing. So it keeps the head of
+   * the run and the heading goes under it, where it describes the rows it
+   * is actually over.
+   */
+  const topRun = searchResting
+    ? [
+        ...pinnedShown.filter((a) => a.id === AGENCY_ID),
+        ...topSearched.filter((a) => a.id !== AGENCY_ID),
+      ]
+    : reverseSearch
+      ? [...centredRecents].reverse()
+      : pinnedShown;
 
   /*
    * What the sticky field has to clear — measured off what is DRAWN.
@@ -2660,9 +2829,11 @@ export function AccountRail({
   const underAgencyTop = underAgencyHead
     ? RAIL_ROW_H + RAIL_SCROLL_PAD
     : 0;
-  const bottomRun = reverseSearch
-    ? [...pinnedShown].reverse()
-    : centredRecents;
+  const bottomRun = searchResting
+    ? recentSearched
+    : reverseSearch
+      ? [...pinnedShown].reverse()
+      : centredRecents;
 
   /*
    * Keyboard reach for the query's create row: with nothing matched, Enter
@@ -3882,6 +4053,7 @@ export function AccountRail({
                 onHover={() => setHover(true)}
                 query={fillQuery}
                 onQuery={setFillQuery}
+                onFocusChange={onFillFocusChange}
                 onEnter={fillEnter}
                 cta={fillSelectWord}
                 picking={fillPicking}
@@ -4039,6 +4211,18 @@ export function AccountRail({
                   */
                   reverseSearch && "mt-auto",
                   /*
+                    Tall enough for the floor to BE the floor.
+                    
+                    This wrapper sizes to its rows, so on a short list it
+                    ended a third of the way down a column it sits inside —
+                    and the sticky create bar, being its last child, ended
+                    there with it. Growing the wrapper to the scroller's
+                    height gives that bar's `mt-auto` something to spend, so
+                    it drops to the rail's own foot. A list that overflows
+                    has no slack and nothing changes. Ashwin, Oct 28.
+                  */
+                  createStickyShown && !reverseSearch && "flex-1",
+                  /*
                     `my-auto` is the centring, and dropping it is the whole of
                     the `top` arrangement: with no auto margins the run sits at
                     the flex start, which is directly under the agency block.
@@ -4195,7 +4379,7 @@ export function AccountRail({
                   plate, and the two are one request.
                 */}
 
-                {!filled &&
+                {searchResting ? null : !filled &&
                 !reverseSearch &&
                 centredAccounts.length > 0 &&
                 railArrangement !== "agencyBottom" ? (
@@ -4358,6 +4542,7 @@ export function AccountRail({
                     onHover={() => setHover(true)}
                     query={fillQuery}
                     onQuery={setFillQuery}
+                    onFocusChange={onFillFocusChange}
                     onEnter={fillEnter}
                     cta={fillSelectWord}
                     picking={fillPicking}
@@ -4426,6 +4611,7 @@ export function AccountRail({
                         onHover={() => setHover(true)}
                         query={fillQuery}
                         onQuery={setFillQuery}
+                        onFocusChange={onFillFocusChange}
                         onEnter={fillEnter}
                         cta={fillSelectWord}
                         picking={fillPicking}
@@ -4442,6 +4628,19 @@ export function AccountRail({
                             : null
                         }
                       />
+                ) : null}
+                {/*
+                  Under the bars, not above them — Ashwin, Oct 28.
+
+                  The Pinned heading above is drawn before the sticky agency
+                  row and the sticky field, which is harmless while it is
+                  switched off in this mode and wrong the moment something
+                  is drawn there: the label came out over the search field,
+                  answering for rows that were three elements further down.
+                  This one sits with the rows it names. See `searchResting`.
+                */}
+                {searchResting && topSearched.length > 0 ? (
+                  <RailGroupHeading label="Top searched" expanded={expanded} show />
                 ) : null}
                 {filled ? null : topRun.map((account, i) =>
                   /* The row the bar is standing in for is not drawn twice. */
@@ -4463,6 +4662,8 @@ export function AccountRail({
                         : undefined
                     }
                     className={cn(
+                      // The nav's own pin arrival, when the axis asks for it.
+                      settleArrival(account.id),
                       underAgency &&
                         account.id === AGENCY_ID &&
                         /*
@@ -4694,7 +4895,15 @@ export function AccountRail({
                   says what it is and the toggle governs it exactly as it
                   governs the other.
                 */}
-                {!filled && !reverseSearch && centredRecents.length > 0 ? (
+                {searchResting ? (
+                  bottomRun.length > 0 ? (
+                    <RailGroupHeading
+                      label="Recent searches"
+                      expanded={expanded}
+                      show
+                    />
+                  ) : null
+                ) : !filled && !reverseSearch && centredRecents.length > 0 ? (
                   <RailGroupHeading
                     label="Recent"
                     expanded={expanded}
@@ -4713,7 +4922,11 @@ export function AccountRail({
                     appearing below. One shared register makes it the single
                     exchange it actually is. Ashwin, Oct 19.
                   */
-                  <div key={account.id} ref={flip.register(account.id)}>
+                  <div
+                    key={account.id}
+                    ref={flip.register(account.id)}
+                    className={settleArrival(account.id)}
+                  >
                   <RailRow
                     squircle={!pillTiles}
                     /*
@@ -5011,7 +5224,25 @@ export function AccountRail({
                             hover is a flat #f2f4f7 and stays solid.
                             Ashwin, Oct 16.
                           */
-                          "sticky z-[2] bg-nav hover:bg-nav-rail-hover"
+                          /*
+                            `mt-auto` is what makes "sticky" true of a SHORT
+                            list — Ashwin, Oct 28.
+
+                            Sticky only pins while there is something to
+                            scroll. With four rows in a column that holds
+                            twenty — the search panel's resting state, or any
+                            small directory — there is no overflow, so the
+                            bar simply ended at the foot of the four and left
+                            a field of empty rail under it: the floor of the
+                            column, floating halfway up it.
+
+                            The scroller is a flex column, so the free space
+                            can be given to this row's top margin instead.
+                            Long lists have no free space and nothing
+                            changes; short ones push it to the bottom, which
+                            is where the bar claims to be either way.
+                          */
+                          "sticky z-[2] mt-auto bg-nav hover:bg-nav-rail-hover"
                         : "rounded-[8px]",
                     )}
                   >
@@ -5140,6 +5371,7 @@ export function AccountRail({
             onHover={() => setHover(true)}
             query={fillQuery}
             onQuery={setFillQuery}
+            onFocusChange={onFillFocusChange}
             onEnter={fillEnter}
             cta={fillSelectWord}
             picking={fillPicking}
@@ -6175,6 +6407,17 @@ function RailRow({
  * `pad`. The two surfaces are one column of one kind of row, so they get one
  * height.
  */
+/**
+ * How long the settle arrival is kept on the row.
+ *
+ * `pin-landed-settle` runs for `--dur-slow`, which is 300ms; this is that
+ * plus a frame's slack, so the class is removed after the keyframes have
+ * finished rather than mid-flight. Leaving it on would be worse than it
+ * sounds — the row would replay the arrival on the next re-render, and the
+ * rail re-renders on a pointer crossing a tile.
+ */
+const PIN_SETTLE_MS = 340;
+
 const RAIL_ROW_H = 36;
 
 /**
@@ -6184,6 +6427,31 @@ const RAIL_ROW_H = 36;
  * `top` resolves against the scrollport's padding box, so every in-list bar
  * parks this far down unless it says otherwise. See the bar's `style`.
  */
+/**
+ * What the field offers before a single letter is typed.
+ *
+ * An empty search field over the whole directory asks a question and then
+ * shows the same forty rows you were already looking at — the focus ring is
+ * the only thing that changed, so nothing says the field is live or what it
+ * is good for. Focused and empty, the list becomes the two answers a search
+ * can give before it has a query: what people look for, and what YOU looked
+ * for last. Ashwin, Oct 28.
+ *
+ * Seeded rather than measured. There is no search telemetry behind this
+ * prototype, and inventing one would be a day of plumbing for a list that
+ * has to look plausible rather than be true — fixed also keeps a demo
+ * saying the same thing twice. The real thing reads a counter.
+ */
+const RAIL_TOP_SEARCHED_IDS = [
+  "fieldstone",
+  "northwind",
+  "veritas",
+  "brightpath",
+] as const;
+
+/** How many of your own picks the field remembers. */
+const RAIL_SEARCH_RECENT_LIMIT = 4;
+
 const RAIL_SCROLL_PAD = 2;
 
 /** The squared agency mark's corner. See AGENCY_ROW_MARKS — `square`. */

@@ -118,13 +118,17 @@ export function useFlipRows(
      * problem `reverseOnFall` solves the same way. And `style` decides what
      * the joining row does:
      *
-     *   travel  it slides from wherever it was into its new slot, and the
-     *           rows it displaces slide around it. The whole move is one
-     *           continuous thing you can follow with your eye.
-     *   rise    it is treated as an ARRIVAL: it rises into the slot the way
-     *           a row joining the list does, while the displaced rows still
-     *           travel. The press reads as "this is now one of these"
-     *           rather than as the row sliding up the column.
+     *   travel  it slides from wherever it was into its new slot, cascading
+     *           with the rows it displaces — which is exactly what a row
+     *           joining the recents run already does when you switch
+     *           accounts. One motion, borrowed rather than reinvented.
+     *   hold    the hook leaves the row alone, because something else is
+     *           animating it: the caller is playing the nav's own
+     *           `pin-landed-settle` on it, an arrival that happens IN the
+     *           destination slot rather than across the column. Two
+     *           animations on one element would fight, and the FLIP would
+     *           win — it animates `transform`, which is the property the
+     *           keyframes need. Ashwin, Oct 28.
      *
      * A change in either direction wakes the pass — unpinning is the same
      * move read backwards, and a row that animates in and vanishes out is a
@@ -132,7 +136,7 @@ export function useFlipRows(
      */
     arrivals?: {
       keys: readonly string[];
-      style: "travel" | "rise";
+      style: "travel" | "hold";
     };
   },
 ): FlipRows {
@@ -268,11 +272,11 @@ export function useFlipRows(
       for (const { key, el, top } of measured) {
         const was = previous.current.get(key);
         const delay = Math.min(rank * STAGGER_MS, MAX_STAGGER_MS);
-        // A row that just joined the watched set and is asked to arrive
-        // rather than travel — see `arrivals`.
-        const arriving = arrivalStyle === "rise" && joined.includes(key);
+        // A row that just joined the watched set, where the caller is
+        // animating the arrival itself — see `arrivals`.
+        if (arrivalStyle === "hold" && joined.includes(key)) continue;
 
-        if (was === undefined || arriving) {
+        if (was === undefined) {
           /*
            * New to the list. Only animated when something else is also
            * moving: on the very first render every row is new, and an app
@@ -292,7 +296,7 @@ export function useFlipRows(
              commit where every row is new and none of them is arriving.
              Ashwin, Oct 6.
           */
-          if (previous.current.size > 0 || arriving) {
+          if (previous.current.size > 0) {
             el.animate(
               [
                 { transform: `translateY(${RISE_PX}px)`, opacity: 0 },

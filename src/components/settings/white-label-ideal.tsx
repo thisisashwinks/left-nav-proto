@@ -249,32 +249,61 @@ function Part({
 /** A labelled editor, for the whole-tab redesign's own grouping. */
 export function CodeBlock({
   label,
+  sub,
   value,
   onChange,
   action = null,
 }: {
   label: string;
+  /** One line under the label, in the left column. */
+  sub?: string;
   value: string;
   onChange: (v: string) => void;
   /**
-   * Something on the right of the label row — a Save, where the page
-   * commits per editor rather than per page.
+   * The section's own Cancel and Save, under the editor.
    *
-   * Optional because the other variants on this page have one Save at the
-   * foot and nothing to put here, and a label row that is a flex container
-   * with one child in it lays out exactly as the span did.
+   * Optional because a variant that commits the whole page at its foot has
+   * nothing to put here, and the row collapses to nothing when it is absent.
    */
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-[6px]">
-      <div className="flex min-h-[20px] items-center justify-between gap-[12px]">
+    /*
+      Label beside the editor, not above it. Ashwin, Oct 28.
+
+      A settings row in this product is a left column that says what the
+      field is and a right column that is the field — every other section on
+      this page is built that way, and the code editors were the exception.
+      Stacked, the editor ran the full width and its label read as a heading
+      over the page rather than as the name of the control beside it.
+
+      The left column is fixed rather than a fraction: these are code
+      editors, and a column that grows with the window takes width from the
+      thing you are actually typing in.
+    */
+    <div className="flex flex-col gap-[12px] sm:flex-row sm:gap-[24px]">
+      <div className="flex shrink-0 flex-col gap-[2px] sm:w-[220px]">
         <span className="text-[13px] leading-[18px] font-medium text-pg-text">
           {label}
         </span>
-        {action}
+        {sub ? (
+          <span className="text-[13px] leading-[18px] text-pg-muted">
+            {sub}
+          </span>
+        ) : null}
       </div>
-      <CodeEditorField label={label} value={value} onChange={onChange} />
+      <div className="flex min-w-0 flex-1 flex-col gap-[12px]">
+        <CodeEditorField label={label} value={value} onChange={onChange} />
+        {/*
+          Under the editor, right-aligned — not in the label row.
+
+          Up there the pair sat level with the heading and read as acting on
+          the section's TITLE; under the field it reads as acting on what you
+          just typed, which is what it does. It is also where every other
+          form in this product puts its commit.
+        */}
+        {action ? <div className="flex justify-end">{action}</div> : null}
+      </div>
     </div>
   );
 }

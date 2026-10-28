@@ -2762,14 +2762,19 @@ export const LAYOUT_MODEL_LABELS: Record<LayoutModel, string> = {
  * was filled — so pinning from the strip re-sorted the column between frames
  * and the row you pressed was simply somewhere else.
  *
- *  recents  The row ARRIVES in the pinned run, rising into the slot the way
- *           a row joining a list does, while the accounts it displaces slide
- *           down around it. It reads as "this is one of your pinned
- *           accounts now" rather than as a row changing seats — which is the
- *           claim the press actually makes.
- *  settle   The row travels: it slides from wherever it was up into its new
- *           slot, one continuous move you can follow. The rail's version of
- *           the nav's "Slide into place", and the quieter of the two.
+ *  recents  Exactly what a row joining the RECENT run already does when you
+ *           switch accounts: it travels from where it was to where it now
+ *           belongs, and the rows it displaces cascade after it 26ms apart.
+ *           Not a lookalike — the same FLIP, the same stagger, the same
+ *           curve, because the ask was "the recents animation" and the
+ *           recents animation already exists. The first pass invented a
+ *           rise-from-below instead, which the recents run has never used
+ *           and which Ashwin spotted immediately. Oct 28.
+ *  settle   The nav's own pinned-row arrival, borrowed whole: the row fades
+ *           up into its destination slot (`pin-landed-settle`, 10px and a
+ *           hair of scale) rather than travelling across the column. The
+ *           FLIP leaves that row alone while it plays, or the two would
+ *           fight over `transform`.
  *
  * Unpinning plays the same move read backwards under either, because a row
  * that animates in and then vanishes out is a list telling you half of what
@@ -2780,8 +2785,8 @@ export const RAIL_PIN_MOTIONS = ["recents", "settle"] as const;
 export type RailPinMotion = (typeof RAIL_PIN_MOTIONS)[number];
 
 export const RAIL_PIN_MOTION_LABELS: Record<RailPinMotion, string> = {
-  recents: "Rise into the slot",
-  settle: "Slide into place",
+  recents: "Travel, like Recents",
+  settle: "Settle into the slot",
 };
 
 export const PIN_FEEDBACKS = [
@@ -7546,7 +7551,13 @@ export const DEFAULT_THEME: ThemeState = {
   railRecentLabel: true,
   railTileColour: "active-only",
   activeAgencySpot: "stay",
-  whiteLabelApproach: "classic",
+  /*
+   * The whole tab, Oct 28. It is the proposal rather than the record of
+   * production: two navigations with their own code, each editor committing
+   * on its own, and the tab laid out like every other settings tab. The
+   * other four stay on the dial as the comparison.
+   */
+  whiteLabelApproach: "idealAll",
   canvasPad: "roomy",
   planeHead: "bar",
   flyoutShape: "docked",

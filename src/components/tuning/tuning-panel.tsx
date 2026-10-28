@@ -1645,8 +1645,8 @@ function NavStructureSection({
           />
           <Note>
             {railPinMotion === "recents"
-              ? "The row arrives in the pinned run — it rises into the slot the way a row joining a list does, while the accounts it displaces slide down around it. Says \u201cthis is one of your pinned accounts now\u201d rather than \u201cthis row changed seats\u201d, which is the claim the press makes."
-              : "The row travels: one continuous slide from wherever it was into its new slot. The rail's version of the nav's own \u201cSlide into place\u201d, and the quieter of the two \u2014 it only reads when the row's old position and its new one are both on screen."}
+              ? "The same move a row makes when it joins RECENT on an account switch \u2014 the same travel, the same 26ms cascade down the rows it displaces. Not a lookalike: it is that animation, asked to run for a pin."
+              : "The nav\u2019s own pinned arrival, borrowed whole: the row fades up into its destination slot rather than travelling across the column. Quieter, and it says less about where the row came from."}
           </Note>
           <Note>
             Unpinning plays the same move backwards under either. Both now

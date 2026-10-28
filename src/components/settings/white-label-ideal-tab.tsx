@@ -129,7 +129,23 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
   const commit = () => setSaved(form);
 
   return (
-    <div className="flex w-full flex-col pb-[96px]">
+    <div
+      className={cn(
+        "flex w-full flex-col",
+        /*
+          The 96px exists to let the sticky SaveBar float over the last
+          section instead of resting on it — so it is only owed while that
+          bar is on screen, and the bar renders only when something is
+          pending. Unconditional, it left a blank sixth of a screen under
+          the tab at rest, which is what Ashwin photographed: nothing below
+          the Theme cards but scroll. Ashwin, Oct 28.
+          
+          The per-section Saves do not need it. They sit in the flow under
+          their own editor and cover nothing.
+        */
+        pending > 0 ? "pb-[96px]" : "pb-[16px]",
+      )}
+    >
       <header className="flex items-start justify-between gap-[16px] pt-[8px] pb-[20px]">
         <div className="min-w-0">
           <h2 className="text-[16px] leading-[22px] font-semibold text-pg-heading">
@@ -290,55 +306,21 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
         title="Appearance"
         sub="Your code runs on the navigation it was written for, and only that one."
       >
-        {oldCount > 0 ? (
-          <NavBlock name="Legacy navigation (before Oct 2027)" count={oldCount}>
-            <CodeBlock
-              label="Custom CSS"
-              value={oldCss}
-              onChange={setOldCss}
-              action={
-                <SectionSave
-                  what="legacy CSS"
-                  dirty={oldCss !== code.css}
-                  onSave={() => code.setCss(oldCss)}
-                  onCancel={() => setOldCss(code.css)}
-                />
-              }
-            />
-            <CodeBlock
-              label="Custom JS"
-              value={oldJs}
-              onChange={setOldJs}
-              action={
-                <SectionSave
-                  what="legacy JS"
-                  dirty={oldJs !== code.js}
-                  onSave={() => code.setJs(oldJs)}
-                  onCancel={() => setOldJs(code.js)}
-                />
-              }
-            />
-            <div className="flex flex-col gap-[8px]">
-              <div className="flex min-h-[20px] items-center justify-between gap-[12px]">
-                <span className="text-[13px] leading-[18px] font-medium text-pg-text">
-                  Theme
-                </span>
-                <SectionSave
-                  what="legacy theme"
-                  dirty={theme !== navTheme}
-                  onSave={() => setNavTheme(theme)}
-                  onCancel={() => setTheme(navTheme)}
-                />
-              </div>
-              <ThemeChoice value={theme} onChange={setTheme} />
-            </div>
-          </NavBlock>
-        ) : null}
-
+        {/*
+          The NEW navigation leads. Ashwin, Oct 28.
+          
+          Legacy was first because it is the older of the two and the list
+          read as a timeline. That is the wrong axis: 38 sub-accounts are on
+          the new navigation and 2 are on the legacy one, so the block almost
+          everyone is editing was below the block almost nobody is. Ordered
+          by where the work is, not by when it shipped — and the counts on
+          the right say which is which anyway.
+        */}
         {newCount > 0 ? (
-          <NavBlock name="New navigation (after Oct 2027)" count={newCount}>
+          <NavBlock name="New navigation (released Oct 2027)" count={newCount}>
             <CodeBlock
               label="Custom CSS"
+              sub="Customize the platform with CSS"
               value={newCss}
               onChange={setNewCss}
               action={
@@ -352,6 +334,7 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
             />
             <CodeBlock
               label="Custom JS"
+              sub="Customize the platform with JS"
               value={newJs}
               onChange={setNewJs}
               action={
@@ -365,6 +348,62 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
             />
           </NavBlock>
         ) : null}
+        {oldCount > 0 ? (
+          <NavBlock name="Legacy navigation (before Oct 2027)" count={oldCount}>
+            <CodeBlock
+              label="Custom CSS"
+              sub="Customize the platform with CSS"
+              value={oldCss}
+              onChange={setOldCss}
+              action={
+                <SectionSave
+                  what="legacy CSS"
+                  dirty={oldCss !== code.css}
+                  onSave={() => code.setCss(oldCss)}
+                  onCancel={() => setOldCss(code.css)}
+                />
+              }
+            />
+            <CodeBlock
+              label="Custom JS"
+              sub="Customize the platform with JS"
+              value={oldJs}
+              onChange={setOldJs}
+              action={
+                <SectionSave
+                  what="legacy JS"
+                  dirty={oldJs !== code.js}
+                  onSave={() => code.setJs(oldJs)}
+                  onCancel={() => setOldJs(code.js)}
+                />
+              }
+            />
+            {/* The same two columns the editors above take, so the block
+                reads as one list of settings rather than two shapes. */}
+            <div className="flex flex-col gap-[12px] sm:flex-row sm:gap-[24px]">
+              <div className="flex shrink-0 flex-col gap-[2px] sm:w-[220px]">
+                <span className="text-[13px] leading-[18px] font-medium text-pg-text">
+                  Theme
+                </span>
+                <span className="text-[13px] leading-[18px] text-pg-muted">
+                  How the sidebar is painted
+                </span>
+              </div>
+              <div className="flex min-w-0 flex-1 flex-col gap-[12px]">
+                <ThemeChoice value={theme} onChange={setTheme} />
+                <div className="flex justify-end">
+                  <SectionSave
+                    what="legacy theme"
+                    dirty={theme !== navTheme}
+                    onSave={() => setNavTheme(theme)}
+                    onCancel={() => setTheme(navTheme)}
+                  />
+                </div>
+              </div>
+            </div>
+          </NavBlock>
+        ) : null}
+
       </Group>
 
       <SaveBar pending={pending} onCancel={revert} onSave={commit} />
@@ -454,24 +493,52 @@ function SectionSave({
   onSave: () => void;
   onCancel: () => void;
 }) {
-  if (!dirty) return null;
+  /*
+   * Save is always on screen; Cancel arrives with the edit.
+   *
+   * The whole control used to vanish when clean, on the reasoning that a
+   * dead button is furniture. That reasoning holds for the page's own
+   * SaveBar — it is a bar that appears when there is something to commit —
+   * and it fails here, because these Saves are the thing that TELLS you the
+   * parts commit separately. Absent, the section reads as belonging to the
+   * form at the foot, which is the opposite of what it does: each editor
+   * writes on its own. Ashwin asked for them twice, which is the symptom.
+   *
+   * Cancel still comes and goes, because it is not making a claim about the
+   * model — there is simply nothing to discard until you have typed.
+   * Ashwin, Oct 28.
+   */
   return (
     <span className="flex shrink-0 items-center gap-[8px]">
-      <button
-        type="button"
-        onClick={onCancel}
-        aria-label={`Discard changes to ${what}`}
-        className="motion-tap h-[28px] rounded-[7px] px-[10px] text-[13px] font-medium text-pg-muted hover:bg-pg hover:text-pg-text active:scale-[0.98]"
-      >
-        Cancel
-      </button>
+      {dirty ? (
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label={`Discard changes to ${what}`}
+          className="motion-tap h-[28px] rounded-[7px] px-[10px] text-[13px] font-medium text-pg-muted hover:bg-pg hover:text-pg-text active:scale-[0.98]"
+        >
+          Cancel
+        </button>
+      ) : null}
       <button
         type="button"
         onClick={onSave}
+        disabled={!dirty}
         aria-label={`Save ${what}`}
-        className="motion-tap h-[28px] rounded-[7px] bg-brand px-[10px] text-[13px] font-medium text-white hover:brightness-95 active:scale-[0.98]"
+        className={cn(
+          "motion-tap h-[28px] rounded-[7px] px-[10px] text-[13px] font-medium",
+          dirty
+            ? "bg-brand text-white hover:brightness-95 active:scale-[0.98]"
+            : /*
+                 Greyed and inert rather than hidden — it says "this part
+                 saves on its own" even with nothing to save, which is the
+                 only job it has when clean.
+               */
+              "cursor-not-allowed bg-pg-row-border text-pg-faint",
+        )}
       >
-        Save
+        {/* "Save changes", as every other commit on this page says it. */}
+        Save changes
       </button>
     </span>
   );
