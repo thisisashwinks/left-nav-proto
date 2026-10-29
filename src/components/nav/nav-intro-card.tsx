@@ -4,6 +4,7 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { PlayCircle, SquarePen, X } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
+import { NavTourVideo } from "@/components/nav/nav-tour-video";
 
 /**
  * The first-run coach-mark for the edit control.
@@ -40,7 +41,8 @@ export function NavIntroCard({
   onDismiss: () => void;
   onStartEditing: () => void;
 }) {
-  const navTheme = useTheme().effective.navTheme;
+  const { navTheme, navTourWatchCut } = useTheme().effective;
+  const [watching, setWatching] = React.useState(false);
   const [anchor, setAnchor] = React.useState<DOMRect | null>(null);
   const cardRef = React.useRef<HTMLDivElement>(null);
   const [height, setHeight] = React.useState(0);
@@ -237,16 +239,26 @@ export function NavIntroCard({
         </button>
         <button
           type="button"
-          // A placeholder in the prototype: the tour is a real asset decision,
-          // and a fake modal pretending to be one would be the wrong thing to
-          // put in front of a reviewer.
-          title="The tour video is not part of the prototype"
+          // The launch video, in the same modal the coach-mark tour's "Watch
+          // the tour" opens. Its cut follows the prototype controls, and its
+          // "Take the guided tour" is this card's Try it. Ashwin, Oct 29.
+          onClick={() => setWatching(true)}
           className="motion-tap flex h-[28px] shrink-0 items-center gap-[5px] rounded-[7px] px-[9px] text-[12px] leading-none font-medium text-nav-fg-muted shadow-[inset_0_0_0_1px_var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg active:scale-95"
         >
           <PlayCircle size={12} aria-hidden="true" />
-          Watch 40s tour
+          {navTourWatchCut === "full" ? "Watch 77s tour" : "Watch 35s tour"}
         </button>
       </div>
+      {watching ? (
+        <NavTourVideo
+          cut={navTourWatchCut}
+          onClose={() => setWatching(false)}
+          onTour={() => {
+            setWatching(false);
+            onStartEditing();
+          }}
+        />
+      ) : null}
     </div>,
     document.body,
   );

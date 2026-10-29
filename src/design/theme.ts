@@ -820,6 +820,31 @@ export const MERGED_PIN_ORDER_LABELS: Record<MergedPinOrder, string> = {
 };
 
 /**
+ * What a sub-account's Recents and pins hold before anyone has used it.
+ *
+ *  fresh   The first login. Nothing pinned, and Recents is one row: the
+ *          account's home, Dashboard. Both grow from there as the reader
+ *          visits and pins, which is the only honest way to see whether the
+ *          list earns its place.
+ *  seeded  The demo state this prototype was built on: each account's seeded
+ *          pins and a Recents that lists every product it has. Good for
+ *          looking at a full list, and nothing like a real first day.
+ *
+ * `fresh` is the default (Oct 28). A seeded list answered "what does the list
+ * look like when it is full" on every account at once, including ones nobody
+ * had ever opened — so the nav claimed a history the user did not have. There
+ * are no pre-pins and no recents beyond the home row. Ashwin, Oct 28.
+ */
+export const NAV_RECENTS_STARTS = ["fresh", "seeded"] as const;
+
+export type NavRecentsStart = (typeof NAV_RECENTS_STARTS)[number];
+
+export const NAV_RECENTS_START_LABELS: Record<NavRecentsStart, string> = {
+  fresh: "First login: 1 recent, no pins",
+  seeded: "Seeded recents and pins",
+};
+
+/**
  * Where the favourites dock sits in the nav.
  *
  * `top` is the design: directly under the logo, the first thing you see. `bottom`
@@ -3531,6 +3556,194 @@ export const IMPERSONATION_BANNER_COLOR_LABELS: Record<
 };
 
 /**
+ * The first-login tour of the nav: expand/collapse, pinning, editing,
+ * navigation layouts and search, as a run of HighRise coach marks. It replaces
+ * the single Edit card — the beta research found all five went undiscovered,
+ * not only editing. Ashwin, Oct 28.
+ *
+ * How the layouts step is shown, since layouts live inside edit mode:
+ *
+ *  point  It points at Edit and says that is where layouts are. Nothing
+ *         changes under the reader mid-tour.
+ *  enter  The tour opens edit mode for that step, points at the layouts menu
+ *         itself, and leaves edit mode again on Back, Next or close.
+ *  merge  No step of its own: the Edit step names layouts too, and the tour
+ *         is four steps long.
+ */
+export const NAV_TOUR_LAYOUTS = ["point", "enter", "merge"] as const;
+export type NavTourLayouts = (typeof NAV_TOUR_LAYOUTS)[number];
+
+export const NAV_TOUR_LAYOUTS_LABELS: Record<NavTourLayouts, string> = {
+  point: "Point at Edit",
+  enter: "Open edit mode",
+  merge: "Part of the Edit step",
+};
+
+/**
+ * Whether the tour dims the page around what each step points at.
+ *
+ *  off  The coach mark alone, as the HighRise component is drawn.
+ *  on   A scrim over everything with a cut-out around the target. More
+ *       guided, and heavier for a tour most people will skim.
+ */
+export const NAV_TOUR_SPOTLIGHTS = ["off", "on"] as const;
+export type NavTourSpotlight = (typeof NAV_TOUR_SPOTLIGHTS)[number];
+
+export const NAV_TOUR_SPOTLIGHT_LABELS: Record<NavTourSpotlight, string> = {
+  off: "Coach mark only",
+  on: "Dim and spotlight",
+};
+
+/**
+ * What the first login teaches, and when.
+ *
+ *  flows   Three short tours, each arriving at the moment it is about: Get
+ *          started on first load, Pinning on the first lingering hover over a
+ *          recent, Editing the first time edit mode opens. Nobody sits through
+ *          pinning before they have anything to pin. Ashwin, Oct 28.
+ *  single  The same ground as one tour, start to finish, on first load.
+ *  card    The original "Personalize this layout" card beside Edit, and no
+ *          coach marks at all — the baseline the tours are measured against.
+ */
+export const NAV_TOUR_STYLES = ["flows", "single", "card"] as const;
+export type NavTourStyle = (typeof NAV_TOUR_STYLES)[number];
+
+export const NAV_TOUR_STYLE_LABELS: Record<NavTourStyle, string> = {
+  flows: "Progressive flows",
+  single: "Single tour",
+  card: "Personalize card (original)",
+};
+
+/**
+ * The coach mark's surface, chosen outright rather than read off the app's
+ * dark mode — a light card on a dark app stays light.
+ */
+export const NAV_TOUR_THEMES = ["light", "dark"] as const;
+export type NavTourTheme = (typeof NAV_TOUR_THEMES)[number];
+
+export const NAV_TOUR_THEME_LABELS: Record<NavTourTheme, string> = {
+  light: "Light",
+  dark: "Dark",
+};
+
+/**
+ * How much a step asks of the reader, when it has something to try.
+ *
+ *  show      Next only moves on. The tour describes; it never waits.
+ *  doOrNext  The step says what to click. Doing it moves the tour on by
+ *            itself; pressing Next does it for them, then moves on.
+ *  mustDo    Next stays unavailable until they have tried it. Close still
+ *            works, so nobody is held hostage by a tour.
+ *
+ * Steps with nothing to try read the same in every mode.
+ */
+export const NAV_TOUR_HANDS_ONS = ["show", "doOrNext", "mustDo"] as const;
+export type NavTourHandsOn = (typeof NAV_TOUR_HANDS_ONS)[number];
+
+export const NAV_TOUR_HANDS_ON_LABELS: Record<NavTourHandsOn, string> = {
+  show: "Show only",
+  doOrNext: "Do it or press Next",
+  mustDo: "Must do it",
+};
+
+/**
+ * Whether each step carries a short looping preview of the gesture, from
+ * public/tour/<step id>.mp4. A step whose clip is missing shows text only.
+ */
+export const NAV_TOUR_MEDIAS = ["on", "off"] as const;
+export type NavTourMedia = (typeof NAV_TOUR_MEDIAS)[number];
+
+export const NAV_TOUR_MEDIA_LABELS: Record<NavTourMedia, string> = {
+  on: "Show previews",
+  off: "Text only",
+};
+
+/**
+ * Where the preview sits in the coach mark. `top` leads with the clip and
+ * floats the close button on its top-right corner, so the clip is the first
+ * thing read; `middle` keeps the text first and puts the clip between the
+ * body and the footer, as a picture of what was just described.
+ */
+export const NAV_TOUR_MEDIA_POSITIONS = ["top", "middle"] as const;
+export type NavTourMediaPosition = (typeof NAV_TOUR_MEDIA_POSITIONS)[number];
+
+export const NAV_TOUR_MEDIA_POSITION_LABELS: Record<NavTourMediaPosition, string> = {
+  top: "Video at top",
+  middle: "Video above footer",
+};
+
+/**
+ * Where a tour closed by mistake can be started again. A tour shows once a
+ * session, so an X pressed too early used to mean waiting for a reload.
+ * Each entry opens the same choice of flows — Get started, Sub-accounts,
+ * Editing — and the chosen one runs from its first step. Ashwin, Oct 28.
+ *
+ *  off           No way back, as today.
+ *  helpRow       A "Take the navigation tour" row heads the Help & support
+ *                panel's list, with the flows as links under it.
+ *  helpCard      A "New navigation" card in the Help & support panel, under
+ *                Support access, with a button per flow.
+ *  helpDropdown  The app bar's Help button opens a small menu instead of the
+ *                panel: Help & support, then the flows.
+ *  toast         Closing a flow with X or Esc leaves a "Tour closed." toast
+ *                with Resume, for a few seconds. Done and finishing leave
+ *                nothing.
+ *  footer        A "Take the tour" row at the foot of the sidebar, by Edit.
+ *  account       A "Take the navigation tour" row in the account menu.
+ */
+export const NAV_TOUR_RESTARTS = [
+  "off",
+  "helpRow",
+  "helpCard",
+  "helpDropdown",
+  "toast",
+  "footer",
+  "account",
+] as const;
+export type NavTourRestart = (typeof NAV_TOUR_RESTARTS)[number];
+
+export const NAV_TOUR_RESTART_LABELS: Record<NavTourRestart, string> = {
+  off: "Off",
+  helpRow: "Help panel: tour row",
+  helpCard: "Help panel: top card",
+  helpDropdown: "Help: dropdown",
+  toast: "Toast on close",
+  footer: "Sidebar footer",
+  account: "Account menu",
+};
+
+/**
+ * A "Watch the tour" link on the first coach mark, opening the launch video
+ * in a modal. For the reader who would rather sit back for a minute than
+ * click through steps — and for whom the video is a better pitch than step 1.
+ * "Take the guided tour" at its foot carries on to step 2; closing it leaves
+ * the coach mark where it was. Ashwin, Oct 28.
+ */
+export const NAV_TOUR_WATCHES = ["off", "on"] as const;
+export type NavTourWatch = (typeof NAV_TOUR_WATCHES)[number];
+
+export const NAV_TOUR_WATCH_LABELS: Record<NavTourWatch, string> = {
+  off: "Off",
+  on: "Watch the tour button",
+};
+
+/**
+ * Which cut of the launch video the modal plays, from public/tour.
+ *
+ *  highlights  launch-highlights.mp4: categories, pinning, collapse, search,
+ *              then editing and layouts.
+ *  full        launch-full.mp4: all 3 flows — Get started, Sub-accounts and
+ *              Editing — a scene per step.
+ */
+export const NAV_TOUR_WATCH_CUTS = ["highlights", "full"] as const;
+export type NavTourWatchCut = (typeof NAV_TOUR_WATCH_CUTS)[number];
+
+export const NAV_TOUR_WATCH_CUT_LABELS: Record<NavTourWatchCut, string> = {
+  highlights: "Highlights (30–45 s)",
+  full: "Full tour (60–90 s)",
+};
+
+/**
  * Which glyph the collapsed rail's "View all" row wears.
  *
  * Four candidates, because at 64px the row has no label to explain itself
@@ -6087,6 +6300,26 @@ export interface ThemeState {
   previewBanner: boolean;
   /** The "Logged in as" banner's ground. See IMPERSONATION_BANNER_COLORS. */
   impersonationBannerColor: ImpersonationBannerColor;
+  /** How the first-login tour shows layouts. See NAV_TOUR_LAYOUTS. */
+  navTourLayouts: NavTourLayouts;
+  /** Whether the tour dims around its target. See NAV_TOUR_SPOTLIGHTS. */
+  navTourSpotlight: NavTourSpotlight;
+  /** Flows, one tour, or the original card. See NAV_TOUR_STYLES. */
+  navTourStyle: NavTourStyle;
+  /** The coach mark's surface. See NAV_TOUR_THEMES. */
+  navTourTheme: NavTourTheme;
+  /** Whether steps wait for the reader to try them. See NAV_TOUR_HANDS_ONS. */
+  navTourHandsOn: NavTourHandsOn;
+  /** Looping previews in the coach mark. See NAV_TOUR_MEDIAS. */
+  navTourMedia: NavTourMedia;
+  /** Where the preview sits. See NAV_TOUR_MEDIA_POSITIONS. */
+  navTourMediaPosition: NavTourMediaPosition;
+  /** Where a closed tour can be started again. See NAV_TOUR_RESTARTS. */
+  navTourRestart: NavTourRestart;
+  /** The launch video on the first coach mark. See NAV_TOUR_WATCHES. */
+  navTourWatch: NavTourWatch;
+  /** Which cut of it plays. See NAV_TOUR_WATCH_CUTS. */
+  navTourWatchCut: NavTourWatchCut;
   /** When the L1 flyout chevron is drawn. See NAV_CHEVRONS. */
   navChevron: NavChevron;
   /** How dark the nav's resting rows are. See NAV_INKS. */
@@ -6232,6 +6465,8 @@ export interface ThemeState {
   mergedRowDetail: MergedRowDetail;
   mergedPinOrder: MergedPinOrder;
   mergedHeading: MergedHeading;
+  /** What Recents and pins hold on an account's first load. See NAV_RECENTS_STARTS. */
+  navRecentsStart: NavRecentsStart;
   /**
    * Whether the merged panel carries a search field.
    *
@@ -7255,6 +7490,16 @@ export const DEFAULT_THEME: ThemeState = {
   recentsHeadingGlyph: false,
   previewBanner: PREVIEW_BANNER_DEFAULT,
   impersonationBannerColor: "ink",
+  navTourLayouts: "enter",
+  navTourSpotlight: "off",
+  navTourStyle: "card",
+  navTourTheme: "light",
+  navTourHandsOn: "doOrNext",
+  navTourMedia: "on",
+  navTourMediaPosition: "top",
+  navTourRestart: "off",
+  navTourWatch: "off",
+  navTourWatchCut: "highlights",
   /*
    * On hover, as of Oct 6.
    *
@@ -7615,6 +7860,8 @@ export const DEFAULT_THEME: ThemeState = {
   // to the top. See MERGED_PIN_ORDERS.
   mergedPinOrder: "arranged",
   mergedHeading: "recents",
+  // The first login, not the demo: one recent, no pins. See NAV_RECENTS_STARTS.
+  navRecentsStart: "fresh",
   /*
    * Off in the merged panel.
    *

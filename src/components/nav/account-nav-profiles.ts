@@ -771,3 +771,40 @@ export function navProfileFor(
     customLinks: [...(seed.links ?? [])],
   };
 }
+
+/** The proposed tree's Dashboard — the head row every account opens near. */
+const DASHBOARD_ID = "ia-reporting-dashboard";
+
+/**
+ * The one row a first login's Recents holds: the account's Dashboard.
+ *
+ * Dashboard rather than Ask AI because nothing in the prototype makes Ask AI
+ * an account's landing — home is Launchpad, which is not a nav row, and Ask
+ * AI is a row inside AI like any other. Dashboard is the place every tenant
+ * has, whatever it bought.
+ *
+ * Picked by the tree the account is wearing, not by what it owns: the
+ * proposed tree's Dashboard is its head row, so that is the one Recents
+ * names — even for an account provisioned on the shipped catalogue, whose
+ * own "Dashboards" files under Reporting and reads as a different place.
+ * Anywhere else the shipped Dashboards, or the account's equivalent of it —
+ * a row from the other catalogue would open a page whose trail names
+ * buckets the account cannot see. Ashwin, Oct 28.
+ */
+export function homeRecentIdFor(layout: NavLayoutState): string {
+  if (layout.grouping === "proposed") return DASHBOARD_ID;
+  return (
+    resolveOwned("dashboards", new Set(layout.enabledProducts)) ?? "dashboards"
+  );
+}
+
+/**
+ * An account as it is on its first login: nothing pinned, one recent.
+ *
+ * Applied over the seed rather than written into it, so `seeded` is exactly
+ * the layout it always was and the two answers differ only in these two
+ * fields. See NAV_RECENTS_STARTS.
+ */
+export function freshStart(layout: NavLayoutState): NavLayoutState {
+  return { ...layout, pinned: [], recents: [homeRecentIdFor(layout)] };
+}

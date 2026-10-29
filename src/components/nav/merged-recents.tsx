@@ -76,6 +76,16 @@ import { useDragTypes } from "@/lib/use-drag-active";
  * a reviewer would find and nobody could explain.
  */
 export function recentIdsFor(state: NavLayoutState): string[] {
+  /*
+   * Real history when there is any to read.
+   *
+   * Under `navRecentsStart: "fresh"` the account starts with its home row and
+   * collects the rest by being used, so the list is what the reader has done
+   * rather than what the account owns. The seeded stand-in stays as it was.
+   */
+  if (state.recents) {
+    return state.recents.filter((id) => !state.pinned.includes(id));
+  }
   return state.enabledProducts.filter((id) => !state.pinned.includes(id));
 }
 

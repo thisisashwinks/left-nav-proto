@@ -85,6 +85,7 @@ import {
 import { RowSeam } from "./row-seam";
 import { IconPicker, useIconPicker } from "./icon-picker";
 import { useNavLayout } from "./nav-layout-provider";
+import { NavTourFooterRow } from "./nav-tour-menu";
 import {
   AddPicker,
   pickerToast,
@@ -5390,6 +5391,13 @@ export function LeftNav({
         />
         </div>
       ) : null}
+
+      {/*
+        "Take the tour", by Edit, when the restart axis puts it here. Out of
+        edit mode, where the flows have nothing to say, and out of the
+        collapsed nav, which has no room for a label. See NavTourFooterRow.
+      */}
+      {!editing && !collapsed ? <NavTourFooterRow /> : null}
 
       {headerEntry || topEntry ? (
         /*

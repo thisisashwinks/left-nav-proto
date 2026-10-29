@@ -6,6 +6,7 @@ import {
   ArrowLeftRight,
   ChevronLeft,
   ChevronRight,
+  Compass,
   LogIn,
   LogOut,
   Monitor,
@@ -27,6 +28,8 @@ import {
   GET_APP_ROW_BADGES,
 } from "@/components/flyout/get-app-flyout";
 import { BADGE_TONE } from "@/components/flyout/types";
+import { useNavTourRestart } from "@/components/nav/nav-tour";
+import { NavTourFlowRows } from "@/components/nav/nav-tour-menu";
 import type { FlyoutBadge } from "@/components/flyout/types";
 
 const WIDTH = 268;
@@ -75,6 +78,15 @@ export function AccountMenu({
    */
   const [picking, setPicking] = React.useState(false);
   const pickerRef = React.useRef<HTMLDivElement>(null);
+  /*
+   * The tour's flows, beside the menu the way "Log in as" is — the one
+   * submenu this menu already has. One side panel open at a time. See
+   * NAV_TOUR_RESTARTS. Ashwin, Oct 28.
+   */
+  const tourRow = useNavTourRestart("account");
+  /** Where the submenu stands, taken from the menu as the row is pressed. */
+  const [touring, setTouring] = React.useState<{ top: number; left: number } | null>(null);
+  const tourRef = React.useRef<HTMLDivElement>(null);
   // Who the header names: the user being acted as, or you.
   const shownName = as ? as.name : name;
   const shownEmail = as ? as.email : email;
@@ -83,7 +95,12 @@ export function AccountMenu({
   React.useEffect(() => {
     const away = (e: PointerEvent) => {
       const t = e.target as Node;
-      if (!ref.current?.contains(t) && !pickerRef.current?.contains(t)) onClose();
+      if (
+        !ref.current?.contains(t) &&
+        !pickerRef.current?.contains(t) &&
+        !tourRef.current?.contains(t)
+      )
+        onClose();
     };
     const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("pointerdown", away);
@@ -153,8 +170,29 @@ export function AccountMenu({
         trailing={picking ? ChevronLeft : ChevronRight}
         active={picking}
         disabled={!canLogInAs}
-        onSelect={() => setPicking((open) => !open)}
+        onSelect={() => {
+          setTouring(null);
+          setPicking((open) => !open);
+        }}
       />
+
+      {tourRow ? (
+        <Row
+          icon={Compass}
+          label="Take the navigation tour"
+          trailing={touring ? ChevronLeft : ChevronRight}
+          active={touring !== null}
+          onSelect={() => {
+            setPicking(false);
+            const r = ref.current?.getBoundingClientRect();
+            setTouring((open) =>
+              open || !r
+                ? null
+                : { top: r.top, left: Math.max(8, r.left - TOUR_WIDTH - 8) },
+            );
+          }}
+        />
+      ) : null}
 
       {showApps ? (
         <>
@@ -209,10 +247,37 @@ export function AccountMenu({
           }}
         />
       ) : null}
+      {touring && tourRow ? (
+        <TourSubmenu ref={tourRef} at={touring} onPicked={onClose} />
+      ) : null}
     </>,
     document.body,
   );
 }
+
+const TOUR_WIDTH = 300;
+
+/** The tour's flows, opened to the left of the menu like LoginAsPicker. */
+const TourSubmenu = React.forwardRef<
+  HTMLDivElement,
+  {
+    at: { top: number; left: number };
+    onPicked: () => void;
+  }
+>(function TourSubmenu({ at: pos, onPicked }, ref) {
+  return (
+    <div
+      ref={ref}
+      role="menu"
+      aria-label="Navigation tour"
+      data-page-theme="light"
+      style={{ top: pos.top, left: pos.left, width: TOUR_WIDTH }}
+      className="motion-panel-in fixed z-[72] overflow-hidden rounded-[10px] bg-pg-surface py-[4px] shadow-[0_12px_32px_0_rgba(16,24,40,0.16),inset_0_0_0_1px_var(--pg-border)]"
+    >
+      <NavTourFlowRows onPicked={onPicked} />
+    </div>
+  );
+});
 
 const PICKER_WIDTH = 300;
 /*

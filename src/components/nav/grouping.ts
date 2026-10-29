@@ -398,6 +398,14 @@ export interface NavLayoutState {
    * list, not a capacity, so nothing here is capped.
    */
   pinned: string[];
+  /**
+   * Places actually visited, most recent first — or absent, for the seeded
+   * stand-in that lists every product. See `recentIdsFor`.
+   *
+   * History, not arrangement: it is in no template, no reset and no "is this
+   * the default" comparison, which is why it is not in LAYOUT_KEYS.
+   */
+  recents?: string[];
   grouping: GroupingMode;
   /** Group label overrides, keyed by group id, per scope. */
   agencyLabels: Record<string, string>;

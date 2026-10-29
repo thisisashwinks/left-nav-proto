@@ -328,16 +328,24 @@ function EditNavButton({
   const navTheme =
     themeCtx.accountThemeFor(accountId).navTheme ?? themeCtx.effective.navTheme;
 
+  /*
+   * While the first-login tour runs, Edit stays drawn: its steps point at it,
+   * and a control that only fades in under the pointer is nothing to point
+   * at. The tours are the shell's — see NavTours. The original card comes
+   * back only under its own tour style, as the baseline. Ashwin, Oct 28.
+   */
   if (!editing && showIntro && onDismissIntro) {
     return (
       <>
-        <NavIntroCard
-          onDismiss={onDismissIntro}
-          onStartEditing={() => {
-            onDismissIntro();
-            onStart();
-          }}
-        />
+        {themeCtx.effective.navTourStyle === "card" ? (
+          <NavIntroCard
+            onDismiss={onDismissIntro}
+            onStartEditing={() => {
+              onDismissIntro();
+              onStart();
+            }}
+          />
+        ) : null}
         <EditNavButton
           {...(planLock ? { planLock } : {})}
           editing={editing}
@@ -444,6 +452,8 @@ function EditNavButton({
         <NavGenerationModal onClose={() => setNavModalOpen(false)} />
       ) : null}
       <div
+        // What the tour's save step points at. See NavTour.
+        data-nav-edit-card=""
         className={cn(
           "absolute right-0 left-0 z-20 flex flex-col gap-[6px] rounded-[10px] bg-nav p-[8px] shadow-[0_4px_12px_0_var(--fly-shadow),inset_0_0_0_1px_var(--nav-border,var(--nav-divider))]",
           /*

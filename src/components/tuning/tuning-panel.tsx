@@ -118,6 +118,26 @@ import {
   RAIL_SEARCH_GLYPH_LABELS,
   IMPERSONATION_BANNER_COLORS,
   IMPERSONATION_BANNER_COLOR_LABELS,
+  NAV_TOUR_LAYOUTS,
+  NAV_TOUR_LAYOUTS_LABELS,
+  NAV_TOUR_SPOTLIGHTS,
+  NAV_TOUR_SPOTLIGHT_LABELS,
+  NAV_TOUR_STYLES,
+  NAV_TOUR_STYLE_LABELS,
+  NAV_TOUR_THEMES,
+  NAV_TOUR_THEME_LABELS,
+  NAV_TOUR_HANDS_ONS,
+  NAV_TOUR_HANDS_ON_LABELS,
+  NAV_TOUR_MEDIAS,
+  NAV_TOUR_MEDIA_LABELS,
+  NAV_TOUR_MEDIA_POSITIONS,
+  NAV_TOUR_MEDIA_POSITION_LABELS,
+  NAV_TOUR_RESTARTS,
+  NAV_TOUR_RESTART_LABELS,
+  NAV_TOUR_WATCHES,
+  NAV_TOUR_WATCH_LABELS,
+  NAV_TOUR_WATCH_CUTS,
+  NAV_TOUR_WATCH_CUT_LABELS,
   RAIL_RULE_ALIGNS,
   RAIL_RULE_ALIGN_LABELS,
   RAIL_TOOLS_CTA_LABELS,
@@ -434,6 +454,16 @@ import {
   type RailManageGlyph,
   type RailSearchGlyph,
   type ImpersonationBannerColor,
+  type NavTourLayouts,
+  type NavTourSpotlight,
+  type NavTourStyle,
+  type NavTourTheme,
+  type NavTourHandsOn,
+  type NavTourMedia,
+  type NavTourMediaPosition,
+  type NavTourRestart,
+  type NavTourWatch,
+  type NavTourWatchCut,
   type RailRuleAlign,
   type RailActiveChrome,
   type RailHoverZone,
@@ -490,6 +520,8 @@ import {
   MERGED_ROW_DETAIL_LABELS,
   MERGED_PIN_ORDERS,
   MERGED_PIN_ORDER_LABELS,
+  NAV_RECENTS_STARTS,
+  NAV_RECENTS_START_LABELS,
   MERGED_HEADINGS,
   MERGED_HEADING_LABELS,
   MERGED_AGENCY_RECENTS,
@@ -499,6 +531,7 @@ import {
   type MergedOverflow,
   type MergedRowDetail,
   type MergedPinOrder,
+  type NavRecentsStart,
   type MergedHeading,
   type MergedAgencyRecents,
   type ScopeModel,
@@ -572,6 +605,7 @@ import {
 } from "@/components/nav/grouping";
 import { useNavProfiles } from "@/components/nav/nav-profiles";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
+import { NAV_TOUR_REPLAY_EVENT } from "@/components/nav/nav-tour";
 import { cn } from "@/lib/utils";
 import { useTuning } from "./tuning-provider";
 import { useCanvasTintedPage } from "@/components/shell/page-canvas";
@@ -697,6 +731,8 @@ function NavStructureSection({
     setMergedRowDetail,
     mergedPinOrder,
     setMergedPinOrder,
+    navRecentsStart,
+    setNavRecentsStart,
     mergedHeading,
     setMergedHeading,
     mergedPanelSearch,
@@ -2918,6 +2954,20 @@ function NavStructureSection({
               : "Three destinations and a More row, as designed."}
       </Note>
 
+      <Segmented
+        label="Recents and pins start"
+        keywords="recents pins pinned seeded fresh first login history empty dashboard"
+        options={NAV_RECENTS_STARTS}
+        value={navRecentsStart}
+        onChange={(v: NavRecentsStart) => setNavRecentsStart(v)}
+        format={(v) => NAV_RECENTS_START_LABELS[v]}
+      />
+      <Note>
+        {navRecentsStart === "fresh"
+          ? "Every sub-account opens with Dashboard as its only recent and nothing pinned. Pages you open join Recents; pins are yours to add. Switching resets this account now, and others when you next open them."
+          : "Each sub-account's seeded pins, and a Recents that lists every product it has — a full list, not a real history. Switching resets this account now, and others when you next open them."}
+      </Note>
+
       {/*
         The merge's own axes, and only while the merge is on.
 
@@ -3529,6 +3579,36 @@ function Toggle({
         />
       </span>
     </button>
+  );
+}
+
+/** A one-shot action rather than a setting — a label and a verb. */
+function ActionRow({
+  label,
+  action,
+  onClick,
+  keywords,
+}: {
+  label: string;
+  action: string;
+  onClick: () => void;
+  keywords?: string;
+}) {
+  const { hidden, mark } = useFiltered(label, keywords ?? "");
+  return (
+    <div
+      {...mark}
+      className={cn("flex items-center justify-between gap-2", hidden && "hidden")}
+    >
+      <span className="text-[11px] leading-none text-pg-muted">{label}</span>
+      <button
+        type="button"
+        onClick={onClick}
+        className="motion-tap shrink-0 rounded-[5px] px-[7px] py-[3px] text-[11px] leading-none font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg active:scale-95"
+      >
+        {action}
+      </button>
+    </div>
   );
 }
 
@@ -4419,6 +4499,26 @@ export function TuningPanel() {
     setEditRadius,
     editAlways,
     setEditAlways,
+    navTourLayouts,
+    setNavTourLayouts,
+    navTourSpotlight,
+    setNavTourSpotlight,
+    navTourStyle,
+    setNavTourStyle,
+    navTourTheme,
+    setNavTourTheme,
+    navTourHandsOn,
+    setNavTourHandsOn,
+    navTourMedia,
+    setNavTourMedia,
+    navTourMediaPosition,
+    setNavTourMediaPosition,
+    navTourRestart,
+    setNavTourRestart,
+    navTourWatch,
+    setNavTourWatch,
+    navTourWatchCut,
+    setNavTourWatchCut,
     setEntryRadius,
     attachTemplateInUse,
     setAttachTemplateInUse,
@@ -6878,6 +6978,179 @@ export function TuningPanel() {
             {entryRadius === "pill"
               ? "Fully rounded, as it ships. Reads as somewhere to ask rather than as one more form control — and it is the one shape on the screen nothing else wears."
               : "The platform's own 8px, like every other input, button and select on the page. Consistent, and it stops the entry announcing itself."}
+          </Note>
+
+          <ActionRow
+            label="First-login tour"
+            action="Replay"
+            onClick={() => window.dispatchEvent(new Event(NAV_TOUR_REPLAY_EVENT))}
+            keywords="tour onboarding coach mark first login walkthrough replay guided"
+          />
+          <Note>
+            Coach marks for what the beta research found nobody discovers
+            alone. Each flow shows once a session; Replay marks them all unseen
+            and starts Get started again.
+          </Note>
+
+          <Segmented
+            label="Tour: style"
+            keywords="tour onboarding coach mark flows progressive single card personalize original"
+            options={NAV_TOUR_STYLES}
+            value={navTourStyle}
+            onChange={(v: NavTourStyle) => setNavTourStyle(v)}
+            format={(v) => NAV_TOUR_STYLE_LABELS[v]}
+          />
+          <Note>
+            {navTourStyle === "flows"
+              ? "Three short flows, each when it is relevant: Get started on first load, Pinning on the first lingering hover over a recent, Editing the first time edit mode opens. They never overlap; one that comes due mid-flow waits its turn."
+              : navTourStyle === "single"
+                ? "One tour on first load, through the same ground in order: getting started, then pinning, then editing."
+                : "The original “Personalize this layout” card beside Edit, and no coach marks. The baseline."}
+          </Note>
+
+          <Segmented
+            label="Tour: theme"
+            keywords="tour onboarding coach mark light dark theme surface"
+            options={NAV_TOUR_THEMES}
+            value={navTourTheme}
+            onChange={(v: NavTourTheme) => setNavTourTheme(v)}
+            format={(v) => NAV_TOUR_THEME_LABELS[v]}
+          />
+          <Note>
+            {navTourTheme === "light"
+              ? "White card with a gray-200 hairline. Stays light when the app is dark."
+              : "The gray-900 card, the HighRise component's dark theme."}
+          </Note>
+
+          <Segmented
+            label="Tour: hands-on"
+            keywords="tour onboarding coach mark hands on try it action interactive next disabled"
+            options={NAV_TOUR_HANDS_ONS}
+            value={navTourHandsOn}
+            onChange={(v: NavTourHandsOn) => setNavTourHandsOn(v)}
+            format={(v) => NAV_TOUR_HANDS_ON_LABELS[v]}
+          />
+          <Note>
+            {navTourHandsOn === "show"
+              ? "Next only moves on. The tour describes and never waits."
+              : navTourHandsOn === "doOrNext"
+                ? "Each step that has something to try says what to click. Doing it moves the tour on; pressing Next does it for you, then moves on."
+                : "Next stays unavailable until you try the step. Close still works. Steps with nothing to try are unaffected."}
+          </Note>
+
+          <Segmented
+            label="Tour: previews"
+            keywords="tour onboarding coach mark video preview media gif loop"
+            options={NAV_TOUR_MEDIAS}
+            value={navTourMedia}
+            onChange={(v: NavTourMedia) => setNavTourMedia(v)}
+            format={(v) => NAV_TOUR_MEDIA_LABELS[v]}
+          />
+          <Note>
+            {navTourMedia === "on"
+              ? "A short looping clip of the gesture above each step, from public/tour. A step without a clip shows text only."
+              : "Title and body only."}
+          </Note>
+
+          <Segmented
+            label="Tour: preview position"
+            keywords="tour onboarding coach mark video preview media position top bottom"
+            options={NAV_TOUR_MEDIA_POSITIONS}
+            value={navTourMediaPosition}
+            onChange={(v: NavTourMediaPosition) => setNavTourMediaPosition(v)}
+            format={(v) => NAV_TOUR_MEDIA_POSITION_LABELS[v]}
+            disabled={navTourMedia !== "on"}
+          />
+          <Note>
+            {navTourMediaPosition === "top"
+              ? "The clip leads the card, with close floating on its top-right corner."
+              : "Text first; the clip sits between the body and the footer."}
+          </Note>
+
+          <Segmented
+            label="Tour: the layouts step"
+            keywords="tour onboarding coach mark layouts step edit mode templates"
+            options={NAV_TOUR_LAYOUTS}
+            value={navTourLayouts}
+            onChange={(v: NavTourLayouts) => setNavTourLayouts(v)}
+            format={(v) => NAV_TOUR_LAYOUTS_LABELS[v]}
+          />
+          <Note>
+            {"Single tour only — the flows meet layouts inside edit mode. "}
+            {navTourLayouts === "point"
+              ? "Layouts live inside edit mode, so the step points at Edit and says so. Nothing changes under the reader mid-tour."
+              : navTourLayouts === "enter"
+                ? "The tour opens edit mode for this one step and points at the layouts menu itself, then leaves edit mode on Back, Next, or close. Shows the real thing, at the price of the whole nav changing state under a tour."
+                : "No step of its own: the Edit step names layouts too, and the tour is one step shorter."}
+          </Note>
+
+          <Segmented
+            label="Tour: spotlight"
+            keywords="tour onboarding coach mark spotlight dim scrim overlay highlight"
+            options={NAV_TOUR_SPOTLIGHTS}
+            value={navTourSpotlight}
+            onChange={(v: NavTourSpotlight) => setNavTourSpotlight(v)}
+            format={(v) => NAV_TOUR_SPOTLIGHT_LABELS[v]}
+          />
+          <Note>
+            {navTourSpotlight === "on"
+              ? "The page dims and a cut-out frames what each step points at. Clearer about the target, and heavier \u2014 the page still answers the pointer through the dim."
+              : "The coach mark alone, as the HighRise component is drawn. Lighter, and the arrow does all the pointing."}
+          </Note>
+
+          <Segmented
+            label="Tour: restart"
+            keywords="tour onboarding coach mark restart resume replay help toast footer account menu closed by mistake"
+            options={NAV_TOUR_RESTARTS}
+            value={navTourRestart}
+            onChange={(v: NavTourRestart) => setNavTourRestart(v)}
+            format={(v) => NAV_TOUR_RESTART_LABELS[v]}
+            disabled={navTourStyle === "card"}
+          />
+          <Note>
+            {navTourRestart === "off"
+              ? "No way back once a tour is closed, short of a reload. Each flow shows once a session."
+              : navTourRestart === "helpRow"
+                ? "Help opens the Help & support panel, whose list starts with \u201cTake the navigation tour\u201d: Get started, Sub-accounts, and Editing as links, each run from step 1."
+                : navTourRestart === "helpCard"
+                  ? "Help opens the Help & support panel with a \u201cNew navigation\u201d card under Support access, a button per flow."
+                  : navTourRestart === "helpDropdown"
+                    ? "Help opens a small menu instead of the panel: Help & support, then the 3 flows."
+                    : navTourRestart === "toast"
+                      ? "Closing a flow with X or Esc leaves a \u201cTour closed.\u201d toast for 6 seconds, with Resume to run it again from step 1. Done and finishing leave nothing."
+                      : navTourRestart === "footer"
+                        ? "A \u201cTake the tour\u201d row at the foot of the sidebar, by Edit, opens the same choice of flows. Hidden in edit mode and in the collapsed nav."
+                        : "A \u201cTake the navigation tour\u201d row in the account menu opens the choice of flows as a submenu."}
+            {" Sub-account scope only."}
+          </Note>
+
+          <Segmented
+            label="Tour: watch the tour"
+            keywords="tour onboarding coach mark video launch watch modal play"
+            options={NAV_TOUR_WATCHES}
+            value={navTourWatch}
+            onChange={(v: NavTourWatch) => setNavTourWatch(v)}
+            format={(v) => NAV_TOUR_WATCH_LABELS[v]}
+          />
+          <Note>
+            {navTourWatch === "on"
+              ? "Adds a \u201cWatch the tour\u201d button on the first coach mark that opens the launch video in a modal. \u201cTake the guided tour\u201d carries on to step 2; closing it leaves the tour on step 1."
+              : "No video. The tour starts on its first step, as today."}
+          </Note>
+
+          <Segmented
+            label="Tour: video cut"
+            keywords="tour onboarding launch video cut highlights full length"
+            options={NAV_TOUR_WATCH_CUTS}
+            value={navTourWatchCut}
+            onChange={(v: NavTourWatchCut) => setNavTourWatchCut(v)}
+            format={(v) => NAV_TOUR_WATCH_CUT_LABELS[v]}
+            disabled={navTourWatch !== "on"}
+          />
+          <Note>
+            {navTourWatchCut === "highlights"
+              ? "Categories, pinning, collapse, search, then editing and layouts. public/tour/launch-highlights.mp4."
+              : "All 3 flows, a scene per step: Get started, Sub-accounts, then Editing. public/tour/launch-full.mp4."}
           </Note>
 
           <Toggle

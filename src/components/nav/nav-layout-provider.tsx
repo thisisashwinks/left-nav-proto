@@ -5,7 +5,7 @@ import type { LucideIcon } from "lucide-react";
 import { INITIAL_ACCOUNT_ID } from "@/components/accounts/accounts-data";
 import { useTheme } from "@/components/theme/theme-provider";
 import { DEFAULT_THEME } from "@/design/theme";
-import { navProfileFor } from "./account-nav-profiles";
+import { freshStart, navProfileFor } from "./account-nav-profiles";
 import {
   AGENCY_SCOPE_ID,
   useNavProfiles,
@@ -387,6 +387,13 @@ interface NavLayoutContextValue {
    * in-place editing only ever touches the account you are in.
    */
   setActiveAccount: (accountId: string) => void;
+  /**
+   * Notes a place the reader opened, for Recents.
+   *
+   * A no-op on a seeded account, whose Recents is a stand-in rather than a
+   * history. See NAV_RECENTS_STARTS.
+   */
+  recordVisit: (id: string) => void;
   profileFor: (accountId: string) => NavLayoutState;
   /**
    * The one cross-account WRITE, and it exists for exactly one caller: the
@@ -530,6 +537,10 @@ type Action =
   | { type: "rebaseline" }
   /** Account switch: swap in another account's saved layout, drop the offer. */
   | { type: "load"; layout: NavLayoutState }
+  /**
+   * A place was opened. History, not an edit: no offer, no dirty session.
+   */
+  | { type: "visit"; id: string }
   /** Put the shipped default on screen, holding the account's own aside. */
   | { type: "showDefault"; base: NavLayoutState }
   /** Put the account's own arrangement back, dropping anything done to the default. */
@@ -593,7 +604,10 @@ function reducer(store: Store, action: Action): Store {
     case "discardEdit":
       return {
         ...store,
-        layout: store.editBaseline ?? { ...store.layout, editing: false },
+        layout: keepHistory(
+          store.editBaseline ?? { ...store.layout, editing: false },
+          store.layout,
+        ),
         editBaseline: null,
         editDirty: false,
         undoOffer: null,
@@ -614,7 +628,11 @@ function reducer(store: Store, action: Action): Store {
     }
     case "undo":
       return store.undoOffer
-        ? { ...store, layout: store.undoOffer.restore, undoOffer: null }
+        ? {
+            ...store,
+            layout: keepHistory(store.undoOffer.restore, store.layout),
+            undoOffer: null,
+          }
         : store;
     case "dismiss":
       return store.undoOffer ? { ...store, undoOffer: null } : store;
@@ -680,7 +698,59 @@ function reducer(store: Store, action: Action): Store {
         // "Back to my layout" paste one tenant's nav onto another's.
         ownLayout: null,
       };
+
+    case "visit": {
+      const recents = store.layout.recents;
+      // Seeded accounts have no history to add to, and a repeat visit to the
+      // row already on top changes nothing.
+      if (!recents || recents[0] === action.id) return store;
+      return {
+        ...store,
+        layout: {
+          ...store.layout,
+          recents: [
+            action.id,
+            ...recents.filter((id) => id !== action.id),
+          ].slice(0, RECENTS_KEPT),
+        },
+      };
+    }
   }
+}
+
+/**
+ * The layout an account wakes up in, under both seed axes.
+ *
+ * `plain` picks the arrangement (see `navProfileFor`); `fresh` empties the
+ * pins and starts Recents at the home row (see `freshStart`). The agency's
+ * own key is left alone under both — its pins are agency-layout's, not this.
+ */
+function seedFor(
+  accountId: string,
+  plain: boolean,
+  fresh: boolean,
+): NavLayoutState {
+  const seed = navProfileFor(accountId, plain ? "default" : "own");
+  return fresh && accountId !== AGENCY_SCOPE_ID ? freshStart(seed) : seed;
+}
+
+/** How much history an account keeps. More than any surface draws. */
+const RECENTS_KEPT = 20;
+
+/**
+ * A restored layout, with the history it is restored into.
+ *
+ * Undo and Discard put an ARRANGEMENT back. Places opened since are not part
+ * of it, and taking them back would make undoing a pin also forget where the
+ * reader had been. Ashwin, Oct 28.
+ */
+function keepHistory(
+  restored: NavLayoutState,
+  current: NavLayoutState,
+): NavLayoutState {
+  return restored.recents === current.recents
+    ? restored
+    : { ...restored, recents: current.recents };
 }
 
 /** Reorders a list, returning the same reference when nothing moves. */
@@ -974,8 +1044,10 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
    * provider and cannot be reached from here. The model is a platform axis, not
    * a fact about templates, so the theme is where it belongs anyway.
    */
-  const { layoutModel, templateAccountSpread, getAppPlacement } =
+  const { layoutModel, templateAccountSpread, getAppPlacement, navRecentsStart } =
     useTheme().effective;
+  /** Whether accounts wake up on their first login. See NAV_RECENTS_STARTS. */
+  const fresh = navRecentsStart === "fresh";
   /*
    * Which chrome rows count as L1 rows right now.
    *
@@ -1008,9 +1080,11 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
    * a BURST in one tick, and that is unaffected.
    */
   const profileOf = React.useCallback(
-    (accountId: string) => navProfileFor(accountId, plain ? "default" : "own"),
-    [plain],
+    (accountId: string) => seedFor(accountId, plain, fresh),
+    [plain, fresh],
   );
+  /** What `fresh` was last time, so the reset fires on the change alone. */
+  const freshRef = React.useRef(fresh);
   /** What `plain` was last time, so the re-seed fires on the change alone. */
   const plainRef = React.useRef(plain);
   const [store, dispatch] = React.useReducer(reducer, {
@@ -1018,15 +1092,14 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
     // default: an account's layout is a property of the account, so the very
     // first paint has to be its own — not the whole catalogue, corrected a
     // frame later.
-    layout: navProfileFor(
+    layout: seedFor(
       INITIAL_ACCOUNT_ID,
       // The shipped axes are `one-template` with no spread, so the very first
       // paint is the arrangement those two produce. Anything else would be a
       // frame of a layout the model does not allow, corrected on mount.
       DEFAULT_THEME.layoutModel === "one-template" &&
-        !DEFAULT_THEME.templateAccountSpread
-        ? "default"
-        : "own",
+        !DEFAULT_THEME.templateAccountSpread,
+      DEFAULT_THEME.navRecentsStart === "fresh",
     ),
     undoOffer: null,
     nextOfferId: 1,
@@ -1130,12 +1203,48 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
     setProfiles({});
     dispatch({
       type: "load",
-      layout: navProfileFor(
-        activeIdRef.current ?? INITIAL_ACCOUNT_ID,
-        plain ? "default" : "own",
-      ),
+      layout: seedFor(activeIdRef.current ?? INITIAL_ACCOUNT_ID, plain, fresh),
     });
+    // `fresh` is read, not watched: its own reset is the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plain]);
+
+  /*
+   * Flipping the start resets history and pins, and nothing else.
+   *
+   * The same scenario switch as the one above — every account goes back to
+   * the start just chosen, the one on screen at once and the rest when next
+   * opened — but narrower: renames, trees and links are arrangement, and a
+   * question about someone's first day should not cost the session's edits
+   * to them. Ashwin, Oct 28.
+   */
+  React.useEffect(() => {
+    if (freshRef.current === fresh) return;
+    freshRef.current = fresh;
+    const restart = (accountId: string, layout: NavLayoutState) => {
+      const start = seedFor(accountId, plain, fresh);
+      return { ...layout, pinned: start.pinned, recents: start.recents };
+    };
+    setProfiles((prev) =>
+      Object.fromEntries(
+        Object.entries(prev).map(([id, layout]) => [id, restart(id, layout)]),
+      ),
+    );
+    const active = activeIdRef.current ?? INITIAL_ACCOUNT_ID;
+    dispatch({
+      type: "commit",
+      message: "Reset recents and pins",
+      next: (s) => restart(active, s),
+      silent: true,
+    });
+    // `plain` is read, not watched: its own re-seed is the effect above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fresh]);
+
+  const recordVisit = React.useCallback(
+    (id: string) => dispatch({ type: "visit", id }),
+    [],
+  );
 
   const profileFor = React.useCallback(
     (accountId: string): NavLayoutState =>
@@ -2006,6 +2115,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
       dismissUndo: () => dispatch({ type: "dismiss" }),
 
       setActiveAccount,
+      recordVisit,
       profileFor,
       applyToAccounts,
       revertAccounts,
@@ -2026,6 +2136,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
     profileOf,
     commit,
     setActiveAccount,
+    recordVisit,
     profileFor,
     applyToAccounts,
     plans,

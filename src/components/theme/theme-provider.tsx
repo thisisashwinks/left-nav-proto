@@ -21,6 +21,7 @@ import {
   type MergedOverflow,
   type MergedRowDetail,
   type MergedPinOrder,
+  type NavRecentsStart,
   type MergedHeading,
   type MergedAgencyRecents,
   type InboxPalette,
@@ -134,6 +135,16 @@ import type {
   RailToolsCta,
   RailSearchGlyph,
   ImpersonationBannerColor,
+  NavTourLayouts,
+  NavTourSpotlight,
+  NavTourStyle,
+  NavTourTheme,
+  NavTourHandsOn,
+  NavTourMedia,
+  NavTourMediaPosition,
+  NavTourRestart,
+  NavTourWatch,
+  NavTourWatchCut,
   RailRuleAlign,
   RailActiveChrome,
   CreateAccountSpot,
@@ -353,6 +364,16 @@ interface ThemeContextValue extends ThemeState {
   setRecentsHeadingGlyph: (on: boolean) => void;
   setPreviewBanner: (on: boolean) => void;
   setImpersonationBannerColor: (v: ImpersonationBannerColor) => void;
+  setNavTourLayouts: (v: NavTourLayouts) => void;
+  setNavTourSpotlight: (v: NavTourSpotlight) => void;
+  setNavTourStyle: (v: NavTourStyle) => void;
+  setNavTourTheme: (v: NavTourTheme) => void;
+  setNavTourHandsOn: (v: NavTourHandsOn) => void;
+  setNavTourMedia: (v: NavTourMedia) => void;
+  setNavTourMediaPosition: (v: NavTourMediaPosition) => void;
+  setNavTourRestart: (v: NavTourRestart) => void;
+  setNavTourWatch: (v: NavTourWatch) => void;
+  setNavTourWatchCut: (v: NavTourWatchCut) => void;
   setNavChevron: (v: NavChevron) => void;
   setEditRadius: (v: EditRadius) => void;
   setEditAlways: (on: boolean) => void;
@@ -375,6 +396,7 @@ interface ThemeContextValue extends ThemeState {
   setMergedOverflow: (overflow: MergedOverflow) => void;
   setMergedRowDetail: (detail: MergedRowDetail) => void;
   setMergedPinOrder: (order: MergedPinOrder) => void;
+  setNavRecentsStart: (start: NavRecentsStart) => void;
   setMergedHeading: (heading: MergedHeading) => void;
   setMergedPanelSearch: (enabled: boolean) => void;
   setMergedAgencyRecents: (source: MergedAgencyRecents) => void;
@@ -863,6 +885,26 @@ export function ThemeProvider({
         setState((s) => ({ ...s, recentsHeadingGlyph })),
       setImpersonationBannerColor: (impersonationBannerColor) =>
         setState((s) => ({ ...s, impersonationBannerColor })),
+      setNavTourLayouts: (navTourLayouts) =>
+        setState((s) => ({ ...s, navTourLayouts })),
+      setNavTourSpotlight: (navTourSpotlight) =>
+        setState((s) => ({ ...s, navTourSpotlight })),
+      setNavTourStyle: (navTourStyle) =>
+        setState((s) => ({ ...s, navTourStyle })),
+      setNavTourTheme: (navTourTheme) =>
+        setState((s) => ({ ...s, navTourTheme })),
+      setNavTourHandsOn: (navTourHandsOn) =>
+        setState((s) => ({ ...s, navTourHandsOn })),
+      setNavTourMedia: (navTourMedia) =>
+        setState((s) => ({ ...s, navTourMedia })),
+      setNavTourMediaPosition: (navTourMediaPosition) =>
+        setState((s) => ({ ...s, navTourMediaPosition })),
+      setNavTourRestart: (navTourRestart) =>
+        setState((s) => ({ ...s, navTourRestart })),
+      setNavTourWatch: (navTourWatch) =>
+        setState((s) => ({ ...s, navTourWatch })),
+      setNavTourWatchCut: (navTourWatchCut) =>
+        setState((s) => ({ ...s, navTourWatchCut })),
       setPreviewBanner: (previewBanner) =>
         setState((s) => ({ ...s, previewBanner })),
       setNavChevron: (navChevron) => setState((s) => ({ ...s, navChevron })),
@@ -902,6 +944,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, mergedRowDetail })),
       setMergedPinOrder: (mergedPinOrder) =>
         setState((s) => ({ ...s, mergedPinOrder })),
+      setNavRecentsStart: (navRecentsStart) =>
+        setState((s) => ({ ...s, navRecentsStart })),
       setMergedHeading: (mergedHeading) =>
         setState((s) => ({ ...s, mergedHeading })),
       setMergedPanelSearch: (mergedPanelSearch) =>

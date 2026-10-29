@@ -193,6 +193,7 @@ import { useSwapPhase } from "@/lib/use-swap-phase";
 import { NAV_SWAP_OUT_MS } from "@/design/motion-timing";
 import { useFlyoutIntent } from "@/lib/use-flyout-intent";
 import { iconForChildLabel } from "@/components/nav/l3-icons";
+import { NavTours, NAV_TOUR_REPLAY_EVENT } from "@/components/nav/nav-tour";
 import { useMediaQuery } from "@/lib/use-media-query";
 
 /*
@@ -806,11 +807,38 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
   const [directoryOpen, setDirectoryOpen] = React.useState(false);
   const [railExpanded, setRailExpanded] = React.useState(false);
   /*
+   * Held open by the sub-accounts tour while it points inside the rail: the
+   * reader's pointer leaves the rail to press Next, and a rail that shut
+   * behind it would take the step's target with it. See NavTours.
+   */
+  const [tourHoldsRail, setTourHoldsRail] = React.useState(false);
+  /*
    * The first-run card, owned here because both nav faces answer to it: the
    * expanded control holds itself open while the card points at it, and the
    * rail's — hidden until hover — has to do the same.
    */
   const [introDismissed, setIntroDismissed] = React.useState(false);
+  /*
+   * "Replay the tour", from the prototype controls. A window event rather than
+   * a prop: the panel is mounted outside this shell and has no other reason to
+   * reach into it. See NavTour.
+   */
+  React.useEffect(() => {
+    const replay = () => setIntroDismissed(false);
+    window.addEventListener(NAV_TOUR_REPLAY_EVENT, replay);
+    return () => window.removeEventListener(NAV_TOUR_REPLAY_EVENT, replay);
+  }, []);
+  /*
+   * Switching to the original card shows it again. Get started finishing marks
+   * the intro seen, and without this a reviewer comparing the two styles would
+   * pick the card and get nothing. Ashwin, Oct 29.
+   */
+  const navTourStyle = effective.navTourStyle;
+  const [introStyle, setIntroStyle] = React.useState(navTourStyle);
+  if (introStyle !== navTourStyle) {
+    setIntroStyle(navTourStyle);
+    if (navTourStyle === "card") setIntroDismissed(false);
+  }
   const {
     state: layout,
     groups,
@@ -1103,6 +1131,27 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
   // With nothing picked the restaurant canvas IS its Launchpad, so that row lights.
   const navSelectedId =
     restaurantCanvas && restaurantPlace === undefined ? RESTAURANT_LAUNCHPAD_ID : selectedId;
+
+  /*
+   * Recents from what the reader opened.
+   *
+   * The product on the canvas, whichever way it was reached — a nav row, a
+   * flyout, search, the trail. Read off the opened page rather than the
+   * selected row, because a flyout pick selects its BUCKET. Contacts on the
+   * shipped tree is the hand-built page with no product page behind it, so
+   * there the selected row stands in. Launchpad is the card, not a row, so it
+   * is never history. On a seeded account the store ignores all of this. See
+   * NAV_RECENTS_STARTS. Ashwin, Oct 28.
+   */
+  const { recordVisit } = useNavLayout();
+  const visitedId = agencyScope
+    ? null
+    : (productPage?.productId ??
+      (selectedId && productById(selectedId) ? selectedId : null));
+  React.useEffect(() => {
+    if (!visitedId || visitedId === PROPOSED_HOME_ID) return;
+    recordVisit(visitedId);
+  }, [visitedId, recordVisit]);
 
   /** Opens a page under the current owner, so the derivation above can trust it. */
   const setProductPage = React.useCallback(
@@ -3689,7 +3738,10 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
               and panel offsets follow the live width — so the one state that
               is not about hover is stated here with the rest.
             */
-            expanded={(railExpanded || directoryFillsRail) && !directoryFillsSidebar}
+            expanded={
+              (railExpanded || directoryFillsRail || tourHoldsRail) &&
+              !directoryFillsSidebar
+            }
             // Frozen while the directory is up: the panel docks against the
             // rail's edge, so the rail widening or narrowing underneath it
             // left the two surfaces overlapping.
@@ -4926,6 +4978,18 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
           {...(layout.editing ? { veil: editScrim } : {})}
         />
       ) : null}
+
+      {/*
+        The first-login tours. Sub-account scope only, like the card they
+        replaced: the agency's nav is platform IA, with no layouts to reuse.
+        Mounted at both scopes so what has been seen survives the trip.
+      */}
+      <NavTours
+        enabled={!agencyScope}
+        onFirstRunDone={() => setIntroDismissed(true)}
+        onHoldRail={setTourHoldsRail}
+        navWidth={leftOffset}
+      />
 
       {/*
         Get the app, opened from whichever surface the placement axis put the

@@ -7,6 +7,7 @@ import {
   Check,
   ChevronRight,
   House,
+  LifeBuoy,
   Monitor,
   MoreHorizontal,
   Smartphone,
@@ -30,6 +31,9 @@ import { cn } from "@/lib/utils";
 import { headerConfig, type HeaderActionTone, type HeaderConfig } from "./header-config";
 import { UserAvatar } from "./user-avatar";
 import { AccountMenu } from "./account-menu";
+import { HelpPanel } from "./help-panel";
+import { useNavTourRestart } from "@/components/nav/nav-tour";
+import { NavTourMenu } from "@/components/nav/nav-tour-menu";
 import { initialsOf, useImpersonation } from "@/components/shell/impersonation";
 import { GET_APP_LABELS, type AppKind } from "./get-app-modal";
 
@@ -575,6 +579,15 @@ export function AppHeader({
    */
   const [accountAnchor, setAccountAnchor] =
     React.useState<HTMLElement | null>(null);
+  /*
+   * Help opens Help & support — or, under the tour-restart axis's dropdown
+   * option, a small menu that leads to it and to the tour's flows. See
+   * NAV_TOUR_RESTARTS. Ashwin, Oct 28.
+   */
+  const [helpOpen, setHelpOpen] = React.useState(false);
+  const [helpAnchor, setHelpAnchor] = React.useState<HTMLElement | null>(null);
+  const helpDropdown = useNavTourRestart("helpDropdown");
+  const closeHelpMenu = React.useCallback(() => setHelpAnchor(null), []);
 
   /*
    * The entry's box, defined once and stood at whichever end the axis names.
@@ -1032,6 +1045,18 @@ export function AppHeader({
               title={action.label}
               // The dot is drawn aria-hidden, so the name carries it.
               aria-label={action.dot ? `${action.label}, unread` : action.label}
+              {...(action.id === "help"
+                ? {
+                    "aria-haspopup": helpDropdown ? ("menu" as const) : ("dialog" as const),
+                    "aria-expanded": helpDropdown ? helpAnchor !== null : helpOpen,
+                    onClick: (e: React.MouseEvent<HTMLButtonElement>) => {
+                      // Read here, not in the updater — see the account button.
+                      const trigger = e.currentTarget;
+                      if (helpDropdown) setHelpAnchor((open) => (open ? null : trigger));
+                      else setHelpOpen((open) => !open);
+                    },
+                  }
+                : {})}
               className={cn(
                 "relative flex size-[26px] shrink-0 items-center justify-center rounded-full",
                 "motion-tap hover:scale-110 active:scale-95 motion-press",
@@ -1099,6 +1124,29 @@ export function AppHeader({
           onClose={() => setAccountAnchor(null)}
         />
       ) : null}
+
+      {helpAnchor && helpDropdown ? (
+        <NavTourMenu
+          anchor={helpAnchor}
+          label="Help"
+          onClose={closeHelpMenu}
+          before={
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setHelpAnchor(null);
+                setHelpOpen(true);
+              }}
+              className="motion-tap flex w-full items-center gap-[10px] px-[14px] py-[8px] text-left text-[14px] leading-[20px] text-pg-text hover:bg-pg hover:text-pg-heading"
+            >
+              <LifeBuoy size={16} aria-hidden="true" className="shrink-0 text-pg-muted" />
+              Help &amp; support
+            </button>
+          }
+        />
+      ) : null}
+      {helpOpen ? <HelpPanel onClose={() => setHelpOpen(false)} /> : null}
 
     </header>
   );
