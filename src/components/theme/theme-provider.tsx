@@ -145,6 +145,23 @@ import type {
   NavTourRestart,
   NavTourWatch,
   NavTourWatchCut,
+  NavFeaturedSlot,
+  NavFeaturedLabel,
+  NavFeaturedCount,
+  NavFeaturedMulti,
+  NavFeaturedLead,
+  NavFeaturedExplainer,
+  NavFeaturedPin,
+  NavFeaturedPromo,
+  NavFeaturedAgency,
+  NavAskAiHome,
+  NavSettingsSpot,
+  NavFeaturedCycle,
+  NavFeaturedClose,
+  NavFeaturedOpens,
+  NavFootSticky,
+  NavFeaturedCardRow,
+  NavFeaturedMedia,
   RailRuleAlign,
   RailActiveChrome,
   CreateAccountSpot,
@@ -374,6 +391,23 @@ interface ThemeContextValue extends ThemeState {
   setNavTourRestart: (v: NavTourRestart) => void;
   setNavTourWatch: (v: NavTourWatch) => void;
   setNavTourWatchCut: (v: NavTourWatchCut) => void;
+  setNavFeaturedSlot: (v: NavFeaturedSlot) => void;
+  setNavFeaturedLabel: (v: NavFeaturedLabel) => void;
+  setNavFeaturedCount: (v: NavFeaturedCount) => void;
+  setNavFeaturedMulti: (v: NavFeaturedMulti) => void;
+  setNavFeaturedLead: (v: NavFeaturedLead) => void;
+  setNavFeaturedExplainer: (v: NavFeaturedExplainer) => void;
+  setNavFeaturedPin: (v: NavFeaturedPin) => void;
+  setNavFeaturedPromo: (v: NavFeaturedPromo) => void;
+  setNavFeaturedAgency: (v: NavFeaturedAgency) => void;
+  setNavAskAiHome: (v: NavAskAiHome) => void;
+  setNavSettingsSpot: (v: NavSettingsSpot) => void;
+  setNavFeaturedCycle: (v: NavFeaturedCycle) => void;
+  setNavFeaturedClose: (v: NavFeaturedClose) => void;
+  setNavFeaturedOpens: (v: NavFeaturedOpens) => void;
+  setNavFootSticky: (v: NavFootSticky) => void;
+  setNavFeaturedCardRow: (v: NavFeaturedCardRow) => void;
+  setNavFeaturedMedia: (v: NavFeaturedMedia) => void;
   setNavChevron: (v: NavChevron) => void;
   setEditRadius: (v: EditRadius) => void;
   setEditAlways: (on: boolean) => void;
@@ -905,6 +939,40 @@ export function ThemeProvider({
         setState((s) => ({ ...s, navTourWatch })),
       setNavTourWatchCut: (navTourWatchCut) =>
         setState((s) => ({ ...s, navTourWatchCut })),
+      setNavFeaturedSlot: (navFeaturedSlot) =>
+        setState((s) => ({ ...s, navFeaturedSlot })),
+      setNavFeaturedLabel: (navFeaturedLabel) =>
+        setState((s) => ({ ...s, navFeaturedLabel })),
+      setNavFeaturedCount: (navFeaturedCount) =>
+        setState((s) => ({ ...s, navFeaturedCount })),
+      setNavFeaturedMulti: (navFeaturedMulti) =>
+        setState((s) => ({ ...s, navFeaturedMulti })),
+      setNavFeaturedLead: (navFeaturedLead) =>
+        setState((s) => ({ ...s, navFeaturedLead })),
+      setNavFeaturedExplainer: (navFeaturedExplainer) =>
+        setState((s) => ({ ...s, navFeaturedExplainer })),
+      setNavFeaturedPin: (navFeaturedPin) =>
+        setState((s) => ({ ...s, navFeaturedPin })),
+      setNavFeaturedPromo: (navFeaturedPromo) =>
+        setState((s) => ({ ...s, navFeaturedPromo })),
+      setNavFeaturedAgency: (navFeaturedAgency) =>
+        setState((s) => ({ ...s, navFeaturedAgency })),
+      setNavAskAiHome: (navAskAiHome) =>
+        setState((s) => ({ ...s, navAskAiHome })),
+      setNavSettingsSpot: (navSettingsSpot) =>
+        setState((s) => ({ ...s, navSettingsSpot })),
+      setNavFeaturedCycle: (navFeaturedCycle) =>
+        setState((s) => ({ ...s, navFeaturedCycle })),
+      setNavFeaturedClose: (navFeaturedClose) =>
+        setState((s) => ({ ...s, navFeaturedClose })),
+      setNavFeaturedOpens: (navFeaturedOpens) =>
+        setState((s) => ({ ...s, navFeaturedOpens })),
+      setNavFootSticky: (navFootSticky) =>
+        setState((s) => ({ ...s, navFootSticky })),
+      setNavFeaturedCardRow: (navFeaturedCardRow) =>
+        setState((s) => ({ ...s, navFeaturedCardRow })),
+      setNavFeaturedMedia: (navFeaturedMedia) =>
+        setState((s) => ({ ...s, navFeaturedMedia })),
       setPreviewBanner: (previewBanner) =>
         setState((s) => ({ ...s, previewBanner })),
       setNavChevron: (navChevron) => setState((s) => ({ ...s, navChevron })),

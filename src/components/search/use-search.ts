@@ -7,6 +7,7 @@ import { announce } from "@/lib/a11y";
 import {
   flattenGroups,
   searchResults,
+  targetOf,
   type SearchGroup,
   type SearchResult,
 } from "./search-data";
@@ -20,6 +21,8 @@ interface UseSearch {
   activeIndex: number;
   activeId: string | null;
   setActiveIndex: (i: number) => void;
+  /** Open a result: navigate where it points, then close. Attach to the rows. */
+  pick: (r: SearchResult) => void;
   /** Attach to the input. Handles ↑ ↓ ↵ and Escape. */
   onKeyDown: (e: React.KeyboardEvent) => void;
 }
@@ -29,7 +32,14 @@ interface UseSearch {
  * nav search flyout so the two variants behave identically and only differ in
  * how they are presented.
  */
-export function useSearch(onClose: () => void): UseSearch {
+export function useSearch(
+  onClose: () => void,
+  /**
+   * Where a chosen result lands. Optional only so a surface can mount
+   * without one; every surface in the shell passes it.
+   */
+  onNavigate?: (id: string) => void,
+): UseSearch {
   const [query, setQueryRaw] = React.useState("");
   const [activeIndex, setActiveIndex] = React.useState(0);
   // Whether the query has been edited since open — gates the announcement.
@@ -82,6 +92,21 @@ export function useSearch(onClose: () => void): UseSearch {
 
   const clamped = flat.length === 0 ? -1 : Math.min(activeIndex, flat.length - 1);
 
+  /*
+   * Opening a result used to close search and leave the canvas where it was,
+   * so ↵ on a row that said "Jump to" jumped nowhere (Ashwin, Oct 29). The
+   * row knows its destination; this is where it gets used. A hit with no
+   * destination — a generic action — still closes, which is the honest half.
+   */
+  const pick = React.useCallback(
+    (r: SearchResult) => {
+      const target = targetOf(r, enabled);
+      if (target) onNavigate?.(target);
+      onClose();
+    },
+    [enabled, onNavigate, onClose],
+  );
+
   const onKeyDown = React.useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -99,12 +124,11 @@ export function useSearch(onClose: () => void): UseSearch {
         setActiveIndex((i) => (i - 1 + flat.length) % flat.length);
       } else if (e.key === "Enter") {
         e.preventDefault();
-        // Nothing to route to in a prototype; opening a result closes search,
-        // which is the observable half of the interaction.
-        onClose();
+        const hit = flat[Math.min(activeIndex, flat.length - 1)];
+        if (hit) pick(hit);
       }
     },
-    [flat.length, onClose],
+    [flat, activeIndex, pick, onClose],
   );
 
   return {
@@ -115,6 +139,7 @@ export function useSearch(onClose: () => void): UseSearch {
     activeIndex: clamped,
     activeId: clamped >= 0 ? flat[clamped].id : null,
     setActiveIndex,
+    pick,
     onKeyDown,
   };
 }

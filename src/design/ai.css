@@ -432,6 +432,82 @@
   }
 }
 
+/* ─── Ask AI's homes ─────────────────────────────────────────────────────── */
+
+/*
+ * The entrances the `navAskAiHome` axis adds. See ask-ai-home.tsx.
+ *
+ * Violet into the platform's primary — the featured-slot mock's pair. Literal
+ * HighRise ramp tokens rather than --ai-base: these sit outside the nav and
+ * the bar both, and the point of the orb is that it looks the same over any
+ * page and under any agency's theme. Ashwin, Oct 29.
+ */
+.ask-ai-orb-host {
+  transition: left var(--t-nav-collapse-size, 300ms)
+    var(--ease-surface, ease-out);
+}
+
+.ask-ai-orb {
+  background: radial-gradient(
+    circle at 30% 30%,
+    var(--hr-violet-400),
+    var(--hr-purple-500) 45%,
+    var(--hr-primary-600)
+  );
+  box-shadow: 0 8px 20px rgb(122 90 248 / 0.35);
+}
+
+/* A slow breath on a ring outside the orb — present, never urgent. */
+.ask-ai-orb::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  border: 2px solid color-mix(in srgb, var(--hr-purple-500) 40%, transparent);
+  animation: ask-ai-breathe 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes ask-ai-breathe {
+  50% {
+    transform: scale(1.08);
+    opacity: 0.4;
+  }
+}
+
+/* The nav row's tint: the mock's 12% and 10%, faint enough to stay a row. */
+.ask-ai-row {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--hr-purple-500) 12%, transparent),
+    color-mix(in srgb, var(--hr-primary-600) 10%, transparent)
+  );
+}
+.ask-ai-row:hover {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--hr-purple-500) 18%, transparent),
+    color-mix(in srgb, var(--hr-primary-600) 15%, transparent)
+  );
+}
+
+/* The app bar's button, emphasized: the orb's pair, filled, white ink. */
+.ask-ai-strong {
+  background: linear-gradient(
+    90deg,
+    var(--hr-purple-500),
+    var(--hr-primary-600)
+  );
+  color: #fff;
+}
+.ask-ai-strong:hover {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--hr-purple-500), #000 8%),
+    color-mix(in srgb, var(--hr-primary-600), #000 8%)
+  );
+}
+
 /* ─── Reduced motion ─────────────────────────────────────────────────────── */
 
 /*
@@ -447,7 +523,8 @@
   .ai-mark-star-shape,
   .ai-thinking-line,
   .ai-wave-bar,
-  .ai-orb-drift {
+  .ai-orb-drift,
+  .ask-ai-orb::after {
     animation: none !important;
   }
 

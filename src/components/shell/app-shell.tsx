@@ -14,6 +14,7 @@ import {
   type AiPanelMode,
 } from "@/components/ai/ai-window";
 import { useAiSession } from "@/components/ai/use-ai-session";
+import { AskAiOrb, useAskAiShortcut } from "@/components/ai/ask-ai-home";
 import { flyouts } from "@/components/flyout/flyout-config";
 import type { FlyoutConfig } from "@/components/flyout/types";
 import {
@@ -194,6 +195,12 @@ import { NAV_SWAP_OUT_MS } from "@/design/motion-timing";
 import { useFlyoutIntent } from "@/lib/use-flyout-intent";
 import { iconForChildLabel } from "@/components/nav/l3-icons";
 import { NavTours, NAV_TOUR_REPLAY_EVENT } from "@/components/nav/nav-tour";
+import {
+  FeaturedProvider,
+  featuredPageById,
+  NAV_FEATURED_OPEN_PAGE_EVENT,
+} from "@/components/nav/featured";
+import { FeaturedPanel } from "@/components/nav/featured-panel";
 import { useMediaQuery } from "@/lib/use-media-query";
 
 /*
@@ -475,7 +482,10 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
         while someone was looking at the screen that edits it.
       */}
       <CustomCodeProvider>
-        <AppShellInner>{children}</AppShellInner>
+        {/* The featured-product slot's session state. See FeaturedProvider. */}
+        <FeaturedProvider>
+          <AppShellInner>{children}</AppShellInner>
+        </FeaturedProvider>
       </CustomCodeProvider>
     </LabsProvider>
   );
@@ -1149,7 +1159,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
     : (productPage?.productId ??
       (selectedId && productById(selectedId) ? selectedId : null));
   React.useEffect(() => {
-    if (!visitedId || visitedId === PROPOSED_HOME_ID) return;
+    if (!visitedId || visitedId === PROPOSED_HOME_ID || featuredPageById(visitedId)) return;
     recordVisit(visitedId);
   }, [visitedId, recordVisit]);
 
@@ -1162,6 +1172,21 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
     ) => setRawProductPage(next ? { owner: themeOwnerId, ...next } : null),
     [themeOwnerId],
   );
+
+  /*
+   * A featured product's "Try", or its card with no L2: open its placeholder
+   * page the way a nav row opens a product. See featuredPageById.
+   */
+  React.useEffect(() => {
+    const open = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      setManageAccountId(null);
+      setSelectedId(null);
+      setProductPage({ productId: id, childId: null });
+    };
+    window.addEventListener(NAV_FEATURED_OPEN_PAGE_EVENT, open);
+    return () => window.removeEventListener(NAV_FEATURED_OPEN_PAGE_EVENT, open);
+  }, [setProductPage, setManageAccountId]);
 
   /*
    * Split an id into the place you land on and the tab that gets selected there.
@@ -1370,6 +1395,8 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    * here, and it has to survive the nav collapsing underneath it.
    */
   const aiSession = useAiSession();
+  // ⌘J toggles Ask AI under every home. See ask-ai-home.tsx.
+  useAskAiShortcut(aiSession);
 
   /**
    * The chip row is a window onto the ordered pin list, so it takes the head.
@@ -2625,6 +2652,16 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
   const productCrumbs = React.useMemo((): (string | Crumb)[] => {
     const productId = canvasPage?.productId ?? "contacts";
     const childId = canvasPage?.childId ?? null;
+    // A featured product's placeholder page, filed under the category it
+    // will live in once its run ends. See featuredPageById.
+    const featuredPage = featuredPageById(productId);
+    if (featuredPage) {
+      const home = groups.find((g) => g.label === featuredPage.home);
+      return [
+        home ? { label: home.label, icon: home.icon, level: "group" } : featuredPage.home,
+        { label: featuredPage.label, icon: featuredPage.icon, level: "product" },
+      ];
+    }
     const product = productById(productId);
     if (!product) return ["Contacts", "Smart lists"];
     // The ungrouped pseudo-group is a bucket in the data, not a place: its rows
@@ -4605,6 +4642,14 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
                  * same place rather than on a blank product page.
                  */
                 children
+              ) : canvasPage && featuredPageById(canvasPage.productId) ? (
+                // A featured product that has not shipped: the same stage
+                // every unbuilt product lands on. See featuredPageById.
+                <ProductPage
+                  key={canvasPage.productId}
+                  product={featuredPageById(canvasPage.productId)!}
+                  childId={null}
+                />
               ) : canvasPage && productById(canvasPage.productId) ? (
                 <ProductPage
                   /*
@@ -4991,6 +5036,15 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
         navWidth={leftOffset}
       />
 
+      {/* The featured slot's L2, its toast and its click-away. See FeaturedPanel. */}
+      <FeaturedPanel
+        offsetLeft={leftOffset}
+        offsetTop={panelTop}
+        theme={navTheme}
+        categoryOpen={intent.activeId !== null}
+        onOpened={intent.close}
+      />
+
       {/*
         Get the app, opened from whichever surface the placement axis put the
         offer on. Portalled from inside itself, so where it sits in this tree
@@ -5083,6 +5137,9 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
       */}
       <UndoToast navWidth={leftOffset} />
 
+      {/* The floating Ask AI entrance, when the home axis asks. */}
+      <AskAiOrb session={aiSession} hidden={ai.isMounted} />
+
       {/*
         The upgrade confirmation, over the canvas rather than the nav.
 
@@ -5125,6 +5182,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
           <CommandPalette
             theme={searchTheme}
             onClose={() => setSearchOpen(false)}
+            onNavigate={(id) => selectNavRow(id, { open: true })}
             // The typed query rides along, so a dead-end search becomes a
             // question instead of a shrug.
             onAskAi={(query) => {
@@ -5137,6 +5195,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
             offsetLeft={leftOffset}
             theme={searchTheme}
             onClose={() => setSearchOpen(false)}
+            onNavigate={(id) => selectNavRow(id, { open: true })}
           />
         )
       ) : null}

@@ -3743,6 +3743,184 @@ export const NAV_TOUR_WATCH_CUT_LABELS: Record<NavTourWatchCut, string> = {
   full: "Full tour (60–90 s)",
 };
 
+/** Where the rotating featured-product slot sits in the L1. See the featured-slot mock, Ashwin, Oct 29. */
+export const NAV_FEATURED_SLOTS = ["below", "top", "card", "off"] as const;
+export type NavFeaturedSlot = (typeof NAV_FEATURED_SLOTS)[number];
+
+export const NAV_FEATURED_SLOT_LABELS: Record<NavFeaturedSlot, string> = {
+  below: "Row below categories",
+  top: "Row at the top",
+  card: "Card at bottom",
+  off: "Off",
+};
+
+/** What the featured slot says. See the featured-slot mock, Ashwin, Oct 29. */
+export const NAV_FEATURED_LABEL_OPTIONS = ["name", "nameNew"] as const;
+export type NavFeaturedLabel = (typeof NAV_FEATURED_LABEL_OPTIONS)[number];
+
+export const NAV_FEATURED_LABEL_LABELS: Record<NavFeaturedLabel, string> = {
+  name: "Product name",
+  nameNew: "Product name + New tag",
+};
+
+/** How many products are featured at once. See the featured-slot mock, Ashwin, Oct 29. */
+export const NAV_FEATURED_COUNTS = ["1", "2", "3"] as const;
+export type NavFeaturedCount = (typeof NAV_FEATURED_COUNTS)[number];
+
+export const NAV_FEATURED_COUNT_LABELS: Record<NavFeaturedCount, string> = {
+  1: "1",
+  2: "2",
+  3: "3",
+};
+
+/** How several featured products share the slot. See the featured-slot mock, Ashwin, Oct 29. */
+export const NAV_FEATURED_MULTIS = ["stacked", "deck", "grouped", "carousel"] as const;
+export type NavFeaturedMulti = (typeof NAV_FEATURED_MULTIS)[number];
+
+export const NAV_FEATURED_MULTI_LABELS: Record<NavFeaturedMulti, string> = {
+  stacked: "Stacked rows or cards",
+  deck: "Card deck",
+  grouped: "Grouped: “What’s new”",
+  carousel: "Carousel",
+};
+
+/** Which featured product comes first. See the featured-slot mock, Ashwin, Oct 29. */
+export const NAV_FEATURED_LEADS = ["creator", "meetings", "askai"] as const;
+export type NavFeaturedLead = (typeof NAV_FEATURED_LEADS)[number];
+
+export const NAV_FEATURED_LEAD_LABELS: Record<NavFeaturedLead, string> = {
+  creator: "Creator Studio",
+  meetings: "Meeting Rooms",
+  askai: "Ask AI launch",
+};
+
+/** What the featured product's L2 shows. See the featured-slot mock, Ashwin, Oct 29. */
+export const NAV_FEATURED_EXPLAINERS = ["full", "compact"] as const;
+export type NavFeaturedExplainer = (typeof NAV_FEATURED_EXPLAINERS)[number];
+
+export const NAV_FEATURED_EXPLAINER_LABELS: Record<NavFeaturedExplainer, string> = {
+  full: "Explainer",
+  compact: "Compact",
+};
+
+/** How the explainer encourages pinning. See the featured-slot mock, Ashwin, Oct 29. */
+export const NAV_FEATURED_PINS = ["pulse", "tip", "off"] as const;
+export type NavFeaturedPin = (typeof NAV_FEATURED_PINS)[number];
+
+export const NAV_FEATURED_PIN_LABELS: Record<NavFeaturedPin, string> = {
+  pulse: "Pulse once",
+  tip: "Tip",
+  off: "Off",
+};
+
+/** The featured product's promo inside its home category's L2. See the featured-slot mock, Ashwin, Oct 29. */
+export const NAV_FEATURED_PROMOS = ["card", "row", "off"] as const;
+export type NavFeaturedPromo = (typeof NAV_FEATURED_PROMOS)[number];
+
+export const NAV_FEATURED_PROMO_LABELS: Record<NavFeaturedPromo, string> = {
+  card: "Card at bottom",
+  row: "Row at top",
+  off: "Off",
+};
+
+/** Whether a white-label agency keeps, replaces, or removes the slot. See the featured-slot mock, Ashwin, Oct 29. */
+export const NAV_FEATURED_AGENCIES = ["hl", "custom", "off"] as const;
+export type NavFeaturedAgency = (typeof NAV_FEATURED_AGENCIES)[number];
+
+export const NAV_FEATURED_AGENCY_LABELS: Record<NavFeaturedAgency, string> = {
+  hl: "HighLevel’s pick",
+  custom: "Agency’s own",
+  off: "Agency turned off",
+};
+
+/** Where Ask AI lives. See the featured-slot mock, Ashwin, Oct 29. */
+/** Where Settings sits: right under the list, or pinned to the nav's foot. Ashwin, Oct 29. */
+export const NAV_SETTINGS_SPOTS = ["footer", "list"] as const;
+export type NavSettingsSpot = (typeof NAV_SETTINGS_SPOTS)[number];
+
+export const NAV_SETTINGS_SPOT_LABELS: Record<NavSettingsSpot, string> = {
+  footer: "Settings at the footer",
+  list: "Settings with the list",
+};
+
+/**
+ * How the deck and the carousel are cycled: arrows and dots under the card,
+ * or up/down arrows on one side of it, over the card or just beside it.
+ */
+export const NAV_FEATURED_CYCLES = ["below", "overlayRight", "overlayLeft", "besideRight", "besideLeft"] as const;
+export type NavFeaturedCycle = (typeof NAV_FEATURED_CYCLES)[number];
+
+export const NAV_FEATURED_CYCLE_LABELS: Record<NavFeaturedCycle, string> = {
+  below: "Arrows and dots below",
+  overlayRight: "Up/down, over the card, right",
+  overlayLeft: "Up/down, over the card, left",
+  besideRight: "Up/down, beside the card, right",
+  besideLeft: "Up/down, beside the card, left",
+};
+
+/** Whether each featured card carries a close X that drops it from the slot. */
+export const NAV_FEATURED_CLOSES = ["off", "on"] as const;
+export type NavFeaturedClose = (typeof NAV_FEATURED_CLOSES)[number];
+
+export const NAV_FEATURED_CLOSE_LABELS: Record<NavFeaturedClose, string> = {
+  off: "No close",
+  on: "Close icon on cards",
+};
+
+/**
+ * What a featured card does when clicked: open its L2 explainer, or go
+ * straight to the product with no flyout in between. Ashwin, Oct 29.
+ */
+export const NAV_FEATURED_OPENS = ["flyout", "direct"] as const;
+export type NavFeaturedOpens = (typeof NAV_FEATURED_OPENS)[number];
+
+export const NAV_FEATURED_OPENS_LABELS: Record<NavFeaturedOpens, string> = {
+  flyout: "Opens an L2 explainer",
+  direct: "No L2: opens the product",
+};
+
+/** Whether Settings and the featured card hold the nav's foot while the list scrolls. */
+export const NAV_FOOT_STICKIES = ["sticky", "scroll"] as const;
+export type NavFootSticky = (typeof NAV_FOOT_STICKIES)[number];
+
+export const NAV_FOOT_STICKY_LABELS: Record<NavFootSticky, string> = {
+  sticky: "Sticky",
+  scroll: "Scrolls with the list",
+};
+
+/** With Settings in the list: the featured card above the Edit row, or in it. */
+export const NAV_FEATURED_CARD_ROWS = ["above", "inline"] as const;
+export type NavFeaturedCardRow = (typeof NAV_FEATURED_CARD_ROWS)[number];
+
+export const NAV_FEATURED_CARD_ROW_LABELS: Record<NavFeaturedCardRow, string> = {
+  above: "Above the Edit row",
+  inline: "In the Edit row",
+};
+
+/**
+ * An image on the featured cards, like the coach mark's preview: above the
+ * card's text, below it, or none. Placeholder art for now. Ashwin, Oct 29.
+ */
+export const NAV_FEATURED_MEDIAS = ["top", "bottom", "none"] as const;
+export type NavFeaturedMedia = (typeof NAV_FEATURED_MEDIAS)[number];
+
+export const NAV_FEATURED_MEDIA_LABELS: Record<NavFeaturedMedia, string> = {
+  top: "Image at top",
+  bottom: "Image at bottom",
+  none: "No image",
+};
+
+export const NAV_ASK_AI_HOMES = ["bar", "barStrong", "orb", "navRow", "both"] as const;
+export type NavAskAiHome = (typeof NAV_ASK_AI_HOMES)[number];
+
+export const NAV_ASK_AI_HOME_LABELS: Record<NavAskAiHome, string> = {
+  bar: "Top bar",
+  barStrong: "Top bar, emphasized",
+  orb: "Floating, bottom right",
+  navRow: "Sidebar row",
+  both: "Top bar + floating",
+};
+
 /**
  * Which glyph the collapsed rail's "View all" row wears.
  *
@@ -6320,6 +6498,23 @@ export interface ThemeState {
   navTourWatch: NavTourWatch;
   /** Which cut of it plays. See NAV_TOUR_WATCH_CUTS. */
   navTourWatchCut: NavTourWatchCut;
+  navFeaturedSlot: NavFeaturedSlot;
+  navFeaturedLabel: NavFeaturedLabel;
+  navFeaturedCount: NavFeaturedCount;
+  navFeaturedMulti: NavFeaturedMulti;
+  navFeaturedLead: NavFeaturedLead;
+  navFeaturedExplainer: NavFeaturedExplainer;
+  navFeaturedPin: NavFeaturedPin;
+  navFeaturedPromo: NavFeaturedPromo;
+  navFeaturedAgency: NavFeaturedAgency;
+  navAskAiHome: NavAskAiHome;
+  navSettingsSpot: NavSettingsSpot;
+  navFeaturedCycle: NavFeaturedCycle;
+  navFeaturedClose: NavFeaturedClose;
+  navFeaturedOpens: NavFeaturedOpens;
+  navFootSticky: NavFootSticky;
+  navFeaturedCardRow: NavFeaturedCardRow;
+  navFeaturedMedia: NavFeaturedMedia;
   /** When the L1 flyout chevron is drawn. See NAV_CHEVRONS. */
   navChevron: NavChevron;
   /** How dark the nav's resting rows are. See NAV_INKS. */
@@ -7441,7 +7636,7 @@ export const DEFAULT_THEME: ThemeState = {
   navDarkTone: "navy",
   headerTheme: "light",
   searchMode: "spotlight",
-  searchTheme: "dark",
+  searchTheme: "light",
   // No caption by default. The dock is five icons the user chose and put there,
   // so it is the one row where recognition is already solved; the tooltip covers
   // the rest. `center` and `under` stay one click away for the comparison.
@@ -7500,6 +7695,23 @@ export const DEFAULT_THEME: ThemeState = {
   navTourRestart: "off",
   navTourWatch: "off",
   navTourWatchCut: "highlights",
+  navFeaturedSlot: "off",
+  navFeaturedLabel: "nameNew",
+  navFeaturedCount: "3",
+  navFeaturedMulti: "deck",
+  navFeaturedLead: "creator",
+  navFeaturedExplainer: "full",
+  navFeaturedPin: "pulse",
+  navFeaturedPromo: "card",
+  navFeaturedAgency: "hl",
+  navAskAiHome: "bar",
+  navSettingsSpot: "list",
+  navFeaturedCycle: "below",
+  navFeaturedClose: "off",
+  navFeaturedOpens: "flyout",
+  navFootSticky: "sticky",
+  navFeaturedCardRow: "above",
+  navFeaturedMedia: "top",
   /*
    * On hover, as of Oct 6.
    *

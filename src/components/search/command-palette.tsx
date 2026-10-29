@@ -22,14 +22,17 @@ import { trapTab, useSearch } from "./use-search";
 export function CommandPalette({
   theme,
   onClose,
+  onNavigate,
   onAskAi,
 }: {
   theme: SurfaceTheme;
   onClose: () => void;
+  /** Where a chosen result lands — the nav's own row selection. */
+  onNavigate: (id: string) => void;
   /** Hands the typed query to the Ask AI window — search's escape hatch. */
   onAskAi: (query: string) => void;
 }) {
-  const s = useSearch(onClose);
+  const s = useSearch(onClose, onNavigate);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const listId = React.useId();
   // Mounted on open, unmounted on close: hand focus back to the opener.
@@ -130,7 +133,7 @@ export function CommandPalette({
                     role="option"
                     aria-selected={active}
                     onPointerEnter={() => s.setActiveIndex(index)}
-                    onClick={onClose}
+                    onClick={() => s.pick(r)}
                     className={cn(
                       "group/row motion-tap flex h-[38px] w-full shrink-0 items-center gap-[10px] rounded-[6px] px-[8px] text-left",
                       // Holds the star's 22px plus the row's 10px gap.

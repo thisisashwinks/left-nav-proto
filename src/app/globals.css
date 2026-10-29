@@ -785,3 +785,26 @@
   margin-top: 0;
   padding-top: var(--head-align-pt, 0px);
 }
+
+/*
+ * The sticky nav foot's shadow (see STICKY_FOOT in left-nav.tsx). Drawn on the
+ * scroll shell rather than the band so it runs edge to edge, past the list's
+ * left padding and scrollbar gutter. Shown only while rows sit below the fold,
+ * or while the foot is hovered. Ashwin, Oct 29.
+ */
+.nav-foot-shadow {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--nav-foot-h, 0px);
+  height: 12px;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(to top, rgba(16, 24, 40, 0.1), rgba(16, 24, 40, 0));
+  transition: opacity var(--dur-fast, 120ms) ease-out;
+}
+[data-scroll-shell][data-scroll-bottom] > .nav-foot-shadow,
+[data-scroll-shell]:has(.nav-sticky-foot:hover) > .nav-foot-shadow {
+  opacity: 1;
+}

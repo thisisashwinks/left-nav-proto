@@ -10,12 +10,14 @@ import {
   PanelsTopLeft,
   Palette,
   Search,
+  Sparkles,
   Sun,
   Lock,
   SquarePen,
   X,
 } from "lucide-react";
 import { AiMark } from "@/components/ai/ai-mark";
+import { askAiInBar } from "@/components/ai/ask-ai-home";
 import { NavIntroCard } from "./nav-intro-card";
 import { AGENCY_PLAN_PRICES } from "@/design/plans";
 import type { EditBlock } from "./nav-profiles";
@@ -1272,12 +1274,22 @@ export function EntryPill({
   const header = tone === "header";
   // The hook runs unconditionally; only the ANSWER is conditional. Reading it
   // inside the `&&` made it a conditional hook call.
-  const { aiButtonStyle, entryRadius, entryPair } = useTheme().effective;
+  const { aiButtonStyle, entryRadius, entryPair, navAskAiHome } =
+    useTheme().effective;
   const {
     hideAsk,
     askDisabled,
     onClose: onCloseAi,
   } = React.useContext(AiEntryContext);
+  /*
+    The bar's Ask AI button answers to the home axis — see ask-ai-home.tsx.
+    Only the BUTTON: the merged pill's orb is the field's left edge, and the
+    nav's own pill is not the bar's to give up.
+  */
+  const askButtonInBar = header && !searchEnabled;
+  if (askButtonInBar && !askAiInBar(navAskAiHome)) return null;
+  // Emphasized: the orb's gradient, filled, with white ink. Outline loses.
+  const strong = askButtonInBar && navAskAiHome === "barStrong";
   /*
     Only the Ask half can be disabled; the search field never is.
     `searchEnabled` is what tells the two apart — see the pair above, which
@@ -1285,7 +1297,7 @@ export function EntryPill({
   */
   const askOff = Boolean(askDisabled) && !searchEnabled;
   // Only consulted where the pill is a button — see AI_BUTTON_STYLES.
-  const outlined = !searchEnabled && aiButtonStyle === "outline";
+  const outlined = !searchEnabled && !strong && aiButtonStyle === "outline";
 
   /*
    * Two controls, where the axis asks for them. See ENTRY_PAIRS.
@@ -1446,8 +1458,10 @@ export function EntryPill({
             Same height and same radius either way, so switching the axis moves
             no geometry — only the fill.
           */
+          strong && "ask-ai-strong active:scale-[0.98] motion-press",
           !searchEnabled &&
             !outlined &&
+            !strong &&
             /*
               Fill only, no ring.
 
@@ -1541,7 +1555,11 @@ export function EntryPill({
             open conversation is motion reporting something the reader can
             see. Ashwin, Oct 5.
           */}
-          <AiMark size={searchEnabled ? 26 : 22} />
+          {strong ? (
+            <Sparkles size={16} aria-hidden="true" className="text-white" />
+          ) : (
+            <AiMark size={searchEnabled ? 26 : 22} />
+          )}
         </button>
 
         {/*
@@ -1585,7 +1603,9 @@ export function EntryPill({
                 ? header
                   ? "text-hdr-fg-muted"
                   : "text-nav-fg-subtle"
-                : "font-medium text-[var(--ai-btn-fg)]",
+                : strong
+                  ? "font-medium text-white"
+                  : "font-medium text-[var(--ai-btn-fg)]",
             )}
           >
             Ask AI

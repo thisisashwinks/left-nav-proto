@@ -464,6 +464,57 @@ import {
   type NavTourRestart,
   type NavTourWatch,
   type NavTourWatchCut,
+  NAV_FEATURED_SLOTS,
+  NAV_FEATURED_SLOT_LABELS,
+  type NavFeaturedSlot,
+  NAV_FEATURED_LABEL_OPTIONS,
+  NAV_FEATURED_LABEL_LABELS,
+  type NavFeaturedLabel,
+  NAV_FEATURED_COUNTS,
+  NAV_FEATURED_COUNT_LABELS,
+  type NavFeaturedCount,
+  NAV_FEATURED_MULTIS,
+  NAV_FEATURED_MULTI_LABELS,
+  type NavFeaturedMulti,
+  NAV_FEATURED_LEADS,
+  NAV_FEATURED_LEAD_LABELS,
+  type NavFeaturedLead,
+  NAV_FEATURED_EXPLAINERS,
+  NAV_FEATURED_EXPLAINER_LABELS,
+  type NavFeaturedExplainer,
+  NAV_FEATURED_PINS,
+  NAV_FEATURED_PIN_LABELS,
+  type NavFeaturedPin,
+  NAV_FEATURED_PROMOS,
+  NAV_FEATURED_PROMO_LABELS,
+  type NavFeaturedPromo,
+  NAV_FEATURED_AGENCIES,
+  NAV_FEATURED_AGENCY_LABELS,
+  type NavFeaturedAgency,
+  NAV_ASK_AI_HOMES,
+  NAV_ASK_AI_HOME_LABELS,
+  type NavAskAiHome,
+  NAV_SETTINGS_SPOTS,
+  NAV_SETTINGS_SPOT_LABELS,
+  type NavSettingsSpot,
+  NAV_FEATURED_CYCLES,
+  NAV_FEATURED_CYCLE_LABELS,
+  type NavFeaturedCycle,
+  NAV_FEATURED_CLOSES,
+  NAV_FEATURED_CLOSE_LABELS,
+  type NavFeaturedClose,
+  NAV_FEATURED_OPENS,
+  NAV_FEATURED_OPENS_LABELS,
+  type NavFeaturedOpens,
+  NAV_FOOT_STICKIES,
+  NAV_FOOT_STICKY_LABELS,
+  type NavFootSticky,
+  NAV_FEATURED_CARD_ROWS,
+  NAV_FEATURED_CARD_ROW_LABELS,
+  type NavFeaturedCardRow,
+  NAV_FEATURED_MEDIAS,
+  NAV_FEATURED_MEDIA_LABELS,
+  type NavFeaturedMedia,
   type RailRuleAlign,
   type RailActiveChrome,
   type RailHoverZone,
@@ -605,6 +656,7 @@ import {
 } from "@/components/nav/grouping";
 import { useNavProfiles } from "@/components/nav/nav-profiles";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
+import { NAV_FEATURED_END_EVENT, NAV_FEATURED_RESET_EVENT } from "@/components/nav/featured";
 import { NAV_TOUR_REPLAY_EVENT } from "@/components/nav/nav-tour";
 import { cn } from "@/lib/utils";
 import { useTuning } from "./tuning-provider";
@@ -4519,6 +4571,40 @@ export function TuningPanel() {
     setNavTourWatch,
     navTourWatchCut,
     setNavTourWatchCut,
+    navFeaturedSlot,
+    setNavFeaturedSlot,
+    navFeaturedLabel,
+    setNavFeaturedLabel,
+    navFeaturedCount,
+    setNavFeaturedCount,
+    navFeaturedMulti,
+    setNavFeaturedMulti,
+    navFeaturedLead,
+    setNavFeaturedLead,
+    navFeaturedExplainer,
+    setNavFeaturedExplainer,
+    navFeaturedPin,
+    setNavFeaturedPin,
+    navFeaturedPromo,
+    setNavFeaturedPromo,
+    navFeaturedAgency,
+    setNavFeaturedAgency,
+    navAskAiHome,
+    setNavAskAiHome,
+    navSettingsSpot,
+    setNavSettingsSpot,
+    navFeaturedCycle,
+    setNavFeaturedCycle,
+    navFeaturedClose,
+    setNavFeaturedClose,
+    navFeaturedOpens,
+    setNavFeaturedOpens,
+    navFootSticky,
+    setNavFootSticky,
+    navFeaturedCardRow,
+    setNavFeaturedCardRow,
+    navFeaturedMedia,
+    setNavFeaturedMedia,
     setEntryRadius,
     attachTemplateInUse,
     setAttachTemplateInUse,
@@ -7152,6 +7238,193 @@ export function TuningPanel() {
               ? "Categories, pinning, collapse, search, then editing and layouts. public/tour/launch-highlights.mp4."
               : "All 3 flows, a scene per step: Get started, Sub-accounts, then Editing. public/tour/launch-full.mp4."}
           </Note>
+
+          <Segmented
+            label="Featured: slot"
+            keywords="featured promo slot new product rotation ask ai khoi"
+            options={NAV_FEATURED_SLOTS}
+            value={navFeaturedSlot}
+            onChange={(v: NavFeaturedSlot) => setNavFeaturedSlot(v)}
+            format={(v) => NAV_FEATURED_SLOT_LABELS[v]}
+          />
+          <Note>Where the rotating featured-product slot sits in the L1.</Note>
+
+          <Segmented
+            label="Featured: label"
+            keywords="featured promo slot new product rotation ask ai khoi"
+            options={NAV_FEATURED_LABEL_OPTIONS}
+            value={navFeaturedLabel}
+            onChange={(v: NavFeaturedLabel) => setNavFeaturedLabel(v)}
+            format={(v) => NAV_FEATURED_LABEL_LABELS[v]}
+          />
+          <Note>What the featured slot says.</Note>
+
+          <Segmented
+            label="Featured: products"
+            keywords="featured promo slot new product rotation ask ai khoi"
+            options={NAV_FEATURED_COUNTS}
+            value={navFeaturedCount}
+            onChange={(v: NavFeaturedCount) => setNavFeaturedCount(v)}
+            format={(v) => NAV_FEATURED_COUNT_LABELS[v]}
+          />
+          <Note>How many products are featured at once.</Note>
+
+          <Segmented
+            label="Featured: multiple as"
+            keywords="featured promo slot new product rotation ask ai khoi"
+            options={NAV_FEATURED_MULTIS}
+            value={navFeaturedMulti}
+            onChange={(v: NavFeaturedMulti) => setNavFeaturedMulti(v)}
+            format={(v) => NAV_FEATURED_MULTI_LABELS[v]}
+            disabled={navFeaturedCount === "1"}
+          />
+          <Note>How several featured products share the slot.</Note>
+          <Segmented
+            label="Featured: cycle controls"
+            keywords="featured promo deck carousel arrows up down overlay beside"
+            options={NAV_FEATURED_CYCLES}
+            value={navFeaturedCycle}
+            onChange={(v: NavFeaturedCycle) => setNavFeaturedCycle(v)}
+            format={(v) => NAV_FEATURED_CYCLE_LABELS[v]}
+            disabled={navFeaturedMulti !== "deck" && navFeaturedMulti !== "carousel"}
+          />
+          <Note>How the card deck and the carousel are cycled.</Note>
+          <Segmented
+            label="Featured: card image"
+            keywords="featured card image media video gif top bottom preview"
+            options={NAV_FEATURED_MEDIAS}
+            value={navFeaturedMedia}
+            onChange={(v: NavFeaturedMedia) => setNavFeaturedMedia(v)}
+            format={(v) => NAV_FEATURED_MEDIA_LABELS[v]}
+          />
+          <Note>A 16:9 image on each featured card, above or below its text, like the coach mark&apos;s preview. Placeholder art from public/featured.</Note>
+          <Segmented
+            label="Featured: close on cards"
+            keywords="featured promo card close dismiss x"
+            options={NAV_FEATURED_CLOSES}
+            value={navFeaturedClose}
+            onChange={(v: NavFeaturedClose) => setNavFeaturedClose(v)}
+            format={(v) => NAV_FEATURED_CLOSE_LABELS[v]}
+          />
+          <Note>A close X on each featured card drops that product from the slot for this session.</Note>
+          <Segmented
+            label="Featured: card click"
+            keywords="featured promo card click flyout l2 explainer direct"
+            options={NAV_FEATURED_OPENS}
+            value={navFeaturedOpens}
+            onChange={(v: NavFeaturedOpens) => setNavFeaturedOpens(v)}
+            format={(v) => NAV_FEATURED_OPENS_LABELS[v]}
+          />
+          <Note>
+            {navFeaturedOpens === "direct"
+              ? "Cards skip the L2 explainer and open the product. Pinning then lives on the card itself."
+              : "Cards open the L2 explainer, with Try and Pin to sidebar."}
+          </Note>
+          <Segmented
+            label="Settings: position"
+            keywords="settings row foot footer list bottom featured card"
+            options={NAV_SETTINGS_SPOTS}
+            value={navSettingsSpot}
+            onChange={(v: NavSettingsSpot) => setNavSettingsSpot(v)}
+            format={(v) => NAV_SETTINGS_SPOT_LABELS[v]}
+          />
+          <Note>
+            {navSettingsSpot === "list"
+              ? "Settings follows the last category, so a featured card at the bottom sits alone at the foot."
+              : "Settings sits at the foot of the sidebar, under a featured card at the bottom."}
+          </Note>
+          <Segmented
+            label="Settings: sticky foot"
+            keywords="settings featured card sticky foot bottom scroll shadow"
+            options={NAV_FOOT_STICKIES}
+            value={navFootSticky}
+            onChange={(v: NavFootSticky) => setNavFootSticky(v)}
+            format={(v) => NAV_FOOT_STICKY_LABELS[v]}
+          />
+          <Note>Sticky holds Settings and the featured card at the bottom on a shadowed band while a long list scrolls under them.</Note>
+          <Segmented
+            label="Featured: card row"
+            keywords="featured card edit row inline above settings list"
+            options={NAV_FEATURED_CARD_ROWS}
+            value={navFeaturedCardRow}
+            onChange={(v: NavFeaturedCardRow) => setNavFeaturedCardRow(v)}
+            format={(v) => NAV_FEATURED_CARD_ROW_LABELS[v]}
+            disabled={navSettingsSpot !== "list" || navFeaturedSlot !== "card"}
+          />
+          <Note>With Settings in the list and a card at the bottom: the card above the Edit row, or beside Edit in the same row.</Note>
+
+          <Segmented
+            label="Featured: lead product"
+            keywords="featured promo slot new product rotation ask ai khoi"
+            options={NAV_FEATURED_LEADS}
+            value={navFeaturedLead}
+            onChange={(v: NavFeaturedLead) => setNavFeaturedLead(v)}
+            format={(v) => NAV_FEATURED_LEAD_LABELS[v]}
+          />
+          <Note>Which featured product comes first.</Note>
+
+          <Segmented
+            label="Featured: L2 explainer"
+            keywords="featured promo slot new product rotation ask ai khoi"
+            options={NAV_FEATURED_EXPLAINERS}
+            value={navFeaturedExplainer}
+            onChange={(v: NavFeaturedExplainer) => setNavFeaturedExplainer(v)}
+            format={(v) => NAV_FEATURED_EXPLAINER_LABELS[v]}
+          />
+          <Note>What the featured product's L2 shows.</Note>
+
+          <Segmented
+            label="Featured: pin nudge"
+            keywords="featured promo slot new product rotation ask ai khoi"
+            options={NAV_FEATURED_PINS}
+            value={navFeaturedPin}
+            onChange={(v: NavFeaturedPin) => setNavFeaturedPin(v)}
+            format={(v) => NAV_FEATURED_PIN_LABELS[v]}
+          />
+          <Note>How the explainer encourages pinning.</Note>
+
+          <Segmented
+            label="Featured: promo in L2"
+            keywords="featured promo slot new product rotation ask ai khoi"
+            options={NAV_FEATURED_PROMOS}
+            value={navFeaturedPromo}
+            onChange={(v: NavFeaturedPromo) => setNavFeaturedPromo(v)}
+            format={(v) => NAV_FEATURED_PROMO_LABELS[v]}
+          />
+          <Note>The featured product's promo inside its home category's L2.</Note>
+
+          <Segmented
+            label="Featured: agency control"
+            keywords="featured promo slot new product rotation ask ai khoi"
+            options={NAV_FEATURED_AGENCIES}
+            value={navFeaturedAgency}
+            onChange={(v: NavFeaturedAgency) => setNavFeaturedAgency(v)}
+            format={(v) => NAV_FEATURED_AGENCY_LABELS[v]}
+          />
+          <Note>Whether a white-label agency keeps, replaces, or removes the slot.</Note>
+
+          <Segmented
+            label="Ask AI: home"
+            keywords="featured promo slot new product rotation ask ai khoi"
+            options={NAV_ASK_AI_HOMES}
+            value={navAskAiHome}
+            onChange={(v: NavAskAiHome) => setNavAskAiHome(v)}
+            format={(v) => NAV_ASK_AI_HOME_LABELS[v]}
+          />
+          <Note>Where Ask AI lives.</Note>
+
+          <ActionRow
+            label="Featured: end this run"
+            action="End run"
+            keywords="featured promo rotation end"
+            onClick={() => window.dispatchEvent(new CustomEvent(NAV_FEATURED_END_EVENT))}
+          />
+          <ActionRow
+            label="Featured: start over"
+            action="Reset"
+            keywords="featured promo rotation reset"
+            onClick={() => window.dispatchEvent(new CustomEvent(NAV_FEATURED_RESET_EVENT))}
+          />
 
           <Toggle
             label="Edit button always visible"

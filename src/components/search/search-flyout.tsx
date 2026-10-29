@@ -22,12 +22,15 @@ export function SearchFlyout({
   offsetLeft,
   theme,
   onClose,
+  onNavigate,
 }: {
   offsetLeft: number;
   theme: SurfaceTheme;
   onClose: () => void;
+  /** Where a chosen result lands — the nav's own row selection. */
+  onNavigate: (id: string) => void;
 }) {
-  const s = useSearch(onClose);
+  const s = useSearch(onClose, onNavigate);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const listId = React.useId();
   useReturnFocusOnUnmount();
@@ -129,7 +132,7 @@ export function SearchFlyout({
                   role="option"
                   aria-selected={active}
                   onPointerEnter={() => s.setActiveIndex(index)}
-                  onClick={onClose}
+                  onClick={() => s.pick(r)}
                   className={cn(
                     "group/row motion-tap flex w-full shrink-0 gap-[10px] rounded-[9px] px-[8px] py-[9px] text-left",
                     isAction ? "items-center" : "items-start",

@@ -41,6 +41,7 @@ import { useDragTypes } from "@/lib/use-drag-active";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { BottomSlot } from "./bottom-slot";
+import { FeaturedPromoCard, FeaturedPromoRow } from "@/components/nav/featured-panel";
 import { FlyoutActionRow } from "./flyout-action-row";
 import { IconPicker, useIconPicker } from "@/components/nav/icon-picker";
 import { nameForIcon } from "@/components/nav/icon-catalogue";
@@ -1861,6 +1862,9 @@ export function FlyoutPanel({
         </p>
       ) : null}
 
+      {/* A featured product's promo, in its home category only. See featured.tsx. */}
+      {!editing ? <FeaturedPromoRow config={config} /> : null}
+
       {entries.map((entry, i) =>
         entry.kind === "label" ? (
           <div
@@ -2042,6 +2046,7 @@ export function FlyoutPanel({
         Pinned below the scroll region, so it survives a short screen. Lands last,
         after the list has settled.
       */}
+      <FeaturedPromoCard config={config} />
       {config.bottom ? (
         <div
           style={

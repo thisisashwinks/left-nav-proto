@@ -35,6 +35,7 @@ import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { useSwapPhase } from "@/lib/use-swap-phase";
 import { NAV_SWAP_OUT_MS } from "@/design/motion-timing";
 import type { AiSession } from "@/components/ai/use-ai-session";
+import { AskAiNavRow } from "@/components/ai/ask-ai-home";
 import { navWidthsFor } from "@/design/theme";
 import type {
   DockPosition,
@@ -120,6 +121,8 @@ import {
 } from "@/components/launchpad/launchpad-data";
 import { PROPOSED_HOME_ID } from "./proposed-ia";
 import { NavDivider } from "./nav-divider";
+import { FeaturedPinnedRows, FeaturedSlot } from "./featured-slot";
+import { useFeatured } from "./featured";
 import {
   fadeProps,
   NavCollapseProvider,
@@ -390,6 +393,20 @@ interface LeftNavProps {
  * Row geometry is unchanged from the design: 272px wide, 1px right border, rows
  * padded 9px/8px with 2px between them.
  */
+/**
+ * The sticky foot's band: the ground the nav is drawn on, so rows scrolling
+ * beneath read as passing under it. `bg-pg` because the nav itself is
+ * transparent over the shell's page colour.
+ *
+ * Its shadow is NOT on the band. The list pads its left and reserves a
+ * scrollbar gutter on its right, so a shadow cast from inside it stopped short
+ * of both edges. It is drawn by `.nav-foot-shadow` on the scroll shell, edge to
+ * edge, and only while rows sit below the fold or the foot is hovered.
+ * Ashwin, Oct 29.
+ */
+const STICKY_FOOT =
+  "nav-sticky-foot sticky bottom-0 z-[2] flex w-full shrink-0 flex-col bg-pg";
+
 export function LeftNav({
   theme,
   config = navConfig,
@@ -470,7 +487,33 @@ export function LeftNav({
     treeSearchPlace,
     topAlignCard,
     topAlignCardNudge,
+    navSettingsSpot,
+    navFootSticky,
+    navFeaturedCardRow,
+    navFeaturedSlot,
   } = useTheme().effective;
+  const featuredCount = useFeatured().list.length;
+  // The Settings foot stays put while the list scrolls. See STICKY_FOOT.
+  const footStuck = navFootSticky === "sticky" && navSettingsSpot === "footer";
+  const featuredCardShown = navFeaturedSlot === "card" && featuredCount > 0;
+  /*
+   * The foot's height, published on the scroll shell, so the shell's own
+   * edge-to-edge shadow can sit exactly on the band's top edge.
+   */
+  const footRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    const el = footRef.current;
+    const shell = el?.closest<HTMLElement>("[data-scroll-shell]");
+    if (!el || !shell) return;
+    const publish = () => shell.style.setProperty("--nav-foot-h", `${el.offsetHeight}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      shell.style.removeProperty("--nav-foot-h");
+    };
+  }, [footStuck, featuredCardShown, navSettingsSpot, navFootSticky]);
   /* What the companion-apps row is called right now. See APPS_ROW_LABELS. */
   const appsRowName = useGetAppNavLabel();
   /**
@@ -4989,6 +5032,13 @@ export function LeftNav({
             being able to look at rather than argue about.
           */}
           {treeSearchAt("recents")}
+          {/* The featured slot at the top, and any featured pins over Recents. See featured-slot.tsx. */}
+          {!searchOnly && !hideOpeningCluster ? (
+            <>
+              <FeaturedSlot at="top" agency={agencyScope} />
+              <FeaturedPinnedRows agency={agencyScope} />
+            </>
+          ) : null}
           {/*
             Recents-with-pins-on-top sits where Recent sat: first in the cluster,
             directly under the header now that the capsule has gone. It scrolls
@@ -5202,6 +5252,7 @@ export function LeftNav({
                 without a way back the only route to it is to navigate into it.
               */}
               {renderSearched(entries)}
+              {searchOnly ? null : <FeaturedSlot at="below" agency={agencyScope} />}
               {/*
                 A standing way in, while editing.
 
@@ -5254,6 +5305,20 @@ export function LeftNav({
                 of the results with nothing underneath, which reads as a list
                 that was cut off rather than one that ended.
               */}
+              {/*
+                The foot: a featured card, the rule, and Settings, pushed to the
+                bottom by a spacer. Sticky by default, on a band of the nav's own
+                ground with a shadow above it, so a long list scrolls UNDER the
+                foot instead of carrying Settings and the card away with it.
+                Ashwin, Oct 29.
+              */}
+              {searchOnly || navSettingsSpot === "list" ? null : (
+                <div aria-hidden="true" className="mt-auto" />
+              )}
+              <div ref={footStuck ? footRef : undefined} className={footStuck ? STICKY_FOOT : "contents"}>
+              {searchOnly || navSettingsSpot === "list" ? null : (
+                <FeaturedSlot at="card" agency={agencyScope} />
+              )}
               {searchOnly ? null : <NavDivider />}
               {/*
                 A standing door to All products, when the axis offers it.
@@ -5334,12 +5399,35 @@ export function LeftNav({
 
               {renderRow(agencyScope ? agencySettings : config.settings)}
               </div>
+              </div>
+              {/*
+                Settings with the list: the featured card stands alone at the
+                foot, sticky like the foot above. Either above the Edit row,
+                clear of the button, or in that row with room left for it.
+              */}
+              {searchOnly || navSettingsSpot !== "list" || !featuredCardShown ? null : (
+                <div
+                  ref={navFootSticky === "sticky" ? footRef : undefined}
+                  className={cn(
+                    "mt-auto flex w-full flex-col",
+                    navFootSticky === "sticky" && STICKY_FOOT,
+                    navFeaturedCardRow === "inline" ? "pr-[40px] pb-[2px]" : "pb-[34px]",
+                  )}
+                >
+                  <FeaturedSlot at="card" agency={agencyScope} />
+                </div>
+              )}
             </>
           )}
           </>
           )}
         </div>
-        <div aria-hidden="true" data-scroll-fade="bottom" />
+        {/* A sticky foot is its own edge; a fade over it would wash out Settings. */}
+        {navFootSticky === "sticky" ? (
+          <div aria-hidden="true" className="nav-foot-shadow" />
+        ) : (
+          <div aria-hidden="true" data-scroll-fade="bottom" />
+        )}
       </div>
 
       {/*
@@ -5398,6 +5486,16 @@ export function LeftNav({
         collapsed nav, which has no room for a label. See NavTourFooterRow.
       */}
       {!editing && !collapsed ? <NavTourFooterRow /> : null}
+
+      {/*
+        Ask AI as a row above Edit, when the home axis says so. Where Edit hangs
+        off a zero-height line rather than a pill, it floats up over whatever
+        sits above it, so the row leaves it a lane. Ashwin, Oct 29.
+      */}
+      <AskAiNavRow
+        session={aiSession}
+        clearEdit={Boolean((headerEntry || topEntry) && editNavHere)}
+      />
 
       {headerEntry || topEntry ? (
         /*

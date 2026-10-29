@@ -718,6 +718,7 @@ export function ProductPage({
    */
   const { shared } = useListToolbar();
   const stage = useStageList({
+    productId: product.id,
     title,
     views:
       !deep && tabs.length > 0
@@ -1162,7 +1163,7 @@ function ListControls({ title, stage }: { title: string; stage: StageList }) {
         groups={[
           {
             label: "Status",
-            items: STAGE_STATUSES.map((v) => ({
+            items: stage.statuses.map((v) => ({
               id: v,
               label: v,
               on: stage.status.includes(v),
@@ -1314,13 +1315,55 @@ const STAGE_NAMES = [
 ];
 const STAGE_STATUSES = ["Active", "Draft", "Paused"];
 const STAGE_OWNERS = ["Samrina Shabha", "Dev Anand", "Unassigned"];
-const STAGE_ROWS: StageRow[] = STAGE_NAMES.map((name, i) => ({
-  id: `stage-${i}`,
-  name,
-  status: STAGE_STATUSES[i % STAGE_STATUSES.length]!,
-  owner: STAGE_OWNERS[(i * 2) % STAGE_OWNERS.length]!,
-  updated: (i * 7) % 30 + 1,
-}));
+function stageRows(names: readonly string[], statuses: readonly string[]): StageRow[] {
+  return names.map((name, i) => ({
+    id: `stage-${i}`,
+    name,
+    status: statuses[i % statuses.length]!,
+    owner: STAGE_OWNERS[(i * 2) % STAGE_OWNERS.length]!,
+    updated: (i * 7) % 30 + 1,
+  }));
+}
+
+/**
+ * Rows that say what the product holds, for pages whose product has an
+ * obvious noun. People's names in a list of video projects read as a bug
+ * rather than as a placeholder. Keyed by product id; everything else keeps the
+ * generic stage. Ashwin, Oct 29.
+ */
+const STAGE_DATA: Record<string, { rows: StageRow[]; statuses: readonly string[] }> = {
+  "featured-creator-studio": (() => {
+    const statuses = ["Published", "Scheduled", "Draft"];
+    return {
+      statuses,
+      rows: stageRows(
+        [
+          "Spring sale teaser", "Customer story: Fieldstone", "How to book online",
+          "Behind the scenes: install day", "5 tips for summer cooling", "Meet the team",
+          "Before and after: kitchen remodel", "Weekly promo reel", "Product walkthrough",
+          "FAQ: financing options", "Holiday hours announcement", "Review roundup",
+        ],
+        statuses,
+      ),
+    };
+  })(),
+  "featured-meeting-rooms": (() => {
+    const statuses = ["Live", "Scheduled", "Ended"];
+    return {
+      statuses,
+      rows: stageRows(
+        [
+          "Weekly sales sync", "New client onboarding", "Quote review call",
+          "Site visit debrief", "Monthly marketing review", "Support office hours",
+          "Partner check-in", "Hiring interview room", "Project kickoff",
+          "Quarterly business review", "Training: new CRM features", "Team standup",
+        ],
+        statuses,
+      ),
+    };
+  })(),
+};
+const DEFAULT_STAGE = { rows: stageRows(STAGE_NAMES, STAGE_STATUSES), statuses: STAGE_STATUSES };
 
 const STAGE_COLUMNS = [
   { id: "name", label: "Name", locked: true },
@@ -1343,10 +1386,12 @@ type StageList = ReturnType<typeof useStageList>;
  * page's own controls read the same state, so switching variants keeps it.
  */
 function useStageList({
+  productId,
   title,
   views,
   subViews,
 }: {
+  productId: string;
   title: string;
   views: StageViews;
   subViews?: (StageViews & { label: string }) | null;
@@ -1357,9 +1402,11 @@ function useStageList({
   const [sort, setSort] = React.useState<{ field: string; dir: "asc" | "desc" } | null>(null);
   const [hidden, setHidden] = React.useState<Set<string>>(() => new Set());
 
+  const data = STAGE_DATA[productId] ?? DEFAULT_STAGE;
+  const statuses = data.statuses;
   const rows = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    const cut = STAGE_ROWS.filter(
+    const cut = data.rows.filter(
       (r) =>
         (!q || r.name.toLowerCase().includes(q) || r.owner.toLowerCase().includes(q)) &&
         (status.length === 0 || status.includes(r.status)) &&
@@ -1369,7 +1416,7 @@ function useStageList({
     const k = sort.field as keyof StageRow;
     const sign = sort.dir === "asc" ? 1 : -1;
     return [...cut].sort((a, b) => (a[k] > b[k] ? sign : a[k] < b[k] ? -sign : 0));
-  }, [query, status, owner, sort]);
+  }, [data, query, status, owner, sort]);
 
   const clear = () => {
     setQuery("");
@@ -1401,7 +1448,7 @@ function useStageList({
       {
         id: "status",
         label: "Status",
-        options: STAGE_STATUSES.map((v) => ({ value: v, label: v })),
+        options: statuses.map((v) => ({ value: v, label: v })),
         value: status,
         multiple: true,
         onChange: setStatus,
@@ -1446,6 +1493,7 @@ function useStageList({
 
   return {
     rows,
+    statuses,
     hidden,
     clear,
     query,

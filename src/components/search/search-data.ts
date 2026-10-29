@@ -245,8 +245,17 @@ export function searchResults(
    * default shortcuts, and appending eight catalogue rows to that would turn
    * a short list of suggestions into a directory nobody asked for.
    */
-  const owned = (id: string) =>
-    enabled === undefined || resolveOwned(id, enabled) !== undefined;
+  /*
+   * The walk is scoped STRICTLY, unlike the hand-written index above.
+   *
+   * The index names shipped ids only, so a proposed account has to reach it
+   * through `resolveOwned`. The catalogue walk does not: both catalogues are
+   * in `allProducts`, so resolving there let a proposed account walk the
+   * shipped twin as well and every product landed twice under one name —
+   * Ashwin, Oct 29: "courses" returned Courses and Courses. An account is on
+   * one catalogue, and the walk should only produce rows from that one.
+   */
+  const owned = (id: string) => enabled === undefined || enabled.has(id);
   const seen = new Set(
     matches.map((r) => r.title.toLowerCase()),
   );
@@ -265,6 +274,23 @@ export function searchResults(
           : matches.filter((r) => r.kind === kind),
     }))
     .filter((g) => g.results.length > 0);
+}
+
+/**
+ * The nav row a hit opens, or undefined for one that names no destination.
+ *
+ * Nav hits already carry the id of the row they were walked from. The
+ * hand-written entries carry a SHIPPED product id, which a proposed account
+ * does not have — so those resolve through the equivalents the same way the
+ * scoping above does.
+ */
+export function targetOf(
+  r: SearchResult,
+  enabled?: ReadonlySet<string>,
+): string | undefined {
+  if (r.id.startsWith("nav:")) return r.id.slice(4);
+  if (!r.productId) return undefined;
+  return enabled ? resolveOwned(r.productId, enabled) : r.productId;
 }
 
 /** Flat list in display order, for arrow-key navigation. */
