@@ -7,7 +7,7 @@ import { useBrand } from "@/components/accounts/brand-store";
 import { Select } from "@/components/page/form-controls";
 import { cn } from "@/lib/utils";
 import { PageTitle, usePageChrome } from "@/components/page/page-header";
-import { LogoUploadField } from "./logo-upload-field";
+import { BrandAssetRow } from "./logo-upload-field";
 import {
   LOCALES,
   ownerFor,
@@ -63,32 +63,41 @@ export function BusinessProfilePage({ account }: { account: Account }) {
             footer={<CommitButton>Update Information</CommitButton>}
           >
             {/*
-              Production's own logo field, kept as production draws it: a large
-              preview beside the label, the size rule as a sentence, and Upload
-              next to Remove. Deliberately not swapped for LogoUploadField — this
-              page is the transcription, and changing the field that is already
-              here would blur what the proposal actually adds.
+              Two assets, one row shape. Ashwin, Nov 6.
+              
+              They used to be two different controls — production's own big
+              Business Logo field, and the square mark as a compact stacked
+              one — on the reasoning that this page is a transcription and
+              the proposal should be visibly the addition. That reading has
+              served its purpose: the pair is now the point, and drawn as
+              two shapes it read as two unrelated fields rather than one
+              decision about how this account appears.
             */}
-            <BusinessLogoField
-              src={account.wordmarkSrc}
+            <BrandAssetRow
+              label="Business Logo"
+              hint="Shown in the expanded navigation and emails."
+              spec="350 × 180 px · up to 2.5 MB"
+              aspect="wide"
+              {...(account.wordmarkSrc ? { src: account.wordmarkSrc } : {})}
               onPick={(src) => set(account.id, "wordmarkSrc", src)}
               onRemove={() => clear(account.id, "wordmarkSrc")}
             />
 
-            {/*
-              The addition. Same component as the agency's White label tab, so an
-              agency admin and a sub-account admin are looking at one control in
-              two places rather than two controls that happen to do the same job.
-            */}
-            <LogoUploadField
-              label="Square mark"
-              hint="Shown in the account rail and the collapsed navigation, where a wide logo will not fit."
+            {/* A rule between them, so the two rows are a list and not a stack. */}
+            <div aria-hidden="true" className="h-px w-full bg-pg-border" />
+
+            <BrandAssetRow
+              label="Square Mark"
+              hint="Shown in the account rail and collapsed navigation, where a wide logo won't fit."
+              spec="1:1 · min 128 × 128 px"
               aspect="square"
               {...(account.logoSrc ? { src: account.logoSrc } : {})}
               fallback={account.logo}
               onPick={(src) => set(account.id, "logoSrc", src)}
               onRemove={() => clear(account.id, "logoSrc")}
             />
+
+            <div aria-hidden="true" className="h-px w-full bg-pg-border" />
 
             <Grid>
               <Field
@@ -176,90 +185,6 @@ export function BusinessProfilePage({ account }: { account: Account }) {
           </Card>
         </div>
       </div>
-    </div>
-  );
-}
-
-/**
- * Production's Business Logo field.
- *
- * Its own component rather than a variant of LogoUploadField: the two differ in
- * every dimension a shared component would have to take as a prop — preview
- * size, whether Remove is always shown, where the hint sits — and a component
- * with a flag for each would be harder to read than two honest ones.
- */
-function BusinessLogoField({
-  src,
-  onPick,
-  onRemove,
-}: {
-  src?: string;
-  onPick: (dataUrl: string) => void;
-  onRemove: () => void;
-}) {
-  const inputRef = React.useRef<HTMLInputElement>(null);
-
-  const read = (file: File | undefined) => {
-    if (!file || !file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    // A data URL, not an object URL: this is a prototype with no server, and an
-    // object URL dies with the page while the value has to survive a re-render.
-    reader.onload = () => onPick(String(reader.result));
-    reader.readAsDataURL(file);
-  };
-
-  return (
-    <div className="flex items-center gap-[20px]">
-      <div className="flex h-[120px] w-[190px] shrink-0 items-center justify-center overflow-hidden rounded-[10px] bg-pg-bg shadow-[inset_0_0_0_1px_var(--pg-border)]">
-        {src ? (
-          <img
-            src={src}
-            alt=""
-            className="max-h-full max-w-full object-contain p-[12px]"
-          />
-        ) : (
-          <ImageUp size={24} aria-hidden="true" className="text-pg-faint" />
-        )}
-      </div>
-
-      <div className="flex min-w-0 flex-col items-start gap-[10px]">
-        <div className="min-w-0">
-          <span className="text-[14px] leading-[20px] font-medium text-pg-heading">
-            Business Logo
-          </span>
-          <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
-            The proposed size is 350px * 180px. No bigger than 2.5 MB
-          </p>
-        </div>
-        <div className="flex items-center gap-[10px]">
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="motion-tap flex h-[36px] items-center rounded-[8px] px-[14px] text-[14px] leading-none font-medium text-brand shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg-bg"
-          >
-            Upload
-          </button>
-          <button
-            type="button"
-            onClick={onRemove}
-            // Present even with nothing uploaded, as production has it. It is
-            // the field's shape, and a button that appears on upload would move
-            // the row the moment you used it.
-            disabled={!src}
-            className="motion-tap flex h-[36px] items-center rounded-[8px] px-[14px] text-[14px] leading-none font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg-bg disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            Remove
-          </button>
-        </div>
-      </div>
-
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => read(e.target.files?.[0])}
-      />
     </div>
   );
 }

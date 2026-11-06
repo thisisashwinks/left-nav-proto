@@ -8,7 +8,7 @@ import { useTheme } from "@/components/theme/theme-provider";
 import { useBrand } from "@/components/accounts/brand-store";
 import { useLabs } from "./labs-state";
 import { useCustomCode } from "./custom-code-store";
-import { LogoUploadField } from "./logo-upload-field";
+import { BrandAssetRow } from "./logo-upload-field";
 import { Field } from "./white-label-parts";
 import { CodeBlock, ThemeChoice } from "./white-label-ideal";
 import { cn } from "@/lib/utils";
@@ -169,47 +169,74 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
         title="Brand"
         sub="What your clients think they are using."
       >
-        <div className="flex flex-wrap items-center gap-[16px]">
-          <div className="flex h-[96px] w-[180px] shrink-0 items-center justify-center rounded-[8px] bg-pg shadow-[inset_0_0_0_1px_var(--pg-border)]">
-            <span className="font-mono text-[22px] font-semibold text-pg-text">
-              1:1
-            </span>
-          </div>
-          <div className="min-w-0">
-            <p className="text-[14px] leading-[20px] font-medium text-pg-heading">
-              Wide logo
-            </p>
-            <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
-              350 × 180px, up to 2.5 MB. Shown in the header and the expanded
-              navigation.
-            </p>
-            <div className="mt-[10px] flex gap-[8px]">
-              <button
-                type="button"
-                className="motion-tap h-[36px] rounded-[8px] px-[14px] text-[14px] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg"
-              >
-                Replace
-              </button>
-              <button
-                type="button"
-                aria-label="Remove logo"
-                className="motion-tap flex size-[36px] items-center justify-center rounded-[8px] text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg"
-              >
-                <Trash2 size={16} aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-        </div>
+        {/*
+          The same two rows Business profile draws, from the same component.
+          Ashwin, Nov 6.
+          
+          The wide logo here was a dead placeholder — a box with "1:1" in it
+          and a Replace that did nothing — sitting next to a square mark that
+          was fully wired. Two assets, one real. Both are real now and both
+          write to the brand store, so what the agency uploads here is what
+          the nav draws.
+        */}
+        {/*
+          Side by side on the agency's full-width page. Ashwin, Nov 6.
+        
+          Stacked, each row spans the whole tab — so the preview sits at the
+          far left and its own Upload and Remove end up most of a screen away
+          at the far right, with nothing in between. The buttons stop reading
+          as belonging to the asset beside them.
+        
+          Two columns put each asset's controls back within reach of its
+          preview, and the pair reads as one decision taken twice rather than
+          two stacked settings. One column under `lg`, where half a tab is no
+          longer wide enough to hold the row without wrapping.
+        
+          The sub-account's Business profile stays stacked: that card shares
+          its page with a second column already, so it is never full width.
+        */}
+        <div
+          className={cn(
+            "grid grid-cols-1 gap-y-[20px] lg:grid-cols-2",
+            /*
+              A rule between the columns, drawn by the SECOND one.
+        
+              The gap goes to zero and each column pads itself instead, so the
+              line lands exactly halfway between them. Left as a 24px gap with a
+              border laid on top of it, the rule would sit hard against the right
+              column and read as that column's edge rather than as the seam
+              between two.
+        
+              Only at `lg`, where the two columns exist. Stacked below that, a
+              vertical rule would be a line down the side of a single column.
+            */
+            "lg:gap-x-0 lg:[&>*:first-child]:pr-[28px]",
+            "lg:[&>*+*]:border-l lg:[&>*+*]:border-pg-border lg:[&>*+*]:pl-[28px]",
+            /* And a little air before whatever follows the pair. */
+            "mb-[12px]",
+          )}
+        >
+          <BrandAssetRow
+            label="Business Logo"
+            hint="Shown in the expanded navigation and emails."
+            spec="350 × 180 px · up to 2.5 MB"
+            aspect="wide"
+            {...(agency.wordmarkSrc ? { src: agency.wordmarkSrc } : {})}
+            onPick={(src) => brand.set(agency.id, "wordmarkSrc", src)}
+            onRemove={() => brand.clear(agency.id, "wordmarkSrc")}
+          />
 
-        <LogoUploadField
-          label="Square mark"
-          hint="Shown in the account rail and the collapsed navigation, where a wide logo will not fit."
-          aspect="square"
-          {...(agency.logoSrc ? { src: agency.logoSrc } : {})}
-          fallback={agency.logo}
-          onPick={(src) => brand.set(agency.id, "logoSrc", src)}
-          onRemove={() => brand.clear(agency.id, "logoSrc")}
-        />
+          <BrandAssetRow
+            label="Square Mark"
+            hint="Shown in the account rail and collapsed navigation, where a wide logo won't fit."
+            spec="1:1 · min 128 × 128 px"
+            aspect="square"
+            {...(agency.logoSrc ? { src: agency.logoSrc } : {})}
+            fallback={agency.logo}
+            onPick={(src) => brand.set(agency.id, "logoSrc", src)}
+            onRemove={() => brand.clear(agency.id, "logoSrc")}
+          />
+        </div>
 
         <div className="flex flex-wrap gap-[16px]">
           <Field

@@ -10,6 +10,7 @@ import {
   LogIn,
   LogOut,
   Monitor,
+  QrCode,
   Search,
   Smartphone,
 } from "lucide-react";
@@ -22,6 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAnchored } from "@/lib/use-anchored";
 import { UserAvatar } from "./user-avatar";
+import { QrView } from "./qr-view";
 import { type AppKind } from "./get-app-modal";
 import {
   GET_APP_MENU_LABELS,
@@ -53,6 +55,7 @@ export function AccountMenu({
   showApps,
   onOpenApp,
   onClose,
+  businessName = null,
 }: {
   anchor: HTMLElement;
   name: string;
@@ -68,8 +71,15 @@ export function AccountMenu({
   showApps: boolean;
   onOpenApp: (kind: AppKind) => void;
   onClose: () => void;
+  /**
+   * The sub-account whose business QR the menu offers. Null at agency scope,
+   * where there is no business to make a code for — and no QR icon.
+   */
+  businessName?: string | null;
 }) {
   const { ref, top, left } = useAnchored(anchor, WIDTH, GAP);
+  /** The menu, or the QR view that replaces it in place. See QrView. */
+  const [view, setView] = React.useState<"menu" | "qr">("menu");
   const { as, canLogInAs, logInAs, switchBack } = useImpersonation();
   /*
    * The "Log in as" picker, open beside the menu. Its own portal, so the
@@ -127,9 +137,18 @@ export function AccountMenu({
         The email is the useful half: agencies keep several logins and the name
         on two of them is often the same person.
       */}
+      {view === "qr" && businessName ? (
+        <QrView
+          personName={shownName}
+          businessName={businessName}
+          onBack={() => setView("menu")}
+          onClose={onClose}
+        />
+      ) : (
+      <>
       <div className="flex items-center gap-[10px] px-[14px] py-[12px]">
         <UserAvatar size={38} initials={shownInitials} drawn={as !== null} />
-        <span className="min-w-0">
+        <span className="min-w-0 flex-1">
           <span className="block truncate text-[13.5px] leading-[18px] font-semibold text-pg-heading">
             {shownName}
           </span>
@@ -137,6 +156,21 @@ export function AccountMenu({
             {shownEmail}
           </span>
         </span>
+        {/* The QR codes, top right. Sub-account only. Ashwin, Nov 6. */}
+        {businessName ? (
+          <button
+            type="button"
+            aria-label="Show QR code"
+            onClick={() => {
+              setPicking(false);
+              setTouring(null);
+              setView("qr");
+            }}
+            className="motion-tap grid size-[32px] shrink-0 place-items-center rounded-full bg-pg text-pg-heading hover:bg-pg-border"
+          >
+            <QrCode size={16} aria-hidden="true" />
+          </button>
+        ) : null}
       </div>
 
       <Rule />
@@ -235,6 +269,8 @@ export function AccountMenu({
       <Rule />
 
       <Row icon={LogOut} label="Sign out" onSelect={onClose} />
+      </>
+      )}
     </div>
       {picking ? (
         <LoginAsPicker

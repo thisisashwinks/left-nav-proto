@@ -4323,6 +4323,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
           ) : null}
           <div className="min-w-0 flex-1">
         <AppHeader
+          qrBusinessName={agencyScope ? null : accounts.current.name}
           /*
             The drawer toggle, when it has been placed out of the nav. The
             nav draws it itself for the other two spots — see COLLAPSE_SPOTS.

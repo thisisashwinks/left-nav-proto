@@ -413,6 +413,8 @@ interface AppHeaderProps {
    * eventually showing two of them, so neither keeps it.
    */
   onOpenApp: (kind: AppKind) => void;
+  /** The sub-account the avatar menu's business QR is for; null at agency scope. */
+  qrBusinessName?: string | null;
   /**
    * Whether the entry is a field that wants its 230px, or a button that does
    * not. The bar cannot tell by looking — `entry` is an opaque node.
@@ -448,6 +450,7 @@ export function AppHeader({
   pageHeading,
   crumbGoesSomewhere,
   onOpenApp,
+  qrBusinessName = null,
   entry,
   entryFills = true,
 }: AppHeaderProps) {
@@ -1122,6 +1125,7 @@ export function AppHeader({
           showApps={getAppPlacement === "menu"}
           onOpenApp={onOpenApp}
           onClose={() => setAccountAnchor(null)}
+          businessName={qrBusinessName}
         />
       ) : null}
 

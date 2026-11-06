@@ -3,7 +3,8 @@
 import * as React from "react";
 import type { Account } from "@/components/accounts/accounts-data";
 import { useBrand } from "@/components/accounts/brand-store";
-import { LogoUploadField } from "./logo-upload-field";
+import { BrandAssetRow } from "./logo-upload-field";
+import { cn } from "@/lib/utils";
 
 /**
  * Both logos, in one card, with what the nav will do with them written down.
@@ -32,25 +33,74 @@ export function BrandCard({ account }: { account: Account }) {
         </p>
       </header>
 
+      {/*
+        The same two rows the sub-account's Business profile draws, from the
+        same component. Ashwin, Nov 6: "Do the same for agency as well."
+        
+        Worth stating because the two pages are edited by different people:
+        an agency admin setting the agency's own brand and a sub-account
+        admin setting theirs are doing one job, and the field should not
+        change shape depending on which chair you are in.
+      */}
       <div className="flex flex-col gap-[20px] p-[16px]">
-        <LogoUploadField
-          label="Wide logo"
-          hint="Shown in the navigation header. Around 4:1 reads best — a square crop here comes out small."
-          aspect="wide"
-          {...(account.wordmarkSrc ? { src: account.wordmarkSrc } : {})}
-          onPick={(src) => set(account.id, "wordmarkSrc", src)}
-          onRemove={() => clear(account.id, "wordmarkSrc")}
-        />
+        {/*
+          Side by side on the agency's full-width page. Ashwin, Nov 6.
+        
+          Stacked, each row spans the whole tab — so the preview sits at the
+          far left and its own Upload and Remove end up most of a screen away
+          at the far right, with nothing in between. The buttons stop reading
+          as belonging to the asset beside them.
+        
+          Two columns put each asset's controls back within reach of its
+          preview, and the pair reads as one decision taken twice rather than
+          two stacked settings. One column under `lg`, where half a tab is no
+          longer wide enough to hold the row without wrapping.
+        
+          The sub-account's Business profile stays stacked: that card shares
+          its page with a second column already, so it is never full width.
+        */}
+        <div
+          className={cn(
+            "grid grid-cols-1 gap-y-[20px] lg:grid-cols-2",
+            /*
+              A rule between the columns, drawn by the SECOND one.
+        
+              The gap goes to zero and each column pads itself instead, so the
+              line lands exactly halfway between them. Left as a 24px gap with a
+              border laid on top of it, the rule would sit hard against the right
+              column and read as that column's edge rather than as the seam
+              between two.
+        
+              Only at `lg`, where the two columns exist. Stacked below that, a
+              vertical rule would be a line down the side of a single column.
+            */
+            "lg:gap-x-0 lg:[&>*:first-child]:pr-[28px]",
+            "lg:[&>*+*]:border-l lg:[&>*+*]:border-pg-border lg:[&>*+*]:pl-[28px]",
+            /* And a little air before whatever follows the pair. */
+            "mb-[12px]",
+          )}
+        >
+          <BrandAssetRow
+            label="Business Logo"
+            hint="Shown in the expanded navigation and emails."
+            spec="350 × 180 px · up to 2.5 MB"
+            aspect="wide"
+            {...(account.wordmarkSrc ? { src: account.wordmarkSrc } : {})}
+            onPick={(src) => set(account.id, "wordmarkSrc", src)}
+            onRemove={() => clear(account.id, "wordmarkSrc")}
+          />
 
-        <LogoUploadField
-          label="Square mark"
-          hint="Shown in the account rail and the collapsed navigation, where a wide logo will not fit."
-          aspect="square"
-          {...(account.logoSrc ? { src: account.logoSrc } : {})}
-          fallback={account.logo}
-          onPick={(src) => set(account.id, "logoSrc", src)}
-          onRemove={() => clear(account.id, "logoSrc")}
-        />
+          <BrandAssetRow
+            label="Square Mark"
+            hint="Shown in the account rail and collapsed navigation, where a wide logo won't fit."
+            spec="1:1 · min 128 × 128 px"
+            aspect="square"
+            {...(account.logoSrc ? { src: account.logoSrc } : {})}
+            fallback={account.logo}
+            onPick={(src) => set(account.id, "logoSrc", src)}
+            onRemove={() => clear(account.id, "logoSrc")}
+          />
+        </div>
 
         <FallbackLadder account={account} />
       </div>
