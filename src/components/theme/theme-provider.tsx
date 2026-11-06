@@ -123,6 +123,7 @@ import type {
   RailActiveSpot,
   RailGuestSpot,
   RailShutRecents,
+  RailRecentSearch,
   AddPickerCommit,
   EmptyNavRule,
   RailDirectoryMode,
@@ -362,6 +363,7 @@ interface ThemeContextValue extends ThemeState {
   setRailActiveSpot: (v: RailActiveSpot) => void;
   setRailGuestSpot: (v: RailGuestSpot) => void;
   setRailShutRecents: (v: RailShutRecents) => void;
+  setRailRecentSearch: (v: RailRecentSearch) => void;
   setAddPickerCommit: (v: AddPickerCommit) => void;
   setEmptyNavRule: (v: EmptyNavRule) => void;
   setRailDirectoryMode: (v: RailDirectoryMode) => void;
@@ -887,6 +889,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, railGuestSpot })),
       setRailShutRecents: (railShutRecents) =>
         setState((s) => ({ ...s, railShutRecents })),
+      setRailRecentSearch: (railRecentSearch) =>
+        setState((s) => ({ ...s, railRecentSearch })),
       setAddPickerCommit: (addPickerCommit) =>
         setState((s) => ({ ...s, addPickerCommit })),
       setEmptyNavRule: (emptyNavRule) =>

@@ -5963,6 +5963,23 @@ export const RAIL_SHUT_RECENTS_LABELS: Record<RailShutRecents, string> = {
 };
 
 /**
+ * What the rail's search offers while it is focused and empty.
+ *
+ *  accounts  The accounts last picked from a search, as account rows.
+ *  text      The words last typed, as search-history rows; a row puts its
+ *            text back in the field.
+ *  arrow     The same, with a fill arrow at the row's end, as Google and
+ *            YouTube draw it. The default. Ashwin, Nov 6.
+ */
+export const RAIL_RECENT_SEARCHES = ["accounts", "text", "arrow"] as const;
+export type RailRecentSearch = (typeof RAIL_RECENT_SEARCHES)[number];
+export const RAIL_RECENT_SEARCH_LABELS: Record<RailRecentSearch, string> = {
+  accounts: "Recent accounts",
+  text: "Recent search text",
+  arrow: "Search text + fill arrow",
+};
+
+/**
  * Whether the accounts that are neither pinned nor recent live behind a door
  * or in the rail itself.
  *
@@ -7205,6 +7222,7 @@ export interface ThemeState {
   railGuestSpot: RailGuestSpot;
   /** Whether the shut strip carries recents. See RAIL_SHUT_RECENTS. */
   railShutRecents: RailShutRecents;
+  railRecentSearch: RailRecentSearch;
   /** How a multi-select add commits. See ADD_PICKER_COMMITS. */
   addPickerCommit: AddPickerCommit;
   /** What an empty category or row costs. See EMPTY_NAV_RULES. */
@@ -7595,6 +7613,7 @@ export const NAV_STRUCTURE_KEYS = [
   "railActiveSpot",
   "railGuestSpot",
   "railShutRecents",
+  "railRecentSearch",
   "addPickerCommit",
   "emptyNavRule",
   "railDirectoryMode",
@@ -7953,6 +7972,7 @@ export const DEFAULT_THEME: ThemeState = {
     The axis stays on the dial; the reach it buys is real and one click away.
   */
   railShutRecents: "off",
+  railRecentSearch: "arrow",
   addPickerCommit: "footer",
   emptyNavRule: "allow",
   /*

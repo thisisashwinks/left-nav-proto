@@ -158,6 +158,8 @@ import {
   RAIL_GUEST_SPOT_LABELS,
   RAIL_SHUT_RECENTS,
   RAIL_SHUT_RECENTS_LABELS,
+  RAIL_RECENT_SEARCHES,
+  RAIL_RECENT_SEARCH_LABELS,
   ADD_PICKER_COMMITS,
   ADD_PICKER_COMMIT_LABELS,
   EMPTY_NAV_RULES,
@@ -443,6 +445,7 @@ import {
   type RailActiveSpot,
   type RailGuestSpot,
   type RailShutRecents,
+  type RailRecentSearch,
   type AddPickerCommit,
   type EmptyNavRule,
   type RailDirectoryMode,
@@ -919,11 +922,13 @@ function NavStructureSection({
     railActiveSpot,
     railGuestSpot,
     railShutRecents,
+    railRecentSearch,
     addPickerCommit,
     emptyNavRule,
     setRailActiveSpot,
     setRailGuestSpot,
     setRailShutRecents,
+    setRailRecentSearch,
     setAddPickerCommit,
     setEmptyNavRule,
     railDirectoryMode,
@@ -1472,6 +1477,22 @@ function NavStructureSection({
             {railShutRecents === "on"
               ? "The recents follow the pins at 56px, the same five that lead the open list. The account you were in two switches ago is one click from the shut rail — paid for by the lower half of the strip rearranging itself behind your back, with no names there to tell you it did."
               : "The shut strip is the pinned run and whatever the guest adds, so every mark in it is either one you chose or the one you are in. Position means something because nothing reorders — which is the whole reason a glance works."}
+          </Note>
+
+          <Segmented
+            label="Empty search shows"
+            keywords="rail account search empty focused recent searches history text query fill arrow google youtube"
+            options={RAIL_RECENT_SEARCHES}
+            value={railRecentSearch}
+            onChange={(v: RailRecentSearch) => setRailRecentSearch(v)}
+            format={(v) => RAIL_RECENT_SEARCH_LABELS[v]}
+          />
+          <Note>
+            {railRecentSearch === "accounts"
+              ? "Focused and empty, the rail's search lists the accounts you last picked from it."
+              : railRecentSearch === "text"
+                ? "Focused and empty, the rail's search lists what you last typed. Click a row to put it back in the field."
+                : "What you last typed, with a fill arrow at each row's end, as Google and YouTube do it. The arrow and the row both put the text back in the field."}
           </Note>
 
           <Segmented

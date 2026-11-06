@@ -3,6 +3,8 @@
 import * as React from "react";
 import {
   ArrowLeft,
+  ArrowUpRight,
+  History,
   Check,
   Grip,
   LayoutGrid,
@@ -1722,6 +1724,24 @@ export function AccountRail({
   const [searchPicks, setSearchPicks] = React.useState<readonly string[]>(
     RAIL_RECENT_SEARCH_SEED,
   );
+  /*
+   * The words typed into this field, newest first — what the empty field
+   * offers under "Search text". Seeded so a fresh demo has a history.
+   * Ashwin, Nov 6. See RAIL_RECENT_SEARCHES.
+   */
+  const [searchTexts, setSearchTexts] = React.useState<readonly string[]>(
+    RAIL_RECENT_QUERY_SEED,
+  );
+  const rememberQuery = React.useCallback((query: string) => {
+    const q = query.trim();
+    if (!q) return;
+    setSearchTexts((prev) =>
+      [q, ...prev.filter((x) => x.toLowerCase() !== q.toLowerCase())].slice(
+        0,
+        RAIL_RECENT_QUERY_LIMIT,
+      ),
+    );
+  }, []);
   const rememberPick = React.useCallback((id: string) => {
     setSearchPicks((prev) =>
       [id, ...prev.filter((x) => x !== id)].slice(0, RAIL_SEARCH_RECENT_LIMIT),
@@ -2571,6 +2591,7 @@ export function AccountRail({
      */
     if (expanded && (fillFocused || fillQuery.trim().length > 0))
       rememberPick(id);
+    if (expanded) rememberQuery(fillQuery);
     return id === AGENCY_ID ? session.switchToAgency() : session.switchTo(id);
   };
 
@@ -2837,8 +2858,12 @@ export function AccountRail({
   const underAgencyTop = underAgencyHead
     ? RAIL_ROW_H + RAIL_SCROLL_PAD
     : 0;
+  // Search text replaces the account rows; see RAIL_RECENT_SEARCHES.
+  const recentAsText = effective.railRecentSearch !== "accounts";
   const bottomRun = searchResting
-    ? recentSearched
+    ? recentAsText
+      ? []
+      : recentSearched
     : reverseSearch
       ? [...pinnedShown].reverse()
       : centredRecents;
@@ -4901,7 +4926,7 @@ export function AccountRail({
                   governs the other.
                 */}
                 {searchResting ? (
-                  bottomRun.length > 0 ? (
+                  (recentAsText ? searchTexts.length : bottomRun.length) > 0 ? (
                     <RailGroupHeading
                       label="Recent searches"
                       expanded={expanded}
@@ -4915,6 +4940,23 @@ export function AccountRail({
                     show={railRecentLabel && !inlineDirectory}
                   />
                 ) : null}
+                {searchResting && recentAsText
+                  ? searchTexts.map((text) => (
+                      <RecentSearchRow
+                        key={text}
+                        text={text}
+                        arrow={effective.railRecentSearch === "arrow"}
+                        onFill={(from) => {
+                          setFillQuery(text);
+                          // Back into the field, caret at the end, as Google does.
+                          const input = from
+                            .closest("nav")
+                            ?.querySelector<HTMLInputElement>("input");
+                          input?.focus();
+                        }}
+                      />
+                    ))
+                  : null}
                 {filled ? null : bottomRun.map((account, i) => (
                   /*
                     Registered with the SAME flip as the run above it.
@@ -6453,6 +6495,62 @@ const RAIL_RECENT_SEARCH_SEED: readonly string[] = [
   "veritas",
   "brightpath",
 ];
+
+/** The search history a fresh session starts with. See RAIL_RECENT_SEARCHES. */
+const RAIL_RECENT_QUERY_SEED: readonly string[] = [
+  "roofing",
+  "dental",
+  "fieldstone",
+  "law firm",
+  "north",
+];
+
+/** How many typed searches the field remembers. */
+const RAIL_RECENT_QUERY_LIMIT = 5;
+
+/**
+ * One remembered search, as text. The row and its arrow both put the text
+ * back in the field; mousedown is held so the field never loses focus and
+ * the empty-state list does not close under the press. Ashwin, Nov 6.
+ */
+function RecentSearchRow({
+  text,
+  arrow,
+  onFill,
+}: {
+  text: string;
+  arrow: boolean;
+  onFill: (from: HTMLElement) => void;
+}) {
+  return (
+    <div className="group/recent relative flex h-[36px] shrink-0 items-center rounded-[8px] hover:bg-nav-hover">
+      <button
+        type="button"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={(e) => onFill(e.currentTarget)}
+        className={cn(
+          "motion-tap flex h-full min-w-0 flex-1 items-center gap-[10px] rounded-[8px] pl-[10px] text-left",
+          arrow ? "pr-[40px]" : "pr-[10px]",
+        )}
+      >
+        <History size={16} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
+        <span className="truncate text-[14px] leading-[20px] text-nav-fg">{text}</span>
+      </button>
+      {arrow ? (
+        <button
+          type="button"
+          aria-label={`Fill search with “${text}”`}
+          title="Fill search"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={(e) => onFill(e.currentTarget)}
+          className="motion-tap absolute right-[6px] grid size-[28px] place-items-center rounded-[6px] text-nav-fg-subtle hover:bg-[var(--hr-gray-200)] hover:text-nav-fg active:scale-90"
+        >
+          <ArrowUpRight size={16} aria-hidden="true" />
+        </button>
+      ) : null}
+    </div>
+  );
+}
 
 /** How many of your own picks the field remembers. */
 const RAIL_SEARCH_RECENT_LIMIT = 4;
