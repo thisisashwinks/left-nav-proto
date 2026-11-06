@@ -509,6 +509,9 @@ import {
   NAV_FOOT_STICKIES,
   NAV_FOOT_STICKY_LABELS,
   type NavFootSticky,
+  NAV_FOOT_SHADOWS,
+  NAV_FOOT_SHADOW_LABELS,
+  type NavFootShadow,
   NAV_FEATURED_CARD_ROWS,
   NAV_FEATURED_CARD_ROW_LABELS,
   type NavFeaturedCardRow,
@@ -4601,6 +4604,8 @@ export function TuningPanel() {
     setNavFeaturedOpens,
     navFootSticky,
     setNavFootSticky,
+    navFootShadow,
+    setNavFootShadow,
     navFeaturedCardRow,
     setNavFeaturedCardRow,
     navFeaturedMedia,
@@ -7241,7 +7246,7 @@ export function TuningPanel() {
 
           <Segmented
             label="Featured: slot"
-            keywords="featured promo slot new product rotation ask ai khoi"
+            keywords="featured promo slot new product rotation ask ai khoi featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             options={NAV_FEATURED_SLOTS}
             value={navFeaturedSlot}
             onChange={(v: NavFeaturedSlot) => setNavFeaturedSlot(v)}
@@ -7251,7 +7256,7 @@ export function TuningPanel() {
 
           <Segmented
             label="Featured: label"
-            keywords="featured promo slot new product rotation ask ai khoi"
+            keywords="featured promo slot new product rotation ask ai khoi featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             options={NAV_FEATURED_LABEL_OPTIONS}
             value={navFeaturedLabel}
             onChange={(v: NavFeaturedLabel) => setNavFeaturedLabel(v)}
@@ -7261,7 +7266,7 @@ export function TuningPanel() {
 
           <Segmented
             label="Featured: products"
-            keywords="featured promo slot new product rotation ask ai khoi"
+            keywords="featured promo slot new product rotation ask ai khoi featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             options={NAV_FEATURED_COUNTS}
             value={navFeaturedCount}
             onChange={(v: NavFeaturedCount) => setNavFeaturedCount(v)}
@@ -7271,7 +7276,7 @@ export function TuningPanel() {
 
           <Segmented
             label="Featured: multiple as"
-            keywords="featured promo slot new product rotation ask ai khoi"
+            keywords="featured promo slot new product rotation ask ai khoi featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             options={NAV_FEATURED_MULTIS}
             value={navFeaturedMulti}
             onChange={(v: NavFeaturedMulti) => setNavFeaturedMulti(v)}
@@ -7281,7 +7286,7 @@ export function TuningPanel() {
           <Note>How several featured products share the slot.</Note>
           <Segmented
             label="Featured: cycle controls"
-            keywords="featured promo deck carousel arrows up down overlay beside"
+            keywords="featured promo deck carousel arrows up down overlay beside featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             options={NAV_FEATURED_CYCLES}
             value={navFeaturedCycle}
             onChange={(v: NavFeaturedCycle) => setNavFeaturedCycle(v)}
@@ -7290,17 +7295,23 @@ export function TuningPanel() {
           />
           <Note>How the card deck and the carousel are cycled.</Note>
           <Segmented
-            label="Featured: card image"
-            keywords="featured card image media video gif top bottom preview"
+            label="Featured: card media"
+            keywords="featured card image media video gif top bottom preview icon text only hide off featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             options={NAV_FEATURED_MEDIAS}
             value={navFeaturedMedia}
             onChange={(v: NavFeaturedMedia) => setNavFeaturedMedia(v)}
             format={(v) => NAV_FEATURED_MEDIA_LABELS[v]}
           />
-          <Note>A 16:9 image on each featured card, above or below its text, like the coach mark&apos;s preview. Placeholder art from public/featured.</Note>
+          <Note>
+            {navFeaturedMedia === "icon"
+              ? "No image: the product icon beside the name and tagline."
+              : navFeaturedMedia === "text"
+                ? "Just the name and tagline: no image and no icon."
+                : "A 16:9 image on each featured card, above or below its text, like the coach mark’s preview. Placeholder art from public/featured."}
+          </Note>
           <Segmented
             label="Featured: close on cards"
-            keywords="featured promo card close dismiss x"
+            keywords="featured promo card close dismiss x featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             options={NAV_FEATURED_CLOSES}
             value={navFeaturedClose}
             onChange={(v: NavFeaturedClose) => setNavFeaturedClose(v)}
@@ -7309,7 +7320,7 @@ export function TuningPanel() {
           <Note>A close X on each featured card drops that product from the slot for this session.</Note>
           <Segmented
             label="Featured: card click"
-            keywords="featured promo card click flyout l2 explainer direct"
+            keywords="featured promo card click flyout l2 explainer direct featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             options={NAV_FEATURED_OPENS}
             value={navFeaturedOpens}
             onChange={(v: NavFeaturedOpens) => setNavFeaturedOpens(v)}
@@ -7322,7 +7333,7 @@ export function TuningPanel() {
           </Note>
           <Segmented
             label="Settings: position"
-            keywords="settings row foot footer list bottom featured card"
+            keywords="settings row foot footer list bottom featured card featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             options={NAV_SETTINGS_SPOTS}
             value={navSettingsSpot}
             onChange={(v: NavSettingsSpot) => setNavSettingsSpot(v)}
@@ -7335,7 +7346,7 @@ export function TuningPanel() {
           </Note>
           <Segmented
             label="Settings: sticky foot"
-            keywords="settings featured card sticky foot bottom scroll shadow"
+            keywords="settings featured card sticky foot bottom scroll shadow featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             options={NAV_FOOT_STICKIES}
             value={navFootSticky}
             onChange={(v: NavFootSticky) => setNavFootSticky(v)}
@@ -7343,8 +7354,26 @@ export function TuningPanel() {
           />
           <Note>Sticky holds Settings and the featured card at the bottom on a shadowed band while a long list scrolls under them.</Note>
           <Segmented
+            label="Settings: sticky foot shadow"
+            keywords="settings featured card sticky foot bottom shadow top edge featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
+            options={NAV_FOOT_SHADOWS}
+            value={navFootShadow}
+            disabled={navFootSticky !== "sticky"}
+            onChange={(v: NavFootShadow) => setNavFootShadow(v)}
+            format={(v) => NAV_FOOT_SHADOW_LABELS[v]}
+          />
+          <Note>
+            {navFootSticky !== "sticky"
+              ? "Only with a sticky foot."
+              : navFootShadow === "auto"
+                ? "The shadow on the band's top edge shows while rows sit below it, or while the foot is hovered."
+                : navFootShadow === "always"
+                  ? "The shadow stays on the band's top edge, scrolled or not."
+                  : "No shadow: the band meets the list flat."}
+          </Note>
+          <Segmented
             label="Featured: card row"
-            keywords="featured card edit row inline above settings list"
+            keywords="featured card edit row inline above settings list featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             options={NAV_FEATURED_CARD_ROWS}
             value={navFeaturedCardRow}
             onChange={(v: NavFeaturedCardRow) => setNavFeaturedCardRow(v)}
@@ -7355,7 +7384,7 @@ export function TuningPanel() {
 
           <Segmented
             label="Featured: lead product"
-            keywords="featured promo slot new product rotation ask ai khoi"
+            keywords="featured promo slot new product rotation ask ai khoi featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             options={NAV_FEATURED_LEADS}
             value={navFeaturedLead}
             onChange={(v: NavFeaturedLead) => setNavFeaturedLead(v)}
@@ -7365,7 +7394,7 @@ export function TuningPanel() {
 
           <Segmented
             label="Featured: L2 explainer"
-            keywords="featured promo slot new product rotation ask ai khoi"
+            keywords="featured promo slot new product rotation ask ai khoi featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             options={NAV_FEATURED_EXPLAINERS}
             value={navFeaturedExplainer}
             onChange={(v: NavFeaturedExplainer) => setNavFeaturedExplainer(v)}
@@ -7375,7 +7404,7 @@ export function TuningPanel() {
 
           <Segmented
             label="Featured: pin nudge"
-            keywords="featured promo slot new product rotation ask ai khoi"
+            keywords="featured promo slot new product rotation ask ai khoi featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             options={NAV_FEATURED_PINS}
             value={navFeaturedPin}
             onChange={(v: NavFeaturedPin) => setNavFeaturedPin(v)}
@@ -7385,7 +7414,7 @@ export function TuningPanel() {
 
           <Segmented
             label="Featured: promo in L2"
-            keywords="featured promo slot new product rotation ask ai khoi"
+            keywords="featured promo slot new product rotation ask ai khoi featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             options={NAV_FEATURED_PROMOS}
             value={navFeaturedPromo}
             onChange={(v: NavFeaturedPromo) => setNavFeaturedPromo(v)}
@@ -7395,7 +7424,7 @@ export function TuningPanel() {
 
           <Segmented
             label="Featured: agency control"
-            keywords="featured promo slot new product rotation ask ai khoi"
+            keywords="featured promo slot new product rotation ask ai khoi featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             options={NAV_FEATURED_AGENCIES}
             value={navFeaturedAgency}
             onChange={(v: NavFeaturedAgency) => setNavFeaturedAgency(v)}
@@ -7405,7 +7434,7 @@ export function TuningPanel() {
 
           <Segmented
             label="Ask AI: home"
-            keywords="featured promo slot new product rotation ask ai khoi"
+            keywords="featured promo slot new product rotation ask ai khoi featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             options={NAV_ASK_AI_HOMES}
             value={navAskAiHome}
             onChange={(v: NavAskAiHome) => setNavAskAiHome(v)}
@@ -7416,13 +7445,13 @@ export function TuningPanel() {
           <ActionRow
             label="Featured: end this run"
             action="End run"
-            keywords="featured promo rotation end"
+            keywords="featured promo rotation end featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             onClick={() => window.dispatchEvent(new CustomEvent(NAV_FEATURED_END_EVENT))}
           />
           <ActionRow
             label="Featured: start over"
             action="Reset"
-            keywords="featured promo rotation reset"
+            keywords="featured promo rotation reset featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             onClick={() => window.dispatchEvent(new CustomEvent(NAV_FEATURED_RESET_EVENT))}
           />
 

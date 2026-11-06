@@ -160,6 +160,7 @@ import type {
   NavFeaturedClose,
   NavFeaturedOpens,
   NavFootSticky,
+  NavFootShadow,
   NavFeaturedCardRow,
   NavFeaturedMedia,
   RailRuleAlign,
@@ -406,6 +407,7 @@ interface ThemeContextValue extends ThemeState {
   setNavFeaturedClose: (v: NavFeaturedClose) => void;
   setNavFeaturedOpens: (v: NavFeaturedOpens) => void;
   setNavFootSticky: (v: NavFootSticky) => void;
+  setNavFootShadow: (v: NavFootShadow) => void;
   setNavFeaturedCardRow: (v: NavFeaturedCardRow) => void;
   setNavFeaturedMedia: (v: NavFeaturedMedia) => void;
   setNavChevron: (v: NavChevron) => void;
@@ -969,6 +971,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, navFeaturedOpens })),
       setNavFootSticky: (navFootSticky) =>
         setState((s) => ({ ...s, navFootSticky })),
+      setNavFootShadow: (navFootShadow) =>
+        setState((s) => ({ ...s, navFootShadow })),
       setNavFeaturedCardRow: (navFeaturedCardRow) =>
         setState((s) => ({ ...s, navFeaturedCardRow })),
       setNavFeaturedMedia: (navFeaturedMedia) =>

@@ -197,9 +197,14 @@ export function RailDirectory({
   const all = React.useMemo(
     () =>
       [...matches].sort((a, b) => {
-        const ap = session.onRail(a.id) ? 0 : 1;
-        const bp = session.onRail(b.id) ? 0 : 1;
-        return ap - bp;
+        // Pinned, then the recently unpinned (newest first), then the rest.
+        const tier = (id: string) =>
+          session.onRail(id) ? 0 : session.unpinnedIds.includes(id) ? 1 : 2;
+        const unpinRank = (id: string) => {
+          const i = session.unpinnedIds.indexOf(id);
+          return i === -1 ? 0 : i;
+        };
+        return tier(a.id) - tier(b.id) || unpinRank(a.id) - unpinRank(b.id);
       }),
     [matches, session],
   );

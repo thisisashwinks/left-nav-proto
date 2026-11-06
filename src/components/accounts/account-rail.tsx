@@ -1719,7 +1719,9 @@ export function AccountRail({
    * otherwise be the same list under two headings, which is the one thing
    * this panel must not be. See RAIL_SEARCH_RECENT_LIMIT.
    */
-  const [searchPicks, setSearchPicks] = React.useState<readonly string[]>([]);
+  const [searchPicks, setSearchPicks] = React.useState<readonly string[]>(
+    RAIL_RECENT_SEARCH_SEED,
+  );
   const rememberPick = React.useCallback((id: string) => {
     setSearchPicks((prev) =>
       [id, ...prev.filter((x) => x !== id)].slice(0, RAIL_SEARCH_RECENT_LIMIT),
@@ -1862,11 +1864,15 @@ export function AccountRail({
      * is worse than not animating at all.
      *
      * `railIds` IS the pinned order — it is what the strip renders from — so
-     * reading rank out of it is what makes the pinned run hold still. The
-     * accounts behind it keep their own order, which nothing on screen has
-     * made a promise about.
+     * reading rank out of it is what makes the pinned run hold still.
+     * Accounts unpinned this session come next, newest first, so an unpin
+     * lands right under the run where it can be undone (see
+     * `removeFromRail`). The rest keep their own order, which nothing on
+     * screen has made a promise about.
      */
-    const rank = new Map(session.railIds.map((id, i) => [id, i]));
+    const rank = new Map(
+      [...session.railIds, ...session.unpinnedIds].map((id, i) => [id, i]),
+    );
     return [...matched].sort((a, b) => {
       const ar = rank.get(a.id) ?? Number.MAX_SAFE_INTEGER;
       const br = rank.get(b.id) ?? Number.MAX_SAFE_INTEGER;
@@ -2686,9 +2692,19 @@ export function AccountRail({
       !pinnedRun.some((p) => p.id === a.id) &&
       a.id !== raisedActive?.id,
   );
-  const inlineLed = session.recentIds.filter((id) =>
-    inlineRest.some((a) => a.id === id),
-  );
+  /*
+   * Just-unpinned leads, ahead of the recents. Ashwin, Nov 6.
+   *
+   * The pin animation showed an unpin travelling to the account's recency or
+   * catalogue slot — often off the bottom of the column — so the row you
+   * would press to undo a slip was the one you could no longer see. It now
+   * lands first under the pinned run, newest unpin on top. See
+   * `removeFromRail`.
+   */
+  const inlineLed = [
+    ...session.unpinnedIds,
+    ...session.recentIds.filter((id) => !session.unpinnedIds.includes(id)),
+  ].filter((id) => inlineRest.some((a) => a.id === id));
   const inlineOrdered = [
     ...inlineLed
       .map((id) => inlineRest.find((a) => a.id === id))
@@ -2746,7 +2762,7 @@ export function AccountRail({
   /*
    * Focused with nothing typed — the field answers before it is asked.
    *
-   * See RAIL_TOP_SEARCHED_IDS. The two runs the rail already draws are
+   * See RAIL_RECENT_SEARCH_SEED. The two runs the rail already draws are
    * reused rather than a third list invented: they are the same rows, in
    * the same shapes, under two different headings, so the panel is a
    * rearrangement of what you were looking at rather than a surface that
@@ -2758,22 +2774,15 @@ export function AccountRail({
     id === AGENCY_ID
       ? brandedAgency
       : session.accounts.find((a) => a.id === id);
-  const topSearchedSet = new Set<string>(RAIL_TOP_SEARCHED_IDS);
-  const topSearched = searchResting
-    ? RAIL_TOP_SEARCHED_IDS.map(accountById).filter(
-        (a): a is Account => a !== undefined,
-      )
-    : [];
   /*
-   * Minus anything already up as "top searched".
+   * Recent searches only — "Top searched" is gone. Ashwin, Nov 6.
    *
-   * The same account under both headings is the panel disagreeing with
-   * itself about which list it belongs to, and it costs a row that could
-   * have carried something the reader has not already seen.
+   * A popularity list answers for everyone; what a person reaches for from
+   * an empty field is the account they went looking for last time. One run,
+   * under one heading, and the panel no longer has two lists to keep apart.
    */
   const recentSearched = searchResting
     ? searchPicks
-        .filter((id) => !topSearchedSet.has(id))
         .map(accountById)
         .filter((a): a is Account => a !== undefined)
     : [];
@@ -2791,7 +2800,6 @@ export function AccountRail({
   const topRun = searchResting
     ? [
         ...pinnedShown.filter((a) => a.id === AGENCY_ID),
-        ...topSearched.filter((a) => a.id !== AGENCY_ID),
       ]
     : reverseSearch
       ? [...centredRecents].reverse()
@@ -4639,9 +4647,6 @@ export function AccountRail({
                   answering for rows that were three elements further down.
                   This one sits with the rows it names. See `searchResting`.
                 */}
-                {searchResting && topSearched.length > 0 ? (
-                  <RailGroupHeading label="Top searched" expanded={expanded} show />
-                ) : null}
                 {filled ? null : topRun.map((account, i) =>
                   /* The row the bar is standing in for is not drawn twice. */
                   agencyBar && agencyBarOpen && account.id === AGENCY_ID ? null : (
@@ -6428,26 +6433,26 @@ const RAIL_ROW_H = 36;
  * parks this far down unless it says otherwise. See the bar's `style`.
  */
 /**
- * What the field offers before a single letter is typed.
+ * What the field offers before a single letter is typed: your recent
+ * searches. This list seeds them, so a fresh session is not empty.
  *
  * An empty search field over the whole directory asks a question and then
  * shows the same forty rows you were already looking at — the focus ring is
  * the only thing that changed, so nothing says the field is live or what it
- * is good for. Focused and empty, the list becomes the two answers a search
- * can give before it has a query: what people look for, and what YOU looked
- * for last. Ashwin, Oct 28.
+ * is good for. Focused and empty, the list becomes what you looked for
+ * last. Ashwin, Oct 28; top searched dropped Nov 6.
  *
  * Seeded rather than measured. There is no search telemetry behind this
  * prototype, and inventing one would be a day of plumbing for a list that
  * has to look plausible rather than be true — fixed also keeps a demo
  * saying the same thing twice. The real thing reads a counter.
  */
-const RAIL_TOP_SEARCHED_IDS = [
+const RAIL_RECENT_SEARCH_SEED: readonly string[] = [
   "fieldstone",
   "northwind",
   "veritas",
   "brightpath",
-] as const;
+];
 
 /** How many of your own picks the field remembers. */
 const RAIL_SEARCH_RECENT_LIMIT = 4;

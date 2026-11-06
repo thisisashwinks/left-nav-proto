@@ -3888,6 +3888,19 @@ export const NAV_FOOT_STICKY_LABELS: Record<NavFootSticky, string> = {
   scroll: "Scrolls with the list",
 };
 
+/**
+ * The sticky foot's top shadow. `auto` is what it shipped with: shown while
+ * rows sit below the fold, or while the foot is hovered. Ashwin, Nov 6.
+ */
+export const NAV_FOOT_SHADOWS = ["auto", "always", "off"] as const;
+export type NavFootShadow = (typeof NAV_FOOT_SHADOWS)[number];
+
+export const NAV_FOOT_SHADOW_LABELS: Record<NavFootShadow, string> = {
+  auto: "When rows are below",
+  always: "Always",
+  off: "Off",
+};
+
 /** With Settings in the list: the featured card above the Edit row, or in it. */
 export const NAV_FEATURED_CARD_ROWS = ["above", "inline"] as const;
 export type NavFeaturedCardRow = (typeof NAV_FEATURED_CARD_ROWS)[number];
@@ -3901,13 +3914,19 @@ export const NAV_FEATURED_CARD_ROW_LABELS: Record<NavFeaturedCardRow, string> = 
  * An image on the featured cards, like the coach mark's preview: above the
  * card's text, below it, or none. Placeholder art for now. Ashwin, Oct 29.
  */
-export const NAV_FEATURED_MEDIAS = ["top", "bottom", "none"] as const;
+/*
+ * What leads a featured card: its image (above or below the text), just the
+ * product icon, or nothing but the text. `icon` is what "No image" used to
+ * be; `text` drops the icon too. Ashwin, Nov 6.
+ */
+export const NAV_FEATURED_MEDIAS = ["top", "bottom", "icon", "text"] as const;
 export type NavFeaturedMedia = (typeof NAV_FEATURED_MEDIAS)[number];
 
 export const NAV_FEATURED_MEDIA_LABELS: Record<NavFeaturedMedia, string> = {
   top: "Image at top",
   bottom: "Image at bottom",
-  none: "No image",
+  icon: "Product icon",
+  text: "Text only",
 };
 
 export const NAV_ASK_AI_HOMES = ["bar", "barStrong", "orb", "navRow", "both"] as const;
@@ -6513,6 +6532,7 @@ export interface ThemeState {
   navFeaturedClose: NavFeaturedClose;
   navFeaturedOpens: NavFeaturedOpens;
   navFootSticky: NavFootSticky;
+  navFootShadow: NavFootShadow;
   navFeaturedCardRow: NavFeaturedCardRow;
   navFeaturedMedia: NavFeaturedMedia;
   /** When the L1 flyout chevron is drawn. See NAV_CHEVRONS. */
@@ -7710,6 +7730,7 @@ export const DEFAULT_THEME: ThemeState = {
   navFeaturedClose: "off",
   navFeaturedOpens: "flyout",
   navFootSticky: "sticky",
+  navFootShadow: "off",
   navFeaturedCardRow: "above",
   navFeaturedMedia: "top",
   /*

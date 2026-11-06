@@ -804,6 +804,7 @@
   background: linear-gradient(to top, rgba(16, 24, 40, 0.1), rgba(16, 24, 40, 0));
   transition: opacity var(--dur-fast, 120ms) ease-out;
 }
+[data-scroll-shell] > .nav-foot-shadow[data-always],
 [data-scroll-shell][data-scroll-bottom] > .nav-foot-shadow,
 [data-scroll-shell]:has(.nav-sticky-foot:hover) > .nav-foot-shadow {
   opacity: 1;

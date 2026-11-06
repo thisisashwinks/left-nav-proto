@@ -160,7 +160,10 @@ function FeaturedCard({
   image?: string;
 }) {
   const { navFeaturedMedia } = useTheme().effective;
-  const media = image && navFeaturedMedia !== "none" ? navFeaturedMedia : null;
+  const media =
+    image && (navFeaturedMedia === "top" || navFeaturedMedia === "bottom") ? navFeaturedMedia : null;
+  // Text only: no picture and no icon tile, so the text takes the whole width.
+  const textOnly = navFeaturedMedia === "text";
   // Spans both columns, so the glyph and the text keep their grid either way.
   const picture = media ? (
     // eslint-disable-next-line @next/next/no-img-element -- static placeholder art
@@ -184,7 +187,11 @@ function FeaturedCard({
       onClick={onOpen}
       className={cn(
         "group grid w-full items-center gap-x-[8px] gap-y-[2px] rounded-[10px] border text-left motion-tap active:scale-[0.99] motion-press",
-        compact ? "grid-cols-[24px_minmax(0,1fr)] p-[8px]" : "grid-cols-[28px_minmax(0,1fr)] p-[10px]",
+        textOnly
+          ? cn("grid-cols-[minmax(0,1fr)]", compact ? "p-[8px]" : "p-[10px]")
+          : compact
+            ? "grid-cols-[24px_minmax(0,1fr)] p-[8px]"
+            : "grid-cols-[28px_minmax(0,1fr)] p-[10px]",
         CARD,
         "hover:border-[var(--hr-gray-300)] in-data-[nav-theme=dark]:hover:border-nav-border",
         // The open card's ring is the row's selected hairline, in brand.
@@ -193,7 +200,7 @@ function FeaturedCard({
       )}
     >
       {media === "top" ? picture : null}
-      <span
+      {textOnly ? null : <span
         aria-hidden="true"
         className={cn(
           "row-span-2 grid place-items-center self-start rounded-[8px] bg-[var(--hr-primary-50)] in-data-[nav-theme=dark]:bg-[color-mix(in_oklab,var(--hr-primary-500)_16%,var(--nav-bg))]",
@@ -202,7 +209,7 @@ function FeaturedCard({
         )}
       >
         <Icon size={16} />
-      </span>
+      </span>}
       <span
         className="flex min-w-0 items-center gap-[6px]"
         style={actions ? { paddingRight: actions.count * 20 + (actions.count - 1) * 2 + 2 } : undefined}

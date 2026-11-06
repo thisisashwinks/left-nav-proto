@@ -80,6 +80,11 @@ export interface AccountsSession {
   pinnedIds: readonly string[];
   /** Ordered open set for the account rail (Model C). Never includes the agency. */
   railIds: readonly string[];
+  /**
+   * Accounts taken off the rail this session, most recent first. Lists that
+   * put the rail's run on top put these straight after it.
+   */
+  unpinnedIds: readonly string[];
   isPinned: (id: string) => boolean;
   onRail: (id: string) => boolean;
   switchTo: (id: string) => void;
@@ -242,6 +247,7 @@ export function useAccounts({
     React.useState<readonly string[]>(INITIAL_PINNED_IDS);
   const [railIds, setRailIds] =
     React.useState<readonly string[]>(INITIAL_RAIL_IDS);
+  const [unpinnedIds, setUnpinnedIds] = React.useState<readonly string[]>([]);
 
   /*
    * Uploads applied once, here.
@@ -431,10 +437,23 @@ export function useAccounts({
 
   const addToRail = React.useCallback((id: string) => {
     setRailIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
+    setUnpinnedIds((ids) => ids.filter((i) => i !== id));
   }, []);
 
+  /*
+   * Unpinning lands the account at the TOP of the unpinned list, not back in
+   * the directory's own order.
+   *
+   * The rail's pin animation made the old behaviour visible: an account
+   * unpinned from the filled list travelled back to its fixture slot, often
+   * thirty rows down and out of view — so the one row you might want to
+   * re-pin, because the unpin was a slip, was the one you could no longer
+   * see. Remembered newest first, it sits right under the pinned run.
+   * Ashwin, Nov 6.
+   */
   const removeFromRail = React.useCallback((id: string) => {
     setRailIds((ids) => ids.filter((i) => i !== id));
+    setUnpinnedIds((ids) => [id, ...ids.filter((i) => i !== id)]);
   }, []);
 
   const createAccount = React.useCallback((account: Account) => {
@@ -483,6 +502,7 @@ export function useAccounts({
     recentIds: reachable(recentIds.filter((id) => id !== currentId)),
     pinnedIds: reachable(pinnedIds),
     railIds: reachable(railIds),
+    unpinnedIds: reachable(unpinnedIds.filter((id) => !railIds.includes(id))),
     isPinned,
     onRail,
     switchTo,

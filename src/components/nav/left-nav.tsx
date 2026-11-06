@@ -489,6 +489,7 @@ export function LeftNav({
     topAlignCardNudge,
     navSettingsSpot,
     navFootSticky,
+    navFootShadow,
     navFeaturedCardRow,
     navFeaturedSlot,
   } = useTheme().effective;
@@ -5424,7 +5425,9 @@ export function LeftNav({
         </div>
         {/* A sticky foot is its own edge; a fade over it would wash out Settings. */}
         {navFootSticky === "sticky" ? (
-          <div aria-hidden="true" className="nav-foot-shadow" />
+          navFootShadow === "off" ? null : (
+            <div aria-hidden="true" className="nav-foot-shadow" data-always={navFootShadow === "always" ? "" : undefined} />
+          )
         ) : (
           <div aria-hidden="true" data-scroll-fade="bottom" />
         )}
