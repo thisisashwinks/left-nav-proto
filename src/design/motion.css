@@ -1377,3 +1377,112 @@
 .group\/rail-row:hover .rail-tile-outline > span {
   filter: none;
 }
+
+/* ─── Avatar menu ⇄ QR code ───────────────────────────────────────────────
+ * The QR view replacing the menu in place. Which of these plays is the
+ * `qrTransition` axis — see QR_TRANSITIONS. Ashwin, Nov 9.
+ *
+ *  fade   the menu fades out (`.motion-qr-out`), then the QR fades in.
+ *  grow   the QR grows out of the corner its icon sits in.
+ *  slide  the QR shifts in from the right; Back shifts the menu in from
+ *         the left, so the two read as one step forward and one back.
+ */
+@keyframes qr-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes qr-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes qr-grow-in {
+  from { opacity: 0; transform: scale(0.88); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes qr-slide-from-right {
+  from { opacity: 0; transform: translate3d(24px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes qr-slide-from-left {
+  from { opacity: 0; transform: translate3d(-24px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+.motion-qr-out {
+  animation: qr-fade-out var(--dur-fast) var(--ease-in-out) both;
+}
+.motion-qr-fade {
+  animation: qr-fade-in var(--dur-base) var(--ease-out) both;
+}
+.motion-qr-grow {
+  transform-origin: top right;
+  animation: qr-grow-in var(--dur-base) var(--ease-out) both;
+}
+.motion-qr-slide {
+  animation: qr-slide-from-right var(--dur-base) var(--ease-out) both;
+}
+.motion-qr-slide-back {
+  animation: qr-slide-from-left var(--dur-base) var(--ease-out) both;
+}
+/* Slide and grow at once, for "blendSlide": in from the right, from the icon's corner. */
+@keyframes qr-grow-slide-in {
+  from { opacity: 0; transform: translate3d(24px, 0, 0) scale(0.88); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+.motion-qr-grow-slide {
+  transform-origin: top right;
+  animation: qr-grow-slide-in var(--dur-base) var(--ease-out) both;
+}
+/*
+ * Animations rather than transitions, Nov 9 — the pieces move, not the panel.
+ *
+ *  cascade  the QR view's rows arrive one after another, 40ms apart.
+ *  build    cascade, and the code assembles module by module from the
+ *           centre out, then a scan line sweeps it once.
+ *  morph    cascade, and the QR icon you pressed flies over and grows into
+ *           the code (WAAPI, in account-menu.tsx).
+ */
+@keyframes qr-row-in {
+  from { opacity: 0; transform: translate3d(0, 6px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+.motion-qr-cascade > * {
+  animation: qr-row-in var(--dur-base) var(--ease-out) both;
+  animation-delay: calc(var(--qr-i, 0) * 40ms);
+}
+.motion-qr-cascade > :nth-child(2) { --qr-i: 1; }
+.motion-qr-cascade > :nth-child(3) { --qr-i: 2; }
+.motion-qr-cascade > :nth-child(4) { --qr-i: 3; }
+.motion-qr-cascade > :nth-child(5) { --qr-i: 4; }
+.motion-qr-cascade > :nth-child(6) { --qr-i: 5; }
+@keyframes qr-module-in {
+  from { opacity: 0; transform: scale(0); }
+  to { opacity: 1; transform: scale(1); }
+}
+.motion-qr-module {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: qr-module-in 240ms var(--ease-out) both;
+}
+@keyframes qr-scan {
+  0% { opacity: 0; transform: translate3d(0, 0, 0); }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(0, var(--qr-scan-h, 132px), 0); }
+}
+.motion-qr-scan {
+  animation: qr-scan 700ms var(--ease-in-out) 420ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-qr-cascade > *,
+  .motion-qr-module,
+  .motion-qr-scan,
+  .motion-qr-out,
+  .motion-qr-fade,
+  .motion-qr-grow,
+  .motion-qr-slide,
+  .motion-qr-slide-back,
+  .motion-qr-grow-slide {
+    animation: none;
+  }
+}

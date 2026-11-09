@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { useAnchored } from "@/lib/use-anchored";
 import { UserAvatar } from "./user-avatar";
 import { QrView } from "./qr-view";
+import { useTheme } from "@/components/theme/theme-provider";
 import { type AppKind } from "./get-app-modal";
 import {
   GET_APP_MENU_LABELS,
@@ -35,6 +36,17 @@ import { NavTourFlowRows } from "@/components/nav/nav-tour-menu";
 import type { FlyoutBadge } from "@/components/flyout/types";
 
 const WIDTH = 268;
+
+/** The prototype controls, and the button that opens them. */
+function inControls(target: EventTarget | null): boolean {
+  return Boolean(
+    (target as Element | null)?.closest?.(
+      '[aria-label="Prototype controls"], [aria-label="Open prototype controls"]',
+    ),
+  );
+}
+/** The menu's fade-out under the "fade" transition: `--dur-fast`. */
+const QR_FADE_OUT_MS = 140;
 const GAP = 8;
 
 /**
@@ -80,6 +92,91 @@ export function AccountMenu({
   const { ref, top, left } = useAnchored(anchor, WIDTH, GAP);
   /** The menu, or the QR view that replaces it in place. See QrView. */
   const [view, setView] = React.useState<"menu" | "qr">("menu");
+  /*
+   * The menu ⇄ QR transition. `leaving` holds the menu on screen while it
+   * fades out under "fade"; `cameBack` lets the menu slide in from the left
+   * after Back under "slide". See QR_TRANSITIONS. Ashwin, Nov 9.
+   */
+  const { qrTransition, qrPlacement } = useTheme().effective;
+  const [leaving, setLeaving] = React.useState(false);
+  const [cameBack, setCameBack] = React.useState(false);
+  /*
+   * What the swap is animating FROM: the panel's height before it, and for
+   * the morph, where the QR icon sat. Read in the layout effect below, once
+   * the new view is in the DOM. Ashwin, Nov 9.
+   */
+  const swapFrom = React.useRef<{ h: number; icon: DOMRect | null } | null>(null);
+  const openQr = (icon?: HTMLElement) => {
+    swapFrom.current = {
+      h: ref.current?.offsetHeight ?? 0,
+      icon: icon?.getBoundingClientRect() ?? null,
+    };
+    setCameBack(false);
+    if (qrTransition !== "fade") {
+      setView("qr");
+      return;
+    }
+    setLeaving(true);
+    window.setTimeout(() => {
+      setLeaving(false);
+      setView("qr");
+    }, QR_FADE_OUT_MS);
+  };
+  /*
+   * A new transition steps back to the menu, one click from playing it.
+   * Every other QR control updates the open view where it stands.
+   */
+  const [seenTransition, setSeenTransition] = React.useState(qrTransition);
+  if (seenTransition !== qrTransition) {
+    setSeenTransition(qrTransition);
+    if (view === "qr") {
+      setView("menu");
+      setCameBack(false);
+    }
+  }
+  /*
+   * The panel glides between the menu's height and the QR's instead of
+   * snapping, and under "morph" the QR icon flies into the code. Both are
+   * WAAPI on the live elements, so nothing re-renders mid-flight.
+   */
+  React.useLayoutEffect(() => {
+    const from = swapFrom.current;
+    const panel = ref.current;
+    swapFrom.current = null;
+    if (!from || !panel || qrTransition === "none" || qrPlacement === "modal") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const to = panel.offsetHeight;
+    if (from.h && Math.abs(to - from.h) > 1) {
+      panel.animate([{ height: `${from.h}px` }, { height: `${to}px` }], {
+        duration: 280,
+        easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+      });
+    }
+    if (view === "qr" && qrTransition === "morph" && from.icon) {
+      const pic = panel.querySelector<HTMLElement>("[data-qr-picture]");
+      if (!pic) return;
+      const r = pic.getBoundingClientRect();
+      const dx = from.icon.left + from.icon.width / 2 - (r.left + r.width / 2);
+      const dy = from.icon.top + from.icon.height / 2 - (r.top + r.height / 2);
+      const scale = from.icon.width / r.width;
+      pic.animate(
+        [
+          { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, borderRadius: "50%", opacity: 0.6 },
+          { transform: "none", borderRadius: "12px", opacity: 1 },
+        ],
+        { duration: 460, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
+      );
+    }
+  }, [view, qrTransition, qrPlacement, ref]);
+  const qrInClass =
+    qrTransition === "fade" || qrTransition === "grow" || qrTransition === "slide"
+      ? `motion-qr-${qrTransition}`
+      : qrTransition === "blend"
+        ? "motion-qr-grow"
+        : qrTransition === "blendSlide"
+          ? "motion-qr-grow-slide"
+          : undefined;
+  const slidesBack = qrTransition === "slide" || qrTransition === "blendSlide";
   const { as, canLogInAs, logInAs, switchBack } = useImpersonation();
   /*
    * The "Log in as" picker, open beside the menu. Its own portal, so the
@@ -105,6 +202,12 @@ export function AccountMenu({
   React.useEffect(() => {
     const away = (e: PointerEvent) => {
       const t = e.target as Node;
+      /*
+        Tuning the QR from the prototype controls keeps the menu open, so a
+        change shows on the open dropdown instead of costing three clicks to
+        get back to it. Ashwin, Nov 9.
+      */
+      if (inControls(e.target)) return;
       if (
         !ref.current?.contains(t) &&
         !pickerRef.current?.contains(t) &&
@@ -112,7 +215,8 @@ export function AccountMenu({
       )
         onClose();
     };
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const esc = (e: KeyboardEvent) =>
+      e.key === "Escape" && !inControls(e.target) && onClose();
     document.addEventListener("pointerdown", away);
     document.addEventListener("keydown", esc);
     return () => {
@@ -120,6 +224,39 @@ export function AccountMenu({
       document.removeEventListener("keydown", esc);
     };
   }, [onClose, ref]);
+
+  /*
+   * The QR code as a centred modal, when the axis asks. The menu gives way to
+   * it entirely: the panel takes the menu's ref, so a press on the scrim is
+   * "outside" and closes it, and Esc does what it does for the menu.
+   * Ashwin, Nov 9. See QR_PLACEMENTS.
+   */
+  if (view === "qr" && businessName && qrPlacement === "modal") {
+    return createPortal(
+      /*
+        The prototype's modal frame: the same scrim tint as the shortcut and
+        tour-video modals, blurred, and above the coach marks (z-[95]).
+      */
+      <div className="fixed inset-0 z-[95] flex items-center justify-center bg-[#10182899] p-[16px] backdrop-blur-[4px]">
+        <div
+          ref={ref}
+          role="dialog"
+          aria-modal="true"
+          aria-label="QR code"
+          data-page-theme="light"
+          className="motion-panel-in relative w-[400px] max-w-full overflow-hidden rounded-[12px] bg-pg-surface shadow-[0_20px_24px_-4px_rgba(16,24,40,0.08),0_8px_8px_-4px_rgba(16,24,40,0.03),inset_0_0_0_1px_var(--pg-card-border)]"
+        >
+          <QrView
+            personName={shownName}
+            businessName={businessName}
+            onBack={() => setView("menu")}
+            onClose={onClose}
+          />
+        </div>
+      </div>,
+      document.body,
+    );
+  }
 
   return createPortal(
     <>
@@ -138,14 +275,26 @@ export function AccountMenu({
         on two of them is often the same person.
       */}
       {view === "qr" && businessName ? (
+        <div className={qrInClass}>
         <QrView
           personName={shownName}
           businessName={businessName}
-          onBack={() => setView("menu")}
+          onBack={() => {
+            swapFrom.current = { h: ref.current?.offsetHeight ?? 0, icon: null };
+            setCameBack(true);
+            setView("menu");
+          }}
           onClose={onClose}
         />
+        </div>
       ) : (
-      <>
+      <div
+        className={cn(
+          leaving && "motion-qr-out",
+          cameBack && slidesBack && "motion-qr-slide-back",
+          cameBack && !slidesBack && qrTransition !== "none" && "motion-qr-fade",
+        )}
+      >
       <div className="flex items-center gap-[10px] px-[14px] py-[12px]">
         <UserAvatar size={38} initials={shownInitials} drawn={as !== null} />
         <span className="min-w-0 flex-1">
@@ -161,10 +310,10 @@ export function AccountMenu({
           <button
             type="button"
             aria-label="Show QR code"
-            onClick={() => {
+            onClick={(e) => {
               setPicking(false);
               setTouring(null);
-              setView("qr");
+              openQr(e.currentTarget);
             }}
             className="motion-tap grid size-[32px] shrink-0 place-items-center rounded-full bg-pg text-pg-heading hover:bg-pg-border"
           >
@@ -269,7 +418,7 @@ export function AccountMenu({
       <Rule />
 
       <Row icon={LogOut} label="Sign out" onSelect={onClose} />
-      </>
+      </div>
       )}
     </div>
       {picking ? (

@@ -74,9 +74,9 @@ export function BusinessProfilePage({ account }: { account: Account }) {
               decision about how this account appears.
             */}
             <BrandAssetRow
-              label="Business Logo"
-              hint="Shown in the expanded navigation and emails."
-              spec="350 × 180 px · up to 2.5 MB"
+              label="Full logo"
+              hint="Your primary logo, displayed in emails and the classic sidebar."
+              spec="Ideal: 350 × 180 px · Max 2.5 MB"
               aspect="wide"
               {...(account.wordmarkSrc ? { src: account.wordmarkSrc } : {})}
               onPick={(src) => set(account.id, "wordmarkSrc", src)}
@@ -87,9 +87,9 @@ export function BusinessProfilePage({ account }: { account: Account }) {
             <div aria-hidden="true" className="h-px w-full bg-pg-border" />
 
             <BrandAssetRow
-              label="Square Mark"
-              hint="Shown in the account rail and collapsed navigation, where a wide logo won't fit."
-              spec="1:1 · min 128 × 128 px"
+              label="Sidebar icon"
+              hint="A compact version of your logo, displayed in the new sidebar."
+              spec="Square · Min 128 × 128 px · Max 2.5 MB"
               aspect="square"
               {...(account.logoSrc ? { src: account.logoSrc } : {})}
               fallback={account.logo}

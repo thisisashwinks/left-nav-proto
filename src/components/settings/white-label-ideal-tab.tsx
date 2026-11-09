@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Mail, Plus, Pencil, Trash2 } from "lucide-react";
+import { Info, Mail, Plus, Pencil, Trash2, X } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
 import { accounts as ALL_ACCOUNTS } from "@/components/accounts/accounts-data";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -61,6 +61,12 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
   const code = useCustomCode();
   const brand = useBrand();
   const { navTheme, setNavTheme } = useTheme();
+  /*
+   * Production's look, or the flat form. See WHITE_LABEL_LAYOUTS.
+   * Same fields and copy either way; only the frame changes. Ashwin, Nov 9.
+   */
+  const cards = useTheme().effective.whiteLabelLayout === "cards";
+  const [noticeOn, setNoticeOn] = React.useState(true);
 
   const onOldNav = ALL_ACCOUNTS.filter((a) => !labs.accountOn(a.id));
   const oldCount = onOldNav.length;
@@ -128,6 +134,17 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
   const revert = () => setForm(saved);
   const commit = () => setSaved(form);
 
+  /* Per-card Cancel and Save, for the cards layout: each owns its keys. */
+  const sectionSave = (keys: (keyof typeof initial)[]) => ({
+    dirty: keys.some((k) => form[k] !== saved[k]),
+    onCancel: () =>
+      setForm((f) => ({ ...f, ...Object.fromEntries(keys.map((k) => [k, saved[k]])) })),
+    onSave: () =>
+      setSaved((sv) => ({ ...sv, ...Object.fromEntries(keys.map((k) => [k, form[k]])) })),
+  });
+  const brandSave = sectionSave(["brandName", "brandEmail", "brandPhone"]);
+  const policySave = sectionSave(["privacy", "terms"]);
+
   return (
     <div
       className={cn(
@@ -143,17 +160,49 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
           The per-section Saves do not need it. They sit in the flow under
           their own editor and cover nothing.
         */
-        pending > 0 ? "pb-[96px]" : "pb-[16px]",
+        !cards && pending > 0 ? "pb-[96px]" : "pb-[16px]",
+        cards && "gap-[20px]",
       )}
     >
-      <header className="flex items-start justify-between gap-[16px] pt-[8px] pb-[20px]">
+      {cards && noticeOn ? (
+        <div className="flex gap-[12px] rounded-[8px] bg-brand-soft p-[16px] shadow-[inset_0_0_0_1px_var(--hr-primary-200)]">
+          <Info size={18} aria-hidden="true" className="mt-[1px] shrink-0 text-brand" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] leading-[20px] font-semibold text-brand">
+              You can now create and manage multiple white label brands
+            </p>
+            <p className="mt-[4px] text-[13px] leading-[18px] text-brand">
+              Create up to 2 white label brands, and assign them to SaaS plans
+              and sub-accounts.
+            </p>
+            <button
+              type="button"
+              className="motion-tap mt-[8px] text-[13px] leading-[18px] font-medium text-brand hover:underline"
+            >
+              Learn more →
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNoticeOn(false)}
+            aria-label="Dismiss"
+            className="motion-tap grid size-[24px] shrink-0 place-items-center rounded-[6px] text-brand hover:bg-[var(--hr-primary-100)]"
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
+
+      <header
+        className={cn(
+          "flex items-center justify-between gap-[16px]",
+          cards ? "-mb-[8px] pt-[4px]" : "pt-[8px] pb-[20px]",
+        )}
+      >
         <div className="min-w-0">
           <h2 className="text-[16px] leading-[22px] font-semibold text-pg-heading">
             White label
           </h2>
-          <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
-            Everything your clients see instead of HighLevel.
-          </p>
         </div>
         <button
           type="button"
@@ -168,6 +217,8 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
       <Group
         title="Brand"
         sub="What your clients think they are using."
+        cards={cards}
+        save={brandSave}
       >
         {/*
           The same two rows Business profile draws, from the same component.
@@ -197,7 +248,15 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
         */}
         <div
           className={cn(
-            "grid grid-cols-1 gap-y-[20px] lg:grid-cols-2",
+            "grid grid-cols-1 gap-y-[20px]",
+            /*
+              In a card the pair stacks: the card is the page minus the title
+              column, too narrow for two rows side by side without wrapping.
+            */
+            cards && "[&>*+*]:border-t [&>*+*]:border-pg-border [&>*+*]:pt-[20px]",
+            /* And one under the square mark, before the brand fields. Ashwin, Nov 9. */
+            cards && "border-b border-pg-border pb-[20px]",
+            !cards && "lg:grid-cols-2",
             /*
               A rule between the columns, drawn by the SECOND one.
         
@@ -210,16 +269,16 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
               Only at `lg`, where the two columns exist. Stacked below that, a
               vertical rule would be a line down the side of a single column.
             */
-            "lg:gap-x-0 lg:[&>*:first-child]:pr-[28px]",
-            "lg:[&>*+*]:border-l lg:[&>*+*]:border-pg-border lg:[&>*+*]:pl-[28px]",
+            !cards && "lg:gap-x-0 lg:[&>*:first-child]:pr-[28px]",
+            !cards && "lg:[&>*+*]:border-l lg:[&>*+*]:border-pg-border lg:[&>*+*]:pl-[28px]",
             /* And a little air before whatever follows the pair. */
-            "mb-[12px]",
+            cards ? "mb-[4px]" : "mb-[12px]",
           )}
         >
           <BrandAssetRow
-            label="Business Logo"
-            hint="Shown in the expanded navigation and emails."
-            spec="350 × 180 px · up to 2.5 MB"
+            label="Full logo"
+            hint="Your primary logo, displayed in emails and the classic sidebar."
+            spec="Ideal: 350 × 180 px · Max 2.5 MB"
             aspect="wide"
             {...(agency.wordmarkSrc ? { src: agency.wordmarkSrc } : {})}
             onPick={(src) => brand.set(agency.id, "wordmarkSrc", src)}
@@ -227,9 +286,9 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
           />
 
           <BrandAssetRow
-            label="Square Mark"
-            hint="Shown in the account rail and collapsed navigation, where a wide logo won't fit."
-            spec="1:1 · min 128 × 128 px"
+            label="Sidebar icon"
+            hint="A compact version of your logo, displayed in the new sidebar."
+            spec="Square · Min 128 × 128 px · Max 2.5 MB"
             aspect="square"
             {...(agency.logoSrc ? { src: agency.logoSrc } : {})}
             fallback={agency.logo}
@@ -258,7 +317,7 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
         </div>
       </Group>
 
-      <Group title="Domains" sub="Where your platform lives.">
+      <Group title="Domains" sub="Where your platform lives." cards={cards}>
         <div className="flex flex-col gap-[4px]">
           <span className="text-[13px] leading-[18px] text-pg-text">
             White label domain
@@ -305,8 +364,14 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
         </div>
       </Group>
 
-      <Group title="Policies" sub="Linked from your sign-up and footer.">
-        <div className="flex flex-wrap gap-[16px]">
+      <Group
+        title="Policies"
+        sub="Linked from your sign-up and footer."
+        cards={cards}
+        save={policySave}
+      >
+        {/* Stacked in a card, as production has them; paired in the flat form. */}
+        <div className={cn("flex gap-[16px]", cards ? "flex-col" : "flex-wrap")}>
           <Field
             label="Privacy policy URL"
             value={form.privacy}
@@ -332,6 +397,7 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
       <Group
         title="Appearance"
         sub="Your code runs on the navigation it was written for, and only that one."
+        cards={cards}
       >
         {/*
           The NEW navigation leads. Ashwin, Oct 28.
@@ -344,7 +410,7 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
           the right say which is which anyway.
         */}
         {newCount > 0 ? (
-          <NavBlock name="New navigation (released Oct 2027)" count={newCount}>
+          <NavBlock name="New navigation (released Oct 2027)" count={newCount} flat={cards}>
             <CodeBlock
               label="Custom CSS"
               sub="Customize the platform with CSS"
@@ -376,7 +442,7 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
           </NavBlock>
         ) : null}
         {oldCount > 0 ? (
-          <NavBlock name="Legacy navigation (before Oct 2027)" count={oldCount}>
+          <NavBlock name="Legacy navigation (before Oct 2027)" count={oldCount} flat={cards}>
             <CodeBlock
               label="Custom CSS"
               sub="Customize the platform with CSS"
@@ -433,7 +499,7 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
 
       </Group>
 
-      <SaveBar pending={pending} onCancel={revert} onSave={commit} />
+      {cards ? null : <SaveBar pending={pending} onCancel={revert} onSave={commit} />}
     </div>
   );
 }
@@ -450,13 +516,62 @@ function Group({
   title,
   sub,
   children,
+  cards = false,
+  save,
 }: {
   title: string;
   sub: string;
   children: React.ReactNode;
+  /**
+   * Production's frame: title on the left, fields in a card on the right,
+   * and — when `save` is given — that card's own Cancel and Save.
+   */
+  cards?: boolean;
+  save?: { dirty: boolean; onCancel: () => void; onSave: () => void };
 }) {
+  if (cards) {
+    return (
+      <section className="flex flex-col gap-[12px] border-t border-pg-border pt-[20px] first-of-type:border-t-0 first-of-type:pt-0 md:flex-row md:gap-[24px]">
+        <header className="shrink-0 md:w-[224px] md:pt-[2px]">
+          <h3 className="text-[14px] leading-[20px] font-medium text-pg-heading">
+            {title}
+          </h3>
+          <p className="mt-[2px] text-[13px] leading-[18px] text-pg-muted">
+            {sub}
+          </p>
+        </header>
+        <div className="min-w-0 flex-1 rounded-[12px] bg-pg-surface shadow-[0_1px_2px_rgba(16,24,40,0.05),inset_0_0_0_1px_var(--pg-border)]">
+          <div className="flex flex-col gap-[16px] p-[16px]">{children}</div>
+          {save ? (
+            <footer className="flex justify-end gap-[12px] border-t border-pg-border px-[16px] py-[12px]">
+              <button
+                type="button"
+                onClick={save.onCancel}
+                className="motion-tap h-[36px] rounded-[8px] px-[14px] text-[14px] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg active:scale-[0.98]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={save.onSave}
+                disabled={!save.dirty}
+                className={cn(
+                  "motion-tap h-[36px] rounded-[8px] bg-brand px-[14px] text-[14px] font-medium text-white",
+                  save.dirty
+                    ? "hover:brightness-95 active:scale-[0.98]"
+                    : "cursor-not-allowed opacity-50",
+                )}
+              >
+                Save changes
+              </button>
+            </footer>
+          ) : null}
+        </div>
+      </section>
+    );
+  }
   return (
-    <section className="flex flex-col gap-[16px] border-t border-pg-border py-[24px]">
+    <section className="flex flex-col gap-[16px] border-t border-pg-border py-[24px] first-of-type:border-t-0 first-of-type:pt-[4px]">
       <header>
         <h3 className="text-[15px] leading-[21px] font-semibold text-pg-heading">
           {title}
@@ -475,13 +590,23 @@ function NavBlock({
   name,
   count,
   children,
+  flat = false,
 }: {
   name: string;
   count: number;
   children: React.ReactNode;
+  /** Inside a card already: a ruled subsection, not a card in a card. */
+  flat?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-[12px] rounded-[12px] bg-pg-surface p-[16px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
+    <div
+      className={cn(
+        "flex flex-col gap-[12px]",
+        flat
+          ? "border-t border-pg-border pt-[16px] first:border-t-0 first:pt-0"
+          : "rounded-[12px] bg-pg-surface p-[16px] shadow-[inset_0_0_0_1px_var(--pg-border)]",
+      )}
+    >
       <div className="flex items-baseline justify-between gap-[12px]">
         <span className="text-[14px] leading-[20px] font-medium text-pg-heading">
           {name}

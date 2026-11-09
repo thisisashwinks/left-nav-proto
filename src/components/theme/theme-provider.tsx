@@ -172,6 +172,10 @@ import type {
   RailTileColour,
   ActiveAgencySpot,
   WhiteLabelApproach,
+  WhiteLabelLayout,
+  QrPlacement,
+  QrTransition,
+  QrActionsSide,
   PlaneHead,
   EntryPair,
   AiDockTop,
@@ -374,6 +378,13 @@ interface ThemeContextValue extends ThemeState {
   setRailTileColour: (v: RailTileColour) => void;
   setActiveAgencySpot: (v: ActiveAgencySpot) => void;
   setWhiteLabelApproach: (v: WhiteLabelApproach) => void;
+  setWhiteLabelLayout: (v: WhiteLabelLayout) => void;
+  setQrPlacement: (v: QrPlacement) => void;
+  setQrBackButton: (on: boolean) => void;
+  setQrCloseButton: (on: boolean) => void;
+  setQrActionLabels: (on: boolean) => void;
+  setQrTransition: (v: QrTransition) => void;
+  setQrActionsSide: (v: QrActionsSide) => void;
   setPlaneHead: (v: PlaneHead) => void;
   setEntryPair: (v: EntryPair) => void;
   setAiDockTop: (v: AiDockTop) => void;
@@ -911,6 +922,19 @@ export function ThemeProvider({
         setState((s) => ({ ...s, activeAgencySpot })),
       setWhiteLabelApproach: (whiteLabelApproach) =>
         setState((s) => ({ ...s, whiteLabelApproach })),
+      setWhiteLabelLayout: (whiteLabelLayout) =>
+        setState((s) => ({ ...s, whiteLabelLayout })),
+      setQrPlacement: (qrPlacement) => setState((s) => ({ ...s, qrPlacement })),
+      setQrBackButton: (qrBackButton) =>
+        setState((s) => ({ ...s, qrBackButton })),
+      setQrCloseButton: (qrCloseButton) =>
+        setState((s) => ({ ...s, qrCloseButton })),
+      setQrActionLabels: (qrActionLabels) =>
+        setState((s) => ({ ...s, qrActionLabels })),
+      setQrTransition: (qrTransition) =>
+        setState((s) => ({ ...s, qrTransition })),
+      setQrActionsSide: (qrActionsSide) =>
+        setState((s) => ({ ...s, qrActionsSide })),
       setPlaneHead: (planeHead) => setState((s) => ({ ...s, planeHead })),
       setEntryPair: (entryPair) => setState((s) => ({ ...s, entryPair })),
       setAiDockTop: (aiDockTop) => setState((s) => ({ ...s, aiDockTop })),

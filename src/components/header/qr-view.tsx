@@ -3,6 +3,7 @@
 import * as React from "react";
 import { BarChart3, ChevronLeft, Download, Eye, Link2, Pencil, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/components/theme/theme-provider";
 
 /**
  * The avatar menu's QR view: a profile QR for the person and a business QR
@@ -28,6 +29,32 @@ export function QrView({
   onBack: () => void;
   onClose: () => void;
 }) {
+  /*
+   * Which chrome shows. As a modal there is no menu behind it, so only the
+   * close X; as the dropdown, back and close follow their toggles. The
+   * action labels can go, leaving icons with tooltips. Ashwin, Nov 9.
+   */
+  const { qrPlacement, qrBackButton, qrCloseButton, qrActionLabels } = useTheme().effective;
+  const modal = qrPlacement === "modal";
+  // The richer animations play in the dropdown only. See QR_TRANSITIONS.
+  const { qrTransition, qrActionsSide } = useTheme().effective;
+  // Actions in a column beside the code, instead of a row under a divider.
+  const actionsRight = qrActionsSide === "right";
+  const anim = modal ? "none" : qrTransition;
+  const blend = anim === "blend" || anim === "blendSlide";
+  const cascade = anim === "cascade" || anim === "build" || anim === "morph" || blend;
+  // The combinations build the code too, but without the scan line.
+  const builds = anim === "build" || blend;
+  // The code builds once per opening, not on every tab switch.
+  const [built, setBuilt] = React.useState(false);
+  React.useEffect(() => {
+    if (!builds) return;
+    const id = window.setTimeout(() => setBuilt(true), 1300);
+    return () => window.clearTimeout(id);
+  }, [builds]);
+  const building = builds && !built;
+  const showBack = !modal && qrBackButton;
+  const showClose = modal || qrCloseButton;
   const [tab, setTab] = React.useState<QrTab>("profile");
   const [copied, setCopied] = React.useState(false);
   const title = tab === "profile" ? personName.split(" ")[0] || personName : businessName;
@@ -44,18 +71,47 @@ export function QrView({
     setCopied(true);
   };
 
+  const actions = [
+    <Action key="preview" icon={Eye} label="Preview" showLabel={qrActionLabels} column={actionsRight} />,
+    <Action key="analytics" icon={BarChart3} label="Analytics" showLabel={qrActionLabels} column={actionsRight} />,
+    <Action key="download" icon={Download} label="Download" showLabel={qrActionLabels} column={actionsRight} />,
+    <Action
+      key="copy"
+      icon={Link2}
+      label={copied ? "Copied" : "Copy link"}
+      onClick={copy}
+      showLabel={qrActionLabels}
+      column={actionsRight}
+    />,
+  ];
   return (
-    <div className="flex flex-col gap-[12px] px-[14px] pt-[8px] pb-[12px]">
-      <div className="-mx-[6px] flex items-center gap-[4px]">
-        <IconButton label="Back to menu" onClick={onBack}>
-          <ChevronLeft size={16} />
-        </IconButton>
-        <span className="min-w-0 flex-1 truncate text-[14px] leading-[20px] font-semibold text-pg-heading">
+    <div
+      className={cn(
+        "flex flex-col",
+        // As a modal it takes the modals' 24px padding and roomier rhythm.
+        modal ? "gap-[16px] p-[24px] pt-[20px]" : "gap-[12px] px-[14px] pt-[8px] pb-[12px]",
+        cascade && "motion-qr-cascade",
+      )}
+    >
+      <div className={cn("flex h-[28px] items-center gap-[4px]", showBack ? "-ml-[6px]" : "", showClose ? "-mr-[6px]" : "")}>
+        {showBack ? (
+          <IconButton label="Back to menu" onClick={onBack}>
+            <ChevronLeft size={16} />
+          </IconButton>
+        ) : null}
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate font-semibold text-pg-heading",
+            modal ? "text-[16px] leading-[22px]" : "text-[14px] leading-[20px]",
+          )}
+        >
           QR code
         </span>
-        <IconButton label="Close" onClick={onClose}>
-          <X size={16} />
-        </IconButton>
+        {showClose ? (
+          <IconButton label="Close" onClick={onClose}>
+            <X size={16} />
+          </IconButton>
+        ) : null}
       </div>
 
       {/* Profile and business, as a segmented pair. */}
@@ -88,8 +144,25 @@ export function QrView({
         <p className="w-full truncate text-center text-[16px] leading-[24px] font-semibold text-pg-heading">
           {title}
         </p>
-        <div className="rounded-[12px] bg-pg p-[14px] shadow-[0_4px_12px_-2px_rgba(16,24,40,0.08)]">
-          <QrPicture seed={`${tab}:${title}`} size={132} />
+        <div className={cn(actionsRight && "flex items-center gap-[10px]")}>
+        <div
+          data-qr-picture=""
+          className="relative overflow-hidden rounded-[12px] bg-pg p-[14px] shadow-[0_4px_12px_-2px_rgba(16,24,40,0.08)]"
+        >
+          <QrPicture
+            seed={`${tab}:${title}`}
+            // Smaller beside a labelled column, so the pair fits the menu.
+            size={actionsRight && qrActionLabels && !modal ? 112 : 132}
+            build={building}
+          />
+          {building && anim === "build" ? (
+            <span
+              aria-hidden="true"
+              className="motion-qr-scan pointer-events-none absolute inset-x-[8px] top-[12px] h-[2px] rounded-full bg-[var(--hr-primary-500)] shadow-[0_0_12px_2px_var(--hr-primary-300)]"
+            />
+          ) : null}
+        </div>
+        {actionsRight ? <div className="flex flex-col gap-[2px]">{actions}</div> : null}
         </div>
         <p className="text-center text-[12px] leading-[16px] text-pg-muted">
           Scan to view • Fully customizable anytime
@@ -104,14 +177,12 @@ export function QrView({
         {tab === "profile" ? "Edit profile page" : "Edit business page"}
       </button>
 
-      <span aria-hidden="true" className="block h-px w-full bg-pg-border" />
-
-      <div className="grid grid-cols-4 gap-[4px]">
-        <Action icon={Eye} label="Preview" />
-        <Action icon={BarChart3} label="Analytics" />
-        <Action icon={Download} label="Download" />
-        <Action icon={Link2} label={copied ? "Copied" : "Copy link"} onClick={copy} />
-      </div>
+      {actionsRight ? null : (
+        <>
+          <span aria-hidden="true" className="block h-px w-full bg-pg-border" />
+          <div className="grid grid-cols-4 gap-[4px]">{actions}</div>
+        </>
+      )}
     </div>
   );
 }
@@ -141,11 +212,61 @@ function Action({
   icon: Icon,
   label,
   onClick,
+  showLabel = true,
+  column = false,
 }: {
   icon: typeof Eye;
   label: string;
   onClick?: () => void;
+  /** Off: the icon alone, named by `aria-label` and a hover tooltip. */
+  showLabel?: boolean;
+  /** Stacked beside the code: labels sit right of the icon, tips to the left. */
+  column?: boolean;
 }) {
+  if (!showLabel) {
+    return (
+      <span className="group/qr-action relative flex justify-center">
+        <button
+          type="button"
+          onClick={onClick}
+          aria-label={label}
+          className={cn(
+            "motion-tap grid place-items-center rounded-[8px] text-pg-text hover:bg-pg hover:text-pg-heading",
+            column ? "size-[32px]" : "size-[36px]",
+          )}
+        >
+          <Icon size={18} aria-hidden="true" />
+        </button>
+        {/*
+          Drawn here rather than through the shared Tooltip: that one portals
+          at z-50, under the menu's z-[72], so it would open behind the panel.
+        */}
+        <span
+          role="tooltip"
+          className={cn(
+            "pointer-events-none absolute z-10 rounded-[6px] bg-[var(--hr-gray-900)] px-[8px] py-[4px] text-[12px] leading-[16px] font-medium whitespace-nowrap text-white opacity-0 transition-opacity duration-[var(--dur-fast)] group-focus-within/qr-action:opacity-100 group-hover/qr-action:opacity-100",
+            column
+              ? "top-1/2 right-[calc(100%+6px)] -translate-y-1/2"
+              : "bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2",
+          )}
+        >
+          {label}
+        </span>
+      </span>
+    );
+  }
+  if (column) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="motion-tap flex h-[32px] items-center gap-[8px] rounded-[6px] px-[8px] text-[12px] leading-[16px] font-medium whitespace-nowrap text-pg-text hover:bg-pg hover:text-pg-heading"
+      >
+        <Icon size={16} aria-hidden="true" />
+        {label}
+      </button>
+    );
+  }
   return (
     <button
       type="button"
@@ -162,7 +283,7 @@ function Action({
  * A QR-shaped picture: the three rounded finder marks and a field of modules
  * from a seeded generator, so each tab keeps the same code between visits.
  */
-function QrPicture({ seed, size }: { seed: string; size: number }) {
+function QrPicture({ seed, size, build = false }: { seed: string; size: number; build?: boolean }) {
   const N = 25;
   const cells = React.useMemo(() => {
     let h = 2166136261;
@@ -197,9 +318,26 @@ function QrPicture({ seed, size }: { seed: string; size: number }) {
       className="block text-[var(--hr-gray-900)]"
     >
       {cells.map(([x, y]) => (
-        <rect key={`${x}:${y}`} x={x} y={y} width={1} height={1} fill="currentColor" />
+        <rect
+          key={`${x}:${y}`}
+          x={x}
+          y={y}
+          width={1}
+          height={1}
+          fill="currentColor"
+          // Building: each module lands by its distance from the centre.
+          {...(build
+            ? {
+                className: "motion-qr-module",
+                style: { animationDelay: `${Math.round(Math.hypot(x - N / 2, y - N / 2) * 22)}ms` },
+              }
+            : {})}
+        />
       ))}
-      <g shapeRendering="geometricPrecision">
+      <g
+        shapeRendering="geometricPrecision"
+        {...(build ? { className: "motion-qr-module", style: { animationDelay: "320ms" } } : {})}
+      >
         {finder(0, 0)}
         {finder(N - 7, 0)}
         {finder(0, N - 7)}

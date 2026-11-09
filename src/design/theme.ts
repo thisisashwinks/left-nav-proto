@@ -5534,6 +5534,66 @@ export const WHITE_LABEL_APPROACH_LABELS: Record<WhiteLabelApproach, string> = {
 };
 
 /**
+ * How the whole-tab White label lays itself out.
+ *
+ *  cards  Production's look: the "multiple brands" notice on top, each
+ *         section's title on the left and its fields in a card on the right,
+ *         with that card's own Cancel and Save. The content is the ideal
+ *         tab's. The default. Ashwin, Nov 9.
+ *  flat   Headings above their fields, no cards, one sticky Save bar for
+ *         the form — the redesign this tab was first drawn as.
+ */
+/**
+ * Where the avatar menu's QR code opens. `dropdown` replaces the menu in
+ * place, top right; `modal` centres it over a scrim, with only a close X.
+ * Ashwin, Nov 9.
+ */
+export const QR_PLACEMENTS = ["dropdown", "modal"] as const;
+export type QrPlacement = (typeof QR_PLACEMENTS)[number];
+export const QR_PLACEMENT_LABELS: Record<QrPlacement, string> = {
+  dropdown: "Dropdown, top right",
+  modal: "Modal, centered",
+};
+
+/**
+ * How the avatar menu turns into the QR dropdown. See motion.css.
+ * Ashwin, Nov 9.
+ */
+export const QR_TRANSITIONS = ["none", "fade", "grow", "slide", "cascade", "build", "morph", "blend", "blendSlide"] as const;
+export type QrTransition = (typeof QR_TRANSITIONS)[number];
+export const QR_TRANSITION_LABELS: Record<QrTransition, string> = {
+  none: "None",
+  fade: "Fade out, fade in",
+  grow: "Grow from the icon",
+  slide: "Slide",
+  cascade: "Cascade",
+  build: "Build the code",
+  morph: "Morph from the icon",
+  // Combinations, Nov 9: grow + cascade + build (no scan), and that plus slide.
+  blend: "Grow, cascade, and build",
+  blendSlide: "Slide, grow, cascade, and build",
+};
+
+/**
+ * Where the QR's Preview, Analytics, Download, and Copy link sit: in a row
+ * under a divider, or stacked in a column right of the code (no divider).
+ * Ashwin, Nov 9.
+ */
+export const QR_ACTIONS_SIDES = ["below", "right"] as const;
+export type QrActionsSide = (typeof QR_ACTIONS_SIDES)[number];
+export const QR_ACTIONS_SIDE_LABELS: Record<QrActionsSide, string> = {
+  below: "Row below",
+  right: "Column on the right",
+};
+
+export const WHITE_LABEL_LAYOUTS = ["cards", "flat"] as const;
+export type WhiteLabelLayout = (typeof WHITE_LABEL_LAYOUTS)[number];
+export const WHITE_LABEL_LAYOUT_LABELS: Record<WhiteLabelLayout, string> = {
+  cards: "Production cards",
+  flat: "One form, one Save",
+};
+
+/**
  * How dark the sub-account rail's own surface is.
  *
  * The rail is the one column that is not the nav and not the page: it carries
@@ -7291,6 +7351,20 @@ export interface ThemeState {
   activeAgencySpot: ActiveAgencySpot;
   /** How White Label answers the custom-code question. See WHITE_LABEL_APPROACHES. */
   whiteLabelApproach: WhiteLabelApproach;
+  /** The whole-tab White label's layout. See WHITE_LABEL_LAYOUTS. */
+  whiteLabelLayout: WhiteLabelLayout;
+  /** Where the avatar menu's QR code opens. See QR_PLACEMENTS. */
+  qrPlacement: QrPlacement;
+  /** The QR dropdown's back arrow. */
+  qrBackButton: boolean;
+  /** The QR dropdown's close X. */
+  qrCloseButton: boolean;
+  /** Labels under the QR actions; off, icons only with a tooltip. */
+  qrActionLabels: boolean;
+  /** How the menu turns into the QR dropdown. See QR_TRANSITIONS. */
+  qrTransition: QrTransition;
+  /** Where the QR's actions sit. See QR_ACTIONS_SIDES. */
+  qrActionsSide: QrActionsSide;
   /** How much room the canvas keeps around its content. See CANVAS_PADS. */
   canvasPad: CanvasPad;
   /** What the nav's top edge lines up with, on the plane. See PLANE_HEADS. */
@@ -8056,6 +8130,13 @@ export const DEFAULT_THEME: ThemeState = {
    * other four stay on the dial as the comparison.
    */
   whiteLabelApproach: "idealAll",
+  whiteLabelLayout: "cards",
+  qrPlacement: "dropdown",
+  qrBackButton: true,
+  qrCloseButton: false,
+  qrActionLabels: false,
+  qrTransition: "blendSlide",
+  qrActionsSide: "below",
   canvasPad: "roomy",
   planeHead: "bar",
   flyoutShape: "docked",

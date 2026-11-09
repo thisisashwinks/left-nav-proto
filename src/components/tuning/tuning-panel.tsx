@@ -54,6 +54,14 @@ import {
   CANVAS_PADS,
   WHITE_LABEL_APPROACHES,
   WHITE_LABEL_APPROACH_LABELS,
+  WHITE_LABEL_LAYOUTS,
+  QR_PLACEMENTS,
+  QR_PLACEMENT_LABELS,
+  QR_TRANSITIONS,
+  QR_TRANSITION_LABELS,
+  QR_ACTIONS_SIDES,
+  QR_ACTIONS_SIDE_LABELS,
+  WHITE_LABEL_LAYOUT_LABELS,
   CUSTOM_CODE_MODES,
   CUSTOM_CODE_MODE_LABELS,
   CODE_SCOPE_VIEWS,
@@ -533,6 +541,10 @@ import {
   type CustomCodeMode,
   type CodeScopeView,
   type WhiteLabelApproach,
+  type WhiteLabelLayout,
+  type QrPlacement,
+  type QrTransition,
+  type QrActionsSide,
   type AiDockTop,
   type AiFullChrome,
   type SwitchyardTry,
@@ -842,7 +854,9 @@ function NavStructureSection({
     codeScopeView,
     setCodeScopeView,
     whiteLabelApproach,
+    whiteLabelLayout,
     setWhiteLabelApproach,
+    setWhiteLabelLayout,
     setFlyoutShadow,
     setBannerEdge,
     setPlaneSeam,
@@ -2340,6 +2354,23 @@ function NavStructureSection({
               : whiteLabelApproach === "ideal"
                 ? "The end state, code half only. One group per navigation, each with its own CSS and JS; the theme sits inside the old group because it belongs to the old sidebar. No toggle and no warning — both existed only because one field served two navigations. Assumes the new nav supports custom code, so it cannot ship yet."
                 : "The end state, whole tab. The same per-navigation groups, in a page rebuilt around them: one Save with a count of what is pending instead of five, headings above their fields instead of beside them, and nothing on the page that warns."}
+      </Note>
+
+      <Segmented
+        label="White label layout"
+        keywords="white label layout production cards form save agency company settings brand logo"
+        options={WHITE_LABEL_LAYOUTS}
+        value={whiteLabelLayout}
+        disabled={whiteLabelApproach !== "idealAll"}
+        onChange={(v: WhiteLabelLayout) => setWhiteLabelLayout(v)}
+        format={(v) => WHITE_LABEL_LAYOUT_LABELS[v]}
+      />
+      <Note>
+        {whiteLabelApproach !== "idealAll"
+          ? "Only with the whole-tab approach."
+          : whiteLabelLayout === "cards"
+            ? "Production’s look: the multiple-brands notice, each section’s title on the left and its fields in a card on the right, with that card’s own Cancel and Save."
+            : "Headings above their fields, no cards, and one sticky Save bar that counts what is pending."}
       </Note>
 
 {whiteLabelApproach === "safe" ? (
@@ -4568,6 +4599,18 @@ export function TuningPanel() {
     setSwitchyardTry,
     previewBanner,
     setPreviewBanner,
+    qrPlacement,
+    setQrPlacement,
+    qrBackButton,
+    setQrBackButton,
+    qrCloseButton,
+    setQrCloseButton,
+    qrActionLabels,
+    setQrActionLabels,
+    qrTransition,
+    setQrTransition,
+    qrActionsSide,
+    setQrActionsSide,
     impersonationBannerColor,
     setImpersonationBannerColor,
     entryRadius,
@@ -5147,7 +5190,7 @@ export function TuningPanel() {
         onClick={() => setOpen(true)}
         title="Prototype controls"
         aria-label="Open prototype controls"
-        className="motion-tap fixed top-1/2 right-0 z-50 flex size-[36px] -translate-y-1/2 items-center justify-center rounded-l-[10px] bg-pg-overlay text-pg-surface shadow-[0_4px_16px_0_rgba(15,23,42,0.28)] hover:pr-[3px]"
+        className="motion-tap fixed top-1/2 right-0 z-[100] flex size-[36px] -translate-y-1/2 items-center justify-center rounded-l-[10px] bg-pg-overlay text-pg-surface shadow-[0_4px_16px_0_rgba(15,23,42,0.28)] hover:pr-[3px]"
       >
         <SlidersHorizontal size={16} aria-hidden="true" />
         {!everythingIsDefault ? (
@@ -5172,7 +5215,8 @@ export function TuningPanel() {
       data-untinted=""
       style={placementStyle}
       className={cn(
-        "fixed z-50 flex flex-col overflow-hidden bg-pg-surface",
+        // Above menus and modals (z-[95]): the controls tune them while open.
+        "fixed z-[100] flex flex-col overflow-hidden bg-pg-surface",
         shadow,
         // Dragging kills the transition: a panel that eases towards the cursor
         // reads as lag, not as polish.
@@ -6921,6 +6965,91 @@ export function TuningPanel() {
           <Note>
             Open with ⌘K / Ctrl-K, or the search icon in the nav.
           </Note>
+          <Segmented
+            label="QR code opens as"
+            keywords="qr code avatar account menu dropdown modal center profile business"
+            options={QR_PLACEMENTS}
+            value={qrPlacement}
+            onChange={(v: QrPlacement) => setQrPlacement(v)}
+            format={(v) => QR_PLACEMENT_LABELS[v]}
+          />
+          <Note>
+            {qrPlacement === "dropdown"
+              ? "The QR view replaces the avatar menu in place, top right. The back and close toggles below apply."
+              : "A modal in the middle of the screen, over a scrim. Only the close X shows: there is no menu to go back to."}
+          </Note>
+          <Segmented
+            label="QR opens with"
+            keywords="qr code avatar account menu transition animation fade grow slide shift motion"
+            options={QR_TRANSITIONS}
+            value={qrTransition}
+            disabled={qrPlacement === "modal"}
+            onChange={(v: QrTransition) => setQrTransition(v)}
+            format={(v) => QR_TRANSITION_LABELS[v]}
+          />
+          <Note>
+            {qrPlacement === "modal"
+              ? "Only for the dropdown. The modal opens the way every modal does."
+              : qrTransition === "none"
+                ? "The QR view replaces the menu in one frame."
+                : qrTransition === "fade"
+                  ? "The menu fades out, then the QR view fades in."
+                  : qrTransition === "grow"
+                    ? "The QR view grows out of the top-right corner, where the QR icon sat."
+                    : qrTransition === "slide"
+                      ? "The QR view slides in from the right; Back slides the menu in from the left."
+                      : qrTransition === "cascade"
+                        ? "The rows arrive one after another: header, tabs, the code, the button, the actions."
+                        : qrTransition === "build"
+                          ? "The rows cascade in, the code assembles module by module from the centre out, and a scan line sweeps it once."
+                          : qrTransition === "morph"
+                            ? "The QR icon you pressed flies over and grows into the code while the rest cascades in around it."
+                            : qrTransition === "blend"
+                              ? "Grow, Cascade, and Build together: the panel grows from the icon’s corner, the rows arrive one after another, and the code assembles from the centre out. No scan line."
+                              : "Slide, Grow, Cascade, and Build together: the panel slides in from the right as it grows from the icon’s corner, the rows cascade, and the code assembles. No scan line. Back slides the menu in from the left."}
+            {qrPlacement === "modal" || qrTransition === "none"
+              ? ""
+              : " The dropdown glides to its new height."}
+          </Note>
+          <Toggle
+            label="QR back button"
+            checked={qrPlacement === "modal" ? false : qrBackButton}
+            disabled={qrPlacement === "modal"}
+            onChange={setQrBackButton}
+            keywords="qr code avatar account menu back arrow chevron"
+          />
+          <Toggle
+            label="QR close button"
+            checked={qrPlacement === "modal" ? true : qrCloseButton}
+            disabled={qrPlacement === "modal"}
+            onChange={setQrCloseButton}
+            keywords="qr code avatar account menu close x dismiss"
+          />
+          <Segmented
+            label="QR actions sit"
+            keywords="qr code avatar account menu actions preview analytics download copy link right column vertical below row divider"
+            options={QR_ACTIONS_SIDES}
+            value={qrActionsSide}
+            onChange={(v: QrActionsSide) => setQrActionsSide(v)}
+            format={(v) => QR_ACTIONS_SIDE_LABELS[v]}
+          />
+          <Note>
+            {qrActionsSide === "right"
+              ? "Stacked to the right of the code, with no divider above them. With labels on, the code shrinks a little so the pair fits."
+              : "A row of 4 under a divider, below the Edit button."}
+          </Note>
+          <Toggle
+            label="QR action labels"
+            checked={qrActionLabels}
+            onChange={setQrActionLabels}
+            keywords="qr code avatar account menu preview analytics download copy link labels text icons tooltip"
+          />
+          <Note>
+            {qrActionLabels
+              ? "Preview, Analytics, Download, and Copy link show their names under the icons."
+              : "Icons only. Hover or focus one for its name in a tooltip."}
+          </Note>
+
           <Toggle
             label="Preview tabs say so"
             checked={previewBanner}

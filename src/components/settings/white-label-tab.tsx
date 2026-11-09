@@ -188,9 +188,9 @@ export function WhiteLabelTab({ agency }: { agency: Account }) {
             )}
           >
             <BrandAssetRow
-              label="Business Logo"
-              hint="Shown in the expanded navigation and emails."
-              spec="350 × 180 px · up to 2.5 MB"
+              label="Full logo"
+              hint="Your primary logo, displayed in emails and the classic sidebar."
+              spec="Ideal: 350 × 180 px · Max 2.5 MB"
               aspect="wide"
               {...(agency.wordmarkSrc ? { src: agency.wordmarkSrc } : {})}
               onPick={(src) => brand.set(agency.id, "wordmarkSrc", src)}
@@ -198,9 +198,9 @@ export function WhiteLabelTab({ agency }: { agency: Account }) {
             />
 
             <BrandAssetRow
-              label="Square Mark"
-              hint="Shown in the account rail and collapsed navigation, where a wide logo won't fit."
-              spec="1:1 · min 128 × 128 px"
+              label="Sidebar icon"
+              hint="A compact version of your logo, displayed in the new sidebar."
+              spec="Square · Min 128 × 128 px · Max 2.5 MB"
               aspect="square"
               {...(agency.logoSrc ? { src: agency.logoSrc } : {})}
               fallback={agency.logo}
