@@ -243,6 +243,18 @@ export function EditMoreMenu({
   const movableTemplates = templates.filter((t) => t.id !== deleting);
   const { ref, top, left } = useAnchored(anchor, WIDTH, GAP);
 
+  /*
+   * Escape steps back through the views before it closes the menu — one level
+   * of drilling should not cost the whole panel. Read through an effect event
+   * so the view is current: calling onClose from inside a setView updater set
+   * the parent's state mid-render, which React reports as an error.
+   * Ashwin, Nov 16.
+   */
+  const stepBackOrClose = React.useEffectEvent(() => {
+    if (view === "root") onClose();
+    else setView("root");
+  });
+
   React.useEffect(() => {
     const away = (e: PointerEvent) => {
       const target = e.target as Node;
@@ -260,9 +272,7 @@ export function EditMoreMenu({
     const esc = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       e.stopPropagation();
-      // Escape steps back through the views before it closes the menu — one
-      // level of drilling should not cost the whole panel.
-      setView((v) => (v === "root" ? (onClose(), "root") : "root"));
+      stepBackOrClose();
     };
     document.addEventListener("pointerdown", away);
     document.addEventListener("keydown", esc, true);

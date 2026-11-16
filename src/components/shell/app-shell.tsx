@@ -194,7 +194,13 @@ import { useSwapPhase } from "@/lib/use-swap-phase";
 import { NAV_SWAP_OUT_MS } from "@/design/motion-timing";
 import { useFlyoutIntent } from "@/lib/use-flyout-intent";
 import { iconForChildLabel } from "@/components/nav/l3-icons";
-import { NavTours, NAV_TOUR_REPLAY_EVENT } from "@/components/nav/nav-tour";
+import {
+  NavTours,
+  NAV_TOUR_REPLAY_EVENT,
+  startNavTour,
+  type RestartableFlowId,
+} from "@/components/nav/nav-tour";
+import { LEARN_FLYOUT_ID, LEARN_ROW_PREFIX, learnFlyout } from "@/components/flyout/learn-flyout";
 import {
   FeaturedProvider,
   featuredPageById,
@@ -1768,6 +1774,9 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
       */
       intent.activeId === GET_APP_FLYOUT_ID
       ? getAppFlyout
+      : // "Learn about new Sidebar" as an L2: chrome, like the apps panel.
+        intent.activeId === LEARN_FLYOUT_ID
+      ? learnFlyout
       : intent.activeId === SETTINGS_FLYOUT_ID
       ? agencyScope
         ? agencySettingsFlyout
@@ -2079,6 +2088,11 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
        * other two. A pin is a shortcut to a destination, so it cannot have a
        * destination of its own.
        */
+      // A tour picked from "Learn about new Sidebar": it runs from step 1.
+      if (id.startsWith(LEARN_ROW_PREFIX)) {
+        startNavTour(id.slice(LEARN_ROW_PREFIX.length) as RestartableFlowId);
+        return;
+      }
       if (id === GET_APP_ROW_IDS.mobile || id === GET_APP_ROW_IDS.desktop) {
         const kind = id === GET_APP_ROW_IDS.mobile ? "mobile" : "desktop";
         if (getAppPlacement === "flyout") {
@@ -4914,6 +4928,11 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
                * in the canvas, which is the gesture that means "done here".
                */
               if (!keepOpen) intent.close();
+              // "Learn about new Sidebar": the tour picked runs from step 1.
+              if (id.startsWith(LEARN_ROW_PREFIX)) {
+                startNavTour(id.slice(LEARN_ROW_PREFIX.length) as RestartableFlowId);
+                return;
+              }
               /*
                 The two rows in the companion-app panel open the sheet, not a
                 page. Checked before the catalogue lookups below, which would

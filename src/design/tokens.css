@@ -551,6 +551,18 @@
    */
   --nav-edit-ring: var(--hr-gray-600);
   --nav-divider: var(--hr-gray-200);
+  /*
+   * The edge a FIELD wears, as against the rule between two rows.
+   *
+   * One step darker than the divider — gray-300 against gray-200 — because
+   * the two are doing different jobs at the same weight. A divider is read
+   * past; a field's border is read AS the control, and at 200 the search box
+   * and its Cancel were hairlines you had to look for. Ashwin, Nov 16.
+   *
+   * Its own token rather than a literal, so a dark nav can answer for itself
+   * below: a raw gray-300 would be a light edge on a dark surface.
+   */
+  --nav-field-border: var(--hr-gray-300);
   --nav-fg: var(--hr-gray-900);
   --nav-fg-muted: var(--hr-gray-500);
   --nav-fg-subtle: var(--hr-gray-400);
@@ -781,6 +793,7 @@
   --nav-border: oklch(from var(--legacy-nav-base) calc(l + 0.08) c h);
   --nav-divider: #414e61;
   --nav-divider: oklch(from var(--legacy-nav-base) calc(l + 0.08) c h);
+  --nav-field-border: var(--nav-divider);
   --nav-hover: #3b4759;
   --nav-hover: oklch(from var(--legacy-nav-base) calc(l + 0.06) c h);
   --nav-active: #46536780;
@@ -849,6 +862,7 @@
   --nav-border: oklch(from var(--nav-dark-base) calc(l + 0.07) c h);
   --nav-divider: #253044;
   --nav-divider: oklch(from var(--nav-dark-base) calc(l + 0.07) c h);
+  --nav-field-border: var(--nav-divider);
   --fly-border: #253044;
   --fly-border: oklch(from var(--nav-dark-base) calc(l + 0.07) c h);
   /* One step past --fly-border on the same ramp. See the light block. */
@@ -902,6 +916,7 @@
      carries the same weight it does on white. */
   --nav-edit-ring: var(--hr-gray-400);
   --nav-divider: #26262c;
+  --nav-field-border: var(--nav-divider);
   --nav-fg: #f2f2f5;
   --nav-fg-muted: #a1a1ac;
   --nav-fg-subtle: #71717a;
@@ -1503,6 +1518,7 @@
   --nav-bg: oklch(from var(--brand) 0.99 calc(c * var(--tint-surface)) h);
   --nav-border: oklch(from var(--brand) 0.9439 calc(c * var(--tint-line)) h);
   --nav-divider: oklch(from var(--brand) 0.9439 calc(c * var(--tint-line)) h);
+  --nav-field-border: var(--nav-divider);
   --nav-fg: oklch(from var(--brand) 0.2103 calc(c * var(--tint-text)) h);
   --nav-fg-muted: oklch(from var(--brand) 0.4751 calc(c * var(--tint-text)) h);
   --nav-fg-subtle: oklch(from var(--brand) 0.6901 calc(c * var(--tint-text)) h);
@@ -1524,6 +1540,7 @@
   --nav-bg: oklch(from var(--brand) 0.1698 calc(c * var(--tint-surface)) h);
   --nav-border: oklch(from var(--brand) 0.2711 calc(c * var(--tint-line)) h);
   --nav-divider: oklch(from var(--brand) 0.2711 calc(c * var(--tint-line)) h);
+  --nav-field-border: var(--nav-divider);
   --nav-fg: oklch(from var(--brand) 0.962 calc(c * var(--tint-text)) h);
   --nav-fg-muted: oklch(from var(--brand) 0.7125 calc(c * var(--tint-text)) h);
   --nav-fg-subtle: oklch(from var(--brand) 0.5517 calc(c * var(--tint-text)) h);

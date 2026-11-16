@@ -36,7 +36,13 @@ import { useSwapPhase } from "@/lib/use-swap-phase";
 import { NAV_SWAP_OUT_MS } from "@/design/motion-timing";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import { AskAiNavRow } from "@/components/ai/ask-ai-home";
-import { navWidthsFor } from "@/design/theme";
+import {
+  navWidthsFor,
+  PRODUCT_SEARCH_RECENT_LIMIT,
+  PRODUCT_SEARCH_SEED,
+  SEARCH_REVEAL_PARTS,
+  SEARCH_OUT_MS,
+} from "@/design/theme";
 import type {
   DockPosition,
   LaunchpadCard,
@@ -87,6 +93,7 @@ import { RowSeam } from "./row-seam";
 import { IconPicker, useIconPicker } from "./icon-picker";
 import { useNavLayout } from "./nav-layout-provider";
 import { NavTourFooterRow } from "./nav-tour-menu";
+import { replayNavTours, useLearnSwitchyardRow } from "./nav-tour";
 import {
   AddPicker,
   pickerToast,
@@ -145,7 +152,10 @@ import {
   countTreeHits,
   matchesQuery,
   TreeSearchEmpty,
+  ProductSearchResting,
+  ProductSearchResults,
   TreeSearchField,
+  type ProductHit,
   searchTreeBranch,
   wholeBranchHit,
   type TreeSearchHit,
@@ -156,7 +166,8 @@ import type { NavDensity } from "./use-nav-density";
 import { NavSectionLabel } from "./nav-section-label";
 import { NavRowsSkeleton } from "@/components/shell/switching";
 import { NavAppearance } from "./nav-appearance";
-import { Monitor, Smartphone, type LucideIcon } from "lucide-react";
+import { Monitor, Search, Smartphone, type LucideIcon } from "lucide-react";
+import { LEARN_FLYOUT_ID, LEARN_ICONS, LEARN_NAV_LABEL } from "@/components/flyout/learn-flyout";
 import {
   GET_APP_LABELS,
   type AppKind,
@@ -485,6 +496,10 @@ export function LeftNav({
     emptyNavRule,
     l3Arrange,
     treeSearchPlace,
+    productSearchDismiss,
+    searchHeaderIcons,
+    searchRow,
+    searchReveal,
     topAlignCard,
     topAlignCardNudge,
     navSettingsSpot,
@@ -492,6 +507,8 @@ export function LeftNav({
     navFootShadow,
     navFeaturedCardRow,
     navFeaturedSlot,
+    navTourLearnIcon,
+    navTourLearnOpens,
   } = useTheme().effective;
   const featuredCount = useFeatured().list.length;
   // The Settings foot stays put while the list scrolls. See STICKY_FOOT.
@@ -974,6 +991,12 @@ export function LeftNav({
    */
   const editable = agencyScope ? agencyEditNav : true;
   const editing = state.editing && can.customise && editable;
+  const learnRow = useLearnSwitchyardRow();
+  const learnItem: NavItem = {
+    id: LEARN_FLYOUT_ID,
+    label: LEARN_NAV_LABEL,
+    icon: LEARN_ICONS[navTourLearnIcon],
+  };
   /*
    * The widths the portalled L1 drawer has to publish for itself, since it
    * inherits nothing from the plane. Same resolver the shell uses, so edit
@@ -1046,8 +1069,155 @@ export function LeftNav({
    * onto a filtered list nobody asked for.
    */
   const [treeQuery, setTreeQuery] = React.useState("");
-  /** The field exists only where the tree does, and only where the axis puts it. */
-  const treeSearchShown = productTree && treeSearchPlace !== "off";
+  /*
+   * Whether the field is on screen at all.
+   *
+   * The first three placements are positions among the TREE's own blocks and
+   * mean nothing in an arrangement that has no Launchpad card to sit above —
+   * so they stay gated on it. `logo` and `toggle` are positions in the
+   * column, and they stand in every arrangement on purpose: the people who
+   * cannot find where a product moved are not all on the tree, and gating
+   * the fix to one arrangement would be fixing it for the wrong account.
+   * Ashwin, Nov 16.
+   */
+  const columnSearch = treeSearchPlace === "logo" || treeSearchPlace === "toggle";
+  const treeSearchShown =
+    !agencyScope &&
+    treeSearchPlace !== "off" &&
+    (columnSearch || productTree);
+  /*
+   * The toggle placement's own open/shut, and the searches it remembers.
+   *
+   * Local like the query itself, and for the same reason: having the field
+   * open is something you are doing now. Collapsing the nav shuts it, because
+   * the glyph that opens it is not drawn at 64px — leaving the state true
+   * would expand the nav back onto a search nobody asked to resume.
+   */
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  /*
+   * How many times the field has been summoned, purely to re-key it.
+   *
+   * See the `key` on the wrapper: the reveal is a CSS animation, which runs
+   * on mount, and the wrapper outlives every open/close cycle.
+   */
+  const [searchOpens, setSearchOpens] = React.useState(0);
+  /*
+   * The field on its way out, so the arrival can be played backwards.
+   *
+   * A closing state rather than an immediate unmount: React removes the
+   * element the instant `searchOpen` flips, and an element that is not there
+   * cannot animate. So the dismiss sets this, the out classes run, and the
+   * real close lands when they are done. See SEARCH_OUT_MS.
+   */
+  const [searchClosing, setSearchClosing] = React.useState(false);
+  const closeTimer = React.useRef<number | null>(null);
+  React.useEffect(
+    () => () => {
+      if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    },
+    [],
+  );
+  /* The two halves the chosen reveal asks for. See SEARCH_REVEAL_PARTS. */
+  const revealParts = SEARCH_REVEAL_PARTS[searchReveal];
+  /*
+   * The QUERIES, not the products they found. See PRODUCT_SEARCH_SEED.
+   *
+   * It held product ids at first, which made the resting state a second All
+   * products list — the one thing the field is there to save you from.
+   * Ashwin, Nov 16: show what the sub-account search shows, which is the
+   * words.
+   */
+  const [searchPicks, setSearchPicks] = React.useState<string[]>([
+    ...PRODUCT_SEARCH_SEED,
+  ]);
+  /*
+   * Closing the field is what makes a query "recent".
+   *
+   * Not every keystroke — typing "c", "ca", "cal" would push three entries
+   * and the list would be a transcript rather than a history. Recording on
+   * the way out means the term that survives is the one you finished on,
+   * which is the one worth offering back.
+   */
+  const rememberSearch = React.useCallback((q: string) => {
+    const term = q.trim();
+    if (!term) return;
+    setSearchPicks((prev) =>
+      [term, ...prev.filter((x) => x.toLowerCase() !== term.toLowerCase())]
+        .slice(0, PRODUCT_SEARCH_RECENT_LIMIT),
+    );
+  }, []);
+  /*
+   * Under `toggle` the field only exists once the glyph has been pressed —
+   * and never while collapsed, where there is no glyph to press.
+   */
+  const searchFieldUp =
+    treeSearchShown &&
+    (treeSearchPlace !== "toggle" || (searchOpen && !collapsed));
+  /*
+   * The summoned field has taken the header row. See SEARCH_ROWS.
+   *
+   * Derived once and read in three places — the column skips drawing the
+   * field, the header draws it instead, and the trailing controls stand
+   * down to give it the width. Three independent copies of this condition
+   * is how the field ends up on both rows at once, or on neither.
+   */
+  const headerSearch =
+    searchFieldUp && treeSearchPlace === "toggle" && searchRow === "header";
+  /*
+   * The summoned field, with nothing typed yet — the one state that owes the
+   * column something in return for having emptied it.
+   */
+  /*
+   * Why collapsing is off limits right now, in one place.
+   *
+   * Three controls ask the question — the header's own toggle and the two
+   * CollapseToggle call sites — and they were each carrying their own
+   * `editing`. Adding the search condition to one of them is how two of
+   * them end up disagreeing, which is exactly what the first cut did: the
+   * control in the trailing slot stayed live while the one that is not
+   * drawn there went inert.
+   *
+   * No longer gated on the header axis either (Ashwin, Nov 16). Collapsing
+   * onto a search strands you under both settings — the glyph that reopens
+   * the field is not drawn at 64px — so the lock belongs to the SEARCH
+   * being open, not to which controls the header happens to be showing.
+   */
+  const collapseLocked = editing || searchOpen;
+  /*
+   * Shutting the search, with the arrival run backwards first.
+   *
+   * One function rather than the same four lines at the glyph and at the
+   * field's own control: they are the same gesture reached two ways, and
+   * the first cut had them diverge — the glyph cleared the query where the
+   * X also remembered it.
+   *
+   * `logo` never animates out, and it is not an omission: nothing is
+   * leaving there. The field stands whatever happens; only the results go,
+   * and they go because the query did.
+   */
+  const dismissSearch = React.useCallback(() => {
+    rememberSearch(treeQuery);
+    if (treeSearchPlace !== "toggle") {
+      setTreeQuery("");
+      return;
+    }
+    if (searchReveal === "none") {
+      setTreeQuery("");
+      setSearchOpen(false);
+      return;
+    }
+    setSearchClosing(true);
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    closeTimer.current = window.setTimeout(() => {
+      setSearchClosing(false);
+      setTreeQuery("");
+      setSearchOpen(false);
+    }, SEARCH_OUT_MS);
+  }, [rememberSearch, treeQuery, treeSearchPlace, searchReveal]);
+  const searchResting =
+    searchFieldUp &&
+    treeSearchPlace === "toggle" &&
+    treeQuery.trim().length === 0;
   /*
    * The query as the filter uses it: trimmed, lowered, and empty the moment
    * the field is not on screen.
@@ -1058,7 +1228,7 @@ export function LeftNav({
    * is gone cannot be filtering, by construction, and the text is still there
    * if the axis comes back.
    */
-  const treeQ = treeSearchShown ? treeQuery.trim().toLowerCase() : "";
+  const treeQ = searchFieldUp ? treeQuery.trim().toLowerCase() : "";
   const treeSearching = treeQ.length > 0;
   /** The category whose removal is being confirmed. */
   const [deleting, setDeleting] = React.useState<string | null>(null);
@@ -2467,13 +2637,62 @@ export function LeftNav({
    * snapshotted, so "clear the field" restores the column by definition rather
    * than by putting back what it remembers taking away.
    *
-   * Exactly `treeHits !== null` — a separate name rather than the raw check at
+   * `treeHits !== null` OR resting under the toggle. The second half is what
+   * makes pressing the glyph DO something before you have typed: the column
+   * clears on the gesture, not on the first keystroke, which is what Ashwin
+   * asked for on Nov 16 and is also the honest reading — you have told the
+   * nav you are searching, so it should stop showing you what you were not
+   * looking at.
+   *
+   * A separate name rather than the raw check at
    * eleven call sites, because those call sites are asking a different
    * question ("is this block eclipsed") from the one `treeHits` answers ("did
    * this row match"), and reading a hit map for its nullness is how the two
    * drift apart the first time one of them needs to change.
    */
-  const searchOnly = treeHits !== null;
+  const searchOnly = treeHits !== null || searchResting;
+
+  /*
+   * The column search's results, flat, each with the row above it.
+   *
+   * Built from the account's OWN tree — `treeSearchList` and
+   * `treeBranchFor` — rather than from the catalogue, so a renamed row is
+   * found by its new name and a row the account has moved is captioned with
+   * where it moved TO. Walking `allProducts` instead would have answered
+   * with the shipped arrangement, which is precisely the arrangement these
+   * readers are lost in.
+   *
+   * Only for the column placements. The three tree positions keep the
+   * in-place filtering they have always had — Ashwin: "No changes to this."
+   */
+  const columnHits: ProductHit[] = React.useMemo(() => {
+    if (!columnSearch || !treeSearching) return [];
+    const out: ProductHit[] = [];
+    const seen = new Set<string>();
+    const push = (id: string, label: string, parent: string | null, icon?: LucideIcon) => {
+      if (seen.has(id)) return;
+      seen.add(id);
+      out.push({ id, label, parent, ...(icon ? { icon } : {}) });
+    };
+    const walk = (nodes: readonly TreeNode[], parent: string) => {
+      for (const node of nodes) {
+        if (matchesQuery(node.label, treeQ)) {
+          push(node.id, node.label, parent, node.icon);
+        }
+        if (node.children?.length) walk(node.children, node.label);
+      }
+    };
+    for (const entry of treeSearchList) {
+      if (entry.kind !== "item") continue;
+      const item = entry.item;
+      if (matchesQuery(item.label, treeQ)) {
+        push(item.id, item.label, null, item.icon);
+      }
+      const branch = treeBranchFor(state, groups, item);
+      if (branch) walk(branch, item.label);
+    }
+    return out;
+  }, [columnSearch, treeSearching, treeQ, treeSearchList, state, groups]);
 
   /** Leaving the mode has to take its transient surfaces with it. */
   const closeEditSurfaces = () => {
@@ -3745,6 +3964,22 @@ export function LeftNav({
     item.id === "get-app-desktop";
 
   const renderRow = (item: NavItem) => {
+    /*
+     * Nothing from the account's tree survives the summoned field.
+     *
+     * The guard one level down (`treeHits && !hit`) only bites once there IS
+     * a query, so at rest the whole column came through under the empty
+     * state — Ashwin photographed Dashboard, AI, CRM and the rest sitting
+     * below "Recent searches". Pressing the glyph is the gesture that clears
+     * the column; the query fills it back in. Ashwin, Nov 16.
+     */
+    if (searchResting) return null;
+    /*
+     * ...and while the COLUMN search has results, which are drawn as their
+     * own flat list above. Leaving the pruned rows in as well would put the
+     * same matches on screen twice, in two different shapes.
+     */
+    if (columnSearch && treeSearching) return null;
     const flyoutId = flyoutIdFor(item);
     /*
      * In tree mode a door becomes a disclosure.
@@ -3770,6 +4005,15 @@ export function LeftNav({
        * the same scrolling problem the field was added to solve, with a colour
        * change on top.
        */
+      /*
+       * Resting under the toggle, EVERY row goes.
+       *
+       * `treeHits` is null until something is typed, so this used to let the
+       * whole catalogue through and the empty state sat on top of the list
+       * it was meant to replace — which is what Ashwin photographed. The
+       * gesture clears the column; the query then fills it back in.
+       */
+      if (searchResting) return null;
       const hit = treeHits?.get(item.id);
       if (treeHits && !hit) return null;
       const nodes: readonly TreeNode[] = hit ? hit.nodes : branch;
@@ -4330,21 +4574,101 @@ export function LeftNav({
    * because the branch seams resolve their index against the category's real
    * order, not against the filtered rows on screen.
    */
-  const treeSearchAt = (place: typeof treeSearchPlace) =>
-    treeSearchShown && treeSearchPlace === place ? (
+  /*
+   * The field and its surrounds, built once for both rows it can land on.
+   *
+   * `inHeader` is the only thing that differs, and it differs in one place —
+   * the spacing under it, which the header row supplies itself. Two copies of
+   * this block is how the two rows end up with different reveal animations or
+   * different dismiss controls after the next change to either. See
+   * SEARCH_ROWS.
+   */
+  const searchFieldBox = (inHeader: boolean) => (
       // Not in the bar: an extra, faded with the labels (Oct 16).
-      <div {...fadeProps(collapsed)} className="w-full shrink-0">
+      <div
+        {...fadeProps(collapsed)}
+        /*
+          Keyed on the open count so the animation REPLAYS. A CSS animation
+          runs once per mount, and the element is mounted the whole time the
+          placement is `toggle` — without a changing key the field would
+          grow in the first time and simply appear ever after.
+        */
+        key={`search-${searchOpens}`}
+        className={cn(
+          "w-full shrink-0",
+          /*
+            The field's half of the pair. The list's half is handed to
+            ProductSearchResting below, from the same mapping — see
+            SEARCH_REVEAL_PARTS.
+          */
+          treeSearchPlace === "toggle" && revealParts.field !== "none"
+            ? searchClosing
+              ? `motion-search-field-${revealParts.field}-out`
+              : `motion-search-field-${revealParts.field}`
+            : null,
+        )}
+      >
         <TreeSearchField
           query={treeQuery}
           onQuery={setTreeQuery}
+          /*
+            The SECOND clear, and only where the field was summoned.
+            
+            Ashwin, Nov 16: one clear empties the query, the other puts the
+            field away and leaves the glyph behind. They are different
+            undos — "I mistyped" and "I am done looking" — and a single X
+            can only be one of them. Under the standing placements there is
+            nothing to put away, so the control is absent rather than inert.
+          */
+          dismiss={productSearchDismiss}
+          autoFocus={treeSearchPlace === "toggle"}
+          /*
+            BOTH column placements get a way back. Ashwin, Nov 16 — and he
+            had to say it more than once, because the first cut gave it only
+            to the summoned field on the reasoning that a standing field has
+            nothing to put away.
+            
+            That reasoning was wrong, and the measurement is what showed it:
+            under `logo` the field is permanent, but TYPING in it still
+            replaces the column with results — so there is plainly something
+            to come back from, and the only exit was an X that reads as "fix
+            my typo" rather than "take me back to the nav".
+            
+            What closing MEANS differs, which is the whole of the
+            difference between the two: under `toggle` the field goes away
+            too, because the glyph brought it; under `logo` it stays and
+            only the results clear, because nothing summoned it.
+          */
+          {...(columnSearch ? { onClose: dismissSearch } : {})}
           resultCount={treeHits ? countTreeHits(treeHits, treeQ) : null}
-          // 4px above and below rather than the row gap's 2: the field is a
-          // control standing among rows, and a hairline box that close to a
-          // hover fill reads as one more row with a border.
-          className="my-[4px]"
+          /*
+            4px above and below rather than the row gap's 2: the field is a
+            control standing among rows, and a hairline box that close to a
+            hover fill reads as one more row with a border.
+
+            Except when summoned, where it is not among rows — it is the top
+            of the column, and its top edge should meet the canvas's. A 4px
+            lead there put it visibly below the page beside it.
+          */
+          className={
+            /*
+              In the header the row's own padding is the spacing, and an
+              extra 8 under the field pushed the first nav row down by a
+              gap that belongs to a layout this variant is not using.
+            */
+            inHeader
+              ? undefined
+              : treeSearchPlace === "toggle"
+                ? "mb-[8px]"
+                : "my-[4px]"
+          }
         />
       </div>
-    ) : null;
+  );
+  const treeSearchAt = (place: typeof treeSearchPlace) =>
+    searchFieldUp && treeSearchPlace === place && !headerSearch
+      ? searchFieldBox(false)
+      : null;
 
   /**
    * The rows that survived the query, flat.
@@ -4750,7 +5074,7 @@ export function LeftNav({
             <CollapseToggle
               collapsed={collapsed}
               onToggle={onToggleCollapsed}
-              disabled={editing}
+              disabled={collapseLocked}
             />
           ) : null
         }
@@ -4802,11 +5126,88 @@ export function LeftNav({
         switcherOpen={switcherOpen}
         onToggleSwitcher={onToggleSwitcher}
         canSwitch={canSwitch}
+        /*
+          The search, on this row rather than under it. See SEARCH_ROWS.
+
+          The header is where the glyph that summons the field already sits,
+          so opening in place is the gesture finishing where it started —
+          and the column keeps every pixel of its height, which is the trade
+          `toggle` exists to offer over `logo` and which the `column`
+          variant only half delivers.
+
+          Passing the node makes the row's own identity and trailing slot
+          stand down; see NavHeader's `inlineSearch`.
+        */
+        inlineSearch={headerSearch ? searchFieldBox(true) : null}
         // The drawer toggle holds the header's right edge in both
         // arrangements — collapsing is nav chrome, not entry, so it must not
         // move when the pill does. Per review: the toggle need not shift.
         trailing={
           <>
+            {/*
+              The glyph that summons the field, beside the collapse control.
+              Ashwin, Nov 16.
+
+              Here rather than in the column because it is chrome about the
+              sidebar — "search this nav" — and because the row it shares is
+              already the row of controls that act on the nav rather than on
+              anything in it. Costs no standing space, which is the trade the
+              placement exists to offer against `logo`.
+
+              Never at 64px. Collapsed there is no column to clear and no
+              width to put a field in, so the control that promises both is
+              simply absent — see `searchFieldUp`, which shuts the state as
+              well so expanding never lands on a search nobody resumed.
+            */}
+            {treeSearchShown &&
+            treeSearchPlace === "toggle" &&
+            !collapsed &&
+            /*
+              Gone while the search is up, under the default. See
+              SEARCH_HEADER_ICONS: the glyph has become the field below it,
+              and a lit square in the header for the whole search was the
+              only piece of chrome in the nav lit for a MODE rather than for
+              a place. The field's own dismiss is the way out.
+            */
+            !(searchOpen && searchHeaderIcons === "clear") ? (
+              <button
+                type="button"
+                aria-label={searchOpen ? "Close product search" : "Search products"}
+                aria-expanded={searchOpen}
+                title={searchOpen ? "Close product search" : "Search products"}
+                /*
+                  A toggle, not a one-way door. Ashwin, Nov 16.
+                  
+                  It used to vanish once the field was up, which left the
+                  gesture asymmetric: one control opened the search and a
+                  different one closed it. Pressing the same glyph again is
+                  what a reader tries first, and it now does the obvious
+                  thing — field away, column back, query dropped.
+                */
+                onClick={() => {
+                  if (searchOpen) {
+                    dismissSearch();
+                    return;
+                  }
+                  setTreeQuery("");
+                  setSearchOpens((n) => n + 1);
+                  setSearchOpen(true);
+                }}
+                className={cn(
+                  "motion-tap flex size-[26px] shrink-0 items-center justify-center rounded-[7px] active:scale-95",
+                  /*
+                    Ink, not a fill. A filled square reads as a selected row,
+                    which this is not — it is a control whose mode is already
+                    obvious from the field sitting under it.
+                  */
+                  searchOpen
+                    ? "text-nav-fg"
+                    : "text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg",
+                )}
+              >
+                <Search size={16} aria-hidden="true" />
+              </button>
+            ) : null}
             {/*
               GCP's own placement of the category switch: beside the workspace
               mark, so the column below is rows all the way up and the category
@@ -4829,7 +5230,7 @@ export function LeftNav({
               <CollapseToggle
                 collapsed={collapsed}
                 onToggle={onToggleCollapsed}
-                disabled={editing}
+                disabled={collapseLocked}
               />
             ) : null}
           </>
@@ -4839,7 +5240,14 @@ export function LeftNav({
         // drawer toggle above stays.
         onToggleCollapsed={onToggleCollapsed}
         // The disc collapses the nav too, so it refuses in edit mode as well.
-        collapseDisabled={editing}
+        /*
+          Collapsing onto a search is a state with no way back: the glyph
+          that reopens the field is not drawn at 64px, so the nav would
+          expand onto a query nobody resumed. Disabled rather than hidden,
+          because the control is where it always is and the reader should
+          see that it is simply not available right now. Ashwin, Nov 16.
+        */
+        collapseDisabled={collapseLocked}
         /*
           The collapsed bar's head, as the strip drew it: the account's mark
           unless the rail beside it already shows one (the agency's own
@@ -4985,6 +5393,60 @@ export function LeftNav({
             is Launchpad and Recents, neither of which it searches. See the
             note on `ThemeState.treeSearchPlace`.
           */}
+          {/*
+            Under the logo, and under the toggle's glyph — both at the head
+            of the column, above everything the account owns.
+            
+            Together because they are one position reached two ways: one
+            stands there, the other arrives there when asked. Drawing them
+            at different heights would make the toggle feel like a different
+            feature rather than the same field, summoned.
+          */}
+          {treeSearchAt("logo")}
+          {treeSearchAt("toggle")}
+          {/*
+            The resting state, which only the summoned field has.
+            
+            A standing field at rest is a field beside the column it
+            filters — fine, because the column is still there to read. The
+            toggle's is not: pressing the glyph clears the sidebar, and a
+            cleared sidebar under an empty field reads as a nav that broke.
+            So the space the rows left gets the searches you made before,
+            which is the one thing worth offering someone who has just said
+            "I am looking for something". Same pattern the sub-account
+            search uses one column over.
+          */}
+          {/*
+            The results, where the rows would have been.
+
+            Under the column placements the filtered tree is replaced
+            outright rather than pruned: a pruned tree answers "which
+            categories contain a match", and the reader asked "where is
+            Calendars". See ProductSearchResults.
+          */}
+          {columnSearch && treeSearching ? (
+            <ProductSearchResults
+              hits={columnHits}
+              query={treeQuery.trim()}
+              onPick={(id: string) => {
+                rememberSearch(treeQuery);
+                onSelect(id);
+              }}
+            />
+          ) : null}
+          {searchResting ? (
+            <ProductSearchResting
+              terms={searchPicks}
+              reveal={revealParts.list}
+              closing={searchClosing}
+              /*
+                Picking a past term RUNS it rather than navigating: the row
+                is a search you made, and re-running it is the only thing
+                you can mean by pressing it. The results then answer.
+              */
+              onPick={(term: string) => setTreeQuery(term)}
+            />
+          ) : null}
           {treeSearchAt("launchpad")}
           {/*
             Every block from here down is eclipsed while a query is up — see
@@ -5151,7 +5613,13 @@ export function LeftNav({
             a column that just stops is indistinguishable from a nav that
             failed to load.
           */}
-          {treeHits && treeHits.size === 0 ? (
+          {/*
+            Not under the column placements — those draw their own miss, in
+            the list that replaced the rows. Both fired at once and the
+            column said "No products match" twice, a few rows apart.
+            Ashwin, Nov 16.
+          */}
+          {!columnSearch && treeHits && treeHits.size === 0 ? (
             <div {...fadeProps(collapsed)} className="w-full shrink-0">
               <TreeSearchEmpty query={treeQuery.trim()} />
             </div>
@@ -5399,6 +5867,23 @@ export function LeftNav({
               */}
 
               {renderRow(agencyScope ? agencySettings : config.settings)}
+              {/*
+                "Learn about new Sidebar": the way back into the tours. Not an
+                entry in the tree, so edit mode has nothing to rename, hide or
+                move — drawn bare and inert while editing, since a tour starting
+                over an edit session would fight it. Otherwise it either replays
+                the tours or, as a panel row, opens an L2 of them — see
+                NAV_TOUR_LEARN_OPENS. Ashwin, Nov 16.
+              */}
+              {learnRow && !searchOnly ? (
+                editing || navTourLearnOpens !== "l2" ? (
+                  <div inert={editing || undefined} className={cn(editing && "opacity-60")}>
+                    <NavItemRow item={learnItem} onSelect={replayNavTours} bar="fade" />
+                  </div>
+                ) : (
+                  renderRow({ ...learnItem, hasFlyout: true })
+                )
+              ) : null}
               </div>
               </div>
               {/*
@@ -5500,7 +5985,14 @@ export function LeftNav({
         clearEdit={Boolean((headerEntry || topEntry) && editNavHere)}
       />
 
-      {headerEntry || topEntry ? (
+      {/*
+        The foot goes with the rows while the search is up.
+        
+        Edit is an affordance OVER the tree — "rearrange this" — and the tree
+        is not on screen. Offering it under a column of search results is
+        offering to edit something you cannot see. Ashwin, Nov 16.
+      */}
+      {searchOnly ? null : headerEntry || topEntry ? (
         /*
           No pill at the foot, but the way into edit mode still lives there.
 

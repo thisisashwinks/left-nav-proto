@@ -89,20 +89,245 @@ export const RECORD_BACK_PLACE_LABELS: Record<RecordBackPlace, string> = {
   inline: "In the canvas",
 };
 
-/** Where the tree's own search sits in the column. */
-export type TreeSearchPlace = "launchpad" | "recents" | "products" | "off";
+/**
+ * Where the product search sits.
+ *
+ * The problem it answers, Nov 16: people cannot find where a product moved to
+ * in the new navigation. ⌘K exists and does not help — it is in the top bar,
+ * far right, away from the thing being searched, and nothing about it says it
+ * knows the sidebar. So the question is not whether to have a search but
+ * where to put one people will actually see.
+ *
+ *  launchpad  Above the Launchpad card.
+ *  recents    Above the Recents block.
+ *  products   Above the product list — nearest the rows it filters.
+ *  logo       Under the logo, at the head of the column. Standing, and the
+ *             first thing in the sidebar, which is where a reader who has
+ *             lost something looks first.
+ *  toggle     A glyph beside the collapse control. Click it and the field
+ *             drops in and the column becomes the search: rows out, recent
+ *             searches in. Costs no standing space, at the price of being
+ *             a thing you have to find once.
+ *  off        No search in the column. The All products tab keeps its own
+ *             either way — that one is the panel's, not the sidebar's.
+ *
+ * The first three are positions among the tree's own blocks and only mean
+ * something in that arrangement. `logo` and `toggle` are positions in the
+ * COLUMN, so they stand in any arrangement — which is the point, since the
+ * people losing products are not all on the tree.
+ */
+export type TreeSearchPlace =
+  | "launchpad"
+  | "recents"
+  | "products"
+  | "logo"
+  | "toggle"
+  | "off";
 export const TREE_SEARCH_PLACES: readonly TreeSearchPlace[] = [
+  "off",
+  "logo",
+  "toggle",
   "launchpad",
   "recents",
   "products",
-  "off",
 ];
 export const TREE_SEARCH_PLACE_LABELS: Record<TreeSearchPlace, string> = {
+  off: "All products tab only",
+  logo: "Under the logo",
+  toggle: "Icon beside collapse",
   launchpad: "Above Launchpad",
   recents: "Above Recents",
   products: "Above all products",
-  off: "No search",
 };
+
+/**
+ * What the summoned field's dismiss control is.
+ *
+ *  icon    A glyph beside the query's X. Costs no width and says nothing —
+ *          two glyphs a few pixels apart, and the reader has to learn which
+ *          is which.
+ *  cancel  The word, outside the field. Unambiguous against the X, at the
+ *          price of a control that is always taking up room.
+ *  esc     Nothing drawn but a keycap hint. Honest about the shortcut that
+ *          works anyway, and invisible to anyone who does not read hints.
+ *
+ * Escape closes the field under all three — the axis decides what is DRAWN,
+ * never what works.
+ */
+export const PRODUCT_SEARCH_DISMISSES = ["icon", "cancel", "esc"] as const;
+export type ProductSearchDismiss = (typeof PRODUCT_SEARCH_DISMISSES)[number];
+export const PRODUCT_SEARCH_DISMISS_LABELS: Record<
+  ProductSearchDismiss,
+  string
+> = {
+  icon: "Close icon",
+  cancel: "Cancel button",
+  esc: "Esc hint",
+};
+
+/**
+ * How the summoned search arrives — field and list, as one composed move.
+ *
+ * Reworked Nov 16. The first cut animated the FIELD and left the recent
+ * searches to appear under it with no treatment at all, which read as two
+ * unrelated events: a control that arrived, and a list that was suddenly
+ * there. They are one gesture — the column became a search — so the options
+ * here name what BOTH halves do, the way QR_TRANSITIONS names what the menu
+ * and the code do.
+ *
+ *  none      Both at once, no animation.
+ *  together  Both fade, on the same clock. The quietest honest version.
+ *  grow      The field opens from the glyph's width; the list fades in
+ *            behind it, once the field has somewhere to be.
+ *  cascade   The field grows and the rows arrive one after another, which
+ *            is the only option that says the list has ORDER — the most
+ *            recent search first.
+ *  slide     Both drop from above, the list a beat later. Reads as a panel
+ *            arriving rather than as a control transforming.
+ *  blend     Grow, then cascade, then settle. The composed one, and the
+ *            default: it is the only arrangement where the icon visibly
+ *            becomes the field AND the list reads as a list.
+ *
+ * Each option is a PAIR — see SEARCH_REVEAL_PARTS. Keeping the pairing here
+ * rather than in the component is what stops the two halves being tuned
+ * independently into something that no longer looks like one event.
+ */
+export const SEARCH_REVEALS = [
+  "blend",
+  "cascade",
+  "grow",
+  "slide",
+  "together",
+  "none",
+] as const;
+export type SearchReveal = (typeof SEARCH_REVEALS)[number];
+export const SEARCH_REVEAL_LABELS: Record<SearchReveal, string> = {
+  blend: "Grow, cascade, and settle",
+  cascade: "Grow, then cascade",
+  grow: "Grow from the icon",
+  slide: "Slide down",
+  together: "Fade in together",
+  none: "None",
+};
+
+/**
+ * How long the dismissal takes, in ms — the lead the field waits plus its own
+ * duration, as `motion.css` sets them.
+ *
+ * Stated here because a timeout in React and an animation in CSS have to
+ * agree on one number, and two copies of it drift the first time either is
+ * tuned. If the out animation is retimed there, this moves with it.
+ */
+export const SEARCH_OUT_MS = 250;
+
+/** What each option asks of the field and of the list beneath it. */
+export const SEARCH_REVEAL_PARTS: Record<
+  SearchReveal,
+  { field: "grow" | "slide" | "fade" | "none"; list: "cascade" | "fade" | "slide" | "none" }
+> = {
+  blend: { field: "grow", list: "cascade" },
+  cascade: { field: "grow", list: "cascade" },
+  grow: { field: "grow", list: "fade" },
+  slide: { field: "slide", list: "slide" },
+  together: { field: "fade", list: "fade" },
+  none: { field: "none", list: "none" },
+};
+
+/**
+ * What the nav header's own controls do while the search is up.
+ *
+ *  clear   Both go. The glyph has become the field below it, and collapse
+ *          stands down with it.
+ *  toggle  The glyph stays, lit, and presses again to close — a second way
+ *          out, beside the field's own.
+ *
+ * Collapse is disabled under BOTH, and that is not a property of either
+ * option: collapsing onto a search has no way back, because the glyph that
+ * would reopen the field is not drawn at 64px. The axis decides what the
+ * header SHOWS, never what it permits. Ashwin, Nov 16 — the first cut tied
+ * the lock to `clear` alone, which left "keep the toggle lit" offering a
+ * collapse that would strand you.
+ *
+ * `clear` by default. The field carries its own dismiss (see
+ * PRODUCT_SEARCH_DISMISSES), so nothing is lost by taking the glyph away —
+ * there is still exactly one way out, and it is next to the thing it closes.
+ */
+export const SEARCH_HEADER_ICONS = ["clear", "toggle"] as const;
+export type SearchHeaderIcons = (typeof SEARCH_HEADER_ICONS)[number];
+export const SEARCH_HEADER_ICON_LABELS: Record<SearchHeaderIcons, string> = {
+  /*
+   * Named for the SEARCH GLYPH, which is the only thing the axis moves —
+   * "Hide both" and "Keep the toggle lit" both described the collapse
+   * control too, and it behaves identically either way.
+   */
+  clear: "Search icon hides",
+  toggle: "Search icon stays, lit",
+};
+
+/**
+ * WHICH ROW the summoned field lands on. Ashwin, Nov 16.
+ *
+ *  column  Its own row, under the header. The identity stays put and the
+ *          field takes the space the first nav rows were using.
+ *  header  The header row itself. The account name and its chevron give way
+ *          to the field, and the dismiss takes the right edge where the
+ *          collapse control was.
+ *
+ * Only meaningful under `toggle`, because it is the only placement whose
+ * field ARRIVES — the standing ones are part of the column's resting layout
+ * and have no second row to choose between.
+ *
+ * The case for `header`: the glyph that summons the field is already in that
+ * row, so the field opening in place is the gesture completing where it
+ * started rather than something appearing underneath it. It also costs the
+ * column no height at all, which is the whole argument for `toggle` over
+ * `logo` — under `column` the field still pushes the rows down, just later.
+ *
+ * The case against, and why `column` stays the default: the header row is
+ * the one row that says WHERE YOU ARE, and a search that overwrites it
+ * leaves the account unnamed for as long as you are looking. That is a
+ * genuine loss on a screen whose whole subject is which account you are in.
+ *
+ * `header` suppresses the trailing controls entirely while it is up — the
+ * field needs the width, and the dismiss beside it is already the way out.
+ * See SEARCH_HEADER_ICONS, which consequently has nothing to decide here.
+ */
+export const SEARCH_ROWS = ["column", "header"] as const;
+export type SearchRow = (typeof SEARCH_ROWS)[number];
+export const SEARCH_ROW_LABELS: Record<SearchRow, string> = {
+  column: "Its own row, below",
+  header: "In the header row",
+};
+
+/**
+ * Searches the field offers before anything is typed.
+ *
+ * Query STRINGS, not products — the same thing the sub-account search lists,
+ * and for the same reason: what you reach for from an empty field is the
+ * words you typed last time, which are rarely a product's exact name
+ * ("roofing", not "Pinnacle Roofing"). A list of product rows here would be
+ * a second All products list, which is what the field exists to replace.
+ *
+ * Seeded, because a prototype opened fresh has no history and an empty
+ * empty-state demonstrates nothing. These are swapped out by real ones as
+ * soon as anyone searches.
+ */
+export const PRODUCT_SEARCH_SEED: readonly string[] = [
+  "calendar",
+  "invoices",
+  "smart lists",
+  "workflows",
+  "reviews",
+];
+
+/**
+ * How many past searches the resting field offers.
+ *
+ * Six: enough that the list is worth reading, short enough that it does not
+ * become the column. Mirrors RAIL_SEARCH_RECENT_LIMIT, which answers the
+ * same question one surface over.
+ */
+export const PRODUCT_SEARCH_RECENT_LIMIT = 6;
 
 /** Where the trail begins. */
 export type CrumbStart = "group" | "product";
@@ -3743,6 +3968,136 @@ export const NAV_TOUR_WATCH_CUT_LABELS: Record<NavTourWatchCut, string> = {
   full: "Full tour (60–90 s)",
 };
 
+/**
+ * How the coach mark moves between steps.
+ *
+ *  glide  The card stays one object: its text fades, the frame glides and
+ *         resizes to the next target, and the new text fades in.
+ *  fade   It fades out where it is and fades in at the next target. No travel.
+ *  off    It disappears on Next and appears at the next target.
+ *
+ * Ashwin, Nov 16: with the card hidden on Next, the jump read as a glitch.
+ */
+export const NAV_TOUR_MOTIONS = ["glide", "fade", "off"] as const;
+export type NavTourMotion = (typeof NAV_TOUR_MOTIONS)[number];
+
+export const NAV_TOUR_MOTION_LABELS: Record<NavTourMotion, string> = {
+  glide: "Glide",
+  fade: "Fade",
+  off: "Off",
+};
+
+/**
+ * A ring on the control a coach mark is about, for icon-sized targets — a pin,
+ * a drag handle, a hide toggle — where the arrow alone is easy to miss and the
+ * eye stays on the card. Ashwin, Nov 16.
+ *
+ *  gray   A 2px gray outline.
+ *  pulse  A brand-blue outline with a ring that pulses outward.
+ *  fill   A light gray wash over it, like a hover that stays on.
+ *  brand  A solid 2px brand-blue outline, still.
+ */
+export const NAV_TOUR_HIGHLIGHTS = ["off", "gray", "pulse", "fill", "brand"] as const;
+export type NavTourHighlight = (typeof NAV_TOUR_HIGHLIGHTS)[number];
+
+export const NAV_TOUR_HIGHLIGHT_LABELS: Record<NavTourHighlight, string> = {
+  off: "Off",
+  gray: "Gray border",
+  pulse: "Pulse",
+  fill: "Light gray background",
+  brand: "Brand border",
+};
+
+/**
+ * Which coach mark targets get the highlight. `icons` keeps it to icon-sized
+ * controls, where the arrow is easiest to miss; `all` puts it on whatever
+ * every step points at — a category row in the L1, a button, an open panel —
+ * in every flow. Ashwin, Nov 16.
+ */
+export const NAV_TOUR_HIGHLIGHT_SCOPES = ["icons", "all"] as const;
+export type NavTourHighlightScope = (typeof NAV_TOUR_HIGHLIGHT_SCOPES)[number];
+
+export const NAV_TOUR_HIGHLIGHT_SCOPE_LABELS: Record<NavTourHighlightScope, string> = {
+  icons: "Icons only",
+  all: "Every target",
+};
+
+/**
+ * How Editing ends: applying the layout to many sub-accounts.
+ *
+ *  one   One show-only step with a clip of it being done. Nothing opens.
+ *  rail  Two live steps in the sub-account rail: Manage sub-accounts, then
+ *        Apply layout with a couple ticked.
+ *
+ * Ashwin, Nov 16.
+ */
+export const NAV_TOUR_APPLY_STEPS = ["one", "rail"] as const;
+export type NavTourApplySteps = (typeof NAV_TOUR_APPLY_STEPS)[number];
+
+export const NAV_TOUR_APPLY_STEPS_LABELS: Record<NavTourApplySteps, string> = {
+  one: "One step, with a video",
+  rail: "Two steps in the rail",
+};
+
+/**
+ * Which progressive flow runs first, for testing one without walking through
+ * the others to reach it. Get started is what a real first login sees; the
+ * other two start straight away instead of waiting for their moment
+ * (a rail hover, edit mode opening). Ashwin, Nov 16.
+ */
+export const NAV_TOUR_START_FLOWS = ["getStarted", "subAccounts", "editing"] as const;
+export type NavTourStartFlow = (typeof NAV_TOUR_START_FLOWS)[number];
+
+export const NAV_TOUR_START_FLOW_LABELS: Record<NavTourStartFlow, string> = {
+  getStarted: "Get started",
+  subAccounts: "Sub-accounts",
+  editing: "Editing",
+};
+
+/** "Learn about new Sidebar"'s glyph. Ashwin, Nov 16. */
+export const NAV_TOUR_LEARN_ICONS = ["compass", "sparkles", "cap", "bulb"] as const;
+export type NavTourLearnIcon = (typeof NAV_TOUR_LEARN_ICONS)[number];
+
+export const NAV_TOUR_LEARN_ICON_LABELS: Record<NavTourLearnIcon, string> = {
+  compass: "Compass",
+  sparkles: "Sparkles",
+  cap: "Graduation cap",
+  bulb: "Lightbulb",
+};
+
+/**
+ * What clicking "Learn about new Sidebar" does.
+ *
+ *  replay  Plays the tours again, Get started first, the others at their
+ *          moments.
+ *  l2      Opens an L2 with one row per tour; the one picked runs from step 1.
+ *
+ * Ashwin, Nov 16.
+ */
+export const NAV_TOUR_LEARN_OPENS = ["replay", "l2"] as const;
+export type NavTourLearnOpens = (typeof NAV_TOUR_LEARN_OPENS)[number];
+
+export const NAV_TOUR_LEARN_OPENS_LABELS: Record<NavTourLearnOpens, string> = {
+  replay: "Replays the tours",
+  l2: "L2 with the flows",
+};
+
+/**
+ * The coach marks' elevation, on all three: the nav tour, the sub-account
+ * ready tour, and Find and replace.
+ *
+ *  original  What each shipped with.
+ *  strong    A 2-layer xl shadow plus a tight drop shadow, from Ashwin's spec
+ *            (Nov 16).
+ */
+export const NAV_TOUR_SHADOWS = ["original", "strong"] as const;
+export type NavTourShadow = (typeof NAV_TOUR_SHADOWS)[number];
+
+export const NAV_TOUR_SHADOW_LABELS: Record<NavTourShadow, string> = {
+  original: "Original",
+  strong: "Stronger",
+};
+
 /** Where the rotating featured-product slot sits in the L1. See the featured-slot mock, Ashwin, Oct 29. */
 export const NAV_FEATURED_SLOTS = ["below", "top", "card", "off"] as const;
 export type NavFeaturedSlot = (typeof NAV_FEATURED_SLOTS)[number];
@@ -6594,6 +6949,37 @@ export interface ThemeState {
   navTourWatch: NavTourWatch;
   /** Which cut of it plays. See NAV_TOUR_WATCH_CUTS. */
   navTourWatchCut: NavTourWatchCut;
+  /**
+   * Get started's "Search, open" step: Next on Search everything opens ⌘K and
+   * the next card points inside it, rather than flashing it shut. Ashwin, Nov 16.
+   */
+  navTourSearchOpen: boolean;
+  /** The same for Recents › View all: an "All products, open" step. */
+  navTourProductsOpen: boolean;
+  /** The same for Ask AI: its panel stays open for an "Ask AI, open" step. */
+  navTourAskAiOpen: boolean;
+  /** How the card moves between steps. See NAV_TOUR_MOTIONS. */
+  navTourMotion: NavTourMotion;
+  /** The ring on icon-sized targets. See NAV_TOUR_HIGHLIGHTS. */
+  navTourHighlight: NavTourHighlight;
+  /** Which targets get it. See NAV_TOUR_HIGHLIGHT_SCOPES. */
+  navTourHighlightScope: NavTourHighlightScope;
+  /** How Editing shows applying a layout to many. See NAV_TOUR_APPLY_STEPS. */
+  navTourApplySteps: NavTourApplySteps;
+  /** Which progressive flow runs first. See NAV_TOUR_START_FLOWS. */
+  navTourStartFlow: NavTourStartFlow;
+  /** The Learn row's glyph. See NAV_TOUR_LEARN_ICONS. */
+  navTourLearnIcon: NavTourLearnIcon;
+  /** What the Learn row does. See NAV_TOUR_LEARN_OPENS. */
+  navTourLearnOpens: NavTourLearnOpens;
+  /** The coach marks' shadow. See NAV_TOUR_SHADOWS. */
+  navTourShadow: NavTourShadow;
+  /**
+   * "Learn about Switchyard", a standing row under Settings that replays the
+   * tours. It appears once any tour has been closed and stays — planned to
+   * ship for about six months. Ashwin, Nov 16.
+   */
+  navTourLearnRow: boolean;
   navFeaturedSlot: NavFeaturedSlot;
   navFeaturedLabel: NavFeaturedLabel;
   navFeaturedCount: NavFeaturedCount;
@@ -6988,6 +7374,14 @@ export interface ThemeState {
    * the axis exists to let someone look at.
    */
   treeSearchPlace: TreeSearchPlace;
+  /** What dismisses the summoned product search. See PRODUCT_SEARCH_DISMISSES. */
+  productSearchDismiss: ProductSearchDismiss;
+  /** The header's controls while searching. See SEARCH_HEADER_ICONS. */
+  searchHeaderIcons: SearchHeaderIcons;
+  /** Which row the summoned field lands on. See SEARCH_ROWS. */
+  searchRow: SearchRow;
+  /** How the summoned field arrives. See SEARCH_REVEALS. */
+  searchReveal: SearchReveal;
 
   /* ── the trail's own axes (Sep 22 round two) ──────────────────────────── */
 
@@ -7808,6 +8202,18 @@ export const DEFAULT_THEME: ThemeState = {
   navTourRestart: "off",
   navTourWatch: "off",
   navTourWatchCut: "highlights",
+  navTourSearchOpen: true,
+  navTourProductsOpen: true,
+  navTourAskAiOpen: true,
+  navTourMotion: "fade",
+  navTourHighlight: "gray",
+  navTourHighlightScope: "icons",
+  navTourApplySteps: "one",
+  navTourStartFlow: "getStarted",
+  navTourLearnIcon: "compass",
+  navTourLearnOpens: "replay",
+  navTourShadow: "original",
+  navTourLearnRow: true,
   navFeaturedSlot: "off",
   navFeaturedLabel: "nameNew",
   navFeaturedCount: "3",
@@ -8397,7 +8803,27 @@ export const DEFAULT_THEME: ThemeState = {
   navTreeCounts: false,
   treeIcons: "all",
   treeRecentsAllProducts: false,
-  treeSearchPlace: "launchpad",
+  /*
+   * "All products tab only" — where the search is today, so the dial opens
+   * on the current state rather than on a proposal. Ashwin, Nov 16.
+   *
+   * It was `launchpad`, which is a TREE position: in every other
+   * arrangement the control filtered it out of its own options and the
+   * segmented showed nothing selected at all.
+   */
+  treeSearchPlace: "off",
+  /*
+   * The X, not the word. Ashwin, Nov 16.
+   *
+   * Both end the search; the glyph does it in 36px instead of ~80, and in a
+   * 272px column that width is the difference between a field you can read
+   * your query in and one you cannot. The worded version stays on the dial
+   * for the case where the gesture needs spelling out.
+   */
+  productSearchDismiss: "icon",
+  searchHeaderIcons: "clear",
+  searchRow: "column",
+  searchReveal: "blend",
   crumbEmphasis: "off",
   crumbScale: "default",
   crumbIcons: "home",

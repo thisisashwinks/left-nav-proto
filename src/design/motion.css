@@ -1486,3 +1486,253 @@
     animation: none;
   }
 }
+
+/*
+ * The coach mark's pulse highlight: a brand ring easing outward from the
+ * control the card is about. See NAV_TOUR_HIGHLIGHTS. Ashwin, Nov 16.
+ */
+@keyframes nav-tour-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--hr-primary-600) 45%, transparent); }
+  70% { box-shadow: 0 0 0 8px color-mix(in oklab, var(--hr-primary-600) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--hr-primary-600) 0%, transparent); }
+}
+.motion-tour-pulse {
+  animation: nav-tour-pulse 1.5s var(--ease-out) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .motion-tour-pulse { animation: none; }
+}
+
+/*
+ * The summoned product search arriving. See SEARCH_REVEALS.
+ *
+ * Two halves, named separately and paired in the theme: the FIELD, and the
+ * list of recent searches under it. The first cut animated only the field,
+ * which read as two unrelated events — a control that arrived and a list
+ * that was suddenly there. They are one gesture, so both move, and the list
+ * is held back a beat so the field has somewhere to be before anything
+ * fills it.
+ */
+
+/* ---- the field ---- */
+
+@keyframes search-grow {
+  from {
+    clip-path: inset(0 calc(100% - 26px) 0 0 round 9px);
+    opacity: 0.4;
+  }
+  to {
+    clip-path: inset(0 0 0 0 round 9px);
+    opacity: 1;
+  }
+}
+.motion-search-field-grow {
+  animation: search-grow var(--dur-base) var(--ease-out) both;
+}
+
+@keyframes search-slide {
+  from {
+    transform: translateY(-8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.motion-search-field-slide {
+  animation: search-slide var(--dur-fast) var(--ease-out) both;
+}
+
+@keyframes search-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.motion-search-field-fade {
+  animation: search-fade var(--dur-fast) var(--ease-out) both;
+}
+
+/* ---- the recent searches under it ---- */
+
+/*
+ * The lead-in every list treatment waits out: roughly the field's own
+ * duration, so nothing arrives into a space that is still opening.
+ */
+:root {
+  --search-list-lead: 140ms;
+  /* Between one row and the next. Small — six rows at 90 would take half a
+     second, and a list you wait for is a list you stop reading. */
+  --search-list-step: 36ms;
+}
+
+.motion-search-list-fade {
+  animation: search-fade var(--dur-fast) var(--ease-out) var(--search-list-lead)
+    both;
+}
+
+.motion-search-list-slide {
+  animation: search-slide var(--dur-fast) var(--ease-out)
+    var(--search-list-lead) both;
+}
+
+/*
+ * Cascade: each row on the one before it.
+ *
+ * The only treatment that says the list has ORDER, which it does — most
+ * recent first. `--row` is set per row by the component; the heading rides
+ * at index 0 so the label leads its own list rather than appearing after it.
+ */
+@keyframes search-row-in {
+  from {
+    transform: translateY(-4px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.motion-search-list-cascade > * {
+  animation: search-row-in var(--dur-fast) var(--ease-out) both;
+  animation-delay: calc(
+    var(--search-list-lead) + var(--row, 0) * var(--search-list-step)
+  );
+}
+
+/* ---- and the same move, backwards ---- */
+
+/*
+ * Dismissing replays the arrival in reverse: the list leaves first, last row
+ * first, and then the field closes back toward the glyph it came from.
+ * Ashwin, Nov 16.
+ *
+ * Reverse ORDER, not just reverse direction. If the rows left top-first the
+ * exit would read as a second, unrelated animation that happened to go the
+ * other way; leaving bottom-first makes the whole thing look like the
+ * arrival rewound, which is what "put this away" means.
+ *
+ * Quicker than the entrance throughout. An arrival is worth watching because
+ * something is about to be useful; a dismissal is over as far as the reader
+ * is concerned, and the only job left is to not vanish.
+ */
+:root {
+  /* One row to the next on the way out. Tighter than the entrance's 36. */
+  --search-out-step: 22ms;
+  /* What the field waits for before it closes: the list, roughly. */
+  --search-out-lead: 110ms;
+}
+
+@keyframes search-row-out {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-4px);
+    opacity: 0;
+  }
+}
+.motion-search-list-cascade-out > *,
+.motion-search-list-fade-out > *,
+.motion-search-list-slide-out > * {
+  animation: search-row-out var(--dur-press) var(--ease-out) both;
+  /*
+    `--row` is handed back as the REVERSE index while closing, so the same
+    variable drives both directions and the two can never disagree about
+    which row is which.
+  */
+  animation-delay: calc(var(--row, 0) * var(--search-out-step));
+}
+
+/*
+ * The same cascade, applied PER ROW rather than to a parent.
+ *
+ * The sub-account rail draws its recent searches as direct children of the
+ * scrolling column, between the agency row above and the accounts below —
+ * so there is no wrapper to hang `.motion-search-list-*` on, and adding one
+ * would put a new box in the middle of a run whose spacing is measured.
+ * Each row carries its own index instead and the effect is identical.
+ */
+.motion-search-row {
+  animation: search-row-in var(--dur-fast) var(--ease-out) both;
+  animation-delay: calc(
+    var(--search-list-lead) + var(--row, 0) * var(--search-list-step)
+  );
+}
+.motion-search-row-fade {
+  animation: search-fade var(--dur-fast) var(--ease-out)
+    var(--search-list-lead) both;
+}
+.motion-search-row-slide {
+  animation: search-slide var(--dur-fast) var(--ease-out)
+    calc(var(--search-list-lead) + var(--row, 0) * var(--search-list-step))
+    both;
+}
+
+@keyframes search-shrink {
+  from {
+    clip-path: inset(0 0 0 0 round 9px);
+    opacity: 1;
+  }
+  to {
+    clip-path: inset(0 calc(100% - 26px) 0 0 round 9px);
+    opacity: 0.4;
+  }
+}
+.motion-search-field-grow-out {
+  animation: search-shrink var(--dur-fast) var(--ease-out)
+    var(--search-out-lead) both;
+}
+
+@keyframes search-slide-out {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-8px);
+    opacity: 0;
+  }
+}
+.motion-search-field-slide-out {
+  animation: search-slide-out var(--dur-fast) var(--ease-out)
+    var(--search-out-lead) both;
+}
+
+@keyframes search-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.motion-search-field-fade-out {
+  animation: search-fade-out var(--dur-fast) var(--ease-out)
+    var(--search-out-lead) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-search-field-grow,
+  .motion-search-field-slide,
+  .motion-search-field-fade,
+  .motion-search-list-fade,
+  .motion-search-list-slide,
+  .motion-search-list-cascade > *,
+  .motion-search-field-grow-out,
+  .motion-search-field-slide-out,
+  .motion-search-field-fade-out,
+  .motion-search-list-cascade-out > *,
+  .motion-search-list-fade-out > *,
+  .motion-search-list-slide-out > *,
+  .motion-search-row,
+  .motion-search-row-fade,
+  .motion-search-row-slide {
+    animation-duration: 1ms;
+    animation-delay: 0ms;
+  }
+}

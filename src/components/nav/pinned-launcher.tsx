@@ -53,6 +53,7 @@ import { ComposedIcon } from "./composed-icon";
 import { agencyL3Id, agencyPlaces } from "./agency-config";
 import { useAgencyLayout } from "./agency-layout";
 import { useNavLayout } from "./nav-layout-provider";
+import { useProgressiveTours } from "./nav-tour";
 import {
   agencyRecentPlaceIds,
   recentIdsFor,
@@ -464,7 +465,13 @@ export function PinnedLauncher({
    * two has nothing left to separate.
    */
   const pinnedAboveTabs = tabbed && recentsPanelLayout === "pinned-first";
-  const { panelTabPlace, panelTabStyle, panelOpenTab } = useTheme().effective;
+  const {
+    panelTabPlace,
+    panelTabStyle,
+    panelOpenTab,
+    /* The same dial the sidebar search reads — see the field below. */
+    productSearchDismiss,
+  } = useTheme().effective;
   /*
    * The switcher, built once and placed twice.
    *
@@ -534,7 +541,15 @@ export function PinnedLauncher({
    * while the panel is up therefore does nothing until it is reopened, which
    * is correct — it is a question about opening.
    */
-  const [tab, setTab] = React.useState<"recent" | "directory">(panelOpenTab);
+  /*
+   * With the progressive flows on, View all opens on All products whatever
+   * the axis says: Get started's "Find any product" step teaches View all as
+   * the way to the product search, so the door has to land on it.
+   * Ashwin, Nov 16.
+   */
+  const toursOn = useProgressiveTours();
+  const openTab = toursOn ? "directory" : panelOpenTab;
+  const [tab, setTab] = React.useState<"recent" | "directory">(openTab);
   // The tab pattern's wiring: each tab names the body it controls, and the
   // body names the tab that is showing it.
   const tabsId = React.useId();
@@ -557,7 +572,7 @@ export function PinnedLauncher({
   const [openedAs, setOpenedAs] = React.useState(phase);
   if (openedAs !== phase) {
     setOpenedAs(phase);
-    if (phase === "entering" && tab !== panelOpenTab) setTab(panelOpenTab);
+    if (phase === "entering" && tab !== openTab) setTab(openTab);
   }
   /**
    * Whether the stacked layout's combined list is showing all of itself.
@@ -1355,11 +1370,18 @@ export function PinnedLauncher({
               since it shipped, and these are the same control in two panels —
               a search over a list, docked under a switcher. Ashwin, Oct 6.
 
-              36px rather than the directory's 34: that one sits in an 8px
-              gutter and this one in a 14px, so matching the number would have
-              made the taller inset look like a shorter field.
+              32px, with the sidebar's field and every dismiss beside it.
+              Ashwin, Nov 16 — the search is one control wherever you reach
+              it, so it carries one height, and the surface it is docked in
+              does not get a vote.
+
+              What this replaces was an optical argument: 36 against the
+              directory's 34, on the grounds that a 14px gutter makes a field
+              read shorter than the same field in an 8px one. That effect is
+              real but small, and it was buying local rightness at the cost
+              of three numbers for one control.
             */
-            "motion-tap mx-[14px] flex h-[36px] w-[calc(100%-28px)] shrink-0 items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]",
+            "motion-tap mx-[14px] flex h-[32px] w-[calc(100%-28px)] shrink-0 items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]",
             /*
               2px under a HEADER, 10px under the switcher.
 
@@ -1516,7 +1538,7 @@ export function PinnedLauncher({
                     />
                   ))
                 ) : (
-                  <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
+                  <p className="w-full px-[2px] pt-[6px] pb-[10px] text-[13px] leading-[18px] text-nav-fg-subtle">
                     {tab === "recent"
                       ? `Nothing in ${recentLabel.toLowerCase()} matches “${query}”`
                       : `No products match “${query}”`}
@@ -1549,7 +1571,7 @@ export function PinnedLauncher({
                     );
                   })
                 ) : (
-                  <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
+                  <p className="w-full px-[2px] pt-[6px] pb-[10px] text-[13px] leading-[18px] text-nav-fg-subtle">
                     Nothing here yet. Products you open show up in this list.
                   </p>
                 )
@@ -1615,22 +1637,92 @@ export function PinnedLauncher({
                 ) : null}
 
                 <SectionHeading divider>All products</SectionHeading>
-                {/* The same field as the tabbed layout's — see the note there. */}
-                <div className="motion-tap mt-[2px] mb-[6px] flex h-[36px] w-full shrink-0 items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">
-                  <Search
-                    size={15}
-                    aria-hidden="true"
-                    className="shrink-0 text-nav-fg-subtle"
-                  />
-                  <input
-                    ref={inputRef}
-                    type="search"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search products"
-                    aria-label="Search products"
-                    className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg placeholder:text-nav-fg-subtle focus:outline-none [&::-webkit-search-cancel-button]:hidden"
-                  />
+                {/*
+                  The panel's own field, now carrying the same two controls
+                  the sidebar's does. Ashwin, Nov 16.
+                  
+                  It had neither: no X to empty the query and no way back to
+                  the tree except deleting what you typed a character at a
+                  time. The sidebar search grew both, and leaving this one
+                  behind would have made the SAME search over the SAME
+                  catalogue behave differently depending on which surface you
+                  reached it from. `productSearchDismiss` drives both, so the
+                  dial moves them together.
+                */}
+                <div className="mt-[2px] mb-[6px] flex w-full shrink-0 items-center gap-[8px]">
+                  <div className="motion-tap flex h-[32px] min-w-0 flex-1 items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--nav-field-border)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]">
+                    <Search
+                      size={15}
+                      aria-hidden="true"
+                      className="shrink-0 text-nav-fg-subtle"
+                    />
+                    <input
+                      ref={inputRef}
+                      type="search"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      /*
+                        One press clears; a second is left to the panel,
+                        which closes on Escape like every other overlay.
+                        Same two stages the sidebar's field has — see the
+                        note there — reached by letting the second press
+                        through rather than by handling it here.
+                      */
+                      onKeyDown={(e) => {
+                        if (e.key !== "Escape" || !query) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setQuery("");
+                      }}
+                      placeholder="Search products"
+                      aria-label="Search products"
+                      className="min-w-0 flex-1 bg-transparent text-[13px] leading-[normal] text-nav-fg placeholder:text-nav-fg-subtle focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+                    />
+                    {query.length > 0 ? (
+                      <button
+                        type="button"
+                        aria-label="Clear search"
+                        onClick={() => setQuery("")}
+                        className="motion-tap flex size-[18px] shrink-0 items-center justify-center rounded-full text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg active:scale-95"
+                      >
+                        <X size={13} aria-hidden="true" />
+                      </button>
+                    ) : null}
+                    {productSearchDismiss === "esc" && query.length > 0 ? (
+                      <span
+                        aria-hidden="true"
+                        className="shrink-0 rounded-[4px] px-[5px] py-[2px] text-[10.5px] leading-none font-medium text-nav-fg-subtle shadow-[inset_0_0_0_1px_var(--fly-border)]"
+                      >
+                        esc
+                      </span>
+                    ) : null}
+                  </div>
+                  {/*
+                    Beside the field, and only once there is a search to end.
+                    Standing there over an empty field it would be a control
+                    that undoes nothing — the panel has its own close.
+                  */}
+                  {query.length > 0 && productSearchDismiss !== "esc" ? (
+                    productSearchDismiss === "cancel" ? (
+                      <button
+                        type="button"
+                        onClick={() => setQuery("")}
+                        className="motion-tap h-[32px] shrink-0 rounded-[9px] px-[12px] text-[13px] leading-none font-medium text-nav-fg-subtle shadow-[inset_0_0_0_1px_var(--nav-field-border)] hover:bg-nav-hover hover:text-nav-fg active:scale-[0.98]"
+                      >
+                        Cancel
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        aria-label="Close search"
+                        title="Close search"
+                        onClick={() => setQuery("")}
+                        className="motion-tap flex size-[32px] shrink-0 items-center justify-center rounded-[9px] text-nav-fg-subtle shadow-[inset_0_0_0_1px_var(--nav-field-border)] hover:bg-nav-hover hover:text-nav-fg active:scale-[0.98]"
+                      >
+                        <X size={16} aria-hidden="true" />
+                      </button>
+                    )
+                  ) : null}
                 </div>
                 {searching ? (
                   hits.length > 0 ? (
@@ -1645,7 +1737,7 @@ export function PinnedLauncher({
                       />
                     ))
                   ) : (
-                    <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
+                    <p className="w-full px-[2px] pt-[6px] pb-[10px] text-[13px] leading-[18px] text-nav-fg-subtle">
                       No products match “{query}”
                     </p>
                   )
@@ -1669,7 +1761,7 @@ export function PinnedLauncher({
                   />
                 ))
               ) : (
-                <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
+                <p className="w-full px-[2px] pt-[6px] pb-[10px] text-[13px] leading-[18px] text-nav-fg-subtle">
                   No products match “{query}”
                 </p>
               )
@@ -2376,7 +2468,7 @@ function AgencyPanelBody({
   if (searching) {
     if (hitIds.length === 0) {
       return (
-        <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
+        <p className="w-full px-[2px] pt-[6px] pb-[10px] text-[13px] leading-[18px] text-nav-fg-subtle">
           Nothing matches “{query}”
         </p>
       );
@@ -2448,7 +2540,7 @@ function AgencyPanelBody({
             />
           ))
         ) : (
-          <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
+          <p className="w-full px-[2px] pt-[6px] pb-[10px] text-[13px] leading-[18px] text-nav-fg-subtle">
             Nothing visited yet.
           </p>
         )

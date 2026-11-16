@@ -9,7 +9,12 @@ import { RailTooltip } from "./rail-tooltip";
  * Why the nav will not collapse right now. Shared by every control that can
  * collapse it, so they all refuse in the same words.
  */
-export const COLLAPSE_LOCKED_HINT = "Finish editing to collapse";
+/*
+ * Said while the control is inert, and it has to cover both reasons now:
+ * an edit session in progress, and a search that would have no way back at
+ * 64px. "Finish editing" was a lie in the second case. Ashwin, Nov 16.
+ */
+export const COLLAPSE_LOCKED_HINT = "Finish up to collapse";
 
 interface CollapseToggleProps {
   collapsed: boolean;

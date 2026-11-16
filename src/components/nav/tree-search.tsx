@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Search, X } from "lucide-react";
+import { ArrowUpRight, History, Search, X } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { announce } from "@/lib/a11y";
 import { cn } from "@/lib/utils";
+import type { ProductSearchDismiss } from "@/design/theme";
 import type { TreeNode } from "./product-tree";
 
 /**
@@ -20,7 +22,7 @@ import type { TreeNode } from "./product-tree";
  * to the shell's global search — everything the account has, records included —
  * and a second control with the same shape doing something much smaller is how
  * people learn not to trust either. This is the launcher's OWN "Search
- * products" field, kept at the same 36px/9px/inset-ring shape, because it
+ * products" field, kept at the same 32px/9px/inset-ring shape, because it
  * searches the same corpus the launcher's copy did.
  *
  * Nothing here is imported at render time with the axis off — `left-nav.tsx`
@@ -155,11 +157,34 @@ export function countTreeHits(
 export function TreeSearchField({
   query,
   onQuery,
+  onClose,
+  dismiss = "icon",
+  autoFocus = false,
   resultCount,
   className,
 }: {
   query: string;
   onQuery: (next: string) => void;
+  /**
+   * Put the field away, where it was summoned rather than standing.
+   *
+   * Absent for the placements that are always there — those have nothing to
+   * dismiss, and an inert second X beside the live one would be two controls
+   * for one gesture. See TreeSearchPlace.
+   */
+  onClose?: () => void;
+  /** Which dismiss affordance is drawn. See PRODUCT_SEARCH_DISMISSES. */
+  dismiss?: ProductSearchDismiss;
+  /**
+   * Take the caret on mount.
+   *
+   * True only where the field was SUMMONED. Pressing a glyph to search and
+   * then having to click the thing you just conjured is the gesture failing
+   * halfway. A standing field does not take focus, for the opposite reason:
+   * it is there on every page load, and stealing the caret would mean
+   * arriving in the nav unable to type anywhere else.
+   */
+  autoFocus?: boolean;
   /** What the query found, said aloud once typing settles. */
   resultCount?: number | null;
   className?: string;
@@ -177,18 +202,70 @@ export function TreeSearchField({
     );
     return () => window.clearTimeout(t);
   }, [query, resultCount]);
-  return (
+  const field = (
     <div
       className={cn(
-        "flex h-[36px] w-full shrink-0 items-center gap-[9px] rounded-[9px] px-[10px] shadow-[inset_0_0_0_1px_var(--nav-divider)] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]",
-        className,
+        "flex h-[32px] items-center gap-[9px] rounded-[9px] px-[10px] shadow-[inset_0_0_0_1px_var(--nav-field-border)] focus-within:shadow-[inset_0_0_0_1px_var(--brand)]",
+        /*
+          The field gives way to the control beside it.
+          
+          `w-full shrink-0` is right when the field IS the row, and actively
+          harmful once something shares that row: 100% of the width plus a
+          button that cannot be shrunk pushes the button past the nav's edge,
+          where it is clipped. It was in the DOM the whole time — which is
+          why checking for its presence kept saying it was fine — and never
+          once on screen. Ashwin had to report it three times. Nov 16.
+        */
+        onClose && dismiss !== "esc"
+          ? "min-w-0 flex-1"
+          : "w-full shrink-0",
+        /*
+          The caller's spacing belongs to whichever box is the outermost
+          one. Applied here AND on the wrapper below, a `my-[4px]` was
+          counted twice and the field sat 8px down instead of 4 — which is
+          most of why it did not line up with the canvas. Ashwin, Nov 16.
+        */
+        onClose && dismiss !== "esc" ? null : className,
       )}
     >
       <Search size={16} aria-hidden="true" className="shrink-0 text-nav-fg-subtle" />
       <input
         type="search"
+        // eslint-disable-next-line jsx-a11y/no-autofocus -- summoned, see above
+        autoFocus={autoFocus}
         value={query}
         onChange={(e) => onQuery(e.target.value)}
+        /*
+         * Escape, in two stages: clear, then close. Ashwin, Nov 16.
+         *
+         * One press with text in the field empties it; a second, on an empty
+         * field, puts the search away. That is the order the two undos
+         * actually come in — you far more often want to retype than to leave
+         * — and it is the same pair of outcomes the two drawn controls give,
+         * so the keyboard tells the same story the pointer does instead of
+         * being a shortcut for only half of it.
+         *
+         * Both stages work under every dismiss variant. The axis decides what
+         * is DRAWN, never what works: a shortcut that only exists while its
+         * own hint is on screen is a shortcut nobody can rely on.
+         *
+         * `stopPropagation` because the shell listens for Escape too. Without
+         * it the first press would clear the field AND shut whatever is open
+         * behind it, which is one gesture doing two people's jobs.
+         */
+        onKeyDown={(e) => {
+          if (e.key !== "Escape") return;
+          if (query.length > 0) {
+            e.preventDefault();
+            e.stopPropagation();
+            onQuery("");
+            return;
+          }
+          if (!onClose) return;
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+        }}
         /*
          * Says what it searches, because it does not search everything.
          *
@@ -212,6 +289,61 @@ export function TreeSearchField({
       ) : null}
     </div>
   );
+
+  /*
+   * The dismiss sits OUTSIDE the field, whichever form it takes.
+   * Ashwin, Nov 16: "Why is there a collapse icon inside the search?"
+   *
+   * Inside, it was a second glyph sharing a corner with the X and reading as
+   * part of the input — a control that ENDS the search looked like one more
+   * thing acting on the text. Out here the two scopes are plain: what is in
+   * the box acts on what you typed, what is beside it acts on the box.
+   *
+   * `esc` draws nothing beside the field, so there is nothing to wrap.
+   */
+  if (!onClose || dismiss === "esc") return field;
+  return (
+    /*
+      The worded variant, beside the field rather than inside it.
+
+      In the box it would be a second control competing with the X for the
+      same corner; out here it is plainly a different thing acting on a
+      different scope — the field, not the text.
+    */
+    <div className={cn("flex w-full items-center gap-[8px]", className)}>
+      {field}
+      {dismiss === "cancel" ? (
+        <button
+          type="button"
+          onClick={onClose}
+          /*
+            A hairline, the field's own. Ashwin, Nov 16.
+            
+            Bare, it read as a link that had wandered out of a paragraph —
+            the one control on the row with no edge, sitting next to a boxed
+            field. The two are a pair acting on the same thing, so they wear
+            the same border and the same radius and the same height; what
+            differs between them is what is inside, which is the only thing
+            that should.
+          */
+          className="motion-tap h-[32px] shrink-0 rounded-[9px] px-[12px] text-[13px] leading-none font-medium text-nav-fg-subtle shadow-[inset_0_0_0_1px_var(--nav-field-border)] hover:bg-nav-hover hover:text-nav-fg active:scale-[0.98]"
+        >
+          Cancel
+        </button>
+      ) : (
+        <button
+          type="button"
+          aria-label="Close search"
+          title="Close search"
+          onClick={onClose}
+          /* The same edge the worded variant wears, for the same reason. */
+          className="motion-tap flex size-[32px] shrink-0 items-center justify-center rounded-[9px] text-nav-fg-subtle shadow-[inset_0_0_0_1px_var(--nav-field-border)] hover:bg-nav-hover hover:text-nav-fg active:scale-[0.98]"
+        >
+          <X size={16} aria-hidden="true" />
+        </button>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -223,11 +355,196 @@ export function TreeSearchField({
  * completely different in the two cases. Quotes the query back for the same
  * reason the launcher's own miss does: it is usually a typo, and seeing it
  * spelled out is faster than re-reading the field.
+ *
+ * 6 above and 10 below, not 14 both ways. Ashwin, Nov 16: the gap read as a
+ * list that had loaded and come back empty rather than as an answer to the
+ * field above it. A miss is the field SPEAKING, so it sits close enough to
+ * be read as its reply — the asymmetry is the same one a caption under an
+ * image takes, and for the same reason.
+ *
+ * The same figures everywhere this message appears, which is four places:
+ * the sidebar search, the column search's own list, and both halves of the
+ * All products panel.
  */
 export function TreeSearchEmpty({ query }: { query: string }) {
   return (
-    <p className="w-full px-[2px] py-[14px] text-[13px] text-nav-fg-subtle">
+    <p className="w-full px-[2px] pt-[6px] pb-[10px] text-[13px] leading-[18px] text-nav-fg-subtle">
       No products match “{query}”
     </p>
+  );
+}
+
+/**
+ * What the summoned field shows before anything is typed.
+ *
+ * Only the `toggle` placement has this state. Pressing its glyph takes the
+ * column away — that is the whole gesture — and an empty field over an empty
+ * column reads as a nav that has broken rather than one waiting for a query.
+ * So the space the rows left is given to the searches already made.
+ *
+ * The TERMS, not the products they found. A list of product rows here would
+ * be a second All products list, which is the thing the field exists to save
+ * you from — and it is not what anyone reaches for anyway: the words you
+ * typed last time are rarely a product's exact name. The sub-account search
+ * one column over shows the same thing, and this mirrors it down to the
+ * clock and the arrow.
+ *
+ * No explanatory line. The heading and five terms say what this is; a
+ * sentence under them would be the surface apologising for itself.
+ */
+export function ProductSearchResting({
+  terms,
+  reveal = "none",
+  closing = false,
+  onPick,
+}: {
+  terms: readonly string[];
+  /**
+   * How the list arrives, as the other half of the field's own entrance.
+   * See SEARCH_REVEALS — the pairing lives in the theme so the two halves
+   * cannot be tuned into something that stops reading as one event.
+   */
+  reveal?: "cascade" | "fade" | "slide" | "none";
+  /**
+   * On the way out, which runs the arrival backwards.
+   *
+   * The rows take their REVERSE index while this is true, so the last row
+   * leaves first and the whole thing reads as the entrance rewound rather
+   * than as a second animation that happens to go the other way.
+   */
+  closing?: boolean;
+  onPick: (term: string) => void;
+}) {
+  if (terms.length === 0) return null;
+  return (
+    <div
+      className={cn(
+        "flex w-full flex-col gap-[2px] py-[6px]",
+        reveal !== "none" &&
+          (closing
+            ? `motion-search-list-${reveal}-out`
+            : `motion-search-list-${reveal}`),
+      )}
+    >
+      {/*
+        The heading rides at index 0, so the label leads its own list rather
+        than arriving after the rows it describes.
+      */}
+      <span
+        /* Leads on the way in, and is last out — index 0 either way. */
+        style={
+          { "--row": closing ? terms.length : 0 } as React.CSSProperties
+        }
+        className="px-[8px] pb-[4px] text-[11px] leading-[14px] font-semibold tracking-[0.04em] text-nav-fg-subtle uppercase"
+      >
+        Recent searches
+      </span>
+      {terms.map((term, i) => (
+        <button
+          key={term}
+          type="button"
+          /* Its place in the cascade. Ignored by every other treatment. */
+          style={
+            {
+              "--row": closing ? terms.length - 1 - i : i + 1,
+            } as React.CSSProperties
+          }
+          onClick={() => onPick(term)}
+          aria-label={`Search for ${term}`}
+          className="motion-tap group/term flex h-[34px] w-full items-center gap-[10px] rounded-[7px] px-[8px] text-left text-[13px] leading-[normal] text-nav-fg hover:bg-nav-hover"
+        >
+          <History
+            size={15}
+            aria-hidden="true"
+            className="shrink-0 text-nav-fg-subtle"
+          />
+          <span className="min-w-0 flex-1 truncate">{term}</span>
+          {/*
+            The arrow says the row RE-RUNS the search rather than opening a
+            product — the same promise the sub-account list makes with it.
+          */}
+          <ArrowUpRight
+            size={15}
+            aria-hidden="true"
+            className="shrink-0 text-nav-fg-subtle"
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** One hit, as the flat result list draws it. */
+export interface ProductHit {
+  id: string;
+  label: string;
+  /** The row above it in the tree — "CRM" under "Calendars". */
+  parent: string | null;
+  icon?: LucideIcon;
+}
+
+/**
+ * The results, as a flat list with each hit's home under it.
+ *
+ * The shape Ashwin asked for on Nov 16, and the shape the All products tab
+ * already uses — which is the argument for it: the two are the same search
+ * over the same catalogue, and showing one of them as a filtered tree and
+ * the other as a list made them read as different features.
+ *
+ * Flat, not a pruned tree, because a pruned tree answers the wrong question.
+ * Filtering the column leaves the CATEGORIES that contain a match — type
+ * "cal" and you are shown CRM, which is where Calendars lives but is not
+ * what you asked for. The thing you are looking for should be the thing in
+ * the list, and where it lives is the caption that tells you where it went.
+ * That caption is the whole point here: these are people who cannot find a
+ * product because it MOVED, so naming its new home is the answer, not a
+ * detail.
+ */
+export function ProductSearchResults({
+  hits,
+  query,
+  onPick,
+}: {
+  hits: readonly ProductHit[];
+  query: string;
+  onPick: (id: string) => void;
+}) {
+  if (hits.length === 0) return <TreeSearchEmpty query={query} />;
+  return (
+    <div className="flex w-full flex-col gap-[2px]">
+      {hits.map((hit) => (
+        <button
+          key={hit.id}
+          type="button"
+          onClick={() => onPick(hit.id)}
+          className="motion-tap flex w-full items-center gap-[10px] rounded-[7px] px-[8px] py-[6px] text-left hover:bg-nav-hover"
+        >
+          {hit.icon ? (
+            <hit.icon
+              size={16}
+              aria-hidden="true"
+              className="shrink-0 text-nav-fg-muted"
+            />
+          ) : (
+            <span aria-hidden="true" className="size-[16px] shrink-0" />
+          )}
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-[13.5px] leading-[18px] text-nav-fg">
+              {hit.label}
+            </span>
+            {/*
+              The home, and only where there is one. A top-level product has
+              no parent to name, and an empty second line would make every
+              such row a different height from its neighbours.
+            */}
+            {hit.parent ? (
+              <span className="truncate text-[12px] leading-[16px] text-nav-fg-subtle">
+                {hit.parent}
+              </span>
+            ) : null}
+          </span>
+        </button>
+      ))}
+    </div>
   );
 }

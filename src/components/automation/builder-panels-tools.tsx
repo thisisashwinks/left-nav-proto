@@ -615,7 +615,13 @@ function FindTour({
         aria-modal="false"
         aria-labelledby="find-tour-title"
         style={{ visibility: "hidden" }}
-        className="motion-slot-in pointer-events-auto absolute flex flex-col gap-[12px] rounded-[12px] bg-pg-surface p-[16px] shadow-[0_20px_24px_-4px_rgba(16,24,40,0.08),0_8px_8px_-4px_rgba(16,24,40,0.03),inset_0_0_0_1px_var(--pg-border)]"
+        className={cn(
+          "motion-slot-in pointer-events-auto absolute flex flex-col gap-[12px] rounded-[12px] bg-pg-surface p-[16px]",
+          // See NAV_TOUR_SHADOWS.
+          effective.navTourShadow === "strong"
+            ? "shadow-[0px_20px_24px_-4px_rgba(16,24,40,0.16),0px_8px_8px_-4px_rgba(16,24,40,0.08),inset_0_0_0_1px_var(--pg-border)] drop-shadow-[0px_2px_4px_rgba(16,24,40,0.10)]"
+            : "shadow-[0_20px_24px_-4px_rgba(16,24,40,0.08),0_8px_8px_-4px_rgba(16,24,40,0.03),inset_0_0_0_1px_var(--pg-border)]",
+        )}
       >
         <span
           ref={caretRef}

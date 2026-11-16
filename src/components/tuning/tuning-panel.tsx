@@ -24,6 +24,14 @@ import {
   CRUMB_START_LABELS,
   CRUMB_STARTS,
   TREE_SEARCH_PLACE_LABELS,
+  PRODUCT_SEARCH_DISMISSES,
+  PRODUCT_SEARCH_DISMISS_LABELS,
+  SEARCH_HEADER_ICONS,
+  SEARCH_ROWS,
+  SEARCH_ROW_LABELS,
+  SEARCH_HEADER_ICON_LABELS,
+  SEARCH_REVEALS,
+  SEARCH_REVEAL_LABELS,
   TREE_SEARCH_PLACES,
   CRUMB_EMPHASES,
   NAV_ARRANGEMENTS,
@@ -146,6 +154,22 @@ import {
   NAV_TOUR_WATCH_LABELS,
   NAV_TOUR_WATCH_CUTS,
   NAV_TOUR_WATCH_CUT_LABELS,
+  NAV_TOUR_MOTIONS,
+  NAV_TOUR_MOTION_LABELS,
+  NAV_TOUR_HIGHLIGHTS,
+  NAV_TOUR_HIGHLIGHT_LABELS,
+  NAV_TOUR_HIGHLIGHT_SCOPES,
+  NAV_TOUR_HIGHLIGHT_SCOPE_LABELS,
+  NAV_TOUR_APPLY_STEPS,
+  NAV_TOUR_APPLY_STEPS_LABELS,
+  NAV_TOUR_START_FLOWS,
+  NAV_TOUR_START_FLOW_LABELS,
+  NAV_TOUR_LEARN_ICONS,
+  NAV_TOUR_LEARN_ICON_LABELS,
+  NAV_TOUR_LEARN_OPENS,
+  NAV_TOUR_LEARN_OPENS_LABELS,
+  NAV_TOUR_SHADOWS,
+  NAV_TOUR_SHADOW_LABELS,
   RAIL_RULE_ALIGNS,
   RAIL_RULE_ALIGN_LABELS,
   RAIL_TOOLS_CTA_LABELS,
@@ -475,6 +499,14 @@ import {
   type NavTourRestart,
   type NavTourWatch,
   type NavTourWatchCut,
+  type NavTourMotion,
+  type NavTourHighlight,
+  type NavTourHighlightScope,
+  type NavTourApplySteps,
+  type NavTourStartFlow,
+  type NavTourLearnIcon,
+  type NavTourLearnOpens,
+  type NavTourShadow,
   NAV_FEATURED_SLOTS,
   NAV_FEATURED_SLOT_LABELS,
   type NavFeaturedSlot,
@@ -767,6 +799,14 @@ function NavStructureSection({
     setTreeRecentsAllProducts,
     treeSearchPlace,
     setTreeSearchPlace,
+    productSearchDismiss,
+    setProductSearchDismiss,
+    searchHeaderIcons,
+    setSearchHeaderIcons,
+    searchRow,
+    setSearchRow,
+    searchReveal,
+    setSearchReveal,
     recentsMode,
     setRecentsMode,
     launchpadCard,
@@ -1177,22 +1217,136 @@ function NavStructureSection({
               : "View all opens recents alone. The tree already IS all products."}
           </Note>
 
-          <Segmented
-            label="Tree search sits"
-            options={TREE_SEARCH_PLACES}
-            value={treeSearchPlace}
-            onChange={setTreeSearchPlace}
-            format={(v) => TREE_SEARCH_PLACE_LABELS[v]}
-          />
-          <Note>
-            {treeSearchPlace === "products"
-              ? "Over the tree it filters — the search belongs to the thing it acts on."
-              : treeSearchPlace === "off"
-                ? "No search. The tail of a twelve-group tree is then only reachable by opening groups until you find it."
-                : "Above the account blocks, where it reads as a search of the whole nav rather than of the catalogue — worth seeing, because that is the expectation it sets."}
-          </Note>
         </>
       ) : null}
+      {/*
+        Outside the tree-only block since Nov 16.
+
+        Two of its placements — under the logo, and the glyph beside the
+        collapse control — are positions in the COLUMN and stand in every
+        arrangement. A control that only appeared on the tree would hide the
+        two options from the accounts the problem was reported on.
+      */}
+      <Segmented
+        label="Product search sits"
+        keywords="search products find moved reshuffled logo collapse icon all products tab cancel close esc dismiss directory"
+        /*
+          The three tree positions are offered only where the tree is.
+          Ashwin, Nov 16.
+          
+          "Above Launchpad" names a card that does not exist in the other
+          arrangements, so offering it there is offering a placement that
+          silently does nothing — the control would accept the choice and
+          the field would not appear. `logo` and `toggle` are positions in
+          the column and stand everywhere, which is why they are the two
+          that are always on the dial.
+        */
+        options={
+          navArrangement === "tree"
+            ? TREE_SEARCH_PLACES
+            : TREE_SEARCH_PLACES.filter(
+                (v) => v === "off" || v === "logo" || v === "toggle",
+              )
+        }
+        value={treeSearchPlace}
+        onChange={setTreeSearchPlace}
+        format={(v) => TREE_SEARCH_PLACE_LABELS[v]}
+      />
+      <Note>
+        {treeSearchPlace === "off"
+          ? "No search in the sidebar. The All products tab keeps its own — which is where it is today, and the reason people cannot find a product that moved: you have to know to open the tab first."
+          : treeSearchPlace === "logo"
+            ? "A standing field under the logo, the first thing in the column. Costs a row of permanent space and asks nothing of the reader — they do not have to know it is there."
+            : treeSearchPlace === "toggle"
+              ? "A glyph beside the collapse control. Pressing it drops the field in and clears the column for recent searches; one X clears the query, the other puts the field away. Free at rest, at the price of being a thing you find once. Absent when collapsed."
+              : treeSearchPlace === "products"
+                ? "Over the tree it filters — the search belongs to the thing it acts on. Tree arrangement only."
+                : "Above the account blocks, where it reads as a search of the whole nav rather than of the catalogue. Tree arrangement only."}
+      </Note>
+
+      {/*
+        Always shown, because every placement has a search to end.
+        
+        It was gated to the column placements, which left "All products tab
+        only" — the default, and where the search actually lives today —
+        with a dial that could not reach it. The panel's own field reads the
+        same axis now, so one control answers for all three. Ashwin, Nov 16.
+        
+        The reveal and header controls stay gated inside, on the one
+        placement that actually summons anything.
+      */}
+      <Segmented
+            label="Search closes with"
+            keywords="search dismiss cancel close esc escape product all products tab directory find"
+            options={PRODUCT_SEARCH_DISMISSES}
+            value={productSearchDismiss}
+            onChange={setProductSearchDismiss}
+            format={(v) => PRODUCT_SEARCH_DISMISS_LABELS[v]}
+          />
+          <Note>
+            {productSearchDismiss === "icon"
+              ? "An X at field height, beside the field. Ends the search and hands the column back — which is a different undo from the X inside, that one only empties the text."
+              : productSearchDismiss === "cancel"
+                ? "The word, beside the field. Unambiguous against the X because it is plainly a different kind of control acting on a different scope, at the price of standing room."
+                : "Nothing drawn but a keycap. Honest about the shortcut, and invisible to anyone who does not read hints."}
+            {" Escape clears it under all three — the axis decides what is drawn, never what works. Applies to the All products panel's own field as well as the sidebar's."}
+          </Note>
+
+          {treeSearchPlace === "toggle" ? (
+          <>
+          <Segmented
+            label="Search sits in"
+            keywords="search row header title row inline beside collapse all products"
+            options={SEARCH_ROWS}
+            value={searchRow}
+            onChange={setSearchRow}
+            format={(v) => SEARCH_ROW_LABELS[v]}
+          />
+          <Note>
+            {searchRow === "column"
+              ? "A row of its own, under the header. The account stays named while you look, and the field takes the space the first nav rows were using."
+              : "The header row itself — the field opens where the glyph that summoned it already was, and the column keeps its full height. The account name and the collapse control stand down for as long as the search is up."}
+          </Note>
+
+          <Segmented
+            label="Search appears by"
+            keywords="search animation transition reveal grow slide fade all products"
+            options={SEARCH_REVEALS}
+            value={searchReveal}
+            onChange={setSearchReveal}
+            format={(v) => SEARCH_REVEAL_LABELS[v]}
+          />
+          <Note>
+            {searchReveal === "blend"
+              ? "The field opens from the glyph, then the rows arrive one after another. The only arrangement where the icon visibly becomes the field AND the list reads as a list."
+              : searchReveal === "cascade"
+                ? "Field grows, rows follow in order. Says the list is ordered, which it is — most recent search first."
+                : searchReveal === "grow"
+                  ? "The field opens from the glyph's own width; the rows fade in behind it. The causal half without the ordering."
+                  : searchReveal === "slide"
+                    ? "Both drop from above, the list a beat later. Reads as a panel arriving rather than as a control transforming."
+                    : searchReveal === "together"
+                      ? "Both fade on one clock. The quietest honest version — it claims nothing about where either half came from."
+                      : "No transition. Press the glyph and the column is simply a search — three facts the reader has to assemble into one event."}
+          </Note>
+
+          <Segmented
+            label="While searching, the header"
+            keywords="search header icons collapse toggle lit hide all products"
+            options={SEARCH_HEADER_ICONS}
+            value={searchHeaderIcons}
+            onChange={setSearchHeaderIcons}
+            format={(v) => SEARCH_HEADER_ICON_LABELS[v]}
+          />
+          <Note>
+            {searchHeaderIcons === "clear"
+              ? "The glyph stands down — it has become the field below it, and the field carries its own dismiss. Nothing is lost: there is still exactly one way out, beside the thing it closes."
+              : "The glyph stays, lit, and presses again to close — a second way out, beside the field's own."}
+            {" Collapse is disabled either way: collapsing onto a search has no way back, since the glyph that reopens the field is not drawn at 64px."}
+          </Note>
+          </>
+          ) : null}
+
       <Segmented
         label="Agency plan"
         options={AGENCY_PLANS}
@@ -4637,7 +4791,31 @@ export function TuningPanel() {
     navTourWatch,
     setNavTourWatch,
     navTourWatchCut,
+    navTourSearchOpen,
+    navTourProductsOpen,
+    navTourAskAiOpen,
+    navTourMotion,
+    navTourHighlight,
+    navTourHighlightScope,
+    navTourApplySteps,
+    navTourStartFlow,
+    navTourLearnIcon,
+    navTourLearnOpens,
+    navTourShadow,
+    navTourLearnRow,
     setNavTourWatchCut,
+    setNavTourSearchOpen,
+    setNavTourProductsOpen,
+    setNavTourAskAiOpen,
+    setNavTourMotion,
+    setNavTourHighlight,
+    setNavTourHighlightScope,
+    setNavTourApplySteps,
+    setNavTourStartFlow,
+    setNavTourLearnIcon,
+    setNavTourLearnOpens,
+    setNavTourShadow,
+    setNavTourLearnRow,
     navFeaturedSlot,
     setNavFeaturedSlot,
     navFeaturedLabel,
@@ -7250,6 +7428,39 @@ export function TuningPanel() {
           </Note>
 
           <Segmented
+            label="Tour: flow to start"
+            keywords="tour onboarding coach mark coachmark progressive flows start test get started sub-accounts editing which flow first"
+            options={NAV_TOUR_START_FLOWS}
+            value={navTourStartFlow}
+            onChange={(v: NavTourStartFlow) => setNavTourStartFlow(v)}
+            format={(v) => NAV_TOUR_START_FLOW_LABELS[v]}
+            disabled={navTourStyle !== "flows"}
+          />
+          <Note>
+            {navTourStyle !== "flows"
+              ? "Progressive flows only."
+              : navTourStartFlow === "getStarted"
+                ? "Get started runs on load, as a first login sees it. Sub-accounts and Editing wait for their moments."
+                : navTourStartFlow === "subAccounts"
+                  ? "Sub-accounts runs now, with the rail held open, without waiting for a hover."
+                  : "Editing runs now: edit mode opens and the flow starts."}
+          </Note>
+
+          <Segmented
+            label="Tour: shadow"
+            keywords="tour onboarding coach mark coachmark shadow drop shadow elevation depth"
+            options={NAV_TOUR_SHADOWS}
+            value={navTourShadow}
+            onChange={(v: NavTourShadow) => setNavTourShadow(v)}
+            format={(v) => NAV_TOUR_SHADOW_LABELS[v]}
+          />
+          <Note>
+            {navTourShadow === "original"
+              ? "Each coach mark's own shadow, as it shipped."
+              : "A 2-layer xl shadow (20px / 8px, 16% and 8%) plus a 2px drop shadow at 10%, on every coach mark."}
+          </Note>
+
+          <Segmented
             label="Tour: theme"
             keywords="tour onboarding coach mark light dark theme surface"
             options={NAV_TOUR_THEMES}
@@ -7392,6 +7603,122 @@ export function TuningPanel() {
             {navTourWatchCut === "highlights"
               ? "Categories, pinning, collapse, search, then editing and layouts. public/tour/launch-highlights.mp4."
               : "All 3 flows, a scene per step: Get started, Sub-accounts, then Editing. public/tour/launch-full.mp4."}
+          </Note>
+
+          <Segmented
+            label="Tour: motion between steps"
+            keywords="tour onboarding coach mark animation motion transition glide move fade between steps next"
+            options={NAV_TOUR_MOTIONS}
+            value={navTourMotion}
+            onChange={(v: NavTourMotion) => setNavTourMotion(v)}
+            format={(v) => NAV_TOUR_MOTION_LABELS[v]}
+          />
+          <Note>
+            {navTourMotion === "glide"
+              ? "One card throughout: on Next its text fades, the card glides and resizes to the next target, and the new text fades in."
+              : navTourMotion === "fade"
+                ? "The card fades out where it is and fades in at the next target, with no travel."
+                : "The card disappears on Next and appears at the next target."}
+          </Note>
+
+          <Toggle
+            label="Tour: Learn about new Sidebar row"
+            checked={navTourLearnRow}
+            onChange={setNavTourLearnRow}
+            keywords="tour onboarding coach mark coachmark learn about new sidebar switchyard help question replay restart retrigger settings row"
+          />
+          <Note>
+            A row under Settings that plays the tours again. It appears once any
+            tour has been closed, and stays. Not editable in edit mode.
+          </Note>
+
+          <Segmented
+            label="Tour: Learn row opens"
+            keywords="tour onboarding coach mark coachmark learn about new sidebar row click l2 flyout flows pick which tour replay"
+            options={NAV_TOUR_LEARN_OPENS}
+            value={navTourLearnOpens}
+            onChange={(v: NavTourLearnOpens) => setNavTourLearnOpens(v)}
+            format={(v) => NAV_TOUR_LEARN_OPENS_LABELS[v]}
+            disabled={!navTourLearnRow}
+          />
+          <Note>
+            {navTourLearnOpens === "replay"
+              ? "Clicking it replays the tours: Get started now, Sub-accounts and Editing at their moments."
+              : "Clicking it opens an L2 with Get started, Sub-accounts, and Editing. The one you pick runs from step 1."}
+          </Note>
+
+          <Segmented
+            label="Tour: Learn row icon"
+            keywords="tour onboarding coach mark coachmark learn about new sidebar row icon glyph compass sparkles graduation cap lightbulb"
+            options={NAV_TOUR_LEARN_ICONS}
+            value={navTourLearnIcon}
+            onChange={(v: NavTourLearnIcon) => setNavTourLearnIcon(v)}
+            format={(v) => NAV_TOUR_LEARN_ICON_LABELS[v]}
+            disabled={!navTourLearnRow}
+          />
+
+          <Segmented
+            label="Tour: highlight"
+            keywords="tour onboarding coach mark highlight ring border outline pulse glow background target small icon pin handle"
+            options={NAV_TOUR_HIGHLIGHTS}
+            value={navTourHighlight}
+            onChange={(v: NavTourHighlight) => setNavTourHighlight(v)}
+            format={(v) => NAV_TOUR_HIGHLIGHT_LABELS[v]}
+          />
+          <Segmented
+            label="Tour: highlight applies to"
+            keywords="tour onboarding coach mark highlight scope icons only every target all items l1 rows"
+            options={NAV_TOUR_HIGHLIGHT_SCOPES}
+            value={navTourHighlightScope}
+            onChange={(v: NavTourHighlightScope) => setNavTourHighlightScope(v)}
+            format={(v) => NAV_TOUR_HIGHLIGHT_SCOPE_LABELS[v]}
+            disabled={navTourHighlight === "off"}
+          />
+          <Note>
+            {navTourHighlight === "off"
+              ? "Only the card's arrow points at the control."
+              : navTourHighlightScope === "icons"
+                ? "Marks icon-sized controls the card is about (pins, drag handle, hide, change icon, the edit menu, Collapse, and the rail's buttons), in every flow. Larger targets keep the arrow alone."
+                : "Marks whatever every step points at, in every flow: a category row in the L1, a button, a field, an open panel."}
+          </Note>
+
+          <Segmented
+            label="Tour: apply to many sub-accounts"
+            keywords="tour onboarding coach mark editing layout apply many multiple sub-accounts rail manage bulk video steps"
+            options={NAV_TOUR_APPLY_STEPS}
+            value={navTourApplySteps}
+            onChange={(v: NavTourApplySteps) => setNavTourApplySteps(v)}
+            format={(v) => NAV_TOUR_APPLY_STEPS_LABELS[v]}
+          />
+          <Note>
+            {navTourApplySteps === "one"
+              ? "Editing ends on one step that points at the sub-account rail and plays a clip of a layout being applied to several sub-accounts. Nothing opens."
+              : "Editing ends with 2 live steps: the rail opens on Manage sub-accounts, then Apply layout with 2 sub-accounts ticked."}
+          </Note>
+
+          <Toggle
+            label="Tour: All products open step"
+            checked={navTourProductsOpen}
+            onChange={setNavTourProductsOpen}
+            keywords="tour onboarding coach mark get started view all all products search products open step panel"
+          />
+          <Toggle
+            label="Tour: search open step"
+            checked={navTourSearchOpen}
+            onChange={setNavTourSearchOpen}
+            keywords="tour onboarding coach mark get started search command k cmd k open step dialog"
+          />
+          <Toggle
+            label="Tour: Ask AI open step"
+            checked={navTourAskAiOpen}
+            onChange={setNavTourAskAiOpen}
+            keywords="tour onboarding coach mark get started ask ai panel open step"
+          />
+          <Note>
+            Get started, progressive flows. On, Next on Find any product,
+            Search everything, or Ask AI opens it, and an extra step points
+            inside it while it stays open. Off, the step only points at the
+            button.
           </Note>
 
           <Segmented

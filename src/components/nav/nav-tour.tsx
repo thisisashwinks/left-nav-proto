@@ -7,6 +7,8 @@ import { NavTourVideo } from "@/components/nav/nav-tour-video";
 import { useTheme } from "@/components/theme/theme-provider";
 import { PIN_LIMIT, useNavLayout } from "@/components/nav/nav-layout-provider";
 import type {
+  TreeSearchPlace,
+  NavTourApplySteps,
   NavTourHandsOn,
   NavTourLayouts,
   NavTourRestart,
@@ -55,10 +57,19 @@ const ARROW = 10;
 const MARGIN = 8;
 /** How far the arrow stays from a corner, so it never grows out of one. */
 const ARROW_INSET = 20;
+/** The highlight ring's breathing room around an icon-sized target. */
+const RING_PAD = 3;
 /** The spotlight's breathing room around its target. */
 const SPOT_PAD = 4;
 
 type Side = "top" | "bottom" | "left" | "right";
+
+/** The text fading out on Next, before the step plays out. See NAV_TOUR_MOTIONS. */
+const FADE_OUT_MS = 120;
+/** The card's travel and resize between targets, in "Glide". */
+const GLIDE_MS = 320;
+/** The card's border and padding around its content, for its target height. */
+const CARD_CHROME = 34;
 
 /** How long a card holds its place after its target goes missing. */
 const HOLD_MS = 1200;
@@ -108,6 +119,36 @@ const subscribeRestartable = (listener: () => void) => {
   return () => restartListeners.delete(listener);
 };
 
+/*
+ * Whether any tour has been closed this session — finished, done, or X'd.
+ * "Learn about Switchyard" waits for it: before the first tour is over, the
+ * tour itself is the way in. Kept for the session, like the tours' own state.
+ */
+let closedOnce = false;
+const closedListeners = new Set<() => void>();
+function markClosed() {
+  if (closedOnce) return;
+  closedOnce = true;
+  for (const listener of closedListeners) listener();
+}
+const subscribeClosed = (listener: () => void) => {
+  closedListeners.add(listener);
+  return () => closedListeners.delete(listener);
+};
+
+/** Whether "Learn about Switchyard" is in the sidebar. See navTourLearnRow. */
+export function useLearnSwitchyardRow(): boolean {
+  const on = React.useSyncExternalStore(subscribeRestartable, () => restartable, () => false);
+  const closed = React.useSyncExternalStore(subscribeClosed, () => closedOnce, () => false);
+  const { navTourLearnRow } = useTheme().effective;
+  return on && closed && navTourLearnRow;
+}
+
+/** Plays every tour again from the top, each at its own moment. */
+export function replayNavTours() {
+  window.dispatchEvent(new Event(NAV_TOUR_REPLAY_EVENT));
+}
+
 /** Whether the restart entry point `where` is the one on show. */
 export function useNavTourRestart(where: NavTourRestart): boolean {
   const on = React.useSyncExternalStore(
@@ -117,6 +158,20 @@ export function useNavTourRestart(where: NavTourRestart): boolean {
   );
   const { navTourRestart } = useTheme().effective;
   return on && navTourRestart === where;
+}
+
+/**
+ * Whether the progressive flows are running here — the "Progressive flows"
+ * style, in a scope where the tours run at all.
+ */
+export function useProgressiveTours(): boolean {
+  const on = React.useSyncExternalStore(
+    subscribeRestartable,
+    () => restartable,
+    () => false,
+  );
+  const { navTourStyle } = useTheme().effective;
+  return on && navTourStyle === "flows";
 }
 
 /** What a step can ask about the moment it is shown in. */
@@ -129,6 +184,8 @@ interface TourContext {
   keep: (key: string, pick: () => string | null) => string | null;
   /** Edit mode, live. */
   editing: () => boolean;
+  /** The nav's own reorder, the one a drag ends in. L1 indices, as drawn. */
+  moveGroup: (fromIndex: number, toIndex: number) => void;
 }
 
 type Copy = string | ((ctx: TourContext) => string);
@@ -167,6 +224,28 @@ interface TourStep {
   learnMore?: TourFlowId;
   /** Edit mode on while this step shows. See NAV_TOUR_LAYOUTS `enter`. */
   editing?: boolean;
+  /**
+   * Edit mode closed for this step, inside a flow that is about edit mode —
+   * the flow carries on rather than ending with it. See `keepEditingFlow`.
+   */
+  outOfEdit?: boolean;
+  /**
+   * A surface held open for the length of this step — opened as it arrives if
+   * it is not up already, closed as the step is left in either direction or
+   * the tour ends. The "open" steps of Get started. Ashwin, Nov 16.
+   */
+  holds?: Hold;
+  /**
+   * An icon-sized control, which gets the highlight ring as well as the
+   * card's arrow. See NAV_TOUR_HIGHLIGHTS.
+   */
+  small?: boolean;
+}
+
+interface Hold {
+  isOpen: () => boolean;
+  open: () => void;
+  close: () => void;
 }
 
 /** The first visible match — not inside an inert or hidden subtree, with a box. */
@@ -217,6 +296,8 @@ const PIN_ROW = `${NAV} [data-pin-row]`;
 const PINNED = `${NAV} [aria-label^="Pin "][aria-pressed="true"]`;
 const RAIL = "[data-account-rail]";
 const SWITCHER = '[aria-label="Switch sub-account"]';
+/** The panel behind Recents › View all: Recently visited and All products. */
+const RECENTS_PANEL = '[role="dialog"][aria-label="Recents"]';
 /** The category the Get started steps open. */
 const TOUR_CATEGORY = "CRM";
 
@@ -272,6 +353,154 @@ function appBarAskAi(): Element | null {
     ) ?? null
   );
 }
+
+/** The Recents heading's "View all", or the collapsed bar's tile for it. */
+const viewAllButton = () =>
+  withText(`${NAV} button`, "View all") ?? visible('[aria-label="View all recents"]');
+
+/**
+ * Opens the panel behind View all on its All products tab, lets the search be
+ * seen, and closes it the way a person would.
+ */
+async function peekAllProducts() {
+  if (!visible(RECENTS_PANEL)) press(viewAllButton());
+  await wait(400);
+  press(withText(`${RECENTS_PANEL} button`, "All products"));
+  await wait(1400);
+  document.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+  );
+}
+
+const escape = (target: EventTarget) =>
+  target.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+  );
+
+/** The app bar's Ask AI panel. */
+const ASK_AI_PANEL = '[role="complementary"][aria-label="Ask AI"]';
+
+/** ⌘K, held open for "Search, open". Closed with Esc, as a person would. */
+const SEARCH_HOLD: Hold = {
+  isOpen: () => visible(SEARCH_DIALOG) !== null,
+  open: () => press(visible(SEARCH)),
+  close: () => {
+    const dialog = visible(SEARCH_DIALOG);
+    if (dialog) escape(dialog.querySelector("input") ?? dialog);
+  },
+};
+
+/** View all, on All products, held open for "All products, open". */
+const PRODUCTS_HOLD: Hold = {
+  isOpen: () => visible(RECENTS_PANEL) !== null,
+  open: () => {
+    press(viewAllButton());
+    // With the flows on it opens there anyway; this is for Back after a tab change.
+    setTimeout(() => press(withText(`${RECENTS_PANEL} button`, "All products")), 300);
+  },
+  close: () => {
+    if (visible(RECENTS_PANEL)) escape(document);
+  },
+};
+
+/** The Ask AI panel, held open for "Ask AI, open". Closed by its own X. */
+const ASK_AI_HOLD: Hold = {
+  isOpen: () => visible(ASK_AI_PANEL) !== null,
+  open: () => press(appBarAskAi()),
+  close: () => press(visible(`${ASK_AI_PANEL} [aria-label="Close"]`)),
+};
+
+/* ── Editing's layout steps ── */
+const SAVE_DIALOG = '[role="dialog"][aria-label="Save layout"]';
+const LAYOUTS_MENU = '[role="dialog"][aria-label="More editing options"], [role="menu"][aria-label="More editing options"]';
+const MANAGE = '[aria-label="Manage sub-accounts"]';
+
+/** The editing card's Save layout — there only once the nav has changed. */
+const saveLayoutButton = () => withText("[data-nav-edit-card] button", "Save layout");
+
+/** The first row's Change icon, the one the Change an icon step points at. */
+const changeIconButton = () =>
+  visible(`${NAV} button[aria-label="Change icon"]`) ?? visible(`${NAV} [aria-label="Change icon"]`);
+
+/*
+ * Editing's hands-on reorder: CRM above AI. Read off the L1 rows' drag
+ * handles, which carry the same order the nav draws — recents and pins have
+ * handles too, so theirs are left out.
+ */
+const REORDER_MOVES = "CRM";
+const REORDER_PAST = "AI";
+const reorderHandle = (label: string) => visible(`${NAV} [aria-label=${q(`Reorder ${label}`)}]`);
+function l1Order(): string[] {
+  return [...document.querySelectorAll(`${NAV} [data-drag-handle][aria-label^="Reorder "]`)]
+    .filter((h) => !h.closest("[data-pin-row]"))
+    .map((h) => h.getAttribute("aria-label")!.slice("Reorder ".length));
+}
+function reorderedAbove(): boolean {
+  const order = l1Order();
+  const moved = order.indexOf(REORDER_MOVES);
+  const past = order.indexOf(REORDER_PAST);
+  return moved >= 0 && past >= 0 && moved < past;
+}
+
+/** The name the tour gives the layout it saves. */
+const TOUR_LAYOUT_NAME = "My restaurant menu";
+
+/*
+ * Set while "Name your layout" is up. Saving closes edit mode, which would
+ * otherwise end Editing on the spot; the steps after it reopen edit mode.
+ */
+let keepEditingFlow = false;
+
+/** Names the layout and saves it, the way a person would in the dialog. */
+async function saveNewLayout() {
+  const input = visible(`${SAVE_DIALOG} input`);
+  if (input instanceof HTMLInputElement) {
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    set?.call(input, TOUR_LAYOUT_NAME);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  await wait(250);
+  press(withText(`${SAVE_DIALOG} button`, "Save layout"));
+}
+
+/** The save dialog, held open and closed with its own Cancel: nothing is saved. */
+const SAVE_HOLD: Hold = {
+  isOpen: () => visible(SAVE_DIALOG) !== null,
+  open: () => press(saveLayoutButton()),
+  close: () => press(withText(`${SAVE_DIALOG} button`, "Cancel")),
+};
+
+/** The ⋯ menu, open on the list of layouts. */
+const LAYOUTS_HOLD: Hold = {
+  isOpen: () => visible(LAYOUTS_MENU) !== null,
+  open: () => press(visible(LAYOUTS)),
+  close: () => {
+    const menu = visible(LAYOUTS_MENU);
+    if (menu) escape(menu);
+  },
+};
+
+/** Ticks two sub-accounts in Manage mode, so there is something to apply to. */
+function tickSome() {
+  const rows = [...document.querySelectorAll(`${RAIL} button[role="checkbox"]`)].filter(
+    (row) =>
+      !/^(Select all|Clear)/.test(row.getAttribute("aria-label") ?? "") &&
+      row.getBoundingClientRect().width > 0,
+  );
+  for (const row of rows.slice(0, 2)) press(row);
+}
+
+/** Manage mode on, with a couple of sub-accounts ticked so Apply layout shows. */
+const MANAGE_HOLD: Hold = {
+  isOpen: () => visible(`${RAIL} [aria-label="Cancel"]`) !== null,
+  open: () => {
+    if (!visible(`${RAIL} [aria-label="Cancel"]`)) press(visible(MANAGE));
+    setTimeout(() => {
+      if (!withText(`${RAIL} button`, "Apply layout")) tickSome();
+    }, 400);
+  },
+  close: () => press(visible(`${RAIL} [aria-label="Cancel"]`)),
+};
 
 /** Opens search, lets it be seen, and closes it the way a person would. */
 async function peekSearch() {
@@ -335,6 +564,23 @@ const STEPS = {
       if (row?.getAttribute("aria-expanded") !== "true") press(row);
     },
   },
+  /*
+   * People can't find the product search behind Recents › View all, so Get
+   * started points at it in place of the Recents step. Ashwin, Nov 16.
+   */
+  "all-products": {
+    id: "all-products",
+    title: "Find any product",
+    body: "View all lists every product, with a search to find one by name.",
+    doBody: "Click View all to see every product and search them by name.",
+    side: "right",
+    expand: true,
+    flyout: null,
+    // The panel once it is open, so the card steps aside from its search.
+    find: () => visible(RECENTS_PANEL) ?? viewAllButton(),
+    done: () => visible(RECENTS_PANEL) !== null,
+    perform: peekAllProducts,
+  },
   recents: {
     id: "recents",
     title: "Pick up where you left off",
@@ -346,6 +592,7 @@ const STEPS = {
   },
   "pin-recent": {
     id: "pin-recent",
+    small: true,
     title: "Pin what you use most",
     body: "Pin a page to keep it at the top of the sidebar, one click away.",
     doBody: (ctx) =>
@@ -371,6 +618,7 @@ const STEPS = {
   },
   "pin-item": {
     id: "pin-item",
+    small: true,
     title: "Pin from inside a category",
     body: "Any product or page can be pinned, right where you find it.",
     doBody: (ctx) =>
@@ -411,6 +659,7 @@ const STEPS = {
   },
   collapse: {
     id: "collapse",
+    small: true,
     title: "Collapse the menu",
     body: "Shrink the sidebar to icons for more room. Expand it again from the same button.",
     doBody: "Click Collapse to shrink the sidebar to icons. The same button expands it again.",
@@ -426,6 +675,8 @@ const STEPS = {
     body: "Find any page, contact, or setting from one place. Press ⌘K from anywhere.",
     doBody: "Click Search or press ⌘K to find any page, contact, or setting.",
     side: "bottom",
+    // The pin step before it leaves CRM open; the app bar wants a clear view.
+    flyout: null,
     find: () => visible(SEARCH),
     done: () => visible(SEARCH_DIALOG) !== null,
     perform: peekSearch,
@@ -450,6 +701,19 @@ const STEPS = {
     perform: () => press(visible(EDIT)),
     endsFlow: true,
   },
+  /*
+   * The same card as the last step of Get started, show-only: Done closes the
+   * tour and nothing opens edit mode, so Editing does not follow on. It waits
+   * for someone to open Edit themselves. Ashwin, Nov 16.
+   */
+  "customize-end": {
+    id: "customize",
+    title: "Make the menu yours",
+    body: "Rename, reorder, and hide categories and products in this sub-account’s menu.",
+    side: "right",
+    reveal: true,
+    find: () => visible(EDIT),
+  },
 
   /* ── Sub-accounts ── */
   "accounts-open": {
@@ -473,6 +737,7 @@ const STEPS = {
   },
   "accounts-create": {
     id: "accounts-create",
+    small: true,
     title: "Create a sub-account",
     body: "Add a new sub-account without leaving the one you’re in.",
     side: "right",
@@ -493,21 +758,38 @@ const STEPS = {
   /* ── Editing ── */
   "edit-rename": {
     id: "edit-rename",
+    small: true,
     title: "Rename anything",
     body: "Double-click a name, or use its menu, to rename it.",
     side: "right",
     find: () => rowControl("Edit") ?? rowControl("Rename"),
   },
+  /*
+   * Hands-on: Next moves CRM above AI, the same change a drag makes, so the
+   * layout steps at the end have something to save. It took over from
+   * Change an icon. Ashwin, Nov 16.
+   */
   "edit-reorder": {
     id: "edit-reorder",
+    small: true,
     title: "Drag to reorder",
     body: "Grab the handle to move a category or product.",
+    doBody: `Drag ${REORDER_MOVES} above ${REORDER_PAST} by its handle.`,
     side: "right",
     reveal: true,
-    find: () => rowControl("Reorder"),
+    find: () => reorderHandle(REORDER_MOVES) ?? rowControl("Reorder"),
+    can: () => reorderHandle(REORDER_MOVES) !== null && reorderHandle(REORDER_PAST) !== null,
+    done: () => reorderedAbove(),
+    perform: (ctx) => {
+      const order = l1Order();
+      const from = order.indexOf(REORDER_MOVES);
+      const to = order.indexOf(REORDER_PAST);
+      if (from > to && to >= 0) ctx.moveGroup(from, to);
+    },
   },
   "edit-hide": {
     id: "edit-hide",
+    small: true,
     title: "Hide what you don’t use",
     body: "Hide a product or category. Show it again anytime from the same place.",
     side: "right",
@@ -520,9 +802,8 @@ const STEPS = {
     body: "Click an icon to pick a new one.",
     side: "right",
     reveal: true,
-    find: () =>
-      visible(`${NAV} button[aria-label="Change icon"]`) ??
-      visible(`${NAV} [aria-label="Change icon"]`),
+    small: true,
+    find: () => changeIconButton(),
   },
   "edit-add": {
     id: "edit-add",
@@ -533,15 +814,104 @@ const STEPS = {
       withText(`${NAV} button`, "Add a category or product") ??
       visible(`${NAV} button[aria-label^="Add to the"]`),
   },
+  /*
+   * Names layouts outright: the reorder has made a change, so the card's
+   * button already reads Save layout, and this is where the reader learns
+   * what that saves. Ashwin, Nov 16.
+   */
   "edit-save": {
     id: "edit-save",
-    title: "Save or discard",
-    body: "Save to keep your changes, or discard them to start over.",
+    title: "Save it as a new layout",
+    body: "Save layout keeps your changes as a layout you can reuse and apply to many sub-accounts at once. Discard starts over.",
     side: "right",
     find: () => visible("[data-nav-edit-card]"),
   },
+
+  /* ── Editing: what a layout can do. Ashwin, Nov 16. ── */
+  "layout-save": {
+    id: "layout-save",
+    title: "Name your layout",
+    body: "Give it a name you’ll recognize. Once it’s saved, switch to it anytime or apply it to other sub-accounts.",
+    doBody: "Give it a name you’ll recognize, then Save layout.",
+    side: "right",
+    holds: SAVE_HOLD,
+    /*
+     * Saved for real, so the layouts menu after it has the new layout in it.
+     * Saving closes edit mode; the steps after this one open it again, and the
+     * flow is kept alive across the gap. See `keepEditingFlow`.
+     */
+    done: () => !SAVE_HOLD.isOpen() && saveLayoutButton() === null,
+    perform: saveNewLayout,
+    find: () => visible(SAVE_DIALOG) ?? saveLayoutButton() ?? visible("[data-nav-edit-card]"),
+  },
+  "layout-menu": {
+    id: "layout-menu",
+    title: "Find your layouts",
+    body: "All your navigation layouts are in this menu.",
+    doBody: "Open the menu to see all your navigation layouts.",
+    side: "right",
+    small: true,
+    editing: true,
+    find: () => visible(LAYOUTS),
+    done: () => LAYOUTS_HOLD.isOpen(),
+    perform: () => {
+      if (!LAYOUTS_HOLD.isOpen()) LAYOUTS_HOLD.open();
+    },
+  },
+  "layout-switch": {
+    id: "layout-switch",
+    title: "Switch layouts anytime",
+    body: "Pick a layout to switch this menu in one click.",
+    side: "right",
+    editing: true,
+    holds: LAYOUTS_HOLD,
+    find: () => visible(LAYOUTS_MENU) ?? visible(LAYOUTS),
+  },
+  "accounts-manage": {
+    id: "accounts-manage",
+    editing: true,
+    title: "Use it across sub-accounts",
+    body: "Manage sub-accounts lets you pick several sub-accounts at once.",
+    doBody: "Click Manage sub-accounts to pick several sub-accounts at once.",
+    side: "right",
+    rail: true,
+    small: true,
+    find: () => visible(MANAGE),
+    done: () => MANAGE_HOLD.isOpen(),
+    perform: () => {
+      if (!MANAGE_HOLD.isOpen()) MANAGE_HOLD.open();
+    },
+  },
+  /*
+   * The default end of Editing: one card, beside the rail, with a clip of a
+   * layout going to several sub-accounts. Nothing opens — the rail steps
+   * below are the live version. See NAV_TOUR_APPLY_STEPS. Ashwin, Nov 16.
+   */
+  /*
+   * Shown with edit mode closed: the rail is the place it points at, and the
+   * nav reads as it will once editing is over. Ashwin, Nov 16.
+   */
+  "layout-apply": {
+    id: "layout-apply",
+    outOfEdit: true,
+    title: "Apply it to many sub-accounts",
+    body: "Apply this layout to several sub-accounts at once from the rail.",
+    side: "right",
+    find: () => visible(RAIL),
+  },
+  "accounts-apply": {
+    id: "accounts-apply",
+    editing: true,
+    title: "Apply a layout to many",
+    body: "Tick the sub-accounts you want, then Apply layout to give them all the same menu.",
+    side: "right",
+    rail: true,
+    holds: MANAGE_HOLD,
+    find: () => withText(`${RAIL} button`, "Apply layout") ?? visible(RAIL),
+  },
   layouts: {
     id: "layouts",
+    small: true,
     title: "Reuse a layout",
     body: "Save this menu as a layout, then apply it to your other sub-accounts from here.",
     side: "right",
@@ -554,18 +924,19 @@ type StepId = keyof typeof STEPS;
 /** The flows, by their steps. Reorder or drop ids here. */
 const FLOWS: Record<TourFlowId, readonly StepId[]> = {
   /* First load in a sub-account. */
+  /*
+   * V2, Nov 16: Recents, Pin a recent, Pins stay on top, and Collapse are out;
+   * All products takes Recents' place; it ends on a show-only Edit card.
+   */
   getStarted: [
     "welcome",
     "categories",
     "sub-products",
-    "recents",
-    "pin-recent",
+    "all-products",
     "pin-item",
-    "pin-extras",
-    "collapse",
     "search",
     "ask-ai",
-    "customize",
+    "customize-end",
   ],
   /* The first hover or click on the account rail or switcher. */
   subAccounts: [
@@ -584,7 +955,12 @@ const FLOWS: Record<TourFlowId, readonly StepId[]> = {
     "edit-icon",
     "edit-add",
     "edit-save",
-    "layouts",
+    // V2, Nov 16: what a layout is for, ending on applying it to many.
+    "layout-save",
+    "layout-menu",
+    "layout-switch",
+    "accounts-manage",
+    "accounts-apply",
   ],
 };
 
@@ -603,11 +979,221 @@ const SINGLE: readonly StepId[] = [
  * A flow's steps. The flows are the list above as written; the single tour
  * bends three of them to stand alone, by the layouts axis.
  */
+/*
+ * ─── Product search in the column ────────────────────────────────────────
+ *
+ * "Product search sits" can put the product search in the nav itself: a
+ * standing field under the logo, or a glyph beside collapse that opens one.
+ * Both carry the label "Search products", on the glyph and the input alike,
+ * so they are always qualified by element.
+ */
+const NAV_SEARCH_INPUT = `${NAV} input[aria-label="Search products"]`;
+const NAV_SEARCH_GLYPH = `${NAV} button[aria-label="Search products"]`;
+/** What the tour types to show a search in use. */
+const SAMPLE_QUERY = "contacts";
+
+/** Sets the field's text the way typing does, so React sees it. */
+function typeInto(input: Element | null, value: string) {
+  if (!(input instanceof HTMLInputElement)) return;
+  input.focus();
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+const navSearchHasText = () => {
+  const input = visible(NAV_SEARCH_INPUT);
+  return input instanceof HTMLInputElement && input.value !== "";
+};
+
+/** Under the logo: a sample query typed, and cleared again after. */
+const LOGO_QUERY_HOLD: Hold = {
+  isOpen: navSearchHasText,
+  open: () => typeInto(visible(NAV_SEARCH_INPUT), SAMPLE_QUERY),
+  close: () => {
+    const input = visible(NAV_SEARCH_INPUT);
+    typeInto(input, "");
+    if (input instanceof HTMLElement) input.blur();
+  },
+};
+
+/** Beside collapse: the field open, put away with its own Close. */
+const TOGGLE_HOLD: Hold = {
+  isOpen: () => visible(NAV_SEARCH_INPUT) !== null,
+  open: () => press(visible(NAV_SEARCH_GLYPH)),
+  close: () => press(visible(`${NAV} button[aria-label="Close search"]`)),
+};
+
+/** The first match in the column, once a query is in. */
+const firstNavResult = () => {
+  const region = visible(`${NAV} [data-scroll-region]`);
+  return region
+    ? ([...region.querySelectorAll("button")].find(
+        (b) => b.getBoundingClientRect().width > 0 && b.textContent?.includes("CRM"),
+      ) ?? null)
+    : null;
+};
+
+const NAV_SEARCH_STEPS: Record<"logo" | "toggle", TourStep[]> = {
+  logo: [
+    {
+      id: "all-products",
+      title: "Find any product",
+      body: "Search here to find any product by name, wherever it sits in the menu.",
+      doBody: "Type a product’s name here to find it.",
+      side: "right",
+      expand: true,
+      flyout: null,
+      find: () => visible(NAV_SEARCH_INPUT)?.parentElement ?? null,
+      done: navSearchHasText,
+      perform: () => {
+        if (!LOGO_QUERY_HOLD.isOpen()) LOGO_QUERY_HOLD.open();
+      },
+    },
+    {
+      id: "all-products-open",
+      title: "Matches show up here",
+      body: "Pick one to open it. Clear the search to get your full menu back.",
+      side: "right",
+      holds: LOGO_QUERY_HOLD,
+      find: () => firstNavResult() ?? visible(NAV_SEARCH_INPUT)?.parentElement ?? null,
+    },
+  ],
+  toggle: [
+    {
+      id: "all-products",
+      title: "Find any product",
+      body: "Search finds any product by name, wherever it sits in the menu.",
+      doBody: "Click search to find any product by name.",
+      side: "right",
+      expand: true,
+      flyout: null,
+      small: true,
+      find: () => visible(NAV_SEARCH_GLYPH) ?? visible(NAV_SEARCH_INPUT)?.parentElement ?? null,
+      done: () => TOGGLE_HOLD.isOpen(),
+      perform: () => {
+        if (!TOGGLE_HOLD.isOpen()) TOGGLE_HOLD.open();
+      },
+    },
+    {
+      id: "all-products-open",
+      title: "Search every product",
+      body: "Type a product’s name. Your recent searches are right below.",
+      side: "right",
+      holds: TOGGLE_HOLD,
+      find: () => visible(NAV_SEARCH_INPUT)?.parentElement ?? visible(NAV_SEARCH_GLYPH),
+    },
+  ],
+};
+
+/** Which of Get started's "open" steps are on. See navTourSearchOpen. */
+interface OpenSteps {
+  products: boolean;
+  search: boolean;
+  askAi: boolean;
+}
+
+/*
+ * Get started's three finding steps, each in two forms. With its "open" step
+ * on, Next opens the surface and leaves it up, and an extra step points
+ * inside it while it stays open. Off, the step only points at the button.
+ * Either way nothing flashes open and shut. Ashwin, Nov 16.
+ */
+const OPEN_STEPS: Record<
+  "all-products" | "search" | "ask-ai",
+  (on: boolean, place?: TreeSearchPlace) => TourStep[]
+> = {
+  "all-products": (on, place) => {
+    const step: TourStep = STEPS["all-products"];
+    /*
+     * With "Product search sits" putting the search in the column, Find any
+     * product teaches that field rather than the All products tab behind
+     * View all. See NAV_SEARCH_STEPS. Ashwin, Nov 16.
+     */
+    if (place === "logo" || place === "toggle") {
+      const steps = NAV_SEARCH_STEPS[place];
+      return on ? steps : [{ ...steps[0]!, done: undefined, perform: undefined }];
+    }
+    if (!on) return [{ ...step, done: undefined, perform: undefined }];
+    return [
+      { ...step, perform: () => { if (!PRODUCTS_HOLD.isOpen()) PRODUCTS_HOLD.open(); } },
+      {
+        id: "all-products-open",
+        title: "Search every product",
+        body: "Type a product’s name to find it. Everything else is listed by category below.",
+        side: "right",
+        holds: PRODUCTS_HOLD,
+        find: () =>
+          visible(`${RECENTS_PANEL} input`) ?? visible(RECENTS_PANEL) ?? viewAllButton(),
+      },
+    ];
+  },
+  search: (on) => {
+    const step: TourStep = STEPS.search;
+    if (!on) return [{ ...step, done: undefined, perform: undefined }];
+    return [
+      { ...step, perform: () => { if (!SEARCH_HOLD.isOpen()) SEARCH_HOLD.open(); } },
+      {
+        id: "search-open",
+        title: "Type to search",
+        body: "Look up any page, contact, or setting. Use ↑ and ↓ to move, and Enter to open.",
+        side: "right",
+        holds: SEARCH_HOLD,
+        // The dialog rather than its field: beside the field, the card would cover the results.
+        find: () => visible(SEARCH_DIALOG) ?? visible(SEARCH),
+      },
+    ];
+  },
+  "ask-ai": (on) => {
+    const step: TourStep = STEPS["ask-ai"];
+    if (!on) return [step];
+    return [
+      {
+        ...step,
+        doBody: "Click Ask AI to ask a question or hand off a task.",
+        done: () => ASK_AI_HOLD.isOpen(),
+        perform: () => { if (!ASK_AI_HOLD.isOpen()) ASK_AI_HOLD.open(); },
+      },
+      {
+        id: "ask-ai-open",
+        title: "Ask anything",
+        body: "Type a question, or start from a suggestion. The panel stays beside your work.",
+        side: "left",
+        holds: ASK_AI_HOLD,
+        find: () =>
+          visible(`${ASK_AI_PANEL} textarea`) ?? visible(ASK_AI_PANEL) ?? appBarAskAi(),
+      },
+    ];
+  },
+};
+
 function stepsFor(
   flow: TourFlowId,
   style: NavTourStyle,
   layouts: NavTourLayouts,
+  open: OpenSteps,
+  apply: NavTourApplySteps,
+  searchPlace: TreeSearchPlace,
 ): TourStep[] {
+  if (flow === "editing") {
+    // The rail's two live steps, or one card with a clip in their place.
+    return FLOWS.editing.flatMap((id): TourStep[] =>
+      apply === "one" && id === "accounts-manage"
+        ? [STEPS["layout-apply"]]
+        : apply === "one" && id === "accounts-apply"
+          ? []
+          : [STEPS[id]],
+    );
+  }
+  if (style === "flows" && flow === "getStarted") {
+    return FLOWS.getStarted.flatMap((id): TourStep[] =>
+      id === "all-products"
+        ? OPEN_STEPS["all-products"](open.products, searchPlace)
+        : id === "search"
+          ? OPEN_STEPS.search(open.search)
+          : id === "ask-ai"
+            ? OPEN_STEPS["ask-ai"](open.askAi)
+            : [STEPS[id]],
+    );
+  }
   if (style !== "single" || flow !== "getStarted") {
     return FLOWS[flow].map((id): TourStep => STEPS[id]);
   }
@@ -739,6 +1325,10 @@ export function NavTour({
     navTourMediaPosition,
     navTourWatch,
     navTourWatchCut,
+    navTourMotion,
+    navTourHighlight,
+    navTourHighlightScope,
+    navTourShadow,
   } =
     effective;
   const { state: layout, setEditing, discardEditing } = useNavLayout();
@@ -746,9 +1336,32 @@ export function NavTour({
   const step = steps[Math.min(index, steps.length - 1)]!;
   const last = index >= steps.length - 1;
 
-  const [anchor, setAnchor] = React.useState<DOMRect | null>(null);
+  /*
+   * Measured per step: a card never shows at the last step's place. Between
+   * steps there is no card at all until the new target is found, and the
+   * card arrives with its entrance. Ashwin, Nov 16.
+   */
+  const [measured, setMeasured] = React.useState<{ at: number; rect: DOMRect } | null>(null);
+  const anchor = measured && measured.at === index ? measured.rect : null;
+  /*
+   * The step Next is acting on. Its card goes as Next is pressed, rather than
+   * sitting there with a disabled Next while the step plays out.
+   */
+  const [hiddenAt, setHiddenAt] = React.useState<number | null>(null);
+  // A new step starts unhidden; it shows once its own target is measured.
+  const [seenIndex, setSeenIndex] = React.useState(index);
+  if (seenIndex !== index) {
+    setSeenIndex(index);
+    setHiddenAt(null);
+  }
+  const moves = navTourMotion !== "off";
   const cardRef = React.useRef<HTMLDivElement>(null);
-  const [size, setSize] = React.useState({ w: WIDTH, h: 0 });
+  /*
+   * The content's own height, so the card can be placed and sized for where it
+   * is going rather than where its frame happens to be mid-glide.
+   */
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const [contentH, setContentH] = React.useState(0);
 
   /*
    * Hands-on, per step. A step with nothing to try — or nothing to try right
@@ -826,6 +1439,10 @@ export function NavTour({
    * the end of Get started however the tour is set — and otherwise moves on,
    * unless the tour is only showing.
    */
+  /** Whether the reader doing the step moves the card on, so its text should go. */
+  const fadesOnDone = React.useEffectEvent(
+    () => moves && (step.endsFlow === true || handsOn !== "show"),
+  );
   const onDone = React.useEffectEvent(() => {
     if (step.endsFlow) return finish("finished");
     if (handsOn === "show") {
@@ -860,6 +1477,11 @@ export function NavTour({
     } else if (step.flyout && !visible(FLYOUT(step.flyout))) {
       press(categoryButton(step.flyout));
     }
+    const at = index;
+    keepEditingFlow = step.id === "layout-save" || step.outOfEdit === true;
+    // Closed the way Discard would; by now the change has been saved.
+    if (step.outOfEdit && ctx.editing()) discardEditing();
+    if (step.holds && !step.holds.isOpen()) step.holds.open();
     let before = step.done?.(ctx) ?? false;
     let missing: number | null = null;
     let settle: ReturnType<typeof setTimeout> | undefined;
@@ -869,16 +1491,17 @@ export function NavTour({
       if (el) {
         if (step.reveal) reveal(el, revealed);
         missing = null;
-        setAnchor(el.getBoundingClientRect());
+        setMeasured({ at, rect: el.getBoundingClientRect() });
       } else {
         missing ??= Date.now();
-        if (Date.now() - missing > HOLD_MS) setAnchor(null);
+        if (Date.now() - missing > HOLD_MS) setMeasured(null);
       }
       if (!step.done) return;
       const now = step.done(ctx);
       setDone(now);
       if (now && !before && !leaving.current && !performing.current) {
         leaving.current = true;
+        if (fadesOnDone()) setHiddenAt(at);
         settle = setTimeout(onDone, SETTLE_MS);
       }
       before = now;
@@ -892,6 +1515,8 @@ export function NavTour({
       clearInterval(id);
       window.removeEventListener("resize", measure);
       for (const el of revealed) el.removeAttribute(REVEAL_ATTR);
+      if (step.holds?.isOpen()) step.holds.close();
+      keepEditingFlow = false;
     };
     // `onHoldRail` is the shell's setter, stable; the step is what decides.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -905,6 +1530,9 @@ export function NavTour({
    */
   const next = async () => {
     if (busy || leaving.current || waiting) return;
+    setHiddenAt(index);
+    // Let the text finish going before the step plays out under it.
+    if (moves) await wait(FADE_OUT_MS);
     if (handsOn === "doOrNext" && !done && step.perform) {
       setBusy(true);
       performing.current = true;
@@ -920,11 +1548,11 @@ export function NavTour({
   };
 
   React.useLayoutEffect(() => {
-    const el = cardRef.current;
+    const el = contentRef.current;
     if (!el) return;
     const measure = () => {
-      const r = el.getBoundingClientRect();
-      setSize((s) => (s.w === r.width && s.h === r.height ? s : { w: r.width, h: r.height }));
+      const h = el.getBoundingClientRect().height;
+      setContentH((was) => (was === h ? was : h));
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -946,9 +1574,51 @@ export function NavTour({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [dismiss]);
 
-  if (!anchor) return null;
+  /*
+   * Where the card is. Live from this step's target once it is measured;
+   * between steps, with motion on, it holds the last place — the frame stays
+   * up, empty, until the next target is found and it can move there.
+   */
+  const live = anchor
+    ? place(anchor, { w: WIDTH, h: contentH + CARD_CHROME }, step.side)
+    : null;
+  const [held, setHeld] = React.useState(live);
+  /*
+   * Frozen while the text is out: the step Next is playing out can move its
+   * own target (Find any product's points at the panel once it opens), and
+   * following it would send the empty frame on a detour. One move, from the
+   * old place to the new.
+   */
+  const frozen = moves && hiddenAt === index;
+  if (
+    live &&
+    !frozen &&
+    (!held ||
+      held.left !== live.left ||
+      held.top !== live.top ||
+      held.side !== live.side ||
+      held.arrow !== live.arrow)
+  ) {
+    setHeld(live);
+  }
+  const placement = frozen ? (held ?? live) : (live ?? (moves ? held : null));
+  const shown = anchor !== null && hiddenAt !== index;
+  if (!placement || (!moves && !shown)) return null;
 
-  const { side, left, top, arrow } = place(anchor, size, step.side);
+  const { side, left, top, arrow } = placement;
+  const glide = navTourMotion === "glide";
+  const ease = "var(--ease-out)";
+  /*
+   * Fade, on the card's two parts rather than the card: the card's entrance
+   * animation holds its own opacity, and would win.
+   */
+  const fadeStyle: React.CSSProperties =
+    navTourMotion === "fade"
+      ? {
+          opacity: shown ? 1 : 0,
+          transition: shown ? `opacity 180ms ${ease}` : `opacity ${FADE_OUT_MS}ms ${ease}`,
+        }
+      : {};
   // Chosen on the prototype controls, not read off the app's dark mode.
   const dark = navTourTheme === "dark";
   const surface = dark ? "var(--hr-gray-900)" : "#ffffff";
@@ -995,7 +1665,7 @@ export function NavTour({
 
   return createPortal(
     <>
-      {navTourSpotlight === "on" ? (
+      {navTourSpotlight === "on" && anchor ? (
         /*
          * The cut-out is the scrim: a rounded box around the target whose
          * enormous spread shadow darkens everything else. Pointer-events pass,
@@ -1010,6 +1680,33 @@ export function NavTour({
             height: anchor.height + SPOT_PAD * 2,
           }}
           className="pointer-events-none fixed z-[80] rounded-[8px] shadow-[0_0_0_9999px_rgba(16,24,40,0.5)] transition-[left,top,width,height] duration-[var(--dur-base)] ease-[var(--ease-out)]"
+        />
+      ) : null}
+      {(step.small || navTourHighlightScope === "all") &&
+      navTourHighlight !== "off" &&
+      anchor &&
+      shown ? (
+        /*
+         * The ring on an icon-sized target. Drawn over it rather than behind,
+         * since the target lives in someone else's tree; pointer-events pass,
+         * so the control can still be tried. See NAV_TOUR_HIGHLIGHTS.
+         */
+        <div
+          aria-hidden="true"
+          style={{
+            left: anchor.left - RING_PAD,
+            top: anchor.top - RING_PAD,
+            width: anchor.width + RING_PAD * 2,
+            height: anchor.height + RING_PAD * 2,
+          }}
+          className={cn(
+            "pointer-events-none fixed z-[80] rounded-[8px]",
+            navTourHighlight === "gray" && "shadow-[inset_0_0_0_2px_var(--hr-gray-300)]",
+            navTourHighlight === "brand" && "shadow-[inset_0_0_0_2px_var(--hr-primary-600)]",
+            navTourHighlight === "fill" && "bg-[color-mix(in_oklab,var(--hr-gray-500)_16%,transparent)]",
+            navTourHighlight === "pulse" &&
+              "motion-tour-pulse outline-2 outline-[var(--hr-primary-600)] outline-solid",
+          )}
         />
       ) : null}
       {canWatch && watching ? (
@@ -1029,8 +1726,26 @@ export function NavTour({
         role="dialog"
         aria-label="Navigation tour"
         data-nav-tour=""
-        style={{ left, top, width: WIDTH }}
-        className="motion-panel-in fixed z-[81] drop-shadow-[0_12px_16px_rgba(16,24,40,0.08)]"
+        // Above the dialogs the tour holds open (Save layout sits at 89), below the QR modal.
+        style={{
+          left,
+          top,
+          width: WIDTH,
+          /*
+           * Glide moves the frame; Fade moves nothing and lets the whole card
+           * go out and come back. Off is neither — the card is not drawn
+           * between steps at all.
+           */
+          ...(glide
+            ? { transition: `left ${GLIDE_MS}ms ${ease}, top ${GLIDE_MS}ms ${ease}` }
+            : {}),
+        }}
+        className={cn(
+          "motion-panel-in fixed z-[90]",
+          navTourShadow === "strong"
+            ? "drop-shadow-[0px_2px_4px_rgba(16,24,40,0.10)]"
+            : "drop-shadow-[0_12px_16px_rgba(16,24,40,0.08)]",
+        )}
       >
         {/*
           The arrow: a 10px square turned 45°, half of it under the card. It
@@ -1042,6 +1757,12 @@ export function NavTour({
           style={{
             background: surface,
             borderColor: edge,
+            ...(glide
+              ? {
+                  opacity: shown ? 1 : 0,
+                  transition: `top ${GLIDE_MS}ms ${ease}, left ${GLIDE_MS}ms ${ease}, opacity ${shown ? 160 : FADE_OUT_MS}ms ${ease} ${shown ? GLIDE_MS - 80 : 0}ms`,
+                }
+              : fadeStyle),
             ...(side === "right"
               ? { left: -ARROW / 2, top: arrow - ARROW / 2 }
               : side === "left"
@@ -1059,8 +1780,41 @@ export function NavTour({
           )}
         />
         <div
-          style={{ background: surface, borderColor: edge }}
-          className="relative flex flex-col gap-[12px] rounded-[8px] border border-solid p-[16px]"
+          style={{
+            background: surface,
+            borderColor: edge,
+            ...(glide && contentH > 0
+              ? { height: contentH + CARD_CHROME, transition: `height ${GLIDE_MS}ms ${ease}` }
+              : fadeStyle),
+          }}
+          className={cn(
+            "relative rounded-[8px] border border-solid p-[16px]",
+            // The stronger elevation: the drop shadow on the card carries the
+            // arrow; this one sits under the surface. See NAV_TOUR_SHADOWS.
+            navTourShadow === "strong" &&
+              "shadow-[0px_20px_24px_-4px_rgba(16,24,40,0.16),0px_8px_8px_-4px_rgba(16,24,40,0.08)]",
+            glide && "overflow-hidden",
+          )}
+        >
+        {/*
+          The text, measured for the card's height, and faded on its own in
+          Glide so the frame can travel empty and fill again on arrival.
+          Inert while hidden: nothing in a fading card takes a second click.
+        */}
+        <div
+          ref={contentRef}
+          inert={!shown || undefined}
+          style={
+            glide
+              ? {
+                  opacity: shown ? 1 : 0,
+                  transition: shown
+                    ? `opacity 160ms ${ease} ${GLIDE_MS - 80}ms`
+                    : `opacity ${FADE_OUT_MS}ms ${ease}`,
+                }
+              : undefined
+          }
+          className="flex flex-col gap-[12px]"
         >
           {clipOnTop ? (
             /*
@@ -1146,7 +1900,11 @@ export function NavTour({
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => setIndex((i) => i - 1)}
+                  onClick={() => {
+                    if (!moves) return setIndex((i) => i - 1);
+                    setHiddenAt(index);
+                    setTimeout(() => setIndex((i) => i - 1), FADE_OUT_MS);
+                  }}
                   className={cn(
                     "motion-tap h-[32px] rounded-[4px] px-[6px] text-[13px] leading-[18px] font-semibold",
                     dark
@@ -1194,6 +1952,7 @@ export function NavTour({
               </span>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </>,
@@ -1325,8 +2084,23 @@ export function NavTours({
   /** The nav column's right edge, for the "Tour closed." toast. See UndoToast. */
   navWidth: number;
 }) {
-  const { navTourStyle, navTourLayouts, navTourRestart } = useTheme().effective;
-  const { state: layout, setEditing } = useNavLayout();
+  const {
+    navTourStyle,
+    navTourLayouts,
+    navTourRestart,
+    navTourProductsOpen,
+    navTourSearchOpen,
+    navTourAskAiOpen,
+    navTourApplySteps,
+    navTourStartFlow,
+    treeSearchPlace,
+  } = useTheme().effective;
+  const { state: layout, setEditing, moveGroup, discardEditing } = useNavLayout();
+  // The latest reorder for the run's context, which is made once per run.
+  const moveGroupRef = React.useRef(moveGroup);
+  React.useEffect(() => {
+    moveGroupRef.current = moveGroup;
+  }, [moveGroup]);
   const [state, dispatch] = React.useReducer(tours, NO_TOURS);
   const [replays, setReplays] = React.useState(0);
   const on = enabled && navTourStyle !== "card";
@@ -1369,6 +2143,13 @@ export function NavTours({
       else setEditing(true);
       return;
     }
+    /*
+     * Any other flow is about the nav as it is used, not as it is edited:
+     * leave edit mode first, the way Discard would, so switching from Editing
+     * to Get started does not run Get started over an edit session. Ashwin,
+     * Nov 16.
+     */
+    if (flow !== "editing" && editingRef.current) discardEditing();
     dispatch({ type: "start", flow });
   });
   React.useEffect(() => {
@@ -1390,10 +2171,27 @@ export function NavTours({
     return () => window.removeEventListener(NAV_TOUR_REPLAY_EVENT, replay);
   }, []);
 
-  // Get started: first load in a sub-account, and again on Replay.
+  /*
+   * Get started: first load in a sub-account, and again on Replay. Or, with
+   * the flows on, whichever flow the prototype controls name — run straight
+   * away, so it can be tested without reaching its moment. Changing it starts
+   * the new one. See NAV_TOUR_START_FLOWS.
+   */
+  const startFlow = flows ? navTourStartFlow : "getStarted";
+  const lastStartFlow = React.useRef(startFlow);
   React.useEffect(() => {
-    if (on) dispatch({ type: "trigger", flow: "getStarted" });
-  }, [on, replays]);
+    if (!on) return;
+    // Picked just now: run it from the top even if it has been seen.
+    const picked = lastStartFlow.current !== startFlow;
+    lastStartFlow.current = startFlow;
+    if (startFlow === "getStarted" && !picked) {
+      dispatch({ type: "trigger", flow: "getStarted" });
+      return;
+    }
+    // A tick later: starting can open edit mode, which is not this render's.
+    const id = setTimeout(() => start(startFlow), 0);
+    return () => clearTimeout(id);
+  }, [on, replays, startFlow]);
 
   const firstRunDone = state.seen.includes("getStarted");
   const reportFirstRun = React.useEffectEvent(onFirstRunDone);
@@ -1445,7 +2243,7 @@ export function NavTours({
       dispatch({ type: "start", flow: "editing" });
     }
     if (rose && on && flows) dispatch({ type: "trigger", flow: "editing" });
-    if (!editing) dispatch({ type: "leaveEdit" });
+    if (!editing && !keepEditingFlow) dispatch({ type: "leaveEdit" });
   }, [editing, on, flows]);
 
   const { active, run } = state;
@@ -1461,14 +2259,22 @@ export function NavTours({
         return value;
       },
       editing: () => editingRef.current,
+      moveGroup: (fromIndex, toIndex) => moveGroupRef.current(fromIndex, toIndex),
     };
     // A fresh one per run is the point.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [run]);
 
   const steps = React.useMemo(
-    () => (active ? stepsFor(active, navTourStyle, navTourLayouts) : []),
-    [active, navTourStyle, navTourLayouts],
+    () =>
+      active
+        ? stepsFor(active, navTourStyle, navTourLayouts, {
+            products: navTourProductsOpen,
+            search: navTourSearchOpen,
+            askAi: navTourAskAiOpen,
+          }, navTourApplySteps, treeSearchPlace)
+        : [],
+    [active, navTourStyle, navTourLayouts, navTourProductsOpen, navTourSearchOpen, navTourAskAiOpen, navTourApplySteps, treeSearchPlace],
   );
 
   if (!on) return null;
@@ -1476,10 +2282,11 @@ export function NavTours({
     <>
       {active && steps.length > 0 ? (
         <NavTour
-          key={`${run}-${navTourStyle}-${navTourLayouts}`}
+          key={`${run}-${navTourStyle}-${navTourLayouts}-${navTourProductsOpen}-${navTourSearchOpen}-${navTourAskAiOpen}-${navTourApplySteps}-${treeSearchPlace}`}
           steps={steps}
           ctx={ctx}
           onClose={(how) => {
+            markClosed();
             dispatch({ type: "close", flow: active });
             if (how === "dismissed" && navTourRestart === "toast") {
               setClosed({ flow: active, id: run });

@@ -146,6 +146,14 @@ import type {
   NavTourRestart,
   NavTourWatch,
   NavTourWatchCut,
+  NavTourMotion,
+  NavTourHighlight,
+  NavTourHighlightScope,
+  NavTourApplySteps,
+  NavTourStartFlow,
+  NavTourLearnIcon,
+  NavTourLearnOpens,
+  NavTourShadow,
   NavFeaturedSlot,
   NavFeaturedLabel,
   NavFeaturedCount,
@@ -203,6 +211,10 @@ import type {
   CrumbIcons,
   CrumbScale,
   TreeSearchPlace,
+  ProductSearchDismiss,
+  SearchHeaderIcons,
+  SearchRow,
+  SearchReveal,
   RecordCrumbLabel,
   RecordBackPlace,
   HeaderEntrySide,
@@ -405,6 +417,18 @@ interface ThemeContextValue extends ThemeState {
   setNavTourRestart: (v: NavTourRestart) => void;
   setNavTourWatch: (v: NavTourWatch) => void;
   setNavTourWatchCut: (v: NavTourWatchCut) => void;
+  setNavTourSearchOpen: (on: boolean) => void;
+  setNavTourProductsOpen: (on: boolean) => void;
+  setNavTourAskAiOpen: (on: boolean) => void;
+  setNavTourMotion: (v: NavTourMotion) => void;
+  setNavTourHighlight: (v: NavTourHighlight) => void;
+  setNavTourHighlightScope: (v: NavTourHighlightScope) => void;
+  setNavTourApplySteps: (v: NavTourApplySteps) => void;
+  setNavTourStartFlow: (v: NavTourStartFlow) => void;
+  setNavTourLearnIcon: (v: NavTourLearnIcon) => void;
+  setNavTourLearnOpens: (v: NavTourLearnOpens) => void;
+  setNavTourShadow: (v: NavTourShadow) => void;
+  setNavTourLearnRow: (on: boolean) => void;
   setNavFeaturedSlot: (v: NavFeaturedSlot) => void;
   setNavFeaturedLabel: (v: NavFeaturedLabel) => void;
   setNavFeaturedCount: (v: NavFeaturedCount) => void;
@@ -529,6 +553,10 @@ interface ThemeContextValue extends ThemeState {
   setPageCanvasColumns: (on: boolean) => void;
   setListShowFilters: (on: boolean) => void;
   setTreeSearchPlace: (v: TreeSearchPlace) => void;
+  setProductSearchDismiss: (v: ProductSearchDismiss) => void;
+  setSearchHeaderIcons: (v: SearchHeaderIcons) => void;
+  setSearchRow: (v: SearchRow) => void;
+  setSearchReveal: (v: SearchReveal) => void;
   setCrumbEmphasis: (v: CrumbEmphasis) => void;
   setCrumbScale: (v: CrumbScale) => void;
   setCrumbIcons: (v: CrumbIcons) => void;
@@ -969,6 +997,30 @@ export function ThemeProvider({
         setState((s) => ({ ...s, navTourWatch })),
       setNavTourWatchCut: (navTourWatchCut) =>
         setState((s) => ({ ...s, navTourWatchCut })),
+      setNavTourSearchOpen: (navTourSearchOpen) =>
+        setState((s) => ({ ...s, navTourSearchOpen })),
+      setNavTourProductsOpen: (navTourProductsOpen) =>
+        setState((s) => ({ ...s, navTourProductsOpen })),
+      setNavTourAskAiOpen: (navTourAskAiOpen) =>
+        setState((s) => ({ ...s, navTourAskAiOpen })),
+      setNavTourMotion: (navTourMotion) =>
+        setState((s) => ({ ...s, navTourMotion })),
+      setNavTourHighlight: (navTourHighlight) =>
+        setState((s) => ({ ...s, navTourHighlight })),
+      setNavTourHighlightScope: (navTourHighlightScope) =>
+        setState((s) => ({ ...s, navTourHighlightScope })),
+      setNavTourApplySteps: (navTourApplySteps) =>
+        setState((s) => ({ ...s, navTourApplySteps })),
+      setNavTourStartFlow: (navTourStartFlow) =>
+        setState((s) => ({ ...s, navTourStartFlow })),
+      setNavTourLearnIcon: (navTourLearnIcon) =>
+        setState((s) => ({ ...s, navTourLearnIcon })),
+      setNavTourLearnOpens: (navTourLearnOpens) =>
+        setState((s) => ({ ...s, navTourLearnOpens })),
+      setNavTourShadow: (navTourShadow) =>
+        setState((s) => ({ ...s, navTourShadow })),
+      setNavTourLearnRow: (navTourLearnRow) =>
+        setState((s) => ({ ...s, navTourLearnRow })),
       setNavFeaturedSlot: (navFeaturedSlot) =>
         setState((s) => ({ ...s, navFeaturedSlot })),
       setNavFeaturedLabel: (navFeaturedLabel) =>
@@ -1186,6 +1238,13 @@ export function ThemeProvider({
         setState((s) => ({ ...s, listShowFilters })),
       setTreeSearchPlace: (treeSearchPlace) =>
         setState((s) => ({ ...s, treeSearchPlace })),
+      setProductSearchDismiss: (productSearchDismiss) =>
+        setState((s) => ({ ...s, productSearchDismiss })),
+      setSearchHeaderIcons: (searchHeaderIcons) =>
+        setState((s) => ({ ...s, searchHeaderIcons })),
+      setSearchRow: (searchRow) => setState((s) => ({ ...s, searchRow })),
+      setSearchReveal: (searchReveal) =>
+        setState((s) => ({ ...s, searchReveal })),
       setCrumbEmphasis: (crumbEmphasis) =>
         setState((s) => ({ ...s, crumbEmphasis })),
       setCrumbScale: (crumbScale) => setState((s) => ({ ...s, crumbScale })),

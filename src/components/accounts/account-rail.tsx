@@ -42,6 +42,7 @@ import {
   MANAGE_ACCOUNTS_LABEL,
   type RailManageGlyph,
   RAIL_HALF_SQUARE,
+  SEARCH_REVEAL_PARTS,
   RAIL_SHADE_CLASS,
   AGENCY_PLATE_CLASS,
   AGENCY_PLATE_PAD,
@@ -463,6 +464,7 @@ function RailTools({
   ruleNudge,
   onCreate,
   manageGlyph,
+  noMatches = false,
   stickyTop,
   bleed = null,
 }: {
@@ -533,6 +535,8 @@ function RailTools({
   onCreate?: (() => void) | null;
   /** Which glyph the icon-only button wears. See RAIL_MANAGE_GLYPHS. */
   manageGlyph?: RailManageGlyph;
+  /** The query matched nothing, so there is nothing to manage. */
+  noMatches?: boolean;
   /**
    * The scroller's own side padding, so the bar can run past it.
    *
@@ -804,6 +808,21 @@ function RailTools({
         that state, which the snapshot showed as a bare "button".
       */
       aria-label={picking ? "Cancel" : MANAGE_ACCOUNTS_LABEL}
+      /*
+        Inert while the search found nothing. Ashwin, Nov 16.
+        
+        The mode it opens is "pick some of these accounts", and there are
+        none on screen to pick — pressing it put you into a selection over
+        an empty list, which you could only leave again. Disabled rather
+        than hidden: the row's shape should not change because a query
+        missed, and a control that vanishes mid-typing is harder to read
+        than one that greys.
+        
+        Cancel is exempt. While picking, the button is the way OUT, and a
+        way out that stops working because a filter matched nothing is a
+        trap.
+      */
+      disabled={noMatches && !picking}
       onClick={onToggleSelect}
       /*
         A secondary button, not a bare label.
@@ -819,7 +838,9 @@ function RailTools({
         ctaShape === "icon" && !picking ? "w-[32px]" : "px-[11px]",
         picking
           ? "bg-nav-active text-nav-fg"
-          : "text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg",
+          : noMatches
+            ? "cursor-not-allowed text-nav-fg-subtle opacity-45"
+            : "text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg",
       )}
     >
       {ctaShape === "icon" && !picking ? (
@@ -1714,6 +1735,29 @@ export function AccountRail({
     [],
   );
   /*
+   * Leaving the rail ends a search nobody committed to. Ashwin, Nov 16.
+   *
+   * `fillFocused` is what puts the panel into its resting state — field up,
+   * recent searches where the accounts were. It survived the rail closing,
+   * because closing is a hover leaving and the field is never blurred by
+   * it: hover out with an empty field and hover back, and you were returned
+   * to the empty state rather than to your accounts. Which is wrong in the
+   * plainest way — you had not searched for anything.
+   *
+   * Only with an EMPTY field. A typed query is work, and a pointer that
+   * strayed out of a 56px strip is not an instruction to throw it away.
+   *
+   * Derived during render rather than in an effect: this is "a prop
+   * changed, so some state is stale", which React resolves by comparing
+   * against the last value seen. An effect would do the same thing a frame
+   * later and show the wrong panel in between.
+   */
+  const [railWasOpen, setRailWasOpen] = React.useState(expanded);
+  if (railWasOpen !== expanded) {
+    setRailWasOpen(expanded);
+    if (!expanded && fillQuery.trim().length === 0) setFillFocused(false);
+  }
+  /*
    * The accounts picked out of this FIELD, newest first.
    *
    * Not the session's recents: switching from a pinned tile is not a search
@@ -1859,17 +1903,34 @@ export function AccountRail({
     onExpandedChange(false);
   }, [closeFill, railDirectoryMode, onExpandedChange]);
 
-  /* Esc leaves, as it does on every other surface that takes the screen. */
+  /*
+   * Esc leaves, as it does on every other surface that takes the screen —
+   * but a typed query gets the first press. Ashwin, Nov 16.
+   *
+   * Same two stages the product search has: clear, then close. Leaving this
+   * one single-stage would mean the key means "undo my typing" in one search
+   * and "abandon the search" in the other, a difference nobody can see and
+   * everybody would have to remember.
+   *
+   * Capture phase, so this runs before the field's own handler rather than
+   * after it — otherwise the input would clear itself and the rail would
+   * close on the same press.
+   */
   React.useEffect(() => {
     if (!filled) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       e.stopPropagation();
+      if (fillQuery.length > 0) {
+        e.preventDefault();
+        setFillQuery("");
+        return;
+      }
       closeFill();
     };
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [filled, closeFill]);
+  }, [filled, fillQuery, closeFill]);
   const fillRows = React.useMemo(() => {
     if (!filled) return [];
     const matched = matchAccounts(fillQuery, session.accounts);
@@ -2791,6 +2852,45 @@ export function AccountRail({
    */
   const searchResting =
     inlineOpen && expanded && fillFocused && fillQuery.trim().length === 0;
+  /*
+   * Escape leaves the resting search. Ashwin, Nov 16.
+   *
+   * The second half of the two-stage key, and it was missing here: with text
+   * in the field Escape emptied it, and then a second press did nothing at
+   * all, because the only Escape handler on this component was the one
+   * guarding `filled` — a different surface. So the rail could be left
+   * sitting in its searching state with no way out but the pointer, which is
+   * exactly the dead end the key exists to prevent.
+   *
+   * Gated on `searchResting`, which is already "field up, nothing typed", so
+   * the ordering falls out of the state rather than being spelled again:
+   * while there IS a query this handler is not mounted and the field's own
+   * clear gets the press. One source of truth for which stage we are in.
+   *
+   * The blur is not decoration. `fillFocused` is set FROM focus, so dropping
+   * the flag while the input still holds the caret leaves the two disagreeing
+   * — and the next keystroke, or a click anywhere in the rail, would put the
+   * search straight back up.
+   *
+   * Capture phase, ahead of the shell's own Escape: leaving the search is the
+   * innermost thing a press here can mean, and `stopPropagation` keeps the
+   * same press from also shutting whatever is open behind the rail.
+   */
+  React.useEffect(() => {
+    if (!searchResting) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (blurGrace.current !== null) window.clearTimeout(blurGrace.current);
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      setFillFocused(false);
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [searchResting]);
   const accountById = (id: string) =>
     id === AGENCY_ID
       ? brandedAgency
@@ -2872,6 +2972,45 @@ export function AccountRail({
    * Keyboard reach for the query's create row: with nothing matched, Enter
    * in the field takes it. With matches, Enter does what it always did.
    */
+  /*
+   * The entrance this surface plays, from the nav's own dial.
+   *
+   * Only the LIST half applies here: the rail's field is permanent, so there
+   * is no control turning into one — what arrives is the recent searches,
+   * taking the accounts' place. Same situation as the `logo` placement in
+   * the nav, which also animates its list and not its field.
+   */
+  const railReveal = SEARCH_REVEAL_PARTS[effective.searchReveal].list;
+  /*
+   * How many times the resting state has been entered, to re-key the rows.
+   *
+   * A CSS animation runs on mount, and these rows are keyed by their text —
+   * so focusing the field a second time re-used the same elements and the
+   * cascade played only once per session. Counting entrances gives each
+   * visit its own keys.
+   */
+  const [searchEnters, setSearchEnters] = React.useState(0);
+  const [restingWas, setRestingWas] = React.useState(false);
+  if (restingWas !== searchResting) {
+    setRestingWas(searchResting);
+    if (searchResting) setSearchEnters((n) => n + 1);
+  }
+
+  /*
+   * The query found nothing — named once, because two controls now read it.
+   *
+   * The empty row says so, and the Manage button stands down beside it: with
+   * no accounts on screen there is nothing to manage, and a mode that opens
+   * onto an empty list is a mode you immediately have to leave. Ashwin,
+   * Nov 16.
+   */
+  const noAccountsMatch =
+    (filled && fillRows.length === 0) ||
+    (inlineOpen &&
+      fillQuery.trim().length > 0 &&
+      topRun.length === 0 &&
+      bottomRun.length === 0);
+
   const railMatchCount = filled
     ? fillRows.length
     : topRun.length + bottomRun.length;
@@ -4556,6 +4695,7 @@ export function AccountRail({
                     ruleAlign={effective.railRuleAlign}
                     ruleNudge={effective.topAlignRailNudge}
                     manageGlyph={effective.railManageGlyph}
+                    noMatches={noAccountsMatch}
                     /*
                       Only where there is no agency ROW to carry it.
 
@@ -4628,6 +4768,7 @@ export function AccountRail({
                         ctaShape={effective.railToolsCta}
                         searchGlyph={effective.railSearchGlyph}
                         manageGlyph={effective.railManageGlyph}
+                        noMatches={noAccountsMatch}
                         onCreate={createInTools ? createAccount : null}
                         edge={effective.railToolsEdge}
                         collapsedSearch={effective.railCollapsedSearch}
@@ -4927,11 +5068,22 @@ export function AccountRail({
                 */}
                 {searchResting ? (
                   (recentAsText ? searchTexts.length : bottomRun.length) > 0 ? (
-                    <RailGroupHeading
-                      label="Recent searches"
-                      expanded={expanded}
-                      show
-                    />
+                    <div
+                      /* Index 0: the label leads the list it names. */
+                      key={`heading-${searchEnters}`}
+                      style={{ "--row": 0 } as React.CSSProperties}
+                      className={cn(
+                        railReveal === "cascade" && "motion-search-row",
+                        railReveal === "fade" && "motion-search-row-fade",
+                        railReveal === "slide" && "motion-search-row-slide",
+                      )}
+                    >
+                      <RailGroupHeading
+                        label="Recent searches"
+                        expanded={expanded}
+                        show
+                      />
+                    </div>
                   ) : null
                 ) : !filled && !reverseSearch && centredRecents.length > 0 ? (
                   <RailGroupHeading
@@ -4941,10 +5093,13 @@ export function AccountRail({
                   />
                 ) : null}
                 {searchResting && recentAsText
-                  ? searchTexts.map((text) => (
+                  ? searchTexts.map((text, i) => (
                       <RecentSearchRow
-                        key={text}
+                        key={`${searchEnters}-${text}`}
                         text={text}
+                        /* The heading takes 0, so the rows start at 1. */
+                        row={i + 1}
+                        reveal={railReveal}
                         arrow={effective.railRecentSearch === "arrow"}
                         onFill={(from) => {
                           setFillQuery(text);
@@ -5064,11 +5219,7 @@ export function AccountRail({
                   rather than entries in it, so the message has to come
                   after them here. Ashwin, Oct 16.
                 */}
-                {((filled && fillRows.length === 0) ||
-                  (inlineOpen &&
-                    fillQuery.trim().length > 0 &&
-                    topRun.length === 0 &&
-                    bottomRun.length === 0)) ? (
+                {noAccountsMatch ? (
                   /*
                     A row, not a paragraph.
 
@@ -6516,14 +6667,36 @@ const RAIL_RECENT_QUERY_LIMIT = 5;
 function RecentSearchRow({
   text,
   arrow,
+  reveal,
+  row,
   onFill,
 }: {
   text: string;
   arrow: boolean;
+  /**
+   * Its half of the search's entrance, from the same axis the nav's product
+   * search reads. See SEARCH_REVEALS.
+   *
+   * One dial for both surfaces, deliberately: they are the same gesture in
+   * two columns — a field takes over a list of things and offers you what
+   * you looked for last time — and two dials would let them drift into
+   * looking like two different features.
+   */
+  reveal: "cascade" | "fade" | "slide" | "none";
+  /** Its place in the cascade. The heading is 0. */
+  row: number;
   onFill: (from: HTMLElement) => void;
 }) {
   return (
-    <div className="group/recent relative flex h-[36px] shrink-0 items-center rounded-[8px] hover:bg-nav-hover">
+    <div
+      style={{ "--row": row } as React.CSSProperties}
+      className={cn(
+        "group/recent relative flex h-[36px] shrink-0 items-center rounded-[8px] hover:bg-nav-hover",
+        reveal === "cascade" && "motion-search-row",
+        reveal === "fade" && "motion-search-row-fade",
+        reveal === "slide" && "motion-search-row-slide",
+      )}
+    >
       <button
         type="button"
         onMouseDown={(e) => e.preventDefault()}

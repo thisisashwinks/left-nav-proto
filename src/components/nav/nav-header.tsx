@@ -34,6 +34,19 @@ interface NavHeaderProps {
    * empty footer to itself.
    */
   trailing?: React.ReactNode;
+  /**
+   * The product search, taking this row instead of one of its own.
+   *
+   * Set only under SEARCH_ROWS `header`. When it is here the identity and the
+   * trailing controls both stand down: the field plus its dismiss is a
+   * two-control row already, and squeezing a 36px field between a name and a
+   * collapse glyph leaves a box too narrow to read a query in.
+   *
+   * A node rather than a flag, because the field belongs to the nav — it owns
+   * the query, the dismiss and the reveal animation, and this row has no
+   * reason to learn any of them. Same contract as `collapseSlot`.
+   */
+  inlineSearch?: React.ReactNode;
   /** Collapses the nav in place — the logo mark's second job. */
   onToggleCollapsed?: () => void;
   /**
@@ -96,6 +109,7 @@ export function NavHeader({
   agency = false,
   canSwitch = true,
   trailing,
+  inlineSearch = null,
   onToggleCollapsed,
   mark = true,
   agencyPlate = null,
@@ -332,7 +346,26 @@ export function NavHeader({
       ) : null}
       <div
         className={cn(
-          "relative flex w-full items-center gap-[6px]",
+          "relative flex items-center gap-[6px]",
+          /*
+            The search answers to the COLUMN's edge, not the header's.
+            Ashwin, Nov 16: "there's a margin left to the search box icon".
+            
+            This row is inset by `--t-nav-pad + 2`, two more than the body it
+            sits above, so the identity's disc lands on the rows' glyph
+            column — see the note below. The field is not an identity: it is
+            the full-width control the column rows are measured against, and
+            with the extra 2 it stood 8px right of where the same field
+            stands under `column`, with its own results visibly left of it.
+            
+            So the two are given back: `-mx-2px` cancels the header's extra
+            inset on both sides, and the width grows by the 4 the margins
+            took, or the right edge would come in 2px short and only the
+            left would have been fixed. The pl below is skipped for the same
+            reason — it is the identity's alignment, and there is no
+            identity on this row while the field is up.
+          */
+          inlineSearch ? "-mx-[2px] w-[calc(100%+4px)]" : "w-full",
           /*
             On the rows' text line. Ashwin, Oct 19.
 
@@ -344,7 +377,8 @@ export function NavHeader({
             glyph column too. Not when centred: an inset on one side would
             pull the centre off by half of it.
           */
-          navIdentityAlign !== "center" &&
+          !inlineSearch &&
+            navIdentityAlign !== "center" &&
             "pl-[calc(var(--t-nav-px,8px)-2px)]",
         )}
       >
@@ -357,14 +391,24 @@ export function NavHeader({
               is in this row, and it leaves the flow below so it cannot drag
               the midpoint with it.
             */
-            navIdentityAlign === "center"
-              ? cn("justify-center", trailing ? "px-[34px]" : null)
-              : // Spread needs the full width to divide; the trigger does its
-                // own distributing inside it. See NAV_IDENTITY_ALIGNS.
-                null,
+            /*
+              The field wants the whole row, at every alignment. Centring a
+              search box on a column it is about to fill is a no-op at best,
+              and under `center` the 34px reserve for a trailing control
+              would narrow a field that has no trailing control beside it.
+            */
+            inlineSearch
+              ? null
+              : navIdentityAlign === "center"
+                ? cn("justify-center", trailing ? "px-[34px]" : null)
+                : // Spread needs the full width to divide; the trigger does
+                  // its own distributing inside it. See NAV_IDENTITY_ALIGNS.
+                  null,
           )}
         >
-          {canSwitch ? (
+          {inlineSearch ? (
+            inlineSearch
+          ) : canSwitch ? (
             <WorkspaceTrigger
               account={account}
               logoSrc={logoSrc}
@@ -472,7 +516,7 @@ export function NavHeader({
           )}
         </div>
 
-        {trailing ? (
+        {trailing && !inlineSearch ? (
           <div
             className={
               navIdentityAlign === "center"

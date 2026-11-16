@@ -3,6 +3,8 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { useTheme } from "@/components/theme/theme-provider";
+import { cn } from "@/lib/utils";
 
 /**
  * The two-step coach mark that follows "McDonald's is ready".
@@ -38,6 +40,7 @@ export function ReadyTour({
   onClose: () => void;
 }) {
   const [index, setIndex] = React.useState(0);
+  const { navTourShadow } = useTheme().effective;
   const step = steps[index]!;
   const [rect, setRect] = React.useState<DOMRect | null>(null);
   const cardRef = React.useRef<HTMLDivElement>(null);
@@ -144,7 +147,13 @@ export function ReadyTour({
         ref={cardRef}
         role="dialog"
         aria-label={step.title}
-        className="motion-panel-in fixed flex flex-col gap-[12px] rounded-[8px] bg-[#101828] p-[16px] shadow-[0_4px_6px_-2px_rgba(16,24,40,0.03),0_12px_16px_-4px_rgba(16,24,40,0.08)]"
+        className={cn(
+          "motion-panel-in fixed flex flex-col gap-[12px] rounded-[8px] bg-[#101828] p-[16px]",
+          // See NAV_TOUR_SHADOWS.
+          navTourShadow === "strong"
+            ? "shadow-[0px_20px_24px_-4px_rgba(16,24,40,0.16),0px_8px_8px_-4px_rgba(16,24,40,0.08)] drop-shadow-[0px_2px_4px_rgba(16,24,40,0.10)]"
+            : "shadow-[0_4px_6px_-2px_rgba(16,24,40,0.03),0_12px_16px_-4px_rgba(16,24,40,0.08)]",
+        )}
         style={{ left: cardLeft, top: cardTop, width: CARD_WIDTH }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
