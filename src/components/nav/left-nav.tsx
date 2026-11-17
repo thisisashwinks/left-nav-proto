@@ -128,7 +128,14 @@ import {
 } from "@/components/launchpad/launchpad-data";
 import { PROPOSED_HOME_ID } from "./proposed-ia";
 import { NavDivider } from "./nav-divider";
-import { FeaturedPinnedRows, FeaturedSlot } from "./featured-slot";
+import { FeaturedSlot } from "./featured-slot";
+import { FeaturedListRows, HolidayPromosRow } from "./featured-rows";
+import { FEATURED_PRODUCTS, openFeaturedProduct } from "./featured";
+import { FEATURED_PAGES } from "./featured-pages";
+
+/** Holiday Promos' row id, and its drag payload type. See promoExtras. */
+const PROMO_ID = FEATURED_PAGES.promos!.id;
+const PROMO_MIME = "application/x-holiday-promos";
 import { useFeatured } from "./featured";
 import {
   fadeProps,
@@ -153,9 +160,7 @@ import {
   matchesQuery,
   TreeSearchEmpty,
   ProductSearchResting,
-  ProductSearchResults,
   TreeSearchField,
-  type ProductHit,
   searchTreeBranch,
   wholeBranchHit,
   type TreeSearchHit,
@@ -497,6 +502,7 @@ export function LeftNav({
     l3Arrange,
     treeSearchPlace,
     productSearchDismiss,
+    quickActionSpot,
     searchHeaderIcons,
     searchRow,
     searchReveal,
@@ -505,15 +511,32 @@ export function LeftNav({
     navSettingsSpot,
     navFootSticky,
     navFootShadow,
-    navFeaturedCardRow,
+    navEditSpot,
     navFeaturedSlot,
     navTourLearnIcon,
     navTourLearnOpens,
+    navFeaturedPromoBg,
+    navPromoPlacement,
   } = useTheme().effective;
   const featuredCount = useFeatured().list.length;
   // The Settings foot stays put while the list scrolls. See STICKY_FOOT.
-  const footStuck = navFootSticky === "sticky" && navSettingsSpot === "footer";
-  const featuredCardShown = navFeaturedSlot === "card" && featuredCount > 0;
+  const footStuck = navFootSticky === "sticky" && navSettingsSpot !== "list";
+  // Not while editing: the cards (and Edit's lane over them) step aside. Ashwin, Nov 17.
+  const navEditingNow = useNavLayout().state.editing;
+  const featuredCardShown = navFeaturedSlot === "card" && featuredCount > 0 && !navEditingNow;
+  /*
+   * Where Edit actually goes. Above and Beside are about the card, so with no
+   * card they fall back to Below; Beside also needs the card to close the
+   * nav, which only happens with Settings in the list. See NAV_EDIT_SPOTS.
+   */
+  const editSpot =
+    !featuredCardShown && (navEditSpot === "above" || navEditSpot === "beside")
+      ? "below"
+      : navEditSpot === "beside" && navSettingsSpot !== "list"
+        ? "below"
+        : navEditSpot;
+  // An empty row Edit is lifted onto. See the effect by settingsSectionRef.
+  const editLane = <div aria-hidden="true" data-nav-edit-lane="" className="h-[36px] w-full shrink-0" />;
   /*
    * The foot's height, published on the scroll shell, so the shell's own
    * edge-to-edge shadow can sit exactly on the band's top edge.
@@ -992,6 +1015,113 @@ export function LeftNav({
   const editable = agencyScope ? agencyEditNav : true;
   const editing = state.editing && can.customise && editable;
   const learnRow = useLearnSwitchyardRow();
+  /*
+   * The featured cards at the bottom, on a shaded panel when the promo
+   * background asks for one, so they read as their own section rather than
+   * more of the list. See NAV_FEATURED_PROMO_BGS. Ashwin, Nov 17.
+   */
+  const promoCard = !featuredCardShown ? null : navFeaturedPromoBg === "off" ? (
+      <FeaturedSlot at="card" agency={agencyScope} />
+    ) : (
+      <div
+        data-promo-bg={navFeaturedPromoBg}
+        className={cn(
+          "w-full rounded-[12px] p-[8px]",
+          navFeaturedPromoBg === "gray100" && "bg-[var(--hr-gray-100)]",
+          navFeaturedPromoBg === "gray200" && "bg-[var(--hr-gray-200)]",
+          navFeaturedPromoBg === "white" &&
+            "bg-white shadow-[inset_0_0_0_1px_var(--hr-gray-200)]",
+        )}
+      >
+        <FeaturedSlot at="card" agency={agencyScope} />
+      </div>
+    );
+  /*
+   * Edit, lined up with the last row of the Settings section.
+   *
+   * Edit hangs off the nav's foot, outside the list, so with Settings at the
+   * foot it floated over that row at whatever height the foot happened to
+   * leave — a few pixels off with Settings alone, a row off once the Learn row
+   * joined it, and over the cards when they sit below. It is lifted by its
+   * `bottom` rather than a transform: the collapse slides it with `translate`,
+   * and the two have to compose. Ashwin, Nov 17.
+   */
+  const settingsSectionRef = React.useRef<HTMLDivElement>(null);
+  // Under a search the foot (and Edit with it) is gone; the empty section
+  // below resets the lift.
+  // Below with Settings in the list and Beside need no lift: the card's
+  // padding leaves Edit its room at the nav's foot.
+  const editLift =
+    editSpot === "settings"
+      ? "settings"
+      : editSpot === "above" || (editSpot === "below" && navSettingsSpot !== "list")
+        ? "lane"
+        : null;
+  const alignEdit = editLift !== null && !collapsed && !editing;
+  React.useLayoutEffect(() => {
+    const section = settingsSectionRef.current;
+    const root = section?.closest("[data-nav-root]") ?? null;
+    /*
+     * Looked up on every pass, not once: the entry cluster can remount Edit
+     * after this effect runs (closing a tour does), and a held node is then a
+     * detached one — the lift landed on nothing and Edit dropped to the foot.
+     * Ashwin, Nov 17.
+     */
+    const findEdit = () => root?.querySelector<HTMLElement>('[data-nav-slide="edit"]') ?? null;
+    if (!findEdit()) return;
+    if (!alignEdit || !section) {
+      findEdit()!.style.bottom = "";
+      return;
+    }
+    const align = () => {
+      const edit = findEdit();
+      if (!edit) return;
+      // Rows can sit in `display: contents` wrappers; look through them.
+      const boxes = (el: Element): Element[] =>
+        [...el.children].flatMap((c) =>
+          getComputedStyle(c).display === "contents" ? boxes(c) : [c],
+        );
+      const rows = boxes(section).filter((el) => el.getBoundingClientRect().height > 0);
+      const last =
+        editLift === "lane"
+          ? root?.querySelector("[data-nav-edit-lane]")
+          : rows[rows.length - 1];
+      if (!last) {
+        edit.style.bottom = "";
+        return;
+      }
+      const lifted = parseFloat(edit.style.bottom) || 0;
+      const e = edit.getBoundingClientRect();
+      const r = last.getBoundingClientRect();
+      const rest = e.top + e.height / 2 + lifted;
+      const lift = Math.max(0, Math.round(rest - (r.top + r.height / 2)));
+      if (lift !== lifted) edit.style.bottom = `${lift}px`;
+    };
+    align();
+    const observer = new ResizeObserver(align);
+    observer.observe(section.parentElement ?? section);
+    if (root) observer.observe(root);
+    const scroller = section.closest("[data-scroll-region]");
+    scroller?.addEventListener("scroll", align, { passive: true });
+    window.addEventListener("resize", align);
+    // A remounted Edit (or rows coming and going) changes nothing's size, so
+    // watch the tree too, coalesced to a frame.
+    let frame = 0;
+    const mutations = new MutationObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(align);
+    });
+    if (root) mutations.observe(root, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      mutations.disconnect();
+      cancelAnimationFrame(frame);
+      scroller?.removeEventListener("scroll", align);
+      window.removeEventListener("resize", align);
+      const edit = findEdit();
+      if (edit) edit.style.bottom = "";
+    };
+  }, [alignEdit, editLift, editSpot, learnRow, featuredCardShown, navFeaturedPromoBg, navSettingsSpot]);
   const learnItem: NavItem = {
     id: LEARN_FLYOUT_ID,
     label: LEARN_NAV_LABEL,
@@ -1318,6 +1448,17 @@ export function LeftNav({
   const [savingTemplate, setSavingTemplate] = React.useState(false);
   /** The row in flight, and the row the pointer is over. Drag-local. */
   const [lifted, setLifted] = React.useState<string | null>(null);
+  /*
+   * Holiday Promos as a row among the categories (placement "cardRow"): an
+   * item like the others — drag it, hide it — except that it cannot be
+   * renamed (the greyed pencil's tooltip says so), change icon, be filed
+   * into a category, or be removed. Where it
+   * sits is an index into the entry list's rows. "locked" pins it first and
+   * edit mode leaves it alone. Ashwin, Nov 17.
+   */
+  // Where the drop line sits while Holiday Promos is held. See promoExtras.
+  const [promoDrop, setPromoDrop] = React.useState<{ top: number; left: number; width: number } | null>(null);
+  const promoDragCleanup = React.useRef<(() => void) | null>(null);
   const [over, setOver] = React.useState<string | null>(null);
   /** What is in flight, so every seam that would take it can show a track. */
   const dragTypes = useDragTypes();
@@ -1372,8 +1513,26 @@ export function LeftNav({
    * way round: it creates contacts, appointments and the like, which are things
    * that live IN a sub-account. There is nothing for it to create from here.
    */
+  /*
+   * Quick actions, beside the search field instead of in the card.
+   * Option C, Nov 17 — see QUICK_ACTION_SPOTS.
+   *
+   * Gated on `topEntry` because that is the only placement where there IS a
+   * field in this column to sit beside. At the bottom edge or in the app bar
+   * the axis falls back to the card rather than putting a create button
+   * somewhere it means nothing.
+   *
+   * Not gated on the card existing, which is the point: this is what lets
+   * the Launchpad be demoted to `plain` without taking Quick actions down
+   * with it.
+   */
+  const qaBesideSearch =
+    quickActionSpot === "search" &&
+    topEntry &&
+    quickActionsShown &&
+    !agencyScope;
   const cardQuickActions =
-    quickActionsShown && launchpadAllowed && !agencyScope;
+    quickActionsShown && launchpadAllowed && !agencyScope && !qaBesideSearch;
   /*
    * Sub-account only (Sep 10), reversing the Aug 25 call above.
    *
@@ -1859,8 +2018,112 @@ export function LeftNav({
   };
 
   /** Everything editing a row offers beyond renaming it. */
+  const promoExtras = (): Partial<NavRowEdit> => {
+    // Placed by the row it follows, so a saved layout carries it. See NavLayoutState.promoAfter.
+    const afterFor = (index: number) => (index <= 0 ? null : listOrder[index - 1]);
+    const drag: NavRowDrag = {
+      /*
+       * Moves between any two top-level rows, categories included, but never
+       * into one: no category's own drop handler is involved, the drag reads
+       * the gaps off the rows' midpoints and draws its own line. The row is
+       * not moved until the drop — moving the dragged node mid-drag ends the
+       * drag in Chrome.
+       */
+      onDragStart: (e) => {
+        e.dataTransfer.setData(PROMO_MIME, PROMO_ID);
+        e.dataTransfer.setData("text/plain", FEATURED_PRODUCTS.promos.name);
+        e.dataTransfer.effectAllowed = "move";
+        setLifted(PROMO_ID);
+        const root = settingsSectionRef.current?.closest("[data-nav-root]");
+        let target = promoIndex;
+        const rowsNow = () =>
+          root
+            ? [...root.querySelectorAll<HTMLElement>("[data-drag-row][data-row-id]")].filter(
+                (r) => listIds.has(r.dataset.rowId ?? "") && !r.closest("[data-promo-row]"),
+              )
+            : [];
+        const over = (ev: DragEvent) => {
+          if (!ev.dataTransfer?.types.includes(PROMO_MIME)) return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          if (ev.dataTransfer) ev.dataTransfer.dropEffect = "move";
+          const rows = rowsNow();
+          if (rows.length === 0) return;
+          let at = 0;
+          for (const r of rows) {
+            const b = r.getBoundingClientRect();
+            if (ev.clientY > b.top + b.height / 2) at += 1;
+          }
+          target = at;
+          const edge =
+            at === 0 ? rows[0].getBoundingClientRect().top : rows[at - 1].getBoundingClientRect().bottom;
+          const box = rows[Math.min(at, rows.length - 1)].getBoundingClientRect();
+          setPromoDrop({ top: edge - 1, left: box.left, width: box.width });
+        };
+        const drop = (ev: DragEvent) => {
+          if (!ev.dataTransfer?.types.includes(PROMO_MIME)) return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          // `target` counts rows without the promo, which is what listOrder is.
+          const next = afterFor(target);
+          if (next !== promoAfterId) layout.setPromoAfter(next);
+        };
+        document.addEventListener("dragover", over, true);
+        document.addEventListener("drop", drop, true);
+        promoDragCleanup.current = () => {
+          document.removeEventListener("dragover", over, true);
+          document.removeEventListener("drop", drop, true);
+        };
+      },
+      onDragOver: () => {},
+      onDragLeave: () => {},
+      onDrop: () => {},
+      onDragEnd: () => {
+        promoDragCleanup.current?.();
+        promoDragCleanup.current = null;
+        setPromoDrop(null);
+        setLifted(null);
+      },
+      over: false,
+      lifted: lifted === PROMO_ID,
+    };
+    return {
+      drag,
+      hidden: promoHidden,
+      onToggleHidden: () => layout.toggleRowHidden(PROMO_ID),
+      onOpenMenu: (trigger) => {
+        setMenuTrigger(trigger);
+        menu.open(PROMO_ID, trigger);
+      },
+      // Move and hide only — no rename, no icon, no Move to, no Remove.
+      menuActions: [
+        {
+          id: "up",
+          label: "Move up",
+          icon: MoveUp,
+          ...(promoIndex > 0 ? { onSelect: () => layout.setPromoAfter(afterFor(promoIndex - 1)) } : {}),
+        },
+        {
+          id: "down",
+          label: "Move down",
+          icon: MoveDown,
+          ...(promoIndex < listOrder.length
+            ? { onSelect: () => layout.setPromoAfter(afterFor(promoIndex + 1)) }
+            : {}),
+        },
+        {
+          id: "hide",
+          label: promoHidden ? "Show" : "Hide",
+          icon: promoHidden ? Eye : EyeOff,
+          onSelect: () => layout.toggleRowHidden(PROMO_ID),
+        },
+      ],
+    };
+  };
+
   const editExtras = (itemId: string): Partial<NavRowEdit> => {
     if (!editing) return {};
+    if (itemId === PROMO_ID) return navPromoPlacement === "cardRow" ? promoExtras() : {};
 
     /*
      * The agency tree's kebab.
@@ -2462,6 +2725,15 @@ export function LeftNav({
       workspace,
     ],
   );
+  // How many rows Holiday Promos can sit between. See promoExtras.
+  // The top-level rows Holiday Promos sits among, in order. See promoExtras.
+  const listOrder: string[] = [];
+  for (const e of entries) if (e.kind === "item") listOrder.push(e.item.id);
+  const listIds = new Set(listOrder);
+  // Its index among them: after `promoAfter`, or first when that is unset or gone.
+  const promoAfterId = state.promoAfter ?? null;
+  const promoIndex = promoAfterId && listIds.has(promoAfterId) ? listOrder.indexOf(promoAfterId) + 1 : 0;
+  const promoHidden = state.hiddenRows.includes(PROMO_ID);
 
   /**
    * The nav's tail: the rows that belong to no category.
@@ -2513,7 +2785,12 @@ export function LeftNav({
      * the card (finished onboarding, or the block hidden) keep the row, or
      * Quick Actions would be reachable nowhere.
      */
-    if (!cardQuickActions) return base;
+    /*
+      ...and it folds into the field's row under option C, for the same
+      reason: one way in, not two. Either flag removes the standing row, so
+      the only state that keeps it is "reachable nowhere else".
+    */
+    if (!cardQuickActions && !qaBesideSearch) return base;
     return tidyRules(
       base.filter((e) => !(e.kind === "item" && e.item.id === "quick-actions")),
     );
@@ -2524,6 +2801,7 @@ export function LeftNav({
     recentsBudget,
     bandEverything,
     cardQuickActions,
+    qaBesideSearch,
     merged,
     workspace,
   ]);
@@ -2665,34 +2943,52 @@ export function LeftNav({
    * Only for the column placements. The three tree positions keep the
    * in-place filtering they have always had — Ashwin: "No changes to this."
    */
-  const columnHits: ProductHit[] = React.useMemo(() => {
-    if (!columnSearch || !treeSearching) return [];
-    const out: ProductHit[] = [];
-    const seen = new Set<string>();
-    const push = (id: string, label: string, parent: string | null, icon?: LucideIcon) => {
-      if (seen.has(id)) return;
-      seen.add(id);
-      out.push({ id, label, parent, ...(icon ? { icon } : {}) });
-    };
-    const walk = (nodes: readonly TreeNode[], parent: string) => {
+  /**
+   * The category each remembered search lands in — "CRM" under "calendar".
+   * Ashwin, Nov 17.
+   *
+   * A recent search is a WORD, not a product, so on its own it says nothing
+   * about where it will take you. Naming the branch turns the list from five
+   * things you typed into five places you went, which is the question the
+   * whole feature exists to answer: these are people whose products moved.
+   *
+   * The FIRST match's top-level home, and the top level specifically rather
+   * than the immediate parent. "calendar" matches Calendars, whose parent is
+   * CRM, and CRM is the answer worth having — the reader is looking for the
+   * category the thing was reshuffled into. A term that matches an L1 row
+   * itself gets nothing, because a category is not inside anything.
+   *
+   * One pass over the whole catalogue per term, which is fine at five terms
+   * and would not be at fifty — PRODUCT_SEARCH_RECENT_LIMIT is what keeps
+   * that true.
+   */
+  const searchHomes: Record<string, string> = React.useMemo(() => {
+    if (!searchFieldUp) return {};
+    const out: Record<string, string> = {};
+    const hits = (nodes: readonly TreeNode[], q: string): boolean => {
       for (const node of nodes) {
-        if (matchesQuery(node.label, treeQ)) {
-          push(node.id, node.label, parent, node.icon);
-        }
-        if (node.children?.length) walk(node.children, node.label);
+        if (matchesQuery(node.label, q)) return true;
+        if (node.children?.length && hits(node.children, q)) return true;
       }
+      return false;
     };
-    for (const entry of treeSearchList) {
-      if (entry.kind !== "item") continue;
-      const item = entry.item;
-      if (matchesQuery(item.label, treeQ)) {
-        push(item.id, item.label, null, item.icon);
+    for (const term of searchPicks) {
+      const q = term.trim().toLowerCase();
+      if (!q) continue;
+      for (const entry of treeSearchList) {
+        if (entry.kind !== "item") continue;
+        const item = entry.item;
+        // The row itself: a category has no category above it.
+        if (matchesQuery(item.label, q)) break;
+        const branch = treeBranchFor(state, groups, item);
+        if (branch && hits(branch, q)) {
+          out[term] = item.label;
+          break;
+        }
       }
-      const branch = treeBranchFor(state, groups, item);
-      if (branch) walk(branch, item.label);
     }
     return out;
-  }, [columnSearch, treeSearching, treeQ, treeSearchList, state, groups]);
+  }, [searchFieldUp, searchPicks, treeSearchList, state, groups]);
 
   /** Leaving the mode has to take its transient surfaces with it. */
   const closeEditSurfaces = () => {
@@ -3974,12 +4270,6 @@ export function LeftNav({
      * the column; the query fills it back in. Ashwin, Nov 16.
      */
     if (searchResting) return null;
-    /*
-     * ...and while the COLUMN search has results, which are drawn as their
-     * own flat list above. Leaving the pruned rows in as well would put the
-     * same matches on screen twice, in two different shapes.
-     */
-    if (columnSearch && treeSearching) return null;
     const flyoutId = flyoutIdFor(item);
     /*
      * In tree mode a door becomes a disclosure.
@@ -3994,7 +4284,25 @@ export function LeftNav({
      * product, an account link, Recent) and it falls straight through to the
      * code below, unchanged.
      */
-    const branch = productTree ? treeBranchFor(state, groups, item) : null;
+    /*
+     * ...and while a COLUMN search is up, whatever the arrangement.
+     * Ashwin, Nov 17.
+     *
+     * Outside tree mode an L1 row is a door: its products live behind a
+     * flyout, so pruning the column to "rows that contain a match" leaves
+     * three category names and nothing you were looking for. That is what
+     * the flat list was working around.
+     *
+     * Rather than draw a second shape, the rows become disclosures for the
+     * duration of the query — the same thing they already are in tree mode,
+     * reached by the same code, so the results look identical wherever the
+     * search is reached from. The arrangement is untouched: clear the field
+     * and the doors are doors again.
+     */
+    const branch =
+      productTree || (columnSearch && treeSearching)
+        ? treeBranchFor(state, groups, item)
+        : null;
     if (branch !== null) {
       /*
        * While a query is up, the map decides everything about this row.
@@ -4737,7 +5045,66 @@ export function LeftNav({
     if (entry.kind === "divider") {
       return <NavDivider key={entry.id} />;
     }
+    if (entry.item.id === PROMO_ID) return renderPromoRow();
     return renderRow(entry.item);
+  };
+
+  /** Holiday Promos' row. See promoExtras. */
+  const renderPromoRow = () => {
+    const label = FEATURED_PRODUCTS.promos.name;
+    if (!editing || navPromoPlacement === "locked") {
+      return <HolidayPromosRow key={PROMO_ID} editing={editing} label={label} />;
+    }
+    const base = mergeRowEdit(null, editExtras(PROMO_ID));
+    const edit = base
+      ? speakingEdit(
+          {
+            ...base,
+            pinned: true,
+            // A promotion's name is the campaign's: the greyed pencil says so. Ashwin, Nov 17.
+            renaming: false,
+            renameBlocked: "Promotional items can’t be renamed.",
+            renameOnLabelClick: false,
+            onStartRename: () => {},
+            onCommitRename: () => {},
+            onCancelRename: () => {},
+          },
+          PROMO_ID,
+        )
+      : undefined;
+    return (
+      <div key={PROMO_ID} data-promo-row="" className="contents">
+        <NavItemRow
+          item={{ id: PROMO_ID, label, icon: FEATURED_PRODUCTS.promos.icon }}
+          onSelect={() => openFeaturedProduct("promos")}
+          {...(edit ? { edit } : {})}
+        />
+      </div>
+    );
+  };
+
+  /*
+   * The entry list with Holiday Promos' row spliced in, at its index among
+   * the rows. Hidden, it leaves the list outside edit mode; edit mode keeps
+   * it, faded, so the eye can bring it back.
+   */
+  const withPromo = (list: readonly NavEntry[]): readonly NavEntry[] => {
+    if (navPromoPlacement !== "cardRow" && navPromoPlacement !== "locked") return list;
+    if (navPromoPlacement === "cardRow" && promoHidden && !editing) return list;
+    const at = navPromoPlacement === "locked" ? 0 : promoIndex;
+    const out: NavEntry[] = [];
+    let rows = 0;
+    let placed = false;
+    for (const e of list) {
+      if (!placed && e.kind === "item" && rows === at) {
+        out.push({ kind: "item", item: { id: PROMO_ID, label: FEATURED_PRODUCTS.promos.name } });
+        placed = true;
+      }
+      if (e.kind === "item") rows += 1;
+      out.push(e);
+    }
+    if (!placed) out.push({ kind: "item", item: { id: PROMO_ID, label: FEATURED_PRODUCTS.promos.name } });
+    return out;
   };
 
   /*
@@ -5272,6 +5639,9 @@ export function LeftNav({
           onSearch={onSearch}
           session={aiSession}
           searchEnabled={!agencyScope || agencySearch}
+          {...(qaBesideSearch
+            ? { onQuickActions: () => onPinFlyout("quick-actions") }
+            : {})}
         />
       ) : null}
 
@@ -5417,26 +5787,27 @@ export function LeftNav({
             search uses one column over.
           */}
           {/*
-            The results, where the rows would have been.
+            The results are the PRUNED TREE, at all three placements.
+            Ashwin, Nov 17.
 
-            Under the column placements the filtered tree is replaced
-            outright rather than pruned: a pruned tree answers "which
-            categories contain a match", and the reader asked "where is
-            Calendars". See ProductSearchResults.
+            This replaced a flat list of hits with each one's home as a
+            caption underneath. The list answered "where did Calendars go"
+            in one line, which is a real virtue and is why it was built —
+            but it answered it in a shape the All products tab does not
+            use, so the same search over the same catalogue looked like two
+            different features depending on which door you came through.
+
+            The tree keeps the answer and drops the divergence: Calendars
+            still appears under CRM, except now it appears IN CRM, indented,
+            with the rest of the branch around it. That is more context than
+            a caption, not less — you see what else moved with it. The cost
+            is height, and a query that matches across four categories now
+            draws four headings to carry four rows.
           */}
-          {columnSearch && treeSearching ? (
-            <ProductSearchResults
-              hits={columnHits}
-              query={treeQuery.trim()}
-              onPick={(id: string) => {
-                rememberSearch(treeQuery);
-                onSelect(id);
-              }}
-            />
-          ) : null}
           {searchResting ? (
             <ProductSearchResting
               terms={searchPicks}
+              homes={searchHomes}
               reveal={revealParts.list}
               closing={searchClosing}
               /*
@@ -5495,12 +5866,9 @@ export function LeftNav({
             being able to look at rather than argue about.
           */}
           {treeSearchAt("recents")}
-          {/* The featured slot at the top, and any featured pins over Recents. See featured-slot.tsx. */}
+          {/* The featured slot at the top. See featured-slot.tsx. */}
           {!searchOnly && !hideOpeningCluster ? (
-            <>
-              <FeaturedSlot at="top" agency={agencyScope} />
-              <FeaturedPinnedRows agency={agencyScope} />
-            </>
+            <FeaturedSlot at="top" agency={agencyScope} />
           ) : null}
           {/*
             Recents-with-pins-on-top sits where Recent sat: first in the cluster,
@@ -5614,12 +5982,12 @@ export function LeftNav({
             failed to load.
           */}
           {/*
-            Not under the column placements — those draw their own miss, in
-            the list that replaced the rows. Both fired at once and the
-            column said "No products match" twice, a few rows apart.
-            Ashwin, Nov 16.
+            One miss for all three placements, now that all three prune the
+            same tree. It was gated off the column variants while they drew
+            their own list with its own empty state — two misses firing at
+            once said "No products match" twice, a few rows apart.
           */}
-          {!columnSearch && treeHits && treeHits.size === 0 ? (
+          {treeHits && treeHits.size === 0 ? (
             <div {...fadeProps(collapsed)} className="w-full shrink-0">
               <TreeSearchEmpty query={treeQuery.trim()} />
             </div>
@@ -5720,7 +6088,10 @@ export function LeftNav({
                 header adds is the return: you came here from a category, and
                 without a way back the only route to it is to navigate into it.
               */}
-              {renderSearched(entries)}
+              {/* Holiday Promos rides in the list. See withPromo. */}
+              {searchOnly ? renderSearched(entries) : renderSearched(withPromo(entries))}
+              {/* Featured products as rows under the last category. */}
+              {searchOnly || editing ? null : <FeaturedListRows />}
               {searchOnly ? null : <FeaturedSlot at="below" agency={agencyScope} />}
               {/*
                 A standing way in, while editing.
@@ -5785,9 +6156,8 @@ export function LeftNav({
                 <div aria-hidden="true" className="mt-auto" />
               )}
               <div ref={footStuck ? footRef : undefined} className={footStuck ? STICKY_FOOT : "contents"}>
-              {searchOnly || navSettingsSpot === "list" ? null : (
-                <FeaturedSlot at="card" agency={agencyScope} />
-              )}
+              {searchOnly || navSettingsSpot !== "footer" || editSpot !== "above" ? null : editLane}
+              {searchOnly || navSettingsSpot !== "footer" ? null : promoCard}
               {searchOnly ? null : <NavDivider />}
               {/*
                 A standing door to All products, when the axis offers it.
@@ -5866,6 +6236,12 @@ export function LeftNav({
                 active state while its panel is up — lives in there.
               */}
 
+              {/*
+                The Settings section, marked so Edit can line up with its last
+                row — Settings, or the Learn row under it. See the effect by
+                `settingsSectionRef`. Ashwin, Nov 17.
+              */}
+              <div ref={settingsSectionRef} data-nav-settings-section="" className="contents">
               {renderRow(agencyScope ? agencySettings : config.settings)}
               {/*
                 "Learn about new Sidebar": the way back into the tours. Not an
@@ -5885,6 +6261,14 @@ export function LeftNav({
                 )
               ) : null}
               </div>
+              {/* Settings above the cards: the promo closes the foot. */}
+              {searchOnly || navSettingsSpot !== "above" || editSpot !== "above" ? null : editLane}
+              {searchOnly || navSettingsSpot !== "above" || !featuredCardShown ? null : (
+                <div className={cn("w-full", editSpot !== "above" && "mt-[8px]")}>{promoCard}</div>
+              )}
+              {/* Edit below everything: a row of its own at the foot's end. */}
+              {searchOnly || navSettingsSpot === "list" || editSpot !== "below" ? null : editLane}
+              </div>
               </div>
               {/*
                 Settings with the list: the featured card stands alone at the
@@ -5897,10 +6281,16 @@ export function LeftNav({
                   className={cn(
                     "mt-auto flex w-full flex-col",
                     navFootSticky === "sticky" && STICKY_FOOT,
-                    navFeaturedCardRow === "inline" ? "pr-[40px] pb-[2px]" : "pb-[34px]",
+                    editSpot === "beside"
+                      ? "pr-[40px] pb-[2px]"
+                      : editSpot === "below"
+                        ? "pb-[34px]"
+                        : // Flush with the foot: the cards sit 8px lower. Ashwin, Nov 17.
+                          "pb-0",
                   )}
                 >
-                  <FeaturedSlot at="card" agency={agencyScope} />
+                  {editSpot === "above" ? editLane : null}
+                  {promoCard}
                 </div>
               )}
             </>
@@ -6045,6 +6435,22 @@ export function LeftNav({
       ) : pickerProps ? (
         <IconPicker {...pickerProps} />
       ) : null}
+      {/*
+        Holiday Promos' drop line: the seams' insertion mark (ink, 2px, 8px
+        inset), drawn over the gap the held row would land in. Portalled with
+        the nav's theme so the ink resolves the same. See promoExtras.
+      */}
+      {promoDrop && typeof document !== "undefined"
+        ? createPortal(
+            <div data-nav-theme={theme} aria-hidden="true" className="contents">
+              <span
+                className="pointer-events-none fixed z-[200] h-[2px] rounded-full bg-nav-fg"
+                style={{ top: promoDrop.top, left: promoDrop.left + 8, width: promoDrop.width - 16 }}
+              />
+            </div>,
+            document.body,
+          )
+        : null}
       {menuOpen ? (
         <RowMenu
           anchor={menuOpen.anchor}

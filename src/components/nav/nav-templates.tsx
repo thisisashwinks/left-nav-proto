@@ -7,6 +7,7 @@ import { SAAS_TIERS, type SaasTier } from "@/design/plans";
 import { accountsWithOwnArrangement } from "./account-nav-profiles";
 import { childById, LAUNCHED_SINCE, productById } from "./catalogue";
 import { resolveOwned } from "./catalogue-equivalents";
+import { FEATURED_PAGE_BY_ID } from "./featured-pages";
 import { useNavLayout } from "./nav-layout-provider";
 import { useNavProfiles } from "./nav-profiles";
 import {
@@ -55,6 +56,8 @@ export type NavArrangement = Pick<
   | "pinned"
   | "hiddenBlocks"
   | "hiddenRows"
+  // Where Holiday Promos sits. See NavLayoutState.promoAfter.
+  | "promoAfter"
   | "tailOrder"
   /**
    * Where each L3 lives — its parent, or DETACHED.
@@ -424,6 +427,7 @@ export function captureArrangement(state: NavLayoutState): NavArrangement {
     pinned: tree.pinned,
     hiddenBlocks: tree.hiddenBlocks,
     hiddenRows: tree.hiddenRows,
+    promoAfter: tree.promoAfter ?? null,
     tailOrder: tree.tailOrder,
     customLinks: tree.customLinks,
     panelOrder: tree.panelOrder,
@@ -662,6 +666,8 @@ const SEED_TEMPLATES: readonly NavTemplate[] = [
  * One helper so the three lists cannot disagree again. Ashwin, Oct 21.
  */
 function carriedId(id: string, owns: ReadonlySet<string>): string | undefined {
+  // A featured page (Holiday Promos, a pinned launch) is no account's to own.
+  if (FEATURED_PAGE_BY_ID.has(id)) return id;
   if (productById(id)) return resolveOwned(id, owns);
   const child = childById(id);
   if (child) return owns.has(child.product.id) ? id : undefined;
@@ -874,6 +880,7 @@ export function patchForArrangement(
       hiddenRows: a.hiddenRows
         .map((p) => carriedId(p, owns))
         .filter((p): p is string => p !== undefined),
+      promoAfter: a.promoAfter ?? null,
       // The tail also holds the account's OWN links, which the template knows
       // nothing about — so template order first, then anything of the
       // account's it did not mention, rather than discarding them.
@@ -1071,6 +1078,7 @@ export function describeChanges(
 
   if (!sameList(before.pinned, after.pinned)) out.push("Changed the pinned set");
   if (!sameList(before.hiddenRows, after.hiddenRows)) out.push("Changed which rows are hidden");
+  if ((before.promoAfter ?? null) !== (after.promoAfter ?? null)) out.push("Moved Holiday Promos");
 
   /*
    * The blocks — Recent, Quick actions, Launchpad, Favourites.
@@ -1139,6 +1147,7 @@ export function hasLocalChanges(
   // reordered is the agency deciding what sits at the bottom of this nav.
   if (!sameList(base.pinned, current.pinned)) return true;
   if (!sameList(base.hiddenRows, current.hiddenRows)) return true;
+  if ((base.promoAfter ?? null) !== (current.promoAfter ?? null)) return true;
   if (!sameList(base.hiddenBlocks, current.hiddenBlocks)) return true;
   if (!sameList(base.tailOrder, current.tailOrder)) return true;
   // A link added or removed is a row added or removed. Without this, adding one

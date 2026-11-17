@@ -29,6 +29,7 @@ import { resolveOwned } from "./catalogue-equivalents";
 import { iconByName, nameForIcon } from "./icon-catalogue";
 import { chromePlace, isChromePlace } from "./chrome-places";
 import { iconForChildLabel } from "./l3-icons";
+import { FEATURED_PAGE_BY_ID } from "./featured-pages";
 
 /**
  * How the nav's middle section is organized.
@@ -393,6 +394,21 @@ export interface NavLayoutState {
    * arrives visible.
    */
   hiddenRows: string[];
+  /**
+   * Where Holiday Promos' row sits among the top-level rows: the id of the
+   * row it follows, or null (or absent) for first. Part of the layout so a
+   * saved layout carries it; hiding it goes through `hiddenRows` like any
+   * row. See NAV_PROMO_PLACEMENTS. Ashwin, Nov 17.
+   */
+  promoAfter?: string | null;
+  /**
+   * Featured products filed into their home category as ordinary L2 items
+   * ("Featured: promo in L2" → Row at bottom of list), by page id. Filed once,
+   * at the end of the category; from then on each is a product like any
+   * other — dragged, hidden, moved, renamed, saved in a layout. Turning the
+   * option off takes them back out. See withFeaturedFiled. Ashwin, Nov 17.
+   */
+  featuredFiled?: string[];
   /**
    * Ordered pinned product ids. Unlimited — the chip row is a window onto this
    * list, not a capacity, so nothing here is capped.
@@ -979,6 +995,8 @@ function resolveTree(state: NavLayoutState): ResolvedGroup[] {
       productIds: productsFor(id).filter(
         (pid) =>
           enabled.has(pid) ||
+          // A featured product is HighLevel's to show, not a provisioned one.
+          FEATURED_PAGE_BY_ID.has(pid) ||
           (childById(pid) !== undefined &&
             enabled.has(childById(pid)!.product.id)),
       ),
@@ -1115,6 +1133,8 @@ function resolveTree(state: NavLayoutState): ResolvedGroup[] {
               if (child)
                 return enabled.has(child.product.id) ? pid : undefined;
               if (isChromePlace(pid)) return pid;
+              // A featured product keeps its id: no account owns it. See withFeaturedFiled.
+              if (FEATURED_PAGE_BY_ID.has(pid)) return pid;
               return resolveOwned(pid, enabled);
             })
             .filter((pid): pid is string => pid !== undefined),
@@ -2277,4 +2297,49 @@ export function densityFor(productCount: number): Density {
   if (productCount <= 8) return "flat";
   if (productCount <= 15) return "mixed";
   return "grouped";
+}
+
+/**
+ * Files featured products into their home categories, once each, at the end,
+ * and takes back any filed earlier that are no longer wanted. `want` maps a
+ * featured page id to its category's id. Only in the structural trees (the
+ * proposed IA or a custom one): the catalogue groupings have no "CRM" to file
+ * into. See NavLayoutState.featuredFiled. Ashwin, Nov 17.
+ */
+export function withFeaturedFiled(
+  state: NavLayoutState,
+  want: ReadonlyMap<string, string>,
+): NavLayoutState {
+  if (!isStructuralMode(state.grouping)) return state;
+  const filed = state.featuredFiled ?? [];
+  const toRemove = filed.filter((id) => !want.has(id));
+  const toAdd = [...want.entries()].filter(([id]) => !filed.includes(id));
+  if (toRemove.length === 0 && toAdd.length === 0) return state;
+  let next = customTreeFor(state);
+  if (toRemove.length > 0) {
+    const gone = new Set(toRemove);
+    next = {
+      ...next,
+      customGroups: next.customGroups.map((g) =>
+        g.productIds.some((p) => gone.has(p)) ? { ...g, productIds: g.productIds.filter((p) => !gone.has(p)) } : g,
+      ),
+      tailOrder: next.tailOrder.filter((p) => !gone.has(p)),
+      hiddenRows: next.hiddenRows.filter((p) => !gone.has(p)),
+    };
+  }
+  const added: string[] = [];
+  for (const [id, groupId] of toAdd) {
+    const placed = next.customGroups.some((g) => g.productIds.includes(id)) || next.tailOrder.includes(id);
+    if (placed) {
+      added.push(id);
+      continue;
+    }
+    if (!next.customGroups.some((g) => g.id === groupId)) continue;
+    next = {
+      ...next,
+      customGroups: next.customGroups.map((g) => (g.id === groupId ? { ...g, productIds: [...g.productIds, id] } : g)),
+    };
+    added.push(id);
+  }
+  return { ...next, featuredFiled: [...filed.filter((id) => want.has(id)), ...added] };
 }

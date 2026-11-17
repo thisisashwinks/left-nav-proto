@@ -26,6 +26,7 @@ import { Kbd } from "@/components/search/kbd";
 import { cn } from "@/lib/utils";
 import { announce, restoreFocus } from "@/lib/a11y";
 import { RailTooltip } from "./rail-tooltip";
+import { GamepadDirectional } from "lucide-react";
 import { useNavCollapse } from "./nav-collapse";
 import { EditMoreMenu } from "./edit-more-menu";
 import { useNavTemplates } from "./nav-templates";
@@ -56,11 +57,21 @@ export function EntryCluster({
   onSearch,
   session,
   edit,
+  onQuickActions,
   searchEnabled = true,
 }: {
   onSearch: () => void;
   session: AiSession;
   edit?: EditNavProps;
+  /**
+   * Opens the Quick actions panel from a `+` beside the field.
+   *
+   * Passed only where the axis puts it here AND there is something for it to
+   * create — left-nav owns both questions, so this component gets a callback
+   * or nothing rather than a flag plus the conditions behind it. See
+   * QUICK_ACTION_SPOTS.
+   */
+  onQuickActions?: () => void;
   /**
    * Whether the pill is a search field as well as an AI entrance.
    *
@@ -71,17 +82,73 @@ export function EntryCluster({
    */
   searchEnabled?: boolean;
 }) {
+  /*
+   * The gap under the pill is a property of WHERE it stands, not of the pill.
+   *
+   * 22 was settled for the bottom edge (Aug 13): hugging the nav's foot read
+   * as an afterthought, and the lift gives a primary control the margin it
+   * deserves. That argument is about a floor. Under the logo there is no
+   * floor — there is a Launchpad card 22px below, and the space meant to
+   * stop the entry looking dropped just pushes the card down the column.
+   * 12 there. Ashwin, Nov 17.
+   */
+  const { entryLayout, entryRadius } = useTheme().effective;
   return (
-    // 22px under the pill, not 12: hugging the nav's foot read as an
-    // afterthought — the lift gives the entry the margin a primary control
-    // deserves (Aug 13 ask).
-    <div className="flex w-full shrink-0 px-[12px] pb-[22px]">
+    <div
+      className={cn(
+        "flex w-full shrink-0 items-center gap-[8px] px-[12px]",
+        entryLayout === "top" ? "pb-[12px]" : "pb-[22px]",
+      )}
+    >
       <EntryPill
         onSearch={onSearch}
         session={session}
         searchEnabled={searchEnabled}
         {...(edit ? { edit } : {})}
       />
+      {/*
+        Create, beside find. See QUICK_ACTION_SPOTS.
+
+        Square rather than a labelled button: the row has one field in it that
+        wants every pixel it can get, and a `+` beside a search box is the one
+        glyph that needs no word next to it. 32px matches the field's height
+        exactly, so the two sit on one baseline rather than one looking dropped.
+
+        It borrows the field's corners instead of stating its own. The two are
+        a pair on one row; a pill beside an 8px box, or the reverse, is the
+        near-miss that reads as an oversight — and the radius is already an
+        axis, so following it is one decision rather than two that can drift.
+      */}
+      {onQuickActions ? (
+        /*
+          Named on hover, in the nav's own pill rather than the browser's.
+          `below`, because the control sits at the top of the column: a
+          tooltip above it would land on the header row it is tucked under.
+        */
+        <RailTooltip label="Quick actions" placement="below">
+          <button
+            type="button"
+            aria-label="Quick actions"
+            onClick={onQuickActions}
+            className={cn(
+              "motion-tap flex size-[32px] shrink-0 items-center justify-center text-nav-fg-subtle shadow-[inset_0_0_0_1px_var(--nav-divider)] hover:bg-nav-hover hover:text-nav-fg active:scale-95",
+              entryRadius === "sm" ? "rounded-[8px]" : "rounded-full",
+            )}
+          >
+            {/*
+              Quick Actions' OWN glyph, not a `+`. Ashwin, Nov 17.
+
+              A plus says "make a new thing", which is most of what is behind
+              this panel but not the promise the row made anywhere else — and
+              the row this replaces carried this icon in the Launchpad card's
+              footer and in the collapsed strip. Moving a control should not
+              rename it. Grey like every other piece of nav chrome: it is a
+              door, and the thing it opens is where the colour belongs.
+            */}
+            <GamepadDirectional size={16} strokeWidth={2} aria-hidden="true" />
+          </button>
+        </RailTooltip>
+      ) : null}
     </div>
   );
 }
@@ -1274,7 +1341,7 @@ export function EntryPill({
   const header = tone === "header";
   // The hook runs unconditionally; only the ANSWER is conditional. Reading it
   // inside the `&&` made it a conditional hook call.
-  const { aiButtonStyle, entryRadius, entryPair, navAskAiHome } =
+  const { aiButtonStyle, entryRadius, askRadius, entryPair, navAskAiHome } =
     useTheme().effective;
   const {
     hideAsk,
@@ -1415,8 +1482,18 @@ export function EntryPill({
             fully rounded says "ask me something", 8px says "this is a field
             like every other field", and which of those the entry should be
             saying is the question the control exists to put on screen.
+
+            WHICH axis depends on what this instance IS. With the pair split
+            this component renders twice, and the second one — `searchEnabled`
+            off — is the Ask button standing alone, so it answers to ASK_RADII.
+            Merged, the control is the search field with an orb riding in it,
+            and the field's axis owns the shape. One expression rather than
+            two call sites, because the two are the same decision asked about
+            different objects.
           */
-          entryRadius === "sm" ? "rounded-[8px]" : "rounded-full",
+          (searchEnabled ? entryRadius : askRadius) === "sm"
+            ? "rounded-[8px]"
+            : "rounded-full",
           /*
             A field fills its column; a button is the size of what it says.
             

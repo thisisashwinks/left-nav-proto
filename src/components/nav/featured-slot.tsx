@@ -1,14 +1,21 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Gift, Pin, X, type LucideIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Gift, Pin, X, type LucideIcon } from "lucide-react";
+import {
+  VIEW_ALL_LINK,
+  VIEW_ALL_LINK_CHEVRON,
+  VIEW_ALL_LINK_ICON,
+  VIEW_ALL_LINK_TEXT,
+} from "@/components/nav/merged-recents";
 import { cn } from "@/lib/utils";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { useTheme } from "@/components/theme/theme-provider";
 import { BADGE_TONE, NEW_BADGE } from "@/components/flyout/types";
-import type { NavFeaturedCycle } from "@/design/theme";
-import { FEATURED_PRODUCTS, useFeatured, type FeaturedOpen, type FeaturedProduct } from "./featured";
+import { navFeaturedCycleIsLeft, type NavFeaturedCycle } from "@/design/theme";
+import { FeaturedStill, useFeatured, type FeaturedOpen, type FeaturedProduct } from "./featured";
 import { NavDivider } from "./nav-divider";
+import { useNavLayout } from "./nav-layout-provider";
 import { RailTooltip } from "./rail-tooltip";
 import { fadeProps, useNavCollapse } from "./nav-collapse";
 import { PIN_GLYPH, usePinnedInk } from "./pin-button";
@@ -46,14 +53,6 @@ const ROW =
 const ROW_IDLE =
   "hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)] active:bg-nav-active";
 
-/*
- * Room for the up/down rail when it sits over the entry: its 22px plus the 6px
- * inset and a 4px gap, on whichever side the rail is on. Keyed off the cycling
- * frame's data attribute, so an entry needs no prop to know. Ashwin, Oct 29.
- */
-const PAD_FOR_RAIL =
-  "in-data-[featured-cycle-pad=right]:pr-[32px] in-data-[featured-cycle-pad=left]:pl-[32px]";
-
 const ICON_BOX = { width: "var(--t-nav-icon, 16px)", height: "var(--t-nav-icon, 16px)" } as const;
 
 /**
@@ -61,7 +60,7 @@ const ICON_BOX = { width: "var(--t-nav-icon, 16px)", height: "var(--t-nav-icon, 
  * flyout row's size — so a featured product says New in the same pill as
  * every other new thing in the nav. Ashwin, Oct 29.
  */
-function NewTag({ children = NEW_BADGE.label }: { children?: React.ReactNode }) {
+export function NewTag({ children = NEW_BADGE.label }: { children?: React.ReactNode }) {
   return (
     <span
       aria-hidden="true"
@@ -80,7 +79,16 @@ const isOpen = (open: FeaturedOpen, key: string | null) =>
 
 /* ─── Entries ─────────────────────────────────────────────────────────── */
 
-/** One row: the product's glyph, its name, and the New pill when asked for. */
+/*
+ * A featured row's thumbnail: the product's still at 32px tall and 16:10, in
+ * place of the glyph — beside it, the 240px row ran out of room for the name
+ * and the New pill. The row trims its vertical padding to 6px so it grows to
+ * 44px rather than 50. The rail keeps the glyph: 64px has no room for a
+ * picture. Ashwin, Nov 17.
+ */
+const ROW_THUMB = "h-[32px] aspect-[16/10] shrink-0 rounded-[6px]";
+
+/** One row: the product's still (or glyph), its name, and the New pill when asked for. */
 function FeaturedRow({
   icon: Icon,
   label,
@@ -89,7 +97,10 @@ function FeaturedRow({
   active,
   direct = false,
   onOpen,
+  product,
 }: {
+  /** The product, for its still; none for the grouped What's new row. */
+  product?: FeaturedProduct;
   icon: LucideIcon;
   label: string;
   spoken: string;
@@ -100,7 +111,10 @@ function FeaturedRow({
   onOpen: () => void;
 }) {
   const { collapsed } = useNavCollapse();
-  return (
+  const { playVideo } = useFeatured();
+  const play = useTheme().effective.navFeaturedMediaKind === "video";
+  const thumb = !!product && !collapsed;
+  const button = (
     <RailTooltip label={label} show={collapsed}>
       <button
         type="button"
@@ -110,13 +124,17 @@ function FeaturedRow({
         {...(direct ? {} : { "aria-haspopup": "dialog" as const, "aria-expanded": active })}
         {...(active ? { "aria-current": "true" as const } : {})}
         onClick={onOpen}
-        className={cn(ROW, "group", active ? "bg-nav-hover" : ROW_IDLE, PAD_FOR_RAIL)}
+        className={cn(ROW, "group", thumb && "py-[6px]", active ? "bg-nav-hover" : ROW_IDLE)}
       >
-        <Icon
-          aria-hidden="true"
-          style={ICON_BOX}
-          className={cn("shrink-0 motion-tap group-hover:scale-[var(--t-nav-icon-scale,1.143)]", INK)}
-        />
+        {thumb ? (
+          <FeaturedStill product={product} play={play} size="xs" tone="nav" className={ROW_THUMB} />
+        ) : (
+          <Icon
+            aria-hidden="true"
+            style={ICON_BOX}
+            className={cn("shrink-0 motion-tap group-hover:scale-[var(--t-nav-icon-scale,1.143)]", INK)}
+          />
+        )}
         <span {...fadeProps(collapsed)} className="flex min-w-0 flex-1 items-center gap-[var(--t-nav-trail-gap,6px)]">
           <span className="min-w-0 flex-1 truncate text-[length:var(--t-nav-font,14px)] leading-[normal] text-nav-fg">
             {label}
@@ -125,6 +143,29 @@ function FeaturedRow({
         </span>
       </button>
     </RailTooltip>
+  );
+  if (!thumb || !play) return button;
+  /*
+   * Video: the thumbnail is its own button, laid over the row's rather than
+   * nested in it, and plays the launch video; the rest of the row still opens
+   * the L2 or the product.
+   */
+  return (
+    <div className="relative w-full shrink-0">
+      {button}
+      <button
+        type="button"
+        aria-label={`Play ${product.name} video`}
+        onClick={(e) => {
+          e.stopPropagation();
+          playVideo(product.key);
+        }}
+        className={cn(
+          "group/still absolute top-1/2 left-[var(--t-nav-px,8px)] -translate-y-1/2 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--hr-primary-600)]",
+          ROW_THUMB,
+        )}
+      />
+    </div>
   );
 }
 
@@ -141,7 +182,7 @@ function FeaturedCard({
   onOpen,
   tabIndex,
   actions,
-  image,
+  product,
 }: {
   icon: LucideIcon;
   name: string;
@@ -156,27 +197,51 @@ function FeaturedCard({
   tabIndex?: number;
   /** The corner buttons (pin, hide) and how many there are, for the name's room. */
   actions?: { node: React.ReactNode; count: number };
-  /** A 16:9 image, placed by the media axis. */
-  image?: string;
+  /** The product, for its still, placed by "Featured: card media". */
+  product?: FeaturedProduct;
 }) {
-  const { navFeaturedMedia } = useTheme().effective;
+  const { navFeaturedMedia, navFeaturedMediaKind } = useTheme().effective;
+  const { playVideo } = useFeatured();
+  const play = navFeaturedMediaKind === "video";
   const media =
-    image && (navFeaturedMedia === "top" || navFeaturedMedia === "bottom") ? navFeaturedMedia : null;
+    product && (navFeaturedMedia === "top" || navFeaturedMedia === "bottom") ? navFeaturedMedia : null;
   // Text only: no picture and no icon tile, so the text takes the whole width.
   const textOnly = navFeaturedMedia === "text";
   // Spans both columns, so the glyph and the text keep their grid either way.
-  const picture = media ? (
-    // eslint-disable-next-line @next/next/no-img-element -- static placeholder art
-    <img
-      src={image}
-      alt=""
-      aria-hidden="true"
-      className={cn(
-        "col-span-2 block aspect-[16/9] w-full rounded-[6px] object-cover",
-        media === "top" ? "mb-[6px]" : "mt-[6px]",
-      )}
-    />
-  ) : null;
+  const picture =
+    media && product ? (
+      <FeaturedStill
+        product={product}
+        play={play}
+        size="sm"
+        tone="nav"
+        className={cn(
+          "col-span-2 aspect-[16/10] w-full rounded-[6px]",
+          media === "top" ? "mb-[6px]" : "mt-[6px]",
+        )}
+      />
+    ) : null;
+  /*
+   * Video: the still is its own button, laid exactly over the picture (the
+   * card's 1px edge plus its padding in) as a sibling of the card's button,
+   * not inside it. A click there plays the launch video; anywhere else on the
+   * card still opens the L2 or the product. Ashwin, Nov 17.
+   */
+  const inset = (compact ? 8 : 10) + 1;
+  const playOver =
+    media && product && play ? (
+      <button
+        type="button"
+        aria-label={`Play ${product.name} video`}
+        {...(tabIndex !== undefined ? { tabIndex } : {})}
+        onClick={(e) => {
+          e.stopPropagation();
+          playVideo(product.key);
+        }}
+        style={{ left: inset, right: inset, ...(media === "top" ? { top: inset } : { bottom: inset }) }}
+        className="group/still absolute aspect-[16/10] rounded-[6px] outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--hr-primary-600)]"
+      />
+    ) : null;
   const card = (
     <button
       type="button"
@@ -194,9 +259,9 @@ function FeaturedCard({
             : "grid-cols-[28px_minmax(0,1fr)] p-[10px]",
         CARD,
         "hover:border-[var(--hr-gray-300)] in-data-[nav-theme=dark]:hover:border-nav-border",
-        // The open card's ring is the row's selected hairline, in brand.
-        active && "border-[var(--hr-primary-300)] in-data-[nav-theme=dark]:border-[var(--hr-primary-400)]",
-        PAD_FOR_RAIL,
+        // The open card is marked in gray, not brand: the L2 beside it is the
+        // focus, and a blue ring competed with it. Ashwin, Nov 17.
+        active && "border-[var(--hr-gray-300)] in-data-[nav-theme=dark]:border-[var(--hr-gray-500)]",
       )}
     >
       {media === "top" ? picture : null}
@@ -221,26 +286,28 @@ function FeaturedCard({
       {media === "bottom" ? picture : null}
     </button>
   );
-  if (!actions) return card;
+  if (!actions && !playOver) return card;
   /*
    * The corner buttons sit beside the card's button, not in it — a button in
    * a button is invalid and its clicks would open the card. They ride the
-   * name's line, so they never meet the tagline, and with the rail over the
-   * right edge they step left of it rather than stack on it. Ashwin, Oct 29.
+   * name's line, so they never meet the tagline. Ashwin, Oct 29.
    */
   return (
     <div className="relative w-full">
       {card}
+      {playOver}
+      {actions ? (
       <span
         className={cn(
-          "absolute right-[6px] flex items-center gap-[2px] in-data-[featured-cycle-pad=right]:right-[32px]",
+          "absolute right-[6px] flex items-center gap-[2px]",
           compact ? "top-[8px]" : "top-[10px]",
           // Over the picture's corner, on a white chip, when it leads the card.
-          image && navFeaturedMedia === "top" && "top-[14px] right-[14px] rounded-full bg-white/90 shadow-[0_1px_2px_rgba(16,24,40,0.12)]",
+          media === "top" && "top-[14px] right-[14px] rounded-full bg-white/90 shadow-[0_1px_2px_rgba(16,24,40,0.12)]",
         )}
       >
         {actions.node}
       </span>
+      ) : null}
     </div>
   );
 }
@@ -259,7 +326,7 @@ const CORNER_BTN =
  * for themselves now. Off under reduced motion, and while the tab is hidden.
  */
 function useCycle(count: number) {
-  const { slide, setSlide, open } = useFeatured();
+  const { slide, setSlide, open, video } = useFeatured();
   const reduced = useMediaQuery("(prefers-reduced-motion: reduce)");
   const [paused, setPaused] = React.useState(false);
   const [stopped, setStopped] = React.useState(false);
@@ -267,10 +334,11 @@ function useCycle(count: number) {
   return {
     front,
     reduced,
-    running: count > 1 && !paused && !stopped && !reduced && open === null,
+    running: count > 1 && !paused && !stopped && !reduced && open === null && video === null,
     stop: () => setStopped(true),
     setPaused,
     next: (dir: 1 | -1) => setSlide((front + dir + count) % count),
+    go: (index: number) => setSlide(index),
   };
 }
 
@@ -301,7 +369,10 @@ function pauseProps(setPaused: (p: boolean) => void) {
   };
 }
 
-/** Prev, the dots, next. Under the deck and under the carousel. */
+const STEP_BTN =
+  "grid size-[20px] place-items-center rounded-[5px] text-nav-fg-subtle motion-tap hover:bg-nav-hover hover:text-nav-fg";
+
+/** Prev, the dots, next: the deck's and the carousel's indicator. */
 function CycleControls({
   count,
   front,
@@ -311,11 +382,9 @@ function CycleControls({
   front: number;
   onStep: (dir: 1 | -1) => void;
 }) {
-  const btn =
-    "grid size-[20px] place-items-center rounded-[5px] text-nav-fg-subtle motion-tap hover:bg-nav-hover hover:text-nav-fg";
   return (
-    <div className="flex h-[20px] w-full shrink-0 items-center justify-center gap-[6px]">
-      <button type="button" aria-label="Previous featured product" onClick={() => onStep(-1)} className={btn}>
+    <div className="flex shrink-0 items-center gap-[6px]">
+      <button type="button" aria-label="Previous featured product" onClick={() => onStep(-1)} className={STEP_BTN}>
         <ChevronLeft size={12} aria-hidden="true" />
       </button>
       <span aria-hidden="true" className="inline-flex items-center gap-[4px]">
@@ -324,12 +393,14 @@ function CycleControls({
             key={i}
             className={cn(
               "h-[6px] rounded-full motion-safe:transition-[width,background-color] motion-safe:duration-[var(--dur-base)]",
-              i === front ? "w-[14px] bg-[var(--hr-primary-600)]" : "w-[6px] bg-nav-divider",
+              i === front ? "w-[14px] bg-[var(--hr-primary-600)]"
+                // On a Gray 200 promo background the divider tone vanishes. Ashwin, Nov 17.
+                : "w-[6px] bg-nav-divider in-data-[promo-bg=gray200]:bg-white",
             )}
           />
         ))}
       </span>
-      <button type="button" aria-label="Next featured product" onClick={() => onStep(1)} className={btn}>
+      <button type="button" aria-label="Next featured product" onClick={() => onStep(1)} className={STEP_BTN}>
         <ChevronRight size={12} aria-hidden="true" />
       </button>
     </div>
@@ -337,66 +408,100 @@ function CycleControls({
 }
 
 /**
- * Up, the dots, down: the vertical pair for the side placements.
+ * View all, at the right end of a left-aligned indicator row.
  *
- * Up is previous and down is next, because the deck reads as a stack you
- * move through. A white pill with the card's hairline, so over a card it
- * reads as a control resting on it. Dots only where told — over a card there
- * is not the height for them. Ashwin, Oct 29.
+ * A quiet text button in the arrows' ink and height, so the row reads as one
+ * strip of controls rather than a CTA bolted onto the dots. "Icon only" is
+ * the right chevron alone, words in its tooltip and aria-label. It opens the
+ * L2 in its list mode, whatever "card click" says — the list IS an L2.
+ * Ashwin, Nov 17.
  */
-function CycleRail({
-  count,
-  front,
-  dots,
-  onStep,
-}: {
-  count: number;
-  front: number;
-  dots: boolean;
-  onStep: (dir: 1 | -1) => void;
-}) {
-  const btn =
-    "grid size-[20px] place-items-center rounded-full text-nav-fg-subtle motion-tap hover:bg-nav-hover hover:text-nav-fg";
+function ViewAllButton() {
+  const { navFeaturedViewAllLabel } = useTheme().effective;
+  const { open, setOpen, all } = useFeatured();
+  const active = open?.kind === "all" || (open?.kind === "product" && open.from === "all");
+  const spoken = `View all ${all.length} featured products`;
+  const onClick = () => setOpen(active ? null : { kind: "all" });
+  const words = navFeaturedViewAllLabel === "moreProducts" ? "More products" : "All products";
+  if (navFeaturedViewAllLabel === "icon") {
+    return (
+      <RailTooltip label={words} placement="above">
+        <button
+          type="button"
+          aria-label={spoken}
+          aria-haspopup="dialog"
+          aria-expanded={active}
+          onClick={onClick}
+          className={cn(VIEW_ALL_LINK, "pl-[3px]", active && "bg-nav-hover text-nav-fg-muted")}
+        >
+          <ChevronRight size={VIEW_ALL_LINK_ICON} aria-hidden="true" className={VIEW_ALL_LINK_CHEVRON} />
+        </button>
+      </RailTooltip>
+    );
+  }
   return (
-    <div className="flex shrink-0 flex-col items-center rounded-full border border-[var(--hr-gray-200)] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.08)] in-data-[nav-theme=dark]:border-nav-divider in-data-[nav-theme=dark]:bg-[var(--nav-bg)]">
-      <button type="button" aria-label="Previous featured product" onClick={() => onStep(-1)} className={btn}>
-        <ChevronUp size={12} aria-hidden="true" />
-      </button>
-      {dots ? (
-        <span aria-hidden="true" className="flex flex-col items-center gap-[3px] py-[3px]">
-          {Array.from({ length: count }, (_, i) => (
-            <span
-              key={i}
-              className={cn(
-                "w-[3px] rounded-full motion-safe:transition-[height,background-color] motion-safe:duration-[var(--dur-base)]",
-                i === front ? "h-[8px] bg-[var(--hr-primary-600)]" : "h-[3px] bg-nav-divider",
-              )}
-            />
-          ))}
-        </span>
-      ) : null}
-      <button type="button" aria-label="Next featured product" onClick={() => onStep(1)} className={btn}>
-        <ChevronDown size={12} aria-hidden="true" />
-      </button>
+    <button
+      type="button"
+      aria-label={spoken}
+      aria-haspopup="dialog"
+      aria-expanded={active}
+      onClick={onClick}
+      /*
+       * Gray, not brand: it is one more control on the indicator strip, in the
+       * arrows' ink, rather than a link competing with the card. The chevron
+       * says it goes somewhere. Ashwin, Nov 17.
+       */
+      // Recents' View all, exactly. See VIEW_ALL_LINK.
+      className={cn(VIEW_ALL_LINK, active && "bg-nav-hover text-nav-fg-muted")}
+    >
+      <span className={VIEW_ALL_LINK_TEXT}>{words}</span>
+      <ChevronRight size={VIEW_ALL_LINK_ICON} aria-hidden="true" className={VIEW_ALL_LINK_CHEVRON} />
+    </button>
+  );
+}
+
+/**
+ * The indicator row: the cycle controls (when there is a cycle), and View all
+ * at the right end when the row is flush left and the toggle is on. Centred
+ * rows never carry View all — there is no "end" to put it at.
+ */
+function IndicatorRow({
+  mode,
+  cycle,
+  viewAll,
+}: {
+  mode: NavFeaturedCycle;
+  cycle: React.ReactNode;
+  viewAll: boolean;
+}) {
+  const left = navFeaturedCycleIsLeft(mode);
+  return (
+    <div
+      data-featured-indicator={mode}
+      className={cn(
+        "flex h-[20px] w-full shrink-0 items-center gap-[6px]",
+        left ? "justify-between" : "justify-center",
+        // No side padding: the row runs edge to edge with the cards, the
+        // first arrow on their left edge and View all on their right.
+        // Ashwin, Nov 17.
+      )}
+    >
+      {cycle ?? <span />}
+      {left && viewAll ? <ViewAllButton /> : null}
     </div>
   );
 }
 
 /**
- * The entries plus their controls, laid out for `navFeaturedCycle`.
- *
- * Below: the row of arrows and dots under the entry, as it always was. Over:
- * the rail floats on the entry's edge, and the frame tells the entry (by data
- * attribute) to pad that side. Beside: the rail stands next to the entry and
- * the entry narrows by its width plus 4px — the nav fixes the slot's width.
- * `inset` is the deck's peek room above the front card, so the rail centres
- * on the card you can read, not the stack. Ashwin, Oct 29.
+ * The entries plus their indicator row, laid out for `navFeaturedCycle`: the
+ * row under the cards or over them, centred or left. Replaced the up/down
+ * rail placements (over or beside the card) on Nov 17 — Ashwin wanted the
+ * dots kept to one familiar row and a place at its end for View all.
  */
 function CycleFrame({
   mode,
   count,
   front,
-  inset = 0,
   gap,
   onStep,
   children,
@@ -404,44 +509,24 @@ function CycleFrame({
   mode: NavFeaturedCycle;
   count: number;
   front: number;
-  inset?: number;
   gap: string;
   onStep: (dir: 1 | -1) => void;
   children: React.ReactNode;
 }) {
-  if (mode === "below") {
-    return (
-      <div className={cn("flex w-full flex-col", gap)}>
-        {children}
-        <CycleControls count={count} front={front} onStep={onStep} />
-      </div>
-    );
-  }
-  const right = mode === "overlayRight" || mode === "besideRight";
-  if (mode === "overlayRight" || mode === "overlayLeft") {
-    return (
-      <div data-featured-cycle-pad={right ? "right" : "left"} className="relative w-full">
-        {children}
-        <div
-          className={cn(
-            "pointer-events-none absolute bottom-0 z-10 flex items-center",
-            right ? "right-[6px]" : "left-[6px]",
-          )}
-          style={{ top: inset }}
-        >
-          <div className="pointer-events-auto">
-            <CycleRail count={count} front={front} dots={false} onStep={onStep} />
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const { navFeaturedViewAll } = useTheme().effective;
+  const row = (
+    <IndicatorRow
+      mode={mode}
+      viewAll={navFeaturedViewAll}
+      cycle={<CycleControls count={count} front={front} onStep={onStep} />}
+    />
+  );
+  const top = mode === "top" || mode === "topLeft";
   return (
-    <div className={cn("flex w-full items-stretch gap-[4px]", !right && "flex-row-reverse")}>
-      <div className="min-w-0 flex-1">{children}</div>
-      <div className="flex shrink-0 flex-col justify-center" style={{ paddingTop: inset }}>
-        <CycleRail count={count} front={front} dots onStep={onStep} />
-      </div>
+    <div className={cn("flex w-full flex-col", gap)}>
+      {top ? row : null}
+      {children}
+      {top ? null : row}
     </div>
   );
 }
@@ -483,6 +568,8 @@ function FeaturedDeck({
   const cycle = useCycle(n);
   const mode = useTheme().effective.navFeaturedCycle;
   const cards = React.useRef(new Map<string, HTMLDivElement>());
+  // The card behind whose peek is under the pointer: it lifts 2px.
+  const [lifted, setLifted] = React.useState<string | null>(null);
 
   const step = (dir: 1 | -1) => {
     if (!cycle.reduced) {
@@ -498,15 +585,10 @@ function FeaturedDeck({
           { duration: 300, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
         );
       } else {
-        /*
-          With up/down arrows, previous is UP the stack, so the card comes in
-          from above — the mirror of next's drop. Under "below" it keeps its
-          rise from underneath. Ashwin, Oct 29.
-        */
-        const from = mode === "below" ? "translateY(14px) scale(0.97)" : "translateY(-14px) scale(0.97)";
+        // Back: the incoming card rises from underneath, the mirror of next's drop.
         cards.current.get(list[(cycle.front - 1 + n) % n].key)?.animate(
           [
-            { transform: from, opacity: 0, zIndex: 4 },
+            { transform: "translateY(14px) scale(0.97)", opacity: 0, zIndex: 4 },
             { transform: "none", opacity: 1, zIndex: 4 },
           ],
           { duration: 300, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
@@ -529,8 +611,8 @@ function FeaturedDeck({
         mode={mode}
         count={n}
         front={cycle.front}
-        inset={9 * Math.min(n - 1, 2)}
-        gap="gap-[4px]"
+        // 4px more air between the cards and the arrows row. Ashwin, Nov 17.
+        gap="gap-[8px]"
         onStep={(dir) => {
           cycle.stop();
           step(dir);
@@ -548,13 +630,36 @@ function FeaturedDeck({
                   if (el) cards.current.set(p.key, el);
                   else cards.current.delete(p.key);
                 }}
-                aria-hidden={at === 0 ? undefined : true}
-                // Only the front card is a Tab stop; the rest are scenery until they come round.
-                {...(at === 0 ? {} : { inert: true })}
                 className="relative col-start-1 row-start-1 origin-top rounded-[10px] bg-white in-data-[nav-theme=dark]:bg-[var(--nav-bg)] motion-safe:transition-[transform] motion-safe:duration-[var(--dur-slow)] motion-safe:ease-[var(--ease-out)]"
-                style={{ transform: pose.transform, zIndex: pose.z }}
+                style={{
+                  transform: at > 0 && lifted === p.key ? `${pose.transform} translateY(-2px)` : pose.transform,
+                  zIndex: pose.z,
+                }}
               >
-                {entry(p, at === 0)}
+                {/* Only the front card is a Tab stop; the rest are scenery until they come round. */}
+                <div aria-hidden={at === 0 ? undefined : true} {...(at === 0 ? {} : { inert: true })}>
+                  {entry(p, at === 0)}
+                </div>
+                {/*
+                  A card behind: its peek lifts 2px on hover, and a click brings
+                  it to the front as the carousel's current step. Clicking it
+                  again, in front, opens its L2. Ashwin, Nov 17.
+                */}
+                {at > 0 ? (
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    aria-label={`Show ${p.name}`}
+                    onMouseEnter={() => setLifted(p.key)}
+                    onMouseLeave={() => setLifted((k) => (k === p.key ? null : k))}
+                    onClick={() => {
+                      setLifted(null);
+                      cycle.stop();
+                      cycle.go(i);
+                    }}
+                    className="absolute inset-0 z-[1] cursor-pointer rounded-[10px]"
+                  />
+                ) : null}
                 <span
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-0 rounded-[10px] bg-[var(--nav-bg)] motion-safe:transition-opacity motion-safe:duration-[var(--dur-slow)]"
@@ -593,7 +698,7 @@ function FeaturedCarousel({
         mode={mode}
         count={list.length}
         front={cycle.front}
-        gap="gap-[2px]"
+        gap="gap-[6px]"
         onStep={(dir) => {
           cycle.stop();
           cycle.next(dir);
@@ -619,12 +724,21 @@ function FeaturedCarousel({
  * surface, and the agency's own tree is platform IA.
  */
 export function FeaturedSlot({ at, agency = false }: { at: FeaturedSlotAt; agency?: boolean }) {
-  const { navFeaturedSlot, navFeaturedLabel, navFeaturedMulti, navFeaturedClose, navFeaturedOpens } =
-    useTheme().effective;
+  const {
+    navFeaturedSlot,
+    navFeaturedLabel,
+    navFeaturedMulti,
+    navFeaturedClose,
+    navFeaturedOpens,
+    navFeaturedCycle,
+    navFeaturedViewAll,
+  } = useTheme().effective;
   const { list, open, setOpen, dismiss, launch, pinned, togglePin } = useFeatured();
+  const navEditing = useNavLayout().state.editing;
   const { collapsed } = useNavCollapse();
   const pinnedInk = usePinnedInk();
-  if (agency || navFeaturedSlot !== at || list.length === 0) return null;
+  // Gone while editing: edit mode is about the account's own rows. Ashwin, Nov 17.
+  if (agency || navFeaturedSlot !== at || list.length === 0 || navEditing) return null;
 
   const withNew = navFeaturedLabel === "nameNew";
   const spoken = (p: FeaturedProduct) => (withNew ? `${p.name}, new` : p.name);
@@ -680,6 +794,7 @@ export function FeaturedSlot({ at, agency = false }: { at: FeaturedSlotAt; agenc
   const row = (p: FeaturedProduct) => (
     <FeaturedRow
       key={p.key}
+      product={p}
       icon={p.icon}
       label={p.name}
       spoken={spoken(p)}
@@ -695,7 +810,7 @@ export function FeaturedSlot({ at, agency = false }: { at: FeaturedSlotAt; agenc
       icon={p.icon}
       name={p.name}
       tagline={p.tagline}
-      image={p.image}
+      product={p}
       spoken={spoken(p)}
       pill={withNew ? <NewTag /> : null}
       active={isOpen(open, p.key)}
@@ -757,6 +872,25 @@ export function FeaturedSlot({ at, agency = false }: { at: FeaturedSlotAt; agenc
     );
   }
 
+  /*
+   * View all shows however many products are featured — with one, or with
+   * the stacked or grouped layouts, there are no arrows or dots, so the row
+   * is just the button at its right end, in the same place it would be.
+   * Ashwin, Nov 17.
+   */
+  const cycling = multi && (navFeaturedMulti === "deck" || navFeaturedMulti === "carousel");
+  if (!collapsed && !cycling && navFeaturedViewAll && navFeaturedCycleIsLeft(navFeaturedCycle)) {
+    const row = <IndicatorRow mode={navFeaturedCycle} viewAll cycle={null} />;
+    const top = navFeaturedCycle === "topLeft";
+    body = (
+      <div className="flex w-full shrink-0 flex-col gap-[8px]">
+        {top ? row : null}
+        {body}
+        {top ? null : row}
+      </div>
+    );
+  }
+
   return (
     <>
       {at === "below" ? <NavDivider /> : null}
@@ -807,72 +941,3 @@ function CollapsedGroup({ count, active, onOpen }: { count: number; active: bool
   );
 }
 
-/* ─── Pinned ──────────────────────────────────────────────────────────── */
-
-/**
- * The featured products the user pinned, as pinned rows.
- *
- * They outlive the run — still here after `ended` — because pinning was the
- * user saying "keep this", and the run ending is the one moment they would
- * look for it. Pressing one reopens its explainer; the filled pin unpins.
- * Geometry and ink are MergedItemRow's, so they read as the pins they are.
- */
-export function FeaturedPinnedRows({ agency = false }: { agency?: boolean }) {
-  const { pinned, open, setOpen, togglePin } = useFeatured();
-  const { collapsed } = useNavCollapse();
-  const pinnedInk = usePinnedInk();
-  if (agency || pinned.length === 0) return null;
-  return (
-    <div role="list" aria-label="Pinned featured products" className="flex w-full shrink-0 flex-col gap-[var(--t-nav-space,2px)]">
-      {pinned.map((key) => {
-        const p = FEATURED_PRODUCTS[key];
-        const Icon = p.icon;
-        const active = isOpen(open, key);
-        return (
-          <RailTooltip key={key} label={p.name} show={collapsed}>
-            <div
-              role="listitem"
-              data-nav-tile=""
-              className={cn(
-                "group/row relative flex w-full shrink-0 items-center gap-[var(--t-nav-gap,10px)] rounded-[var(--t-nav-radius,7px)] px-[var(--t-nav-px,8px)] py-[var(--t-nav-py,9px)] min-h-[calc(var(--t-nav-py,9px)*2+20px)] motion-tap",
-                active ? "bg-nav-hover" : "hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)]",
-              )}
-            >
-              <button
-                type="button"
-                onClick={() => setOpen({ kind: "product", key })}
-                aria-haspopup="dialog"
-                aria-expanded={active}
-                {...(collapsed ? { "aria-label": p.name } : {})}
-                className="flex min-w-0 flex-1 items-center gap-[var(--t-nav-gap,10px)] text-left"
-              >
-                <Icon aria-hidden="true" style={ICON_BOX} className="shrink-0 text-nav-fg-muted" />
-                <span
-                  {...fadeProps(collapsed)}
-                  className="truncate text-[length:var(--t-nav-font,14px)] leading-[18px] text-nav-fg"
-                >
-                  {p.name}
-                </span>
-              </button>
-              <span {...fadeProps(collapsed)} className="flex shrink-0 items-center">
-                <button
-                  type="button"
-                  title="Unpin"
-                  aria-label={`Pin ${p.name}`}
-                  aria-pressed="true"
-                  onClick={() => togglePin(key)}
-                  className={cn(
-                    "motion-tap flex size-[20px] shrink-0 items-center justify-center rounded-[6px] hover:bg-nav-hover active:scale-90 motion-press",
-                    pinnedInk,
-                  )}
-                >
-                  <Pin size={PIN_GLYPH} fill="currentColor" aria-hidden="true" />
-                </button>
-              </span>
-            </div>
-          </RailTooltip>
-        );
-      })}
-    </div>
-  );
-}

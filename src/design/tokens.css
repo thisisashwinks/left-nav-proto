@@ -554,15 +554,26 @@
   /*
    * The edge a FIELD wears, as against the rule between two rows.
    *
-   * One step darker than the divider — gray-300 against gray-200 — because
-   * the two are doing different jobs at the same weight. A divider is read
-   * past; a field's border is read AS the control, and at 200 the search box
-   * and its Cancel were hairlines you had to look for. Ashwin, Nov 16.
+   * The card's hairline, which is `--nav-border`. Ashwin, Nov 17.
    *
-   * Its own token rather than a literal, so a dark nav can answer for itself
-   * below: a raw gray-300 would be a light edge on a dark surface.
+   * It was gray-300 for a day — one step darker than the divider, on the
+   * argument that a divider is read past while a field's border is read AS
+   * the control, and at 200 the search box and its Cancel were hairlines you
+   * had to look for.
+   *
+   * What settled it was putting the two next to each other. Under the logo
+   * the field stands directly above the Launchpad card, and two hairlines a
+   * step apart at the same width, 12px apart, do not read as a hierarchy —
+   * they read as one of them being wrong. Matching is the only thing that
+   * can look deliberate at that distance. If the field needs more presence
+   * it has to come from somewhere other than the edge it shares.
+   *
+   * Still its own token rather than an alias everywhere it is used, because
+   * "the edge a field wears" is a real question that could be answered
+   * differently later — and because the dark navs below already point it at
+   * their own divider, which a raw gray-300 could never do.
    */
-  --nav-field-border: var(--hr-gray-300);
+  --nav-field-border: var(--nav-border);
   --nav-fg: var(--hr-gray-900);
   --nav-fg-muted: var(--hr-gray-500);
   --nav-fg-subtle: var(--hr-gray-400);

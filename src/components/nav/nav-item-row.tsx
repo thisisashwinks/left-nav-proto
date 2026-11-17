@@ -952,6 +952,8 @@ export function NavItemRow({
       // drag on the way in or it never gets asked again.
       /* The element the grip hands to `setRowDragImage`. */
       data-drag-row=""
+      // Which row this is, for drags that place themselves by reading the list (Holiday Promos).
+      data-row-id={item.id}
       onDragEnter={edit.drag?.onDragOver}
       onDragOver={edit.drag?.onDragOver}
       onDragLeave={edit.drag?.onDragLeave}

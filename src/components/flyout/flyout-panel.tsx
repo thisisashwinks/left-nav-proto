@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { AI_BOTTOM_SLOT } from "@/components/flyout/flyout-config";
+import { PANEL_TITLE } from "@/components/flyout/types";
 import { CirclePlus, Image, Plus, RotateCcw, X } from "lucide-react";
 
 import { AGENCY_L2_MIME, L2_MIME, L3_MIME } from "@/components/nav/nav-drag";
@@ -41,7 +43,7 @@ import { useDragTypes } from "@/lib/use-drag-active";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
 import { useScrollEdges } from "@/lib/use-scroll-edges";
 import { BottomSlot } from "./bottom-slot";
-import { FeaturedPromoCard, FeaturedPromoRow } from "@/components/nav/featured-panel";
+import { FeaturedPromoCard } from "@/components/nav/featured-panel";
 import { FlyoutActionRow } from "./flyout-action-row";
 import { IconPicker, useIconPicker } from "@/components/nav/icon-picker";
 import { nameForIcon } from "@/components/nav/icon-catalogue";
@@ -58,6 +60,7 @@ import { useHoverDwell } from "@/lib/use-hover-dwell";
 import { focusFirstItem, restoreFocus } from "@/lib/a11y";
 import type { FlyoutChildItem, FlyoutConfig } from "./types";
 import { FLY_ROW_SELECTOR, FLYOUT_PANEL_ID } from "./types";
+
 
 interface FlyoutPanelProps {
   config: FlyoutConfig;
@@ -195,6 +198,7 @@ export function FlyoutPanel({
     addProductStyle,
     addProductSpot,
     addPickerCommit,
+    navFeaturedAiCarousel,
   } = useTheme().effective;
   /* See the title below. */
   const appsRowName = useGetAppNavLabel();
@@ -1745,7 +1749,7 @@ export function FlyoutPanel({
         )}
       >
         <div className="flex h-fit flex-1 items-center justify-between">
-          <h2 className="text-[15px] leading-[normal] font-semibold whitespace-nowrap text-nav-fg">
+          <h2 className={cn(PANEL_TITLE, "whitespace-nowrap")}>
             {/*
               The panel's title is the ROW's name, and for one row that name
               is an axis — see APPS_ROW_LABELS. The config's own title is
@@ -1862,8 +1866,6 @@ export function FlyoutPanel({
         </p>
       ) : null}
 
-      {/* A featured product's promo, in its home category only. See featured.tsx. */}
-      {!editing ? <FeaturedPromoRow config={config} /> : null}
 
       {entries.map((entry, i) =>
         entry.kind === "label" ? (
@@ -2016,6 +2018,7 @@ export function FlyoutPanel({
         ),
       )}
 
+
       {config.cta ? (
         <div
           style={
@@ -2047,7 +2050,8 @@ export function FlyoutPanel({
         after the list has settled.
       */}
       <FeaturedPromoCard config={config} />
-      {config.bottom ? (
+      {/* The AI panel's carousel shows only when the controls ask for it. */}
+      {config.bottom && (config.bottom !== AI_BOTTOM_SLOT || navFeaturedAiCarousel) ? (
         <div
           style={
             {

@@ -14,6 +14,7 @@ import { childrenFor,
   type NavLayoutState,
   type ResolvedGroup,
 } from "./grouping";
+import { FEATURED_PAGE_BY_ID } from "./featured-pages";
 
 /**
  * The panel a group opens.
@@ -120,7 +121,8 @@ export function flyoutForGroup(
           label: labelForProduct(state, id),
           icon: iconForProduct(state, id),
           ...(product?.blurb ? { description: product.blurb } : {}),
-          ...(product?.badge ? { badge: product.badge } : {}),
+          // A featured product's New tag steps aside in edit mode. Ashwin, Nov 17.
+          ...(product?.badge && !(state.editing && FEATURED_PAGE_BY_ID.has(id)) ? { badge: product.badge } : {}),
           /*
             The L2 layer: sub-places render as a nested dropdown on the row.
 

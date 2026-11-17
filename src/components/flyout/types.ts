@@ -169,3 +169,10 @@ export interface FlyoutConfig {
   /** Recent uses a slightly taller section label than the other panels. */
   spaciousLabels?: boolean;
 }
+
+/**
+ * An L2 panel's title: the category flyout's, and every other L2 that sits
+ * in the same place (the featured products' panel too). One constant so the
+ * two cannot drift. Ashwin, Nov 17.
+ */
+export const PANEL_TITLE = "text-[15px] leading-[normal] font-semibold text-nav-fg";

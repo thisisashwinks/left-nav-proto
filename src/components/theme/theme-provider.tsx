@@ -145,6 +145,8 @@ import type {
   NavTourMediaPosition,
   NavTourRestart,
   NavTourWatch,
+  NavTourWatchSpot,
+  NavTourWatchStyle,
   NavTourWatchCut,
   NavTourMotion,
   NavTourHighlight,
@@ -155,22 +157,32 @@ import type {
   NavTourLearnOpens,
   NavTourShadow,
   NavFeaturedSlot,
+  NavFeaturedListRows,
+  NavPromoPlacement,
+  NavFeaturedFloatSide,
+  NavFeaturedFloatCycle,
+  NavFeaturedMediaKind,
   NavFeaturedLabel,
   NavFeaturedCount,
   NavFeaturedMulti,
   NavFeaturedLead,
   NavFeaturedExplainer,
   NavFeaturedPin,
+  NavFeaturedPinSpot,
+  NavFeaturedPinHeaderStyle,
   NavFeaturedPromo,
   NavFeaturedAgency,
   NavAskAiHome,
   NavSettingsSpot,
   NavFeaturedCycle,
+  NavFeaturedViewAllLabel,
+  NavFeaturedDetail,
   NavFeaturedClose,
   NavFeaturedOpens,
   NavFootSticky,
   NavFootShadow,
-  NavFeaturedCardRow,
+  NavEditSpot,
+  NavFeaturedPromoBg,
   NavFeaturedMedia,
   RailRuleAlign,
   RailActiveChrome,
@@ -206,6 +218,8 @@ import type {
   CrumbStart,
   CrumbEmphasis,
   EntryRadius,
+  AskRadius,
+  QuickActionSpot,
   NavArrangement,
   ScopedSwitch,
   CrumbIcons,
@@ -416,6 +430,8 @@ interface ThemeContextValue extends ThemeState {
   setNavTourMediaPosition: (v: NavTourMediaPosition) => void;
   setNavTourRestart: (v: NavTourRestart) => void;
   setNavTourWatch: (v: NavTourWatch) => void;
+  setNavTourWatchSpot: (v: NavTourWatchSpot) => void;
+  setNavTourWatchStyle: (v: NavTourWatchStyle) => void;
   setNavTourWatchCut: (v: NavTourWatchCut) => void;
   setNavTourSearchOpen: (on: boolean) => void;
   setNavTourProductsOpen: (on: boolean) => void;
@@ -429,23 +445,36 @@ interface ThemeContextValue extends ThemeState {
   setNavTourLearnOpens: (v: NavTourLearnOpens) => void;
   setNavTourShadow: (v: NavTourShadow) => void;
   setNavTourLearnRow: (on: boolean) => void;
+  setNavTourInEdit: (on: boolean) => void;
   setNavFeaturedSlot: (v: NavFeaturedSlot) => void;
+  setNavFeaturedListRows: (v: NavFeaturedListRows) => void;
+  setNavPromoPlacement: (v: NavPromoPlacement) => void;
+  setNavFeaturedFloatSide: (v: NavFeaturedFloatSide) => void;
+  setNavFeaturedFloatCycle: (v: NavFeaturedFloatCycle) => void;
+  setNavFeaturedMediaKind: (v: NavFeaturedMediaKind) => void;
   setNavFeaturedLabel: (v: NavFeaturedLabel) => void;
   setNavFeaturedCount: (v: NavFeaturedCount) => void;
   setNavFeaturedMulti: (v: NavFeaturedMulti) => void;
   setNavFeaturedLead: (v: NavFeaturedLead) => void;
   setNavFeaturedExplainer: (v: NavFeaturedExplainer) => void;
   setNavFeaturedPin: (v: NavFeaturedPin) => void;
+  setNavFeaturedPinSpot: (v: NavFeaturedPinSpot) => void;
+  setNavFeaturedPinHeaderStyle: (v: NavFeaturedPinHeaderStyle) => void;
   setNavFeaturedPromo: (v: NavFeaturedPromo) => void;
   setNavFeaturedAgency: (v: NavFeaturedAgency) => void;
   setNavAskAiHome: (v: NavAskAiHome) => void;
   setNavSettingsSpot: (v: NavSettingsSpot) => void;
   setNavFeaturedCycle: (v: NavFeaturedCycle) => void;
+  setNavFeaturedViewAll: (v: boolean) => void;
+  setNavFeaturedAiCarousel: (v: boolean) => void;
+  setNavFeaturedViewAllLabel: (v: NavFeaturedViewAllLabel) => void;
+  setNavFeaturedDetail: (v: NavFeaturedDetail) => void;
   setNavFeaturedClose: (v: NavFeaturedClose) => void;
   setNavFeaturedOpens: (v: NavFeaturedOpens) => void;
   setNavFootSticky: (v: NavFootSticky) => void;
   setNavFootShadow: (v: NavFootShadow) => void;
-  setNavFeaturedCardRow: (v: NavFeaturedCardRow) => void;
+  setNavEditSpot: (v: NavEditSpot) => void;
+  setNavFeaturedPromoBg: (v: NavFeaturedPromoBg) => void;
   setNavFeaturedMedia: (v: NavFeaturedMedia) => void;
   setNavChevron: (v: NavChevron) => void;
   setEditRadius: (v: EditRadius) => void;
@@ -607,6 +636,8 @@ interface ThemeContextValue extends ThemeState {
   setCollapsedRail: (v: CollapsedRail) => void;
   setDirectorySelect: (v: DirectorySelect) => void;
   setEntryRadius: (v: EntryRadius) => void;
+  setAskRadius: (v: AskRadius) => void;
+  setQuickActionSpot: (v: QuickActionSpot) => void;
   setAttachTemplateInUse: (on: boolean) => void;
   setLegacyFootControl: (control: LegacyFootControl) => void;
   setNavSwitchButton: (enabled: boolean) => void;
@@ -995,6 +1026,10 @@ export function ThemeProvider({
         setState((s) => ({ ...s, navTourRestart })),
       setNavTourWatch: (navTourWatch) =>
         setState((s) => ({ ...s, navTourWatch })),
+      setNavTourWatchSpot: (navTourWatchSpot) =>
+        setState((s) => ({ ...s, navTourWatchSpot })),
+      setNavTourWatchStyle: (navTourWatchStyle) =>
+        setState((s) => ({ ...s, navTourWatchStyle })),
       setNavTourWatchCut: (navTourWatchCut) =>
         setState((s) => ({ ...s, navTourWatchCut })),
       setNavTourSearchOpen: (navTourSearchOpen) =>
@@ -1019,10 +1054,21 @@ export function ThemeProvider({
         setState((s) => ({ ...s, navTourLearnOpens })),
       setNavTourShadow: (navTourShadow) =>
         setState((s) => ({ ...s, navTourShadow })),
+      setNavTourInEdit: (navTourInEdit) => setState((s) => ({ ...s, navTourInEdit })),
       setNavTourLearnRow: (navTourLearnRow) =>
         setState((s) => ({ ...s, navTourLearnRow })),
       setNavFeaturedSlot: (navFeaturedSlot) =>
         setState((s) => ({ ...s, navFeaturedSlot })),
+      setNavFeaturedListRows: (navFeaturedListRows) =>
+        setState((s) => ({ ...s, navFeaturedListRows })),
+      setNavPromoPlacement: (navPromoPlacement) =>
+        setState((s) => ({ ...s, navPromoPlacement })),
+      setNavFeaturedFloatSide: (navFeaturedFloatSide) =>
+        setState((s) => ({ ...s, navFeaturedFloatSide })),
+      setNavFeaturedFloatCycle: (navFeaturedFloatCycle) =>
+        setState((s) => ({ ...s, navFeaturedFloatCycle })),
+      setNavFeaturedMediaKind: (navFeaturedMediaKind) =>
+        setState((s) => ({ ...s, navFeaturedMediaKind })),
       setNavFeaturedLabel: (navFeaturedLabel) =>
         setState((s) => ({ ...s, navFeaturedLabel })),
       setNavFeaturedCount: (navFeaturedCount) =>
@@ -1035,6 +1081,10 @@ export function ThemeProvider({
         setState((s) => ({ ...s, navFeaturedExplainer })),
       setNavFeaturedPin: (navFeaturedPin) =>
         setState((s) => ({ ...s, navFeaturedPin })),
+      setNavFeaturedPinSpot: (navFeaturedPinSpot) =>
+        setState((s) => ({ ...s, navFeaturedPinSpot })),
+      setNavFeaturedPinHeaderStyle: (navFeaturedPinHeaderStyle) =>
+        setState((s) => ({ ...s, navFeaturedPinHeaderStyle })),
       setNavFeaturedPromo: (navFeaturedPromo) =>
         setState((s) => ({ ...s, navFeaturedPromo })),
       setNavFeaturedAgency: (navFeaturedAgency) =>
@@ -1045,6 +1095,14 @@ export function ThemeProvider({
         setState((s) => ({ ...s, navSettingsSpot })),
       setNavFeaturedCycle: (navFeaturedCycle) =>
         setState((s) => ({ ...s, navFeaturedCycle })),
+      setNavFeaturedAiCarousel: (navFeaturedAiCarousel) =>
+        setState((s) => ({ ...s, navFeaturedAiCarousel })),
+      setNavFeaturedViewAll: (navFeaturedViewAll) =>
+        setState((s) => ({ ...s, navFeaturedViewAll })),
+      setNavFeaturedViewAllLabel: (navFeaturedViewAllLabel) =>
+        setState((s) => ({ ...s, navFeaturedViewAllLabel })),
+      setNavFeaturedDetail: (navFeaturedDetail) =>
+        setState((s) => ({ ...s, navFeaturedDetail })),
       setNavFeaturedClose: (navFeaturedClose) =>
         setState((s) => ({ ...s, navFeaturedClose })),
       setNavFeaturedOpens: (navFeaturedOpens) =>
@@ -1053,8 +1111,10 @@ export function ThemeProvider({
         setState((s) => ({ ...s, navFootSticky })),
       setNavFootShadow: (navFootShadow) =>
         setState((s) => ({ ...s, navFootShadow })),
-      setNavFeaturedCardRow: (navFeaturedCardRow) =>
-        setState((s) => ({ ...s, navFeaturedCardRow })),
+      setNavEditSpot: (navEditSpot) =>
+        setState((s) => ({ ...s, navEditSpot })),
+      setNavFeaturedPromoBg: (navFeaturedPromoBg) =>
+        setState((s) => ({ ...s, navFeaturedPromoBg })),
       setNavFeaturedMedia: (navFeaturedMedia) =>
         setState((s) => ({ ...s, navFeaturedMedia })),
       setPreviewBanner: (previewBanner) =>
@@ -1325,6 +1385,9 @@ export function ThemeProvider({
       setDirectorySelect: (directorySelect) =>
         setState((s) => ({ ...s, directorySelect })),
       setEntryRadius: (entryRadius) => setState((s) => ({ ...s, entryRadius })),
+      setAskRadius: (askRadius) => setState((s) => ({ ...s, askRadius })),
+      setQuickActionSpot: (quickActionSpot) =>
+        setState((s) => ({ ...s, quickActionSpot })),
       setAttachTemplateInUse: (attachTemplateInUse) =>
         setState((s) => ({ ...s, attachTemplateInUse })),
       setLegacyFootControl: (legacyFootControl) =>

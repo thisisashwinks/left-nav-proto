@@ -152,6 +152,10 @@ import {
   NAV_TOUR_RESTART_LABELS,
   NAV_TOUR_WATCHES,
   NAV_TOUR_WATCH_LABELS,
+  NAV_TOUR_WATCH_SPOTS,
+  NAV_TOUR_WATCH_SPOT_LABELS,
+  NAV_TOUR_WATCH_STYLES,
+  NAV_TOUR_WATCH_STYLE_LABELS,
   NAV_TOUR_WATCH_CUTS,
   NAV_TOUR_WATCH_CUT_LABELS,
   NAV_TOUR_MOTIONS,
@@ -257,6 +261,10 @@ import {
   EDIT_RADII,
   EDIT_RADIUS_LABELS,
   ENTRY_RADIUS_LABELS,
+  QUICK_ACTION_SPOTS,
+  QUICK_ACTION_SPOT_LABELS,
+  ASK_RADII,
+  ASK_RADIUS_LABELS,
   HEADER_ENTRY_SIDES,
   HEADER_ENTRY_SIDE_LABELS,
   GET_APP_PLACEMENTS,
@@ -498,6 +506,9 @@ import {
   type NavTourMediaPosition,
   type NavTourRestart,
   type NavTourWatch,
+  type QuickActionSpot,
+  type NavTourWatchSpot,
+  type NavTourWatchStyle,
   type NavTourWatchCut,
   type NavTourMotion,
   type NavTourHighlight,
@@ -510,6 +521,21 @@ import {
   NAV_FEATURED_SLOTS,
   NAV_FEATURED_SLOT_LABELS,
   type NavFeaturedSlot,
+  NAV_FEATURED_LIST_ROWS,
+  NAV_FEATURED_LIST_ROWS_LABELS,
+  type NavFeaturedListRows,
+  NAV_PROMO_PLACEMENTS,
+  NAV_PROMO_PLACEMENT_LABELS,
+  type NavPromoPlacement,
+  NAV_FEATURED_FLOAT_SIDES,
+  NAV_FEATURED_FLOAT_SIDE_LABELS,
+  type NavFeaturedFloatSide,
+  NAV_FEATURED_FLOAT_CYCLES,
+  NAV_FEATURED_FLOAT_CYCLE_LABELS,
+  type NavFeaturedFloatCycle,
+  NAV_FEATURED_MEDIA_KINDS,
+  NAV_FEATURED_MEDIA_KIND_LABELS,
+  type NavFeaturedMediaKind,
   NAV_FEATURED_LABEL_OPTIONS,
   NAV_FEATURED_LABEL_LABELS,
   type NavFeaturedLabel,
@@ -528,6 +554,12 @@ import {
   NAV_FEATURED_PINS,
   NAV_FEATURED_PIN_LABELS,
   type NavFeaturedPin,
+  NAV_FEATURED_PIN_SPOTS,
+  NAV_FEATURED_PIN_SPOT_LABELS,
+  type NavFeaturedPinSpot,
+  NAV_FEATURED_PIN_HEADER_STYLES,
+  NAV_FEATURED_PIN_HEADER_STYLE_LABELS,
+  type NavFeaturedPinHeaderStyle,
   NAV_FEATURED_PROMOS,
   NAV_FEATURED_PROMO_LABELS,
   type NavFeaturedPromo,
@@ -543,6 +575,13 @@ import {
   NAV_FEATURED_CYCLES,
   NAV_FEATURED_CYCLE_LABELS,
   type NavFeaturedCycle,
+  navFeaturedCycleIsLeft,
+  NAV_FEATURED_VIEW_ALL_LABEL_OPTIONS,
+  NAV_FEATURED_VIEW_ALL_LABEL_LABELS,
+  type NavFeaturedViewAllLabel,
+  NAV_FEATURED_DETAILS,
+  NAV_FEATURED_DETAIL_LABELS,
+  type NavFeaturedDetail,
   NAV_FEATURED_CLOSES,
   NAV_FEATURED_CLOSE_LABELS,
   type NavFeaturedClose,
@@ -555,9 +594,12 @@ import {
   NAV_FOOT_SHADOWS,
   NAV_FOOT_SHADOW_LABELS,
   type NavFootShadow,
-  NAV_FEATURED_CARD_ROWS,
-  NAV_FEATURED_CARD_ROW_LABELS,
-  type NavFeaturedCardRow,
+  NAV_EDIT_SPOTS,
+  NAV_FEATURED_PROMO_BGS,
+  NAV_FEATURED_PROMO_BG_LABELS,
+  NAV_EDIT_SPOT_LABELS,
+  type NavEditSpot,
+  type NavFeaturedPromoBg,
   NAV_FEATURED_MEDIAS,
   NAV_FEATURED_MEDIA_LABELS,
   type NavFeaturedMedia,
@@ -707,10 +749,11 @@ import {
 import { useNavProfiles } from "@/components/nav/nav-profiles";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { NAV_FEATURED_END_EVENT, NAV_FEATURED_RESET_EVENT } from "@/components/nav/featured";
-import { NAV_TOUR_REPLAY_EVENT } from "@/components/nav/nav-tour";
+import { NAV_TOUR_REPLAY_EVENT, closeAllNavTours } from "@/components/nav/nav-tour";
 import { cn } from "@/lib/utils";
 import { useTuning } from "./tuning-provider";
 import { useCanvasTintedPage } from "@/components/shell/page-canvas";
+import { FEATURED_CARD_THEME } from "@/design/route-variants";
 import {
   EMPTY_SCREEN_LABELS,
   setEmptyState,
@@ -3129,6 +3172,7 @@ function NavStructureSection({
         label="Quick actions"
         checked={!isBlockHidden(state, "quickActions")}
         onChange={() => layout.toggleBlock("quickActions")}
+        keywords="search sits under the logo quick actions create plus launchpad top of column shelf"
       />
       <Note>
         {isBlockHidden(state, "quickActions")
@@ -3142,6 +3186,13 @@ function NavStructureSection({
         value={launchpadCard}
         onChange={(v: LaunchpadCard) => setLaunchpadCard(v)}
         format={(v) => LAUNCHPAD_CARD_LABELS[v]}
+        /*
+          Surfaced by "search sits" on purpose. The card is the loudest thing
+          under the field and the reason the field is hard to see — so someone
+          asking where search goes needs this control in the same list, not
+          two sections away.
+        */
+        keywords="search sits under the logo launchpad card setup onboarding progress top of column shelf demote"
       />
       <Note>
         {launchpadCard === "tinted"
@@ -4768,6 +4819,10 @@ export function TuningPanel() {
     impersonationBannerColor,
     setImpersonationBannerColor,
     entryRadius,
+    quickActionSpot,
+    setQuickActionSpot,
+    askRadius,
+    setAskRadius,
     editRadius,
     setEditRadius,
     editAlways,
@@ -4789,6 +4844,10 @@ export function TuningPanel() {
     navTourRestart,
     setNavTourRestart,
     navTourWatch,
+    navTourWatchSpot,
+    setNavTourWatchSpot,
+    navTourWatchStyle,
+    setNavTourWatchStyle,
     setNavTourWatch,
     navTourWatchCut,
     navTourSearchOpen,
@@ -4816,8 +4875,20 @@ export function TuningPanel() {
     setNavTourLearnOpens,
     setNavTourShadow,
     setNavTourLearnRow,
+    navTourInEdit,
+    setNavTourInEdit,
     navFeaturedSlot,
     setNavFeaturedSlot,
+    navFeaturedListRows,
+    setNavFeaturedListRows,
+    navPromoPlacement,
+    setNavPromoPlacement,
+    navFeaturedFloatSide,
+    setNavFeaturedFloatSide,
+    navFeaturedFloatCycle,
+    setNavFeaturedFloatCycle,
+    navFeaturedMediaKind,
+    setNavFeaturedMediaKind,
     navFeaturedLabel,
     setNavFeaturedLabel,
     navFeaturedCount,
@@ -4830,6 +4901,10 @@ export function TuningPanel() {
     setNavFeaturedExplainer,
     navFeaturedPin,
     setNavFeaturedPin,
+    navFeaturedPinSpot,
+    setNavFeaturedPinSpot,
+    navFeaturedPinHeaderStyle,
+    setNavFeaturedPinHeaderStyle,
     navFeaturedPromo,
     setNavFeaturedPromo,
     navFeaturedAgency,
@@ -4840,6 +4915,14 @@ export function TuningPanel() {
     setNavSettingsSpot,
     navFeaturedCycle,
     setNavFeaturedCycle,
+    navFeaturedViewAll,
+    setNavFeaturedViewAll,
+    navFeaturedAiCarousel,
+    setNavFeaturedAiCarousel,
+    navFeaturedViewAllLabel,
+    setNavFeaturedViewAllLabel,
+    navFeaturedDetail,
+    setNavFeaturedDetail,
     navFeaturedClose,
     setNavFeaturedClose,
     navFeaturedOpens,
@@ -4848,8 +4931,10 @@ export function TuningPanel() {
     setNavFootSticky,
     navFootShadow,
     setNavFootShadow,
-    navFeaturedCardRow,
-    setNavFeaturedCardRow,
+    navEditSpot,
+    navFeaturedPromoBg,
+    setNavEditSpot,
+    setNavFeaturedPromoBg,
     navFeaturedMedia,
     setNavFeaturedMedia,
     setEntryRadius,
@@ -7334,6 +7419,15 @@ export function TuningPanel() {
             value={entryLayout}
             onChange={(v: EntryLayout) => setEntryLayout(v)}
             format={(v) => ENTRY_LAYOUT_LABELS[v]}
+            /*
+              The three controls that make up the top of the column answer to
+              one question, so they answer to one search. "Search sits" finds
+              this, "Quick actions sits" and "Launchpad card" — whichever
+              section each is filed under — because deciding where search goes
+              and deciding what it has to share the shelf with is the same
+              decision. See the keywords on the other two.
+            */
+            keywords="search sits under the logo top entry placement launchpad quick actions shelf"
           />
           <Note>
             {entryLayout === "top"
@@ -7344,6 +7438,24 @@ export function TuningPanel() {
             {entryPair === "separate"
               ? " Ask AI is not in the nav under either in-nav placement — separate means two controls, and that one belongs in the app bar where every screen can reach it."
               : " Merged, the orb travels with the field: it is the field's left edge, not a button beside it."}
+          </Note>
+
+          <Segmented
+            label="Quick actions sits"
+            options={QUICK_ACTION_SPOTS}
+            value={quickActionSpot}
+            onChange={(v: QuickActionSpot) => setQuickActionSpot(v)}
+            format={(v) => QUICK_ACTION_SPOT_LABELS[v]}
+            disabled={entryLayout !== "top"}
+            keywords="search sits under the logo quick actions create plus button launchpad card shelf top of column"
+          />
+          <Note>
+            {quickActionSpot === "search"
+              ? "A + beside the field, under the logo. Costs 40px of width and no height, puts find and create in one row, and frees the Launchpad card to be demoted without taking Quick actions with it. The standing row and the card's footer row both stand down."
+              : "Where it has always been: the Launchpad card's footer row, or a standing nav row for accounts without the card."}
+            {entryLayout !== "top"
+              ? " Only under \u201cUnder the logo\u201d \u2014 elsewhere there is no field in this column to sit beside."
+              : ""}
           </Note>
 
           {/*
@@ -7379,7 +7491,7 @@ export function TuningPanel() {
             back into the column would read as the setting being lost.
           */}
           <Segmented
-            label="Ask AI search bar corners"
+            label="Search bar corners"
             options={ENTRY_RADII}
             value={entryRadius}
             onChange={setEntryRadius}
@@ -7391,12 +7503,28 @@ export function TuningPanel() {
               see the note on `useFiltered`, which matches labels, option names
               and these.
             */
-            keywords="trail search bar radius rounded corners pill curve ask ai entry"
+            keywords="trail search sits bar radius rounded corners pill curve 8px eight ask ai entry under the logo shelf"
           />
           <Note>
             {entryRadius === "pill"
-              ? "Fully rounded, as it ships. Reads as somewhere to ask rather than as one more form control — and it is the one shape on the screen nothing else wears."
+              ? "Fully rounded, as it ships. Reads as somewhere to ask rather than as one more form control \u2014 and it is the one shape on the screen nothing else wears."
               : "The platform's own 8px, like every other input, button and select on the page. Consistent, and it stops the entry announcing itself."}
+            {" Where Search and Ask AI are merged into one pill, this is the pill \u2014 the orb is riding in the field."}
+          </Note>
+
+          <Segmented
+            label="Ask AI corners"
+            options={ASK_RADII}
+            value={askRadius}
+            onChange={setAskRadius}
+            format={(v) => ASK_RADIUS_LABELS[v]}
+            keywords="ask ai radius rounded corners pill curve entry separate split"
+          />
+          <Note>
+            {askRadius === "pill"
+              ? "Fully rounded, as it ships."
+              : "The platform's own 8px."}
+            {" Only where Search and Ask AI are two controls \u2014 merged, they are one shape and \u201cSearch bar corners\u201d owns it. Set the two the same to keep the pair matched."}
           </Note>
 
           <ActionRow
@@ -7591,6 +7719,38 @@ export function TuningPanel() {
           </Note>
 
           <Segmented
+            label="Tour: watch button sits"
+            keywords="tour onboarding coach mark watch the tour button position placement beside next footer body"
+            options={NAV_TOUR_WATCH_SPOTS}
+            value={navTourWatchSpot}
+            onChange={(v: NavTourWatchSpot) => setNavTourWatchSpot(v)}
+            format={(v) => NAV_TOUR_WATCH_SPOT_LABELS[v]}
+            disabled={navTourWatch !== "on"}
+          />
+          <Note>
+            {navTourWatchSpot === "footer"
+              ? "In the footer, on Next's left. The two things you can do from this card sit in one row, with the primary one last \u2014 and the first card alone widens to 308px to hold all three, so nothing wraps."
+              : "Under the body copy, where it shipped — an aside to step 1 rather than an alternative to it."}
+          </Note>
+
+          <Segmented
+            label="Tour: watch button style"
+            keywords="tour onboarding coach mark watch the tour button style border secondary gray blue link"
+            options={NAV_TOUR_WATCH_STYLES}
+            value={navTourWatchStyle}
+            onChange={(v: NavTourWatchStyle) => setNavTourWatchStyle(v)}
+            format={(v) => NAV_TOUR_WATCH_STYLE_LABELS[v]}
+            disabled={navTourWatch !== "on"}
+          />
+          <Note>
+            {navTourWatchStyle === "gray"
+              ? "A secondary button: gray hairline, white fill, dark label. Next's geometry exactly, so the two read as a pair."
+              : navTourWatchStyle === "blue"
+                ? "The same button in the brand's colour. Louder — two brand-coloured controls side by side, which competes with Next for the eye."
+                : "Underlined text, no box. How it shipped, and it sat under “Learn more” wearing the same treatment — a link promises reading, this one starts a two-minute video."}
+          </Note>
+
+          <Segmented
             label="Tour: video cut"
             keywords="tour onboarding launch video cut highlights full length"
             options={NAV_TOUR_WATCH_CUTS}
@@ -7630,6 +7790,17 @@ export function TuningPanel() {
           <Note>
             A row under Settings that plays the tours again. It appears once any
             tour has been closed, and stays. Not editable in edit mode.
+          </Note>
+          <Toggle
+            label="Tour: keep Get started open in edit mode"
+            checked={navTourInEdit}
+            onChange={setNavTourInEdit}
+            keywords="tour coach mark coachmark edit mode editing flow hide close auto start progressive"
+          />
+          <Note>
+            {navTourInEdit
+              ? "Opening edit mode leaves an open tour up; the Editing tour waits until it ends."
+              : "Off: opening edit mode closes an open tour (Get started), and the Editing tour starts straight away."}
           </Note>
 
           <Segmented
@@ -7726,10 +7897,89 @@ export function TuningPanel() {
             keywords="featured promo slot new product rotation ask ai khoi featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             options={NAV_FEATURED_SLOTS}
             value={navFeaturedSlot}
-            onChange={(v: NavFeaturedSlot) => setNavFeaturedSlot(v)}
+            // Card at bottom brings its settled settings with it. See FEATURED_CARD_THEME.
+            onChange={(v: NavFeaturedSlot) => {
+              if (v !== "card") return setNavFeaturedSlot(v);
+              // With the tours on but closed, so the Learn row shows beside
+              // the cards, as on /featured-products. Ashwin, Nov 17.
+              closeAllNavTours();
+              theme.applyTheme({ ...FEATURED_CARD_THEME, navTourStyle: "flows" });
+            }}
             format={(v) => NAV_FEATURED_SLOT_LABELS[v]}
           />
-          <Note>Where the rotating featured-product slot sits in the L1.</Note>
+          <Note>
+            Where the rotating featured-product slot sits in the L1. Floating card takes it out of the sidebar and
+            floats a card over the page, cycling through all 6 products. Rows after categories lists them under the
+            last category, with a New tag.
+          </Note>
+          <Segmented
+            label="Featured: rows after categories"
+            keywords="featured rows list after categories discover new products each product new tag featured products product promo"
+            options={NAV_FEATURED_LIST_ROWS}
+            value={navFeaturedListRows}
+            onChange={(v: NavFeaturedListRows) => setNavFeaturedListRows(v)}
+            format={(v) => NAV_FEATURED_LIST_ROWS_LABELS[v]}
+            disabled={navFeaturedSlot !== "list"}
+          />
+          <Note>
+            {navFeaturedSlot !== "list"
+              ? "Only with the slot at Rows after categories."
+              : navFeaturedListRows === "each"
+                ? "All 6 featured products, each as its own row with a New tag."
+                : "One Discover new products row with a New tag. It opens an L2 listing all 6."}
+          </Note>
+          <Segmented
+            label="Holiday Promos: placement"
+            keywords="holiday promos promo promotion black friday cyber monday sale seasonal campaign offer new tag locked row dashboard card featured"
+            options={NAV_PROMO_PLACEMENTS}
+            value={navPromoPlacement}
+            onChange={(v: NavPromoPlacement) => setNavPromoPlacement(v)}
+            format={(v) => NAV_PROMO_PLACEMENT_LABELS[v]}
+          />
+          <Note>
+            {navPromoPlacement === "off"
+              ? "No Holiday Promos anywhere."
+              : navPromoPlacement === "card"
+                ? "Holiday Promos leads the featured cards (Card at bottom, Row at the top or below categories). It opens a landing page with a promo banner."
+                : navPromoPlacement === "cardRow"
+                  ? "The card, plus a Holiday Promos row with a New tag at the top of the categories. Edit mode can hide the row."
+                  : "A Holiday Promos row with a New tag above Dashboard, locked in edit mode: it can't be moved, renamed, or hidden. No card."}
+            {navPromoPlacement === "off" ? "" : " Rajat's window is Nov 23–Dec 6; the prototype shows it whatever the date."}
+          </Note>
+          <Segmented
+            label="Featured: floating card sits"
+            keywords="featured floating card float corner bottom right left toast popup what's new pill featured products product promo promotional promotion new launch"
+            options={NAV_FEATURED_FLOAT_SIDES}
+            value={navFeaturedFloatSide}
+            onChange={(v: NavFeaturedFloatSide) => setNavFeaturedFloatSide(v)}
+            format={(v) => NAV_FEATURED_FLOAT_SIDE_LABELS[v]}
+            disabled={navFeaturedSlot !== "float"}
+          />
+          <Note>
+            {navFeaturedSlot === "float"
+              ? navFeaturedFloatSide === "leftRail"
+                ? "On top of the column: 16px from the window's left edge, over the account rail and the sidebar."
+                : navFeaturedFloatSide === "leftNav"
+                  ? "On top of the sidebar: 16px in from its left edge, past the account rail."
+                  : navFeaturedFloatSide === "left"
+                    ? "In the page: the canvas's bottom-left corner, 24px in, clear of the sidebar."
+                    : "In the page: the canvas's bottom-right corner, 24px in from its edges."
+              : "Only with the Floating card slot."}
+          </Note>
+          <Segmented
+            label="Featured: floating card cycles with"
+            keywords="featured floating card float carousel dots arrows hero swipe auto advance featured products product promo promotional promotion new launch"
+            options={NAV_FEATURED_FLOAT_CYCLES}
+            value={navFeaturedFloatCycle}
+            onChange={(v: NavFeaturedFloatCycle) => setNavFeaturedFloatCycle(v)}
+            format={(v) => NAV_FEATURED_FLOAT_CYCLE_LABELS[v]}
+            disabled={navFeaturedSlot !== "float"}
+          />
+          <Note>
+            {navFeaturedSlot === "float"
+              ? "How the card steps through the 6 products. It also advances every 6 seconds, pausing on hover, focus, and while the video plays."
+              : "Only with the Floating card slot."}
+          </Note>
 
           <Segmented
             label="Featured: label"
@@ -7768,9 +8018,45 @@ export function TuningPanel() {
             value={navFeaturedCycle}
             onChange={(v: NavFeaturedCycle) => setNavFeaturedCycle(v)}
             format={(v) => NAV_FEATURED_CYCLE_LABELS[v]}
-            disabled={navFeaturedMulti !== "deck" && navFeaturedMulti !== "carousel"}
           />
-          <Note>How the card deck and the carousel are cycled.</Note>
+          <Note>
+            Where the deck&rsquo;s and the carousel&rsquo;s arrows and dots sit: under or over the cards, centred or
+            left. The left positions also carry View all when it&rsquo;s on, even with a single product.
+          </Note>
+          <Toggle
+            label="Featured: View all button"
+            checked={navFeaturedViewAll}
+            onChange={setNavFeaturedViewAll}
+            disabled={!navFeaturedCycleIsLeft(navFeaturedCycle)}
+            keywords="featured view all more see all list button indicator row dots featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
+          />
+          <Segmented
+            label="Featured: View all label"
+            keywords="featured view all more products all products icon only chevron label button indicator row featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
+            options={NAV_FEATURED_VIEW_ALL_LABEL_OPTIONS}
+            value={navFeaturedViewAllLabel}
+            onChange={(v: NavFeaturedViewAllLabel) => setNavFeaturedViewAllLabel(v)}
+            format={(v) => NAV_FEATURED_VIEW_ALL_LABEL_LABELS[v]}
+            disabled={!navFeaturedViewAll || !navFeaturedCycleIsLeft(navFeaturedCycle)}
+          />
+          <Note>
+            {navFeaturedCycleIsLeft(navFeaturedCycle)
+              ? "A button at the right end of the indicator row opens an L2 listing all 6 featured products."
+              : "Only with the indicator at the bottom left or top left."}
+          </Note>
+          <Segmented
+            label="Featured: detail opens in"
+            keywords="featured view all list detail explainer l2 back modal dialog video featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
+            options={NAV_FEATURED_DETAILS}
+            value={navFeaturedDetail}
+            onChange={(v: NavFeaturedDetail) => setNavFeaturedDetail(v)}
+            format={(v) => NAV_FEATURED_DETAIL_LABELS[v]}
+          />
+          <Note>
+            {navFeaturedDetail === "modal"
+              ? "Picking a product in the View all list opens its explainer in a centred modal, over the list."
+              : "Picking a product in the View all list swaps the L2 to its explainer, with Back to the list."}
+          </Note>
           <Segmented
             label="Featured: card media"
             keywords="featured card image media video gif top bottom preview icon text only hide off featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
@@ -7784,7 +8070,20 @@ export function TuningPanel() {
               ? "No image: the product icon beside the name and tagline."
               : navFeaturedMedia === "text"
                 ? "Just the name and tagline: no image and no icon."
-                : "A 16:9 image on each featured card, above or below its text, like the coach mark’s preview. Placeholder art from public/featured."}
+                : "A still of the product’s screen on each featured card, above or below its text, like the coach mark’s preview."}
+          </Note>
+          <Segmented
+            label="Featured: media"
+            keywords="featured media video image still screenshot play button poster thumbnail modal launch video featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot float explainer"
+            options={NAV_FEATURED_MEDIA_KINDS}
+            value={navFeaturedMediaKind}
+            onChange={(v: NavFeaturedMediaKind) => setNavFeaturedMediaKind(v)}
+            format={(v) => NAV_FEATURED_MEDIA_KIND_LABELS[v]}
+          />
+          <Note>
+            {navFeaturedMediaKind === "video"
+              ? "A still of each product’s screen with a play button, on the cards, rows, explainer, and floating card. Clicking the media plays the launch video in a modal."
+              : "Just the still of each product’s screen, with no play button. Clicks do what they did before."}
           </Note>
           <Segmented
             label="Featured: close on cards"
@@ -7819,7 +8118,9 @@ export function TuningPanel() {
           <Note>
             {navSettingsSpot === "list"
               ? "Settings follows the last category, so a featured card at the bottom sits alone at the foot."
-              : "Settings sits at the foot of the sidebar, under a featured card at the bottom."}
+              : navSettingsSpot === "above"
+                ? "Settings sits at the foot of the sidebar, above a featured card at the bottom."
+                : "Settings sits at the foot of the sidebar, under a featured card at the bottom."}
           </Note>
           <Segmented
             label="Settings: sticky foot"
@@ -7849,15 +8150,36 @@ export function TuningPanel() {
                   : "No shadow: the band meets the list flat."}
           </Note>
           <Segmented
-            label="Featured: card row"
-            keywords="featured card edit row inline above settings list featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
-            options={NAV_FEATURED_CARD_ROWS}
-            value={navFeaturedCardRow}
-            onChange={(v: NavFeaturedCardRow) => setNavFeaturedCardRow(v)}
-            format={(v) => NAV_FEATURED_CARD_ROW_LABELS[v]}
-            disabled={navSettingsSpot !== "list" || navFeaturedSlot !== "card"}
+            label="Edit: position"
+            keywords="edit button position row inline beside above below settings list featured card cards bottom featured products product promo promotional promotion deck carousel slot settings sticky foot"
+            options={NAV_EDIT_SPOTS}
+            value={navEditSpot}
+            onChange={(v: NavEditSpot) => setNavEditSpot(v)}
+            format={(v) => NAV_EDIT_SPOT_LABELS[v]}
           />
-          <Note>With Settings in the list and a card at the bottom: the card above the Edit row, or beside Edit in the same row.</Note>
+          <Note>
+            {navEditSpot === "settings"
+              ? "Edit lines up with the last row of the Settings section (Learn about new Sidebar when it shows), wherever Settings sits."
+              : navEditSpot === "above"
+                ? "Edit gets its own row, right-aligned, just above the featured card. Without a card it sits at the bottom."
+                : navEditSpot === "beside"
+                  ? "Edit shares the card's row at the bottom. Needs Settings with the list and a card; otherwise it sits below."
+                  : "Edit sits at the very bottom, under the cards and Settings."}
+          </Note>
+          <Segmented
+            label="Featured: promo background"
+            keywords="featured promo background shade section gray white card cards bottom distinction featured products product promotion"
+            options={NAV_FEATURED_PROMO_BGS}
+            value={navFeaturedPromoBg}
+            onChange={(v: NavFeaturedPromoBg) => setNavFeaturedPromoBg(v)}
+            format={(v) => NAV_FEATURED_PROMO_BG_LABELS[v]}
+            disabled={navFeaturedSlot !== "card"}
+          />
+          <Note>
+            {navFeaturedPromoBg === "off"
+              ? "The cards sit straight on the sidebar."
+              : "A shaded panel behind the cards at the bottom, so the promo reads as its own section."}
+          </Note>
 
           <Segmented
             label="Featured: lead product"
@@ -7890,6 +8212,32 @@ export function TuningPanel() {
           <Note>How the explainer encourages pinning.</Note>
 
           <Segmented
+            label="Featured: pin button sits"
+            keywords="featured pin to sidebar button header close explainer l2 modal featured products product promo promotion"
+            options={NAV_FEATURED_PIN_SPOTS}
+            value={navFeaturedPinSpot}
+            onChange={(v: NavFeaturedPinSpot) => setNavFeaturedPinSpot(v)}
+            format={(v) => NAV_FEATURED_PIN_SPOT_LABELS[v]}
+          />
+          <Segmented
+            label="Featured: header pin style"
+            keywords="featured pin to sidebar button header icon border bordered explainer l2 modal featured products product promo promotion"
+            options={NAV_FEATURED_PIN_HEADER_STYLES}
+            value={navFeaturedPinHeaderStyle}
+            onChange={(v: NavFeaturedPinHeaderStyle) => setNavFeaturedPinHeaderStyle(v)}
+            format={(v) => NAV_FEATURED_PIN_HEADER_STYLE_LABELS[v]}
+            disabled={navFeaturedPinSpot !== "header"}
+          />
+          <Note>
+            {navFeaturedPinSpot === "body"
+              ? "Pin to sidebar sits beside Try, under the explainer's copy."
+              : navFeaturedPinHeaderStyle === "button"
+                ? "A bordered Pin button beside close, in the L2 and the modal. It reads Pinned once pinned."
+                : "The pin glyph alone beside close, no border, in the L2 and the modal."}
+            {" The pin nudge (pulse or tip) applies either way."}
+          </Note>
+
+          <Segmented
             label="Featured: promo in L2"
             keywords="featured promo slot new product rotation ask ai khoi featured products product promo promotional promotion new launch ask ai creator studio meeting rooms card cards deck carousel slot settings sticky foot shadow"
             options={NAV_FEATURED_PROMOS}
@@ -7897,7 +8245,16 @@ export function TuningPanel() {
             onChange={(v: NavFeaturedPromo) => setNavFeaturedPromo(v)}
             format={(v) => NAV_FEATURED_PROMO_LABELS[v]}
           />
-          <Note>The featured product's promo inside its home category's L2.</Note>
+          <Note>
+            The featured product inside its home category’s L2. Row at bottom of list is an ordinary L2 item with a New tag, after the others.
+          </Note>
+          <Toggle
+            label="Featured: AI Employee carousel"
+            checked={navFeaturedAiCarousel}
+            onChange={setNavFeaturedAiCarousel}
+            keywords="ai employee carousel meet ai employee help with ai bottom card l2 promo featured products product promotion watch demo"
+          />
+          <Note>The AI category L2’s bottom carousel: Meet AI Employee and Help with AI. Off by default.</Note>
 
           <Segmented
             label="Featured: agency control"

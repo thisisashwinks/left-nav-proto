@@ -70,6 +70,7 @@ import { ShortcutChip } from "./shortcut-chip";
 import { ShortcutModal } from "./shortcut-modal";
 import { PIN_GLYPH, PinButton, usePinnedInk } from "./pin-button";
 import { FLY_GLYPH, ResolvedIcon } from "./resolved-icon";
+import { matchesQuery } from "./tree-search";
 
 /**
  * How many recent rows the merged panel lists.
@@ -888,6 +889,69 @@ export function PinnedLauncher({
    * Hidden rows stay listed for the reason the directory exists at all: it
    * is how you find a product the nav is not currently showing you.
    */
+  /**
+   * The catalogue pruned to a query, as branches the directory can draw.
+   * Ashwin, Nov 17.
+   *
+   * Replaces a flat list of hits, each captioned with the trail that reached
+   * it. The list was not wrong — it named where a product had moved to, which
+   * is the question — but it drew that answer in a shape nothing else in the
+   * nav uses, so the same search looked like a different feature depending on
+   * which of its three doors you came through. The tree says the same thing
+   * by SHOWING the branch instead of naming it, and it is what the sidebar's
+   * own search now draws. See searchTreeBranch, whose rules these mirror.
+   *
+   * Three cases per product, same order as there:
+   *   a page matched  → keep the product, keep only the pages that matched
+   *   its own label matched → keep it with every page, because the match is a
+   *                     place you have arrived at and the pages are what is
+   *                     there
+   *   neither         → drop it
+   *
+   * A category survives if anything under it did, or if its own name matched —
+   * in which case it keeps everything, by the same argument.
+   */
+  const searchedGroups = ((): {
+    groups: DirectoryBranch[];
+    open: Set<string>;
+  } => {
+    if (!searching) return { groups: [], open: new Set<string>() };
+    const open = new Set<string>();
+    const out: DirectoryBranch[] = [];
+    for (const branch of stockGroups) {
+      const entries: DirectoryEntry[] =
+        branch.rows ??
+        branch.productIds.map((id) => ({
+          id,
+          label: layout.productLabelFor(id),
+          icon: layout.productIconFor(id),
+          pages: childrenOfProduct(id),
+        }));
+      const groupHit = matchesQuery(branch.group.label, q);
+      const kept: DirectoryEntry[] = [];
+      for (const entry of entries) {
+        if (groupHit || matchesQuery(entry.label, q)) {
+          kept.push(entry);
+          if (entry.pages.length > 0) open.add(entry.id);
+          continue;
+        }
+        const pages = entry.pages.filter((page) => matchesQuery(page.label, q));
+        if (pages.length === 0) continue;
+        kept.push({ ...entry, pages });
+        open.add(entry.id);
+      }
+      if (kept.length === 0) continue;
+      open.add(branch.group.id);
+      out.push({ ...branch, rows: kept, productIds: kept.map((e) => e.id) });
+    }
+    return { groups: out, open };
+    /*
+      Computed rather than memoised, like `hits` above it and for the same
+      reason: `stockGroups` is rebuilt every render, so a memo keyed on it
+      would recompute every render anyway while claiming not to.
+    */
+  })();
+
   const stockFiled = new Set(stock.categories.flatMap((c) => c.productIds));
   const stockLoose = [
     ...new Set([...stock.loose, ...hiddenIds].filter((id) => !stockFiled.has(id))),
@@ -1526,7 +1590,32 @@ export function PinnedLauncher({
             neither carries a heading: the selected tab is the heading.
           */
               searching ? (
-                hits.length > 0 ? (
+                /*
+                  The catalogue answers as a TREE; the history answers as a
+                  list. Ashwin, Nov 17.
+
+                  Not an inconsistency — the two tabs are different corpora.
+                  Recently visited IS a flat list of rows you can see, so
+                  filtering it leaves a flat list. All products is a tree, and
+                  a reader who cannot find a product because it was reshuffled
+                  needs to be shown the branch it moved into, not told its
+                  name. See `searchedGroups`.
+                */
+                tab !== "recent" ? (
+                  searchedGroups.groups.length > 0 ? (
+                    <DirectoryTree
+                      groups={searchedGroups.groups}
+                      theme={theme}
+                      disclosure="inline"
+                      forceOpen={searchedGroups.open}
+                      {...(openPlace ? { onOpen: openPlace } : {})}
+                    />
+                  ) : (
+                    <p className="w-full px-[2px] pt-[6px] pb-[10px] text-[13px] leading-[18px] text-nav-fg-subtle">
+                      No products match “{query}”
+                    </p>
+                  )
+                ) : hits.length > 0 ? (
                   hits.map((hit) => (
                     <SearchRow
                       key={hit.id}
@@ -1726,16 +1815,14 @@ export function PinnedLauncher({
                 </div>
                 {searching ? (
                   hits.length > 0 ? (
-                    hits.map((hit) => (
-                      <SearchRow
-                        key={hit.id}
-                        productId={hit.id}
-                        context={hit.context}
-                        {...(openPlace
-                          ? { onOpen: () => openPlace(hit.id) }
-                          : {})}
-                      />
-                    ))
+                    /* The same tree the tabbed half draws. */
+                    <DirectoryTree
+                      groups={searchedGroups.groups}
+                      theme={theme}
+                      disclosure="inline"
+                      forceOpen={searchedGroups.open}
+                      {...(openPlace ? { onOpen: openPlace } : {})}
+                    />
                   ) : (
                     <p className="w-full px-[2px] pt-[6px] pb-[10px] text-[13px] leading-[18px] text-nav-fg-subtle">
                       No products match “{query}”
@@ -1751,15 +1838,15 @@ export function PinnedLauncher({
                 )}
               </>
             ) : searching ? (
-              hits.length > 0 ? (
-                hits.map((hit) => (
-                  <SearchRow
-                    key={hit.id}
-                    productId={hit.id}
-                    context={hit.context}
-                    {...(openPlace ? { onOpen: () => openPlace(hit.id) } : {})}
-                  />
-                ))
+              searchedGroups.groups.length > 0 ? (
+                /* The same tree again — one shape for one search. */
+                <DirectoryTree
+                  groups={searchedGroups.groups}
+                  theme={theme}
+                  disclosure="inline"
+                  forceOpen={searchedGroups.open}
+                  {...(openPlace ? { onOpen: openPlace } : {})}
+                />
               ) : (
                 <p className="w-full px-[2px] pt-[6px] pb-[10px] text-[13px] leading-[18px] text-nav-fg-subtle">
                   No products match “{query}”
@@ -2720,6 +2807,7 @@ function DirectoryTree({
   theme,
   disclosure,
   onOpen,
+  forceOpen,
   loose = [],
 }: {
   groups: DirectoryBranch[];
@@ -2744,6 +2832,21 @@ function DirectoryTree({
    * a panel. See the tabbed body.
    */
   disclosure?: "inline" | "cascade";
+  /**
+   * Ids drawn OPEN whatever the reader last clicked, for the search results.
+   * Ashwin, Nov 17 — see the pruned branches at the call site.
+   *
+   * The tree's own state is one open group and one open product, which is
+   * right for browsing: opening a second category closes the first, so the
+   * panel never becomes a wall. A result list is the opposite case — every
+   * branch in it is there because it holds a match, and a match behind a
+   * closed chevron is a match the reader has to go hunting for, which is the
+   * failure the field exists to remove.
+   *
+   * An override rather than a mode: the accordion state underneath is
+   * untouched, so clearing the field puts the panel back exactly as it was.
+   */
+  forceOpen?: ReadonlySet<string>;
 }) {
   const layout = useNavLayout();
   /*
@@ -2900,7 +3003,8 @@ function DirectoryTree({
             productIds={productIds}
             {...(rows ? { rows } : {})}
             {...(onOpen ? { onOpen } : {})}
-            open={openGroup === group.id}
+            {...(forceOpen ? { forceOpen } : {})}
+            open={forceOpen ? forceOpen.has(group.id) : openGroup === group.id}
             onToggle={() =>
               setOpenGroup((current) =>
                 current === group.id ? null : group.id,
@@ -3064,6 +3168,7 @@ function DirectoryGroup({
   open,
   onToggle,
   onOpen,
+  forceOpen,
 }: {
   group: ResolvedGroup;
   onOpen?: (id: string) => void;
@@ -3079,6 +3184,8 @@ function DirectoryGroup({
   rows?: DirectoryEntry[];
   open: boolean;
   onToggle: () => void;
+  /** Products drawn open regardless of the accordion. See DirectoryTree. */
+  forceOpen?: ReadonlySet<string>;
 }) {
   const layout = useNavLayout();
   const Icon = group.icon;
@@ -3115,7 +3222,9 @@ function DirectoryGroup({
               label={entry.label}
               icon={entry.icon}
               pages={entry.pages}
-              open={openProduct === entry.id}
+              open={
+                forceOpen ? forceOpen.has(entry.id) : openProduct === entry.id
+              }
               onToggle={() =>
                 setOpenProduct((current) =>
                   current === entry.id ? null : entry.id,

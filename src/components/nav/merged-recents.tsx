@@ -42,6 +42,17 @@ import { RowSeam } from "./row-seam";
 import { PIN_MIME, setRowDragImage } from "./nav-drag";
 import { useDragTypes } from "@/lib/use-drag-active";
 
+/*
+ * Recents' "View all" link: the one style every "see more" link in the nav
+ * uses (the featured cards' "More products" too), shared so they cannot
+ * drift. Ashwin, Nov 17.
+ */
+export const VIEW_ALL_LINK =
+  "motion-tap group flex shrink-0 items-center gap-[2px] rounded-[5px] py-[2px] pr-[3px] pl-[5px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg-muted";
+export const VIEW_ALL_LINK_TEXT = "text-[11px] leading-[13px] font-medium whitespace-nowrap";
+export const VIEW_ALL_LINK_ICON = 13;
+export const VIEW_ALL_LINK_CHEVRON = "shrink-0 motion-tap group-hover:translate-x-[1px]";
+
 /**
  * Recents and Pinned as one list — the Cloudflare arrangement.
  *
@@ -174,10 +185,13 @@ function MergedList({
   onOpenPanel,
   pinEditFor,
   pinSeam,
+  afterRows,
 }: {
   pins: MergedRow[];
   recents: MergedRow[];
   onSelect: (id: string) => void;
+  /** Under the rows, above the closing rule. See MergedRecentsBlock. */
+  afterRows?: React.ReactNode;
   /** Opens the panel behind "View all" — the full pin list and history. */
   onOpenPanel: () => void;
   /**
@@ -407,6 +421,8 @@ function MergedList({
         onOpenPanel={onOpenPanel}
       />
 
+      {afterRows}
+
       {/*
         The rule that closes the block, and the only one it has.
 
@@ -472,7 +488,7 @@ function BlockHeading({
           {...fadeProps(collapsed)}
           type="button"
           onClick={action.onClick}
-          className="motion-tap group flex shrink-0 items-center gap-[2px] rounded-[5px] py-[2px] pr-[3px] pl-[5px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg-muted"
+          className={VIEW_ALL_LINK}
         >
           {/*
             Medium, against the heading's semibold.
@@ -482,14 +498,8 @@ function BlockHeading({
             a caption sitting next to a title rather than as something to click.
             One step of weight is the whole difference.
           */}
-          <span className="text-[11px] leading-[13px] font-medium whitespace-nowrap">
-            {action.label}
-          </span>
-          <ChevronRight
-            size={13}
-            aria-hidden="true"
-            className="shrink-0 motion-tap group-hover:translate-x-[1px]"
-          />
+          <span className={VIEW_ALL_LINK_TEXT}>{action.label}</span>
+          <ChevronRight size={VIEW_ALL_LINK_ICON} aria-hidden="true" className={VIEW_ALL_LINK_CHEVRON} />
         </button>
       ) : null}
     </div>
@@ -516,9 +526,12 @@ export function orderPins(
 export function MergedRecentsBlock({
   onSelect,
   onOpenPanel,
+  afterRows,
 }: {
   onSelect: (id: string) => void;
   onOpenPanel: () => void;
+  /** Rows that belong to the block, under the recents and above its rule — the featured pins. */
+  afterRows?: React.ReactNode;
 }) {
   const {
     state,
@@ -807,6 +820,7 @@ export function MergedRecentsBlock({
       onOpenPanel={onOpenPanel}
       pinEditFor={pinEditFor}
       pinSeam={pinSeam}
+      afterRows={afterRows}
     />
     </>
   );

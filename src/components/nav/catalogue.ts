@@ -69,6 +69,7 @@ import type {
   ChildHit,
 } from "./catalogue-types";
 import { proposedCatalogue } from "./proposed-ia";
+import { FEATURED_PAGE_BY_ID } from "./featured-pages";
 // The shipped tree already agreed with these pages' headings; it reads the
 // shared names so it cannot quietly stop agreeing. See screen-names.ts.
 import { SCREEN_NAMES } from "./screen-names";
@@ -673,7 +674,9 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export function productById(id: string): CatalogueEntry | undefined {
-  return BY_ID.get(id);
+  // Featured pages resolve too, so they pin like any product, without
+  // appearing in All products. See FEATURED_PAGES.
+  return BY_ID.get(id) ?? FEATURED_PAGE_BY_ID.get(id);
 }
 
 export function childById(id: string): ChildHit | undefined {

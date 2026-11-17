@@ -14,6 +14,7 @@ import {
   type AiPanelMode,
 } from "@/components/ai/ai-window";
 import { useAiSession } from "@/components/ai/use-ai-session";
+import { FEATURED_PAGES } from "@/components/nav/featured-pages";
 import { AskAiOrb, useAskAiShortcut } from "@/components/ai/ask-ai-home";
 import { flyouts } from "@/components/flyout/flyout-config";
 import type { FlyoutConfig } from "@/components/flyout/types";
@@ -133,6 +134,7 @@ import {
   CONTACTS_AREA_PAGES,
 } from "@/components/contacts/contacts-area";
 import { ProductPage } from "@/components/product/product-page";
+import { HolidayPromosPage } from "@/components/featured/holiday-promos-page";
 import {
   flyoutForGroup,
   flyoutForLifted,
@@ -205,6 +207,7 @@ import {
   FeaturedProvider,
   featuredPageById,
   NAV_FEATURED_OPEN_PAGE_EVENT,
+  NAV_FEATURED_OPEN_AI_EVENT,
 } from "@/components/nav/featured";
 import { FeaturedPanel } from "@/components/nav/featured-panel";
 import { useMediaQuery } from "@/lib/use-media-query";
@@ -1403,6 +1406,13 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
   const aiSession = useAiSession();
   // ⌘J toggles Ask AI under every home. See ask-ai-home.tsx.
   useAskAiShortcut(aiSession);
+  // Ask AI's featured card: "Try" opens the real thing. Ashwin, Nov 17.
+  const launchAi = React.useEffectEvent(() => aiSession.launch());
+  React.useEffect(() => {
+    const open = () => launchAi();
+    window.addEventListener(NAV_FEATURED_OPEN_AI_EVENT, open);
+    return () => window.removeEventListener(NAV_FEATURED_OPEN_AI_EVENT, open);
+  }, []);
 
   /**
    * The chip row is a window onto the ordered pin list, so it takes the head.
@@ -2091,6 +2101,15 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
       // A tour picked from "Learn about new Sidebar": it runs from step 1.
       if (id.startsWith(LEARN_ROW_PREFIX)) {
         startNavTour(id.slice(LEARN_ROW_PREFIX.length) as RestartableFlowId);
+        return;
+      }
+      // A pinned featured product opens as its Try does: its page, or Ask AI.
+      if (id === FEATURED_PAGES.askai?.id) {
+        window.dispatchEvent(new Event(NAV_FEATURED_OPEN_AI_EVENT));
+        return;
+      }
+      if (featuredPageById(id)) {
+        window.dispatchEvent(new CustomEvent(NAV_FEATURED_OPEN_PAGE_EVENT, { detail: id }));
         return;
       }
       if (id === GET_APP_ROW_IDS.mobile || id === GET_APP_ROW_IDS.desktop) {
@@ -4657,6 +4676,9 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
                  * same place rather than on a blank product page.
                  */
                 children
+              ) : canvasPage && canvasPage.productId === FEATURED_PAGES.promos?.id ? (
+                // Holiday Promos: a sale, with its own landing page. Ashwin, Nov 17.
+                <HolidayPromosPage />
               ) : canvasPage && featuredPageById(canvasPage.productId) ? (
                 // A featured product that has not shipped: the same stage
                 // every unbuilt product lands on. See featuredPageById.

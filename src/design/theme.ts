@@ -3953,6 +3953,69 @@ export const NAV_TOUR_WATCH_LABELS: Record<NavTourWatch, string> = {
 };
 
 /**
+ * WHERE the watch button sits on the first coach mark. Ashwin, Nov 17.
+ *
+ *  footer  Beside Next, on its left. The two things you can do from this
+ *          card, in one row, with the primary one last.
+ *  body    Under the body copy, where it shipped. An aside to the step
+ *          rather than an alternative to it.
+ *
+ * `footer` by default, and the argument is that the two ARE alternatives:
+ * "click through the steps" and "watch it instead" are the same decision
+ * asked twice, so they belong in the same row. Under the body the video
+ * read as a footnote to step 1 — which is roughly how often it was taken.
+ *
+ * The cost is width, and this card pays it. That row already carries the
+ * step count and Next, and a third control does not fit in 280 — so the
+ * FIRST card alone is 308 (see WIDTH_WATCH), and every other step stays at
+ * 280 because none of them has a third control.
+ *
+ * The two rejected answers, for the record: wrapping the count onto its own
+ * line, which spends 23px of height to save 28 of width and makes one card
+ * taller instead of wider; and dropping the count, which is not available —
+ * a tour that will not say how long it is is a tour nobody starts.
+ */
+export const NAV_TOUR_WATCH_SPOTS = ["footer", "body"] as const;
+export type NavTourWatchSpot = (typeof NAV_TOUR_WATCH_SPOTS)[number];
+
+export const NAV_TOUR_WATCH_SPOT_LABELS: Record<NavTourWatchSpot, string> = {
+  footer: "Beside Next",
+  body: "Under the body",
+};
+
+/**
+ * How the watch button is DRAWN.
+ *
+ *  gray   A secondary button: gray hairline, white fill, dark label.
+ *  blue   The same button in the brand's colour — blue hairline and label
+ *         on white.
+ *  link   Underlined text, no box. How it shipped.
+ *
+ * `gray` by default. Ashwin, Nov 17: "it looks like a link button now. Make
+ * it a proper bordered button."
+ *
+ * He is right about more than the look. A link says "here is something to
+ * read about this"; this control STARTS something, two minutes long, in a
+ * modal over the tour you are already in — and it was sitting directly under
+ * a real link ("Learn more") wearing the same underline and the same colour.
+ * Two different kinds of promise in one treatment.
+ *
+ * All three share Next's geometry — 32px tall, 4px radius, 13px semibold —
+ * so in the footer they read as one pair of controls rather than as a button
+ * and whatever else. `blue` is the louder pick: two brand-coloured controls
+ * side by side, which competes with Next for the eye. Worth having to look
+ * at, which is why it is an option rather than an argument.
+ */
+export const NAV_TOUR_WATCH_STYLES = ["gray", "blue", "link"] as const;
+export type NavTourWatchStyle = (typeof NAV_TOUR_WATCH_STYLES)[number];
+
+export const NAV_TOUR_WATCH_STYLE_LABELS: Record<NavTourWatchStyle, string> = {
+  gray: "Gray secondary",
+  blue: "Blue secondary",
+  link: "Link",
+};
+
+/**
  * Which cut of the launch video the modal plays, from public/tour.
  *
  *  highlights  launch-highlights.mp4: categories, pinning, collapse, search,
@@ -4099,14 +4162,96 @@ export const NAV_TOUR_SHADOW_LABELS: Record<NavTourShadow, string> = {
 };
 
 /** Where the rotating featured-product slot sits in the L1. See the featured-slot mock, Ashwin, Oct 29. */
-export const NAV_FEATURED_SLOTS = ["below", "top", "card", "off"] as const;
+export const NAV_FEATURED_SLOTS = ["below", "top", "card", "list", "float", "off"] as const;
 export type NavFeaturedSlot = (typeof NAV_FEATURED_SLOTS)[number];
 
 export const NAV_FEATURED_SLOT_LABELS: Record<NavFeaturedSlot, string> = {
   below: "Row below categories",
   top: "Row at the top",
   card: "Card at bottom",
+  list: "Rows after categories",
+  float: "Floating card",
   off: "Off",
+};
+
+/**
+ * With the slot at "Rows after categories": every featured product as its
+ * own row with a New tag, or one "Discover new products" row that opens the
+ * L2 listing all 6. Ashwin, Nov 17.
+ */
+export const NAV_FEATURED_LIST_ROWS = ["each", "discover"] as const;
+export type NavFeaturedListRows = (typeof NAV_FEATURED_LIST_ROWS)[number];
+
+export const NAV_FEATURED_LIST_ROWS_LABELS: Record<NavFeaturedListRows, string> = {
+  each: "Each product",
+  discover: "Discover new products",
+};
+
+/**
+ * Holiday Promos: a time-bound sale (Black Friday–Cyber Monday) that is not a
+ * product, from Rajat's ask on Nov 17. As one of the featured cards; as a
+ * card plus a row at the top of the categories that edit mode can hide; or
+ * as a row above Dashboard that edit mode cannot touch. Always shown in the
+ * prototype, whatever the date. Ashwin, Nov 17.
+ */
+export const NAV_PROMO_PLACEMENTS = ["off", "card", "cardRow", "locked"] as const;
+export type NavPromoPlacement = (typeof NAV_PROMO_PLACEMENTS)[number];
+
+export const NAV_PROMO_PLACEMENT_LABELS: Record<NavPromoPlacement, string> = {
+  off: "Off",
+  card: "Card",
+  cardRow: "Card + row at the top",
+  locked: "Locked row above Dashboard",
+};
+
+/**
+ * Where the floating featured card (slot "Floating card") sits: the canvas's
+ * bottom-right corner, or its bottom-left, clear of the nav. Ashwin, Nov 17.
+ */
+/*
+ * Where the floating card sits. The two "over" placements draw on top of the
+ * column rather than beside it: from the window's left edge across the
+ * account rail and the sidebar, or from the sidebar's own left edge. Same
+ * width in all four. Ashwin, Nov 17.
+ */
+export const NAV_FEATURED_FLOAT_SIDES = ["right", "leftRail", "leftNav", "left"] as const;
+export type NavFeaturedFloatSide = (typeof NAV_FEATURED_FLOAT_SIDES)[number];
+
+export const NAV_FEATURED_FLOAT_SIDE_LABELS: Record<NavFeaturedFloatSide, string> = {
+  right: "Bottom right",
+  leftRail: "Bottom left, over rail and sidebar",
+  leftNav: "Bottom left, over sidebar",
+  left: "Bottom left, in the page",
+};
+
+/**
+ * How the floating card steps through all 6 products: a dots-and-arrows row
+ * under its button, arrow chips over the hero with dots on its bottom edge,
+ * or clickable dots on the hero alone. Ashwin, Nov 17.
+ */
+export const NAV_FEATURED_FLOAT_CYCLES = ["under", "heroArrows", "heroDots"] as const;
+export type NavFeaturedFloatCycle = (typeof NAV_FEATURED_FLOAT_CYCLES)[number];
+
+export const NAV_FEATURED_FLOAT_CYCLE_LABELS: Record<NavFeaturedFloatCycle, string> = {
+  under: "Dots and arrows under the button",
+  heroArrows: "Arrows on the hero",
+  heroDots: "Dots only, in the hero",
+};
+
+/**
+ * What the featured media is, on every surface — the sidebar cards, the
+ * featured rows, the L2 and modal explainer, and the floating card's hero.
+ * Both show a real still of the product's screen (public/featured/<key>.png,
+ * cropped from the prototype itself) in place of the gradient art. "Video"
+ * adds a round play button and opens the launch video in a modal; "Image" is
+ * the still alone, and clicks do what each surface did before. Ashwin, Nov 17.
+ */
+export const NAV_FEATURED_MEDIA_KINDS = ["video", "image"] as const;
+export type NavFeaturedMediaKind = (typeof NAV_FEATURED_MEDIA_KINDS)[number];
+
+export const NAV_FEATURED_MEDIA_KIND_LABELS: Record<NavFeaturedMediaKind, string> = {
+  video: "Video",
+  image: "Image",
 };
 
 /** What the featured slot says. See the featured-slot mock, Ashwin, Oct 29. */
@@ -4159,6 +4304,27 @@ export const NAV_FEATURED_EXPLAINER_LABELS: Record<NavFeaturedExplainer, string>
 };
 
 /** How the explainer encourages pinning. See the featured-slot mock, Ashwin, Oct 29. */
+/**
+ * Where the explainer's Pin to sidebar sits: in the header beside close, or
+ * with Try in the body. In the L2 and the modal alike. Ashwin, Nov 17.
+ */
+export const NAV_FEATURED_PIN_SPOTS = ["header", "body"] as const;
+export type NavFeaturedPinSpot = (typeof NAV_FEATURED_PIN_SPOTS)[number];
+
+export const NAV_FEATURED_PIN_SPOT_LABELS: Record<NavFeaturedPinSpot, string> = {
+  header: "In the header, beside close",
+  body: "With Try, in the body",
+};
+
+/** The header pin: a bordered "Pin" button, or the glyph alone. */
+export const NAV_FEATURED_PIN_HEADER_STYLES = ["button", "icon"] as const;
+export type NavFeaturedPinHeaderStyle = (typeof NAV_FEATURED_PIN_HEADER_STYLES)[number];
+
+export const NAV_FEATURED_PIN_HEADER_STYLE_LABELS: Record<NavFeaturedPinHeaderStyle, string> = {
+  button: "Bordered button",
+  icon: "Icon only",
+};
+
 export const NAV_FEATURED_PINS = ["pulse", "tip", "off"] as const;
 export type NavFeaturedPin = (typeof NAV_FEATURED_PINS)[number];
 
@@ -4174,7 +4340,7 @@ export type NavFeaturedPromo = (typeof NAV_FEATURED_PROMOS)[number];
 
 export const NAV_FEATURED_PROMO_LABELS: Record<NavFeaturedPromo, string> = {
   card: "Card at bottom",
-  row: "Row at top",
+  row: "Row at bottom of list",
   off: "Off",
 };
 
@@ -4190,27 +4356,61 @@ export const NAV_FEATURED_AGENCY_LABELS: Record<NavFeaturedAgency, string> = {
 
 /** Where Ask AI lives. See the featured-slot mock, Ashwin, Oct 29. */
 /** Where Settings sits: right under the list, or pinned to the nav's foot. Ashwin, Oct 29. */
-export const NAV_SETTINGS_SPOTS = ["footer", "list"] as const;
+export const NAV_SETTINGS_SPOTS = ["footer", "list", "above"] as const;
 export type NavSettingsSpot = (typeof NAV_SETTINGS_SPOTS)[number];
 
 export const NAV_SETTINGS_SPOT_LABELS: Record<NavSettingsSpot, string> = {
   footer: "Settings at the footer",
   list: "Settings with the list",
+  // Sticky like the footer, with Settings (and Edit beside it) over the
+  // cards rather than under them. Ashwin, Nov 17.
+  above: "Settings above the cards",
 };
 
 /**
- * How the deck and the carousel are cycled: arrows and dots under the card,
- * or up/down arrows on one side of it, over the card or just beside it.
+ * Where the deck's and the carousel's indicator (prev, dots, next) sits:
+ * under the cards or over them, centred or flush left. The left-aligned
+ * rows leave the right end free for a View all button. Replaced the
+ * up/down rail placements. Ashwin, Nov 17.
  */
-export const NAV_FEATURED_CYCLES = ["below", "overlayRight", "overlayLeft", "besideRight", "besideLeft"] as const;
+export const NAV_FEATURED_CYCLES = ["below", "belowLeft", "top", "topLeft"] as const;
 export type NavFeaturedCycle = (typeof NAV_FEATURED_CYCLES)[number];
 
 export const NAV_FEATURED_CYCLE_LABELS: Record<NavFeaturedCycle, string> = {
-  below: "Arrows and dots below",
-  overlayRight: "Up/down, over the card, right",
-  overlayLeft: "Up/down, over the card, left",
-  besideRight: "Up/down, beside the card, right",
-  besideLeft: "Up/down, beside the card, left",
+  below: "Below, centred",
+  belowLeft: "Bottom left",
+  top: "Top, centred",
+  topLeft: "Top left",
+};
+
+/** Whether the cycle position puts the indicator flush left (and so has room for View all). */
+export const navFeaturedCycleIsLeft = (cycle: NavFeaturedCycle) => cycle === "belowLeft" || cycle === "topLeft";
+
+/**
+ * What the View all button on the indicator row says. Always ends in a right
+ * chevron; "Icon only" is the chevron alone, with the words in its tooltip and
+ * aria-label. Ashwin, Nov 17.
+ */
+export const NAV_FEATURED_VIEW_ALL_LABEL_OPTIONS = ["allProducts", "moreProducts", "icon"] as const;
+export type NavFeaturedViewAllLabel = (typeof NAV_FEATURED_VIEW_ALL_LABEL_OPTIONS)[number];
+
+export const NAV_FEATURED_VIEW_ALL_LABEL_LABELS: Record<NavFeaturedViewAllLabel, string> = {
+  allProducts: "All products",
+  moreProducts: "More products",
+  icon: "Icon only",
+};
+
+/**
+ * Where a product picked from the View all list opens: the same L2 swapping
+ * to its explainer (with Back to the list), or a centred modal over the list.
+ * Ashwin, Nov 17.
+ */
+export const NAV_FEATURED_DETAILS = ["l2", "modal"] as const;
+export type NavFeaturedDetail = (typeof NAV_FEATURED_DETAILS)[number];
+
+export const NAV_FEATURED_DETAIL_LABELS: Record<NavFeaturedDetail, string> = {
+  l2: "L2 with back",
+  modal: "Modal",
 };
 
 /** Whether each featured card carries a close X that drops it from the slot. */
@@ -4256,13 +4456,35 @@ export const NAV_FOOT_SHADOW_LABELS: Record<NavFootShadow, string> = {
   off: "Off",
 };
 
-/** With Settings in the list: the featured card above the Edit row, or in it. */
-export const NAV_FEATURED_CARD_ROWS = ["above", "inline"] as const;
-export type NavFeaturedCardRow = (typeof NAV_FEATURED_CARD_ROWS)[number];
+/**
+ * A shade behind the featured cards at the bottom, so the promo reads as its
+ * own section rather than more of the list. Ashwin, Nov 17.
+ */
+export const NAV_FEATURED_PROMO_BGS = ["off", "gray100", "gray200", "white"] as const;
+export type NavFeaturedPromoBg = (typeof NAV_FEATURED_PROMO_BGS)[number];
 
-export const NAV_FEATURED_CARD_ROW_LABELS: Record<NavFeaturedCardRow, string> = {
-  above: "Above the Edit row",
-  inline: "In the Edit row",
+export const NAV_FEATURED_PROMO_BG_LABELS: Record<NavFeaturedPromoBg, string> = {
+  off: "Off",
+  gray100: "Gray 100",
+  gray200: "Gray 200",
+  white: "White",
+};
+
+/*
+ * Where Edit sits, on its own axis rather than read off where Settings is.
+ * Replaces "Featured: card row", whose two answers are Below and Beside here.
+ * Beside needs the card to close the nav (Settings with the list); anywhere
+ * else it falls back to Below, as do Above and Beside with no card showing.
+ * Ashwin, Nov 17.
+ */
+export const NAV_EDIT_SPOTS = ["below", "beside", "above", "settings"] as const;
+export type NavEditSpot = (typeof NAV_EDIT_SPOTS)[number];
+
+export const NAV_EDIT_SPOT_LABELS: Record<NavEditSpot, string> = {
+  below: "Below the cards",
+  beside: "Beside the cards",
+  above: "Above the cards",
+  settings: "On the Settings row",
 };
 
 /**
@@ -4627,6 +4849,26 @@ export const ENTRY_RADIUS_LABELS: Record<EntryRadius, string> = {
 };
 
 /**
+ * The Ask AI entry's corners, apart from the search field's.
+ *
+ * One axis governed both until Nov 17, which was right while they were one
+ * control and wrong the moment ENTRY_PAIRS could split them: two separate
+ * controls whose shapes cannot differ is not a pair, it is one control drawn
+ * twice. Ashwin asked for them independently so the mixed cases can actually
+ * be looked at — a rounded Ask beside a square field says "this one is not a
+ * form control", and whether that reads as a hierarchy or as a mistake is
+ * exactly the kind of thing you have to see rather than argue about.
+ *
+ * Same two values, so the pair can still be matched by setting both.
+ * `entryRadius` keeps the search field and, where the two are MERGED, the
+ * single pill — because there the shape is the field's, and the orb is a
+ * passenger in it.
+ */
+export const ASK_RADII = ENTRY_RADII;
+export type AskRadius = EntryRadius;
+export const ASK_RADIUS_LABELS = ENTRY_RADIUS_LABELS;
+
+/**
  * Which end of the app bar the entry stands at, once `entryLayout` has put it
  * there.
  *
@@ -4703,6 +4945,44 @@ export const HEADER_ENTRY_SIDE_LABELS: Record<HeaderEntrySide, string> = {
  * that is genuinely status rather than decoration, and it is the card's exit
  * visa: at 7 of 7 the whole thing leaves the nav.
  */
+/**
+ * Where Quick actions is reached from. Ashwin, Nov 17 — option C.
+ *
+ *  card    Where it has always been: the Launchpad card's footer row where
+ *          that card exists, and a standing nav row where it does not.
+ *  search  A `+` beside the search field, under the logo.
+ *
+ * The problem this answers is the top of the column, not Quick actions.
+ * Search moved under the logo to be findable; directly beneath it the
+ * Launchpad card is bordered, titled and carries the only saturated colour
+ * in the nav, so the louder object is not the one people came for. Quick
+ * actions riding in that card's footer makes the card carry two jobs and
+ * makes neither of them cheap to move.
+ *
+ * Beside the field it costs 40px of width and NO height, and it puts find
+ * and create in the same row — which is how people actually arrive at a nav:
+ * either looking for something that exists or making something that does
+ * not. It also frees the card to be demoted (see LAUNCHPAD_CARDS `plain`)
+ * without taking Quick actions down with it.
+ *
+ * The cost is the field's width. At 240px of column the field gives up 40
+ * and keeps about 150 of typing room, which "Search" survives; a longer
+ * scope label might not, and that is the thing to look at rather than argue
+ * about.
+ *
+ * Only under `top` — see ENTRY_LAYOUTS. At the bottom edge or in the app bar
+ * the field is nowhere near the column this is trying to unclutter, so the
+ * axis falls back to `card` rather than putting a create button somewhere it
+ * means nothing.
+ */
+export const QUICK_ACTION_SPOTS = ["search", "card"] as const;
+export type QuickActionSpot = (typeof QUICK_ACTION_SPOTS)[number];
+
+export const QUICK_ACTION_SPOT_LABELS: Record<QuickActionSpot, string> = {
+  search: "Beside search",
+  card: "Launchpad card",
+};
+
 export const LAUNCHPAD_CARDS = [
   "tinted",
   "outline",
@@ -6947,6 +7227,10 @@ export interface ThemeState {
   navTourRestart: NavTourRestart;
   /** The launch video on the first coach mark. See NAV_TOUR_WATCHES. */
   navTourWatch: NavTourWatch;
+  /** Where the watch button sits. See NAV_TOUR_WATCH_SPOTS. */
+  navTourWatchSpot: NavTourWatchSpot;
+  /** How the watch button is drawn. See NAV_TOUR_WATCH_STYLES. */
+  navTourWatchStyle: NavTourWatchStyle;
   /** Which cut of it plays. See NAV_TOUR_WATCH_CUTS. */
   navTourWatchCut: NavTourWatchCut;
   /**
@@ -6980,23 +7264,55 @@ export interface ThemeState {
    * ship for about six months. Ashwin, Nov 16.
    */
   navTourLearnRow: boolean;
+  /**
+   * Whether a tour already up (Get started) stays up when edit mode opens.
+   * Off (default): it closes, and the Editing tour takes over. Ashwin, Nov 17.
+   */
+  navTourInEdit: boolean;
   navFeaturedSlot: NavFeaturedSlot;
+  /** See NAV_FEATURED_LIST_ROWS. */
+  navFeaturedListRows: NavFeaturedListRows;
+  /** See NAV_PROMO_PLACEMENTS. */
+  navPromoPlacement: NavPromoPlacement;
+  /** The floating card's corner. See NAV_FEATURED_FLOAT_SIDES. */
+  navFeaturedFloatSide: NavFeaturedFloatSide;
+  /** The floating card's carousel controls. See NAV_FEATURED_FLOAT_CYCLES. */
+  navFeaturedFloatCycle: NavFeaturedFloatCycle;
+  /** Featured media: a still with a play button, or the still alone. See NAV_FEATURED_MEDIA_KINDS. */
+  navFeaturedMediaKind: NavFeaturedMediaKind;
   navFeaturedLabel: NavFeaturedLabel;
   navFeaturedCount: NavFeaturedCount;
   navFeaturedMulti: NavFeaturedMulti;
   navFeaturedLead: NavFeaturedLead;
   navFeaturedExplainer: NavFeaturedExplainer;
   navFeaturedPin: NavFeaturedPin;
+  /** Where Pin to sidebar sits. See NAV_FEATURED_PIN_SPOTS. */
+  navFeaturedPinSpot: NavFeaturedPinSpot;
+  /** The header pin's style. See NAV_FEATURED_PIN_HEADER_STYLES. */
+  navFeaturedPinHeaderStyle: NavFeaturedPinHeaderStyle;
   navFeaturedPromo: NavFeaturedPromo;
   navFeaturedAgency: NavFeaturedAgency;
   navAskAiHome: NavAskAiHome;
   navSettingsSpot: NavSettingsSpot;
   navFeaturedCycle: NavFeaturedCycle;
+  /** A View all button at the right end of a left-aligned indicator row. */
+  navFeaturedViewAll: boolean;
+  /**
+   * The AI category L2's bottom carousel ("Meet AI Employee" and "Help with
+   * AI"), unchanged, as an option to show. Off by default. Ashwin, Nov 17.
+   */
+  navFeaturedAiCarousel: boolean;
+  navFeaturedViewAllLabel: NavFeaturedViewAllLabel;
+  /** Where a product picked from the View all list opens. See NAV_FEATURED_DETAILS. */
+  navFeaturedDetail: NavFeaturedDetail;
   navFeaturedClose: NavFeaturedClose;
   navFeaturedOpens: NavFeaturedOpens;
   navFootSticky: NavFootSticky;
   navFootShadow: NavFootShadow;
-  navFeaturedCardRow: NavFeaturedCardRow;
+  /** Where Edit sits. See NAV_EDIT_SPOTS. */
+  navEditSpot: NavEditSpot;
+  /** The shade behind the featured cards. See NAV_FEATURED_PROMO_BGS. */
+  navFeaturedPromoBg: NavFeaturedPromoBg;
   navFeaturedMedia: NavFeaturedMedia;
   /** When the L1 flyout chevron is drawn. See NAV_CHEVRONS. */
   navChevron: NavChevron;
@@ -7018,6 +7334,10 @@ export interface ThemeState {
   attachTemplateInUse: boolean;
   /** How round the merged entry is drawn. See ENTRY_RADII. */
   entryRadius: EntryRadius;
+  /** Where Quick actions is reached from. See QUICK_ACTION_SPOTS. */
+  quickActionSpot: QuickActionSpot;
+  /** The Ask AI entry's corners, where it is its own control. See ASK_RADII. */
+  askRadius: AskRadius;
   /** Whether the edit capsules follow the entry to 8px. See EDIT_RADII. */
   editRadius: EditRadius;
   /** Whether the edit control is on screen at rest. See EDIT_ALWAYS_DEFAULT. */
@@ -8200,7 +8520,9 @@ export const DEFAULT_THEME: ThemeState = {
   navTourMedia: "on",
   navTourMediaPosition: "top",
   navTourRestart: "off",
-  navTourWatch: "off",
+  navTourWatch: "on",
+  navTourWatchSpot: "footer",
+  navTourWatchStyle: "gray",
   navTourWatchCut: "highlights",
   navTourSearchOpen: true,
   navTourProductsOpen: true,
@@ -8214,24 +8536,38 @@ export const DEFAULT_THEME: ThemeState = {
   navTourLearnOpens: "replay",
   navTourShadow: "original",
   navTourLearnRow: true,
+  navTourInEdit: false,
   navFeaturedSlot: "off",
+  navFeaturedListRows: "each",
+  navPromoPlacement: "card",
+  navFeaturedFloatSide: "right",
+  navFeaturedFloatCycle: "under",
+  navFeaturedMediaKind: "video",
   navFeaturedLabel: "nameNew",
   navFeaturedCount: "3",
   navFeaturedMulti: "deck",
   navFeaturedLead: "creator",
   navFeaturedExplainer: "full",
   navFeaturedPin: "pulse",
-  navFeaturedPromo: "card",
+  navFeaturedPinSpot: "header",
+  navFeaturedPinHeaderStyle: "button",
+  // An ordinary L2 item with a New badge, not a card. Ashwin, Nov 17.
+  navFeaturedPromo: "row",
   navFeaturedAgency: "hl",
   navAskAiHome: "bar",
   navSettingsSpot: "list",
   navFeaturedCycle: "below",
+  navFeaturedViewAll: false,
+  navFeaturedAiCarousel: false,
+  navFeaturedViewAllLabel: "allProducts",
+  navFeaturedDetail: "l2",
   navFeaturedClose: "off",
   navFeaturedOpens: "flyout",
   navFootSticky: "sticky",
   navFootShadow: "off",
-  navFeaturedCardRow: "above",
-  navFeaturedMedia: "top",
+  navEditSpot: "below",
+  navFeaturedPromoBg: "off",
+  navFeaturedMedia: "bottom",
   /*
    * On hover, as of Oct 6.
    *
@@ -8264,6 +8600,8 @@ export const DEFAULT_THEME: ThemeState = {
    * keeps them separate objects. See ENTRY_RADII and ENTRY_PAIRS.
    */
   entryRadius: "pill",
+  quickActionSpot: "search",
+  askRadius: "pill",
   editRadius: "pill",
   editAlways: EDIT_ALWAYS_DEFAULT,
   headerEntrySide: "right",

@@ -3,7 +3,9 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { Play, RotateCcw, X } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { NavTourVideo } from "@/components/nav/nav-tour-video";
+import { ROUTES_TOURS_CLOSED, normaliseRoute } from "@/design/route-variants";
 import { useTheme } from "@/components/theme/theme-provider";
 import { PIN_LIMIT, useNavLayout } from "@/components/nav/nav-layout-provider";
 import type {
@@ -41,6 +43,13 @@ import { cn } from "@/lib/utils";
 
 /** Fired by the prototype controls' "Replay tour". */
 export const NAV_TOUR_REPLAY_EVENT = "nav-tour:replay";
+/** Closes every tour as if each had been X'd, so the Learn row shows. */
+export const NAV_TOUR_CLOSE_ALL_EVENT = "nav-tour:close-all";
+
+/** Marks every tour closed. See NAV_TOUR_CLOSE_ALL_EVENT. */
+export function closeAllNavTours() {
+  window.dispatchEvent(new Event(NAV_TOUR_CLOSE_ALL_EVENT));
+}
 
 /**
  * Starts one flow from its first step, whatever has been seen: `detail.flow`.
@@ -50,6 +59,22 @@ export const NAV_TOUR_START_EVENT = "nav-tour:start";
 
 /** HighRise Coach Mark: 280 wide, inside its 240–320 range. */
 const WIDTH = 280;
+/**
+ * The first card, when the watch button shares Next's row.
+ *
+ * Ashwin, Nov 17: don't wrap — widen this one card instead. The numbers, all
+ * measured rather than estimated: "Step 1 of 11" is 62, the two buttons
+ * together are 194, and the card spends 34 on its own padding. 62 + 194 + 34
+ * is 290, which fits but leaves the count touching the button beside it, so
+ * the rest is the gap between them — 18, a little over the row's own 8 because
+ * these two are not a pair and should not read as one.
+ *
+ * Still inside the component's 240–320 range, and only this card takes it:
+ * every other step is 280, because none of them has a third control. The clip
+ * above is `w-full` on a fixed aspect, so it follows the width without being
+ * told to.
+ */
+const WIDTH_WATCH = 308;
 /** The component's anchor gap, 8–12px, plus the 10px arrow. */
 const GAP = 10;
 const ARROW = 10;
@@ -1324,6 +1349,8 @@ export function NavTour({
     navTourMedia,
     navTourMediaPosition,
     navTourWatch,
+    navTourWatchSpot,
+    navTourWatchStyle,
     navTourWatchCut,
     navTourMotion,
     navTourHighlight,
@@ -1579,8 +1606,17 @@ export function NavTour({
    * between steps, with motion on, it holds the last place — the frame stays
    * up, empty, until the next target is found and it can move there.
    */
+  /*
+   * This card is wider, and the placement has to know BEFORE it measures.
+   * `place` resolves the side and clamps against the viewport from the box it
+   * is given, so handing it 280 for a card that renders at 308 would put the
+   * arrow off-centre on a right-side anchor and clip the card at the window
+   * edge — both only in the corners, which is where it would be missed.
+   */
+  const width =
+    canWatch && navTourWatchSpot === "footer" ? WIDTH_WATCH : WIDTH;
   const live = anchor
-    ? place(anchor, { w: WIDTH, h: contentH + CARD_CHROME }, step.side)
+    ? place(anchor, { w: width, h: contentH + CARD_CHROME }, step.side)
     : null;
   const [held, setHeld] = React.useState(live);
   /*
@@ -1621,6 +1657,47 @@ export function NavTour({
       : {};
   // Chosen on the prototype controls, not read off the app's dark mode.
   const dark = navTourTheme === "dark";
+  /*
+   * The watch control, built once and placed twice. See NAV_TOUR_WATCH_SPOTS.
+   *
+   * One node rather than one per spot: the two placements differ in where
+   * they sit and in nothing else, and a second copy is how the footer ends up
+   * opening a different cut, or keeping the link treatment after the body one
+   * grew a border.
+   *
+   * `bordered` shares Next's geometry exactly — 32 tall, 4 radius, 10 side
+   * padding, 13 semibold — because in the footer the two are a pair, and a
+   * pair whose heights differ by two pixels reads as a mistake rather than as
+   * a hierarchy. The difference between them is fill and weight of edge,
+   * which is the part that should carry the hierarchy.
+   */
+  const bordered = navTourWatchStyle !== "link";
+  const watchButton = canWatch ? (
+    <button
+      type="button"
+      onClick={() => setWatching(true)}
+      className={cn(
+        "motion-tap flex shrink-0 items-center gap-[6px] text-[13px] leading-[18px] font-semibold",
+        bordered
+          ? "h-[32px] rounded-[4px] border px-[10px] shadow-[0_1px_2px_rgba(16,24,40,0.05)] active:scale-[0.98]"
+          : "underline-offset-2 hover:underline",
+        bordered
+          ? navTourWatchStyle === "blue"
+            ? dark
+              ? "border-[var(--hr-primary-400)] bg-transparent text-[var(--hr-primary-300)] hover:bg-[var(--hr-primary-900)]"
+              : "border-[var(--hr-primary-600)] bg-white text-[var(--hr-primary-700)] hover:bg-[var(--hr-primary-50)]"
+            : dark
+              ? "border-[var(--hr-gray-600)] bg-transparent text-[var(--hr-gray-200)] hover:bg-[var(--hr-gray-800)]"
+              : "border-[var(--hr-gray-300)] bg-white text-[var(--hr-gray-700)] hover:bg-[var(--hr-gray-50)]"
+          : dark
+            ? "text-[var(--hr-primary-300)]"
+            : "text-[var(--hr-primary-600)]",
+      )}
+    >
+      <Play size={14} strokeWidth={2} aria-hidden="true" />
+      Watch the tour
+    </button>
+  ) : null;
   const surface = dark ? "var(--hr-gray-900)" : "#ffffff";
   const edge = dark ? "var(--hr-gray-700)" : "var(--hr-gray-200)";
 
@@ -1730,14 +1807,21 @@ export function NavTour({
         style={{
           left,
           top,
-          width: WIDTH,
+          width,
           /*
            * Glide moves the frame; Fade moves nothing and lets the whole card
            * go out and come back. Off is neither — the card is not drawn
            * between steps at all.
            */
           ...(glide
-            ? { transition: `left ${GLIDE_MS}ms ${ease}, top ${GLIDE_MS}ms ${ease}` }
+            ? {
+                /*
+                  Width rides with the move. Step 2 is 28px narrower than
+                  step 1, and snapping that while the card glides reads as
+                  the card changing its mind halfway there.
+                */
+                transition: `left ${GLIDE_MS}ms ${ease}, top ${GLIDE_MS}ms ${ease}, width ${GLIDE_MS}ms ${ease}`,
+              }
             : {}),
         }}
         className={cn(
@@ -1866,26 +1950,17 @@ export function NavTour({
               </button>
             ) : null}
             {/*
-              A link under the body rather than a third button in the footer:
-              at 280 the footer already holds the step count and Next, and the
-              video is an aside to the tour, not its next step.
+              Under the body: an aside to the step rather than an alternative
+              to it. The other half of the axis puts it in the footer, beside
+              Next, on the argument that it IS the alternative — see
+              NAV_TOUR_WATCH_SPOTS.
             */}
-            {canWatch ? (
-              <button
-                type="button"
-                onClick={() => setWatching(true)}
-                className={cn(
-                  "motion-tap mt-[4px] flex items-center gap-[6px] self-start text-[13px] leading-[18px] font-semibold underline-offset-2 hover:underline",
-                  dark ? "text-[var(--hr-primary-300)]" : "text-[var(--hr-primary-600)]",
-                )}
-              >
-                <Play size={14} strokeWidth={2} aria-hidden="true" />
-                Watch the tour
-              </button>
+            {navTourWatchSpot === "body" && watchButton ? (
+              <div className="mt-[4px] flex self-start">{watchButton}</div>
             ) : null}
           </div>
           {showClip && !clipOnTop ? clip : null}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-[8px]">
             <p
               aria-live="polite"
               className={cn(
@@ -1895,7 +1970,8 @@ export function NavTour({
             >
               Step {index + 1} of {steps.length}
             </p>
-            <div className="flex items-center gap-[8px]">
+            <div className="flex shrink-0 items-center gap-[8px]">
+              {navTourWatchSpot === "footer" ? watchButton : null}
               {index > 0 ? (
                 <button
                   type="button"
@@ -1983,7 +2059,8 @@ type ToursAction =
   | { type: "handoff"; flow: TourFlowId }
   | { type: "start"; flow: TourFlowId }
   | { type: "leaveEdit" }
-  | { type: "replay" };
+  | { type: "replay" }
+  | { type: "closeAll" };
 
 const NO_TOURS: ToursState = { seen: [], active: null, queue: [], run: 0 };
 
@@ -2060,6 +2137,8 @@ function tours(state: ToursState, action: ToursAction): ToursState {
     }
     case "replay":
       return { ...NO_TOURS, run: state.run + 1 };
+    case "closeAll":
+      return { seen: Object.keys(FLOWS) as TourFlowId[], active: null, queue: [], run: state.run + 1 };
   }
 }
 
@@ -2094,6 +2173,7 @@ export function NavTours({
     navTourApplySteps,
     navTourStartFlow,
     treeSearchPlace,
+    navTourInEdit,
   } = useTheme().effective;
   const { state: layout, setEditing, moveGroup, discardEditing } = useNavLayout();
   // The latest reorder for the run's context, which is made once per run.
@@ -2101,7 +2181,19 @@ export function NavTours({
   React.useEffect(() => {
     moveGroupRef.current = moveGroup;
   }, [moveGroup]);
-  const [state, dispatch] = React.useReducer(tours, NO_TOURS);
+  /*
+   * A route that opens with the tours closed (see ROUTES_TOURS_CLOSED) starts
+   * with every flow seen, as if each had been X'd, so none pops up and the
+   * Learn row is there from the first paint. Replay still runs them all.
+   */
+  const pathname = usePathname();
+  const toursClosed = !!pathname && ROUTES_TOURS_CLOSED.has(normaliseRoute(pathname));
+  const [state, dispatch] = React.useReducer(tours, toursClosed, (closed) =>
+    closed ? { ...NO_TOURS, seen: Object.keys(FLOWS) as TourFlowId[] } : NO_TOURS,
+  );
+  React.useEffect(() => {
+    if (toursClosed) markClosed();
+  }, [toursClosed]);
   const [replays, setReplays] = React.useState(0);
   const on = enabled && navTourStyle !== "card";
   const flows = navTourStyle === "flows";
@@ -2169,6 +2261,16 @@ export function NavTours({
     };
     window.addEventListener(NAV_TOUR_REPLAY_EVENT, replay);
     return () => window.removeEventListener(NAV_TOUR_REPLAY_EVENT, replay);
+  }, []);
+
+  React.useEffect(() => {
+    const closeAll = () => {
+      dispatch({ type: "closeAll" });
+      setClosed(null);
+      markClosed();
+    };
+    window.addEventListener(NAV_TOUR_CLOSE_ALL_EVENT, closeAll);
+    return () => window.removeEventListener(NAV_TOUR_CLOSE_ALL_EVENT, closeAll);
   }, []);
 
   /*
@@ -2245,6 +2347,22 @@ export function NavTours({
     if (rose && on && flows) dispatch({ type: "trigger", flow: "editing" });
     if (!editing && !keepEditingFlow) dispatch({ type: "leaveEdit" });
   }, [editing, on, flows]);
+
+  /*
+   * Any other tour up when edit mode opens closes, so Editing takes over:
+   * Get started is about the nav as it is used, and its card has nothing to
+   * point at in edit mode. The trigger above queued Editing behind it, so
+   * closing it hands straight on. Unless the axis keeps it. Ashwin, Nov 17.
+   */
+  const closeForEdit = React.useEffectEvent(() => {
+    const flow = state.active;
+    if (!flow || flow === "editing" || navTourInEdit || pendingEdit.current) return;
+    dispatch({ type: "close", flow });
+    markClosed();
+  });
+  React.useEffect(() => {
+    if (editing) closeForEdit();
+  }, [editing]);
 
   const { active, run } = state;
   // One per run: what a run settles on (which row to pin) is the run's own.

@@ -57,6 +57,7 @@ import {
   type NavRole,
   type NavVolume,
   type ResolvedGroup,
+  withFeaturedFiled,
 } from "./grouping";
 
 export type { LabelScope, NavLayoutState };
@@ -290,6 +291,14 @@ interface NavLayoutContextValue {
   isRowHiddenDeep: (id: string) => boolean;
   /** Switches one category or row off, or back on. */
   toggleRowHidden: (id: string) => void;
+  /**
+   * Files featured products into their home categories (and unfiles ones no
+   * longer wanted), silently: no toast, no undo, not an edit. See
+   * withFeaturedFiled.
+   */
+  syncFeatured: (want: ReadonlyMap<string, string>) => void;
+  /** Moves Holiday Promos' row to follow `afterId`, or to the top with null. */
+  setPromoAfter: (afterId: string | null) => void;
   /**
    * Folds every step since `from` into ONE undo offer, under one sentence.
    *
@@ -2016,6 +2025,19 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
 
       collapseUndo: (message, from) =>
         dispatch({ type: "collapse", message, from }),
+
+      syncFeatured: (want) => {
+        if (withFeaturedFiled(state, want) === state) return;
+        dispatch({
+          type: "commit",
+          message: "Featured products filed",
+          next: (s) => withFeaturedFiled(s, want),
+          silent: true,
+        });
+      },
+
+      setPromoAfter: (afterId) =>
+        commit("Moved Holiday Promos", (s) => ({ ...s, promoAfter: afterId })),
 
       toggleRowHidden: (id) => {
         const hiding = !isRowHidden(state, id);

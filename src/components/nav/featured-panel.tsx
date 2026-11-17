@@ -1,7 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { ChevronLeft, ChevronRight, Info, Pin, PinOff, Play, X } from "lucide-react";
+import { PANEL_TITLE } from "@/components/flyout/types";
+import { NewTag } from "@/components/nav/featured-slot";
+import { createPortal } from "react-dom";
+import { ChevronLeft, ChevronRight, Pin, PinOff, X } from "lucide-react";
 
 import type { FlyoutConfig } from "@/components/flyout/types";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
@@ -10,10 +13,13 @@ import type { SurfaceTheme } from "@/design/theme";
 import { announce } from "@/lib/a11y";
 import { cn } from "@/lib/utils";
 import { useExitTransition } from "@/lib/use-exit-transition";
+import { FeaturedFloat, FeaturedVideoModal } from "@/components/featured/featured-float";
 import {
   FEATURED_PRODUCTS,
+  FeaturedStill,
   openFeaturedProduct,
   useFeatured,
+  type FeaturedKey,
   type FeaturedOpen,
   type FeaturedProduct,
 } from "./featured";
@@ -66,42 +72,19 @@ function usePromo(config: FlyoutConfig, want: "card" | "row") {
   const featured = useFeatured();
   const { navFeaturedPromo } = useTheme().effective;
   const layout = useNavLayout();
-  // Not while the nav is being edited: the panel is a list to rearrange then,
-  // and a promo in it would be one more thing that looks draggable and isn't.
-  if (navFeaturedPromo !== want || layout.state.editing) return null;
+  // The card steps aside while editing; the row stays, as the list item it is
+  // (see useFeaturedPromoItem). Ashwin, Nov 17.
+  if (navFeaturedPromo !== want || (want === "card" && layout.state.editing)) return null;
   const home = homeCategoryOf(config);
   return home ? featured.promoFor(home) : null;
 }
 
-/** The row variant: first in the home category's list, wearing "New". */
-export function FeaturedPromoRow({ config }: { config: FlyoutConfig }) {
-  const { setOpen } = useFeatured();
-  const product = usePromo(config, "row");
-  if (!product) return null;
-  const Icon = product.icon;
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen({ kind: "product", key: product.key })}
-        className="motion-row-in motion-tap group flex h-[38px] w-full shrink-0 items-center gap-[var(--t-nav-gap,10px)] rounded-[var(--t-nav-radius,7px)] px-[var(--t-nav-px,8px)] text-left hover:bg-nav-hover hover:shadow-[inset_0_0_0_1px_var(--nav-hover-ring)] active:scale-[0.99]"
-      >
-        <Icon
-          aria-hidden="true"
-          style={{ width: "var(--t-fly-icon, 16px)", height: "var(--t-fly-icon, 16px)" }}
-          className="shrink-0 text-[var(--hr-primary-600)] [[data-nav-theme=dark]_&]:text-[var(--hr-primary-300)]"
-        />
-        <span className="min-w-0 flex-1 truncate text-[14px] leading-[20px] text-nav-fg">
-          {product.name}
-        </span>
-        <span className="shrink-0 rounded-[2px] bg-fly-badge-bg px-[4px] py-[2px] text-[10px] leading-[normal] font-semibold whitespace-nowrap text-fly-badge-fg">
-          New
-        </span>
-      </button>
-      <div aria-hidden="true" className="my-[4px] h-px w-full shrink-0 bg-[var(--nav-divider)]" />
-    </>
-  );
-}
+/*
+ * The row variant has no component of its own: the featured product is filed
+ * into its home category as an ordinary product (see withFeaturedFiled), so
+ * the L2 draws it like any other row, New badge from its page entry, and
+ * edit mode treats it like any other product. Ashwin, Nov 17.
+ */
 
 /** The card variant: pinned under the list, dismissible for the session. */
 export function FeaturedPromoCard({ config }: { config: FlyoutConfig }) {
@@ -157,27 +140,99 @@ const PULSE_CSS = `
 @media (prefers-reduced-motion: reduce) { .featured-pin-ring { animation: none; opacity: 0; } }
 `;
 
+/**
+ * The explainer's media: the product's still, framed white with the nav's
+ * hairline. Under "Featured: media" Video it wears a play button and opens
+ * the launch video in the shared video modal, which stacks over the L2 and
+ * over the detail modal alike — replaced the inline dark poster that played
+ * in place. Under Image it is the still alone. Ashwin, Nov 17.
+ */
+function ExplainerMedia({ product }: { product: FeaturedProduct }) {
+  const { playVideo } = useFeatured();
+  const play = useTheme().effective.navFeaturedMediaKind === "video";
+  const still = (
+    <FeaturedStill product={product} play={play} size="lg" tone="nav" className="aspect-[16/10] w-full rounded-[8px]" />
+  );
+  if (!play) return <div className="w-full shrink-0">{still}</div>;
+  return (
+    <button
+      type="button"
+      aria-label={`Play ${product.name} video`}
+      onClick={() => playVideo(product.key)}
+      className="group/still block w-full shrink-0 rounded-[8px] outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--hr-primary-600)]"
+    >
+      {still}
+    </button>
+  );
+}
+
+/**
+ * Pin to sidebar, wherever it sits: beside Try in the body, or in the header
+ * beside close as a bordered "Pin" button or the bare glyph. The pulse ring
+ * travels with it. See NAV_FEATURED_PIN_SPOTS. Ashwin, Nov 17.
+ */
+function PinControl({ product, at }: { product: FeaturedProduct; at: "body" | "header" }) {
+  const { pinned, togglePin } = useFeatured();
+  const { navFeaturedPin, navFeaturedPinHeaderStyle } = useTheme().effective;
+  const isPinned = pinned.includes(product.key);
+  const icon = at === "header" && navFeaturedPinHeaderStyle === "icon";
+  const Glyph = isPinned ? PinOff : Pin;
+  return (
+    <span className="relative flex shrink-0">
+      <button
+        type="button"
+        aria-pressed={isPinned}
+        aria-label={icon ? (isPinned ? `Unpin ${product.name}` : `Pin ${product.name} to sidebar`) : undefined}
+        title={icon ? (isPinned ? "Pinned" : "Pin to sidebar") : undefined}
+        onClick={() => togglePin(product.key)}
+        className={cn(
+          "motion-tap flex items-center active:scale-[0.98]",
+          icon
+            ? cn(
+                "size-[24px] justify-center rounded-[6px] hover:bg-nav-hover",
+                isPinned ? "text-fly-badge-fg" : "text-nav-fg-subtle hover:text-nav-fg",
+              )
+            : cn(
+                "gap-[6px] rounded-[4px] font-semibold shadow-[inset_0_0_0_1px_var(--nav-divider)]",
+                at === "header"
+                  ? "h-[28px] gap-[4px] px-[8px] text-[13px] leading-[18px]"
+                  : "h-[32px] px-[10px] text-[13px] leading-[18px]",
+                isPinned ? "bg-fly-badge-bg text-fly-badge-fg" : "text-nav-fg hover:bg-nav-hover",
+              ),
+        )}
+      >
+        <Glyph size={icon ? 15 : 14} aria-hidden="true" />
+        {icon ? null : at === "header" ? (isPinned ? "Pinned" : "Pin") : isPinned ? "Pinned" : "Pin to sidebar"}
+      </button>
+      {navFeaturedPin === "pulse" && !isPinned ? (
+        <>
+          <style href="featured-pin-ring" precedence="default">
+            {PULSE_CSS}
+          </style>
+          <span
+            aria-hidden="true"
+            className={cn(
+              "featured-pin-ring pointer-events-none absolute -inset-[3px] border-2 border-[var(--hr-primary-600)]",
+              icon ? "rounded-[9px]" : "rounded-[7px]",
+            )}
+          />
+        </>
+      ) : null}
+    </span>
+  );
+}
+
 function Explainer({ product }: { product: FeaturedProduct }) {
-  const { pinned, togglePin, setOpen } = useFeatured();
-  const { navFeaturedExplainer, navFeaturedPin, navFeaturedAgency } = useTheme().effective;
+  const { pinned, setOpen } = useFeatured();
+  const { navFeaturedExplainer, navFeaturedPin, navFeaturedPinSpot } = useTheme().effective;
   const isPinned = pinned.includes(product.key);
   const full = navFeaturedExplainer === "full";
-  // The tile stands in for the launch video; nothing plays in the prototype.
-  const Icon = product.icon;
 
   return (
     <div className="flex w-full flex-col gap-[12px] pb-[4px]">
-      {full ? (
-        <div className="relative grid aspect-video w-full shrink-0 place-items-center overflow-hidden rounded-[8px] bg-gradient-to-br from-[var(--hr-primary-600)] to-[var(--hr-violet-500)] text-white">
-          <Icon size={34} aria-hidden="true" className="opacity-90" />
-          <span className="absolute bottom-[10px] left-[10px] grid size-[28px] place-items-center rounded-full bg-white/90 text-[var(--hr-gray-900)]">
-            <Play size={14} aria-hidden="true" className="translate-x-px" />
-          </span>
-        </div>
-      ) : null}
+      {full ? <ExplainerMedia product={product} /> : null}
       <div className="flex flex-col gap-[8px] px-[2px]">
-        <Eyebrow>{navFeaturedAgency === "custom" ? "From your agency" : "New in HighLevel"}</Eyebrow>
-        <h3 className="text-[16px] leading-[24px] font-semibold text-nav-fg">{product.name}</h3>
+        {/* No name here: the panel's header (or the modal's) already says it. Ashwin, Nov 17. */}
         <p className="text-[13px] leading-[18px] text-nav-fg-muted">{product.blurb}</p>
         {full ? (
           <ul className="list-disc pl-[18px] text-[13px] leading-[20px] text-nav-fg-muted">
@@ -197,39 +252,9 @@ function Explainer({ product }: { product: FeaturedProduct }) {
             }}
             className="motion-tap flex h-[32px] items-center rounded-[4px] border border-[var(--hr-primary-600)] bg-[var(--hr-primary-600)] px-[10px] text-[13px] leading-[18px] font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:bg-[var(--hr-primary-700)] active:scale-[0.98]"
           >
-            Try {product.name}
+            {product.key === "promos" ? "View offers" : `Try ${product.name}`}
           </button>
-          <span className="relative flex">
-            <button
-              type="button"
-              aria-pressed={isPinned}
-              onClick={() => togglePin(product.key)}
-              className={cn(
-                "motion-tap flex h-[32px] items-center gap-[6px] rounded-[4px] px-[10px] text-[13px] leading-[18px] font-semibold shadow-[inset_0_0_0_1px_var(--nav-divider)] active:scale-[0.98]",
-                isPinned
-                  ? "bg-fly-badge-bg text-fly-badge-fg"
-                  : "text-nav-fg hover:bg-nav-hover",
-              )}
-            >
-              {isPinned ? (
-                <PinOff size={14} aria-hidden="true" />
-              ) : (
-                <Pin size={14} aria-hidden="true" />
-              )}
-              {isPinned ? "Pinned" : "Pin to sidebar"}
-            </button>
-            {navFeaturedPin === "pulse" && !isPinned ? (
-              <>
-                <style href="featured-pin-ring" precedence="default">
-                  {PULSE_CSS}
-                </style>
-                <span
-                  aria-hidden="true"
-                  className="featured-pin-ring pointer-events-none absolute -inset-[3px] rounded-[7px] border-2 border-[var(--hr-primary-600)]"
-                />
-              </>
-            ) : null}
-          </span>
+          {navFeaturedPinSpot === "body" ? <PinControl product={product} at="body" /> : null}
         </div>
         {navFeaturedPin === "tip" && !isPinned ? (
           <div
@@ -243,14 +268,6 @@ function Explainer({ product }: { product: FeaturedProduct }) {
             Pin it to keep {product.name} in your sidebar after {product.ends}.
           </div>
         ) : null}
-        <div className="mt-[4px] flex items-start gap-[8px] rounded-[8px] bg-nav-hover px-[10px] py-[8px] text-[12px] leading-[16px] text-nav-fg-muted shadow-[inset_0_0_0_1px_var(--nav-divider)]">
-          <Info size={14} aria-hidden="true" className="mt-px shrink-0 text-nav-fg-subtle" />
-          <span>
-            {product.key === "askai"
-              ? `After ${product.ends}, Ask AI stays in the top bar. Press ⌘J from any page.`
-              : `This spot rotates. After ${product.ends}, find it in ${product.home} ▸ ${product.name}, or pin it to keep it here.`}
-          </span>
-        </div>
       </div>
     </div>
   );
@@ -305,6 +322,132 @@ function WhatsNew() {
 }
 
 /**
+ * View all's list: every featured product, not only the ones on cards — icon,
+ * name, New, and its one line. Picking one opens its explainer in the L2 or a
+ * modal, per "Featured: detail opens in". Rows are the What's new list's,
+ * so the two lists read as one. Ashwin, Nov 17.
+ */
+function AllList({ current, onPick }: { current: FeaturedKey | null; onPick: (key: FeaturedKey) => void }) {
+  const { all } = useFeatured();
+  return (
+    <div className="flex w-full flex-col gap-[6px]">
+      <p className="px-[2px] pb-[4px] text-[13px] leading-[18px] text-nav-fg-subtle">
+        New in HighLevel. Open any of these to see it in action.
+      </p>
+      {all.map((p, i) => {
+        const Icon = p.icon;
+        return (
+          <button
+            key={p.key}
+            type="button"
+            onClick={() => onPick(p.key)}
+            {...(current === p.key ? { "aria-current": "true" as const } : {})}
+            style={{ "--row-index": i } as React.CSSProperties}
+            className={cn(
+              "motion-row-in motion-tap group grid w-full grid-cols-[32px_1fr_16px] items-center gap-[10px] rounded-[10px] p-[10px] text-left shadow-[inset_0_0_0_1px_var(--nav-divider)] hover:bg-nav-hover active:scale-[0.99]",
+              current === p.key && "bg-nav-hover",
+            )}
+          >
+            <span className="grid size-[32px] place-items-center rounded-[8px] bg-fly-badge-bg text-fly-badge-fg">
+              <Icon size={16} aria-hidden="true" />
+            </span>
+            <span className="flex min-w-0 flex-col gap-[2px]">
+              <span className="flex min-w-0 items-center gap-[6px]">
+                <span className="truncate text-[13px] leading-[18px] font-semibold text-nav-fg">{p.name}</span>
+                <span className="shrink-0 rounded-[2px] bg-fly-badge-bg px-[4px] py-[2px] text-[10px] leading-[normal] font-semibold whitespace-nowrap text-fly-badge-fg">
+                  New
+                </span>
+              </span>
+              <span className="text-[12px] leading-[16px] text-nav-fg-muted">{p.tagline}</span>
+            </span>
+            <ChevronRight
+              size={16}
+              aria-hidden="true"
+              className="text-nav-fg-subtle motion-tap group-hover:translate-x-[2px]"
+            />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * A product's explainer in a centred HighRise modal, over the View all list —
+ * 8px radius, the xl shadow, 12/16 header, 16 body. Esc, the X and the
+ * backdrop close it and leave the list where it was. It wears the nav's
+ * theme, so the explainer inside reads exactly as it does in the L2.
+ * Ashwin, Nov 17.
+ */
+function DetailModal({
+  product,
+  theme,
+  onClose,
+}: {
+  product: FeaturedProduct;
+  theme: SurfaceTheme;
+  onClose: () => void;
+}) {
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  const pinInHeader = useTheme().effective.navFeaturedPinSpot === "header";
+  const close = React.useEffectEvent(onClose);
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      // Ahead of the panel's own Escape, which would close the list too.
+      e.stopPropagation();
+      e.preventDefault();
+      close();
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, []);
+  React.useEffect(() => {
+    dialogRef.current?.focus({ preventScroll: true });
+  }, [product.key]);
+
+  return createPortal(
+    <div data-nav-theme={theme} className="fixed inset-0 z-[90] flex items-center justify-center p-[16px]">
+      <button
+        type="button"
+        aria-label="Close"
+        tabIndex={-1}
+        onClick={onClose}
+        className="motion-fade-in absolute inset-0 cursor-default bg-[#10182899]"
+      />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={product.name}
+        tabIndex={-1}
+        data-featured-modal=""
+        className="motion-slot-in relative flex max-h-full w-[480px] max-w-full flex-col overflow-hidden rounded-[8px] bg-nav shadow-[0_20px_24px_-4px_rgba(16,24,40,0.08),0_8px_8px_-4px_rgba(16,24,40,0.03)] outline-none"
+      >
+        <header className="flex w-full shrink-0 items-center gap-[8px] px-[16px] pt-[12px]">
+          <h2 className="min-w-0 flex-1 truncate text-[16px] leading-[24px] font-semibold text-nav-fg">
+            {product.name}
+          </h2>
+          {pinInHeader ? <PinControl product={product} at="header" /> : null}
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+            className="group/close motion-tap flex size-[24px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg-muted active:scale-90"
+          >
+            <X size={16} aria-hidden="true" className="motion-tap group-hover/close:rotate-90" />
+          </button>
+        </header>
+        <div key={product.key} className="min-h-0 flex-1 overflow-y-auto p-[16px]">
+          <Explainer product={product} />
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/**
  * The panel itself, plus its click-away and the slot's toast. Mounted once by
  * the shell.
  *
@@ -332,7 +475,7 @@ export function FeaturedPanel({
 }) {
   const featured = useFeatured();
   const { open, setOpen, list } = featured;
-  const { navOnPlane, flyoutShape, navFeaturedMulti } = useTheme().effective;
+  const { navOnPlane, flyoutShape, navFeaturedMulti, navFeaturedDetail, navFeaturedPinSpot } = useTheme().effective;
   const panel = useExitTransition<NonNullable<FeaturedOpen>>(open, EXIT_MS);
   const panelRef = React.useRef<HTMLDivElement>(null);
 
@@ -343,6 +486,10 @@ export function FeaturedPanel({
     this straight back.
   */
   const openKey = open ? (open.kind === "product" ? open.key : open.kind) : null;
+
+  // View all's modal detail. It belongs to the list, so it goes when the list does.
+  const [modalKey, setModalKey] = React.useState<FeaturedKey | null>(null);
+  if (modalKey !== null && open?.kind !== "all") setModalKey(null);
   const opened = React.useEffectEvent(() => onOpened());
   React.useEffect(() => {
     if (openKey) opened();
@@ -374,8 +521,12 @@ export function FeaturedPanel({
   const asCard = flyoutShape === "card";
   const value = panel.value;
   const product = value?.kind === "product" ? FEATURED_PRODUCTS[value.key] : null;
-  const title = value?.kind === "whatsnew" ? "What’s new" : (product?.name ?? "");
-  const back = !!product && navFeaturedMulti === "grouped" && list.length > 1;
+  const fromAll = value?.kind === "product" && value.from === "all";
+  const title =
+    value?.kind === "whatsnew" || value?.kind === "all" ? "What’s new" : (product?.name ?? "");
+  const back = !!product && (fromAll || (navFeaturedMulti === "grouped" && list.length > 1));
+  const pick = (key: FeaturedKey) =>
+    navFeaturedDetail === "modal" ? setModalKey(key) : setOpen({ kind: "product", key, from: "all" });
 
   return (
     <>
@@ -416,20 +567,31 @@ export function FeaturedPanel({
               panel.phase === "entering" ? "motion-panel-in" : "motion-panel-out",
             )}
           >
-            <div className="flex w-full shrink-0 items-center gap-[4px] pr-[14px] pb-[8px] pl-[16px]">
+            <div className="flex w-full shrink-0 items-center gap-[4px] pr-[14px] pb-[4px] pl-[16px]">
               {back ? (
                 <button
                   type="button"
                   aria-label="Back to what’s new"
-                  onClick={() => setOpen({ kind: "whatsnew" })}
+                  onClick={() => setOpen(fromAll ? { kind: "all" } : { kind: "whatsnew" })}
                   className="motion-tap -ml-[6px] flex size-[24px] shrink-0 items-center justify-center rounded-[6px] text-nav-fg-subtle hover:bg-nav-hover hover:text-nav-fg"
                 >
                   <ChevronLeft size={16} aria-hidden="true" />
                 </button>
               ) : null}
-              <h2 className="min-w-0 flex-1 truncate text-[16px] leading-[24px] font-semibold text-nav-fg">
-                {title}
-              </h2>
+              {/*
+                The category L2's title, exactly (see PANEL_TITLE), with the
+                New tag beside it for a product — in place of the body's old
+                "New in HighLevel" eyebrow. Ashwin, Nov 17.
+              */}
+              <span className="flex min-w-0 flex-1 items-center gap-[6px]">
+                <h2 className={cn(PANEL_TITLE, "min-w-0 truncate")}>{title}</h2>
+                {product ? <NewTag /> : null}
+              </span>
+              {product && navFeaturedPinSpot === "header" ? (
+                <span className="mr-[4px] flex">
+                  <PinControl product={product} at="header" />
+                </span>
+              ) : null}
               <button
                 type="button"
                 aria-label="Close"
@@ -442,15 +604,28 @@ export function FeaturedPanel({
             <div
               // Keyed per view, so moving between the list and an explainer
               // replays the entrance — and the pin ring with it.
-              key={product ? product.key : "whatsnew"}
+              key={product ? product.key : value.kind}
               className="motion-slot-in flex min-h-0 w-full flex-1 flex-col overflow-y-auto px-[14px] pt-[4px]"
             >
-              {product ? <Explainer product={product} /> : <WhatsNew />}
+              {product ? (
+                <Explainer product={product} />
+              ) : value.kind === "all" ? (
+                <AllList current={modalKey} onPick={pick} />
+              ) : (
+                <WhatsNew />
+              )}
             </div>
           </div>
         </>
       ) : null}
+      {modalKey !== null && open?.kind === "all" ? (
+        <DetailModal product={FEATURED_PRODUCTS[modalKey]} theme={theme} onClose={() => setModalKey(null)} />
+      ) : null}
       <FeaturedToast navWidth={offsetLeft} panelOpen={!!open} />
+      {/* Every featured surface's launch video, over everything else here. */}
+      <FeaturedVideoModal />
+      {/* Slot "Floating card": portalled to the body, over the canvas. See FeaturedFloat. */}
+      <FeaturedFloat navRight={offsetLeft} />
     </>
   );
 }

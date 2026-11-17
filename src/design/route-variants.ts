@@ -14,7 +14,8 @@ import { DEFAULT_THEME, type ThemeState } from "@/design/theme";
  * afterwards, so a researcher can still switch away mid-session. The URL is a
  * starting point, not a lock.
  *
- * `/` is deliberately absent: it keeps meaning "whatever ships by default".
+ * `/` was deliberately absent until Nov 17; it now opens with the tours and
+ * the featured cards on. See its entry in ROUTE_THEMES.
  */
 /**
  * Whether the variant routes exist in this build.
@@ -79,6 +80,26 @@ export const HEADER_NAV_DEFAULTS: Partial<ThemeState> = Object.fromEntries(
   ]),
 ) as Partial<ThemeState>;
 
+/**
+ * The featured card at the bottom, with the settings Ashwin settled on for
+ * it: indicator bottom left carrying "More products ›", Settings with the
+ * list, Edit on its own row above the cards, no pin nudge, and Holiday
+ * Promos as a card plus a row at the top. Applied whole by
+ * /featured-products and whenever the prototype controls switch the slot to
+ * "Card at bottom" — a patch, so every axis stays live after. Ashwin, Nov 17.
+ */
+export const FEATURED_CARD_THEME: Partial<ThemeState> = {
+  navFeaturedSlot: "card",
+  navFeaturedCycle: "belowLeft",
+  navFeaturedViewAll: true,
+  navFeaturedViewAllLabel: "moreProducts",
+  navSettingsSpot: "list",
+  navEditSpot: "above",
+  navFeaturedPin: "off",
+  navPromoPlacement: "cardRow",
+  navFeaturedMedia: "bottom",
+};
+
 export const ROUTE_THEMES: Record<string, Partial<ThemeState>> = {
   "/tree-nav": { navArrangement: "tree" },
   "/drill-nav": { navArrangement: "drill" },
@@ -95,7 +116,35 @@ export const ROUTE_THEMES: Record<string, Partial<ThemeState>> = {
    * nav mid-renovation rather than the proposal. Oct 14.
    */
   "/header-nav": HEADER_NAV_THEME,
+  /*
+   * Shareable demos of two features that otherwise hide in the tuning panel.
+   * /coachmarks (and its /tour alias) opens with the progressive tours on,
+   * so Get started runs on load; /featured-products opens with the featured
+   * card at the bottom of the sidebar. Each turns on only its own feature.
+   * Ashwin, Nov 17.
+   */
+  /*
+   * The main URL opens with both: the tours on (Get started plays on load)
+   * and the featured cards at the bottom, with their settled settings. The
+   * per-feature links below stay for sharing one at a time. Ashwin, Nov 17.
+   */
+  "/": { ...FEATURED_CARD_THEME, navTourStyle: "flows" },
+  "/coachmarks": { navTourStyle: "flows" },
+  "/tour": { navTourStyle: "flows" },
+  // With the tours on but already closed, so Learn about new Sidebar shows.
+  "/featured-products": { ...FEATURED_CARD_THEME, navTourStyle: "flows" },
 };
+
+/**
+ * Routes that open with every tour already closed: the tours are on, but the
+ * demo is about something else, so the Learn row is the way into them.
+ */
+export const ROUTES_TOURS_CLOSED = new Set(["/featured-products"]);
+
+/** A path as the route maps spell it: no trailing slash. */
+export function normaliseRoute(pathname: string): string {
+  return pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+}
 
 /**
  * The theme a path should open in.
@@ -109,11 +158,7 @@ export function themeForRoute(
 ): ThemeState {
   if (!pathname) return base;
   // Trailing slashes are the one spelling a participant is likely to paste.
-  const normalised =
-    pathname.length > 1 && pathname.endsWith("/")
-      ? pathname.slice(0, -1)
-      : pathname;
-  const patch = ROUTE_THEMES[normalised];
+  const patch = ROUTE_THEMES[normaliseRoute(pathname)];
   if (!patch) return base;
   return { ...base, ...patch };
 }

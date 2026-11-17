@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { ArrowUpRight, History, Search, X } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { announce } from "@/lib/a11y";
 import { cn } from "@/lib/utils";
 import type { ProductSearchDismiss } from "@/design/theme";
@@ -66,10 +65,15 @@ export interface TreeSearchHit {
  *    reader has to go looking for, which is the failure the field exists to
  *    remove — so "show its ancestors" is not enough on its own, the ancestors
  *    have to be standing open.
- * 2. Nothing below matched but its own label did → keep it as a LEAF, children
- *    dropped. Searching "Payments" and being handed Payments' nine pages is the
- *    unfiltered tree with extra steps; the row you asked for is the answer, and
- *    it opens normally once the query goes.
+ * 2. Nothing below matched but its own label did → keep it AND everything
+ *    under it, standing open. Ashwin, Nov 17.
+ *
+ *    This used to drop the children, on the argument that searching
+ *    "Payments" and being handed Payments' nine pages is the unfiltered tree
+ *    with extra steps. The argument is real and it lost to the picture: the
+ *    row you matched is rarely the destination — "calendar" means one of the
+ *    six pages inside Calendars, and the reader has to be able to see which.
+ *    A match is a place you have ARRIVED at, so it shows you what is there.
  * 3. Neither → drop it. A branch with no match in it is noise in a list whose
  *    whole claim is that everything in it matched.
  *
@@ -93,14 +97,16 @@ export function searchTreeBranch(
       }
       if (matchesQuery(node.label, query)) {
         /*
-         * Rebuilt field by field rather than spread-minus-`children`: the rest
-         * pattern leaves a bound name nothing reads, and `TreeNode` is three
-         * fields, so naming them costs less than the lint suppression would.
+         * Its whole subtree, untouched, and the node opened to show it.
+         * Copied rather than referenced for the reason in the header: these
+         * nodes are rebuilt each render and must not be edited in place.
          */
+        if (node.children?.length) open.add(node.id);
         out.push({
           id: node.id,
           label: node.label,
           ...(node.icon ? { icon: node.icon } : {}),
+          ...(node.children?.length ? { children: [...node.children] } : {}),
         });
       }
     }
@@ -394,11 +400,22 @@ export function TreeSearchEmpty({ query }: { query: string }) {
  */
 export function ProductSearchResting({
   terms,
+  homes,
   reveal = "none",
   closing = false,
   onPick,
 }: {
   terms: readonly string[];
+  /**
+   * The category each term lands in, keyed by the term — "CRM" for
+   * "calendar". Ashwin, Nov 17.
+   *
+   * Optional, and a term with no entry simply draws one line. A missing home
+   * is not an error: a term that matches a category itself has none, and a
+   * term that matches nothing any more is exactly the row you want to keep
+   * showing rather than hide.
+   */
+  homes?: Readonly<Record<string, string>>;
   /**
    * How the list arrives, as the other half of the field's own entrance.
    * See SEARCH_REVEALS — the pairing lives in the theme so the two halves
@@ -451,14 +468,33 @@ export function ProductSearchResting({
           }
           onClick={() => onPick(term)}
           aria-label={`Search for ${term}`}
-          className="motion-tap group/term flex h-[34px] w-full items-center gap-[10px] rounded-[7px] px-[8px] text-left text-[13px] leading-[normal] text-nav-fg hover:bg-nav-hover"
+          /*
+            Height comes from the content rather than a number, because the
+            rows are not all the same height any more: a term with a home is
+            two lines, one without is one. Stating 34 would have cropped the
+            second line on the rows that have it.
+          */
+          className="motion-tap group/term flex w-full items-center gap-[10px] rounded-[7px] px-[8px] py-[6px] text-left text-[13px] leading-[normal] text-nav-fg hover:bg-nav-hover"
         >
           <History
             size={15}
             aria-hidden="true"
             className="shrink-0 text-nav-fg-subtle"
           />
-          <span className="min-w-0 flex-1 truncate">{term}</span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate leading-[18px]">{term}</span>
+            {/*
+              Where the term takes you, in the result rows' own caption
+              treatment — the resting list and the results are two states of
+              one surface, so a home named in one should look like a home
+              named in the other.
+            */}
+            {homes?.[term] ? (
+              <span className="truncate text-[12px] leading-[16px] text-nav-fg-subtle">
+                {homes[term]}
+              </span>
+            ) : null}
+          </span>
           {/*
             The arrow says the row RE-RUNS the search rather than opening a
             product — the same promise the sub-account list makes with it.
@@ -474,77 +510,13 @@ export function ProductSearchResting({
   );
 }
 
-/** One hit, as the flat result list draws it. */
-export interface ProductHit {
-  id: string;
-  label: string;
-  /** The row above it in the tree — "CRM" under "Calendars". */
-  parent: string | null;
-  icon?: LucideIcon;
-}
-
-/**
- * The results, as a flat list with each hit's home under it.
+/*
+ * ProductHit and ProductSearchResults lived here until Nov 17.
  *
- * The shape Ashwin asked for on Nov 16, and the shape the All products tab
- * already uses — which is the argument for it: the two are the same search
- * over the same catalogue, and showing one of them as a filtered tree and
- * the other as a list made them read as different features.
- *
- * Flat, not a pruned tree, because a pruned tree answers the wrong question.
- * Filtering the column leaves the CATEGORIES that contain a match — type
- * "cal" and you are shown CRM, which is where Calendars lives but is not
- * what you asked for. The thing you are looking for should be the thing in
- * the list, and where it lives is the caption that tells you where it went.
- * That caption is the whole point here: these are people who cannot find a
- * product because it MOVED, so naming its new home is the answer, not a
- * detail.
+ * They drew the column's results as a flat list, each hit captioned with the
+ * branch it lives in. Ashwin replaced that with the pruned tree so all three
+ * placements and the All products tab draw one shape — see the note at the
+ * results' render site in left-nav. The caption survived the move: it is now
+ * the second line on a RECENT SEARCH, where a bare word genuinely says
+ * nothing about where it leads. See ProductSearchResting's `homes`.
  */
-export function ProductSearchResults({
-  hits,
-  query,
-  onPick,
-}: {
-  hits: readonly ProductHit[];
-  query: string;
-  onPick: (id: string) => void;
-}) {
-  if (hits.length === 0) return <TreeSearchEmpty query={query} />;
-  return (
-    <div className="flex w-full flex-col gap-[2px]">
-      {hits.map((hit) => (
-        <button
-          key={hit.id}
-          type="button"
-          onClick={() => onPick(hit.id)}
-          className="motion-tap flex w-full items-center gap-[10px] rounded-[7px] px-[8px] py-[6px] text-left hover:bg-nav-hover"
-        >
-          {hit.icon ? (
-            <hit.icon
-              size={16}
-              aria-hidden="true"
-              className="shrink-0 text-nav-fg-muted"
-            />
-          ) : (
-            <span aria-hidden="true" className="size-[16px] shrink-0" />
-          )}
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-[13.5px] leading-[18px] text-nav-fg">
-              {hit.label}
-            </span>
-            {/*
-              The home, and only where there is one. A top-level product has
-              no parent to name, and an empty second line would make every
-              such row a different height from its neighbours.
-            */}
-            {hit.parent ? (
-              <span className="truncate text-[12px] leading-[16px] text-nav-fg-subtle">
-                {hit.parent}
-              </span>
-            ) : null}
-          </span>
-        </button>
-      ))}
-    </div>
-  );
-}
