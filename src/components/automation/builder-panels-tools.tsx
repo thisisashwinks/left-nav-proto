@@ -621,6 +621,9 @@ function FindTour({
           effective.navTourShadow === "strong"
             ? "shadow-[0px_20px_24px_-4px_rgba(16,24,40,0.16),0px_8px_8px_-4px_rgba(16,24,40,0.08),inset_0_0_0_1px_var(--pg-border)] drop-shadow-[0px_2px_4px_rgba(16,24,40,0.10)]"
             : "shadow-[0_20px_24px_-4px_rgba(16,24,40,0.08),0_8px_8px_-4px_rgba(16,24,40,0.03),inset_0_0_0_1px_var(--pg-border)]",
+          // A darker outline over the hairline. See NAV_TOUR_BORDERS.
+          effective.navTourBorder === "strong" && "outline outline-1 -outline-offset-1 outline-[var(--hr-gray-300)]",
+          effective.navTourBorder === "stronger" && "outline outline-1 -outline-offset-1 outline-[var(--hr-gray-400)]",
         )}
       >
         <span

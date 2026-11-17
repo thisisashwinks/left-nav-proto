@@ -135,6 +135,7 @@ import type {
   AgencyBarDismissal,
   RailToolsCta,
   RailSearchGlyph,
+  RailSearchField,
   ImpersonationBannerColor,
   NavTourLayouts,
   NavTourSpotlight,
@@ -156,6 +157,8 @@ import type {
   NavTourLearnIcon,
   NavTourLearnOpens,
   NavTourShadow,
+  NavTourBorder,
+  NavTourArrowGap,
   NavFeaturedSlot,
   NavFeaturedListRows,
   NavPromoPlacement,
@@ -372,6 +375,7 @@ interface ThemeContextValue extends ThemeState {
   setAgencyBarDismissal: (v: AgencyBarDismissal) => void;
   setRailToolsCta: (v: RailToolsCta) => void;
   setRailSearchGlyph: (v: RailSearchGlyph) => void;
+  setRailSearchField: (v: RailSearchField) => void;
   setCreateAccountSpot: (v: CreateAccountSpot) => void;
   setRailManageGlyph: (v: RailManageGlyph) => void;
   setRailHoverZone: (v: RailHoverZone) => void;
@@ -444,6 +448,8 @@ interface ThemeContextValue extends ThemeState {
   setNavTourLearnIcon: (v: NavTourLearnIcon) => void;
   setNavTourLearnOpens: (v: NavTourLearnOpens) => void;
   setNavTourShadow: (v: NavTourShadow) => void;
+  setNavTourBorder: (v: NavTourBorder) => void;
+  setNavTourArrowGap: (v: NavTourArrowGap) => void;
   setNavTourLearnRow: (on: boolean) => void;
   setNavTourInEdit: (on: boolean) => void;
   setNavFeaturedSlot: (v: NavFeaturedSlot) => void;
@@ -917,6 +923,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, createAccountSpot })),
       setRailSearchGlyph: (railSearchGlyph) =>
         setState((s) => ({ ...s, railSearchGlyph })),
+      setRailSearchField: (railSearchField) =>
+        setState((s) => ({ ...s, railSearchField })),
       setRailToolsCta: (railToolsCta) =>
         setState((s) => ({ ...s, railToolsCta })),
       setAgencyBarDismissal: (agencyBarDismissal) =>
@@ -1052,6 +1060,8 @@ export function ThemeProvider({
         setState((s) => ({ ...s, navTourLearnIcon })),
       setNavTourLearnOpens: (navTourLearnOpens) =>
         setState((s) => ({ ...s, navTourLearnOpens })),
+      setNavTourBorder: (navTourBorder) => setState((s) => ({ ...s, navTourBorder })),
+      setNavTourArrowGap: (navTourArrowGap) => setState((s) => ({ ...s, navTourArrowGap })),
       setNavTourShadow: (navTourShadow) =>
         setState((s) => ({ ...s, navTourShadow })),
       setNavTourInEdit: (navTourInEdit) => setState((s) => ({ ...s, navTourInEdit })),

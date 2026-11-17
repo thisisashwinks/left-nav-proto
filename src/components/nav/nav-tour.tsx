@@ -11,6 +11,7 @@ import { PIN_LIMIT, useNavLayout } from "@/components/nav/nav-layout-provider";
 import type {
   TreeSearchPlace,
   NavTourApplySteps,
+  NavTourArrowGap,
   NavTourHandsOn,
   NavTourLayouts,
   NavTourRestart,
@@ -381,7 +382,7 @@ function appBarAskAi(): Element | null {
 
 /** The Recents heading's "View all", or the collapsed bar's tile for it. */
 const viewAllButton = () =>
-  withText(`${NAV} button`, "View all") ?? visible('[aria-label="View all recents"]');
+  withText(`${NAV} button`, "All products") ?? visible('[aria-label="All products"]');
 
 /**
  * Opens the panel behind View all on its All products tab, lets the search be
@@ -596,8 +597,8 @@ const STEPS = {
   "all-products": {
     id: "all-products",
     title: "Find any product",
-    body: "View all lists every product, with a search to find one by name.",
-    doBody: "Click View all to see every product and search them by name.",
+    body: "All products lists every product, with a search to find one by name.",
+    doBody: "Click All products to see every product and search them by name.",
     side: "right",
     expand: true,
     flyout: null,
@@ -1275,7 +1276,10 @@ const FLIP: Record<Side, Side> = {
  * whether or not the clamp moved the card. That is the Figma set's
  * top/centre/bottom arrow positions, continuously.
  */
-function place(anchor: DOMRect, size: { w: number; h: number }, preferred: Side) {
+/** The card's distance from its target, per NAV_TOUR_ARROW_GAPS. The arrow sticks out 7px of it. */
+const GAP_FOR: Record<NavTourArrowGap, number> = { touch: GAP, overlap: 4, gap: 16 };
+
+function place(anchor: DOMRect, size: { w: number; h: number }, preferred: Side, GAP: number) {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const fits = (side: Side) =>
@@ -1356,6 +1360,8 @@ export function NavTour({
     navTourHighlight,
     navTourHighlightScope,
     navTourShadow,
+    navTourBorder,
+    navTourArrowGap,
   } =
     effective;
   const { state: layout, setEditing, discardEditing } = useNavLayout();
@@ -1616,7 +1622,7 @@ export function NavTour({
   const width =
     canWatch && navTourWatchSpot === "footer" ? WIDTH_WATCH : WIDTH;
   const live = anchor
-    ? place(anchor, { w: width, h: contentH + CARD_CHROME }, step.side)
+    ? place(anchor, { w: width, h: contentH + CARD_CHROME }, step.side, GAP_FOR[navTourArrowGap])
     : null;
   const [held, setHeld] = React.useState(live);
   /*
@@ -1699,7 +1705,19 @@ export function NavTour({
     </button>
   ) : null;
   const surface = dark ? "var(--hr-gray-900)" : "#ffffff";
-  const edge = dark ? "var(--hr-gray-700)" : "var(--hr-gray-200)";
+  // See NAV_TOUR_BORDERS.
+  const edge =
+    navTourBorder === "stronger"
+      ? dark
+        ? "var(--hr-gray-500)"
+        : "var(--hr-gray-400)"
+      : navTourBorder === "strong"
+        ? dark
+          ? "var(--hr-gray-600)"
+          : "var(--hr-gray-300)"
+        : dark
+          ? "var(--hr-gray-700)"
+          : "var(--hr-gray-200)";
 
   /*
     The preview: a looping clip of the gesture, 496×280 drawn at the

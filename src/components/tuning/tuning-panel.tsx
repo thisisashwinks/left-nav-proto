@@ -128,6 +128,8 @@ import {
   RAIL_MANAGE_GLYPHS,
   RAIL_MANAGE_GLYPH_LABELS,
   CREATE_ACCOUNT_SPOT_LABELS,
+  RAIL_SEARCH_FIELDS,
+  RAIL_SEARCH_FIELD_LABELS,
   RAIL_SEARCH_GLYPHS,
   RAIL_ACTIVE_CHROMES,
   RAIL_ACTIVE_CHROME_LABELS,
@@ -174,6 +176,12 @@ import {
   NAV_TOUR_LEARN_OPENS_LABELS,
   NAV_TOUR_SHADOWS,
   NAV_TOUR_SHADOW_LABELS,
+  NAV_TOUR_BORDERS,
+  NAV_TOUR_BORDER_LABELS,
+  type NavTourBorder,
+  NAV_TOUR_ARROW_GAPS,
+  NAV_TOUR_ARROW_GAP_LABELS,
+  type NavTourArrowGap,
   RAIL_RULE_ALIGNS,
   RAIL_RULE_ALIGN_LABELS,
   RAIL_TOOLS_CTA_LABELS,
@@ -495,6 +503,7 @@ import {
   type RailToolsCta,
   type CreateAccountSpot,
   type RailManageGlyph,
+  type RailSearchField,
   type RailSearchGlyph,
   type ImpersonationBannerColor,
   type NavTourLayouts,
@@ -998,6 +1007,8 @@ function NavStructureSection({
     setRailSearchGlyph,
     railActiveChrome,
     setRailActiveChrome,
+    railSearchField,
+    setRailSearchField,
     railSearchGlyph,
     railToolsCta,
     agencyBarDismissal,
@@ -1929,6 +1940,20 @@ function NavStructureSection({
           </Note>
 
           <Segmented
+            label="Rail search looks like"
+            keywords="rail search field input box underline inline borderless find account subaccount vertical strip"
+            options={RAIL_SEARCH_FIELDS}
+            value={railSearchField}
+            onChange={(v: RailSearchField) => setRailSearchField(v)}
+            format={(v) => RAIL_SEARCH_FIELD_LABELS[v]}
+          />
+          <Note>
+            {railSearchField === "box"
+              ? "A bordered input, like every other field in the nav. Four sides is what people have learned to click \u2014 and this field also CREATES accounts, which is a promise worth stating loudly."
+              : "A rule under it and nothing else. The rail is a strip of account tiles with no containers in it, so the boxed field is the only outlined object on the surface and reads as a form control that wandered into a list. Same height and glyph, so nothing below moves."}
+          </Note>
+
+          <Segmented
             label="The shut search row shows"
             keywords="rail search glyph icon collapsed shut variant magnifier text scan filter funnel"
             options={RAIL_SEARCH_GLYPHS}
@@ -2401,7 +2426,7 @@ function NavStructureSection({
       />
       <Note>
         At 64px the row has no label, so the glyph is the whole affordance —
-        the tooltip reads &ldquo;View all recents&rdquo; in every case. Clock
+        the tooltip reads &ldquo;All products&rdquo; in every case. Clock
         names the list&rsquo;s contents and is the default; Ellipsis says
         &ldquo;there is more&rdquo; and nothing about what; List names the
         thing on the other side; the double chevron is the only one that says
@@ -4874,6 +4899,10 @@ export function TuningPanel() {
     setNavTourLearnIcon,
     setNavTourLearnOpens,
     setNavTourShadow,
+    navTourBorder,
+    setNavTourBorder,
+    navTourArrowGap,
+    setNavTourArrowGap,
     setNavTourLearnRow,
     navTourInEdit,
     setNavTourInEdit,
@@ -7586,6 +7615,34 @@ export function TuningPanel() {
             {navTourShadow === "original"
               ? "Each coach mark's own shadow, as it shipped."
               : "A 2-layer xl shadow (20px / 8px, 16% and 8%) plus a 2px drop shadow at 10%, on every coach mark."}
+          </Note>
+          <Segmented
+            label="Tour: border"
+            keywords="tour onboarding coach mark coachmark border stroke outline edge layer distinct contrast"
+            options={NAV_TOUR_BORDERS}
+            value={navTourBorder}
+            onChange={(v: NavTourBorder) => setNavTourBorder(v)}
+            format={(v) => NAV_TOUR_BORDER_LABELS[v]}
+          />
+          <Note>
+            {navTourBorder === "original"
+              ? "The gray 200 hairline the coach marks shipped with."
+              : `A ${navTourBorder === "strong" ? "gray 300" : "gray 400"} outline, arrow included, so the card reads as its own layer. Sidebar tours and Find and replace.`}
+          </Note>
+          <Segmented
+            label="Tour: arrow tip"
+            keywords="tour onboarding coach mark coachmark arrow tip pointer gap overlap tangent touch distance anchor"
+            options={NAV_TOUR_ARROW_GAPS}
+            value={navTourArrowGap}
+            onChange={(v: NavTourArrowGap) => setNavTourArrowGap(v)}
+            format={(v) => NAV_TOUR_ARROW_GAP_LABELS[v]}
+          />
+          <Note>
+            {navTourArrowGap === "touch"
+              ? "As shipped: the tip ends 3px off the target, right on the highlight ring's edge."
+              : navTourArrowGap === "overlap"
+                ? "The tip reaches 3px into the target, so it clearly points at it."
+                : "The tip stops 9px short of the target, clear of the highlight ring."}
           </Note>
 
           <Segmented

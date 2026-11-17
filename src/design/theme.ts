@@ -4161,6 +4161,38 @@ export const NAV_TOUR_SHADOW_LABELS: Record<NavTourShadow, string> = {
   strong: "Stronger",
 };
 
+/**
+ * The coach mark's outline, so it reads as its own layer over the page: the
+ * gray 200 hairline it shipped with, or one or two steps darker (gray 300,
+ * gray 400; gray 600 and 500 in dark mode). Sidebar tours and Find and
+ * replace; the Sub-account ready card is dark on a scrim and has none.
+ * Ashwin, Nov 17.
+ */
+export const NAV_TOUR_BORDERS = ["original", "strong", "stronger"] as const;
+export type NavTourBorder = (typeof NAV_TOUR_BORDERS)[number];
+
+export const NAV_TOUR_BORDER_LABELS: Record<NavTourBorder, string> = {
+  original: "Original",
+  strong: "Gray 300",
+  stronger: "Gray 400",
+};
+
+/**
+ * Where the arrow's tip lands against what it points at. Touching is how it
+ * shipped: the tip ends 3px off the target, on the edge of the highlight
+ * ring, a tangent that reads as a near miss. Overlap pushes the tip 3px into
+ * the target; Gap leaves 9px clear (6px past the ring). Sidebar tours only.
+ * Ashwin, Nov 17.
+ */
+export const NAV_TOUR_ARROW_GAPS = ["touch", "overlap", "gap"] as const;
+export type NavTourArrowGap = (typeof NAV_TOUR_ARROW_GAPS)[number];
+
+export const NAV_TOUR_ARROW_GAP_LABELS: Record<NavTourArrowGap, string> = {
+  touch: "Touching",
+  overlap: "Clear overlap",
+  gap: "Clear gap",
+};
+
 /** Where the rotating featured-product slot sits in the L1. See the featured-slot mock, Ashwin, Oct 29. */
 export const NAV_FEATURED_SLOTS = ["below", "top", "card", "list", "float", "off"] as const;
 export type NavFeaturedSlot = (typeof NAV_FEATURED_SLOTS)[number];
@@ -6967,6 +6999,35 @@ export const MANAGE_ACCOUNTS_LABEL = "Manage sub-accounts";
  */
 export const BULK_BUTTON_LABEL = "Apply layout";
 
+/**
+ * How the rail's account search is DRAWN. Ashwin, Nov 17.
+ *
+ *  box        A bordered input: hairline on all four sides, 9px corners.
+ *             What it ships as, and what every other field in the nav is.
+ *  underline  A rule under it and nothing else. The glyph, the placeholder
+ *             and a line — no box.
+ *
+ * The case for `underline`: the rail is a narrow strip of account tiles with
+ * no containers in it, and a boxed field is the only outlined object on the
+ * surface. It reads as a form control that wandered into a list. A rule says
+ * "type here" with one line instead of four, and the strip keeps looking
+ * like a strip.
+ *
+ * The case against, and why `box` stays the default: an underline is a
+ * weaker affordance, and this field is also the way you CREATE an account —
+ * "Find or create" is a promise a bare line makes quietly. Four sides is
+ * what people have learned to click.
+ *
+ * Geometry is identical either way — same 32px height, same glyph, same
+ * clear button — so the two can be swapped without the rows below moving.
+ */
+export const RAIL_SEARCH_FIELDS = ["box", "underline"] as const;
+export type RailSearchField = (typeof RAIL_SEARCH_FIELDS)[number];
+export const RAIL_SEARCH_FIELD_LABELS: Record<RailSearchField, string> = {
+  box: "Input box",
+  underline: "Inline, underlined",
+};
+
 export const RAIL_SEARCH_GLYPHS = [
   "text",
   "scan",
@@ -7258,6 +7319,10 @@ export interface ThemeState {
   navTourLearnOpens: NavTourLearnOpens;
   /** The coach marks' shadow. See NAV_TOUR_SHADOWS. */
   navTourShadow: NavTourShadow;
+  /** See NAV_TOUR_BORDERS. */
+  navTourBorder: NavTourBorder;
+  /** See NAV_TOUR_ARROW_GAPS. */
+  navTourArrowGap: NavTourArrowGap;
   /**
    * "Learn about Switchyard", a standing row under Settings that replays the
    * tours. It appears once any tour has been closed and stays — planned to
@@ -8011,6 +8076,8 @@ export interface ThemeState {
   railToolsCta: RailToolsCta;
   /** Which glyph the shut search row wears. See RAIL_SEARCH_GLYPHS. */
   railSearchGlyph: RailSearchGlyph;
+  /** How the rail's search is drawn. See RAIL_SEARCH_FIELDS. */
+  railSearchField: RailSearchField;
   /** How a pinned sub-account moves into the rail. See RAIL_PIN_MOTIONS. */
   railPinMotion: RailPinMotion;
   /** Where the rail offers account creation. See CREATE_ACCOUNT_SPOTS. */
@@ -8534,7 +8601,11 @@ export const DEFAULT_THEME: ThemeState = {
   navTourStartFlow: "getStarted",
   navTourLearnIcon: "compass",
   navTourLearnOpens: "replay",
-  navTourShadow: "original",
+  // Stronger by default, so the card reads as its own layer. Ashwin, Nov 17.
+  navTourShadow: "strong",
+  navTourBorder: "original",
+  // The tip reaches into the target rather than grazing it. Ashwin, Nov 17.
+  navTourArrowGap: "overlap",
   navTourLearnRow: true,
   navTourInEdit: false,
   navFeaturedSlot: "off",
@@ -8844,6 +8915,7 @@ export const DEFAULT_THEME: ThemeState = {
     them if the shut rail ever has to teach its own search.
   */
   railSearchGlyph: "divider",
+  railSearchField: "box",
   /*
     The arrival, not the slide. See RAIL_PIN_MOTIONS — Ashwin asked for this
     one on Oct 27, on the grounds that pinning is a change of KIND and the
@@ -9109,7 +9181,8 @@ export const DEFAULT_THEME: ThemeState = {
   railAvatars: "tinted",
   panelTabPlace: "row",
   panelTabStyle: "segmented",
-  panelOpenTab: "recent",
+  // The link is "All products" now, so the panel opens on that tab. Ashwin, Nov 17.
+  panelOpenTab: "directory",
   collapsedRail: "hide",
   directorySelect: "button",
   // Nothing (Sep 10): production's sidebar has no such control, and putting one

@@ -365,7 +365,9 @@ function MergedList({
    * rows than the link saves.
    */
   const sublabelled = mergedPinMark === "sublabel";
-  const viewAll = { label: "View all", onClick: onOpenPanel };
+  // "All products", not "View all": the panel it opens is where every product
+  // and the product search live, and that is what people come here for. Ashwin, Nov 17.
+  const viewAll = { label: "All products", onClick: onOpenPanel };
 
   return (
     /*
@@ -1332,10 +1334,10 @@ export function ViewAllLead({ onOpen }: { onOpen: () => void }) {
   const { collapsed } = useNavCollapse();
   const { railViewAll } = useTheme().effective;
   return (
-    <RailTooltip label="View all recents" show={collapsed}>
+    <RailTooltip label="All products" show={collapsed}>
       <button
         type="button"
-        aria-label="View all recents"
+        aria-label="All products"
         onClick={onOpen}
         data-nav-viewall-lead=""
         className="motion-tap -m-[4px] flex shrink-0 items-center justify-center rounded-[6px] p-[4px] text-nav-fg-muted hover:bg-nav-hover hover:text-nav-fg active:scale-95"
@@ -1360,11 +1362,11 @@ export function CollapsedViewAll({ onOpen }: { onOpen: () => void }) {
   const { collapsed } = useNavCollapse();
   const { railViewAll } = useTheme().effective;
   return (
-    <RailTooltip label="View all recents" show={collapsed}>
+    <RailTooltip label="All products" show={collapsed}>
       <button
         {...onlyProps(collapsed)}
         type="button"
-        aria-label="View all recents"
+        aria-label="All products"
         onClick={onOpen}
         className="motion-tap absolute inset-y-[1px] left-[2px] flex w-[var(--bar-tile,40px)] items-center justify-center rounded-[var(--t-nav-radius,7px)] text-nav-fg-muted hover:scale-105 hover:bg-nav-hover hover:text-nav-fg active:scale-95"
       >

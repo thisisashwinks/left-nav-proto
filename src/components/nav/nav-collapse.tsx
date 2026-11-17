@@ -203,7 +203,7 @@ function stackHead(nav: HTMLElement): Map<HTMLElement, number> {
   const cardBottom = restingBox(card, nav).y + restingBox(card, nav).h;
   const below = [
     ...nav.querySelectorAll<HTMLElement>(
-      '[aria-label="View all recents"], [data-nav-tile]',
+      '[aria-label="All products"], [data-nav-tile]',
     ),
   ]
     .map((el) => restingBox(el, nav))

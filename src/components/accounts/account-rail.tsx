@@ -583,6 +583,22 @@ function RailTools({
    * governing the two spots whose row is at an EDGE, where leaving it out
    * moves nothing. Ashwin, Oct 16.
    */
+  /*
+   * How the field is drawn — see RAIL_SEARCH_FIELDS.
+   *
+   * Read here rather than threaded from the four call sites like
+   * `searchGlyph` and the rest. Those are decisions ABOUT the tools row that
+   * its callers make differently (the top spot and the under-agency spot pass
+   * different layouts and different CTAs); this one is a property of the
+   * field itself, identical at every call site, and four more identical props
+   * is four more places for them to stop being identical.
+   *
+   * Above the early return, not beside the field it describes: a hook after
+   * a conditional return is a hook that runs in some renders and not others,
+   * which is the one thing React cannot survive.
+   */
+  const underlined = useTheme().effective.railSearchField === "underline";
+
   if (!expanded && !collapsedSearch && spot !== "underAgency") return null;
 
   /*
@@ -711,7 +727,21 @@ function RailTools({
           is defined per theme, so this follows dark and the tinted themes
           instead of pinning a light-mode grey. Ashwin, Oct 15.
         */
-        "motion-tap flex h-[32px] items-center gap-[8px] rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-seam)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]",
+        "motion-tap flex h-[32px] items-center gap-[8px]",
+        /*
+          Four sides, or one. The ring and the rule are the same token at the
+          same weight — only the number of edges differs, so the two variants
+          read as one control drawn two ways rather than two controls.
+
+          The underline keeps 2px of side padding instead of 9: the box's
+          padding exists to hold text off a border beside it, and with no
+          border there the glyph should start on the column the rows start
+          on. Height and gap are untouched, so nothing below it moves when
+          the axis does.
+        */
+        underlined
+          ? "px-[2px] shadow-[inset_0_-1px_0_0_var(--fly-seam)] focus-within:shadow-[inset_0_-1.5px_0_0_var(--brand)]"
+          : "rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-seam)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]",
         /*
           `flex-1` is a MAIN-axis instruction, and the two layouts do not
           agree on which axis that is.
