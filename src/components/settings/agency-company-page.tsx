@@ -6,6 +6,9 @@ import type { Account } from "@/components/accounts/accounts-data";
 import { cn } from "@/lib/utils";
 import { WhiteLabelTab } from "./white-label-tab";
 import { ProductionStubTab } from "./tab-production-stub";
+import { useBranding } from "@/components/branding/branding-provider";
+import { clearCompanyTabRequest, useCompanyTabRequest } from "@/components/branding/branding-entry";
+import { BrandingThemeSection } from "@/components/branding/customize-panel";
 
 /**
  * Agency › Settings › Company.
@@ -31,10 +34,39 @@ const TABS = [
   "Compliance",
 ] as const;
 
+type CompanyTab = (typeof TABS)[number] | "Branding";
+
 export function AgencyCompanyPage({ agency }: { agency: Account }) {
   // Opens on White label: it is the tab this page exists to show.
-  const [tab, setTab] = React.useState<(typeof TABS)[number]>("White label");
+  const [tab, setTab] = React.useState<CompanyTab>("White label");
   const { title: showTitle, description: showDesc } = usePageChrome();
+
+  /*
+   * Branding and theme (Nov 19), placed by proto.customizeTarget: a section
+   * under White label, or its own tab beside it. Any other target: neither.
+   */
+  const { proto } = useBranding();
+  const brandingTab = proto.customizeTarget === "branding-tab";
+  const brandingSection = proto.customizeTarget === "white-label-section";
+  const tabs: readonly CompanyTab[] = brandingTab
+    ? [TABS[0], TABS[1], "Branding", ...TABS.slice(2)]
+    : TABS;
+  const shownTab: CompanyTab = tab === "Branding" && !brandingTab ? "White label" : tab;
+
+  // "Customize theme" / "Logo, CSS, and more" land here on a named tab.
+  const req = useCompanyTabRequest();
+  React.useEffect(() => {
+    if (!req) return;
+    const want = req.tab === "Branding" && !brandingTab ? "White label" : (req.tab as CompanyTab);
+    setTab(want); // eslint-disable-line react-hooks/set-state-in-effect
+    const anchorId = req.anchorId;
+    clearCompanyTabRequest();
+    if (anchorId) {
+      requestAnimationFrame(() =>
+        document.getElementById(anchorId)?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      );
+    }
+  }, [req, brandingTab]);
 
   return (
     /*
@@ -73,15 +105,15 @@ export function AgencyCompanyPage({ agency }: { agency: Account }) {
             showTitle && "mt-[16px]",
           )}
         >
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <button
               key={t}
               type="button"
-              aria-current={t === tab ? "page" : undefined}
+              aria-current={t === shownTab ? "page" : undefined}
               onClick={() => setTab(t)}
               className={cn(
                 "motion-tap shrink-0 pb-[10px] text-[14px] leading-[20px] font-medium whitespace-nowrap",
-                t === tab
+                t === shownTab
                   ? "text-brand shadow-[inset_0_-2px_0_0_var(--brand)]"
                   : "text-pg-muted hover:text-pg-text",
               )}
@@ -93,10 +125,15 @@ export function AgencyCompanyPage({ agency }: { agency: Account }) {
       </header>
 
       <div className="pt-[16px]">
-        {tab === "White label" ? (
-          <WhiteLabelTab agency={agency} />
+        {shownTab === "White label" ? (
+          <>
+            <WhiteLabelTab agency={agency} />
+            {brandingSection ? <BrandingThemeSection /> : null}
+          </>
+        ) : shownTab === "Branding" ? (
+          <BrandingThemeSection asTab />
         ) : (
-          <ProductionStubTab label={tab} />
+          <ProductionStubTab label={shownTab} />
         )}
       </div>
     </div>

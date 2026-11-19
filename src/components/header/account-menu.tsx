@@ -10,6 +10,7 @@ import {
   LogIn,
   LogOut,
   Monitor,
+  Palette,
   QrCode,
   Search,
   Smartphone,
@@ -33,6 +34,7 @@ import {
 import { BADGE_TONE } from "@/components/flyout/types";
 import { useNavTourRestart } from "@/components/nav/nav-tour";
 import { NavTourFlowRows } from "@/components/nav/nav-tour-menu";
+import { useCustomizeEntry } from "@/components/branding/branding-entry";
 import type { FlyoutBadge } from "@/components/flyout/types";
 
 const WIDTH = 268;
@@ -178,6 +180,8 @@ export function AccountMenu({
           : undefined;
   const slidesBack = qrTransition === "slide" || qrTransition === "blendSlide";
   const { as, canLogInAs, logInAs, switchBack } = useImpersonation();
+  // Branding B's door, when the prototype puts it in this menu.
+  const customizeTheme = useCustomizeEntry("agency-menu");
   /*
    * The "Log in as" picker, open beside the menu. Its own portal, so the
    * away-click check has to count it as inside the menu — a click in the
@@ -358,6 +362,17 @@ export function AccountMenu({
           setPicking((open) => !open);
         }}
       />
+
+      {customizeTheme ? (
+        <Row
+          icon={Palette}
+          label="Customize theme"
+          onSelect={() => {
+            customizeTheme();
+            onClose();
+          }}
+        />
+      ) : null}
 
       {tourRow ? (
         <Row

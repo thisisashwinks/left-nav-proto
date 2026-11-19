@@ -4,6 +4,7 @@
 @import "../design/tokens.css";
 @import "../design/motion.css";
 @import "../design/ai.css";
+@import "../design/branding.css";
 
 @custom-variant dark (&:is(.dark *));
 

@@ -3,6 +3,8 @@
 import * as React from "react";
 import { accounts as allAccounts } from "@/components/accounts/accounts-data";
 import { useTheme } from "@/components/theme/theme-provider";
+import { useBranding, type BrandingContextValue } from "@/components/branding/branding-provider";
+import type { BrandingTheme } from "@/design/branding";
 import { SAAS_TIERS, type SaasTier } from "@/design/plans";
 import { accountsWithOwnArrangement } from "./account-nav-profiles";
 import { childById, LAUNCHED_SINCE, productById } from "./catalogue";
@@ -187,6 +189,8 @@ interface TemplatesValue {
     name: string,
     fromAccount: string,
     state: NavLayoutState,
+    /** Account id whose own theme the new layout captures (Nov 18 branding). */
+    themeFrom?: string,
   ) => NavTemplate | null;
   /**
    * Overwrites an existing template's arrangement, keeping its name and id.
@@ -201,6 +205,8 @@ interface TemplatesValue {
     id: string,
     fromAccount: string,
     state: NavLayoutState,
+    /** Account id whose own theme the layout captures (Nov 18 branding). */
+    themeFrom?: string,
   ) => NavTemplate | null;
   remove: (id: string) => void;
   /**
@@ -1419,7 +1425,7 @@ export function NavTemplatesProvider({
     templatesRef.current = templates;
   }, [templates]);
 
-  const save = React.useCallback(
+  const saveRaw = React.useCallback(
     (name: string, fromAccount: string, state: NavLayoutState) => {
       const trimmed = name.trim();
       if (trimmed === "") return null;
@@ -1460,7 +1466,7 @@ export function NavTemplatesProvider({
     [],
   );
 
-  const update = React.useCallback(
+  const updateRaw = React.useCallback(
     (id: string, fromAccount: string, state: NavLayoutState) => {
       const arrangement = captureArrangement(state);
       const before = templatesRef.current.find((t) => t.id === id);
@@ -1508,7 +1514,7 @@ export function NavTemplatesProvider({
     [],
   );
 
-  const remove = React.useCallback(
+  const removeRaw = React.useCallback(
     (id: string) => {
       setTemplates((all) =>
         all.filter((t) => t.id !== id || t.immutable === true),
@@ -1556,7 +1562,7 @@ export function NavTemplatesProvider({
     );
   }, []);
 
-  const link = React.useCallback(
+  const linkRaw = React.useCallback(
     (accountId: string, templateId: string, base: NavArrangement) =>
       /*
        * No version number on the link, deliberately.
@@ -1721,7 +1727,7 @@ export function NavTemplatesProvider({
     [links, templates],
   );
 
-  const duplicate = React.useCallback((id: string) => {
+  const duplicateRaw = React.useCallback((id: string) => {
     const from = templatesRef.current.find((t) => t.id === id);
     if (!from) return null;
     seq.current += 1;
@@ -1845,6 +1851,96 @@ export function NavTemplatesProvider({
      */
     return [...own, ...spread.list];
   }, [templates, templateSeed, spread.list]);
+
+  /*
+   * Layouts carry a theme (agency branding, Nov 18) — mirrored on the
+   * arrangement, with the layout flow itself untouched. Every verb below is the
+   * raw one plus one line of theme bookkeeping:
+   *
+   *   link       = apply: copies the layout's theme onto the account, if it has one
+   *   save/update with `themeFrom`: captures that account's own theme into it
+   *   duplicate  copies the theme; remove drops it
+   *
+   * `themesRef` is written synchronously on capture, not only from the store,
+   * because `saveTemplate` updates a layout and re-links every account on it in
+   * the same tick — those links must carry the theme that was just captured.
+   */
+  const branding = useBranding();
+  const themesRef = React.useRef<Record<string, BrandingTheme>>(branding.live.layoutThemes);
+  const overridesRef = React.useRef(branding.live.overrides);
+  // The store's setters, held so the verbs below stay stable while a colour is
+  // being dragged — otherwise every tick would re-render every layout consumer.
+  const writersRef = React.useRef(branding);
+  React.useEffect(() => {
+    themesRef.current = branding.live.layoutThemes;
+    overridesRef.current = branding.live.overrides;
+    writersRef.current = branding;
+  }, [branding]);
+  const setOverride = React.useCallback(
+    (...a: Parameters<BrandingContextValue["setOverride"]>) => writersRef.current.setOverride(...a),
+    [],
+  );
+  const setLayoutTheme = React.useCallback(
+    (...a: Parameters<BrandingContextValue["setLayoutTheme"]>) => writersRef.current.setLayoutTheme(...a),
+    [],
+  );
+
+  const captureTheme = React.useCallback(
+    (templateId: string, accountId: string | undefined) => {
+      if (!accountId || templateId === DEFAULT_TEMPLATE_ID) return;
+      // Agency-wide branding (default, Nov 19): layouts carry no theme.
+      if (writersRef.current.proto.saveTarget !== "layout") return;
+      const theme = overridesRef.current[accountId]?.theme;
+      if (!theme) return;
+      themesRef.current = { ...themesRef.current, [templateId]: theme };
+      setLayoutTheme(templateId, theme);
+    },
+    [setLayoutTheme],
+  );
+  const save = React.useCallback(
+    (name: string, fromAccount: string, state: NavLayoutState, themeFrom?: string) => {
+      const created = saveRaw(name, fromAccount, state);
+      if (created) captureTheme(created.id, themeFrom);
+      return created;
+    },
+    [saveRaw, captureTheme],
+  );
+  const update = React.useCallback(
+    (id: string, fromAccount: string, state: NavLayoutState, themeFrom?: string) => {
+      const after = updateRaw(id, fromAccount, state);
+      if (after) captureTheme(id, themeFrom);
+      return after;
+    },
+    [updateRaw, captureTheme],
+  );
+  const link = React.useCallback(
+    (accountId: string, templateId: string, base: NavArrangement) => {
+      linkRaw(accountId, templateId, base);
+      if (writersRef.current.proto.saveTarget !== "layout") return;
+      const theme = themesRef.current[templateId];
+      if (theme) setOverride(accountId, { theme });
+    },
+    [linkRaw, setOverride],
+  );
+  const duplicate = React.useCallback(
+    (id: string) => {
+      const copy = duplicateRaw(id);
+      const theme = themesRef.current[id];
+      if (copy && theme) {
+        themesRef.current = { ...themesRef.current, [copy.id]: theme };
+        setLayoutTheme(copy.id, theme);
+      }
+      return copy;
+    },
+    [duplicateRaw, setLayoutTheme],
+  );
+  const remove = React.useCallback(
+    (id: string) => {
+      removeRaw(id);
+      if (id !== DEFAULT_TEMPLATE_ID && themesRef.current[id]) setLayoutTheme(id, null);
+    },
+    [removeRaw, setLayoutTheme],
+  );
 
   const value = React.useMemo<TemplatesValue>(
     () => ({

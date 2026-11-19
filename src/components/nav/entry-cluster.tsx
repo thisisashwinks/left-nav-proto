@@ -33,6 +33,10 @@ import { useNavTemplates } from "./nav-templates";
 import { useTruncationTitle } from "@/lib/use-truncation-title";
 import { NavGenerationModal } from "./nav-generation-modal";
 import { useTheme } from "@/components/theme/theme-provider";
+import { useBrandingEditTool, useBrandingEditToolHidden } from "@/components/branding/branding-entry";
+import { useBranding } from "@/components/branding/branding-provider";
+import { EditSpeedDial, useEditSpeedDial } from "@/components/branding/edit-speed-dial";
+import { EDIT_LABEL_TEXT } from "@/design/branding";
 
 /**
  * Search and Ask AI together, directly under the logo.
@@ -352,6 +356,16 @@ function EditNavButton({
    */
   const modeRef = React.useRef<HTMLSpanElement>(null);
   const editButtonRef = React.useRef<HTMLButtonElement>(null);
+  /*
+   * Branding (Nov 19): the pill's label is a prototype control, and with the
+   * speed dial on, pressing it offers Edit layout / Customize theme instead
+   * of going straight into edit mode.
+   */
+  const brandingProto = useBranding().proto;
+  const speedDial = useEditSpeedDial();
+  const [dialAnchor, setDialAnchor] = React.useState<HTMLElement | null>(null);
+  const dialOpen = dialAnchor !== null;
+  const closeDial = React.useCallback(() => setDialAnchor(null), []);
   const exitIntent = React.useRef<"save" | "done" | "discard" | null>(null);
   const wasEditing = React.useRef(editing);
   React.useEffect(() => {
@@ -391,9 +405,19 @@ function EditNavButton({
   const themeCtx = useTheme();
   const { setAccountTheme } = themeCtx;
   const colourControl = themeCtx.effective.navColourControl;
+  // Agency branding (Nov 18): when on, the theme tool takes the colour slot.
+  const brandingTool = useBrandingEditTool();
+  const themeToolHidden = useBrandingEditToolHidden();
   const { navSwitchButton, darkMode } = themeCtx.effective;
   // The nav's width state — collapsed, the control is the bar's Edit tile.
   const { collapsed: barCollapsed } = useNavCollapse();
+  /*
+   * The label shows at all times, not only on hover or while a coachmark
+   * holds the pill open (Ashwin, Nov 19) — "Customize" as a bare pencil
+   * glyph after the tour said nothing. Not on the collapsed bar, which has no
+   * room for it and names the button in a tooltip instead.
+   */
+  const labelAlways = !barCollapsed;
   const navTheme =
     themeCtx.accountThemeFor(accountId).navTheme ?? themeCtx.effective.navTheme;
 
@@ -652,7 +676,20 @@ function EditNavButton({
             reachable from the prototype controls. `panel` puts the whole surface
             back on this icon for comparison.
           */}
-          {colourControl === "panel" ? (
+          {themeToolHidden ? null : brandingTool ? (
+            /*
+              Branding supersedes the per-account accent here: the agency's
+              theme already paints this sidebar, so a second colour control
+              on the same surface would fight it. The old control comes back
+              the moment branding's edit-mode door is switched off.
+            */
+            <EditTool
+              label={brandingTool.label}
+              short={brandingTool.short}
+              icon={Palette}
+              onOpen={brandingTool.onOpen}
+            />
+          ) : colourControl === "panel" ? (
             <EditTool
               label="Change the navigation's colours"
               short="Colours"
@@ -916,12 +953,20 @@ function EditNavButton({
       {navModalOpen ? (
         <NavGenerationModal onClose={() => setNavModalOpen(false)} />
       ) : null}
-    <RailTooltip label="Edit nav" show={barCollapsed}>
+    {dialAnchor ? (
+      <EditSpeedDial anchor={dialAnchor} onEditLayout={onStart} onClose={closeDial} />
+    ) : null}
+    <RailTooltip label={brandingProto.editLabel === "auto" ? "Edit nav" : EDIT_LABEL_TEXT[brandingProto.editLabel]} show={barCollapsed && !dialOpen}>
     <button
       type="button"
       ref={editButtonRef}
       aria-label="Edit navigation"
-      onClick={onStart}
+      aria-haspopup={speedDial ? "menu" : undefined}
+      aria-expanded={speedDial ? dialOpen : undefined}
+      onClick={speedDial ? (e) => {
+        const el = e.currentTarget;
+        setDialAnchor((a) => (a ? null : el));
+      } : onStart}
       data-revealed={revealed ? "" : undefined}
       className={cn(
         /*
@@ -1015,7 +1060,9 @@ function EditNavButton({
           has.
         */
         !editAlways &&
+          !labelAlways &&
           "opacity-0 group-hover/nav:opacity-100 focus-visible:opacity-100",
+        labelAlways && "justify-start gap-[6px] px-[8px]",
       )}
     >
       <SquarePen size={13} aria-hidden="true" className="shrink-0" />
@@ -1037,10 +1084,16 @@ function EditNavButton({
       */}
       <span
         aria-hidden="true"
-        className="grid grid-cols-[0fr] overflow-hidden transition-[grid-layout-columns] duration-[var(--dur-slow)] ease-[var(--ease-out)] group-hover/edit:grid-cols-[1fr] group-focus-visible/edit:grid-cols-[1fr] group-data-revealed/edit:grid-cols-[1fr]"
+        className={cn(
+          "grid grid-cols-[0fr] overflow-hidden transition-[grid-layout-columns] duration-[var(--dur-slow)] ease-[var(--ease-out)] group-hover/edit:grid-cols-[1fr] group-focus-visible/edit:grid-cols-[1fr] group-data-revealed/edit:grid-cols-[1fr]",
+          labelAlways && "grid-cols-[1fr]",
+        )}
       >
       <span
-        className="overflow-hidden text-[12px] leading-none font-medium whitespace-nowrap opacity-0 transition-opacity duration-[var(--dur-base)] ease-[var(--ease-out)] group-hover/edit:opacity-100 group-hover/edit:delay-[90ms] group-focus-visible/edit:opacity-100 group-data-revealed/edit:opacity-100"
+        className={cn(
+          "overflow-hidden text-[12px] leading-none font-medium whitespace-nowrap opacity-0 transition-opacity duration-[var(--dur-base)] ease-[var(--ease-out)] group-hover/edit:opacity-100 group-hover/edit:delay-[90ms] group-focus-visible/edit:opacity-100 group-data-revealed/edit:opacity-100",
+          labelAlways && "opacity-100",
+        )}
       >
         {/*
           The verb, at every tier.
@@ -1051,7 +1104,11 @@ function EditNavButton({
           tooltip says what to do about it. Three jobs, three elements — rather
           than one word doing all three and none of them well.
         */}
-        {strict ? "Edit" : "Edit nav"}
+        {brandingProto.editLabel === "auto"
+          ? strict
+            ? "Edit"
+            : "Edit nav"
+          : EDIT_LABEL_TEXT[brandingProto.editLabel]}
       </span>
       </span>
       {planLock ? (

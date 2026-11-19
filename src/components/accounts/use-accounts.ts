@@ -4,6 +4,8 @@ import * as React from "react";
 import { hashId } from "@/lib/account-color";
 import { useTheme } from "@/components/theme/theme-provider";
 import { applyBrand, useBrand } from "./brand-store";
+import { useBrandLogo } from "@/components/branding/branding-applier";
+import { guardNavigation } from "@/components/shell/navigation-guard";
 import {
   accounts as allAccounts,
   agency,
@@ -258,6 +260,8 @@ export function useAccounts({
    * knowing uploads exist.
    */
   const { uploads } = useBrand();
+  // Agency branding's logo (light/dark by surface) wins; uploads are the fallback.
+  const brandLogo = useBrandLogo();
   /** Accounts made in this session, oldest first. */
   const [created, setCreated] = React.useState<readonly Account[]>([]);
   const branded = React.useMemo(() => {
@@ -266,12 +270,12 @@ export function useAccounts({
       : allAccounts;
     // A member made nothing, so only the agency's session carries new ones.
     return [...visible, ...(scopeToMember ? [] : created)].map((a) =>
-      applyBrand(a, uploads),
+      brandLogo(applyBrand(a, uploads)),
     );
-  }, [uploads, scopeToMember, created]);
+  }, [uploads, scopeToMember, created, brandLogo]);
   const brandedAgency = React.useMemo(
-    () => applyBrand(agency, uploads),
-    [uploads],
+    () => brandLogo(applyBrand(agency, uploads)),
+    [uploads, brandLogo],
   );
 
   const current = branded.find((a) => a.id === currentId) ?? branded[0];
@@ -308,7 +312,7 @@ export function useAccounts({
     [cancel],
   );
 
-  const switchTo = React.useCallback(
+  const switchToNow = React.useCallback(
     (id: string) => {
       const target = branded.find((a) => a.id === id);
       if (!target) return;
@@ -414,6 +418,12 @@ export function useAccounts({
       pinnedIds,
       openedIds,
     ],
+  );
+  // Through the shell's leave-guard: a switch unmounts whatever page holds
+  // unsaved work (Settings › Branding), so it asks first. See navigation-guard.
+  const switchTo = React.useCallback(
+    (id: string) => guardNavigation(() => switchToNow(id)),
+    [switchToNow],
   );
 
   const finishFirstOpen = React.useCallback(() => setFirstOpen(null), []);

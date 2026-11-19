@@ -171,6 +171,8 @@ import type { NavDensity } from "./use-nav-density";
 import { NavSectionLabel } from "./nav-section-label";
 import { NavRowsSkeleton } from "@/components/shell/switching";
 import { NavAppearance } from "./nav-appearance";
+import { useThemeSessionPending } from "@/components/branding/edit-session-theme";
+import { useBranding } from "@/components/branding/branding-provider";
 import { Monitor, Search, Smartphone, type LucideIcon } from "lucide-react";
 import { LEARN_FLYOUT_ID, LEARN_ICONS, LEARN_NAV_LABEL } from "@/components/flyout/learn-flyout";
 import {
@@ -753,6 +755,13 @@ export function LeftNav({
   const layout = useNavLayout();
   const agencyLayout = useAgencyLayout();
   const templates = useNavTemplates();
+  // The edit-mode palette changed the theme this session (branding, Nov 18):
+  // that is something to save or discard, same as a moved row.
+  const themePending = useThemeSessionPending();
+  // Only when themes ride on layouts does a theme change ask "which layout"
+  // (Nov 19). Agency-wide (default), it is saved with the session as is.
+  const brandingSaveTarget = useBranding().proto.saveTarget;
+  const themeLayoutPending = themePending && brandingSaveTarget === "layout";
 
   /**
    * Put a template on this account, and record that it is on it.
@@ -890,7 +899,7 @@ export function LeftNav({
    */
   const saveTemplate = (id: string) => {
     const before = templates.templates.find((t) => t.id === id);
-    const tpl = templates.update(id, account.name, state);
+    const tpl = templates.update(id, account.name, state, account.id);
     if (!tpl || !before) return;
     // Same: a save captures this account's own arrangement back onto the
     // template it is already on.
@@ -1210,6 +1219,7 @@ export function LeftNav({
    * the fix to one arrangement would be fixing it for the wrong account.
    * Ashwin, Nov 16.
    */
+  /** Promos wait for onboarding to close. See PROMO_GATES. */
   const columnSearch = treeSearchPlace === "logo" || treeSearchPlace === "toggle";
   const treeSearchShown =
     !agencyScope &&
@@ -3167,11 +3177,13 @@ export function LeftNav({
       ? {
           ...(planLock ? { planLock } : {}),
           editing,
-          dirty: agencyScope
-            ? agencyLayout.dirty
-            : templates.strict
-              ? strictDirty
-              : layout.editDirty,
+          dirty:
+            themePending ||
+            (agencyScope
+              ? agencyLayout.dirty
+              : templates.strict
+                ? strictDirty
+                : layout.editDirty),
           // The agency tree has no categories to leave empty — its buckets are
           // platform IA and always have contents.
           blocked:
@@ -3260,7 +3272,7 @@ export function LeftNav({
           // the link the menu would only ever offer Create again, which is how
           // an agency ends up with four copies of one nav.
           onCreateTemplate: (name: string) => {
-            const tpl = templates.save(name, account.name, state);
+            const tpl = templates.save(name, account.name, state, account.id);
             if (!tpl) return;
             // Silent: the arrangement came FROM here, so nothing moved and
             // there is nothing to undo. See applyArrangement.
@@ -3277,7 +3289,7 @@ export function LeftNav({
             templates.notify(`${tpl.name} navigation layout saved.`);
           },
           onUpdateTemplate: saveTemplate,
-          templateDirty,
+          templateDirty: templateDirty || themeLayoutPending,
           onDuplicateTemplate: (id: string) => {
             const copy = templates.duplicate(id);
             if (copy) templates.notify(`Duplicated as ${copy.name}`);
@@ -3322,7 +3334,10 @@ export function LeftNav({
              * nobody moved is not a save, and a naming dialog there would be a
              * question about a decision nobody made.
              */
-            if (templates.strict && !agencyScope && strictDirty) {
+            // A theme picked in the edit-mode palette is part of this session's
+            // layout too, so it goes through the same "which layout" question
+            // rather than saving silently (Ashwin, Nov 18).
+            if (templates.strict && !agencyScope && (strictDirty || themeLayoutPending)) {
               closeEditSurfaces();
               setSavingTemplate(true);
               return;
@@ -3345,7 +3360,7 @@ export function LeftNav({
           onDiscard: () => {
             // Nothing changed, nothing to warn about — the confirmation only
             // earns its interruption when there is work to lose.
-            if (!layout.editDirty && !agencyLayout.dirty) {
+            if (!layout.editDirty && !agencyLayout.dirty && !themePending) {
               closeEditSurfaces();
               layout.discardEditing();
               agencyLayout.discard();
@@ -5089,6 +5104,25 @@ export function LeftNav({
    * it, faded, so the eye can bring it back.
    */
   const withPromo = (list: readonly NavEntry[]): readonly NavEntry[] => {
+    /*
+      NOT held while onboarding runs, unlike every other promo surface.
+      Ashwin, Nov 18: "have the holiday promos option in L1 category options
+      as is. That would stay."
+
+      The exception is about what the thing IS. Everything the gate takes
+      away is an advertisement wearing its own shape — a card, a floating
+      panel, a slot at the foot of an L2 — and each one competes with the
+      coach mark for the same glance. This is a nav ROW: it sits in the
+      category list, at the same height and in the same ink as Dashboard
+      above it, and reads as somewhere the account can go rather than as
+      something being sold. A tour of the navigation can point at a row.
+
+      It also keeps the list honest. Get started walks the reader through
+      the categories; hiding one of them for the length of the tour and
+      restoring it afterwards would teach a sidebar that is not the sidebar
+      they will have. The promos CARD is still held — see the featured
+      provider — so under `cardRow` the loud half goes and the row stays.
+    */
     if (navPromoPlacement !== "cardRow" && navPromoPlacement !== "locked") return list;
     if (navPromoPlacement === "cardRow" && promoHidden && !editing) return list;
     const at = navPromoPlacement === "locked" ? 0 : promoIndex;
@@ -6253,7 +6287,7 @@ export function LeftNav({
               */}
               {learnRow && !searchOnly ? (
                 editing || navTourLearnOpens !== "l2" ? (
-                  <div inert={editing || undefined} className={cn(editing && "opacity-60")}>
+                  <div inert={editing || undefined} className={cn("w-full", editing && "opacity-60")}>
                     <NavItemRow item={learnItem} onSelect={replayNavTours} bar="fade" />
                   </div>
                 ) : (
@@ -6465,11 +6499,11 @@ export function LeftNav({
           anchor={templatesAt}
           accountId={account.id}
           onCreate={(name) => {
-            const tpl = templates.save(name, account.name, state);
+            const tpl = templates.save(name, account.name, state, account.id);
             if (tpl) putOnAccount(tpl);
             setTemplatesAt(null);
           }}
-          dirty={templateDirty}
+          dirty={templateDirty || themeLayoutPending}
           onUpdate={(id) => {
             saveTemplate(id);
             setTemplatesAt(null);
@@ -6763,9 +6797,9 @@ export function LeftNav({
         <TemplateSaveDialog
           accountName={account.name}
           linked={savableTemplate}
-          templateDirty={templateDirty}
+          templateDirty={templateDirty || themeLayoutPending}
           onCreate={(name) => {
-            const tpl = templates.save(name, account.name, state);
+            const tpl = templates.save(name, account.name, state, account.id);
             if (!tpl) return;
             putOnAccount(tpl, { silent: true });
             /*
@@ -6806,7 +6840,7 @@ export function LeftNav({
              * front of you is the thing replacing it.
              */
             const stashed = layout.stashedOwnLayout;
-            if (stashed) templates.save(name, account.name, stashed);
+            if (stashed) templates.save(name, account.name, stashed, account.id);
             setKeepingOldLayout(null);
             layout.adoptDefaultLayout();
             layout.saveEditing();

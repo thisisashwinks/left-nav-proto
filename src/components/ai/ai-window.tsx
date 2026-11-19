@@ -325,6 +325,9 @@ export function AiWindow({
   return (
     <div
       data-nav-theme={theme}
+      // Agency branding stops at the chrome; Ask AI keeps its own palette.
+      // See design/branding.css.
+      data-brand-skip=""
       // pointer-events gate: floating gets a click-away layer; docked leaves
       // the whole page interactive with only the panel itself catching input.
       className="pointer-events-none absolute inset-0 z-40"

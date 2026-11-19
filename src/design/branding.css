@@ -1,0 +1,401 @@
+/*
+ * Agency branding on the chrome (Nov 18).
+ *
+ * BrandingApplier (components/branding/branding-applier.tsx) writes the derived
+ * chrome to <html> as `--brd-<palette>-<key>` and sets `data-branding="on"`.
+ * Nothing here matches without that attribute, so an unbranded prototype —
+ * the HighRise default theme — renders exactly as before.
+ *
+ * Three steps:
+ *
+ *   1. REGIONS pick a palette. `--bc-*` ("branding, current") is set on the
+ *      element that starts a region and inherits down: the nav column takes
+ *      the sidebar, the rail and its directory take the rail, and everything
+ *      else — the L2 panel, L3 cascades, row menus, pickers, all portalled to
+ *      <body> — falls back to the sidebar's FLYOUT palette declared on <html>.
+ *
+ *   2. MAPPING re-points the existing nav tokens at `--bc-*`, on every element
+ *      that carries `data-nav-theme`. It has to be ON those elements: tokens.css
+ *      declares the nav family on the element wearing the attribute, and an
+ *      ancestor's value always loses to the element's own (the reason the navy
+ *      dark pairs `[data-nav-dark] [data-nav-theme]`). `!important` is what
+ *      settles the rest: the same tokens are re-declared by the plane, the
+ *      tint, the ink and the selected-fill variants at 0-2-0 to 0-3-0, plus an
+ *      inline `--pg-bg` on the plane. Branding wins on the chrome over all of
+ *      them — including the older per-account accent (`[data-accent]`) — and
+ *      never reaches the canvas: `--brand` is only re-pointed INSIDE chrome
+ *      scopes, so the page's primary button keeps the platform blue.
+ *
+ *   3. GROUNDS. On the plane the rail, sidebar and bar are transparent over
+ *      the page grey, so the branded surfaces have to be painted explicitly.
+ *
+ * Skipped: full-screen modal wrappers (`.fixed.inset-0`, they float over the
+ * page and are not chrome) and anything marked `data-brand-skip` (the Ask AI
+ * window, which keeps its own palette by design — see `--ai-base`).
+ */
+
+/* ─── 1. Regions ───────────────────────────────────────────────────────── */
+
+:root[data-branding="on"] {
+  --bc-bg: var(--brd-sidebar-fly-bg);
+  --bc-fg: var(--brd-sidebar-fly-fg);
+  --bc-muted: var(--brd-sidebar-fly-muted);
+  --bc-subtle: var(--brd-sidebar-fly-subtle);
+  --bc-hover: var(--brd-sidebar-fly-hover);
+  --bc-active: var(--brd-sidebar-fly-active);
+  --bc-line: var(--brd-sidebar-fly-line);
+  --bc-dash: var(--brd-sidebar-fly-dash);
+  --bc-seam: var(--brd-sidebar-fly-seam);
+  --bc-sel-bg: var(--brd-sidebar-fly-sel-bg);
+  --bc-sel-fg: var(--brd-sidebar-fly-sel-fg);
+  --bc-sel-fg-muted: var(--brd-sidebar-fly-sel-fg-muted);
+  --bc-sel-fg-subtle: var(--brd-sidebar-fly-sel-fg-subtle);
+  --bc-indicator: var(--brd-sidebar-fly-indicator);
+  --bc-button-bg: var(--brd-sidebar-fly-button-bg);
+  --bc-button-fg: var(--brd-sidebar-fly-button-fg);
+  --bc-button-hover: var(--brd-sidebar-fly-button-hover);
+  --bc-tooltip-bg: var(--brd-sidebar-fly-tooltip-bg);
+  --bc-tooltip-fg: var(--brd-sidebar-fly-tooltip-fg);
+  --bc-raise: var(--brd-sidebar-fly-raise);
+  --bc-key-bg: var(--brd-sidebar-fly-key-bg);
+  --bc-scrollbar: var(--brd-sidebar-fly-scrollbar);
+  --bc-scrollbar-hover: var(--brd-sidebar-fly-scrollbar-hover);
+  --bc-entry-border: var(--brd-sidebar-fly-entry-border);
+  --bc-soft: var(--brd-sidebar-fly-soft);
+  --bc-soft-2: var(--brd-sidebar-fly-soft-2);
+  --bc-strong: var(--brd-sidebar-fly-strong);
+  --bc-shadow: var(--brd-sidebar-fly-shadow);
+  --bc-card-bg: var(--brd-sidebar-fly-card-bg);
+  --bc-tile-bg: var(--brd-sidebar-fly-tile-bg);
+  --bc-highlight: var(--brd-sidebar-fly-highlight);
+  --bc-ai-icon: var(--brd-sidebar-fly-ai-icon);
+  --bc-ai-fg: var(--brd-sidebar-fly-ai-fg);
+}
+
+:root[data-branding="on"] [data-nav-column] {
+  --bc-bg: var(--brd-sidebar-bg);
+  --bc-fg: var(--brd-sidebar-fg);
+  --bc-muted: var(--brd-sidebar-muted);
+  --bc-subtle: var(--brd-sidebar-subtle);
+  --bc-hover: var(--brd-sidebar-hover);
+  --bc-active: var(--brd-sidebar-active);
+  --bc-line: var(--brd-sidebar-line);
+  --bc-dash: var(--brd-sidebar-dash);
+  --bc-seam: var(--brd-sidebar-seam);
+  --bc-sel-bg: var(--brd-sidebar-sel-bg);
+  --bc-sel-fg: var(--brd-sidebar-sel-fg);
+  --bc-sel-fg-muted: var(--brd-sidebar-sel-fg-muted);
+  --bc-sel-fg-subtle: var(--brd-sidebar-sel-fg-subtle);
+  --bc-indicator: var(--brd-sidebar-indicator);
+  --bc-button-bg: var(--brd-sidebar-button-bg);
+  --bc-button-fg: var(--brd-sidebar-button-fg);
+  --bc-button-hover: var(--brd-sidebar-button-hover);
+  --bc-tooltip-bg: var(--brd-sidebar-tooltip-bg);
+  --bc-tooltip-fg: var(--brd-sidebar-tooltip-fg);
+  --bc-raise: var(--brd-sidebar-raise);
+  --bc-key-bg: var(--brd-sidebar-key-bg);
+  --bc-scrollbar: var(--brd-sidebar-scrollbar);
+  --bc-scrollbar-hover: var(--brd-sidebar-scrollbar-hover);
+  --bc-entry-border: var(--brd-sidebar-entry-border);
+  --bc-soft: var(--brd-sidebar-soft);
+  --bc-soft-2: var(--brd-sidebar-soft-2);
+  --bc-strong: var(--brd-sidebar-strong);
+  --bc-shadow: var(--brd-sidebar-shadow);
+  --bc-card-bg: var(--brd-sidebar-card-bg);
+  --bc-tile-bg: var(--brd-sidebar-tile-bg);
+  --bc-highlight: var(--brd-sidebar-highlight);
+  --bc-ai-icon: var(--brd-sidebar-ai-icon);
+  --bc-ai-fg: var(--brd-sidebar-ai-fg);
+}
+
+:root[data-branding="on"] [data-account-rail],
+:root[data-branding="on"] [data-nav-column] [role="dialog"][aria-label="Accounts"] {
+  --bc-bg: var(--brd-rail-bg);
+  --bc-fg: var(--brd-rail-fg);
+  --bc-muted: var(--brd-rail-muted);
+  --bc-subtle: var(--brd-rail-subtle);
+  --bc-hover: var(--brd-rail-hover);
+  --bc-active: var(--brd-rail-active);
+  --bc-line: var(--brd-rail-line);
+  --bc-dash: var(--brd-rail-dash);
+  --bc-seam: var(--brd-rail-seam);
+  --bc-sel-bg: var(--brd-rail-sel-bg);
+  --bc-sel-fg: var(--brd-rail-sel-fg);
+  --bc-sel-fg-muted: var(--brd-rail-sel-fg-muted);
+  --bc-sel-fg-subtle: var(--brd-rail-sel-fg-subtle);
+  --bc-indicator: var(--brd-rail-indicator);
+  --bc-button-bg: var(--brd-rail-button-bg);
+  --bc-button-fg: var(--brd-rail-button-fg);
+  --bc-button-hover: var(--brd-rail-button-hover);
+  --bc-tooltip-bg: var(--brd-rail-tooltip-bg);
+  --bc-tooltip-fg: var(--brd-rail-tooltip-fg);
+  --bc-raise: var(--brd-rail-raise);
+  --bc-key-bg: var(--brd-rail-key-bg);
+  --bc-scrollbar: var(--brd-rail-scrollbar);
+  --bc-scrollbar-hover: var(--brd-rail-scrollbar-hover);
+  --bc-entry-border: var(--brd-rail-entry-border);
+  --bc-soft: var(--brd-rail-soft);
+  --bc-soft-2: var(--brd-rail-soft-2);
+  --bc-strong: var(--brd-rail-strong);
+  --bc-shadow: var(--brd-rail-shadow);
+  --bc-card-bg: var(--brd-rail-card-bg);
+  --bc-tile-bg: var(--brd-rail-tile-bg);
+  --bc-highlight: var(--brd-rail-highlight);
+  --bc-ai-icon: var(--brd-rail-ai-icon);
+  --bc-ai-fg: var(--brd-rail-ai-fg);
+}
+
+:root[data-branding="on"] [data-nav-theme][aria-label="Switch sub-account"] {
+  --bc-bg: var(--brd-rail-fly-bg);
+  --bc-fg: var(--brd-rail-fly-fg);
+  --bc-muted: var(--brd-rail-fly-muted);
+  --bc-subtle: var(--brd-rail-fly-subtle);
+  --bc-hover: var(--brd-rail-fly-hover);
+  --bc-active: var(--brd-rail-fly-active);
+  --bc-line: var(--brd-rail-fly-line);
+  --bc-dash: var(--brd-rail-fly-dash);
+  --bc-seam: var(--brd-rail-fly-seam);
+  --bc-sel-bg: var(--brd-rail-fly-sel-bg);
+  --bc-sel-fg: var(--brd-rail-fly-sel-fg);
+  --bc-sel-fg-muted: var(--brd-rail-fly-sel-fg-muted);
+  --bc-sel-fg-subtle: var(--brd-rail-fly-sel-fg-subtle);
+  --bc-indicator: var(--brd-rail-fly-indicator);
+  --bc-button-bg: var(--brd-rail-fly-button-bg);
+  --bc-button-fg: var(--brd-rail-fly-button-fg);
+  --bc-button-hover: var(--brd-rail-fly-button-hover);
+  --bc-tooltip-bg: var(--brd-rail-fly-tooltip-bg);
+  --bc-tooltip-fg: var(--brd-rail-fly-tooltip-fg);
+  --bc-raise: var(--brd-rail-fly-raise);
+  --bc-key-bg: var(--brd-rail-fly-key-bg);
+  --bc-scrollbar: var(--brd-rail-fly-scrollbar);
+  --bc-scrollbar-hover: var(--brd-rail-fly-scrollbar-hover);
+  --bc-entry-border: var(--brd-rail-fly-entry-border);
+  --bc-soft: var(--brd-rail-fly-soft);
+  --bc-soft-2: var(--brd-rail-fly-soft-2);
+  --bc-strong: var(--brd-rail-fly-strong);
+  --bc-shadow: var(--brd-rail-fly-shadow);
+  --bc-card-bg: var(--brd-rail-fly-card-bg);
+  --bc-tile-bg: var(--brd-rail-fly-tile-bg);
+  --bc-highlight: var(--brd-rail-fly-highlight);
+  --bc-ai-icon: var(--brd-rail-fly-ai-icon);
+  --bc-ai-fg: var(--brd-rail-fly-ai-fg);
+}
+
+/* ─── 2. Mapping: nav family ───────────────────────────────────────────── */
+
+:root[data-branding="on"] :is(
+  [data-nav-theme]:not(.fixed.inset-0):not([data-brand-skip]),
+  [data-chrome-plane],
+  [data-account-rail],
+  [data-nav-column] [role="dialog"][aria-label="Accounts"]
+) {
+  --nav-bg: var(--bc-bg) !important;
+  /* Panels that sit on the plane paint `bg-pg` — "the ground the nav is on".
+     Branded, that ground is the surface. Only inside chrome scopes. */
+  --pg-bg: var(--bc-bg) !important;
+  --nav-border: var(--bc-line) !important;
+  --nav-divider: var(--bc-line) !important;
+  --nav-field-border: var(--bc-line) !important;
+  --nav-edit-ring: var(--bc-dash) !important;
+  --nav-fg: var(--bc-fg) !important;
+  --nav-fg-muted: var(--bc-muted) !important;
+  --nav-fg-subtle: var(--bc-subtle) !important;
+  --nav-pin-ink: var(--bc-subtle) !important;
+  --nav-hover: var(--bc-hover) !important;
+  --nav-active: var(--bc-active) !important;
+  --nav-selected: var(--bc-sel-bg) !important;
+  /* Rings and the lift belong to the grey plane; the tinted fill carries it. */
+  --nav-hover-ring: transparent !important;
+  --nav-selected-ring: transparent !important;
+  --nav-selected-shadow: 0 0 #0000 !important;
+  --nav-sel-fg: var(--bc-sel-fg) !important;
+  --nav-sel-fg-muted: var(--bc-sel-fg-muted) !important;
+  --nav-sel-fg-subtle: var(--bc-sel-fg-subtle) !important;
+  --nav-sel-bar: var(--bc-indicator) !important;
+  --nav-key-bg: var(--bc-key-bg) !important;
+  --nav-key-border: var(--bc-line) !important;
+  --nav-key-fg: var(--bc-muted) !important;
+  --nav-highlight: var(--bc-highlight) !important;
+  --nav-scrollbar: var(--bc-scrollbar) !important;
+  --nav-scrollbar-hover: var(--bc-scrollbar-hover) !important;
+  --nav-raise: var(--bc-raise) !important;
+  --nav-ai-icon: var(--bc-ai-icon) !important;
+  --nav-ai-fg: var(--bc-ai-fg) !important;
+
+  /* The rail's own family always reads the RAIL palette, wherever it is drawn
+     (the strip, its hover peek, the directory that fills the sidebar). */
+  --nav-rail-bg: var(--brd-rail-bg) !important;
+  --nav-rail-border: var(--brd-rail-line) !important;
+  --nav-rail-hi: var(--brd-rail-active) !important;
+  --nav-rail-hover: var(--brd-rail-hover) !important;
+  --nav-rail-disc: var(--brd-rail-active) !important;
+
+  /* L2 / L3 panels. */
+  --fly-border: var(--bc-line) !important;
+  --fly-seam: var(--bc-seam) !important;
+  --fly-shadow: var(--bc-shadow) !important;
+  --fly-card-bg: var(--bc-card-bg) !important;
+  --fly-tile-bg: var(--bc-tile-bg) !important;
+  --fly-badge-bg: var(--bc-soft) !important;
+  --fly-badge-fg: var(--bc-strong) !important;
+
+  /* The AI dock's grounds are grey by design; on a coloured surface "grey" is
+     the surface's own hover/press, so the purple still has something to sit on. */
+  --ai-soft-from: var(--bc-hover) !important;
+  --ai-soft-to: var(--bc-active) !important;
+  --ai-border: var(--bc-line) !important;
+
+  /* The accent, inside the chrome only: focus rings, carets, the Launchpad
+     meter, the pinned-overflow badge. */
+  --brand-base: var(--bc-indicator) !important;
+  --brand: var(--bc-indicator) !important;
+  --brand-strong: var(--bc-strong) !important;
+  --brand-soft: var(--bc-soft) !important;
+  --brand-soft-2: var(--bc-soft-2) !important;
+  --brand-fg: var(--bc-button-fg) !important;
+  /* A few nav pieces read the raw HighRise ramp instead of --brand (the
+     featured slot's ink and dot, its tile). Inside the chrome that ramp IS the
+     agency's now, or they print platform blue on a purple sidebar. */
+  --hr-primary-50: var(--bc-soft) !important;
+  --hr-primary-100: var(--bc-soft) !important;
+  --hr-primary-200: var(--bc-soft-2) !important;
+  --hr-primary-300: var(--bc-indicator) !important;
+  --hr-primary-600: var(--bc-indicator) !important;
+  --hr-primary-700: var(--bc-strong) !important;
+
+  /* Chrome buttons: edit-mode Done / Save layout, rail bulk actions. */
+  --admin-action: var(--bc-button-bg) !important;
+  --admin-action-hover: var(--bc-button-hover) !important;
+  --admin-action-fg: var(--bc-button-fg) !important;
+
+  /* Featured product cards in the sidebar (featured-slot.tsx): white by
+     default, which under a branded sidebar left their title — in the
+     sidebar's ink — white on white (Nov 19). A raised card on the surface. */
+  --feat-card-bg: var(--bc-raise) !important;
+  --feat-card-border: var(--bc-line) !important;
+  --feat-card-border-hover: var(--bc-entry-border) !important;
+  --feat-btn-hover: var(--bc-hover) !important;
+  --feat-btn-fg: var(--bc-subtle) !important;
+  --feat-btn-fg-hover: var(--bc-fg) !important;
+}
+
+/* ─── 2b. Mapping: top bar ─────────────────────────────────────────────── */
+
+/* Every [data-header-theme]: the bar, its row, and the menus it portals. */
+:root[data-branding="on"] [data-header-theme] {
+  --hdr-bg: var(--brd-topbar-bg) !important;
+  --hdr-border: var(--brd-topbar-line) !important;
+  --hdr-entry-border: var(--brd-topbar-entry-border) !important;
+  --hdr-fg: var(--brd-topbar-fg) !important;
+  --hdr-fg-muted: var(--brd-topbar-muted) !important;
+  --hdr-chip-bg: var(--brd-topbar-hover) !important;
+  --hdr-crumb-leaf-bg: var(--brd-topbar-raise) !important;
+  --hdr-icon-neutral-bg: var(--brd-topbar-active) !important;
+  --brand-base: var(--brd-topbar-indicator) !important;
+  --brand: var(--brd-topbar-indicator) !important;
+  --brand-strong: var(--brd-topbar-strong) !important;
+  --brand-soft: var(--brd-topbar-soft) !important;
+  --brand-soft-2: var(--brd-topbar-soft-2) !important;
+  --brand-fg: var(--brd-topbar-button-fg) !important;
+  --admin-action: var(--brd-topbar-button-bg) !important;
+  --admin-action-hover: var(--brd-topbar-button-hover) !important;
+  --admin-action-fg: var(--brd-topbar-button-fg) !important;
+  /* Search field and nav-family controls the bar can host (entry pill). */
+  --nav-fg: var(--brd-topbar-fg) !important;
+  --nav-fg-muted: var(--brd-topbar-muted) !important;
+  --nav-fg-subtle: var(--brd-topbar-subtle) !important;
+  --nav-hover: var(--brd-topbar-hover) !important;
+  --nav-divider: var(--brd-topbar-line) !important;
+  /* Ask AI keeps its violet, lifted on a dark bar so the label still reads. */
+  --nav-ai-icon: var(--brd-topbar-ai-icon) !important;
+  --nav-ai-fg: var(--brd-topbar-ai-fg) !important;
+  --ai-btn-fg: var(--brd-topbar-ai-fg) !important;
+}
+
+/* ─── 3. Grounds ───────────────────────────────────────────────────────── */
+
+/* The sidebar's column: card or plane, it is the sidebar colour now. */
+:root[data-branding="on"] [data-nav-column] {
+  background-color: var(--brd-sidebar-bg) !important;
+}
+
+/* The rail strip, at rest as well as widened (at rest it is normally bare
+   tiles on the column). */
+:root[data-branding="on"] [data-account-rail] {
+  background-color: var(--brd-rail-bg) !important;
+}
+
+/* The current account's tile: the surface's selected fill, ringed in the
+   accent. `aria-current` is only set on the selected tile (never on a
+   checkbox tile in bulk select). */
+:root[data-branding="on"] [data-account-rail] button[aria-current="true"] {
+  background-color: var(--brd-rail-sel-bg) !important;
+  box-shadow: inset 0 0 0 1.5px var(--brd-rail-indicator) !important;
+}
+
+/* The bar's row. On the plane the bar is transparent, so the row paints it;
+   inside the joined card the bar paints `--hdr-bg` itself. */
+:root[data-branding="on"] [data-page-column] > [data-header-theme] {
+  background-color: var(--brd-topbar-bg) !important;
+}
+
+/* On the plane the bar sits one canvas gap below the window's top edge AND
+   one gap right of the sidebar. Carry its colour up and left through both
+   gaps (and the corner where they meet) rather than leave a page-grey seam
+   between a branded sidebar and a branded bar (Nov 19). */
+:root[data-branding="on"] [data-page-column]:not([data-shell-joined]) > [data-header-theme] {
+  box-shadow:
+    0 calc(-1 * var(--shell-canvas-gap)) 0 0 var(--brd-topbar-bg),
+    calc(-1 * var(--shell-canvas-gap)) 0 0 0 var(--brd-topbar-bg),
+    calc(-1 * var(--shell-canvas-gap)) calc(-1 * var(--shell-canvas-gap)) 0 0 var(--brd-topbar-bg);
+}
+
+/* ─── Tooltips ─────────────────────────────────────────────────────────── */
+
+/* RailTooltip stamps the surface its trigger sits on (rail-tooltip.tsx); its
+   colours are inline, hence !important. */
+:root[data-branding="on"] [role="tooltip"][data-brand-tip="rail"] {
+  background-color: var(--brd-rail-tooltip-bg) !important;
+  color: var(--brd-rail-tooltip-fg) !important;
+}
+:root[data-branding="on"] [role="tooltip"][data-brand-tip="sidebar"] {
+  background-color: var(--brd-sidebar-tooltip-bg) !important;
+  color: var(--brd-sidebar-tooltip-fg) !important;
+}
+:root[data-branding="on"] [role="tooltip"][data-brand-tip="topbar"] {
+  background-color: var(--brd-topbar-tooltip-bg) !important;
+  color: var(--brd-topbar-tooltip-fg) !important;
+}
+
+/* ─── Window gradient (Nov 19) ─────────────────────────────────────────── */
+
+/* One gradient pinned to the viewport (`fixed`), so the rail, sidebar, and
+   top bar each show their slice of the same sheet and read as one frame. */
+:root[data-branding="on"][data-branding-gradient="on"]
+  :is([data-nav-column], [data-account-rail], [data-page-column] > [data-header-theme]) {
+  background-image: var(--brd-gradient) !important;
+  background-attachment: fixed !important;
+}
+/* Inside the joined card the bar paints its own ground over the row; let the
+   row's gradient through. Portalled header menus are not under the column,
+   so they keep their solid ground. */
+:root[data-branding="on"][data-branding-gradient="on"] [data-page-column] [data-header-theme] {
+  --hdr-bg: transparent !important;
+}
+
+/* ─── Font (Nov 19) ────────────────────────────────────────────────────── */
+
+/* Chrome only (default): the rail, sidebar, top bar, and what they portal. */
+:root[data-branding="on"][data-branding-font="chrome"]
+  :is([data-nav-column], [data-account-rail], [data-header-theme], [data-nav-theme]) {
+  --font-sans: var(--brd-font) !important;
+  font-family: var(--brd-font) !important;
+}
+/* Whole app (prototype control): everything on the standard font. */
+:root[data-branding="on"][data-branding-font="app"] {
+  --font-sans: var(--brd-font) !important;
+  --font-heading: var(--brd-font) !important;
+}
+:root[data-branding="on"][data-branding-font="app"] body {
+  font-family: var(--brd-font) !important;
+}

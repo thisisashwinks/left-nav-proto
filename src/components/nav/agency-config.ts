@@ -26,6 +26,7 @@ import {
   Mail,
   Megaphone,
   Monitor,
+  Palette,
   Phone,
   Plug,
   Puzzle,
@@ -330,6 +331,9 @@ export const agencySettingsBucket: AgencyBucket = {
       l3("Single sign-on (SSO)", KeyRound),
       l3("Compliance", ShieldCheck),
     ]),
+    // The home for agency branding (Nov 18): logo, browser tab, brand colours
+    // and the chrome they paint. See components/branding/branding-page.tsx.
+    child("agency-branding", "Branding", Palette, "Logo, colors, and browser tab."),
     child("agency-users", "Users", Users, "Who can get in, and what they can reach."),
     child("agency-billing", "Billing", Receipt, "What you pay, and what you collect.", [
       l3("Subscription", Receipt),

@@ -145,6 +145,7 @@ import type {
   NavTourMedia,
   NavTourMediaPosition,
   NavTourRestart,
+  PromoGate,
   NavTourWatch,
   NavTourWatchSpot,
   NavTourWatchStyle,
@@ -157,6 +158,7 @@ import type {
   NavTourLearnIcon,
   NavTourLearnOpens,
   NavTourShadow,
+  NavTourLength,
   NavTourBorder,
   NavTourArrowGap,
   NavFeaturedSlot,
@@ -434,6 +436,7 @@ interface ThemeContextValue extends ThemeState {
   setNavTourMediaPosition: (v: NavTourMediaPosition) => void;
   setNavTourRestart: (v: NavTourRestart) => void;
   setNavTourWatch: (v: NavTourWatch) => void;
+  setPromoGate: (v: PromoGate) => void;
   setNavTourWatchSpot: (v: NavTourWatchSpot) => void;
   setNavTourWatchStyle: (v: NavTourWatchStyle) => void;
   setNavTourWatchCut: (v: NavTourWatchCut) => void;
@@ -444,6 +447,9 @@ interface ThemeContextValue extends ThemeState {
   setNavTourHighlight: (v: NavTourHighlight) => void;
   setNavTourHighlightScope: (v: NavTourHighlightScope) => void;
   setNavTourApplySteps: (v: NavTourApplySteps) => void;
+  setNavTourLength: (v: NavTourLength) => void;
+  /** Turn one step's clip on or off, for navTourMedia `pick`. */
+  toggleNavTourClipStep: (id: string) => void;
   setNavTourStartFlow: (v: NavTourStartFlow) => void;
   setNavTourLearnIcon: (v: NavTourLearnIcon) => void;
   setNavTourLearnOpens: (v: NavTourLearnOpens) => void;
@@ -1034,6 +1040,7 @@ export function ThemeProvider({
         setState((s) => ({ ...s, navTourRestart })),
       setNavTourWatch: (navTourWatch) =>
         setState((s) => ({ ...s, navTourWatch })),
+      setPromoGate: (promoGate) => setState((s) => ({ ...s, promoGate })),
       setNavTourWatchSpot: (navTourWatchSpot) =>
         setState((s) => ({ ...s, navTourWatchSpot })),
       setNavTourWatchStyle: (navTourWatchStyle) =>
@@ -1052,6 +1059,14 @@ export function ThemeProvider({
         setState((s) => ({ ...s, navTourHighlight })),
       setNavTourHighlightScope: (navTourHighlightScope) =>
         setState((s) => ({ ...s, navTourHighlightScope })),
+      setNavTourLength: (navTourLength) => setState((s) => ({ ...s, navTourLength })),
+      toggleNavTourClipStep: (id) =>
+        setState((s) => ({
+          ...s,
+          navTourClipSteps: s.navTourClipSteps.includes(id)
+            ? s.navTourClipSteps.filter((x) => x !== id)
+            : [...s.navTourClipSteps, id],
+        })),
       setNavTourApplySteps: (navTourApplySteps) =>
         setState((s) => ({ ...s, navTourApplySteps })),
       setNavTourStartFlow: (navTourStartFlow) =>

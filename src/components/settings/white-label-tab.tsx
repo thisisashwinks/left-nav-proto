@@ -9,6 +9,7 @@ import { accounts as ALL_ACCOUNTS } from "@/components/accounts/accounts-data";
 import { useCustomCode } from "./custom-code-store";
 import { BrandAssetRow } from "./logo-upload-field";
 import { useBrand } from "@/components/accounts/brand-store";
+import { useBranding } from "@/components/branding/branding-provider";
 import { CodeEditorField } from "./code-editor-field";
 import { cn } from "@/lib/utils";
 import { Section, Field } from "./white-label-parts";
@@ -41,6 +42,7 @@ export function WhiteLabelTab({ agency }: { agency: Account }) {
   const labs = useLabs();
   const code = useCustomCode();
   const brand = useBrand();
+  const { openSettings: openBranding } = useBranding();
 
   const [bannerOn, setBannerOn] = React.useState(true);
 
@@ -125,6 +127,23 @@ export function WhiteLabelTab({ agency }: { agency: Account }) {
         >
           <Plus size={16} aria-hidden="true" />
           Add new brand
+        </button>
+      </div>
+
+      {/*
+        Agency branding has its own page now (Nov 18): Settings › Branding owns
+        the light/dark logo, favicon, tab title and theme. This tab keeps
+        production's fields for comparison and points there.
+      */}
+      <div className="flex flex-wrap items-center gap-[8px] rounded-[8px] bg-pg-bg px-[12px] py-[10px] text-[13px] leading-[18px] text-pg-muted shadow-[inset_0_0_0_1px_var(--pg-border)]">
+        <Info size={14} aria-hidden="true" className="shrink-0" />
+        <span className="flex-1">Logo, colors, and browser tab now live in Branding.</span>
+        <button
+          type="button"
+          onClick={openBranding}
+          className="motion-tap font-medium text-brand hover:underline"
+        >
+          Go to Branding
         </button>
       </div>
 

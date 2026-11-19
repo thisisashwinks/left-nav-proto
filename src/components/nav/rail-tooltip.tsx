@@ -67,21 +67,26 @@ export function RailTooltip({
   children: React.ReactNode;
 }) {
   const ref = React.useRef<HTMLSpanElement>(null);
-  const [pos, setPos] = React.useState<{ top: number; left: number } | null>(
-    null,
-  );
+  const [pos, setPos] = React.useState<{
+    top: number;
+    left: number;
+    /** Which branded chrome surface the trigger sits on. See brandSurfaceOf. */
+    surface?: BrandSurface;
+  } | null>(null);
 
   const open = () => {
     if (!show) return;
     // display:contents gives the wrapper no box, so measure the trigger itself.
     const trigger = ref.current?.firstElementChild;
     if (!trigger) return;
+    const surface = brandSurfaceOf(trigger);
+    const place = (p: { top: number; left: number }) => setPos({ ...p, surface });
     const box = trigger.getBoundingClientRect();
     // Offset from the rail's edge, not the icon's. The icon is inset from the
     // rail, so anchoring to it left the tooltip starting a few px inside the
     // nav — visually attached to the wrong thing.
     if (placement === "below") {
-      setPos({ top: box.bottom + OFFSET, left: box.left + box.width / 2 });
+      place({ top: box.bottom + OFFSET, left: box.left + box.width / 2 });
       return;
     }
     if (placement === "above") {
@@ -93,7 +98,7 @@ export function RailTooltip({
       // placement's whole job is the nav's foot, which is as far left as the
       // window goes.
       const half = (wrap ?? 0) / 2;
-      setPos({
+      place({
         top: box.top - OFFSET,
         left: Math.max(half + 8, box.left + box.width / 2),
       });
@@ -113,7 +118,7 @@ export function RailTooltip({
      * few pixels it overlaps the rail's own ground are what make it read as
      * attached. Ashwin, Oct 5.
      */
-    setPos({
+    place({
       top: box.top + box.height / 2,
       left: box.right + OFFSET,
     });
@@ -148,6 +153,9 @@ export function RailTooltip({
         ? createPortal(
             <div
               role="tooltip"
+              // Agency branding recolours the pill per surface; see
+              // design/branding.css. Absent off the chrome.
+              data-brand-tip={pos.surface}
               // Literal overlay colours, not --pg-overlay-*: those tokens are
               // scoped under [data-page-theme], and this portal lands on
               // <body>, outside every scope — the pill rendered unstyled.
@@ -179,4 +187,21 @@ export function RailTooltip({
         : null}
     </span>
   );
+}
+
+type BrandSurface = "rail" | "sidebar" | "topbar";
+
+/**
+ * The chrome surface a trigger sits on, for agency branding's tooltip colours.
+ * The pill is portalled to <body>, so it cannot inherit this from the trigger.
+ */
+function brandSurfaceOf(el: Element): BrandSurface | undefined {
+  if (el.closest('[data-account-rail], [data-nav-column] [role="dialog"][aria-label="Accounts"]')) {
+    return "rail";
+  }
+  if (el.closest("[data-header-theme]")) return "topbar";
+  // Not inside a full-screen modal or Ask AI — branding skips both.
+  const navScope = "[data-nav-theme]:not(.fixed.inset-0):not([data-brand-skip])";
+  if (el.closest(`[data-nav-column], ${navScope}`)) return "sidebar";
+  return undefined;
 }

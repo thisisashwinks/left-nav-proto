@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
 import { Announcer } from "@/components/a11y/announcer";
 import { BrandProvider } from "@/components/accounts/brand-store";
+import { BrandingApplier } from "@/components/branding/branding-applier";
+import { BrandingProvider } from "@/components/branding/branding-provider";
 import { BulkActionsProvider } from "@/components/bulk/bulk-provider";
 import { AgencyLayoutProvider } from "@/components/nav/agency-layout";
 import { NavTemplatesProvider } from "@/components/nav/nav-templates";
@@ -71,6 +73,8 @@ export default function RootLayout({
             <NavProfilesProvider>
               <NavLayoutProvider>
                 <BrandProvider>
+                <BrandingProvider>
+                  <BrandingApplier />
                   <PinFeedbackProvider>
                   <NavTemplatesProvider>
                     <AgencyLayoutProvider>
@@ -81,6 +85,7 @@ export default function RootLayout({
                     </AgencyLayoutProvider>
                   </NavTemplatesProvider>
                   </PinFeedbackProvider>
+                </BrandingProvider>
                 </BrandProvider>
               </NavLayoutProvider>
             </NavProfilesProvider>

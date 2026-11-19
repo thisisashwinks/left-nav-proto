@@ -77,6 +77,11 @@ import {
 import { useAgencyLayout } from "@/components/nav/agency-layout";
 import { AskAiPage } from "@/components/ai/ask-ai-page";
 import { AgencyCompanyPage } from "@/components/settings/agency-company-page";
+import { BrandingPage, BRANDING_PLACE_ID } from "@/components/branding/branding-page";
+import { useBranding } from "@/components/branding/branding-provider";
+import { CustomizeThemeHost } from "@/components/branding/customize-panel";
+import { requestCompanyTab } from "@/components/branding/branding-entry";
+import { guardNavigation } from "./navigation-guard";
 import { AgencyDashboardPage } from "@/components/settings/agency-dashboard-page";
 import { LabsPage } from "@/components/settings/labs-page";
 import {
@@ -788,7 +793,21 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
     value: boolean;
     under: ShellChromeRequest | null;
   } | null>(null);
-  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [selectedId, setSelectedIdNow] = React.useState<string | null>(null);
+  /*
+   * Every selection goes through the leave-guard (Nov 18). A page holding
+   * unsaved work — Settings › Branding — registers one; with none registered
+   * this is `setSelectedIdNow` and nothing else. The target goes along so the
+   * page can let a re-select of itself through. See navigation-guard.ts.
+   */
+  const setSelectedId = React.useCallback(
+    (next: React.SetStateAction<string | null>) =>
+      guardNavigation(
+        () => setSelectedIdNow(next),
+        typeof next === "function" ? undefined : next,
+      ),
+    [],
+  );
   /**
    * Which product's demo page fills the canvas, and which of its L2 places is
    * showing. Null = the Contacts page (the shipped default). Every flyout row
@@ -1178,7 +1197,12 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
       next:
         | { productId: string; childId: string | null; tabId?: string | null }
         | null,
-    ) => setRawProductPage(next ? { owner: themeOwnerId, ...next } : null),
+    ) =>
+      // Opening a page is leaving the one you are on, so it asks the
+      // leave-guard; clearing one never navigates on its own.
+      next
+        ? guardNavigation(() => setRawProductPage({ owner: themeOwnerId, ...next }))
+        : setRawProductPage(null),
     [themeOwnerId],
   );
 
@@ -2985,6 +3009,54 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    */
   const pendingPlace = React.useRef<string | null>(null);
 
+  /*
+   * Settings › Branding, openable from anywhere (Nov 18): the Customize panel
+   * and the edit-mode palette call `openSettings`, and this is the navigator
+   * behind it. Same two roads as the legacy nav's settings rows — select at
+   * agency scope, otherwise park the id and go up a level.
+   */
+  const { registerOpenSettings } = useBranding();
+  const openBrandingRef = React.useRef<() => void>(() => {});
+  React.useEffect(() => {
+    openBrandingRef.current = () => {
+      if (accounts.scope === "agency") {
+        setManageAccountId(null);
+        setSelectedId(BRANDING_PLACE_ID);
+        return;
+      }
+      pendingPlace.current = BRANDING_PLACE_ID;
+      accounts.switchToAgency();
+    };
+  });
+  React.useEffect(() => {
+    registerOpenSettings(() => openBrandingRef.current());
+    return () => registerOpenSettings(null);
+  }, [registerOpenSettings]);
+
+  /*
+   * Agency › Settings › Company on a named tab (Nov 19): the theme modal's
+   * "Logo, CSS, and more", and "Customize theme" when it is set to land on the
+   * White label section or the Branding tab. Same two roads as above.
+   */
+  const { registerOpenCompany } = useBranding();
+  const openCompanyRef = React.useRef<(tab: string, anchorId?: string) => void>(() => {});
+  React.useEffect(() => {
+    openCompanyRef.current = (tab, anchorId) => {
+      requestCompanyTab(tab, anchorId);
+      if (accounts.scope === "agency") {
+        setManageAccountId(null);
+        setSelectedId("agency-company");
+        return;
+      }
+      pendingPlace.current = "agency-company";
+      accounts.switchToAgency();
+    };
+  });
+  React.useEffect(() => {
+    registerOpenCompany((tab, anchorId) => openCompanyRef.current(tab, anchorId));
+    return () => registerOpenCompany(null);
+  }, [registerOpenCompany]);
+
   // Leaving one scope for the other drops the row selection, which named a row
   // the other scope does not have. The panel is handled above, on every switch.
   const scopeRef = React.useRef(accounts.scope);
@@ -3482,6 +3554,11 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
         instead of one, and through builders too. See ImpersonationBanner.
       */}
       <ImpersonationBanner />
+      {/* Customize theme panel (B) + edit-mode palette (C); both portal out. */}
+      <CustomizeThemeHost
+        accountId={accounts.scope === "agency" ? null : accounts.current.id}
+        accountName={accounts.current.name}
+      />
       {bannerHidden ? null : accounts.scope === "account" &&
         (ACCOUNT_BANNERS[accounts.current.id]?.length ?? 0) > 0 ? (
         /*
@@ -4643,6 +4720,10 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
                 // The beta programme, and the one page in agency settings
                 // where Switchyard is the subject rather than the frame.
                 <LabsPage />
+              ) : agencyPlace && selectedId === BRANDING_PLACE_ID ? (
+                // The home for agency branding (Nov 18). Edits a draft the
+                // chrome around it paints live; leaving with edits asks.
+                <BrandingPage agency={accounts.agency} accounts={accounts.accounts} />
               ) : agencyPlace && selectedId === "agency-company" ? (
                 // The one agency settings page drawn in full: White label is
                 // where the logo pair lives.

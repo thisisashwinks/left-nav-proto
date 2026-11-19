@@ -153,6 +153,8 @@ import {
   NAV_TOUR_RESTARTS,
   NAV_TOUR_RESTART_LABELS,
   NAV_TOUR_WATCHES,
+  PROMO_GATES,
+  PROMO_GATE_LABELS,
   NAV_TOUR_WATCH_LABELS,
   NAV_TOUR_WATCH_SPOTS,
   NAV_TOUR_WATCH_SPOT_LABELS,
@@ -176,6 +178,9 @@ import {
   NAV_TOUR_LEARN_OPENS_LABELS,
   NAV_TOUR_SHADOWS,
   NAV_TOUR_SHADOW_LABELS,
+  NAV_TOUR_LENGTHS,
+  NAV_TOUR_LENGTH_LABELS,
+  type NavTourLength,
   NAV_TOUR_BORDERS,
   NAV_TOUR_BORDER_LABELS,
   type NavTourBorder,
@@ -515,6 +520,7 @@ import {
   type NavTourMediaPosition,
   type NavTourRestart,
   type NavTourWatch,
+  type PromoGate,
   type QuickActionSpot,
   type NavTourWatchSpot,
   type NavTourWatchStyle,
@@ -725,6 +731,46 @@ import {
   type BulkOutcome,
 } from "@/components/bulk/bulk-config";
 import { useBulkActions } from "@/components/bulk/bulk-provider";
+import { useBranding } from "@/components/branding/branding-provider";
+import {
+  BRANDING_ACCESS_LABELS,
+  BRANDING_KEYWORDS,
+  BRANDING_REACH_LABELS,
+  BRANDING_SAVE_TARGET_LABELS,
+  CUSTOMIZE_TARGETS,
+  CUSTOMIZE_TARGET_LABELS,
+  EDIT_ENTRY_LABELS,
+  EDIT_LABELS,
+  EDIT_LABEL_TEXT,
+  MORE_OPTIONS_LABELS,
+  SPEED_DIAL_DIR_LABELS,
+  SPEED_DIAL_STYLE_LABELS,
+  type SpeedDialStyle,
+  type BrandingReach,
+  type BrandingSaveTarget,
+  type CustomizeTarget,
+  type EditEntry,
+  type EditLabel,
+  type MoreOptionsLabel,
+  type SpeedDialDir,
+  BRANDING_PRESETS,
+  BRANDING_PREVIEW_TARGET_LABELS,
+  CUSTOMIZE_PANEL_ENTRIES,
+  CUSTOMIZE_PANEL_ENTRY_LABELS,
+  DARK_STRENGTH_LABELS,
+  DEFAULT_BRANDING_PROTO,
+  RAIL_STEP_LABELS,
+  UNSAVED_UI_LABELS,
+  isDefaultTheme,
+  themeFromPreset,
+  type BrandingAccess,
+  type BrandingEntryPoints,
+  type BrandingPreviewTarget,
+  type CustomizePanelEntry,
+  type DarkStrength,
+  type RailStep,
+  type UnsavedUi,
+} from "@/design/branding";
 import {
   BULK_FLOWS,
   BULK_FLOW_LABELS,
@@ -758,7 +804,7 @@ import {
 import { useNavProfiles } from "@/components/nav/nav-profiles";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { NAV_FEATURED_END_EVENT, NAV_FEATURED_RESET_EVENT } from "@/components/nav/featured";
-import { NAV_TOUR_REPLAY_EVENT, closeAllNavTours } from "@/components/nav/nav-tour";
+import { NAV_TOUR_REPLAY_EVENT, closeAllNavTours, navTourStepList } from "@/components/nav/nav-tour";
 import { cn } from "@/lib/utils";
 import { useTuning } from "./tuning-provider";
 import { useCanvasTintedPage } from "@/components/shell/page-canvas";
@@ -1404,6 +1450,7 @@ function NavStructureSection({
       <Segmented
         label="Agency plan"
         options={AGENCY_PLANS}
+        keywords={`$497 agency pro ${BRANDING_KEYWORDS}`}
         value={agencyPlan}
         onChange={(v: AgencyPlan) => setAgencyPlan(v)}
         format={(v) => AGENCY_PLAN_CHOICE_LABELS[v]}
@@ -3612,6 +3659,265 @@ function NavStructureSection({
 }
 
 /**
+ * Branding — agency theming, phase 1 (Nov 18).
+ *
+ * Every control here is bound to the branding store's prototype axes
+ * (`useBranding().proto`), not ThemeState, and every one carries
+ * BRANDING_KEYWORDS so "branding", "theme", "logo" or "favicon" finds the lot.
+ */
+const BRANDING_ENTRY_KEYS: readonly (keyof BrandingEntryPoints)[] = [
+  "settingsPage",
+  "customizePanel",
+  "editPalette",
+];
+const BRANDING_ENTRY_LABELS: Record<keyof BrandingEntryPoints, string> = {
+  settingsPage: "Settings page",
+  customizePanel: "Customize theme button",
+  editPalette: "Edit-mode palette",
+};
+type BrandingPreviewChoice = "app" | "light" | "dark";
+const BRANDING_PREVIEW_CHOICES: readonly BrandingPreviewChoice[] = ["app", "light", "dark"];
+const BRANDING_PREVIEW_CHOICE_LABELS: Record<BrandingPreviewChoice, string> = {
+  app: "Follow app",
+  light: "Light",
+  dark: "Dark",
+};
+
+function BrandingSection({
+  open,
+  onToggle,
+}: {
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const {
+    proto,
+    setProto,
+    saved,
+    setAgencyTheme,
+    previewMode,
+    setPreviewMode,
+    openSettings,
+    resetAll,
+  } = useBranding();
+  const kw = BRANDING_KEYWORDS;
+
+  const changedCount =
+    (Object.keys(DEFAULT_BRANDING_PROTO) as (keyof typeof DEFAULT_BRANDING_PROTO)[]).filter(
+      (k) => JSON.stringify(proto[k]) !== JSON.stringify(DEFAULT_BRANDING_PROTO[k]),
+    ).length +
+    (isDefaultTheme(saved.agency.theme) ? 0 : 1) +
+    (previewMode === null ? 0 : 1);
+
+  const reset = () => {
+    resetAll();
+    setProto(DEFAULT_BRANDING_PROTO);
+    setPreviewMode(null);
+  };
+
+  return (
+    <Section
+      id="Branding"
+      open={open}
+      onToggle={onToggle}
+      changedCount={changedCount}
+      onReset={reset}
+    >
+      {/* Nov 19 ------------------------------------------------------- */}
+      <Segmented
+        label="Theme saves"
+        options={["agency", "layout"] as const}
+        value={proto.saveTarget}
+        onChange={(v: BrandingSaveTarget) => setProto({ saveTarget: v })}
+        format={(v) => BRANDING_SAVE_TARGET_LABELS[v]}
+        keywords={`save layouts agency wide all sub-accounts separately ${kw}`}
+      />
+      <Note>
+        {proto.saveTarget === "agency"
+          ? "One theme for the agency; every sub-account under it gets it on save. Layouts carry no theme."
+          : "Themes ride on layouts: “Save layout” captures the theme, and applying a layout applies its theme."}
+      </Note>
+      <Segmented
+        label="Customize theme opens"
+        options={CUSTOMIZE_TARGETS}
+        value={proto.customizeTarget}
+        onChange={(v: CustomizeTarget) => setProto({ customizeTarget: v })}
+        format={(v) => CUSTOMIZE_TARGET_LABELS[v]}
+        keywords={`modal side panel white label tab section settings page placement ${kw}`}
+      />
+      <Note>
+        {proto.customizeTarget === "white-label-section"
+          ? "Goes to Agency settings › Company › White label, to a Branding and theme section under it."
+          : proto.customizeTarget === "branding-tab"
+            ? "Goes to Agency settings › Company, to a Branding tab beside White label."
+            : "Every “Customize theme” button (speed dial, avatar menu, top bar icon) goes here."}
+      </Note>
+      <Segmented
+        label="Edit button"
+        options={["direct", "speed-dial"] as const}
+        value={proto.editEntry}
+        onChange={(v: EditEntry) => setProto({ editEntry: v })}
+        format={(v) => EDIT_ENTRY_LABELS[v]}
+        keywords={`fab floating action button speed dial edit nav layout customize ${kw}`}
+      />
+      <Segmented
+        label="Speed dial style"
+        options={["buttons", "menu"] as const}
+        value={proto.speedDialStyle}
+        onChange={(v: SpeedDialStyle) => setProto({ speedDialStyle: v })}
+        format={(v) => SPEED_DIAL_STYLE_LABELS[v]}
+        disabled={proto.editEntry !== "speed-dial"}
+        keywords={`fab floating action button dropdown menu buttons ${kw}`}
+      />
+      <Segmented
+        label="Speed dial opens"
+        options={["auto", "above", "below"] as const}
+        value={proto.speedDialDir}
+        onChange={(v: SpeedDialDir) => setProto({ speedDialDir: v })}
+        format={(v) => SPEED_DIAL_DIR_LABELS[v]}
+        disabled={proto.editEntry !== "speed-dial"}
+        keywords={`fab floating action button direction above below ${kw}`}
+      />
+      <Segmented
+        label="Edit button label"
+        options={EDIT_LABELS}
+        value={proto.editLabel}
+        onChange={(v: EditLabel) => setProto({ editLabel: v })}
+        format={(v) => EDIT_LABEL_TEXT[v]}
+        keywords={`edit nav customize personalize layout pill name ${kw}`}
+      />
+      <Segmented
+        label="Modal link to White label"
+        options={["logo-css", "more-options", "white-label"] as const}
+        value={proto.moreOptions}
+        onChange={(v: MoreOptionsLabel) => setProto({ moreOptions: v })}
+        format={(v) => MORE_OPTIONS_LABELS[v]}
+        keywords={`more options logo css js custom code white label ${kw}`}
+      />
+      <Segmented
+        label="Color mode reaches"
+        options={["chrome", "app"] as const}
+        value={proto.modeScope}
+        onChange={(v: BrandingReach) => setProto({ modeScope: v })}
+        format={(v) => BRANDING_REACH_LABELS[v]}
+        keywords={`light dark system appearance whole app ${kw}`}
+      />
+      <Segmented
+        label="Font reaches"
+        options={["chrome", "app"] as const}
+        value={proto.fontScope}
+        onChange={(v: BrandingReach) => setProto({ fontScope: v })}
+        format={(v) => BRANDING_REACH_LABELS[v]}
+        keywords={`font typeface whole app ${kw}`}
+      />
+      <MultiSegmented
+        label="Entry points"
+        options={BRANDING_ENTRY_KEYS}
+        value={proto.entryPoints}
+        onChange={(k, on) => setProto({ entryPoints: { ...proto.entryPoints, [k]: on } })}
+        format={(k) => BRANDING_ENTRY_LABELS[k]}
+        keywords={`doors ${kw}`}
+      />
+      <Note>
+        Settings › Branding is the home. The Customize panel slides in over the app; the
+        edit-mode palette sits on the nav edit card and saves with the nav.
+      </Note>
+      <Segmented
+        label="Customize theme button in"
+        options={CUSTOMIZE_PANEL_ENTRIES}
+        value={proto.panelEntry}
+        onChange={(v: CustomizePanelEntry) => setProto({ panelEntry: v })}
+        format={(v) => CUSTOMIZE_PANEL_ENTRY_LABELS[v]}
+        disabled={!proto.entryPoints.customizePanel}
+        keywords={`account menu avatar edit mode top bar icon ${kw}`}
+      />
+      <Note>
+        {proto.panelEntry === "agency-menu"
+          ? "A “Customize theme” row in the avatar menu."
+          : proto.panelEntry === "edit-mode"
+            ? "A palette tool on the nav edit card (when the edit-mode palette is off)."
+            : "A palette icon beside the top bar’s utilities."}
+      </Note>
+      <Segmented
+        label="Branding access"
+        options={["edit", "view"] as const}
+        value={proto.access}
+        onChange={(v: BrandingAccess) => setProto({ access: v })}
+        format={(v) => BRANDING_ACCESS_LABELS[v]}
+        keywords={`permission read only view-only ${kw}`}
+      />
+      <Note>
+        The plan gate is the existing Agency plan control under Nav structure; branding is a
+        $497 (Agency Pro) feature.
+      </Note>
+      <Segmented
+        label="Settings preview"
+        options={["live", "inline"] as const}
+        value={proto.previewTarget}
+        onChange={(v: BrandingPreviewTarget) => setProto({ previewTarget: v })}
+        format={(v) => BRANDING_PREVIEW_TARGET_LABELS[v]}
+        keywords={`mock live app ${kw}`}
+      />
+      <Segmented
+        label="Rail when styled together"
+        options={["step", "same"] as const}
+        value={proto.railStep}
+        onChange={(v: RailStep) => setProto({ railStep: v })}
+        format={(v) => RAIL_STEP_LABELS[v]}
+        keywords={`sub-account rail ${kw}`}
+      />
+      <Segmented
+        label="Dark brand chrome"
+        options={["deep", "tinted"] as const}
+        value={proto.darkStrength}
+        onChange={(v: DarkStrength) => setProto({ darkStrength: v })}
+        format={(v) => DARK_STRENGTH_LABELS[v]}
+        keywords={`dark mode night ${kw}`}
+      />
+      <Segmented
+        label="Unsaved changes"
+        options={["bar-and-modal", "modal"] as const}
+        value={proto.unsavedUi}
+        onChange={(v: UnsavedUi) => setProto({ unsavedUi: v })}
+        format={(v) => UNSAVED_UI_LABELS[v]}
+        keywords={`save bar leave prompt discard ${kw}`}
+      />
+      <Segmented
+        label="Agency theme preset"
+        options={BRANDING_PRESETS.map((p) => p.id)}
+        value={saved.agency.theme.presetId ?? ""}
+        onChange={(id: string) => {
+          const p = BRANDING_PRESETS.find((x) => x.id === id);
+          if (p) setAgencyTheme(themeFromPreset(p));
+        }}
+        format={(id) => BRANDING_PRESETS.find((p) => p.id === id)?.label ?? id}
+        keywords={`quick ${kw}`}
+      />
+      <Segmented
+        label="Branding preview mode"
+        options={BRANDING_PREVIEW_CHOICES}
+        value={previewMode ?? "app"}
+        onChange={(v: BrandingPreviewChoice) => setPreviewMode(v === "app" ? null : v)}
+        format={(v) => BRANDING_PREVIEW_CHOICE_LABELS[v]}
+        keywords={`light dark ${kw}`}
+      />
+      <ActionRow
+        label="Branding settings"
+        action="Open"
+        onClick={openSettings}
+        keywords={kw}
+      />
+      <ActionRow
+        label="Reset branding"
+        action="Reset"
+        onClick={reset}
+        keywords={kw}
+      />
+    </Section>
+  );
+}
+
+/**
  * Bulk actions — the Sub-accounts table's selection flow.
  *
  * Here from the start rather than bolted on after the first review, because
@@ -3967,6 +4273,7 @@ const SECTIONS = [
   "Builders",
   "Edit card",
   "Theme",
+  "Branding",
   "Search",
   "Nav structure",
   "Bulk actions",
@@ -4868,6 +5175,8 @@ export function TuningPanel() {
     setNavTourMediaPosition,
     navTourRestart,
     setNavTourRestart,
+    promoGate,
+    setPromoGate,
     navTourWatch,
     navTourWatchSpot,
     setNavTourWatchSpot,
@@ -4895,6 +5204,8 @@ export function TuningPanel() {
     setNavTourHighlight,
     setNavTourHighlightScope,
     setNavTourApplySteps,
+    navTourLength,
+    setNavTourLength,
     setNavTourStartFlow,
     setNavTourLearnIcon,
     setNavTourLearnOpens,
@@ -7224,6 +7535,11 @@ export function TuningPanel() {
           ) : null}
         </Section>
 
+        <BrandingSection
+          open={openSections.includes("Branding")}
+          onToggle={() => toggleSection("Branding")}
+        />
+
         <NavStructureSection
           open={openSections.includes("Nav structure")}
           onToggle={() => toggleSection("Nav structure")}
@@ -7585,6 +7901,19 @@ export function TuningPanel() {
           </Note>
 
           <Segmented
+            label="Tour: length"
+            keywords="tour coach mark coachmark length short full steps fewer combined progressive flows get started"
+            options={NAV_TOUR_LENGTHS}
+            value={navTourLength}
+            onChange={(v: NavTourLength) => setNavTourLength(v)}
+            format={(v) => NAV_TOUR_LENGTH_LABELS[v]}
+          />
+          <Note>
+            {navTourLength === "short"
+              ? "At most 4 steps a flow, with the old steps folded together. Get started: the sidebar, inside a category, All products, then Search and Ask AI."
+              : "The flows as they were before Nov 18: Get started 11 steps, Editing 10."}
+          </Note>
+          <Segmented
             label="Tour: flow to start"
             keywords="tour onboarding coach mark coachmark progressive flows start test get started sub-accounts editing which flow first"
             options={NAV_TOUR_START_FLOWS}
@@ -7685,9 +8014,27 @@ export function TuningPanel() {
           />
           <Note>
             {navTourMedia === "on"
-              ? "A short looping clip of the gesture above each step, from public/tour. A step without a clip shows text only."
-              : "Title and body only."}
+              ? "A short looping clip of the gesture on every step, from public/tour. A step without a clip shows text only."
+              : navTourMedia === "pick"
+                ? "Clips only on the steps switched on below. Use them rarely, where the text can't show the gesture."
+                : "Title and body only, on every step."}
           </Note>
+          {navTourMedia === "pick"
+            ? navTourStepList(theme.effective).map((f) => (
+                <React.Fragment key={f.flow}>
+                  <Note>{f.flow}</Note>
+                  {f.steps.map((st, i) => (
+                    <Toggle
+                      key={st.id}
+                      label={`${f.flow} ${i + 1}: ${st.title}`}
+                      keywords="tour onboarding coach mark video preview clip gif step"
+                      checked={theme.navTourClipSteps.includes(st.id)}
+                      onChange={() => theme.toggleNavTourClipStep(st.id)}
+                    />
+                  ))}
+                </React.Fragment>
+              ))
+            : null}
 
           <Segmented
             label="Tour: preview position"
@@ -7696,7 +8043,7 @@ export function TuningPanel() {
             value={navTourMediaPosition}
             onChange={(v: NavTourMediaPosition) => setNavTourMediaPosition(v)}
             format={(v) => NAV_TOUR_MEDIA_POSITION_LABELS[v]}
-            disabled={navTourMedia !== "on"}
+            disabled={navTourMedia === "off"}
           />
           <Note>
             {navTourMediaPosition === "top"
@@ -7759,6 +8106,21 @@ export function TuningPanel() {
                         ? "A \u201cTake the tour\u201d row at the foot of the sidebar, by Edit, opens the same choice of flows. Hidden in edit mode and in the collapsed nav."
                         : "A \u201cTake the navigation tour\u201d row in the account menu opens the choice of flows as a submenu."}
             {" Sub-account scope only."}
+          </Note>
+
+          <Segmented
+            label="Featured cards wait for"
+            keywords="featured promo card onboarding coach mark tour first load collision advertising promos gate"
+            options={PROMO_GATES}
+            value={promoGate}
+            onChange={(v: PromoGate) => setPromoGate(v)}
+            format={(v) => PROMO_GATE_LABELS[v]}
+          />
+          <Note>
+            {promoGate === "afterOnboarding"
+              ? "Featured cards, the float, the promo card and the flyout promos all stay off until the first coach-mark flow is closed or finished \u2014 the same moment \u201cLearn about Switchyard\u201d arrives in the sidebar. One signal, so the two cannot disagree about when onboarding ended. The Holiday Promos nav row is the one exception and stays \u2014 it reads as a place to go, not an advert, and hiding a category during a tour of the categories would teach the wrong sidebar."
+              : "On from first paint. A featured card then shares the screen with the Get started coach marks, and it is the louder of the two."}
+            {" Where the tours don\u2019t run at all \u2014 agency scope, or the card style \u2014 nothing is held: there is no onboarding to wait for."}
           </Note>
 
           <Segmented

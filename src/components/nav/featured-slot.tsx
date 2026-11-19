@@ -44,7 +44,7 @@ export type FeaturedSlotAt = "below" | "top" | "card";
  * the nav's own ground and its divider for the edge. Ashwin, Oct 29.
  */
 const CARD =
-  "border-[var(--hr-gray-200)] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)] in-data-[nav-theme=dark]:border-nav-divider in-data-[nav-theme=dark]:bg-[var(--nav-bg)]";
+  "border-[var(--feat-card-border,var(--hr-gray-200))] bg-[var(--feat-card-bg,#fff)] shadow-[0_1px_2px_rgba(16,24,40,0.05)] in-data-[nav-theme=dark]:border-nav-divider in-data-[nav-theme=dark]:bg-[var(--nav-bg)]";
 const INK = "text-[var(--hr-primary-600)] in-data-[nav-theme=dark]:text-[var(--hr-primary-300)]";
 
 /** A row's height, padding, gap and radius — NavItemRow's, verbatim. */
@@ -258,10 +258,10 @@ function FeaturedCard({
             ? "grid-cols-[24px_minmax(0,1fr)] p-[8px]"
             : "grid-cols-[28px_minmax(0,1fr)] p-[10px]",
         CARD,
-        "hover:border-[var(--hr-gray-300)] in-data-[nav-theme=dark]:hover:border-nav-border",
+        "hover:border-[var(--feat-card-border-hover,var(--hr-gray-300))] in-data-[nav-theme=dark]:hover:border-nav-border",
         // The open card is marked in gray, not brand: the L2 beside it is the
         // focus, and a blue ring competed with it. Ashwin, Nov 17.
-        active && "border-[var(--hr-gray-300)] in-data-[nav-theme=dark]:border-[var(--hr-gray-500)]",
+        active && "border-[var(--feat-card-border-hover,var(--hr-gray-300))] in-data-[nav-theme=dark]:border-[var(--hr-gray-500)]",
       )}
     >
       {media === "top" ? picture : null}
@@ -313,7 +313,7 @@ function FeaturedCard({
 }
 
 const CORNER_BTN =
-  "grid size-[20px] place-items-center rounded-[5px] motion-tap hover:bg-[var(--hr-gray-100)] in-data-[nav-theme=dark]:hover:bg-nav-hover";
+  "grid size-[20px] place-items-center rounded-[5px] motion-tap hover:bg-[var(--feat-btn-hover,var(--hr-gray-100))] in-data-[nav-theme=dark]:hover:bg-nav-hover";
 
 /* ─── Cycling ─────────────────────────────────────────────────────────── */
 
@@ -630,7 +630,7 @@ function FeaturedDeck({
                   if (el) cards.current.set(p.key, el);
                   else cards.current.delete(p.key);
                 }}
-                className="relative col-start-1 row-start-1 origin-top rounded-[10px] bg-white in-data-[nav-theme=dark]:bg-[var(--nav-bg)] motion-safe:transition-[transform] motion-safe:duration-[var(--dur-slow)] motion-safe:ease-[var(--ease-out)]"
+                className="relative col-start-1 row-start-1 origin-top rounded-[10px] bg-[var(--feat-card-bg,#fff)] in-data-[nav-theme=dark]:bg-[var(--nav-bg)] motion-safe:transition-[transform] motion-safe:duration-[var(--dur-slow)] motion-safe:ease-[var(--ease-out)]"
                 style={{
                   transform: at > 0 && lifted === p.key ? `${pose.transform} translateY(-2px)` : pose.transform,
                   zIndex: pose.z,
@@ -766,7 +766,7 @@ export function FeaturedSlot({ at, agency = false }: { at: FeaturedSlotAt; agenc
                 e.stopPropagation();
                 togglePin(p.key);
               }}
-              className={cn(CORNER_BTN, isPinned ? pinnedInk : "text-[var(--hr-gray-400)] hover:text-[var(--hr-gray-700)]")}
+              className={cn(CORNER_BTN, isPinned ? pinnedInk : "text-[var(--feat-btn-fg,var(--hr-gray-400))] hover:text-[var(--feat-btn-fg-hover,var(--hr-gray-700))]")}
             >
               <Pin size={PIN_GLYPH} aria-hidden="true" {...(isPinned ? { fill: "currentColor" } : {})} />
             </button>
@@ -779,7 +779,7 @@ export function FeaturedSlot({ at, agency = false }: { at: FeaturedSlotAt; agenc
                 e.stopPropagation();
                 dismiss(p.key);
               }}
-              className={cn(CORNER_BTN, "text-[var(--hr-gray-400)] hover:text-[var(--hr-gray-700)]")}
+              className={cn(CORNER_BTN, "text-[var(--feat-btn-fg,var(--hr-gray-400))] hover:text-[var(--feat-btn-fg-hover,var(--hr-gray-700))]")}
             >
               <X size={14} aria-hidden="true" />
             </button>

@@ -481,6 +481,37 @@ interface FlyoutRowProps {
   cascade?: FlyoutCascadeApi;
 }
 
+/**
+ * Expand a disclosure without taking the page with it. Ashwin, Nov 18.
+ *
+ * A parent row is a disclosure AND a link: opening it navigates to its first
+ * child, which is deliberate — see `l2ClickAction` and the note on
+ * FlyoutChildRows' `activeId`, where that behaviour is explained.
+ *
+ * It is wrong for exactly one caller. The Get started coach mark opens
+ * Contacts so it can point at the pin beside it, and the reader has not
+ * asked to go anywhere: the card says "pin this", the background silently
+ * becomes Smart lists, and the step now appears to have done two things, one
+ * of which nobody requested. Ashwin: "the background page which is Launchpad
+ * shouldn't change."
+ *
+ * A flag around a synchronous click rather than a prop threaded through the
+ * panel, the list and the row: the exception belongs to the gesture, not to
+ * the component, and every other click through this path must keep
+ * navigating. `press` calls `el.click()`, which dispatches synchronously, so
+ * the flag is set and cleared inside one call stack and cannot leak to a
+ * click the reader makes.
+ */
+let quietExpand = false;
+export function expandWithoutNavigating(run: () => void) {
+  quietExpand = true;
+  try {
+    run();
+  } finally {
+    quietExpand = false;
+  }
+}
+
 export function FlyoutRow({
   item,
   variant,
@@ -679,7 +710,7 @@ export function FlyoutRow({
         rowRef.current ?? document.body,
         0,
       );
-      if (open || l2ClickAction !== "open-first") return;
+      if (open || l2ClickAction !== "open-first" || quietExpand) return;
       const firstCascade = firstPlaceUnder(item.children, tabsInNav);
       if (firstCascade) onSelect?.(firstCascade, true);
       return;
@@ -689,7 +720,7 @@ export function FlyoutRow({
       return;
     }
     setInlineOpen(true);
-    if (l2ClickAction !== "open-first") return;
+    if (l2ClickAction !== "open-first" || quietExpand) return;
     const first = firstPlaceUnder(item.children, tabsInNav);
     if (first) onSelect?.(first, true);
   };

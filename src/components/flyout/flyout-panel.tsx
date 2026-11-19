@@ -38,6 +38,7 @@ import {
 } from "./get-app-flyout";
 import type { SurfaceTheme } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
+import { usePromosHeld } from "@/components/nav/nav-tour";
 import { cn } from "@/lib/utils";
 import { useDragTypes } from "@/lib/use-drag-active";
 import type { TransitionPhase } from "@/lib/use-exit-transition";
@@ -200,6 +201,7 @@ export function FlyoutPanel({
     addPickerCommit,
     navFeaturedAiCarousel,
   } = useTheme().effective;
+  const promosHeld = usePromosHeld();
   /* See the title below. */
   const appsRowName = useGetAppNavLabel();
   /*
@@ -2050,8 +2052,22 @@ export function FlyoutPanel({
         after the list has settled.
       */}
       <FeaturedPromoCard config={config} />
-      {/* The AI panel's carousel shows only when the controls ask for it. */}
-      {config.bottom && (config.bottom !== AI_BOTTOM_SLOT || navFeaturedAiCarousel) ? (
+      {/*
+        The panel's own bottom slot: a product card, or the "what's new"
+        slide. Both are advertising, and the Get started flow OPENS these
+        panels on its way through the nav — so without this clause a coach
+        mark saying "here are your sub-products" lands on a panel whose foot
+        is selling something else. See PROMO_GATES.
+
+        Stated at the call site because these slots come from the panel's
+        own config rather than from the featured list, so an empty provider
+        does not reach them.
+
+        The AI panel's carousel keeps its own axis on top of this.
+      */}
+      {!promosHeld &&
+      config.bottom &&
+      (config.bottom !== AI_BOTTOM_SLOT || navFeaturedAiCarousel) ? (
         <div
           style={
             {

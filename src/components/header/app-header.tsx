@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { headerConfig, type HeaderActionTone, type HeaderConfig } from "./header-config";
 import { UserAvatar } from "./user-avatar";
 import { AccountMenu } from "./account-menu";
+import { CustomizeThemeHeaderButton } from "@/components/branding/branding-entry";
 import { HelpPanel } from "./help-panel";
 import { useNavTourRestart } from "@/components/nav/nav-tour";
 import { NavTourMenu } from "@/components/nav/nav-tour-menu";
@@ -1040,6 +1041,9 @@ export function AppHeader({
               />
             </>
           ) : null}
+
+          {/* Customize theme (branding B), when its door is the top bar. */}
+          <CustomizeThemeHeaderButton />
 
           {config.actions.map((action) => (
             <button

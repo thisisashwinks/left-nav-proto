@@ -3875,12 +3875,17 @@ export const NAV_TOUR_HANDS_ON_LABELS: Record<NavTourHandsOn, string> = {
  * Whether each step carries a short looping preview of the gesture, from
  * public/tour/<step id>.mp4. A step whose clip is missing shows text only.
  */
-export const NAV_TOUR_MEDIAS = ["on", "off"] as const;
+export const NAV_TOUR_MEDIAS = ["off", "on", "pick"] as const;
 export type NavTourMedia = (typeof NAV_TOUR_MEDIAS)[number];
 
+/*
+ * Clips have to earn their place on a step, so `pick` turns them on one
+ * step at a time (navTourClipSteps). Ashwin, Nov 19.
+ */
 export const NAV_TOUR_MEDIA_LABELS: Record<NavTourMedia, string> = {
-  on: "Show previews",
   off: "Text only",
+  on: "Every step",
+  pick: "Choose steps",
 };
 
 /**
@@ -3944,6 +3949,45 @@ export const NAV_TOUR_RESTART_LABELS: Record<NavTourRestart, string> = {
  * "Take the guided tour" at its foot carries on to step 2; closing it leaves
  * the coach mark where it was. Ashwin, Oct 28.
  */
+/**
+ * Whether featured cards and promos wait for onboarding to be over.
+ * Ashwin, Nov 18.
+ *
+ *  afterOnboarding  Off until the first coach-mark flow is closed or
+ *                   finished — the same moment "Learn about Switchyard"
+ *                   arrives in the sidebar.
+ *  always           On from first paint, as they shipped.
+ *
+ * The problem is two voices at once. On a first load the Get started flow is
+ * walking the reader through the nav while a featured card sits in that same
+ * nav advertising a product they have not reached yet — and the card is the
+ * louder of the two, because it is coloured and the coach mark is not.
+ * Whichever one wins, the other was noise.
+ *
+ * `afterOnboarding` by default. The cost is that a first-load screenshot has
+ * no card in it, which is a real loss for anyone demoing the cards and the
+ * reason `always` exists.
+ *
+ * Deliberately one axis for every promo surface rather than a clause on each
+ * one. The rule is about the session, not about any particular card, and a
+ * per-surface switch is how one of them ends up still showing. See
+ * usePromosHeld, which is the single place it is answered.
+ *
+ * One exception, and it is about what the thing IS rather than about where:
+ * the Holiday Promos NAV ROW stays. Everything the gate takes away wears its
+ * own shape and competes with the coach mark for a glance; a row in the
+ * category list, at the same height and in the same ink as the rows around
+ * it, reads as somewhere to go rather than as something being sold — and
+ * hiding a category for the length of a tour OF THE CATEGORIES would teach a
+ * sidebar nobody is going to have. Its card is still held. Ashwin, Nov 18.
+ */
+export const PROMO_GATES = ["afterOnboarding", "always"] as const;
+export type PromoGate = (typeof PROMO_GATES)[number];
+export const PROMO_GATE_LABELS: Record<PromoGate, string> = {
+  afterOnboarding: "After onboarding closes",
+  always: "Always",
+};
+
 export const NAV_TOUR_WATCHES = ["off", "on"] as const;
 export type NavTourWatch = (typeof NAV_TOUR_WATCHES)[number];
 
@@ -4168,6 +4212,19 @@ export const NAV_TOUR_SHADOW_LABELS: Record<NavTourShadow, string> = {
  * replace; the Sub-account ready card is dark on a scrim and has none.
  * Ashwin, Nov 17.
  */
+/**
+ * How long the progressive flows run. Short (Nov 18): at most 4 steps a flow,
+ * the old steps folded together, each with a fresh clip. Full: the flows as
+ * they were (Get started 11, Editing 10), kept to compare. Ashwin, Nov 18.
+ */
+export const NAV_TOUR_LENGTHS = ["short", "full"] as const;
+export type NavTourLength = (typeof NAV_TOUR_LENGTHS)[number];
+
+export const NAV_TOUR_LENGTH_LABELS: Record<NavTourLength, string> = {
+  short: "Short",
+  full: "Full",
+};
+
 export const NAV_TOUR_BORDERS = ["original", "strong", "stronger"] as const;
 export type NavTourBorder = (typeof NAV_TOUR_BORDERS)[number];
 
@@ -7284,9 +7341,13 @@ export interface ThemeState {
   navTourMedia: NavTourMedia;
   /** Where the preview sits. See NAV_TOUR_MEDIA_POSITIONS. */
   navTourMediaPosition: NavTourMediaPosition;
+  /** Step ids that show their clip when navTourMedia is `pick`. */
+  navTourClipSteps: readonly string[];
   /** Where a closed tour can be started again. See NAV_TOUR_RESTARTS. */
   navTourRestart: NavTourRestart;
   /** The launch video on the first coach mark. See NAV_TOUR_WATCHES. */
+  /** Whether promos wait for onboarding. See PROMO_GATES. */
+  promoGate: PromoGate;
   navTourWatch: NavTourWatch;
   /** Where the watch button sits. See NAV_TOUR_WATCH_SPOTS. */
   navTourWatchSpot: NavTourWatchSpot;
@@ -7311,6 +7372,8 @@ export interface ThemeState {
   navTourHighlightScope: NavTourHighlightScope;
   /** How Editing shows applying a layout to many. See NAV_TOUR_APPLY_STEPS. */
   navTourApplySteps: NavTourApplySteps;
+  /** See NAV_TOUR_LENGTHS. */
+  navTourLength: NavTourLength;
   /** Which progressive flow runs first. See NAV_TOUR_START_FLOWS. */
   navTourStartFlow: NavTourStartFlow;
   /** The Learn row's glyph. See NAV_TOUR_LEARN_ICONS. */
@@ -8583,10 +8646,14 @@ export const DEFAULT_THEME: ThemeState = {
   navTourSpotlight: "off",
   navTourStyle: "card",
   navTourTheme: "light",
-  navTourHandsOn: "doOrNext",
-  navTourMedia: "on",
+  navTourHandsOn: "show",
+  navTourMedia: "pick",
   navTourMediaPosition: "top",
+  // Clips only where the gesture is easier shown than described: All
+  // products and its search, and applying a layout to many. Ashwin, Nov 19.
+  navTourClipSteps: ["gs-all-products", "ed-layouts", "accounts-layouts"],
   navTourRestart: "off",
+  promoGate: "afterOnboarding",
   navTourWatch: "on",
   navTourWatchSpot: "footer",
   navTourWatchStyle: "gray",
@@ -8598,6 +8665,7 @@ export const DEFAULT_THEME: ThemeState = {
   navTourHighlight: "gray",
   navTourHighlightScope: "icons",
   navTourApplySteps: "one",
+  navTourLength: "short",
   navTourStartFlow: "getStarted",
   navTourLearnIcon: "compass",
   navTourLearnOpens: "replay",

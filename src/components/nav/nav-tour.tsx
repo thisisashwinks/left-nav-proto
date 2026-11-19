@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Play, RotateCcw, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { NavTourVideo } from "@/components/nav/nav-tour-video";
+import { expandWithoutNavigating } from "@/components/flyout/flyout-row";
 import { ROUTES_TOURS_CLOSED, normaliseRoute } from "@/design/route-variants";
 import { useTheme } from "@/components/theme/theme-provider";
 import { PIN_LIMIT, useNavLayout } from "@/components/nav/nav-layout-provider";
@@ -12,6 +13,7 @@ import type {
   TreeSearchPlace,
   NavTourApplySteps,
   NavTourArrowGap,
+  NavTourLength,
   NavTourHandsOn,
   NavTourLayouts,
   NavTourRestart,
@@ -157,10 +159,69 @@ function markClosed() {
   closedOnce = true;
   for (const listener of closedListeners) listener();
 }
+/*
+ * Replay puts the session back to a first login, and this flag has to go
+ * with it. Ashwin, Nov 18.
+ *
+ * It was one-way: once anything had been closed, `closedOnce` stayed true
+ * for the life of the page. That was invisible while the Learn row was its
+ * only reader — the row had already earned its place — and it stops being
+ * invisible the moment promos ride the same flag, because replaying the
+ * tours then left the cards on while the coach marks ran, which is the
+ * collision the gate exists to prevent.
+ *
+ * Clearing it also puts the Learn row back where its own rule says it
+ * belongs: the tours are running again, so the tour is once more the way in.
+ */
+function clearClosed() {
+  if (!closedOnce) return;
+  closedOnce = false;
+  for (const listener of closedListeners) listener();
+}
 const subscribeClosed = (listener: () => void) => {
   closedListeners.add(listener);
   return () => closedListeners.delete(listener);
 };
+
+/**
+ * Whether a promo must stay off the screen right now. See PROMO_GATES.
+ *
+ * One hook for every featured card and promo in the product, because the
+ * rule is about the SESSION rather than about any one of them: onboarding
+ * and advertising must not share a screen. A reader halfway through "here is
+ * your nav" does not need a second voice selling a product they have not
+ * reached yet, and the card is the louder of the two.
+ *
+ * Rides `closedOnce` — the very flag "Learn about Switchyard" waits on.
+ * Ashwin, Nov 18: when the first tour is closed or finished, the Learn row
+ * arrives AND the cards switch on. Two things appearing on one signal is the
+ * point, not a coincidence: that moment is "the tour is over, here is what
+ * the nav can do", and both halves are saying it. Sharing the flag is also
+ * what stops them drifting — a second timer for the cards is a second
+ * opinion about when onboarding ended.
+ *
+ * `on` matters as much as `closed`. Where the tours do not run at all — at
+ * agency scope, or under the card style — there is no onboarding to wait
+ * for, and holding promos for a signal that will never fire would hide them
+ * forever. Nothing to clear means nothing to wait for.
+ *
+ * Edit mode and the open sub-account rail need no clause here: the first
+ * hides the cards already, and the second covers the column they live in.
+ */
+export function usePromosHeld(): boolean {
+  const on = React.useSyncExternalStore(
+    subscribeRestartable,
+    () => restartable,
+    () => false,
+  );
+  const closed = React.useSyncExternalStore(
+    subscribeClosed,
+    () => closedOnce,
+    () => false,
+  );
+  const { promoGate } = useTheme().effective;
+  return promoGate === "afterOnboarding" && on && !closed;
+}
 
 /** Whether "Learn about Switchyard" is in the sidebar. See navTourLearnRow. */
 export function useLearnSwitchyardRow(): boolean {
@@ -353,6 +414,65 @@ function subProductRow(): Element | null {
   return visible(`${FLYOUT(TOUR_CATEGORY)} [aria-expanded]`);
 }
 
+/** That row's own name — "Contacts" — read off the button, not its pages. */
+const subProductName = (): string | null =>
+  subProductRow()?.textContent?.trim() || null;
+
+/** The pin on that row, or any free pin in the flyout as a fallback. */
+function subProductPin(): Element | null {
+  const name = subProductName();
+  return (
+    (name ? pinIn(FLYOUT(TOUR_CATEGORY), name) : null) ??
+    visible(`${FLYOUT(TOUR_CATEGORY)} [aria-label^="Pin "]`)
+  );
+}
+
+/**
+ * The product's pages, open for the length of the step. Ashwin, Nov 18:
+ * "already open contacts drop down, and highlight the pin icon. That way it
+ * feels seamless."
+ *
+ * The card used to arrive on a closed row and ask the reader to open it,
+ * which made the step about two things and buried the one nobody discovers.
+ * Opening it on arrival turns the card into a single instruction pointed at
+ * a single control.
+ *
+ * `open` retries, because the flyout above it may be opening in this very
+ * tick: the effect presses the category and then calls this, and the panel
+ * is a render away. Arriving from step 1 the flyout is already up and the
+ * first attempt lands; arriving backwards from step 3 it is not, and
+ * without the retry the row would simply never open.
+ */
+const INSIDE_HOLD: Hold = {
+  isOpen: () => subProductRow()?.getAttribute("aria-expanded") === "true",
+  open: () => {
+    let tries = 0;
+    const go = () => {
+      const row = subProductRow();
+      if (row) {
+        /*
+          Quietly: the row is a disclosure AND a link, so a plain press
+          would open its first page behind the panel and the Launchpad the
+          reader was looking at would become Smart lists. Ashwin, Nov 18 —
+          the step asks them to pin something, not to go anywhere.
+        */
+        if (row.getAttribute("aria-expanded") !== "true") {
+          expandWithoutNavigating(() => press(row));
+        }
+        return;
+      }
+      if (tries++ < 12) setTimeout(go, 60);
+    };
+    go();
+  },
+  /*
+   * Nothing to put back. Every way out of this step closes the whole flyout
+   * — step 3 asks for no flyout at all — so collapsing the row first would
+   * be a movement nobody sees, on its way to being thrown away.
+   */
+  close: () => {},
+};
+
 /** The first category the reader can rename — the rows edit mode is about. */
 function renameable(): string | null {
   const el = visible(`${NAV} [aria-label^="Rename "]`);
@@ -490,6 +610,15 @@ async function saveNewLayout() {
 }
 
 /** The save dialog, held open and closed with its own Cancel: nothing is saved. */
+/** Opens the save dialog if it is not up, then names and saves the layout. */
+async function openAndSaveLayout() {
+  if (visible(SAVE_DIALOG) === null) {
+    press(saveLayoutButton());
+    for (let i = 0; i < 20 && visible(SAVE_DIALOG) === null; i += 1) await wait(50);
+  }
+  await saveNewLayout();
+}
+
 const SAVE_HOLD: Hold = {
   isOpen: () => visible(SAVE_DIALOG) !== null,
   open: () => press(saveLayoutButton()),
@@ -714,6 +843,162 @@ const STEPS = {
     side: "bottom",
     find: appBarAskAi,
   },
+  /*
+   * ─── Get started, short (Nov 18) ────────────────────────────────────────
+   * Four steps, each folding several of the full flow's together, each with
+   * its own clip of the whole gesture (public/tour/<id>.mp4). See
+   * NAV_TOUR_LENGTHS. Ashwin, Nov 18.
+   */
+  "gs-welcome": {
+    id: "gs-welcome",
+    title: "Meet your new sidebar",
+    body: "Products are now grouped into categories. Click one to explore.",
+    doBody: `Products are now grouped into categories. Click ${TOUR_CATEGORY} to explore.`,
+    side: "right",
+    expand: true,
+    find: () => categoryButton(TOUR_CATEGORY),
+    done: () => visible(`${CATEGORY}[aria-expanded="true"]`) !== null,
+    perform: () => {
+      if (!visible(`${CATEGORY}[aria-expanded="true"]`)) press(categoryButton(TOUR_CATEGORY));
+    },
+  },
+  "gs-inside": {
+    id: "gs-inside",
+    /*
+      Named for the pin, which is the half people miss. Ashwin, Nov 18.
+
+      "Inside a category" described where you were standing rather than what
+      to do, and it was also the heading of the step just left — the card
+      changed and the title did not, which reads as the tour having stalled.
+
+      Of the two gestures that used to be here, opening a product is the one
+      anybody would try unprompted; pinning is the one the beta research
+      found nobody discovers. So the card now ARRIVES with the product open
+      (see INSIDE_HOLD) and spends itself entirely on the pin.
+    */
+    title: "Pin what you use most",
+    body: "Click any pin to keep it at the top of Recents.",
+    doBody: () =>
+      `Click the pin beside ${subProductName() ?? "a product"} to keep it at the top of Recents.`,
+    side: "right",
+    /* An icon-sized target: it gets the highlight ring as well as the arrow. */
+    small: true,
+    /* The pin is drawn on hover only, so it is held visible while pointed at. */
+    reveal: true,
+    flyout: TOUR_CATEGORY,
+    holds: INSIDE_HOLD,
+    find: subProductPin,
+    /* Nothing to teach on a row that is pinned already — on a replay, say. */
+    can: () => subProductPin() !== null && !pressed(subProductPin()),
+    done: () => {
+      const name = subProductName();
+      // From the nav as well: pinned, the row lands in the sidebar's list.
+      return (
+        name !== null &&
+        (pressed(pinIn(FLYOUT(TOUR_CATEGORY), name)) || pressed(pinIn(NAV, name)))
+      );
+    },
+    perform: () => {
+      const pin = subProductPin();
+      if (!pressed(pin)) press(pin);
+    },
+  },
+  "gs-all-products": {
+    id: "gs-all-products",
+    title: "Search all products",
+    body: "Click here to search for any product.",
+    doBody: "Click All products to search for any product.",
+    side: "right",
+    expand: true,
+    flyout: null,
+    find: () => visible(RECENTS_PANEL) ?? viewAllButton(),
+    done: () => visible(RECENTS_PANEL) !== null,
+    /*
+      No `perform`, so Next simply moves on. Ashwin, Nov 18.
+
+      It used to open the panel, switch to the All products tab, hold it for
+      a beat and shut it again — about 1.8 seconds in which the reader has
+      pressed Next and nothing has arrived. That pause reads as the tour
+      hanging rather than as a demonstration, which is the worst thing a
+      step between two others can do.
+
+      `done` still watches for the panel, so a reader who opens it THEMSELVES
+      is carried on by their own click, and the card points at the row either
+      way. What is gone is the version where Next does it for you.
+    */
+  },
+  "gs-find": {
+    id: "gs-find",
+    /*
+      Two promises, each as broad as it really is. Ashwin, Nov 18.
+
+      The old pair listed the corpus — "every page, contact, and setting" —
+      which sounds complete and is not: the moment a reader thinks of a
+      fifth kind of thing, the sentence has told them it is not in there.
+      "Anything" is both shorter and more honest about what the field does.
+
+      Ask AI gets the same treatment on the other axis. It was described as
+      answering and "taking on tasks", which undersells it to anyone
+      skim-reading; the point is that it ACTS, so the card says so.
+    */
+    title: "Search or ask AI",
+    body: "Press ⌘K to search anything in the product. Use Ask AI to automate tasks.",
+    side: "bottom",
+    flyout: null,
+    find: () => visible(SEARCH),
+  },
+  /*
+   * ─── Editing, short (Nov 18) ────────────────────────────────────────────
+   * Rename, reorder, hide and icon in one; Add as is; save and name in one;
+   * find, switch and apply to many in one. Each with its own clip.
+   */
+  "ed-rows": {
+    id: "ed-rows",
+    small: true,
+    title: "Customize any item",
+    body: "Use ⋮ on any category or product to move, rename, hide, or change its icon.",
+    doBody: `Use ⋮ on ${REORDER_MOVES} to move it up, rename it, hide it, or change its icon.`,
+    side: "right",
+    reveal: true,
+    /* The row's ⋮ rather than its grip: every edit lives in that menu. Ashwin, Nov 19. */
+    find: () => visible(`${NAV} [aria-haspopup="menu"][aria-label=${q(`Edit ${REORDER_MOVES}`)}]`) ?? rowControl("Edit"),
+    can: () => reorderHandle(REORDER_MOVES) !== null && reorderHandle(REORDER_PAST) !== null,
+    done: () => reorderedAbove(),
+    perform: (ctx) => {
+      const order = l1Order();
+      const from = order.indexOf(REORDER_MOVES);
+      const to = order.indexOf(REORDER_PAST);
+      if (from > to && to >= 0) ctx.moveGroup(from, to);
+    },
+  },
+  "ed-add": {
+    id: "ed-add",
+    title: "Add a category or product",
+    body: "Add a product, or group several under a new category.",
+    side: "right",
+    find: () =>
+      withText(`${NAV} button`, "Add a category or product") ??
+      visible(`${NAV} button[aria-label^="Add to the"]`),
+  },
+  "ed-save": {
+    id: "ed-save",
+    title: "Save it as a layout",
+    body: "Save your changes as a layout to reuse anytime.",
+    doBody: "Click Save layout to keep your changes as a layout.",
+    side: "right",
+    done: () => !SAVE_HOLD.isOpen() && saveLayoutButton() === null,
+    perform: openAndSaveLayout,
+    find: () => visible(SAVE_DIALOG) ?? saveLayoutButton() ?? visible("[data-nav-edit-card]"),
+  },
+  "ed-layouts": {
+    id: "ed-layouts",
+    title: "Use it everywhere",
+    body: "Switch layouts here, or apply one to many sub-accounts.",
+    side: "right",
+    small: true,
+    editing: true,
+    find: () => visible(LAYOUTS),
+  },
   customize: {
     id: "customize",
     title: "Make the menu yours",
@@ -744,16 +1029,16 @@ const STEPS = {
   /* ── Sub-accounts ── */
   "accounts-open": {
     id: "accounts-open",
-    title: "All your sub-accounts",
-    body: "Hover or click the rail to see every sub-account and switch between them.",
+    title: "Your sub-accounts live here",
+    body: "Click any sub-account to switch to it and pin it to keep them handy.",
     side: "right",
     rail: true,
     find: () => visible(SWITCHER) ?? visible(RAIL),
   },
   "accounts-search": {
     id: "accounts-search",
-    title: "Find a sub-account",
-    body: "Search by name to jump straight to the one you need.",
+    title: "Search for any sub-account",
+    body: "Find any sub-account you want from here.",
     side: "right",
     rail: true,
     find: () =>
@@ -764,16 +1049,16 @@ const STEPS = {
   "accounts-create": {
     id: "accounts-create",
     small: true,
-    title: "Create a sub-account",
-    body: "Add a new sub-account without leaving the one you’re in.",
+    title: "Create a new sub-account",
+    body: "You can now create a new sub-account directly from here.",
     side: "right",
     rail: true,
     find: () => visible('[aria-label="Create sub-account"]'),
   },
   "accounts-layouts": {
     id: "accounts-layouts",
-    title: "Manage them with layouts",
-    body: "Apply a navigation layout you’ve made to any of your sub-accounts.",
+    title: "Customize what sub-accounts see",
+    body: "Apply any navigation layout to multiple sub-accounts from here.",
     side: "right",
     rail: true,
     learnMore: "customize",
@@ -990,6 +1275,12 @@ const FLOWS: Record<TourFlowId, readonly StepId[]> = {
   ],
 };
 
+/** Editing at Short length: 4 steps. See NAV_TOUR_LENGTHS. */
+const EDITING_SHORT: readonly StepId[] = ["ed-rows", "ed-add", "ed-save", "ed-layouts"];
+
+/** Get started at Short length: 4 steps. See NAV_TOUR_LENGTHS. */
+const GET_STARTED_SHORT: readonly StepId[] = ["gs-welcome", "gs-inside", "gs-all-products", "gs-find"];
+
 /** The single tour: getting started, pinning, then editing, cut down. */
 const SINGLE: readonly StepId[] = [
   "welcome",
@@ -1191,6 +1482,33 @@ const OPEN_STEPS: Record<
   },
 };
 
+/**
+ * The progressive flows' steps as the tour would run them now, for the
+ * tuning panel's per-step clip toggles. Ashwin, Nov 19.
+ */
+export function navTourStepList(t: {
+  navTourLayouts: NavTourLayouts;
+  navTourProductsOpen: OpenSteps["products"];
+  navTourSearchOpen: OpenSteps["search"];
+  navTourAskAiOpen: OpenSteps["askAi"];
+  navTourApplySteps: NavTourApplySteps;
+  navTourLength: NavTourLength;
+  treeSearchPlace: TreeSearchPlace;
+}): { flow: string; steps: { id: string; title: string }[] }[] {
+  const open = { products: t.navTourProductsOpen, search: t.navTourSearchOpen, askAi: t.navTourAskAiOpen };
+  const flows: [TourFlowId, string][] = [
+    ["getStarted", "Get started"],
+    ["editing", "Editing"],
+    ["subAccounts", "Sub-accounts"],
+  ];
+  return flows.map(([id, flow]) => ({
+    flow,
+    steps: stepsFor(id, "flows", t.navTourLayouts, open, t.navTourApplySteps, t.treeSearchPlace, t.navTourLength).map(
+      (s) => ({ id: s.id, title: s.title }),
+    ),
+  }));
+}
+
 function stepsFor(
   flow: TourFlowId,
   style: NavTourStyle,
@@ -1198,7 +1516,11 @@ function stepsFor(
   open: OpenSteps,
   apply: NavTourApplySteps,
   searchPlace: TreeSearchPlace,
+  length: NavTourLength = "full",
 ): TourStep[] {
+  if (flow === "editing" && length === "short") {
+    return EDITING_SHORT.map((id): TourStep => STEPS[id]);
+  }
   if (flow === "editing") {
     // The rail's two live steps, or one card with a clip in their place.
     return FLOWS.editing.flatMap((id): TourStep[] =>
@@ -1208,6 +1530,9 @@ function stepsFor(
           ? []
           : [STEPS[id]],
     );
+  }
+  if (style === "flows" && flow === "getStarted" && length === "short") {
+    return GET_STARTED_SHORT.map((id): TourStep => STEPS[id]);
   }
   if (style === "flows" && flow === "getStarted") {
     return FLOWS.getStarted.flatMap((id): TourStep[] =>
@@ -1352,6 +1677,7 @@ export function NavTour({
     navTourHandsOn,
     navTourMedia,
     navTourMediaPosition,
+    navTourClipSteps,
     navTourWatch,
     navTourWatchSpot,
     navTourWatchStyle,
@@ -1511,7 +1837,7 @@ export function NavTour({
       press(categoryButton(step.flyout));
     }
     const at = index;
-    keepEditingFlow = step.id === "layout-save" || step.outOfEdit === true;
+    keepEditingFlow = step.id === "layout-save" || step.id === "ed-save" || step.outOfEdit === true;
     // Closed the way Discard would; by now the change has been saved.
     if (step.outOfEdit && ctx.editing()) discardEditing();
     if (step.holds && !step.holds.isOpen()) step.holds.open();
@@ -1724,7 +2050,10 @@ export function NavTour({
     card's inner width. Decorative — the text says the same thing — and
     gone if the clip is missing rather than an empty box.
   */
-  const showClip = navTourMedia === "on" && !noClip.has(step.id);
+  // Text only unless clips are on for every step or this one. See NAV_TOUR_MEDIAS.
+  const showClip =
+    (navTourMedia === "on" || (navTourMedia === "pick" && navTourClipSteps.includes(step.id))) &&
+    !noClip.has(step.id);
   const clipOnTop = showClip && navTourMediaPosition === "top";
   const clip = (
     <video
@@ -2189,6 +2518,7 @@ export function NavTours({
     navTourSearchOpen,
     navTourAskAiOpen,
     navTourApplySteps,
+    navTourLength,
     navTourStartFlow,
     treeSearchPlace,
     navTourInEdit,
@@ -2274,6 +2604,7 @@ export function NavTours({
 
   React.useEffect(() => {
     const replay = () => {
+      clearClosed();
       dispatch({ type: "replay" });
       setReplays((n) => n + 1);
     };
@@ -2408,9 +2739,9 @@ export function NavTours({
             products: navTourProductsOpen,
             search: navTourSearchOpen,
             askAi: navTourAskAiOpen,
-          }, navTourApplySteps, treeSearchPlace)
+          }, navTourApplySteps, treeSearchPlace, navTourLength)
         : [],
-    [active, navTourStyle, navTourLayouts, navTourProductsOpen, navTourSearchOpen, navTourAskAiOpen, navTourApplySteps, treeSearchPlace],
+    [active, navTourStyle, navTourLayouts, navTourProductsOpen, navTourSearchOpen, navTourAskAiOpen, navTourApplySteps, treeSearchPlace, navTourLength],
   );
 
   if (!on) return null;
@@ -2418,7 +2749,7 @@ export function NavTours({
     <>
       {active && steps.length > 0 ? (
         <NavTour
-          key={`${run}-${navTourStyle}-${navTourLayouts}-${navTourProductsOpen}-${navTourSearchOpen}-${navTourAskAiOpen}-${navTourApplySteps}-${treeSearchPlace}`}
+          key={`${run}-${navTourStyle}-${navTourLength}-${navTourLayouts}-${navTourProductsOpen}-${navTourSearchOpen}-${navTourAskAiOpen}-${navTourApplySteps}-${treeSearchPlace}`}
           steps={steps}
           ctx={ctx}
           onClose={(how) => {

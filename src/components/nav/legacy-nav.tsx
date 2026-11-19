@@ -116,7 +116,7 @@ export function LegacyNav({
    * would be a legacy nav you have to leave before you can decide to leave
    * it.
    */
-  onOpenSettings: (id: "agency-labs" | "agency-company") => void;
+  onOpenSettings: (id: "agency-labs" | "agency-company" | "agency-branding") => void;
 }) {
   const legacyNavTheme = useTheme().legacyNavTheme;
   const agencyScope = scope === "agency";
@@ -319,7 +319,11 @@ export function LegacyNav({
                 selected={settingsSelected === row.id}
                 onSelect={() => {
                   setSettingsSelected(row.id);
-                  if (row.id === "agency-labs" || row.id === "agency-company") {
+                  if (
+                    row.id === "agency-labs" ||
+                    row.id === "agency-company" ||
+                    row.id === "agency-branding"
+                  ) {
                     onOpenSettings(row.id);
                   }
                 }}
@@ -793,6 +797,9 @@ type LegacyRowSpec = LegacyItem | { kind: "divider"; id: string };
 const SETTINGS_ROWS: readonly LegacyItem[] = [
   { kind: "item", id: "agency-profile", label: "My Profile" },
   { kind: "item", id: "agency-company", label: "Company" },
+  // Not production's: the agency branding page (Nov 18) has to be reachable
+  // from the old nav too, and Company's neighbour is where it would ship.
+  { kind: "item", id: "agency-branding", label: "Branding" },
   { kind: "item", id: "agency-team", label: "My Staff" },
   { kind: "item", id: "agency-billing", label: "Billing" },
   { kind: "item", id: "agency-workflow", label: "Workflow settings", badge: "New" },

@@ -6,6 +6,7 @@ import { Check, ChevronLeft, ChevronRight, Sparkles, X } from "lucide-react";
 
 import { Modal } from "@/components/page/modal";
 import { useTheme } from "@/components/theme/theme-provider";
+import { usePromosHeld } from "@/components/nav/nav-tour";
 import type { NavFeaturedFloatCycle } from "@/design/theme";
 import { cn } from "@/lib/utils";
 import { useMediaQuery } from "@/lib/use-media-query";
@@ -110,6 +111,7 @@ function useIntroLift(active: boolean, cardLeft: number, cardWidth: number) {
 
 export function FeaturedFloat({ navRight }: { navRight: number }) {
   const { navFeaturedSlot, navFeaturedFloatSide, navFeaturedFloatCycle, navFeaturedMediaKind } = useTheme().effective;
+  const held = usePromosHeld();
   const { launch, video, playVideo } = useFeatured();
   const client = useIsClient();
   const reduced = useMediaQuery("(prefers-reduced-motion: reduce)");
@@ -214,7 +216,13 @@ export function FeaturedFloat({ navRight }: { navRight: number }) {
     collapsed ? 160 : 360,
   );
 
-  if (navFeaturedSlot !== "float" || !client) return null;
+  /*
+    The float asks for itself, because it does not go through the list.
+    It reads the axis directly and portals over the canvas, so an empty
+    provider leaves it untouched — the one surface the choke point misses.
+    See PROMO_GATES.
+  */
+  if (held || navFeaturedSlot !== "float" || !client) return null;
 
   const origin = left ? "origin-bottom-left" : "origin-bottom-right";
   /*

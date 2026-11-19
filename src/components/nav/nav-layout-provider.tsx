@@ -4,6 +4,7 @@ import * as React from "react";
 import type { LucideIcon } from "lucide-react";
 import { INITIAL_ACCOUNT_ID } from "@/components/accounts/accounts-data";
 import { useTheme } from "@/components/theme/theme-provider";
+import { endThemeSession } from "@/components/branding/edit-session-theme";
 import { DEFAULT_THEME } from "@/design/theme";
 import { freshStart, navProfileFor } from "./account-nav-profiles";
 import {
@@ -2082,10 +2083,11 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
           }),
         ),
 
-      setEditing: (editing) =>
-        editing
-          ? dispatch({ type: "beginEdit" })
-          : dispatch({ type: "saveEdit" }),
+      setEditing: (editing) => {
+        // The palette's theme rides the session (branding, Nov 18).
+        if (!editing) endThemeSession("save");
+        dispatch(editing ? { type: "beginEdit" } : { type: "saveEdit" });
+      },
 
       beginEditing: () => {
         // Claimed on entry rather than on the first change: the seat is the
@@ -2094,7 +2096,10 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
         plans.claimSeat(activeId ?? AGENCY_SCOPE_ID);
         dispatch({ type: "beginEdit" });
       },
-      saveEditing: () => dispatch({ type: "saveEdit" }),
+      saveEditing: () => {
+        endThemeSession("save");
+        dispatch({ type: "saveEdit" });
+      },
       discardEditing: () => {
         /*
          * Discard hands the seat back — but only if nothing was kept.
@@ -2107,6 +2112,7 @@ export function NavLayoutProvider({ children }: { children: React.ReactNode }) {
          * same reason — what is left behind is the account's original nav.
          */
         plans.releaseSeat(activeId ?? AGENCY_SCOPE_ID);
+        endThemeSession("discard");
         dispatch({ type: "discardEdit" });
       },
       editDirty: store.editDirty,

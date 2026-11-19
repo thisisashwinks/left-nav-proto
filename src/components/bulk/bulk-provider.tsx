@@ -4,6 +4,8 @@ import * as React from "react";
 import { withProduct, type NavLayoutState } from "@/components/nav/grouping";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
 import { useTheme } from "@/components/theme/theme-provider";
+import { useBranding } from "@/components/branding/branding-provider";
+import type { BrandingTheme } from "@/design/branding";
 import {
   DEFAULT_TEMPLATE_ID,
   patchForArrangement,
@@ -67,6 +69,8 @@ export interface AccountOutcome {
 interface AccountSnapshot {
   layout: NavLayoutState;
   link: { templateId: string; base: NavArrangement } | null;
+  /** The account's own theme (Nov 18) — applying a layout can replace it. */
+  theme?: BrandingTheme;
 }
 
 export interface BulkRun {
@@ -196,6 +200,9 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
   const { patchFor, link, unlink, linkFor, linkedIdFor, templates, strict } =
     useNavTemplates();
   const { templateUndo } = useTheme().effective;
+  // Applying a layout carries its theme (see nav-templates `link`), so undo
+  // has to put the account's own theme back too.
+  const { live: brandingLive, setOverride } = useBranding();
 
   const set = React.useCallback(
     <K extends keyof BulkSettings>(key: K, value: BulkSettings[K]) =>
@@ -273,11 +280,12 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
           link: existing
             ? { templateId: existing.templateId, base: existing.base }
             : null,
+          theme: brandingLive.overrides[id]?.theme,
         };
       }
       return out;
     },
-    [linkFor, profileFor],
+    [linkFor, profileFor, brandingLive],
   );
 
   const record = React.useCallback(
@@ -519,12 +527,14 @@ export function BulkActionsProvider({ children }: { children: React.ReactNode })
         applyToAccounts([id], `Undid ${run.title.toLowerCase()}`, () => snap.layout);
         if (snap.link) link(id, snap.link.templateId, snap.link.base);
         else unlink(id);
+        // After the link, which may have copied a layout theme on.
+        setOverride(id, { theme: snap.theme });
       }
       setHistory((h) =>
         h.map((r) => (r.id === runId ? { ...r, undone: true } : r)),
       );
     },
-    [history, applyToAccounts, link, unlink],
+    [history, applyToAccounts, link, unlink, setOverride],
   );
 
   /**

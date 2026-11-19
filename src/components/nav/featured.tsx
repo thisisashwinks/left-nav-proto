@@ -27,6 +27,7 @@ import { AiSparkleIcon } from "@/components/icons/ai-sparkle";
  */
 
 import { FEATURED_PAGES, featuredPinId, type FeaturedKey } from "@/components/nav/featured-pages";
+import { usePromosHeld } from "@/components/nav/nav-tour";
 export type { FeaturedKey };
 
 export interface FeaturedProduct {
@@ -340,6 +341,9 @@ interface FeaturedContextValue {
 
 const FeaturedContext = React.createContext<FeaturedContextValue | null>(null);
 
+/** One frozen empty list, so a held provider is referentially stable. */
+const EMPTY: readonly FeaturedProduct[] = [];
+
 export function FeaturedProvider({ children }: { children: React.ReactNode }) {
   const { navFeaturedSlot, navFeaturedCount, navFeaturedLead, navFeaturedAgency, navFeaturedPromo, navPromoPlacement } =
     useTheme().effective;
@@ -454,11 +458,28 @@ export function FeaturedProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  /*
+   * Held while onboarding is still running. See PROMO_GATES.
+   *
+   * At the PROVIDER rather than at the half-dozen things that read it,
+   * because every one of those is the same decision — "is there anything
+   * featured right now" — and a surface that asked separately is a surface
+   * that gets forgotten the next time one is added. With the lists empty,
+   * the slot, the rows, the promo card and the panel all draw nothing of
+   * their own accord; none of them needs to learn about the tour.
+   */
+  const held = usePromosHeld();
   const value = React.useMemo<FeaturedContextValue>(
     () => ({
-      list,
-      all,
-      open,
+      list: held ? EMPTY : list,
+      /*
+        `all` too, and it is the one that would have been missed: it
+        backfills the full catalogue rather than deriving from `list`, so
+        the "Rows after categories" slot kept drawing all six products
+        through an empty list. The existing `ended` switch has that bug.
+      */
+      all: held ? EMPTY : all,
+      open: held ? null : open,
       setOpen,
       pinned,
       togglePin: (key) => {
@@ -484,10 +505,10 @@ export function FeaturedProvider({ children }: { children: React.ReactNode }) {
       },
       ended,
       promoFor: (category) =>
-        navFeaturedPromo === "off" || promoDismissed
+        held || navFeaturedPromo === "off" || promoDismissed
           ? null
           : (list.find((p) => p.homeCategory === category) ?? null),
-      video,
+      video: held ? null : video,
       // The sale has no video: its still opens the landing page instead.
       playVideo: (key) => {
         if (key === "promos") {
@@ -495,10 +516,10 @@ export function FeaturedProvider({ children }: { children: React.ReactNode }) {
           openFeaturedProduct("promos");
         } else setVideo(key);
       },
-      message,
+      message: held ? null : message,
       clearMessage: () => setMessage(null),
     }),
-    [list, all, open, pinned, layout, slide, promoDismissed, ended, navFeaturedPromo, message, video],
+    [held, list, all, open, pinned, layout, slide, promoDismissed, ended, navFeaturedPromo, message, video],
   );
 
   return <FeaturedContext.Provider value={value}>{children}</FeaturedContext.Provider>;
