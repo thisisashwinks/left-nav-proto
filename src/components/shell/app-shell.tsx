@@ -174,6 +174,7 @@ import { SearchFlyout } from "@/components/search/search-flyout";
 import {
   ACCOUNT_BANNERS,
   AGENCY_BANNERS,
+  HOLIDAY_PROMOS_BANNER,
   TopBanner,
 } from "@/components/shell/top-banner";
 import {
@@ -3573,7 +3574,11 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
           banners={ACCOUNT_BANNERS[accounts.current.id] ?? []}
         />
       ) : plainUser ? null : (
-        <TopBanner banners={AGENCY_BANNERS} />
+        <TopBanner
+          banners={
+            effective.navPromoPlacement === "off" ? AGENCY_BANNERS : [HOLIDAY_PROMOS_BANNER, ...AGENCY_BANNERS]
+          }
+        />
       )}
 
       {/*

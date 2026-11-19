@@ -130,6 +130,7 @@ import { PROPOSED_HOME_ID } from "./proposed-ia";
 import { NavDivider } from "./nav-divider";
 import { FeaturedSlot } from "./featured-slot";
 import { FeaturedListRows, HolidayPromosRow } from "./featured-rows";
+import { usePromoGlyph } from "./promo-look";
 import { FEATURED_PRODUCTS, openFeaturedProduct } from "./featured";
 import { FEATURED_PAGES } from "./featured-pages";
 
@@ -520,6 +521,8 @@ export function LeftNav({
     navFeaturedPromoBg,
     navPromoPlacement,
   } = useTheme().effective;
+  // Holiday Promos' glyph, for its edit-mode row. See NAV_PROMO_ICONS.
+  const promoGlyph = usePromoGlyph();
   const featuredCount = useFeatured().list.length;
   // The Settings foot stays put while the list scrolls. See STICKY_FOOT.
   const footStuck = navFootSticky === "sticky" && navSettingsSpot !== "list";
@@ -5090,7 +5093,7 @@ export function LeftNav({
     return (
       <div key={PROMO_ID} data-promo-row="" className="contents">
         <NavItemRow
-          item={{ id: PROMO_ID, label, icon: FEATURED_PRODUCTS.promos.icon }}
+          item={{ id: PROMO_ID, label, icon: promoGlyph }}
           onSelect={() => openFeaturedProduct("promos")}
           {...(edit ? { edit } : {})}
         />

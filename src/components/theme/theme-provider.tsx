@@ -164,6 +164,12 @@ import type {
   NavFeaturedSlot,
   NavFeaturedListRows,
   NavPromoPlacement,
+  NavPromoCampaign,
+  NavPromoFit,
+  NavPromoIcon,
+  NavPromoIconTint,
+  NavPromoTagLabel,
+  NavPromoTagColor,
   NavFeaturedFloatSide,
   NavFeaturedFloatCycle,
   NavFeaturedMediaKind,
@@ -461,6 +467,12 @@ interface ThemeContextValue extends ThemeState {
   setNavFeaturedSlot: (v: NavFeaturedSlot) => void;
   setNavFeaturedListRows: (v: NavFeaturedListRows) => void;
   setNavPromoPlacement: (v: NavPromoPlacement) => void;
+  setNavPromoCampaign: (v: NavPromoCampaign) => void;
+  setNavPromoFit: (v: NavPromoFit) => void;
+  setNavPromoIcon: (v: NavPromoIcon) => void;
+  setNavPromoIconTint: (v: NavPromoIconTint) => void;
+  setNavPromoTagLabel: (v: NavPromoTagLabel) => void;
+  setNavPromoTagColor: (v: NavPromoTagColor) => void;
   setNavFeaturedFloatSide: (v: NavFeaturedFloatSide) => void;
   setNavFeaturedFloatCycle: (v: NavFeaturedFloatCycle) => void;
   setNavFeaturedMediaKind: (v: NavFeaturedMediaKind) => void;
@@ -1088,6 +1100,13 @@ export function ThemeProvider({
         setState((s) => ({ ...s, navFeaturedListRows })),
       setNavPromoPlacement: (navPromoPlacement) =>
         setState((s) => ({ ...s, navPromoPlacement })),
+      setNavPromoCampaign: (navPromoCampaign) =>
+        setState((s) => ({ ...s, navPromoCampaign })),
+      setNavPromoFit: (navPromoFit) => setState((s) => ({ ...s, navPromoFit })),
+      setNavPromoIcon: (navPromoIcon) => setState((s) => ({ ...s, navPromoIcon })),
+      setNavPromoIconTint: (navPromoIconTint) => setState((s) => ({ ...s, navPromoIconTint })),
+      setNavPromoTagLabel: (navPromoTagLabel) => setState((s) => ({ ...s, navPromoTagLabel })),
+      setNavPromoTagColor: (navPromoTagColor) => setState((s) => ({ ...s, navPromoTagColor })),
       setNavFeaturedFloatSide: (navFeaturedFloatSide) =>
         setState((s) => ({ ...s, navFeaturedFloatSide })),
       setNavFeaturedFloatCycle: (navFeaturedFloatCycle) =>

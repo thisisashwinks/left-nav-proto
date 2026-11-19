@@ -540,6 +540,24 @@ import {
   NAV_FEATURED_LIST_ROWS_LABELS,
   type NavFeaturedListRows,
   NAV_PROMO_PLACEMENTS,
+  NAV_PROMO_CAMPAIGNS,
+  NAV_PROMO_CAMPAIGN_LABELS,
+  type NavPromoCampaign,
+  NAV_PROMO_FITS,
+  NAV_PROMO_FIT_LABELS,
+  type NavPromoFit,
+  NAV_PROMO_ICONS,
+  NAV_PROMO_ICON_LABELS,
+  type NavPromoIcon,
+  NAV_PROMO_ICON_TINTS,
+  NAV_PROMO_ICON_TINT_LABELS,
+  type NavPromoIconTint,
+  NAV_PROMO_TAG_LABELS,
+  NAV_PROMO_TAG_LABEL_LABELS,
+  type NavPromoTagLabel,
+  NAV_PROMO_TAG_COLORS,
+  NAV_PROMO_TAG_COLOR_LABELS,
+  type NavPromoTagColor,
   NAV_PROMO_PLACEMENT_LABELS,
   type NavPromoPlacement,
   NAV_FEATURED_FLOAT_SIDES,
@@ -4665,6 +4683,32 @@ function VariantPicker<T extends string>({
   );
 }
 
+/* Holiday Promos' L1 row: the 2 variants for review. Ashwin, Nov 19. */
+const PROMO_VARIANTS = {
+  v1: { navPromoIcon: "partyPopper", navPromoIconTint: "none", navPromoTagLabel: "offer", navPromoTagColor: "gold" },
+  v2: { navPromoIcon: "gift", navPromoIconTint: "greenDot", navPromoTagLabel: "offer", navPromoTagColor: "holly" },
+} as const satisfies Record<string, {
+  navPromoIcon: NavPromoIcon;
+  navPromoIconTint: NavPromoIconTint;
+  navPromoTagLabel: NavPromoTagLabel;
+  navPromoTagColor: NavPromoTagColor;
+}>;
+const PROMO_VARIANT_IDS = ["v1", "v2", "custom"] as const;
+type PromoVariantId = (typeof PROMO_VARIANT_IDS)[number];
+const PROMO_VARIANT_LABELS: Record<PromoVariantId, string> = { v1: "Variant 1", v2: "Variant 2", custom: "Custom" };
+function promoVariantOf(t: {
+  navPromoIcon: NavPromoIcon;
+  navPromoIconTint: NavPromoIconTint;
+  navPromoTagLabel: NavPromoTagLabel;
+  navPromoTagColor: NavPromoTagColor;
+}): PromoVariantId {
+  for (const id of ["v1", "v2"] as const) {
+    const v = PROMO_VARIANTS[id];
+    if (v.navPromoIcon === t.navPromoIcon && v.navPromoIconTint === t.navPromoIconTint && v.navPromoTagLabel === t.navPromoTagLabel && v.navPromoTagColor === t.navPromoTagColor) return id;
+  }
+  return "custom";
+}
+
 function Segmented<T extends string>({
   label,
   options,
@@ -5223,6 +5267,19 @@ export function TuningPanel() {
     setNavFeaturedListRows,
     navPromoPlacement,
     setNavPromoPlacement,
+    navPromoCampaign,
+    setNavPromoCampaign,
+    navPromoFit,
+    setNavPromoFit,
+    navPromoIcon,
+    setNavPromoIcon,
+    navPromoIconTint,
+    setNavPromoIconTint,
+    navPromoTagLabel,
+    setNavPromoTagLabel,
+    navPromoTagColor,
+    setNavPromoTagColor,
+    applyTheme: applyPromoVariant,
     navFeaturedFloatSide,
     setNavFeaturedFloatSide,
     navFeaturedFloatCycle,
@@ -8365,6 +8422,72 @@ export function TuningPanel() {
                   : "A Holiday Promos row with a New tag above Dashboard, locked in edit mode: it can't be moved, renamed, or hidden. No card."}
             {navPromoPlacement === "off" ? "" : " Rajat's window is Nov 23–Dec 6; the prototype shows it whatever the date."}
           </Note>
+          <Segmented
+            label="Holiday Promos: landing page"
+            keywords="holiday promos promo landing page campaign week black friday cyber week holiday savings end of year new year"
+            options={NAV_PROMO_CAMPAIGNS}
+            value={navPromoCampaign}
+            onChange={(v: NavPromoCampaign) => setNavPromoCampaign(v)}
+            format={(v) => NAV_PROMO_CAMPAIGN_LABELS[v]}
+          />
+          <Note>Live, the campaign would change each week. Pick one to demo; the sidebar card stays the same.</Note>
+          <Segmented
+            label="Holiday Promos: landing page width"
+            keywords="holiday promos promo black friday cyber monday sale campaign landing page image width full scale canvas fit"
+            options={NAV_PROMO_FITS}
+            value={navPromoFit}
+            onChange={(v: NavPromoFit) => setNavPromoFit(v)}
+            format={(v) => NAV_PROMO_FIT_LABELS[v]}
+          />
+          <Note>
+            {navPromoFit === "full"
+              ? "The image fills the canvas width at its own aspect ratio, as the built page would."
+              : "At most the image's own width, centred on its edge colour."}
+          </Note>
+          <Segmented
+            label="Holiday Promos row: variant"
+            keywords="holiday promos promo black friday cyber monday campaign row L1 sidebar item icon tag badge sale deal offer color colour gradient variant easter egg"
+            options={PROMO_VARIANT_IDS}
+            value={promoVariantOf({ navPromoIcon, navPromoIconTint, navPromoTagLabel, navPromoTagColor })}
+            onChange={(v: PromoVariantId) => v !== "custom" && applyPromoVariant(PROMO_VARIANTS[v])}
+            format={(v) => PROMO_VARIANT_LABELS[v]}
+          />
+          <Note>
+            The 2 for review. Variant 1: party popper in the nav’s own ink, Offer tag in the gold gradient. Variant 2: gift with a green dot, Offer tag in a holly-red gradient. Changing any control below makes it Custom.
+          </Note>
+          <Segmented
+            label="Holiday Promos row: icon"
+            keywords="holiday promos promo black friday cyber monday campaign row L1 sidebar item icon tag badge sale deal offer color colour gradient variant easter egg"
+            options={NAV_PROMO_ICONS}
+            value={navPromoIcon}
+            onChange={(v: NavPromoIcon) => setNavPromoIcon(v)}
+            format={(v) => NAV_PROMO_ICON_LABELS[v]}
+          />
+          <Segmented
+            label="Holiday Promos row: icon colour"
+            keywords="holiday promos promo black friday cyber monday campaign row L1 sidebar item icon tag badge sale deal offer color colour gradient variant easter egg"
+            options={NAV_PROMO_ICON_TINTS}
+            value={navPromoIconTint}
+            onChange={(v: NavPromoIconTint) => setNavPromoIconTint(v)}
+            format={(v) => NAV_PROMO_ICON_TINT_LABELS[v]}
+          />
+          <Segmented
+            label="Holiday Promos row: tag"
+            keywords="holiday promos promo black friday cyber monday campaign row L1 sidebar item icon tag badge sale deal offer color colour gradient variant easter egg"
+            options={NAV_PROMO_TAG_LABELS}
+            value={navPromoTagLabel}
+            onChange={(v: NavPromoTagLabel) => setNavPromoTagLabel(v)}
+            format={(v) => NAV_PROMO_TAG_LABEL_LABELS[v]}
+          />
+          <Segmented
+            label="Holiday Promos row: tag colour"
+            keywords="holiday promos promo black friday cyber monday campaign row L1 sidebar item icon tag badge sale deal offer color colour gradient variant easter egg"
+            options={NAV_PROMO_TAG_COLORS}
+            value={navPromoTagColor}
+            onChange={(v: NavPromoTagColor) => setNavPromoTagColor(v)}
+            format={(v) => NAV_PROMO_TAG_COLOR_LABELS[v]}
+          />
+          <Note>Only the sidebar row changes: its icon and its tag. The card and the landing page stay as they are.</Note>
           <Segmented
             label="Featured: floating card sits"
             keywords="featured floating card float corner bottom right left toast popup what's new pill featured products product promo promotional promotion new launch"

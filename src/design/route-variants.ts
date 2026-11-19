@@ -96,7 +96,7 @@ export const FEATURED_CARD_THEME: Partial<ThemeState> = {
   navSettingsSpot: "list",
   navEditSpot: "above",
   navFeaturedPin: "off",
-  navPromoPlacement: "cardRow",
+  navPromoPlacement: "locked",
   navFeaturedMedia: "bottom",
 };
 

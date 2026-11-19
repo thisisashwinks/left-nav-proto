@@ -8,12 +8,14 @@ import {
   CalendarClock,
   CreditCard,
   Megaphone,
+  PartyPopper,
   Trophy,
   Wallet,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { openFeaturedProduct } from "@/components/nav/featured";
 
 /**
  * Top banners, scoped by who they belong to.
@@ -48,7 +50,25 @@ export interface Banner {
   detail: string;
   /** The one verb. Verb-first per copy rules. */
   cta?: string;
+  /** What the verb does. Without it the button is decoration. */
+  onCta?: () => void;
 }
+
+/**
+ * Holiday Promos, leading the agency strip while the sale runs: the same
+ * campaign as the sidebar row, so the strip and the row land on one page.
+ * Only while Holiday Promos is placed somewhere (see NAV_PROMO_PLACEMENTS).
+ * Ashwin, Nov 19.
+ */
+export const HOLIDAY_PROMOS_BANNER: Banner = {
+  id: "holiday-promos",
+  tone: "promo",
+  icon: PartyPopper,
+  lead: "Holiday Promos",
+  detail: "Up to 50% off plans and add-ons, this week only.",
+  cta: "See offers",
+  onCta: () => openFeaturedProduct("promos"),
+};
 
 /** What HighLevel is saying to the agency this week — the full-bleed strip. */
 export const AGENCY_BANNERS: Banner[] = [
@@ -275,6 +295,7 @@ export function TopBanner({ banners }: TopBannerProps) {
       {banner.cta ? (
         <button
           type="button"
+          onClick={banner.onCta}
           // Hollow, small, all-caps and tracked out (Aug 21 review) — a label
           // wearing a stroke, not a white block competing with the message.
           className={cn(

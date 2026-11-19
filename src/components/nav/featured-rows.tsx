@@ -4,8 +4,9 @@ import * as React from "react";
 import { Gift, Lock, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/theme/theme-provider";
-import { FEATURED_PRODUCTS, openFeaturedProduct, useFeatured } from "./featured";
+import { openFeaturedProduct, useFeatured } from "./featured";
 import { NewTag } from "./featured-slot";
+import { PromoTag, usePromoGlyph } from "./promo-look";
 import { RailTooltip } from "./rail-tooltip";
 import { fadeProps, useNavCollapse } from "./nav-collapse";
 
@@ -72,9 +73,10 @@ function PlainRow({
  * other row has. Ashwin, Nov 17.
  */
 export function HolidayPromosRow({ editing, label }: { editing: boolean; label: string }) {
-  const product = FEATURED_PRODUCTS.promos;
+  // Its own glyph and tag, from Prototype controls. See NAV_PROMO_ICONS.
+  const icon = usePromoGlyph();
   const open = () => openFeaturedProduct("promos");
-  if (!editing) return <PlainRow icon={product.icon} label={label} onSelect={open} trail={<NewTag />} />;
+  if (!editing) return <PlainRow icon={icon} label={label} onSelect={open} trail={<PromoTag />} />;
   return (
     <div
       title="Holiday Promos is set by HighLevel for the campaign and can't be edited."
@@ -82,7 +84,7 @@ export function HolidayPromosRow({ editing, label }: { editing: boolean; label: 
     >
       {/* The lock takes the New tag's place while editing. */}
       <div inert className="flex min-w-0 flex-1 opacity-60">
-        <PlainRow icon={product.icon} label={label} onSelect={open} />
+        <PlainRow icon={icon} label={label} onSelect={open} />
       </div>
       <Lock aria-label="Locked" size={14} className="mr-[var(--t-nav-px,8px)] -ml-[28px] shrink-0 text-nav-fg-subtle" />
     </div>

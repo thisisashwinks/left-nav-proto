@@ -4294,6 +4294,107 @@ export const NAV_PROMO_PLACEMENT_LABELS: Record<NavPromoPlacement, string> = {
 };
 
 /**
+ * Which week's campaign the Holiday Promos landing page shows. Live, these
+ * would change each week; the prototype lets you pick one to demo. Each is a
+ * single designed image in public/promos, scaled to the canvas. The sidebar
+ * card stays the same whichever is picked. Ashwin, Nov 19.
+ */
+/**
+ * Holiday Promos' L1 row: its glyph, the glyph's touch of colour, and the tag
+ * beside the label. From the review note: no religious symbols, a neutral
+ * icon with a subtle red or green touch or a coloured badge, and a tag of
+ * Sale, Deal, or Offer. The glyph may change with each week's campaign, so
+ * there are seasonal ones too. Only the L1 row changes. Ashwin, Nov 19.
+ */
+export const NAV_PROMO_ICONS = [
+  "badgePercent", "percent", "tag", "tags", "gift", "shoppingBag", "shoppingCart", "ticket",
+  "sparkles", "partyPopper", "snowflake", "egg", "star", "flame",
+] as const;
+export type NavPromoIcon = (typeof NAV_PROMO_ICONS)[number];
+
+export const NAV_PROMO_ICON_LABELS: Record<NavPromoIcon, string> = {
+  badgePercent: "Percent badge",
+  percent: "Percent",
+  tag: "Price tag",
+  tags: "Price tags",
+  gift: "Gift",
+  shoppingBag: "Shopping bag",
+  shoppingCart: "Shopping cart",
+  ticket: "Ticket",
+  sparkles: "Sparkles",
+  partyPopper: "Party popper",
+  snowflake: "Snowflake",
+  egg: "Easter egg",
+  star: "Star",
+  flame: "Hot deal",
+};
+
+export const NAV_PROMO_ICON_TINTS = ["none", "red", "green", "redDot", "greenDot"] as const;
+export type NavPromoIconTint = (typeof NAV_PROMO_ICON_TINTS)[number];
+
+export const NAV_PROMO_ICON_TINT_LABELS: Record<NavPromoIconTint, string> = {
+  none: "None",
+  red: "Red icon",
+  green: "Green icon",
+  redDot: "Red dot",
+  greenDot: "Green dot",
+};
+
+export const NAV_PROMO_TAG_LABELS = ["sale", "deal", "offer", "new"] as const;
+export type NavPromoTagLabel = (typeof NAV_PROMO_TAG_LABELS)[number];
+
+export const NAV_PROMO_TAG_LABEL_LABELS: Record<NavPromoTagLabel, string> = {
+  sale: "Sale",
+  deal: "Deal",
+  offer: "Offer",
+  new: "New",
+};
+
+export const NAV_PROMO_TAG_COLORS = [
+  "default", "redSoft", "greenSoft", "red", "green",
+  "holly", "evergreen", "sunset", "gold", "primary",
+] as const;
+export type NavPromoTagColor = (typeof NAV_PROMO_TAG_COLORS)[number];
+
+export const NAV_PROMO_TAG_COLOR_LABELS: Record<NavPromoTagColor, string> = {
+  default: "Same as New",
+  redSoft: "Red, soft",
+  greenSoft: "Green, soft",
+  red: "Red",
+  green: "Green",
+  holly: "Gradient: holly red",
+  evergreen: "Gradient: evergreen",
+  sunset: "Gradient: orange to rose",
+  gold: "Gradient: gold",
+  primary: "Gradient: blue to violet",
+};
+
+/**
+ * How the campaign image sits in the canvas. `full` stretches it to the
+ * canvas width at its own aspect ratio, the way the built HTML page would
+ * fill it; `natural` keeps it at most its own width, centred on its edge
+ * colour. Ashwin, Nov 19.
+ */
+export const NAV_PROMO_FITS = ["full", "natural"] as const;
+export type NavPromoFit = (typeof NAV_PROMO_FITS)[number];
+
+export const NAV_PROMO_FIT_LABELS: Record<NavPromoFit, string> = {
+  full: "Full width",
+  natural: "Its own width, centred",
+};
+
+export const NAV_PROMO_CAMPAIGNS = ["blackFriday", "cyberWeek", "holiday", "endOfYear", "newYear"] as const;
+export type NavPromoCampaign = (typeof NAV_PROMO_CAMPAIGNS)[number];
+
+export const NAV_PROMO_CAMPAIGN_LABELS: Record<NavPromoCampaign, string> = {
+  blackFriday: "Black Friday week",
+  cyberWeek: "Cyber Week",
+  holiday: "Holiday savings",
+  endOfYear: "End of year savings",
+  newYear: "New Year savings",
+};
+
+/**
  * Where the floating featured card (slot "Floating card") sits: the canvas's
  * bottom-right corner, or its bottom-left, clear of the nav. Ashwin, Nov 17.
  */
@@ -7402,6 +7503,15 @@ export interface ThemeState {
   navFeaturedListRows: NavFeaturedListRows;
   /** See NAV_PROMO_PLACEMENTS. */
   navPromoPlacement: NavPromoPlacement;
+  /** See NAV_PROMO_CAMPAIGNS. */
+  navPromoCampaign: NavPromoCampaign;
+  /** See NAV_PROMO_FITS. */
+  navPromoFit: NavPromoFit;
+  /** Holiday Promos' L1 row. See NAV_PROMO_ICONS. */
+  navPromoIcon: NavPromoIcon;
+  navPromoIconTint: NavPromoIconTint;
+  navPromoTagLabel: NavPromoTagLabel;
+  navPromoTagColor: NavPromoTagColor;
   /** The floating card's corner. See NAV_FEATURED_FLOAT_SIDES. */
   navFeaturedFloatSide: NavFeaturedFloatSide;
   /** The floating card's carousel controls. See NAV_FEATURED_FLOAT_CYCLES. */
@@ -8678,7 +8788,14 @@ export const DEFAULT_THEME: ThemeState = {
   navTourInEdit: false,
   navFeaturedSlot: "off",
   navFeaturedListRows: "each",
-  navPromoPlacement: "card",
+  navPromoPlacement: "locked",
+  navPromoCampaign: "blackFriday",
+  navPromoFit: "full",
+  // Variant 1 of the 2 for review. Ashwin, Nov 19.
+  navPromoIcon: "partyPopper",
+  navPromoIconTint: "none",
+  navPromoTagLabel: "offer",
+  navPromoTagColor: "gold",
   navFeaturedFloatSide: "right",
   navFeaturedFloatCycle: "under",
   navFeaturedMediaKind: "video",
