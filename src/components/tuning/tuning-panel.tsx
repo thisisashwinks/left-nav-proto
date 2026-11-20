@@ -4685,7 +4685,7 @@ function VariantPicker<T extends string>({
 
 /* Holiday Promos' L1 row: the 2 variants for review. Ashwin, Nov 19. */
 const PROMO_VARIANTS = {
-  v1: { navPromoIcon: "emojiTada", navPromoIconTint: "none", navPromoTagLabel: "offer", navPromoTagColor: "redSoft" },
+  v1: { navPromoIcon: "emojiTada", navPromoIconTint: "none", navPromoTagLabel: "offer", navPromoTagColor: "yellowSoft" },
   v2: { navPromoIcon: "gift", navPromoIconTint: "greenDot", navPromoTagLabel: "offer", navPromoTagColor: "holly" },
 } as const satisfies Record<string, {
   navPromoIcon: NavPromoIcon;
@@ -8455,7 +8455,7 @@ export function TuningPanel() {
             format={(v) => PROMO_VARIANT_LABELS[v]}
           />
           <Note>
-            The 2 for review. Variant 1: 🎉 party popper emoji, Offer tag in soft red. Variant 2: gift with a green dot, Offer tag in a holly-red gradient. Changing any control below makes it Custom.
+            The 2 for review. Variant 1: 🎉 party popper emoji, Offer tag in soft yellow. Variant 2: gift with a green dot, Offer tag in a holly-red gradient. Changing any control below makes it Custom.
           </Note>
           <Segmented
             label="Holiday Promos row: icon"

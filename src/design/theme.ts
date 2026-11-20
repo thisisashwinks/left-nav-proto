@@ -4353,7 +4353,7 @@ export const NAV_PROMO_TAG_LABEL_LABELS: Record<NavPromoTagLabel, string> = {
 };
 
 export const NAV_PROMO_TAG_COLORS = [
-  "default", "redSoft", "greenSoft", "red", "green",
+  "default", "redSoft", "greenSoft", "yellowSoft", "red", "green",
   "holly", "evergreen", "sunset", "gold", "primary",
 ] as const;
 export type NavPromoTagColor = (typeof NAV_PROMO_TAG_COLORS)[number];
@@ -4362,6 +4362,7 @@ export const NAV_PROMO_TAG_COLOR_LABELS: Record<NavPromoTagColor, string> = {
   default: "Same as New",
   redSoft: "Red, soft",
   greenSoft: "Green, soft",
+  yellowSoft: "Yellow, soft",
   red: "Red",
   green: "Green",
   holly: "Gradient: holly red",
@@ -8798,7 +8799,7 @@ export const DEFAULT_THEME: ThemeState = {
   navPromoIcon: "emojiTada",
   navPromoIconTint: "none",
   navPromoTagLabel: "offer",
-  navPromoTagColor: "redSoft",
+  navPromoTagColor: "yellowSoft",
   navFeaturedFloatSide: "right",
   navFeaturedFloatCycle: "under",
   navFeaturedMediaKind: "video",

@@ -132,6 +132,8 @@ const TAG_FILL: Record<NavPromoTagColor, { className?: string; style?: React.CSS
   redSoft: { style: { background: "var(--nav-promo-red-bg)", color: "var(--nav-promo-red-fg)" } },
   greenSoft: { style: { background: "var(--hr-success-50)", color: "var(--hr-success-700)" } },
   red: { style: { background: "var(--hr-error-600)", color: "#fff" } },
+  // The Beta tag's yellow, on New's steps in light and dark. Ashwin, Nov 20.
+  yellowSoft: { className: BADGE_TONE.beta },
   green: { style: { background: "var(--hr-success-600)", color: "#fff" } },
   holly: grad("#E8433A", "#A41E16"),
   evergreen: grad("#0E9F62", "#06603D"),
