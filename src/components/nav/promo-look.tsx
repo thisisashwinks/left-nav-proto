@@ -33,7 +33,7 @@ import {
  * Holiday Promos' L1 look: the glyph, its touch of colour, and the tag. The
  * rest of the row is the sidebar's own. See NAV_PROMO_ICONS. Ashwin, Nov 19.
  */
-const GLYPHS: Record<NavPromoIcon, LucideIcon> = {
+const GLYPHS: Record<Exclude<NavPromoIcon, keyof typeof EMOJI>, LucideIcon> = {
   badgePercent: BadgePercent,
   percent: Percent,
   tag: Tag,
@@ -49,6 +49,14 @@ const GLYPHS: Record<NavPromoIcon, LucideIcon> = {
   star: Star,
   flame: Flame,
 };
+
+/*
+ * The emoji options render the system emoji in the icon's own box, at the
+ * icon's size, in its own colours: the icon colour setting leaves it alone,
+ * the dot still applies. Ashwin, Nov 20.
+ */
+const EMOJI = { emojiTada: "🎉", emojiConfetti: "🎊" } as const;
+const isEmoji = (icon: NavPromoIcon): icon is keyof typeof EMOJI => icon in EMOJI;
 
 const INK: Partial<Record<NavPromoIconTint, string>> = {
   red: "var(--hr-error-600)",
@@ -69,11 +77,20 @@ function promoGlyph(icon: NavPromoIcon, tint: NavPromoIconTint): LucideIcon {
   const key = `${icon}:${tint}`;
   const hit = cache.get(key);
   if (hit) return hit;
-  const Glyph = GLYPHS[icon];
   const ink = INK[tint];
   const dot = DOT[tint];
   const C = React.forwardRef<SVGSVGElement, LucideProps>(function PromoGlyph({ style, className, ...rest }, ref) {
-    const svg = <Glyph ref={ref} {...rest} className={className} style={{ ...style, ...(ink ? { color: ink } : {}) }} />;
+    const svg = isEmoji(icon) ? (
+      <span
+        aria-hidden="true"
+        className={cn(className, "inline-flex items-center justify-center leading-none select-none")}
+        style={{ ...style, fontSize: style?.width ?? 16 }}
+      >
+        {EMOJI[icon]}
+      </span>
+    ) : (
+      React.createElement(GLYPHS[icon], { ref, ...rest, className, style: { ...style, ...(ink ? { color: ink } : {}) } })
+    );
     if (!dot) return svg;
     return (
       <span className="relative inline-flex shrink-0" style={{ width: style?.width, height: style?.height }}>
@@ -110,7 +127,9 @@ const grad = (from: string, to: string, color = "#fff"): { style: React.CSSPrope
 });
 const TAG_FILL: Record<NavPromoTagColor, { className?: string; style?: React.CSSProperties }> = {
   default: { className: BADGE_TONE.new },
-  redSoft: { style: { background: "var(--hr-error-50)", color: "var(--hr-error-700)" } },
+  // On the same steps as the New tag (100 fill, 700 ink; 900 and 200 on a
+  // dark nav): the 50 wash vanished against the sidebar. Ashwin, Nov 20.
+  redSoft: { style: { background: "var(--nav-promo-red-bg)", color: "var(--nav-promo-red-fg)" } },
   greenSoft: { style: { background: "var(--hr-success-50)", color: "var(--hr-success-700)" } },
   red: { style: { background: "var(--hr-error-600)", color: "#fff" } },
   green: { style: { background: "var(--hr-success-600)", color: "#fff" } },

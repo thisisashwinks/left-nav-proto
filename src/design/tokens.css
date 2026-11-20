@@ -240,6 +240,9 @@
    */
   --fly-badge-bg: var(--hr-primary-100);
   --fly-badge-fg: var(--hr-primary-700);
+  /* Holiday Promos' red tag, on New's steps. Ashwin, Nov 20. */
+  --nav-promo-red-bg: var(--hr-error-100);
+  --nav-promo-red-fg: var(--hr-error-700);
   --fly-badge-beta-bg: var(--hr-warning-100);
   --fly-badge-beta-fg: var(--hr-warning-700);
 }
@@ -766,6 +769,9 @@
   */
   --fly-badge-bg: var(--hr-primary-100);
   --fly-badge-fg: var(--hr-primary-700);
+  /* Holiday Promos' red tag, on New's steps. Ashwin, Nov 20. */
+  --nav-promo-red-bg: var(--hr-error-100);
+  --nav-promo-red-fg: var(--hr-error-700);
   --fly-badge-beta-bg: var(--hr-warning-100);
   --fly-badge-beta-fg: var(--hr-warning-700);
   --fly-tile-bg: var(--hr-gray-100);
@@ -982,6 +988,9 @@
   /* The same two ramps, read from the dark end. */
   --fly-badge-bg: var(--hr-primary-900);
   --fly-badge-fg: var(--hr-primary-200);
+  /* Holiday Promos' red tag, on New's steps. Ashwin, Nov 20. */
+  --nav-promo-red-bg: var(--hr-error-900);
+  --nav-promo-red-fg: var(--hr-error-200);
   --fly-badge-beta-bg: var(--hr-warning-900);
   --fly-badge-beta-fg: var(--hr-warning-200);
   --fly-tile-bg: #1e1e24;

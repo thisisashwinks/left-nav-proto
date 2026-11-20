@@ -4627,6 +4627,11 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
                 framePadding={effective.canvasFramePadding}
                 staging={stagingInbox}
                 bleed={bleedCanvas}
+                flush={
+                  effective.navPromoFit === "canvas" &&
+                  !!canvasPage &&
+                  canvasPage.productId === FEATURED_PAGES.promos?.id
+                }
               >
               {pending ? (
                 <CanvasSkeleton />

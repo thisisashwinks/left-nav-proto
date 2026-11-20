@@ -44,9 +44,9 @@ const CAMPAIGNS: Record<NavPromoCampaign, { src: string; alt: string; field: str
 export function HolidayPromosPage() {
   const { navPromoCampaign, navPromoFit } = useTheme().effective;
   const c = CAMPAIGNS[navPromoCampaign];
-  const full = navPromoFit === "full";
+  const full = navPromoFit !== "natural";
   return (
-    <div className="relative h-full min-h-0 overflow-y-auto" style={{ background: c.field }}>
+    <div className="relative h-full min-h-0 flex-1 overflow-y-auto" style={{ background: c.field }}>
       {/* eslint-disable-next-line @next/next/no-img-element -- a static, unoptimised mock */}
       <img
         key={c.src}

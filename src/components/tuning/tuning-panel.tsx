@@ -4685,7 +4685,7 @@ function VariantPicker<T extends string>({
 
 /* Holiday Promos' L1 row: the 2 variants for review. Ashwin, Nov 19. */
 const PROMO_VARIANTS = {
-  v1: { navPromoIcon: "partyPopper", navPromoIconTint: "none", navPromoTagLabel: "offer", navPromoTagColor: "gold" },
+  v1: { navPromoIcon: "emojiTada", navPromoIconTint: "none", navPromoTagLabel: "offer", navPromoTagColor: "redSoft" },
   v2: { navPromoIcon: "gift", navPromoIconTint: "greenDot", navPromoTagLabel: "offer", navPromoTagColor: "holly" },
 } as const satisfies Record<string, {
   navPromoIcon: NavPromoIcon;
@@ -8440,7 +8440,9 @@ export function TuningPanel() {
             format={(v) => NAV_PROMO_FIT_LABELS[v]}
           />
           <Note>
-            {navPromoFit === "full"
+            {navPromoFit === "canvas"
+              ? "The image runs to the canvas's edges with no padding around it, at full width and its own aspect ratio."
+              : navPromoFit === "full"
               ? "The image fills the canvas width at its own aspect ratio, as the built page would."
               : "At most the image's own width, centred on its edge colour."}
           </Note>
@@ -8453,7 +8455,7 @@ export function TuningPanel() {
             format={(v) => PROMO_VARIANT_LABELS[v]}
           />
           <Note>
-            The 2 for review. Variant 1: party popper in the nav’s own ink, Offer tag in the gold gradient. Variant 2: gift with a green dot, Offer tag in a holly-red gradient. Changing any control below makes it Custom.
+            The 2 for review. Variant 1: 🎉 party popper emoji, Offer tag in soft red. Variant 2: gift with a green dot, Offer tag in a holly-red gradient. Changing any control below makes it Custom.
           </Note>
           <Segmented
             label="Holiday Promos row: icon"

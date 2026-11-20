@@ -4308,7 +4308,7 @@ export const NAV_PROMO_PLACEMENT_LABELS: Record<NavPromoPlacement, string> = {
  */
 export const NAV_PROMO_ICONS = [
   "badgePercent", "percent", "tag", "tags", "gift", "shoppingBag", "shoppingCart", "ticket",
-  "sparkles", "partyPopper", "snowflake", "egg", "star", "flame",
+  "sparkles", "partyPopper", "snowflake", "egg", "star", "flame", "emojiTada", "emojiConfetti",
 ] as const;
 export type NavPromoIcon = (typeof NAV_PROMO_ICONS)[number];
 
@@ -4327,6 +4327,8 @@ export const NAV_PROMO_ICON_LABELS: Record<NavPromoIcon, string> = {
   egg: "Easter egg",
   star: "Star",
   flame: "Hot deal",
+  emojiTada: "Emoji: 🎉 party popper",
+  emojiConfetti: "Emoji: 🎊 confetti ball",
 };
 
 export const NAV_PROMO_ICON_TINTS = ["none", "red", "green", "redDot", "greenDot"] as const;
@@ -4375,10 +4377,11 @@ export const NAV_PROMO_TAG_COLOR_LABELS: Record<NavPromoTagColor, string> = {
  * fill it; `natural` keeps it at most its own width, centred on its edge
  * colour. Ashwin, Nov 19.
  */
-export const NAV_PROMO_FITS = ["full", "natural"] as const;
+export const NAV_PROMO_FITS = ["canvas", "full", "natural"] as const;
 export type NavPromoFit = (typeof NAV_PROMO_FITS)[number];
 
 export const NAV_PROMO_FIT_LABELS: Record<NavPromoFit, string> = {
+  canvas: "Whole canvas, no padding",
   full: "Full width",
   natural: "Its own width, centred",
 };
@@ -8790,12 +8793,12 @@ export const DEFAULT_THEME: ThemeState = {
   navFeaturedListRows: "each",
   navPromoPlacement: "locked",
   navPromoCampaign: "blackFriday",
-  navPromoFit: "full",
+  navPromoFit: "canvas",
   // Variant 1 of the 2 for review. Ashwin, Nov 19.
-  navPromoIcon: "partyPopper",
+  navPromoIcon: "emojiTada",
   navPromoIconTint: "none",
   navPromoTagLabel: "offer",
-  navPromoTagColor: "gold",
+  navPromoTagColor: "redSoft",
   navFeaturedFloatSide: "right",
   navFeaturedFloatCycle: "under",
   navFeaturedMediaKind: "video",

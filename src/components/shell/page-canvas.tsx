@@ -142,8 +142,16 @@ export function PageCanvas({
   framePadding = true,
   staging = false,
   bleed = false,
+  flush = false,
   children,
 }: {
+  /**
+   * No padding inside the card: the page runs to all four of its edges,
+   * under the card's own radius. For a page that is one full-bleed picture,
+   * Holiday Promos' landing image, where the padding read as a white mat
+   * around it. Takes precedence over the frame fill. Ashwin, Nov 20.
+   */
+  flush?: boolean;
   /**
    * Run the card off the window's right and bottom edges.
    *
@@ -233,7 +241,9 @@ export function PageCanvas({
         data-page-canvas-body={enabled ? "" : undefined}
         className={
           enabled
-            ? // The content scrolls, inside the card's own padding — `--canvas-pad`,
+            ? flush
+              ? "flex min-h-0 flex-1 flex-col"
+              : // The content scrolls, inside the card's own padding — `--canvas-pad`,
               // 24px by default, off the CANVAS_PADS axis rather than a literal,
               // so this and the framed sheet below cannot disagree. A block box,
               // like the shell scroller it stands in for, and flex-1 in the
@@ -266,7 +276,7 @@ export function PageCanvas({
             : undefined
         }
       >
-        {fill === "frame" ? (
+        {fill === "frame" && !flush ? (
           <div
             data-page-canvas-sheet=""
             // No ring: the tinted band is the only edge the sheet needs.
