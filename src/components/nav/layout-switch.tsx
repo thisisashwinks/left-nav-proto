@@ -62,7 +62,7 @@ export function LayoutSwitchWarning({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Showing the HighLevel default layout"
+        aria-label="Showing the default layout"
         className="motion-panel-in relative flex w-[400px] max-w-full flex-col gap-[8px] rounded-[8px] bg-nav p-[16px] shadow-[0_20px_24px_-4px_rgba(16,24,40,0.08),0_8px_8px_-4px_rgba(16,24,40,0.03),inset_0_0_0_1px_var(--fly-border)]"
       >
         <span
@@ -72,7 +72,7 @@ export function LayoutSwitchWarning({
           <Package size={18} />
         </span>
         <h2 className="text-[16px] leading-[normal] font-semibold text-nav-fg">
-          You&rsquo;re about to see the HighLevel default layout
+          You&rsquo;re about to see the default layout
         </h2>
         <p className="text-[13px] leading-[18px] text-nav-fg-subtle">
           This is the sidebar we ship, and the one our help docs and changelogs
@@ -98,7 +98,7 @@ export function LayoutSwitchWarning({
             onClick={onConfirm}
             className="motion-tap flex h-[36px] items-center rounded-[6px] bg-nav-fg px-[12px] text-[14px] leading-[20px] font-medium text-nav hover:opacity-90 active:scale-[0.98]"
           >
-            Show HighLevel default
+            Show default layout
           </button>
         </div>
       </div>
@@ -201,12 +201,12 @@ export function KeepChangesDialog({
             decided about the one they are leaving.
           */
           <p className="text-[13px] leading-[18px] text-nav-fg-subtle">
-            You edited the HighLevel default layout. Saving makes these changes
+            You edited the default layout. Saving makes these changes
             my layout from now on, and the layout I have today is replaced.
           </p>
         ) : (
           <p className="text-[13px] leading-[18px] text-nav-fg-subtle">
-            You edited the HighLevel default layout. Keeping these changes makes
+            You edited the default layout. Keeping these changes makes
             them my layout from now on, and the layout I had before is replaced
             — save it as a template and it can go back any time.
           </p>

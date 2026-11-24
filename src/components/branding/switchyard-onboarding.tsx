@@ -74,6 +74,11 @@ import {
 } from "@/design/branding";
 import { cn } from "@/lib/utils";
 import {
+  LogoDosDontsAccordions,
+  LogoGuidelines,
+  LogoGuidelinesAccordion,
+} from "@/components/branding/logo-guidelines";
+import {
   ALL_SUB_ACCOUNT_IDS,
   scopeApplyLabel,
   scopeOf,
@@ -546,9 +551,9 @@ function StepBody({ flow, columns, narrow = false }: { flow: Flow; columns: numb
       {proto.onboardingThemeStep === "full" ? (
         // Everything the White label tab has: color mode, themes or a custom
         // theme, window gradient, and font (Nov 24).
-        <ThemeEditor value={flow.theme} onChange={flow.setTheme} columns={columns} />
+        <ThemeEditor value={flow.theme} onChange={flow.setTheme} columns={columns} segregate />
       ) : (
-        <ThemePicker value={flow.theme} onChange={flow.setTheme} columns={columns} />
+        <ThemePicker value={flow.theme} onChange={flow.setTheme} columns={columns} segregate />
       )}
     </div>
   );
@@ -628,13 +633,15 @@ function LogosStep({ narrow }: { narrow: boolean }) {
    * initials background under the icon while there is no icon.
    */
   return (
+    <div className="flex flex-col gap-[16px]">
     <div className="flex flex-col gap-[16px] rounded-[10px] p-[16px] shadow-[inset_0_0_0_1px_var(--pg-border)]">
       <BrandAssetRow
         compact
         label="Full logo"
         hint="Replaces your agency name at the top of the sidebar."
-        spec="Ideal: 350 × 180 px · Max 2.5 MB"
+        spec="Horizontal, about 4:1 · Max 2.5 MB"
         aspect="wide"
+        guide={proto.onboardingLogoGuide === "button"}
         {...(up.wordmarkSrc ? { src: up.wordmarkSrc } : {})}
         onPick={(src, fileName) => void setAgencyFullLogo(brand, src, fileName)}
         onRemove={() => clearAgencyFullLogo(brand)}
@@ -648,13 +655,17 @@ function LogosStep({ narrow }: { narrow: boolean }) {
           Use a sample logo
         </button>
       )}
+      {/* What kind of file to upload, before it is picked (Nov 24, 2026). */}
+      {proto.onboardingLogoGuide === "inline" ? <LogoGuidelines compact /> : null}
+      {proto.onboardingLogoGuide === "accordion" ? <LogoGuidelinesAccordion /> : null}
+      {proto.onboardingLogoGuide === "split" ? <LogoDosDontsAccordions /> : null}
 
       <div aria-hidden="true" className="h-px w-full bg-pg-border" />
 
       <BrandAssetRow
         compact
         label="Sidebar icon"
-        hint={up.logoSrc ? "Shows in the rail and the collapsed sidebar." : "Optional. Without one, we show your initials."}
+        hint={up.logoSrc ? "Shows in the rail, the collapsed sidebar, and as your favicon." : "Optional. Also your favicon. Without one, we show your initials."}
         spec="Square · Min 128 × 128 px · Max 2.5 MB"
         aspect="square"
         {...(up.logoSrc ? { src: up.logoSrc } : {})}
@@ -683,6 +694,14 @@ function LogosStep({ narrow }: { narrow: boolean }) {
           onColor={pick}
         />
       )}
+    </div>
+    {/* Outside the card, after both rows (proto onboardingLogoGuide "below"). */}
+    {proto.onboardingLogoGuide === "below" ? (
+      <div className="flex flex-col gap-[4px]">
+        <h3 className="text-[14px] leading-[20px] font-semibold text-pg-heading">Full logo guidelines</h3>
+        <LogoGuidelines compact />
+      </div>
+    ) : null}
     </div>
   );
 }

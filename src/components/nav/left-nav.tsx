@@ -42,10 +42,15 @@ import {
   PRODUCT_SEARCH_SEED,
   SEARCH_REVEAL_PARTS,
   SEARCH_OUT_MS,
+  launchpadIsRow,
+  launchpadRowHasCount,
+  launchpadRowHasMeter,
 } from "@/design/theme";
 import type {
   DockPosition,
   LaunchpadCard,
+  LaunchpadRowProgress,
+  LaunchpadRowTone,
   SurfaceTheme,
 } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -251,6 +256,167 @@ const QUICK_ACTIONS_ITEM: NavItem = {
   icon: GamepadDirectional,
   hasFlyout: true,
 };
+
+/**
+ * Launchpad as a plain L1 row, for the three row spots. See LAUNCHPAD_SPOTS.
+ *
+ * Carries the real page id rather than a chrome one, so the row lights up
+ * when you are standing on Launchpad for free — `here.productId` is the same
+ * id the card's own door selects.
+ *
+ * Not a tree row, though it is drawn in the tree's clothes: Launchpad is
+ * filed in no bucket by design (PROPOSED_UNLISTED_IDS) and four answers in
+ * grouping.ts exclude it, so edit mode has nothing here to move or rename.
+ * Same standing as the Learn row and the companion apps.
+ */
+const LAUNCHPAD_ITEM: NavItem = {
+  id: PROPOSED_HOME_ID,
+  label: "Launchpad",
+  icon: Rocket,
+};
+
+/**
+ * The Launchpad row's palette: the glyph's ink and the meter's fill, which
+ * are one decision. See LAUNCHPAD_ROW_TONES.
+ *
+ * `brand` goes through the token so a rebranded nav follows; `blue` is the
+ * literal primary, which is the whole reason both exist. The 300 step on a
+ * dark nav matches the featured cards' ink — a 600 on that ground is a hue
+ * you have to hunt for.
+ */
+const LAUNCHPAD_TONE: Record<LaunchpadRowTone, { ink: string; fill: string }> = {
+  gray: { ink: "", fill: "bg-brand" },
+  brand: { ink: "text-brand", fill: "bg-brand" },
+  blue: {
+    ink: "text-[var(--hr-primary-600)] in-data-[nav-theme=dark]:text-[var(--hr-primary-300)]",
+    fill: "bg-[var(--hr-primary-600)] in-data-[nav-theme=dark]:bg-[var(--hr-primary-300)]",
+  },
+  green: {
+    ink: "text-[var(--hr-success-600)] in-data-[nav-theme=dark]:text-[var(--hr-success-300)]",
+    fill: "bg-[var(--hr-success-600)] in-data-[nav-theme=dark]:bg-[var(--hr-success-300)]",
+  },
+  amber: {
+    ink: "text-[var(--hr-warning-600)] in-data-[nav-theme=dark]:text-[var(--hr-warning-300)]",
+    fill: "bg-[var(--hr-warning-600)] in-data-[nav-theme=dark]:bg-[var(--hr-warning-300)]",
+  },
+  purple: {
+    ink: "text-[var(--hr-purple-600)] in-data-[nav-theme=dark]:text-[var(--hr-purple-300)]",
+    fill: "bg-[var(--hr-purple-600)] in-data-[nav-theme=dark]:bg-[var(--hr-purple-300)]",
+  },
+};
+
+/**
+ * What the Launchpad row says about progress, packed into its trailing run.
+ *
+ * Six shapes for one fact, each sized to the ~40px (or ~75px, paired with the
+ * count) the trailing run has between the label and the row's edge — see
+ * LAUNCHPAD_ROW_PROGRESS. The numbers are the Launchpad page's own tally,
+ * never literals, for the reason the card's meter reads them too.
+ *
+ * `aria-hidden` throughout: the row's accessible name is "Launchpad", and a
+ * screen reader hearing "Launchpad, 4, 7" gets two numbers with no unit. The
+ * tally belongs on the page, which has room to say what it means.
+ *
+ * Either meter is wrapped in the nav's own tooltip, so a shape the reader has
+ * to infer a length from can simply be asked. The count options are not:
+ * they have said it already, and a tooltip repeating the text under the
+ * pointer is a tooltip that teaches the reader to ignore tooltips.
+ */
+function LaunchpadRowProgressMark({
+  kind,
+  tone,
+}: {
+  kind: LaunchpadRowProgress;
+  tone: LaunchpadRowTone;
+}) {
+  const done = LAUNCHPAD_DONE;
+  const total = LAUNCHPAD_TOTAL;
+  const frac = total > 0 ? done / total : 0;
+  const t = LAUNCHPAD_TONE[tone];
+  if (kind === "off") return null;
+
+  const count = launchpadRowHasCount(kind) ? (
+    <span
+      aria-hidden="true"
+      className="shrink-0 text-[11px] leading-none tabular-nums text-nav-fg-subtle"
+    >
+      {done} of {total}
+    </span>
+  ) : null;
+
+  /*
+   * Pointer events ON, unlike the card's meter this was copied from.
+   *
+   * RailTooltip has no box of its own (display: contents) and opens from
+   * events that bubble up from the trigger — so a `pointer-events-none`
+   * meter is a meter the pointer never arrives at, and the tooltip never
+   * fires. The row is a button and these events still bubble to it, so the
+   * click target is unchanged.
+   */
+  const bar = (
+    <span
+      aria-hidden="true"
+      className="block h-[3px] w-[36px] shrink-0 overflow-hidden rounded-full bg-nav-border"
+    >
+      <span
+        className={cn("block h-full rounded-full motion-move", t.fill)}
+        style={{ width: `${frac * 100}%` }}
+      />
+    </span>
+  );
+
+  /*
+   * The ring: one 16px circle, drawn with a dash offset rather than an arc
+   * path, so the sweep is a single number and the track and the fill are the
+   * same geometry. 2px stroke on a 7px radius leaves the hole reading as a
+   * hole at 16px; thinner and it disappears against the row.
+   */
+  const r = 7;
+  const c = 2 * Math.PI * r;
+  const ring = (
+    <svg
+      aria-hidden="true"
+      width={16}
+      height={16}
+      viewBox="0 0 18 18"
+      className="shrink-0 -rotate-90"
+    >
+      <circle cx="9" cy="9" r={r} fill="none" strokeWidth="2" className="stroke-nav-border" />
+      <circle
+        cx="9"
+        cy="9"
+        r={r}
+        fill="none"
+        strokeWidth="2"
+        strokeLinecap="round"
+        stroke="currentColor"
+        strokeDasharray={c}
+        strokeDashoffset={c * (1 - frac)}
+        className={t.ink || "text-nav-fg-muted"}
+      />
+    </svg>
+  );
+
+  const meter = launchpadRowHasMeter(kind)
+    ? kind === "ring" || kind === "ringCount"
+      ? ring
+      : bar
+    : null;
+
+  return (
+    <>
+      {meter ? (
+        /*
+          The pointer's answer. "Steps done", not "complete": the card and the
+          page both count steps, and a percentage would be a third number for
+          one fact.
+        */
+        <RailTooltip label={`${done} of ${total} steps done`}>{meter}</RailTooltip>
+      ) : null}
+      {count}
+    </>
+  );
+}
 
 /** The show/hide menu's one view, opened directly rather than via an entry. */
 const BLOCKS_VIEW = "blocks";
@@ -473,6 +639,11 @@ export function LeftNav({
     entryLayout,
     dockPosition,
     launchpad: launchpadSetting,
+    launchpadOffered,
+    launchpadEditSwitch,
+    launchpadSpot,
+    launchpadRowProgress,
+    launchpadRowTone,
     navSections,
     recentsMode,
     recentsReach,
@@ -508,6 +679,7 @@ export function LeftNav({
     treeSearchPlace,
     productSearchDismiss,
     quickActionSpot,
+    quickActionsOffered,
     searchHeaderIcons,
     searchRow,
     searchReveal,
@@ -727,7 +899,16 @@ export function LeftNav({
    * it on and off like Recent and Quick actions — which is the whole of what
    * "everything is in the layout" has to mean.
    */
-  const launchpadAllowed = strictModel ? true : launchpadSetting;
+  /*
+   * ...and above all of that, whether the build ships the card at all.
+   *
+   * `launchpadOffered` is the product's answer and it overrides both of the
+   * others, including `strictModel`'s "every account has one": a model about
+   * where the setting LIVES cannot conjure a card the build does not have.
+   * See LAUNCHPAD_OFFERED_DEFAULT — on, unlike Quick actions.
+   */
+  const launchpadAllowed =
+    launchpadOffered && (strictModel ? true : launchpadSetting);
   const picker = useIconPicker();
   /**
    * What a chrome tail row's glyph is before anyone overrides it.
@@ -837,7 +1018,7 @@ export function LeftNav({
       layout.showDefaultLayout();
       layout.adoptDefaultLayout();
       templates.unlink(account.id);
-      templates.notify(`Reset ${account.name} to the HighLevel default`);
+      templates.notify(`Reset ${account.name} to the default layout`);
       return;
     }
     const applied = patchForArrangement(tpl.arrangement, state, {
@@ -1518,7 +1699,19 @@ export function LeftNav({
   // An industry tree draws no dock either; the shell withdraws the capsule.
   const pinnedShown =
     !isBlockHidden(state, "pinned") && !mergedHidesCapsule && workspace === null;
-  const quickActionsShown = !isBlockHidden(state, "quickActions");
+  /*
+   * Quick actions, if the build ships it at all.
+   *
+   * Two questions, in order: does the product HAVE Quick actions
+   * (`quickActionsOffered`, the prototype axis — off by default since Nov 24),
+   * and has this account switched it off (`isBlockHidden`, the edit mode
+   * menu). Answered in one place because everything downstream — the card's
+   * footer, the `+` beside the field, the standing row, the collapsed bar's
+   * tile — reads this flag and nothing else, so the two faces of the nav can
+   * never disagree about whether the shortcut exists.
+   */
+  const quickActionsShown =
+    quickActionsOffered && !isBlockHidden(state, "quickActions");
   /**
    * Whether the Launchpad card shows.
    *
@@ -1527,6 +1720,22 @@ export function LeftNav({
    * theme values because the account's answer lives in the layout store.
    */
   const launchpad = launchpadAllowed && !isBlockHidden(state, "launchpad");
+  /*
+   * ...and whether the card is where it presents itself.
+   *
+   * `launchpad` stays the answer to "does this account have a Launchpad at
+   * all" — the featured card and the three row spots all read it, and each
+   * of them needs the same two gates the card needed. What the spot decides
+   * is which one of them draws, so the card asks for the spot as well.
+   *
+   * Everything downstream of this — `cardShowing`, the footer, the gap, the
+   * collapsed bar's Rocket — follows the card, which is why switching to a
+   * row leaves Quick actions' box behind exactly as hiding the block always
+   * did. See LAUNCHPAD_SPOTS.
+   */
+  const launchpadInCard = launchpad && launchpadSpot === "card";
+  /** Launchpad drawn as a plain L1 row, and where. See LAUNCHPAD_ITEM. */
+  const launchpadRow = launchpad && launchpadIsRow(launchpadSpot);
   /*
    * The card outlives Launchpad.
    *
@@ -1586,7 +1795,8 @@ export function LeftNav({
    * the first thing on the surface every single visit.
    */
   const cardShowing =
-    workspace === null && ((launchpad && !agencyScope) || cardQuickActions);
+    workspace === null &&
+    ((launchpadInCard && !agencyScope) || cardQuickActions);
 
   /*
    * Whether the card is the last thing before the tree.
@@ -2850,11 +3060,20 @@ export function LeftNav({
       reason: one way in, not two. Either flag removes the standing row, so
       the only state that keeps it is "reachable nowhere else".
     */
-    if (!cardQuickActions && !qaBesideSearch) return base;
+    /*
+      ...and when the build has no Quick actions at all, the row goes whether
+      or not anything else would have folded it in. `cardQuickActions` and
+      `qaBesideSearch` are both false in that case, so the early return above
+      would otherwise hand back the authored row — the one placement the
+      account-level filter in `nav-config` used to catch and the axis does not.
+    */
+    if (quickActionsOffered && !cardQuickActions && !qaBesideSearch)
+      return base;
     return tidyRules(
       base.filter((e) => !(e.kind === "item" && e.item.id === "quick-actions")),
     );
   }, [
+    quickActionsOffered,
     agencyScope,
     state,
     config.fixed,
@@ -3150,10 +3369,17 @@ export function LeftNav({
       // Merged, the capsule is gone and the pins live inside the list above.
       case "pinned":
         return !mergedHidesCapsule;
-      // The account can switch the card off entirely, and then there is no
-      // Launchpad for this to govern.
+      /*
+       * The account can switch the card off entirely, and then there is no
+       * Launchpad for this to govern — and even where there is one, the
+       * switch is only offered if the build offers it.
+       *
+       * Off by default (Ashwin, Nov 24): the card is a zero state, and the
+       * account seeing it is the one that has not finished setting up. See
+       * LAUNCHPAD_EDIT_SWITCH_DEFAULT.
+       */
       case "launchpad":
-        return launchpadAllowed;
+        return launchpadAllowed && launchpadEditSwitch;
       /*
         Recent is not offered at all (Sep 30, Ashwin).
         
@@ -3171,6 +3397,17 @@ export function LeftNav({
       */
       case "recent":
         return false;
+      /*
+       * Nor Quick actions, unless the build ships it (Ashwin, Nov 24).
+       *
+       * Same reasoning as the two above, from the other end: this is not a
+       * switch over something the nav has and the account does not want, it
+       * is a switch over something that is not in the product. Offering it
+       * would let edit mode add a footer row, a `+` and a bar tile that no
+       * other surface knows about. See QUICK_ACTIONS_OFFERED_DEFAULT.
+       */
+      case "quickActions":
+        return quickActionsOffered;
       default:
         return true;
     }
@@ -3262,7 +3499,13 @@ export function LeftNav({
             // whichever scope the session was opened in.
             agencyLayout.beginEditing();
           },
-          onOpenBlocks: (trigger) => setBlocksAt(trigger.getBoundingClientRect()),
+          // No eye when the menu would have nothing in it — see presentBlocks.
+          ...(presentBlocks.length > 0
+            ? {
+                onOpenBlocks: (trigger: HTMLElement) =>
+                  setBlocksAt(trigger.getBoundingClientRect()),
+              }
+            : {}),
           onOpenAppearance: (trigger) => setColoursAt(trigger),
           accountName: account.name,
           viewingDefault: layout.viewingDefault,
@@ -5375,7 +5618,7 @@ export function LeftNav({
                 */}
                 {cardShowing ? (
                   <SetupGuideRow
-                    showLaunchpad={launchpad}
+                    showLaunchpad={launchpadInCard}
                     onOpen={() => onSelect?.(PROPOSED_HOME_ID)}
                     {...(cardQuickActions
                       ? { onQuickActions: () => onPinFlyout("quick-actions") }
@@ -5924,7 +6167,7 @@ export function LeftNav({
           ) : null}
           {cardShowing && !searchOnly && !hideOpeningCluster ? (
             <SetupGuideRow
-              showLaunchpad={launchpad}
+              showLaunchpad={launchpadInCard}
               {...(cardGapBelow ? { gapBelow: true } : {})}
               // At agency the card opens the agency's own Launchpad row; at
               // sub-account it opens the proposed tree's home product.
@@ -6082,6 +6325,31 @@ export function LeftNav({
             <div {...fadeProps(collapsed)} className="w-full shrink-0">
               <TreeSearchEmpty query={treeQuery.trim()} />
             </div>
+          ) : null}
+          {/*
+            Launchpad as the first L1 row, when the axis puts it there.
+
+            Above the categories and below the field that filters them, which
+            is where "the first thing in the list" actually is — the blocks
+            further up are surfaces over the catalogue, not members of it.
+
+            Gone under a query, like every other chrome row: it is not in the
+            tree, so nothing filters it, and left standing it would be a row
+            that matched nothing sitting where the matches are.
+          */}
+          {launchpadRow && launchpadSpot === "rowTop" && !searchOnly && !treeHits ? (
+            <NavItemRow
+              item={LAUNCHPAD_ITEM}
+              marking={markFor(here.productId === LAUNCHPAD_ITEM.id && here.childId === null, false, "l1")}
+              trailing={
+                    <LaunchpadRowProgressMark
+                      kind={launchpadRowProgress}
+                      tone={launchpadRowTone}
+                    />
+                  }
+              iconInk={LAUNCHPAD_TONE[launchpadRowTone].ink}
+              onSelect={() => onSelect?.(PROPOSED_HOME_ID)}
+            />
           ) : null}
           {columnShowing ? (
             /*
@@ -6332,6 +6600,28 @@ export function LeftNav({
                 row — Settings, or the Learn row under it. See the effect by
                 `settingsSectionRef`. Ashwin, Nov 17.
               */}
+              {/*
+                Launchpad filed with the account's own business, above
+                Settings. Once an account is running, that is what the setup
+                guide is: something you go and find, not something that greets
+                you. See LAUNCHPAD_SPOTS.
+              */}
+              {launchpadRow && launchpadSpot === "rowAbove" && !searchOnly ? (
+                <NavItemRow
+                  item={LAUNCHPAD_ITEM}
+                  marking={markFor(here.productId === LAUNCHPAD_ITEM.id && here.childId === null, false, "l1")}
+                  trailing={
+                    <LaunchpadRowProgressMark
+                      kind={launchpadRowProgress}
+                      tone={launchpadRowTone}
+                    />
+                  }
+                  iconInk={LAUNCHPAD_TONE[launchpadRowTone].ink}
+                  onSelect={() => onSelect?.(PROPOSED_HOME_ID)}
+                  // Not in the bar: an extra, faded with the labels.
+                  bar="fade"
+                />
+              ) : null}
               <div ref={settingsSectionRef} data-nav-settings-section="" className="contents">
               {renderRow(agencyScope ? agencySettings : config.settings)}
               {/*
@@ -6350,6 +6640,27 @@ export function LeftNav({
                 ) : (
                   renderRow({ ...learnItem, hasFlyout: true })
                 )
+              ) : null}
+              {/*
+                ...or under Settings and the Learn row, as the last thing in
+                the column. Inside the section rather than after it, so Edit
+                still lines up with the section's LAST row — see the effect by
+                `settingsSectionRef`.
+              */}
+              {launchpadRow && launchpadSpot === "rowBelow" && !searchOnly ? (
+                <NavItemRow
+                  item={LAUNCHPAD_ITEM}
+                  marking={markFor(here.productId === LAUNCHPAD_ITEM.id && here.childId === null, false, "l1")}
+                  trailing={
+                    <LaunchpadRowProgressMark
+                      kind={launchpadRowProgress}
+                      tone={launchpadRowTone}
+                    />
+                  }
+                  iconInk={LAUNCHPAD_TONE[launchpadRowTone].ink}
+                  onSelect={() => onSelect?.(PROPOSED_HOME_ID)}
+                  bar="fade"
+                />
               ) : null}
               </div>
               {/* Settings above the cards: the promo closes the foot. */}

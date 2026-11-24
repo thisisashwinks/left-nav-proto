@@ -542,6 +542,18 @@
 [data-nav-theme="light"] {
   /* The search row under the logo: one step past the divider, the way gray-300 sits past gray-200. Derived, so tinted navs follow. Ashwin, Nov 24. */
   --nav-entry-line: oklch(from var(--nav-divider) calc(l - 0.06) c h);
+  /*
+   * The four the search field's edge can be set to. See SEARCH_BORDERS.
+   *
+   * Literal gray on a white nav, because that is the ramp Ashwin named and
+   * the one a reader is comparing against in Figma. The dark theme derives
+   * the same four steps from the nav's own divider instead — a literal
+   * gray-200 on a #0f0f12 ground is not a hairline, it is a stripe.
+   */
+  --nav-entry-line-1: var(--hr-gray-100);
+  --nav-entry-line-2: var(--hr-gray-200);
+  --nav-entry-line-3: var(--hr-gray-300);
+  --nav-entry-line-4: var(--hr-gray-400);
   --nav-bg: var(--hr-base-white);
   --nav-border: var(--hr-gray-200);
   /*
@@ -931,6 +943,15 @@
 [data-nav-theme="dark"] {
   /* See [data-nav-theme="light"]. One step past the divider, lighter on dark. Ashwin, Nov 24. */
   --nav-entry-line: oklch(from var(--nav-divider) calc(l + 0.06) c h);
+  /*
+   * The same four steps, derived rather than literal — see the light block.
+   * Step 2 is the divider itself, so the default edge on a dark nav is the
+   * line the rest of the nav already draws.
+   */
+  --nav-entry-line-1: oklch(from var(--nav-divider) calc(l - 0.03) c h);
+  --nav-entry-line-2: var(--nav-divider);
+  --nav-entry-line-3: oklch(from var(--nav-divider) calc(l + 0.06) c h);
+  --nav-entry-line-4: oklch(from var(--nav-divider) calc(l + 0.14) c h);
   --nav-bg: #0f0f12;
   --nav-border: #26262c;
   /* gray/600 over #17171b is barely a line; the ring steps up the ramp so it

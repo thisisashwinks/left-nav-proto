@@ -212,6 +212,7 @@ export function WhiteLabelTab({ agency }: { agency: Account }) {
               hint="Your primary logo, displayed in emails and the classic sidebar."
               spec="Ideal: 350 × 180 px · Max 2.5 MB"
               aspect="wide"
+              guide
               {...(agency.wordmarkSrc ? { src: agency.wordmarkSrc } : {})}
               onPick={(src) => void setAgencyFullLogo(brand, src)}
               onRemove={() => clearAgencyFullLogo(brand)}
@@ -219,7 +220,7 @@ export function WhiteLabelTab({ agency }: { agency: Account }) {
 
             <BrandAssetRow
               label="Sidebar icon"
-              hint="A compact version of your logo, displayed in the new sidebar."
+              hint="A compact version of your logo, shown in the new sidebar and as your browser tab’s favicon."
               spec="Square · Min 128 × 128 px · Max 2.5 MB"
               aspect="square"
               {...(agency.logoSrc ? { src: agency.logoSrc } : {})}

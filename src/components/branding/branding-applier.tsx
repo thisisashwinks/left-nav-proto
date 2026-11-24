@@ -10,6 +10,7 @@ import {
   fontById,
   googleFontsHref,
   isDefaultTheme,
+  minimalTheme,
   resolveAppearance,
   isLightSurface,
   mix,
@@ -168,6 +169,9 @@ export function useModeFor(theme: BrandingTheme | null): Mode {
   const { effective } = useTheme();
   const systemDark = useSystemDark();
   const previewMode = ctx?.previewMode ?? null;
+  // Minimal theme set (Nov 24, 2026): every theme is light — no color mode.
+  const minimal = ctx?.proto.themeSet === "minimal";
+  if (minimal && theme && !isDefaultTheme(minimalTheme(theme))) return "light";
   if (previewMode) return previewMode;
   if (!theme || isDefaultTheme(theme)) return effective.appTheme === "dark" ? "dark" : "light";
   return resolveAppearance(theme.appearance as Appearance, systemDark);
@@ -193,10 +197,16 @@ export interface LiveChrome {
 export function useLiveChrome(): LiveChrome {
   const { live, proto } = useBranding();
   const { activeThemeAccount } = useTheme();
-  const mode = useModeFor(resolveTheme(live, activeThemeAccount));
+  // Minimal theme set: paint light, no gradient, default font, whatever was saved.
+  const minimal = proto.themeSet === "minimal";
+  const resolved = (st: typeof live) => {
+    const t = resolveTheme(st, activeThemeAccount);
+    return minimal ? minimalTheme(t) : t;
+  };
+  const mode = useModeFor(resolved(live));
   const { railStep, darkStrength } = proto;
   return React.useMemo(() => {
-    const theme = resolveTheme(live, activeThemeAccount);
+    const theme = resolved(live);
     const chrome = isDefaultTheme(theme)
       ? null
       : deriveChrome(theme, mode, { railStep, darkStrength });
@@ -207,7 +217,8 @@ export function useLiveChrome(): LiveChrome {
       chrome,
       assets: resolveAssets(live, activeThemeAccount),
     };
-  }, [live, activeThemeAccount, mode, railStep, darkStrength]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, activeThemeAccount, mode, railStep, darkStrength, minimal]);
 }
 
 /**
@@ -416,6 +427,38 @@ export function BrandingApplier(): null {
     if (font && font.id !== "inter") root.dataset.brandingFont = proto.fontScope;
     else delete root.dataset.brandingFont;
   }, [chrome, mode, font, proto.fontScope]);
+
+  /*
+   * Extended theme (Nov 24, 2026): row font size, text color, icon color, and
+   * radius. Independent of `chrome`, so they also work on the platform
+   * default theme. One flag per property — an unset one leaves the nav's own
+   * value alone (see branding.css "Extended theme").
+   */
+  const extras = proto.themeSet === "extended" ? theme.extras : undefined;
+  const fontSize = extras?.fontSize, textColor = extras?.textColor;
+  const iconColor = extras?.iconColor, radius = extras?.radius;
+  React.useEffect(() => {
+    const root = document.documentElement;
+    const set = (flag: string, prop: string, v: string | undefined) => {
+      if (v === undefined) {
+        delete root.dataset[flag];
+        root.style.removeProperty(prop);
+      } else {
+        root.dataset[flag] = "";
+        root.style.setProperty(prop, v);
+      }
+    };
+    set("brxFont", "--brx-font", fontSize === undefined ? undefined : `${fontSize}px`);
+    set("brxFg", "--brx-fg", textColor);
+    set("brxIcon", "--brx-icon", iconColor);
+    set("brxRadius", "--brx-radius", radius === undefined ? undefined : `${radius}px`);
+    return () => {
+      for (const [f, prop] of [["brxFont", "--brx-font"], ["brxFg", "--brx-fg"], ["brxIcon", "--brx-icon"], ["brxRadius", "--brx-radius"]] as const) {
+        delete root.dataset[f];
+        root.style.removeProperty(prop);
+      }
+    };
+  }, [fontSize, textColor, iconColor, radius]);
 
   // Unmount: leave the document as it found it.
   React.useEffect(

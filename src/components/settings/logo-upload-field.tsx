@@ -1,10 +1,16 @@
 "use client";
 
 import * as React from "react";
+import { useBranding } from "@/components/branding/branding-provider";
 import { ImageUp, Trash2 } from "lucide-react";
 import { AccountLogo } from "@/components/accounts/account-logo";
 import type { AccountLogoSpec } from "@/components/accounts/account-logo";
 import { cn } from "@/lib/utils";
+import {
+  LogoGuidelines,
+  LogoGuidelinesButton,
+  LogoGuidelinesModal,
+} from "@/components/branding/logo-guidelines";
 
 /**
  * One logo upload.
@@ -158,7 +164,14 @@ export function BrandAssetRow({
   onRemove,
   error,
   compact = false,
+  guide = false,
 }: {
+  /**
+   * Full logo rows: a "Logo guidelines" button under the spec (Nov 24, 2026)
+   * — a modal, or an accordion under the row (proto `logoGuide`). Compact
+   * rows always use the modal.
+   */
+  guide?: boolean;
   /**
    * One line, never wrapped (Nov 24): smaller preview and 36px buttons, for
    * a modal column. Both rows keep Replace / Remove beside the copy.
@@ -188,6 +201,12 @@ export function BrandAssetRow({
   };
 
   const filled = Boolean(src) || (aspect === "square" && Boolean(fallback));
+  // The square asset previews as a circle by default (Nov 24, 2026) — it is
+  // the account's avatar. See IconShape.
+  const { proto } = useBranding();
+  const round = aspect === "square" && proto.iconShape === "circle";
+  const asAccordion = guide && !compact && proto.logoGuide === "accordion";
+  const [guideOpen, setGuideOpen] = React.useState(false);
 
   return (
     /*
@@ -219,7 +238,8 @@ export function BrandAssetRow({
           read(e.dataTransfer.files[0]);
         }}
         className={cn(
-          "flex shrink-0 items-center justify-center overflow-hidden rounded-[10px]",
+          "flex shrink-0 items-center justify-center overflow-hidden",
+          round ? "rounded-full" : "rounded-[10px]",
           compact
             ? aspect === "wide" ? "h-[64px] w-[112px]" : "size-[64px]"
             : aspect === "wide" ? "h-[100px] w-[156px]" : "size-[100px]",
@@ -232,9 +252,16 @@ export function BrandAssetRow({
             case — it always has SOMETHING, because the nav falls back to the
             generated mark — so it is solid from the start.
           */
-          filled
-            ? "bg-pg-bg shadow-[inset_0_0_0_1px_var(--pg-border)]"
-            : "border border-dashed border-pg-border-strong bg-pg-bg",
+          /*
+            Round (Nov 24, 2026): the circle stays a dashed drop target even
+            when filled, so it always says "drop an image here"; the avatar
+            or the upload, cropped to a circle, sits inside it.
+          */
+          round
+            ? "border border-dashed border-pg-border-strong bg-pg-bg"
+            : filled
+              ? "bg-pg-bg shadow-[inset_0_0_0_1px_var(--pg-border)]"
+              : "border border-dashed border-pg-border-strong bg-pg-bg",
           over && "shadow-[inset_0_0_0_2px_var(--brand)]",
         )}
       >
@@ -242,10 +269,18 @@ export function BrandAssetRow({
           <img
             src={src}
             alt=""
-            className="max-h-full max-w-full object-contain p-[10px]"
+            className={
+              round
+                ? cn("rounded-full object-cover", compact ? "size-[48px]" : "size-[76px]")
+                : "max-h-full max-w-full object-contain p-[10px]"
+            }
           />
         ) : aspect === "square" && fallback ? (
-          <AccountLogo logo={fallback} size={compact ? 40 : 60} radius={compact ? 10 : 14} />
+          <AccountLogo
+            logo={fallback}
+            size={round ? (compact ? 48 : 76) : compact ? 40 : 60}
+            radius={round ? 999 : compact ? 10 : 14}
+          />
         ) : (
           <ImageUp size={24} aria-hidden="true" className="text-pg-faint" />
         )}
@@ -258,6 +293,7 @@ export function BrandAssetRow({
         </span>
         <p className="text-[13px] leading-[18px] text-pg-muted">{hint}</p>
         <p className="text-[13px] leading-[18px] text-pg-faint">{spec}</p>
+        {guide ? <LogoGuidelinesButton open={asAccordion ? guideOpen : undefined} onClick={() => setGuideOpen((o) => !o)} /> : null}
         {error ? (
           <p role="alert" className="text-[13px] leading-[18px] text-[var(--hr-error-600,#d92d20)]">
             {error}
@@ -302,6 +338,13 @@ export function BrandAssetRow({
         className="hidden"
         onChange={(e) => read(e.target.files?.[0])}
       />
+
+      {asAccordion && guideOpen ? (
+        <div className="motion-panel-in basis-full rounded-[10px] bg-pg p-[16px]">
+          <LogoGuidelines />
+        </div>
+      ) : null}
+      {guide && !asAccordion && guideOpen ? <LogoGuidelinesModal onClose={() => setGuideOpen(false)} /> : null}
     </div>
   );
 }

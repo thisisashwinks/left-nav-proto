@@ -60,7 +60,14 @@ import {
 import { cn } from "@/lib/utils";
 import { useBrand } from "@/components/accounts/brand-store";
 import { logoColors } from "@/lib/logo-colors";
-import { logoThemes } from "@/design/branding";
+import {
+  EXTRA_FONT_SIZES,
+  EXTRA_RADII,
+  logoLightThemes,
+  logoThemes,
+  minimalPresets,
+  type ThemeExtras,
+} from "@/design/branding";
 
 export interface ThemeFieldProps {
   value: BrandingTheme;
@@ -311,10 +318,91 @@ export function useAgencyLogoColors(): string[] {
 }
 const NO_COLORS: string[] = [];
 
-/** "Suggested from your logo": themes built from the agency logo, or []. */
+/**
+ * "Suggested from your logo": themes built from the agency logo, or []. Under
+ * the minimal theme set only the light ones (Nov 24, 2026).
+ */
 export function useLogoThemeSuggestions(): BrandingPreset[] {
   const colors = useAgencyLogoColors();
-  return React.useMemo(() => logoThemes(colors), [colors]);
+  const minimal = useMinimalThemes();
+  return React.useMemo(() => (minimal ? logoLightThemes(colors) : logoThemes(colors)), [colors, minimal]);
+}
+
+/** True under the Extended theme set (prototype control "Theme options"). */
+export function useExtendedThemes(): boolean {
+  return useBranding().proto.themeSet === "extended";
+}
+
+/**
+ * Extended theme fields (Nov 24, 2026): sidebar font size, text color, icon
+ * color, and corner radius. "Default" / empty keeps the platform's value.
+ */
+export function ExtendedThemeFields({ value, onChange, disabled }: ThemeFieldProps) {
+  const x = value.extras ?? {};
+  const set = (patch: Partial<ThemeExtras>) => {
+    const next: ThemeExtras = { ...x, ...patch };
+    for (const k of Object.keys(next) as (keyof ThemeExtras)[]) if (next[k] === undefined) delete next[k];
+    onChange({ ...value, extras: next, presetId: value.presetId });
+  };
+  const sizes = ["default", ...EXTRA_FONT_SIZES.map(String)] as string[];
+  const radii = ["default", ...EXTRA_RADII.map(String)] as string[];
+  return (
+    <div className="flex flex-col gap-[16px]">
+      <div className="flex flex-col gap-[4px]">
+      <FieldLabel>Font size</FieldLabel>
+      <Segmented
+        label="Font size"
+        options={sizes}
+        value={x.fontSize === undefined ? "default" : String(x.fontSize)}
+        onChange={(v) => set({ fontSize: v === "default" ? undefined : Number(v) })}
+        format={(v) => (v === "default" ? "Default" : `${v} px`)}
+        disabled={disabled}
+      />
+      </div>
+      <div className="flex flex-col gap-[4px]">
+      <FieldLabel>Corner radius</FieldLabel>
+      <Segmented
+        label="Corner radius"
+        options={radii}
+        value={x.radius === undefined ? "default" : String(x.radius)}
+        onChange={(v) => set({ radius: v === "default" ? undefined : Number(v) })}
+        format={(v) => (v === "default" ? "Default" : `${v} px`)}
+        disabled={disabled}
+      />
+      </div>
+      <div className="grid grid-cols-2 gap-[12px]">
+        <div className="flex flex-col gap-[4px]">
+        <FieldLabel htmlFor="extras-text">Text color</FieldLabel>
+        <HexField
+          id="extras-text"
+          label="Text color"
+          value={x.textColor ?? null}
+          onChange={(hex) => set({ textColor: hex ?? undefined })}
+          optional
+          placeholder="Default"
+          disabled={disabled}
+        />
+        </div>
+        <div className="flex flex-col gap-[4px]">
+        <FieldLabel htmlFor="extras-icon">Icon color</FieldLabel>
+        <HexField
+          id="extras-icon"
+          label="Icon color"
+          value={x.iconColor ?? null}
+          onChange={(hex) => set({ iconColor: hex ?? undefined })}
+          optional
+          placeholder="Default"
+          disabled={disabled}
+        />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** True under the minimal theme set (prototype control "Theme options"). */
+export function useMinimalThemes(): boolean {
+  return useBranding().proto.themeSet === "minimal";
 }
 
 /** Preset tiles (BRANDING_PRESETS): dot + name + check. Picking one keeps color mode, gradient, and font. */
@@ -325,7 +413,13 @@ export function PresetGrid({
   columns = 3,
   rows = 2,
   suggested = [],
+  segregate = false,
 }: ThemeFieldProps & {
+  /**
+   * Minimal set only: list logo themes under their own heading instead of
+   * among the rest. Onboarding sets it (Nov 24, 2026).
+   */
+  segregate?: boolean;
   columns?: number;
   /** Rows shown before "Show more" (Nov 19). The selected theme is always shown. */
   rows?: number;
@@ -333,6 +427,7 @@ export function PresetGrid({
   suggested?: readonly BrandingPreset[];
 }) {
   const mode = useModeFor(value);
+  const minimal = useMinimalThemes();
   const limit = columns * rows;
   const selectedIdx = BRANDING_PRESETS.findIndex((p) => p.id === value.presetId);
   // Open from the start when the theme in force sits below the fold.
@@ -340,6 +435,32 @@ export function PresetGrid({
   const shown = expanded ? BRANDING_PRESETS : BRANDING_PRESETS.slice(0, limit);
   const hiddenCount = BRANDING_PRESETS.length - limit;
   const grid = { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` };
+  if (minimal) {
+    // 6–8 light themes, no "Show more". Logo themes lead the list, or get
+    // their own heading where `segregate` asks (onboarding).
+    const all = minimalPresets(suggested);
+    const fromLogo = all.filter((p) => suggested.includes(p));
+    const rest = all.filter((p) => !suggested.includes(p));
+    if (segregate && fromLogo.length) {
+      return (
+        <div className="flex flex-col gap-[8px]">
+          <div className="text-[13px] leading-[18px] font-medium text-pg-text">Suggested from your logo</div>
+          <div role="radiogroup" aria-label="Suggested from your logo" className="grid gap-[8px]" style={grid}>
+            {fromLogo.map((p) => tile(p))}
+          </div>
+          <div className="mt-[4px] text-[13px] leading-[18px] font-medium text-pg-text">More themes</div>
+          <div role="radiogroup" aria-label="Themes" className="grid gap-[8px]" style={grid}>
+            {rest.map((p) => tile(p))}
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div role="radiogroup" aria-label="Themes" className="grid gap-[8px]" style={grid}>
+        {all.map((p) => tile(p))}
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-[8px]">
     {suggested.length ? (
@@ -1313,7 +1434,8 @@ export function ThemePicker({
   onChange,
   disabled,
   columns = 3,
-}: ThemeFieldProps & { columns?: number }) {
+  segregate = false,
+}: ThemeFieldProps & { columns?: number; segregate?: boolean }) {
   const field = { value, onChange, disabled };
   const [tab, setTab] = React.useState<ThemeTab>(value.presetId ? "themes" : "custom");
   const suggested = useLogoThemeSuggestions();
@@ -1321,7 +1443,7 @@ export function ThemePicker({
     <div className="flex flex-col gap-[12px]">
       <Tabs label="Theme" tabs={THEME_TABS} value={tab} onChange={setTab} />
       {tab === "themes" ? (
-        <PresetGrid {...field} columns={columns} suggested={suggested} />
+        <PresetGrid {...field} columns={columns} suggested={suggested} segregate={segregate} />
       ) : (
         <CustomThemeFields {...field} />
       )}
@@ -1372,9 +1494,12 @@ export function ThemeEditor({
   disabled,
   compact = false,
   columns,
-}: ThemeFieldProps & { compact?: boolean; columns?: number }) {
+  segregate = false,
+}: ThemeFieldProps & { compact?: boolean; columns?: number; segregate?: boolean }) {
   const suggested = useLogoThemeSuggestions();
   const { proto } = useBranding();
+  // Minimal theme set: no color mode, gradient, or font (Nov 24, 2026).
+  const minimal = proto.themeSet === "minimal";
   const field = { value, onChange, disabled };
   const [tab, setTab] = React.useState<ThemeTab>(value.presetId ? "themes" : "custom");
   const modeHint =
@@ -1383,21 +1508,33 @@ export function ThemeEditor({
       : "Light, dark, or match this device's setting, for the sidebar, rail, and top bar.";
   return (
     <div className={cn("flex flex-col", compact ? "gap-[20px]" : "gap-[24px]")}>
-      <Section compact={compact} title="Color mode" hint={modeHint}>
-        <ColorModeField {...field} />
-      </Section>
+      {minimal ? null : (
+        <Section compact={compact} title="Color mode" hint={modeHint}>
+          <ColorModeField {...field} />
+        </Section>
+      )}
       <Section compact={compact} title="Theme">
         <div className="flex flex-col gap-[12px]">
           <Tabs label="Theme" tabs={THEME_TABS} value={tab} onChange={setTab} />
           {tab === "themes" ? (
-            <PresetGrid {...field} columns={columns ?? (compact ? 2 : 3)} suggested={suggested} />
+            <PresetGrid
+              {...field}
+              columns={columns ?? (compact ? 2 : 3)}
+              suggested={suggested}
+              segregate={segregate}
+            />
           ) : (
             <CustomThemeFields {...field} />
           )}
         </div>
       </Section>
-      <GradientField {...field} />
-      <FontField {...field} />
+      {minimal ? null : <GradientField {...field} />}
+      {minimal ? null : <FontField {...field} />}
+      {proto.themeSet === "extended" ? (
+        <Section compact={compact} title="Extended" hint="Fine-tune the sidebar's text, icons, and corners.">
+          <ExtendedThemeFields {...field} />
+        </Section>
+      ) : null}
       {/* The untouched platform default paints nothing, so there is nothing to warn about. */}
       {isDefaultTheme(value) ? null : <ContrastWarnings theme={value} showPass={false} />}
     </div>

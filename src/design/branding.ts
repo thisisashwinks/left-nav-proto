@@ -105,6 +105,8 @@ export interface BrandingTheme {
   chrome: SurfaceChoice;
   /** Per-surface choices, used while `!together`. */
   surfaces: Record<ChromeSurface, SurfaceChoice>;
+  /** Extended theme only (Nov 24, 2026). See ThemeExtras. */
+  extras?: ThemeExtras;
 }
 
 export interface BrandAssets {
@@ -207,7 +209,7 @@ export const BRANDING_PRESETS: readonly BrandingPreset[] = [
   // First two rows (shown before "Show more") mix calm and bold, so the
   // range is visible at a glance. Calm: near-white + deep accent. Bold: the
   // sidebar is the colour, with a light accent.
-  { id: "highrise", label: "HighLevel", brand: "#155eef", accent: null, chrome: "light" },
+  { id: "highrise", label: "Default", brand: "#155eef", accent: null, chrome: "light" },
   { id: "mist", label: "Mist", brand: "#1d4f91", accent: "#1d4f91", chrome: "brand",
     fine: presetFine(["#edf3fa", "#1d4f91", ""], ["#0b1726", "#8db6ec", ""]) },
   { id: "plum", label: "Plum", brand: "#3f0e40", accent: "#e1b3e2", chrome: "brand",
@@ -259,7 +261,13 @@ export function themeFromPreset(p: BrandingPreset): BrandingTheme {
 
 /** Picking a preset swaps the colours only: color mode, gradient, and font stay. */
 export function applyPreset(theme: BrandingTheme, p: BrandingPreset): BrandingTheme {
-  return { ...themeFromPreset(p), appearance: theme.appearance, gradient: theme.gradient, font: theme.font };
+  return {
+    ...themeFromPreset(p),
+    appearance: theme.appearance,
+    gradient: theme.gradient,
+    font: theme.font,
+    ...(theme.extras ? { extras: theme.extras } : {}),
+  };
 }
 
 export const DEFAULT_THEME: BrandingTheme = themeFromPreset(BRANDING_PRESETS[0]!);
@@ -424,6 +432,97 @@ export const MORE_OPTIONS_LABELS: Record<MoreOptionsLabel, string> = {
   "white-label": "White label settings",
 };
 
+/**
+ * How many themes agencies get (Nov 24, 2026, Ashwin).
+ *
+ *  minimal  The default. 6–8 light themes — up to 2 built from the agency's
+ *           logo, the rest curated — and nothing else: no light / dark /
+ *           system mode, no font, no window gradient. Custom theme stays.
+ *  full     Every preset, color mode, font, and gradient.
+ */
+/**
+ * The White label section's footer-left control (Nov 24, 2026, Ashwin).
+ *  toggle  The default. A "Customizations" switch: off previews the default
+ *          theme without saving, on brings your edits back.
+ *  button  "Reset to default", as before.
+ */
+export type ResetControl = "toggle" | "button";
+export const RESET_CONTROL_LABELS: Record<ResetControl, string> = {
+  toggle: "Preview toggle",
+  button: "Reset button",
+};
+
+/**
+ * Full logo guidelines (Nov 24, 2026, Ashwin): do's and don'ts.
+ *  logoGuide            White label / Business profile: the "Logo
+ *                       guidelines" button opens a modal or an accordion.
+ *  onboardingLogoGuide  Onboarding's Logos step: always shown under the Full
+ *                       logo row, or behind the same button (modal).
+ */
+export type LogoGuide = "modal" | "accordion";
+export const LOGO_GUIDE_LABELS: Record<LogoGuide, string> = {
+  modal: "Modal",
+  accordion: "Accordion",
+};
+export type OnboardingLogoGuide = "accordion" | "split" | "inline" | "below" | "button";
+export const ONBOARDING_LOGO_GUIDE_LABELS: Record<OnboardingLogoGuide, string> = {
+  accordion: "One accordion",
+  split: "Do's and don'ts accordions",
+  inline: "Always shown",
+  below: "Below both rows",
+  button: "Behind a button",
+};
+
+export type ThemeSet = "minimal" | "full" | "extended";
+export const THEME_SET_LABELS: Record<ThemeSet, string> = {
+  minimal: "Minimal",
+  full: "Full",
+  extended: "Extended",
+};
+
+/**
+ * Extended theme (Nov 24, 2026, Ashwin): Full, plus finer control of the
+ * sidebar rows — font size, text color, icon color, and corner radius. Each
+ * is optional; unset keeps the platform's own value. Painted only while the
+ * prototype control "Theme options" is Extended.
+ */
+export interface ThemeExtras {
+  /** Row label size, px. */
+  fontSize?: number;
+  /** Row label color. */
+  textColor?: string;
+  /** Row icon color. */
+  iconColor?: string;
+  /** Row corner radius, px. */
+  radius?: number;
+}
+export const EXTRA_FONT_SIZES = [13, 14, 15, 16] as const;
+export const EXTRA_RADII = [0, 4, 7, 10, 16] as const;
+
+/** Curated light presets for the minimal set, in order. Filled to 8 after logo themes. */
+export const MINIMAL_PRESET_IDS = [
+  "highrise",
+  "mist",
+  "sage",
+  "lavender",
+  "blush",
+  "slate",
+  "apricot",
+  "sand",
+] as const;
+export const MINIMAL_MAX_THEMES = 8;
+
+/**
+ * Shape of the sidebar icon's preview on White label, Business profile, and
+ * onboarding (Nov 24, 2026, Ashwin): a circle by default, so the icon reads
+ * as the account's avatar. Square is the comparison.
+ */
+export type IconShape = "circle" | "square";
+export const ICON_SHAPE_LABELS: Record<IconShape, string> = {
+  circle: "Circle",
+  square: "Square",
+};
+
 export type AvatarStyle = "solid" | "gradient";
 export const AVATAR_STYLE_LABELS: Record<AvatarStyle, string> = {
   solid: "Solid color",
@@ -511,6 +610,16 @@ export interface BrandingProto {
   iconDisplay: IconDisplay;
   /** No square icon: initials on a solid colour from the logo, or a gradient. */
   avatarStyle: AvatarStyle;
+  /** The sidebar icon preview's shape. See IconShape. */
+  iconShape: IconShape;
+  /** Minimal (6–8 light themes, no mode / font / gradient) or Full. See ThemeSet. */
+  themeSet: ThemeSet;
+  /** White label footer: preview-default toggle or Reset button. See ResetControl. */
+  resetControl: ResetControl;
+  /** Settings: Logo guidelines open as a modal or an accordion. See LogoGuide. */
+  logoGuide: LogoGuide;
+  /** Onboarding: logo guidelines always shown, or behind a button. */
+  onboardingLogoGuide: OnboardingLogoGuide;
   /** What the agency had uploaded before Switchyard — sets up the demo. */
   priorLogos: PriorLogos;
   modeScope: BrandingReach;
@@ -542,6 +651,11 @@ export const DEFAULT_BRANDING_PROTO: BrandingProto = {
   onboardingThemeStep: "themes",
   iconDisplay: "logo",
   avatarStyle: "solid",
+  iconShape: "circle",
+  themeSet: "minimal",
+  resetControl: "toggle",
+  logoGuide: "modal",
+  onboardingLogoGuide: "accordion",
   priorLogos: "none",
   modeScope: "chrome",
   fontScope: "chrome",
@@ -1037,6 +1151,46 @@ export function logoThemes(colors: readonly string[]): BrandingPreset[] {
     });
   }
   return out;
+}
+
+/**
+ * Light-sidebar themes from a logo, for the minimal set (Nov 24, 2026):
+ * "Logo · Light" (a tint of the main colour), and "Logo · Soft" — a tint of
+ * the second colour with the first as accent, or, with one colour, a near-
+ * neutral sidebar carrying the logo colour as accent.
+ */
+export function logoLightThemes(colors: readonly string[]): BrandingPreset[] {
+  const light = logoThemes(colors).find((p) => p.id === "logo-light");
+  if (!light) return [];
+  const [first, second] = colors as [string, string | undefined];
+  const [h, s0] = toHsl(first);
+  const s = Math.min(Math.max(s0, 35), 80);
+  const deep = (hh: number, ss: number, l: number) => fromHsl(hh, Math.min(Math.max(ss, 30), 75), l);
+  const two = second && isHex(second) ? toHsl(second) : null;
+  const soft: BrandingPreset = {
+    id: "logo-soft",
+    label: "Logo · Soft",
+    brand: first,
+    accent: deep(h, s, 40),
+    chrome: "brand",
+    fine: presetFine(
+      [two ? fromHsl(two[0], Math.min(two[1], 55), 95) : fromHsl(h, 12, 97), deep(h, s, 40), ""],
+      [fromHsl(h, Math.min(s, 30), 11), fromHsl(h, s, 72), ""],
+    ),
+  };
+  return [light, soft];
+}
+
+/** The minimal set: logo themes first, then curated light presets, 8 at most. */
+export function minimalPresets(logo: readonly BrandingPreset[]): BrandingPreset[] {
+  const curated = MINIMAL_PRESET_IDS.map((id) => BRANDING_PRESETS.find((p) => p.id === id)!).filter(Boolean);
+  return [...logo, ...curated].slice(0, MINIMAL_MAX_THEMES);
+}
+
+/** What a theme paints under the minimal set: light, no gradient, default font. */
+export function minimalTheme(t: BrandingTheme): BrandingTheme {
+  if (t.appearance === "light" && !t.gradient && t.font === DEFAULT_FONT_ID) return t;
+  return { ...t, appearance: "light", gradient: false, font: DEFAULT_FONT_ID };
 }
 
 /** The initials avatar's tile from one colour: flat, or a short diagonal. */

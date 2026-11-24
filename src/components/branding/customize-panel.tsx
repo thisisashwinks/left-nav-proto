@@ -34,6 +34,9 @@ import {
   Switch,
   ThemeEditor,
   ThemePicker,
+  useMinimalThemes,
+  useExtendedThemes,
+  ExtendedThemeFields,
 } from "@/components/branding/branding-controls";
 import { Section as PageSection } from "@/components/settings/white-label-parts";
 import { Modal } from "@/components/page/modal";
@@ -587,21 +590,70 @@ export function BrandThemeModal({ scope, onClose }: { scope: BrandingScope; onCl
  *
  * Leaving the page with unsaved edits puts back what was there.
  */
+/*
+ * Leaving the Branding and theme section with an unapplied theme (Nov 24,
+ * 2026): the page's tabs call `requestLeave(go)`; while the section holds
+ * unapplied edits it asks first, and `go` runs after Apply to all or Discard.
+ */
+let leaveGuard: ((go: () => void) => boolean) | null = null;
+export function requestLeave(go: () => void) {
+  if (leaveGuard?.(go)) return;
+  go();
+}
+
 export function BrandingThemeSection({ asTab = false }: { asTab?: boolean }) {
   const { canEdit } = useBrandingAccess();
   const { proto } = useBranding();
   const scope = React.useMemo<BrandingScope>(() => ({ accountId: null }), []);
   const door = useThemeDoor(scope);
   const disabled = !canEdit;
-  const field = { value: door.value, onChange: door.write, disabled };
+  const minimal = useMinimalThemes();
+  const extended = useExtendedThemes();
   const agencyWide = proto.saveTarget === "agency";
   const [confirming, setConfirming] = React.useState(false);
   const scopeAsk = useThemeScopeAsk() && agencyWide;
+  /*
+   * Preview the default theme (proto resetControl "toggle", Nov 24, 2026):
+   * off writes the default theme as a preview, on puts back what was there.
+   * Editing anything while it is off carries on from the default.
+   */
+  const [showDefault, setShowDefault] = React.useState(false);
+  const stash = React.useRef<BrandingTheme | null>(null);
+  const toggleCustom = (on: boolean) => {
+    if (!on) {
+      stash.current = door.value;
+      door.write({ ...DEFAULT_THEME });
+      setShowDefault(true);
+    } else {
+      if (stash.current) door.write(stash.current);
+      stash.current = null;
+      setShowDefault(false);
+    }
+  };
+  const editField = (t: BrandingTheme) => {
+    if (showDefault) {
+      stash.current = null;
+      setShowDefault(false);
+    }
+    door.write(t);
+  };
+  const [leaving, setLeaving] = React.useState<(() => void) | null>(null);
 
   const latest = React.useRef(door);
   React.useEffect(() => {
     latest.current = door;
   });
+  const field = { value: door.value, onChange: editField, disabled };
+  React.useEffect(() => {
+    leaveGuard = (go) => {
+      if (!latest.current.changed) return false;
+      setLeaving(() => go);
+      return true;
+    };
+    return () => {
+      leaveGuard = null;
+    };
+  }, []);
   React.useEffect(
     () => () => {
       if (latest.current.changed) latest.current.revert();
@@ -616,6 +668,8 @@ export function BrandingThemeSection({ asTab = false }: { asTab?: boolean }) {
 
   const apply = () => {
     setConfirming(false);
+    setShowDefault(false);
+    stash.current = null;
     door.save("Theme applied successfully.");
   };
 
@@ -631,46 +685,74 @@ export function BrandingThemeSection({ asTab = false }: { asTab?: boolean }) {
         title="Theme"
         sub={
           agencyWide
-            ? "Colors, mode, and font for your agency. All sub-accounts under it get this theme."
+            ? `${minimal ? "Sidebar colors" : "Colors, mode, and font"} for your agency. All sub-accounts under it get this theme.`
             : "Your agency's default theme. Sub-accounts on a layout with its own theme keep that one."
         }
         dirty={door.changed}
-        onCancel={door.revert}
+        onCancel={() => {
+          setShowDefault(false);
+          stash.current = null;
+          door.revert();
+        }}
         onSave={
           canEdit
             ? () => {
                 // "All or selected" is itself the confirmation (Nov 24).
                 if (scopeAsk) {
                   void askThemeScope().then((r) => {
-                    if (r) door.saveScoped(r, r === "all" ? "Theme applied successfully." : undefined);
+                    if (!r) return;
+                    setShowDefault(false);
+                    stash.current = null;
+                    door.saveScoped(r, r === "all" ? "Theme applied successfully." : undefined);
                   });
                 } else if (proto.applyConfirm) setConfirming(true);
                 else apply();
               }
             : undefined
         }
-        saveLabel="Save and apply"
+        saveLabel="Apply"
         footerStart={
-          <button
-            type="button"
-            onClick={() => door.write({ ...DEFAULT_THEME })}
-            disabled={isDefaultTheme(door.value)}
-            className="motion-tap h-[36px] rounded-[8px] px-[14px] text-[14px] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Reset to default
-          </button>
+          proto.resetControl === "toggle" ? (
+            <label
+              className={cn(
+                "flex items-center gap-[10px] text-[14px] leading-[20px] text-pg-text",
+                !showDefault && isDefaultTheme(door.value) && "opacity-50",
+              )}
+              title={showDefault ? "Turn on to bring your theme back." : "Turn off to preview the default theme."}
+            >
+              <Switch
+                label="Customizations"
+                checked={!showDefault}
+                disabled={disabled || (!showDefault && isDefaultTheme(door.value))}
+                onChange={toggleCustom}
+              />
+              {showDefault ? "Showing default theme" : "Customizations"}
+            </label>
+          ) : (
+            <button
+              type="button"
+              onClick={() => door.write({ ...DEFAULT_THEME })}
+              disabled={isDefaultTheme(door.value)}
+              className="motion-tap h-[36px] rounded-[8px] px-[14px] text-[14px] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Reset to default
+            </button>
+          )
         }
       >
         <div className="flex flex-col [&>*+*]:mt-[16px] [&>*+*]:border-t [&>*+*]:border-pg-border [&>*+*]:pt-[16px]">
-          <ThemePart label="Color mode" hint={`Light, dark, or match this device's setting. ${reach("mode")}`}>
-            <ColorModeField {...field} />
-          </ThemePart>
+          {minimal ? null : (
+            <ThemePart label="Color mode" hint={`Light, dark, or match this device's setting. ${reach("mode")}`}>
+              <ColorModeField {...field} />
+            </ThemePart>
+          )}
           <ThemePart label="Theme" hint="Pick a theme, or set your own colors. They preview as you edit.">
             <div className="flex flex-col gap-[16px]">
               <ThemePicker {...field} columns={4} />
               {isDefaultTheme(door.value) ? null : <ContrastWarnings theme={door.value} showPass={false} />}
             </div>
           </ThemePart>
+          {minimal ? null : (<>
           <ThemePart label="Window gradient" hint="One gradient across the sidebar, rail, and top bar.">
             <label className="flex items-center justify-between gap-[12px] text-[14px] leading-[20px] text-pg-text">
               Show a window gradient
@@ -685,6 +767,12 @@ export function BrandingThemeSection({ asTab = false }: { asTab?: boolean }) {
           <ThemePart label="Font" hint={reach("font")}>
             <FontField {...field} bare />
           </ThemePart>
+          </>)}
+          {extended ? (
+            <ThemePart label="Extended" hint="Fine-tune the sidebar's text, icons, and corners.">
+              <ExtendedThemeFields {...field} />
+            </ThemePart>
+          ) : null}
         </div>
       </PageSection>
 
@@ -717,6 +805,53 @@ export function BrandingThemeSection({ asTab = false }: { asTab?: boolean }) {
             {agencyWide
               ? `This theme will apply to your agency and all ${SUB_ACCOUNT_COUNT.toLocaleString("en-US")} sub-accounts under it.`
               : "This theme will apply to your agency and every sub-account that isn't on a layout with its own theme."}
+          </p>
+        </Modal>
+      ) : null}
+
+      {leaving ? (
+        <Modal
+          title="Apply your theme?"
+          width={440}
+          onClose={() => setLeaving(null)}
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  const go = leaving;
+                  setLeaving(null);
+                  setShowDefault(false);
+                  stash.current = null;
+                  door.revert();
+                  go();
+                }}
+                className="motion-tap h-[36px] rounded-[8px] px-[14px] text-[14px] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg active:scale-[0.98]"
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                autoFocus
+                onClick={() => {
+                  const go = leaving;
+                  setLeaving(null);
+                  setShowDefault(false);
+                  stash.current = null;
+                  door.saveScoped("all", "Theme applied successfully.");
+                  // After the save renders, so the unmount sees nothing unsaved
+                  // and does not put the old theme back.
+                  setTimeout(go, 0);
+                }}
+                className="motion-tap h-[36px] rounded-[8px] bg-brand px-[14px] text-[14px] font-medium text-white hover:brightness-95 active:scale-[0.98]"
+              >
+                Apply to all
+              </button>
+            </>
+          }
+        >
+          <p className="text-[14px] leading-[20px] text-pg-text">
+            You haven&apos;t applied your theme. If you leave, your preview switches back to the theme you have now.
           </p>
         </Modal>
       ) : null}

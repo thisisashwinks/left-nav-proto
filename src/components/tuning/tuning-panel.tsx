@@ -275,6 +275,8 @@ import {
   EDIT_RADIUS_LABELS,
   ENTRY_RADIUS_LABELS,
   QUICK_ACTION_SPOTS,
+  SEARCH_BORDERS,
+  SEARCH_BORDER_LABELS,
   QUICK_ACTION_SPOT_LABELS,
   ASK_RADII,
   ASK_RADIUS_LABELS,
@@ -338,6 +340,16 @@ import {
   RAIL_EXPANDED_SHAPES,
   RAIL_EXPANDED_SHAPE_LABELS,
   LAUNCHPAD_CARDS,
+  LAUNCHPAD_SPOTS,
+  LAUNCHPAD_SPOT_LABELS,
+  LAUNCHPAD_ROW_PROGRESS,
+  LAUNCHPAD_ROW_PROGRESS_LABELS,
+  LAUNCHPAD_ROW_TONES,
+  LAUNCHPAD_ROW_TONE_LABELS,
+  launchpadRowHasMeter,
+  LAUNCHPAD_CARD_PROGRESS,
+  LAUNCHPAD_CARD_PROGRESS_LABELS,
+  launchpadIsRow,
   NAV_SELECTED_FILLS,
   ADMIN_ACCENTS,
   ADMIN_ACCENT_LABELS,
@@ -526,6 +538,7 @@ import {
   type NavTourWatch,
   type PromoGate,
   type QuickActionSpot,
+  type SearchBorder,
   type NavTourWatchSpot,
   type NavTourWatchStyle,
   type NavTourWatchCut,
@@ -689,6 +702,10 @@ import {
   type RailDirectorySpot,
   type RailZoomFit,
   type LaunchpadCard,
+  type LaunchpadSpot,
+  type LaunchpadRowProgress,
+  type LaunchpadRowTone,
+  type LaunchpadCardProgress,
   type RecentsMode,
   type RecentsReach,
   MERGED_PIN_SCOPES,
@@ -778,6 +795,16 @@ import {
   type SpeedDialDir,
   BRANDING_PRESETS,
   AVATAR_STYLE_LABELS,
+  ICON_SHAPE_LABELS,
+  type IconShape,
+  THEME_SET_LABELS,
+  type ThemeSet,
+  RESET_CONTROL_LABELS,
+  type ResetControl,
+  LOGO_GUIDE_LABELS,
+  type LogoGuide,
+  ONBOARDING_LOGO_GUIDE_LABELS,
+  type OnboardingLogoGuide,
   ONBOARDING_STYLE_LABELS,
   ONBOARDING_THEME_STEP_LABELS,
   type OnboardingThemeStep,
@@ -1216,6 +1243,21 @@ function NavStructureSection({
     setWorkspaceChevron,
     subAccountNavMark,
     setSubAccountNavMark,
+    quickActionsOffered,
+    setQuickActionsOffered,
+    launchpadOffered,
+    setLaunchpadOffered,
+    launchpadEditSwitch,
+    setLaunchpadEditSwitch,
+    launchpadSpot,
+    setLaunchpadSpot,
+    launchpadRowProgress,
+    setLaunchpadRowProgress,
+    launchpadRowTone,
+    setLaunchpadRowTone,
+    launchpadCardProgress,
+    setLaunchpadCardProgress,
+    navFeaturedSlot,
   } = useTheme();
   // The same context as an object, for the changed count and reset below.
   const theme = useTheme();
@@ -2134,17 +2176,21 @@ function NavStructureSection({
           </Note>
 
           <Segmented
-            label="Sub-account rail shade"
-            keywords="rail shade grey gray surface background darker 50 100 sub-account accounts strip"
+            label="Sub-account rail background"
+            keywords="rail shade grey gray surface background color colour bg white darker darkest 50 100 200 sub-account accounts strip"
             options={RAIL_SHADES}
             value={railShade}
             onChange={(v: RailShade) => setRailShade(v)}
             format={(v) => RAIL_SHADE_LABELS[v]}
           />
           <Note>
-            {railShade === "darker"
-              ? "Gray 100 — one step down the ramp. The rail and the nav are told apart by their fills rather than by the hairline between them, which is the whole job of a surface that is neither the nav nor the page."
-              : "Gray 50, as drawn. A shade off white against a nav that is also a shade off white, so the seam is doing all the work on its own."}
+            {railShade === "white"
+              ? "The nav\u2019s own white. Rail and nav read as one surface, and the seam alone tells them apart."
+              : railShade === "darker"
+                ? "Gray 100 \u2014 one step down the ramp. The rail and the nav are told apart by their fills rather than by the hairline between them, which is the whole job of a surface that is neither the nav nor the page."
+                : railShade === "darkest"
+                  ? "Gray 200 \u2014 two steps down. The rail reads as its own column, clearly apart from the nav."
+                  : "Gray 50, as drawn. A shade off white against a nav that is also a shade off white, so the seam is doing all the work on its own."}
           </Note>
 
           <Segmented
@@ -3286,17 +3332,196 @@ function NavStructureSection({
         Show / hide control writes. A parallel prototype-only flag would let the
         panel and the nav disagree about a setting the nav already owns.
       */}
+      {/*
+        ...and above it, the question of whether the build has Quick actions
+        at all — which is not the same question. See
+        QUICK_ACTIONS_OFFERED_DEFAULT. Off, everything below here is moot, so
+        the account's own switch and the placement control both stand down
+        rather than sitting there describing a thing that is not in the nav.
+      */}
       <Toggle
-        label="Quick actions"
-        checked={!isBlockHidden(state, "quickActions")}
-        onChange={() => layout.toggleBlock("quickActions")}
-        keywords="search sits under the logo quick actions create plus launchpad top of column shelf"
+        label="Quick actions exists"
+        checked={quickActionsOffered}
+        onChange={() => setQuickActionsOffered(!quickActionsOffered)}
+        keywords="quick actions remove gone none create plus shortcut sheet product ship edit mode show hide"
       />
       <Note>
-        {isBlockHidden(state, "quickActions")
-          ? "Hidden — no footer row on the Launchpad card, and no standing row for the accounts that never had the card."
-          : "Shown. It rides in the Launchpad card's footer where that card exists, and as its own row where it does not."}
+        {quickActionsOffered
+          ? "In the product. The placement, and whether each account keeps it, are the two controls below."
+          : "Not in the product — no footer row, no + beside the field, no standing row, no tile on the collapsed bar, and no entry in edit mode's Show / hide menu. The default since Nov 24."}
       </Note>
+
+      {quickActionsOffered ? (
+        <>
+          <Toggle
+            label="Quick actions"
+            checked={!isBlockHidden(state, "quickActions")}
+            onChange={() => layout.toggleBlock("quickActions")}
+            keywords="search sits under the logo quick actions create plus launchpad top of column shelf"
+          />
+          <Note>
+            {isBlockHidden(state, "quickActions")
+              ? "Hidden — no footer row on the Launchpad card, and no standing row for the accounts that never had the card."
+              : "Shown. It rides in the Launchpad card's footer where that card exists, and as its own row where it does not."}
+          </Note>
+        </>
+      ) : null}
+
+      {/*
+        The card's two questions, split (Ashwin, Nov 24).
+
+        One control used to answer both: whether the product has the card, and
+        whether an admin restructuring the nav can take it off their accounts.
+        They have different answers — on, and off — so they are two switches.
+        See LAUNCHPAD_OFFERED_DEFAULT and LAUNCHPAD_EDIT_SWITCH_DEFAULT.
+      */}
+      <Toggle
+        label="Launchpad card exists"
+        checked={launchpadOffered}
+        onChange={() => setLaunchpadOffered(!launchpadOffered)}
+        keywords="launchpad card setup guide onboarding zero state remove gone none exists product"
+      />
+      <Note>
+        {launchpadOffered
+          ? "In the sidebar, for accounts that have not finished setting up. The per-account onboarding flag still decides which ones those are."
+          : "Not in the build \u2014 no card for any account, activated or not, and nothing in edit mode to put it back. The appearance controls below stay, since they set how it draws when it comes back."}
+      </Note>
+
+      {launchpadOffered ? (
+        <>
+          <Toggle
+            label="Edit mode can hide Launchpad"
+            checked={launchpadEditSwitch}
+            onChange={() => setLaunchpadEditSwitch(!launchpadEditSwitch)}
+            keywords="launchpad card edit mode show hide eye menu blocks admin restructure switch"
+          />
+          <Note>
+            {launchpadEditSwitch
+              ? "Listed in edit mode\u2019s Show / hide menu, next to the dock. The arrangement that shipped before Nov 24."
+              : "Not listed. The card is a zero state, and the account looking at it is the one that has not finished \u2014 so dismissing it is not theirs to do. It leaves on its own at 7 of 7."}
+          </Note>
+
+          {/*
+            And how it presents itself — a whole arrangement per option rather
+            than a size and a position chosen separately, because the two are
+            not independent. See LAUNCHPAD_SPOTS.
+          */}
+          <Segmented
+            label="Launchpad sits"
+            options={LAUNCHPAD_SPOTS}
+            value={launchpadSpot}
+            onChange={(v: LaunchpadSpot) => setLaunchpadSpot(v)}
+            format={(v) => LAUNCHPAD_SPOT_LABELS[v]}
+            keywords="launchpad setup guide row l1 top above below settings featured card placement where sits"
+          />
+          <Note>
+            {launchpadSpot === "card"
+              ? "The progress card under search: a title, a 3-of-7 meter and a door. The zero state as a guide, and the most expensive thing at the top of the column."
+              : launchpadSpot === "featured"
+                ? "One of the featured cards at the nav\u2019s foot, drawn as Holiday Promos is \u2014 a still, a name, a line and a door. It leads the deck, in front of the sale."
+                : launchpadSpot === "rowTop"
+                  ? "An ordinary row, first in the L1 list above the categories. A row is what every other destination in this nav costs; what it loses is the meter."
+                  : launchpadSpot === "rowAbove"
+                    ? "A row above Settings, filed with the account\u2019s own business. What setup becomes once an account is running: found when looked for."
+                    : "A row under Settings and the Learn row \u2014 the last thing in the column, and the quietest place the nav has."}
+            {launchpadSpot === "featured" && navFeaturedSlot !== "card"
+              ? " Needs \u201cFeatured products\u201d set to the card slot \u2014 with the slot elsewhere there is no deck for it to lead."
+              : ""}
+            {launchpadIsRow(launchpadSpot)
+              ? " The row is chrome, like Settings and the Learn row: edit mode cannot move, rename or re-icon it."
+              : ""}
+          </Note>
+
+          {/*
+            How the row says "this one is different", which is the question
+            filing it among the categories creates. Two controls, because the
+            two answers are independent: a hue on the glyph, and a fact at the
+            row's edge. See LAUNCHPAD_ROW_ACCENT_DEFAULT.
+          */}
+          {launchpadIsRow(launchpadSpot) ? (
+            <>
+              <Segmented
+                label="Launchpad glyph colour"
+                options={LAUNCHPAD_ROW_TONES}
+                value={launchpadRowTone}
+                onChange={(v: LaunchpadRowTone) => setLaunchpadRowTone(v)}
+                format={(v) => LAUNCHPAD_ROW_TONE_LABELS[v]}
+                keywords="launchpad row icon colour color accent brand blue gray green amber purple highlight glyph rocket tone"
+              />
+              <Note>
+                {launchpadRowTone === "gray"
+                  ? "The row\u2019s own ink, like every other glyph in the column. The baseline: nothing marks the row but its progress."
+                  : launchpadRowTone === "brand"
+                    ? "The agency\u2019s colour, through the token \u2014 so a white-labelled nav follows rather than staying blue."
+                    : launchpadRowTone === "blue"
+                      ? "Primary blue literally, whatever the agency\u2019s brand is. Worth having beside Brand precisely because a rebranded nav is where the two part company."
+                      : launchpadRowTone === "green"
+                        ? "Progress ink. Says \u201con the way\u201d rather than \u201clook here\u201d."
+                        : launchpadRowTone === "amber"
+                          ? "Attention ink. The most honest reading of an unfinished setup, and the loudest."
+                          : "A hue nothing else in this nav uses, for marking the row without borrowing a status colour\u2019s meaning."}
+                {" The meter takes the same colour \u2014 a green rocket over a blue bar in one row reads as two unrelated decisions. The label stays the row\u2019s own ink in every option: a coloured label among plain ones reads as a link."}
+                {launchpadRowTone === "gray" && launchpadRowProgress === "off"
+                  ? " With progress off as well, nothing distinguishes this row from a category."
+                  : ""}
+              </Note>
+
+              <Segmented
+                label="Row shows progress as"
+                options={LAUNCHPAD_ROW_PROGRESS}
+                value={launchpadRowProgress}
+                onChange={(v: LaunchpadRowProgress) => setLaunchpadRowProgress(v)}
+                format={(v) => LAUNCHPAD_ROW_PROGRESS_LABELS[v]}
+                keywords="launchpad row progress bar ring circle count steps 3 of 7 meter same row"
+              />
+              <Note>
+                {launchpadRowProgress === "off"
+                  ? "Nothing at the row\u2019s edge \u2014 the argument that a row which merely exists is reminder enough."
+                  : launchpadRowProgress === "count"
+                    ? "The tally at the row\u2019s edge \u2014 4 of 7 today, read from the page\u2019s own steps. Exact, and it needs no new visual language."
+                    : launchpadRowProgress === "bar"
+                      ? "A 36px meter at the row\u2019s edge. Read at a glance, says roughly, and it is the card\u2019s own meter at a row\u2019s scale."
+                      : launchpadRowProgress === "barCount"
+                        ? "The meter and the tally. Glanceable and exact sounds free and is not: the two say the same thing, and the row then carries three objects after a one-word label."
+                        : launchpadRowProgress === "ring"
+                          ? "A 16px ring at the row\u2019s edge. The bar\u2019s answer in a shape that costs width rather than length \u2014 which is what a 240px column has less of."
+                          : "The ring and the tally \u2014 the tightest of the paired options, and still two statements of one fact."}
+                {launchpadRowHasMeter(launchpadRowProgress)
+                  ? " The meter answers the pointer: \u201c4 of 7 steps done\u201d on hover, so nobody has to infer a number from a length."
+                  : ""}
+                {" All six sit in the row: a second line under a nav row is a card with extra steps."}
+              </Note>
+            </>
+          ) : null}
+
+          {/*
+            The same question for the featured card, which has a line to spend
+            where the row does not. See LAUNCHPAD_CARD_PROGRESS.
+          */}
+          {launchpadSpot === "featured" ? (
+            <>
+              <Segmented
+                label="Featured card shows"
+                options={LAUNCHPAD_CARD_PROGRESS}
+                value={launchpadCardProgress}
+                onChange={(v: LaunchpadCardProgress) => setLaunchpadCardProgress(v)}
+                format={(v) => LAUNCHPAD_CARD_PROGRESS_LABELS[v]}
+                keywords="launchpad featured card progress bar new line step count 3 of 7 meter"
+              />
+              <Note>
+                {launchpadCardProgress === "off"
+                  ? "The tagline alone, as the other featured cards are. Nothing says how far along the account is."
+                  : launchpadCardProgress === "bar"
+                    ? "A full-width meter on its own line under the tagline. The default: the card has the line to spend, so the glanceable answer costs nothing it was using."
+                    : launchpadCardProgress === "barCount"
+                      ? "The meter with the tally at its end \u2014 exact and glanceable, at the price of two things to read where the other cards have one."
+                      : "The tally and no meter, for the version that argues the number was always the informative half."}
+                {" The card\u2019s tagline carries no numbers of its own, so whatever is picked here is the only place the tally is stated."}
+              </Note>
+            </>
+          ) : null}
+        </>
+      ) : null}
 
       <Segmented
         label="Launchpad card"
@@ -3906,6 +4131,50 @@ function BrandingSection({
         keywords={`onboarding style layout split preview stepper modal ${kw}`}
       />
       <Segmented
+        label="Theme options"
+        options={["minimal", "full", "extended"] as const}
+        value={proto.themeSet}
+        onChange={(v: ThemeSet) => setProto({ themeSet: v })}
+        format={(v) => THEME_SET_LABELS[v]}
+        keywords={`theme themes options minimal full extended expanded font size radius corner icon color text color presets more 6 8 light dark system mode font gradient white label customize onboarding ${kw}`}
+      />
+      <Note>
+        {proto.themeSet === "minimal"
+          ? "Up to 8 light themes: 2 from the agency\u2019s logo, the rest curated. No light, dark, or system mode, no font, and no window gradient. Custom theme stays. Onboarding lists the logo themes on their own."
+          : proto.themeSet === "full"
+            ? "All 17 themes, light, dark, and system mode, fonts, and the window gradient."
+            : "Everything in Full, plus sidebar font size, corner radius, text color, and icon color."}
+      </Note>
+      <Segmented
+        label="Logo guidelines in settings"
+        options={["modal", "accordion"] as const}
+        value={proto.logoGuide}
+        onChange={(v: LogoGuide) => setProto({ logoGuide: v })}
+        format={(v) => LOGO_GUIDE_LABELS[v]}
+        keywords={`logo guidelines dos donts do don't aspect ratio full logo wordmark upload modal accordion white label business profile ${kw}`}
+      />
+      <Segmented
+        label="Logo guidelines in onboarding"
+        options={["accordion", "split", "inline", "below", "button"] as const}
+        value={proto.onboardingLogoGuide}
+        onChange={(v: OnboardingLogoGuide) => setProto({ onboardingLogoGuide: v })}
+        format={(v) => ONBOARDING_LOGO_GUIDE_LABELS[v]}
+        keywords={`logo guidelines dos donts do don't aspect ratio full logo wordmark upload onboarding ${kw}`}
+      />
+      <Segmented
+        label="Default theme control"
+        options={["toggle", "button"] as const}
+        value={proto.resetControl}
+        onChange={(v: ResetControl) => setProto({ resetControl: v })}
+        format={(v) => RESET_CONTROL_LABELS[v]}
+        keywords={`reset default theme toggle switch preview customizations button white label ${kw}`}
+      />
+      <Note>
+        {proto.resetControl === "toggle"
+          ? "A Customizations switch in the section footer. Off previews the default theme without saving; on brings your theme back."
+          : "A Reset to default button, as before."}
+      </Note>
+      <Segmented
         label="Onboarding theme step"
         options={["themes", "full"] as const}
         value={proto.onboardingThemeStep}
@@ -3942,6 +4211,19 @@ function BrandingSection({
         format={(v) => AVATAR_STYLE_LABELS[v]}
         keywords={`avatar initials icon square logo color gradient onboarding ${kw}`}
       />
+      <Segmented
+        label="Sidebar icon preview shape"
+        options={["circle", "square"] as const}
+        value={proto.iconShape}
+        onChange={(v: IconShape) => setProto({ iconShape: v })}
+        format={(v) => ICON_SHAPE_LABELS[v]}
+        keywords={`sidebar icon avatar shape circle round square rounded preview upload white label business profile onboarding ${kw}`}
+      />
+      <Note>
+        {proto.iconShape === "circle"
+          ? "A circle, so the sidebar icon reads as the account\u2019s avatar. An upload fills it."
+          : "A rounded square, with the upload inset on its plate."}
+      </Note>
       <ActionRow
         label="Switchyard onboarding"
         action="Replay"
@@ -3957,8 +4239,8 @@ function BrandingSection({
       />
       <Note>
         {proto.applyConfirm
-          ? "On the White label section and Branding tab, “Save and apply” asks first: the theme reaches every sub-account."
-          : "“Save and apply” applies right away, then shows the toast."}
+          ? "On the White label section and Branding tab, “Apply” asks first: the theme reaches every sub-account."
+          : "“Apply” applies right away, then shows the toast."}
       </Note>
       <Segmented
         label="Edit button"
@@ -5387,6 +5669,11 @@ export function TuningPanel() {
     entryRadius,
     quickActionSpot,
     setQuickActionSpot,
+    searchBorder,
+    setSearchBorder,
+    // Read only, to stand the placement control down. The switch itself is in
+    // Behaviour, beside the account's own one.
+    quickActionsOffered,
     askRadius,
     setAskRadius,
     editRadius,
@@ -8032,23 +8319,60 @@ export function TuningPanel() {
               : " Merged, the orb travels with the field: it is the field's left edge, not a button beside it."}
           </Note>
 
+          {/*
+            The field's edge, and only where the field is in this column —
+            see SEARCH_BORDERS. Directly under "search sits" because that is
+            the control that decides whether this one applies at all.
+          */}
           <Segmented
-            label="Quick actions sits"
-            options={QUICK_ACTION_SPOTS}
-            value={quickActionSpot}
-            onChange={(v: QuickActionSpot) => setQuickActionSpot(v)}
-            format={(v) => QUICK_ACTION_SPOT_LABELS[v]}
+            label="Search field edge"
+            options={SEARCH_BORDERS}
+            value={searchBorder}
+            onChange={(v: SearchBorder) => setSearchBorder(v)}
+            format={(v) => SEARCH_BORDER_LABELS[v]}
             disabled={entryLayout !== "top"}
-            keywords="search sits under the logo quick actions create plus button launchpad card shelf top of column"
+            keywords="search field border edge colour color gray 100 200 300 400 hairline stroke outline global search sidebar"
           />
           <Note>
-            {quickActionSpot === "search"
-              ? "A + beside the field, under the logo. Costs 40px of width and no height, puts find and create in one row, and frees the Launchpad card to be demoted without taking Quick actions with it. The standing row and the card's footer row both stand down."
-              : "Where it has always been: the Launchpad card's footer row, or a standing nav row for accounts without the card."}
+            {searchBorder === "gray100"
+              ? "Barely there. The field reads as a shape rather than a control \u2014 the version that argues the magnifier and the placeholder are doing the work."
+              : searchBorder === "gray200"
+                ? "The nav\u2019s own line, the same step as the dividers and the Launchpad card\u2019s hairline. A field that belongs to the column rather than standing on it."
+                : searchBorder === "gray300"
+                  ? "One step past the divider \u2014 what the field wore before Nov 24. Reads as a field first, at the price of being the heaviest edge at the top of the column."
+                  : "The strongest of the four. Unmistakably an input, and the only thing on the surface with an edge that weight."}
             {entryLayout !== "top"
-              ? " Only under \u201cUnder the logo\u201d \u2014 elsewhere there is no field in this column to sit beside."
-              : ""}
+              ? " Only under \u201cUnder the logo\u201d \u2014 at the nav\u2019s foot or in the app bar the control is not among this column\u2019s edges, so it keeps the surrounding chrome\u2019s line."
+              : " On a dark nav the four steps are derived from the nav\u2019s own divider instead of the literal grays, so a tinted nav follows."}
           </Note>
+
+          {/*
+            Where it sits, only once it exists. With the axis off there is no
+            Quick actions to place, and a two-way choice over nothing is worse
+            than no choice: it implies the thing is somewhere. The switch that
+            brings it back is in Behaviour, beside the account's own one.
+          */}
+          {quickActionsOffered ? (
+            <>
+              <Segmented
+                label="Quick actions sits"
+                options={QUICK_ACTION_SPOTS}
+                value={quickActionSpot}
+                onChange={(v: QuickActionSpot) => setQuickActionSpot(v)}
+                format={(v) => QUICK_ACTION_SPOT_LABELS[v]}
+                disabled={entryLayout !== "top"}
+                keywords="search sits under the logo quick actions create plus button launchpad card shelf top of column"
+              />
+              <Note>
+                {quickActionSpot === "search"
+                  ? "A + beside the field, under the logo. Costs 40px of width and no height, puts find and create in one row, and frees the Launchpad card to be demoted without taking Quick actions with it. The standing row and the card's footer row both stand down."
+                  : "Where it has always been: the Launchpad card's footer row, or a standing nav row for accounts without the card."}
+                {entryLayout !== "top"
+                  ? " Only under \u201cUnder the logo\u201d \u2014 elsewhere there is no field in this column to sit beside."
+                  : ""}
+              </Note>
+            </>
+          ) : null}
 
           {/*
             Only while the entry is actually up there. Off the bar, "which end

@@ -199,6 +199,27 @@ interface NavItemRowProps {
   controlsId?: string;
   /** Off where the row stands outside any list. */
   listItem?: boolean;
+  /**
+   * Something to pack against the row's edge, in the trailing run with the
+   * count and the chevron.
+   *
+   * One caller: Launchpad, where the three row spots carry the setup
+   * progress in the row rather than under it. See LAUNCHPAD_ROW_PROGRESS.
+   * Read-only rendering only — Launchpad is chrome, so it is never the
+   * editable one, and a meter beside a rename field is not a thing to draw.
+   */
+  trailing?: React.ReactNode;
+  /**
+   * The glyph in an ink of its own rather than the row's — a Tailwind text
+   * class, empty or absent for the row's own.
+   *
+   * The one way a chrome row can say "this one is different" without taking
+   * a second row's worth of space or a word of copy. A class rather than a
+   * flag because the caller owns the palette: see LAUNCHPAD_ROW_TONES, where
+   * the glyph's ink and its meter's fill have to be one decision, and only
+   * the caller can see both.
+   */
+  iconInk?: string;
 }
 
 /**
@@ -234,6 +255,8 @@ export function NavItemRow({
   popupOpen,
   controlsId,
   listItem = true,
+  trailing,
+  iconInk,
 }: NavItemRowProps) {
   const compact = item.density === "compact";
   const mark = useHereStyle(marking);
@@ -437,6 +460,7 @@ export function NavItemRow({
         item={item}
         active={active}
         dimmed={off}
+        ink={iconInk}
         glyph={collapsed ? undefined : mark.glyph}
       />
       </NewDotIcon>
@@ -772,7 +796,9 @@ export function NavItemRow({
           {...fadeProps(collapsed)}
           className={cn(
             "flex min-w-0 items-center",
-            (item.hasFlyout || item.expandable) && "flex-1",
+            // ...and when something trails the label, which has to be packed
+            // against the row's edge the same way a chevron is.
+            (item.hasFlyout || item.expandable || trailing) && "flex-1",
           )}
         >
           {labelled}
@@ -790,6 +816,7 @@ export function NavItemRow({
           {...fadeProps(collapsed)}
           className="flex shrink-0 items-center gap-[var(--t-nav-trail-gap,6px)]"
         >
+          {trailing}
           {count}
           {pinSlot}
           {chevron}
@@ -1298,11 +1325,14 @@ function RowIcon({
   item,
   active,
   dimmed = false,
+  ink,
   glyph,
 }: {
   item: NavItem;
   active: boolean;
   dimmed?: boolean;
+  /** An ink class of this glyph's own. See NavItemRowProps.iconInk. */
+  ink?: string;
   /** The marked row's own glyph size, where the axis asks for one. */
   glyph?: string | false;
 }) {
@@ -1364,7 +1394,18 @@ function RowIcon({
         // Grows to exactly the hover size the knob names — the ratio is computed
         // in tuningToCssVars, because CSS cannot divide one length by another.
         "shrink-0 motion-tap group-hover:scale-[var(--t-nav-icon-scale,1.143)]",
-        active ? "text-nav-fg" : "text-nav-fg-muted group-hover:text-nav-fg",
+        // --nav-icon: the Extended theme's icon color (Nov 24, 2026); unset,
+        // the usual muted → full ink.
+        /*
+          The accent overrides both, and the hover with them: a glyph that
+          is coloured on purpose must not go grey-to-ink under the pointer,
+          or the colour reads as a hover state rather than as a mark.
+        */
+        ink
+          ? ink
+          : active
+            ? "text-[var(--nav-icon,var(--nav-fg))]"
+            : "text-[var(--nav-icon,var(--nav-fg-muted))] group-hover:text-[var(--nav-icon,var(--nav-fg))]",
         dimmed && "opacity-40",
         // Redeclares --t-nav-icon on this element, which the width and
         // height above already read. See NAV_SELECTED_ICON_DEFAULT.

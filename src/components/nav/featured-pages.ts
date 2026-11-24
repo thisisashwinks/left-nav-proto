@@ -12,7 +12,13 @@ export type FeaturedKey =
   | "reviews"
   | "textpay"
   // Holiday Promos: a sale, not a product. See NAV_PROMO_PLACEMENTS.
-  | "promos";
+  | "promos"
+  /*
+   * The setup guide, featured the same way, for the spot that draws it as
+   * one of the cards instead of as the progress card under search. Also not
+   * a product, and the second thing in here that is not. See LAUNCHPAD_SPOTS.
+   */
+  | "launchpad";
 
 /**
  * The featured products that have a page to land on.

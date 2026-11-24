@@ -740,8 +740,8 @@ function RailTools({
           the axis does.
         */
         underlined
-          ? "px-[2px] shadow-[inset_0_-1px_0_0_var(--fly-seam)] focus-within:shadow-[inset_0_-1.5px_0_0_var(--brand)]"
-          : "rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_var(--fly-seam)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]",
+          ? "px-[2px] shadow-[inset_0_-1px_0_0_color-mix(in_oklab,var(--rail-fill,var(--nav-rail-bg)),var(--nav-fg)_14%)] focus-within:shadow-[inset_0_-1.5px_0_0_var(--brand)]"
+          : "rounded-[9px] px-[9px] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--rail-fill,var(--nav-rail-bg)),var(--nav-fg)_14%)] focus-within:shadow-[inset_0_0_0_1.5px_var(--brand)]",
         /*
           `flex-1` is a MAIN-axis instruction, and the two layouts do not
           agree on which axis that is.
@@ -863,7 +863,11 @@ function RailTools({
         the field wears, so the two read as a pair. Ashwin, Oct 15.
       */
       className={cn(
-        "motion-tap flex h-[32px] shrink-0 items-center justify-center rounded-[9px] text-[12.5px] font-medium shadow-[inset_0_0_0_1px_var(--fly-border)]",
+        // The hairline is mixed from the rail's own fill (Nov 24, 2026): a fixed
+        // gray 200 vanished on the Gray 100 / 200 rail backgrounds and was
+        // faint on gray 50. 14% toward the nav's ink stays one step darker
+        // than whatever the rail is painted.
+        "motion-tap flex h-[32px] shrink-0 items-center justify-center rounded-[9px] text-[12.5px] font-medium shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--rail-fill,var(--nav-rail-bg)),var(--nav-fg)_14%)]",
         // Square for a glyph, padded for a word.
         ctaShape === "icon" && !picking ? "w-[32px]" : "px-[11px]",
         picking
@@ -1001,7 +1005,7 @@ function RailTools({
           : undefined
       }
       className={cn(
-        "z-[2] flex shrink-0 bg-[var(--nav-rail-bg)]",
+        "z-[2] flex shrink-0 bg-[var(--rail-fill,var(--nav-rail-bg))]",
         /*
           Tighter above, and a gap below.
 
@@ -3296,9 +3300,12 @@ export function AccountRail({
    * +36 → +40 on Oct 16, which is the 4px Ashwin asked for: it comes out of
    * the sliver rather than off the nav, so nothing moves except the strip's
    * own right edge and every row inside it gets 4px more to truncate in.
+   *
+   * +40 → +56 on Nov 24, 2026 (Ashwin): the sliver is gone. The open strip
+   * now ends exactly where the sidebar ends — rail 56 + nav.
    */
   const openWidth = fillMode
-    ? "calc(var(--nav-w) + 40px)"
+    ? `calc(var(--nav-w) + ${ACCOUNT_RAIL_WIDTH}px)`
     : ACCOUNT_RAIL_EXPANDED_WIDTH;
   const width = filled
     ? openWidth
@@ -4618,7 +4625,7 @@ export function AccountRail({
                   */
                   <div
                     style={{ top: -RAIL_SCROLL_PAD }}
-                    className="sticky z-[4] [order:-1] -mt-[2px] -mb-[4px] flex h-[38px] shrink-0 items-center bg-[var(--nav-rail-bg)] px-[8px] pt-[2px]"
+                    className="sticky z-[4] [order:-1] -mt-[2px] -mb-[4px] flex h-[38px] shrink-0 items-center bg-[var(--rail-fill,var(--nav-rail-bg))] px-[8px] pt-[2px]"
                   >
                     <span className="min-w-0 flex-1 truncate text-[12.5px] leading-[16px] font-medium text-nav-fg-muted">
                       Searching for
@@ -4637,7 +4644,7 @@ export function AccountRail({
                   */
                   <div
                     style={{ top: -RAIL_SCROLL_PAD }}
-                    className="sticky z-[4] [order:-1] -mt-[2px] -mb-[4px] flex h-[38px] shrink-0 items-center gap-[8px] bg-[var(--nav-rail-bg)] pt-[2px]"
+                    className="sticky z-[4] [order:-1] -mt-[2px] -mb-[4px] flex h-[38px] shrink-0 items-center gap-[8px] bg-[var(--rail-fill,var(--nav-rail-bg))] pt-[2px]"
                   >
                     <button
                       type="button"
@@ -4892,7 +4899,7 @@ export function AccountRail({
                           margins close them; the padding puts the row's
                           own content back where it was.
                         */
-                        "sticky z-[4] [order:-1] -mt-[2px] -mb-[4px] pt-[2px] bg-[var(--nav-rail-bg)]",
+                        "sticky z-[4] [order:-1] -mt-[2px] -mb-[4px] pt-[2px] bg-[var(--rail-fill,var(--nav-rail-bg))]",
                     )}
                   >
                   <RailRow
@@ -6409,7 +6416,7 @@ function RailRow({
                 shapes arguing about one row.
               */
               ring &&
-                "ring-[1.5px] ring-nav-rail-border ring-offset-2 ring-offset-[var(--nav-rail-bg)]",
+                "ring-[1.5px] ring-nav-rail-border ring-offset-2 ring-offset-[var(--rail-fill,var(--nav-rail-bg))]",
               ring && (squareMark ? "rounded-[6px]" : "rounded-full"),
               effective.railTileColour === "active-only" &&
                 !selected &&

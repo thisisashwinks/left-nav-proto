@@ -385,9 +385,9 @@ function FeaturesTab({
           */}
           <AttachButton
             icon={LayoutTemplate}
-            label={attached ? attached.name : "HighLevel default layout"}
+            label={attached ? attached.name : "Default layout"}
             attached={attached !== null}
-            removeLabel="Replace with the HighLevel default layout"
+            removeLabel="Replace with the default layout"
             onClick={() => setModal(true)}
             onRemove={() => onAttachTemplate(null)}
           />

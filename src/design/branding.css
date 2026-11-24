@@ -404,7 +404,8 @@
     [data-page-column] > [data-header-theme],
     [data-nav-column] .nav-sticky-foot,
     :is([data-account-rail], [data-nav-column]) .sticky[class*="bg-"],
-    [data-account-rail] [class*="bg-[var(--nav-rail-bg)]"]
+    [data-account-rail] [class*="bg-[var(--nav-rail-bg)]"],
+    [data-account-rail] [class*="bg-[var(--rail-fill"]
   ) {
   background-color: transparent !important;
   background-image: var(--brd-gradient) !important;
@@ -437,4 +438,27 @@
 }
 :root[data-branding="on"][data-branding-font="app"] body {
   font-family: var(--brd-font) !important;
+}
+
+/* ─── Extended theme (Nov 24, 2026) ─────────────────────────────────────────
+   Row font size, text color, icon color, and radius from the Extended theme.
+   One flag per property, set by BrandingApplier only when that property is
+   set, so an unset one keeps the nav's own value. Doubled attribute selectors
+   outrank the branding mapping above, which also sets --nav-fg. */
+:root[data-brx-font] :is([data-nav-theme], [data-nav-column], [data-chrome-plane]) {
+  --t-nav-font: var(--brx-font) !important;
+}
+:root[data-brx-radius] :is([data-nav-theme], [data-nav-column], [data-chrome-plane]) {
+  --t-nav-radius: var(--brx-radius) !important;
+}
+:root[data-brx-icon] :is([data-nav-theme], [data-nav-column], [data-chrome-plane]) {
+  --nav-icon: var(--brx-icon) !important;
+}
+:root[data-brx-fg][data-brx-fg][data-brx-fg] :is(
+  [data-nav-theme]:not(.fixed.inset-0):not([data-brand-skip]),
+  [data-chrome-plane],
+  [data-nav-column]
+) {
+  --nav-fg: var(--brx-fg) !important;
+  --nav-fg-muted: color-mix(in oklab, var(--brx-fg) 78%, transparent) !important;
 }

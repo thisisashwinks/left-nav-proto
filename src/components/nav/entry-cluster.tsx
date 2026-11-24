@@ -24,6 +24,7 @@ import type { EditBlock } from "./nav-profiles";
 import type { AiSession } from "@/components/ai/use-ai-session";
 import { Kbd } from "@/components/search/kbd";
 import { cn } from "@/lib/utils";
+import { SEARCH_BORDER_VARS } from "@/design/theme";
 import { announce, restoreFocus } from "@/lib/a11y";
 import { RailTooltip } from "./rail-tooltip";
 import { GamepadDirectional } from "lucide-react";
@@ -96,7 +97,7 @@ export function EntryCluster({
    * stop the entry looking dropped just pushes the card down the column.
    * 12 there. Ashwin, Nov 17.
    */
-  const { entryLayout, entryRadius } = useTheme().effective;
+  const { entryLayout, entryRadius, searchBorder } = useTheme().effective;
   return (
     <div
       className={cn(
@@ -104,10 +105,22 @@ export function EntryCluster({
         // Under the logo, on the same inset as the Launchpad card and rows
         // below it, so the field's edges line up with theirs. Ashwin, Nov 24.
         entryLayout === "top" ? "px-[var(--t-nav-pad,10px)] pb-[12px]" : "px-[12px] pb-[22px]",
-        // And a step darker at the edge there, for the field and the button
-        // beside it. See --nav-entry-line.
-        entryLayout === "top" && "[--entry-line:var(--nav-entry-line)]",
       )}
+      /*
+       * The edge the field and the button beside it wear — see SEARCH_BORDERS.
+       *
+       * Only under the logo. At the nav's foot or in the app bar the control
+       * is not in this column's stack of gray-200 edges, so the question the
+       * axis answers does not arise and the surrounding chrome's own line
+       * (`--nav-divider`, through the fallback) is the right one.
+       *
+       * Inline rather than a class per step: it is one custom property with
+       * four values, and four arbitrary-value classes would be four strings
+       * Tailwind has to be taught about for no gain.
+       */
+      {...(entryLayout === "top"
+        ? { style: { ["--entry-line" as string]: SEARCH_BORDER_VARS[searchBorder] } }
+        : {})}
     >
       <EntryPill
         onSearch={onSearch}
@@ -216,7 +229,14 @@ export interface EditNavProps {
    * it, and switching one off is a different kind of decision from moving a
    * product.
    */
-  onOpenBlocks: (trigger: HTMLElement) => void;
+  /*
+   * Absent when there is nothing left to switch — see `presentBlocks`. Every
+   * block this menu lists can be taken out of the build or out of the
+   * arrangement (Quick actions by its axis, Launchpad by the plan, the dock by
+   * the merge, Recent by fiat), and a control that opens an empty list reads
+   * as broken rather than as empty. Then the eye is not drawn at all.
+   */
+  onOpenBlocks?: (trigger: HTMLElement) => void;
   /* ---- What the overflow menu needs. See EditMoreMenu. ---- */
   /**
    * Locked by the agency plan, and why.
@@ -660,12 +680,14 @@ function EditNavButton({
             in the menu, and a control named after its subject reads as a status.
           */}
           <span className="flex shrink-0 items-center gap-[4px]">
-          <EditTool
-            label="Show or hide parts of the nav"
-            short="Show / hide"
-            icon={Eye}
-            onOpen={onOpenBlocks}
-          />
+          {onOpenBlocks ? (
+            <EditTool
+              label="Show or hide parts of the nav"
+              short="Show / hide"
+              icon={Eye}
+              onOpen={onOpenBlocks}
+            />
+          ) : null}
           {/*
             Beside Show / hide, because they are the same kind of decision:
             what the nav contains, and what it looks like. Both are the

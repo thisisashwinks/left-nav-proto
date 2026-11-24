@@ -232,6 +232,11 @@ import type {
   EntryRadius,
   AskRadius,
   QuickActionSpot,
+  SearchBorder,
+  LaunchpadSpot,
+  LaunchpadRowProgress,
+  LaunchpadRowTone,
+  LaunchpadCardProgress,
   NavArrangement,
   ScopedSwitch,
   CrumbIcons,
@@ -666,6 +671,14 @@ interface ThemeContextValue extends ThemeState {
   setEntryRadius: (v: EntryRadius) => void;
   setAskRadius: (v: AskRadius) => void;
   setQuickActionSpot: (v: QuickActionSpot) => void;
+  setQuickActionsOffered: (on: boolean) => void;
+  setSearchBorder: (v: SearchBorder) => void;
+  setLaunchpadOffered: (on: boolean) => void;
+  setLaunchpadEditSwitch: (on: boolean) => void;
+  setLaunchpadSpot: (spot: LaunchpadSpot) => void;
+  setLaunchpadRowProgress: (v: LaunchpadRowProgress) => void;
+  setLaunchpadRowTone: (v: LaunchpadRowTone) => void;
+  setLaunchpadCardProgress: (v: LaunchpadCardProgress) => void;
   setAttachTemplateInUse: (on: boolean) => void;
   setLegacyFootControl: (control: LegacyFootControl) => void;
   setNavSwitchButton: (enabled: boolean) => void;
@@ -1440,6 +1453,22 @@ export function ThemeProvider({
       setAskRadius: (askRadius) => setState((s) => ({ ...s, askRadius })),
       setQuickActionSpot: (quickActionSpot) =>
         setState((s) => ({ ...s, quickActionSpot })),
+      setQuickActionsOffered: (quickActionsOffered) =>
+        setState((s) => ({ ...s, quickActionsOffered })),
+      setSearchBorder: (searchBorder) =>
+        setState((s) => ({ ...s, searchBorder })),
+      setLaunchpadOffered: (launchpadOffered) =>
+        setState((s) => ({ ...s, launchpadOffered })),
+      setLaunchpadEditSwitch: (launchpadEditSwitch) =>
+        setState((s) => ({ ...s, launchpadEditSwitch })),
+      setLaunchpadSpot: (launchpadSpot) =>
+        setState((s) => ({ ...s, launchpadSpot })),
+      setLaunchpadRowProgress: (launchpadRowProgress) =>
+        setState((s) => ({ ...s, launchpadRowProgress })),
+      setLaunchpadRowTone: (launchpadRowTone) =>
+        setState((s) => ({ ...s, launchpadRowTone })),
+      setLaunchpadCardProgress: (launchpadCardProgress) =>
+        setState((s) => ({ ...s, launchpadCardProgress })),
       setAttachTemplateInUse: (attachTemplateInUse) =>
         setState((s) => ({ ...s, attachTemplateInUse })),
       setLegacyFootControl: (legacyFootControl) =>

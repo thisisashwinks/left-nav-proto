@@ -97,7 +97,7 @@ export const FEATURED_CARD_THEME: Partial<ThemeState> = {
   navEditSpot: "above",
   navFeaturedPin: "off",
   navPromoPlacement: "locked",
-  navFeaturedMedia: "bottom",
+  navFeaturedMedia: "icon",
 };
 
 export const ROUTE_THEMES: Record<string, Partial<ThemeState>> = {

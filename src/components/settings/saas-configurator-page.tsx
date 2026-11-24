@@ -328,7 +328,7 @@ function PlansTab({
               */}
               <AttachFact
                 icon={LayoutTemplate}
-                label={template ? template.name : "HighLevel default layout"}
+                label={template ? template.name : "Default layout"}
                 hint={TEMPLATE_HINT}
               />
 

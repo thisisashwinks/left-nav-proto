@@ -5229,6 +5229,304 @@ export const QUICK_ACTION_SPOT_LABELS: Record<QuickActionSpot, string> = {
   card: "Launchpad card",
 };
 
+/**
+ * Whether Quick actions is in the product at all. Ashwin, Nov 24 — off.
+ *
+ * Not a visibility switch: the two are different questions, and the nav
+ * already had the visibility one. `isBlockHidden(state, "quickActions")` is
+ * the ACCOUNT's answer — an agency deciding its clients do not want the
+ * shortcut sheet — and it lives on the edit mode's show/hide menu next to
+ * Launchpad and the dock. This axis is the PRODUCT's answer, and when it is
+ * off there is nothing for the account to decide: the footer row, the `+`
+ * beside the field, the standing nav row, the collapsed bar's tile and the
+ * entry in that show/hide menu all go, so edit mode cannot put back a thing
+ * the build does not ship.
+ *
+ * Off by default because the sheet is the weakest of the standing shortcuts:
+ * everything in it is two clicks away through the row it would have created
+ * from, and it is the one object at the top of the column that is neither a
+ * place nor a way of finding one. The card's footer and the field's `+` both
+ * cost real estate in the first 200px of the nav, which is the most expensive
+ * space on the screen.
+ *
+ * The switch stays so the comparison stays. Turning it on restores every
+ * placement QUICK_ACTION_SPOTS describes, including the account-level switch
+ * — which is the arrangement that shipped before this date.
+ */
+export const QUICK_ACTIONS_OFFERED_DEFAULT = false;
+
+/**
+ * How heavy the sidebar search field's edge is. Ashwin, Nov 24 — gray-200.
+ *
+ * The field under the logo is the one control in the column that has to look
+ * like a field before it is read as one, and its whole claim to that is a
+ * 1px edge. Too light and it is a word floating on the nav's ground; too dark
+ * and it is the heaviest object at the top of a column whose job is to make
+ * the categories findable.
+ *
+ * Named by the gray ramp rather than by a judgement ("subtle", "strong")
+ * because that is what the comparison is actually about: these are the four
+ * steps either side of the divider, and the question is which one a field
+ * should be when everything around it is gray-200.
+ *
+ * Literal gray on a light nav and derived from the nav's own divider on a
+ * dark one — see --nav-entry-line-1..4. gray-200 on a #0f0f12 ground is not a
+ * hairline, it is a stripe, and a tinted nav has to be able to follow.
+ *
+ * Replaces the derived "one step past the divider", which was step 3: the
+ * field was reading a shade heavier than everything it sits above.
+ */
+export const SEARCH_BORDERS = ["gray100", "gray200", "gray300", "gray400"] as const;
+export type SearchBorder = (typeof SEARCH_BORDERS)[number];
+
+export const SEARCH_BORDER_LABELS: Record<SearchBorder, string> = {
+  gray100: "Gray 100",
+  gray200: "Gray 200",
+  gray300: "Gray 300",
+  gray400: "Gray 400",
+};
+
+/** The token each step names. See --nav-entry-line-1..4 in tokens.css. */
+export const SEARCH_BORDER_VARS: Record<SearchBorder, string> = {
+  gray100: "var(--nav-entry-line-1)",
+  gray200: "var(--nav-entry-line-2)",
+  gray300: "var(--nav-entry-line-3)",
+  gray400: "var(--nav-entry-line-4)",
+};
+
+/**
+ * Whether the Launchpad card is in the sidebar at all. Ashwin, Nov 24 — on.
+ *
+ * The same product-level question as QUICK_ACTIONS_OFFERED_DEFAULT, with the
+ * opposite answer. The card earns its place: it is the zero state's only
+ * instruction, and an account that has not finished setting up has nothing
+ * else telling it what is left. So this ships on, and the switch is here to
+ * see the nav without it rather than to decide whether to keep it.
+ *
+ * Sits ON TOP of the per-account `launchpad` flag, which is a different
+ * question again — "has THIS account finished onboarding" — and stays where
+ * it is. Off here means no card for anyone, activated or not.
+ */
+export const LAUNCHPAD_OFFERED_DEFAULT = true;
+
+/**
+ * Whether edit mode may hide the Launchpad card. Ashwin, Nov 24 — no.
+ *
+ * Splitting the card's two questions, because they were one control answering
+ * both: whether the product HAS the card (above, on) and whether an admin
+ * restructuring the nav can take it off their accounts (here, off).
+ *
+ * Off because the card is a zero state, and the account looking at it is by
+ * definition the one that has not finished. Letting that account dismiss the
+ * only thing telling it what is left is the same mistake Recent's switch was
+ * — see `presentBlocks` — and the card already leaves on its own at 7 of 7.
+ *
+ * With this off, Quick actions gone and Recent never offered, the show/hide
+ * menu is left with the favourites dock alone, and nothing at all in the
+ * merged arrangement where the dock is off screen too. Then edit mode draws
+ * no eye — see the note on `onOpenBlocks`.
+ */
+export const LAUNCHPAD_EDIT_SWITCH_DEFAULT = false;
+
+/**
+ * How the Launchpad presents itself in the nav. Ashwin, Nov 24.
+ *
+ *  card      Today: the progress card under search, above the tree. The
+ *            setup guide as a guide — a title, a 3-of-7 meter and a door.
+ *  rowTop    An ordinary L1 row, first in the column, above the categories.
+ *  rowAbove  The same row, anchored above Settings with the other chrome.
+ *  rowBelow  The same row, under Settings and the Learn row — the last thing
+ *            in the column.
+ *  featured  One of the featured cards at the nav's foot, drawn exactly as
+ *            Holiday Promos is: a still, a name, a line and a door. See
+ *            NAV_PROMO_PLACEMENTS, which is the same move for a thing that
+ *            is also not a product.
+ *
+ * Two questions behind one axis, deliberately. The card has a size and a
+ * position and they are not independent: a 3-of-7 meter in a 36px row is not
+ * a smaller card, it is a different control, and the foot of the column is
+ * not where a zero state's instruction belongs unless it is wearing the
+ * featured cards' clothes. So each option names a whole arrangement rather
+ * than letting the panel build one that has never been drawn.
+ *
+ * The three row spots say where setup sits relative to the work. At the top
+ * it is the first thing and the most expensive — it costs the row the
+ * categories want. Above or below Settings it reads as what it is once an
+ * account is running: account business, filed with the other account
+ * business, found when looked for rather than every visit.
+ *
+ * `card` is the default because the prototype's argument is still that a new
+ * account needs the meter. The rest are what to compare it against, and the
+ * rows in particular are the cheap end: a row is what every other
+ * destination in this nav costs.
+ *
+ * The rows are chrome, not tree rows — the same standing as the Learn row
+ * and the companion apps. Launchpad is filed in no bucket by design (see
+ * PROPOSED_UNLISTED_IDS) and four separate "what is filed nowhere?" answers
+ * in grouping.ts exclude it, so edit mode cannot move, rename or re-icon
+ * these rows. Making it a real tree row is a different job.
+ */
+export const LAUNCHPAD_SPOTS = [
+  "card",
+  "rowTop",
+  "rowAbove",
+  "rowBelow",
+  "featured",
+] as const;
+export type LaunchpadSpot = (typeof LAUNCHPAD_SPOTS)[number];
+
+export const LAUNCHPAD_SPOT_LABELS: Record<LaunchpadSpot, string> = {
+  card: "Setup card",
+  rowTop: "Row at the top",
+  rowAbove: "Row above Settings",
+  rowBelow: "Row below Settings",
+  featured: "Featured card",
+};
+
+/** Whether this spot draws Launchpad as a plain L1 row. */
+export function launchpadIsRow(spot: LaunchpadSpot): boolean {
+  return spot === "rowTop" || spot === "rowAbove" || spot === "rowBelow";
+}
+
+/**
+ * How the Launchpad ROW carries its progress. Ashwin, Nov 24.
+ *
+ *  off        A row like any other. The glyph's colour is the only mark.
+ *  count      The tally ("4 of 7" today) at the row's edge, in the count's
+ *             own type.
+ *  bar        A 36px meter at the row's edge.
+ *  barCount   The meter with the tally after it.
+ *  ring       A 16px progress ring at the row's edge.
+ *  ringCount  The ring with the tally after it.
+ *
+ * The paired options are the ones to look at hardest: glanceable AND exact
+ * sounds free and is not, because the two say the same thing and the row then
+ * carries three objects after a one-word label. Whether that reads as
+ * thorough or as cluttered is what the switch is for.
+ *
+ * Either meter answers the pointer with a tooltip — "4 of 7 steps done" — so
+ * the shapes are not asking the reader to infer a number from a length. The
+ * count options need no tooltip: they have already said it.
+ *
+ * All four sit IN the row, which is the whole constraint: a second line
+ * under a nav row is a card with extra steps, and the point of the row spots
+ * is that a row costs what every other destination in this nav costs. So the
+ * progress has to fit in the trailing run beside the chevron's column — about
+ * 40px — and each option is a different answer to "what can you say in 40px".
+ *
+ * The count says the most and is the only one that is exact; `bar` and `ring`
+ * are read at a glance and say roughly; `off` is the comparison baseline and
+ * the argument that a row which merely EXISTS is enough of a reminder.
+ *
+ * Only on the row spots. The card and the featured card have a line of their
+ * own and their own axis — see LAUNCHPAD_CARD_PROGRESS.
+ */
+export const LAUNCHPAD_ROW_PROGRESS = [
+  "off",
+  "count",
+  "bar",
+  "barCount",
+  "ring",
+  "ringCount",
+] as const;
+export type LaunchpadRowProgress = (typeof LAUNCHPAD_ROW_PROGRESS)[number];
+
+/*
+ * "Step count", not "4 of 7". The tally is LAUNCHPAD_DONE's to state and it
+ * moves with the page's own steps — a control labelled with today's number is
+ * the same mistake the card made when it said 4 of 7 beside a page counting
+ * something else.
+ */
+export const LAUNCHPAD_ROW_PROGRESS_LABELS: Record<LaunchpadRowProgress, string> = {
+  off: "Nothing",
+  count: "Step count",
+  bar: "Bar",
+  barCount: "Bar and count",
+  ring: "Ring",
+  ringCount: "Ring and count",
+};
+
+/** Whether this row mark draws a meter the pointer can ask about. */
+export function launchpadRowHasMeter(p: LaunchpadRowProgress): boolean {
+  return p !== "off" && p !== "count";
+}
+
+/** Whether this row mark states the tally in words. */
+export function launchpadRowHasCount(p: LaunchpadRowProgress): boolean {
+  return p === "count" || p === "barCount" || p === "ringCount";
+}
+
+/**
+ * What colour the Launchpad row's glyph and meter are. Ashwin, Nov 24.
+ *
+ *  gray    The row's own ink, like every other glyph in the column. The
+ *          comparison baseline: nothing marks the row but its progress.
+ *  brand   The agency's colour — primary blue unless they have rebranded,
+ *          which is the point of taking it through the token.
+ *  blue    Primary blue literally, whatever the agency's brand is. Worth
+ *          having beside `brand` precisely because a white-labelled nav is
+ *          where the two part company.
+ *  green   Progress ink. Says "on the way" rather than "look here".
+ *  amber   Attention ink. Says there is something outstanding, which is the
+ *          most honest reading of an unfinished setup and also the loudest.
+ *  purple  A hue nothing else in this nav uses, for the version that wants
+ *          the row marked without borrowing a status colour's meaning.
+ *
+ * The glyph and the meter together, not the glyph alone: a green rocket over
+ * a blue bar in one 36px row reads as two unrelated decisions. The LABEL
+ * stays the row's own ink in every option — a tinted row is a selected row in
+ * this nav's vocabulary, and a coloured label among plain ones reads as a
+ * link. The glyph is the only part of a row that can carry a hue without
+ * claiming a state.
+ *
+ * Each colour steps to its 300 on a dark nav, as the featured cards' ink
+ * does: a 600 on the nav's dark ground is a hue you have to hunt for.
+ */
+export const LAUNCHPAD_ROW_TONES = [
+  "gray",
+  "brand",
+  "blue",
+  "green",
+  "amber",
+  "purple",
+] as const;
+export type LaunchpadRowTone = (typeof LAUNCHPAD_ROW_TONES)[number];
+
+export const LAUNCHPAD_ROW_TONE_LABELS: Record<LaunchpadRowTone, string> = {
+  gray: "Gray",
+  brand: "Brand",
+  blue: "Blue",
+  green: "Green",
+  amber: "Amber",
+  purple: "Purple",
+};
+
+/**
+ * What the Launchpad featured card says about progress. Ashwin, Nov 24 — bar.
+ *
+ *  off       The tagline alone, as the other featured cards are.
+ *  bar       A meter on its own line under the tagline. The default: the card
+ *            HAS a line to spend, unlike the row, so the cheap glanceable
+ *            answer costs nothing the card was using.
+ *  barCount  The meter with the tally at its end — exact and glanceable, at
+ *            the price of two things to read where the other cards have one.
+ *  count     The tally and no meter, for the version that argues the number
+ *            was always the informative half.
+ *
+ * The card's tagline carries no numbers of its own because of this axis: two
+ * surfaces for one fact is how the card ends up stale (the same argument as
+ * LAUNCHPAD_DONE's, which is why both read the page's tally).
+ */
+export const LAUNCHPAD_CARD_PROGRESS = ["off", "bar", "barCount", "count"] as const;
+export type LaunchpadCardProgress = (typeof LAUNCHPAD_CARD_PROGRESS)[number];
+
+export const LAUNCHPAD_CARD_PROGRESS_LABELS: Record<LaunchpadCardProgress, string> = {
+  off: "Nothing",
+  bar: "Bar on its own line",
+  barCount: "Bar and step count",
+  count: "Step count",
+};
+
 export const LAUNCHPAD_CARDS = [
   "tinted",
   "outline",
@@ -7227,10 +7525,11 @@ export const BULK_BUTTON_LABEL = "Apply layout";
  * "type here" with one line instead of four, and the strip keeps looking
  * like a strip.
  *
- * The case against, and why `box` stays the default: an underline is a
- * weaker affordance, and this field is also the way you CREATE an account —
- * "Find or create" is a promise a bare line makes quietly. Four sides is
- * what people have learned to click.
+ * The case against: an underline is a weaker affordance, and this field is
+ * also the way you CREATE an account — "Find or create" is a promise a bare
+ * line makes quietly. Four sides is what people have learned to click.
+ *
+ * Default: `underline` (Ashwin, Nov 24, 2026).
  *
  * Geometry is identical either way — same 32px height, same glyph, same
  * clear button — so the two can be swapped without the rows below moving.
@@ -7382,12 +7681,26 @@ export const AGENCY_MARK_SIZE: Record<AgencyPlate, number> = {
   full: RAIL_TILE_SIZE_ACTIVE,
 };
 
-export const RAIL_SHADES = ["default", "darker"] as const;
+/**
+ * Background of the sub-account rail (Nov 24, 2026, Ashwin: "full white,
+ * current color & a couple of bit dark shades").
+ *
+ *  white     The nav's own ground — white in the default theme. On dark or
+ *            tinted navs it follows that nav rather than forcing a white
+ *            slab into it.
+ *  default   Gray 50, as drawn. The current color.
+ *  darker    Gray 100.
+ *  darkest   Gray 200 — gray 100 pushed 7% toward the nav's ink, so it stays
+ *            one step further from the nav under every theme and tint.
+ */
+export const RAIL_SHADES = ["white", "default", "darker", "darkest"] as const;
 export type RailShade = (typeof RAIL_SHADES)[number];
 
 export const RAIL_SHADE_LABELS: Record<RailShade, string> = {
+  white: "White",
   default: "Gray 50",
   darker: "Gray 100",
+  darkest: "Gray 200",
 };
 
 /**
@@ -7406,9 +7719,18 @@ export const RAIL_SHADE_LABELS: Record<RailShade, string> = {
  * in the tree wins however it got there.
  */
 export const RAIL_SHADE_CLASS: Record<RailShade, string> = {
-  default: "bg-nav-rail",
-  darker: "bg-nav-rail-hi",
+  white: "[--rail-fill:var(--nav-bg)] bg-[var(--rail-fill)]",
+  default: "[--rail-fill:var(--nav-rail-bg)] bg-[var(--rail-fill)]",
+  darker: "[--rail-fill:var(--nav-rail-hi)] bg-[var(--rail-fill)]",
+  darkest:
+    "[--rail-fill:color-mix(in_oklab,var(--nav-rail-hi),var(--nav-fg)_7%)] bg-[var(--rail-fill)]",
 };
+/*
+ * Each shade also sets --rail-fill on the strip, so the sticky plates inside
+ * it (agency row, search bar, section heads) paint the same ground instead of
+ * staying on gray 50. They read `var(--rail-fill, var(--nav-rail-bg))`, so at
+ * rest — when the strip is unpainted — they keep the rail's own token.
+ */
 
 export const NAV_GENERATIONS = ["new", "legacy"] as const;
 
@@ -7648,6 +7970,13 @@ export interface ThemeState {
   entryRadius: EntryRadius;
   /** Where Quick actions is reached from. See QUICK_ACTION_SPOTS. */
   quickActionSpot: QuickActionSpot;
+  /**
+   * Whether Quick actions exists at all, in any placement, at any scope.
+   * See QUICK_ACTIONS_OFFERED_DEFAULT.
+   */
+  quickActionsOffered: boolean;
+  /** How heavy the sidebar search field's edge is. See SEARCH_BORDERS. */
+  searchBorder: SearchBorder;
   /** The Ask AI entry's corners, where it is its own control. See ASK_RADII. */
   askRadius: AskRadius;
   /** Whether the edit capsules follow the entry to 8px. See EDIT_RADII. */
@@ -7808,6 +8137,24 @@ export interface ThemeState {
    * be "new" while the rest are activated.
    */
   launchpad: boolean;
+  /**
+   * Whether the Launchpad card is in the build at all, for any account.
+   * See LAUNCHPAD_OFFERED_DEFAULT.
+   */
+  launchpadOffered: boolean;
+  /**
+   * Whether edit mode offers the Launchpad show/hide switch.
+   * See LAUNCHPAD_EDIT_SWITCH_DEFAULT.
+   */
+  launchpadEditSwitch: boolean;
+  /** How the Launchpad presents itself in the nav. See LAUNCHPAD_SPOTS. */
+  launchpadSpot: LaunchpadSpot;
+  /** What the Launchpad row says about progress. See LAUNCHPAD_ROW_PROGRESS. */
+  launchpadRowProgress: LaunchpadRowProgress;
+  /** What colour the Launchpad row's glyph and meter are. See LAUNCHPAD_ROW_TONES. */
+  launchpadRowTone: LaunchpadRowTone;
+  /** What the Launchpad featured card says. See LAUNCHPAD_CARD_PROGRESS. */
+  launchpadCardProgress: LaunchpadCardProgress;
   /** How much contrast the Launchpad card carries. See LAUNCHPAD_CARDS. */
   launchpadCard: LaunchpadCard;
   /** Which line the rail's divider sits on. See RAIL_RULE_ALIGNS. */
@@ -8909,7 +9256,7 @@ export const DEFAULT_THEME: ThemeState = {
   navFootShadow: "off",
   navEditSpot: "below",
   navFeaturedPromoBg: "off",
-  navFeaturedMedia: "bottom",
+  navFeaturedMedia: "icon",
   /*
    * On hover, as of Oct 6.
    *
@@ -8943,6 +9290,8 @@ export const DEFAULT_THEME: ThemeState = {
    */
   entryRadius: "sm",
   quickActionSpot: "search",
+  quickActionsOffered: QUICK_ACTIONS_OFFERED_DEFAULT,
+  searchBorder: "gray200",
   askRadius: "pill",
   editRadius: "pill",
   editAlways: EDIT_ALWAYS_DEFAULT,
@@ -9186,7 +9535,7 @@ export const DEFAULT_THEME: ThemeState = {
     them if the shut rail ever has to teach its own search.
   */
   railSearchGlyph: "divider",
-  railSearchField: "box",
+  railSearchField: "underline",
   /*
     The arrival, not the slide. See RAIL_PIN_MOTIONS — Ashwin asked for this
     one on Oct 27, on the grounds that pinning is a change of KIND and the
@@ -9290,12 +9639,12 @@ export const DEFAULT_THEME: ThemeState = {
   mergedHeading: "recents",
   // The first login, not the demo: one recent, no pins. See NAV_RECENTS_STARTS.
   /*
-   * Three pins, no history — the opening state that goes with
-   * `recentsReach: "none"`. On `fresh` the column would open with no Pinned
-   * block at all, so the thing the arrangement is about would be invisible
-   * until someone pinned something. See NAV_RECENTS_STARTS.
+   * First login again, at Ashwin's ask (Nov 24). It was `starter`, the three
+   * pins picked to go with `recentsReach: "none"`; with that reach the
+   * column opens with no Pinned block until something is pinned. See
+   * NAV_RECENTS_STARTS.
    */
-  navRecentsStart: "starter",
+  navRecentsStart: "fresh",
   /*
    * Off in the merged panel.
    *
@@ -9335,6 +9684,12 @@ export const DEFAULT_THEME: ThemeState = {
   // Activated accounts don't see the setup guide; Brightpath (the trial
   // account) carries it as a per-account override.
   launchpad: false,
+  launchpadOffered: LAUNCHPAD_OFFERED_DEFAULT,
+  launchpadEditSwitch: LAUNCHPAD_EDIT_SWITCH_DEFAULT,
+  launchpadSpot: "card",
+  launchpadRowProgress: "count",
+  launchpadRowTone: "brand",
+  launchpadCardProgress: "bar",
   /*
    * Outline, not the brand-filled original.
    *

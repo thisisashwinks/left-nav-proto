@@ -44,7 +44,7 @@ export function SwitchToAgencyPrompt({
             onClick={onConfirm}
             className={`${BTN} bg-brand text-white hover:brightness-95`}
           >
-            Switch and customize
+            Switch
           </button>
         </>
       }

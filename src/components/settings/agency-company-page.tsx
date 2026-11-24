@@ -8,7 +8,7 @@ import { WhiteLabelTab } from "./white-label-tab";
 import { ProductionStubTab } from "./tab-production-stub";
 import { useBranding } from "@/components/branding/branding-provider";
 import { clearCompanyTabRequest, useCompanyTabRequest } from "@/components/branding/branding-entry";
-import { BrandingThemeSection } from "@/components/branding/customize-panel";
+import { BrandingThemeSection, requestLeave } from "@/components/branding/customize-panel";
 
 /**
  * Agency › Settings › Company.
@@ -110,7 +110,8 @@ export function AgencyCompanyPage({ agency }: { agency: Account }) {
               key={t}
               type="button"
               aria-current={t === shownTab ? "page" : undefined}
-              onClick={() => setTab(t)}
+              // An unapplied theme asks first (Nov 24, 2026).
+              onClick={() => (t === shownTab ? undefined : requestLeave(() => setTab(t)))}
               className={cn(
                 "motion-tap shrink-0 pb-[10px] text-[14px] leading-[20px] font-medium whitespace-nowrap",
                 t === shownTab

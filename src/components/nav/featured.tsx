@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { BadgePercent, Building2, Clapperboard, CreditCard, PhoneCall, Play, Star, Video, type LucideIcon } from "lucide-react";
+import { BadgePercent, Building2, Clapperboard, CreditCard, PhoneCall, Play, Rocket, Star, Video, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/theme/theme-provider";
 import { useNavLayout } from "@/components/nav/nav-layout-provider";
@@ -28,6 +28,7 @@ import { AiSparkleIcon } from "@/components/icons/ai-sparkle";
 
 import { FEATURED_PAGES, featuredPinId, type FeaturedKey } from "@/components/nav/featured-pages";
 import { usePromosHeld } from "@/components/nav/nav-tour";
+import { PROPOSED_HOME_ID } from "@/components/nav/proposed-ia";
 export type { FeaturedKey };
 
 export interface FeaturedProduct {
@@ -71,6 +72,33 @@ export const FEATURED_PRODUCTS: Record<FeaturedKey, FeaturedProduct> = {
     tagline: "Black Friday and Cyber Monday offers.",
     blurb: "Save on plans and add-ons this Black Friday and Cyber Monday. Offers run Nov 23–Dec 6.",
     points: ["Up to 40% off annual plans", "Bundle deals on AI add-ons", "Live Nov 23–Dec 6"],
+  },
+  /*
+   * Not a product either: the account's own setup guide, featured the same
+   * way for the spot that draws it down here instead of as the progress card
+   * under search. Its "Try" opens the Launchpad page the card's own door
+   * opens. See LAUNCHPAD_SPOTS.
+   */
+  launchpad: {
+    key: "launchpad",
+    image: "/featured/launchpad.svg",
+    name: "Finish setting up",
+    icon: Rocket,
+    home: "Launchpad",
+    homeCategory: null,
+    ends: "",
+    /*
+     * No numbers in the tagline: the progress axis owns them, and two
+     * surfaces for one fact is how one of them goes stale. See
+     * LAUNCHPAD_CARD_PROGRESS.
+     */
+    tagline: "A few steps left to go.",
+    blurb: "Finish setting up before your account is ready to take work.",
+    points: [
+      "Connect a phone number and a domain",
+      "Import your contacts",
+      "Publish your first funnel",
+    ],
   },
   creator: {
     key: "creator",
@@ -185,7 +213,9 @@ export interface FeaturedFloatCopy {
   cta: string;
 }
 
-export type FeaturedFloatKey = Exclude<FeaturedKey, "agency" | "promos">;
+// The setup guide joins the sale in the exclusion: the floating card cycles
+// products, and neither of those is one.
+export type FeaturedFloatKey = Exclude<FeaturedKey, "agency" | "promos" | "launchpad">;
 
 /** The 6 products the floating card cycles through, in order. */
 export const FEATURED_FLOAT_ORDER: readonly FeaturedFloatKey[] = [
@@ -279,6 +309,17 @@ export const NAV_FEATURED_OPEN_AI_EVENT = "nav-featured:open-ai";
 
 /** Opens the product, or says it is not here yet when it has no page. */
 export function openFeaturedProduct(key: FeaturedKey): string | null {
+  /*
+   * The setup guide has a real page already — the one the card's own door
+   * opens — so it needs no placeholder in FEATURED_PAGES. Same event, same
+   * handler; only the id comes from the IA rather than from the page table.
+   */
+  if (key === "launchpad") {
+    window.dispatchEvent(
+      new CustomEvent(NAV_FEATURED_OPEN_PAGE_EVENT, { detail: PROPOSED_HOME_ID }),
+    );
+    return null;
+  }
   if (key === "askai") {
     window.dispatchEvent(new Event(NAV_FEATURED_OPEN_AI_EVENT));
     return null;
@@ -345,8 +386,17 @@ const FeaturedContext = React.createContext<FeaturedContextValue | null>(null);
 const EMPTY: readonly FeaturedProduct[] = [];
 
 export function FeaturedProvider({ children }: { children: React.ReactNode }) {
-  const { navFeaturedSlot, navFeaturedCount, navFeaturedLead, navFeaturedAgency, navFeaturedPromo, navPromoPlacement } =
-    useTheme().effective;
+  const {
+    navFeaturedSlot,
+    navFeaturedCount,
+    navFeaturedLead,
+    navFeaturedAgency,
+    navFeaturedPromo,
+    navPromoPlacement,
+    launchpadSpot,
+    launchpadOffered,
+    launchpad: launchpadOn,
+  } = useTheme().effective;
   const [open, setOpen] = React.useState<FeaturedOpen>(null);
   /*
    * Pins live in the nav's own pin list, as the product's page id — a pinned
@@ -388,8 +438,31 @@ export function FeaturedProvider({ children }: { children: React.ReactNode }) {
     if (navFeaturedAgency === "custom") keys.splice(0, 1, "agency");
     // Holiday Promos leads the cards, on top of the product count.
     if (navPromoPlacement === "card" || navPromoPlacement === "cardRow") keys.unshift("promos");
+    /*
+     * ...and the setup guide leads both, when the axis puts it here.
+     *
+     * In front of the sale because it is the account's own unfinished
+     * business and the sale is an offer: of the two, only one of them stops
+     * being true once it is done. Gated on the same two flags the card is —
+     * the build ships Launchpad, and this account has not finished — so
+     * moving it down here never shows a setup guide to an activated account
+     * the card would have spared. See LAUNCHPAD_SPOTS.
+     */
+    if (launchpadSpot === "featured" && launchpadOffered && launchpadOn)
+      keys.unshift("launchpad");
     return keys.filter((k) => !dismissed.includes(k)).map((k) => FEATURED_PRODUCTS[k]);
-  }, [ended, navFeaturedSlot, navFeaturedAgency, navFeaturedLead, navFeaturedCount, navPromoPlacement, dismissed]);
+  }, [
+    ended,
+    navFeaturedSlot,
+    navFeaturedAgency,
+    navFeaturedLead,
+    navFeaturedCount,
+    navPromoPlacement,
+    launchpadSpot,
+    launchpadOffered,
+    launchpadOn,
+    dismissed,
+  ]);
 
   /*
    * "Row at bottom of list": each featured product in the line-up is filed
@@ -419,7 +492,9 @@ export function FeaturedProvider({ children }: { children: React.ReactNode }) {
 
   const all = React.useMemo(() => {
     // More products lists products; the sale is not one.
-    const first: FeaturedKey[] = list.map((p) => p.key).filter((k) => k !== "promos");
+    const first: FeaturedKey[] = list
+      .map((p) => p.key)
+      .filter((k) => k !== "promos" && k !== "launchpad");
     return [...first, ...ALL_ORDER.filter((k) => !first.includes(k))].map((k) => FEATURED_PRODUCTS[k]);
   }, [list]);
 
@@ -511,9 +586,9 @@ export function FeaturedProvider({ children }: { children: React.ReactNode }) {
       video: held ? null : video,
       // The sale has no video: its still opens the landing page instead.
       playVideo: (key) => {
-        if (key === "promos") {
+        if (key === "promos" || key === "launchpad") {
           setOpen(null);
-          openFeaturedProduct("promos");
+          openFeaturedProduct(key);
         } else setVideo(key);
       },
       message: held ? null : message,
@@ -570,8 +645,8 @@ export function FeaturedStill({
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- static stills from public/featured */}
       <img src={product.image} alt="" draggable={false} className="block size-full object-cover object-left-top" />
-      {/* The sale has no launch video. */}
-      {play && product.key !== "promos" ? (
+      {/* Neither the sale nor the setup guide has a launch video. */}
+      {play && product.key !== "promos" && product.key !== "launchpad" ? (
         <span className="absolute inset-0 grid place-items-center">
           <span
             style={{ width: d, height: d }}

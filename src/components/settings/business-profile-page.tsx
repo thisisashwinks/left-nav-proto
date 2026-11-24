@@ -192,6 +192,7 @@ export function BusinessProfilePage({ account }: { account: Account }) {
               hint="Your primary logo, displayed in emails and the classic sidebar."
               spec="Ideal: 350 × 180 px · Max 2.5 MB"
               aspect="wide"
+              guide
               {...(shownWordmark ? { src: shownWordmark } : {})}
               onPick={(src, fileName) => void pickWordmark(src, fileName)}
               onRemove={() => setLogoDraft((d) => ({ ...d, wordmark: null }))}
@@ -202,7 +203,7 @@ export function BusinessProfilePage({ account }: { account: Account }) {
 
             <BrandAssetRow
               label="Sidebar icon"
-              hint="A compact version of your logo, displayed in the new sidebar."
+              hint="A compact version of your logo, shown in the new sidebar and as your browser tab’s favicon."
               spec="Square · Min 128 × 128 px · Max 2.5 MB"
               aspect="square"
               {...(shownIcon ? { src: shownIcon } : {})}

@@ -12,7 +12,15 @@ import { cn } from "@/lib/utils";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { useTheme } from "@/components/theme/theme-provider";
 import { BADGE_TONE, NEW_BADGE } from "@/components/flyout/types";
-import { navFeaturedCycleIsLeft, type NavFeaturedCycle } from "@/design/theme";
+import {
+  navFeaturedCycleIsLeft,
+  type NavFeaturedCycle,
+  type LaunchpadCardProgress,
+} from "@/design/theme";
+import {
+  LAUNCHPAD_DONE,
+  LAUNCHPAD_TOTAL,
+} from "@/components/launchpad/launchpad-data";
 import { FeaturedStill, useFeatured, type FeaturedOpen, type FeaturedProduct } from "./featured";
 import { NavDivider } from "./nav-divider";
 import { useNavLayout } from "./nav-layout-provider";
@@ -169,6 +177,32 @@ function FeaturedRow({
   );
 }
 
+/*
+ * The tagline gets 2 lines, so an ordinary one is read whole rather than cut
+ * at the first. Past 2 it is clamped, and only then does hovering it show
+ * the whole line in the nav's own tooltip. Ashwin, Nov 24.
+ */
+function CardTagline({ text }: { text: string }) {
+  const ref = React.useRef<HTMLSpanElement>(null);
+  const [cut, setCut] = React.useState(false);
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => setCut(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [text]);
+  return (
+    <RailTooltip label={text} placement="above" wrap={240} show={cut}>
+      <span ref={ref} className="line-clamp-2 text-[13px] leading-[18px] text-nav-fg-muted">
+        {text}
+      </span>
+    </RailTooltip>
+  );
+}
+
 /** One card: a 28px glyph tile, the name (and pill), the tagline. */
 function FeaturedCard({
   icon: Icon,
@@ -183,6 +217,7 @@ function FeaturedCard({
   tabIndex,
   actions,
   product,
+  foot,
 }: {
   icon: LucideIcon;
   name: string;
@@ -199,6 +234,15 @@ function FeaturedCard({
   actions?: { node: React.ReactNode; count: number };
   /** The product, for its still, placed by "Featured: card media". */
   product?: FeaturedProduct;
+  /**
+   * A line of the card's own under the tagline.
+   *
+   * One caller: the setup guide, whose card is the only one with a fact that
+   * changes — see LAUNCHPAD_CARD_PROGRESS. Placed into the text column rather
+   * than appended, because the glyph spans the first two rows and anything
+   * after them would otherwise land under it.
+   */
+  foot?: React.ReactNode;
 }) {
   const { navFeaturedMedia, navFeaturedMediaKind } = useTheme().effective;
   const { playVideo } = useFeatured();
@@ -282,7 +326,15 @@ function FeaturedCard({
         <span className="truncate text-[14px] leading-[20px] font-medium text-nav-fg">{name}</span>
         {pill}
       </span>
-      <span className="truncate text-[13px] leading-[18px] text-nav-fg-muted">{tagline}</span>
+      <CardTagline text={tagline} />
+      {/*
+        Placed by the card, which is the only thing that knows its grid: the
+        glyph spans the first two rows, so a third child has to be told which
+        column it is in — and in the text-only mode there is only one.
+      */}
+      {foot ? (
+        <span className={textOnly ? "col-start-1" : "col-start-2"}>{foot}</span>
+      ) : null}
       {media === "bottom" ? picture : null}
     </button>
   );
@@ -309,6 +361,63 @@ function FeaturedCard({
       </span>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The setup guide's progress, on the featured card's own line.
+ *
+ * The card has a line to spend where the row does not, which is the whole
+ * difference between this axis and LAUNCHPAD_ROW_PROGRESS: here the meter can
+ * be full width and the count can sit at its end without either of them
+ * fighting a label for room.
+ *
+ * Numbers from the Launchpad page's tally, and `aria-hidden` for the same
+ * reason the row's mark is: the card's accessible name is its product's, and
+ * "3, 7" after it is two numbers with no unit.
+ */
+function LaunchpadCardProgressLine({ kind }: { kind: LaunchpadCardProgress }) {
+  if (kind === "off") return null;
+  const done = LAUNCHPAD_DONE;
+  const total = LAUNCHPAD_TOTAL;
+  const frac = total > 0 ? done / total : 0;
+  const count = (
+    <span className="shrink-0 text-[11px] leading-none tabular-nums text-nav-fg-subtle">
+      {done} of {total}
+    </span>
+  );
+  if (kind === "count") {
+    return (
+      <span aria-hidden="true" className="mt-[6px] flex">
+        {count}
+      </span>
+    );
+  }
+  const bar = (
+    <span className="block h-[3px] w-full overflow-hidden rounded-full bg-[var(--hr-gray-200)] in-data-[nav-theme=dark]:bg-nav-border">
+      <span
+        className="block h-full rounded-full bg-brand motion-move"
+        style={{ width: `${frac * 100}%` }}
+      />
+    </span>
+  );
+  return (
+    <span aria-hidden="true" className="mt-[7px] flex items-center gap-[8px]">
+      {/*
+        The meter answers the pointer, as the row's does — a shape you have to
+        infer a length from should be askable. Not on `barCount`, which has
+        already said the number: a tooltip that repeats the text under the
+        pointer teaches the reader to ignore tooltips.
+      */}
+      {kind === "barCount" ? (
+        <span className="min-w-0 flex-1">{bar}</span>
+      ) : (
+        <RailTooltip label={`${done} of ${total} steps done`} placement="above">
+          <span className="min-w-0 flex-1">{bar}</span>
+        </RailTooltip>
+      )}
+      {kind === "barCount" ? count : null}
+    </span>
   );
 }
 
@@ -732,6 +841,7 @@ export function FeaturedSlot({ at, agency = false }: { at: FeaturedSlotAt; agenc
     navFeaturedOpens,
     navFeaturedCycle,
     navFeaturedViewAll,
+    launchpadCardProgress,
   } = useTheme().effective;
   const { list, open, setOpen, dismiss, launch, pinned, togglePin } = useFeatured();
   const navEditing = useNavLayout().state.editing;
@@ -741,7 +851,17 @@ export function FeaturedSlot({ at, agency = false }: { at: FeaturedSlotAt; agenc
   if (agency || navFeaturedSlot !== at || list.length === 0 || navEditing) return null;
 
   const withNew = navFeaturedLabel === "nameNew";
-  const spoken = (p: FeaturedProduct) => (withNew ? `${p.name}, new` : p.name);
+  /*
+   * Not on the setup guide, whatever the label axis says.
+   *
+   * "New" is a claim about the PRODUCT — here is something you have not seen
+   * before. The setup guide is the opposite claim: here is something of yours
+   * that is unfinished, and it has been there since the account opened. The
+   * sale keeps its tag because an offer genuinely is new each time it runs.
+   * See LAUNCHPAD_SPOTS.
+   */
+  const tagged = (p: FeaturedProduct) => withNew && p.key !== "launchpad";
+  const spoken = (p: FeaturedProduct) => (tagged(p) ? `${p.name}, new` : p.name);
   /*
    * "direct" skips the explainer and goes to the product (a toast, here). With
    * no L2 to pin from, the card carries its own pin. Ashwin, Oct 29.
@@ -798,7 +918,7 @@ export function FeaturedSlot({ at, agency = false }: { at: FeaturedSlotAt; agenc
       icon={p.icon}
       label={p.name}
       spoken={spoken(p)}
-      pill={withNew ? <NewTag /> : null}
+      pill={tagged(p) ? <NewTag /> : null}
       active={isOpen(open, p.key)}
       direct={direct}
       onOpen={() => openProduct(p)}
@@ -812,10 +932,14 @@ export function FeaturedSlot({ at, agency = false }: { at: FeaturedSlotAt; agenc
       tagline={p.tagline}
       product={p}
       spoken={spoken(p)}
-      pill={withNew ? <NewTag /> : null}
+      pill={tagged(p) ? <NewTag /> : null}
       active={isOpen(open, p.key)}
       compact={compact}
       direct={direct}
+      /* The one card with a fact that moves. See LAUNCHPAD_CARD_PROGRESS. */
+      {...(p.key === "launchpad" && launchpadCardProgress !== "off"
+        ? { foot: <LaunchpadCardProgressLine kind={launchpadCardProgress} /> }
+        : {})}
       onOpen={() => openProduct(p)}
       actions={cornerFor(p)}
     />
