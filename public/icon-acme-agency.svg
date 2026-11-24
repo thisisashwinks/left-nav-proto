@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Acme Agency">
+  <rect width="512" height="512" fill="#6d28d9"/>
+  <path d="M136 392 L256 104 L376 392 H308 L256 256 L204 392 Z" fill="#ffffff"/>
+  <circle cx="370" cy="132" r="40" fill="#f59e0b"/>
+</svg>

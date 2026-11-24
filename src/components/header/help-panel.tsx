@@ -23,7 +23,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
-  NAV_TOUR_RESTART_FLOWS,
+  useRestartFlows,
   startNavTour,
   useNavTourRestart,
   type RestartableFlowId,
@@ -118,6 +118,7 @@ const LINKS: readonly HelpLink[] = [
  * Support access. See NAV_TOUR_RESTARTS. Ashwin, Oct 28.
  */
 export function HelpPanel({ onClose }: { onClose: () => void }) {
+  const restartFlows = useRestartFlows();
   const tourRow = useNavTourRestart("helpRow");
   const tourCard = useNavTourRestart("helpCard");
   const [supportAccess, setSupportAccess] = React.useState(true);
@@ -293,7 +294,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                 </p>
               </div>
               <div className="flex flex-wrap gap-[8px]">
-                {NAV_TOUR_RESTART_FLOWS.map((flow) => (
+                {restartFlows.map((flow) => (
                   <button
                     key={flow.id}
                     type="button"
@@ -354,7 +355,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
                   A short walkthrough of the new sidebar.
                 </p>
                 <p className="flex flex-wrap items-center gap-x-[6px] text-[13px] leading-[18px]">
-                  {NAV_TOUR_RESTART_FLOWS.map((flow, i) => (
+                  {restartFlows.map((flow, i) => (
                     <React.Fragment key={flow.id}>
                       {i > 0 ? (
                         <span aria-hidden="true" className="text-[var(--hr-gray-400)]">

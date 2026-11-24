@@ -1,5 +1,6 @@
 "use client";
 
+import { clearAgencyFullLogo, setAgencyFullLogo } from "@/components/branding/switchyard-onboarding";
 import * as React from "react";
 import { Info, X, Plus, Pencil, Trash2, Mail } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
@@ -212,8 +213,8 @@ export function WhiteLabelTab({ agency }: { agency: Account }) {
               spec="Ideal: 350 × 180 px · Max 2.5 MB"
               aspect="wide"
               {...(agency.wordmarkSrc ? { src: agency.wordmarkSrc } : {})}
-              onPick={(src) => brand.set(agency.id, "wordmarkSrc", src)}
-              onRemove={() => brand.clear(agency.id, "wordmarkSrc")}
+              onPick={(src) => void setAgencyFullLogo(brand, src)}
+              onRemove={() => clearAgencyFullLogo(brand)}
             />
 
             <BrandAssetRow

@@ -57,6 +57,11 @@ export interface AccountLogoSpec {
    * keeps the account's own hue underneath the letters.
    */
   initials?: string;
+  /**
+   * The tile colour is a real brand choice (Nov 20) — taken from the full
+   * logo or picked in onboarding — so initials never wash it grey.
+   */
+  brandTile?: boolean;
 }
 
 /** All marks are drawn in a 32x32 box and scaled by the caller. */
@@ -181,7 +186,7 @@ export function AccountLogo({
    * made the one question worth asking unaskable, since no caller could
    * keep the letters and the colour at once.
    */
-  const washGrey = Boolean(spec.initials) && !tint;
+  const washGrey = Boolean(spec.initials) && !tint && !logo.brandTile;
   // Gradient ids have to be unique per instance or the first one on the page
   // wins and every tile paints with it.
   const gradientId = `account-logo-${React.useId()}`;

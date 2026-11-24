@@ -1,4 +1,6 @@
+import * as React from "react";
 import { AccountLogo } from "@/components/accounts/account-logo";
+import { cn } from "@/lib/utils";
 import type { Account } from "@/components/accounts/accounts-data";
 
 interface BrandMarkProps {
@@ -49,6 +51,44 @@ interface BrandMarkProps {
  * the chevron lands directly beside the name whatever the name's length; long
  * names truncate rather than pushing the header's search button off the edge.
  */
+/**
+ * A full logo in the nav row, sized by visual weight rather than a fixed
+ * height (Nov 23).
+ *
+ * A fixed 22px height makes a very wide logo long and thin and a compact one
+ * a postage stamp. Holding the AREA roughly constant instead — height =
+ * sqrt(area / aspect), clamped to the row — gives every logo about the same
+ * presence: wide ones a little shorter, squarer ones a little taller, never
+ * past the 30px row or the width cap. Pairs with trimLogo, which removes
+ * the empty margin that made uploads read small in the first place.
+ */
+export function Wordmark({
+  src,
+  alt,
+  maxWidth = 168,
+  className,
+}: {
+  src: string;
+  alt: string;
+  maxWidth?: number;
+  className?: string;
+}) {
+  const [aspect, setAspect] = React.useState<number | null>(null);
+  const height = aspect ? Math.round(Math.min(28, Math.max(16, Math.sqrt(2600 / aspect)))) : 22;
+  return (
+    <img
+      src={src}
+      alt={alt}
+      onLoad={(e) => {
+        const i = e.currentTarget;
+        if (i.naturalWidth && i.naturalHeight) setAspect(i.naturalWidth / i.naturalHeight);
+      }}
+      style={{ height, maxWidth }}
+      className={cn("w-auto object-contain object-left", className)}
+    />
+  );
+}
+
 export function BrandMark({
   account,
   logoSrc,
@@ -60,7 +100,10 @@ export function BrandMark({
   // it outranks the account's own pair — including the wordmark.
   const wordmark = logoSrc ? undefined : account.wordmarkSrc;
 
-  if (wordmark && withMark && !markAccount) {
+  // The agency's full logo replaces its NAME, with or without the square
+  // mark beside it (Nov 20). Sub-accounts keep their name as text for now
+  // (Ashwin, Nov 23) unless the header shows its mark.
+  if (wordmark && !markAccount && (withMark || account.id === "agency")) {
     return (
       <span className="flex min-w-0 items-center" title={alt}>
         {/*
@@ -69,11 +112,7 @@ export function BrandMark({
           width follow is what keeps a tall logo and a wide one the same
           visual weight in the row.
         */}
-        <img
-          src={wordmark}
-          alt={account.name}
-          className="h-[22px] w-auto max-w-[168px] object-contain object-left"
-        />
+        <Wordmark src={wordmark} alt={account.name} />
       </span>
     );
   }

@@ -772,6 +772,12 @@ import {
   type MoreOptionsLabel,
   type SpeedDialDir,
   BRANDING_PRESETS,
+  AVATAR_STYLE_LABELS,
+  ONBOARDING_STYLE_LABELS,
+  type OnboardingStyle,
+  PRIOR_LOGOS_LABELS,
+  type AvatarStyle,
+  type PriorLogos,
   BRANDING_PREVIEW_TARGET_LABELS,
   CUSTOMIZE_PANEL_ENTRIES,
   CUSTOMIZE_PANEL_ENTRY_LABELS,
@@ -1468,7 +1474,7 @@ function NavStructureSection({
       <Segmented
         label="Agency plan"
         options={AGENCY_PLANS}
-        keywords={`$497 agency pro ${BRANDING_KEYWORDS}`}
+        keywords={`$497 agency pro onboarding coachmarks ${BRANDING_KEYWORDS}`}
         value={agencyPlan}
         onChange={(v: AgencyPlan) => setAgencyPlan(v)}
         format={(v) => AGENCY_PLAN_CHOICE_LABELS[v]}
@@ -2878,6 +2884,7 @@ function NavStructureSection({
         label="Member of several accounts"
         checked={userMultiAccount}
         onChange={setUserMultiAccount}
+        keywords={`onboarding coachmarks branding sub-account rail single multiple ${BRANDING_KEYWORDS}`}
       />
       <Note>
         {userMultiAccount
@@ -3717,6 +3724,7 @@ function BrandingSection({
     setPreviewMode,
     openSettings,
     resetAll,
+    setOnboardingOpen,
   } = useBranding();
   const kw = BRANDING_KEYWORDS;
 
@@ -3770,6 +3778,60 @@ function BrandingSection({
             ? "Goes to Agency settings › Company, to a Branding tab beside White label."
             : "Every “Customize theme” button (speed dial, avatar menu, top bar icon) goes here."}
       </Note>
+      {/* Nov 20 ------------------------------------------------------- */}
+      <Toggle
+        label="Switchyard onboarding"
+        checked={proto.onboarding}
+        onChange={(onboarding) => setProto({ onboarding })}
+        keywords={`onboarding setup welcome logo icon labs switch on owner 497 first run ${kw}`}
+      />
+      <Note>
+        {proto.onboarding
+          ? "Turning Switchyard on in Agency › Labs opens setup for the agency owner (497 plan): logos, then theme. Coachmarks wait until it's done."
+          : "No setup on switch-on. Turn this on, then turn Switchyard off and on in Agency › Labs."}
+      </Note>
+      <Segmented
+        label="Onboarding style"
+        options={["stepper", "split"] as const}
+        value={proto.onboardingStyle}
+        onChange={(v: OnboardingStyle) => setProto({ onboardingStyle: v })}
+        format={(v) => ONBOARDING_STYLE_LABELS[v]}
+        keywords={`onboarding style layout split preview stepper modal ${kw}`}
+      />
+      <Segmented
+        label="Agency's logos before"
+        options={["full", "none"] as const}
+        value={proto.priorLogos}
+        onChange={(v: PriorLogos) => setProto({ priorLogos: v })}
+        format={(v) => PRIOR_LOGOS_LABELS[v]}
+        keywords={`onboarding existing user full logo wordmark upload ${kw}`}
+      />
+      <Segmented
+        label="Initials background"
+        options={["solid", "gradient"] as const}
+        value={proto.avatarStyle}
+        onChange={(v: AvatarStyle) => setProto({ avatarStyle: v })}
+        format={(v) => AVATAR_STYLE_LABELS[v]}
+        keywords={`avatar initials icon square logo color gradient onboarding ${kw}`}
+      />
+      <ActionRow
+        label="Switchyard onboarding"
+        action="Replay"
+        onClick={() => setOnboardingOpen(true)}
+        keywords={`onboarding replay setup ${kw}`}
+      />
+      <Toggle
+        label="Confirm before applying"
+        checked={proto.applyConfirm}
+        onChange={(applyConfirm) => setProto({ applyConfirm })}
+        disabled={proto.customizeTarget !== "white-label-section" && proto.customizeTarget !== "branding-tab"}
+        keywords={`popup pop-up modal confirm apply save sub-accounts white label ${kw}`}
+      />
+      <Note>
+        {proto.applyConfirm
+          ? "On the White label section and Branding tab, “Save and apply” asks first: the theme reaches every sub-account."
+          : "“Save and apply” applies right away, then shows the toast."}
+      </Note>
       <Segmented
         label="Edit button"
         options={["direct", "speed-dial"] as const}
@@ -3780,7 +3842,7 @@ function BrandingSection({
       />
       <Segmented
         label="Speed dial style"
-        options={["buttons", "menu"] as const}
+        options={["menu", "buttons"] as const}
         value={proto.speedDialStyle}
         onChange={(v: SpeedDialStyle) => setProto({ speedDialStyle: v })}
         format={(v) => SPEED_DIAL_STYLE_LABELS[v]}

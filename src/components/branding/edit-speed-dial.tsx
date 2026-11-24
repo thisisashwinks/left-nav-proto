@@ -14,7 +14,7 @@
  * spilling over its edge. Painted with the nav's tokens (it carries the
  * nav's `data-nav-theme`), so dark nav and agency branding reach it too.
  *
- * Two looks (`speedDialStyle`): stacked buttons, or one dropdown menu.
+ * Two looks (`speedDialStyle`): one dropdown menu (default, Nov 20), or stacked buttons.
  * Direction (`speedDialDir`): above if there is room, always above, always below.
  */
 

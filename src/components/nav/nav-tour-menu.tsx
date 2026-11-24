@@ -6,7 +6,7 @@ import { Compass, Pencil, Users, type LucideIcon } from "lucide-react";
 import { useAnchored } from "@/lib/use-anchored";
 import { cn } from "@/lib/utils";
 import {
-  NAV_TOUR_RESTART_FLOWS,
+  useRestartFlows,
   startNavTour,
   useNavTourRestart,
   type RestartableFlowId,
@@ -27,12 +27,13 @@ const FLOW_ICONS: Record<RestartableFlowId, LucideIcon> = {
  * rows and starts that flow from its first step. Ashwin, Oct 28.
  */
 export function NavTourFlowRows({ onPicked }: { onPicked: () => void }) {
+  const restartFlows = useRestartFlows();
   return (
     <>
       <p className="px-[14px] pt-[8px] pb-[4px] text-[12px] leading-[16px] font-medium text-[var(--hr-gray-500)]">
         Navigation tour
       </p>
-      {NAV_TOUR_RESTART_FLOWS.map((flow) => {
+      {restartFlows.map((flow) => {
         const Icon = FLOW_ICONS[flow.id];
         return (
           <button

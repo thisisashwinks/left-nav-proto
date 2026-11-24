@@ -259,7 +259,7 @@ export function useAccounts({
    * header, the rail, the switcher and the collapsed rail without any of them
    * knowing uploads exist.
    */
-  const { uploads } = useBrand();
+  const { uploads, avatars, names } = useBrand();
   // Agency branding's logo (light/dark by surface) wins; uploads are the fallback.
   const brandLogo = useBrandLogo();
   /** Accounts made in this session, oldest first. */
@@ -270,12 +270,12 @@ export function useAccounts({
       : allAccounts;
     // A member made nothing, so only the agency's session carries new ones.
     return [...visible, ...(scopeToMember ? [] : created)].map((a) =>
-      brandLogo(applyBrand(a, uploads)),
+      brandLogo(applyBrand(a, uploads, avatars, names)),
     );
-  }, [uploads, scopeToMember, created, brandLogo]);
+  }, [uploads, avatars, names, scopeToMember, created, brandLogo]);
   const brandedAgency = React.useMemo(
-    () => brandLogo(applyBrand(agency, uploads)),
-    [uploads, brandLogo],
+    () => brandLogo(applyBrand(agency, uploads, avatars, names)),
+    [uploads, avatars, names, brandLogo],
   );
 
   const current = branded.find((a) => a.id === currentId) ?? branded[0];

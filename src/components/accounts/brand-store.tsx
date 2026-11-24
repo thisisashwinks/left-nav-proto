@@ -22,10 +22,36 @@ export interface BrandUpload {
 
 export type BrandKind = keyof BrandUpload;
 
+/**
+ * The initials avatar's background, when there is no square icon (Nov 20).
+ * Taken from the full logo by default; `custom` once someone picked it, so
+ * a new logo no longer repaints it.
+ */
+export interface AvatarTile {
+  from: string;
+  to: string;
+  /** The colour it was made from — what the picker shows as selected. */
+  color: string;
+  custom: boolean;
+}
+
 interface BrandValue {
   uploads: Record<string, BrandUpload>;
   set: (accountId: string, kind: BrandKind, src: string) => void;
   clear: (accountId: string, kind: BrandKind) => void;
+  avatars: Record<string, AvatarTile>;
+  setAvatar: (accountId: string, tile: AvatarTile | null) => void;
+  /**
+   * The name read off an uploaded full logo (Nov 23): the account takes it,
+   * and its initials avatar follows. Null puts the seeded name back.
+   */
+  names: Record<string, BrandName>;
+  setName: (accountId: string, name: BrandName | null) => void;
+}
+
+export interface BrandName {
+  name: string;
+  initials: string;
 }
 
 const BrandContext = React.createContext<BrandValue | null>(null);
@@ -38,6 +64,28 @@ export function useBrand(): BrandValue {
 
 export function BrandProvider({ children }: { children: React.ReactNode }) {
   const [uploads, setUploads] = React.useState<Record<string, BrandUpload>>({});
+  const [avatars, setAvatars] = React.useState<Record<string, AvatarTile>>({});
+  const [names, setNames] = React.useState<Record<string, BrandName>>({});
+  const setName = React.useCallback(
+    (accountId: string, name: BrandName | null) =>
+      setNames((all) => {
+        const next = { ...all };
+        if (name) next[accountId] = name;
+        else delete next[accountId];
+        return next;
+      }),
+    [],
+  );
+  const setAvatar = React.useCallback(
+    (accountId: string, tile: AvatarTile | null) =>
+      setAvatars((all) => {
+        const next = { ...all };
+        if (tile) next[accountId] = tile;
+        else delete next[accountId];
+        return next;
+      }),
+    [],
+  );
 
   const set = React.useCallback(
     (accountId: string, kind: BrandKind, src: string) =>
@@ -59,8 +107,8 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = React.useMemo<BrandValue>(
-    () => ({ uploads, set, clear }),
-    [uploads, set, clear],
+    () => ({ uploads, set, clear, avatars, setAvatar, names, setName }),
+    [uploads, set, clear, avatars, setAvatar, names, setName],
   );
 
   return <BrandContext value={value}>{children}</BrandContext>;
@@ -76,13 +124,25 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
 export function applyBrand(
   account: Account,
   uploads: Record<string, BrandUpload>,
+  avatars?: Record<string, AvatarTile>,
+  names?: Record<string, BrandName>,
 ): Account {
-  const up = uploads[account.id];
-  if (!up || (up.logoSrc === undefined && up.wordmarkSrc === undefined)) {
+  const up = uploads[account.id] ?? {};
+  const tile = avatars?.[account.id];
+  const named = names?.[account.id];
+  if (!tile && !named && (!up || (up.logoSrc === undefined && up.wordmarkSrc === undefined))) {
     return account;
   }
+  const logo = {
+    ...account.logo,
+    // The initials avatar's colour, under any square icon (which covers it).
+    ...(tile ? { from: tile.from, to: tile.to, brandTile: true } : {}),
+    ...(named ? { initials: named.initials } : {}),
+  };
   return {
     ...account,
+    ...(named ? { name: named.name } : {}),
+    ...(tile || named ? { logo } : {}),
     ...(up.logoSrc !== undefined ? { logoSrc: up.logoSrc } : {}),
     ...(up.wordmarkSrc !== undefined ? { wordmarkSrc: up.wordmarkSrc } : {}),
   };

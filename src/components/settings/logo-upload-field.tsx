@@ -156,8 +156,11 @@ export function BrandAssetRow({
   fallback,
   onPick,
   onRemove,
+  error,
 }: {
   label: string;
+  /** Shown under the spec when an upload is refused (Nov 23). */
+  error?: string;
   /** Where the asset is used. */
   hint: string;
   /** What to supply: ratio, size, weight. */
@@ -165,7 +168,7 @@ export function BrandAssetRow({
   aspect: "wide" | "square";
   src?: string;
   fallback?: AccountLogoSpec;
-  onPick: (dataUrl: string) => void;
+  onPick: (dataUrl: string, fileName?: string) => void;
   onRemove: () => void;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -174,7 +177,7 @@ export function BrandAssetRow({
   const read = (file: File | undefined) => {
     if (!file || !file.type.startsWith("image/")) return;
     const reader = new FileReader();
-    reader.onload = () => onPick(String(reader.result));
+    reader.onload = () => onPick(String(reader.result), file.name);
     reader.readAsDataURL(file);
   };
 
@@ -242,6 +245,11 @@ export function BrandAssetRow({
         </span>
         <p className="text-[13px] leading-[18px] text-pg-muted">{hint}</p>
         <p className="text-[13px] leading-[18px] text-pg-faint">{spec}</p>
+        {error ? (
+          <p role="alert" className="text-[13px] leading-[18px] text-[var(--hr-error-600,#d92d20)]">
+            {error}
+          </p>
+        ) : null}
       </div>
 
       {/*

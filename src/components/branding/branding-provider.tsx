@@ -63,6 +63,9 @@ export interface BrandingContextValue {
   /** Any change to the whole state, through the same draft-or-saved route. */
   writeState: (fn: (s: BrandingState) => BrandingState) => void;
 
+  /** Switchyard onboarding (Nov 20): logos + theme, for the agency owner. */
+  onboardingOpen: boolean;
+  setOnboardingOpen: (open: boolean) => void;
   /** Brand & theme modal (Nov 19). */
   themeModalOpen: boolean;
   setThemeModalOpen: (open: boolean) => void;
@@ -121,6 +124,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
   const openSettingsRef = React.useRef<(() => void) | null>(null);
   const openCompanyRef = React.useRef<((tab: string, anchorId?: string) => void) | null>(null);
   const [themeModalOpen, setThemeModalOpen] = React.useState(false);
+  const [onboardingOpen, setOnboardingOpen] = React.useState(false);
 
   // Writes go to the draft when one is open so the settings page's Save/Discard
   // covers them; otherwise they are instant.
@@ -172,6 +176,8 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
       writeState: (fn) => write(fn),
       themeModalOpen,
       setThemeModalOpen,
+      onboardingOpen,
+      setOnboardingOpen,
       openCompany: (tab, anchorId) => openCompanyRef.current?.(tab, anchorId),
       registerOpenCompany: (fn) => {
         openCompanyRef.current = fn;
@@ -187,7 +193,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
       proto,
       setProto: (patch) => setProtoState((p) => ({ ...p, ...patch })),
     };
-  }, [saved, draft, previewMode, panelOpen, themeModalOpen, proto, write]);
+  }, [saved, draft, previewMode, panelOpen, themeModalOpen, onboardingOpen, proto, write]);
 
   return <BrandingContext.Provider value={value}>{children}</BrandingContext.Provider>;
 }

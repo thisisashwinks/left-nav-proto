@@ -20,7 +20,7 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, Check, CheckCircle2, ChevronDown, Monitor, Moon, Sun, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, ChevronDown, Monitor, Moon, Sparkles, Sun, X } from "lucide-react";
 import { useBranding } from "@/components/branding/branding-provider";
 import { useModeFor } from "@/components/branding/branding-applier";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -58,6 +58,9 @@ import {
   type SurfaceChoice,
 } from "@/design/branding";
 import { cn } from "@/lib/utils";
+import { useBrand } from "@/components/accounts/brand-store";
+import { logoColors } from "@/lib/logo-colors";
+import { logoThemes } from "@/design/branding";
 
 export interface ThemeFieldProps {
   value: BrandingTheme;
@@ -286,6 +289,34 @@ function PresetDot({ preset, mode }: { preset: BrandingPreset; mode: Mode }) {
   );
 }
 
+/**
+ * The agency logo's colours, or [] while there is no logo (Nov 20). Full
+ * logo first, the square icon when that is all there is.
+ */
+export function useAgencyLogoColors(): string[] {
+  const { uploads } = useBrand();
+  const src = uploads.agency?.wordmarkSrc ?? uploads.agency?.logoSrc;
+  const [colors, setColors] = React.useState<{ src: string; list: string[] } | null>(null);
+  React.useEffect(() => {
+    if (!src) return;
+    let live = true;
+    logoColors(src).then((list) => {
+      if (live) setColors({ src, list });
+    });
+    return () => {
+      live = false;
+    };
+  }, [src]);
+  return src && colors?.src === src ? colors.list : NO_COLORS;
+}
+const NO_COLORS: string[] = [];
+
+/** "Suggested from your logo": themes built from the agency logo, or []. */
+export function useLogoThemeSuggestions(): BrandingPreset[] {
+  const colors = useAgencyLogoColors();
+  return React.useMemo(() => logoThemes(colors), [colors]);
+}
+
 /** Preset tiles (BRANDING_PRESETS): dot + name + check. Picking one keeps color mode, gradient, and font. */
 export function PresetGrid({
   value,
@@ -293,10 +324,13 @@ export function PresetGrid({
   disabled,
   columns = 3,
   rows = 2,
+  suggested = [],
 }: ThemeFieldProps & {
   columns?: number;
   /** Rows shown before "Show more" (Nov 19). The selected theme is always shown. */
   rows?: number;
+  /** Themes from the agency logo, in their own row above the rest (Nov 20). */
+  suggested?: readonly BrandingPreset[];
 }) {
   const mode = useModeFor(value);
   const limit = columns * rows;
@@ -305,15 +339,44 @@ export function PresetGrid({
   const [expanded, setExpanded] = React.useState(() => selectedIdx >= limit);
   const shown = expanded ? BRANDING_PRESETS : BRANDING_PRESETS.slice(0, limit);
   const hiddenCount = BRANDING_PRESETS.length - limit;
+  const grid = { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` };
   return (
     <div className="flex flex-col gap-[8px]">
+    {suggested.length ? (
+      <>
+        <div className="flex items-center gap-[6px] text-[13px] leading-[18px] font-medium text-pg-text">
+          <Sparkles size={14} aria-hidden="true" className="text-[var(--hr-primary-600)]" />
+          Suggested from your logo
+        </div>
+        <div role="radiogroup" aria-label="Suggested from your logo" className="grid gap-[8px]" style={grid}>
+          {suggested.map((p) => tile(p))}
+        </div>
+        <div className="mt-[4px] text-[13px] leading-[18px] font-medium text-pg-text">All themes</div>
+      </>
+    ) : null}
     <div
       role="radiogroup"
       aria-label="Themes"
       className="grid gap-[8px]"
       style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
     >
-      {shown.map((p) => {
+      {shown.map((p) => tile(p))}
+    </div>
+    {hiddenCount > 0 ? (
+      <button
+        type="button"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((e) => !e)}
+        className="motion-tap flex items-center gap-[4px] self-start text-[14px] leading-[20px] font-medium text-[var(--hr-primary-600)] hover:underline"
+      >
+        {expanded ? "Show less" : `Show ${hiddenCount} more`}
+        <ChevronDown size={14} aria-hidden="true" className={cn("transition-transform", expanded && "rotate-180")} />
+      </button>
+    ) : null}
+    </div>
+  );
+
+  function tile(p: BrandingPreset) {
         const selected = value.presetId === p.id;
         return (
           <button
@@ -344,21 +407,7 @@ export function PresetGrid({
             {selected ? <Check size={16} aria-hidden="true" className="shrink-0 text-pg-heading" /> : null}
           </button>
         );
-      })}
-    </div>
-    {hiddenCount > 0 ? (
-      <button
-        type="button"
-        aria-expanded={expanded}
-        onClick={() => setExpanded((e) => !e)}
-        className="motion-tap flex items-center gap-[4px] self-start text-[14px] leading-[20px] font-medium text-[var(--hr-primary-600)] hover:underline"
-      >
-        {expanded ? "Show less" : `Show ${hiddenCount} more`}
-        <ChevronDown size={14} aria-hidden="true" className={cn("transition-transform", expanded && "rotate-180")} />
-      </button>
-    ) : null}
-    </div>
-  );
+  }
 }
 
 /* ---------------------------------------------------------------------- */
@@ -1270,10 +1319,15 @@ export function ThemePicker({
 }: ThemeFieldProps & { columns?: number }) {
   const field = { value, onChange, disabled };
   const [tab, setTab] = React.useState<ThemeTab>(value.presetId ? "themes" : "custom");
+  const suggested = useLogoThemeSuggestions();
   return (
     <div className="flex flex-col gap-[12px]">
       <Tabs label="Theme" tabs={THEME_TABS} value={tab} onChange={setTab} />
-      {tab === "themes" ? <PresetGrid {...field} columns={columns} /> : <CustomThemeFields {...field} />}
+      {tab === "themes" ? (
+        <PresetGrid {...field} columns={columns} suggested={suggested} />
+      ) : (
+        <CustomThemeFields {...field} />
+      )}
     </div>
   );
 }

@@ -1,9 +1,10 @@
 "use client";
 
+import { brandInitials, logoName, trimLogo } from "@/lib/logo-trim";
 import * as React from "react";
 import { Info, Mail, Plus, Pencil, Trash2, X } from "lucide-react";
 import type { Account } from "@/components/accounts/accounts-data";
-import { accounts as ALL_ACCOUNTS } from "@/components/accounts/accounts-data";
+import { accounts as ALL_ACCOUNTS, agency as SEED_AGENCY } from "@/components/accounts/accounts-data";
 import { useTheme } from "@/components/theme/theme-provider";
 import { useBrand } from "@/components/accounts/brand-store";
 import { useLabs } from "./labs-state";
@@ -97,6 +98,62 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
   const set = (k: keyof typeof initial, v: string) =>
     setForm((f) => ({ ...f, [k]: v }));
 
+  /*
+   * The two logos are part of the Brand card's draft (Nov 23): picking one
+   * previews here, and only Save changes puts it in the sidebar; Cancel
+   * drops it. `undefined` = untouched, `null` = removed.
+   *
+   * A full logo is trimmed of empty margin on the way in, and the name it
+   * carries fills Brand name — which, saved, renames the agency and its
+   * initials avatar.
+   */
+  const [logoDraft, setLogoDraft] = React.useState<{ wordmark?: string | null; icon?: string | null }>({});
+  const [iconError, setIconError] = React.useState<string | null>(null);
+  const shownWordmark = logoDraft.wordmark === undefined ? agency.wordmarkSrc : logoDraft.wordmark ?? undefined;
+  const shownIcon = logoDraft.icon === undefined ? agency.logoSrc : logoDraft.icon ?? undefined;
+  const logosDirty = logoDraft.wordmark !== undefined || logoDraft.icon !== undefined;
+
+  const pickWordmark = async (src: string, fileName?: string) => {
+    const [trimmed, name] = await Promise.all([trimLogo(src), logoName(src, fileName)]);
+    setLogoDraft((d) => ({ ...d, wordmark: trimmed }));
+    if (name) set("brandName", name);
+  };
+  const pickIcon = (src: string) => {
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth, h = img.naturalHeight;
+      if (Math.abs(w - h) > 2) return setIconError("Use a square image, like 512 × 512 px.");
+      if (w < 128) return setIconError("Use an image at least 128 × 128 px.");
+      setIconError(null);
+      setLogoDraft((d) => ({ ...d, icon: src }));
+    };
+    img.src = src;
+  };
+
+  /** What Save does for the Brand card: logos to the store, name to the agency. */
+  const commitBrand = () => {
+    if (logoDraft.wordmark !== undefined) {
+      if (logoDraft.wordmark) brand.set(agency.id, "wordmarkSrc", logoDraft.wordmark);
+      else brand.clear(agency.id, "wordmarkSrc");
+    }
+    if (logoDraft.icon !== undefined) {
+      if (logoDraft.icon) brand.set(agency.id, "logoSrc", logoDraft.icon);
+      else brand.clear(agency.id, "logoSrc");
+    }
+    const name = form.brandName.trim();
+    if (name && name !== SEED_AGENCY.name) {
+      brand.setName(agency.id, { name, initials: brandInitials(name.split(/\s+/)[0]!) });
+    } else if (name === SEED_AGENCY.name) {
+      brand.setName(agency.id, null);
+    }
+    setLogoDraft({});
+    setIconError(null);
+  };
+  const cancelBrand = () => {
+    setLogoDraft({});
+    setIconError(null);
+  };
+
   const [oldCss, setOldCss] = React.useState(code.css);
   const [oldJs, setOldJs] = React.useState(code.js);
   const [theme, setTheme] = React.useState(navTheme);
@@ -119,6 +176,8 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
    * checkable; "2 sections" is not.
    */
   const pending = [
+    logoDraft.wordmark !== undefined,
+    logoDraft.icon !== undefined,
     form.brandName !== saved.brandName,
     form.brandEmail !== saved.brandEmail,
     form.brandPhone !== saved.brandPhone,
@@ -131,8 +190,14 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
    * commits itself, so counting a dirty stylesheet here would offer two ways
    * to save one thing and disagree about whether it was saved.
    */
-  const revert = () => setForm(saved);
-  const commit = () => setSaved(form);
+  const revert = () => {
+    setForm(saved);
+    cancelBrand();
+  };
+  const commit = () => {
+    commitBrand();
+    setSaved(form);
+  };
 
   /* Per-card Cancel and Save, for the cards layout: each owns its keys. */
   const sectionSave = (keys: (keyof typeof initial)[]) => ({
@@ -142,7 +207,18 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
     onSave: () =>
       setSaved((sv) => ({ ...sv, ...Object.fromEntries(keys.map((k) => [k, form[k]])) })),
   });
-  const brandSave = sectionSave(["brandName", "brandEmail", "brandPhone"]);
+  const brandKeys = sectionSave(["brandName", "brandEmail", "brandPhone"]);
+  const brandSave = {
+    dirty: brandKeys.dirty || logosDirty,
+    onCancel: () => {
+      brandKeys.onCancel();
+      cancelBrand();
+    },
+    onSave: () => {
+      commitBrand();
+      brandKeys.onSave();
+    },
+  };
   const policySave = sectionSave(["privacy", "terms"]);
 
   return (
@@ -280,9 +356,9 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
             hint="Your primary logo, displayed in emails and the classic sidebar."
             spec="Ideal: 350 × 180 px · Max 2.5 MB"
             aspect="wide"
-            {...(agency.wordmarkSrc ? { src: agency.wordmarkSrc } : {})}
-            onPick={(src) => brand.set(agency.id, "wordmarkSrc", src)}
-            onRemove={() => brand.clear(agency.id, "wordmarkSrc")}
+            {...(shownWordmark ? { src: shownWordmark } : {})}
+            onPick={(src, fileName) => void pickWordmark(src, fileName)}
+            onRemove={() => setLogoDraft((d) => ({ ...d, wordmark: null }))}
           />
 
           <BrandAssetRow
@@ -290,10 +366,17 @@ export function WhiteLabelIdealTab({ agency }: { agency: Account }) {
             hint="A compact version of your logo, displayed in the new sidebar."
             spec="Square · Min 128 × 128 px · Max 2.5 MB"
             aspect="square"
-            {...(agency.logoSrc ? { src: agency.logoSrc } : {})}
-            fallback={agency.logo}
-            onPick={(src) => brand.set(agency.id, "logoSrc", src)}
-            onRemove={() => brand.clear(agency.id, "logoSrc")}
+            {...(shownIcon ? { src: shownIcon } : {})}
+            fallback={{
+              ...agency.logo,
+              initials: brandInitials((form.brandName || agency.name).split(/\s+/)[0]!),
+            }}
+            {...(iconError ? { error: iconError } : {})}
+            onPick={(src) => pickIcon(src)}
+            onRemove={() => {
+              setIconError(null);
+              setLogoDraft((d) => ({ ...d, icon: null }));
+            }}
           />
         </div>
 

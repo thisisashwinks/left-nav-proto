@@ -21,6 +21,8 @@ export function Section({
   onSave,
   dirty = false,
   onCancel,
+  footerStart,
+  saveLabel = "Save changes",
 }: {
   title: string;
   sub: string;
@@ -38,6 +40,10 @@ export function Section({
   onSave?: () => void;
   dirty?: boolean;
   onCancel?: () => void;
+  /** Left end of the footer — e.g. "Reset to default" (Nov 20). */
+  footerStart?: React.ReactNode;
+  /** The primary button's label. Default "Save changes". */
+  saveLabel?: string;
 }) {
   return (
     <section className="flex flex-col gap-[12px] border-t border-pg-border pt-[20px] md:flex-row md:gap-[24px]">
@@ -59,6 +65,7 @@ export function Section({
         <div className="p-[16px]">{children}</div>
         {onSave ? (
           <footer className="flex justify-end gap-[12px] border-t border-pg-border px-[16px] py-[12px]">
+            {footerStart ? <div className="mr-auto flex items-center">{footerStart}</div> : null}
             <button
               type="button"
               onClick={onCancel}
@@ -77,7 +84,7 @@ export function Section({
                   : "cursor-not-allowed bg-brand opacity-50",
               )}
             >
-              Save changes
+              {saveLabel}
             </button>
           </footer>
         ) : null}

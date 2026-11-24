@@ -124,6 +124,38 @@ export const NAV_TOUR_RESTART_FLOWS: readonly {
   { id: "editing", label: "Editing", hint: "Rename, reorder, and hide items" },
 ];
 
+/*
+ * Which flows this viewer gets (Nov 23). Set by NavTours from the shell:
+ *
+ *   sub-account user, one account       Get started
+ *   sub-account user, several accounts  Get started, Sub-accounts
+ *   agency user in a sub-account, $97   Get started, Sub-accounts
+ *   agency user, $297 / $497            every flow
+ *
+ * A module store so the restart menus (help panel, tour menu) list only
+ * these without threading props through the header.
+ */
+const ALL_TOUR_FLOWS: readonly TourFlowId[] = ["getStarted", "subAccounts", "customize", "editing"];
+let allowedTourFlows: readonly TourFlowId[] = ALL_TOUR_FLOWS;
+const allowedListeners = new Set<() => void>();
+function setAllowedTourFlows(next: readonly TourFlowId[]) {
+  if (next.join() === allowedTourFlows.join()) return;
+  allowedTourFlows = next;
+  allowedListeners.forEach((l) => l());
+}
+/** NAV_TOUR_RESTART_FLOWS, less the flows this viewer doesn't get. */
+export function useRestartFlows(): typeof NAV_TOUR_RESTART_FLOWS {
+  const allowed = React.useSyncExternalStore(
+    (l) => {
+      allowedListeners.add(l);
+      return () => allowedListeners.delete(l);
+    },
+    () => allowedTourFlows,
+    () => ALL_TOUR_FLOWS,
+  );
+  return React.useMemo(() => NAV_TOUR_RESTART_FLOWS.filter((f) => allowed.includes(f.id)), [allowed]);
+}
+
 /** Starts `flow` from its first step. See NAV_TOUR_START_EVENT. */
 export function startNavTour(flow: RestartableFlowId) {
   window.dispatchEvent(new CustomEvent(NAV_TOUR_START_EVENT, { detail: { flow } }));
@@ -2501,7 +2533,10 @@ export function NavTours({
   onFirstRunDone,
   onHoldRail,
   navWidth,
+  flows: allowed = ALL_TOUR_FLOWS,
 }: {
+  /** The flows this viewer gets (Nov 23); the rest never trigger or start. */
+  flows?: readonly TourFlowId[];
   enabled: boolean;
   /** Get started is over — the Edit pill can go back to hiding. */
   onFirstRunDone: () => void;
@@ -2536,9 +2571,19 @@ export function NavTours({
    */
   const pathname = usePathname();
   const toursClosed = !!pathname && ROUTES_TOURS_CLOSED.has(normaliseRoute(pathname));
-  const [state, dispatch] = React.useReducer(tours, toursClosed, (closed) =>
+  const [state, rawDispatch] = React.useReducer(tours, toursClosed, (closed) =>
     closed ? { ...NO_TOURS, seen: Object.keys(FLOWS) as TourFlowId[] } : NO_TOURS,
   );
+  // Flows this viewer doesn't get are dropped at the door, however asked for.
+  const allowedRef = React.useRef(allowed);
+  React.useEffect(() => {
+    allowedRef.current = allowed;
+    setAllowedTourFlows(allowed);
+  }, [allowed]);
+  const dispatch = React.useCallback((a: ToursAction) => {
+    if ("flow" in a && a.type !== "close" && !allowedRef.current.includes(a.flow)) return;
+    rawDispatch(a);
+  }, []);
   React.useEffect(() => {
     if (toursClosed) markClosed();
   }, [toursClosed]);

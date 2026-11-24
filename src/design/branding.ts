@@ -398,6 +398,22 @@ export const MORE_OPTIONS_LABELS: Record<MoreOptionsLabel, string> = {
   "white-label": "White label settings",
 };
 
+export type AvatarStyle = "solid" | "gradient";
+export const AVATAR_STYLE_LABELS: Record<AvatarStyle, string> = {
+  solid: "Solid color",
+  gradient: "Gradient",
+};
+export type OnboardingStyle = "stepper" | "split";
+export const ONBOARDING_STYLE_LABELS: Record<OnboardingStyle, string> = {
+  stepper: "Stepper",
+  split: "Split preview",
+};
+export type PriorLogos = "full" | "none";
+export const PRIOR_LOGOS_LABELS: Record<PriorLogos, string> = {
+  full: "Full logo only",
+  none: "No logos",
+};
+
 export interface BrandingProto {
   editEntry: EditEntry;
   speedDialStyle: SpeedDialStyle;
@@ -405,6 +421,23 @@ export interface BrandingProto {
   editLabel: EditLabel;
   customizeTarget: CustomizeTarget;
   moreOptions: MoreOptionsLabel;
+  /**
+   * White label section / Branding tab: "Save and apply" asks first, since
+   * the theme reaches every sub-account (Ashwin, Nov 20). On by default.
+   */
+  applyConfirm: boolean;
+  /**
+   * Switchyard onboarding (Nov 20): when the agency owner turns Switchyard on
+   * in Agency › Labs, a setup modal walks them through logos and theme.
+   * Off by default.
+   */
+  onboarding: boolean;
+  /** Onboarding's look (Nov 23): step list + preview, or card + big preview. */
+  onboardingStyle: OnboardingStyle;
+  /** No square icon: initials on a solid colour from the logo, or a gradient. */
+  avatarStyle: AvatarStyle;
+  /** What the agency had uploaded before Switchyard — sets up the demo. */
+  priorLogos: PriorLogos;
   modeScope: BrandingReach;
   fontScope: BrandingReach;
   saveTarget: BrandingSaveTarget;
@@ -419,11 +452,16 @@ export interface BrandingProto {
 
 export const DEFAULT_BRANDING_PROTO: BrandingProto = {
   editEntry: "speed-dial",
-  speedDialStyle: "buttons",
+  speedDialStyle: "menu",
   speedDialDir: "auto",
   editLabel: "customize",
-  customizeTarget: "modal",
+  customizeTarget: "white-label-section",
   moreOptions: "more-options",
+  applyConfirm: true,
+  onboarding: false,
+  onboardingStyle: "stepper",
+  avatarStyle: "solid",
+  priorLogos: "full",
   modeScope: "chrome",
   fontScope: "chrome",
   saveTarget: "agency",
@@ -439,7 +477,7 @@ export const DEFAULT_BRANDING_PROTO: BrandingProto = {
 
 /** Space-separated, for the tuning panel's search. Every branding control carries it. */
 export const BRANDING_KEYWORDS =
-  "branding brand theme theming colors colours palette customize customise logo favicon tab title sidebar rail top bar chrome white label hex preset font typeface gradient color mode appearance dark light system layout save agency edit nav button speed dial fab floating action modal white label customize";
+  "branding brand theme theming colors colours palette customize customise logo favicon tab title sidebar rail top bar chrome white label hex preset font typeface gradient color mode appearance dark light system layout save agency edit nav button speed dial fab floating action modal white label customize onboarding setup coachmarks";
 
 /* ---------------------------------------------------------------------- */
 /* Colour engine                                                           */
@@ -687,21 +725,35 @@ export function deriveChrome(
 }
 
 /**
- * Slack-style window gradient (Nov 19): a clear diagonal sweep from the
- * sidebar colour to a sister colour — hue turned ~40°, more saturated, and
- * lightness moved only within a band where the picked ink still reads at the
- * far end (dark: up to L34; light: down to L72). A near-grey sidebar borrows the accent's hue, or it would sweep
- * from grey to grey. The first cut mixed 30% accent in and read as nothing.
+ * Slack-style window gradient (Nov 19, redone Nov 20).
+ *
+ * In Slack the whole window frame — workspace rail, sidebar, top bar, and the
+ * gutters around the message pane — sits on ONE diagonal sweep from the
+ * theme's colour to a sister colour. Same here: the CSS paints this on the
+ * shell plane and on every opaque chrome layer with `fixed` attachment, so
+ * each shows its slice of the same sheet.
+ *
+ * The sister colour: hue turned ~40° (toward the accent's family on a grey
+ * sidebar, or it would sweep grey to grey), more saturated, lightness moved
+ * only inside the band where the nav's ink still reads (dark: up to L38;
+ * light: a pastel no darker than L84). A white or near-white sidebar starts
+ * from a light tint rather than white — white-to-near-white was the first
+ * cut's "it doesn't do anything".
  */
 export function windowGradient(bg: string, accent: string): string {
   const [h0, s0, l] = toHsl(bg);
-  const grey = s0 < 10;
-  const h = ((grey ? toHsl(accent)[0] : h0) + 40) % 360;
-  const s = Math.min(85, Math.max(grey ? 35 : s0 + 15, 30));
-  const dark = !isLightSurface(bg);
-  const endL = dark ? Math.min(l + 12, 34) : Math.max(l - 10, 72);
-  const mid = fromHsl(((grey ? toHsl(accent)[0] : h0) + 15) % 360, Math.min(85, (s0 + s) / 2), (l + endL) / 2);
-  return `linear-gradient(150deg, ${bg} 0%, ${mid} 55%, ${fromHsl(h, s, endL)} 100%)`;
+  const grey = s0 < 12;
+  const base = grey ? toHsl(accent)[0] : h0;
+  const turn = (d: number) => (base + d + 360) % 360;
+  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+  if (!isLightSurface(bg)) {
+    const s = clamp(s0 + 20, 40, 80);
+    const endL = clamp(l + 14, 18, 38);
+    return `linear-gradient(155deg, ${bg} 0%, ${fromHsl(turn(18), (s0 + s) / 2, (l + endL) / 2)} 50%, ${fromHsl(turn(40), s, endL)} 100%)`;
+  }
+  const s = clamp(Math.max(s0, 55) + 10, 55, 80);
+  const start = grey || l > 95 ? fromHsl(base, 70, 95) : bg;
+  return `linear-gradient(155deg, ${start} 0%, ${fromHsl(turn(20), s, Math.min(l, 91))} 50%, ${fromHsl(turn(40), s, Math.min(l - 4, 85))} 100%)`;
 }
 
 /** "system" → the device's answer. */
@@ -843,4 +895,82 @@ function stripEmpty(a: BrandAssets): BrandAssets {
   const out: BrandAssets = {};
   for (const [k, v] of Object.entries(a)) if (v) (out as Record<string, string>)[k] = v;
   return out;
+}
+
+/* ---------------------------------------------------------------------- */
+/* From the logo (Nov 20)                                                  */
+/* ---------------------------------------------------------------------- */
+
+/**
+ * Themes suggested from a logo's colours (see lib/logo-colors). The first
+ * colour leads; a second, when the logo has one, gives a two-tone option.
+ *
+ *   Light   a pale wash of the logo colour, its deep shade for selection
+ *   Bold    the sidebar IS the logo colour, deepened until white reads on it
+ *   Duo     the second colour's deep shade, the first colour for selection
+ *
+ * Shaped as presets so the picker draws and applies them like any other.
+ */
+export function logoThemes(colors: readonly string[]): BrandingPreset[] {
+  const [first, second] = colors;
+  if (!first || !isHex(first)) return [];
+  const [h, s0] = toHsl(first);
+  const s = Math.min(Math.max(s0, 35), 80);
+  const deep = (hh: number, ss: number, l: number) => fromHsl(hh, Math.min(Math.max(ss, 30), 75), l);
+  const out: BrandingPreset[] = [
+    {
+      id: "logo-light",
+      label: "Logo · Light",
+      brand: first,
+      accent: deep(h, s, 38),
+      chrome: "brand",
+      fine: presetFine(
+        [fromHsl(h, Math.min(s, 65), 94), deep(h, s, 38), ""],
+        [fromHsl(h, Math.min(s, 40), 12), fromHsl(h, s, 72), ""],
+      ),
+    },
+    {
+      id: "logo-bold",
+      label: "Logo · Bold",
+      brand: first,
+      accent: fromHsl(h, s, 78),
+      chrome: "brand",
+      fine: presetFine(
+        [deep(h, s, 24), fromHsl(h, s, 78), ""],
+        [deep(h, s, 12), fromHsl(h, s, 72), ""],
+      ),
+    },
+  ];
+  if (second && isHex(second)) {
+    const [h2, s2] = toHsl(second);
+    out.push({
+      id: "logo-duo",
+      label: "Logo · Duo",
+      brand: second,
+      accent: fromHsl(h, s, 70),
+      chrome: "brand",
+      fine: presetFine(
+        [deep(h2, s2, 22), fromHsl(h, s, 70), ""],
+        [deep(h2, s2, 11), fromHsl(h, s, 70), ""],
+      ),
+    });
+  }
+  return out;
+}
+
+/** The initials avatar's tile from one colour: flat, or a short diagonal. */
+export function avatarTile(color: string, style: AvatarStyle): { from: string; to: string } {
+  if (style === "solid") return { from: color, to: color };
+  const [h, s, l] = toHsl(color);
+  return { from: color, to: fromHsl((h + 30) % 360, Math.min(s + 10, 90), Math.min(l + 14, 70)) };
+}
+
+/**
+ * A logo colour made fit for white initials: dark enough for 3:1, so a pale
+ * yellow logo still gives a legible avatar.
+ */
+export function avatarColorFrom(color: string): string {
+  let [h, s, l] = toHsl(color);
+  while (l > 10 && contrast(WHITE, fromHsl(h, s, l)) < 3) l -= 4;
+  return fromHsl(h, s, l);
 }

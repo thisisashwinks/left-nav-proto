@@ -6446,10 +6446,13 @@ function RailRow({
                 reached this call, and then lost to a monogram. `coverMark` is
                 the agency-only flag already to hand. Ashwin, Oct 14.
               */
-              {...(railAvatars === "marks" || coverMark
+              {...(railAvatars === "marks" || coverMark ||
+              // An agency that uploaded its square icon shows it (Nov 23).
+              (account.id === "agency" && account.logoSrc)
                 ? {}
                 : {
-                    initials: initialsFor(account.name),
+                    // A name read off the logo carries its own initials (Nov 23).
+                    initials: account.logo.initials ?? initialsFor(account.name),
                     // Grey under `initials`, the account's own hue under
                     // `tinted`. See RAIL_AVATARS.
                     tint: railAvatars === "tinted",

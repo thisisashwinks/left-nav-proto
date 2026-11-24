@@ -402,6 +402,9 @@ export function TemplateToast({
     <div
       role="status"
       data-nav-theme="dark"
+      // Always the dark toast, whatever the agency theme paints the nav
+      // (Ashwin, Nov 20): branding skips it.
+      data-brand-skip=""
       style={style}
       className={cn(
         "motion-slot-in fixed z-[82] flex h-[38px] max-w-[calc(100vw-32px)] items-center gap-[12px] rounded-[10px] bg-nav px-[14px] shadow-[0_8px_24px_0_rgba(15,23,42,0.28)]",

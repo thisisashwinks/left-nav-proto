@@ -350,6 +350,15 @@
     calc(-1 * var(--shell-canvas-gap)) calc(-1 * var(--shell-canvas-gap)) 0 0 var(--brd-topbar-bg);
 }
 
+/* The same gap runs down the canvas's left edge (and round its other sides)
+   below the bar: the page column shows the shell plane through it, a grey
+   strip beside a branded sidebar (Nov 23). Paint the column itself, so the
+   canvas sits in the frame's colour all the way round. The window gradient
+   overrides this with its own sheet. */
+:root[data-branding="on"] [data-page-column]:not([data-shell-joined]) {
+  background-color: var(--brd-topbar-bg);
+}
+
 /* ─── Tooltips ─────────────────────────────────────────────────────────── */
 
 /* RailTooltip stamps the surface its trigger sits on (rail-tooltip.tsx); its
@@ -367,14 +376,33 @@
   color: var(--brd-topbar-tooltip-fg) !important;
 }
 
-/* ─── Window gradient (Nov 19) ─────────────────────────────────────────── */
+/* ─── Window gradient (Nov 19, redone Nov 20) ───────────────────────────── */
 
-/* One gradient pinned to the viewport (`fixed`), so the rail, sidebar, and
-   top bar each show their slice of the same sheet and read as one frame. */
+/* Slack's window gradient: ONE sheet behind the whole frame — the shell
+   plane (so the gutters around the canvas card carry it too), the rail, the
+   sidebar, the top bar, and the sidebar's own opaque layers (sticky foot).
+   Each paints the same gradient pinned to the viewport (`fixed`), so every
+   layer shows its slice and the frame reads as one surface. The canvas card
+   keeps its own ground on top. */
 :root[data-branding="on"][data-branding-gradient="on"]
-  :is([data-nav-column], [data-account-rail], [data-page-column] > [data-header-theme]) {
+  :is(
+    [data-shell-plane],
+    [data-page-column]:not([data-shell-joined]),
+    [data-nav-column],
+    [data-account-rail],
+    [data-page-column] > [data-header-theme],
+    [data-nav-column] .nav-sticky-foot,
+    :is([data-account-rail], [data-nav-column]) .sticky[class*="bg-"],
+    [data-account-rail] [class*="bg-[var(--nav-rail-bg)]"]
+  ) {
+  background-color: transparent !important;
   background-image: var(--brd-gradient) !important;
   background-attachment: fixed !important;
+}
+/* The plane itself carries the gradient now, so the solid gap fill between
+   sidebar and top bar would cut a flat band through it. */
+:root[data-branding="on"][data-branding-gradient="on"] [data-page-column]:not([data-shell-joined]) > [data-header-theme] {
+  box-shadow: none !important;
 }
 /* Inside the joined card the bar paints its own ground over the row; let the
    row's gradient through. Portalled header menus are not under the column,

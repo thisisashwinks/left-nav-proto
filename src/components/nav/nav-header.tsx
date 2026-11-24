@@ -9,7 +9,7 @@ import { COLLAPSE_LOCKED_HINT } from "./collapse-toggle";
 import { AGENCY_WORDMARK_SRC } from "@/design/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { cn } from "@/lib/utils";
-import { BrandMark } from "./brand-mark";
+import { BrandMark, Wordmark } from "./brand-mark";
 import { WorkspaceTrigger } from "./workspace-trigger";
 
 interface NavHeaderProps {
@@ -457,11 +457,7 @@ export function NavHeader({
                       suits a login screen, not a nav row, and an agency that
                       follows it literally will not like the result.
                     */}
-                    <img
-                      src={wordmark}
-                      alt={account.name}
-                      className="h-[22px] w-auto max-w-[168px] object-contain object-left"
-                    />
+                    <Wordmark src={wordmark} alt={account.name} />
                   </button>
                 ) : (
                 <>

@@ -81,6 +81,8 @@ import { BrandingPage, BRANDING_PLACE_ID } from "@/components/branding/branding-
 import { useBranding } from "@/components/branding/branding-provider";
 import { CustomizeThemeHost } from "@/components/branding/customize-panel";
 import { requestCompanyTab } from "@/components/branding/branding-entry";
+import { SwitchToAgencyPrompt } from "@/components/branding/switch-to-agency-prompt";
+import { SwitchyardOnboardingHost } from "@/components/branding/switchyard-onboarding";
 import { guardNavigation } from "./navigation-guard";
 import { AgencyDashboardPage } from "@/components/settings/agency-dashboard-page";
 import { LabsPage } from "@/components/settings/labs-page";
@@ -207,7 +209,9 @@ import {
   NAV_TOUR_REPLAY_EVENT,
   startNavTour,
   type RestartableFlowId,
+  type TourFlowId,
 } from "@/components/nav/nav-tour";
+import { useNavProfiles } from "@/components/nav/nav-profiles";
 import { LEARN_FLYOUT_ID, LEARN_ROW_PREFIX, learnFlyout } from "@/components/flyout/learn-flyout";
 import {
   FeaturedProvider,
@@ -957,6 +961,7 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
   const [createDialog, setCreateDialog] = React.useState<CreateDialog | null>(null);
 
   const agencyScope = accounts.scope === "agency";
+  const { onboardingOpen } = useBranding();
   // What the nav header shows: the agency identity at agency scope, the
   // current sub-account otherwise. One derivation for both nav faces.
   /*
@@ -1541,6 +1546,24 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    * same thing — a member never reaches agency scope, only its siblings.
    */
   const canSwitch = !plainUser || memberOfMany;
+  const navProfiles = useNavProfiles();
+  /*
+   * Which coachmark flows this viewer gets (Nov 23). Sub-account users: Get
+   * started, plus Sub-accounts when the rail is theirs (several accounts).
+   * Agency users in a sub-account: Get started and Sub-accounts on $97;
+   * everything on $297 and $497.
+   */
+  const tourFlows = React.useMemo<readonly TourFlowId[]>(
+    () =>
+      layout.role === "agency"
+        ? navProfiles.agencyPlan === "starter"
+          ? ["getStarted", "subAccounts"]
+          : ["getStarted", "subAccounts", "customize", "editing"]
+        : memberOfMany
+          ? ["getStarted", "subAccounts"]
+          : ["getStarted"],
+    [layout.role, navProfiles.agencyPlan, memberOfMany],
+  );
   /*
    * Production's nav, in place of the proposal's.
    *
@@ -3017,6 +3040,8 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
    * agency scope, otherwise park the id and go up a level.
    */
   const { registerOpenSettings } = useBranding();
+  /** The held agency move while "Switch to agency?" is up. */
+  const [agencySwitchAsk, setAgencySwitchAsk] = React.useState<(() => void) | null>(null);
   const openBrandingRef = React.useRef<() => void>(() => {});
   React.useEffect(() => {
     openBrandingRef.current = () => {
@@ -3025,8 +3050,11 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
         setSelectedId(BRANDING_PLACE_ID);
         return;
       }
-      pendingPlace.current = BRANDING_PLACE_ID;
-      accounts.switchToAgency();
+      // From a sub-account, ask before switching scope (Ashwin, Nov 20).
+      setAgencySwitchAsk(() => () => {
+        pendingPlace.current = BRANDING_PLACE_ID;
+        accounts.switchToAgency();
+      });
     };
   });
   React.useEffect(() => {
@@ -3043,14 +3071,18 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
   const openCompanyRef = React.useRef<(tab: string, anchorId?: string) => void>(() => {});
   React.useEffect(() => {
     openCompanyRef.current = (tab, anchorId) => {
-      requestCompanyTab(tab, anchorId);
       if (accounts.scope === "agency") {
+        requestCompanyTab(tab, anchorId);
         setManageAccountId(null);
         setSelectedId("agency-company");
         return;
       }
-      pendingPlace.current = "agency-company";
-      accounts.switchToAgency();
+      // From a sub-account, ask before switching scope (Ashwin, Nov 20).
+      setAgencySwitchAsk(() => () => {
+        requestCompanyTab(tab, anchorId);
+        pendingPlace.current = "agency-company";
+        accounts.switchToAgency();
+      });
     };
   });
   React.useEffect(() => {
@@ -3555,6 +3587,8 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
         instead of one, and through builders too. See ImpersonationBanner.
       */}
       <ImpersonationBanner />
+      {/* Switchyard onboarding (Nov 20): opens when Labs turns Switchyard on. */}
+      <SwitchyardOnboardingHost />
       {/* Customize theme panel (B) + edit-mode palette (C); both portal out. */}
       <CustomizeThemeHost
         accountId={accounts.scope === "agency" ? null : accounts.current.id}
@@ -5163,7 +5197,9 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
         Mounted at both scopes so what has been seen survives the trip.
       */}
       <NavTours
-        enabled={!agencyScope}
+        // Held while onboarding is up: setup first, then the coachmarks.
+        enabled={!agencyScope && !onboardingOpen}
+        flows={tourFlows}
         onFirstRunDone={() => setIntroDismissed(true)}
         onHoldRail={setTourHoldsRail}
         navWidth={leftOffset}
@@ -5183,6 +5219,16 @@ function AppShellInner({ children }: { children?: React.ReactNode }) {
         offer on. Portalled from inside itself, so where it sits in this tree
         buys nothing but a place to keep its state.
       */}
+      {agencySwitchAsk ? (
+        <SwitchToAgencyPrompt
+          onCancel={() => setAgencySwitchAsk(null)}
+          onConfirm={() => {
+            const go = agencySwitchAsk;
+            setAgencySwitchAsk(null);
+            go();
+          }}
+        />
+      ) : null}
       {appModal ? (
         <GetAppModal kind={appModal} onClose={() => setAppModal(null)} />
       ) : null}

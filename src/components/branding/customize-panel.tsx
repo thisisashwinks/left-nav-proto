@@ -36,6 +36,8 @@ import {
   ThemePicker,
 } from "@/components/branding/branding-controls";
 import { Section as PageSection } from "@/components/settings/white-label-parts";
+import { Modal } from "@/components/page/modal";
+import { accounts as ALL_ACCOUNTS } from "@/components/accounts/accounts-data";
 import {
   setEditPaletteAnchor,
   useBrandingAccess,
@@ -65,15 +67,15 @@ const PANEL_WIDTH = 320;
 /** Wide enough for 3 theme columns, so it stays short (Nov 19). */
 const PALETTE_WIDTH = 600;
 /** Wide and short (Ashwin, Nov 19): 4 theme columns, height capped. */
-const MODAL_WIDTH = 760;
-const MODAL_MAX_H = 720;
+export const MODAL_WIDTH = 760;
+export const MODAL_MAX_H = 720;
 
 /**
  * The coachmark card's edge and elevation (nav-tour.tsx), so the modal reads
  * off the canvas the way the tour does without a scrim (Ashwin, Nov 19).
  * Follows the same prototype controls (navTourBorder / navTourShadow).
  */
-function useCoachmarkFrame(dark: boolean): { edge: string; shadow: string } {
+export function useCoachmarkFrame(dark: boolean): { edge: string; shadow: string } {
   const { navTourBorder, navTourShadow } = useTheme();
   const edge =
     navTourBorder === "stronger"
@@ -159,10 +161,10 @@ export function useThemeDoor(scope: BrandingScope) {
   const layout = linked && linked.id !== DEFAULT_TEMPLATE_ID && !linked.immutable ? linked : null;
 
   /** Keep what is on screen. */
-  const save = () => {
+  const save = (message?: string) => {
     setTouched(false);
     templates.notify(
-      agencyWide ? "Theme saved for your agency and all sub-accounts." : "Theme saved.",
+      message ?? (agencyWide ? "Theme saved for your agency and all sub-accounts." : "Theme saved."),
     );
   };
 
@@ -195,11 +197,11 @@ export function useThemeDoor(scope: BrandingScope) {
 /* Small pieces                                                            */
 /* ---------------------------------------------------------------------- */
 
-function usePageTheme(): "light" | "dark" {
+export function usePageTheme(): "light" | "dark" {
   return useTheme().effective.appTheme === "dark" ? "dark" : "light";
 }
 
-function Btn({
+export function Btn({
   tone = "secondary",
   children,
   className,
@@ -396,7 +398,7 @@ function MoreOptionsLink({ onBefore, inline }: { onBefore: () => void; inline?: 
 }
 
 /** Esc = Cancel, for the doors that float over the app. */
-function useEscape(fn: () => void) {
+export function useEscape(fn: () => void) {
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !e.defaultPrevented) fn();
@@ -555,11 +557,18 @@ export function BrandThemeModal({ scope, onClose }: { scope: BrandingScope; onCl
 /* ---------------------------------------------------------------------- */
 
 /**
- * The theme on the Company page (Nov 19): a section under White label, or
- * the whole of the Branding tab. Built from the page's own parts, not the
- * modal's — White label's rows (label and description on the left, a card on
- * the right, a rule between rows), its 16px semibold heading, its button
- * styles — so it reads as part of the page (Ashwin, Nov 19).
+ * The theme on the Company page: a section under White label, or the whole
+ * of the Branding tab.
+ *
+ * Drawn the way the page draws everything else (Ashwin, Nov 20): a 16px
+ * heading like "White label", then ONE row — label and description on the
+ * left, one card on the right — whose parts sit apart on hairlines, like the
+ * Brand card's, and whose footer carries the actions: Reset to default on the
+ * left, Cancel and "Save and apply" on the right.
+ *
+ * "Save and apply" asks first (proto `applyConfirm`, on by default): the
+ * theme reaches every sub-account, so that is said once more before it does,
+ * and a toast confirms it landed.
  *
  * Leaving the page with unsaved edits puts back what was there.
  */
@@ -570,6 +579,8 @@ export function BrandingThemeSection({ asTab = false }: { asTab?: boolean }) {
   const door = useThemeDoor(scope);
   const disabled = !canEdit;
   const field = { value: door.value, onChange: door.write, disabled };
+  const agencyWide = proto.saveTarget === "agency";
+  const [confirming, setConfirming] = React.useState(false);
 
   const latest = React.useRef(door);
   React.useEffect(() => {
@@ -587,70 +598,123 @@ export function BrandingThemeSection({ asTab = false }: { asTab?: boolean }) {
       ? "Across the whole app."
       : "For the sidebar, sub-account rail, and top bar.";
 
+  const apply = () => {
+    setConfirming(false);
+    door.save("Theme applied successfully.");
+  };
+
   return (
-    <div id={BRANDING_SECTION_ID} className={cn("flex scroll-mt-[16px] flex-col gap-[20px]", !asTab && "mt-[32px]")}>
-      <header className="flex flex-col gap-[4px]">
-        <h2 className="text-[16px] leading-[24px] font-semibold text-pg-heading">Branding and theme</h2>
-        <ThemeScopeNote scope={scope} />
-      </header>
+    <div
+      id={BRANDING_SECTION_ID}
+      className={cn("flex scroll-mt-[16px] flex-col gap-[20px]", !asTab && "pt-[8px]")}
+    >
+      <h2 className="text-[16px] leading-[22px] font-semibold text-pg-heading">Branding and theme</h2>
       {canEdit ? null : <ViewOnlyNote />}
 
-      <PageSection title="Color mode" sub={`Light, dark, or match this device's setting. ${reach("mode")}`}>
-        <ColorModeField {...field} />
-      </PageSection>
-
-      <PageSection title="Theme" sub="Pick a theme, or set your own colors. They preview on the sidebar, rail, and top bar as you edit.">
-        <div className="flex flex-col gap-[16px]">
-          <ThemePicker {...field} columns={4} />
-          {isDefaultTheme(door.value) ? null : <ContrastWarnings theme={door.value} showPass={false} />}
-        </div>
-      </PageSection>
-
-      <PageSection title="Window gradient" sub="One gradient across the sidebar, rail, and top bar.">
-        <label className="flex items-center justify-between gap-[12px] text-[14px] leading-[20px] text-pg-text">
-          Show a window gradient
-          <Switch
-            label="Window gradient"
-            checked={door.value.gradient}
-            disabled={disabled}
-            onChange={(gradient) => door.write({ ...door.value, gradient })}
-          />
-        </label>
-      </PageSection>
-
-      <PageSection title="Font" sub={reach("font")}>
-        <FontField {...field} bare />
-      </PageSection>
-
-      {canEdit ? (
-        // One save for the theme, under the cards, in White label's buttons.
-        <div className="flex items-center gap-[12px] border-t border-pg-border pt-[16px] md:pl-[248px]">
+      <PageSection
+        title="Theme"
+        sub={
+          agencyWide
+            ? "Colors, mode, and font for your agency. All sub-accounts under it get this theme."
+            : "Your agency's default theme. Sub-accounts on a layout with its own theme keep that one."
+        }
+        dirty={door.changed}
+        onCancel={door.revert}
+        onSave={canEdit ? () => (proto.applyConfirm ? setConfirming(true) : apply()) : undefined}
+        saveLabel="Save and apply"
+        footerStart={
           <button
             type="button"
             onClick={() => door.write({ ...DEFAULT_THEME })}
-            className="motion-tap h-[36px] rounded-[8px] px-[14px] text-[14px] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg active:scale-[0.98]"
+            disabled={isDefaultTheme(door.value)}
+            className="motion-tap h-[36px] rounded-[8px] px-[14px] text-[14px] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Reset to default
           </button>
-          <span className="flex-1" />
-          <button
-            type="button"
-            onClick={door.revert}
-            disabled={!door.changed}
-            className="motion-tap h-[36px] rounded-[8px] px-[14px] text-[14px] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={door.save}
-            disabled={!door.changed}
-            className="motion-tap h-[36px] rounded-[8px] bg-brand px-[14px] text-[14px] font-medium text-white hover:brightness-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Save changes
-          </button>
+        }
+      >
+        <div className="flex flex-col [&>*+*]:mt-[16px] [&>*+*]:border-t [&>*+*]:border-pg-border [&>*+*]:pt-[16px]">
+          <ThemePart label="Color mode" hint={`Light, dark, or match this device's setting. ${reach("mode")}`}>
+            <ColorModeField {...field} />
+          </ThemePart>
+          <ThemePart label="Theme" hint="Pick a theme, or set your own colors. They preview as you edit.">
+            <div className="flex flex-col gap-[16px]">
+              <ThemePicker {...field} columns={4} />
+              {isDefaultTheme(door.value) ? null : <ContrastWarnings theme={door.value} showPass={false} />}
+            </div>
+          </ThemePart>
+          <ThemePart label="Window gradient" hint="One gradient across the sidebar, rail, and top bar.">
+            <label className="flex items-center justify-between gap-[12px] text-[14px] leading-[20px] text-pg-text">
+              Show a window gradient
+              <Switch
+                label="Window gradient"
+                checked={door.value.gradient}
+                disabled={disabled}
+                onChange={(gradient) => door.write({ ...door.value, gradient })}
+              />
+            </label>
+          </ThemePart>
+          <ThemePart label="Font" hint={reach("font")}>
+            <FontField {...field} bare />
+          </ThemePart>
         </div>
+      </PageSection>
+
+      {confirming ? (
+        <Modal
+          title="Apply to all sub-accounts?"
+          width={440}
+          onClose={() => setConfirming(false)}
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={() => setConfirming(false)}
+                className="motion-tap h-[36px] rounded-[8px] px-[14px] text-[14px] font-medium text-pg-text shadow-[inset_0_0_0_1px_var(--pg-border)] hover:bg-pg active:scale-[0.98]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                autoFocus
+                onClick={apply}
+                className="motion-tap h-[36px] rounded-[8px] bg-brand px-[14px] text-[14px] font-medium text-white hover:brightness-95 active:scale-[0.98]"
+              >
+                Apply
+              </button>
+            </>
+          }
+        >
+          <p className="text-[14px] leading-[20px] text-pg-text">
+            {agencyWide
+              ? `This theme will apply to your agency and all ${SUB_ACCOUNT_COUNT.toLocaleString("en-US")} sub-accounts under it.`
+              : "This theme will apply to your agency and every sub-account that isn't on a layout with its own theme."}
+          </p>
+        </Modal>
       ) : null}
+    </div>
+  );
+}
+
+const SUB_ACCOUNT_COUNT = ALL_ACCOUNTS.length;
+
+/** One part of the theme card: a 13px label and hint over its control. */
+function ThemePart({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-[8px]">
+      <div>
+        <p className="text-[14px] leading-[20px] font-medium text-pg-heading">{label}</p>
+        <p className="text-[13px] leading-[18px] text-pg-muted">{hint}</p>
+      </div>
+      {children}
     </div>
   );
 }
